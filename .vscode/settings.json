@@ -1,0 +1,25 @@
+{
+  "explorer.fileNesting.enabled": true,
+  "explorer.sortOrder": "type",
+  "explorer.sortOrderLexicographicOptions": "upper",
+  "explorer.fileNesting.patterns": {
+    "README.md": "README*, CHANGELOG*, LICENSE*",
+    "eslint.config.ts": ".eslint*, eslint*, .prettier*, prettier*",
+    "package.json": "package-lock.json, .npmrc, .nvmrc",
+    "tsconfig.json": "tsconfig.*.json"
+  },
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.fixAll": "explicit"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.lib.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.types.tsbuildinfo",
+
+    /* Must emit for declarations */
+    "composite": true,
+    "noEmit": false,
+
+    /* Declarations only */
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "rootDir": "./src",
+    "declarationDir": "./dist",
+
+    /* Hygiene */
+    "stripInternal": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "dist", "node_modules"]
+}
