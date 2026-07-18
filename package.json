@@ -1,0 +1,32 @@
+{
+  "name": "@kekkai/blueprint",
+  "version": "0.0.0",
+  "description": "",
+  "type": "module",
+  "license": "MIT",
+  "author": "taco3064 <tabacotaco@gmail.com>",
+  "homepage": "https://github.com/taco3064/blueprint#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/taco3064/blueprint.git"
+  },
+  "bugs": {
+    "url": "https://github.com/taco3064/blueprint/issues"
+  },
+  "keywords": [],
+  "exports": {
+    ".": {
+      "import": "./src/index.js"
+    }
+  },
+  "main": "./src/index.js",
+  "files": [
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "echo \"no tests yet\" && exit 0"
+  }
+}
