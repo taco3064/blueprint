@@ -142,6 +142,8 @@ export interface EmitDef {
 }
 
 export interface Blueprint {
+  /** Project name — used as the Handbook title and in the agent contract. */
+  name?: string;
   framework: Framework;
   architecture: ArchitectureDef;
   /** Enforcement rules, keyed by rule id. Each carries its landing tier. */

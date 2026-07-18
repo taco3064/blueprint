@@ -37,7 +37,11 @@ export function defineBlueprint(config: Blueprint): Blueprint {
 
 /** Throws with a precise message if the blueprint is structurally invalid. */
 export function validateBlueprint(bp: Blueprint): void {
-  const { architecture, principles, rules } = bp;
+  const { name, architecture, principles, rules } = bp;
+
+  if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+    throw new Error('name must be a non-empty string when provided.');
+  }
 
   if (!architecture || !Array.isArray(architecture.layers)) {
     throw new Error('architecture.layers must be an array.');

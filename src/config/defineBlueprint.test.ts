@@ -57,6 +57,14 @@ describe('defineBlueprint', () => {
 });
 
 describe('validateBlueprint', () => {
+  it('rejects a blank name when provided', () => {
+    const config = base();
+
+    config.name = '   ';
+
+    expect(() => validateBlueprint(config)).toThrow(/name must be a non-empty string/);
+  });
+
   it('rejects a missing architecture', () => {
     const config = base();
 
