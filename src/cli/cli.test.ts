@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isCliEntry, parseInitArgs, parseInspectArgs, run, version } from './cli';
+import { isCliEntry, parseDepsArgs, parseInitArgs, parseInspectArgs, run, version } from './cli';
 
 describe('parseInitArgs', () => {
   it('parses known flags', () => {
@@ -151,6 +151,23 @@ describe('parseInspectArgs · baseline flags', () => {
   });
 });
 
+describe('parseDepsArgs', () => {
+  it('takes the first non-flag argument as the target', () => {
+    expect(parseDepsArgs(['hooks/useCart', '--json'])).toEqual({
+      target: 'hooks/useCart',
+      json: true,
+    });
+
+    expect(parseDepsArgs(['--framework', 'vue', 'a', 'b'])).toEqual({
+      framework: 'vue',
+      target: 'a',
+    });
+
+    expect(parseDepsArgs([])).toEqual({});
+    expect(parseDepsArgs(['--framework', 'nope'])).toEqual({ framework: undefined });
+  });
+});
+
 describe('per-command help', () => {
   it('prints command help and exits 0 for init/inspect --help', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -170,6 +187,28 @@ describe('per-command help', () => {
     await run(['--help']);
     expect(log.mock.calls[0][0]).toContain('Architecture as Code');
     expect(log.mock.calls[0][0]).toContain('AI agent contract');
+    log.mockRestore();
+  });
+});
+
+describe('deps command dispatch', () => {
+  it('runs the leaderboard and per-command help', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-cli-deps-'));
+
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+    );
+
+    fs.mkdirSync(path.join(dir, 'src', 'hooks', 'useX'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'src', 'hooks', 'useX', 'useX.ts'), 'export const a = 1;');
+
+    expect(await run(['deps'], dir)).toBe(0);
+    expect(await run(['deps', 'hooks/ghost'], dir)).toBe(1);
+    expect(await run(['deps', '--help'])).toBe(0);
+
+    fs.rmSync(dir, { recursive: true, force: true });
     log.mockRestore();
   });
 });

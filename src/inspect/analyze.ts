@@ -1,5 +1,6 @@
 import { getForbiddenLayers, getSelfOnlyTargets } from '../config';
 import type { ArchitectureDef, Blueprint } from '../config';
+import { aliasList, buildModuleGraph, moduleKey, resolveSegments, stripAlias } from './resolve';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
@@ -14,9 +15,13 @@ export function analyze(scan: ScanResult, blueprint: Blueprint): Finding[] {
     ...scan.files.flatMap((file) => importFindings(file, architecture, layerNames)),
   ];
 
-  const cycle = findCycle(scan, architecture, layerNames);
+  const cycle = detectCycle(buildModuleGraph(scan, architecture).edges);
 
-  if (cycle) findings.push(cycle);
+  if (cycle) {
+    findings.push(
+      finding('error', 'cycle', cycle[0], `Import cycle between modules: ${cycle.join(' → ')}.`),
+    );
+  }
 
   return findings.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }
@@ -188,57 +193,6 @@ function ownersOf(
   return owners.length ? owners : null;
 }
 
-function findCycle(
-  scan: ScanResult,
-  architecture: ArchitectureDef,
-  layerNames: string[],
-): Finding | null {
-  const aliases = aliasList(architecture);
-  const layout = architecture.module.layout;
-  const edges = new Map<string, Set<string>>();
-
-  for (const file of scan.files) {
-    if (!layerNames.includes(file.segments[0])) continue;
-
-    const from = moduleKey(file.segments, layout);
-
-    for (const ref of file.imports) {
-      const to = targetModuleKey(ref, file, aliases, layerNames, layout);
-
-      if (to && to !== from) {
-        edges.set(from, (edges.get(from) ?? new Set()).add(to));
-      }
-    }
-  }
-
-  const path = detectCycle(edges);
-
-  return path ? finding('error', 'cycle', path[0], `Import cycle between modules: ${path.join(' → ')}.`) : null;
-}
-
-/** The module a reference targets, or null if it is not a resolvable module import. */
-function targetModuleKey(
-  ref: ImportRef,
-  file: ScannedFile,
-  aliases: string[],
-  layerNames: string[],
-  layout: 'folder' | 'flat',
-): string | null {
-  const parts = stripAlias(ref.specifier, aliases);
-
-  if (parts) {
-    return layerNames.includes(parts[0]) ? moduleKey(parts, layout) : null;
-  }
-
-  if (ref.specifier.startsWith('.')) {
-    const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
-
-    return target ? moduleKey(target, layout) : null;
-  }
-
-  return null;
-}
-
 function detectCycle(edges: Map<string, Set<string>>): string[] | null {
   const visited = new Set<string>();
   const stack = new Set<string>();
@@ -271,43 +225,6 @@ function detectCycle(edges: Map<string, Set<string>>): string[] | null {
   }
 
   return null;
-}
-
-function aliasList(architecture: ArchitectureDef): string[] {
-  return [architecture.alias, ...Object.keys(architecture.additionalAliases ?? {})];
-}
-
-function stripAlias(specifier: string, aliases: string[]): string[] | null {
-  for (const alias of aliases) {
-    if (specifier === alias || specifier.startsWith(`${alias}/`)) {
-      return specifier.slice(alias.length).split('/').filter(Boolean);
-    }
-  }
-
-  return null;
-}
-
-function moduleKey(segments: string[], layout: 'folder' | 'flat'): string {
-  if (layout === 'flat' || segments.length < 2) return segments[0] ?? '';
-
-  return `${segments[0]}/${segments[1]}`;
-}
-
-function resolveSegments(dir: string[], specifier: string): string[] | null {
-  const stack = [...dir];
-
-  for (const part of specifier.split('/')) {
-    if (part === '' || part === '.') continue;
-    else if (part === '..') {
-      if (!stack.length) return null;
-
-      stack.pop();
-    } else {
-      stack.push(part);
-    }
-  }
-
-  return stack;
 }
 
 function stripExt(name: string): string {

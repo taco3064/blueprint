@@ -5,8 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { runInit } from '../bootstrap';
 import type { InitOptions } from '../bootstrap';
-import { runInspect } from '../inspect';
-import type { InspectOptions } from '../inspect';
+import { runDeps, runInspect } from '../inspect';
+import type { DepsOptions, InspectOptions } from '../inspect';
 
 const USAGE = [
   'blueprint — Architecture as Code. One blueprint compiles into ESLint rules,',
@@ -59,7 +59,23 @@ const INSPECT_HELP = [
   '                          tighten as debt is paid down.',
 ].join('\n');
 
-const COMMAND_HELP: Record<string, string> = { init: INIT_HELP, inspect: INSPECT_HELP };
+const DEPS_HELP = [
+  'blueprint deps [module] — reverse dependencies / blast radius.',
+  '',
+  'With a module (e.g. `hooks/useCart`, or a file path — both work), answers',
+  '"who gets hit if I change this": every importer, and every import. Without',
+  'one, prints the blast-radius leaderboard — all modules sorted by fan-in.',
+  '',
+  'Flags:',
+  '  --framework vue|react   Force the preset when detection is ambiguous.',
+  '  --json                  Machine-readable output.',
+].join('\n');
+
+const COMMAND_HELP: Record<string, string> = {
+  init: INIT_HELP,
+  inspect: INSPECT_HELP,
+  deps: DEPS_HELP,
+};
 
 /**
  * The package version, read at runtime. The bundled bin lives at
@@ -122,6 +138,25 @@ export function parseInspectArgs(args: string[]): InspectOptions {
   return options;
 }
 
+/** Parse `deps` flags; the first non-flag argument is the module to query. */
+export function parseDepsArgs(args: string[]): DepsOptions {
+  const options: DepsOptions = {};
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === '--json') {
+      options.json = true;
+    } else if (arg === '--framework') {
+      options.framework = parseFramework(args[++i]) ?? options.framework;
+    } else if (!arg.startsWith('-') && options.target === undefined) {
+      options.target = arg;
+    }
+  }
+
+  return options;
+}
+
 /** CLI dispatch. Returns the process exit code. */
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
   const [command, ...rest] = argv;
@@ -154,6 +189,12 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
 
     if (command === 'inspect') {
       const { ok } = await runInspect(cwd, parseInspectArgs(rest));
+
+      return ok ? 0 : 1;
+    }
+
+    if (command === 'deps') {
+      const { ok } = await runDeps(cwd, parseDepsArgs(rest));
 
       return ok ? 0 : 1;
     }

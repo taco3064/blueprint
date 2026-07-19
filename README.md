@@ -122,6 +122,16 @@ npx @kekkai/blueprint inspect --baseline          # CI: fail only on NEW finding
 The codebase stops getting worse today; as debt is paid down, stale baseline entries are
 reported so the ratchet keeps tightening.
 
+### Blast radius — `blueprint deps`
+
+```bash
+npx @kekkai/blueprint deps hooks/useCart   # who imports it, what it imports
+npx @kekkai/blueprint deps                 # leaderboard: every module by fan-in
+```
+
+"Who gets hit if I change this?" — answered before touching legacy code. Module keys and
+file paths both work as the target.
+
 ## 🧩 The Blueprint
 
 ```js
@@ -261,9 +271,16 @@ same checks standalone.
 
 ### `runInspect(root, options?): Promise<{ findings, ok }>`
 
-Programmatic `blueprint inspect`. `options`: `{ framework?, json?, log?, loadConfig? }`.
-Each `Finding` is `{ severity: 'error' | 'warn' | 'info', rule, path, message }`; `ok` is
-`false` when any error-level finding exists.
+Programmatic `blueprint inspect`. `options`: `{ framework?, json?, log?, loadConfig?,
+baseline?, updateBaseline? }`. Each `Finding` is `{ severity: 'error' | 'warn' | 'info',
+rule, path, message }`; `ok` is `false` when any error-level finding exists. In baseline
+mode, `findings` holds only the fresh (non-baselined) ones.
+
+### `runDeps(root, options?): Promise<{ ok, modules }>`
+
+Programmatic `blueprint deps`. `options`: `{ target?, framework?, json?, log?,
+loadConfig? }`. Each `ModuleDeps` is `{ module, importedBy, imports }`, sorted by fan-in
+descending; with an unknown `target`, `ok` is `false`.
 
 ### `vuePreset(options?)` / `reactPreset(options?)`
 
@@ -293,7 +310,8 @@ inside an existing CLAUDE.md / AGENTS.md without touching hand-written content.
 | Command | Flags | Exit |
 |---|---|---|
 | `blueprint init` | `--framework vue\|react` · `--no-install` · `--dry-run` | `1` on failure |
-| `blueprint inspect` | `--framework vue\|react` · `--json` | `1` on any error-level finding |
+| `blueprint inspect` | `--framework vue\|react` · `--json` · `--baseline` · `--update-baseline` | `1` on any error-level finding (fresh ones only under `--baseline`) |
+| `blueprint deps [module]` | `--framework vue\|react` · `--json` | `1` on an unknown module |
 
 ## 🧠 Philosophy
 
