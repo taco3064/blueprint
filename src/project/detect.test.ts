@@ -80,6 +80,7 @@ describe('detect', () => {
       '@kekkai/blueprint',
       'eslint-plugin-import',
       '@eslint-community/eslint-plugin-eslint-comments',
+      'knip',
     ]);
 
     expect(state.packageManager).toBe('npm');
@@ -88,7 +89,7 @@ describe('detect', () => {
   it('tolerates a missing or malformed package.json', () => {
     expect(detect(root).framework).toBeNull();
     expect(detect(root).missingDeps).toContain('eslint');
-    expect(detect(root).missingDeps).toHaveLength(4);
+    expect(detect(root).missingDeps).toHaveLength(5);
     expect(detect(root).existingSrcDirs).toEqual([]);
     expect(detect(root).hasViteConfig).toBe(false);
     expect(detect(root).hasTypescript).toBe(false);

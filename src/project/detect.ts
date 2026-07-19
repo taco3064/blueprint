@@ -22,6 +22,7 @@ const REQUIRED_DEPS = [
   '@kekkai/blueprint',
   'eslint-plugin-import',
   '@eslint-community/eslint-plugin-eslint-comments',
+  'knip',
 ];
 
 function readJson(file: string): Record<string, unknown> | null {

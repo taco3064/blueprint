@@ -71,6 +71,17 @@ export function plan(
     });
   }
 
+  actions.push(
+    {
+      kind: 'instruct',
+      note: 'Dead code: `npx knip` is the source of truth for dead exports and files — `import/no-unused-modules` is only the warn-tier entry point.',
+    },
+    {
+      kind: 'instruct',
+      note: 'CSS token governance (optional): install stylelint + @csstools/stylelint-value-no-unknown-custom-properties, pointing importFrom at your token source file.',
+    },
+  );
+
   actions.push(...aliasActions(state, architecture));
 
   return actions;

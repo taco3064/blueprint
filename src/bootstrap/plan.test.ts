@@ -47,6 +47,8 @@ describe('plan', () => {
     ).toMatchObject({ command: 'npm install -D eslint @kekkai/blueprint' });
 
     expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('~app'))).toBe(true);
+    expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('npx knip'))).toBe(true);
+    expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('stylelint'))).toBe(true);
   });
 
   it('generates the third-party CORE in eslint.config.mjs, tier-driven', () => {
