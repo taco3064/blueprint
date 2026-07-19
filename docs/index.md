@@ -4,6 +4,9 @@ layout: home
 hero:
   name: '@kekkai/blueprint'
   text: Architecture as Code
+  image:
+    src: /logo.png
+    alt: blueprint
   tagline: One Blueprint compiles into ESLint rules, a human handbook, an AI agent contract, and a CI gate.
   actions:
     - theme: brand

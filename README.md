@@ -1,5 +1,9 @@
 [![codecov](https://codecov.io/gh/taco3064/blueprint/branch/main/graph/badge.svg)](https://codecov.io/gh/taco3064/blueprint)
 
+<p align="center">
+  <img src="https://taco3064.github.io/blueprint/logo.png" width="160" alt="blueprint logo" />
+</p>
+
 # @kekkai/blueprint
 
 > **Architecture as Code** — one Blueprint compiles into ESLint rules, a human

@@ -4,6 +4,9 @@ layout: home
 hero:
   name: '@kekkai/blueprint'
   text: Architecture as Code
+  image:
+    src: /logo.png
+    alt: blueprint
   tagline: 一份 Blueprint，編譯出 ESLint 規則、給人讀的手冊、AI agent 契約、CI gate。
   actions:
     - theme: brand

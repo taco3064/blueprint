@@ -8,6 +8,7 @@ export default defineConfig({
     'Architecture as Code — one Blueprint compiles into lint, docs, agent contracts, and CI.',
   base: '/blueprint/',
   appearance: 'dark',
+  head: [['link', { rel: 'icon', type: 'image/png', href: '/blueprint/favicon.png' }]],
   lastUpdated: true,
 
   locales: {
@@ -68,6 +69,7 @@ export default defineConfig({
   },
 
   themeConfig: {
+    logo: '/logo.png',
     socialLinks: [{ icon: 'github', link: 'https://github.com/taco3064/blueprint' }],
     search: { provider: 'local' },
   },
