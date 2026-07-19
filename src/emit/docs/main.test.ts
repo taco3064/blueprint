@@ -12,10 +12,14 @@ function full(): Blueprint {
       alias: '~app',
       layers: [
         { name: 'components', does: 'UI', owns: ['clsx'] },
-        { name: 'services', does: 'net', owns: ['axios', { global: 'fetch' }] },
+        {
+          name: 'services',
+          does: 'net',
+          owns: ['axios', { global: 'fetch' }],
+          allowedImporters: [{ layer: 'components', selfOnly: true, description: 'net only' }],
+        },
       ],
       flow: 'one-way',
-      extraEdges: [{ edge: 'components⇢services', selfOnly: true, description: 'net only' }],
       module: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
       naming: { hook: 'useX + reactivity' },
     },

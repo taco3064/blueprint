@@ -1,5 +1,5 @@
 import type { Blueprint, LayerDef, RuleSetting } from './types';
-import { deriveEdges, detectCycle, normalizeExtraEdges } from './graph';
+import { normalizeAllowedImporters } from './graph';
 
 const VALID_TIERS = ['error', 'warn', 'off'];
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/;
@@ -47,8 +47,7 @@ export function validateBlueprint(bp: Blueprint): void {
     throw new Error('architecture.layers must be an array.');
   }
 
-  const { alias, additionalAliases, layers, extraEdges, module, layerFiles } =
-    architecture;
+  const { alias, additionalAliases, layers, module, layerFiles } = architecture;
 
   if (typeof alias !== 'string' || !alias.trim()) {
     throw new Error('architecture.alias must be a non-empty string.');
@@ -69,6 +68,9 @@ export function validateBlueprint(bp: Blueprint): void {
 
     validateOwns(layer);
     validateLintOverrides(layer);
+    // `names` holds only earlier layers here, so requiring importers to be in
+    // it enforces "declared before" — which keeps the flow one-way and acyclic.
+    validateAllowedImporters(layer, names);
     names.add(layer.name);
   }
 
@@ -99,21 +101,6 @@ export function validateBlueprint(bp: Blueprint): void {
     if (!LAYER_PLACEHOLDER.test(glob)) {
       throw new Error(`layerFiles entry "${glob}" must include the "{layer}" placeholder.`);
     }
-  }
-
-  // normalizeExtraEdges throws on a malformed "from⇢to" string.
-  for (const { from, to } of normalizeExtraEdges(extraEdges)) {
-    if (!names.has(from)) {
-      throw new Error(`extraEdge references unknown layer "${from}".`);
-    } else if (!names.has(to)) {
-      throw new Error(`extraEdge references unknown layer "${to}".`);
-    }
-  }
-
-  const cycle = detectCycle(deriveEdges(architecture));
-
-  if (cycle) {
-    throw new Error(`architecture has a dependency cycle: ${cycle.join(' → ')}.`);
   }
 
   const principleIds = new Set<string>();
@@ -149,6 +136,27 @@ function validateOwns(layer: LayerDef): void {
     } else if (typeof primitive.package !== 'string' || !primitive.package.trim()) {
       throw new Error(`Layer "${layer.name}" owns a package with no name.`);
     }
+  }
+}
+
+/** Each allowed importer must be a distinct layer declared before this one. */
+function validateAllowedImporters(layer: LayerDef, earlier: Set<string>): void {
+  const seen = new Set<string>();
+
+  for (const importer of normalizeAllowedImporters(layer.allowedImporters)) {
+    if (typeof importer.layer !== 'string' || !importer.layer.trim()) {
+      throw new Error(`Layer "${layer.name}" has an allowedImporters entry with no layer.`);
+    } else if (importer.layer === layer.name) {
+      throw new Error(`Layer "${layer.name}" cannot list itself as an allowed importer.`);
+    } else if (!earlier.has(importer.layer)) {
+      throw new Error(
+        `Layer "${layer.name}" allows importer "${importer.layer}", which is not a layer declared before it.`,
+      );
+    } else if (seen.has(importer.layer)) {
+      throw new Error(`Layer "${layer.name}" lists importer "${importer.layer}" more than once.`);
+    }
+
+    seen.add(importer.layer);
   }
 }
 

@@ -1,5 +1,5 @@
 import type { Blueprint } from '../../config/types';
-import { deriveEdges, getForbiddenLayers } from '../../config/graph';
+import { getForbiddenLayers, getSelfOnlyTargets } from '../../config/graph';
 import {
   buildPackagePatterns,
   buildStructuralPatterns,
@@ -26,9 +26,7 @@ export function emitLint(blueprint: Blueprint): LintConfig {
 
   const severity: Severity = blueprint.emit?.lint?.severity ?? 'error';
 
-  const layerNames = layers.map((layer) => layer.name);
   const aliases = [alias, ...Object.keys(additionalAliases ?? {})];
-  const edges = deriveEdges(architecture);
   const packageRules = derivePackageRules(layers);
   const globalRules = deriveGlobalRules(layers);
 
@@ -38,13 +36,11 @@ export function emitLint(blueprint: Blueprint): LintConfig {
 
   const layerConfigs = layers.flatMap((layer) => {
     const files = resolveLayerFiles(layer.name, layerFiles, framework);
-    const forbidden = getForbiddenLayers(edges, layerNames, layer.name);
+    const forbidden = getForbiddenLayers(architecture, layer.name);
     const disabledPackages = packageRules.filter((rule) => !rule.allowedIn.includes(layer.name));
     const disabledGlobals = globalRules.filter((rule) => !rule.allowedIn.includes(layer.name));
 
-    const selfOnlyTargets = edges
-      .filter((edge) => edge.from === layer.name && edge.selfOnly)
-      .map((edge) => edge.to);
+    const selfOnlyTargets = getSelfOnlyTargets(architecture, layer.name);
 
     const structural = buildStructuralPatterns({
       layer: layer.name,

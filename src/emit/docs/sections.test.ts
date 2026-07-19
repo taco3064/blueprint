@@ -76,10 +76,12 @@ describe('renderImportDiscipline', () => {
     expect(out).not.toContain('Entry-only');
   });
 
-  it('adds a selfOnly note when a selfOnly edge exists', () => {
-    const out = renderImportDiscipline(arch({ extraEdges: [{ edge: 'components⇢services', selfOnly: true }] }));
+  it('adds a selfOnly note when a selfOnly importer exists', () => {
+    const architecture = arch();
 
-    expect(out).toContain('selfOnly');
+    architecture.layers[1].allowedImporters = [{ layer: 'components', selfOnly: true }];
+
+    expect(renderImportDiscipline(architecture)).toContain('selfOnly');
   });
 });
 

@@ -1,99 +1,78 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  deriveEdges,
-  detectCycle,
-  getAllowedLayers,
+  getDiagramEdges,
   getForbiddenLayers,
-  normalizeExtraEdges,
-  parseEdge,
+  getSelfOnlyTargets,
+  normalizeAllowedImporters,
 } from './graph';
 import type { ArchitectureDef } from './types';
 
-function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
+function arch(): ArchitectureDef {
   return {
     alias: '~app',
-    layers: [{ name: 'components', does: '' }, { name: 'hooks', does: '' }, { name: 'services', does: '' }],
+    layers: [
+      { name: 'pages', does: '' },
+      { name: 'components', does: '' },
+      { name: 'hooks', does: '' },
+      {
+        name: 'contexts',
+        does: '',
+        allowedImporters: [{ layer: 'hooks', selfOnly: true, description: 'Context only' }],
+      },
+      { name: 'services', does: '', allowedImporters: ['hooks', 'contexts'] },
+    ],
     flow: 'one-way',
     module: { layout: 'folder', entry: 'index', private: [] },
-    ...over,
   };
 }
 
-describe('parseEdge', () => {
-  it('splits a well-formed edge', () => {
-    expect(parseEdge('a⇢b')).toEqual(['a', 'b']);
-  });
+describe('normalizeAllowedImporters', () => {
+  it('returns [] for undefined and normalizes strings', () => {
+    expect(normalizeAllowedImporters(undefined)).toEqual([]);
 
-  it('throws on a malformed edge', () => {
-    expect(() => parseEdge('a')).toThrow(/expected "from⇢to"/);
-  });
-});
-
-describe('normalizeExtraEdges', () => {
-  it('returns [] for undefined', () => {
-    expect(normalizeExtraEdges(undefined)).toEqual([]);
-  });
-
-  it('normalizes strings and objects, preserving options', () => {
-    expect(
-      normalizeExtraEdges(['a→b', { edge: 'c⇢d', selfOnly: true, description: 'x' }]),
-    ).toEqual([
-      { from: 'a', to: 'b', selfOnly: undefined, description: undefined },
-      { from: 'c', to: 'd', selfOnly: true, description: 'x' },
+    expect(normalizeAllowedImporters(['a', { layer: 'b', selfOnly: true }])).toEqual([
+      { layer: 'a' },
+      { layer: 'b', selfOnly: true },
     ]);
-  });
-});
-
-describe('deriveEdges', () => {
-  it('builds the linear chain plus extra edges', () => {
-    expect(deriveEdges(arch({ extraEdges: ['components⇢services'] }))).toEqual([
-      { from: 'components', to: 'hooks' },
-      { from: 'hooks', to: 'services' },
-      { from: 'components', to: 'services', selfOnly: undefined, description: undefined },
-    ]);
-  });
-
-  it('produces no chain edges for a single layer', () => {
-    expect(deriveEdges(arch({ layers: [{ name: 'only', does: '' }] }))).toEqual([]);
-  });
-});
-
-describe('getAllowedLayers', () => {
-  const edges = deriveEdges(
-    arch({ extraEdges: [{ edge: 'hooks⇢contexts', selfOnly: true }] }),
-  );
-
-  it('follows the chain transitively', () => {
-    expect(getAllowedLayers(edges, 'components').sort()).toEqual(['hooks', 'services']);
-  });
-
-  it('does not re-export a selfOnly target down the chain', () => {
-    // components → hooks → (contexts is selfOnly, reachable only from hooks)
-    expect(getAllowedLayers(edges, 'components')).not.toContain('contexts');
-    expect(getAllowedLayers(edges, 'hooks').sort()).toEqual(['contexts', 'services']);
   });
 });
 
 describe('getForbiddenLayers', () => {
-  it('is every declared layer minus self and the allowed set', () => {
-    const edges = deriveEdges(arch());
-    const all = ['components', 'hooks', 'services'];
+  it('forbids upstream layers and restricted layers that exclude the importer', () => {
+    // components may reach hooks (default) but not contexts/services (restricted, exclude it)
+    expect(getForbiddenLayers(arch(), 'components').sort()).toEqual([
+      'contexts',
+      'pages',
+      'services',
+    ]);
+  });
 
-    expect(getForbiddenLayers(edges, all, 'services')).toEqual(['components', 'hooks']);
-    expect(getForbiddenLayers(edges, all, 'components')).toEqual([]);
+  it('allows a listed importer through to a restricted layer', () => {
+    // hooks is listed on both contexts and services → only upstream is forbidden
+    expect(getForbiddenLayers(arch(), 'hooks').sort()).toEqual(['components', 'pages']);
+  });
+
+  it('never forbids a layer from itself', () => {
+    expect(getForbiddenLayers(arch(), 'services')).not.toContain('services');
   });
 });
 
-describe('detectCycle', () => {
-  it('returns null for an acyclic graph', () => {
-    expect(detectCycle(deriveEdges(arch()))).toBeNull();
+describe('getSelfOnlyTargets', () => {
+  it('lists layers importable-but-not-re-exportable by the layer', () => {
+    expect(getSelfOnlyTargets(arch(), 'hooks')).toEqual(['contexts']);
+    expect(getSelfOnlyTargets(arch(), 'components')).toEqual([]);
   });
+});
 
-  it('returns the cycle path when one exists', () => {
-    const cycle = detectCycle(deriveEdges(arch({ extraEdges: ['services⇢components'] })));
-
-    expect(cycle).not.toBeNull();
-    expect(cycle![0]).toBe(cycle![cycle!.length - 1]);
+describe('getDiagramEdges', () => {
+  it('draws the adjacent spine for default layers and explicit edges for restricted ones', () => {
+    expect(getDiagramEdges(arch())).toEqual([
+      { from: 'pages', to: 'components' },
+      { from: 'components', to: 'hooks' },
+      { from: 'hooks', to: 'contexts', selfOnly: true, description: 'Context only' },
+      { from: 'hooks', to: 'services', selfOnly: undefined, description: undefined },
+      { from: 'contexts', to: 'services', selfOnly: undefined, description: undefined },
+    ]);
   });
 });

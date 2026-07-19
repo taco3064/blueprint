@@ -26,24 +26,15 @@ describe('defineBlueprint', () => {
     expect(defineBlueprint(config)).toBe(config);
   });
 
-  it('accepts extraEdges as objects with options', () => {
+  it('accepts allowedImporters as strings and objects referencing earlier layers', () => {
     const config = base();
 
-    config.architecture.extraEdges = [
-      { edge: 'components⇢services', selfOnly: true, description: 'net only' },
+    config.architecture.layers[2].allowedImporters = [
+      'components',
+      { layer: 'hooks', selfOnly: true, description: 'net only' },
     ];
 
     expect(() => defineBlueprint(config)).not.toThrow();
-  });
-
-  it('accepts →, ->, and ⇢ as edge separators', () => {
-    for (const edge of ['hooks→services', 'hooks->services', 'hooks⇢services']) {
-      const config = base();
-
-      config.architecture.extraEdges = [edge];
-
-      expect(() => validateBlueprint(config)).not.toThrow();
-    }
   });
 
   it('accepts valid additionalAliases and layerFiles', () => {
@@ -161,36 +152,45 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(/must include the "\{layer\}" placeholder/);
   });
 
-  it('rejects a malformed extraEdge', () => {
+  it('rejects an allowed importer with no layer', () => {
     const config = base();
 
-    config.architecture.extraEdges = ['components'];
+    config.architecture.layers[2].allowedImporters = [{ layer: '  ' }];
 
-    expect(() => validateBlueprint(config)).toThrow(/expected "from⇢to"/);
+    expect(() => validateBlueprint(config)).toThrow(/allowedImporters entry with no layer/);
   });
 
-  it('rejects an extraEdge pointing at an unknown target layer', () => {
+  it('rejects a layer listing itself as an importer', () => {
     const config = base();
 
-    config.architecture.extraEdges = ['components⇢contexts'];
+    config.architecture.layers[2].allowedImporters = ['services'];
 
-    expect(() => validateBlueprint(config)).toThrow(/unknown layer "contexts"/);
+    expect(() => validateBlueprint(config)).toThrow(/cannot list itself/);
   });
 
-  it('rejects an extraEdge with an unknown source layer', () => {
+  it('rejects an importer that is not declared before the layer', () => {
     const config = base();
 
-    config.architecture.extraEdges = ['ghost⇢services'];
+    // hooks (index 1) may not be imported by services (index 2, declared later).
+    config.architecture.layers[1].allowedImporters = ['services'];
 
-    expect(() => validateBlueprint(config)).toThrow(/unknown layer "ghost"/);
+    expect(() => validateBlueprint(config)).toThrow(/not a layer declared before it/);
   });
 
-  it('rejects a dependency cycle introduced by an extraEdge', () => {
+  it('rejects an unknown importer layer', () => {
     const config = base();
 
-    config.architecture.extraEdges = ['services⇢components'];
+    config.architecture.layers[2].allowedImporters = ['ghost'];
 
-    expect(() => validateBlueprint(config)).toThrow(/dependency cycle/);
+    expect(() => validateBlueprint(config)).toThrow(/not a layer declared before it/);
+  });
+
+  it('rejects a duplicate importer', () => {
+    const config = base();
+
+    config.architecture.layers[2].allowedImporters = ['components', 'components'];
+
+    expect(() => validateBlueprint(config)).toThrow(/more than once/);
   });
 
   it('rejects lintOverrides that touch a managed rule', () => {

@@ -11,10 +11,14 @@ const blueprint = defineBlueprint({
     layers: [
       { name: 'components', does: 'UI' },
       { name: 'hooks', does: 'state', owns: [{ package: 'react', imports: ['useContext'] }] },
-      { name: 'services', does: 'net', owns: ['axios', { global: 'fetch' }] },
+      {
+        name: 'services',
+        does: 'net',
+        owns: ['axios', { global: 'fetch' }],
+        allowedImporters: [{ layer: 'components', selfOnly: true }, 'hooks'],
+      },
     ],
     flow: 'one-way',
-    extraEdges: [{ edge: 'components⇢services', selfOnly: true }],
     module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
   },
 });

@@ -37,6 +37,19 @@ export interface OwnedGlobal {
  */
 export type OwnedPrimitive = string | OwnedPackage | OwnedGlobal;
 
+/**
+ * A layer permitted to import another, with optional constraints. A bare
+ * string is shorthand for `{ layer }`.
+ */
+export interface AllowedImporter {
+  /** The importing layer's name. Must be a layer declared earlier. */
+  layer: string;
+  /** The importer may depend on this layer but never re-export it onward. */
+  selfOnly?: boolean;
+  /** Human note, rendered as the edge label in the Explain diagram. */
+  description?: string;
+}
+
 /** One layer in the architecture — its responsibility and its boundaries. */
 export interface LayerDef {
   /** Folder / layer name, e.g. `components`. Unique within the blueprint. */
@@ -47,6 +60,13 @@ export interface LayerDef {
   mustNot?: string[];
   /** Primitives (packages / globals) this layer exclusively owns. */
   owns?: OwnedPrimitive[];
+  /**
+   * Restrict who may import this layer. Omit to keep the default — every
+   * layer declared before it may import it. When set, only the listed layers
+   * may, and each must be a layer declared earlier (which keeps the flow
+   * one-way and acyclic by construction).
+   */
+  allowedImporters?: (string | AllowedImporter)[];
   /**
    * Per-layer ESLint rule overrides. The three managed rules
    * (`no-restricted-imports` / `-syntax` / `-globals`) may not be set here —
@@ -65,18 +85,6 @@ export interface ModuleDef {
   private: string[];
 }
 
-/**
- * An extra allowed edge beyond the linear chain. `edge` is `'from⇢to'`
- * (accepts `⇢`, `→`, or `->`). Both endpoints must be declared layers.
- */
-export interface ExtraEdge {
-  edge: string;
-  /** The target may be depended on but never re-exported by the source. */
-  selfOnly?: boolean;
-  /** Human note, rendered in the Explain dependency diagram (S2). */
-  description?: string;
-}
-
 export interface ArchitectureDef {
   /**
    * Project import alias, e.g. `~app`. Every structural ban pattern is built
@@ -85,12 +93,14 @@ export interface ArchitectureDef {
   alias: string;
   /** Extra roots beyond `alias` that also participate in import bans. */
   additionalAliases?: Record<string, string>;
-  /** Ordered layers. Order defines the one-way flow (first → last). */
+  /**
+   * Ordered layers. Order defines the one-way flow: a layer may import only
+   * layers declared after it. Per-layer `allowedImporters` narrows who may
+   * import a given layer (see {@link LayerDef.allowedImporters}).
+   */
   layers: LayerDef[];
   /** Dependency direction. Only `one-way` for now (upstream imports banned). */
   flow: 'one-way';
-  /** Extra allowed edges beyond the linear chain (strings or objects). */
-  extraEdges?: (string | ExtraEdge)[];
   /** Feature-folder shape shared across layers. */
   module: ModuleDef;
   /**

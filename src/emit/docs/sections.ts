@@ -5,7 +5,7 @@ import type {
   PrincipleDef,
   RuleSetting,
 } from '../../config/types';
-import { normalizeExtraEdges } from '../../config/graph';
+import { normalizeAllowedImporters } from '../../config/graph';
 import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
 
@@ -79,8 +79,11 @@ export function renderModule(module: ModuleDef, exampleLayer: string): string {
 
 /** Prose for the boundaries the generated ESLint config enforces. */
 export function renderImportDiscipline(architecture: ArchitectureDef): string {
-  const { module, extraEdges } = architecture;
-  const hasSelfOnly = normalizeExtraEdges(extraEdges).some((edge) => edge.selfOnly);
+  const { module, layers } = architecture;
+
+  const hasSelfOnly = layers.some((layer) =>
+    normalizeAllowedImporters(layer.allowedImporters).some((importer) => importer.selfOnly),
+  );
 
   const bullets = [
     '- **One-way only** — a layer imports only from the layers below it; upstream imports are errors.',

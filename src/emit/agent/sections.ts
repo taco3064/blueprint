@@ -5,6 +5,7 @@ import type {
   RuleSetting,
   Tier,
 } from '../../config/types';
+import { normalizeAllowedImporters } from '../../config/graph';
 import { formatOwns } from '../../markdown';
 
 function tierOf(setting: RuleSetting): Tier {
@@ -58,6 +59,14 @@ export function renderPlacement(architecture: ArchitectureDef): string {
 
     if (owns) {
       parts.push(` OWNS: ${owns}.`);
+    }
+
+    if (layer.allowedImporters) {
+      const importers = normalizeAllowedImporters(layer.allowedImporters)
+        .map((importer) => (importer.selfOnly ? `${importer.layer} (selfOnly)` : importer.layer))
+        .join(', ');
+
+      parts.push(` IMPORTABLE BY: ${importers}.`);
     }
 
     return parts.join('');

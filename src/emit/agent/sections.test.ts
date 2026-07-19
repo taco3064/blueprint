@@ -69,6 +69,25 @@ describe('renderPlacement', () => {
 
     expect(out).toContain('one file per module (flat)');
   });
+
+  it('states the allowed importers, marking selfOnly ones', () => {
+    const architecture: ArchitectureDef = {
+      alias: '~app',
+      layers: [
+        { name: 'components', does: 'UI' },
+        { name: 'hooks', does: 'state' },
+        {
+          name: 'services',
+          does: 'net',
+          allowedImporters: ['components', { layer: 'hooks', selfOnly: true }],
+        },
+      ],
+      flow: 'one-way',
+      module: { layout: 'folder', entry: 'index', private: [] },
+    };
+
+    expect(renderPlacement(architecture)).toContain('IMPORTABLE BY: components, hooks (selfOnly).');
+  });
 });
 
 describe('renderNaming', () => {
