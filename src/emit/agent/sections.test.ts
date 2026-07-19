@@ -3,13 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
   renderBehavioral,
   renderChecklist,
+  renderComponentShape,
   renderContext,
   renderHardRules,
   renderHeader,
   renderNaming,
   renderPlacement,
 } from './sections';
-import type { ArchitectureDef, Blueprint, PrincipleDef } from '../../config';
+import type { ArchitectureDef, AxisDef, Blueprint, PrincipleDef } from '../../config';
 
 function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
   return {
@@ -161,5 +162,25 @@ describe('renderChecklist', () => {
     expect(bare).not.toContain('Names follow the conventions');
     expect(bare).not.toContain('behavioral principles above');
     expect(bare).toContain('No new undeclared folders under `~app/`');
+  });
+});
+
+describe('renderComponentShape (contract)', () => {
+  const axes: AxisDef[] = [
+    { id: 'a', name: 'IO Shrinkage', say: 'Narrow IO.', why: 'Model the state.', triage: 'max-params' },
+    { id: 'b', name: 'Orchestration Shell', say: 'Pages orchestrate.', why: 'No per-child derivation.' },
+  ];
+
+  it('is omitted when there are no axes', () => {
+    expect(renderComponentShape(undefined)).toBe('');
+    expect(renderComponentShape([])).toBe('');
+  });
+
+  it('renders one directive bullet per axis, with triage as entry point only', () => {
+    const out = renderComponentShape(axes);
+
+    expect(out).toContain('### Component shape (orthogonal axes — judge each independently)');
+    expect(out).toContain('- **IO Shrinkage** — Narrow IO. Model the state. (triage: `max-params` is an entry point, never the verdict)');
+    expect(out).toContain('- **Orchestration Shell** — Pages orchestrate. No per-child derivation.');
   });
 });

@@ -232,6 +232,17 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(/non-empty id/);
   });
 
+  it('rejects duplicate or blank component-shape axis ids', () => {
+    const config = base();
+    const axis = { id: 'io', name: 'IO', say: 'a', why: 'b' };
+
+    config.componentShape = [axis, { ...axis, name: 'IO again' }];
+    expect(() => validateBlueprint(config)).toThrow(/Duplicate component-shape axis id/);
+
+    config.componentShape = [{ ...axis, id: '  ' }];
+    expect(() => validateBlueprint(config)).toThrow(/axis must have a non-empty id/);
+  });
+
   it('rejects a rule with an invalid tier', () => {
     const config = base();
 

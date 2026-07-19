@@ -1,6 +1,7 @@
 import type { Blueprint } from '../../config';
 import {
   renderArchitecture,
+  renderComponentShape,
   renderHeader,
   renderImportDiscipline,
   renderModule,
@@ -25,6 +26,7 @@ export function emitHandbook(blueprint: Blueprint): string {
     renderArchitecture(architecture),
     renderModule(architecture.module, exampleLayer),
     renderImportDiscipline(architecture),
+    renderComponentShape(blueprint.componentShape),
     renderPrinciples(principles),
     renderRules(rules),
     renderNaming(architecture.naming),

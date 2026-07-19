@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   renderArchitecture,
+  renderComponentShape,
   renderHeader,
   renderImportDiscipline,
   renderModule,
@@ -9,7 +10,7 @@ import {
   renderPrinciples,
   renderRules,
 } from './sections';
-import type { ArchitectureDef, ModuleDef, PrincipleDef } from '../../config';
+import type { ArchitectureDef, AxisDef, ModuleDef, PrincipleDef } from '../../config';
 
 function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
   return {
@@ -137,5 +138,30 @@ describe('renderNaming', () => {
 
   it('renders a concept table', () => {
     expect(renderNaming({ hook: 'useX + reactivity' })).toContain('| `hook` | useX + reactivity |');
+  });
+});
+
+describe('renderComponentShape', () => {
+  const axes: AxisDef[] = [
+    { id: 'a', name: 'Ownership Inversion', say: 'Own it.', why: 'Child derives.', triage: 'max-params' },
+    { id: 'b', name: 'Scoped Writable State', say: 'Lowest owner.', why: 'Hoist late.' },
+  ];
+
+  it('is omitted when there are no axes', () => {
+    expect(renderComponentShape(undefined)).toBe('');
+    expect(renderComponentShape([])).toBe('');
+  });
+
+  it('numbers each axis and marks triage rules as entry points only', () => {
+    const out = renderComponentShape(axes);
+
+    expect(out).toContain('## Component shape — 2 orthogonal axes');
+    expect(out).toContain('A set, not a pipeline');
+    expect(out).toContain('### 1. Ownership Inversion — Own it.');
+    expect(out).toContain('> Triage: `max-params` is the review entry point');
+    expect(out).toContain('### 2. Scoped Writable State — Lowest owner.');
+
+    // The axis without a triage rule carries no triage note.
+    expect(out.split('Triage:')).toHaveLength(2);
   });
 });

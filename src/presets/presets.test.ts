@@ -68,6 +68,16 @@ describe('presets · shape', () => {
     expect(bp.principles?.every((principle) => principle.land === 'claude')).toBe(true);
   });
 
+  it('carry the seven component-shape axes with unique ids', () => {
+    for (const bp of [vuePreset(), reactPreset()]) {
+      const ids = (bp.componentShape ?? []).map((axis) => axis.id);
+
+      expect(ids).toHaveLength(7);
+      expect(new Set(ids).size).toBe(7);
+      expect(ids[0]).toBe('ownership-inversion');
+    }
+  });
+
   it('gate deep watches for vue only; hook naming for both', () => {
     expect(vuePreset().rules?.deepWatch).toBe('error');
     expect(reactPreset().rules?.deepWatch).toBeUndefined();
@@ -139,5 +149,20 @@ describe('presets · downstream emitters', () => {
 
     expect(emitHandbook(bp)).toContain('## Architecture');
     expect(emitAgentContract(bp)).toContain('IMPORTABLE BY: containers, hooks (selfOnly).');
+  });
+
+  it('render the component-shape axes into both artifacts', () => {
+    const bp = vuePreset();
+    const handbook = emitHandbook(bp);
+    const contract = emitAgentContract(bp);
+
+    expect(handbook).toContain('## Component shape — 7 orthogonal axes');
+    expect(handbook).toContain('### 4. Orchestration Shell — A page only orchestrates.');
+
+    expect(contract).toContain('- **Pure Helpers ≠ Composables**');
+
+    expect(contract).toContain(
+      '- [ ] Changed units hold against every component-shape axis, judged one by one.',
+    );
   });
 });

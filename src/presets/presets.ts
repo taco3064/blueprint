@@ -1,5 +1,5 @@
 import { defineBlueprint } from '../config';
-import type { Blueprint, Framework, OwnedPrimitive } from '../config';
+import type { AxisDef, Blueprint, Framework, OwnedPrimitive } from '../config';
 
 /** Options for a preset factory. */
 export interface PresetOptions {
@@ -28,6 +28,61 @@ function principles(): Blueprint['principles'] {
     { id: 'ac-not-scripture', say: 'Acceptance criteria are a start, not scripture', why: 'Fixing a ticket that violates an abstraction\'s responsibility is upholding the design.', land: 'claude' },
     { id: 'yagni', say: 'YAGNI — do not over-engineer', why: '"Might need it later" is not a reason to abstract now.', land: 'claude' },
     { id: 'cost-is-a-dimension', say: 'Cost is the third dimension', why: 'Cost = work per event × event frequency; price any logic wired to a data source.', land: 'claude' },
+  ];
+}
+
+/**
+ * The seven orthogonal component-shape axes — framework-neutral design
+ * judgments (the handbook's Part 2). A set, not a pipeline: each axis is
+ * judged independently. Triage rules are entry points, never verdicts.
+ */
+function componentShape(): AxisDef[] {
+  return [
+    {
+      id: 'ownership-inversion',
+      name: 'Ownership Inversion',
+      say: 'The unit that needs derived state owns the derivation.',
+      why: 'Do not precompute in the parent and drill the result down — the child imports the hook and derives it itself. Field-tested: 17 props down to 7.',
+    },
+    {
+      id: 'io-shrinkage',
+      name: 'IO Shrinkage',
+      say: 'Narrow the inputs, shrink the outputs.',
+      why: 'Three moves: split a multi-concern unit; collapse parallel raw states carrying an invariant into one modeled state; merge symmetric twins into one object of the same shape. Count and size are weak signals — whether the state is modeled is the review call.',
+      triage: 'max-params',
+    },
+    {
+      id: 'srp-decomposition',
+      name: 'SRP Decomposition',
+      say: 'Split on responsibility boundaries, not on size.',
+      why: 'Naming test: if you cannot name it without "and", it wants splitting; dissolving code into an existing home is also a split. Exception: writable state that must stay in sync — force-splitting it manufactures sync bugs.',
+      triage: 'max-statements',
+    },
+    {
+      id: 'orchestration-shell',
+      name: 'Orchestration Shell',
+      say: 'A page only orchestrates.',
+      why: 'Route/id resolution, the loading shell, shared sources, cross-child lifecycle — never deriving values on behalf of each child. Field-tested: a 6666-line detail page down to 552.',
+      triage: 'max-lines',
+    },
+    {
+      id: 'scoped-writable-state',
+      name: 'Scoped Writable State',
+      say: 'Writable state lives at the lowest common owner of its writers and readers.',
+      why: 'Hoist only what is genuinely shared across a boundary; state that must survive a route change goes to the URL or a store. "Might be shared later" is YAGNI — hoist when the sharing arrives.',
+    },
+    {
+      id: 'lifecycle-internalization',
+      name: 'Lifecycle Internalization',
+      say: 'If lifecycle is part of the responsibility, build it in.',
+      why: 'The caller receives a unit that is already running and cleans itself up — not a kit of handlers to wire into mount/effect hooks. Field-tested: 19 exports down to a one-line call.',
+    },
+    {
+      id: 'pure-helpers',
+      name: 'Pure Helpers ≠ Composables',
+      say: 'Keep pure functions out of reactive/lifecycle units.',
+      why: 'One exported function does not demand one file: responsibility splits at the function level; the file splits only when max-lines approaches. Expose the decision a unit makes, not its raw ingredients.',
+    },
   ];
 }
 
@@ -84,6 +139,7 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
       },
     },
     principles: principles(),
+    componentShape: componentShape(),
     rules: {
       maxLines: { tier: 'error', value: 400 },
       cycles: 'error',

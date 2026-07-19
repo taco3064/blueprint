@@ -1,5 +1,6 @@
 import type {
   ArchitectureDef,
+  AxisDef,
   Land,
   ModuleDef,
   PrincipleDef,
@@ -115,6 +116,38 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
     'These boundaries are enforced by the generated ESLint config — one blueprint drives both:',
     '',
     ...bullets,
+  ].join('\n');
+}
+
+/** The component-shape axes — a set of design judgments, not a pipeline. */
+export function renderComponentShape(axes: AxisDef[] | undefined): string {
+  if (!axes?.length) return '';
+
+  const blocks = axes.map((axis, i) => {
+    const lines = [
+      `### ${i + 1}. ${escapeCell(axis.name)} — ${escapeCell(axis.say)}`,
+      '',
+      escapeCell(axis.why),
+    ];
+
+    if (axis.triage) {
+      lines.push(
+        '',
+        `> Triage: \`${axis.triage}\` is the review entry point — the verdict stays with review.`,
+      );
+    }
+
+    return lines.join('\n');
+  });
+
+  return [
+    `## Component shape — ${axes.length} orthogonal axes`,
+    '',
+    'A set, not a pipeline: each axis is an independent yes/no design decision — never infer',
+    'that one axis holds because another does. Numbering is identity, not order, and trivial',
+    'changes need not force the full pass. Lint is an entry point here, never a verdict.',
+    '',
+    blocks.join('\n\n'),
   ].join('\n');
 }
 

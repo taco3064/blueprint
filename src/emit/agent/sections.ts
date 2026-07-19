@@ -1,5 +1,6 @@
 import type {
   ArchitectureDef,
+  AxisDef,
   Blueprint,
   PrincipleDef,
   RuleSetting,
@@ -126,6 +127,27 @@ export function renderHardRules(
   return ['### Hard rules (lint enforces these)', '', ...bullets].join('\n');
 }
 
+/** The component-shape axes as terse directives — each judged independently. */
+export function renderComponentShape(axes: AxisDef[] | undefined): string {
+  if (!axes?.length) return '';
+
+  const bullets = axes.map((axis) => {
+    const triage = axis.triage
+      ? ` (triage: \`${axis.triage}\` is an entry point, never the verdict)`
+      : '';
+
+    return `- **${axis.name}** — ${axis.say} ${axis.why}${triage}`;
+  });
+
+  return [
+    '### Component shape (orthogonal axes — judge each independently)',
+    '',
+    'A set, not a pipeline: never infer one axis holds because another does.',
+    '',
+    ...bullets,
+  ].join('\n');
+}
+
 /** Rules no tool can catch — the agent is the only gate. */
 export function renderBehavioral(
   architecture: ArchitectureDef,
@@ -166,6 +188,10 @@ export function renderChecklist(blueprint: Blueprint): string {
   }
 
   items.push(`- [ ] No new undeclared folders under \`${architecture.alias}/\`.`);
+
+  if (blueprint.componentShape?.length) {
+    items.push('- [ ] Changed units hold against every component-shape axis, judged one by one.');
+  }
 
   if (claudePrinciples(principles).length) {
     items.push('- [ ] The behavioral principles above are upheld.');

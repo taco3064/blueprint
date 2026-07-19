@@ -2,6 +2,7 @@ import type { Blueprint } from '../../config';
 import {
   renderBehavioral,
   renderChecklist,
+  renderComponentShape,
   renderContext,
   renderHardRules,
   renderHeader,
@@ -26,6 +27,7 @@ export function emitAgentContract(blueprint: Blueprint): string {
     renderPlacement(architecture),
     renderNaming(architecture.naming),
     renderHardRules(architecture, rules),
+    renderComponentShape(blueprint.componentShape),
     renderBehavioral(architecture, principles, rules),
     renderChecklist(blueprint),
   ].filter(Boolean);

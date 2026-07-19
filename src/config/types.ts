@@ -119,6 +119,23 @@ export type RuleSetting
   = | Tier
     | ({ tier: Tier; value?: number } & Record<string, unknown>);
 
+/**
+ * One orthogonal component-shape axis — a design judgment, not a metric.
+ * Axes form a set, not a pipeline: each is judged independently.
+ */
+export interface AxisDef {
+  /** Stable id, e.g. `ownership-inversion`. Unique within the blueprint. */
+  id: string;
+  /** Axis title, e.g. `Ownership Inversion`. */
+  name: string;
+  /** The claim, one line. */
+  say: string;
+  /** How it plays out — the moves, the judge line, the exception. */
+  why: string;
+  /** Lint rule that serves as the review entry point (triage, never a verdict). */
+  triage?: string;
+}
+
 /** A core belief — carries the "why", and where it is enforced / communicated. */
 export interface PrincipleDef {
   /** Stable id, e.g. `by-responsibility`. Unique within the blueprint. */
@@ -174,6 +191,8 @@ export interface Blueprint {
   rules?: Record<string, RuleSetting>;
   /** Core beliefs — the "why" behind the rules. */
   principles?: PrincipleDef[];
+  /** Component-shape axes — orthogonal design judgments for units of UI/state. */
+  componentShape?: AxisDef[];
   /** What to emit and where. */
   emit?: EmitDef;
 }

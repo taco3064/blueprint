@@ -121,6 +121,18 @@ export function validateBlueprint(bp: Blueprint): void {
     principleIds.add(principle.id);
   }
 
+  const axisIds = new Set<string>();
+
+  for (const axis of bp.componentShape ?? []) {
+    if (typeof axis?.id !== 'string' || !axis.id.trim()) {
+      throw new Error('Each component-shape axis must have a non-empty id.');
+    } else if (axisIds.has(axis.id)) {
+      throw new Error(`Duplicate component-shape axis id: "${axis.id}".`);
+    }
+
+    axisIds.add(axis.id);
+  }
+
   for (const [id, setting] of Object.entries(rules ?? {})) {
     if (!VALID_TIERS.includes(resolveTier(setting))) {
       throw new Error(`Rule "${id}" has an invalid tier — expected error | warn | off.`);
