@@ -1,0 +1,1 @@
+export { emitAgentContract } from './main';
