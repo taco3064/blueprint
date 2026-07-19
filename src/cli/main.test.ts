@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { parseInitArgs, run } from './main';
+import { parseInitArgs, parseInspectArgs, run } from './main';
 
 describe('parseInitArgs', () => {
   it('parses known flags', () => {
@@ -16,6 +16,20 @@ describe('parseInitArgs', () => {
 
   it('ignores an invalid framework value and unknown flags', () => {
     expect(parseInitArgs(['--framework', 'svelte', '--nope'])).toEqual({});
+  });
+});
+
+describe('parseInspectArgs', () => {
+  it('parses --json and --framework', () => {
+    expect(parseInspectArgs(['--json', '--framework', 'vue'])).toEqual({
+      json: true,
+      framework: 'vue',
+    });
+  });
+
+  it('ignores unknown flags and an invalid framework value', () => {
+    expect(parseInspectArgs(['--wat'])).toEqual({});
+    expect(parseInspectArgs(['--framework', 'svelte'])).toEqual({});
   });
 });
 
@@ -56,5 +70,26 @@ describe('run', () => {
 
     expect(await run(['init'], root)).toBe(1);
     expect(console.error).toHaveBeenCalled();
+  });
+
+  it('runs inspect and returns 0 for a clean project', async () => {
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+    );
+
+    expect(await run(['inspect'], root)).toBe(0);
+  });
+
+  it('returns 1 from inspect when errors are found', async () => {
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+    );
+
+    fs.mkdirSync(path.join(root, 'src', 'utils'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src', 'utils', 'x.ts'), 'export const a = 1;');
+
+    expect(await run(['inspect'], root)).toBe(1);
   });
 });
