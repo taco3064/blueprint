@@ -82,17 +82,28 @@ export function detect(root: string): ProjectState {
     ...((pkg.devDependencies as Record<string, unknown>) ?? {}),
   };
 
+  const framework = detectFramework(deps);
+  const hasTypescript = 'typescript' in deps;
+
+  // The generated eslint config wires parsers for the detected stack — the
+  // packages backing them join the install set.
+  const required = [
+    ...REQUIRED_DEPS,
+    ...(framework === 'vue' ? ['vue-eslint-parser'] : []),
+    ...(hasTypescript ? ['typescript-eslint'] : []),
+  ];
+
   return {
     root,
-    framework: detectFramework(deps),
+    framework,
     packageManager: detectPackageManager(root),
     projectName: typeof pkg.name === 'string' ? pkg.name : undefined,
     hasConfig: fs.existsSync(path.join(root, CONFIG_FILE)),
     hasEslintConfig: ESLINT_FILES.some((file) => fs.existsSync(path.join(root, file))),
     hasViteConfig: VITE_FILES.some((file) => fs.existsSync(path.join(root, file))),
-    hasTypescript: 'typescript' in deps,
+    hasTypescript,
     tsconfigs: readTexts(root, TSCONFIG_FILES),
     existingSrcDirs: listSrcDirs(root),
-    missingDeps: REQUIRED_DEPS.filter((dep) => !(dep in deps)),
+    missingDeps: required.filter((dep) => !(dep in deps)),
   };
 }

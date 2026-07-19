@@ -59,7 +59,7 @@ export function plan(
     actions.push({
       kind: 'write',
       path: 'eslint.config.mjs',
-      content: eslintConfigSource(blueprint),
+      content: eslintConfigSource(blueprint, state),
       note: 'eslint.config.mjs',
     });
   }
@@ -112,12 +112,52 @@ function mergeContract(existing: string | null, contract: string): string {
 }
 
 /**
- * The generated flat config: the blueprint-driven rules plus the handbook's
- * third-party CORE block. The library itself never depends on these plugins —
+ * The generated flat config: parser wiring for the detected stack, the
+ * blueprint-driven rules, and the handbook's third-party CORE block. Parsers
+ * only — framework rule packs (eslint-plugin-vue, react-hooks…) stay the
+ * user's choice. The library itself never depends on any of these packages —
  * they live in the scaffolded config, and init installs them as project deps.
  */
-function eslintConfigSource(blueprint: Blueprint): string {
+function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
+  const framework = blueprint.framework !== 'auto' ? blueprint.framework : state.framework;
+  const vue = framework === 'vue';
+  const ts = state.hasTypescript;
   const cycles = activeTier(blueprint.rules?.cycles);
+
+  const parserImports = [
+    ...(vue ? ['import vueParser from \'vue-eslint-parser\';'] : []),
+    ...(ts ? ['import tseslint from \'typescript-eslint\';'] : []),
+  ];
+
+  const parserBlocks = [
+    // Parsers only, so every file the rules cover can actually be parsed.
+    ...(vue
+      ? [
+          '  {',
+          '    files: [\'**/*.vue\'],',
+          ts
+            ? '    languageOptions: { parser: vueParser, parserOptions: { parser: tseslint.parser } },'
+            : '    languageOptions: { parser: vueParser },',
+          '  },',
+        ]
+      : []),
+    ...(ts
+      ? [
+          '  {',
+          '    files: [\'**/*.{ts,tsx,mts,cts}\'],',
+          '    languageOptions: { parser: tseslint.parser },',
+          '  },',
+        ]
+      : []),
+    ...(framework === 'react'
+      ? [
+          '  {',
+          '    files: [\'**/*.{js,jsx}\'],',
+          '    languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } },',
+          '  },',
+        ]
+      : []),
+  ];
 
   const core = [
     ...(cycles ? [`      'import/no-cycle': ['${cycles}', { maxDepth: Infinity }],`] : []),
@@ -132,9 +172,11 @@ function eslintConfigSource(blueprint: Blueprint): string {
     'import { emitLint } from \'@kekkai/blueprint\';',
     'import importPlugin from \'eslint-plugin-import\';',
     'import comments from \'@eslint-community/eslint-plugin-eslint-comments\';',
+    ...parserImports,
     'import blueprint from \'./blueprint.config.mjs\';',
     '',
     'export default [',
+    ...parserBlocks,
     '  ...emitLint(blueprint),',
     '  {',
     '    files: [\'src/**/*.{js,jsx,ts,tsx,vue}\'],',

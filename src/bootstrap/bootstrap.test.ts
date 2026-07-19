@@ -33,6 +33,7 @@ describe('runInit', () => {
 
     expect(read('blueprint.config.mjs')).toContain('vuePreset({ name: \'demo\' })');
     expect(read('eslint.config.mjs')).toContain('emitLint');
+    expect(read('eslint.config.mjs')).toContain('vue-eslint-parser');
     expect(read('docs/architecture-handbook.md')).toContain('# demo — Architecture Handbook');
     expect(read('CLAUDE.md')).toContain('## Architecture contract');
     expect(read('AGENTS.md')).toContain('## Architecture contract');
@@ -152,7 +153,7 @@ describe('runInit', () => {
     await runInit(root, { log: silent, exec: (command) => commands.push(command) });
 
     expect(commands).toEqual([
-      'npm install -D eslint @kekkai/blueprint eslint-plugin-import @eslint-community/eslint-plugin-eslint-comments knip',
+      'npm install -D eslint @kekkai/blueprint eslint-plugin-import @eslint-community/eslint-plugin-eslint-comments knip vue-eslint-parser',
     ]);
   });
 });

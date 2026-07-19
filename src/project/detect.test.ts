@@ -76,14 +76,25 @@ describe('detect', () => {
 
     expect(state.existingSrcDirs).toEqual(['components']);
 
+    // typescript in devDependencies pulls the ts parser into the install set.
     expect(state.missingDeps).toEqual([
       '@kekkai/blueprint',
       'eslint-plugin-import',
       '@eslint-community/eslint-plugin-eslint-comments',
       'knip',
+      'typescript-eslint',
     ]);
 
     expect(state.packageManager).toBe('npm');
+  });
+
+  it('adds the vue parser to the install set for vue projects', () => {
+    writePkg({ name: 'v', dependencies: { vue: '^3' } });
+    expect(detect(root).missingDeps).toContain('vue-eslint-parser');
+    expect(detect(root).missingDeps).not.toContain('typescript-eslint');
+
+    writePkg({ name: 'v', dependencies: { vue: '^3' }, devDependencies: { typescript: '5' } });
+    expect(detect(root).missingDeps).toContain('typescript-eslint');
   });
 
   it('tolerates a missing or malformed package.json', () => {

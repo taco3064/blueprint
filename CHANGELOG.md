@@ -1,5 +1,18 @@
 # @kekkai/blueprint
 
+## 0.2.3
+
+### Patch Changes
+
+- The generated eslint.config.mjs now wires parsers for the detected
+  stack — vue-eslint-parser for SFCs (with the TypeScript parser inside
+  `<script lang="ts">`), typescript-eslint for .ts/.tsx, and espree's JSX
+  mode for React .js/.jsx. Parsers only: framework rule packs stay the
+  user's choice. Found by running init against fresh create-vite
+  templates, whose App.tsx / App.vue previously failed to parse under the
+  generated config; the packages backing the parsers join the install
+  set.
+
 ## 0.2.2
 
 ### Patch Changes

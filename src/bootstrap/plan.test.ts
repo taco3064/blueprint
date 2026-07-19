@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { plan } from './plan';
-import { vuePreset } from '../presets';
+import { reactPreset, vuePreset } from '../presets';
 import type { Action } from './types';
 import type { ProjectState } from '../project';
 
@@ -76,6 +76,43 @@ describe('plan', () => {
     expect(
       write(plan(state(), bare, null, {}), 'eslint.config.mjs')?.content,
     ).not.toContain('import/no-cycle');
+  });
+
+  it('wires parsers for the detected stack, parsers only', () => {
+    const config = (blueprint = bp, over = {}) =>
+      write(plan(state(over), blueprint, null, {}), 'eslint.config.mjs')?.content ?? '';
+
+    // vue without typescript: the vue parser alone.
+    const vueJs = config();
+
+    expect(vueJs).toContain('import vueParser from \'vue-eslint-parser\';');
+    expect(vueJs).toContain('languageOptions: { parser: vueParser },');
+    expect(vueJs).not.toContain('tseslint');
+
+    // vue + typescript: ts parser inside the SFC parser.
+    const vueTs = config(bp, { hasTypescript: true });
+
+    expect(vueTs).toContain('parserOptions: { parser: tseslint.parser }');
+    expect(vueTs).toContain('files: [\'**/*.{ts,tsx,mts,cts}\'],');
+
+    // react + typescript: ts parser plus espree JSX; no vue parser.
+    const reactTs = config(reactPreset(), { hasTypescript: true });
+
+    expect(reactTs).toContain('parser: tseslint.parser');
+    expect(reactTs).toContain('ecmaFeatures: { jsx: true }');
+    expect(reactTs).not.toContain('vueParser');
+
+    // react without typescript: espree JSX only — zero extra packages.
+    const reactJs = config(reactPreset());
+
+    expect(reactJs).toContain('ecmaFeatures: { jsx: true }');
+    expect(reactJs).not.toContain('tseslint');
+
+    // auto framework falls back to the detected one (null → no parser blocks).
+    const bare = config({ ...bp, framework: 'auto' as const }, { framework: null });
+
+    expect(bare).not.toContain('vueParser');
+    expect(bare).not.toContain('ecmaFeatures');
   });
 
   it('writes the CI workflow only when emit.ci is github', () => {
