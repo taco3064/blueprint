@@ -12,3 +12,4 @@ coverage/
 docs/api/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+examples/
