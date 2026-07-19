@@ -1,3 +1,4 @@
+import { aliasActions } from './alias';
 import { emitAgentFiles } from '../emit/agent';
 import { emitHandbook } from '../emit/docs';
 import { injectBetweenMarkers } from '../markdown';
@@ -65,10 +66,7 @@ export function plan(
     });
   }
 
-  actions.push({
-    kind: 'instruct',
-    note: `Set the import alias "${architecture.alias}" in your bundler / tsconfig — the lint rules resolve against it.`,
-  });
+  actions.push(...aliasActions(state, architecture));
 
   return actions;
 }

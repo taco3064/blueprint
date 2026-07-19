@@ -1,0 +1,189 @@
+import type { ArchitectureDef } from '../config';
+import type { ProjectState } from '../project';
+import type { Action } from './types';
+
+/**
+ * The alias concern of `init`: wire `architecture.alias` (and any
+ * `additionalAliases`) into the project. One rule governs every branch —
+ * a user file is only edited when it can be rewritten losslessly
+ * (`JSON.parse` succeeds = no comments to destroy); anything else gets an
+ * instruct action carrying a paste-ready snippet. Bundler configs are JS,
+ * never lossless, so the bundler side is always an instruct.
+ */
+
+/** Alias → target map for tsconfig `paths`, e.g. `{ "~app/*": ["./src/*"] }`. */
+export function aliasPaths(architecture: ArchitectureDef): Record<string, string[]> {
+  const entries: [string, string[]][] = [
+    [`${architecture.alias}/*`, ['./src/*']],
+    ...Object.entries(architecture.additionalAliases ?? {}).map(
+      ([alias, target]): [string, string[]] => [`${alias}/*`, [`${normalizeDir(target)}/*`]],
+    ),
+  ];
+
+  return Object.fromEntries(entries);
+}
+
+export type PatchResult
+  = | { kind: 'patched'; text: string }
+    | { kind: 'noop' }
+    | { kind: 'unparseable' };
+
+/**
+ * Add missing `paths` entries to a tsconfig/jsconfig body. `unparseable`
+ * covers comments (JSONC) and shapes that cannot be rewritten without
+ * destroying user intent; `noop` means every alias is already declared.
+ */
+export function patchTsconfigPaths(
+  text: string,
+  paths: Record<string, string[]>,
+): PatchResult {
+  let config: unknown;
+
+  try {
+    config = JSON.parse(text);
+  } catch {
+    return { kind: 'unparseable' };
+  }
+
+  if (!isRecord(config) || ('compilerOptions' in config && !isRecord(config.compilerOptions))) {
+    return { kind: 'unparseable' };
+  }
+
+  const options = isRecord(config.compilerOptions) ? config.compilerOptions : {};
+  const existing = isRecord(options.paths) ? options.paths : {};
+  const missing = Object.entries(paths).filter(([alias]) => !(alias in existing));
+
+  if (!missing.length) return { kind: 'noop' };
+
+  const patched = {
+    ...config,
+    compilerOptions: {
+      ...options,
+      paths: { ...existing, ...Object.fromEntries(missing) },
+    },
+  };
+
+  return { kind: 'patched', text: render(patched) };
+}
+
+/** The `init` actions that wire the alias: tsconfig side + bundler side. */
+export function aliasActions(state: ProjectState, architecture: ArchitectureDef): Action[] {
+  const paths = aliasPaths(architecture);
+  const actions: Action[] = [];
+  const target = resolveTarget(state);
+
+  if (target.kind === 'create') {
+    actions.push({
+      kind: 'write',
+      path: 'jsconfig.json',
+      content: render({ compilerOptions: { paths } }),
+      note: 'jsconfig.json (import alias)',
+    });
+  } else if (target.kind === 'instruct') {
+    actions.push(tsconfigInstruct(target.file, paths));
+  } else {
+    const result = patchTsconfigPaths(target.text, paths);
+
+    if (result.kind === 'patched') {
+      actions.push({
+        kind: 'write',
+        path: target.file,
+        content: result.text,
+        note: `${target.file} (import alias)`,
+      });
+    } else if (result.kind === 'unparseable') {
+      actions.push(tsconfigInstruct(target.file, paths));
+    }
+    // noop — the alias is already wired; nothing to do.
+  }
+
+  actions.push(bundlerInstruct(state, architecture));
+
+  return actions;
+}
+
+type Target
+  = | { kind: 'create' }
+    | { kind: 'patch'; file: string; text: string }
+    | { kind: 'instruct'; file: string };
+
+/**
+ * Which config file carries the alias. A root tsconfig that is a pure
+ * `references` shell (create-vite style) defers to `tsconfig.app.json`;
+ * a TS project with no tsconfig at all gets an instruct — `init` does not
+ * invent a tsconfig for a TypeScript setup it cannot see.
+ */
+function resolveTarget(state: ProjectState): Target {
+  const { tsconfigs, hasTypescript } = state;
+  const root = tsconfigs['tsconfig.json'];
+
+  if (root != null) {
+    const app = tsconfigs['tsconfig.app.json'];
+
+    if (app != null && isReferencesShell(root)) {
+      return { kind: 'patch', file: 'tsconfig.app.json', text: app };
+    }
+
+    return { kind: 'patch', file: 'tsconfig.json', text: root };
+  }
+
+  const js = tsconfigs['jsconfig.json'];
+
+  if (js != null) return { kind: 'patch', file: 'jsconfig.json', text: js };
+
+  return hasTypescript ? { kind: 'instruct', file: 'tsconfig.json' } : { kind: 'create' };
+}
+
+function isReferencesShell(text: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(text);
+
+    return isRecord(parsed) && Array.isArray(parsed.references) && !('compilerOptions' in parsed);
+  } catch {
+    return false; // The patch attempt will surface `unparseable` on the root itself.
+  }
+}
+
+function tsconfigInstruct(file: string, paths: Record<string, string[]>): Action {
+  return {
+    kind: 'instruct',
+    note: `Add the import alias to ${file} under compilerOptions:\n    "paths": ${JSON.stringify(paths)}`,
+  };
+}
+
+/** The bundler always needs the alias too; JS configs are never edited. */
+function bundlerInstruct(state: ProjectState, architecture: ArchitectureDef): Action {
+  if (!state.hasViteConfig) {
+    return {
+      kind: 'instruct',
+      note: `Set the import alias "${architecture.alias}" in your bundler — the lint rules resolve against it.`,
+    };
+  }
+
+  const lines = [
+    [architecture.alias, './src'] as const,
+    ...Object.entries(architecture.additionalAliases ?? {}),
+  ].map(
+    ([alias, dir]) => `'${alias}': fileURLToPath(new URL('${normalizeDir(dir)}', import.meta.url))`,
+  );
+
+  return {
+    kind: 'instruct',
+    note: `Add the alias to vite.config under resolve.alias:\n    resolve: { alias: { ${lines.join(', ')} } }`,
+  };
+}
+
+/** `src/shared/` → `./src/shared` — the form both `paths` and vite snippets use. */
+function normalizeDir(dir: string): string {
+  const trimmed = dir.replace(/\/+$/, '');
+
+  return trimmed.startsWith('.') || trimmed.startsWith('/') ? trimmed : `./${trimmed}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function render(value: unknown): string {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}

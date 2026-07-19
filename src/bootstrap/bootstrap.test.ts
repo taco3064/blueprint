@@ -37,6 +37,24 @@ describe('runInit', () => {
     expect(read('CLAUDE.md')).toContain('## Architecture contract');
     expect(read('AGENTS.md')).toContain('## Architecture contract');
     expect(exists('src/services/.gitkeep')).toBe(true);
+
+    // A JS project with no tsconfig gets the alias wired via a fresh jsconfig.
+    expect(JSON.parse(read('jsconfig.json'))).toEqual({
+      compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+    });
+  });
+
+  it('patches an existing parseable tsconfig.json with the alias paths', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'tsconfig.json'), '{"include": ["src"]}');
+
+    await runInit(root, { install: false, log: silent });
+
+    const tsconfig = JSON.parse(read('tsconfig.json'));
+
+    expect(tsconfig.include).toEqual(['src']);
+    expect(tsconfig.compilerOptions.paths).toEqual({ '~app/*': ['./src/*'] });
+    expect(exists('jsconfig.json')).toBe(false);
   });
 
   it('preserves hand-written content in an existing AGENTS.md', async () => {
@@ -75,7 +93,7 @@ describe('runInit', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     const loadConfig = async () => vuePreset({ name: 'demo' });
 
-    const files = ['blueprint.config.mjs', 'eslint.config.mjs', 'CLAUDE.md', 'AGENTS.md', 'docs/architecture-handbook.md'];
+    const files = ['blueprint.config.mjs', 'eslint.config.mjs', 'CLAUDE.md', 'AGENTS.md', 'docs/architecture-handbook.md', 'jsconfig.json'];
 
     await runInit(root, { install: false, log: silent, loadConfig });
     const snapshot = files.map(read);

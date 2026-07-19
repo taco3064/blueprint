@@ -13,6 +13,10 @@ const ESLINT_FILES = [
   'eslint.config.ts',
 ];
 
+const TSCONFIG_FILES = ['tsconfig.json', 'tsconfig.app.json', 'jsconfig.json'];
+
+const VITE_FILES = ['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite.config.mts'];
+
 const REQUIRED_DEPS = ['eslint', '@kekkai/blueprint'];
 
 function readJson(file: string): Record<string, unknown> | null {
@@ -79,6 +83,9 @@ export function detect(root: string): ProjectState {
     projectName: typeof pkg.name === 'string' ? pkg.name : undefined,
     hasConfig: fs.existsSync(path.join(root, CONFIG_FILE)),
     hasEslintConfig: ESLINT_FILES.some((file) => fs.existsSync(path.join(root, file))),
+    hasViteConfig: VITE_FILES.some((file) => fs.existsSync(path.join(root, file))),
+    hasTypescript: 'typescript' in deps,
+    tsconfigs: readTexts(root, TSCONFIG_FILES),
     existingSrcDirs: listSrcDirs(root),
     missingDeps: REQUIRED_DEPS.filter((dep) => !(dep in deps)),
   };

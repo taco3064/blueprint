@@ -13,6 +13,12 @@ export interface ProjectState {
   hasConfig: boolean;
   /** Some `eslint.config.*` is present. */
   hasEslintConfig: boolean;
+  /** Some `vite.config.*` is present. */
+  hasViteConfig: boolean;
+  /** `typescript` is a dependency. */
+  hasTypescript: boolean;
+  /** Contents of `tsconfig.json` / `tsconfig.app.json` / `jsconfig.json` (null = absent). */
+  tsconfigs: Record<string, string | null>;
   /** Directory names already present under `src/`. */
   existingSrcDirs: string[];
   /** Required deps not yet installed. */
