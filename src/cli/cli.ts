@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { realpathSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import fs, { realpathSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { runInit } from '../bootstrap';
 import type { InitOptions } from '../bootstrap';
@@ -11,7 +12,25 @@ const USAGE = [
   'Usage:',
   '  blueprint init    [--framework vue|react] [--no-install] [--dry-run]',
   '  blueprint inspect [--framework vue|react] [--json]',
+  '  blueprint --help | --version',
 ].join('\n');
+
+/**
+ * The package version, read at runtime. The bundled bin lives at
+ * `dist/bin.js` (package.json one level up); the source module lives at
+ * `src/cli/cli.ts` (two levels up) — the walk covers both layouts.
+ */
+export function version(dir: string = path.dirname(fileURLToPath(import.meta.url))): string {
+  for (const relative of ['../package.json', '../../package.json']) {
+    const file = path.join(dir, relative);
+
+    if (fs.existsSync(file)) {
+      return (JSON.parse(fs.readFileSync(file, 'utf-8')) as { version: string }).version;
+    }
+  }
+
+  return 'unknown';
+}
 
 function parseFramework(value: string | undefined): 'vue' | 'react' | undefined {
   return value === 'vue' || value === 'react' ? value : undefined;
@@ -56,6 +75,18 @@ export function parseInspectArgs(args: string[]): InspectOptions {
 /** CLI dispatch. Returns the process exit code. */
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
   const [command, ...rest] = argv;
+
+  if (command === '--help' || command === '-h') {
+    console.log(USAGE);
+
+    return 0;
+  }
+
+  if (command === '--version' || command === '-v') {
+    console.log(version());
+
+    return 0;
+  }
 
   try {
     if (command === 'init') {

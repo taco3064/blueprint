@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isCliEntry, parseInitArgs, parseInspectArgs, run } from './cli';
+import { isCliEntry, parseInitArgs, parseInspectArgs, run, version } from './cli';
 
 describe('parseInitArgs', () => {
   it('parses known flags', () => {
@@ -115,5 +115,31 @@ describe('isCliEntry', () => {
     expect(isCliEntry(undefined)).toBe(false);
     expect(isCliEntry('/no/such/file.js')).toBe(false);
     expect(isCliEntry(path.join(path.dirname(self), 'cli.test.ts'))).toBe(false);
+  });
+});
+
+describe('help & version flags', () => {
+  it('prints usage and exits 0 on --help / -h', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    expect(await run(['--help'])).toBe(0);
+    expect(await run(['-h'])).toBe(0);
+    expect(log.mock.calls[0][0]).toContain('Usage:');
+    log.mockRestore();
+  });
+
+  it('prints the package version and exits 0 on --version / -v', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const expected = JSON.parse(fs.readFileSync('package.json', 'utf-8')).version;
+
+    expect(await run(['--version'])).toBe(0);
+    expect(await run(['-v'])).toBe(0);
+    expect(log.mock.calls[0][0]).toBe(expected);
+    log.mockRestore();
+  });
+
+  it('version() walks both layouts and reports unknown when nothing is found', () => {
+    expect(version()).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(version('/no/such/dir')).toBe('unknown');
   });
 });

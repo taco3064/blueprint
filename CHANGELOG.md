@@ -1,5 +1,14 @@
 # @kekkai/blueprint
 
+## 0.1.3
+
+### Patch Changes
+
+- CLI etiquette: `--help` / `-h` prints usage and exits 0 (it previously
+  fell through as an unknown command, exit 1), and `--version` / `-v`
+  prints the package version (read at runtime from package.json, covering
+  both the bundled and source layouts).
+
 ## 0.1.2
 
 ### Patch Changes
