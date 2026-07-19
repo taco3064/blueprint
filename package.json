@@ -51,7 +51,7 @@
     "prepare": "husky",
     "test": "vitest run --coverage",
     "tsc": "tsc -p tsconfig.lib.json && tsc -p tsconfig.test.json",
-    "docs:api": "typedoc",
+    "docs:api": "typedoc && rm -rf docs/zh-TW/api && cp -R docs/api docs/zh-TW/api",
     "docs:dev": "npm run docs:api && vitepress dev docs",
     "docs:build": "npm run docs:api && vitepress build docs"
   },

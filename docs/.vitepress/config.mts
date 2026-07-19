@@ -1,6 +1,23 @@
 import { defineConfig } from 'vitepress';
 import typedocSidebar from '../api/typedoc-sidebar.json';
 
+// The API reference is generated once (in English) but mounted under both
+// locales — otherwise entering /api/ silently flips the reader into the
+// root locale and every link after that stays English.
+interface SidebarItem {
+  text: string;
+  link?: string;
+  collapsed?: boolean;
+  items?: SidebarItem[];
+}
+
+const withZhPrefix = (items: SidebarItem[]): SidebarItem[] =>
+  items.map((item) => ({
+    ...item,
+    ...(item.link ? { link: `/zh-TW${item.link}` } : {}),
+    ...(item.items ? { items: withZhPrefix(item.items) } : {}),
+  }));
+
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: '@kekkai/blueprint',
@@ -45,7 +62,7 @@ export default defineConfig({
         nav: [
           { text: '指南', link: '/zh-TW/guide/getting-started' },
           { text: '工程理念', link: '/zh-TW/philosophy/' },
-          { text: 'API', link: '/api/' },
+          { text: 'API', link: '/zh-TW/api/' },
         ],
         sidebar: {
           '/zh-TW/guide/': [
@@ -59,6 +76,7 @@ export default defineConfig({
             { text: '元件形狀 · 7 軸', link: '/zh-TW/philosophy/component-shape' },
             { text: '工作紀律', link: '/zh-TW/philosophy/discipline' },
           ],
+          '/zh-TW/api/': [{ text: 'API Reference', items: withZhPrefix(typedocSidebar) }],
         },
         outline: { label: '本頁目錄' },
         docFooter: { prev: '上一頁', next: '下一頁' },

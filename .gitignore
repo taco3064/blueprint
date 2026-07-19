@@ -13,3 +13,4 @@ docs/api/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 examples/
+docs/zh-TW/api/

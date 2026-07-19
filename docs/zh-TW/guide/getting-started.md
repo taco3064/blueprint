@@ -67,4 +67,4 @@ export default defineBlueprint({
 });
 ```
 
-也可以直接用 canonical preset —— `vuePreset()` / `reactPreset()` 編碼了完整治理手冊：六層、十條信念、七軸、十八條 playbook。所有 export 見 [API Reference](/api/)。
+也可以直接用 canonical preset —— `vuePreset()` / `reactPreset()` 編碼了完整治理手冊：六層、十條信念、七軸、十八條 playbook。所有 export 見 [API Reference](/zh-TW/api/)。
