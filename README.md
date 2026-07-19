@@ -1,6 +1,6 @@
 [![codecov](https://codecov.io/gh/taco3064/blueprint/branch/main/graph/badge.svg)](https://codecov.io/gh/taco3064/blueprint)
 
-**English** | [繁體中文](https://github.com/taco3064/blueprint/blob/main/README.zh-TW.md)
+**English** | [繁體中文](https://github.com/taco3064/blueprint/blob/main/README.zh-TW.md) | [📖 Docs & API](https://taco3064.github.io/blueprint/)
 
 # @kekkai/blueprint
 

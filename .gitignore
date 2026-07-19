@@ -9,3 +9,6 @@ coverage/
 .env
 .env.*
 !.env.example
+docs/api/
+docs/.vitepress/dist/
+docs/.vitepress/cache/

@@ -1,0 +1,72 @@
+import { defineConfig } from 'vitepress';
+import typedocSidebar from '../api/typedoc-sidebar.json';
+
+// https://vitepress.dev/reference/site-config
+export default defineConfig({
+  title: '@kekkai/blueprint',
+  description:
+    'Architecture as Code — one Blueprint compiles into lint, docs, agent contracts, and CI.',
+  base: '/blueprint/',
+  appearance: 'dark',
+  lastUpdated: true,
+
+  locales: {
+    root: {
+      label: 'English',
+      lang: 'en-US',
+      themeConfig: {
+        nav: [
+          { text: 'Guide', link: '/guide/getting-started' },
+          { text: 'Philosophy', link: '/philosophy/' },
+          { text: 'API', link: '/api/' },
+        ],
+        sidebar: {
+          '/guide/': [
+            { text: 'Getting Started', link: '/guide/getting-started' },
+          ],
+          '/philosophy/': [
+            { text: 'The Operating Contract', link: '/philosophy/' },
+            { text: 'Ten Core Beliefs', link: '/philosophy/beliefs' },
+            { text: 'Layer Architecture', link: '/philosophy/layers' },
+            { text: 'Component Shape — 7 Axes', link: '/philosophy/component-shape' },
+            { text: 'Working Discipline', link: '/philosophy/discipline' },
+          ],
+          '/api/': [{ text: 'API Reference', items: typedocSidebar }],
+        },
+      },
+    },
+    'zh-TW': {
+      label: '繁體中文',
+      lang: 'zh-TW',
+      link: '/zh-TW/',
+      themeConfig: {
+        nav: [
+          { text: '指南', link: '/zh-TW/guide/getting-started' },
+          { text: '工程理念', link: '/zh-TW/philosophy/' },
+          { text: 'API', link: '/api/' },
+        ],
+        sidebar: {
+          '/zh-TW/guide/': [
+            { text: '快速上手', link: '/zh-TW/guide/getting-started' },
+          ],
+          '/zh-TW/philosophy/': [
+            { text: 'Operating Contract', link: '/zh-TW/philosophy/' },
+            { text: '十條核心信念', link: '/zh-TW/philosophy/beliefs' },
+            { text: '分層架構', link: '/zh-TW/philosophy/layers' },
+            { text: '元件形狀 · 7 軸', link: '/zh-TW/philosophy/component-shape' },
+            { text: '工作紀律', link: '/zh-TW/philosophy/discipline' },
+          ],
+        },
+        outline: { label: '本頁目錄' },
+        docFooter: { prev: '上一頁', next: '下一頁' },
+        darkModeSwitchLabel: '深色模式',
+        returnToTopLabel: '回到頂端',
+      },
+    },
+  },
+
+  themeConfig: {
+    socialLinks: [{ icon: 'github', link: 'https://github.com/taco3064/blueprint' }],
+    search: { provider: 'local' },
+  },
+});
