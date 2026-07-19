@@ -70,6 +70,12 @@ describe('plan', () => {
 
     expect(offContent).not.toContain('import/no-cycle');
     expect(offContent).toContain('require-description');
+
+    const bare = { ...bp, rules: {} };
+
+    expect(
+      write(plan(state(), bare, null, {}), 'eslint.config.mjs')?.content,
+    ).not.toContain('import/no-cycle');
   });
 
   it('writes the CI workflow only when emit.ci is github', () => {
