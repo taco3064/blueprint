@@ -1,8 +1,8 @@
 import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
-import { defineBlueprint } from '../../config/defineBlueprint';
-import { emitLint } from './main';
+import { defineBlueprint } from '../../config';
+import { emitLint } from './lint';
 
 const blueprint = defineBlueprint({
   framework: 'auto',

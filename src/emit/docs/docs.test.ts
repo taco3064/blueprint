@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { defineBlueprint } from '../../config/defineBlueprint';
-import { emitHandbook } from './main';
-import type { Blueprint } from '../../config/types';
+import { defineBlueprint } from '../../config';
+import { emitHandbook } from './docs';
+import type { Blueprint } from '../../config';
 
 function full(): Blueprint {
   return defineBlueprint({

@@ -1,5 +1,5 @@
-import { defineBlueprint } from '../config/defineBlueprint';
-import type { Blueprint, Framework, OwnedPrimitive } from '../config/types';
+import { defineBlueprint } from '../config';
+import type { Blueprint, Framework, OwnedPrimitive } from '../config';
 
 /** Options for a preset factory. */
 export interface PresetOptions {

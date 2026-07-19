@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import type { Framework } from '../config/types';
+import type { Framework } from '../config';
 import type { PackageManager, ProjectState } from './types';
 
 export const CONFIG_FILE = 'blueprint.config.mjs';

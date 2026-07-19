@@ -1,1 +1,1 @@
-export { emitAgentContract } from './main';
+export { emitAgentContract } from './agent';

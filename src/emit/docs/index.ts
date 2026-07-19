@@ -1,1 +1,1 @@
-export { emitHandbook } from './main';
+export { emitHandbook } from './docs';

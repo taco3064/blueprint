@@ -9,7 +9,7 @@ import {
   renderNaming,
   renderPlacement,
 } from './sections';
-import type { ArchitectureDef, Blueprint, PrincipleDef } from '../../config/types';
+import type { ArchitectureDef, Blueprint, PrincipleDef } from '../../config';
 
 function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
   return {

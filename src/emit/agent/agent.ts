@@ -1,4 +1,4 @@
-import type { Blueprint } from '../../config/types';
+import type { Blueprint } from '../../config';
 import {
   renderBehavioral,
   renderChecklist,

@@ -1,4 +1,4 @@
-import type { Framework, LayerDef, OwnedPackage } from '../../config/types';
+import type { Framework, LayerDef, OwnedPackage } from '../../config';
 import type { GlobalRule, GroupPattern, PackageRule, PathPattern } from './types';
 
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/g;

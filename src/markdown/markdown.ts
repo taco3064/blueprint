@@ -1,4 +1,4 @@
-import type { OwnedPrimitive } from '../config/types';
+import type { OwnedPrimitive } from '../config';
 
 /** Escape a value for use inside a markdown table cell. */
 export function escapeCell(text: string): string {

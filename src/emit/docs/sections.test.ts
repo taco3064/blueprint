@@ -9,7 +9,7 @@ import {
   renderPrinciples,
   renderRules,
 } from './sections';
-import type { ArchitectureDef, ModuleDef, PrincipleDef } from '../../config/types';
+import type { ArchitectureDef, ModuleDef, PrincipleDef } from '../../config';
 
 function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
   return {

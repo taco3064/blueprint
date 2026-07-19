@@ -1,1 +1,1 @@
-export { escapeCell, formatOwns, injectBetweenMarkers, table } from './main';
+export { escapeCell, formatOwns, injectBetweenMarkers, table } from './markdown';

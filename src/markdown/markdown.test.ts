@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { escapeCell, formatOwns, injectBetweenMarkers, table } from './main';
+import { escapeCell, formatOwns, injectBetweenMarkers, table } from './markdown';
 
 describe('escapeCell', () => {
   it('escapes pipes and collapses newlines', () => {

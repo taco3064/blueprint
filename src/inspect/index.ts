@@ -1,3 +1,3 @@
-export { runInspect } from './main';
-export type { InspectOptions } from './main';
+export { runInspect } from './inspect';
+export type { InspectOptions } from './inspect';
 export type { Finding, Severity } from './types';

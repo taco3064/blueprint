@@ -1,7 +1,7 @@
 import { emitAgentContract } from '../emit/agent';
 import { emitHandbook } from '../emit/docs';
 import { injectBetweenMarkers } from '../markdown';
-import type { Blueprint } from '../config/types';
+import type { Blueprint } from '../config';
 import type { PackageManager, ProjectState } from '../project';
 import type { Action } from './types';
 

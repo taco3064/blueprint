@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { runInspect } from './main';
+import { runInspect } from './inspect';
 import { vuePreset } from '../presets';
 
 let root: string;

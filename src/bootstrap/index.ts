@@ -1,2 +1,2 @@
-export { runInit } from './main';
-export type { InitOptions } from './main';
+export { runInit } from './bootstrap';
+export type { InitOptions } from './bootstrap';

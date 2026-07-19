@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { emitFlowDiagram } from './diagram';
-import type { AllowedImporter, ArchitectureDef } from '../../config/types';
+import type { AllowedImporter, ArchitectureDef } from '../../config';
 
 function arch(): ArchitectureDef {
   return {

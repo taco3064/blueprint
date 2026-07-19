@@ -4,8 +4,8 @@ import type {
   PrincipleDef,
   RuleSetting,
   Tier,
-} from '../../config/types';
-import { normalizeAllowedImporters } from '../../config/graph';
+} from '../../config';
+import { normalizeAllowedImporters } from '../../config';
 import { formatOwns } from '../../markdown';
 
 function tierOf(setting: RuleSetting): Tier {

@@ -1,2 +1,2 @@
-export { reactPreset, vuePreset } from './main';
-export type { PresetOptions } from './main';
+export { reactPreset, vuePreset } from './presets';
+export type { PresetOptions } from './presets';

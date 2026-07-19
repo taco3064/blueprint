@@ -1,5 +1,5 @@
-import { getForbiddenLayers, getSelfOnlyTargets } from '../config/graph';
-import type { ArchitectureDef, Blueprint } from '../config/types';
+import { getForbiddenLayers, getSelfOnlyTargets } from '../config';
+import type { ArchitectureDef, Blueprint } from '../config';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };

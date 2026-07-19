@@ -2,7 +2,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { reactPreset, vuePreset } from '../presets';
-import type { Blueprint } from '../config/types';
+import type { Blueprint } from '../config';
 import { CONFIG_FILE } from './detect';
 import type { ProjectState } from './types';
 

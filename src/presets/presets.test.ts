@@ -1,11 +1,11 @@
 import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
-import { reactPreset, vuePreset } from './main';
+import { reactPreset, vuePreset } from './presets';
 import { emitAgentContract } from '../emit/agent';
 import { emitHandbook } from '../emit/docs';
 import { emitLint } from '../emit/lint';
-import type { Blueprint, LayerDef } from '../config/types';
+import type { Blueprint, LayerDef } from '../config';
 
 function layer(blueprint: Blueprint, name: string): LayerDef {
   return blueprint.architecture.layers.find((entry) => entry.name === name)!;

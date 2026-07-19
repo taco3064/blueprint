@@ -1,5 +1,5 @@
-import type { Blueprint } from '../../config/types';
-import { getForbiddenLayers, getSelfOnlyTargets } from '../../config/graph';
+import type { Blueprint } from '../../config';
+import { getForbiddenLayers, getSelfOnlyTargets } from '../../config';
 import {
   buildPackagePatterns,
   buildStructuralPatterns,
@@ -8,7 +8,7 @@ import {
   resolveLayerFiles,
   selfOnlyReexportSelector,
   toArray,
-} from './utils';
+} from './patterns';
 import type { GlobalRule, LintConfig, LintConfigEntry, PackageRule } from './types';
 
 type Severity = 'error' | 'warn';

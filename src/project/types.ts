@@ -1,4 +1,4 @@
-import type { Framework } from '../config/types';
+import type { Framework } from '../config';
 
 export type PackageManager = 'pnpm' | 'yarn' | 'npm';
 

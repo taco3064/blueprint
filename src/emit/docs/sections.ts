@@ -4,8 +4,8 @@ import type {
   ModuleDef,
   PrincipleDef,
   RuleSetting,
-} from '../../config/types';
-import { normalizeAllowedImporters } from '../../config/graph';
+} from '../../config';
+import { normalizeAllowedImporters } from '../../config';
 import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
 

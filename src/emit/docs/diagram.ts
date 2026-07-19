@@ -1,5 +1,5 @@
-import type { ArchitectureDef } from '../../config/types';
-import { getDiagramEdges } from '../../config/graph';
+import type { ArchitectureDef } from '../../config';
+import { getDiagramEdges } from '../../config';
 
 /**
  * Render the dependency flow as a mermaid `flowchart TD`. Edges carrying a

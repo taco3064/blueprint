@@ -10,7 +10,7 @@ export default defineConfig([
     },
   },
   {
-    input: 'src/cli/main.ts',
+    input: 'src/cli/cli.ts',
     output: {
       dir: 'dist',
       format: 'esm',

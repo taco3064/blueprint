@@ -8,8 +8,8 @@ import {
   resolveLayerFiles,
   selfOnlyReexportSelector,
   toArray,
-} from './utils';
-import type { LayerDef } from '../../config/types';
+} from './patterns';
+import type { LayerDef } from '../../config';
 
 describe('toArray', () => {
   it('wraps a string and passes an array through', () => {

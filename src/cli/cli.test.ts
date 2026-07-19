@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { parseInitArgs, parseInspectArgs, run } from './main';
+import { parseInitArgs, parseInspectArgs, run } from './cli';
 
 describe('parseInitArgs', () => {
   it('parses known flags', () => {

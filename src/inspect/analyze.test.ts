@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { analyze } from './analyze';
-import { defineBlueprint } from '../config/defineBlueprint';
+import { defineBlueprint } from '../config';
 import { vuePreset } from '../presets';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
