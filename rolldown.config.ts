@@ -9,4 +9,13 @@ export default defineConfig([
       entryFileNames: 'index.js',
     },
   },
+  {
+    input: 'src/cli/main.ts',
+    output: {
+      dir: 'dist',
+      format: 'esm',
+      entryFileNames: 'bin.js',
+    },
+    external: ['node:fs', 'node:path', 'node:url', 'node:child_process'],
+  },
 ]);

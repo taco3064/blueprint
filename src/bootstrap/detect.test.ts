@@ -1,0 +1,82 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { detect } from './detect';
+
+let root: string;
+
+beforeEach(() => {
+  root = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-detect-'));
+});
+
+afterEach(() => {
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+function writePkg(content: Record<string, unknown>): void {
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify(content));
+}
+
+describe('detect', () => {
+  it('detects vue from dependencies and reads the project name', () => {
+    writePkg({ name: 'app', dependencies: { vue: '^3' } });
+
+    const state = detect(root);
+
+    expect(state.framework).toBe('vue');
+    expect(state.projectName).toBe('app');
+  });
+
+  it('detects react from devDependencies', () => {
+    writePkg({ devDependencies: { react: '^18' } });
+
+    expect(detect(root).framework).toBe('react');
+  });
+
+  it('is ambiguous (null) when both or neither framework is present', () => {
+    writePkg({ dependencies: { vue: '1', react: '1' } });
+    expect(detect(root).framework).toBeNull();
+
+    writePkg({ dependencies: {} });
+    expect(detect(root).framework).toBeNull();
+  });
+
+  it('detects the package manager from lockfiles', () => {
+    writePkg({});
+    fs.writeFileSync(path.join(root, 'pnpm-lock.yaml'), '');
+    expect(detect(root).packageManager).toBe('pnpm');
+
+    fs.rmSync(path.join(root, 'pnpm-lock.yaml'));
+    fs.writeFileSync(path.join(root, 'yarn.lock'), '');
+    expect(detect(root).packageManager).toBe('yarn');
+  });
+
+  it('reports existing files, src dirs, and missing deps', () => {
+    writePkg({ name: 'x', devDependencies: { eslint: '9' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '');
+    fs.writeFileSync(path.join(root, 'eslint.config.js'), '');
+    fs.writeFileSync(path.join(root, 'CLAUDE.md'), 'hi');
+    fs.mkdirSync(path.join(root, 'src', 'components'), { recursive: true });
+
+    const state = detect(root);
+
+    expect(state.hasConfig).toBe(true);
+    expect(state.hasEslintConfig).toBe(true);
+    expect(state.claudeMd).toBe('hi');
+    expect(state.existingSrcDirs).toEqual(['components']);
+    expect(state.missingDeps).toEqual(['@kekkai/blueprint']);
+    expect(state.packageManager).toBe('npm');
+  });
+
+  it('tolerates a missing or malformed package.json', () => {
+    expect(detect(root).framework).toBeNull();
+    expect(detect(root).missingDeps).toEqual(['eslint', '@kekkai/blueprint']);
+    expect(detect(root).existingSrcDirs).toEqual([]);
+    expect(detect(root).claudeMd).toBeNull();
+
+    fs.writeFileSync(path.join(root, 'package.json'), '{ not json');
+    expect(detect(root).framework).toBeNull();
+  });
+});
