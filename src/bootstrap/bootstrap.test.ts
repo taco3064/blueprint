@@ -148,6 +148,8 @@ describe('runInit', () => {
 
     await runInit(root, { log: silent, exec: (command) => commands.push(command) });
 
-    expect(commands).toEqual(['npm install -D eslint @kekkai/blueprint']);
+    expect(commands).toEqual([
+      'npm install -D eslint @kekkai/blueprint eslint-plugin-import @eslint-community/eslint-plugin-eslint-comments',
+    ]);
   });
 });

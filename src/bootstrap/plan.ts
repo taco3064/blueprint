@@ -2,7 +2,7 @@ import { aliasActions } from './alias';
 import { emitAgentFiles } from '../emit/agent';
 import { emitHandbook } from '../emit/docs';
 import { injectBetweenMarkers } from '../markdown';
-import type { Blueprint } from '../config';
+import type { Blueprint, RuleSetting } from '../config';
 import type { PackageManager, ProjectState } from '../project';
 import type { Action } from './types';
 
@@ -52,10 +52,15 @@ export function plan(
   if (state.hasEslintConfig) {
     actions.push({
       kind: 'instruct',
-      note: 'eslint.config already exists — spread blueprint into it:\n    import blueprint from \'./blueprint.config.mjs\';\n    import { emitLint } from \'@kekkai/blueprint\';\n    export default [ ...emitLint(blueprint) ];',
+      note: 'eslint.config already exists — spread blueprint into it:\n    import blueprint from \'./blueprint.config.mjs\';\n    import { emitLint } from \'@kekkai/blueprint\';\n    export default [ ...emitLint(blueprint) ];\n  …and add the third-party CORE block (import/no-cycle, import/no-unused-modules, eslint-comments discipline) — compare a generated eslint.config.mjs.',
     });
   } else {
-    actions.push({ kind: 'write', path: 'eslint.config.mjs', content: eslintConfigSource(), note: 'eslint.config.mjs' });
+    actions.push({
+      kind: 'write',
+      path: 'eslint.config.mjs',
+      content: eslintConfigSource(blueprint),
+      note: 'eslint.config.mjs',
+    });
   }
 
   if (options.install !== false && state.missingDeps.length) {
@@ -85,17 +90,54 @@ function mergeContract(existing: string | null, contract: string): string {
   return `${existing.trimEnd()}\n\n${block}\n`;
 }
 
-/** A minimal flat config that spreads the structural rules; users add their base. */
-function eslintConfigSource(): string {
+/**
+ * The generated flat config: the blueprint-driven rules plus the handbook's
+ * third-party CORE block. The library itself never depends on these plugins —
+ * they live in the scaffolded config, and init installs them as project deps.
+ */
+function eslintConfigSource(blueprint: Blueprint): string {
+  const cycles = activeTier(blueprint.rules?.cycles);
+  const deadCode = activeTier(blueprint.rules?.deadCode);
+
+  const core = [
+    ...(cycles ? [`      'import/no-cycle': ['${cycles}', { maxDepth: Infinity }],`] : []),
+    ...(deadCode
+      ? ['      \'import/no-unused-modules\': [\'warn\', { unusedExports: true }], // knip is the source of truth']
+      : []),
+    '      \'@eslint-community/eslint-comments/no-unlimited-disable\': \'error\',',
+    '      \'@eslint-community/eslint-comments/require-description\': \'error\',',
+  ];
+
   return [
     'import { emitLint } from \'@kekkai/blueprint\';',
+    'import importPlugin from \'eslint-plugin-import\';',
+    'import comments from \'@eslint-community/eslint-plugin-eslint-comments\';',
     'import blueprint from \'./blueprint.config.mjs\';',
     '',
     'export default [',
     '  ...emitLint(blueprint),',
+    '  {',
+    '    files: [\'src/**/*.{js,jsx,ts,tsx,vue}\'],',
+    '    plugins: {',
+    '      import: importPlugin,',
+    '      \'@eslint-community/eslint-comments\': comments,',
+    '    },',
+    '    rules: {',
+    ...core,
+    '    },',
+    '  },',
     '];',
     '',
   ].join('\n');
+}
+
+/** A rule setting's active severity, or null when unset / `off`. */
+function activeTier(setting: RuleSetting | undefined): string | null {
+  if (!setting) return null;
+
+  const tier = typeof setting === 'string' ? setting : setting.tier;
+
+  return tier === 'off' ? null : tier;
 }
 
 function installCommand(pm: PackageManager, deps: string[]): string {

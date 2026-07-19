@@ -246,6 +246,68 @@ describe('emitLint · rules gates', () => {
     expect(off).toHaveLength(3); // layer entries only — no gate entries.
   });
 
+  it('maps the metric triage family and unusedVars to built-ins', () => {
+    const metric = defineBlueprint({
+      ...blueprint,
+      rules: {
+        maxParams: 'warn',
+        maxStatements: { tier: 'warn', value: 20 },
+        maxLinesPerFunction: 'warn',
+        complexity: { tier: 'error', value: 8 },
+        unusedVars: 'error',
+      },
+    });
+
+    const entry = emitLint(metric).find((item) => item.rules?.['max-params']);
+
+    expect(entry?.rules).toMatchObject({
+      'max-params': ['warn', 3],
+      'max-statements': ['warn', 20],
+      'max-lines-per-function': ['warn', { max: 100, skipBlankLines: true, skipComments: true }],
+      complexity: ['error', 8],
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    });
+
+    expect(entry?.linterOptions).toEqual({ reportUnusedDisableDirectives: 'error' });
+  });
+
+  it('exempts test files from layer rules and gates, with overridable globs', () => {
+    // Default: same-layer alias import passes in a test file.
+    expect(
+      restricted('import { Card } from "~app/components/Card";', 'src/components/Button/Button.test.ts'),
+    ).toEqual([]);
+
+    expect(emitted[0].ignores).toEqual([
+      '**/*.test.{js,jsx,ts,tsx,vue}',
+      '**/*.spec.{js,jsx,ts,tsx,vue}',
+    ]);
+
+    const custom = defineBlueprint({
+      ...blueprint,
+      architecture: { ...blueprint.architecture, testFiles: '**/*.mytest.js' },
+    });
+
+    expect(emitLint(custom)[0].ignores).toEqual(['**/*.mytest.js']);
+  });
+
+  it('bans fixture imports through each layer structural rule', () => {
+    const fixture = defineBlueprint({ ...blueprint, rules: { fixtureImports: 'error' } });
+
+    const cfg = [
+      { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+      ...emitLint(fixture),
+    ];
+
+    const ids = (code: string) =>
+      linter.verify(code, cfg, { filename: COMPONENT }).map((message) => message.ruleId);
+
+    expect(ids('import demo from "~app/fixtures/demo";')).toContain('no-restricted-imports');
+    expect(ids('import demo from "~app/fixtures/deep/demo";')).toContain('no-restricted-imports');
+    // The structural bans still ride the same rule (merged, not replaced).
+    expect(ids('import { Card } from "~app/components/Card";')).toContain('no-restricted-imports');
+    expect(ids('import { useX } from "~app/hooks/useX";')).toEqual([]);
+  });
+
   it('enforces the gates through a real Linter run', () => {
     const config = [
       { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },

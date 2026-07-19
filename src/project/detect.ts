@@ -17,7 +17,12 @@ const TSCONFIG_FILES = ['tsconfig.json', 'tsconfig.app.json', 'jsconfig.json'];
 
 const VITE_FILES = ['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite.config.mts'];
 
-const REQUIRED_DEPS = ['eslint', '@kekkai/blueprint'];
+const REQUIRED_DEPS = [
+  'eslint',
+  '@kekkai/blueprint',
+  'eslint-plugin-import',
+  '@eslint-community/eslint-plugin-eslint-comments',
+];
 
 function readJson(file: string): Record<string, unknown> | null {
   try {

@@ -4,6 +4,7 @@ import type { ESLint, Linter } from 'eslint';
 export interface LintConfigEntry {
   files?: string[];
   ignores?: string[];
+  linterOptions?: Linter.LinterOptions;
   /** The embedded plugin, carried along when an entry uses a `blueprint/*` rule. */
   plugins?: Record<string, ESLint.Plugin>;
   rules?: Linter.RulesRecord;

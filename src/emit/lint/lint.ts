@@ -8,6 +8,7 @@ import {
   derivePackageRules,
   deriveGlobalRules,
   resolveLayerFiles,
+  resolveTestFiles,
   selfOnlyReexportSelector,
   toArray,
 } from './patterns';
@@ -23,14 +24,21 @@ type Severity = 'error' | 'warn';
 export function emitLint(blueprint: Blueprint): LintConfig {
   const { framework, architecture } = blueprint;
 
-  const { alias, additionalAliases, layers, module, layerFiles, layerFilesIgnore }
+  const { alias, additionalAliases, layers, module, layerFiles, layerFilesIgnore, testFiles }
     = architecture;
 
   const severity: Severity = blueprint.emit?.lint?.severity ?? 'error';
 
   const aliases = [alias, ...Object.keys(additionalAliases ?? {})];
+  const testGlobs = resolveTestFiles(testFiles);
   const packageRules = derivePackageRules(layers);
   const globalRules = deriveGlobalRules(layers);
+
+  // Fixture roots are barred through the same structural rule per layer —
+  // a separate entry would *replace* `no-restricted-imports`, not merge it.
+  const fixtures = active(blueprint.rules?.fixtureImports)
+    ? aliases.flatMap((a) => [`${a}/fixtures`, `${a}/fixtures/**`])
+    : [];
 
   const ignoreConfig: LintConfigEntry[] = layerFilesIgnore
     ? [{ ignores: toArray(layerFilesIgnore) }]
@@ -49,6 +57,7 @@ export function emitLint(blueprint: Blueprint): LintConfig {
       aliases,
       forbidden,
       moduleLayout: module.layout,
+      fixtures,
     });
 
     const syntaxRules = selfOnlyTargets.flatMap((target) =>
@@ -78,41 +87,63 @@ export function emitLint(blueprint: Blueprint): LintConfig {
     ];
 
     if (!exemptPatterns.length) {
-      return [{ files, rules: buildRules(disabledPackages) }];
+      return [{ files, ignores: testGlobs, rules: buildRules(disabledPackages) }];
     }
 
     const nonExempt = disabledPackages.filter((rule) => !rule.exempt?.length);
 
     return [
       // All files (incl. exempt): only the non-exempt package restrictions.
-      { files, rules: buildRules(nonExempt) },
+      { files, ignores: testGlobs, rules: buildRules(nonExempt) },
       // Non-exempt files only: the full set of package restrictions.
-      { files, ignores: exemptPatterns, rules: buildRules(disabledPackages) },
+      { files, ignores: [...exemptPatterns, ...testGlobs], rules: buildRules(disabledPackages) },
     ];
   });
 
-  return [...ignoreConfig, ...layerConfigs, ...ruleGateEntries(blueprint)];
+  return [...ignoreConfig, ...layerConfigs, ...ruleGateEntries(blueprint, testGlobs)];
 }
 
 /**
- * Entries for the known `blueprint.rules` ids — where a rule record stops
- * being documentation and becomes a lint gate. `maxLines` maps to the
- * built-in `max-lines`; `deepWatch` / `usePrefix` ride the embedded plugin.
- * Unknown ids stay docs-only; `cycles` / `deadCode` belong to Verify.
+ * The built-in metric gates: rules id → ESLint rule + default threshold.
+ * `wrap` marks the rules whose option is `{ max }` with comment skipping.
  */
-function ruleGateEntries(blueprint: Blueprint): LintConfigEntry[] {
+const METRIC_GATES = [
+  { id: 'maxLines', rule: 'max-lines', fallback: 400, wrap: true },
+  { id: 'maxLinesPerFunction', rule: 'max-lines-per-function', fallback: 100, wrap: true },
+  { id: 'maxParams', rule: 'max-params', fallback: 3, wrap: false },
+  { id: 'maxStatements', rule: 'max-statements', fallback: 15, wrap: false },
+  { id: 'complexity', rule: 'complexity', fallback: 12, wrap: false },
+] as const;
+
+/**
+ * Entries for the known `blueprint.rules` ids — where a rule record stops
+ * being documentation and becomes a lint gate. Metric ids map to built-in
+ * rules; `deepWatch` / `usePrefix` ride the embedded plugin. Test files are
+ * exempt (metrics scream on tests). Unknown ids stay docs-only; `cycles` /
+ * `deadCode` land in the generated eslint.config (third-party plugins the
+ * library itself does not depend on) and in Verify.
+ */
+function ruleGateEntries(blueprint: Blueprint, testGlobs: string[]): LintConfigEntry[] {
   const { framework, architecture, rules } = blueprint;
   const { layers, layerFiles } = architecture;
   const entries: LintConfigEntry[] = [];
 
   const shared: Linter.RulesRecord = {};
-  const maxLines = active(rules?.maxLines);
 
-  if (maxLines) {
-    shared['max-lines'] = [
-      maxLines.tier,
-      { max: maxLines.value ?? 400, skipBlankLines: true, skipComments: true },
-    ];
+  for (const { id, rule, fallback, wrap } of METRIC_GATES) {
+    const setting = active(rules?.[id]);
+
+    if (!setting) continue;
+
+    const max = setting.value ?? fallback;
+
+    shared[rule] = [setting.tier, wrap ? { max, skipBlankLines: true, skipComments: true } : max];
+  }
+
+  const unusedVars = active(rules?.unusedVars);
+
+  if (unusedVars) {
+    shared['no-unused-vars'] = [unusedVars.tier, { argsIgnorePattern: '^_' }];
   }
 
   const deepWatch = active(rules?.deepWatch);
@@ -125,6 +156,8 @@ function ruleGateEntries(blueprint: Blueprint): LintConfigEntry[] {
   if (Object.keys(shared).length) {
     entries.push({
       files: [...new Set(layers.flatMap((l) => resolveLayerFiles(l.name, layerFiles, framework)))],
+      ignores: testGlobs,
+      linterOptions: { reportUnusedDisableDirectives: 'error' },
       ...(needsPlugin ? { plugins: { blueprint: plugin } } : {}),
       rules: shared,
     });
@@ -138,6 +171,7 @@ function ruleGateEntries(blueprint: Blueprint): LintConfigEntry[] {
 
     entries.push({
       files: resolveLayerFiles(layer, layerFiles, framework),
+      ignores: testGlobs,
       plugins: { blueprint: plugin },
       rules: { 'blueprint/use-prefix': [usePrefix.tier, { prefix }] },
     });

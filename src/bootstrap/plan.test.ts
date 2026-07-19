@@ -49,6 +49,27 @@ describe('plan', () => {
     expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('~app'))).toBe(true);
   });
 
+  it('generates the third-party CORE in eslint.config.mjs, tier-driven', () => {
+    const content = write(plan(state(), bp, null, {}), 'eslint.config.mjs')?.content;
+
+    expect(content).toContain('import importPlugin from \'eslint-plugin-import\';');
+    expect(content).toContain('\'import/no-cycle\': [\'error\', { maxDepth: Infinity }],');
+    expect(content).toContain('\'import/no-unused-modules\': [\'warn\', { unusedExports: true }],');
+    expect(content).toContain('no-unlimited-disable\': \'error\'');
+
+    const warned = { ...bp, rules: { cycles: { tier: 'warn' as const } } };
+    const warnedContent = write(plan(state(), warned, null, {}), 'eslint.config.mjs')?.content;
+
+    expect(warnedContent).toContain('\'import/no-cycle\': [\'warn\', { maxDepth: Infinity }],');
+    expect(warnedContent).not.toContain('import/no-unused-modules');
+
+    const off = { ...bp, rules: { cycles: 'off' as const } };
+    const offContent = write(plan(state(), off, null, {}), 'eslint.config.mjs')?.content;
+
+    expect(offContent).not.toContain('import/no-cycle');
+    expect(offContent).toContain('require-description');
+  });
+
   it('omits the config write when configSource is null', () => {
     expect(write(plan(state({ hasConfig: true }), bp, null, {}), 'blueprint.config.mjs')).toBeUndefined();
   });

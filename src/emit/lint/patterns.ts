@@ -9,6 +9,16 @@ const DEFAULT_GLOBS: Record<Framework, string> = {
   auto: 'src/{layer}/**/*.{js,jsx,ts,tsx,vue}',
 };
 
+const DEFAULT_TEST_FILES = [
+  '**/*.test.{js,jsx,ts,tsx,vue}',
+  '**/*.spec.{js,jsx,ts,tsx,vue}',
+];
+
+/** Resolve the test-file globs, defaulting to the `*.test.* / *.spec.*` pair. */
+export function resolveTestFiles(testFiles: string | string[] | undefined): string[] {
+  return testFiles === undefined ? DEFAULT_TEST_FILES : toArray(testFiles);
+}
+
 /** Coerce a `string | string[]` option to an array. */
 export function toArray(value: string | string[]): string[] {
   return Array.isArray(value) ? value : [value];
@@ -96,8 +106,10 @@ export function buildStructuralPatterns(params: {
   aliases: string[];
   forbidden: string[];
   moduleLayout: 'folder' | 'flat';
+  /** Fixture roots barred from production imports (`rules.fixtureImports`). */
+  fixtures?: string[];
 }): GroupPattern[] {
-  const { layer, aliases, forbidden, moduleLayout } = params;
+  const { layer, aliases, forbidden, moduleLayout, fixtures } = params;
 
   const patterns: GroupPattern[] = [
     {
@@ -124,6 +136,14 @@ export function buildStructuralPatterns(params: {
       group: forbidden.flatMap((banned) => aliases.map((a) => `${a}/${banned}/**`)),
       message:
         '\n🚫 This import violates the dependency flow. Only import from allowed lower layers.',
+    });
+  }
+
+  if (fixtures?.length) {
+    patterns.push({
+      group: fixtures,
+      message:
+        '\n🚫 Production code must not import fixtures — missing data renders empty or error, never fake.',
     });
   }
 

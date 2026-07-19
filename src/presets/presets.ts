@@ -142,6 +142,13 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
     componentShape: componentShape(),
     rules: {
       maxLines: { tier: 'error', value: 400 },
+      // SRP triage — entry points only, never verdicts (handbook axes #2/#3).
+      maxLinesPerFunction: { tier: 'warn', value: 100 },
+      maxParams: { tier: 'warn', value: 3 },
+      maxStatements: { tier: 'warn', value: 15 },
+      complexity: { tier: 'warn', value: 12 },
+      unusedVars: 'error',
+      fixtureImports: 'error',
       cycles: 'error',
       deadCode: 'error',
       usePrefix: 'error',
