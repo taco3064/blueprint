@@ -1,5 +1,25 @@
 # @kekkai/blueprint
 
+## 0.2.0
+
+### Minor Changes
+
+- The DX round — discoverability, brownfield adoption, blast radius:
+
+  - **Real help**: top-level usage leads with the value proposition;
+    `init` / `inspect` / `deps` each have `--help` describing what gets
+    generated, every flag, and the auto-detect / no-overwrite / idempotent
+    guarantees.
+  - **`inspect --baseline` / `--update-baseline`** — the brownfield
+    ratchet: record today's debt in `.blueprint-baseline.json`, then fail
+    only on new findings; stale entries are reported so the ratchet keeps
+    tightening.
+  - **`blueprint deps [module]`** — reverse dependencies / blast radius:
+    who imports a module and what it imports, or the full fan-in
+    leaderboard; `runDeps` is exported from the package root.
+  - README (both languages) opens with a Before/After tree and documents
+    the hand-off stance.
+
 ## 0.1.3
 
 ### Patch Changes
