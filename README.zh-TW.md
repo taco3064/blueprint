@@ -29,6 +29,26 @@
 >
 > 產出的 config 只支援 **Flat Config**。還在用舊式 `.eslintrc` 的專案請先遷移。
 
+## ⚡ Before / After
+
+一個指令、零 runtime 依賴：
+
+```text
+my-app/                          my-app/
+├─ package.json                  ├─ package.json
+└─ src/               ──────▶    ├─ blueprint.config.mjs               ← 唯一的架構來源
+   npx @kekkai/blueprint init    ├─ eslint.config.mjs                  ← 結構規則，編譯產物
+                                 ├─ jsconfig.json                      ← import alias 接好
+                                 ├─ CLAUDE.md · AGENTS.md              ← AI agent 契約
+                                 ├─ docs/architecture-handbook.md      ← 給人讀的「為什麼」
+                                 ├─ .github/workflows/blueprint-ci.yml ← lint + inspect 當 gate
+                                 └─ src/
+                                    ├─ pages/ ├─ containers/ ├─ components/
+                                    ├─ hooks/ ├─ contexts/   └─ services/
+```
+
+Framework 從 `package.json` **自動偵測**（`--framework` 只在曖昧時破平手）、既有的 eslint config **絕不覆蓋**（init 改印合併 snippet）、重跑 init 冪等。
+
 ## ✨ Core Ideas
 
 1. **一份來源、多個目標**
@@ -240,7 +260,11 @@ export default defineBlueprint({
 
 ## 🧠 Philosophy
 
-Lint 是進場點，不是結論。Blueprint 把機器查得了的全部推進 gate，查不了的編譯進「人跟 agent 真的會讀」的兩份 artifact —— 讓判斷規則在每次改動的 context 裡，而不是在沒人開的 wiki 分頁裡。這個 package 自己就活在自己的手冊裡：entry-only module import、沒有 `utils` 雜物櫃、100% 測試覆蓋率是硬 gate。
+Lint 是進場點，不是結論。Blueprint 把機器查得了的全部推進 gate，查不了的編譯進「人跟 agent 真的會讀」的兩份 artifact —— 讓判斷規則在每次改動的 context 裡，而不是在沒人開的 wiki 分頁裡。
+
+Blueprint **替 agent 備料，不代替你操作 agent** —— `init` 是決定論的 scaffold，不 shell out 到任何 agent，所以不存在授權跟憑證的攻擊面。
+
+這個 package 自己就活在自己的手冊裡：entry-only module import、沒有 `utils` 雜物櫃、100% 測試覆蓋率是硬 gate。
 
 ## License
 

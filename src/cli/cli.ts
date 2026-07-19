@@ -9,11 +9,52 @@ import { runInspect } from '../inspect';
 import type { InspectOptions } from '../inspect';
 
 const USAGE = [
+  'blueprint — Architecture as Code. One blueprint compiles into ESLint rules,',
+  'a human handbook, an AI agent contract, and a CI gate.',
+  '',
   'Usage:',
-  '  blueprint init    [--framework vue|react] [--no-install] [--dry-run]',
-  '  blueprint inspect [--framework vue|react] [--json]',
+  '  blueprint init      Scaffold it all: layers, lint, docs, agent contracts, CI.',
+  '  blueprint inspect   Read-only architecture report (CI-gateable).',
   '  blueprint --help | --version',
+  '',
+  'Run `blueprint <command> --help` for flags and details.',
 ].join('\n');
+
+const INIT_HELP = [
+  'blueprint init — scaffold the architecture operating contract.',
+  '',
+  'Generates:',
+  '  · src/<layer>/ folders for every declared layer',
+  '  · blueprint.config.mjs (vue/react preset, or loaded when one exists)',
+  '  · eslint.config.mjs — structural rules + the embedded plugin',
+  '  · docs/architecture-handbook.md and AI agent contracts (CLAUDE.md, AGENTS.md)',
+  '  · compilerOptions.paths for the import alias (lossless edits only)',
+  '  · .github/workflows/blueprint-ci.yml — lint + inspect as the gate',
+  '',
+  'Flags:',
+  '  --framework vue|react   Only needed when package.json detection is',
+  '                          ambiguous — vue/react is otherwise auto-detected.',
+  '  --no-install            Skip dependency installation.',
+  '  --dry-run               Print the plan, write nothing.',
+  '',
+  'An existing eslint config is never overwritten — init prints a merge',
+  'snippet instead. Re-running init is idempotent.',
+].join('\n');
+
+const INSPECT_HELP = [
+  'blueprint inspect — read-only architecture report.',
+  '',
+  'Scans src/, checks it against the blueprint, and reports: undeclared',
+  'folders, flow violations, deep imports, package ownership, relative',
+  'escapes, missing module entries, selfOnly re-exports, import cycles.',
+  'Any error-level finding exits 1, so it drops straight into CI.',
+  '',
+  'Flags:',
+  '  --framework vue|react   Force the preset when detection is ambiguous.',
+  '  --json                  Machine-readable output.',
+].join('\n');
+
+const COMMAND_HELP: Record<string, string> = { init: INIT_HELP, inspect: INSPECT_HELP };
 
 /**
  * The package version, read at runtime. The bundled bin lives at
@@ -84,6 +125,13 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
 
   if (command === '--version' || command === '-v') {
     console.log(version());
+
+    return 0;
+  }
+
+  if (command !== undefined && command in COMMAND_HELP
+    && (rest.includes('--help') || rest.includes('-h'))) {
+    console.log(COMMAND_HELP[command]);
 
     return 0;
   }

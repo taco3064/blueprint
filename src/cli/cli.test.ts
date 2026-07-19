@@ -143,3 +143,26 @@ describe('help & version flags', () => {
     expect(version('/no/such/dir')).toBe('unknown');
   });
 });
+
+describe('per-command help', () => {
+  it('prints command help and exits 0 for init/inspect --help', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    expect(await run(['init', '--help'])).toBe(0);
+    expect(log.mock.calls[0][0]).toContain('blueprint init — scaffold');
+    expect(log.mock.calls[0][0]).toContain('never overwritten');
+
+    expect(await run(['inspect', '-h'])).toBe(0);
+    expect(log.mock.calls[1][0]).toContain('read-only architecture report');
+    log.mockRestore();
+  });
+
+  it('keeps the value proposition in the top-level usage', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await run(['--help']);
+    expect(log.mock.calls[0][0]).toContain('Architecture as Code');
+    expect(log.mock.calls[0][0]).toContain('AI agent contract');
+    log.mockRestore();
+  });
+});

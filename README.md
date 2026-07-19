@@ -32,6 +32,28 @@ single source of truth, and everything else is a compile target —
 > The emitted config is **Flat Config only**. If your project still uses legacy
 > `.eslintrc`, migrate first.
 
+## ⚡ Before / After
+
+One command, zero runtime dependencies:
+
+```text
+my-app/                          my-app/
+├─ package.json                  ├─ package.json
+└─ src/               ──────▶    ├─ blueprint.config.mjs               ← the single source of truth
+   npx @kekkai/blueprint init    ├─ eslint.config.mjs                  ← structural rules, generated
+                                 ├─ jsconfig.json                      ← import alias wired
+                                 ├─ CLAUDE.md · AGENTS.md              ← AI agent operating contract
+                                 ├─ docs/architecture-handbook.md      ← the "why", for humans
+                                 ├─ .github/workflows/blueprint-ci.yml ← lint + inspect as the gate
+                                 └─ src/
+                                    ├─ pages/ ├─ containers/ ├─ components/
+                                    ├─ hooks/ ├─ contexts/   └─ services/
+```
+
+The framework is auto-detected from `package.json` (`--framework` only breaks ties), an
+existing eslint config is **never overwritten** (init prints a merge snippet instead), and
+re-running init is idempotent.
+
 ## ✨ Core Ideas
 
 1. **One source, many targets**
@@ -267,8 +289,14 @@ inside an existing CLAUDE.md / AGENTS.md without touching hand-written content.
 Lint is an entry point, not a verdict. Blueprint pushes everything machine-checkable into
 gates, and compiles everything else into the two artifacts a human and an agent actually
 read — so the judgment rules are *in context* on every change, instead of in a wiki tab
-nobody opens. This package lives by its own handbook: entry-only module imports, no `utils`
-drawer, and 100% test coverage enforced as a hard gate.
+nobody opens.
+
+Blueprint **prepares for agents; it never operates one**. `init` is a deterministic
+scaffold — it hands the contract off and shells out to nothing, so there is no credential
+or authorization surface to reason about.
+
+This package lives by its own handbook: entry-only module imports, no `utils` drawer, and
+100% test coverage enforced as a hard gate.
 
 ## License
 
