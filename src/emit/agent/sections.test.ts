@@ -112,7 +112,10 @@ describe('renderHardRules', () => {
 
     expect(out).toContain('Import a module via its `index`');
     expect(out).toContain('`maxLines` = 400 is a hard gate.');
-    expect(out).toContain('`noUtils` is a hard gate.');
+    // Unknown ids are documentation — the contract must not call them gates.
+    expect(out).not.toContain('`noUtils` is a hard gate.');
+    expect(out).not.toContain('`deadCode` is a hard gate.');
+
     expect(out).not.toContain('`soft`'); // warn-tier not a hard gate
     expect(out).toContain('Never silence it with `eslint-disable`');
   });
@@ -203,5 +206,16 @@ describe('renderPlaybook (contract)', () => {
     expect(out).toContain('- **Never fake.** It hides bugs.');
     expect(out).toContain('#### Refactor');
     expect(out).toContain('- **Net first.**');
+  });
+});
+
+describe('renderBehavioral · deadCode honesty', () => {
+  it('routes error-tier deadCode to knip instead of claiming a lint gate', () => {
+    const out = renderBehavioral(arch(), undefined, { deadCode: 'error' });
+
+    expect(out).toContain('no lint rule can gate it');
+    expect(out).toContain('npx knip');
+
+    expect(renderBehavioral(arch(), undefined, { deadCode: 'warn' })).not.toContain('npx knip');
   });
 });

@@ -1,5 +1,24 @@
 # @kekkai/blueprint
 
+## 1.0.1
+
+### Patch Changes
+
+- DX polish round for 1.0:
+
+  - **The contract no longer writes checks the tooling can't cash.** "Hard
+    rules (lint enforces these)" now lists only rule ids a machine
+    actually gates out of the box; error-tier `deadCode` moves to the
+    behavioral section with its real gate spelled out (`npx knip`,
+    installed by init — wire it into CI to make it hard), and unknown ids
+    are never called gates.
+  - **Brownfield merge is copy-ready**: when an eslint config already
+    exists, init writes `eslint.config.blueprint.mjs` — the full generated
+    config as a diffable, clearly-unwired reference — and the instruct
+    shows the exact diff command and minimal merge block.
+  - Per-command `--help` now carries example invocations; the README
+    gains a 30-second before/after tree.
+
 ## 1.0.0
 
 ### Major Changes

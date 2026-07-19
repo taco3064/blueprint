@@ -25,6 +25,20 @@ npx @kekkai/blueprint init      # greenfield: scaffold it all
 npx @kekkai/blueprint inspect   # brownfield: architecture report + baseline ratchet
 ```
 
+**30 seconds on a fresh Vite app** — one command turns this:
+
+```text
+my-app/                        my-app/
+├─ package.json          ──▶   ├─ blueprint.config.mjs                ← single source of truth
+└─ src/                        ├─ eslint.config.mjs                   ← rules + parsers, generated
+                               ├─ CLAUDE.md · AGENTS.md               ← agent operating contract
+                               ├─ docs/architecture-handbook.md       ← the "why", for humans
+                               ├─ .github/workflows/blueprint-ci.yml  ← lint + inspect as the gate
+                               └─ src/pages|containers|components|hooks|contexts|services/
+```
+
+Framework auto-detected, existing configs never overwritten, re-runs idempotent.
+
 ## 🔒 Security & trust
 
 - **Never operates an agent** — it writes plain-markdown contracts for coding agents

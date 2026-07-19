@@ -51,9 +51,18 @@ export function plan(
   }
 
   if (state.hasEslintConfig) {
+    // Copy-ready hand-off: the full generated config lands next to the user's
+    // own as a reference file they can diff and merge from — never wired in.
+    actions.push({
+      kind: 'write',
+      path: 'eslint.config.blueprint.mjs',
+      content: eslintConfigSource(blueprint, state),
+      note: 'eslint.config.blueprint.mjs (reference — not wired in)',
+    });
+
     actions.push({
       kind: 'instruct',
-      note: 'eslint.config already exists — spread blueprint into it:\n    import blueprint from \'./blueprint.config.mjs\';\n    import { emitLint } from \'@kekkai/blueprint\';\n    export default [ ...emitLint(blueprint) ];\n  …and add the third-party CORE block (import/no-cycle, import/no-unused-modules, eslint-comments discipline) — compare a generated eslint.config.mjs.',
+      note: 'eslint.config already exists, so it was not touched. Merge from the reference file:\n    diff eslint.config.blueprint.mjs eslint.config.*   # see what blueprint adds\n  Minimal merge — spread the blueprint rules into your existing config:\n    import blueprint from \'./blueprint.config.mjs\';\n    import { emitLint } from \'@kekkai/blueprint\';\n    export default [ ...emitLint(blueprint), /* …your existing entries */ ];\n  Then copy the parser + CORE blocks you need from the reference file, and delete it.',
     });
   } else {
     actions.push({

@@ -116,6 +116,25 @@ const METRIC_GATES = [
 ] as const;
 
 /**
+ * The rule ids a machine actually gates out of the box: the metric family and
+ * plugin rules land in the emitted ESLint config; `cycles` lands in the
+ * generated config (`import/no-cycle`) and in `inspect`. Everything else —
+ * `deadCode`, unknown ids — is documentation, and the agent contract must not
+ * call it a hard gate.
+ */
+export const LINT_GATED_RULE_IDS = [
+  ...METRIC_GATES.map((gate) => gate.id),
+  'unusedVars',
+  'fixtureImports',
+  'deepWatch',
+  'usePrefix',
+  'usePrefixReactivity',
+  'testFilename',
+  'typedefOnlyFile',
+  'cycles',
+];
+
+/**
  * Entries for the known `blueprint.rules` ids — where a rule record stops
  * being documentation and becomes a lint gate. Metric ids map to built-in
  * rules; `deepWatch` / `usePrefix` ride the embedded plugin. Test files are

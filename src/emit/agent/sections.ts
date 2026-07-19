@@ -8,6 +8,7 @@ import type {
   Tier,
 } from '../../config';
 import { normalizeAllowedImporters } from '../../config';
+import { LINT_GATED_RULE_IDS } from '../lint';
 import { formatOwns } from '../../markdown';
 
 function tierOf(setting: RuleSetting): Tier {
@@ -115,7 +116,11 @@ export function renderHardRules(
     '- No redundant relative segments (`./../`, `././`).',
   );
 
+  // Only rules a machine actually gates may be called hard — anything else
+  // here would be a promise the tooling does not keep.
   for (const [id, setting] of rulesOfTier(rules, 'error')) {
+    if (!LINT_GATED_RULE_IDS.includes(id)) continue;
+
     const value = valueOf(setting);
 
     bullets.push(`- \`${id}\`${value === undefined ? '' : ` = ${value}`} is a hard gate.`);
@@ -161,6 +166,12 @@ export function renderBehavioral(
       (principle) => `- **${principle.say}** — ${principle.why}`,
     ),
   ];
+
+  if (rules?.deadCode !== undefined && tierOf(rules.deadCode) === 'error') {
+    bullets.push(
+      '- **Dead code is error-tier, but no lint rule can gate it** — `npx knip` is the gate (init installs it); wire it into CI to make it hard.',
+    );
+  }
 
   if (rulesOfTier(rules, 'warn').length) {
     bullets.push(

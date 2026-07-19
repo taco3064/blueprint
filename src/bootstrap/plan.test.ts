@@ -137,11 +137,23 @@ describe('plan', () => {
     expect(actions.filter((a) => a.kind === 'mkdir')).toHaveLength(4);
   });
 
-  it('instructs instead of writing eslint config when one exists', () => {
+  it('writes a diffable reference config instead of touching an existing one', () => {
     const actions = plan(state({ hasEslintConfig: true }), bp, null, {});
 
     expect(write(actions, 'eslint.config.mjs')).toBeUndefined();
-    expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('already exists'))).toBe(true);
+
+    // Copy-ready hand-off: the full generated config, clearly marked unwired.
+    const reference = write(actions, 'eslint.config.blueprint.mjs');
+
+    expect(reference?.content).toContain('emitLint');
+    expect(reference?.note).toContain('not wired in');
+
+    const note = actions.find(
+      (a) => a.kind === 'instruct' && a.note.includes('was not touched'),
+    );
+
+    expect(note?.note).toContain('diff eslint.config.blueprint.mjs');
+    expect(note?.note).toContain('...emitLint(blueprint)');
   });
 
   it('omits install when disabled or nothing is missing', () => {

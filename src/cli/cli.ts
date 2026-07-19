@@ -37,8 +37,12 @@ const INIT_HELP = [
   '  --no-install            Skip dependency installation.',
   '  --dry-run               Print the plan, write nothing.',
   '',
-  'An existing eslint config is never overwritten — init prints a merge',
-  'snippet instead. Re-running init is idempotent.',
+  'An existing eslint config is never overwritten — init writes a reference',
+  'file to merge from instead. Re-running init is idempotent.',
+  '',
+  'Examples:',
+  '  npx @kekkai/blueprint init --dry-run     # see the plan first',
+  '  npx @kekkai/blueprint init               # scaffold + install',
 ].join('\n');
 
 const INSPECT_HELP = [
@@ -57,6 +61,10 @@ const INSPECT_HELP = [
   '  --baseline              Fail only on findings NOT in the baseline — the',
   '                          brownfield ratchet: stop getting worse today,',
   '                          tighten as debt is paid down.',
+  '',
+  'Examples:',
+  '  npx @kekkai/blueprint inspect --update-baseline   # adopt: lock today\'s debt',
+  '  npx @kekkai/blueprint inspect --baseline          # CI: fail only on new findings',
 ].join('\n');
 
 const DEPS_HELP = [
@@ -69,6 +77,10 @@ const DEPS_HELP = [
   'Flags:',
   '  --framework vue|react   Force the preset when detection is ambiguous.',
   '  --json                  Machine-readable output.',
+  '',
+  'Examples:',
+  '  npx @kekkai/blueprint deps hooks/useCart   # who gets hit if I change this',
+  '  npx @kekkai/blueprint deps                 # fan-in leaderboard',
 ].join('\n');
 
 const COMMAND_HELP: Record<string, string> = {
