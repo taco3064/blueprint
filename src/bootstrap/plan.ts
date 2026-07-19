@@ -118,13 +118,12 @@ function mergeContract(existing: string | null, contract: string): string {
  */
 function eslintConfigSource(blueprint: Blueprint): string {
   const cycles = activeTier(blueprint.rules?.cycles);
-  const deadCode = activeTier(blueprint.rules?.deadCode);
 
   const core = [
     ...(cycles ? [`      'import/no-cycle': ['${cycles}', { maxDepth: Infinity }],`] : []),
-    ...(deadCode
-      ? ['      \'import/no-unused-modules\': [\'warn\', { unusedExports: true }], // knip is the source of truth']
-      : []),
+    // rules.deadCode deliberately emits no ESLint line: import/no-unused-modules
+    // cannot run under flat config (import-js/eslint-plugin-import#3079) — dead
+    // code is knip's job (installed by init) plus `blueprint inspect`.
     '      \'@eslint-community/eslint-comments/no-unlimited-disable\': \'error\',',
     '      \'@eslint-community/eslint-comments/require-description\': \'error\',',
   ];

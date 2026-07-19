@@ -56,14 +56,14 @@ describe('plan', () => {
 
     expect(content).toContain('import importPlugin from \'eslint-plugin-import\';');
     expect(content).toContain('\'import/no-cycle\': [\'error\', { maxDepth: Infinity }],');
-    expect(content).toContain('\'import/no-unused-modules\': [\'warn\', { unusedExports: true }],');
+    // deadCode emits no ESLint line — flat config cannot run no-unused-modules.
+    expect(content).not.toContain('import/no-unused-modules');
     expect(content).toContain('no-unlimited-disable\': \'error\'');
 
     const warned = { ...bp, rules: { cycles: { tier: 'warn' as const } } };
     const warnedContent = write(plan(state(), warned, null, {}), 'eslint.config.mjs')?.content;
 
     expect(warnedContent).toContain('\'import/no-cycle\': [\'warn\', { maxDepth: Infinity }],');
-    expect(warnedContent).not.toContain('import/no-unused-modules');
 
     const off = { ...bp, rules: { cycles: 'off' as const } };
     const offContent = write(plan(state(), off, null, {}), 'eslint.config.mjs')?.content;
