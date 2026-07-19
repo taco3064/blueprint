@@ -1,5 +1,6 @@
 import { aliasActions } from './alias';
 import { emitAgentFiles } from '../emit/agent';
+import { emitCi } from '../emit/ci';
 import { emitHandbook } from '../emit/docs';
 import { injectBetweenMarkers } from '../markdown';
 import type { Blueprint, RuleSetting } from '../config';
@@ -60,6 +61,15 @@ export function plan(
       path: 'eslint.config.mjs',
       content: eslintConfigSource(blueprint),
       note: 'eslint.config.mjs',
+    });
+  }
+
+  if (emit?.ci === 'github') {
+    actions.push({
+      kind: 'write',
+      path: '.github/workflows/blueprint-ci.yml',
+      content: emitCi(blueprint, { packageManager: state.packageManager }),
+      note: '.github/workflows/blueprint-ci.yml',
     });
   }
 

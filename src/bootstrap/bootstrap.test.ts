@@ -42,6 +42,9 @@ describe('runInit', () => {
     expect(JSON.parse(read('jsconfig.json'))).toEqual({
       compilerOptions: { paths: { '~app/*': ['./src/*'] } },
     });
+
+    // The preset opts into CI generation (Day-1 doctrine).
+    expect(read('.github/workflows/blueprint-ci.yml')).toContain('npx blueprint inspect');
   });
 
   it('patches an existing parseable tsconfig.json with the alias paths', async () => {

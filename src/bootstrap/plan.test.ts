@@ -72,6 +72,18 @@ describe('plan', () => {
     expect(offContent).toContain('require-description');
   });
 
+  it('writes the CI workflow only when emit.ci is github', () => {
+    const workflow = write(plan(state(), bp, null, {}), '.github/workflows/blueprint-ci.yml');
+
+    expect(workflow?.content).toContain('npx blueprint inspect');
+
+    const none = { ...bp, emit: { ...bp.emit, ci: 'none' as const } };
+
+    expect(
+      write(plan(state(), none, null, {}), '.github/workflows/blueprint-ci.yml'),
+    ).toBeUndefined();
+  });
+
   it('omits the config write when configSource is null', () => {
     expect(write(plan(state({ hasConfig: true }), bp, null, {}), 'blueprint.config.mjs')).toBeUndefined();
   });

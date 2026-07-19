@@ -209,6 +209,8 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
       // Deep watch is a Vue cost trap; React has no equivalent call to gate.
       ...(framework === 'vue' ? { deepWatch: 'error' as const } : {}),
     },
+    // Day-1 doctrine: the architecture gates run in CI from the first commit.
+    emit: { ci: 'github' },
   });
 }
 
