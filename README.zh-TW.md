@@ -143,6 +143,101 @@ export default defineBlueprint({
 
 預設 `['claude', 'agents']`；用 `emit.agents` 調整。
 
+## 📚 API
+
+以下全部從 package 根匯出。所有 emitter 都是**純函式、決定論** —— 同一份 blueprint 永遠吐同一份輸出。
+
+### `defineBlueprint(config): Blueprint`
+
+先驗證引用完整性 —— 層名重複、importer 沒宣告在前面、覆寫 managed lint rule、未知 agent target、axis / playbook id 重複 —— 驗過原封不動回傳。`validateBlueprint(config)` 是同一套檢查的獨立版。
+
+#### `Blueprint`
+
+| Field | Type | 說明 |
+|---|---|---|
+| `name?` | `string` | 手冊標題 / agent 契約的 context |
+| `framework` | `'vue' \| 'react' \| 'auto'` | `auto` = bootstrap 時偵測 |
+| `architecture` | `ArchitectureDef` | 見下表 |
+| `rules?` | `Record<string, RuleSetting>` | `'error' \| 'warn' \| 'off'` 或 `{ tier, value?, …options }`；已知 id 見上方對照表 |
+| `principles?` | `PrincipleDef[]` | `{ id, say, why, land: 'lint' \| 'claude' }` |
+| `componentShape?` | `AxisDef[]` | `{ id, name, say, why, triage? }` |
+| `playbook?` | `PlaybookSection[]` | `{ title, rules: { id, say, why? }[] }` |
+| `emit?` | `EmitDef` | 輸出路徑與目標，見下表 |
+
+#### `architecture`
+
+| Field | Type | 說明 |
+|---|---|---|
+| `alias` | `string` | 專案 import alias（如 `~app`）—— 必填 |
+| `additionalAliases?` | `Record<string, string>` | 額外 alias → 目錄 |
+| `layers` | `LayerDef[]` | **有序** —— 順序本身就是單向依賴流 |
+| `flow` | `'one-way'` | |
+| `module` | `{ layout: 'folder' \| 'flat', entry, private }` | feature-folder 形狀 |
+| `layerFiles?` | `string \| string[]` | lint glob，帶 `{layer}` placeholder |
+| `layerFilesIgnore?` | `string \| string[]` | 全域忽略的 glob |
+| `testFiles?` | `string \| string[]` | 預設 `*.test.* / *.spec.*` —— 結構規則跟 metric gate 不咬測試檔（per-entry 排除，所以 test 專屬 rule 還碰得到） |
+| `naming?` | `Record<string, string>` | 概念 → 命名慣例，render 進文件 |
+
+#### `LayerDef`
+
+| Field | 說明 |
+|---|---|
+| `name` / `does` | 資料夾名 / 一句話職責 |
+| `mustNot?` | render 進手冊與 agent 契約 |
+| `owns?` | `'axios'` 簡寫、`{ package, imports?, pattern?, exempt? }`、或 `{ global: 'fetch' }` —— 獨佔歸屬，其他層一律禁用 |
+| `allowedImporters?` | `('name' \| { layer, selfOnly?, description? })[]` —— 只能填**宣告在前面**的層；`selfOnly` = 可依賴、不可再輸出 |
+| `lintOverrides?` | 該層的 ESLint 覆寫（managed rules 會被擋） |
+
+#### `emit`
+
+| Field | 說明 |
+|---|---|
+| `handbook?` | 手冊輸出路徑（預設 `docs/architecture-handbook.md`） |
+| `agents?` | `(target \| { target, path? })[]` —— 預設 `['claude', 'agents']`，`[]` = 不吐 |
+| `ci?` | `'github' \| 'none'` |
+| `lint?` | `{ severity?: 'error' \| 'warn' }`，管 structural rules 的等級 |
+
+### Emitters
+
+| Function | 回傳 |
+|---|---|
+| `emitLint(blueprint)` | `LintConfigEntry[]` —— spread 進 `eslint.config.js`；內嵌 plugin 跟著 `plugins` 一起帶出 |
+| `emitHandbook(blueprint)` | 手冊 markdown `string` |
+| `emitAgentContract(blueprint)` | agent 契約 `string`（`##` 標題，可嵌進現有 CLAUDE.md） |
+| `emitAgentFiles(blueprint)` | `AgentFile[]` —— `{ target, path, strategy: 'merge' \| 'own', content }` |
+| `emitCi(blueprint, { packageManager? })` | GitHub Actions workflow `string`（認 `npm`/`pnpm`/`yarn`） |
+
+### `runInspect(root, options?): Promise<{ findings, ok }>`
+
+程式化的 `blueprint inspect`。`options`：`{ framework?, json?, log?, loadConfig? }`。每個 `Finding` 是 `{ severity: 'error' | 'warn' | 'info', rule, path, message }`；有任何 error 級 finding 時 `ok` 為 `false`。
+
+### `vuePreset(options?)` / `reactPreset(options?)`
+
+`{ name?, alias? }` → 一份全新、已驗證、承載完整治理手冊的 Blueprint。每次呼叫都是獨立物件 —— 改了不影響下一份。
+
+### `plugin`
+
+內嵌的 ESLint plugin，也能單獨掛（`plugins: { blueprint: plugin }`）：
+
+| Rule | 檢查什麼 |
+|---|---|
+| `blueprint/no-deep-watch` | `watch(src, cb, { deep: true })` —— deep watch 每次變動都掃整個 source |
+| `blueprint/use-prefix` | hooks 層的 function 形狀 export 必須 `use` 開頭 |
+| `blueprint/use-prefix-needs-reactivity` | 叫 `useX` 的檔案必須真的呼叫 reactive / lifecycle API |
+| `blueprint/test-filename-matches-source` | 測試檔必須有同名 co-located source |
+| `blueprint/no-typedef-only-file` | 禁止只有 `@typedef` 的檔（JS + JSDoc 專案） |
+
+### `injectBetweenMarkers(source, tag, content)`
+
+把 `source` 裡 `<!-- TAG:START -->` 與 `<!-- TAG:END -->` 之間的內容換掉；marker 缺少或順序錯就 throw。init 就是用它在現有 CLAUDE.md / AGENTS.md 裡刷新自己的區塊、不碰手寫內容。
+
+### CLI
+
+| Command | Flags | Exit |
+|---|---|---|
+| `blueprint init` | `--framework vue\|react` · `--no-install` · `--dry-run` | 失敗時 `1` |
+| `blueprint inspect` | `--framework vue\|react` · `--json` | 有 error 級 finding 時 `1` |
+
 ## 🧠 Philosophy
 
 Lint 是進場點，不是結論。Blueprint 把機器查得了的全部推進 gate，查不了的編譯進「人跟 agent 真的會讀」的兩份 artifact —— 讓判斷規則在每次改動的 context 裡，而不是在沒人開的 wiki 分頁裡。這個 package 自己就活在自己的手冊裡：entry-only module import、沒有 `utils` 雜物櫃、100% 測試覆蓋率是硬 gate。

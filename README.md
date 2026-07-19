@@ -158,6 +158,110 @@ The same contract is distributed to every tool your team uses, from one compile:
 
 Defaults to `['claude', 'agents']`; configure via `emit.agents`.
 
+## 📚 API
+
+Everything below is exported from the package root. Every emitter is **pure and
+deterministic** — the same blueprint always yields the same output.
+
+### `defineBlueprint(config): Blueprint`
+
+Validates referential integrity up front — duplicate layer names, importers that are not
+declared earlier, overrides of managed lint rules, unknown agent targets, duplicate
+axis/playbook ids — then returns the config unchanged. `validateBlueprint(config)` runs the
+same checks standalone.
+
+#### `Blueprint`
+
+| Field | Type | Notes |
+|---|---|---|
+| `name?` | `string` | Handbook title / agent-contract context |
+| `framework` | `'vue' \| 'react' \| 'auto'` | `auto` = detected at bootstrap time |
+| `architecture` | `ArchitectureDef` | see below |
+| `rules?` | `Record<string, RuleSetting>` | `'error' \| 'warn' \| 'off'`, or `{ tier, value?, …options }`; known ids in the table above |
+| `principles?` | `PrincipleDef[]` | `{ id, say, why, land: 'lint' \| 'claude' }` |
+| `componentShape?` | `AxisDef[]` | `{ id, name, say, why, triage? }` |
+| `playbook?` | `PlaybookSection[]` | `{ title, rules: { id, say, why? }[] }` |
+| `emit?` | `EmitDef` | output paths and targets, see below |
+
+#### `architecture`
+
+| Field | Type | Notes |
+|---|---|---|
+| `alias` | `string` | Project import alias, e.g. `~app` — required |
+| `additionalAliases?` | `Record<string, string>` | Extra alias → directory |
+| `layers` | `LayerDef[]` | **Ordered** — the order is the one-way flow |
+| `flow` | `'one-way'` | |
+| `module` | `{ layout: 'folder' \| 'flat', entry, private }` | Feature-folder shape |
+| `layerFiles?` | `string \| string[]` | Lint glob(s) carrying a `{layer}` placeholder |
+| `layerFilesIgnore?` | `string \| string[]` | Globally ignored globs |
+| `testFiles?` | `string \| string[]` | Default `*.test.* / *.spec.*` — exempt from structural rules and metric gates (per entry, so test-only rules still reach them) |
+| `naming?` | `Record<string, string>` | Concept → convention, rendered into docs |
+
+#### `LayerDef`
+
+| Field | Notes |
+|---|---|
+| `name` / `does` | Folder name / one-line responsibility |
+| `mustNot?` | Rendered into the handbook and agent contract |
+| `owns?` | `'axios'` shorthand, `{ package, imports?, pattern?, exempt? }`, or `{ global: 'fetch' }` — exclusive ownership, every other layer is barred |
+| `allowedImporters?` | `('name' \| { layer, selfOnly?, description? })[]` — each must be a layer declared **earlier**; `selfOnly` = may depend on, never re-export |
+| `lintOverrides?` | Per-layer ESLint overrides (the managed rules are rejected) |
+
+#### `emit`
+
+| Field | Notes |
+|---|---|
+| `handbook?` | Handbook output path (default `docs/architecture-handbook.md`) |
+| `agents?` | `(target \| { target, path? })[]` — default `['claude', 'agents']`, `[]` opts out |
+| `ci?` | `'github' \| 'none'` |
+| `lint?` | `{ severity?: 'error' \| 'warn' }` for the managed structural rules |
+
+### Emitters
+
+| Function | Returns |
+|---|---|
+| `emitLint(blueprint)` | `LintConfigEntry[]` — spread into `eslint.config.js`; the embedded plugin rides along in `plugins` |
+| `emitHandbook(blueprint)` | Handbook markdown `string` |
+| `emitAgentContract(blueprint)` | Agent contract `string` (`##` headings, nests into an existing CLAUDE.md) |
+| `emitAgentFiles(blueprint)` | `AgentFile[]` — `{ target, path, strategy: 'merge' \| 'own', content }` |
+| `emitCi(blueprint, { packageManager? })` | GitHub Actions workflow `string` (`npm`/`pnpm`/`yarn`-aware) |
+
+### `runInspect(root, options?): Promise<{ findings, ok }>`
+
+Programmatic `blueprint inspect`. `options`: `{ framework?, json?, log?, loadConfig? }`.
+Each `Finding` is `{ severity: 'error' | 'warn' | 'info', rule, path, message }`; `ok` is
+`false` when any error-level finding exists.
+
+### `vuePreset(options?)` / `reactPreset(options?)`
+
+`{ name?, alias? }` → a fresh, validated Blueprint carrying the canonical governance
+handbook. Every call returns an independent object — mutate freely.
+
+### `plugin`
+
+The embedded ESLint plugin, also usable standalone (`plugins: { blueprint: plugin }`):
+
+| Rule | Checks |
+|---|---|
+| `blueprint/no-deep-watch` | `watch(src, cb, { deep: true })` — deep watches traverse the whole source per change |
+| `blueprint/use-prefix` | Function-shaped exports in the hooks layer must be `use`-prefixed |
+| `blueprint/use-prefix-needs-reactivity` | A `useX`-named file must call a reactive/lifecycle API |
+| `blueprint/test-filename-matches-source` | A test file must have a co-located same-named source |
+| `blueprint/no-typedef-only-file` | No `@typedef`-only files (JS + JSDoc projects) |
+
+### `injectBetweenMarkers(source, tag, content)`
+
+Replaces the content between `<!-- TAG:START -->` and `<!-- TAG:END -->` in `source`;
+throws when the markers are missing or out of order. This is how init refreshes its block
+inside an existing CLAUDE.md / AGENTS.md without touching hand-written content.
+
+### CLI
+
+| Command | Flags | Exit |
+|---|---|---|
+| `blueprint init` | `--framework vue\|react` · `--no-install` · `--dry-run` | `1` on failure |
+| `blueprint inspect` | `--framework vue\|react` · `--json` | `1` on any error-level finding |
+
 ## 🧠 Philosophy
 
 Lint is an entry point, not a verdict. Blueprint pushes everything machine-checkable into
