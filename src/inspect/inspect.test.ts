@@ -64,3 +64,64 @@ describe('runInspect', () => {
     expect(Array.isArray(parsed.findings)).toBe(true);
   });
 });
+
+describe('runInspect · baseline ratchet', () => {
+  it('locks existing debt, then fails only on new findings', async () => {
+    writeSrc('utils/helper.ts', 'export const x = 1;');
+
+    // Record the debt.
+    const update = await runInspect(root, { updateBaseline: true, log: silent });
+
+    expect(update.ok).toBe(true);
+    expect(fs.existsSync(path.join(root, '.blueprint-baseline.json'))).toBe(true);
+
+    // Same state → clean under the baseline.
+    const clean = await runInspect(root, { baseline: true, log: silent });
+
+    expect(clean.ok).toBe(true);
+    expect(clean.findings).toEqual([]);
+
+    // A NEW violation → only it surfaces, and it fails the run.
+    writeSrc('components/Btn/Btn.ts', 'import { api } from \'~app/services/api\';');
+
+    let output = '';
+    const dirty = await runInspect(root, { baseline: true, log: (m) => (output = m) });
+
+    expect(dirty.ok).toBe(false);
+    expect(dirty.findings.map((f) => f.rule)).toContain('flow-violation');
+    expect(dirty.findings.map((f) => f.rule)).not.toContain('undeclared-folder');
+    expect(output).toContain('baselined finding(s) suppressed');
+  });
+
+  it('reports stale entries so the ratchet can tighten', async () => {
+    writeSrc('utils/helper.ts', 'export const x = 1;');
+    await runInspect(root, { updateBaseline: true, log: silent });
+
+    // Pay the debt down.
+    fs.rmSync(path.join(root, 'src', 'utils'), { recursive: true, force: true });
+
+    let output = '';
+    const { ok } = await runInspect(root, { baseline: true, log: (m) => (output = m) });
+
+    expect(ok).toBe(true);
+    expect(output).toContain('no longer occur');
+  });
+
+  it('demands an existing baseline and supports JSON output', async () => {
+    await expect(runInspect(root, { baseline: true, log: silent })).rejects.toThrow(
+      /--update-baseline/,
+    );
+
+    writeSrc('utils/helper.ts', 'export const x = 1;');
+    await runInspect(root, { updateBaseline: true, log: silent });
+
+    let output = '';
+
+    await runInspect(root, { baseline: true, json: true, log: (m) => (output = m) });
+    const parsed = JSON.parse(output);
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.suppressed).toBeGreaterThan(0);
+    expect(parsed.stale).toBe(0);
+  });
+});

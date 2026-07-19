@@ -111,6 +111,17 @@ Report** with migration steps: undeclared folders, flow violations, deep imports
 ownership, relative escapes, missing module entries, selfOnly re-exports, and import cycles.
 Any error-level finding exits `1`, so it drops straight into CI.
 
+A legacy project's first report is a wall of red — that is what the **baseline ratchet**
+is for:
+
+```bash
+npx @kekkai/blueprint inspect --update-baseline   # lock today's debt in .blueprint-baseline.json
+npx @kekkai/blueprint inspect --baseline          # CI: fail only on NEW findings
+```
+
+The codebase stops getting worse today; as debt is paid down, stale baseline entries are
+reported so the ratchet keeps tightening.
+
 ## 🧩 The Blueprint
 
 ```js

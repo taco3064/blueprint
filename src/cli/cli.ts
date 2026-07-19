@@ -52,6 +52,11 @@ const INSPECT_HELP = [
   'Flags:',
   '  --framework vue|react   Force the preset when detection is ambiguous.',
   '  --json                  Machine-readable output.',
+  '  --update-baseline       Record the current findings as the accepted debt',
+  '                          (.blueprint-baseline.json), then exit 0.',
+  '  --baseline              Fail only on findings NOT in the baseline — the',
+  '                          brownfield ratchet: stop getting worse today,',
+  '                          tighten as debt is paid down.',
 ].join('\n');
 
 const COMMAND_HELP: Record<string, string> = { init: INIT_HELP, inspect: INSPECT_HELP };
@@ -105,6 +110,10 @@ export function parseInspectArgs(args: string[]): InspectOptions {
 
     if (arg === '--json') {
       options.json = true;
+    } else if (arg === '--baseline') {
+      options.baseline = true;
+    } else if (arg === '--update-baseline') {
+      options.updateBaseline = true;
     } else if (arg === '--framework') {
       options.framework = parseFramework(args[++i]) ?? options.framework;
     }

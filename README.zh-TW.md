@@ -97,6 +97,15 @@ npx @kekkai/blueprint inspect         # 或 --json
 
 唯讀。掃 `src/`、對照 blueprint、印出 **Architecture Report** 跟遷移步驟：未宣告的資料夾、依賴流違規、deep import、套件歸屬、相對路徑跳脫、缺 module entry、selfOnly 再輸出、import cycle。有 error 級 finding 就 exit `1`，可以直接掛進 CI。
 
+Legacy 專案第一次跑一定滿江紅 —— **baseline ratchet** 就是為這個生的：
+
+```bash
+npx @kekkai/blueprint inspect --update-baseline   # 把今天的債鎖進 .blueprint-baseline.json
+npx @kekkai/blueprint inspect --baseline          # CI：只擋「新增」的違規
+```
+
+從今天起不再變爛；債還掉之後 stale 的 baseline 條目會被點名，ratchet 一路鎖緊。
+
 ## 🧩 The Blueprint
 
 ```js

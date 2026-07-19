@@ -144,6 +144,13 @@ describe('help & version flags', () => {
   });
 });
 
+describe('parseInspectArgs · baseline flags', () => {
+  it('parses --baseline and --update-baseline', () => {
+    expect(parseInspectArgs(['--baseline'])).toEqual({ baseline: true });
+    expect(parseInspectArgs(['--update-baseline'])).toEqual({ updateBaseline: true });
+  });
+});
+
 describe('per-command help', () => {
   it('prints command help and exits 0 for init/inspect --help', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
