@@ -24,7 +24,7 @@ export default defineConfig({
   description:
     'Architecture as Code — one Blueprint compiles into lint, docs, agent contracts, and CI.',
   base: '/blueprint/',
-  appearance: 'dark',
+  appearance: 'force-dark',
   head: [['link', { rel: 'icon', type: 'image/png', href: '/blueprint/favicon.png' }]],
   lastUpdated: true,
 
@@ -80,7 +80,6 @@ export default defineConfig({
         },
         outline: { label: '本頁目錄' },
         docFooter: { prev: '上一頁', next: '下一頁' },
-        darkModeSwitchLabel: '深色模式',
         returnToTopLabel: '回到頂端',
       },
     },

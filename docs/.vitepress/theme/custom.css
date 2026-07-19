@@ -1,0 +1,35 @@
+/**
+ * Brand palette lifted from the logo: gold gears on a near-black disc with
+ * an amber glow. The site is force-dark, so everything lives under :root.
+ */
+:root {
+  /* gold accents (links, active nav, sidebar marker) */
+  --vp-c-brand-1: #f0b33c;
+  --vp-c-brand-2: #dda02e;
+  --vp-c-brand-3: #c8901f;
+  --vp-c-brand-soft: rgba(240, 179, 60, 0.16);
+
+  /* deepen the background toward the logo's charcoal disc */
+  --vp-c-bg: #0f1114;
+  --vp-c-bg-alt: #14161a;
+  --vp-c-bg-soft: #1a1d22;
+  --vp-c-bg-elv: #16181d;
+
+  /* hero: gold gradient name + amber glow behind the logo */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #f6d06a 30%, #e09a20);
+  --vp-home-hero-image-background-image: radial-gradient(
+    circle,
+    rgba(240, 179, 60, 0.32) 0%,
+    rgba(240, 179, 60, 0) 62%
+  );
+  --vp-home-hero-image-filter: blur(64px);
+
+  /* gold buttons need dark text for contrast */
+  --vp-button-brand-bg: #c8901f;
+  --vp-button-brand-text: #191100;
+  --vp-button-brand-hover-bg: #dda02e;
+  --vp-button-brand-hover-text: #191100;
+  --vp-button-brand-active-bg: #b57f16;
+  --vp-button-brand-active-text: #191100;
+}
