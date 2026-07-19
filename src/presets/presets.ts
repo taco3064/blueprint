@@ -152,6 +152,11 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
       cycles: 'error',
       deadCode: 'error',
       usePrefix: 'error',
+      testFilename: 'error',
+      // warn — composing-only hooks are a known false positive (handbook caveat).
+      usePrefixReactivity: 'warn',
+      // Attached to .js files only; TS projects are unaffected by construction.
+      typedefOnlyFile: 'warn',
       // Deep watch is a Vue cost trap; React has no equivalent call to gate.
       ...(framework === 'vue' ? { deepWatch: 'error' as const } : {}),
     },

@@ -84,6 +84,18 @@ describe('presets · shape', () => {
     expect(vuePreset().rules?.usePrefix).toBe('error');
     expect(reactPreset().rules?.usePrefix).toBe('error');
   });
+
+  it('carry the handbook CORE gates and custom-rule tiers', () => {
+    const rules = vuePreset().rules ?? {};
+
+    expect(rules.maxStatements).toEqual({ tier: 'warn', value: 15 });
+    expect(rules.complexity).toEqual({ tier: 'warn', value: 12 });
+    expect(rules.unusedVars).toBe('error');
+    expect(rules.fixtureImports).toBe('error');
+    expect(rules.testFilename).toBe('error');
+    expect(rules.usePrefixReactivity).toBe('warn');
+    expect(rules.typedefOnlyFile).toBe('warn');
+  });
 });
 
 describe('presets · enforcement (real ESLint)', () => {

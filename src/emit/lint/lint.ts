@@ -147,11 +147,18 @@ function ruleGateEntries(blueprint: Blueprint, testGlobs: string[]): LintConfigE
   }
 
   const deepWatch = active(rules?.deepWatch);
-  const needsPlugin = deepWatch !== null && framework !== 'react';
 
-  if (needsPlugin) {
+  if (deepWatch && framework !== 'react') {
     shared['blueprint/no-deep-watch'] = deepWatch.tier;
   }
+
+  const usePrefixReactivity = active(rules?.usePrefixReactivity);
+
+  if (usePrefixReactivity) {
+    shared['blueprint/use-prefix-needs-reactivity'] = usePrefixReactivity.tier;
+  }
+
+  const needsPlugin = Object.keys(shared).some((rule) => rule.startsWith('blueprint/'));
 
   if (Object.keys(shared).length) {
     entries.push({
@@ -160,6 +167,27 @@ function ruleGateEntries(blueprint: Blueprint, testGlobs: string[]): LintConfigE
       linterOptions: { reportUnusedDisableDirectives: 'error' },
       ...(needsPlugin ? { plugins: { blueprint: plugin } } : {}),
       rules: shared,
+    });
+  }
+
+  const testFilename = active(rules?.testFilename);
+
+  if (testFilename) {
+    entries.push({
+      files: testGlobs,
+      plugins: { blueprint: plugin },
+      rules: { 'blueprint/test-filename-matches-source': testFilename.tier },
+    });
+  }
+
+  const typedefOnlyFile = active(rules?.typedefOnlyFile);
+
+  if (typedefOnlyFile) {
+    entries.push({
+      files: ['src/**/*.js'],
+      ignores: testGlobs,
+      plugins: { blueprint: plugin },
+      rules: { 'blueprint/no-typedef-only-file': typedefOnlyFile.tier },
     });
   }
 

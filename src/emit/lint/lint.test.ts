@@ -308,6 +308,32 @@ describe('emitLint · rules gates', () => {
     expect(ids('import { useX } from "~app/hooks/useX";')).toEqual([]);
   });
 
+  it('wires the handbook custom rules: test files, use-reactivity, typedef-only', () => {
+    const custom = defineBlueprint({
+      ...blueprint,
+      rules: { testFilename: 'error', usePrefixReactivity: 'warn', typedefOnlyFile: 'warn' },
+    });
+
+    const config = emitLint(custom);
+    const testEntry = config.find((item) => item.rules?.['blueprint/test-filename-matches-source']);
+
+    expect(testEntry?.files).toEqual([
+      '**/*.test.{js,jsx,ts,tsx,vue}',
+      '**/*.spec.{js,jsx,ts,tsx,vue}',
+    ]);
+
+    expect(testEntry?.plugins?.blueprint).toBeDefined();
+
+    const shared = config.find((item) => item.rules?.['blueprint/use-prefix-needs-reactivity']);
+
+    expect(shared?.rules?.['blueprint/use-prefix-needs-reactivity']).toBe('warn');
+    expect(shared?.plugins?.blueprint).toBeDefined();
+
+    const typedef = config.find((item) => item.rules?.['blueprint/no-typedef-only-file']);
+
+    expect(typedef?.files).toEqual(['src/**/*.js']);
+  });
+
   it('enforces the gates through a real Linter run', () => {
     const config = [
       { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
