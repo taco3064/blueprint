@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   renderArchitecture,
   renderComponentShape,
+  renderPlaybook,
   renderHeader,
   renderImportDiscipline,
   renderModule,
@@ -163,5 +164,30 @@ describe('renderComponentShape', () => {
 
     // The axis without a triage rule carries no triage note.
     expect(out.split('Triage:')).toHaveLength(2);
+  });
+});
+
+describe('renderPlaybook', () => {
+  it('is omitted when there is no playbook', () => {
+    expect(renderPlaybook(undefined)).toBe('');
+    expect(renderPlaybook([])).toBe('');
+  });
+
+  it('renders one themed section per group, with optional why', () => {
+    const out = renderPlaybook([
+      {
+        title: 'Runtime load discipline',
+        rules: [
+          { id: 'a', say: 'Price the handler.', why: 'Frequency is not in the code.' },
+          { id: 'b', say: 'Write in place.' },
+        ],
+      },
+    ]);
+
+    expect(out).toContain('## Working playbook');
+    expect(out).toContain('### Runtime load discipline');
+    expect(out).toContain('- **Price the handler.** — Frequency is not in the code.');
+    expect(out).toContain('- **Write in place.**');
+    expect(out).not.toContain('Write in place.** —');
   });
 });

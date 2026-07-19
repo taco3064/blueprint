@@ -163,6 +163,23 @@ describe('presets · downstream emitters', () => {
     expect(emitAgentContract(bp)).toContain('IMPORTABLE BY: containers, hooks (selfOnly).');
   });
 
+  it('carry the four-section playbook and render it into both artifacts', () => {
+    const bp = vuePreset();
+    const sections = bp.playbook ?? [];
+
+    expect(sections.map((section) => section.title)).toEqual([
+      'Data integrity & backend boundary',
+      'Runtime load discipline',
+      'Refactor discipline',
+      'Design collaboration',
+    ]);
+
+    expect(sections.flatMap((section) => section.rules)).toHaveLength(18);
+
+    expect(emitHandbook(bp)).toContain('## Working playbook');
+    expect(emitAgentContract(bp)).toContain('- **Never fall back to fake data.**');
+  });
+
   it('render the component-shape axes into both artifacts', () => {
     const bp = vuePreset();
     const handbook = emitHandbook(bp);

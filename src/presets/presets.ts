@@ -1,5 +1,5 @@
 import { defineBlueprint } from '../config';
-import type { AxisDef, Blueprint, Framework, OwnedPrimitive } from '../config';
+import type { AxisDef, Blueprint, Framework, OwnedPrimitive, PlaybookSection } from '../config';
 
 /** Options for a preset factory. */
 export interface PresetOptions {
@@ -86,6 +86,54 @@ function componentShape(): AxisDef[] {
   ];
 }
 
+/**
+ * The working playbook — the handbook's behavioral parts (data integrity,
+ * runtime cost, refactor and collaboration discipline). No tool enforces
+ * these; they live in the emitted handbook and agent contract.
+ */
+function playbook(): PlaybookSection[] {
+  return [
+    {
+      title: 'Data integrity & backend boundary',
+      rules: [
+        { id: 'no-fake-fallback', say: 'Never fall back to fake data.', why: 'A `payload.field || fixture.field` fallback is a bug, not a safety net — it hides integrity problems. Production renders empty, error, or skeleton; never fabricated values.' },
+        { id: 'drift-guard-framing', say: 'Frame kept defenses as drift guards.', why: 'A deliberately retained shape-defense is framed "guard against BE drift", never "support payload X missing field Y". Strip one only when drift is out of question and tests prove zero call sites.' },
+        { id: 'no-fe-workaround', say: 'Do not volunteer FE workarounds for BE-owned problems.', why: 'When the fix belongs to the backend and that position is already public, offering a short-term FE hack hands the work straight back to the frontend.' },
+        { id: 'preserve-locale-shape', say: 'Services preserve the backend locale shape.', why: 'Resolving `{ zh_cn, en }` to one string inside a service drops the other variant, pins the timing to call time, and mixes presentation into the service layer — resolve in the view.' },
+      ],
+    },
+    {
+      title: 'Runtime load discipline',
+      rules: [
+        { id: 'reprice-on-attach', say: 'Price every handler attached to a data source.', why: 'Before wiring anything to WS / polling / scroll / input, answer: events per second, data per event, per-event cost. If you cannot answer, it does not merge — and copying an existing pattern is no exemption, because frequency is not in the code.' },
+        { id: 'identity-discipline', say: 'High-frequency updates write in place.', why: 'Patch the changed entry and keep container identity; whole-replace is for baseline rebuilds only. A prop whose identity changed while its value did not is the disease. Write shapes do not port across frameworks.' },
+        { id: 'render-diagnosis', say: 'Diagnose re-renders in four steps, never by guessing.', why: 'Who renders (profiler) → what triggered it (render tracing) → who produced the identity (grep the assignment sites) → was it worth it (compare against the event payload).' },
+        { id: 'measurable-perf', say: 'Performance claims must be acceptance-testable.', why: '"Fewer re-renders" is not a claim; "one event re-renders at most N components" is. Pin it with a render-count or identity-stability test — an unmeasured performance claim did not happen.' },
+      ],
+    },
+    {
+      title: 'Refactor discipline',
+      rules: [
+        { id: 'safety-net-first', say: 'Safety net first, then split, then tidy the tests.', why: 'Three stages, one commit each, non-overlapping review scopes. Writing the net first forces the observable contract into the open.' },
+        { id: 'one-arc-one-pr', say: 'One refactor arc = one PR, one commit per phase.', why: 'The PR body maps each commit to its phase; ask before splitting the arc into separate tickets.' },
+        { id: 'extract-from-source', say: 'Extract by copying from source, never by rewriting from memory.', why: 'After extraction, diff the target against git history — a passing suite alone does not prove the extraction faithful.' },
+        { id: 'recursive-dep-scan', say: 'Scan every identifier before extracting.', why: 'Not just reactive refs — imports, local definitions, parameters. A missed dependency surfaces later as a broken extraction.' },
+        { id: 'dont-pin-moving-contracts', say: 'Do not pin what the refactor itself will change.', why: 'A safety net asserting values the arc is about to change fails the moment the sibling refactor lands.' },
+        { id: 'contract-test-payloads', say: 'AC-named payload fields deserve a contract test.', why: 'Asserting that the mocked service receives field X is not a tautology — a dropped field or an unbound handler breaks it while the source constant stays green.' },
+        { id: 'summarize-with-themes', say: 'Wrap an arc with cross-cutting themes and verified numbers.', why: 'Name the forces (ownership inversion, IO shrinkage, SRP) and attach before/after numbers verified against git history.' },
+      ],
+    },
+    {
+      title: 'Design collaboration',
+      rules: [
+        { id: 'guard-not-deviate', say: 'Frame architectural corrections as guarding the design.', why: 'State the principle being protected, show how the literal ticket reading violates it, and present the choice as that principle\'s natural consequence.' },
+        { id: 'respect-settled-design', say: 'Do not reopen settled designs.', why: 'When the shape has been specified, implement it as spec. Raise genuine concerns once, with reasons — not as a menu of alternatives.' },
+        { id: 'bypass-is-no-excuse', say: '"The user can work around it" does not park a bug.', why: 'Judge by diff size, scope, and standalone impact; a normal-path bug that violates expectations deserves its ticket.' },
+      ],
+    },
+  ];
+}
+
 /** Build a fresh, validated Blueprint. Every call returns an independent object. */
 function preset(framework: Framework, owns: FrameworkOwns, options: PresetOptions): Blueprint {
   return defineBlueprint({
@@ -140,6 +188,7 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
     },
     principles: principles(),
     componentShape: componentShape(),
+    playbook: playbook(),
     rules: {
       maxLines: { tier: 'error', value: 400 },
       // SRP triage — entry points only, never verdicts (handbook axes #2/#3).

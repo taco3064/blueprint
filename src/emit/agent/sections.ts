@@ -2,6 +2,7 @@ import type {
   ArchitectureDef,
   AxisDef,
   Blueprint,
+  PlaybookSection,
   PrincipleDef,
   RuleSetting,
   Tier,
@@ -171,6 +172,26 @@ export function renderBehavioral(
     '### Behavioral rules (no tool enforces these — you are the gate)',
     '',
     ...bullets,
+  ].join('\n');
+}
+
+/** The working playbook as terse directives, one block per theme. */
+export function renderPlaybook(playbook: PlaybookSection[] | undefined): string {
+  if (!playbook?.length) return '';
+
+  const blocks = playbook.map((section) =>
+    [
+      `#### ${section.title}`,
+      '',
+      ...section.rules.map(
+        (rule) => `- **${rule.say}**${rule.why ? ` ${rule.why}` : ''}`,
+      ),
+    ].join('\n'));
+
+  return [
+    '### Working playbook (judgment rules — you are the gate)',
+    '',
+    ...blocks.join('\n\n').split('\n'),
   ].join('\n');
 }
 

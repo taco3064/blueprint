@@ -232,6 +232,28 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(/non-empty id/);
   });
 
+  it('rejects blank playbook titles and duplicate rule ids across sections', () => {
+    const config = base();
+    const rule = { id: 'no-fake-fallback', say: 'Never fake.' };
+
+    // Defensive: a section without a rules array (untyped config file) is tolerated.
+    config.playbook = [{ title: 'BE', rules: undefined as never }];
+    expect(() => validateBlueprint(config)).not.toThrow();
+
+    config.playbook = [{ title: '  ', rules: [rule] }];
+    expect(() => validateBlueprint(config)).toThrow(/non-empty title/);
+
+    config.playbook = [{ title: 'BE', rules: [{ ...rule, id: ' ' }] }];
+    expect(() => validateBlueprint(config)).toThrow(/rule with no id/);
+
+    config.playbook = [
+      { title: 'BE', rules: [rule] },
+      { title: 'Refactor', rules: [{ ...rule }] },
+    ];
+
+    expect(() => validateBlueprint(config)).toThrow(/Duplicate playbook rule id/);
+  });
+
   it('rejects duplicate or blank component-shape axis ids', () => {
     const config = base();
     const axis = { id: 'io', name: 'IO', say: 'a', why: 'b' };

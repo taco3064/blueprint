@@ -8,6 +8,7 @@ import {
   renderHeader,
   renderNaming,
   renderPlacement,
+  renderPlaybook,
 } from './sections';
 
 /**
@@ -29,6 +30,7 @@ export function emitAgentContract(blueprint: Blueprint): string {
     renderHardRules(architecture, rules),
     renderComponentShape(blueprint.componentShape),
     renderBehavioral(architecture, principles, rules),
+    renderPlaybook(blueprint.playbook),
     renderChecklist(blueprint),
   ].filter(Boolean);
 

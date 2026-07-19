@@ -4,6 +4,7 @@ import {
   renderBehavioral,
   renderChecklist,
   renderComponentShape,
+  renderPlaybook,
   renderContext,
   renderHardRules,
   renderHeader,
@@ -182,5 +183,25 @@ describe('renderComponentShape (contract)', () => {
     expect(out).toContain('### Component shape (orthogonal axes — judge each independently)');
     expect(out).toContain('- **IO Shrinkage** — Narrow IO. Model the state. (triage: `max-params` is an entry point, never the verdict)');
     expect(out).toContain('- **Orchestration Shell** — Pages orchestrate. No per-child derivation.');
+  });
+});
+
+describe('renderPlaybook (contract)', () => {
+  it('is omitted when there is no playbook', () => {
+    expect(renderPlaybook(undefined)).toBe('');
+    expect(renderPlaybook([])).toBe('');
+  });
+
+  it('renders terse directives grouped under theme headings', () => {
+    const out = renderPlaybook([
+      { title: 'BE boundary', rules: [{ id: 'a', say: 'Never fake.', why: 'It hides bugs.' }] },
+      { title: 'Refactor', rules: [{ id: 'b', say: 'Net first.' }] },
+    ]);
+
+    expect(out).toContain('### Working playbook (judgment rules — you are the gate)');
+    expect(out).toContain('#### BE boundary');
+    expect(out).toContain('- **Never fake.** It hides bugs.');
+    expect(out).toContain('#### Refactor');
+    expect(out).toContain('- **Net first.**');
   });
 });

@@ -6,6 +6,7 @@ import {
   renderImportDiscipline,
   renderModule,
   renderNaming,
+  renderPlaybook,
   renderPrinciples,
   renderRules,
 } from './sections';
@@ -28,6 +29,7 @@ export function emitHandbook(blueprint: Blueprint): string {
     renderImportDiscipline(architecture),
     renderComponentShape(blueprint.componentShape),
     renderPrinciples(principles),
+    renderPlaybook(blueprint.playbook),
     renderRules(rules),
     renderNaming(architecture.naming),
   ].filter(Boolean);

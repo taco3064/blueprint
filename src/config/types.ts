@@ -142,6 +142,22 @@ export interface AxisDef {
   triage?: string;
 }
 
+/** One judgment rule of the working playbook — no tool enforces it. */
+export interface PlaybookRule {
+  /** Stable id, e.g. `no-fake-fallback`. Unique across the whole playbook. */
+  id: string;
+  /** The rule, one imperative line. */
+  say: string;
+  /** Why it holds / how to apply it. */
+  why?: string;
+}
+
+/** A themed group of playbook rules, e.g. the backend-boundary posture. */
+export interface PlaybookSection {
+  title: string;
+  rules: PlaybookRule[];
+}
+
 /** A core belief — carries the "why", and where it is enforced / communicated. */
 export interface PrincipleDef {
   /** Stable id, e.g. `by-responsibility`. Unique within the blueprint. */
@@ -199,6 +215,8 @@ export interface Blueprint {
   principles?: PrincipleDef[];
   /** Component-shape axes — orthogonal design judgments for units of UI/state. */
   componentShape?: AxisDef[];
+  /** The working playbook — behavioral judgment rules, grouped by theme. */
+  playbook?: PlaybookSection[];
   /** What to emit and where. */
   emit?: EmitDef;
 }

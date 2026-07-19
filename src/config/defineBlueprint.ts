@@ -133,6 +133,24 @@ export function validateBlueprint(bp: Blueprint): void {
     axisIds.add(axis.id);
   }
 
+  const playbookIds = new Set<string>();
+
+  for (const section of bp.playbook ?? []) {
+    if (typeof section?.title !== 'string' || !section.title.trim()) {
+      throw new Error('Each playbook section must have a non-empty title.');
+    }
+
+    for (const rule of section.rules ?? []) {
+      if (typeof rule?.id !== 'string' || !rule.id.trim()) {
+        throw new Error(`Playbook section "${section.title}" has a rule with no id.`);
+      } else if (playbookIds.has(rule.id)) {
+        throw new Error(`Duplicate playbook rule id: "${rule.id}".`);
+      }
+
+      playbookIds.add(rule.id);
+    }
+  }
+
   for (const [id, setting] of Object.entries(rules ?? {})) {
     if (!VALID_TIERS.includes(resolveTier(setting))) {
       throw new Error(`Rule "${id}" has an invalid tier — expected error | warn | off.`);

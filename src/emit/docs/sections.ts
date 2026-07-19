@@ -3,6 +3,7 @@ import type {
   AxisDef,
   Land,
   ModuleDef,
+  PlaybookSection,
   PrincipleDef,
   RuleSetting,
 } from '../../config';
@@ -173,6 +174,29 @@ export function renderPrinciples(principles: PrincipleDef[] | undefined): string
   }
 
   return out.join('\n').trimEnd();
+}
+
+/** The working playbook — behavioral judgment rules, grouped by theme. */
+export function renderPlaybook(playbook: PlaybookSection[] | undefined): string {
+  if (!playbook?.length) return '';
+
+  const sections = playbook.map((section) =>
+    [
+      `### ${escapeCell(section.title)}`,
+      '',
+      ...section.rules.map(
+        (rule) =>
+          `- **${escapeCell(rule.say)}**${rule.why ? ` — ${escapeCell(rule.why)}` : ''}`,
+      ),
+    ].join('\n'));
+
+  return [
+    '## Working playbook',
+    '',
+    'Judgment rules no tool enforces — they hold in review and in the agent contract.',
+    '',
+    sections.join('\n\n'),
+  ].join('\n');
 }
 
 /** Enforcement rules and their landing tiers. */
