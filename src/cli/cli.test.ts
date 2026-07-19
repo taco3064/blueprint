@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { parseInitArgs, parseInspectArgs, run } from './cli';
+import { isCliEntry, parseInitArgs, parseInspectArgs, run } from './cli';
 
 describe('parseInitArgs', () => {
   it('parses known flags', () => {
@@ -91,5 +91,29 @@ describe('run', () => {
     fs.writeFileSync(path.join(root, 'src', 'utils', 'x.ts'), 'export const a = 1;');
 
     expect(await run(['inspect'], root)).toBe(1);
+  });
+});
+
+describe('isCliEntry', () => {
+  // isCliEntry compares against cli.ts's own module URL — not this test file's.
+  const self = path.join(path.dirname(new URL(import.meta.url).pathname), 'cli.ts');
+
+  it('recognizes the real path and — critically — an npm-style bin symlink', () => {
+    // Direct invocation: node dist/bin.js
+    expect(isCliEntry(self)).toBe(true);
+
+    // npm installs the bin as a symlink; Node resolves the entry module to
+    // its real path while argv[1] keeps the symlink — the 0.1.1 silent no-op.
+    const link = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'bp-bin-')), 'blueprint');
+
+    fs.symlinkSync(self, link);
+    expect(isCliEntry(link)).toBe(true);
+    fs.rmSync(path.dirname(link), { recursive: true, force: true });
+  });
+
+  it('rejects other files, missing paths, and a missing argv[1]', () => {
+    expect(isCliEntry(undefined)).toBe(false);
+    expect(isCliEntry('/no/such/file.js')).toBe(false);
+    expect(isCliEntry(path.join(path.dirname(self), 'cli.test.ts'))).toBe(false);
   });
 });

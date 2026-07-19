@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 import { runInit } from '../bootstrap';
@@ -79,11 +80,24 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
   return command === undefined ? 0 : 1;
 }
 
-/* v8 ignore start -- bin entry guard, exercised via the published CLI, not unit tests */
-function isCliEntry(argv1?: string): boolean {
-  return argv1 !== undefined && import.meta.url === pathToFileURL(argv1).href;
+/**
+ * True when this file is the process entry point. npm installs the bin as a
+ * symlink (`node_modules/.bin/blueprint`), and Node resolves the *entry
+ * module* to its real path while `argv[1]` keeps the symlink path — so the
+ * comparison must run through `realpathSync`, or the published CLI is a
+ * silent no-op (the 0.1.1 bug).
+ */
+export function isCliEntry(argv1: string | undefined): boolean {
+  if (argv1 === undefined) return false;
+
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(argv1)).href;
+  } catch {
+    return false; // argv1 does not exist on disk — not our entry.
+  }
 }
 
+/* v8 ignore start -- the live bin invocation; isCliEntry itself is unit-tested */
 if (isCliEntry(process.argv[1])) {
   run(process.argv.slice(2)).then((code) => process.exit(code));
 }

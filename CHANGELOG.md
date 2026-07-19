@@ -1,5 +1,16 @@
 # @kekkai/blueprint
 
+## 0.1.2
+
+### Patch Changes
+
+- Fix the installed CLI being a silent no-op. npm installs the bin as a
+  symlink and Node resolves the entry module to its real path while
+  `argv[1]` keeps the symlink path, so the entry guard never matched —
+  `npx @kekkai/blueprint` exited 0 doing nothing. The guard now resolves
+  `argv[1]` through `realpathSync` before comparing, and is unit-tested
+  against a real symlink.
+
 ## 0.1.1
 
 ### Patch Changes
