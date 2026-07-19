@@ -23,4 +23,4 @@
   - Canonical `vuePreset` / `reactPreset` encoding the governance
     handbook: six layers, ten principles, seven component-shape axes, an
     eighteen-rule playbook.
-  - Bilingual README (English / 繁體中文).
+  - Bilingual README (English / 繁體中文) with the full API reference.
