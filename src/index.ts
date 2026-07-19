@@ -3,5 +3,7 @@ export { emitLint } from './emit/lint';
 export { emitHandbook } from './emit/docs';
 export { emitAgentContract } from './emit/agent';
 export { injectBetweenMarkers } from './markdown';
+export { reactPreset, vuePreset } from './presets';
 export type * from './config/types';
 export type { LintConfig, LintConfigEntry } from './emit/lint';
+export type { PresetOptions } from './presets';
