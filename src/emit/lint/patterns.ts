@@ -33,8 +33,8 @@ export function derivePackageRules(layers: LayerDef[]): PackageRule[] {
     for (const primitive of layer.owns ?? []) {
       if (typeof primitive !== 'string' && 'global' in primitive) continue;
 
-      const pkg: OwnedPackage =
-        typeof primitive === 'string' ? { package: primitive } : primitive;
+      const pkg: OwnedPackage
+        = typeof primitive === 'string' ? { package: primitive } : primitive;
 
       const key = [
         pkg.package,
@@ -157,7 +157,11 @@ export function buildPackagePatterns(disabled: PackageRule[]): {
       .map((rule) => ({ name: rule.package, importNames: rule.imports, message: message(rule) })),
     patterns: disabled
       .filter((rule) => rule.pattern)
-      .map((rule) => ({ group: [rule.package], importNames: rule.imports, message: message(rule) })),
+      .map((rule) => ({
+        group: [rule.package],
+        importNames: rule.imports,
+        message: message(rule),
+      })),
   };
 }
 

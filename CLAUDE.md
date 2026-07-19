@@ -1,0 +1,41 @@
+# @kekkai/blueprint — repo conventions
+
+This package *is* the tool that generates architecture contracts. It should
+live by the subset of its own handbook that applies to a Node library. It is
+**not** a front-end app, so the layer model it emits (`pages → … → services`,
+aliases, framework primitives) does **not** apply to this repo — the handbook
+ideas below do.
+
+## Module shape (enforced by convention, checked in review)
+
+- **One module = one folder** with a single public entry `index.ts`. The
+  implementation file is named after the module, never `main` — e.g.
+  `emit/lint/lint.ts`, `inspect/inspect.ts`. Satellites keep semantic names
+  (`plan.ts`, `scan.ts`, `analyze.ts`, `patterns.ts`, `sections.ts`).
+- **Entry-only imports across modules.** Import another module through its
+  folder (`../config`, `../project`, `../markdown`), never a deep path
+  (`../config/graph`). Within a module, use relative paths (`./types`).
+- **No `utils` junk drawer.** A shared file earns a name for what it does
+  (`markdown`, `patterns`), or lives private to its module.
+- **Emitters are pure and deterministic** (`emit*`, `defineBlueprint`,
+  presets). Side effects live only in the runtimes (`bootstrap`, `inspect`,
+  `cli`) and are split plan (pure) / apply (I/O).
+
+## Layering (one-way, low → high)
+
+`config` → `markdown` → `emit/*` → `presets` → `project` → `bootstrap` /
+`inspect` → `cli`. A module imports only from lower ones. `project` is the
+shared reader (`detect` + `resolveBlueprint`) for both runtimes.
+
+## Tests & tooling
+
+- **Co-locate tests**: `foo.test.ts` beside `foo.ts`; the test name matches the
+  source.
+- **100% coverage** (`vitest --coverage`). The only exclusions are real-I/O
+  defaults and the bin guard, marked `/* v8 ignore */` because tests inject
+  those effects (`exec`, `loadConfig`) instead of running them.
+- **Formatting is ESLint-driven** (`@stylistic/*`); there is no Prettier. Run
+  `npm run lint` / `eslint . --fix`. Enforcement rules mirror the handbook
+  stance: never `eslint-disable` to dodge a rule; fix the structure.
+- Verify a change with `lint` + `tsc` + `test` + `build`, and drive the CLI
+  end-to-end (`node dist/bin.js init|inspect`) for runtime changes.

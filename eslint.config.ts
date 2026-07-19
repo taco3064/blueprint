@@ -1,8 +1,23 @@
 import globals from 'globals';
 import imports from 'eslint-plugin-import';
 import js from '@eslint/js';
+import stylistic from '@stylistic/eslint-plugin';
 import tseslint from 'typescript-eslint';
 import { defineConfig, globalIgnores } from 'eslint/config';
+
+// Formatting is ESLint-driven (no Prettier). `customize` reproduces the old
+// Prettier settings: 2-space indent, single quotes, semicolons, trailing
+// commas, 1tbs braces.
+const formatting = stylistic.configs.customize({
+  indent: 2,
+  quotes: 'single',
+  semi: true,
+  arrowParens: true,
+  braceStyle: '1tbs',
+  commaDangle: 'always-multiline',
+  blockSpacing: true,
+  quoteProps: 'as-needed',
+});
 
 export default defineConfig([
   globalIgnores(['dist', 'coverage']),
@@ -14,14 +29,13 @@ export default defineConfig([
       globals: globals.node,
     },
     plugins: {
+      '@stylistic': stylistic,
       import: imports,
     },
     rules: {
-      quotes: ['error', 'single'],
-      semi: ['error', 'always'],
+      ...formatting.rules,
       'import/first': 'error',
       'import/no-duplicates': 'error',
-      'linebreak-style': ['error', 'unix'],
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -30,7 +44,17 @@ export default defineConfig([
           varsIgnorePattern: '^_',
         },
       ],
-      'padding-line-between-statements': [
+      '@stylistic/max-len': [
+        'error',
+        {
+          code: 100,
+          ignoreUrls: true,
+          ignoreStrings: true,
+          ignoreTemplateLiterals: true,
+          ignoreRegExpLiterals: true,
+        },
+      ],
+      '@stylistic/padding-line-between-statements': [
         'error',
         { blankLine: 'always', prev: 'block-like', next: '*' },
         { blankLine: 'always', prev: 'const', next: 'expression' },

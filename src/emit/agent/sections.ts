@@ -75,8 +75,8 @@ export function renderPlacement(architecture: ArchitectureDef): string {
   const { module } = architecture;
   const priv = module.private.map((part) => `\`${part}\``).join(' / ');
 
-  const moduleLine =
-    module.layout === 'folder'
+  const moduleLine
+    = module.layout === 'folder'
       ? `- Module shape: one folder per module. Only \`${module.entry}\` is importable from outside${priv ? `; keep ${priv} private and never import them across modules` : ''}.`
       : '- Module shape: one file per module (flat). Extract shared logic to a lower layer.';
 

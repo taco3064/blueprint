@@ -84,8 +84,8 @@ export function validateBlueprint(bp: Blueprint): void {
     const entries = Object.entries(additionalAliases);
 
     if (
-      typeof additionalAliases !== 'object' ||
-      entries.some(([k, v]) => !k.trim() || typeof v !== 'string' || !v.trim())
+      typeof additionalAliases !== 'object'
+      || entries.some(([k, v]) => !k.trim() || typeof v !== 'string' || !v.trim())
     ) {
       throw new Error(
         'architecture.additionalAliases must map non-empty strings to non-empty strings.',

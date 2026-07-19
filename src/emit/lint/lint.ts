@@ -21,8 +21,8 @@ type Severity = 'error' | 'warn';
 export function emitLint(blueprint: Blueprint): LintConfig {
   const { framework, architecture } = blueprint;
 
-  const { alias, additionalAliases, layers, module, layerFiles, layerFilesIgnore } =
-    architecture;
+  const { alias, additionalAliases, layers, module, layerFiles, layerFilesIgnore }
+    = architecture;
 
   const severity: Severity = blueprint.emit?.lint?.severity ?? 'error';
 

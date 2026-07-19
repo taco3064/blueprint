@@ -115,9 +115,9 @@ export interface ArchitectureDef {
 }
 
 /** A rule setting: a bare tier, or a tier with options (e.g. a threshold value). */
-export type RuleSetting =
-  | Tier
-  | ({ tier: Tier; value?: number } & Record<string, unknown>);
+export type RuleSetting
+  = | Tier
+    | ({ tier: Tier; value?: number } & Record<string, unknown>);
 
 /** A core belief — carries the "why", and where it is enforced / communicated. */
 export interface PrincipleDef {

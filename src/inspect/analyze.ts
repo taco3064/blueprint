@@ -164,7 +164,11 @@ function relativeEscape(file: ScannedFile, ref: ImportRef, layout: 'folder' | 'f
 }
 
 /** Owner layers of a package import (given its named imports), or null if unrestricted. */
-function ownersOf(architecture: ArchitectureDef, specifier: string, names: string[]): string[] | null {
+function ownersOf(
+  architecture: ArchitectureDef,
+  specifier: string,
+  names: string[],
+): string[] | null {
   const owners: string[] = [];
 
   for (const layer of architecture.layers) {
@@ -184,7 +188,11 @@ function ownersOf(architecture: ArchitectureDef, specifier: string, names: strin
   return owners.length ? owners : null;
 }
 
-function findCycle(scan: ScanResult, architecture: ArchitectureDef, layerNames: string[]): Finding | null {
+function findCycle(
+  scan: ScanResult,
+  architecture: ArchitectureDef,
+  layerNames: string[],
+): Finding | null {
   const aliases = aliasList(architecture);
   const layout = architecture.module.layout;
   const edges = new Map<string, Set<string>>();
