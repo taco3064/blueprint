@@ -31,6 +31,11 @@ function readText(file: string): string | null {
   }
 }
 
+/** Read a set of project-relative files; each value is the content, or null if absent. */
+export function readTexts(root: string, paths: string[]): Record<string, string | null> {
+  return Object.fromEntries(paths.map((file) => [file, readText(path.join(root, file))]));
+}
+
 function detectFramework(deps: Record<string, unknown>): Framework | null {
   const hasVue = 'vue' in deps;
   const hasReact = 'react' in deps;
@@ -74,7 +79,6 @@ export function detect(root: string): ProjectState {
     projectName: typeof pkg.name === 'string' ? pkg.name : undefined,
     hasConfig: fs.existsSync(path.join(root, CONFIG_FILE)),
     hasEslintConfig: ESLINT_FILES.some((file) => fs.existsSync(path.join(root, file))),
-    claudeMd: readText(path.join(root, 'CLAUDE.md')),
     existingSrcDirs: listSrcDirs(root),
     missingDeps: REQUIRED_DEPS.filter((dep) => !(dep in deps)),
   };

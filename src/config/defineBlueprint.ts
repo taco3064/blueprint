@@ -1,8 +1,11 @@
-import type { Blueprint, LayerDef, RuleSetting } from './types';
+import type { AgentEmitEntry, AgentTarget, Blueprint, LayerDef, RuleSetting } from './types';
 import { normalizeAllowedImporters } from './graph';
 
 const VALID_TIERS = ['error', 'warn', 'off'];
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/;
+
+const AGENT_TARGETS = ['claude', 'agents', 'gemini', 'copilot', 'cursor', 'windsurf'];
+const DEFAULT_AGENT_TARGETS: AgentTarget[] = ['claude', 'agents'];
 
 const MANAGED_RULES = [
   'no-restricted-imports',
@@ -119,6 +122,36 @@ export function validateBlueprint(bp: Blueprint): void {
     if (!VALID_TIERS.includes(resolveTier(setting))) {
       throw new Error(`Rule "${id}" has an invalid tier — expected error | warn | off.`);
     }
+  }
+
+  validateAgentEmit(bp);
+}
+
+/** Normalize the mixed `emit.agents` list, applying the default target set. */
+export function normalizeAgentEmit(
+  agents: (AgentTarget | AgentEmitEntry)[] | undefined,
+): AgentEmitEntry[] {
+  return (agents ?? DEFAULT_AGENT_TARGETS).map((entry) =>
+    typeof entry === 'string' ? { target: entry } : entry,
+  );
+}
+
+/** Each agents entry must name a known target, at most once, with a non-empty path. */
+function validateAgentEmit(bp: Blueprint): void {
+  const seen = new Set<string>();
+
+  for (const entry of normalizeAgentEmit(bp.emit?.agents)) {
+    if (!AGENT_TARGETS.includes(entry.target)) {
+      throw new Error(
+        `emit.agents target "${entry.target}" is unknown — expected ${AGENT_TARGETS.join(' | ')}.`,
+      );
+    } else if (seen.has(entry.target)) {
+      throw new Error(`emit.agents lists target "${entry.target}" more than once.`);
+    } else if (entry.path !== undefined && (typeof entry.path !== 'string' || !entry.path.trim())) {
+      throw new Error(`emit.agents target "${entry.target}" has an empty path.`);
+    }
+
+    seen.add(entry.target);
   }
 }
 

@@ -35,18 +35,53 @@ describe('runInit', () => {
     expect(read('eslint.config.mjs')).toContain('emitLint');
     expect(read('docs/architecture-handbook.md')).toContain('# demo — Architecture Handbook');
     expect(read('CLAUDE.md')).toContain('## Architecture contract');
+    expect(read('AGENTS.md')).toContain('## Architecture contract');
     expect(exists('src/services/.gitkeep')).toBe(true);
+  });
+
+  it('preserves hand-written content in an existing AGENTS.md', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'AGENTS.md'), '# House rules\n\nBe nice.\n');
+
+    await runInit(root, { install: false, log: silent });
+
+    const agents = read('AGENTS.md');
+
+    expect(agents.startsWith('# House rules')).toBe(true);
+    expect(agents).toContain('Be nice.');
+    expect(agents).toContain('<!-- BLUEPRINT:START -->');
+    expect(agents).toContain('## Architecture contract');
+  });
+
+  it('writes tool-owned rule files for configured targets', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+
+    await runInit(root, {
+      install: false,
+      log: silent,
+      loadConfig: async () => ({
+        ...vuePreset({ name: 'demo' }),
+        emit: { agents: ['cursor', 'windsurf'] },
+      }),
+    });
+
+    expect(read('.cursor/rules/blueprint.mdc')).toContain('alwaysApply: true');
+    expect(read('.windsurf/rules/blueprint.md')).toContain('trigger: always_on');
+    expect(exists('CLAUDE.md')).toBe(false);
   });
 
   it('is idempotent — a second run produces identical files', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     const loadConfig = async () => vuePreset({ name: 'demo' });
 
-    await runInit(root, { install: false, log: silent, loadConfig });
-    const snapshot = ['blueprint.config.mjs', 'eslint.config.mjs', 'CLAUDE.md', 'docs/architecture-handbook.md'].map(read);
+    const files = ['blueprint.config.mjs', 'eslint.config.mjs', 'CLAUDE.md', 'AGENTS.md', 'docs/architecture-handbook.md'];
 
     await runInit(root, { install: false, log: silent, loadConfig });
-    const again = ['blueprint.config.mjs', 'eslint.config.mjs', 'CLAUDE.md', 'docs/architecture-handbook.md'].map(read);
+    const snapshot = files.map(read);
+
+    await runInit(root, { install: false, log: silent, loadConfig });
+    const again = files.map(read);
 
     expect(again).toEqual(snapshot);
   });

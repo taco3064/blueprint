@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { detect } from './detect';
+import { detect, readTexts } from './detect';
 
 let root: string;
 
@@ -57,14 +57,12 @@ describe('detect', () => {
     writePkg({ name: 'x', devDependencies: { eslint: '9' } });
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '');
     fs.writeFileSync(path.join(root, 'eslint.config.js'), '');
-    fs.writeFileSync(path.join(root, 'CLAUDE.md'), 'hi');
     fs.mkdirSync(path.join(root, 'src', 'components'), { recursive: true });
 
     const state = detect(root);
 
     expect(state.hasConfig).toBe(true);
     expect(state.hasEslintConfig).toBe(true);
-    expect(state.claudeMd).toBe('hi');
     expect(state.existingSrcDirs).toEqual(['components']);
     expect(state.missingDeps).toEqual(['@kekkai/blueprint']);
     expect(state.packageManager).toBe('npm');
@@ -74,9 +72,20 @@ describe('detect', () => {
     expect(detect(root).framework).toBeNull();
     expect(detect(root).missingDeps).toEqual(['eslint', '@kekkai/blueprint']);
     expect(detect(root).existingSrcDirs).toEqual([]);
-    expect(detect(root).claudeMd).toBeNull();
 
     fs.writeFileSync(path.join(root, 'package.json'), '{ not json');
     expect(detect(root).framework).toBeNull();
+  });
+});
+
+describe('readTexts', () => {
+  it('reads present files and nulls absent ones, keyed by the given path', () => {
+    fs.mkdirSync(path.join(root, 'docs'));
+    fs.writeFileSync(path.join(root, 'docs', 'CLAUDE.md'), 'hi');
+
+    expect(readTexts(root, ['docs/CLAUDE.md', 'AGENTS.md'])).toEqual({
+      'docs/CLAUDE.md': 'hi',
+      'AGENTS.md': null,
+    });
   });
 });

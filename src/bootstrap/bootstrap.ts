@@ -1,4 +1,5 @@
-import { detect, resolveBlueprint } from '../project';
+import { emitAgentFiles } from '../emit/agent';
+import { detect, readTexts, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
 import { plan } from './plan';
 import { apply, defaultExec } from './apply';
@@ -21,7 +22,15 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
   const { blueprint, configSource } = await resolveBlueprint(root, state, options);
-  const actions = plan(state, blueprint, configSource, options);
+
+  const mergePaths = emitAgentFiles(blueprint)
+    .filter((file) => file.strategy === 'merge')
+    .map((file) => file.path);
+
+  const actions = plan(state, blueprint, configSource, {
+    ...options,
+    existingAgentFiles: readTexts(root, mergePaths),
+  });
 
   log(
     `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · ${blueprint.framework} · ${state.packageManager}`,

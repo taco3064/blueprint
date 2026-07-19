@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { plan } from './plan';
 import { vuePreset } from '../presets';
-import type { Action, ProjectState } from './types';
+import type { Action } from './types';
+import type { ProjectState } from '../project';
 
 function state(over: Partial<ProjectState> = {}): ProjectState {
   return {
@@ -12,7 +13,6 @@ function state(over: Partial<ProjectState> = {}): ProjectState {
     projectName: 'app',
     hasConfig: false,
     hasEslintConfig: false,
-    claudeMd: null,
     existingSrcDirs: [],
     missingDeps: ['eslint', '@kekkai/blueprint'],
     ...over,
@@ -32,6 +32,7 @@ describe('plan', () => {
     expect(actions.filter((a) => a.kind === 'mkdir')).toHaveLength(6);
     expect(write(actions, 'docs/architecture-handbook.md')).toBeDefined();
     expect(write(actions, 'CLAUDE.md')).toBeDefined();
+    expect(write(actions, 'AGENTS.md')).toBeDefined();
     expect(write(actions, 'eslint.config.mjs')).toBeDefined();
 
     expect(
@@ -63,29 +64,62 @@ describe('plan', () => {
     expect(plan(state({ missingDeps: [] }), bp, null, {}).some((a) => a.kind === 'install')).toBe(false);
   });
 
-  it('refreshes an existing CLAUDE.md marker block in place', () => {
+  it('refreshes an existing marker block in place, per agent file', () => {
     const existing = 'top\n<!-- BLUEPRINT:START -->\nSTALE_CONTRACT\n<!-- BLUEPRINT:END -->\nbottom';
-    const claude = write(plan(state({ claudeMd: existing }), bp, null, {}), 'CLAUDE.md');
+
+    const actions = plan(state(), bp, null, {
+      existingAgentFiles: { 'CLAUDE.md': existing, 'AGENTS.md': null },
+    });
+
+    const claude = write(actions, 'CLAUDE.md');
 
     expect(claude?.content).toContain('top');
     expect(claude?.content).toContain('bottom');
     expect(claude?.content).not.toContain('STALE_CONTRACT');
     expect(claude?.content).toContain('## Architecture contract');
+    expect(write(actions, 'AGENTS.md')?.content.startsWith('<!-- BLUEPRINT:START -->')).toBe(true);
   });
 
-  it('appends a marker block to a CLAUDE.md without one', () => {
-    const claude = write(plan(state({ claudeMd: '# My project' }), bp, null, {}), 'CLAUDE.md');
+  it('appends a marker block to an existing context file without one', () => {
+    const actions = plan(state(), bp, null, { existingAgentFiles: { 'AGENTS.md': '# My project' } });
+    const agents = write(actions, 'AGENTS.md');
 
-    expect(claude?.content.startsWith('# My project')).toBe(true);
-    expect(claude?.content).toContain('<!-- BLUEPRINT:START -->');
+    expect(agents?.content.startsWith('# My project')).toBe(true);
+    expect(agents?.content).toContain('<!-- BLUEPRINT:START -->');
   });
 
-  it('honors emit path overrides', () => {
-    const custom = { ...bp, emit: { handbook: 'HB.md', claudeMd: 'AGENTS.md' } };
-    const actions = plan(state(), custom, null, {});
+  it('honors emit path overrides, merging against the overridden path', () => {
+    const existing = 'intro\n<!-- BLUEPRINT:START -->\nSTALE_CONTRACT\n<!-- BLUEPRINT:END -->';
+
+    const custom = {
+      ...bp,
+      emit: { handbook: 'HB.md', agents: [{ target: 'claude' as const, path: 'docs/CLAUDE.md' }] },
+    };
+
+    const actions = plan(state(), custom, null, {
+      existingAgentFiles: { 'docs/CLAUDE.md': existing },
+    });
 
     expect(write(actions, 'HB.md')).toBeDefined();
-    expect(write(actions, 'AGENTS.md')).toBeDefined();
+    expect(write(actions, 'CLAUDE.md')).toBeUndefined();
+
+    const claude = write(actions, 'docs/CLAUDE.md');
+
+    expect(claude?.content).toContain('intro');
+    expect(claude?.content).not.toContain('STALE_CONTRACT');
+  });
+
+  it('overwrites own-strategy rule files without marker merging', () => {
+    const custom = { ...bp, emit: { agents: ['cursor' as const] } };
+
+    const actions = plan(state(), custom, null, {
+      existingAgentFiles: { '.cursor/rules/blueprint.mdc': 'anything' },
+    });
+
+    const cursor = write(actions, '.cursor/rules/blueprint.mdc');
+
+    expect(cursor?.content.startsWith('---\n')).toBe(true);
+    expect(cursor?.content).not.toContain('<!-- BLUEPRINT:START -->');
   });
 
   it('uses the package manager add syntax for pnpm/yarn', () => {

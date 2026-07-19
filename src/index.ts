@@ -1,11 +1,12 @@
 export { defineBlueprint, validateBlueprint } from './config';
 export { emitLint } from './emit/lint';
 export { emitHandbook } from './emit/docs';
-export { emitAgentContract } from './emit/agent';
+export { emitAgentContract, emitAgentFiles } from './emit/agent';
 export { injectBetweenMarkers } from './markdown';
 export { reactPreset, vuePreset } from './presets';
 export { runInspect } from './inspect';
 export type * from './config';
+export type { AgentFile, AgentFileStrategy } from './emit/agent';
 export type { LintConfig, LintConfigEntry } from './emit/lint';
 export type { PresetOptions } from './presets';
 export type { Finding, InspectOptions, Severity } from './inspect';

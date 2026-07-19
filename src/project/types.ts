@@ -13,8 +13,6 @@ export interface ProjectState {
   hasConfig: boolean;
   /** Some `eslint.config.*` is present. */
   hasEslintConfig: boolean;
-  /** Content of the existing CLAUDE.md, or null if absent. */
-  claudeMd: string | null;
   /** Directory names already present under `src/`. */
   existingSrcDirs: string[];
   /** Required deps not yet installed. */

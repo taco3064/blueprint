@@ -247,4 +247,36 @@ describe('validateBlueprint', () => {
 
     expect(() => validateBlueprint(config)).not.toThrow();
   });
+
+  it('accepts emit.agents entries as strings and objects', () => {
+    const config = base();
+
+    config.emit = { agents: ['claude', { target: 'cursor', path: '.cursor/rules/arch.mdc' }] };
+
+    expect(() => validateBlueprint(config)).not.toThrow();
+  });
+
+  it('rejects an unknown emit.agents target', () => {
+    const config = base();
+
+    config.emit = { agents: ['copilot', 'aider' as never] };
+
+    expect(() => validateBlueprint(config)).toThrow(/target "aider" is unknown/);
+  });
+
+  it('rejects a duplicate emit.agents target', () => {
+    const config = base();
+
+    config.emit = { agents: ['claude', { target: 'claude' }] };
+
+    expect(() => validateBlueprint(config)).toThrow(/more than once/);
+  });
+
+  it('rejects an emit.agents entry with an empty path', () => {
+    const config = base();
+
+    config.emit = { agents: [{ target: 'windsurf', path: '  ' }] };
+
+    expect(() => validateBlueprint(config)).toThrow(/has an empty path/);
+  });
 });

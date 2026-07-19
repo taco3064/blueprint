@@ -131,6 +131,17 @@ export interface PrincipleDef {
   land: Land;
 }
 
+/** A tool whose agent-context file the contract is distributed to. */
+export type AgentTarget = 'claude' | 'agents' | 'gemini' | 'copilot' | 'cursor' | 'windsurf';
+
+/** An agent-contract distribution entry. A bare string is shorthand for `{ target }`. */
+export interface AgentEmitEntry {
+  /** The tool to distribute the contract to. */
+  target: AgentTarget;
+  /** Override the target's default file path. */
+  path?: string;
+}
+
 /** ESLint emit target. */
 export interface LintEmitDef {
   /** Output path for the generated flat config. Used by Bootstrap (S5). */
@@ -143,8 +154,11 @@ export interface LintEmitDef {
 export interface EmitDef {
   /** Handbook markdown output path. */
   handbook?: string;
-  /** Project CLAUDE.md / agent-contract output path. */
-  claudeMd?: string;
+  /**
+   * Agent-contract distribution targets. Omit for the default
+   * `['claude', 'agents']`; an empty array emits no agent file.
+   */
+  agents?: (AgentTarget | AgentEmitEntry)[];
   /** CI provider to emit config for. */
   ci?: 'github' | 'none';
   /** ESLint flat-config emit target (structure enforcement + custom rules). */

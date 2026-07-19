@@ -1,4 +1,4 @@
-export { defineBlueprint, validateBlueprint } from './defineBlueprint';
+export { defineBlueprint, normalizeAgentEmit, validateBlueprint } from './defineBlueprint';
 export {
   getDiagramEdges,
   getForbiddenLayers,
