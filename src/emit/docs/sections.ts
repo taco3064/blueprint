@@ -6,17 +6,8 @@ import type {
   RuleSetting,
 } from '../../config/types';
 import { normalizeExtraEdges } from '../../config/graph';
+import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
-import { escapeCell, formatOwns } from './utils';
-
-/** Render a markdown table from headers and pre-escaped rows. */
-function table(headers: string[], rows: string[][]): string {
-  return [
-    `| ${headers.join(' | ')} |`,
-    `| ${headers.map(() => '---').join(' | ')} |`,
-    ...rows.map((row) => `| ${row.join(' | ')} |`),
-  ].join('\n');
-}
 
 /** Title + provenance banner. */
 export function renderHeader(name: string | undefined): string {

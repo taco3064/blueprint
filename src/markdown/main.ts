@@ -1,8 +1,17 @@
-import type { OwnedPrimitive } from '../../config/types';
+import type { OwnedPrimitive } from '../config/types';
 
 /** Escape a value for use inside a markdown table cell. */
 export function escapeCell(text: string): string {
   return text.replace(/\|/g, '\\|').replace(/\n+/g, ' ').trim();
+}
+
+/** Render a markdown table from headers and pre-escaped rows. */
+export function table(headers: string[], rows: string[][]): string {
+  return [
+    `| ${headers.join(' | ')} |`,
+    `| ${headers.map(() => '---').join(' | ')} |`,
+    ...rows.map((row) => `| ${row.join(' | ')} |`),
+  ].join('\n');
 }
 
 /** Render a layer's owned primitives as an inline markdown fragment. */

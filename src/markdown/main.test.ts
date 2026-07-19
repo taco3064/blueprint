@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { escapeCell, formatOwns, injectBetweenMarkers } from './utils';
+import { escapeCell, formatOwns, injectBetweenMarkers, table } from './main';
 
 describe('escapeCell', () => {
   it('escapes pipes and collapses newlines', () => {
     expect(escapeCell('a | b\nc')).toBe('a \\| b c');
+  });
+});
+
+describe('table', () => {
+  it('renders a header, separator, and rows', () => {
+    expect(table(['A', 'B'], [['1', '2'], ['3', '4']])).toBe(
+      '| A | B |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |',
+    );
   });
 });
 
