@@ -2,7 +2,8 @@ import { emitAgentContract } from '../emit/agent';
 import { emitHandbook } from '../emit/docs';
 import { injectBetweenMarkers } from '../markdown';
 import type { Blueprint } from '../config/types';
-import type { Action, PackageManager, ProjectState } from './types';
+import type { PackageManager, ProjectState } from '../project';
+import type { Action } from './types';
 
 const MARKER = 'BLUEPRINT';
 const DEFAULT_HANDBOOK = 'docs/architecture-handbook.md';
