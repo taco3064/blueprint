@@ -1,5 +1,20 @@
 # @kekkai/blueprint
 
+## 1.0.2
+
+### Patch Changes
+
+- Close the reviewer's "half-wired" nuance around the dead-code gate:
+
+  - `--no-install` no longer silently drops the dependency requirement —
+    the exact install command is surfaced as an instruct, so "knip is in
+    the install set" holds on every path.
+  - The generated CI ships the knip step **commented** when `deadCode` is
+    error-tier: one uncomment turns the gate hard, and zero-config false
+    positives can never redden a fresh project's CI out of the box.
+  - The agent contract's dead-code bullet now points at that commented
+    step instead of a vague "wire it into CI".
+
 ## 1.0.1
 
 ### Patch Changes

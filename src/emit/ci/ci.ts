@@ -20,6 +20,8 @@ const INSTALL: Record<Required<CiOptions>['packageManager'], string> = {
 export function emitCi(blueprint: Blueprint, options: CiOptions = {}): string {
   const install = INSTALL[options.packageManager ?? 'npm'];
   const title = blueprint.name ? `${blueprint.name} · Blueprint CI` : 'Blueprint CI';
+  const deadCode = blueprint.rules?.deadCode;
+  const deadCodeTier = typeof deadCode === 'string' ? deadCode : deadCode?.tier;
 
   return [
     `name: ${title}`,
@@ -40,6 +42,13 @@ export function emitCi(blueprint: Blueprint, options: CiOptions = {}): string {
     `      - run: ${install}`,
     '      - run: npx eslint src',
     '      - run: npx blueprint inspect',
+    ...(deadCodeTier === 'error'
+      ? [
+          '      # Dead-code gate (knip is in the install set) — uncomment once',
+          '      # your entry points are configured; zero-config can false-flag:',
+          '      # - run: npx knip',
+        ]
+      : []),
     '',
   ].join('\n');
 }

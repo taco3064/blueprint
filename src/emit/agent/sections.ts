@@ -169,7 +169,7 @@ export function renderBehavioral(
 
   if (rules?.deadCode !== undefined && tierOf(rules.deadCode) === 'error') {
     bullets.push(
-      '- **Dead code is error-tier, but no lint rule can gate it** — `npx knip` is the gate (init installs it); wire it into CI to make it hard.',
+      '- **Dead code is error-tier, but no lint rule can gate it** — `npx knip` is the gate (in init\'s install set); the generated CI carries the step commented — uncomment it to make the gate hard.',
     );
   }
 

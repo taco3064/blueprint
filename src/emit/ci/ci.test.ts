@@ -26,3 +26,19 @@ describe('emitCi', () => {
     );
   });
 });
+
+describe('emitCi · dead-code step', () => {
+  it('ships a commented knip step when deadCode is error-tier', () => {
+    const out = emitCi(vuePreset()); // preset carries deadCode: 'error'
+
+    expect(out).toContain('# - run: npx knip');
+    expect(out).toContain('uncomment once');
+  });
+
+  it('omits the step when deadCode is absent or below error', () => {
+    const bp = vuePreset();
+
+    expect(emitCi({ ...bp, rules: { ...bp.rules, deadCode: 'warn' } })).not.toContain('knip');
+    expect(emitCi({ ...bp, rules: {} })).not.toContain('knip');
+  });
+});

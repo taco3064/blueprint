@@ -156,9 +156,20 @@ describe('plan', () => {
     expect(note?.note).toContain('...emitLint(blueprint)');
   });
 
-  it('omits install when disabled or nothing is missing', () => {
-    expect(plan(state(), bp, null, { install: false }).some((a) => a.kind === 'install')).toBe(false);
-    expect(plan(state({ missingDeps: [] }), bp, null, {}).some((a) => a.kind === 'install')).toBe(false);
+  it('surfaces the install command as an instruct under --no-install', () => {
+    const actions = plan(state(), bp, null, { install: false });
+
+    expect(actions.some((a) => a.kind === 'install')).toBe(false);
+
+    const note = actions.find((a) => a.kind === 'instruct' && a.note.includes('Install skipped'));
+
+    expect(note?.note).toContain('npm install -D eslint @kekkai/blueprint');
+
+    // Nothing missing → neither an install action nor the instruct.
+    const clean = plan(state({ missingDeps: [] }), bp, null, {});
+
+    expect(clean.some((a) => a.kind === 'install')).toBe(false);
+    expect(clean.some((a) => a.kind === 'instruct' && a.note.includes('Install skipped'))).toBe(false);
   });
 
   it('refreshes an existing marker block in place, per agent file', () => {

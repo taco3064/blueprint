@@ -82,12 +82,21 @@ export function plan(
     });
   }
 
-  if (options.install !== false && state.missingDeps.length) {
-    actions.push({
-      kind: 'install',
-      command: installCommand(state.packageManager, state.missingDeps),
-      note: `install ${state.missingDeps.join(', ')}`,
-    });
+  if (state.missingDeps.length) {
+    if (options.install !== false) {
+      actions.push({
+        kind: 'install',
+        command: installCommand(state.packageManager, state.missingDeps),
+        note: `install ${state.missingDeps.join(', ')}`,
+      });
+    } else {
+      // --no-install must not silently drop the requirement — surface the
+      // exact command, or "init installs knip" becomes an empty claim.
+      actions.push({
+        kind: 'instruct',
+        note: `Install skipped — run it yourself:\n    ${installCommand(state.packageManager, state.missingDeps)}`,
+      });
+    }
   }
 
   actions.push(
