@@ -1,5 +1,36 @@
 # @kekkai/blueprint
 
+## 1.0.0
+
+### Major Changes
+
+- 1.0.0 — the compiler is complete and the config schema is stable.
+
+  One Blueprint compiles into six capabilities:
+
+  - **Define** — `defineBlueprint` / `vuePreset` / `reactPreset`: ordered
+    layers with `allowedImporters` (acyclic by construction), package and
+    global ownership, module shape, metric/rule tiers, ten principles,
+    seven component-shape axes, an eighteen-rule working playbook.
+  - **Enforce** — `emitLint`: an ESLint flat config with parser wiring for
+    the detected stack and an embedded five-rule plugin. Nothing extra to
+    install.
+  - **Explain** — `emitHandbook`: a human handbook that cannot drift from
+    the rules.
+  - **Collaborate** — `emitAgentFiles`: one agent operating contract
+    distributed across CLAUDE.md, AGENTS.md, Gemini, Copilot, Cursor, and
+    Windsurf.
+  - **Bootstrap** — `blueprint init`: layers, configs, alias wiring, agent
+    contracts, and a CI gate from one command — deterministic, idempotent,
+    and it never operates an agent.
+  - **Verify** — `blueprint inspect` (nine checks + the baseline ratchet
+    for brownfield adoption) and `blueprint deps` (blast radius).
+
+  Field-proven on fresh create-vite react/vue projects — including a full
+  feature written by a coding agent under the generated contract, where
+  lint stayed green and `inspect` caught the one thing lint cannot see:
+  code drifting into undeclared folders.
+
 ## 0.2.3
 
 ### Patch Changes
