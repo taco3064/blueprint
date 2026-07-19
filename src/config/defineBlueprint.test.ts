@@ -248,6 +248,35 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).not.toThrow();
   });
 
+  it('rejects usePrefix targeting an undeclared layer', () => {
+    const config = base();
+
+    config.rules = { usePrefix: { tier: 'error', layer: 'ghost' } };
+
+    expect(() => validateBlueprint(config)).toThrow(/targets layer "ghost"/);
+  });
+
+  it('defaults usePrefix to the hooks layer and validates it exists', () => {
+    const config = base();
+
+    config.rules = { usePrefix: 'error' };
+    expect(() => validateBlueprint(config)).not.toThrow();
+
+    config.architecture.layers = config.architecture.layers.filter(
+      (layer) => layer.name !== 'hooks',
+    );
+
+    expect(() => validateBlueprint(config)).toThrow(/targets layer "hooks"/);
+  });
+
+  it('rejects lintOverrides that touch an embedded plugin rule', () => {
+    const config = base();
+
+    config.architecture.layers[0].lintOverrides = { 'blueprint/no-deep-watch': 'off' };
+
+    expect(() => validateBlueprint(config)).toThrow(/managed by the Enforce emitter/);
+  });
+
   it('accepts emit.agents entries as strings and objects', () => {
     const config = base();
 

@@ -133,6 +133,10 @@ describe('emitLint · shape', () => {
     expect(rule[0]).toBe('warn');
   });
 
+  it('emits no gate entries when the blueprint has no rules record', () => {
+    expect(emitLint(blueprint).some((entry) => entry.rules?.['max-lines'])).toBe(false);
+  });
+
   it('emits a leading ignore entry and splits a layer on exempt files', () => {
     const bp = defineBlueprint({
       framework: 'auto',
@@ -158,5 +162,105 @@ describe('emitLint · shape', () => {
 
     expect(componentEntries).toHaveLength(2);
     expect(componentEntries.some((entry) => entry.ignores?.includes('**/*.gen.ts'))).toBe(true);
+  });
+});
+
+describe('emitLint · rules gates', () => {
+  const gated = defineBlueprint({
+    ...blueprint,
+    framework: 'vue',
+    rules: {
+      maxLines: { tier: 'warn', value: 50 },
+      deepWatch: 'error',
+      usePrefix: 'error',
+      cycles: 'error', // Verify-side (inspect) — must not surface in lint.
+      customThing: 'error', // unknown id — docs-only.
+    },
+  });
+
+  const emitted = emitLint(gated);
+  const gates = emitted.find((entry) => entry.rules?.['max-lines']);
+
+  it('maps maxLines to the built-in max-lines across every layer glob', () => {
+    expect(gates?.rules?.['max-lines']).toEqual([
+      'warn',
+      { max: 50, skipBlankLines: true, skipComments: true },
+    ]);
+
+    expect(gates?.files).toEqual([
+      'src/components/**/*.{js,ts,vue}',
+      'src/hooks/**/*.{js,ts,vue}',
+      'src/services/**/*.{js,ts,vue}',
+    ]);
+  });
+
+  it('defaults maxLines to 400 when no value is given', () => {
+    const bare = emitLint(defineBlueprint({ ...blueprint, rules: { maxLines: 'error' } }));
+    const rule = bare.find((entry) => entry.rules?.['max-lines'])?.rules?.['max-lines'];
+
+    expect(rule).toEqual(['error', { max: 400, skipBlankLines: true, skipComments: true }]);
+  });
+
+  it('ships the embedded plugin alongside blueprint/* rules', () => {
+    expect(gates?.rules?.['blueprint/no-deep-watch']).toBe('error');
+    expect(gates?.plugins?.blueprint).toBeDefined();
+  });
+
+  it('attaches use-prefix to the hooks layer only, with the default prefix', () => {
+    const entry = emitted.find((item) => item.rules?.['blueprint/use-prefix']);
+
+    expect(entry?.files).toEqual(['src/hooks/**/*.{js,ts,vue}']);
+    expect(entry?.rules?.['blueprint/use-prefix']).toEqual(['error', { prefix: 'use' }]);
+    expect(entry?.plugins?.blueprint).toBeDefined();
+  });
+
+  it('honors a custom use-prefix layer and prefix', () => {
+    const custom = emitLint(defineBlueprint({
+      ...blueprint,
+      rules: { usePrefix: { tier: 'warn', layer: 'services', prefix: 'with' } },
+    }));
+
+    const entry = custom.find((item) => item.rules?.['blueprint/use-prefix']);
+
+    expect(entry?.files).toEqual(['src/services/**/*.{js,jsx,ts,tsx,vue}']);
+    expect(entry?.rules?.['blueprint/use-prefix']).toEqual(['warn', { prefix: 'with' }]);
+  });
+
+  it('drops deep-watch for react and every gate set to off', () => {
+    const react = emitLint(defineBlueprint({
+      ...blueprint,
+      framework: 'react',
+      rules: { maxLines: 'error', deepWatch: 'error' },
+    }));
+
+    const entry = react.find((item) => item.rules?.['max-lines']);
+
+    expect(entry?.rules?.['blueprint/no-deep-watch']).toBeUndefined();
+    expect(entry?.plugins).toBeUndefined();
+
+    const off = emitLint(defineBlueprint({
+      ...blueprint,
+      rules: { maxLines: 'off', deepWatch: { tier: 'off' }, usePrefix: 'off' },
+    }));
+
+    expect(off).toHaveLength(3); // layer entries only — no gate entries.
+  });
+
+  it('enforces the gates through a real Linter run', () => {
+    const config = [
+      { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+      ...emitted,
+    ];
+
+    const ids = (code: string, filename: string) =>
+      linter.verify(code, config, { filename }).map((message) => message.ruleId);
+
+    expect(ids('watch(x, cb, { deep: true });', COMPONENT)).toContain('blueprint/no-deep-watch');
+
+    expect(ids('export function getCart() {}', 'src/hooks/useCart/useCart.ts')).toContain(
+      'blueprint/use-prefix',
+    );
+
+    expect(ids('export function useCart() {}', 'src/hooks/useCart/useCart.ts')).toEqual([]);
   });
 });

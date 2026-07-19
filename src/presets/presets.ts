@@ -88,6 +88,9 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
       maxLines: { tier: 'error', value: 400 },
       cycles: 'error',
       deadCode: 'error',
+      usePrefix: 'error',
+      // Deep watch is a Vue cost trap; React has no equivalent call to gate.
+      ...(framework === 'vue' ? { deepWatch: 'error' as const } : {}),
     },
   });
 }

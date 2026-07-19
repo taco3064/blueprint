@@ -67,6 +67,13 @@ describe('presets · shape', () => {
     expect(bp.principles).toHaveLength(10);
     expect(bp.principles?.every((principle) => principle.land === 'claude')).toBe(true);
   });
+
+  it('gate deep watches for vue only; hook naming for both', () => {
+    expect(vuePreset().rules?.deepWatch).toBe('error');
+    expect(reactPreset().rules?.deepWatch).toBeUndefined();
+    expect(vuePreset().rules?.usePrefix).toBe('error');
+    expect(reactPreset().rules?.usePrefix).toBe('error');
+  });
 });
 
 describe('presets · enforcement (real ESLint)', () => {
@@ -112,6 +119,17 @@ describe('presets · enforcement (real ESLint)', () => {
     expect(restricted('export { t } from "~app/contexts/Theme";', file('hooks'))).toContain(
       'no-restricted-syntax',
     );
+  });
+
+  it('gates deep watches and hook naming through the emitted config', () => {
+    const ids = (code: string, filename: string) =>
+      linter.verify(code, config, { filename }).map((message) => message.ruleId);
+
+    expect(ids('watch(x, cb, { deep: true });', file('containers'))).toContain(
+      'blueprint/no-deep-watch',
+    );
+
+    expect(ids('export function getCart() {}', file('hooks'))).toContain('blueprint/use-prefix');
   });
 });
 

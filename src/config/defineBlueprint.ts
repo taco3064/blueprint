@@ -11,6 +11,9 @@ const MANAGED_RULES = [
   'no-restricted-imports',
   'no-restricted-syntax',
   'no-restricted-globals',
+  'max-lines',
+  'blueprint/no-deep-watch',
+  'blueprint/use-prefix',
 ];
 
 /**
@@ -124,7 +127,23 @@ export function validateBlueprint(bp: Blueprint): void {
     }
   }
 
+  validateUsePrefix(bp);
   validateAgentEmit(bp);
+}
+
+/** `usePrefix` must target a declared layer (default `hooks`). */
+function validateUsePrefix(bp: Blueprint): void {
+  const setting = bp.rules?.usePrefix;
+
+  if (setting === undefined) return;
+
+  const layer = (typeof setting === 'string' ? undefined : (setting.layer as string)) ?? 'hooks';
+
+  if (!bp.architecture.layers.some((candidate) => candidate.name === layer)) {
+    throw new Error(
+      `Rule "usePrefix" targets layer "${layer}", which is not a declared layer — set its "layer" option.`,
+    );
+  }
 }
 
 /** Normalize the mixed `emit.agents` list, applying the default target set. */

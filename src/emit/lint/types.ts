@@ -2,6 +2,8 @@
 export interface LintConfigEntry {
   files?: string[];
   ignores?: string[];
+  /** The embedded plugin, carried along when an entry uses a `blueprint/*` rule. */
+  plugins?: Record<string, unknown>;
   rules?: Record<string, unknown>;
 }
 
