@@ -1,3 +1,4 @@
+import type { Linter } from 'eslint';
 import type { Blueprint, RuleSetting, Tier } from '../../config';
 import { getForbiddenLayers, getSelfOnlyTargets } from '../../config';
 import { plugin } from '../../plugin';
@@ -57,11 +58,12 @@ export function emitLint(blueprint: Blueprint): LintConfig {
       })),
     );
 
-    const buildRules = (packages: PackageRule[]): Record<string, unknown> => {
+    const buildRules = (packages: PackageRule[]): Linter.RulesRecord => {
       const { paths, patterns } = buildPackagePatterns(packages);
 
       return {
-        ...layer.lintOverrides,
+        // By contract these are rule entries (validated to spare the managed rules).
+        ...(layer.lintOverrides as Linter.RulesRecord),
         'no-restricted-imports': [
           severity,
           { patterns: [...structural, ...patterns], ...(paths.length ? { paths } : {}) },
@@ -103,7 +105,7 @@ function ruleGateEntries(blueprint: Blueprint): LintConfigEntry[] {
   const { layers, layerFiles } = architecture;
   const entries: LintConfigEntry[] = [];
 
-  const shared: Record<string, unknown> = {};
+  const shared: Linter.RulesRecord = {};
   const maxLines = active(rules?.maxLines);
 
   if (maxLines) {
@@ -162,7 +164,7 @@ function active(setting: RuleSetting | undefined): ActiveRule | null {
 }
 
 /** Build the `no-restricted-globals` rule for globals this layer does not own. */
-function buildGlobalRule(disabled: GlobalRule[], severity: Severity): Record<string, unknown> {
+function buildGlobalRule(disabled: GlobalRule[], severity: Severity): Linter.RulesRecord {
   if (!disabled.length) return {};
 
   return {

@@ -1,10 +1,12 @@
+import type { ESLint, Linter } from 'eslint';
+
 /** One entry of an ESLint flat config — a drop-in for `eslint.config.js`. */
 export interface LintConfigEntry {
   files?: string[];
   ignores?: string[];
   /** The embedded plugin, carried along when an entry uses a `blueprint/*` rule. */
-  plugins?: Record<string, unknown>;
-  rules?: Record<string, unknown>;
+  plugins?: Record<string, ESLint.Plugin>;
+  rules?: Linter.RulesRecord;
 }
 
 /** The ESLint flat config emitted from a Blueprint's architecture. */

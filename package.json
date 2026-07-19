@@ -50,7 +50,7 @@
     "lint": "eslint .",
     "prepare": "husky",
     "test": "vitest run --coverage",
-    "tsc": "tsc -p tsconfig.lib.json"
+    "tsc": "tsc -p tsconfig.lib.json && tsc -p tsconfig.test.json"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",

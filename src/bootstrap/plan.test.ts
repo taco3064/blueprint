@@ -21,8 +21,12 @@ function state(over: Partial<ProjectState> = {}): ProjectState {
 
 const bp = vuePreset();
 
-const write = (actions: Action[], path: string) =>
-  actions.find((action) => action.kind === 'write' && action.path === path);
+type WriteAction = Extract<Action, { kind: 'write' }>;
+
+const write = (actions: Action[], path: string): WriteAction | undefined =>
+  actions.find(
+    (action): action is WriteAction => action.kind === 'write' && action.path === path,
+  );
 
 describe('plan', () => {
   it('writes config, scaffolds every layer, emits artifacts, and installs', () => {
