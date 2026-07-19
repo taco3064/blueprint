@@ -1,5 +1,13 @@
 # @kekkai/blueprint
 
+## 0.2.1
+
+### Patch Changes
+
+- Slim README: the docs site (https://taco3064.github.io/blueprint/) now
+  owns the full guide, API reference, and philosophy — the npm page keeps
+  a compact introduction and one link.
+
 ## 0.2.0
 
 ### Minor Changes
