@@ -1,5 +1,16 @@
 # @kekkai/blueprint
 
+## 0.2.2
+
+### Patch Changes
+
+- Security & trust disclosure: the README and the docs site now state
+  explicitly that the package never operates an agent CLI (it prepares
+  plain-markdown contracts and hands off — no credential surface), makes
+  no network calls, has zero runtime dependencies, runs exactly one
+  declared and skippable child process (the dependency install), bounds
+  every write, and ships provenance-signed releases.
+
 ## 0.2.1
 
 ### Patch Changes

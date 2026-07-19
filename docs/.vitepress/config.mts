@@ -23,6 +23,7 @@ export default defineConfig({
         sidebar: {
           '/guide/': [
             { text: 'Getting Started', link: '/guide/getting-started' },
+            { text: 'Security & Trust', link: '/guide/security' },
           ],
           '/philosophy/': [
             { text: 'The Operating Contract', link: '/philosophy/' },
@@ -48,6 +49,7 @@ export default defineConfig({
         sidebar: {
           '/zh-TW/guide/': [
             { text: '快速上手', link: '/zh-TW/guide/getting-started' },
+            { text: 'Security & Trust', link: '/zh-TW/guide/security' },
           ],
           '/zh-TW/philosophy/': [
             { text: 'Operating Contract', link: '/zh-TW/philosophy/' },

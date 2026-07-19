@@ -21,6 +21,21 @@ npx @kekkai/blueprint init      # greenfield: scaffold it all
 npx @kekkai/blueprint inspect   # brownfield: architecture report + baseline ratchet
 ```
 
+## 🔒 Security & trust
+
+- **Never operates an agent** — it writes plain-markdown contracts for coding agents
+  and hands off; it does not launch, configure, or authenticate against the `claude` /
+  `codex` / any agent CLI. No credential or authorization surface.
+- **No network access, zero runtime dependencies** — local file operations only.
+- **One child process, declared and skippable** — the dependency install during
+  `init` (printed in the plan; `--no-install` skips it).
+- **Writes are declared and bounded** — `--dry-run` prints every effect; `inspect` /
+  `deps` are read-only; your files are only edited when losslessly rewritable, never
+  overwritten.
+- **Provenance-signed releases** — published from GitHub Actions with npm provenance.
+
+Details: [Security & Trust](https://taco3064.github.io/blueprint/guide/security)
+
 ## 📖 Documentation
 
 Full guide, API reference, and the engineering philosophy behind it
