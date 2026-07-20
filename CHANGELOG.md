@@ -1,5 +1,14 @@
 # @kekkai/blueprint
 
+## 1.5.2
+
+### Patch Changes
+
+- 277e7aa: Symmetric with the wired eslint-config detection: a hand-written CLAUDE.md /
+  AGENTS.md that already mentions `@kekkai/blueprint` has been integrated by
+  its owner — re-running init no longer regenerates the `<name>.blueprint.md`
+  reference next to it.
+
 ## 1.5.1
 
 ### Patch Changes
