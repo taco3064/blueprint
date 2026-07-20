@@ -107,11 +107,16 @@ describe('runInspect · baseline ratchet', () => {
     expect(output).toContain('no longer occur');
   });
 
-  it('demands an existing baseline and supports JSON output', async () => {
-    await expect(runInspect(root, { baseline: true, log: silent })).rejects.toThrow(
-      /--update-baseline/,
-    );
+  it('treats a missing baseline file as empty — every finding is fresh', async () => {
+    writeSrc('utils/helper.ts', 'export const x = 1;');
 
+    const { ok, findings } = await runInspect(root, { baseline: true, log: silent });
+
+    expect(ok).toBe(false); // undeclared folder — fresh, nothing suppressed
+    expect(findings.length).toBeGreaterThan(0);
+  });
+
+  it('locks a baseline and supports JSON output', async () => {
     writeSrc('utils/helper.ts', 'export const x = 1;');
     await runInspect(root, { updateBaseline: true, log: silent });
 
@@ -162,5 +167,32 @@ describe('runInspect · test files are exempt from structure', () => {
     });
 
     expect(strict.findings.map((f) => f.rule)).toContain('undeclared-folder');
+  });
+});
+
+describe('runInspect · zero-finding baseline hygiene', () => {
+  it('writes no baseline on a clean repo and retires a paid-off one', async () => {
+    const baseline = path.join(root, '.blueprint-baseline.json');
+    let output = '';
+
+    // Truly clean: every declared layer folder exists, no files, no findings.
+    for (const layer of vuePreset().architecture.layers) {
+      fs.mkdirSync(path.join(root, 'src', layer.name), { recursive: true });
+    }
+
+    await runInspect(root, { updateBaseline: true, log: (m) => (output = m) });
+    expect(fs.existsSync(baseline)).toBe(false);
+    expect(output).toContain('no baseline needed');
+
+    // Accrue debt, lock it, pay it off — the ratchet retires itself.
+    writeSrc('utils/helper.ts', 'export const x = 1;');
+    await runInspect(root, { updateBaseline: true, log: silent });
+    expect(fs.existsSync(baseline)).toBe(true);
+
+    fs.rmSync(path.join(root, 'src', 'utils'), { recursive: true, force: true });
+    await runInspect(root, { updateBaseline: true, log: (m) => (output = m) });
+
+    expect(fs.existsSync(baseline)).toBe(false);
+    expect(output).toContain('removed');
   });
 });

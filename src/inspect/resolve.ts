@@ -35,7 +35,10 @@ export function stripAlias(specifier: string, aliases: string[]): string[] | nul
 export function moduleKey(segments: string[], layoutOf: LayoutOf): string {
   if (segments.length < 2 || layoutOf(segments[0]) === 'flat') return segments[0] ?? '';
 
-  return `${segments[0]}/${segments[1]}`;
+  // A direct file module keeps its extension out of the key, so
+  // `deps components/HelloWorld` and an import of `./HelloWorld.vue` both
+  // resolve to the same module as the file `components/HelloWorld.vue`.
+  return `${segments[0]}/${segments[1].replace(/\.[^.]+$/, '')}`;
 }
 
 export function resolveSegments(dir: string[], specifier: string): string[] | null {

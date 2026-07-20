@@ -149,11 +149,13 @@ describe('plan', () => {
     expect(reference?.note).toContain('not wired in');
 
     const note = actions.find(
-      (a) => a.kind === 'instruct' && a.note.includes('was not touched'),
+      (a) => a.kind === 'instruct' && a.note.includes('blueprint never edits it'),
     );
 
     expect(note?.note).toContain('diff eslint.config.blueprint.mjs');
     expect(note?.note).toContain('...emitLint(blueprint)');
+    // The reference is a merge source with an obligation, not a keepsake.
+    expect(note?.note).toContain('DELETE the reference');
   });
 
   it('surfaces the install command as an instruct under --no-install', () => {

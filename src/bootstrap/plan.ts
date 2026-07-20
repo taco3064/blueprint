@@ -4,6 +4,7 @@ import { emitCi } from '../emit/ci';
 import { emitHandbook, handbookPath } from '../emit/docs';
 import { injectBetweenMarkers } from '../markdown';
 import type { AgentTarget, Blueprint, RuleSetting } from '../config';
+import { GENERATED_ESLINT_BANNER } from '../project';
 import type { PackageManager, ProjectState } from '../project';
 import type { Action } from './types';
 
@@ -85,7 +86,16 @@ export function plan(
     actions.push({ kind: 'write', path: file.path, content: file.content, note: `${file.path} (agent contract)` });
   }
 
-  if (state.hasEslintConfig) {
+  if (state.ownedEslintConfig !== undefined) {
+    // The existing config carries the blueprint banner — it is init's own
+    // output, so regenerate it in place instead of treating it as brownfield.
+    actions.push({
+      kind: 'write',
+      path: state.ownedEslintConfig,
+      content: eslintConfigSource(blueprint, state),
+      note: `${state.ownedEslintConfig} (blueprint-owned — regenerated)`,
+    });
+  } else if (state.hasEslintConfig) {
     // Copy-ready hand-off: the full generated config lands next to the user's
     // own as a reference file they can diff and merge from — never wired in.
     actions.push({
@@ -97,7 +107,7 @@ export function plan(
 
     actions.push({
       kind: 'instruct',
-      note: 'eslint.config already exists, so it was not touched. Merge from the reference file:\n    diff eslint.config.blueprint.mjs eslint.config.*   # see what blueprint adds\n  Minimal merge — spread the blueprint rules into your existing config:\n    import blueprint from \'./blueprint.config.mjs\';\n    import { emitLint } from \'@kekkai/blueprint\';\n    export default [ ...emitLint(blueprint), /* …your existing entries */ ];\n  On a TypeScript project pass the TS plugin — emitLint(blueprint, { typescript: tseslint.plugin })\n  — so the unusedVars gate uses the TS-aware rule. Then copy the parser + CORE\n  blocks you need from the reference file, and delete it.',
+      note: 'eslint.config already exists — blueprint never edits it, so the reference file is your merge source, not a keepsake. Wire it in (the authoring playbook makes an agent do exactly this):\n    diff eslint.config.blueprint.mjs eslint.config.*   # see what blueprint adds\n  Spread the blueprint rules into your existing config:\n    import blueprint from \'./blueprint.config.mjs\';\n    import { emitLint } from \'@kekkai/blueprint\';\n    export default [ ...emitLint(blueprint), /* …your existing entries */ ];\n  On a TypeScript project pass the TS plugin — emitLint(blueprint, { typescript: tseslint.plugin }).\n  Resolve rule conflicts explicitly, run your own lint, then DELETE the reference —\n  adoption is not done while it remains. (Legacy .eslintrc configs need a flat-config\n  migration first — decide that consciously, not as a side effect.)',
     });
   } else {
     actions.push({
@@ -221,6 +231,9 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
   ];
 
   return [
+    GENERATED_ESLINT_BANNER,
+    '// Keep custom entries in your own config and spread ...emitLint(blueprint)',
+    '// there instead of editing this file.',
     'import { emitLint } from \'@kekkai/blueprint\';',
     'import importPlugin from \'eslint-plugin-import\';',
     'import comments from \'@eslint-community/eslint-plugin-eslint-comments\';',

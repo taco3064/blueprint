@@ -43,6 +43,19 @@ export async function runInspect(
   const baselineFile = path.join(root, BASELINE_FILE);
 
   if (options.updateBaseline) {
+    // A clean repo needs no ratchet — an empty baseline is a file whose only
+    // job is to exist. Skip writing it, and retire a paid-off one.
+    if (!findings.length) {
+      if (fs.existsSync(baselineFile)) {
+        fs.rmSync(baselineFile);
+        log(`No findings — ${BASELINE_FILE} removed; plain \`blueprint inspect\` is the gate now.`);
+      } else {
+        log('No findings — no baseline needed; plain `blueprint inspect` is the gate.');
+      }
+
+      return { findings, ok: true };
+    }
+
     fs.writeFileSync(baselineFile, renderBaseline(findings));
     log(`Baseline updated — ${findings.length} finding(s) recorded in ${BASELINE_FILE}.`);
 
@@ -50,13 +63,14 @@ export async function runInspect(
   }
 
   if (options.baseline) {
-    if (!fs.existsSync(baselineFile)) {
-      throw new Error(
-        `${BASELINE_FILE} not found — run \`blueprint inspect --update-baseline\` first.`,
-      );
-    }
+    // A missing baseline file is an empty baseline: every finding is fresh.
+    // This keeps `inspect --baseline` one uniform CI line on repos with and
+    // without recorded debt.
+    const recorded = fs.existsSync(baselineFile)
+      ? parseBaseline(fs.readFileSync(baselineFile, 'utf-8'))
+      : [];
 
-    const split = splitByBaseline(findings, parseBaseline(fs.readFileSync(baselineFile, 'utf-8')));
+    const split = splitByBaseline(findings, recorded);
     const ok = !hasErrors(split.fresh);
 
     log(

@@ -1,7 +1,9 @@
 import { emitAgentFiles } from '../emit/agent';
+import { handbookPath } from '../emit/docs';
 import { analyze } from '../inspect/analyze';
 import { scan } from '../inspect/scan';
 import type { Blueprint } from '../config';
+import { ignoredArtifacts } from './ignored';
 import { detect, readTexts, resolveBlueprint } from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
 import { runSurvey } from '../survey';
@@ -71,6 +73,21 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     if (cleanup) actions.push(cleanup);
   }
 
+  // The contract links to the handbook and lives in the agent files — if the
+  // repo gitignores them, whoever clones it gets dead links. Intentional is
+  // fine; silent is not.
+  const hidden = ignoredArtifacts(root, [
+    handbookPath(blueprint),
+    ...emitAgentFiles(blueprint, agentTarget ? [agentTarget] : undefined).map((file) => file.path),
+  ]);
+
+  if (hidden.length) {
+    actions.push({
+      kind: 'instruct',
+      note: `Heads-up: ${hidden.join(', ')} ${hidden.length === 1 ? 'is' : 'are'} gitignored — fine if intentional, but teammates cloning the repo won't have ${hidden.length === 1 ? 'it' : 'them'} (the contract links assume they exist). Regenerate anytime with: npx blueprint init`,
+    });
+  }
+
   log(
     `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · ${blueprint.framework} · ${state.packageManager}`,
   );
@@ -83,9 +100,13 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     apply(root, actions, options.exec ?? defaultExec);
 
     if (options.agent) {
-      // A config already exists, so there is nothing to author and no session
-      // to launch — but the flag still narrowed the contract to that tool.
-      log(`\n--agent ${options.agent}: nothing to author (blueprint.config.mjs exists) — no session launched; contract emitted for ${options.agent} only.`);
+      // Nothing to author on this path — but the flag still narrowed the
+      // contract to that tool. Phrase it by what actually happened.
+      log(
+        configSource === null
+          ? `\n--agent ${options.agent}: nothing to author (blueprint.config.mjs exists) — no session launched; contract emitted for ${options.agent} only.`
+          : `\n--agent ${options.agent}: fresh scaffold, nothing to author — no session launched; contract emitted for ${options.agent} only.`,
+      );
     }
   }
 

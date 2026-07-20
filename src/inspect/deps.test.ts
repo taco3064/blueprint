@@ -113,3 +113,21 @@ describe('runDeps · test files are excluded from the graph', () => {
     expect(modules[0].importedBy).toEqual(['containers/Cart', 'pages/Home']);
   });
 });
+
+describe('runDeps · file modules drop their extension from the key', () => {
+  it('resolves a bare-file module without its extension', async () => {
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+    );
+
+    writeSrc('components/HelloWorld.vue', '');
+    writeSrc('pages/Home/Home.ts', 'import x from \'~app/components/HelloWorld.vue\';');
+
+    const { ok, modules } = await runDeps(root, { target: 'components/HelloWorld', log: silent });
+
+    expect(ok).toBe(true);
+    expect(modules[0].module).toBe('components/HelloWorld');
+    expect(modules[0].importedBy).toEqual(['pages/Home']);
+  });
+});

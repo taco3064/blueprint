@@ -13,6 +13,11 @@ export interface ProjectState {
   hasConfig: boolean;
   /** Some `eslint.config.*` is present. */
   hasEslintConfig: boolean;
+  /**
+   * The existing eslint config file carries the blueprint banner — it is
+   * init's own output, safe to regenerate in place (undefined = hand-made).
+   */
+  ownedEslintConfig?: string;
   /** Some `vite.config.*` is present. */
   hasViteConfig: boolean;
   /** `typescript` is a dependency. */

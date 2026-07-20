@@ -135,17 +135,34 @@ baseline and paid down later — do not refactor application code in this pass.
    dominant rule everywhere) means you mistranslated intent — revisit the
    order or the module shapes. Converged means: every finding is explainable
    as real, nameable debt.
-9. **Finish.** Run \`npx blueprint init\`, then
-   \`npx blueprint inspect --update-baseline\`, write the report, and delete
-   the two authoring files. Two integration details:
+9. **Finish — and finish means integrated, not parked.** Run
+   \`npx blueprint init\`, then \`npx blueprint inspect --update-baseline\`,
+   write the report, and delete the two authoring files. The tool never
+   touches files you own, so it leaves \`*.blueprint.*\` references next to
+   them — **those references are your input, not the deliverable. Adoption
+   is not done while any reference file remains:**
    - **Declare your own tool** in the config — \`emit: { agents: ['claude'] }\`
      (Claude Code) or \`['agents']\` (codex & friends) — so init generates one
      contract file, not one per tool nobody uses.
-   - **If a hand-written CLAUDE.md / AGENTS.md exists**, init leaves a
-     \`<name>.blueprint.md\` reference next to it instead of touching it.
-     Integrate that content into the existing document following *its*
-     structure — link, don't duplicate; keep project facts to one screen —
-     then delete the reference.
+   - **Wire the lint.** If \`eslint.config.blueprint.mjs\` was written, merge
+     it into the existing flat config: spread \`...emitLint(blueprint, …)\`
+     (with the TS plugin on TypeScript projects), then resolve every rule
+     conflict *explicitly* — house disable conventions, thresholds, rules an
+     existing structure tool already enforces — and note each decision in the
+     report. Run the project's own lint command; new findings introduced by
+     the merge are fixed or explicitly judged, never left dangling. Delete
+     the reference once wired. Exception: a **legacy-format config**
+     (\`.eslintrc.*\`) needs a flat-config/ESLint-9 migration that can break
+     the project's own lint pipeline — do not do that unilaterally; surface
+     it as a decision item in the report instead.
+   - **If a hand-written CLAUDE.md / AGENTS.md exists**, integrate the
+     \`<name>.blueprint.md\` reference into the existing document following
+     *its* structure — link, don't duplicate; keep project facts to one
+     screen — then delete the reference.
+   - **If the repo already runs an overlapping structure tool** (e.g.
+     structure-lint, dependency-cruiser), say so in the report: blueprint's
+     lint layer duplicates it, and consolidating onto one gate is a scope
+     decision for the user — flag it, don't decide it.
 
 ## Config schema sketch
 
@@ -182,7 +199,10 @@ export default defineBlueprint({
 
 - [ ] \`npx blueprint inspect\` findings are all explainable as real debt
 - [ ] \`npx blueprint inspect --baseline\` exits 0 after the baseline is locked
-- [ ] The generated eslint config parses (\`npx eslint --config <file> <a src file>\`)
+- [ ] The blueprint lint rules run inside the project's own lint command
+      (merged, conflicts resolved) — or the legacy-config migration is a named
+      decision item in the report
+- [ ] No \`*.blueprint.*\` reference file remains in the repo
 - [ ] The report names every import cycle and every upward dependency found
 
 ## If you stop midway
