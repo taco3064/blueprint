@@ -49,6 +49,21 @@ export function plan(
     if (file.strategy === 'merge') {
       const existing = options.existingAgentFiles?.[file.path] ?? null;
 
+      // A hand-written file that already mentions the package has been
+      // integrated by its owner — symmetric with the wired eslint config.
+      if (
+        existing !== null
+        && !existing.includes(`<!-- ${MARKER}:START -->`)
+        && existing.includes('@kekkai/blueprint')
+      ) {
+        actions.push({
+          kind: 'instruct',
+          note: `${file.path} already integrates the blueprint contract — left as is.`,
+        });
+
+        continue;
+      }
+
       // A hand-written context file (no marker block) is a document someone
       // maintains — appending a generated block to it is not a merge, it is
       // graffiti. Leave a reference next to it instead; a person (or the

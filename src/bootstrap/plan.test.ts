@@ -268,3 +268,20 @@ describe('plan · wired eslint config', () => {
     )).toBe(true);
   });
 });
+
+describe('plan · integrated hand-written context file', () => {
+  it('leaves an already-integrated hand-written file alone — no reference, no nag', () => {
+    const actions = plan(state(), bp, null, {
+      existingAgentFiles: {
+        'AGENTS.md': '# My project\n\nContract: see node_modules/@kekkai/blueprint/agent-contract.md',
+      },
+    });
+
+    expect(write(actions, 'AGENTS.md')).toBeUndefined();
+    expect(write(actions, 'AGENTS.blueprint.md')).toBeUndefined();
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('already integrates'),
+    )).toBe(true);
+  });
+});
