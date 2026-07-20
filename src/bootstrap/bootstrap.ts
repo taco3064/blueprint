@@ -1,6 +1,9 @@
 import { emitAgentFiles } from '../emit/agent';
+import { analyze } from '../inspect/analyze';
+import { scan } from '../inspect/scan';
+import type { Blueprint } from '../config';
 import { detect, readTexts, resolveBlueprint } from '../project';
-import type { ResolveOptions } from '../project';
+import type { ProjectState, ResolveOptions } from '../project';
 import { runSurvey } from '../survey';
 import { authoringActions, BROWNFIELD_MIN_FILES } from './authoring';
 import { launchAgent } from './agent';
@@ -39,7 +42,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     const survey = runSurvey(root, { log: () => {} });
 
     if (survey.totalFiles >= BROWNFIELD_MIN_FILES) {
-      return runAuthoring(root, survey, options, log);
+      return runAuthoring(root, state, survey, options, log);
     }
   }
 
@@ -53,6 +56,15 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     ...options,
     existingAgentFiles: readTexts(root, mergePaths),
   });
+
+  // Fresh preset scaffold: starter-template code may violate the preset out
+  // of the box (e.g. `../assets` relative imports) — say exactly what to fix
+  // rather than letting the first lint run read as a broken install.
+  if (configSource !== null) {
+    const cleanup = templateCleanup(root, blueprint);
+
+    if (cleanup) actions.push(cleanup);
+  }
 
   log(
     `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · ${blueprint.framework} · ${state.packageManager}`,
@@ -75,14 +87,42 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   return actions;
 }
 
+/** Starter-template violations, phrased as a to-do — null when the scaffold is clean. */
+function templateCleanup(root: string, blueprint: Blueprint): Action | null {
+  const findings = analyze(scan(root), blueprint).filter(
+    (finding) => finding.severity === 'error',
+  );
+
+  if (!findings.length) return null;
+
+  const shown = findings.slice(0, 3).map((finding) => `    ${finding.path} — ${finding.message}`);
+  const more = findings.length - shown.length;
+
+  return {
+    kind: 'instruct',
+    note: [
+      `Template cleanup: the starter code violates the blueprint out of the box (${findings.length} finding(s)):`,
+      ...shown,
+      ...(more > 0 ? [`    … and ${more} more`] : []),
+      '  Wire the alias (see above), replace cross-layer relative imports with it,',
+      '  then verify with: npx blueprint inspect',
+    ].join('\n'),
+  };
+}
+
 /** The authoring branch: playbook + command file, then (optionally) the agent. */
 function runAuthoring(
   root: string,
+  state: ProjectState,
   survey: ReturnType<typeof runSurvey>,
   options: InitOptions,
   log: (message: string) => void,
 ): Action[] {
-  const actions = authoringActions(survey);
+  const actions = authoringActions(survey, {
+    packageManager: state.packageManager,
+    needsInstall: state.missingDeps.includes('@kekkai/blueprint'),
+    install: options.install,
+  });
 
   log(
     `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · brownfield without a config → authoring flow (${survey.totalFiles} source files surveyed)`,

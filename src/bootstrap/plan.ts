@@ -224,7 +224,7 @@ function activeTier(setting: RuleSetting | undefined): string | null {
   return tier === 'off' ? null : tier;
 }
 
-function installCommand(pm: PackageManager, deps: string[]): string {
+export function installCommand(pm: PackageManager, deps: string[]): string {
   const list = deps.join(' ');
 
   if (pm === 'npm') return `npm install -D ${list}`;

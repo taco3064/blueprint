@@ -173,8 +173,20 @@ describe('runInit · brownfield authoring flow', () => {
 
     const actions = await runInit(root, { install: false, log: silent });
 
-    expect(actions.map((action) => action.kind)).toEqual(['write', 'write', 'instruct']);
+    // install downgraded to an instruct because the test passes install:false.
+    expect(actions.map((action) => action.kind)).toEqual([
+      'write',
+      'write',
+      'instruct',
+      'instruct',
+    ]);
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('Install skipped'),
+    )).toBe(true);
+
     expect(read('blueprint-authoring.md')).toContain('## Survey evidence');
+    expect(read('blueprint-authoring.md')).toContain('## Prerequisites');
     expect(read('.claude/commands/blueprint-author.md')).toContain('blueprint-authoring.md');
 
     // Nothing of the normal scaffold happened.
@@ -235,8 +247,58 @@ describe('runInit · brownfield authoring flow', () => {
       log: silent,
     });
 
-    expect(actions).toHaveLength(3);
+    expect(actions).toHaveLength(4);
     expect(exists('blueprint-authoring.md')).toBe(false);
+  });
+
+  it('installs the package as part of the authoring flow by default', async () => {
+    brownfield();
+
+    const commands: string[] = [];
+
+    await runInit(root, {
+      exec: (command) => {
+        commands.push(command);
+      },
+      log: silent,
+    });
+
+    expect(commands).toEqual(['npm install -D @kekkai/blueprint']);
+  });
+
+  it('adds a template-cleanup instruct when preset scaffold code violates the rules', async () => {
+    writePkg({ name: 'fresh', dependencies: { vue: '^3' } });
+    fs.mkdirSync(path.join(root, 'src/components/Hello'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(root, 'src/components/Hello/index.js'),
+      [
+        'import logo from "../../assets/logo.svg";',
+        'import a from "../../assets/a.svg";',
+        'import b from "../../assets/b.svg";',
+        'import c from "../../assets/c.svg";',
+      ].join('\n'),
+    );
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    const cleanup = actions.find(
+      (action) => action.kind === 'instruct' && action.note.includes('Template cleanup'),
+    );
+
+    expect(cleanup?.note).toContain('src/components/Hello/index.js');
+    expect(cleanup?.note).toContain('… and 1 more'); // capped at three listed findings
+    expect(cleanup?.note).toContain('npx blueprint inspect');
+  });
+
+  it('emits no cleanup instruct when the scaffold is clean', async () => {
+    writePkg({ name: 'fresh', dependencies: { vue: '^3' } });
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('Template cleanup'),
+    )).toBe(false);
   });
 
   it('skips --agent with a message when a config already exists', async () => {

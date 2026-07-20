@@ -147,7 +147,7 @@ function isReferencesShell(text: string): boolean {
 function tsconfigInstruct(file: string, paths: Record<string, string[]>): Action {
   return {
     kind: 'instruct',
-    note: `Add the import alias to ${file} under compilerOptions:\n    "paths": ${JSON.stringify(paths)}`,
+    note: `Add the import alias to ${file} under compilerOptions:\n    "paths": ${JSON.stringify(paths)}\n  (no "baseUrl" needed — modern TypeScript resolves paths without it, and it is deprecated in 7.0)`,
   };
 }
 

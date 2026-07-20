@@ -182,6 +182,31 @@ describe('runSurvey', () => {
 
     expect(result.packageUsage).toEqual([]);
   });
+
+  it('reports alias-like specifiers that resolve to nothing', () => {
+    scaffold();
+
+    write(
+      'src/pages/Extra.tsx',
+      [
+        'import a from "~root/tests/fixture";',
+        'import b from "~root/tests/other";',
+        'import c from "#internal/x";',
+        'import d from "plain-unknown-pkg";', // bare name — not alias-like, not reported
+      ].join('\n'),
+    );
+
+    let output = '';
+    const result = runSurvey(root, { log: (message) => (output = message) });
+
+    expect(result.unresolved).toEqual([
+      { prefix: '~root', count: 2 },
+      { prefix: '#internal', count: 1 },
+    ]);
+
+    expect(output).toContain('Unresolved alias-like imports');
+    expect(output).toContain('~root/…');
+  });
 });
 
 describe('detectAliases', () => {
@@ -234,10 +259,12 @@ describe('renderSurvey', () => {
       selfAliasImports: {},
       testEvidence: [],
       packageUsage: [],
+      unresolved: [],
       totalFiles: 0,
     });
 
     expect(output).toContain('unknown framework');
     expect(output).not.toContain('Same-folder');
+    expect(output).not.toContain('Unresolved');
   });
 });

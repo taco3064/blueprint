@@ -67,6 +67,12 @@ export interface SurveyResult {
   testEvidence: { pattern: string; files: number }[];
   /** Package → folders importing it, most-concentrated first. */
   packageUsage: { package: string; folders: string[] }[];
+  /**
+   * Alias-looking specifier prefixes (`~x/…`, `@x/…`, `#x/…`) that matched no
+   * detected alias and no dependency — usually an undeclared alias (declare it
+   * in `additionalAliases`, or pass `--alias`), sometimes a missing dep.
+   */
+  unresolved: { prefix: string; count: number }[];
   totalFiles: number;
 }
 
@@ -188,6 +194,7 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
   const edgeCounts = new Map<string, number>();
   const selfAliasImports: Record<string, number> = {};
   const packageFolders = new Map<string, Set<string>>();
+  const unresolvedCounts = new Map<string, number>();
 
   for (const file of scanResult.files) {
     const from = folderSet.has(file.segments[0]) ? file.segments[0] : ROOT_BUCKET;
@@ -224,6 +231,10 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
 
         if (dep) {
           packageFolders.set(dep, (packageFolders.get(dep) ?? new Set()).add(from));
+        } else if (/^[~@#]/.test(ref.specifier)) {
+          const prefix = ref.specifier.split('/')[0];
+
+          unresolvedCounts.set(prefix, (unresolvedCounts.get(prefix) ?? 0) + 1);
         }
       }
     }
@@ -254,6 +265,9 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
     packageUsage: [...packageFolders.entries()]
       .map(([name, folders]) => ({ package: name, folders: [...folders].sort() }))
       .sort((a, b) => a.folders.length - b.folders.length || a.package.localeCompare(b.package)),
+    unresolved: [...unresolvedCounts.entries()]
+      .map(([prefix, count]) => ({ prefix, count }))
+      .sort((a, b) => b.count - a.count),
     totalFiles: scanResult.files.length,
   };
 
@@ -323,6 +337,17 @@ export function renderSurvey(result: SurveyResult): string {
 
     if (result.packageUsage.length > 15) {
       lines.push(`  … ${result.packageUsage.length - 15} more (use --json for the full list)`);
+    }
+  }
+
+  if (result.unresolved.length) {
+    lines.push(
+      '',
+      'Unresolved alias-like imports (an undeclared alias? declare it in additionalAliases, or pass --alias):',
+    );
+
+    for (const entry of result.unresolved) {
+      lines.push(`  ${String(entry.count).padStart(4)}  ${entry.prefix}/…`);
     }
   }
 
