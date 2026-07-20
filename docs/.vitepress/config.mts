@@ -41,6 +41,7 @@ export default defineConfig({
         sidebar: {
           '/guide/': [
             { text: 'Getting Started', link: '/guide/getting-started' },
+            { text: 'AI-Assisted Adoption', link: '/guide/ai-adoption' },
             { text: 'Security & Trust', link: '/guide/security' },
           ],
           '/philosophy/': [
@@ -67,6 +68,7 @@ export default defineConfig({
         sidebar: {
           '/zh-TW/guide/': [
             { text: '快速上手', link: '/zh-TW/guide/getting-started' },
+            { text: 'AI 協助導入', link: '/zh-TW/guide/ai-adoption' },
             { text: 'Security & Trust', link: '/zh-TW/guide/security' },
           ],
           '/zh-TW/philosophy/': [

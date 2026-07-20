@@ -3,14 +3,27 @@
 What this package does — and deliberately does not do — on your machine. Every claim
 below is verifiable in the source.
 
-## It never operates an agent
+## It never launches an agent — except when you explicitly ask
 
-Blueprint **prepares contracts *for* coding agents; it never operates one**. It writes
-plain-markdown contracts (`CLAUDE.md`, `AGENTS.md`, Cursor/Windsurf rules) and hands
-off — it does **not** launch, shell out to, configure, or authenticate against the
-`claude` / `codex` / any agent CLI. There is no credential, token, or authorization
-surface, by design: the analysis and setup that `init` and `inspect` perform are
-deterministic file operations, not agent invocations.
+Blueprint **prepares contracts and playbooks *for* coding agents; by default it never
+operates one**. It writes plain-markdown contracts (`CLAUDE.md`, `AGENTS.md`,
+Cursor/Windsurf rules) and — on brownfield repos — an authoring playbook, then hands
+off. It does **not** configure or authenticate against the `claude` / `codex` / any
+agent CLI. There is no credential, token, or authorization surface: the analysis that
+`init`, `survey`, and `inspect` perform is deterministic file operations, not agent
+invocations.
+
+The one exception is explicit: `init --agent claude|codex` spawns the user's own
+agent CLI on the authoring playbook. The boundaries of that opt-in:
+
+- **The exact command is printed before it runs** — the same one-liner you could
+  paste yourself; `--agent` adds nothing beyond executing it.
+- **Foreground and interactive** — the session runs under your agent CLI's own
+  permission prompts. Blueprint grants nothing, passes no tokens, and reads nothing
+  back from the session.
+- **Every artifact lands on disk before the spawn** — a failed launch (or an
+  abandoned session) degrades to exactly the manual path, which is the same path.
+- **`--dry-run` never launches.**
 
 ## No network access
 
@@ -22,11 +35,12 @@ home — the package contains no network code at all.
 `npm install @kekkai/blueprint` installs exactly one package. What you audit is what
 runs.
 
-## One child process, declared and skippable
+## Child processes are declared and skippable
 
-The only external command Blueprint ever runs is the dependency install
-(`npm install -D …`) during `init` — it is printed in the plan before it runs, and
-`--no-install` skips it entirely. Nothing else is executed.
+Blueprint runs exactly two kinds of external command, both declared before they run:
+the dependency install (`npm install -D …`) during `init` — printed in the plan,
+skipped by `--no-install` — and the opt-in agent launch described above. Nothing else
+is executed.
 
 ## Writes are declared and bounded
 

@@ -157,3 +157,108 @@ describe('runInit', () => {
     ]);
   });
 });
+
+describe('runInit · brownfield authoring flow', () => {
+  function brownfield(): void {
+    writePkg({ name: 'legacy', dependencies: { react: '^18' } });
+
+    for (let i = 0; i < 12; i++) {
+      fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+      fs.writeFileSync(path.join(root, `src/app/file${i}.ts`), 'export const x = 1;');
+    }
+  }
+
+  it('emits the playbook instead of scaffolding when code exists without a config', async () => {
+    brownfield();
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    expect(actions.map((action) => action.kind)).toEqual(['write', 'write', 'instruct']);
+    expect(read('blueprint-authoring.md')).toContain('## Survey evidence');
+    expect(read('.claude/commands/blueprint-author.md')).toContain('blueprint-authoring.md');
+
+    // Nothing of the normal scaffold happened.
+    expect(exists('blueprint.config.mjs')).toBe(false);
+    expect(exists('eslint.config.mjs')).toBe(false);
+    expect(exists('CLAUDE.md')).toBe(false);
+  });
+
+  it('honors --preset as the escape hatch back to the scaffold', async () => {
+    brownfield();
+
+    await runInit(root, { install: false, preset: true, log: silent });
+
+    expect(read('blueprint.config.mjs')).toContain('reactPreset');
+    expect(exists('blueprint-authoring.md')).toBe(false);
+  });
+
+  it('keeps the preset path for a near-empty repo', async () => {
+    writePkg({ name: 'fresh', dependencies: { react: '^18' } });
+
+    await runInit(root, { install: false, log: silent });
+
+    expect(read('blueprint.config.mjs')).toContain('reactPreset');
+    expect(exists('blueprint-authoring.md')).toBe(false);
+  });
+
+  it('launches the agent on the playbook with --agent', async () => {
+    brownfield();
+
+    const calls: string[] = [];
+
+    await runInit(root, {
+      install: false,
+      agent: 'claude',
+      spawn: (bin, args, cwd) => {
+        calls.push(`${bin} @ ${cwd}`);
+        expect(args[0]).toContain('blueprint-authoring.md');
+
+        return { status: 0 };
+      },
+      log: silent,
+    });
+
+    expect(calls).toEqual([`claude @ ${root}`]);
+    expect(exists('blueprint-authoring.md')).toBe(true); // written BEFORE the spawn
+  });
+
+  it('never launches on --dry-run, and writes nothing', async () => {
+    brownfield();
+
+    const actions = await runInit(root, {
+      install: false,
+      dryRun: true,
+      agent: 'claude',
+      spawn: () => {
+        throw new Error('must not spawn');
+      },
+      log: silent,
+    });
+
+    expect(actions).toHaveLength(3);
+    expect(exists('blueprint-authoring.md')).toBe(false);
+  });
+
+  it('skips --agent with a message when a config already exists', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    fs.writeFileSync(
+      path.join(root, 'blueprint.config.mjs'),
+      'export default {};',
+    );
+
+    const logs: string[] = [];
+
+    await runInit(root, {
+      install: false,
+      agent: 'codex',
+      spawn: () => {
+        throw new Error('must not spawn');
+      },
+      loadConfig: async () => vuePreset(),
+      log: (message) => logs.push(message),
+    });
+
+    expect(logs.join('\n')).toContain('--agent codex skipped');
+  });
+});

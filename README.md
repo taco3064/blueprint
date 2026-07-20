@@ -41,12 +41,15 @@ Framework auto-detected, existing configs never overwritten, re-runs idempotent.
 
 ## 🔒 Security & trust
 
-- **Never operates an agent** — it writes plain-markdown contracts for coding agents
-  and hands off; it does not launch, configure, or authenticate against the `claude` /
-  `codex` / any agent CLI. No credential or authorization surface.
+- **Never launches an agent by default** — it writes plain-markdown contracts and
+  playbooks for coding agents and hands off; there is no credential or authorization
+  surface. `init --agent claude|codex` is the one **explicit opt-in**: it spawns
+  exactly the printed command, foreground and interactive, under your own agent CLI's
+  permissions — blueprint itself still holds no credentials and makes no network calls.
 - **No network access, zero runtime dependencies** — local file operations only.
-- **One child process, declared and skippable** — the dependency install during
-  `init` (printed in the plan; `--no-install` skips it).
+- **Child processes are declared and skippable** — the dependency install during
+  `init` (printed in the plan; `--no-install` skips it), and the opt-in agent launch
+  above. Nothing else is executed.
 - **Writes are declared and bounded** — `--dry-run` prints every effect; `inspect` /
   `deps` are read-only; your files are only edited when losslessly rewritable, never
   overwritten.

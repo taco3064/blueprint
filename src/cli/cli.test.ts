@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isCliEntry, parseDepsArgs, parseInitArgs, parseInspectArgs, run, version } from './cli';
+import { isCliEntry, parseDepsArgs, parseInitArgs, parseInspectArgs, parseSurveyArgs, run, version } from './cli';
 
 describe('parseInitArgs', () => {
   it('parses known flags', () => {
@@ -210,5 +210,58 @@ describe('deps command dispatch', () => {
 
     fs.rmSync(dir, { recursive: true, force: true });
     log.mockRestore();
+  });
+});
+
+describe('parseInitArgs · authoring flags', () => {
+  it('parses --agent and --preset', () => {
+    expect(parseInitArgs(['--agent', 'claude', '--preset'])).toEqual({
+      agent: 'claude',
+      preset: true,
+    });
+
+    expect(parseInitArgs(['--agent', 'codex'])).toEqual({ agent: 'codex' });
+  });
+
+  it('rejects an unknown agent', () => {
+    expect(() => parseInitArgs(['--agent', 'skynet'])).toThrow(/claude \| codex/);
+    expect(() => parseInitArgs(['--agent'])).toThrow(/claude \| codex/);
+  });
+});
+
+describe('parseSurveyArgs', () => {
+  it('parses --json and --alias', () => {
+    expect(parseSurveyArgs(['--json', '--alias', '@'])).toEqual({ json: true, alias: '@' });
+    expect(parseSurveyArgs(['--wat'])).toEqual({});
+  });
+});
+
+describe('survey command dispatch', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-cli-survey-'));
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  it('runs survey and always returns 0', async () => {
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'x' }));
+
+    expect(await run(['survey'], root)).toBe(0);
+    expect(vi.mocked(console.log).mock.calls.join('\n')).toContain('Survey ·');
+  });
+
+  it('surfaces a bad --agent through the error path with exit 1', async () => {
+    expect(await run(['init', '--agent', 'skynet'], root)).toBe(1);
+  });
+
+  it('prints survey help', async () => {
+    expect(await run(['survey', '--help'])).toBe(0);
+    expect(vi.mocked(console.log).mock.calls.join('\n')).toContain('deterministic evidence');
   });
 });

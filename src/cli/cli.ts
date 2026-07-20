@@ -3,10 +3,12 @@ import fs, { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { runInit } from '../bootstrap';
-import type { InitOptions } from '../bootstrap';
+import { AGENT_KINDS, runInit } from '../bootstrap';
+import type { AgentKind, InitOptions } from '../bootstrap';
 import { runDeps, runInspect } from '../inspect';
 import type { DepsOptions, InspectOptions } from '../inspect';
+import { runSurvey } from '../survey';
+import type { SurveyOptions } from '../survey';
 
 const USAGE = [
   'blueprint — Architecture as Code. One blueprint compiles into ESLint rules,',
@@ -14,7 +16,12 @@ const USAGE = [
   '',
   'Usage:',
   '  blueprint init      Scaffold it all: layers, lint, docs, agent contracts, CI.',
+  '                      On a brownfield repo with no config, emits the authoring',
+  '                      playbook instead (--agent claude|codex launches it).',
+  '  blueprint survey    Deterministic repo evidence: folders, import matrix,',
+  '                      module shapes — the raw material for authoring a config.',
   '  blueprint inspect   Read-only architecture report (CI-gateable).',
+  '  blueprint deps      Reverse dependencies / blast radius per module.',
   '  blueprint --help | --version',
   '',
   'Run `blueprint <command> --help` for flags and details.',
@@ -23,26 +30,60 @@ const USAGE = [
 const INIT_HELP = [
   'blueprint init — scaffold the architecture operating contract.',
   '',
-  'Generates:',
+  'With a blueprint.config.mjs (or on a fresh repo, from a preset), generates:',
   '  · src/<layer>/ folders for every declared layer',
-  '  · blueprint.config.mjs (vue/react preset, or loaded when one exists)',
   '  · eslint.config.mjs — structural rules + the embedded plugin',
   '  · docs/architecture-handbook.md and AI agent contracts (CLAUDE.md, AGENTS.md)',
   '  · compilerOptions.paths for the import alias (lossless edits only)',
   '  · .github/workflows/blueprint-ci.yml — lint + inspect as the gate',
   '',
+  'On a brownfield repo WITHOUT a config, init does not guess: it surveys the',
+  'code and writes blueprint-authoring.md — an executable playbook for deriving',
+  'the config — plus a /blueprint-author command for Claude Code. An agent (or',
+  'you) executes it, then init runs again down the normal path.',
+  '',
   'Flags:',
+  '  --agent claude|codex    After writing the playbook, launch that agent CLI',
+  '                          on it (foreground, interactive, your own CLI and',
+  '                          permissions). Every artifact is on disk before the',
+  '                          spawn — if the launch fails, the manual path is',
+  '                          already complete.',
+  '  --preset                Skip the authoring flow: scaffold the framework',
+  '                          preset even on a brownfield repo.',
   '  --framework vue|react   Only needed when package.json detection is',
   '                          ambiguous — vue/react is otherwise auto-detected.',
   '  --no-install            Skip dependency installation.',
-  '  --dry-run               Print the plan, write nothing.',
+  '  --dry-run               Print the plan, write nothing (never launches).',
   '',
   'An existing eslint config is never overwritten — init writes a reference',
   'file to merge from instead. Re-running init is idempotent.',
   '',
   'Examples:',
-  '  npx @kekkai/blueprint init --dry-run     # see the plan first',
-  '  npx @kekkai/blueprint init               # scaffold + install',
+  '  npx @kekkai/blueprint init --dry-run        # see the plan first',
+  '  npx @kekkai/blueprint init                  # scaffold + install',
+  '  npx @kekkai/blueprint init --agent claude   # brownfield: agent authors the config',
+].join('\n');
+
+const SURVEY_HELP = [
+  'blueprint survey — deterministic evidence for authoring a blueprint.',
+  '',
+  'Runs without a config (it serves the moment before one exists). Reports:',
+  '  · top-level src/ folders with module-shape evidence (files, child folders,',
+  '    index coverage, nesting depth) and the src-root wiring files',
+  '  · the folder-to-folder import matrix (alias + relative), heaviest first',
+  '  · same-folder alias imports, test-convention hits',
+  '  · package-usage concentration — ownership candidates',
+  '',
+  'Facts only, no judgment: deciding which folders are layers and which way',
+  'the flow points is the authoring step (see `blueprint init` on brownfield).',
+  '',
+  'Flags:',
+  '  --alias <name>   Import alias when tsconfig paths detection finds none.',
+  '  --json           Machine-readable output.',
+  '',
+  'Examples:',
+  '  npx @kekkai/blueprint survey             # human-readable evidence report',
+  '  npx @kekkai/blueprint survey --json      # feed it to tooling / an agent',
 ].join('\n');
 
 const INSPECT_HELP = [
@@ -86,6 +127,7 @@ const DEPS_HELP = [
 
 const COMMAND_HELP: Record<string, string> = {
   init: INIT_HELP,
+  survey: SURVEY_HELP,
   inspect: INSPECT_HELP,
   deps: DEPS_HELP,
 };
@@ -111,6 +153,12 @@ function parseFramework(value: string | undefined): 'vue' | 'react' | undefined 
   return value === 'vue' || value === 'react' ? value : undefined;
 }
 
+function parseAgent(value: string | undefined): AgentKind | undefined {
+  return (AGENT_KINDS as readonly string[]).includes(value ?? '')
+    ? (value as AgentKind)
+    : undefined;
+}
+
 /** Parse `init` flags. Unknown flags are ignored. */
 export function parseInitArgs(args: string[]): InitOptions {
   const options: InitOptions = {};
@@ -122,8 +170,35 @@ export function parseInitArgs(args: string[]): InitOptions {
       options.install = false;
     } else if (arg === '--dry-run') {
       options.dryRun = true;
+    } else if (arg === '--preset') {
+      options.preset = true;
+    } else if (arg === '--agent') {
+      const agent = parseAgent(args[++i]);
+
+      if (!agent) {
+        throw new Error(`--agent expects one of: ${AGENT_KINDS.join(' | ')}.`);
+      }
+
+      options.agent = agent;
     } else if (arg === '--framework') {
       options.framework = parseFramework(args[++i]) ?? options.framework;
+    }
+  }
+
+  return options;
+}
+
+/** Parse `survey` flags. Unknown flags are ignored. */
+export function parseSurveyArgs(args: string[]): SurveyOptions {
+  const options: SurveyOptions = {};
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === '--json') {
+      options.json = true;
+    } else if (arg === '--alias') {
+      options.alias = args[++i];
     }
   }
 
@@ -196,6 +271,12 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
   try {
     if (command === 'init') {
       await runInit(cwd, parseInitArgs(rest));
+
+      return 0;
+    }
+
+    if (command === 'survey') {
+      runSurvey(cwd, parseSurveyArgs(rest));
 
       return 0;
     }
