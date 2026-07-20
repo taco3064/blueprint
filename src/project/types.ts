@@ -14,6 +14,12 @@ export interface ProjectState {
   /** Some `eslint.config.*` is present. */
   hasEslintConfig: boolean;
   /**
+   * `next` is a dependency. The react preset does not fit Next (its `pages`
+   * layer collides with the Pages Router convention; the App Router's `app`
+   * tree is not a preset layer) — init routes to the authoring flow instead.
+   */
+  hasNext: boolean;
+  /**
    * The existing eslint config file carries the blueprint banner — it is
    * init's own output, safe to regenerate in place (undefined = hand-made).
    */

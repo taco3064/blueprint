@@ -445,3 +445,37 @@ describe('runInit · wired eslint config detection', () => {
     )).toBe(true);
   });
 });
+
+describe('runInit · Next.js routing', () => {
+  it('routes a fresh Next repo to the authoring flow despite the low file count', async () => {
+    writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/app/page.tsx'), 'export default () => null;');
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    expect(exists('blueprint-authoring.md')).toBe(true);
+    expect(exists('blueprint.config.mjs')).toBe(false); // no preset scaffold
+    expect(exists('src/pages')).toBe(false);
+
+    expect(read('blueprint-authoring.md')).toContain('Next.js project');
+    expect(read('blueprint-authoring.md')).toContain('app` → `components');
+
+    expect(actions.some((action) => action.kind === 'mkdir')).toBe(false);
+  });
+
+  it('allows --preset on a Next repo but warns that it does not fit', async () => {
+    writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
+
+    const actions = await runInit(root, { install: false, preset: true, log: silent });
+
+    expect(read('blueprint.config.mjs')).toContain('reactPreset');
+
+    const warning = actions.find(
+      (action) => action.kind === 'instruct' && action.note.includes('this is a Next.js project'),
+    );
+
+    expect(warning?.note).toContain('src/pages/');
+    expect(warning?.note).toContain('authoring flow');
+  });
+});

@@ -43,6 +43,7 @@ export default defineConfig({
           '/guide/': [
             { text: 'Getting Started', link: '/guide/getting-started' },
             { text: 'AI-Assisted Adoption', link: '/guide/ai-adoption' },
+            { text: 'Field-Tested Setups', link: '/guide/field-tested' },
             { text: 'Security & Trust', link: '/guide/security' },
           ],
           '/philosophy/': [
@@ -71,6 +72,7 @@ export default defineConfig({
           '/zh-TW/guide/': [
             { text: '快速上手', link: '/zh-TW/guide/getting-started' },
             { text: 'AI 協助導入', link: '/zh-TW/guide/ai-adoption' },
+            { text: '實測相容性', link: '/zh-TW/guide/field-tested' },
             { text: '安全與信任', link: '/zh-TW/guide/security' },
           ],
           '/zh-TW/philosophy/': [

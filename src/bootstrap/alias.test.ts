@@ -22,6 +22,7 @@ function state(over: Partial<ProjectState> = {}): ProjectState {
     hasConfig: false,
     hasEslintConfig: false,
     wiredEslintConfig: false,
+    hasNext: false,
     hasViteConfig: false,
     hasTypescript: false,
     tsconfigs: { 'tsconfig.json': null, 'tsconfig.app.json': null, 'jsconfig.json': null },

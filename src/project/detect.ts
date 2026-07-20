@@ -63,11 +63,32 @@ function detectFramework(deps: Record<string, unknown>): Framework | null {
   return hasVue ? 'vue' : 'react';
 }
 
+/**
+ * Walk from `root` upward until a package-manager marker is found. In a
+ * workspace (pnpm / turbo monorepo) the lockfile lives at the workspace
+ * root, not in the package being initialized — looking only at the cwd
+ * would misdetect npm and generate the wrong install commands.
+ */
 function detectPackageManager(root: string): PackageManager {
-  if (fs.existsSync(path.join(root, 'pnpm-lock.yaml'))) return 'pnpm';
-  if (fs.existsSync(path.join(root, 'yarn.lock'))) return 'yarn';
+  let dir = path.resolve(root);
 
-  return 'npm';
+  for (;;) {
+    if (
+      fs.existsSync(path.join(dir, 'pnpm-lock.yaml'))
+      || fs.existsSync(path.join(dir, 'pnpm-workspace.yaml'))
+    ) {
+      return 'pnpm';
+    }
+
+    if (fs.existsSync(path.join(dir, 'yarn.lock'))) return 'yarn';
+    if (fs.existsSync(path.join(dir, 'package-lock.json'))) return 'npm';
+
+    const parent = path.dirname(dir);
+
+    if (parent === dir) return 'npm';
+
+    dir = parent;
+  }
 }
 
 function listSrcDirs(root: string): string[] {
@@ -92,6 +113,7 @@ export function detect(root: string): ProjectState {
 
   const framework = detectFramework(deps);
   const hasTypescript = 'typescript' in deps;
+  const hasNext = 'next' in deps;
 
   // The generated eslint config wires parsers for the detected stack — the
   // packages backing them join the install set.
@@ -120,6 +142,7 @@ export function detect(root: string): ProjectState {
     projectName: typeof pkg.name === 'string' ? pkg.name : undefined,
     hasConfig: fs.existsSync(path.join(root, CONFIG_FILE)),
     hasEslintConfig: eslintFile !== undefined,
+    hasNext,
     ownedEslintConfig,
     wiredEslintConfig,
     hasViteConfig: VITE_FILES.some((file) => fs.existsSync(path.join(root, file))),

@@ -43,7 +43,10 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (!state.hasConfig && options.preset !== true) {
     const survey = runSurvey(root, { log: () => {} });
 
-    if (survey.totalFiles >= BROWNFIELD_MIN_FILES) {
+    // Next.js always takes the authoring flow, file count aside: the react
+    // preset would scaffold src/pages/ (a routing convention in Next) and
+    // does not know the App Router's app/ tree.
+    if (survey.totalFiles >= BROWNFIELD_MIN_FILES || state.hasNext) {
       return runAuthoring(root, state, survey, options, log);
     }
   }
@@ -71,6 +74,14 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     const cleanup = templateCleanup(root, blueprint);
 
     if (cleanup) actions.push(cleanup);
+
+    if (state.hasNext) {
+      // --preset forced onto a Next repo: allowed, but say why it does not fit.
+      actions.push({
+        kind: 'instruct',
+        note: 'Warning: this is a Next.js project — the react preset scaffolds src/pages/ (a routing convention in Next) and does not declare the App Router\'s app/ tree. Prefer `blueprint init` without --preset: the authoring flow derives a config that fits (e.g. layers app → components → hooks → lib).',
+      });
+    }
   }
 
   // The contract links to the handbook and lives in the agent files — if the
@@ -148,6 +159,7 @@ function runAuthoring(
     packageManager: state.packageManager,
     needsInstall: state.missingDeps.includes('@kekkai/blueprint'),
     install: options.install,
+    next: state.hasNext,
   });
 
   log(

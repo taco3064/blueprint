@@ -121,3 +121,60 @@ describe('readTexts', () => {
     });
   });
 });
+
+describe('detect · workspace-aware package manager', () => {
+  it('finds the pnpm lockfile at the workspace root above the package', () => {
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-ws-'));
+
+    try {
+      fs.writeFileSync(path.join(workspace, 'pnpm-workspace.yaml'), 'packages:\n  - apps/*\n');
+      const pkg = path.join(workspace, 'apps', 'web');
+
+      fs.mkdirSync(pkg, { recursive: true });
+      fs.writeFileSync(path.join(pkg, 'package.json'), JSON.stringify({ name: 'web' }));
+
+      expect(detect(pkg).packageManager).toBe('pnpm');
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('stops at an npm lockfile found on the way up', () => {
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-ws-'));
+
+    try {
+      fs.writeFileSync(path.join(workspace, 'package-lock.json'), '{}');
+      const pkg = path.join(workspace, 'apps', 'web');
+
+      fs.mkdirSync(pkg, { recursive: true });
+      fs.writeFileSync(path.join(pkg, 'package.json'), JSON.stringify({ name: 'web' }));
+
+      expect(detect(pkg).packageManager).toBe('npm');
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('finds a yarn lockfile upward, and next flags the framework state', () => {
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-ws-'));
+
+    try {
+      fs.writeFileSync(path.join(workspace, 'yarn.lock'), '');
+      const pkg = path.join(workspace, 'packages', 'ui');
+
+      fs.mkdirSync(pkg, { recursive: true });
+
+      fs.writeFileSync(
+        path.join(pkg, 'package.json'),
+        JSON.stringify({ name: 'ui', dependencies: { react: '^19', next: '^15' } }),
+      );
+
+      const state = detect(pkg);
+
+      expect(state.packageManager).toBe('yarn');
+      expect(state.hasNext).toBe(true);
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+});
