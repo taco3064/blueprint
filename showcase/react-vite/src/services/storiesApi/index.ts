@@ -1,1 +1,0 @@
-export { fetchStories } from './storiesApi';

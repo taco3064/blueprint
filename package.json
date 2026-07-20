@@ -1,7 +1,7 @@
 {
   "name": "@kekkai/blueprint",
   "version": "1.7.0",
-  "description": "Architecture as Code \u2014 one Blueprint compiles into docs, agent contracts, lint, and CI for Vue & React projects.",
+  "description": "Architecture as Code — one Blueprint compiles into docs, agent contracts, lint, and CI for Vue & React projects.",
   "type": "module",
   "license": "MIT",
   "author": "taco3064 <tabacotaco@gmail.com>",
@@ -53,9 +53,8 @@
     "test": "vitest run --coverage",
     "tsc": "tsc -p tsconfig.lib.json && tsc -p tsconfig.test.json",
     "docs:api": "typedoc && rm -rf docs/zh-TW/api && cp -R docs/api docs/zh-TW/api",
-    "docs:dev": "npm run docs:showcase && npm run docs:api && vitepress dev docs",
-    "docs:build": "npm run docs:showcase && npm run docs:api && vitepress build docs",
-    "docs:showcase": "npm run build && node scripts/showcase.mjs"
+    "docs:dev": "npm run docs:api && vitepress dev docs",
+    "docs:build": "npm run docs:api && vitepress build docs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",

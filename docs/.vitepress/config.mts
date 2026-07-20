@@ -35,7 +35,6 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Guide', link: '/guide/getting-started' },
-          { text: 'Showcase', link: '/showcase' },
           { text: 'Philosophy', link: '/philosophy/' },
           { text: 'API', link: '/api/' },
           { text: 'Changelog', link: '/changelog' },
@@ -65,7 +64,6 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: '指南', link: '/zh-TW/guide/getting-started' },
-          { text: '展示', link: '/zh-TW/showcase' },
           { text: '工程理念', link: '/zh-TW/philosophy/' },
           { text: 'API', link: '/zh-TW/api/' },
           { text: '版本紀錄', link: '/zh-TW/changelog' },

@@ -20,7 +20,7 @@ const formatting = stylistic.configs.customize({
 });
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage', 'docs', 'examples', 'fixtures', 'showcase']),
+  globalIgnores(['dist', 'coverage', 'docs', 'examples', 'fixtures']),
   {
     files: ['**/*.ts'],
     extends: [js.configs.recommended, tseslint.configs.recommended],
