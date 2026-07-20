@@ -1,37 +1,37 @@
-# Security & Trust
+# 安全與信任
 
-這個套件在你機器上做什麼、以及**刻意不做**什麼。以下每句聲明都能在 source 裡驗證。
+本頁說明此套件在使用者機器上執行的行為，以及**刻意不做**的事項。以下每項聲明均可於原始碼中查證。
 
-## 預設不啟動任何 agent —— 除非你顯式要求
+## 預設不啟動任何 AI 代理 —— 除非使用者明確要求
 
-Blueprint **替 coding agent 備料，預設不代替你操作 agent**。它寫的是純 markdown 契約（`CLAUDE.md`、`AGENTS.md`、Cursor / Windsurf rules），brownfield repo 上再多一份 authoring 劇本，寫完就交棒 —— 它**不會**設定、或向 `claude` / `codex` / 任何 agent CLI 認證。不存在憑證、token、授權面：`init`、`survey`、`inspect` 做的分析全是決定論的檔案操作，不是 agent 呼叫。
+Blueprint **為程式開發代理準備素材，預設不代替使用者操作代理**。它產出的是純 markdown 格式的契約檔（`CLAUDE.md`、`AGENTS.md`、Cursor 與 Windsurf 規則檔），在既有專案上另產出一份導入作業手冊，完成後即交棒。它**不會**設定 `claude`、`codex` 或任何代理工具，亦不會向其進行身分驗證。此套件不存在憑證、權杖或授權介面：`init`、`survey`、`inspect` 所執行的分析均為決定性的檔案操作，而非代理呼叫。
 
-唯一的例外是顯式的：`init --agent claude|codex` 會在 authoring 劇本上啟動**你自己的** agent CLI。這個 opt-in 的邊界：
+唯一的例外必須由使用者明確啟用：`init --agent claude|codex` 會以導入作業手冊為輸入，啟動**使用者自己的**代理工具。此選項的安全邊界如下：
 
-- **執行前先印出指令原文** —— 跟你自己貼上去跑的是同一行；`--agent` 除了替你執行它，不多做任何事
-- **前景、互動式** —— session 跑在你的 agent CLI 自己的權限確認之下。Blueprint 不代授任何權限、不傳任何 token、也不回讀 session 內容
-- **所有產物在 spawn 之前就已落盤** —— 啟動失敗（或 agent 中途放棄）就退回手動路徑，而手動路徑就是同一條路
-- **`--dry-run` 永不啟動**
+- **執行前先印出完整指令** —— 與使用者親自貼上執行的指令完全相同；`--agent` 除了代為執行之外，不做任何額外的事
+- **前景互動模式** —— 工作階段執行於使用者代理工具自身的權限確認機制之下。Blueprint 不代為授權、不傳遞任何權杖、亦不讀取工作階段的內容
+- **所有產出物在子行程啟動之前均已寫入磁碟** —— 啟動失敗或代理中途停止時，即回歸手動路徑；手動路徑與代理路徑是同一條路徑
+- **`--dry-run` 一律不啟動任何代理**
 
 ## 零網路存取
 
-每個指令都只操作本地檔案。沒有 telemetry、沒有 update check、不回報任何東西 —— 套件裡根本沒有網路 code。
+每個指令僅操作本機檔案。無遙測、無版本更新檢查、不回傳任何資料 —— 套件內不含任何網路程式碼。
 
-## 零 runtime 依賴
+## 零執行期依賴
 
-`npm install @kekkai/blueprint` 就裝這一個套件。你 audit 到的就是會跑的全部。
+`npm install @kekkai/blueprint` 僅安裝此一套件。稽核所見即為實際執行的全部內容。
 
-## Child process：明列、可跳過
+## 子行程：事先明列、可以跳過
 
-Blueprint 只會執行兩種外部指令，跑之前都先明列：`init` 的依賴安裝（`npm install -D …`，印在計畫裡、`--no-install` 可跳過），以及上面說的 opt-in agent 啟動。除此之外不執行任何東西。
+Blueprint 僅執行兩種外部指令，且執行前均事先明列：其一為 `init` 的依賴安裝（`npm install -D …`，列印於執行計畫中，可以 `--no-install` 跳過）；其二為前述須明確啟用的代理啟動。除此之外不執行任何外部指令。
 
-## 寫入有宣告、有邊界
+## 寫入行為均有宣告與邊界
 
-- `init --dry-run` 印出全部效果、不碰任何檔案
-- `inspect` 跟 `deps` 唯讀（`inspect --update-baseline` 只寫一個明列的檔：`.blueprint-baseline.json`）
-- 你擁有的檔案**只在能無損寫回時**才會被改（無註解的 `tsconfig.json` / `jsconfig.json`）；其他 —— 包含任何既有的 eslint config —— 一律給貼了能用的 snippet，絕不覆蓋
-- 重跑 `init` 冪等；共用 context 檔裡的手寫內容躲在 marker 區塊後面，不會被動到
+- `init --dry-run` 列印全部效果，不寫入任何檔案
+- `inspect` 與 `deps` 為唯讀（`inspect --update-baseline` 僅寫入一個明列的檔案：`.blueprint-baseline.json`；檢測項目為零時不產生任何檔案）
+- 使用者持有的檔案**僅在可無損重寫時**才會修改（即無註解的 `tsconfig.json` / `jsconfig.json`）；其餘情況 —— 包括任何既有的 ESLint 組態與手寫的代理契約檔 —— 一律提供可直接使用的合併指引，絕不覆蓋
+- 重複執行 `init` 具冪等性；共用契約檔中的手寫內容受標記區塊保護，不會被更動
 
-## 發佈帶 provenance 簽章
+## 發佈附來源簽章
 
-每一版都從 GitHub Actions 發佈、帶 [npm provenance](https://docs.npmjs.com/generating-provenance-statements) —— build 來源在 Sigstore 公開可驗，且 release workflow 全程被 100% coverage 的測試 gate 擋著。
+每個版本均由 GitHub Actions 發佈，並附 [npm provenance](https://docs.npmjs.com/generating-provenance-statements) 來源證明 —— 建置來源可於 Sigstore 公開查驗，且發佈流程受完整測試套件（涵蓋率 100%）把關。

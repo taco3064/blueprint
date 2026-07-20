@@ -18,6 +18,11 @@ export interface ProjectState {
    * init's own output, safe to regenerate in place (undefined = hand-made).
    */
   ownedEslintConfig?: string;
+  /**
+   * A hand-maintained eslint config already imports `@kekkai/blueprint` —
+   * its owner wired the rules in, so no reference file is needed.
+   */
+  wiredEslintConfig: boolean;
   /** Some `vite.config.*` is present. */
   hasViteConfig: boolean;
   /** `typescript` is a dependency. */

@@ -1,37 +1,37 @@
-# 元件形狀 · 7 條正交軸線
+# 元件形狀 · 七條正交軸線
 
-元件 / composable 的形狀，七條軸線。**這是一個「集合」，不是一條「流程」**：七軸彼此正交、各自獨立作「要 / 不要」的決定 —— 別用「滿足 #3 所以 #1 自動成立」這種推論。編號是 identifier，不代表順序；trivial 的改動不用硬套。
+元件與 composable 的形狀由七條軸線衡量。**七條軸線構成「集合」，而非「流程」**：彼此正交、各自獨立判斷 —— 不得以「符合第三條，故第一條自動成立」的方式推論。編號僅為識別用途，不代表順序；輕微的改動不必逐條套用。
 
-這整個部分的 lint 幾乎都是 ◐/○ —— 元件形狀是設計判斷，這正是信念 #7。
+本部分的檢查規則幾乎全數落於 ◐ 與 ○ 級 —— 元件形狀屬於設計判斷，此即信念第七條的體現。
 
-### 1. Ownership Inversion —— 誰需要 derived state，誰自己持有
+### 1. 所有權反轉 —— 誰需要衍生狀態，誰自行持有
 
-Parent 不要先算好再 props drill，child 直接 import composable / hook 自己算。實戰：props 17 → 7。
+父元件不應預先計算後逐層傳遞 props；子元件應直接匯入 composable 或 hook 自行計算。實際案例：props 數量自 17 降至 7。
 
-### 2. IO Shrinkage —— 輸入窄、輸出少
+### 2. 介面收縮 —— 輸入收窄、輸出精簡
 
-三種 move：拆多 concern、平行 raw state 帶 invariant → 收成單一 modeled state、對稱 twin 收成同型 object。count / size 是弱訊號；**有沒有 model 化**是 review 判斷。Triage：`max-params`。
+三種手法：拆分多重關注點；將帶有不變量的平行原始狀態收斂為單一建模狀態；將對稱的成對輸出收斂為同型物件。數量與大小僅為弱訊號；**狀態是否經過建模**方為審查的判斷重點。初篩規則：`max-params`。
 
-### 3. SRP Decomposition —— 按責任邊界切，不按大小
+### 3. 單一職責拆分 —— 依責任邊界切分，而非依大小
 
-Naming test：不用「and」就講不清 → 該拆。Dissolution 也是拆。例外：共用必須同步的 writable state —— 強拆製造 sync bug。Triage：`max-statements`。
+命名檢驗法：不使用「和」便無法說清職責者，即應拆分。解散（將內容歸還各自的歸屬處）亦屬拆分的一種。例外：共用且必須同步的可寫狀態 —— 強行拆分將製造同步錯誤。初篩規則：`max-statements`。
 
-### 4. Orchestration Shell —— Page 只做協調
+### 4. 協調層外殼 —— 頁面僅做協調
 
-Route / id 解析、loading shell、shared source、跨 child lifecycle —— 不替每個 child 算 derived。實戰：detail page 6666 行 → 552 行。Triage：`max-lines`（on pages）。
+路由與識別碼解析、載入狀態外殼、共享資料來源、跨子元件的生命週期 —— 頁面不代替個別子元件計算衍生值。實際案例：明細頁自 6,666 行縮減至 552 行。初篩規則：`max-lines`（作用於 pages 層）。
 
-### 5. Scoped Writable State —— 放「寫的人 + 讀的人」的最近共同 ancestor
+### 5. 可寫狀態的作用域 —— 置於「寫入者與讀取者」的最近共同祖先
 
-只有真跨界共享的 writable state 才往上送；要跨 route → 進 URL query / store。「未來可能共享」= YAGNI，要共享時再 hoist。
+唯有確實跨界共享的可寫狀態才向上移動；需跨路由持續存在者，改置於網址查詢參數或狀態儲存庫。「未來可能共享」屬於過度設計 —— 確認需要共享時再行上提。
 
-### 6. Lifecycle Internalization —— lifecycle 是責任一部分就內建
+### 6. 生命週期內化 —— 生命週期屬於職責的一部分即應內建
 
-Caller 該拿到「已經跑起來、會自己清理」的東西，不是自己去接線 `onMounted` / `useEffect`。實戰：19 個 export → caller 一行。
+呼叫端應取得「已啟動且會自行清理」的單元，而非自行接線 `onMounted` / `useEffect`。實際案例：19 個匯出項收斂為呼叫端的一行程式碼。
 
-### 7. Pure Helpers ≠ Composables —— 純函式跟 reactive unit 不要混
+### 7. 純函式不等於 composable —— 純函式與響應式單元不得混置
 
-一個 export function ≠ 一個檔：責任切在 function 層級，檔案切分只在 `max-lines` 逼近時才做。曝的是 unit 做的**決定**，不是原料。
+「一個匯出函式」不等於「一個檔案」：責任的切分在函式層級進行，檔案的切分僅在接近 `max-lines` 門檻時進行。對外暴露的應是單元做成的**決定**，而非原料。
 
 ---
 
-**Lint 與 review 的分工（貫穿 7 軸）**：一個 unit 可能 size 小、complexity 低、fan-out 低 —— 全綠 —— 卻是 raw-state dump、或把 derivation 存成 mutable ref，metric 全看不到。lint warning = review 的進場點，不是結論。
+**檢查與審查的分工（貫穿七條軸線）**：一個單元可能行數少、複雜度低、依賴數量少 —— 各項量測全數通過 —— 卻是原始狀態的傾倒場，或將衍生值存成可變參照；量測工具對此毫無所覺。檢查警告是審查的進場點，而非結論。

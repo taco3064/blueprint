@@ -108,6 +108,11 @@ export function detect(root: string): ProjectState {
     ? eslintFile
     : undefined;
 
+  // A hand-maintained config that already imports the package has been wired
+  // by its owner — emitting a reference next to it would be nagging.
+  const wiredEslintConfig
+    = ownedEslintConfig === undefined && (eslintText?.includes('@kekkai/blueprint') ?? false);
+
   return {
     root,
     framework,
@@ -116,6 +121,7 @@ export function detect(root: string): ProjectState {
     hasConfig: fs.existsSync(path.join(root, CONFIG_FILE)),
     hasEslintConfig: eslintFile !== undefined,
     ownedEslintConfig,
+    wiredEslintConfig,
     hasViteConfig: VITE_FILES.some((file) => fs.existsSync(path.join(root, file))),
     hasTypescript,
     tsconfigs: readTexts(root, TSCONFIG_FILES),

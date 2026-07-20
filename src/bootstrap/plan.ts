@@ -95,6 +95,13 @@ export function plan(
       content: eslintConfigSource(blueprint, state),
       note: `${state.ownedEslintConfig} (blueprint-owned — regenerated)`,
     });
+  } else if (state.wiredEslintConfig) {
+    // The user's own config already imports the package — wired by its
+    // owner. Nothing to hand off, and no reference to nag about.
+    actions.push({
+      kind: 'instruct',
+      note: 'eslint config already wires @kekkai/blueprint — nothing to merge.',
+    });
   } else if (state.hasEslintConfig) {
     // Copy-ready hand-off: the full generated config lands next to the user's
     // own as a reference file they can diff and merge from — never wired in.

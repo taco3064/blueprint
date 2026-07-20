@@ -421,3 +421,27 @@ describe('runInit · artifact hygiene', () => {
     expect(logs.join('\n')).toContain('fresh scaffold, nothing to author');
   });
 });
+
+describe('runInit · wired eslint config detection', () => {
+  it('stops nagging once the user config imports @kekkai/blueprint', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    fs.writeFileSync(
+      path.join(root, 'eslint.config.mjs'),
+      [
+        'import { emitLint } from \'@kekkai/blueprint\';',
+        'import blueprint from \'./blueprint.config.mjs\';',
+        'export default [...emitLint(blueprint)];',
+      ].join('\n'),
+    );
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    expect(exists('eslint.config.blueprint.mjs')).toBe(false);
+    expect(read('eslint.config.mjs')).toContain('emitLint(blueprint)');
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('already wires'),
+    )).toBe(true);
+  });
+});

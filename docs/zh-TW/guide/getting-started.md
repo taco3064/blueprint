@@ -1,47 +1,47 @@
 # 快速上手
 
-## Greenfield —— `blueprint init`
+## 全新專案 —— `blueprint init`
 
 ```bash
 npx @kekkai/blueprint init
 ```
 
-一個指令把整套 operating contract 鋪好：
+單一指令即完成整套運作契約的建置：
 
-- 每個宣告層的 `src/<layer>/` 資料夾
-- `blueprint.config.mjs` —— 唯一的架構來源
-- `eslint.config.mjs` —— 結構規則 + 第三方 core
-- `docs/architecture-handbook.md` 與 agent 契約（`CLAUDE.md`、`AGENTS.md`）
-- alias 接進 `tsconfig.json` / `jsconfig.json` 的 `compilerOptions.paths`
-- `.github/workflows/blueprint-ci.yml` —— lint + inspect 當 gate
+- 為每個宣告的分層建立 `src/<layer>/` 資料夾
+- `blueprint.config.mjs` —— 架構的唯一真實來源
+- `eslint.config.mjs` —— 結構規則與第三方基礎規則
+- `docs/architecture-handbook.md` 與 AI 代理契約（`CLAUDE.md`、`AGENTS.md`）
+- 將匯入別名寫入 `tsconfig.json` / `jsconfig.json` 的 `compilerOptions.paths`
+- `.github/workflows/blueprint-ci.yml` —— 以程式碼檢查與架構檢測作為持續整合的檢核關卡
 
-Framework 從 `package.json` **自動偵測**（`--framework vue|react` 只在曖昧時破平手）、既有的 eslint config **絕不覆蓋**（init 改印合併 snippet）、重跑 init 冪等。
+框架種類由 `package.json` **自動偵測**（`--framework vue|react` 僅在無法判定時使用）；既有的 ESLint 組態**一律不覆蓋**（init 會改為提供合併指引）；重複執行 init 的結果具冪等性。
 
-## Brownfield —— `blueprint inspect`
+## 既有專案 —— `blueprint inspect`
 
 ```bash
 npx @kekkai/blueprint inspect
 ```
 
-唯讀。掃 `src/`、對照 blueprint、印出 Architecture Report 跟遷移步驟。有 error 級 finding 就 exit `1`。
+唯讀指令。掃描 `src/`、對照 Blueprint 組態，輸出架構報告與遷移建議。凡存在錯誤等級的檢測項目，即以狀態碼 1 結束。
 
-Legacy 專案第一次跑一定滿江紅 —— **baseline ratchet** 就是為這個生的：
-
-```bash
-npx @kekkai/blueprint inspect --update-baseline   # 把今天的債鎖進 baseline
-npx @kekkai/blueprint inspect --baseline          # CI：只擋「新增」的違規
-```
-
-從今天起不再變爛；債還掉之後 stale 的條目會被點名，ratchet 一路鎖緊。
-
-## Blast radius —— `blueprint deps`
+歷史較久的專案首次執行時，通常會出現大量檢測項目 —— **基準棘輪機制**正是為此設計：
 
 ```bash
-npx @kekkai/blueprint deps hooks/useCart   # 誰 import 它、它 import 誰
-npx @kekkai/blueprint deps                 # 排行榜：所有 module 按 fan-in 排
+npx @kekkai/blueprint inspect --update-baseline   # 將既有債務記錄為基準
+npx @kekkai/blueprint inspect --baseline          # 持續整合：僅攔截「新增」的違規
 ```
 
-## The Blueprint
+自建立基準當日起，架構品質不再惡化；既有債務清償後，過時的基準條目會被明確列出，檢核範圍隨之逐步收緊。檢測項目為零的專案不需要基準檔案，`--baseline` 在無基準檔時視同空基準執行。
+
+## 影響範圍 —— `blueprint deps`
+
+```bash
+npx @kekkai/blueprint deps hooks/useCart   # 查詢該模組被誰匯入、又匯入了誰
+npx @kekkai/blueprint deps                 # 全模組排行：依被引用數排序
+```
+
+## Blueprint 組態
 
 ```js
 // blueprint.config.mjs
@@ -52,11 +52,11 @@ export default defineBlueprint({
   architecture: {
     alias: '~app',
     layers: [
-      { name: 'components', does: '可重用 UI', mustNot: ['call services'] },
-      { name: 'hooks', does: '加工 server / shared state' },
+      { name: 'components', does: '可重用的使用者介面元件', mustNot: ['呼叫 services'] },
+      { name: 'hooks', does: '加工伺服器資料與共享狀態' },
       {
         name: 'services',
-        does: '網路原件',
+        does: '網路存取原語',
         owns: ['axios', { global: 'fetch' }],
         allowedImporters: ['hooks'],
       },
@@ -67,4 +67,4 @@ export default defineBlueprint({
 });
 ```
 
-也可以直接用 canonical preset —— `vuePreset()` / `reactPreset()` 編碼了完整治理手冊：六層、十條信念、七軸、十八條 playbook。所有 export 見 [API Reference](/zh-TW/api/)。
+亦可直接採用內建的預設藍圖 —— `vuePreset()` 與 `reactPreset()` 完整編碼了治理手冊的內容：六個分層、十條核心信念、七條元件形狀軸線、十八條作業守則。所有匯出項目請參閱 [API 文件](/zh-TW/api/)。

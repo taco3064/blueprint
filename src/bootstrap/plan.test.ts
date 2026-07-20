@@ -13,6 +13,7 @@ function state(over: Partial<ProjectState> = {}): ProjectState {
     projectName: 'app',
     hasConfig: false,
     hasEslintConfig: false,
+    wiredEslintConfig: false,
     hasViteConfig: false,
     hasTypescript: false,
     tsconfigs: { 'tsconfig.json': null, 'tsconfig.app.json': null, 'jsconfig.json': null },
@@ -247,5 +248,23 @@ describe('plan', () => {
     const pnpm = plan(state({ packageManager: 'pnpm' }), bp, null, {}).find((a) => a.kind === 'install');
 
     expect(pnpm).toMatchObject({ command: 'pnpm add -D eslint @kekkai/blueprint' });
+  });
+});
+
+describe('plan · wired eslint config', () => {
+  it('emits no reference when the hand-made config already imports the package', () => {
+    const actions = plan(
+      state({ hasEslintConfig: true, wiredEslintConfig: true }),
+      bp,
+      null,
+      {},
+    );
+
+    expect(write(actions, 'eslint.config.blueprint.mjs')).toBeUndefined();
+    expect(write(actions, 'eslint.config.mjs')).toBeUndefined();
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('already wires'),
+    )).toBe(true);
   });
 });

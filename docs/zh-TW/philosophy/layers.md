@@ -1,48 +1,48 @@
 # 分層架構
 
-**單向依賴流 + 每層單一職責。** 原則本身框架中立（Vue / React 都成立），單元對應（沒有主從）：`composable ↔ hook`、`context ↔ Context`、`SFC ↔ function component`、`service ↔ api client`。
+**單向依賴流，每層單一職責。** 原則本身與框架無關（Vue 與 React 均成立），單元一一對應、沒有主從之分：`composable ↔ hook`、`context ↔ Context`、`SFC ↔ function component`、`service ↔ api client`。
 
 ```
 pages/views → containers → components → hooks → services → assets/i18n
-                  ⇢ contexts（Provider only）
-       hooks ⇢ contexts（Context only、selfOnly）
+                  ⇢ contexts（僅限掛載 Provider）
+       hooks ⇢ contexts（僅限取用 Context；selfOnly）
     contexts → services
 ```
 
-## 為什麼要單向流
+## 單向依賴流的理由
 
-1. 每層職責單一（hook 不 import component → 保持是可重用邏輯）
-2. 一眼看得出 ownership，不用 grep 整個 repo
-3. 重構安全，跨層搬檔時 lint 一次把所有非法 call site 標出來
-4. 加一條依賴邊 = 改 blueprint，逼「這層真的該依賴那層嗎？」在 review 就浮出來
+1. 每層職責單一（hook 不匯入 component，因而保持為可重用的邏輯單元）
+2. 資料歸屬一目瞭然，無須全文搜尋整個專案
+3. 重構安全：跨層搬移檔案時，程式碼檢查會一次列出所有非法呼叫點
+4. 新增一條依賴邊即等於修改 Blueprint 組態，迫使「此層是否確實應依賴彼層」的問題在審查階段浮現
 
 ## 各層職責
 
-| 層 | 職責 | 不該做 |
+| 分層 | 職責 | 禁止事項 |
 |---|---|---|
-| `pages` | Page layout + 組裝 containers；對應 route、SEO | 不放商業邏輯、不直接堆 components |
-| `containers` | 一個 feature 的組裝 + 業務邏輯 + CRUD；有狀態、打 service、驅動 navigation | — |
-| `components` | 可重用 UI 原件、盡量 presentational、可呼叫 hook | 不碰 router、不直接呼叫 service、不擁有 app state |
-| `hooks` | `inject` / `useContext` 只在這；加工 server / shared state；**store（Pinia / Zustand）是這層私有物件** | 不對外曝 raw store |
-| `contexts` | `provide` / `createContext` 只在這；曝 Context / Provider | — |
-| `services` | 網路原件；唯一 import `axios`、唯一呼叫 `fetch` / `WebSocket` | 只回資料，不含 UI / business 邏輯 |
+| `pages` | 頁面版型與 containers 的組裝；對應路由與 SEO | 不得放置商業邏輯；不得直接堆疊 components |
+| `containers` | 單一功能的組裝、商業邏輯與資料增刪查改；持有狀態、呼叫 service、驅動導覽 | — |
+| `components` | 可重用的介面元件，以呈現為主，可呼叫 hook | 不得操作路由；不得直接呼叫 service；不得持有應用程式狀態 |
+| `hooks` | `inject` / `useContext` 僅得出現於此層；加工伺服器資料與共享狀態；**狀態儲存庫（Pinia / Zustand）為本層的私有物件** | 不得對外暴露原始的狀態儲存庫 |
+| `contexts` | `provide` / `createContext` 僅得出現於此層；對外提供 Context 與 Provider | — |
+| `services` | 網路存取原語；唯一可匯入 `axios`、唯一可呼叫 `fetch` 與 `WebSocket` 之處 | 僅回傳資料，不含介面或商業邏輯 |
 
-**沒有 `stores`、沒有 `utils` 這兩層。** 一個 store 有單一擁有它的 hook 模組（那個 hook 就是它對外的臉），其他 feature 一律透過那個 hook 讀。而 `utils/` 是個沒有 cohesion 的雜物櫃：任何「看起來通用」的東西都往裡丟、無限長，最後變成誰都在 import 的耦合點 —— 純函式按「誰在用」歸屬：只有這個模組用 → 模組內私有檔；跨模組共用 → 有名字、按 domain 分的獨立模組，讓它「掙得一個名字」。
+**本架構不設 `stores` 與 `utils` 兩層。** 每個狀態儲存庫應有唯一擁有它的 hook 模組（該 hook 即為其對外介面），其他功能一律透過該 hook 讀取。至於 `utils/`，它是一個缺乏內聚性的雜物空間：任何「看似通用」的程式碼都會被放入其中、無限增長，最終成為所有模組共同依賴的耦合點。純函式應依「使用者是誰」歸屬：僅單一模組使用者，作為該模組的私有檔案；跨模組共用者，建立具名、依領域劃分的獨立模組，使其「掙得一個名字」。
 
-## Feature Folder —— 一個模組怎麼組
+## 功能資料夾 —— 模組的組成方式
 
 ```
 components/
 └─ Dropdown/
-   ├─ index        ← 對外唯一入口（public）
-   ├─ Dropdown     ← 實作本體 = 模組名（不叫 Component）
-   ├─ hooks        ← private
-   ├─ styles       ← private
-   └─ types        ← private
+   ├─ index        ← 對外唯一入口（公開）
+   ├─ Dropdown     ← 實作本體，檔名即模組名（不命名為 Component）
+   ├─ hooks        ← 私有
+   ├─ styles       ← 私有
+   └─ types        ← 私有
 ```
 
-- `index` = 模組對外的**臉**，外面的人只認得它
-- 私有 sub-component 也放這裡（container 的 `ProfileTab`）——「私有 → 發現要共享 → 上抽」是自然的成長路徑，不是一開始就猜
-- 入口 impl 用「模組名」：一律叫 `Component.tsx` 的話，editor 開一排 tab 全同名、Cmd+P 分不出誰是誰
+- `index` 是模組對外的**門面**，外部僅認得此入口
+- 私有子元件亦置於模組內（例如 container 內的 `ProfileTab`）——「先私有，確認需要共享時再上提」是自然的成長路徑，無須一開始便預測
+- 實作檔以「模組名」命名：若一律命名為 `Component.tsx`，編輯器分頁與快速開啟功能將無從辨別
 
-`components` vs `containers` 一句判準：**「換個 feature 還能用嗎？」** 能 → components（可重用、不綁資料）；綁死這個 feature 的資料 / 流程 / CRUD → containers。**containers 是「把 components 跟資料接起來」的地方，components 對它一無所知。**
+`components` 與 `containers` 的判別標準一句話：**「換一個功能場景還能使用嗎？」** 可以，屬於 components（可重用、不綁定資料）；綁定特定功能的資料、流程或增刪查改，屬於 containers。**containers 是「將 components 與資料接合」之處；components 對 containers 一無所知。**

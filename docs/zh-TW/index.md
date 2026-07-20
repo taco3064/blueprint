@@ -7,7 +7,7 @@ hero:
   image:
     src: /logo.png
     alt: blueprint
-  tagline: 一份 Blueprint，編譯出 ESLint 規則、給人讀的手冊、AI agent 契約、CI gate。
+  tagline: 以單一 Blueprint 組態，編譯出 ESLint 規則、供人閱讀的架構手冊、AI 代理契約，以及 CI 檢核流程。
   actions:
     - theme: brand
       text: 快速上手
@@ -16,31 +16,30 @@ hero:
       text: 工程理念
       link: /zh-TW/philosophy/
     - theme: alt
-      text: API Reference
-      link: /api/
-
+      text: API 文件
+      link: /zh-TW/api/
 features:
   - icon: 🧱
-    title: Enforce
-    details: emitLint 把分層流向、模組邊界、套件歸屬編譯成 ESLint flat config —— plugin 內嵌，不用多裝任何東西。
+    title: Enforce（強制）
+    details: emitLint 將分層依賴方向、模組邊界與套件歸屬編譯為 ESLint flat config；自訂規則以內嵌外掛提供，無須額外安裝任何套件。
   - icon: 📖
-    title: Explain
-    details: emitHandbook 產出給人讀的手冊（markdown + mermaid）—— 跟規則同源編譯，想漂移也漂移不了。
+    title: Explain（說明）
+    details: emitHandbook 產出供人閱讀的架構手冊（markdown 與 mermaid 圖）。手冊與規則由同一來源編譯而成，內容不會與規則產生落差。
   - icon: 🤖
-    title: Collaborate
-    details: emitAgentFiles 把同一份 agent 契約分發到 CLAUDE.md、AGENTS.md、Cursor、Windsurf。
+    title: Collaborate（協作）
+    details: emitAgentFiles 將同一份 AI 代理契約分發至 CLAUDE.md、AGENTS.md 以及 Cursor、Windsurf 的規則檔。
   - icon: 🚦
-    title: Gate
-    details: emitCi 產出 GitHub Actions workflow —— lint + 唯讀架構報告，違規 exit 1。
+    title: Gate（檢核）
+    details: emitCi 產出 GitHub Actions 工作流程，將程式碼檢查與唯讀架構報告納入持續整合；發現違規即以狀態碼 1 結束。
 ---
 
-## 搭配使用，產出更好
+## 建議搭配使用的資源
 
-Blueprint 管的是 agent context 裡的**架構**層 —— code 該放哪、誰能 import 誰、agent 該守哪些判斷。這兩個夥伴補的是它刻意留給別人的層：
+Blueprint 負責 AI 代理情境中的「架構」層面：程式碼應放置於何處、哪些分層可以相互匯入、代理應遵守哪些判斷規範。以下兩項資源補足 Blueprint 刻意不涉入的層面：
 
-| 搭配 | 補什麼 |
+| 搭配資源 | 補足的層面 |
 |---|---|
-| [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | 給 coding agent 的精選可安裝 **skills** —— 框架與工具鏈的 best practices，跟 blueprint 契約並肩放進 context：agent 同時拿到你的結構規則*和*生態圈的慣用寫法。 |
-| [vuejs/docs](https://github.com/vuejs/docs) | Vue 官方文件的 source repo。把它餵給 agent（clone 到本地、或接成 reference source）當 **API ground truth** —— 跟 Vue preset 搭配尤其對味。 |
+| [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | 為程式開發代理精選、可直接安裝的技能包，涵蓋各框架與工具鏈的最佳實務。與 Blueprint 契約一同載入情境後，代理同時獲得專案的結構規範與生態圈的慣用寫法。 |
+| [vuejs/docs](https://github.com/vuejs/docs) | Vue 官方文件的原始碼儲存庫。將其提供給代理（複製至本機，或設定為參考來源）作為 API 的權威依據，與 Vue 預設藍圖搭配使用尤為合適。 |
 
-一份契約管「code 放哪」（blueprint）、一包 skills 管「框架怎麼寫得好」（agent-skills）、一份權威文件管「API 到底長怎樣」（官方 docs）—— 三個輸入幾乎不重疊，合起來把「能跑」到「寫得好」的距離補掉大半。
+一份契約規範「程式碼放置於何處」（Blueprint）、一組技能包規範「框架如何正確使用」（agent-skills）、一份權威文件回答「API 的實際定義」（官方文件）。三項輸入幾乎不重疊，合併使用可大幅縮短「能夠執行」與「寫得正確」之間的距離。

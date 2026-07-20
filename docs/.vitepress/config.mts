@@ -65,19 +65,19 @@ export default defineConfig({
           { text: '指南', link: '/zh-TW/guide/getting-started' },
           { text: '工程理念', link: '/zh-TW/philosophy/' },
           { text: 'API', link: '/zh-TW/api/' },
-          { text: 'Changelog', link: '/zh-TW/changelog' },
+          { text: '版本紀錄', link: '/zh-TW/changelog' },
         ],
         sidebar: {
           '/zh-TW/guide/': [
             { text: '快速上手', link: '/zh-TW/guide/getting-started' },
             { text: 'AI 協助導入', link: '/zh-TW/guide/ai-adoption' },
-            { text: 'Security & Trust', link: '/zh-TW/guide/security' },
+            { text: '安全與信任', link: '/zh-TW/guide/security' },
           ],
           '/zh-TW/philosophy/': [
-            { text: 'Operating Contract', link: '/zh-TW/philosophy/' },
+            { text: '運作契約', link: '/zh-TW/philosophy/' },
             { text: '十條核心信念', link: '/zh-TW/philosophy/beliefs' },
             { text: '分層架構', link: '/zh-TW/philosophy/layers' },
-            { text: '元件形狀 · 7 軸', link: '/zh-TW/philosophy/component-shape' },
+            { text: '元件形狀 · 七條軸線', link: '/zh-TW/philosophy/component-shape' },
             { text: '工作紀律', link: '/zh-TW/philosophy/discipline' },
           ],
           '/zh-TW/api/': [{ text: 'API Reference', items: withZhPrefix(typedocSidebar) }],
