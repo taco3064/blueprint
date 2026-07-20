@@ -1,4 +1,5 @@
 import type { ArchitectureDef } from '../config';
+import { dropTestFiles } from './filter';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
 /**
@@ -76,6 +77,10 @@ export interface ModuleGraph {
 
 /** Build the module-level import graph from a scan. */
 export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef): ModuleGraph {
+  // Test files neither form modules nor create edges (idempotent re-filter
+  // when the caller already dropped them).
+  scan = dropTestFiles(scan, architecture.testFiles);
+
   const layerNames = architecture.layers.map((layer) => layer.name);
   const aliases = aliasList(architecture);
   const layout = architecture.module.layout;

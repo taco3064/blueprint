@@ -1,5 +1,6 @@
 import { getForbiddenLayers, getSelfOnlyTargets } from '../config';
 import type { ArchitectureDef, Blueprint } from '../config';
+import { dropTestFiles } from './filter';
 import { aliasList, buildModuleGraph, moduleKey, resolveSegments, stripAlias } from './resolve';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
@@ -9,6 +10,9 @@ const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
 export function analyze(scan: ScanResult, blueprint: Blueprint): Finding[] {
   const { architecture } = blueprint;
   const layerNames = architecture.layers.map((layer) => layer.name);
+
+  // Symmetric with the lint side: test files are exempt from structure.
+  scan = dropTestFiles(scan, architecture.testFiles);
 
   const findings = [
     ...folderFindings(scan, architecture, layerNames),

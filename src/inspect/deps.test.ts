@@ -101,3 +101,15 @@ describe('runDeps · leaderboard', () => {
     expect(Array.isArray(JSON.parse(output).modules)).toBe(true);
   });
 });
+
+describe('runDeps · test files are excluded from the graph', () => {
+  it('does not count test importers in the blast radius', async () => {
+    scaffold();
+    writeSrc('pages/Home/Home.test.ts', 'import { useCart } from \'~app/hooks/useCart\';');
+
+    const { modules } = await runDeps(root, { target: 'hooks/useCart', log: silent });
+
+    // Still the two production importers — the test adds nothing.
+    expect(modules[0].importedBy).toEqual(['containers/Cart', 'pages/Home']);
+  });
+});

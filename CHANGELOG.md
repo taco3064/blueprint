@@ -1,5 +1,17 @@
 # @kekkai/blueprint
 
+## 1.0.3
+
+### Patch Changes
+
+- `inspect` and `deps` now honor `architecture.testFiles`, symmetric with
+  the lint side: test files are exempt from structural analysis — they
+  neither produce findings (a co-located `Foo.test.js` importing its
+  sibling through the alias is test plumbing, not a violation) nor form
+  modules or edges in the dependency graph. Found by adopting blueprint
+  on a mature production repo, where every remaining "violation" turned
+  out to be a test file its own structure linter had always exempted.
+
 ## 1.0.2
 
 ### Patch Changes

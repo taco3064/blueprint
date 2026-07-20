@@ -125,3 +125,42 @@ describe('runInspect · baseline ratchet', () => {
     expect(parsed.stale).toBe(0);
   });
 });
+
+describe('runInspect · test files are exempt from structure', () => {
+  it('ignores same-layer alias imports and cross-module escapes inside tests', async () => {
+    // The miniapp scenario: a co-located test importing its sibling via the
+    // alias — legal test plumbing, not an architecture violation.
+    writeSrc('services/api/api.ts', 'export const api = 1;');
+    writeSrc('services/api/api.test.ts', 'import { api } from \'~app/services/api\';');
+    writeSrc('components/Btn/Btn.spec.ts', 'import { api } from \'~app/services/api\';');
+
+    const { findings, ok } = await runInspect(root, { log: silent });
+
+    expect(ok).toBe(true);
+    expect(findings.filter((f) => f.severity === 'error')).toEqual([]);
+  });
+
+  it('does not flag a folder whose only code is tests, and honors overrides', async () => {
+    writeSrc('legacy/old.test.ts', 'export {};');
+
+    const clean = await runInspect(root, { log: silent });
+
+    expect(clean.findings.map((f) => f.rule)).not.toContain('undeclared-folder');
+
+    // Narrow the test globs — .test files become plain source again.
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+
+    const { vuePreset } = await import('../presets');
+    const bp = vuePreset();
+
+    const strict = await runInspect(root, {
+      log: silent,
+      loadConfig: async () => ({
+        ...bp,
+        architecture: { ...bp.architecture, testFiles: '**/*.spec.ts' },
+      }),
+    });
+
+    expect(strict.findings.map((f) => f.rule)).toContain('undeclared-folder');
+  });
+});
