@@ -44,6 +44,19 @@ export function getForbiddenLayers(architecture: ArchitectureDef, layerName: str
     .map((layer) => layer.name);
 }
 
+/** The effective module shape for a layer: its override, else the shared default. */
+export function getModuleShape(
+  architecture: ArchitectureDef,
+  layerName: string,
+): { layout: 'folder' | 'flat'; entry: string } {
+  const layer = architecture.layers.find((candidate) => candidate.name === layerName);
+
+  return {
+    layout: layer?.module?.layout ?? architecture.module.layout,
+    entry: layer?.module?.entry ?? architecture.module.entry,
+  };
+}
+
 /** Layers `layerName` may import but must not re-export (selfOnly importers). */
 export function getSelfOnlyTargets(architecture: ArchitectureDef, layerName: string): string[] {
   return architecture.layers

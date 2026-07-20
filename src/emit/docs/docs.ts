@@ -25,7 +25,7 @@ export function emitHandbook(blueprint: Blueprint): string {
   const sections = [
     renderHeader(name),
     renderArchitecture(architecture),
-    renderModule(architecture.module, exampleLayer),
+    renderModule(architecture, exampleLayer),
     renderImportDiscipline(architecture),
     renderComponentShape(blueprint.componentShape),
     renderPrinciples(principles),

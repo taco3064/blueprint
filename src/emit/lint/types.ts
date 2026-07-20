@@ -13,6 +13,17 @@ export interface LintConfigEntry {
 /** The ESLint flat config emitted from a Blueprint's architecture. */
 export type LintConfig = LintConfigEntry[];
 
+/** Caller-supplied wiring for `emitLint` — kept injectable so the library stays zero-dependency. */
+export interface EmitLintOptions {
+  /**
+   * The `@typescript-eslint` plugin (e.g. `tseslint.plugin`). When provided,
+   * the `unusedVars` gate emits `@typescript-eslint/no-unused-vars` instead of
+   * core `no-unused-vars`, whose TS blind spots false-flag enum members and
+   * type parameters.
+   */
+  typescript?: ESLint.Plugin;
+}
+
 /** A package restriction derived from layers' `owns`, merged by signature. */
 export interface PackageRule {
   package: string;

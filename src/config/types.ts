@@ -50,6 +50,14 @@ export interface AllowedImporter {
   description?: string;
 }
 
+/** Per-layer override of the shared module shape (see {@link ModuleDef}). */
+export interface LayerModuleDef {
+  /** Override the layout for this layer only. */
+  layout?: 'folder' | 'flat';
+  /** Override the public entry filename for this layer only. */
+  entry?: string;
+}
+
 /** One layer in the architecture — its responsibility and its boundaries. */
 export interface LayerDef {
   /** Folder / layer name, e.g. `components`. Unique within the blueprint. */
@@ -60,6 +68,11 @@ export interface LayerDef {
   mustNot?: string[];
   /** Primitives (packages / globals) this layer exclusively owns. */
   owns?: OwnedPrimitive[];
+  /**
+   * Override the shared `architecture.module` shape for this layer — e.g.
+   * folder modules in a feature layer while the rest of the project is flat.
+   */
+  module?: LayerModuleDef;
   /**
    * Restrict who may import this layer. Omit to keep the default — every
    * layer declared before it may import it. When set, only the listed layers

@@ -7,7 +7,7 @@ import type {
   RuleSetting,
   Tier,
 } from '../../config';
-import { normalizeAllowedImporters } from '../../config';
+import { getModuleShape, normalizeAllowedImporters } from '../../config';
 import { LINT_GATED_RULE_IDS } from '../lint';
 import { formatOwns } from '../../markdown';
 
@@ -83,7 +83,17 @@ export function renderPlacement(architecture: ArchitectureDef): string {
       ? `- Module shape: one folder per module. Only \`${module.entry}\` is importable from outside${priv ? `; keep ${priv} private and never import them across modules` : ''}.`
       : '- Module shape: one file per module (flat). Extract shared logic to a lower layer.';
 
-  return ['### Where code goes', '', ...lines, moduleLine].join('\n');
+  const overrideLines = architecture.layers
+    .filter((layer) => layer.module !== undefined)
+    .map((layer) => {
+      const shape = getModuleShape(architecture, layer.name);
+
+      return shape.layout === 'folder'
+        ? `- Exception — \`src/${layer.name}/\`: one folder per module, entry \`${shape.entry}\`.`
+        : `- Exception — \`src/${layer.name}/\`: one file per module (flat).`;
+    });
+
+  return ['### Where code goes', '', ...lines, moduleLine, ...overrideLines].join('\n');
 }
 
 /** Naming conventions as directives. */
@@ -104,16 +114,24 @@ export function renderHardRules(
   architecture: ArchitectureDef,
   rules: Record<string, RuleSetting> | undefined,
 ): string {
-  const { module } = architecture;
   const bullets = ['- Import only from downstream layers — never upstream, never the same layer.'];
 
-  if (module.layout === 'folder') {
-    bullets.push(`- Import a module via its \`${module.entry}\`, never its internals.`);
+  const folderEntries = [
+    ...new Set(
+      architecture.layers
+        .map((layer) => getModuleShape(architecture, layer.name))
+        .filter((shape) => shape.layout === 'folder')
+        .map((shape) => `\`${shape.entry}\``),
+    ),
+  ];
+
+  if (folderEntries.length) {
+    bullets.push(`- Import a module via its ${folderEntries.join(' / ')}, never its internals.`);
   }
 
   bullets.push(
     '- Restricted packages / globals live only in their owning layer (see "Where code goes").',
-    '- No redundant relative segments (`./../`, `././`).',
+    '- Relative imports stay inside their module; no redundant segments (`./../`, `././`).',
   );
 
   // Only rules a machine actually gates may be called hard — anything else

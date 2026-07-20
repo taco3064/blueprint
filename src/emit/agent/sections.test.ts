@@ -72,6 +72,23 @@ describe('renderPlacement', () => {
     expect(out).toContain('one file per module (flat)');
   });
 
+  it('lists per-layer module exceptions after the shared shape', () => {
+    const out = renderPlacement(
+      arch({
+        module: { layout: 'flat', entry: 'index', private: [] },
+        layers: [
+          { name: 'resources', does: 'features', module: { layout: 'folder', entry: 'main' } },
+          { name: 'components', does: 'UI', module: { layout: 'flat' } },
+          { name: 'services', does: 'net' },
+        ],
+      }),
+    );
+
+    expect(out).toContain('- Exception — `src/resources/`: one folder per module, entry `main`.');
+    expect(out).toContain('- Exception — `src/components/`: one file per module (flat).');
+    expect(out).not.toContain('Exception — `src/services/`');
+  });
+
   it('states the allowed importers, marking selfOnly ones', () => {
     const architecture: ArchitectureDef = {
       alias: '~app',

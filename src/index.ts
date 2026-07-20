@@ -9,6 +9,6 @@ export { reactPreset, vuePreset } from './presets';
 export { runDeps, runInspect } from './inspect';
 export type * from './config';
 export type { AgentFile, AgentFileStrategy } from './emit/agent';
-export type { LintConfig, LintConfigEntry } from './emit/lint';
+export type { EmitLintOptions, LintConfig, LintConfigEntry } from './emit/lint';
 export type { PresetOptions } from './presets';
 export type { DepsOptions, Finding, InspectOptions, ModuleDeps, Severity } from './inspect';

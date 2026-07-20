@@ -73,6 +73,7 @@ export function validateBlueprint(bp: Blueprint): void {
     }
 
     validateOwns(layer);
+    validateLayerModule(layer);
     validateLintOverrides(layer);
     // `names` holds only earlier layers here, so requiring importers to be in
     // it enforces "declared before" — which keeps the flow one-way and acyclic.
@@ -218,6 +219,26 @@ function validateOwns(layer: LayerDef): void {
     } else if (typeof primitive.package !== 'string' || !primitive.package.trim()) {
       throw new Error(`Layer "${layer.name}" owns a package with no name.`);
     }
+  }
+}
+
+/** A layer's `module` override may only narrow layout / entry, both well-formed. */
+function validateLayerModule(layer: LayerDef): void {
+  const override = layer.module;
+
+  if (override === undefined) return;
+
+  if (override.layout !== undefined && !['folder', 'flat'].includes(override.layout)) {
+    throw new Error(
+      `Layer "${layer.name}" has module.layout "${override.layout}" — expected folder | flat.`,
+    );
+  }
+
+  if (
+    override.entry !== undefined
+    && (typeof override.entry !== 'string' || !override.entry.trim())
+  ) {
+    throw new Error(`Layer "${layer.name}" has an empty module.entry override.`);
   }
 }
 

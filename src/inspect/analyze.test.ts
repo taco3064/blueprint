@@ -144,3 +144,51 @@ describe('analyze · flat layout', () => {
     expect(found).not.toContain('no-entry');
   });
 });
+
+describe('analyze · per-layer module layout', () => {
+  const mixed = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      layers: [
+        { name: 'pages', does: '' },
+        { name: 'resources', does: '', module: { layout: 'folder', entry: 'main' } },
+        { name: 'services', does: '' },
+      ],
+      flow: 'one-way',
+      module: { layout: 'flat', entry: 'index', private: [] },
+    },
+  });
+
+  const rules = (files: ScannedFile[]) =>
+    analyze({ topDirs: ['pages', 'resources', 'services'], files }, mixed)
+      .map((finding) => finding.rule);
+
+  it('judges deep imports by the target layer layout', () => {
+    // Into the folder layer: deep. Into a flat layer: not.
+    expect(rules([file(['pages', 'Home.ts'], [{ specifier: '~app/resources/matches/impl' }])]))
+      .toContain('deep-import');
+
+    expect(rules([file(['pages', 'Home.ts'], [{ specifier: '~app/services/api/client' }])]))
+      .not.toContain('deep-import');
+  });
+
+  it('applies no-entry only to folder-layout layers, honoring the entry override', () => {
+    expect(rules([file(['resources', 'matches', 'main.ts'])])).not.toContain('no-entry');
+    expect(rules([file(['resources', 'matches', 'list.ts'])])).toContain('no-entry');
+    // Nested files in a flat layer never demand an entry.
+    expect(rules([file(['services', 'api', 'client.ts'])])).not.toContain('no-entry');
+  });
+
+  it('judges relative escapes per layer: module-bound in folder, layer-bound in flat', () => {
+    // Folder layer: leaving the module (even to a sibling module) escapes.
+    expect(
+      rules([file(['resources', 'matches', 'main.ts'], [{ specifier: '../markets/board' }])]),
+    ).toContain('relative-escape');
+
+    // Flat layer: relatives roam the whole layer freely.
+    expect(
+      rules([file(['services', 'api', 'client.ts'], [{ specifier: '../ws/socket' }])]),
+    ).not.toContain('relative-escape');
+  });
+});

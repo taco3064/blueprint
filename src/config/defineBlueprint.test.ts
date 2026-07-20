@@ -136,6 +136,30 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(/module\.private/);
   });
 
+  it('rejects a layer module override with an unknown layout', () => {
+    const config = base();
+
+    config.architecture.layers[0].module = { layout: 'stacked' as never };
+
+    expect(() => validateBlueprint(config)).toThrow(/expected folder \| flat/);
+  });
+
+  it('rejects a layer module override with an empty entry', () => {
+    const config = base();
+
+    config.architecture.layers[0].module = { entry: '  ' };
+
+    expect(() => validateBlueprint(config)).toThrow(/empty module\.entry override/);
+  });
+
+  it('accepts a well-formed layer module override', () => {
+    const config = base();
+
+    config.architecture.layers[0].module = { layout: 'folder', entry: 'main' };
+
+    expect(() => validateBlueprint(config)).not.toThrow();
+  });
+
   it('rejects invalid additionalAliases', () => {
     const config = base();
 

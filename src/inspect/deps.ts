@@ -1,6 +1,7 @@
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
-import { buildModuleGraph, moduleKey } from './resolve';
+import { buildModuleGraph, layoutResolver, moduleKey } from './resolve';
+import type { LayoutOf } from './resolve';
 import { scan } from './scan';
 
 export interface DepsOptions extends ResolveOptions {
@@ -38,7 +39,7 @@ export async function runDeps(
   const modules = collect(graph.modules, graph.edges);
 
   if (options.target !== undefined) {
-    const key = normalizeTarget(options.target, architecture.module.layout);
+    const key = normalizeTarget(options.target, layoutResolver(architecture));
     const found = modules.find((entry) => entry.module === key);
 
     if (!found) {
@@ -83,11 +84,11 @@ function collect(moduleSet: Set<string>, edges: Map<string, Set<string>>): Modul
 }
 
 /** `src/hooks/useCart/useCart.ts` / `hooks/useCart` / `./src/hooks` → module key. */
-function normalizeTarget(input: string, layout: 'folder' | 'flat'): string {
+function normalizeTarget(input: string, layoutOf: LayoutOf): string {
   const segments = input.split('/').filter((part) => part !== '' && part !== '.');
   const rest = segments[0] === 'src' ? segments.slice(1) : segments;
 
-  return moduleKey(rest, layout);
+  return moduleKey(rest, layoutOf);
 }
 
 function renderModule(entry: ModuleDeps): string {

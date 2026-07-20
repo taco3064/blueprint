@@ -1,7 +1,15 @@
-import { getForbiddenLayers, getSelfOnlyTargets } from '../config';
+import { getForbiddenLayers, getModuleShape, getSelfOnlyTargets } from '../config';
 import type { ArchitectureDef, Blueprint } from '../config';
 import { dropTestFiles } from './filter';
-import { aliasList, buildModuleGraph, moduleKey, resolveSegments, stripAlias } from './resolve';
+import {
+  aliasList,
+  buildModuleGraph,
+  layoutResolver,
+  moduleKey,
+  resolveSegments,
+  stripAlias,
+} from './resolve';
+import type { LayoutOf } from './resolve';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
@@ -60,9 +68,7 @@ function folderFindings(
     }
   }
 
-  if (architecture.module.layout === 'folder') {
-    findings.push(...noEntryFindings(scan, architecture, layerNames));
-  }
+  findings.push(...noEntryFindings(scan, architecture, layerNames));
 
   return findings;
 }
@@ -72,12 +78,17 @@ function noEntryFindings(
   architecture: ArchitectureDef,
   layerNames: string[],
 ): Finding[] {
-  const { entry } = architecture.module;
   const modules = new Map<string, ScannedFile[]>();
 
   for (const file of scan.files) {
-    if (file.segments.length >= 3 && layerNames.includes(file.segments[0])) {
-      const key = `${file.segments[0]}/${file.segments[1]}`;
+    const layer = file.segments[0];
+
+    if (
+      file.segments.length >= 3
+      && layerNames.includes(layer)
+      && getModuleShape(architecture, layer).layout === 'folder'
+    ) {
+      const key = `${layer}/${file.segments[1]}`;
 
       modules.set(key, [...(modules.get(key) ?? []), file]);
     }
@@ -86,6 +97,8 @@ function noEntryFindings(
   const findings: Finding[] = [];
 
   for (const [key, files] of modules) {
+    const { entry } = getModuleShape(architecture, key.split('/')[0]);
+
     const hasEntry = files.some(
       (file) => file.segments.length === 3 && stripExt(file.segments[2]) === entry,
     );
@@ -116,7 +129,7 @@ function importFindings(
   const aliases = aliasList(architecture);
   const forbidden = getForbiddenLayers(architecture, fileLayer);
   const selfOnly = getSelfOnlyTargets(architecture, fileLayer);
-  const layout = architecture.module.layout;
+  const layoutOf = layoutResolver(architecture);
   const findings: Finding[] = [];
 
   for (const ref of file.imports) {
@@ -127,7 +140,9 @@ function importFindings(
 
       if (!layerNames.includes(target)) continue;
 
-      if (layout === 'folder' && parts.length >= 3) {
+      // Depth is judged against the *target* layer's layout — reaching inside
+      // a folder-module layer is a violation wherever the import comes from.
+      if (layoutOf(target) === 'folder' && parts.length >= 3) {
         findings.push(finding('error', 'deep-import', file.path, `"${ref.specifier}" reaches inside a module — import it through its entry.`));
       }
 
@@ -141,7 +156,7 @@ function importFindings(
         findings.push(finding('error', 'selfonly-reexport', file.path, `Re-exports "${target}" ("${ref.specifier}"), which is selfOnly — depend on it, do not re-export it.`));
       }
     } else if (ref.specifier.startsWith('.')) {
-      const escape = relativeEscape(file, ref, layout);
+      const escape = relativeEscape(file, ref, layoutOf);
 
       if (escape) findings.push(escape);
     } else {
@@ -158,14 +173,14 @@ function importFindings(
   return findings;
 }
 
-function relativeEscape(file: ScannedFile, ref: ImportRef, layout: 'folder' | 'flat'): Finding | null {
+function relativeEscape(file: ScannedFile, ref: ImportRef, layoutOf: LayoutOf): Finding | null {
   const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
 
   if (target === null) {
     return finding('error', 'relative-escape', file.path, `Relative import "${ref.specifier}" escapes src/ — use the project alias.`);
   }
 
-  if (moduleKey(target, layout) !== moduleKey(file.segments, layout)) {
+  if (moduleKey(target, layoutOf) !== moduleKey(file.segments, layoutOf)) {
     return finding('error', 'relative-escape', file.path, `Relative import "${ref.specifier}" leaves this module — use the alias, or extract shared code to a lower layer.`);
   }
 

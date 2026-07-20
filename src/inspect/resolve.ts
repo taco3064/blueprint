@@ -1,12 +1,21 @@
 import type { ArchitectureDef } from '../config';
+import { getModuleShape } from '../config';
 import { dropTestFiles } from './filter';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
 /**
- * Module-resolution primitives shared by `analyze` (findings, cycles) and
- * `deps` (blast radius): specifier → module key, plus the module import
- * graph itself.
+ * Module-resolution primitives shared by `analyze` (findings, cycles),
+ * `deps` (blast radius), and the embedded `blueprint/relative-escape` lint
+ * rule: specifier → module key, plus the module import graph itself.
  */
+
+/** Per-layer layout resolver — a segment's first element names its layer. */
+export type LayoutOf = (layer: string) => 'folder' | 'flat';
+
+/** Build a {@link LayoutOf} from the architecture's per-layer module shapes. */
+export function layoutResolver(architecture: ArchitectureDef): LayoutOf {
+  return (layer) => getModuleShape(architecture, layer).layout;
+}
 
 export function aliasList(architecture: ArchitectureDef): string[] {
   return [architecture.alias, ...Object.keys(architecture.additionalAliases ?? {})];
@@ -22,8 +31,9 @@ export function stripAlias(specifier: string, aliases: string[]): string[] | nul
   return null;
 }
 
-export function moduleKey(segments: string[], layout: 'folder' | 'flat'): string {
-  if (layout === 'flat' || segments.length < 2) return segments[0] ?? '';
+/** The module a path belongs to, under its own layer's layout. */
+export function moduleKey(segments: string[], layoutOf: LayoutOf): string {
+  if (segments.length < 2 || layoutOf(segments[0]) === 'flat') return segments[0] ?? '';
 
   return `${segments[0]}/${segments[1]}`;
 }
@@ -51,18 +61,18 @@ export function targetModuleKey(
   file: ScannedFile,
   aliases: string[],
   layerNames: string[],
-  layout: 'folder' | 'flat',
+  layoutOf: LayoutOf,
 ): string | null {
   const parts = stripAlias(ref.specifier, aliases);
 
   if (parts) {
-    return layerNames.includes(parts[0]) ? moduleKey(parts, layout) : null;
+    return layerNames.includes(parts[0]) ? moduleKey(parts, layoutOf) : null;
   }
 
   if (ref.specifier.startsWith('.')) {
     const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
 
-    return target ? moduleKey(target, layout) : null;
+    return target ? moduleKey(target, layoutOf) : null;
   }
 
   return null;
@@ -83,19 +93,19 @@ export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef
 
   const layerNames = architecture.layers.map((layer) => layer.name);
   const aliases = aliasList(architecture);
-  const layout = architecture.module.layout;
+  const layoutOf = layoutResolver(architecture);
   const modules = new Set<string>();
   const edges = new Map<string, Set<string>>();
 
   for (const file of scan.files) {
     if (!layerNames.includes(file.segments[0])) continue;
 
-    const from = moduleKey(file.segments, layout);
+    const from = moduleKey(file.segments, layoutOf);
 
     modules.add(from);
 
     for (const ref of file.imports) {
-      const to = targetModuleKey(ref, file, aliases, layerNames, layout);
+      const to = targetModuleKey(ref, file, aliases, layerNames, layoutOf);
 
       if (to && to !== from) {
         edges.set(from, (edges.get(from) ?? new Set()).add(to));

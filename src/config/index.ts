@@ -2,6 +2,7 @@ export { defineBlueprint, normalizeAgentEmit, validateBlueprint } from './define
 export {
   getDiagramEdges,
   getForbiddenLayers,
+  getModuleShape,
   getSelfOnlyTargets,
   normalizeAllowedImporters,
 } from './graph';

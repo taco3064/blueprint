@@ -91,19 +91,24 @@ describe('deriveGlobalRules', () => {
 });
 
 describe('buildStructuralPatterns', () => {
-  it('emits the structural groups for folder layout with forbidden layers', () => {
+  it('emits the structural groups with forbidden layers and folder targets', () => {
     const groups = buildStructuralPatterns({
       layer: 'a',
       aliases: ['~app'],
       forbidden: ['b'],
       moduleLayout: 'folder',
+      folderTargets: ['c'],
     });
 
-    // relative + upper-level + same-layer + forbidden + deep-import
-    expect(groups).toHaveLength(5);
-    expect(groups.some((g) => g.group.includes('../*/**'))).toBe(true);
+    // redundant-segments + same-layer + forbidden + deep-import
+    expect(groups).toHaveLength(4);
     expect(groups.some((g) => g.group.includes('~app/b/**'))).toBe(true);
-    expect(groups.some((g) => g.group.includes('~app/*/*/**'))).toBe(true);
+    // Deep-import bans name each folder-layout target, never a bare wildcard —
+    // and the `../` ban is gone: depth-aware escapes live in the plugin rule.
+    expect(groups.some((g) => g.group.includes('~app/c/*/**'))).toBe(true);
+    expect(groups.some((g) => g.group.includes('~app/*/*/**'))).toBe(false);
+    expect(groups.some((g) => g.group.includes('../**'))).toBe(false);
+    expect(groups.some((g) => g.group.includes('../*/**'))).toBe(false);
     // No closed-world group (deferred to inspect); nothing bans the alias root.
     expect(groups.some((g) => g.group.includes('~app/**'))).toBe(false);
   });
@@ -116,9 +121,9 @@ describe('buildStructuralPatterns', () => {
       moduleLayout: 'flat',
     });
 
-    // relative + upper-level + same-layer
-    expect(groups).toHaveLength(3);
-    expect(groups.some((g) => g.group.includes('../**'))).toBe(true);
+    // redundant-segments + same-layer
+    expect(groups).toHaveLength(2);
+    expect(groups.some((g) => g.group.includes('./../**'))).toBe(true);
     expect(groups.some((g) => g.group.includes('~app/*/*/**'))).toBe(false);
   });
 });

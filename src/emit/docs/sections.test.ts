@@ -50,7 +50,7 @@ describe('renderArchitecture', () => {
 
 describe('renderModule', () => {
   it('renders a folder tree with entry, impl, and private parts', () => {
-    const out = renderModule({ layout: 'folder', entry: 'index', private: ['hooks', 'types'] }, 'components');
+    const out = renderModule(arch(), 'components');
 
     expect(out).toContain('components/');
     expect(out).toContain('├─ index');
@@ -58,10 +58,45 @@ describe('renderModule', () => {
   });
 
   it('renders a one-line note for flat layout', () => {
-    const out = renderModule({ layout: 'flat', entry: 'index', private: [] }, 'components');
+    const out = renderModule(
+      arch({ module: { layout: 'flat', entry: 'index', private: [] } }),
+      'components',
+    );
 
     expect(out).toContain('flat layout');
     expect(out).not.toContain('```');
+  });
+
+  it('lists per-layer exceptions to the shared shape', () => {
+    const architecture = arch({
+      module: { layout: 'flat', entry: 'index', private: [] },
+      layers: [
+        { name: 'resources', does: 'features', module: { layout: 'folder', entry: 'index' } },
+        { name: 'components', does: 'UI', module: { layout: 'flat' } },
+        { name: 'services', does: 'net' },
+      ],
+    });
+
+    const out = renderModule(architecture, 'resources');
+
+    expect(out).toContain('Per-layer exceptions');
+    expect(out).toContain('`resources/` — one folder per module, entry `index`.');
+    expect(out).toContain('`components/` — one file per module (flat).');
+    expect(out).not.toContain('`services/` —');
+  });
+
+  it('renders exceptions under a folder default too', () => {
+    const architecture = arch({
+      layers: [
+        { name: 'components', does: 'UI', module: { layout: 'flat' } },
+        { name: 'services', does: 'net' },
+      ],
+    });
+
+    const out = renderModule(architecture, 'components');
+
+    expect(out).toContain('One module = one folder');
+    expect(out).toContain('`components/` — one file per module (flat).');
   });
 });
 
@@ -76,6 +111,21 @@ describe('renderImportDiscipline', () => {
 
     expect(out).toContain('use a relative path');
     expect(out).not.toContain('Entry-only');
+  });
+
+  it('keeps entry-only when any layer overrides to folder layout', () => {
+    const out = renderImportDiscipline(
+      arch({
+        module: { layout: 'flat', entry: 'index', private: [] },
+        layers: [
+          { name: 'resources', does: 'features', module: { layout: 'folder', entry: 'main' } },
+          { name: 'services', does: 'net' },
+        ],
+      }),
+    );
+
+    expect(out).toContain('Entry-only');
+    expect(out).toContain('`main`');
   });
 
   it('adds a selfOnly note when a selfOnly importer exists', () => {

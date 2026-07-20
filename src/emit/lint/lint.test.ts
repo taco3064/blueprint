@@ -58,10 +58,21 @@ describe('emitLint · dependency flow', () => {
     );
   });
 
-  it('bans an upper-level relative import', () => {
-    expect(restricted('import { useX } from "../hooks/useX";', COMPONENT)).toContain(
-      'no-restricted-imports',
-    );
+  it('bans an upper-level relative import through the escape rule', () => {
+    // Depth-aware: lives in blueprint/relative-escape, not a literal pattern.
+    const ids = linter
+      .verify('import { useX } from "../hooks/useX";', config, { filename: COMPONENT })
+      .map((message) => message.ruleId);
+
+    expect(ids).toContain('blueprint/relative-escape');
+  });
+
+  it('allows a relative import that stays inside the module', () => {
+    const ids = linter
+      .verify('import { helper } from "./helper";', config, { filename: COMPONENT })
+      .map((message) => message.ruleId);
+
+    expect(ids).not.toContain('blueprint/relative-escape');
   });
 });
 
@@ -119,11 +130,20 @@ describe('emitLint · selfOnly re-export', () => {
 });
 
 describe('emitLint · shape', () => {
-  it('emits one config entry per layer with a files glob', () => {
+  it('emits one config entry per layer plus the escape entry, all with files globs', () => {
     const emitted = emitLint(blueprint);
 
-    expect(emitted).toHaveLength(3);
+    expect(emitted).toHaveLength(4); // 3 layers + blueprint/relative-escape
     expect(emitted.every((entry) => Array.isArray(entry.files))).toBe(true);
+
+    const escape = emitted.find((entry) => entry.rules?.['blueprint/relative-escape']);
+
+    expect(escape?.rules?.['blueprint/relative-escape']).toEqual([
+      'error',
+      { layouts: { components: 'folder', hooks: 'folder', services: 'folder' } },
+    ]);
+
+    expect(escape?.plugins?.blueprint).toBeDefined();
   });
 
   it('honors emit.lint.severity', () => {
@@ -156,8 +176,10 @@ describe('emitLint · shape', () => {
 
     expect(emitted[0]).toEqual({ ignores: ['**/*.d.ts'] });
 
-    const componentEntries = emitted.filter((entry) =>
-      entry.files?.some((file) => file.includes('components')),
+    const componentEntries = emitted.filter(
+      (entry) =>
+        entry.rules?.['no-restricted-imports']
+        && entry.files?.some((file) => file.includes('components')),
     );
 
     expect(componentEntries).toHaveLength(2);
@@ -243,7 +265,7 @@ describe('emitLint · rules gates', () => {
       rules: { maxLines: 'off', deepWatch: { tier: 'off' }, usePrefix: 'off' },
     }));
 
-    expect(off).toHaveLength(3); // layer entries only — no gate entries.
+    expect(off).toHaveLength(4); // layer + escape entries only — no gate entries.
   });
 
   it('maps the metric triage family and unusedVars to built-ins', () => {
@@ -350,5 +372,103 @@ describe('emitLint · rules gates', () => {
     );
 
     expect(ids('export function useCart() {}', 'src/hooks/useCart/useCart.ts')).toEqual([]);
+  });
+});
+
+describe('emitLint · TypeScript-aware unusedVars', () => {
+  const gated = defineBlueprint({ ...blueprint, rules: { unusedVars: 'error' } });
+  const tsPlugin = { rules: {} };
+
+  it('swaps core no-unused-vars for the TS twin when the plugin is injected', () => {
+    const entry = emitLint(gated, { typescript: tsPlugin }).find(
+      (item) => item.rules?.['@typescript-eslint/no-unused-vars'],
+    );
+
+    expect(entry?.rules?.['no-unused-vars']).toBe('off');
+
+    expect(entry?.rules?.['@typescript-eslint/no-unused-vars']).toEqual([
+      'error',
+      { argsIgnorePattern: '^_' },
+    ]);
+
+    expect(entry?.plugins?.['@typescript-eslint']).toBe(tsPlugin);
+  });
+
+  it('keeps the core rule without the option', () => {
+    const entry = emitLint(gated).find((item) => item.rules?.['no-unused-vars']);
+
+    expect(entry?.rules?.['no-unused-vars']).toEqual(['error', { argsIgnorePattern: '^_' }]);
+    expect(entry?.rules?.['@typescript-eslint/no-unused-vars']).toBeUndefined();
+    expect(entry?.plugins).toBeUndefined();
+  });
+
+  it('registers both plugins when a blueprint/* gate rides the same entry', () => {
+    const both = defineBlueprint({
+      ...blueprint,
+      framework: 'vue',
+      rules: { unusedVars: 'error', deepWatch: 'error' },
+    });
+
+    const entry = emitLint(both, { typescript: tsPlugin }).find(
+      (item) => item.rules?.['blueprint/no-deep-watch'],
+    );
+
+    expect(entry?.plugins?.blueprint).toBeDefined();
+    expect(entry?.plugins?.['@typescript-eslint']).toBe(tsPlugin);
+  });
+});
+
+describe('emitLint · per-layer module layout', () => {
+  const mixed = defineBlueprint({
+    framework: 'auto',
+    architecture: {
+      alias: '~app',
+      layers: [
+        { name: 'pages', does: 'routes' },
+        { name: 'resources', does: 'features', module: { layout: 'folder' } },
+        { name: 'services', does: 'net' },
+      ],
+      flow: 'one-way',
+      module: { layout: 'flat', entry: 'index', private: [] },
+    },
+  });
+
+  const cfg = [
+    { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+    ...emitLint(mixed),
+  ];
+
+  const ids = (code: string, filename: string) =>
+    linter.verify(code, cfg, { filename }).map((message) => message.ruleId);
+
+  it('bans deep imports into the folder-layout layer, entry imports stay legal', () => {
+    expect(ids('import x from "~app/resources/matches/impl";', 'src/pages/Home.ts'))
+      .toContain('no-restricted-imports');
+
+    expect(ids('import x from "~app/resources/matches";', 'src/pages/Home.ts'))
+      .not.toContain('no-restricted-imports');
+  });
+
+  it('does not ban deep paths into flat-layout layers', () => {
+    expect(ids('import x from "~app/services/api/client";', 'src/pages/Home.ts'))
+      .not.toContain('no-restricted-imports');
+  });
+
+  it('mirrors inspect: intra-module relatives pass, cross-module relatives fail', () => {
+    // Inside a folder module, `../` stays within the module.
+    expect(ids('import x from "../MatchesList";', 'src/resources/matches/components/Row.ts'))
+      .not.toContain('blueprint/relative-escape');
+
+    // Crossing into a sibling module leaves it.
+    expect(ids('import x from "../../markets/Board";', 'src/resources/matches/components/Row.ts'))
+      .toContain('blueprint/relative-escape');
+
+    // In the flat layer, relatives are free within the layer…
+    expect(ids('import x from "./Nav";', 'src/pages/Home.ts'))
+      .not.toContain('blueprint/relative-escape');
+
+    // …but crossing layers relatively must use the alias.
+    expect(ids('import x from "../services/api";', 'src/pages/Home.ts'))
+      .toContain('blueprint/relative-escape');
   });
 });

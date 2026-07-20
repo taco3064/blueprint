@@ -1,6 +1,6 @@
 import type { Linter } from 'eslint';
 import type { Blueprint, RuleSetting, Tier } from '../../config';
-import { getForbiddenLayers, getSelfOnlyTargets } from '../../config';
+import { getForbiddenLayers, getModuleShape, getSelfOnlyTargets } from '../../config';
 import { plugin } from '../../plugin';
 import {
   buildPackagePatterns,
@@ -12,7 +12,7 @@ import {
   selfOnlyReexportSelector,
   toArray,
 } from './patterns';
-import type { GlobalRule, LintConfig, LintConfigEntry, PackageRule } from './types';
+import type { EmitLintOptions, GlobalRule, LintConfig, LintConfigEntry, PackageRule } from './types';
 
 type Severity = 'error' | 'warn';
 
@@ -21,10 +21,10 @@ type Severity = 'error' | 'warn';
  * enforces the one-way dependency flow, module-entry boundaries, and package
  * / global ownership. Pure — returns the config array, writes nothing.
  */
-export function emitLint(blueprint: Blueprint): LintConfig {
+export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): LintConfig {
   const { framework, architecture } = blueprint;
 
-  const { alias, additionalAliases, layers, module, layerFiles, layerFilesIgnore, testFiles }
+  const { alias, additionalAliases, layers, layerFiles, layerFilesIgnore, testFiles }
     = architecture;
 
   const severity: Severity = blueprint.emit?.lint?.severity ?? 'error';
@@ -33,6 +33,14 @@ export function emitLint(blueprint: Blueprint): LintConfig {
   const testGlobs = resolveTestFiles(testFiles);
   const packageRules = derivePackageRules(layers);
   const globalRules = deriveGlobalRules(layers);
+
+  const layouts = Object.fromEntries(
+    layers.map((layer) => [layer.name, getModuleShape(architecture, layer.name).layout]),
+  );
+
+  const folderLayers = layers
+    .map((layer) => layer.name)
+    .filter((name) => layouts[name] === 'folder');
 
   // Fixture roots are barred through the same structural rule per layer —
   // a separate entry would *replace* `no-restricted-imports`, not merge it.
@@ -56,7 +64,10 @@ export function emitLint(blueprint: Blueprint): LintConfig {
       layer: layer.name,
       aliases,
       forbidden,
-      moduleLayout: module.layout,
+      moduleLayout: layouts[layer.name],
+      folderTargets: folderLayers.filter(
+        (name) => name !== layer.name && !forbidden.includes(name),
+      ),
       fixtures,
     });
 
@@ -100,7 +111,21 @@ export function emitLint(blueprint: Blueprint): LintConfig {
     ];
   });
 
-  return [...ignoreConfig, ...layerConfigs, ...ruleGateEntries(blueprint, testGlobs)];
+  // The depth-aware half of the structural rules: relative imports must not
+  // leave their module. Shares inspect's resolution — see the plugin rule.
+  const escapeEntry: LintConfigEntry = {
+    files: [...new Set(layers.flatMap((l) => resolveLayerFiles(l.name, layerFiles, framework)))],
+    ignores: testGlobs,
+    plugins: { blueprint: plugin },
+    rules: { 'blueprint/relative-escape': [severity, { layouts }] },
+  };
+
+  return [
+    ...ignoreConfig,
+    ...layerConfigs,
+    escapeEntry,
+    ...ruleGateEntries(blueprint, testGlobs, options),
+  ];
 }
 
 /**
@@ -142,7 +167,11 @@ export const LINT_GATED_RULE_IDS = [
  * `deadCode` land in the generated eslint.config (third-party plugins the
  * library itself does not depend on) and in Verify.
  */
-function ruleGateEntries(blueprint: Blueprint, testGlobs: string[]): LintConfigEntry[] {
+function ruleGateEntries(
+  blueprint: Blueprint,
+  testGlobs: string[],
+  options: EmitLintOptions,
+): LintConfigEntry[] {
   const { framework, architecture, rules } = blueprint;
   const { layers, layerFiles } = architecture;
   const entries: LintConfigEntry[] = [];
@@ -162,7 +191,14 @@ function ruleGateEntries(blueprint: Blueprint, testGlobs: string[]): LintConfigE
   const unusedVars = active(rules?.unusedVars);
 
   if (unusedVars) {
-    shared['no-unused-vars'] = [unusedVars.tier, { argsIgnorePattern: '^_' }];
+    if (options.typescript) {
+      // Core no-unused-vars false-flags TS enum members and type parameters —
+      // with the caller-injected plugin, the TS-aware twin takes over.
+      shared['no-unused-vars'] = 'off';
+      shared['@typescript-eslint/no-unused-vars'] = [unusedVars.tier, { argsIgnorePattern: '^_' }];
+    } else {
+      shared['no-unused-vars'] = [unusedVars.tier, { argsIgnorePattern: '^_' }];
+    }
   }
 
   const deepWatch = active(rules?.deepWatch);
@@ -178,13 +214,23 @@ function ruleGateEntries(blueprint: Blueprint, testGlobs: string[]): LintConfigE
   }
 
   const needsPlugin = Object.keys(shared).some((rule) => rule.startsWith('blueprint/'));
+  const needsTs = Object.keys(shared).some((rule) => rule.startsWith('@typescript-eslint/'));
 
   if (Object.keys(shared).length) {
     entries.push({
       files: [...new Set(layers.flatMap((l) => resolveLayerFiles(l.name, layerFiles, framework)))],
       ignores: testGlobs,
       linterOptions: { reportUnusedDisableDirectives: 'error' },
-      ...(needsPlugin ? { plugins: { blueprint: plugin } } : {}),
+      ...(needsPlugin || needsTs
+        ? {
+            plugins: {
+              ...(needsPlugin ? { blueprint: plugin } : {}),
+              ...(needsTs && options.typescript
+                ? { '@typescript-eslint': options.typescript }
+                : {}),
+            },
+          }
+        : {}),
       rules: shared,
     });
   }

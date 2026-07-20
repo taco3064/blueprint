@@ -2,12 +2,11 @@ import type {
   ArchitectureDef,
   AxisDef,
   Land,
-  ModuleDef,
   PlaybookSection,
   PrincipleDef,
   RuleSetting,
 } from '../../config';
-import { normalizeAllowedImporters } from '../../config';
+import { getModuleShape, normalizeAllowedImporters } from '../../config';
 import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
 
@@ -45,12 +44,29 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
 }
 
 /** Feature-folder shape, illustrated with a generated example tree. */
-export function renderModule(module: ModuleDef, exampleLayer: string): string {
+export function renderModule(architecture: ArchitectureDef, exampleLayer: string): string {
+  const { module } = architecture;
+
+  const exceptionLines = architecture.layers
+    .filter((layer) => layer.module !== undefined)
+    .map((layer) => {
+      const shape = getModuleShape(architecture, layer.name);
+
+      return shape.layout === 'folder'
+        ? `- \`${layer.name}/\` — one folder per module, entry \`${shape.entry}\`.`
+        : `- \`${layer.name}/\` — one file per module (flat).`;
+    });
+
+  const exceptions = exceptionLines.length
+    ? ['', 'Per-layer exceptions to the shared shape:', '', ...exceptionLines]
+    : [];
+
   if (module.layout === 'flat') {
     return [
       '## Module shape',
       '',
       'One module = one file (flat layout). Shared logic moves down to a lower layer.',
+      ...exceptions,
     ].join('\n');
   }
 
@@ -76,6 +92,7 @@ export function renderModule(module: ModuleDef, exampleLayer: string): string {
     '└─ Example/',
     ...tree,
     '```',
+    ...exceptions,
   ].join('\n');
 }
 
@@ -94,9 +111,18 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
       : '- **No same-layer imports** — extract shared logic down to a lower layer instead.',
   ];
 
-  if (module.layout === 'folder') {
+  const folderEntries = [
+    ...new Set(
+      layers
+        .map((layer) => getModuleShape(architecture, layer.name))
+        .filter((shape) => shape.layout === 'folder')
+        .map((shape) => `\`${shape.entry}\``),
+    ),
+  ];
+
+  if (folderEntries.length) {
     bullets.push(
-      `- **Entry-only** — import a module through its \`${module.entry}\`, never its internals.`,
+      `- **Entry-only** — import a module through its ${folderEntries.join(' / ')}, never its internals.`,
     );
   }
 

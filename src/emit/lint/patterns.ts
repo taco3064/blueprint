@@ -105,22 +105,28 @@ export function buildStructuralPatterns(params: {
   layer: string;
   aliases: string[];
   forbidden: string[];
+  /** The layer's own module layout (drives the same-layer message wording). */
   moduleLayout: 'folder' | 'flat';
+  /**
+   * Downstream folder-layout layers this layer may import — their module
+   * internals are entry-only. Self and forbidden layers are excluded by the
+   * caller: both are already banned wholesale, and `no-restricted-imports`
+   * reports once per matched group, so overlap would double-report.
+   */
+  folderTargets?: string[];
   /** Fixture roots barred from production imports (`rules.fixtureImports`). */
   fixtures?: string[];
 }): GroupPattern[] {
-  const { layer, aliases, forbidden, moduleLayout, fixtures } = params;
+  const { layer, aliases, forbidden, moduleLayout, folderTargets, fixtures } = params;
 
+  // Escaping the module via `../` cannot be expressed as a literal pattern
+  // (it depends on the importing file's depth) — that ban lives in the
+  // embedded `blueprint/relative-escape` rule, sharing inspect's resolution.
   const patterns: GroupPattern[] = [
     {
       group: ['./../**', '././**'],
       message:
         '\n🚫 Redundant relative segments (././, ./../) bypass the structural import rules.',
-    },
-    {
-      group: [moduleLayout === 'folder' ? '../*/**' : '../**'],
-      message:
-        '\n🚫 Do not import from an upper-level directory. Use the project alias to follow the dependency flow.',
     },
     ...aliases.map((a) => ({
       group: [`${a}/${layer}/**`],
@@ -147,12 +153,12 @@ export function buildStructuralPatterns(params: {
     });
   }
 
-  // Entry-only: no reaching inside another module via the alias (folder layout).
+  // Entry-only: no reaching inside a folder-layout module via the alias.
   // `alias/layer/module` (entry) is allowed; a gitignore `/**` matches only
-  // *descendants*, so `alias/*/*/**` bans reaching into a module, not the entry.
-  if (moduleLayout === 'folder') {
+  // *descendants*, so `alias/L/*/**` bans reaching into a module, not the entry.
+  if (folderTargets?.length) {
     patterns.push({
-      group: aliases.map((a) => `${a}/*/*/**`),
+      group: folderTargets.flatMap((target) => aliases.map((a) => `${a}/${target}/*/**`)),
       message:
         '\n🚫 Import a module through its entry, not its internals (e.g. "~app/hooks/useX", not "~app/hooks/useX/impl").',
     });

@@ -62,7 +62,7 @@ export function plan(
 
     actions.push({
       kind: 'instruct',
-      note: 'eslint.config already exists, so it was not touched. Merge from the reference file:\n    diff eslint.config.blueprint.mjs eslint.config.*   # see what blueprint adds\n  Minimal merge — spread the blueprint rules into your existing config:\n    import blueprint from \'./blueprint.config.mjs\';\n    import { emitLint } from \'@kekkai/blueprint\';\n    export default [ ...emitLint(blueprint), /* …your existing entries */ ];\n  Then copy the parser + CORE blocks you need from the reference file, and delete it.',
+      note: 'eslint.config already exists, so it was not touched. Merge from the reference file:\n    diff eslint.config.blueprint.mjs eslint.config.*   # see what blueprint adds\n  Minimal merge — spread the blueprint rules into your existing config:\n    import blueprint from \'./blueprint.config.mjs\';\n    import { emitLint } from \'@kekkai/blueprint\';\n    export default [ ...emitLint(blueprint), /* …your existing entries */ ];\n  On a TypeScript project pass the TS plugin — emitLint(blueprint, { typescript: tseslint.plugin })\n  — so the unusedVars gate uses the TS-aware rule. Then copy the parser + CORE\n  blocks you need from the reference file, and delete it.',
     });
   } else {
     actions.push({
@@ -195,7 +195,11 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     '',
     'export default [',
     ...parserBlocks,
-    '  ...emitLint(blueprint),',
+    // TS projects hand emitLint the @typescript-eslint plugin so the
+    // unusedVars gate runs its TS-aware rule (core false-flags enum members).
+    ts
+      ? '  ...emitLint(blueprint, { typescript: tseslint.plugin }),'
+      : '  ...emitLint(blueprint),',
     '  {',
     '    files: [\'src/**/*.{js,jsx,ts,tsx,vue}\'],',
     '    plugins: {',
