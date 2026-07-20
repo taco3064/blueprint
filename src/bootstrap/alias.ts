@@ -1,5 +1,6 @@
 import type { ArchitectureDef } from '../config';
 import type { ProjectState } from '../project';
+import { wireTsconfigPaths, wireViteAlias } from './wire';
 import type { Action } from './types';
 
 /**
@@ -66,8 +67,17 @@ export function patchTsconfigPaths(
   return { kind: 'patched', text: render(patched) };
 }
 
-/** The `init` actions that wire the alias: tsconfig side + bundler side. */
-export function aliasActions(state: ProjectState, architecture: ArchitectureDef): Action[] {
+/**
+ * The `init` actions that wire the alias: tsconfig side + bundler side.
+ * `greenfield` marks a fresh scaffold (init generated the blueprint config in
+ * this very run) — there, the template's own vite/tsconfig files are part of
+ * the setup moment and get precondition-guarded surgery instead of instructs.
+ */
+export function aliasActions(
+  state: ProjectState,
+  architecture: ArchitectureDef,
+  greenfield = false,
+): Action[] {
   const paths = aliasPaths(architecture);
   const actions: Action[] = [];
   const target = resolveTarget(state);
@@ -82,7 +92,13 @@ export function aliasActions(state: ProjectState, architecture: ArchitectureDef)
   } else if (target.kind === 'instruct') {
     actions.push(tsconfigInstruct(target.file, paths));
   } else {
-    const result = patchTsconfigPaths(target.text, paths);
+    let result = patchTsconfigPaths(target.text, paths);
+
+    // Commented (JSONC) template configs defeat the lossless rewrite; on a
+    // fresh scaffold the comment-preserving insertion takes over.
+    if (result.kind === 'unparseable' && greenfield) {
+      result = wireTsconfigPaths(target.text, paths);
+    }
 
     if (result.kind === 'patched') {
       actions.push({
@@ -97,9 +113,33 @@ export function aliasActions(state: ProjectState, architecture: ArchitectureDef)
     // noop — the alias is already wired; nothing to do.
   }
 
-  actions.push(bundlerInstruct(state, architecture));
+  actions.push(...bundlerActions(state, architecture, greenfield));
 
   return actions;
+}
+
+/** Bundler side: greenfield surgery on a template-shaped vite config, else an instruct. */
+function bundlerActions(
+  state: ProjectState,
+  architecture: ArchitectureDef,
+  greenfield: boolean,
+): Action[] {
+  if (greenfield && state.viteConfig && !architecture.additionalAliases) {
+    const result = wireViteAlias(state.viteConfig.text, architecture.alias);
+
+    if (result.kind === 'patched') {
+      return [
+        {
+          kind: 'write',
+          path: state.viteConfig.file,
+          content: result.text,
+          note: `${state.viteConfig.file} (import alias)`,
+        },
+      ];
+    }
+  }
+
+  return [bundlerInstruct(state, architecture)];
 }
 
 type Target

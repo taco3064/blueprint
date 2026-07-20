@@ -29,6 +29,17 @@
 - Treat `warn`-tier results as review entry points: look, then decide —
   don't ignore, don't blindly appease.
 
+## When another tool disagrees
+
+- Third-party lint advice sometimes collides with the blueprint's module
+  shape — e.g. a fast-refresh rule asking you to split `XxxContext` and
+  `XxxProvider` into separate files, when the module shape says a context
+  module exports them together. **The blueprint is the source of truth for
+  structure**; the other tool's rule is triage, not a verdict. Keep the
+  blueprint shape and disable the conflicting rule locally, with a reason.
+- The reverse holds too: never use a third-party suggestion as cover to
+  bypass a structural rule.
+
 ## What no tool enforces (you are the gate)
 
 - Do not create undeclared folders under the project alias root. Every folder

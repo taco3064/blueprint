@@ -1,8 +1,14 @@
 # Field-Tested Setups
 
 Every release is validated by adopting blueprint on real projects — not just
-unit tests. This page records what has actually been run, with the outcome and
-the caveats, so you know which terrain is proven and which is still frontier.
+unit tests. Two automated layers back this page: an **adoption e2e suite**
+(five committed template fixtures — vite react/vue, Next, a turbo + pnpm
+workspace package, and a brownfield repo with planted debt — driven through
+the full init/inspect/baseline arc on every commit, push, and release), and a
+**weekly terrain run** that scaffolds the *latest* upstream templates and
+opens an issue when they drift. This page records what has actually been run,
+with the outcome and the caveats, so you know which terrain is proven and
+which is still frontier.
 
 ## Tested and green
 

@@ -52,7 +52,9 @@ Framework auto-detected, existing configs never overwritten, re-runs idempotent.
   above. Nothing else is executed.
 - **Writes are declared and bounded** — `--dry-run` prints every effect; `inspect` /
   `deps` are read-only; your files are only edited when losslessly rewritable, never
-  overwritten.
+  overwritten. One scoped exception: on a **fresh scaffold**, init also wires the
+  import alias into the template's vite/tsconfig (precondition-guarded, dry-run
+  visible, falls back to instructions); existing projects are never touched.
 - **Provenance-signed releases** — published from GitHub Actions with npm provenance.
 
 Details: [Security & Trust](https://taco3064.github.io/blueprint/guide/security)

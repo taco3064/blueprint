@@ -1,0 +1,91 @@
+name: Terrain (upstream template drift)
+
+# Weekly sweep: scaffold the LATEST upstream templates and drive the real
+# adoption through the CLI built from HEAD. This is the drift detector — when
+# create-vite / create-next-app change their template shapes (new assets, new
+# config forms), this run reddens and opens an issue. Deliberately not part of
+# the PR gate: network-dependent and upstream-driven.
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Mondays 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  terrain:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: vite-react
+            create: npm create vite@latest app -- --template react-ts
+          - name: vite-vue
+            create: npm create vite@latest app -- --template vue-ts
+          - name: next
+            create: npx --yes create-next-app@latest app --typescript --eslint --app --src-dir --import-alias "@/*" --use-npm --no-tailwind --no-turbopack --disable-git --yes
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Build the CLI from HEAD
+        run: |
+          npm ci
+          npm run build
+
+      - name: Scaffold the latest upstream template
+        run: |
+          cd ${{ runner.temp }}
+          ${{ matrix.create }}
+          cd app && npm install
+
+      - name: Run the adoption
+        run: |
+          cd ${{ runner.temp }}/app
+          node $GITHUB_WORKSPACE/dist/bin.js init --no-install 2>&1 | tee init.log
+
+      - name: Assert the terrain
+        run: |
+          cd ${{ runner.temp }}/app
+          case "${{ matrix.name }}" in
+            next)
+              # Authoring flow: playbook written, src/pages never scaffolded.
+              test -f blueprint-authoring.md
+              test ! -e src/pages
+              grep -q 'Next.js project' blueprint-authoring.md
+              ;;
+            *)
+              # Greenfield preset: config + alias surgery landed, inspect green.
+              test -f blueprint.config.mjs
+              grep -q "~app" vite.config.ts
+              npm install -D $GITHUB_WORKSPACE 2>/dev/null || npm install -D @kekkai/blueprint
+              node $GITHUB_WORKSPACE/dist/bin.js inspect || {
+                # vue template ships ../assets imports — apply the printed fix, re-check.
+                sed -i "s|from '../assets/|from '~app/assets/|g" src/components/*.vue 2>/dev/null || true
+                node $GITHUB_WORKSPACE/dist/bin.js inspect
+              }
+              ;;
+          esac
+
+      - name: Open a drift issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="terrain: ${{ matrix.name }} template drifted"
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq length)
+          if [ "$existing" = "0" ]; then
+            gh issue create --title "$title" \
+              --body "The weekly terrain run failed against the latest upstream template. See the run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi

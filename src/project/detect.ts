@@ -135,6 +135,9 @@ export function detect(root: string): ProjectState {
   const wiredEslintConfig
     = ownedEslintConfig === undefined && (eslintText?.includes('@kekkai/blueprint') ?? false);
 
+  const viteFile = VITE_FILES.find((file) => fs.existsSync(path.join(root, file)));
+  const viteText = viteFile === undefined ? null : readText(path.join(root, viteFile));
+
   return {
     root,
     framework,
@@ -145,7 +148,10 @@ export function detect(root: string): ProjectState {
     hasNext,
     ownedEslintConfig,
     wiredEslintConfig,
-    hasViteConfig: VITE_FILES.some((file) => fs.existsSync(path.join(root, file))),
+    viteConfig: viteFile !== undefined && viteText !== null
+      ? { file: viteFile, text: viteText }
+      : undefined,
+    hasViteConfig: viteFile !== undefined,
     hasTypescript,
     tsconfigs: readTexts(root, TSCONFIG_FILES),
     existingSrcDirs: listSrcDirs(root),

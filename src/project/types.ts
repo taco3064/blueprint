@@ -31,6 +31,8 @@ export interface ProjectState {
   wiredEslintConfig: boolean;
   /** Some `vite.config.*` is present. */
   hasViteConfig: boolean;
+  /** The vite config file and its content, when present and readable. */
+  viteConfig?: { file: string; text: string };
   /** `typescript` is a dependency. */
   hasTypescript: boolean;
   /** Contents of `tsconfig.json` / `tsconfig.app.json` / `jsconfig.json` (null = absent). */

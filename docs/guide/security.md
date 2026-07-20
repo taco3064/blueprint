@@ -50,6 +50,11 @@ is executed.
 - Files you own are edited only when they can be rewritten **losslessly**
   (`tsconfig.json` / `jsconfig.json` without comments); anything else — including any
   existing eslint config — gets a paste-ready snippet, never an overwrite
+- One scoped exception: on a **fresh scaffold** (init generated the blueprint config
+  in this very run), init also wires the import alias into the template's
+  `vite.config.*` and commented tsconfig — precondition-guarded text edits that only
+  touch the known template shapes, visible in `--dry-run`, falling back to
+  instructions on anything unexpected. Existing projects never take this path
 - Re-running `init` is idempotent; hand-written content in shared context files
   survives behind marker blocks
 

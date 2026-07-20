@@ -141,8 +141,8 @@ function templateCleanup(root: string, blueprint: Blueprint): Action | null {
       `Template cleanup: the starter code violates the blueprint out of the box (${findings.length} finding(s)):`,
       ...shown,
       ...(more > 0 ? [`    … and ${more} more`] : []),
-      '  Wire the alias (see above), replace cross-layer relative imports with it,',
-      '  then verify with: npx blueprint inspect',
+      '  The alias is wired above when the template shape allowed it — replace',
+      '  cross-layer relative imports with it, then verify with: npx blueprint inspect',
     ].join('\n'),
   };
 }

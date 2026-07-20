@@ -177,7 +177,7 @@ export function plan(
     },
   );
 
-  actions.push(...aliasActions(state, architecture));
+  actions.push(...aliasActions(state, architecture, configSource !== null));
 
   return actions;
 }

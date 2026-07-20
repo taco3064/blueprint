@@ -212,3 +212,24 @@ describe('aliasActions', () => {
     expect(soloAlias).not.toContain('~shared');
   });
 });
+
+describe('aliasActions · greenfield vite surgery fallback', () => {
+  it('falls back to the bundler instruct when the vite config is not template-shaped', () => {
+    const actions = aliasActions(
+      state({
+        hasViteConfig: true,
+        viteConfig: { file: 'vite.config.ts', text: 'export default defineConfig(() => ({}))' },
+      }),
+      ARCH,
+      true,
+    );
+
+    expect(actions.some(
+      (action) => action.kind === 'write' && action.path === 'vite.config.ts',
+    )).toBe(false);
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('resolve.alias'),
+    )).toBe(true);
+  });
+});

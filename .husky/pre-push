@@ -1,0 +1,2 @@
+# Full test set (incl. the adoption e2e under src/e2e/) must pass before anything leaves the machine.
+npx vitest run

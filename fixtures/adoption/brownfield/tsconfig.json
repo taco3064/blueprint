@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    /* legacy project */
+    "jsx": "react-jsx",
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["src"]
+}
