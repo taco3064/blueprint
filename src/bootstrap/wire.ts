@@ -14,7 +14,7 @@ const DEFINE_CONFIG = /export default defineConfig\(\s*\{/;
 const NODE_URL_IMPORT = 'import { fileURLToPath, URL } from \'node:url\'';
 
 /** Insert `resolve.alias` into a create-vite-shaped config. */
-export function wireViteAlias(text: string, alias: string): PatchResult {
+export function wireViteAlias(text: string, alias: string, sourceDir = './src'): PatchResult {
   // Only the shape every create-vite template ships: an object-literal
   // defineConfig with no resolve section yet. Anything else is hands-off.
   if (!DEFINE_CONFIG.test(text) || /\bresolve\s*:/.test(text)) {
@@ -24,7 +24,7 @@ export function wireViteAlias(text: string, alias: string): PatchResult {
   const withResolve = text.replace(
     DEFINE_CONFIG,
     (match) =>
-      `${match}\n  resolve: {\n    alias: {\n      '${alias}': fileURLToPath(new URL('./src', import.meta.url)),\n    },\n  },`,
+      `${match}\n  resolve: {\n    alias: {\n      '${alias}': fileURLToPath(new URL('${sourceDir}', import.meta.url)),\n    },\n  },`,
   );
 
   const withImport = withResolve.includes('fileURLToPath(new URL')

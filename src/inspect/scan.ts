@@ -44,40 +44,63 @@ export function extractImports(source: string): ImportRef[] {
   return refs;
 }
 
-function walk(dir: string, base: string, files: ScannedFile[]): void {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
+/**
+ * Directories that never hold layer source. Skipped by the walk so a
+ * `sourceRoot` of `.` (project root) does not descend into dependencies or
+ * build output — harmless under a `src` root too, where they rarely appear.
+ */
+const NON_SOURCE_DIRS = new Set([
+  'node_modules',
+  '.git',
+  '.next',
+  '.nuxt',
+  '.turbo',
+  '.cache',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+]);
 
+function walk(dir: string, base: string, prefix: string, files: ScannedFile[]): void {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      walk(full, base, files);
+      if (NON_SOURCE_DIRS.has(entry.name)) continue;
+
+      walk(path.join(dir, entry.name), base, prefix, files);
     } else if (SOURCE_EXT.test(entry.name)) {
-      const rel = path.relative(base, full);
+      const rel = path.relative(base, path.join(dir, entry.name));
 
       files.push({
-        path: path.join('src', rel),
+        path: prefix ? path.join(prefix, rel) : rel,
         segments: rel.split(path.sep),
-        imports: extractImports(fs.readFileSync(full, 'utf-8')),
+        imports: extractImports(fs.readFileSync(path.join(dir, entry.name), 'utf-8')),
       });
     }
   }
 }
 
-/** Walk `src/` and return every source file with its extracted imports. */
-export function scan(root: string): ScanResult {
-  const srcDir = path.join(root, 'src');
+/**
+ * Walk the source root (default `src/`, or `sourceRoot` when given — `.`
+ * for a project-root layout) and return every source file with its imports.
+ * `path` keeps the source-root prefix for display; `segments` are relative
+ * to the root so `segments[0]` is always the layer.
+ */
+export function scan(root: string, sourceRoot = 'src'): ScanResult {
+  const base = sourceRoot === '.' ? root : path.join(root, sourceRoot);
 
-  if (!fs.existsSync(srcDir)) {
+  if (!fs.existsSync(base)) {
     return { topDirs: [], files: [] };
   }
 
   const topDirs = fs
-    .readdirSync(srcDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
+    .readdirSync(base, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !NON_SOURCE_DIRS.has(entry.name))
     .map((entry) => entry.name);
 
   const files: ScannedFile[] = [];
 
-  walk(srcDir, srcDir, files);
+  walk(base, base, sourceRoot === '.' ? '' : sourceRoot, files);
 
   return { topDirs, files };
 }

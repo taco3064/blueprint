@@ -1,7 +1,7 @@
 import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
-import { reactPreset, vuePreset } from './presets';
+import { nextPreset, reactPreset, vuePreset } from './presets';
 import { emitAgentContract } from '../emit/agent';
 import { emitHandbook } from '../emit/docs';
 import { emitLint } from '../emit/lint';
@@ -193,5 +193,44 @@ describe('presets · downstream emitters', () => {
     expect(contract).toContain(
       '- [ ] Changed units hold against every component-shape axis, judged one by one.',
     );
+  });
+});
+
+describe('nextPreset', () => {
+  it('makes the App-Router tree the top layer under src, with no fetch ownership', () => {
+    const bp = nextPreset({ name: 'app', router: 'app', srcDir: true });
+
+    expect(bp.framework).toBe('react');
+    expect(bp.architecture.sourceRoot).toBe('src');
+    expect(bp.architecture.alias).toBe('@');
+    expect(bp.architecture.layers.map((l) => l.name)).toEqual(['app', 'components', 'hooks', 'lib']);
+    expect(bp.architecture.module.layout).toBe('flat');
+
+    // Server components fetch everywhere — fetch must not be owned by a layer.
+    const owners = bp.architecture.layers.flatMap((l) => l.owns ?? []);
+
+    expect(JSON.stringify(owners)).not.toContain('fetch');
+  });
+
+  it('defaults to the app router when none is given', () => {
+    expect(nextPreset().architecture.layers[0].name).toBe('app');
+  });
+
+  it('uses the project root when srcDir is false', () => {
+    expect(nextPreset({ router: 'app' }).architecture.sourceRoot).toBe('.');
+  });
+
+  it('declares both route trees for a migration project', () => {
+    const names = nextPreset({ router: 'both', srcDir: true }).architecture.layers.map((l) => l.name);
+
+    expect(names.slice(0, 2)).toEqual(['app', 'pages']);
+  });
+
+  it('emits a lint config whose layer globs honor the source root', () => {
+    const rootConfig = emitLint(nextPreset({ router: 'app' })); // sourceRoot '.'
+    const files = rootConfig.flatMap((entry) => entry.files ?? []);
+
+    expect(files.some((glob) => glob.startsWith('app/'))).toBe(true);
+    expect(files.some((glob) => glob.startsWith('src/'))).toBe(false);
   });
 });

@@ -35,7 +35,7 @@ export async function runDeps(
   const state = detect(root);
   const { blueprint } = await resolveBlueprint(root, state, options);
   const { architecture } = blueprint;
-  const graph = buildModuleGraph(scan(root), architecture);
+  const graph = buildModuleGraph(scan(root, architecture.sourceRoot), architecture);
   const modules = collect(graph.modules, graph.edges);
 
   if (options.target !== undefined) {

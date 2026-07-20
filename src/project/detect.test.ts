@@ -122,6 +122,46 @@ describe('readTexts', () => {
   });
 });
 
+describe('detect · Next router detection', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-next-'));
+
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({ name: 'n', dependencies: { next: '^15', react: '^19' } }),
+    );
+  });
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it('detects both route trees during a migration', () => {
+    fs.mkdirSync(path.join(root, 'app'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'pages'), { recursive: true });
+
+    const state = detect(root);
+
+    expect(state.nextRouter).toBe('both');
+    expect(state.nextSrcDir).toBe(false);
+  });
+
+  it('detects a src-dir pages router', () => {
+    fs.mkdirSync(path.join(root, 'src', 'pages'), { recursive: true });
+
+    const state = detect(root);
+
+    expect(state.nextRouter).toBe('pages');
+    expect(state.nextSrcDir).toBe(true);
+  });
+
+  it('reports no router when neither tree exists', () => {
+    expect(detect(root).nextRouter).toBe(null);
+  });
+});
+
 describe('detect · workspace-aware package manager', () => {
   it('finds the pnpm lockfile at the workspace root above the package', () => {
     const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-ws-'));

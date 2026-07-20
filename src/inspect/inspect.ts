@@ -39,7 +39,7 @@ export async function runInspect(
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
   const { blueprint } = await resolveBlueprint(root, state, options);
-  const findings = analyze(scan(root), blueprint);
+  const findings = analyze(scan(root, blueprint.architecture.sourceRoot), blueprint);
   const baselineFile = path.join(root, BASELINE_FILE);
 
   if (options.updateBaseline) {

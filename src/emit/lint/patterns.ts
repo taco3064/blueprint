@@ -3,11 +3,18 @@ import type { GlobalRule, GroupPattern, PackageRule, PathPattern } from './types
 
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/g;
 
-const DEFAULT_GLOBS: Record<Framework, string> = {
-  vue: 'src/{layer}/**/*.{js,ts,vue}',
-  react: 'src/{layer}/**/*.{js,jsx,ts,tsx}',
-  auto: 'src/{layer}/**/*.{js,jsx,ts,tsx,vue}',
+const FRAMEWORK_EXTS: Record<Framework, string> = {
+  vue: 'js,ts,vue',
+  react: 'js,jsx,ts,tsx',
+  auto: 'js,jsx,ts,tsx,vue',
 };
+
+/** The default `{layer}` glob for a framework under a given source root. */
+function defaultGlob(framework: Framework, sourceRoot: string): string {
+  const prefix = sourceRoot === '.' ? '' : `${sourceRoot}/`;
+
+  return `${prefix}{layer}/**/*.{${FRAMEWORK_EXTS[framework]}}`;
+}
 
 const DEFAULT_TEST_FILES = [
   '**/*.test.{js,jsx,ts,tsx,vue}',
@@ -24,13 +31,18 @@ export function toArray(value: string | string[]): string[] {
   return Array.isArray(value) ? value : [value];
 }
 
-/** Resolve a layer's lint file globs, defaulting from `framework`. */
+/**
+ * Resolve a layer's lint file globs. An explicit `layerFiles` wins as-is;
+ * otherwise the default is derived from `framework` and `sourceRoot`.
+ */
 export function resolveLayerFiles(
   layer: string,
   layerFiles: string | string[] | undefined,
   framework: Framework,
+  sourceRoot = 'src',
 ): string[] {
-  const globs = layerFiles === undefined ? [DEFAULT_GLOBS[framework]] : toArray(layerFiles);
+  const globs
+    = layerFiles === undefined ? [defaultGlob(framework, sourceRoot)] : toArray(layerFiles);
 
   return globs.map((glob) => glob.replace(LAYER_PLACEHOLDER, layer));
 }

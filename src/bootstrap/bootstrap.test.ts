@@ -447,35 +447,71 @@ describe('runInit · wired eslint config detection', () => {
 });
 
 describe('runInit · Next.js routing', () => {
-  it('routes a fresh Next repo to the authoring flow despite the low file count', async () => {
+  it('scaffolds a fresh App-Router repo with nextPreset, never an empty src/pages', async () => {
     writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
     fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
     fs.writeFileSync(path.join(root, 'src/app/page.tsx'), 'export default () => null;');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    await runInit(root, { install: false, log: silent });
 
-    expect(exists('blueprint-authoring.md')).toBe(true);
-    expect(exists('blueprint.config.mjs')).toBe(false); // no preset scaffold
+    const config = read('blueprint.config.mjs');
+
+    expect(config).toContain('nextPreset');
+    expect(config).toContain('router: \'app\'');
+    expect(config).toContain('srcDir: true');
+    expect(exists('blueprint-authoring.md')).toBe(false); // preset, not authoring
     expect(exists('src/pages')).toBe(false);
-
-    expect(read('blueprint-authoring.md')).toContain('Next.js project');
-    expect(read('blueprint-authoring.md')).toContain('app` → `components');
-
-    expect(actions.some((action) => action.kind === 'mkdir')).toBe(false);
   });
 
-  it('allows --preset on a Next repo but warns that it does not fit', async () => {
+  it('renders a nextPreset config without a name when package.json has none', async () => {
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({ dependencies: { react: '^19', next: '^15' } }),
+    );
+
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/app/page.tsx'), 'export default () => null;');
+
+    await runInit(root, { install: false, log: silent });
+
+    const config = read('blueprint.config.mjs');
+
+    expect(config).toContain('nextPreset({ router: \'app\', srcDir: true })');
+    expect(config).not.toContain('name:');
+  });
+
+  it('detects a no-srcDir App Router at the project root', async () => {
     writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
+    fs.mkdirSync(path.join(root, 'app'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'app/page.tsx'), 'export default () => null;');
+
+    await runInit(root, { install: false, log: silent });
+
+    const config = read('blueprint.config.mjs');
+
+    expect(config).toContain('router: \'app\'');
+    expect(config).not.toContain('srcDir'); // root layout — no srcDir
+  });
+
+  it('uses nextPreset for --preset on a Next repo (no react-preset warning)', async () => {
+    writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/app/page.tsx'), 'export default () => null;');
 
     const actions = await runInit(root, { install: false, preset: true, log: silent });
 
-    expect(read('blueprint.config.mjs')).toContain('reactPreset');
+    expect(read('blueprint.config.mjs')).toContain('nextPreset');
+    expect(read('blueprint.config.mjs')).not.toContain('reactPreset');
+    expect(actions.some((action) => action.kind === 'instruct' && action.note.includes('does not fit'))).toBe(false);
+  });
+});
 
-    const warning = actions.find(
-      (action) => action.kind === 'instruct' && action.note.includes('this is a Next.js project'),
+describe('runInit · Nuxt is unsupported', () => {
+  it('refuses to init a Nuxt project, explaining why', async () => {
+    writePkg({ name: 'nuxt-demo', dependencies: { nuxt: '^3', vue: '^3' } });
+
+    await expect(runInit(root, { install: false, log: silent })).rejects.toThrow(
+      /Nuxt is not supported[\s\S]*auto-imports/,
     );
-
-    expect(warning?.note).toContain('src/pages/');
-    expect(warning?.note).toContain('authoring flow');
   });
 });

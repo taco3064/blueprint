@@ -107,6 +107,13 @@ export interface ArchitectureDef {
   /** Extra roots beyond `alias` that also participate in import bans. */
   additionalAliases?: Record<string, string>;
   /**
+   * The directory layers live under, relative to the project root. Defaults to
+   * `src`. Use `.` for frameworks that keep layers at the project root
+   * (e.g. a Next.js project without `srcDir`, where `app/` sits at the root).
+   * Drives the scan base, the default layer-file globs, and the alias target.
+   */
+  sourceRoot?: string;
+  /**
    * Ordered layers. Order defines the one-way flow: a layer may import only
    * layers declared after it. Per-layer `allowedImporters` narrows who may
    * import a given layer (see {@link LayerDef.allowedImporters}).

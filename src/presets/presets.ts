@@ -9,6 +9,17 @@ export interface PresetOptions {
   alias?: string;
 }
 
+/** Which Next.js router directory the route tree lives in. */
+export type NextRouter = 'app' | 'pages' | 'both';
+
+/** Options for the Next.js preset. */
+export interface NextPresetOptions extends PresetOptions {
+  /** Route tree: App Router (`app/`), Pages Router (`pages/`), or both (migration). */
+  router?: NextRouter;
+  /** Layers live under `src/` (`create-next-app --src-dir`); otherwise the project root. */
+  srcDir?: boolean;
+}
+
 /** Framework-specific primitive ownership. */
 interface FrameworkOwns {
   hooks: OwnedPrimitive[];
@@ -236,4 +247,65 @@ export function reactPreset(options: PresetOptions = {}): Blueprint {
     },
     options,
   );
+}
+
+/**
+ * Canonical Next.js blueprint. The route tree (`app/` and/or `pages/`) is the
+ * top layer — flat module layout, since file-based routing owns its own file
+ * names and nesting. No `fetch` ownership: server components fetch everywhere
+ * by design, so restricting it to one layer would be a lie. `srcDir` picks the
+ * source root (`src` vs the project root, where `app/` sits without --src-dir).
+ */
+export function nextPreset(options: NextPresetOptions = {}): Blueprint {
+  const router = options.router ?? 'app';
+  const routeLayers = router === 'both' ? ['app', 'pages'] : [router];
+
+  return defineBlueprint({
+    name: options.name,
+    framework: 'react',
+    architecture: {
+      alias: options.alias ?? '@',
+      sourceRoot: options.srcDir ? 'src' : '.',
+      layers: [
+        ...routeLayers.map((name) => ({
+          name,
+          does: `Next.js route tree (${name}/): pages, layouts, route handlers, metadata.`,
+          mustNot: ['hold reusable UI — extract it to components'],
+        })),
+        {
+          name: 'components',
+          does: 'Reusable UI, shared across routes.',
+          mustNot: ['own route-level data fetching'],
+        },
+        {
+          name: 'hooks',
+          does: 'Client-side state adapters.',
+          owns: [{ package: 'react', imports: ['useContext'] }],
+        },
+        {
+          name: 'lib',
+          does: 'Framework-free plumbing: data access, formatting, config.',
+        },
+      ],
+      flow: 'one-way',
+      module: { layout: 'flat', entry: 'index', private: [] },
+      naming: {
+        hook: 'useX — only when it genuinely uses reactivity',
+      },
+    },
+    principles: principles(),
+    componentShape: componentShape(),
+    playbook: playbook(),
+    rules: {
+      maxLines: { tier: 'error', value: 400 },
+      maxLinesPerFunction: { tier: 'warn', value: 100 },
+      maxParams: { tier: 'warn', value: 3 },
+      maxStatements: { tier: 'warn', value: 15 },
+      complexity: { tier: 'warn', value: 12 },
+      unusedVars: 'error',
+      cycles: 'error',
+      usePrefix: 'error',
+    },
+    emit: { ci: 'github' },
+  });
 }

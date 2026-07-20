@@ -91,6 +91,27 @@ function detectPackageManager(root: string): PackageManager {
   }
 }
 
+/**
+ * Detect the Next.js route tree: which router (`app` / `pages` / both, for a
+ * migration) and whether it sits under `src/`. Drives the Next preset shape
+ * so a fresh `create-next-app` adopts in one command.
+ */
+function detectNext(
+  root: string,
+  hasNext: boolean,
+): { nextRouter: 'app' | 'pages' | 'both' | null; nextSrcDir: boolean } {
+  if (!hasNext) return { nextRouter: null, nextSrcDir: false };
+
+  const has = (rel: string) => fs.existsSync(path.join(root, rel));
+  const app = has('src/app') || has('app');
+  const pages = has('src/pages') || has('pages');
+
+  return {
+    nextRouter: app && pages ? 'both' : app ? 'app' : pages ? 'pages' : null,
+    nextSrcDir: has('src/app') || has('src/pages'),
+  };
+}
+
 function listSrcDirs(root: string): string[] {
   try {
     return fs
@@ -114,6 +135,8 @@ export function detect(root: string): ProjectState {
   const framework = detectFramework(deps);
   const hasTypescript = 'typescript' in deps;
   const hasNext = 'next' in deps;
+  const hasNuxt = 'nuxt' in deps;
+  const { nextRouter, nextSrcDir } = detectNext(root, hasNext);
 
   // The generated eslint config wires parsers for the detected stack — the
   // packages backing them join the install set.
@@ -146,6 +169,9 @@ export function detect(root: string): ProjectState {
     hasConfig: fs.existsSync(path.join(root, CONFIG_FILE)),
     hasEslintConfig: eslintFile !== undefined,
     hasNext,
+    hasNuxt,
+    nextRouter,
+    nextSrcDir,
     ownedEslintConfig,
     wiredEslintConfig,
     viteConfig: viteFile !== undefined && viteText !== null

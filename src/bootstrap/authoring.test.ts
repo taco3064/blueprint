@@ -108,6 +108,14 @@ describe('authoringBrief', () => {
     expect(brief).toContain(COMMAND_FILE);
   });
 
+  it('carries the Next.js route-tree guidance when next is true', () => {
+    const nextBrief = authoringBrief(survey, 'npm install -D @kekkai/blueprint', true);
+
+    expect(nextBrief).toContain('Next.js project');
+    expect(nextBrief).toContain('app` → `components');
+    expect(nextBrief).toContain('Never scaffold or');
+  });
+
   it('finishes with the integration details: declare the tool, merge hand-written files', () => {
     expect(brief).toContain('emit: { agents: [\'claude\'] }');
     expect(brief).toContain('.blueprint.md');

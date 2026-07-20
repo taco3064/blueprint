@@ -24,8 +24,15 @@ type Severity = 'error' | 'warn';
 export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): LintConfig {
   const { framework, architecture } = blueprint;
 
-  const { alias, additionalAliases, layers, layerFiles, layerFilesIgnore, testFiles }
-    = architecture;
+  const {
+    alias,
+    additionalAliases,
+    layers,
+    layerFiles,
+    layerFilesIgnore,
+    testFiles,
+    sourceRoot,
+  } = architecture;
 
   const severity: Severity = blueprint.emit?.lint?.severity ?? 'error';
 
@@ -53,7 +60,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     : [];
 
   const layerConfigs = layers.flatMap((layer) => {
-    const files = resolveLayerFiles(layer.name, layerFiles, framework);
+    const files = resolveLayerFiles(layer.name, layerFiles, framework, sourceRoot);
     const forbidden = getForbiddenLayers(architecture, layer.name);
     const disabledPackages = packageRules.filter((rule) => !rule.allowedIn.includes(layer.name));
     const disabledGlobals = globalRules.filter((rule) => !rule.allowedIn.includes(layer.name));
@@ -111,10 +118,14 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     ];
   });
 
+  const allLayerFiles = [
+    ...new Set(layers.flatMap((l) => resolveLayerFiles(l.name, layerFiles, framework, sourceRoot))),
+  ];
+
   // The depth-aware half of the structural rules: relative imports must not
   // leave their module. Shares inspect's resolution — see the plugin rule.
   const escapeEntry: LintConfigEntry = {
-    files: [...new Set(layers.flatMap((l) => resolveLayerFiles(l.name, layerFiles, framework)))],
+    files: allLayerFiles,
     ignores: testGlobs,
     plugins: { blueprint: plugin },
     rules: { 'blueprint/relative-escape': [severity, { layouts }] },
@@ -173,7 +184,7 @@ function ruleGateEntries(
   options: EmitLintOptions,
 ): LintConfigEntry[] {
   const { framework, architecture, rules } = blueprint;
-  const { layers, layerFiles } = architecture;
+  const { layers, layerFiles, sourceRoot } = architecture;
   const entries: LintConfigEntry[] = [];
 
   const shared: Linter.RulesRecord = {};
@@ -216,9 +227,13 @@ function ruleGateEntries(
   const needsPlugin = Object.keys(shared).some((rule) => rule.startsWith('blueprint/'));
   const needsTs = Object.keys(shared).some((rule) => rule.startsWith('@typescript-eslint/'));
 
+  const sharedFiles = [
+    ...new Set(layers.flatMap((l) => resolveLayerFiles(l.name, layerFiles, framework, sourceRoot))),
+  ];
+
   if (Object.keys(shared).length) {
     entries.push({
-      files: [...new Set(layers.flatMap((l) => resolveLayerFiles(l.name, layerFiles, framework)))],
+      files: sharedFiles,
       ignores: testGlobs,
       linterOptions: { reportUnusedDisableDirectives: 'error' },
       ...(needsPlugin || needsTs
@@ -263,7 +278,7 @@ function ruleGateEntries(
     const prefix = (usePrefix.opts.prefix as string | undefined) ?? 'use';
 
     entries.push({
-      files: resolveLayerFiles(layer, layerFiles, framework),
+      files: resolveLayerFiles(layer, layerFiles, framework, sourceRoot),
       ignores: testGlobs,
       plugins: { blueprint: plugin },
       rules: { 'blueprint/use-prefix': [usePrefix.tier, { prefix }] },

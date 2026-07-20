@@ -1,7 +1,8 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { reactPreset, vuePreset } from '../presets';
+import { nextPreset, reactPreset, vuePreset } from '../presets';
+import type { NextRouter } from '../presets';
 import type { Blueprint } from '../config';
 import { CONFIG_FILE } from './detect';
 import type { ProjectState } from './types';
@@ -35,6 +36,21 @@ export async function resolveBlueprint(
     return { blueprint: await load(path.resolve(root, CONFIG_FILE)), configSource: null };
   }
 
+  // Next.js with a detected route tree gets its own preset — the route dir
+  // is the top layer, and the source root follows --src-dir.
+  if (state.hasNext && state.nextRouter) {
+    const blueprint = nextPreset({
+      ...(state.projectName ? { name: state.projectName } : {}),
+      router: state.nextRouter,
+      srcDir: state.nextSrcDir,
+    });
+
+    return {
+      blueprint,
+      configSource: buildNextConfigSource(state.nextRouter, state.nextSrcDir, state.projectName),
+    };
+  }
+
   const framework = options.framework ?? state.framework;
 
   if (framework !== 'vue' && framework !== 'react') {
@@ -58,6 +74,22 @@ export function buildConfigSource(framework: 'vue' | 'react', name?: string): st
     `import { ${factory} } from '@kekkai/blueprint';`,
     '',
     `export default ${factory}(${arg});`,
+    '',
+  ].join('\n');
+}
+
+/** Render the generated config body for a fresh Next.js project. */
+export function buildNextConfigSource(router: NextRouter, srcDir: boolean, name?: string): string {
+  const opts = [
+    ...(name ? [`name: '${name}'`] : []),
+    `router: '${router}'`,
+    ...(srcDir ? ['srcDir: true'] : []),
+  ].join(', ');
+
+  return [
+    'import { nextPreset } from \'@kekkai/blueprint\';',
+    '',
+    `export default nextPreset({ ${opts} });`,
     '',
   ].join('\n');
 }

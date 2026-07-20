@@ -37,16 +37,33 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
 
+  // Nuxt is unsupported by construction: its auto-imports leave no import
+  // statements, so blueprint's static graph would be near-empty and report a
+  // hollow "clean". Refuse rather than emit a false-green setup.
+  if (state.hasNuxt) {
+    throw new Error(
+      'Nuxt is not supported. Blueprint enforces the dependency flow through '
+      + 'static import analysis, and Nuxt\'s auto-imports leave no import '
+      + 'statements to analyze — the result would be a hollow, false "clean". '
+      + 'See https://taco3064.github.io/blueprint/guide/field-tested.',
+    );
+  }
+
   // Brownfield without a config: scaffolding a preset would be a lie — the
   // layers already exist and must be *read*. Emit the authoring playbook
   // instead (an agent or a human executes it; init runs again after).
   if (!state.hasConfig && options.preset !== true) {
-    const survey = runSurvey(root, { log: () => {} });
+    // A no-srcDir Next project keeps its layers at the root — survey there so
+    // the file count reflects reality, not an empty (missing) src/.
+    const surveyRoot = state.hasNext && !state.nextSrcDir ? '.' : undefined;
+    const survey = runSurvey(root, { log: () => {}, sourceRoot: surveyRoot });
 
-    // Next.js always takes the authoring flow, file count aside: the react
-    // preset would scaffold src/pages/ (a routing convention in Next) and
-    // does not know the App Router's app/ tree.
-    if (survey.totalFiles >= BROWNFIELD_MIN_FILES || state.hasNext) {
+    // Greenfield Next with a detected router uses nextPreset (below). Anything
+    // brownfield — or a Next project whose route tree we cannot place — is read
+    // by the authoring flow, never guessed.
+    const brownfield = survey.totalFiles >= BROWNFIELD_MIN_FILES;
+
+    if (brownfield || (state.hasNext && !state.nextRouter)) {
       return runAuthoring(root, state, survey, options, log);
     }
   }
@@ -74,14 +91,6 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     const cleanup = templateCleanup(root, blueprint);
 
     if (cleanup) actions.push(cleanup);
-
-    if (state.hasNext) {
-      // --preset forced onto a Next repo: allowed, but say why it does not fit.
-      actions.push({
-        kind: 'instruct',
-        note: 'Warning: this is a Next.js project — the react preset scaffolds src/pages/ (a routing convention in Next) and does not declare the App Router\'s app/ tree. Prefer `blueprint init` without --preset: the authoring flow derives a config that fits (e.g. layers app → components → hooks → lib).',
-      });
-    }
   }
 
   // The contract links to the handbook and lives in the agent files — if the
@@ -126,7 +135,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
 /** Starter-template violations, phrased as a to-do — null when the scaffold is clean. */
 function templateCleanup(root: string, blueprint: Blueprint): Action | null {
-  const findings = analyze(scan(root), blueprint).filter(
+  const findings = analyze(scan(root, blueprint.architecture.sourceRoot), blueprint).filter(
     (finding) => finding.severity === 'error',
   );
 

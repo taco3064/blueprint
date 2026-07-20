@@ -18,17 +18,19 @@ which is still frontier.
 | **Vite + React + TS (npm, legacy `.eslintrc`)** | 852-file production app, no prior structure governance | Config authored from the survey; **246 real findings** locked as the baseline (including one genuine `services → types → resources → services` import cycle); per-layer module layout (`resources` as folder modules). The legacy-eslintrc migration is surfaced as a decision, not forced. |
 | **create-vite `react-ts`** (fresh) | Greenfield | One command: preset scaffold, compact contract, lint + inspect + build green out of the box. |
 | **create-vite `vue-ts`** (fresh) | Greenfield | Same, plus a template-cleanup instruct: the starter's `../assets` relative imports violate the preset — init lists the exact findings and the fix (wire the alias, three small edits). |
-| **create-next-app (App Router, `src/`, TS)** | Greenfield | Authoring flow engaged automatically (the react preset does not fit Next — see below); config authored as `app` → `components` → `hooks` → `lib`; `emitLint` merged into Next's own flat config; `next build` + lint + inspect green; re-runs fully quiet. |
+| **create-next-app — App Router, `src/`, TS** | Greenfield | One command: `nextPreset` auto-selected (router + srcDir detected), config `app` → `components` → `hooks` → `lib`, `inspect` + `next build` green; hand-written CLAUDE/AGENTS left untouched. |
+| **Next.js — App Router at the project root (no `src/`)** | Greenfield | `sourceRoot: '.'` scans the root-level `app/` tree; upward imports into it are caught like anywhere else. |
+| **Next.js — Pages Router (`src/pages`)** | Greenfield | `pages/` is the top layer; `pages/api/*` handlers import downward into `lib`, no violations. |
 | **Monorepo: turbo + pnpm** | Per-package adoption | Supported model: run `blueprint init` inside each package (`pnpm --filter <pkg> exec …`). The package manager is detected from the **workspace root** (lockfile / `pnpm-workspace.yaml` looked up through parent directories). Blueprint must be a devDependency of the package itself, so the contract's `node_modules` link resolves. Wire CI as a turbo task per package (`"inspect": "blueprint inspect --baseline"`) instead of `emit.ci`. |
 
 ## Framework notes
 
-- **Next.js**: the react preset is deliberately bypassed — it would scaffold
-  `src/pages/` (a routing convention in Next) and does not declare the App
-  Router's `app/` tree. `init` routes Next projects to the authoring flow
-  regardless of file count; the playbook carries the fitting shape
-  (`app` → `components` → `hooks` → `lib`, flat modules so relative imports
-  stay free inside a route segment).
+- **Next.js**: `init` detects the route tree (`app/` and/or `pages/`, under
+  `src/` or the project root) and generates `nextPreset` — the route dir is
+  the top layer, flat module layout, and **no `fetch` ownership** (server
+  components fetch everywhere by design, so restricting it would be a lie).
+  Both routers reduce to the same shape; imports stay explicit, so the
+  dependency graph is real and enforcement is genuine.
 - **Vue SFC templates**: `<script setup>` imports are scanned like any other
   source; the vite starter needs its three asset imports moved onto the alias.
 - **Overlapping structure tools** (structure-lint, dependency-cruiser): wiring
@@ -36,10 +38,19 @@ which is still frontier.
   (proven equivalent on the tested repo); consolidation is flagged as a
   decision for the team, never done unilaterally.
 
+## Not supported
+
+- **Nuxt** — Nuxt's auto-imports leave no `import` statements, and blueprint
+  enforces the dependency flow through *static import analysis*. The graph
+  would be near-empty and report a hollow "clean" — worse than no check. `init`
+  refuses a Nuxt project outright rather than emit a false-green setup. (A
+  framework auto-import resolver could change this someday; it is real work and
+  not planned.)
+
 ## Not yet tested
 
-Nuxt, Remix / React Router framework mode, Windows paths, tsconfig `paths`
-inherited through `extends` chains (the `--alias` flag covers detection
-misses), yarn workspaces. If you run blueprint on one of these,
+Remix / React Router framework mode, Windows paths, tsconfig `paths` inherited
+through `extends` chains (the `--alias` flag covers detection misses). If you
+run blueprint on one of these,
 [an issue with the outcome](https://github.com/taco3064/blueprint/issues) —
 green or red — is the most useful contribution there is.

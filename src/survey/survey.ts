@@ -22,6 +22,8 @@ export const ROOT_BUCKET = '(src root)';
 export interface SurveyOptions {
   /** Import alias override when tsconfig detection finds none, e.g. `@`. */
   alias?: string;
+  /** Directory layers live under (default `src`; `.` for a root layout). */
+  sourceRoot?: string;
   /** Emit machine-readable JSON instead of the text report. */
   json?: boolean;
   /** Output sink (default `console.log`). */
@@ -181,7 +183,7 @@ function folderEvidence(scanResult: ScanResult): FolderEvidence[] {
 export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResult {
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
-  const scanResult = scan(root);
+  const scanResult = scan(root, options.sourceRoot);
 
   const aliases = options.alias
     ? { [options.alias]: 'src' }

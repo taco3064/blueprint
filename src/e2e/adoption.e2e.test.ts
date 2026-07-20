@@ -103,25 +103,79 @@ describe('e2e · vite-vue-ts (template cleanup)', () => {
   });
 });
 
-describe('e2e · next-app (authoring flow, hands off)', () => {
-  it('routes to the playbook, never scaffolds src/pages, and leaves the agent files alone', async () => {
+describe('e2e · next-app (App Router preset, hands off on owned files)', () => {
+  it('scaffolds with nextPreset, never touches src/pages, leaves hand-written agent files alone', async () => {
     useFixture('next-app');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    await runInit(root, { install: false, log: silent });
 
-    expect(exists('blueprint-authoring.md')).toBe(true);
+    const config = read('blueprint.config.mjs');
+
+    expect(config).toContain('nextPreset');
+    expect(config).toContain('router: \'app\'');
+    expect(config).toContain('srcDir: true');
+    expect(exists('blueprint-authoring.md')).toBe(false); // preset path, not authoring
     expect(exists('src/pages')).toBe(false);
-    expect(exists('blueprint.config.mjs')).toBe(false);
-    expect(actions.some((action) => action.kind === 'mkdir')).toBe(false);
 
-    const playbook = read('blueprint-authoring.md');
-
-    expect(playbook).toContain('Next.js project');
-    expect(playbook).toContain('npm install -D @kekkai/blueprint'); // lockfile → npm
-
-    // The template's own agent files are untouched.
+    // The template's own agent files are hand-written → left untouched, reference written.
     expect(read('CLAUDE.md')).toBe('@AGENTS.md\n');
     expect(read('AGENTS.md')).toContain('nextjs-agent-rules');
+
+    // Its flat eslint config is not blueprint-owned → a reference is emitted.
+    expect(exists('eslint.config.blueprint.mjs')).toBe(true);
+
+    // inspect resolves the route tree under src/app and finds no violations.
+    const { nextPreset } = await import('../presets');
+
+    const { ok } = await runInspect(root, {
+      log: silent,
+      loadConfig: async () => nextPreset({ router: 'app', srcDir: true }),
+    });
+
+    expect(ok).toBe(true);
+  });
+});
+
+describe('e2e · next-app-no-srcdir (root-level App Router)', () => {
+  it('detects the root app/ tree and scans it via sourceRoot "."', async () => {
+    useFixture('next-app-no-srcdir');
+
+    await runInit(root, { install: false, log: silent });
+
+    const config = read('blueprint.config.mjs');
+
+    expect(config).toContain('router: \'app\'');
+    expect(config).not.toContain('srcDir');
+
+    const { nextPreset } = await import('../presets');
+
+    const { ok, findings } = await runInspect(root, {
+      log: silent,
+      loadConfig: async () => nextPreset({ router: 'app' }),
+    });
+
+    // The root-level app/ + lib/ are seen; the planted upward import is caught.
+    expect(findings.some((f) => f.rule === 'flow-violation')).toBe(true);
+    expect(ok).toBe(false);
+  });
+});
+
+describe('e2e · next-pages-router', () => {
+  it('places the pages/ tree as the top layer under src/', async () => {
+    useFixture('next-pages-router');
+
+    await runInit(root, { install: false, log: silent });
+
+    expect(read('blueprint.config.mjs')).toContain('router: \'pages\'');
+
+    const { nextPreset } = await import('../presets');
+
+    const { ok } = await runInspect(root, {
+      log: silent,
+      loadConfig: async () => nextPreset({ router: 'pages', srcDir: true }),
+    });
+
+    expect(ok).toBe(true);
   });
 });
 
@@ -237,5 +291,152 @@ describe('e2e · brownfield (the full adoption arc)', () => {
 
     expect(notes).toContain('already integrates');
     expect(notes).toContain('already wires');
+  });
+});
+
+// ─── Tier 1: cross-cutting behaviors the per-terrain happy paths don't cover ───
+
+describe('e2e · ratchet catches a new violation (Tier 1)', () => {
+  it('reddens only on debt introduced after the baseline is locked', async () => {
+    useFixture('brownfield');
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), BROWNFIELD_CONFIG);
+
+    // Lock today's debt; the ratchet is green.
+    await runInspect(root, { updateBaseline: true, log: silent });
+    expect((await runInspect(root, { baseline: true, log: silent })).ok).toBe(true);
+
+    // Introduce a NEW upward reach: utils → pages (not in the baseline).
+    fs.writeFileSync(
+      path.join(root, 'src/utils/noop.ts'),
+      'import { Home } from \'@/pages/Home\';\nexport const noop = () => Home;\n',
+    );
+
+    const after = await runInspect(root, { baseline: true, log: silent });
+
+    expect(after.ok).toBe(false);
+    // Only the fresh finding surfaces — the baselined debt stays suppressed.
+    expect(after.findings.every((f) => f.path.includes('utils/noop'))).toBe(true);
+  });
+});
+
+describe('e2e · JS project gets a jsconfig (Tier 1)', () => {
+  it('creates jsconfig.json with the alias and runs the vite surgery', async () => {
+    useFixture('vite-react-js');
+
+    await runInit(root, { install: false, log: silent });
+
+    // No tsconfig anywhere → init creates jsconfig.json with the alias paths.
+    expect(JSON.parse(read('jsconfig.json'))).toEqual({
+      compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+    });
+
+    expect(read('vite.config.js')).toContain('\'~app\': fileURLToPath(new URL(\'./src\', import.meta.url))');
+  });
+});
+
+describe('e2e · --dry-run writes nothing (Tier 1)', () => {
+  it('produces a full plan but leaves the filesystem untouched', async () => {
+    useFixture('vite-react-ts');
+    const before = fs.readFileSync(path.join(root, 'vite.config.ts'), 'utf-8');
+
+    const actions = await runInit(root, { install: false, dryRun: true, log: silent });
+
+    expect(actions.length).toBeGreaterThan(0);
+    expect(exists('blueprint.config.mjs')).toBe(false);
+    expect(exists('eslint.config.mjs')).toBe(false);
+    expect(read('vite.config.ts')).toBe(before); // surgery planned, not applied
+  });
+});
+
+// ─── Tier 2: read-only commands + the agent launch wiring, on real fixtures ───
+
+describe('e2e · survey and deps on a real repo (Tier 2)', () => {
+  it('surveys the import matrix and answers blast radius', async () => {
+    useFixture('brownfield');
+
+    // The fixture's tsconfig is JSONC (comments) so alias detection misses —
+    // exactly why `--alias` exists; pass it as a user/agent would.
+    const { runSurvey } = await import('../survey');
+    const survey = runSurvey(root, { alias: '@', log: silent });
+
+    // The planted edges show up in the matrix.
+    expect(survey.edges.some((e) => e.from === 'features' && e.to === 'services')).toBe(true);
+    expect(survey.packageUsage).toContainEqual({ package: 'axios', folders: ['services'] });
+
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), BROWNFIELD_CONFIG);
+
+    const { runDeps } = await import('../inspect');
+    const { modules } = await runDeps(root, { target: 'services', log: silent });
+
+    // Flat layout → module keys are layer names. services is imported by
+    // features (feed) and utils (fmt, the cycle) — blast radius sees both.
+    expect(modules[0].importedBy).toEqual(expect.arrayContaining(['features', 'utils']));
+  });
+});
+
+describe('e2e · --agent launches after the playbook lands (Tier 2)', () => {
+  it('writes every artifact before spawning, and spawns in the repo root', async () => {
+    useFixture('brownfield');
+    const calls: { bin: string; cwd: string; playbookExisted: boolean }[] = [];
+
+    await runInit(root, {
+      install: false,
+      agent: 'claude',
+      spawn: (bin, _args, cwd) => {
+        calls.push({ bin, cwd, playbookExisted: exists('blueprint-authoring.md') });
+
+        return { status: 0 };
+      },
+      log: silent,
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].bin).toBe('claude');
+    expect(calls[0].cwd).toBe(root);
+    expect(calls[0].playbookExisted).toBe(true); // artifacts land BEFORE the spawn
+  });
+});
+
+describe('e2e · greenfield emits the CI gate (Tier 2)', () => {
+  it('writes a GitHub workflow that runs blueprint inspect', async () => {
+    useFixture('vite-react-ts');
+
+    await runInit(root, { install: false, log: silent });
+
+    const ci = read('.github/workflows/blueprint-ci.yml');
+
+    expect(ci).toContain('blueprint inspect');
+  });
+});
+
+// ─── Tier 3: workspace + flag paths (unit-covered; pinned here on real shapes) ───
+
+describe('e2e · yarn workspace package (Tier 3)', () => {
+  it('detects yarn from the workspace root', async () => {
+    useFixture('yarn-workspace');
+    const commands: string[] = [];
+
+    await runInit(path.join(root, 'packages', 'ui'), {
+      log: silent,
+      exec: (command) => {
+        commands.push(command);
+      },
+    });
+
+    expect(commands.every((command) => command.startsWith('yarn add -D'))).toBe(true);
+  });
+});
+
+describe('e2e · --no-install surfaces the exact command (Tier 3)', () => {
+  it('downgrades the brownfield install to an instruct with the command', async () => {
+    useFixture('brownfield');
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    const skipped = actions.find(
+      (action) => action.kind === 'instruct' && action.note.includes('Install skipped'),
+    );
+
+    expect(skipped?.note).toContain('npm install -D @kekkai/blueprint');
   });
 });

@@ -12,10 +12,17 @@ import type { Action } from './types';
  * never lossless, so the bundler side is always an instruct.
  */
 
+/** The primary alias's tsconfig target, e.g. `./src/*` (or `./*` at the project root). */
+function aliasTarget(architecture: ArchitectureDef): string {
+  const root = architecture.sourceRoot ?? 'src';
+
+  return root === '.' ? './*' : `${normalizeDir(root)}/*`;
+}
+
 /** Alias → target map for tsconfig `paths`, e.g. `{ "~app/*": ["./src/*"] }`. */
 export function aliasPaths(architecture: ArchitectureDef): Record<string, string[]> {
   const entries: [string, string[]][] = [
-    [`${architecture.alias}/*`, ['./src/*']],
+    [`${architecture.alias}/*`, [aliasTarget(architecture)]],
     ...Object.entries(architecture.additionalAliases ?? {}).map(
       ([alias, target]): [string, string[]] => [`${alias}/*`, [`${normalizeDir(target)}/*`]],
     ),
@@ -125,7 +132,8 @@ function bundlerActions(
   greenfield: boolean,
 ): Action[] {
   if (greenfield && state.viteConfig && !architecture.additionalAliases) {
-    const result = wireViteAlias(state.viteConfig.text, architecture.alias);
+    const root = architecture.sourceRoot ?? 'src';
+    const result = wireViteAlias(state.viteConfig.text, architecture.alias, root === '.' ? '.' : `./${root}`);
 
     if (result.kind === 'patched') {
       return [
@@ -201,7 +209,7 @@ function bundlerInstruct(state: ProjectState, architecture: ArchitectureDef): Ac
   }
 
   const lines = [
-    [architecture.alias, './src'] as const,
+    [architecture.alias, architecture.sourceRoot ?? 'src'] as const,
     ...Object.entries(architecture.additionalAliases ?? {}),
   ].map(
     ([alias, dir]) => `'${alias}': fileURLToPath(new URL('${normalizeDir(dir)}', import.meta.url))`,

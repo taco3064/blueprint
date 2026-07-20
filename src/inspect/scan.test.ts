@@ -77,4 +77,35 @@ describe('scan', () => {
     expect(button?.imports[0].specifier).toBe('~app/hooks/useX');
     expect(result.files).toHaveLength(1); // README.md skipped
   });
+
+  it('scans the project root when sourceRoot is "." and skips non-source dirs', () => {
+    fs.mkdirSync(path.join(root, 'app'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'node_modules', 'react'), { recursive: true });
+    fs.mkdirSync(path.join(root, '.next'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'app', 'page.tsx'), 'export default () => null;');
+    fs.writeFileSync(path.join(root, 'node_modules', 'react', 'index.js'), 'module.exports = {};');
+    fs.writeFileSync(path.join(root, '.next', 'build.js'), 'export const x = 1;');
+
+    const result = scan(root, '.');
+
+    expect(result.topDirs).toContain('app');
+    expect(result.topDirs).not.toContain('node_modules');
+    expect(result.topDirs).not.toContain('.next');
+
+    const page = result.files.find((file) => file.segments[0] === 'app');
+
+    expect(page?.path).toBe('app/page.tsx'); // no src/ prefix at the root
+    expect(result.files.every((file) => file.segments[0] === 'app')).toBe(true);
+  });
+
+  it('honors a custom sourceRoot directory', () => {
+    fs.mkdirSync(path.join(root, 'source', 'lib'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'source', 'lib', 'x.ts'), 'export const x = 1;');
+
+    const result = scan(root, 'source');
+
+    expect(result.topDirs).toEqual(['lib']);
+    expect(result.files[0].path).toBe('source/lib/x.ts');
+    expect(result.files[0].segments).toEqual(['lib', 'x.ts']);
+  });
 });

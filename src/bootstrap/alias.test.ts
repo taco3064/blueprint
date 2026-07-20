@@ -23,6 +23,9 @@ function state(over: Partial<ProjectState> = {}): ProjectState {
     hasEslintConfig: false,
     wiredEslintConfig: false,
     hasNext: false,
+    hasNuxt: false,
+    nextRouter: null,
+    nextSrcDir: false,
     hasViteConfig: false,
     hasTypescript: false,
     tsconfigs: { 'tsconfig.json': null, 'tsconfig.app.json': null, 'jsconfig.json': null },
@@ -231,5 +234,27 @@ describe('aliasActions · greenfield vite surgery fallback', () => {
     expect(actions.some(
       (action) => action.kind === 'instruct' && action.note.includes('resolve.alias'),
     )).toBe(true);
+  });
+});
+
+describe('aliasActions · root-level source (sourceRoot ".")', () => {
+  it('wires the vite alias to the project root', () => {
+    const actions = aliasActions(
+      state({
+        hasViteConfig: true,
+        viteConfig: {
+          file: 'vite.config.ts',
+          text: 'export default defineConfig({\n  plugins: [],\n})\n',
+        },
+      }),
+      { ...ARCH, sourceRoot: '.' },
+      true,
+    );
+
+    const vite = actions.find(
+      (action): action is WriteAction => action.kind === 'write' && action.path === 'vite.config.ts',
+    );
+
+    expect(vite?.content).toContain('fileURLToPath(new URL(\'.\', import.meta.url))');
   });
 });

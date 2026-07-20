@@ -1,2 +1,2 @@
-export { reactPreset, vuePreset } from './presets';
-export type { PresetOptions } from './presets';
+export { nextPreset, reactPreset, vuePreset } from './presets';
+export type { NextPresetOptions, NextRouter, PresetOptions } from './presets';
