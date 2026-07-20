@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { launchAgent, launchCommandLine } from './agent';
+import { agentTargetOf, launchAgent, launchCommandLine } from './agent';
 import { AGENT_PROMPT } from './authoring';
 
 describe('launchCommandLine', () => {
@@ -43,5 +43,12 @@ describe('launchAgent', () => {
         error: new Error('ENOENT'),
       })),
     ).toThrow(/could not launch "claude".*run it yourself[\s\S]*claude "/);
+  });
+});
+
+describe('agentTargetOf', () => {
+  it('maps each agent CLI to the contract file it reads', () => {
+    expect(agentTargetOf('claude')).toBe('claude');
+    expect(agentTargetOf('codex')).toBe('agents');
   });
 });

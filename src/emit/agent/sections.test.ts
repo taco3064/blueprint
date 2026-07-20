@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  renderCompactContract,
   renderBehavioral,
   renderChecklist,
   renderComponentShape,
@@ -235,5 +236,32 @@ describe('renderBehavioral · deadCode honesty', () => {
     expect(out).toContain('carries the step commented');
 
     expect(renderBehavioral(arch(), undefined, { deadCode: 'warn' })).not.toContain('npx knip');
+  });
+});
+
+describe('renderCompactContract', () => {
+  it('fits project facts on one screen with links carrying the bulk', () => {
+    const out = renderCompactContract({
+      ...blueprint(),
+      rules: { maxLines: { tier: 'error' as const, value: 300 }, cycles: 'error' as const },
+      playbook: [{ title: 'T', rules: [{ id: 'r', say: 'do' }] }],
+    });
+
+    expect(out.split('\n').length).toBeLessThanOrEqual(12);
+    expect(out).toContain('`components` → `services`');
+    expect(out).toContain('[docs/architecture-handbook.md](docs/architecture-handbook.md)');
+    expect(out).toContain('node_modules/@kekkai/blueprint/agent-contract.md');
+    expect(out).toContain('`maxLines` = 300');
+    expect(out).toContain('the working playbook');
+    expect(out).not.toContain('### Where code goes');
+  });
+
+  it('honors a handbook path override', () => {
+    const out = renderCompactContract({
+      ...blueprint(),
+      emit: { handbook: 'HB.md' },
+    });
+
+    expect(out).toContain('[HB.md](HB.md)');
   });
 });

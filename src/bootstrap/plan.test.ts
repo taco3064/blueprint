@@ -188,12 +188,23 @@ describe('plan', () => {
     expect(write(actions, 'AGENTS.md')?.content.startsWith('<!-- BLUEPRINT:START -->')).toBe(true);
   });
 
-  it('appends a marker block to an existing context file without one', () => {
+  it('writes a reference next to a hand-written context file instead of appending', () => {
     const actions = plan(state(), bp, null, { existingAgentFiles: { 'AGENTS.md': '# My project' } });
-    const agents = write(actions, 'AGENTS.md');
 
-    expect(agents?.content.startsWith('# My project')).toBe(true);
-    expect(agents?.content).toContain('<!-- BLUEPRINT:START -->');
+    // The hand-written file is not written at all; the reference carries the block.
+    expect(write(actions, 'AGENTS.md')).toBeUndefined();
+    expect(write(actions, 'AGENTS.blueprint.md')?.content).toContain('## Architecture contract');
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('AGENTS.md is hand-written'),
+    )).toBe(true);
+  });
+
+  it('narrows the default targets to the tool in use via agentTarget', () => {
+    const actions = plan(state(), bp, null, { agentTarget: 'claude' });
+
+    expect(write(actions, 'CLAUDE.md')).toBeDefined();
+    expect(write(actions, 'AGENTS.md')).toBeUndefined();
   });
 
   it('honors emit path overrides, merging against the overridden path', () => {

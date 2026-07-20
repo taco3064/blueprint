@@ -177,11 +177,17 @@ function validateUsePrefix(bp: Blueprint): void {
   }
 }
 
-/** Normalize the mixed `emit.agents` list, applying the default target set. */
+/**
+ * Normalize the mixed `emit.agents` list. An explicit config always wins;
+ * `defaultTargets` replaces the built-in default (`claude` + `agents`) when
+ * the config is silent — e.g. `init --agent claude` narrows to the one tool
+ * actually in use.
+ */
 export function normalizeAgentEmit(
   agents: (AgentTarget | AgentEmitEntry)[] | undefined,
+  defaultTargets?: AgentTarget[],
 ): AgentEmitEntry[] {
-  return (agents ?? DEFAULT_AGENT_TARGETS).map((entry) =>
+  return (agents ?? defaultTargets ?? DEFAULT_AGENT_TARGETS).map((entry) =>
     typeof entry === 'string' ? { target: entry } : entry,
   );
 }

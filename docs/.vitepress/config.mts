@@ -37,6 +37,7 @@ export default defineConfig({
           { text: 'Guide', link: '/guide/getting-started' },
           { text: 'Philosophy', link: '/philosophy/' },
           { text: 'API', link: '/api/' },
+          { text: 'Changelog', link: '/changelog' },
         ],
         sidebar: {
           '/guide/': [
@@ -64,6 +65,7 @@ export default defineConfig({
           { text: '指南', link: '/zh-TW/guide/getting-started' },
           { text: '工程理念', link: '/zh-TW/philosophy/' },
           { text: 'API', link: '/zh-TW/api/' },
+          { text: 'Changelog', link: '/zh-TW/changelog' },
         ],
         sidebar: {
           '/zh-TW/guide/': [

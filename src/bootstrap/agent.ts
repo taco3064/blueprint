@@ -16,6 +16,11 @@ export const AGENT_KINDS = ['claude', 'codex'] as const;
 
 export type AgentKind = (typeof AGENT_KINDS)[number];
 
+/** The contract file a given agent CLI actually reads. */
+export function agentTargetOf(agent: AgentKind): 'claude' | 'agents' {
+  return agent === 'claude' ? 'claude' : 'agents';
+}
+
 /** The exact command line the launcher runs — also printed for manual use. */
 export function launchCommandLine(agent: AgentKind): string {
   return `${agent} "${AGENT_PROMPT}"`;

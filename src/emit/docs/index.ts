@@ -1,1 +1,1 @@
-export { emitHandbook } from './docs';
+export { emitHandbook, handbookPath } from './docs';

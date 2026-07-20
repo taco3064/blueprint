@@ -6,7 +6,7 @@ import { detect, readTexts, resolveBlueprint } from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
 import { runSurvey } from '../survey';
 import { authoringActions, BROWNFIELD_MIN_FILES } from './authoring';
-import { launchAgent } from './agent';
+import { agentTargetOf, launchAgent } from './agent';
 import type { AgentKind, Spawner } from './agent';
 import { plan } from './plan';
 import { apply, defaultExec } from './apply';
@@ -48,12 +48,17 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
   const { blueprint, configSource } = await resolveBlueprint(root, state, options);
 
-  const mergePaths = emitAgentFiles(blueprint)
+  // --agent narrows the default contract targets to the one tool in use;
+  // an explicit emit.agents in the config still wins.
+  const agentTarget = options.agent ? agentTargetOf(options.agent) : undefined;
+
+  const mergePaths = emitAgentFiles(blueprint, agentTarget ? [agentTarget] : undefined)
     .filter((file) => file.strategy === 'merge')
     .map((file) => file.path);
 
   const actions = plan(state, blueprint, configSource, {
     ...options,
+    agentTarget,
     existingAgentFiles: readTexts(root, mergePaths),
   });
 
@@ -78,9 +83,9 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     apply(root, actions, options.exec ?? defaultExec);
 
     if (options.agent) {
-      // A config already existed, so there is nothing to author — say so
-      // instead of silently ignoring the flag.
-      log(`\n--agent ${options.agent} skipped: blueprint.config.mjs already exists; the agent flow authors one on brownfield repos.`);
+      // A config already exists, so there is nothing to author and no session
+      // to launch — but the flag still narrowed the contract to that tool.
+      log(`\n--agent ${options.agent}: nothing to author (blueprint.config.mjs exists) — no session launched; contract emitted for ${options.agent} only.`);
     }
   }
 

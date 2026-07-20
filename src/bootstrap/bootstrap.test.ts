@@ -61,18 +61,37 @@ describe('runInit', () => {
     expect(exists('jsconfig.json')).toBe(false);
   });
 
-  it('preserves hand-written content in an existing AGENTS.md', async () => {
+  it('leaves a hand-written AGENTS.md untouched and writes a reference instead', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, 'AGENTS.md'), '# House rules\n\nBe nice.\n');
 
+    const actions = await runInit(root, { install: false, log: silent });
+
+    expect(read('AGENTS.md')).toBe('# House rules\n\nBe nice.\n');
+    expect(read('AGENTS.blueprint.md')).toContain('## Architecture contract');
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('AGENTS.md is hand-written'),
+    )).toBe(true);
+  });
+
+  it('refreshes its own marker block in place on re-run', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
     await runInit(root, { install: false, log: silent });
 
-    const agents = read('AGENTS.md');
+    const first = read('CLAUDE.md');
 
-    expect(agents.startsWith('# House rules')).toBe(true);
-    expect(agents).toContain('Be nice.');
-    expect(agents).toContain('<!-- BLUEPRINT:START -->');
-    expect(agents).toContain('## Architecture contract');
+    expect(first).toContain('<!-- BLUEPRINT:START -->');
+
+    await runInit(root, {
+      install: false,
+      log: silent,
+      loadConfig: async () => vuePreset({ name: 'demo' }),
+    });
+
+    expect(read('CLAUDE.md')).toBe(first);
+    expect(exists('CLAUDE.blueprint.md')).toBe(false);
   });
 
   it('writes tool-owned rule files for configured targets', async () => {
@@ -321,6 +340,8 @@ describe('runInit · brownfield authoring flow', () => {
       log: (message) => logs.push(message),
     });
 
-    expect(logs.join('\n')).toContain('--agent codex skipped');
+    expect(logs.join('\n')).toContain('--agent codex: nothing to author');
+    expect(exists('AGENTS.md')).toBe(true);
+    expect(exists('CLAUDE.md')).toBe(false); // --agent codex narrowed the targets
   });
 });

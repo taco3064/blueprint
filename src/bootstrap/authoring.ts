@@ -137,7 +137,15 @@ baseline and paid down later — do not refactor application code in this pass.
    as real, nameable debt.
 9. **Finish.** Run \`npx blueprint init\`, then
    \`npx blueprint inspect --update-baseline\`, write the report, and delete
-   the two authoring files.
+   the two authoring files. Two integration details:
+   - **Declare your own tool** in the config — \`emit: { agents: ['claude'] }\`
+     (Claude Code) or \`['agents']\` (codex & friends) — so init generates one
+     contract file, not one per tool nobody uses.
+   - **If a hand-written CLAUDE.md / AGENTS.md exists**, init leaves a
+     \`<name>.blueprint.md\` reference next to it instead of touching it.
+     Integrate that content into the existing document following *its*
+     structure — link, don't duplicate; keep project facts to one screen —
+     then delete the reference.
 
 ## Config schema sketch
 

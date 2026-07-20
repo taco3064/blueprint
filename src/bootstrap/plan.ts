@@ -1,20 +1,21 @@
 import { aliasActions } from './alias';
 import { emitAgentFiles } from '../emit/agent';
 import { emitCi } from '../emit/ci';
-import { emitHandbook } from '../emit/docs';
+import { emitHandbook, handbookPath } from '../emit/docs';
 import { injectBetweenMarkers } from '../markdown';
-import type { Blueprint, RuleSetting } from '../config';
+import type { AgentTarget, Blueprint, RuleSetting } from '../config';
 import type { PackageManager, ProjectState } from '../project';
 import type { Action } from './types';
 
 const MARKER = 'BLUEPRINT';
-const DEFAULT_HANDBOOK = 'docs/architecture-handbook.md';
 
 export interface PlanOptions {
   /** Skip the install action when false. */
   install?: boolean;
   /** Existing content of merge-strategy agent files, keyed by their resolved path. */
   existingAgentFiles?: Record<string, string | null>;
+  /** Narrow the default contract targets to the one tool in use (`--agent`). */
+  agentTarget?: AgentTarget;
 }
 
 /** Decide every effect `init` will perform. Pure — reads facts, returns actions. */
@@ -37,17 +38,51 @@ export function plan(
     }
   }
 
-  const handbookPath = emit?.handbook ?? DEFAULT_HANDBOOK;
+  const handbook = handbookPath(blueprint);
 
-  actions.push({ kind: 'write', path: handbookPath, content: emitHandbook(blueprint), note: handbookPath });
+  actions.push({ kind: 'write', path: handbook, content: emitHandbook(blueprint), note: handbook });
 
-  for (const file of emitAgentFiles(blueprint)) {
-    const content
-      = file.strategy === 'merge'
-        ? mergeContract(options.existingAgentFiles?.[file.path] ?? null, file.content)
-        : file.content;
+  const targets = options.agentTarget ? [options.agentTarget] : undefined;
 
-    actions.push({ kind: 'write', path: file.path, content, note: `${file.path} (agent contract)` });
+  for (const file of emitAgentFiles(blueprint, targets)) {
+    if (file.strategy === 'merge') {
+      const existing = options.existingAgentFiles?.[file.path] ?? null;
+
+      // A hand-written context file (no marker block) is a document someone
+      // maintains — appending a generated block to it is not a merge, it is
+      // graffiti. Leave a reference next to it instead; a person (or the
+      // authoring agent, as its final step) integrates it in the document's
+      // own structure.
+      if (existing !== null && !existing.includes(`<!-- ${MARKER}:START -->`)) {
+        const reference = file.path.replace(/\.md$/, '.blueprint.md');
+
+        actions.push(
+          {
+            kind: 'write',
+            path: reference,
+            content: file.content,
+            note: `${reference} (reference — hand-written ${file.path} left untouched)`,
+          },
+          {
+            kind: 'instruct',
+            note: `${file.path} is hand-written, so it was not touched. Integrate ${reference} into it — follow the document's own structure, link rather than duplicate — then delete the reference. (An agent running the authoring playbook does this as its final step.)`,
+          },
+        );
+
+        continue;
+      }
+
+      actions.push({
+        kind: 'write',
+        path: file.path,
+        content: mergeContract(existing, file.content),
+        note: `${file.path} (agent contract)`,
+      });
+
+      continue;
+    }
+
+    actions.push({ kind: 'write', path: file.path, content: file.content, note: `${file.path} (agent contract)` });
   }
 
   if (state.hasEslintConfig) {
@@ -118,15 +153,14 @@ export function plan(
 /** Merge the contract into a shared context file: refresh in place, append, or create. */
 function mergeContract(existing: string | null, contract: string): string {
   const body = contract.trimEnd();
-  const block = [`<!-- ${MARKER}:START -->`, body, `<!-- ${MARKER}:END -->`].join('\n');
 
+  // Hand-written files (no marker) never reach here — the plan loop routes
+  // them to a reference file instead, so this only creates or refreshes.
   if (existing === null) {
-    return `${block}\n`;
-  } else if (existing.includes(`<!-- ${MARKER}:START -->`)) {
-    return injectBetweenMarkers(existing, MARKER, body);
+    return [`<!-- ${MARKER}:START -->`, body, `<!-- ${MARKER}:END -->`, ''].join('\n');
   }
 
-  return `${existing.trimEnd()}\n\n${block}\n`;
+  return injectBetweenMarkers(existing, MARKER, body);
 }
 
 /**

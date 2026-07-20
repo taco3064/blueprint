@@ -107,4 +107,10 @@ describe('authoringBrief', () => {
     expect(brief).toContain('Nothing is lost');
     expect(brief).toContain(COMMAND_FILE);
   });
+
+  it('finishes with the integration details: declare the tool, merge hand-written files', () => {
+    expect(brief).toContain('emit: { agents: [\'claude\'] }');
+    expect(brief).toContain('.blueprint.md');
+    expect(brief).toContain('link, don\'t duplicate');
+  });
 });

@@ -48,19 +48,25 @@ const TARGETS: Record<AgentTarget, TargetSpec> = {
 };
 
 /**
- * Distribute the agent contract (one compile) across tool-specific files:
- * the same body, per-tool filename / wrapper / merge strategy. Pure — decides
- * paths and content, writes nothing.
+ * Distribute the agent contract across tool-specific files. Shared context
+ * files (`merge` strategy — CLAUDE.md, AGENTS.md…) get the **compact** pointer
+ * block: people maintain those documents, so the bulk lives behind links.
+ * Tool-owned rule files (`own` — Cursor, Windsurf) get the full contract.
+ * `defaultTargets` overrides the built-in default when `emit.agents` is
+ * unset — `init --agent claude` narrows to the one tool actually in use.
+ * Pure — decides paths and content, writes nothing.
  */
-export function emitAgentFiles(blueprint: Blueprint): AgentFile[] {
-  const entries = normalizeAgentEmit(blueprint.emit?.agents);
+export function emitAgentFiles(
+  blueprint: Blueprint,
+  defaultTargets?: AgentTarget[],
+): AgentFile[] {
+  const entries = normalizeAgentEmit(blueprint.emit?.agents, defaultTargets);
 
   if (!entries.length) return [];
 
-  const contract = emitAgentContract(blueprint);
-
   return entries.map(({ target, path }) => {
     const spec = TARGETS[target];
+    const contract = emitAgentContract(blueprint, { compact: spec.strategy === 'merge' });
 
     return {
       target,

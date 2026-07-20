@@ -11,7 +11,7 @@ const bp = (agents?: EmitDef['agents']): Blueprint => ({
 });
 
 describe('emitAgentFiles', () => {
-  it('defaults to claude + agents, both merge, carrying the bare contract', () => {
+  it('defaults to claude + agents, both merge, carrying the compact block', () => {
     const files = emitAgentFiles(bp());
 
     expect(files.map((file) => [file.target, file.path, file.strategy])).toEqual([
@@ -19,9 +19,26 @@ describe('emitAgentFiles', () => {
       ['agents', 'AGENTS.md', 'merge'],
     ]);
 
-    const contract = emitAgentContract(bp());
+    // Shared context files are documents people maintain — they get the
+    // compact pointer block, not the full contract dump.
+    const compact = emitAgentContract(bp(), { compact: true });
 
-    for (const file of files) expect(file.content).toBe(contract);
+    for (const file of files) expect(file.content).toBe(compact);
+
+    expect(compact).toContain('docs/architecture-handbook.md');
+    expect(compact).toContain('node_modules/@kekkai/blueprint/agent-contract.md');
+    expect(compact).not.toContain('### Where code goes');
+  });
+
+  it('narrows the default targets when the tool in use is known', () => {
+    const files = emitAgentFiles(bp(), ['claude']);
+
+    expect(files.map((file) => file.path)).toEqual(['CLAUDE.md']);
+
+    // An explicit emit.agents in the config still wins over the narrowing.
+    const explicit = emitAgentFiles(bp(['agents']), ['claude']);
+
+    expect(explicit.map((file) => file.path)).toEqual(['AGENTS.md']);
   });
 
   it('emits nothing for an explicit empty list', () => {

@@ -11,6 +11,11 @@ import {
   renderRules,
 } from './sections';
 
+/** Where the generated handbook lives — the emit override, or the default. */
+export function handbookPath(blueprint: Blueprint): string {
+  return blueprint.emit?.handbook ?? 'docs/architecture-handbook.md';
+}
+
 /**
  * Compile a Blueprint into a human-readable Handbook (markdown). Pure and
  * deterministic — the same blueprint always yields the same string, so

@@ -1,7 +1,7 @@
 {
   "name": "@kekkai/blueprint",
   "version": "1.3.0",
-  "description": "Architecture as Code — one Blueprint compiles into docs, agent contracts, lint, and CI for Vue & React projects.",
+  "description": "Architecture as Code \u2014 one Blueprint compiles into docs, agent contracts, lint, and CI for Vue & React projects.",
   "type": "module",
   "license": "MIT",
   "author": "taco3064 <tabacotaco@gmail.com>",
@@ -37,6 +37,7 @@
   },
   "files": [
     "dist",
+    "agent-contract.md",
     "README.md",
     "LICENSE"
   ],
