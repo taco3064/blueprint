@@ -1,6 +1,6 @@
 # 分層架構
 
-> **與 blueprint 的關係**：本頁就是預設藍圖的 `architecture` 區塊 —— 工程理念中唯一會變成**硬性護欄**的部分：[生成的 ESLint config](/zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制-enforce)與 [inspect 的檢測](/zh-TW/guide/reference#inspect-回報的檢測項目)。在 [`blueprint.config.mjs`](/zh-TW/guide/getting-started#blueprint-config) 宣告你自己的分層，同一套機制就會為你把關。
+> **與 blueprint 的關係**：本頁就是預設藍圖的 `architecture` 區塊 —— 工程理念中唯一會變成**硬性護欄**的部分：[生成的 ESLint config](/zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制)與 [inspect 的檢測](/zh-TW/guide/reference#inspect-回報的檢測項目)。在 [`blueprint.config.mjs`](/zh-TW/guide/getting-started#blueprint-config) 宣告你自己的分層，同一套機制就會為你把關。
 
 **單向依賴流，每層單一職責。** 原則本身與框架無關（Vue 與 React 均成立），單元一一對應、沒有主從之分：`composable ↔ hook`、`context ↔ Context`、`SFC ↔ function component`、`service ↔ api client`。
 

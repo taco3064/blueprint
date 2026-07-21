@@ -21,10 +21,10 @@
 
 | 功能 | 說明 |
 | --- | --- |
-| [`eslint.config.mjs`](/zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制-enforce) | `emitLint` 將分層流向、套件所有權與模組邊界轉譯為 lint config —— plugin 內建，不用額外安裝 |
-| [`docs/architecture-handbook.md`](/zh-TW/guide/generated-artifacts#docs-architecture-handbook-md-——-說明-explain) | `emitHandbook` 由與規則相同的來源產出架構手冊（mermaid 圖、分層表、作業守則）—— 兩者不會脫節 |
-| [`CLAUDE.md` / `AGENTS.md` / …](/zh-TW/guide/generated-artifacts#claude-md-agents-md-——-協作-collaborate) | `emitAgentFiles` 將同一份 AI Agent 守則發佈至 Claude、AGENTS.md、Gemini、Copilot、Cursor 與 Windsurf —— 標記區塊外的手寫內容一律保留 |
-| [`blueprint-ci.yml`](/zh-TW/guide/generated-artifacts#github-workflows-blueprint-ci-yml-——-檢核-gate) | `emitCi` 產出 GitHub Actions workflow：從第一個 commit 起執行 lint 與唯讀架構報告 |
+| [`eslint.config.mjs`](/zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制) | `emitLint` 將分層流向、套件所有權與模組邊界轉譯為 lint config —— plugin 內建，不用額外安裝 |
+| [`docs/architecture-handbook.md`](/zh-TW/guide/generated-artifacts#docs-architecture-handbook-md-——-說明) | `emitHandbook` 由與規則相同的來源產出架構手冊（mermaid 圖、分層表、作業守則）—— 兩者不會脫節 |
+| [`CLAUDE.md` / `AGENTS.md` / …](/zh-TW/guide/generated-artifacts#claude-md-agents-md-——-協作) | `emitAgentFiles` 將同一份 AI Agent 守則發佈至 Claude、AGENTS.md、Gemini、Copilot、Cursor 與 Windsurf —— 標記區塊外的手寫內容一律保留 |
+| [`blueprint-ci.yml`](/zh-TW/guide/generated-artifacts#github-workflows-blueprint-ci-yml-——-檢核) | `emitCi` 產出 GitHub Actions workflow：從第一個 commit 起執行 lint 與唯讀架構報告 |
 
 ## Blueprint config —— 你所宣告的
 

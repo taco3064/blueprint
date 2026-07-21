@@ -23,32 +23,32 @@ hero:
       link: /zh-TW/api/
 features:
   - icon: 🧱
-    title: Enforce（強制）
+    title: 強制
     details: emitLint 將分層依賴方向、模組邊界與套件歸屬轉譯為 ESLint flat config；自訂規則以內嵌 plugin 提供，不用額外安裝任何套件。
-    link: /zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制-enforce
+    link: /zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制
     linkText: 檢視生成的 config
   - icon: 📖
-    title: Explain（說明）
+    title: 說明
     details: emitHandbook 產出給人閱讀的架構手冊（markdown 與 mermaid 圖）。手冊與規則出自同一份來源，不會發生「文件講一套、lint 擋另一套」的落差。
-    link: /zh-TW/guide/generated-artifacts#docs-architecture-handbook-md-——-說明-explain
+    link: /zh-TW/guide/generated-artifacts#docs-architecture-handbook-md-——-說明
     linkText: 檢視手冊樣貌
   - icon: 🤖
-    title: Collaborate（協作）
+    title: 協作
     details: emitAgentFiles 將同一份 AI Agent 守則發佈至 CLAUDE.md、AGENTS.md，以及 Cursor、Windsurf 的規則檔。
-    link: /zh-TW/guide/generated-artifacts#claude-md-agents-md-——-協作-collaborate
+    link: /zh-TW/guide/generated-artifacts#claude-md-agents-md-——-協作
     linkText: 檢視守則樣貌
   - icon: 🚦
-    title: Gate（檢核）
+    title: 檢核
     details: emitCi 產出 GitHub Actions workflow，讓 lint 與唯讀架構報告從第一個 commit 就開始把關；發現違規就以 exit code 1 直接擋下。
-    link: /zh-TW/guide/generated-artifacts#github-workflows-blueprint-ci-yml-——-檢核-gate
+    link: /zh-TW/guide/generated-artifacts#github-workflows-blueprint-ci-yml-——-檢核
     linkText: 檢視工作流程
   - icon: 🧭
-    title: Adopt（導入）
+    title: 導入
     details: 既有專案的導入流 —— survey 蒐證、你自己的 Agent 編寫 config、baseline 棘輪把今日債務鎖住，之後只會更緊。
     link: /zh-TW/guide/ai-adoption
     linkText: 看導入流程
   - icon: 🔎
-    title: Verify（驗證）
+    title: 驗證
     details: 讀同一份 config 的唯讀指令 —— inspect 裁決架構（九種檢測、可進 CI），deps 回答「改這個模組會波及誰」。
     link: /zh-TW/guide/features#檢測-——-會被攔下的
     linkText: 看會攔下什麼
@@ -60,11 +60,11 @@ features:
   <div class="cf-source">blueprint.config.mjs</div>
   <div class="cf-arrow">→</div>
   <div class="cf-outputs">
-    <div>eslint.config.mjs <span>Enforce —— 結構規則＋內嵌 plugin</span></div>
-    <div>docs/architecture-handbook.md <span>Explain —— 給人讀的架構手冊</span></div>
-    <div>CLAUDE.md · AGENTS.md · … <span>Collaborate —— AI Agent 的守則</span></div>
-    <div>.github/workflows/blueprint-ci.yml <span>Gate —— lint ＋ inspect 進 CI</span></div>
-    <div>inspect · deps <span>Verify —— 讀同一份 config 的唯讀指令</span></div>
+    <div>eslint.config.mjs <span>強制 —— 結構規則＋內嵌 plugin</span></div>
+    <div>docs/architecture-handbook.md <span>說明 —— 給人讀的架構手冊</span></div>
+    <div>CLAUDE.md · AGENTS.md · … <span>協作 —— AI Agent 的守則</span></div>
+    <div>.github/workflows/blueprint-ci.yml <span>檢核 —— lint ＋ inspect 進 CI</span></div>
+    <div>inspect · deps <span>驗證 —— 讀同一份 config 的唯讀指令</span></div>
   </div>
 </div>
 

@@ -1,6 +1,6 @@
 # 工作紀律
 
-> **與 blueprint 的關係**：本頁就是預設藍圖的 [`playbook`](/zh-TW/api/interfaces/PlaybookSection) 欄位 —— 工具管不到的判斷規則。`init` 會將它們轉譯進專案的手冊與 [Agent 守則](/zh-TW/guide/generated-artifacts#claude-md-agents-md-——-協作-collaborate)，讓它們在每次改動時都在場。
+> **與 blueprint 的關係**：本頁就是預設藍圖的 [`playbook`](/zh-TW/api/interfaces/PlaybookSection) 欄位 —— 工具管不到的判斷規則。`init` 會將它們轉譯進專案的手冊與 [Agent 守則](/zh-TW/guide/generated-artifacts#claude-md-agents-md-——-協作)，讓它們在每次改動時都在場。
 
 共四個主題。
 
