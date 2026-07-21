@@ -54,19 +54,40 @@ all live in `blueprint-authoring.md`. The prompt only pins what "done" means:
 
 ```text
 Help adopt @kekkai/blueprint in this repo, autonomously:
-run `npx @kekkai/blueprint init`,
+run `npx @kekkai/blueprint init --authoring`,
 then execute the blueprint-authoring.md it writes, fully and to the end.
 
-Acceptance:
+Acceptance — `blueprint doctor` passes, plus:
 - lint, `inspect --baseline`, and the existing tests all pass
 - emitLint genuinely wired into ESLint (no leftover reference files)
 - no source edits — lock violations into the baseline, no eslint suppressions
 ```
 
-Each acceptance clause maps to an incomplete state seen in field testing: half-done
+`--authoring` guarantees the playbook is written even on a small repo (plain `init`
+below the file-count threshold scaffolds a preset instead — no playbook). Each
+acceptance clause maps to an incomplete state seen in field testing: half-done
 integration, gates never run, debt payments mixed into adoption. Greenfield repos
 skip all of this — `init` alone completes; and once `init` has run, typing
 `/blueprint-author` in Claude Code does the same job.
+
+## Verify it's finished — `blueprint doctor`
+
+"Is adoption actually done?" is a question the prompt's acceptance clause used to
+leave to memory. `blueprint doctor` answers it as a read-only checklist, exit 0 only
+when every check passes — so it drops into an agent's verify loop or CI:
+
+```bash
+npx @kekkai/blueprint doctor
+```
+
+- **blueprint.config.mjs present**
+- **no leftover `*.blueprint.*` reference files** — a reference still on disk means
+  the merge never finished (the single most-missed step)
+- **eslint wired to emitLint** — and a legacy `.eslintrc` is flagged to migrate first,
+  never silently left half-adopted
+- **architecture clean** — no findings outside the baseline
+
+`--json` emits the same checklist for tooling.
 
 ## Why the survey matters
 

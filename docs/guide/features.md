@@ -14,6 +14,7 @@ to see how to use it.
 | [`inspect`](/guide/getting-started#brownfield-—-blueprint-inspect) | Scans `src/` against the blueprint and lists every violation; any error-level finding exits 1 — drop it straight into CI |
 | [`inspect --baseline`](/guide/getting-started#brownfield-—-blueprint-inspect) | The brownfield ratchet: lock today's debt, fail only on *new* findings, tighten as debt is paid down |
 | [`deps`](/guide/deps) | Blast radius per module — who gets hit if I change this, plus the fan-in leaderboard |
+| [`doctor`](/guide/ai-adoption#verify-it-s-finished-—-blueprint-doctor) | Is adoption finished? A read-only checklist — config, no leftover references, eslint wired, architecture clean |
 | [All CLI flags](/guide/reference#cli-flags) | The full flag matrix for every command, including `init --preset` and `--dry-run` |
 
 ## Artifacts — what one config compiles into

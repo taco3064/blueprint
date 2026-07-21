@@ -89,10 +89,10 @@ Brownfield repo, fully automated? Paste this to your agent:
 
 ```text
 Help adopt @kekkai/blueprint in this repo, autonomously:
-run `npx @kekkai/blueprint init`,
+run `npx @kekkai/blueprint init --authoring`,
 then execute the blueprint-authoring.md it writes, fully and to the end.
 
-Acceptance:
+Acceptance (`blueprint doctor` passes):
 - lint, `inspect --baseline`, and the existing tests all pass
 - emitLint genuinely wired into ESLint (no leftover reference files)
 - no source edits — lock violations into the baseline, no eslint suppressions
