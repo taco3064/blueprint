@@ -1,5 +1,5 @@
 import { defineBlueprint } from '../config';
-import type { AxisDef, Blueprint, Framework, OwnedPrimitive, PlaybookSection } from '../config';
+import type { AxisDef, Blueprint, EmitDef, Framework, OwnedPrimitive, PlaybookSection } from '../config';
 
 /** Options for a preset factory. */
 export interface PresetOptions {
@@ -7,6 +7,14 @@ export interface PresetOptions {
   name?: string;
   /** Import alias. Defaults to `~app`. */
   alias?: string;
+  /**
+   * Emit overrides, merged over the preset's day-1 default (`ci: 'github'`).
+   * Declaring the agent tool in use is the first customization nearly every
+   * adoption makes — it must not cost the one-line preset form, and a spread
+   * override (`{ ...reactPreset(), emit: {…} }`) silently drops the CI
+   * workflow unless the author remembers to restate it.
+   */
+  emit?: EmitDef;
 }
 
 /** Which Next.js router directory the route tree lives in. */
@@ -221,7 +229,8 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
       ...(framework === 'vue' ? { deepWatch: 'error' as const } : {}),
     },
     // Day-1 doctrine: the architecture gates run in CI from the first commit.
-    emit: { ci: 'github' },
+    // A partial user emit merges over it — never replaces it wholesale.
+    emit: { ci: 'github', ...options.emit },
   });
 }
 
@@ -322,6 +331,6 @@ export function nextPreset(options: NextPresetOptions = {}): Blueprint {
       cycles: 'error',
       usePrefix: 'error',
     },
-    emit: { ci: 'github' },
+    emit: { ci: 'github', ...options.emit },
   });
 }

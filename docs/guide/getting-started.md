@@ -86,14 +86,15 @@ governance handbook: six layers, ten principles, seven component-shape axes, and
 eighteen-rule working playbook. That content is documented page by page in
 [Philosophy](/philosophy/); see the [API Reference](/api/) for every export.
 
-Presets return a plain `Blueprint`, so customization is a spread — note that
-`emit` is a **top-level field** of the blueprint, not a preset option:
+Presets take `emit` directly and merge it over their day-1 default
+(`ci: 'github'`), so declaring your agent tool keeps the one-line form:
 
 ```js
 import { reactPreset } from '@kekkai/blueprint';
 
-export default {
-  ...reactPreset({ name: 'my-app', alias: '@' }),
-  emit: { agents: ['claude'], ci: 'github' },
-};
+export default reactPreset({ name: 'my-app', alias: '@', emit: { agents: ['claude'] } });
 ```
+
+Presets return a plain `Blueprint`, so anything else is a spread — but mind
+that a spread-level `emit` **replaces** the preset's block wholesale: restate
+`ci: 'github'` there, or the CI workflow silently stops being emitted.

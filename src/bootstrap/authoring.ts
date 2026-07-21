@@ -198,7 +198,8 @@ when code lands inside declared layers.
    is not done while any reference file remains:**
    - **Declare your own tool** in the config — \`emit: { agents: ['claude'] }\`
      (Claude Code) or \`['agents']\` (codex & friends) — so init generates one
-     contract file, not one per tool nobody uses.
+     contract file, not one per tool nobody uses. On a preset config, pass it
+     straight in: \`reactPreset({ name, emit: { agents: ['claude'] } })\`.
    - **Wire the lint.** If \`eslint.config.blueprint.mjs\` was written, merge
      it into the existing flat config: spread \`...emitLint(blueprint, …)\`
      (with the TS plugin on TypeScript projects), then resolve every rule
