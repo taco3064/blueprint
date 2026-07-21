@@ -53,7 +53,7 @@ The method doesn't belong in the prompt — the evidence, derivation steps, and 
 all live in `blueprint-authoring.md`. The prompt only pins what "done" means:
 
 ```text
-Adopt @kekkai/blueprint in this repo, autonomously:
+Help adopt @kekkai/blueprint in this repo, autonomously:
 run `npx @kekkai/blueprint init`, then execute the blueprint-authoring.md it
 writes, end to end.
 

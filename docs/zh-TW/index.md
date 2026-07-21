@@ -76,6 +76,20 @@ AI Agent 寫 code 又快又多，但檔案要放哪、誰可以 import 誰，全
 
 blueprint 把它們收斂成一份 config：規範怎麼寫，lint 就怎麼擋、手冊就怎麼講、Agent 就怎麼守。
 
+## 直接丟給你的 Agent
+
+既有專案想全自動導入？把這段貼給你的 Agent：
+
+```text
+請協助導入 @kekkai/blueprint，並自主完成：
+跑 `npx @kekkai/blueprint init`，然後從頭到尾執行它產出的 blueprint-authoring.md。
+
+驗收：lint、`inspect --baseline`、原有測試三者全綠；ESLint 真的接上
+emitLint（不留 reference 檔）；不改任何 source code —— 違規鎖進 baseline 就好。
+```
+
+每條驗收在防什麼、流程長怎樣，見 [AI 協助導入](/zh-TW/guide/ai-adoption)。
+
 ## 建議搭配使用的資源
 
 Blueprint 負責 AI Agent 協作裡的「架構」層面：程式碼該放哪、哪些分層可以互相匯入、Agent 要守住哪些判斷。以下兩項資源補足 blueprint 刻意不涉入的層面：

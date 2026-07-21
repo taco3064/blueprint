@@ -83,6 +83,23 @@ telling the same story.
 blueprint collapses them into one config: what the rules say is what lint blocks, what
 the handbook explains, and what the agent holds.
 
+## Hand it to your agent
+
+Brownfield repo, fully automated? Paste this to your agent:
+
+```text
+Help adopt @kekkai/blueprint in this repo, autonomously:
+run `npx @kekkai/blueprint init`, then execute the blueprint-authoring.md it
+writes, end to end.
+
+Acceptance: lint, `inspect --baseline`, and the existing tests all green;
+ESLint genuinely wired to emitLint (no leftover reference files); no source
+edits — existing violations get locked into the baseline.
+```
+
+What each acceptance clause guards, and the full flow:
+[AI-Assisted Adoption](/guide/ai-adoption).
+
 ## Works better together
 
 Blueprint owns the **architecture** layer of an agent's context — where code goes, what
