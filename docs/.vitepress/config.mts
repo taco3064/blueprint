@@ -90,11 +90,11 @@ export default defineConfig({
             { text: '功能總覽', link: '/zh-TW/guide/features' },
             { text: '快速上手', link: '/zh-TW/guide/getting-started' },
             { text: 'init 產出物', link: '/zh-TW/guide/generated-artifacts' },
-            { text: '影響範圍 — deps', link: '/zh-TW/guide/deps' },
+            { text: '影響範圍 —— deps', link: '/zh-TW/guide/deps' },
             { text: 'AI 協助導入', link: '/zh-TW/guide/ai-adoption' },
             { text: '檢測與組態總表', link: '/zh-TW/guide/reference' },
             { text: '實測相容性', link: '/zh-TW/guide/field-tested' },
-            { text: '相近工具 — 差異在哪', link: '/zh-TW/guide/prior-art' },
+            { text: '相近工具 —— 差異在哪', link: '/zh-TW/guide/prior-art' },
             { text: '安全與信任', link: '/zh-TW/guide/security' },
           ],
           '/zh-TW/philosophy/': [
