@@ -45,6 +45,25 @@ my-app/                        my-app/
 
 Framework auto-detected, existing configs never overwritten, re-runs idempotent.
 
+## 🤖 Hand it to your agent
+
+Brownfield repo, fully automated? Paste this to your agent:
+
+```text
+Help adopt @kekkai/blueprint in this repo, autonomously:
+run `npx @kekkai/blueprint init --authoring`,
+then execute the blueprint-authoring.md it writes, fully and to the end.
+
+Acceptance (`blueprint doctor` passes):
+- lint, `inspect --baseline`, and the existing tests all pass
+- emitLint genuinely wired into ESLint (no leftover reference files)
+- no source edits — lock existing debt: `inspect --update-baseline` for
+  architecture, `eslint --suppress-all` for lint
+```
+
+What each acceptance clause guards, and the full flow:
+[AI-Assisted Adoption](https://taco3064.github.io/blueprint/guide/ai-adoption).
+
 ## 🔒 Security & trust
 
 - **Never launches an agent by default** — it writes plain-markdown contracts and
