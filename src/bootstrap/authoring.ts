@@ -203,13 +203,18 @@ you never have to reverse-engineer them from the bundle:
 - **Flat layout:** the module is the whole layer, so same-layer *relative*
   imports are always legal. The alias is for crossing layers — a same-layer
   import through the alias becomes an error the moment the lint is wired.
-- **Folder layout:** a module is one child folder; other modules are
-  reachable only through their entry file, and \`../\` escapes are caught at
-  any depth by the embedded \`blueprint/relative-escape\` rule.
+- **Folder layout:** a module is one child folder with private internals.
+  *Same-layer* sibling modules must not import each other at all — via the
+  alias or \`../\` alike; the shared part wants to live in a lower layer.
+  Only *lower-layer* folder modules are importable, and entry-only; \`../\`
+  escapes are caught at any depth by \`blueprint/relative-escape\`.
 - **Pre-wiring check:** the survey's "Same-folder imports via the alias"
-  count is exactly how many errors the wiring will introduce — rewrite them
-  as relative imports first, or they land in the suppressions ledger. Once
-  the config exists, \`npx blueprint impact\` reports the full per-rule count.
+  count is exactly how many errors the wiring will introduce, and the fix is
+  layout-dependent — flat: rewrite them as relative imports; folder: extract
+  the shared code downward (a relative rewrite just trades the error for
+  \`relative-escape\`). Whatever stays unresolved lands in the suppressions
+  ledger. Once the config exists, \`npx blueprint impact\` reports the full
+  per-rule count.
 - **\`unusedVars\`** emits with \`argsIgnorePattern: '^_'\` and nothing else:
   \`_\`-prefixed *arguments* are exempt; unused variables and catch
   parameters are not.

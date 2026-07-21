@@ -65,21 +65,42 @@ function suppressionsCheck(root: string): DoctorCheck {
 }
 
 /**
+ * Bundler configs the alias check scans beyond the vite config `detect`
+ * already reads — the webpack-era and current homes of a resolve alias. A
+ * check that cannot see where the alias is actually wired would be a forever-
+ * red gate with no way to appease it.
+ */
+const BUNDLER_FILES = ['webpack.config', 'vue.config', 'next.config', 'rsbuild.config']
+  .flatMap((name) => ['js', 'cjs', 'mjs', 'ts'].map((ext) => `${name}.${ext}`));
+
+/**
  * The alias is required in the config precisely because a wrong default would
  * silently pass illegal imports — but a *declared-yet-unwired* alias is the
  * inverse trap: the contract tells agents to import through a prefix no
  * toolchain resolves. Wired = the alias appears in tsconfig/jsconfig `paths`
- * (any target), or the vite config's text carries it as a quoted token
- * (`'@': …` / `find: '@'`). A bare substring test would be vacuous for short
- * aliases — `'@'` is inside every `'@vitejs/plugin-…'` import.
+ * (any target), or a bundler config's text carries it as a quoted token
+ * (`'@': …` / `find: '@'` / `.set('@', …)`). A bare substring test would be
+ * vacuous for short aliases — `'@'` is inside every `'@vitejs/plugin-…'`
+ * import.
  */
-function aliasCheck(blueprint: Blueprint, state: ProjectState): DoctorCheck {
+function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): DoctorCheck {
   const { alias, additionalAliases, sourceRoot } = blueprint.architecture;
   const declared = pathAliasKeys(state.tsconfigs);
-  const viteText = state.viteConfig?.text ?? '';
 
-  const quoted = (name: string) =>
-    new RegExp(`['"\`]${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`).test(viteText);
+  const bundlerTexts = [
+    state.viteConfig?.text,
+    ...BUNDLER_FILES.map((file) => {
+      const full = path.join(root, file);
+
+      return fs.existsSync(full) ? fs.readFileSync(full, 'utf-8') : undefined;
+    }),
+  ].filter((text): text is string => text !== undefined);
+
+  const quoted = (name: string) => {
+    const token = new RegExp(`['"\`]${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`);
+
+    return bundlerTexts.some((text) => token.test(text));
+  };
 
   const unwired = [alias, ...Object.keys(additionalAliases ?? {})].filter(
     (name) => !declared.has(name) && !quoted(name),
@@ -174,7 +195,7 @@ export async function runDoctor(
           ? `${state.legacyEslintConfig} is legacy — migrate to flat config, then spread ...emitLint(blueprint)`
           : 'spread ...emitLint(blueprint) into your eslint config (see eslint.config.blueprint.mjs)',
     },
-    aliasCheck(blueprint, state),
+    aliasCheck(root, blueprint, state),
     {
       label: 'architecture clean (findings covered by the baseline)',
       ok: !hasErrors(fresh),

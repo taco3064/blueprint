@@ -88,8 +88,9 @@ npx @kekkai/blueprint doctor
 - **eslint wired to emitLint** — and a legacy `.eslintrc` is flagged to migrate first,
   never silently left half-adopted
 - **import alias wired to the toolchain** — a declared alias that neither tsconfig
-  `paths` nor the vite config resolves would send agents into unresolvable imports;
-  the failure carries the exact wiring snippet
+  `paths` nor a bundler config (vite / webpack / vue-cli / next / rsbuild) resolves
+  would send agents into unresolvable imports; the failure carries the exact wiring
+  snippet
 - **architecture clean** — no findings outside the baseline; the detail line states
   the coverage (source files inside layer nets, active optional gates — the
   structural boundary rules are always on), so a vacuously

@@ -108,6 +108,11 @@ describe('authoringBrief', () => {
     expect(brief).toContain('Same-folder imports via the alias');
     expect(brief).toContain('argsIgnorePattern');
     expect(brief).toContain('eslint wired');
+
+    // Folder layout: siblings are banned outright — not "entry-only", which
+    // would send authors into a wiring explosion; the fix differs by layout.
+    expect(brief).toContain('must not import each other');
+    expect(brief).toContain('layout-dependent');
   });
 
   it('embeds the survey evidence and the schema sketch', () => {

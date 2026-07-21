@@ -45,6 +45,13 @@ describe('computeCoverage', () => {
 
     expect(coverage).toMatchObject({ sourceFiles: 0, layerFiles: 0, activeRules: 0 });
   });
+
+  it('drops the Vue-only deepWatch gate from a React denominator', () => {
+    const coverage = computeCoverage(scanOf(), { ...blueprint, framework: 'react' });
+
+    // A gate that never emits on this framework must not be counted as closable.
+    expect(coverage.gatedRules).toBe(LINT_GATED_RULE_IDS.length - 1);
+  });
 });
 
 describe('renderCoverage', () => {

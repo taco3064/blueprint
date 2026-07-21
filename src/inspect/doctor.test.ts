@@ -132,6 +132,21 @@ describe('runDoctor', () => {
     expect(checks.find((c) => c.label.includes('alias'))?.ok).toBe(true);
   });
 
+  it('accepts an alias wired through a webpack-era bundler config', async () => {
+    adopted();
+    fs.rmSync(path.join(root, 'tsconfig.json'));
+
+    // vue-cli style: no vite config at all, alias lives in vue.config.js.
+    write(
+      'vue.config.js',
+      'module.exports = { chainWebpack: (c) => c.resolve.alias.set(\'~app\', \'/src\') };',
+    );
+
+    const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
+
+    expect(checks.find((c) => c.label.includes('alias'))?.ok).toBe(true);
+  });
+
   it('demands the vite alias as a quoted token — a scoped-package import is no wiring', async () => {
     adopted();
     fs.rmSync(path.join(root, 'tsconfig.json'));

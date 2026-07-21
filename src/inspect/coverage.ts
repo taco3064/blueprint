@@ -37,7 +37,11 @@ export function computeCoverage(scanResult: ScanResult, blueprint: Blueprint): C
 
   const layerFiles = source.filter((file) => nets.some((net) => net.test(file.path))).length;
 
-  const activeRules = LINT_GATED_RULE_IDS.filter((id) => {
+  // Mirror emitLint: `deepWatch` never emits on React, so on React it neither
+  // counts as available nor as active — a gate you cannot open is not a gate.
+  const gates = LINT_GATED_RULE_IDS.filter((id) => id !== 'deepWatch' || framework !== 'react');
+
+  const activeRules = gates.filter((id) => {
     const setting = rules?.[id];
     const tier = typeof setting === 'string' ? setting : setting?.tier;
 
@@ -48,7 +52,7 @@ export function computeCoverage(scanResult: ScanResult, blueprint: Blueprint): C
     sourceFiles: source.length,
     layerFiles,
     activeRules,
-    gatedRules: LINT_GATED_RULE_IDS.length,
+    gatedRules: gates.length,
   };
 }
 

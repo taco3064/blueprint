@@ -65,7 +65,7 @@ npx @kekkai/blueprint doctor
 - **blueprint.config.mjs 存在**
 - **沒有殘留的 `*.blueprint.*` reference 檔** —— reference 還在磁碟上就代表 merge 沒做完（最常漏的一步）
 - **eslint 真的接上 emitLint** —— legacy `.eslintrc` 會被標記為「先遷移」，不會無聲留半套
-- **宣告的 alias 接得上 toolchain** —— alias 宣告了卻沒有任何工具（tsconfig `paths`、vite config）解析得到，agent contract 就會把 agent 指向解析不了的匯入；失敗訊息直接附上 wiring 片段
+- **宣告的 alias 接得上 toolchain** —— alias 宣告了卻沒有任何工具（tsconfig `paths`，或 vite / webpack / vue-cli / next / rsbuild 的 bundler config）解析得到，agent contract 就會把 agent 指向解析不了的匯入；失敗訊息直接附上 wiring 片段
 - **架構乾淨** —— 沒有 baseline 以外的違規；detail 會標明 coverage（幾個 source 檔在 layer 網內、幾條 optional gate 有開 —— 結構規則本來就永遠開著），「空網子的綠燈」看得見，不會安靜地騙過你
 - **lint suppressions 帳本沒過期** —— `eslint-suppressions.json` 裡指向已不存在檔案的條目會讓檢查失敗
 
