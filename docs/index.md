@@ -7,7 +7,7 @@ hero:
   image:
     src: /logo.png
     alt: blueprint
-  tagline: One Blueprint compiles into ESLint rules, a human handbook, an AI agent contract, and a CI gate.
+  tagline: Translates your frontend design philosophy into ESLint rules, a human-readable handbook, ground rules for AI agents, and a CI gate.
   actions:
     - theme: brand
       text: Get Started

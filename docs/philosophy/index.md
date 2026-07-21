@@ -1,11 +1,11 @@
 # The Operating Contract
 
-This section is not further reading — **it documents the payload that ships inside
-blueprint's presets**. `vuePreset()` / `reactPreset()` carry every page here as data:
-run `init` and it compiles into your repo as `docs/architecture-handbook.md`, the agent
-contract, and — where a machine can check it — the lint gates. Edit the blueprint's
-`principles` / `componentShape` / `playbook`, and you are editing your project's copy
-of this content.
+This is blueprint's core engineering philosophy — and this section is not further
+reading: `vuePreset()` / `reactPreset()` carry every page here as data. Run `init` and
+these beliefs are translated into your repo as ESLint rules and ground rules for AI
+agents — so they become guardrails in development, not lip service. Edit the
+blueprint's `principles` / `componentShape` / `playbook`, and you are editing your
+project's copy of this content.
 
 The convictions hold across Vue and React — the shapes line up; only the reactive
 primitives differ (`ref`/`computed` vs `useState`/`useMemo`). And the stance is that of

@@ -1,6 +1,6 @@
 # 運作契約
 
-本章節並非延伸閱讀 —— **它所記載的正是 blueprint 預設藍圖內建的資料本體**。`vuePreset()` / `reactPreset()` 以資料形式承載本章節的每一頁；執行 `init` 後，這些內容即編譯進專案：成為 `docs/architecture-handbook.md`、AI 代理契約，其中機器可檢驗的部分再落為程式碼檢查關卡。修改 Blueprint 組態中的 `principles` / `componentShape` / `playbook`，即等同於修改專案內這份內容的版本。
+這是 blueprint 的核心工程理念 —— 本章節不是延伸閱讀，`vuePreset()` / `reactPreset()` 就是以資料形式承載這裡的每一頁。`init` 會將這些信念轉譯到專案中，變成 ESLint 規則與 AI Agent 的守則，確保工程信念可以成為開發上的護欄，而非口頭支票。修改組態中的 `principles` / `componentShape` / `playbook`，就是在修改專案裡這份內容的版本。
 
 手冊闡述前端**元件與架構**的設計思維：分層架構、元件形狀、資料邊界、重構紀律。**同一組原則在 Vue 與 React 均成立** —— 兩者的結構對應一致，差異僅在響應式原語（`ref`/`computed` 對應 `useState`/`useMemo`）與生命週期 API。
 

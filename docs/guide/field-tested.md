@@ -40,12 +40,13 @@ which is still frontier.
 
 ## Not supported
 
-- **Nuxt** — Nuxt's auto-imports leave no `import` statements, and blueprint
-  enforces the dependency flow through *static import analysis*. The graph
-  would be near-empty and report a hollow "clean" — worse than no check. `init`
-  refuses a Nuxt project outright rather than emit a false-green setup. (A
-  framework auto-import resolver could change this someday; it is real work and
-  not planned.)
+- **Nuxt** — blueprint runs on *static import analysis*; that is how the
+  dependency flow gets enforced. Nuxt's auto-imports leave no `import`
+  statements in the source, which removes blueprint's entire basis for
+  checking — so after weighing it, Nuxt is not supported: `init` refuses
+  outright rather than emit a setup that can't see anything. (A framework
+  auto-import resolver could change this someday; it is real work and not
+  planned.)
 
 ## Not yet tested
 

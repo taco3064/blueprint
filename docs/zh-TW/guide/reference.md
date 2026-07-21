@@ -1,10 +1,10 @@
 # 檢測與組態總表
 
-本頁彙整 blueprint 所有可檢測的項目，以及指南各頁未逐一說明的組態欄位。完整型別簽名請參閱 [API 文件](/zh-TW/api/)；本頁的定位是索引地圖。
+本頁彙整 blueprint 所有查得到的東西，以及指南各頁沒逐一說明的組態欄位。完整型別簽名見 [API 文件](/zh-TW/api/)；本頁的定位是索引地圖。
 
 ## `inspect` 回報的檢測項目
 
-共九種檢測項目。凡存在 `error` 等級項目，即以狀態碼 1 結束；`warn` 與 `info` 僅提示、不影響檢核結果。測試檔案（`architecture.testFiles`）一律豁免。
+共九種檢測。只要有 `error` 等級的違規，就以 exit code 1 結束；`warn` 與 `info` 只提示、不影響檢核結果。測試檔案（`architecture.testFiles`）一律豁免。
 
 | 規則 | 等級 | 檢測內容 |
 | --- | --- | --- |
@@ -18,11 +18,11 @@
 | `no-entry` | warn | 資料夾模組缺少公開入口檔 —— 外部無從匯入 |
 | `missing-layer` | info | 已宣告的分層尚無對應資料夾 |
 
-既有專案可透過[基準棘輪機制](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect)，將此清單轉為「僅攔截新增項目」。
+既有專案可透過 [baseline 棘輪](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect)，把這份清單轉成「只攔新增的違規」。
 
 ## 內嵌 ESLint 外掛
 
-`emitLint` 於生成的組態中內建六條自訂規則 —— 無須額外安裝。其中一條屬於結構規則、恆常啟用；其餘五條由 `blueprint.rules` 的規則識別碼控制：
+`emitLint` 在生成的組態裡內建六條自訂規則 —— 不用額外安裝。其中一條是結構規則、永遠開著；其餘五條由 `blueprint.rules` 的規則識別碼控制：
 
 | ESLint 規則 | 控制來源 | 強制內容 |
 | --- | --- | --- |
@@ -33,11 +33,11 @@
 | `blueprint/test-filename-matches-source` | `rules.testFilename` | 測試檔必須有同目錄、同名的原始碼檔案 |
 | `blueprint/no-typedef-only-file` | `rules.typedefOnlyFile` | JS 檔案不得僅含 `@typedef` 宣告（僅套用於 `.js`） |
 
-另有三條規則屬於**受管規則** —— 由 `layers` / `owns` / `alias` 編譯而成、歸屬於生成器：`no-restricted-imports`、`no-restricted-syntax`、`no-restricted-globals`。此三者無法透過 `lintOverrides` 設定；如需調整，請修改 Blueprint 組態本身。
+另有三條**受管規則** —— 由 `layers` / `owns` / `alias` 轉譯而成、歸生成器管：`no-restricted-imports`、`no-restricted-syntax`、`no-restricted-globals`。這三條沒辦法透過 `lintOverrides` 設定；要調整就改 blueprint 組態本身。
 
 ## `blueprint.rules` —— 哪些識別碼會成為檢核關卡
 
-`blueprint.rules` 中的識別碼，唯有機器可檢驗者才會編譯為程式碼檢查關卡。可檢驗的集合如下：
+`blueprint.rules` 裡的識別碼，只有機器查得動的才會轉譯成 lint 關卡。查得動的集合如下：
 
 | 識別碼 | 編譯目標 | 預設藍圖的設定 |
 | --- | --- | --- |
@@ -51,11 +51,11 @@
 | `cycles` | 生成組態中的 `import/no-cycle`＋inspect 的 `cycle` 檢測 | error |
 | `deepWatch` / `usePrefix` / `usePrefixReactivity` / `testFilename` / `typedefOnlyFile` | 上表的外掛規則 | 見上表 |
 
-其餘任何識別碼（例如 `deadCode`）皆屬文件性質：會寫入手冊與 AI 代理契約，作為代理必須持守的判斷，但不會被表述為硬性關卡。此一劃分即[三級落點](/zh-TW/philosophy/#三級落點)的機制。
+其餘任何識別碼（例如 `deadCode`）都屬於文件性質：會寫進手冊與 AI Agent 守則，作為 Agent 必須持守的判斷，但不會被說成硬性關卡。這個劃分就是[三級落點](/zh-TW/philosophy/#三級落點)的機制。
 
 ## 快速上手範例以外的組態欄位
 
-[快速上手](/zh-TW/guide/getting-started#blueprint-組態)的 `defineBlueprint` 範例涵蓋核心欄位。其餘欄位一覽如下 —— 完整結構請參閱 [API 文件](/zh-TW/api/)：
+[快速上手](/zh-TW/guide/getting-started#blueprint-組態)的 `defineBlueprint` 範例涵蓋核心欄位。其餘欄位一覽如下 —— 完整結構見 [API 文件](/zh-TW/api/)：
 
 | 欄位 | 用途 |
 | --- | --- |
@@ -66,8 +66,8 @@
 | `architecture.naming` | 依概念設定的命名慣例（如 `{ hook: 'useX + reactivity' }`）—— 寫入手冊與契約 |
 | `layer.module` | 逐層覆寫共用的模組形狀 —— 例如某一分層採資料夾模組、其餘維持單檔 |
 | `layer.lintOverrides` | 逐層的 ESLint 調整（三條受管規則除外） |
-| `emit.agents` | 契約發佈目標：`claude`、`agents`、`gemini`、`copilot`、`cursor`、`windsurf`（可逐目標指定 `path`）。預設 `['claude', 'agents']`；空陣列則不產出 |
-| `emit.handbook` / `emit.ci` / `emit.lint` | 手冊輸出路徑 · 持續整合供應商（`github` / `none`）· 檢查組態路徑與受管規則等級 |
+| `emit.agents` | Agent 守則的發佈目標：`claude`、`agents`、`gemini`、`copilot`、`cursor`、`windsurf`（可逐目標指定 `path`）。預設 `['claude', 'agents']`；空陣列就不產出 |
+| `emit.handbook` / `emit.ci` / `emit.lint` | 手冊輸出路徑 · CI 供應商（`github` / `none`）· lint 組態路徑與受管規則等級 |
 
 ## 命令列旗標
 
@@ -78,4 +78,4 @@
 | `inspect` | `--baseline` · `--update-baseline` · `--framework vue\|react` · `--json` |
 | `deps [module]` | `--framework vue\|react` · `--json` |
 
-所有指令皆支援 `--help`；CLI 本身支援 `--version`。
+所有指令都支援 `--help`；CLI 本身支援 `--version`。

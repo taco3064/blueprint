@@ -1,6 +1,6 @@
 # 十條核心信念
 
-> **與 blueprint 的關係**：本頁即預設藍圖的 [`principles`](/zh-TW/api/interfaces/PrincipleDef) 欄位 —— `init` 會將十條信念逐字編譯進專案的手冊與 AI 代理契約。十條信念全數落於契約層而非檢查規則（原因正是信念第七條）：由代理於每次改動時持守。運作機制詳見[運作契約](/zh-TW/philosophy/)。
+> **與 blueprint 的關係**：這十條就是預設藍圖的 [`principles`](/zh-TW/api/interfaces/PrincipleDef) 欄位，`init` 會將它們逐字轉譯進專案的手冊與 AI Agent 守則。十條全部由 Agent 在每次改動時把關，而不是交給 lint —— 原因正是第七條自己。運作機制見[運作契約](/zh-TW/philosophy/)。
 
 所有規則收斂之後，即為以下十條底層信念。手冊其餘各部分均為這些信念的展開。
 

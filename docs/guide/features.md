@@ -1,7 +1,7 @@
 # Feature Overview
 
-Everything blueprint does, one line each. Every entry links to the page that shows how
-to use it.
+Everything blueprint does, with a one-line description for each — click a feature name
+to see how to use it.
 
 ## Commands — what you run
 
@@ -11,7 +11,7 @@ to use it.
 | [`init` — brownfield authoring](/guide/ai-adoption#the-flow) | On a repo with code but no config, writes an executable authoring playbook instead of guessing a preset |
 | [`init --agent claude\|codex`](/guide/ai-adoption) | Launches your own agent CLI on that playbook — it derives the config from evidence and iterates until every finding is explainable |
 | [`survey`](/guide/ai-adoption#why-the-survey-matters) | Deterministic repo evidence: folder shapes, the import matrix, package concentration — the raw material for authoring a config |
-| [`inspect`](/guide/getting-started#brownfield-—-blueprint-inspect) | Read-only architecture report, exit 1 on violations — the CI gate |
+| [`inspect`](/guide/getting-started#brownfield-—-blueprint-inspect) | Scans `src/` against the blueprint and lists every violation; any error-level finding exits 1 — drop it straight into CI |
 | [`inspect --baseline`](/guide/getting-started#brownfield-—-blueprint-inspect) | The brownfield ratchet: lock today's debt, fail only on *new* findings, tighten as debt is paid down |
 | [`deps`](/guide/deps) | Blast radius per module — who gets hit if I change this, plus the fan-in leaderboard |
 | [All CLI flags](/guide/reference#cli-flags) | The full flag matrix for every command, including `init --preset` and `--dry-run` |

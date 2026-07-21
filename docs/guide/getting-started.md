@@ -6,7 +6,7 @@
 npx @kekkai/blueprint init
 ```
 
-One command scaffolds the whole operating contract:
+One command, and your design philosophy has guardrails in place:
 
 - `src/<layer>/` folders for every declared layer
 - `blueprint.config.mjs` — the single source of truth
@@ -36,9 +36,11 @@ npx @kekkai/blueprint inspect --update-baseline   # lock today's debt
 npx @kekkai/blueprint inspect --baseline          # CI: fail only on NEW findings
 ```
 
-The codebase stops getting worse today; as debt is paid down, stale baseline entries are
-reported so the ratchet keeps tightening. A zero-finding repo needs no baseline file at
-all — `--baseline` treats a missing file as an empty baseline.
+From the moment adoption completes, AI-collaboration output becomes controllable and
+reviewable — the codebase stops getting worse. As debt is paid down, baseline records
+that are no longer needed get surfaced for removal, so the ratchet keeps tightening. A
+zero-finding repo needs no baseline file at all — `--baseline` treats a missing file as
+an empty baseline.
 
 ## Blast radius — `blueprint deps`
 

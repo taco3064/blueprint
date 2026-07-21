@@ -1,7 +1,8 @@
 # Security & Trust
 
-What this package does — and deliberately does not do — on your machine. Every claim
-below is verifiable in the source.
+Part of what this package offers is operating an AI agent on your machine to help with
+adoption — so this page spells out exactly what it does, and deliberately does not do.
+Every claim below is verifiable in the source.
 
 ## It never launches an agent — except when you explicitly ask
 
