@@ -13,6 +13,9 @@ hero:
       text: Get Started
       link: /guide/getting-started
     - theme: alt
+      text: Feature Overview
+      link: /guide/features
+    - theme: alt
       text: Philosophy
       link: /philosophy/
     - theme: alt
@@ -23,15 +26,23 @@ features:
   - icon: 🧱
     title: Enforce
     details: emitLint compiles the layer flow, module boundaries, and ownership rules into an ESLint flat config — with an embedded plugin, nothing extra to install.
+    link: /guide/generated-artifacts#eslint-config-mjs-—-enforce
+    linkText: See the generated config
   - icon: 📖
     title: Explain
     details: emitHandbook renders a human handbook (markdown + mermaid) that cannot drift from the rules, because both compile from the same source.
+    link: /guide/generated-artifacts#docs-architecture-handbook-md-—-explain
+    linkText: See the handbook
   - icon: 🤖
     title: Collaborate
     details: emitAgentFiles distributes one agent operating contract across CLAUDE.md, AGENTS.md, Cursor, Windsurf, and more.
+    link: /guide/generated-artifacts#claude-md-agents-md-—-collaborate
+    linkText: See the contract
   - icon: 🚦
     title: Gate
     details: emitCi renders a GitHub Actions workflow — lint plus a read-only architecture report, exit 1 on violations.
+    link: /guide/generated-artifacts#github-workflows-blueprint-ci-yml-—-gate
+    linkText: See the workflow
 ---
 
 ## Works better together

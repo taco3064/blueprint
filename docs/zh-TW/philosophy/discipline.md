@@ -1,6 +1,8 @@
 # 工作紀律
 
-以下為任何工具均無法強制的判斷規則 —— Blueprint 將其編譯進手冊與 AI 代理契約，使其存在於每次改動的工作情境中。共四個主題。
+> **與 blueprint 的關係**：本頁即預設藍圖的 [`playbook`](/zh-TW/api/interfaces/PlaybookSection) 欄位 —— 任何工具均無法強制的判斷規則。`init` 會將其編譯進專案的手冊與[代理契約](/zh-TW/guide/generated-artifacts#claude-md-agents-md-——-協作-collaborate)，使其存在於每次改動的工作情境中。
+
+共四個主題。
 
 ## 資料完整性與後端邊界
 

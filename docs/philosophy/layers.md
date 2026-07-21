@@ -1,5 +1,12 @@
 # Layer Architecture
 
+> **In blueprint**: this page documents the presets' `architecture` block — the one part
+> of the philosophy that compiles into **hard gates**, not just prose: the
+> [generated ESLint config](/guide/generated-artifacts#eslint-config-mjs-—-enforce) and
+> [inspect's findings](/guide/reference#what-inspect-reports). Declare your own layers in
+> [`blueprint.config.mjs`](/guide/getting-started#the-blueprint) and the same machinery
+> enforces them.
+
 **One-way dependency flow + single responsibility per layer.** The principles are
 framework-neutral; the unit mapping is one-to-one: `composable ↔ hook`,
 `context ↔ Context`, `SFC ↔ function component`, `service ↔ api client`.
@@ -35,6 +42,23 @@ pages/views → containers → components → hooks → services → assets/i18n
 its public face; other features read through that hook. And `utils/` is a cohesion-free
 junk drawer that grows without bound until everything imports it — pure functions get
 homes by ownership instead: module-private files, or a named, domain-scoped module.
+
+## Ownership — `owns`
+
+The "only importer of `axios`" cells above are not prose — they compile. A layer
+declares the primitives it exclusively owns, and every other layer is barred from them:
+
+```js
+{ name: 'services', owns: ['axios', { global: 'fetch' }, { global: 'WebSocket' }] },
+{ name: 'hooks',    owns: [{ package: 'vue', imports: ['inject'] }, 'pinia'] },
+```
+
+- a bare string owns a **whole package**; `{ package, imports }` narrows it to specific
+  named imports (`vue` stays importable everywhere — only `inject` is fenced)
+- `{ global }` owns a **global** (`fetch`, `WebSocket`) — no import statement exists,
+  so this half is enforced by lint (`no-restricted-globals`), not `inspect`
+- package ownership lands twice: lint (`no-restricted-imports`) and inspect's
+  [`package-ownership` finding](/guide/reference#what-inspect-reports)
 
 ## Feature folder — one module, one folder
 

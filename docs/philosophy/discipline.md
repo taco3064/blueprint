@@ -1,7 +1,11 @@
 # Working Discipline
 
-The judgment rules no tool enforces — Blueprint compiles them into the handbook and the
-agent contract, so they sit *in context* on every change. Four themes.
+> **In blueprint**: this is the presets' [`playbook`](/api/interfaces/PlaybookSection) —
+> the judgment rules no tool can enforce. `init` compiles them into your repo's handbook
+> and [agent contract](/guide/generated-artifacts#claude-md-agents-md-—-collaborate), so
+> they sit *in context* on every change.
+
+Four themes.
 
 ## Data integrity & backend boundary
 

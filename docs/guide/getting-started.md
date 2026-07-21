@@ -37,7 +37,8 @@ npx @kekkai/blueprint inspect --baseline          # CI: fail only on NEW finding
 ```
 
 The codebase stops getting worse today; as debt is paid down, stale baseline entries are
-reported so the ratchet keeps tightening.
+reported so the ratchet keeps tightening. A zero-finding repo needs no baseline file at
+all — `--baseline` treats a missing file as an empty baseline.
 
 ## Blast radius — `blueprint deps`
 
@@ -45,6 +46,9 @@ reported so the ratchet keeps tightening.
 npx @kekkai/blueprint deps hooks/useCart   # who imports it, what it imports
 npx @kekkai/blueprint deps                 # leaderboard: every module by fan-in
 ```
+
+Read-only fan-in / fan-out per module — "who gets hit if I change this". Output
+samples, granularity, and graph boundaries: [Blast Radius — deps](/guide/deps).
 
 ## The Blueprint
 
@@ -74,4 +78,5 @@ export default defineBlueprint({
 
 Or start from a canonical preset — `vuePreset()` / `reactPreset()` encode the full
 governance handbook: six layers, ten principles, seven component-shape axes, and an
-eighteen-rule working playbook. See the [API Reference](/api/) for every export.
+eighteen-rule working playbook. That content is documented page by page in
+[Philosophy](/philosophy/); see the [API Reference](/api/) for every export.

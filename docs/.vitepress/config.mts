@@ -34,15 +34,19 @@ export default defineConfig({
       lang: 'en-US',
       themeConfig: {
         nav: [
-          { text: 'Guide', link: '/guide/getting-started' },
+          { text: 'Guide', link: '/guide/features' },
           { text: 'Philosophy', link: '/philosophy/' },
           { text: 'API', link: '/api/' },
           { text: 'Changelog', link: '/changelog' },
         ],
         sidebar: {
           '/guide/': [
+            { text: 'Feature Overview', link: '/guide/features' },
             { text: 'Getting Started', link: '/guide/getting-started' },
+            { text: 'What init Generates', link: '/guide/generated-artifacts' },
+            { text: 'Blast Radius — deps', link: '/guide/deps' },
             { text: 'AI-Assisted Adoption', link: '/guide/ai-adoption' },
+            { text: 'Checks & Config Reference', link: '/guide/reference' },
             { text: 'Field-Tested Setups', link: '/guide/field-tested' },
             { text: 'Security & Trust', link: '/guide/security' },
           ],
@@ -63,15 +67,19 @@ export default defineConfig({
       link: '/zh-TW/',
       themeConfig: {
         nav: [
-          { text: '指南', link: '/zh-TW/guide/getting-started' },
+          { text: '指南', link: '/zh-TW/guide/features' },
           { text: '工程理念', link: '/zh-TW/philosophy/' },
           { text: 'API', link: '/zh-TW/api/' },
           { text: '版本紀錄', link: '/zh-TW/changelog' },
         ],
         sidebar: {
           '/zh-TW/guide/': [
+            { text: '功能總覽', link: '/zh-TW/guide/features' },
             { text: '快速上手', link: '/zh-TW/guide/getting-started' },
+            { text: 'init 產出物', link: '/zh-TW/guide/generated-artifacts' },
+            { text: '影響範圍 — deps', link: '/zh-TW/guide/deps' },
             { text: 'AI 協助導入', link: '/zh-TW/guide/ai-adoption' },
+            { text: '檢測與組態總表', link: '/zh-TW/guide/reference' },
             { text: '實測相容性', link: '/zh-TW/guide/field-tested' },
             { text: '安全與信任', link: '/zh-TW/guide/security' },
           ],

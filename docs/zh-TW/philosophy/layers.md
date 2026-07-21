@@ -1,5 +1,7 @@
 # 分層架構
 
+> **與 blueprint 的關係**：本頁即預設藍圖的 `architecture` 區塊 —— 工程理念中唯一編譯為**硬性關卡**而非僅為文字的部分：[生成的 ESLint 組態](/zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制-enforce)與 [inspect 的檢測項目](/zh-TW/guide/reference#inspect-回報的檢測項目)。於 [`blueprint.config.mjs`](/zh-TW/guide/getting-started#blueprint-組態) 宣告自己的分層，同一套機制即為其執行檢核。
+
 **單向依賴流，每層單一職責。** 原則本身與框架無關（Vue 與 React 均成立），單元一一對應、沒有主從之分：`composable ↔ hook`、`context ↔ Context`、`SFC ↔ function component`、`service ↔ api client`。
 
 ```
@@ -28,6 +30,19 @@ pages/views → containers → components → hooks → services → assets/i18n
 | `services` | 網路存取原語；唯一可匯入 `axios`、唯一可呼叫 `fetch` 與 `WebSocket` 之處 | 僅回傳資料，不含介面或商業邏輯 |
 
 **本架構不設 `stores` 與 `utils` 兩層。** 每個狀態儲存庫應有唯一擁有它的 hook 模組（該 hook 即為其對外介面），其他功能一律透過該 hook 讀取。至於 `utils/`，它是一個缺乏內聚性的雜物空間：任何「看似通用」的程式碼都會被放入其中、無限增長，最終成為所有模組共同依賴的耦合點。純函式應依「使用者是誰」歸屬：僅單一模組使用者，作為該模組的私有檔案；跨模組共用者，建立具名、依領域劃分的獨立模組，使其「掙得一個名字」。
+
+## 所有權 —— `owns`
+
+上表中「唯一可匯入 `axios` 者」並非僅止於文字描述 —— 它會被編譯為規則。分層宣告其專屬持有的原語後，其餘分層即一律禁止使用：
+
+```js
+{ name: 'services', owns: ['axios', { global: 'fetch' }, { global: 'WebSocket' }] },
+{ name: 'hooks',    owns: [{ package: 'vue', imports: ['inject'] }, 'pinia'] },
+```
+
+- 純字串代表持有**整個套件**；`{ package, imports }` 可收窄至特定的具名匯入（`vue` 仍可於各層匯入 —— 僅 `inject` 受限）
+- `{ global }` 代表持有**全域物件**（`fetch`、`WebSocket`）—— 全域物件不經匯入敘述，因此這部分由程式碼檢查（`no-restricted-globals`）而非 `inspect` 負責
+- 套件所有權有兩道防線：程式碼檢查（`no-restricted-imports`）與 inspect 的 [`package-ownership` 檢測](/zh-TW/guide/reference#inspect-回報的檢測項目)
 
 ## 功能資料夾 —— 模組的組成方式
 

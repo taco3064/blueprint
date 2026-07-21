@@ -1,13 +1,17 @@
 # The Operating Contract
 
-Blueprint is the tooling half of an engineering governance handbook — a set of design
-convictions about components and architecture that hold across Vue and React. The shapes
-line up; only the reactive primitives differ (`ref`/`computed` vs `useState`/`useMemo`).
+This section is not further reading — **it documents the payload that ships inside
+blueprint's presets**. `vuePreset()` / `reactPreset()` carry every page here as data:
+run `init` and it compiles into your repo as `docs/architecture-handbook.md`, the agent
+contract, and — where a machine can check it — the lint gates. Edit the blueprint's
+`principles` / `componentShape` / `playbook`, and you are editing your project's copy
+of this content.
 
-The handbook's stance: it is an **operating contract, not a discussion draft**. On any
-project that collaborates with AI agents, install the rules on day one — control the
-shape early and the codebase grows into what you designed, instead of being refactored
-back into shape after it degrades.
+The convictions hold across Vue and React — the shapes line up; only the reactive
+primitives differ (`ref`/`computed` vs `useState`/`useMemo`). And the stance is that of
+an **operating contract, not a discussion draft**: on any project that collaborates with
+AI agents, install the rules on day one — control the shape early and the codebase grows
+into what you designed, instead of being refactored back into shape after it degrades.
 
 ## The three-tier landing
 

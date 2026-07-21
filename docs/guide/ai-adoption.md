@@ -43,6 +43,10 @@ for the artifacts, and locks the baseline. You review the result.
 foreground, interactive, under your own agent CLI's permissions — see
 [Security & Trust](/guide/security) for the exact boundaries.
 
+To skip the authoring flow entirely and scaffold the framework preset even on a
+brownfield repo, pass `init --preset` — the escape hatch when you already know the
+preset fits.
+
 ## Why the survey matters
 
 Letting an agent grep a repo from scratch is slow and unreliable. `survey` hands it
@@ -71,5 +75,5 @@ written at the final step, so there is no half-adopted state to clean up.
 
 The playbook authors the config and locks the baseline — it does **not** promise to
 refactor the debt away. Existing violations are recorded and paid down later through
-the [baseline ratchet](/guide/getting-started#brownfield-blueprint-inspect); adoption
+the [baseline ratchet](/guide/getting-started#brownfield-—-blueprint-inspect); adoption
 and debt burn-down are different jobs.

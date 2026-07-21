@@ -1,5 +1,10 @@
 # Component Shape — 7 Orthogonal Axes
 
+> **In blueprint**: these are the presets' [`componentShape`](/api/interfaces/AxisDef)
+> axes. The named triage rules (`max-params`, `max-statements`, `max-lines`) land in the
+> [generated lint config](/guide/reference#blueprint-rules-—-which-ids-actually-gate) as
+> entry points; the verdicts compile into your handbook and agent contract.
+
 How a component / composable should be shaped, in seven axes. **A set, not a pipeline**:
 each axis is an independent yes/no design decision — never infer that one axis holds
 because another does. Numbering is identity, not order, and trivial changes need not

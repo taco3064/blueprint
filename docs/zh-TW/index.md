@@ -13,6 +13,9 @@ hero:
       text: 快速上手
       link: /zh-TW/guide/getting-started
     - theme: alt
+      text: 功能總覽
+      link: /zh-TW/guide/features
+    - theme: alt
       text: 工程理念
       link: /zh-TW/philosophy/
     - theme: alt
@@ -22,15 +25,23 @@ features:
   - icon: 🧱
     title: Enforce（強制）
     details: emitLint 將分層依賴方向、模組邊界與套件歸屬編譯為 ESLint flat config；自訂規則以內嵌外掛提供，無須額外安裝任何套件。
+    link: /zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制-enforce
+    linkText: 檢視生成的組態
   - icon: 📖
     title: Explain（說明）
     details: emitHandbook 產出供人閱讀的架構手冊（markdown 與 mermaid 圖）。手冊與規則由同一來源編譯而成，內容不會與規則產生落差。
+    link: /zh-TW/guide/generated-artifacts#docs-architecture-handbook-md-——-說明-explain
+    linkText: 檢視手冊樣貌
   - icon: 🤖
     title: Collaborate（協作）
     details: emitAgentFiles 將同一份 AI 代理契約分發至 CLAUDE.md、AGENTS.md 以及 Cursor、Windsurf 的規則檔。
+    link: /zh-TW/guide/generated-artifacts#claude-md-agents-md-——-協作-collaborate
+    linkText: 檢視契約樣貌
   - icon: 🚦
     title: Gate（檢核）
     details: emitCi 產出 GitHub Actions 工作流程，將程式碼檢查與唯讀架構報告納入持續整合；發現違規即以狀態碼 1 結束。
+    link: /zh-TW/guide/generated-artifacts#github-workflows-blueprint-ci-yml-——-檢核-gate
+    linkText: 檢視工作流程
 ---
 
 ## 建議搭配使用的資源

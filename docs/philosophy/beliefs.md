@@ -1,5 +1,10 @@
 # Ten Core Beliefs
 
+> **In blueprint**: these are the presets' [`principles`](/api/interfaces/PrincipleDef) —
+> `init` compiles them verbatim into your repo's handbook and agent contract. All ten
+> land in the contract, not in lint (belief #7 is why they can't): the agent holds them
+> on every change. Mechanism: [The Operating Contract](/philosophy/).
+
 Every rule in the handbook converges on these. Each later part is an expansion of one or
 more of them.
 
