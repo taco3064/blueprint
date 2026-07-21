@@ -1,5 +1,17 @@
 # @kekkai/blueprint
 
+## 1.14.0
+
+### Minor Changes
+
+- bc55a63: Doctor's merge-survival check no longer goes blind on empty repos — the anti-false-green gap field batch 7 called ironic. A layer with no files yet gets a synthetic probe derived from its own globs (`calculateConfigForFile` resolves by pattern and never touches the filesystem), so a gutted config turns red with zero files on disk; globs the synthesis cannot honor simply yield no probe. The authoring playbook gains an early-exit clause: on a repo at or below the preset threshold whose shape a preset fits, `init --preset` is a legitimate verdict — walking the full method on a starter is ceremony, not judgment. Docs show the `{ ...reactPreset(...), emit: {...} }` spread, since `emit` is a top-level blueprint field, not a preset option.
+
+### Patch Changes
+
+- 5d45120: Layer names carrying glob or path characters are rejected at validation — a layer literally named `*` (field batch 9's root-files workaround) widened every file glob into a wildcard and scaffolded a literal `src/*/` folder. The playbook states the doctrine the workaround violated: an empty net on a root-only app is the true state, not a failure — never invent a layer to make coverage non-zero; root-file hygiene belongs to the project's own lint.
+- 9a5b15a: Batch-8 field fixes, all with repros. `usePrefix: 'off'` no longer validates its target layer (an off rule has nothing to target — it used to throw on repos without a `hooks` layer). `impact` stops contradicting itself: `parse-error` and `unused-disable-directive` move out of the wiring-red total into an "Isolation caveats" section that says which kind vanishes after the merge and which survives. The handbook diagram renders order-only spine edges dotted and declared importer relations solid with inline labels — consecutive leaf layers chained solid read as dependencies they never were. The playbook's overlapping-tool guidance gains its missing exception: when the existing tool sets the same ESLint rules emitLint emits, coexistence is mechanically impossible and consolidation becomes a wiring precondition, not a scope decision to flag.
+- 6464b43: Scanned paths normalize to forward slashes at birth — on Windows every downstream glob net (inspect, coverage, survey, survival probes) silently matched nothing. Layer-name validation also rejects characters that corrupt the emitted mermaid diagram (whitespace, quotes, parens, `&`, `%`, `;`) while keeping real conventions like `@core` valid; pipe-bearing edge descriptions render as `/` instead of breaking the inline-label syntax; and the playbook's deliverables and acceptance gates go zero-debt-conditional — a clean repo's absent baseline is the correct outcome, not a stalled checklist item.
+
 ## 1.13.0
 
 ### Minor Changes
