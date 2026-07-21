@@ -91,6 +91,22 @@ agent that gives up midway, degrades to exactly the manual path — the same pla
 walked by you. `inspect` is read-only, `init` is idempotent, and the baseline is only
 written at the final step, so there is no half-adopted state to clean up.
 
+## Legacy ESLint — one ledger, never two
+
+`emitLint` emits a flat config at severity `error`. On a repo with existing structural
+violations — worse, one still on ESLint 8 / `.eslintrc` — "wired + green + no source
+edits" cannot all hold at once. The sanctioned ramp:
+
+- set `emit: { lint: { severity: 'warn' } }` — the structural rules reach every editor
+  as warnings, and nothing turns red
+- let `inspect --baseline` be the **single debt ledger** — one format, one ratchet,
+  the only hard gate in CI
+- flip severity back to `'error'` when the baseline reaches zero
+
+Never lock the same debt twice (eslint suppressions *and* the blueprint baseline —
+two ledgers drift apart). A legacy-format config's flat-config migration stays a
+decision item for you, never something the playbook does unilaterally.
+
 ## Scope honesty
 
 The playbook authors the config and locks the baseline — it does **not** promise to

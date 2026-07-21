@@ -28,7 +28,6 @@ const VITE_FILES = ['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite
 const REQUIRED_DEPS = [
   'eslint',
   '@kekkai/blueprint',
-  'eslint-plugin-import',
   '@eslint-community/eslint-plugin-eslint-comments',
   'knip',
 ];

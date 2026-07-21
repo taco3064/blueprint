@@ -59,28 +59,14 @@ describe('plan', () => {
   it('generates the third-party CORE in eslint.config.mjs, tier-driven', () => {
     const content = write(plan(state(), bp, null, {}), 'eslint.config.mjs')?.content;
 
-    expect(content).toContain('import importPlugin from \'eslint-plugin-import\';');
-    expect(content).toContain('\'import/no-cycle\': [\'error\', { maxDepth: Infinity }],');
+    // Cycles are inspect's job — import/no-cycle re-checks the whole graph
+    // per file (measured 92s on an 850-file repo) and is deliberately absent.
+    expect(content).not.toContain('import/no-cycle');
+    expect(content).not.toContain('eslint-plugin-import');
     // deadCode emits no ESLint line — flat config cannot run no-unused-modules.
     expect(content).not.toContain('import/no-unused-modules');
     expect(content).toContain('no-unlimited-disable\': \'error\'');
-
-    const warned = { ...bp, rules: { cycles: { tier: 'warn' as const } } };
-    const warnedContent = write(plan(state(), warned, null, {}), 'eslint.config.mjs')?.content;
-
-    expect(warnedContent).toContain('\'import/no-cycle\': [\'warn\', { maxDepth: Infinity }],');
-
-    const off = { ...bp, rules: { cycles: 'off' as const } };
-    const offContent = write(plan(state(), off, null, {}), 'eslint.config.mjs')?.content;
-
-    expect(offContent).not.toContain('import/no-cycle');
-    expect(offContent).toContain('require-description');
-
-    const bare = { ...bp, rules: {} };
-
-    expect(
-      write(plan(state(), bare, null, {}), 'eslint.config.mjs')?.content,
-    ).not.toContain('import/no-cycle');
+    expect(content).toContain('require-description');
   });
 
   it('wires parsers for the detected stack, parsers only', () => {

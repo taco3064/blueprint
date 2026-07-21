@@ -2,6 +2,8 @@
 
 這是 blueprint 的核心工程理念 —— 本章節不是延伸閱讀，`vuePreset()` / `reactPreset()` 就是以資料形式承載這裡的每一頁。`init` 會將這些信念轉譯到專案中，變成 ESLint 規則與 AI Agent 的守則，確保工程信念可以成為開發上的護欄，而非口頭支票。修改 config 中的 `principles` / `componentShape` / `playbook`，就是在修改專案裡這份內容的版本。
 
+先誠實講一句：blueprint 是把「已經有人想好的架構」變成 code —— preset 的、或你 repo 既有的。它負責讀懂與把關，不會替你設計架構。
+
 手冊闡述前端**元件與架構**的設計思維：分層架構、元件形狀、資料邊界、重構紀律。**同一組原則在 Vue 與 React 均成立** —— 兩者的結構對應一致，差異僅在 reactive 原語（`ref`/`computed` 對應 `useState`/`useMemo`）與生命週期 API。
 
 本手冊的定位是**運作契約，而非討論文件**。凡以 AI Agent 協作的專案，建議於第一天即行導入 —— 自始將規則納入管控，專案便能在可控範圍內成長為預期的樣貌，而非等到接近失控時才回頭重構。

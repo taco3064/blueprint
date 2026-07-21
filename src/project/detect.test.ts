@@ -79,7 +79,6 @@ describe('detect', () => {
     // typescript in devDependencies pulls the ts parser into the install set.
     expect(state.missingDeps).toEqual([
       '@kekkai/blueprint',
-      'eslint-plugin-import',
       '@eslint-community/eslint-plugin-eslint-comments',
       'knip',
       'typescript-eslint',
@@ -100,7 +99,7 @@ describe('detect', () => {
   it('tolerates a missing or malformed package.json', () => {
     expect(detect(root).framework).toBeNull();
     expect(detect(root).missingDeps).toContain('eslint');
-    expect(detect(root).missingDeps).toHaveLength(5);
+    expect(detect(root).missingDeps).toHaveLength(4);
     expect(detect(root).existingSrcDirs).toEqual([]);
     expect(detect(root).hasViteConfig).toBe(false);
     expect(detect(root).hasTypescript).toBe(false);

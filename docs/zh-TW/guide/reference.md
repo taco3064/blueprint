@@ -48,7 +48,7 @@
 | `complexity` | `complexity` | warn · 12 |
 | `unusedVars` | `no-unused-vars`（TypeScript 專案自動改用 TS 感知版本） | error |
 | `fixtureImports` | 禁止產品程式碼匯入 fixture 目錄 | error（Vue 預設藍圖） |
-| `cycles` | 生成 config 中的 `import/no-cycle`＋inspect 的 `cycle` 檢測 | error |
+| `cycles` | inspect 的 `cycle` 檢測（模組層級；生成 config 已不再帶 `import/no-cycle` —— 它逐檔重查同一張圖，850 檔實測要 92 秒） | error |
 | `deepWatch` / `usePrefix` / `usePrefixReactivity` / `testFilename` / `typedefOnlyFile` | 上表的外掛規則 | 見上表 |
 
 其餘任何識別碼（例如 `deadCode`）都屬於文件性質：會寫進手冊與 AI Agent 守則，作為 Agent 必須持守的判斷，但不會被說成硬性關卡。這個劃分就是[三級落點](/zh-TW/philosophy/#三級落點)的機制。

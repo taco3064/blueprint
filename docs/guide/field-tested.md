@@ -33,6 +33,15 @@ which is still frontier.
   dependency graph is real and enforcement is genuine.
 - **Vue SFC templates**: `<script setup>` imports are scanned like any other
   source; the vite starter needs its three asset imports moved onto the alias.
+- **Legacy ESLint (`.eslintrc` / v8)**: adoption cost jumps from "run a command" to
+  "a migration decision" — the flat-config migration is yours to call. The ramp that
+  avoids the cliff: wire `emitLint` at severity `'warn'` and keep `inspect --baseline`
+  as the single hard gate; see
+  [one ledger, never two](/guide/ai-adoption#legacy-eslint-—-one-ledger-never-two).
+- **Pinned-plugin drift**: upstream rule renames (e.g. typescript-eslint v8 folding
+  `no-var-requires` into `no-require-imports`) can turn old disable comments stale
+  mid-merge — it only surfaces when the wired lint actually runs; treat each as a
+  merge decision, not a blocker.
 - **Overlapping structure tools** (structure-lint, dependency-cruiser): wiring
   blueprint after them means the shared rule ids take blueprint's semantics
   (proven equivalent on the tested repo); consolidation is flagged as a

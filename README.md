@@ -18,6 +18,12 @@ coding agents) honest:
 - **Collaborate** — agent contracts (`CLAUDE.md`, `AGENTS.md`, Cursor, Windsurf…)
 - **Gate** — a GitHub Actions workflow: lint + a read-only architecture report
 
+To be precise about where the value sits: the lint layer is standard ESLint
+machinery (`no-restricted-imports` patterns + a few custom rules) — any
+import-boundary linter can enforce. What's rare is that the rules, the
+handbook, the agent contract, and CI all **compile from one source and can
+never disagree**. The packaging is the product.
+
 ## Quick start
 
 ```bash

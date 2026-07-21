@@ -168,6 +168,12 @@ baseline and paid down later — do not refactor application code in this pass.
      (\`.eslintrc.*\`) needs a flat-config/ESLint-9 migration that can break
      the project's own lint pipeline — do not do that unilaterally; surface
      it as a decision item in the report instead.
+   - **One debt ledger, never two.** On a repo with existing structural
+     violations, set \`emit: { lint: { severity: 'warn' } }\` and let
+     \`inspect --baseline\` be the single ledger — lint warns in the editor,
+     the baseline ratchet is the only hard gate. Flip severity back to
+     \`'error'\` when the baseline reaches zero. Do **not** lock the same
+     debt twice (eslint suppressions + blueprint baseline drift apart).
    - **If a hand-written CLAUDE.md / AGENTS.md exists**, integrate the
      \`<name>.blueprint.md\` reference into the existing document following
      *its* structure — link, don't duplicate; keep project facts to one

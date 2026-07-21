@@ -57,7 +57,7 @@ The gated set:
 | `complexity` | `complexity` | warn · 12 |
 | `unusedVars` | `no-unused-vars` (TS-aware when the project is TS) | error |
 | `fixtureImports` | restricted fixture imports in production code | error (vue preset) |
-| `cycles` | `import/no-cycle` in the generated config + inspect's `cycle` finding | error |
+| `cycles` | inspect's `cycle` finding (module-level; `import/no-cycle` was dropped from the generated config — a slow per-file re-check of the same graph) | error |
 | `deepWatch` / `usePrefix` / `usePrefixReactivity` / `testFilename` / `typedefOnlyFile` | the plugin rules above | see table above |
 
 Any **other** id (e.g. `deadCode`) is documentation: it lands in the handbook and the

@@ -25,7 +25,6 @@ export default vuePreset({ name: 'my-app' });
 // Keep custom entries in your own config and spread ...emitLint(blueprint)
 // there instead of editing this file.
 import { emitLint } from '@kekkai/blueprint';
-import importPlugin from 'eslint-plugin-import';
 import comments from '@eslint-community/eslint-plugin-eslint-comments';
 import vueParser from 'vue-eslint-parser';
 import blueprint from './blueprint.config.mjs';
@@ -39,11 +38,9 @@ export default [
   {
     files: ['src/**/*.{js,jsx,ts,tsx,vue}'],
     plugins: {
-      import: importPlugin,
       '@eslint-community/eslint-comments': comments,
     },
     rules: {
-      'import/no-cycle': ['error', { maxDepth: Infinity }],
       '@eslint-community/eslint-comments/no-unlimited-disable': 'error',
       '@eslint-community/eslint-comments/require-description': 'error',
     },

@@ -7,6 +7,10 @@ agents — so they become guardrails in development, not lip service. Edit the
 blueprint's `principles` / `componentShape` / `playbook`, and you are editing your
 project's copy of this content.
 
+One honesty note before anything else: blueprint encodes an architecture someone
+already chose — a preset's, or the one your repo already lives. It reads and enforces;
+it does not design one for you.
+
 The convictions hold across Vue and React — the shapes line up; only the reactive
 primitives differ (`ref`/`computed` vs `useState`/`useMemo`). And the stance is that of
 an **operating contract, not a discussion draft**: on any project that collaborates with

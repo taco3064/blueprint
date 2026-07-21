@@ -3,7 +3,7 @@ import { emitAgentFiles } from '../emit/agent';
 import { emitCi } from '../emit/ci';
 import { emitHandbook, handbookPath } from '../emit/docs';
 import { injectBetweenMarkers } from '../markdown';
-import type { AgentTarget, Blueprint, RuleSetting } from '../config';
+import type { AgentTarget, Blueprint } from '../config';
 import { GENERATED_ESLINT_BANNER } from '../project';
 import type { PackageManager, ProjectState } from '../project';
 import type { Action } from './types';
@@ -206,7 +206,6 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
   const framework = blueprint.framework !== 'auto' ? blueprint.framework : state.framework;
   const vue = framework === 'vue';
   const ts = state.hasTypescript;
-  const cycles = activeTier(blueprint.rules?.cycles);
 
   const parserImports = [
     ...(vue ? ['import vueParser from \'vue-eslint-parser\';'] : []),
@@ -243,11 +242,12 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
       : []),
   ];
 
+  // rules.cycles deliberately emits no ESLint line: `inspect` detects module
+  // cycles already, and `import/no-cycle` re-checks the whole graph per file —
+  // measured at 92s on an 850-file repo. One detector, the cheap one.
+  // rules.deadCode likewise: import/no-unused-modules cannot run under flat
+  // config (import-js/eslint-plugin-import#3079) — dead code is knip's job.
   const core = [
-    ...(cycles ? [`      'import/no-cycle': ['${cycles}', { maxDepth: Infinity }],`] : []),
-    // rules.deadCode deliberately emits no ESLint line: import/no-unused-modules
-    // cannot run under flat config (import-js/eslint-plugin-import#3079) — dead
-    // code is knip's job (installed by init) plus `blueprint inspect`.
     '      \'@eslint-community/eslint-comments/no-unlimited-disable\': \'error\',',
     '      \'@eslint-community/eslint-comments/require-description\': \'error\',',
   ];
@@ -259,7 +259,6 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     '// Keep custom entries in your own config and spread ...emitLint(blueprint)',
     '// there instead of editing this file.',
     'import { emitLint } from \'@kekkai/blueprint\';',
-    'import importPlugin from \'eslint-plugin-import\';',
     'import comments from \'@eslint-community/eslint-plugin-eslint-comments\';',
     ...parserImports,
     'import blueprint from \'./blueprint.config.mjs\';',
@@ -274,7 +273,6 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     '  {',
     '    files: [\'src/**/*.{js,jsx,ts,tsx,vue}\'],',
     '    plugins: {',
-    '      import: importPlugin,',
     '      \'@eslint-community/eslint-comments\': comments,',
     '    },',
     '    rules: {',
@@ -284,15 +282,6 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     '];',
     '',
   ].join('\n');
-}
-
-/** A rule setting's active severity, or null when unset / `off`. */
-function activeTier(setting: RuleSetting | undefined): string | null {
-  if (!setting) return null;
-
-  const tier = typeof setting === 'string' ? setting : setting.tier;
-
-  return tier === 'off' ? null : tier;
 }
 
 export function installCommand(pm: PackageManager, deps: string[]): string {

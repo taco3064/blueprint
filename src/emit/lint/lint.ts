@@ -160,8 +160,9 @@ const METRIC_GATES = [
 
 /**
  * The rule ids a machine actually gates out of the box: the metric family and
- * plugin rules land in the emitted ESLint config; `cycles` lands in the
- * generated config (`import/no-cycle`) and in `inspect`. Everything else —
+ * plugin rules land in the emitted ESLint config; `cycles` lands in
+ * `inspect` (its `cycle` finding — `import/no-cycle` was dropped from the
+ * generated config as a slow re-check of the same graph). Everything else —
  * `deadCode`, unknown ids — is documentation, and the agent contract must not
  * call it a hard gate.
  */

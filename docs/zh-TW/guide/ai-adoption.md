@@ -68,6 +68,16 @@ npx @kekkai/blueprint survey --json   # 供工具或 Agent 讀取
 
 所有產出物都在任何 AI Agent 啟動**之前**就寫入磁碟。啟動失敗、或 Agent 中途放棄，流程就回到手動路徑 —— 同一份作業手冊，改由開發者親自執行。`inspect` 唯讀、`init` 冪等、baseline 只在最後一步寫入，所以不存在「導入到一半」的中間狀態要清理。
 
+## 既有 ESLint —— 一本帳，不要兩本
+
+`emitLint` 產出的是 error 等級的 flat config。碰上已經有結構違規的 repo —— 更麻煩的是還停在 ESLint 8 / `.eslintrc` 的 —— 「真的接上＋全綠＋不改 source」三件事沒辦法同時成立。正規的坡道是：
+
+- 設 `emit: { lint: { severity: 'warn' } }` —— 結構規則進編輯器變警告，不會弄紅任何東西
+- 讓 `inspect --baseline` 當**唯一的債務帳本** —— 一種格式、一個棘輪、CI 裡唯一的硬關卡
+- baseline 歸零時，再把 severity 切回 `'error'`
+
+同一批債務不要鎖兩次（eslint suppressions 跟 blueprint baseline 會各自漂移）。至於 legacy 格式的 flat-config 遷移，永遠是留給你的決策事項，playbook 不會擅自動手。
+
 ## 範圍的誠實界定
 
 作業手冊只承諾「產出 config 並鎖定 baseline」，**不承諾**幫你清償既有債務。既有違規會記錄進 baseline，後續透過 [baseline 棘輪](/zh-TW/guide/getting-started)逐步清償 —— 導入跟債務清償是兩件獨立的事。

@@ -116,7 +116,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (hidden.length) {
     actions.push({
       kind: 'instruct',
-      note: `Heads-up: ${hidden.join(', ')} ${hidden.length === 1 ? 'is' : 'are'} gitignored — fine if intentional, but teammates cloning the repo won't have ${hidden.length === 1 ? 'it' : 'them'} (the contract links assume they exist). Regenerate anytime with: npx blueprint init`,
+      note: `Heads-up: ${hidden.join(', ')} ${hidden.length === 1 ? 'is' : 'are'} gitignored — fine if intentional, but teammates cloning the repo won't have ${hidden.length === 1 ? 'it' : 'them'} (the contract links assume they exist). To track ${hidden.length === 1 ? 'it' : 'them'}: remove the .gitignore ${hidden.length === 1 ? 'entry' : 'entries'} or add ${hidden.map((file) => `"!${file}"`).join(' / ')} below ${hidden.length === 1 ? 'it' : 'them'}. Or regenerate anytime with: npx blueprint init`,
     });
   }
 
