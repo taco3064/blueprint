@@ -102,6 +102,36 @@ describe('patchTsconfigPaths', () => {
 
     expect(patchTsconfigPaths(text, PATHS)).toEqual({ kind: 'noop' });
   });
+
+  it('is a noop for a JSONC config whose paths are already wired (batch 10)', () => {
+    // The vite template tsconfig a prior greenfield init already patched:
+    // comments survive the surgery, so a re-run must recognize its own work
+    // instead of instructing the user to add what is already there.
+    const text = `{
+      // template comments defeat JSON.parse
+      "compilerOptions": {
+        /* wired by init */
+        "paths": { "~app/*": ["./src/*"], },
+      },
+    }`;
+
+    expect(patchTsconfigPaths(text, PATHS)).toEqual({ kind: 'noop' });
+  });
+
+  it('stays unparseable when JSONC is broken or not yet fully wired', () => {
+    // Still broken after comment stripping — no wiring to recognize.
+    expect(patchTsconfigPaths('{ /* hi */ oops }', PATHS)).toEqual({ kind: 'unparseable' });
+
+    // Comments but no paths at all.
+    expect(patchTsconfigPaths('{ /* hi */ "compilerOptions": {} }', PATHS))
+      .toEqual({ kind: 'unparseable' });
+
+    // One alias present, one missing — a partial wire still needs the instruct.
+    const partial = '{ /* hi */ "compilerOptions": { "paths": { "~app/*": ["./src/*"] } } }';
+
+    expect(patchTsconfigPaths(partial, { ...PATHS, '~shared/*': ['./src/shared/*'] }))
+      .toEqual({ kind: 'unparseable' });
+  });
 });
 
 describe('aliasActions', () => {
@@ -213,6 +243,25 @@ describe('aliasActions', () => {
 
     expect(soloAlias).toContain('\'~app\'');
     expect(soloAlias).not.toContain('~shared');
+  });
+
+  it('skips the bundler instruct when the vite config already quotes every alias (batch 10)', () => {
+    // A prior init's surgery left this exact shape — re-running init must not
+    // instruct the user to add what doctor's wiredness standard already accepts.
+    const wired = state({
+      hasViteConfig: true,
+      viteConfig: {
+        file: 'vite.config.ts',
+        text: 'export default defineConfig({\n  resolve: { alias: { \'~app\': \'/src\' } },\n})\n',
+      },
+    });
+
+    expect(instructs(aliasActions(wired, ARCH))).toHaveLength(0);
+
+    // One alias quoted, one missing — the instruct still fires.
+    const partial = aliasActions(wired, { ...ARCH, additionalAliases: { '~shared': 'src/shared' } });
+
+    expect(instructs(partial).at(-1)).toContain('~shared');
   });
 });
 

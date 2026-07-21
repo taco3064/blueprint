@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { detect, loadProjectModule, pathAliasKeys, resolveBlueprint } from '../project';
+import { detect, loadProjectModule, pathAliasKeys, quotedIn, resolveBlueprint } from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
 import type { Blueprint } from '../config';
 import { analyze } from './analyze';
@@ -77,9 +77,7 @@ const BUNDLER_FILES = ['webpack.config', 'vue.config', 'next.config', 'rsbuild.c
  * inverse trap: the contract tells agents to import through a prefix no
  * toolchain resolves. Wired = the alias appears in tsconfig/jsconfig `paths`
  * (any target), or a bundler config's text carries it as a quoted token
- * (`'@': …` / `find: '@'` / `.set('@', …)`). A bare substring test would be
- * vacuous for short aliases — `'@'` is inside every `'@vitejs/plugin-…'`
- * import.
+ * (`quotedIn` — the standard init's alias instructs share).
  */
 function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): DoctorCheck {
   const { alias, additionalAliases, sourceRoot } = blueprint.architecture;
@@ -94,14 +92,8 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
     }),
   ].filter((text): text is string => text !== undefined);
 
-  const quoted = (name: string) => {
-    const token = new RegExp(`['"\`]${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`);
-
-    return bundlerTexts.some((text) => token.test(text));
-  };
-
   const unwired = [alias, ...Object.keys(additionalAliases ?? {})].filter(
-    (name) => !declared.has(name) && !quoted(name),
+    (name) => !declared.has(name) && !bundlerTexts.some((text) => quotedIn(text, name)),
   );
 
   if (!unwired.length) return { label: 'import alias wired to the toolchain', ok: true };

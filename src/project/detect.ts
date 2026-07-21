@@ -341,3 +341,16 @@ export function pathAliasKeys(tsconfigs: Record<string, string | null>): Set<str
 
   return keys;
 }
+
+/**
+ * Whether a JS config's text carries `name` as a quoted token (`'@': …`,
+ * `find: '@'`, `.set('@', …)`). The shared wiredness standard for bundler
+ * configs: doctor's alias check and init's alias instructs must agree, or
+ * init nags about wiring doctor already accepts. A bare substring test would
+ * be vacuous for short aliases — `'@'` is inside every `'@vitejs/plugin-…'`.
+ */
+export function quotedIn(text: string, name: string): boolean {
+  return new RegExp(
+    `['"\`]${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`,
+  ).test(text);
+}

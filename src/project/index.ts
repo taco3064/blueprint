@@ -3,7 +3,9 @@ export {
   detect,
   detectAliases,
   GENERATED_ESLINT_BANNER,
+  parseJsonc,
   pathAliasKeys,
+  quotedIn,
   readTexts,
 } from './detect';
 export { loadProjectModule, unwrapModule } from './load';

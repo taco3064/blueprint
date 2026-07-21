@@ -413,3 +413,35 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
     expect(doctor.output).toContain('combine both option sets into ONE entry');
   });
 });
+
+describe('re-run honesty — init never re-instructs wiring it already did (batch 10)', () => {
+  it('second init over a wired vite starter emits no alias instructs', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        // Template-style JSONC — the comment survives init's surgery, so the
+        // second run cannot JSON.parse the file it wired itself.
+        'tsconfig.json': '{\n  // template comment\n  "compilerOptions": {\n    "strict": true,\n  },\n}\n',
+        'vite.config.ts': 'import { defineConfig } from \'vite\'\n\nexport default defineConfig({\n  plugins: [],\n})\n',
+      },
+    });
+
+    const first = await cli(dir, ['init', '--no-install']);
+
+    expect(first.code).toBe(0);
+    expect(read(dir, 'tsconfig.json')).toContain('"~app/*"');
+    expect(read(dir, 'vite.config.ts')).toContain('\'~app\'');
+
+    // The scaffolded config imports the package; offline fixtures swap it for data.
+    write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
+
+    const second = await cli(dir, ['init', '--no-install']);
+
+    expect(second.code).toBe(0);
+    // The field complaint: init #2 printed "Add the import alias to
+    // tsconfig…" over a file init #1 had already wired — a false todo that
+    // reads as a regression. Both alias instructs must stay silent now.
+    expect(second.output).not.toContain('Add the import alias');
+    expect(second.output).not.toContain('resolve.alias');
+  });
+});

@@ -1,4 +1,5 @@
 import type { ArchitectureDef } from '../config';
+import { parseJsonc, quotedIn } from '../project';
 import type { ProjectState } from '../project';
 import { wireTsconfigPaths, wireViteAlias } from './wire';
 import type { Action } from './types';
@@ -50,7 +51,11 @@ export function patchTsconfigPaths(
   try {
     config = JSON.parse(text);
   } catch {
-    return { kind: 'unparseable' };
+    // JSONC defeats the lossless rewrite — but the aliases may already be
+    // wired (a prior init's greenfield surgery, or the user's own hand).
+    // Re-instructing then reads as a regression, so check presence through
+    // the tolerant parse before giving up.
+    return jsoncAlreadyWired(text, paths) ? { kind: 'noop' } : { kind: 'unparseable' };
   }
 
   if (!isRecord(config) || ('compilerOptions' in config && !isRecord(config.compilerOptions))) {
@@ -72,6 +77,17 @@ export function patchTsconfigPaths(
   };
 
   return { kind: 'patched', text: render(patched) };
+}
+
+/** Every alias already present in a JSONC config's `compilerOptions.paths`. */
+function jsoncAlreadyWired(text: string, paths: Record<string, string[]>): boolean {
+  const parsed = parseJsonc(text);
+
+  if (!isRecord(parsed) || !isRecord(parsed.compilerOptions)) return false;
+
+  const existing = parsed.compilerOptions.paths;
+
+  return isRecord(existing) && Object.keys(paths).every((alias) => alias in existing);
 }
 
 /**
@@ -146,6 +162,15 @@ function bundlerActions(
       ];
     }
   }
+
+  // A vite config already carrying every alias as a quoted token is wired by
+  // doctor's own standard — a prior init's surgery, or the user's hand. Init
+  // must not re-instruct what its check already accepts: the nag reads as a
+  // regression on every re-run.
+  const vite = state.viteConfig;
+  const names = [architecture.alias, ...Object.keys(architecture.additionalAliases ?? {})];
+
+  if (vite && names.every((name) => quotedIn(vite.text, name))) return [];
 
   return [bundlerInstruct(state, architecture)];
 }
