@@ -7,6 +7,7 @@ import {
   buildStructuralPatterns,
   derivePackageRules,
   deriveGlobalRules,
+  METRIC_GATES,
   resolveLayerFiles,
   resolveTestFiles,
   selfOnlyReexportSelector,
@@ -145,38 +146,6 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     ...ruleGateEntries(blueprint, testGlobs, options),
   ];
 }
-
-/**
- * The built-in metric gates: rules id → ESLint rule + default threshold.
- * `wrap` marks the rules whose option is `{ max }` with comment skipping.
- */
-const METRIC_GATES = [
-  { id: 'maxLines', rule: 'max-lines', fallback: 400, wrap: true },
-  { id: 'maxLinesPerFunction', rule: 'max-lines-per-function', fallback: 100, wrap: true },
-  { id: 'maxParams', rule: 'max-params', fallback: 3, wrap: false },
-  { id: 'maxStatements', rule: 'max-statements', fallback: 15, wrap: false },
-  { id: 'complexity', rule: 'complexity', fallback: 12, wrap: false },
-] as const;
-
-/**
- * The rule ids a machine actually gates out of the box: the metric family and
- * plugin rules land in the emitted ESLint config; `cycles` lands in
- * `inspect` (its `cycle` finding — `import/no-cycle` was dropped from the
- * generated config as a slow re-check of the same graph). Everything else —
- * `deadCode`, unknown ids — is documentation, and the agent contract must not
- * call it a hard gate.
- */
-export const LINT_GATED_RULE_IDS = [
-  ...METRIC_GATES.map((gate) => gate.id),
-  'unusedVars',
-  'fixtureImports',
-  'deepWatch',
-  'usePrefix',
-  'usePrefixReactivity',
-  'testFilename',
-  'typedefOnlyFile',
-  'cycles',
-];
 
 /**
  * Entries for the known `blueprint.rules` ids — where a rule record stops

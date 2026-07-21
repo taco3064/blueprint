@@ -1,10 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { detect, resolveBlueprint } from '../project';
-import type { ResolveOptions } from '../project';
+import { detect, pathAliasKeys, resolveBlueprint } from '../project';
+import type { ProjectState, ResolveOptions } from '../project';
+import type { Blueprint } from '../config';
 import { analyze } from './analyze';
 import { BASELINE_FILE, parseBaseline, splitByBaseline } from './baseline';
+import { computeCoverage } from './coverage';
 import { hasErrors } from './report';
 import { scan } from './scan';
 
@@ -62,6 +64,36 @@ function suppressionsCheck(root: string): DoctorCheck {
   return { label, ok: true };
 }
 
+/**
+ * The alias is required in the config precisely because a wrong default would
+ * silently pass illegal imports — but a *declared-yet-unwired* alias is the
+ * inverse trap: the contract tells agents to import through a prefix no
+ * toolchain resolves. Wired = the alias appears in tsconfig/jsconfig `paths`
+ * (any target), or the vite config's text mentions it (the same text
+ * heuristic `detect` uses for the eslint wiring).
+ */
+function aliasCheck(blueprint: Blueprint, state: ProjectState): DoctorCheck {
+  const { alias, additionalAliases, sourceRoot } = blueprint.architecture;
+  const declared = pathAliasKeys(state.tsconfigs);
+  const viteText = state.viteConfig?.text ?? '';
+
+  const unwired = [alias, ...Object.keys(additionalAliases ?? {})].filter(
+    (name) => !declared.has(name) && !viteText.includes(name),
+  );
+
+  if (!unwired.length) return { label: 'import alias wired to the toolchain', ok: true };
+
+  const dir = sourceRoot === '.' ? '.' : `./${sourceRoot ?? 'src'}`;
+
+  return {
+    label: 'import alias wired to the toolchain',
+    ok: false,
+    detail: `${unwired.map((name) => `"${name}"`).join(', ')} resolves nowhere — declare it in `
+      + `tsconfig compilerOptions.paths ("${unwired[0]}/*": ["${dir}/*"]) or your bundler's `
+      + 'alias config, or the agent contract points at unresolvable imports',
+  };
+}
+
 /** Reference files are named `<name>.blueprint.<ext>` — never the config itself. */
 function referenceFiles(root: string): string[] {
   return fs
@@ -74,8 +106,10 @@ function referenceFiles(root: string): string[] {
  * Run `blueprint doctor` in `root`. Read-only. Answers the one question the
  * adoption prompt's acceptance clause asks — "is adoption actually finished?"
  * — as a checklist: config present, no leftover reference files, eslint wired
- * to emitLint, and the architecture clean under the baseline. Exit 0 iff every
- * check passes, so it drops into CI or an agent's verify loop.
+ * to emitLint, the declared alias wired to the toolchain, and the architecture
+ * clean under the baseline (its detail states the coverage, so a vacuous green
+ * is visible). Exit 0 iff every check passes, so it drops into CI or an
+ * agent's verify loop.
  * @group Runtimes
  * @example
  * const { ok } = await runDoctor(process.cwd());
@@ -108,7 +142,9 @@ export async function runDoctor(
   const eslintWired = state.ownedEslintConfig !== undefined || state.wiredEslintConfig;
 
   const { blueprint } = await resolveBlueprint(root, state, options);
-  const findings = analyze(scan(root, blueprint.architecture.sourceRoot), blueprint);
+  const scanResult = scan(root, blueprint.architecture.sourceRoot);
+  const findings = analyze(scanResult, blueprint);
+  const coverage = computeCoverage(scanResult, blueprint);
 
   const recorded = fs.existsSync(path.join(root, BASELINE_FILE))
     ? parseBaseline(fs.readFileSync(path.join(root, BASELINE_FILE), 'utf-8'))
@@ -134,12 +170,17 @@ export async function runDoctor(
           ? `${state.legacyEslintConfig} is legacy — migrate to flat config, then spread ...emitLint(blueprint)`
           : 'spread ...emitLint(blueprint) into your eslint config (see eslint.config.blueprint.mjs)',
     },
+    aliasCheck(blueprint, state),
     {
       label: 'architecture clean (findings covered by the baseline)',
       ok: !hasErrors(fresh),
+      // The green states its reach — a clean report over an empty net is
+      // vacuous, and the reader deserves to see which one they got.
       detail: hasErrors(fresh)
         ? `${fresh.length} finding(s) outside the baseline — fix, or \`blueprint inspect --update-baseline\``
-        : undefined,
+        : coverage.sourceFiles > 0 && coverage.layerFiles === 0
+          ? `clean, but vacuous — layer globs match 0 of ${coverage.sourceFiles} source file(s); the gate bites once code lands inside declared layers`
+          : `${coverage.layerFiles}/${coverage.sourceFiles} source files inside layer nets · ${coverage.activeRules}/${coverage.gatedRules} gated rules active`,
     },
     suppressionsCheck(root),
   ];

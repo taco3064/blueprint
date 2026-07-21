@@ -11,6 +11,7 @@ import {
   renderBaseline,
   splitByBaseline,
 } from './baseline';
+import { computeCoverage, renderCoverage } from './coverage';
 import { hasErrors, report } from './report';
 import { scan } from './scan';
 import type { Finding } from './types';
@@ -44,7 +45,9 @@ export async function runInspect(
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
   const { blueprint } = await resolveBlueprint(root, state, options);
-  const findings = analyze(scan(root, blueprint.architecture.sourceRoot), blueprint);
+  const scanResult = scan(root, blueprint.architecture.sourceRoot);
+  const findings = analyze(scanResult, blueprint);
+  const coverage = computeCoverage(scanResult, blueprint);
   const baselineFile = path.join(root, BASELINE_FILE);
 
   if (options.updateBaseline) {
@@ -81,11 +84,17 @@ export async function runInspect(
     log(
       options.json
         ? JSON.stringify(
-            { ok, findings: split.fresh, suppressed: split.suppressed, stale: split.stale },
+            {
+              ok,
+              findings: split.fresh,
+              suppressed: split.suppressed,
+              stale: split.stale,
+              coverage,
+            },
             null,
             2,
           )
-        : `${report(split.fresh)}\n\n${baselineSummary(split)}`,
+        : `${report(split.fresh)}\n\n${baselineSummary(split)}\n${renderCoverage(coverage)}`,
     );
 
     return { findings: split.fresh, ok };
@@ -93,7 +102,11 @@ export async function runInspect(
 
   const ok = !hasErrors(findings);
 
-  log(options.json ? JSON.stringify({ ok, findings }, null, 2) : report(findings));
+  log(
+    options.json
+      ? JSON.stringify({ ok, findings, coverage }, null, 2)
+      : `${report(findings)}\n\n${renderCoverage(coverage)}`,
+  );
 
   return { findings, ok };
 }

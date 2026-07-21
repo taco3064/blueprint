@@ -210,3 +210,56 @@ export function detect(root: string): ProjectState {
     missingDeps: required.filter((dep) => !(dep in deps)),
   };
 }
+
+/** Visit every `compilerOptions.paths` entry across the given tsconfig texts. */
+function eachPathAlias(
+  tsconfigs: Record<string, string | null>,
+  visit: (alias: string, dir: string | null) => void,
+): void {
+  for (const text of Object.values(tsconfigs)) {
+    if (text == null) continue;
+
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      continue; // JSONC or broken — the --alias flag covers this honestly.
+    }
+
+    const options = (parsed as { compilerOptions?: { paths?: unknown } })?.compilerOptions;
+    const paths = options?.paths;
+
+    if (typeof paths !== 'object' || paths === null) continue;
+
+    for (const [key, targets] of Object.entries(paths)) {
+      const alias = key.replace(/\/\*$/, '');
+
+      if (!alias) continue;
+
+      const target = Array.isArray(targets) && typeof targets[0] === 'string' ? targets[0] : null;
+
+      visit(alias, target?.replace(/^\.\//, '').replace(/\/\*$/, '') ?? null);
+    }
+  }
+}
+
+/** Aliases in tsconfig/jsconfig `paths` that map onto `src/`, e.g. `@/* → ./src/*`. */
+export function detectAliases(tsconfigs: Record<string, string | null>): Record<string, string> {
+  const found: Record<string, string> = {};
+
+  eachPathAlias(tsconfigs, (alias, dir) => {
+    if (dir === 'src' && !(alias in found)) found[alias] = 'src';
+  });
+
+  return found;
+}
+
+/** Every alias declared in `paths`, whatever its target — "can TS resolve this prefix?". */
+export function pathAliasKeys(tsconfigs: Record<string, string | null>): Set<string> {
+  const keys = new Set<string>();
+
+  eachPathAlias(tsconfigs, (alias) => keys.add(alias));
+
+  return keys;
+}

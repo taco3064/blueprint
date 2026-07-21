@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { scan } from '../inspect/scan';
 import { resolveSegments, stripAlias } from '../inspect/resolve';
-import { detect } from '../project';
+import { detect, detectAliases } from '../project';
 import type { PackageManager } from '../project';
 import type { ScanResult } from '../inspect/types';
 
@@ -76,40 +76,6 @@ export interface SurveyResult {
    */
   unresolved: { prefix: string; count: number }[];
   totalFiles: number;
-}
-
-/** Aliases in tsconfig/jsconfig `paths` that map onto `src/`, e.g. `@/* → ./src/*`. */
-export function detectAliases(tsconfigs: Record<string, string | null>): Record<string, string> {
-  const found: Record<string, string> = {};
-
-  for (const text of Object.values(tsconfigs)) {
-    if (text == null) continue;
-
-    let parsed: unknown;
-
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      continue; // JSONC or broken — the --alias flag covers this honestly.
-    }
-
-    const options = (parsed as { compilerOptions?: { paths?: unknown } })?.compilerOptions;
-    const paths = options?.paths;
-
-    if (typeof paths !== 'object' || paths === null) continue;
-
-    for (const [key, targets] of Object.entries(paths)) {
-      const alias = key.replace(/\/\*$/, '');
-      const target = Array.isArray(targets) && typeof targets[0] === 'string' ? targets[0] : null;
-      const dir = target?.replace(/^\.\//, '').replace(/\/\*$/, '');
-
-      if (alias && dir === 'src' && !(alias in found)) {
-        found[alias] = 'src';
-      }
-    }
-  }
-
-  return found;
 }
 
 const TEST_PATTERNS: { pattern: string; test: (filePath: string) => boolean }[] = [

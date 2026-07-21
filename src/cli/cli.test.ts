@@ -259,6 +259,12 @@ describe('run · doctor', () => {
       + ' layers: [{ name: \'components\', does: \'ui\' }] } };',
     );
 
+    // The alias check wants the declared alias resolvable by the toolchain.
+    fs.writeFileSync(
+      path.join(dir, 'tsconfig.json'),
+      JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+    );
+
     fs.writeFileSync(
       path.join(dir, 'eslint.config.mjs'),
       'import { emitLint } from \'@kekkai/blueprint\';\nexport default [];',

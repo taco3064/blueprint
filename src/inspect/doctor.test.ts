@@ -32,10 +32,15 @@ const write = (rel: string, content = '') => {
   fs.writeFileSync(full, content);
 };
 
-/** A finished adoption: config, a wired eslint config, no reference files. */
+/** A finished adoption: config, wired eslint config + alias, no reference files. */
 function adopted(): void {
   write('blueprint.config.mjs', '// user config');
   write('eslint.config.mjs', 'import { emitLint } from \'@kekkai/blueprint\';\nexport default [];');
+
+  write(
+    'tsconfig.json',
+    JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+  );
 }
 
 describe('runDoctor', () => {
@@ -58,7 +63,7 @@ describe('runDoctor', () => {
 
     expect(ok).toBe(true);
     expect(checks.every((check) => check.ok)).toBe(true);
-    expect(output).toContain('Adoption complete — all 5 checks passed');
+    expect(output).toContain('Adoption complete — all 6 checks passed');
   });
 
   it('flags a leftover reference file', async () => {
@@ -87,6 +92,65 @@ describe('runDoctor', () => {
     const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
 
     expect(checks.find((c) => c.label.includes('eslint'))?.detail).toContain('migrate to flat config');
+  });
+
+  it('flags a declared alias no toolchain resolves, with the wiring snippet', async () => {
+    adopted();
+    fs.rmSync(path.join(root, 'tsconfig.json'));
+    const { ok, checks } = await runDoctor(root, { loadConfig: load, log: silent });
+
+    const check = checks.find((c) => c.label.includes('alias'));
+
+    expect(ok).toBe(false);
+    expect(check?.ok).toBe(false);
+    expect(check?.detail).toContain('"~app/*": ["./src/*"]');
+    expect(check?.detail).toContain('unresolvable imports');
+  });
+
+  it('targets the project root in the wiring snippet when sourceRoot is "."', async () => {
+    adopted();
+    fs.rmSync(path.join(root, 'tsconfig.json'));
+
+    const flat = async () => {
+      const preset = vuePreset();
+
+      return { ...preset, architecture: { ...preset.architecture, sourceRoot: '.' } };
+    };
+
+    const { checks } = await runDoctor(root, { loadConfig: flat, log: silent });
+
+    expect(checks.find((c) => c.label.includes('alias'))?.detail).toContain('"~app/*": ["./*"]');
+  });
+
+  it('accepts an alias wired through the vite config text', async () => {
+    adopted();
+    fs.rmSync(path.join(root, 'tsconfig.json'));
+    write('vite.config.ts', 'export default { resolve: { alias: { \'~app\': \'/src\' } } };');
+
+    const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
+
+    expect(checks.find((c) => c.label.includes('alias'))?.ok).toBe(true);
+  });
+
+  it('states the coverage on a clean gate, and calls out a vacuous one', async () => {
+    adopted();
+    write('src/components/Button.vue', 'export default {};');
+
+    let { checks } = await runDoctor(root, { loadConfig: load, log: silent });
+    let check = checks.find((c) => c.label.includes('architecture'));
+
+    expect(check?.ok).toBe(true);
+    expect(check?.detail).toContain('1/1 source files inside layer nets');
+
+    // Only root wiring exists → the net catches nothing, and the green says so.
+    fs.rmSync(path.join(root, 'src/components/Button.vue'));
+    write('src/main.ts', 'export {};');
+
+    ({ checks } = await runDoctor(root, { loadConfig: load, log: silent }));
+    check = checks.find((c) => c.label.includes('architecture'));
+
+    expect(check?.ok).toBe(true);
+    expect(check?.detail).toContain('clean, but vacuous');
   });
 
   it('flags findings that sit outside the baseline', async () => {

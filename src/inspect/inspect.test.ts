@@ -53,6 +53,22 @@ describe('runInspect', () => {
     expect(ok).toBe(true);
   });
 
+  it('ends the report with the coverage line, loud when the net is empty', async () => {
+    writeSrc('components/Btn/Btn.vue', 'export default {};');
+
+    let output = '';
+
+    await runInspect(root, { log: (message) => (output = message) });
+    expect(output).toContain('Coverage: 1/1 source files inside layer nets');
+
+    // Root wiring only → same green report, but the vacuous net is named.
+    fs.rmSync(path.join(root, 'src/components'), { recursive: true });
+    writeSrc('main.ts', 'export {};');
+
+    await runInspect(root, { log: (message) => (output = message) });
+    expect(output).toContain('Enforcement is vacuous');
+  });
+
   it('emits JSON when asked', async () => {
     writeSrc('utils/helper.ts', 'export const x = 1;');
     let output = '';
@@ -62,6 +78,7 @@ describe('runInspect', () => {
 
     expect(parsed.ok).toBe(false);
     expect(Array.isArray(parsed.findings)).toBe(true);
+    expect(parsed.coverage.sourceFiles).toBe(1);
   });
 });
 

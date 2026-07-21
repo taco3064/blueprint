@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { detectAliases, renderSurvey, ROOT_BUCKET, runSurvey } from './survey';
+import { renderSurvey, ROOT_BUCKET, runSurvey } from './survey';
 
 let root: string;
 
@@ -208,43 +208,6 @@ describe('runSurvey', () => {
 
     expect(output).toContain('Unresolved alias-like imports');
     expect(output).toContain('~root/…');
-  });
-});
-
-describe('detectAliases', () => {
-  it('keeps only src-targeting path entries, first declaration wins', () => {
-    expect(
-      detectAliases({
-        'tsconfig.json': JSON.stringify({
-          compilerOptions: {
-            paths: {
-              '@/*': ['./src/*'],
-              '~app/*': ['src/*'],
-              '#shared/*': ['./packages/shared/*'],
-            },
-          },
-        }),
-        'tsconfig.app.json': JSON.stringify({
-          compilerOptions: { paths: { '@/*': ['./other/*'] } },
-        }),
-      }),
-    ).toEqual({ '@': 'src', '~app': 'src' });
-  });
-
-  it('skips unparseable (JSONC) files and shapeless configs', () => {
-    expect(
-      detectAliases({
-        'tsconfig.json': '{ /* jsonc comment */ }',
-        'jsconfig.json': JSON.stringify({ compilerOptions: {} }),
-        'tsconfig.app.json': null,
-      }),
-    ).toEqual({});
-
-    expect(
-      detectAliases({
-        'tsconfig.json': JSON.stringify({ compilerOptions: { paths: { '@/*': [42] } } }),
-      }),
-    ).toEqual({});
   });
 });
 

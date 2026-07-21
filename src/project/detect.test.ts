@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { detect, readTexts } from './detect';
+import { detect, detectAliases, pathAliasKeys, readTexts } from './detect';
 
 let root: string;
 
@@ -237,5 +237,67 @@ describe('detect · workspace-aware package manager', () => {
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }
+  });
+});
+
+describe('detectAliases', () => {
+  it('keeps only src-targeting path entries, first declaration wins', () => {
+    expect(
+      detectAliases({
+        'tsconfig.json': JSON.stringify({
+          compilerOptions: {
+            paths: {
+              '@/*': ['./src/*'],
+              '~app/*': ['src/*'],
+              '#shared/*': ['./packages/shared/*'],
+            },
+          },
+        }),
+        'tsconfig.app.json': JSON.stringify({
+          compilerOptions: { paths: { '@/*': ['./other/*'] } },
+        }),
+      }),
+    ).toEqual({ '@': 'src', '~app': 'src' });
+  });
+
+  it('skips unparseable (JSONC) files and shapeless configs', () => {
+    expect(
+      detectAliases({
+        'tsconfig.json': '{ /* jsonc comment */ }',
+        'jsconfig.json': JSON.stringify({ compilerOptions: {} }),
+        'tsconfig.app.json': null,
+      }),
+    ).toEqual({});
+
+    expect(
+      detectAliases({
+        'tsconfig.json': JSON.stringify({ compilerOptions: { paths: { '@/*': [42] } } }),
+      }),
+    ).toEqual({});
+  });
+});
+
+describe('pathAliasKeys', () => {
+  it('collects every declared alias regardless of target', () => {
+    const keys = pathAliasKeys({
+      'tsconfig.json': JSON.stringify({
+        compilerOptions: {
+          paths: {
+            '~app/*': ['./src/*'],
+            '#shared/*': ['./packages/shared/*'],
+            '/*': ['./nope/*'],
+          },
+        },
+      }),
+      'tsconfig.app.json': null,
+    });
+
+    // The doctor's question is resolvability, so non-src targets count too;
+    // an empty alias (the `/*` key) is never a usable prefix.
+    expect([...keys].sort()).toEqual(['#shared', '~app']);
+  });
+
+  it('returns an empty set when no config declares paths', () => {
+    expect(pathAliasKeys({ 'tsconfig.json': '{ broken', 'jsconfig.json': null }).size).toBe(0);
   });
 });

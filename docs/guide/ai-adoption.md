@@ -87,7 +87,12 @@ npx @kekkai/blueprint doctor
   the merge never finished (the single most-missed step)
 - **eslint wired to emitLint** — and a legacy `.eslintrc` is flagged to migrate first,
   never silently left half-adopted
-- **architecture clean** — no findings outside the baseline
+- **import alias wired to the toolchain** — a declared alias that neither tsconfig
+  `paths` nor the vite config resolves would send agents into unresolvable imports;
+  the failure carries the exact wiring snippet
+- **architecture clean** — no findings outside the baseline; the detail line states
+  the coverage (source files inside layer nets, active gated rules), so a vacuously
+  green gate is visible instead of quietly reassuring
 - **lint suppressions ledger current** — stale entries in `eslint-suppressions.json`
   (files that no longer exist) fail the check
 
