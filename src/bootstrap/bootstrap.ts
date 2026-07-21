@@ -121,7 +121,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
   // Read the merge targets init will write into, plus every default agent
   // path — the extras feed plan's stale-contract cleanup.
-  const mergePaths = [
+  const agentPaths = [
     ...new Set([
       ...emitAgentFiles(blueprint, agentTarget ? [agentTarget] : undefined)
         .filter((file) => file.strategy === 'merge')
@@ -136,7 +136,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     ...options,
     agentTarget,
     hasSourceFiles: scanResult.files.length > 0,
-    existingAgentFiles: readTexts(root, mergePaths),
+    existingAgentFiles: readTexts(root, agentPaths),
   });
 
   // Fresh preset scaffold: starter-template code may violate the preset out

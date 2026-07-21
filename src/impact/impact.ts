@@ -278,9 +278,9 @@ export function renderImpact(impacts: RuleImpact[], total: number): string {
     '',
     `${total} hit(s). These numbers decide tiers, not just suppressions: a rule`
     + ' you would suppress everywhere is often better declared `warn` (or `off`)'
-    + ' in the blueprint `rules` block — judge each rule, then wire the config'
-    + ' and lock only what remains with `npx eslint . --suppress-all` — new'
-    + ' violations still fail.',
+    + ' in the blueprint — its `rules` tier, or `emit.lint.severity` for the'
+    + ' structural family. Judge each rule, then wire the config and lock only'
+    + ' what remains with `npx eslint . --suppress-all` — new violations still fail.',
     ...caveatBlock,
     ...foreignBlock,
   ].join('\n');

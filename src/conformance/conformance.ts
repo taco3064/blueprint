@@ -7,8 +7,8 @@ import { emitLint } from '../emit/lint';
 import { run } from '../cli';
 
 /**
- * The adoption conformance fixture DSL. Six rounds of field feedback each
- * ended as a hand-built scratch repo proving a fix; this module fossilizes
+ * The adoption conformance fixture DSL. Every round of field feedback used
+ * to end as a hand-built scratch repo proving a fix; this module fossilizes
  * those repos so every known adoption scenario is a regression test — field
  * runs should only ever discover *new* scenarios, never re-discover old
  * ones. Test-only: nothing here is exported from the package entry.
