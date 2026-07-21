@@ -297,6 +297,9 @@ you never have to reverse-engineer them from the bundle:
 
 ## Rule catalog — ask this file, not the bundle
 
+(The same catalog is queryable anytime: \`npx blueprint rules\` — annotated
+with the config's declared tiers once one exists.)
+
 **Structural rules — always emitted**, whatever the \`rules\` block says.
 Their shared severity is \`emit.lint.severity\` (default \`error\`), and that
 knob covers ONLY these:

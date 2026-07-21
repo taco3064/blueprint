@@ -4,4 +4,6 @@ export { runDoctor } from './doctor';
 export type { DoctorCheck, DoctorOptions } from './doctor';
 export { runInspect } from './inspect';
 export type { InspectOptions } from './inspect';
+export { runRules } from './rules';
+export type { GateStatus, RulesOptions } from './rules';
 export type { Finding, Severity } from './types';

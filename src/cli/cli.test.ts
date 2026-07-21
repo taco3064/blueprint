@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isCliEntry, parseDepsArgs, parseDoctorArgs, parseImpactArgs, parseInitArgs, parseInspectArgs, parseSurveyArgs, run, version } from './cli';
+import { isCliEntry, parseDepsArgs, parseDoctorArgs, parseImpactArgs, parseInitArgs, parseInspectArgs, parseRulesArgs, parseSurveyArgs, run, version } from './cli';
 
 describe('parseInitArgs', () => {
   it('parses known flags', () => {
@@ -231,6 +231,34 @@ describe('deps command dispatch', () => {
 
     fs.rmSync(dir, { recursive: true, force: true });
     log.mockRestore();
+  });
+});
+
+describe('rules command dispatch', () => {
+  it('prints the catalog (config-optional, always exit 0) and its help', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-cli-rules-'));
+
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'x' }));
+
+    // No config — the static catalog is a complete, valid answer.
+    expect(await run(['rules'], dir)).toBe(0);
+    expect(log.mock.calls.some((c) => String(c[0]).includes('emitted-rule catalog'))).toBe(true);
+
+    expect(await run(['rules', '--help'], dir)).toBe(0);
+    expect(log.mock.calls.some((c) => String(c[0]).includes('queryable'))).toBe(true);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+    log.mockRestore();
+  });
+
+  it('parses json and framework, ignoring unknown flags', () => {
+    expect(parseRulesArgs(['--json', '--framework', 'vue', '--nope'])).toEqual({
+      json: true,
+      framework: 'vue',
+    });
+
+    expect(parseRulesArgs(['--framework', 'svelte'])).toEqual({ framework: undefined });
   });
 });
 

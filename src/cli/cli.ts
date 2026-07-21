@@ -7,8 +7,8 @@ import { AGENT_KINDS, runInit } from '../bootstrap';
 import type { AgentKind, InitOptions } from '../bootstrap';
 import { runImpact } from '../impact';
 import type { ImpactOptions } from '../impact';
-import { runDeps, runDoctor, runInspect } from '../inspect';
-import type { DepsOptions, DoctorOptions, InspectOptions } from '../inspect';
+import { runDeps, runDoctor, runInspect, runRules } from '../inspect';
+import type { DepsOptions, DoctorOptions, InspectOptions, RulesOptions } from '../inspect';
 import { runSurvey } from '../survey';
 import type { SurveyOptions } from '../survey';
 
@@ -26,6 +26,8 @@ const USAGE = [
   '  blueprint impact    Dry-run the emitted lint rules: what would wiring',
   '                      emitLint flag today, per rule? Never a gate.',
   '  blueprint deps      Reverse dependencies / blast radius per module.',
+  '  blueprint rules     The emitted-rule catalog: what always emits, what needs',
+  '                      declaring, defaults — annotated with your config\'s tiers.',
   '  blueprint doctor    Is adoption finished? A read-only completeness check.',
   '  blueprint --help | --version',
   '',
@@ -187,6 +189,31 @@ const DEPS_HELP = [
   '  npx @kekkai/blueprint deps                 # fan-in leaderboard',
 ].join('\n');
 
+const RULES_HELP = [
+  'blueprint rules — the emitted-rule catalog, queryable.',
+  '',
+  'Read-only, config-optional. Answers what field agents used to dig out of',
+  'the minified bundle:',
+  '  · Structural rules — always emitted; `emit.lint.severity` covers ONLY',
+  '    these (no-restricted-imports/-syntax/-globals, blueprint/relative-escape)',
+  '  · Optional gates — emitted only when declared in `rules` with a tier',
+  '    other than off; metric defaults shown (maxLines 400, complexity 12, …)',
+  '  · Documentation-only ids — never an ESLint line (deadCode → knip;',
+  '    cycles is enforced by `inspect`, not the lint config)',
+  '',
+  'With a blueprint.config.mjs present, every gate is annotated with the',
+  'declared tier/value and whether it emits today (e.g. deepWatch declared',
+  'on a React project never emits).',
+  '',
+  'Flags:',
+  '  --framework vue|react   Force the preset when detection is ambiguous.',
+  '  --json                  Machine-readable output.',
+  '',
+  'Examples:',
+  '  npx @kekkai/blueprint rules           # what would wiring actually enforce?',
+  '  npx @kekkai/blueprint rules --json    # feed the catalog to tooling / an agent',
+].join('\n');
+
 const DOCTOR_HELP = [
   'blueprint doctor — is adoption actually finished?',
   '',
@@ -225,6 +252,7 @@ const COMMAND_HELP: Record<string, string> = {
   inspect: INSPECT_HELP,
   impact: IMPACT_HELP,
   deps: DEPS_HELP,
+  rules: RULES_HELP,
   doctor: DOCTOR_HELP,
 };
 
@@ -360,6 +388,23 @@ export function parseDepsArgs(args: string[]): DepsOptions {
   return options;
 }
 
+/** Parse `rules` flags. Unknown flags are ignored. */
+export function parseRulesArgs(args: string[]): RulesOptions {
+  const options: RulesOptions = {};
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === '--json') {
+      options.json = true;
+    } else if (arg === '--framework') {
+      options.framework = parseFramework(args[++i]) ?? options.framework;
+    }
+  }
+
+  return options;
+}
+
 /** Parse `doctor` flags. Unknown flags are ignored. */
 export function parseDoctorArgs(args: string[]): DoctorOptions {
   const options: DoctorOptions = {};
@@ -430,6 +475,13 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
       const { ok } = await runDeps(cwd, parseDepsArgs(rest));
 
       return ok ? 0 : 1;
+    }
+
+    if (command === 'rules') {
+      // The catalog is an answer, never a verdict — exit 0 like impact.
+      await runRules(cwd, parseRulesArgs(rest));
+
+      return 0;
     }
 
     if (command === 'doctor') {

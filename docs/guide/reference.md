@@ -65,6 +65,9 @@ Any **other** id (e.g. `deadCode`) is documentation: it lands in the handbook an
 agent contract as a judgment the agent must hold, and is never presented as a hard
 gate. That split is the [three-tier landing](/philosophy/#the-three-tier-landing).
 
+This whole mapping is queryable in place: `npx blueprint rules` prints the catalog,
+annotated with the declared tiers once a config exists.
+
 One scope note that bites in practice: **`emit.lint.severity` covers only the
 structural family** (`no-restricted-imports` / `-syntax` / `-globals` and
 `blueprint/relative-escape`). Every rule in the table above keeps its own
@@ -98,6 +101,7 @@ shows the core. The rest, one line each — full shapes in the
 | `inspect` | `--baseline` · `--update-baseline` · `--framework vue\|react` · `--json` |
 | `impact` | `--framework vue\|react` · `--json` |
 | `deps [module]` | `--framework vue\|react` · `--json` |
+| `rules` | `--framework vue\|react` · `--json` |
 | `doctor` | `--framework vue\|react` · `--json` |
 
 Every command also answers `--help`; the bare CLI answers `--version`.

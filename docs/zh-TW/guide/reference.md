@@ -54,6 +54,8 @@
 
 其餘任何識別碼（例如 `deadCode`）都屬於文件性質：會寫進手冊與 AI Agent 守則，作為 Agent 必須持守的判斷，但不會被說成硬性關卡。這個劃分就是[三級落點](/zh-TW/philosophy/#三級落點)的機制。
 
+這整份對照隨時問得到工具本人：`npx blueprint rules` 會印出 catalog，有 config 時還會標註實際宣告的 tier。
+
 一個實戰會咬人的範圍細節：**`emit.lint.severity` 只蓋結構家族**（`no-restricted-imports` / `-syntax` / `-globals` 與 `blueprint/relative-escape`）。上表每條規則都吃自己的 `blueprint.rules` tier —— severity 設 `warn` **不會**讓 `maxLines` 或 `unusedVars` 變安靜。
 
 ## 快速上手範例以外的 config 欄位
@@ -81,6 +83,7 @@
 | `inspect` | `--baseline` · `--update-baseline` · `--framework vue\|react` · `--json` |
 | `impact` | `--framework vue\|react` · `--json` |
 | `deps [module]` | `--framework vue\|react` · `--json` |
+| `rules` | `--framework vue\|react` · `--json` |
 | `doctor` | `--framework vue\|react` · `--json` |
 
 所有指令都支援 `--help`；CLI 本身支援 `--version`。

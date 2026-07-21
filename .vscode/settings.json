@@ -4,9 +4,8 @@
   "explorer.sortOrderLexicographicOptions": "upper",
   "explorer.fileNesting.patterns": {
     "README.md": "README*, CHANGELOG*, LICENSE*",
-    "eslint.config.ts": ".eslint*, eslint*",
     "package.json": "package-lock.json, .npmrc, .nvmrc",
-    "rolldown.config.ts": "vitest.config.ts, typedoc.json",
+    "rolldown.config.ts": "eslint.config.ts, vitest.config.ts, typedoc.json",
     "tsconfig.json": "tsconfig.*.json"
   },
   "editor.formatOnSave": true,
