@@ -35,6 +35,12 @@ internal deps) that `emit/lint` ships inside its output.
 
 - **Co-locate tests**: `foo.test.ts` beside `foo.ts`; the test name matches the
   source.
+- **`src/conformance/` is the adoption conformance suite** — every field-
+  feedback scenario fossilized as an offline fixture repo driven through the
+  real CLI (and the real eslint from this repo's devDeps). When field testing
+  finds a new adoption failure, its fixture lands here with the fix; field
+  runs should only ever discover *new* scenarios. Test-only: never exported
+  from the package entry.
 - **100% coverage** (`vitest --coverage`). The only exclusions are real-I/O
   defaults and the bin guard, marked `/* v8 ignore */` because tests inject
   those effects (`exec`, `loadConfig`) instead of running them.
