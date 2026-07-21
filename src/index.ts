@@ -7,7 +7,8 @@ export { injectBetweenMarkers } from './markdown';
 export { plugin } from './plugin';
 export { nextPreset, reactPreset, vuePreset } from './presets';
 export { runImpact } from './impact';
-export { runDeps, runDoctor, runInspect } from './inspect';
+export { runDeps, runDoctor, runInspect, runRules } from './inspect';
+export { runRetire } from './retire';
 export { runSurvey } from './survey';
 export type * from './config';
 export type { FolderEvidence, SurveyEdge, SurveyOptions, SurveyResult } from './survey';
@@ -22,7 +23,11 @@ export type {
   DoctorCheck,
   DoctorOptions,
   Finding,
+  GateStatus,
   InspectOptions,
   ModuleDeps,
+  RulesOptions,
   Severity,
+  StructuralRule,
 } from './inspect';
+export type { RetireHit, RetireOptions } from './retire';

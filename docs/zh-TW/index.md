@@ -64,7 +64,7 @@ features:
     <div>docs/architecture-handbook.md <span>說明 —— 給人讀的架構手冊</span></div>
     <div>CLAUDE.md · AGENTS.md · … <span>協作 —— AI Agent 的守則</span></div>
     <div>.github/workflows/blueprint-ci.yml <span>檢核 —— lint ＋ inspect 進 CI</span></div>
-    <div>inspect · deps <span>驗證 —— 讀同一份 config 的唯讀指令</span></div>
+    <div>inspect · deps · rules · retire <span>驗證 —— 讀同一份 config 的唯讀指令</span></div>
   </div>
 </div>
 

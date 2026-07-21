@@ -169,6 +169,25 @@ describe('plan', () => {
     )).toBe(true);
   });
 
+  it('never removes a file with content after the first marker block', () => {
+    // Trailing hand-written notes (or a second block) mean the file is not
+    // wholly generated — deleting it would eat user content.
+    const narrowed = { ...bp, emit: { agents: ['claude' as const] } };
+
+    const trailing
+      = '<!-- BLUEPRINT:START -->\nold\n<!-- BLUEPRINT:END -->\n\nMy own notes.\n';
+
+    const actions = plan(state(), narrowed, null, {
+      existingAgentFiles: { 'AGENTS.md': trailing },
+    });
+
+    expect(actions.some((a) => a.kind === 'rm')).toBe(false);
+
+    expect(actions.some(
+      (a) => a.kind === 'instruct' && a.note.includes('AGENTS.md is no longer in emit.agents'),
+    )).toBe(true);
+  });
+
   it('never touches a marker-free file or one outside the default paths', () => {
     const narrowed = { ...bp, emit: { agents: ['claude' as const] } };
 

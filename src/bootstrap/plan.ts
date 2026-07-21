@@ -261,11 +261,16 @@ function eslintWiringNote(state: ProjectState): string {
     + shared;
 }
 
-/** Nothing outside the marker block — wholly init's own output, safe to remove. */
+/**
+ * Exactly one marker block with nothing outside it — wholly init's own
+ * output, safe to remove. The lazy match stops at the FIRST end marker, so
+ * any content after it (a second block, hand-written trailing notes) fails
+ * the test and downgrades removal to an instruct.
+ */
 function isWhollyGenerated(text: string): boolean {
-  const trimmed = text.trim();
-
-  return trimmed.startsWith(`<!-- ${MARKER}:START -->`) && trimmed.endsWith(`<!-- ${MARKER}:END -->`);
+  return new RegExp(
+    `^<!-- ${MARKER}:START -->[\\s\\S]*?<!-- ${MARKER}:END -->$`,
+  ).test(text.trim());
 }
 
 function mergeContract(existing: string | null, contract: string): string {

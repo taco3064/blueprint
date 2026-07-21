@@ -47,10 +47,22 @@ const SKIP_DIRS = new Set([
 /** Generated lockfiles reference packages by construction — never actionable. */
 const SKIP_FILES = new Set(['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lockb']);
 
-/** Hand-maintained text formats — the places a stale pointer can live. */
-const TEXT_EXT = /\.(?:md|mdc|mdx|txt|json|ya?ml|toml|html|js|jsx|ts|tsx|mjs|cjs|vue)$/;
-
 const MAX_LINE = 120;
+const MAX_BYTES = 1024 * 1024;
+
+/**
+ * A file's text, or null when it cannot hold a hand-maintained pointer:
+ * oversized, or carrying NUL bytes (binaries sniff themselves out). No
+ * extension whitelist — stale pointers live in `.husky/pre-commit`,
+ * `.gitignore`, Makefiles, and other extensionless homes too.
+ */
+function readText(full: string): string | null {
+  if (fs.statSync(full).size > MAX_BYTES) return null;
+
+  const buffer = fs.readFileSync(full);
+
+  return buffer.includes(0) ? null : buffer.toString('utf-8');
+}
 
 function walk(dir: string, base: string, hits: RetireHit[], token: string): void {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -60,9 +72,12 @@ function walk(dir: string, base: string, hits: RetireHit[], token: string): void
       if (SKIP_DIRS.has(entry.name)) continue;
 
       walk(full, base, hits, token);
-    } else if (TEXT_EXT.test(entry.name) && !SKIP_FILES.has(entry.name)) {
-      const lines = fs
-        .readFileSync(full, 'utf-8')
+    } else if (entry.isFile() && !SKIP_FILES.has(entry.name)) {
+      const content = readText(full);
+
+      if (content === null) continue;
+
+      const lines = content
         .split('\n')
         .map((text, index) => ({ line: index + 1, text: text.trim() }))
         .filter(({ text }) => text.includes(token))

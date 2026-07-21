@@ -15,6 +15,8 @@ to see how to use it.
 | [`inspect --baseline`](/guide/getting-started#brownfield-—-blueprint-inspect) | The brownfield ratchet: lock today's debt, fail only on *new* findings, tighten as debt is paid down |
 | [`impact`](/guide/ai-adoption#decide-conflicts-on-numbers-—-blueprint-impact) | Dry-run the emitted lint rules through the project's own ESLint: hits per rule, heaviest files named — rule conflicts get decided on numbers, before wiring |
 | [`deps`](/guide/deps) | Blast radius per module — who gets hit if I change this, plus the fan-in leaderboard |
+| [`rules`](/guide/reference#blueprint-rules-—-which-ids-actually-gate) | The emitted-rule catalog, queryable: what always emits, what needs declaring, metric defaults — annotated with the config's declared tiers |
+| [`retire <name>`](/guide/reference#cli-flags) | Sweep a consolidated-away tool's footprint: every doc, comment, and agent skill still referencing it; exit 0 only when clean |
 | [`doctor`](/guide/ai-adoption#verify-it-s-finished-—-blueprint-doctor) | Is adoption finished? A read-only checklist — config, no leftover references, eslint wired, alias wired, emitted rules alive in the merged config, architecture clean (with its coverage stated), suppressions ledger current |
 | [All CLI flags](/guide/reference#cli-flags) | The full flag matrix for every command, including `init --preset` and `--dry-run` |
 

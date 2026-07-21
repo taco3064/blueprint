@@ -65,7 +65,7 @@ features:
     <div>docs/architecture-handbook.md <span>Explain — the handbook humans read</span></div>
     <div>CLAUDE.md · AGENTS.md · … <span>Collaborate — ground rules for AI agents</span></div>
     <div>.github/workflows/blueprint-ci.yml <span>Gate — lint + inspect in CI</span></div>
-    <div>inspect · deps <span>Verify — read-only runtimes on the same source</span></div>
+    <div>inspect · deps · rules · retire <span>Verify — read-only runtimes on the same source</span></div>
   </div>
 </div>
 
