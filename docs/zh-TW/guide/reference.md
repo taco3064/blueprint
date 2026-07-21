@@ -29,7 +29,7 @@
 | `blueprint/relative-escape` | 恆常啟用（結構規則） | 相對路徑匯入不得越出所屬模組 —— 與 inspect 同名檢測共用同一套解析邏輯 |
 | `blueprint/no-deep-watch` | `rules.deepWatch` | 禁用 `deep: true` 的監聽 —— 每次變更都會遍歷整個資料來源（Vue 預設藍圖：`error`） |
 | `blueprint/use-prefix` | `rules.usePrefix` | hook 分層匯出的函式必須帶 `use` 前綴（分層與前綴皆可設定） |
-| `blueprint/use-prefix-needs-reactivity` | `rules.usePrefixReactivity` | 帶 `use` 前綴的檔案必須實際呼叫響應式或生命週期 API |
+| `blueprint/use-prefix-needs-reactivity` | `rules.usePrefixReactivity` | 帶 `use` 前綴的檔案必須實際呼叫 reactive 或生命週期 API |
 | `blueprint/test-filename-matches-source` | `rules.testFilename` | 測試檔必須有同目錄、同名的原始碼檔案 |
 | `blueprint/no-typedef-only-file` | `rules.typedefOnlyFile` | JS 檔案不得僅含 `@typedef` 宣告（僅套用於 `.js`） |
 
@@ -73,7 +73,7 @@
 
 | 指令 | 旗標 |
 | --- | --- |
-| `init` | `--agent claude\|codex`（啟動編寫代理）· `--preset`（跳過既有專案的編寫流程，直接以框架預設藍圖建置）· `--framework vue\|react` · `--no-install` · `--dry-run` |
+| `init` | `--agent claude\|codex`（啟動編寫用的 Agent CLI）· `--preset`（跳過既有專案的編寫流程，直接以框架預設藍圖建置）· `--framework vue\|react` · `--no-install` · `--dry-run` |
 | `survey` | `--alias <name>`（tsconfig paths 偵測不到別名時指定）· `--json` |
 | `inspect` | `--baseline` · `--update-baseline` · `--framework vue\|react` · `--json` |
 | `deps [module]` | `--framework vue\|react` · `--json` |
