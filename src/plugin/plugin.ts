@@ -12,6 +12,7 @@ import { usePrefixNeedsReactivity } from './use-prefix-needs-reactivity';
  * projects never install it separately. `use-prefix` and
  * `use-prefix-needs-reactivity` are complementary directions: hooks-layer
  * exports must be use-prefixed, and use-named files must be genuinely reactive.
+ * @group Utilities
  */
 export const plugin: ESLint.Plugin = {
   meta: { name: '@kekkai/blueprint' },

@@ -20,6 +20,13 @@ type Severity = 'error' | 'warn';
  * Compile a Blueprint's `architecture` into an ESLint flat config that
  * enforces the one-way dependency flow, module-entry boundaries, and package
  * / global ownership. Pure — returns the config array, writes nothing.
+ * @group Emitters
+ * @example
+ * // eslint.config.mjs — spread into your own flat config
+ * import { emitLint } from '@kekkai/blueprint';
+ * import blueprint from './blueprint.config.mjs';
+ *
+ * export default [...emitLint(blueprint)];
  */
 export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): LintConfig {
   const { framework, architecture } = blueprint;

@@ -31,6 +31,11 @@ export interface InspectOptions extends ResolveOptions {
  * scans `src/`, checks it against the resolved blueprint, and prints an
  * Architecture Report. Returns the actionable findings and `ok` — in baseline
  * mode, `findings` holds only the fresh (non-baselined) ones.
+ * @group Runtimes
+ * @example
+ * const { ok, findings } = await runInspect(process.cwd(), { baseline: true });
+ *
+ * process.exitCode = ok ? 0 : 1;
  */
 export async function runInspect(
   root: string,

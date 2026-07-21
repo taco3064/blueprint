@@ -30,6 +30,9 @@ export interface AgentContractOptions {
  *
  * Uses `##` headings (no `#`) so Bootstrap (S5) can inject it into an existing
  * CLAUDE.md, or write it standalone under its own title.
+ * @group Emitters
+ * @example
+ * const markdown = emitAgentContract(blueprint); // `##` sections, injectable
  */
 export function emitAgentContract(
   blueprint: Blueprint,

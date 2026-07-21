@@ -27,6 +27,11 @@ export interface ModuleDeps {
  * Run `blueprint deps` in `root`. Read-only. With a target, answers "who
  * gets hit if I change this module" (reverse deps + own imports); without
  * one, prints the blast-radius leaderboard — every module sorted by fan-in.
+ * @group Runtimes
+ * @example
+ * const { modules } = await runDeps(process.cwd(), { target: 'hooks/useCart' });
+ *
+ * console.log(modules[0].importedBy); // who gets hit if I change it
  */
 export async function runDeps(
   root: string,

@@ -225,7 +225,15 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
   });
 }
 
-/** Canonical Vue blueprint: provide/inject in their layers, Pinia owned by hooks. */
+/**
+ * Canonical Vue blueprint: provide/inject in their layers, Pinia owned by hooks.
+ * @group Author
+ * @example
+ * // blueprint.config.mjs
+ * import { vuePreset } from '@kekkai/blueprint';
+ *
+ * export default vuePreset({ name: 'my-app' });
+ */
 export function vuePreset(options: PresetOptions = {}): Blueprint {
   return preset(
     'vue',
@@ -237,7 +245,12 @@ export function vuePreset(options: PresetOptions = {}): Blueprint {
   );
 }
 
-/** Canonical React blueprint: createContext/useContext in their layers, Zustand owned by hooks. */
+/**
+ * Canonical React blueprint: createContext/useContext in their layers, Zustand owned by hooks.
+ * @group Author
+ * @example
+ * export default reactPreset({ name: 'my-app' });
+ */
 export function reactPreset(options: PresetOptions = {}): Blueprint {
   return preset(
     'react',
@@ -255,6 +268,9 @@ export function reactPreset(options: PresetOptions = {}): Blueprint {
  * names and nesting. No `fetch` ownership: server components fetch everywhere
  * by design, so restricting it to one layer would be a lie. `srcDir` picks the
  * source root (`src` vs the project root, where `app/` sits without --src-dir).
+ * @group Author
+ * @example
+ * export default nextPreset({ router: 'app', srcDir: true });
  */
 export function nextPreset(options: NextPresetOptions = {}): Blueprint {
   const router = options.router ?? 'app';

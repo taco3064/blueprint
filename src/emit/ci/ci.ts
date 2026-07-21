@@ -16,6 +16,9 @@ const INSTALL: Record<Required<CiOptions>['packageManager'], string> = {
  * Architecture Success: lint (the emitted structural rules) plus
  * `blueprint inspect` (the closed-world / cycle checks lint cannot see).
  * Pure and deterministic, like every emitter.
+ * @group Emitters
+ * @example
+ * writeFileSync('.github/workflows/blueprint-ci.yml', emitCi(blueprint));
  */
 export function emitCi(blueprint: Blueprint, options: CiOptions = {}): string {
   const install = INSTALL[options.packageManager ?? 'npm'];

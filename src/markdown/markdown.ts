@@ -40,6 +40,7 @@ const marker = (tag: string) =>
  * Replace the content between `<!-- TAG:START -->` and `<!-- TAG:END -->` in
  * `source`. Pure string transform; throws if the markers are missing or out
  * of order. The file I/O, hashing, and formatting around it live in Bootstrap.
+ * @group Utilities
  */
 export function injectBetweenMarkers(source: string, tag: string, content: string): string {
   const [start, end] = marker(tag);

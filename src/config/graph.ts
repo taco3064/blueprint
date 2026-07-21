@@ -8,7 +8,10 @@ export interface DiagramEdge {
   description?: string;
 }
 
-/** Normalize the mixed `allowedImporters` list into objects. */
+/**
+ * Normalize the mixed `allowedImporters` list into objects.
+ * @internal
+ */
 export function normalizeAllowedImporters(
   allowed: (string | AllowedImporter)[] | undefined,
 ): AllowedImporter[] {
@@ -32,6 +35,7 @@ function importerNames(layers: LayerDef[], index: number): string[] {
 /**
  * Layers `layerName` may NOT import: every other layer that does not list
  * `layerName` among its permitted importers (upstream layers included).
+ * @internal
  */
 export function getForbiddenLayers(architecture: ArchitectureDef, layerName: string): string[] {
   const { layers } = architecture;
@@ -44,7 +48,10 @@ export function getForbiddenLayers(architecture: ArchitectureDef, layerName: str
     .map((layer) => layer.name);
 }
 
-/** The effective module shape for a layer: its override, else the shared default. */
+/**
+ * The effective module shape for a layer: its override, else the shared default.
+ * @internal
+ */
 export function getModuleShape(
   architecture: ArchitectureDef,
   layerName: string,
@@ -57,7 +64,10 @@ export function getModuleShape(
   };
 }
 
-/** Layers `layerName` may import but must not re-export (selfOnly importers). */
+/**
+ * Layers `layerName` may import but must not re-export (selfOnly importers).
+ * @internal
+ */
 export function getSelfOnlyTargets(architecture: ArchitectureDef, layerName: string): string[] {
   return architecture.layers
     .filter((layer) =>
@@ -71,6 +81,7 @@ export function getSelfOnlyTargets(architecture: ArchitectureDef, layerName: str
 /**
  * Edges for the dependency diagram: the adjacent spine for default layers,
  * and each explicit importer edge for layers that restrict their importers.
+ * @internal
  */
 export function getDiagramEdges(architecture: ArchitectureDef): DiagramEdge[] {
   const { layers } = architecture;

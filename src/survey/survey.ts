@@ -179,7 +179,12 @@ function folderEvidence(scanResult: ScanResult): FolderEvidence[] {
     .sort((a, b) => b.files - a.files);
 }
 
-/** Run `blueprint survey` in `root`. Read-only; always succeeds. */
+/**
+ * Run `blueprint survey` in `root`. Read-only; always succeeds.
+ * @group Runtimes
+ * @example
+ * const survey = runSurvey(process.cwd()); // folders, import matrix, package usage
+ */
 export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResult {
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);

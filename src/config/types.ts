@@ -227,7 +227,16 @@ export interface EmitDef {
 export interface Blueprint {
   /** Project name — used as the Handbook title and in the agent contract. */
   name?: string;
+  /**
+   * Target framework. Drives the default layer-file globs, framework-specific
+   * rules (e.g. `deepWatch` is Vue-only), and preset selection. `auto` =
+   * detect from the project at bootstrap time.
+   */
   framework: Framework;
+  /**
+   * The load-bearing block: layers, flow, alias, module shape — everything
+   * the structural lint rules and `inspect` findings compile from.
+   */
   architecture: ArchitectureDef;
   /** Enforcement rules, keyed by rule id. Each carries its landing tier. */
   rules?: Record<string, RuleSetting>;

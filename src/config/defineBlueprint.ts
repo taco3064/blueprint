@@ -20,15 +20,16 @@ const MANAGED_RULES = [
  * Author a Blueprint. Validates referential integrity up front, then returns
  * the config unchanged — the single source every emitter compiles from.
  *
+ * @group Author
  * @example
  * export default defineBlueprint({
  *   framework: 'auto',
  *   architecture: {
  *     alias: '~app',
  *     layers: [
- *       { name: 'components', does: '可重用 UI', mustNot: ['import services'] },
- *       { name: 'hooks', does: 'inject / 加工 state' },
- *       { name: 'services', does: '網路原件', owns: ['axios', { global: 'fetch' }] },
+ *       { name: 'components', does: 'Reusable, presentational UI', mustNot: ['import services'] },
+ *       { name: 'hooks', does: 'Adapts server and shared state' },
+ *       { name: 'services', does: 'Network primitives', owns: ['axios', { global: 'fetch' }] },
  *     ],
  *     flow: 'one-way',
  *     module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
@@ -41,7 +42,10 @@ export function defineBlueprint(config: Blueprint): Blueprint {
   return config;
 }
 
-/** Throws with a precise message if the blueprint is structurally invalid. */
+/**
+ * Throws with a precise message if the blueprint is structurally invalid.
+ * @group Author
+ */
 export function validateBlueprint(bp: Blueprint): void {
   const { name, architecture, principles, rules } = bp;
 
@@ -182,6 +186,7 @@ function validateUsePrefix(bp: Blueprint): void {
  * `defaultTargets` replaces the built-in default (`claude` + `agents`) when
  * the config is silent — e.g. `init --agent claude` narrows to the one tool
  * actually in use.
+ * @internal
  */
 export function normalizeAgentEmit(
   agents: (AgentTarget | AgentEmitEntry)[] | undefined,

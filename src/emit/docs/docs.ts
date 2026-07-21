@@ -21,6 +21,11 @@ export function handbookPath(blueprint: Blueprint): string {
  * deterministic — the same blueprint always yields the same string, so
  * Bootstrap can hash it to decide whether a rewrite is needed. Sections with
  * no data are omitted.
+ * @group Emitters
+ * @example
+ * import { writeFileSync } from 'node:fs';
+ *
+ * writeFileSync('docs/architecture-handbook.md', emitHandbook(blueprint));
  */
 export function emitHandbook(blueprint: Blueprint): string {
   const { name, architecture, principles, rules } = blueprint;

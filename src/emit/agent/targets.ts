@@ -55,6 +55,11 @@ const TARGETS: Record<AgentTarget, TargetSpec> = {
  * `defaultTargets` overrides the built-in default when `emit.agents` is
  * unset — `init --agent claude` narrows to the one tool actually in use.
  * Pure — decides paths and content, writes nothing.
+ * @group Emitters
+ * @example
+ * for (const file of emitAgentFiles(blueprint)) {
+ *   writeFileSync(file.path, file.content); // e.g. 'CLAUDE.md', '.cursor/rules/blueprint.mdc'
+ * }
  */
 export function emitAgentFiles(
   blueprint: Blueprint,
