@@ -67,6 +67,11 @@ describe('plan', () => {
     expect(content).not.toContain('import/no-unused-modules');
     expect(content).toContain('no-unlimited-disable\': \'error\'');
     expect(content).toContain('require-description');
+
+    // The comments block is a companion, not emitLint's output — an agent
+    // copying the reference wholesale must see the boundary stated in place.
+    expect(content).toContain('Recommended companion — NOT part of emitLint');
+    expect(content).toContain('do not copy this in blindly');
   });
 
   it('wires parsers for the detected stack, parsers only', () => {

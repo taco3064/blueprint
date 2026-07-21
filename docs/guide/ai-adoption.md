@@ -61,8 +61,10 @@ then execute the blueprint-authoring.md it writes, fully and to the end.
 Acceptance — `blueprint doctor` passes, plus:
 - lint, `inspect --baseline`, and the existing tests all pass
 - emitLint genuinely wired into ESLint (no leftover reference files)
-- no source edits — lock existing debt: `inspect --update-baseline` for
-  architecture, `eslint --suppress-all` for lint
+- no source edits — existing debt (if any) goes to its native ledger:
+  `inspect --update-baseline` for architecture, `eslint --suppress-all` for
+  lint; zero findings means the ledgers stay absent — that IS success,
+  don't manufacture debt to have something to lock
 ```
 
 `--authoring` guarantees the playbook is written even on a small repo (plain `init`
@@ -173,3 +175,11 @@ The playbook authors the config and locks the baseline — it does **not** promi
 refactor the debt away. Existing violations are recorded and paid down later through
 the [baseline ratchet](/guide/getting-started#brownfield-—-blueprint-inspect); adoption
 and debt burn-down are different jobs.
+
+The inverse expectation needs stating too: on a clean or young repo, expect **zero
+findings** — that is the codebase being clean, not the config being loose (the
+coverage line tells you whether the net actually reaches your files). Blueprint's
+immediate value there is forward-looking: it pins down how future code will be
+judged — the handbook, the agent contract, the gates — rather than harvesting
+existing bugs. "Keeping a codebase honest" starts with writing the standard of
+honesty down *before* the violations exist; the teeth bite as code lands.

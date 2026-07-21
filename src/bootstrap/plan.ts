@@ -313,6 +313,10 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     ts
       ? '  ...emitLint(blueprint, { typescript: tseslint.plugin }),'
       : '  ...emitLint(blueprint),',
+    '  // Recommended companion — NOT part of emitLint: forbids silent and',
+    '  // undocumented disables. Adopt it deliberately or drop the block;',
+    '  // existing bare disables violate require-description until annotated',
+    '  // (-- reason), so do not copy this in blindly on a brownfield repo.',
     '  {',
     '    files: [\'src/**/*.{js,jsx,ts,tsx,vue}\'],',
     '    plugins: {',

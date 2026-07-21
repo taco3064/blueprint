@@ -130,7 +130,10 @@ baseline and paid down later — do not refactor application code in this pass.
    Documents also go stale: cross-check every translated clause against the
    survey below. Where they disagree, the document governs *intent* (layer
    order, ownership) and the code governs *shape* (module layout) — downgrade
-   the stale clause and record the conflict in your report.
+   the stale clause and record the conflict in your report. Flow documents
+   often draw a DAG; blueprint's order is linear (a layer may import *any*
+   later layer). Linearize, then verify against the matrix — linear is
+   transitive, so it is usually a strict relaxation, not a real change.
 2. **Study the survey evidence below.** Every number is deterministic fact
    from this repo; do not re-derive it by grepping.
 3. **Decide what is a layer.** Top-level folders under \`src/\` are candidates;
@@ -169,7 +172,12 @@ baseline and paid down later — do not refactor application code in this pass.
      report. Before merging, run \`npx blueprint impact\`: it lints the layer
      files with only the emitted config and reports hits per rule, so every
      conflict is decided on numbers, not by reading the emitted config
-     against the code. Run the project's own lint command; new findings introduced by
+     against the code. Mind flat-config semantics while merging: when two
+     entries configure the same rule, the later entry *replaces* the earlier
+     — nothing merges. Spread \`...emitLint\` *before* your own rule blocks,
+     then re-check every rule both sides set (\`no-restricted-imports\`,
+     \`no-restricted-syntax\`): the wrong order silently deletes an existing
+     defense while lint stays green. Run the project's own lint command; new findings introduced by
      the merge are fixed or explicitly judged, never left dangling. Delete
      the reference once wired. Exception: a **legacy-format config**
      (\`.eslintrc.*\`) needs a flat-config/ESLint-9 migration that can break
@@ -182,7 +190,11 @@ baseline and paid down later — do not refactor application code in this pass.
      violations via \`npx eslint . --suppress-all\` (ESLint ≥ 9.24 — counts
      per file × rule, so NEW violations still fail). CI then blocks only new
      debt on both gates, and \`blueprint doctor\` verifies neither ledger has
-     gone stale. Still on ESLint 8 / a legacy config? Transitional fallback:
+     gone stale. The inverse is equally correct: **zero findings and zero
+     lint hits is a complete outcome** — the ledgers simply stay absent
+     (plain \`inspect\` and the project's own lint are the gates), and
+     manufacturing debt just to demo the ratchet is mistranslation, not
+     adoption. Still on ESLint 8 / a legacy config? Transitional fallback:
      \`emit: { lint: { severity: 'warn' } }\` — but state the cost in the
      report: severity only covers the structural rules, so until the
      migration, new metric debt (maxLines…) is not gated.

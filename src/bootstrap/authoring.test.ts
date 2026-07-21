@@ -115,6 +115,20 @@ describe('authoringBrief', () => {
     expect(brief).toContain('layout-dependent');
   });
 
+  it('teaches the merge traps: flat-config override, DAG linearization, honest zero', () => {
+    // Same rule in a later entry REPLACES the earlier — a wrong spread order
+    // silently deletes an existing defense while lint stays green.
+    expect(brief).toContain('the later entry *replaces* the earlier');
+    expect(brief).toContain('before* your own rule blocks');
+
+    // Intent docs often draw a DAG; the linear order is a transitive relaxation.
+    expect(brief).toContain('Linearize, then verify against the matrix');
+
+    // Zero findings is a valid end state — never manufacture debt to lock.
+    expect(brief).toContain('zero\n     lint hits is a complete outcome');
+    expect(brief).toContain('manufacturing debt just to demo the ratchet');
+  });
+
   it('embeds the survey evidence and the schema sketch', () => {
     expect(brief).toContain('resources → components');
     expect(brief).toContain('~root/…'); // the unresolved-alias hint travels with the evidence
