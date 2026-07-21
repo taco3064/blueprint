@@ -254,6 +254,8 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
 
   return [
     GENERATED_ESLINT_BANNER,
+    '// Only this generated file is regenerated (this banner marks it as',
+    '// blueprint-owned) — a hand-written eslint config is never overwritten.',
     '// Keep custom entries in your own config and spread ...emitLint(blueprint)',
     '// there instead of editing this file.',
     'import { emitLint } from \'@kekkai/blueprint\';',

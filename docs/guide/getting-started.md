@@ -17,7 +17,8 @@ One command, and your design philosophy has guardrails in place:
 
 The framework is auto-detected from `package.json` (`--framework vue|react` only breaks
 ties). An existing eslint config is **never overwritten** — init prints a merge snippet
-instead. Re-running init is idempotent.
+instead (only the config init generated itself, marked by its first-line banner, is
+regenerated in place). Re-running init is idempotent.
 
 ## Brownfield — `blueprint inspect`
 

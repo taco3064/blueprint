@@ -15,7 +15,7 @@ npx @kekkai/blueprint init
 - 將匯入別名寫入 `tsconfig.json` / `jsconfig.json` 的 `compilerOptions.paths`
 - `.github/workflows/blueprint-ci.yml` —— 以 lint 與架構檢測作為 CI 的檢核關卡
 
-框架種類由 `package.json` **自動偵測**（`--framework vue|react` 只在判不出來時才需要）；既有的 ESLint config **一律不覆蓋**（init 會改為提供合併指引）；重複執行 init 的結果具冪等性。
+框架種類由 `package.json` **自動偵測**（`--framework vue|react` 只在判不出來時才需要）；既有的 ESLint config **一律不覆蓋**（init 會改為提供合併指引；只有 init 自己生成、帶第一行 banner 的那份會就地重生成）；重複執行 init 的結果具冪等性。
 
 ## 既有專案 —— `blueprint inspect`
 

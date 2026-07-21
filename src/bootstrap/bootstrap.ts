@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { emitAgentFiles } from '../emit/agent';
 import { handbookPath } from '../emit/docs';
 import { analyze } from '../inspect/analyze';
@@ -52,6 +55,8 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   // Brownfield without a config: scaffolding a preset would be a lie — the
   // layers already exist and must be *read*. Emit the authoring playbook
   // instead (an agent or a human executes it; init runs again after).
+  let forkNote: string | null = null;
+
   if (!state.hasConfig && options.preset !== true) {
     // A no-srcDir Next project keeps its layers at the root — survey there so
     // the file count reflects reality, not an empty (missing) src/.
@@ -66,6 +71,13 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     if (brownfield || (state.hasNext && !state.nextRouter)) {
       return runAuthoring(root, state, survey, options, log);
     }
+
+    // This fork is the biggest decision init makes — narrate it, or a user
+    // waiting for the authoring playbook reads the preset scaffold as a bug.
+    forkNote
+      = `Fresh scaffold (${survey.totalFiles} source files < ${BROWNFIELD_MIN_FILES}) — `
+        + `scaffolding the framework preset. Repos with ${BROWNFIELD_MIN_FILES}+ source `
+        + 'files get the authoring playbook (blueprint-authoring.md) instead.';
   }
 
   const { blueprint, configSource } = await resolveBlueprint(root, state, options);
@@ -108,9 +120,32 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     });
   }
 
+  // The package.json patch must land BEFORE the install action — npm install
+  // rewrites package.json (adding devDependencies) but preserves scripts, so
+  // write-then-install composes; the reverse clobbers what npm just added.
+  const lintWiring = lintScriptAction(root, blueprint, configSource !== null);
+
+  if (lintWiring) {
+    const installAt = actions.findIndex((action) => action.kind === 'install');
+
+    if (lintWiring.kind === 'write' && installAt !== -1) actions.splice(installAt, 0, lintWiring);
+    else actions.push(lintWiring);
+  }
+
+  // The greenfield default emits both shared contracts — surface the
+  // emit.agents narrowing the playbook itself recommends.
+  if (!blueprint.emit?.agents && !agentTarget) {
+    actions.push({
+      kind: 'instruct',
+      note: 'Wrote both CLAUDE.md and AGENTS.md (the default set) — declare emit.agents in blueprint.config.mjs to emit only the tools you actually use.',
+    });
+  }
+
   log(
     `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · ${blueprint.framework} · ${state.packageManager}`,
   );
+
+  if (forkNote) log(`· ${forkNote}`);
 
   for (const action of actions) {
     log(formatAction(action, Boolean(options.dryRun)));
@@ -134,6 +169,39 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 }
 
 /** Starter-template violations, phrased as a to-do — null when the scaffold is clean. */
+/**
+ * The local `lint` script must reach the generated eslint config, or local
+ * lint stays green while CI fails on the structural rules (e.g. a template
+ * whose `lint` runs oxlint only). Fresh scaffolds get a precondition-guarded
+ * text patch — the exact `"lint": "…"` pair must appear once, or we fall back
+ * to the instruction; existing projects always get the instruction.
+ */
+function lintScriptAction(root: string, blueprint: Blueprint, greenfield: boolean): Action | null {
+  const file = path.join(root, 'package.json');
+  const text = fs.readFileSync(file, 'utf-8');
+  const lint = (JSON.parse(text) as { scripts?: Record<string, string> }).scripts?.lint;
+
+  if (!lint || lint.includes('eslint')) return null;
+
+  const sourceRoot = blueprint.architecture.sourceRoot ?? 'src';
+  const target = sourceRoot === '.' ? '.' : sourceRoot;
+  const needle = `"lint": ${JSON.stringify(lint)}`;
+
+  if (greenfield && text.split(needle).length === 2) {
+    return {
+      kind: 'write',
+      path: 'package.json',
+      content: text.replace(needle, `"lint": ${JSON.stringify(`${lint} && eslint ${target}`)}`),
+      note: 'package.json (lint script now also runs eslint — local lint matches the CI gate)',
+    };
+  }
+
+  return {
+    kind: 'instruct',
+    note: `Your \`lint\` script runs \`${lint}\` — the structural rules live in the generated eslint config, so local lint would stay green while CI fails. Wire it up, e.g. "lint": "${lint} && eslint ${target}".`,
+  };
+}
+
 function templateCleanup(root: string, blueprint: Blueprint): Action | null {
   const findings = analyze(scan(root, blueprint.architecture.sourceRoot), blueprint).filter(
     (finding) => finding.severity === 'error',

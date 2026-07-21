@@ -54,8 +54,9 @@ is executed.
   snippet, never an overwrite
 - One scoped exception: on a **fresh scaffold** (init generated the blueprint config
   in this very run), init also wires the import alias into the template's
-  `vite.config.*` and commented tsconfig — precondition-guarded text edits that only
-  touch the known template shapes, visible in `--dry-run`, falling back to
+  `vite.config.*` and commented tsconfig, and adds `eslint` to a `lint` script that
+  doesn't run it (so local lint matches the CI gate) — precondition-guarded text edits
+  that only touch the known template shapes, visible in `--dry-run`, falling back to
   instructions on anything unexpected. Existing projects never take this path
 - Re-running `init` is idempotent; hand-written content in shared context files
   survives behind marker blocks

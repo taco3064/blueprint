@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runInit } from './bootstrap';
-import { vuePreset } from '../presets';
+import { nextPreset, vuePreset } from '../presets';
 
 let root: string;
 
@@ -513,5 +513,110 @@ describe('runInit · Nuxt is unsupported', () => {
     await expect(runInit(root, { install: false, log: silent })).rejects.toThrow(
       /Nuxt is not supported[\s\S]*auto-imports/,
     );
+  });
+});
+
+describe('runInit · the greenfield/brownfield fork is narrated', () => {
+  it('says why a fresh scaffold gets the preset instead of the playbook', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    const lines: string[] = [];
+
+    await runInit(root, { install: false, log: (message) => lines.push(message) });
+
+    expect(lines.join('\n')).toContain('Fresh scaffold (0 source files < 10)');
+    expect(lines.join('\n')).toContain('authoring playbook');
+  });
+});
+
+describe('runInit · lint-script wiring', () => {
+  const prettyPkg = (lint: string) =>
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify(
+        { name: 'demo', dependencies: { vue: '^3' }, scripts: { lint } },
+        null,
+        2,
+      ),
+    );
+
+  it('patches a fresh scaffold whose lint script misses eslint', async () => {
+    prettyPkg('oxlint');
+
+    await runInit(root, { install: false, log: silent });
+
+    expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint && eslint src');
+  });
+
+  it('lands the package.json patch before the install action', async () => {
+    prettyPkg('oxlint');
+
+    const actions = await runInit(root, { log: silent, exec: () => {} });
+
+    const writeAt = actions.findIndex(
+      (action) => action.kind === 'write' && action.path === 'package.json',
+    );
+
+    const installAt = actions.findIndex((action) => action.kind === 'install');
+
+    expect(writeAt).toBeGreaterThan(-1);
+    expect(writeAt).toBeLessThan(installAt);
+    expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint && eslint src');
+  });
+
+  it('falls back to an instruction when the script cannot be patched safely', async () => {
+    // Compact JSON — the `"lint": "…"` needle (pretty formatting) misses.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' }, scripts: { lint: 'oxlint' } });
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint');
+
+    expect(
+      actions.some(
+        (action) => action.kind === 'instruct' && action.note.includes('oxlint && eslint src'),
+      ),
+    ).toBe(true);
+  });
+
+  it('instructs — never edits — on an existing project, honoring sourceRoot', async () => {
+    writePkg({ name: 'demo', dependencies: { next: '^15' }, scripts: { lint: 'oxlint' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+
+    const actions = await runInit(root, {
+      install: false,
+      log: silent,
+      loadConfig: async () => nextPreset({ router: 'app' }),
+    });
+
+    expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint');
+
+    expect(
+      actions.some(
+        (action) => action.kind === 'instruct' && action.note.includes('oxlint && eslint .'),
+      ),
+    ).toBe(true);
+  });
+
+  it('leaves a lint script that already runs eslint alone', async () => {
+    prettyPkg('eslint .');
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    expect(JSON.parse(read('package.json')).scripts.lint).toBe('eslint .');
+    expect(actions.some((action) => action.note.includes('&& eslint'))).toBe(false);
+  });
+});
+
+describe('runInit · default agent targets are surfaced', () => {
+  it('suggests emit.agents when both default contracts are written', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    expect(
+      actions.some(
+        (action) => action.kind === 'instruct' && action.note.includes('emit.agents'),
+      ),
+    ).toBe(true);
   });
 });
