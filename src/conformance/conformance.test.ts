@@ -414,7 +414,25 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
   });
 });
 
-describe('re-run honesty — init never re-instructs wiring it already did (batch 10)', () => {
+describe('init UX honesty — re-runs and starters tell the truth (batch 10)', () => {
+  it('a forced playbook on a starter leads with the early-exit verdict', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    const init = await cli(dir, ['init', '--authoring', '--no-install']);
+
+    expect(init.code).toBe(0);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    // The conclusion an agent needs sits at the top, not mid-ceremony.
+    expect(playbook.indexOf('Read this first')).toBeGreaterThan(-1);
+    expect(playbook.indexOf('Read this first')).toBeLessThan(playbook.indexOf('## Method'));
+    expect(playbook).toContain('npx blueprint init --preset');
+  });
+
   it('second init over a wired vite starter emits no alias instructs', async () => {
     const dir = repo({
       packageJson: react(),

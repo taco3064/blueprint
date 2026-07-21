@@ -88,6 +88,21 @@ describe('authoringBrief', () => {
     expect(brief).toContain('npx blueprint init --preset');
   });
 
+  it('leads with the early-exit verdict below the threshold (batch 10)', () => {
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint');
+
+    // The conclusion must come before the method, not sit buried inside it.
+    expect(small.indexOf('Read this first')).toBeGreaterThan(-1);
+    expect(small.indexOf('Read this first')).toBeLessThan(small.indexOf('## Prerequisites'));
+    expect(small).toContain('counted 3 source file(s)');
+
+    // The full method stays below — the count can be wrong about structure.
+    expect(small).toContain('## Method');
+
+    // At or above the threshold the verdict block stays out of the playbook.
+    expect(brief).not.toContain('Read this first');
+  });
+
   it('forbids manufacturing a net — the empty-net twin of manufactured debt', () => {
     // Batch 9: an agent invented a `*` layer so coverage would be non-zero.
     expect(brief).toContain('An empty net is equally legitimate');
