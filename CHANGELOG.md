@@ -1,5 +1,16 @@
 # @kekkai/blueprint
 
+## 1.13.0
+
+### Minor Changes
+
+- 40d9b0a: Clean-repo honesty round, from two zero-debt field adoptions. tsconfig reading (doctor's alias check, survey's alias detection) now parses JSONC — the Vite + TS starter ships commented tsconfigs, so JSON-or-bail false-redded the mainstream path. `impact` labels rows whose rule id is not in the emitted config as isolation artifacts (existing disables referencing the project's own rules), renders them apart, and excludes them from the wiring-red total. `inspect --update-baseline` no longer records info findings — a missing-layer note is "not built yet", not debt; an all-info repo converges to "no baseline needed" instead of inviting manufactured debt.
+- c729157: `doctor` gains a seventh check — the emitted rules must survive the merged eslint config. Flat config never merges a rule two entries set: a later entry silently replaces blueprint's structural bans (or the user's own defenses) while lint stays green — two field runs hit this from both directions and caught it only by hand. Doctor now resolves the project's final config for a real layer file via the project's own ESLint and names exactly what was lost (structural pattern groups, selfOnly selectors, restricted globals, the embedded relative-escape rule); unreachable preconditions skip with a labeled reason instead of failing. The playbook's wire-the-lint step upgrades accordingly: a rule both sides set must be combined into one entry — ordering alone cannot save it.
+
+### Patch Changes
+
+- 40d9b0a: Playbook and docs close the zero-debt gaps: flat-config merge trap stated (same rule in a later entry replaces the earlier — spread `...emitLint` before your own blocks and re-check shared rules), the generated reference marks the eslint-comments block as a companion rather than emitLint output, zero findings is named a complete outcome (never manufacture debt to demo the ratchet), intent-doc DAGs get a linearization hint, and the adoption prompt plus scope-honesty docs set greenfield expectations — on a clean repo the value is forward-looking, not a bug harvest.
+
 ## 1.12.0
 
 ### Minor Changes
