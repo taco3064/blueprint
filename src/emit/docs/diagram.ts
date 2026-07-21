@@ -15,7 +15,10 @@ export function emitFlowDiagram(architecture: ArchitectureDef): string {
 
     const label = [edge.description, edge.selfOnly ? 'selfOnly' : null]
       .filter(Boolean)
-      .join(' · ');
+      .join(' · ')
+      // `|` delimits the inline label — a description carrying one would
+      // truncate the label and corrupt the edge syntax.
+      .replace(/\|/g, '/');
 
     return label
       ? `  ${edge.from} -->|${label}| ${edge.to}`

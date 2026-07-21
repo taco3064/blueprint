@@ -56,4 +56,13 @@ describe('emitFlowDiagram', () => {
 
     expect(diagram).toContain('  components --> services');
   });
+
+  it('keeps a pipe-bearing description from corrupting the label syntax', () => {
+    const diagram = emitFlowDiagram(
+      servicesImportedBy([{ layer: 'components', description: 'read | write split' }]),
+    );
+
+    // `|` delimits mermaid inline labels — sanitized, never emitted raw.
+    expect(diagram).toContain('  components -->|read / write split| services');
+  });
 });
