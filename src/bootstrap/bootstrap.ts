@@ -170,7 +170,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (!blueprint.emit?.agents && !agentTarget) {
     actions.push({
       kind: 'instruct',
-      note: 'Wrote both CLAUDE.md and AGENTS.md (the default set) — declare emit.agents in blueprint.config.mjs to emit only the tools you actually use.',
+      note: 'Wrote both CLAUDE.md and AGENTS.md (the default set) — declare emit.agents in blueprint.config.mjs, or re-run init with --agent claude|codex, to emit only the tool you actually use.',
     });
   }
 

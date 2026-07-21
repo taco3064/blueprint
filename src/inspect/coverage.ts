@@ -69,11 +69,25 @@ export function coverageSummary(coverage: Coverage): string {
     + '(structural boundary rules are always on)';
 }
 
+/**
+ * The concrete step that arms a vacuous net, named with a real declared
+ * layer. "Wired but proves nothing yet" is a tension every vacuous callout
+ * carries — stating what closes the gap keeps it from reading as a
+ * contradiction of "adoption complete".
+ */
+export function vacuousNextStep(blueprint: Blueprint): string {
+  const { layers, sourceRoot } = blueprint.architecture;
+  const root = sourceRoot ?? 'src';
+  const dir = root === '.' ? `${layers[0].name}/` : `${root}/${layers[0].name}/`;
+
+  return `next: move code into a declared layer (e.g. ${dir}) and the net arms itself`;
+}
+
 /** One-line coverage report — loud when the net catches nothing. */
-export function renderCoverage(coverage: Coverage): string {
+export function renderCoverage(coverage: Coverage, blueprint: Blueprint): string {
   if (coverage.sourceFiles > 0 && coverage.layerFiles === 0) {
     return `⚠ Enforcement is vacuous — layer globs match 0 of ${coverage.sourceFiles} source `
-      + 'file(s); a green gate proves nothing until code lands inside declared layers.';
+      + `file(s); a green gate proves nothing yet — ${vacuousNextStep(blueprint)}.`;
   }
 
   return `Coverage: ${coverageSummary(coverage)}`;

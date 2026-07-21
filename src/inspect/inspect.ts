@@ -104,7 +104,7 @@ export async function runInspect(
             null,
             2,
           )
-        : `${report(split.fresh)}\n\n${baselineSummary(split)}\n${renderCoverage(coverage)}`,
+        : `${report(split.fresh)}\n\n${baselineSummary(split)}\n${renderCoverage(coverage, blueprint)}`,
     );
 
     return { findings: split.fresh, ok };
@@ -115,7 +115,7 @@ export async function runInspect(
   log(
     options.json
       ? JSON.stringify({ ok, findings, coverage }, null, 2)
-      : `${report(findings)}\n\n${renderCoverage(coverage)}`,
+      : `${report(findings)}\n\n${renderCoverage(coverage, blueprint)}`,
   );
 
   return { findings, ok };

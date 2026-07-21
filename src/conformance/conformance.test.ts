@@ -449,6 +449,9 @@ describe('init UX honesty — re-runs and starters tell the truth (batch 10)', (
     expect(first.code).toBe(0);
     expect(read(dir, 'tsconfig.json')).toContain('"~app/*"');
     expect(read(dir, 'vite.config.ts')).toContain('\'~app\'');
+    // The both-contracts note names the flag that avoids the second round
+    // trip — the field agent never discovered --agent existed.
+    expect(first.output).toContain('--agent claude|codex');
 
     // The scaffolded config imports the package; offline fixtures swap it for data.
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));

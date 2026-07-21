@@ -195,6 +195,9 @@ describe('runDoctor', () => {
 
     expect(check?.ok).toBe(true);
     expect(check?.detail).toContain('clean, but vacuous');
+    // "Adoption complete" + "proves nothing" would read as a contradiction —
+    // the detail closes the gap by naming the step that arms the net.
+    expect(check?.detail).toContain('the wiring is done — next: move code into a declared layer');
   });
 
   it('fails when a later config entry swallowed the emitted structural rules', async () => {

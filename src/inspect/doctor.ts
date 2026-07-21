@@ -6,7 +6,7 @@ import type { ProjectState, ResolveOptions } from '../project';
 import type { Blueprint } from '../config';
 import { analyze } from './analyze';
 import { BASELINE_FILE, parseBaseline, splitByBaseline } from './baseline';
-import { computeCoverage, coverageSummary } from './coverage';
+import { computeCoverage, coverageSummary, vacuousNextStep } from './coverage';
 import { hasErrors } from './report';
 import { scan } from './scan';
 import type { DoctorCheck } from './types';
@@ -204,7 +204,7 @@ export async function runDoctor(
       detail: hasErrors(fresh)
         ? `${fresh.length} finding(s) outside the baseline — fix, or \`blueprint inspect --update-baseline\``
         : coverage.sourceFiles > 0 && coverage.layerFiles === 0
-          ? `clean, but vacuous — layer globs match 0 of ${coverage.sourceFiles} source file(s); the gate bites once code lands inside declared layers`
+          ? `clean, but vacuous — layer globs match 0 of ${coverage.sourceFiles} source file(s); the wiring is done — ${vacuousNextStep(blueprint)}`
           : coverageSummary(coverage),
     },
     suppressionsCheck(root),

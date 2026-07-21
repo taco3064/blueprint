@@ -68,7 +68,7 @@ npx @kekkai/blueprint doctor
 - **eslint 真的接上 emitLint** —— legacy `.eslintrc` 會被標記為「先遷移」，不會無聲留半套
 - **宣告的 alias 接得上 toolchain** —— alias 宣告了卻沒有任何工具（tsconfig `paths`，或 vite / webpack / vue-cli / next / rsbuild 的 bundler config）解析得到，agent contract 就會把 agent 指向解析不了的匯入；失敗訊息直接附上 wiring 片段
 - **emitted rules 在合併後的 config 裡活著** —— flat config 對同一條 rule 從不合併：後面的 entry 會「靜靜地」整包取代 blueprint 的結構禁令，lint 還是綠的。doctor 用一個真實 layer 檔解析最終 config，點名弄丟了什麼
-- **架構乾淨** —— 沒有 baseline 以外的違規；detail 會標明 coverage（幾個 source 檔在 layer 網內、幾條 optional gate 有開 —— 結構規則本來就永遠開著），「空網子的綠燈」看得見，不會安靜地騙過你
+- **架構乾淨** —— 沒有 baseline 以外的違規；detail 會標明 coverage（幾個 source 檔在 layer 網內、幾條 optional gate 有開 —— 結構規則本來就永遠開著），「空網子的綠燈」看得見，不會安靜地騙過你；空網的 callout 還會點名下一步（把 code 搬進宣告的 layer，網子就開始咬）
 - **lint suppressions 帳本沒過期** —— `eslint-suppressions.json` 裡指向已不存在檔案的條目會讓檢查失敗
 
 `--json` 輸出同一份 checklist 給工具用。

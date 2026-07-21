@@ -100,7 +100,8 @@ npx @kekkai/blueprint doctor
 - **architecture clean** — no findings outside the baseline; the detail line states
   the coverage (source files inside layer nets, active optional gates — the
   structural boundary rules are always on), so a vacuously
-  green gate is visible instead of quietly reassuring
+  green gate is visible instead of quietly reassuring — and the vacuous callout
+  names the step that arms the net (move code into a declared layer)
 - **lint suppressions ledger current** — stale entries in `eslint-suppressions.json`
   (files that no longer exist) fail the check
 

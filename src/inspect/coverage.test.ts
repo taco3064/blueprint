@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
 import { LINT_GATED_RULE_IDS } from '../emit/lint/patterns';
-import { computeCoverage, renderCoverage } from './coverage';
+import { computeCoverage, renderCoverage, vacuousNextStep } from './coverage';
 import type { ScanResult } from './types';
 
 const blueprint: Blueprint = {
@@ -54,9 +54,23 @@ describe('computeCoverage', () => {
   });
 });
 
+describe('vacuousNextStep', () => {
+  it('names the first declared layer under the source root, respecting a "." root', () => {
+    expect(vacuousNextStep(blueprint))
+      .toBe('next: move code into a declared layer (e.g. src/components/) and the net arms itself');
+
+    const rooted = { ...blueprint, architecture: { ...blueprint.architecture, sourceRoot: '.' } };
+
+    expect(vacuousNextStep(rooted)).toContain('(e.g. components/)');
+  });
+});
+
 describe('renderCoverage', () => {
   it('renders the one-line summary without implying structural rules are off', () => {
-    const line = renderCoverage({ sourceFiles: 2, layerFiles: 1, activeRules: 0, gatedRules: 13 });
+    const line = renderCoverage(
+      { sourceFiles: 2, layerFiles: 1, activeRules: 0, gatedRules: 13 },
+      blueprint,
+    );
 
     expect(line).toContain('Coverage: 1/2 source files inside layer nets');
     // "0 active" must not read as "nothing enforced" — structural rules always emit.
@@ -65,14 +79,22 @@ describe('renderCoverage', () => {
   });
 
   it('screams when files exist but the net catches none of them', () => {
-    const line = renderCoverage({ sourceFiles: 3, layerFiles: 0, activeRules: 2, gatedRules: 13 });
+    const line = renderCoverage(
+      { sourceFiles: 3, layerFiles: 0, activeRules: 2, gatedRules: 13 },
+      blueprint,
+    );
 
     expect(line).toContain('Enforcement is vacuous');
     expect(line).toContain('0 of 3 source file(s)');
+    // The tension-closer: the callout names the concrete step that arms the net.
+    expect(line).toContain('next: move code into a declared layer (e.g. src/components/)');
   });
 
   it('stays calm on an empty repo — nothing exists to cover yet', () => {
-    const line = renderCoverage({ sourceFiles: 0, layerFiles: 0, activeRules: 2, gatedRules: 13 });
+    const line = renderCoverage(
+      { sourceFiles: 0, layerFiles: 0, activeRules: 2, gatedRules: 13 },
+      blueprint,
+    );
 
     expect(line).toContain('Coverage: 0/0');
     expect(line).not.toContain('vacuous');
