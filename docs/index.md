@@ -43,7 +43,45 @@ features:
     details: emitCi renders a GitHub Actions workflow — lint plus a read-only architecture report, exit 1 on violations.
     link: /guide/generated-artifacts#github-workflows-blueprint-ci-yml-—-gate
     linkText: See the workflow
+  - icon: 🧭
+    title: Adopt
+    details: The brownfield flow — survey collects the evidence, your own agent authors the config, and the baseline ratchet locks today's debt so it only tightens.
+    link: /guide/ai-adoption
+    linkText: See the adoption flow
+  - icon: 🔎
+    title: Verify
+    details: Read-only runtimes on the same source — inspect judges the architecture (nine finding kinds, CI-gateable), deps answers "who gets hit if I change this".
+    link: /guide/features#checks-—-what-gets-caught
+    linkText: See what gets caught
 ---
+
+## One source, everything compiled
+
+<div class="compile-flow">
+  <div class="cf-source">blueprint.config.mjs</div>
+  <div class="cf-arrow">→</div>
+  <div class="cf-outputs">
+    <div>eslint.config.mjs <span>Enforce — structural rules + embedded plugin</span></div>
+    <div>docs/architecture-handbook.md <span>Explain — the handbook humans read</span></div>
+    <div>CLAUDE.md · AGENTS.md · … <span>Collaborate — ground rules for AI agents</span></div>
+    <div>.github/workflows/blueprint-ci.yml <span>Gate — lint + inspect in CI</span></div>
+    <div>inspect · deps <span>Verify — read-only runtimes on the same source</span></div>
+  </div>
+</div>
+
+Edit the config, regenerate, and every artifact moves together — they cannot drift,
+because they are all translations of the same source. See them verbatim in
+[What init Generates](/guide/generated-artifacts).
+
+## Why
+
+AI agents write code fast — but where a file goes, and who may import whom, rides on
+whatever the agent happens to hold in context. Meanwhile the architecture doc, the
+ESLint config, and CLAUDE.md are three hand-maintained documents that inevitably stop
+telling the same story.
+
+blueprint collapses them into one config: what the rules say is what lint blocks, what
+the handbook explains, and what the agent holds.
 
 ## Works better together
 

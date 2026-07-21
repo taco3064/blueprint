@@ -25,7 +25,19 @@ export default defineConfig({
     'Architecture as Code — one Blueprint compiles into lint, docs, agent contracts, and CI.',
   base: '/blueprint/',
   appearance: 'force-dark',
-  head: [['link', { rel: 'icon', type: 'image/png', href: '/blueprint/favicon.png' }]],
+  head: [
+    ['link', { rel: 'icon', type: 'image/png', href: '/blueprint/favicon.png' }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:title', content: '@kekkai/blueprint — Architecture as Code' }],
+    ['meta', {
+      property: 'og:description',
+      content: 'Translates your frontend design philosophy into ESLint rules, '
+        + 'a human-readable handbook, ground rules for AI agents, and a CI gate.',
+    }],
+    ['meta', { property: 'og:image', content: 'https://taco3064.github.io/blueprint/logo.png' }],
+    ['meta', { name: 'twitter:card', content: 'summary' }],
+    ['meta', { name: 'twitter:image', content: 'https://taco3064.github.io/blueprint/logo.png' }],
+  ],
   lastUpdated: true,
 
   locales: {
@@ -48,6 +60,7 @@ export default defineConfig({
             { text: 'AI-Assisted Adoption', link: '/guide/ai-adoption' },
             { text: 'Checks & Config Reference', link: '/guide/reference' },
             { text: 'Field-Tested Setups', link: '/guide/field-tested' },
+            { text: 'Prior Art & Differences', link: '/guide/prior-art' },
             { text: 'Security & Trust', link: '/guide/security' },
           ],
           '/philosophy/': [
@@ -81,6 +94,7 @@ export default defineConfig({
             { text: 'AI 協助導入', link: '/zh-TW/guide/ai-adoption' },
             { text: '檢測與組態總表', link: '/zh-TW/guide/reference' },
             { text: '實測相容性', link: '/zh-TW/guide/field-tested' },
+            { text: '相近工具與差異', link: '/zh-TW/guide/prior-art' },
             { text: '安全與信任', link: '/zh-TW/guide/security' },
           ],
           '/zh-TW/philosophy/': [

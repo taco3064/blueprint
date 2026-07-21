@@ -27,4 +27,4 @@
 
 ## 尚未驗證
 
-Remix / React Router 框架模式、Windows 路徑、經 `extends` 鏈繼承的 tsconfig `paths`（偵測遺漏時可以 `--alias` 參數補足）。若您在上述環境執行 Blueprint，無論結果通過與否，[回報 issue](https://github.com/taco3064/blueprint/issues) 都是最有價值的貢獻。
+Remix / React Router 框架模式、Windows 路徑、經 `extends` 鏈繼承的 tsconfig `paths`（偵測遺漏時可以 `--alias` 參數補足）。如果你在上述環境跑過 blueprint，無論結果通過與否，[回報 issue](https://github.com/taco3064/blueprint/issues) 都是最有價值的貢獻。

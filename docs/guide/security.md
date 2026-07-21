@@ -47,10 +47,11 @@ is executed.
 
 - `init --dry-run` prints every effect without touching a file
 - `inspect` and `deps` are read-only (`inspect --update-baseline` writes exactly one
-  declared file: `.blueprint-baseline.json`)
+  declared file: `.blueprint-baseline.json` — and a zero-finding run writes no file at all)
 - Files you own are edited only when they can be rewritten **losslessly**
   (`tsconfig.json` / `jsconfig.json` without comments); anything else — including any
-  existing eslint config — gets a paste-ready snippet, never an overwrite
+  existing eslint config and any hand-written agent contract file — gets a paste-ready
+  snippet, never an overwrite
 - One scoped exception: on a **fresh scaffold** (init generated the blueprint config
   in this very run), init also wires the import alias into the template's
   `vite.config.*` and commented tsconfig — precondition-guarded text edits that only
