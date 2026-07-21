@@ -70,3 +70,14 @@ export default defineBlueprint({
 ```
 
 亦可直接採用內建的預設藍圖 —— `vuePreset()` 與 `reactPreset()` 完整編碼了治理手冊的內容：六個分層、十條核心信念、七條元件形狀軸線、十八條作業守則。上述內容於[工程理念](/zh-TW/philosophy/)章節逐頁記載；所有匯出項目請參閱 [API 文件](/zh-TW/api/)。
+
+preset 回傳的是一個普通的 `Blueprint` 物件，客製化用 spread 即可 —— 注意 `emit` 是 blueprint 的**頂層欄位**，不是 preset 的選項：
+
+```js
+import { reactPreset } from '@kekkai/blueprint';
+
+export default {
+  ...reactPreset({ name: 'my-app', alias: '@' }),
+  emit: { agents: ['claude'], ci: 'github' },
+};
+```

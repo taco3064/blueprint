@@ -82,6 +82,12 @@ describe('authoringBrief', () => {
     expect(brief).toContain('--update-baseline');
   });
 
+  it('sanctions the preset early exit — a starter deserves no ceremony', () => {
+    expect(brief).toContain('Early exit is a legitimate verdict');
+    expect(brief).toContain('(10 source files)'); // the real threshold, interpolated
+    expect(brief).toContain('npx blueprint init --preset');
+  });
+
   it('puts existing intent documents senior to the matrix', () => {
     expect(brief).toContain('Look for existing intent documents first');
     expect(brief).toContain('structure.config.json');

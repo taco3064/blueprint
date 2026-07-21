@@ -11,6 +11,7 @@ import {
   buildStructuralPatterns,
   deriveGlobalRules,
   resolveLayerFiles,
+  resolveTestFiles,
   selfOnlyReexportSelector,
   toArray,
 } from '../emit/lint/patterns';
@@ -96,11 +97,30 @@ export function expectedStructural(
 }
 
 /**
- * One probe file per layer that has any — a single probe would green-light a
- * user entry that swallows the rules of some *other* layer (`files:
- * ['src/services/**']`), the exact scoping the check exists to catch. Still
- * a sample, not a proof: within a layer the first non-test, non-ignored
- * file stands in for all of them.
+ * Derive a concrete path that satisfies `glob` — the synthetic probe for a
+ * layer that holds no files yet. Star and brace shapes synthesize by
+ * construction (a `**` prefix collapses, the first brace alternative is
+ * taken, remaining stars become the probe name — each substitution matches
+ * its own pattern); anything carrying `?` or a character class is not
+ * synthesized at all, so an unusual glob yields no probe, never a wrong one.
+ */
+function syntheticPath(glob: string): string | null {
+  if (/[?[\]]/.test(glob)) return null;
+
+  return glob
+    .replace(/\*\*\//g, '')
+    .replace(/\{([^}]*)\}/g, (_, body: string) => body.split(',')[0])
+    .replace(/\*+/g, '__blueprint_probe__');
+}
+
+/**
+ * One probe per layer — a single probe would green-light a user entry that
+ * swallows the rules of some *other* layer (`files: ['src/services/**']`),
+ * the exact scoping the check exists to catch. A layer with no files yet
+ * gets a *synthetic* probe: `calculateConfigForFile` resolves by pattern
+ * and never touches the filesystem, so the anti-false-green check need not
+ * go blind on the empty repos that most need it (field batch 7). Still a
+ * sample, not a proof: within a layer, one path stands in for all of them.
  */
 function pickProbes(
   scanResult: ScanResult,
@@ -108,22 +128,38 @@ function pickProbes(
 ): { path: string; layer: string }[] {
   const { architecture, framework } = blueprint;
   const ignores = toArray(architecture.layerFilesIgnore ?? []).map(globToRegExp);
+  const tests = resolveTestFiles(architecture.testFiles).map(globToRegExp);
 
   const source = dropTestFiles(scanResult, architecture.testFiles).files.filter(
     (file) => !ignores.some((ignore) => ignore.test(file.path)),
   );
 
   return architecture.layers.flatMap((layer) => {
-    const nets = resolveLayerFiles(
+    const globs = resolveLayerFiles(
       layer.name,
       architecture.layerFiles,
       framework,
       architecture.sourceRoot,
-    ).map(globToRegExp);
+    );
 
+    const nets = globs.map(globToRegExp);
     const hit = source.find((file) => nets.some((net) => net.test(file.path)));
 
-    return hit ? [{ path: hit.path, layer: layer.name }] : [];
+    if (hit) return [{ path: hit.path, layer: layer.name }];
+
+    // The synthetic candidate must sit exactly where a real file would:
+    // inside the net, outside the ignores, and never shaped like a test
+    // file (the emitted entries exempt those, so expectations would lie).
+    const synthetic = globs
+      .map(syntheticPath)
+      .find(
+        (candidate): candidate is string =>
+          candidate !== null
+          && !ignores.some((ignore) => ignore.test(candidate))
+          && !tests.some((test) => test.test(candidate)),
+      );
+
+    return synthetic ? [{ path: synthetic, layer: layer.name }] : [];
   });
 }
 
@@ -201,7 +237,9 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
 
   const probes = pickProbes(scanResult, blueprint);
 
-  if (!probes.length) return { label: `${LABEL} (skipped — no layer files yet)`, ok: true };
+  if (!probes.length) {
+    return { label: `${LABEL} (skipped — no probe derivable from the layer globs)`, ok: true };
+  }
 
   const lost: string[] = [];
 

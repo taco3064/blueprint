@@ -118,6 +118,14 @@ baseline. Deliverables:
 Out of scope: fixing the debt. Existing violations are recorded in the
 baseline and paid down later — do not refactor application code in this pass.
 
+**Early exit is a legitimate verdict.** On a repo at or below the preset
+threshold (${BROWNFIELD_MIN_FILES} source files) whose shape a framework
+preset already fits, the correct conclusion is to run
+\`npx blueprint init --preset\`, wire its outputs, delete this playbook and
+the command file, and stop. Walking the full method on a starter is
+ceremony, not judgment; this playbook earns its cost on repos whose layer
+boundaries have grown fuzzy.
+
 ## Method
 
 1. **Look for existing intent documents first.** An architecture config or doc

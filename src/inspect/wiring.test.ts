@@ -62,13 +62,14 @@ const run = (scanResult: ScanResult, resolved: unknown, throwOn?: 'load' | 'calc
 
 describe('wiringCheck', () => {
   it('passes when every layer\'s structural artifacts survive the merge', async () => {
-    // Two layers hold files → two probes; the fake resolves the same merged
-    // config for both, so it must carry the union of their expectations.
-    const views = expectedStructural(blueprint, 'views');
-    const contexts = expectedStructural(blueprint, 'contexts');
-    const groups = new Set([...views.groups, ...contexts.groups]);
-    const selectors = new Set([...views.selectors, ...contexts.selectors]);
-    const globals = new Set([...views.globals, ...contexts.globals]);
+    // Two layers hold files, two probe synthetically — four probes against
+    // one merged config, so it must carry the union of every expectation.
+    const expected = blueprint.architecture.layers.map((layer) =>
+      expectedStructural(blueprint, layer.name));
+
+    const groups = new Set(expected.flatMap((e) => [...e.groups]));
+    const selectors = new Set(expected.flatMap((e) => [...e.selectors]));
+    const globals = new Set(expected.flatMap((e) => [...e.globals]));
 
     const check = await run(
       // Test and ignored files must not become probes.
@@ -144,10 +145,12 @@ describe('wiringCheck', () => {
     expect(check.ok).toBe(false);
     expect(check.detail).toContain('services: no-restricted-imports lost');
     expect(check.detail).toContain('structural pattern group(s)');
-    expect(check.detail).toContain('blueprint/relative-escape is missing or off');
+    expect(check.detail).toContain('services: blueprint/relative-escape is missing or off');
     expect(check.detail).toContain('ONE');
-    // services OWNS fetch — no global ban is expected for its own layer.
-    expect(check.detail).not.toContain('no-restricted-globals');
+    // services OWNS fetch — no global ban is expected for its own layer
+    // (other layers, probed synthetically, do lose it).
+    expect(check.detail).not.toContain('services: no-restricted-globals');
+    expect(check.detail).toContain('views: no-restricted-globals lost fetch');
   });
 
   it('reports lost selfOnly selectors and globals for a non-owning layer', async () => {
@@ -194,12 +197,6 @@ describe('wiringCheck', () => {
     expect(unwired).toMatchObject({ ok: true });
     expect(unwired.label).toContain('skipped — eslint not wired');
 
-    // Only test / ignored files → nothing to probe with.
-    const empty = await run(scanOf('src/views/skip.gen.ts', 'src/views/a.test.ts'), {});
-
-    expect(empty.ok).toBe(true);
-    expect(empty.label).toContain('skipped — no layer files yet');
-
     const unloadable = await run(scanOf('src/views/Home/index.vue'), {}, 'load');
 
     expect(unloadable.ok).toBe(true);
@@ -209,6 +206,93 @@ describe('wiringCheck', () => {
 
     expect(broken.ok).toBe(true);
     expect(broken.label).toContain('could not resolve the merged config');
+  });
+
+  it('synthesizes probes for empty layers — the empty repo is not exempt', async () => {
+    // No source files at all (batch 7's greenfield): every layer probes via
+    // a synthetic path, so a gutted config still turns red.
+    const gutted = await run(scanOf('src/views/skip.gen.ts', 'src/views/a.test.ts'), {
+      rules: {},
+    });
+
+    expect(gutted.ok).toBe(false);
+    expect(gutted.detail).toContain('views:');
+    expect(gutted.detail).toContain('services:');
+
+    // And an intact merge verifies green — the union of every layer's needs.
+    const layers = ['views', 'contexts', 'stores', 'services'];
+    const expected = layers.map((layer) => expectedStructural(blueprint, layer));
+
+    const survived = await run(scanOf(), {
+      rules: {
+        'blueprint/relative-escape': 'error',
+        'no-restricted-imports': [2, {
+          patterns: expected
+            .flatMap((e) => [...e.groups])
+            .map((group) => ({ group: JSON.parse(group) as string[] })),
+        }],
+        'no-restricted-syntax': [2, ...new Set(expected.flatMap((e) => [...e.selectors]))],
+        'no-restricted-globals': [2, ...new Set(expected.flatMap((e) => [...e.globals]))],
+      },
+    });
+
+    expect(survived.ok).toBe(true);
+    expect(survived.label).not.toContain('skipped');
+  });
+
+  it('drops layers whose globs defeat synthesis or collide with exemptions', async () => {
+    // `?` survives synthesis untransformed, so the candidate fails its own
+    // glob — no probe, and with every layer in that shape, an honest skip.
+    const odd: Blueprint = {
+      ...blueprint,
+      architecture: { ...blueprint.architecture, layerFiles: 'src/{layer}/?.js' },
+    };
+
+    const skipped = await wiringCheck({
+      root: '/repo',
+      blueprint: odd,
+      scanResult: scanOf(),
+      wired: true,
+      load: loader({}),
+    });
+
+    expect(skipped.ok).toBe(true);
+    expect(skipped.label).toContain('no probe derivable');
+
+    // A synthetic candidate shaped like a test file would lie (the emitted
+    // entries exempt tests) — it is discarded instead.
+    const testShaped: Blueprint = {
+      ...blueprint,
+      architecture: { ...blueprint.architecture, layerFiles: 'src/{layer}/**/*.test.js' },
+    };
+
+    const discarded = await wiringCheck({
+      root: '/repo',
+      blueprint: testShaped,
+      scanResult: scanOf(),
+      wired: true,
+      load: loader({}),
+    });
+
+    expect(discarded.label).toContain('no probe derivable');
+
+    // An ignore pattern swallowing a layer removes only that layer's probe.
+    const ignoreViews: Blueprint = {
+      ...blueprint,
+      architecture: { ...blueprint.architecture, layerFilesIgnore: 'src/views/**' },
+    };
+
+    const partial = await wiringCheck({
+      root: '/repo',
+      blueprint: ignoreViews,
+      scanResult: scanOf(),
+      wired: true,
+      load: loader({ rules: {} }),
+    });
+
+    expect(partial.ok).toBe(false);
+    expect(partial.detail).not.toContain('views:');
+    expect(partial.detail).toContain('services:');
   });
 });
 

@@ -344,6 +344,37 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
     expect(doctor.code).toBe(0);
   });
 
+  it('verifies an EMPTY repo through synthetic probes — no skip, no blind spot', async () => {
+    const bare = (eslintConfig: string): RepoSpec => ({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(selfOnly),
+        'jsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+        }),
+        'eslint.config.mjs': eslintConfig,
+      },
+    });
+
+    // Batch 7's irony: the anti-false-green tool used to go blind exactly
+    // where nothing exists yet. Intact wiring now VERIFIES green…
+    const green = await cli(repo(bare(wiredEslintConfig(selfOnly))), ['doctor']);
+
+    expect(green.output).toContain('✓ emitted rules survive the merged eslint config\n');
+    expect(green.output).not.toContain('skipped');
+
+    // …and a gutted layer turns red with zero files on disk.
+    const gutting
+      = '  { "files": ["src/views/**/*.js"], '
+        + '"rules": { "no-restricted-syntax": ["error", "WithStatement"] } },';
+
+    const red = await cli(repo(bare(wiredEslintConfig(selfOnly, gutting))), ['doctor']);
+
+    expect(red.code).toBe(1);
+    expect(red.output).toContain('✗ emitted rules survive the merged eslint config');
+    expect(red.output).toContain('views: no-restricted-syntax lost 1 selfOnly selector(s)');
+  });
+
   it('turns red when a later entry silently guts one layer', async () => {
     const gutting
       = '  { "files": ["src/views/**/*.jsx"], '

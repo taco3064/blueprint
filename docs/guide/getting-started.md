@@ -83,3 +83,15 @@ Or start from a canonical preset — `vuePreset()` / `reactPreset()` encode the 
 governance handbook: six layers, ten principles, seven component-shape axes, and an
 eighteen-rule working playbook. That content is documented page by page in
 [Philosophy](/philosophy/); see the [API Reference](/api/) for every export.
+
+Presets return a plain `Blueprint`, so customization is a spread — note that
+`emit` is a **top-level field** of the blueprint, not a preset option:
+
+```js
+import { reactPreset } from '@kekkai/blueprint';
+
+export default {
+  ...reactPreset({ name: 'my-app', alias: '@' }),
+  emit: { agents: ['claude'], ci: 'github' },
+};
+```
