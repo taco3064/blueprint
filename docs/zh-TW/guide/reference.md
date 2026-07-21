@@ -53,6 +53,8 @@
 
 其餘任何識別碼（例如 `deadCode`）都屬於文件性質：會寫進手冊與 AI Agent 守則，作為 Agent 必須持守的判斷，但不會被說成硬性關卡。這個劃分就是[三級落點](/zh-TW/philosophy/#三級落點)的機制。
 
+一個實戰會咬人的範圍細節：**`emit.lint.severity` 只蓋結構家族**（`no-restricted-imports` / `-syntax` / `-globals` 與 `blueprint/relative-escape`）。上表每條規則都吃自己的 `blueprint.rules` tier —— severity 設 `warn` **不會**讓 `maxLines` 或 `unusedVars` 變安靜。
+
 ## 快速上手範例以外的 config 欄位
 
 [快速上手](/zh-TW/guide/getting-started#blueprint-config)的 `defineBlueprint` 範例涵蓋核心欄位。其餘欄位一覽如下 —— 完整結構見 [API 文件](/zh-TW/api/)：
@@ -67,7 +69,7 @@
 | `layer.module` | 逐層覆寫共用的模組形狀 —— 例如某一分層採資料夾模組、其餘維持單檔 |
 | `layer.lintOverrides` | 逐層的 ESLint 調整（三條受管規則除外） |
 | `emit.agents` | Agent 守則的發佈目標：`claude`、`agents`、`gemini`、`copilot`、`cursor`、`windsurf`（可逐目標指定 `path`）。預設 `['claude', 'agents']`；空陣列就不產出 |
-| `emit.handbook` / `emit.ci` / `emit.lint` | 手冊輸出路徑 · CI 供應商（`github` / `none`）· lint config 路徑與受管規則等級 |
+| `emit.handbook` / `emit.ci` / `emit.lint` | 手冊輸出路徑 · CI 供應商（`github` / `none`）· lint config 路徑＋**結構規則**的等級（度量規則吃自己的 `rules` tier） |
 
 ## 命令列旗標
 

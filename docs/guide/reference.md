@@ -64,6 +64,12 @@ Any **other** id (e.g. `deadCode`) is documentation: it lands in the handbook an
 agent contract as a judgment the agent must hold, and is never presented as a hard
 gate. That split is the [three-tier landing](/philosophy/#the-three-tier-landing).
 
+One scope note that bites in practice: **`emit.lint.severity` covers only the
+structural family** (`no-restricted-imports` / `-syntax` / `-globals` and
+`blueprint/relative-escape`). Every rule in the table above keeps its own
+`blueprint.rules` tier — setting severity to `warn` does **not** quiet `maxLines` or
+`unusedVars`.
+
 ## Config fields beyond the quick-start example
 
 The `defineBlueprint` example in [Getting Started](/guide/getting-started#the-blueprint)
@@ -80,7 +86,7 @@ shows the core. The rest, one line each — full shapes in the
 | `layer.module` | Per-layer override of the shared module shape — e.g. folder modules in one layer, flat everywhere else |
 | `layer.lintOverrides` | Per-layer ESLint tweaks (the three managed rules excluded) |
 | `emit.agents` | Contract distribution targets: `claude`, `agents`, `gemini`, `copilot`, `cursor`, `windsurf` (+ per-target `path`). Default `['claude', 'agents']`; `[]` emits none |
-| `emit.handbook` / `emit.ci` / `emit.lint` | Output path for the handbook · CI provider (`github` / `none`) · lint config path + managed-rule severity |
+| `emit.handbook` / `emit.ci` / `emit.lint` | Output path for the handbook · CI provider (`github` / `none`) · lint config path + severity of the **structural** rules only (metric rules keep their `rules` tiers) |
 
 ## CLI flags
 

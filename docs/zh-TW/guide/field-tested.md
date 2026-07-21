@@ -19,7 +19,7 @@
 
 - **Next.js**：`init` 會偵測路由樹（`app/` 與／或 `pages/`，位於 `src/` 或專案根），產出 `nextPreset` —— 路由目錄即頂層、扁平模組配置，且**不設 `fetch` 歸屬**（server component 本就到處 fetch，強加限制即為造假）。兩種 router 收斂為同一形態；匯入皆為顯式，依賴圖真實、強制有效。
 - **Vue 單檔元件**：`<script setup>` 的匯入與一般原始碼相同納入掃描；Vite 起始範本需將三處資源匯入改走匯入別名。
-- **Legacy ESLint（`.eslintrc` / v8）**：導入成本會從「跑個指令」跳成「一次遷移決策」—— flat-config 遷移由你拍板。避開懸崖的坡道：以 severity `'warn'` 接上 `emitLint`，讓 `inspect --baseline` 當唯一硬關卡；見[一本帳，不要兩本](/zh-TW/guide/ai-adoption#既有-eslint-——-一本帳-不要兩本)。
+- **Legacy ESLint（`.eslintrc` / v8）**：導入成本會從「跑個指令」跳成「一次遷移決策」—— flat-config 遷移由你拍板，且 ESLint 原生的 suppressions 帳本需要 ≥ 9.24。遷移前的過渡姿勢是 severity `'warn'`（代價：新的度量債不擋）；完整 doctrine 見[弄紅，然後上棘輪](/zh-TW/guide/ai-adoption#既有債務-——-弄紅-然後上棘輪)。
 - **上游 plugin 的規則漂移**：規則改名（例如 typescript-eslint v8 把 `no-var-requires` 併進 `no-require-imports`）會讓舊的 disable 註解在合併途中變 stale —— 只有真的跑起 lint 才會浮現；逐條當合併決策處理，不是 blocker。
 - **既有結構治理工具並存**（structure-lint、dependency-cruiser）：將 Blueprint 接於其後時，同名規則由 Blueprint 的語意接管（已於實測專案證實等價）；治理工具的整併列為團隊決策事項，不擅自執行。
 

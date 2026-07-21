@@ -60,7 +60,8 @@ then execute the blueprint-authoring.md it writes, fully and to the end.
 Acceptance — `blueprint doctor` passes, plus:
 - lint, `inspect --baseline`, and the existing tests all pass
 - emitLint genuinely wired into ESLint (no leftover reference files)
-- no source edits — lock violations into the baseline, no eslint suppressions
+- no source edits — lock existing debt: `inspect --update-baseline` for
+  architecture, `eslint --suppress-all` for lint
 ```
 
 `--authoring` guarantees the playbook is written even on a small repo (plain `init`
@@ -86,6 +87,8 @@ npx @kekkai/blueprint doctor
 - **eslint wired to emitLint** — and a legacy `.eslintrc` is flagged to migrate first,
   never silently left half-adopted
 - **architecture clean** — no findings outside the baseline
+- **lint suppressions ledger current** — stale entries in `eslint-suppressions.json`
+  (files that no longer exist) fail the check
 
 `--json` emits the same checklist for tooling.
 
@@ -113,21 +116,27 @@ agent that gives up midway, degrades to exactly the manual path — the same pla
 walked by you. `inspect` is read-only, `init` is idempotent, and the baseline is only
 written at the final step, so there is no half-adopted state to clean up.
 
-## Legacy ESLint — one ledger, never two
+## Existing debt — turn it red, then ratchet it
 
-`emitLint` emits a flat config at severity `error`. On a repo with existing structural
-violations — worse, one still on ESLint 8 / `.eslintrc` — "wired + green + no source
-edits" cannot all hold at once. The sanctioned ramp:
+Adoption's job is to make debt visible and lock it, not to quiet the screen. On a repo
+with existing violations, keep severity at `error` and lock each side of the debt in
+its **native ledger**:
 
-- set `emit: { lint: { severity: 'warn' } }` — the structural rules reach every editor
-  as warnings, and nothing turns red
-- let `inspect --baseline` be the **single debt ledger** — one format, one ratchet,
-  the only hard gate in CI
-- flip severity back to `'error'` when the baseline reaches zero
+- **architecture debt** → `npx blueprint inspect --update-baseline`
+  (`.blueprint-baseline.json` — the ratchet you already know)
+- **lint debt** (maxLines, unusedVars…) → `npx eslint . --suppress-all`
+  (ESLint ≥ 9.24 bulk suppressions — counted per file × rule, so **new** violations
+  still fail)
 
-Never lock the same debt twice (eslint suppressions *and* the blueprint baseline —
-two ledgers drift apart). A legacy-format config's flat-config migration stays a
-decision item for you, never something the playbook does unilaterally.
+CI then gates on both — `eslint` and `blueprint inspect --baseline` — and each blocks
+only *new* debt. Two files, one discipline: `blueprint doctor` verifies neither ledger
+has gone stale.
+
+Still on ESLint 8, or a legacy `.eslintrc`? Suppressions need ESLint ≥ 9.24 + flat
+config, and that migration is your call, never the playbook's. The **transitional**
+fallback until then: `emit: { lint: { severity: 'warn' } }` — with its cost stated
+plainly: `severity` covers only the structural rules (metric rules like `maxLines`
+keep their own tiers), and while it's warn, new metric debt is not gated.
 
 ## Scope honesty
 

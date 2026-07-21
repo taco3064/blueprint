@@ -34,10 +34,10 @@ which is still frontier.
 - **Vue SFC templates**: `<script setup>` imports are scanned like any other
   source; the vite starter needs its three asset imports moved onto the alias.
 - **Legacy ESLint (`.eslintrc` / v8)**: adoption cost jumps from "run a command" to
-  "a migration decision" — the flat-config migration is yours to call. The ramp that
-  avoids the cliff: wire `emitLint` at severity `'warn'` and keep `inspect --baseline`
-  as the single hard gate; see
-  [one ledger, never two](/guide/ai-adoption#legacy-eslint-—-one-ledger-never-two).
+  "a migration decision" — the flat-config migration is yours to call, and ESLint's
+  native suppressions ledger needs ≥ 9.24. Until then the transitional posture is
+  severity `'warn'` (with new metric debt ungated); the full doctrine:
+  [turn it red, then ratchet it](/guide/ai-adoption#existing-debt-—-turn-it-red-then-ratchet-it).
 - **Pinned-plugin drift**: upstream rule renames (e.g. typescript-eslint v8 folding
   `no-var-requires` into `no-require-imports`) can turn old disable comments stale
   mid-merge — it only surfaces when the wired lint actually runs; treat each as a
