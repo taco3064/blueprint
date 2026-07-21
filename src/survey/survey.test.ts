@@ -127,6 +127,8 @@ describe('runSurvey', () => {
 
     expect(result.aliases).toEqual({ '@': 'src' });
     expect(output).toContain('Import matrix');
+    // The matrix counts test files while inspect skips them — say so in place.
+    expect(output).toContain('inspect excludes them, so its counts run lower');
     expect(output).toContain('pages → components');
     expect(output).toContain('Same-folder imports via the alias');
     expect(output).toContain('ownership candidates');

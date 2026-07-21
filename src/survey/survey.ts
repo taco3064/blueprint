@@ -311,7 +311,11 @@ export function renderSurvey(result: SurveyResult): string {
     );
   }
 
-  lines.push('', 'Import matrix (cross-folder, heaviest first):');
+  lines.push(
+    '',
+    'Import matrix (cross-folder, heaviest first — includes test files;',
+    'inspect excludes them, so its counts run lower):',
+  );
 
   for (const edge of result.edges) {
     lines.push(`  ${String(edge.count).padStart(4)}  ${edge.from} → ${edge.to}`);

@@ -96,6 +96,20 @@ describe('authoringBrief', () => {
     expect(brief).toContain('findings explosion');
   });
 
+  it('downgrades stale intent clauses instead of trusting documents blindly', () => {
+    expect(brief).toContain('cross-check every translated clause');
+    expect(brief).toContain('record the conflict in your report');
+  });
+
+  it('states the lint semantics up front so nobody reverse-engineers the bundle', () => {
+    expect(brief).toContain('## Semantics the linter holds you to');
+    expect(brief).toContain('same-layer *relative*');
+    expect(brief).toContain('blueprint/relative-escape');
+    expect(brief).toContain('Same-folder imports via the alias');
+    expect(brief).toContain('argsIgnorePattern');
+    expect(brief).toContain('eslint wired');
+  });
+
   it('embeds the survey evidence and the schema sketch', () => {
     expect(brief).toContain('resources → components');
     expect(brief).toContain('~root/…'); // the unresolved-alias hint travels with the evidence

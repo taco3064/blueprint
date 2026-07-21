@@ -22,7 +22,8 @@ npx @kekkai/blueprint init
 Instead of guessing a preset, init surveys the code and writes:
 
 - **`blueprint-authoring.md`** — an executable playbook: the survey evidence, the
-  authoring method, the config schema sketch, and the acceptance gates
+  authoring method, the emitted-rule semantics (flat vs folder layout, what the
+  wiring will flag), the config schema sketch, and the acceptance gates
 - **`.claude/commands/blueprint-author.md`** — so Claude Code users can just type
   `/blueprint-author`
 
@@ -105,7 +106,8 @@ npx @kekkai/blueprint survey --json   # for tooling / agents
 - top-level folders with **module-shape evidence** (index coverage, nesting depth —
   the folder-vs-flat call)
 - the **folder-to-folder import matrix**, heaviest edges first — the intended flow
-  direction, and the counter-edges that are debt
+  direction, and the counter-edges that are debt (the matrix counts test files;
+  `inspect` excludes them, so its numbers run lower)
 - **package-usage concentration** — `owns` candidates
 - test-convention hits — what belongs in `testFiles`, not in `layers`
 

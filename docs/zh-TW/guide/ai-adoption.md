@@ -18,7 +18,7 @@ npx @kekkai/blueprint init
 
 init 不會硬套預設藍圖，而是掃描程式碼後產出：
 
-- **`blueprint-authoring.md`** —— 可執行的導入作業手冊：蒐證數據、推導方法、config 結構速覽與驗收條件
+- **`blueprint-authoring.md`** —— 可執行的導入作業手冊：蒐證數據、推導方法、規則語意（扁平／資料夾式模組的判定、接線後會咬到什麼）、config 結構速覽與驗收條件
 - **`.claude/commands/blueprint-author.md`** —— Claude Code 使用者可直接輸入 `/blueprint-author` 啟動
 
 接著交給 AI Agent 執行：
@@ -80,7 +80,7 @@ npx @kekkai/blueprint survey --json   # 供工具或 Agent 讀取
 ```
 
 - 頂層資料夾清單與**模組形狀證據**（`index` 檔覆蓋率、巢狀深度 —— 作為判斷資料夾式或扁平式模組的依據）
-- **資料夾之間的匯入關係矩陣**，依匯入次數由高至低排列 —— 呈現設計意圖中的依賴方向，以及屬於債務的逆向依賴
+- **資料夾之間的匯入關係矩陣**，依匯入次數由高至低排列 —— 呈現設計意圖中的依賴方向，以及屬於債務的逆向依賴（矩陣含測試檔；`inspect` 不含，所以 inspect 的數字會較低）
 - **套件集中度** —— 作為 `owns`（套件歸屬）宣告的候選依據
 - 測試檔慣例統計 —— 應歸入 `testFiles` 而非 `layers` 的項目
 

@@ -127,6 +127,10 @@ baseline and paid down later — do not refactor application code in this pass.
    *does*, those documents say what it *should* do. They also carry what the
    matrix cannot — the position of empty (zero-file) layers, selfOnly-style
    constraints, and ownership rules. Translate them; use the matrix to verify.
+   Documents also go stale: cross-check every translated clause against the
+   survey below. Where they disagree, the document governs *intent* (layer
+   order, ownership) and the code governs *shape* (module layout) — downgrade
+   the stale clause and record the conflict in your report.
 2. **Study the survey evidence below.** Every number is deterministic fact
    from this repo; do not re-derive it by grepping.
 3. **Decide what is a layer.** Top-level folders under \`src/\` are candidates;
@@ -187,6 +191,27 @@ baseline and paid down later — do not refactor application code in this pass.
      structure-lint, dependency-cruiser), say so in the report: blueprint's
      lint layer duplicates it, and consolidating onto one gate is a scope
      decision for the user — flag it, don't decide it.
+
+## Semantics the linter holds you to
+
+Facts about the emitted rules that drive authoring decisions — stated here so
+you never have to reverse-engineer them from the bundle:
+
+- **Flat layout:** the module is the whole layer, so same-layer *relative*
+  imports are always legal. The alias is for crossing layers — a same-layer
+  import through the alias becomes an error the moment the lint is wired.
+- **Folder layout:** a module is one child folder; other modules are
+  reachable only through their entry file, and \`../\` escapes are caught at
+  any depth by the embedded \`blueprint/relative-escape\` rule.
+- **Pre-wiring check:** the survey's "Same-folder imports via the alias"
+  count is exactly how many errors the wiring will introduce — rewrite them
+  as relative imports first, or they land in the suppressions ledger.
+- **\`unusedVars\`** emits with \`argsIgnorePattern: '^_'\` and nothing else:
+  \`_\`-prefixed *arguments* are exempt; unused variables and catch
+  parameters are not.
+- **\`doctor\`'s "eslint wired" check** passes when the eslint config's text
+  references \`@kekkai/blueprint\` (or the config is the generated file
+  itself).
 
 ## Config schema sketch
 
