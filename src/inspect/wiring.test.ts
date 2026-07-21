@@ -32,16 +32,19 @@ const scanOf = (...paths: string[]): ScanResult => ({
 });
 
 /** A fake project-eslint whose final resolved config is programmable. */
-function loader(resolved: unknown, throwOn?: 'load' | 'calculate') {
+function loader(
+  resolved: unknown | ((filePath: string) => unknown),
+  throwOn?: 'load' | 'calculate',
+) {
   return async (): Promise<unknown> => {
     if (throwOn === 'load') throw new Error('unresolvable');
 
     return {
       ESLint: class {
-        async calculateConfigForFile(): Promise<unknown> {
+        async calculateConfigForFile(filePath: string): Promise<unknown> {
           if (throwOn === 'calculate') throw new Error('broken config');
 
-          return resolved;
+          return typeof resolved === 'function' ? resolved(filePath) : resolved;
         }
       },
     };
@@ -58,32 +61,68 @@ const run = (scanResult: ScanResult, resolved: unknown, throwOn?: 'load' | 'calc
   });
 
 describe('wiringCheck', () => {
-  it('passes when every emitted structural artifact survives the merge', async () => {
-    const expected = expectedStructural(blueprint, 'views');
+  it('passes when every layer\'s structural artifacts survive the merge', async () => {
+    // Two layers hold files → two probes; the fake resolves the same merged
+    // config for both, so it must carry the union of their expectations.
+    const views = expectedStructural(blueprint, 'views');
+    const contexts = expectedStructural(blueprint, 'contexts');
+    const groups = new Set([...views.groups, ...contexts.groups]);
+    const selectors = new Set([...views.selectors, ...contexts.selectors]);
+    const globals = new Set([...views.globals, ...contexts.globals]);
 
     const check = await run(
-      // Test and ignored files must not become the probe.
-      scanOf('src/views/Home/x.test.ts', 'src/views/skip.gen.ts', 'src/views/Home/index.vue'),
+      // Test and ignored files must not become probes.
+      scanOf(
+        'src/views/Home/x.test.ts',
+        'src/views/skip.gen.ts',
+        'src/views/Home/index.vue',
+        'src/contexts/user/index.ts',
+      ),
       {
         rules: {
           // Bare-string severity — the non-array shape of an active rule.
           'blueprint/relative-escape': 'error',
           'no-restricted-imports': [2, {
-            patterns: [...expected.groups].map((group) => ({
+            patterns: [...groups].map((group) => ({
               group: JSON.parse(group) as string[],
               message: 'restated by the user, message drift is fine',
             })),
           }],
           // User keeps their own selector next to blueprint's — containment,
           // not equality: extra entries are the user's business.
-          'no-restricted-syntax': [2, ...expected.selectors, 'CallExpression[callee.name=Date]'],
+          'no-restricted-syntax': [2, ...selectors, 'CallExpression[callee.name=Date]'],
           // Bare-string globals — the other shape the resolver must read.
-          'no-restricted-globals': [2, ...expected.globals],
+          'no-restricted-globals': [2, ...globals],
         },
       },
     );
 
     expect(check).toEqual({ label: 'emitted rules survive the merged eslint config', ok: true });
+  });
+
+  it('probes every layer — a scoped override cannot hide behind the first one', async () => {
+    const views = expectedStructural(blueprint, 'views');
+
+    const survived = {
+      rules: {
+        'blueprint/relative-escape': 'error',
+        'no-restricted-imports': [2, {
+          patterns: [...views.groups].map((group) => ({ group: JSON.parse(group) as string[] })),
+        }],
+        'no-restricted-syntax': [2, ...views.selectors],
+        'no-restricted-globals': [2, ...views.globals],
+      },
+    };
+
+    // The user's entry guts only `src/services/**` — views alone looks fine.
+    const check = await run(
+      scanOf('src/views/Home/index.vue', 'src/services/api/index.ts'),
+      (filePath: string) => (filePath.includes('services') ? { rules: {} } : survived),
+    );
+
+    expect(check.ok).toBe(false);
+    expect(check.detail).toContain('services: no-restricted-imports lost');
+    expect(check.detail).not.toContain('views:');
   });
 
   it('names every loss when a later entry replaced the managed rules', async () => {
@@ -103,9 +142,9 @@ describe('wiringCheck', () => {
     );
 
     expect(check.ok).toBe(false);
+    expect(check.detail).toContain('services: no-restricted-imports lost');
     expect(check.detail).toContain('structural pattern group(s)');
     expect(check.detail).toContain('blueprint/relative-escape is missing or off');
-    expect(check.detail).toContain('src/services/api/index.ts');
     expect(check.detail).toContain('ONE');
     // services OWNS fetch — no global ban is expected for its own layer.
     expect(check.detail).not.toContain('no-restricted-globals');

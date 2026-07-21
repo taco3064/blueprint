@@ -95,11 +95,17 @@ export function expectedStructural(
   };
 }
 
-/** First non-test, non-ignored source file inside a declared layer's globs. */
-function pickProbe(
+/**
+ * One probe file per layer that has any — a single probe would green-light a
+ * user entry that swallows the rules of some *other* layer (`files:
+ * ['src/services/**']`), the exact scoping the check exists to catch. Still
+ * a sample, not a proof: within a layer the first non-test, non-ignored
+ * file stands in for all of them.
+ */
+function pickProbes(
   scanResult: ScanResult,
   blueprint: Blueprint,
-): { path: string; layer: string } | null {
+): { path: string; layer: string }[] {
   const { architecture, framework } = blueprint;
   const ignores = toArray(architecture.layerFilesIgnore ?? []).map(globToRegExp);
 
@@ -107,7 +113,7 @@ function pickProbe(
     (file) => !ignores.some((ignore) => ignore.test(file.path)),
   );
 
-  for (const layer of architecture.layers) {
+  return architecture.layers.flatMap((layer) => {
     const nets = resolveLayerFiles(
       layer.name,
       architecture.layerFiles,
@@ -117,10 +123,8 @@ function pickProbe(
 
     const hit = source.find((file) => nets.some((net) => net.test(file.path)));
 
-    if (hit) return { path: hit.path, layer: layer.name };
-  }
-
-  return null;
+    return hit ? [{ path: hit.path, layer: layer.name }] : [];
+  });
 }
 
 /** A resolved rule's option list, or null when absent / severity off. */
@@ -195,18 +199,23 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
 
   if (!wired) return { label: `${LABEL} (skipped — eslint not wired)`, ok: true };
 
-  const probe = pickProbe(scanResult, blueprint);
+  const probes = pickProbes(scanResult, blueprint);
 
-  if (!probe) return { label: `${LABEL} (skipped — no layer files yet)`, ok: true };
+  if (!probes.length) return { label: `${LABEL} (skipped — no layer files yet)`, ok: true };
 
-  let rules: Record<string, unknown>;
+  const lost: string[] = [];
 
   try {
     const { ESLint } = unwrapModule<EslintApi>(await load('eslint', root));
     const eslint = new ESLint({ cwd: root });
-    const resolved = await eslint.calculateConfigForFile(path.join(root, probe.path));
 
-    rules = (resolved as { rules?: Record<string, unknown> })?.rules ?? {};
+    for (const probe of probes) {
+      const config = await eslint.calculateConfigForFile(path.join(root, probe.path));
+      const rules = (config as { rules?: Record<string, unknown> })?.rules ?? {};
+
+      lost.push(...losses(expectedStructural(blueprint, probe.layer), resolvedStructural(rules))
+        .map((loss) => `${probe.layer}: ${loss}`));
+    }
   } catch {
     // Unresolvable config = the project's own lint is broken or eslint is
     // not loadable here; that gate speaks for itself — doctor stays honest
@@ -214,37 +223,42 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
     return { label: `${LABEL} (skipped — could not resolve the merged config)`, ok: true };
   }
 
-  const expected = expectedStructural(blueprint, probe.layer);
-  const resolved = resolvedStructural(rules);
+  if (!lost.length) return { label: LABEL, ok: true };
+
+  return {
+    label: LABEL,
+    ok: false,
+    detail: `${lost.join('; ')} — a later flat-config entry replaced the rule, and flat `
+      + 'config never merges: combine both option sets into ONE entry, then re-run doctor',
+  };
+}
+
+/** What the merge dropped, per artifact family. */
+function losses(
+  expected: ReturnType<typeof expectedStructural>,
+  resolved: ReturnType<typeof resolvedStructural>,
+): string[] {
   const lost: string[] = [];
 
-  const missingGroups = [...expected.groups].filter((group) => !resolved.groups.has(group));
-  const missingSelectors = [...expected.selectors].filter((s) => !resolved.selectors.has(s));
-  const missingGlobals = [...expected.globals].filter((name) => !resolved.globals.has(name));
+  const groups = [...expected.groups].filter((group) => !resolved.groups.has(group));
+  const selectors = [...expected.selectors].filter((s) => !resolved.selectors.has(s));
+  const globals = [...expected.globals].filter((name) => !resolved.globals.has(name));
 
-  if (missingGroups.length) {
-    lost.push(`no-restricted-imports lost ${missingGroups.length} structural pattern group(s)`);
+  if (groups.length) {
+    lost.push(`no-restricted-imports lost ${groups.length} structural pattern group(s)`);
   }
 
-  if (missingSelectors.length) {
-    lost.push(`no-restricted-syntax lost ${missingSelectors.length} selfOnly selector(s)`);
+  if (selectors.length) {
+    lost.push(`no-restricted-syntax lost ${selectors.length} selfOnly selector(s)`);
   }
 
-  if (missingGlobals.length) {
-    lost.push(`no-restricted-globals lost ${missingGlobals.join(', ')}`);
+  if (globals.length) {
+    lost.push(`no-restricted-globals lost ${globals.join(', ')}`);
   }
 
   if (!resolved.relativeEscape) {
     lost.push('blueprint/relative-escape is missing or off');
   }
 
-  if (!lost.length) return { label: LABEL, ok: true };
-
-  return {
-    label: LABEL,
-    ok: false,
-    detail: `${lost.join('; ')} (checked against ${probe.path}) — a later flat-config entry `
-      + 'replaced the rule, and flat config never merges: combine both option sets into ONE '
-      + 'entry, then re-run doctor',
-  };
+  return lost;
 }
