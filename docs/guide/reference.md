@@ -6,7 +6,7 @@ page is the map.
 
 ## What `inspect` reports
 
-Nine finding kinds. Any `error`-level finding exits `1`; `warn` and `info` inform
+Ten finding kinds. Any `error`-level finding exits `1`; `warn` and `info` inform
 without failing the gate. Test files (`architecture.testFiles`) are exempt throughout.
 
 | Rule | Severity | What it catches |
@@ -20,6 +20,7 @@ without failing the gate. Test files (`architecture.testFiles`) are exempt throu
 | `cycle` | error | A module-level import cycle, with the full path listed |
 | `no-entry` | warn | A folder module without its public entry file — nothing is importable from outside |
 | `missing-layer` | info | A declared layer that has no folder on disk yet |
+| `declaratory-self-only` | info | A `selfOnly` ban protecting a layer that holds no files — the re-export ban cannot fire until code lands |
 
 On brownfield repos the [baseline ratchet](/guide/getting-started#brownfield-—-blueprint-inspect)
 turns this list into "fail only on *new* findings".

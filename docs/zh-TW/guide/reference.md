@@ -4,7 +4,7 @@
 
 ## `inspect` 回報的檢測項目
 
-共九種檢測。只要有 `error` 等級的違規，就以 exit code 1 結束；`warn` 與 `info` 只提示、不影響檢核結果。測試檔案（`architecture.testFiles`）一律豁免。
+共十種檢測。只要有 `error` 等級的違規，就以 exit code 1 結束；`warn` 與 `info` 只提示、不影響檢核結果。測試檔案（`architecture.testFiles`）一律豁免。
 
 | 規則 | 等級 | 檢測內容 |
 | --- | --- | --- |
@@ -17,6 +17,7 @@
 | `cycle` | error | 模組層級的循環匯入，並列出完整路徑 |
 | `no-entry` | warn | 資料夾模組缺少公開入口檔 —— 外部無從匯入 |
 | `missing-layer` | info | 已宣告的分層尚無對應資料夾 |
+| `declaratory-self-only` | info | `selfOnly` 保護的分層還沒有任何檔案 —— 再匯出禁令是宣告性的，要等 code 進來才會真正生效 |
 
 既有專案可透過 [baseline 棘輪](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect)，把這份清單轉成「只攔新增的違規」。
 

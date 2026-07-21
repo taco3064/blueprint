@@ -42,12 +42,37 @@ describe('analyze · folders', () => {
     expect(rulesFor([file(['components', 'Button', 'Button.ts'])])).toContain('no-entry');
     expect(rulesFor([file(['components', 'Card', 'index.ts'])])).not.toContain('no-entry');
   });
+
+  it('notes a declaratory selfOnly — code elsewhere, the protected layer empty (batch 12)', () => {
+    // contexts declares a selfOnly importer (hooks); with real code in the
+    // repo but none in contexts, the re-export ban is a blank round.
+    const withCode = analyze(scanOf([file(['components', 'Card', 'index.ts'])]), bp);
+    const note = withCode.find((entry) => entry.rule === 'declaratory-self-only');
+
+    expect(note).toMatchObject({ severity: 'info', path: 'src/contexts' });
+    expect(note?.message).toContain('cannot fire yet');
+    expect(note?.message).toContain('hooks');
+
+    // Files inside the protected layer arm the ban — the note disappears.
+    const armed = rulesFor([
+      file(['components', 'Card', 'index.ts']),
+      file(['contexts', 'Auth', 'index.ts']),
+    ]);
+
+    expect(armed).not.toContain('declaratory-self-only');
+
+    // An empty scaffold stays quiet — the coverage line already owns that story.
+    expect(analyze(scanOf([]), bp)).toEqual([]);
+  });
 });
 
 describe('analyze · imports', () => {
-  // Use the entry file so no-entry never pollutes the empty-result assertions.
+  // Use the entry file so no-entry never pollutes the empty-result assertions;
+  // contexts holds no files in these one-file fixtures, so its declaratory
+  // selfOnly note is expected background — filtered for the same reason.
   const from = (specifier: string, extra: Partial<ImportRef> = {}) =>
-    rulesFor([file(['components', 'Btn', 'index.ts'], [{ specifier, ...extra }])]);
+    rulesFor([file(['components', 'Btn', 'index.ts'], [{ specifier, ...extra }])])
+      .filter((rule) => rule !== 'declaratory-self-only');
 
   it('flags a forbidden cross-layer import', () => {
     expect(from('~app/services/api')).toContain('flow-violation');

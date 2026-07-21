@@ -1,4 +1,4 @@
-import { getForbiddenLayers, getModuleShape, getSelfOnlyTargets } from '../config';
+import { getForbiddenLayers, getModuleShape, getSelfOnlyTargets, normalizeAllowedImporters } from '../config';
 import type { ArchitectureDef, Blueprint } from '../config';
 import { dropTestFiles } from './filter';
 import {
@@ -64,6 +64,27 @@ function folderFindings(
         rule: 'missing-layer',
         path: `src/${name}`,
         message: `Declared layer "${name}" has no folder yet.`,
+      });
+    }
+  }
+
+  // A selfOnly ban protecting a layer nobody's code inhabits is declaratory:
+  // the emitted re-export selector can never fire. Whoever is defusing that
+  // rule's merge collision deserves to know the bomb is currently a blank
+  // (field batch 12) — info, because intent declared early is not a defect.
+  // Guarded to repos that hold code at all: on an empty scaffold every layer
+  // is a blank, and the coverage line already says so.
+  for (const layer of scan.files.length ? architecture.layers : []) {
+    const selfOnlyImporters = normalizeAllowedImporters(layer.allowedImporters)
+      .filter((importer) => importer.selfOnly)
+      .map((importer) => importer.layer);
+
+    if (selfOnlyImporters.length && !scan.files.some((file) => file.segments[0] === layer.name)) {
+      findings.push({
+        severity: 'info',
+        rule: 'declaratory-self-only',
+        path: `src/${layer.name}`,
+        message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands.`,
       });
     }
   }

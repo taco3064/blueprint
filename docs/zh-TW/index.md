@@ -49,7 +49,7 @@ features:
     linkText: 看導入流程
   - icon: 🔎
     title: 驗證
-    details: 讀同一份 config 的唯讀指令 —— inspect 裁決架構（九種檢測、可進 CI），deps 回答「改這個模組會波及誰」。
+    details: 讀同一份 config 的唯讀指令 —— inspect 裁決架構（十種檢測、可進 CI），deps 回答「改這個模組會波及誰」。
     link: /zh-TW/guide/features#檢測-——-會被攔下的
     linkText: 看會攔下什麼
 ---
