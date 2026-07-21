@@ -264,9 +264,10 @@ the answer belongs in this playbook — note the gap in your report instead.
      doctor's survival check fails. There, consolidation stops being a
      scope decision and becomes a wiring precondition; do it, and name
      which gate won in the report. And when a tool IS retired, sweep its
-     footprint in the same pass: grep the repo for its name — docs, README,
-     code comments, agent skills and commands all go stale the moment its
-     config file is deleted — and update or remove every pointer you find.
+     footprint in the same pass: run \`npx blueprint retire <its-name>\` —
+     docs, README, code comments, agent skills and commands all go stale
+     the moment its config file is deleted; the sweep lists every stale
+     pointer and exits 0 only when the repo is clean.
 
 ## Semantics the linter holds you to
 

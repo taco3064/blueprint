@@ -102,6 +102,7 @@ shows the core. The rest, one line each — full shapes in the
 | `impact` | `--framework vue\|react` · `--json` |
 | `deps [module]` | `--framework vue\|react` · `--json` |
 | `rules` | `--framework vue\|react` · `--json` |
+| `retire <name>` | `--json` |
 | `doctor` | `--framework vue\|react` · `--json` |
 
 Every command also answers `--help`; the bare CLI answers `--version`.

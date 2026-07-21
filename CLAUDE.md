@@ -24,7 +24,7 @@ ideas below do.
 ## Layering (one-way, low → high)
 
 `config` → `markdown` → `plugin` → `emit/*` → `presets` → `project` →
-`inspect` → `survey` / `impact` → `bootstrap` → `cli`. A module imports only
+`inspect` → `survey` / `impact` / `retire` → `bootstrap` → `cli`. A module imports only
 from lower ones (survey reads inspect's scan; bootstrap embeds the survey in
 its authoring playbook).
 `project` is the shared reader (`detect` + `resolveBlueprint`) for both

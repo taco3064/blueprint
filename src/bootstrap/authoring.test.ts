@@ -171,6 +171,7 @@ describe('authoringBrief', () => {
     // the retired tool's stale footprint (batch 12).
     expect(brief).toContain('`{folder}` placeholder is blueprint\'s');
     expect(brief).toContain('footprint in the same pass');
+    expect(brief).toContain('npx blueprint retire');
   });
 
   it('states the lint semantics up front so nobody reverse-engineers the bundle', () => {

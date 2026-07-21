@@ -84,6 +84,7 @@
 | `impact` | `--framework vue\|react` · `--json` |
 | `deps [module]` | `--framework vue\|react` · `--json` |
 | `rules` | `--framework vue\|react` · `--json` |
+| `retire <name>` | `--json` |
 | `doctor` | `--framework vue\|react` · `--json` |
 
 所有指令都支援 `--help`；CLI 本身支援 `--version`。
