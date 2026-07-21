@@ -33,3 +33,11 @@ export interface ScanResult {
   topDirs: string[];
   files: ScannedFile[];
 }
+
+/** One adoption-completeness check — the unit of the doctor report. */
+export interface DoctorCheck {
+  label: string;
+  ok: boolean;
+  /** What to do about it, when the check failed. */
+  detail?: string;
+}

@@ -1,11 +1,9 @@
-import { createRequire } from 'node:module';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import type { ESLint as EslintNamespace, Linter } from 'eslint';
 
 import { emitLint, resolveLayerFiles } from '../emit/lint';
 import type { LintConfigEntry } from '../emit/lint';
-import { detect, resolveBlueprint } from '../project';
+import { detect, loadProjectModule, resolveBlueprint, unwrapModule } from '../project';
 import type { ResolveOptions } from '../project';
 
 /**
@@ -43,29 +41,6 @@ export interface RuleImpact {
    * in the total: merging emitLint into the real config makes these vanish.
    */
   foreign: boolean;
-}
-
-/* v8 ignore start -- real module resolution from the project; tests inject loadModule */
-const defaultLoadModule = async (name: string, root: string): Promise<unknown> => {
-  try {
-    // Resolve from the project's own tree (pnpm keeps this package's tree
-    // isolated, so a bare import from here would miss the project's deps).
-    const require = createRequire(path.join(root, 'package.json'));
-
-    return await import(pathToFileURL(require.resolve(name)).href);
-  } catch {
-    // ESM-only packages expose no `require` entry — fall back to a bare
-    // import, resolved from this package's location inside the project tree.
-    return import(name);
-  }
-};
-/* v8 ignore stop */
-
-/** Dynamic-import interop: CJS resolutions hang the exports off `default`. */
-function unwrap<T>(module: unknown): T {
-  const wrapped = module as { default?: T };
-
-  return (wrapped.default ?? module) as T;
 }
 
 interface EslintApi {
@@ -122,7 +97,7 @@ export async function runImpact(
   }
 
   const { blueprint } = await resolveBlueprint(root, state, options);
-  const load = options.loadModule ?? defaultLoadModule;
+  const load = options.loadModule ?? loadProjectModule;
 
   const framework
     = blueprint.framework !== 'auto' ? blueprint.framework : state.framework ?? 'auto';
@@ -130,14 +105,14 @@ export async function runImpact(
   const vue = framework === 'vue';
   const ts = state.hasTypescript;
 
-  const { ESLint } = unwrap<EslintApi>(await loadStack(load, root, 'eslint'));
+  const { ESLint } = unwrapModule<EslintApi>(await loadStack(load, root, 'eslint'));
 
   const tseslint = ts
-    ? unwrap<TsEslintApi>(await loadStack(load, root, 'typescript-eslint'))
+    ? unwrapModule<TsEslintApi>(await loadStack(load, root, 'typescript-eslint'))
     : null;
 
   const vueParser = vue
-    ? unwrap<Linter.Parser>(await loadStack(load, root, 'vue-eslint-parser'))
+    ? unwrapModule<Linter.Parser>(await loadStack(load, root, 'vue-eslint-parser'))
     : null;
 
   // The same parser wiring the generated eslint config carries (see

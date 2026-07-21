@@ -116,10 +116,11 @@ describe('authoringBrief', () => {
   });
 
   it('teaches the merge traps: flat-config override, DAG linearization, honest zero', () => {
-    // Same rule in a later entry REPLACES the earlier — a wrong spread order
-    // silently deletes an existing defense while lint stays green.
+    // Same rule in a later entry REPLACES the earlier — ordering cannot save
+    // a rule both sides set; the only fix is merging into one entry.
     expect(brief).toContain('the later entry *replaces* the earlier');
-    expect(brief).toContain('before* your own rule blocks');
+    expect(brief).toContain('into ONE entry');
+    expect(brief).toContain('survived the merge');
 
     // Intent docs often draw a DAG; the linear order is a transitive relaxation.
     expect(brief).toContain('Linearize, then verify against the matrix');

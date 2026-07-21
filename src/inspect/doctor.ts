@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { detect, pathAliasKeys, resolveBlueprint } from '../project';
+import { detect, loadProjectModule, pathAliasKeys, resolveBlueprint } from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
 import type { Blueprint } from '../config';
 import { analyze } from './analyze';
@@ -9,21 +9,19 @@ import { BASELINE_FILE, parseBaseline, splitByBaseline } from './baseline';
 import { computeCoverage, coverageSummary } from './coverage';
 import { hasErrors } from './report';
 import { scan } from './scan';
+import type { DoctorCheck } from './types';
+import { wiringCheck } from './wiring';
 
 export interface DoctorOptions extends ResolveOptions {
   /** Emit machine-readable JSON instead of the checklist. */
   json?: boolean;
   /** Output sink (default `console.log`). */
   log?: (message: string) => void;
+  /** Load a module from the project's dependency tree (default: real import). */
+  loadModule?: (name: string, root: string) => Promise<unknown>;
 }
 
-/** One adoption-completeness check — the unit of the doctor report. */
-export interface DoctorCheck {
-  label: string;
-  ok: boolean;
-  /** What to do about it, when the check failed. */
-  detail?: string;
-}
+export type { DoctorCheck } from './types';
 
 const SUPPRESSIONS_FILE = 'eslint-suppressions.json';
 
@@ -131,10 +129,11 @@ function referenceFiles(root: string): string[] {
  * Run `blueprint doctor` in `root`. Read-only. Answers the one question the
  * adoption prompt's acceptance clause asks — "is adoption actually finished?"
  * — as a checklist: config present, no leftover reference files, eslint wired
- * to emitLint, the declared alias wired to the toolchain, and the architecture
- * clean under the baseline (its detail states the coverage, so a vacuous green
- * is visible). Exit 0 iff every check passes, so it drops into CI or an
- * agent's verify loop.
+ * to emitLint, the declared alias wired to the toolchain, the emitted rules
+ * still alive in the merged eslint config, and the architecture clean under
+ * the baseline (its detail states the coverage, so a vacuous green is
+ * visible). Exit 0 iff every check passes, so it drops into CI or an agent's
+ * verify loop.
  * @group Runtimes
  * @example
  * const { ok } = await runDoctor(process.cwd());
@@ -177,6 +176,14 @@ export async function runDoctor(
 
   const fresh = splitByBaseline(findings, recorded).fresh;
 
+  const wiring = await wiringCheck({
+    root,
+    blueprint,
+    scanResult,
+    wired: eslintWired,
+    load: options.loadModule ?? loadProjectModule,
+  });
+
   const checks: DoctorCheck[] = [
     { label: 'blueprint.config.mjs present', ok: true },
     {
@@ -196,6 +203,7 @@ export async function runDoctor(
           : 'spread ...emitLint(blueprint) into your eslint config (see eslint.config.blueprint.mjs)',
     },
     aliasCheck(root, blueprint, state),
+    wiring,
     {
       label: 'architecture clean (findings covered by the baseline)',
       ok: !hasErrors(fresh),

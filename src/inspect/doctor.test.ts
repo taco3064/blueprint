@@ -63,7 +63,7 @@ describe('runDoctor', () => {
 
     expect(ok).toBe(true);
     expect(checks.every((check) => check.ok)).toBe(true);
-    expect(output).toContain('Adoption complete — all 6 checks passed');
+    expect(output).toContain('Adoption complete — all 7 checks passed');
   });
 
   it('flags a leftover reference file', async () => {
@@ -195,6 +195,51 @@ describe('runDoctor', () => {
 
     expect(check?.ok).toBe(true);
     expect(check?.detail).toContain('clean, but vacuous');
+  });
+
+  it('fails when a later config entry swallowed the emitted structural rules', async () => {
+    adopted();
+    write('src/views/Home/index.vue', 'export default {};');
+
+    const selfOnly = async () => {
+      const preset = vuePreset();
+      // usePrefix targets the preset's hooks layer — gone with the relayout.
+      const { usePrefix: _usePrefix, ...rules } = preset.rules ?? {};
+
+      return {
+        ...preset,
+        rules,
+        architecture: {
+          ...preset.architecture,
+          layers: [
+            { name: 'views', does: 'pages' },
+            {
+              name: 'contexts',
+              does: 'shared state',
+              allowedImporters: [{ layer: 'views', selfOnly: true }],
+            },
+          ],
+        },
+      };
+    };
+
+    // The merged config kept nothing of blueprint's — the codex scenario.
+    const loadModule = async (): Promise<unknown> => ({
+      ESLint: class {
+        async calculateConfigForFile(): Promise<unknown> {
+          return { rules: { 'no-restricted-syntax': [2, 'CallExpression[callee.name=Date]'] } };
+        }
+      },
+    });
+
+    const { ok, checks } = await runDoctor(root, { loadConfig: selfOnly, loadModule, log: silent });
+
+    const check = checks.find((c) => c.label.includes('survive'));
+
+    expect(ok).toBe(false);
+    expect(check?.ok).toBe(false);
+    expect(check?.detail).toContain('selfOnly selector(s)');
+    expect(check?.detail).toContain('combine both option sets into ONE');
   });
 
   it('flags findings that sit outside the baseline', async () => {

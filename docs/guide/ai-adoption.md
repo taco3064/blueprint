@@ -93,6 +93,10 @@ npx @kekkai/blueprint doctor
   `paths` nor a bundler config (vite / webpack / vue-cli / next / rsbuild) resolves
   would send agents into unresolvable imports; the failure carries the exact wiring
   snippet
+- **emitted rules survive the merged config** — flat config never merges a rule two
+  entries set: a later entry silently *replaces* blueprint's structural bans while
+  lint stays green. Doctor resolves the final config for a real layer file and
+  names what was lost
 - **architecture clean** — no findings outside the baseline; the detail line states
   the coverage (source files inside layer nets, active optional gates — the
   structural boundary rules are always on), so a vacuously

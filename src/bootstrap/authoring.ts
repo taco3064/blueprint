@@ -174,10 +174,12 @@ baseline and paid down later — do not refactor application code in this pass.
      conflict is decided on numbers, not by reading the emitted config
      against the code. Mind flat-config semantics while merging: when two
      entries configure the same rule, the later entry *replaces* the earlier
-     — nothing merges. Spread \`...emitLint\` *before* your own rule blocks,
-     then re-check every rule both sides set (\`no-restricted-imports\`,
-     \`no-restricted-syntax\`): the wrong order silently deletes an existing
-     defense while lint stays green. Run the project's own lint command; new findings introduced by
+     — nothing merges, and ordering alone cannot save a rule **both sides
+     set** (\`no-restricted-imports\`, \`no-restricted-syntax\`): whichever
+     comes later silently deletes the other's defense while lint stays
+     green. Combine both option sets into ONE entry — blueprint's patterns
+     and selectors plus your own — and \`blueprint doctor\` verifies the
+     emitted structural rules survived the merge. Run the project's own lint command; new findings introduced by
      the merge are fixed or explicitly judged, never left dangling. Delete
      the reference once wired. Exception: a **legacy-format config**
      (\`.eslintrc.*\`) needs a flat-config/ESLint-9 migration that can break
