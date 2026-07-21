@@ -60,7 +60,7 @@ export default defineConfig({
             { text: 'AI-Assisted Adoption', link: '/guide/ai-adoption' },
             { text: 'Checks & Config Reference', link: '/guide/reference' },
             { text: 'Field-Tested Setups', link: '/guide/field-tested' },
-            { text: 'Prior Art & Differences', link: '/guide/prior-art' },
+            { text: 'Prior Art — How It Differs', link: '/guide/prior-art' },
             { text: 'Security & Trust', link: '/guide/security' },
           ],
           '/philosophy/': [
@@ -94,7 +94,7 @@ export default defineConfig({
             { text: 'AI 協助導入', link: '/zh-TW/guide/ai-adoption' },
             { text: '檢測與組態總表', link: '/zh-TW/guide/reference' },
             { text: '實測相容性', link: '/zh-TW/guide/field-tested' },
-            { text: '相近工具與差異', link: '/zh-TW/guide/prior-art' },
+            { text: '相近工具 — 差異在哪', link: '/zh-TW/guide/prior-art' },
             { text: '安全與信任', link: '/zh-TW/guide/security' },
           ],
           '/zh-TW/philosophy/': [

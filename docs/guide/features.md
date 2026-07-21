@@ -51,5 +51,5 @@ to see how to use it.
 | --- | --- |
 | [Security & trust](/guide/security) | No network, zero runtime dependencies, read-only checks, declared writes, `--dry-run`, provenance-signed releases |
 | [Field-tested setups](/guide/field-tested) | What has actually been run — production apps, all five stacks, monorepo model — plus what is unsupported (Nuxt) and why |
-| [Prior art & differences](/guide/prior-art) | Where blueprint overlaps with import-boundary linters — and what only it compiles from the same source |
+| [Prior art — how it differs](/guide/prior-art) | Where blueprint overlaps with import-boundary linters — and what only it compiles from the same source |
 | [Programmatic API](/api/) | Every emitter and runtime is importable — `emitLint` in your own eslint config, `runInspect` / `runDeps` in your own tooling |
