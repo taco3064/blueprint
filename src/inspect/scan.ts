@@ -69,11 +69,17 @@ function walk(dir: string, base: string, prefix: string, files: ScannedFile[]): 
 
       walk(path.join(dir, entry.name), base, prefix, files);
     } else if (SOURCE_EXT.test(entry.name)) {
-      const rel = path.relative(base, path.join(dir, entry.name));
+      // Paths are matched against forward-slash globs everywhere downstream
+      // (globToRegExp nets, coverage, survival probes) — normalize at birth,
+      // or every net silently matches nothing on Windows.
+      const rel = path
+        .relative(base, path.join(dir, entry.name))
+        .split(path.sep)
+        .join('/');
 
       files.push({
-        path: prefix ? path.join(prefix, rel) : rel,
-        segments: rel.split(path.sep),
+        path: prefix ? `${prefix}/${rel}` : rel,
+        segments: rel.split('/'),
         imports: extractImports(fs.readFileSync(path.join(dir, entry.name), 'utf-8')),
       });
     }
