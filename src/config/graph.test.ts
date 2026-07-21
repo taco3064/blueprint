@@ -68,8 +68,9 @@ describe('getSelfOnlyTargets', () => {
 describe('getDiagramEdges', () => {
   it('draws the adjacent spine for default layers and explicit edges for restricted ones', () => {
     expect(getDiagramEdges(arch())).toEqual([
-      { from: 'pages', to: 'components' },
-      { from: 'components', to: 'hooks' },
+      // Spine edges carry `ordered` — adjacency, not a declared relation.
+      { from: 'pages', to: 'components', ordered: true },
+      { from: 'components', to: 'hooks', ordered: true },
       { from: 'hooks', to: 'contexts', selfOnly: true, description: 'Context only' },
       { from: 'hooks', to: 'services', selfOnly: undefined, description: undefined },
       { from: 'contexts', to: 'services', selfOnly: undefined, description: undefined },

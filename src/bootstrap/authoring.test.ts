@@ -161,4 +161,12 @@ describe('authoringBrief', () => {
     expect(brief).toContain('.blueprint.md');
     expect(brief).toContain('link, don\'t duplicate');
   });
+
+  it('makes consolidation a precondition when the overlapping tool sets the same rules', () => {
+    // "flag it, don't decide it" self-destructs when both tools emit
+    // no-restricted-* — the entries overwrite each other (batch 8).
+    expect(brief).toContain('flag it, don\'t decide it');
+    expect(brief).toContain('mechanically impossible');
+    expect(brief).toContain('becomes a wiring precondition');
+  });
 });

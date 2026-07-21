@@ -6,6 +6,12 @@ export interface DiagramEdge {
   to: string;
   selfOnly?: boolean;
   description?: string;
+  /**
+   * True when the edge only records declaration order (the adjacent spine),
+   * not a declared importer relation — consecutive leaf layers are often
+   * semantically unrelated, and drawing them alike misreads as dependency.
+   */
+  ordered?: boolean;
 }
 
 /**
@@ -98,7 +104,7 @@ export function getDiagramEdges(architecture: ArchitectureDef): DiagramEdge[] {
         });
       }
     } else if (index > 0) {
-      edges.push({ from: layers[index - 1].name, to: layer.name });
+      edges.push({ from: layers[index - 1].name, to: layer.name, ordered: true });
     }
   });
 

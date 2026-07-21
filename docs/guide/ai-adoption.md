@@ -139,10 +139,13 @@ npx @kekkai/blueprint impact --json   # feed the counts to tooling / an agent
 It compiles the authored config with `emitLint`, runs the **project's own**
 ESLint over the layer files with only that config, and reports hits per rule
 with the heaviest files named. Informational, never a gate — exit 0 whatever
-the count. Two special rows: `parse-error` means a file could not be parsed
-(usually a missing parser dep) and its numbers cannot be trusted until fixed;
-`unused-disable-directive` means a stale inline `eslint-disable` suppresses
-nothing (common after rule renames) — the file itself is fine.
+the count, and the total counts **only** violations the wiring would
+introduce. Isolation artifacts render apart and never inflate it:
+`parse-error` (a file could not be parsed; its numbers are untrustworthy)
+and `unused-disable-directive` (an inline disable suppressing nothing *in
+isolation* — one pointing at your own config's rules vanishes after the
+merge, a truly stale one survives it) sit under "Isolation caveats"; rules
+that are not blueprint's at all sit in their own section.
 
 ## Failure semantics
 

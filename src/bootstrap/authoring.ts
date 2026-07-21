@@ -215,7 +215,13 @@ boundaries have grown fuzzy.
    - **If the repo already runs an overlapping structure tool** (e.g.
      structure-lint, dependency-cruiser), say so in the report: blueprint's
      lint layer duplicates it, and consolidating onto one gate is a scope
-     decision for the user — flag it, don't decide it.
+     decision for the user — flag it, don't decide it. **Exception:** when
+     the existing tool configures the *same ESLint rules* emitLint emits
+     (\`no-restricted-imports\`, \`no-restricted-syntax\`), coexistence is
+     mechanically impossible — the entries overwrite each other and
+     doctor's survival check fails. There, consolidation stops being a
+     scope decision and becomes a wiring precondition; do it, and name
+     which gate won in the report.
 
 ## Semantics the linter holds you to
 

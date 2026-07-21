@@ -239,9 +239,12 @@ describe('impact tells the truth in isolation (batch 5, real eslint)', () => {
 
     expect(impact.code).toBe(0);
     expect(impact.output).toContain('no-unused-vars');
-    // The stale disable is not a parse failure — the file is fine (batch 5 fix).
-    expect(impact.output).toContain('unused-disable-directive');
-    expect(impact.output).not.toContain('parse-error');
+    // The stale disable is not a parse failure — the file is fine (batch 5),
+    // and it sits under the caveat heading, outside the total (batch 8).
+    expect(impact.output).toContain('Isolation caveats');
+    expect(impact.output).toContain('unused-disable-directive — 1 file(s)');
+    expect(impact.output).not.toContain('parse-error —');
+    expect(impact.output).toContain('1 hit(s)');
     // Rules from the repo's own config render apart and never count.
     expect(impact.output).toContain('Not blueprint\'s rules');
     expect(impact.output).toContain('custom/no-bad-script-literals');

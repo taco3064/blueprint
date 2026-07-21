@@ -28,25 +28,27 @@ describe('emitFlowDiagram', () => {
     expect(diagram.trimEnd().endsWith('```')).toBe(true);
   });
 
-  it('renders the default adjacent spine as solid arrows', () => {
+  it('renders the order-only spine dotted — adjacency is not dependency', () => {
     const diagram = emitFlowDiagram(arch());
 
-    expect(diagram).toContain('  components --> hooks');
-    expect(diagram).toContain('  hooks --> services');
+    // Consecutive leaf layers chained solid read as direct dependencies
+    // (field batches 3 and 8) — order-only edges are dotted and unlabeled.
+    expect(diagram).toContain('  components -.-> hooks');
+    expect(diagram).toContain('  hooks -.-> services');
   });
 
-  it('renders a described selfOnly importer as a dashed edge with a combined label', () => {
+  it('renders a described selfOnly importer as a solid labeled edge', () => {
     const diagram = emitFlowDiagram(
       servicesImportedBy([{ layer: 'components', selfOnly: true, description: 'net only' }]),
     );
 
-    expect(diagram).toContain('  components -. net only · selfOnly .-> services');
+    expect(diagram).toContain('  components -->|net only · selfOnly| services');
   });
 
   it('labels a selfOnly-only importer', () => {
     const diagram = emitFlowDiagram(servicesImportedBy([{ layer: 'components', selfOnly: true }]));
 
-    expect(diagram).toContain('  components -. selfOnly .-> services');
+    expect(diagram).toContain('  components -->|selfOnly| services');
   });
 
   it('renders an unlabelled restricted importer as a solid arrow', () => {

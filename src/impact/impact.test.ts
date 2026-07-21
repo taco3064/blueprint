@@ -202,10 +202,12 @@ describe('runImpact', () => {
 
     const { loadModule } = loader(module);
 
-    const { impacts } = await runImpact(root, {
+    let output = '';
+
+    const { impacts, total } = await runImpact(root, {
       loadConfig: async () => reactPreset(),
       loadModule,
-      log: silent,
+      log: (message) => (output = message),
     });
 
     // Equal counts fall back to rule-name order — both special rows surface.
@@ -214,6 +216,13 @@ describe('runImpact', () => {
       'parse-error',
       'unused-disable-directive',
     ]);
+
+    // Neither special row is red the wiring introduces — counting them under
+    // "would flag today" contradicted the caveat beneath them (batch 8).
+    expect(total).toBe(1);
+    expect(output).toContain('1 hit(s)');
+    expect(output).toContain('Isolation caveats — not wiring-introduced red');
+    expect(output).toContain('vanishes after the merge');
   });
 
   it('falls back to the auto glob set when nothing pins the framework', async () => {

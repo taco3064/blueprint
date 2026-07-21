@@ -326,6 +326,21 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(/targets layer "hooks"/);
   });
 
+  it('never validates the target layer of an OFF usePrefix', () => {
+    const config = base();
+
+    config.architecture.layers = config.architecture.layers.filter(
+      (layer) => layer.name !== 'hooks',
+    );
+
+    // A rule that never emits has no target to validate — both shapes.
+    config.rules = { usePrefix: 'off' };
+    expect(() => validateBlueprint(config)).not.toThrow();
+
+    config.rules = { usePrefix: { tier: 'off' } };
+    expect(() => validateBlueprint(config)).not.toThrow();
+  });
+
   it('rejects lintOverrides that touch an embedded plugin rule', () => {
     const config = base();
 

@@ -166,11 +166,17 @@ export function validateBlueprint(bp: Blueprint): void {
   validateAgentEmit(bp);
 }
 
-/** `usePrefix` must target a declared layer (default `hooks`). */
+/** `usePrefix` must target a declared layer (default `hooks`) — unless it is off. */
 function validateUsePrefix(bp: Blueprint): void {
   const setting = bp.rules?.usePrefix;
 
   if (setting === undefined) return;
+
+  // A rule that never emits has no target to validate — `usePrefix: 'off'`
+  // on a repo without a hooks layer must not throw (field batch 8).
+  const tier = typeof setting === 'string' ? setting : setting.tier;
+
+  if (tier === 'off') return;
 
   const layer = (typeof setting === 'string' ? undefined : (setting.layer as string)) ?? 'hooks';
 

@@ -37,11 +37,13 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
     '',
     emitFlowDiagram(architecture),
     '',
-    '> **How to read the diagram**: edges show the adjacent spine plus explicit'
-    + ' constraints — reachability is transitive. A layer may import **any** layer'
-    + ' below it in the flow, whether or not a direct edge is drawn, unless that'
-    + ' target narrows its importers (`allowedImporters`); a dashed edge means'
-    + ' selfOnly — depend on it, never re-export it.',
+    '> **How to read the diagram**: a **solid** edge is a declared importer'
+    + ' relation (its label carries the description and/or `selfOnly` — depend'
+    + ' on it, never re-export it). A **dotted** edge only records declaration'
+    + ' order: adjacent layers are not necessarily related. Reachability is'
+    + ' transitive — a layer may import **any** layer below it in the flow,'
+    + ' whether or not an edge is drawn, unless the target narrows its'
+    + ' importers (`allowedImporters`).',
     '',
     '### Layers',
     '',

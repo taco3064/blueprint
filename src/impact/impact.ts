@@ -167,8 +167,7 @@ export async function runImpact(
   // else in the results is an isolation artifact, not a blueprint hit.
   const emitted = new Set([
     ...config.flatMap((entry) => Object.keys(entry.rules ?? {})),
-    'parse-error',
-    'unused-disable-directive',
+    ...SPECIAL_ROWS,
   ]);
 
   for (const result of results) {
@@ -200,10 +199,13 @@ export async function runImpact(
     }))
     .sort((a, b) => b.count - a.count || a.rule.localeCompare(b.rule));
 
-  // Foreign rows are excluded: they disappear once emitLint is merged into
-  // the real config, so they are not red the wiring would introduce.
+  // The total answers exactly one question — how much red does the WIRING
+  // introduce. Foreign rows vanish once emitLint merges into the real
+  // config, and the two special rows are isolation caveats, not violations
+  // (counting them under "would flag today" contradicted the caveat below
+  // them — field batch 8 nearly locked three phantom findings).
   const total = impacts
-    .filter((impact) => !impact.foreign)
+    .filter((impact) => !impact.foreign && !SPECIAL_ROWS.has(impact.rule))
     .reduce((sum, impact) => sum + impact.count, 0);
 
   log(
@@ -215,9 +217,17 @@ export async function runImpact(
   return { impacts, total };
 }
 
-/** The human-readable impact report. Foreign rows render apart, never mixed. */
+/**
+ * The two rows an isolated run produces that are not rule violations: a
+ * parse failure, and a disable comment that suppresses nothing *here*.
+ * Never counted in the total; rendered under their own caveat heading.
+ */
+const SPECIAL_ROWS = new Set(['parse-error', 'unused-disable-directive']);
+
+/** The human-readable impact report. Caveats and foreign rows render apart. */
 export function renderImpact(impacts: RuleImpact[], total: number): string {
-  const own = impacts.filter((impact) => !impact.foreign);
+  const own = impacts.filter((i) => !i.foreign && !SPECIAL_ROWS.has(i.rule));
+  const caveats = impacts.filter((i) => SPECIAL_ROWS.has(i.rule));
   const foreign = impacts.filter((impact) => impact.foreign);
 
   const rows = (list: RuleImpact[]) =>
@@ -225,6 +235,19 @@ export function renderImpact(impacts: RuleImpact[], total: number): string {
       `  ${String(impact.count).padStart(5)}  ${impact.rule} — ${impact.files} file(s)`,
       `         worst: ${impact.top.map((t) => `${t.path} (${t.count})`).join(', ')}`,
     ]);
+
+  const caveatBlock = !caveats.length
+    ? []
+    : [
+        '',
+        'Isolation caveats — not wiring-introduced red, never counted above:',
+        '(`unused-disable-directive`: the disable suppresses nothing HERE — one',
+        'pointing at your own config\'s rules vanishes after the merge, a truly',
+        'stale one survives it; `parse-error`: the file could not be parsed and',
+        'its numbers are untrustworthy. Verify both against your full lint.)',
+        '',
+        ...rows(caveats),
+      ];
 
   const foreignBlock = !foreign.length
     ? []
@@ -240,6 +263,7 @@ export function renderImpact(impacts: RuleImpact[], total: number): string {
   if (!own.length) {
     return [
       '✓ Rule impact: 0 hits — wiring emitLint introduces no red today.',
+      ...caveatBlock,
       ...foreignBlock,
     ].join('\n');
   }
@@ -251,6 +275,7 @@ export function renderImpact(impacts: RuleImpact[], total: number): string {
     '',
     `${total} hit(s). Wire the config, then lock the existing debt with`
     + ' `npx eslint . --suppress-all` — new violations still fail.',
+    ...caveatBlock,
     ...foreignBlock,
   ].join('\n');
 }
