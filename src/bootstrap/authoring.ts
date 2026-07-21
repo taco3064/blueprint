@@ -112,7 +112,9 @@ baseline. Deliverables:
 
 1. \`blueprint.config.mjs\` — validated, findings explainable
 2. \`npx blueprint init\` artifacts (lint config, handbook, agent contracts)
-3. \`.blueprint-baseline.json\` via \`npx blueprint inspect --update-baseline\`
+3. \`npx blueprint inspect --update-baseline\` run — it writes
+   \`.blueprint-baseline.json\` only when debt exists; on a clean repo
+   "No debt to lock" and no file IS the correct outcome
 4. A short report: the layer table, debt counts by category, any cycles
 
 Out of scope: fixing the debt. Existing violations are recorded in the
@@ -291,7 +293,8 @@ export default defineBlueprint({
 ## Acceptance gates
 
 - [ ] \`npx blueprint inspect\` findings are all explainable as real debt
-- [ ] \`npx blueprint inspect --baseline\` exits 0 after the baseline is locked
+- [ ] \`npx blueprint inspect --baseline\` exits 0 — ledger locked when debt
+      exists, correctly absent when it does not
 - [ ] The blueprint lint rules run inside the project's own lint command
       (merged, conflicts resolved) — or the legacy-config migration is a named
       decision item in the report

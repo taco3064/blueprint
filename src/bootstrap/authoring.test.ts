@@ -95,6 +95,14 @@ describe('authoringBrief', () => {
     expect(brief).toContain('belongs to\nthe project\'s own lint');
   });
 
+  it('keeps deliverables and gates zero-debt-consistent — no mandatory ledger', () => {
+    // Batch 4's fight, previously alive inside our own gates: a clean repo
+    // writes no baseline file, so neither deliverable nor gate may demand one.
+    expect(brief).toContain('only when debt exists');
+    expect(brief).toContain('correctly absent when it does not');
+    expect(brief).not.toContain('after the baseline is locked');
+  });
+
   it('puts existing intent documents senior to the matrix', () => {
     expect(brief).toContain('Look for existing intent documents first');
     expect(brief).toContain('structure.config.json');
