@@ -114,6 +114,104 @@ describe('runDeps · test files are excluded from the graph', () => {
   });
 });
 
+describe('runDeps · folders outside the declared layers', () => {
+  it('lists skipped folders on the leaderboard instead of silently ignoring them', async () => {
+    scaffold();
+    writeSrc('legacy/old.ts', 'export const old = 1;');
+    let output = '';
+
+    await runDeps(root, { log: (m) => (output = m) });
+    expect(output).toContain('(not under a declared layer, invisible to deps: legacy/)');
+
+    await runDeps(root, { json: true, log: (m) => (output = m) });
+    expect(JSON.parse(output).skipped).toEqual(['legacy']);
+  });
+
+  it('points at the skipped folder when the target lives in one', async () => {
+    scaffold();
+    writeSrc('legacy/old.ts', 'export const old = 1;');
+    let output = '';
+
+    const { ok } = await runDeps(root, { target: 'legacy/old', log: (m) => (output = m) });
+
+    expect(ok).toBe(false);
+    expect(output).toContain('"legacy/" is not a declared layer');
+  });
+});
+
+describe('runDeps · flat-layout layers answer at layer granularity', () => {
+  const flatConfig = async () => ({
+    framework: 'vue' as const,
+    architecture: {
+      alias: '~app',
+      flow: 'one-way' as const,
+      module: { layout: 'folder' as const, entry: 'index', private: [] },
+      layers: [
+        { name: 'pages', does: 'routes', allowedImporters: [] },
+        {
+          name: 'features',
+          does: 'feature modules',
+          module: { layout: 'flat' as const },
+          allowedImporters: ['pages'],
+        },
+      ],
+    },
+  });
+
+  beforeEach(() => {
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+    writeSrc('features/feed.ts', 'export const feed = 1;');
+    writeSrc('pages/Home/Home.ts', 'import { feed } from \'~app/features/feed\';');
+  });
+
+  it('collapses a deep target to the layer node and says so', async () => {
+    let output = '';
+
+    const { ok, modules } = await runDeps(root, {
+      target: 'features/feed',
+      loadConfig: flatConfig,
+      log: (m) => (output = m),
+    });
+
+    expect(ok).toBe(true);
+    expect(modules[0].module).toBe('features');
+    expect(output).toContain('features (flat layer — answers at layer granularity)');
+  });
+
+  it('marks the flat layer on the leaderboard', async () => {
+    let output = '';
+
+    await runDeps(root, { loadConfig: flatConfig, log: (m) => (output = m) });
+
+    expect(output).toContain('← features (flat layer)');
+    expect(output).toContain('← pages/Home');
+  });
+});
+
+describe('runDeps · a hand-written config is validated on load', () => {
+  beforeEach(() => {
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+    scaffold();
+  });
+
+  it('fails with a precise message instead of a deep undefined-property crash', async () => {
+    const invalid = async () =>
+      ({ architecture: { alias: '~app', layers: [{ name: 'pages' }] } }) as never;
+
+    await expect(runDeps(root, { loadConfig: invalid, log: silent })).rejects.toThrow(
+      /blueprint\.config\.mjs: architecture\.module/,
+    );
+  });
+
+  it('fails when the config has no default export', async () => {
+    const empty = async () => undefined as never;
+
+    await expect(runDeps(root, { loadConfig: empty, log: silent })).rejects.toThrow(
+      'blueprint.config.mjs: missing default export.',
+    );
+  });
+});
+
 describe('runDeps · file modules drop their extension from the key', () => {
   it('resolves a bare-file module without its extension', async () => {
     fs.writeFileSync(
