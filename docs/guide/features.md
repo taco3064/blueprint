@@ -13,6 +13,7 @@ to see how to use it.
 | [`survey`](/guide/ai-adoption#why-the-survey-matters) | Deterministic repo evidence: folder shapes, the import matrix, package concentration — the raw material for authoring a config |
 | [`inspect`](/guide/getting-started#brownfield-—-blueprint-inspect) | Scans `src/` against the blueprint and lists every violation; any error-level finding exits 1 — drop it straight into CI |
 | [`inspect --baseline`](/guide/getting-started#brownfield-—-blueprint-inspect) | The brownfield ratchet: lock today's debt, fail only on *new* findings, tighten as debt is paid down |
+| [`impact`](/guide/ai-adoption#decide-conflicts-on-numbers-—-blueprint-impact) | Dry-run the emitted lint rules through the project's own ESLint: hits per rule, heaviest files named — rule conflicts get decided on numbers, before wiring |
 | [`deps`](/guide/deps) | Blast radius per module — who gets hit if I change this, plus the fan-in leaderboard |
 | [`doctor`](/guide/ai-adoption#verify-it-s-finished-—-blueprint-doctor) | Is adoption finished? A read-only checklist — config, no leftover references, eslint wired, alias wired, architecture clean (with its coverage stated), suppressions ledger current |
 | [All CLI flags](/guide/reference#cli-flags) | The full flag matrix for every command, including `init --preset` and `--dry-run` |

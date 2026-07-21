@@ -116,6 +116,24 @@ npx @kekkai/blueprint survey --json   # for tooling / agents
 - **package-usage concentration** — `owns` candidates
 - test-convention hits — what belongs in `testFiles`, not in `layers`
 
+## Decide conflicts on numbers — `blueprint impact`
+
+Field testing's costliest authoring step was deciding rule conflicts before
+wiring: "how many times would each emitted rule fire on this repo?" used to be
+answered by dumping the emitted config and reading it against the code by
+hand. `impact` answers it directly:
+
+```bash
+npx @kekkai/blueprint impact          # how red would the wiring be?
+npx @kekkai/blueprint impact --json   # feed the counts to tooling / an agent
+```
+
+It compiles the authored config with `emitLint`, runs the **project's own**
+ESLint over the layer files with only that config, and reports hits per rule
+with the heaviest files named. Informational, never a gate — exit 0 whatever
+the count. A `parse-error` row means a file could not be parsed (usually a
+missing parser dep) and its numbers cannot be trusted until that is fixed.
+
 ## Failure semantics
 
 Every artifact is on disk **before** any agent starts. A launch that fails, or an

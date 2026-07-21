@@ -12,6 +12,7 @@
 | [`survey`](/zh-TW/guide/ai-adoption#蒐證步驟的必要性) | 決定性的專案蒐證：資料夾形狀、匯入矩陣、套件使用集中度 —— 編寫 config 的原料 |
 | [`inspect`](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect) | 掃描 `src/` 並對照 blueprint config 列出所有違規；只要有 error 等級的違規就以 exit code 1 結束，可直接作為 CI 關卡 |
 | [`inspect --baseline`](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect) | 既有專案的 baseline 棘輪：先把今日的債務記錄下來，之後只攔「新增」的違規，隨著債務清償逐步收緊 |
+| [`impact`](/zh-TW/guide/ai-adoption#用數字決定規則衝突-——-blueprint-impact) | 用專案自己的 ESLint 對 emitted rules 做 dry-run：每條 rule 中幾發、最重的檔案是誰 —— 接線前就用數字決定 rule 衝突 |
 | [`deps`](/zh-TW/guide/deps) | 逐模組的影響範圍 —— 改動它會波及誰，以及全模組的被引用數排行 |
 | [`doctor`](/zh-TW/guide/ai-adoption#驗證有沒有做完-——-blueprint-doctor) | 導入做完了沒？唯讀 checklist —— config、無殘留 reference、eslint 接上、alias 接上、架構乾淨（附 coverage）、suppressions 帳本沒過期 |
 | [完整命令列旗標](/zh-TW/guide/reference#命令列旗標) | 各指令的旗標總表，含 `init --preset` 與 `--dry-run` |

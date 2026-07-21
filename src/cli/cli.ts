@@ -5,6 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { AGENT_KINDS, runInit } from '../bootstrap';
 import type { AgentKind, InitOptions } from '../bootstrap';
+import { runImpact } from '../impact';
+import type { ImpactOptions } from '../impact';
 import { runDeps, runDoctor, runInspect } from '../inspect';
 import type { DepsOptions, DoctorOptions, InspectOptions } from '../inspect';
 import { runSurvey } from '../survey';
@@ -21,6 +23,8 @@ const USAGE = [
   '  blueprint survey    Deterministic repo evidence: folders, import matrix,',
   '                      module shapes — the raw material for authoring a config.',
   '  blueprint inspect   Read-only architecture report (CI-gateable).',
+  '  blueprint impact    Dry-run the emitted lint rules: what would wiring',
+  '                      emitLint flag today, per rule? Never a gate.',
   '  blueprint deps      Reverse dependencies / blast radius per module.',
   '  blueprint doctor    Is adoption finished? A read-only completeness check.',
   '  blueprint --help | --version',
@@ -125,6 +129,31 @@ const INSPECT_HELP = [
   '  npx @kekkai/blueprint inspect --baseline          # CI: fail only on new findings',
 ].join('\n');
 
+const IMPACT_HELP = [
+  'blueprint impact — dry-run the emitted lint rules before wiring them.',
+  '',
+  'Requires an authored blueprint.config.mjs. Compiles it with emitLint, runs',
+  'the project\'s OWN eslint over the layer files with only that config, and',
+  'reports what wiring would flag today — hits per rule, heaviest files named.',
+  'Rule conflicts get decided on numbers instead of reverse-engineering the',
+  'emitted config against the code by hand.',
+  '',
+  'Informational, never a gate: the exit code is 0 whatever the count. A',
+  '`parse-error` row means a file could not be parsed (missing parser dep?) —',
+  'its numbers cannot be trusted until that is fixed.',
+  '',
+  'Needs from the project: eslint ≥ 9, plus typescript-eslint on TypeScript',
+  'and vue-eslint-parser on Vue (init installs all of these).',
+  '',
+  'Flags:',
+  '  --framework vue|react   Force the preset when detection is ambiguous.',
+  '  --json                  Machine-readable output.',
+  '',
+  'Examples:',
+  '  npx @kekkai/blueprint impact          # how red would the wiring be?',
+  '  npx @kekkai/blueprint impact --json   # feed the counts to tooling / an agent',
+].join('\n');
+
 const DEPS_HELP = [
   'blueprint deps [module] — reverse dependencies / blast radius.',
   '',
@@ -180,6 +209,7 @@ const COMMAND_HELP: Record<string, string> = {
   init: INIT_HELP,
   survey: SURVEY_HELP,
   inspect: INSPECT_HELP,
+  impact: IMPACT_HELP,
   deps: DEPS_HELP,
   doctor: DOCTOR_HELP,
 };
@@ -280,6 +310,23 @@ export function parseInspectArgs(args: string[]): InspectOptions {
   return options;
 }
 
+/** Parse `impact` flags. Unknown flags are ignored. */
+export function parseImpactArgs(args: string[]): ImpactOptions {
+  const options: ImpactOptions = {};
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === '--json') {
+      options.json = true;
+    } else if (arg === '--framework') {
+      options.framework = parseFramework(args[++i]) ?? options.framework;
+    }
+  }
+
+  return options;
+}
+
 /** Parse `deps` flags; the first non-flag argument is the module to query. */
 export function parseDepsArgs(args: string[]): DepsOptions {
   const options: DepsOptions = {};
@@ -356,6 +403,13 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
       const { ok } = await runInspect(cwd, parseInspectArgs(rest));
 
       return ok ? 0 : 1;
+    }
+
+    if (command === 'impact') {
+      // Informational dry-run — any hit count is a valid answer, so exit 0.
+      await runImpact(cwd, parseImpactArgs(rest));
+
+      return 0;
     }
 
     if (command === 'deps') {

@@ -78,6 +78,7 @@
 | `init` | `--agent claude\|codex`（啟動編寫用的 Agent CLI）· `--preset`（強制建 preset）· `--authoring`（即使小 repo 也強制產 playbook；與 `--preset` 相反）· `--framework vue\|react` · `--no-install` · `--dry-run` |
 | `survey` | `--alias <name>`（tsconfig paths 偵測不到別名時指定）· `--json` |
 | `inspect` | `--baseline` · `--update-baseline` · `--framework vue\|react` · `--json` |
+| `impact` | `--framework vue\|react` · `--json` |
 | `deps [module]` | `--framework vue\|react` · `--json` |
 | `doctor` | `--framework vue\|react` · `--json` |
 

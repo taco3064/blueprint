@@ -4,6 +4,8 @@ import type { ESLint, Linter } from 'eslint';
 export interface LintConfigEntry {
   files?: string[];
   ignores?: string[];
+  /** Parser wiring — emitted rules never set this; `impact` builds parser entries with it. */
+  languageOptions?: Linter.LanguageOptions;
   linterOptions?: Linter.LinterOptions;
   /** The embedded plugin, carried along when an entry uses a `blueprint/*` rule. */
   plugins?: Record<string, ESLint.Plugin>;

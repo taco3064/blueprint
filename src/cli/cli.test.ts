@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isCliEntry, parseDepsArgs, parseDoctorArgs, parseInitArgs, parseInspectArgs, parseSurveyArgs, run, version } from './cli';
+import { isCliEntry, parseDepsArgs, parseDoctorArgs, parseImpactArgs, parseInitArgs, parseInspectArgs, parseSurveyArgs, run, version } from './cli';
 
 describe('parseInitArgs', () => {
   it('parses known flags', () => {
@@ -178,6 +178,17 @@ describe('parseDepsArgs', () => {
   });
 });
 
+describe('parseImpactArgs', () => {
+  it('parses json and framework, ignoring unknown flags', () => {
+    expect(parseImpactArgs(['--json', '--framework', 'react', '--nope'])).toEqual({
+      json: true,
+      framework: 'react',
+    });
+
+    expect(parseImpactArgs(['--framework', 'svelte'])).toEqual({ framework: undefined });
+  });
+});
+
 describe('per-command help', () => {
   it('prints command help and exits 0 for init/inspect --help', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -217,6 +228,61 @@ describe('deps command dispatch', () => {
     expect(await run(['deps'], dir)).toBe(0);
     expect(await run(['deps', 'hooks/ghost'], dir)).toBe(1);
     expect(await run(['deps', '--help'])).toBe(0);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+    log.mockRestore();
+  });
+});
+
+describe('run · impact', () => {
+  it('prints its help, and errors loud (exit 1) without a config', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-cli-impact-'));
+
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'x' }));
+
+    expect(await run(['impact', '--help'], dir)).toBe(0);
+    expect(log.mock.calls[0][0]).toContain('dry-run the emitted lint rules');
+
+    // The dry-run needs an authored config to measure — fail loud, not empty.
+    expect(await run(['impact'], dir)).toBe(1);
+    expect(error.mock.calls[0][0]).toContain('author the config first');
+
+    fs.rmSync(dir, { recursive: true, force: true });
+    log.mockRestore();
+    error.mockRestore();
+  });
+
+  it('exits 0 with real counts through the project stack', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-cli-impact-run-'));
+
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ name: 'x', dependencies: { react: '^18' } }),
+    );
+
+    // A self-contained config (no bare imports) so the real dynamic import in
+    // resolveBlueprint resolves from a bare temp dir; eslint itself resolves
+    // through defaultLoadModule's bare-import fallback (this repo's devDep).
+    fs.writeFileSync(
+      path.join(dir, 'blueprint.config.mjs'),
+      'export default { framework: \'react\', architecture: { alias: \'~app\', flow: \'one-way\','
+      + ' module: { layout: \'flat\', entry: \'index\', private: [] },'
+      + ' layers: [{ name: \'components\', does: \'ui\' }] },'
+      + ' rules: { unusedVars: \'error\' } };',
+    );
+
+    fs.mkdirSync(path.join(dir, 'src/components'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(dir, 'src/components/f.jsx'),
+      'export const f = (unused) => 1;\n',
+    );
+
+    expect(await run(['impact'], dir)).toBe(0);
+    expect(log.mock.calls.at(-1)?.[0]).toContain('no-unused-vars');
 
     fs.rmSync(dir, { recursive: true, force: true });
     log.mockRestore();

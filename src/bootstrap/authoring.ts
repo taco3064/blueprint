@@ -166,7 +166,10 @@ baseline and paid down later — do not refactor application code in this pass.
      (with the TS plugin on TypeScript projects), then resolve every rule
      conflict *explicitly* — house disable conventions, thresholds, rules an
      existing structure tool already enforces — and note each decision in the
-     report. Run the project's own lint command; new findings introduced by
+     report. Before merging, run \`npx blueprint impact\`: it lints the layer
+     files with only the emitted config and reports hits per rule, so every
+     conflict is decided on numbers, not by reading the emitted config
+     against the code. Run the project's own lint command; new findings introduced by
      the merge are fixed or explicitly judged, never left dangling. Delete
      the reference once wired. Exception: a **legacy-format config**
      (\`.eslintrc.*\`) needs a flat-config/ESLint-9 migration that can break
@@ -205,7 +208,8 @@ you never have to reverse-engineer them from the bundle:
   any depth by the embedded \`blueprint/relative-escape\` rule.
 - **Pre-wiring check:** the survey's "Same-folder imports via the alias"
   count is exactly how many errors the wiring will introduce — rewrite them
-  as relative imports first, or they land in the suppressions ledger.
+  as relative imports first, or they land in the suppressions ledger. Once
+  the config exists, \`npx blueprint impact\` reports the full per-rule count.
 - **\`unusedVars\`** emits with \`argsIgnorePattern: '^_'\` and nothing else:
   \`_\`-prefixed *arguments* are exempt; unused variables and catch
   parameters are not.

@@ -85,6 +85,17 @@ npx @kekkai/blueprint survey --json   # 供工具或 Agent 讀取
 - **套件集中度** —— 作為 `owns`（套件歸屬）宣告的候選依據
 - 測試檔慣例統計 —— 應歸入 `testFiles` 而非 `layers` 的項目
 
+## 用數字決定規則衝突 —— `blueprint impact`
+
+實測中最花時間的編寫步驟，是接線前的 rule 衝突判斷：「每條 emitted rule 在這個 repo 會中幾發？」以前只能把 emitted config dump 出來、自己對著程式碼讀。`impact` 直接回答這題：
+
+```bash
+npx @kekkai/blueprint impact          # 接線下去會有多紅？
+npx @kekkai/blueprint impact --json   # 把數字餵給工具或 Agent
+```
+
+它用 `emitLint` 編譯已寫好的 config，再用**專案自己的** ESLint、只掛這份 config 去 lint layer 檔案，回報每條 rule 的命中數與最重的檔案。純資訊、不是關卡 —— 不管中幾發都 exit 0。出現 `parse-error` 代表有檔案解析不了（通常是 parser 依賴沒裝），修好前那個檔案的數字不可信。
+
 ## 失敗情境的處理原則
 
 所有產出物都在任何 AI Agent 啟動**之前**就寫入磁碟。啟動失敗、或 Agent 中途放棄，流程就回到手動路徑 —— 同一份作業手冊，改由開發者親自執行。`inspect` 唯讀、`init` 冪等、baseline 只在最後一步寫入，所以不存在「導入到一半」的中間狀態要清理。

@@ -24,7 +24,8 @@ ideas below do.
 ## Layering (one-way, low → high)
 
 `config` → `markdown` → `plugin` → `emit/*` → `presets` → `project` →
-`bootstrap` / `inspect` → `cli`. A module imports only from lower ones.
+`bootstrap` / `inspect` / `impact` / `survey` → `cli`. A module imports only
+from lower ones.
 `project` is the shared reader (`detect` + `resolveBlueprint`) for both
 runtimes; `plugin` is the embedded ESLint plugin (plain rule objects, no
 internal deps) that `emit/lint` ships inside its output.
