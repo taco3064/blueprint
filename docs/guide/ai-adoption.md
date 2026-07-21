@@ -47,6 +47,26 @@ To skip the authoring flow entirely and scaffold the framework preset even on a
 brownfield repo, pass `init --preset` — the escape hatch when you already know the
 preset fits.
 
+## A prompt that works
+
+The method doesn't belong in the prompt — the evidence, derivation steps, and gates
+all live in `blueprint-authoring.md`. The prompt only pins what "done" means:
+
+```text
+Adopt @kekkai/blueprint in this repo, autonomously:
+run `npx @kekkai/blueprint init`, then execute the blueprint-authoring.md it
+writes, end to end.
+
+Acceptance: lint, `inspect --baseline`, and the existing tests all green;
+ESLint genuinely wired to emitLint (no leftover reference files); no source
+edits — existing violations get locked into the baseline.
+```
+
+Each acceptance clause maps to an incomplete state seen in field testing: half-done
+integration, gates never run, debt payments mixed into adoption. Greenfield repos
+skip all of this — `init` alone completes; and once `init` has run, typing
+`/blueprint-author` in Claude Code does the same job.
+
 ## Why the survey matters
 
 Letting an agent grep a repo from scratch is slow and unreliable. `survey` hands it
