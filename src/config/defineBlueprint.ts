@@ -37,16 +37,16 @@ const MANAGED_RULES = [
  * });
  */
 export function defineBlueprint(config: Blueprint): Blueprint {
-  validateBlueprint(config);
-
-  return config;
+  return validateBlueprint(config);
 }
 
 /**
- * Throws with a precise message if the blueprint is structurally invalid.
+ * Throws with a precise message if the blueprint is structurally invalid;
+ * returns it unchanged otherwise, so a passing call is visible at runtime —
+ * a bare `undefined` read as "did this even run?" in the field.
  * @group Author
  */
-export function validateBlueprint(bp: Blueprint): void {
+export function validateBlueprint(bp: Blueprint): Blueprint {
   const { name, architecture, principles, rules } = bp;
 
   if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
@@ -184,6 +184,8 @@ export function validateBlueprint(bp: Blueprint): void {
 
   validateUsePrefix(bp);
   validateAgentEmit(bp);
+
+  return bp;
 }
 
 /** `usePrefix` must target a declared layer (default `hooks`) — unless it is off. */

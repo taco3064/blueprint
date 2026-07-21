@@ -85,7 +85,7 @@ shows the core. The rest, one line each — full shapes in the
 | `architecture.naming` | Naming conventions by concept (e.g. `{ hook: 'useX + reactivity' }`) — rendered into handbook + contract |
 | `layer.module` | Per-layer override of the shared module shape — e.g. folder modules in one layer, flat everywhere else |
 | `layer.lintOverrides` | Per-layer ESLint tweaks (the three managed rules excluded) |
-| `emit.agents` | Contract distribution targets: `claude`, `agents`, `gemini`, `copilot`, `cursor`, `windsurf` (+ per-target `path`). Default `['claude', 'agents']`; `[]` emits none |
+| `emit.agents` | Contract distribution targets: `claude`, `agents`, `gemini`, `copilot`, `cursor`, `windsurf` (+ per-target `path`). Default `['claude', 'agents']`; `[]` emits none. Narrowing it makes the next init remove a stale contract that is wholly its own output (hand-edited files only get told) |
 | `emit.handbook` / `emit.ci` / `emit.lint` | Output path for the handbook · CI provider (`github` / `none`) · lint config path + severity of the **structural** rules only (metric rules keep their `rules` tiers) |
 
 ## CLI flags

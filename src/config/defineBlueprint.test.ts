@@ -48,6 +48,13 @@ describe('defineBlueprint', () => {
 });
 
 describe('validateBlueprint', () => {
+  it('returns the blueprint unchanged so a passing call is visible (batch 10)', () => {
+    const config = base();
+
+    // A bare `undefined` read as "did this even run?" in the field.
+    expect(validateBlueprint(config)).toBe(config);
+  });
+
   it('rejects a blank name when provided', () => {
     const config = base();
 

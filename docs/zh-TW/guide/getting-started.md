@@ -8,7 +8,7 @@ npx @kekkai/blueprint init
 
 單一指令即可完成設計理念的開發護欄導入：
 
-- 為每個宣告的分層建立 `src/<layer>/` 資料夾
+- 為每個宣告的分層建立 `src/<layer>/` 資料夾 —— 只在 source tree 是空的時候；已經有 code 的 repo，還沒長出來的 layer「不存在」就是它的真實狀態，不會硬造 `.gitkeep` 空殼
 - `blueprint.config.mjs` —— 架構的唯一真實來源
 - `eslint.config.mjs` —— 結構規則與第三方基礎規則
 - `docs/architecture-handbook.md` 與 AI Agent 守則（`CLAUDE.md`、`AGENTS.md`）

@@ -61,6 +61,20 @@ const TARGETS: Record<AgentTarget, TargetSpec> = {
  *   writeFileSync(file.path, file.content); // e.g. 'CLAUDE.md', '.cursor/rules/blueprint.mdc'
  * }
  */
+/**
+ * Every target's default file location — the candidate set init scans for
+ * stale contracts: files a previous run emitted that the current
+ * `emit.agents` no longer names. Custom `path` overrides are not
+ * discoverable here; a file moved by hand is a file managed by hand.
+ */
+export function defaultAgentPaths(): Pick<AgentFile, 'target' | 'path' | 'strategy'>[] {
+  return (Object.entries(TARGETS) as [AgentTarget, TargetSpec][]).map(([target, spec]) => ({
+    target,
+    path: spec.path,
+    strategy: spec.strategy,
+  }));
+}
+
 export function emitAgentFiles(
   blueprint: Blueprint,
   defaultTargets?: AgentTarget[],

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { emitAgentFiles } from '../emit/agent';
+import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
 import { handbookPath } from '../emit/docs';
 import { analyze } from '../inspect/analyze';
 import { scan } from '../inspect/scan';
@@ -119,13 +119,23 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   // an explicit emit.agents in the config still wins.
   const agentTarget = options.agent ? agentTargetOf(options.agent) : undefined;
 
-  const mergePaths = emitAgentFiles(blueprint, agentTarget ? [agentTarget] : undefined)
-    .filter((file) => file.strategy === 'merge')
-    .map((file) => file.path);
+  // Read the merge targets init will write into, plus every default agent
+  // path — the extras feed plan's stale-contract cleanup.
+  const mergePaths = [
+    ...new Set([
+      ...emitAgentFiles(blueprint, agentTarget ? [agentTarget] : undefined)
+        .filter((file) => file.strategy === 'merge')
+        .map((file) => file.path),
+      ...defaultAgentPaths().map((spec) => spec.path),
+    ]),
+  ];
+
+  const scanResult = scan(root, blueprint.architecture.sourceRoot);
 
   const actions = plan(state, blueprint, configSource, {
     ...options,
     agentTarget,
+    hasSourceFiles: scanResult.files.length > 0,
     existingAgentFiles: readTexts(root, mergePaths),
   });
 
@@ -133,7 +143,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   // of the box (e.g. `../assets` relative imports) — say exactly what to fix
   // rather than letting the first lint run read as a broken install.
   if (configSource !== null) {
-    const cleanup = templateCleanup(root, blueprint);
+    const cleanup = templateCleanup(scanResult, blueprint);
 
     if (cleanup) actions.push(cleanup);
   }
@@ -261,8 +271,8 @@ function lintScriptAction(root: string, blueprint: Blueprint, greenfield: boolea
   };
 }
 
-function templateCleanup(root: string, blueprint: Blueprint): Action | null {
-  const findings = analyze(scan(root, blueprint.architecture.sourceRoot), blueprint).filter(
+function templateCleanup(scanResult: ReturnType<typeof scan>, blueprint: Blueprint): Action | null {
+  const findings = analyze(scanResult, blueprint).filter(
     (finding) => finding.severity === 'error',
   );
 

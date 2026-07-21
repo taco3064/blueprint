@@ -127,6 +127,78 @@ describe('plan', () => {
     expect(write(plan(state({ hasConfig: true }), bp, null, {}), 'blueprint.config.mjs')).toBeUndefined();
   });
 
+  it('scaffolds no empty layer dirs when the tree already holds code (batch 11)', () => {
+    // Root-only starter taking the early exit: .gitkeep shells would be the
+    // physical twin of the manufactured net the playbook forbids.
+    const actions = plan(state(), bp, 'CONFIG SOURCE', { hasSourceFiles: true });
+
+    expect(actions.filter((a) => a.kind === 'mkdir')).toHaveLength(0);
+    expect(write(actions, 'blueprint.config.mjs')).toBeDefined(); // the rest of the plan is intact
+  });
+
+  it('removes a stale wholly-generated contract when emit.agents narrows (batch 10)', () => {
+    const narrowed = { ...bp, emit: { agents: ['claude' as const] } };
+    const stale = '<!-- BLUEPRINT:START -->\nold contract\n<!-- BLUEPRINT:END -->\n';
+
+    const actions = plan(state(), narrowed, null, {
+      existingAgentFiles: { 'AGENTS.md': stale, 'CLAUDE.md': stale },
+    });
+
+    // CLAUDE.md is still emitted — refreshed, never flagged stale.
+    expect(write(actions, 'CLAUDE.md')).toBeDefined();
+
+    expect(actions).toContainEqual({
+      kind: 'rm',
+      path: 'AGENTS.md',
+      note: 'AGENTS.md (stale agent contract — no longer in emit.agents)',
+    });
+  });
+
+  it('only tells about a stale contract wrapped in hand-written content', () => {
+    const narrowed = { ...bp, emit: { agents: ['claude' as const] } };
+    const edited = '# Our agents doc\n\n<!-- BLUEPRINT:START -->\nold\n<!-- BLUEPRINT:END -->\n';
+
+    const actions = plan(state(), narrowed, null, {
+      existingAgentFiles: { 'AGENTS.md': edited },
+    });
+
+    expect(actions.some((a) => a.kind === 'rm')).toBe(false);
+
+    expect(actions.some(
+      (a) => a.kind === 'instruct' && a.note.includes('AGENTS.md is no longer in emit.agents'),
+    )).toBe(true);
+  });
+
+  it('never touches a marker-free file or one outside the default paths', () => {
+    const narrowed = { ...bp, emit: { agents: ['claude' as const] } };
+
+    const actions = plan(state(), narrowed, null, {
+      existingAgentFiles: {
+        'AGENTS.md': '# Hand-written, never init\'s\n', // no marker — not ours
+        'docs/AGENTS.md': '<!-- BLUEPRINT:START -->\nx\n<!-- BLUEPRINT:END -->', // custom path — managed by hand
+      },
+    });
+
+    expect(actions.some((a) => a.kind === 'rm')).toBe(false);
+
+    expect(actions.some(
+      (a) => a.kind === 'instruct' && a.note.includes('no longer in emit.agents'),
+    )).toBe(false);
+  });
+
+  it('removes a stale own-strategy rules file by construction', () => {
+    // .cursor/rules/blueprint.mdc has no merge markers — the whole file is
+    // generated, so its presence outside emit.agents is stale by definition.
+    const actions = plan(state(), { ...bp, emit: { agents: ['claude' as const] } }, null, {
+      existingAgentFiles: { '.cursor/rules/blueprint.mdc': '---\nfrontmatter\n---\n\ncontract' },
+    });
+
+    expect(actions).toContainEqual(expect.objectContaining({
+      kind: 'rm',
+      path: '.cursor/rules/blueprint.mdc',
+    }));
+  });
+
   it('skips layer dirs that already exist', () => {
     const actions = plan(state({ existingSrcDirs: ['pages', 'services'] }), bp, null, {});
 

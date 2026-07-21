@@ -466,3 +466,49 @@ describe('init UX honesty — re-runs and starters tell the truth (batch 10)', (
     expect(second.output).not.toContain('resolve.alias');
   });
 });
+
+describe('scaffold matches the doctrine — no invented structure (batch 11)', () => {
+  it('scaffolds guidance dirs only into an empty tree', async () => {
+    const rooted = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    const init = await cli(rooted, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    // Code already lives here — an unbuilt layer's absence is its true
+    // state; a .gitkeep shell would contradict "never invent a layer".
+    expect(read(rooted, 'src/components/.gitkeep')).toBeNull();
+    expect(read(rooted, 'src/pages/.gitkeep')).toBeNull();
+
+    const empty = repo({ packageJson: react() });
+
+    await cli(empty, ['init', '--no-install']);
+
+    // A truly empty tree still gets the guidance scaffold.
+    expect(read(empty, 'src/components/.gitkeep')).toBe('');
+  });
+
+  it('re-init removes the stale generated contract when emit.agents narrows', async () => {
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+
+    expect(read(dir, 'AGENTS.md')).toContain('<!-- BLUEPRINT:START -->');
+
+    // The field workflow was config-edit → re-init → *manual rm* — the last
+    // step is init's job when the file is wholly its own output.
+    write(dir, 'blueprint.config.mjs', configSource({
+      ...reactPreset({ name: 'fixture' }),
+      emit: { agents: ['claude'] },
+    }));
+
+    const second = await cli(dir, ['init', '--no-install']);
+
+    expect(second.code).toBe(0);
+    expect(second.output).toContain('stale agent contract');
+    expect(read(dir, 'AGENTS.md')).toBeNull();
+    expect(read(dir, 'CLAUDE.md')).toContain('<!-- BLUEPRINT:START -->');
+  });
+});

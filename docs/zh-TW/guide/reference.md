@@ -68,7 +68,7 @@
 | `architecture.naming` | 依概念設定的命名慣例（如 `{ hook: 'useX + reactivity' }`）—— 寫入手冊與契約 |
 | `layer.module` | 逐層覆寫共用的模組形狀 —— 例如某一分層採資料夾模組、其餘維持單檔 |
 | `layer.lintOverrides` | 逐層的 ESLint 調整（三條受管規則除外） |
-| `emit.agents` | Agent 守則的發佈目標：`claude`、`agents`、`gemini`、`copilot`、`cursor`、`windsurf`（可逐目標指定 `path`）。預設 `['claude', 'agents']`；空陣列就不產出 |
+| `emit.agents` | Agent 守則的發佈目標：`claude`、`agents`、`gemini`、`copilot`、`cursor`、`windsurf`（可逐目標指定 `path`）。預設 `['claude', 'agents']`；空陣列就不產出。縮窄清單後，下一次 init 會自動移除「整份都是自己產出」的過期守則檔（被人手改過的只提醒、不動手） |
 | `emit.handbook` / `emit.ci` / `emit.lint` | 手冊輸出路徑 · CI 供應商（`github` / `none`）· lint config 路徑＋**結構規則**的等級（度量規則吃自己的 `rules` tier） |
 
 ## 命令列旗標

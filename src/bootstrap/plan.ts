@@ -1,5 +1,5 @@
 import { aliasActions } from './alias';
-import { emitAgentFiles } from '../emit/agent';
+import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
 import { emitCi } from '../emit/ci';
 import { emitHandbook, handbookPath } from '../emit/docs';
 import { injectBetweenMarkers } from '../markdown';
@@ -17,6 +17,8 @@ export interface PlanOptions {
   existingAgentFiles?: Record<string, string | null>;
   /** Narrow the default contract targets to the one tool in use (`--agent`). */
   agentTarget?: AgentTarget;
+  /** The source tree already holds code — skip empty-layer scaffolding. */
+  hasSourceFiles?: boolean;
 }
 
 /** Decide every effect `init` will perform. Pure — reads facts, returns actions. */
@@ -33,9 +35,15 @@ export function plan(
     actions.push({ kind: 'write', path: 'blueprint.config.mjs', content: configSource, note: 'blueprint.config.mjs' });
   }
 
-  for (const layer of architecture.layers) {
-    if (!state.existingSrcDirs.includes(layer.name)) {
-      actions.push({ kind: 'mkdir', path: `src/${layer.name}`, note: `src/${layer.name}/` });
+  // Empty layer folders are guidance only on a truly empty tree. Where code
+  // already lives, an unbuilt layer's absence is its true state — a .gitkeep
+  // shell would be the physical twin of the manufactured net the playbook
+  // forbids ("never invent a layer").
+  if (!options.hasSourceFiles) {
+    for (const layer of architecture.layers) {
+      if (!state.existingSrcDirs.includes(layer.name)) {
+        actions.push({ kind: 'mkdir', path: `src/${layer.name}`, note: `src/${layer.name}/` });
+      }
     }
   }
 
@@ -44,8 +52,9 @@ export function plan(
   actions.push({ kind: 'write', path: handbook, content: emitHandbook(blueprint), note: handbook });
 
   const targets = options.agentTarget ? [options.agentTarget] : undefined;
+  const agentFiles = emitAgentFiles(blueprint, targets);
 
-  for (const file of emitAgentFiles(blueprint, targets)) {
+  for (const file of agentFiles) {
     if (file.strategy === 'merge') {
       const existing = options.existingAgentFiles?.[file.path] ?? null;
 
@@ -99,6 +108,32 @@ export function plan(
     }
 
     actions.push({ kind: 'write', path: file.path, content: file.content, note: `${file.path} (agent contract)` });
+  }
+
+  // A contract a previous init emitted that the current emit.agents no
+  // longer names is a stale artifact — the field workflow was config-edit →
+  // re-init → manual rm. Wholly generated files (nothing outside the marker
+  // block; own-strategy rules files by construction) are init's to remove;
+  // one carrying hand-written content only gets told.
+  const emitted = new Set(agentFiles.map((file) => file.path));
+
+  for (const spec of defaultAgentPaths()) {
+    const existing = options.existingAgentFiles?.[spec.path] ?? null;
+
+    if (emitted.has(spec.path) || existing === null) continue;
+
+    if (spec.strategy === 'own' || isWhollyGenerated(existing)) {
+      actions.push({
+        kind: 'rm',
+        path: spec.path,
+        note: `${spec.path} (stale agent contract — no longer in emit.agents)`,
+      });
+    } else if (existing.includes(`<!-- ${MARKER}:START -->`)) {
+      actions.push({
+        kind: 'instruct',
+        note: `${spec.path} is no longer in emit.agents but carries hand-written content around its BLUEPRINT block — remove the block (or the file) yourself if it is unwanted.`,
+      });
+    }
   }
 
   if (state.ownedEslintConfig !== undefined) {
@@ -224,6 +259,13 @@ function eslintWiringNote(state: ProjectState): string {
     + '    export default [ ...emitLint(blueprint), /* …your existing entries */ ];\n'
     + '  On a TypeScript project pass the TS plugin — emitLint(blueprint, { typescript: tseslint.plugin }).\n'
     + shared;
+}
+
+/** Nothing outside the marker block — wholly init's own output, safe to remove. */
+function isWhollyGenerated(text: string): boolean {
+  const trimmed = text.trim();
+
+  return trimmed.startsWith(`<!-- ${MARKER}:START -->`) && trimmed.endsWith(`<!-- ${MARKER}:END -->`);
 }
 
 function mergeContract(existing: string | null, contract: string): string {

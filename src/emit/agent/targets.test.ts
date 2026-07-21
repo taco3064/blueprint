@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { emitAgentFiles } from './targets';
+import { defaultAgentPaths, emitAgentFiles } from './targets';
 import { emitAgentContract } from './agent';
 import { vuePreset } from '../../presets';
 import type { Blueprint, EmitDef } from '../../config';
@@ -59,6 +59,19 @@ describe('emitAgentFiles', () => {
 
     expect(files.map((file) => file.strategy)).toEqual([
       'merge', 'merge', 'merge', 'merge', 'own', 'own',
+    ]);
+  });
+
+  it('exposes every default path for stale-contract cleanup', () => {
+    // init scans these locations for contracts a previous run emitted that
+    // the current emit.agents no longer names.
+    expect(defaultAgentPaths().map(({ target, path }) => [target, path])).toEqual([
+      ['claude', 'CLAUDE.md'],
+      ['agents', 'AGENTS.md'],
+      ['gemini', 'GEMINI.md'],
+      ['copilot', '.github/copilot-instructions.md'],
+      ['cursor', '.cursor/rules/blueprint.mdc'],
+      ['windsurf', '.windsurf/rules/blueprint.md'],
     ]);
   });
 
