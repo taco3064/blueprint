@@ -467,6 +467,43 @@ describe('init UX honesty — re-runs and starters tell the truth (batch 10)', (
   });
 });
 
+describe('the tool answers for itself — no bundle archaeology (batch 12)', () => {
+  it('rules prints the catalog, annotated with the declared tiers', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'blueprint.config.mjs': configSource(reactBlueprint) },
+    });
+
+    const rules = await cli(dir, ['rules']);
+
+    expect(rules.code).toBe(0);
+    expect(rules.output).toContain('always emitted');
+    expect(rules.output).toContain('maxLines → max-lines (default 400)');
+    expect(rules.output).toContain('✓ error'); // unusedVars, declared in the fixture
+    expect(rules.output).toContain('deadCode'); // documentation-only, stated as such
+  });
+
+  it('retire drives the stale footprint down to zero', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'README.md': 'boundaries checked by structure-lint\n' },
+    });
+
+    const dirty = await cli(dir, ['retire', 'structure-lint']);
+
+    expect(dirty.code).toBe(1);
+    expect(dirty.output).toContain('README.md');
+    expect(dirty.output).toContain('re-run until clean');
+
+    write(dir, 'README.md', 'boundaries checked by blueprint\n');
+
+    const clean = await cli(dir, ['retire', 'structure-lint']);
+
+    expect(clean.code).toBe(0);
+    expect(clean.output).toContain('footprint is swept');
+  });
+});
+
 describe('scaffold matches the doctrine — no invented structure (batch 11)', () => {
   it('scaffolds guidance dirs only into an empty tree', async () => {
     const rooted = repo({
