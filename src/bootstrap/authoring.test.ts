@@ -88,6 +88,13 @@ describe('authoringBrief', () => {
     expect(brief).toContain('npx blueprint init --preset');
   });
 
+  it('forbids manufacturing a net — the empty-net twin of manufactured debt', () => {
+    // Batch 9: an agent invented a `*` layer so coverage would be non-zero.
+    expect(brief).toContain('An empty net is equally legitimate');
+    expect(brief).toContain('Never invent\na layer');
+    expect(brief).toContain('belongs to\nthe project\'s own lint');
+  });
+
   it('puts existing intent documents senior to the matrix', () => {
     expect(brief).toContain('Look for existing intent documents first');
     expect(brief).toContain('structure.config.json');

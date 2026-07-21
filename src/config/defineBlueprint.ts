@@ -74,6 +74,17 @@ export function validateBlueprint(bp: Blueprint): void {
       throw new Error('Each layer must have a non-empty name.');
     } else if (names.has(layer.name)) {
       throw new Error(`Duplicate layer name: "${layer.name}".`);
+    } else if (/[*?{}[\]\\/]/.test(layer.name)) {
+      // A layer name is substituted into every file glob and scaffolded as a
+      // folder — a `*` name turns each net into a wildcard and creates a
+      // literal `src/*/` (field batch 9's root-files workaround). Root files
+      // are wiring: their quality lint belongs to the project's own eslint,
+      // never to a manufactured layer.
+      throw new Error(
+        `Layer "${layer.name}" contains glob or path characters — layer names become `
+        + 'file globs and folders. Root files are wiring, not a layer: leave their '
+        + 'hygiene to the project\'s own lint instead of widening the net.',
+      );
     }
 
     validateOwns(layer);

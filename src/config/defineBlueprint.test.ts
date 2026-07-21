@@ -305,6 +305,18 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).not.toThrow();
   });
 
+  it('rejects layer names carrying glob or path characters', () => {
+    // Batch 9's workaround: a layer literally named `*` widened every glob
+    // to src/* and scaffolded a literal `src/*/` folder.
+    for (const name of ['*', 'ui?', '{a,b}', 'a[0]', 'a/b', 'a\\b']) {
+      const config = base();
+
+      config.architecture.layers = [{ name, does: 'x' }];
+
+      expect(() => validateBlueprint(config)).toThrow(/glob or path characters/);
+    }
+  });
+
   it('rejects usePrefix targeting an undeclared layer', () => {
     const config = base();
 

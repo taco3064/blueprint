@@ -51,6 +51,27 @@ describe('fail-loud floor', () => {
     expect(impact.code).toBe(1);
     expect(impact.output).toContain('author the config first');
   });
+
+  it('rejects the manufactured-net workaround: a layer literally named * (batch 9)', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource({
+          ...reactBlueprint,
+          architecture: {
+            ...reactBlueprint.architecture,
+            layers: [{ name: '*', does: 'root files smuggled into the net' }],
+          },
+        }),
+      },
+    });
+
+    const doctor = await cli(dir, ['doctor']);
+
+    expect(doctor.code).toBe(1);
+    expect(doctor.output).toContain('glob or path characters');
+    expect(doctor.output).toContain('Root files are wiring, not a layer');
+  });
 });
 
 describe('greenfield scaffold — init alone completes (batches 1 & 4)', () => {

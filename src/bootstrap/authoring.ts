@@ -126,6 +126,13 @@ the command file, and stop. Walking the full method on a starter is
 ceremony, not judgment; this playbook earns its cost on repos whose layer
 boundaries have grown fuzzy.
 
+**An empty net is equally legitimate.** On a root-only app the layer rules
+reach nothing — that is the true state, not a failure to fix. Never invent
+a layer to make coverage non-zero (a \`*\` name, a glob contortion): root
+files are wiring, and their hygiene (line counts, unused vars) belongs to
+the project's own lint, not to a manufactured layer. The net starts biting
+when code lands inside declared layers.
+
 ## Method
 
 1. **Look for existing intent documents first.** An architecture config or doc
