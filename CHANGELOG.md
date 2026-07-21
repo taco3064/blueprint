@@ -1,5 +1,16 @@
 # @kekkai/blueprint
 
+## 1.12.0
+
+### Minor Changes
+
+- e8b2ba1: `doctor` gains a sixth check — the declared import alias must be resolvable by the toolchain (tsconfig `paths`, or a bundler config: vite / webpack / vue-cli / next / rsbuild, matched as a quoted token), closing the declared-yet-unwired gap where the agent contract points at imports nothing resolves. `inspect` reports and doctor's architecture check now state their coverage (source files inside layer nets, active optional gates), so a vacuously green gate over an empty net is called out instead of quietly passing. `detectAliases` moved from `survey` into `project` alongside the new `pathAliasKeys`.
+- 2d55589: New `blueprint impact` command — the rule-impact dry-run. It compiles the authored config with `emitLint`, runs the project's own ESLint over the layer files with only that config, and reports what wiring would flag today: hits per rule, heaviest files named, and two honest special rows — `parse-error` (a file could not be parsed; its numbers are untrustworthy) kept apart from `unused-disable-directive` (a stale inline disable that suppresses nothing; the file is fine). Informational, never a gate (exit 0 whatever the count). The authoring playbook now points to it in the wire-the-lint step, so rule conflicts get decided on numbers instead of reverse-engineering the emitted config by hand.
+
+### Patch Changes
+
+- dacc70a: Authoring playbook now states the emitted-rule semantics up front (flat vs folder same-layer imports, the pre-wiring "Same-folder imports via the alias" count, `unusedVars` options, doctor's "wired" criterion) so agents stop reverse-engineering them from the bundle; intent-document translation gains a stale-clause downgrade rule; the survey import matrix notes that it counts test files while inspect does not.
+
 ## 1.11.0
 
 ### Minor Changes
