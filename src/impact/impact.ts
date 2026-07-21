@@ -36,6 +36,13 @@ export interface RuleImpact {
   files: number;
   /** The heaviest files, worst first (capped at five). */
   top: { path: string; count: number }[];
+  /**
+   * True when the rule id is NOT part of the emitted config — an artifact of
+   * linting in isolation (e.g. an existing `eslint-disable custom/x` comment
+   * whose rule lives in the project's own config, absent here). Not counted
+   * in the total: merging emitLint into the real config makes these vanish.
+   */
+  foreign: boolean;
 }
 
 /* v8 ignore start -- real module resolution from the project; tests inject loadModule */
@@ -181,6 +188,14 @@ export async function runImpact(
   const results = await eslint.lintFiles(globs);
   const byRule = new Map<string, Map<string, number>>();
 
+  // The emitted rule ids, plus the two null-ruleId special rows — anything
+  // else in the results is an isolation artifact, not a blueprint hit.
+  const emitted = new Set([
+    ...config.flatMap((entry) => Object.keys(entry.rules ?? {})),
+    'parse-error',
+    'unused-disable-directive',
+  ]);
+
   for (const result of results) {
     const rel = path.relative(root, result.filePath).split(path.sep).join('/');
 
@@ -206,10 +221,15 @@ export async function runImpact(
         .map(([file, count]) => ({ path: file, count }))
         .sort((a, b) => b.count - a.count || a.path.localeCompare(b.path))
         .slice(0, 5),
+      foreign: !emitted.has(rule),
     }))
     .sort((a, b) => b.count - a.count || a.rule.localeCompare(b.rule));
 
-  const total = impacts.reduce((sum, impact) => sum + impact.count, 0);
+  // Foreign rows are excluded: they disappear once emitLint is merged into
+  // the real config, so they are not red the wiring would introduce.
+  const total = impacts
+    .filter((impact) => !impact.foreign)
+    .reduce((sum, impact) => sum + impact.count, 0);
 
   log(
     options.json
@@ -220,23 +240,42 @@ export async function runImpact(
   return { impacts, total };
 }
 
-/** The human-readable impact report. */
+/** The human-readable impact report. Foreign rows render apart, never mixed. */
 export function renderImpact(impacts: RuleImpact[], total: number): string {
-  if (!impacts.length) {
-    return '✓ Rule impact: 0 hits — wiring emitLint introduces no red today.';
-  }
+  const own = impacts.filter((impact) => !impact.foreign);
+  const foreign = impacts.filter((impact) => impact.foreign);
 
-  const lines = impacts.flatMap((impact) => [
-    `  ${String(impact.count).padStart(5)}  ${impact.rule} — ${impact.files} file(s)`,
-    `         worst: ${impact.top.map((t) => `${t.path} (${t.count})`).join(', ')}`,
-  ]);
+  const rows = (list: RuleImpact[]) =>
+    list.flatMap((impact) => [
+      `  ${String(impact.count).padStart(5)}  ${impact.rule} — ${impact.files} file(s)`,
+      `         worst: ${impact.top.map((t) => `${t.path} (${t.count})`).join(', ')}`,
+    ]);
+
+  const foreignBlock = !foreign.length
+    ? []
+    : [
+        '',
+        'Not blueprint\'s rules — artifacts of linting with ONLY the emitted config',
+        '(e.g. existing disables referencing rules that live in your own eslint',
+        'config); these vanish once emitLint is merged into it:',
+        '',
+        ...rows(foreign),
+      ];
+
+  if (!own.length) {
+    return [
+      '✓ Rule impact: 0 hits — wiring emitLint introduces no red today.',
+      ...foreignBlock,
+    ].join('\n');
+  }
 
   return [
     'Rule impact — what wiring emitLint would flag today',
     '',
-    ...lines,
+    ...rows(own),
     '',
     `${total} hit(s). Wire the config, then lock the existing debt with`
     + ' `npx eslint . --suppress-all` — new violations still fail.',
+    ...foreignBlock,
   ].join('\n');
 }

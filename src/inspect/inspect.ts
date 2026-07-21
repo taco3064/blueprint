@@ -51,21 +51,31 @@ export async function runInspect(
   const baselineFile = path.join(root, BASELINE_FILE);
 
   if (options.updateBaseline) {
+    // The baseline is a debt ledger, and info findings are not debt — a
+    // missing-layer note says "not built yet", nothing a ratchet should
+    // hold. Recording them would also invite manufacturing debt on a clean
+    // repo just to have something to lock.
+    const debt = findings.filter((finding) => finding.severity !== 'info');
+
     // A clean repo needs no ratchet — an empty baseline is a file whose only
     // job is to exist. Skip writing it, and retire a paid-off one.
-    if (!findings.length) {
+    if (!debt.length) {
+      const note = findings.length
+        ? ` (${findings.length} informational note(s) are not debt)`
+        : '';
+
       if (fs.existsSync(baselineFile)) {
         fs.rmSync(baselineFile);
-        log(`No findings — ${BASELINE_FILE} removed; plain \`blueprint inspect\` is the gate now.`);
+        log(`No debt to lock${note} — ${BASELINE_FILE} removed; plain \`blueprint inspect\` is the gate now.`);
       } else {
-        log('No findings — no baseline needed; plain `blueprint inspect` is the gate.');
+        log(`No debt to lock${note} — no baseline needed; plain \`blueprint inspect\` is the gate.`);
       }
 
       return { findings, ok: true };
     }
 
-    fs.writeFileSync(baselineFile, renderBaseline(findings));
-    log(`Baseline updated — ${findings.length} finding(s) recorded in ${BASELINE_FILE}.`);
+    fs.writeFileSync(baselineFile, renderBaseline(debt));
+    log(`Baseline updated — ${debt.length} finding(s) recorded in ${BASELINE_FILE}.`);
 
     return { findings, ok: true };
   }

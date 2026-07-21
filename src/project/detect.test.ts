@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { detect, detectAliases, pathAliasKeys, readTexts } from './detect';
+import { detect, detectAliases, parseJsonc, pathAliasKeys, readTexts } from './detect';
 
 let root: string;
 
@@ -260,10 +260,10 @@ describe('detectAliases', () => {
     ).toEqual({ '@': 'src', '~app': 'src' });
   });
 
-  it('skips unparseable (JSONC) files and shapeless configs', () => {
+  it('skips truly broken files and shapeless configs', () => {
     expect(
       detectAliases({
-        'tsconfig.json': '{ /* jsonc comment */ }',
+        'tsconfig.json': '{ "compilerOptions": ',
         'jsconfig.json': JSON.stringify({ compilerOptions: {} }),
         'tsconfig.app.json': null,
       }),
@@ -274,6 +274,35 @@ describe('detectAliases', () => {
         'tsconfig.json': JSON.stringify({ compilerOptions: { paths: { '@/*': [42] } } }),
       }),
     ).toEqual({});
+  });
+
+  it('reads JSONC — the Vite + TS starter tsconfig is commented by default', () => {
+    // Comments, trailing commas, AND `/*` living inside the very strings we
+    // need (`"@/*"`) — a naive regex strip would destroy the data.
+    const jsonc = `{
+      // path aliases for the app
+      "compilerOptions": {
+        /* keep in sync with vite.config.ts */
+        "paths": {
+          "@/*": ["./src/*"], // primary
+          "~app/*": ["./src/*"],
+        },
+      },
+    }`;
+
+    expect(detectAliases({ 'tsconfig.app.json': jsonc })).toEqual({ '@': 'src', '~app': 'src' });
+    expect([...pathAliasKeys({ 'tsconfig.app.json': jsonc })].sort()).toEqual(['@', '~app']);
+  });
+
+  it('returns null on degenerate input — unterminated string, trailing backslash', () => {
+    expect(parseJsonc('{ "a": "b\\')).toBeNull();
+  });
+
+  it('honors escapes and comment-looking content inside strings', () => {
+    const jsonc = '{ "compilerOptions": { "paths": { "@//*": ["./src/*"], '
+      + '"quoted\\"x/*": ["./x/*"] } } } // tail';
+
+    expect([...pathAliasKeys({ 'tsconfig.json': jsonc })].sort()).toEqual(['@/', 'quoted"x']);
   });
 });
 

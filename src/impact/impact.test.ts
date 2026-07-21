@@ -271,6 +271,61 @@ describe('runImpact', () => {
     ).rejects.toThrow('impact needs "eslint"');
   });
 
+  it('quarantines rules that are not blueprint\'s own — isolation artifacts', async () => {
+    project({ react: '^18' });
+
+    const { module } = fakeEslint([
+      {
+        filePath: at('src/components/A.jsx'),
+        // An existing `eslint-disable custom/...` comment under the isolated
+        // config: ESLint reports the unknown rule id — not a blueprint hit.
+        messages: [{ ruleId: 'custom/no-bad-script-literals' }, { ruleId: 'max-lines' }],
+      },
+    ]);
+
+    const { loadModule } = loader(module);
+
+    let output = '';
+
+    const { impacts, total } = await runImpact(root, {
+      loadConfig: async () => reactPreset(),
+      loadModule,
+      log: (message) => (output = message),
+    });
+
+    const alien = impacts.find((impact) => impact.rule === 'custom/no-bad-script-literals');
+
+    expect(alien?.foreign).toBe(true);
+    expect(impacts.find((impact) => impact.rule === 'max-lines')?.foreign).toBe(false);
+    // Foreign hits never inflate the wiring-red total.
+    expect(total).toBe(1);
+    expect(output).toContain('1 hit(s)');
+    expect(output).toContain('Not blueprint\'s rules');
+    expect(output).toContain('custom/no-bad-script-literals');
+  });
+
+  it('keeps the zero-hit verdict even when isolation artifacts exist', async () => {
+    project({ react: '^18' });
+
+    const { module } = fakeEslint([
+      { filePath: at('src/components/A.jsx'), messages: [{ ruleId: 'custom/x' }] },
+    ]);
+
+    const { loadModule } = loader(module);
+
+    let output = '';
+
+    const { total } = await runImpact(root, {
+      loadConfig: async () => reactPreset(),
+      loadModule,
+      log: (message) => (output = message),
+    });
+
+    expect(total).toBe(0);
+    expect(output).toContain('0 hits — wiring emitLint introduces no red today');
+    expect(output).toContain('Not blueprint\'s rules');
+  });
+
   it('caps the worst-file list at five', async () => {
     project({ react: '^18' });
 

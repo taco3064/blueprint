@@ -92,11 +92,12 @@ describe('runInspect · baseline ratchet', () => {
     expect(update.ok).toBe(true);
     expect(fs.existsSync(path.join(root, '.blueprint-baseline.json'))).toBe(true);
 
-    // Same state → clean under the baseline.
+    // Same state → clean under the baseline. Info notes are not debt, so
+    // they are never suppressed — they ride along without failing the gate.
     const clean = await runInspect(root, { baseline: true, log: silent });
 
     expect(clean.ok).toBe(true);
-    expect(clean.findings).toEqual([]);
+    expect(clean.findings.every((finding) => finding.severity === 'info')).toBe(true);
 
     // A NEW violation → only it surfaces, and it fails the run.
     writeSrc('components/Btn/Btn.ts', 'import { api } from \'~app/services/api\';');
@@ -211,5 +212,33 @@ describe('runInspect · zero-finding baseline hygiene', () => {
 
     expect(fs.existsSync(baseline)).toBe(false);
     expect(output).toContain('removed');
+  });
+
+  it('never locks info findings — notes are not debt', async () => {
+    const baseline = path.join(root, '.blueprint-baseline.json');
+    let output = '';
+
+    // No src at all: every declared layer is a missing-layer info finding.
+    const infoOnly = await runInspect(root, {
+      updateBaseline: true,
+      log: (m) => (output = m),
+    });
+
+    expect(infoOnly.findings.every((f) => f.severity === 'info')).toBe(true);
+    expect(infoOnly.findings.length).toBeGreaterThan(0);
+    // Nothing gets manufactured into a ledger just to have one.
+    expect(fs.existsSync(baseline)).toBe(false);
+    expect(output).toContain('informational note(s) are not debt');
+
+    // Mixed: one real error plus the info notes — only the error is locked.
+    writeSrc('utils/helper.ts', 'export const x = 1;');
+    await runInspect(root, { updateBaseline: true, log: silent });
+
+    const recorded = JSON.parse(fs.readFileSync(baseline, 'utf-8')) as {
+      findings: { rule: string }[];
+    };
+
+    expect(recorded.findings.some((f) => f.rule === 'undeclared-folder')).toBe(true);
+    expect(recorded.findings.some((f) => f.rule === 'missing-layer')).toBe(false);
   });
 });

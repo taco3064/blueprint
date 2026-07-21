@@ -211,6 +211,88 @@ export function detect(root: string): ProjectState {
   };
 }
 
+/**
+ * Copy a string literal verbatim (honoring escapes) from `text[i]` into
+ * `out`, returning the index after the closing quote. Both JSONC passes
+ * need this: a tsconfig's own data contains `/*` (every `"@/*"` paths key),
+ * so nothing may be stripped inside a string.
+ */
+function copyString(text: string, i: number, out: string[]): number {
+  out.push(text[i]);
+  i++;
+
+  while (i < text.length && text[i] !== '"') {
+    out.push(text[i]);
+
+    if (text[i] === '\\' && i + 1 < text.length) {
+      out.push(text[i + 1]);
+      i++;
+    }
+
+    i++;
+  }
+
+  if (i < text.length) out.push(text[i]);
+
+  return i + 1;
+}
+
+/**
+ * Tolerant JSONC parse for the tsconfig family: strips line and block
+ * comments plus trailing commas — outside string literals only — then
+ * `JSON.parse`. Vite + TS starters ship tsconfigs *with comments* by
+ * default, so treating JSONC as unreadable would false-red the doctor's
+ * alias check on the mainstream path. Returns null when the text still is
+ * not JSON after stripping.
+ */
+export function parseJsonc(text: string): unknown {
+  const stripped: string[] = [];
+
+  for (let i = 0; i < text.length;) {
+    if (text[i] === '"') {
+      i = copyString(text, i, stripped);
+    } else if (text[i] === '/' && text[i + 1] === '/') {
+      while (i < text.length && text[i] !== '\n') i++;
+    } else if (text[i] === '/' && text[i + 1] === '*') {
+      i += 2;
+
+      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++;
+
+      i += 2;
+    } else {
+      stripped.push(text[i]);
+      i++;
+    }
+  }
+
+  // Second pass, comment-free: drop a comma whose next non-space is `}`/`]`.
+  const clean: string[] = [];
+  const commentFree = stripped.join('');
+
+  for (let i = 0; i < commentFree.length;) {
+    if (commentFree[i] === '"') {
+      i = copyString(commentFree, i, clean);
+    } else if (commentFree[i] === ',') {
+      let next = i + 1;
+
+      while (next < commentFree.length && /\s/.test(commentFree[next])) next++;
+
+      if (commentFree[next] !== '}' && commentFree[next] !== ']') clean.push(',');
+
+      i++;
+    } else {
+      clean.push(commentFree[i]);
+      i++;
+    }
+  }
+
+  try {
+    return JSON.parse(clean.join(''));
+  } catch {
+    return null; // Still broken after stripping — the --alias flag covers this honestly.
+  }
+}
+
 /** Visit every `compilerOptions.paths` entry across the given tsconfig texts. */
 function eachPathAlias(
   tsconfigs: Record<string, string | null>,
@@ -219,13 +301,9 @@ function eachPathAlias(
   for (const text of Object.values(tsconfigs)) {
     if (text == null) continue;
 
-    let parsed: unknown;
+    const parsed = parseJsonc(text);
 
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      continue; // JSONC or broken — the --alias flag covers this honestly.
-    }
+    if (parsed == null) continue;
 
     const options = (parsed as { compilerOptions?: { paths?: unknown } })?.compilerOptions;
     const paths = options?.paths;
