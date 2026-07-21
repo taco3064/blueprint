@@ -91,7 +91,8 @@ npx @kekkai/blueprint doctor
   `paths` nor the vite config resolves would send agents into unresolvable imports;
   the failure carries the exact wiring snippet
 - **architecture clean** — no findings outside the baseline; the detail line states
-  the coverage (source files inside layer nets, active gated rules), so a vacuously
+  the coverage (source files inside layer nets, active optional gates — the
+  structural boundary rules are always on), so a vacuously
   green gate is visible instead of quietly reassuring
 - **lint suppressions ledger current** — stale entries in `eslint-suppressions.json`
   (files that no longer exist) fail the check
@@ -131,8 +132,10 @@ npx @kekkai/blueprint impact --json   # feed the counts to tooling / an agent
 It compiles the authored config with `emitLint`, runs the **project's own**
 ESLint over the layer files with only that config, and reports hits per rule
 with the heaviest files named. Informational, never a gate — exit 0 whatever
-the count. A `parse-error` row means a file could not be parsed (usually a
-missing parser dep) and its numbers cannot be trusted until that is fixed.
+the count. Two special rows: `parse-error` means a file could not be parsed
+(usually a missing parser dep) and its numbers cannot be trusted until fixed;
+`unused-disable-directive` means a stale inline `eslint-disable` suppresses
+nothing (common after rule renames) — the file itself is fine.
 
 ## Failure semantics
 

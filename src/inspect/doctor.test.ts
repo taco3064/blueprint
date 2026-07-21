@@ -132,6 +132,35 @@ describe('runDoctor', () => {
     expect(checks.find((c) => c.label.includes('alias'))?.ok).toBe(true);
   });
 
+  it('demands the vite alias as a quoted token — a scoped-package import is no wiring', async () => {
+    adopted();
+    fs.rmSync(path.join(root, 'tsconfig.json'));
+
+    const at = async () => {
+      const preset = vuePreset();
+
+      return { ...preset, architecture: { ...preset.architecture, alias: '@' } };
+    };
+
+    // '@' appears in every scoped import — a substring match would pass vacuously.
+    write('vite.config.ts', 'import vue from \'@vitejs/plugin-vue\';\nexport default {};');
+
+    let { checks } = await runDoctor(root, { loadConfig: at, log: silent });
+
+    expect(checks.find((c) => c.label.includes('alias'))?.ok).toBe(false);
+
+    // The real wiring is a quoted token — that one counts.
+    write(
+      'vite.config.ts',
+      'import vue from \'@vitejs/plugin-vue\';\n'
+      + 'export default { resolve: { alias: { \'@\': \'/src\' } } };',
+    );
+
+    ({ checks } = await runDoctor(root, { loadConfig: at, log: silent }));
+
+    expect(checks.find((c) => c.label.includes('alias'))?.ok).toBe(true);
+  });
+
   it('states the coverage on a clean gate, and calls out a vacuous one', async () => {
     adopted();
     write('src/components/Button.vue', 'export default {};');

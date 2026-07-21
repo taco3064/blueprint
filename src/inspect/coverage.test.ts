@@ -48,11 +48,13 @@ describe('computeCoverage', () => {
 });
 
 describe('renderCoverage', () => {
-  it('renders the one-line summary', () => {
-    const line = renderCoverage({ sourceFiles: 2, layerFiles: 1, activeRules: 2, gatedRules: 13 });
+  it('renders the one-line summary without implying structural rules are off', () => {
+    const line = renderCoverage({ sourceFiles: 2, layerFiles: 1, activeRules: 0, gatedRules: 13 });
 
     expect(line).toContain('Coverage: 1/2 source files inside layer nets');
-    expect(line).toContain('2/13 gated rules active');
+    // "0 active" must not read as "nothing enforced" — structural rules always emit.
+    expect(line).toContain('0/13 optional gates active');
+    expect(line).toContain('structural boundary rules are always on');
   });
 
   it('screams when files exist but the net catches none of them', () => {

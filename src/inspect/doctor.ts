@@ -6,7 +6,7 @@ import type { ProjectState, ResolveOptions } from '../project';
 import type { Blueprint } from '../config';
 import { analyze } from './analyze';
 import { BASELINE_FILE, parseBaseline, splitByBaseline } from './baseline';
-import { computeCoverage } from './coverage';
+import { computeCoverage, coverageSummary } from './coverage';
 import { hasErrors } from './report';
 import { scan } from './scan';
 
@@ -69,16 +69,20 @@ function suppressionsCheck(root: string): DoctorCheck {
  * silently pass illegal imports — but a *declared-yet-unwired* alias is the
  * inverse trap: the contract tells agents to import through a prefix no
  * toolchain resolves. Wired = the alias appears in tsconfig/jsconfig `paths`
- * (any target), or the vite config's text mentions it (the same text
- * heuristic `detect` uses for the eslint wiring).
+ * (any target), or the vite config's text carries it as a quoted token
+ * (`'@': …` / `find: '@'`). A bare substring test would be vacuous for short
+ * aliases — `'@'` is inside every `'@vitejs/plugin-…'` import.
  */
 function aliasCheck(blueprint: Blueprint, state: ProjectState): DoctorCheck {
   const { alias, additionalAliases, sourceRoot } = blueprint.architecture;
   const declared = pathAliasKeys(state.tsconfigs);
   const viteText = state.viteConfig?.text ?? '';
 
+  const quoted = (name: string) =>
+    new RegExp(`['"\`]${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`).test(viteText);
+
   const unwired = [alias, ...Object.keys(additionalAliases ?? {})].filter(
-    (name) => !declared.has(name) && !viteText.includes(name),
+    (name) => !declared.has(name) && !quoted(name),
   );
 
   if (!unwired.length) return { label: 'import alias wired to the toolchain', ok: true };
@@ -180,7 +184,7 @@ export async function runDoctor(
         ? `${fresh.length} finding(s) outside the baseline — fix, or \`blueprint inspect --update-baseline\``
         : coverage.sourceFiles > 0 && coverage.layerFiles === 0
           ? `clean, but vacuous — layer globs match 0 of ${coverage.sourceFiles} source file(s); the gate bites once code lands inside declared layers`
-          : `${coverage.layerFiles}/${coverage.sourceFiles} source files inside layer nets · ${coverage.activeRules}/${coverage.gatedRules} gated rules active`,
+          : coverageSummary(coverage),
     },
     suppressionsCheck(root),
   ];

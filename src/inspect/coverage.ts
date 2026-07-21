@@ -52,13 +52,25 @@ export function computeCoverage(scanResult: ScanResult, blueprint: Blueprint): C
   };
 }
 
-/** One-line coverage summary — loud when the net catches nothing. */
+/**
+ * The shared one-line summary — inspect's footer and doctor's detail both
+ * read from here so the numbers never phrase themselves two ways. The gate
+ * count is labeled *optional*: the structural boundary rules (restricted
+ * imports, relative escapes, ownership) are always emitted regardless of the
+ * `rules` block, so "0 optional gates" must not read as "nothing enforced".
+ */
+export function coverageSummary(coverage: Coverage): string {
+  return `${coverage.layerFiles}/${coverage.sourceFiles} source files inside layer nets · `
+    + `${coverage.activeRules}/${coverage.gatedRules} optional gates active `
+    + '(structural boundary rules are always on)';
+}
+
+/** One-line coverage report — loud when the net catches nothing. */
 export function renderCoverage(coverage: Coverage): string {
   if (coverage.sourceFiles > 0 && coverage.layerFiles === 0) {
     return `⚠ Enforcement is vacuous — layer globs match 0 of ${coverage.sourceFiles} source `
       + 'file(s); a green gate proves nothing until code lands inside declared layers.';
   }
 
-  return `Coverage: ${coverage.layerFiles}/${coverage.sourceFiles} source files inside layer `
-    + `nets · ${coverage.activeRules}/${coverage.gatedRules} gated rules active`;
+  return `Coverage: ${coverageSummary(coverage)}`;
 }

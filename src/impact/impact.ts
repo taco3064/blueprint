@@ -64,7 +64,7 @@ function unwrap<T>(module: unknown): T {
 interface EslintApi {
   ESLint: new (options: object) => {
     lintFiles: (patterns: string[]) => Promise<
-      { filePath: string; messages: { ruleId: string | null }[] }[]
+      { filePath: string; messages: { ruleId: string | null; fatal?: boolean }[] }[]
     >;
   };
 }
@@ -82,9 +82,11 @@ async function loadStack(
   try {
     return await load(name, root);
   } catch {
+    // "Not installed" would over-claim: exotic layouts (pnpm isolation +
+    // ESM-only entries) can defeat resolution for an installed package.
     throw new Error(
       `impact needs "${name}" from the project's dependencies and could not load it — `
-      + 'install it (blueprint init lists it among the required deps) and re-run.',
+      + 'is it installed? (blueprint init lists it among the required deps.)',
     );
   }
 }
@@ -183,9 +185,11 @@ export async function runImpact(
     const rel = path.relative(root, result.filePath).split(path.sep).join('/');
 
     for (const message of result.messages) {
-      // A null ruleId is a parse failure — surfaced, never swallowed: it
-      // means the impact numbers for that file cannot be trusted.
-      const rule = message.ruleId ?? 'parse-error';
+      // A null ruleId is two very different stories, split by `fatal`: a real
+      // parse failure (that file's numbers cannot be trusted), or a stale
+      // inline disable flagged by reportUnusedDisableDirectives (the file is
+      // fine — the comment suppresses nothing). Both surface, never swallowed.
+      const rule = message.ruleId ?? (message.fatal ? 'parse-error' : 'unused-disable-directive');
       const perFile = byRule.get(rule) ?? new Map<string, number>();
 
       perFile.set(rel, (perFile.get(rel) ?? 0) + 1);

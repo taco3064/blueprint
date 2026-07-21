@@ -31,7 +31,7 @@ function project(deps: Record<string, string>): void {
 
 interface LintResult {
   filePath: string;
-  messages: { ruleId: string | null }[];
+  messages: { ruleId: string | null; fatal?: boolean }[];
 }
 
 /** A fake eslint module capturing what impact hands the real one. */
@@ -190,11 +190,13 @@ describe('runImpact', () => {
     expect(entries.some((e) => e.languageOptions?.parserOptions?.ecmaFeatures?.jsx)).toBe(true);
   });
 
-  it('surfaces unparsable files instead of swallowing them', async () => {
+  it('splits null ruleIds by fatality: parse failures vs stale disables', async () => {
     project({ react: '^18' });
 
     const { module } = fakeEslint([
-      { filePath: at('src/components/broken.jsx'), messages: [{ ruleId: null }] },
+      { filePath: at('src/components/broken.jsx'), messages: [{ ruleId: null, fatal: true }] },
+      // A stale eslint-disable comment — the file parses fine.
+      { filePath: at('src/components/stale.jsx'), messages: [{ ruleId: null }] },
       { filePath: at('src/components/big.jsx'), messages: [{ ruleId: 'max-lines' }] },
     ]);
 
@@ -206,8 +208,12 @@ describe('runImpact', () => {
       log: silent,
     });
 
-    // Equal counts fall back to rule-name order — parse errors still surface.
-    expect(impacts.map((impact) => impact.rule)).toEqual(['max-lines', 'parse-error']);
+    // Equal counts fall back to rule-name order — both special rows surface.
+    expect(impacts.map((impact) => impact.rule)).toEqual([
+      'max-lines',
+      'parse-error',
+      'unused-disable-directive',
+    ]);
   });
 
   it('falls back to the auto glob set when nothing pins the framework', async () => {

@@ -66,7 +66,7 @@ npx @kekkai/blueprint doctor
 - **沒有殘留的 `*.blueprint.*` reference 檔** —— reference 還在磁碟上就代表 merge 沒做完（最常漏的一步）
 - **eslint 真的接上 emitLint** —— legacy `.eslintrc` 會被標記為「先遷移」，不會無聲留半套
 - **宣告的 alias 接得上 toolchain** —— alias 宣告了卻沒有任何工具（tsconfig `paths`、vite config）解析得到，agent contract 就會把 agent 指向解析不了的匯入；失敗訊息直接附上 wiring 片段
-- **架構乾淨** —— 沒有 baseline 以外的違規；detail 會標明 coverage（幾個 source 檔在 layer 網內、幾條 gated rule 有開），「空網子的綠燈」看得見，不會安靜地騙過你
+- **架構乾淨** —— 沒有 baseline 以外的違規；detail 會標明 coverage（幾個 source 檔在 layer 網內、幾條 optional gate 有開 —— 結構規則本來就永遠開著），「空網子的綠燈」看得見，不會安靜地騙過你
 - **lint suppressions 帳本沒過期** —— `eslint-suppressions.json` 裡指向已不存在檔案的條目會讓檢查失敗
 
 `--json` 輸出同一份 checklist 給工具用。
@@ -94,7 +94,7 @@ npx @kekkai/blueprint impact          # 接線下去會有多紅？
 npx @kekkai/blueprint impact --json   # 把數字餵給工具或 Agent
 ```
 
-它用 `emitLint` 編譯已寫好的 config，再用**專案自己的** ESLint、只掛這份 config 去 lint layer 檔案，回報每條 rule 的命中數與最重的檔案。純資訊、不是關卡 —— 不管中幾發都 exit 0。出現 `parse-error` 代表有檔案解析不了（通常是 parser 依賴沒裝），修好前那個檔案的數字不可信。
+它用 `emitLint` 編譯已寫好的 config，再用**專案自己的** ESLint、只掛這份 config 去 lint layer 檔案，回報每條 rule 的命中數與最重的檔案。純資訊、不是關卡 —— 不管中幾發都 exit 0。兩個特殊列：`parse-error` 代表檔案解析不了（通常是 parser 依賴沒裝），修好前那個檔案的數字不可信；`unused-disable-directive` 代表存量的 inline `eslint-disable` 已經壓不到任何東西（rule 改名後很常見）—— 檔案本身沒問題。
 
 ## 失敗情境的處理原則
 
