@@ -154,6 +154,17 @@ files are wiring, and their hygiene (line counts, unused vars) belongs to
 the project's own lint, not to a manufactured layer. The net starts biting
 when code lands inside declared layers.
 
+**Work the loop, not the archive.** Everything below is evidence and
+reference — it is NOT a syllabus to master before touching the config.
+Draft \`blueprint.config.mjs\` early from the survey and the rule catalog,
+then let the tools correct you: \`inspect\` and \`impact\` are read-only and
+cheap, and a wrong draft fixed in two runs beats a perfect draft after an
+hour of code archaeology. In field runs, agents that drafted first finished
+in a fraction of the time of agents that studied first — at the same
+quality, because the acceptance gates are the same. And if you ever feel
+the need to read the package's \`dist/\` bundle to answer a question, stop:
+the answer belongs in this playbook — note the gap in your report instead.
+
 ## Method
 
 1. **Look for existing intent documents first.** An architecture config or doc

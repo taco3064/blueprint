@@ -104,6 +104,16 @@ describe('authoringBrief', () => {
     expect(brief).not.toContain('Read this first');
   });
 
+  it('authorizes drafting first — the loop corrects, the archive stalls (batch 12)', () => {
+    // Field diagnosis of a slow run: half tool opacity (the rule catalog
+    // fixed that), half an agent's understand-everything-first instinct.
+    // The playbook now explicitly licenses the fast path.
+    expect(brief).toContain('Work the loop, not the archive');
+    expect(brief).toContain('NOT a syllabus');
+    expect(brief).toContain('agents that drafted first finished');
+    expect(brief).toContain('note the gap in your report instead');
+  });
+
   it('forbids manufacturing a net — the empty-net twin of manufactured debt', () => {
     // Batch 9: an agent invented a `*` layer so coverage would be non-zero.
     expect(brief).toContain('An empty net is equally legitimate');
