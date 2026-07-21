@@ -317,6 +317,31 @@ describe('validateBlueprint', () => {
     }
   });
 
+  it('rejects layer names that would silently corrupt the emitted diagram', () => {
+    // Whitespace breaks a mermaid edge, `&` joins nodes, `%%` comments —
+    // fail loud at validation instead of emitting a broken handbook.
+    for (const name of ['my layer', 'a&b', '(admin)', 'a;b', 'x%y', '"q"', 'it\'s']) {
+      const config = base();
+
+      config.architecture.layers = [{ name, does: 'x' }];
+
+      expect(() => validateBlueprint(config)).toThrow(/corrupt emitted artifacts/);
+    }
+  });
+
+  it('keeps conventional layer names — including scoped-style prefixes — valid', () => {
+    const config = base();
+
+    config.architecture.layers = [
+      { name: '@core', does: 'x' },
+      { name: 'ui-kit', does: 'x' },
+      { name: 'v2.api', does: 'x' },
+      { name: 'i18n_store', does: 'x' },
+    ];
+
+    expect(() => validateBlueprint(config)).not.toThrow();
+  });
+
   it('rejects usePrefix targeting an undeclared layer', () => {
     const config = base();
 

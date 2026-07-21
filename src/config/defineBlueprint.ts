@@ -85,6 +85,15 @@ export function validateBlueprint(bp: Blueprint): void {
         + 'file globs and folders. Root files are wiring, not a layer: leave their '
         + 'hygiene to the project\'s own lint instead of widening the net.',
       );
+    } else if (/[\s"'()<>|;%&]/.test(layer.name)) {
+      // The name also becomes a mermaid node id, where whitespace, quotes,
+      // parens, `&` (node join), `%` (comment), and friends silently corrupt
+      // the emitted diagram — fail loud here instead.
+      throw new Error(
+        `Layer "${layer.name}" contains characters that corrupt emitted artifacts — a `
+        + 'layer name becomes a folder, a file glob, and a diagram node. Stick to '
+        + 'letters, digits, ".", "_", "-".',
+      );
     }
 
     validateOwns(layer);
