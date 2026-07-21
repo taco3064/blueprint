@@ -1,6 +1,6 @@
 # 運作契約
 
-這是 blueprint 的核心工程理念 —— 本章節不是延伸閱讀，`vuePreset()` / `reactPreset()` 就是以資料形式承載這裡的每一頁。`init` 會將這些信念轉譯到專案中，變成 ESLint 規則與 AI Agent 的守則，確保工程信念可以成為開發上的護欄，而非口頭支票。修改組態中的 `principles` / `componentShape` / `playbook`，就是在修改專案裡這份內容的版本。
+這是 blueprint 的核心工程理念 —— 本章節不是延伸閱讀，`vuePreset()` / `reactPreset()` 就是以資料形式承載這裡的每一頁。`init` 會將這些信念轉譯到專案中，變成 ESLint 規則與 AI Agent 的守則，確保工程信念可以成為開發上的護欄，而非口頭支票。修改 config 中的 `principles` / `componentShape` / `playbook`，就是在修改專案裡這份內容的版本。
 
 手冊闡述前端**元件與架構**的設計思維：分層架構、元件形狀、資料邊界、重構紀律。**同一組原則在 Vue 與 React 均成立** —— 兩者的結構對應一致，差異僅在 reactive 原語（`ref`/`computed` 對應 `useState`/`useMemo`）與生命週期 API。
 
@@ -12,11 +12,11 @@
 
 | 級別 | 落點 | 意義 |
 |---|---|---|
-| ✅ | **lint／組態** | 有對應規則支撐，在 CI 自動攔截；設定一次即可。 |
+| ✅ | **lint／config** | 有對應規則支撐，在 CI 自動攔截；設定一次即可。 |
 | ◐ | **lint（初篩）＋ Agent 守則** | lint 僅能標出「需要檢視的位置」（設為 warn 等級），結論交由程式碼審查判定。 |
 | ○ | **Agent 守則** | 工具無法辨識（涉及語意、流程或人為判斷）—— 寫成行為規則，由 Agent 在每輪工作中自行遵守。 |
 
-這就是 blueprint 的設計骨架：機器查得動的轉譯成 ESLint 組態；唯有審查能判定的轉譯成手冊與 Agent 守則。**lint 全數通過不等於架構合格** —— 這正是信念第七條。
+這就是 blueprint 的設計骨架：機器查得動的轉譯成 ESLint config；唯有審查能判定的轉譯成手冊與 Agent 守則。**lint 全數通過不等於架構合格** —— 這正是信念第七條。
 
 ## Blueprint 的承載方式
 

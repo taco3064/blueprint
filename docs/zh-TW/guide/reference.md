@@ -1,6 +1,6 @@
-# 檢測與組態總表
+# 檢測與 config 總表
 
-本頁彙整 blueprint 所有查得到的東西，以及指南各頁沒逐一說明的組態欄位。完整型別簽名見 [API 文件](/zh-TW/api/)；本頁的定位是索引地圖。
+本頁彙整 blueprint 所有查得到的東西，以及指南各頁沒逐一說明的 config 欄位。完整型別簽名見 [API 文件](/zh-TW/api/)；本頁的定位是索引地圖。
 
 ## `inspect` 回報的檢測項目
 
@@ -22,7 +22,7 @@
 
 ## 內嵌 ESLint 外掛
 
-`emitLint` 在生成的組態裡內建六條自訂規則 —— 不用額外安裝。其中一條是結構規則、永遠開著；其餘五條由 `blueprint.rules` 的規則識別碼控制：
+`emitLint` 在生成的 config 裡內建六條自訂規則 —— 不用額外安裝。其中一條是結構規則、永遠開著；其餘五條由 `blueprint.rules` 的規則識別碼控制：
 
 | ESLint 規則 | 控制來源 | 強制內容 |
 | --- | --- | --- |
@@ -33,7 +33,7 @@
 | `blueprint/test-filename-matches-source` | `rules.testFilename` | 測試檔必須有同目錄、同名的原始碼檔案 |
 | `blueprint/no-typedef-only-file` | `rules.typedefOnlyFile` | JS 檔案不得僅含 `@typedef` 宣告（僅套用於 `.js`） |
 
-另有三條**受管規則** —— 由 `layers` / `owns` / `alias` 轉譯而成、歸生成器管：`no-restricted-imports`、`no-restricted-syntax`、`no-restricted-globals`。這三條沒辦法透過 `lintOverrides` 設定；要調整就改 blueprint 組態本身。
+另有三條**受管規則** —— 由 `layers` / `owns` / `alias` 轉譯而成、歸生成器管：`no-restricted-imports`、`no-restricted-syntax`、`no-restricted-globals`。這三條沒辦法透過 `lintOverrides` 設定；要調整就改 blueprint config 本身。
 
 ## `blueprint.rules` —— 哪些識別碼會成為檢核關卡
 
@@ -48,14 +48,14 @@
 | `complexity` | `complexity` | warn · 12 |
 | `unusedVars` | `no-unused-vars`（TypeScript 專案自動改用 TS 感知版本） | error |
 | `fixtureImports` | 禁止產品程式碼匯入 fixture 目錄 | error（Vue 預設藍圖） |
-| `cycles` | 生成組態中的 `import/no-cycle`＋inspect 的 `cycle` 檢測 | error |
+| `cycles` | 生成 config 中的 `import/no-cycle`＋inspect 的 `cycle` 檢測 | error |
 | `deepWatch` / `usePrefix` / `usePrefixReactivity` / `testFilename` / `typedefOnlyFile` | 上表的外掛規則 | 見上表 |
 
 其餘任何識別碼（例如 `deadCode`）都屬於文件性質：會寫進手冊與 AI Agent 守則，作為 Agent 必須持守的判斷，但不會被說成硬性關卡。這個劃分就是[三級落點](/zh-TW/philosophy/#三級落點)的機制。
 
-## 快速上手範例以外的組態欄位
+## 快速上手範例以外的 config 欄位
 
-[快速上手](/zh-TW/guide/getting-started#blueprint-組態)的 `defineBlueprint` 範例涵蓋核心欄位。其餘欄位一覽如下 —— 完整結構見 [API 文件](/zh-TW/api/)：
+[快速上手](/zh-TW/guide/getting-started#blueprint-config)的 `defineBlueprint` 範例涵蓋核心欄位。其餘欄位一覽如下 —— 完整結構見 [API 文件](/zh-TW/api/)：
 
 | 欄位 | 用途 |
 | --- | --- |
@@ -67,7 +67,7 @@
 | `layer.module` | 逐層覆寫共用的模組形狀 —— 例如某一分層採資料夾模組、其餘維持單檔 |
 | `layer.lintOverrides` | 逐層的 ESLint 調整（三條受管規則除外） |
 | `emit.agents` | Agent 守則的發佈目標：`claude`、`agents`、`gemini`、`copilot`、`cursor`、`windsurf`（可逐目標指定 `path`）。預設 `['claude', 'agents']`；空陣列就不產出 |
-| `emit.handbook` / `emit.ci` / `emit.lint` | 手冊輸出路徑 · CI 供應商（`github` / `none`）· lint 組態路徑與受管規則等級 |
+| `emit.handbook` / `emit.ci` / `emit.lint` | 手冊輸出路徑 · CI 供應商（`github` / `none`）· lint config 路徑與受管規則等級 |
 
 ## 命令列旗標
 

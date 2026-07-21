@@ -26,7 +26,7 @@ features:
     title: Enforce（強制）
     details: emitLint 將分層依賴方向、模組邊界與套件歸屬轉譯為 ESLint flat config；自訂規則以內嵌 plugin 提供，不用額外安裝任何套件。
     link: /zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制-enforce
-    linkText: 檢視生成的組態
+    linkText: 檢視生成的 config
   - icon: 📖
     title: Explain（說明）
     details: emitHandbook 產出給人閱讀的架構手冊（markdown 與 mermaid 圖）。手冊與規則出自同一份來源，不會發生「文件講一套、lint 擋另一套」的落差。
@@ -44,17 +44,17 @@ features:
     linkText: 檢視工作流程
   - icon: 🧭
     title: Adopt（導入）
-    details: 既有專案的導入流 —— survey 蒐證、你自己的 Agent 編寫組態、baseline 棘輪把今日債務鎖住，之後只會更緊。
+    details: 既有專案的導入流 —— survey 蒐證、你自己的 Agent 編寫 config、baseline 棘輪把今日債務鎖住，之後只會更緊。
     link: /zh-TW/guide/ai-adoption
     linkText: 看導入流程
   - icon: 🔎
     title: Verify（驗證）
-    details: 讀同一份組態的唯讀指令 —— inspect 裁決架構（九種檢測、可進 CI），deps 回答「改這個模組會波及誰」。
+    details: 讀同一份 config 的唯讀指令 —— inspect 裁決架構（九種檢測、可進 CI），deps 回答「改這個模組會波及誰」。
     link: /zh-TW/guide/features#檢測-——-會被攔下的
     linkText: 看會攔下什麼
 ---
 
-## 一份組態，轉譯出全部
+## 一份 config，轉譯出全部
 
 <div class="compile-flow">
   <div class="cf-source">blueprint.config.mjs</div>
@@ -64,17 +64,17 @@ features:
     <div>docs/architecture-handbook.md <span>Explain —— 給人讀的架構手冊</span></div>
     <div>CLAUDE.md · AGENTS.md · … <span>Collaborate —— AI Agent 的守則</span></div>
     <div>.github/workflows/blueprint-ci.yml <span>Gate —— lint ＋ inspect 進 CI</span></div>
-    <div>inspect · deps <span>Verify —— 讀同一份組態的唯讀指令</span></div>
+    <div>inspect · deps <span>Verify —— 讀同一份 config 的唯讀指令</span></div>
   </div>
 </div>
 
-改組態、重新生成，所有產出物一起動 —— 它們不會漂移，因為全部是同一份來源轉譯出來的。完整長相見 [init 產出物](/zh-TW/guide/generated-artifacts)。
+改 config、重新生成，所有產出物一起動 —— 它們不會漂移，因為全部是同一份來源轉譯出來的。完整長相見 [init 產出物](/zh-TW/guide/generated-artifacts)。
 
 ## 為什麼需要它
 
 AI Agent 寫 code 又快又多，但檔案要放哪、誰可以 import 誰，全看它當下 context 裡有什麼。而架構文件、ESLint 設定、CLAUDE.md 是三份各自手動維護的東西 —— 遲早講的不是同一套。
 
-blueprint 把它們收斂成一份組態：規範怎麼寫，lint 就怎麼擋、手冊就怎麼講、Agent 就怎麼守。
+blueprint 把它們收斂成一份 config：規範怎麼寫，lint 就怎麼擋、手冊就怎麼講、Agent 就怎麼守。
 
 ## 建議搭配使用的資源
 

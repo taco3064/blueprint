@@ -6,7 +6,7 @@
 |---|---|---|
 | **蒐證** —— 資料夾結構、匯入關係矩陣、模組形狀、套件集中度 | 決定性程序 | `blueprint survey` |
 | **判斷** —— 哪些資料夾是分層、依賴方向往哪、哪些是債務、哪些是設計意圖 | AI Agent（或開發者本人） | 導入作業手冊 |
-| **驗證** —— 每項違規都要能解釋為真實債務，而不是組態譯錯 | 決定性程序 | `blueprint inspect` 與 baseline 棘輪 |
+| **驗證** —— 每項違規都要能解釋為真實債務，而不是 config 譯錯 | 決定性程序 | `blueprint inspect` 與 baseline 棘輪 |
 
 ## 導入流程
 
@@ -18,7 +18,7 @@ npx @kekkai/blueprint init
 
 init 不會硬套預設藍圖，而是掃描程式碼後產出：
 
-- **`blueprint-authoring.md`** —— 可執行的導入作業手冊：蒐證數據、推導方法、組態結構速覽與驗收條件
+- **`blueprint-authoring.md`** —— 可執行的導入作業手冊：蒐證數據、推導方法、config 結構速覽與驗收條件
 - **`.claude/commands/blueprint-author.md`** —— Claude Code 使用者可直接輸入 `/blueprint-author` 啟動
 
 接著交給 AI Agent 執行：
@@ -30,7 +30,7 @@ claude "Read blueprint-authoring.md at the repository root and execute it end to
 npx @kekkai/blueprint init --agent claude
 ```
 
-Agent 依蒐證數據推導組態，反覆對照 `blueprint inspect` 直到每項違規都能解釋為真實債務，再重新執行 `init` 產出各項成品並鎖定 baseline。開發者只需要審閱最終結果。
+Agent 依蒐證數據推導 config，反覆對照 `blueprint inspect` 直到每項違規都能解釋為真實債務，再重新執行 `init` 產出各項成品並鎖定 baseline。開發者只需要審閱最終結果。
 
 `--agent` 是刻意設計得最薄的一層：它在前景以互動模式執行**畫面上已印出的那行指令**，且跑在你自己 Agent CLI 的權限之下。確切的安全邊界見[安全與信任](/zh-TW/guide/security)。
 
@@ -56,4 +56,4 @@ npx @kekkai/blueprint survey --json   # 供工具或 Agent 讀取
 
 ## 範圍的誠實界定
 
-作業手冊只承諾「產出組態並鎖定 baseline」，**不承諾**幫你清償既有債務。既有違規會記錄進 baseline，後續透過 [baseline 棘輪](/zh-TW/guide/getting-started)逐步清償 —— 導入跟債務清償是兩件獨立的事。
+作業手冊只承諾「產出 config 並鎖定 baseline」，**不承諾**幫你清償既有債務。既有違規會記錄進 baseline，後續透過 [baseline 棘輪](/zh-TW/guide/getting-started)逐步清償 —— 導入跟債務清償是兩件獨立的事。

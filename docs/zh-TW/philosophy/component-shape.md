@@ -1,6 +1,6 @@
 # 元件形狀 · 七條正交軸線
 
-> **與 blueprint 的關係**：這七條軸線就是預設藍圖的 [`componentShape`](/zh-TW/api/interfaces/AxisDef) 資料。各軸線標註的初篩規則（`max-params`、`max-statements`、`max-lines`）會進 [lint 組態](/zh-TW/guide/reference#blueprint-rules-——-哪些識別碼會成為檢核關卡)當作檢視入口；結論本身則轉譯進手冊與 AI Agent 守則。
+> **與 blueprint 的關係**：這七條軸線就是預設藍圖的 [`componentShape`](/zh-TW/api/interfaces/AxisDef) 資料。各軸線標註的初篩規則（`max-params`、`max-statements`、`max-lines`）會進 [lint config](/zh-TW/guide/reference#blueprint-rules-——-哪些識別碼會成為檢核關卡)當作檢視入口；結論本身則轉譯進手冊與 AI Agent 守則。
 
 元件與 composable 的形狀由七條軸線衡量。**七條軸線構成「集合」，而非「流程」**：彼此正交、各自獨立判斷 —— 不得以「符合第三條，故第一條自動成立」的方式推論。編號僅為識別用途，不代表順序；輕微的改動不必逐條套用。
 

@@ -1,6 +1,6 @@
 # 分層架構
 
-> **與 blueprint 的關係**：本頁就是預設藍圖的 `architecture` 區塊 —— 工程理念中唯一會變成**硬性護欄**的部分：[生成的 ESLint 組態](/zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制-enforce)與 [inspect 的檢測](/zh-TW/guide/reference#inspect-回報的檢測項目)。在 [`blueprint.config.mjs`](/zh-TW/guide/getting-started#blueprint-組態) 宣告你自己的分層，同一套機制就會為你把關。
+> **與 blueprint 的關係**：本頁就是預設藍圖的 `architecture` 區塊 —— 工程理念中唯一會變成**硬性護欄**的部分：[生成的 ESLint config](/zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制-enforce)與 [inspect 的檢測](/zh-TW/guide/reference#inspect-回報的檢測項目)。在 [`blueprint.config.mjs`](/zh-TW/guide/getting-started#blueprint-config) 宣告你自己的分層，同一套機制就會為你把關。
 
 **單向依賴流，每層單一職責。** 原則本身與框架無關（Vue 與 React 均成立），單元一一對應、沒有主從之分：`composable ↔ hook`、`context ↔ Context`、`SFC ↔ function component`、`service ↔ api client`。
 
@@ -16,7 +16,7 @@ pages/views → containers → components → hooks → services → assets/i18n
 1. 每層職責單一（hook 不匯入 component，因而保持為可重用的邏輯單元）
 2. 資料歸屬一目瞭然，無須全文搜尋整個專案
 3. 重構安全：跨層搬移檔案時，程式碼檢查會一次列出所有非法呼叫點
-4. 新增一條依賴邊即等於修改 Blueprint 組態，迫使「此層是否確實應依賴彼層」的問題在審查階段浮現
+4. 新增一條依賴邊即等於修改 Blueprint config，迫使「此層是否確實應依賴彼層」的問題在審查階段浮現
 
 ## 各層職責
 
