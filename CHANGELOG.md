@@ -1,5 +1,53 @@
 # @kekkai/blueprint
 
+## 1.9.0
+
+### Minor Changes
+
+- fb4bb90: `init` UX: the silent decisions now speak, and local lint matches the CI gate.
+  All four from a field report of a fresh vite react-ts adoption.
+
+  - **The greenfield/brownfield fork is narrated.** When a repo has fewer than 10
+    source files, init scaffolds the preset — and now says so
+    (`Fresh scaffold (N source files < 10) — scaffolding the framework preset.
+Repos with 10+ source files get the authoring playbook instead.`) instead of
+    silently taking the biggest branch it has.
+  - **Local lint gets wired to the structural rules.** Templates whose `lint`
+    script doesn't run eslint (e.g. oxlint) previously stayed green locally while
+    CI failed on the generated config. On a fresh scaffold init now patches the
+    script (`"lint": "oxlint && eslint src"` — precondition-guarded, placed
+    before the install step, visible in `--dry-run`); existing projects get an
+    instruction instead.
+  - **The generated eslint header no longer contradicts `--help`.** The banner
+    now explains that only the blueprint-owned file (marked by that banner) is
+    regenerated, while hand-written configs are never overwritten; `init --help`
+    says the same.
+  - **The default agent-contract pair is surfaced.** When the config doesn't
+    declare `emit.agents`, init notes that both CLAUDE.md and AGENTS.md were
+    written and points at the narrowing the playbook itself recommends.
+
+- 361e27e: Brownfield honesty pass — from a legacy-repo (ESLint 8 / `.eslintrc`, 239
+  pre-existing violations) field report.
+
+  - **`import/no-cycle` dropped from the generated eslint config.** `inspect`
+    already detects module cycles; the ESLint rule re-checked the whole graph
+    per file — measured at 92s on an 850-file repo. One detector, the cheap one.
+    `eslint-plugin-import` leaves the install set with it.
+  - **The single-ledger posture is now doctrine.** Playbook + docs: on a repo
+    with existing violations, wire `emitLint` at `severity: 'warn'` and let
+    `inspect --baseline` be the only debt ledger — never lock the same debt as
+    both eslint suppressions and a blueprint baseline; flip to `error` at zero.
+    New "Legacy ESLint — one ledger, never two" section on the AI-adoption page,
+    and the legacy-`.eslintrc` cliff is named in Field-Tested notes (with the
+    pinned-plugin drift caveat).
+  - **The gitignored-contract warning is now actionable** — it says exactly how
+    to start tracking the files, not just that teammates won't have them.
+  - **Honest positioning, stated where it matters**: the Philosophy page opens
+    with "blueprint encodes an architecture someone already chose — it does not
+    design one for you", and the README credits that the lint layer is standard
+    ESLint machinery: the rarity is that rules, handbook, agent contract, and CI
+    compile from one source and can never disagree.
+
 ## 1.8.2
 
 ### Patch Changes
