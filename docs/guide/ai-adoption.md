@@ -54,12 +54,13 @@ all live in `blueprint-authoring.md`. The prompt only pins what "done" means:
 
 ```text
 Help adopt @kekkai/blueprint in this repo, autonomously:
-run `npx @kekkai/blueprint init`, then execute the blueprint-authoring.md it
-writes, end to end.
+run `npx @kekkai/blueprint init`,
+then execute the blueprint-authoring.md it writes, fully and to the end.
 
-Acceptance: lint, `inspect --baseline`, and the existing tests all green;
-ESLint genuinely wired to emitLint (no leftover reference files); no source
-edits — existing violations get locked into the baseline.
+Acceptance:
+- lint, `inspect --baseline`, and the existing tests all pass
+- emitLint genuinely wired into ESLint (no leftover reference files)
+- no source edits — lock violations into the baseline, no eslint suppressions
 ```
 
 Each acceptance clause maps to an incomplete state seen in field testing: half-done
