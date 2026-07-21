@@ -28,6 +28,10 @@ export function apply(root: string, actions: Action[], exec: Exec = defaultExec)
       fs.writeFileSync(path.join(full, '.gitkeep'), '');
     } else if (action.kind === 'install') {
       exec(action.command, root);
+    } else if (action.kind === 'rm') {
+      // Only ever pointed at init's own output (e.g. a pristine preset
+      // scaffold that --authoring takes over) — never at user files.
+      fs.rmSync(path.resolve(root, action.path), { force: true });
     }
     // 'instruct' actions are report-only.
   }

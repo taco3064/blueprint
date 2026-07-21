@@ -23,6 +23,45 @@ export interface DoctorCheck {
   detail?: string;
 }
 
+const SUPPRESSIONS_FILE = 'eslint-suppressions.json';
+
+/**
+ * The lint side of the debt ledger (ESLint ≥ 9.24 bulk suppressions). Doctor
+ * cannot re-run eslint (read-only, zero deps), but it CAN catch the cheap
+ * drift: suppressed entries whose file no longer exists, or an unreadable
+ * ledger. Absent file = the ledger is simply not in use — fine.
+ */
+function suppressionsCheck(root: string): DoctorCheck {
+  const label = 'lint suppressions ledger current';
+  const file = path.join(root, SUPPRESSIONS_FILE);
+
+  if (!fs.existsSync(file)) return { label: `${label} (not in use)`, ok: true };
+
+  let entries: Record<string, unknown>;
+
+  try {
+    entries = JSON.parse(fs.readFileSync(file, 'utf-8')) as Record<string, unknown>;
+  } catch {
+    return {
+      label,
+      ok: false,
+      detail: `${SUPPRESSIONS_FILE} is not valid JSON — regenerate with: npx eslint . --suppress-all`,
+    };
+  }
+
+  const stale = Object.keys(entries).filter((entry) => !fs.existsSync(path.join(root, entry)));
+
+  if (stale.length) {
+    return {
+      label,
+      ok: false,
+      detail: `suppressed files no longer exist (${stale.join(', ')}) — run: npx eslint . --prune-suppressions`,
+    };
+  }
+
+  return { label, ok: true };
+}
+
 /** Reference files are named `<name>.blueprint.<ext>` — never the config itself. */
 function referenceFiles(root: string): string[] {
   return fs
@@ -102,6 +141,7 @@ export async function runDoctor(
         ? `${fresh.length} finding(s) outside the baseline — fix, or \`blueprint inspect --update-baseline\``
         : undefined,
     },
+    suppressionsCheck(root),
   ];
 
   const ok = checks.every((check) => check.ok);

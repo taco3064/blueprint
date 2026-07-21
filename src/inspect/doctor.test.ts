@@ -58,7 +58,7 @@ describe('runDoctor', () => {
 
     expect(ok).toBe(true);
     expect(checks.every((check) => check.ok)).toBe(true);
-    expect(output).toContain('Adoption complete — all 4 checks passed');
+    expect(output).toContain('Adoption complete — all 5 checks passed');
   });
 
   it('flags a leftover reference file', async () => {
@@ -120,6 +120,45 @@ describe('runDoctor', () => {
     const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
 
     expect(checks.find((c) => c.label.includes('architecture'))?.ok).toBe(true);
+  });
+
+  it('passes the suppressions check when the ledger is absent, current, or fails when stale', async () => {
+    adopted();
+
+    // Absent: not in use — fine.
+    let result = await runDoctor(root, { loadConfig: load, log: silent });
+
+    expect(result.checks.find((c) => c.label.includes('suppressions'))?.ok).toBe(true);
+
+    // Current: every suppressed file still exists.
+    write('src/components/Big.vue', 'x');
+
+    write('eslint-suppressions.json', JSON.stringify({
+      'src/components/Big.vue': { 'max-lines': { count: 1 } },
+    }));
+
+    result = await runDoctor(root, { loadConfig: load, log: silent });
+    expect(result.checks.find((c) => c.label.includes('suppressions'))?.ok).toBe(true);
+
+    // Stale: a suppressed file is gone.
+    write('eslint-suppressions.json', JSON.stringify({
+      'src/components/Gone.vue': { 'max-lines': { count: 1 } },
+    }));
+
+    result = await runDoctor(root, { loadConfig: load, log: silent });
+
+    const check = result.checks.find((c) => c.label.includes('suppressions'));
+
+    expect(check?.ok).toBe(false);
+    expect(check?.detail).toContain('prune-suppressions');
+
+    // Unreadable: not JSON.
+    write('eslint-suppressions.json', 'not json');
+    result = await runDoctor(root, { loadConfig: load, log: silent });
+
+    expect(result.checks.find((c) => c.label.includes('suppressions'))?.detail).toContain(
+      'not valid JSON',
+    );
   });
 
   it('emits machine-readable JSON with --json', async () => {

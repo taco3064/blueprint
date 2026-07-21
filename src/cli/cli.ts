@@ -157,6 +157,8 @@ const DOCTOR_HELP = [
   '    means the merge is unfinished)',
   '  · eslint wired to emitLint (a legacy .eslintrc is flagged to migrate first)',
   '  · architecture clean — no findings outside the baseline',
+  '  · lint suppressions ledger current — stale entries in',
+  '    eslint-suppressions.json (files that no longer exist) fail the check',
   '',
   'Flags:',
   '  --framework vue|react   Force the preset when detection is ambiguous.',

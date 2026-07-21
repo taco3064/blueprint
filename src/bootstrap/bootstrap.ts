@@ -7,7 +7,14 @@ import { analyze } from '../inspect/analyze';
 import { scan } from '../inspect/scan';
 import type { Blueprint } from '../config';
 import { ignoredArtifacts } from './ignored';
-import { detect, readTexts, resolveBlueprint } from '../project';
+import {
+  buildConfigSource,
+  buildNextConfigSource,
+  CONFIG_FILE,
+  detect,
+  readTexts,
+  resolveBlueprint,
+} from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
 import { runSurvey } from '../survey';
 import { authoringActions, BROWNFIELD_MIN_FILES } from './authoring';
@@ -63,12 +70,25 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     throw new Error('--preset and --authoring are mutually exclusive — pick one.');
   }
 
+  // `--authoring` after a plain init used to be a silent no-op: the scaffolded
+  // preset config made hasConfig true and the fork below never ran. A config
+  // that is byte-identical to init's own scaffold output is init-owned — safe
+  // for --authoring to take over. A hand-edited one is the user's: refuse.
+  const pristine = state.hasConfig && isPristineScaffold(root, state);
+
+  if (options.authoring && state.hasConfig && !pristine) {
+    throw new Error(
+      'blueprint.config.mjs exists and has been edited — re-authoring would discard '
+      + 'your work. Delete the file yourself if you really want the playbook.',
+    );
+  }
+
   // Brownfield without a config: scaffolding a preset would be a lie — the
   // layers already exist and must be *read*. Emit the authoring playbook
   // instead (an agent or a human executes it; init runs again after).
   let forkNote: string | null = null;
 
-  if (!state.hasConfig && options.preset !== true) {
+  if ((!state.hasConfig || (options.authoring && pristine)) && options.preset !== true) {
     // A no-srcDir Next project keeps its layers at the root — survey there so
     // the file count reflects reality, not an empty (missing) src/.
     const surveyRoot = state.hasNext && !state.nextSrcDir ? '.' : undefined;
@@ -81,7 +101,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     const brownfield = survey.totalFiles >= BROWNFIELD_MIN_FILES;
 
     if (options.authoring || brownfield || (state.hasNext && !state.nextRouter)) {
-      return runAuthoring(root, state, survey, options, log);
+      return runAuthoring(root, state, survey, options, log, pristine);
     }
 
     // This fork is the biggest decision init makes — narrate it, and say
@@ -183,6 +203,32 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
 /** Starter-template violations, phrased as a to-do — null when the scaffold is clean. */
 /**
+ * True when blueprint.config.mjs is byte-identical to what init itself would
+ * scaffold today — i.e. never hand-edited. Only such a config may be taken
+ * over by `--authoring`; anything else belongs to the user.
+ */
+function isPristineScaffold(root: string, state: ProjectState): boolean {
+  const text = readTexts(root, [CONFIG_FILE])[CONFIG_FILE];
+
+  /* v8 ignore next 2 -- hasConfig guarantees the file exists; null only on a read race */
+  if (text === null) return false;
+
+  const candidates = (['vue', 'react'] as const).flatMap((framework) => [
+    buildConfigSource(framework, state.projectName),
+    buildConfigSource(framework, undefined),
+  ]);
+
+  if (state.hasNext && state.nextRouter) {
+    candidates.push(
+      buildNextConfigSource(state.nextRouter, state.nextSrcDir, state.projectName),
+      buildNextConfigSource(state.nextRouter, state.nextSrcDir, undefined),
+    );
+  }
+
+  return candidates.includes(text);
+}
+
+/**
  * The local `lint` script must reach the generated eslint config, or local
  * lint stays green while CI fails on the structural rules (e.g. a template
  * whose `lint` runs oxlint only). Fresh scaffolds get a precondition-guarded
@@ -244,6 +290,7 @@ function runAuthoring(
   survey: ReturnType<typeof runSurvey>,
   options: InitOptions,
   log: (message: string) => void,
+  removeScaffold = false,
 ): Action[] {
   const actions = authoringActions(survey, {
     packageManager: state.packageManager,
@@ -251,6 +298,17 @@ function runAuthoring(
     install: options.install,
     next: state.hasNext,
   });
+
+  // A pristine preset scaffold left by a plain init would mislead the
+  // authoring agent (and make the playbook's final init a no-op decision).
+  // It is init's own output, so removing it stays inside the trust model.
+  if (removeScaffold) {
+    actions.unshift({
+      kind: 'rm',
+      path: CONFIG_FILE,
+      note: `${CONFIG_FILE} (pristine preset scaffold — removed; the playbook authors the real one)`,
+    });
+  }
 
   log(
     `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · brownfield without a config → authoring flow (${survey.totalFiles} source files surveyed)`,

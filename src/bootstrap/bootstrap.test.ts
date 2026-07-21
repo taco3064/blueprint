@@ -241,6 +241,51 @@ describe('runInit · brownfield authoring flow', () => {
     expect(exists('blueprint.config.mjs')).toBe(false);
   });
 
+  it('--authoring takes over a pristine preset scaffold left by a plain init', async () => {
+    writePkg({ name: 'fresh', dependencies: { react: '^18' } });
+
+    // The poison sequence from the field report: plain init scaffolds a
+    // preset config, then --authoring used to be a silent no-op.
+    await runInit(root, { install: false, log: silent });
+    expect(read('blueprint.config.mjs')).toContain('reactPreset');
+
+    const actions = await runInit(root, { install: false, authoring: true, log: silent });
+
+    expect(actions[0]).toMatchObject({ kind: 'rm', path: 'blueprint.config.mjs' });
+    expect(exists('blueprint.config.mjs')).toBe(false);
+    expect(exists('blueprint-authoring.md')).toBe(true);
+  });
+
+  it('--authoring also takes over a pristine Next scaffold', async () => {
+    writePkg({ name: 'napp', dependencies: { next: '^15' } });
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/app/page.tsx'), 'export default () => null;');
+
+    // Plain init on a fresh Next repo scaffolds the next preset config.
+    await runInit(root, { install: false, log: silent });
+    expect(read('blueprint.config.mjs')).toContain('nextPreset');
+
+    await runInit(root, { install: false, authoring: true, log: silent });
+
+    expect(exists('blueprint.config.mjs')).toBe(false);
+    expect(exists('blueprint-authoring.md')).toBe(true);
+  });
+
+  it('--authoring refuses to touch a hand-edited config', async () => {
+    writePkg({ name: 'fresh', dependencies: { react: '^18' } });
+
+    fs.writeFileSync(
+      path.join(root, 'blueprint.config.mjs'),
+      '// hand-tuned\nexport default { framework: \'react\' };',
+    );
+
+    await expect(
+      runInit(root, { install: false, authoring: true, log: silent }),
+    ).rejects.toThrow('has been edited');
+
+    expect(read('blueprint.config.mjs')).toContain('hand-tuned');
+  });
+
   it('rejects --preset and --authoring together', async () => {
     writePkg({ name: 'fresh', dependencies: { react: '^18' } });
 

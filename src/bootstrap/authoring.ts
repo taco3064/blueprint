@@ -168,12 +168,17 @@ baseline and paid down later — do not refactor application code in this pass.
      (\`.eslintrc.*\`) needs a flat-config/ESLint-9 migration that can break
      the project's own lint pipeline — do not do that unilaterally; surface
      it as a decision item in the report instead.
-   - **One debt ledger, never two.** On a repo with existing structural
-     violations, set \`emit: { lint: { severity: 'warn' } }\` and let
-     \`inspect --baseline\` be the single ledger — lint warns in the editor,
-     the baseline ratchet is the only hard gate. Flip severity back to
-     \`'error'\` when the baseline reaches zero. Do **not** lock the same
-     debt twice (eslint suppressions + blueprint baseline drift apart).
+   - **Red is correct — ratchet it, don't mute it.** Keep severity at
+     \`error\`; adoption's job is to make debt visible and lock it, not to
+     quiet the screen. Lock each side in its native ledger: architecture
+     findings via \`npx blueprint inspect --update-baseline\`, lint
+     violations via \`npx eslint . --suppress-all\` (ESLint ≥ 9.24 — counts
+     per file × rule, so NEW violations still fail). CI then blocks only new
+     debt on both gates, and \`blueprint doctor\` verifies neither ledger has
+     gone stale. Still on ESLint 8 / a legacy config? Transitional fallback:
+     \`emit: { lint: { severity: 'warn' } }\` — but state the cost in the
+     report: severity only covers the structural rules, so until the
+     migration, new metric debt (maxLines…) is not gated.
    - **If a hand-written CLAUDE.md / AGENTS.md exists**, integrate the
      \`<name>.blueprint.md\` reference into the existing document following
      *its* structure — link, don't duplicate; keep project facts to one
