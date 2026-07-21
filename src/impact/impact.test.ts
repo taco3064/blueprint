@@ -309,7 +309,7 @@ describe('runImpact', () => {
     // Foreign hits never inflate the wiring-red total.
     expect(total).toBe(1);
     expect(output).toContain('1 hit(s)');
-    expect(output).toContain('Not blueprint\'s rules');
+    expect(output).toContain('Echoes of YOUR OWN config');
     expect(output).toContain('custom/no-bad-script-literals');
   });
 
@@ -332,7 +332,7 @@ describe('runImpact', () => {
 
     expect(total).toBe(0);
     expect(output).toContain('0 hits — wiring emitLint introduces no red today');
-    expect(output).toContain('Not blueprint\'s rules');
+    expect(output).toContain('Echoes of YOUR OWN config');
   });
 
   it('caps the worst-file list at five', async () => {

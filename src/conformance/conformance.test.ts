@@ -267,7 +267,7 @@ describe('impact tells the truth in isolation (batch 5, real eslint)', () => {
     expect(impact.output).not.toContain('parse-error —');
     expect(impact.output).toContain('1 hit(s)');
     // Rules from the repo's own config render apart and never count.
-    expect(impact.output).toContain('Not blueprint\'s rules');
+    expect(impact.output).toContain('Echoes of YOUR OWN config');
     expect(impact.output).toContain('custom/no-bad-script-literals');
   });
 

@@ -96,7 +96,7 @@ npx @kekkai/blueprint impact          # 接線下去會有多紅？
 npx @kekkai/blueprint impact --json   # 把數字餵給工具或 Agent
 ```
 
-它用 `emitLint` 編譯已寫好的 config，再用**專案自己的** ESLint、只掛這份 config 去 lint layer 檔案，回報每條 rule 的命中數與最重的檔案。純資訊、不是關卡 —— 不管中幾發都 exit 0，而且 total **只計**接線會真正引入的違規。隔離環境的 artifact 全部另列、不灌水：`parse-error`（檔案解析不了、數字不可信）跟 `unused-disable-directive`（這個 disable 在**隔離環境**壓不到東西 —— 指向你自己 config 規則的那種 merge 後就消失，真正過期的才會留下）歸在「Isolation caveats」；完全不屬於 blueprint 的規則另有專區。
+它用 `emitLint` 編譯已寫好的 config，再用**專案自己的** ESLint、只掛這份 config 去 lint layer 檔案，回報每條 rule 的命中數與最重的檔案。純資訊、不是關卡 —— 不管中幾發都 exit 0，而且 total **只計**接線會真正引入的違規。隔離環境的 artifact 全部另列、不灌水：`parse-error`（檔案解析不了、數字不可信）跟 `unused-disable-directive`（這個 disable 在**隔離環境**壓不到東西 —— 指向你自己 config 規則的那種 merge 後就消失，真正過期的才會留下）歸在「Isolation caveats」；blueprint 沒 emit 的 rule id 另列成「你自己 config 的回音」—— 那區跟上面 blueprint 命中同檔同行的 row，是同一個點透過你家 rule 的名字再看一次，不是第二筆違規。報告收尾也講明白：命中數是拿來**決定 tier** 的，不是只拿來壓 suppressions —— 一條你想整片壓掉的 rule，通常該在 blueprint 的 `rules` 直接宣告 `warn`/`off`，suppressions 只鎖剩下的。
 
 ## 失敗情境的處理原則
 

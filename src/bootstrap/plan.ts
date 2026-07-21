@@ -359,6 +359,8 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     '  // undocumented disables. Adopt it deliberately or drop the block;',
     '  // existing bare disables violate require-description until annotated',
     '  // (-- reason), so do not copy this in blindly on a brownfield repo.',
+    '  // Scope: JS/TS disable comments only — Vue template <!-- eslint-disable -->',
+    '  // directives are not gated by these rules.',
     '  {',
     '    files: [\'src/**/*.{js,jsx,ts,tsx,vue}\'],',
     '    plugins: {',

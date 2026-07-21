@@ -145,8 +145,13 @@ introduce. Isolation artifacts render apart and never inflate it:
 `parse-error` (a file could not be parsed; its numbers are untrustworthy)
 and `unused-disable-directive` (an inline disable suppressing nothing *in
 isolation* — one pointing at your own config's rules vanishes after the
-merge, a truly stale one survives it) sit under "Isolation caveats"; rules
-that are not blueprint's at all sit in their own section.
+merge, a truly stale one survives it) sit under "Isolation caveats"; rule ids
+blueprint does not emit sit apart as *echoes of your own config* — a row
+there mirroring a blueprint hit is the same spot seen through your house
+rule's name, not a second violation. The report's closing line says it
+plainly: the numbers decide **tiers**, not just suppressions — a rule you
+would suppress everywhere is usually better declared `warn`/`off` in the
+blueprint `rules` block, with suppressions locking only what remains.
 
 ## Failure semantics
 

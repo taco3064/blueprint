@@ -1,3 +1,4 @@
+import { METRIC_GATES } from '../emit/lint';
 import type { PackageManager } from '../project';
 import { renderSurvey } from '../survey';
 import type { SurveyResult } from '../survey';
@@ -162,6 +163,8 @@ when code lands inside declared layers.
    *does*, those documents say what it *should* do. They also carry what the
    matrix cannot — the position of empty (zero-file) layers, selfOnly-style
    constraints, and ownership rules. Translate them; use the matrix to verify.
+   (One token trap: structure-lint's \`{folder}\` placeholder is blueprint's
+   \`{layer}\` in \`layerFiles\`.)
    Documents also go stale: cross-check every translated clause against the
    survey below. Where they disagree, the document governs *intent* (layer
    order, ownership) and the code governs *shape* (module layout) — downgrade
@@ -249,7 +252,10 @@ when code lands inside declared layers.
      mechanically impossible — the entries overwrite each other and
      doctor's survival check fails. There, consolidation stops being a
      scope decision and becomes a wiring precondition; do it, and name
-     which gate won in the report.
+     which gate won in the report. And when a tool IS retired, sweep its
+     footprint in the same pass: grep the repo for its name — docs, README,
+     code comments, agent skills and commands all go stale the moment its
+     config file is deleted — and update or remove every pointer you find.
 
 ## Semantics the linter holds you to
 
@@ -277,6 +283,41 @@ you never have to reverse-engineer them from the bundle:
 - **\`doctor\`'s "eslint wired" check** passes when the eslint config's text
   references \`@kekkai/blueprint\` (or the config is the generated file
   itself).
+
+## Rule catalog — ask this file, not the bundle
+
+**Structural rules — always emitted**, whatever the \`rules\` block says.
+Their shared severity is \`emit.lint.severity\` (default \`error\`), and that
+knob covers ONLY these:
+
+- \`no-restricted-imports\` per layer — dependency flow, same-layer bans,
+  package ownership (\`owns\` entries with the same package and options merge
+  into one rule allowing every declaring layer), fixture bans
+- \`no-restricted-syntax\` — re-export bans for \`selfOnly\` importers
+- \`no-restricted-globals\` — global ownership (e.g. \`{ global: 'fetch' }\`)
+- \`blueprint/relative-escape\` — depth-aware \`../\` module escapes
+  (embedded plugin; ships inside the emitted config)
+
+**Optional gates — emitted only when declared** in \`rules\` with a tier
+other than \`off\`; none of these emits by default. The metric family falls
+back to these thresholds when no \`value\` is given:
+
+${METRIC_GATES.map((gate) => `- \`${gate.id}\` → \`${gate.rule}\` (default ${gate.fallback})`).join('\n')}
+- \`unusedVars\` → \`no-unused-vars\` (the TS-aware twin on TypeScript;
+  \`argsIgnorePattern: '^_'\` and nothing else)
+- \`fixtureImports\` → fixture globs folded into the structural import bans
+- \`deepWatch\` → \`blueprint/no-deep-watch\` — Vue only, never emits on React
+- \`usePrefix\` → \`blueprint/use-prefix\` on its target layer (default \`hooks\`)
+- \`usePrefixReactivity\` → \`blueprint/use-prefix-needs-reactivity\`
+- \`testFilename\` → \`blueprint/test-filename-matches-source\` on test files
+- \`typedefOnlyFile\` → \`blueprint/no-typedef-only-file\` (\`.js\` files only)
+
+**Documentation-only ids — never an ESLint line:**
+
+- \`cycles\` — detected by \`inspect\` instead (\`import/no-cycle\` re-checks
+  the whole graph per file; measured 92s on an 850-file repo)
+- \`deadCode\` — knip's job; \`import/no-unused-modules\` cannot run under
+  flat config
 
 ## Config schema sketch
 

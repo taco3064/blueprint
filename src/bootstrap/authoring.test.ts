@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AGENT_PROMPT, AUTHORING_FILE, authoringActions, authoringBrief, COMMAND_FILE } from './authoring';
+import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
 import type { SurveyResult } from '../survey';
 
 const survey: SurveyResult = {
@@ -135,6 +136,31 @@ describe('authoringBrief', () => {
   it('downgrades stale intent clauses instead of trusting documents blindly', () => {
     expect(brief).toContain('cross-check every translated clause');
     expect(brief).toContain('record the conflict in your report');
+  });
+
+  it('carries the full rule catalog so nobody reads the minified bundle (batch 12)', () => {
+    expect(brief).toContain('## Rule catalog — ask this file, not the bundle');
+    expect(brief).toContain('always emitted');
+    expect(brief).toContain('emit.lint.severity');
+
+    // Every machine-gated id is in the catalog — a new gate cannot ship
+    // without its catalog line, or this loop names the omission.
+    for (const id of LINT_GATED_RULE_IDS) {
+      expect(brief).toContain(`\`${id}\``);
+    }
+
+    // Metric thresholds interpolate from METRIC_GATES — never hand-copied.
+    for (const gate of METRIC_GATES) {
+      expect(brief).toContain(`\`${gate.id}\` → \`${gate.rule}\` (default ${gate.fallback})`);
+    }
+
+    expect(brief).toContain('never an ESLint line');
+    expect(brief).toContain('`deadCode` — knip\'s job');
+
+    // Two field traps travel with the method: the structure-lint token and
+    // the retired tool's stale footprint (batch 12).
+    expect(brief).toContain('`{folder}` placeholder is blueprint\'s');
+    expect(brief).toContain('footprint in the same pass');
   });
 
   it('states the lint semantics up front so nobody reverse-engineers the bundle', () => {

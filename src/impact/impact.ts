@@ -253,9 +253,12 @@ export function renderImpact(impacts: RuleImpact[], total: number): string {
     ? []
     : [
         '',
-        'Not blueprint\'s rules — artifacts of linting with ONLY the emitted config',
-        '(e.g. existing disables referencing rules that live in your own eslint',
-        'config); these vanish once emitLint is merged into it:',
+        'Echoes of YOUR OWN config — rule ids blueprint does not emit, surfaced',
+        'only because this run lints with the emitted config alone (inline',
+        'configs or disables referencing your house rules). A row here that',
+        'mirrors a blueprint hit above is the same spot seen through your own',
+        'rule\'s name — an echo, not a second violation. Never counted; these',
+        'vanish once emitLint is merged into your real config:',
         '',
         ...rows(foreign),
       ];
@@ -273,8 +276,11 @@ export function renderImpact(impacts: RuleImpact[], total: number): string {
     '',
     ...rows(own),
     '',
-    `${total} hit(s). Wire the config, then lock the existing debt with`
-    + ' `npx eslint . --suppress-all` — new violations still fail.',
+    `${total} hit(s). These numbers decide tiers, not just suppressions: a rule`
+    + ' you would suppress everywhere is often better declared `warn` (or `off`)'
+    + ' in the blueprint `rules` block — judge each rule, then wire the config'
+    + ' and lock only what remains with `npx eslint . --suppress-all` — new'
+    + ' violations still fail.',
     ...caveatBlock,
     ...foreignBlock,
   ].join('\n');
