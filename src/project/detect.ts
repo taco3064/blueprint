@@ -21,6 +21,15 @@ const ESLINT_FILES = [
   'eslint.config.ts',
 ];
 
+const LEGACY_ESLINT_FILES = [
+  '.eslintrc.js',
+  '.eslintrc.cjs',
+  '.eslintrc.json',
+  '.eslintrc.yml',
+  '.eslintrc.yaml',
+  '.eslintrc',
+];
+
 const TSCONFIG_FILES = ['tsconfig.json', 'tsconfig.app.json', 'jsconfig.json'];
 
 const VITE_FILES = ['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite.config.mts'];
@@ -29,7 +38,6 @@ const REQUIRED_DEPS = [
   'eslint',
   '@kekkai/blueprint',
   '@eslint-community/eslint-plugin-eslint-comments',
-  'knip',
 ];
 
 function readJson(file: string): Record<string, unknown> | null {
@@ -157,6 +165,23 @@ export function detect(root: string): ProjectState {
   const wiredEslintConfig
     = ownedEslintConfig === undefined && (eslintText?.includes('@kekkai/blueprint') ?? false);
 
+  // A legacy `.eslintrc*` is NOT a flat config — writing a fresh
+  // `eslint.config.mjs` next to it produces two configs / two ledgers. Detect
+  // it so the merge instruction routes to the flat-config migration instead.
+  const legacyEslintConfig = eslintFile === undefined
+    ? LEGACY_ESLINT_FILES.find((file) => fs.existsSync(path.join(root, file)))
+    : undefined;
+
+  // The existing config's shape, so the merge instruction can be specific
+  // rather than a generic snippet the user must adapt.
+  const eslintConfigShape = legacyEslintConfig
+    ? 'legacy'
+    : eslintText?.includes('tseslint.config(')
+      ? 'tseslint'
+      : eslintFile !== undefined
+        ? 'flat-array'
+        : undefined;
+
   const viteFile = VITE_FILES.find((file) => fs.existsSync(path.join(root, file)));
   const viteText = viteFile === undefined ? null : readText(path.join(root, viteFile));
 
@@ -173,6 +198,8 @@ export function detect(root: string): ProjectState {
     nextSrcDir,
     ownedEslintConfig,
     wiredEslintConfig,
+    legacyEslintConfig,
+    eslintConfigShape,
     viteConfig: viteFile !== undefined && viteText !== null
       ? { file: viteFile, text: viteText }
       : undefined,

@@ -80,11 +80,33 @@ describe('detect', () => {
     expect(state.missingDeps).toEqual([
       '@kekkai/blueprint',
       '@eslint-community/eslint-plugin-eslint-comments',
-      'knip',
       'typescript-eslint',
     ]);
 
     expect(state.packageManager).toBe('npm');
+    // A bare flat config (no tseslint.config call) reads as a flat array.
+    expect(state.eslintConfigShape).toBe('flat-array');
+    expect(state.legacyEslintConfig).toBeUndefined();
+  });
+
+  it('detects the eslint config shape: tseslint vs legacy .eslintrc', () => {
+    writePkg({ name: 'x', dependencies: { vue: '^3' } });
+
+    fs.writeFileSync(
+      path.join(root, 'eslint.config.mjs'),
+      'import tseslint from \'typescript-eslint\';\nexport default tseslint.config();',
+    );
+
+    expect(detect(root).eslintConfigShape).toBe('tseslint');
+
+    fs.rmSync(path.join(root, 'eslint.config.mjs'));
+    fs.writeFileSync(path.join(root, '.eslintrc.cjs'), 'module.exports = {};');
+
+    const legacy = detect(root);
+
+    expect(legacy.hasEslintConfig).toBe(false);
+    expect(legacy.legacyEslintConfig).toBe('.eslintrc.cjs');
+    expect(legacy.eslintConfigShape).toBe('legacy');
   });
 
   it('adds the vue parser to the install set for vue projects', () => {
@@ -99,7 +121,7 @@ describe('detect', () => {
   it('tolerates a missing or malformed package.json', () => {
     expect(detect(root).framework).toBeNull();
     expect(detect(root).missingDeps).toContain('eslint');
-    expect(detect(root).missingDeps).toHaveLength(4);
+    expect(detect(root).missingDeps).toHaveLength(3);
     expect(detect(root).existingSrcDirs).toEqual([]);
     expect(detect(root).hasViteConfig).toBe(false);
     expect(detect(root).hasTypescript).toBe(false);

@@ -32,7 +32,7 @@ describe('emitCi · dead-code step', () => {
     const out = emitCi(vuePreset()); // preset carries deadCode: 'error'
 
     expect(out).toContain('# - run: npx knip');
-    expect(out).toContain('uncomment once');
+    expect(out).toContain('install knip and configure its');
   });
 
   it('omits the step when deadCode is absent or below error', () => {

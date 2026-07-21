@@ -52,7 +52,7 @@ describe('plan', () => {
     ).toMatchObject({ command: 'npm install -D eslint @kekkai/blueprint' });
 
     expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('~app'))).toBe(true);
-    expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('npx knip'))).toBe(true);
+    expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('install knip'))).toBe(true);
     expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('stylelint'))).toBe(true);
   });
 
@@ -143,10 +143,37 @@ describe('plan', () => {
       (a) => a.kind === 'instruct' && a.note.includes('blueprint never edits it'),
     );
 
-    expect(note?.note).toContain('diff eslint.config.blueprint.mjs');
+    expect(note?.note).toContain('eslint.config.blueprint.mjs');
     expect(note?.note).toContain('...emitLint(blueprint)');
     // The reference is a merge source with an obligation, not a keepsake.
     expect(note?.note).toContain('DELETE the reference');
+  });
+
+  it('tailors the wiring note to a tseslint.config() shape', () => {
+    const actions = plan(state({ hasEslintConfig: true, eslintConfigShape: 'tseslint' }), bp, null, {});
+    const note = actions.find((a) => a.kind === 'instruct' && a.note.includes('tseslint.config()'));
+
+    expect(note?.note).toContain('export default tseslint.config(');
+    expect(note?.note).toContain('emitLint(blueprint, { typescript: tseslint.plugin })');
+    expect(note?.note).toContain('DELETE the reference');
+  });
+
+  it('routes a legacy .eslintrc to the migration note, not a fresh flat config', () => {
+    const actions = plan(
+      state({ legacyEslintConfig: '.eslintrc.cjs', eslintConfigShape: 'legacy' }),
+      bp,
+      null,
+      {},
+    );
+
+    // A reference is written, but never a fresh eslint.config.mjs next to it.
+    expect(write(actions, 'eslint.config.mjs')).toBeUndefined();
+    expect(write(actions, 'eslint.config.blueprint.mjs')).toBeDefined();
+
+    const note = actions.find((a) => a.kind === 'instruct' && a.note.includes('.eslintrc.cjs'));
+
+    expect(note?.note).toContain('flat-config / ESLint-9 migration');
+    expect(note?.note).toContain('inspect --baseline');
   });
 
   it('surfaces the install command as an instruct under --no-install', () => {

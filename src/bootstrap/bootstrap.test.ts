@@ -172,7 +172,7 @@ describe('runInit', () => {
     await runInit(root, { log: silent, exec: (command) => commands.push(command) });
 
     expect(commands).toEqual([
-      'npm install -D eslint @kekkai/blueprint @eslint-community/eslint-plugin-eslint-comments knip vue-eslint-parser',
+      'npm install -D eslint @kekkai/blueprint @eslint-community/eslint-plugin-eslint-comments vue-eslint-parser',
     ]);
   });
 });
@@ -230,6 +230,33 @@ describe('runInit · brownfield authoring flow', () => {
 
     expect(read('blueprint.config.mjs')).toContain('reactPreset');
     expect(exists('blueprint-authoring.md')).toBe(false);
+  });
+
+  it('--authoring forces the playbook on a near-empty repo', async () => {
+    writePkg({ name: 'fresh', dependencies: { react: '^18' } });
+
+    await runInit(root, { install: false, authoring: true, log: silent });
+
+    expect(exists('blueprint-authoring.md')).toBe(true);
+    expect(exists('blueprint.config.mjs')).toBe(false);
+  });
+
+  it('rejects --preset and --authoring together', async () => {
+    writePkg({ name: 'fresh', dependencies: { react: '^18' } });
+
+    await expect(
+      runInit(root, { install: false, preset: true, authoring: true, log: silent }),
+    ).rejects.toThrow('mutually exclusive');
+  });
+
+  it('names --authoring in the preset-branch narration', async () => {
+    writePkg({ name: 'fresh', dependencies: { react: '^18' } });
+    const lines: string[] = [];
+
+    await runInit(root, { install: false, log: (message) => lines.push(message) });
+
+    expect(lines.join('\n')).toContain('no blueprint-authoring.md is written');
+    expect(lines.join('\n')).toContain('init --authoring');
   });
 
   it('launches the agent on the playbook with --agent', async () => {

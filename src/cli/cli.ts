@@ -5,8 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { AGENT_KINDS, runInit } from '../bootstrap';
 import type { AgentKind, InitOptions } from '../bootstrap';
-import { runDeps, runInspect } from '../inspect';
-import type { DepsOptions, InspectOptions } from '../inspect';
+import { runDeps, runDoctor, runInspect } from '../inspect';
+import type { DepsOptions, DoctorOptions, InspectOptions } from '../inspect';
 import { runSurvey } from '../survey';
 import type { SurveyOptions } from '../survey';
 
@@ -22,6 +22,7 @@ const USAGE = [
   '                      module shapes — the raw material for authoring a config.',
   '  blueprint inspect   Read-only architecture report (CI-gateable).',
   '  blueprint deps      Reverse dependencies / blast radius per module.',
+  '  blueprint doctor    Is adoption finished? A read-only completeness check.',
   '  blueprint --help | --version',
   '',
   'Run `blueprint <command> --help` for flags and details.',
@@ -40,7 +41,9 @@ const INIT_HELP = [
   'On a brownfield repo WITHOUT a config, init does not guess: it surveys the',
   'code and writes blueprint-authoring.md — an executable playbook for deriving',
   'the config — plus a /blueprint-author command for Claude Code. An agent (or',
-  'you) executes it, then init runs again down the normal path.',
+  'you) executes it, then init runs again down the normal path. A repo below the',
+  'file-count threshold scaffolds a preset instead (no playbook written) — force',
+  'the playbook with --authoring, or force the preset with --preset.',
   '',
   'Framework presets: vue / react auto-detected; a Next.js project uses the',
   'Next preset (route tree detected as app / pages, under src/ or the root).',
@@ -55,6 +58,9 @@ const INIT_HELP = [
   '                          already complete.',
   '  --preset                Skip the authoring flow: scaffold the framework',
   '                          preset even on a brownfield repo.',
+  '  --authoring             Force the authoring playbook even on a small repo',
+  '                          (below the preset threshold). Opposite of --preset;',
+  '                          the two cannot be combined.',
   '  --framework vue|react   Only needed when package.json detection is',
   '                          ambiguous — vue/react is otherwise auto-detected.',
   '  --no-install            Skip dependency installation.',
@@ -140,11 +146,33 @@ const DEPS_HELP = [
   '  npx @kekkai/blueprint deps                 # fan-in leaderboard',
 ].join('\n');
 
+const DOCTOR_HELP = [
+  'blueprint doctor — is adoption actually finished?',
+  '',
+  'Read-only. Runs the completeness checks the adoption prompt asks for as a',
+  'checklist, and exits 1 if any fails — so it drops into CI or an agent verify',
+  'loop:',
+  '  · blueprint.config.mjs present',
+  '  · no leftover *.blueprint.* reference files (a reference left on disk',
+  '    means the merge is unfinished)',
+  '  · eslint wired to emitLint (a legacy .eslintrc is flagged to migrate first)',
+  '  · architecture clean — no findings outside the baseline',
+  '',
+  'Flags:',
+  '  --framework vue|react   Force the preset when detection is ambiguous.',
+  '  --json                  Machine-readable output.',
+  '',
+  'Examples:',
+  '  npx @kekkai/blueprint doctor          # what is left before adoption is done',
+  '  npx @kekkai/blueprint doctor --json   # feed the checklist to tooling / an agent',
+].join('\n');
+
 const COMMAND_HELP: Record<string, string> = {
   init: INIT_HELP,
   survey: SURVEY_HELP,
   inspect: INSPECT_HELP,
   deps: DEPS_HELP,
+  doctor: DOCTOR_HELP,
 };
 
 /**
@@ -187,6 +215,8 @@ export function parseInitArgs(args: string[]): InitOptions {
       options.dryRun = true;
     } else if (arg === '--preset') {
       options.preset = true;
+    } else if (arg === '--authoring') {
+      options.authoring = true;
     } else if (arg === '--agent') {
       const agent = parseAgent(args[++i]);
 
@@ -260,6 +290,23 @@ export function parseDepsArgs(args: string[]): DepsOptions {
   return options;
 }
 
+/** Parse `doctor` flags. Unknown flags are ignored. */
+export function parseDoctorArgs(args: string[]): DoctorOptions {
+  const options: DoctorOptions = {};
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === '--json') {
+      options.json = true;
+    } else if (arg === '--framework') {
+      options.framework = parseFramework(args[++i]) ?? options.framework;
+    }
+  }
+
+  return options;
+}
+
 /** CLI dispatch. Returns the process exit code. */
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
   const [command, ...rest] = argv;
@@ -304,6 +351,12 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
 
     if (command === 'deps') {
       const { ok } = await runDeps(cwd, parseDepsArgs(rest));
+
+      return ok ? 0 : 1;
+    }
+
+    if (command === 'doctor') {
+      const { ok } = await runDoctor(cwd, parseDoctorArgs(rest));
 
       return ok ? 0 : 1;
     }

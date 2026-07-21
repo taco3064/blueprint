@@ -31,6 +31,19 @@ export interface ProjectState {
    * its owner wired the rules in, so no reference file is needed.
    */
   wiredEslintConfig: boolean;
+  /**
+   * A legacy `.eslintrc*` config file (not flat). Present means wiring the
+   * rules needs a flat-config / ESLint-9 migration first — a deliberate
+   * decision, so init routes to the reference + migration note, never a
+   * fresh `eslint.config.mjs` written next to it (that would be two configs).
+   */
+  legacyEslintConfig?: string;
+  /**
+   * The existing eslint config's shape, so the merge instruction is specific:
+   * `tseslint` (wrap the spread in `tseslint.config()`), `flat-array` (spread
+   * into the array), or `legacy` (migrate first).
+   */
+  eslintConfigShape?: 'tseslint' | 'flat-array' | 'legacy';
   /** Some `vite.config.*` is present. */
   hasViteConfig: boolean;
   /** The vite config file and its content, when present and readable. */

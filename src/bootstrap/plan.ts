@@ -117,9 +117,11 @@ export function plan(
       kind: 'instruct',
       note: 'eslint config already wires @kekkai/blueprint — nothing to merge.',
     });
-  } else if (state.hasEslintConfig) {
+  } else if (state.hasEslintConfig || state.legacyEslintConfig !== undefined) {
     // Copy-ready hand-off: the full generated config lands next to the user's
     // own as a reference file they can diff and merge from — never wired in.
+    // A legacy `.eslintrc*` gets the reference too (NOT a fresh flat config
+    // written next to it — that would be two configs, two ledgers).
     actions.push({
       kind: 'write',
       path: 'eslint.config.blueprint.mjs',
@@ -127,10 +129,7 @@ export function plan(
       note: 'eslint.config.blueprint.mjs (reference — not wired in)',
     });
 
-    actions.push({
-      kind: 'instruct',
-      note: 'eslint.config already exists — blueprint never edits it, so the reference file is your merge source, not a keepsake. Wire it in (the authoring playbook makes an agent do exactly this):\n    diff eslint.config.blueprint.mjs eslint.config.*   # see what blueprint adds\n  Spread the blueprint rules into your existing config:\n    import blueprint from \'./blueprint.config.mjs\';\n    import { emitLint } from \'@kekkai/blueprint\';\n    export default [ ...emitLint(blueprint), /* …your existing entries */ ];\n  On a TypeScript project pass the TS plugin — emitLint(blueprint, { typescript: tseslint.plugin }).\n  Resolve rule conflicts explicitly, run your own lint, then DELETE the reference —\n  adoption is not done while it remains. (Legacy .eslintrc configs need a flat-config\n  migration first — decide that consciously, not as a side effect.)',
-    });
+    actions.push({ kind: 'instruct', note: eslintWiringNote(state) });
   } else {
     actions.push({
       kind: 'write',
@@ -158,7 +157,7 @@ export function plan(
       });
     } else {
       // --no-install must not silently drop the requirement — surface the
-      // exact command, or "init installs knip" becomes an empty claim.
+      // exact command, or the install claim rings empty.
       actions.push({
         kind: 'instruct',
         note: `Install skipped — run it yourself:\n    ${installCommand(state.packageManager, state.missingDeps)}`,
@@ -169,7 +168,10 @@ export function plan(
   actions.push(
     {
       kind: 'instruct',
-      note: 'Dead code: `npx knip` is the source of truth for dead exports and files — `import/no-unused-modules` is only the warn-tier entry point.',
+      // knip is not installed by default: zero-config knip false-flags entry
+      // points, so shipping it commented-out (or pre-installed but unused)
+      // is a dangling promise. Recommend it as the opt-in dead-code gate.
+      note: 'Dead code (optional): `blueprint inspect` reports dead files; for dead *exports*, install knip and configure its entry points — that is the source of truth, not the warn-tier `import/no-unused-modules`.',
     },
     {
       kind: 'instruct',
@@ -183,6 +185,47 @@ export function plan(
 }
 
 /** Merge the contract into a shared context file: refresh in place, append, or create. */
+/**
+ * The wiring instruction for an existing eslint config, tailored to its
+ * shape so the user (or an agent) doesn't have to reverse-engineer the merge:
+ * a `tseslint.config()` call wraps the spread, a flat array takes it directly,
+ * and a legacy `.eslintrc*` needs a flat-config migration decided first.
+ */
+function eslintWiringNote(state: ProjectState): string {
+  const shared
+    = '  Resolve rule conflicts explicitly, run your own lint, then DELETE the reference —\n'
+      + '  adoption is not done while it remains.';
+
+  if (state.eslintConfigShape === 'legacy') {
+    return `${state.legacyEslintConfig} is a legacy (non-flat) eslint config. Wiring the `
+      + 'blueprint rules needs a flat-config / ESLint-9 migration first — that can break your '
+      + 'lint pipeline, so it is a deliberate decision, not a side effect of adoption. Until you '
+      + 'migrate, `blueprint inspect --baseline` already gates the architecture without touching '
+      + 'eslint. Once on flat config, spread `...emitLint(blueprint)` from eslint.config.blueprint.mjs.\n'
+      + shared;
+  }
+
+  if (state.eslintConfigShape === 'tseslint') {
+    return 'Your eslint config uses `tseslint.config()`. Wire blueprint in by wrapping the spread '
+      + '(eslint.config.blueprint.mjs is your merge source):\n'
+      + '    import blueprint from \'./blueprint.config.mjs\';\n'
+      + '    import { emitLint } from \'@kekkai/blueprint\';\n'
+      + '    export default tseslint.config(\n'
+      + '      ...emitLint(blueprint, { typescript: tseslint.plugin }),\n'
+      + '      /* …your existing configs */\n'
+      + '    );\n'
+      + shared;
+  }
+
+  return 'eslint.config already exists — blueprint never edits it, so eslint.config.blueprint.mjs '
+    + 'is your merge source, not a keepsake. Diff it, then spread the rules into your flat config:\n'
+    + '    import blueprint from \'./blueprint.config.mjs\';\n'
+    + '    import { emitLint } from \'@kekkai/blueprint\';\n'
+    + '    export default [ ...emitLint(blueprint), /* …your existing entries */ ];\n'
+    + '  On a TypeScript project pass the TS plugin — emitLint(blueprint, { typescript: tseslint.plugin }).\n'
+    + shared;
+}
+
 function mergeContract(existing: string | null, contract: string): string {
   const body = contract.trimEnd();
 

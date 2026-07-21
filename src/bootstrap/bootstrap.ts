@@ -25,6 +25,13 @@ export interface InitOptions extends ResolveOptions {
   dryRun?: boolean;
   /** Force the preset scaffold on a brownfield repo (skip the authoring flow). */
   preset?: boolean;
+  /**
+   * Force the authoring playbook even on a small repo (below the file-count
+   * threshold that would otherwise scaffold a preset). The symmetric escape
+   * hatch to `--preset`: an agent told to execute blueprint-authoring.md can
+   * guarantee the file is written. Mutually exclusive with `preset`.
+   */
+  authoring?: boolean;
   /** Launch this agent CLI on the authoring playbook after writing it. */
   agent?: AgentKind;
   /** Dependency install runner (default `execSync`). */
@@ -52,6 +59,10 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     );
   }
 
+  if (options.preset && options.authoring) {
+    throw new Error('--preset and --authoring are mutually exclusive — pick one.');
+  }
+
   // Brownfield without a config: scaffolding a preset would be a lie — the
   // layers already exist and must be *read*. Emit the authoring playbook
   // instead (an agent or a human executes it; init runs again after).
@@ -65,19 +76,21 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
     // Greenfield Next with a detected router uses nextPreset (below). Anything
     // brownfield — or a Next project whose route tree we cannot place — is read
-    // by the authoring flow, never guessed.
+    // by the authoring flow, never guessed. `--authoring` forces it regardless
+    // of file count, so an agent can guarantee the playbook is written.
     const brownfield = survey.totalFiles >= BROWNFIELD_MIN_FILES;
 
-    if (brownfield || (state.hasNext && !state.nextRouter)) {
+    if (options.authoring || brownfield || (state.hasNext && !state.nextRouter)) {
       return runAuthoring(root, state, survey, options, log);
     }
 
-    // This fork is the biggest decision init makes — narrate it, or a user
-    // waiting for the authoring playbook reads the preset scaffold as a bug.
+    // This fork is the biggest decision init makes — narrate it, and say
+    // plainly that NO playbook is written here, or an agent told to execute
+    // blueprint-authoring.md hunts for a file that does not exist.
     forkNote
       = `Fresh scaffold (${survey.totalFiles} source files < ${BROWNFIELD_MIN_FILES}) — `
-        + `scaffolding the framework preset. Repos with ${BROWNFIELD_MIN_FILES}+ source `
-        + 'files get the authoring playbook (blueprint-authoring.md) instead.';
+        + 'scaffolding the framework preset directly; no blueprint-authoring.md is written '
+        + 'on this path. Force the authoring playbook instead with: blueprint init --authoring.';
   }
 
   const { blueprint, configSource } = await resolveBlueprint(root, state, options);

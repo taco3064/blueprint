@@ -47,8 +47,8 @@ export function emitCi(blueprint: Blueprint, options: CiOptions = {}): string {
     '      - run: npx blueprint inspect',
     ...(deadCodeTier === 'error'
       ? [
-          '      # Dead-code gate (knip is in the install set) — uncomment once',
-          '      # your entry points are configured; zero-config can false-flag:',
+          '      # Dead-code gate (optional) — install knip and configure its',
+          '      # entry points first (zero-config false-flags), then uncomment:',
           '      # - run: npx knip',
         ]
       : []),

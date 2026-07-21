@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isCliEntry, parseDepsArgs, parseInitArgs, parseInspectArgs, parseSurveyArgs, run, version } from './cli';
+import { isCliEntry, parseDepsArgs, parseDoctorArgs, parseInitArgs, parseInspectArgs, parseSurveyArgs, run, version } from './cli';
 
 describe('parseInitArgs', () => {
   it('parses known flags', () => {
@@ -165,6 +165,16 @@ describe('parseDepsArgs', () => {
 
     expect(parseDepsArgs([])).toEqual({});
     expect(parseDepsArgs(['--framework', 'nope'])).toEqual({ framework: undefined });
+
+    expect(parseDoctorArgs(['--json', '--framework', 'vue'])).toEqual({
+      json: true,
+      framework: 'vue',
+    });
+
+    expect(parseDoctorArgs(['--framework', 'nope'])).toEqual({ framework: undefined });
+    expect(parseDoctorArgs(['--unknown'])).toEqual({});
+
+    expect(parseInitArgs(['--authoring'])).toEqual({ authoring: true });
   });
 });
 
@@ -207,6 +217,54 @@ describe('deps command dispatch', () => {
     expect(await run(['deps'], dir)).toBe(0);
     expect(await run(['deps', 'hooks/ghost'], dir)).toBe(1);
     expect(await run(['deps', '--help'])).toBe(0);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+    log.mockRestore();
+  });
+});
+
+describe('run · doctor', () => {
+  it('exits 1 when adoption is unfinished and 0 when help is asked', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-cli-doctor-'));
+
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+    );
+
+    // No config yet → the first check fails → exit 1.
+    expect(await run(['doctor'], dir)).toBe(1);
+    expect(await run(['doctor', '--help'])).toBe(0);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+    log.mockRestore();
+  });
+
+  it('exits 0 when every check passes', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-cli-doctor-ok-'));
+
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+    );
+
+    // A self-contained config (no bare imports) so the real dynamic import in
+    // resolveBlueprint resolves from a bare temp dir.
+    fs.writeFileSync(
+      path.join(dir, 'blueprint.config.mjs'),
+      'export default { framework: \'vue\', architecture: { alias: \'~app\', flow: \'one-way\','
+      + ' module: { layout: \'folder\', entry: \'index\', private: [] },'
+      + ' layers: [{ name: \'components\', does: \'ui\' }] } };',
+    );
+
+    fs.writeFileSync(
+      path.join(dir, 'eslint.config.mjs'),
+      'import { emitLint } from \'@kekkai/blueprint\';\nexport default [];',
+    );
+
+    expect(await run(['doctor'], dir)).toBe(0);
 
     fs.rmSync(dir, { recursive: true, force: true });
     log.mockRestore();

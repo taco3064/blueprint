@@ -6,7 +6,7 @@ export { emitCi } from './emit/ci';
 export { injectBetweenMarkers } from './markdown';
 export { plugin } from './plugin';
 export { nextPreset, reactPreset, vuePreset } from './presets';
-export { runDeps, runInspect } from './inspect';
+export { runDeps, runDoctor, runInspect } from './inspect';
 export { runSurvey } from './survey';
 export type * from './config';
 export type { FolderEvidence, SurveyEdge, SurveyOptions, SurveyResult } from './survey';
@@ -15,4 +15,12 @@ export type { CiOptions } from './emit/ci';
 export type { EmitLintOptions, LintConfig, LintConfigEntry } from './emit/lint';
 export type { PackageManager } from './project';
 export type { NextPresetOptions, NextRouter, PresetOptions } from './presets';
-export type { DepsOptions, Finding, InspectOptions, ModuleDeps, Severity } from './inspect';
+export type {
+  DepsOptions,
+  DoctorCheck,
+  DoctorOptions,
+  Finding,
+  InspectOptions,
+  ModuleDeps,
+  Severity,
+} from './inspect';
