@@ -113,6 +113,12 @@ describe('authoringBrief', () => {
     expect(small).toContain('emptiness is the point');
     expect(small).toContain('adopts two years and\n400 files later');
 
+    // Final field round: the checklist claimed completeness while omitting
+    // the tool declaration Method step 9 mandates — a literal walk emitted
+    // two contracts with doctor green. Step 1 carries the declaration now.
+    expect(small).toContain('--preset --agent claude');
+    expect(small).toContain('one run emits one contract');
+
     // At or above the threshold the verdict block stays out of the playbook.
     expect(brief).not.toContain('Read this first');
   });

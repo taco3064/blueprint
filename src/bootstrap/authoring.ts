@@ -109,7 +109,11 @@ existing intent documents (Method step 1) or meaningful layer folders.
 
 The complete early-exit checklist — nothing else in this file applies:
 
-1. \`npx blueprint init --preset\` — scaffolds config + artifacts
+1. \`npx blueprint init --preset --agent claude\` (or \`--agent codex\`) —
+   scaffolds config + artifacts with YOUR contract declared: the flag
+   persists into \`emit.agents\`, so one run emits one contract file.
+   Running as neither tool? Plain \`--preset\`, then declare
+   \`emit.agents\` in the config and re-run init.
 2. \`npx blueprint impact\` (0 hits → skip \`--suppress-all\` entirely; an
    empty suppressions ledger is ceremony) and \`npx blueprint inspect\`
 3. \`npx blueprint doctor\` — all checks green. On this path some gates
