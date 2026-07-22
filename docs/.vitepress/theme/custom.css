@@ -81,30 +81,33 @@
   font-family: var(--vp-font-family-base);
 }
 
-/* Nav title: stack the version badge under the package name — logo spans
-   both rows on the left, name on top, version below (VersionBadge.vue). */
+/* Nav title: stack the version under the package name — logo spans both
+   rows, the two text rows pack tight and center vertically in the bar. */
 .VPNavBarTitle .title {
   display: grid !important;
-  grid-template-columns: auto auto;
-  grid-template-rows: auto auto;
+  grid-template-columns: auto 1fr;
   column-gap: 8px;
-  row-gap: 2px;
+  row-gap: 0;
+  align-content: center;
   align-items: center;
-  line-height: 1.1;
 }
 
 .VPNavBarTitle .title .VPImage.logo {
+  grid-column: 1;
   grid-row: 1 / span 2;
   margin-right: 0;
 }
 
-.VPNavBarTitle .title > span {
+.VPNavBarTitle .title > span:not(.bp-version-badge) {
   grid-column: 2;
   grid-row: 1;
+  line-height: 1.15;
 }
 
 .VPNavBarTitle .title .bp-version-badge {
   grid-column: 2;
   grid-row: 2;
   justify-self: start;
+  line-height: 1;
+  margin-top: 1px;
 }
