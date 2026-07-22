@@ -196,6 +196,25 @@ function copyTree(source, target) {
   }
 }
 
+/**
+ * The staged repo's package manager, from its lockfile — a repo guarding
+ * itself with `only-allow pnpm` kills a hardcoded npm install at preinstall.
+ */
+function packageManagerOf(dir) {
+  if (fs.existsSync(path.join(dir, 'pnpm-lock.yaml'))) return 'pnpm';
+  if (fs.existsSync(path.join(dir, 'yarn.lock'))) return 'yarn';
+  if (fs.existsSync(path.join(dir, 'bun.lockb'))) return 'bun';
+
+  return 'npm';
+}
+
+const INSTALL = {
+  npm: { deps: 'npm install --no-audit --no-fund', add: (tar) => `npm install -D --no-audit --no-fund "${tar}"` },
+  pnpm: { deps: 'pnpm install', add: (tar) => `pnpm add -D "${tar}"` },
+  yarn: { deps: 'yarn install', add: (tar) => `yarn add -D "${tar}"` },
+  bun: { deps: 'bun install', add: (tar) => `bun add -d "${tar}"` },
+};
+
 function stageRepo(dir, source) {
   // Either way the run works on its own copy — the real repo is never touched.
   if (fs.existsSync(path.join(source, '.git'))) {
@@ -207,7 +226,7 @@ function stageRepo(dir, source) {
     copyTree(source, dir);
   }
 
-  sh('npm install --no-audit --no-fund', dir);
+  sh(INSTALL[packageManagerOf(dir)].deps, dir);
 }
 
 async function main() {
@@ -260,7 +279,7 @@ async function main() {
         if (scenario === 'new') stageNew(dir);
         else stageRepo(dir, args.repo);
 
-        sh(`npm install -D --no-audit --no-fund "${tarball}"`, dir);
+        sh(INSTALL[packageManagerOf(dir)].add(tarball), dir);
       } catch (error) {
         console.log(`✗ staging failed: ${error.message.split('\n')[0]}`);
         runs.push({ scenario, agent, dir, staging: error.message.split('\n')[0] });
