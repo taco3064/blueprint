@@ -168,9 +168,45 @@ function stageNew(dir) {
   }
 }
 
+/** Directories a clone would never carry — skipped by the copy fallback. */
+const COPY_SKIP = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  '.next',
+  '.nuxt',
+  '.turbo',
+  '.cache',
+]);
+
+function copyTree(source, target) {
+  fs.mkdirSync(target, { recursive: true });
+
+  for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (COPY_SKIP.has(entry.name)) continue;
+
+      copyTree(path.join(source, entry.name), path.join(target, entry.name));
+    } else if (entry.isFile()) {
+      fs.copyFileSync(path.join(source, entry.name), path.join(target, entry.name));
+    }
+  }
+}
+
 function stageRepo(dir, source) {
-  // A local clone, so the run can never touch the real repo.
-  sh(`git clone --local --quiet "${source}" "${dir}"`, ROOT);
+  // Either way the run works on its own copy — the real repo is never touched.
+  if (fs.existsSync(path.join(source, '.git'))) {
+    sh(`git clone --local --quiet "${source}" "${dir}"`, ROOT);
+  } else {
+    // A plain project folder that was never `git init`-ed (git clone would
+    // misleadingly report it "does not exist") — copy the tree instead.
+    console.log(`  (${source} has no .git — copying the tree instead of cloning)`);
+    copyTree(source, dir);
+  }
+
   sh('npm install --no-audit --no-fund', dir);
 }
 
@@ -179,10 +215,11 @@ async function main() {
 
   // Fail BEFORE any expensive work: a bad --repo used to surface only at
   // clone time — after the new-project scenario had already burned minutes
-  // of agent time, and the crash took the whole run's report with it.
-  if (args.repo && !fs.existsSync(path.join(args.repo, '.git'))) {
+  // of agent time, and the crash took the whole run's report with it. A
+  // git repo is not required (plain folders are copied), a project is.
+  if (args.repo && !fs.existsSync(path.join(args.repo, 'package.json'))) {
     throw new Error(
-      `--repo ${args.repo} is not a git repository (the run stages it via git clone) — check the path.`,
+      `--repo ${args.repo} has no package.json — not an adoptable project; check the path.`,
     );
   }
 
