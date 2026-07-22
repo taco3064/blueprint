@@ -4,6 +4,9 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { DOC_ONLY_RULES, LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint/patterns';
+// Test-only import of the full emit module — src keeps the patterns-leaf
+// boundary (module cycle); the test pins the mirror to the real thing.
+import { emitLint } from '../emit/lint';
 import { runRules, STRUCTURAL_RULES } from './rules';
 import type { Blueprint } from '../config';
 
@@ -75,8 +78,10 @@ describe('runRules', () => {
 
     const output = lines.join('\n');
 
-    expect(output).toContain('Structural — always emitted · severity: error');
+    expect(output).toContain('Structural — dependency flow & ownership · severity: error');
     expect(output).toContain('no-restricted-imports');
+    // Static catalog: no config to resolve against, so no emit column.
+    expect(output).not.toContain('✓ emits');
     expect(output).toContain('· not declared');
     expect(output).toContain('deadCode');
     expect(output).toContain('static catalog');
@@ -165,8 +170,54 @@ describe('runRules', () => {
     };
 
     expect(parsed.severity).toBe('warn');
-    expect(parsed.structural).toEqual(STRUCTURAL_RULES);
+
+    // Fixture: no selfOnly importer anywhere → syntax inactive; an owned
+    // global bars other layers → globals active (field issue #14).
+    expect(parsed.structural).toEqual(STRUCTURAL_RULES.map((rule) => ({
+      ...rule,
+      active: rule.rule !== 'no-restricted-syntax',
+    })));
+
     expect(parsed.docsOnly).toEqual(DOC_ONLY_RULES);
     expect(parsed.gates.length).toBeGreaterThan(0);
+  });
+
+  it('structural annotation mirrors emitLint exactly — never probe the bundle (field #14)', async () => {
+    const selfOnly: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [
+          { name: 'views', does: 'pages' },
+          {
+            name: 'contexts',
+            does: 'provide/inject seam',
+            allowedImporters: [{ layer: 'views', selfOnly: true }],
+          },
+        ],
+        module: { layout: 'flat', entry: 'index' },
+      },
+      rules: {},
+    };
+
+    // rules.ts mirrors emitLint's conditions instead of calling it (module
+    // cycle) — this pin is what keeps the mirror from drifting.
+    for (const bp of [blueprint, selfOnly]) {
+      const emitted = new Set(
+        emitLint(bp).flatMap((entry) => Object.keys(entry.rules ?? {})),
+      );
+
+      const lines: string[] = [];
+
+      await runRules(repo(bp), { json: true, log: (m) => void lines.push(m) });
+
+      const parsed = JSON.parse(lines.join('')) as {
+        structural: { rule: string; active: boolean }[];
+      };
+
+      for (const row of parsed.structural) {
+        expect(`${row.rule}=${String(row.active)}`).toBe(`${row.rule}=${String(emitted.has(row.rule))}`);
+      }
+    }
   });
 });

@@ -494,7 +494,7 @@ describe('the tool answers for itself — no bundle archaeology (batch 12)', () 
     const rules = await cli(dir, ['rules']);
 
     expect(rules.code).toBe(0);
-    expect(rules.output).toContain('always emitted');
+    expect(rules.output).toContain('Structural — dependency flow & ownership');
     expect(rules.output).toContain('maxLines → max-lines (default 400)');
     expect(rules.output).toContain('✓ error'); // unusedVars, declared in the fixture
     expect(rules.output).toContain('deadCode'); // documentation-only, stated as such
@@ -678,6 +678,63 @@ describe('survey counts never promise what impact must measure (field issue #11)
 
     expect(inspect.code).toBe(0);
     expect(inspect.output).not.toContain('module.private');
+  });
+});
+
+describe('a misplaced key fails loud instead of dying silently (field issue #14)', () => {
+  it('layer-level selfOnly errors with the pointed fix — the field config verbatim', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        // The 489-file field repo's shape: selfOnly on the layer object,
+        // where nothing reads it — the intended re-export ban silently
+        // never existed and every gate stayed green.
+        'blueprint.config.mjs': [
+          'export default {',
+          '  framework: \'react\',',
+          '  architecture: {',
+          '    alias: \'~app\',',
+          '    layers: [',
+          '      { name: \'views\', does: \'pages\' },',
+          '      { name: \'contexts\', does: \'seam\', selfOnly: true, allowedImporters: [\'views\'] },',
+          '    ],',
+          '    module: { layout: \'flat\', entry: \'index\' },',
+          '  },',
+          '  rules: {},',
+          '};',
+          '',
+        ].join('\n'),
+        'src/views/home.tsx': 'export const home = 1;',
+      },
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.code).toBe(1);
+    expect(inspect.output).toContain('Unknown key "selfOnly"');
+    expect(inspect.output).toContain('allowedImporters ENTRY');
+  });
+
+  it('rules states whether THIS config emits each structural rule', async () => {
+    // reactBlueprint declares no selfOnly importer — the catalog must say
+    // its no-restricted-syntax is not emitted, instead of listing it
+    // statically while emitLint disagrees.
+    const dir = repo({
+      packageJson: react(),
+      files: { 'blueprint.config.mjs': configSource(reactBlueprint) },
+    });
+
+    const rules = await cli(dir, ['rules']);
+
+    expect(rules.code).toBe(0);
+    expect(rules.output).toContain('· not emitted');
+    expect(rules.output).toContain('✓ emits');
+
+    const json = await cli(dir, ['rules', '--json']);
+    const parsed = JSON.parse(json.output) as { structural: { rule: string; active: boolean }[] };
+
+    expect(parsed.structural.find((row) => row.rule === 'no-restricted-syntax')?.active).toBe(false);
+    expect(parsed.structural.find((row) => row.rule === 'no-restricted-imports')?.active).toBe(true);
   });
 });
 

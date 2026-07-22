@@ -207,7 +207,11 @@ runway, not a manufactured net — declaring intent costs nothing and
 \`inspect\` tracks it honestly (missing-layer info, the coverage line), so
 keep them. Keeping is the DEFAULT — the preset layers are the baseline,
 and slimming them is the project owner's later decision, never the
-adopting agent's.
+adopting agent's. When a declared-but-empty layer ALSO looks stale, the
+tiebreak is prose intent: an intent document describing it as a future
+seam makes it runway (keep); one the prose never mentions, contradicted
+by where the code actually lives, is a stale clause (downgrade it and
+record the conflict — Method step 1).
 
 **Work the loop, not the archive.** Everything below is evidence and
 reference — it is NOT a syllabus to master before touching the config.
@@ -390,8 +394,12 @@ knob covers ONLY these:
   rule allowing every declaring layer), fixture bans. \`additionalAliases\`
   join every structural ban alongside the main alias.
 - \`no-restricted-syntax\` — re-export bans for \`selfOnly\` importers,
-  emitted ONLY when some layer declares one — no selfOnly, no syntax rule
-  to collide with your own \`no-restricted-syntax\`
+  emitted ONLY when an allowedImporters ENTRY declares it
+  (\`allowedImporters: [{ layer: 'views', selfOnly: true }]\` — a
+  layer-level \`selfOnly\` key is invalid and validation rejects it) —
+  no selfOnly, no syntax rule to collide with your own
+  \`no-restricted-syntax\`. \`blueprint rules\` annotates whether THIS
+  config emits it — never probe emitLint to find out.
 - \`no-restricted-globals\` — global ownership (e.g. \`{ global: 'fetch' }\`)
 - \`blueprint/relative-escape\` — depth-aware \`../\` module escapes
   (embedded plugin; ships inside the emitted config)

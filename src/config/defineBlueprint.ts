@@ -52,9 +52,13 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     throw new Error('name must be a non-empty string when provided.');
   }
 
+  rejectUnknownKeys(bp, ['name', 'framework', 'architecture', 'rules', 'principles', 'componentShape', 'playbook', 'emit'], 'the blueprint');
+
   if (!architecture || !Array.isArray(architecture.layers)) {
     throw new Error('architecture.layers must be an array.');
   }
+
+  rejectUnknownKeys(architecture, ['alias', 'additionalAliases', 'sourceRoot', 'layers', 'module', 'layerFiles', 'layerFilesIgnore', 'testFiles', 'naming'], 'architecture');
 
   const { alias, additionalAliases, layers, module, layerFiles } = architecture;
 
@@ -95,6 +99,19 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
       );
     }
 
+    rejectUnknownKeys(
+      layer,
+      ['name', 'does', 'mustNot', 'owns', 'module', 'allowedImporters', 'lintOverrides'],
+      `layer "${layer.name}"`,
+      {
+        // The exact field shape: selfOnly on the layer validated fine, was
+        // silently dead, and the intended re-export ban never emitted
+        // (field issue #14). Point at the right home, not just "unknown".
+        selfOnly: 'selfOnly lives on an allowedImporters ENTRY, naming the importing layer: '
+          + 'allowedImporters: [{ layer: \'views\', selfOnly: true }]',
+      },
+    );
+
     validateOwns(layer);
     validateLayerModule(layer);
     validateLintOverrides(layer);
@@ -108,6 +125,22 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     throw new Error('architecture.module.entry must be a non-empty string.');
   } else if (module.private !== undefined && !Array.isArray(module.private)) {
     throw new Error('architecture.module.private must be an array when set — omit it for none.');
+  }
+
+  rejectUnknownKeys(module, ['layout', 'entry', 'private'], 'architecture.module');
+
+  if (bp.emit !== undefined) {
+    rejectUnknownKeys(bp.emit, ['handbook', 'agents', 'ci', 'lint'], 'emit');
+
+    if (bp.emit.lint !== undefined) {
+      rejectUnknownKeys(bp.emit.lint, ['severity'], 'emit.lint');
+    }
+
+    for (const entry of bp.emit.agents ?? []) {
+      if (typeof entry !== 'string') {
+        rejectUnknownKeys(entry, ['target', 'path'], 'an emit.agents entry');
+      }
+    }
   }
 
   if (additionalAliases !== undefined) {
@@ -244,6 +277,28 @@ function validateAgentEmit(bp: Blueprint): void {
 }
 
 /** Validate a layer's `owns` list — each entry is a package, global, or shorthand. */
+/**
+ * A key the schema does not know is a silently dead declaration — the author
+ * believes a constraint is active while nothing compiles from it (field
+ * issue #14: a layer-level `selfOnly` validated fine, and the intended
+ * re-export ban never existed). Fail loud, and point misplaced keys home.
+ */
+function rejectUnknownKeys(
+  value: object,
+  allowed: string[],
+  where: string,
+  hints: Record<string, string> = {},
+): void {
+  for (const key of Object.keys(value)) {
+    if (allowed.includes(key)) continue;
+
+    throw new Error(
+      `Unknown key "${key}" in ${where} — nothing reads it, so the declaration is `
+      + `silently dead. ${hints[key] ?? `Expected keys: ${allowed.join(', ')}.`}`,
+    );
+  }
+}
+
 function validateOwns(layer: LayerDef): void {
   for (const primitive of layer.owns ?? []) {
     if (typeof primitive === 'string') {
@@ -254,8 +309,12 @@ function validateOwns(layer: LayerDef): void {
       if (typeof primitive.global !== 'string' || !primitive.global.trim()) {
         throw new Error(`Layer "${layer.name}" owns a global with no name.`);
       }
+
+      rejectUnknownKeys(primitive, ['global'], `layer "${layer.name}" owns entry "${primitive.global}"`);
     } else if (typeof primitive.package !== 'string' || !primitive.package.trim()) {
       throw new Error(`Layer "${layer.name}" owns a package with no name.`);
+    } else {
+      rejectUnknownKeys(primitive, ['package', 'imports', 'pattern', 'exempt'], `layer "${layer.name}" owns entry "${primitive.package}"`);
     }
   }
 }
@@ -265,6 +324,8 @@ function validateLayerModule(layer: LayerDef): void {
   const override = layer.module;
 
   if (override === undefined) return;
+
+  rejectUnknownKeys(override, ['layout', 'entry'], `layer "${layer.name}" module override`);
 
   if (override.layout !== undefined && !['folder', 'flat'].includes(override.layout)) {
     throw new Error(
@@ -287,7 +348,15 @@ function validateAllowedImporters(layer: LayerDef, earlier: Set<string>): void {
   for (const importer of normalizeAllowedImporters(layer.allowedImporters)) {
     if (typeof importer.layer !== 'string' || !importer.layer.trim()) {
       throw new Error(`Layer "${layer.name}" has an allowedImporters entry with no layer.`);
-    } else if (importer.layer === layer.name) {
+    }
+
+    rejectUnknownKeys(
+      importer,
+      ['layer', 'selfOnly', 'description'],
+      `layer "${layer.name}" allowedImporters entry "${importer.layer}"`,
+    );
+
+    if (importer.layer === layer.name) {
       throw new Error(`Layer "${layer.name}" cannot list itself as an allowed importer.`);
     } else if (!earlier.has(importer.layer)) {
       throw new Error(

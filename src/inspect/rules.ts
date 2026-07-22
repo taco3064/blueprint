@@ -11,7 +11,7 @@ import {
   PLUGIN_GATES,
 } from '../emit/lint/patterns';
 import type { GateSpec } from '../emit/lint/patterns';
-import { getForbiddenLayers } from '../config';
+import { getForbiddenLayers, normalizeAllowedImporters } from '../config';
 import type { Blueprint } from '../config';
 
 /**
@@ -72,10 +72,43 @@ export interface GateStatus {
 
 export const STRUCTURAL_RULES: StructuralRule[] = [
   { rule: 'no-restricted-imports', covers: 'dependency flow, same-layer bans, package ownership — whole packages or named imports ({ package, imports }); same-signature owns merge — and fixture bans' },
-  { rule: 'no-restricted-syntax', covers: 'selfOnly re-export bans — emitted only when a selfOnly importer exists' },
-  { rule: 'no-restricted-globals', covers: 'global ownership (owns: [{ global: … }])' },
+  { rule: 'no-restricted-syntax', covers: 'selfOnly re-export bans — emitted only when an allowedImporters ENTRY declares selfOnly: true (a layer-level selfOnly key is invalid)' },
+  { rule: 'no-restricted-globals', covers: 'global ownership (owns: [{ global: … }]) — emitted only where some layer is barred from an owned global' },
   { rule: 'blueprint/relative-escape', covers: '../ module escapes at any depth (embedded plugin)' },
 ];
+
+/** A structural rule annotated with whether THIS config's output carries it. */
+export interface StructuralStatus extends StructuralRule {
+  /** null without a config (static catalog); resolved boolean with one. */
+  active: boolean | null;
+}
+
+/**
+ * Whether each structural rule would appear in the emitted config — the
+ * question a field agent could only answer by calling emitLint and dumping
+ * its entries (issue #14: docs said "emits", the config didn't). Mirrors
+ * emitLint's conditions from the same primitives — rules.ts must not import
+ * lint.ts (module cycle, see the import note above), so the mirror is
+ * pinned to emitLint's real output by a test instead.
+ */
+function resolveStructural(blueprint: Blueprint | null): StructuralStatus[] {
+  if (!blueprint) return STRUCTURAL_RULES.map((rule) => ({ ...rule, active: null }));
+
+  const { layers } = blueprint.architecture;
+  const globalRules = deriveGlobalRules(layers);
+
+  const active: Record<string, boolean> = {
+    'no-restricted-imports': true,
+    'blueprint/relative-escape': true,
+    'no-restricted-syntax': layers.some((layer) =>
+      normalizeAllowedImporters(layer.allowedImporters)
+        .some((importer) => importer.selfOnly === true)),
+    'no-restricted-globals': layers.some((layer) =>
+      globalRules.some((rule) => !rule.allowedIn.includes(layer.name))),
+  };
+
+  return STRUCTURAL_RULES.map((rule) => ({ ...rule, active: active[rule.rule] }));
+}
 
 function gateSpecs(): GateSpec[] {
   return [
@@ -152,6 +185,7 @@ export async function runRules(
     : null;
 
   const severity = blueprint?.emit?.lint?.severity ?? 'error';
+  const structural = resolveStructural(blueprint);
   const gates = gateSpecs().map((spec) => resolveGate(spec, blueprint));
   const bans = blueprint ? layerBans(blueprint) : [];
 
@@ -159,12 +193,12 @@ export async function runRules(
     options.json
       ? JSON.stringify({
           severity,
-          structural: STRUCTURAL_RULES,
+          structural,
           gates,
           bans,
           docsOnly: DOC_ONLY_RULES,
         }, null, 2)
-      : renderRules(severity, gates, bans, blueprint !== null),
+      : renderRules(severity, structural, gates, bans, blueprint !== null),
   );
 
   return { severity, gates, bans };
@@ -173,6 +207,7 @@ export async function runRules(
 /** The human-readable catalog. */
 export function renderRules(
   severity: string,
+  structural: StructuralStatus[],
   gates: GateStatus[],
   bans: LayerBans[],
   hasConfig: boolean,
@@ -190,8 +225,13 @@ export function renderRules(
   return [
     'blueprint rules — the emitted-rule catalog',
     '',
-    `Structural — always emitted · severity: ${severity} (emit.lint.severity covers only these)`,
-    ...STRUCTURAL_RULES.map((rule) => `  ${rule.rule.padEnd(28)} ${rule.covers}`),
+    // "Always emitted" was a lie for two of the four (field issue #14) —
+    // with a config, each line states whether THIS config carries it.
+    `Structural — dependency flow & ownership · severity: ${severity} (emit.lint.severity covers only these)`,
+    ...structural.map((rule) =>
+      rule.active === null
+        ? `  ${rule.rule.padEnd(28)} ${rule.covers}`
+        : `  ${(rule.active ? '✓ emits' : '· not emitted').padEnd(16)} ${rule.rule.padEnd(28)} ${rule.covers}`),
     '',
     'Optional gates — emitted only when declared in `rules` with a tier other than off.',
     'Every gate scopes to the layer file globs — root wiring sits outside all of them.',

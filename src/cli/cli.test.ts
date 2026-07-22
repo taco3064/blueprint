@@ -305,7 +305,7 @@ describe('run · impact', () => {
     // through defaultLoadModule's bare-import fallback (this repo's devDep).
     fs.writeFileSync(
       path.join(dir, 'blueprint.config.mjs'),
-      'export default { framework: \'react\', architecture: { alias: \'~app\', flow: \'one-way\','
+      'export default { framework: \'react\', architecture: { alias: \'~app\','
       + ' module: { layout: \'flat\', entry: \'index\', private: [] },'
       + ' layers: [{ name: \'components\', does: \'ui\' }] },'
       + ' rules: { unusedVars: \'error\' } };',
@@ -357,7 +357,7 @@ describe('run · doctor', () => {
     // resolveBlueprint resolves from a bare temp dir.
     fs.writeFileSync(
       path.join(dir, 'blueprint.config.mjs'),
-      'export default { framework: \'vue\', architecture: { alias: \'~app\', flow: \'one-way\','
+      'export default { framework: \'vue\', architecture: { alias: \'~app\','
       + ' module: { layout: \'folder\', entry: \'index\', private: [] },'
       + ' layers: [{ name: \'components\', does: \'ui\' }] } };',
     );

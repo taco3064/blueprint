@@ -134,6 +134,41 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(/module\.entry/);
   });
 
+  it('rejects a layer-level selfOnly with the pointed fix (field issue #14)', () => {
+    const config = base();
+
+    // The exact field shape: intent declared where nothing reads it — the
+    // re-export ban silently never existed.
+    (config.architecture.layers[0] as unknown as Record<string, unknown>).selfOnly = true;
+
+    expect(() => validateBlueprint(config)).toThrow(/allowedImporters ENTRY/);
+    expect(() => validateBlueprint(config)).toThrow(/selfOnly/);
+  });
+
+  it('rejects unknown keys everywhere a silent no-op could hide', () => {
+    const stray = (mutate: (config: ReturnType<typeof base>) => void, pattern: RegExp) => {
+      const config = base();
+
+      mutate(config);
+      expect(() => validateBlueprint(config)).toThrow(pattern);
+    };
+
+    stray((c) => ((c as unknown as Record<string, unknown>).flows = []), /Unknown key "flows" in the blueprint/);
+    stray((c) => ((c.architecture as unknown as Record<string, unknown>).flow = 'one-way'), /Unknown key "flow" in architecture/);
+    stray((c) => ((c.architecture.module as unknown as Record<string, unknown>).privates = []), /architecture\.module/);
+    stray((c) => ((c as { emit?: Record<string, unknown> }).emit = { agent: ['claude'] }), /Unknown key "agent" in emit/);
+    stray((c) => ((c as { emit?: object }).emit = { lint: { level: 'warn' } }), /emit\.lint/);
+    stray((c) => ((c as { emit?: object }).emit = { agents: [{ target: 'claude', file: 'X.md' }] }), /emit\.agents entry/);
+    stray((c) => (c.architecture.layers[0].owns = [{ package: 'axios', import: ['get'] } as never]), /owns entry "axios"/);
+    stray((c) => (c.architecture.layers[0].owns = [{ global: 'fetch', scope: 'all' } as never]), /owns entry "fetch"/);
+    stray((c) => (c.architecture.layers[0].module = { layout: 'flat', entry: 'index', private: [] } as never), /module override/);
+
+    stray(
+      (c) => (c.architecture.layers[1].allowedImporters = [{ layer: 'components', selfonly: true } as never]),
+      /allowedImporters entry "components"/,
+    );
+  });
+
   it('rejects a non-array module.private, accepts an omitted one', () => {
     const config = base();
 
