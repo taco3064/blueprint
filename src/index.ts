@@ -23,6 +23,7 @@ export type {
   Finding,
   GateStatus,
   InspectOptions,
+  LayerBans,
   ModuleDeps,
   RulesOptions,
   Severity,

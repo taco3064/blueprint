@@ -102,11 +102,22 @@ export function authoringBrief(survey: SurveyResult, install: string, next = fal
 
 The survey counted ${survey.totalFiles} source file(s) — below the
 brownfield threshold (${BROWNFIELD_MIN_FILES}). At this size the expected
-conclusion is the early exit: run \`npx blueprint init --preset\`, wire its
-outputs, delete this playbook and \`${COMMAND_FILE}\`, and stop — "preset
-was enough" is a complete, correct report. Walk the full method below only
-if you find structure the file count hides: existing intent documents
-(Method step 1) or meaningful layer folders.`;
+conclusion is the early exit, and **following this verdict IS executing
+the playbook fully** — early exit is completion, not abandonment. Walk the
+full method below only if you find structure the file count hides:
+existing intent documents (Method step 1) or meaningful layer folders.
+
+The complete early-exit checklist — nothing else in this file applies:
+
+1. \`npx blueprint init --preset\` — scaffolds config + artifacts
+2. \`npx blueprint impact\` (0 hits → skip \`--suppress-all\` entirely; an
+   empty suppressions ledger is ceremony) and \`npx blueprint inspect\`
+3. \`npx blueprint doctor\` — all checks green. On this path some gates
+   hold trivially (no reference file is ever written) — trivially true
+   is true, you skipped nothing.
+4. Delete this playbook, \`${COMMAND_FILE}\`, and the now-empty
+   \`.claude/commands/\` directory. Done — "preset was enough" is a
+   complete, correct report.`;
 
   return `# Blueprint authoring playbook${nextNote}
 
@@ -246,7 +257,8 @@ the answer belongs in this playbook — note the gap in your report instead.
      \`error\`; adoption's job is to make debt visible and lock it, not to
      quiet the screen. Lock each side in its native ledger: architecture
      findings via \`npx blueprint inspect --update-baseline\`, lint
-     violations via \`npx eslint . --suppress-all\` (ESLint ≥ 9.24 — counts
+     violations via \`npx eslint . --suppress-all\` (\`impact\` already told
+     you the count — zero hits means SKIP this command; ESLint ≥ 9.24 — counts
      per file × rule, so NEW violations still fail). CI then blocks only new
      debt on both gates, and \`blueprint doctor\` verifies neither ledger has
      gone stale. The inverse is equally correct: **zero findings and zero
@@ -310,6 +322,11 @@ you never have to reverse-engineer them from the bundle:
 - **\`doctor\`'s "eslint wired" check** passes when the eslint config's text
   references \`@kekkai/blueprint\` (or the config is the generated file
   itself).
+- **Test files are EXEMPT** — \`architecture.testFiles\` (default
+  \`*.test.* / *.spec.*\`) sit outside the structural rules and \`inspect\`
+  alike. If the tool you are replacing policed tests too, switching to
+  blueprint deliberately RELAXES that enforcement — say so in the report
+  instead of letting the difference pass silently.
 
 ## Rule catalog — ask this file, not the bundle
 
@@ -357,6 +374,8 @@ export default defineBlueprint({
   framework: '<vue|react>',
   architecture: {
     alias: '<alias>',
+    // Extra import roots beyond the alias — they join every structural ban.
+    additionalAliases: { '~shared': './src/shared' },
     layers: [
       // Order defines the one-way flow: a layer may import only layers
       // declared AFTER it. allowedImporters (optional) narrows who may
@@ -367,9 +386,12 @@ export default defineBlueprint({
         does: '…',
         module: { layout: 'folder', entry: 'index' }, // per-layer override
       },
-      // owns: whole packages, named imports ({ package, imports }), or
-      // globals ({ global: 'fetch' }) — named imports cover rules like
-      // "only composables may use inject".
+      // owns entries — the full shape (nothing else lives only in dist):
+      //   'axios'                                    whole package
+      //   { package: 'vue', imports: ['inject'] }    named imports only
+      //   { package: '@scope/*', pattern: true }     glob of packages
+      //   { package: 'x', exempt: ['**/*.stories.*'] }  files exempt from the ban
+      //   { global: 'fetch' }                        global identifier
       { name: 'services', does: '…', owns: ['axios', { global: 'fetch' }] },
     ],
     module: { layout: 'flat', entry: 'index', private: [] },

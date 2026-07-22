@@ -90,7 +90,8 @@ Brownfield repo, fully automated? Paste this to your agent:
 ```text
 Help adopt @kekkai/blueprint in this repo, autonomously:
 run `npx @kekkai/blueprint init --authoring`,
-then execute the blueprint-authoring.md it writes, fully and to the end.
+then execute the blueprint-authoring.md it writes, fully and to the end
+(an early exit the playbook itself prescribes counts as full execution).
 
 Acceptance (`blueprint doctor` passes):
 - lint, `inspect --baseline`, and the existing tests all pass

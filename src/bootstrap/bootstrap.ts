@@ -377,8 +377,17 @@ function runAuthoring(
     });
   }
 
+  const forced = options.authoring && survey.totalFiles < BROWNFIELD_MIN_FILES;
+
   log(
-    `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · brownfield without a config → authoring flow (${survey.totalFiles} source files surveyed)`,
+    `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · brownfield without a config → authoring flow (${survey.totalFiles} source files surveyed)${
+      // --authoring below the threshold writes a playbook whose own verdict
+      // is the early exit — say so up front, or the flag looks like it
+      // produced a self-refuting document (field issues #7/#8).
+      forced
+        ? ' — below the preset threshold, forced by --authoring; the playbook\'s own verdict will be the early exit'
+        : ''
+    }`,
   );
 
   for (const action of actions) {

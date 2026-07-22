@@ -33,7 +33,11 @@ const blueprint: Blueprint = {
   framework: 'react',
   architecture: {
     alias: '~app',
-    layers: [{ name: 'components', does: 'UI' }],
+    layers: [
+      { name: 'components', does: 'UI' },
+      { name: 'hooks', does: 'state', owns: [{ package: 'react', imports: ['useContext'] }] },
+      { name: 'services', does: 'net', owns: ['axios', { global: 'fetch' }] },
+    ],
     module: { layout: 'flat', entry: 'index', private: [] },
   },
   rules: {
@@ -113,6 +117,39 @@ describe('runRules', () => {
     expect(output).toContain('· declared, never emits here');
     expect(output).toContain('· off');
     expect(output).not.toContain('static catalog');
+  });
+
+  it('resolves per-layer bans so nobody parses print-config by hand (field #7)', async () => {
+    const lines: string[] = [];
+    const { bans } = await runRules(repo(blueprint), { log: (m) => void lines.push(m) });
+
+    // components may not import hooks/services and owns nothing — every
+    // ownership ban applies to it.
+    expect(bans.find((entry) => entry.layer === 'components')).toEqual({
+      layer: 'components',
+      forbidden: [],
+      packages: ['react (useContext)', 'axios'],
+      globals: ['fetch'],
+    });
+
+    // services owns its primitives — only the hooks-owned import stays banned.
+    expect(bans.find((entry) => entry.layer === 'services')).toMatchObject({
+      packages: ['react (useContext)'],
+      globals: [],
+    });
+
+    const output = lines.join('\n');
+
+    expect(output).toContain('Per-layer bans');
+    expect(output).toContain('axios');
+    expect(output).toContain('(none)');
+
+    // No config → no resolved view, just the static catalog.
+    const bare: string[] = [];
+    const empty = await runRules(repo(), { log: (m) => void bare.push(m) });
+
+    expect(empty.bans).toEqual([]);
+    expect(bare.join('\n')).not.toContain('Per-layer bans');
   });
 
   it('emits the machine-readable catalog under --json', async () => {

@@ -2,7 +2,9 @@ Help adopt @kekkai/blueprint in this repo, autonomously:
 run `npx @kekkai/blueprint init --authoring`
 (if the package is not installed yet, npx will fetch it — or run
 `npm install -D @kekkai/blueprint` first),
-then execute the blueprint-authoring.md it writes, fully and to the end.
+then execute the blueprint-authoring.md it writes, fully and to the end
+(its own verdict counts as full execution — an early exit it prescribes IS
+the end, not an abandonment).
 Work autonomously — never stop to ask for confirmation.
 
 Acceptance (`npx blueprint doctor` passes):

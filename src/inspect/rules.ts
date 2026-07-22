@@ -3,8 +3,15 @@ import type { ResolveOptions } from '../project';
 // Import from the patterns leaf, not the emit/lint index — the index also
 // exports lint.ts, which loads the plugin, which shares resolve logic with
 // inspect; routing through the index would close a module cycle.
-import { DOC_ONLY_RULES, METRIC_GATES, PLUGIN_GATES } from '../emit/lint/patterns';
+import {
+  DOC_ONLY_RULES,
+  deriveGlobalRules,
+  derivePackageRules,
+  METRIC_GATES,
+  PLUGIN_GATES,
+} from '../emit/lint/patterns';
 import type { GateSpec } from '../emit/lint/patterns';
+import { getForbiddenLayers } from '../config';
 import type { Blueprint } from '../config';
 
 /**
@@ -31,6 +38,22 @@ export interface RulesOptions {
 export interface StructuralRule {
   rule: string;
   covers: string;
+}
+
+/**
+ * One layer's resolved bans — what the structural rules actually enforce
+ * there. Field agents answered "is the rule really wired?" by parsing
+ * `eslint --print-config` output by hand (issue #7); this is that view,
+ * derived from the same primitives emitLint compiles from.
+ */
+export interface LayerBans {
+  layer: string;
+  /** Layers this one must not import. */
+  forbidden: string[];
+  /** Owned packages banned here (named imports in parentheses). */
+  packages: string[];
+  /** Owned globals banned here. */
+  globals: string[];
 }
 
 /** One optional gate, annotated with the resolved config when present. */
@@ -68,6 +91,24 @@ function gateSpecs(): GateSpec[] {
   ];
 }
 
+/** Every layer's resolved bans, from the same primitives emitLint uses. */
+function layerBans(blueprint: Blueprint): LayerBans[] {
+  const { architecture } = blueprint;
+  const packageRules = derivePackageRules(architecture.layers);
+  const globalRules = deriveGlobalRules(architecture.layers);
+
+  return architecture.layers.map((layer) => ({
+    layer: layer.name,
+    forbidden: getForbiddenLayers(architecture, layer.name),
+    packages: packageRules
+      .filter((rule) => !rule.allowedIn.includes(layer.name))
+      .map((rule) => (rule.imports?.length ? `${rule.package} (${rule.imports.join(', ')})` : rule.package)),
+    globals: globalRules
+      .filter((rule) => !rule.allowedIn.includes(layer.name))
+      .map((rule) => rule.global),
+  }));
+}
+
 function resolveGate(spec: GateSpec, blueprint: Blueprint | null): GateStatus {
   const setting = blueprint?.rules?.[spec.id];
 
@@ -102,7 +143,7 @@ function resolveGate(spec: GateSpec, blueprint: Blueprint | null): GateStatus {
 export async function runRules(
   root: string,
   options: RulesOptions = {},
-): Promise<{ severity: string; gates: GateStatus[] }> {
+): Promise<{ severity: string; gates: GateStatus[]; bans: LayerBans[] }> {
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
 
@@ -112,22 +153,30 @@ export async function runRules(
 
   const severity = blueprint?.emit?.lint?.severity ?? 'error';
   const gates = gateSpecs().map((spec) => resolveGate(spec, blueprint));
+  const bans = blueprint ? layerBans(blueprint) : [];
 
   log(
     options.json
       ? JSON.stringify({
           severity,
           structural: STRUCTURAL_RULES,
-          gates, docsOnly: DOC_ONLY_RULES,
+          gates,
+          bans,
+          docsOnly: DOC_ONLY_RULES,
         }, null, 2)
-      : renderRules(severity, gates, blueprint !== null),
+      : renderRules(severity, gates, bans, blueprint !== null),
   );
 
-  return { severity, gates };
+  return { severity, gates, bans };
 }
 
 /** The human-readable catalog. */
-export function renderRules(severity: string, gates: GateStatus[], hasConfig: boolean): string {
+export function renderRules(
+  severity: string,
+  gates: GateStatus[],
+  bans: LayerBans[],
+  hasConfig: boolean,
+): string {
   const status = (gate: GateStatus) => {
     if (gate.declared === null) return '· not declared';
 
@@ -154,6 +203,19 @@ export function renderRules(severity: string, gates: GateStatus[], hasConfig: bo
     '',
     'Documentation-only — never an ESLint line',
     ...DOC_ONLY_RULES.map((entry) => `  ${entry.id} — ${entry.note}`),
+    // "0 hits" has two readings — wired-and-clean, or not applying at all.
+    // The resolved per-layer view answers which, without print-config
+    // archaeology (field issue #7).
+    ...(bans.length
+      ? [
+          '',
+          'Per-layer bans — what the structural rules enforce, resolved from this config:',
+          ...bans.map((entry) =>
+            `  ${entry.layer.padEnd(14)} no-import: ${entry.forbidden.join(', ') || '(none)'}`
+            + ` · packages: ${entry.packages.join(', ') || '(none)'}`
+            + ` · globals: ${entry.globals.join(', ') || '(none)'}`),
+        ]
+      : []),
     ...(hasConfig
       ? []
       : ['', '(no blueprint.config.mjs — static catalog; tiers annotate once a config exists)']),

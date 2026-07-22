@@ -100,6 +100,13 @@ describe('authoringBrief', () => {
     // The full method stays below — the count can be wrong about structure.
     expect(small).toContain('## Method');
 
+    // Field issues #7/#8: "execute fully" vs "early exit" read as a
+    // contradiction, and the exit's own steps were scattered — the verdict
+    // block now carries the resolution and the complete checklist.
+    expect(small).toContain('IS executing\nthe playbook fully');
+    expect(small).toContain('trivially true\n   is true');
+    expect(small).toContain('now-empty');
+
     // At or above the threshold the verdict block stays out of the playbook.
     expect(brief).not.toContain('Read this first');
   });
@@ -189,6 +196,14 @@ describe('authoringBrief', () => {
     expect(brief).toContain('root wiring sits outside all of them');
     expect(brief).toContain('collisions are decided by rule KEY');
     expect(brief).toContain('flag and config end up saying the same thing');
+
+    // Field issues #7/#8: the schema's full owns/additionalAliases shapes
+    // live here (never only in dist), the test-file exemption is named as
+    // a deliberate relaxation, and impact gates the suppress-all run.
+    expect(brief).toContain('nothing else lives only in dist');
+    expect(brief).toContain('additionalAliases');
+    expect(brief).toContain('Test files are EXEMPT');
+    expect(brief).toContain('zero hits means SKIP this command');
   });
 
   it('states the lint semantics up front so nobody reverse-engineers the bundle', () => {
