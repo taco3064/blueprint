@@ -146,6 +146,15 @@ ${install}
 
 ## Goal and boundary
 
+**Know what you are installing.** Blueprint is a governance tool for
+AI-driven development: its job is to keep agents — including you, and
+every agent that touches this repo after you — from drifting outside the
+declared architecture. The strictness is the product, not a cost to
+negotiate down. When you feel the urge to soften a tier, skip a gate, or
+leave yourself an escape hatch, that urge is exactly what this tool
+exists to catch: install faithfully, and put disagreements in the report
+for the maintainer — never into a weakened config.
+
 Author \`blueprint.config.mjs\` for this repository so that its architecture
 rules match the code's *intent*, then generate the artifacts and lock the
 baseline. Deliverables:
