@@ -128,7 +128,9 @@ export function aliasActions(
         kind: 'write',
         path: target.file,
         content: result.text,
-        note: `${target.file} (import alias)`,
+        // "write" alone reads as a rewrite — a field agent re-read the file
+        // to confirm its content survived. Say the edit's shape in place.
+        note: `${target.file} (import alias added — existing content preserved)`,
       });
     } else if (result.kind === 'unparseable') {
       actions.push(tsconfigInstruct(target.file, paths));
@@ -157,7 +159,7 @@ function bundlerActions(
           kind: 'write',
           path: state.viteConfig.file,
           content: result.text,
-          note: `${state.viteConfig.file} (import alias)`,
+          note: `${state.viteConfig.file} (import alias added — existing content preserved)`,
         },
       ];
     }

@@ -677,6 +677,35 @@ describe('runInit · lint-script wiring', () => {
     expect(JSON.parse(read('package.json')).scripts.lint).toBe('eslint .');
     expect(actions.some((action) => action.note.includes('&& eslint'))).toBe(false);
   });
+
+  it('adds the missing lint script on a fresh scaffold (field issue #1)', async () => {
+    // CI runs eslint, but the starter shipped no lint script — the field
+    // agent had to invent one; init owns the parity now.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    await runInit(root, { install: false, log: silent });
+
+    expect(JSON.parse(read('package.json')).scripts.lint).toBe('eslint src');
+  });
+
+  it('instructs about a missing lint script on an existing project', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+
+    const actions = await runInit(root, {
+      install: false,
+      log: silent,
+      loadConfig: async () => vuePreset(),
+    });
+
+    expect(JSON.parse(read('package.json')).scripts).toBeUndefined();
+
+    expect(
+      actions.some(
+        (action) => action.kind === 'instruct' && action.note.includes('has no `lint` script'),
+      ),
+    ).toBe(true);
+  });
 });
 
 describe('runInit · default agent targets are surfaced', () => {

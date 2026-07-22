@@ -119,6 +119,10 @@ describe('authoringBrief', () => {
     expect(brief).toContain('An empty net is equally legitimate');
     expect(brief).toContain('Never invent\na layer');
     expect(brief).toContain('belongs to\nthe project\'s own lint');
+
+    // Field issue #1: the inverse stance was missing — a preset's declared-
+    // but-empty layers are the runway, and the tool must say keep vs slim.
+    expect(brief).toContain('runway, not a manufactured net');
   });
 
   it('keeps deliverables and gates zero-debt-consistent — no mandatory ledger', () => {

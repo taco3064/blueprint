@@ -152,7 +152,12 @@ reach nothing — that is the true state, not a failure to fix. Never invent
 a layer to make coverage non-zero (a \`*\` name, a glob contortion): root
 files are wiring, and their hygiene (line counts, unused vars) belongs to
 the project's own lint, not to a manufactured layer. The net starts biting
-when code lands inside declared layers.
+when code lands inside declared layers. The inverse also holds: a preset's
+declared-but-empty layers (and an alias no import uses yet) are the
+runway, not a manufactured net — declaring intent costs nothing and
+\`inspect\` tracks it honestly (missing-layer info, the coverage line), so
+keep them; slim the config only when the project has decided it will
+never grow into them.
 
 **Work the loop, not the archive.** Everything below is evidence and
 reference — it is NOT a syllabus to master before touching the config.

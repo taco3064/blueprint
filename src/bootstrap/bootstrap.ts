@@ -248,12 +248,35 @@ function isPristineScaffold(root: string, state: ProjectState): boolean {
 function lintScriptAction(root: string, blueprint: Blueprint, greenfield: boolean): Action | null {
   const file = path.join(root, 'package.json');
   const text = fs.readFileSync(file, 'utf-8');
-  const lint = (JSON.parse(text) as { scripts?: Record<string, string> }).scripts?.lint;
-
-  if (!lint || lint.includes('eslint')) return null;
+  const parsed = JSON.parse(text) as { scripts?: Record<string, string> };
+  const lint = parsed.scripts?.lint;
 
   const sourceRoot = blueprint.architecture.sourceRoot ?? 'src';
   const target = sourceRoot === '.' ? '.' : sourceRoot;
+
+  // No lint script at all: CI runs eslint but the project has no local
+  // command to match it (field issue #1 — the agent invented one). On a
+  // fresh scaffold, add it; on an existing project, say so instead.
+  if (lint === undefined) {
+    if (greenfield) {
+      const patched = { ...parsed, scripts: { ...parsed.scripts, lint: `eslint ${target}` } };
+
+      return {
+        kind: 'write',
+        path: 'package.json',
+        content: `${JSON.stringify(patched, null, 2)}\n`,
+        note: `package.json (added "lint": "eslint ${target}" — local lint matches the CI gate)`,
+      };
+    }
+
+    return {
+      kind: 'instruct',
+      note: `Your package.json has no \`lint\` script, but CI runs eslint — add one so local lint matches the gate: "lint": "eslint ${target}".`,
+    };
+  }
+
+  if (lint.includes('eslint')) return null;
+
   const needle = `"lint": ${JSON.stringify(lint)}`;
 
   if (greenfield && text.split(needle).length === 2) {

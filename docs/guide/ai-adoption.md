@@ -70,7 +70,10 @@ Acceptance — `blueprint doctor` passes, plus:
 `--authoring` guarantees the playbook is written even on a small repo (plain `init`
 below the file-count threshold scaffolds a preset instead — no playbook). Each
 acceptance clause maps to an incomplete state seen in field testing: half-done
-integration, gates never run, debt payments mixed into adoption. Greenfield repos
+integration, gates never run, debt payments mixed into adoption. Two clauses
+resolve vacuously and that is fine: a repo with no tests passes the tests
+clause without adding a runner, and zero debt means the lock commands are
+skipped, not performed for ceremony. Greenfield repos
 skip all of this — `init` alone completes; and once `init` has run, typing
 `/blueprint-author` in Claude Code does the same job.
 
