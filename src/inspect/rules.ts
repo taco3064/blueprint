@@ -88,7 +88,7 @@ function gateSpecs(): GateSpec[] {
       emits: gate.rule,
       // `wrap` is the gates' one real behavioral split — say it, instead of
       // a filler label ("metric family") that answers nothing.
-      note: gate.wrap ? 'counts code lines only — comments and blanks skipped' : 'plain threshold',
+      note: gate.wrap ? 'counts code lines only (comments and blanks skipped)' : 'plain threshold',
       fallback: gate.fallback,
     })),
     ...PLUGIN_GATES,
