@@ -13,7 +13,6 @@ function base(): Blueprint {
         { name: 'hooks', does: 'inject / 加工 state' },
         { name: 'services', does: '網路原件', owns: ['axios', { global: 'fetch' }] },
       ],
-      flow: 'one-way',
       module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
     },
   };

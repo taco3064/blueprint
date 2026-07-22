@@ -14,7 +14,6 @@ function full(): Blueprint {
         { name: 'components', does: 'UI', mustNot: ['import services'] },
         { name: 'services', does: 'net', owns: ['axios', { global: 'fetch' }] },
       ],
-      flow: 'one-way',
       module: { layout: 'folder', entry: 'index', private: ['hooks'] },
       naming: { hook: 'useX' },
     },
@@ -50,7 +49,6 @@ describe('emitAgentContract', () => {
       architecture: {
         alias: '~app',
         layers: [{ name: 'components', does: 'UI' }],
-        flow: 'one-way',
         module: { layout: 'folder', entry: 'index', private: [] },
       },
     });

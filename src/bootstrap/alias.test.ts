@@ -8,7 +8,6 @@ import type { Action } from './types';
 const ARCH = {
   alias: '~app',
   layers: [{ name: 'components', does: 'UI' }],
-  flow: 'one-way',
   module: { layout: 'folder', entry: 'index', private: [] },
 } satisfies ArchitectureDef;
 

@@ -19,7 +19,6 @@ function full(): Blueprint {
           allowedImporters: [{ layer: 'components', selfOnly: true, description: 'net only' }],
         },
       ],
-      flow: 'one-way',
       module: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
       naming: { hook: 'useX + reactivity' },
     },
@@ -51,7 +50,6 @@ describe('emitHandbook', () => {
       architecture: {
         alias: '~app',
         layers: [{ name: 'components', does: 'UI' }],
-        flow: 'one-way',
         module: { layout: 'folder', entry: 'index', private: [] },
       },
     });

@@ -144,7 +144,6 @@ describe('runDeps · flat-layout layers answer at layer granularity', () => {
     framework: 'vue' as const,
     architecture: {
       alias: '~app',
-      flow: 'one-way' as const,
       module: { layout: 'folder' as const, entry: 'index', private: [] },
       layers: [
         { name: 'pages', does: 'routes', allowedImporters: [] },

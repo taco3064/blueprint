@@ -22,7 +22,6 @@ function arch(): ArchitectureDef {
       },
       { name: 'services', does: '', allowedImporters: ['hooks', 'contexts'] },
     ],
-    flow: 'one-way',
     module: { layout: 'folder', entry: 'index', private: [] },
   };
 }

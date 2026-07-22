@@ -21,7 +21,6 @@ function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
       { name: 'components', does: 'UI', mustNot: ['import services'], owns: ['clsx'] },
       { name: 'services', does: 'net' },
     ],
-    flow: 'one-way',
     module: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
     ...over,
   };
@@ -102,7 +101,6 @@ describe('renderPlacement', () => {
           allowedImporters: ['components', { layer: 'hooks', selfOnly: true }],
         },
       ],
-      flow: 'one-way',
       module: { layout: 'folder', entry: 'index', private: [] },
     };
 

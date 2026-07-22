@@ -39,7 +39,6 @@ const reactBlueprint: Blueprint = {
       { name: 'components', does: 'render UI' },
       { name: 'services', does: 'data access' },
     ],
-    flow: 'one-way',
     module: { layout: 'flat', entry: 'index', private: [] },
   },
   rules: { unusedVars: 'error' },
@@ -340,7 +339,6 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
           allowedImporters: [{ layer: 'views', selfOnly: true }],
         },
       ],
-      flow: 'one-way',
       module: { layout: 'flat', entry: 'index', private: [] },
     },
   };

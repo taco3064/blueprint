@@ -28,7 +28,10 @@ turns this list into "fail only on *new* findings".
 ## The embedded ESLint plugin
 
 `emitLint` ships six custom rules inside the generated config — nothing extra to
-install. One is structural and always on; five are gated by `blueprint.rules` ids:
+install. One is structural and always on; five are gated by `blueprint.rules` ids.
+The plugin object is also exported (`import { plugin } from '@kekkai/blueprint'`)
+as the escape hatch for wiring a `blueprint/*` rule by hand in a config that does
+not spread `emitLint` — everyone else never needs it:
 
 | ESLint rule | Driven by | What it enforces |
 | --- | --- | --- |

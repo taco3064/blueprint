@@ -13,7 +13,6 @@ const blueprint: Blueprint = {
       { name: 'components', does: 'render UI' },
       { name: 'services', does: 'talk to the backend' },
     ],
-    flow: 'one-way',
     module: { layout: 'folder', entry: 'index', private: [] },
   },
   // `cycles` is off and `deadCode` is docs-only — neither counts as active.

@@ -34,7 +34,6 @@ const blueprint: Blueprint = {
   architecture: {
     alias: '~app',
     layers: [{ name: 'components', does: 'UI' }],
-    flow: 'one-way',
     module: { layout: 'flat', entry: 'index', private: [] },
   },
   rules: {

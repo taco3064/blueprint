@@ -20,7 +20,6 @@ function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
       { name: 'components', does: 'UI', mustNot: ['import services'], owns: ['clsx'] },
       { name: 'services', does: 'net', owns: ['axios'] },
     ],
-    flow: 'one-way',
     module: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
     ...over,
   };

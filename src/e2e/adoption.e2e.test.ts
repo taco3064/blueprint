@@ -215,7 +215,6 @@ export default {
       { name: 'services', does: 'network', owns: ['axios'] },
       { name: 'utils', does: 'pure helpers' },
     ],
-    flow: 'one-way',
     module: { layout: 'flat', entry: 'index', private: [] },
     layerFiles: 'src/{layer}/**/*.{ts,tsx}',
   },

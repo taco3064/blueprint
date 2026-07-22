@@ -18,7 +18,6 @@ const blueprint = defineBlueprint({
         allowedImporters: [{ layer: 'components', selfOnly: true }, 'hooks'],
       },
     ],
-    flow: 'one-way',
     module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
   },
 });
@@ -166,7 +165,6 @@ describe('emitLint · shape', () => {
           { name: 'components', does: '' },
           { name: 'services', does: '', owns: [{ package: 'axios', exempt: ['**/*.gen.ts'] }] },
         ],
-        flow: 'one-way',
         layerFilesIgnore: ['**/*.d.ts'],
         module: { layout: 'folder', entry: 'index', private: [] },
       },
@@ -428,7 +426,6 @@ describe('emitLint · per-layer module layout', () => {
         { name: 'resources', does: 'features', module: { layout: 'folder' } },
         { name: 'services', does: 'net' },
       ],
-      flow: 'one-way',
       module: { layout: 'flat', entry: 'index', private: [] },
     },
   });

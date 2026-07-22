@@ -153,7 +153,6 @@ describe('analyze · flat layout', () => {
     architecture: {
       alias: '~app',
       layers: [{ name: 'a', does: '' }, { name: 'b', does: '' }],
-      flow: 'one-way',
       module: { layout: 'flat', entry: 'index', private: [] },
     },
   });
@@ -180,7 +179,6 @@ describe('analyze · per-layer module layout', () => {
         { name: 'resources', does: '', module: { layout: 'folder', entry: 'main' } },
         { name: 'services', does: '' },
       ],
-      flow: 'one-way',
       module: { layout: 'flat', entry: 'index', private: [] },
     },
   });

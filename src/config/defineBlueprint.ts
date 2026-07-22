@@ -31,7 +31,6 @@ const MANAGED_RULES = [
  *       { name: 'hooks', does: 'Adapts server and shared state' },
  *       { name: 'services', does: 'Network primitives', owns: ['axios', { global: 'fetch' }] },
  *     ],
- *     flow: 'one-way',
  *     module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
  *   },
  * });

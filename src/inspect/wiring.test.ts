@@ -19,7 +19,6 @@ const blueprint: Blueprint = {
       { name: 'stores', does: 'state', allowedImporters: ['contexts'] },
       { name: 'services', does: 'io', owns: [{ global: 'fetch' }] },
     ],
-    flow: 'one-way',
     module: { layout: 'folder', entry: 'index', private: [] },
     layerFilesIgnore: 'src/**/*.gen.ts',
   },
