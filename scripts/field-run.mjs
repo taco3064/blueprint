@@ -396,13 +396,30 @@ function fileIssue(reportFile, runs, tree) {
   }
 
   const matrix = runs.map((run) => `${run.scenario}×${run.agent}`).join(', ');
-  const title = `Field run @ ${tree}: ${matrix}`;
+
+  // A visitor scanning the issue list should not have to open one to learn
+  // these are release-validation journals, not a bug backlog. The title
+  // carries the one fact the harness can state honestly at file time — how
+  // many scenarios reached a green doctor (mechanical completion, NOT the
+  // triage verdict, which is a human call made later on close).
+  const scored = runs.filter((run) => !run.dry && !run.staging);
+  const adopted = scored.filter((run) => run.doctor?.code === 0).length;
+  const scale = scored.length ? ` · doctor ${adopted}/${scored.length} green` : '';
+  const title = `Field run @ ${tree} — ${matrix}${scale}`;
 
   const body = [
-    '> Filed automatically by `scripts/field-run.mjs` against the local,',
-    '> unpublished tree. Triage flow: consolidate the findings below,',
-    '> judge each item (fix / by-design / reject), land fixes with their',
-    '> conformance fixtures, then close this issue referencing the commits.',
+    '> **A release-validation journal, not a bug report.** The field harness',
+    '> (`scripts/field-run.mjs`) runs a real agent CLI through blueprint\'s',
+    '> adoption on staged repos, against the local unpublished tree, then files',
+    '> the raw feedback here to be triaged in the open. Owner-authored and',
+    '> owner-closed by design — the value is the paper trail, not a bug queue:',
+    '> what an adopting agent hit, what was judged fix vs by-design vs reject,',
+    '> and the commits that closed it. A green doctor above means adoption',
+    '> mechanically completed; whether any finding was fix-worthy is decided in',
+    '> the triage below.',
+    '>',
+    '> Triage flow: consolidate the findings, judge each item, land fixes with',
+    '> their conformance fixtures, then close referencing the commits.',
     '',
     fs.readFileSync(reportFile, 'utf-8'),
   ].join('\n').slice(0, 60000);
@@ -412,7 +429,16 @@ function fileIssue(reportFile, runs, tree) {
   fs.writeFileSync(bodyFile, body);
 
   try {
-    execSync('gh label create field-run --color 0E8A16 --description "Automated adoption field run" 2>/dev/null || true', { cwd: ROOT, shell: '/bin/sh', stdio: 'ignore' });
+    // The label page is a visitor's aggregate entry point — keep its blurb
+    // the "eyeglasses" too, and sync it on an already-existing label (create
+    // is a no-op there), not only on first creation.
+    const labelDesc = 'Release-validation journal: automated adoption run + open triage';
+
+    execSync(
+      `gh label create field-run --color 0E8A16 --description "${labelDesc}" 2>/dev/null `
+      + `|| gh label edit field-run --description "${labelDesc}" 2>/dev/null || true`,
+      { cwd: ROOT, shell: '/bin/sh', stdio: 'ignore' },
+    );
 
     const url = execSync(
       `gh issue create --title "${title}" --body-file "${bodyFile}" --label field-run`,
