@@ -1,5 +1,12 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vitepress';
 import typedocSidebar from '../api/typedoc-sidebar.json';
+
+// The nav-bar version badge states which release these docs were built
+// against — read once at build time, injected as a compile-time constant.
+const { version } = JSON.parse(
+  readFileSync(new URL('../../package.json', import.meta.url), 'utf-8'),
+) as { version: string };
 
 // The API reference is generated once (in English) but mounted under both
 // locales — otherwise entering /api/ silently flips the reader into the
@@ -20,6 +27,7 @@ const withZhPrefix = (items: SidebarItem[]): SidebarItem[] =>
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
+  vite: { define: { __BP_VERSION__: JSON.stringify(version) } },
   title: '@kekkai/blueprint',
   description:
     'Architecture as Code — one Blueprint compiles into lint, docs, agent contracts, and CI.',
