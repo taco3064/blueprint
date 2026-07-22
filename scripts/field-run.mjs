@@ -177,6 +177,15 @@ function stageRepo(dir, source) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
+  // Fail BEFORE any expensive work: a bad --repo used to surface only at
+  // clone time — after the new-project scenario had already burned minutes
+  // of agent time, and the crash took the whole run's report with it.
+  if (args.repo && !fs.existsSync(path.join(args.repo, '.git'))) {
+    throw new Error(
+      `--repo ${args.repo} is not a git repository (the run stages it via git clone) — check the path.`,
+    );
+  }
+
   const agents = (args.agents ?? Object.keys(AGENT_COMMANDS)).filter((agent) => {
     if (hasBinary(AGENT_COMMANDS[agent]('x')[0])) return true;
 
@@ -208,10 +217,18 @@ async function main() {
       console.log(`\n▸ staging ${scenario} × ${agent} — ${dir}`);
       fs.mkdirSync(dir, { recursive: true });
 
-      if (scenario === 'new') stageNew(dir);
-      else stageRepo(dir, args.repo);
+      // One scenario failing to stage must not take the completed runs'
+      // results down with it — record the failure as a row and move on.
+      try {
+        if (scenario === 'new') stageNew(dir);
+        else stageRepo(dir, args.repo);
 
-      sh(`npm install -D --no-audit --no-fund "${tarball}"`, dir);
+        sh(`npm install -D --no-audit --no-fund "${tarball}"`, dir);
+      } catch (error) {
+        console.log(`✗ staging failed: ${error.message.split('\n')[0]}`);
+        runs.push({ scenario, agent, dir, staging: error.message.split('\n')[0] });
+        continue;
+      }
 
       const argv = AGENT_COMMANDS[agent](PROMPT);
 
@@ -252,6 +269,10 @@ async function main() {
     ...runs.flatMap((run) => {
       if (run.dry) return [`## ${run.scenario} × ${run.agent} — staged only (--dry): ${run.dir}`, ''];
 
+      if (run.staging) {
+        return [`## ${run.scenario} × ${run.agent} — staging failed, agent never ran`, '', `> ${run.staging}`, ''];
+      }
+
       const doctorLine = run.doctor.output.trim().split('\n').pop();
 
       return [
@@ -276,7 +297,9 @@ async function main() {
   console.log(`\n✓ field run complete — report: ${reportFile}`);
 
   for (const run of runs) {
-    if (!run.dry) {
+    if (run.staging) {
+      console.log(`  ${run.scenario} × ${run.agent}: ✗ staging failed — agent never ran`);
+    } else if (!run.dry) {
       console.log(`  ${run.scenario} × ${run.agent}: agent ${run.code === 0 ? '✓' : `✗(${run.code})`} · doctor ${run.doctor.code === 0 ? '✓' : '✗'} · inspect ${run.inspect.code === 0 ? '✓' : '✗'}`);
     }
   }
