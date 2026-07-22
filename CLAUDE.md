@@ -61,3 +61,10 @@ is not in the config). Field batches 10–12 are the case law.
   stance: never `eslint-disable` to dodge a rule; fix the structure.
 - Verify a change with `lint` + `tsc` + `test` + `build`, and drive the CLI
   end-to-end (`node dist/bin.js init|inspect`) for runtime changes.
+- **`npm run field:run` is the live adoption harness** (`scripts/field-run.mjs`):
+  packs the local tree (no publish), stages scenario repos in a temp dir, runs
+  the adoption prompt through each available agent CLI headlessly, verifies
+  with the real doctor/inspect, and collects the structured feedback file into
+  one report. Conformance guards known scenarios; the harness hunts new ones.
+  `--dry` stages without spawning agents; `--repo <path>` adds the
+  existing-repo scenario from a local clone.
