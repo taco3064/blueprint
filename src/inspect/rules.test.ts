@@ -3,8 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint/patterns';
-import { DOCS_ONLY, runRules, STRUCTURAL_RULES } from './rules';
+import { DOC_ONLY_RULES, LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint/patterns';
+import { runRules, STRUCTURAL_RULES } from './rules';
 import type { Blueprint } from '../config';
 
 const dirs: string[] = [];
@@ -130,7 +130,7 @@ describe('runRules', () => {
 
     expect(parsed.severity).toBe('warn');
     expect(parsed.structural).toEqual(STRUCTURAL_RULES);
-    expect(parsed.docsOnly).toEqual(DOCS_ONLY);
+    expect(parsed.docsOnly).toEqual(DOC_ONLY_RULES);
     expect(parsed.gates.length).toBeGreaterThan(0);
   });
 });

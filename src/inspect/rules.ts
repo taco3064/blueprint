@@ -3,7 +3,8 @@ import type { ResolveOptions } from '../project';
 // Import from the patterns leaf, not the emit/lint index — the index also
 // exports lint.ts, which loads the plugin, which shares resolve logic with
 // inspect; routing through the index would close a module cycle.
-import { METRIC_GATES } from '../emit/lint/patterns';
+import { DOC_ONLY_RULES, METRIC_GATES, PLUGIN_GATES } from '../emit/lint/patterns';
+import type { GateSpec } from '../emit/lint/patterns';
 import type { Blueprint } from '../config';
 
 /**
@@ -51,34 +52,6 @@ export const STRUCTURAL_RULES: StructuralRule[] = [
   { rule: 'no-restricted-syntax', covers: 'selfOnly re-export bans' },
   { rule: 'no-restricted-globals', covers: 'global ownership (owns: [{ global: … }])' },
   { rule: 'blueprint/relative-escape', covers: '../ module escapes at any depth (embedded plugin)' },
-];
-
-interface GateSpec {
-  id: string;
-  emits: string;
-  note: string;
-  fallback?: number;
-}
-
-/**
- * The non-metric gate specs. Together with METRIC_GATES this must cover
- * every id in LINT_GATED_RULE_IDS — the test walks that list, so a new gate
- * cannot ship without its catalog row.
- */
-const PLUGIN_GATES: GateSpec[] = [
-  { id: 'unusedVars', emits: 'no-unused-vars', note: 'TS-aware twin on TypeScript; argsIgnorePattern ^_ and nothing else' },
-  { id: 'fixtureImports', emits: 'no-restricted-imports', note: 'fixture globs folded into the structural bans' },
-  { id: 'deepWatch', emits: 'blueprint/no-deep-watch', note: 'Vue only — never emits on React' },
-  { id: 'usePrefix', emits: 'blueprint/use-prefix', note: 'on its target layer (default hooks)' },
-  { id: 'usePrefixReactivity', emits: 'blueprint/use-prefix-needs-reactivity', note: 'composing-only hooks are a known false positive' },
-  { id: 'testFilename', emits: 'blueprint/test-filename-matches-source', note: 'test files only' },
-  { id: 'typedefOnlyFile', emits: 'blueprint/no-typedef-only-file', note: '.js files only' },
-  { id: 'cycles', emits: 'inspect (cycle finding)', note: 'no ESLint line — import/no-cycle re-checks the whole graph per file, measured 92s on 850 files' },
-];
-
-/** Documentation-only ids — never an ESLint line, never a machine gate here. */
-export const DOCS_ONLY = [
-  { id: 'deadCode', note: 'knip\'s job — import/no-unused-modules cannot run under flat config' },
 ];
 
 function gateSpecs(): GateSpec[] {
@@ -145,7 +118,7 @@ export async function runRules(
       ? JSON.stringify({
           severity,
           structural: STRUCTURAL_RULES,
-          gates, docsOnly: DOCS_ONLY,
+          gates, docsOnly: DOC_ONLY_RULES,
         }, null, 2)
       : renderRules(severity, gates, blueprint !== null),
   );
@@ -179,7 +152,7 @@ export function renderRules(severity: string, gates: GateStatus[], hasConfig: bo
     }),
     '',
     'Documentation-only — never an ESLint line',
-    ...DOCS_ONLY.map((entry) => `  ${entry.id} — ${entry.note}`),
+    ...DOC_ONLY_RULES.map((entry) => `  ${entry.id} — ${entry.note}`),
     ...(hasConfig
       ? []
       : ['', '(no blueprint.config.mjs — static catalog; tiers annotate once a config exists)']),

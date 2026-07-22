@@ -1,4 +1,4 @@
-import { METRIC_GATES } from '../emit/lint';
+import { DOC_ONLY_RULES, METRIC_GATES, PLUGIN_GATES } from '../emit/lint';
 import type { PackageManager } from '../project';
 import { renderSurvey } from '../survey';
 import type { SurveyResult } from '../survey';
@@ -318,21 +318,11 @@ other than \`off\`; none of these emits by default. The metric family falls
 back to these thresholds when no \`value\` is given:
 
 ${METRIC_GATES.map((gate) => `- \`${gate.id}\` → \`${gate.rule}\` (default ${gate.fallback})`).join('\n')}
-- \`unusedVars\` → \`no-unused-vars\` (the TS-aware twin on TypeScript;
-  \`argsIgnorePattern: '^_'\` and nothing else)
-- \`fixtureImports\` → fixture globs folded into the structural import bans
-- \`deepWatch\` → \`blueprint/no-deep-watch\` — Vue only, never emits on React
-- \`usePrefix\` → \`blueprint/use-prefix\` on its target layer (default \`hooks\`)
-- \`usePrefixReactivity\` → \`blueprint/use-prefix-needs-reactivity\`
-- \`testFilename\` → \`blueprint/test-filename-matches-source\` on test files
-- \`typedefOnlyFile\` → \`blueprint/no-typedef-only-file\` (\`.js\` files only)
+${PLUGIN_GATES.map((gate) => `- \`${gate.id}\` → \`${gate.emits}\` — ${gate.note}`).join('\n')}
 
 **Documentation-only ids — never an ESLint line:**
 
-- \`cycles\` — detected by \`inspect\` instead (\`import/no-cycle\` re-checks
-  the whole graph per file; measured 92s on an 850-file repo)
-- \`deadCode\` — knip's job; \`import/no-unused-modules\` cannot run under
-  flat config
+${DOC_ONLY_RULES.map((entry) => `- \`${entry.id}\` — ${entry.note}`).join('\n')}
 
 ## Config schema sketch
 

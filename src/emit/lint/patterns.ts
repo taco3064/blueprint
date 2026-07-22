@@ -43,6 +43,37 @@ export const METRIC_GATES = [
   { id: 'complexity', rule: 'complexity', fallback: 12, wrap: false },
 ] as const;
 
+/** One optional gate's catalog row — id, what it emits, and its scope note. */
+export interface GateSpec {
+  id: string;
+  /** The ESLint rule it emits — or the runtime that enforces it instead. */
+  emits: string;
+  note: string;
+  /** Metric fallback threshold, when the gate is one of the metric family. */
+  fallback?: number;
+}
+
+/**
+ * The non-metric optional gates, as catalog rows. Both catalog renderings —
+ * the authoring playbook and `blueprint rules` — read from here, so the two
+ * can never drift apart, and `LINT_GATED_RULE_IDS` derives from it.
+ */
+export const PLUGIN_GATES: GateSpec[] = [
+  { id: 'unusedVars', emits: 'no-unused-vars', note: 'the TS-aware twin on TypeScript; argsIgnorePattern \'^_\' and nothing else' },
+  { id: 'fixtureImports', emits: 'no-restricted-imports', note: 'fixture globs folded into the structural import bans' },
+  { id: 'deepWatch', emits: 'blueprint/no-deep-watch', note: 'Vue only — never emits on React' },
+  { id: 'usePrefix', emits: 'blueprint/use-prefix', note: 'on its target layer (default hooks)' },
+  { id: 'usePrefixReactivity', emits: 'blueprint/use-prefix-needs-reactivity', note: 'composing-only hooks are a known false positive' },
+  { id: 'testFilename', emits: 'blueprint/test-filename-matches-source', note: 'test files only' },
+  { id: 'typedefOnlyFile', emits: 'blueprint/no-typedef-only-file', note: '.js files only' },
+  { id: 'cycles', emits: 'inspect (cycle finding)', note: 'no ESLint line — import/no-cycle re-checks the whole graph per file, measured 92s on 850 files' },
+];
+
+/** Documentation-only ids — never an ESLint line, never a machine gate. */
+export const DOC_ONLY_RULES: Omit<GateSpec, 'emits'>[] = [
+  { id: 'deadCode', note: 'knip\'s job — import/no-unused-modules cannot run under flat config' },
+];
+
 /**
  * The rule ids a machine actually gates out of the box: the metric family and
  * plugin rules land in the emitted ESLint config; `cycles` lands in
@@ -54,14 +85,7 @@ export const METRIC_GATES = [
  */
 export const LINT_GATED_RULE_IDS = [
   ...METRIC_GATES.map((gate) => gate.id),
-  'unusedVars',
-  'fixtureImports',
-  'deepWatch',
-  'usePrefix',
-  'usePrefixReactivity',
-  'testFilename',
-  'typedefOnlyFile',
-  'cycles',
+  ...PLUGIN_GATES.map((gate) => gate.id),
 ];
 
 /**
