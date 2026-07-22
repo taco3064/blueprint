@@ -194,18 +194,11 @@ export function plan(
     });
   }
 
-  // The comments companion is installed only when init writes the LIVE
-  // config that imports it. On the reference path the block is opt-in
-  // ("adopt deliberately or drop") — installing first and deciding later
-  // left an orphan devDependency when the block was dropped (field issue #2).
-  const companionLive
-    = state.ownedEslintConfig !== undefined
-      || (!state.wiredEslintConfig && !state.hasEslintConfig
-        && state.legacyEslintConfig === undefined);
-
-  const deps = companionLive
-    ? state.missingDeps
-    : state.missingDeps.filter((dep) => dep !== '@eslint-community/eslint-plugin-eslint-comments');
+  // The anti-bypass guard defaults to ADOPT, so its plugin is provisioned
+  // on every path — an agent following the bold default must not hit
+  // "Cannot find package" (field issue #9). Dropping the block is the
+  // exception, and the guard comment says to remove the dep with it.
+  const deps = state.missingDeps;
 
   if (deps.length) {
     if (options.install !== false) {
@@ -408,9 +401,9 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     '  // existing bare disables (or ledger them via --suppress-all) rather',
     '  // than dropping the block; dropping is the exception — only when the',
     '  // team already owns a disable discipline, and say so in the report.',
-    '  // Needs its plugin installed (npm i -D',
-    '  // @eslint-community/eslint-plugin-eslint-comments — init installs it',
-    '  // only when this generated file IS the live config).',
+    '  // Its plugin (@eslint-community/eslint-plugin-eslint-comments) is',
+    '  // installed by init on every path; dropping the block? Remove that',
+    '  // dependency with it.',
     '  // Scope: JS/TS disable comments only — Vue template <!-- eslint-disable -->',
     '  // directives are not gated by these rules.',
     '  {',

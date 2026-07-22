@@ -6,10 +6,7 @@ Field issues #2–#3 (automated harness runs): doctor's leftover check now
 also flags stale agent contracts — a marker-bearing CLAUDE.md/AGENTS.md/…
 outside the emitted `emit.agents` set cannot hide behind green (init removes
 a wholly-generated one itself; a hand-touched one only got an instruct, and
-nothing gated the orphan afterward). The eslint-comments companion is
-installed only when the generated config is the LIVE one — on the reference
-path the block is opt-in, and installing first left an orphan devDependency
-when the block was dropped. A preset that introduces the repo's first import
+nothing gated the orphan afterward). A preset that introduces the repo's first import
 alias names it as a decision instead of letting a new convention pass
 silently. init --help stops promising layer folders unconditionally and says
 plainly that --agent never launches anything on the preset path.

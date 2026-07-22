@@ -115,11 +115,17 @@ The complete early-exit checklist — nothing else in this file applies:
    Running as neither tool? Plain \`--preset\`, then declare
    \`emit.agents\` in the config and re-run init.
 2. \`npx blueprint impact\` (0 hits → skip \`--suppress-all\` entirely; an
-   empty suppressions ledger is ceremony) and \`npx blueprint inspect\`
-3. \`npx blueprint doctor\` — all checks green. On this path some gates
-   hold trivially (no reference file is ever written) — trivially true
-   is true, you skipped nothing.
-4. Delete this playbook, \`${COMMAND_FILE}\`, and the now-empty
+   empty suppressions ledger is ceremony) and \`npx blueprint inspect
+   --baseline\` — both exit 0
+3. Did init write \`eslint.config.blueprint.mjs\`? It does exactly when
+   the repo already has its own eslint config: merge it — spread
+   \`...emitLint(blueprint, …)\` AFTER your existing entries, following
+   the reference's inline notes — then DELETE the reference; doctor
+   stays red until you do. No reference written (init's generated config
+   IS the live one)? That gate holds trivially, and trivially true is
+   true — you skipped nothing.
+4. \`npx blueprint doctor\` — all checks green
+5. Delete this playbook, \`${COMMAND_FILE}\`, and the now-empty
    \`.claude/commands/\` directory. Done — "preset was enough" is a
    complete, correct report.
 

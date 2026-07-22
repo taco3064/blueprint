@@ -104,8 +104,15 @@ describe('authoringBrief', () => {
     // contradiction, and the exit's own steps were scattered — the verdict
     // block now carries the resolution and the complete checklist.
     expect(small).toContain('IS executing\nthe playbook fully');
-    expect(small).toContain('trivially true\n   is true');
+    expect(small).toContain('trivially true is\n   true');
     expect(small).toContain('now-empty');
+
+    // Issue #9's second catch: the old step 3 promised 'no reference file
+    // is ever written' — false on a repo with its own eslint config. The
+    // checklist now carries the merge step conditionally.
+    expect(small).toContain('Did init write');
+    expect(small).toContain('DELETE the reference');
+    expect(small).toContain('inspect\n   --baseline');
 
     // Every starter run re-derived "why bother on an empty repo" in its
     // judgment section — the answer lived only on the docs site. Doctrine

@@ -129,22 +129,17 @@ describe('plan', () => {
     expect(write(plan(state({ hasConfig: true }), bp, null, {}), 'blueprint.config.mjs')).toBeUndefined();
   });
 
-  it('installs the comments companion only when the generated config is live (field #2)', () => {
+  it('provisions the anti-bypass plugin on every path — ADOPT is the paved road (field #9)', () => {
     const missing = ['eslint', '@kekkai/blueprint', '@eslint-community/eslint-plugin-eslint-comments'];
 
-    // Fresh write — the live config imports the plugin, so it is required.
-    const fresh = plan(state({ missingDeps: missing }), bp, 'SRC', {});
-    const freshInstall = fresh.find((a) => a.kind === 'install');
+    // The guard defaults to ADOPT; an agent following the bold default on
+    // the merge path must not hit "Cannot find package".
+    for (const over of [{}, { hasEslintConfig: true }]) {
+      const actions = plan(state({ missingDeps: missing, ...over }), bp, 'SRC', {});
+      const install = actions.find((a) => a.kind === 'install');
 
-    expect(freshInstall?.kind === 'install' && freshInstall.command).toContain('eslint-comments');
-
-    // Reference path — the block is opt-in; installing first left an orphan
-    // devDependency when the agent dropped the block, as told.
-    const reference = plan(state({ missingDeps: missing, hasEslintConfig: true }), bp, null, {});
-    const refInstall = reference.find((a) => a.kind === 'install');
-
-    expect(refInstall?.kind === 'install' && refInstall.command).not.toContain('eslint-comments');
-    expect(refInstall?.kind === 'install' && refInstall.command).toContain('@kekkai/blueprint');
+      expect(install?.kind === 'install' && install.command).toContain('eslint-comments');
+    }
   });
 
   it('scaffolds no empty layer dirs when the tree already holds code (batch 11)', () => {
