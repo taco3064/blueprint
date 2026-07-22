@@ -15,7 +15,6 @@
 | [`impact`](/zh-TW/guide/ai-adoption#用數字決定規則衝突-——-blueprint-impact) | 用專案自己的 ESLint 對 emitted rules 做 dry-run：每條 rule 中幾發、最重的檔案是誰 —— 接線前就用數字決定 rule 衝突 |
 | [`deps`](/zh-TW/guide/deps) | 逐模組的影響範圍 —— 改動它會波及誰，以及全模組的被引用數排行 |
 | [`rules`](/zh-TW/guide/reference#blueprint-rules-——-哪些識別碼會成為檢核關卡) | 可查詢的 rule catalog：哪些永遠 emit、哪些要宣告才 emit、metric 預設值 —— 有 config 時標註實際宣告的 tier |
-| [`retire <name>`](/zh-TW/guide/reference#命令列旗標) | 掃退役工具的殘留引用：還指著它的文件、註解、agent skill 全列出來；掃乾淨才 exit 0 |
 | [`doctor`](/zh-TW/guide/ai-adoption#驗證有沒有做完-——-blueprint-doctor) | 導入做完了沒？唯讀 checklist —— config、無殘留 reference、eslint 接上、alias 接上、emitted rules 在合併後的 config 裡活著、架構乾淨（附 coverage）、suppressions 帳本沒過期 |
 | [完整命令列旗標](/zh-TW/guide/reference#命令列旗標) | 各指令的旗標總表，含 `init --preset` 與 `--dry-run` |
 

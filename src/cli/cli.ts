@@ -9,8 +9,6 @@ import { runImpact } from '../impact';
 import type { ImpactOptions } from '../impact';
 import { runDeps, runDoctor, runInspect, runRules } from '../inspect';
 import type { DepsOptions, DoctorOptions, InspectOptions, RulesOptions } from '../inspect';
-import { runRetire } from '../retire';
-import type { RetireOptions } from '../retire';
 import { runSurvey } from '../survey';
 import type { SurveyOptions } from '../survey';
 
@@ -30,8 +28,6 @@ const USAGE = [
   '  blueprint deps      Reverse dependencies / blast radius per module.',
   '  blueprint rules     The emitted-rule catalog: what always emits, what needs',
   '                      declaring, defaults — annotated with your config\'s tiers.',
-  '  blueprint retire    Sweep a retired tool\'s footprint: every doc, comment,',
-  '                      and skill still referencing it. Exit 0 = swept clean.',
   '  blueprint doctor    Is adoption finished? A read-only completeness check.',
   '  blueprint --help | --version',
   '',
@@ -216,27 +212,6 @@ const RULES_HELP = [
   '  npx @kekkai/blueprint rules --json    # feed the catalog to tooling / an agent',
 ].join('\n');
 
-const RETIRE_HELP = [
-  'blueprint retire <name> — sweep a retired tool\'s footprint.',
-  '',
-  'Deleting a tool\'s config file is never the whole retirement: docs, READMEs,',
-  'code comments, and agent skills keep pointing at the dead tool. This walks',
-  'the repo (skipping node_modules, build output, lockfiles) and lists every',
-  'hand-maintained line still referencing <name>, with file and line number.',
-  '',
-  'Read-only and config-free — it serves the moment a tool leaves. Exits 1',
-  'while references remain, 0 once the sweep is clean, so it drops into a',
-  'fix-and-re-run loop (an agent consolidating gates runs it after deleting',
-  'the old tool\'s config).',
-  '',
-  'Flags:',
-  '  --json                  Machine-readable output.',
-  '',
-  'Examples:',
-  '  npx @kekkai/blueprint retire structure-lint    # who still points at it?',
-  '  npx @kekkai/blueprint retire dependency-cruiser --json',
-].join('\n');
-
 const DOCTOR_HELP = [
   'blueprint doctor — is adoption actually finished?',
   '',
@@ -275,7 +250,6 @@ const COMMAND_HELP: Record<string, string> = {
   impact: IMPACT_HELP,
   deps: DEPS_HELP,
   rules: RULES_HELP,
-  retire: RETIRE_HELP,
   doctor: DOCTOR_HELP,
 };
 
@@ -404,21 +378,6 @@ export function parseRulesArgs(args: string[]): RulesOptions {
   return args.includes('--json') ? { json: true } : {};
 }
 
-/** Parse `retire` args: the first non-flag argument is the name to sweep for. */
-export function parseRetireArgs(args: string[]): RetireOptions & { token?: string } {
-  const options: RetireOptions & { token?: string } = {};
-
-  for (const arg of args) {
-    if (arg === '--json') {
-      options.json = true;
-    } else if (!arg.startsWith('-') && options.token === undefined) {
-      options.token = arg;
-    }
-  }
-
-  return options;
-}
-
 /** Parse `doctor` flags. Unknown flags are ignored. */
 export function parseDoctorArgs(args: string[]): DoctorOptions {
   return args.includes('--json') ? { json: true } : {};
@@ -484,14 +443,6 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
       await runRules(cwd, parseRulesArgs(rest));
 
       return 0;
-    }
-
-    if (command === 'retire') {
-      const { token, ...options } = parseRetireArgs(rest);
-      // A missing name fails loud inside runRetire — same fail-loud floor.
-      const { ok } = runRetire(cwd, token ?? '', options);
-
-      return ok ? 0 : 1;
     }
 
     if (command === 'doctor') {

@@ -483,26 +483,6 @@ describe('the tool answers for itself — no bundle archaeology (batch 12)', () 
     expect(rules.output).toContain('✓ error'); // unusedVars, declared in the fixture
     expect(rules.output).toContain('deadCode'); // documentation-only, stated as such
   });
-
-  it('retire drives the stale footprint down to zero', async () => {
-    const dir = repo({
-      packageJson: react(),
-      files: { 'README.md': 'boundaries checked by structure-lint\n' },
-    });
-
-    const dirty = await cli(dir, ['retire', 'structure-lint']);
-
-    expect(dirty.code).toBe(1);
-    expect(dirty.output).toContain('README.md');
-    expect(dirty.output).toContain('re-run until clean');
-
-    write(dir, 'README.md', 'boundaries checked by blueprint\n');
-
-    const clean = await cli(dir, ['retire', 'structure-lint']);
-
-    expect(clean.code).toBe(0);
-    expect(clean.output).toContain('footprint is swept');
-  });
 });
 
 describe('scaffold matches the doctrine — no invented structure (batch 11)', () => {

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isCliEntry, parseDepsArgs, parseDoctorArgs, parseImpactArgs, parseInitArgs, parseInspectArgs, parseRetireArgs, parseRulesArgs, parseSurveyArgs, run, version } from './cli';
+import { isCliEntry, parseDepsArgs, parseDoctorArgs, parseImpactArgs, parseInitArgs, parseInspectArgs, parseRulesArgs, parseSurveyArgs, run, version } from './cli';
 
 describe('parseInitArgs', () => {
   it('parses known flags', () => {
@@ -248,41 +248,6 @@ describe('rules command dispatch', () => {
   it('parses json only — rules resolves the config, so --framework is not a flag', () => {
     expect(parseRulesArgs(['--json', '--framework', 'vue', '--nope'])).toEqual({ json: true });
     expect(parseRulesArgs([])).toEqual({});
-  });
-});
-
-describe('retire command dispatch', () => {
-  it('exits 1 while references remain, 0 when swept, loud without a name', async () => {
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-cli-retire-'));
-
-    fs.writeFileSync(path.join(dir, 'README.md'), 'gate: structure-lint\n');
-
-    expect(await run(['retire', 'structure-lint'], dir)).toBe(1); // sweep not done
-
-    fs.writeFileSync(path.join(dir, 'README.md'), 'gate: blueprint\n');
-
-    expect(await run(['retire', 'structure-lint'], dir)).toBe(0); // clean
-
-    expect(await run(['retire'], dir)).toBe(1); // no name — fail-loud floor
-    expect(error.mock.calls.some((c) => String(c[0]).includes('needs the name'))).toBe(true);
-
-    expect(await run(['retire', '--help'], dir)).toBe(0);
-
-    fs.rmSync(dir, { recursive: true, force: true });
-    log.mockRestore();
-    error.mockRestore();
-  });
-
-  it('parses the name and --json', () => {
-    expect(parseRetireArgs(['structure-lint', '--json'])).toEqual({
-      token: 'structure-lint',
-      json: true,
-    });
-
-    expect(parseRetireArgs(['a', 'b'])).toEqual({ token: 'a' });
-    expect(parseRetireArgs([])).toEqual({});
   });
 });
 
