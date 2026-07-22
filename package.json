@@ -54,7 +54,7 @@
     "tsc": "tsc -p tsconfig.lib.json && tsc -p tsconfig.test.json",
     "docs:api": "typedoc && rm -rf docs/zh-TW/api && cp -R docs/api docs/zh-TW/api && node scripts/zh-api-note.mjs",
     "docs:dev": "npm run docs:api && vitepress dev docs",
-    "docs:build": "npm run docs:api && vitepress build docs",
+    "docs:build": "node scripts/check-changelog-markup.mjs && npm run docs:api && vitepress build docs",
     "docs:check": "node scripts/check-doc-links.mjs",
     "field:run": "node scripts/field-run.mjs"
   },
@@ -90,6 +90,9 @@
   "lint-staged": {
     "*.{js,ts}": [
       "eslint --fix"
+    ],
+    "{CHANGELOG.md,.changeset/*.md}": [
+      "node scripts/check-changelog-markup.mjs"
     ]
   }
 }
