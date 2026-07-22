@@ -1,5 +1,292 @@
 # @kekkai/blueprint
 
+## 2.0.0
+
+### Major Changes
+
+- 33ed541: 2.0.0 — the field-hardened release. Fifteen autonomous adoption rounds
+  (closed `field-run` issues #1–#15) drove every change since 1.14; the
+  loop converged when a full round reported zero tool defects, with every
+  suspicion an agent raised verified against the channels and retracted.
+
+  Breaking changes:
+
+  - **Config validation rejects unknown keys** across the structural path
+    (blueprint, architecture, layers, allowedImporters entries, module,
+    owns entries, emit). A key nothing reads was a silently dead
+    declaration — a field repo shipped a `selfOnly` ban that never existed
+    because the key sat one level too high. Configs carrying stray keys
+    now fail loud with a pointed message.
+  - **`architecture.flow` and `emit.lint.path` are removed** (both were
+    inert), along with the `retire` command, the `--framework` flag on
+    `impact` / `doctor` / `rules`, and the never-documented entry exports
+    `emitAgentContract` / `AgentContractOptions` / `injectBetweenMarkers` /
+    `StructuralRule`.
+  - **`doctor` is stricter**: leftover authoring artifacts
+    (`blueprint-authoring.md`, the command file) fail the leftover check —
+    "Adoption complete" and the playbook now define done identically; a
+    marker-bearing contract outside `emit.agents` already failed since 1.14.
+  - **The emitted CI workflow gates with `inspect --baseline`** (a missing
+    ledger is an empty one) — locked brownfield debt no longer turns the
+    tool's own CI permanently red.
+  - **`architecture.module.private` is optional** (omitted = none) — the
+    one loosening.
+
+### Minor Changes
+
+- 4fe2d55: Product-wide chicken-rib sweep — dead surface is gone, not deprecated:
+
+  - `architecture.flow` removed. It was a required field that nothing ever
+    read — the layer ORDER is the flow. Existing `.mjs` configs keep working
+    (the runtime ignores unknown properties); TypeScript-typed configs delete
+    one line.
+  - `emit.lint.path` removed for the same reason: never consumed, while its
+    doc claimed a consumer.
+  - `emitAgentContract` (and `AgentContractOptions`) left the package entry:
+    the supported agent targets are the ones `emit.agents` names, and a
+    render-it-yourself hatch for unsupported tools is surface without a
+    mission. `emitAgentFiles` remains the one distribution API.
+  - `injectBetweenMarkers` left the package entry — an internal merge utility
+    with no documented story.
+  - `plugin` stays, and its story is now stated in the reference: the escape
+    hatch for hand-wiring a `blueprint/*` rule without `emitLint`.
+
+- 538578b: `doctor` and the playbook now define "done" identically (field issue #13):
+  the leftover-files check also flags `blueprint-authoring.md` and
+  `.claude/commands/blueprint-author.md` — "Adoption complete" over a live
+  playbook was a second, contradicting authority, and a careless agent
+  stopped there. The check's detail says a mid-authoring doctor run is
+  EXPECTED to fail on it; the early-exit checklist and acceptance gates now
+  order cleanup BEFORE the final doctor run. Gate turns stricter: repos
+  that finished wiring but skipped the playbook's cleanup step go red until
+  the two files are deleted.
+
+  Also: the `missing-layer` note carries the keep-is-default verdict in
+  place ("runway, not a todo … slimming is the owner's call") — six of
+  these read as a todo list and pointed an agent at dismantling the preset
+  skeleton the playbook says to keep.
+
+- 6c5af1c: Field issue #4 (489-file brownfield run, structure-lint retired per the
+  playbook): unknown CLI flags now fail loud instead of being silently ignored
+  — `inspect --verbose` read as a broken no-op to an agent; init re-includes
+  its gitignored artifacts by appending `!` negations to .gitignore itself
+  (with the parent-directory caveat stated in the note) instead of handing the
+  fix back; the rule catalog now states what two agents had to eval the bundle
+  to learn — `owns` covers named-import granularity (a house "only composables
+  may inject" rule maps to it), `no-restricted-syntax` is emitted only when a
+  selfOnly importer exists, and `additionalAliases` join every structural ban;
+  the playbook's retirement clause says to DELETE the retired tool's config
+  and that source-comment pointers may outlive the sweep under no-source-edits;
+  impact's echoes block leads with "NOT blueprint findings, NEVER counted".
+- f7bc5d9: Field issue #5: `init --agent claude` now PERSISTS the choice — a scaffolded
+  config carries `emit: { agents: ['claude'] }`, so the first run emits one
+  contract and the next plain init cannot grow the second one back; the
+  chicken-and-egg (config must exist before you can narrow it) is gone. The
+  catalog closes the last bundle-eval of the round: `unusedVars` is named as
+  TWO rule keys on TypeScript, every optional gate is stated to scope to the
+  layer globs only, and merge guidance says collisions are decided by rule
+  KEY (`blueprint rules --json` names them), not by hit count.
+- 5337f77: Field issues #2–#3 (automated harness runs): doctor's leftover check now
+  also flags stale agent contracts — a marker-bearing CLAUDE.md/AGENTS.md/…
+  outside the emitted `emit.agents` set cannot hide behind green (init removes
+  a wholly-generated one itself; a hand-touched one only got an instruct, and
+  nothing gated the orphan afterward). A preset that introduces the repo's first import
+  alias names it as a decision instead of letting a new convention pass
+  silently. init --help stops promising layer folders unconditionally and says
+  plainly that --agent never launches anything on the preset path.
+- a3aa5a8: Field issues #7–#8: `blueprint rules` gains the resolved per-layer view —
+  what each layer may not import, which owned packages (down to named imports)
+  and globals are banned there — ending the `eslint --print-config`
+  archaeology behind "0 hits: wired-and-clean, or not applying at all?". The
+  playbook's early-exit verdict becomes a complete self-contained checklist
+  ("following this verdict IS executing the playbook fully"; impact's zero
+  gates the suppress-all run; trivially-true acceptance gates are named as
+  such; the now-empty command directory goes too), the config schema's full
+  `owns`/`additionalAliases` shapes live in the playbook so nothing exists
+  only in dist, the test-file exemption is named as a deliberate relaxation
+  versus tools that police tests, and a below-threshold `--authoring` run
+  says up front that the playbook's own verdict will be the early exit. All
+  adoption prompts state that an early exit the playbook prescribes counts
+  as full execution.
+- 99a0727: Init now lives by its own doctrine (field batches 10–11): empty layer folders
+  are scaffolded only into an empty source tree — where code already lives, an
+  unbuilt layer's absence is its true state, no `.gitkeep` shells. Narrowing
+  `emit.agents` makes the next init remove a stale agent contract that is
+  wholly its own output (nothing outside the marker block; own-strategy rule
+  files by construction) — a hand-edited file only gets told. And
+  `validateBlueprint` now returns the blueprint instead of `void`, so a passing
+  call is visible at runtime.
+- 1e077f1: A config key nothing reads now fails validation instead of dying silently
+  (field issue #14): a 489-file field repo declared `selfOnly: true` on the
+  layer object — where nothing reads it — and the intended re-export ban
+  never existed while every gate stayed green. Validation now rejects
+  unknown keys across the structural path (blueprint, architecture, layers,
+  allowedImporters entries, module, owns entries, emit), and the misplaced
+  `selfOnly` gets a pointed error naming its real home
+  (`allowedImporters: [{ layer: 'views', selfOnly: true }]`).
+
+  `blueprint rules` also answers "does THIS config emit it?" for the
+  structural family: each rule carries a per-config `✓ emits / · not
+emitted` annotation (`active` in `--json`), so nobody has to probe
+  emitLint to learn whether their `no-restricted-syntax` will collide with
+  a house rule. A test pins the annotation to emitLint's real output.
+
+- 514eb53: Presets take `emit` directly and merge it over their day-1 default
+  (`ci: 'github'`). Declaring the agent tool in use is the first customization
+  nearly every adoption makes — it no longer costs the one-line preset form,
+  and no longer silently drops the CI workflow the way a spread-level `emit`
+  override does.
+- 62ddb7e: `architecture.module.private` is now optional — omitting it means no
+  private parts (`[]`). A draft-first config that never mentions private
+  sub-parts validates instead of failing with "must be an array" (field
+  issue #11). Explicit `private: []` keeps working unchanged; a non-array
+  value still fails loudly. The playbook's schema sketch marks the field
+  optional.
+- 0ee89bf: The tool now answers for itself (field batch 12): `blueprint rules` prints
+  the emitted-rule catalog — always-on structural rules, optional gates with
+  metric defaults, documentation-only ids — annotated with the config's
+  declared tiers and whether each gate emits today. `inspect` gains the tenth
+  finding, `declaratory-self-only`: a selfOnly ban protecting a layer with no
+  files is named as a blank round until code lands. The authoring playbook
+  additionally licenses draft-first authoring — write the config early and let
+  read-only inspect/impact runs correct it, instead of studying the archive
+  first — and carries the retirement sweep for a consolidated-away tool.
+
+### Patch Changes
+
+- e59c662: Init UX honesty (field batch 10): re-running init no longer re-instructs alias
+  wiring it already did — JSONC tsconfigs are checked through the tolerant parse
+  before "unparseable", and the vite instruct respects doctor's quoted-token
+  wiredness standard (now shared as `quotedIn`). A below-threshold authoring
+  playbook leads with the early-exit verdict instead of burying it mid-method.
+  The vacuous-net callouts name the concrete next step that arms the net, and
+  the both-contracts note surfaces that `--agent claude|codex` already narrows
+  the emitted contracts.
+- 963cfa9: Field issue #9 — the early-exit checklist honors its own completeness claim
+  on every repo shape: step 1 carries the tool declaration (`init --preset
+--agent claude|codex` persists into `emit.agents`, one run emits one
+  contract); step 2 verifies `inspect --baseline`; the false guarantee "no
+  reference file is ever written" is replaced by the conditional truth — a
+  repo with its own eslint config DOES get a reference, and the checklist now
+  carries the merge-and-delete step for it. The anti-bypass guard's plugin is
+  provisioned on every path again: with ADOPT as the stated default, an agent
+  following it must not hit "Cannot find package" — dropping the block is the
+  exception, and the guard says to remove the dependency with it.
+- f79d7cb: The emitted CI workflow now gates with `npx blueprint inspect --baseline`
+  instead of plain `inspect` (field issue #10, live-verified). A missing
+  baseline is an empty one, so greenfield behavior is unchanged — but locked
+  brownfield debt no longer turns the tool's own CI permanently red, which
+  contradicted both `inspect --help`'s CI example and the playbook's ratchet
+  model. `inspect --update-baseline`'s no-debt messages now point at the
+  `--baseline` CI line too, instead of telling the reader plain `inspect` is
+  the gate, and the compact agent contract's verify line prescribes
+  `inspect --baseline` for the same reason — red only on findings the agent
+  itself introduced.
+- 07818a5: Every starter field run re-derived "why adopt on an empty repo at all" in
+  its judgment section — the answer (adopt early; the contract's value is
+  highest before the first violation exists) lived only on the docs site,
+  which an adopting agent never reads. The below-threshold playbook verdict
+  now carries the doctrine in place: emptiness is the point, not a smell;
+  the expensive version of this repo is the one that adopts two years and
+  400 files later.
+- 6576485: Zero-debt doctrine, lint side (first live field-harness catch): running
+  `eslint --suppress-all` on a clean lint writes an EMPTY suppressions ledger
+  — asymmetric with the baseline, which writes no file on zero debt. Doctor's
+  suppressions check now names the empty ledger as ceremony and says to delete
+  it; the playbook's ratchet clause covers it explicitly; every adoption
+  prompt (README, docs, field prompt) scopes the lock commands to "only when
+  debt exists".
+- 8efd576: Field issue #1 (first automated harness run): init's alias notes say the
+  edit's shape in place — "import alias added — existing content preserved" —
+  instead of a bare "write" that reads as a rewrite; a fresh scaffold with no
+  lint script gets one ("lint": "eslint <root>") so local lint matches the CI
+  gate, and an existing project gets told; the playbook states the runway
+  stance — a preset's declared-but-empty layers (and a not-yet-used alias) are
+  declared intent, not a manufactured net, so keep them unless the project
+  will never grow into them; the adoption guide notes which acceptance clauses
+  resolve vacuously (no tests, zero debt) and that this is correct.
+- cdfc99d: Field issue #6 — three message-level frictions, zero behavior bugs: the
+  eslint merge hints now put `...emitLint(blueprint)` AFTER your existing
+  entries and say why (later entries win in flat config — the old hint walked
+  you into the exact override trap the playbook warns about); the generated
+  config's parser blocks carry a header saying they are live-config-only and
+  should be skipped when merging into a config that already wires parsers;
+  survey prints "— none —" under empty sections instead of a bare heading
+  that reads as a render failure.
+- a4d7be9: Three field-verified message defects, one class — an output that
+  contradicts its own doctrine or prose (field issue #12):
+
+  - `impact` now names a vacuous zero: when the layer globs match no files,
+    "0 hits" says so and adds "proves nothing until code lands in a layer" —
+    matching `inspect`'s coverage warning instead of reading like the rules
+    ran clean. `--json` output carries the new `linted` count.
+  - `init`'s eslint wiring snippet on a TypeScript repo IS the TS version
+    (`emitLint(blueprint, { typescript: tseslint.plugin })` with its import)
+    instead of a JS snippet corrected by prose four lines later.
+  - `init --authoring`'s hand-off line promises "locking a baseline if debt
+    exists" — the sub-threshold early exit locks nothing, and the old
+    unconditional wording contradicted that prescribed path.
+
+  Plus two recurring field doubts encoded where they arise: the early-exit
+  checklist now says to remove `.claude/` itself when deleting the command
+  leaves it empty, and the reference's parser-setup header names presets
+  that wire parsers internally (tseslint.configs.recommended) as "already
+  wired".
+
+- a3d33f1: One story per state — sibling tools stop contradicting each other (field run #10):
+
+  - `doctor`'s architecture check only says "findings covered by the baseline"
+    while a baseline is actually covering something. On a truly clean repo the
+    label is plain `architecture clean` — matching `inspect --update-baseline`'s
+    "no baseline needed" instead of claiming a ledger that does not exist. The
+    red detail likewise drops "outside the baseline" when no baseline is in play.
+  - The size gate has one name and one number everywhere: `init`'s forced-
+    authoring log line and `init --help` now say "brownfield threshold
+    (10 source files)" — the playbook's term — instead of the unnumbered
+    "preset threshold".
+
+- 3df2615: The five judgment items every field run re-derived now carry the owner's
+  verdicts in the agent-facing channels, so they stop being open questions:
+  keeping the preset's declared-but-empty layers is the DEFAULT (slimming is
+  the project owner's later call, never the adopting agent's); the `~app`
+  alias is deliberate — `@` is npm's scope sigil, and an app alias should not
+  look like a package scope (the init note stops suggesting `@` as an
+  alternative); a repo with no tests passes the tests clause vacuously (every
+  adoption prompt says so); the eslint-comments block is named for what it is
+  — the anti-bypass guard against silent disables, default ADOPT, dropping is
+  the justified exception; and `emit.agents` declares the tool RUNNING the
+  adoption — never a guess at future tools.
+- 7aadb8f: Removed the inert `--framework` flag from `impact`, `doctor`, and `rules`
+  (and the corresponding option from their TypeScript options types). All
+  three commands require — or resolve — an existing config, and `framework`
+  only ever steered the no-config preset fallback, so the flag never had any
+  effect; documenting it was a lie waiting to confuse an agent. `init`,
+  `inspect`, and `deps` keep theirs — there the no-config path is real.
+- 94d8776: Adoption honesty from field batch 12: the authoring playbook now carries a
+  full rule catalog (always-on structural rules, optional gates with their
+  metric fallbacks interpolated from the source, documentation-only ids) so no
+  agent reads the minified bundle again; impact's foreign block names itself as
+  echoes of your own config and the closing line says numbers decide tiers, not
+  just suppressions; the playbook warns about structure-lint's `{folder}` token
+  and tells the agent to sweep a retired tool's stale footprint; the generated
+  eslint companion block states its scope (JS/TS disable comments only).
+- f45c23d: The mission statement enters the agent channels. Blueprint exists to keep
+  AI-driven development inside the declared architecture — the strictness is
+  the product, and the agent reading the contract is its subject. The
+  contract header now says so on every emitted target ("never soften or
+  bypass; disagreements go to the maintainer"), and the playbook's Goal
+  section tells the adopting agent that the urge to soften a tier or leave an
+  escape hatch is exactly what the tool exists to catch: install faithfully,
+  put disagreements in the report.
+- d637584: The survey's "Same-folder imports via the alias" count is now stated for
+  what it is — a textual upper bound, not a promise (field issue #11: the
+  playbook called it "exactly how many errors the wiring will introduce",
+  and a 489-file field repo proved it 5 ≠ 0 against `impact`). The count
+  includes test files (exempt in the emitted config) and non-static
+  references (dynamic imports, mock specifiers, doc comments) the wired
+  rules may never flag. Both the playbook's pre-wiring check and the survey
+  heading now say so and point at `impact` for the real per-rule number.
+
 ## 1.14.0
 
 ### Minor Changes
