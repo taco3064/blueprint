@@ -278,6 +278,13 @@ export function renderImpact(impacts: RuleImpact[], total: number, linted: numbe
         + 'rule ever ran. Wiring emitLint introduces no red today, and proves '
         + 'nothing until code lands in a layer.'
         : '✓ Rule impact: 0 hits — wiring emitLint introduces no red today.',
+      // "No red" is an emitLint claim, not a whole-config one: the anti-
+      // bypass guard rides in the generated config OUTSIDE emitLint, and
+      // its findings (bare eslint-disables) surface only in the project's
+      // own lint — a field agent nearly shipped on this headline alone
+      // (field issue #17).
+      '  (scope: emitLint only — the anti-bypass guard is separate; the '
+      + 'project\'s own lint judges its findings)',
       ...caveatBlock,
       ...foreignBlock,
     ].join('\n');

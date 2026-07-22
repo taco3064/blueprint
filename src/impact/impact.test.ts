@@ -364,6 +364,9 @@ describe('renderImpact', () => {
 
     expect(out).toContain('0 hits — wiring emitLint introduces no red today');
     expect(out).not.toContain('vacuous');
+    // The zero states its reach — the guard is not emitLint's to measure
+    // (field issue #17: 0 hits, then five guard findings in the real lint).
+    expect(out).toContain('scope: emitLint only — the anti-bypass guard is separate');
   });
 
   it('names a vacuous zero — no file matched, no rule ever ran (field issue #12)', () => {

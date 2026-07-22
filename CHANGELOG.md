@@ -154,6 +154,12 @@ emitted` annotation (`active` in `--json`), so nobody has to probe
 
 ### Patch Changes
 
+- `impact`'s zero-hit line states its own reach: "no red today" is an
+  emitLint claim, and the anti-bypass guard rides in the generated config
+  outside impact's scope — its findings (bare eslint-disables) surface in
+  the project's own lint. The playbook's "zero hits → skip
+  `--suppress-all`" carries the same carve-out (field issue #17: 0 hits,
+  then five guard findings in the real lint run).
 - e59c662: Init UX honesty (field batch 10): re-running init no longer re-instructs alias
   wiring it already did — JSONC tsconfigs are checked through the tolerant parse
   before "unparseable", and the vite instruct respects doctor's quoted-token

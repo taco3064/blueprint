@@ -800,6 +800,10 @@ describe('one output, one story — no snippet contradicts its own prose (field 
 
     expect(impact.code).toBe(0);
     expect(impact.output).toContain('0 hits — vacuous: the layer globs match no files');
+    // "No red" is an emitLint claim — the anti-bypass guard is outside
+    // impact's scope, and a field agent nearly shipped on the headline
+    // alone (field issue #17): the zero line states its own reach.
+    expect(impact.output).toContain('scope: emitLint only');
   });
 
   it('the wiring snippet on a TS repo is the TS version, not prose-corrected JS', async () => {
