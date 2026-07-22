@@ -215,8 +215,8 @@ export async function runImpact(
 
   log(
     options.json
-      ? JSON.stringify({ total, impacts }, null, 2)
-      : renderImpact(impacts, total),
+      ? JSON.stringify({ total, linted: results.length, impacts }, null, 2)
+      : renderImpact(impacts, total, results.length),
   );
 
   return { impacts, total };
@@ -230,7 +230,7 @@ export async function runImpact(
 const SPECIAL_ROWS = new Set(['parse-error', 'unused-disable-directive']);
 
 /** The human-readable impact report. Caveats and foreign rows render apart. */
-export function renderImpact(impacts: RuleImpact[], total: number): string {
+export function renderImpact(impacts: RuleImpact[], total: number, linted: number): string {
   const own = impacts.filter((i) => !i.foreign && !SPECIAL_ROWS.has(i.rule));
   const caveats = impacts.filter((i) => SPECIAL_ROWS.has(i.rule));
   const foreign = impacts.filter((impact) => impact.foreign);
@@ -269,7 +269,15 @@ export function renderImpact(impacts: RuleImpact[], total: number): string {
 
   if (!own.length) {
     return [
-      '✓ Rule impact: 0 hits — wiring emitLint introduces no red today.',
+      // A 0 over an empty net must not read as "the rules ran clean" —
+      // inspect warns about the same state, and the two tools telling
+      // different stories sent an agent to judge on the wrong reason
+      // (field issue #12).
+      linted === 0
+        ? '✓ Rule impact: 0 hits — vacuous: the layer globs match no files, so no '
+        + 'rule ever ran. Wiring emitLint introduces no red today, and proves '
+        + 'nothing until code lands in a layer.'
+        : '✓ Rule impact: 0 hits — wiring emitLint introduces no red today.',
       ...caveatBlock,
       ...foreignBlock,
     ].join('\n');

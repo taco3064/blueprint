@@ -279,8 +279,29 @@ describe('plan', () => {
 
     expect(note?.note).toContain('eslint.config.blueprint.mjs');
     expect(note?.note).toContain('...emitLint(blueprint)');
+    // Not a TS repo — the TS variant stays a prose hint, not the snippet.
+    expect(note?.note).toContain('On a TypeScript');
     // The reference is a merge source with an obligation, not a keepsake.
     expect(note?.note).toContain('DELETE the reference');
+  });
+
+  it('the flat-array wiring snippet IS the TS version on a TypeScript repo', () => {
+    const actions = plan(
+      state({ hasEslintConfig: true, eslintConfigShape: 'flat-array', hasTypescript: true }),
+      bp,
+      null,
+      {},
+    );
+
+    const note = actions.find(
+      (a) => a.kind === 'instruct' && a.note.includes('blueprint never edits it'),
+    );
+
+    // The copied line must be the correct one — prose four lines later
+    // does not save a copy-the-first-snippet agent (field issue #12).
+    expect(note?.note).toContain('...emitLint(blueprint, { typescript: tseslint.plugin }) ];');
+    expect(note?.note).toContain('import tseslint from \'typescript-eslint\';');
+    expect(note?.note).not.toContain('On a TypeScript');
   });
 
   it('tailors the wiring note to a tseslint.config() shape', () => {

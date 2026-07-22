@@ -265,7 +265,7 @@ describe('runImpact', () => {
       log: (message) => (output = message),
     });
 
-    expect(JSON.parse(output)).toEqual({ total: 0, impacts: [] });
+    expect(JSON.parse(output)).toEqual({ total: 0, linted: 0, impacts: [] });
   });
 
   it('names the missing dependency when the project cannot supply the stack', async () => {
@@ -359,7 +359,17 @@ describe('runImpact', () => {
 });
 
 describe('renderImpact', () => {
-  it('renders the calm zero-hit line', () => {
-    expect(renderImpact([], 0)).toContain('0 hits');
+  it('renders the calm zero-hit line when files were actually linted', () => {
+    const out = renderImpact([], 0, 2);
+
+    expect(out).toContain('0 hits — wiring emitLint introduces no red today');
+    expect(out).not.toContain('vacuous');
+  });
+
+  it('names a vacuous zero — no file matched, no rule ever ran (field issue #12)', () => {
+    const out = renderImpact([], 0, 0);
+
+    expect(out).toContain('0 hits — vacuous: the layer globs match no files');
+    expect(out).toContain('proves nothing until code lands in a layer');
   });
 });

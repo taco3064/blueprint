@@ -276,16 +276,25 @@ function eslintWiringNote(state: ProjectState): string {
       + shared;
   }
 
+  // The snippet is what gets copied — on a TS repo it must BE the TS
+  // version, not a JS version corrected by prose four lines later (field
+  // issue #12: a copy-the-first-snippet agent ships non-TS-aware rules).
+  const spread = state.hasTypescript
+    ? '    import tseslint from \'typescript-eslint\';\n'
+    + '    export default [ /* …your existing entries */ ...emitLint(blueprint, { typescript: tseslint.plugin }) ];\n'
+    : '    export default [ /* …your existing entries */ ...emitLint(blueprint) ];\n';
+
   return 'eslint.config already exists — blueprint never edits it, so eslint.config.blueprint.mjs '
     + 'is your merge source, not a keepsake. Diff it, then spread the rules into your flat config:\n'
     + '    import blueprint from \'./blueprint.config.mjs\';\n'
     + '    import { emitLint } from \'@kekkai/blueprint\';\n'
-    + '    export default [ /* …your existing entries */ ...emitLint(blueprint) ];\n'
+    + spread
     + '  emitLint goes LAST — later entries win in flat config, so this keeps the\n'
     + '  blueprint\'s per-layer tuning alive over broad presets. Rules BOTH sides set\n'
-    + '  (no-restricted-*) still need combining into ONE entry. On a TypeScript\n'
-    + '  project pass the TS plugin — emitLint(blueprint, { typescript: tseslint.plugin }).\n'
-    + shared;
+    + `  (no-restricted-*) still need combining into ONE entry.${state.hasTypescript
+      ? ''
+      : ' On a TypeScript\n  project pass the TS plugin — emitLint(blueprint, { typescript: tseslint.plugin }).'}\n`
+      + shared;
 }
 
 /**
@@ -333,6 +342,17 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     '  // Parser setup — needed when THIS file is the live config. Merging',
     '  // into an existing config that already wires parsers? Skip these',
     '  // blocks — copying them re-parses files your config already handles.',
+    // "Does my config already wire parsers?" recurred in the field with a
+    // preset that wires one internally — answer it here, where the merge
+    // decision is being made (only meaningful on a TS stack).
+    ...(ts
+      ? [
+          '  // "Already wires" includes presets that do it internally: extending',
+          '  // tseslint.configs.recommended (or any typescript-eslint preset)',
+          '  // means the TS parser is wired even if no languageOptions.parser',
+          '  // line is visible. Your own lint passing on .ts/.tsx confirms it.',
+        ]
+      : []),
   ];
 
   const parserBlocks = [

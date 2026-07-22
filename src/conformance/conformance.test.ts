@@ -681,6 +681,58 @@ describe('survey counts never promise what impact must measure (field issue #11)
   });
 });
 
+describe('one output, one story — no snippet contradicts its own prose (field issue #12)', () => {
+  it('impact names a vacuous zero instead of a reassuring one', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(reactBlueprint),
+        // Source exists, but nothing under a declared layer — the state
+        // inspect already warns about; impact must tell the same story.
+        'src/App.jsx': 'export const App = () => null;',
+      },
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.code).toBe(0);
+    expect(impact.output).toContain('0 hits — vacuous: the layer globs match no files');
+  });
+
+  it('the wiring snippet on a TS repo is the TS version, not prose-corrected JS', async () => {
+    const dir = repo({
+      packageJson: {
+        name: 'fixture',
+        dependencies: { react: '^18.0.0' },
+        devDependencies: { typescript: '^5.0.0' },
+      },
+      files: {
+        'eslint.config.mjs': 'export default [];',
+        'src/App.tsx': 'export const App = () => null;',
+      },
+    });
+
+    const init = await cli(dir, ['init', '--preset', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).toContain('...emitLint(blueprint, { typescript: tseslint.plugin }) ];');
+    expect(init.output).not.toContain('On a TypeScript');
+  });
+
+  it('the authoring hand-off promises a baseline only if debt exists', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    const init = await cli(dir, ['init', '--authoring', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).toContain('locking a baseline if debt exists');
+    expect(init.output).not.toContain('and locking a baseline):');
+  });
+});
+
 describe('the emitted CI honors the ratchet it ships with (field issue #10)', () => {
   it('locked debt stays green on the workflow line — the live-verified repro', async () => {
     const dir = repo({ packageJson: react() });

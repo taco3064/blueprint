@@ -11,7 +11,9 @@ Acceptance (`npx blueprint doctor` passes):
 - lint, `inspect --baseline`, and the existing tests all pass (a repo
   with no tests passes this vacuously — do not add a test setup)
 - emitLint genuinely wired into ESLint (no leftover reference files)
-- no source edits — lock existing debt: `inspect --update-baseline` for
+- no application-source edits (nothing under `src/`) — init's own config
+  wiring (tsconfig / vite / package.json scripts) is expected, not a
+  violation. Lock existing debt instead: `inspect --update-baseline` for
   architecture, `eslint --suppress-all` for lint (both only when debt
   exists — an empty ledger is ceremony, not a deliverable)
 

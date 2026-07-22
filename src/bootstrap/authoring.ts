@@ -67,7 +67,10 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
       note: [
         'This repo already has code but no blueprint.config.mjs — authoring one is a',
         '  judgment call, so init generated a playbook instead of guessing. Have an agent',
-        '  execute it (it ends by re-running init and locking a baseline):',
+        // "locking a baseline" unconditionally over-promises: the sub-threshold
+        // early exit locks nothing — 0 debt writes no baseline file, and doctor
+        // is green without one (field issue #12).
+        '  execute it (it ends by re-running init — and locking a baseline if debt exists):',
         `    claude "${AGENT_PROMPT}"     # or: /blueprint-author inside Claude Code`,
         `    codex "${AGENT_PROMPT}"`,
         '  …or follow the playbook yourself. Prefer a preset scaffold instead? Re-run:',
@@ -126,8 +129,9 @@ The complete early-exit checklist — nothing else in this file applies:
    true — you skipped nothing.
 4. \`npx blueprint doctor\` — all checks green
 5. Delete this playbook, \`${COMMAND_FILE}\`, and the now-empty
-   \`.claude/commands/\` directory. Done — "preset was enough" is a
-   complete, correct report.
+   \`.claude/commands/\` directory — and \`.claude/\` itself if that
+   leaves it empty (init created the tree only to hold this command).
+   Done — "preset was enough" is a complete, correct report.
 
 **Why adopt on a near-empty repo at all — emptiness is the point, not a
 smell.** The contract's value is highest BEFORE the first violation
