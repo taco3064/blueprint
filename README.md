@@ -58,7 +58,8 @@ Acceptance (`blueprint doctor` passes):
 - lint, `inspect --baseline`, and the existing tests all pass
 - emitLint genuinely wired into ESLint (no leftover reference files)
 - no source edits — lock existing debt: `inspect --update-baseline` for
-  architecture, `eslint --suppress-all` for lint
+  architecture, `eslint --suppress-all` for lint (both only when debt
+  exists — an empty ledger is ceremony, not a deliverable)
 ```
 
 What each acceptance clause guards, and the full flow:

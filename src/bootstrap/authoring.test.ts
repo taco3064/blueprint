@@ -200,6 +200,10 @@ describe('authoringBrief', () => {
     // Zero findings is a valid end state — never manufacture debt to lock.
     expect(brief).toContain('zero\n     lint hits is a complete outcome');
     expect(brief).toContain('manufacturing debt just to demo the ratchet');
+
+    // First live field run: --suppress-all on a clean lint wrote an empty
+    // ledger — the ceremony ban now covers the lint side explicitly.
+    expect(brief).toContain('an empty ledger is ceremony');
   });
 
   it('embeds the survey evidence and the schema sketch', () => {

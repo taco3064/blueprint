@@ -63,7 +63,7 @@ Acceptance — `blueprint doctor` passes, plus:
 - emitLint genuinely wired into ESLint (no leftover reference files)
 - no source edits — existing debt (if any) goes to its native ledger:
   `inspect --update-baseline` for architecture, `eslint --suppress-all` for
-  lint; zero findings means the ledgers stay absent — that IS success,
+  lint (both only when debt exists — an empty ledger is ceremony); zero findings means the ledgers stay absent — that IS success,
   don't manufacture debt to have something to lock
 ```
 

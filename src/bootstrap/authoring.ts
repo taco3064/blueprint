@@ -246,7 +246,10 @@ the answer belongs in this playbook — note the gap in your report instead.
      lint hits is a complete outcome** — the ledgers simply stay absent
      (plain \`inspect\` and the project's own lint are the gates), and
      manufacturing debt just to demo the ratchet is mistranslation, not
-     adoption. Still on ESLint 8 / a legacy config? Transitional fallback:
+     adoption. That includes \`--suppress-all\`: on a clean lint it writes
+     an EMPTY \`eslint-suppressions.json\`, and an empty ledger is ceremony
+     — skip the command when there are no hits, and delete the file if one
+     slipped out (\`doctor\` says so too). Still on ESLint 8 / a legacy config? Transitional fallback:
      \`emit: { lint: { severity: 'warn' } }\` — but state the cost in the
      report: severity only covers the structural rules, so until the
      migration, new metric debt (maxLines…) is not gated.

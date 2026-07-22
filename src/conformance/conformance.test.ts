@@ -187,6 +187,24 @@ describe('alias wiring honesty (batches 1 & 4 + self-review)', () => {
 });
 
 describe('zero-debt honesty — notes are not debt (batch 4)', () => {
+  it('names an empty suppressions ledger as ceremony (field run #1)', async () => {
+    // The first live harness run: the agent obeyed `--suppress-all` on a
+    // clean lint, got an empty ledger, and had to discover the asymmetry
+    // with the baseline (zero debt writes no file) by itself.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(reactBlueprint),
+        'eslint-suppressions.json': '{}',
+      },
+    });
+
+    const doctor = await cli(dir, ['doctor']);
+    const line = doctor.output.split('\n').find((entry) => entry.includes('ceremony'));
+
+    expect(line).toContain('delete it (zero lint debt needs no ledger)');
+  });
+
   it('refuses to lock info findings and retires an info-era baseline', async () => {
     const dir = repo({
       packageJson: react(),

@@ -64,6 +64,17 @@ function suppressionsCheck(root: string): DoctorCheck {
     };
   }
 
+  // Zero-debt doctrine, lint side: running --suppress-all on a clean lint
+  // writes an EMPTY ledger — ceremony, and asymmetric with the baseline
+  // (which writes no file on zero debt). Green, but say what to do.
+  if (!Object.keys(entries).length) {
+    return {
+      label,
+      ok: true,
+      detail: `${SUPPRESSIONS_FILE} is empty — nothing is suppressed, so the file is ceremony; delete it (zero lint debt needs no ledger)`,
+    };
+  }
+
   return { label, ok: true };
 }
 

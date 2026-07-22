@@ -315,6 +315,17 @@ describe('runDoctor', () => {
     expect(result.checks.find((c) => c.label.includes('suppressions'))?.detail).toContain(
       'not valid JSON',
     );
+
+    // Empty: --suppress-all ran on a clean lint (first live field run) —
+    // green, but the detail names the ceremony and the fix.
+    write('eslint-suppressions.json', '{}');
+    result = await runDoctor(root, { loadConfig: load, log: silent });
+
+    const empty = result.checks.find((c) => c.label.includes('suppressions'));
+
+    expect(empty?.ok).toBe(true);
+    expect(empty?.detail).toContain('ceremony');
+    expect(empty?.detail).toContain('delete it');
   });
 
   it('emits machine-readable JSON with --json', async () => {
