@@ -65,6 +65,10 @@ is not in the config). Field batches 10–12 are the case law.
   packs the local tree (no publish), stages scenario repos in a temp dir, runs
   the adoption prompt through each available agent CLI headlessly, verifies
   with the real doctor/inspect, and collects the structured feedback file into
-  one report. Conformance guards known scenarios; the harness hunts new ones.
+  one report — filed as a `field-run` GitHub issue, the triage inbox.
+  Conformance guards known scenarios; the harness hunts new ones. Triage flow:
+  consolidate the issue's findings, judge each (fix / by-design / reject),
+  land fixes with conformance fixtures, close the issue referencing the
+  commits — the closed issue is the public record of what shaped the release.
   `--dry` stages without spawning agents; `--repo <path>` adds the
-  existing-repo scenario from a local clone.
+  existing-repo scenario from a local clone; `--no-issue` keeps it local.

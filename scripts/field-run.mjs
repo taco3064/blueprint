@@ -7,12 +7,16 @@
  *   node scripts/field-run.mjs --repo ../miniapp    # + existing-repo scenario (cloned, never touched)
  *   node scripts/field-run.mjs --agents claude      # limit the agent matrix
  *   node scripts/field-run.mjs --dry                # prep repos + print commands, spawn nothing
+ *   node scripts/field-run.mjs --no-issue           # keep the report local, file nothing
  *
  * What it does: builds and packs the LOCAL tree (no publish needed), stages
  * each scenario in a throwaway temp dir, installs the tarball, runs the
  * adoption prompt through each agent CLI headlessly, then verifies with the
  * real doctor/inspect and collects the structured feedback file the prompt
- * asks the agent to write. Everything lands in one report.md.
+ * asks the agent to write. Everything lands in one report.md — and, unless
+ * --no-issue, in a `field-run` GitHub issue, which is the triage inbox: the
+ * findings get consolidated, judged, and fixed from there, and the closed
+ * issue becomes the public record of what shaped the release.
  */
 import { execSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -95,12 +99,13 @@ createRoot(document.getElementById('root')!).render(<App />)
 };
 
 function parseArgs(argv) {
-  const args = { agents: null, repo: null, dry: false };
+  const args = { agents: null, repo: null, dry: false, issue: true };
 
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--agents') args.agents = argv[++i].split(',');
     else if (argv[i] === '--repo') args.repo = path.resolve(argv[++i]);
     else if (argv[i] === '--dry') args.dry = true;
+    else if (argv[i] === '--no-issue') args.issue = false;
     else throw new Error(`unknown flag: ${argv[i]}`);
   }
 
@@ -274,6 +279,51 @@ async function main() {
     if (!run.dry) {
       console.log(`  ${run.scenario} × ${run.agent}: agent ${run.code === 0 ? '✓' : `✗(${run.code})`} · doctor ${run.doctor.code === 0 ? '✓' : '✗'} · inspect ${run.inspect.code === 0 ? '✓' : '✗'}`);
     }
+  }
+
+  if (args.issue && !args.dry) fileIssue(reportFile, runs);
+  else if (args.issue) console.log('  (dry) no issue filed');
+}
+
+/**
+ * File the report as the triage inbox — a `field-run` GitHub issue. Never
+ * fails the run: without gh (or auth) the report simply stays local.
+ */
+function fileIssue(reportFile, runs) {
+  if (!hasBinary('gh')) {
+    console.log('⚠ gh CLI not found — report stays local (re-run with --no-issue to silence this).');
+
+    return;
+  }
+
+  const version = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8')).version;
+  const matrix = runs.map((run) => `${run.scenario}×${run.agent}`).join(', ');
+  const title = `Field run v${version}: ${matrix}`;
+
+  const body = [
+    '> Filed automatically by `scripts/field-run.mjs` against the local,',
+    '> unpublished tree. Triage flow: consolidate the findings below,',
+    '> judge each item (fix / by-design / reject), land fixes with their',
+    '> conformance fixtures, then close this issue referencing the commits.',
+    '',
+    fs.readFileSync(reportFile, 'utf-8'),
+  ].join('\n').slice(0, 60000);
+
+  const bodyFile = path.join(path.dirname(reportFile), 'issue-body.md');
+
+  fs.writeFileSync(bodyFile, body);
+
+  try {
+    execSync('gh label create field-run --color 0E8A16 --description "Automated adoption field run" 2>/dev/null || true', { cwd: ROOT, shell: '/bin/sh', stdio: 'ignore' });
+
+    const url = execSync(
+      `gh issue create --title "${title}" --body-file "${bodyFile}" --label field-run`,
+      { cwd: ROOT, encoding: 'utf-8' },
+    ).trim();
+
+    console.log(`✓ filed as the triage inbox: ${url}`);
+  } catch (error) {
+    console.log(`⚠ could not file the issue (${error.message.split('\n')[0]}) — report stays local.`);
   }
 }
 
