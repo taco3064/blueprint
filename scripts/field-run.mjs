@@ -266,6 +266,15 @@ async function main() {
   }).trim().split('\n').pop();
   const tarball = path.join(workRoot, packOut);
 
+  // The honest identifier of what was tested: the commit, never the package
+  // version (that stays at the LAST release until changesets bump it) — and
+  // read HERE, at pack time. Agents run for half an hour; a fix committed
+  // mid-run must not be credited with this tarball (run #11 measured
+  // fc3b5b0's tarball but was titled f79d7cb — the report-time read).
+  const sha = execSync('git rev-parse --short HEAD', { cwd: ROOT, encoding: 'utf-8' }).trim();
+  const dirty = execSync('git status --porcelain', { cwd: ROOT, encoding: 'utf-8' }).trim() ? '*' : '';
+  const tree = `${sha}${dirty}`;
+
   const runs = [];
 
   for (const scenario of scenarios) {
@@ -318,13 +327,6 @@ async function main() {
       });
     }
   }
-
-  // The honest identifier of what was tested: the commit, never the
-  // package version — that stays at the LAST release until changesets bump
-  // it, so labeling an unpublished tree with it claims the wrong thing.
-  const sha = execSync('git rev-parse --short HEAD', { cwd: ROOT, encoding: 'utf-8' }).trim();
-  const dirty = execSync('git status --porcelain', { cwd: ROOT, encoding: 'utf-8' }).trim() ? '*' : '';
-  const tree = `${sha}${dirty}`;
 
   const report = [
     `# blueprint field run — ${new Date().toISOString()}`,

@@ -622,6 +622,37 @@ describe('one story per state — the tools do not contradict each other (field 
   });
 });
 
+describe('survey counts never promise what impact must measure (field issue #11)', () => {
+  it('playbook and survey call the same-folder count an upper bound, not exact', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        // A same-folder alias reference inside a test file — counted by the
+        // survey's textual scan, exempt in the emitted config: the exact
+        // shape that made "exactly how many errors" provably false (5 ≠ 0).
+        'src/services/api.ts': 'export const api = 1;',
+        'src/services/client.test.ts': 'import \'~app/services/api\';',
+        'tsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+        }),
+      },
+    });
+
+    const init = await cli(dir, ['init', '--authoring', '--no-install']);
+
+    expect(init.code).toBe(0);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('an upper bound on the errors');
+    expect(playbook).not.toContain('exactly how many');
+
+    const survey = await cli(dir, ['survey']);
+
+    expect(survey.output).toContain('Same-folder imports via the alias (textual upper bound');
+  });
+});
+
 describe('the emitted CI honors the ratchet it ships with (field issue #10)', () => {
   it('locked debt stays green on the workflow line — the live-verified repro', async () => {
     const dir = repo({ packageJson: react() });

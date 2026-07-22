@@ -342,12 +342,16 @@ you never have to reverse-engineer them from the bundle:
   Only *lower-layer* folder modules are importable, and entry-only; \`../\`
   escapes are caught at any depth by \`blueprint/relative-escape\`.
 - **Pre-wiring check:** the survey's "Same-folder imports via the alias"
-  count is exactly how many errors the wiring will introduce, and the fix is
-  layout-dependent — flat: rewrite them as relative imports; folder: extract
-  the shared code downward (a relative rewrite just trades the error for
+  count is an upper bound on the errors the wiring will introduce, not the
+  exact number — it is a textual count that includes test files (exempt in
+  the emitted config) and non-static references (dynamic imports, mock
+  specifiers, doc comments) the wired rules may never flag. Treat non-zero
+  as "look here"; once the config exists, \`npx blueprint impact\` reports
+  the real per-rule count. The fix for true hits is layout-dependent —
+  flat: rewrite them as relative imports; folder: extract the shared code
+  downward (a relative rewrite just trades the error for
   \`relative-escape\`). Whatever stays unresolved lands in the suppressions
-  ledger. Once the config exists, \`npx blueprint impact\` reports the full
-  per-rule count.
+  ledger.
 - **\`unusedVars\`** emits with \`argsIgnorePattern: '^_'\` and nothing else:
   \`_\`-prefixed *arguments* are exempt; unused variables and catch
   parameters are not.

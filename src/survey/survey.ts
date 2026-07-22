@@ -296,7 +296,15 @@ export function renderSurvey(result: SurveyResult): string {
   const selfEntries = Object.entries(result.selfAliasImports);
 
   if (selfEntries.length) {
-    lines.push('', 'Same-folder imports via the alias:');
+    // An unqualified count reads as a promise — the playbook once called it
+    // "exactly how many errors the wiring will introduce" and a field agent
+    // proved it 5 ≠ 0 against impact (test files are exempt, and textual
+    // matches include mock specifiers / dynamic imports / doc comments).
+    lines.push(
+      '',
+      'Same-folder imports via the alias (textual upper bound incl. test',
+      'files — `impact` reports what the wired rules will really flag):',
+    );
 
     for (const [folder, count] of selfEntries.sort((a, b) => b[1] - a[1])) {
       lines.push(`  ${String(count).padStart(4)}  ${folder}`);
