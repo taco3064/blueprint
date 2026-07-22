@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { nextPreset, reactPreset, vuePreset } from '../presets';
 import type { NextRouter } from '../presets';
 import { validateBlueprint } from '../config';
-import type { Blueprint } from '../config';
+import type { AgentTarget, Blueprint } from '../config';
 import { CONFIG_FILE } from './detect';
 import type { ProjectState } from './types';
 
@@ -13,6 +13,15 @@ export interface ResolveOptions {
   framework?: 'vue' | 'react';
   /** Load an existing blueprint.config (default dynamic import). */
   loadConfig?: (file: string) => Promise<Blueprint>;
+  /**
+   * Persist these contract targets into a scaffolded config (`init --agent`).
+   * Without this, the flag only narrowed the RUN and the scaffolded config
+   * stayed silent — so the next plain init grew the second contract back,
+   * and the only persistent declaration was a hand edit (field issue #5's
+   * chicken-and-egg). An existing config is never touched — its own
+   * `emit.agents` is the declaration.
+   */
+  scaffoldAgents?: AgentTarget[];
 }
 
 /* v8 ignore start -- real dynamic import, not run in unit tests (loadConfig is injected) */
@@ -49,6 +58,8 @@ export async function resolveBlueprint(
     return { blueprint, configSource: null };
   }
 
+  const agents = options.scaffoldAgents;
+
   // Next.js with a detected route tree gets its own preset — the route dir
   // is the top layer, and the source root follows --src-dir.
   if (state.hasNext && state.nextRouter) {
@@ -56,11 +67,17 @@ export async function resolveBlueprint(
       ...(state.projectName ? { name: state.projectName } : {}),
       router: state.nextRouter,
       srcDir: state.nextSrcDir,
+      ...(agents ? { emit: { agents } } : {}),
     });
 
     return {
       blueprint,
-      configSource: buildNextConfigSource(state.nextRouter, state.nextSrcDir, state.projectName),
+      configSource: buildNextConfigSource(
+        state.nextRouter,
+        state.nextSrcDir,
+        state.projectName,
+        agents,
+      ),
     };
   }
 
@@ -73,15 +90,34 @@ export async function resolveBlueprint(
   }
 
   const preset = framework === 'vue' ? vuePreset : reactPreset;
-  const blueprint = preset(state.projectName ? { name: state.projectName } : {});
 
-  return { blueprint, configSource: buildConfigSource(framework, state.projectName) };
+  const blueprint = preset({
+    ...(state.projectName ? { name: state.projectName } : {}),
+    ...(agents ? { emit: { agents } } : {}),
+  });
+
+  return {
+    blueprint,
+    configSource: buildConfigSource(framework, state.projectName, agents),
+  };
+}
+
+/** `['claude']` → `emit: { agents: ['claude'] }`, as config-source text. */
+function emitField(agents?: AgentTarget[]): string[] {
+  return agents?.length
+    ? [`emit: { agents: [${agents.map((agent) => `'${agent}'`).join(', ')}] }`]
+    : [];
 }
 
 /** Render the generated `blueprint.config.mjs` body for a fresh project. */
-export function buildConfigSource(framework: 'vue' | 'react', name?: string): string {
+export function buildConfigSource(
+  framework: 'vue' | 'react',
+  name?: string,
+  agents?: AgentTarget[],
+): string {
   const factory = framework === 'vue' ? 'vuePreset' : 'reactPreset';
-  const arg = name ? `{ name: '${name}' }` : '';
+  const fields = [...(name ? [`name: '${name}'`] : []), ...emitField(agents)];
+  const arg = fields.length ? `{ ${fields.join(', ')} }` : '';
 
   return [
     `import { ${factory} } from '@kekkai/blueprint';`,
@@ -92,11 +128,17 @@ export function buildConfigSource(framework: 'vue' | 'react', name?: string): st
 }
 
 /** Render the generated config body for a fresh Next.js project. */
-export function buildNextConfigSource(router: NextRouter, srcDir: boolean, name?: string): string {
+export function buildNextConfigSource(
+  router: NextRouter,
+  srcDir: boolean,
+  name?: string,
+  agents?: AgentTarget[],
+): string {
   const opts = [
     ...(name ? [`name: '${name}'`] : []),
     `router: '${router}'`,
     ...(srcDir ? ['srcDir: true'] : []),
+    ...emitField(agents),
   ].join(', ');
 
   return [

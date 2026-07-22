@@ -183,6 +183,12 @@ describe('authoringBrief', () => {
     expect(brief).toContain('no selfOnly, no syntax rule');
     expect(brief).toContain('`additionalAliases`');
     expect(brief).toContain('DELETE its config file');
+
+    // Field issue #5: the one remaining bundle eval was key-collision
+    // archaeology — the catalog states scope and key-level merge guidance.
+    expect(brief).toContain('root wiring sits outside all of them');
+    expect(brief).toContain('collisions are decided by rule KEY');
+    expect(brief).toContain('flag and config end up saying the same thing');
   });
 
   it('states the lint semantics up front so nobody reverse-engineers the bundle', () => {

@@ -529,6 +529,18 @@ describe('runInit · wired eslint config detection', () => {
 });
 
 describe('runInit · Next.js routing', () => {
+  it('persists --agent into a scaffolded Next config too', async () => {
+    writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/app/page.tsx'), 'export default () => null;');
+
+    await runInit(root, { install: false, log: silent, agent: 'codex' });
+
+    expect(read('blueprint.config.mjs')).toContain('emit: { agents: [\'agents\'] }');
+    expect(exists('AGENTS.md')).toBe(true);
+    expect(exists('CLAUDE.md')).toBe(false);
+  });
+
   it('scaffolds a fresh App-Router repo with nextPreset, never an empty src/pages', async () => {
     writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
     fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
@@ -729,6 +741,30 @@ describe('runInit · default agent targets are surfaced', () => {
         (action) => action.kind === 'instruct' && action.note.includes('emit.agents'),
       ),
     ).toBe(true);
+  });
+});
+
+describe('runInit · --agent persists into the scaffolded config', () => {
+  it('scaffolds emit.agents so the narrowing survives the next plain init (field #5)', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    const actions = await runInit(root, { install: false, log: silent, agent: 'claude' });
+
+    // The chicken-and-egg is gone: first run, one contract, persisted choice.
+    expect(read('blueprint.config.mjs')).toContain('emit: { agents: [\'claude\'] }');
+    expect(exists('CLAUDE.md')).toBe(true);
+    expect(exists('AGENTS.md')).toBe(false);
+
+    // No both-files note — nothing was over-emitted.
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('Wrote both'),
+    )).toBe(false);
+
+    // The scaffold is still recognized as init's own: --authoring takes over.
+    const takeover = await runInit(root, { install: false, log: silent, authoring: true });
+
+    expect(takeover.some((action) => action.kind === 'rm')).toBe(true);
+    expect(exists('blueprint-authoring.md')).toBe(true);
   });
 });
 

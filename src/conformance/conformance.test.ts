@@ -501,6 +501,20 @@ describe('the tool answers for itself — no bundle archaeology (batch 12)', () 
   });
 });
 
+describe('--agent persists into the scaffold — no chicken-and-egg (field issue #5)', () => {
+  it('first init with --agent claude emits one contract and declares it in the config', async () => {
+    const dir = repo({ packageJson: react() });
+
+    const init = await cli(dir, ['init', '--agent', 'claude', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(read(dir, 'blueprint.config.mjs')).toContain('emit: { agents: [\'claude\'] }');
+    expect(read(dir, 'CLAUDE.md')).toContain('<!-- BLUEPRINT:START -->');
+    expect(read(dir, 'AGENTS.md')).toBeNull();
+    expect(init.output).not.toContain('Wrote both');
+  });
+});
+
 describe('stale contracts cannot hide behind green (field issues #2–#3)', () => {
   it('doctor flags a hand-touched contract outside emit.agents', async () => {
     // Init only instructs when the stale file carries hand-written content —

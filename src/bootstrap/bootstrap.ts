@@ -114,11 +114,17 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
         + 'on this path. Force the authoring playbook instead with: blueprint init --authoring.';
   }
 
-  const { blueprint, configSource } = await resolveBlueprint(root, state, options);
-
-  // --agent narrows the default contract targets to the one tool in use;
-  // an explicit emit.agents in the config still wins.
+  // --agent narrows the contract targets to the one tool in use — and on a
+  // fresh scaffold the choice is PERSISTED into the generated config's
+  // emit.agents, so the next plain init does not grow the second contract
+  // back (field issue #5). An explicit emit.agents in an existing config
+  // still wins.
   const agentTarget = options.agent ? agentTargetOf(options.agent) : undefined;
+
+  const { blueprint, configSource } = await resolveBlueprint(root, state, {
+    ...options,
+    ...(agentTarget ? { scaffoldAgents: [agentTarget] } : {}),
+  });
 
   // Read the merge targets init will write into, plus every default agent
   // path — the extras feed plan's stale-contract cleanup.
@@ -243,16 +249,24 @@ function isPristineScaffold(root: string, state: ProjectState): boolean {
   /* v8 ignore next 2 -- hasConfig guarantees the file exists; null only on a read race */
   if (text === null) return false;
 
-  const candidates = (['vue', 'react'] as const).flatMap((framework) => [
-    buildConfigSource(framework, state.projectName),
-    buildConfigSource(framework, undefined),
-  ]);
+  // A scaffold written by `init --agent` carries emit.agents — still init's
+  // own byte-identical output, so each candidate gets its agent variants.
+  const agentVariants = [undefined, ['claude' as const], ['agents' as const]];
+
+  const candidates = (['vue', 'react'] as const).flatMap((framework) =>
+    agentVariants.flatMap((agents) => [
+      buildConfigSource(framework, state.projectName, agents),
+      buildConfigSource(framework, undefined, agents),
+    ]),
+  );
 
   if (state.hasNext && state.nextRouter) {
-    candidates.push(
-      buildNextConfigSource(state.nextRouter, state.nextSrcDir, state.projectName),
-      buildNextConfigSource(state.nextRouter, state.nextSrcDir, undefined),
-    );
+    for (const agents of agentVariants) {
+      candidates.push(
+        buildNextConfigSource(state.nextRouter, state.nextSrcDir, state.projectName, agents),
+        buildNextConfigSource(state.nextRouter, state.nextSrcDir, undefined, agents),
+      );
+    }
   }
 
   return candidates.includes(text);

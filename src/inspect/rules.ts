@@ -144,7 +144,8 @@ export function renderRules(severity: string, gates: GateStatus[], hasConfig: bo
     `Structural — always emitted · severity: ${severity} (emit.lint.severity covers only these)`,
     ...STRUCTURAL_RULES.map((rule) => `  ${rule.rule.padEnd(28)} ${rule.covers}`),
     '',
-    'Optional gates — emitted only when declared in `rules` with a tier other than off',
+    'Optional gates — emitted only when declared in `rules` with a tier other than off.',
+    'Every gate scopes to the layer file globs — root wiring sits outside all of them.',
     ...gates.map((gate) => {
       const fallback = gate.fallback !== undefined ? ` (default ${gate.fallback})` : '';
 

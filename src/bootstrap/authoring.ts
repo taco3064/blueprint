@@ -218,7 +218,9 @@ the answer belongs in this playbook — note the gap in your report instead.
    - **Declare your own tool** in the config — \`emit: { agents: ['claude'] }\`
      (Claude Code) or \`['agents']\` (codex & friends) — so init generates one
      contract file, not one per tool nobody uses. On a preset config, pass it
-     straight in: \`reactPreset({ name, emit: { agents: ['claude'] } })\`.
+     straight in: \`reactPreset({ name, emit: { agents: ['claude'] } })\` —
+     and \`init --agent claude\` on the preset path scaffolds the config with
+     this already declared, so flag and config end up saying the same thing.
    - **Wire the lint.** If \`eslint.config.blueprint.mjs\` was written, merge
      it into the existing flat config: spread \`...emitLint(blueprint, …)\`
      (with the TS plugin on TypeScript projects), then resolve every rule
@@ -332,7 +334,10 @@ knob covers ONLY these:
   (embedded plugin; ships inside the emitted config)
 
 **Optional gates — emitted only when declared** in \`rules\` with a tier
-other than \`off\`; none of these emits by default. The metric family falls
+other than \`off\`; none of these emits by default, and every gate scopes to
+the layer file globs — root wiring sits outside all of them. When merging,
+collisions are decided by rule KEY, not by hit count — \`blueprint rules
+--json\` names every key the emitted config sets. The metric family falls
 back to these thresholds when no \`value\` is given:
 
 ${METRIC_GATES.map((gate) => `- \`${gate.id}\` → \`${gate.rule}\` (default ${gate.fallback})`).join('\n')}

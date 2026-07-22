@@ -59,7 +59,7 @@ export interface GateSpec {
  * can never drift apart, and `LINT_GATED_RULE_IDS` derives from it.
  */
 export const PLUGIN_GATES: GateSpec[] = [
-  { id: 'unusedVars', emits: 'no-unused-vars', note: 'the TS-aware twin on TypeScript; argsIgnorePattern \'^_\' and nothing else' },
+  { id: 'unusedVars', emits: 'no-unused-vars', note: 'TWO keys on TypeScript — no-unused-vars: off plus @typescript-eslint/no-unused-vars — so check both when merging; argsIgnorePattern \'^_\' and nothing else' },
   { id: 'fixtureImports', emits: 'no-restricted-imports', note: 'fixture globs folded into the structural import bans' },
   { id: 'deepWatch', emits: 'blueprint/no-deep-watch', note: 'Vue only — never emits on React' },
   { id: 'usePrefix', emits: 'blueprint/use-prefix', note: 'on its target layer (default hooks)' },
