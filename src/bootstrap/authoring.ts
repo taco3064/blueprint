@@ -346,7 +346,6 @@ export default defineBlueprint({
       },
       { name: 'services', does: '…', owns: ['axios'] },
     ],
-    flow: 'one-way',
     module: { layout: 'flat', entry: 'index', private: [] },
     layerFiles: 'src/{layer}/**/*.<ext glob>',
     testFiles: ['**/*.test.*', '**/__tests__/**'],

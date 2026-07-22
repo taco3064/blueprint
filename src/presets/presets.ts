@@ -196,7 +196,6 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
           allowedImporters: ['containers', 'hooks', 'contexts'],
         },
       ],
-      flow: 'one-way',
       module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
       naming: {
         component: 'PascalCase; the implementation file is named after the module',
@@ -312,7 +311,6 @@ export function nextPreset(options: NextPresetOptions = {}): Blueprint {
           does: 'Framework-free plumbing: data access, formatting, config.',
         },
       ],
-      flow: 'one-way',
       module: { layout: 'flat', entry: 'index', private: [] },
       naming: {
         hook: 'useX — only when it genuinely uses reactivity',

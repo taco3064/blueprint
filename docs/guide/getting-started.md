@@ -75,7 +75,6 @@ export default defineBlueprint({
         allowedImporters: ['hooks'],
       },
     ],
-    flow: 'one-way',
     module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
   },
 });

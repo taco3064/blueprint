@@ -3,7 +3,6 @@ export { emitLint } from './emit/lint';
 export { emitHandbook } from './emit/docs';
 export { emitAgentContract, emitAgentFiles } from './emit/agent';
 export { emitCi } from './emit/ci';
-export { injectBetweenMarkers } from './markdown';
 export { plugin } from './plugin';
 export { nextPreset, reactPreset, vuePreset } from './presets';
 export { runImpact } from './impact';

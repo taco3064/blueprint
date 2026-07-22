@@ -120,7 +120,12 @@ export interface ArchitectureDef {
    */
   layers: LayerDef[];
   /** Dependency direction. Only `one-way` for now (upstream imports banned). */
-  flow: 'one-way';
+  /**
+   * @deprecated Declarative sugar that was never read: the layer ORDER is
+   * the flow, and nothing else was ever accepted. Optional now so configs
+   * can drop the ceremony; will be removed in the next major.
+   */
+  flow?: 'one-way';
   /** Feature-folder shape shared across layers. */
   module: ModuleDef;
   /**
@@ -203,7 +208,11 @@ export interface AgentEmitEntry {
 
 /** ESLint emit target. */
 export interface LintEmitDef {
-  /** Output path for the generated flat config. Used by Bootstrap (S5). */
+  /**
+   * @deprecated Never consumed — the generated config always lands at
+   * `eslint.config.mjs`, and a wired project's own config is never moved.
+   * Will be removed in the next major.
+   */
   path?: string;
   /** Severity for the managed structural rules. Default `error`. */
   severity?: 'error' | 'warn';
