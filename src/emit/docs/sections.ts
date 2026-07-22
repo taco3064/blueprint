@@ -81,7 +81,7 @@ export function renderModule(architecture: ArchitectureDef, exampleLayer: string
   const items: [string, string][] = [
     [module.entry, 'public entry — the only importable file'],
     ['Example', 'implementation (named after the module)'],
-    ...module.private.map((part): [string, string] => [part, 'private']),
+    ...(module.private ?? []).map((part): [string, string] => [part, 'private']),
   ];
 
   const tree = items.map(([part, note], i) => {

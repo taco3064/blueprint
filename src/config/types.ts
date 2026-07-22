@@ -94,8 +94,11 @@ export interface ModuleDef {
   layout: 'folder' | 'flat';
   /** The public entry filename, e.g. `index`. Everything else is private. */
   entry: string;
-  /** Private sub-parts kept behind the entry, e.g. `['hooks', 'styles', 'types']`. */
-  private: string[];
+  /**
+   * Private sub-parts kept behind the entry, e.g. `['hooks', 'styles',
+   * 'types']`. Optional — omitting it means none (`[]`).
+   */
+  private?: string[];
 }
 
 export interface ArchitectureDef {

@@ -56,6 +56,16 @@ describe('renderModule', () => {
     expect(out).toContain('└─ types'); // last private part closes the tree
   });
 
+  it('renders a folder tree without private parts when the field is omitted', () => {
+    const out = renderModule(
+      arch({ module: { layout: 'folder', entry: 'index' } }),
+      'components',
+    );
+
+    expect(out).toContain('├─ index');
+    expect(out).toContain('└─ Example'); // impl row closes the tree — nothing private after it
+  });
+
   it('renders a one-line note for flat layout', () => {
     const out = renderModule(
       arch({ module: { layout: 'flat', entry: 'index', private: [] } }),

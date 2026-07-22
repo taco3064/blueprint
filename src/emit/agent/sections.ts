@@ -121,7 +121,7 @@ export function renderPlacement(architecture: ArchitectureDef): string {
   });
 
   const { module } = architecture;
-  const priv = module.private.map((part) => `\`${part}\``).join(' / ');
+  const priv = (module.private ?? []).map((part) => `\`${part}\``).join(' / ');
 
   const moduleLine
     = module.layout === 'folder'

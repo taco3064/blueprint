@@ -106,8 +106,8 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
 
   if (!module || typeof module.entry !== 'string' || !module.entry.trim()) {
     throw new Error('architecture.module.entry must be a non-empty string.');
-  } else if (!Array.isArray(module.private)) {
-    throw new Error('architecture.module.private must be an array.');
+  } else if (module.private !== undefined && !Array.isArray(module.private)) {
+    throw new Error('architecture.module.private must be an array when set — omit it for none.');
   }
 
   if (additionalAliases !== undefined) {

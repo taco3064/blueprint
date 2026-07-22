@@ -434,7 +434,7 @@ export default defineBlueprint({
       //   { global: 'fetch' }                        global identifier
       { name: 'services', does: '…', owns: ['axios', { global: 'fetch' }] },
     ],
-    module: { layout: 'flat', entry: 'index', private: [] },
+    module: { layout: 'flat', entry: 'index' }, // private: ['hooks', …] optional — parts kept behind the entry
     layerFiles: 'src/{layer}/**/*.<ext glob>',
     testFiles: ['**/*.test.*', '**/__tests__/**'],
   },

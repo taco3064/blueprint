@@ -651,6 +651,34 @@ describe('survey counts never promise what impact must measure (field issue #11)
 
     expect(survey.output).toContain('Same-folder imports via the alias (textual upper bound');
   });
+
+  it('a draft config that never mentions module.private validates and runs', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'src/components/Button.tsx': 'export const Button = 1;',
+        // Hand-written draft-first config — the field shape that tripped on
+        // "private is required": omitting it now means none.
+        'blueprint.config.mjs': [
+          'export default {',
+          '  framework: \'react\',',
+          '  architecture: {',
+          '    alias: \'~app\',',
+          '    layers: [{ name: \'components\', does: \'render UI\' }],',
+          '    module: { layout: \'flat\', entry: \'index\' },',
+          '  },',
+          '  rules: {},',
+          '};',
+          '',
+        ].join('\n'),
+      },
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.code).toBe(0);
+    expect(inspect.output).not.toContain('module.private');
+  });
 });
 
 describe('the emitted CI honors the ratchet it ships with (field issue #10)', () => {

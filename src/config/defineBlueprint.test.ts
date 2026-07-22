@@ -134,12 +134,18 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(/module\.entry/);
   });
 
-  it('rejects a non-array module.private', () => {
+  it('rejects a non-array module.private, accepts an omitted one', () => {
     const config = base();
 
     config.architecture.module.private = 'nope' as never;
 
     expect(() => validateBlueprint(config)).toThrow(/module\.private/);
+
+    // Optional with a default of none — a draft-first config that never
+    // mentions private parts is valid (field issue #11).
+    delete config.architecture.module.private;
+
+    expect(() => validateBlueprint(config)).not.toThrow();
   });
 
   it('rejects a layer module override with an unknown layout', () => {

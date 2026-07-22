@@ -64,6 +64,12 @@ describe('renderPlacement', () => {
 
     expect(out).toContain('Only `index` is importable from outside.');
     expect(out).not.toContain('keep');
+
+    // Omitted entirely reads the same as an explicit empty list.
+    const omitted = renderPlacement(arch({ module: { layout: 'folder', entry: 'index' } }));
+
+    expect(omitted).toContain('Only `index` is importable from outside.');
+    expect(omitted).not.toContain('keep');
   });
 
   it('describes a flat module', () => {
