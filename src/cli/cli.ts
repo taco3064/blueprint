@@ -3,7 +3,7 @@ import fs, { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { AGENT_KINDS, runInit } from '../bootstrap';
+import { AGENT_KINDS, BROWNFIELD_MIN_FILES, runInit } from '../bootstrap';
 import type { AgentKind, InitOptions } from '../bootstrap';
 import { runImpact } from '../impact';
 import type { ImpactOptions } from '../impact';
@@ -72,8 +72,8 @@ const INIT_HELP = [
   '  --preset                Skip the authoring flow: scaffold the framework',
   '                          preset even on a brownfield repo.',
   '  --authoring             Force the authoring playbook even on a small repo',
-  '                          (below the preset threshold). Opposite of --preset;',
-  '                          the two cannot be combined.',
+  `                          (below the brownfield threshold, ${BROWNFIELD_MIN_FILES} source files).`,
+  '                          Opposite of --preset; the two cannot be combined.',
   '  --framework vue|react   Only needed when package.json detection is',
   '                          ambiguous — vue/react is otherwise auto-detected.',
   '  --no-install            Skip dependency installation.',
@@ -235,9 +235,9 @@ const DOCTOR_HELP = [
   '    merges a rule two entries set; if a later entry replaced blueprint\'s',
   '    structural bans (lint stays green, a defense silently dies), this',
   '    turns red and names what was lost',
-  '  · architecture clean — no findings outside the baseline; the detail line',
-  '    states the coverage (files inside layer nets, active optional gates), so a',
-  '    vacuously green gate is visible instead of quietly reassuring',
+  '  · architecture clean — no findings outside the baseline, if one is in play;',
+  '    the detail states the coverage (files inside layer nets, active optional',
+  '    gates), so a vacuously green gate is visible instead of quietly reassuring',
   '  · lint suppressions ledger current — stale entries in',
   '    eslint-suppressions.json (files that no longer exist) fail the check',
   '',

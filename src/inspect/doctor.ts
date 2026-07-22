@@ -212,7 +212,7 @@ export async function runDoctor(
     ? parseBaseline(fs.readFileSync(path.join(root, BASELINE_FILE), 'utf-8'))
     : [];
 
-  const fresh = splitByBaseline(findings, recorded).fresh;
+  const { fresh, suppressed } = splitByBaseline(findings, recorded);
 
   const wiring = await wiringCheck({
     root,
@@ -250,12 +250,21 @@ export async function runDoctor(
     aliasCheck(root, blueprint, state),
     wiring,
     {
-      label: 'architecture clean (findings covered by the baseline)',
+      // The check judges net of the baseline, but the label only mentions
+      // the ledger while it is actually covering something — inspect says
+      // "no baseline needed" on a truly clean repo, and doctor claiming
+      // coverage by a ledger that does not exist told the opposite story
+      // about the same state (field run #10).
+      label: suppressed > 0
+        ? 'architecture clean (findings covered by the baseline)'
+        : 'architecture clean',
       ok: !hasErrors(fresh),
       // The green states its reach — a clean report over an empty net is
       // vacuous, and the reader deserves to see which one they got.
       detail: hasErrors(fresh)
-        ? `${fresh.length} finding(s) outside the baseline — fix, or \`blueprint inspect --update-baseline\``
+        ? suppressed > 0
+          ? `${fresh.length} finding(s) outside the baseline — fix, or \`blueprint inspect --update-baseline\``
+          : `${fresh.length} finding(s) — fix, or lock as accepted debt: \`blueprint inspect --update-baseline\``
         : coverage.sourceFiles > 0 && coverage.layerFiles === 0
           ? `clean, but vacuous — layer globs match 0 of ${coverage.sourceFiles} source file(s); the wiring is done — ${vacuousNextStep(blueprint)}`
           : coverageSummary(coverage),

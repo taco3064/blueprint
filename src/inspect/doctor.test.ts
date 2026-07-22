@@ -64,6 +64,9 @@ describe('runDoctor', () => {
     expect(ok).toBe(true);
     expect(checks.every((check) => check.ok)).toBe(true);
     expect(output).toContain('Adoption complete — all 7 checks passed');
+    // Truly clean, no baseline — the label stays plain instead of claiming
+    // coverage by a ledger that does not exist (field run #10).
+    expect(checks.map((c) => c.label)).toContain('architecture clean');
   });
 
   it('flags a leftover reference file', async () => {
@@ -245,13 +248,44 @@ describe('runDoctor', () => {
     expect(check?.detail).toContain('combine both option sets into ONE');
   });
 
-  it('flags findings that sit outside the baseline', async () => {
+  it('flags findings without claiming a baseline that does not exist', async () => {
     adopted();
     write('src/random/x.ts', 'export const x = 1;'); // undeclared folder → error finding
     const { ok, checks } = await runDoctor(root, { loadConfig: load, log: silent });
+    const check = checks.find((c) => c.label.includes('architecture'));
 
     expect(ok).toBe(false);
-    expect(checks.find((c) => c.label.includes('architecture'))?.detail).toContain('outside the baseline');
+    // No baseline file — neither label nor detail may mention one as if it
+    // were in play (field run #10: doctor and inspect told opposite stories).
+    expect(check?.label).toBe('architecture clean');
+    expect(check?.detail).toContain('fix, or lock as accepted debt');
+  });
+
+  it('names fresh findings as outside the baseline when one is covering', async () => {
+    adopted();
+    write('src/random/x.ts', 'export const x = 1;'); // covered by the baseline below
+    write('src/stray/y.ts', 'export const y = 1;'); // fresh — outside it
+
+    write(
+      '.blueprint-baseline.json',
+      JSON.stringify({
+        findings: [
+          {
+            rule: 'undeclared-folder',
+            path: 'src/random',
+            message:
+              '"random" is not a declared layer — declare it, or move its code into a module of an existing layer.',
+          },
+        ],
+      }),
+    );
+
+    const { ok, checks } = await runDoctor(root, { loadConfig: load, log: silent });
+    const check = checks.find((c) => c.label.includes('architecture'));
+
+    expect(ok).toBe(false);
+    expect(check?.label).toContain('covered by the baseline');
+    expect(check?.detail).toContain('outside the baseline');
   });
 
   it('counts baselined findings as clean', async () => {
@@ -274,8 +308,11 @@ describe('runDoctor', () => {
     );
 
     const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
+    const check = checks.find((c) => c.label.includes('architecture'));
 
-    expect(checks.find((c) => c.label.includes('architecture'))?.ok).toBe(true);
+    expect(check?.ok).toBe(true);
+    // Only NOW may the label claim coverage — the ledger is doing work.
+    expect(check?.label).toContain('covered by the baseline');
   });
 
   it('flags a marker-bearing contract outside the emitted set (field issues #2/#3)', async () => {

@@ -383,9 +383,11 @@ function runAuthoring(
     `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · brownfield without a config → authoring flow (${survey.totalFiles} source files surveyed)${
       // --authoring below the threshold writes a playbook whose own verdict
       // is the early exit — say so up front, or the flag looks like it
-      // produced a self-refuting document (field issues #7/#8).
+      // produced a self-refuting document (field issues #7/#8). One name and
+      // one number for the gate everywhere — the playbook calls it the
+      // brownfield threshold, so the CLI does too (field run #10).
       forced
-        ? ' — below the preset threshold, forced by --authoring; the playbook\'s own verdict will be the early exit'
+        ? ` — below the brownfield threshold (${BROWNFIELD_MIN_FILES} source files), forced by --authoring; the playbook's own verdict will be the early exit`
         : ''
     }`,
   );

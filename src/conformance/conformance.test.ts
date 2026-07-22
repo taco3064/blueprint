@@ -585,3 +585,39 @@ describe('scaffold matches the doctrine — no invented structure (batch 11)', (
     expect(read(dir, 'CLAUDE.md')).toContain('<!-- BLUEPRINT:START -->');
   });
 });
+
+describe('one story per state — the tools do not contradict each other (field run #10)', () => {
+  it('doctor never claims a baseline on a truly clean repo', async () => {
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+    write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
+
+    const doctor = await cli(dir, ['doctor']);
+
+    expect(doctor.code).toBe(0);
+    // Clean with no ledger: inspect says "no baseline needed", so doctor
+    // must not answer the same state with "covered by the baseline".
+    expect(doctor.output).toContain('architecture clean');
+    expect(doctor.output).not.toContain('covered by the baseline');
+
+    const update = await cli(dir, ['inspect', '--update-baseline']);
+
+    expect(update.code).toBe(0);
+    expect(update.output).toContain('no baseline needed');
+  });
+
+  it('the CLI and the playbook give the size gate one name and one number', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    const init = await cli(dir, ['init', '--authoring', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).toContain('below the brownfield threshold (10 source files)');
+    expect(init.output).not.toContain('preset threshold');
+    expect(read(dir, 'blueprint-authoring.md')).toContain('brownfield threshold (10)');
+  });
+});
