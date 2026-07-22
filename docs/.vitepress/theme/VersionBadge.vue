@@ -1,6 +1,7 @@
 <script setup>
 // Injected at build time from package.json (see vite.define in config.mts) —
-// the badge always states the version these docs were built against.
+// the badge always states the version these docs were built against. It
+// renders as a second line under the site title (grid layout in custom.css).
 const version = __BP_VERSION__;
 </script>
 
@@ -10,15 +11,10 @@ const version = __BP_VERSION__;
 
 <style scoped>
 .bp-version-badge {
-  margin-left: 8px;
-  padding: 1px 8px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 10px;
   font-size: 11px;
   font-weight: 500;
-  line-height: 18px;
-  color: var(--vp-c-text-2);
-  background: var(--vp-c-bg-soft);
-  transform: translateY(-1px);
+  line-height: 1;
+  letter-spacing: 0.3px;
+  color: var(--vp-c-text-3);
 }
 </style>
