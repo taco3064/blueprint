@@ -277,6 +277,10 @@ export function renderSurvey(result: SurveyResult): string {
     );
   }
 
+  // A bare heading over nothing reads as a render failure — say "none"
+  // (field issue #6). Same below for the import matrix.
+  if (!result.folders.length) lines.push('  — none —');
+
   lines.push(
     '',
     'Import matrix (cross-folder, heaviest first — includes test files;',
@@ -286,6 +290,8 @@ export function renderSurvey(result: SurveyResult): string {
   for (const edge of result.edges) {
     lines.push(`  ${String(edge.count).padStart(4)}  ${edge.from} → ${edge.to}`);
   }
+
+  if (!result.edges.length) lines.push('  — none —');
 
   const selfEntries = Object.entries(result.selfAliasImports);
 

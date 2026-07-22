@@ -264,15 +264,22 @@ function eslintWiringNote(state: ProjectState): string {
       + shared;
   }
 
+  // emitLint spreads LAST: flat config's later-entries-win means an earlier
+  // spread lets a preset (e.g. tseslint.recommended) silently override the
+  // tuned per-layer rules — the exact trap the playbook warns about, which
+  // this hint used to walk people into (field issue #6).
   if (state.eslintConfigShape === 'tseslint') {
     return 'Your eslint config uses `tseslint.config()`. Wire blueprint in by wrapping the spread '
       + '(eslint.config.blueprint.mjs is your merge source):\n'
       + '    import blueprint from \'./blueprint.config.mjs\';\n'
       + '    import { emitLint } from \'@kekkai/blueprint\';\n'
       + '    export default tseslint.config(\n'
-      + '      ...emitLint(blueprint, { typescript: tseslint.plugin }),\n'
       + '      /* …your existing configs */\n'
+      + '      ...emitLint(blueprint, { typescript: tseslint.plugin }),\n'
       + '    );\n'
+      + '  emitLint goes LAST — later entries win in flat config, so this keeps the\n'
+      + '  blueprint\'s per-layer tuning alive over broad presets. Rules BOTH sides set\n'
+      + '  (no-restricted-*) still need combining into ONE entry.\n'
       + shared;
   }
 
@@ -280,8 +287,11 @@ function eslintWiringNote(state: ProjectState): string {
     + 'is your merge source, not a keepsake. Diff it, then spread the rules into your flat config:\n'
     + '    import blueprint from \'./blueprint.config.mjs\';\n'
     + '    import { emitLint } from \'@kekkai/blueprint\';\n'
-    + '    export default [ ...emitLint(blueprint), /* …your existing entries */ ];\n'
-    + '  On a TypeScript project pass the TS plugin — emitLint(blueprint, { typescript: tseslint.plugin }).\n'
+    + '    export default [ /* …your existing entries */ ...emitLint(blueprint) ];\n'
+    + '  emitLint goes LAST — later entries win in flat config, so this keeps the\n'
+    + '  blueprint\'s per-layer tuning alive over broad presets. Rules BOTH sides set\n'
+    + '  (no-restricted-*) still need combining into ONE entry. On a TypeScript\n'
+    + '  project pass the TS plugin — emitLint(blueprint, { typescript: tseslint.plugin }).\n'
     + shared;
 }
 
@@ -324,6 +334,12 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
   const parserImports = [
     ...(vue ? ['import vueParser from \'vue-eslint-parser\';'] : []),
     ...(ts ? ['import tseslint from \'typescript-eslint\';'] : []),
+  ];
+
+  const parserHeader = [
+    '  // Parser setup — needed when THIS file is the live config. Merging',
+    '  // into an existing config that already wires parsers? Skip these',
+    '  // blocks — copying them re-parses files your config already handles.',
   ];
 
   const parserBlocks = [
@@ -378,6 +394,7 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     'import blueprint from \'./blueprint.config.mjs\';',
     '',
     'export default [',
+    ...(parserBlocks.length ? parserHeader : []),
     ...parserBlocks,
     // TS projects hand emitLint the @typescript-eslint plugin so the
     // unusedVars gate runs its TS-aware rule (core false-flags enum members).
