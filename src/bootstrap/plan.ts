@@ -194,19 +194,32 @@ export function plan(
     });
   }
 
-  if (state.missingDeps.length) {
+  // The comments companion is installed only when init writes the LIVE
+  // config that imports it. On the reference path the block is opt-in
+  // ("adopt deliberately or drop") — installing first and deciding later
+  // left an orphan devDependency when the block was dropped (field issue #2).
+  const companionLive
+    = state.ownedEslintConfig !== undefined
+      || (!state.wiredEslintConfig && !state.hasEslintConfig
+        && state.legacyEslintConfig === undefined);
+
+  const deps = companionLive
+    ? state.missingDeps
+    : state.missingDeps.filter((dep) => dep !== '@eslint-community/eslint-plugin-eslint-comments');
+
+  if (deps.length) {
     if (options.install !== false) {
       actions.push({
         kind: 'install',
-        command: installCommand(state.packageManager, state.missingDeps),
-        note: `install ${state.missingDeps.join(', ')}`,
+        command: installCommand(state.packageManager, deps),
+        note: `install ${deps.join(', ')}`,
       });
     } else {
       // --no-install must not silently drop the requirement — surface the
       // exact command, or the install claim rings empty.
       actions.push({
         kind: 'instruct',
-        note: `Install skipped — run it yourself:\n    ${installCommand(state.packageManager, state.missingDeps)}`,
+        note: `Install skipped — run it yourself:\n    ${installCommand(state.packageManager, deps)}`,
       });
     }
   }
@@ -372,7 +385,10 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
       ? '  ...emitLint(blueprint, { typescript: tseslint.plugin }),'
       : '  ...emitLint(blueprint),',
     '  // Recommended companion — NOT part of emitLint: forbids silent and',
-    '  // undocumented disables. Adopt it deliberately or drop the block;',
+    '  // undocumented disables. Adopting it needs its plugin installed',
+    '  // (npm i -D @eslint-community/eslint-plugin-eslint-comments — init',
+    '  // installs it only when this generated file IS the live config).',
+    '  // Adopt it deliberately or drop the block;',
     '  // existing bare disables violate require-description until annotated',
     '  // (-- reason), so do not copy this in blindly on a brownfield repo.',
     '  // Scope: JS/TS disable comments only — Vue template <!-- eslint-disable -->',

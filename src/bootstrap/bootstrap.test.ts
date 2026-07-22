@@ -721,3 +721,33 @@ describe('runInit · default agent targets are surfaced', () => {
     ).toBe(true);
   });
 });
+
+describe('runInit · an introduced alias is named as a decision', () => {
+  it('says the preset introduced the repo\'s first alias — and stays quiet when one existed', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    const introduced = await runInit(root, { install: false, log: silent });
+
+    expect(
+      introduced.some(
+        (action) => action.kind === 'instruct' && action.note.includes('first import alias'),
+      ),
+    ).toBe(true);
+
+    // A repo that already resolves an alias made that call itself.
+    fs.rmSync(path.join(root, 'blueprint.config.mjs'));
+
+    fs.writeFileSync(
+      path.join(root, 'tsconfig.json'),
+      JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }),
+    );
+
+    const detected = await runInit(root, { install: false, log: silent });
+
+    expect(
+      detected.some(
+        (action) => action.kind === 'instruct' && action.note.includes('first import alias'),
+      ),
+    ).toBe(false);
+  });
+});

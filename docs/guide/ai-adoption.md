@@ -88,8 +88,10 @@ npx @kekkai/blueprint doctor
 ```
 
 - **blueprint.config.mjs present**
-- **no leftover `*.blueprint.*` reference files** — a reference still on disk means
-  the merge never finished (the single most-missed step)
+- **no leftover `*.blueprint.*` reference files, no stale contracts** — a reference
+  still on disk means the merge never finished (the single most-missed step), and a
+  marker-bearing contract file outside the emitted `emit.agents` set is an orphan
+  nothing maintains
 - **eslint wired to emitLint** — and a legacy `.eslintrc` is flagged to migrate first,
   never silently left half-adopted
 - **import alias wired to the toolchain** — a declared alias that neither tsconfig

@@ -501,6 +501,31 @@ describe('the tool answers for itself — no bundle archaeology (batch 12)', () 
   });
 });
 
+describe('stale contracts cannot hide behind green (field issues #2–#3)', () => {
+  it('doctor flags a hand-touched contract outside emit.agents', async () => {
+    // Init only instructs when the stale file carries hand-written content —
+    // without this check the orphan lived on with every gate green.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource({
+          ...reactBlueprint,
+          emit: { agents: ['claude'] },
+        }),
+        'CLAUDE.md': '<!-- BLUEPRINT:START -->\ncontract\n<!-- BLUEPRINT:END -->\n',
+        'AGENTS.md': '# our own notes\n\n<!-- BLUEPRINT:START -->\nold\n<!-- BLUEPRINT:END -->\n',
+      },
+    });
+
+    const doctor = await cli(dir, ['doctor']);
+
+    expect(doctor.code).toBe(1);
+    expect(doctor.output).toContain('✗ no leftover reference or stale contract files');
+    expect(doctor.output).toContain('AGENTS.md');
+    expect(doctor.output).toContain('needs its block removed by hand');
+  });
+});
+
 describe('scaffold matches the doctrine — no invented structure (batch 11)', () => {
   it('scaffolds guidance dirs only into an empty tree', async () => {
     const rooted = repo({

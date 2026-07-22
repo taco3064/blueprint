@@ -12,6 +12,7 @@ import {
   buildNextConfigSource,
   CONFIG_FILE,
   detect,
+  pathAliasKeys,
   readTexts,
   resolveBlueprint,
 } from '../project';
@@ -173,6 +174,16 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
     if (lintWiring.kind === 'write' && installAt !== -1) actions.splice(installAt, 0, lintWiring);
     else actions.push(lintWiring);
+  }
+
+  // A preset on a repo that never had an alias INTRODUCES one — a new
+  // convention, not a detected fact. Name the decision instead of letting
+  // the choice pass as if the repo had asked for it (field issue #2).
+  if (configSource !== null && pathAliasKeys(state.tsconfigs).size === 0) {
+    actions.push({
+      kind: 'instruct',
+      note: `The preset introduced "${blueprint.architecture.alias}" as this repo's first import alias — a new convention, not a detected one. Prefer another (e.g. '@')? Set the preset's alias option in blueprint.config.mjs and re-run init.`,
+    });
   }
 
   // The greenfield default emits both shared contracts — surface the

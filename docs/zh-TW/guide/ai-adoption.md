@@ -64,7 +64,7 @@ npx @kekkai/blueprint doctor
 ```
 
 - **blueprint.config.mjs 存在**
-- **沒有殘留的 `*.blueprint.*` reference 檔** —— reference 還在磁碟上就代表 merge 沒做完（最常漏的一步）
+- **沒有殘留的 `*.blueprint.*` reference 檔、沒有過期的 contract 檔** —— reference 還在就代表 merge 沒做完（最常漏的一步）；帶著 BLUEPRINT 標記、卻不在 `emit.agents` 宣告範圍內的 contract 檔，是沒人維護的孤兒，不准躲在綠燈後面
 - **eslint 真的接上 emitLint** —— legacy `.eslintrc` 會被標記為「先遷移」，不會無聲留半套
 - **宣告的 alias 接得上 toolchain** —— alias 宣告了卻沒有任何工具（tsconfig `paths`，或 vite / webpack / vue-cli / next / rsbuild 的 bundler config）解析得到，agent contract 就會把 agent 指向解析不了的匯入；失敗訊息直接附上 wiring 片段
 - **emitted rules 在合併後的 config 裡活著** —— flat config 對同一條 rule 從不合併：後面的 entry 會「靜靜地」整包取代 blueprint 的結構禁令，lint 還是綠的。doctor 用一個真實 layer 檔解析最終 config，點名弄丟了什麼
