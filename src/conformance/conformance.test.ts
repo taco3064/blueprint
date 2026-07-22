@@ -621,3 +621,30 @@ describe('one story per state — the tools do not contradict each other (field 
     expect(read(dir, 'blueprint-authoring.md')).toContain('brownfield threshold (10)');
   });
 });
+
+describe('the emitted CI honors the ratchet it ships with (field issue #10)', () => {
+  it('locked debt stays green on the workflow line — the live-verified repro', async () => {
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+    write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
+
+    // One uniform gate line: a missing ledger is an empty one, so this
+    // also behaves as plain inspect on a greenfield repo.
+    expect(read(dir, '.github/workflows/blueprint-ci.yml'))
+      .toContain('npx blueprint inspect --baseline');
+
+    // The field repro: create debt, lock it, then run what CI runs.
+    write(dir, 'src/random/x.ts', 'export const x = 1;'); // undeclared folder → error
+
+    expect((await cli(dir, ['inspect'])).code).toBe(1);
+    expect((await cli(dir, ['inspect', '--update-baseline'])).code).toBe(0);
+
+    const gate = await cli(dir, ['inspect', '--baseline']);
+
+    // Before the fix the emitted workflow ran plain inspect here — red
+    // forever on debt the tool itself told the adopter to lock.
+    expect(gate.code).toBe(0);
+    expect(gate.output).toContain('1 baselined finding(s) suppressed');
+  });
+});

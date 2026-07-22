@@ -64,11 +64,14 @@ export async function runInspect(
         ? ` (${findings.length} informational note(s) are not debt)`
         : '';
 
+      // Never point at plain `inspect` here — the emitted CI runs
+      // `inspect --baseline` (a missing ledger is an empty one), and telling
+      // the reader plain inspect is the gate invites them to "fix" that line.
       if (fs.existsSync(baselineFile)) {
         fs.rmSync(baselineFile);
-        log(`No debt to lock${note} — ${BASELINE_FILE} removed; plain \`blueprint inspect\` is the gate now.`);
+        log(`No debt to lock${note} — ${BASELINE_FILE} removed; \`inspect --baseline\` (the CI line) now suppresses nothing.`);
       } else {
-        log(`No debt to lock${note} — no baseline needed; plain \`blueprint inspect\` is the gate.`);
+        log(`No debt to lock${note} — no baseline needed; \`inspect --baseline\` (the CI line) treats a missing ledger as empty.`);
       }
 
       return { findings, ok: true };

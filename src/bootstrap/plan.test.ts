@@ -116,7 +116,7 @@ describe('plan', () => {
   it('writes the CI workflow only when emit.ci is github', () => {
     const workflow = write(plan(state(), bp, null, {}), '.github/workflows/blueprint-ci.yml');
 
-    expect(workflow?.content).toContain('npx blueprint inspect');
+    expect(workflow?.content).toContain('npx blueprint inspect --baseline');
 
     const none = { ...bp, emit: { ...bp.emit, ci: 'none' as const } };
 

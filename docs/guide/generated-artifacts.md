@@ -147,8 +147,10 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npx eslint src
-      - run: npx blueprint inspect
+      - run: npx blueprint inspect --baseline
 ```
 
-On a brownfield repo, swap the last step for `npx blueprint inspect --baseline` — the
+The last step is one uniform line for both worlds: with no baseline file it behaves
+exactly like plain `inspect`, and on a brownfield repo it fails only on findings
+outside the locked debt — the
 [ratchet](/guide/getting-started#brownfield-—-blueprint-inspect).

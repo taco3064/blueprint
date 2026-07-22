@@ -44,8 +44,9 @@ describe('runInit', () => {
       compilerOptions: { paths: { '~app/*': ['./src/*'] } },
     });
 
-    // The preset opts into CI generation (Day-1 doctrine).
-    expect(read('.github/workflows/blueprint-ci.yml')).toContain('npx blueprint inspect');
+    // The preset opts into CI generation (Day-1 doctrine); the gate is the
+    // uniform --baseline line, so locked debt never fights the emitted CI.
+    expect(read('.github/workflows/blueprint-ci.yml')).toContain('npx blueprint inspect --baseline');
   });
 
   it('patches an existing parseable tsconfig.json with the alias paths', async () => {

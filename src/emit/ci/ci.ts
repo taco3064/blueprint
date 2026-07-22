@@ -44,7 +44,11 @@ export function emitCi(blueprint: Blueprint, options: CiOptions = {}): string {
     '          node-version: 22',
     `      - run: ${install}`,
     '      - run: npx eslint src',
-    '      - run: npx blueprint inspect',
+    // --baseline is the one uniform CI line: a missing ledger is an empty
+    // ledger, so greenfield behaves like plain inspect — and locked debt
+    // stays green instead of the emitted CI fighting the ratchet it ships
+    // with (field issue #10, live-verified).
+    '      - run: npx blueprint inspect --baseline',
     ...(deadCodeTier === 'error'
       ? [
           '      # Dead-code gate (optional) — install knip and configure its',

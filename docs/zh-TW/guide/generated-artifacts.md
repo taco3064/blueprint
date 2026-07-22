@@ -128,7 +128,7 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npx eslint src
-      - run: npx blueprint inspect
+      - run: npx blueprint inspect --baseline
 ```
 
-既有專案把最後一步換成 `npx blueprint inspect --baseline` 就好 —— 也就是 [baseline 棘輪](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect)。
+最後一步兩種情境共用同一行：沒有 baseline 檔時行為等同純 `inspect`；既有專案鎖了債務後，只擋 baseline 之外的新發現 —— 也就是 [baseline 棘輪](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect)。

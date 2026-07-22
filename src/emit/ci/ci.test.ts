@@ -11,7 +11,9 @@ describe('emitCi', () => {
     expect(out).toContain('uses: actions/checkout@v4');
     expect(out).toContain('run: npm install');
     expect(out).toContain('run: npx eslint src');
-    expect(out).toContain('run: npx blueprint inspect');
+    // The uniform CI line — a missing baseline is an empty one, so this
+    // gates greenfield and locked-debt brownfield alike (field issue #10).
+    expect(out).toContain('run: npx blueprint inspect --baseline');
   });
 
   it('falls back to a bare title and adapts the install step to the package manager', () => {

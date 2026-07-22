@@ -43,7 +43,7 @@ const INIT_HELP = [
   '  · eslint.config.mjs — structural rules + the embedded plugin',
   '  · docs/architecture-handbook.md and AI agent contracts (CLAUDE.md, AGENTS.md)',
   '  · compilerOptions.paths for the import alias (lossless edits only)',
-  '  · .github/workflows/blueprint-ci.yml — lint + inspect as the gate',
+  '  · .github/workflows/blueprint-ci.yml — lint + inspect --baseline as the gate',
   '',
   'On a brownfield repo WITHOUT a config, init does not guess: it surveys the',
   'code and writes blueprint-authoring.md — an executable playbook for deriving',

@@ -74,7 +74,10 @@ export function renderCompactContract(blueprint: Blueprint): string {
     `- **Before adding, moving, or renaming any file** — placement, module shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
     '- **Operating discipline** — how to follow the flow, react to lint failures, and the pre-commit checklist: read [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md).',
     `- Hard gates (machine-enforced): one-way imports, module entries, ownership, relative escapes${gates.length ? `, ${gates.join(', ')}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
-    `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect\` verifies).`,
+    // --baseline so the verify loop fails only on findings the agent itself
+    // introduced — plain inspect stays red forever on locked brownfield debt
+    // (the same trap the emitted CI had; field issue #10).
+    `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced).`,
   ].join('\n');
 }
 
