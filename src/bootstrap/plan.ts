@@ -114,8 +114,19 @@ export function plan(
   // longer names is a stale artifact — the field workflow was config-edit →
   // re-init → manual rm. Wholly generated files (nothing outside the marker
   // block; own-strategy rules files by construction) are init's to remove;
-  // one carrying hand-written content only gets told.
+  // one carrying hand-written content only gets told. The note names the
+  // ACTUAL cause of the narrowing — a deletion whose stated reason points
+  // at a config field that is not there reads as breakage, and a --agent
+  // narrowing silently un-narrows on the next plain init unless the agent
+  // is told how to make it permanent.
   const emitted = new Set(agentFiles.map((file) => file.path));
+
+  const cause
+    = emit?.agents !== undefined
+      ? 'no longer in emit.agents'
+      : options.agentTarget !== undefined
+        ? 'narrowed by --agent; declare emit.agents in blueprint.config.mjs to make this permanent'
+        : 'not among the emitted targets';
 
   for (const spec of defaultAgentPaths()) {
     const existing = options.existingAgentFiles?.[spec.path] ?? null;
@@ -126,12 +137,12 @@ export function plan(
       actions.push({
         kind: 'rm',
         path: spec.path,
-        note: `${spec.path} (stale agent contract — no longer in emit.agents)`,
+        note: `${spec.path} (stale agent contract — ${cause})`,
       });
     } else if (existing.includes(`<!-- ${MARKER}:START -->`)) {
       actions.push({
         kind: 'instruct',
-        note: `${spec.path} is no longer in emit.agents but carries hand-written content around its BLUEPRINT block — remove the block (or the file) yourself if it is unwanted.`,
+        note: `${spec.path} is no longer among the emitted agent contracts (${cause}) but carries hand-written content around its BLUEPRINT block — remove the block (or the file) yourself if it is unwanted.`,
       });
     }
   }

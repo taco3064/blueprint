@@ -31,6 +31,18 @@ its authoring playbook).
 runtimes; `plugin` is the embedded ESLint plugin (plain rule objects, no
 internal deps) that `emit/lint` ships inside its output.
 
+## Self-explaining output (every CLI / runtime message)
+
+An adopting agent's only guaranteed in-context channel is the output of the
+command it just ran — the playbook and docs were read long before the doubt
+arises, and its priors ("tools usually behave like X") fill every gap the
+output leaves. So **every message that reports a side effect (write / rm),
+or a behavior that contradicts common tool intuition, carries its cause and
+the next step in the same line.** Two truths without a bridge read as a
+contradiction ("Adoption complete" beside "vacuous"); an effect without a
+stated cause reads as breakage (a deletion blamed on a config field that
+is not in the config). Field batches 10–12 are the case law.
+
 ## Tests & tooling
 
 - **Co-locate tests**: `foo.test.ts` beside `foo.ts`; the test name matches the

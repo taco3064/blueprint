@@ -144,7 +144,11 @@ export function renderRetire(token: string, hits: RetireHit[]): string {
     `blueprint retire — references to "${token}"`,
     '',
     ...hits.flatMap((hit) => [
-      `  ${hit.file}`,
+      // A dependency entry is not a text edit — hand-deleting it leaves the
+      // lockfile pointing at a package the manifest no longer names.
+      hit.file.endsWith('package.json')
+        ? `  ${hit.file} (a dependency entry here leaves via npm uninstall, not a text edit)`
+        : `  ${hit.file}`,
       ...hit.lines.map(({ line, text }) => `    ${line}: ${text}`),
     ]),
     '',

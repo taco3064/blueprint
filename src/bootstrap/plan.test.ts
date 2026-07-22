@@ -165,8 +165,31 @@ describe('plan', () => {
     expect(actions.some((a) => a.kind === 'rm')).toBe(false);
 
     expect(actions.some(
-      (a) => a.kind === 'instruct' && a.note.includes('AGENTS.md is no longer in emit.agents'),
+      (a) => a.kind === 'instruct' && a.note.includes('AGENTS.md is no longer among the emitted agent contracts'),
     )).toBe(true);
+  });
+
+  it('names the true cause of the narrowing — flag, config, or default set', () => {
+    const stale = '<!-- BLUEPRINT:START -->\nold\n<!-- BLUEPRINT:END -->\n';
+
+    // --agent narrowed it: the note must not blame a config field that is
+    // not there, and must say how to make the narrowing permanent — or the
+    // next plain init regrows the file and the agent reads a flip-flop.
+    const viaFlag = plan(state(), bp, null, {
+      agentTarget: 'claude',
+      existingAgentFiles: { 'AGENTS.md': stale },
+    }).find((a) => a.kind === 'rm');
+
+    expect(viaFlag?.note).toContain('narrowed by --agent');
+    expect(viaFlag?.note).toContain('declare emit.agents in blueprint.config.mjs');
+
+    // Config silent, no flag: a stale non-default contract (an old GEMINI.md)
+    // is simply not among the default set.
+    const viaDefault = plan(state(), bp, null, {
+      existingAgentFiles: { 'GEMINI.md': stale },
+    }).find((a) => a.kind === 'rm');
+
+    expect(viaDefault?.note).toContain('not among the emitted targets');
   });
 
   it('never removes a file with content after the first marker block', () => {
@@ -184,7 +207,7 @@ describe('plan', () => {
     expect(actions.some((a) => a.kind === 'rm')).toBe(false);
 
     expect(actions.some(
-      (a) => a.kind === 'instruct' && a.note.includes('AGENTS.md is no longer in emit.agents'),
+      (a) => a.kind === 'instruct' && a.note.includes('AGENTS.md is no longer among the emitted agent contracts'),
     )).toBe(true);
   });
 
