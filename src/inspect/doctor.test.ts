@@ -69,6 +69,21 @@ describe('runDoctor', () => {
     expect(checks.map((c) => c.label)).toContain('architecture clean');
   });
 
+  it('flags leftover authoring artifacts — doctor has the final word, not a mid-flow one', async () => {
+    adopted();
+    write('blueprint-authoring.md', '# playbook');
+    write('.claude/commands/blueprint-author.md', 'prompt');
+
+    const { ok, checks } = await runDoctor(root, { loadConfig: load, log: silent });
+    const check = checks.find((c) => c.label.includes('leftover'));
+
+    expect(ok).toBe(false);
+    expect(check?.ok).toBe(false);
+    expect(check?.detail).toContain('blueprint-authoring.md');
+    expect(check?.detail).toContain('.claude/commands/blueprint-author.md');
+    expect(check?.detail).toContain('EXPECTED to fail');
+  });
+
   it('flags a leftover reference file', async () => {
     adopted();
     write('CLAUDE.blueprint.md', '# reference');

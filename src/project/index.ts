@@ -1,4 +1,6 @@
 export {
+  AUTHORING_FILE,
+  COMMAND_FILE,
   CONFIG_FILE,
   detect,
   detectAliases,

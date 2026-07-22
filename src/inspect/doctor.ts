@@ -2,7 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
-import { detect, loadProjectModule, pathAliasKeys, quotedIn, resolveBlueprint } from '../project';
+import {
+  AUTHORING_FILE,
+  COMMAND_FILE,
+  detect,
+  loadProjectModule,
+  pathAliasKeys,
+  quotedIn,
+  resolveBlueprint,
+} from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
 import type { Blueprint } from '../config';
 import { analyze } from './analyze';
@@ -200,6 +208,10 @@ export async function runDoctor(
   }
 
   const references = referenceFiles(root);
+
+  const authoring = [AUTHORING_FILE, COMMAND_FILE].filter((file) =>
+    fs.existsSync(path.join(root, file)));
+
   const eslintWired = state.ownedEslintConfig !== undefined || state.wiredEslintConfig;
 
   const { blueprint } = await resolveBlueprint(root, state, options);
@@ -225,12 +237,18 @@ export async function runDoctor(
   const checks: DoctorCheck[] = [
     { label: 'blueprint.config.mjs present', ok: true },
     {
-      label: 'no leftover reference or stale contract files',
-      ok: references.length === 0 && stale.length === 0,
-      detail: references.length || stale.length
+      label: 'no leftover reference, authoring, or stale contract files',
+      ok: references.length === 0 && stale.length === 0 && authoring.length === 0,
+      detail: references.length || stale.length || authoring.length
         ? [
             ...(references.length
               ? [`merge and delete: ${references.join(', ')} — adoption is not done while a reference remains`]
+              : []),
+            // The playbook defines "done" as including its own cleanup —
+            // doctor saying "complete" over a live playbook told a second,
+            // contradicting story (field issue #13).
+            ...(authoring.length
+              ? [`${authoring.join(', ')}: authoring artifacts still on disk — the playbook's final step deletes them; a doctor run mid-authoring is EXPECTED to fail here`]
               : []),
             ...(stale.length
               ? [`${stale.join(', ')}: carries the BLUEPRINT block but is not among the emitted targets — a wholly-generated file is removed by the next init; one with hand-written content needs its block removed by hand`]

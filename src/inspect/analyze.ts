@@ -63,7 +63,11 @@ function folderFindings(
         severity: 'info',
         rule: 'missing-layer',
         path: `src/${name}`,
-        message: `Declared layer "${name}" has no folder yet.`,
+        // Reads like a todo without the second clause — six of these sent
+        // a field agent toward "delete the unused layers", the opposite of
+        // the keep-is-default doctrine the playbook states (field run #13).
+        message: `Declared layer "${name}" has no folder yet — runway, not a todo: `
+          + 'the rules arm when code lands; keeping it is the default, slimming is the owner\'s call.',
       });
     }
   }

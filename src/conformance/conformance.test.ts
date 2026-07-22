@@ -534,7 +534,7 @@ describe('stale contracts cannot hide behind green (field issues #2–#3)', () =
     const doctor = await cli(dir, ['doctor']);
 
     expect(doctor.code).toBe(1);
-    expect(doctor.output).toContain('✗ no leftover reference or stale contract files');
+    expect(doctor.output).toContain('✗ no leftover reference, authoring, or stale contract files');
     expect(doctor.output).toContain('AGENTS.md');
     expect(doctor.output).toContain('needs its block removed by hand');
   });
@@ -678,6 +678,52 @@ describe('survey counts never promise what impact must measure (field issue #11)
 
     expect(inspect.code).toBe(0);
     expect(inspect.output).not.toContain('module.private');
+  });
+});
+
+describe('doctor and the playbook define "done" identically (field issue #13)', () => {
+  it('doctor stays red while authoring artifacts remain, green once deleted', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    // The early-exit route: playbook written, preset scaffolded over it.
+    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--preset', '--no-install']);
+    write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
+
+    // Wiring is complete but the playbook still sits on disk — the state
+    // where doctor used to say "Adoption complete" and a careless agent
+    // stopped, leaving blueprint-authoring.md in the repo forever.
+    const mid = await cli(dir, ['doctor']);
+
+    expect(mid.code).toBe(1);
+    expect(mid.output).toContain('blueprint-authoring.md');
+    expect(mid.output).toContain('the playbook\'s final step deletes them');
+
+    rm(`${dir}/blueprint-authoring.md`);
+    rm(`${dir}/.claude/commands/blueprint-author.md`);
+
+    const done = await cli(dir, ['doctor']);
+
+    expect(done.code).toBe(0);
+    expect(done.output).toContain('Adoption complete — all 7 checks passed');
+  });
+
+  it('the missing-layer note reads as runway, never as a todo', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'blueprint.config.mjs': configSource(reactBlueprint) },
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.code).toBe(0);
+    // Six of these once sent an agent toward deleting the preset skeleton —
+    // the note itself now carries the keep-is-default verdict.
+    expect(inspect.output).toContain('runway, not a todo');
+    expect(inspect.output).toContain('slimming is the owner\'s call');
   });
 });
 
