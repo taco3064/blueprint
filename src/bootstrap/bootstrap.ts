@@ -158,9 +158,18 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   ]);
 
   if (hidden.length) {
+    // The heads-up used to hand the fix back to the user; init wires the
+    // alias into user configs already, so it can wire this too (field
+    // issue #4). Negations win by coming later — appending is enough,
+    // unless git excludes a whole parent DIRECTORY, which a `!file` cannot
+    // re-include; the note says so instead of pretending.
+    const gitignore = fs.readFileSync(path.join(root, '.gitignore'), 'utf-8');
+
     actions.push({
-      kind: 'instruct',
-      note: `Heads-up: ${hidden.join(', ')} ${hidden.length === 1 ? 'is' : 'are'} gitignored — fine if intentional, but teammates cloning the repo won't have ${hidden.length === 1 ? 'it' : 'them'} (the contract links assume they exist). To track ${hidden.length === 1 ? 'it' : 'them'}: remove the .gitignore ${hidden.length === 1 ? 'entry' : 'entries'} or add ${hidden.map((file) => `"!${file}"`).join(' / ')} below ${hidden.length === 1 ? 'it' : 'them'}. Or regenerate anytime with: npx blueprint init`,
+      kind: 'write',
+      path: '.gitignore',
+      content: `${gitignore.replace(/\n*$/, '\n')}\n# @kekkai/blueprint artifacts — the agent contract links to these; keep them tracked\n${hidden.map((file) => `!${file}`).join('\n')}\n`,
+      note: `.gitignore (re-included ${hidden.join(', ')} via ! — delete the lines to keep ${hidden.length === 1 ? 'it' : 'them'} hidden; if a parent directory is wholly excluded, git needs that directory re-included too)`,
     });
   }
 

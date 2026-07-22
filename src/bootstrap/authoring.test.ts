@@ -175,6 +175,14 @@ describe('authoringBrief', () => {
     // the retired tool's stale footprint (batch 12).
     expect(brief).toContain('`{folder}` placeholder is blueprint\'s');
     expect(brief).toContain('footprint in the same pass');
+
+    // Field issue #4: an agent dropped a house rule because the catalog
+    // never said owns covers named imports; another had to eval emitLint to
+    // learn no-selfOnly means no syntax rule. The catalog answers both now.
+    expect(brief).toContain('named-import granularity');
+    expect(brief).toContain('no selfOnly, no syntax rule');
+    expect(brief).toContain('`additionalAliases`');
+    expect(brief).toContain('DELETE its config file');
   });
 
   it('states the lint semantics up front so nobody reverse-engineers the bundle', () => {

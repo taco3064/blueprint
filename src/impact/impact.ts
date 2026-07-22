@@ -258,12 +258,11 @@ export function renderImpact(impacts: RuleImpact[], total: number): string {
     ? []
     : [
         '',
-        'Echoes of YOUR OWN config — rule ids blueprint does not emit, surfaced',
-        'only because this run lints with the emitted config alone (inline',
-        'configs or disables referencing your house rules). A row here that',
-        'mirrors a blueprint hit above is the same spot seen through your own',
-        'rule\'s name — an echo, not a second violation. Never counted; these',
-        'vanish once emitLint is merged into your real config:',
+        'Echoes of YOUR OWN config — NOT blueprint findings, NEVER counted:',
+        'these rule ids are yours. They surface only because this run lints',
+        'with the emitted config alone, and vanish once emitLint merges into',
+        'your real config. A row mirroring a blueprint hit above is the same',
+        'spot seen through your rule\'s name — an echo, not a second violation.',
         '',
         ...rows(foreign),
       ];

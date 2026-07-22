@@ -448,32 +448,42 @@ describe('runInit · artifact hygiene', () => {
     expect(exists('eslint.config.blueprint.mjs')).toBe(true);
   });
 
-  it('warns when generated artifacts are gitignored', async () => {
+  it('re-includes gitignored artifacts via negations instead of instructing (field #4)', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\ndocs\n');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    await runInit(root, { install: false, log: silent });
 
-    const warning = actions.find(
-      (action) => action.kind === 'instruct' && action.note.includes('gitignored'),
-    );
+    const gitignore = read('.gitignore');
 
-    expect(warning?.note).toContain('docs/architecture-handbook.md');
-    expect(warning?.note).toContain('CLAUDE.md');
-    expect(warning?.note).toContain('npx blueprint init');
+    // Original content preserved; negations appended (they win by coming later).
+    expect(gitignore).toContain('CLAUDE.md\ndocs\n');
+    expect(gitignore).toContain('!CLAUDE.md');
+    expect(gitignore).toContain('!docs/architecture-handbook.md');
+    expect(gitignore).toContain('keep them tracked');
+
+    // Idempotent: the negations satisfy the matcher, so a re-run appends
+    // nothing (loadConfig injected — the scaffolded config imports the
+    // package, which the offline test env cannot resolve).
+    await runInit(root, { install: false, log: silent, loadConfig: async () => vuePreset() });
+
+    expect(read('.gitignore').match(/!CLAUDE\.md/g)).toHaveLength(1);
   });
 
-  it('phrases a single gitignored artifact in the singular', async () => {
+  it('states the edit and the directory-exclusion caveat in the note', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, '.gitignore'), 'AGENTS.md\n');
 
     const actions = await runInit(root, { install: false, log: silent });
 
-    const warning = actions.find(
-      (action) => action.kind === 'instruct' && action.note.includes('gitignored'),
+    const patch = actions.find(
+      (action) => action.kind === 'write' && action.path === '.gitignore',
     );
 
-    expect(warning?.note).toContain('AGENTS.md is gitignored');
+    expect(patch?.note).toContain('re-included AGENTS.md');
+    expect(patch?.note).toContain('delete the lines to keep it hidden');
+    expect(patch?.note).toContain('parent directory');
+    expect(read('.gitignore')).toContain('!AGENTS.md');
   });
 
   it('phrases the greenfield --agent skip by what happened', async () => {

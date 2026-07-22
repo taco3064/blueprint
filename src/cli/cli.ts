@@ -386,6 +386,40 @@ export function parseDoctorArgs(args: string[]): DoctorOptions {
   return args.includes('--json') ? { json: true } : {};
 }
 
+/**
+ * Every flag each command answers to. Unknown flags fail loud instead of
+ * being silently ignored — a field agent tried `inspect --verbose`, saw
+ * identical output, and reasonably concluded the flag was a broken no-op.
+ */
+const KNOWN_FLAGS: Record<string, Set<string>> = {
+  init: new Set(['--agent', '--preset', '--authoring', '--framework', '--no-install', '--dry-run']),
+  survey: new Set(['--alias', '--json']),
+  inspect: new Set(['--json', '--framework', '--baseline', '--update-baseline']),
+  impact: new Set(['--json']),
+  deps: new Set(['--json', '--framework']),
+  rules: new Set(['--json']),
+  doctor: new Set(['--json']),
+};
+
+/** Flags that consume the next argument as their value. */
+const VALUED_FLAGS = new Set(['--agent', '--framework', '--alias']);
+
+function rejectUnknownFlags(command: string, args: string[]): void {
+  const known = KNOWN_FLAGS[command];
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (!arg.startsWith('-')) continue;
+
+    if (!known.has(arg)) {
+      throw new Error(`unknown flag for ${command}: ${arg} — see: blueprint ${command} --help`);
+    }
+
+    if (VALUED_FLAGS.has(arg)) i++;
+  }
+}
+
 /** CLI dispatch. Returns the process exit code. */
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
   const [command, ...rest] = argv;
@@ -410,6 +444,10 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
   }
 
   try {
+    if (command !== undefined && command in KNOWN_FLAGS) {
+      rejectUnknownFlags(command, rest);
+    }
+
     if (command === 'init') {
       await runInit(cwd, parseInitArgs(rest));
 

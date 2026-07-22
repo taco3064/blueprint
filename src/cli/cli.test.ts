@@ -55,6 +55,26 @@ describe('run', () => {
     expect(await run(['bogus'])).toBe(1);
   });
 
+  it('fails loud on an unknown flag instead of silently ignoring it (field #4)', async () => {
+    // An agent tried `inspect --verbose`, saw identical output, and
+    // reasonably concluded the flag was a broken no-op.
+    expect(await run(['inspect', '--verbose'], root)).toBe(1);
+
+    expect(
+      (console.error as ReturnType<typeof vi.fn>).mock.calls.some((call) =>
+        String(call[0]).includes('unknown flag for inspect: --verbose'),
+      ),
+    ).toBe(true);
+
+    // Valued flags still consume their value without tripping the check.
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+    );
+
+    expect(await run(['init', '--framework', 'vue', '--no-install', '--dry-run'], root)).toBe(0);
+  });
+
   it('runs init in the given cwd and returns 0', async () => {
     fs.writeFileSync(
       path.join(root, 'package.json'),

@@ -8,9 +8,9 @@ npx @kekkai/blueprint init
 
 One command, and your design philosophy has guardrails in place:
 
-- `src/<layer>/` folders for every declared layer — only when the tree is
-  empty; where code already lives, an unbuilt layer's absence is its true
-  state and no `.gitkeep` shells are invented
+- `src/<layer>/` folders — scaffolded only into an empty tree; where code
+  already lives, an unbuilt layer's absence is its true state and no
+  `.gitkeep` shells are invented
 - `blueprint.config.mjs` — the single source of truth
 - `eslint.config.mjs` — structural rules plus the third-party core
 - `docs/architecture-handbook.md` and agent contracts (`CLAUDE.md`, `AGENTS.md`)

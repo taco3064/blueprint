@@ -57,6 +57,8 @@ const STARTER_FILES = {
       scripts: { dev: 'vite', build: 'tsc -b && vite build', preview: 'vite preview' },
       dependencies: { react: '^18.3.0', 'react-dom': '^18.3.0' },
       devDependencies: {
+        '@types/react': '^18.3.0',
+        '@types/react-dom': '^18.3.0',
         '@vitejs/plugin-react': '^4.3.0',
         typescript: '~5.6.0',
         vite: '^6.0.0',

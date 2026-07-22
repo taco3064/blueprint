@@ -271,11 +271,16 @@ the answer belongs in this playbook — note the gap in your report instead.
      mechanically impossible — the entries overwrite each other and
      doctor's survival check fails. There, consolidation stops being a
      scope decision and becomes a wiring precondition; do it, and name
-     which gate won in the report. And when a tool IS retired, sweep its
-     footprint in the same pass: grep the repo for its name — docs, README,
-     code comments, agent skills and commands all go stale the moment its
-     config file is deleted — and update or remove every pointer you find
-     (a dependency entry leaves via the package manager, not a text edit).
+     which gate won in the report. And when a tool IS retired, retire it
+     whole: DELETE its config file — a stale architecture config sitting
+     beside blueprint.config.mjs misleads worse than any prose pointer —
+     then sweep the footprint in the same pass: grep the repo for its name
+     (docs, README, code comments, agent skills and commands all go stale
+     the moment the config is deleted) and update or remove every pointer
+     you find. A dependency entry leaves via the package manager, not a
+     text edit; source-code comments referencing the dead tool may outlive
+     the sweep under this playbook's no-source-edits boundary — list them
+     in the report instead of editing them.
 
 ## Semantics the linter holds you to
 
@@ -314,9 +319,14 @@ Their shared severity is \`emit.lint.severity\` (default \`error\`), and that
 knob covers ONLY these:
 
 - \`no-restricted-imports\` per layer — dependency flow, same-layer bans,
-  package ownership (\`owns\` entries with the same package and options merge
-  into one rule allowing every declaring layer), fixture bans
-- \`no-restricted-syntax\` — re-export bans for \`selfOnly\` importers
+  package ownership at whole-package OR named-import granularity
+  (\`owns: [{ package: 'vue', imports: ['inject'] }]\` bans that named
+  import outside the owning layer; same-signature entries merge into one
+  rule allowing every declaring layer), fixture bans. \`additionalAliases\`
+  join every structural ban alongside the main alias.
+- \`no-restricted-syntax\` — re-export bans for \`selfOnly\` importers,
+  emitted ONLY when some layer declares one — no selfOnly, no syntax rule
+  to collide with your own \`no-restricted-syntax\`
 - \`no-restricted-globals\` — global ownership (e.g. \`{ global: 'fetch' }\`)
 - \`blueprint/relative-escape\` — depth-aware \`../\` module escapes
   (embedded plugin; ships inside the emitted config)
@@ -352,7 +362,10 @@ export default defineBlueprint({
         does: '…',
         module: { layout: 'folder', entry: 'index' }, // per-layer override
       },
-      { name: 'services', does: '…', owns: ['axios'] },
+      // owns: whole packages, named imports ({ package, imports }), or
+      // globals ({ global: 'fetch' }) — named imports cover rules like
+      // "only composables may use inject".
+      { name: 'services', does: '…', owns: ['axios', { global: 'fetch' }] },
     ],
     module: { layout: 'flat', entry: 'index', private: [] },
     layerFiles: 'src/{layer}/**/*.<ext glob>',

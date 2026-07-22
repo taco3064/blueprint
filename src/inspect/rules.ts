@@ -48,8 +48,8 @@ export interface GateStatus {
 }
 
 export const STRUCTURAL_RULES: StructuralRule[] = [
-  { rule: 'no-restricted-imports', covers: 'dependency flow, same-layer bans, package ownership (same-signature owns merge), fixture bans' },
-  { rule: 'no-restricted-syntax', covers: 'selfOnly re-export bans' },
+  { rule: 'no-restricted-imports', covers: 'dependency flow, same-layer bans, package ownership — whole packages or named imports ({ package, imports }); same-signature owns merge — and fixture bans' },
+  { rule: 'no-restricted-syntax', covers: 'selfOnly re-export bans — emitted only when a selfOnly importer exists' },
   { rule: 'no-restricted-globals', covers: 'global ownership (owns: [{ global: … }])' },
   { rule: 'blueprint/relative-escape', covers: '../ module escapes at any depth (embedded plugin)' },
 ];
