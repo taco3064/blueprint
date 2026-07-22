@@ -107,6 +107,12 @@ describe('authoringBrief', () => {
     expect(small).toContain('trivially true\n   is true');
     expect(small).toContain('now-empty');
 
+    // Every starter run re-derived "why bother on an empty repo" in its
+    // judgment section — the answer lived only on the docs site. Doctrine
+    // that answers a recurring doubt belongs in the agent's channel.
+    expect(small).toContain('emptiness is the point');
+    expect(small).toContain('adopts two years and\n400 files later');
+
     // At or above the threshold the verdict block stays out of the playbook.
     expect(brief).not.toContain('Read this first');
   });

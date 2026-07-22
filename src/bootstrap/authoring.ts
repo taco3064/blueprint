@@ -117,7 +117,17 @@ The complete early-exit checklist — nothing else in this file applies:
    is true, you skipped nothing.
 4. Delete this playbook, \`${COMMAND_FILE}\`, and the now-empty
    \`.claude/commands/\` directory. Done — "preset was enough" is a
-   complete, correct report.`;
+   complete, correct report.
+
+**Why adopt on a near-empty repo at all — emptiness is the point, not a
+smell.** The contract's value is highest BEFORE the first violation
+exists: this is the one moment governance costs nothing to install and
+nothing to retrofit. The six declared layers, the unused alias, the
+vacuous-but-honest gates are all forward-looking by design — "what
+correct looks like" gets pinned down now, and the net arms itself as code
+lands. Do not read the emptiness back to yourself as over-engineering;
+the expensive version of this repo is the one that adopts two years and
+400 files later.`;
 
   return `# Blueprint authoring playbook${nextNote}
 
