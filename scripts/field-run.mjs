@@ -275,6 +275,14 @@ async function main() {
   const dirty = execSync('git status --porcelain', { cwd: ROOT, encoding: 'utf-8' }).trim() ? '*' : '';
   const tree = `${sha}${dirty}`;
 
+  // Version read at pack time too — and never labeled "last published":
+  // between `changeset version` and the actual publish, package.json holds
+  // a version that is bumped but NOT released (run #16's header claimed
+  // "last published v2.0.0" while 2.0.0 existed only as a commit).
+  const packedVersion = JSON.parse(
+    fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'),
+  ).version;
+
   const runs = [];
 
   for (const scenario of scenarios) {
@@ -331,7 +339,7 @@ async function main() {
   const report = [
     `# blueprint field run — ${new Date().toISOString()}`,
     '',
-    `tree: ${tree} (unreleased; last published v${JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8')).version})`,
+    `tree: ${tree} (unreleased tree; tarball packed as v${packedVersion})`,
     `tarball: ${tarball}`,
     '',
     ...runs.flatMap((run) => {
