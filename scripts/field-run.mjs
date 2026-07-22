@@ -29,26 +29,18 @@ const AGENT_COMMANDS = {
   codex: (prompt) => ['codex', 'exec', '--full-auto', prompt],
 };
 
+// Must match the filename the prompt file names — the prompt is the single
+// source (scripts/field-prompt.md), shared verbatim with manual field runs.
 const FEEDBACK_FILE = 'blueprint-field-feedback.md';
 
-const PROMPT = `Help adopt @kekkai/blueprint in this repo, autonomously:
-run \`npx blueprint init --authoring\`,
-then execute the blueprint-authoring.md it writes, fully and to the end.
-The package is already installed. This repo is disposable — work autonomously,
-never wait for confirmation.
-
-Acceptance (\`npx blueprint doctor\` passes):
-- lint, \`inspect --baseline\`, and the existing tests all pass
-- emitLint genuinely wired into ESLint (no leftover reference files)
-- no source edits — lock existing debt: \`inspect --update-baseline\` for
-  architecture, \`eslint --suppress-all\` for lint
-
-最後一步（必做）：把你對 @kekkai/blueprint 這次導入體驗的 feedback 寫進
-repo 根目錄的 ${FEEDBACK_FILE}（繁體中文），三個段落：
-- 好用的 —— 哪些設計真的有幫到你
-- 卡到的 —— 工具本身的問題（不是這個專案的問題），含你被迫繞路的地方
-- 拿不準的 —— 你自己判斷、工具沒接住的決定
-誠實寫，不用客氣；沒有踩點就寫沒有。`;
+const PROMPT = [
+  // Harness-specific context on top of the shared prompt: the tarball is
+  // pre-installed, so the agent must never reach for the registry.
+  'Context: @kekkai/blueprint is ALREADY installed in this repo (from a local',
+  'tarball) — do not install it from the registry. This repo is disposable.',
+  '',
+  fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'field-prompt.md'), 'utf-8').trim(),
+].join('\n');
 
 /** The starter fixture — the vite + TS shape every field batch adopted on. */
 const STARTER_FILES = {
