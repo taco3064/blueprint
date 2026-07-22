@@ -317,9 +317,17 @@ async function main() {
     }
   }
 
+  // The honest identifier of what was tested: the commit, never the
+  // package version — that stays at the LAST release until changesets bump
+  // it, so labeling an unpublished tree with it claims the wrong thing.
+  const sha = execSync('git rev-parse --short HEAD', { cwd: ROOT, encoding: 'utf-8' }).trim();
+  const dirty = execSync('git status --porcelain', { cwd: ROOT, encoding: 'utf-8' }).trim() ? '*' : '';
+  const tree = `${sha}${dirty}`;
+
   const report = [
     `# blueprint field run — ${new Date().toISOString()}`,
     '',
+    `tree: ${tree} (unreleased; last published v${JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8')).version})`,
     `tarball: ${tarball}`,
     '',
     ...runs.flatMap((run) => {
@@ -360,7 +368,7 @@ async function main() {
     }
   }
 
-  if (args.issue && !args.dry) fileIssue(reportFile, runs);
+  if (args.issue && !args.dry) fileIssue(reportFile, runs, tree);
   else if (args.issue) console.log('  (dry) no issue filed');
 }
 
@@ -368,16 +376,15 @@ async function main() {
  * File the report as the triage inbox — a `field-run` GitHub issue. Never
  * fails the run: without gh (or auth) the report simply stays local.
  */
-function fileIssue(reportFile, runs) {
+function fileIssue(reportFile, runs, tree) {
   if (!hasBinary('gh')) {
     console.log('⚠ gh CLI not found — report stays local (re-run with --no-issue to silence this).');
 
     return;
   }
 
-  const version = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8')).version;
   const matrix = runs.map((run) => `${run.scenario}×${run.agent}`).join(', ');
-  const title = `Field run v${version}: ${matrix}`;
+  const title = `Field run @ ${tree}: ${matrix}`;
 
   const body = [
     '> Filed automatically by `scripts/field-run.mjs` against the local,',
