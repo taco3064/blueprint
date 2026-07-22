@@ -197,7 +197,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (configSource !== null && pathAliasKeys(state.tsconfigs).size === 0) {
     actions.push({
       kind: 'instruct',
-      note: `The preset introduced "${blueprint.architecture.alias}" as this repo's first import alias — a new convention, not a detected one. Prefer another (e.g. '@')? Set the preset's alias option in blueprint.config.mjs and re-run init.`,
+      note: `The preset introduced "${blueprint.architecture.alias}" as this repo's first import alias. The tilde is deliberate — '@' is npm's scope sigil (@vue/*, @types/*), and an app alias that does not look like a package scope stays visually distinct. Keep it unless the team already has its own alias convention (then set the preset's alias option and re-run init).`,
     });
   }
 

@@ -68,10 +68,12 @@ describe('plan', () => {
     expect(content).toContain('no-unlimited-disable\': \'error\'');
     expect(content).toContain('require-description');
 
-    // The comments block is a companion, not emitLint's output — an agent
-    // copying the reference wholesale must see the boundary stated in place.
-    expect(content).toContain('Recommended companion — NOT part of emitLint');
-    expect(content).toContain('do not copy this in blindly');
+    // The comments block is the anti-bypass guard, not emitLint's output —
+    // an agent reading the reference must see both the boundary and the
+    // default (adopt; dropping is the justified exception) stated in place.
+    expect(content).toContain('anti-bypass guard — NOT part of emitLint');
+    expect(content).toContain('Default: ADOPT');
+    expect(content).toContain('dropping is the exception');
   });
 
   it('wires parsers for the detected stack, parsers only', () => {

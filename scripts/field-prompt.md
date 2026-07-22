@@ -8,7 +8,8 @@ the end, not an abandonment).
 Work autonomously — never stop to ask for confirmation.
 
 Acceptance (`npx blueprint doctor` passes):
-- lint, `inspect --baseline`, and the existing tests all pass
+- lint, `inspect --baseline`, and the existing tests all pass (a repo
+  with no tests passes this vacuously — do not add a test setup)
 - emitLint genuinely wired into ESLint (no leftover reference files)
 - no source edits — lock existing debt: `inspect --update-baseline` for
   architecture, `eslint --suppress-all` for lint (both only when debt

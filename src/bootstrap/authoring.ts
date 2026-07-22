@@ -177,8 +177,9 @@ when code lands inside declared layers. The inverse also holds: a preset's
 declared-but-empty layers (and an alias no import uses yet) are the
 runway, not a manufactured net — declaring intent costs nothing and
 \`inspect\` tracks it honestly (missing-layer info, the coverage line), so
-keep them; slim the config only when the project has decided it will
-never grow into them.
+keep them. Keeping is the DEFAULT — the preset layers are the baseline,
+and slimming them is the project owner's later decision, never the
+adopting agent's.
 
 **Work the loop, not the archive.** Everything below is evidence and
 reference — it is NOT a syllabus to master before touching the config.
@@ -238,7 +239,9 @@ the answer belongs in this playbook — note the gap in your report instead.
    is not done while any reference file remains:**
    - **Declare your own tool** in the config — \`emit: { agents: ['claude'] }\`
      (Claude Code) or \`['agents']\` (codex & friends) — so init generates one
-     contract file, not one per tool nobody uses. On a preset config, pass it
+     contract file, not one per tool nobody uses. Declare the tool RUNNING
+     this adoption — you know who you are; never guess at future tools
+     (the next one is a one-line config change away). On a preset config, pass it
      straight in: \`reactPreset({ name, emit: { agents: ['claude'] } })\` —
      and \`init --agent claude\` on the preset path scaffolds the config with
      this already declared, so flag and config end up saying the same thing.
@@ -383,6 +386,10 @@ export default defineBlueprint({
   name: '<project>',
   framework: '<vue|react>',
   architecture: {
+    // Preset default is '~app' ON PURPOSE: '@' is npm's scope sigil
+    // (@vue/*, @types/*) — an app alias that does not look like a package
+    // scope stays visually distinct. Override only to match an existing
+    // team convention, not for taste.
     alias: '<alias>',
     // Extra import roots beyond the alias — they join every structural ban.
     additionalAliases: { '~shared': './src/shared' },

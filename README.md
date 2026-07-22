@@ -57,6 +57,7 @@ then execute the blueprint-authoring.md it writes, fully and to the end
 
 Acceptance (`blueprint doctor` passes):
 - lint, `inspect --baseline`, and the existing tests all pass
+  (no tests = passes vacuously)
 - emitLint genuinely wired into ESLint (no leftover reference files)
 - no source edits — lock existing debt: `inspect --update-baseline` for
   architecture, `eslint --suppress-all` for lint (both only when debt
