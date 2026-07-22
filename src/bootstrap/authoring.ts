@@ -121,7 +121,10 @@ The complete early-exit checklist — nothing else in this file applies:
    \`emit.agents\` in the config and re-run init.
 2. \`npx blueprint impact\` (0 hits → skip \`--suppress-all\` entirely; an
    empty suppressions ledger is ceremony) and \`npx blueprint inspect
-   --baseline\` — both exit 0
+   --baseline\` — both exit 0. (\`--update-baseline\` is deliberately not
+   on this list: with zero debt it is a no-op that writes nothing — the
+   full method runs it because brownfield repos have debt to lock; a
+   clean early exit has none.)
 3. Did init write \`eslint.config.blueprint.mjs\`? It does exactly when
    the repo already has its own eslint config: merge it — spread
    \`...emitLint(blueprint, …)\` AFTER your existing entries, following
