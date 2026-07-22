@@ -99,10 +99,10 @@ shows the core. The rest, one line each — full shapes in the
 | `init` | `--agent claude\|codex` (launch the authoring agent) · `--preset` (force the preset scaffold) · `--authoring` (force the playbook even on a small repo; opposite of `--preset`) · `--framework vue\|react` · `--no-install` · `--dry-run` |
 | `survey` | `--alias <name>` (when tsconfig-paths detection finds none) · `--json` |
 | `inspect` | `--baseline` · `--update-baseline` · `--framework vue\|react` · `--json` |
-| `impact` | `--framework vue\|react` · `--json` |
+| `impact` | `--json` |
 | `deps [module]` | `--framework vue\|react` · `--json` |
-| `rules` | `--framework vue\|react` · `--json` |
+| `rules` | `--json` |
 | `retire <name>` | `--json` |
-| `doctor` | `--framework vue\|react` · `--json` |
+| `doctor` | `--json` |
 
 Every command also answers `--help`; the bare CLI answers `--version`.

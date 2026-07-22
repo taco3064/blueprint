@@ -28,6 +28,5 @@ export type {
   ModuleDeps,
   RulesOptions,
   Severity,
-  StructuralRule,
 } from './inspect';
 export type { RetireHit, RetireOptions } from './retire';

@@ -162,7 +162,6 @@ const IMPACT_HELP = [
   'and vue-eslint-parser on Vue (init installs all of these).',
   '',
   'Flags:',
-  '  --framework vue|react   Force the preset when detection is ambiguous.',
   '  --json                  Machine-readable output.',
   '',
   'Examples:',
@@ -210,7 +209,6 @@ const RULES_HELP = [
   'on a React project never emits).',
   '',
   'Flags:',
-  '  --framework vue|react   Force the preset when detection is ambiguous.',
   '  --json                  Machine-readable output.',
   '',
   'Examples:',
@@ -263,7 +261,6 @@ const DOCTOR_HELP = [
   '    eslint-suppressions.json (files that no longer exist) fail the check',
   '',
   'Flags:',
-  '  --framework vue|react   Force the preset when detection is ambiguous.',
   '  --json                  Machine-readable output.',
   '',
   'Examples:',
@@ -380,19 +377,7 @@ export function parseInspectArgs(args: string[]): InspectOptions {
 
 /** Parse `impact` flags. Unknown flags are ignored. */
 export function parseImpactArgs(args: string[]): ImpactOptions {
-  const options: ImpactOptions = {};
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-
-    if (arg === '--json') {
-      options.json = true;
-    } else if (arg === '--framework') {
-      options.framework = parseFramework(args[++i]) ?? options.framework;
-    }
-  }
-
-  return options;
+  return args.includes('--json') ? { json: true } : {};
 }
 
 /** Parse `deps` flags; the first non-flag argument is the module to query. */
@@ -416,19 +401,7 @@ export function parseDepsArgs(args: string[]): DepsOptions {
 
 /** Parse `rules` flags. Unknown flags are ignored. */
 export function parseRulesArgs(args: string[]): RulesOptions {
-  const options: RulesOptions = {};
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-
-    if (arg === '--json') {
-      options.json = true;
-    } else if (arg === '--framework') {
-      options.framework = parseFramework(args[++i]) ?? options.framework;
-    }
-  }
-
-  return options;
+  return args.includes('--json') ? { json: true } : {};
 }
 
 /** Parse `retire` args: the first non-flag argument is the name to sweep for. */
@@ -448,19 +421,7 @@ export function parseRetireArgs(args: string[]): RetireOptions & { token?: strin
 
 /** Parse `doctor` flags. Unknown flags are ignored. */
 export function parseDoctorArgs(args: string[]): DoctorOptions {
-  const options: DoctorOptions = {};
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-
-    if (arg === '--json') {
-      options.json = true;
-    } else if (arg === '--framework') {
-      options.framework = parseFramework(args[++i]) ?? options.framework;
-    }
-  }
-
-  return options;
+  return args.includes('--json') ? { json: true } : {};
 }
 
 /** CLI dispatch. Returns the process exit code. */

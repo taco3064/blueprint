@@ -166,12 +166,9 @@ describe('parseDepsArgs', () => {
     expect(parseDepsArgs([])).toEqual({});
     expect(parseDepsArgs(['--framework', 'nope'])).toEqual({ framework: undefined });
 
-    expect(parseDoctorArgs(['--json', '--framework', 'vue'])).toEqual({
-      json: true,
-      framework: 'vue',
-    });
-
-    expect(parseDoctorArgs(['--framework', 'nope'])).toEqual({ framework: undefined });
+    // doctor requires a config, where the config wins — --framework was an
+    // inert flag that lied, so the parser no longer knows it.
+    expect(parseDoctorArgs(['--json', '--framework', 'vue'])).toEqual({ json: true });
     expect(parseDoctorArgs(['--unknown'])).toEqual({});
 
     expect(parseInitArgs(['--authoring'])).toEqual({ authoring: true });
@@ -179,13 +176,9 @@ describe('parseDepsArgs', () => {
 });
 
 describe('parseImpactArgs', () => {
-  it('parses json and framework, ignoring unknown flags', () => {
-    expect(parseImpactArgs(['--json', '--framework', 'react', '--nope'])).toEqual({
-      json: true,
-      framework: 'react',
-    });
-
-    expect(parseImpactArgs(['--framework', 'svelte'])).toEqual({ framework: undefined });
+  it('parses json only — impact requires a config, so --framework is not a flag', () => {
+    expect(parseImpactArgs(['--json', '--framework', 'react', '--nope'])).toEqual({ json: true });
+    expect(parseImpactArgs([])).toEqual({});
   });
 });
 
@@ -252,13 +245,9 @@ describe('rules command dispatch', () => {
     log.mockRestore();
   });
 
-  it('parses json and framework, ignoring unknown flags', () => {
-    expect(parseRulesArgs(['--json', '--framework', 'vue', '--nope'])).toEqual({
-      json: true,
-      framework: 'vue',
-    });
-
-    expect(parseRulesArgs(['--framework', 'svelte'])).toEqual({ framework: undefined });
+  it('parses json only — rules resolves the config, so --framework is not a flag', () => {
+    expect(parseRulesArgs(['--json', '--framework', 'vue', '--nope'])).toEqual({ json: true });
+    expect(parseRulesArgs([])).toEqual({});
   });
 });
 

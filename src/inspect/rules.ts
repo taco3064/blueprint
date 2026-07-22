@@ -14,14 +14,19 @@ import type { Blueprint } from '../config';
  * every gate is annotated with what the blueprint actually declares.
  */
 
-export interface RulesOptions extends ResolveOptions {
+export interface RulesOptions {
   /** Emit machine-readable JSON instead of the text catalog. */
   json?: boolean;
   /** Output sink (default `console.log`). */
   log?: (message: string) => void;
+  /** Load an existing blueprint.config (default dynamic import). */
+  loadConfig?: ResolveOptions['loadConfig'];
 }
 
-/** One always-on structural rule. */
+/**
+ * One always-on structural rule. Not part of the package entry: no public
+ * API returns this shape — it travels only inside the `--json` output.
+ */
 export interface StructuralRule {
   rule: string;
   covers: string;
@@ -81,7 +86,9 @@ function gateSpecs(): GateSpec[] {
     ...METRIC_GATES.map((gate) => ({
       id: gate.id,
       emits: gate.rule,
-      note: 'metric family',
+      // `wrap` is the gates' one real behavioral split — say it, instead of
+      // a filler label ("metric family") that answers nothing.
+      note: gate.wrap ? 'counts code lines only — comments and blanks skipped' : 'plain threshold',
       fallback: gate.fallback,
     })),
     ...PLUGIN_GATES,

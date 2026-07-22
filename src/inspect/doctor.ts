@@ -12,13 +12,18 @@ import { scan } from './scan';
 import type { DoctorCheck } from './types';
 import { wiringCheck } from './wiring';
 
-export interface DoctorOptions extends ResolveOptions {
+// Deliberately NOT extending ResolveOptions: doctor fails loud without a
+// config, and `framework` only steers the no-config preset fallback — a
+// `--framework` here would be an inert flag that lies to whoever reads it.
+export interface DoctorOptions {
   /** Emit machine-readable JSON instead of the checklist. */
   json?: boolean;
   /** Output sink (default `console.log`). */
   log?: (message: string) => void;
   /** Load a module from the project's dependency tree (default: real import). */
   loadModule?: (name: string, root: string) => Promise<unknown>;
+  /** Load an existing blueprint.config (default dynamic import). */
+  loadConfig?: ResolveOptions['loadConfig'];
 }
 
 export type { DoctorCheck } from './types';

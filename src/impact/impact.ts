@@ -16,13 +16,18 @@ import type { ResolveOptions } from '../project';
  * rule. Informational, never a gate — the exit code stays 0.
  */
 
-export interface ImpactOptions extends ResolveOptions {
+// Deliberately NOT extending ResolveOptions: impact requires an authored
+// config, and `framework` only steers the no-config preset fallback — a
+// `--framework` here would be an inert flag that lies to whoever reads it.
+export interface ImpactOptions {
   /** Emit machine-readable JSON instead of the text report. */
   json?: boolean;
   /** Output sink (default `console.log`). */
   log?: (message: string) => void;
   /** Load a module from the project's dependency tree (default: real import). */
   loadModule?: (name: string, root: string) => Promise<unknown>;
+  /** Load an existing blueprint.config (default dynamic import). */
+  loadConfig?: ResolveOptions['loadConfig'];
 }
 
 /** One emitted rule's footprint on the current code. */

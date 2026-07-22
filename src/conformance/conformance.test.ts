@@ -6,9 +6,10 @@ import { cli, configSource, makeRepo, read, rm, wiredEslintConfig, write } from 
 import type { RepoSpec } from './conformance';
 
 /**
- * The adoption conformance suite. One describe per field-feedback round —
- * every scenario below was once a live complaint from an agent adopting the
- * tool on a real repo. Field runs should only ever find NEW scenarios.
+ * The adoption conformance suite, grouped by scenario — every scenario
+ * below was once a live complaint from an agent adopting the tool on a
+ * real repo (the batch numbers point into the feedback ledger). Field runs
+ * should only ever find NEW scenarios.
  */
 
 const dirs: string[] = [];
