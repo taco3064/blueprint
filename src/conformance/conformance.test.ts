@@ -835,7 +835,7 @@ describe('one output, one story — no snippet contradicts its own prose (field 
     const init = await cli(dir, ['init', '--authoring', '--no-install']);
 
     expect(init.code).toBe(0);
-    expect(init.output).toContain('locking a baseline if debt exists');
+    expect(init.output).toContain('locking a baseline only when debt exists');
     expect(init.output).not.toContain('and locking a baseline):');
   });
 });

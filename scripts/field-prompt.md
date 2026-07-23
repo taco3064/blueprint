@@ -1,21 +1,4 @@
-Help adopt @kekkai/blueprint in this repo, autonomously:
-run `npx @kekkai/blueprint init --authoring`
-(if the package is not installed yet, npx will fetch it — or run
-`npm install -D @kekkai/blueprint` first),
-then execute the blueprint-authoring.md it writes, fully and to the end
-(its own verdict counts as full execution — an early exit it prescribes IS
-the end, not an abandonment).
-Work autonomously — never stop to ask for confirmation.
-
-Acceptance (`npx blueprint doctor` passes):
-- lint, `inspect --baseline`, and the existing tests all pass (a repo
-  with no tests passes this vacuously — do not add a test setup)
-- emitLint genuinely wired into ESLint (no leftover reference files)
-- no application-source edits (nothing under `src/`) — init's own config
-  wiring (tsconfig / vite / package.json scripts) is expected, not a
-  violation. Lock existing debt instead: `inspect --update-baseline` for
-  architecture, `eslint --suppress-all` for lint (both only when debt
-  exists — an empty ledger is ceremony, not a deliverable)
+Run npx @kekkai/blueprint init --authoring to adopt @kekkai/blueprint in this repo.
 
 最後一步（必做）：把你對 @kekkai/blueprint 這次導入體驗的 feedback 寫進
 repo 根目錄的 blueprint-field-feedback.md（繁體中文），三個段落：

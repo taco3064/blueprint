@@ -43,7 +43,15 @@ describe('authoringActions', () => {
     // The config the agent writes imports the package — it must be installed.
     expect(install.kind === 'install' && install.command).toBe('pnpm add -D @kekkai/blueprint');
 
-    // The instruct carries both launch commands and the preset escape hatch.
+    // The bridge into the playbook: an agent that just ran init must read its
+    // own next step here (the homepage prompt no longer carries it), not read
+    // "have an agent execute it" as someone else's job and hand back.
+    expect(instruct.note).toContain('If you are the agent that ran this');
+    expect(instruct.note).toContain('execute it to the end yourself, autonomously');
+    expect(instruct.note).toContain('early exit the playbook prescribes IS completion');
+
+    // The human-driven fallback still carries both launch commands and the
+    // preset escape hatch.
     expect(instruct.note).toContain(`claude "${AGENT_PROMPT}"`);
     expect(instruct.note).toContain(`codex "${AGENT_PROMPT}"`);
     expect(instruct.note).toContain('init --preset');
@@ -76,6 +84,12 @@ describe('authoringBrief', () => {
   it('opens with the install prerequisite', () => {
     expect(brief).toContain('## Prerequisites');
     expect(brief).toContain('pnpm add -D @kekkai/blueprint');
+  });
+
+  it('tells the executing agent to run autonomously — the only place that framing lives', () => {
+    // The homepage prompt dropped "work autonomously"; the tool output has to
+    // carry it now. The header is the first line the agent reads on opening.
+    expect(brief).toContain('autonomously — do\n> not stop to ask for confirmation');
   });
 
   it('carries the goal boundary: author and baseline, never refactor', () => {

@@ -43,6 +43,12 @@ const PROMPT = [
   'Context: @kekkai/blueprint is ALREADY installed in this repo (from a local',
   'tarball) — do not install it from the registry. This repo is disposable.',
   '',
+  // field-prompt.md is deliberately the homepage's one-line paste plus the
+  // feedback ask — nothing more. The acceptance gates, the "execute to the
+  // end, autonomously, early exit = completion" framing all come from the
+  // tool's OWN output now (init's instruct note + blueprint-authoring.md).
+  // Re-adding them here would prop up the playbook and stop this harness from
+  // testing what a real adopter actually pastes — leave the instruction thin.
   fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'field-prompt.md'), 'utf-8').trim(),
 ].join('\n');
 
