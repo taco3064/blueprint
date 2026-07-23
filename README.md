@@ -13,7 +13,7 @@
 
 ## When an AI writes your code, the architecture is the first thing it quietly erodes
 
-What letting an AI write your code quietly costs — and what blueprint does about each:
+What it costs — and what blueprint does about each:
 
 - **Placement** — new files land wherever's convenient; a few sessions later, nothing lives where it should.<br>→ Layers become import-boundary rules the agent reads up front and lint blocks — `✗ services/ may not import from pages/`
 - **Single responsibility** — one file quietly grows to do five jobs and own none.<br>→ Written into the agent contract, backed by the mechanical caps lint can prove.
@@ -22,9 +22,9 @@ What letting an AI write your code quietly costs — and what blueprint does abo
 - **Consistency** — each session re-derives your architecture from scratch, and guesses differently.<br>→ `survey` emits deterministic facts; the contract fixes the rules once.
 - **Adoption** — point it at a 3-year repo, expect 4,000 errors, team disables it day one.<br>→ Baseline locks today's debt and gates only what's new — `.blueprint-baseline.json`
 
-blueprint pins all of this down in **one config**. It compiles into the ESLint rules, the
-handbook, and the agent contract at once — one source, so they can never disagree. Edit the
-config, regenerate, everything moves together. **The packaging is the product.**
+blueprint pins all of this down in **one config** — one source the rules, the docs, and the
+contract all compile from, so they can never disagree. Edit the config, regenerate,
+everything moves together. **The packaging is the product.**
 
 ## Quick start
 
