@@ -68,7 +68,7 @@
 | `architecture.additionalAliases` | `alias` 以外、同樣納入所有結構禁令的額外匯入根 |
 | `architecture.testFiles` | 豁免於結構規則與度量關卡的測試檔樣式（預設 `*.test.*` / `*.spec.*`） |
 | `architecture.layerFiles` / `layerFilesIgnore` | 框架預設樣式不適用時，逐層指定檔案樣式 |
-| `architecture.naming` | 依概念設定的命名慣例（如 `{ hook: 'useX + reactivity' }`）—— 寫入手冊與契約 |
+| `architecture.naming` | 依概念設定的命名慣例（如 `{ hook: 'useX + reactivity' }`）—— 寫入手冊與守則 |
 | `layer.module` | 逐層覆寫共用的模組形狀 —— 例如某一分層採資料夾模組、其餘維持單檔 |
 | `layer.lintOverrides` | 逐層的 ESLint 調整（三條受管規則除外） |
 | `emit.agents` | Agent 守則的發佈目標：`claude`、`agents`、`gemini`、`copilot`、`cursor`、`windsurf`（可逐目標指定 `path`）。預設 `['claude', 'agents']`；空陣列就不產出。縮窄清單後，下一次 init 會自動移除「整份都是自己產出」的過期守則檔（被人手改過的只提醒、不動手） |

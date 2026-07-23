@@ -80,9 +80,9 @@ const COPY = {
       {
         kicker: "單一職責",
         pain: "「先能動就好。」於是 AI 不斷把更多職責塞進同一個檔案，最後一個模組做了五件事，卻沒有一件真正屬於它。",
-        tag: "blueprint 把單一職責寫進契約，並由 lint 守住最基本的機械底線",
+        tag: "blueprint 把單一職責寫進守則，並由 lint 守住最基本的機械底線",
         mechanism:
-          "單一職責本質上是判斷題，因此它存在於 AI 遵循的 agent contract；而 lint 則負責那些可以被機械驗證的代理規則。lint 全綠，從來不代表設計就足夠乾淨；契約負責補上 lint 無法判斷的部分。",
+          "單一職責本質上是判斷題，因此它存在於 AI 遵循的 agent contract；而 lint 則負責那些可以被機械驗證的代理規則。lint 全綠，從來不代表設計就足夠乾淨；守則負責補上 lint 無法判斷的部分。",
         proof:
           "agent-contract: one module, one reason to change · maxLines 限制模組大小",
       },
@@ -106,7 +106,7 @@ const COPY = {
       {
         kicker: "一致性",
         pain: "每一次 session，AI 都重新推導一次你的架構，而且每次推導出的結果都不太一樣。",
-        tag: "blueprint 給每個 session 同一份寫下來的架構契約",
+        tag: "blueprint 給每個 session 同一份寫下來的架構守則",
         mechanism:
           "survey 提供確定性的事實；agent contract 則一次把規則固定下來。AI 不再重新猜測你的架構，而是直接依照一份明確寫好的架構工作。",
         proof: "$ blueprint survey → facts, not a blind grep",

@@ -31,7 +31,7 @@ Blueprint 僅執行兩種外部指令，且執行前均事先明列：其一為 
 - `inspect` 與 `deps` 為唯讀（`inspect --update-baseline` 僅寫入一個明列的檔案：`.blueprint-baseline.json`；檢測項目為零時不產生任何檔案）
 - 使用者持有的檔案**僅在可無損重寫時**才會修改（即無註解的 `tsconfig.json` / `jsconfig.json`）；其餘情況 —— 包括任何既有的 ESLint config 與手寫的 Agent 守則檔 —— 一律提供可直接使用的合併指引，絕不覆蓋
 - 唯一的範圍例外：於**全新初始化的專案**（blueprint config 於同一次執行中產生），init 會將匯入別名一併寫入範本的 `vite.config.*` 與含註解的 tsconfig，並在 `lint` script 沒跑 eslint 時幫它接上（讓 lint 跑得到產生的規則）—— 這些是前置條件保護的文字修改，僅處理已知的範本形態，於 `--dry-run` 中完整可見，形態不符時退回指引。既有專案一律不走此路徑
-- 重複執行 `init` 具冪等性；共用契約檔中的手寫內容受標記區塊保護，不會被更動
+- 重複執行 `init` 具冪等性；共用守則檔中的手寫內容受標記區塊保護，不會被更動
 
 ## 發佈附來源簽章
 

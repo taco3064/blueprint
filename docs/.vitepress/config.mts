@@ -106,7 +106,7 @@ export default defineConfig({
             { text: '安全與信任', link: '/zh-TW/guide/security' },
           ],
           '/zh-TW/philosophy/': [
-            { text: '運作契約', link: '/zh-TW/philosophy/' },
+            { text: '運作守則', link: '/zh-TW/philosophy/' },
             { text: '核心信念', link: '/zh-TW/philosophy/beliefs' },
             { text: '分層架構', link: '/zh-TW/philosophy/layers' },
             { text: '元件形狀', link: '/zh-TW/philosophy/component-shape' },
