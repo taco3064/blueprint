@@ -7,7 +7,7 @@ hero:
   image:
     src: /logo.png
     alt: blueprint
-  tagline: Translates your frontend architecture into ESLint rules, an architecture handbook, and an AI agent contract.
+  tagline: Translates your frontend architecture into ESLint rules and an AI agent contract.
   actions:
     - theme: brand
       text: Get Started
