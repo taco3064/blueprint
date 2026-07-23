@@ -8,17 +8,15 @@
 > enforces them.
 
 **One-way dependency flow + single responsibility per layer.** The principles are
-framework-neutral; the unit mapping is one-to-one: `composable ↔ hook`,
-`context ↔ Context`, `SFC ↔ function component`, `service ↔ api client`.
+framework-neutral — Vue and React hold the same shapes; a unit just goes by two names.
 
 ```mermaid
 flowchart TD
   pages["pages/views"] --> containers
   containers --> components
   components --> hooks["hooks/composables"]
-  containers -->|Provider only| contexts
   hooks -->|Context only · selfOnly| contexts
-  containers --> services
+  containers -->|Provider only| contexts
   hooks --> services
   contexts --> services
 ```

@@ -7,9 +7,7 @@
 **核心只有一句：程式碼只能往下流。**<br>
 把專案切成有順序的幾層，每一層只能 import 它下面的層、不能反過來 —— 而且每層只做一件事。
 
-這套規則跟你用什麼框架無關，Vue、React 都通 —— 差別只在名字：<br>
-Vue 的 composable 就是 React 的 hook，其餘一一對應：<br>
-`composable ↔ hook`、`context ↔ Context`、`SFC ↔ function component`、`service ↔ api client`。
+這套規則跟你用什麼框架無關，Vue、React 都通 —— 同一個單元，兩邊只是名字不同。
 
 下面就是那個順序，箭頭是「可以 import 的方向」：
 
@@ -18,9 +16,8 @@ flowchart TD
   pages["pages/views"] --> containers
   containers --> components
   components --> hooks["hooks/composables"]
-  containers -->|僅限掛載 Provider| contexts
   hooks -->|僅限取用 Context · selfOnly| contexts
-  containers --> services
+  containers -->|僅限掛載 Provider| contexts
   hooks --> services
   contexts --> services
 ```
