@@ -22,16 +22,9 @@ What letting an AI write your code quietly costs — and what blueprint does abo
 - **Consistency** — each session re-derives your architecture from scratch, and guesses differently.<br>→ `survey` emits deterministic facts; the contract fixes the rules once.
 - **Adoption** — point it at a 3-year repo, expect 4,000 errors, team disables it day one.<br>→ Baseline locks today's debt and gates only what's new — `.blueprint-baseline.json`
 
-blueprint pins all of this down in **one config** that compiles into everything that keeps
-a codebase (and its coding agents) honest:
-
-- **Enforce** — an ESLint flat config, embedded plugin included
-- **Explain** — a human handbook (markdown + mermaid)
-- **Collaborate** — agent contracts (`CLAUDE.md`, `AGENTS.md`, Cursor, Windsurf…)
-- **Verify** — read-only runtimes on the same source (`inspect`, `deps`, `rules`) to wire into any gate you run
-
-One source, so the rules, the docs, and the contract can never disagree. Edit the config,
-regenerate, everything moves together. **The packaging is the product.**
+blueprint pins all of this down in **one config**. It compiles into the ESLint rules, the
+handbook, and the agent contract at once — one source, so they can never disagree. Edit the
+config, regenerate, everything moves together. **The packaging is the product.**
 
 ## Quick start
 
