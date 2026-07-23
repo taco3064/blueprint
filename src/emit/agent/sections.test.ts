@@ -219,13 +219,13 @@ describe('renderPlaybook (contract)', () => {
 
   it('renders terse directives grouped under theme headings', () => {
     const out = renderPlaybook([
-      { title: 'BE boundary', rules: [{ id: 'a', say: 'Never fake.', why: 'It hides bugs.' }] },
+      { title: 'Runtime', rules: [{ id: 'a', say: 'Price it.', why: 'Frequency is not in the code.' }] },
       { title: 'Refactor', rules: [{ id: 'b', say: 'Net first.' }] },
     ]);
 
     expect(out).toContain('### Working playbook (judgment rules — you are the gate)');
-    expect(out).toContain('#### BE boundary');
-    expect(out).toContain('- **Never fake.** It hides bugs.');
+    expect(out).toContain('#### Runtime');
+    expect(out).toContain('- **Price it.** Frequency is not in the code.');
     expect(out).toContain('#### Refactor');
     expect(out).toContain('- **Net first.**');
   });

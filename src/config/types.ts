@@ -166,7 +166,7 @@ export interface AxisDef {
 
 /** One judgment rule of the working playbook — no tool enforces it. */
 export interface PlaybookRule {
-  /** Stable id, e.g. `no-fake-fallback`. Unique across the whole playbook. */
+  /** Stable id, e.g. `reprice-on-attach`. Unique across the whole playbook. */
   id: string;
   /** The rule, one imperative line. */
   say: string;
@@ -174,7 +174,7 @@ export interface PlaybookRule {
   why?: string;
 }
 
-/** A themed group of playbook rules, e.g. the backend-boundary posture. */
+/** A themed group of playbook rules, e.g. the runtime-load posture. */
 export interface PlaybookSection {
   title: string;
   rules: PlaybookRule[];

@@ -5,27 +5,12 @@
 > and [agent contract](/guide/generated-artifacts#claude-md-agents-md-—-collaborate), so
 > they sit *in context* on every change.
 
-Four themes.
-
-## Data integrity & backend boundary
-
-- **Never fall back to fake data.** A `payload.field || fixture.field` fallback is a bug,
-  not a safety net — it hides integrity problems. Production renders empty, error, or
-  skeleton; never fabricated values.
-- **Frame kept defenses as drift guards.** A deliberately retained shape-defense is
-  framed "guard against BE drift", never "support payload X missing field Y". Strip one
-  only when drift is out of question and tests prove zero call sites.
-- **Do not volunteer FE workarounds for BE-owned problems.** When the fix belongs to the
-  backend and that position is already public, offering a short-term FE hack hands the
-  work straight back to the frontend.
-- **Services preserve the backend locale shape.** Resolving `{ zh_cn, en }` to one string
-  inside a service drops the other variant and mixes presentation into the service layer —
-  resolve in the view.
+Three themes.
 
 ## Runtime load discipline
 
 The question after "is the data correct" is "**how fast does it arrive**" — the dimension
-lint and structure cannot see. This is belief #10.
+lint and structure cannot see. This is belief #9.
 
 - **Price every handler attached to a data source.** Before wiring anything to WS /
   polling / scroll / input, answer: events per second, data per event, per-event cost.

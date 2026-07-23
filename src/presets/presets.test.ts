@@ -73,10 +73,10 @@ describe('presets · shape', () => {
     ]);
   });
 
-  it('carry the ten governance principles, all behavioral', () => {
+  it('carry the nine governance principles, all behavioral', () => {
     const bp = vuePreset();
 
-    expect(bp.principles).toHaveLength(10);
+    expect(bp.principles).toHaveLength(9);
     expect(bp.principles?.every((principle) => principle.land === 'claude')).toBe(true);
   });
 
@@ -175,21 +175,20 @@ describe('presets · downstream emitters', () => {
     expect(emitAgentContract(bp)).toContain('IMPORTABLE BY: containers, hooks (selfOnly).');
   });
 
-  it('carry the four-section playbook and render it into both artifacts', () => {
+  it('carry the three-section playbook and render it into both artifacts', () => {
     const bp = vuePreset();
     const sections = bp.playbook ?? [];
 
     expect(sections.map((section) => section.title)).toEqual([
-      'Data integrity & backend boundary',
       'Runtime load discipline',
       'Refactor discipline',
       'Design collaboration',
     ]);
 
-    expect(sections.flatMap((section) => section.rules)).toHaveLength(18);
+    expect(sections.flatMap((section) => section.rules)).toHaveLength(14);
 
     expect(emitHandbook(bp)).toContain('## Working playbook');
-    expect(emitAgentContract(bp)).toContain('- **Never fall back to fake data.**');
+    expect(emitAgentContract(bp)).toContain('- **Price every handler attached to a data source.**');
   });
 
   it('render the component-shape axes into both artifacts', () => {

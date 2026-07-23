@@ -82,7 +82,7 @@ flowchart TD
 | `services` | Network primitives | — | `axios`, global `fetch`, global `WebSocket` |
 ````
 
-完整手冊還有七條元件形狀軸線、十條核心信念與作業守則 —— 這些內容的正典版本就是本站的[工程理念](/zh-TW/philosophy/)章節。
+完整手冊還有七條元件形狀軸線、九條核心信念與作業守則 —— 這些內容的正典版本就是本站的[工程理念](/zh-TW/philosophy/)章節。
 
 ## `CLAUDE.md` / `AGENTS.md` —— 協作
 

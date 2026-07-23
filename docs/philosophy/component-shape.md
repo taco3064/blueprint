@@ -11,7 +11,7 @@ because another does. Numbering is identity, not order, and trivial changes need
 force the full pass.
 
 Almost everything here is ◐/○ — component shape is design judgment, which is exactly
-belief #7. Lint metrics are entry points; the verdict stays with review.
+belief #6. Lint metrics are entry points; the verdict stays with review.
 
 ### 1. Ownership Inversion — the unit that needs derived state owns the derivation
 

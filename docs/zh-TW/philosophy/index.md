@@ -18,16 +18,16 @@
 | ◐ | **lint（初篩）＋ Agent 守則** | lint 僅能標出「需要檢視的位置」（設為 warn 等級），結論交由程式碼審查判定。 |
 | ○ | **Agent 守則** | 工具無法辨識（涉及語意、流程或人為判斷）—— 寫成行為規則，由 Agent 在每輪工作中自行遵守。 |
 
-這就是 blueprint 的設計骨架：機器查得動的轉譯成 ESLint config；唯有審查能判定的轉譯成手冊與 Agent 守則。**lint 全數通過不等於架構合格** —— 這正是信念第七條。
+這就是 blueprint 的設計骨架：機器查得動的轉譯成 ESLint config；唯有審查能判定的轉譯成手冊與 Agent 守則。**lint 全數通過不等於架構合格** —— 這正是信念第六條。
 
 ## Blueprint 的承載方式
 
 | 手冊章節 | Blueprint 載體 |
 |---|---|
 | 分層架構、模組形狀、套件歸屬 | `architecture` → `emitLint` 與 `inspect` |
-| 十條核心信念 | `principles` → 手冊與 Agent 守則 |
+| 九條核心信念 | `principles` → 手冊與 Agent 守則 |
 | 元件形狀（七條軸線） | `componentShape` → 手冊與 Agent 守則 |
-| 資料完整性／執行期負載／重構／協作 | `playbook` → 手冊與 Agent 守則 |
+| 執行期負載／重構／協作 | `playbook` → 手冊與 Agent 守則 |
 | 量化門檻與自訂規則 | `rules` → `emitLint`（內嵌外掛） |
 
-延伸閱讀：[十條核心信念](/zh-TW/philosophy/beliefs) · [分層架構](/zh-TW/philosophy/layers) · [元件形狀](/zh-TW/philosophy/component-shape) · [工作紀律](/zh-TW/philosophy/discipline)
+延伸閱讀：[九條核心信念](/zh-TW/philosophy/beliefs) · [分層架構](/zh-TW/philosophy/layers) · [元件形狀](/zh-TW/philosophy/component-shape) · [工作紀律](/zh-TW/philosophy/discipline)

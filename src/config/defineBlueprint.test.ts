@@ -305,16 +305,16 @@ describe('validateBlueprint', () => {
 
   it('rejects blank playbook titles and duplicate rule ids across sections', () => {
     const config = base();
-    const rule = { id: 'no-fake-fallback', say: 'Never fake.' };
+    const rule = { id: 'sample-rule', say: 'Do it.' };
 
     // Defensive: a section without a rules array (untyped config file) is tolerated.
-    config.playbook = [{ title: 'BE', rules: undefined as never }];
+    config.playbook = [{ title: 'x', rules: undefined as never }];
     expect(() => validateBlueprint(config)).not.toThrow();
 
     config.playbook = [{ title: '  ', rules: [rule] }];
     expect(() => validateBlueprint(config)).toThrow(/non-empty title/);
 
-    config.playbook = [{ title: 'BE', rules: [{ ...rule, id: ' ' }] }];
+    config.playbook = [{ title: 'x', rules: [{ ...rule, id: ' ' }] }];
     expect(() => validateBlueprint(config)).toThrow(/rule with no id/);
 
     config.playbook = [

@@ -32,14 +32,13 @@ interface FrameworkOwns {
   contexts: OwnedPrimitive[];
 }
 
-/** The ten governance beliefs — all behavioral (held in review / CLAUDE.md). */
+/** The nine governance beliefs — all behavioral (held in review / CLAUDE.md). */
 function principles(): Blueprint['principles'] {
   return [
     { id: 'by-responsibility', say: 'Split by responsibility, not by size', why: 'The signal to split is how many things a unit does — line count is only a backstop.', land: 'claude' },
     { id: 'single-source-of-truth', say: 'One source of truth', why: 'Derive computed values; never store duplicate mutable state that can desync.', land: 'claude' },
     { id: 'narrow-interfaces', say: 'Keep interfaces narrow', why: 'Narrow inputs and outputs so illegal states cannot be expressed.', land: 'claude' },
     { id: 'knowledge-where-used', say: 'Keep knowledge where it is used', why: 'Push derivation to the child and state to its lowest common owner; do not hoist.', land: 'claude' },
-    { id: 'respect-backend', say: 'Do not fake or paper over backend data', why: 'Preserve the backend shape, guard against drift, let missing data be empty or error — never a fake fallback.', land: 'claude' },
     { id: 'dead-code', say: 'Dead code: delete it or mark it', why: 'An abstraction with no consumer is dead; sweep orphans, mark retained-dead as deprecated.', land: 'claude' },
     { id: 'lint-is-triage', say: 'Lint is an entry point, not a verdict', why: 'Mechanical checks only triage; cohesion and invariants need review.', land: 'claude' },
     { id: 'ac-not-scripture', say: 'Acceptance criteria are a start, not scripture', why: 'Fixing a ticket that violates an abstraction\'s responsibility is upholding the design.', land: 'claude' },
@@ -104,21 +103,12 @@ function componentShape(): AxisDef[] {
 }
 
 /**
- * The working playbook — the handbook's behavioral parts (data integrity,
- * runtime cost, refactor and collaboration discipline). No tool enforces
+ * The working playbook — the handbook's behavioral parts (runtime cost,
+ * refactor and collaboration discipline). No tool enforces
  * these; they live in the emitted handbook and agent contract.
  */
 function playbook(): PlaybookSection[] {
   return [
-    {
-      title: 'Data integrity & backend boundary',
-      rules: [
-        { id: 'no-fake-fallback', say: 'Never fall back to fake data.', why: 'A `payload.field || fixture.field` fallback is a bug, not a safety net — it hides integrity problems. Production renders empty, error, or skeleton; never fabricated values.' },
-        { id: 'drift-guard-framing', say: 'Frame kept defenses as drift guards.', why: 'A deliberately retained shape-defense is framed "guard against BE drift", never "support payload X missing field Y". Strip one only when drift is out of question and tests prove zero call sites.' },
-        { id: 'no-fe-workaround', say: 'Do not volunteer FE workarounds for BE-owned problems.', why: 'When the fix belongs to the backend and that position is already public, offering a short-term FE hack hands the work straight back to the frontend.' },
-        { id: 'preserve-locale-shape', say: 'Services preserve the backend locale shape.', why: 'Resolving `{ zh_cn, en }` to one string inside a service drops the other variant, pins the timing to call time, and mixes presentation into the service layer — resolve in the view.' },
-      ],
-    },
     {
       title: 'Runtime load discipline',
       rules: [

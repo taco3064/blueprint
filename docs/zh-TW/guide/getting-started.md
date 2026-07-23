@@ -67,7 +67,7 @@ export default defineBlueprint({
 });
 ```
 
-亦可直接採用內建的預設藍圖 —— `vuePreset()` 與 `reactPreset()` 完整編碼了治理手冊的內容：六個分層、十條核心信念、七條元件形狀軸線、十八條作業守則。上述內容於[工程理念](/zh-TW/philosophy/)章節逐頁記載；所有匯出項目請參閱 [API 文件](/zh-TW/api/)。
+亦可直接採用內建的預設藍圖 —— `vuePreset()` 與 `reactPreset()` 完整編碼了治理手冊的內容：六個分層、九條核心信念、七條元件形狀軸線、十四條作業守則。上述內容於[工程理念](/zh-TW/philosophy/)章節逐頁記載；所有匯出項目請參閱 [API 文件](/zh-TW/api/)。
 
 preset 直接收 `emit` —— 宣告自己用的 agent 工具，不用犧牲「一行 preset」的形式：
 

@@ -29,17 +29,17 @@ Every rule in the handbook lands in exactly one of three places:
 
 This is the mechanism behind Blueprint's design: what a machine can check compiles into
 the ESLint config; what only a reviewer can judge compiles into the handbook and the agent
-contract. **A green lint run never means the architecture is correct** — that is belief #7.
+contract. **A green lint run never means the architecture is correct** — that is belief #6.
 
 ## Where Blueprint fits
 
 | Handbook part | Blueprint carrier |
 |---|---|
 | Layer architecture, module shape, ownership | `architecture` → `emitLint` + `inspect` |
-| Ten core beliefs | `principles` → handbook + agent contract |
+| Nine core beliefs | `principles` → handbook + agent contract |
 | Component shape (7 axes) | `componentShape` → handbook + agent contract |
-| Data integrity / runtime / refactor / collaboration | `playbook` → handbook + agent contract |
+| Runtime / refactor / collaboration | `playbook` → handbook + agent contract |
 | Metric gates & custom rules | `rules` → `emitLint` (embedded plugin) |
 
-Read on: [Ten Core Beliefs](/philosophy/beliefs) · [Layer Architecture](/philosophy/layers)
+Read on: [Nine Core Beliefs](/philosophy/beliefs) · [Layer Architecture](/philosophy/layers)
 · [Component Shape](/philosophy/component-shape) · [Working Discipline](/philosophy/discipline)
