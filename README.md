@@ -15,14 +15,12 @@
 
 What letting an AI write your code quietly costs — and what blueprint does about each:
 
-| The cost of hands-off AI | blueprint's answer |
-| --- | --- |
-| **Placement** — new files land wherever's convenient; a few sessions later, nothing lives where it should | Layers become import-boundary rules the agent reads up front and lint blocks — `✗ services/ may not import from pages/` |
-| **Single responsibility** — one file quietly grows to do five jobs and own none | Written into the agent contract, backed by the mechanical caps lint can prove |
-| **File size** — every edit grows the file; months in, a module hits 6,000 lines and every agent loads all of it to touch one function | `maxLines` caps it before it taxes your token budget — `✗ order.service.ts 6,000 / 300` |
-| **Readability** — optimized for *done*, not the next reader — who's another agent that now can't navigate it | Handbook + contract set one bar — naming, shape, ownership — for every session |
-| **Consistency** — each session re-derives your architecture from scratch, and guesses differently | `survey` emits deterministic facts; the contract fixes the rules once |
-| **Adoption** — point it at a 3-year repo, expect 4,000 errors, team disables it day one | Baseline locks today's debt and gates only what's new — `.blueprint-baseline.json` |
+- **Placement** — new files land wherever's convenient; a few sessions later, nothing lives where it should.<br>→ Layers become import-boundary rules the agent reads up front and lint blocks — `✗ services/ may not import from pages/`
+- **Single responsibility** — one file quietly grows to do five jobs and own none.<br>→ Written into the agent contract, backed by the mechanical caps lint can prove.
+- **File size** — every edit grows the file; months in, a module hits 6,000 lines and every agent loads all of it to touch one function.<br>→ `maxLines` caps it before it taxes your token budget — `✗ order.service.ts 6,000 / 300`
+- **Readability** — optimized for *done*, not the next reader — who's another agent that now can't navigate it.<br>→ Handbook + contract set one bar — naming, shape, ownership — for every session.
+- **Consistency** — each session re-derives your architecture from scratch, and guesses differently.<br>→ `survey` emits deterministic facts; the contract fixes the rules once.
+- **Adoption** — point it at a 3-year repo, expect 4,000 errors, team disables it day one.<br>→ Baseline locks today's debt and gates only what's new — `.blueprint-baseline.json`
 
 blueprint pins all of this down in **one config** that compiles into everything that keeps
 a codebase (and its coding agents) honest:
