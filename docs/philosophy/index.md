@@ -56,11 +56,12 @@ architectural calls are semantic — they need someone who understands what the 
 
 No AST answers those. So every rule in the handbook lands in exactly one of three tiers:
 
-| Tier | Enforced by | Meaning |
-|---|---|---|
-| ✅ | **lint / config** | Fully checkable — lint blocks violations automatically. Install once. |
-| ◐ | **lint (triage) + agent contract** | Lint can only flag an *entry point* (`warn`); the verdict needs review. |
-| ○ | **agent contract only** | Semantic, procedural, human judgment — no tool can catch it. The agent holds it every turn. |
+- **✅ lint / config** —<br>
+  fully checkable; lint blocks violations automatically. Install once.
+- **◐ lint (triage) + agent contract** —<br>
+  lint can only flag an *entry point* (`warn`); the verdict needs review.
+- **○ agent contract only** —<br>
+  semantic, procedural, human judgment — no tool can catch it. The agent holds it every turn.
 
 That is the mechanism behind blueprint's design: what a machine can check compiles into the
 ESLint config; what only a reviewer can judge compiles into the handbook and the agent
@@ -85,13 +86,11 @@ them. The convictions hold across both; only the primitives change.
 
 Each kind of rule maps to a field in the blueprint, and to the artifact that carries it:
 
-| Handbook part | Blueprint carrier |
-|---|---|
-| Layer architecture, module shape, ownership | `architecture` → `emitLint` + `inspect` |
-| Core beliefs | `principles` → handbook + agent contract |
-| Component shape | `componentShape` → handbook + agent contract |
-| Runtime / refactor / collaboration | `playbook` → handbook + agent contract |
-| Metric gates & custom rules | `rules` → `emitLint` (embedded plugin) |
+- **Layer architecture, module shape, ownership** — `architecture` → `emitLint` + `inspect`
+- **Core beliefs** — `principles` → handbook + agent contract
+- **Component shape** — `componentShape` → handbook + agent contract
+- **Runtime / refactor / collaboration** — `playbook` → handbook + agent contract
+- **Metric gates & custom rules** — `rules` → `emitLint` (embedded plugin)
 
 Editing `blueprint.config` is editing your project's operating contract. Regenerate, and
 the ESLint config, the architecture handbook, and the agent contract all move together —

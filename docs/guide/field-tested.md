@@ -12,16 +12,37 @@ which is still frontier.
 
 ## Tested and green
 
-| Setup | Project shape | Outcome |
-|---|---|---|
-| **Vite + Vue 3 (JS, pnpm)** | 489-file production app with an existing structure-lint setup and a hand-written CLAUDE.md | Config authored from the survey + the repo's own intent docs; **0 findings**; `emitLint` merged into the existing flat config (structural rules proven equivalent to the incumbent linter); contract integrated into the hand-written CLAUDE.md; full test suite (4,196 tests) green. Zero source-code edits. |
-| **Vite + React + TS (npm, legacy `.eslintrc`)** | 852-file production app, no prior structure governance | Config authored from the survey; **246 real findings** locked as the baseline (including one genuine `services → types → resources → services` import cycle); per-layer module layout (`resources` as folder modules). The legacy-eslintrc migration is surfaced as a decision, not forced. |
-| **create-vite `react-ts`** (fresh) | Greenfield | One command: preset scaffold, compact contract, lint + inspect + build green out of the box. |
-| **create-vite `vue-ts`** (fresh) | Greenfield | Same, plus a template-cleanup instruct: the starter's `../assets` relative imports violate the preset — init lists the exact findings and the fix (wire the alias, three small edits). |
-| **create-next-app — App Router, `src/`, TS** | Greenfield | One command: `nextPreset` auto-selected (router + srcDir detected), config `app` → `components` → `hooks` → `lib`, `inspect` + `next build` green; hand-written CLAUDE/AGENTS left untouched. |
-| **Next.js — App Router at the project root (no `src/`)** | Greenfield | `sourceRoot: '.'` scans the root-level `app/` tree; upward imports into it are caught like anywhere else. |
-| **Next.js — Pages Router (`src/pages`)** | Greenfield | `pages/` is the top layer; `pages/api/*` handlers import downward into `lib`, no violations. |
-| **Monorepo: turbo + pnpm** | Per-package adoption | Supported model: run `blueprint init` inside each package (`pnpm --filter <pkg> exec …`). The package manager is detected from the **workspace root** (lockfile / `pnpm-workspace.yaml` looked up through parent directories). Blueprint must be a devDependency of the package itself, so the contract's `node_modules` link resolves. Wire `blueprint inspect --baseline` as a turbo task per package (`"inspect": "blueprint inspect --baseline"`) and gate it however you already gate the monorepo. |
+**Vite + Vue 3 (JS, pnpm)**
+- Shape — 489-file production app with an existing structure-lint setup and a hand-written CLAUDE.md
+- Outcome — config authored from the survey + the repo's own intent docs; **0 findings**; `emitLint` merged into the existing flat config (structural rules proven equivalent to the incumbent linter); contract integrated into the hand-written CLAUDE.md; full test suite (4,196 tests) green. Zero source-code edits.
+
+**Vite + React + TS (npm, legacy `.eslintrc`)**
+- Shape — 852-file production app, no prior structure governance
+- Outcome — config authored from the survey; **246 real findings** locked as the baseline (including one genuine `services → types → resources → services` import cycle); per-layer module layout (`resources` as folder modules). The legacy-eslintrc migration is surfaced as a decision, not forced.
+
+**create-vite `react-ts` (fresh)**
+- Shape — greenfield
+- Outcome — one command: preset scaffold, compact contract, lint + inspect + build green out of the box.
+
+**create-vite `vue-ts` (fresh)**
+- Shape — greenfield
+- Outcome — same, plus a template-cleanup instruct: the starter's `../assets` relative imports violate the preset — init lists the exact findings and the fix (wire the alias, three small edits).
+
+**create-next-app — App Router, `src/`, TS**
+- Shape — greenfield
+- Outcome — one command: `nextPreset` auto-selected (router + srcDir detected), config `app` → `components` → `hooks` → `lib`, `inspect` + `next build` green; hand-written CLAUDE/AGENTS left untouched.
+
+**Next.js — App Router at the project root (no `src/`)**
+- Shape — greenfield
+- Outcome — `sourceRoot: '.'` scans the root-level `app/` tree; upward imports into it are caught like anywhere else.
+
+**Next.js — Pages Router (`src/pages`)**
+- Shape — greenfield
+- Outcome — `pages/` is the top layer; `pages/api/*` handlers import downward into `lib`, no violations.
+
+**Monorepo: turbo + pnpm**
+- Shape — per-package adoption
+- Outcome — supported model: run `blueprint init` inside each package (`pnpm --filter <pkg> exec …`). The package manager is detected from the **workspace root** (lockfile / `pnpm-workspace.yaml` looked up through parent directories). Blueprint must be a devDependency of the package itself, so the contract's `node_modules` link resolves. Wire `blueprint inspect --baseline` as a turbo task per package (`"inspect": "blueprint inspect --baseline"`) and gate it however you already gate the monorepo.
 
 ## Framework notes
 

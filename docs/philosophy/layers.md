@@ -29,14 +29,27 @@ pages/views → containers → components → hooks → services → assets/i18n
 
 ## The layers
 
-| Layer | Responsibility | Must not |
-|---|---|---|
-| `pages` | Page layout + assembling containers; routes, SEO | hold business logic, stack components directly |
-| `containers` | One feature: assembly + business logic + CRUD; stateful, calls services, drives navigation | — |
-| `components` | Reusable, presentational UI; may call hooks | touch the router, call services, own app state |
-| `hooks` | `inject`/`useContext` live only here; adapts server/shared state; **stores (Pinia/Zustand) are private objects of this layer** | expose a raw store |
-| `contexts` | `provide`/`createContext` live only here; exposes Context/Provider | — |
-| `services` | Network primitives; the only importer of `axios`, the only caller of `fetch`/`WebSocket` | contain UI or business logic |
+**`pages`**
+- Does — page layout, assembling containers; routes, SEO
+- Must not — hold business logic, stack components directly
+
+**`containers`**
+- Does — one feature: assembly, business logic, CRUD; stateful, calls services, drives navigation
+
+**`components`**
+- Does — reusable, presentational UI; may call hooks
+- Must not — touch the router, call services, own app state
+
+**`hooks`**
+- Does — `inject`/`useContext` live only here; adapts server/shared state; **stores (Pinia/Zustand) are private objects of this layer**
+- Must not — expose a raw store
+
+**`contexts`**
+- Does — `provide`/`createContext` live only here; exposes Context/Provider
+
+**`services`**
+- Does — network primitives; the only importer of `axios`, the only caller of `fetch`/`WebSocket`
+- Must not — contain UI or business logic
 
 **There is no `stores` layer and no `utils` layer.** A store has a single owner hook —
 its public face; other features read through that hook. And `utils/` is a cohesion-free

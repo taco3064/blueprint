@@ -18,12 +18,14 @@ linter has been field-tested; see
 
 The difference is not the lint — it's everything else the **same source** compiles into:
 
-| The same `blueprint.config.mjs` also becomes | Which an import-linter alone does not produce |
-| --- | --- |
-| A human handbook (`docs/architecture-handbook.md`) | The "why" stays in sync with the rules by construction — it cannot drift |
-| Ground rules for AI agents (`CLAUDE.md`, `AGENTS.md`, Cursor, Windsurf…) | The agent holds the rules **before** it places a file, not after lint fails |
-| Read-only `inspect` / `deps` runtimes | Finding kinds lint cannot see (undeclared folders, cycles, missing entries…) and a blast-radius query |
-| A brownfield authoring flow (`survey` → playbook → baseline ratchet) | Adopting on a legacy repo is a first-class, evidence-driven path — not "turn it on and drown in red" |
+- **A human handbook (`docs/architecture-handbook.md`)** —<br>
+  the "why" stays in sync with the rules by construction; it cannot drift
+- **Ground rules for AI agents (`CLAUDE.md`, `AGENTS.md`, Cursor, Windsurf…)** —<br>
+  the agent holds the rules **before** it places a file, not after lint fails
+- **Read-only `inspect` / `deps` runtimes** —<br>
+  finding kinds lint cannot see (undeclared folders, cycles, missing entries…) and a blast-radius query
+- **A brownfield authoring flow (`survey` → playbook → baseline ratchet)** —<br>
+  adopting on a legacy repo is a first-class, evidence-driven path — not "turn it on and drown in red"
 
 The bet behind that design: with AI agents writing a growing share of the code, rules
 that live only in lint arrive **after** the file already landed in the wrong place. The

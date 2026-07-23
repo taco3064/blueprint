@@ -5,11 +5,17 @@ layers already exist, and someone has to *read* them before rules can encode the
 Blueprint splits that work into three parts — and only the middle one needs
 intelligence:
 
-| Part | Who | Tool |
-|---|---|---|
-| **Evidence** — folders, import matrix, module shapes, package concentration | deterministic | `blueprint survey` |
-| **Judgment** — which folders are layers, which way the flow points, what's debt vs intent | an agent (or you) | the authoring playbook |
-| **Validation** — findings must be explainable as real debt, not mistranslation | deterministic | `blueprint inspect` + the baseline ratchet |
+**Evidence** — folders, import matrix, module shapes, package concentration
+- Who — deterministic
+- Tool — `blueprint survey`
+
+**Judgment** — which folders are layers, which way the flow points, what's debt vs intent
+- Who — an agent (or you)
+- Tool — the authoring playbook
+
+**Validation** — findings must be explainable as real debt, not mistranslation
+- Who — deterministic
+- Tool — `blueprint inspect` + the baseline ratchet
 
 ## The flow
 

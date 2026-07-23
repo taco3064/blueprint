@@ -19,10 +19,8 @@ npx @kekkai/blueprint deps src/hooks/useCart/useCart.ts   # same query, by file 
 All three input forms resolve to the same module key — with or without the `src/`
 prefix, with or without the file extension.
 
-| Flag | Effect |
-| --- | --- |
-| `--json` | Machine-readable output (for tooling or an AI agent) |
-| `--framework vue\|react` | Force the preset when no config exists and detection is ambiguous |
+- `--json` — machine-readable output (for tooling or an AI agent)
+- `--framework vue|react` — force the preset when no config exists and detection is ambiguous
 
 ## What you will see
 

@@ -1,4 +1,4 @@
-# 元件形狀 · 正交軸線
+# 元件形狀
 
 > **與 blueprint 的關係**：這些軸線就是預設藍圖的 [`componentShape`](/zh-TW/api/interfaces/AxisDef) 資料。<br>
 > 各軸線標註的初篩規則（`max-params`、`max-statements`、`max-lines`）會進 [lint config](/zh-TW/guide/reference#blueprint-rules-——-哪些識別碼會成為檢核關卡)當作檢視入口；<br>

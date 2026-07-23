@@ -24,14 +24,27 @@ pages/views → containers → components → hooks → services → assets/i18n
 
 ## 各層職責
 
-| 分層         | 職責                                                                                                                | 禁止事項                                                 |
-| ------------ | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `pages`      | 頁面版型與 containers 的組裝；對應路由與 SEO                                                                        | 不得放置商業邏輯；不得直接堆疊 components                |
-| `containers` | 單一功能的組裝、商業邏輯與資料增刪查改；持有狀態、呼叫 service、驅動導覽                                            | —                                                        |
-| `components` | 可重用的介面元件，以呈現為主，可呼叫 hook                                                                           | 不得操作路由；不得直接呼叫 service；不得持有應用程式狀態 |
-| `hooks`      | `inject` / `useContext` 僅得出現於此層；加工伺服器資料與共享狀態；**狀態儲存庫（Pinia / Zustand）為本層的私有物件** | 不得對外暴露原始的狀態儲存庫                             |
-| `contexts`   | `provide` / `createContext` 僅得出現於此層；對外提供 Context 與 Provider                                            | —                                                        |
-| `services`   | 網路存取原語；唯一可匯入 `axios`、唯一可呼叫 `fetch` 與 `WebSocket` 之處                                            | 僅回傳資料，不含介面或商業邏輯                           |
+**`pages`**
+- 職責 — 頁面版型與 containers 的組裝；對應路由與 SEO
+- 禁止 — 放置商業邏輯、直接堆疊 components
+
+**`containers`**
+- 職責 — 單一功能的組裝、商業邏輯與資料增刪查改；持有狀態、呼叫 service、驅動導覽
+
+**`components`**
+- 職責 — 可重用的介面元件，以呈現為主，可呼叫 hook
+- 禁止 — 操作路由、直接呼叫 service、持有應用程式狀態
+
+**`hooks`**
+- 職責 — `inject` / `useContext` 只在此層；加工伺服器資料與共享狀態；**狀態儲存庫（Pinia / Zustand）為本層私有物件**
+- 禁止 — 對外暴露原始的狀態儲存庫
+
+**`contexts`**
+- 職責 — `provide` / `createContext` 只在此層；對外提供 Context 與 Provider
+
+**`services`**
+- 職責 — 網路存取原語；唯一可匯入 `axios`、唯一可呼叫 `fetch` / `WebSocket` 之處
+- 禁止 — 夾帶介面或商業邏輯（只回傳資料）
 
 **這套架構不設 `stores`、也不設 `utils` 這兩層。**<br>
 每個狀態儲存庫都該有一個唯一擁有它的 hook 模組，這個 hook 就是它對外的介面；其他功能一律透過它讀取。<br>
