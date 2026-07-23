@@ -7,7 +7,7 @@ hero:
   image:
     src: /logo.png
     alt: blueprint
-  tagline: Translates your frontend design philosophy into ESLint rules, a human-readable handbook, ground rules for AI agents, and a CI gate.
+  tagline: Translates your frontend architecture into ESLint rules, an architecture handbook, an AI agent contract, and a CI gate — so humans, AI, and automation all follow the same architecture.
   actions:
     - theme: brand
       text: Get Started
@@ -21,39 +21,11 @@ hero:
     - theme: alt
       text: API Reference
       link: /api/
-
-features:
-  - icon: 🧱
-    title: Enforce
-    details: emitLint compiles the layer flow, module boundaries, and ownership rules into an ESLint flat config — with an embedded plugin, nothing extra to install.
-    link: /guide/generated-artifacts#eslint-config-mjs-—-enforce
-    linkText: See the generated config
-  - icon: 📖
-    title: Explain
-    details: emitHandbook renders a human handbook (markdown + mermaid) that cannot drift from the rules, because both compile from the same source.
-    link: /guide/generated-artifacts#docs-architecture-handbook-md-—-explain
-    linkText: See the handbook
-  - icon: 🤖
-    title: Collaborate
-    details: emitAgentFiles distributes one agent operating contract across CLAUDE.md, AGENTS.md, Cursor, Windsurf, and more.
-    link: /guide/generated-artifacts#claude-md-agents-md-—-collaborate
-    linkText: See the contract
-  - icon: 🚦
-    title: Gate
-    details: emitCi renders a GitHub Actions workflow — lint plus a read-only architecture report, exit 1 on violations.
-    link: /guide/generated-artifacts#github-workflows-blueprint-ci-yml-—-gate
-    linkText: See the workflow
-  - icon: 🧭
-    title: Adopt
-    details: The brownfield flow — survey collects the evidence, your own agent authors the config, and the baseline ratchet locks today's debt so it only tightens.
-    link: /guide/ai-adoption
-    linkText: See the adoption flow
-  - icon: 🔎
-    title: Verify
-    details: Read-only runtimes on the same source — inspect judges the architecture (nine finding kinds, CI-gateable), deps answers "who gets hit if I change this".
-    link: /guide/features#checks-—-what-gets-caught
-    linkText: See what gets caught
 ---
+
+## Why you need it
+
+<ProblemCards />
 
 ## One source, everything compiled
 
@@ -72,16 +44,6 @@ features:
 Edit the config, regenerate, and every artifact moves together — they cannot drift,
 because they are all translations of the same source. See them verbatim in
 [What init Generates](/guide/generated-artifacts).
-
-## Why
-
-AI agents write code fast — but where a file goes, and who may import whom, rides on
-whatever the agent happens to hold in context. Meanwhile the architecture doc, the
-ESLint config, and CLAUDE.md are three hand-maintained documents that inevitably stop
-telling the same story.
-
-blueprint collapses them into one config: what the rules say is what lint blocks, what
-the handbook explains, and what the agent holds.
 
 ## Hand it to your agent
 
