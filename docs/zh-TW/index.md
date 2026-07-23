@@ -25,9 +25,9 @@ hero:
 
 <CompileFlow />
 
-改設定、重新生成，所有產出物一起變更 ——<br>
+改設定、重新生成，所有產出物一起變更 ——
 它們不會漂移，因為全部是同一份來源轉譯出來的。<br>
-完整長相見 [init 產出物](/zh-TW/guide/generated-artifacts)。
+詳細內容見 [init 產出結果](/zh-TW/guide/generated-artifacts)。
 
 ## 快速上手 {#quick-start}
 
