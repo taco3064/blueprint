@@ -1,12 +1,17 @@
 # 分層架構
 
-> **與 blueprint 的關係**：本頁就是預設藍圖的 `architecture` 區塊 ——<br>
-> 工程理念中唯一會變成**硬性護欄**的部分：[生成的 ESLint config](/zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制) 與 [inspect 的檢測](/zh-TW/guide/reference#inspect-回報的檢測項目)。<br>
-> 在 [`blueprint.config.mjs`](/zh-TW/guide/getting-started#blueprint-config) 宣告你自己的分層，同一套機制就會為你把關。
+> **與 blueprint 的關係**：這一頁講的分層，就是 blueprint config 裡的 `architecture` 區塊 ——<br>
+> 也是整套工程理念裡，唯一會被編成**硬性護欄**的部分：[生成的 ESLint config](/zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制) 與 [inspect 檢測](/zh-TW/guide/reference#inspect-回報的檢測項目)。<br>
+> 你只要在 [`blueprint.config.mjs`](/zh-TW/guide/getting-started#blueprint-config) 把自己的分層宣告出來，這套機制就照著幫你把關。
 
-**單向依賴流，每層單一職責。**<br>
-這套原則跟框架無關，Vue、React 都成立 —— 單元一對一、沒有主從：<br>
+**核心只有一句：程式碼只能往下流。**<br>
+把專案切成有順序的幾層，每一層只能 import 它下面的層、不能反過來 —— 而且每層只做一件事。
+
+這套規則跟你用什麼框架無關，Vue、React 都通 —— 差別只在名字：<br>
+Vue 的 composable 就是 React 的 hook，其餘一一對應：<br>
 `composable ↔ hook`、`context ↔ Context`、`SFC ↔ function component`、`service ↔ api client`。
+
+下面就是那個順序，箭頭是「可以 import 的方向」：
 
 ```
 pages/views → containers → components → hooks → services → assets/i18n
