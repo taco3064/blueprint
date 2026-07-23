@@ -17,6 +17,24 @@ intelligence:
 - Who — deterministic
 - Tool — `blueprint inspect` + the baseline ratchet
 
+## Why the survey matters
+
+Letting an agent grep a repo from scratch is slow and unreliable. `survey` hands it
+deterministic facts instead:
+
+```bash
+npx @kekkai/blueprint survey          # human-readable
+npx @kekkai/blueprint survey --json   # for tooling / agents
+```
+
+- top-level folders with **module-shape evidence** (index coverage, nesting depth —
+  the folder-vs-flat call)
+- the **folder-to-folder import matrix**, heaviest edges first — the intended flow
+  direction, and the counter-edges that are debt (the matrix counts test files;
+  `inspect` excludes them, so its numbers run lower)
+- **package-usage concentration** — `owns` candidates
+- test-convention hits — what belongs in `testFiles`, not in `layers`
+
 ## The flow
 
 Run `init` on a repo that has source code but no `blueprint.config.mjs`:
@@ -85,6 +103,34 @@ skipped, not performed for ceremony. Greenfield repos
 skip all of this — `init` alone completes; and once `init` has run, typing
 `/blueprint-author` in Claude Code does the same job.
 
+## Decide conflicts on numbers — `blueprint impact`
+
+Field testing's costliest authoring step was deciding rule conflicts before
+wiring: "how many times would each emitted rule fire on this repo?" used to be
+answered by dumping the emitted config and reading it against the code by
+hand. `impact` answers it directly:
+
+```bash
+npx @kekkai/blueprint impact          # how red would the wiring be?
+npx @kekkai/blueprint impact --json   # feed the counts to tooling / an agent
+```
+
+It compiles the authored config with `emitLint`, runs the **project's own**
+ESLint over the layer files with only that config, and reports hits per rule
+with the heaviest files named. Informational, never a gate — exit 0 whatever
+the count, and the total counts **only** violations the wiring would
+introduce. Isolation artifacts render apart and never inflate it:
+`parse-error` (a file could not be parsed; its numbers are untrustworthy)
+and `unused-disable-directive` (an inline disable suppressing nothing *in
+isolation* — one pointing at your own config's rules vanishes after the
+merge, a truly stale one survives it) sit under "Isolation caveats"; rule ids
+blueprint does not emit sit apart as *echoes of your own config* — a row
+there mirroring a blueprint hit is the same spot seen through your house
+rule's name, not a second violation. The report's closing line says it
+plainly: the numbers decide **tiers**, not just suppressions — a rule you
+would suppress everywhere is usually better declared `warn`/`off` in the
+blueprint `rules` block, with suppressions locking only what remains.
+
 ## Verify it's finished — `blueprint doctor`
 
 "Is adoption actually done?" is a question the prompt's acceptance clause used to
@@ -120,59 +166,6 @@ npx @kekkai/blueprint doctor
 
 `--json` emits the same checklist for tooling.
 
-## Why the survey matters
-
-Letting an agent grep a repo from scratch is slow and unreliable. `survey` hands it
-deterministic facts instead:
-
-```bash
-npx @kekkai/blueprint survey          # human-readable
-npx @kekkai/blueprint survey --json   # for tooling / agents
-```
-
-- top-level folders with **module-shape evidence** (index coverage, nesting depth —
-  the folder-vs-flat call)
-- the **folder-to-folder import matrix**, heaviest edges first — the intended flow
-  direction, and the counter-edges that are debt (the matrix counts test files;
-  `inspect` excludes them, so its numbers run lower)
-- **package-usage concentration** — `owns` candidates
-- test-convention hits — what belongs in `testFiles`, not in `layers`
-
-## Decide conflicts on numbers — `blueprint impact`
-
-Field testing's costliest authoring step was deciding rule conflicts before
-wiring: "how many times would each emitted rule fire on this repo?" used to be
-answered by dumping the emitted config and reading it against the code by
-hand. `impact` answers it directly:
-
-```bash
-npx @kekkai/blueprint impact          # how red would the wiring be?
-npx @kekkai/blueprint impact --json   # feed the counts to tooling / an agent
-```
-
-It compiles the authored config with `emitLint`, runs the **project's own**
-ESLint over the layer files with only that config, and reports hits per rule
-with the heaviest files named. Informational, never a gate — exit 0 whatever
-the count, and the total counts **only** violations the wiring would
-introduce. Isolation artifacts render apart and never inflate it:
-`parse-error` (a file could not be parsed; its numbers are untrustworthy)
-and `unused-disable-directive` (an inline disable suppressing nothing *in
-isolation* — one pointing at your own config's rules vanishes after the
-merge, a truly stale one survives it) sit under "Isolation caveats"; rule ids
-blueprint does not emit sit apart as *echoes of your own config* — a row
-there mirroring a blueprint hit is the same spot seen through your house
-rule's name, not a second violation. The report's closing line says it
-plainly: the numbers decide **tiers**, not just suppressions — a rule you
-would suppress everywhere is usually better declared `warn`/`off` in the
-blueprint `rules` block, with suppressions locking only what remains.
-
-## Failure semantics
-
-Every artifact is on disk **before** any agent starts. A launch that fails, or an
-agent that gives up midway, degrades to exactly the manual path — the same playbook,
-walked by you. `inspect` is read-only, `init` is idempotent, and the baseline is only
-written at the final step, so there is no half-adopted state to clean up.
-
 ## Existing debt — turn it red, then ratchet it
 
 Adoption's job is to make debt visible and lock it, not to quiet the screen. On a repo
@@ -194,6 +187,13 @@ config, and that migration is your call, never the playbook's. The **transitiona
 fallback until then: `emit: { lint: { severity: 'warn' } }` — with its cost stated
 plainly: `severity` covers only the structural rules (metric rules like `maxLines`
 keep their own tiers), and while it's warn, new metric debt is not gated.
+
+## Failure semantics
+
+Every artifact is on disk **before** any agent starts. A launch that fails, or an
+agent that gives up midway, degrades to exactly the manual path — the same playbook,
+walked by you. `inspect` is read-only, `init` is idempotent, and the baseline is only
+written at the final step, so there is no half-adopted state to clean up.
 
 ## Scope honesty
 
