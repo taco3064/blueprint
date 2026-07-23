@@ -112,7 +112,7 @@ export default withMermaid(defineConfig({
             { text: '運作守則', link: '/zh-TW/philosophy/' },
             { text: '核心信念', link: '/zh-TW/philosophy/beliefs' },
             { text: '分層架構', link: '/zh-TW/philosophy/layers' },
-            { text: '元件形狀', link: '/zh-TW/philosophy/component-shape' },
+            { text: '元件設計', link: '/zh-TW/philosophy/component-shape' },
             { text: '工作紀律', link: '/zh-TW/philosophy/discipline' },
           ],
           '/zh-TW/api/': [{ text: 'API Reference', items: withZhPrefix(typedocSidebar) }],

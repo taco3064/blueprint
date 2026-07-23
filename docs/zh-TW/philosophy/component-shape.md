@@ -1,4 +1,4 @@
-# 元件形狀
+# 元件設計
 
 > **與 blueprint 的關係**：這些軸線就是 blueprint config 裡的 [`componentShape`](/zh-TW/api/interfaces/AxisDef) 區塊。<br>
 > 每條軸線標的初篩規則（`max-params`、`max-statements`、`max-lines`）會進 [lint config](/zh-TW/guide/reference#blueprint-rules-——-哪些識別碼會成為檢核關卡)，當「該檢查哪裡」的入口；<br>
@@ -12,7 +12,7 @@
 這套看法跟框架無關，Vue、React 都通 —— Vue 的 composable ＝ React 的 hook，只是名字不同。
 
 這節的檢查幾乎全落在 ◐ 跟 ○ 級 ——<br>
-元件形狀是設計判斷，這正是信念第六條在講的事。
+元件設計本來就是判斷題，這正是信念第六條在講的事。
 
 ### 1. 所有權反轉 —— 誰需要衍生狀態，誰自己持有
 

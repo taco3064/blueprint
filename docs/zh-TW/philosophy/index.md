@@ -82,7 +82,7 @@ blueprint 不綁 React 或 Vue。<br>
 - `ref()` ↔ `useState()`
 - `computed()` ↔ `useMemo()`
 
-—— 但工程原則是對得上的：分層方式、元件形狀、依賴方向、重構策略、協作方式。<br>
+—— 但工程原則是對得上的：分層方式、元件設計、依賴方向、重構策略、協作方式。<br>
 blueprint 在乎的是這些，不是底下那個框架。<br>
 這組信念在兩邊都成立，變的只有 reactive 原語。
 
@@ -93,11 +93,11 @@ blueprint 在乎的是這些，不是底下那個框架。<br>
 
 - **分層架構、模組形狀、套件歸屬** — `architecture` → `emitLint` 與 `inspect`
 - **核心信念** — `principles` → 手冊與 agent 守則
-- **元件形狀** — `componentShape` → 手冊與 agent 守則
+- **元件設計** — `componentShape` → 手冊與 agent 守則
 - **執行期負載／重構／協作** — `playbook` → 手冊與 agent 守則
 - **量化門檻與自訂規則** — `rules` → `emitLint`（內嵌外掛）
 
 修改 `blueprint.config`，就是在修改專案的運作守則。<br>
 重新產生後，ESLint 設定、架構手冊、agent 守則會一起同步 —— 永遠不會各走各的。
 
-延伸閱讀：[核心信念](/zh-TW/philosophy/beliefs) · [分層架構](/zh-TW/philosophy/layers) · [元件形狀](/zh-TW/philosophy/component-shape) · [工作紀律](/zh-TW/philosophy/discipline)
+延伸閱讀：[核心信念](/zh-TW/philosophy/beliefs) · [分層架構](/zh-TW/philosophy/layers) · [元件設計](/zh-TW/philosophy/component-shape) · [工作紀律](/zh-TW/philosophy/discipline)
