@@ -6,7 +6,7 @@
 ## 指令 —— 你所執行的
 
 - [`init` —— 全新專案建置](/zh-TW/guide/getting-started#全新專案-——-blueprint-init) —— 單一指令完成設計理念的護欄導入：分層資料夾、config、lint、手冊、AI Agent 守則與匯入別名
-- [`init` —— 既有專案編寫流程](/zh-TW/guide/ai-adoption#導入流程) —— 對有程式碼但沒有 config 的專案，不硬猜預設藍圖，改為產出一份可執行的編寫作業手冊
+- [`init` —— 既有專案編寫流程](/zh-TW/guide/ai-adoption#導入流程) —— 對有程式碼但沒有 config 的專案，不硬猜 preset，改為產出一份可執行的編寫作業手冊
 - [`init --agent claude|codex`](/zh-TW/guide/ai-adoption) —— 啟動你自己的 Agent CLI 執行該作業手冊：由證據推導 config，反覆檢核到每項違規都能解釋為止
 - [`survey`](/zh-TW/guide/ai-adoption#蒐證步驟的必要性) —— 決定性的專案蒐證：資料夾形狀、匯入矩陣、套件使用集中度 —— 編寫 config 的原料
 - [`inspect`](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect) —— 掃描 `src/` 並對照 blueprint config 列出所有違規；只要有 error 等級的違規就以 exit code 1 結束，可接到任何 gate（git hook、CI 隨你）
@@ -31,7 +31,7 @@
 - [模組形狀](/zh-TW/philosophy/layers#功能資料夾-——-模組的組成方式) —— `folder` 為一功能一資料夾、以公開入口對外；`flat` 為整層單一節點（如 Next 路由樹）—— 可逐層覆寫
 - [`blueprint.rules`](/zh-TW/guide/reference#blueprint-rules-——-哪些識別碼會成為檢核關卡) —— 帶等級的規則識別碼：機器查得動的轉譯成 lint 關卡，其餘寫進手冊與 Agent 守則作為判斷準則
 - [其餘 config 欄位](/zh-TW/guide/reference#快速上手範例以外的-config-欄位) —— `sourceRoot`、`additionalAliases`、`naming`、`lintOverrides`、`emit.*` —— 每項一句話，完整型別見 API 文件
-- [預設藍圖](/zh-TW/guide/field-tested#框架注意事項) —— `vuePreset` / `reactPreset` 完整編碼治理手冊；`nextPreset` 相容 App 與 Pages 路由、有無 `src/` 皆可
+- [preset](/zh-TW/guide/field-tested#框架注意事項) —— `vuePreset` / `reactPreset` 完整編碼治理手冊；`nextPreset` 相容 App 與 Pages 路由、有無 `src/` 皆可
 
 ## 檢測 —— 會被攔下的
 

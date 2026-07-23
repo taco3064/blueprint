@@ -76,7 +76,7 @@ export default defineBlueprint({
 });
 ```
 
-亦可直接採用內建的預設藍圖 ——<br>
+亦可直接採用內建的 preset ——<br>
 `vuePreset()` 與 `reactPreset()` 完整編碼了治理手冊的內容：分層架構、核心信念、元件形狀軸線與作業守則。<br>
 上述內容於[工程理念](/zh-TW/philosophy/)章節逐頁記載；所有匯出項目請參閱 [API 文件](/zh-TW/api/)。
 

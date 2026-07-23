@@ -6,7 +6,7 @@
 
 ## 來源：`blueprint.config.mjs`
 
-全新專案的 config 即為一次預設藍圖呼叫：
+全新專案的 config 即為一次 preset 呼叫：
 
 ```js
 import { vuePreset } from "@kekkai/blueprint";
