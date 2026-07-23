@@ -2,6 +2,7 @@ import { h } from 'vue';
 import DefaultTheme from 'vitepress/theme';
 import VersionBadge from './VersionBadge.vue';
 import ProblemCards from './ProblemCards.vue';
+import CompileFlow from './CompileFlow.vue';
 import './custom.css';
 
 export default {
@@ -17,5 +18,6 @@ export default {
   // register the component globally so both locales' index.md can mount it.
   enhanceApp({ app }) {
     app.component('ProblemCards', ProblemCards);
+    app.component('CompileFlow', CompileFlow);
   },
 };

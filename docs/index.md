@@ -7,7 +7,7 @@ hero:
   image:
     src: /logo.png
     alt: blueprint
-  tagline: Translates your frontend architecture into ESLint rules, an architecture handbook, an AI agent contract, and a CI gate — so humans, AI, and automation all follow the same architecture.
+  tagline: Translates your frontend architecture into ESLint rules, an architecture handbook, and an AI agent contract — so humans, AI, and automation all follow the same architecture.
   actions:
     - theme: brand
       text: Get Started
@@ -27,19 +27,9 @@ hero:
 
 <ProblemCards />
 
-## One source, everything compiled
+## Write Once. Generate Everything
 
-<div class="compile-flow">
-  <div class="cf-source">blueprint.config.mjs</div>
-  <div class="cf-arrow">→</div>
-  <div class="cf-outputs">
-    <div>eslint.config.mjs <span>Enforce — structural rules + embedded plugin</span></div>
-    <div>docs/architecture-handbook.md <span>Explain — the handbook humans read</span></div>
-    <div>CLAUDE.md · AGENTS.md · … <span>Collaborate — ground rules for AI agents</span></div>
-    <div>.github/workflows/blueprint-ci.yml <span>Gate — lint + inspect in CI</span></div>
-    <div>inspect · deps · rules <span>Verify — read-only runtimes on the same source</span></div>
-  </div>
-</div>
+<CompileFlow />
 
 Edit the config, regenerate, and every artifact moves together — they cannot drift,
 because they are all translations of the same source. See them verbatim in

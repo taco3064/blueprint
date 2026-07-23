@@ -34,53 +34,6 @@
   --vp-button-brand-active-text: #191100;
 }
 
-/* Landing: the compile-model diagram (one source -> every artifact). */
-.compile-flow {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-  margin: 20px 0 8px;
-}
-.compile-flow .cf-source {
-  border: 1px solid var(--vp-c-brand-2);
-  color: var(--vp-c-brand-1);
-  border-radius: 8px;
-  padding: 14px 18px;
-  font-family: var(--vp-font-family-mono);
-  font-size: 14px;
-  background: var(--vp-c-bg-soft);
-  white-space: nowrap;
-}
-.compile-flow .cf-arrow {
-  color: var(--vp-c-brand-2);
-  font-size: 24px;
-}
-.compile-flow .cf-outputs {
-  display: grid;
-  gap: 8px;
-  flex: 1;
-  min-width: 280px;
-}
-.compile-flow .cf-outputs > div {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 16px;
-  flex-wrap: wrap;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 6px;
-  padding: 8px 14px;
-  font-family: var(--vp-font-family-mono);
-  font-size: 13px;
-  background: var(--vp-c-bg-alt);
-}
-.compile-flow .cf-outputs span {
-  color: var(--vp-c-text-2);
-  font-size: 12px;
-  font-family: var(--vp-font-family-base);
-}
-
 /* Nav title: stack the version under the package name — logo spans both
    rows, the two text rows pack tight and center vertically in the bar. */
 .VPNavBarTitle .title {

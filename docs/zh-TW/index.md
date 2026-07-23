@@ -2,12 +2,12 @@
 layout: home
 
 hero:
-  name: '@kekkai/blueprint'
+  name: "@kekkai/blueprint"
   text: Architecture as Code
   image:
     src: /logo.png
     alt: blueprint
-  tagline: 將前端架構轉譯成 ESLint 規則、架構手冊、AI Agent 契約，以及 CI 檢核流程，讓人、AI 與自動化工具依循同一份架構。
+  tagline: 將前端架構轉譯成 ESLint 規則、架構手冊、AI Agent 契約，讓人、AI 與自動化工具依循同一份架構。
   actions:
     - theme: brand
       text: 快速上手
@@ -27,21 +27,11 @@ hero:
 
 <ProblemCards />
 
-## 一份 config，轉譯出全部
+## 一份設定，全面落地
 
-<div class="compile-flow">
-  <div class="cf-source">blueprint.config.mjs</div>
-  <div class="cf-arrow">→</div>
-  <div class="cf-outputs">
-    <div>eslint.config.mjs <span>強制 —— 結構規則＋內嵌 plugin</span></div>
-    <div>docs/architecture-handbook.md <span>說明 —— 給人讀的架構手冊</span></div>
-    <div>CLAUDE.md · AGENTS.md · … <span>協作 —— AI Agent 的守則</span></div>
-    <div>.github/workflows/blueprint-ci.yml <span>檢核 —— lint ＋ inspect 進 CI</span></div>
-    <div>inspect · deps · rules <span>驗證 —— 讀同一份 config 的唯讀指令</span></div>
-  </div>
-</div>
+<CompileFlow />
 
-改 config、重新生成，所有產出物一起動 —— 它們不會漂移，因為全部是同一份來源轉譯出來的。完整長相見 [init 產出物](/zh-TW/guide/generated-artifacts)。
+改設定、重新生成，所有產出物一起變更 —— 它們不會漂移，因為全部是同一份來源轉譯出來的。完整長相見 [init 產出物](/zh-TW/guide/generated-artifacts)。
 
 ## 直接丟給你的 Agent
 
@@ -66,9 +56,9 @@ hero:
 
 Blueprint 負責 AI Agent 協作裡的「架構」層面：程式碼該放哪、哪些分層可以互相匯入、Agent 要守住哪些判斷。以下兩項資源補足 blueprint 刻意不涉入的層面：
 
-| 搭配資源 | 補足的層面 |
-|---|---|
+| 搭配資源                                                                | 補足的層面                                                                                                                                        |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | 為 AI Agent 精選、可直接安裝的技能包，涵蓋各框架與工具鏈的最佳實務。與 blueprint 守則一同載入後，Agent 同時拿到專案的結構規範與生態圈的慣用寫法。 |
-| [vuejs/docs](https://github.com/vuejs/docs) | Vue 官方文件的原始碼 repo。提供給 Agent（clone 到本機，或設定為參考來源）作為 API 的權威依據，跟 Vue 預設藍圖搭配使用尤其合適。 |
+| [vuejs/docs](https://github.com/vuejs/docs)                             | Vue 官方文件的原始碼 repo。提供給 Agent（clone 到本機，或設定為參考來源）作為 API 的權威依據，跟 Vue 預設藍圖搭配使用尤其合適。                   |
 
 一份守則管「程式碼放哪」（blueprint）、一組技能包管「框架怎麼用得對」（agent-skills）、一份權威文件回答「API 實際長怎樣」（官方文件）。三項輸入幾乎不重疊，合起來可以大幅縮短「能跑」跟「寫得對」之間的距離。
