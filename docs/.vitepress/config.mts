@@ -97,7 +97,7 @@ export default defineConfig({
           '/zh-TW/guide/': [
             { text: '功能總覽', link: '/zh-TW/guide/features' },
             { text: '快速上手', link: '/zh-TW/guide/getting-started' },
-            { text: 'init 產出物', link: '/zh-TW/guide/generated-artifacts' },
+            { text: 'init 產出結果', link: '/zh-TW/guide/generated-artifacts' },
             { text: '影響範圍 —— deps', link: '/zh-TW/guide/deps' },
             { text: 'AI 協助導入', link: '/zh-TW/guide/ai-adoption' },
             { text: '檢測與 config 總表', link: '/zh-TW/guide/reference' },

@@ -25,15 +25,13 @@ hero:
 
 <CompileFlow />
 
-改設定、重新生成，所有產出物一起變更 ——
-它們不會漂移，因為全部是同一份來源轉譯出來的。<br>
+改設定、重新生成，所有產出結果一起變更 —— 它們不會漂移，因為全部是同一份來源轉譯出來的。<br>
 詳細內容見 [init 產出結果](/zh-TW/guide/generated-artifacts)。
 
 ## 快速上手 {#quick-start}
 
 既有專案導入，兩種方式。<br>
-你幾乎不用貼什麼 —— `init --authoring` 會寫出 playbook，<br>
-其餘的（跑到底、什麼叫做完）它自己交代給 agent。
+你幾乎不用貼什麼 —— `init --authoring` 會寫出 playbook，其餘的（跑到底、什麼叫做完）它自己交代給 agent。
 
 <QuickStart />
 
@@ -41,8 +39,7 @@ hero:
 
 ## 工程理念 {#philosophy}
 
-Blueprint 的工程理念涵蓋以下面向 ——<br>
-全都會編進你的 repo，成為 lint 規則與 agent 守則：
+Blueprint 的工程理念涵蓋以下面向 —— 全都會編進你的 repo，成為 lint 規則與 agent 守則：
 
 <PhilosophyFacets />
 
