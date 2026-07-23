@@ -15,11 +15,11 @@ framework-neutral; the unit mapping is one-to-one: `composable ↔ hook`,
 flowchart TD
   pages["pages/views"] --> containers
   containers --> components
-  components --> hooks
-  hooks --> services
-  services --> assets["assets/i18n"]
+  components --> hooks["hooks/composables"]
   containers -->|Provider only| contexts
   hooks -->|Context only · selfOnly| contexts
+  containers --> services
+  hooks --> services
   contexts --> services
 ```
 
@@ -35,24 +35,30 @@ flowchart TD
 ## The layers
 
 **`pages`**
+
 - Does — page layout, assembling containers; routes, SEO
 - Must not — hold business logic, stack components directly
 
 **`containers`**
+
 - Does — one feature: assembly, business logic, CRUD; stateful, calls services, drives navigation
 
 **`components`**
+
 - Does — reusable, presentational UI; may call hooks
 - Must not — touch the router, call services, own app state
 
 **`hooks`**
+
 - Does — `inject`/`useContext` live only here; adapts server/shared state; **stores (Pinia/Zustand) are private objects of this layer**
 - Must not — expose a raw store
 
 **`contexts`**
+
 - Does — `provide`/`createContext` live only here; exposes Context/Provider
 
 **`services`**
+
 - Does — network primitives; the only importer of `axios`, the only caller of `fetch`/`WebSocket`
 - Must not — contain UI or business logic
 
@@ -90,7 +96,7 @@ components/
    └─ types        ← private
 ```
 
-- `index` is the module's *face* — the outside world knows nothing else
+- `index` is the module's _face_ — the outside world knows nothing else
 - Private sub-components live inside (a container's `ProfileTab`); promotion to
   `components/` happens **when sharing actually arrives**, not speculatively
 - The implementation file carries the module's name — a tab bar of ten `Component.tsx`

@@ -17,11 +17,11 @@ Vue 的 composable 就是 React 的 hook，其餘一一對應：<br>
 flowchart TD
   pages["pages/views"] --> containers
   containers --> components
-  components --> hooks
-  hooks --> services
-  services --> assets["assets/i18n"]
+  components --> hooks["hooks/composables"]
   containers -->|僅限掛載 Provider| contexts
   hooks -->|僅限取用 Context · selfOnly| contexts
+  containers --> services
+  hooks --> services
   contexts --> services
 ```
 
@@ -35,24 +35,30 @@ flowchart TD
 ## 各層職責
 
 **`pages`**
+
 - 職責 — 頁面版型與 containers 的組裝；對應路由與 SEO
 - 禁止 — 放置商業邏輯、直接堆疊 components
 
 **`containers`**
+
 - 職責 — 單一功能的組裝、商業邏輯與資料增刪查改；持有狀態、呼叫 service、驅動導覽
 
 **`components`**
+
 - 職責 — 可重用的介面元件，以呈現為主，可呼叫 hook
 - 禁止 — 操作路由、直接呼叫 service、持有應用程式狀態
 
 **`hooks`**
+
 - 職責 — `inject` / `useContext` 只在此層；加工伺服器資料與共享狀態；**狀態儲存庫（Pinia / Zustand）為本層私有物件**
 - 禁止 — 對外暴露原始的狀態儲存庫
 
 **`contexts`**
+
 - 職責 — `provide` / `createContext` 只在此層；對外提供 Context 與 Provider
 
 **`services`**
+
 - 職責 — 網路存取原語；唯一可匯入 `axios`、唯一可呼叫 `fetch` / `WebSocket` 之處
 - 禁止 — 夾帶介面或商業邏輯（只回傳資料）
 
