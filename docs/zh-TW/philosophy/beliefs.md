@@ -1,6 +1,8 @@
 # 核心信念
 
-> **在 blueprint 裡**：這些就是各 preset 的 [`principles`](/zh-TW/api/interfaces/PrincipleDef)。`init` 會把它們原封不動地編譯進你 repo 的手冊與 agent 守則。它們全部落在守則裡、不進 lint —— 為什麼進不了，就是第六條講的：這些得靠 agent 每次改動時自己守住。運作機制見[運作契約](/zh-TW/philosophy/)。
+> **在 blueprint 裡**：這些就是各 preset 的 [`principles`](/zh-TW/api/interfaces/PrincipleDef)。<br>
+> `init` 會把它們原封不動地編譯進你 repo 的手冊與 agent 守則。<br>
+> 它們全部落在守則裡、不進 lint —— 這些要的是判斷，不是機器查得動的東西，只能靠 agent 每次改動時自己守住。運作機制見[運作契約](/zh-TW/philosophy/)。
 
 手冊裡每一條規則，最後都收斂到這幾條信念；後面各章其實都是它們的展開。
 

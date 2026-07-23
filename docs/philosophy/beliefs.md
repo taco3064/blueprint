@@ -2,8 +2,8 @@
 
 > **In blueprint**: these are the presets' [`principles`](/api/interfaces/PrincipleDef) —
 > `init` compiles them verbatim into your repo's handbook and agent contract. They all
-> land in the contract, not in lint (belief #6 is why they can't): the agent holds them
-> on every change. Mechanism: [The Operating Contract](/philosophy/).
+> land in the contract, not in lint — these need judgment, not a mechanical check, so the
+> agent holds them on every change. Mechanism: [The Operating Contract](/philosophy/).
 
 Every rule in the handbook converges on these. Each later part is an expansion of one or
 more of them.
