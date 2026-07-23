@@ -43,17 +43,16 @@ describe('presets · shape', () => {
     expect(vuePreset().architecture.alias).toBe('~app');
   });
 
-  it('merge an emit override over the day-1 CI default (batch 10)', () => {
-    // Declaring the agent tool must not cost the one-line preset form — and
-    // must not silently drop the CI workflow the way a spread override does.
+  it('passes an emit override straight through', () => {
+    // Declaring the agent tool must not cost the one-line preset form.
     expect(reactPreset({ emit: { agents: ['claude'] } }).emit)
-      .toEqual({ ci: 'github', agents: ['claude'] });
+      .toEqual({ agents: ['claude'] });
 
-    // An explicit ci wins; the default only fills the gap.
-    expect(vuePreset({ emit: { ci: 'none' } }).emit).toEqual({ ci: 'none' });
+    // No emit override → no emit block; verification strategy is the adopter's.
+    expect(vuePreset().emit).toBeUndefined();
 
     expect(nextPreset({ emit: { agents: ['agents'] } }).emit)
-      .toEqual({ ci: 'github', agents: ['agents'] });
+      .toEqual({ agents: ['agents'] });
   });
 
   it('bind framework primitives to the right layers', () => {

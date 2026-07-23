@@ -30,7 +30,7 @@ export default defineConfig({
   vite: { define: { __BP_VERSION__: JSON.stringify(version) } },
   title: '@kekkai/blueprint',
   description:
-    'Architecture as Code — one Blueprint compiles into lint, docs, agent contracts, and CI.',
+    'Architecture as Code — one Blueprint compiles into lint, docs, and agent contracts.',
   base: '/blueprint/',
   appearance: 'force-dark',
   head: [
@@ -40,7 +40,7 @@ export default defineConfig({
     ['meta', {
       property: 'og:description',
       content: 'Translates your frontend design philosophy into ESLint rules, '
-        + 'a human-readable handbook, ground rules for AI agents, and a CI gate.',
+        + 'a human-readable handbook, and ground rules for AI agents.',
     }],
     ['meta', { property: 'og:image', content: 'https://taco3064.github.io/blueprint/logo.png' }],
     ['meta', { name: 'twitter:card', content: 'summary' }],

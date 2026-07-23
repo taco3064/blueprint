@@ -25,7 +25,7 @@
 - Never silence a structural rule with `eslint-disable`; never "fix" a
   violation by relocating it to a sibling file the rule does not cover yet.
 - Every intentional disable of a *non-structural* rule carries a reason
-  (`-- why`), or CI rejects it.
+  (`-- why`), or lint rejects it.
 - Treat `warn`-tier results as review entry points: look, then decide —
   don't ignore, don't blindly appease.
 

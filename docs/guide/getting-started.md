@@ -15,7 +15,6 @@ One command, and your design philosophy has guardrails in place:
 - `eslint.config.mjs` — structural rules plus the third-party core
 - `docs/architecture-handbook.md` and agent contracts (`CLAUDE.md`, `AGENTS.md`)
 - `compilerOptions.paths` wired into `tsconfig.json` / `jsconfig.json`
-- `.github/workflows/blueprint-ci.yml` — lint + inspect as the gate
 
 The framework is auto-detected from `package.json` (`--framework vue|react` only breaks
 ties). An existing eslint config is **never overwritten** — init prints a merge snippet
@@ -36,7 +35,7 @@ is for:
 
 ```bash
 npx @kekkai/blueprint inspect --update-baseline   # lock today's debt
-npx @kekkai/blueprint inspect --baseline          # CI: fail only on NEW findings
+npx @kekkai/blueprint inspect --baseline          # gate: fail only on NEW findings
 ```
 
 From the moment adoption completes, AI-collaboration output becomes controllable and
@@ -85,8 +84,7 @@ governance handbook: six layers, ten principles, seven component-shape axes, and
 eighteen-rule working playbook. That content is documented page by page in
 [Philosophy](/philosophy/); see the [API Reference](/api/) for every export.
 
-Presets take `emit` directly and merge it over their day-1 default
-(`ci: 'github'`), so declaring your agent tool keeps the one-line form:
+Presets take `emit` directly, so declaring your agent tool keeps the one-line form:
 
 ```js
 import { reactPreset } from '@kekkai/blueprint';
@@ -94,6 +92,4 @@ import { reactPreset } from '@kekkai/blueprint';
 export default reactPreset({ name: 'my-app', alias: '@', emit: { agents: ['claude'] } });
 ```
 
-Presets return a plain `Blueprint`, so anything else is a spread — but mind
-that a spread-level `emit` **replaces** the preset's block wholesale: restate
-`ci: 'github'` there, or the CI workflow silently stops being emitted.
+Presets return a plain `Blueprint`, so anything else is a spread.

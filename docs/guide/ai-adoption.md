@@ -179,7 +179,7 @@ its **native ledger**:
   (ESLint ≥ 9.24 bulk suppressions — counted per file × rule, so **new** violations
   still fail)
 
-CI then gates on both — `eslint` and `blueprint inspect --baseline` — and each blocks
+Your gate then runs both — `eslint` and `blueprint inspect --baseline` — and each blocks
 only *new* debt. Two files, one discipline: `blueprint doctor` verifies neither ledger
 has gone stale.
 

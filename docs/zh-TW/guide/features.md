@@ -6,11 +6,11 @@
 
 | 功能 | 說明 |
 | --- | --- |
-| [`init` —— 全新專案建置](/zh-TW/guide/getting-started#全新專案-——-blueprint-init) | 單一指令完成設計理念的護欄導入：分層資料夾、config、lint、手冊、AI Agent 守則、CI 與匯入別名 |
+| [`init` —— 全新專案建置](/zh-TW/guide/getting-started#全新專案-——-blueprint-init) | 單一指令完成設計理念的護欄導入：分層資料夾、config、lint、手冊、AI Agent 守則與匯入別名 |
 | [`init` —— 既有專案編寫流程](/zh-TW/guide/ai-adoption#導入流程) | 對有程式碼但沒有 config 的專案，不硬猜預設藍圖，改為產出一份可執行的編寫作業手冊 |
 | [`init --agent claude\|codex`](/zh-TW/guide/ai-adoption) | 啟動你自己的 Agent CLI 執行該作業手冊 —— 由證據推導 config，反覆檢核到每項違規都能解釋為止 |
 | [`survey`](/zh-TW/guide/ai-adoption#蒐證步驟的必要性) | 決定性的專案蒐證：資料夾形狀、匯入矩陣、套件使用集中度 —— 編寫 config 的原料 |
-| [`inspect`](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect) | 掃描 `src/` 並對照 blueprint config 列出所有違規；只要有 error 等級的違規就以 exit code 1 結束，可直接作為 CI 關卡 |
+| [`inspect`](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect) | 掃描 `src/` 並對照 blueprint config 列出所有違規；只要有 error 等級的違規就以 exit code 1 結束，可接到任何 gate（git hook、CI 隨你）|
 | [`inspect --baseline`](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect) | 既有專案的 baseline 棘輪：先把今日的債務記錄下來，之後只攔「新增」的違規，隨著債務清償逐步收緊 |
 | [`impact`](/zh-TW/guide/ai-adoption#用數字決定規則衝突-——-blueprint-impact) | 用專案自己的 ESLint 對 emitted rules 做 dry-run：每條 rule 中幾發、最重的檔案是誰 —— 接線前就用數字決定 rule 衝突 |
 | [`deps`](/zh-TW/guide/deps) | 逐模組的影響範圍 —— 改動它會波及誰，以及全模組的被引用數排行 |
@@ -25,7 +25,6 @@
 | [`eslint.config.mjs`](/zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制) | `emitLint` 將分層流向、套件所有權與模組邊界轉譯為 lint config —— plugin 內建，不用額外安裝 |
 | [`docs/architecture-handbook.md`](/zh-TW/guide/generated-artifacts#docs-architecture-handbook-md-——-說明) | `emitHandbook` 由與規則相同的來源產出架構手冊（mermaid 圖、分層表、作業守則）—— 兩者不會脫節 |
 | [`CLAUDE.md` / `AGENTS.md` / …](/zh-TW/guide/generated-artifacts#claude-md-agents-md-——-協作) | `emitAgentFiles` 將同一份 AI Agent 守則發佈至 Claude、AGENTS.md、Gemini、Copilot、Cursor 與 Windsurf —— 標記區塊外的手寫內容一律保留 |
-| [`blueprint-ci.yml`](/zh-TW/guide/generated-artifacts#github-workflows-blueprint-ci-yml-——-檢核) | `emitCi` 產出 GitHub Actions workflow：從第一個 commit 起執行 lint 與唯讀架構報告 |
 
 ## Blueprint config —— 你所宣告的
 

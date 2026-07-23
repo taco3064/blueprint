@@ -124,33 +124,3 @@ outside the block across regenerations:
 
 Distribution targets (Cursor, Windsurf, Gemini, Copilot) are configured with
 [`emit.agents`](/guide/reference#config-fields-beyond-the-quick-start-example).
-
-## `.github/workflows/blueprint-ci.yml` — Gate
-
-Lint plus the read-only architecture report, from the first commit:
-
-```yaml
-name: my-app · Blueprint CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-
-jobs:
-  architecture:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm install
-      - run: npx eslint src
-      - run: npx blueprint inspect --baseline
-```
-
-The last step is one uniform line for both worlds: with no baseline file it behaves
-exactly like plain `inspect`, and on a brownfield repo it fails only on findings
-outside the locked debt — the
-[ratchet](/guide/getting-started#brownfield-—-blueprint-inspect).

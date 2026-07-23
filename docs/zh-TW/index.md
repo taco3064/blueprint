@@ -7,7 +7,7 @@ hero:
   image:
     src: /logo.png
     alt: blueprint
-  tagline: 將前端架構轉譯成 ESLint 規則、架構手冊、AI Agent 契約，讓人、AI 與自動化工具依循同一份架構。
+  tagline: 將前端架構轉譯成 ESLint 規則、架構手冊、AI Agent 契約，讓人與 AI 依循同一份架構。
   actions:
     - theme: brand
       text: 快速上手

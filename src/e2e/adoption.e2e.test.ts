@@ -396,18 +396,6 @@ describe('e2e · --agent launches after the playbook lands (Tier 2)', () => {
   });
 });
 
-describe('e2e · greenfield emits the CI gate (Tier 2)', () => {
-  it('writes a GitHub workflow that runs blueprint inspect', async () => {
-    useFixture('vite-react-ts');
-
-    await runInit(root, { install: false, log: silent });
-
-    const ci = read('.github/workflows/blueprint-ci.yml');
-
-    expect(ci).toContain('blueprint inspect');
-  });
-});
-
 // ─── Tier 3: workspace + flag paths (unit-covered; pinned here on real shapes) ───
 
 describe('e2e · yarn workspace package (Tier 3)', () => {

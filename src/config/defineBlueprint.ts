@@ -130,7 +130,7 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
   rejectUnknownKeys(module, ['layout', 'entry', 'private'], 'architecture.module');
 
   if (bp.emit !== undefined) {
-    rejectUnknownKeys(bp.emit, ['handbook', 'agents', 'ci', 'lint'], 'emit');
+    rejectUnknownKeys(bp.emit, ['handbook', 'agents', 'lint'], 'emit');
 
     if (bp.emit.lint !== undefined) {
       rejectUnknownKeys(bp.emit.lint, ['severity'], 'emit.lint');

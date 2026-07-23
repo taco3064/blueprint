@@ -59,7 +59,7 @@ const COPY = {
         pain: "Point this at a 3-year repo and you’d expect 4,000 errors — so the team disables it on day one.",
         tag: "blueprint locks today’s debt, gates only what’s new",
         mechanism:
-          "Existing violations go into a baseline; CI blocks only new debt. The AI is held to the standard on new code without drowning you in the old.",
+          "Existing violations go into a baseline; your gate blocks only new debt. The AI is held to the standard on new code without drowning you in the old.",
         proof: ".blueprint-baseline.json → new debt fails, existing doesn’t",
       },
     ],
@@ -116,7 +116,7 @@ const COPY = {
         pain: "把它套到一個三年的舊專案，你大概會看到四千個錯誤。於是團隊第一天就把它關掉。",
         tag: "blueprint 鎖住今天的技術債，只阻擋新增的問題",
         mechanism:
-          "既有違規會寫入 baseline；CI 只攔截新的技術債。AI 從今天開始遵守標準，但不會因為歷史包袱而寸步難行。",
+          "既有違規會寫入 baseline；你的 gate 只攔截新的技術債。AI 從今天開始遵守標準，但不會因為歷史包袱而寸步難行。",
         proof: ".blueprint-baseline.json → new debt fails, existing doesn’t",
       },
     ],

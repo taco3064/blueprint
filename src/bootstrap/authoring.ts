@@ -322,9 +322,9 @@ the answer belongs in this playbook — note the gap in your report instead.
      the anti-bypass guard sits OUTSIDE impact's scope, so bare disables it
      flags in YOUR lint run are real findings — judge them, and this ledger
      is exactly where unfixable ones go; ESLint ≥ 9.24 — counts
-     per file × rule, so NEW violations still fail). CI then blocks only new
-     debt on both gates, and \`blueprint doctor\` verifies neither ledger has
-     gone stale. The inverse is equally correct: **zero findings and zero
+     per file × rule, so NEW violations still fail). Your gate then blocks
+     only new debt on both, and \`blueprint doctor\` verifies neither ledger
+     has gone stale. The inverse is equally correct: **zero findings and zero
      lint hits is a complete outcome** — the ledgers simply stay absent
      (\`inspect --baseline\` — identical without a ledger — and the
      project's own lint are the gates), and

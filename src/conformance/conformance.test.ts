@@ -840,19 +840,14 @@ describe('one output, one story — no snippet contradicts its own prose (field 
   });
 });
 
-describe('the emitted CI honors the ratchet it ships with (field issue #10)', () => {
-  it('locked debt stays green on the workflow line — the live-verified repro', async () => {
+describe('locked debt stays green under the baseline ratchet (field issue #10)', () => {
+  it('inspect --baseline suppresses locked debt — the live-verified repro', async () => {
     const dir = repo({ packageJson: react() });
 
     await cli(dir, ['init', '--no-install']);
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
-    // One uniform gate line: a missing ledger is an empty one, so this
-    // also behaves as plain inspect on a greenfield repo.
-    expect(read(dir, '.github/workflows/blueprint-ci.yml'))
-      .toContain('npx blueprint inspect --baseline');
-
-    // The field repro: create debt, lock it, then run what CI runs.
+    // The field repro: create debt, lock it, then run the gate line.
     write(dir, 'src/random/x.ts', 'export const x = 1;'); // undeclared folder → error
 
     expect((await cli(dir, ['inspect'])).code).toBe(1);
@@ -860,8 +855,9 @@ describe('the emitted CI honors the ratchet it ships with (field issue #10)', ()
 
     const gate = await cli(dir, ['inspect', '--baseline']);
 
-    // Before the fix the emitted workflow ran plain inspect here — red
-    // forever on debt the tool itself told the adopter to lock.
+    // Plain inspect stays red forever on debt the tool itself told the adopter
+    // to lock; --baseline is the one uniform gate line that treats a missing
+    // ledger as empty and locked debt as suppressed.
     expect(gate.code).toBe(0);
     expect(gate.output).toContain('1 baselined finding(s) suppressed');
   });

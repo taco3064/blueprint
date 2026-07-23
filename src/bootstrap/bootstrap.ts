@@ -273,11 +273,12 @@ function isPristineScaffold(root: string, state: ProjectState): boolean {
 }
 
 /**
- * The local `lint` script must reach the generated eslint config, or local
- * lint stays green while CI fails on the structural rules (e.g. a template
- * whose `lint` runs oxlint only). Fresh scaffolds get a precondition-guarded
- * text patch — the exact `"lint": "…"` pair must appear once, or we fall back
- * to the instruction; existing projects always get the instruction.
+ * The local `lint` script must reach the generated eslint config, or the
+ * structural rules never actually run (e.g. a template whose `lint` runs
+ * oxlint only) — lint stays green while the architecture goes unchecked.
+ * Fresh scaffolds get a precondition-guarded text patch — the exact
+ * `"lint": "…"` pair must appear once, or we fall back to the instruction;
+ * existing projects always get the instruction.
  */
 function lintScriptAction(root: string, blueprint: Blueprint, greenfield: boolean): Action | null {
   const file = path.join(root, 'package.json');
@@ -288,9 +289,9 @@ function lintScriptAction(root: string, blueprint: Blueprint, greenfield: boolea
   const sourceRoot = blueprint.architecture.sourceRoot ?? 'src';
   const target = sourceRoot === '.' ? '.' : sourceRoot;
 
-  // No lint script at all: CI runs eslint but the project has no local
-  // command to match it (field issue #1 — the agent invented one). On a
-  // fresh scaffold, add it; on an existing project, say so instead.
+  // No lint script at all: nothing runs the generated eslint config (field
+  // issue #1 — the agent invented one). On a fresh scaffold, add it; on an
+  // existing project, say so instead.
   if (lint === undefined) {
     if (greenfield) {
       const patched = { ...parsed, scripts: { ...parsed.scripts, lint: `eslint ${target}` } };
@@ -299,13 +300,13 @@ function lintScriptAction(root: string, blueprint: Blueprint, greenfield: boolea
         kind: 'write',
         path: 'package.json',
         content: `${JSON.stringify(patched, null, 2)}\n`,
-        note: `package.json (added "lint": "eslint ${target}" — local lint matches the CI gate)`,
+        note: `package.json (added "lint": "eslint ${target}" — so lint runs the generated rules)`,
       };
     }
 
     return {
       kind: 'instruct',
-      note: `Your package.json has no \`lint\` script, but CI runs eslint — add one so local lint matches the gate: "lint": "eslint ${target}".`,
+      note: `Your package.json has no \`lint\` script — add one so lint runs the generated rules: "lint": "eslint ${target}".`,
     };
   }
 
@@ -318,13 +319,13 @@ function lintScriptAction(root: string, blueprint: Blueprint, greenfield: boolea
       kind: 'write',
       path: 'package.json',
       content: text.replace(needle, `"lint": ${JSON.stringify(`${lint} && eslint ${target}`)}`),
-      note: 'package.json (lint script now also runs eslint — local lint matches the CI gate)',
+      note: 'package.json (lint script now also runs eslint — so lint runs the generated rules)',
     };
   }
 
   return {
     kind: 'instruct',
-    note: `Your \`lint\` script runs \`${lint}\` — the structural rules live in the generated eslint config, so local lint would stay green while CI fails. Wire it up, e.g. "lint": "${lint} && eslint ${target}".`,
+    note: `Your \`lint\` script runs \`${lint}\` — the structural rules live in the generated eslint config, so lint would stay green while the architecture goes unchecked. Wire it up, e.g. "lint": "${lint} && eslint ${target}".`,
   };
 }
 

@@ -13,7 +13,7 @@
 | **create-next-app —— App Router、`src/`、TypeScript** | 全新專案 | 單一指令：自動選用 `nextPreset`（偵測 router 與 srcDir），config `app` → `components` → `hooks` → `lib`，架構檢測與 `next build` 全數通過；手寫的 CLAUDE / AGENTS 不動。 |
 | **Next.js —— App Router 位於專案根（無 `src/`）** | 全新專案 | 以 `sourceRoot: '.'` 掃描根層的 `app/` 目錄樹；對其反向匯入照常攔截。 |
 | **Next.js —— Pages Router（`src/pages`）** | 全新專案 | `pages/` 為頂層；`pages/api/*` handler 向下匯入 `lib`，無違規。 |
-| **Monorepo：turbo + pnpm** | 以套件為單位導入 | 支援模式：於各套件目錄內執行 `blueprint init`（`pnpm --filter <pkg> exec …`）。套件管理工具自**工作區根目錄**偵測（向上層目錄尋找 lockfile 與 `pnpm-workspace.yaml`）。Blueprint 必須為該套件自身的開發依賴，契約中的 `node_modules` 連結方能解析。持續整合建議以 turbo 任務逐套件接入（`"inspect": "blueprint inspect --baseline"`），不使用 `emit.ci`。 |
+| **Monorepo：turbo + pnpm** | 以套件為單位導入 | 支援模式：於各套件目錄內執行 `blueprint init`（`pnpm --filter <pkg> exec …`）。套件管理工具自**工作區根目錄**偵測（向上層目錄尋找 lockfile 與 `pnpm-workspace.yaml`）。Blueprint 必須為該套件自身的開發依賴，契約中的 `node_modules` 連結方能解析。建議以 turbo 任務逐套件接入 `blueprint inspect --baseline`（`"inspect": "blueprint inspect --baseline"`），再照你原本 gate monorepo 的方式接上即可。 |
 
 ## 框架注意事項
 

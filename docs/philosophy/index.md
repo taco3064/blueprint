@@ -23,7 +23,7 @@ Every rule in the handbook lands in exactly one of three places:
 
 | Tier | Landing | Meaning |
 |---|---|---|
-| ✅ | **lint / config** | A rule backs it — CI blocks violations automatically. Install once. |
+| ✅ | **lint / config** | A rule backs it — lint blocks violations automatically. Install once. |
 | ◐ | **lint (triage) + agent contract** | Lint can only flag an *entry point* (`warn`); the verdict needs review. |
 | ○ | **agent contract only** | No tool can catch it — semantic, procedural, human judgment. The agent holds it every turn. |
 
@@ -40,7 +40,6 @@ contract. **A green lint run never means the architecture is correct** — that 
 | Component shape (7 axes) | `componentShape` → handbook + agent contract |
 | Data integrity / runtime / refactor / collaboration | `playbook` → handbook + agent contract |
 | Metric gates & custom rules | `rules` → `emitLint` (embedded plugin) |
-| CI | `emit.ci` → `emitCi` |
 
 Read on: [Ten Core Beliefs](/philosophy/beliefs) · [Layer Architecture](/philosophy/layers)
 · [Component Shape](/philosophy/component-shape) · [Working Discipline](/philosophy/discipline)

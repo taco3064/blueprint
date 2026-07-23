@@ -177,8 +177,8 @@ function staleContracts(root: string, blueprint: Blueprint): string[] {
  * to emitLint, the declared alias wired to the toolchain, the emitted rules
  * still alive in the merged eslint config, and the architecture clean under
  * the baseline (its detail states the coverage, so a vacuous green is
- * visible). Exit 0 iff every check passes, so it drops into CI or an agent's
- * verify loop.
+ * visible). Exit 0 iff every check passes, so you can gate on it — a git
+ * hook, CI, an agent's verify loop.
  * @group Runtimes
  * @example
  * const { ok } = await runDoctor(process.cwd());

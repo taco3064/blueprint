@@ -7,7 +7,7 @@
 # @kekkai/blueprint
 
 > **Architecture as Code** — one Blueprint compiles into ESLint rules, a human
-> handbook, an AI agent contract, and a CI gate.
+> handbook, and an AI agent contract.
 
 Declare your frontend architecture once — layers, module shape, ownership,
 principles — and compile it into everything that keeps a codebase (and its
@@ -16,12 +16,12 @@ coding agents) honest:
 - **Enforce** — an ESLint flat config, embedded plugin included
 - **Explain** — a human handbook (markdown + mermaid)
 - **Collaborate** — agent contracts (`CLAUDE.md`, `AGENTS.md`, Cursor, Windsurf…)
-- **Gate** — a GitHub Actions workflow: lint + a read-only architecture report
+- **Verify** — read-only runtimes on the same source (`inspect`, `deps`, `rules`) to wire into any gate you run
 
 To be precise about where the value sits: the lint layer is standard ESLint
 machinery (`no-restricted-imports` patterns + a few custom rules) — any
 import-boundary linter can enforce. What's rare is that the rules, the
-handbook, the agent contract, and CI all **compile from one source and can
+handbook, and the agent contract all **compile from one source and can
 never disagree**. The packaging is the product.
 
 ## Quick start
@@ -39,7 +39,6 @@ my-app/                        my-app/
 └─ src/                        ├─ eslint.config.mjs                   ← rules + parsers, generated
                                ├─ CLAUDE.md · AGENTS.md               ← agent operating contract
                                ├─ docs/architecture-handbook.md       ← the "why", for humans
-                               ├─ .github/workflows/blueprint-ci.yml  ← lint + inspect as the gate
                                └─ src/pages|containers|components|hooks|contexts|services/
 ```
 

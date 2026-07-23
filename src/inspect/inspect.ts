@@ -64,14 +64,14 @@ export async function runInspect(
         ? ` (${findings.length} informational note(s) are not debt)`
         : '';
 
-      // Never point at plain `inspect` here — the emitted CI runs
+      // Never point at plain `inspect` here — the gate line is
       // `inspect --baseline` (a missing ledger is an empty one), and telling
       // the reader plain inspect is the gate invites them to "fix" that line.
       if (fs.existsSync(baselineFile)) {
         fs.rmSync(baselineFile);
-        log(`No debt to lock${note} — ${BASELINE_FILE} removed; \`inspect --baseline\` (the CI line) now suppresses nothing.`);
+        log(`No debt to lock${note} — ${BASELINE_FILE} removed; \`inspect --baseline\` (the gate line) now suppresses nothing.`);
       } else {
-        log(`No debt to lock${note} — no baseline needed; \`inspect --baseline\` (the CI line) treats a missing ledger as empty.`);
+        log(`No debt to lock${note} — no baseline needed; \`inspect --baseline\` (the gate line) treats a missing ledger as empty.`);
       }
 
       return { findings, ok: true };
@@ -85,7 +85,7 @@ export async function runInspect(
 
   if (options.baseline) {
     // A missing baseline file is an empty baseline: every finding is fresh.
-    // This keeps `inspect --baseline` one uniform CI line on repos with and
+    // This keeps `inspect --baseline` one uniform gate line on repos with and
     // without recorded debt.
     const recorded = fs.existsSync(baselineFile)
       ? parseBaseline(fs.readFileSync(baselineFile, 'utf-8'))

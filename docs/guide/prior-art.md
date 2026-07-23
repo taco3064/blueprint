@@ -22,7 +22,7 @@ The difference is not the lint — it's everything else the **same source** comp
 | --- | --- |
 | A human handbook (`docs/architecture-handbook.md`) | The "why" stays in sync with the rules by construction — it cannot drift |
 | Ground rules for AI agents (`CLAUDE.md`, `AGENTS.md`, Cursor, Windsurf…) | The agent holds the rules **before** it places a file, not after lint fails |
-| A CI workflow plus read-only `inspect` / `deps` runtimes | Ten finding kinds lint cannot see (undeclared folders, cycles, missing entries…) and a blast-radius query |
+| Read-only `inspect` / `deps` runtimes | Ten finding kinds lint cannot see (undeclared folders, cycles, missing entries…) and a blast-radius query |
 | A brownfield authoring flow (`survey` → playbook → baseline ratchet) | Adopting on a legacy repo is a first-class, evidence-driven path — not "turn it on and drown in red" |
 
 The bet behind that design: with AI agents writing a growing share of the code, rules
@@ -35,5 +35,5 @@ mechanism.
 
 We have not benchmarked those tools feature by feature, and this page claims no
 lint-layer superiority. If your need is purely an import graph with rules, any of the
-tools above may serve you well. blueprint earns its place when the handbook, the AI
-agent, and CI must stay in lockstep with the rules — because they are the same thing.
+tools above may serve you well. blueprint earns its place when the handbook and the AI
+agent must stay in lockstep with the rules — because they are the same thing.

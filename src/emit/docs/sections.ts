@@ -251,7 +251,7 @@ export function renderRules(rules: Record<string, RuleSetting> | undefined): str
     '',
     table(['Rule', 'Tier', 'Option'], rows),
     '',
-    '`error` fails CI · `warn` is advisory · `off` is disabled.',
+    '`error` fails lint · `warn` is advisory · `off` is disabled.',
   ].join('\n');
 }
 

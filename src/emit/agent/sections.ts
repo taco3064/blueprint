@@ -76,7 +76,7 @@ export function renderCompactContract(blueprint: Blueprint): string {
     `- Hard gates (machine-enforced): one-way imports, module entries, ownership, relative escapes${gates.length ? `, ${gates.join(', ')}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
     // --baseline so the verify loop fails only on findings the agent itself
     // introduced — plain inspect stays red forever on locked brownfield debt
-    // (the same trap the emitted CI had; field issue #10).
+    // (field issue #10).
     `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced).`,
   ].join('\n');
 }
@@ -232,7 +232,7 @@ export function renderBehavioral(
 
   if (rules?.deadCode !== undefined && tierOf(rules.deadCode) === 'error') {
     bullets.push(
-      '- **Dead code is error-tier, but no lint rule can gate it** — `npx knip` is the gate (in init\'s install set); the generated CI carries the step commented — uncomment it to make the gate hard.',
+      '- **Dead code is error-tier, but no lint rule can gate it** — `npx knip` is the gate (in init\'s install set); wire it into whatever verification you run.',
     );
   }
 

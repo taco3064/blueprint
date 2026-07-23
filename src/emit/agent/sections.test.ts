@@ -237,7 +237,7 @@ describe('renderBehavioral · deadCode honesty', () => {
 
     expect(out).toContain('no lint rule can gate it');
     expect(out).toContain('npx knip');
-    expect(out).toContain('carries the step commented');
+    expect(out).toContain('wire it into whatever verification you run');
 
     expect(renderBehavioral(arch(), undefined, { deadCode: 'warn' })).not.toContain('npx knip');
   });

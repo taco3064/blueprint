@@ -21,7 +21,7 @@ which is still frontier.
 | **create-next-app — App Router, `src/`, TS** | Greenfield | One command: `nextPreset` auto-selected (router + srcDir detected), config `app` → `components` → `hooks` → `lib`, `inspect` + `next build` green; hand-written CLAUDE/AGENTS left untouched. |
 | **Next.js — App Router at the project root (no `src/`)** | Greenfield | `sourceRoot: '.'` scans the root-level `app/` tree; upward imports into it are caught like anywhere else. |
 | **Next.js — Pages Router (`src/pages`)** | Greenfield | `pages/` is the top layer; `pages/api/*` handlers import downward into `lib`, no violations. |
-| **Monorepo: turbo + pnpm** | Per-package adoption | Supported model: run `blueprint init` inside each package (`pnpm --filter <pkg> exec …`). The package manager is detected from the **workspace root** (lockfile / `pnpm-workspace.yaml` looked up through parent directories). Blueprint must be a devDependency of the package itself, so the contract's `node_modules` link resolves. Wire CI as a turbo task per package (`"inspect": "blueprint inspect --baseline"`) instead of `emit.ci`. |
+| **Monorepo: turbo + pnpm** | Per-package adoption | Supported model: run `blueprint init` inside each package (`pnpm --filter <pkg> exec …`). The package manager is detected from the **workspace root** (lockfile / `pnpm-workspace.yaml` looked up through parent directories). Blueprint must be a devDependency of the package itself, so the contract's `node_modules` link resolves. Wire `blueprint inspect --baseline` as a turbo task per package (`"inspect": "blueprint inspect --baseline"`) and gate it however you already gate the monorepo. |
 
 ## Framework notes
 

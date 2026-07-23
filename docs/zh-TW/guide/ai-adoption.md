@@ -110,7 +110,7 @@ npx @kekkai/blueprint impact --json   # 把數字餵給工具或 Agent
 - **架構債** → `npx blueprint inspect --update-baseline`（`.blueprint-baseline.json` —— 就是你認識的那個棘輪）
 - **lint 債**（maxLines、unusedVars⋯）→ `npx eslint . --suppress-all`（ESLint ≥ 9.24 原生 bulk suppressions —— 按「檔 × 規則 × 數量」記帳，**新增**違規照樣紅）
 
-CI 兩個關卡都上 —— `eslint` 跟 `blueprint inspect --baseline` —— 各自只擋「新」債。兩份檔案、一套紀律：`blueprint doctor` 會驗兩本帳都沒過期。
+你的 gate 兩個都跑 —— `eslint` 跟 `blueprint inspect --baseline` —— 各自只擋「新」債。兩份檔案、一套紀律：`blueprint doctor` 會驗兩本帳都沒過期。
 
 還在 ESLint 8 或 legacy `.eslintrc`？suppressions 需要 ESLint ≥ 9.24 ＋ flat config，那次遷移由你拍板、playbook 不會擅自動手。過渡期的替代方案：`emit: { lint: { severity: 'warn' } }` —— 但代價要講明：`severity` 只蓋結構規則（maxLines 這類度量規則吃自己的 tier），而且 warn 期間**新的度量債不會被擋**。
 

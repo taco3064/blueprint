@@ -7,7 +7,7 @@ hero:
   image:
     src: /logo.png
     alt: blueprint
-  tagline: Translates your frontend architecture into ESLint rules, an architecture handbook, and an AI agent contract — so humans, AI, and automation all follow the same architecture.
+  tagline: Translates your frontend architecture into ESLint rules, an architecture handbook, and an AI agent contract — so humans and AI follow the same architecture.
   actions:
     - theme: brand
       text: Get Started

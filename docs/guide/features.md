@@ -7,11 +7,11 @@ to see how to use it.
 
 | Feature | What it does |
 | --- | --- |
-| [`init` — greenfield scaffold](/guide/getting-started#greenfield-—-blueprint-init) | One command scaffolds the whole operating contract: layer folders, config, lint, handbook, agent contracts, CI, import alias |
+| [`init` — greenfield scaffold](/guide/getting-started#greenfield-—-blueprint-init) | One command scaffolds the whole operating contract: layer folders, config, lint, handbook, agent contracts, import alias |
 | [`init` — brownfield authoring](/guide/ai-adoption#the-flow) | On a repo with code but no config, writes an executable authoring playbook instead of guessing a preset |
 | [`init --agent claude\|codex`](/guide/ai-adoption) | Launches your own agent CLI on that playbook — it derives the config from evidence and iterates until every finding is explainable |
 | [`survey`](/guide/ai-adoption#why-the-survey-matters) | Deterministic repo evidence: folder shapes, the import matrix, package concentration — the raw material for authoring a config |
-| [`inspect`](/guide/getting-started#brownfield-—-blueprint-inspect) | Scans `src/` against the blueprint and lists every violation; any error-level finding exits 1 — drop it straight into CI |
+| [`inspect`](/guide/getting-started#brownfield-—-blueprint-inspect) | Scans `src/` against the blueprint and lists every violation; any error-level finding exits 1 — gate on it anywhere (a git hook, CI, whatever you run) |
 | [`inspect --baseline`](/guide/getting-started#brownfield-—-blueprint-inspect) | The brownfield ratchet: lock today's debt, fail only on *new* findings, tighten as debt is paid down |
 | [`impact`](/guide/ai-adoption#decide-conflicts-on-numbers-—-blueprint-impact) | Dry-run the emitted lint rules through the project's own ESLint: hits per rule, heaviest files named — rule conflicts get decided on numbers, before wiring |
 | [`deps`](/guide/deps) | Blast radius per module — who gets hit if I change this, plus the fan-in leaderboard |
@@ -26,7 +26,6 @@ to see how to use it.
 | [`eslint.config.mjs`](/guide/generated-artifacts#eslint-config-mjs-—-enforce) | `emitLint` compiles the layer flow, ownership, and module boundaries into a flat config — embedded plugin included, nothing extra to install |
 | [`docs/architecture-handbook.md`](/guide/generated-artifacts#docs-architecture-handbook-md-—-explain) | `emitHandbook` renders the human handbook (mermaid diagram, layer table, playbook) from the same source as the rules — it cannot drift |
 | [`CLAUDE.md` / `AGENTS.md` / …](/guide/generated-artifacts#claude-md-agents-md-—-collaborate) | `emitAgentFiles` distributes one agent contract across Claude, AGENTS.md, Gemini, Copilot, Cursor, and Windsurf — hand-written content survives behind markers |
-| [`blueprint-ci.yml`](/guide/generated-artifacts#github-workflows-blueprint-ci-yml-—-gate) | `emitCi` renders a GitHub Actions workflow: lint + the read-only architecture report from the first commit |
 
 ## The blueprint — what you declare
 

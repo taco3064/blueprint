@@ -8,11 +8,9 @@ export interface PresetOptions {
   /** Import alias. Defaults to `~app`. */
   alias?: string;
   /**
-   * Emit overrides, merged over the preset's day-1 default (`ci: 'github'`).
-   * Declaring the agent tool in use is the first customization nearly every
-   * adoption makes — it must not cost the one-line preset form, and a spread
-   * override (`{ ...reactPreset(), emit: {…} }`) silently drops the CI
-   * workflow unless the author remembers to restate it.
+   * Emit overrides — e.g. declaring the agent tool in use
+   * (`emit: { agents: ['claude'] }`), the first customization nearly every
+   * adoption makes. Passed straight through to the generated blueprint.
    */
   emit?: EmitDef;
 }
@@ -227,9 +225,7 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
       // Deep watch is a Vue cost trap; React has no equivalent call to gate.
       ...(framework === 'vue' ? { deepWatch: 'error' as const } : {}),
     },
-    // Day-1 doctrine: the architecture gates run in CI from the first commit.
-    // A partial user emit merges over it — never replaces it wholesale.
-    emit: { ci: 'github', ...options.emit },
+    emit: options.emit,
   });
 }
 
@@ -329,6 +325,6 @@ export function nextPreset(options: NextPresetOptions = {}): Blueprint {
       cycles: 'error',
       usePrefix: 'error',
     },
-    emit: { ci: 'github', ...options.emit },
+    emit: options.emit,
   });
 }

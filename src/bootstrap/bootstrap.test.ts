@@ -43,10 +43,6 @@ describe('runInit', () => {
     expect(JSON.parse(read('jsconfig.json'))).toEqual({
       compilerOptions: { paths: { '~app/*': ['./src/*'] } },
     });
-
-    // The preset opts into CI generation (Day-1 doctrine); the gate is the
-    // uniform --baseline line, so locked debt never fights the emitted CI.
-    expect(read('.github/workflows/blueprint-ci.yml')).toContain('npx blueprint inspect --baseline');
   });
 
   it('patches an existing parseable tsconfig.json with the alias paths', async () => {
@@ -702,8 +698,8 @@ describe('runInit · lint-script wiring', () => {
   });
 
   it('adds the missing lint script on a fresh scaffold (field issue #1)', async () => {
-    // CI runs eslint, but the starter shipped no lint script — the field
-    // agent had to invent one; init owns the parity now.
+    // The generated rules need a lint script to run through, but the starter
+    // shipped none — the field agent had to invent one; init owns it now.
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
     await runInit(root, { install: false, log: silent });

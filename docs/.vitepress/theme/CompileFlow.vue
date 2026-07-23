@@ -3,8 +3,9 @@ import { ref, onMounted, computed } from "vue";
 import { useData } from "vitepress";
 
 // One source at the hub, every artifact radiating around it. Copy lives here
-// (both locales) so each index.md just mounts <CompileFlow />. The CI workflow
-// output is deliberately absent while that feature's fate is decided elsewhere.
+// (both locales) so each index.md just mounts <CompileFlow />. There is no CI
+// output node — blueprint scaffolds no CI; the verification strategy (a git
+// hook, CI, whatever) is the adopter's, and Verify is the read-only runtimes.
 const COPY = {
   en: {
     source: "blueprint.config.mjs",

@@ -218,8 +218,6 @@ export interface EmitDef {
    * `['claude', 'agents']`; an empty array emits no agent file.
    */
   agents?: (AgentTarget | AgentEmitEntry)[];
-  /** CI provider to emit config for. */
-  ci?: 'github' | 'none';
   /** ESLint flat-config emit target (structure enforcement + custom rules). */
   lint?: LintEmitDef;
 }
