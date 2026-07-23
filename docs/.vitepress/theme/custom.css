@@ -64,3 +64,10 @@
   line-height: 1;
   margin-top: 1px;
 }
+
+/* Table header cells stay on one line — a wide content column otherwise
+   squeezes a short label (e.g. 由誰把關) and breaks it across two rows. If a
+   table gets too wide, .vp-doc's table already scrolls horizontally. */
+.vp-doc th {
+  white-space: nowrap;
+}
