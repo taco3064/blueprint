@@ -11,11 +11,16 @@
 framework-neutral; the unit mapping is one-to-one: `composable ↔ hook`,
 `context ↔ Context`, `SFC ↔ function component`, `service ↔ api client`.
 
-```
-pages/views → containers → components → hooks → services → assets/i18n
-                  ⇢ contexts (Provider only)
-       hooks ⇢ contexts (Context only, selfOnly)
-    contexts → services
+```mermaid
+flowchart TD
+  pages["pages/views"] --> containers
+  containers --> components
+  components --> hooks
+  hooks --> services
+  services --> assets["assets/i18n"]
+  containers -->|Provider only| contexts
+  hooks -->|Context only · selfOnly| contexts
+  contexts --> services
 ```
 
 ## Why one-way

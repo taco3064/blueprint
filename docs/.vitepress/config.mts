@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vitepress';
+import { withMermaid } from 'vitepress-plugin-mermaid';
 import typedocSidebar from '../api/typedoc-sidebar.json';
 
 // The nav-bar version badge states which release these docs were built
@@ -26,7 +27,9 @@ const withZhPrefix = (items: SidebarItem[]): SidebarItem[] =>
   }));
 
 // https://vitepress.dev/reference/site-config
-export default defineConfig({
+// withMermaid renders ```mermaid blocks (e.g. the layer-flow diagram) as SVG,
+// matching the flowcharts the emitted handbook itself produces.
+export default withMermaid(defineConfig({
   vite: { define: { __BP_VERSION__: JSON.stringify(version) } },
   title: '@kekkai/blueprint',
   description:
@@ -126,4 +129,4 @@ export default defineConfig({
     socialLinks: [{ icon: 'github', link: 'https://github.com/taco3064/blueprint' }],
     search: { provider: 'local' },
   },
-});
+}));

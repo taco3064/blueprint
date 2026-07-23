@@ -13,11 +13,16 @@ Vue 的 composable 就是 React 的 hook，其餘一一對應：<br>
 
 下面就是那個順序，箭頭是「可以 import 的方向」：
 
-```
-pages/views → containers → components → hooks → services → assets/i18n
-                  ⇢ contexts（僅限掛載 Provider）
-       hooks ⇢ contexts（僅限取用 Context；selfOnly）
-    contexts → services
+```mermaid
+flowchart TD
+  pages["pages/views"] --> containers
+  containers --> components
+  components --> hooks
+  hooks --> services
+  services --> assets["assets/i18n"]
+  containers -->|僅限掛載 Provider| contexts
+  hooks -->|僅限取用 Context · selfOnly| contexts
+  contexts --> services
 ```
 
 ## 單向依賴流的理由
