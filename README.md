@@ -1,4 +1,6 @@
+[![npm](https://img.shields.io/npm/v/@kekkai/blueprint)](https://www.npmjs.com/package/@kekkai/blueprint)
 [![codecov](https://codecov.io/gh/taco3064/blueprint/branch/main/graph/badge.svg)](https://codecov.io/gh/taco3064/blueprint)
+[![license](https://img.shields.io/npm/l/@kekkai/blueprint)](./LICENSE)
 
 <p align="center">
   <img src="https://taco3064.github.io/blueprint/logo.png" width="160" alt="blueprint logo" />
@@ -9,79 +11,54 @@
 > **Architecture as Code** — one Blueprint compiles into ESLint rules, a human
 > handbook, and an AI agent contract.
 
-Declare your frontend architecture once — layers, module shape, ownership,
-principles — and compile it into everything that keeps a codebase (and its
-coding agents) honest:
+## When an AI writes your code, the architecture is the first thing it quietly erodes
+
+New files land wherever's convenient. Every edit grows the file until one module is
+6,000 lines — and every future agent has to load all of it to touch one function. Each
+session re-derives your architecture from scratch, and guesses differently every time.
+
+blueprint pins the rules down once — layers, module shape, ownership, file size — in a
+form the agent reads up front **and** can't cross. One config compiles into everything
+that keeps a codebase (and its coding agents) honest:
 
 - **Enforce** — an ESLint flat config, embedded plugin included
 - **Explain** — a human handbook (markdown + mermaid)
 - **Collaborate** — agent contracts (`CLAUDE.md`, `AGENTS.md`, Cursor, Windsurf…)
 - **Verify** — read-only runtimes on the same source (`inspect`, `deps`, `rules`) to wire into any gate you run
 
-To be precise about where the value sits: the lint layer is standard ESLint
-machinery (`no-restricted-imports` patterns + a few custom rules) — any
-import-boundary linter can enforce. What's rare is that the rules, the
-handbook, and the agent contract all **compile from one source and can
-never disagree**. The packaging is the product.
+One source, so the rules, the docs, and the contract can never disagree. Edit the config,
+regenerate, everything moves together. **The packaging is the product.**
 
 ## Quick start
 
+Two ways to adopt on an existing repo.
+
+**Hands-off** — paste this to your agent; it runs start to finish on its own:
+
+```text
+Run npx @kekkai/blueprint init --authoring to adopt @kekkai/blueprint in this repo,
+then execute the blueprint-authoring.md it writes, fully and to the end.
+```
+
+**You judge, the agent assists** — blueprint writes the playbook, then launches your
+agent to walk it with you:
+
 ```bash
-npx @kekkai/blueprint init      # greenfield: scaffold it all
-npx @kekkai/blueprint inspect   # brownfield: architecture report + baseline ratchet
+npx @kekkai/blueprint init --agent claude
 ```
 
-**30 seconds on a fresh Vite app** — one command turns this:
-
-```text
-my-app/                        my-app/
-├─ package.json          ──▶   ├─ blueprint.config.mjs                ← single source of truth
-└─ src/                        ├─ eslint.config.mjs                   ← rules + parsers, generated
-                               ├─ CLAUDE.md · AGENTS.md               ← agent operating contract
-                               ├─ docs/architecture-handbook.md       ← the "why", for humans
-                               └─ src/pages|containers|components|hooks|contexts|services/
-```
-
-Framework auto-detected, existing configs never overwritten, re-runs idempotent.
-
-## 🤖 Hand it to your agent
-
-Brownfield repo, fully automated? Paste this to your agent:
-
-```text
-Help adopt @kekkai/blueprint in this repo, autonomously:
-run `npx @kekkai/blueprint init --authoring`,
-then execute the blueprint-authoring.md it writes, fully and to the end
-(an early exit the playbook itself prescribes counts as full execution).
-
-Acceptance (`blueprint doctor` passes):
-- lint, `inspect --baseline`, and the existing tests all pass
-  (no tests = passes vacuously)
-- emitLint genuinely wired into ESLint (no leftover reference files)
-- no source edits — lock existing debt: `inspect --update-baseline` for
-  architecture, `eslint --suppress-all` for lint (both only when debt
-  exists — an empty ledger is ceremony, not a deliverable)
-```
-
-What each acceptance clause guards, and the full flow:
+Framework auto-detected, existing configs never overwritten, re-runs idempotent. What
+each acceptance step guards, greenfield scaffolding, and the full flow:
 [AI-Assisted Adoption](https://taco3064.github.io/blueprint/guide/ai-adoption).
 
 ## 🔒 Security & trust
 
-- **Never launches an agent by default** — it writes plain-markdown contracts and
-  playbooks for coding agents and hands off; there is no credential or authorization
-  surface. `init --agent claude|codex` is the one **explicit opt-in**: it spawns
-  exactly the printed command, foreground and interactive, under your own agent CLI's
-  permissions — blueprint itself still holds no credentials and makes no network calls.
+- **Never launches an agent by default** — it writes plain-markdown contracts and hands
+  off; there is no credential or network surface. `init --agent claude|codex` is the one
+  explicit opt-in, running under your own agent CLI's permissions.
 - **No network access, zero runtime dependencies** — local file operations only.
-- **Child processes are declared and skippable** — the dependency install during
-  `init` (printed in the plan; `--no-install` skips it), and the opt-in agent launch
-  above. Nothing else is executed.
 - **Writes are declared and bounded** — `--dry-run` prints every effect; `inspect` /
-  `deps` are read-only; your files are only edited when losslessly rewritable, never
-  overwritten. One scoped exception: on a **fresh scaffold**, init also wires the
-  import alias into the template's vite/tsconfig (precondition-guarded, dry-run
-  visible, falls back to instructions); existing projects are never touched.
+  `deps` are read-only; files are only edited when losslessly rewritable, never overwritten.
 - **Provenance-signed releases** — published from GitHub Actions with npm provenance.
 
 Details: [Security & Trust](https://taco3064.github.io/blueprint/guide/security)
