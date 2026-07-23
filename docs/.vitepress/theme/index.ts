@@ -4,6 +4,7 @@ import VersionBadge from './VersionBadge.vue';
 import ProblemCards from './ProblemCards.vue';
 import CompileFlow from './CompileFlow.vue';
 import QuickStart from './QuickStart.vue';
+import PhilosophyFacets from './PhilosophyFacets.vue';
 import './custom.css';
 
 export default {
@@ -21,5 +22,6 @@ export default {
     app.component('ProblemCards', ProblemCards);
     app.component('CompileFlow', CompileFlow);
     app.component('QuickStart', QuickStart);
+    app.component('PhilosophyFacets', PhilosophyFacets);
   },
 };
