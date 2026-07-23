@@ -37,7 +37,7 @@ hero:
 
 ## 工程理念 {#philosophy}
 
-Blueprint 的工程理念有四個面向 —— 全都會編進你的 repo，成為 lint 規則與 agent 契約：
+Blueprint 的工程理念涵蓋以下面向 —— 全都會編進你的 repo，成為 lint 規則與 agent 契約：
 
 <PhilosophyFacets />
 

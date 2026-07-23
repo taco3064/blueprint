@@ -40,7 +40,7 @@ What each acceptance step guards, and the full flow:
 
 ## Philosophy {#philosophy}
 
-Blueprint's engineering philosophy has four facets — all compiling into your repo as lint rules and an agent contract:
+Blueprint's engineering philosophy has these facets — all compiling into your repo as lint rules and an agent contract:
 
 <PhilosophyFacets />
 
