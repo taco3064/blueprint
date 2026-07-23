@@ -35,26 +35,13 @@ Edit the config, regenerate, and every artifact moves together — they cannot d
 because they are all translations of the same source. See them verbatim in
 [What init Generates](/guide/generated-artifacts).
 
-## Hand it to your agent
+## Quick start
 
-Brownfield repo, fully automated? Paste this to your agent:
+Two ways to adopt on an existing repo. You paste almost nothing — `init --authoring` writes the playbook that tells the agent the rest: run it to the end, and what "done" means.
 
-```text
-Help adopt @kekkai/blueprint in this repo, autonomously:
-run `npx @kekkai/blueprint init --authoring`,
-then execute the blueprint-authoring.md it writes, fully and to the end
-(an early exit the playbook itself prescribes counts as full execution).
+<QuickStart />
 
-Acceptance (`blueprint doctor` passes):
-- lint, `inspect --baseline`, and the existing tests all pass
-  (no tests = passes vacuously)
-- emitLint genuinely wired into ESLint (no leftover reference files)
-- no source edits — lock existing debt: `inspect --update-baseline` for
-  architecture, `eslint --suppress-all` for lint (both only when debt
-  exists — an empty ledger is ceremony, not a deliverable)
-```
-
-What each acceptance clause guards, and the full flow:
+What each acceptance step guards, and the full flow:
 [AI-Assisted Adoption](/guide/ai-adoption).
 
 ## Works better together

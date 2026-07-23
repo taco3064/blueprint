@@ -33,24 +33,13 @@ hero:
 
 改設定、重新生成，所有產出物一起變更 —— 它們不會漂移，因為全部是同一份來源轉譯出來的。完整長相見 [init 產出物](/zh-TW/guide/generated-artifacts)。
 
-## 直接丟給你的 Agent
+## 快速上手
 
-既有專案想全自動導入？把這段貼給你的 Agent：
+既有專案導入，兩種方式。你幾乎不用貼什麼 —— `init --authoring` 會寫出 playbook，其餘的（跑到底、什麼叫做完）它自己交代給 agent。
 
-```text
-請協助導入 @kekkai/blueprint，並自主完成：
-執行 `npx @kekkai/blueprint init --authoring`，
-將其產出的 blueprint-authoring.md 全數完整執行完畢
-（playbook 自己給的結論就是完整執行 —— 它叫你早退，早退就是做完）。
+<QuickStart />
 
-驗收（`blueprint doctor` 要過）：
-- lint、`inspect --baseline`、原有測試都要過（沒有測試＝空泛通過，不用補）
-- emitLint 真的接進 ESLint（不留 reference 檔）
-- 不改任何 source code —— 既有債鎖進帳本：架構用 `inspect --update-baseline`，
-  lint 用 `eslint --suppress-all`（都只在有債時跑 —— 空帳本是儀式，不是交付物）
-```
-
-每條驗收在防什麼、流程長怎樣，見 [AI 協助導入](/zh-TW/guide/ai-adoption)。
+每個驗收步驟在防什麼、完整流程，見 [AI 協助導入](/zh-TW/guide/ai-adoption)。
 
 ## 建議搭配使用的資源
 

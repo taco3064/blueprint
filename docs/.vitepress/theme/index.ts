@@ -3,6 +3,7 @@ import DefaultTheme from 'vitepress/theme';
 import VersionBadge from './VersionBadge.vue';
 import ProblemCards from './ProblemCards.vue';
 import CompileFlow from './CompileFlow.vue';
+import QuickStart from './QuickStart.vue';
 import './custom.css';
 
 export default {
@@ -19,5 +20,6 @@ export default {
   enhanceApp({ app }) {
     app.component('ProblemCards', ProblemCards);
     app.component('CompileFlow', CompileFlow);
+    app.component('QuickStart', QuickStart);
   },
 };
