@@ -95,7 +95,7 @@ flowchart TD
 | `services` | Network primitives | — | `axios`, global `fetch`, global `WebSocket` |
 ````
 
-The full handbook continues with the seven component-shape axes, the nine principles,
+The full handbook continues with the component-shape axes, the core principles,
 and the working playbook — the [Philosophy](/philosophy/) section of this site is the
 canonical description of that content.
 

@@ -1,8 +1,8 @@
-# 九條核心信念
+# 核心信念
 
-> **與 blueprint 的關係**：這九條就是預設藍圖的 [`principles`](/zh-TW/api/interfaces/PrincipleDef) 欄位，`init` 會將它們逐字轉譯進專案的手冊與 AI Agent 守則。九條全部由 Agent 在每次改動時把關，而不是交給 lint —— 原因正是第六條自己。運作機制見[運作契約](/zh-TW/philosophy/)。
+> **與 blueprint 的關係**：這些就是預設藍圖的 [`principles`](/zh-TW/api/interfaces/PrincipleDef) 欄位，`init` 會將它們逐字轉譯進專案的手冊與 AI Agent 守則。它們全部由 Agent 在每次改動時把關，而不是交給 lint —— 原因正是第六條自己。運作機制見[運作契約](/zh-TW/philosophy/)。
 
-所有規則收斂之後，即為以下九條底層信念。手冊其餘各部分均為這些信念的展開。
+所有規則收斂之後，即為以下這些底層信念。手冊其餘各部分均為這些信念的展開。
 
 ### 1. 依責任切分，而非依大小切分
 

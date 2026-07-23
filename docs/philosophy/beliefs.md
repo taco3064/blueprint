@@ -1,7 +1,7 @@
-# Nine Core Beliefs
+# Core Beliefs
 
 > **In blueprint**: these are the presets' [`principles`](/api/interfaces/PrincipleDef) —
-> `init` compiles them verbatim into your repo's handbook and agent contract. All nine
+> `init` compiles them verbatim into your repo's handbook and agent contract. They all
 > land in the contract, not in lint (belief #6 is why they can't): the agent holds them
 > on every change. Mechanism: [The Operating Contract](/philosophy/).
 

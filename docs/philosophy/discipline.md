@@ -5,7 +5,7 @@
 > and [agent contract](/guide/generated-artifacts#claude-md-agents-md-—-collaborate), so
 > they sit *in context* on every change.
 
-Three themes.
+The themes:
 
 ## Runtime load discipline
 

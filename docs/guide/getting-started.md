@@ -80,8 +80,8 @@ export default defineBlueprint({
 ```
 
 Or start from a canonical preset — `vuePreset()` / `reactPreset()` encode the full
-governance handbook: six layers, nine principles, seven component-shape axes, and a
-fourteen-rule working playbook. That content is documented page by page in
+governance handbook: the layer model, core principles, component-shape axes, and a
+working playbook. That content is documented page by page in
 [Philosophy](/philosophy/); see the [API Reference](/api/) for every export.
 
 Presets take `emit` directly, so declaring your agent tool keeps the one-line form:

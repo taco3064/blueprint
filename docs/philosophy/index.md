@@ -36,10 +36,10 @@ contract. **A green lint run never means the architecture is correct** — that 
 | Handbook part | Blueprint carrier |
 |---|---|
 | Layer architecture, module shape, ownership | `architecture` → `emitLint` + `inspect` |
-| Nine core beliefs | `principles` → handbook + agent contract |
-| Component shape (7 axes) | `componentShape` → handbook + agent contract |
+| Core beliefs | `principles` → handbook + agent contract |
+| Component shape | `componentShape` → handbook + agent contract |
 | Runtime / refactor / collaboration | `playbook` → handbook + agent contract |
 | Metric gates & custom rules | `rules` → `emitLint` (embedded plugin) |
 
-Read on: [Nine Core Beliefs](/philosophy/beliefs) · [Layer Architecture](/philosophy/layers)
+Read on: [Core Beliefs](/philosophy/beliefs) · [Layer Architecture](/philosophy/layers)
 · [Component Shape](/philosophy/component-shape) · [Working Discipline](/philosophy/discipline)

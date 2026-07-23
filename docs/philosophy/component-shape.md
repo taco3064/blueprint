@@ -1,11 +1,11 @@
-# Component Shape — 7 Orthogonal Axes
+# Component Shape — Orthogonal Axes
 
 > **In blueprint**: these are the presets' [`componentShape`](/api/interfaces/AxisDef)
 > axes. The named triage rules (`max-params`, `max-statements`, `max-lines`) land in the
 > [generated lint config](/guide/reference#blueprint-rules-—-which-ids-actually-gate) as
 > entry points; the verdicts compile into your handbook and agent contract.
 
-How a component / composable should be shaped, in seven axes. **A set, not a pipeline**:
+How a component / composable should be shaped, across a set of orthogonal axes. **A set, not a pipeline**:
 each axis is an independent yes/no design decision — never infer that one axis holds
 because another does. Numbering is identity, not order, and trivial changes need not
 force the full pass.
@@ -57,6 +57,6 @@ makes, not its raw ingredients.
 
 ---
 
-**Lint vs review, across all seven axes**: a unit can be small, low-complexity, low
+**Lint vs review, across all axes**: a unit can be small, low-complexity, low
 fan-out — all green — and still be a raw-state dump, or store its derivation in a mutable
 ref. Metrics cannot see any of that. A lint warning is where review *starts*.

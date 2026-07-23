@@ -43,8 +43,8 @@ to see how to use it.
 
 | Feature | What it does |
 | --- | --- |
-| [The ten `inspect` findings](/guide/reference#what-inspect-reports) | Undeclared folders, flow violations, deep imports, ownership, relative escapes, selfOnly re-exports, cycles, missing entries, missing layers, declaratory selfOnly bans |
-| [The six embedded ESLint rules](/guide/reference#the-embedded-eslint-plugin) | `relative-escape`, `no-deep-watch`, `use-prefix` (+ reactivity), `test-filename-matches-source`, `no-typedef-only-file` |
+| [The `inspect` findings](/guide/reference#what-inspect-reports) | Undeclared folders, flow violations, deep imports, ownership, relative escapes, selfOnly re-exports, cycles, missing entries, missing layers, declaratory selfOnly bans |
+| [The embedded ESLint rules](/guide/reference#the-embedded-eslint-plugin) | `relative-escape`, `no-deep-watch`, `use-prefix` (+ reactivity), `test-filename-matches-source`, `no-typedef-only-file` |
 | [The three-tier landing](/philosophy/#the-three-tier-landing) | What a machine can check compiles into lint; what needs judgment compiles into the contract — a green lint run is never an architecture verdict |
 
 ## Trust & compatibility

@@ -4,7 +4,7 @@
 
 ## `inspect` 回報的檢測項目
 
-共十種檢測。只要有 `error` 等級的違規，就以 exit code 1 結束；`warn` 與 `info` 只提示、不影響檢核結果。測試檔案（`architecture.testFiles`）一律豁免。
+只要有 `error` 等級的違規，就以 exit code 1 結束；`warn` 與 `info` 只提示、不影響檢核結果。測試檔案（`architecture.testFiles`）一律豁免。
 
 | 規則 | 等級 | 檢測內容 |
 | --- | --- | --- |
@@ -23,7 +23,7 @@
 
 ## 內嵌 ESLint 外掛
 
-`emitLint` 在生成的 config 裡內建六條自訂規則 —— 不用額外安裝。其中一條是結構規則、永遠開著；其餘五條由 `blueprint.rules` 的規則識別碼控制。plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`）—— 這是給「不 spread `emitLint`、想手動掛某條 `blueprint/*` 規則」的逃生口，其他人永遠用不到它：
+`emitLint` 在生成的 config 裡內建自訂規則 —— 不用額外安裝。其中一條是結構規則、永遠開著；其餘由 `blueprint.rules` 的規則識別碼控制。plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`）—— 這是給「不 spread `emitLint`、想手動掛某條 `blueprint/*` 規則」的逃生口，其他人永遠用不到它：
 
 | ESLint 規則 | 控制來源 | 強制內容 |
 | --- | --- | --- |

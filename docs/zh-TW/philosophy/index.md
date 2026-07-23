@@ -25,9 +25,9 @@
 | 手冊章節 | Blueprint 載體 |
 |---|---|
 | 分層架構、模組形狀、套件歸屬 | `architecture` → `emitLint` 與 `inspect` |
-| 九條核心信念 | `principles` → 手冊與 Agent 守則 |
-| 元件形狀（七條軸線） | `componentShape` → 手冊與 Agent 守則 |
+| 核心信念 | `principles` → 手冊與 Agent 守則 |
+| 元件形狀 | `componentShape` → 手冊與 Agent 守則 |
 | 執行期負載／重構／協作 | `playbook` → 手冊與 Agent 守則 |
 | 量化門檻與自訂規則 | `rules` → `emitLint`（內嵌外掛） |
 
-延伸閱讀：[九條核心信念](/zh-TW/philosophy/beliefs) · [分層架構](/zh-TW/philosophy/layers) · [元件形狀](/zh-TW/philosophy/component-shape) · [工作紀律](/zh-TW/philosophy/discipline)
+延伸閱讀：[核心信念](/zh-TW/philosophy/beliefs) · [分層架構](/zh-TW/philosophy/layers) · [元件形狀](/zh-TW/philosophy/component-shape) · [工作紀律](/zh-TW/philosophy/discipline)
