@@ -55,6 +55,24 @@ export function getForbiddenLayers(architecture: ArchitectureDef, layerName: str
 }
 
 /**
+ * The shared module shape with the flat defaults applied — the playbook's
+ * "flat default" made real: `architecture.module` and each of its keys is
+ * optional, resolving to `{ layout: 'flat', entry: 'index', private: [] }`
+ * (field issue #23: it validated as required while the playbook said
+ * omitting it was the default).
+ * @internal
+ */
+export function getSharedModule(
+  architecture: ArchitectureDef,
+): { layout: 'folder' | 'flat'; entry: string; private: string[] } {
+  return {
+    layout: architecture.module?.layout ?? 'flat',
+    entry: architecture.module?.entry ?? 'index',
+    private: architecture.module?.private ?? [],
+  };
+}
+
+/**
  * The effective module shape for a layer: its override, else the shared default.
  * @internal
  */
@@ -63,10 +81,11 @@ export function getModuleShape(
   layerName: string,
 ): { layout: 'folder' | 'flat'; entry: string } {
   const layer = architecture.layers.find((candidate) => candidate.name === layerName);
+  const shared = getSharedModule(architecture);
 
   return {
-    layout: layer?.module?.layout ?? architecture.module.layout,
-    entry: layer?.module?.entry ?? architecture.module.entry,
+    layout: layer?.module?.layout ?? shared.layout,
+    entry: layer?.module?.entry ?? shared.entry,
   };
 }
 

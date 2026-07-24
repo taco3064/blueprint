@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   getDiagramEdges,
   getForbiddenLayers,
+  getModuleShape,
   getSelfOnlyTargets,
+  getSharedModule,
   normalizeAllowedImporters,
 } from './graph';
 import type { ArchitectureDef } from './types';
@@ -25,6 +27,23 @@ function arch(): ArchitectureDef {
     module: { layout: 'folder', entry: 'index', private: [] },
   };
 }
+
+describe('getSharedModule', () => {
+  it('applies the flat defaults when module (or any key) is absent (field #23)', () => {
+    const { module: _module, ...rest } = arch();
+    const bare: ArchitectureDef = rest;
+
+    expect(getSharedModule(bare)).toEqual({ layout: 'flat', entry: 'index', private: [] });
+    expect(getModuleShape(bare, 'pages')).toEqual({ layout: 'flat', entry: 'index' });
+
+    // A partial declaration keeps the untouched keys at their defaults.
+    expect(getSharedModule({ ...bare, module: { layout: 'folder' } }))
+      .toEqual({ layout: 'folder', entry: 'index', private: [] });
+
+    // A full declaration passes through unchanged.
+    expect(getSharedModule(arch())).toEqual({ layout: 'folder', entry: 'index', private: [] });
+  });
+});
 
 describe('normalizeAllowedImporters', () => {
   it('returns [] for undefined and normalizes strings', () => {

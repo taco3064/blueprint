@@ -6,7 +6,7 @@ import type {
   PrincipleDef,
   RuleSetting,
 } from '../../config';
-import { getModuleShape, normalizeAllowedImporters } from '../../config';
+import { getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
 import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
 
@@ -53,7 +53,7 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
 
 /** Feature-folder shape, illustrated with a generated example tree. */
 export function renderModule(architecture: ArchitectureDef, exampleLayer: string): string {
-  const { module } = architecture;
+  const module = getSharedModule(architecture);
 
   const exceptionLines = architecture.layers
     .filter((layer) => layer.module !== undefined)
@@ -81,7 +81,7 @@ export function renderModule(architecture: ArchitectureDef, exampleLayer: string
   const items: [string, string][] = [
     [module.entry, 'public entry — the only importable file'],
     ['Example', 'implementation (named after the module)'],
-    ...(module.private ?? []).map((part): [string, string] => [part, 'private']),
+    ...module.private.map((part): [string, string] => [part, 'private']),
   ];
 
   const tree = items.map(([part, note], i) => {
@@ -106,7 +106,8 @@ export function renderModule(architecture: ArchitectureDef, exampleLayer: string
 
 /** Prose for the boundaries the generated ESLint config enforces. */
 export function renderImportDiscipline(architecture: ArchitectureDef): string {
-  const { module, layers } = architecture;
+  const { layers } = architecture;
+  const module = getSharedModule(architecture);
 
   const hasSelfOnly = layers.some((layer) =>
     normalizeAllowedImporters(layer.allowedImporters).some((importer) => importer.selfOnly),

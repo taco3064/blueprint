@@ -90,10 +90,16 @@ export interface LayerDef {
 
 /** How a single module (feature folder) is shaped. */
 export interface ModuleDef {
-  /** `folder` = one folder per module with an entry file; `flat` = single file. */
-  layout: 'folder' | 'flat';
-  /** The public entry filename, e.g. `index`. Everything else is private. */
-  entry: string;
+  /**
+   * `folder` = one folder per module with an entry file; `flat` = single
+   * file. Optional — omitting it means `flat`.
+   */
+  layout?: 'folder' | 'flat';
+  /**
+   * The public entry filename. Everything else is private. Optional —
+   * omitting it means `index`.
+   */
+  entry?: string;
   /**
    * Private sub-parts kept behind the entry, e.g. `['hooks', 'styles',
    * 'types']`. Optional — omitting it means none (`[]`).
@@ -123,8 +129,12 @@ export interface ArchitectureDef {
    */
   layers: LayerDef[];
   /** Dependency direction. Only `one-way` for now (upstream imports banned). */
-  /** Feature-folder shape shared across layers. */
-  module: ModuleDef;
+  /**
+   * Feature-folder shape shared across layers. Optional — omitting it (or
+   * any of its keys) means the flat default, `{ layout: 'flat', entry:
+   * 'index' }`; declare it to switch to folder layout or rename the entry.
+   */
+  module?: ModuleDef;
   /**
    * Layer → file glob(s), each carrying a `{layer}` placeholder. Defaults are
    * derived from `framework` when omitted.

@@ -194,8 +194,12 @@ describe('runDeps · a hand-written config is validated on load', () => {
   });
 
   it('fails with a precise message instead of a deep undefined-property crash', async () => {
+    // An empty entry — a MISSING module is valid since the flat default
+    // became real (field issue #23).
     const invalid = async () =>
-      ({ architecture: { alias: '~app', layers: [{ name: 'pages' }] } }) as never;
+      ({
+        architecture: { alias: '~app', layers: [{ name: 'pages' }], module: { entry: '' } },
+      }) as never;
 
     await expect(runDeps(root, { loadConfig: invalid, log: silent })).rejects.toThrow(
       /blueprint\.config\.mjs: architecture\.module/,

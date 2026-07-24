@@ -984,6 +984,84 @@ describe('merge caveats meet the agent at the point of need (batch 14)', () => {
   });
 });
 
+describe('the flat default is real — module is optional (batch 15)', () => {
+  it('a config that never mentions module validates and inspects clean', async () => {
+    // The field shape verbatim: Method step 5 said "plain files → the flat
+    // default", validation demanded module.entry — two edit-run cycles plus
+    // a deliberate repro before the agent could prove the tool contradicted
+    // itself (field issue #23).
+    const noModule: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [{ name: 'components', does: 'render UI' }],
+      },
+    };
+
+    const bare = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(noModule),
+        'src/components/Button.jsx': 'export const Button = 1;',
+      },
+    });
+
+    const inspect = await cli(bare, ['inspect']);
+
+    expect(inspect.code).toBe(0);
+    expect(inspect.output).not.toContain('module.entry');
+
+    // Partial declaration — the exact second repro from the field.
+    const layoutOnly = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource({
+          ...noModule,
+          architecture: { ...noModule.architecture, module: { layout: 'flat' } },
+        }),
+        'src/components/Button.jsx': 'export const Button = 1;',
+      },
+    });
+
+    expect((await cli(layoutOnly, ['inspect'])).code).toBe(0);
+  });
+
+  it('an empty entry still fails loud, now naming the default as the way out', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource({
+          framework: 'react',
+          architecture: {
+            alias: '~app',
+            layers: [{ name: 'components', does: 'render UI' }],
+            module: { layout: 'flat', entry: '' },
+          },
+        }),
+      },
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.code).toBe(1);
+    expect(inspect.output).toContain('omit it for the');
+  });
+
+  it('the playbook sketch says the module block is optional', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('omit `module` entirely');
+    expect(playbook).toContain('Optional — omitting module');
+  });
+});
+
 describe('locked debt stays green under the baseline ratchet (field issue #10)', () => {
   it('inspect --baseline suppresses locked debt — the live-verified repro', async () => {
     const dir = repo({ packageJson: react() });

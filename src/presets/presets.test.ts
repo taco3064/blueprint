@@ -215,7 +215,7 @@ describe('nextPreset', () => {
     expect(bp.architecture.sourceRoot).toBe('src');
     expect(bp.architecture.alias).toBe('@');
     expect(bp.architecture.layers.map((l) => l.name)).toEqual(['app', 'components', 'hooks', 'lib']);
-    expect(bp.architecture.module.layout).toBe('flat');
+    expect(bp.architecture.module?.layout).toBe('flat');
 
     // Server components fetch everywhere — fetch must not be owned by a layer.
     const owners = bp.architecture.layers.flatMap((l) => l.owns ?? []);

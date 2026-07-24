@@ -154,6 +154,23 @@ emitted` annotation (`active` in `--json`), so nobody has to probe
 
 ### Patch Changes
 
+- `architecture.module` is optional — the playbook's "flat default" is now
+  real (field issue #23): omitting the block, or any of its keys, resolves
+  to `{ layout: 'flat', entry: 'index' }` through one shared reader, and an
+  empty `entry` still fails loud with the default named as the way out.
+  Validation used to demand `module.entry` while Method step 5 said plain
+  files take the flat default — the field agent burned two edit-run cycles
+  proving the tool contradicted itself.
+- Judgment calls from the same run, now stated where they arise: `rules`
+  says the fold's message text is yours to write (doctor verifies
+  selectors, never messages); a house rule under a different KEY with the
+  same semantics never collides — keep one gate per semantic; an `owns`
+  candidate the intent documents never mention is a proposal for the
+  report, not a clause to encode; annotating a bare disable's reason is a
+  comment edit inside the adoption boundary; everything the adoption
+  produced — config, artifacts, both ledgers — is meant to be committed,
+  and initializing VCS is never the agent's call; the CLAUDE.md discipline
+  pointer notes the contract ships inside the package.
 - "Only a real run proves it" now covers the alias wiring (field issues
   #21–#22, both runs added the build check by hand): the early-exit
   checklist and the merge step order one build run after init edits

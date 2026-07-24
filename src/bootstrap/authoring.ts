@@ -279,9 +279,14 @@ the answer belongs in this playbook — note the gap in your report instead.
    intent to encode — never contort the order to make findings zero.
 5. **Choose module shape per layer.** High \`index\`-coverage child folders →
    \`module: { layout: 'folder', entry: 'index' }\` on that layer; plain files
-   → the flat default. Mixed repos usually need per-layer overrides.
+   → the flat default (omit \`module\` entirely — it validates and resolves
+   to \`{ layout: 'flat', entry: 'index' }\`). Mixed repos usually need
+   per-layer overrides.
 6. **Assign ownership.** A package imported by exactly one folder (see the
-   concentration list) is an \`owns\` candidate for that layer.
+   concentration list) is an \`owns\` candidate for that layer. A candidate
+   the intent documents never mention is a proposal, not intent — leave it
+   out of the config and name it in the report; encoding it is tightening
+   beyond what the repo declared.
 7. **Write the config** with \`defineBlueprint\` (schema sketch below).
 8. **Validate — the loop that keeps you honest.** Run \`npx blueprint inspect\`.
    A findings explosion (roughly more findings than source files, or one
@@ -340,8 +345,10 @@ the answer belongs in this playbook — note the gap in your report instead.
      violations via \`npx eslint . --suppress-all\` (\`impact\` already told
      you the count — zero hits means SKIP this command, with one carve-out:
      the anti-bypass guard sits OUTSIDE impact's scope, so bare disables it
-     flags in YOUR lint run are real findings — judge them, and this ledger
-     is exactly where unfixable ones go; ESLint ≥ 9.24 — counts
+     flags in YOUR lint run are real findings — judge them: annotating the
+     disable with its reason is a comment edit, not a source refactor, so
+     it sits INSIDE this pass's boundary; the ledger takes whatever you
+     choose to leave, and the report says which you did; ESLint ≥ 9.24 — counts
      per file × rule, so NEW violations still fail). Your gate then blocks
      only new debt on both, and \`blueprint doctor\` verifies neither ledger
      has gone stale. The inverse is equally correct: **zero findings and zero
@@ -369,7 +376,12 @@ the answer belongs in this playbook — note the gap in your report instead.
      mechanically impossible — the entries overwrite each other and
      doctor's survival check fails. There, consolidation stops being a
      scope decision and becomes a wiring precondition; do it, and name
-     which gate won in the report. And when a tool IS retired, retire it
+     which gate won in the report. The inverse case — a house rule under
+     a DIFFERENT key with the same semantics (a hand-rolled deep-watch or
+     test-filename twin) — never collides mechanically; it double-reports
+     instead. Keep ONE gate per semantic (the house rule's docs footprint
+     usually decides which) and record the choice — declaring blueprint's
+     twin on top is noise, not safety. And when a tool IS retired, retire it
      whole: DELETE its config file — a stale architecture config sitting
      beside blueprint.config.mjs misleads worse than any prose pointer —
      then sweep the footprint in the same pass: grep the repo for its name
@@ -379,6 +391,13 @@ the answer belongs in this playbook — note the gap in your report instead.
      text edit; source-code comments referencing the dead tool may outlive
      the sweep under this playbook's no-source-edits boundary — list them
      in the report instead of editing them.
+   - **Everything the adoption produced is meant to be committed** — the
+     config, the generated artifacts, and both ledgers
+     (\`.blueprint-baseline.json\`, \`eslint-suppressions.json\`): the
+     gates read the ledgers from the repo, so an uncommitted baseline is
+     a ratchet that only works on your machine. Not a VCS repo (or you
+     lack commit rights)? Leave the files in place and say so in the
+     report — never initialize version control on the owner's behalf.
 
 ## Semantics the linter holds you to
 
@@ -447,7 +466,10 @@ other than \`off\`; none of these emits by default, and every gate scopes to
 the layer file globs — root wiring sits outside all of them. When merging,
 collisions are decided by rule KEY, not by hit count — \`blueprint rules
 --json\` names every key the emitted config sets, and carries the exact
-selfOnly selector strings a fold needs. The metric family falls
+selfOnly selector strings a fold needs. Adoption stance for these gates:
+declare one only to translate an existing house threshold (carry its
+value); switching NEW gates on is the owner's later tuning, not the
+adopting agent's call. The metric family falls
 back to these thresholds when no \`value\` is given:
 
 ${METRIC_GATES.map((gate) => `- \`${gate.id}\` → \`${gate.rule}\` (default ${gate.fallback})`).join('\n')}
@@ -492,7 +514,10 @@ export default defineBlueprint({
       //   { global: 'fetch' }                        global identifier
       { name: 'services', does: '…', owns: ['axios', { global: 'fetch' }] },
     ],
-    module: { layout: 'flat', entry: 'index' }, // private: ['hooks', …] optional — parts kept behind the entry
+    // Optional — omitting module (or any of its keys) IS the flat default
+    // ({ layout: 'flat', entry: 'index' }); private: ['hooks', …] keeps
+    // parts behind the entry.
+    module: { layout: 'flat', entry: 'index' },
     layerFiles: 'src/{layer}/**/*.<ext glob>',
     testFiles: ['**/*.test.*', '**/__tests__/**'],
   },

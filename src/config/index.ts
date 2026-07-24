@@ -4,6 +4,7 @@ export {
   getForbiddenLayers,
   getModuleShape,
   getSelfOnlyTargets,
+  getSharedModule,
   normalizeAllowedImporters,
 } from './graph';
 export type { DiagramEdge } from './graph';

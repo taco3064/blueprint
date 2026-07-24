@@ -121,13 +121,31 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     names.add(layer.name);
   }
 
-  if (!module || typeof module.entry !== 'string' || !module.entry.trim()) {
-    throw new Error('architecture.module.entry must be a non-empty string.');
-  } else if (module.private !== undefined && !Array.isArray(module.private)) {
-    throw new Error('architecture.module.private must be an array when set — omit it for none.');
-  }
+  // The whole block is optional — the flat default the playbook promises
+  // (`{ layout: 'flat', entry: 'index' }`) is applied at read time; a config
+  // that never mentions `module` is complete (field issue #23: the playbook
+  // said "the flat default" while validation demanded module.entry).
+  if (module !== undefined) {
+    if (module.layout !== undefined && module.layout !== 'folder' && module.layout !== 'flat') {
+      throw new Error(
+        `architecture.module.layout is "${String(module.layout)}" — expected folder | flat, `
+        + 'or omit it for the default (flat).',
+      );
+    }
 
-  rejectUnknownKeys(module, ['layout', 'entry', 'private'], 'architecture.module');
+    if (module.entry !== undefined && (typeof module.entry !== 'string' || !module.entry.trim())) {
+      throw new Error(
+        'architecture.module.entry must be a non-empty string when set — omit it for the '
+        + 'default ("index").',
+      );
+    }
+
+    if (module.private !== undefined && !Array.isArray(module.private)) {
+      throw new Error('architecture.module.private must be an array when set — omit it for none.');
+    }
+
+    rejectUnknownKeys(module, ['layout', 'entry', 'private'], 'architecture.module');
+  }
 
   if (bp.emit !== undefined) {
     rejectUnknownKeys(bp.emit, ['handbook', 'agents', 'lint'], 'emit');

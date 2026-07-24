@@ -126,12 +126,26 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(/package with no name/);
   });
 
-  it('rejects a missing module entry', () => {
+  it('rejects an empty module entry, accepts an absent module (field issue #23)', () => {
     const config = base();
 
-    config.architecture.module.entry = '';
+    config.architecture.module!.entry = '';
 
     expect(() => validateBlueprint(config)).toThrow(/module\.entry/);
+
+    // The playbook's "flat default" is real: a config that never mentions
+    // module — or writes only { layout: 'flat' } — is complete.
+    delete config.architecture.module;
+
+    expect(() => validateBlueprint(config)).not.toThrow();
+
+    config.architecture.module = { layout: 'flat' };
+
+    expect(() => validateBlueprint(config)).not.toThrow();
+
+    config.architecture.module = { layout: 'diagonal' as never };
+
+    expect(() => validateBlueprint(config)).toThrow(/folder \| flat/);
   });
 
   it('rejects a layer-level selfOnly with the pointed fix (field issue #14)', () => {
@@ -172,13 +186,13 @@ describe('validateBlueprint', () => {
   it('rejects a non-array module.private, accepts an omitted one', () => {
     const config = base();
 
-    config.architecture.module.private = 'nope' as never;
+    config.architecture.module!.private = 'nope' as never;
 
     expect(() => validateBlueprint(config)).toThrow(/module\.private/);
 
     // Optional with a default of none — a draft-first config that never
     // mentions private parts is valid (field issue #11).
-    delete config.architecture.module.private;
+    delete config.architecture.module!.private;
 
     expect(() => validateBlueprint(config)).not.toThrow();
   });

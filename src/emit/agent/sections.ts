@@ -7,7 +7,7 @@ import type {
   RuleSetting,
   Tier,
 } from '../../config';
-import { getModuleShape, normalizeAllowedImporters } from '../../config';
+import { getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
 import { handbookPath } from '../docs';
 import { LINT_GATED_RULE_IDS } from '../lint';
 import { formatOwns } from '../../markdown';
@@ -73,7 +73,7 @@ export function renderCompactContract(blueprint: Blueprint): string {
     `- Framework: \`${blueprint.framework}\`. Import alias: \`${architecture.alias}\`.`,
     `- Layer flow: ${chain} — transitive: a layer may import **any** layer after it, unless the target narrows its importers.`,
     `- **Before adding, moving, or renaming any file** — placement, module shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
-    '- **Operating discipline** — how to follow the flow, react to lint failures, and the pre-commit checklist: read [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md).',
+    '- **Operating discipline** — how to follow the flow, react to lint failures, and the pre-commit checklist: read [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md) (ships inside the package — present once dependencies are installed, always matching the installed version).',
     `- Hard gates (machine-enforced): one-way imports, module entries, ownership, relative escapes${gates.length ? `, ${gates.join(', ')}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
     // --baseline so the verify loop fails only on findings the agent itself
     // introduced — plain inspect stays red forever on locked brownfield debt
@@ -121,8 +121,8 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     return parts.join('');
   });
 
-  const { module } = architecture;
-  const priv = (module.private ?? []).map((part) => `\`${part}\``).join(' / ');
+  const module = getSharedModule(architecture);
+  const priv = module.private.map((part) => `\`${part}\``).join(' / ');
 
   const moduleLine
     = module.layout === 'folder'
@@ -276,7 +276,7 @@ export function renderChecklist(blueprint: Blueprint): string {
 
   const items = [
     '- [ ] Imports follow the one-way flow (no upstream / same-layer).',
-    `- [ ] New code sits in the right layer; modules expose only \`${architecture.module.entry}\`.`,
+    `- [ ] New code sits in the right layer; modules expose only \`${getSharedModule(architecture).entry}\`.`,
   ];
 
   if (architecture.naming && Object.keys(architecture.naming).length) {

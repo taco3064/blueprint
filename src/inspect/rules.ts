@@ -269,10 +269,13 @@ export function renderRules(
             + ` · globals: ${entry.globals.join(', ') || '(none)'}`,
             // The exact strings a merge fold needs — printing them here is
             // what keeps "combine into ONE entry" doable without an emitLint
-            // dump (field issue #20).
+            // dump (field issue #20). The message caveat closes the follow-up
+            // doubt (#23): doctor compares selectors only, by design.
             ...entry.selfOnly.flatMap((ban) => [
               `    selfOnly: no re-export from "${ban.target}" — folding your own`
-              + ' no-restricted-syntax into one entry? Copy these selectors verbatim:',
+              + ' no-restricted-syntax into one entry? Copy these selectors verbatim'
+              + ' (the message text is yours to write — doctor verifies selectors,'
+              + ' never messages):',
               ...ban.selectors.map((selector) => `      ${selector}`),
             ]),
           ]),
