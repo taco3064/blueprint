@@ -12,5 +12,6 @@ coverage/
 docs/api/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+docs/.vitepress/.temp/
 examples/
 docs/zh-TW/api/
