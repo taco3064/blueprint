@@ -1,6 +1,10 @@
+import { createRequire } from 'node:module';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
+// Test-only import of the full emit module — src keeps the patterns-leaf
+// boundary; the fixture needs emitLint's real selectors, not a paraphrase.
+import { emitLint } from '../emit/lint';
 import { reactPreset } from '../presets';
 import { cli, configSource, makeRepo, read, rm, wiredEslintConfig, write } from './conformance';
 import type { RepoSpec } from './conformance';
@@ -837,6 +841,100 @@ describe('one output, one story — no snippet contradicts its own prose (field 
     expect(init.code).toBe(0);
     expect(init.output).toContain('locking a baseline only when debt exists');
     expect(init.output).not.toContain('and locking a baseline):');
+  });
+});
+
+describe('selfOnly survives every esquery, and the fold gets its selectors (batch 13)', () => {
+  const selfOnly: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      layers: [
+        { name: 'views', does: 'pages' },
+        {
+          name: 'contexts',
+          does: 'shared state',
+          allowedImporters: [{ layer: 'views', selfOnly: true }],
+        },
+      ],
+      module: { layout: 'flat', entry: 'index', private: [] },
+    },
+  };
+
+  const emittedSelectors = () =>
+    emitLint(selfOnly)
+      .flatMap((entry) =>
+        (entry.rules?.['no-restricted-syntax'] as unknown[] | undefined)?.slice(1) ?? [])
+      .map((item) => (item as { selector: string }).selector);
+
+  it('the emitted selector parses and matches on esquery 1.6 — the crash line', () => {
+    // esquery below 1.7 has no `\/` escape in its regex literal: the old
+    // selector truncated to `^~app\` and threw "Invalid regular expression"
+    // on EVERY file of the layer — killing the project's own `eslint .` and
+    // `blueprint impact` alike (field issue #19). The pinned legacy version
+    // is the regression guard; this repo's own esquery is too new to crash.
+    const legacy = createRequire(import.meta.url)('esquery-legacy') as {
+      parse: (selector: string) => unknown;
+      matches: (node: object, ast: unknown) => boolean;
+    };
+
+    const selectors = emittedSelectors();
+
+    expect(selectors).toHaveLength(1);
+
+    for (const selector of selectors) {
+      const ast = legacy.parse(selector);
+
+      const ban = (value: string) =>
+        legacy.matches({ type: 'ExportAllDeclaration', source: { type: 'Literal', value } }, ast);
+
+      expect(ban('~app/contexts/user')).toBe(true);
+      expect(ban('~app/hooks/useX')).toBe(false);
+    }
+  });
+
+  it('impact reports the re-export instead of crashing', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(selfOnly),
+        'jsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+        }),
+        'src/contexts/user.jsx': 'export const user = 1;',
+        'src/views/Home.jsx': 'export { user } from \'~app/contexts/user\';\n',
+      },
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.code).toBe(0);
+    expect(impact.output).toContain('no-restricted-syntax');
+    expect(impact.output).toContain('Home.jsx');
+  });
+
+  it('rules carries the selectors a fold needs — no emitLint dump (field issue #20)', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'blueprint.config.mjs': configSource(selfOnly) },
+    });
+
+    const json = await cli(dir, ['rules', '--json']);
+
+    const parsed = JSON.parse(json.output) as {
+      bans: { layer: string; selfOnly: { target: string; selectors: string[] }[] }[];
+    };
+
+    const views = parsed.bans.find((entry) => entry.layer === 'views');
+
+    expect(views?.selfOnly).toEqual([{ target: 'contexts', selectors: emittedSelectors() }]);
+
+    // The text catalog prints the same strings — an agent without --json
+    // still never needs to dump emitLint.
+    const text = await cli(dir, ['rules']);
+
+    expect(text.output).toContain('Copy these selectors verbatim');
+    expect(text.output).toContain(emittedSelectors()[0]);
   });
 });
 

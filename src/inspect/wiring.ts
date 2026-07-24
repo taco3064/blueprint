@@ -263,11 +263,17 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
 
   if (!lost.length) return { label: LABEL, ok: true };
 
+  // The check compares exact emitted text, so a red has TWO possible causes
+  // — naming only the replace cause sent a field agent chasing a merge
+  // collision that did not exist (field issue #19).
   return {
     label: LABEL,
     ok: false,
-    detail: `${lost.join('; ')} — a later flat-config entry replaced the rule, and flat `
-      + 'config never merges: combine both option sets into ONE entry, then re-run doctor',
+    detail: `${lost.join('; ')} — the resolved config no longer carries the exact text this `
+      + 'version emits. Either a later flat-config entry replaced the rule (flat config '
+      + 'never merges: combine both option sets into ONE entry — `blueprint rules --json` '
+      + 'carries the exact selfOnly selectors), or a hand-folded copy drifted from this '
+      + 'version\'s output. Fix that entry, then re-run doctor',
   };
 }
 

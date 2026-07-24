@@ -149,4 +149,16 @@ describe('selfOnlyReexportSelector', () => {
     expect(selector).toContain('ExportNamedDeclaration');
     expect(selector).toContain('ExportAllDeclaration');
   });
+
+  it('never puts a raw or escaped slash inside the regex literal (field #19)', () => {
+    // esquery's regex literal ends at the first raw `/`, and pre-1.7
+    // versions reject `\/` too — truncated pattern, ESLint crash on every
+    // file of the layer. The separator must ride as `\u002F`.
+    const selector = selfOnlyReexportSelector('~app', 'contexts');
+    const [, regex] = selector.match(/\/(.*?)\/(?=\])/) ?? [];
+
+    expect(regex).toBe('^~app\\u002Fcontexts\\u002F');
+    expect(new RegExp(regex).test('~app/contexts/theme')).toBe(true);
+    expect(new RegExp(regex).test('~app/contexts-x/theme')).toBe(false);
+  });
 });

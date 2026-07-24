@@ -260,10 +260,17 @@ export function buildPackagePatterns(disabled: PackageRule[]): {
   };
 }
 
-/** Build the `no-restricted-syntax` selector banning re-export of a selfOnly target. */
+/**
+ * Build the `no-restricted-syntax` selector banning re-export of a selfOnly
+ * target. `/` is encoded as the `\u002F` regex escape: esquery's regex
+ * literal ends at the first raw `/`, and versions below 1.7 reject the
+ * `\/` escape too — truncating the pattern and crashing ESLint on every
+ * file of the layer (field issue #19) — while `\u002F` parses on every
+ * version and still means `/` to the RegExp.
+ */
 export function selfOnlyReexportSelector(alias: string, target: string): string {
-  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\//g, '\\/');
-  const attr = `[source.value=/^${esc(alias)}\\/${esc(target)}\\//]`;
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\//g, '\\u002F');
+  const attr = `[source.value=/^${esc(alias)}\\u002F${esc(target)}\\u002F/]`;
 
   return `ExportNamedDeclaration${attr}, ExportAllDeclaration${attr}`;
 }
