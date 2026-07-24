@@ -174,6 +174,13 @@ function bundlerActions(
 
   if (vite && names.every((name) => quotedIn(vite.text, name))) return [];
 
+  // A tsconfig-paths bridge plugin (vite-tsconfig-paths & friends) makes the
+  // tsconfig side — which init wires above — authoritative for the bundler
+  // too. Instructing resolve.alias on top asks for a redundant second wiring
+  // that doctor's check never required: on one field repo init said "add the
+  // alias to vite.config" while doctor passed untouched (field issue #25).
+  if (vite && vite.text.includes('tsconfig-paths')) return [];
+
   return [bundlerInstruct(state, architecture)];
 }
 
@@ -244,7 +251,7 @@ function bundlerInstruct(state: ProjectState, architecture: ArchitectureDef): Ac
 
   return {
     kind: 'instruct',
-    note: `Add the alias to vite.config under resolve.alias:\n    resolve: { alias: { ${lines.join(', ')} } }`,
+    note: `Add the alias to vite.config under resolve.alias:\n    resolve: { alias: { ${lines.join(', ')} } }\n  (already bridging tsconfig paths into vite — e.g. vite-tsconfig-paths? Then the tsconfig side covers the bundler and this step is done.)`,
   };
 }
 

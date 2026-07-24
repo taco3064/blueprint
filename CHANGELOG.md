@@ -185,6 +185,12 @@ emitted` annotation (`active` in `--json`), so nobody has to probe
   `defineConfig([...])` arrays are named spread-equivalent; the generated
   jsx parser block carries its own skip criterion (dormant on a TS-only
   repo).
+- init's vite alias instruct respects a tsconfig-paths bridge plugin
+  (field issue #25): with vite-tsconfig-paths in the vite config, the
+  tsconfig side init already wires covers the bundler, and doctor's alias
+  check passes that state — init no longer demands a redundant
+  `resolve.alias` the check never asks for, and the instruct itself names
+  the bridge-plugin escape hatch when it does fire.
 - Playbook verdicts agents had to invent, now stated (field issues
   #18–#20): the report is a message — the closing reply or the PR
   description, never a committed file — and the early-exit path says its

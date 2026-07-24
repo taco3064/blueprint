@@ -262,6 +262,47 @@ describe('aliasActions', () => {
 
     expect(instructs(partial).at(-1)).toContain('~shared');
   });
+
+  it('skips the bundler instruct when a tsconfig-paths bridge plugin is wired (field #25)', () => {
+    // The field repo: alias lived in tsconfig paths, vite-tsconfig-paths
+    // bridged it — init still said "add resolve.alias" while doctor passed
+    // untouched. Init must not demand a second wiring doctor never asks for.
+    const bridged = state({
+      hasViteConfig: true,
+      viteConfig: {
+        file: 'vite.config.ts',
+        text: 'import tsconfigPaths from \'vite-tsconfig-paths\';\n'
+          + 'export default defineConfig({ plugins: [tsconfigPaths()] })\n',
+      },
+      tsconfigs: {
+        'tsconfig.json': JSON.stringify({ compilerOptions: { paths: PATHS } }),
+        'tsconfig.app.json': null,
+        'jsconfig.json': null,
+      },
+    });
+
+    expect(instructs(aliasActions(bridged, ARCH))).toHaveLength(0);
+
+    // Without the plugin, the vite side still needs wiring — and the
+    // instruct itself names the bridge-plugin escape hatch.
+    const unbridged = aliasActions(
+      state({
+        hasViteConfig: true,
+        viteConfig: { file: 'vite.config.ts', text: 'export default defineConfig({})\n' },
+        tsconfigs: {
+          'tsconfig.json': JSON.stringify({ compilerOptions: { paths: PATHS } }),
+          'tsconfig.app.json': null,
+          'jsconfig.json': null,
+        },
+      }),
+      ARCH,
+    );
+
+    const note = instructs(unbridged).at(-1);
+
+    expect(note).toContain('resolve.alias');
+    expect(note).toContain('vite-tsconfig-paths');
+  });
 });
 
 describe('aliasActions · greenfield vite surgery fallback', () => {
