@@ -87,7 +87,7 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
         `    claude "${AGENT_PROMPT}"     # or: /blueprint-author inside Claude Code`,
         `    codex "${AGENT_PROMPT}"`,
         '  …or follow the playbook yourself. Prefer a preset scaffold instead? Re-run:',
-        '    blueprint init --preset',
+        '    blueprint init --preset --agent claude   # or --agent codex; plain --preset as neither',
       ].join('\n'),
     },
   ];
@@ -142,14 +142,18 @@ The complete early-exit checklist — nothing else in this file applies:
    the reference's inline notes — then DELETE the reference; doctor
    stays red until you do. No reference written (init's generated config
    IS the live one)? That gate holds trivially, and trivially true is
-   true — you skipped nothing.
+   true — you skipped nothing. Either way, close this step by running
+   the project's own lint once (\`npm run lint\`, or \`npx eslint .\`
+   without a script): doctor's wired check reads config text and never
+   executes eslint, so only a real run proves the config loads.
 4. Delete this playbook, \`${COMMAND_FILE}\`, and the now-empty
    \`.claude/commands/\` directory — and \`.claude/\` itself if that
    leaves it empty (init created the tree only to hold this command).
    Cleanup comes BEFORE the final gate: doctor treats these authoring
    files as leftovers.
 5. \`npx blueprint doctor\` — all checks green. Done — "preset was
-   enough" is a complete, correct report.
+   enough", said in your closing reply to the user, is a complete,
+   correct report; no report file exists on this path.
 
 **Why adopt on a near-empty repo at all — emptiness is the point, not a
 smell.** The contract's value is highest BEFORE the first violation
@@ -198,7 +202,10 @@ baseline. Deliverables:
 3. \`npx blueprint inspect --update-baseline\` run — it writes
    \`.blueprint-baseline.json\` only when debt exists; on a clean repo
    "No debt to lock" and no file IS the correct outcome
-4. A short report: the layer table, debt counts by category, any cycles
+4. A short report: the layer table, debt counts by category, any cycles.
+   It is a message, not an artifact — deliver it as your closing reply to
+   the user (or the PR description when one is opened); never commit a
+   report file
 
 Out of scope: fixing the debt. Existing violations are recorded in the
 baseline and paid down later — do not refactor application code in this pass.
@@ -306,7 +313,9 @@ the answer belongs in this playbook — note the gap in your report instead.
      set** (\`no-restricted-imports\`, \`no-restricted-syntax\`): whichever
      comes later silently deletes the other's defense while lint stays
      green. Combine both option sets into ONE entry — blueprint's patterns
-     and selectors plus your own — and \`blueprint doctor\` verifies the
+     and selectors plus your own (\`npx blueprint rules --json\` carries the
+     exact selfOnly selector strings per layer; copy them from there, never
+     from an emitLint dump) — and \`blueprint doctor\` verifies the
      emitted structural rules survived the merge. Run the project's own lint command; new findings introduced by
      the merge are fixed or explicitly judged, never left dangling. Delete
      the reference once wired. Exception: a **legacy-format config**
@@ -426,7 +435,8 @@ knob covers ONLY these:
 other than \`off\`; none of these emits by default, and every gate scopes to
 the layer file globs — root wiring sits outside all of them. When merging,
 collisions are decided by rule KEY, not by hit count — \`blueprint rules
---json\` names every key the emitted config sets. The metric family falls
+--json\` names every key the emitted config sets, and carries the exact
+selfOnly selector strings a fold needs. The metric family falls
 back to these thresholds when no \`value\` is given:
 
 ${METRIC_GATES.map((gate) => `- \`${gate.id}\` → \`${gate.rule}\` (default ${gate.fallback})`).join('\n')}
@@ -465,7 +475,8 @@ export default defineBlueprint({
       // owns entries — the full shape (nothing else lives only in dist):
       //   'axios'                                    whole package
       //   { package: 'vue', imports: ['inject'] }    named imports only
-      //   { package: '@scope/*', pattern: true }     glob of packages
+      //   { package: '@scope/*', pattern: true }     glob over import
+      //     specifiers — npm scopes and alias paths ('~app/services/http*') alike
       //   { package: 'x', exempt: ['**/*.stories.*'] }  files exempt from the ban
       //   { global: 'fetch' }                        global identifier
       { name: 'services', does: '…', owns: ['axios', { global: 'fetch' }] },
