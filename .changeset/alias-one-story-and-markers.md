@@ -1,7 +1,0 @@
----
-"@kekkai/blueprint": patch
----
-
-init's vite alias instruct respects a tsconfig-paths bridge plugin (field issue #25): with vite-tsconfig-paths in the vite config, the tsconfig side init already wires covers the bundler, and doctor's alias check passes that state — init no longer demands a redundant `resolve.alias` the check never asks for, and the instruct itself names the bridge-plugin escape hatch when it does fire.
-
-Contract references ship WITH their `BLUEPRINT:START/END` markers (field issue #26): the reference's header said "init rewrites only between the markers" while the file carried none — the agent probed raw bytes, guessed headings were markers, and the integrated block went permanently stale (a wrong layer flow in CLAUDE.md, invisible to doctor). Pasting the reference verbatim now keeps the block refreshable by any later init; both integration instructs state the trade — keep the markers and init refreshes the block, strip them and the file is yours to update by hand, forever. Also from the same batch (#24–#26): the build-verification artifacts are named as the build's normal output, not adoption leftovers; ongoing enforcement is stated as deliberately unscaffolded (the gate commands are the deliverable, the pipeline is the owner's); linearization prefers the smallest-relaxation position among equally legal ones; a skipped parser block's package is dependency wiring to keep, not waste.
