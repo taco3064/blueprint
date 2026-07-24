@@ -388,7 +388,10 @@ the answer belongs in this playbook — note the gap in your report instead.
      test-filename twin) — never collides mechanically; it double-reports
      instead. Keep ONE gate per semantic (the house rule's docs footprint
      usually decides which) and record the choice — declaring blueprint's
-     twin on top is noise, not safety. And when a tool IS retired, retire it
+     twin on top is noise, not safety. The same rule spans gate LAYERS:
+     a house \`import/no-cycle\` (lint) and the \`cycles\` gate (inspect)
+     are one semantic — pick one detector and record it (the catalog's
+     perf note usually argues for the inspect side). And when a tool IS retired, retire it
      whole: DELETE its config file — a stale architecture config sitting
      beside blueprint.config.mjs misleads worse than any prose pointer —
      then sweep the footprint in the same pass: grep the repo for its name
@@ -517,7 +520,10 @@ export default defineBlueprint({
         does: '…',
         module: { layout: 'folder', entry: 'index' }, // per-layer override
       },
-      // owns entries — the full shape (nothing else lives only in dist):
+      // owns entries — the full shape (nothing else lives only in dist).
+      // A package several layers may use: declare the SAME entry in each of
+      // them — same-signature owns merge into one rule allowing every
+      // declaring layer; the repetition IS the shared-allowance syntax.
       //   'axios'                                    whole package
       //   { package: 'vue', imports: ['inject'] }    named imports only
       //   { package: '@scope/*', pattern: true }     glob over import

@@ -229,7 +229,10 @@ describe('renderSurvey', () => {
     });
 
     expect(output).toContain('unknown framework');
-    expect(output).not.toContain('Same-folder');
+    // The same-folder section always prints — the playbook cites it, so an
+    // absent row read as a gap two field agents had to puzzle out (#25, #28).
+    expect(output).toContain('Same-folder imports via the alias');
+    expect(output).toContain('0  (none found)');
     expect(output).not.toContain('Unresolved');
   });
 });

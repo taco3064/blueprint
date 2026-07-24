@@ -200,6 +200,14 @@ emitted` annotation (`active` in `--json`), so nobody has to probe
   the pipeline is the owner's); linearization prefers the
   smallest-relaxation position among equally legal ones; a skipped
   parser block's package is dependency wiring to keep, not waste.
+- Closing-round polish from field issues #27–#28 (zero blockers across
+  four scenarios): the survey's "Same-folder imports via the alias"
+  section always prints — an explicit `0 (none found)` instead of a
+  silently absent row the playbook cites; the one-gate-per-semantic rule
+  now spans gate layers (a house `import/no-cycle` and the inspect-side
+  `cycles` gate are one semantic — pick one detector); the `owns` sketch
+  states that repeating the same entry across layers IS the
+  shared-allowance syntax (same-signature entries merge).
 - init's vite alias instruct respects a tsconfig-paths bridge plugin
   (field issue #25): with vite-tsconfig-paths in the vite config, the
   tsconfig side init already wires covers the bundler, and doctor's alias
