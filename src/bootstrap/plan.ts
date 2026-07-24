@@ -59,6 +59,10 @@ export function plan(
 
       // A hand-written file that already mentions the package has been
       // integrated by its owner — symmetric with the wired eslint config.
+      // "Left as is" is a real trade the owner must hear about: with no
+      // markers there is nothing init can refresh, so a config change later
+      // silently strands the integrated copy (field issue #26 — a stale
+      // layer flow misled every subsequent agent).
       if (
         existing !== null
         && !existing.includes(`<!-- ${MARKER}:START -->`)
@@ -66,7 +70,10 @@ export function plan(
       ) {
         actions.push({
           kind: 'instruct',
-          note: `${file.path} already integrates the blueprint contract — left as is.`,
+          note: `${file.path} already integrates the blueprint contract without markers — left as is, `
+            + 'and init can never refresh it: after config changes, update it by hand — or wrap the '
+            + `generated block in <!-- ${MARKER}:START --> / <!-- ${MARKER}:END --> once, and every `
+            + 'later init rewrites just that block.',
         });
 
         continue;
@@ -76,7 +83,11 @@ export function plan(
       // maintains — appending a generated block to it is not a merge, it is
       // graffiti. Leave a reference next to it instead; a person (or the
       // authoring agent, as its final step) integrates it in the document's
-      // own structure.
+      // own structure. The reference ships WITH its marker comments: pasted
+      // verbatim they keep the block refreshable, and the header's "init
+      // rewrites only between them" stays a claim the reader can see
+      // (field issue #26: markers were promised, none were visible, and the
+      // guessed integration went permanently stale).
       if (existing !== null && !existing.includes(`<!-- ${MARKER}:START -->`)) {
         const reference = file.path.replace(/\.md$/, '.blueprint.md');
 
@@ -84,12 +95,17 @@ export function plan(
           {
             kind: 'write',
             path: reference,
-            content: file.content,
+            content: mergeContract(null, file.content),
             note: `${reference} (reference — hand-written ${file.path} left untouched)`,
           },
           {
             kind: 'instruct',
-            note: `${file.path} is hand-written, so it was not touched. Integrate ${reference} into it — follow the document's own structure, link rather than duplicate — then delete the reference. (An agent running the authoring playbook does this as its final step.)`,
+            note: `${file.path} is hand-written, so it was not touched. Integrate ${reference} into it — `
+              + 'follow the document\'s own structure, link rather than duplicate, and KEEP the '
+              + `<!-- ${MARKER}:START/END --> marker comments around the generated block: they are what `
+              + 'lets a later init refresh the block after config changes (integrating without them '
+              + 'means updating it by hand, forever) — then delete the reference. (An agent running '
+              + 'the authoring playbook does this as its final step.)',
           },
         );
 
@@ -345,6 +361,8 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     '  // Parser setup — needed when THIS file is the live config. Merging',
     '  // into an existing config that already wires parsers? Skip these',
     '  // blocks — copying them re-parses files your config already handles.',
+    '  // A skipped block leaves its parser package installed: leave it — a',
+    '  // later init treats it as required for the stack and re-installs it.',
     // "Does my config already wire parsers?" recurred in the field with a
     // preset that wires one internally — answer it here, where the merge
     // decision is being made (only meaningful on a TS stack).

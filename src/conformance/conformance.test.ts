@@ -1062,6 +1062,86 @@ describe('the flat default is real — module is optional (batch 15)', () => {
   });
 });
 
+describe('init and doctor tell one alias story; integrated contracts stay fresh (batch 16)', () => {
+  it('a tsconfig-paths bridge plugin silences the vite instruct — init agrees with doctor (field #25)', async () => {
+    // The field repo: alias in tsconfig paths, vite-tsconfig-paths bridging
+    // it — init still said "add resolve.alias" while doctor passed the same
+    // state untouched. Two authorities, two verdicts, minutes of probing.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(reactBlueprint),
+        'tsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+        }),
+        'vite.config.ts': 'import tsconfigPaths from \'vite-tsconfig-paths\';\n'
+          + 'export default { plugins: [tsconfigPaths()] };\n',
+        'src/components/Button.jsx': 'export const Button = 1;',
+      },
+    });
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).not.toContain('resolve.alias');
+
+    const doctor = await cli(dir, ['doctor']);
+
+    expect(doctor.output).toContain('✓ import alias wired to the toolchain');
+  });
+
+  it('a marker-integrated CLAUDE.md is refreshed by the next init (field #26)', async () => {
+    // The field repro inverted: the reference now ships WITH its markers, so
+    // a verbatim integration keeps the block refreshable — the run that
+    // integrated by guesswork ended with a permanently stale layer flow.
+    // (First init scaffolds the config instead of loading one: an in-process
+    // ESM import of blueprint.config.mjs would be cached across cli() calls,
+    // which real per-process runs never hit.)
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'CLAUDE.md': '# My app\n\nhand-written notes\n',
+        'src/components/Button.jsx': 'export const Button = 1;',
+      },
+    });
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).toContain('KEEP the');
+
+    const reference = read(dir, 'CLAUDE.blueprint.md') ?? '';
+
+    expect(reference.startsWith('<!-- BLUEPRINT:START -->')).toBe(true);
+
+    // Integrate verbatim (markers included), delete the reference, then
+    // change the config — the exact sequence that went stale in the field.
+    write(dir, 'CLAUDE.md', `# My app\n\nhand-written notes\n\n${reference}`);
+    rm(`${dir}/CLAUDE.blueprint.md`);
+
+    write(dir, 'blueprint.config.mjs', configSource({
+      ...reactBlueprint,
+      architecture: {
+        ...reactBlueprint.architecture,
+        layers: [
+          { name: 'components', does: 'render UI' },
+          { name: 'api', does: 'data access' },
+        ],
+      },
+    }));
+
+    const second = await cli(dir, ['init', '--no-install']);
+
+    expect(second.code).toBe(0);
+
+    const merged = read(dir, 'CLAUDE.md') ?? '';
+
+    expect(merged).toContain('hand-written notes'); // outside the markers — untouched
+    expect(merged).toContain('`api`'); // inside the markers — refreshed
+    expect(merged).not.toContain('`containers`'); // the scaffold-era flow is gone
+  });
+});
+
 describe('locked debt stays green under the baseline ratchet (field issue #10)', () => {
   it('inspect --baseline suppresses locked debt — the live-verified repro', async () => {
     const dir = repo({ packageJson: react() });

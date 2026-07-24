@@ -148,7 +148,11 @@ The complete early-exit checklist — nothing else in this file applies:
    executes eslint, so only a real run proves the config loads. Same
    logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's
    alias check reads that wiring as text, never as a compile — run the
-   build once too (\`npm run build\`, or \`npx tsc -b\`).
+   build once too (\`npm run build\`, or \`npx tsc -b\`). Its artifacts
+   (\`dist/\`, \`*.tsbuildinfo\`) are the build's normal output, not
+   adoption leftovers: leave them to the repo's own ignore rules, and
+   when the repo has none, say so in the report instead of guessing a
+   cleanup.
 4. Delete this playbook, \`${COMMAND_FILE}\`, and the now-empty
    \`.claude/commands/\` directory — and \`.claude/\` itself if that
    leaves it empty (init created the tree only to hold this command).
@@ -267,6 +271,9 @@ the answer belongs in this playbook — note the gap in your report instead.
    often draw a DAG; blueprint's order is linear (a layer may import *any*
    later layer). Linearize, then verify against the matrix — linear is
    transitive, so it is usually a strict relaxation, not a real change.
+   Several positions equally legal (no matrix edges either way — empty
+   layers especially)? Pick the one granting the fewest new import
+   permissions: the smallest relaxation.
 2. **Study the survey evidence below.** Every number is deterministic fact
    from this repo; do not re-derive it by grepping.
 3. **Decide what is a layer.** Top-level folders under \`src/\` are candidates;
@@ -398,6 +405,11 @@ the answer belongs in this playbook — note the gap in your report instead.
      a ratchet that only works on your machine. Not a VCS repo (or you
      lack commit rights)? Leave the files in place and say so in the
      report — never initialize version control on the owner's behalf.
+     The same boundary covers ongoing enforcement: blueprint deliberately
+     scaffolds no CI — the gate commands (\`npx blueprint inspect
+     --baseline\`, \`npx blueprint doctor\`) are the deliverable, and
+     wiring them into a pipeline or git hook is the owner's call.
+     Recommend it in the report; never add pipeline config yourself.
 
 ## Semantics the linter holds you to
 

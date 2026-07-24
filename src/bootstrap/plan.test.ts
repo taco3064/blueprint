@@ -426,11 +426,23 @@ describe('plan', () => {
 
     // The hand-written file is not written at all; the reference carries the block.
     expect(write(actions, 'AGENTS.md')).toBeUndefined();
-    expect(write(actions, 'AGENTS.blueprint.md')?.content).toContain('## Architecture contract');
 
-    expect(actions.some(
-      (action) => action.kind === 'instruct' && action.note.includes('AGENTS.md is hand-written'),
-    )).toBe(true);
+    const reference = write(actions, 'AGENTS.blueprint.md')?.content;
+
+    expect(reference).toContain('## Architecture contract');
+    // The reference ships WITH its markers: pasted verbatim it stays
+    // refreshable, and the header's marker talk points at something the
+    // reader can actually see (field issue #26).
+    expect(reference?.startsWith('<!-- BLUEPRINT:START -->')).toBe(true);
+    expect(reference?.trimEnd().endsWith('<!-- BLUEPRINT:END -->')).toBe(true);
+
+    const note = actions.find(
+      (action): action is Extract<Action, { kind: 'instruct' }> =>
+        action.kind === 'instruct' && action.note.includes('AGENTS.md is hand-written'),
+    );
+
+    expect(note?.note).toContain('KEEP the');
+    expect(note?.note).toContain('marker comments');
   });
 
   it('narrows the default targets to the tool in use via agentTarget', () => {
@@ -510,8 +522,14 @@ describe('plan · integrated hand-written context file', () => {
     expect(write(actions, 'AGENTS.md')).toBeUndefined();
     expect(write(actions, 'AGENTS.blueprint.md')).toBeUndefined();
 
-    expect(actions.some(
-      (action) => action.kind === 'instruct' && action.note.includes('already integrates'),
-    )).toBe(true);
+    // "Left as is" names its price: a marker-less integration is frozen —
+    // init can never refresh it after config changes (field issue #26).
+    const note = actions.find(
+      (action): action is Extract<Action, { kind: 'instruct' }> =>
+        action.kind === 'instruct' && action.note.includes('already integrates'),
+    );
+
+    expect(note?.note).toContain('never refresh');
+    expect(note?.note).toContain('<!-- BLUEPRINT:START -->');
   });
 });
