@@ -444,6 +444,11 @@ you never have to reverse-engineer them from the bundle:
 - **\`doctor\`'s "eslint wired" check** passes when the eslint config's text
   references \`@kekkai/blueprint\` (or the config is the generated file
   itself).
+- **\`doctor\`'s leftover check matches exact file families** — this
+  playbook, the command file, \`*.blueprint.*\` references, and
+  marker-bearing contracts outside \`emit.agents\` — never other files,
+  whatever their names. A report or feedback file you were asked to
+  write is safe without a verification re-run.
 - **Test files are EXEMPT** — \`architecture.testFiles\` (default
   \`*.test.* / *.spec.*\`) sit outside the structural rules and \`inspect\`
   alike. If the tool you are replacing policed tests too, switching to
