@@ -3,7 +3,12 @@ import type { GlobalRule, GroupPattern, PackageRule, PathPattern } from './types
 
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/g;
 
-const FRAMEWORK_EXTS: Record<Framework, string> = {
+/**
+ * Source extensions per framework — the layer-glob default, and the ext set
+ * the generated config's guard block scopes to (a react repo's guard used
+ * to carry `.vue`, and four field agents hand-trimmed it — issue #30).
+ */
+export const FRAMEWORK_EXTS: Record<Framework, string> = {
   vue: 'js,ts,vue',
   react: 'js,jsx,ts,tsx',
   auto: 'js,jsx,ts,tsx,vue',

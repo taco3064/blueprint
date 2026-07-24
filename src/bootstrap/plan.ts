@@ -1,6 +1,7 @@
 import { aliasActions } from './alias';
 import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
 import { emitHandbook, handbookPath } from '../emit/docs';
+import { FRAMEWORK_EXTS } from '../emit/lint';
 import { injectBetweenMarkers } from '../markdown';
 import type { AgentTarget, Blueprint } from '../config';
 import { GENERATED_ESLINT_BANNER } from '../project';
@@ -352,6 +353,13 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
   const vue = framework === 'vue';
   const ts = state.hasTypescript;
 
+  // The guard scopes to the detected stack's extensions, like the parser
+  // blocks — a react repo's guard used to carry `.vue`, and four field
+  // agents hand-trimmed it (issue #30). Unknown stack keeps the full set.
+  const guardExts = framework ? FRAMEWORK_EXTS[framework] : FRAMEWORK_EXTS.auto;
+  const sourceRoot = blueprint.architecture.sourceRoot ?? 'src';
+  const guardRoot = sourceRoot === '.' ? '' : `${sourceRoot}/`;
+
   const parserImports = [
     ...(vue ? ['import vueParser from \'vue-eslint-parser\';'] : []),
     ...(ts ? ['import tseslint from \'typescript-eslint\';'] : []),
@@ -449,11 +457,16 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     '  // team already owns a disable discipline, and say so in the report.',
     '  // Its plugin (@eslint-community/eslint-plugin-eslint-comments) is',
     '  // installed by init on every path; dropping the block? Remove that',
-    '  // dependency with it.',
-    '  // Scope: JS/TS disable comments only — Vue template <!-- eslint-disable -->',
-    '  // directives are not gated by these rules.',
+    '  // dependency with it. When merging, its position relative to the',
+    '  // emitLint spread does not matter — the rule sets never intersect.',
+    ...(guardExts.includes('vue')
+      ? [
+          '  // Scope: JS/TS disable comments only — Vue template <!-- eslint-disable -->',
+          '  // directives are not gated by these rules.',
+        ]
+      : []),
     '  {',
-    '    files: [\'src/**/*.{js,jsx,ts,tsx,vue}\'],',
+    `    files: ['${guardRoot}**/*.{${guardExts}}'],`,
     '    plugins: {',
     '      \'@eslint-community/eslint-comments\': comments,',
     '    },',

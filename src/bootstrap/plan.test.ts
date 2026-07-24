@@ -74,6 +74,31 @@ describe('plan', () => {
     expect(content).toContain('anti-bypass guard — NOT part of emitLint');
     expect(content).toContain('Default: ADOPT');
     expect(content).toContain('dropping is the exception');
+    // Merge-order doubt closed in place: the sets never intersect (field #30).
+    expect(content).toContain('position relative to the');
+  });
+
+  it('scopes the guard glob to the detected stack, like the parser blocks (field #30)', () => {
+    const config = (blueprint = bp, over = {}) =>
+      write(plan(state(over), blueprint, null, {}), 'eslint.config.mjs')?.content ?? '';
+
+    // vue stack: no jsx/tsx exts, the Vue-template scope caveat applies.
+    const vueGuard = config();
+
+    expect(vueGuard).toContain('files: [\'src/**/*.{js,ts,vue}\']');
+    expect(vueGuard).toContain('Vue template');
+
+    // react stack: `.vue` gone — four field agents used to trim it by hand —
+    // and the Vue-template caveat goes with it.
+    const reactGuard = config(reactPreset(), { framework: 'react' });
+
+    expect(reactGuard).toContain('files: [\'src/**/*.{js,jsx,ts,tsx}\']');
+    expect(reactGuard).not.toContain('Vue template');
+
+    // Unknown stack keeps the full set — narrowing on a guess loses coverage.
+    const unknown = config({ ...bp, framework: 'auto' as const }, { framework: null });
+
+    expect(unknown).toContain('files: [\'src/**/*.{js,jsx,ts,tsx,vue}\']');
   });
 
   it('wires parsers for the detected stack, parsers only', () => {
