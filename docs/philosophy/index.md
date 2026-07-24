@@ -50,7 +50,7 @@ architectural calls are semantic — they need someone who understands what the 
 *means*:
 
 - Is this component carrying too many responsibilities?
-- Is this hook over-abstracted?
+- Is this hook / composable over-abstracted?
 - Is this the right direction to refactor?
 - Is the module boundary actually clear?
 

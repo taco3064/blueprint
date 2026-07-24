@@ -10,6 +10,8 @@ each axis is an independent yes/no design decision — never infer that one axis
 because another does. Numbering is identity, not order, and trivial changes need not
 force the full pass.
 
+Framework-neutral — a Vue `composable` is a React `hook`, the same unit under two names.
+
 Almost everything here is ◐/○ — component shape is design judgment, which is exactly
 belief #6. Lint metrics are entry points; the verdict stays with review.
 
