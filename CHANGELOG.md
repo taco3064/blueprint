@@ -154,6 +154,13 @@ emitted` annotation (`active` in `--json`), so nobody has to probe
 
 ### Patch Changes
 
+- The merge instruction meets the agent at the point of need (field issues
+  #21–#22): an existing `eslint.config.ts` gets the TS7016 caveat —
+  importing `./blueprint.config.mjs` needs `allowJs` on the tsconfig
+  covering the config, or a one-line `blueprint.config.d.mts`;
+  `defineConfig([...])` arrays are named spread-equivalent; the generated
+  jsx parser block carries its own skip criterion (dormant on a TS-only
+  repo).
 - Playbook verdicts agents had to invent, now stated (field issues
   #18–#20): the report is a message — the closing reply or the PR
   description, never a committed file — and the early-exit path says its

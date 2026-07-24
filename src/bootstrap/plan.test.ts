@@ -93,11 +93,15 @@ describe('plan', () => {
     expect(vueTs).toContain('parserOptions: { parser: tseslint.parser }');
     expect(vueTs).toContain('files: [\'**/*.{ts,tsx,mts,cts}\'],');
 
-    // react + typescript: ts parser plus espree JSX; no vue parser.
+    // react + typescript: ts parser plus espree JSX; no vue parser. The jsx
+    // block carries its own skip criterion — without one, the TS-parser
+    // rule above it read as the only guidance and the js/jsx merge call
+    // was a judgment nobody backed (field #21).
     const reactTs = config(reactPreset(), { hasTypescript: true });
 
     expect(reactTs).toContain('parser: tseslint.parser');
     expect(reactTs).toContain('ecmaFeatures: { jsx: true }');
+    expect(reactTs).toContain('dormant');
     expect(reactTs).not.toContain('vueParser');
 
     // react without typescript: espree JSX only — zero extra packages.
@@ -299,6 +303,72 @@ describe('plan', () => {
     expect(note?.note).toContain('export default tseslint.config(');
     expect(note?.note).toContain('emitLint(blueprint, { typescript: tseslint.plugin })');
     expect(note?.note).toContain('DELETE the reference');
+  });
+
+  it('carries the TS7016 caveat exactly when the existing config is a .ts file (field #22)', () => {
+    // eslint.config.ts importing ./blueprint.config.mjs has no declaration
+    // file — the repo's own tsc gate goes red unless the covering tsconfig
+    // allows JS, and the field agent had to invent that fix unprompted.
+    const tsConfig = plan(
+      state({
+        hasEslintConfig: true,
+        eslintConfigFile: 'eslint.config.ts',
+        eslintConfigShape: 'flat-array',
+        hasTypescript: true,
+      }),
+      bp,
+      null,
+      {},
+    ).find((a) => a.kind === 'instruct' && a.note.includes('blueprint never edits it'));
+
+    expect(tsConfig?.note).toContain('TS7016');
+    expect(tsConfig?.note).toContain('allowJs');
+    expect(tsConfig?.note).toContain('blueprint.config.d.mts');
+
+    // A .mjs config parses the import natively — no caveat, no noise.
+    const mjsConfig = plan(
+      state({
+        hasEslintConfig: true,
+        eslintConfigFile: 'eslint.config.mjs',
+        eslintConfigShape: 'flat-array',
+      }),
+      bp,
+      null,
+      {},
+    ).find((a) => a.kind === 'instruct' && a.note.includes('blueprint never edits it'));
+
+    expect(mjsConfig?.note).not.toContain('TS7016');
+
+    // The tseslint.config() shape reaches the same shared tail.
+    const tseslintTs = plan(
+      state({
+        hasEslintConfig: true,
+        eslintConfigFile: 'eslint.config.ts',
+        eslintConfigShape: 'tseslint',
+        hasTypescript: true,
+      }),
+      bp,
+      null,
+      {},
+    ).find((a) => a.kind === 'instruct' && a.note.includes('tseslint.config()'));
+
+    expect(tseslintTs?.note).toContain('TS7016');
+  });
+
+  it('names defineConfig arrays as spread-equivalent in the flat-array note (field #21)', () => {
+    const actions = plan(
+      state({ hasEslintConfig: true, eslintConfigShape: 'flat-array' }),
+      bp,
+      null,
+      {},
+    );
+
+    const note = actions.find(
+      (a) => a.kind === 'instruct' && a.note.includes('blueprint never edits it'),
+    );
+
+    expect(note?.note).toContain('defineConfig([...])');
+    expect(note?.note).toContain('IS the flat-config array');
   });
 
   it('routes a legacy .eslintrc to the migration note, not a fresh flat config', () => {

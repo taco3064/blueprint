@@ -200,6 +200,7 @@ export function detect(root: string): ProjectState {
     projectName: typeof pkg.name === 'string' ? pkg.name : undefined,
     hasConfig: fs.existsSync(path.join(root, CONFIG_FILE)),
     hasEslintConfig: eslintFile !== undefined,
+    eslintConfigFile: eslintFile,
     hasNext,
     hasNuxt,
     nextRouter,

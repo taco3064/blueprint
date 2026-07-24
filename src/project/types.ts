@@ -13,6 +13,12 @@ export interface ProjectState {
   hasConfig: boolean;
   /** Some `eslint.config.*` is present. */
   hasEslintConfig: boolean;
+  /**
+   * The detected flat config's filename — the merge instruction tailors to
+   * it (an `eslint.config.ts` importing the `.mjs` blueprint config needs
+   * the TS7016 caveat).
+   */
+  eslintConfigFile?: string;
   /** `next` is a dependency — init uses the Next preset / authoring flow, not react. */
   hasNext: boolean;
   /** `nuxt` is a dependency — unsupported (auto-imports defeat static analysis). */

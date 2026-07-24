@@ -234,8 +234,20 @@ export function plan(
  * and a legacy `.eslintrc*` needs a flat-config migration decided first.
  */
 function eslintWiringNote(state: ProjectState): string {
+  // A TypeScript eslint config importing the .mjs blueprint config trips
+  // TS7016 (no declaration file) when the tsconfig covering the config
+  // lacks allowJs — the repo's own tsc gate goes red after an otherwise
+  // clean merge, and the fix looks like the agent's own invention unless
+  // it is named here (field issue #22).
+  const ts7016 = state.eslintConfigFile?.endsWith('.ts')
+    ? '  Your config file is TypeScript: importing ./blueprint.config.mjs trips TS7016\n'
+    + '  when the tsconfig covering it lacks allowJs — add `allowJs: true` to that\n'
+    + '  tsconfig (often tsconfig.node.json), or ship a one-line blueprint.config.d.mts\n'
+    + '  declaring the default export as Blueprint. Name the choice in your report.\n'
+    : '';
+
   const shared
-    = '  Resolve rule conflicts explicitly, run your own lint, then DELETE the reference —\n'
+    = `${ts7016}  Resolve rule conflicts explicitly, run your own lint, then DELETE the reference —\n`
       + '  adoption is not done while it remains.';
 
   if (state.eslintConfigShape === 'legacy') {
@@ -280,8 +292,9 @@ function eslintWiringNote(state: ProjectState): string {
     + '    import { emitLint } from \'@kekkai/blueprint\';\n'
     + spread
     + '  emitLint goes LAST — later entries win in flat config, so this keeps the\n'
-    + '  blueprint\'s per-layer tuning alive over broad presets. Rules BOTH sides set\n'
-    + `  (no-restricted-*) still need combining into ONE entry.${state.hasTypescript
+    + '  blueprint\'s per-layer tuning alive over broad presets. A `defineConfig([...])`\n'
+    + '  wrapper takes the same spread — its array IS the flat-config array. Rules BOTH\n'
+    + `  sides set (no-restricted-*) still need combining into ONE entry.${state.hasTypescript
       ? ''
       : ' On a TypeScript\n  project pass the TS plugin — emitLint(blueprint, { typescript: tseslint.plugin }).'}\n`
       + shared;
@@ -367,6 +380,11 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
       : []),
     ...(framework === 'react'
       ? [
+          // The TS-parser skip criterion above reads as the only rule
+          // without this — the js/jsx call was a judgment nobody backed
+          // (field issue #21).
+          '  // This jsx block matters only while .js/.jsx source exists — on a',
+          '  // TS-only repo it is dormant, and skipping it in a merge loses nothing.',
           '  {',
           '    files: [\'**/*.{js,jsx}\'],',
           '    languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } },',
