@@ -42,7 +42,7 @@ Blueprint 的工程理念涵蓋以下面向 —— 全都會編進你的 repo，
 
 <PhilosophyFacets />
 
-它對「你的框架怎麼用得好」「它的 API 實際長怎樣」**刻意不表態** —— 依專案的技術選型，挑對應的搭配資源：
+Blueprint 不談 framework 的最佳實踐 —— 依專案的技術選型，挑對應的搭配資源：
 
 - **React & Next.js** —— [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills)：<br>
   Vercel Engineering 的最佳實務 skill 包，與 blueprint 守則並用，<br>

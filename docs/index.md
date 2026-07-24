@@ -44,7 +44,7 @@ Blueprint's engineering philosophy has these facets — all compiling into your 
 
 <PhilosophyFacets />
 
-It stays deliberately silent on how your framework is used well and what its API actually is — so pair it with the resource for your stack:
+Blueprint doesn't cover your framework's best practices — so pair it with the resource for your stack:
 
 - **React & Next.js** — [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills): installable best-practice skills from Vercel Engineering, alongside the blueprint contract, so the agent gets your structure rules _and_ the framework's idioms.
 - **Vue** — [vuejs/docs](https://github.com/vuejs/docs): the official documentation source; point your agent at it for **API ground truth**, pairs with the Vue preset.
