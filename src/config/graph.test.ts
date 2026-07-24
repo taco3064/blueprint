@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  aliasLayerRoots,
   getDiagramEdges,
   getForbiddenLayers,
   getModuleShape,
@@ -27,6 +28,35 @@ function arch(): ArchitectureDef {
     module: { layout: 'folder', entry: 'index', private: [] },
   };
 }
+
+describe('aliasLayerRoots', () => {
+  it('bakes each alias target offset in, excluding targets with no layer surface (field #29)', () => {
+    const roots = aliasLayerRoots({
+      ...arch(),
+      additionalAliases: {
+        '~root': '.', // repo root — layers reachable through src/
+        '~src': './src', // the source root itself — no offset
+        '~shared': './src/shared', // subfolder — no layer surface
+        '~vendor': '/vendor', // outside — no layer surface
+        '~up': '../elsewhere', // .. never matches
+      },
+    });
+
+    expect(roots).toEqual([
+      { alias: '~app', prefix: [] },
+      { alias: '~root', prefix: ['src'] },
+      { alias: '~src', prefix: [] },
+    ]);
+  });
+
+  it('honors a custom sourceRoot, including the project root', () => {
+    expect(aliasLayerRoots({ ...arch(), sourceRoot: '.', additionalAliases: { '~x': '.' } }))
+      .toEqual([{ alias: '~app', prefix: [] }, { alias: '~x', prefix: [] }]);
+
+    expect(aliasLayerRoots({ ...arch(), sourceRoot: 'lib/app', additionalAliases: { '~lib': 'lib' } }))
+      .toEqual([{ alias: '~app', prefix: [] }, { alias: '~lib', prefix: ['app'] }]);
+  });
+});
 
 describe('getSharedModule', () => {
   it('applies the flat defaults when module (or any key) is absent (field #23)', () => {

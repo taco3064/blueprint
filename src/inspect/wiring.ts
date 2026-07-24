@@ -1,7 +1,12 @@
 import path from 'node:path';
 
 import type { Blueprint, RuleSetting } from '../config';
-import { getForbiddenLayers, getModuleShape, getSelfOnlyTargets } from '../config';
+import {
+  aliasLayerRoots,
+  getForbiddenLayers,
+  getModuleShape,
+  getSelfOnlyTargets,
+} from '../config';
 // Import from the patterns leaf, not the emit/lint index — the index also
 // exports lint.ts, which loads the plugin, which shares resolve logic with
 // inspect; routing through the index would close a module cycle. The same
@@ -57,7 +62,11 @@ export function expectedStructural(
   layer: string,
 ): { groups: Set<string>; selectors: Set<string>; globals: Set<string> } {
   const { architecture, rules } = blueprint;
-  const aliases = [architecture.alias, ...Object.keys(architecture.additionalAliases ?? {})];
+
+  // The same offset-aware bases emitLint composes from — the expectations
+  // and the emitted patterns cannot drift (field issue #29).
+  const aliases = aliasLayerRoots(architecture)
+    .map((root) => [root.alias, ...root.prefix].join('/'));
 
   const layouts = Object.fromEntries(
     architecture.layers.map((entry) => [

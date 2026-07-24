@@ -464,7 +464,9 @@ knob covers ONLY these:
   (\`owns: [{ package: 'vue', imports: ['inject'] }]\` bans that named
   import outside the owning layer; same-signature entries merge into one
   rule allowing every declaring layer), fixture bans. \`additionalAliases\`
-  join every structural ban alongside the main alias.
+  join every structural ban alongside the main alias — with their target's
+  offset baked in (\`'~root': '.'\` bans \`~root/src/views/**\`); an alias
+  into a subfolder has no layer surface, so it carries no layer bans.
 - \`no-restricted-syntax\` — re-export bans for \`selfOnly\` importers,
   emitted ONLY when an allowedImporters ENTRY declares it
   (\`allowedImporters: [{ layer: 'views', selfOnly: true }]\` — a
@@ -508,7 +510,10 @@ export default defineBlueprint({
     // scope stays visually distinct. Override only to match an existing
     // team convention, not for taste.
     alias: '<alias>',
-    // Extra import roots beyond the alias — they join every structural ban.
+    // Extra import roots beyond the alias. One whose target can contain
+    // the layer folders (the source root, or above it — '~root': '.')
+    // joins every structural ban with the offset baked in; a subfolder
+    // alias like this one has no layer surface and carries no layer bans.
     additionalAliases: { '~shared': './src/shared' },
     layers: [
       // Order defines the one-way flow: a layer may import only layers

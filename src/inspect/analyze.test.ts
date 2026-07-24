@@ -121,6 +121,30 @@ describe('analyze · imports', () => {
     expect(plain).not.toContain('flow-violation');
   });
 
+  it('sees through an additional alias whose target sits above the source root (field #29)', () => {
+    // '~root': '.' routes to layers through src/ — the naive strip read
+    // `src` as the layer name and the import went invisible to inspect
+    // while emitLint (wrongly) banned `~root/<layer>` instead.
+    const rooted = defineBlueprint({
+      ...bp,
+      architecture: { ...bp.architecture, additionalAliases: { '~root': '.' } },
+    });
+
+    const rootedRules = (files: ScannedFile[]) =>
+      analyze(scanOf(files), rooted)
+        .map((finding) => finding.rule)
+        .filter((rule) => rule !== 'declaratory-self-only');
+
+    expect(rootedRules([
+      file(['components', 'Btn', 'index.ts'], [{ specifier: '~root/src/services/api' }]),
+    ])).toContain('flow-violation');
+
+    // Under the alias but outside the layer offset — not a layer import.
+    expect(rootedRules([
+      file(['components', 'Btn', 'index.ts'], [{ specifier: '~root/package.json' }]),
+    ])).toEqual([]);
+  });
+
   it('ignores files that live outside a declared layer', () => {
     expect(rulesFor([file(['utils', 'x.ts'], [{ specifier: '~app/services/api' }])], [...LAYERS, 'utils']))
       .not.toContain('flow-violation');

@@ -159,11 +159,13 @@ describe('runRules', () => {
   });
 
   it('carries the exact selfOnly selectors a merge fold needs (field #20)', async () => {
+    // '~root' targets the repo root, so its selectors carry the src offset
+    // (field #29); a subfolder alias would have no layer surface at all.
     const selfOnly: Blueprint = {
       framework: 'react',
       architecture: {
         alias: '~app',
-        additionalAliases: { '~shared': './src/shared' },
+        additionalAliases: { '~root': '.' },
         layers: [
           { name: 'views', does: 'pages' },
           {
@@ -191,6 +193,7 @@ describe('runRules', () => {
 
     expect(views?.selfOnly).toEqual([{ target: 'contexts', selectors: emitted }]);
     expect(views?.selfOnly[0].selectors).toHaveLength(2); // one per alias
+    expect(views?.selfOnly[0].selectors[1]).toContain('~root\\u002Fsrc\\u002Fcontexts');
 
     const output = lines.join('\n');
 

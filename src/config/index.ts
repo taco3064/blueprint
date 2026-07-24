@@ -1,5 +1,6 @@
 export { defineBlueprint, normalizeAgentEmit, validateBlueprint } from './defineBlueprint';
 export {
+  aliasLayerRoots,
   getDiagramEdges,
   getForbiddenLayers,
   getModuleShape,
@@ -7,5 +8,5 @@ export {
   getSharedModule,
   normalizeAllowedImporters,
 } from './graph';
-export type { DiagramEdge } from './graph';
+export type { AliasRoot, DiagramEdge } from './graph';
 export type * from './types';

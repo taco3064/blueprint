@@ -1142,6 +1142,67 @@ describe('init and doctor tell one alias story; integrated contracts stay fresh 
   });
 });
 
+describe('an offset additional alias really joins the bans (batch 19)', () => {
+  // Field issue #29: additionalAliases: { '~root': '.' } emitted
+  // `~root/<layer>` patterns no real import ever used — the whole ~root
+  // leg of every structural ban was a silent no-op, inspect was equally
+  // blind, and the closing report almost claimed a protection that did
+  // not exist.
+  const rooted: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      additionalAliases: { '~root': '.' },
+      layers: [
+        { name: 'views', does: 'pages' },
+        {
+          name: 'contexts',
+          does: 'shared state',
+          allowedImporters: [{ layer: 'views', selfOnly: true }],
+        },
+      ],
+    },
+  };
+
+  const spec = (): RepoSpec => ({
+    packageJson: react(),
+    files: {
+      'blueprint.config.mjs': configSource(rooted),
+      'jsconfig.json': JSON.stringify({
+        compilerOptions: { paths: { '~app/*': ['./src/*'], '~root/*': ['./*'] } },
+      }),
+      'src/contexts/user.jsx': 'export const user = 1;',
+      'src/views/Home.jsx': 'export { user } from \'~root/src/contexts/user\';\n',
+    },
+  });
+
+  it('impact and inspect both flag the ~root/src re-export', async () => {
+    const impact = await cli(repo(spec()), ['impact']);
+
+    expect(impact.code).toBe(0);
+    expect(impact.output).toContain('no-restricted-syntax');
+    expect(impact.output).toContain('Home.jsx');
+
+    const inspect = await cli(repo(spec()), ['inspect']);
+
+    expect(inspect.code).toBe(1);
+    expect(inspect.output).toContain('selfonly-reexport');
+  });
+
+  it('rules prints the offset selectors a fold would copy', async () => {
+    const json = await cli(repo(spec()), ['rules', '--json']);
+
+    const parsed = JSON.parse(json.output) as {
+      bans: { layer: string; selfOnly: { selectors: string[] }[] }[];
+    };
+
+    const selectors = parsed.bans
+      .find((entry) => entry.layer === 'views')?.selfOnly[0]?.selectors ?? [];
+
+    expect(selectors.some((selector) => selector.includes('~root\\u002Fsrc\\u002Fcontexts'))).toBe(true);
+  });
+});
+
 describe('locked debt stays green under the baseline ratchet (field issue #10)', () => {
   it('inspect --baseline suppresses locked debt — the live-verified repro', async () => {
     const dir = repo({ packageJson: react() });

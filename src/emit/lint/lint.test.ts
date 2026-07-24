@@ -128,6 +128,51 @@ describe('emitLint · selfOnly re-export', () => {
   });
 });
 
+describe('emitLint · additionalAliases with an offset target (field #29)', () => {
+  // '~root': '.' — the field repo's shape: layers live under src/, the
+  // alias points at the repo root. Patterns composed as `~root/<layer>`
+  // banned paths no real import ever used, so the whole ~root leg was a
+  // silent no-op while the playbook claimed it joined every ban.
+  const rooted = defineBlueprint({
+    framework: 'auto',
+    architecture: {
+      alias: '~app',
+      additionalAliases: { '~root': '.', '~shared': './src/shared' },
+      layers: [
+        { name: 'views', does: 'pages' },
+        {
+          name: 'services',
+          does: 'net',
+          allowedImporters: [{ layer: 'views', selfOnly: true }],
+        },
+      ],
+    },
+  });
+
+  const rootedConfig = [
+    { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+    ...emitLint(rooted),
+  ];
+
+  const hits = (code: string, filename: string) =>
+    linter
+      .verify(code, rootedConfig, { filename })
+      .map((message) => message.ruleId)
+      .filter((id): id is string => id != null && id.startsWith('no-restricted-'));
+
+  it('bans the real ~root/src/… path — flow and selfOnly alike', () => {
+    expect(hits('import { V } from "~root/src/views/V";', 'src/services/api.ts'))
+      .toContain('no-restricted-imports');
+
+    expect(hits('export { api } from "~root/src/services/api";', 'src/views/Home.ts'))
+      .toContain('no-restricted-syntax');
+  });
+
+  it('a subfolder alias has no layer surface — no bans through it', () => {
+    expect(hits('import { d } from "~shared/date";', 'src/views/Home.ts')).toEqual([]);
+  });
+});
+
 describe('emitLint · shape', () => {
   it('emits one config entry per layer plus the escape entry, all with files globs', () => {
     const emitted = emitLint(blueprint);

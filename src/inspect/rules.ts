@@ -12,7 +12,12 @@ import {
   selfOnlyReexportSelector,
 } from '../emit/lint/patterns';
 import type { GateSpec } from '../emit/lint/patterns';
-import { getForbiddenLayers, getSelfOnlyTargets, normalizeAllowedImporters } from '../config';
+import {
+  aliasLayerRoots,
+  getForbiddenLayers,
+  getSelfOnlyTargets,
+  normalizeAllowedImporters,
+} from '../config';
 import type { Blueprint } from '../config';
 
 /**
@@ -135,7 +140,10 @@ function gateSpecs(): GateSpec[] {
 /** Every layer's resolved bans, from the same primitives emitLint uses. */
 function layerBans(blueprint: Blueprint): LayerBans[] {
   const { architecture } = blueprint;
-  const aliases = [architecture.alias, ...Object.keys(architecture.additionalAliases ?? {})];
+
+  const aliases = aliasLayerRoots(architecture)
+    .map((root) => [root.alias, ...root.prefix].join('/'));
+
   const packageRules = derivePackageRules(architecture.layers);
   const globalRules = deriveGlobalRules(architecture.layers);
 

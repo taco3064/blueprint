@@ -1,6 +1,11 @@
 import type { Linter } from 'eslint';
 import type { Blueprint, RuleSetting, Tier } from '../../config';
-import { getForbiddenLayers, getModuleShape, getSelfOnlyTargets } from '../../config';
+import {
+  aliasLayerRoots,
+  getForbiddenLayers,
+  getModuleShape,
+  getSelfOnlyTargets,
+} from '../../config';
 import { plugin } from '../../plugin';
 import {
   buildPackagePatterns,
@@ -33,8 +38,6 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
   const { framework, architecture } = blueprint;
 
   const {
-    alias,
-    additionalAliases,
     layers,
     layerFiles,
     layerFilesIgnore,
@@ -44,7 +47,12 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
 
   const severity: Severity = blueprint.emit?.lint?.severity ?? 'error';
 
-  const aliases = [alias, ...Object.keys(additionalAliases ?? {})];
+  // Each alias's layer base carries the offset from its target to the
+  // source root — `'~root': '.'` bans `~root/src/views/**`, not the
+  // `~root/views/**` no import ever uses (field issue #29).
+  const aliases = aliasLayerRoots(architecture)
+    .map((root) => [root.alias, ...root.prefix].join('/'));
+
   const testGlobs = resolveTestFiles(testFiles);
   const packageRules = derivePackageRules(layers);
   const globalRules = deriveGlobalRules(layers);

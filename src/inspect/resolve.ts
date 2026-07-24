@@ -1,5 +1,5 @@
-import type { ArchitectureDef } from '../config';
-import { getModuleShape } from '../config';
+import type { AliasRoot, ArchitectureDef } from '../config';
+import { aliasLayerRoots, getModuleShape } from '../config';
 import { dropTestFiles } from './filter';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
@@ -17,14 +17,32 @@ export function layoutResolver(architecture: ArchitectureDef): LayoutOf {
   return (layer) => getModuleShape(architecture, layer).layout;
 }
 
-export function aliasList(architecture: ArchitectureDef): string[] {
-  return [architecture.alias, ...Object.keys(architecture.additionalAliases ?? {})];
+/** The layer-reaching aliases with their offsets — see {@link aliasLayerRoots}. */
+export function aliasList(architecture: ArchitectureDef): AliasRoot[] {
+  return aliasLayerRoots(architecture);
 }
 
-export function stripAlias(specifier: string, aliases: string[]): string[] | null {
-  for (const alias of aliases) {
+/**
+ * The layer-relative segments a specifier reaches through an alias, or null.
+ * Prefix-aware: `~root/src/views/x` under `'~root': '.'` yields
+ * `['views', 'x']` — the naive strip read `src` as the layer name and the
+ * import went invisible while emitLint banned it (field issue #29).
+ */
+export function stripAlias(
+  specifier: string,
+  roots: (AliasRoot | string)[],
+): string[] | null {
+  for (const root of roots) {
+    const { alias, prefix } = typeof root === 'string' ? { alias: root, prefix: [] } : root;
+
     if (specifier === alias || specifier.startsWith(`${alias}/`)) {
-      return specifier.slice(alias.length).split('/').filter(Boolean);
+      const parts = specifier.slice(alias.length).split('/').filter(Boolean);
+
+      // A specifier under the alias but outside the layer offset (e.g.
+      // `~root/package.json`) is not a layer import at all.
+      if (!prefix.every((segment, i) => parts[i] === segment)) return null;
+
+      return parts.slice(prefix.length);
     }
   }
 
@@ -62,7 +80,7 @@ export function resolveSegments(dir: string[], specifier: string): string[] | nu
 export function targetModuleKey(
   ref: ImportRef,
   file: ScannedFile,
-  aliases: string[],
+  aliases: (AliasRoot | string)[],
   layerNames: string[],
   layoutOf: LayoutOf,
 ): string | null {

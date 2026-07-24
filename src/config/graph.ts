@@ -54,6 +54,44 @@ export function getForbiddenLayers(architecture: ArchitectureDef, layerName: str
     .map((layer) => layer.name);
 }
 
+/** An alias paired with the path segments between its target and the layer folders. */
+export interface AliasRoot {
+  alias: string;
+  /** Segments to cross from the alias target to reach the layers, e.g. `['src']`. */
+  prefix: string[];
+}
+
+/**
+ * Every alias that can reach the layer folders, with the offset baked in.
+ * The main alias targets the source root by wiring convention (prefix
+ * `[]`); an additional alias carries its declared target — `'~root': '.'`
+ * reaches the layers through a `src` prefix, and one targeting a folder
+ * that cannot contain them (a subfolder, an outside dir) is excluded.
+ * Emit and inspect both derive from here, so the ban patterns and the
+ * findings can never disagree (field issue #29: patterns composed as
+ * `alias/layer` banned paths no real import ever used — a silent no-op).
+ * @internal
+ */
+export function aliasLayerRoots(architecture: ArchitectureDef): AliasRoot[] {
+  const src = dirSegments(architecture.sourceRoot ?? 'src');
+
+  return [
+    { alias: architecture.alias, prefix: [] },
+    ...Object.entries(architecture.additionalAliases ?? {}).flatMap(([alias, target]) => {
+      const segments = dirSegments(target);
+
+      return segments.every((segment, i) => src[i] === segment)
+        ? [{ alias, prefix: src.slice(segments.length) }]
+        : [];
+    }),
+  ];
+}
+
+/** `./src/` → `['src']`; `.` → `[]`. `..` segments survive and never match. */
+function dirSegments(dir: string): string[] {
+  return dir.split('/').filter((segment) => segment !== '' && segment !== '.');
+}
+
 /**
  * The shared module shape with the flat defaults applied — the playbook's
  * "flat default" made real: `architecture.module` and each of its keys is
