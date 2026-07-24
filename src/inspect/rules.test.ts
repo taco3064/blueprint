@@ -135,6 +135,7 @@ describe('runRules', () => {
       forbidden: [],
       packages: ['react (useContext)', 'axios'],
       globals: ['fetch'],
+      selfOnly: [],
     });
 
     // services owns its primitives — only the hooks-owned import stays banned.
@@ -155,6 +156,46 @@ describe('runRules', () => {
 
     expect(empty.bans).toEqual([]);
     expect(bare.join('\n')).not.toContain('Per-layer bans');
+  });
+
+  it('carries the exact selfOnly selectors a merge fold needs (field #20)', async () => {
+    const selfOnly: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        additionalAliases: { '~shared': './src/shared' },
+        layers: [
+          { name: 'views', does: 'pages' },
+          {
+            name: 'contexts',
+            does: 'state seam',
+            allowedImporters: [{ layer: 'views', selfOnly: true }],
+          },
+        ],
+        module: { layout: 'flat', entry: 'index' },
+      },
+      rules: {},
+    };
+
+    const lines: string[] = [];
+    const { bans } = await runRules(repo(selfOnly), { log: (m) => void lines.push(m) });
+
+    // The strings must be emitLint's own, not a paraphrase — the whole point
+    // is a fold that survives doctor's exact-text survival check.
+    const emitted = emitLint(selfOnly)
+      .flatMap((entry) => entry.rules?.['no-restricted-syntax'] as unknown[] ?? [])
+      .slice(1)
+      .map((item) => (item as { selector: string }).selector);
+
+    const views = bans.find((entry) => entry.layer === 'views');
+
+    expect(views?.selfOnly).toEqual([{ target: 'contexts', selectors: emitted }]);
+    expect(views?.selfOnly[0].selectors).toHaveLength(2); // one per alias
+
+    const output = lines.join('\n');
+
+    expect(output).toContain('Copy these selectors verbatim');
+    expect(output).toContain(emitted[0]);
   });
 
   it('emits the machine-readable catalog under --json', async () => {

@@ -9,9 +9,10 @@ import {
   derivePackageRules,
   METRIC_GATES,
   PLUGIN_GATES,
+  selfOnlyReexportSelector,
 } from '../emit/lint/patterns';
 import type { GateSpec } from '../emit/lint/patterns';
-import { getForbiddenLayers, normalizeAllowedImporters } from '../config';
+import { getForbiddenLayers, getSelfOnlyTargets, normalizeAllowedImporters } from '../config';
 import type { Blueprint } from '../config';
 
 /**
@@ -54,6 +55,13 @@ export interface LayerBans {
   packages: string[];
   /** Owned globals banned here. */
   globals: string[];
+  /**
+   * The selfOnly re-export bans emitted on this layer's files — the exact
+   * `no-restricted-syntax` selector per (target, alias). A merge that folds
+   * blueprint's entry into the project's own used to have no supported
+   * source for these strings but an emitLint dump (field issue #20).
+   */
+  selfOnly: { target: string; selectors: string[] }[];
 }
 
 /** One optional gate, annotated with the resolved config when present. */
@@ -127,6 +135,7 @@ function gateSpecs(): GateSpec[] {
 /** Every layer's resolved bans, from the same primitives emitLint uses. */
 function layerBans(blueprint: Blueprint): LayerBans[] {
   const { architecture } = blueprint;
+  const aliases = [architecture.alias, ...Object.keys(architecture.additionalAliases ?? {})];
   const packageRules = derivePackageRules(architecture.layers);
   const globalRules = deriveGlobalRules(architecture.layers);
 
@@ -139,6 +148,10 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
     globals: globalRules
       .filter((rule) => !rule.allowedIn.includes(layer.name))
       .map((rule) => rule.global),
+    selfOnly: getSelfOnlyTargets(architecture, layer.name).map((target) => ({
+      target,
+      selectors: aliases.map((alias) => selfOnlyReexportSelector(alias, target)),
+    })),
   }));
 }
 
@@ -250,10 +263,19 @@ export function renderRules(
       ? [
           '',
           'Per-layer bans — what the structural rules enforce, resolved from this config:',
-          ...bans.map((entry) =>
+          ...bans.flatMap((entry) => [
             `  ${entry.layer.padEnd(14)} no-import: ${entry.forbidden.join(', ') || '(none)'}`
             + ` · packages: ${entry.packages.join(', ') || '(none)'}`
-            + ` · globals: ${entry.globals.join(', ') || '(none)'}`),
+            + ` · globals: ${entry.globals.join(', ') || '(none)'}`,
+            // The exact strings a merge fold needs — printing them here is
+            // what keeps "combine into ONE entry" doable without an emitLint
+            // dump (field issue #20).
+            ...entry.selfOnly.flatMap((ban) => [
+              `    selfOnly: no re-export from "${ban.target}" — folding your own`
+              + ' no-restricted-syntax into one entry? Copy these selectors verbatim:',
+              ...ban.selectors.map((selector) => `      ${selector}`),
+            ]),
+          ]),
         ]
       : []),
     ...(hasConfig

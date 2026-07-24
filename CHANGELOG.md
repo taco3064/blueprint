@@ -154,6 +154,11 @@ emitted` annotation (`active` in `--json`), so nobody has to probe
 
 ### Patch Changes
 
+- `rules` (text and `--json`) carries the exact `no-restricted-syntax`
+  selector strings a selfOnly merge fold needs, per layer and target: the
+  playbook demands "combine both option sets into ONE entry", and the only
+  source for the selectors used to be an emitLint dump — exactly the bundle
+  archaeology the same playbook forbids (field issue #20).
 - `impact`'s zero-hit line states its own reach: "no red today" is an
   emitLint claim, and the anti-bypass guard rides in the generated config
   outside impact's scope — its findings (bare eslint-disables) surface in
