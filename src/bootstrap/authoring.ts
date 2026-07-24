@@ -145,7 +145,10 @@ The complete early-exit checklist — nothing else in this file applies:
    true — you skipped nothing. Either way, close this step by running
    the project's own lint once (\`npm run lint\`, or \`npx eslint .\`
    without a script): doctor's wired check reads config text and never
-   executes eslint, so only a real run proves the config loads.
+   executes eslint, so only a real run proves the config loads. Same
+   logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's
+   alias check reads that wiring as text, never as a compile — run the
+   build once too (\`npm run build\`, or \`npx tsc -b\`).
 4. Delete this playbook, \`${COMMAND_FILE}\`, and the now-empty
    \`.claude/commands/\` directory — and \`.claude/\` itself if that
    leaves it empty (init created the tree only to hold this command).
@@ -317,7 +320,15 @@ the answer belongs in this playbook — note the gap in your report instead.
      exact selfOnly selector strings per layer; copy them from there, never
      from an emitLint dump) — and \`blueprint doctor\` verifies the
      emitted structural rules survived the merge. Run the project's own lint command; new findings introduced by
-     the merge are fixed or explicitly judged, never left dangling. Delete
+     the merge are fixed or explicitly judged, never left dangling — and
+     when init wired the alias into \`tsconfig\`/\`vite\`, run the build
+     once too (doctor's alias check reads wiring as text, never as a
+     compile). Merging into a TypeScript config file
+     (\`eslint.config.ts\`)? Importing \`./blueprint.config.mjs\` trips
+     TS7016 when the tsconfig covering that file lacks \`allowJs\` — add
+     \`allowJs: true\` there (often \`tsconfig.node.json\`), or ship a
+     one-line \`blueprint.config.d.mts\` declaring the default export as
+     \`Blueprint\`; name the choice in the report. Delete
      the reference once wired. Exception: a **legacy-format config**
      (\`.eslintrc.*\`) needs a flat-config/ESLint-9 migration that can break
      the project's own lint pipeline — do not do that unilaterally; surface

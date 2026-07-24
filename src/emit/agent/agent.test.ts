@@ -43,6 +43,12 @@ describe('emitAgentContract', () => {
     expect(emitAgentContract(full())).not.toMatch(/^# /m);
   });
 
+  it('says where hand-written content goes relative to the markers (field #21)', () => {
+    // When the generated file becomes the repo's only CLAUDE.md, "own notes
+    // go outside the markers" was a convention the agent had to infer.
+    expect(emitAgentContract(full())).toContain('OUTSIDE the markers');
+  });
+
   it('omits the naming section when there is none', () => {
     const noNaming = defineBlueprint({
       framework: 'vue',

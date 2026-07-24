@@ -938,6 +938,52 @@ describe('selfOnly survives every esquery, and the fold gets its selectors (batc
   });
 });
 
+describe('merge caveats meet the agent at the point of need (batch 14)', () => {
+  it('init names TS7016 and its remedies when the existing config is eslint.config.ts', async () => {
+    // The field repo's eslint.config.ts sat in a tsconfig without allowJs:
+    // importing ./blueprint.config.mjs turned the repo's own tsc gate red,
+    // and the fix was the agent's invention — init knew the stack and the
+    // config shape but never said it (field issue #22).
+    const dir = repo({
+      packageJson: {
+        name: 'fixture',
+        dependencies: { react: '^18.0.0' },
+        devDependencies: { typescript: '^5.0.0' },
+      },
+      files: {
+        'eslint.config.ts': 'export default [];',
+        'src/App.tsx': 'export const App = () => null;',
+      },
+    });
+
+    const init = await cli(dir, ['init', '--preset', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).toContain('TS7016');
+    expect(init.output).toContain('allowJs');
+    expect(init.output).toContain('blueprint.config.d.mts');
+  });
+
+  it('the early-exit checklist orders a real lint run and a real build run', async () => {
+    // Two runs in the same batch added the build check by hand: init edits
+    // tsconfig/vite for the alias, and doctor's alias check reads wiring as
+    // text — the "only a real run proves it" logic has to cover both edits
+    // (field issues #21–#22).
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('only a real run proves the config loads');
+    expect(playbook).toContain('build once too');
+    expect(playbook).toContain('never as a compile');
+  });
+});
+
 describe('locked debt stays green under the baseline ratchet (field issue #10)', () => {
   it('inspect --baseline suppresses locked debt — the live-verified repro', async () => {
     const dir = repo({ packageJson: react() });

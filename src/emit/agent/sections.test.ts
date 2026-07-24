@@ -251,7 +251,10 @@ describe('renderCompactContract', () => {
       playbook: [{ title: 'T', rules: [{ id: 'r', say: 'do' }] }],
     });
 
-    expect(out.split('\n').length).toBeLessThanOrEqual(12);
+    // 13, not 12: the header spends one line saying hand-written notes live
+    // outside the markers — the convention an agent had to infer when the
+    // generated file became the repo's only CLAUDE.md (field #21).
+    expect(out.split('\n').length).toBeLessThanOrEqual(13);
     expect(out).toContain('`components` → `services`');
     expect(out).toContain('[docs/architecture-handbook.md](docs/architecture-handbook.md)');
     expect(out).toContain('node_modules/@kekkai/blueprint/agent-contract.md');
