@@ -60,10 +60,18 @@ jobs:
           cd ${{ runner.temp }}/app
           case "${{ matrix.name }}" in
             next)
-              # Authoring flow: playbook written, src/pages never scaffolded.
-              test -f blueprint-authoring.md
+              # First-class Next preset: nextPreset config scaffolded (no
+              # authoring playbook — that fork is only for a route tree we
+              # cannot place), src/pages never scaffolded, inspect green
+              # against the live template.
+              test -f blueprint.config.mjs
+              grep -q "nextPreset" blueprint.config.mjs
+              grep -q "router: 'app'" blueprint.config.mjs
+              grep -q "srcDir: true" blueprint.config.mjs
+              test ! -f blueprint-authoring.md
               test ! -e src/pages
-              grep -q 'Next.js project' blueprint-authoring.md
+              npm install -D $GITHUB_WORKSPACE 2>/dev/null || npm install -D @kekkai/blueprint
+              node $GITHUB_WORKSPACE/dist/bin.js inspect
               ;;
             *)
               # Greenfield preset: config + alias surgery landed, inspect green.
