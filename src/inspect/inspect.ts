@@ -47,7 +47,7 @@ export async function runInspect(
   const { blueprint } = await resolveBlueprint(root, state, options);
   const scanResult = scan(root, blueprint.architecture.sourceRoot);
   const findings = analyze(scanResult, blueprint);
-  const coverage = computeCoverage(scanResult, blueprint);
+  const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
   const baselineFile = path.join(root, BASELINE_FILE);
 
   if (options.updateBaseline) {

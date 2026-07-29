@@ -108,6 +108,18 @@ describe('presets · shape', () => {
     expect(rules.usePrefixReactivity).toBe('warn');
     expect(rules.typedefOnlyFile).toBe('warn');
   });
+
+  it('declare the injected-plugin gates on every preset, error tier', () => {
+    // statementsPerLine is what makes the maxLines gate above mean anything —
+    // a line budget with no cap on line content is met by collapsing, so the
+    // two must never drift apart across presets.
+    for (const rules of [vuePreset().rules, reactPreset().rules, nextPreset().rules]) {
+      expect(rules?.explicitAny).toBe('error');
+      expect(rules?.statementsPerLine).toBe('error');
+      expect(rules?.statementPadding).toBe('error');
+      expect(rules?.maxLines).toEqual({ tier: 'error', value: 400 });
+    }
+  });
 });
 
 describe('presets · enforcement (real ESLint)', () => {

@@ -16,6 +16,7 @@ import {
   resolveLayerFiles,
   resolveTestFiles,
   selfOnlyReexportSelector,
+  STATEMENT_PADDING,
   toArray,
 } from './patterns';
 import type { EmitLintOptions, GlobalRule, LintConfig, LintConfigEntry, PackageRule } from './types';
@@ -158,10 +159,12 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
 /**
  * Entries for the known `blueprint.rules` ids — where a rule record stops
  * being documentation and becomes a lint gate. Metric ids map to built-in
- * rules; `deepWatch` / `usePrefix` ride the embedded plugin. Test files are
- * exempt (metrics scream on tests). Unknown ids stay docs-only; `cycles` /
- * `deadCode` land in the generated eslint.config (third-party plugins the
- * library itself does not depend on) and in Verify.
+ * rules; `deepWatch` / `usePrefix` ride the embedded plugin; `explicitAny`
+ * and the two shape gates ride a caller-injected plugin and emit nothing
+ * without it (the library depends on neither). Test files are exempt
+ * (metrics scream on tests). Unknown ids stay docs-only, as do `cycles`
+ * (inspect's cycle finding) and `deadCode` (knip's job) — neither emits an
+ * ESLint line.
  */
 function ruleGateEntries(
   blueprint: Blueprint,
@@ -197,6 +200,32 @@ function ruleGateEntries(
     }
   }
 
+  // No core twin exists — `any` cannot appear in JS source, so there is
+  // nothing to fall back to when the plugin is absent (unlike unusedVars).
+  const explicitAny = active(rules?.explicitAny);
+
+  if (explicitAny && options.typescript) {
+    shared['@typescript-eslint/no-explicit-any'] = explicitAny.tier;
+  }
+
+  // The two shape gates. Their core ids (`max-statements-per-line`,
+  // `padding-line-between-statements`) were deprecated when ESLint handed
+  // formatting to @stylistic, so they ride the injected plugin or not at all.
+  const statementsPerLine = active(rules?.statementsPerLine);
+
+  if (statementsPerLine && options.stylistic) {
+    shared['@stylistic/max-statements-per-line'] = [statementsPerLine.tier, { max: 1 }];
+  }
+
+  const statementPadding = active(rules?.statementPadding);
+
+  if (statementPadding && options.stylistic) {
+    shared['@stylistic/padding-line-between-statements'] = [
+      statementPadding.tier,
+      ...STATEMENT_PADDING,
+    ];
+  }
+
   const deepWatch = active(rules?.deepWatch);
 
   if (deepWatch && framework !== 'react') {
@@ -211,6 +240,7 @@ function ruleGateEntries(
 
   const needsPlugin = Object.keys(shared).some((rule) => rule.startsWith('blueprint/'));
   const needsTs = Object.keys(shared).some((rule) => rule.startsWith('@typescript-eslint/'));
+  const needsStylistic = Object.keys(shared).some((rule) => rule.startsWith('@stylistic/'));
 
   const sharedFiles = [
     ...new Set(layers.flatMap((l) => resolveLayerFiles(l.name, layerFiles, framework, sourceRoot))),
@@ -221,12 +251,15 @@ function ruleGateEntries(
       files: sharedFiles,
       ignores: testGlobs,
       linterOptions: { reportUnusedDisableDirectives: 'error' },
-      ...(needsPlugin || needsTs
+      ...(needsPlugin || needsTs || needsStylistic
         ? {
             plugins: {
               ...(needsPlugin ? { blueprint: plugin } : {}),
               ...(needsTs && options.typescript
                 ? { '@typescript-eslint': options.typescript }
+                : {}),
+              ...(needsStylistic && options.stylistic
+                ? { '@stylistic': options.stylistic }
                 : {}),
             },
           }

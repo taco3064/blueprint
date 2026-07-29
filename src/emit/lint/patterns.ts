@@ -48,6 +48,32 @@ export const METRIC_GATES = [
   { id: 'complexity', rule: 'complexity', fallback: 12, wrap: false },
 ] as const;
 
+/**
+ * The `statementPadding` gate's option list — hard-wired, not configurable.
+ * The gate's dial is its tier: a project that wants different grouping turns
+ * it off and declares its own rule, rather than re-specifying 17 entries
+ * through `blueprint.rules` (YAGNI — the handbook's own principle).
+ */
+export const STATEMENT_PADDING = [
+  { blankLine: 'always', prev: 'block-like', next: '*' },
+  { blankLine: 'always', prev: 'const', next: 'expression' },
+  { blankLine: 'always', prev: 'let', next: 'expression' },
+  { blankLine: 'always', prev: 'class', next: '*' },
+  { blankLine: 'always', prev: 'function', next: '*' },
+  { blankLine: 'always', prev: 'multiline-expression', next: '*' },
+  { blankLine: 'always', prev: 'multiline-const', next: '*' },
+  { blankLine: 'always', prev: 'multiline-let', next: '*' },
+  { blankLine: 'always', prev: '*', next: 'block-like' },
+  { blankLine: 'always', prev: '*', next: 'function' },
+  { blankLine: 'always', prev: '*', next: 'multiline-expression' },
+  { blankLine: 'always', prev: '*', next: 'multiline-const' },
+  { blankLine: 'always', prev: '*', next: 'multiline-let' },
+  { blankLine: 'always', prev: '*', next: 'break' },
+  { blankLine: 'always', prev: '*', next: 'continue' },
+  { blankLine: 'always', prev: '*', next: 'return' },
+  { blankLine: 'always', prev: '*', next: 'throw' },
+] as const;
+
 /** One optional gate's catalog row — id, what it emits, and its scope note. */
 export interface GateSpec {
   id: string;
@@ -64,7 +90,10 @@ export interface GateSpec {
  * can never drift apart, and `LINT_GATED_RULE_IDS` derives from it.
  */
 export const PLUGIN_GATES: GateSpec[] = [
-  { id: 'unusedVars', emits: 'no-unused-vars', note: 'TWO keys on TypeScript — no-unused-vars: off plus @typescript-eslint/no-unused-vars — so check both when merging; argsIgnorePattern \'^_\' and nothing else' },
+  { id: 'unusedVars', emits: 'no-unused-vars', note: 'TWO keys on TypeScript — no-unused-vars: off plus @typescript-eslint/no-unused-vars — so check both when merging; argsIgnorePattern \'^_\' and nothing else (no varsIgnorePattern: renaming a dead binding to _x is not deleting it, and the dead-code principle asks for deletion)' },
+  { id: 'explicitAny', emits: '@typescript-eslint/no-explicit-any', note: 'needs the injected TS plugin and emits NOTHING without it — `any` is a TS-only construct, so unlike unusedVars there is no core rule to fall back to' },
+  { id: 'statementsPerLine', emits: '@stylistic/max-statements-per-line', note: 'needs the injected @stylistic plugin, else emits nothing; hard-wired { max: 1 } because it defines what a line IS for the maxLines family — a line budget with no cap on line content is met by collapsing statements, not by splitting the file' },
+  { id: 'statementPadding', emits: '@stylistic/padding-line-between-statements', note: 'needs the injected @stylistic plugin, else emits nothing; the ONLY emitted rule carrying a fixer — `eslint --fix` rewrites blank lines across every layer file, so land that pass as its own commit. It cannot push a file over maxLines: that gate skips blank lines' },
   { id: 'fixtureImports', emits: 'no-restricted-imports', note: 'fixture globs folded into the structural import bans' },
   { id: 'deepWatch', emits: 'blueprint/no-deep-watch', note: 'Vue only — never emits on React' },
   { id: 'usePrefix', emits: 'blueprint/use-prefix', note: 'on its target layer (default hooks)' },

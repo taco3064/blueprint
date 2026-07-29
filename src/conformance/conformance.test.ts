@@ -505,6 +505,73 @@ describe('the tool answers for itself — no bundle archaeology (batch 12)', () 
   });
 });
 
+describe('an injected-plugin gate cannot go silently vacuous', () => {
+  // Three gates ride a plugin the library refuses to depend on. If the
+  // generated config forgets the import or the argument, they emit nothing
+  // and lint still passes — a vacuous gate that looks exactly like a green
+  // one. Every artifact that carries the wiring is pinned here.
+  it('the generated config imports stylistic and passes the whole options object', async () => {
+    const dir = repo({
+      packageJson: { ...react(), devDependencies: { typescript: '^5.0.0' } },
+    });
+
+    const init = await cli(dir, ['init', '--no-install']);
+    const config = read(dir, 'eslint.config.mjs') ?? '';
+
+    expect(init.code).toBe(0);
+    expect(config).toContain('import stylistic from \'@stylistic/eslint-plugin\';');
+    expect(config).toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic })');
+    // The install set must carry the plugin, or the import is a crash.
+    expect(init.output).toContain('@stylistic/eslint-plugin');
+  });
+
+  it('a JS project still gets stylistic — only the TS argument drops', async () => {
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+
+    const config = read(dir, 'eslint.config.mjs') ?? '';
+
+    expect(config).toContain('...emitLint(blueprint, { stylistic })');
+    expect(config).not.toContain('tseslint.plugin');
+  });
+
+  it('the catalog states the dependency instead of leaving it to be discovered', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'blueprint.config.mjs': configSource(reactPreset({ name: 'fixture' })) },
+    });
+
+    const rules = await cli(dir, ['rules']);
+
+    expect(rules.code).toBe(0);
+    expect(rules.output).toContain('statementsPerLine → @stylistic/max-statements-per-line');
+    expect(rules.output).toContain('statementPadding → @stylistic/padding-line-between-statements');
+    expect(rules.output).toContain('explicitAny → @typescript-eslint/no-explicit-any');
+    // The two facts an adopting agent cannot guess: the gate needs an
+    // injected plugin, and one of them rewrites files under --fix.
+    expect(rules.output).toContain('emits nothing');
+    expect(rules.output).toContain('the ONLY emitted rule carrying a fixer');
+  });
+
+  it('the playbook says why maxLines needs statementsPerLine to mean anything', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'BLUEPRINT-AUTHORING.md') ?? '';
+
+    expect(playbook).toContain('statementsPerLine');
+    // The merge hazard, stated where the merge happens.
+    expect(playbook).toContain('emits NOTHING while lint still passes');
+    // The fixer's blast radius and its own commit.
+    expect(playbook).toContain('its OWN commit');
+  });
+});
+
 describe('--agent persists into the scaffold — no chicken-and-egg (field issue #5)', () => {
   it('first init with --agent claude emits one contract and declares it in the config', async () => {
     const dir = repo({ packageJson: react() });
@@ -826,7 +893,10 @@ describe('one output, one story — no snippet contradicts its own prose (field 
     const init = await cli(dir, ['init', '--preset', '--no-install']);
 
     expect(init.code).toBe(0);
-    expect(init.output).toContain('...emitLint(blueprint, { typescript: tseslint.plugin }) ];');
+
+    expect(init.output)
+      .toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic }) ];');
+
     expect(init.output).not.toContain('On a TypeScript');
   });
 

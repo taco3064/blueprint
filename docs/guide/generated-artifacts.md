@@ -35,6 +35,7 @@ still merge into ONE entry):
 // there instead of editing this file.
 import { emitLint } from '@kekkai/blueprint';
 import comments from '@eslint-community/eslint-plugin-eslint-comments';
+import stylistic from '@stylistic/eslint-plugin';
 import vueParser from 'vue-eslint-parser';
 import blueprint from './blueprint.config.mjs';
 
@@ -45,7 +46,9 @@ export default [
     files: ['**/*.vue'],
     languageOptions: { parser: vueParser },
   },
-  ...emitLint(blueprint),
+  // Both plugins are injected, never library deps. Drop an argument and the
+  // gates riding it emit nothing — silently, with lint still green.
+  ...emitLint(blueprint, { stylistic }),
   {
     files: ['src/**/*.{js,jsx,ts,tsx,vue}'],
     plugins: {

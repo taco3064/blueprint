@@ -46,6 +46,10 @@ const REQUIRED_DEPS = [
   'eslint',
   '@kekkai/blueprint',
   '@eslint-community/eslint-plugin-eslint-comments',
+  // Carrier for the statementsPerLine / statementPadding gates. The library
+  // depends on neither plugin — the generated config injects them, so the
+  // packages are the project's deps, not blueprint's.
+  '@stylistic/eslint-plugin',
 ];
 
 function readJson(file: string): Record<string, unknown> | null {

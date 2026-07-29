@@ -48,6 +48,9 @@ plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`�
 - **`maxStatements`** → `max-statements` · warn · 15
 - **`complexity`** → `complexity` · warn · 12
 - **`unusedVars`** → `no-unused-vars`（TypeScript 專案自動改用 TS 感知版本）· error
+- **`explicitAny`** → `@typescript-eslint/no-explicit-any` · error
+- **`statementsPerLine`** → `@stylistic/max-statements-per-line`，寫死 `{ max: 1 }` · error
+- **`statementPadding`** → `@stylistic/padding-line-between-statements`，帶固定的 17 條設定 · error
 - **`fixtureImports`** → 禁止產品程式碼匯入 fixture 目錄 · error（Vue preset）
 - **`cycles`** → inspect 的 `cycle` 檢測（模組層級；生成 config 已不再帶 `import/no-cycle` —— 它逐檔重查同一張圖，850 檔實測要 92 秒）· error
 - **`deepWatch` / `usePrefix` / `usePrefixReactivity` / `testFilename` / `typedefOnlyFile`** → 上面外掛那節的規則（見上）
@@ -57,6 +60,46 @@ plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`�
 
 這整份對照隨時問得到工具本人：<br>
 `npx blueprint rules` 會印出 catalog，有 config 時還會標註實際宣告的 tier。
+
+### 有三個關卡靠注入的外掛才活著
+
+這個套件**沒有任何 runtime 依賴**，<br>
+所以上面那三條會 emit 第三方規則的識別碼，得由你把外掛交給 `emitLint`。<br>
+而外掛缺席的關卡會**完全不 emit，同時 lint 照樣是綠的** —— 沒有任何一行話提醒你。<br>
+生成的 config 兩個都接好了，`init` 也會裝；<br>
+手動合併的 config 要自己把參數帶過去：
+
+```js
+import stylistic from '@stylistic/eslint-plugin';
+import tseslint from 'typescript-eslint';
+
+export default [
+  /* …你原本的設定 */
+  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic }),
+];
+```
+
+- **`explicitAny`** 要 `typescript`。<br>
+  跟 `unusedVars` 不一樣，這條沒有原生規則可以退回去 —— `any` 是 TypeScript 才有的東西，<br>
+  所以在 JS 專案裡這個關卡沒有意義，`inspect` 會直接把它從涵蓋率的分母移掉，<br>
+  而不是回報一個沒人開得起來的關卡。
+- **`statementsPerLine`** 和 **`statementPadding`** 要 `stylistic`。<br>
+  這兩條的原生規則識別碼，在 ESLint 把排版交給 `@stylistic` 那次就被標為 deprecated 並凍結了，<br>
+  照原本的識別碼 emit 等於塞一條隨時會被移除的規則給使用者。
+
+這兩條看起來都像排版，所以補兩句它們實際上買到什麼：
+
+- `statementsPerLine` 是**讓 `maxLines` 有意義**的那條。<br>
+  `maxLines` 數的是程式行（空行與註解跳過），<br>
+  所以一個沒有限制「一行能裝多少」的行數預算，用把敘述壓成一行就過得去 —— 根本不用拆檔案。<br>
+  `{ max: 1 }` 寫死就是為了這件事：這個關卡的旋鈕是 tier，不是門檻值。
+- `statementPadding` 是**唯一帶自動修正的 emit 規則**。<br>
+  `eslint --fix` 會改寫每個分層檔案的空行，所以那一次修正請獨立成一個 commit。<br>
+  它不會把任何檔案推過 `maxLines`（那個關卡跳過空行），<br>
+  也不會跟 Prettier 或 Biome 打架 —— 那些工具是保留作者寫的空行，不是自己決定空行位置，<br>
+  所以這條只補它們留白的地方。<br>
+  但如果你家原本就有一條同名的 `padding-line-between-statements`，那就是真的撞了：<br>
+  flat config 是取代而不是合併，留一條就好。
 
 一個實戰會咬人的範圍細節：**`emit.lint.severity` 只蓋結構家族**（`no-restricted-imports` / `-syntax` / `-globals` 與 `blueprint/relative-escape`）。<br>
 上面每條規則都吃自己的 `blueprint.rules` tier —— severity 設 `warn` **不會**讓 `maxLines` 或 `unusedVars` 變安靜。

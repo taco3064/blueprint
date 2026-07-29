@@ -56,6 +56,7 @@ function fakeEslint(results: LintResult[]) {
 const tsParser = { parseForESLint: () => ({}) };
 const tsPlugin = { rules: {} };
 const vueParser = { parseForESLint: () => ({}) };
+const stylisticPlugin = { rules: {} };
 
 function loader(eslintModule: unknown) {
   const loaded: string[] = [];
@@ -67,6 +68,7 @@ function loader(eslintModule: unknown) {
     // Wrapped in `default` on purpose — exercises the CJS/ESM interop unwrap.
     if (name === 'typescript-eslint') return { default: { parser: tsParser, plugin: tsPlugin } };
     if (name === 'vue-eslint-parser') return { default: vueParser };
+    if (name === '@stylistic/eslint-plugin') return { default: stylisticPlugin };
 
     throw new Error(`unexpected module ${name}`);
   };
@@ -165,12 +167,30 @@ describe('runImpact', () => {
     await runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent });
 
     expect(loaded).not.toContain('typescript-eslint');
+    // Stylistic is stack-independent — the two shape gates apply everywhere,
+    // and skipping it would report 0 hits for gates that are actually on.
+    expect(loaded).toContain('@stylistic/eslint-plugin');
 
     const entries = captured.options?.overrideConfig as LintConfigEntry[];
     const vueEntry = entries.find((e) => e.files?.[0] === '**/*.vue');
 
     expect(vueEntry?.languageOptions?.parser).toBe(vueParser);
     expect(vueEntry?.languageOptions?.parserOptions).toBeUndefined();
+  });
+
+  it('measures the injected-plugin gates instead of silently reporting zero', async () => {
+    project({ react: '^18' });
+
+    const { module, captured } = fakeEslint([]);
+    const { loadModule } = loader(module);
+
+    await runImpact(root, { loadConfig: async () => reactPreset(), loadModule, log: silent });
+
+    const entries = captured.options?.overrideConfig as LintConfigEntry[];
+    const gate = entries.find((e) => e.rules?.['@stylistic/max-statements-per-line']);
+
+    expect(gate?.rules?.['@stylistic/padding-line-between-statements']).toBeDefined();
+    expect(gate?.plugins?.['@stylistic']).toBe(stylisticPlugin);
   });
 
   it('resolves framework `auto` from the detected project', async () => {

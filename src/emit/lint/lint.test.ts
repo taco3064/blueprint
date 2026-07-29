@@ -1,8 +1,10 @@
+import stylisticPlugin from '@stylistic/eslint-plugin';
 import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
 import { defineBlueprint } from '../../config';
 import { emitLint } from './lint';
+import { STATEMENT_PADDING } from './patterns';
 
 const blueprint = defineBlueprint({
   framework: 'auto',
@@ -458,6 +460,93 @@ describe('emitLint · TypeScript-aware unusedVars', () => {
 
     expect(entry?.plugins?.blueprint).toBeDefined();
     expect(entry?.plugins?.['@typescript-eslint']).toBe(tsPlugin);
+  });
+});
+
+describe('emitLint · injected-plugin gates', () => {
+  const gated = defineBlueprint({
+    ...blueprint,
+    rules: { explicitAny: 'error', statementsPerLine: 'error', statementPadding: 'warn' },
+  });
+
+  const tsPlugin = { rules: {} };
+
+  it('emits nothing for all three when their carrier plugin is absent', () => {
+    // An unresolvable rule id crashes the whole eslint run, so a gate whose
+    // carrier is missing must vanish instead — silently, which is why the
+    // gate catalog's note is where that fact has to be stated.
+    expect(emitLint(gated)).toHaveLength(4); // layer entries + escape only
+  });
+
+  it('emits explicitAny only through the injected TS plugin, with no core twin', () => {
+    const entry = emitLint(gated, { typescript: tsPlugin })
+      .find((item) => item.rules?.['@typescript-eslint/no-explicit-any']);
+
+    expect(entry?.rules?.['@typescript-eslint/no-explicit-any']).toBe('error');
+    expect(entry?.plugins?.['@typescript-eslint']).toBe(tsPlugin);
+    // Unlike unusedVars there is no core fallback to switch off.
+    expect(entry?.rules?.['no-explicit-any']).toBeUndefined();
+  });
+
+  it('pins the line unit at one statement, hard-wired rather than configurable', () => {
+    const entry = emitLint(gated, { stylistic: stylisticPlugin })
+      .find((item) => item.rules?.['@stylistic/max-statements-per-line']);
+
+    expect(entry?.rules?.['@stylistic/max-statements-per-line']).toEqual(['error', { max: 1 }]);
+
+    // A declared `value` is ignored — max: 1 is the whole point of the gate.
+    const valued = emitLint(
+      defineBlueprint({ ...blueprint, rules: { statementsPerLine: { tier: 'error', value: 4 } } }),
+      { stylistic: stylisticPlugin },
+    ).find((item) => item.rules?.['@stylistic/max-statements-per-line']);
+
+    expect(valued?.rules?.['@stylistic/max-statements-per-line']).toEqual(['error', { max: 1 }]);
+  });
+
+  it('carries the padding option list whole, at the declared tier', () => {
+    const entry = emitLint(gated, { stylistic: stylisticPlugin })
+      .find((item) => item.rules?.['@stylistic/padding-line-between-statements']);
+
+    const rule = entry?.rules?.['@stylistic/padding-line-between-statements'] as unknown[];
+
+    expect(rule[0]).toBe('warn');
+    expect(rule).toHaveLength(STATEMENT_PADDING.length + 1);
+    expect(rule[1]).toEqual({ blankLine: 'always', prev: 'block-like', next: '*' });
+  });
+
+  it('registers every carrier plugin on the one shared entry', () => {
+    const entry = emitLint(
+      defineBlueprint({
+        ...blueprint,
+        framework: 'vue',
+        rules: { explicitAny: 'error', statementPadding: 'error', deepWatch: 'error' },
+      }),
+      { typescript: tsPlugin, stylistic: stylisticPlugin },
+    ).find((item) => item.rules?.['blueprint/no-deep-watch']);
+
+    expect(entry?.plugins?.blueprint).toBeDefined();
+    expect(entry?.plugins?.['@typescript-eslint']).toBe(tsPlugin);
+    expect(entry?.plugins?.['@stylistic']).toBe(stylisticPlugin);
+  });
+
+  it('enforces both shape gates through a real Linter run', () => {
+    const cfg = [
+      { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+      ...emitLint(gated, { stylistic: stylisticPlugin }),
+    ];
+
+    const ids = (code: string) =>
+      linter.verify(code, cfg, { filename: COMPONENT }).map((message) => message.ruleId);
+
+    // The evasion the gate exists for: a line budget met by collapsing.
+    expect(ids('const a = 1; const b = 2;')).toContain('@stylistic/max-statements-per-line');
+    expect(ids('const a = 1;\nconst b = 2;\n')).not.toContain('@stylistic/max-statements-per-line');
+
+    expect(ids('function f() {\n  const a = 1;\n  return a;\n}\n'))
+      .toContain('@stylistic/padding-line-between-statements');
+
+    expect(ids('function f() {\n  const a = 1;\n\n  return a;\n}\n'))
+      .not.toContain('@stylistic/padding-line-between-statements');
   });
 });
 

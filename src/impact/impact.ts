@@ -120,6 +120,13 @@ export async function runImpact(
     ? unwrapModule<Linter.Parser>(await loadStack(load, root, 'vue-eslint-parser'))
     : null;
 
+  // Loaded unconditionally: impact's whole job is an honest per-rule count
+  // before a merge, and omitting a carrier plugin reports 0 hits for two
+  // ACTIVE gates — indistinguishable from a clean repo.
+  const stylistic = unwrapModule<EslintNamespace.Plugin>(
+    await loadStack(load, root, '@stylistic/eslint-plugin'),
+  );
+
   // The same parser wiring the generated eslint config carries (see
   // bootstrap's eslintConfigSource) — parsers only, so every file the
   // emitted rules cover can actually be parsed.
@@ -143,7 +150,7 @@ export async function runImpact(
 
   const config = [
     ...parserEntries,
-    ...emitLint(blueprint, tseslint ? { typescript: tseslint.plugin } : {}),
+    ...emitLint(blueprint, { ...(tseslint ? { typescript: tseslint.plugin } : {}), stylistic }),
   ];
 
   const { architecture } = blueprint;

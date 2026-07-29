@@ -29,6 +29,7 @@ describe('computeCoverage', () => {
     const coverage = computeCoverage(
       scanOf('src/components/Button.vue', 'src/main.ts', 'src/components/Button.test.ts'),
       blueprint,
+      true,
     );
 
     expect(coverage).toEqual({
@@ -40,16 +41,36 @@ describe('computeCoverage', () => {
   });
 
   it('handles a blueprint with no rules block', () => {
-    const coverage = computeCoverage(scanOf(), { ...blueprint, rules: undefined });
+    const coverage = computeCoverage(scanOf(), { ...blueprint, rules: undefined }, true);
 
     expect(coverage).toMatchObject({ sourceFiles: 0, layerFiles: 0, activeRules: 0 });
   });
 
   it('drops the Vue-only deepWatch gate from a React denominator', () => {
-    const coverage = computeCoverage(scanOf(), { ...blueprint, framework: 'react' });
+    const coverage = computeCoverage(scanOf(), { ...blueprint, framework: 'react' }, true);
 
     // A gate that never emits on this framework must not be counted as closable.
     expect(coverage.gatedRules).toBe(LINT_GATED_RULE_IDS.length - 1);
+  });
+
+  it('drops the TS-only explicitAny gate from a JavaScript denominator', () => {
+    // `any` cannot appear in JS source — the gate has nothing to catch and no
+    // rule to emit, so counting it would inflate the denominator forever.
+    const js = computeCoverage(scanOf(), blueprint, false);
+
+    expect(js.gatedRules).toBe(LINT_GATED_RULE_IDS.length - 1);
+
+    // Both exclusions stack: a React + JS repo can open neither.
+    const both = computeCoverage(scanOf(), { ...blueprint, framework: 'react' }, false);
+
+    expect(both.gatedRules).toBe(LINT_GATED_RULE_IDS.length - 2);
+  });
+
+  it('counts a declared explicitAny as active only where it can emit', () => {
+    const declared = { ...blueprint, rules: { ...blueprint.rules, explicitAny: 'error' as const } };
+
+    expect(computeCoverage(scanOf(), declared, true).activeRules).toBe(3);
+    expect(computeCoverage(scanOf(), declared, false).activeRules).toBe(2);
   });
 });
 

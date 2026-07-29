@@ -203,6 +203,15 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
       maxStatements: { tier: 'warn', value: 15 },
       complexity: { tier: 'warn', value: 12 },
       unusedVars: 'error',
+      // `any` is the cheapest way to widen an interface past the point where
+      // illegal states are unrepresentable (principle: narrow-interfaces).
+      explicitAny: 'error',
+      // Pins what a "line" means for maxLines above — without it the budget
+      // is satisfiable by collapsing statements onto one line.
+      statementsPerLine: 'error',
+      // Statement grouping is what a reader (human or agent) reads when
+      // deciding where a unit splits. The one emitted rule with a fixer.
+      statementPadding: 'error',
       fixtureImports: 'error',
       cycles: 'error',
       deadCode: 'error',
@@ -312,6 +321,9 @@ export function nextPreset(options: NextPresetOptions = {}): Blueprint {
       maxStatements: { tier: 'warn', value: 15 },
       complexity: { tier: 'warn', value: 12 },
       unusedVars: 'error',
+      explicitAny: 'error',
+      statementsPerLine: 'error',
+      statementPadding: 'error',
       cycles: 'error',
       usePrefix: 'error',
     },

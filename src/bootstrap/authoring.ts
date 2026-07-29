@@ -316,10 +316,22 @@ the answer belongs in this playbook — note the gap in your report instead.
      this already declared, so flag and config end up saying the same thing.
    - **Wire the lint.** If \`eslint.config.blueprint.mjs\` was written, merge
      it into the existing flat config: spread \`...emitLint(blueprint, …)\`
-     (with the TS plugin on TypeScript projects), then resolve every rule
+     — **carrying its options object over whole**: \`stylistic\` always, plus
+     \`typescript: tseslint.plugin\` on TypeScript projects. Those arguments
+     are load-bearing, not decoration: three gates ride an injected plugin
+     (\`explicitAny\` on the TS one, \`statementsPerLine\` and
+     \`statementPadding\` on stylistic) and a gate whose plugin is missing
+     emits NOTHING while lint still passes — a dropped argument reads exactly
+     like a clean merge. Then resolve every rule
      conflict *explicitly* — house disable conventions, thresholds, rules an
      existing structure tool already enforces — and note each decision in the
-     report. Before merging, run \`npx blueprint impact\`: it lints the layer
+     report. One conflict is near-certain and is not a real one: a repo with
+     Prettier / Biome / its own \`@stylistic\` block already owns formatting,
+     and \`statementPadding\` does not fight it — those tools preserve
+     author blank lines rather than placing them, so the gate only fills
+     gaps they leave. A house \`padding-line-between-statements\` under the
+     same key IS a real collision (flat config replaces, never merges):
+     keep one, and say which. Before merging, run \`npx blueprint impact\`: it lints the layer
      files with only the emitted config and reports hits per rule, so every
      conflict is decided on numbers, not by reading the emitted config
      against the code. Mind flat-config semantics while merging: when two
@@ -356,7 +368,16 @@ the answer belongs in this playbook — note the gap in your report instead.
      disable with its reason is a comment edit, not a source refactor, so
      it sits INSIDE this pass's boundary; the ledger takes whatever you
      choose to leave, and the report says which you did; ESLint ≥ 9.24 — counts
-     per file × rule, so NEW violations still fail). Your gate then blocks
+     per file × rule, so NEW violations still fail). **One gate is the
+     exception to "ledger it, don't fix it":** \`statementPadding\` is the
+     only emitted rule that carries a fixer, so its hits are whitespace
+     \`eslint --fix\` resolves outright — suppressing them ledgers a
+     reformat nobody needs to review. Run that fix as its OWN commit,
+     touching nothing else, and say so in the report: it rewrites blank
+     lines across every layer file, and a diff that size folded into an
+     architecture commit is unreviewable. It cannot make any other gate
+     worse — \`maxLines\` skips blank lines, so the added lines are free.
+     Your gate then blocks
      only new debt on both, and \`blueprint doctor\` verifies neither ledger
      has gone stale. The inverse is equally correct: **zero findings and zero
      lint hits is a complete outcome** — the ledgers simply stay absent

@@ -29,6 +29,7 @@ export default vuePreset({ name: "my-app" });
 // there instead of editing this file.
 import { emitLint } from "@kekkai/blueprint";
 import comments from "@eslint-community/eslint-plugin-eslint-comments";
+import stylistic from "@stylistic/eslint-plugin";
 import vueParser from "vue-eslint-parser";
 import blueprint from "./blueprint.config.mjs";
 
@@ -39,7 +40,9 @@ export default [
     files: ["**/*.vue"],
     languageOptions: { parser: vueParser },
   },
-  ...emitLint(blueprint),
+  // 這兩個外掛都是注入進去的，不是套件自己的依賴。
+  // 少帶一個參數，靠它的關卡就完全不 emit —— 而且 lint 還是綠的。
+  ...emitLint(blueprint, { stylistic }),
   {
     files: ["src/**/*.{js,jsx,ts,tsx,vue}"],
     plugins: {

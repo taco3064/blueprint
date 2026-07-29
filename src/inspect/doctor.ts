@@ -218,7 +218,7 @@ export async function runDoctor(
   const stale = staleContracts(root, blueprint);
   const scanResult = scan(root, blueprint.architecture.sourceRoot);
   const findings = analyze(scanResult, blueprint);
-  const coverage = computeCoverage(scanResult, blueprint);
+  const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
 
   const recorded = fs.existsSync(path.join(root, BASELINE_FILE))
     ? parseBaseline(fs.readFileSync(path.join(root, BASELINE_FILE), 'utf-8'))

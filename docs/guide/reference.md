@@ -54,6 +54,9 @@ The gated set:
 - **`maxStatements`** → `max-statements` · warn · 15
 - **`complexity`** → `complexity` · warn · 12
 - **`unusedVars`** → `no-unused-vars` (TS-aware when the project is TS) · error
+- **`explicitAny`** → `@typescript-eslint/no-explicit-any` · error
+- **`statementsPerLine`** → `@stylistic/max-statements-per-line` at a hard-wired `{ max: 1 }` · error
+- **`statementPadding`** → `@stylistic/padding-line-between-statements` with a fixed 17-entry option list · error
 - **`fixtureImports`** → restricted fixture imports in production code · error (vue preset)
 - **`cycles`** → inspect's `cycle` finding (module-level; `import/no-cycle` was dropped from the generated config — a slow per-file re-check of the same graph) · error
 - **`deepWatch` / `usePrefix` / `usePrefixReactivity` / `testFilename` / `typedefOnlyFile`** → the plugin rules above (see that section)
@@ -64,6 +67,46 @@ gate. That split is the [three-tier landing](/philosophy/#the-three-tier-landing
 
 This whole mapping is queryable in place: `npx blueprint rules` prints the catalog,
 annotated with the declared tiers once a config exists.
+
+### Three gates ride an injected plugin
+
+The library has **zero runtime dependencies**, so the three ids above that emit a
+third-party rule need that plugin handed to `emitLint` — and a gate whose plugin is
+missing **emits nothing while lint still passes**. The generated config wires both,
+and `init` installs them; a hand-merged config has to carry the argument itself:
+
+```js
+import stylistic from '@stylistic/eslint-plugin';
+import tseslint from 'typescript-eslint';
+
+export default [
+  /* …your entries */
+  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic }),
+];
+```
+
+- **`explicitAny`** needs `typescript`. Unlike `unusedVars` there is no core rule to
+  fall back to — `any` is a TypeScript construct, so on a JS project the gate is
+  meaningless and `inspect` drops it from the coverage denominator rather than
+  reporting a gate nobody can open.
+- **`statementsPerLine`** and **`statementPadding`** need `stylistic`. Their core
+  rule ids were deprecated and frozen when ESLint handed formatting to
+  `@stylistic`, so emitting those ids would ship rules slated for removal.
+
+Two notes on what these two actually buy, since both look like formatting:
+
+- `statementsPerLine` is what makes **`maxLines` mean anything**. That gate counts
+  code lines (blanks and comments skipped), so a line budget with no cap on line
+  *content* is satisfiable by collapsing statements onto one line instead of
+  splitting the file. `{ max: 1 }` is hard-wired for that reason — the gate's dial
+  is its tier, not its threshold.
+- `statementPadding` is the **only emitted rule carrying a fixer**. `eslint --fix`
+  rewrites blank lines across every layer file, so run that pass as its own commit.
+  It cannot push a file over `maxLines` (that gate skips blank lines), and it does
+  not fight Prettier or Biome — those preserve author blank lines rather than
+  placing them, so the gate only fills gaps they leave. A *house*
+  `padding-line-between-statements` under the same key is a real collision, though:
+  flat config replaces rather than merges, so keep one.
 
 One scope note that bites in practice: **`emit.lint.severity` covers only the
 structural family** (`no-restricted-imports` / `-syntax` / `-globals` and

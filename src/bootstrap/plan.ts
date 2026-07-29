@@ -251,6 +251,22 @@ export function plan(
  * and a legacy `.eslintrc*` needs a flat-config migration decided first.
  */
 function eslintWiringNote(state: ProjectState): string {
+  // Both plugins are injected, never depended on. Getting the options object
+  // wrong is silent: the gates riding a missing plugin emit nothing, and a
+  // vacuous gate looks exactly like a passing one — so every snippet below
+  // carries the full object rather than the minimal one.
+  const lintOptions = (ts: boolean) =>
+    (ts ? '{ typescript: tseslint.plugin, stylistic }' : '{ stylistic }');
+
+  // A `tseslint.config()` shape IS a TypeScript project whatever the dep scan
+  // says, so that branch keeps the TS variant unconditionally.
+  const options = lintOptions(state.hasTypescript);
+
+  const injectNote = '  Carry that options object over WHOLE. Three gates ride an injected plugin\n'
+    + '  (statementsPerLine / statementPadding on stylistic, explicitAny on the TS\n'
+    + '  one), and a gate whose plugin is absent emits NOTHING while lint still\n'
+    + '  passes — dropping an argument looks exactly like a clean merge.\n';
+
   // A TypeScript eslint config importing the .mjs blueprint config trips
   // TS7016 (no declaration file) when the tsconfig covering the config
   // lacks allowJs — the repo's own tsc gate goes red after an otherwise
@@ -285,23 +301,24 @@ function eslintWiringNote(state: ProjectState): string {
       + '(eslint.config.blueprint.mjs is your merge source):\n'
       + '    import blueprint from \'./blueprint.config.mjs\';\n'
       + '    import { emitLint } from \'@kekkai/blueprint\';\n'
+      + '    import stylistic from \'@stylistic/eslint-plugin\';\n'
       + '    export default tseslint.config(\n'
       + '      /* …your existing configs */\n'
-      + '      ...emitLint(blueprint, { typescript: tseslint.plugin }),\n'
+      + `      ...emitLint(blueprint, ${lintOptions(true)}),\n`
       + '    );\n'
       + '  emitLint goes LAST — later entries win in flat config, so this keeps the\n'
       + '  blueprint\'s per-layer tuning alive over broad presets. Rules BOTH sides set\n'
       + '  (no-restricted-*) still need combining into ONE entry.\n'
+      + injectNote
       + shared;
   }
 
   // The snippet is what gets copied — on a TS repo it must BE the TS
   // version, not a JS version corrected by prose four lines later (field
   // issue #12: a copy-the-first-snippet agent ships non-TS-aware rules).
-  const spread = state.hasTypescript
-    ? '    import tseslint from \'typescript-eslint\';\n'
-    + '    export default [ /* …your existing entries */ ...emitLint(blueprint, { typescript: tseslint.plugin }) ];\n'
-    : '    export default [ /* …your existing entries */ ...emitLint(blueprint) ];\n';
+  const spread = (state.hasTypescript ? '    import tseslint from \'typescript-eslint\';\n' : '')
+    + '    import stylistic from \'@stylistic/eslint-plugin\';\n'
+    + `    export default [ /* …your existing entries */ ...emitLint(blueprint, ${options}) ];\n`;
 
   return 'eslint.config already exists — blueprint never edits it, so eslint.config.blueprint.mjs '
     + 'is your merge source, not a keepsake. Diff it, then spread the rules into your flat config:\n'
@@ -313,7 +330,8 @@ function eslintWiringNote(state: ProjectState): string {
     + '  wrapper takes the same spread — its array IS the flat-config array. Rules BOTH\n'
     + `  sides set (no-restricted-*) still need combining into ONE entry.${state.hasTypescript
       ? ''
-      : ' On a TypeScript\n  project pass the TS plugin — emitLint(blueprint, { typescript: tseslint.plugin }).'}\n`
+      : ' On a TypeScript\n  project add the TS plugin too — emitLint(blueprint, { typescript: tseslint.plugin, stylistic }).'}\n`
+      + injectNote
       + shared;
 }
 
@@ -437,17 +455,21 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     '// there instead of editing this file.',
     'import { emitLint } from \'@kekkai/blueprint\';',
     'import comments from \'@eslint-community/eslint-plugin-eslint-comments\';',
+    'import stylistic from \'@stylistic/eslint-plugin\';',
     ...parserImports,
     'import blueprint from \'./blueprint.config.mjs\';',
     '',
     'export default [',
     ...(parserBlocks.length ? parserHeader : []),
     ...parserBlocks,
-    // TS projects hand emitLint the @typescript-eslint plugin so the
-    // unusedVars gate runs its TS-aware rule (core false-flags enum members).
+    // Both plugins are INJECTED, never library deps: on TS the unusedVars gate
+    // needs the TS-aware twin (core false-flags enum members) and explicitAny
+    // has no core twin at all; stylistic carries the two shape gates, whose
+    // core rules ESLint deprecated. Drop an argument and its gates go silent
+    // without a word — keep the object whole when merging.
     ts
-      ? '  ...emitLint(blueprint, { typescript: tseslint.plugin }),'
-      : '  ...emitLint(blueprint),',
+      ? '  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic }),'
+      : '  ...emitLint(blueprint, { stylistic }),',
     '  // The anti-bypass guard — NOT part of emitLint. A silent, unexplained',
     '  // eslint-disable is exactly how an agent routes around every rule',
     '  // above, so these two rules force each disable to carry a scope and a',

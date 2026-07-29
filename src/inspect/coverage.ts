@@ -22,8 +22,16 @@ export interface Coverage {
   gatedRules: number;
 }
 
-/** Measure the enforcement net: which files and how many gates reach them. */
-export function computeCoverage(scanResult: ScanResult, blueprint: Blueprint): Coverage {
+/**
+ * Measure the enforcement net: which files and how many gates reach them.
+ * `hasTypescript` comes from `detect` — it decides whether `explicitAny` is a
+ * gate here at all (see the filter below).
+ */
+export function computeCoverage(
+  scanResult: ScanResult,
+  blueprint: Blueprint,
+  hasTypescript: boolean,
+): Coverage {
   const { architecture, framework, rules } = blueprint;
   const source = dropTestFiles(scanResult, architecture.testFiles).files;
 
@@ -39,7 +47,13 @@ export function computeCoverage(scanResult: ScanResult, blueprint: Blueprint): C
 
   // Mirror emitLint: `deepWatch` never emits on React, so on React it neither
   // counts as available nor as active — a gate you cannot open is not a gate.
-  const gates = LINT_GATED_RULE_IDS.filter((id) => id !== 'deepWatch' || framework !== 'react');
+  // `explicitAny` is the same shape for a JS project: `any` is a TypeScript
+  // construct, so the gate has nothing to catch and no rule to emit. The two
+  // stylistic gates are NOT filtered here — every stack can open them; whether
+  // the config actually injects the plugin is a wiring fact this cannot see.
+  const gates = LINT_GATED_RULE_IDS
+    .filter((id) => id !== 'deepWatch' || framework !== 'react')
+    .filter((id) => id !== 'explicitAny' || hasTypescript);
 
   const activeRules = gates.filter((id) => {
     const setting = rules?.[id];

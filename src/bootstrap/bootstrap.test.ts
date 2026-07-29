@@ -169,7 +169,8 @@ describe('runInit', () => {
     await runInit(root, { log: silent, exec: (command) => commands.push(command) });
 
     expect(commands).toEqual([
-      'npm install -D eslint @kekkai/blueprint @eslint-community/eslint-plugin-eslint-comments vue-eslint-parser',
+      'npm install -D eslint @kekkai/blueprint @eslint-community/eslint-plugin-eslint-comments'
+      + ' @stylistic/eslint-plugin vue-eslint-parser',
     ]);
   });
 });

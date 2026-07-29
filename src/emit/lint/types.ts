@@ -21,9 +21,18 @@ export interface EmitLintOptions {
    * The `@typescript-eslint` plugin (e.g. `tseslint.plugin`). When provided,
    * the `unusedVars` gate emits `@typescript-eslint/no-unused-vars` instead of
    * core `no-unused-vars`, whose TS blind spots false-flag enum members and
-   * type parameters.
+   * type parameters. Also the carrier for the `explicitAny` gate, which has no
+   * core twin at all — without this, that gate emits nothing.
    */
   typescript?: ESLint.Plugin;
+  /**
+   * The `@stylistic/eslint-plugin`. Carrier for the two shape gates
+   * (`statementsPerLine`, `statementPadding`) — their core rules were
+   * deprecated and frozen when ESLint handed formatting to `@stylistic`, so
+   * emitting the core ids would ship a rule slated for removal. Without this,
+   * both gates emit nothing.
+   */
+  stylistic?: ESLint.Plugin;
 }
 
 /** A package restriction derived from layers' `owns`, merged by signature. */

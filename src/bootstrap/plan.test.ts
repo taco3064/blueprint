@@ -295,9 +295,13 @@ describe('plan', () => {
     );
 
     expect(note?.note).toContain('eslint.config.blueprint.mjs');
-    expect(note?.note).toContain('...emitLint(blueprint)');
+    // Non-TS repo: stylistic still rides along — two gates depend on it.
+    expect(note?.note).toContain('...emitLint(blueprint, { stylistic })');
+    expect(note?.note).toContain('import stylistic from \'@stylistic/eslint-plugin\';');
     // Not a TS repo — the TS variant stays a prose hint, not the snippet.
     expect(note?.note).toContain('On a TypeScript');
+    // A dropped plugin is silent, so the snippet says so where it is copied.
+    expect(note?.note).toContain('emits NOTHING while lint still');
     // The reference is a merge source with an obligation, not a keepsake.
     expect(note?.note).toContain('DELETE the reference');
   });
@@ -316,8 +320,11 @@ describe('plan', () => {
 
     // The copied line must be the correct one — prose four lines later
     // does not save a copy-the-first-snippet agent (field issue #12).
-    expect(note?.note).toContain('...emitLint(blueprint, { typescript: tseslint.plugin }) ];');
+    expect(note?.note)
+      .toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic }) ];');
+
     expect(note?.note).toContain('import tseslint from \'typescript-eslint\';');
+    expect(note?.note).toContain('import stylistic from \'@stylistic/eslint-plugin\';');
     expect(note?.note).not.toContain('On a TypeScript');
   });
 
@@ -326,7 +333,9 @@ describe('plan', () => {
     const note = actions.find((a) => a.kind === 'instruct' && a.note.includes('tseslint.config()'));
 
     expect(note?.note).toContain('export default tseslint.config(');
-    expect(note?.note).toContain('emitLint(blueprint, { typescript: tseslint.plugin })');
+    // A tseslint.config() shape IS a TS project — the TS plugin rides along
+    // even when the dep scan did not see `typescript`.
+    expect(note?.note).toContain('emitLint(blueprint, { typescript: tseslint.plugin, stylistic })');
     expect(note?.note).toContain('DELETE the reference');
   });
 
