@@ -13,6 +13,26 @@ const MIGRATION: Record<string, string> = {
   cycle: 'Break the import cycle — invert one dependency or extract the shared part downward.',
 };
 
+/**
+ * The ESLint rule each finding resolves into — the bridge between inspect's
+ * diagnostic names and what `eslint --print-config` actually shows. Most
+ * structural bans fold into ONE rule, so an adopter verifying a merge by
+ * searching the resolved config for `blueprint/deep-import` finds nothing and
+ * reads it as a dropped rule (field issue #48). `null` marks the findings
+ * inspect enforces by itself: they will never appear in a lint run, which is
+ * the other half of the same question.
+ */
+const ENFORCED_BY: Record<string, string | null> = {
+  'undeclared-folder': null,
+  'flow-violation': 'no-restricted-imports',
+  'deep-import': 'no-restricted-imports',
+  'relative-escape': 'blueprint/relative-escape',
+  'package-ownership': 'no-restricted-imports',
+  'selfonly-reexport': 'no-restricted-syntax',
+  'no-entry': null,
+  cycle: null,
+};
+
 /** True when any finding is an error (drives the CLI exit code). */
 export function hasErrors(findings: Finding[]): boolean {
   return findings.some((finding) => finding.severity === 'error');
@@ -33,7 +53,16 @@ export function report(findings: Finding[]): string {
   );
 
   const rules = [...new Set(findings.map((finding) => finding.rule))];
-  const steps = rules.filter((rule) => rule in MIGRATION).map((rule) => `  - ${MIGRATION[rule]}`);
+
+  // Each step names its finding and where that finding is enforced — three
+  // channels called one violation three things, and the third (a resolved
+  // eslint config) had no name for it at all.
+  const steps = rules.filter((rule) => rule in MIGRATION).map((rule) => {
+    const lint = ENFORCED_BY[rule];
+
+    return `  - [${rule}] ${MIGRATION[rule]} `
+      + (lint ? `(lint: ${lint})` : '(inspect only — never appears in a lint run)');
+  });
 
   return [
     'Architecture Report',

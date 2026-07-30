@@ -52,7 +52,10 @@ each acceptance step guards, greenfield scaffolding, and the full flow:
 
 - **Never launches an agent by default** — it writes plain-markdown contracts and hands
   off; there is no credential or network surface. `init --agent claude|codex` is the one
-  explicit opt-in, running under your own agent CLI's permissions.
+  explicit opt-in, and only on the authoring path, where it starts your own agent CLI on
+  the playbook under your own permissions. The same flag on the preset path
+  (`init --preset --agent claude`) launches nothing — there it only narrows which contract
+  file is written. `init --help` states both, and `--dry-run` shows either without acting.
 - **No network access, zero runtime dependencies** — local file operations only.
 - **Writes are declared and bounded** — `--dry-run` prints every effect; `inspect` /
   `deps` are read-only; files are only edited when losslessly rewritable, never overwritten.

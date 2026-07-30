@@ -1500,3 +1500,47 @@ describe('a merge that drops a carrier cannot pass doctor (field issue #40)', ()
     expect(playbook).toContain('deliberate, not over-installation');
   });
 });
+
+describe('one violation, one name per channel (field issue #48)', () => {
+  it('inspect names the rule that carries each finding, through the real CLI', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource({
+          ...reactBlueprint,
+          architecture: {
+            ...reactBlueprint.architecture,
+            module: { layout: 'folder', entry: 'index', private: [] },
+          },
+        }),
+        'src/components/Card/index.js': 'export const Card = 1;\n',
+        'src/components/Card/inner.js': 'export const inner = 1;\n',
+        // Reaches inside a folder-layout module — inspect's [deep-import],
+        // emitted as one more pattern group on no-restricted-imports.
+        'src/services/api.js': 'import { inner } from \'~app/components/Card/inner\';\nexport const api = inner;\n',
+      },
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.output).toContain('[deep-import]');
+    // The bridge: searching a resolved config for `blueprint/deep-import`
+    // finds nothing, because the ban folds into no-restricted-imports. The
+    // finding says so itself now.
+    expect(inspect.output).toContain('(lint: no-restricted-imports)');
+  });
+
+  it('the playbook warns that finding names are not rule ids', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = (read(dir, 'blueprint-authoring.md') ?? '').replace(/\s+/g, ' ');
+
+    expect(playbook).toContain('inspect\'s finding names are not ESLint rule ids');
+    expect(playbook).toContain('finds nothing and proves nothing');
+  });
+});

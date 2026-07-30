@@ -154,13 +154,19 @@ The complete early-exit checklist — nothing else in this file applies:
    not need to print configs by hand on this path**. Reach for
    \`npx eslint --print-config <file>\` only for what doctor's ✓ says it
    does NOT compare — thresholds, package-ownership entries, and the
-   survival of your OWN rules — and read the output knowing three
+   survival of your OWN rules — and read the output knowing four
    things, or a correct config looks broken: resolved keys carry their
    plugin prefix (\`@stylistic/max-len\`, never bare \`max-len\`); a rule
    scoped to a layer that holds no files does not appear at all (that is
-   inspect's \`declaratory-self-only\` note, not a loss); and selfOnly's
+   inspect's \`declaratory-self-only\` note, not a loss); selfOnly's
    re-export ban resolves on the IMPORTER layer named in inspect's
-   output, not on the layer being protected. Same logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's
+   output, not on the layer being protected; and **inspect's finding
+   names are not ESLint rule ids** — \`deep-import\`,
+   \`flow-violation\` and \`package-ownership\` all fold into the single
+   \`no-restricted-imports\` entry, so searching a resolved config for
+   \`blueprint/deep-import\` finds nothing and proves nothing. Inspect's
+   own migration steps name the rule that carries each finding, and mark
+   the ones no lint run will ever show. Same logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's
    alias check reads that wiring as text, never as a compile — run the
    build once too (\`npm run build\`, or \`npx tsc -b\`). Its artifacts
    (\`dist/\`, \`*.tsbuildinfo\`) are the build's normal output, not
@@ -375,13 +381,19 @@ the answer belongs in this playbook — note the gap in your report instead.
      its ✓ says so. That remainder is what
      \`npx eslint --print-config <file>\` is for; a green lint run does
      not substitute, since it proves the config loads, not that a given
-     rule reached a given file. Three things to know before reading that
+     rule reached a given file. Four things to know before reading that
      output, or a correct config looks broken: resolved keys carry their
      plugin prefix (\`@stylistic/max-len\`, never bare \`max-len\`); a
      rule scoped to a layer that holds no files does not appear at all
-     (inspect's \`declaratory-self-only\` note, not a loss); and
+     (inspect's \`declaratory-self-only\` note, not a loss);
      selfOnly's re-export ban resolves on the IMPORTER layer inspect
-     names, not on the layer being protected. Run the project's own lint command; new findings introduced by
+     names, not on the layer being protected; and **inspect's finding
+     names are not ESLint rule ids** — \`deep-import\`,
+     \`flow-violation\` and \`package-ownership\` all fold into the
+     single \`no-restricted-imports\` entry, so searching for
+     \`blueprint/deep-import\` finds nothing and proves nothing.
+     Inspect's migration steps name the carrying rule for each finding,
+     and mark the ones no lint run will ever show. Run the project's own lint command; new findings introduced by
      the merge are fixed or explicitly judged, never left dangling — and
      when init wired the alias into \`tsconfig\`/\`vite\`, run the build
      once too (doctor's alias check reads wiring as text, never as a

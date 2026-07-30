@@ -37,3 +37,49 @@ describe('report', () => {
     expect(out).not.toContain('Recommended migration steps');
   });
 });
+
+describe('report · findings name where they are enforced (field issue #48)', () => {
+  // One violation went by three names: inspect called it [deep-import],
+  // impact and lint called it no-restricted-imports, and a resolved config
+  // searched for `blueprint/deep-import` had no such rule — because the ban
+  // folds into no-restricted-imports rather than standing alone. Verifying a
+  // merge, that ABSENT read as a dropped rule.
+  it('names the ESLint rule that carries a lint-enforced finding', () => {
+    const out = report([
+      { severity: 'error', rule: 'deep-import', path: 'src/pages/x.ts', message: 'm' },
+    ]);
+
+    expect(out).toContain('[deep-import]');
+    expect(out).toContain('(lint: no-restricted-imports)');
+  });
+
+  it('folds the whole structural family into the one rule it really is', () => {
+    const out = report([
+      { severity: 'error', rule: 'flow-violation', path: 'a', message: 'm' },
+      { severity: 'error', rule: 'package-ownership', path: 'b', message: 'm' },
+      { severity: 'error', rule: 'selfonly-reexport', path: 'c', message: 'm' },
+      { severity: 'error', rule: 'relative-escape', path: 'd', message: 'm' },
+    ]);
+
+    expect(out).toContain('[flow-violation] Rework imports');
+    expect(out).toContain('[package-ownership] Move restricted package usage');
+    // Three different findings, one emitted entry — that is the fact that
+    // made searching a config by finding name useless.
+    expect(out.match(/\(lint: no-restricted-imports\)/g)).toHaveLength(2);
+    expect(out).toContain('(lint: no-restricted-syntax)');
+    // The one structural ban that IS a standalone rule, because a `../`
+    // escape cannot be written as a literal pattern.
+    expect(out).toContain('(lint: blueprint/relative-escape)');
+  });
+
+  it('marks the findings a lint run will never show', () => {
+    const out = report([
+      { severity: 'error', rule: 'cycle', path: 'a', message: 'm' },
+      { severity: 'info', rule: 'no-entry', path: 'b', message: 'm' },
+    ]);
+
+    // The other half of the same question: not "where do I find this in the
+    // config" but "why is it not there at all".
+    expect(out.match(/\(inspect only — never appears in a lint run\)/g)).toHaveLength(2);
+  });
+});
