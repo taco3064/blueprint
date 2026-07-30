@@ -82,6 +82,12 @@ export interface GateSpec {
   note: string;
   /** Metric fallback threshold, when the gate is one of the metric family. */
   fallback?: number;
+  /**
+   * Set when a runtime enforces the gate instead of the emitted lint config.
+   * Machine-gated either way — but "error fails lint" is false for these, and
+   * the handbook used to say it of every declared rule (field issue #52).
+   */
+  runtime?: 'inspect';
 }
 
 /**
@@ -102,7 +108,7 @@ export const PLUGIN_GATES: GateSpec[] = [
   { id: 'usePrefixReactivity', emits: 'blueprint/use-prefix-needs-reactivity', note: 'composing-only hooks are a known false positive' },
   { id: 'testFilename', emits: 'blueprint/test-filename-matches-source', note: 'test files only' },
   { id: 'typedefOnlyFile', emits: 'blueprint/no-typedef-only-file', note: '.js files only' },
-  { id: 'cycles', emits: 'inspect (cycle finding)', note: 'no ESLint line — import/no-cycle re-checks the whole graph per file, measured 92s on 850 files' },
+  { id: 'cycles', emits: 'inspect (cycle finding)', runtime: 'inspect', note: 'no ESLint line — import/no-cycle re-checks the whole graph per file, measured 92s on 850 files' },
 ];
 
 /** Documentation-only ids — never an ESLint line, never a machine gate. */
@@ -123,6 +129,23 @@ export const LINT_GATED_RULE_IDS = [
   ...METRIC_GATES.map((gate) => gate.id),
   ...PLUGIN_GATES.map((gate) => gate.id),
 ];
+
+/**
+ * Which machine actually holds a declared rule id — the distinction
+ * `LINT_GATED_RULE_IDS` flattens away, because it answers "gated at all?"
+ * rather than "gated by what?". The handbook needs the finer answer: it
+ * printed `error` beside every declared rule under a legend reading "`error`
+ * fails lint", which is false for `cycles` (inspect's finding) and false for
+ * `deadCode` (documentation, knip's job) — two generated artifacts from one
+ * source disagreeing (field issue #52).
+ */
+export function enforcedBy(id: string): 'lint' | 'inspect' | 'docs' {
+  const gate = PLUGIN_GATES.find((entry) => entry.id === id);
+
+  if (gate?.runtime) return gate.runtime;
+
+  return LINT_GATED_RULE_IDS.includes(id) ? 'lint' : 'docs';
+}
 
 /**
  * Resolve a layer's lint file globs. An explicit `layerFiles` wins as-is;

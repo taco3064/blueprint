@@ -189,6 +189,33 @@ describe('renderRules', () => {
     expect(out).toContain('| `maxLines` | `error` | `400` |');
     expect(out).toContain('| `deepWatch` | `warn` | — |');
   });
+
+  it('says which machine holds each rule, not just its tier (field issue #52)', () => {
+    // The handbook printed `error` beside every declared rule under a legend
+    // reading "`error` fails lint" — false for cycles (inspect's finding) and
+    // false for deadCode (documentation, knip's job). A reader of the
+    // handbook alone would believe a doc-only id gates their build.
+    const out = renderRules({
+      maxLines: { tier: 'error', value: 400 },
+      cycles: 'error',
+      deadCode: 'error',
+    });
+
+    expect(out).toContain('| Rule | Tier | Option | Enforced by |');
+    expect(out).toContain('| `maxLines` | `error` | `400` | lint |');
+    expect(out).toContain('| `cycles` | `error` | — | `blueprint inspect` |');
+    expect(out).toContain('| `deadCode` | `error` | — | documentation only |');
+
+    // The legend no longer makes one claim for all three.
+    expect(out).toContain('The tier is what the enforcing machine does with a violation');
+    expect(out).toContain('never appear in a lint run');
+    expect(out).toContain('no gate behind');
+  });
+
+  it('treats an unknown id as documentation, like the contract does', () => {
+    expect(renderRules({ inventedGate: 'error' }))
+      .toContain('| `inventedGate` | `error` | — | documentation only |');
+  });
 });
 
 describe('renderNaming', () => {

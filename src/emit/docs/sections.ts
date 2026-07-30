@@ -7,6 +7,7 @@ import type {
   RuleSetting,
 } from '../../config';
 import { getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
+import { enforcedBy } from '../lint';
 import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
 
@@ -240,19 +241,39 @@ export function renderRules(rules: Record<string, RuleSetting> | undefined): str
 
   if (!entries.length) return '';
 
+  // "error fails lint" is true of most rows and false of two kinds: `cycles`
+  // is inspect's finding, and `deadCode` is documentation. Printing the tier
+  // under an unqualified legend told a reader of THIS file — the artifact
+  // meant to outlive the adoption — that a doc-only id gates their build
+  // (field issue #52). Each row now says which machine holds it.
+  const HELD_BY = {
+    lint: 'lint',
+    inspect: '`blueprint inspect`',
+    docs: 'documentation only',
+  } as const;
+
   const rows = entries.map(([id, setting]) => {
     const tier = typeof setting === 'string' ? setting : setting.tier;
     const value = typeof setting === 'string' ? undefined : setting.value;
 
-    return [`\`${id}\``, `\`${tier}\``, value === undefined ? '—' : `\`${value}\``];
+    return [
+      `\`${id}\``,
+      `\`${tier}\``,
+      value === undefined ? '—' : `\`${value}\``,
+      HELD_BY[enforcedBy(id)],
+    ];
   });
 
   return [
     '## Rules',
     '',
-    table(['Rule', 'Tier', 'Option'], rows),
+    table(['Rule', 'Tier', 'Option', 'Enforced by'], rows),
     '',
-    '`error` fails lint · `warn` is advisory · `off` is disabled.',
+    'The tier is what the enforcing machine does with a violation: `error` fails, '
+    + '`warn` is advisory, `off` is disabled. Which machine differs — `lint` rows fail '
+    + '`npm run lint`, `blueprint inspect` rows fail that command and never appear in a '
+    + 'lint run, and documentation-only rows are recorded intent with no gate behind '
+    + 'them at any tier.',
   ].join('\n');
 }
 

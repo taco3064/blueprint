@@ -1572,3 +1572,29 @@ describe('"ONE entry" is per collision, not per rule key (field issue #51)', () 
     expect(playbook).toContain('probes every layer separately and names the one that lost its selectors');
   });
 });
+
+describe('the handbook does not promise a gate that does not exist (field issue #52)', () => {
+  it('a generated handbook marks which machine holds each declared rule', async () => {
+    const dir = repo({ packageJson: react() });
+
+    expect((await cli(dir, ['init', '--no-install'])).code).toBe(0);
+
+    const handbook = read(dir, 'docs/architecture-handbook.md') ?? '';
+
+    // The handbook is the artifact meant to outlive the adoption, read by
+    // people who will not have `blueprint rules` open beside it. It printed
+    // `error` beside every declared rule under "`error` fails lint" — true of
+    // most, false of cycles (inspect's finding) and deadCode (knip's job).
+    expect(handbook).toContain('| Rule | Tier | Option | Enforced by |');
+    expect(handbook).not.toContain('`error` fails lint · `warn` is advisory');
+    expect(handbook).toContain('The tier is what the enforcing machine does with a violation');
+
+    // The preset declares cycles; whatever else it declares, no row may claim
+    // lint enforcement for a rule the lint config never carries.
+    const rows = handbook.split('\n').filter((line) => line.startsWith('| `'));
+    const cycles = rows.find((line) => line.startsWith('| `cycles`'));
+
+    expect(cycles).toContain('`blueprint inspect`');
+    expect(cycles).not.toContain('| lint |');
+  });
+});
