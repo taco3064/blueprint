@@ -1454,7 +1454,49 @@ describe('a merge that drops a carrier cannot pass doctor (field issue #40)', ()
     // plugin, one to check their own house rules had survived. It was the
     // missing step in a verification the playbook called sufficient.
     expect(playbook).toContain('npx eslint --print-config');
-    expect(playbook).toContain('A green lint is NOT proof the gates are attached');
+    expect(playbook).toContain('A green lint is not proof the gates are ATTACHED');
     expect(playbook).toContain('proves only that the config parses');
+  });
+
+  it('points --print-config at the remainder, not at what doctor already does', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = (read(dir, 'blueprint-authoring.md') ?? '').replace(/\s+/g, ' ');
+
+    // The step landed in the same commit that widened doctor to verify carrier
+    // survival, so the playbook was asking for a sweep the gate already ran —
+    // two field runs noticed the overlap (#43, #44).
+    expect(playbook).toContain('you do not need to print configs by hand on this path');
+    expect(playbook).toContain('the survival of your OWN rules');
+
+    // Three ways a correct config reads as broken through this command. Each
+    // cost a field agent a detour: a bare rule name looked MISSING, an unarmed
+    // layer looked dropped, and selfOnly looked absent from the wrong layer.
+    expect(playbook).toContain('never bare `max-len`');
+    expect(playbook).toContain('does not appear at all');
+    expect(playbook).toContain('resolves on the IMPORTER layer');
+  });
+
+  it('says why the carriers install even with no gate declared', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: Object.fromEntries(
+        Array.from({ length: 12 }, (_, i) => [`src/components/C${i}.jsx`, `export const c${i} = 1;`]),
+      ),
+    });
+
+    await cli(dir, ['init', '--no-install']);
+
+    const playbook = (read(dir, 'blueprint-authoring.md') ?? '').replace(/\s+/g, ' ');
+
+    // Three separate runs paused on "I declared no gates, why is it installing
+    // these" — harmless, but unstated. The reason is the one-line upgrade path.
+    expect(playbook).toContain('Declared no gates from those families?');
+    expect(playbook).toContain('deliberate, not over-installation');
   });
 });

@@ -145,17 +145,22 @@ The complete early-exit checklist — nothing else in this file applies:
    true — you skipped nothing. Either way, close this step by running
    the project's own lint once (\`npm run lint\`, or \`npx eslint .\`
    without a script): doctor's wired check reads config text and never
-   executes eslint, so only a real run proves the config loads.
-   **A green lint is NOT proof the gates are attached**, and on a repo
-   whose layers hold no files yet it proves only that the config parses
-   — there is nothing for a rule to fire on. To see what the merge
-   actually resolved to, print it:
-   \`npx eslint --print-config <a file inside a layer>\` (any path the
-   layer globs match; the file need not exist yet). The gates that ride
-   an injected plugin are the ones to look for — a dropped \`stylistic\`
-   or \`imports\` argument removes them all while lint stays green, which
-   is why doctor now reds on a declared gate whose rule resolved to
-   nothing. Same logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's
+   executes eslint, so only a real run proves the config loads. A green
+   lint is not proof the gates are ATTACHED, and on a repo whose layers
+   hold no files yet it proves only that the config parses — there is
+   nothing for a rule to fire on. That gap is doctor's job, not yours:
+   its survival check resolves every declared gate that rides an
+   injected plugin and reds when one resolved to nothing, so **you do
+   not need to print configs by hand on this path**. Reach for
+   \`npx eslint --print-config <file>\` only for what doctor's ✓ says it
+   does NOT compare — thresholds, package-ownership entries, and the
+   survival of your OWN rules — and read the output knowing three
+   things, or a correct config looks broken: resolved keys carry their
+   plugin prefix (\`@stylistic/max-len\`, never bare \`max-len\`); a rule
+   scoped to a layer that holds no files does not appear at all (that is
+   inspect's \`declaratory-self-only\` note, not a loss); and selfOnly's
+   re-export ban resolves on the IMPORTER layer named in inspect's
+   output, not on the layer being protected. Same logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's
    alias check reads that wiring as text, never as a compile — run the
    build once too (\`npm run build\`, or \`npx tsc -b\`). Its artifacts
    (\`dist/\`, \`*.tsbuildinfo\`) are the build's normal output, not
@@ -336,7 +341,13 @@ the answer belongs in this playbook — note the gap in your report instead.
      \`statementPadding\` on stylistic; \`importBlock\` on imports;
      \`explicitAny\` on the TS one) and a gate whose plugin is missing emits
      NOTHING while lint still passes — a dropped argument reads exactly like
-     a clean merge. Then resolve every rule
+     a clean merge. **Declared no gates from those families?** Pass the
+     carriers anyway, and let \`init\` install them: that is deliberate, not
+     over-installation. They sit inert until a gate names them, and paying
+     for them now makes turning one on a one-line edit to
+     \`blueprint.config.mjs\` — instead of a config edit plus an install plus
+     a second pass over this merge, months later, by someone who was not
+     here. Then resolve every rule
      conflict *explicitly* — house disable conventions, thresholds, rules an
      existing structure tool already enforces — and note each decision in the
      report. **\`codeStyle\` means blueprint's emitted config formats this
@@ -358,13 +369,19 @@ the answer belongs in this playbook — note the gap in your report instead.
      exact selfOnly selector strings per layer; copy them from there, never
      from an emitLint dump) — and \`blueprint doctor\` verifies both the
      emitted structural rules and each declared gate's carrier rule
-     survived the merge. What doctor does NOT compare is thresholds and
-     package-ownership entries, and its ✓ says so; for those, and any
-     time you want to see the merge as ESLint resolved it rather than as
-     you intended it, run
-     \`npx eslint --print-config <a file inside a layer>\`. A green lint
-     run does not substitute: it proves the config loads, not that a
-     given rule reached a given file. Run the project's own lint command; new findings introduced by
+     survived the merge — so a hand sweep of the emitted gates duplicates
+     it. What doctor does NOT compare is thresholds, package-ownership
+     entries, and the survival of the rules YOU brought to the merge, and
+     its ✓ says so. That remainder is what
+     \`npx eslint --print-config <file>\` is for; a green lint run does
+     not substitute, since it proves the config loads, not that a given
+     rule reached a given file. Three things to know before reading that
+     output, or a correct config looks broken: resolved keys carry their
+     plugin prefix (\`@stylistic/max-len\`, never bare \`max-len\`); a
+     rule scoped to a layer that holds no files does not appear at all
+     (inspect's \`declaratory-self-only\` note, not a loss); and
+     selfOnly's re-export ban resolves on the IMPORTER layer inspect
+     names, not on the layer being protected. Run the project's own lint command; new findings introduced by
      the merge are fixed or explicitly judged, never left dangling — and
      when init wired the alias into \`tsconfig\`/\`vite\`, run the build
      once too (doctor's alias check reads wiring as text, never as a
