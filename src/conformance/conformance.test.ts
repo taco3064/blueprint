@@ -564,7 +564,7 @@ describe('an injected-plugin gate cannot go silently vacuous', () => {
 
     // Prose in the playbook is hard-wrapped, so assert against a single-line
     // form — otherwise a reflow breaks the test without changing the meaning.
-    const playbook = (read(dir, 'BLUEPRINT-AUTHORING.md') ?? '').replace(/\s+/g, ' ');
+    const playbook = (read(dir, 'blueprint-authoring.md') ?? '').replace(/\s+/g, ' ');
 
     expect(playbook).toContain('statementsPerLine');
     // The merge hazard, stated where the merge happens.

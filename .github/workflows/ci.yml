@@ -4,6 +4,12 @@ on:
   pull_request:
     branches:
       - main
+  # main takes commits directly, so PR-only CI left it unverified on Linux
+  # until release time — where a macOS-only case-insensitive filename match
+  # failed the publish job instead of a test run.
+  push:
+    branches:
+      - main
 
 jobs:
   ci:
