@@ -1,4 +1,4 @@
-import type { Linter } from 'eslint';
+import type { ESLint, Linter } from 'eslint';
 import type { Blueprint, RuleSetting, Tier } from '../../config';
 import {
   aliasLayerRoots,
@@ -159,12 +159,13 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
 /**
  * Entries for the known `blueprint.rules` ids — where a rule record stops
  * being documentation and becomes a lint gate. Metric ids map to built-in
- * rules; `deepWatch` / `usePrefix` ride the embedded plugin; `explicitAny`
- * and the two shape gates ride a caller-injected plugin and emit nothing
- * without it (the library depends on neither). Test files are exempt
- * (metrics scream on tests). Unknown ids stay docs-only, as do `cycles`
- * (inspect's cycle finding) and `deadCode` (knip's job) — neither emits an
- * ESLint line.
+ * rules; `deepWatch` / `usePrefix` ride the embedded plugin; `explicitAny`,
+ * `codeStyle`, the two statement gates and `importBlock` ride a
+ * caller-injected plugin and emit nothing without it (the library depends on
+ * none of the three). Test files are exempt here because metrics scream on
+ * tests — the shape family is the one exception and lives in its own entry.
+ * Unknown ids stay docs-only, as do `cycles` (inspect's cycle finding) and
+ * `deadCode` (knip's job) — neither emits an ESLint line.
  */
 function ruleGateEntries(
   blueprint: Blueprint,
@@ -208,24 +209,6 @@ function ruleGateEntries(
     shared['@typescript-eslint/no-explicit-any'] = explicitAny.tier;
   }
 
-  // The two shape gates. Their core ids (`max-statements-per-line`,
-  // `padding-line-between-statements`) were deprecated when ESLint handed
-  // formatting to @stylistic, so they ride the injected plugin or not at all.
-  const statementsPerLine = active(rules?.statementsPerLine);
-
-  if (statementsPerLine && options.stylistic) {
-    shared['@stylistic/max-statements-per-line'] = [statementsPerLine.tier, { max: 1 }];
-  }
-
-  const statementPadding = active(rules?.statementPadding);
-
-  if (statementPadding && options.stylistic) {
-    shared['@stylistic/padding-line-between-statements'] = [
-      statementPadding.tier,
-      ...STATEMENT_PADDING,
-    ];
-  }
-
   const deepWatch = active(rules?.deepWatch);
 
   if (deepWatch && framework !== 'react') {
@@ -238,9 +221,10 @@ function ruleGateEntries(
     shared['blueprint/use-prefix-needs-reactivity'] = usePrefixReactivity.tier;
   }
 
+  // No @stylistic rule reaches this entry — the whole shape family lives in
+  // its own, test-inclusive one (see shapeEntry).
   const needsPlugin = Object.keys(shared).some((rule) => rule.startsWith('blueprint/'));
   const needsTs = Object.keys(shared).some((rule) => rule.startsWith('@typescript-eslint/'));
-  const needsStylistic = Object.keys(shared).some((rule) => rule.startsWith('@stylistic/'));
 
   const sharedFiles = [
     ...new Set(layers.flatMap((l) => resolveLayerFiles(l.name, layerFiles, framework, sourceRoot))),
@@ -251,15 +235,12 @@ function ruleGateEntries(
       files: sharedFiles,
       ignores: testGlobs,
       linterOptions: { reportUnusedDisableDirectives: 'error' },
-      ...(needsPlugin || needsTs || needsStylistic
+      ...(needsPlugin || needsTs
         ? {
             plugins: {
               ...(needsPlugin ? { blueprint: plugin } : {}),
               ...(needsTs && options.typescript
                 ? { '@typescript-eslint': options.typescript }
-                : {}),
-              ...(needsStylistic && options.stylistic
-                ? { '@stylistic': options.stylistic }
                 : {}),
             },
           }
@@ -267,6 +248,8 @@ function ruleGateEntries(
       rules: shared,
     });
   }
+
+  entries.push(...shapeEntry(blueprint, sharedFiles, options));
 
   const testFilename = active(rules?.testFilename);
 
@@ -304,6 +287,145 @@ function ruleGateEntries(
   }
 
   return entries;
+}
+
+/** The `customize` factory `@stylistic/eslint-plugin` hangs off its configs. */
+interface StylisticPlugin {
+  configs?: { customize?: (options: Record<string, unknown>) => { rules?: Linter.RulesRecord } };
+}
+
+/**
+ * The one entry whose rules govern the *shape* of any source file — and the
+ * only gate entry that does NOT exempt tests. Metrics are exempt because a
+ * threshold screams on a test file; indentation, quoting and duplicate
+ * imports do not get easier to read there.
+ *
+ * Order inside the record is load-bearing: `customize()` already carries
+ * `max-statements-per-line`, so the explicit gate is written after the bundle
+ * to win — including when it is `off`, which the bundle would otherwise
+ * silently switch back on.
+ */
+function shapeEntry(
+  blueprint: Blueprint,
+  files: string[],
+  options: EmitLintOptions,
+): LintConfigEntry[] {
+  const { rules } = blueprint;
+  const shape: Linter.RulesRecord = {};
+
+  const codeStyle = active(rules?.codeStyle);
+
+  if (codeStyle && options.stylistic) {
+    Object.assign(shape, codeStyleRules(codeStyle, options.stylistic));
+  }
+
+  const statementsPerLine = rules?.statementsPerLine;
+
+  if (statementsPerLine !== undefined && options.stylistic) {
+    const on = active(statementsPerLine);
+
+    if (on) {
+      // Hard-wired max: 1 — the gate defines what a line IS for `maxLines`,
+      // and a threshold above 1 defines nothing.
+      shape['@stylistic/max-statements-per-line'] = [on.tier, { max: 1 }];
+    } else if (codeStyle) {
+      shape['@stylistic/max-statements-per-line'] = 'off';
+    }
+  }
+
+  const statementPadding = active(rules?.statementPadding);
+
+  if (statementPadding && options.stylistic) {
+    shape['@stylistic/padding-line-between-statements'] = [
+      statementPadding.tier,
+      ...STATEMENT_PADDING,
+    ];
+  }
+
+  const importBlock = active(rules?.importBlock);
+
+  if (importBlock && options.imports) {
+    shape['import/first'] = importBlock.tier;
+    shape['import/no-duplicates'] = importBlock.tier;
+  }
+
+  if (!Object.keys(shape).length) return [];
+
+  const needsStylistic = Object.keys(shape).some((rule) => rule.startsWith('@stylistic/'));
+  const needsImports = Object.keys(shape).some((rule) => rule.startsWith('import/'));
+
+  return [{
+    files,
+    plugins: {
+      ...(needsStylistic && options.stylistic ? { '@stylistic': options.stylistic } : {}),
+      ...(needsImports && options.imports ? { import: options.imports } : {}),
+    },
+    rules: shape,
+  }];
+}
+
+/**
+ * The `codeStyle` bundle: `@stylistic`'s own `customize()` set plus the three
+ * rules it leaves out. Reading the factory instead of hand-listing ~65 rule
+ * names is deliberate — a hand-picked subset leaves gaps (an emitted config
+ * that policed statements-per-line while allowing zero indentation was the
+ * gap that started this), and the factory is a pure function of options the
+ * caller can see.
+ */
+function codeStyleRules(gate: ActiveRule, stylistic: ESLint.Plugin): Linter.RulesRecord {
+  const customize = (stylistic as StylisticPlugin).configs?.customize;
+
+  if (typeof customize !== 'function') {
+    // Emitting nothing here would be the exact failure this whole gate family
+    // guards against: a declared rule that silently governs nothing.
+    throw new Error(
+      'blueprint: rules.codeStyle needs @stylistic/eslint-plugin\'s configs.customize() '
+      + 'factory, and the plugin passed as emitLint\'s `stylistic` option does not expose '
+      + 'it. Pass the real plugin (import stylistic from \'@stylistic/eslint-plugin\'), or '
+      + 'set rules.codeStyle to \'off\'.',
+    );
+  }
+
+  const opts = gate.opts;
+
+  const num = (key: string, fallback: number) =>
+    (typeof opts[key] === 'number' ? opts[key] as number : fallback);
+
+  const bundle = customize({
+    indent: num('indent', 2),
+    quotes: opts.quotes === 'double' ? 'double' : 'single',
+    semi: opts.semi !== false,
+    // Not exposed as knobs — blueprint's own house values. A repo that wants
+    // different braces turns the gate off and declares its own set.
+    arrowParens: true,
+    braceStyle: '1tbs',
+    commaDangle: 'always-multiline',
+    blockSpacing: true,
+    quoteProps: 'as-needed',
+  });
+
+  return {
+    ...bundle.rules,
+    // Three the factory omits. max-len has NO fixer — it reports and the code
+    // must actually be restructured, which is the point.
+    '@stylistic/max-len': [gate.tier, {
+      code: num('maxLen', 90),
+      ignoreUrls: true,
+      ignoreTemplateLiterals: true,
+      ignoreRegExpLiterals: true,
+      // Deliberately NOT ignoring plain strings: a long line escapes a length
+      // cap entirely by containing one, which is a free bypass.
+      ignoreStrings: false,
+    }],
+    // LF everywhere. Mixed line endings are what breaks cross-platform work,
+    // not LF itself. The cause of a red here is usually git's autocrlf /
+    // .gitattributes, NOT the file — the gate catalog says so, since the
+    // rule's own message cannot.
+    '@stylistic/linebreak-style': [gate.tier, 'unix'],
+    // Core, not deprecated, no plugin needed. Without it `if (x) return;`
+    // counts as ONE statement and slips past max-statements-per-line.
+    curly: [gate.tier, 'all'],
+  };
 }
 
 interface ActiveRule {

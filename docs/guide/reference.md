@@ -55,8 +55,10 @@ The gated set:
 - **`complexity`** → `complexity` · warn · 12
 - **`unusedVars`** → `no-unused-vars` (TS-aware when the project is TS) · error
 - **`explicitAny`** → `@typescript-eslint/no-explicit-any` · error
+- **`codeStyle`** → `@stylistic`'s `customize()` set plus `max-len`, `linebreak-style` and core `curly` — ~68 rules · error
 - **`statementsPerLine`** → `@stylistic/max-statements-per-line` at a hard-wired `{ max: 1 }` · error
 - **`statementPadding`** → `@stylistic/padding-line-between-statements` with a fixed 17-entry option list · error
+- **`importBlock`** → `import/first` + `import/no-duplicates` · error
 - **`fixtureImports`** → restricted fixture imports in production code · error (vue preset)
 - **`cycles`** → inspect's `cycle` finding (module-level; `import/no-cycle` was dropped from the generated config — a slow per-file re-check of the same graph) · error
 - **`deepWatch` / `usePrefix` / `usePrefixReactivity` / `testFilename` / `typedefOnlyFile`** → the plugin rules above (see that section)
@@ -68,20 +70,22 @@ gate. That split is the [three-tier landing](/philosophy/#the-three-tier-landing
 This whole mapping is queryable in place: `npx blueprint rules` prints the catalog,
 annotated with the declared tiers once a config exists.
 
-### Three gates ride an injected plugin
+### Five gates ride an injected plugin
 
-The library has **zero runtime dependencies**, so the three ids above that emit a
-third-party rule need that plugin handed to `emitLint` — and a gate whose plugin is
-missing **emits nothing while lint still passes**. The generated config wires both,
-and `init` installs them; a hand-merged config has to carry the argument itself:
+The library has **zero runtime dependencies**, so every id above that emits a
+third-party rule needs its plugin handed to `emitLint` — and a gate whose plugin is
+missing **emits nothing while lint still passes**, which reads exactly like a clean
+merge. The generated config wires all three plugins and `init` installs them; a
+hand-merged config has to carry the argument itself:
 
 ```js
 import stylistic from '@stylistic/eslint-plugin';
+import imports from 'eslint-plugin-import';
 import tseslint from 'typescript-eslint';
 
 export default [
   /* …your entries */
-  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic }),
+  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }),
 ];
 ```
 
@@ -89,24 +93,47 @@ export default [
   fall back to — `any` is a TypeScript construct, so on a JS project the gate is
   meaningless and `inspect` drops it from the coverage denominator rather than
   reporting a gate nobody can open.
-- **`statementsPerLine`** and **`statementPadding`** need `stylistic`. Their core
-  rule ids were deprecated and frozen when ESLint handed formatting to
-  `@stylistic`, so emitting those ids would ship rules slated for removal.
+- **`codeStyle`**, **`statementsPerLine`** and **`statementPadding`** need
+  `stylistic`. ESLint's own formatting rules were deprecated and frozen when it
+  handed them to `@stylistic`, so emitting the core ids would ship rules slated for
+  removal. `codeStyle` additionally reads the plugin's `configs.customize()` factory,
+  and **throws** if it is absent rather than governing nothing.
+- **`importBlock`** needs `imports`. Nothing in ESLint core or `@stylistic` merges
+  duplicate imports.
 
-Two notes on what these two actually buy, since both look like formatting:
+### ESLint owns formatting here
 
-- `statementsPerLine` is what makes **`maxLines` mean anything**. That gate counts
-  code lines (blanks and comments skipped), so a line budget with no cap on line
-  *content* is satisfiable by collapsing statements onto one line instead of
-  splitting the file. `{ max: 1 }` is hard-wired for that reason — the gate's dial
-  is its tier, not its threshold.
-- `statementPadding` is the **only emitted rule carrying a fixer**. `eslint --fix`
-  rewrites blank lines across every layer file, so run that pass as its own commit.
-  It cannot push a file over `maxLines` (that gate skips blank lines), and it does
-  not fight Prettier or Biome — those preserve author blank lines rather than
-  placing them, so the gate only fills gaps they leave. A *house*
-  `padding-line-between-statements` under the same key is a real collision, though:
-  flat config replaces rather than merges, so keep one.
+`codeStyle` is not a convenience layer over a formatter — it *is* the formatter. Two
+consequences worth stating plainly:
+
+- **A red line is the whole enforcement mechanism.** No editor integration, no
+  save-hook, no assumption about which editor anyone uses: the agent runs lint, reads
+  the red, and fixes it. Roughly 5 of the ~68 rules have no autofix, so `eslint --fix`
+  clears most of a first run and what remains is the part that needed judgment.
+- **A repo that already runs its own formatter is the overlapping-tool case.** Keep
+  one owner of formatting and record which. Rules configured under the same key on
+  both sides collide mechanically — flat config replaces rather than merges.
+
+Three details inside `codeStyle` that are deliberate rather than incidental:
+
+- **`statementsPerLine` is what makes `maxLines` mean anything.** That gate counts
+  code lines with blanks and comments skipped, so a line budget with no cap on line
+  *content* is satisfiable by collapsing statements onto one line instead of splitting
+  the file. `{ max: 1 }` is hard-wired for that reason — the gate's dial is its tier.
+  `curly` closes the same route one level down: without it, `if (x) return;` counts as
+  a single statement and slips through.
+- **`max-len` does not exempt plain strings, and has no fixer.** A length cap a line
+  escapes by containing a string is not a cap; and a too-long line has to be
+  restructured, not reformatted.
+- **`linebreak-style` is `unix`, and its red usually is not about the file.** Mixed
+  line endings are what breaks cross-platform work, so LF everywhere is the stance —
+  but the cause of a violation is normally git's `autocrlf` or a missing
+  `.gitattributes`. Fix it there, or the next checkout undoes the autofix.
+
+Knobs: `indent` (2), `quotes` (`single`), `semi` (`true`), `maxLen` (90) — declared on
+the gate, e.g. `codeStyle: { tier: 'error', indent: 4, maxLen: 120 }`. Everything else
+in the bundle is fixed; a repo that wants different braces turns the gate off and
+declares its own set.
 
 One scope note that bites in practice: **`emit.lint.severity` covers only the
 structural family** (`no-restricted-imports` / `-syntax` / `-globals` and

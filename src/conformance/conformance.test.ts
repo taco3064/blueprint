@@ -520,7 +520,7 @@ describe('an injected-plugin gate cannot go silently vacuous', () => {
 
     expect(init.code).toBe(0);
     expect(config).toContain('import stylistic from \'@stylistic/eslint-plugin\';');
-    expect(config).toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic })');
+    expect(config).toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports })');
     // The install set must carry the plugin, or the import is a crash.
     expect(init.output).toContain('@stylistic/eslint-plugin');
   });
@@ -532,7 +532,7 @@ describe('an injected-plugin gate cannot go silently vacuous', () => {
 
     const config = read(dir, 'eslint.config.mjs') ?? '';
 
-    expect(config).toContain('...emitLint(blueprint, { stylistic })');
+    expect(config).toContain('...emitLint(blueprint, { stylistic, imports })');
     expect(config).not.toContain('tseslint.plugin');
   });
 
@@ -551,7 +551,7 @@ describe('an injected-plugin gate cannot go silently vacuous', () => {
     // The two facts an adopting agent cannot guess: the gate needs an
     // injected plugin, and one of them rewrites files under --fix.
     expect(rules.output).toContain('emits nothing');
-    expect(rules.output).toContain('the ONLY emitted rule carrying a fixer');
+    expect(rules.output).toContain('all but 5 auto-fixable');
   });
 
   it('the playbook says why maxLines needs statementsPerLine to mean anything', async () => {
@@ -562,13 +562,19 @@ describe('an injected-plugin gate cannot go silently vacuous', () => {
 
     await cli(dir, ['init', '--authoring', '--no-install']);
 
-    const playbook = read(dir, 'BLUEPRINT-AUTHORING.md') ?? '';
+    // Prose in the playbook is hard-wrapped, so assert against a single-line
+    // form — otherwise a reflow breaks the test without changing the meaning.
+    const playbook = (read(dir, 'BLUEPRINT-AUTHORING.md') ?? '').replace(/\s+/g, ' ');
 
     expect(playbook).toContain('statementsPerLine');
     // The merge hazard, stated where the merge happens.
     expect(playbook).toContain('emits NOTHING while lint still passes');
-    // The fixer's blast radius and its own commit.
+    // The fix pass gets its own commit, and its blast radius is named.
     expect(playbook).toContain('its OWN commit');
+    expect(playbook).toContain('including tests');
+    // The two reds --fix cannot clear, each with the cause an agent needs.
+    expect(playbook).toContain('max-len` has no fixer');
+    expect(playbook).toContain('.gitattributes`, NOT the file');
   });
 });
 
@@ -895,7 +901,7 @@ describe('one output, one story — no snippet contradicts its own prose (field 
     expect(init.code).toBe(0);
 
     expect(init.output)
-      .toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic }) ];');
+      .toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }) ];');
 
     expect(init.output).not.toContain('On a TypeScript');
   });

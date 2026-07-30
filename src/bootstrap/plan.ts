@@ -256,15 +256,16 @@ function eslintWiringNote(state: ProjectState): string {
   // vacuous gate looks exactly like a passing one — so every snippet below
   // carries the full object rather than the minimal one.
   const lintOptions = (ts: boolean) =>
-    (ts ? '{ typescript: tseslint.plugin, stylistic }' : '{ stylistic }');
+    (ts ? '{ typescript: tseslint.plugin, stylistic, imports }' : '{ stylistic, imports }');
 
   // A `tseslint.config()` shape IS a TypeScript project whatever the dep scan
   // says, so that branch keeps the TS variant unconditionally.
   const options = lintOptions(state.hasTypescript);
 
-  const injectNote = '  Carry that options object over WHOLE. Three gates ride an injected plugin\n'
-    + '  (statementsPerLine / statementPadding on stylistic, explicitAny on the TS\n'
-    + '  one), and a gate whose plugin is absent emits NOTHING while lint still\n'
+  const injectNote = '  Carry that options object over WHOLE. Three plugins are injected, never\n'
+    + '  library deps: stylistic carries codeStyle / statementsPerLine /\n'
+    + '  statementPadding, imports carries importBlock, and the TS one carries\n'
+    + '  explicitAny. A gate whose plugin is absent emits NOTHING while lint still\n'
     + '  passes — dropping an argument looks exactly like a clean merge.\n';
 
   // A TypeScript eslint config importing the .mjs blueprint config trips
@@ -302,6 +303,7 @@ function eslintWiringNote(state: ProjectState): string {
       + '    import blueprint from \'./blueprint.config.mjs\';\n'
       + '    import { emitLint } from \'@kekkai/blueprint\';\n'
       + '    import stylistic from \'@stylistic/eslint-plugin\';\n'
+      + '    import imports from \'eslint-plugin-import\';\n'
       + '    export default tseslint.config(\n'
       + '      /* …your existing configs */\n'
       + `      ...emitLint(blueprint, ${lintOptions(true)}),\n`
@@ -318,6 +320,7 @@ function eslintWiringNote(state: ProjectState): string {
   // issue #12: a copy-the-first-snippet agent ships non-TS-aware rules).
   const spread = (state.hasTypescript ? '    import tseslint from \'typescript-eslint\';\n' : '')
     + '    import stylistic from \'@stylistic/eslint-plugin\';\n'
+    + '    import imports from \'eslint-plugin-import\';\n'
     + `    export default [ /* …your existing entries */ ...emitLint(blueprint, ${options}) ];\n`;
 
   return 'eslint.config already exists — blueprint never edits it, so eslint.config.blueprint.mjs '
@@ -330,7 +333,7 @@ function eslintWiringNote(state: ProjectState): string {
     + '  wrapper takes the same spread — its array IS the flat-config array. Rules BOTH\n'
     + `  sides set (no-restricted-*) still need combining into ONE entry.${state.hasTypescript
       ? ''
-      : ' On a TypeScript\n  project add the TS plugin too — emitLint(blueprint, { typescript: tseslint.plugin, stylistic }).'}\n`
+      : ' On a TypeScript\n  project add the TS plugin too — emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }).'}\n`
       + injectNote
       + shared;
 }
@@ -456,20 +459,22 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     'import { emitLint } from \'@kekkai/blueprint\';',
     'import comments from \'@eslint-community/eslint-plugin-eslint-comments\';',
     'import stylistic from \'@stylistic/eslint-plugin\';',
+    'import imports from \'eslint-plugin-import\';',
     ...parserImports,
     'import blueprint from \'./blueprint.config.mjs\';',
     '',
     'export default [',
     ...(parserBlocks.length ? parserHeader : []),
     ...parserBlocks,
-    // Both plugins are INJECTED, never library deps: on TS the unusedVars gate
-    // needs the TS-aware twin (core false-flags enum members) and explicitAny
-    // has no core twin at all; stylistic carries the two shape gates, whose
-    // core rules ESLint deprecated. Drop an argument and its gates go silent
-    // without a word — keep the object whole when merging.
+    // All three plugins are INJECTED, never library deps: on TS the unusedVars
+    // gate needs the TS-aware twin (core false-flags enum members) and
+    // explicitAny has no core twin at all; stylistic carries the shape family,
+    // whose core rules ESLint deprecated; imports carries importBlock, which
+    // nothing in core or stylistic can do. Drop an argument and its gates go
+    // silent without a word — keep the object whole when merging.
     ts
-      ? '  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic }),'
-      : '  ...emitLint(blueprint, { stylistic }),',
+      ? '  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }),'
+      : '  ...emitLint(blueprint, { stylistic, imports }),',
     '  // The anti-bypass guard — NOT part of emitLint. A silent, unexplained',
     '  // eslint-disable is exactly how an agent routes around every rule',
     '  // above, so these two rules force each disable to carry a scope and a',

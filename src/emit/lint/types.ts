@@ -26,13 +26,22 @@ export interface EmitLintOptions {
    */
   typescript?: ESLint.Plugin;
   /**
-   * The `@stylistic/eslint-plugin`. Carrier for the two shape gates
-   * (`statementsPerLine`, `statementPadding`) — their core rules were
-   * deprecated and frozen when ESLint handed formatting to `@stylistic`, so
-   * emitting the core ids would ship a rule slated for removal. Without this,
-   * both gates emit nothing.
+   * The `@stylistic/eslint-plugin`. Carrier for the shape family
+   * (`codeStyle`, `statementsPerLine`, `statementPadding`) — ESLint's own
+   * formatting rules were deprecated and frozen when it handed them to
+   * `@stylistic`, so emitting the core ids would ship rules slated for
+   * removal. Without this, all three gates emit nothing. `codeStyle`
+   * additionally needs the real plugin's `configs.customize()` factory.
    */
   stylistic?: ESLint.Plugin;
+  /**
+   * The `eslint-plugin-import` plugin. Carrier for `importBlock`
+   * (`import/first` + `import/no-duplicates`) — nothing in ESLint core or
+   * `@stylistic` merges duplicate imports, and both mistakes are ones an
+   * agent editing incrementally makes routinely. Without this, the gate
+   * emits nothing.
+   */
+  imports?: ESLint.Plugin;
 }
 
 /** A package restriction derived from layers' `owns`, merged by signature. */

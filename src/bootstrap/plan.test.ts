@@ -59,11 +59,15 @@ describe('plan', () => {
   it('generates the third-party CORE in eslint.config.mjs, tier-driven', () => {
     const content = write(plan(state(), bp, null, {}), 'eslint.config.mjs')?.content;
 
-    // Cycles are inspect's job — import/no-cycle re-checks the whole graph
-    // per file (measured 92s on an 850-file repo) and is deliberately absent.
+    // eslint-plugin-import IS wired now (importBlock rides it), but only for
+    // import/first + import/no-duplicates. Two of its rules stay rejected on
+    // their own merits, and shipping the plugin must not smuggle them in:
+    // cycles are inspect's job — import/no-cycle re-checks the whole graph
+    // per file (measured 92s on an 850-file repo) …
+    expect(content).toContain('eslint-plugin-import');
     expect(content).not.toContain('import/no-cycle');
-    expect(content).not.toContain('eslint-plugin-import');
-    // deadCode emits no ESLint line — flat config cannot run no-unused-modules.
+    // … and deadCode emits no ESLint line — flat config cannot run
+    // no-unused-modules at all.
     expect(content).not.toContain('import/no-unused-modules');
     expect(content).toContain('no-unlimited-disable\': \'error\'');
     expect(content).toContain('require-description');
@@ -296,7 +300,7 @@ describe('plan', () => {
 
     expect(note?.note).toContain('eslint.config.blueprint.mjs');
     // Non-TS repo: stylistic still rides along — two gates depend on it.
-    expect(note?.note).toContain('...emitLint(blueprint, { stylistic })');
+    expect(note?.note).toContain('...emitLint(blueprint, { stylistic, imports })');
     expect(note?.note).toContain('import stylistic from \'@stylistic/eslint-plugin\';');
     // Not a TS repo — the TS variant stays a prose hint, not the snippet.
     expect(note?.note).toContain('On a TypeScript');
@@ -321,7 +325,7 @@ describe('plan', () => {
     // The copied line must be the correct one — prose four lines later
     // does not save a copy-the-first-snippet agent (field issue #12).
     expect(note?.note)
-      .toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic }) ];');
+      .toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }) ];');
 
     expect(note?.note).toContain('import tseslint from \'typescript-eslint\';');
     expect(note?.note).toContain('import stylistic from \'@stylistic/eslint-plugin\';');
@@ -335,7 +339,7 @@ describe('plan', () => {
     expect(note?.note).toContain('export default tseslint.config(');
     // A tseslint.config() shape IS a TS project — the TS plugin rides along
     // even when the dep scan did not see `typescript`.
-    expect(note?.note).toContain('emitLint(blueprint, { typescript: tseslint.plugin, stylistic })');
+    expect(note?.note).toContain('emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports })');
     expect(note?.note).toContain('DELETE the reference');
   });
 

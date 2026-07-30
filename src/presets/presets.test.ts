@@ -115,8 +115,10 @@ describe('presets · shape', () => {
     // two must never drift apart across presets.
     for (const rules of [vuePreset().rules, reactPreset().rules, nextPreset().rules]) {
       expect(rules?.explicitAny).toBe('error');
+      expect(rules?.codeStyle).toBe('error');
       expect(rules?.statementsPerLine).toBe('error');
       expect(rules?.statementPadding).toBe('error');
+      expect(rules?.importBlock).toBe('error');
       expect(rules?.maxLines).toEqual({ tier: 'error', value: 400 });
     }
   });

@@ -127,6 +127,10 @@ export async function runImpact(
     await loadStack(load, root, '@stylistic/eslint-plugin'),
   );
 
+  const imports = unwrapModule<EslintNamespace.Plugin>(
+    await loadStack(load, root, 'eslint-plugin-import'),
+  );
+
   // The same parser wiring the generated eslint config carries (see
   // bootstrap's eslintConfigSource) — parsers only, so every file the
   // emitted rules cover can actually be parsed.
@@ -150,7 +154,11 @@ export async function runImpact(
 
   const config = [
     ...parserEntries,
-    ...emitLint(blueprint, { ...(tseslint ? { typescript: tseslint.plugin } : {}), stylistic }),
+    ...emitLint(blueprint, {
+      ...(tseslint ? { typescript: tseslint.plugin } : {}),
+      stylistic,
+      imports,
+    }),
   ];
 
   const { architecture } = blueprint;

@@ -206,12 +206,16 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
       // `any` is the cheapest way to widen an interface past the point where
       // illegal states are unrepresentable (principle: narrow-interfaces).
       explicitAny: 'error',
+      // ESLint owns formatting here — there is no second formatter to
+      // coordinate with, and a red line is the agent's own repair signal.
+      codeStyle: 'error',
       // Pins what a "line" means for maxLines above — without it the budget
       // is satisfiable by collapsing statements onto one line.
       statementsPerLine: 'error',
       // Statement grouping is what a reader (human or agent) reads when
-      // deciding where a unit splits. The one emitted rule with a fixer.
+      // deciding where a unit splits.
       statementPadding: 'error',
+      importBlock: 'error',
       fixtureImports: 'error',
       cycles: 'error',
       deadCode: 'error',
@@ -322,8 +326,10 @@ export function nextPreset(options: NextPresetOptions = {}): Blueprint {
       complexity: { tier: 'warn', value: 12 },
       unusedVars: 'error',
       explicitAny: 'error',
+      codeStyle: 'error',
       statementsPerLine: 'error',
       statementPadding: 'error',
+      importBlock: 'error',
       cycles: 'error',
       usePrefix: 'error',
     },
