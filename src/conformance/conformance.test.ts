@@ -1544,3 +1544,31 @@ describe('one violation, one name per channel (field issue #48)', () => {
     expect(playbook).toContain('finds nothing and proves nothing');
   });
 });
+
+describe('"ONE entry" is per collision, not per rule key (field issue #51)', () => {
+  it('the playbook scopes the combine instruction to the entry you actually collide with', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = (read(dir, 'blueprint-authoring.md') ?? '').replace(/\s+/g, ' ');
+
+    // A selfOnly layer emits its ban on EVERY importer layer, so one rule key
+    // owns several scoped entries. "Combine into ONE entry", read literally
+    // against a house rule overlapping just one of them, produced either a
+    // rule imposed on files it never governed or — silently — a replaced
+    // entry and a deleted ban. The paragraph warns about that exact trap two
+    // sentences earlier, which is what made this worth fixing.
+    expect(playbook).toContain('"ONE entry" means one per COLLISION, not one for the whole rule key');
+    expect(playbook).toContain('emits `no-restricted-syntax` on BOTH importer layers');
+    expect(playbook).toContain('leave the others exactly as emitted');
+    // Both wrong turns named, with which one is silent.
+    expect(playbook).toContain('new red, visible');
+    expect(playbook).toContain('silent, lint still green');
+    // And the gate that catches it, so the warning does not read as "be careful".
+    expect(playbook).toContain('probes every layer separately and names the one that lost its selectors');
+  });
+});

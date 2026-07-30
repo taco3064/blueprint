@@ -373,7 +373,26 @@ the answer belongs in this playbook — note the gap in your report instead.
      green. Combine both option sets into ONE entry — blueprint's patterns
      and selectors plus your own (\`npx blueprint rules --json\` carries the
      exact selfOnly selector strings per layer; copy them from there, never
-     from an emitLint dump) — and \`blueprint doctor\` verifies both the
+     from an emitLint dump).
+
+     **"ONE entry" means one per COLLISION, not one for the whole rule
+     key.** emitLint scopes its entries per layer, so a rule key can have
+     several — a \`selfOnly\` layer with two importers emits
+     \`no-restricted-syntax\` on BOTH importer layers, and your own rule
+     may overlap only one of them. Combine with the entry you actually
+     collide with, and leave the others exactly as emitted. The two ways
+     to get this wrong are the two the instruction used to walk into:
+     widening your combined entry to cover the other layers as well
+     imposes YOUR rule on files it never governed (new red, visible), and
+     narrowing it to exclude them replaces their emitted entry with
+     nothing (silent, lint still green — the very trap this paragraph
+     opens with). Check the emit points before merging, not after:
+     \`npx blueprint rules --json\` lists the selectors per layer, so two
+     importers show up as two. If you get it wrong anyway, doctor's
+     survival check probes every layer separately and names the one that
+     lost its selectors — it is a red you can act on, not a silent pass.
+
+     \`blueprint doctor\` verifies both the
      emitted structural rules and each declared gate's carrier rule
      survived the merge — so a hand sweep of the emitted gates duplicates
      it. What doctor does NOT compare is thresholds, package-ownership

@@ -438,3 +438,69 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
     expect(off.ok).toBe(true);
   });
 });
+
+describe('wiringCheck · selfOnly with several importers (field issue #51)', () => {
+  // A selfOnly layer emits its re-export ban on EVERY importer layer, so one
+  // rule key owns several scoped entries. A house rule that overlaps just one
+  // of them tempts a combined entry narrowed to that layer — which, under
+  // flat-config replacement, deletes the other importer's ban while lint
+  // stays green. The playbook now says so; this proves the gate behind it.
+  const twoImporters: Blueprint = {
+    ...blueprint,
+    architecture: {
+      ...blueprint.architecture,
+      layers: [
+        { name: 'views', does: 'pages' },
+        {
+          name: 'contexts',
+          does: 'shared state',
+          allowedImporters: [
+            { layer: 'views', selfOnly: true },
+            { layer: 'composables', selfOnly: true },
+          ],
+        },
+        { name: 'composables', does: 'reusable logic' },
+        { name: 'services', does: 'io' },
+      ],
+    },
+  };
+
+  it('emits the ban on both importers, not just the first', () => {
+    expect(expectedStructural(twoImporters, 'views').selectors.size).toBeGreaterThan(0);
+    expect(expectedStructural(twoImporters, 'composables').selectors.size).toBeGreaterThan(0);
+  });
+
+  it('names the importer whose ban a narrowed combined entry replaced', async () => {
+    const views = expectedStructural(twoImporters, 'views');
+
+    const check = await wiringCheck({
+      root: '/repo',
+      blueprint: twoImporters,
+      scanResult: scanOf('src/views/Home/index.vue', 'src/composables/useThing/index.ts'),
+      wired: true,
+      hasTypescript: true,
+      // The combined entry covers views and keeps its selectors; composables
+      // resolves to a config where the emitted entry was replaced away.
+      load: loader((filePath: string) =>
+        filePath.includes('composables')
+          ? { rules: { 'blueprint/relative-escape': 'error' } }
+          : {
+              rules: {
+                'blueprint/relative-escape': 'error',
+                'no-restricted-imports': [2, {
+                  patterns: [...views.groups]
+                    .map((group) => ({ group: JSON.parse(group) as string[] })),
+                }],
+                'no-restricted-syntax': [2, ...views.selectors],
+                'no-restricted-globals': [2, ...views.globals],
+              },
+            }),
+    });
+
+    expect(check.ok).toBe(false);
+    // The layer that lost it is named, so the red is actionable rather than
+    // "something somewhere in the merge".
+    expect(check.detail).toContain('composables: no-restricted-syntax lost');
+    expect(check.detail).not.toContain('views: no-restricted-syntax lost');
+  });
+});
