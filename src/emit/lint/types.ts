@@ -35,11 +35,13 @@ export interface EmitLintOptions {
    */
   stylistic?: ESLint.Plugin;
   /**
-   * The `eslint-plugin-import` plugin. Carrier for `importBlock`
-   * (`import/first` + `import/no-duplicates`) — nothing in ESLint core or
-   * `@stylistic` merges duplicate imports, and both mistakes are ones an
+   * The `eslint-plugin-import-x` plugin. Carrier for `importBlock`
+   * (`import-x/first` + `import-x/no-duplicates`) — nothing in ESLint core
+   * or `@stylistic` merges duplicate imports, and both mistakes are ones an
    * agent editing incrementally makes routinely. Without this, the gate
-   * emits nothing.
+   * emits nothing. The `-x` fork rather than `eslint-plugin-import`: the
+   * latter's peer range stops at ESLint 9, so asking an ESLint 10 project to
+   * install it fails the whole install (field issue #37).
    */
   imports?: ESLint.Plugin;
 }

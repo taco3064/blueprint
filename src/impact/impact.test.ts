@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import stylisticPlugin from '@stylistic/eslint-plugin';
-import importsPlugin from 'eslint-plugin-import';
+import importsPlugin from 'eslint-plugin-import-x';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LintConfigEntry } from '../emit/lint';
@@ -73,7 +73,7 @@ function loader(eslintModule: unknown) {
     // factory, so a `{ rules: {} }` stand-in would not exercise the path the
     // adopting project actually runs.
     if (name === '@stylistic/eslint-plugin') return { default: stylisticPlugin };
-    if (name === 'eslint-plugin-import') return { default: importsPlugin };
+    if (name === 'eslint-plugin-import-x') return { default: importsPlugin };
 
     throw new Error(`unexpected module ${name}`);
   };
@@ -175,7 +175,7 @@ describe('runImpact', () => {
     // Both carriers are stack-independent — their gates apply everywhere, and
     // skipping either would report 0 hits for gates that are actually on.
     expect(loaded).toContain('@stylistic/eslint-plugin');
-    expect(loaded).toContain('eslint-plugin-import');
+    expect(loaded).toContain('eslint-plugin-import-x');
 
     const entries = captured.options?.overrideConfig as LintConfigEntry[];
     const vueEntry = entries.find((e) => e.files?.[0] === '**/*.vue');
@@ -197,9 +197,9 @@ describe('runImpact', () => {
 
     expect(gate?.rules?.['@stylistic/padding-line-between-statements']).toBeDefined();
     expect(gate?.rules?.['@stylistic/indent']).toBeDefined(); // the codeStyle bundle
-    expect(gate?.rules?.['import/no-duplicates']).toBeDefined();
+    expect(gate?.rules?.['import-x/no-duplicates']).toBeDefined();
     expect(gate?.plugins?.['@stylistic']).toBe(stylisticPlugin);
-    expect(gate?.plugins?.import).toBe(importsPlugin);
+    expect(gate?.plugins?.['import-x']).toBe(importsPlugin);
   });
 
   it('resolves framework `auto` from the detected project', async () => {

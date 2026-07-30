@@ -170,8 +170,82 @@ describe('runInit', () => {
 
     expect(commands).toEqual([
       'npm install -D eslint @kekkai/blueprint @eslint-community/eslint-plugin-eslint-comments'
-      + ' @stylistic/eslint-plugin eslint-plugin-import vue-eslint-parser',
+      + ' @stylistic/eslint-plugin eslint-plugin-import-x vue-eslint-parser',
     ]);
+  });
+
+  it('claims no effect that a failed step prevented (field issue #37)', async () => {
+    writePkg({ name: 'demo', dependencies: { react: '^18' } });
+
+    fs.writeFileSync(
+      path.join(root, 'vite.config.ts'),
+      'import { defineConfig } from \'vite\'\n\nexport default defineConfig({\n  plugins: [],\n})\n',
+    );
+
+    const lines: string[] = [];
+
+    // The field repro: install sits mid-plan with the alias writes below it,
+    // so an ERESOLVE used to leave an output claiming edits that never
+    // reached disk — and an agent contract promising an alias that resolved
+    // nowhere.
+    const failing = runInit(root, {
+      log: (message) => lines.push(message),
+      exec: () => {
+        throw new Error('npm error ERESOLVE unable to resolve dependency tree');
+      },
+    });
+
+    await expect(failing).rejects.toThrow('ERESOLVE');
+
+    const output = lines.join('\n');
+
+    // Everything narrated with ✓ is genuinely on disk; the step that threw
+    // wears ✗, and nothing below it was announced at all.
+    expect(output).toContain('✓ write: eslint.config.mjs');
+    expect(exists('eslint.config.mjs')).toBe(true);
+    expect(output).toContain('✗ install: eslint,');
+    expect(output).not.toContain('✓ install:');
+    expect(output).not.toContain('vite.config.ts');
+    expect(read('vite.config.ts')).not.toContain('~app');
+  });
+
+  it('names what did not happen, and how to finish (field issue #37)', async () => {
+    writePkg({ name: 'demo', dependencies: { react: '^18' } });
+
+    const failing = runInit(root, {
+      log: silent,
+      exec: () => {
+        throw new Error('npm error ERESOLVE');
+      },
+    });
+
+    // A stopped run whose remaining plan is unnamed reads as "init is done,
+    // minus one warning" — the message has to carry the missing effects and
+    // a route to completion, or the adopter has no reason to look.
+    await expect(failing).rejects.toThrow('init stopped at the install step above');
+    await expect(failing).rejects.toThrow('did NOT happen');
+    await expect(failing).rejects.toThrow('write: jsconfig.json (import alias)');
+    await expect(failing).rejects.toThrow('blueprint init --no-install');
+  });
+
+  it('says so plainly when the failing step was the last one', async () => {
+    writePkg({ name: 'demo', dependencies: { react: '^18' } });
+    // A tsconfig with paths already declared: the alias actions collapse to
+    // nothing, so install is the tail of the plan.
+
+    fs.writeFileSync(
+      path.join(root, 'tsconfig.json'),
+      JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+    );
+
+    const failing = runInit(root, {
+      log: silent,
+      exec: () => {
+        throw new Error('npm error ERESOLVE');
+      },
+    });
+
+    await expect(failing).rejects.toThrow('nothing else was planned below it');
   });
 
   it('does not stutter the install label (field issue #34)', async () => {

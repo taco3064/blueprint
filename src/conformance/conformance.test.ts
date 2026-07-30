@@ -1363,3 +1363,57 @@ describe('the playbook only invites tools that run yet (field issue #35)', () =>
     expect(playbook).toContain('Validate — the loop that keeps you honest.** Run `npx blueprint inspect`.');
   });
 });
+
+describe('the required deps install on the ESLint the project is on (field issue #37)', () => {
+  it('importBlock rides import-x — the config, the install set and the catalog agree', async () => {
+    const dir = repo({ packageJson: react({ typescript: '^5.0.0' }) });
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    // eslint-plugin-import's peer range stops at ESLint 9. Since npm resolves
+    // the required-deps list as a unit, naming it here failed the whole
+    // install on any ESLint 10 project — and took the rest of init's plan,
+    // the alias writes included, down with it.
+    expect(init.output).toContain('eslint-plugin-import-x');
+    expect(init.output).not.toContain(' eslint-plugin-import ');
+
+    const config = read(dir, 'eslint.config.mjs') ?? '';
+
+    expect(config).toContain('import imports from \'eslint-plugin-import-x\';');
+
+    write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
+
+    const rules = await cli(dir, ['rules']);
+
+    expect(rules.output).toContain('importBlock → import-x/first + import-x/no-duplicates');
+  });
+
+  it('the emitted import-x rules actually fire under the real eslint', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(reactPreset({ name: 'fixture' })),
+        // Both importBlock mistakes, in a declared layer: a module imported
+        // twice, and an import sitting below code.
+        'src/components/Dup.jsx':
+          'import { a } from \'./m\';\n'
+          + 'import { b } from \'./m\';\n'
+          + 'export const Dup = () => [a, b];\n',
+        'src/components/Late.jsx':
+          'export const x = 1;\n'
+          + 'import { c } from \'./m\';\n'
+          + 'export const Late = () => c;\n',
+      },
+    });
+
+    // impact lints with the emitted config through the project's own eslint,
+    // so a carrier swap that only looked right in the generated text would
+    // report zero here instead of the two hits below.
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.code).toBe(0);
+    expect(impact.output).toContain('import-x/no-duplicates');
+    expect(impact.output).toContain('import-x/first');
+  });
+});

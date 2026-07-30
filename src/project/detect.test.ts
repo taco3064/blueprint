@@ -3,7 +3,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { detect, detectAliases, parseJsonc, pathAliasKeys, readTexts } from './detect';
+import {
+  detect,
+  detectAliases,
+  parseJsonc,
+  pathAliasKeys,
+  readTexts,
+  REQUIRED_DEPS,
+  SUPPORTED_ESLINT_MAJORS,
+} from './detect';
 
 let root: string;
 
@@ -81,7 +89,7 @@ describe('detect', () => {
       '@kekkai/blueprint',
       '@eslint-community/eslint-plugin-eslint-comments',
       '@stylistic/eslint-plugin',
-      'eslint-plugin-import',
+      'eslint-plugin-import-x',
       'typescript-eslint',
     ]);
 
@@ -330,5 +338,47 @@ describe('pathAliasKeys', () => {
 
   it('returns an empty set when no config declares paths', () => {
     expect(pathAliasKeys({ 'tsconfig.json': '{ broken', 'jsconfig.json': null }).size).toBe(0);
+  });
+});
+
+describe('the required-deps list installs on every supported ESLint', () => {
+  // `npm install -D <all of them>` is all-or-nothing, so ONE package whose
+  // peer range caps below the project's ESLint takes the whole install down
+  // — and with it the rest of init's plan. That is how a repo on ESLint 10
+  // got a green-looking init with no alias wired (field issue #37):
+  // eslint-plugin-import stopped at ^9. This reads the ranges as installed
+  // rather than trusting the list, so the next capped dependency fails here
+  // instead of in someone's adoption.
+  const peerRange = (dep: string): string | null => {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join('node_modules', dep, 'package.json'), 'utf-8'),
+    ) as { peerDependencies?: Record<string, string> };
+
+    return manifest.peerDependencies?.eslint ?? null;
+  };
+
+  // eslint is the peer itself; the package under test is not installed into
+  // its own node_modules.
+  const carriers = REQUIRED_DEPS.filter((dep) => dep !== 'eslint' && dep !== '@kekkai/blueprint');
+
+  it.each(carriers)('%s admits every supported ESLint major', (dep) => {
+    const range = peerRange(dep);
+
+    expect(range, `${dep} declares no eslint peer range`).not.toBeNull();
+
+    const unsupported = SUPPORTED_ESLINT_MAJORS.filter(
+      (major) => !new RegExp(`\\^${major}(\\.|\\s|\\||$)`).test(range as string),
+    );
+
+    expect(unsupported, `${dep} peer range "${range}" excludes ESLint ${unsupported.join(', ')}`)
+      .toEqual([]);
+  });
+
+  it('every carrier is a devDependency here, so the ranges above are real', () => {
+    const manifest = JSON.parse(fs.readFileSync('package.json', 'utf-8')) as {
+      devDependencies: Record<string, string>;
+    };
+
+    expect(carriers.filter((dep) => !manifest.devDependencies[dep])).toEqual([]);
   });
 });

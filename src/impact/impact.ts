@@ -128,7 +128,7 @@ export async function runImpact(
   );
 
   const imports = unwrapModule<EslintNamespace.Plugin>(
-    await loadStack(load, root, 'eslint-plugin-import'),
+    await loadStack(load, root, 'eslint-plugin-import-x'),
   );
 
   // The same parser wiring the generated eslint config carries (see

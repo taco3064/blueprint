@@ -13,8 +13,19 @@ export const defaultExec: Exec = (command, cwd) => {
 };
 /* v8 ignore stop */
 
-/** Execute the planned actions against the filesystem. */
-export function apply(root: string, actions: Action[], exec: Exec = defaultExec): void {
+/**
+ * Execute the planned actions against the filesystem, in order, calling
+ * `onApplied` after each one lands. The callback is how the caller narrates
+ * effects that have ALREADY happened: an action list announced up front is a
+ * promise, and `apply` stops at the first throw, so a run whose install fails
+ * mid-list would have claimed every write below it (field issue #37).
+ */
+export function apply(
+  root: string,
+  actions: Action[],
+  exec: Exec,
+  onApplied: (action: Action) => void,
+): void {
   for (const action of actions) {
     if (action.kind === 'write') {
       const full = path.resolve(root, action.path);
@@ -33,6 +44,8 @@ export function apply(root: string, actions: Action[], exec: Exec = defaultExec)
       // scaffold that --authoring takes over) — never at user files.
       fs.rmSync(path.resolve(root, action.path), { force: true });
     }
-    // 'instruct' actions are report-only.
+    // 'instruct' actions are report-only — still announced, in plan order.
+
+    onApplied(action);
   }
 }

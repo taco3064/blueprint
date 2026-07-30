@@ -305,7 +305,7 @@ function eslintWiringNote(state: ProjectState): string {
       + '    import blueprint from \'./blueprint.config.mjs\';\n'
       + '    import { emitLint } from \'@kekkai/blueprint\';\n'
       + '    import stylistic from \'@stylistic/eslint-plugin\';\n'
-      + '    import imports from \'eslint-plugin-import\';\n'
+      + '    import imports from \'eslint-plugin-import-x\';\n'
       + '    export default tseslint.config(\n'
       + '      /* …your existing configs */\n'
       + `      ...emitLint(blueprint, ${lintOptions(true)}),\n`
@@ -322,7 +322,7 @@ function eslintWiringNote(state: ProjectState): string {
   // issue #12: a copy-the-first-snippet agent ships non-TS-aware rules).
   const spread = (state.hasTypescript ? '    import tseslint from \'typescript-eslint\';\n' : '')
     + '    import stylistic from \'@stylistic/eslint-plugin\';\n'
-    + '    import imports from \'eslint-plugin-import\';\n'
+    + '    import imports from \'eslint-plugin-import-x\';\n'
     + `    export default [ /* …your existing entries */ ...emitLint(blueprint, ${options}) ];\n`;
 
   return 'eslint.config already exists — blueprint never edits it, so eslint.config.blueprint.mjs '
@@ -446,7 +446,9 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
   // cycles already, and `import/no-cycle` re-checks the whole graph per file —
   // measured at 92s on an 850-file repo. One detector, the cheap one.
   // rules.deadCode likewise: import/no-unused-modules cannot run under flat
-  // config (import-js/eslint-plugin-import#3079) — dead code is knip's job.
+  // config (import-js/eslint-plugin-import#3079, inherited by the -x fork) —
+  // dead code is knip's job. Both keep their ecosystem names here: blueprint
+  // emits neither, so the id a reader recognizes beats the -x namespace.
   const core = [
     '      \'@eslint-community/eslint-comments/no-unlimited-disable\': \'error\',',
     '      \'@eslint-community/eslint-comments/require-description\': \'error\',',
@@ -461,7 +463,7 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     'import { emitLint } from \'@kekkai/blueprint\';',
     'import comments from \'@eslint-community/eslint-plugin-eslint-comments\';',
     'import stylistic from \'@stylistic/eslint-plugin\';',
-    'import imports from \'eslint-plugin-import\';',
+    'import imports from \'eslint-plugin-import-x\';',
     ...parserImports,
     'import blueprint from \'./blueprint.config.mjs\';',
     '',

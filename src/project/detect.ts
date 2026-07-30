@@ -42,15 +42,26 @@ const TSCONFIG_FILES = ['tsconfig.json', 'tsconfig.app.json', 'jsconfig.json'];
 
 const VITE_FILES = ['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite.config.mts'];
 
-const REQUIRED_DEPS = [
+/**
+ * The ESLint majors an adopting project may be on. Every package in
+ * {@link REQUIRED_DEPS} must declare a peer range admitting all of them:
+ * `npm install` resolves the whole list or none of it, so one package that
+ * caps below the project's ESLint fails the entire install — and `init` is
+ * left with a half-applied plan (field issue #37).
+ */
+export const SUPPORTED_ESLINT_MAJORS = [9, 10];
+
+export const REQUIRED_DEPS = [
   'eslint',
   '@kekkai/blueprint',
   '@eslint-community/eslint-plugin-eslint-comments',
   // Carriers for the shape family and importBlock. The library depends on
   // neither plugin — the generated config injects them, so the packages are
-  // the project's deps, not blueprint's.
+  // the project's deps, not blueprint's. importBlock rides
+  // `eslint-plugin-import-x` rather than `eslint-plugin-import` for exactly
+  // the reason above: the latter's peer range stops at ESLint 9.
   '@stylistic/eslint-plugin',
-  'eslint-plugin-import',
+  'eslint-plugin-import-x',
 ];
 
 function readJson(file: string): Record<string, unknown> | null {

@@ -1,6 +1,6 @@
 import stylisticPlugin from '@stylistic/eslint-plugin';
 import { Linter } from 'eslint';
-import importsPlugin from 'eslint-plugin-import';
+import importsPlugin from 'eslint-plugin-import-x';
 import { describe, expect, it } from 'vitest';
 
 import { defineBlueprint } from '../../config';
@@ -543,12 +543,12 @@ describe('emitLint · injected-plugin gates', () => {
 
     // …while the shape family covers tests too: a duplicate import or a
     // collapsed line is no easier to read in a spec file.
-    const shape = emitted.find((item) => item.rules?.['import/no-duplicates']);
+    const shape = emitted.find((item) => item.rules?.['import-x/no-duplicates']);
 
     expect(shape?.ignores).toBeUndefined();
     expect(shape?.rules?.['@stylistic/padding-line-between-statements']).toBeDefined();
     expect(shape?.plugins?.['@stylistic']).toBe(stylisticPlugin);
-    expect(shape?.plugins?.import).toBe(importsPlugin);
+    expect(shape?.plugins?.['import-x']).toBe(importsPlugin);
   });
 
   it('enforces both statement gates through a real Linter run', () => {
@@ -584,9 +584,9 @@ describe('emitLint · injected-plugin gates', () => {
       linter.verify(code, cfg, { filename: COMPONENT }).map((message) => message.ruleId);
 
     expect(ids('import { a } from "./m";\nimport { b } from "./m";\n'))
-      .toContain('import/no-duplicates');
+      .toContain('import-x/no-duplicates');
 
-    expect(ids('export const x = 1;\nimport { a } from "./m";\n')).toContain('import/first');
+    expect(ids('export const x = 1;\nimport { a } from "./m";\n')).toContain('import-x/first');
     expect(ids('import { a, b } from "./m";\n\nexport const x = a + b;\n')).toEqual([]);
   });
 });

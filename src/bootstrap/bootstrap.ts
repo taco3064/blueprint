@@ -216,12 +216,14 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
   if (forkNote) log(`· ${forkNote}`);
 
-  for (const action of actions) {
-    log(formatAction(action, Boolean(options.dryRun)));
+  if (options.dryRun) {
+    // Nothing is applied, so listing the whole plan up front IS the report:
+    // every line reads "would", none of them claims anything about disk.
+    for (const action of actions) log(formatAction(action, true));
   }
 
   if (!options.dryRun) {
-    apply(root, actions, options.exec ?? defaultExec);
+    applyAndNarrate(root, actions, options.exec ?? defaultExec, log);
 
     if (options.agent) {
       // Nothing to author on this path — but the flag still narrowed the
@@ -393,12 +395,14 @@ function runAuthoring(
     }`,
   );
 
-  for (const action of actions) {
-    log(formatAction(action, Boolean(options.dryRun)));
+  if (options.dryRun) {
+    // Nothing is applied, so listing the whole plan up front IS the report:
+    // every line reads "would", none of them claims anything about disk.
+    for (const action of actions) log(formatAction(action, true));
   }
 
   if (!options.dryRun) {
-    apply(root, actions, options.exec ?? defaultExec);
+    applyAndNarrate(root, actions, options.exec ?? defaultExec, log);
 
     if (options.agent) {
       launchAgent(options.agent, root, log, options.spawn);
@@ -406,6 +410,47 @@ function runAuthoring(
   }
 
   return actions;
+}
+
+/**
+ * Apply the plan, announcing each effect only once it has landed — and, when
+ * one throws, naming what did NOT happen before rethrowing.
+ *
+ * The old shape printed the whole list with `✓` and applied it afterwards, so
+ * a failing install (which sits mid-plan, with the alias writes below it) left
+ * an output claiming edits that never reached disk. An adopter reading `✓
+ * write: vite.config.ts (import alias added)` has no reason to check, and the
+ * agent contract it ships promises an alias that resolves nowhere — the
+ * doctor catches it, but only after the lie (field issue #37).
+ */
+function applyAndNarrate(
+  root: string,
+  actions: Action[],
+  exec: Exec,
+  log: (line: string) => void,
+): void {
+  let landed = 0;
+
+  try {
+    apply(root, actions, exec, (action) => {
+      landed += 1;
+      log(formatAction(action, false));
+    });
+  } catch (error) {
+    const skipped = actions.slice(landed + 1).filter((action) => action.kind !== 'instruct');
+    const failed = actions[landed];
+
+    log(`  ✗ ${failed.kind}: ${failed.note}`);
+
+    throw new Error(
+      `${(error as Error).message}\n\n`
+      + `  init stopped at the ${failed.kind} step above. Everything printed before it is on disk`
+      + `${skipped.length ? `, and ${skipped.length} planned effect(s) did NOT happen:\n${skipped.map((action) => `    · ${action.kind}: ${action.note}`).join('\n')}` : ' — nothing else was planned below it'}\n\n`
+      + '  Re-running `blueprint init` is idempotent: fix the cause and the missing effects land, '
+      + 'the applied ones stay. To finish the file plan without this step, run '
+      + '`blueprint init --no-install` — the dependency list is then printed for you to install yourself.',
+    );
+  }
 }
 
 function formatAction(action: Action, dryRun: boolean): string {
