@@ -307,6 +307,13 @@ describe('runImpact', () => {
     await expect(
       runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent }),
     ).rejects.toThrow('impact needs "eslint"');
+
+    // The message must carry the next step, not just the miss: the two
+    // brownfield agents of field issue #35 reached impact before init and the
+    // only thing that got them unstuck in one hop was this pointer.
+    await expect(
+      runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent }),
+    ).rejects.toThrow('blueprint init lists it among the required deps');
   });
 
   it('quarantines rules that are not blueprint\'s own — isolation artifacts', async () => {

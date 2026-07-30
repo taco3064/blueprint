@@ -47,7 +47,7 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
   const install: Action[] = !options.needsInstall
     ? []
     : options.install !== false
-      ? [{ kind: 'install', command, note: 'install @kekkai/blueprint (the config imports it)' }]
+      ? [{ kind: 'install', command, note: '@kekkai/blueprint (the config imports it)' }]
       : [{ kind: 'instruct', note: `Install skipped — the config imports @kekkai/blueprint, so run it before authoring:\n    ${command}` }];
 
   return [
@@ -245,9 +245,13 @@ record the conflict — Method step 1).
 **Work the loop, not the archive.** Everything below is evidence and
 reference — it is NOT a syllabus to master before touching the config.
 Draft \`blueprint.config.mjs\` early from the survey and the rule catalog,
-then let the tools correct you: \`inspect\` and \`impact\` are read-only and
-cheap, and a wrong draft fixed in two runs beats a perfect draft after an
-hour of code archaeology. In field runs, agents that drafted first finished
+then let \`inspect\` correct you: it is read-only, cheap, and needs nothing
+installed, and a wrong draft fixed in two runs beats a perfect draft after an
+hour of code archaeology. \`impact\` is the same kind of read-only feedback
+but is NOT available at this point — it lints with the emitted config, so it
+needs the plugins \`init\` installs; it joins the loop at Method step 9, after
+init. Reaching for it while drafting only earns you a load error.
+In field runs, agents that drafted first finished
 in a fraction of the time of agents that studied first — at the same
 quality, because the acceptance gates are the same. And if you ever feel
 the need to read the package's \`dist/\` bundle to answer a question, stop:

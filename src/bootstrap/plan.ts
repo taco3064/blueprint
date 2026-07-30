@@ -212,7 +212,9 @@ export function plan(
       actions.push({
         kind: 'install',
         command: installCommand(state.packageManager, deps),
-        note: `install ${deps.join(', ')}`,
+        // The line renders as "✓ install: <note>" — a note that starts with
+        // "install" stutters (field issue #34).
+        note: deps.join(', '),
       });
     } else {
       // --no-install must not silently drop the requirement — surface the

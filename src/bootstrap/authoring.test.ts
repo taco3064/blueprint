@@ -154,6 +154,17 @@ describe('authoringBrief', () => {
     expect(brief).toContain('note the gap in your report instead');
   });
 
+  it('keeps impact OUT of the drafting loop — it needs init\'s plugins (field issue #35)', () => {
+    // Both brownfield agents of run #35/#36 read "let the tools correct you:
+    // inspect and impact are read-only and cheap" as a licence to run impact
+    // while drafting, and hit the @stylistic load error. Only inspect runs
+    // config-only; impact lints, so it waits for the deps init installs.
+    expect(brief).toContain('then let `inspect` correct you');
+    expect(brief).toContain('needs nothing\ninstalled');
+    expect(brief).toContain('`impact` is the same kind of read-only feedback\nbut is NOT available at this point');
+    expect(brief).toContain('joins the loop at Method step 9, after\ninit');
+  });
+
   it('forbids manufacturing a net — the empty-net twin of manufactured debt', () => {
     // Batch 9: an agent invented a `*` layer so coverage would be non-zero.
     expect(brief).toContain('An empty net is equally legitimate');

@@ -413,5 +413,12 @@ function formatAction(action: Action, dryRun: boolean): string {
     return `  · ${action.note}`;
   }
 
-  return `  ${dryRun ? 'would' : '✓'} ${action.kind}: ${action.note}`;
+  // A deletion wearing the same ✓ as the writes around it skims past as one
+  // more thing created — an agent that filtered init's output for `write`
+  // missed the removal of its own config and spent commands hunting a
+  // phantom (field issue #36). The mark says which direction the effect
+  // went; the note still carries the cause.
+  const mark = dryRun ? 'would' : action.kind === 'rm' ? '−' : '✓';
+
+  return `  ${mark} ${action.kind}: ${action.note}`;
 }

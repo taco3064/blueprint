@@ -173,6 +173,18 @@ describe('runInit', () => {
       + ' @stylistic/eslint-plugin eslint-plugin-import vue-eslint-parser',
     ]);
   });
+
+  it('does not stutter the install label (field issue #34)', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    const lines: string[] = [];
+
+    await runInit(root, { log: (message) => lines.push(message), exec: () => {} });
+
+    // The renderer already prefixes the kind — "✓ install: install eslint …"
+    // read as a bug in the tool's own output.
+    expect(lines.join('\n')).toContain('✓ install: eslint,');
+    expect(lines.join('\n')).not.toContain('install: install');
+  });
 });
 
 describe('runInit · brownfield authoring flow', () => {
@@ -247,11 +259,23 @@ describe('runInit · brownfield authoring flow', () => {
     await runInit(root, { install: false, log: silent });
     expect(read('blueprint.config.mjs')).toContain('reactPreset');
 
-    const actions = await runInit(root, { install: false, authoring: true, log: silent });
+    const lines: string[] = [];
+
+    const actions = await runInit(root, {
+      install: false,
+      authoring: true,
+      log: (message) => lines.push(message),
+    });
 
     expect(actions[0]).toMatchObject({ kind: 'rm', path: 'blueprint.config.mjs' });
     expect(exists('blueprint.config.mjs')).toBe(false);
     expect(exists('blueprint-authoring.md')).toBe(true);
+
+    // A deletion must not wear the writes' ✓ — an agent skimming init's
+    // output missed its own config being reclaimed (field issue #36).
+    expect(lines.join('\n')).toContain('− rm: blueprint.config.mjs (pristine preset scaffold');
+    expect(lines.join('\n')).not.toContain('✓ rm:');
+    expect(lines.join('\n')).toContain('✓ write: blueprint-authoring.md');
   });
 
   it('--authoring also takes over a pristine Next scaffold', async () => {

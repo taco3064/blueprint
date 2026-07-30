@@ -1301,3 +1301,65 @@ describe('locked debt stays green under the baseline ratchet (field issue #10)',
     expect(gate.output).toContain('1 baselined finding(s) suppressed');
   });
 });
+
+describe('init output reads correctly when skimmed (field issues #34, #36)', () => {
+  it('a deletion does not wear the writes\' ✓', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    // A plain init leaves a pristine preset scaffold; --authoring reclaims it
+    // so the playbook can author the real one.
+    expect((await cli(dir, ['init', '--no-install'])).code).toBe(0);
+
+    const authoring = await cli(dir, ['init', '--authoring', '--no-install']);
+
+    expect(authoring.code).toBe(0);
+    // The field agent filtered init's output for `write` and missed its own
+    // config being reclaimed, then spent commands hunting the disappearance.
+    // The cause was always in the note; the mark is what makes the line stop
+    // a skimming reader.
+    expect(authoring.output).toContain('− rm: blueprint.config.mjs (pristine preset scaffold');
+    expect(authoring.output).not.toContain('✓ rm:');
+    expect(authoring.output).toContain('✓ write: blueprint-authoring.md');
+  });
+
+  it('the install line does not stutter its own kind', async () => {
+    const dir = repo({ packageJson: react() });
+
+    const plan = await cli(dir, ['init', '--dry-run']);
+
+    expect(plan.code).toBe(0);
+    expect(plan.output).toContain('would install: eslint,');
+    expect(plan.output).not.toContain('install: install');
+  });
+});
+
+describe('the playbook only invites tools that run yet (field issue #35)', () => {
+  it('impact is named as post-init, not part of the drafting loop', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    expect((await cli(dir, ['init', '--authoring', '--no-install'])).code).toBe(0);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    // Both brownfield agents of this run read "inspect and impact are
+    // read-only and cheap" as licence to run impact while drafting — impact
+    // lints, so it needs the plugins init installs, and greeted them with a
+    // load error instead. inspect is the drafting-loop tool; impact joins at
+    // step 9.
+    expect(playbook).toContain('then let `inspect` correct you');
+    expect(playbook).toContain('but is NOT available at this point');
+    expect(playbook).toContain('joins the loop at Method step 9');
+    expect(playbook).not.toContain('`inspect` and `impact` are read-only');
+    // The drafting-loop step names inspect alone; impact appears only with
+    // init in front of it. (The dep failure itself cannot be staged here —
+    // this suite supplies the real plugins by design; impact.test.ts owns
+    // the message.)
+    expect(playbook).toContain('Validate — the loop that keeps you honest.** Run `npx blueprint inspect`.');
+  });
+});
