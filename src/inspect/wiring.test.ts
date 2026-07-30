@@ -56,6 +56,7 @@ const run = (scanResult: ScanResult, resolved: unknown, throwOn?: 'load' | 'calc
     blueprint,
     scanResult,
     wired: true,
+    hasTypescript: true,
     load: loader(resolved, throwOn),
   });
 
@@ -97,7 +98,11 @@ describe('wiringCheck', () => {
       },
     );
 
-    expect(check).toEqual({ label: 'emitted rules survive the merged eslint config', ok: true });
+    // The ✓ states its own scope — an unqualified one reads as "every emitted
+    // rule is alive", which this check cannot promise (field issue #40).
+    expect(check.ok).toBe(true);
+    expect(check.label).toContain('emitted rules survive the merged eslint config');
+    expect(check.label).toContain('thresholds and package-ownership entries are not compared');
   });
 
   it('probes every layer — a scoped override cannot hide behind the first one', async () => {
@@ -190,6 +195,7 @@ describe('wiringCheck', () => {
       blueprint,
       scanResult: scanOf('src/views/Home/index.vue'),
       wired: false,
+      hasTypescript: true,
       load: loader({}),
     });
 
@@ -252,6 +258,7 @@ describe('wiringCheck', () => {
       blueprint: odd,
       scanResult: scanOf(),
       wired: true,
+      hasTypescript: true,
       load: loader({}),
     });
 
@@ -270,6 +277,7 @@ describe('wiringCheck', () => {
       blueprint: testShaped,
       scanResult: scanOf(),
       wired: true,
+      hasTypescript: true,
       load: loader({}),
     });
 
@@ -286,6 +294,7 @@ describe('wiringCheck', () => {
       blueprint: ignoreViews,
       scanResult: scanOf(),
       wired: true,
+      hasTypescript: true,
       load: loader({ rules: {} }),
     });
 
@@ -315,5 +324,117 @@ describe('expectedStructural', () => {
     expect([...expected.groups].some((g) => g.includes('~app/stores/**'))).toBe(true);
     expect([...expected.selectors].every((s) => s.includes('ExportNamedDeclaration'))).toBe(true);
     expect(expected.globals).toEqual(new Set(['fetch']));
+  });
+});
+
+describe('wiringCheck · carrier gates (field issue #40)', () => {
+  // A gate that rides an injected plugin emits NOTHING when the merge drops
+  // the argument, and lint stays green because there is no rule left to
+  // fail. That is the failure the playbook warns hardest about — and the one
+  // this check used to print a ✓ over: a field agent removed `stylistic`
+  // from a merged config, watched `npm run lint` and `doctor` both pass, and
+  // found the ~68-rule codeStyle family gone only via `eslint --print-config`.
+  const gated: Blueprint = {
+    ...blueprint,
+    rules: {
+      fixtureImports: 'error',
+      codeStyle: 'error',
+      statementPadding: 'error',
+      importBlock: 'error',
+      explicitAny: 'error',
+    },
+  };
+
+  const structural = () => {
+    const expected = gated.architecture.layers
+      .map((layer) => expectedStructural(gated, layer.name));
+
+    return {
+      'blueprint/relative-escape': 'error',
+      'no-restricted-imports': [2, {
+        patterns: [...new Set(expected.flatMap((e) => [...e.groups]))].map((group) => ({
+          group: JSON.parse(group) as string[],
+        })),
+      }],
+      'no-restricted-syntax': [2, ...new Set(expected.flatMap((e) => [...e.selectors]))],
+      'no-restricted-globals': [2, ...new Set(expected.flatMap((e) => [...e.globals]))],
+    } as Record<string, unknown>;
+  };
+
+  const check = (rules: Record<string, unknown>, hasTypescript = true) =>
+    wiringCheck({
+      root: '/repo',
+      blueprint: gated,
+      scanResult: scanOf('src/views/Home/index.vue'),
+      wired: true,
+      hasTypescript,
+      load: loader({ rules }),
+    });
+
+  const carried = {
+    '@stylistic/max-len': 'error',
+    '@stylistic/padding-line-between-statements': 'error',
+    'import-lite/no-duplicates': 'error',
+    '@typescript-eslint/no-explicit-any': 'error',
+  };
+
+  it('goes red when the merge drops the stylistic argument', async () => {
+    // Structural rules all intact — exactly the state that used to pass.
+    const { '@stylistic/max-len': _len, '@stylistic/padding-line-between-statements': _pad, ...rest }
+      = carried;
+
+    const result = await check({ ...structural(), ...rest });
+
+    expect(result.ok).toBe(false);
+    expect(result.detail).toContain('rules.codeStyle is on but @stylistic/max-len resolved to nothing');
+    expect(result.detail).toContain('`stylistic` argument is missing');
+    expect(result.detail).toContain('rules.statementPadding is on');
+  });
+
+  it('goes red when the merge drops the imports argument', async () => {
+    const { 'import-lite/no-duplicates': _dup, ...rest } = carried;
+    const result = await check({ ...structural(), ...rest });
+
+    expect(result.ok).toBe(false);
+    expect(result.detail).toContain('rules.importBlock is on but import-lite/no-duplicates');
+    expect(result.detail).toContain('`imports` argument is missing');
+  });
+
+  it('reads severity, not presence — a carrier rule switched off is lost too', async () => {
+    const result = await check({ ...structural(), ...carried, '@stylistic/max-len': 'off' });
+
+    expect(result.ok).toBe(false);
+    expect(result.detail).toContain('rules.codeStyle is on but @stylistic/max-len');
+  });
+
+  it('passes when every carrier survived', async () => {
+    const result = await check({ ...structural(), ...carried });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('does not expect explicitAny on a JavaScript project', async () => {
+    // `any` is a TS construct, so emitLint skips the gate without the TS
+    // plugin — doctor must mirror that or every JS repo reds on a gate it
+    // could never resolve.
+    const { '@typescript-eslint/no-explicit-any': _any, ...rest } = carried;
+
+    expect((await check({ ...structural(), ...rest }, false)).ok).toBe(true);
+    expect((await check({ ...structural(), ...rest }, true)).ok).toBe(false);
+  });
+
+  it('expects nothing when the gates themselves are off', async () => {
+    const off = await wiringCheck({
+      root: '/repo',
+      blueprint,
+      scanResult: scanOf('src/views/Home/index.vue'),
+      wired: true,
+      hasTypescript: true,
+      load: loader({ rules: structural() }),
+    });
+
+    // A repo that keeps its own formatter turns codeStyle off in the config;
+    // that is a declared decision, not a dropped argument.
+    expect(off.ok).toBe(true);
   });
 });

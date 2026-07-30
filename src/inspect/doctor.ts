@@ -231,6 +231,7 @@ export async function runDoctor(
     blueprint,
     scanResult,
     wired: eslintWired,
+    hasTypescript: state.hasTypescript,
     load: options.loadModule ?? loadProjectModule,
   });
 

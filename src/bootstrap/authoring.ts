@@ -145,8 +145,17 @@ The complete early-exit checklist — nothing else in this file applies:
    true — you skipped nothing. Either way, close this step by running
    the project's own lint once (\`npm run lint\`, or \`npx eslint .\`
    without a script): doctor's wired check reads config text and never
-   executes eslint, so only a real run proves the config loads. Same
-   logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's
+   executes eslint, so only a real run proves the config loads.
+   **A green lint is NOT proof the gates are attached**, and on a repo
+   whose layers hold no files yet it proves only that the config parses
+   — there is nothing for a rule to fire on. To see what the merge
+   actually resolved to, print it:
+   \`npx eslint --print-config <a file inside a layer>\` (any path the
+   layer globs match; the file need not exist yet). The gates that ride
+   an injected plugin are the ones to look for — a dropped \`stylistic\`
+   or \`imports\` argument removes them all while lint stays green, which
+   is why doctor now reds on a declared gate whose rule resolved to
+   nothing. Same logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's
    alias check reads that wiring as text, never as a compile — run the
    build once too (\`npm run build\`, or \`npx tsc -b\`). Its artifacts
    (\`dist/\`, \`*.tsbuildinfo\`) are the build's normal output, not
@@ -347,8 +356,15 @@ the answer belongs in this playbook — note the gap in your report instead.
      green. Combine both option sets into ONE entry — blueprint's patterns
      and selectors plus your own (\`npx blueprint rules --json\` carries the
      exact selfOnly selector strings per layer; copy them from there, never
-     from an emitLint dump) — and \`blueprint doctor\` verifies the
-     emitted structural rules survived the merge. Run the project's own lint command; new findings introduced by
+     from an emitLint dump) — and \`blueprint doctor\` verifies both the
+     emitted structural rules and each declared gate's carrier rule
+     survived the merge. What doctor does NOT compare is thresholds and
+     package-ownership entries, and its ✓ says so; for those, and any
+     time you want to see the merge as ESLint resolved it rather than as
+     you intended it, run
+     \`npx eslint --print-config <a file inside a layer>\`. A green lint
+     run does not substitute: it proves the config loads, not that a
+     given rule reached a given file. Run the project's own lint command; new findings introduced by
      the merge are fixed or explicitly judged, never left dangling — and
      when init wired the alias into \`tsconfig\`/\`vite\`, run the build
      once too (doctor's alias check reads wiring as text, never as a

@@ -38,6 +38,43 @@ import type { DoctorCheck, ScanResult } from './types';
 
 const LABEL = 'emitted rules survive the merged eslint config';
 
+/**
+ * What a green on this check does and does NOT prove. An unqualified ✓ over
+ * a half-verified merge is the false green this whole module exists to
+ * prevent: a field agent dropped the `stylistic` argument, watched lint pass
+ * and doctor print this line, and only `eslint --print-config` showed the
+ * ~68-rule codeStyle family had silently vanished (field issue #40).
+ */
+const SCOPE = 'structural bans + each active gate\'s carrier rule; thresholds and '
+  + 'package-ownership entries are not compared';
+
+/**
+ * Gates whose ESLint rule exists only if the caller handed `emitLint` the
+ * carrier plugin — the arguments the playbook warns hardest about, because a
+ * dropped one emits NOTHING while lint stays green. One representative rule
+ * per gate: losing the carrier loses all of them together, so a single id
+ * detects it, and comparing one id (not values) keeps this version-stable
+ * the way the structural side already is.
+ */
+const CARRIER_GATES = [
+  { gate: 'codeStyle', rule: '@stylistic/max-len', carrier: 'stylistic' },
+  { gate: 'statementsPerLine', rule: '@stylistic/max-statements-per-line', carrier: 'stylistic' },
+  {
+    gate: 'statementPadding',
+    rule: '@stylistic/padding-line-between-statements',
+    carrier: 'stylistic',
+  },
+  { gate: 'importBlock', rule: 'import-lite/no-duplicates', carrier: 'imports' },
+  // TypeScript-only, exactly as emitLint has it: `any` is a TS construct, so
+  // a JS project legitimately resolves this gate to nothing.
+  {
+    gate: 'explicitAny',
+    rule: '@typescript-eslint/no-explicit-any',
+    carrier: 'typescript',
+    typescriptOnly: true,
+  },
+] as const;
+
 interface EslintApi {
   ESLint: new (options: object) => {
     calculateConfigForFile: (filePath: string) => Promise<unknown>;
@@ -224,12 +261,29 @@ function resolvedStructural(rules: Record<string, unknown>): {
   };
 }
 
+/**
+ * The carrier-backed gates this blueprint actually expects to resolve — the
+ * gate must be on, and its carrier must be one the stack can supply.
+ */
+export function expectedCarriers(
+  blueprint: Blueprint,
+  hasTypescript: boolean,
+): { gate: string; rule: string; carrier: string }[] {
+  return CARRIER_GATES.filter(
+    (entry) =>
+      active(blueprint.rules?.[entry.gate])
+      && (!('typescriptOnly' in entry) || hasTypescript),
+  );
+}
+
 export interface WiringParams {
   root: string;
   blueprint: Blueprint;
   scanResult: ScanResult;
   /** detect's verdict — when eslint is not wired at all, this check skips. */
   wired: boolean;
+  /** Gates the stack cannot carry are not expected — `explicitAny` on JS. */
+  hasTypescript: boolean;
   load: (name: string, root: string) => Promise<unknown>;
 }
 
@@ -240,7 +294,7 @@ export interface WiringParams {
  * cover those states already.
  */
 export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
-  const { root, blueprint, scanResult, wired, load } = params;
+  const { root, blueprint, scanResult, wired, hasTypescript, load } = params;
 
   if (!wired) return { label: `${LABEL} (skipped — eslint not wired)`, ok: true };
 
@@ -251,6 +305,7 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
   }
 
   const lost: string[] = [];
+  const carriers = expectedCarriers(blueprint, hasTypescript);
 
   try {
     const { ESLint } = unwrapModule<EslintApi>(await load('eslint', root));
@@ -262,6 +317,20 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
 
       lost.push(...losses(expectedStructural(blueprint, probe.layer), resolvedStructural(rules))
         .map((loss) => `${probe.layer}: ${loss}`));
+
+      // A gate declared in blueprint.config.mjs whose rule is absent from the
+      // resolved config means the merge dropped its carrier — the silent
+      // failure the playbook spends the most words on, and the one this
+      // check used to walk straight past.
+      lost.push(
+        ...carriers
+          .filter((entry) => activeOptions(rules[entry.rule]) === null)
+          .map(
+            (entry) =>
+              `${probe.layer}: rules.${entry.gate} is on but ${entry.rule} resolved to nothing `
+              + `— emitLint's \`${entry.carrier}\` argument is missing from the merged entry`,
+          ),
+      );
     }
   } catch {
     // Unresolvable config = the project's own lint is broken or eslint is
@@ -270,7 +339,9 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
     return { label: `${LABEL} (skipped — could not resolve the merged config)`, ok: true };
   }
 
-  if (!lost.length) return { label: LABEL, ok: true };
+  // Say what the ✓ covers. Unqualified, it reads as "every emitted rule is
+  // alive", which this check has never been able to promise (field #40).
+  if (!lost.length) return { label: `${LABEL} (${SCOPE})`, ok: true };
 
   // The check compares exact emitted text, so a red has TWO possible causes
   // — naming only the replace cause sent a field agent chasing a merge

@@ -9,7 +9,9 @@ import {
   parseJsonc,
   pathAliasKeys,
   readTexts,
+  ALLOWED_CARRIER_PEERS,
   REQUIRED_DEPS,
+  STACK_DEPS,
   SUPPORTED_ESLINT_MAJORS,
 } from './detect';
 
@@ -89,7 +91,7 @@ describe('detect', () => {
       '@kekkai/blueprint',
       '@eslint-community/eslint-plugin-eslint-comments',
       '@stylistic/eslint-plugin',
-      'eslint-plugin-import-x',
+      'eslint-plugin-import-lite',
       'typescript-eslint',
     ]);
 
@@ -341,28 +343,32 @@ describe('pathAliasKeys', () => {
   });
 });
 
-describe('the required-deps list installs on every supported ESLint', () => {
-  // `npm install -D <all of them>` is all-or-nothing, so ONE package whose
-  // peer range caps below the project's ESLint takes the whole install down
-  // — and with it the rest of init's plan. That is how a repo on ESLint 10
-  // got a green-looking init with no alias wired (field issue #37):
-  // eslint-plugin-import stopped at ^9. This reads the ranges as installed
-  // rather than trusting the list, so the next capped dependency fails here
-  // instead of in someone's adoption.
-  const peerRange = (dep: string): string | null => {
+describe('every carrier init installs can resolve on the adopter\'s stack', () => {
+  // `npm install -D <all of them>` is all-or-nothing, so ONE carrier the
+  // project cannot satisfy takes the whole install down — and with it the
+  // rest of init's plan. Two field runs proved it from both directions:
+  // eslint-plugin-import capped its eslint peer at 9 (#37), and
+  // eslint-plugin-import-x peered on @typescript-eslint/utils@^8.56 for
+  // resolvers importBlock never uses, walling a repo pinned at 8.47 (#41).
+  // So both halves are asserted here, read from the installed manifests
+  // rather than trusted from the list.
+  const peers = (dep: string): Record<string, string> => {
     const manifest = JSON.parse(
       fs.readFileSync(path.join('node_modules', dep, 'package.json'), 'utf-8'),
     ) as { peerDependencies?: Record<string, string> };
 
-    return manifest.peerDependencies?.eslint ?? null;
+    return manifest.peerDependencies ?? {};
   };
 
-  // eslint is the peer itself; the package under test is not installed into
-  // its own node_modules.
-  const carriers = REQUIRED_DEPS.filter((dep) => dep !== 'eslint' && dep !== '@kekkai/blueprint');
+  // eslint is the host, not a carrier; the package under test is not
+  // installed into its own node_modules.
+  const carriers = [
+    ...REQUIRED_DEPS.filter((dep) => dep !== 'eslint' && dep !== '@kekkai/blueprint'),
+    ...Object.values(STACK_DEPS),
+  ];
 
   it.each(carriers)('%s admits every supported ESLint major', (dep) => {
-    const range = peerRange(dep);
+    const range = peers(dep).eslint ?? null;
 
     expect(range, `${dep} declares no eslint peer range`).not.toBeNull();
 
@@ -374,7 +380,20 @@ describe('the required-deps list installs on every supported ESLint', () => {
       .toEqual([]);
   });
 
-  it('every carrier is a devDependency here, so the ranges above are real', () => {
+  it.each(carriers)('%s constrains nothing else the adopter owns', (dep) => {
+    // An optional peer is still version-checked when the package is PRESENT,
+    // and a peer cannot be satisfied by a nested copy — so every name here
+    // is a version blueprint imposes on a repo from the outside.
+    const extra = Object.keys(peers(dep))
+      .filter((name) => name !== 'eslint')
+      .filter((name) => !(ALLOWED_CARRIER_PEERS[dep] ?? []).includes(name));
+
+    expect(extra, `${dep} peers on ${extra.join(', ')} — that constraint reaches into the adopter's `
+    + 'tree and fails their install when it cannot be met. Allow it deliberately in '
+    + 'ALLOWED_CARRIER_PEERS, or pick a carrier without it.').toEqual([]);
+  });
+
+  it('every carrier is a devDependency here, so the manifests above are real', () => {
     const manifest = JSON.parse(fs.readFileSync('package.json', 'utf-8')) as {
       devDependencies: Record<string, string>;
     };

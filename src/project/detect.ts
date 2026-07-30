@@ -57,12 +57,38 @@ export const REQUIRED_DEPS = [
   '@eslint-community/eslint-plugin-eslint-comments',
   // Carriers for the shape family and importBlock. The library depends on
   // neither plugin — the generated config injects them, so the packages are
-  // the project's deps, not blueprint's. importBlock rides
-  // `eslint-plugin-import-x` rather than `eslint-plugin-import` for exactly
-  // the reason above: the latter's peer range stops at ESLint 9.
+  // the project's deps, not blueprint's.
+  //
+  // importBlock rides `eslint-plugin-import-lite`, and the two walls it walks
+  // around are why. `eslint-plugin-import` caps its eslint peer at 9 (field
+  // issue #37). `eslint-plugin-import-x` clears that, but peers on
+  // `@typescript-eslint/utils@^8.56` for its resolvers: an optional peer is
+  // still version-checked when the package is PRESENT, and a peer cannot be
+  // satisfied by a nested copy — so any repo pinned below that failed the
+  // whole install (field issue #41). import-lite is those same rules ported
+  // without the resolvers, which is exactly what pulled that peer: zero
+  // dependencies, and `eslint` as its only peer.
   '@stylistic/eslint-plugin',
-  'eslint-plugin-import-x',
+  'eslint-plugin-import-lite',
 ];
+
+/** Carriers added only when the detected stack needs their parser. */
+export const STACK_DEPS = {
+  vue: 'vue-eslint-parser',
+  typescript: 'typescript-eslint',
+} as const;
+
+/**
+ * Non-`eslint` peers a carrier is allowed to declare, by package. A peer on
+ * something the ADOPTER owns is a version constraint blueprint imposes on
+ * their repo from the outside — npm enforces it whenever the package is
+ * present, and no nested copy can satisfy it, so the install fails as a whole
+ * (field issue #41). `typescript-eslint` ↔ `typescript` is inherent and wide;
+ * anything new belongs in a review, not in someone's adoption.
+ */
+export const ALLOWED_CARRIER_PEERS: Record<string, string[]> = {
+  'typescript-eslint': ['typescript'],
+};
 
 function readJson(file: string): Record<string, unknown> | null {
   try {
@@ -173,8 +199,8 @@ export function detect(root: string): ProjectState {
   // packages backing them join the install set.
   const required = [
     ...REQUIRED_DEPS,
-    ...(framework === 'vue' ? ['vue-eslint-parser'] : []),
-    ...(hasTypescript ? ['typescript-eslint'] : []),
+    ...(framework === 'vue' ? [STACK_DEPS.vue] : []),
+    ...(hasTypescript ? [STACK_DEPS.typescript] : []),
   ];
 
   const eslintFile = ESLINT_FILES.find((file) => fs.existsSync(path.join(root, file)));

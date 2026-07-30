@@ -35,13 +35,18 @@ export interface EmitLintOptions {
    */
   stylistic?: ESLint.Plugin;
   /**
-   * The `eslint-plugin-import-x` plugin. Carrier for `importBlock`
-   * (`import-x/first` + `import-x/no-duplicates`) — nothing in ESLint core
+   * The `eslint-plugin-import-lite` plugin. Carrier for `importBlock`
+   * (`import-lite/first` + `import-lite/no-duplicates`) — nothing in ESLint core
    * or `@stylistic` merges duplicate imports, and both mistakes are ones an
    * agent editing incrementally makes routinely. Without this, the gate
-   * emits nothing. The `-x` fork rather than `eslint-plugin-import`: the
-   * latter's peer range stops at ESLint 9, so asking an ESLint 10 project to
-   * install it fails the whole install (field issue #37).
+   * emits nothing.
+   *
+   * `-lite` rather than `eslint-plugin-import` (peer range stops at ESLint 9
+   * — field issue #37) or `eslint-plugin-import-x` (peers on
+   * `@typescript-eslint/utils@^8.56` for its resolvers, which fails the
+   * install of any repo pinned below it — field issue #41). import-lite is
+   * the same rules without the resolvers: zero dependencies, `eslint` its
+   * only peer.
    */
   imports?: ESLint.Plugin;
 }

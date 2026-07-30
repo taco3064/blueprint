@@ -345,20 +345,20 @@ function shapeEntry(
   const importBlock = active(rules?.importBlock);
 
   if (importBlock && options.imports) {
-    shape['import-x/first'] = importBlock.tier;
-    shape['import-x/no-duplicates'] = importBlock.tier;
+    shape['import-lite/first'] = importBlock.tier;
+    shape['import-lite/no-duplicates'] = importBlock.tier;
   }
 
   if (!Object.keys(shape).length) return [];
 
   const needsStylistic = Object.keys(shape).some((rule) => rule.startsWith('@stylistic/'));
-  const needsImports = Object.keys(shape).some((rule) => rule.startsWith('import-x/'));
+  const needsImports = Object.keys(shape).some((rule) => rule.startsWith('import-lite/'));
 
   return [{
     files,
     plugins: {
       ...(needsStylistic && options.stylistic ? { '@stylistic': options.stylistic } : {}),
-      ...(needsImports && options.imports ? { 'import-x': options.imports } : {}),
+      ...(needsImports && options.imports ? { 'import-lite': options.imports } : {}),
     },
     rules: shape,
   }];

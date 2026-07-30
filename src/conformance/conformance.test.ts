@@ -384,7 +384,7 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
 
     // The skip label shares this prefix — a lazy assertion would false-pass
     // on "(skipped — could not resolve …)". Demand the verified verdict.
-    expect(doctor.output).toContain('✓ emitted rules survive the merged eslint config\n');
+    expect(doctor.output).toContain('✓ emitted rules survive the merged eslint config (');
     expect(doctor.output).not.toContain('skipped');
     expect(doctor.code).toBe(0);
   });
@@ -405,7 +405,7 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
     // where nothing exists yet. Intact wiring now VERIFIES green…
     const green = await cli(repo(bare(wiredEslintConfig(selfOnly))), ['doctor']);
 
-    expect(green.output).toContain('✓ emitted rules survive the merged eslint config\n');
+    expect(green.output).toContain('✓ emitted rules survive the merged eslint config (');
     expect(green.output).not.toContain('skipped');
 
     // …and a gutted layer turns red with zero files on disk.
@@ -1364,32 +1364,35 @@ describe('the playbook only invites tools that run yet (field issue #35)', () =>
   });
 });
 
-describe('the required deps install on the ESLint the project is on (field issue #37)', () => {
-  it('importBlock rides import-x — the config, the install set and the catalog agree', async () => {
+describe('the required deps install on the stack the project is on (field issues #37, #41)', () => {
+  it('importBlock rides import-lite — config, install set and catalog agree', async () => {
     const dir = repo({ packageJson: react({ typescript: '^5.0.0' }) });
 
     const init = await cli(dir, ['init', '--no-install']);
 
     expect(init.code).toBe(0);
-    // eslint-plugin-import's peer range stops at ESLint 9. Since npm resolves
-    // the required-deps list as a unit, naming it here failed the whole
-    // install on any ESLint 10 project — and took the rest of init's plan,
-    // the alias writes included, down with it.
-    expect(init.output).toContain('eslint-plugin-import-x');
+    // npm resolves the required-deps list as a unit, so one carrier the
+    // project cannot satisfy fails the whole install and leaves init's plan
+    // half-applied. Both predecessors did: eslint-plugin-import caps its
+    // eslint peer at 9 (#37), and eslint-plugin-import-x peers on
+    // @typescript-eslint/utils@^8.56 for resolvers it does not need here,
+    // walling any repo pinned below that (#41).
+    expect(init.output).toContain('eslint-plugin-import-lite');
+    expect(init.output).not.toContain('eslint-plugin-import-x');
     expect(init.output).not.toContain(' eslint-plugin-import ');
 
     const config = read(dir, 'eslint.config.mjs') ?? '';
 
-    expect(config).toContain('import imports from \'eslint-plugin-import-x\';');
+    expect(config).toContain('import imports from \'eslint-plugin-import-lite\';');
 
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
     const rules = await cli(dir, ['rules']);
 
-    expect(rules.output).toContain('importBlock → import-x/first + import-x/no-duplicates');
+    expect(rules.output).toContain('importBlock → import-lite/first + import-lite/no-duplicates');
   });
 
-  it('the emitted import-x rules actually fire under the real eslint', async () => {
+  it('the emitted import-lite rules actually fire under the real eslint', async () => {
     const dir = repo({
       packageJson: react(),
       files: {
@@ -1413,7 +1416,45 @@ describe('the required deps install on the ESLint the project is on (field issue
     const impact = await cli(dir, ['impact']);
 
     expect(impact.code).toBe(0);
-    expect(impact.output).toContain('import-x/no-duplicates');
-    expect(impact.output).toContain('import-x/first');
+    expect(impact.output).toContain('import-lite/no-duplicates');
+    expect(impact.output).toContain('import-lite/first');
+  });
+});
+
+describe('a merge that drops a carrier cannot pass doctor (field issue #40)', () => {
+  it('the ✓ states its own scope instead of implying every rule is alive', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(reactBlueprint),
+        'eslint.config.mjs': wiredEslintConfig(reactBlueprint),
+        'src/components/A.jsx': 'export const A = 1;\n',
+      },
+    });
+
+    const doctor = await cli(dir, ['doctor']);
+
+    // A bare "emitted rules survive" read as a promise about ALL of them; the
+    // field agent trusted it over a merge that had silently lost ~68 rules.
+    expect(doctor.output).toContain('emitted rules survive the merged eslint config (');
+    expect(doctor.output).toContain('thresholds and package-ownership entries are not compared');
+  });
+
+  it('the playbook names --print-config, the step both field runs invented', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = (read(dir, 'blueprint-authoring.md') ?? '').replace(/\s+/g, ' ');
+
+    // Two independent runs reached for it unprompted — one to catch a dropped
+    // plugin, one to check their own house rules had survived. It was the
+    // missing step in a verification the playbook called sufficient.
+    expect(playbook).toContain('npx eslint --print-config');
+    expect(playbook).toContain('A green lint is NOT proof the gates are attached');
+    expect(playbook).toContain('proves only that the config parses');
   });
 });
