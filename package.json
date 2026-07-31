@@ -1,7 +1,7 @@
 {
   "name": "@kekkai/blueprint",
   "version": "2.2.0",
-  "description": "Architecture as Code — one Blueprint compiles into docs, agent contracts, lint, and CI for Vue & React projects.",
+  "description": "Architecture as Code for Vue & React — one config compiles into ESLint rules, a handbook, and an AI agent contract.",
   "type": "module",
   "license": "MIT",
   "author": "taco3064 <tabacotaco@gmail.com>",
