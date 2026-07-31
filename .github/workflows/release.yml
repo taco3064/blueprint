@@ -6,7 +6,8 @@ on:
       - '*'
 
 permissions:
-  contents: read
+  # write: the publish step also cuts the GitHub Release for this tag
+  contents: write
   id-token: write
 
 jobs:
@@ -116,3 +117,34 @@ jobs:
         run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # -------------------------
+      # 📣 Announce
+      # -------------------------
+
+      # Runs after the publish so a failed publish leaves no release
+      # announcing a version nobody can install.
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          TAG_VERSION="$(echo "$TAG_NAME" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
+
+          # A hand-written release outranks the generated one: the notes are
+          # the changelog's floor, not a ceiling, and re-running a tag must
+          # never overwrite an edit made after the fact.
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "↷ release exists: $TAG_NAME — left as written; delete it to regenerate from CHANGELOG.md"
+            exit 0
+          fi
+
+          node scripts/changelog-section.mjs "$TAG_VERSION" > "$RUNNER_TEMP/release-notes.md"
+
+          gh release create "$TAG_NAME" \
+            --title "v$TAG_VERSION" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --verify-tag
+
+          echo "✓ release: v$TAG_VERSION (notes from CHANGELOG.md § $TAG_VERSION)"
