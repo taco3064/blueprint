@@ -178,9 +178,16 @@ The complete early-exit checklist — nothing else in this file applies:
    leaves it empty (init created the tree only to hold this command).
    Cleanup comes BEFORE the final gate: doctor treats these authoring
    files as leftovers.
-5. \`npx blueprint doctor\` — all checks green. Done — "preset was
-   enough", said in your closing reply to the user, is a complete,
-   correct report; no report file exists on this path.
+5. \`npx blueprint doctor\` — all checks green. Then commit what adoption
+   wrote, if you can: a ratchet that lives only in an uncommitted working
+   tree is not installed. Not a VCS repo, or no commit rights? Leave the
+   files where they are and say so in your closing reply — never
+   initialize version control on the owner's behalf. (The full method
+   states this too; it is repeated here because this checklist is the
+   whole of your instructions and a handoff you have to go looking for
+   is one you can miss.) Done — "preset was enough", said in your closing
+   reply to the user, is a complete, correct report; no report file
+   exists on this path.
 
 **Why adopt on a near-empty repo at all — emptiness is the point, not a
 smell.** The contract's value is highest BEFORE the first violation
