@@ -374,7 +374,7 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
   const carried = {
     '@stylistic/max-len': 'error',
     '@stylistic/padding-line-between-statements': 'error',
-    'import-lite/no-duplicates': 'error',
+    'import-x/no-duplicates': 'error',
     '@typescript-eslint/no-explicit-any': 'error',
   };
 
@@ -392,11 +392,11 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
   });
 
   it('goes red when the merge drops the imports argument', async () => {
-    const { 'import-lite/no-duplicates': _dup, ...rest } = carried;
+    const { 'import-x/no-duplicates': _dup, ...rest } = carried;
     const result = await check({ ...structural(), ...rest });
 
     expect(result.ok).toBe(false);
-    expect(result.detail).toContain('rules.importBlock is on but import-lite/no-duplicates');
+    expect(result.detail).toContain('rules.importBlock is on but import-x/no-duplicates');
     expect(result.detail).toContain('`imports` argument is missing');
   });
 

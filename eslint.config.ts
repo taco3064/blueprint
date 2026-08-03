@@ -1,5 +1,5 @@
 import globals from 'globals';
-import imports from 'eslint-plugin-import-lite';
+import imports from 'eslint-plugin-import-x';
 import js from '@eslint/js';
 import stylistic from '@stylistic/eslint-plugin';
 import tseslint from 'typescript-eslint';
@@ -30,12 +30,12 @@ export default defineConfig([
     },
     plugins: {
       '@stylistic': stylistic,
-      'import-lite': imports,
+      'import-x': imports,
     },
     rules: {
       ...formatting.rules,
-      'import-lite/first': 'error',
-      'import-lite/no-duplicates': 'error',
+      'import-x/first': 'error',
+      'import-x/no-duplicates': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',

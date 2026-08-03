@@ -64,7 +64,7 @@ const CARRIER_GATES = [
     rule: '@stylistic/padding-line-between-statements',
     carrier: 'stylistic',
   },
-  { gate: 'importBlock', rule: 'import-lite/no-duplicates', carrier: 'imports' },
+  { gate: 'importBlock', rule: 'import-x/no-duplicates', carrier: 'imports' },
   // TypeScript-only, exactly as emitLint has it: `any` is a TS construct, so
   // a JS project legitimately resolves this gate to nothing.
   {

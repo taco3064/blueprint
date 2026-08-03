@@ -91,7 +91,7 @@ describe('detect', () => {
       '@kekkai/blueprint',
       '@eslint-community/eslint-plugin-eslint-comments',
       '@stylistic/eslint-plugin',
-      'eslint-plugin-import-lite',
+      'eslint-plugin-import-x',
       'typescript-eslint',
     ]);
 

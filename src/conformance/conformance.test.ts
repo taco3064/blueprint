@@ -1365,7 +1365,7 @@ describe('the playbook only invites tools that run yet (field issue #35)', () =>
 });
 
 describe('the required deps install on the stack the project is on (field issues #37, #41)', () => {
-  it('importBlock rides import-lite — config, install set and catalog agree', async () => {
+  it('importBlock rides import-x — config, install set and catalog agree', async () => {
     const dir = repo({ packageJson: react({ typescript: '^5.0.0' }) });
 
     const init = await cli(dir, ['init', '--no-install']);
@@ -1373,26 +1373,28 @@ describe('the required deps install on the stack the project is on (field issues
     expect(init.code).toBe(0);
     // npm resolves the required-deps list as a unit, so one carrier the
     // project cannot satisfy fails the whole install and leaves init's plan
-    // half-applied. Both predecessors did: eslint-plugin-import caps its
-    // eslint peer at 9 (#37), and eslint-plugin-import-x peers on
-    // @typescript-eslint/utils@^8.56 for resolvers it does not need here,
-    // walling any repo pinned below that (#41).
-    expect(init.output).toContain('eslint-plugin-import-lite');
-    expect(init.output).not.toContain('eslint-plugin-import-x');
+    // half-applied. eslint-plugin-import caps its eslint peer at 9 (#37), so
+    // it cannot be installed at all on this baseline. import-x peers on
+    // @typescript-eslint/utils@^8.56 (#41) — allowed deliberately now that
+    // the baseline is ESLint 10, which no tree reaches while holding
+    // typescript-eslint below 8.56; see ALLOWED_CARRIER_PEERS. The stack
+    // fixtures below are what would catch that reasoning being wrong.
+    expect(init.output).toContain('eslint-plugin-import-x');
+    expect(init.output).not.toContain('eslint-plugin-import-lite');
     expect(init.output).not.toContain(' eslint-plugin-import ');
 
     const config = read(dir, 'eslint.config.mjs') ?? '';
 
-    expect(config).toContain('import imports from \'eslint-plugin-import-lite\';');
+    expect(config).toContain('import imports from \'eslint-plugin-import-x\';');
 
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
     const rules = await cli(dir, ['rules']);
 
-    expect(rules.output).toContain('importBlock → import-lite/first + import-lite/no-duplicates');
+    expect(rules.output).toContain('importBlock → import-x/first + import-x/no-duplicates');
   });
 
-  it('the emitted import-lite rules actually fire under the real eslint', async () => {
+  it('the emitted import-x rules actually fire under the real eslint', async () => {
     const dir = repo({
       packageJson: react(),
       files: {
@@ -1416,8 +1418,8 @@ describe('the required deps install on the stack the project is on (field issues
     const impact = await cli(dir, ['impact']);
 
     expect(impact.code).toBe(0);
-    expect(impact.output).toContain('import-lite/no-duplicates');
-    expect(impact.output).toContain('import-lite/first');
+    expect(impact.output).toContain('import-x/no-duplicates');
+    expect(impact.output).toContain('import-x/first');
   });
 });
 

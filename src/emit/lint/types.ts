@@ -35,18 +35,31 @@ export interface EmitLintOptions {
    */
   stylistic?: ESLint.Plugin;
   /**
-   * The `eslint-plugin-import-lite` plugin. Carrier for `importBlock`
-   * (`import-lite/first` + `import-lite/no-duplicates`) — nothing in ESLint core
+   * The `eslint-plugin-import-x` plugin. Carrier for `importBlock`
+   * (`import-x/first` + `import-x/no-duplicates`) — nothing in ESLint core
    * or `@stylistic` merges duplicate imports, and both mistakes are ones an
    * agent editing incrementally makes routinely. Without this, the gate
    * emits nothing.
    *
-   * `-lite` rather than `eslint-plugin-import` (peer range stops at ESLint 9
-   * — field issue #37) or `eslint-plugin-import-x` (peers on
-   * `@typescript-eslint/utils@^8.56` for its resolvers, which fails the
-   * install of any repo pinned below it — field issue #41). import-lite is
-   * the same rules without the resolvers: zero dependencies, `eslint` its
-   * only peer.
+   * `-x` rather than `eslint-plugin-import`, whose peer range stops at
+   * ESLint 9 (field issue #37) — it cannot be installed at all on the
+   * ESLint 10 baseline this package now targets.
+   *
+   * It replaced `eslint-plugin-import-lite`, which was chosen when the
+   * baseline still included repos that import-x could not install into: it
+   * peers on `@typescript-eslint/utils@^8.56` for its resolvers, and a repo
+   * pinned below that failed adoption outright (field issue #41). On an
+   * ESLint 10 baseline that repo does not exist — nothing resolves ESLint 10
+   * while holding typescript-eslint below 8.56 — so the trade reverses: the
+   * resolvers stop being dead weight and become the reason to take it.
+   *
+   * What they buy is the whole-graph family import-lite structurally could
+   * not carry, `no-cycle` above all. This package does not emit it: cycles
+   * are a graph property and `inspect` already walks that graph once, where
+   * a per-file rule re-walks it for every file. But a project that wants the
+   * cycle red at edit time can now reach for it without adding a plugin —
+   * see the gate catalog for the `ignoreExternal` setting that keeps the
+   * walk inside its own source.
    */
   imports?: ESLint.Plugin;
 }

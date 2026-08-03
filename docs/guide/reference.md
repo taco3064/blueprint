@@ -58,7 +58,7 @@ The gated set:
 - **`codeStyle`** → `@stylistic`'s `customize()` set plus `max-len`, `linebreak-style` and core `curly` — ~68 rules · error
 - **`statementsPerLine`** → `@stylistic/max-statements-per-line` at a hard-wired `{ max: 1 }` · error
 - **`statementPadding`** → `@stylistic/padding-line-between-statements` with a fixed 17-entry option list · error
-- **`importBlock`** → `import-lite/first` + `import-lite/no-duplicates` · error
+- **`importBlock`** → `import-x/first` + `import-x/no-duplicates` · error
 - **`fixtureImports`** → restricted fixture imports in production code · error (vue preset)
 - **`cycles`** → inspect's `cycle` finding (module-level; `import/no-cycle` was dropped from the generated config — a slow per-file re-check of the same graph) · error
 - **`deepWatch` / `usePrefix` / `usePrefixReactivity` / `testFilename` / `typedefOnlyFile`** → the plugin rules above (see that section)
@@ -80,7 +80,7 @@ hand-merged config has to carry the argument itself:
 
 ```js
 import stylistic from '@stylistic/eslint-plugin';
-import imports from 'eslint-plugin-import-lite';
+import imports from 'eslint-plugin-import-x';
 import tseslint from 'typescript-eslint';
 
 export default [

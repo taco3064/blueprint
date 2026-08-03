@@ -52,7 +52,7 @@ plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`�
 - **`codeStyle`** → `@stylistic` 的 `customize()` 整組，加上 `max-len`、`linebreak-style` 與原生 `curly` —— 約 68 條 · error
 - **`statementsPerLine`** → `@stylistic/max-statements-per-line`，寫死 `{ max: 1 }` · error
 - **`statementPadding`** → `@stylistic/padding-line-between-statements`，帶固定的 17 條設定 · error
-- **`importBlock`** → `import-lite/first` + `import-lite/no-duplicates` · error
+- **`importBlock`** → `import-x/first` + `import-x/no-duplicates` · error
 - **`fixtureImports`** → 禁止產品程式碼匯入 fixture 目錄 · error（Vue preset）
 - **`cycles`** → inspect 的 `cycle` 檢測（模組層級；生成 config 已不再帶 `import/no-cycle` —— 它逐檔重查同一張圖，850 檔實測要 92 秒）· error
 - **`deepWatch` / `usePrefix` / `usePrefixReactivity` / `testFilename` / `typedefOnlyFile`** → 上面外掛那節的規則（見上）
@@ -73,7 +73,7 @@ plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`�
 
 ```js
 import stylistic from '@stylistic/eslint-plugin';
-import imports from 'eslint-plugin-import-lite';
+import imports from 'eslint-plugin-import-x';
 import tseslint from 'typescript-eslint';
 
 export default [

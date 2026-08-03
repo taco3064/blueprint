@@ -59,12 +59,12 @@ describe('plan', () => {
   it('generates the third-party CORE in eslint.config.mjs, tier-driven', () => {
     const content = write(plan(state(), bp, null, {}), 'eslint.config.mjs')?.content;
 
-    // eslint-plugin-import-lite IS wired now (importBlock rides it), but only for
-    // import-lite/first + import-lite/no-duplicates. Two of its rules stay rejected on
+    // eslint-plugin-import-x IS wired now (importBlock rides it), but only for
+    // import-x/first + import-x/no-duplicates. Two of its rules stay rejected on
     // their own merits, and shipping the plugin must not smuggle them in:
     // cycles are inspect's job — import/no-cycle re-checks the whole graph
     // per file (measured 92s on an 850-file repo) …
-    expect(content).toContain('eslint-plugin-import-lite');
+    expect(content).toContain('eslint-plugin-import-x');
     expect(content).not.toContain('import/no-cycle');
     // … and deadCode emits no ESLint line — flat config cannot run
     // no-unused-modules at all.

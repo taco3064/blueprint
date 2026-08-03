@@ -305,7 +305,7 @@ function eslintWiringNote(state: ProjectState): string {
       + '    import blueprint from \'./blueprint.config.mjs\';\n'
       + '    import { emitLint } from \'@kekkai/blueprint\';\n'
       + '    import stylistic from \'@stylistic/eslint-plugin\';\n'
-      + '    import imports from \'eslint-plugin-import-lite\';\n'
+      + '    import imports from \'eslint-plugin-import-x\';\n'
       + '    export default tseslint.config(\n'
       + '      /* …your existing configs */\n'
       + `      ...emitLint(blueprint, ${lintOptions(true)}),\n`
@@ -322,7 +322,7 @@ function eslintWiringNote(state: ProjectState): string {
   // issue #12: a copy-the-first-snippet agent ships non-TS-aware rules).
   const spread = (state.hasTypescript ? '    import tseslint from \'typescript-eslint\';\n' : '')
     + '    import stylistic from \'@stylistic/eslint-plugin\';\n'
-    + '    import imports from \'eslint-plugin-import-lite\';\n'
+    + '    import imports from \'eslint-plugin-import-x\';\n'
     + `    export default [ /* …your existing entries */ ...emitLint(blueprint, ${options}) ];\n`;
 
   return 'eslint.config already exists — blueprint never edits it, so eslint.config.blueprint.mjs '
@@ -463,7 +463,7 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     'import { emitLint } from \'@kekkai/blueprint\';',
     'import comments from \'@eslint-community/eslint-plugin-eslint-comments\';',
     'import stylistic from \'@stylistic/eslint-plugin\';',
-    'import imports from \'eslint-plugin-import-lite\';',
+    'import imports from \'eslint-plugin-import-x\';',
     ...parserImports,
     'import blueprint from \'./blueprint.config.mjs\';',
     '',

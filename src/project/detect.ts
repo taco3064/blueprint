@@ -59,17 +59,17 @@ export const REQUIRED_DEPS = [
   // neither plugin — the generated config injects them, so the packages are
   // the project's deps, not blueprint's.
   //
-  // importBlock rides `eslint-plugin-import-lite`, and the two walls it walks
+  // importBlock rides `eslint-plugin-import-x`, and the two walls it walks
   // around are why. `eslint-plugin-import` caps its eslint peer at 9 (field
   // issue #37). `eslint-plugin-import-x` clears that, but peers on
   // `@typescript-eslint/utils@^8.56` for its resolvers: an optional peer is
   // still version-checked when the package is PRESENT, and a peer cannot be
   // satisfied by a nested copy — so any repo pinned below that failed the
-  // whole install (field issue #41). import-lite is those same rules ported
+  // whole install (field issue #41). import-x is those same rules ported
   // without the resolvers, which is exactly what pulled that peer: zero
   // dependencies, and `eslint` as its only peer.
   '@stylistic/eslint-plugin',
-  'eslint-plugin-import-lite',
+  'eslint-plugin-import-x',
 ];
 
 /** Carriers added only when the detected stack needs their parser. */
@@ -88,6 +88,22 @@ export const STACK_DEPS = {
  */
 export const ALLOWED_CARRIER_PEERS: Record<string, string[]> = {
   'typescript-eslint': ['typescript'],
+  // Taken deliberately, on the ESLint 10 baseline. Both are what `import-x`
+  // carries that `import-lite` structurally could not: the resolver stack,
+  // and with it the whole-graph rules (`no-cycle` above all) a resolver-free
+  // plugin can never express.
+  //
+  // The #41 population is not empty, it is narrower: the constraint only
+  // bites a tree that already holds `@typescript-eslint/utils` BELOW ^8.56,
+  // and no honest resolution reaches ESLint 10 while doing so — older
+  // typescript-eslint refuses ESLint 10 as its own peer. What is left is
+  // repos already installing with `--legacy-peer-deps` / `--force`, whose
+  // installs do not abort on peer conflicts in the first place.
+  //
+  // That reasoning is an argument, not evidence. The evidence is the
+  // conformance stack fixtures — if one of them fails to install, this entry
+  // is wrong and the carrier decision reopens.
+  'eslint-plugin-import-x': ['@typescript-eslint/utils', 'eslint-import-resolver-node'],
 };
 
 function readJson(file: string): Record<string, unknown> | null {

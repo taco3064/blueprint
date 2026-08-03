@@ -170,7 +170,7 @@ describe('runInit', () => {
 
     expect(commands).toEqual([
       'npm install -D eslint @kekkai/blueprint @eslint-community/eslint-plugin-eslint-comments'
-      + ' @stylistic/eslint-plugin eslint-plugin-import-lite vue-eslint-parser',
+      + ' @stylistic/eslint-plugin eslint-plugin-import-x vue-eslint-parser',
     ]);
   });
 
