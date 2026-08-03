@@ -3,7 +3,7 @@
   "explorer.sortOrder": "type",
   "explorer.sortOrderLexicographicOptions": "upper",
   "explorer.fileNesting.patterns": {
-    "README.md": "README*, CHANGELOG*, LICENSE*",
+    "README.md": "README*, CHANGELOG*, LICENSE*, SECURITY*, CLAUDE*",
     "package.json": "package-lock.json, .npmrc, .nvmrc",
     "rolldown.config.ts": "eslint.config.ts, vitest.config.ts, typedoc.json",
     "tsconfig.json": "tsconfig.*.json"
