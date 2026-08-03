@@ -10,6 +10,7 @@ import {
   METRIC_GATES,
   PLUGIN_GATES,
   selfOnlyReexportSelector,
+  resolveTestFiles,
 } from '../emit/lint/patterns';
 import type { GateSpec } from '../emit/lint/patterns';
 import {
@@ -67,6 +68,16 @@ export interface LayerBans {
    * source for these strings but an emitLint dump (field issue #20).
    */
   selfOnly: { target: string; selectors: string[] }[];
+  /**
+   * The test-exemption globs the emitted entry carries alongside these bans.
+   * Rebuilding a combined `no-restricted-syntax` entry from `selectors` alone
+   * silently drops it, and the loss is quiet in the worst way: the merged
+   * entry goes on linting, so a house rule starts reaching test files, and
+   * blueprint's own selfOnly ban does too where nothing collided to make a
+   * noise (field issue #60). Carry it onto whatever entry the selectors land
+   * in.
+   */
+  testExemptions: string[];
 }
 
 /** One optional gate, annotated with the resolved config when present. */
@@ -160,6 +171,7 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
       target,
       selectors: aliases.map((alias) => selfOnlyReexportSelector(alias, target)),
     })),
+    testExemptions: resolveTestFiles(architecture.testFiles),
   }));
 }
 
@@ -285,6 +297,14 @@ export function renderRules(
               + ' (the message text is yours to write — doctor verifies selectors,'
               + ' never messages):',
               ...ban.selectors.map((selector) => `      ${selector}`),
+              // The selectors alone are not the whole entry. The emitted block
+              // exempts test files, and an entry rebuilt from selectors carries
+              // no such thing — the merged rule then reaches tests, loudly if a
+              // house rule collided there, silently if only blueprint's ban did
+              // (field issue #60).
+              `      …and carry the exemption the emitted block has: ignores: [${
+                entry.testExemptions.map((glob) => `'${glob}'`).join(', ')
+              }] — without it your combined entry lints test files that this ban never covered`,
             ]),
           ]),
         ]

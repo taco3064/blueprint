@@ -392,6 +392,18 @@ the answer belongs in this playbook — note the gap in your report instead.
      survival check probes every layer separately and names the one that
      lost its selectors — it is a red you can act on, not a silent pass.
 
+     **An entry is more than its selectors — carry the emitted block's
+     \`ignores\` too.** Every structural entry exempts test files, and a
+     combined entry you rebuild from selector strings has no such
+     exemption unless you write one. \`rules --json\` gives it to you as
+     \`testExemptions\` beside the selectors, and the text output prints
+     the \`ignores\` line to paste. Skip it and your combined entry starts
+     governing test files: loud if your own rule collided there (a real
+     run lost this and spent a debug cycle on 34 errors in one test file),
+     silent if only blueprint's ban did — lint stays green while the test
+     files it was never meant to reach are quietly under it. Doctor
+     compares selectors, not scope, so nothing downstream catches this.
+
      \`blueprint doctor\` verifies both the
      emitted structural rules and each declared gate's carrier rule
      survived the merge — so a hand sweep of the emitted gates duplicates

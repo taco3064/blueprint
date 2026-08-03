@@ -1658,3 +1658,51 @@ describe('a folder layer shares by the sibling entry, not by sinking (cards)', (
     expect(inspect.output).toContain('index');
   });
 });
+
+/**
+ * A merged `no-restricted-syntax` entry rebuilt from `rules --json` carried
+ * the selectors and nothing else, because selectors were all that output had.
+ * The emitted block also exempts test files, so the rebuilt entry started
+ * governing them: 34 errors in one test file when the adopter's own rule
+ * collided there — and, where nothing collides, blueprint's own selfOnly ban
+ * quietly reaching tests behind a green lint (field issue #60). Both halves
+ * of the entry now come from the same command.
+ */
+describe('the merge recipe hands over the whole entry, not just its selectors (#60)', () => {
+  const selfOnly: Blueprint = {
+    name: 'merge',
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      layers: [
+        { name: 'views', does: 'screens' },
+        { name: 'contexts', does: 'shared state', allowedImporters: [{ layer: 'views', selfOnly: true }] },
+      ],
+      module: { layout: 'flat', entry: 'index', private: [] },
+    },
+  };
+
+  const dir = (): string => repo({
+    packageJson: react(),
+    files: { 'blueprint.config.mjs': configSource(selfOnly) },
+  });
+
+  it('carries the test exemption in --json, beside the selectors it belongs to', async () => {
+    const out = await cli(dir(), ['rules', '--json']);
+    const views = JSON.parse(out.output).bans.find((b: { layer: string }) => b.layer === 'views');
+
+    expect(views.selfOnly[0].selectors.length).toBeGreaterThan(0);
+
+    expect(views.testExemptions).toEqual(
+      expect.arrayContaining([expect.stringContaining('*.test.')]),
+    );
+  });
+
+  it('prints the ignores line to paste, next to the selectors to copy', async () => {
+    const out = await cli(dir(), ['rules']);
+
+    expect(out.output).toContain('Copy these selectors verbatim');
+    expect(out.output).toContain('ignores: [');
+    expect(out.output).toContain('*.test.');
+  });
+});

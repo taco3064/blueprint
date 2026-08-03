@@ -136,6 +136,10 @@ describe('runRules', () => {
       packages: ['react (useContext)', 'axios'],
       globals: ['fetch'],
       selfOnly: [],
+      // Travels with the selectors on purpose: an entry rebuilt from selector
+      // strings alone silently loses the emitted block's test exemption, and
+      // the loss is invisible where nothing collides (field issue #60).
+      testExemptions: ['**/*.test.{js,jsx,ts,tsx,vue}', '**/*.spec.{js,jsx,ts,tsx,vue}'],
     });
 
     // services owns its primitives — only the hooks-owned import stays banned.
