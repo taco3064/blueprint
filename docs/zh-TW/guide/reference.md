@@ -11,7 +11,7 @@
 - **`undeclared-folder`** · error —— 原始碼根目錄下存在未宣告為分層的資料夾
 - **`flow-violation`** · error —— 逆向匯入，或透過別名進行的同層匯入
 - **`deep-import`** · error —— 別名匯入直接觸及資料夾模組的**內部**，未經公開入口
-- **`relative-escape`** · error —— 相對路徑匯入越出所屬模組，或逃逸出原始碼根目錄
+- **`relative-escape`** · error —— 相對路徑匯入越出所屬分層、逃逸出原始碼根目錄，或伸進鄰居模組的入口之後。<br>在 `folder` 佈局下，鄰居模組**是**碰得到的 —— `../Sibling` 就是同層之間互相使用的方式，而且是唯一的方式，因為別名寫法（`~app/{自己這層}/Sibling`）仍然被擋
 - **`package-ownership`** · error —— 從非擁有者分層匯入某分層專屬的套件（或受限的具名匯入）
 - **`selfonly-reexport`** · error —— 再匯出標記為 `selfOnly` 的依賴 —— 僅可依賴，不可轉手輸出
 - **`cycle`** · error —— 模組層級的循環匯入，並列出完整路徑
@@ -27,7 +27,7 @@
 其中一條是結構規則、永遠開著；其餘由 `blueprint.rules` 的規則識別碼控制。<br>
 plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`）—— 這是給「不 spread `emitLint`、想手動掛某條 `blueprint/*` 規則」的逃生口，其他人永遠用不到它：
 
-- **`blueprint/relative-escape`** · 恆常啟用（結構規則）—— 相對路徑匯入不得越出所屬模組 —— 與 inspect 同名檢測共用同一套解析邏輯
+- **`blueprint/relative-escape`** · 恆常啟用（結構規則）—— inspect 同名檢測的「看得懂深度」孿生版：<br>兩者呼叫同一個 `relativeVerdict`，所以任一方都不可能得出另一方不會同意的結論
 - **`blueprint/no-deep-watch`** · `rules.deepWatch` —— 禁用 `deep: true` 的監聽 —— 每次變更都會遍歷整個資料來源（Vue preset：`error`）
 - **`blueprint/use-prefix`** · `rules.usePrefix` —— hook 分層匯出的函式必須帶 `use` 前綴（分層與前綴皆可設定）
 - **`blueprint/use-prefix-needs-reactivity`** · `rules.usePrefixReactivity` —— 帶 `use` 前綴的檔案必須實際呼叫 reactive 或生命週期 API

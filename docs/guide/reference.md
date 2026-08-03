@@ -12,7 +12,7 @@ without failing the gate. Test files (`architecture.testFiles`) are exempt throu
 - **`undeclared-folder`** · error — a top-level source folder that is not a declared layer
 - **`flow-violation`** · error — an upstream import, or a same-layer import via the alias
 - **`deep-import`** · error — an alias import reaching *inside* a folder module instead of through its entry
-- **`relative-escape`** · error — a relative import that leaves its own module, or escapes the source root
+- **`relative-escape`** · error — a relative import that leaves its own layer, escapes the source root, or reaches past a sibling module's entry. Under `folder` layout a sibling *is* reachable — `../Sibling` is how one module uses another inside the same layer, and the only way, since the alias spelling (`~app/{ownLayer}/Sibling`) stays banned
 - **`package-ownership`** · error — importing a layer-owned package (or restricted named import) from a non-owner layer
 - **`selfonly-reexport`** · error — re-exporting a dependency marked `selfOnly` — depend on it, never pass it on
 - **`cycle`** · error — a module-level import cycle, with the full path listed
@@ -31,7 +31,7 @@ The plugin object is also exported (`import { plugin } from '@kekkai/blueprint'`
 as the escape hatch for wiring a `blueprint/*` rule by hand in a config that does
 not spread `emitLint` — everyone else never needs it:
 
-- **`blueprint/relative-escape`** · always (structural) — relative imports must not leave their module; the depth-aware twin of inspect's finding
+- **`blueprint/relative-escape`** · always (structural) — the depth-aware twin of inspect's finding: both call one `relativeVerdict`, so neither can reach a verdict the other would not
 - **`blueprint/no-deep-watch`** · `rules.deepWatch` — no `deep: true` watches; they traverse the whole source on every change (Vue preset: `error`)
 - **`blueprint/use-prefix`** · `rules.usePrefix` — exported functions in the hook layer must carry the `use` prefix (layer and prefix configurable)
 - **`blueprint/use-prefix-needs-reactivity`** · `rules.usePrefixReactivity` — a `use`-prefixed file must actually call a reactive or lifecycle API

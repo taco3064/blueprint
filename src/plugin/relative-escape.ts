@@ -3,8 +3,11 @@ import { relativeVerdict, resolveSegments } from '../inspect/resolve';
 
 /**
  * Relative imports must stay inside their own module. This is the lint-side
- * twin of `inspect`'s `relative-escape` finding — it shares the same
- * resolution primitives, so the two gates can never disagree. A literal
+ * twin of `inspect`'s `relative-escape` finding: both call one
+ * `relativeVerdict`, so neither can reach a conclusion the other would not.
+ * Sharing resolution *primitives* was the earlier claim and it was not worth
+ * anything — two callers can read the same coordinates and still disagree
+ * about what they mean, which is exactly what happened. A literal
  * `no-restricted-imports` pattern cannot express this: whether `../x` leaves
  * the module depends on the importing file's depth, which globs cannot see.
  *
