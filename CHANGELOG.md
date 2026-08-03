@@ -1,5 +1,103 @@
 # @kekkai/blueprint
 
+## 3.0.0
+
+### Major Changes
+
+- a2107fd: **Folder layout is entry-only.** `../Sibling` — one module reaching another
+  inside the same layer by its public entry — is legal now, on both gates.
+  Reaching past that entry (`../Sibling/internals`) is not, and the alias
+  spelling (`~app/{ownLayer}/Sibling`) stays banned, so a same-layer edge has
+  exactly one shape.
+
+  What changed is a reading, not a principle. Folder layout previously banned
+  the entry too, which left a folder layer with no legal way to share at all:
+  not relatively, not by alias. The only advice the output had left was
+  "extract shared code to a lower layer" — and a shared unit sunk with nothing
+  to name it lands in the folder that names nothing, one honest decision at a
+  time. That message now points at `../Sibling` instead.
+
+  It also closes a name collision that cost a real adoption. `structure-lint`'s
+  `moduleLayout: 'folder'` always meant entry-only; blueprint's `folder` meant
+  the neighbour is untouchable. An agent migrating between them carried the
+  stricter reading across on the strength of the shared word, and filed fifteen
+  imports that had always worked as pre-existing debt. The two now mean the
+  same thing.
+
+  Under the hood the two gates stopped being two implementations. `inspect`'s
+  `relative-escape` finding and the embedded `blueprint/relative-escape` rule
+  both call one `relativeVerdict`, because they claimed to agree by sharing
+  resolution primitives and did not — the same `../Sibling` could be legal to
+  one and illegal to the other, with no test positioned to see it. The rule
+  also receives each layer's entry filename, so a layer whose entry is not
+  `index` no longer reads every entry import as reaching past one.
+
+  Same-layer edges now exist, so cycles among them are possible. Nothing new is
+  emitted for that: cycles are a property of the graph and `inspect` walks it
+  once, where a per-file lint rule re-walks it for every file. A project that
+  wants the cycle red at edit time can add `import-x/no-cycle` with
+  `ignoreExternal: true` — the carrier already ships.
+
+- 35a7923: **`importBlock` now rides `eslint-plugin-import-x`.** The emitted rule ids
+  change from `import-lite/first` / `import-lite/no-duplicates` to
+  `import-x/*` — a merged config that overrides either one by name stops
+  matching, which is the whole of the breaking surface.
+
+  `import-lite` was chosen when the adoption baseline still included repos that
+  `import-x` could not install into: it peers on `@typescript-eslint/utils@^8.56`
+  for its resolvers, and a repo pinned below that failed the install as a whole
+  (field issue #41), while the original `eslint-plugin-import` caps its eslint
+  peer at 9 (#37). On an ESLint 10 baseline that trade reverses. No tree reaches
+  ESLint 10 while holding typescript-eslint below 8.56 — older typescript-eslint
+  refuses ESLint 10 as its own peer — so the population the guard protected is
+  now the repos already installing with `--legacy-peer-deps`, whose installs do
+  not abort on peer conflicts in the first place. `ALLOWED_CARRIER_PEERS` records
+  that as a deliberate entry rather than a widened hole, and says which
+  conformance fixtures would prove it wrong.
+
+  What the resolvers buy is the whole-graph family a resolver-free plugin
+  structurally cannot express, `no-cycle` above all. This release does not emit
+  it: cycles are a property of the graph, and `inspect` already walks that graph
+  once where a per-file rule re-walks it for every file. But a project that wants
+  the cycle red at edit time can now reach for it without adding a plugin — and
+  with `ignoreExternal` set, since the rule's default walks into `node_modules`
+  and a project with no cycles pays the most, having no early exit to find.
+
+### Patch Changes
+
+- deb61a4: **The early-exit checklist says where version control stops.** It closes with
+  doctor, and said nothing about committing — while the full method has the
+  clause: commit what adoption wrote, and where that is impossible, leave the
+  files and say so rather than initializing version control for the owner.
+
+  A field agent on that path went and found the clause in the full method, then
+  followed it correctly. It got the right answer by leaving the checklist that
+  had just told it "nothing else in this file applies" — a handoff you have to
+  go looking for is one the next reader can miss, and the miss here is an agent
+  running `git init` inside somebody's directory.
+
+  The checklist now carries it, and says it is a repetition and why.
+
+- e6696af: **`rules` hands over the whole entry, not just its selectors.** Flat config
+  replaces same-key entries rather than merging them, so the merge guidance asks
+  an adopter to fold blueprint's `no-restricted-syntax` selectors into their own
+  entry, and points at `rules --json` for the exact strings. That output had the
+  selectors and nothing else — while the emitted block also carries
+  `ignores` exempting test files. An entry rebuilt from selectors alone has no
+  exemption, so it starts governing tests.
+
+  A field run lost it and spent a debug cycle on 34 errors in one test file. That
+  was the loud version, and only because the adopter's own rule happened to
+  collide on the same layer. Where nothing collides, the entry that quietly
+  reaches test files is blueprint's own selfOnly ban, behind a lint that stays
+  green — and doctor compares selectors, not scope, so nothing downstream
+  notices.
+
+  `rules --json` now carries `testExemptions` beside the selectors on every
+  layer, the text output prints the `ignores` line to paste under the selectors
+  to copy, and the playbook's merge section states that an entry is more than
+  its selectors, naming both how the loss shows up and how it hides.
+
 ## 2.2.0
 
 ### Minor Changes

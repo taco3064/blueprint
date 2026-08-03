@@ -1,6 +1,6 @@
 {
   "name": "@kekkai/blueprint",
-  "version": "2.2.0",
+  "version": "3.0.0",
   "description": "Architecture as Code for Vue & React — one config compiles into ESLint rules, a handbook, and an AI agent contract.",
   "type": "module",
   "license": "MIT",
