@@ -147,6 +147,23 @@ The `defineBlueprint` example in [Getting Started](/guide/getting-started#the-bl
 shows the core. The rest, one line each — full shapes in the
 [API Reference](/api/):
 
+### The load-bearing block
+
+Everything the structural rules compile from. These keys predate the gate
+catalog above, which is why most of them were only ever visible through
+examples — the definitions belong here.
+
+- **`architecture.alias`** — the project import root, e.g. `~app`. Required, with no default: a guessed alias silently passes illegal imports, because every structural ban pattern is built on this string
+- **`architecture.layers`** — the ordered layers. **Order is the flow**: a layer may import only layers declared after it. Expressing direction as a sequence rather than a list of edges is what makes the graph one-way and acyclic by construction — a cycle is not something you are stopped from writing, it is something the shape cannot say
+- **`layer.does`** — one line on what code in this layer is for. Feeds the handbook and the agent contract; no rule enforces it
+- **`layer.mustNot`** — the things this layer may not do, in prose. Same destination, same lack of enforcement: it is what a reviewer and an agent read when a rule cannot decide
+- **`layer.allowedImporters`** — narrows who may import this layer. Omit it and every earlier layer may; set it and only the listed ones may, each of which must be declared earlier — so narrowing can never introduce a back edge. Entries take `selfOnly` (may depend on this layer but never re-export it onward) and `description` (the edge label in the handbook diagram)
+- **`layer.owns`** — primitives this layer exclusively owns; every other layer is barred from them. A bare string is a whole package (`'axios'`); the object form takes `imports` (specific named imports, e.g. `['createContext']`), `pattern` (treat the name as a glob group), and `exempt` (file globs excused). `{ global: 'fetch' }` owns a global instead of a package
+- **`architecture.module`** — the shared module shape: `layout` (`folder` = one folder per module behind a public entry, `flat` = one file), `entry` (the entry filename, default `index`), and `private` (sub-parts kept behind the entry). Under `folder`, a sibling module is reachable by its entry (`../Sibling`) and by nothing else — not past the entry, and not through the alias
+
+### Tuning
+
+
 - **`architecture.sourceRoot`** — where layers live, relative to the project root. Default `src`; `.` for root-level layouts (e.g. Next.js without `src/`)
 - **`architecture.additionalAliases`** — extra import roots beyond `alias` that participate in every structural ban
 - **`architecture.testFiles`** — test glob(s) exempt from structural rules and metric gates (default `*.test.*` / `*.spec.*`)

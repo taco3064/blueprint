@@ -135,6 +135,22 @@ export default [
 [快速上手](/zh-TW/guide/getting-started#blueprint-config)的 `defineBlueprint` 範例涵蓋核心欄位。<br>
 其餘欄位一覽如下 —— 完整結構見 [API 文件](/zh-TW/api/)：
 
+### 承重的那一塊
+
+結構規則全部從這裡編出來。<br>
+這些鍵比上面那份關卡目錄更早存在，也因此一直只在範例裡露臉 —— 定義該有個家。
+
+- **`architecture.alias`** —— 專案的匯入根，例如 `~app`。<br>必填、沒有預設值：猜錯的別名會讓非法匯入靜靜通過，因為每一條結構禁令的樣式都是拿這個字串組出來的
+- **`architecture.layers`** —— 有順序的分層清單。<br>**順序就是流向**：一個分層只能匯入排在它後面的分層。<br>把方向寫成「順序」而不是「一條條的邊」，單向與無環就是結構本身保證的 —— 環不是「你被擋著不准寫」，是這個形狀根本說不出那句話
+- **`layer.does`** —— 一句話說明這層的程式碼是幹嘛的。<br>寫進手冊與 Agent 守則；沒有規則會強制它
+- **`layer.mustNot`** —— 這層不該做的事，用白話寫。<br>去處相同、同樣不強制：規則判斷不了的時候，審查者與 Agent 讀的就是這幾句
+- **`layer.allowedImporters`** —— 收窄「誰可以匯入這一層」。<br>不寫的話，排在前面的分層都可以；寫了就只有清單上的可以，而且每一個都必須是更早宣告的分層 —— 所以收窄永遠不可能生出一條回頭的邊。<br>條目可帶 `selfOnly`（可以依賴這層，但不得再往外轉出）與 `description`（手冊關係圖上那條邊的標籤）
+- **`layer.owns`** —— 這層獨佔的基元，其他分層一律被擋。<br>直接給字串代表整個套件（`'axios'`）；物件形式可帶 `imports`（只鎖特定具名匯入，如 `['createContext']`）、`pattern`（把名稱當成 glob 群組）、`exempt`（豁免的檔案樣式）。<br>`{ global: 'fetch' }` 則是獨佔一個全域變數而不是套件
+- **`architecture.module`** —— 共用的模組形狀：`layout`（`folder` ＝ 一個模組一個資料夾、外面只看得到公開入口；`flat` ＝ 單檔）、`entry`（入口檔名，預設 `index`）、`private`（藏在入口後面的子部分）。<br>`folder` 之下，鄰居模組只能透過它的入口碰到（`../Sibling`），其餘皆不可 —— 伸進入口後面不行，走別名也不行
+
+### 調校
+
+
 - **`architecture.sourceRoot`** —— 分層所在目錄（相對於專案根目錄）。預設 `src`；根目錄式佈局（如無 `src/` 的 Next.js）設為 `.`
 - **`architecture.additionalAliases`** —— `alias` 以外、同樣納入所有結構禁令的額外匯入根
 - **`architecture.testFiles`** —— 豁免於結構規則與度量關卡的測試檔樣式（預設 `*.test.*` / `*.spec.*`）
