@@ -187,7 +187,10 @@ describe('emitLint · shape', () => {
 
     expect(escape?.rules?.['blueprint/relative-escape']).toEqual([
       'error',
-      { layouts: { components: 'folder', hooks: 'folder', services: 'folder' } },
+      {
+        layouts: { components: 'folder', hooks: 'folder', services: 'folder' },
+        entries: { components: 'index', hooks: 'index', services: 'index' },
+      },
     ]);
 
     expect(escape?.plugins?.blueprint).toBeDefined();

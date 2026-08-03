@@ -62,6 +62,13 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     layers.map((layer) => [layer.name, getModuleShape(architecture, layer.name).layout]),
   );
 
+  // The rule needs the entry filename to tell a sibling's front door from its
+  // inside; without it a layer whose entry is not `index` reads every entry
+  // import as reaching past one.
+  const entries = Object.fromEntries(
+    layers.map((layer) => [layer.name, getModuleShape(architecture, layer.name).entry]),
+  );
+
   const folderLayers = layers
     .map((layer) => layer.name)
     .filter((name) => layouts[name] === 'folder');
@@ -145,7 +152,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     files: allLayerFiles,
     ignores: testGlobs,
     plugins: { blueprint: plugin },
-    rules: { 'blueprint/relative-escape': [severity, { layouts }] },
+    rules: { 'blueprint/relative-escape': [severity, { layouts, entries }] },
   };
 
   return [

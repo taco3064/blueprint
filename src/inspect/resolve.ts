@@ -59,6 +59,53 @@ export function moduleKey(segments: string[], layoutOf: LayoutOf): string {
   return `${segments[0]}/${segments[1].replace(/\.[^.]+$/, '')}`;
 }
 
+/** A layer's public entry filename, extension stripped. */
+export type EntryOf = (layer: string) => string;
+
+/** Build an {@link EntryOf} from the architecture's module shapes. */
+export function entryResolver(architecture: ArchitectureDef): EntryOf {
+  const shared = architecture.module?.entry ?? 'index';
+  const perLayer = new Map(architecture.layers.map((l) => [l.name, l.module?.entry ?? shared]));
+
+  return (layer) => perLayer.get(layer) ?? shared;
+}
+
+/** What a relative import does to its module boundary. */
+export type RelativeVerdict = 'ok' | 'escapes-src' | 'leaves-layer' | 'reaches-inside';
+
+/**
+ * The single judgment behind both relative-import gates — `inspect`'s
+ * `relative-escape` finding and the embedded `blueprint/relative-escape`
+ * rule. It lives here because the two claimed to agree by sharing
+ * resolution primitives, and did not: the same `../Sibling` could be legal
+ * to one and illegal to the other, with no test positioned to see it. One
+ * function means the disagreement is not expressible.
+ *
+ * A sibling's entry is reachable; reaching past it is not. Leaving the layer
+ * is the alias's job, never a relative path.
+ */
+export function relativeVerdict(
+  ownSegments: string[],
+  target: string[] | null,
+  layoutOf: LayoutOf,
+  entryOf: EntryOf,
+): RelativeVerdict {
+  if (target === null) return 'escapes-src';
+  if (moduleKey(target, layoutOf) === moduleKey(ownSegments, layoutOf)) return 'ok';
+
+  const layer = ownSegments[0];
+
+  if (target[0] !== layer || layoutOf(layer) !== 'folder') return 'leaves-layer';
+
+  const entry = entryOf(layer);
+
+  const atEntry
+    = target.length === 2
+      || (target.length === 3 && target[2].replace(/\.[^.]+$/, '') === entry);
+
+  return atEntry ? 'ok' : 'reaches-inside';
+}
+
 export function resolveSegments(dir: string[], specifier: string): string[] | null {
   const stack = [...dir];
 

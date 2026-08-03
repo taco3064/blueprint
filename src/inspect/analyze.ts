@@ -4,12 +4,13 @@ import { dropTestFiles } from './filter';
 import {
   aliasList,
   buildModuleGraph,
+  entryResolver,
   layoutResolver,
-  moduleKey,
+  relativeVerdict,
   resolveSegments,
   stripAlias,
 } from './resolve';
-import type { LayoutOf } from './resolve';
+import type { EntryOf, LayoutOf } from './resolve';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
@@ -155,6 +156,7 @@ function importFindings(
   const forbidden = getForbiddenLayers(architecture, fileLayer);
   const selfOnly = getSelfOnlyTargets(architecture, fileLayer);
   const layoutOf = layoutResolver(architecture);
+  const entryOf = entryResolver(architecture);
   const findings: Finding[] = [];
 
   for (const ref of file.imports) {
@@ -181,7 +183,7 @@ function importFindings(
         findings.push(finding('error', 'selfonly-reexport', file.path, `Re-exports "${target}" ("${ref.specifier}"), which is selfOnly — depend on it, do not re-export it.`));
       }
     } else if (ref.specifier.startsWith('.')) {
-      const escape = relativeEscape(file, ref, layoutOf);
+      const escape = relativeEscape(file, ref, layoutOf, entryOf);
 
       if (escape) findings.push(escape);
     } else {
@@ -198,18 +200,26 @@ function importFindings(
   return findings;
 }
 
-function relativeEscape(file: ScannedFile, ref: ImportRef, layoutOf: LayoutOf): Finding | null {
+function relativeEscape(
+  file: ScannedFile,
+  ref: ImportRef,
+  layoutOf: LayoutOf,
+  entryOf: EntryOf,
+): Finding | null {
   const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
+  const verdict = relativeVerdict(file.segments, target, layoutOf, entryOf);
 
-  if (target === null) {
+  if (verdict === 'ok') return null;
+
+  if (verdict === 'escapes-src') {
     return finding('error', 'relative-escape', file.path, `Relative import "${ref.specifier}" escapes src/ — use the project alias.`);
   }
 
-  if (moduleKey(target, layoutOf) !== moduleKey(file.segments, layoutOf)) {
-    return finding('error', 'relative-escape', file.path, `Relative import "${ref.specifier}" leaves this module — use the alias, or extract shared code to a lower layer.`);
+  if (verdict === 'reaches-inside') {
+    return finding('error', 'relative-escape', file.path, `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${entryOf(file.segments[0])}" instead; what lives behind it is that module's own business.`);
   }
 
-  return null;
+  return finding('error', 'relative-escape', file.path, `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.`);
 }
 
 /** Owner layers of a package import (given its named imports), or null if unrestricted. */

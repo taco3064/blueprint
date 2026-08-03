@@ -100,11 +100,19 @@ describe('analyze · imports', () => {
     expect(from('vue', { names: ['ref'] })).not.toContain('package-ownership');
   });
 
-  it('flags relative imports that leave the module or escape src', () => {
-    expect(from('../Card')).toContain('relative-escape');
+  it('flags relative imports that leave the layer or escape src', () => {
     expect(from('../..')).toContain('relative-escape');
     expect(from('../../../outside')).toContain('relative-escape');
     expect(from('./helper')).toEqual([]);
+  });
+
+  // The lint rule and this finding read the same `relativeVerdict`, so a
+  // sibling's entry is legal to both and reaching past it is illegal to both.
+  // They disagreed once — same `../Sibling`, one gate green, one red — with no
+  // test placed to see it, which is why these two assertions sit together.
+  it('allows a sibling entry but not what is behind it', () => {
+    expect(from('../Card')).toEqual([]);
+    expect(from('../Card/internals')).toContain('relative-escape');
   });
 
   it('flags a selfOnly re-export but allows a plain import', () => {

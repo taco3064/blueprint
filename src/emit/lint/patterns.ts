@@ -261,7 +261,10 @@ export function buildStructuralPatterns(params: {
       message:
         moduleLayout === 'flat'
           ? `\n🚫 Same-layer imports must be relative. Replace "${a}/${layer}/X" with "./X".`
-          : '\n🚫 Do not import from the same layer. Extract shared logic to a lower layer.',
+          // The sibling is reachable, just not by this spelling: one shape for
+          // same-layer edges keeps the cycle surface to relative paths alone.
+          : `\n🚫 Same-layer imports must be relative. Replace "${a}/${layer}/X" with "../X" `
+            + '— its entry only; what is behind the entry stays private.',
     })),
   ];
 

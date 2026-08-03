@@ -1600,3 +1600,61 @@ describe('the handbook does not promise a gate that does not exist (field issue 
     expect(cycles).not.toContain('| lint |');
   });
 });
+
+/**
+ * The two relative-import gates once read the same `../Sibling` differently —
+ * `structure-lint`'s folder layout meant entry-only, blueprint's meant "the
+ * neighbour is untouchable", and an adopting agent carried the stricter
+ * reading across without noticing the names had drifted. Fifteen imports that
+ * had always worked were filed as pre-existing debt, and the only remedy the
+ * output offered was "extract to a lower layer" — the first stone of a
+ * `utils/` junk drawer. Folder layout is entry-only now, on both gates.
+ */
+describe('a folder layer shares by the sibling entry, not by sinking (cards)', () => {
+  const cards: Blueprint = {
+    name: 'cards',
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      layers: [
+        { name: 'components', does: 'ui' },
+        { name: 'hooks', does: 'stateful units' },
+      ],
+      module: { layout: 'folder', entry: 'index', private: [] },
+    },
+  };
+
+  const at = (files: Record<string, string>): RepoSpec => ({
+    packageJson: react(),
+    files: {
+      'blueprint.config.mjs': configSource(cards),
+      'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+      'src/hooks/useBreakpoint/index.jsx': 'export const useBreakpoint = () => 1;',
+      'src/hooks/useBreakpoint/media.jsx': 'export const media = 1;',
+      ...files,
+    },
+  });
+
+  it('accepts a sibling by its entry', async () => {
+    const dir = repo(at({
+      'src/hooks/useCardsAnimate/index.jsx':
+        'import { useBreakpoint } from \'../useBreakpoint\';\nexport default useBreakpoint;\n',
+    }));
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.output).not.toContain('relative-escape');
+  });
+
+  it('refuses to reach past it, and names the entry to use instead', async () => {
+    const dir = repo(at({
+      'src/hooks/useCardsAnimate/index.jsx':
+        'import { media } from \'../useBreakpoint/media\';\nexport default media;\n',
+    }));
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.output).toContain('relative-escape');
+    expect(inspect.output).toContain('index');
+  });
+});

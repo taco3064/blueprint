@@ -58,16 +58,28 @@ describe('blueprint/relative-escape · folder layer', () => {
     ).toEqual([]);
   });
 
-  it('flags cross-module relatives, entry or internals alike', () => {
+  it('allows a sibling module by its entry', () => {
     expect(
       messageIds('import x from "../markets";', 'src/resources/matches/Row.ts'),
-    ).toEqual(['leavesModule']);
+    ).toEqual([]);
 
+    expect(
+      messageIds('import x from "../markets/index";', 'src/resources/matches/Row.ts'),
+    ).toEqual([]);
+  });
+
+  it('flags reaching past a sibling entry', () => {
     expect(
       messageIds(
         'import x from "../../markets/Board";',
         'src/resources/matches/components/Row.ts',
       ),
+    ).toEqual(['reachesInside']);
+  });
+
+  it('flags a relative that leaves the layer entirely', () => {
+    expect(
+      messageIds('import x from "../../services/api";', 'src/resources/matches/Row.ts'),
     ).toEqual(['leavesModule']);
   });
 });
