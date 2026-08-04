@@ -254,6 +254,27 @@ describe('runImpact', () => {
     expect(output).toContain('vanishes after the merge');
   });
 
+  it('lets the authored framework outrank what the repo happens to have installed', async () => {
+    // `auto` is the only value that defers to detection. A declared framework
+    // is the contract, and a repo can be mid-migration — vue in the blueprint
+    // before the dependency lands, or a package.json that says nothing at all.
+    // Re-deriving it from detection drops the vue parser, every .vue file then
+    // parse-errors, and its rule hits are reported as caveats instead of hits.
+    project({});
+
+    const { module, captured } = fakeEslint([]);
+    const { loadModule, loaded } = loader(module);
+
+    await runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent });
+
+    expect(loaded).toContain('vue-eslint-parser');
+
+    const entries = captured.options?.overrideConfig as LintConfigEntry[];
+
+    expect(entries.find((e) => e.files?.[0] === '**/*.vue')?.languageOptions?.parser)
+      .toBe(vueParser);
+  });
+
   it('falls back to the auto glob set when nothing pins the framework', async () => {
     project({});
 
@@ -445,5 +466,32 @@ describe('renderImpact', () => {
 
     expect(out).toContain('0 hits — vacuous: the layer globs match no files');
     expect(out).toContain('proves nothing until code lands in a layer');
+  });
+
+  it('ends on the tally when there is nothing to caveat and no echo', () => {
+    // Both trailing blocks render nothing on a clean isolated run. Whatever
+    // lands there sits under the tally with no heading above it — and an
+    // unlabelled row is exactly what the two headings exist to prevent: the
+    // reader cannot tell a blueprint finding from an isolation artifact.
+    const out = renderImpact(
+      [{
+        rule: 'blueprint/relative-escape',
+        count: 3,
+        files: 2,
+        top: [{ path: 'src/a.ts', count: 2 }],
+        foreign: false,
+      }],
+      3,
+      10,
+    );
+
+    expect(out.endsWith('new violations still fail.')).toBe(true);
+  });
+
+  it('ends on the scope note when the report has no findings at all', () => {
+    // Same two blocks, the other exit — a zero-hit report closes on the line
+    // that bounds the claim, and an appended row would read as a finding the
+    // headline just said does not exist.
+    expect(renderImpact([], 0, 2).endsWith('judges its findings)')).toBe(true);
   });
 });
