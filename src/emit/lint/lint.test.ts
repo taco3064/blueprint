@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { defineBlueprint } from '../../config';
 import { emitLint } from './lint';
+import type { LintConfigEntry } from './types';
 import { STATEMENT_PADDING } from './patterns';
 
 const blueprint = defineBlueprint({
@@ -403,6 +404,10 @@ describe('emitLint · rules gates', () => {
     const typedef = config.find((item) => item.rules?.['blueprint/no-typedef-only-file']);
 
     expect(typedef?.files).toEqual(['src/**/*.js']);
+    // Every entry carrying a `blueprint/*` rule has to ship the plugin with it —
+    // the whole point of embedding it. Without the registration eslint fails to
+    // resolve the rule and the run dies, rather than the rule going quiet.
+    expect(typedef?.plugins?.blueprint).toBeDefined();
   });
 
   it('enforces the gates through a real Linter run', () => {
@@ -779,5 +784,157 @@ describe('emitLint · per-layer module layout', () => {
     // …but crossing layers relatively must use the alias.
     expect(ids('import x from "../services/api";', 'src/pages/Home.ts'))
       .toContain('blueprint/relative-escape');
+  });
+});
+
+describe('emitLint · what an exempted package splits into', () => {
+  const mixed = defineBlueprint({
+    framework: 'auto',
+    architecture: {
+      alias: '~app',
+      layers: [
+        { name: 'components', does: '' },
+        {
+          name: 'services',
+          does: '',
+          // One owned package excuses some files, the other excuses none — the
+          // pair is what makes the split observable at all.
+          owns: [{ package: 'axios', exempt: ['**/*.gen.ts', ''] }, { package: 'lodash' }],
+        },
+      ],
+      module: { layout: 'folder', entry: 'index', private: [] },
+    },
+  });
+
+  const banned = (entry: LintConfigEntry) =>
+    ((entry.rules?.['no-restricted-imports'] as [unknown, { paths?: { name: string }[] }])[1]
+      .paths ?? []).map((path) => path.name);
+
+  it('bans only the unexcused packages on the entry that covers every file', () => {
+    const entries = emitLint(mixed).filter(
+      (entry) =>
+        entry.rules?.['no-restricted-imports'] && entry.files?.some((f) => f.includes('components')),
+    );
+
+    expect(entries).toHaveLength(2);
+
+    const wide = entries.find((entry) => !entry.ignores?.includes('**/*.gen.ts'));
+    const narrow = entries.find((entry) => entry.ignores?.includes('**/*.gen.ts'));
+
+    // The wide entry reaches the exempted files too, so it may only carry the
+    // bans that hold everywhere. Carrying `axios` there bans it in the very
+    // files the author excused; carrying only `axios` inverts the split and
+    // leaves `lodash` unbanned in every file.
+    expect(banned(wide as LintConfigEntry)).toEqual(['lodash']);
+    expect(banned(narrow as LintConfigEntry)).toEqual(['axios', 'lodash']);
+  });
+
+  it('drops an empty exempt glob instead of handing it to ignores', () => {
+    const narrow = emitLint(mixed).find((entry) => entry.ignores?.includes('**/*.gen.ts'));
+
+    // `ignores: ['']` is not a glob eslint can use, and it rides in the same
+    // list as the test exemptions this entry depends on.
+    expect(narrow?.ignores).not.toContain('');
+  });
+});
+
+describe('emitLint · which layers become deep-import targets', () => {
+  it('names the other folder layers, never the layer itself', () => {
+    const entry = emitLint(blueprint).find(
+      (item) =>
+        item.rules?.['no-restricted-imports'] && item.files?.some((f) => f.includes('components')),
+    );
+
+    const groups = (
+      entry?.rules?.['no-restricted-imports'] as [unknown, { patterns: { group: string[] }[] }]
+    )[1].patterns.flatMap((pattern) => pattern.group);
+
+    expect(groups).toContain('~app/hooks/*/**');
+    expect(groups).toContain('~app/services/*/**');
+
+    // The layer's own modules are already banned wholesale by the same-layer
+    // group, and no-restricted-imports reports once per matched group — so
+    // naming itself here double-reports every same-layer deep import.
+    expect(groups).not.toContain('~app/components/*/**');
+  });
+
+  it('adds no fixture group unless fixtureImports is declared', () => {
+    const patterns = (
+      emitLint(blueprint).find(
+        (item) =>
+          item.rules?.['no-restricted-imports']
+          && item.files?.some((f) => f.includes('components')),
+      )?.rules?.['no-restricted-imports'] as [unknown, { patterns: { message?: string }[] }]
+    )[1].patterns;
+
+    // The fixture ban rides the structural rule, so an unasked-for one is a
+    // production ban on a folder the repo may legitimately import from.
+    expect(patterns.some((pattern) => pattern.message?.includes('must not import fixtures')))
+      .toBe(false);
+  });
+});
+
+describe('emitLint · registering only the plugins an entry needs', () => {
+  it('keeps the stylistic and import-x registrations apart', () => {
+    const options = { stylistic: stylisticPlugin, imports: importsPlugin };
+
+    const importOnly = emitLint(
+      defineBlueprint({ ...blueprint, rules: { importBlock: 'error' } }),
+      options,
+    ).find((entry) => entry.rules?.['import-x/no-duplicates']);
+
+    // A plugin registered but unused is not harmless: two entries registering
+    // the same key with different objects is a flat-config error, and the
+    // adopting repo's own registration is exactly what would collide.
+    expect(importOnly?.plugins?.['import-x']).toBe(importsPlugin);
+    expect(importOnly?.plugins).not.toHaveProperty('@stylistic');
+
+    const styleOnly = emitLint(
+      defineBlueprint({ ...blueprint, rules: { statementPadding: 'error' } }),
+      options,
+    ).find((entry) => entry.rules?.['@stylistic/padding-line-between-statements']);
+
+    expect(styleOnly?.plugins?.['@stylistic']).toBe(stylisticPlugin);
+    expect(styleOnly?.plugins).not.toHaveProperty('import-x');
+  });
+
+  it('registers the TypeScript plugin only for a rule that comes from it', () => {
+    const emitted = emitLint(
+      defineBlueprint({ ...blueprint, framework: 'vue', rules: { deepWatch: 'error' } }),
+      { typescript: { rules: {} } },
+    );
+
+    const shared = emitted.find((entry) => entry.rules?.['blueprint/no-deep-watch']);
+
+    expect(shared?.plugins?.blueprint).toBeDefined();
+    expect(shared?.plugins).not.toHaveProperty('@typescript-eslint');
+  });
+});
+
+describe('emitLint · the line unit when nothing overrides it', () => {
+  it('leaves the codeStyle bundle to carry it', () => {
+    // `statementsPerLine` written as `off` turns the bundle's copy off too —
+    // that is the documented override. NOT writing it must leave the bundle's
+    // own setting alone; switching it off unasked removes a gate the author
+    // never touched, and the catalog still reports codeStyle as on.
+    const shape = emitLint(
+      defineBlueprint({ ...blueprint, rules: { codeStyle: 'error' } }),
+      { stylistic: stylisticPlugin },
+    ).find((entry) => entry.rules?.['@stylistic/indent']);
+
+    expect(shape?.rules?.['@stylistic/max-statements-per-line']).not.toBe('off');
+  });
+});
+
+describe('emitLint · a config that declares emit without a lint block', () => {
+  it('falls back to error rather than reaching through the missing block', () => {
+    // `emit: { agents: [...] }` is what `init --agent claude` writes. Reaching
+    // for `lint.severity` through it unguarded throws, and emitLint is called
+    // from the generated eslint config — so every lint run in the repo dies.
+    const agentsOnly = defineBlueprint({ ...blueprint, emit: { agents: ['claude'] } });
+
+    const entry = emitLint(agentsOnly).find((item) => item.rules?.['no-restricted-imports']);
+
+    expect((entry?.rules?.['no-restricted-imports'] as [string])[0]).toBe('error');
   });
 });
