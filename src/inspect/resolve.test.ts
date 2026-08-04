@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { ArchitectureDef } from '../config';
-import { entryResolver, layoutResolver, relativeVerdict, resolveSegments } from './resolve';
+import {
+  entryResolver,
+  layoutResolver,
+  moduleKey,
+  relativeVerdict,
+  resolveSegments,
+  stripAlias,
+  targetModuleKey,
+} from './resolve';
+import type { ImportRef, ScannedFile } from './types';
 
 const architecture: ArchitectureDef = {
   alias: '~app',
@@ -89,5 +98,119 @@ describe('resolveSegments', () => {
       .toEqual(['resources', 'markets', 'index.ts']);
 
     expect(resolveSegments([], '../outside')).toBeNull();
+  });
+});
+
+describe('entryResolver · a shared entry that is not the default', () => {
+  it('keeps the declared shared entry instead of falling back to index', () => {
+    // `index` is only what a blueprint gets when it declares nothing. A repo
+    // that names its entry `main` has no `index` files at all, so resolving to
+    // one makes every sibling import a reaches-inside violation and inspect
+    // reddens a repo that is correctly shaped.
+    const named = entryResolver({
+      alias: '~app',
+      module: { layout: 'folder', entry: 'main' },
+      layers: [{ name: 'features', does: 'x' }, { name: 'api', does: 'y', module: { entry: 'client' } }],
+    });
+
+    expect(named('features')).toBe('main'); // shared, no override
+    expect(named('api')).toBe('client'); // override still wins
+    expect(named('unknown')).toBe('main'); // and the fallback is the shared one
+  });
+});
+
+describe('stripAlias', () => {
+  it('reads the bare alias as the alias root itself', () => {
+    // `import x from '~app'` is the alias with nothing after it. Requiring a
+    // trailing slash makes it not-an-alias-import at all, and the specifier
+    // falls through to "unresolvable" — invisible to every structural check
+    // while emitLint still bans it (field issue #29).
+    expect(stripAlias('~app', ['~app'])).toEqual([]);
+    expect(stripAlias('~app/services/api', ['~app'])).toEqual(['services', 'api']);
+  });
+
+  it('refuses a specifier that leaves the alias offset', () => {
+    // `~root` points at the project root, so its layer segments sit under
+    // `src/`. `~root/package.json` is under the alias but outside the offset —
+    // reading `package` as the layer name is how the naive strip turned a
+    // manifest import into a phantom layer (field issue #29).
+    const root = [{ alias: '~root', prefix: ['src'] }];
+
+    expect(stripAlias('~root/src/views/x', root)).toEqual(['views', 'x']);
+    expect(stripAlias('~root/package.json', root)).toBeNull();
+    // Matching only the FIRST offset segment is not enough either.
+    expect(stripAlias('~root/srcx/views/x', root)).toBeNull();
+  });
+
+  it('answers null for a specifier under no alias at all', () => {
+    expect(stripAlias('axios', ['~app'])).toBeNull();
+  });
+});
+
+describe('moduleKey · dropping the extension', () => {
+  it('drops only the last extension, not the first dotted part', () => {
+    // `Row.stories.ts` belongs to the module `Row.stories` — the file IS the
+    // module under folder layout. Cutting at the first dot yields `Row.ts`,
+    // which is a different module and a file that does not exist.
+    expect(moduleKey(['resources', 'Row.stories.ts'], layoutOf)).toBe('resources/Row.stories');
+    expect(moduleKey(['resources', 'Row.ts'], layoutOf)).toBe('resources/Row');
+  });
+});
+
+describe('targetModuleKey · which specifiers name a module', () => {
+  const file = (segments: string[]): ScannedFile => ({ path: segments.join('/'), segments, imports: [] });
+  const ref = (specifier: string): ImportRef => ({ specifier, names: [], isExport: false });
+
+  it('answers null for a bare package specifier', () => {
+    // A package name is neither aliased nor relative. Resolving it like a
+    // relative path appends it to the importer's own folder, and `axios` becomes
+    // the module `resources/axios` — a graph edge to a module that is not there,
+    // counted in every blast radius and flow check.
+    expect(
+      targetModuleKey(ref('axios'), file(['resources', 'Row', 'Row.ts']), ['~app'], ['resources'], layoutOf),
+    ).toBeNull();
+
+    // The two shapes that DO name a module still do.
+    expect(
+      targetModuleKey(ref('./parts/Cell'), file(['resources', 'Row', 'Row.ts']), ['~app'], ['resources'], layoutOf),
+    ).toBe('resources/Row');
+
+    expect(
+      targetModuleKey(ref('~app/services/api'), file(['resources', 'Row', 'Row.ts']), ['~app'], ['services'], layoutOf),
+    ).toBe('services/api');
+  });
+});
+
+describe('relativeVerdict · how deep the entry check looks', () => {
+  it('refuses a path that reaches through a sibling entry folder', () => {
+    // Three segments is the ONLY shape where the third can be the entry file.
+    // Dropping the length check lets `../markets/index/deep.ts` pass as an entry
+    // import, because segment three happens to read `index` — a path that goes
+    // straight through the entry into the module's private interior.
+    expect(relativeVerdict(
+      ['resources', 'matches', 'Row.ts'],
+      ['resources', 'markets', 'index', 'deep.ts'],
+      layoutOf,
+      entryOf,
+    )).toBe('reaches-inside');
+  });
+
+  it('matches a dotted entry name against the last extension only', () => {
+    // A layer whose entry is `index.d` has `index.d.ts` as its entry FILE — the
+    // key drops the final extension, not the first dotted part. Cutting at the
+    // first dot compares `index.ts` against `index.d`, and a sibling's legal
+    // entry import is reported as reaching inside it.
+    const typed: ArchitectureDef = {
+      alias: '~app',
+      module: { layout: 'folder', entry: 'index' },
+      layers: [{ name: 'types', does: 'shared shapes', module: { entry: 'index.d' } }],
+    };
+
+    expect(relativeVerdict(
+      ['types', 'money', 'money.ts'],
+      ['types', 'shape', 'index.d.ts'],
+      layoutResolver(typed),
+      entryResolver(typed),
+    )).toBe('ok');
   });
 });
