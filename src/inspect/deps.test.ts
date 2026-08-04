@@ -290,3 +290,57 @@ describe('runDeps · the order and shape of what it reports', () => {
     expect(output).not.toContain('main.ts');
   });
 });
+
+describe('runDeps · normalizing the target the user typed', () => {
+  it('drops empty path segments a pasted path carries', async () => {
+    scaffold();
+
+    // A doubled slash survives a copy-paste, and an empty segment becomes part
+    // of the module key — the answer is then "unknown module" for a module that
+    // is sitting right there.
+    const { ok, modules } = await runDeps(root, { target: 'hooks//useCart', log: silent });
+
+    expect(ok).toBe(true);
+    expect(modules[0].module).toBe('hooks/useCart');
+  });
+
+  it('does not call a multi-segment key a flat layer, even when every layer is flat', async () => {
+    // With `layout: 'flat'` as the SHARED shape, `layoutOf` answers flat for any
+    // name — including one that is not a layer at all. The single-segment and
+    // is-a-layer checks are what stop `pages/Home` from claiming the
+    // layer-granularity caveat.
+    const sharedFlat = async () => ({
+      framework: 'vue' as const,
+      architecture: {
+        alias: '~app',
+        // SHARED shape is flat, so `layoutOf` answers "flat" for any name it does
+        // not recognise as a layer — including a `layer/Module` key.
+        module: { layout: 'flat' as const, entry: 'index', private: [] },
+        layers: [
+          {
+            name: 'pages',
+            does: 'routes',
+            module: { layout: 'folder' as const },
+            allowedImporters: [],
+          },
+          { name: 'services', does: 'io', allowedImporters: ['pages'] },
+        ],
+      },
+    });
+
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+    writeSrc('services/api.ts', 'export const api = 1;');
+    writeSrc('pages/Home/Home.ts', 'import { api } from \'~app/services/api\';');
+
+    let output = '';
+
+    await runDeps(root, { loadConfig: sharedFlat, log: (m) => (output = m) });
+
+    // services is flat and collapses to the layer node. pages is folder-shaped,
+    // so its key is `pages/Home` — and `layoutOf` answers "flat" for that key too,
+    // since it is not a layer name. Only the single-segment and is-a-layer checks
+    // keep the caveat off it.
+    expect(output).toContain('services (flat layer)');
+    expect(output).not.toContain('pages/Home (flat layer)');
+  });
+});
