@@ -74,32 +74,107 @@ describe('runSurvey', () => {
     expect(result.aliases).toEqual({ '@': 'src' });
     expect(result.rootFiles).toEqual(['i18n.ts', 'main.tsx']);
 
+    // Every count asserted, in files-descending order. These six numbers are
+    // the evidence the authoring playbook reasons about — "does this folder
+    // look like a module layer?" is answered by directFiles vs childFolders
+    // vs indexedChildren, so an off-by-one or a flipped comparator here
+    // misinforms the architecture decision downstream, not just a report.
+    expect(result.folders).toEqual([
+      { folder: 'pages', files: 3, directFiles: 2, childFolders: 1, indexedChildren: 0, maxDepth: 2 },
+      { folder: 'services', files: 3, directFiles: 0, childFolders: 1, indexedChildren: 1, maxDepth: 2 },
+      { folder: 'components', files: 2, directFiles: 2, childFolders: 0, indexedChildren: 0, maxDepth: 1 },
+      { folder: 'hooks', files: 2, directFiles: 2, childFolders: 0, indexedChildren: 0, maxDepth: 1 },
+    ]);
+
     // Alias and relative imports both land in the matrix; root files bucket.
-    expect(result.edges).toContainEqual({ from: 'pages', to: 'components', count: 2 });
-    expect(result.edges).toContainEqual({ from: 'components', to: 'services', count: 1 });
-    expect(result.edges).toContainEqual({ from: ROOT_BUCKET, to: 'pages', count: 1 });
-
-    // Alias and relative imports of src-root files bucket to (src root);
-    // a root file importing another root file via the alias is not an edge.
-    expect(result.edges).toContainEqual({ from: 'pages', to: ROOT_BUCKET, count: 2 });
-
-    expect(result.edges).not.toContainEqual(
-      expect.objectContaining({ from: ROOT_BUCKET, to: ROOT_BUCKET }),
-    );
+    // Whole and in order, not by membership: the matrix is sorted by count
+    // descending, an edge that should not exist is as wrong as a missing one,
+    // and the playbook reads this list top-down. Membership assertions see
+    // none of that — they also cannot say that (src root) → (src root) and
+    // components → components are absent, which is the point of the two
+    // buckets below.
+    expect(result.edges).toEqual([
+      { from: 'pages', to: 'components', count: 2 },
+      { from: 'pages', to: ROOT_BUCKET, count: 2 },
+      { from: 'components', to: 'services', count: 1 },
+      { from: ROOT_BUCKET, to: 'pages', count: 1 },
+    ]);
 
     // Same-folder alias imports are separated out, not edges.
     expect(result.selfAliasImports).toEqual({ components: 1, hooks: 1 });
 
-    expect(result.edges).not.toContainEqual(
-      expect.objectContaining({ from: 'components', to: 'components' }),
-    );
-
     // axios: exact and subpath specifiers both attribute to the dependency.
-    expect(result.packageUsage).toContainEqual({ package: 'axios', folders: ['services'] });
+    // react and typescript are declared but never imported — absent, not zero.
+    expect(result.packageUsage).toEqual([{ package: 'axios', folders: ['services'] }]);
 
-    expect(result.testEvidence).toContainEqual({ pattern: '**/*.test.*', files: 1 });
-    expect(result.testEvidence).toContainEqual({ pattern: '**/*.spec.*', files: 1 });
-    expect(result.testEvidence).toContainEqual({ pattern: '**/__tests__/**', files: 1 });
+    // Declaration order of TEST_PATTERNS, minus the patterns that matched
+    // nothing — `src/test/**` is dropped rather than reported as 0.
+    expect(result.testEvidence).toEqual([
+      { pattern: '**/*.test.*', files: 1 },
+      { pattern: '**/*.spec.*', files: 1 },
+      { pattern: '**/__tests__/**', files: 1 },
+    ]);
+  });
+
+  it('counts both src/test spellings, and leads package usage with the most concentrated', () => {
+    write('package.json', JSON.stringify({ name: 'demo', dependencies: { axios: '^1', zod: '^3' } }));
+    write('tsconfig.json', JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }));
+
+    // One convention, two spellings — neither is a typo for the other, and
+    // the scaffold above matches neither, so this pattern went unexercised.
+    write('src/test/setup.ts', '');
+    write('src/tests/helpers.ts', '');
+
+    // axios spans two folders and zod one, while the alphabetical order runs
+    // the opposite way. That opposition is the whole point: it is what
+    // separates the `||` tiebreaker from an `&&`, which agree on any pair
+    // sorted the same way by both keys. And hooks reaches axios only through
+    // a subpath, which pins `startsWith` against `endsWith`.
+    write('src/services/api.ts', 'import axios from "axios";\nimport z from "zod";');
+    write('src/hooks/useX.ts', 'import axios from "axios/lib/adapters";');
+
+    const result = runSurvey(root, { log: silent });
+
+    expect(result.testEvidence).toEqual([{ pattern: 'src/test/**', files: 2 }]);
+
+    expect(result.packageUsage).toEqual([
+      { package: 'zod', folders: ['services'] },
+      { package: 'axios', folders: ['hooks', 'services'] },
+    ]);
+  });
+
+  it('matches the test patterns against the filename, not anywhere in the path', () => {
+    write('package.json', JSON.stringify({ name: 'edges' }));
+
+    // `.test.` or `.spec.` inside a DIRECTORY name is not a test file, which
+    // is the whole reason both patterns are anchored at the end of the path.
+    write('src/views/a.test.fixtures/data.ts', '');
+    write('src/views/b.spec.fixtures/data.ts', '');
+
+    expect(runSurvey(root, { log: silent }).testEvidence).toEqual([]);
+  });
+
+  it('reads an entry as index.<ext> exactly, and climbs deep relative imports from the file', () => {
+    write('package.json', JSON.stringify({ name: 'edges' }));
+    write('tsconfig.json', JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }));
+
+    // `index.test.ts` tests the entry, it is not the entry. `foo.index.ts`
+    // is not an entry at all. A directory *named* `index.x` sits one level
+    // too deep to be one, which is what the depth check is there for.
+    write('src/services/api/index.test.ts', '');
+    write('src/services/lib/foo.index.ts', '');
+    write('src/services/deep/index.x/leaf.ts', '');
+
+    // Two levels down, reaching a sibling layer. The climb starts at the
+    // file's own directory, so `../..` lands exactly on the source root —
+    // starting from one segment instead overshoots and the edge disappears.
+    write('src/components/Button.tsx', '');
+    write('src/services/api/deep.ts', 'import { Button } from "../../components/Button";');
+
+    const result = runSurvey(root, { log: silent });
+
+    expect(result.folders.every((folder) => folder.indexedChildren === 0)).toBe(true);
+    expect(result.edges).toEqual([{ from: 'services', to: 'components', count: 1 }]);
   });
 
   it('reports module-shape evidence per folder', () => {
@@ -175,6 +250,11 @@ describe('runSurvey', () => {
     runSurvey(root, { log: (message) => (output = message) });
 
     expect(output).toContain('… 2 more');
+
+    // Truncated, not just annotated — the count line without the cut is a
+    // lie in the other direction.
+    expect(output).toContain('pkg-14');
+    expect(output).not.toContain('pkg-15');
   });
 
   it('survives a missing package.json', () => {
@@ -191,10 +271,17 @@ describe('runSurvey', () => {
     write(
       'src/pages/Extra.tsx',
       [
+        // #internal appears once, and FIRST; ~root twice, after it. The list
+        // sorts by count descending, so inserting the low count first is what
+        // makes `b.count - a.count` and `b.count + a.count` land on opposite
+        // sides of zero — with two rows the other way round, those two
+        // comparators produce the identical order and neither can be told
+        // apart by any assertion.
+        'import c from "#internal/x";',
         'import a from "~root/tests/fixture";',
         'import b from "~root/tests/other";',
-        'import c from "#internal/x";',
         'import d from "plain-unknown-pkg";', // bare name — not alias-like, not reported
+        'import e from "weird~pkg";', // `~` mid-specifier — the prefix test is anchored
       ].join('\n'),
     );
 
@@ -234,5 +321,99 @@ describe('renderSurvey', () => {
     expect(output).toContain('Same-folder imports via the alias');
     expect(output).toContain('0  (none found)');
     expect(output).not.toContain('Unresolved');
+
+    // Field issue #6: a bare heading over nothing reads as a render failure,
+    // so every empty section says so out loud — and the sections that have
+    // nothing to say stay out entirely rather than heading an empty list.
+    expect(output).toContain('Alias: none detected in tsconfig paths');
+    expect(output).toContain('Folders (module-shape evidence):\n  — none —');
+    expect(output).toContain('its counts run lower):\n  — none —');
+    expect(output).not.toContain('src/ root files');
+    expect(output).not.toContain('Test conventions:');
+    expect(output).not.toContain('Package usage');
+  });
+
+  it('renders the alias list, the folder row, and same-folder counts heaviest first', () => {
+    const output = renderSurvey({
+      framework: 'vue',
+      typescript: true,
+      packageManager: 'pnpm',
+      aliases: { '~app': 'src', '~lib': 'src/lib' },
+      rootFiles: ['main.ts'],
+      folders: [
+        { folder: 'views', files: 12, directFiles: 3, childFolders: 4, indexedChildren: 2, maxDepth: 3 },
+      ],
+      edges: [{ from: 'views', to: 'services', count: 7 }],
+      selfAliasImports: { services: 2, views: 9 },
+      testEvidence: [{ pattern: '**/*.test.*', files: 4 }],
+      packageUsage: [{ package: 'axios', folders: ['services'] }],
+      unresolved: [],
+      totalFiles: 12,
+    });
+
+    // Every alias, joined — a render that stops at the first one hides half
+    // the wiring the agent has to reproduce.
+    expect(output).toContain('Alias: ~app → src, ~lib → src/lib');
+    expect(output).toContain('src/ root files (wiring, not layers): main.ts');
+
+    // All six folder numbers reach the line the playbook reads.
+    expect(output).toContain('12 files · 3 direct · 4 child folders (2 with index) · depth 3');
+    expect(output).toContain('7  views → services');
+
+    // Heaviest first — object key order would have put services first.
+    expect(output.indexOf('9  views')).toBeLessThan(output.indexOf('2  services'));
+
+    expect(output).toContain('Test conventions:');
+    expect(output).toContain('4  **/*.test.*');
+    expect(output).toContain('axios — services');
+
+    // Nothing in this fixture is empty, so no section may claim it is.
+    expect(output).not.toContain('— none —');
+  });
+
+  it('adds the overflow line only past the 15-package cap, not at it', () => {
+    const render = (count: number) =>
+      renderSurvey({
+        framework: null,
+        typescript: false,
+        packageManager: 'npm',
+        aliases: {},
+        rootFiles: [],
+        folders: [],
+        edges: [],
+        selfAliasImports: {},
+        testEvidence: [],
+        packageUsage: Array.from({ length: count }, (_, index) => ({
+          package: `pkg-${index}`,
+          folders: ['services'],
+        })),
+        unresolved: [],
+        totalFiles: 0,
+      });
+
+    // Exactly at the cap every package is already on the list, so the only
+    // overflow line available to print would claim "… 0 more".
+    expect(render(15)).toContain('pkg-14');
+    expect(render(15)).not.toContain('more (use --json');
+
+    expect(render(16)).toContain('… 1 more (use --json for the full list)');
+  });
+});
+
+describe('runSurvey · which dependency claims a subpath', () => {
+  it('attributes a subpath import to the longest matching dependency', () => {
+    // Two deps where one is a `/`-prefix of the other. The longer name has to be
+    // tried first, or `axios/lib/x` is attributed to `axios` and the more
+    // specific ownership disappears from the report. npm would reject this
+    // manifest — survey reads what is on disk, not what npm would accept.
+    write('package.json', JSON.stringify({
+      name: 'demo',
+      dependencies: { axios: '^1', 'axios/lib': '^1' },
+    }));
+
+    write('src/services/api.ts', 'import x from "axios/lib/adapters";');
+
+    expect(runSurvey(root, { log: silent }).packageUsage)
+      .toEqual([{ package: 'axios/lib', folders: ['services'] }]);
   });
 });
