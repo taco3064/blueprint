@@ -104,3 +104,17 @@ describe('emitAgentFiles', () => {
     expect(files.map((file) => file.path)).toEqual(['docs/CLAUDE.md', 'AGENTS.md']);
   });
 });
+
+describe('emitAgentFiles · which form each strategy receives', () => {
+  it('gives a tool-owned file the full contract, not the compact pointer block', () => {
+    // `own` files are blueprint's to write end to end. `merge` files get the
+    // compact block because a person maintains the document around them. Handing
+    // a cursor rule the compact form points it at a handbook it was supposed to
+    // carry itself — the rule file becomes a link to the contract, not the
+    // contract.
+    const [cursor] = emitAgentFiles(bp(['cursor']));
+
+    expect(cursor.strategy).toBe('own');
+    expect(cursor.content).toContain('### Where code goes');
+  });
+});
