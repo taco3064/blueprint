@@ -582,3 +582,97 @@ describe('wiringCheck · which files become probes', () => {
     expect(probed.some((file) => file.includes('Home/index.vue'))).toBe(true);
   });
 });
+
+describe('wiringCheck · which path each layer gets probed at', () => {
+  const probeWith = async (over: Partial<Blueprint['architecture']>, scanResult: ScanResult) => {
+    const probed: string[] = [];
+
+    const check = await wiringCheck({
+      root: '/repo',
+      blueprint: { ...blueprint, architecture: { ...blueprint.architecture, ...over } },
+      scanResult,
+      wired: true,
+      hasTypescript: true,
+      load: loader((filePath: string) => {
+        probed.push(filePath);
+
+        return { rules: {} };
+      }),
+    });
+
+    return { probed, check };
+  };
+
+  it('takes a file matching ANY of the layer globs, not one matching all', async () => {
+    // One glob per extension is the ordinary shape. Requiring a file to match
+    // every glob finds no real file at all, so the layer falls back to a
+    // synthetic probe — the check then asks about a path that does not exist
+    // while the real file sitting in the layer goes unmeasured.
+    const { probed } = await probeWith(
+      { layerFiles: ['src/{layer}/**/*.ts', 'src/{layer}/**/*.vue'] },
+      scanOf('src/views/Home/index.vue'),
+    );
+
+    expect(probed.some((file) => file.endsWith('src/views/Home/index.vue'))).toBe(true);
+  });
+
+  it('collapses a run of stars into a single probe segment', async () => {
+    // `src/{layer}/**` ends on the stars, so they survive the `**/` strip and
+    // reach the star replacement as a pair. Replacing one at a time doubles the
+    // placeholder: the probe still lands inside the net, so nothing turns red,
+    // but the path asked about is not the shape any real file has — and a user
+    // entry scoped by path segment resolves differently for it.
+    const { probed } = await probeWith({ layerFiles: 'src/{layer}/**' }, scanOf());
+
+    expect(probed.some((file) => file.endsWith('src/views/__blueprint_probe__'))).toBe(true);
+    expect(probed.some((file) => file.includes('__blueprint_probe____'))).toBe(false);
+  });
+
+  it('walks past a glob synthesis cannot handle to one it can', async () => {
+    // `?` survives synthesis untransformed, so that glob yields no candidate —
+    // but the layer's other glob still does. Accepting the null stops at the
+    // first glob and reports no probe derivable, so a layer that IS measurable
+    // goes unmeasured and the whole check skips green.
+    const { probed, check } = await probeWith(
+      { layerFiles: ['src/{layer}/?.js', 'src/{layer}/**/*.ts'] },
+      scanOf(),
+    );
+
+    expect(check.label).not.toContain('no probe derivable');
+    expect(probed.some((file) => file.endsWith('src/views/__blueprint_probe__.ts'))).toBe(true);
+  });
+});
+
+describe('wiringCheck · the shapes a surviving global ban comes back as', () => {
+  it('reads the object form emitLint itself writes', async () => {
+    // emitLint emits `{ name, message }` entries, so a merge that changed
+    // nothing hands exactly those back. Taking the whole object as the name
+    // compares an object against `fetch` and reports the ban as lost — doctor
+    // then reddens the one merge that is completely correct.
+    const expected = blueprint.architecture.layers.map((layer) =>
+      expectedStructural(blueprint, layer.name));
+
+    const groups = new Set(expected.flatMap((e) => [...e.groups]));
+    const selectors = new Set(expected.flatMap((e) => [...e.selectors]));
+    const globals = new Set(expected.flatMap((e) => [...e.globals]));
+
+    const check = await run(scanOf('src/views/Home/index.vue'), {
+      rules: {
+        'blueprint/relative-escape': 'error',
+        'no-restricted-imports': [2, {
+          patterns: [...groups].map((group) => ({ group: JSON.parse(group) as string[] })),
+        }],
+        'no-restricted-syntax': [2, ...selectors],
+        'no-restricted-globals': [
+          2,
+          ...[...globals].map((name) => ({
+            name,
+            message: `\n🚫 Use of "${name}" is restricted to its owning layer.`,
+          })),
+        ],
+      },
+    });
+
+    expect(check.ok).toBe(true);
+  });
+});
