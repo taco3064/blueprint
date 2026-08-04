@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ArchitectureDef } from '../config';
-import { entryResolver, layoutResolver, relativeVerdict } from './resolve';
+import { entryResolver, layoutResolver, relativeVerdict, resolveSegments } from './resolve';
 
 const architecture: ArchitectureDef = {
   alias: '~app',
@@ -64,5 +64,30 @@ describe('relativeVerdict', () => {
   it('leaves a flat layer alone — it has no module folders to be inside of', () => {
     expect(relativeVerdict(['utils', 'date.ts'], ['utils', 'money.ts'], layoutOf, entryOf))
       .toBe('ok');
+  });
+});
+
+describe('resolveSegments', () => {
+  const dir = ['resources', 'matches'];
+
+  it('drops the parts that address nothing, rather than pushing them as folders', () => {
+    // `./x` is the most ordinary relative spelling there is, and `a//b` is a
+    // routine typo. A `.` or an empty string pushed onto the stack becomes a
+    // phantom folder, and every later layer/entry comparison reads the wrong
+    // segment — silently, since the path still looks plausible.
+    expect(resolveSegments(dir, './Row.ts')).toEqual(['resources', 'matches', 'Row.ts']);
+
+    expect(resolveSegments(dir, './parts/Cell.ts'))
+      .toEqual(['resources', 'matches', 'parts', 'Cell.ts']);
+
+    expect(resolveSegments(dir, 'parts//Cell.ts'))
+      .toEqual(['resources', 'matches', 'parts', 'Cell.ts']);
+  });
+
+  it('walks up on .., and gives up rather than climbing past the root', () => {
+    expect(resolveSegments(dir, '../markets/index.ts'))
+      .toEqual(['resources', 'markets', 'index.ts']);
+
+    expect(resolveSegments([], '../outside')).toBeNull();
   });
 });

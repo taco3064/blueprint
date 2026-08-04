@@ -152,7 +152,13 @@ describe('runRules', () => {
 
     expect(output).toContain('Per-layer bans');
     expect(output).toContain('axios');
-    expect(output).toContain('(none)');
+
+    // Each of the three ban fields prints its own "(none)", so one unqualified
+    // toContain('(none)') is satisfied by whichever field happens to be empty —
+    // leaving the other two free to print anything at all. Name the field.
+    expect(output).toContain('no-import: (none)');
+    expect(output).toContain('packages: react (useContext), axios');
+    expect(output).toContain('globals: (none)');
 
     // No config → no resolved view, just the static catalog.
     const bare: string[] = [];

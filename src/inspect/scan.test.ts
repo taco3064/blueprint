@@ -43,6 +43,29 @@ describe('extractImports', () => {
     expect(refs.map((ref) => ref.specifier)).toEqual(['real']);
     expect(refs[0].names).toEqual(['T', 'U']);
   });
+
+  it('records the whole shape of a side-effect, dynamic, and require reference', () => {
+    // The suite checked these three specifiers existed and nothing else. Both
+    // of their defaults were therefore free to flip, and an `isExport: true`
+    // here would make a selfOnly re-export ban fire on `import './setup'`.
+    expect(extractImports('import \'./side-effect\';')).toEqual([
+      { specifier: './side-effect', names: [], isExport: false },
+    ]);
+
+    expect(extractImports('const m = await import(\'dyn\');')).toEqual([
+      { specifier: 'dyn', names: [], isExport: false },
+    ]);
+
+    expect(extractImports('const r = require(\'req\');')).toEqual([
+      { specifier: 'req', names: [], isExport: false },
+    ]);
+  });
+
+  it('drops the empty slot a trailing comma leaves behind', () => {
+    // `{ a, }` splits into ['a', '']. An empty name matches no layer, so it
+    // would pad every ownership comparison with a member that means nothing.
+    expect(extractImports('import { a, } from \'pkg\';')[0].names).toEqual(['a']);
+  });
 });
 
 describe('scan', () => {

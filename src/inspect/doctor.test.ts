@@ -67,6 +67,12 @@ describe('runDoctor', () => {
     // Truly clean, no baseline — the label stays plain instead of claiming
     // coverage by a ledger that does not exist (field run #10).
     expect(checks.map((c) => c.label)).toContain('architecture clean');
+
+    // No source files at all: an empty net is not "vacuous" — there is nothing
+    // for it to catch. Calling it vacuous names a wiring gap that is not there
+    // and sends the reader to move code that does not exist.
+    expect(checks.find((c) => c.label.includes('architecture'))?.detail)
+      .not.toContain('vacuous');
   });
 
   it('flags leftover authoring artifacts — doctor has the final word, not a mid-flow one', async () => {
@@ -82,6 +88,13 @@ describe('runDoctor', () => {
     expect(check?.detail).toContain('blueprint-authoring.md');
     expect(check?.detail).toContain('.claude/commands/blueprint-author.md');
     expect(check?.detail).toContain('EXPECTED to fail');
+
+    // Only the authoring artifacts are on disk, so this clause is the whole
+    // detail: it opens on the filenames and closes on the caveat. The other two
+    // slots are joined either side of it, and anything landing in one describes
+    // files that are not there — which `toContain` cannot see.
+    expect(check?.detail).toMatch(/^(blueprint-authoring\.md|\.claude\/commands)/);
+    expect(check?.detail?.endsWith('EXPECTED to fail here')).toBe(true);
   });
 
   it('flags a leftover reference file', async () => {
@@ -92,8 +105,17 @@ describe('runDoctor', () => {
     const { ok, checks } = await runDoctor(root, { loadConfig: load, log: (m) => (output = m) });
 
     expect(ok).toBe(false);
-    expect(checks.find((c) => c.label.includes('reference'))?.detail).toContain('CLAUDE.blueprint.md');
+
+    const detail = checks.find((c) => c.label.includes('reference'))?.detail;
+
+    expect(detail).toContain('CLAUDE.blueprint.md');
     expect(output).toContain('Adoption incomplete');
+
+    // Only a reference is on disk, so its clause is the whole detail. The
+    // authoring and stale-contract slots sit after it, and a doctor claiming a
+    // live playbook or a stale contract sends the reader hunting for neither.
+    expect(detail?.startsWith('merge and delete: CLAUDE.blueprint.md')).toBe(true);
+    expect(detail?.endsWith('adoption is not done while a reference remains')).toBe(true);
   });
 
   it('flags eslint not wired to emitLint', async () => {
@@ -424,5 +446,16 @@ describe('runDoctor', () => {
 
     expect(parsed.ok).toBe(true);
     expect(Array.isArray(parsed.checks)).toBe(true);
+  });
+
+  it('reports ok:false in JSON as soon as any check fails', async () => {
+    write('blueprint.config.mjs', '// user config');
+    let output = '';
+
+    await runDoctor(root, { loadConfig: load, json: true, log: (m) => (output = m) });
+
+    // `ok` is EVERY check passing, not any of them. A git hook or CI job gates
+    // on this field, and "some check passed" is true of almost any repo.
+    expect(JSON.parse(output).ok).toBe(false);
   });
 });

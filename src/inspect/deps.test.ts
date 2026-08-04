@@ -184,6 +184,11 @@ describe('runDeps · flat-layout layers answer at layer granularity', () => {
 
     expect(output).toContain('← features (flat layer)');
     expect(output).toContain('← pages/Home');
+
+    // pages is folder-shaped, so its modules answer at module granularity.
+    // Claiming the layer-granularity caveat here would tell the reader the
+    // blast radius is wider than it is.
+    expect(output).not.toContain('pages/Home (flat layer)');
   });
 });
 

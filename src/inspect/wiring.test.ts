@@ -157,6 +157,18 @@ describe('wiringCheck', () => {
     expect(check.detail).toContain('views: no-restricted-globals lost fetch');
   });
 
+  it('reads a numeric 0 severity exactly as it reads "off"', async () => {
+    // eslint accepts both spellings for the same thing. Reading the number as
+    // active makes this check expect artifacts from a rule the user switched
+    // off, and the red then names a rule nobody asked to run.
+    const check = await run(scanOf('src/views/Home/index.vue'), {
+      rules: { 'no-restricted-globals': [0, { name: 'fetch' }] },
+    });
+
+    expect(check.ok).toBe(false);
+    expect(check.detail).toContain('views: no-restricted-globals lost fetch');
+  });
+
   it('reports lost selfOnly selectors and globals for a non-owning layer', async () => {
     const check = await run(scanOf('src/views/Home/index.vue'), { rules: {} });
 
@@ -502,5 +514,71 @@ describe('wiringCheck · selfOnly with several importers (field issue #51)', () 
     // "something somewhere in the merge".
     expect(check.detail).toContain('composables: no-restricted-syntax lost');
     expect(check.detail).not.toContain('views: no-restricted-syntax lost');
+  });
+});
+
+describe('expectedStructural · deep-import targets', () => {
+  // The deep-import ban's glob list — the folder-target list made visible.
+  const deepImportGlobs = (bp: Blueprint, layer: string): string[] | undefined =>
+    [...expectedStructural(bp, layer).groups]
+      .map((group) => JSON.parse(group) as string[])
+      .find((group) => group.some((glob) => glob.endsWith('/*/**')));
+
+  it('names other folder-layout layers, and only those', () => {
+    const mixed: Blueprint = {
+      ...blueprint,
+      architecture: {
+        ...blueprint.architecture,
+        layers: [
+          { name: 'views', does: 'pages' },
+          { name: 'utils', does: 'leaf helpers', module: { layout: 'flat' } },
+          { name: 'services', does: 'io' },
+        ],
+      },
+    };
+
+    const globs = deepImportGlobs(mixed, 'views');
+
+    // A flat layer has no module folders to reach inside of, so banning deep
+    // imports into it would ban ordinary file imports. And the importing layer
+    // is not a target of its own — reaching into a sibling module of the same
+    // layer is what `blueprint/relative-escape` covers.
+    expect(globs).toContain('~app/services/*/**');
+    expect(globs?.some((glob) => glob.includes('utils'))).toBe(false);
+    expect(globs?.some((glob) => glob.includes('views'))).toBe(false);
+  });
+
+  it('leaves out a layer that is already banned outright', () => {
+    const globs = deepImportGlobs(blueprint, 'views');
+
+    // `stores` is folder-layout, but views may not import it at all — a
+    // deep-import ban there would be a second, weaker ban on the same edge,
+    // and the weaker message is the one a reader would hit first.
+    expect(globs).toContain('~app/services/*/**');
+    expect(globs?.some((glob) => glob.includes('stores'))).toBe(false);
+  });
+});
+
+describe('wiringCheck · which files become probes', () => {
+  it('never probes an ignored or a test file', async () => {
+    const probed: string[] = [];
+
+    await run(
+      scanOf('src/views/skip.gen.ts', 'src/views/Home/x.test.ts', 'src/views/Home/index.vue'),
+      (filePath: string) => {
+        probed.push(filePath);
+
+        return { rules: {} };
+      },
+    );
+
+    // layerFilesIgnore covers `*.gen.ts` and testFiles covers `*.test.ts`.
+    // Probing either measures a file the emitted config never governs, so the
+    // verdict would come from a config that was never in question.
+    expect(probed.some((file) => file.includes('skip.gen.ts'))).toBe(false);
+    expect(probed.some((file) => file.includes('x.test.ts'))).toBe(false);
+
+    // The real layer file is what gets asked about.
+    expect(probed.some((file) => file.includes('Home/index.vue'))).toBe(true);
   });
 });
