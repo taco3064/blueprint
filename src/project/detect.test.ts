@@ -193,6 +193,32 @@ describe('detect · Next router detection', () => {
   it('reports no router when neither tree exists', () => {
     expect(detect(root).nextRouter).toBe(null);
   });
+
+  it('skips the router probe entirely on a project that is not Next', () => {
+    const plain = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-plain-'));
+
+    try {
+      fs.writeFileSync(
+        path.join(plain, 'package.json'),
+        JSON.stringify({ dependencies: { vue: '^3' } }),
+      );
+
+      // `src/app` is an ordinary layer folder in a Vue repo. Probing it as a
+      // Next route tree would report a router this project does not have.
+      fs.mkdirSync(path.join(plain, 'src', 'app'), { recursive: true });
+
+      const state = detect(plain);
+
+      // Both fields need their absent VALUES, not just absence: an undefined
+      // nextSrcDir reads as false everywhere it is consumed, so the wrong shape
+      // stays invisible until something compares it.
+      expect(state.hasNext).toBe(false);
+      expect(state.nextRouter).toBe(null);
+      expect(state.nextSrcDir).toBe(false);
+    } finally {
+      fs.rmSync(plain, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('detect · workspace-aware package manager', () => {
@@ -399,5 +425,32 @@ describe('every carrier init installs can resolve on the adopter\'s stack', () =
     };
 
     expect(carriers.filter((dep) => !manifest.devDependencies[dep])).toEqual([]);
+  });
+});
+
+describe('parseJsonc · where a comment starts and stops', () => {
+  it('strips a line comment that has no newline after it', () => {
+    // A tsconfig whose last line is a comment has no terminator, so the scan
+    // has to stop at the end of the text rather than run past it.
+    expect(parseJsonc('{"a": 1} // tail')).toEqual({ a: 1 });
+    expect(parseJsonc('{"a": 1}\n// tail\n')).toEqual({ a: 1 });
+  });
+
+  it('strips a block comment wherever it sits', () => {
+    expect(parseJsonc('{/* lead */ "a": 1}')).toEqual({ a: 1 });
+    expect(parseJsonc('{"a": 1 /* trail */}')).toEqual({ a: 1 });
+    expect(parseJsonc('{"a": /* mid */ 1}')).toEqual({ a: 1 });
+  });
+
+  it('does not read a lone slash as the start of a comment', () => {
+    // A slash appears in every path. Only a doubled one, or one followed by a
+    // star, opens a comment — reading a bare slash as one swallows the rest of
+    // the file and false-reds the alias check on a config that is fine.
+    expect(parseJsonc('{"a": "x/y"}')).toEqual({ a: 'x/y' });
+    expect(parseJsonc('{"a": 1, "b": 2}')).toEqual({ a: 1, b: 2 });
+  });
+
+  it('leaves an unterminated block comment unparseable instead of looping', () => {
+    expect(parseJsonc('{"a": 1 /* never closed')).toBeNull();
   });
 });

@@ -432,3 +432,30 @@ describe('survey command dispatch', () => {
     expect(vi.mocked(console.log).mock.calls.join('\n')).toContain('deterministic evidence');
   });
 });
+
+describe('parse*Args · argument boundaries', () => {
+  it('reads a positional target, and only a positional one', () => {
+    // A flag-shaped argument is never a target: `--nope` opens with a dash, so
+    // it is an unknown flag, not the module to trace.
+    expect(parseDepsArgs(['hooks/useX'])).toEqual({ target: 'hooks/useX' });
+    expect(parseDepsArgs(['--nope'])).toEqual({});
+    expect(parseImpactArgs(['--nope'])).toEqual({});
+  });
+
+  it('takes the first positional and leaves later ones alone', () => {
+    // The second bare word is not a second target — silently replacing the
+    // first would trace a module the user did not ask about.
+    expect(parseDepsArgs(['hooks/useX', 'hooks/useY'])).toEqual({ target: 'hooks/useX' });
+  });
+
+  it('ignores a value-taking flag with nothing after it', () => {
+    // Walking one index past the array hands the next branch `undefined`, and
+    // `undefined.startsWith` throws inside the CLI instead of reporting a usage
+    // error the caller can act on.
+    expect(parseDepsArgs(['--framework'])).toEqual({});
+    expect(parseImpactArgs(['--framework'])).toEqual({});
+    expect(parseInitArgs(['--framework'])).toEqual({});
+    expect(parseInspectArgs(['--framework'])).toEqual({});
+    expect(parseSurveyArgs(['--alias'])).toEqual({});
+  });
+});
