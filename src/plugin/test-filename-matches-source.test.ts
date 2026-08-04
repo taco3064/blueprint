@@ -50,4 +50,14 @@ describe('blueprint/test-filename-matches-source', () => {
   it('ignores files that are not test files', () => {
     expect(messages('Dropdown.ts')).toEqual([]);
   });
+
+  it('reads the test suffix at the end of the path, not inside a directory name', () => {
+    // A directory named `a.test.ts` is not a test file. Matching the suffix
+    // mid-path turns every file underneath it into an orphan test whose
+    // "missing source" is a sibling that was never supposed to exist.
+    fs.mkdirSync(path.join(root, 'a.test.ts'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'a.test.ts', 'b.ts'), 'export {};');
+
+    expect(messages('a.test.ts/b.ts')).toEqual([]);
+  });
 });

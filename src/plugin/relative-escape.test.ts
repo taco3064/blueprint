@@ -132,3 +132,82 @@ describe('blueprint/relative-escape · scoping', () => {
     ).toEqual(['leavesModule']);
   });
 });
+
+describe('blueprint/relative-escape · what the rule declines to judge', () => {
+  const texts = (code: string, filename: string): string[] =>
+    linter
+      .verify(
+        code,
+        {
+          files: ['**'],
+          plugins: { blueprint: plugin },
+          languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+          rules: { 'blueprint/relative-escape': ['error', { layouts: LAYOUTS }] },
+        },
+        { filename },
+      )
+      .map((message) => message.message);
+
+  it('stays out of files that sit under no src/ directory at all', () => {
+    // Without the `src` anchor the entire path becomes layer segments, and any
+    // top-level folder that happens to share a layer name starts being linted
+    // as that layer.
+    expect(messageIds('import x from "../resources/matches";', 'components/Button.ts'))
+      .toEqual([]);
+  });
+
+  it('anchors on src wherever it sits, not at a fixed depth', () => {
+    // `src` as the second segment is the ordinary monorepo shape, and the
+    // segments after it must still be read as layers.
+    expect(messageIds('import x from "../resources/matches";', 'repo/src/components/Button.ts'))
+      .toEqual(['leavesModule']);
+
+    expect(messageIds('import x from "./Card";', 'repo/src/components/Button.ts')).toEqual([]);
+  });
+
+  it('leaves every non-relative specifier alone', () => {
+    // Alias imports are what this rule tells people to use instead; running
+    // them through the relative resolver would invent violations in the one
+    // form the fix recommends.
+    expect(messageIds('import x from "~app/resources/matches";', 'src/components/Button.ts'))
+      .toEqual([]);
+
+    expect(messageIds('import x from "node:path";', 'src/components/Button.ts')).toEqual([]);
+  });
+
+  it('leaves a bare specifier alone even where the resolver would call it a reach', () => {
+    // Resolved as a path, a package specifier lands under the importer's own
+    // directory and deep enough that the folder-module verdict reads it as
+    // reaching past an entry. The relative guard is the only thing keeping
+    // every package import in a folder-module layer from being reported.
+    expect(messageIds('import x from "lodash/fp/curry";', 'src/resources/index.ts')).toEqual([]);
+  });
+
+  it('tolerates a doubled separator in the filename', () => {
+    // An empty path segment would land where the layer name goes, and the rule
+    // would then decline to judge the file at all.
+    expect(messageIds('import x from "../resources/matches";', 'src//components/Button.ts'))
+      .toEqual(['leavesModule']);
+  });
+
+  it('leaves a dynamic import whose specifier is not a string', () => {
+    // `import(123)` parses fine. Handing a number to a resolver that calls
+    // `.startsWith` throws inside the adopter's lint run instead of reporting.
+    expect(messageIds('const p = import(123);', 'src/components/Button.ts')).toEqual([]);
+  });
+
+  it('names the specifier, and the sibling entry, in what it reports', () => {
+    // The data block is the whole difference between an actionable message and
+    // one that renders `{{specifier}}` literally.
+    expect(texts('import x from "../resources/matches";', 'src/components/Button.ts')[0])
+      .toContain('"../resources/matches"');
+
+    const inside = texts(
+      'import x from "../../markets/Board";',
+      'src/resources/matches/components/Row.ts',
+    )[0];
+
+    expect(inside).toContain('"../../markets/Board"');
+    expect(inside).toContain('"index"');
+  });
+});

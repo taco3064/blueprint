@@ -42,7 +42,42 @@ describe('blueprint/use-prefix-needs-reactivity', () => {
     expect(messages('export const cart = (a) => a;', 'src/utils/cart.ts')).toEqual([]);
     expect(messages('export const used = (a) => a;', 'used.ts')).toEqual([]);
 
-    // useCart.test.ts reduces to base "useCart" — still subject to the rule.
-    expect(messages('export const t = 1;', 'useCart.test.ts')).toHaveLength(1);
+    // useCart.test.ts reduces to base "useCart" — still subject to the rule,
+    // and the message has to name the stripped base. A suffix left on reports a
+    // file that does not exist, and a message count cannot see that at all.
+    const out = messages('export const t = 1;', 'useCart.test.ts');
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toContain('"useCart"');
+  });
+
+  it('reads the prefix only at the start of the name', () => {
+    // `mouseUp` contains `useU`. Matching anywhere in the basename would drag
+    // every such file into a rule that is about hooks.
+    expect(messages('export const mouseUp = (a, b) => a + b;', 'src/hooks/mouseUp.ts'))
+      .toEqual([]);
+  });
+
+  it('does not read a private method name as a reactive call', () => {
+    // `this.#useState()` carries a PrivateIdentifier, not an Identifier.
+    // Reading `.name` off it anyway would let any class holding a `#useState`
+    // member satisfy the rule without a line of reactivity in sight.
+    expect(
+      messages(
+        'class A { #useState() {} m() { this.#useState(); } }\nexport const useCart = () => new A();',
+        'src/hooks/useCart.ts',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('strips the test and extension suffixes only where they end the name', () => {
+    // Both patterns are end-anchored, and a doubled extension is where that
+    // shows: stripping mid-name reports a base the file does not have, which
+    // sends the reader looking for a file that was never there.
+    expect(messages('export const t = 1;', 'useCart.test.ts.ts')[0])
+      .toContain('"useCart.test.ts"');
+
+    expect(messages('export const t = 1;', 'useCart.vue.ts')[0])
+      .toContain('"useCart.vue"');
   });
 });

@@ -49,4 +49,43 @@ describe('blueprint/use-prefix', () => {
   it('reports the offending name in the message', () => {
     expect(messages('export function getCart() {}')[0]).toContain('"getCart"');
   });
+
+  it('wants the capital immediately after the prefix, not merely somewhere', () => {
+    // `userName` opens with `use` and does contain a capital — just not at the
+    // position that makes a name `useX`. Looking anywhere in the name would
+    // wave through every `user*` helper in the layer.
+    expect(messages('export function userName() {}')).toHaveLength(1);
+    expect(messages('export const userProfile = () => {};')).toHaveLength(1);
+  });
+
+  it('leaves a destructured export alone even when it initializes to a function', () => {
+    // The id is an ObjectPattern — there is no single name to judge. Reading
+    // it as an Identifier hands `check` an undefined name, which throws inside
+    // an adopter's lint run rather than reporting anything.
+    expect(messages('export const { cart } = function () {};')).toEqual([]);
+    expect(messages('export const [first] = function () {};')).toEqual([]);
+  });
+
+  it('states its own purpose in meta, which is what adopters actually read', () => {
+    // This plugin ships into other repos, where `eslint --print-config` and
+    // every editor tooltip render this text. An empty docs block is invisible
+    // here and a regression there.
+    expect(plugin.rules?.['use-prefix']?.meta?.docs?.description).toContain('hook prefix');
+  });
+
+  it('rejects a misspelled or mistyped option instead of quietly ignoring it', () => {
+    const withOption = (option: unknown): void => {
+      linter.verify('export function getCart() {}', {
+        plugins: { blueprint: plugin },
+        languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+        rules: { 'blueprint/use-prefix': ['error', option] } as never,
+      });
+    };
+
+    // The schema is the whole of what stands between a typo in an adopter's
+    // eslint config and a rule that silently runs on the default prefix.
+    expect(() => withOption({ prefixx: 'with' })).toThrow();
+    expect(() => withOption({ prefix: 123 })).toThrow();
+    expect(() => withOption({ prefix: 'with' })).not.toThrow();
+  });
 });
