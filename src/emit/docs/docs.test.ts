@@ -66,3 +66,20 @@ describe('emitHandbook', () => {
     expect(emitHandbook(full())).toBe(emitHandbook(full()));
   });
 });
+
+describe('emitHandbook · joining the sections', () => {
+  it('leaves no gap where a section rendered nothing', () => {
+    // Same shape as the agent contract: a renderer with nothing to say returns
+    // '', and joining it in leaves blank lines in the published handbook.
+    const minimal = defineBlueprint({
+      framework: 'vue',
+      architecture: {
+        alias: '~app',
+        layers: [{ name: 'components', does: 'UI' }],
+        module: { layout: 'folder', entry: 'index', private: [] },
+      },
+    });
+
+    expect(emitHandbook(minimal)).not.toMatch(/\n{3,}/);
+  });
+});
