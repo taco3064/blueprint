@@ -73,6 +73,51 @@ describe('presets · shape', () => {
     ]);
   });
 
+  it('shape vue and react around the folder module', () => {
+    for (const bp of [vuePreset(), reactPreset()]) {
+      // The private list is what makes `hooks/` inside a module unreachable
+      // from outside it; emptied, every module's internals become fair game.
+      expect(bp.architecture.module).toEqual({
+        layout: 'folder',
+        entry: 'index',
+        private: ['hooks', 'styles', 'types'],
+      });
+
+      // Naming conventions reach the handbook and the agent contract verbatim.
+      expect(bp.architecture.naming).toMatchObject({
+        component: expect.stringContaining('PascalCase'),
+        hook: expect.stringContaining('useX'),
+        service: expect.stringContaining('snake_case'),
+        context: expect.stringContaining('Provider'),
+      });
+    }
+  });
+
+  it('shape the next preset around its route tree', () => {
+    const next = nextPreset();
+
+    // The shape assertions above walk vue and react only, which left the third
+    // preset's module shape, naming and primitives free to empty out.
+    expect(next.architecture.module).toEqual({ layout: 'flat', entry: 'index', private: [] });
+    expect(next.architecture.naming?.hook).toContain('useX');
+    expect(layer(next, 'hooks').owns).toEqual([{ package: 'react', imports: ['useContext'] }]);
+  });
+
+  it('spell out what each layer must not do, wherever a prohibition is declared', () => {
+    // A mustNot line is a handbook prohibition that reaches the emitted docs
+    // and the agent contract. An empty list is not a formatting detail — it is
+    // a layer with no prohibition at all, a different architecture from the one
+    // the preset claims to document.
+    for (const bp of [vuePreset(), reactPreset(), nextPreset()]) {
+      for (const entry of bp.architecture.layers) {
+        if (entry.mustNot === undefined) continue;
+
+        expect(entry.mustNot.length).toBeGreaterThan(0);
+        expect(entry.mustNot.every((line) => line.trim().length > 0)).toBe(true);
+      }
+    }
+  });
+
   it('carry the nine governance principles, all behavioral', () => {
     const bp = vuePreset();
 

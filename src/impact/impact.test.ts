@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LintConfigEntry } from '../emit/lint';
 import { reactPreset, vuePreset } from '../presets';
 import { renderImpact, runImpact } from './impact';
-import type { ImpactOptions } from './impact';
+import type { ImpactOptions, RuleImpact } from './impact';
 
 let root: string;
 
@@ -395,6 +395,41 @@ describe('runImpact', () => {
 });
 
 describe('renderImpact', () => {
+  it('keeps caveats, echoes, and own findings in separate blocks', () => {
+    const impact = (rule: string, foreign: boolean): RuleImpact => ({
+      rule,
+      count: 1,
+      files: 1,
+      top: [{ path: `${rule}.ts`, count: 1 }],
+      foreign,
+    });
+
+    const out = renderImpact(
+      [
+        impact('blueprint/relative-escape', false),
+        impact('parse-error', false),
+        impact('no-console', true),
+      ],
+      3,
+      10,
+    );
+
+    const echoesAt = out.indexOf('Echoes of YOUR OWN');
+    const caveatBlock = out.slice(out.indexOf('Isolation caveats'), echoesAt);
+    const echoBlock = out.slice(echoesAt);
+
+    // Each block carries only its own kind. A caveat block that also listed
+    // the blueprint hits would present isolation artifacts as
+    // wiring-introduced red — the very confusion the split exists to end.
+    expect(caveatBlock).toContain('parse-error');
+    expect(caveatBlock).not.toContain('relative-escape');
+    expect(caveatBlock).not.toContain('no-console');
+
+    expect(echoBlock).toContain('no-console');
+    expect(echoBlock).not.toContain('relative-escape');
+    expect(echoBlock).not.toContain('parse-error');
+  });
+
   it('renders the calm zero-hit line when files were actually linted', () => {
     const out = renderImpact([], 0, 2);
 
