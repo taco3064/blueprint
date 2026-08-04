@@ -58,6 +58,17 @@ describe('aliasPaths', () => {
       '~rel/*': ['./lib/*'],
     });
   });
+
+  it('collapses a whole run of trailing slashes, not just the last one', () => {
+    // A doubled slash is a plausible typo in a hand-written config, and it
+    // rides into every tsconfig path and vite alias the run emits — where a
+    // `./src//*` target resolves nothing and the agent sees broken imports.
+    expect(aliasPaths({ ...ARCH, sourceRoot: 'src//' })).toEqual(PATHS);
+
+    expect(
+      aliasPaths({ ...ARCH, additionalAliases: { '~shared': 'src/shared///' } }),
+    ).toEqual({ '~app/*': ['./src/*'], '~shared/*': ['./src/shared/*'] });
+  });
 });
 
 describe('patchTsconfigPaths', () => {
@@ -147,6 +158,28 @@ describe('aliasActions', () => {
 
     expect(write(actions)).toBeUndefined();
     expect(instructs(actions)[0]).toContain('tsconfig.json under compilerOptions');
+  });
+
+  it('patches an existing jsconfig instead of creating one over it', () => {
+    // A JS project that already has a jsconfig gets its paths merged in.
+    // Falling through to the create path writes a fresh file over whatever else
+    // that config held — the user's checkJs, includes, everything.
+    const patched = write(aliasActions(
+      state({
+        tsconfigs: {
+          'tsconfig.json': null,
+          'tsconfig.app.json': null,
+          'jsconfig.json': '{"compilerOptions":{"checkJs":true}}',
+        },
+      }),
+      ARCH,
+    ));
+
+    expect(patched?.path).toBe('jsconfig.json');
+
+    expect(JSON.parse(patched?.content ?? '')).toEqual({
+      compilerOptions: { checkJs: true, paths: PATHS },
+    });
   });
 
   it('patches a parseable tsconfig.json in place', () => {
@@ -255,7 +288,14 @@ describe('aliasActions', () => {
       },
     });
 
-    expect(instructs(aliasActions(wired, ARCH))).toHaveLength(0);
+    const skipped = aliasActions(wired, ARCH);
+
+    expect(instructs(skipped)).toHaveLength(0);
+
+    // Counting instructs alone cannot see a non-Action in that slot: the early
+    // return is `[]`, and anything else placed there rides into the plan as a
+    // step with no kind, which formatAction renders as "undefined:".
+    expect(skipped.every((action) => typeof action.kind === 'string')).toBe(true);
 
     // One alias quoted, one missing — the instruct still fires.
     const partial = aliasActions(wired, { ...ARCH, additionalAliases: { '~shared': 'src/shared' } });
@@ -281,7 +321,10 @@ describe('aliasActions', () => {
       },
     });
 
-    expect(instructs(aliasActions(bridged, ARCH))).toHaveLength(0);
+    const skipped = aliasActions(bridged, ARCH);
+
+    expect(instructs(skipped)).toHaveLength(0);
+    expect(skipped.every((action) => typeof action.kind === 'string')).toBe(true);
 
     // Without the plugin, the vite side still needs wiring — and the
     // instruct itself names the bridge-plugin escape hatch.
@@ -345,5 +388,58 @@ describe('aliasActions · root-level source (sourceRoot ".")', () => {
     );
 
     expect(vite?.content).toContain('fileURLToPath(new URL(\'.\', import.meta.url))');
+  });
+});
+
+describe('aliasActions · which tsconfig receives the paths', () => {
+  const targetOf = (rootText: string, appText: string | null) =>
+    write(aliasActions(
+      state({
+        hasTypescript: true,
+        tsconfigs: {
+          'tsconfig.json': rootText,
+          'tsconfig.app.json': appText,
+          'jsconfig.json': null,
+        },
+      }),
+      ARCH,
+    ))?.path;
+
+  const SHELL = JSON.stringify({ references: [{ path: './tsconfig.app.json' }] });
+
+  it('uses the app config only when the root really is a references shell', () => {
+    expect(targetOf(SHELL, JSON.stringify({ compilerOptions: {} }))).toBe('tsconfig.app.json');
+  });
+
+  it('falls back to the root when there is no app config to patch', () => {
+    // Writing to a file that is not there would patch `null` as if it were the
+    // text of a config.
+    expect(targetOf(SHELL, null)).toBe('tsconfig.json');
+  });
+
+  it('reads anything else as the target itself', () => {
+    const app = JSON.stringify({ compilerOptions: {} });
+
+    // Three ways to not be a shell, and each has to keep the paths at the root:
+    // compilerOptions of its own, no references array, and not an object.
+    expect(targetOf(JSON.stringify({ compilerOptions: { strict: true }, references: [] }), app))
+      .toBe('tsconfig.json');
+
+    expect(targetOf(JSON.stringify({ compilerOptions: { strict: true } }), app))
+      .toBe('tsconfig.json');
+
+    // `[]` is not a shell either, and not patchable — so the instruct names the
+    // root. Read as a shell, a real patch would land in the app config instead,
+    // wiring the alias into a file the root never delegated to.
+    const arrayRoot = aliasActions(
+      state({
+        hasTypescript: true,
+        tsconfigs: { 'tsconfig.json': '[]', 'tsconfig.app.json': app, 'jsconfig.json': null },
+      }),
+      ARCH,
+    );
+
+    expect(write(arrayRoot)).toBeUndefined();
+    expect(instructs(arrayRoot)[0]).toContain('tsconfig.json');
   });
 });

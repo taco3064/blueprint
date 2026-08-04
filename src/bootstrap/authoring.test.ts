@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { AGENT_PROMPT, AUTHORING_FILE, authoringActions, authoringBrief, COMMAND_FILE } from './authoring';
+import { AGENT_PROMPT, AUTHORING_FILE, authoringActions, authoringBrief, BROWNFIELD_MIN_FILES, COMMAND_FILE } from './authoring';
 import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
 import type { SurveyResult } from '../survey';
 
@@ -142,6 +142,17 @@ describe('authoringBrief', () => {
 
     // At or above the threshold the verdict block stays out of the playbook.
     expect(brief).not.toContain('Read this first');
+  });
+
+  it('reads exactly the threshold as brownfield, one below it as the early exit', () => {
+    const install = 'npm install -D @kekkai/blueprint';
+    const at = authoringBrief({ ...survey, totalFiles: BROWNFIELD_MIN_FILES }, install);
+    const below = authoringBrief({ ...survey, totalFiles: BROWNFIELD_MIN_FILES - 1 }, install);
+
+    // 120 and 3 leave the boundary itself unasserted, and what sits either
+    // side of it is a different playbook — not a shade of wording.
+    expect(at).not.toContain('Read this first');
+    expect(below).toContain('Read this first');
   });
 
   it('authorizes drafting first — the loop corrects, the archive stalls (batch 12)', () => {

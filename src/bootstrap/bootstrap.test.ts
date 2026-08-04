@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { BROWNFIELD_MIN_FILES } from './authoring';
 import { runInit } from './bootstrap';
 import { nextPreset, vuePreset } from '../presets';
 
@@ -271,6 +272,67 @@ describe('runInit · brownfield authoring flow', () => {
     }
   }
 
+  it('takes the authoring path at exactly the threshold, not the scaffold one', async () => {
+    writePkg({ name: 'legacy', dependencies: { react: '^18' } });
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+
+    for (let i = 0; i < BROWNFIELD_MIN_FILES; i++) {
+      fs.writeFileSync(path.join(root, `src/app/file${i}.ts`), 'export const x = 1;');
+    }
+
+    await runInit(root, { install: false, log: silent });
+
+    // The two sides of this boundary are the biggest fork init makes — one
+    // writes a playbook and scaffolds nothing, the other the reverse. The
+    // suite bracketed it (12 files and 3) without ever landing on it.
+    expect(exists('blueprint-authoring.md')).toBe(true);
+  });
+
+  it('says when --authoring forced the playbook below the threshold, and only then', async () => {
+    writePkg({ name: 'legacy', dependencies: { react: '^18' } });
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/app/only.ts'), 'export const x = 1;');
+
+    const forced: string[] = [];
+
+    await runInit(root, { install: false, authoring: true, log: (m) => forced.push(m) });
+
+    // Unsaid, --authoring on a small repo looks like it produced a
+    // self-refuting document: a playbook whose own verdict is the early exit
+    // (field issues #7/#8).
+    expect(forced.join('\n')).toContain('below the brownfield threshold');
+
+    // Above the threshold the flag changed nothing, so the caveat must not
+    // appear — it would name a threshold this repo is not below.
+    fs.rmSync(path.join(root, 'src/app'), { recursive: true });
+    brownfield();
+
+    const plain: string[] = [];
+
+    await runInit(root, { install: false, authoring: true, log: (m) => plain.push(m) });
+
+    expect(plain.join('\n')).not.toContain('below the brownfield threshold');
+  });
+
+  it('lists the authoring plan up front only in dry-run', async () => {
+    brownfield();
+
+    const dry: string[] = [];
+
+    await runInit(root, { dryRun: true, install: false, log: (m) => dry.push(m) });
+
+    expect(dry.join('\n')).toContain('would write');
+
+    const applied: string[] = [];
+
+    await runInit(root, { install: false, log: (m) => applied.push(m) });
+
+    // The authoring flow has its own dry-run report. Outside it the applied
+    // lines are the record, and a "would" among them describes disk state that
+    // either already happened or never will.
+    expect(applied.join('\n')).not.toContain('would ');
+  });
+
   it('emits the playbook instead of scaffolding when code exists without a config', async () => {
     brownfield();
 
@@ -478,6 +540,29 @@ describe('runInit · brownfield authoring flow', () => {
     expect(cleanup?.note).toContain('npx blueprint inspect');
   });
 
+  it('lists every finding when three or fewer fit, with nothing left to count', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.mkdirSync(path.join(root, 'src/components/Hello'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(root, 'src/components/Hello/index.js'),
+      ['import logo from "../../assets/logo.svg";', 'import a from "../../assets/a.svg";'].join('\n'),
+    );
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    const cleanup = actions.find(
+      (action) => action.kind === 'instruct' && action.note.includes('Template cleanup'),
+    );
+
+    // Two findings fit inside the cap, so an overflow line would count zero —
+    // "… and 0 more" reads as a truncation that did not happen. The line count
+    // pins it further: anything at all in that slot is one line too many.
+    expect(cleanup?.note).toContain('(2 finding(s))');
+    expect(cleanup?.note).not.toContain('more');
+    expect(cleanup?.note.split('\n')).toHaveLength(5);
+  });
+
   it('emits no cleanup instruct when the scaffold is clean', async () => {
     writePkg({ name: 'fresh', dependencies: { vue: '^3' } });
 
@@ -564,6 +649,20 @@ describe('runInit · artifact hygiene', () => {
     await runInit(root, { install: false, log: silent, loadConfig: async () => vuePreset() });
 
     expect(read('.gitignore').match(/!CLAUDE\.md/g)).toHaveLength(1);
+  });
+
+  it('joins the negation block on with exactly one blank line, whatever the file ended in', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    // How many trailing newlines a .gitignore carries is an editor accident;
+    // the seam this write produces must not be.
+    fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\ndocs\n\n\n');
+
+    await runInit(root, { install: false, log: silent });
+
+    // Anchored at the start, with the blank lines counted: a leading blank
+    // line or a surviving run of trailing ones both show up as an unexplained
+    // edit in a file people read as a diff.
+    expect(read('.gitignore')).toMatch(/^CLAUDE\.md\ndocs\n\n# @kekkai/);
   });
 
   it('states the edit and the directory-exclusion caveat in the note', async () => {
@@ -683,6 +782,22 @@ describe('runInit · Next.js routing', () => {
     expect(config).not.toContain('srcDir'); // root layout — no srcDir
   });
 
+  it('surveys the project root when a Next app keeps its routes there', async () => {
+    writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
+    fs.mkdirSync(path.join(root, 'app/dashboard'), { recursive: true });
+
+    for (let i = 0; i < BROWNFIELD_MIN_FILES + 2; i++) {
+      fs.writeFileSync(path.join(root, `app/dashboard/p${i}.tsx`), 'export default () => null;');
+    }
+
+    await runInit(root, { install: false, log: silent });
+
+    // The layers live at the root in this layout, so surveying src/ counts zero
+    // files and reads a full route tree as a fresh scaffold — scaffolding over
+    // a real app instead of reading it.
+    expect(exists('blueprint-authoring.md')).toBe(true);
+  });
+
   it('uses nextPreset for --preset on a Next repo (no react-preset warning)', async () => {
     writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
     fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
@@ -715,6 +830,42 @@ describe('runInit · the greenfield/brownfield fork is narrated', () => {
 
     expect(lines.join('\n')).toContain('Fresh scaffold (0 source files < 10)');
     expect(lines.join('\n')).toContain('authoring playbook');
+  });
+});
+
+describe('runInit · how the plan is reported', () => {
+  it('lists the plan up front only in dry-run', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    const dry: string[] = [];
+
+    await runInit(root, { dryRun: true, install: false, log: (m) => dry.push(m) });
+
+    expect(dry.join('\n')).toContain('would write');
+
+    const applied: string[] = [];
+
+    await runInit(root, { install: false, log: (m) => applied.push(m) });
+
+    // Outside dry-run the applied lines ARE the report. A "would" among them
+    // claims something about disk that already happened, or did not.
+    expect(applied.join('\n')).not.toContain('would ');
+    expect(applied.join('\n')).toContain('✓ write:');
+  });
+
+  it('marks an instruction with a bullet, never with an effect mark', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    const lines: string[] = [];
+
+    await runInit(root, { install: false, log: (m) => lines.push(m) });
+    const out = lines.join('\n');
+
+    // An instruction reports nothing about disk. Wearing the ✓ of the writes
+    // around it, it skims past as one more thing that happened — the same
+    // confusion the − mark for deletions exists to prevent (field issue #36).
+    expect(out).toContain('  · ');
+    expect(out).not.toContain('✓ instruct:');
   });
 });
 
@@ -785,6 +936,71 @@ describe('runInit · lint-script wiring', () => {
         (action) => action.kind === 'instruct' && action.note.includes('oxlint && eslint .'),
       ),
     ).toBe(true);
+  });
+
+  it('lands the lint-script patch before the install that would clobber it', async () => {
+    prettyPkg('oxlint');
+
+    const actions = await runInit(root, { install: true, exec: () => {}, log: silent });
+
+    const patchAt = actions.findIndex(
+      (action) => action.kind === 'write' && action.path === 'package.json',
+    );
+
+    const installAt = actions.findIndex((action) => action.kind === 'install');
+
+    // npm install rewrites package.json and preserves scripts, so
+    // write-then-install composes while the reverse loses the patch. Only the
+    // final file was asserted before, and that reads the same either way when
+    // the install is a no-op in tests.
+    expect(patchAt).toBeGreaterThan(-1);
+    expect(installAt).toBeGreaterThan(-1);
+    expect(patchAt).toBeLessThan(installAt);
+  });
+
+  it('appends the lint instruction rather than splicing it ahead of the install', async () => {
+    // Only a package.json WRITE has to precede the install, because npm rewrites
+    // that file. An instruction is just text, and putting advice in front of the
+    // step it talks about is what the kind check prevents.
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+    prettyPkg('oxlint');
+
+    const actions = await runInit(root, {
+      install: true,
+      exec: () => {},
+      log: silent,
+      loadConfig: async () => vuePreset(),
+    });
+
+    const installAt = actions.findIndex((action) => action.kind === 'install');
+
+    const noteAt = actions.findIndex(
+      (action) => action.kind === 'instruct' && action.note.includes('lint` script runs'),
+    );
+
+    expect(noteAt).toBeGreaterThan(-1);
+    expect(installAt).toBeGreaterThan(-1);
+    expect(noteAt).toBeGreaterThan(installAt);
+  });
+
+  it('appends the patch when there is no install for it to precede', async () => {
+    prettyPkg('oxlint');
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    const patchAt = actions.findIndex(
+      (action) => action.kind === 'write' && action.path === 'package.json',
+    );
+
+    const skippedAt = actions.findIndex(
+      (action) => action.kind === 'instruct' && action.note.includes('Install skipped'),
+    );
+
+    // -1 is "no install action", not an index. Splicing at -1 drops the patch
+    // in front of the last action queued so far — here, the skipped-install
+    // note — rather than after it.
+    expect(skippedAt).toBeGreaterThan(-1);
+    expect(patchAt).toBeGreaterThan(skippedAt);
   });
 
   it('leaves a lint script that already runs eslint alone', async () => {

@@ -84,3 +84,53 @@ describe('wireTsconfigPaths', () => {
     });
   });
 });
+
+describe('wire · the whitespace shapes a template can ship', () => {
+  const PATHS = { '~app/*': ['./src/*'] };
+
+  it('sees an existing paths entry however its colon is spaced', () => {
+    // A template writing `"paths" :` already has the entry; patching a second
+    // one in leaves a duplicate key in the file.
+    expect(wireTsconfigPaths('{\n  "compilerOptions": {\n    "paths" : {}\n  }\n}', PATHS))
+      .toEqual({ kind: 'noop' });
+  });
+
+  it('finds compilerOptions with or without spaces around its colon', () => {
+    const spaced = wireTsconfigPaths('{\n  "compilerOptions" : {\n    "strict": true\n  }\n}', PATHS);
+    const tight = wireTsconfigPaths('{\n  "compilerOptions":{\n    "strict": true\n  }\n}', PATHS);
+
+    expect(spaced.kind).toBe('patched');
+    expect(tight.kind).toBe('patched');
+  });
+
+  it('puts back the whole indent it captured, not just its first character', () => {
+    const result = wireTsconfigPaths(
+      '{\n  "compilerOptions": {\n      "strict": true\n  }\n}',
+      PATHS,
+    );
+
+    // The capture is what the inserted line sits behind. A partial capture
+    // leaves the whitespace it skipped in front of the FOLLOWING line, so the
+    // block still looks aligned below while `"paths"` itself is flush left —
+    // asserting only the trailing side sees nothing.
+    expect((result as { text: string }).text).toContain(
+      '"compilerOptions": {\n      "paths": { "~app/*": ["./src/*"] },\n      "strict"',
+    );
+  });
+
+  it('accepts a defineConfig whose brace is spaced from the paren', () => {
+    // `defineConfig( {` is the same call shape with one space in it, and the
+    // guard's job is recognising the template — not its formatting.
+    const text = 'export default defineConfig( {\n  plugins: [],\n})';
+
+    expect(wireViteAlias(text, '~app').kind).toBe('patched');
+  });
+
+  it('declines a vite config whose resolve key is spaced before the colon', () => {
+    // The guard exists to keep init away from a config that already resolves
+    // aliases. `resolve :` resolves them just as much as `resolve:` does.
+    const text = 'export default defineConfig({\n  resolve : { alias: {} },\n})';
+
+    expect(wireViteAlias(text, '~app')).toEqual({ kind: 'unparseable' });
+  });
+});
