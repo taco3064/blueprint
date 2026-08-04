@@ -1405,3 +1405,50 @@ describe('runInit · reading the contract files at their declared paths', () => 
     expect(note).toContain('docs/CLAUDE.md');
   });
 });
+
+describe('runInit · where the package.json patch lands', () => {
+  it('appends it after the plan when there is no install action to precede', async () => {
+    // `findIndex` answers -1 for "no install action here", and -1 is a sentinel,
+    // not a position. Handing it to `splice` inserts the patch second-to-last —
+    // ahead of the last line plan itself produced. The report then narrates the
+    // patch before the work it is meant to follow.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    const patchAt = actions.findIndex(
+      (action) => action.kind === 'write' && action.path === 'package.json',
+    );
+
+    const planTailAt = actions.findIndex(
+      (action) => action.kind === 'instruct' && action.note.includes('in your bundler'),
+    );
+
+    expect(patchAt).toBeGreaterThan(planTailAt);
+  });
+});
+
+describe('runInit · the ignore check sees the narrowed contract', () => {
+  it('notices a gitignored CLAUDE.md when --agent narrowed to it', async () => {
+    // With a config already on disk, `--agent` narrows the run without being
+    // persisted — so the target list is the only thing naming CLAUDE.md here.
+    // Losing it means a gitignored contract goes unnoticed, and whoever clones
+    // the repo gets the dead links this note exists to prevent.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// hand-written\n');
+    fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\n');
+
+    const actions = await runInit(root, {
+      install: false,
+      log: silent,
+      agent: 'claude',
+      loadConfig: async () => vuePreset(),
+    });
+
+    const note = actions.find(
+      (action) => action.kind === 'write' && action.path === '.gitignore',
+    )?.note;
+
+    expect(note).toContain('CLAUDE.md');
+  });
+});
