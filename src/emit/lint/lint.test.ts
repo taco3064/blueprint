@@ -601,6 +601,17 @@ describe('emitLint · codeStyle', () => {
       { stylistic: stylisticPlugin },
     ).find((entry) => entry.rules?.['@stylistic/indent']);
 
+  it('carries the house values for the knobs it deliberately does not expose', () => {
+    // arrowParens and blockSpacing are not configurable — a repo that wants
+    // other braces turns the gate off and declares its own set. Unasserted,
+    // they can only ever change by accident, and every adopting repo inherits
+    // that change on the next version bump.
+    const rules = styled()?.rules ?? {};
+
+    expect(rules['@stylistic/arrow-parens']).toMatchObject({ 0: 'error', 1: 'always' });
+    expect(rules['@stylistic/block-spacing']).toMatchObject({ 0: 'error', 1: 'always' });
+  });
+
   it('emits the stylistic bundle plus the three rules it leaves out', () => {
     const rules = styled()?.rules ?? {};
 

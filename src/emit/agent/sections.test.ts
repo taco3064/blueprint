@@ -55,6 +55,12 @@ describe('renderPlacement', () => {
 
     expect(out).toContain('- `src/components/` — UI. MUST NOT: import services. OWNS: `clsx`.');
     expect(out).toContain('- `src/services/` — net.');
+
+    // services declares neither, and `toContain` cannot see a clause appended
+    // after what it matched. A guard that let services through would print an
+    // empty ` OWNS: .` or reach into an absent importer list.
+    expect(out.match(/OWNS:/g)).toHaveLength(1);
+    expect(out).not.toContain('IMPORTABLE BY:');
     expect(out).toContain('Only `index` is importable');
     expect(out).toContain('keep `hooks` / `types` private');
   });
@@ -261,6 +267,43 @@ describe('renderCompactContract', () => {
     expect(out).toContain('`maxLines` = 300');
     expect(out).toContain('the working playbook');
     expect(out).not.toContain('### Where code goes');
+  });
+
+  it('announces only the kinds of content the blueprint carries', () => {
+    // The pointer line names what the handbook covers. Naming "the working
+    // playbook" in a contract that carries none sends the agent to a section
+    // that was never generated.
+    const bare = renderCompactContract(blueprint());
+
+    expect(bare).not.toContain('component-shape axes');
+    expect(bare).not.toContain('behavioral principles');
+    expect(bare).not.toContain('the working playbook');
+
+    // And with nothing extra to name, the clause closes straight after
+    // "naming" — anything appended there is a promise of content that the
+    // handbook does not hold.
+    expect(bare).toContain('ownership, naming: read');
+
+    const rich = renderCompactContract(blueprint({
+      componentShape: [{ id: 'a', name: 'Axis', say: 's', why: 'w' } as AxisDef],
+      principles: [{ id: 'p', say: 's', why: 'w', land: 'claude' } as PrincipleDef],
+      playbook: [{ title: 'T', rules: [{ id: 'r', say: 'do' }] }],
+    }));
+
+    expect(rich).toContain('component-shape axes');
+    expect(rich).toContain('behavioral principles');
+    expect(rich).toContain('the working playbook');
+  });
+
+  it('prints a gate value only where the setting carries one', () => {
+    const out = renderCompactContract(blueprint({
+      rules: { maxLines: { tier: 'error' as const, value: 300 }, cycles: 'error' as const },
+    }));
+
+    // `cycles` is a bare tier with no number behind it, and "= undefined" in a
+    // list of machine-enforced gates reads as a real threshold.
+    expect(out).toContain('`cycles`');
+    expect(out).not.toContain('`cycles` =');
   });
 
   it('honors a handbook path override', () => {

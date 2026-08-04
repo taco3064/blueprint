@@ -14,6 +14,34 @@ import {
 } from './patterns';
 import type { LayerDef } from '../../config';
 
+describe('PLUGIN_GATES', () => {
+  it('lists every conditional gate with an id, what it emits, and a scope note', () => {
+    // `blueprint rules` prints this catalog and doctor reads it to decide which
+    // gates should resolve. An entry emptied to `{}` puts an undefined id into
+    // LINT_GATED_RULE_IDS and a blank row into both of those.
+    expect(PLUGIN_GATES.map((gate) => gate.id)).toEqual([
+      'unusedVars',
+      'explicitAny',
+      'codeStyle',
+      'statementsPerLine',
+      'statementPadding',
+      'importBlock',
+      'fixtureImports',
+      'deepWatch',
+      'usePrefix',
+      'usePrefixReactivity',
+      'testFilename',
+      'typedefOnlyFile',
+      'cycles',
+    ]);
+
+    for (const gate of PLUGIN_GATES) {
+      expect(gate.emits).toBeTruthy();
+      expect(gate.note).toBeTruthy();
+    }
+  });
+});
+
 describe('toArray', () => {
   it('wraps a string and passes an array through', () => {
     expect(toArray('a')).toEqual(['a']);
@@ -36,6 +64,48 @@ describe('resolveLayerFiles', () => {
     expect(resolveLayerFiles('services', ['lib/{layer}/**/*.ts'], 'auto')).toEqual([
       'lib/services/**/*.ts',
     ]);
+  });
+});
+
+describe('derivePackageRules · what counts as the same ownership', () => {
+  it('merges owners of one package however their import lists are ordered', () => {
+    // The dedup key sorts the import list, so two layers naming the same
+    // primitives in a different order are ONE rule allowing both — not two
+    // rules where each bans the other's layer.
+    const rules = derivePackageRules([
+      { name: 'a', does: 'x', owns: [{ package: 'vue', imports: ['ref', 'computed'] }] },
+      { name: 'b', does: 'y', owns: [{ package: 'vue', imports: ['computed', 'ref'] }] },
+    ]);
+
+    expect(rules).toHaveLength(1);
+    expect(rules[0].allowedIn).toEqual(['a', 'b']);
+
+    // The exempt list is sorted into the key on the same footing.
+    const exemptOrder = derivePackageRules([
+      { name: 'a', does: 'x', owns: [{ package: 'lodash', exempt: ['a.ts', 'b.ts'] }] },
+      { name: 'b', does: 'y', owns: [{ package: 'lodash', exempt: ['b.ts', 'a.ts'] }] },
+    ]);
+
+    expect(exemptOrder).toHaveLength(1);
+    expect(exemptOrder[0].allowedIn).toEqual(['a', 'b']);
+  });
+
+  it('keys an absent list identically to an empty one', () => {
+    const imports = derivePackageRules([
+      { name: 'a', does: 'x', owns: [{ package: 'axios' }] },
+      { name: 'b', does: 'y', owns: [{ package: 'axios', imports: [] }] },
+    ]);
+
+    expect(imports).toHaveLength(1);
+    expect(imports[0].allowedIn).toEqual(['a', 'b']);
+
+    const exempt = derivePackageRules([
+      { name: 'a', does: 'x', owns: [{ package: 'zod' }] },
+      { name: 'b', does: 'y', owns: [{ package: 'zod', exempt: [] }] },
+    ]);
+
+    expect(exempt).toHaveLength(1);
+    expect(exempt[0].allowedIn).toEqual(['a', 'b']);
   });
 });
 
