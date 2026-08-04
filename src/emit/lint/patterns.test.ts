@@ -65,6 +65,16 @@ describe('resolveLayerFiles', () => {
       'lib/services/**/*.ts',
     ]);
   });
+
+  it('tolerates the spaces a hand-written placeholder carries', () => {
+    // `{ layer }` is how a human writes it. Requiring the braces to hug the word
+    // leaves the placeholder in the glob verbatim, and the layer's rules then
+    // scope to a directory literally named `{ layer }` — every gate silently
+    // matches nothing, and nothing in the output says why.
+    expect(resolveLayerFiles('services', ['lib/{ layer }/**/*.ts'], 'auto')).toEqual([
+      'lib/services/**/*.ts',
+    ]);
+  });
 });
 
 describe('derivePackageRules · what counts as the same ownership', () => {
@@ -106,6 +116,20 @@ describe('derivePackageRules · what counts as the same ownership', () => {
 
     expect(exempt).toHaveLength(1);
     expect(exempt[0].allowedIn).toEqual(['a', 'b']);
+  });
+
+  it('keeps two different exempt lists apart', () => {
+    // Sorting the exempt list into the key only matters if the list is in the
+    // key at all. Leaving it out merges these two into one rule whose exempt
+    // list is whichever layer was seen first — so the other layer's exempt file
+    // is no longer exempt, and a file the author excused starts failing lint.
+    const rules = derivePackageRules([
+      { name: 'a', does: 'x', owns: [{ package: 'lodash', exempt: ['legacy/a.ts'] }] },
+      { name: 'b', does: 'y', owns: [{ package: 'lodash', exempt: ['legacy/b.ts'] }] },
+    ]);
+
+    expect(rules).toHaveLength(2);
+    expect(rules.map((rule) => rule.exempt)).toEqual([['legacy/a.ts'], ['legacy/b.ts']]);
   });
 });
 
@@ -198,6 +222,23 @@ describe('buildStructuralPatterns', () => {
     expect(groups).toHaveLength(2);
     expect(groups.some((g) => g.group.includes('./../**'))).toBe(true);
     expect(groups.some((g) => g.group.includes('~app/*/*/**'))).toBe(false);
+  });
+
+  it('spells the same-layer replacement the layer\'s own layout allows', () => {
+    // Both layouts ban the alias spelling for a sibling, and both point at the
+    // relative one — but at different paths. A flat layer's siblings are files
+    // beside you (`./X`); a folder layer's are one level up (`../X`), entry only.
+    // The message is the whole fix, so handing a folder layer `./X` sends the
+    // author to a path that does not exist, and handing a flat layer `../X`
+    // sends them out of the layer.
+    const sameLayer = (moduleLayout: 'folder' | 'flat') =>
+      buildStructuralPatterns({ layer: 'a', aliases: ['~app'], forbidden: [], moduleLayout })
+        .find((group) => group.group.includes('~app/a/**'))?.message;
+
+    expect(sameLayer('flat')).toContain('Replace "~app/a/X" with "./X".');
+
+    expect(sameLayer('folder')).toContain('Replace "~app/a/X" with "../X"');
+    expect(sameLayer('folder')).toContain('what is behind the entry stays private');
   });
 });
 
