@@ -237,3 +237,56 @@ describe('runDeps · file modules drop their extension from the key', () => {
     expect(modules[0].importedBy).toEqual(['pages/Home']);
   });
 });
+
+describe('runDeps · the order and shape of what it reports', () => {
+  it('returns no modules at all for an unknown target', async () => {
+    writeSrc('services/api/api.ts', 'export const api = 1;');
+
+    const { ok, modules } = await runDeps(root, { target: 'hooks/useGhost', log: silent });
+
+    // The caller reads `modules` whatever `ok` says. A placeholder row there is
+    // a module that does not exist, presented as blast radius.
+    expect(ok).toBe(false);
+    expect(modules).toEqual([]);
+  });
+
+  it('sorts both edge lists, and reports an empty one as empty', async () => {
+    // Written deliberately out of alphabetical order: `zed` first, and it
+    // imports nothing. Two importers reaching one module is what makes the
+    // importer sort observable at all.
+    writeSrc('services/zed/index.ts', 'export const z = 1;');
+    writeSrc('services/beta/index.ts', 'export const b = 1;');
+    writeSrc('hooks/useX/index.ts', 'import { z } from \'~app/services/zed\';\nimport { b } from \'~app/services/beta\';');
+    writeSrc('hooks/useA/index.ts', 'import { z } from \'~app/services/zed\';');
+
+    const { modules } = await runDeps(root, { log: silent });
+    const zed = modules.find((entry) => entry.module === 'services/zed');
+    const useX = modules.find((entry) => entry.module === 'hooks/useX');
+
+    // zed is imported by both hooks, alphabetically whatever order they landed in.
+    expect(zed?.importedBy).toEqual(['hooks/useA', 'hooks/useX']);
+
+    // And zed imports nothing — an empty list, not a placeholder.
+    expect(zed?.imports).toEqual([]);
+
+    // useX reaches both services, also sorted.
+    expect(useX?.imports).toEqual(['services/beta', 'services/zed']);
+  });
+
+  it('never reads a src-root file as a skipped folder, and sorts the ones it finds', async () => {
+    // `src/main.ts` is entry wiring with one path segment — it is not a folder
+    // outside the layers, and naming it as one sends the reader looking for a
+    // directory that is not there. The two real ones come back sorted.
+    scaffold();
+    writeSrc('main.ts', 'export const boot = 1;');
+    writeSrc('zutils/helper.ts', 'export const h = 1;');
+    writeSrc('atools/helper.ts', 'export const h = 1;');
+
+    let output = '';
+
+    await runDeps(root, { log: (m) => (output = m) });
+
+    expect(output).toContain('invisible to deps: atools/, zutils/');
+    expect(output).not.toContain('main.ts');
+  });
+});
