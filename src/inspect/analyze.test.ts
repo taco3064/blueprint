@@ -439,3 +439,28 @@ describe('analyze · an entry name that holds a dot', () => {
     expect(found).not.toContain('no-entry');
   });
 });
+
+describe('analyze · the cycle search does not stop early', () => {
+  const cycleOf = (files: ScannedFile[]): string | undefined =>
+    analyze(scanOf(files), bp).find((finding) => finding.rule === 'cycle')?.message;
+
+  it('keeps checking a node\'s other edges after one leads nowhere', () => {
+    // A reaches B, a dead end, and also C, which loops back. Returning on B's
+    // null result reports no cycle on a graph that plainly has one — and the
+    // order of a module's imports is not something a reader would suspect.
+    expect(cycleOf([
+      file(['components', 'A', 'index.ts'], [{ specifier: '../B' }, { specifier: '../C' }]),
+      file(['components', 'C', 'index.ts'], [{ specifier: '../A' }]),
+    ])).toContain('components/A → components/C → components/A');
+  });
+
+  it('walks past a component it already visited to reach an untouched one', () => {
+    // The first walk covers A and B and finds nothing. The loop then has to
+    // start a fresh walk at the hooks pair rather than treat the graph as done.
+    expect(cycleOf([
+      file(['components', 'A', 'index.ts'], [{ specifier: '../B' }]),
+      file(['hooks', 'useC', 'index.ts'], [{ specifier: '../useD' }]),
+      file(['hooks', 'useD', 'index.ts'], [{ specifier: '../useC' }]),
+    ])).toContain('hooks/useC → hooks/useD → hooks/useC');
+  });
+});
