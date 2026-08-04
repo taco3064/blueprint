@@ -242,3 +242,34 @@ describe('runInspect · zero-finding baseline hygiene', () => {
     expect(recorded.findings.some((f) => f.rule === 'missing-layer')).toBe(false);
   });
 });
+
+describe('runInspect · the baseline flag gates the ledger', () => {
+  it('does not consult the ledger unless asked', async () => {
+    writeSrc('utils/helper.ts', 'export const x = 1;');
+    await runInspect(root, { updateBaseline: true, log: silent });
+
+    let output = '';
+
+    // Without --baseline, inspect reports every finding as it stands. Reading the
+    // ledger anyway suppresses debt the caller did not ask to suppress, and the
+    // run then reads clean on a repo whose findings are all still there.
+    const plain = await runInspect(root, { log: (m) => (output = m) });
+
+    expect(plain.ok).toBe(false);
+    expect(output).not.toContain('baselined finding(s) suppressed');
+  });
+
+  it('reports no stale entries when there is no ledger at all', async () => {
+    writeSrc('utils/helper.ts', 'export const x = 1;');
+
+    let output = '';
+
+    // A missing ledger is an empty ledger. A placeholder entry in its place
+    // counts as recorded debt that no longer exists — the report then names stale
+    // entries in a file nobody ever wrote.
+    await runInspect(root, { baseline: true, log: (m) => (output = m) });
+
+    expect(output).not.toContain('no longer occur');
+    expect(output).toContain('0 baselined finding(s) suppressed');
+  });
+});
