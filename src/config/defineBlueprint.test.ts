@@ -229,6 +229,51 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(/additionalAliases/);
   });
 
+  // Every id/title check has three arms: an absent or non-string value, a
+  // blank one, and a null entry the optional chain has to survive. The suite
+  // covered the happy path and the duplicate, leaving the shape arms open —
+  // and these throws are the first thing an adopter sees when a hand-written
+  // config is wrong, so a silently-accepted junk entry surfaces much later as
+  // an undefined somewhere in the emitters.
+  it.each([
+    ['a null principle', { principles: [null] }, /principle must have a non-empty id/],
+    ['a non-string principle id', { principles: [{ id: 1, say: 's', why: 'w' }] }, /principle must have a non-empty id/],
+    ['a blank principle id', { principles: [{ id: '  ', say: 's', why: 'w' }] }, /principle must have a non-empty id/],
+    ['a null component-shape axis', { componentShape: [null] }, /axis must have a non-empty id/],
+    ['a blank axis id', { componentShape: [{ id: ' ' }] }, /axis must have a non-empty id/],
+    ['a null playbook section', { playbook: [null] }, /playbook section must have a non-empty title/],
+    ['a blank playbook title', { playbook: [{ title: '  ', rules: [] }] }, /playbook section must have a non-empty title/],
+    ['a null playbook rule', { playbook: [{ title: 't', rules: [null] }] }, /has a rule with no id/],
+    ['a blank playbook rule id', { playbook: [{ title: 't', rules: [{ id: ' ', say: 's' }] }] }, /has a rule with no id/],
+  ])('rejects %s', (_label, patch, pattern) => {
+    expect(() => validateBlueprint({ ...base(), ...patch } as unknown as Blueprint))
+      .toThrow(pattern);
+  });
+
+  it.each([
+    ['an empty alias key', { '': 'src' }],
+    ['a blank alias key', { '  ': 'src' }],
+    ['a non-string target', { '~x': 1 }],
+    ['an empty target', { '~x': '' }],
+    ['a blank target', { '~x': '  ' }],
+  ])('rejects additionalAliases with %s', (_label, additionalAliases) => {
+    const config = base();
+
+    config.architecture.additionalAliases = additionalAliases as Record<string, string>;
+
+    expect(() => validateBlueprint(config)).toThrow(/additionalAliases/);
+  });
+
+  it('rejects additionalAliases that is not an object at all', () => {
+    const config = base();
+
+    // `Object.entries('nope')` yields character pairs that pass every per-entry
+    // check, so the typeof guard is the only thing that catches this.
+    config.architecture.additionalAliases = 'nope' as unknown as Record<string, string>;
+
+    expect(() => validateBlueprint(config)).toThrow(/additionalAliases/);
+  });
+
   it('rejects a layerFiles glob without the {layer} placeholder', () => {
     const config = base();
 
