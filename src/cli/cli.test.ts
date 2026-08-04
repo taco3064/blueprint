@@ -459,3 +459,149 @@ describe('parse*Args · argument boundaries', () => {
     expect(parseSurveyArgs(['--alias'])).toEqual({});
   });
 });
+
+describe('parse*Args · a bare word is never a flag\'s value', () => {
+  it('does not read a positional as the --framework value', () => {
+    // `blueprint init vue` is the mistake a user makes when they forget the flag
+    // name. Treating any unmatched argument as the framework value silently
+    // accepts it — so the run scaffolds a Vue contract from a command that never
+    // said `--framework`, and the user has no way to know why.
+    // Two arguments, so the value the mutant would reach for is a real one — a
+    // single positional leaves it undefined, and `toEqual({})` cannot see a key
+    // whose value is undefined.
+    expect(parseInitArgs(['junk', 'vue'])).toEqual({});
+    expect(parseInspectArgs(['junk', 'vue'])).toEqual({});
+    expect(parseSurveyArgs(['junk', '~app'])).toEqual({});
+  });
+});
+
+describe('run · flag validation reaches the right arguments', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-cli-flags-'));
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  const errored = (fragment: string) =>
+    (console.error as ReturnType<typeof vi.fn>).mock.calls.some((call) =>
+      String(call[0]).includes(fragment),
+    );
+
+  it('never mistakes a positional argument for a flag', async () => {
+    // `deps hooks/useCart` is the command's whole point. Running the flag check
+    // over positionals rejects the module name as an unknown flag, and the
+    // command becomes unusable in the shape its own help documents.
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'x' }));
+    await run(['deps', 'hooks/useCart'], root);
+
+    expect(errored('unknown flag')).toBe(false);
+  });
+
+  it('lets a valued flag swallow the token after it', async () => {
+    // `--framework --json` is a user who forgot the value. The token after a
+    // valued flag IS its value, however flag-shaped it looks — checking it
+    // separately reports an unknown flag for an argument that was consumed.
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'x' }));
+    await run(['inspect', '--framework', '--bogus'], root);
+
+    expect(errored('unknown flag')).toBe(false);
+  });
+
+  it('checks every flag, not only the one after a valued flag', async () => {
+    // Skipping a token unconditionally makes the check blind to every other
+    // argument: `--json --verbose` passes because `--verbose` was consumed as
+    // `--json`'s value, and `--json` takes no value.
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'x' }));
+    await run(['inspect', '--json', '--verbose'], root);
+
+    expect(errored('unknown flag for inspect: --verbose')).toBe(true);
+  });
+
+  it('accepts each command\'s own documented flags', async () => {
+    // Every per-command flag set had at least one flag no test passed, so the
+    // whole set could be emptied: the command then rejects the flags its own
+    // --help documents.
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+    );
+
+    await run(['survey', '--alias', '~app', '--json'], root);
+    await run(['doctor', '--json'], root);
+    await run(['deps', '--json', '--framework', 'vue'], root);
+    await run(['impact', '--json'], root);
+    await run(['rules', '--json'], root);
+
+    expect(errored('unknown flag')).toBe(false);
+  });
+
+  it('does not run the flag check for a command it knows nothing about', async () => {
+    // An unrecognised command has no flag set to check against. Checking anyway
+    // reads `undefined.has(...)`, so the run dies with a TypeError printed as a
+    // blueprint error — in place of the usage page that lists the real commands.
+    expect(await run(['bogus', '--json'], root)).toBe(1);
+    expect(errored('✗')).toBe(false);
+
+    expect(
+      (console.log as ReturnType<typeof vi.fn>).mock.calls.some((call) =>
+        String(call[0]).includes('Architecture as Code'),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('run · --help belongs to the command that has one', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const logged = (fragment: string) =>
+    (console.log as ReturnType<typeof vi.fn>).mock.calls.some((call) =>
+      String(call[0]).includes(fragment),
+    );
+
+  it('does not answer --help for an unknown command', async () => {
+    // There is no help text to print, so the branch logs `undefined` and exits
+    // 0 — a mistyped command reads as a successful run with no output.
+    expect(await run(['bogus', '--help'])).toBe(1);
+    expect(logged('undefined')).toBe(false);
+  });
+
+  it('prints help only when --help was actually asked for', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-cli-help-'));
+
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'x' }));
+    await run(['rules'], root);
+
+    // `rules` without --help resolves the catalog. Printing the help text
+    // instead swaps the command's whole output for its usage page. (Both open
+    // on "blueprint rules — the emitted-rule catalog", so the fragment has to
+    // come from the part only the help carries.)
+    expect(logged('Read-only, config-optional')).toBe(false);
+    expect(logged('the emitted-rule catalog')).toBe(true);
+
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it('documents deps and doctor in their own help text', async () => {
+    // Both help bodies were only ever asserted to exist, never read, so either
+    // could be emptied — and `--help` then prints nothing at all.
+    await run(['deps', '--help']);
+    expect(logged('reverse dependencies / blast radius')).toBe(true);
+
+    await run(['doctor', '--help']);
+    expect(logged('is adoption actually finished?')).toBe(true);
+  });
+});
