@@ -31,7 +31,7 @@ describe('ignoredArtifacts', () => {
     gitignore(['  docs  ']);
 
     expect(ignoredArtifacts(root, ['docs/architecture-handbook.md']))
-      .toEqual(['docs/architecture-handbook.md']);
+      .toEqual([{ file: 'docs/architecture-handbook.md', rule: 'docs' }]);
   });
 
   it('skips blank lines and comments instead of reading them as globs', () => {
@@ -47,7 +47,7 @@ describe('ignoredArtifacts', () => {
     gitignore(['docs/api']);
 
     expect(ignoredArtifacts(root, ['docs/api/x.md', 'sub/docs/api/y.md']))
-      .toEqual(['docs/api/x.md']);
+      .toEqual([{ file: 'docs/api/x.md', rule: 'docs/api' }]);
   });
 
   it('matches basenames at any depth, anchored paths, and directory patterns', () => {
@@ -62,7 +62,12 @@ describe('ignoredArtifacts', () => {
         'dist/bundle.js',
         'AGENTS.md',
       ]),
-    ).toEqual(['CLAUDE.md', 'nested/CLAUDE.md', 'docs/architecture-handbook.md', 'dist/bundle.js']);
+    ).toEqual([
+      { file: 'CLAUDE.md', rule: 'CLAUDE.md' },
+      { file: 'nested/CLAUDE.md', rule: 'CLAUDE.md' },
+      { file: 'docs/architecture-handbook.md', rule: '/docs/architecture-handbook.md' },
+      { file: 'dist/bundle.js', rule: 'dist/' },
+    ]);
   });
 
   it('covers whole ignored directories and honors negation (last match wins)', () => {
@@ -70,15 +75,29 @@ describe('ignoredArtifacts', () => {
 
     expect(
       ignoredArtifacts(root, ['docs/architecture-handbook.md', 'docs/notes.md']),
-    ).toEqual(['docs/notes.md']);
+    ).toEqual([{ file: 'docs/notes.md', rule: 'docs' }]);
   });
 
   it('supports wildcards in patterns', () => {
     gitignore(['*.blueprint.md']);
 
     expect(ignoredArtifacts(root, ['CLAUDE.blueprint.md', 'CLAUDE.md'])).toEqual([
-      'CLAUDE.blueprint.md',
+      { file: 'CLAUDE.blueprint.md', rule: '*.blueprint.md' },
     ]);
+  });
+
+  it('names the LAST rule that hid a file, not the first', () => {
+    // The rule reported has to be the one that decided, or a reader checking the
+    // claim tests a pattern that a later line already overrode. This is also why
+    // the report exists: `git check-ignore` run after init appends its negation
+    // answers "not ignored" — the negation working, not proof it was never needed.
+    gitignore(['docs/*', '!docs/keep.md', 'docs/*.tmp.md']);
+
+    expect(ignoredArtifacts(root, ['docs/a.tmp.md', 'docs/keep.md', 'docs/b.md']))
+      .toEqual([
+        { file: 'docs/a.tmp.md', rule: 'docs/*.tmp.md' },
+        { file: 'docs/b.md', rule: 'docs/*' },
+      ]);
   });
 });
 

@@ -338,6 +338,17 @@ the answer belongs in this playbook — note the gap in your report instead.
    independently first, then compare. Agreeing is the good outcome (that is
    idempotency); agreeing because you copied is how a mistranslation from the
    first pass becomes permanent.
+   One exception, and it decides the harder cases: some clauses **cannot** be
+   derived from the matrix at all — ownership of a named import, the shape of a
+   selfOnly narrowing, the position of a layer holding no files, a permitted
+   importer with zero edges today. For those the prior output is the only
+   evidence there is, so check-only means dropping them, and a "faithful"
+   re-adoption then hands back a config LOOSER than the one it replaced.
+   Verify each against what the matrix CAN see (is there an edge for this
+   importer? is the owned package imported only there?), reproduce it when that
+   checks out, and list in your report which clauses were reproduced rather
+   than derived. Regressing a gate the owner already committed is the worse
+   error.
    Documents also go stale: cross-check every translated clause against the
    survey below. Where they disagree, the document governs *intent* (layer
    order, ownership) and the code governs *shape* (module layout) — downgrade
@@ -453,6 +464,13 @@ the answer belongs in this playbook — note the gap in your report instead.
      silent if only blueprint's ban did — lint stays green while the test
      files it was never meant to reach are quietly under it. Doctor
      compares selectors, not scope, so nothing downstream catches this.
+     The same move runs the other way when YOUR rule had no exemption:
+     carrying blueprint's \`ignores\` onto the combined entry stops your rule
+     at test files it used to govern. One entry carries one \`ignores\`, so a
+     merge has to pick — decide which scope each rule actually wants, say
+     which one you widened or narrowed and why, and check whether the same
+     rule appears on other layers you did NOT merge, because that is where
+     the asymmetry lands.
 
      \`blueprint doctor\` verifies both the
      emitted structural rules and each declared gate's carrier rule

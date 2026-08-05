@@ -676,7 +676,12 @@ describe('runInit · artifact hygiene', () => {
     );
 
     expect(patch?.note).toContain('re-included AGENTS.md');
-    expect(patch?.note).toContain('delete the lines to keep it hidden');
+    // The rule that hid it, not only the file. Without it a reader can only check
+    // the claim AFTER the negation lands, where `git check-ignore` answers "not
+    // ignored" — the fix working, which reads exactly like a fix that was never
+    // needed. A field agent filed it as a no-op on that reading.
+    expect(patch?.note).toContain('hidden by `AGENTS.md`');
+    expect(patch?.note).toContain('delete the appended lines to keep it hidden');
     expect(patch?.note).toContain('parent directory');
     expect(read('.gitignore')).toContain('!AGENTS.md');
   });

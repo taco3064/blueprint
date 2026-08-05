@@ -13,7 +13,16 @@ import { globToRegExp } from '../inspect/filter';
 
 interface IgnoreRule {
   negate: boolean;
+  /** The line verbatim, so a caller can name the rule that decided. */
+  source: string;
   matches: (relPath: string) => boolean;
+}
+
+/** An artifact the root `.gitignore` hides, and the line that hides it. */
+export interface HiddenArtifact {
+  file: string;
+  /** The `.gitignore` line, verbatim — the cause, not just the effect. */
+  rule: string;
 }
 
 /**
@@ -57,12 +66,22 @@ export function toRule(line: string): IgnoreRule | null {
 
   return {
     negate,
+    source: line.trim(),
     matches: (relPath) => (!dirOnly && self.test(relPath)) || descendants.test(relPath),
   };
 }
 
-/** Paths (among `candidates`) the root `.gitignore` hides — last match wins. */
-export function ignoredArtifacts(root: string, candidates: string[]): string[] {
+/**
+ * The artifacts (among `candidates`) the root `.gitignore` hides — last match wins —
+ * each with the line that hides it.
+ *
+ * The rule is reported, not just the path, because a reader cannot verify this claim
+ * after the fact: init appends a `!` negation, and a `git check-ignore` run afterwards
+ * then answers "not ignored" — which is the negation working, not proof it was never
+ * needed. A field agent read it the second way and filed the fix as a no-op. Naming
+ * the pattern gives them something to check that the fix has not already changed.
+ */
+export function ignoredArtifacts(root: string, candidates: string[]): HiddenArtifact[] {
   let text: string;
 
   try {
@@ -76,14 +95,18 @@ export function ignoredArtifacts(root: string, candidates: string[]): string[] {
     .map(toRule)
     .filter((rule): rule is IgnoreRule => rule !== null);
 
-  return candidates.filter((candidate) => {
+  const hidden: HiddenArtifact[] = [];
+
+  for (const candidate of candidates) {
     const rel = candidate.split(path.sep).join('/');
-    let ignored = false;
+    let hiding: string | null = null;
 
     for (const rule of rules) {
-      if (rule.matches(rel)) ignored = !rule.negate;
+      if (rule.matches(rel)) hiding = rule.negate ? null : rule.source;
     }
 
-    return ignored;
-  });
+    if (hiding !== null) hidden.push({ file: candidate, rule: hiding });
+  }
+
+  return hidden;
 }
