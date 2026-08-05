@@ -59,7 +59,8 @@
     "docs:dev": "npm run docs:api && vitepress dev docs",
     "docs:build": "node scripts/check-changelog-markup.mjs && npm run docs:api && vitepress build docs",
     "docs:check": "node scripts/check-doc-links.mjs",
-    "field:run": "node scripts/field-run.mjs"
+    "field:run": "node scripts/field-run.mjs",
+    "dist:verify": "node scripts/dist-verify.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",

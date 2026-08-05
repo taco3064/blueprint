@@ -48,11 +48,18 @@ is not in the config). Field batches 10–12 are the case law.
 - **Co-locate tests**: `foo.test.ts` beside `foo.ts`; the test name matches the
   source.
 - **`src/conformance/` is the adoption conformance suite** — every field-
-  feedback scenario fossilized as an offline fixture repo driven through the
-  real CLI (and the real eslint from this repo's devDeps). When field testing
-  finds a new adoption failure, its fixture lands here with the fix; field
-  runs should only ever discover *new* scenarios. Test-only: never exported
-  from the package entry.
+  feedback scenario fossilized as an offline fixture repo driven through the CLI's
+  own dispatch (`run()` in-process, and the real eslint from this repo's
+  devDeps). When field testing finds a new adoption failure, its fixture lands
+  here with the fix; field runs should only ever discover *new* scenarios.
+  Test-only: never exported from the package entry.
+- **`npm run dist:verify` checks the layer in-process tests cannot reach** — the
+  bundle, the shebang, the `bin` and `exports` fields, and the `argv[1]` guard,
+  by executing `dist/bin.js` on throwaway fixtures and importing the package
+  entry. Runs in CI after `build`. The guard is why it exists: npm installs the
+  bin as a symlink, and comparing `argv[1]` to the entry module without
+  `realpathSync` makes the published CLI exit 0 having done nothing (the 0.1.1
+  bug) — a state every in-process test passes.
 - **100% coverage** (`vitest --coverage`). The only exclusions are real-I/O
   defaults and the bin guard, marked `/* v8 ignore */` because tests inject
   those effects (`exec`, `loadConfig`) instead of running them.
