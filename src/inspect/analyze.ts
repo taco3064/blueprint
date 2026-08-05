@@ -285,6 +285,10 @@ export function detectCycle(edges: Map<string, Set<string>>): string[] | null {
     return null;
   };
 
+  // Undecidable: the inner `visited` check keeps this one honest. Re-entering the
+  // walk at an already-visited node recurses nowhere, because that check stops it —
+  // so skipping the work and doing nothing cost the same. The inner one is measured
+  // (a 40-node mesh times out without it); this one shields nothing further.
   for (const node of edges.keys()) {
     if (!visited.has(node)) {
       const found = dfs(node, [node]);

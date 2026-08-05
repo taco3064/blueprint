@@ -23,6 +23,10 @@ export const noDeepWatch: Rule.RuleModule = {
   create(context) {
     return {
       CallExpression(node) {
+        // Undecidable: the type check is what lets `.name` be read at all, and no
+        // ESTree callee carries a `name` while failing it — a member expression has
+        // none, so the comparison answers `undefined !== 'watch'` and returns anyway.
+        // The compiler's requirement over an untyped AST, invisible at runtime.
         if (node.callee.type !== 'Identifier' || node.callee.name !== 'watch') return;
 
         const options = node.arguments[2];
@@ -44,6 +48,9 @@ function findDeepTrue(options: ObjectExpression): Property | undefined {
       prop.type === 'Property'
       && !prop.computed
       && keyName(prop) === 'deep'
+      // Undecidable, same shape as the callee check above: this is what lets
+      // `.value` be read, and no expression node carries a truthy `.value` while
+      // failing it — `deep: someVar` reads `undefined`, which is falsy anyway.
       && prop.value.type === 'Literal'
       && Boolean(prop.value.value),
   );

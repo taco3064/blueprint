@@ -133,7 +133,8 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   // a path of its own (`emit.agents: [{ target, path }]`), which is why the first
   // half is not simply a subset of the second.
   //
-  // The `merge` filter is invisible to behaviour and is here for the I/O: `plan`
+  // Undecidable (three mutants share this): the `merge` filter is invisible to
+  // behaviour and is here for the I/O — `plan`
   // looks this record up only at merge paths and at default paths, so an extra key
   // is a file read that nobody ever asks about. Widening it changes what init
   // reads, not what init does.
@@ -294,9 +295,9 @@ function isPristineScaffold(root: string, state: ProjectState): boolean {
 
   // `state.hasNext &&` is not a second condition: `detectNext` returns a null
   // router for anything that is not Next, so a router at all already means Next.
-  // What remains is the narrowing `buildNextConfigSource` needs — its `router`
-  // parameter does not accept null, so reaching past this line with one is a type
-  // violation rather than a case.
+  // What remains is undecidable: it is the narrowing `buildNextConfigSource` needs —
+  // its `router` parameter does not accept null, so reaching past this line with one
+  // is a type violation rather than a case a test could set up.
   if (state.nextRouter) {
     for (const agents of agentVariants) {
       candidates.push(

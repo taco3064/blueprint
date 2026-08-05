@@ -533,6 +533,9 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
  * silent no-op (the 0.1.1 bug).
  */
 export function isCliEntry(argv1: string | undefined): boolean {
+  // Undecidable: the `catch` below keeps this one honest — `realpathSync(undefined)`
+  // throws, and the catch answers `false` too. Removing either alone still passes;
+  // the contract itself is pinned by a test (`isCliEntry(undefined)`).
   if (argv1 === undefined) return false;
 
   try {
@@ -542,7 +545,12 @@ export function isCliEntry(argv1: string | undefined): boolean {
   }
 }
 
-/* v8 ignore start -- the live bin invocation; isCliEntry itself is unit-tested */
+/* v8 ignore start -- the live bin invocation; isCliEntry itself is unit-tested.
+   Its mutants are undecidable in-process too: this module is imported by the tests,
+   never executed as the entry, so flipping the condition changes nothing they can
+   see. `npm run dist:verify` runs the built bin through an npm-style symlink, which
+   is the check that catches it — the 0.1.1 bug, where the published CLI exited 0
+   having done nothing while every in-process test passed. */
 if (isCliEntry(process.argv[1])) {
   run(process.argv.slice(2)).then((code) => process.exit(code));
 }

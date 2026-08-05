@@ -69,9 +69,15 @@ is not in the config). Field batches 10–12 are the case law.
   no approved-survivor ledger, so a threshold is a hard-coded number every `src/`
   edit invalidates — the unappeasable red this repo argues against elsewhere).
   Per file while working (`--mutate 'src/x/y.ts'`), full sweep before a merge.
-  **A survivor is proven equivalent in its commit message, never silenced with a
+  **A survivor is proven equivalent at the site, never silenced with a
   `// Stryker disable` comment**; where two guards shield each other, the proof
   names which one keeps the other honest — removing either alone still passes.
+  At the site, because that is where the next sweep meets it: a proof in a commit
+  message serves the review and then has to be excavated with `git log -S`, and
+  re-litigating one is expensive (two of these were wrong the first time). Each opens
+  with the word **undecidable**, so `grep -rn undecidable src/ --include='*.ts'` is
+  the ledger — no file to maintain, no line numbers to drift, and the survivor count
+  stays honest because nothing is suppressed.
   Not chased to 100% — but "equivalent" is a claim someone has read the mutant and
   written down why, not a bucket for whatever is left. The first sweep on this suite
   reported 87 survivors and the second 59; of those 59, **43 turned out to be

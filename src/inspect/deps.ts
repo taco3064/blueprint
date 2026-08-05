@@ -114,7 +114,16 @@ function skippedFolders(scanned: ScanResult, layerNames: Set<string>): string[] 
   return [...new Set(folders)];
 }
 
-/** A single-segment module that IS a flat-layout layer answers at layer granularity. */
+/**
+ * A single-segment module that IS a flat-layout layer answers at layer granularity.
+ *
+ * Undecidable, and by reachability rather than by identity: read the way the parser
+ * groups it, flipping the inner `&&` gives `(a || b) && c`, which separates from the
+ * original only for a module key that is a single segment and NOT a layer name.
+ * `buildModuleGraph` builds keys only under declared layers, so no such key arrives.
+ * That is a claim about another function's output, not a logical truth — which is why
+ * the `layerNames` half stays rather than being deleted as redundant.
+ */
 function isFlatLayer(module: string, layerNames: Set<string>, layoutOf: LayoutOf): boolean {
   return !module.includes('/') && layerNames.has(module) && layoutOf(module) === 'flat';
 }

@@ -113,6 +113,8 @@ const realReaddir = (dir: string): DirEntry[] =>
  * rely on rather than repairs.
  */
 function ordered(dir: string, readdir: (dir: string) => DirEntry[]): DirEntry[] {
+  // The comparator is asked about its equal case in `compareText`'s own tests, which
+  // is the only place that can: two entries in one directory cannot share a name.
   return readdir(dir).sort((a, b) => compareText(a.name, b.name));
 }
 

@@ -110,6 +110,9 @@ function readJson(file: string): Record<string, unknown> | null {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf-8'));
   } catch {
+    // Undecidable: an empty catch returns `undefined`, and every caller reads both as
+    // "no readable JSON". Making the difference visible would mean a caller that
+    // cares which flavour of absent it got, which is worse code than this note.
     return null;
   }
 }
@@ -516,6 +519,10 @@ function eachPathAlias(
 
     const result = parseJsonc(text);
 
+    // Undecidable: the `?.` below keeps this one honest. On a failure `result.value`
+    // is `undefined`, the optional chain yields no options, and this file contributes
+    // nothing either way — removing either alone still passes. The `?.` is separately
+    // pinned by a tsconfig whose whole content is `null`, where it stops a throw.
     if (!result.ok) continue;
 
     const options = (result.value as { compilerOptions?: { paths?: unknown } })?.compilerOptions;

@@ -150,7 +150,15 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
   };
 }
 
-/** Reference files are named `<name>.blueprint.<ext>` — never the config itself. */
+/**
+ * Reference files are named `<name>.blueprint.<ext>` — never the config itself.
+ *
+ * The `.sort()` is undecidable here: `readdirSync` already answers in name order on
+ * macOS and on a small ext4 directory, so the guarantee that matters on other volumes
+ * cannot be seen where it is cheapest to run. `scan` solves the same problem with an
+ * injected reader — `DoctorOptions` is public API, and a reader option there would be
+ * adopter-facing surface for a test concern, so this one keeps the sort and the note.
+ */
 function referenceFiles(root: string): string[] {
   return fs
     .readdirSync(root)
@@ -236,6 +244,10 @@ export async function runDoctor(
   const findings = analyze(scanResult, blueprint);
   const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
 
+  // Undecidable: this list exists to be matched against findings, so a bogus entry
+  // put in the empty arm's place matches nothing and reads exactly like no baseline.
+  // Nothing here counts entries it failed to match — the lint ledger's stale check is
+  // the symmetric thing this side does not have.
   const recorded = fs.existsSync(path.join(root, BASELINE_FILE))
     ? parseBaseline(fs.readFileSync(path.join(root, BASELINE_FILE), 'utf-8'))
     : [];
