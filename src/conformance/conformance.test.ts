@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { createRequire } from 'node:module';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -104,6 +106,62 @@ describe('greenfield scaffold — init alone completes (batches 1 & 4)', () => {
 
     expect(doctor.code).toBe(0);
     expect(doctor.output).toContain('Adoption complete — all 7 checks passed');
+  });
+});
+
+describe('"complete" says what it leaves out (field runs #71–#73)', () => {
+  it('names the uncommitted working tree under an all-green banner', async () => {
+    // Three agents independently closed on the same gap, in their own words: "what I
+    // reported as complete is complete minus commit". The playbook says a ratchet in
+    // an uncommitted tree is not installed; doctor is the last thing on screen and
+    // said only "Adoption complete", so the two truths never met where a reader is.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+    write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
+
+    const doctor = await cli(dir, ['doctor']);
+
+    expect(doctor.code).toBe(0);
+    expect(doctor.output).toContain('Adoption complete — all 7 checks passed');
+    expect(doctor.output).toContain('nothing adoption wrote is committed');
+    expect(doctor.output).toContain('not installed');
+    // The remedy, and whose call it is — a note that only states the problem sends an
+    // adopting agent to `git init`, which the playbook forbids it from doing.
+    expect(doctor.output).toContain('Initialise version control and commit');
+    expect(doctor.output).toContain('owner\'s call');
+  });
+
+  it('drops the note once the repo is version-controlled', async () => {
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+    write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
+    fs.mkdirSync(path.join(dir, '.git'));
+
+    const doctor = await cli(dir, ['doctor']);
+
+    expect(doctor.code).toBe(0);
+
+    // The banner is the LAST line, not merely followed by no VCS wording: the note
+    // rides in a `? [x] : []` spread, and an empty arm is only pinned by a seam that
+    // would notice anything appearing in it.
+    expect(doctor.output.trimEnd().endsWith('Adoption complete — all 7 checks passed.'))
+      .toBe(true);
+  });
+
+  it('carries the same note on the JSON channel', async () => {
+    // Two channels reporting the same run must not know different things.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+    write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
+
+    const doctor = await cli(dir, ['doctor', '--json']);
+    const parsed = JSON.parse(doctor.output) as { ok: boolean; note?: string };
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.note).toContain('not installed');
   });
 });
 
@@ -432,6 +490,34 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
     expect(doctor.output).toContain('✗ emitted rules survive the merged eslint config');
     expect(doctor.output).toContain('views: no-restricted-syntax lost 1 selfOnly selector(s)');
     expect(doctor.output).toContain('combine both option sets into ONE entry');
+
+    // Field run #73: an agent hand-merging this entry reproduced blueprint's exact
+    // `/` escaping "defensively" and could not tell whether it had to. It did — the
+    // comparison is string containment — and doctor never said so, so an equivalent
+    // re-spelling reads as a loss on a config eslint would enforce correctly.
+    expect(doctor.output).toContain('The comparison is textual, not semantic');
+    expect(doctor.output).toContain('copy the emitted text rather than retyping it');
+  });
+});
+
+describe('a step that creates files owns them (field runs #71–#73)', () => {
+  it('the playbook says deleting its build artifacts is safe, and whose call it is', async () => {
+    // All three field runs flagged the same discomfort: the playbook asks for a build
+    // to prove the alias resolves, and `dist/` + `*.tsbuildinfo` then sit untracked in
+    // someone's tree. "Leave them to the repo's ignore rules" reads as "you may not
+    // touch these" without the sentence that says removal is safe.
+    // Forced onto a starter, which is the only path that asks for a build — and the
+    // path all three field agents were on.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('a step THIS playbook asked for');
+    expect(playbook).toContain('deleting them is safe');
+    expect(playbook).toContain('the build can be re-run');
+    expect(playbook).toContain('the owner\'s call');
   });
 });
 

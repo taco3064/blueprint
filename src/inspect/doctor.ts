@@ -226,7 +226,9 @@ export async function runDoctor(
       },
     ];
 
-    emit(log, checks, options.json);
+    // No note on this path: adoption has not started, so "commit what it wrote" is
+    // not the next step — running init is.
+    emit(log, checks, undefined, options.json);
 
     return { ok: false, checks };
   }
@@ -321,14 +323,45 @@ export async function runDoctor(
 
   const ok = checks.every((check) => check.ok);
 
-  emit(log, checks, options.json);
+  emit(log, checks, uncommittedNote(root), options.json);
 
   return { ok, checks };
 }
 
-function emit(log: (m: string) => void, checks: DoctorCheck[], json?: boolean): void {
+/**
+ * What "complete" leaves out on a repo with no version control.
+ *
+ * Every check can pass while nothing adoption wrote is committed, and the two
+ * truths do not meet anywhere the reader can see them: the authoring playbook says
+ * a ratchet living only in an uncommitted working tree is not installed, and then
+ * doctor — the last thing on screen, and often the only thing still in an agent's
+ * context — prints "Adoption complete". Three field agents closed on exactly that
+ * gap in their own words ("what I reported as complete is complete minus commit").
+ *
+ * Only the no-VCS case, and deliberately: whether a git repo's own working tree is
+ * clean needs `git status`, and doctor is read-only with zero dependencies. The
+ * absence of `.git` is a fact one `existsSync` settles.
+ */
+function uncommittedNote(root: string): string | undefined {
+  if (fs.existsSync(path.join(root, '.git'))) return undefined;
+
+  return 'Not a version-controlled repo, so nothing adoption wrote is committed — '
+    + 'and a ratchet that lives only in an uncommitted working tree is not installed: '
+    + 'the next clone starts without it and CI has nothing to run. Initialise version '
+    + 'control and commit these files to finish. Doing that is the owner\'s call, never '
+    + 'an adopting agent\'s.';
+}
+
+function emit(
+  log: (m: string) => void,
+  checks: DoctorCheck[],
+  note: string | undefined,
+  json?: boolean,
+): void {
   if (json) {
-    log(JSON.stringify({ ok: checks.every((check) => check.ok), checks }, null, 2));
+    // The note rides on both channels or the two disagree about the same run, which
+    // is its own defect — automation reading JSON must not learn less than a reader.
+    log(JSON.stringify({ ok: checks.every((check) => check.ok), checks, note }, null, 2));
 
     return;
   }
@@ -346,6 +379,10 @@ function emit(log: (m: string) => void, checks: DoctorCheck[], json?: boolean): 
       failed === 0
         ? `✓ Adoption complete — all ${checks.length} checks passed.`
         : `✗ Adoption incomplete — ${failed} of ${checks.length} check(s) failed.`,
+      // Under the banner rather than as an eighth check: it cannot fail (init never
+      // takes version control into its own hands), and a check that is always green
+      // would push the count every conformance fixture states.
+      ...(note ? [`  ${note}`] : []),
     ].join('\n'),
   );
 }
