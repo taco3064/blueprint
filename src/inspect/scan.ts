@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { compareText } from './order';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
 const SOURCE_EXT = /\.(?:js|jsx|ts|tsx|mjs|cjs|vue)$/;
@@ -112,11 +113,7 @@ const realReaddir = (dir: string): DirEntry[] =>
  * rely on rather than repairs.
  */
 function ordered(dir: string, readdir: (dir: string) => DirEntry[]): DirEntry[] {
-  // `<` and `<=` decide the same order here, and that is a filesystem invariant
-  // rather than an accident: two entries in one directory cannot share a name, so
-  // the comparator is never asked about equality. Disprove it by finding a
-  // directory that lists one name twice.
-  return readdir(dir).sort((a, b) => (a.name < b.name ? -1 : 1));
+  return readdir(dir).sort((a, b) => compareText(a.name, b.name));
 }
 
 function walk(

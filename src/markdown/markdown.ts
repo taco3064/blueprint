@@ -52,12 +52,16 @@ const marker = (tag: string) =>
 export function injectBetweenMarkers(source: string, tag: string, content: string): string {
   const [start, end] = marker(tag);
   const startIdx = source.indexOf(start);
-  const endIdx = source.indexOf(end);
+  // Search for the END from START onward, so what gets found is the END that
+  // closes this block. Searching the whole document and then comparing the two
+  // indices answered the same on every input — distinct markers can never share an
+  // index, so `endIdx < startIdx` versus `<= startIdx` was a question nothing could
+  // ask. Searching forward turns the failure into its own answer: there is no END
+  // after this START. No guard for a `startIdx` of -1 either: `indexOf` clamps a
+  // negative start to 0, and the missing START is what the next line reports.
+  const endIdx = source.indexOf(end, startIdx);
 
-  // A missing END needs no test of its own: `indexOf` answers -1, and -1 is below
-  // any real START index, so the ordering check already rejects it. Spelling it out
-  // as a third condition could never decide anything the other two had not.
-  if (startIdx === -1 || endIdx < startIdx) {
+  if (startIdx === -1 || endIdx === -1) {
     throw new Error(`Markers "${start}" / "${end}" not found (or out of order) in source.`);
   }
 
