@@ -13,8 +13,21 @@ on:
 
 jobs:
   ci:
-    name: Lint / Type Check / Test / Build
-    runs-on: ubuntu-latest
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Both legs report, so one platform's failure does not hide the other's.
+      fail-fast: false
+      matrix:
+        # This tool reads and writes other people's repositories, and it carries
+        # explicit Windows branches to do it: `scan`, `ignored` and `impact` all
+        # normalise with `.split(path.sep).join('/')`, and the relative-escape rule
+        # splits on `[\\/]`. On posix `path.sep` IS `/`, so those branches are
+        # no-ops here and their Windows behaviour had never been observed. The
+        # note above about a macOS-only filename match is the same lesson from the
+        # other direction.
+        os: [ubuntu-latest, windows-latest]
 
     steps:
       - name: Checkout repository

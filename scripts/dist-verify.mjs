@@ -198,32 +198,42 @@ await check('`init --dry-run` plans against a real fixture and writes nothing', 
 
 // -------------------------------------------- the bin through an npm-style link
 
-await check('the bin still runs through an npm-style symlink', () => {
-  // npm installs the bin as a symlink into node_modules/.bin. Node resolves the
-  // entry module to its real path while argv[1] keeps the link path, so an
-  // entry-point guard comparing the two without realpathSync never fires and
-  // the CLI exits 0 having done nothing — shipped once, as 0.1.1.
-  const dir = tempDir('bp-dist-link-');
-  const binDir = path.join(dir, 'node_modules', '.bin');
+if (process.platform === 'win32') {
+  // Not skipped for convenience — the scenario does not exist here. npm on
+  // Windows writes `.cmd` / `.ps1` shims into node_modules\.bin instead of
+  // symlinks, so `argv[1]` is the real bin path and the guard has nothing to see
+  // through. (Creating a file symlink on Windows also needs a privilege the
+  // runner does not have.) The posix leg of the matrix covers the guard.
+  console.log('  · the npm-style symlink check does not apply on win32 — npm writes'
+    + ' .cmd shims here, so argv[1] is already the real path (covered on the posix leg)');
+} else {
+  await check('the bin still runs through an npm-style symlink', () => {
+    // npm installs the bin as a symlink into node_modules/.bin. Node resolves the
+    // entry module to its real path while argv[1] keeps the link path, so an
+    // entry-point guard comparing the two without realpathSync never fires and
+    // the CLI exits 0 having done nothing — shipped once, as 0.1.1.
+    const dir = tempDir('bp-dist-link-');
+    const binDir = path.join(dir, 'node_modules', '.bin');
 
-  fs.mkdirSync(binDir, { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
 
-  const link = path.join(binDir, 'blueprint');
+    const link = path.join(binDir, 'blueprint');
 
-  fs.symlinkSync(binPath, link);
-  // npm sets the mode on install; the built file is 644 until it is packed.
-  fs.chmodSync(binPath, 0o755);
+    fs.symlinkSync(binPath, link);
+    // npm sets the mode on install; the built file is 644 until it is packed.
+    fs.chmodSync(binPath, 0o755);
 
-  const { code, output } = runCmd(link, ['--version'], { cwd: dir });
+    const { code, output } = runCmd(link, ['--version'], { cwd: dir });
 
-  expect(code === 0, `exited ${code}\n${output}`);
-  expect(
-    output.includes(pkg.version),
-    `printed ${JSON.stringify(output.trim())} — the entry guard did not fire through the symlink`,
-  );
+    expect(code === 0, `exited ${code}\n${output}`);
+    expect(
+      output.includes(pkg.version),
+      `printed ${JSON.stringify(output.trim())} — the entry guard did not fire through the symlink`,
+    );
 
-  return `via ${path.relative(dir, link)}`;
-});
+    return `via ${path.relative(dir, link)}`;
+  });
+}
 
 // ------------------------------------------------------------- the package entry
 
