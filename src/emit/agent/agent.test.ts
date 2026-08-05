@@ -66,3 +66,21 @@ describe('emitAgentContract', () => {
     expect(emitAgentContract(full())).toBe(emitAgentContract(full()));
   });
 });
+
+describe('emitAgentContract · joining the sections', () => {
+  it('leaves no gap where a section rendered nothing', () => {
+    // Several renderers return '' when the blueprint carries nothing for them.
+    // Joining those in leaves a run of blank lines inside CLAUDE.md — and a later
+    // init re-diffs them, because the marker block is rewritten each time.
+    const minimal = defineBlueprint({
+      framework: 'vue',
+      architecture: {
+        alias: '~app',
+        layers: [{ name: 'components', does: 'UI' }],
+        module: { layout: 'folder', entry: 'index', private: [] },
+      },
+    });
+
+    expect(emitAgentContract(minimal)).not.toMatch(/\n{3,}/);
+  });
+});

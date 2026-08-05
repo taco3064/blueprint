@@ -20,7 +20,9 @@ const formatting = stylistic.configs.customize({
 });
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage', 'docs', 'examples', 'fixtures']),
+  // `.stryker-tmp` holds Stryker's sandboxed copy of src (mutated, `@ts-nocheck`d);
+  // `reports` its HTML output. Both are generated — never lint them.
+  globalIgnores(['dist', 'coverage', 'docs', 'examples', 'fixtures', '.stryker-tmp', 'reports']),
   {
     files: ['**/*.ts'],
     extends: [js.configs.recommended, tseslint.configs.recommended],

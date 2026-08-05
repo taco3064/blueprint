@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runDeps } from './deps';
 
@@ -184,6 +184,11 @@ describe('runDeps · flat-layout layers answer at layer granularity', () => {
 
     expect(output).toContain('← features (flat layer)');
     expect(output).toContain('← pages/Home');
+
+    // pages is folder-shaped, so its modules answer at module granularity.
+    // Claiming the layer-granularity caveat here would tell the reader the
+    // blast radius is wider than it is.
+    expect(output).not.toContain('pages/Home (flat layer)');
   });
 });
 
@@ -230,5 +235,181 @@ describe('runDeps · file modules drop their extension from the key', () => {
     expect(ok).toBe(true);
     expect(modules[0].module).toBe('components/HelloWorld');
     expect(modules[0].importedBy).toEqual(['pages/Home']);
+  });
+});
+
+describe('runDeps · the order and shape of what it reports', () => {
+  it('returns no modules at all for an unknown target', async () => {
+    writeSrc('services/api/api.ts', 'export const api = 1;');
+
+    const { ok, modules } = await runDeps(root, { target: 'hooks/useGhost', log: silent });
+
+    // The caller reads `modules` whatever `ok` says. A placeholder row there is
+    // a module that does not exist, presented as blast radius.
+    expect(ok).toBe(false);
+    expect(modules).toEqual([]);
+  });
+
+  it('sorts both edge lists, and reports an empty one as empty', async () => {
+    // Written deliberately out of alphabetical order: `zed` first, and it
+    // imports nothing. Two importers reaching one module is what makes the
+    // importer sort observable at all.
+    writeSrc('services/zed/index.ts', 'export const z = 1;');
+    writeSrc('services/beta/index.ts', 'export const b = 1;');
+    writeSrc('hooks/useX/index.ts', 'import { z } from \'~app/services/zed\';\nimport { b } from \'~app/services/beta\';');
+    writeSrc('hooks/useA/index.ts', 'import { z } from \'~app/services/zed\';');
+
+    const { modules } = await runDeps(root, { log: silent });
+    const zed = modules.find((entry) => entry.module === 'services/zed');
+    const useX = modules.find((entry) => entry.module === 'hooks/useX');
+
+    // zed is imported by both hooks, alphabetically whatever order they landed in.
+    expect(zed?.importedBy).toEqual(['hooks/useA', 'hooks/useX']);
+
+    // And zed imports nothing — an empty list, not a placeholder.
+    expect(zed?.imports).toEqual([]);
+
+    // useX reaches both services, also sorted.
+    expect(useX?.imports).toEqual(['services/beta', 'services/zed']);
+  });
+
+  it('never reads a src-root file as a skipped folder, and sorts the ones it finds', async () => {
+    // `src/main.ts` is entry wiring with one path segment — it is not a folder
+    // outside the layers, and naming it as one sends the reader looking for a
+    // directory that is not there. The two real ones come back sorted.
+    scaffold();
+    writeSrc('main.ts', 'export const boot = 1;');
+    writeSrc('zutils/helper.ts', 'export const h = 1;');
+    writeSrc('atools/helper.ts', 'export const h = 1;');
+
+    let output = '';
+
+    await runDeps(root, { log: (m) => (output = m) });
+
+    expect(output).toContain('invisible to deps: atools/, zutils/');
+    expect(output).not.toContain('main.ts');
+  });
+});
+
+describe('runDeps · normalizing the target the user typed', () => {
+  it('drops empty path segments a pasted path carries', async () => {
+    scaffold();
+
+    // A doubled slash survives a copy-paste, and an empty segment becomes part
+    // of the module key — the answer is then "unknown module" for a module that
+    // is sitting right there.
+    const { ok, modules } = await runDeps(root, { target: 'hooks//useCart', log: silent });
+
+    expect(ok).toBe(true);
+    expect(modules[0].module).toBe('hooks/useCart');
+  });
+
+  it('does not call a multi-segment key a flat layer, even when every layer is flat', async () => {
+    // With `layout: 'flat'` as the SHARED shape, `layoutOf` answers flat for any
+    // name — including one that is not a layer at all. The single-segment and
+    // is-a-layer checks are what stop `pages/Home` from claiming the
+    // layer-granularity caveat.
+    const sharedFlat = async () => ({
+      framework: 'vue' as const,
+      architecture: {
+        alias: '~app',
+        // SHARED shape is flat, so `layoutOf` answers "flat" for any name it does
+        // not recognise as a layer — including a `layer/Module` key.
+        module: { layout: 'flat' as const, entry: 'index', private: [] },
+        layers: [
+          {
+            name: 'pages',
+            does: 'routes',
+            module: { layout: 'folder' as const },
+            allowedImporters: [],
+          },
+          { name: 'services', does: 'io', allowedImporters: ['pages'] },
+        ],
+      },
+    });
+
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+    writeSrc('services/api.ts', 'export const api = 1;');
+    writeSrc('pages/Home/Home.ts', 'import { api } from \'~app/services/api\';');
+
+    let output = '';
+
+    await runDeps(root, { loadConfig: sharedFlat, log: (m) => (output = m) });
+
+    // services is flat and collapses to the layer node. pages is folder-shaped,
+    // so its key is `pages/Home` — and `layoutOf` answers "flat" for that key too,
+    // since it is not a layer name. Only the single-segment and is-a-layer checks
+    // keep the caveat off it.
+    expect(output).toContain('services (flat layer)');
+    expect(output).not.toContain('pages/Home (flat layer)');
+  });
+});
+
+describe('runDeps · a layer node is not automatically a flat layer', () => {
+  it('withholds the flat-layer caveat from a folder-shaped layer', async () => {
+    // Importing the layer itself (`~app/services`, not a module inside it) makes
+    // a single-segment node carrying the layer's own name. Both remaining guards
+    // on the caveat matter right there: the name IS a layer, so only the layout
+    // decides. Claiming layer granularity for a folder-shaped layer tells the
+    // reader the blast radius covers the whole layer when it covers one module.
+    writeSrc('services/api/api.ts', 'export const api = 1;');
+    writeSrc('hooks/useCart/useCart.ts', 'import all from \'~app/services\';');
+
+    let output = '';
+
+    await runDeps(root, { log: (m) => (output = m) });
+
+    expect(output).toMatch(/← services$/m);
+    expect(output).not.toContain('(flat layer)');
+  });
+});
+
+describe('runDeps · the leaderboard closes on its last row', () => {
+  it('appends nothing after the table when no folder was skipped', async () => {
+    // The skipped-folder note is the only thing that ever follows the table.
+    // Anything else landing there reads as one more module — one with no
+    // imported-by count in front of it, so the reader cannot tell a row from a
+    // footnote.
+    scaffold();
+
+    let output = '';
+
+    await runDeps(root, { log: (m) => (output = m) });
+
+    expect(output.endsWith('← pages/Home')).toBe(true);
+  });
+});
+
+describe('runDeps · the blast-radius list is ordered by key, not by scan order', () => {
+  it('sorts importers whose key order differs from the directory listing', async () => {
+    // A file module drops its extension from the key, so `use.ts` becomes
+    // `hooks/use` — which sorts BEFORE `hooks/use-x`, while the directory
+    // listing puts `use-x/` first (`-` precedes `.`). Reporting scan order there
+    // hands the blast radius over to however the filesystem enumerates, and the
+    // same repo answers differently on two machines.
+    writeSrc('services/api/api.ts', 'export const api = 1;');
+    writeSrc('hooks/use-x/use-x.ts', 'import { api } from \'~app/services/api\';');
+    writeSrc('hooks/use.ts', 'import { api } from \'~app/services/api\';');
+
+    const { modules } = await runDeps(root, { log: silent });
+
+    expect(modules.find((entry) => entry.module === 'services/api')?.importedBy)
+      .toEqual(['hooks/use', 'hooks/use-x']);
+  });
+});
+
+describe('runDeps · the logger it uses when the caller supplies none', () => {
+  it('writes the report to the console instead of dropping it', async () => {
+    // deps carries no writer of its own — the CLI relies on this default. A
+    // no-op in its place makes the command print nothing at all while still
+    // returning ok, which reads as "this repo has no modules".
+    scaffold();
+
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await runDeps(root, {});
+
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Blast radius'));
+    spy.mockRestore();
   });
 });

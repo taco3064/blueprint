@@ -120,3 +120,25 @@ describe('renderCoverage', () => {
     expect(line).not.toContain('vacuous');
   });
 });
+
+describe('computeCoverage · reading a gate tier', () => {
+  it('reads an object-form off tier as off, like the string form', () => {
+    // A gate can be written `'off'` or `{ tier: 'off' }`. Taking the whole
+    // setting as the tier makes the object form compare unequal to 'off' and the
+    // gate counts as active — doctor then reports coverage from a rule the user
+    // switched off.
+    const objectOff: Blueprint = {
+      ...blueprint,
+      rules: { maxLines: { tier: 'off', value: 400 } },
+    };
+
+    const stringOff: Blueprint = { ...blueprint, rules: { maxLines: 'off' } };
+
+    const empty = { topDirs: [], files: [] } as ScanResult;
+
+    expect(computeCoverage(empty, objectOff, true).activeRules)
+      .toBe(computeCoverage(empty, stringOff, true).activeRules);
+
+    expect(computeCoverage(empty, objectOff, true).activeRules).toBe(0);
+  });
+});

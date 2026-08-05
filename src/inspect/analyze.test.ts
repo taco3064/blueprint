@@ -106,6 +106,19 @@ describe('analyze · imports', () => {
     expect(from('./helper')).toEqual([]);
   });
 
+  it('says which kind of escape it found, since all three share one rule id', () => {
+    // Three verdicts, three different fixes — use the alias, import the entry,
+    // extract to a lower layer. They all report under `relative-escape`, so a
+    // suite reading only the id cannot tell whether the right one was chosen.
+    const messageFor = (specifier: string): string | undefined =>
+      analyze(scanOf([file(['components', 'Btn', 'index.ts'], [{ specifier, names: [], isExport: false }])]), bp)
+        .find((finding) => finding.rule === 'relative-escape')?.message;
+
+    expect(messageFor('../../../outside')).toContain('escapes src/');
+    expect(messageFor('../Card/internals')).toContain('reaches past a sibling');
+    expect(messageFor('../../hooks/useX')).toContain('leaves this layer');
+  });
+
   // The lint rule and this finding read the same `relativeVerdict`, so a
   // sibling's entry is legal to both and reaching past it is illegal to both.
   // They disagreed once — same `../Sibling`, one gate green, one red — with no
@@ -177,6 +190,41 @@ describe('analyze · cycle', () => {
 
     expect(found).not.toContain('cycle');
   });
+
+  const cycleMessage = (files: ScannedFile[]): string | undefined =>
+    analyze(scanOf(files), bp).find((finding) => finding.rule === 'cycle')?.message;
+
+  it('walks the whole loop into the message, in order', () => {
+    // "A cycle exists" is not actionable; which modules, and in what order, is.
+    expect(cycleMessage([
+      file(['components', 'A', 'index.ts'], [{ specifier: '../B' }]),
+      file(['components', 'B', 'index.ts'], [{ specifier: '../C' }]),
+      file(['components', 'C', 'index.ts'], [{ specifier: '../A' }]),
+    ])).toContain('components/A → components/B → components/C → components/A');
+  });
+
+  it('reports the loop itself, not the path that led into it', () => {
+    // A reaches B, and B↔C is the actual cycle. Naming A in the report sends
+    // the reader to break an edge that is not part of any loop.
+    const message = cycleMessage([
+      file(['components', 'A', 'index.ts'], [{ specifier: '../B' }]),
+      file(['components', 'B', 'index.ts'], [{ specifier: '../C' }]),
+      file(['components', 'C', 'index.ts'], [{ specifier: '../B' }]),
+    ]);
+
+    expect(message).toContain('components/B → components/C → components/B');
+    expect(message).not.toContain('components/A');
+  });
+
+  it('keeps looking after an acyclic component comes up clean', () => {
+    // The first component walked has no loop; the search has to carry on to
+    // the second rather than conclude from the first.
+    expect(cycleMessage([
+      file(['components', 'A', 'index.ts'], [{ specifier: '../B' }]),
+      file(['hooks', 'useC', 'index.ts'], [{ specifier: '../useD' }]),
+      file(['hooks', 'useD', 'index.ts'], [{ specifier: '../useC' }]),
+    ])).toContain('hooks/useC → hooks/useD → hooks/useC');
+  });
 });
 
 describe('analyze · flat layout', () => {
@@ -245,5 +293,174 @@ describe('analyze · per-layer module layout', () => {
     expect(
       rules([file(['services', 'api', 'client.ts'], [{ specifier: '../ws/socket' }])]),
     ).not.toContain('relative-escape');
+  });
+});
+
+describe('analyze · severity ordering', () => {
+  it('leads with the errors, whatever order the checks produced them in', () => {
+    // Three severities from one scan: a module with no entry (warn), a banned
+    // cross-layer import (error), and the declaratory selfOnly note (info). The
+    // folder checks run before the import checks, so the raw order opens on the
+    // warn — a reader scanning the top of this list would meet it first.
+    const found = analyze(scanOf([
+      file(['components', 'Button', 'Button.ts']),
+      file(['components', 'Card', 'index.ts'], [{ specifier: '~app/services/api' }]),
+    ]), bp);
+
+    const severities = found.map((finding) => finding.severity);
+
+    expect(severities).toContain('error');
+    expect(severities).toContain('warn');
+    expect(severities).toContain('info');
+
+    // Sorted, not merely containing all three: errors first, info last. Two
+    // findings could not show this — a comparator that always answers the same
+    // way happens to agree with the sorted result on a pair.
+    expect(severities).toEqual([...severities].sort(
+      (a, b) => ['error', 'warn', 'info'].indexOf(a) - ['error', 'warn', 'info'].indexOf(b),
+    ));
+
+    expect(severities[0]).toBe('error');
+    expect(severities.at(-1)).toBe('info');
+  });
+});
+
+describe('analyze · the depth that makes a module', () => {
+  const specifierRules = (specifier: string) =>
+    analyze(
+      scanOf([file(['components', 'Btn', 'index.ts'], [{ specifier, names: [], isExport: false }])]),
+      bp,
+    )
+      .map((finding) => finding.rule)
+      .filter((rule) => rule !== 'declaratory-self-only');
+
+  it('does not read a file sitting directly in a layer as a module', () => {
+    // `components/Button.ts` is a file IN the layer, not a module folder. It has
+    // no entry to be missing, and demanding one sends the reader to write an
+    // index for a single file.
+    expect(rulesFor([file(['components', 'Button.ts'])])).not.toContain('no-entry');
+  });
+
+  it('needs a third segment before an import reaches inside a module', () => {
+    // `~app/hooks/useX` IS the entry. Reporting it as a deep import tells the
+    // reader to import through an entry they already used.
+    expect(specifierRules('~app/hooks/useX')).not.toContain('deep-import');
+    expect(specifierRules('~app/hooks/useX/impl')).toContain('deep-import');
+  });
+
+  it('judges depth only for targets that are declared layers', () => {
+    // `nope` is not a layer, so its module shape is unknown and the shared
+    // fallback would read any deep path as reaching inside one. The
+    // undeclared-folder rule owns that case instead.
+    expect(specifierRules('~app/nope/x/y')).not.toContain('deep-import');
+  });
+});
+
+describe('analyze · what an ownership entry covers', () => {
+  it('owns the package when ANY of the imported names is restricted', () => {
+    // `inject` is owned, `ref` is not. Importing both is still reaching for the
+    // owned one — requiring every name to be restricted lets a single free name
+    // launder the import.
+    const both = rulesFor([
+      file(['components', 'Btn', 'index.ts'], [{ specifier: 'vue', names: ['ref', 'inject'] }]),
+    ]);
+
+    expect(both).toContain('package-ownership');
+  });
+
+  it('owns a whole package when no named imports narrow it', () => {
+    const owned = defineBlueprint({
+      ...bp,
+      architecture: {
+        ...bp.architecture,
+        layers: bp.architecture.layers.map((layer) =>
+          layer.name === 'services' ? { ...layer, owns: [{ package: 'axios' }] } : layer,
+        ),
+      },
+    });
+
+    const rulesWith = (specifier: string) =>
+      analyze(
+        scanOf([file(['components', 'Btn', 'index.ts'], [{ specifier, names: [], isExport: false }])]),
+        owned,
+      ).map((finding) => finding.rule);
+
+    // An entry with no `imports` owns the package outright, whatever names the
+    // importer used — reading `.length` off that absent list throws instead.
+    expect(rulesWith('axios')).toContain('package-ownership');
+
+    // A different package is not covered by it: the package name has to match
+    // before the import list is consulted at all.
+    expect(rulesWith('lodash')).not.toContain('package-ownership');
+  });
+});
+
+describe('analyze · what counts as a module entry', () => {
+  it('accepts an entry sitting beside other files in the module', () => {
+    // A module is normally more than its entry. Requiring EVERY file to be the
+    // entry reports a missing entry on a module that has one.
+    expect(rulesFor([
+      file(['components', 'Card', 'index.ts']),
+      file(['components', 'Card', 'helper.ts']),
+    ])).not.toContain('no-entry');
+  });
+
+  it('wants the entry directly in the module, not nested below it', () => {
+    // `components/Card/index/x.ts` puts a folder called `index` inside the
+    // module. That is not an entry file, and accepting it as one silences the
+    // warning on a module nothing can import.
+    expect(rulesFor([file(['components', 'Card', 'index', 'x.ts'])])).toContain('no-entry');
+  });
+
+  it('strips only the last extension when reading a filename', () => {
+    // `index.d.ts` is a declaration file, not the module entry — stripping both
+    // extensions turns it into one and the module reads as importable.
+    expect(rulesFor([file(['components', 'Card', 'index.d.ts'])])).toContain('no-entry');
+  });
+});
+
+describe('analyze · an entry name that holds a dot', () => {
+  it('strips only the last extension, so a dotted entry still matches', () => {
+    // `entry: 'index.d'` is a legal declaration and `index.d.ts` is then its
+    // entry file. Stripping both extensions turns that filename into `index`,
+    // which no longer matches what was declared — the module reads as having no
+    // entry at all, and the fix suggested is to add the file that is right there.
+    const dotted = defineBlueprint({
+      ...bp,
+      architecture: {
+        ...bp.architecture,
+        module: { layout: 'folder', entry: 'index.d', private: [] },
+      },
+    });
+
+    const found = analyze(scanOf([file(['components', 'Card', 'index.d.ts'])]), dotted)
+      .map((finding) => finding.rule);
+
+    expect(found).not.toContain('no-entry');
+  });
+});
+
+describe('analyze · the cycle search does not stop early', () => {
+  const cycleOf = (files: ScannedFile[]): string | undefined =>
+    analyze(scanOf(files), bp).find((finding) => finding.rule === 'cycle')?.message;
+
+  it('keeps checking a node\'s other edges after one leads nowhere', () => {
+    // A reaches B, a dead end, and also C, which loops back. Returning on B's
+    // null result reports no cycle on a graph that plainly has one — and the
+    // order of a module's imports is not something a reader would suspect.
+    expect(cycleOf([
+      file(['components', 'A', 'index.ts'], [{ specifier: '../B' }, { specifier: '../C' }]),
+      file(['components', 'C', 'index.ts'], [{ specifier: '../A' }]),
+    ])).toContain('components/A → components/C → components/A');
+  });
+
+  it('walks past a component it already visited to reach an untouched one', () => {
+    // The first walk covers A and B and finds nothing. The loop then has to
+    // start a fresh walk at the hooks pair rather than treat the graph as done.
+    expect(cycleOf([
+      file(['components', 'A', 'index.ts'], [{ specifier: '../B' }]),
+      file(['hooks', 'useC', 'index.ts'], [{ specifier: '../useD' }]),
+      file(['hooks', 'useD', 'index.ts'], [{ specifier: '../useC' }]),
+    ])).toContain('hooks/useC → hooks/useD → hooks/useC');
   });
 });

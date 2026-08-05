@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { AGENT_PROMPT, AUTHORING_FILE, authoringActions, authoringBrief, COMMAND_FILE } from './authoring';
+import { AGENT_PROMPT, AUTHORING_FILE, authoringActions, authoringBrief, BROWNFIELD_MIN_FILES, COMMAND_FILE } from './authoring';
 import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
 import type { SurveyResult } from '../survey';
 
@@ -142,6 +142,17 @@ describe('authoringBrief', () => {
 
     // At or above the threshold the verdict block stays out of the playbook.
     expect(brief).not.toContain('Read this first');
+  });
+
+  it('reads exactly the threshold as brownfield, one below it as the early exit', () => {
+    const install = 'npm install -D @kekkai/blueprint';
+    const at = authoringBrief({ ...survey, totalFiles: BROWNFIELD_MIN_FILES }, install);
+    const below = authoringBrief({ ...survey, totalFiles: BROWNFIELD_MIN_FILES - 1 }, install);
+
+    // 120 and 3 leave the boundary itself unasserted, and what sits either
+    // side of it is a different playbook — not a shade of wording.
+    expect(at).not.toContain('Read this first');
+    expect(below).toContain('Read this first');
   });
 
   it('authorizes drafting first — the loop corrects, the archive stalls (batch 12)', () => {
@@ -315,5 +326,20 @@ describe('authoringBrief', () => {
     expect(brief).toContain('flag it, don\'t decide it');
     expect(brief).toContain('mechanically impossible');
     expect(brief).toContain('becomes a wiring precondition');
+  });
+});
+
+describe('authoringBrief · the Next.js note', () => {
+  it('stays out unless the caller asks for it', () => {
+    // `next` is only set when init detected a Next route tree it could not place.
+    // Defaulting it the other way hands every brief a paragraph about a framework
+    // the repo may not use, and tells the reader to declare a layer that is not
+    // there.
+    const standalone = authoringBrief(survey, 'npm install -D @kekkai/blueprint');
+
+    expect(standalone).not.toContain('Next.js project');
+
+    expect(authoringBrief(survey, 'npm install -D @kekkai/blueprint', true))
+      .toContain('Next.js project');
   });
 });

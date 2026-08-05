@@ -157,6 +157,18 @@ describe('wiringCheck', () => {
     expect(check.detail).toContain('views: no-restricted-globals lost fetch');
   });
 
+  it('reads a numeric 0 severity exactly as it reads "off"', async () => {
+    // eslint accepts both spellings for the same thing. Reading the number as
+    // active makes this check expect artifacts from a rule the user switched
+    // off, and the red then names a rule nobody asked to run.
+    const check = await run(scanOf('src/views/Home/index.vue'), {
+      rules: { 'no-restricted-globals': [0, { name: 'fetch' }] },
+    });
+
+    expect(check.ok).toBe(false);
+    expect(check.detail).toContain('views: no-restricted-globals lost fetch');
+  });
+
   it('reports lost selfOnly selectors and globals for a non-owning layer', async () => {
     const check = await run(scanOf('src/views/Home/index.vue'), { rules: {} });
 
@@ -502,5 +514,165 @@ describe('wiringCheck · selfOnly with several importers (field issue #51)', () 
     // "something somewhere in the merge".
     expect(check.detail).toContain('composables: no-restricted-syntax lost');
     expect(check.detail).not.toContain('views: no-restricted-syntax lost');
+  });
+});
+
+describe('expectedStructural · deep-import targets', () => {
+  // The deep-import ban's glob list — the folder-target list made visible.
+  const deepImportGlobs = (bp: Blueprint, layer: string): string[] | undefined =>
+    [...expectedStructural(bp, layer).groups]
+      .map((group) => JSON.parse(group) as string[])
+      .find((group) => group.some((glob) => glob.endsWith('/*/**')));
+
+  it('names other folder-layout layers, and only those', () => {
+    const mixed: Blueprint = {
+      ...blueprint,
+      architecture: {
+        ...blueprint.architecture,
+        layers: [
+          { name: 'views', does: 'pages' },
+          { name: 'utils', does: 'leaf helpers', module: { layout: 'flat' } },
+          { name: 'services', does: 'io' },
+        ],
+      },
+    };
+
+    const globs = deepImportGlobs(mixed, 'views');
+
+    // A flat layer has no module folders to reach inside of, so banning deep
+    // imports into it would ban ordinary file imports. And the importing layer
+    // is not a target of its own — reaching into a sibling module of the same
+    // layer is what `blueprint/relative-escape` covers.
+    expect(globs).toContain('~app/services/*/**');
+    expect(globs?.some((glob) => glob.includes('utils'))).toBe(false);
+    expect(globs?.some((glob) => glob.includes('views'))).toBe(false);
+  });
+
+  it('leaves out a layer that is already banned outright', () => {
+    const globs = deepImportGlobs(blueprint, 'views');
+
+    // `stores` is folder-layout, but views may not import it at all — a
+    // deep-import ban there would be a second, weaker ban on the same edge,
+    // and the weaker message is the one a reader would hit first.
+    expect(globs).toContain('~app/services/*/**');
+    expect(globs?.some((glob) => glob.includes('stores'))).toBe(false);
+  });
+});
+
+describe('wiringCheck · which files become probes', () => {
+  it('never probes an ignored or a test file', async () => {
+    const probed: string[] = [];
+
+    await run(
+      scanOf('src/views/skip.gen.ts', 'src/views/Home/x.test.ts', 'src/views/Home/index.vue'),
+      (filePath: string) => {
+        probed.push(filePath);
+
+        return { rules: {} };
+      },
+    );
+
+    // layerFilesIgnore covers `*.gen.ts` and testFiles covers `*.test.ts`.
+    // Probing either measures a file the emitted config never governs, so the
+    // verdict would come from a config that was never in question.
+    expect(probed.some((file) => file.includes('skip.gen.ts'))).toBe(false);
+    expect(probed.some((file) => file.includes('x.test.ts'))).toBe(false);
+
+    // The real layer file is what gets asked about.
+    expect(probed.some((file) => file.includes('Home/index.vue'))).toBe(true);
+  });
+});
+
+describe('wiringCheck · which path each layer gets probed at', () => {
+  const probeWith = async (over: Partial<Blueprint['architecture']>, scanResult: ScanResult) => {
+    const probed: string[] = [];
+
+    const check = await wiringCheck({
+      root: '/repo',
+      blueprint: { ...blueprint, architecture: { ...blueprint.architecture, ...over } },
+      scanResult,
+      wired: true,
+      hasTypescript: true,
+      load: loader((filePath: string) => {
+        probed.push(filePath);
+
+        return { rules: {} };
+      }),
+    });
+
+    return { probed, check };
+  };
+
+  it('takes a file matching ANY of the layer globs, not one matching all', async () => {
+    // One glob per extension is the ordinary shape. Requiring a file to match
+    // every glob finds no real file at all, so the layer falls back to a
+    // synthetic probe — the check then asks about a path that does not exist
+    // while the real file sitting in the layer goes unmeasured.
+    const { probed } = await probeWith(
+      { layerFiles: ['src/{layer}/**/*.ts', 'src/{layer}/**/*.vue'] },
+      scanOf('src/views/Home/index.vue'),
+    );
+
+    expect(probed.some((file) => file.endsWith('src/views/Home/index.vue'))).toBe(true);
+  });
+
+  it('collapses a run of stars into a single probe segment', async () => {
+    // `src/{layer}/**` ends on the stars, so they survive the `**/` strip and
+    // reach the star replacement as a pair. Replacing one at a time doubles the
+    // placeholder: the probe still lands inside the net, so nothing turns red,
+    // but the path asked about is not the shape any real file has — and a user
+    // entry scoped by path segment resolves differently for it.
+    const { probed } = await probeWith({ layerFiles: 'src/{layer}/**' }, scanOf());
+
+    expect(probed.some((file) => file.endsWith('src/views/__blueprint_probe__'))).toBe(true);
+    expect(probed.some((file) => file.includes('__blueprint_probe____'))).toBe(false);
+  });
+
+  it('walks past a glob synthesis cannot handle to one it can', async () => {
+    // `?` survives synthesis untransformed, so that glob yields no candidate —
+    // but the layer's other glob still does. Accepting the null stops at the
+    // first glob and reports no probe derivable, so a layer that IS measurable
+    // goes unmeasured and the whole check skips green.
+    const { probed, check } = await probeWith(
+      { layerFiles: ['src/{layer}/?.js', 'src/{layer}/**/*.ts'] },
+      scanOf(),
+    );
+
+    expect(check.label).not.toContain('no probe derivable');
+    expect(probed.some((file) => file.endsWith('src/views/__blueprint_probe__.ts'))).toBe(true);
+  });
+});
+
+describe('wiringCheck · the shapes a surviving global ban comes back as', () => {
+  it('reads the object form emitLint itself writes', async () => {
+    // emitLint emits `{ name, message }` entries, so a merge that changed
+    // nothing hands exactly those back. Taking the whole object as the name
+    // compares an object against `fetch` and reports the ban as lost — doctor
+    // then reddens the one merge that is completely correct.
+    const expected = blueprint.architecture.layers.map((layer) =>
+      expectedStructural(blueprint, layer.name));
+
+    const groups = new Set(expected.flatMap((e) => [...e.groups]));
+    const selectors = new Set(expected.flatMap((e) => [...e.selectors]));
+    const globals = new Set(expected.flatMap((e) => [...e.globals]));
+
+    const check = await run(scanOf('src/views/Home/index.vue'), {
+      rules: {
+        'blueprint/relative-escape': 'error',
+        'no-restricted-imports': [2, {
+          patterns: [...groups].map((group) => ({ group: JSON.parse(group) as string[] })),
+        }],
+        'no-restricted-syntax': [2, ...selectors],
+        'no-restricted-globals': [
+          2,
+          ...[...globals].map((name) => ({
+            name,
+            message: `\n🚫 Use of "${name}" is restricted to its owning layer.`,
+          })),
+        ],
+      },
+    });
+
+    expect(check.ok).toBe(true);
   });
 });

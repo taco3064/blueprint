@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LintConfigEntry } from '../emit/lint';
 import { reactPreset, vuePreset } from '../presets';
 import { renderImpact, runImpact } from './impact';
-import type { ImpactOptions } from './impact';
+import type { ImpactOptions, RuleImpact } from './impact';
 
 let root: string;
 
@@ -254,6 +254,27 @@ describe('runImpact', () => {
     expect(output).toContain('vanishes after the merge');
   });
 
+  it('lets the authored framework outrank what the repo happens to have installed', async () => {
+    // `auto` is the only value that defers to detection. A declared framework
+    // is the contract, and a repo can be mid-migration — vue in the blueprint
+    // before the dependency lands, or a package.json that says nothing at all.
+    // Re-deriving it from detection drops the vue parser, every .vue file then
+    // parse-errors, and its rule hits are reported as caveats instead of hits.
+    project({});
+
+    const { module, captured } = fakeEslint([]);
+    const { loadModule, loaded } = loader(module);
+
+    await runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent });
+
+    expect(loaded).toContain('vue-eslint-parser');
+
+    const entries = captured.options?.overrideConfig as LintConfigEntry[];
+
+    expect(entries.find((e) => e.files?.[0] === '**/*.vue')?.languageOptions?.parser)
+      .toBe(vueParser);
+  });
+
   it('falls back to the auto glob set when nothing pins the framework', async () => {
     project({});
 
@@ -395,6 +416,41 @@ describe('runImpact', () => {
 });
 
 describe('renderImpact', () => {
+  it('keeps caveats, echoes, and own findings in separate blocks', () => {
+    const impact = (rule: string, foreign: boolean): RuleImpact => ({
+      rule,
+      count: 1,
+      files: 1,
+      top: [{ path: `${rule}.ts`, count: 1 }],
+      foreign,
+    });
+
+    const out = renderImpact(
+      [
+        impact('blueprint/relative-escape', false),
+        impact('parse-error', false),
+        impact('no-console', true),
+      ],
+      3,
+      10,
+    );
+
+    const echoesAt = out.indexOf('Echoes of YOUR OWN');
+    const caveatBlock = out.slice(out.indexOf('Isolation caveats'), echoesAt);
+    const echoBlock = out.slice(echoesAt);
+
+    // Each block carries only its own kind. A caveat block that also listed
+    // the blueprint hits would present isolation artifacts as
+    // wiring-introduced red — the very confusion the split exists to end.
+    expect(caveatBlock).toContain('parse-error');
+    expect(caveatBlock).not.toContain('relative-escape');
+    expect(caveatBlock).not.toContain('no-console');
+
+    expect(echoBlock).toContain('no-console');
+    expect(echoBlock).not.toContain('relative-escape');
+    expect(echoBlock).not.toContain('parse-error');
+  });
+
   it('renders the calm zero-hit line when files were actually linted', () => {
     const out = renderImpact([], 0, 2);
 
@@ -410,5 +466,32 @@ describe('renderImpact', () => {
 
     expect(out).toContain('0 hits — vacuous: the layer globs match no files');
     expect(out).toContain('proves nothing until code lands in a layer');
+  });
+
+  it('ends on the tally when there is nothing to caveat and no echo', () => {
+    // Both trailing blocks render nothing on a clean isolated run. Whatever
+    // lands there sits under the tally with no heading above it — and an
+    // unlabelled row is exactly what the two headings exist to prevent: the
+    // reader cannot tell a blueprint finding from an isolation artifact.
+    const out = renderImpact(
+      [{
+        rule: 'blueprint/relative-escape',
+        count: 3,
+        files: 2,
+        top: [{ path: 'src/a.ts', count: 2 }],
+        foreign: false,
+      }],
+      3,
+      10,
+    );
+
+    expect(out.endsWith('new violations still fail.')).toBe(true);
+  });
+
+  it('ends on the scope note when the report has no findings at all', () => {
+    // Same two blocks, the other exit — a zero-hit report closes on the line
+    // that bounds the claim, and an appended row would read as a finding the
+    // headline just said does not exist.
+    expect(renderImpact([], 0, 2).endsWith('judges its findings)')).toBe(true);
   });
 });

@@ -67,6 +67,17 @@ describe('runDoctor', () => {
     // Truly clean, no baseline — the label stays plain instead of claiming
     // coverage by a ledger that does not exist (field run #10).
     expect(checks.map((c) => c.label)).toContain('architecture clean');
+
+    // No source files at all: an empty net is not "vacuous" — there is nothing
+    // for it to catch. Calling it vacuous names a wiring gap that is not there
+    // and sends the reader to move code that does not exist.
+    expect(checks.find((c) => c.label.includes('architecture'))?.detail)
+      .not.toContain('vacuous');
+
+    // Nothing is leftover, so the check carries no detail at all. An empty
+    // string in its place still renders a detail line — a green check followed
+    // by a blank explanation reads as an explanation doctor failed to print.
+    expect(checks.find((c) => c.label.includes('leftover'))?.detail).toBeUndefined();
   });
 
   it('flags leftover authoring artifacts — doctor has the final word, not a mid-flow one', async () => {
@@ -82,6 +93,13 @@ describe('runDoctor', () => {
     expect(check?.detail).toContain('blueprint-authoring.md');
     expect(check?.detail).toContain('.claude/commands/blueprint-author.md');
     expect(check?.detail).toContain('EXPECTED to fail');
+
+    // Only the authoring artifacts are on disk, so this clause is the whole
+    // detail: it opens on the filenames and closes on the caveat. The other two
+    // slots are joined either side of it, and anything landing in one describes
+    // files that are not there — which `toContain` cannot see.
+    expect(check?.detail).toMatch(/^(blueprint-authoring\.md|\.claude\/commands)/);
+    expect(check?.detail?.endsWith('EXPECTED to fail here')).toBe(true);
   });
 
   it('flags a leftover reference file', async () => {
@@ -92,16 +110,31 @@ describe('runDoctor', () => {
     const { ok, checks } = await runDoctor(root, { loadConfig: load, log: (m) => (output = m) });
 
     expect(ok).toBe(false);
-    expect(checks.find((c) => c.label.includes('reference'))?.detail).toContain('CLAUDE.blueprint.md');
+
+    const detail = checks.find((c) => c.label.includes('reference'))?.detail;
+
+    expect(detail).toContain('CLAUDE.blueprint.md');
     expect(output).toContain('Adoption incomplete');
+
+    // Only a reference is on disk, so its clause is the whole detail. The
+    // authoring and stale-contract slots sit after it, and a doctor claiming a
+    // live playbook or a stale contract sends the reader hunting for neither.
+    expect(detail?.startsWith('merge and delete: CLAUDE.blueprint.md')).toBe(true);
+    expect(detail?.endsWith('adoption is not done while a reference remains')).toBe(true);
   });
 
   it('flags eslint not wired to emitLint', async () => {
     write('blueprint.config.mjs', '// user config');
     const { ok, checks } = await runDoctor(root, { loadConfig: load, log: silent });
+    const detail = checks.find((c) => c.label.includes('eslint'))?.detail;
 
     expect(ok).toBe(false);
-    expect(checks.find((c) => c.label.includes('eslint'))?.detail).toContain('...emitLint(blueprint)');
+    expect(detail).toContain('...emitLint(blueprint)');
+    // Both wordings end on the same spread, so the shared clause cannot tell
+    // them apart. There is no eslint config here at all — naming a migration
+    // sends the reader to convert a file that does not exist, and the legacy
+    // wording interpolates the absent filename as "undefined is legacy".
+    expect(detail).not.toContain('is legacy');
   });
 
   it('names the flat-config migration for a legacy .eslintrc', async () => {
@@ -121,6 +154,10 @@ describe('runDoctor', () => {
 
     expect(ok).toBe(false);
     expect(check?.ok).toBe(false);
+    // The detail opens by naming which aliases resolve nowhere. Without the
+    // names, the reader is told something is unwired and left to work out
+    // which of the declared aliases it is.
+    expect(check?.detail?.startsWith('"~app" resolves nowhere')).toBe(true);
     expect(check?.detail).toContain('"~app/*": ["./src/*"]');
     expect(check?.detail).toContain('unresolvable imports');
   });
@@ -364,6 +401,24 @@ describe('runDoctor', () => {
     expect(checks.find((c) => c.label.includes('stale contract'))?.ok).toBe(true);
   });
 
+  it('names several stale contracts in a stable order', async () => {
+    // The target catalog is ordered by how common each agent is, not
+    // alphabetically — GEMINI.md is declared before the copilot path. Reporting
+    // in catalog order makes the detail (and the JSON) reshuffle whenever the
+    // catalog gains a target, so a doctor run diffs against itself for a reason
+    // that has nothing to do with the repo.
+    adopted();
+    const marked = '# doc\n\n<!-- BLUEPRINT:START -->\nold\n<!-- BLUEPRINT:END -->\n';
+
+    write('GEMINI.md', marked);
+    write('.github/copilot-instructions.md', marked);
+
+    const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
+    const detail = checks.find((c) => c.label.includes('stale contract'))?.detail;
+
+    expect(detail?.startsWith('.github/copilot-instructions.md, GEMINI.md:')).toBe(true);
+  });
+
   it('passes the suppressions check when the ledger is absent, current, or fails when stale', async () => {
     adopted();
 
@@ -380,7 +435,14 @@ describe('runDoctor', () => {
     }));
 
     result = await runDoctor(root, { loadConfig: load, log: silent });
-    expect(result.checks.find((c) => c.label.includes('suppressions'))?.ok).toBe(true);
+
+    const current = result.checks.find((c) => c.label.includes('suppressions'));
+
+    expect(current?.ok).toBe(true);
+    // A ledger with real entries is doing its job — there is nothing to say
+    // about it. Calling it ceremony here tells the reader to delete a file that
+    // is holding the repo's whole lint debt.
+    expect(current?.detail).toBeUndefined();
 
     // Stale: a suppressed file is gone.
     write('eslint-suppressions.json', JSON.stringify({
@@ -398,9 +460,13 @@ describe('runDoctor', () => {
     write('eslint-suppressions.json', 'not json');
     result = await runDoctor(root, { loadConfig: load, log: silent });
 
-    expect(result.checks.find((c) => c.label.includes('suppressions'))?.detail).toContain(
-      'not valid JSON',
-    );
+    const unreadable = result.checks.find((c) => c.label.includes('suppressions'));
+
+    // Green on an unparseable ledger is the worst of the three: eslint cannot
+    // read it either, so nothing is actually suppressed and doctor says the
+    // suppressions are fine.
+    expect(unreadable?.ok).toBe(false);
+    expect(unreadable?.detail).toContain('not valid JSON');
 
     // Empty: --suppress-all ran on a clean lint (first live field run) —
     // green, but the detail names the ceremony and the fix.
@@ -424,5 +490,16 @@ describe('runDoctor', () => {
 
     expect(parsed.ok).toBe(true);
     expect(Array.isArray(parsed.checks)).toBe(true);
+  });
+
+  it('reports ok:false in JSON as soon as any check fails', async () => {
+    write('blueprint.config.mjs', '// user config');
+    let output = '';
+
+    await runDoctor(root, { loadConfig: load, json: true, log: (m) => (output = m) });
+
+    // `ok` is EVERY check passing, not any of them. A git hook or CI job gates
+    // on this field, and "some check passed" is true of almost any repo.
+    expect(JSON.parse(output).ok).toBe(false);
   });
 });

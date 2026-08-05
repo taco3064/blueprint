@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { BROWNFIELD_MIN_FILES } from './authoring';
 import { runInit } from './bootstrap';
 import { nextPreset, vuePreset } from '../presets';
 
@@ -271,6 +272,67 @@ describe('runInit · brownfield authoring flow', () => {
     }
   }
 
+  it('takes the authoring path at exactly the threshold, not the scaffold one', async () => {
+    writePkg({ name: 'legacy', dependencies: { react: '^18' } });
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+
+    for (let i = 0; i < BROWNFIELD_MIN_FILES; i++) {
+      fs.writeFileSync(path.join(root, `src/app/file${i}.ts`), 'export const x = 1;');
+    }
+
+    await runInit(root, { install: false, log: silent });
+
+    // The two sides of this boundary are the biggest fork init makes — one
+    // writes a playbook and scaffolds nothing, the other the reverse. The
+    // suite bracketed it (12 files and 3) without ever landing on it.
+    expect(exists('blueprint-authoring.md')).toBe(true);
+  });
+
+  it('says when --authoring forced the playbook below the threshold, and only then', async () => {
+    writePkg({ name: 'legacy', dependencies: { react: '^18' } });
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/app/only.ts'), 'export const x = 1;');
+
+    const forced: string[] = [];
+
+    await runInit(root, { install: false, authoring: true, log: (m) => forced.push(m) });
+
+    // Unsaid, --authoring on a small repo looks like it produced a
+    // self-refuting document: a playbook whose own verdict is the early exit
+    // (field issues #7/#8).
+    expect(forced.join('\n')).toContain('below the brownfield threshold');
+
+    // Above the threshold the flag changed nothing, so the caveat must not
+    // appear — it would name a threshold this repo is not below.
+    fs.rmSync(path.join(root, 'src/app'), { recursive: true });
+    brownfield();
+
+    const plain: string[] = [];
+
+    await runInit(root, { install: false, authoring: true, log: (m) => plain.push(m) });
+
+    expect(plain.join('\n')).not.toContain('below the brownfield threshold');
+  });
+
+  it('lists the authoring plan up front only in dry-run', async () => {
+    brownfield();
+
+    const dry: string[] = [];
+
+    await runInit(root, { dryRun: true, install: false, log: (m) => dry.push(m) });
+
+    expect(dry.join('\n')).toContain('would write');
+
+    const applied: string[] = [];
+
+    await runInit(root, { install: false, log: (m) => applied.push(m) });
+
+    // The authoring flow has its own dry-run report. Outside it the applied
+    // lines are the record, and a "would" among them describes disk state that
+    // either already happened or never will.
+    expect(applied.join('\n')).not.toContain('would ');
+  });
+
   it('emits the playbook instead of scaffolding when code exists without a config', async () => {
     brownfield();
 
@@ -478,6 +540,29 @@ describe('runInit · brownfield authoring flow', () => {
     expect(cleanup?.note).toContain('npx blueprint inspect');
   });
 
+  it('lists every finding when three or fewer fit, with nothing left to count', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.mkdirSync(path.join(root, 'src/components/Hello'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(root, 'src/components/Hello/index.js'),
+      ['import logo from "../../assets/logo.svg";', 'import a from "../../assets/a.svg";'].join('\n'),
+    );
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    const cleanup = actions.find(
+      (action) => action.kind === 'instruct' && action.note.includes('Template cleanup'),
+    );
+
+    // Two findings fit inside the cap, so an overflow line would count zero —
+    // "… and 0 more" reads as a truncation that did not happen. The line count
+    // pins it further: anything at all in that slot is one line too many.
+    expect(cleanup?.note).toContain('(2 finding(s))');
+    expect(cleanup?.note).not.toContain('more');
+    expect(cleanup?.note.split('\n')).toHaveLength(5);
+  });
+
   it('emits no cleanup instruct when the scaffold is clean', async () => {
     writePkg({ name: 'fresh', dependencies: { vue: '^3' } });
 
@@ -564,6 +649,20 @@ describe('runInit · artifact hygiene', () => {
     await runInit(root, { install: false, log: silent, loadConfig: async () => vuePreset() });
 
     expect(read('.gitignore').match(/!CLAUDE\.md/g)).toHaveLength(1);
+  });
+
+  it('joins the negation block on with exactly one blank line, whatever the file ended in', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    // How many trailing newlines a .gitignore carries is an editor accident;
+    // the seam this write produces must not be.
+    fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\ndocs\n\n\n');
+
+    await runInit(root, { install: false, log: silent });
+
+    // Anchored at the start, with the blank lines counted: a leading blank
+    // line or a surviving run of trailing ones both show up as an unexplained
+    // edit in a file people read as a diff.
+    expect(read('.gitignore')).toMatch(/^CLAUDE\.md\ndocs\n\n# @kekkai/);
   });
 
   it('states the edit and the directory-exclusion caveat in the note', async () => {
@@ -683,6 +782,22 @@ describe('runInit · Next.js routing', () => {
     expect(config).not.toContain('srcDir'); // root layout — no srcDir
   });
 
+  it('surveys the project root when a Next app keeps its routes there', async () => {
+    writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
+    fs.mkdirSync(path.join(root, 'app/dashboard'), { recursive: true });
+
+    for (let i = 0; i < BROWNFIELD_MIN_FILES + 2; i++) {
+      fs.writeFileSync(path.join(root, `app/dashboard/p${i}.tsx`), 'export default () => null;');
+    }
+
+    await runInit(root, { install: false, log: silent });
+
+    // The layers live at the root in this layout, so surveying src/ counts zero
+    // files and reads a full route tree as a fresh scaffold — scaffolding over
+    // a real app instead of reading it.
+    expect(exists('blueprint-authoring.md')).toBe(true);
+  });
+
   it('uses nextPreset for --preset on a Next repo (no react-preset warning)', async () => {
     writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
     fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
@@ -715,6 +830,42 @@ describe('runInit · the greenfield/brownfield fork is narrated', () => {
 
     expect(lines.join('\n')).toContain('Fresh scaffold (0 source files < 10)');
     expect(lines.join('\n')).toContain('authoring playbook');
+  });
+});
+
+describe('runInit · how the plan is reported', () => {
+  it('lists the plan up front only in dry-run', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    const dry: string[] = [];
+
+    await runInit(root, { dryRun: true, install: false, log: (m) => dry.push(m) });
+
+    expect(dry.join('\n')).toContain('would write');
+
+    const applied: string[] = [];
+
+    await runInit(root, { install: false, log: (m) => applied.push(m) });
+
+    // Outside dry-run the applied lines ARE the report. A "would" among them
+    // claims something about disk that already happened, or did not.
+    expect(applied.join('\n')).not.toContain('would ');
+    expect(applied.join('\n')).toContain('✓ write:');
+  });
+
+  it('marks an instruction with a bullet, never with an effect mark', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    const lines: string[] = [];
+
+    await runInit(root, { install: false, log: (m) => lines.push(m) });
+    const out = lines.join('\n');
+
+    // An instruction reports nothing about disk. Wearing the ✓ of the writes
+    // around it, it skims past as one more thing that happened — the same
+    // confusion the − mark for deletions exists to prevent (field issue #36).
+    expect(out).toContain('  · ');
+    expect(out).not.toContain('✓ instruct:');
   });
 });
 
@@ -785,6 +936,71 @@ describe('runInit · lint-script wiring', () => {
         (action) => action.kind === 'instruct' && action.note.includes('oxlint && eslint .'),
       ),
     ).toBe(true);
+  });
+
+  it('lands the lint-script patch before the install that would clobber it', async () => {
+    prettyPkg('oxlint');
+
+    const actions = await runInit(root, { install: true, exec: () => {}, log: silent });
+
+    const patchAt = actions.findIndex(
+      (action) => action.kind === 'write' && action.path === 'package.json',
+    );
+
+    const installAt = actions.findIndex((action) => action.kind === 'install');
+
+    // npm install rewrites package.json and preserves scripts, so
+    // write-then-install composes while the reverse loses the patch. Only the
+    // final file was asserted before, and that reads the same either way when
+    // the install is a no-op in tests.
+    expect(patchAt).toBeGreaterThan(-1);
+    expect(installAt).toBeGreaterThan(-1);
+    expect(patchAt).toBeLessThan(installAt);
+  });
+
+  it('appends the lint instruction rather than splicing it ahead of the install', async () => {
+    // Only a package.json WRITE has to precede the install, because npm rewrites
+    // that file. An instruction is just text, and putting advice in front of the
+    // step it talks about is what the kind check prevents.
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+    prettyPkg('oxlint');
+
+    const actions = await runInit(root, {
+      install: true,
+      exec: () => {},
+      log: silent,
+      loadConfig: async () => vuePreset(),
+    });
+
+    const installAt = actions.findIndex((action) => action.kind === 'install');
+
+    const noteAt = actions.findIndex(
+      (action) => action.kind === 'instruct' && action.note.includes('lint` script runs'),
+    );
+
+    expect(noteAt).toBeGreaterThan(-1);
+    expect(installAt).toBeGreaterThan(-1);
+    expect(noteAt).toBeGreaterThan(installAt);
+  });
+
+  it('appends the patch when there is no install for it to precede', async () => {
+    prettyPkg('oxlint');
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    const patchAt = actions.findIndex(
+      (action) => action.kind === 'write' && action.path === 'package.json',
+    );
+
+    const skippedAt = actions.findIndex(
+      (action) => action.kind === 'instruct' && action.note.includes('Install skipped'),
+    );
+
+    // -1 is "no install action", not an index. Splicing at -1 drops the patch
+    // in front of the last action queued so far — here, the skipped-install
+    // note — rather than after it.
+    expect(skippedAt).toBeGreaterThan(-1);
+    expect(patchAt).toBeGreaterThan(skippedAt);
   });
 
   it('leaves a lint script that already runs eslint alone', async () => {
@@ -891,5 +1107,348 @@ describe('runInit · an introduced alias is named as a decision', () => {
         (action) => action.kind === 'instruct' && action.note.includes('first import alias'),
       ),
     ).toBe(false);
+  });
+});
+
+describe('runInit · which config --authoring is allowed to take over', () => {
+  it('does not re-fork on a second run over its own scaffold', async () => {
+    // The config init wrote IS pristine, and that alone must not send the next
+    // run back through the fork. Without --authoring there is nothing to take
+    // over, and re-forking surveys the repo and re-narrates the greenfield
+    // decision — on a repo that now has a config.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    await runInit(root, { install: false, log: silent });
+
+    const lines: string[] = [];
+
+    await runInit(root, {
+      install: false,
+      log: (m) => lines.push(m),
+      loadConfig: async () => vuePreset(),
+    });
+
+    expect(lines.join('\n')).not.toContain('Fresh scaffold');
+    expect(exists('blueprint-authoring.md')).toBe(false);
+  });
+
+  it('recognizes a scaffold written by --agent codex', async () => {
+    // `--agent codex` persists `emit: { agents: ['agents'] }`, and that is still
+    // init's own byte-identical output. Missing the variant makes --authoring
+    // refuse to take over a config init wrote thirty seconds earlier.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    await runInit(root, { install: false, log: silent, agent: 'codex' });
+
+    expect(read('blueprint.config.mjs')).toContain('emit: { agents: [\'agents\'] }');
+
+    const takeover = await runInit(root, { install: false, log: silent, authoring: true });
+
+    expect(takeover.some((action) => action.kind === 'rm')).toBe(true);
+    expect(exists('blueprint-authoring.md')).toBe(true);
+  });
+});
+
+describe('runInit · where the fork survey looks', () => {
+  it('counts the source root, not the repo root, on a project that is not Next', async () => {
+    // Only a Next project with its routes at the repo root gets surveyed from
+    // there. Surveying every repo that way folds root-level tooling files into
+    // the count, and the fork decision — playbook or preset — moves with it.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.mkdirSync(path.join(root, 'src', 'components'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/components/A.ts'), 'export const a = 1;');
+    fs.writeFileSync(path.join(root, 'src/components/B.ts'), 'export const b = 1;');
+    fs.writeFileSync(path.join(root, 'vite.config.ts'), 'export default {};');
+
+    const lines: string[] = [];
+
+    await runInit(root, { install: false, log: (m) => lines.push(m) });
+
+    expect(lines.join('\n')).toContain('Fresh scaffold (2 source files < 10)');
+  });
+
+  it('sends a Next project with no placeable route tree to the playbook', async () => {
+    // `next` is a dependency but there is no app/ or pages/ anywhere, so init
+    // cannot say where the routes live. Scaffolding the Next preset anyway
+    // declares a route layer the repo does not have — and this repo is far
+    // below the brownfield threshold, so nothing else routes it here.
+    writePkg({ name: 'demo', dependencies: { next: '^14', react: '^18' } });
+
+    await runInit(root, { install: false, log: silent });
+
+    expect(exists('blueprint-authoring.md')).toBe(true);
+    expect(exists('blueprint.config.mjs')).toBe(false);
+  });
+});
+
+describe('runInit · what a second run must not repeat', () => {
+  const secondRun = async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    await runInit(root, { install: false, log: silent });
+
+    const lines: string[] = [];
+
+    const actions = await runInit(root, {
+      install: false,
+      log: (m) => lines.push(m),
+      loadConfig: async () => vuePreset(),
+    });
+
+    return { actions, out: lines.join('\n') };
+  };
+
+  it('narrates no fork, no template cleanup, and no introduced alias', async () => {
+    const { actions, out } = await secondRun();
+
+    // The fork note only exists on the path that made the fork decision. Logging
+    // it unconditionally prints "· null" — a bullet with no content, which reads
+    // as a message init failed to fill in.
+    expect(out).not.toContain('· null');
+
+    // Template cleanup describes starter-template code the PRESET just landed
+    // on. On a repo whose config already existed, nothing was scaffolded, so a
+    // cleanup to-do points at violations init did not introduce.
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('starter template'),
+    )).toBe(false);
+
+    // Same for the alias: this repo has no tsconfig alias, but init introduced
+    // nothing on this run — the alias came from the config that was already here.
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('first import alias'),
+    )).toBe(false);
+  });
+
+  it('does not report an agent flag that was not passed', async () => {
+    const { out } = await secondRun();
+
+    // The line explains what `--agent` did. Printing it without the flag says
+    // "--agent undefined", which reads as a flag init mangled.
+    expect(out).not.toContain('--agent undefined');
+    expect(out).not.toContain('nothing to author');
+  });
+
+  it('stays quiet about the default target set once the config declares one', async () => {
+    // The note exists to surface a narrowing the user has not made yet. Once
+    // `emit.agents` is in the config, repeating it tells them to declare
+    // something they already declared.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    await runInit(root, { install: false, log: silent, agent: 'claude' });
+
+    const actions = await runInit(root, {
+      install: false,
+      log: silent,
+      loadConfig: async () => ({ ...vuePreset(), emit: { agents: ['claude' as const] } }),
+    });
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('Wrote both'),
+    )).toBe(false);
+  });
+});
+
+describe('runInit · the gitignore heads-up counts what it re-included', () => {
+  it('says "them" for more than one hidden artifact', async () => {
+    // The note names the files it re-included and then tells the reader how to
+    // undo it. A singular pronoun over a list of two reads as advice about one
+    // of them, and the other silently stays re-included.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, '.gitignore'), '*.md\nCLAUDE.md\nAGENTS.md\n');
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    const note = actions.find(
+      (action) => action.kind === 'write' && action.path === '.gitignore',
+    )?.note;
+
+    expect(note).toContain('re-included');
+    expect(note).toContain('keep them hidden');
+    expect(note).not.toContain('keep it hidden');
+  });
+});
+
+describe('runInit · --authoring at the threshold itself', () => {
+  it('does not claim the flag forced anything when the repo qualifies anyway', async () => {
+    // At exactly the threshold the repo IS brownfield, so --authoring changed
+    // nothing. Saying it forced the playbook tells the reader the document is
+    // about to refute itself (field issues #7/#8) when it is not.
+    writePkg({ name: 'legacy', dependencies: { react: '^18' } });
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+
+    for (let i = 0; i < BROWNFIELD_MIN_FILES; i++) {
+      fs.writeFileSync(path.join(root, `src/app/file${i}.ts`), 'export const x = 1;');
+    }
+
+    const lines: string[] = [];
+
+    await runInit(root, { install: false, authoring: true, log: (m) => lines.push(m) });
+
+    expect(lines.join('\n')).toContain(`${BROWNFIELD_MIN_FILES} source files surveyed`);
+    expect(lines.join('\n')).not.toContain('below the brownfield threshold');
+  });
+});
+
+describe('runInit · what belongs to a fresh scaffold only', () => {
+  /** A config that already exists but was NOT written by init. */
+  const handWritten = () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// hand-written\n');
+  };
+
+  it('does not blame the starter template for code it did not scaffold', async () => {
+    // Template cleanup describes violations the PRESET just landed. On a repo
+    // whose config was already there, init scaffolded nothing — so the to-do
+    // hands the reader a list of their own long-standing violations under a
+    // heading that says init introduced them.
+    handWritten();
+    fs.mkdirSync(path.join(root, 'src/components/Btn'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(root, 'src/components/Btn/Btn.ts'),
+      'import { api } from \'~app/services/api\';\n',
+    );
+
+    const actions = await runInit(root, {
+      install: false,
+      log: silent,
+      loadConfig: async () => vuePreset(),
+    });
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('Template cleanup'),
+    )).toBe(false);
+  });
+
+  it('does not claim it introduced an alias the config already declared', async () => {
+    // The note is about a decision the PRESET made. With a config already on
+    // disk, the alias came from it — telling the owner init chose it invites
+    // them to change a convention that is already theirs (field issue #2).
+    handWritten();
+
+    const actions = await runInit(root, {
+      install: false,
+      log: silent,
+      loadConfig: async () => vuePreset(),
+    });
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('first import alias'),
+    )).toBe(false);
+  });
+});
+
+describe('runInit · reading the contract files at their declared paths', () => {
+  const customPath = async (over: { agent?: 'claude' } = {}) => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// hand-written\n');
+    fs.mkdirSync(path.join(root, 'docs'), { recursive: true });
+
+    // Hand-written content the merge has to preserve, at a path the default
+    // catalog knows nothing about.
+    fs.writeFileSync(path.join(root, 'docs/CLAUDE.md'), '# our own notes\n');
+
+    return runInit(root, {
+      install: false,
+      log: silent,
+      ...over,
+      loadConfig: async () => ({
+        ...vuePreset(),
+        emit: { agents: [{ target: 'claude' as const, path: 'docs/CLAUDE.md' }] },
+      }),
+    });
+  };
+
+  it('leaves a hand-written merge target at a custom path untouched', async () => {
+    // The merge targets are read so plan can tell hand-written from generated.
+    // A target missing from that read looks ABSENT, so plan writes it fresh and
+    // the owner's file is replaced — instead of the reference-file route it
+    // takes for anything it did not author.
+    const actions = await customPath();
+
+    expect(read('docs/CLAUDE.md')).toBe('# our own notes\n');
+    expect(exists('docs/CLAUDE.blueprint.md')).toBe(true);
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('docs/CLAUDE.md is hand-written'),
+    )).toBe(true);
+  });
+
+  it('still reads it when --agent narrowed the target set', async () => {
+    // Narrowing to one target narrows WHICH contracts are emitted; it must not
+    // erase the list. An empty target list reads every declared path as
+    // undeclared, and the same overwrite follows.
+    await customPath({ agent: 'claude' });
+
+    expect(read('docs/CLAUDE.md')).toBe('# our own notes\n');
+    expect(exists('docs/CLAUDE.blueprint.md')).toBe(true);
+  });
+
+  it('re-includes a gitignored contract at a custom path', async () => {
+    // The ignore check is fed the same list. Losing the declared path means a
+    // gitignored contract is never noticed, and whoever clones the repo gets the
+    // dead links this note exists to prevent.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// hand-written\n');
+    fs.writeFileSync(path.join(root, '.gitignore'), 'docs/\n');
+
+    const actions = await runInit(root, {
+      install: false,
+      log: silent,
+      loadConfig: async () => ({
+        ...vuePreset(),
+        emit: { agents: [{ target: 'claude' as const, path: 'docs/CLAUDE.md' }] },
+      }),
+    });
+
+    const note = actions.find(
+      (action) => action.kind === 'write' && action.path === '.gitignore',
+    )?.note;
+
+    expect(note).toContain('docs/CLAUDE.md');
+  });
+});
+
+describe('runInit · where the package.json patch lands', () => {
+  it('appends it after the plan when there is no install action to precede', async () => {
+    // `findIndex` answers -1 for "no install action here", and -1 is a sentinel,
+    // not a position. Handing it to `splice` inserts the patch second-to-last —
+    // ahead of the last line plan itself produced. The report then narrates the
+    // patch before the work it is meant to follow.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    const patchAt = actions.findIndex(
+      (action) => action.kind === 'write' && action.path === 'package.json',
+    );
+
+    const planTailAt = actions.findIndex(
+      (action) => action.kind === 'instruct' && action.note.includes('in your bundler'),
+    );
+
+    expect(patchAt).toBeGreaterThan(planTailAt);
+  });
+});
+
+describe('runInit · the ignore check sees the narrowed contract', () => {
+  it('notices a gitignored CLAUDE.md when --agent narrowed to it', async () => {
+    // With a config already on disk, `--agent` narrows the run without being
+    // persisted — so the target list is the only thing naming CLAUDE.md here.
+    // Losing it means a gitignored contract goes unnoticed, and whoever clones
+    // the repo gets the dead links this note exists to prevent.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// hand-written\n');
+    fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\n');
+
+    const actions = await runInit(root, {
+      install: false,
+      log: silent,
+      agent: 'claude',
+      loadConfig: async () => vuePreset(),
+    });
+
+    const note = actions.find(
+      (action) => action.kind === 'write' && action.path === '.gitignore',
+    )?.note;
+
+    expect(note).toContain('CLAUDE.md');
   });
 });

@@ -125,3 +125,15 @@ describe('getDiagramEdges', () => {
     ]);
   });
 });
+
+describe('aliasLayerRoots · an alias target with a trailing slash', () => {
+  it('ignores the empty segment a trailing slash leaves behind', () => {
+    // A trailing slash is invisible in a config and survives a copy-paste. Kept
+    // as a segment, it becomes part of the layer offset — and an offset with an
+    // empty component matches no path that exists, so the alias goes blind to
+    // every layer behind it.
+    const roots = aliasLayerRoots({ ...arch(), additionalAliases: { '~trail': './src/' } });
+
+    expect(roots.find((root) => root.alias === '~trail')).toEqual({ alias: '~trail', prefix: [] });
+  });
+});

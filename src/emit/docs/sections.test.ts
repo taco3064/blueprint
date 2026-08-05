@@ -41,6 +41,9 @@ describe('renderArchitecture', () => {
 
     expect(out).toContain('```mermaid');
     expect(out).toContain('### Layers');
+    // Four cells per row mean nothing without the header naming them — `clsx`
+    // in an unlabelled column could as easily be read as the must-not.
+    expect(out).toContain('| Layer | Responsibility | Must not | Owns |');
     expect(out).toContain('| `components` | UI | import services | `clsx` |');
     // services has no mustNot → em dash
     expect(out).toContain('| `services` | net | — | `axios` |');
@@ -54,6 +57,10 @@ describe('renderModule', () => {
     expect(out).toContain('components/');
     expect(out).toContain('├─ index');
     expect(out).toContain('└─ types'); // last private part closes the tree
+    // No layer overrides the shared shape, so the section closes on the fence.
+    // Anything appended after it lands outside the code block, where a reader
+    // takes it for prose about the shape rather than part of the tree.
+    expect(out.endsWith('```')).toBe(true);
   });
 
   it('renders a folder tree without private parts when the field is omitted', () => {
@@ -74,6 +81,8 @@ describe('renderModule', () => {
 
     expect(out).toContain('flat layout');
     expect(out).not.toContain('```');
+    // Same close, the other layout — one sentence and nothing after it.
+    expect(out.endsWith('Shared logic moves down to a lower layer.')).toBe(true);
   });
 
   it('lists per-layer exceptions to the shared shape', () => {
@@ -111,7 +120,18 @@ describe('renderModule', () => {
 
 describe('renderImportDiscipline', () => {
   it('includes the entry-only rule for folder layout', () => {
-    expect(renderImportDiscipline(arch())).toContain('Entry-only');
+    const out = renderImportDiscipline(arch());
+
+    expect(out).toContain('Entry-only');
+    // Both layouts ban the same-layer import; only the remedy differs. A folder
+    // layer's siblings are reachable relatively, so "use a relative path" would
+    // describe a legal import as the fix for an illegal one.
+    expect(out).toContain('**No same-layer imports** — extract shared logic down to a lower layer');
+    expect(out).not.toContain('use a relative path');
+
+    // No layer narrows its importers, so there is no dashed edge to explain.
+    // Explaining one anyway sends the reader looking for it on the diagram.
+    expect(out).not.toContain('selfOnly');
   });
 
   it('swaps in the relative-path rule and drops entry-only for flat layout', () => {
@@ -144,6 +164,21 @@ describe('renderImportDiscipline', () => {
 
     expect(renderImportDiscipline(architecture)).toContain('selfOnly');
   });
+
+  it('explains the dashed edge when only one importer of a layer is selfOnly', () => {
+    // One selfOnly importer among several is enough — the note explains a
+    // dashed edge that IS on the diagram. Requiring every importer to be
+    // selfOnly leaves the mixed case (the common one) with an unexplained edge
+    // shape, and the reader has nothing telling them re-export is barred.
+    const architecture = arch();
+
+    architecture.layers[1].allowedImporters = [
+      { layer: 'components', selfOnly: true },
+      { layer: 'pages' },
+    ];
+
+    expect(renderImportDiscipline(architecture)).toContain('selfOnly');
+  });
 });
 
 describe('renderPrinciples', () => {
@@ -170,6 +205,21 @@ describe('renderPrinciples', () => {
 
     expect(out).toContain('### Enforced by tooling');
     expect(out).not.toContain('### Behavioral');
+    // The tooling group carries a trailing blank line so the next group can
+    // follow it. With nothing following, that blank has to go — the handbook
+    // stitches these sections together, and a stray one opens a gap that a
+    // re-emit then re-diffs.
+    expect(out.endsWith('**lint one** — because')).toBe(true);
+  });
+
+  it('omits the tooling group when every principle is behavioral', () => {
+    // The mirror of the case above, and the only one that can falsify the
+    // tooling guard. An empty "### Enforced by tooling" heading claims the
+    // tooling holds something, then names nothing it holds.
+    const out = renderPrinciples([principles[1]]);
+
+    expect(out).toContain('### Behavioral');
+    expect(out).not.toContain('### Enforced by tooling');
   });
 });
 
@@ -224,7 +274,12 @@ describe('renderNaming', () => {
   });
 
   it('renders a concept table', () => {
-    expect(renderNaming({ hook: 'useX + reactivity' })).toContain('| `hook` | useX + reactivity |');
+    const out = renderNaming({ hook: 'useX + reactivity' });
+
+    // Which column is the concept and which is the rule is only knowable from
+    // the header — an unlabelled two-cell row reads either way round.
+    expect(out).toContain('| Concept | Convention |');
+    expect(out).toContain('| `hook` | useX + reactivity |');
   });
 });
 

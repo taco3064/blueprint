@@ -55,6 +55,12 @@ describe('renderPlacement', () => {
 
     expect(out).toContain('- `src/components/` — UI. MUST NOT: import services. OWNS: `clsx`.');
     expect(out).toContain('- `src/services/` — net.');
+
+    // services declares neither, and `toContain` cannot see a clause appended
+    // after what it matched. A guard that let services through would print an
+    // empty ` OWNS: .` or reach into an absent importer list.
+    expect(out.match(/OWNS:/g)).toHaveLength(1);
+    expect(out).not.toContain('IMPORTABLE BY:');
     expect(out).toContain('Only `index` is importable');
     expect(out).toContain('keep `hooks` / `types` private');
   });
@@ -128,12 +134,21 @@ describe('renderHardRules', () => {
   it('includes entry-only for folder layout and lists error-tier gates', () => {
     const out = renderHardRules(arch(), {
       maxLines: { tier: 'error', value: 400 },
+      // Gated, error-tier, and carrying no number — a bare tier must not grow
+      // one. "`cycles` = undefined is a hard gate" reads as a real threshold,
+      // and the agent has no way to know which number it is supposed to be.
+      cycles: 'error',
       noUtils: 'error',
       soft: 'warn',
     });
 
+    // The flow rule leads the list unconditionally — it is the one rule that
+    // holds whatever the blueprint declares, so nothing gates it.
+    expect(out).toContain('- Import only from downstream layers — never upstream, never the same layer.');
     expect(out).toContain('Import a module via its `index`');
     expect(out).toContain('`maxLines` = 400 is a hard gate.');
+    expect(out).toContain('`cycles` is a hard gate.');
+    expect(out).not.toContain('undefined');
     // Unknown ids are documentation — the contract must not call them gates.
     expect(out).not.toContain('`noUtils` is a hard gate.');
     expect(out).not.toContain('`deadCode` is a hard gate.');
@@ -145,7 +160,11 @@ describe('renderHardRules', () => {
   it('omits entry-only for flat layout', () => {
     const out = renderHardRules(arch({ module: { layout: 'flat', entry: 'index', private: [] } }), undefined);
 
-    expect(out).not.toContain('via its `index`');
+    // The entry names are interpolated, so an unguarded push renders the rule
+    // with an empty slot — "Import a module via its , never its internals." The
+    // sentence has to be absent, not merely missing the entry name.
+    expect(out).not.toContain('Import a module via its');
+    expect(out).not.toContain('never its internals');
   });
 });
 
@@ -187,7 +206,15 @@ describe('renderChecklist', () => {
 
     expect(bare).not.toContain('Names follow the conventions');
     expect(bare).not.toContain('behavioral principles above');
+    // No axes declared → nothing to hold the unit against. Asking for a check
+    // the blueprint never defined leaves the agent judging against nothing.
+    expect(bare).not.toContain('component-shape axis');
     expect(bare).toContain('No new undeclared folders under `~app/`');
+
+    // The two unconditional items — a checklist that grows with the blueprint
+    // still has to carry the parts that hold for every blueprint.
+    expect(bare).toContain('- [ ] Imports follow the one-way flow (no upstream / same-layer).');
+    expect(bare).toContain('modules expose only `index`');
   });
 });
 
@@ -261,6 +288,57 @@ describe('renderCompactContract', () => {
     expect(out).toContain('`maxLines` = 300');
     expect(out).toContain('the working playbook');
     expect(out).not.toContain('### Where code goes');
+  });
+
+  it('announces only the kinds of content the blueprint carries', () => {
+    // The pointer line names what the handbook covers. Naming "the working
+    // playbook" in a contract that carries none sends the agent to a section
+    // that was never generated.
+    const bare = renderCompactContract(blueprint());
+
+    expect(bare).not.toContain('component-shape axes');
+    expect(bare).not.toContain('behavioral principles');
+    expect(bare).not.toContain('the working playbook');
+
+    // And with nothing extra to name, the clause closes straight after
+    // "naming" — anything appended there is a promise of content that the
+    // handbook does not hold.
+    expect(bare).toContain('ownership, naming: read');
+
+    const rich = renderCompactContract(blueprint({
+      componentShape: [{ id: 'a', name: 'Axis', say: 's', why: 'w' } as AxisDef],
+      principles: [{ id: 'p', say: 's', why: 'w', land: 'claude' } as PrincipleDef],
+      playbook: [{ title: 'T', rules: [{ id: 'r', say: 'do' }] }],
+    }));
+
+    expect(rich).toContain('component-shape axes');
+    expect(rich).toContain('behavioral principles');
+    expect(rich).toContain('the working playbook');
+  });
+
+  it('prints a gate value only where the setting carries one', () => {
+    const out = renderCompactContract(blueprint({
+      rules: { maxLines: { tier: 'error' as const, value: 300 }, cycles: 'error' as const },
+    }));
+
+    // `cycles` is a bare tier with no number behind it, and "= undefined" in a
+    // list of machine-enforced gates reads as a real threshold.
+    expect(out).toContain('`cycles`');
+    expect(out).not.toContain('`cycles` =');
+  });
+
+  it('lists only ids a machine actually gates', () => {
+    // Error tier is what the author declared; being gated is what the tooling
+    // can keep. `noUtils` has no rule behind it and `deadCode` is knip's job —
+    // naming either on the one-screen contract promises enforcement that never
+    // arrives, and the agent stops looking for the parts that are enforced.
+    const out = renderCompactContract(blueprint({
+      rules: { maxLines: { tier: 'error' as const, value: 300 }, noUtils: 'error', deadCode: 'error' },
+    }));
+
+    expect(out).toContain('`maxLines` = 300');
+    expect(out).not.toContain('noUtils');
+    expect(out).not.toContain('deadCode');
   });
 
   it('honors a handbook path override', () => {

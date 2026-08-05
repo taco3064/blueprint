@@ -80,11 +80,24 @@ describe('runRules', () => {
 
     expect(output).toContain('Structural — dependency flow & ownership · severity: error');
     expect(output).toContain('no-restricted-imports');
-    // Static catalog: no config to resolve against, so no emit column.
+    // Static catalog: no config to resolve against, so NEITHER verdict may
+    // appear. "· not emitted" is the worse of the two to get wrong — it reads
+    // as a resolved answer about this repo, and the reader goes looking for the
+    // config decision that turned the rule off.
     expect(output).not.toContain('✓ emits');
+    expect(output).not.toContain('· not emitted');
     expect(output).toContain('· not declared');
     expect(output).toContain('deadCode');
     expect(output).toContain('static catalog');
+
+    // Gates without a metric fallback print no default at all. "(default
+    // undefined)" reads as a threshold the reader cannot look up.
+    expect(output).not.toContain('(default undefined)');
+
+    // No config → no resolved per-layer view, so the docs-only block runs
+    // straight into the closing note. Anything between them is an unlabelled
+    // line under a heading that does not describe it.
+    expect(output).toContain('cannot run under flat config\n\n(no blueprint.config.mjs');
   });
 
   it('annotates the declared tiers, values, and framework silencing', async () => {
@@ -118,10 +131,42 @@ describe('runRules', () => {
 
     const output = lines.join('\n');
 
+    // Both silent verdicts appear whichever way round they are assigned, so
+    // `toContain` on the wording alone cannot tell them apart. `usePrefix` is
+    // off by the author's choice; `deepWatch` is declared error and silenced by
+    // the framework — swap the two and the reader is told to look for a config
+    // decision that is not there, and that a rule they switched off is live.
     expect(output).toContain('✓ error(300)');
-    expect(output).toContain('· declared, never emits here');
-    expect(output).toContain('· off');
+    expect(output).toMatch(/· off\s+usePrefix →/);
+    expect(output).toMatch(/· declared, never emits here deepWatch →/);
     expect(output).not.toContain('static catalog');
+
+    // `unusedVars` is a bare tier: no number behind it, so none is printed.
+    expect(output).toMatch(/✓ error\s+unusedVars →/);
+    expect(output).not.toContain('(undefined)');
+  });
+
+  it('keeps deepWatch live on the framework it was written for', async () => {
+    // Only React silences it. Silencing it everywhere reports a declared,
+    // active Vue gate as never emitting — and the author, told the rule is
+    // inert, stops relying on it while emitLint keeps enforcing it.
+    const vue: Blueprint = { ...blueprint, framework: 'vue' };
+    const { gates } = await runRules(repo(vue), { log: () => {} });
+
+    expect(gates.find((gate) => gate.id === 'deepWatch')).toMatchObject({
+      declared: { tier: 'error' },
+      active: true,
+    });
+  });
+
+  it('defaults the structural severity when the config declares emit but no lint', async () => {
+    // `emit` carrying only `agents` is the common shape — `init --agent claude`
+    // writes exactly that. Reaching through it for `lint.severity` without
+    // guarding crashes the whole command on a perfectly ordinary config.
+    const agentsOnly: Blueprint = { ...blueprint, emit: { agents: ['claude'] } };
+    const { severity } = await runRules(repo(agentsOnly), { log: () => {} });
+
+    expect(severity).toBe('error');
   });
 
   it('resolves per-layer bans so nobody parses print-config by hand (field #7)', async () => {
@@ -152,7 +197,28 @@ describe('runRules', () => {
 
     expect(output).toContain('Per-layer bans');
     expect(output).toContain('axios');
-    expect(output).toContain('(none)');
+
+    // Each of the three ban fields prints its own "(none)", so one unqualified
+    // toContain('(none)') is satisfied by whichever field happens to be empty —
+    // leaving the other two free to print anything at all. Name the field.
+    // And naming the field is still not enough on its own: with three layers on
+    // the board, a "(none)" for one field is printed by SOME row whatever the
+    // other rows say. Assert the whole row, so each field is pinned against the
+    // layer it belongs to — an empty ban list and a real one are opposite
+    // instructions to whoever folds these into their own config.
+    expect(output).toContain(
+      '  components     no-import: (none) · packages: react (useContext), axios · globals: fetch',
+    );
+
+    expect(output).toContain(
+      '  services       no-import: components, hooks · packages: react (useContext) · globals: (none)',
+    );
+
+    // The resolved view is the last thing the report prints. Anything after it
+    // sits below a per-layer table and reads as one more layer's row.
+    expect(output.endsWith(
+      '  services       no-import: components, hooks · packages: react (useContext) · globals: (none)',
+    )).toBe(true);
 
     // No config → no resolved view, just the static catalog.
     const bare: string[] = [];
@@ -203,6 +269,64 @@ describe('runRules', () => {
 
     expect(output).toContain('Copy these selectors verbatim');
     expect(output).toContain(emitted[0]);
+  });
+
+  it('reads a narrowed importer list as no reason to emit the syntax ban', async () => {
+    // `allowedImporters` narrows WHO may import; `selfOnly` additionally bars
+    // re-export, and only the second needs no-restricted-syntax. A list without
+    // it claims a rule this config never emits — the row then contradicts the
+    // emitted bundle, which is the exact drift field issue #14 reported.
+    const narrowed: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [
+          { name: 'views', does: 'pages' },
+          { name: 'contexts', does: 'state seam', allowedImporters: ['views'] },
+        ],
+        module: { layout: 'flat', entry: 'index' },
+      },
+      rules: {},
+    };
+
+    const lines: string[] = [];
+
+    await runRules(repo(narrowed), { json: true, log: (m) => void lines.push(m) });
+
+    const { structural } = JSON.parse(lines.join('')) as {
+      structural: { rule: string; active: boolean }[];
+    };
+
+    expect(structural.find((rule) => rule.rule === 'no-restricted-syntax')?.active).toBe(false);
+  });
+
+  it('withholds the globals ban when every layer may use the global', async () => {
+    // The ban exists to keep a global inside its owning layer. With every layer
+    // owning it, there is nobody to ban — and reading the condition the other
+    // way round emits the rule exactly when nothing is restricted, while
+    // staying silent for the one config that does restrict something.
+    const shared: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [
+          { name: 'views', does: 'pages', owns: [{ global: 'fetch' }] },
+          { name: 'lib', does: 'plumbing', owns: [{ global: 'fetch' }] },
+        ],
+        module: { layout: 'flat', entry: 'index' },
+      },
+      rules: {},
+    };
+
+    const lines: string[] = [];
+
+    await runRules(repo(shared), { json: true, log: (m) => void lines.push(m) });
+
+    const { structural } = JSON.parse(lines.join('')) as {
+      structural: { rule: string; active: boolean }[];
+    };
+
+    expect(structural.find((rule) => rule.rule === 'no-restricted-globals')?.active).toBe(false);
   });
 
   it('emits the machine-readable catalog under --json', async () => {

@@ -83,3 +83,33 @@ describe('report · findings name where they are enforced (field issue #48)', ()
     expect(out.match(/\(inspect only — never appears in a lint run\)/g)).toHaveLength(2);
   });
 });
+
+describe('report · icons and the migration block', () => {
+  const all: Finding[] = [
+    { severity: 'error', rule: 'undeclared-folder', path: 'src/utils', message: 'x' },
+    { severity: 'warn', rule: 'no-entry', path: 'src/components/Btn', message: 'y' },
+    { severity: 'info', rule: 'declaratory-self-only', path: 'src/contexts', message: 'z' },
+  ];
+
+  it('marks each severity with its own icon', () => {
+    const out = report(all);
+
+    // The icon is how a reader scans severity down the left edge. An undefined
+    // one reads as a rendering fault, and all three collapsing to one mark loses
+    // the distinction the report exists to draw.
+    expect(out).toContain('✗');
+    expect(out).toContain('⚠');
+    expect(out).toContain('·');
+    expect(out).not.toContain('undefined');
+  });
+
+  it('closes on the counts when no finding carries a migration step', () => {
+    // `declaratory-self-only` has no migration entry, so the block has nothing to
+    // list and the report ends at the tally. Anything in that slot promises steps
+    // that were never written.
+    const out = report([all[2]]);
+
+    expect(out).not.toContain('Recommended migration steps');
+    expect(out.endsWith('0 error(s), 0 warning(s), 1 note(s)')).toBe(true);
+  });
+});

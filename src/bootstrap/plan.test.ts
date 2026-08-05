@@ -146,6 +146,61 @@ describe('plan', () => {
     expect(bare).not.toContain('ecmaFeatures');
   });
 
+  it('closes every conditional slot cleanly when its condition is false', () => {
+    const config = (blueprint = bp, over = {}) =>
+      write(plan(state(over), blueprint, null, {}), 'eslint.config.mjs')?.content ?? '';
+
+    // Each slot below is a spread over `[]`. Anything landing in one is a bare
+    // line in a config the project's lint really loads, and no `not.toContain`
+    // of known text can see arbitrary content — the seam can.
+    const bare = config({ ...bp, framework: 'auto' as const }, { framework: null });
+
+    // No parser imports: the import block runs straight from import-x into the
+    // blueprint config.
+    expect(bare).toContain(
+      'import imports from \'eslint-plugin-import-x\';\nimport blueprint from \'./blueprint.config.mjs\';',
+    );
+
+    // No parser blocks: the array opens straight onto the emitLint spread, and
+    // the header that explains those blocks stays out along with them.
+    expect(bare).toContain('export default [\n  ...emitLint(blueprint, { stylistic, imports }),');
+
+    // vue without typescript: the header appears, its TS-only paragraph does
+    // not, so the header runs straight into the first parser block.
+    expect(config()).toContain(
+      '  // later init treats it as required for the stack and re-installs it.\n  {',
+    );
+
+    // react: the guard scopes to js/ts extensions, so the Vue-template caveat
+    // above it is absent and the comment block runs into the entry itself.
+    expect(config(reactPreset())).toContain(
+      '  // emitLint spread does not matter — the rule sets never intersect.\n  {',
+    );
+  });
+
+  it('fills each conditional slot when its condition holds', () => {
+    const config = (blueprint = bp, over = {}) =>
+      write(plan(state(over), blueprint, null, {}), 'eslint.config.mjs')?.content ?? '';
+
+    // On a TS stack the parser import and the header's TS-only paragraph both
+    // land. The paragraph answers "does my config already wire parsers?" where
+    // the merge decision is made — dropped, the question comes back in the field.
+    const vueTs = config(bp, { hasTypescript: true });
+
+    expect(vueTs).toContain('import tseslint from \'typescript-eslint\';');
+    expect(vueTs).toContain('// "Already wires" includes presets that do it internally');
+
+    // `auto` defers to the DETECTED framework, so a detected vue still gets the
+    // vue parser. Taking the literal 'auto' instead wires no parser at all.
+    expect(config({ ...bp, framework: 'auto' as const }, { framework: 'vue' }))
+      .toContain('vueParser');
+
+    // A root layout has no `src/` to scope the guard to, so the glob starts at
+    // the repo root rather than at `./`.
+    expect(config({ ...bp, architecture: { ...bp.architecture, sourceRoot: '.' } }))
+      .toContain('files: [\'**/*.{');
+  });
+
   it('omits the config write when configSource is null', () => {
     expect(write(plan(state({ hasConfig: true }), bp, null, {}), 'blueprint.config.mjs')).toBeUndefined();
   });
@@ -569,5 +624,31 @@ describe('plan · integrated hand-written context file', () => {
 
     expect(note?.note).toContain('never refresh');
     expect(note?.note).toContain('<!-- BLUEPRINT:START -->');
+  });
+});
+
+describe('plan · what licenses a greenfield edit', () => {
+  const withVite = {
+    hasViteConfig: true,
+    viteConfig: {
+      file: 'vite.config.ts',
+      text: 'export default defineConfig({\n  plugins: [],\n})\n',
+    },
+  };
+
+  it('edits vite.config only when init wrote the blueprint config itself', () => {
+    // The surgery is licensed by init OWNING that setup moment. With a config
+    // already in the repo, the vite file is the user's — instruct, never edit.
+    expect(write(plan(state(withVite), bp, 'source', {}), 'vite.config.ts')).toBeDefined();
+    expect(write(plan(state(withVite), bp, null, {}), 'vite.config.ts')).toBeUndefined();
+  });
+
+  it('closes the marker block directly after the contract body', () => {
+    // The emitted contract ends with a newline. Left on, the block gains a blank
+    // line before its END marker, and every re-init diffs that line back and
+    // forth depending on which end got trimmed.
+    const content = write(plan(state(), bp, 'source', {}), 'CLAUDE.md')?.content ?? '';
+
+    expect(content).toMatch(/\S\n<!-- BLUEPRINT:END -->/);
   });
 });

@@ -42,4 +42,15 @@ describe('blueprint/no-deep-watch', () => {
     expect(ruleIds('scope.watch(x, cb, { deep: true });')).toEqual([]);
     expect(ruleIds('rewatch(x, cb, { deep: true });')).toEqual([]);
   });
+
+  it('steps over a spread in the options object', () => {
+    // `{ ...opts }` is a SpreadElement: it carries no key at all, so the key
+    // lookup throws inside the adopter's lint run rather than reporting
+    // anything. The second case proves the spread is skipped rather than
+    // aborting the search that follows it.
+    expect(ruleIds('watch(x, cb, { ...opts });')).toEqual([]);
+
+    expect(ruleIds('watch(x, cb, { ...opts, deep: true });'))
+      .toEqual(['blueprint/no-deep-watch']);
+  });
 });

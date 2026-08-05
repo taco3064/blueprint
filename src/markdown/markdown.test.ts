@@ -6,6 +6,14 @@ describe('escapeCell', () => {
   it('escapes pipes and collapses newlines', () => {
     expect(escapeCell('a | b\nc')).toBe('a \\| b c');
   });
+
+  it('collapses a run of newlines to one space, and trims the edges', () => {
+    // A cell has to be one line. A blank line inside the value would widen to
+    // several spaces, and whitespace at either edge shifts the whole column.
+    expect(escapeCell('a\n\n\nb')).toBe('a b');
+    expect(escapeCell('  padded  ')).toBe('padded');
+    expect(escapeCell('\ntrailing\n')).toBe('trailing');
+  });
 });
 
 describe('table', () => {
@@ -52,6 +60,24 @@ describe('injectBetweenMarkers', () => {
 
   it('throws when a marker is missing', () => {
     expect(() => injectBetweenMarkers('no markers here', 'X', 'c')).toThrow(/not found/);
+  });
+
+  it('throws when only one of the two markers is there', () => {
+    // A source missing BOTH satisfies either check on its own, so the two
+    // cover for each other. One-sided sources separate them — and a present
+    // END with an absent START otherwise slices from a negative index and
+    // returns a mangled document instead of failing.
+    expect(() => injectBetweenMarkers('a\n<!-- X:START -->\nb', 'X', 'c')).toThrow(/not found/);
+    expect(() => injectBetweenMarkers('a\n<!-- X:END -->\nb', 'X', 'c')).toThrow(/not found/);
+  });
+
+  it('accepts a marker that begins one character in', () => {
+    // -1 is the sentinel for "absent"; comparing against +1 instead rejects a
+    // perfectly good source whose marker starts at index 1.
+    const shifted = 'x<!-- X:START -->\nold\n<!-- X:END -->y';
+
+    expect(injectBetweenMarkers(shifted, 'X', 'new'))
+      .toBe('x<!-- X:START -->\nnew\n<!-- X:END -->y');
   });
 
   it('throws when the markers are out of order', () => {
