@@ -16,7 +16,16 @@ interface IgnoreRule {
   matches: (relPath: string) => boolean;
 }
 
-function toRule(line: string): IgnoreRule | null {
+/**
+ * Exported for its own tests, because the decision it makes is invisible from
+ * outside. A blank line's glob is `**\/`, which compiles to `^(?:.*\/)?$` and
+ * matches only the empty string; a comment's is the comment text taken literally.
+ * So letting either through as a rule changes nothing an artifact list can see —
+ * `ignoredArtifacts` answers the same either way, and every guard in here reads as
+ * dead weight when measured only through it. The guards are real; the aggregate
+ * was the wrong place to ask.
+ */
+export function toRule(line: string): IgnoreRule | null {
   // The trim is also what makes a CRLF .gitignore work. The caller splits on
   // `\n`, so on Windows every line arrives with a trailing `\r`, and a pattern
   // carrying one matches nothing — the artifact detection would go quiet on the
@@ -35,8 +44,11 @@ function toRule(line: string): IgnoreRule | null {
   if (dirOnly) pattern = pattern.slice(0, -1);
 
   // A slash anywhere (after trimming) anchors the pattern to the repo root;
-  // otherwise it matches at any depth.
-  const anchored = pattern.startsWith('/') || pattern.includes('/');
+  // otherwise it matches at any depth. A LEADING slash is not a second case to
+  // test for: it is a slash, so `includes` has already answered — spelling it out
+  // as `startsWith('/') || includes('/')` made the first half undecidable, since
+  // no pattern can start with a slash and not contain one.
+  const anchored = pattern.includes('/');
   const body = pattern.startsWith('/') ? pattern.slice(1) : pattern;
   const glob = anchored ? body : `**/${body}`;
 

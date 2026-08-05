@@ -107,7 +107,11 @@ function skippedFolders(scanned: ScanResult, layerNames: Set<string>): string[] 
     .filter((file) => file.segments.length > 1 && !layerNames.has(file.segments[0]))
     .map((file) => file.segments[0]);
 
-  return [...new Set(folders)].sort();
+  // No sort of its own: `scan` walks in name order, so first-encounter order IS
+  // name order. The sort that used to sit here was repairing an upstream order
+  // that is now settled — and while it sat here it could not be measured, because
+  // the input it would reorder never arrives out of order.
+  return [...new Set(folders)];
 }
 
 /** A single-segment module that IS a flat-layout layer answers at layer granularity. */

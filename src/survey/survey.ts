@@ -218,10 +218,12 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
     typescript: state.hasTypescript,
     packageManager: state.packageManager,
     aliases,
+    // `scan` walks in name order, so these arrive sorted — the `.sort()` that used
+    // to close each of these two lines was repairing an order that is now settled
+    // upstream, and could not be measured while it did.
     rootFiles: scanResult.files
       .filter((file) => file.segments.length === 1)
-      .map((file) => file.segments[0])
-      .sort(),
+      .map((file) => file.segments[0]),
     folders: folderEvidence(scanResult),
     edges: [...edgeCounts.entries()]
       .map(([key, count]) => {
@@ -236,7 +238,7 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
       files: scanResult.files.filter((file) => test(file.path)).length,
     })).filter((entry) => entry.files > 0),
     packageUsage: [...packageFolders.entries()]
-      .map(([name, folders]) => ({ package: name, folders: [...folders].sort() }))
+      .map(([name, folders]) => ({ package: name, folders: [...folders] }))
       .sort((a, b) => a.folders.length - b.folders.length || a.package.localeCompare(b.package)),
     unresolved: [...unresolvedCounts.entries()]
       .map(([prefix, count]) => ({ prefix, count }))
