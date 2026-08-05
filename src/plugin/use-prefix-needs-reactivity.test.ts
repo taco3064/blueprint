@@ -16,6 +16,36 @@ function messages(code: string, filename: string): string[] {
     .map((message) => message.message);
 }
 
+/**
+ * Every member of the rule's reactive-API allowlist, restated. The rule keeps
+ * the list private, and the restatement is the point: each entry is its own
+ * behavioural contract, and dropping one makes every composable built on that
+ * API report as a pure function. Two entries used to stand in for all 23, so 21
+ * of them could be removed with the suite still green.
+ */
+const REACTIVE_API = [
+  // Vue
+  'ref', 'reactive', 'computed', 'watch', 'watchEffect', 'shallowRef', 'toRef', 'toRefs',
+  'onMounted', 'onUnmounted', 'onBeforeMount', 'onBeforeUnmount', 'provide', 'inject',
+  // React
+  'useState', 'useEffect', 'useMemo', 'useRef', 'useCallback', 'useReducer',
+  'useContext', 'useLayoutEffect', 'useSyncExternalStore',
+];
+
+describe('blueprint/use-prefix-needs-reactivity · every API on the allowlist', () => {
+  it.each(REACTIVE_API)('takes %s() as reactivity on its own', (api) => {
+    expect(messages(`export const useCart = () => ${api}(0);`, 'src/hooks/useCart/useCart.ts'))
+      .toEqual([]);
+  });
+
+  it('still flags a call that only looks like one of them', () => {
+    // The guard is the allowlist, not "calls something". A near-miss name has to
+    // stay flagged, or the list is decoration.
+    expect(messages('export const useCart = () => refs(0);', 'src/hooks/useCart/useCart.ts'))
+      .toHaveLength(1);
+  });
+});
+
 describe('blueprint/use-prefix-needs-reactivity', () => {
   it('passes a use-named file that calls a reactive API', () => {
     expect(messages('export const useCart = () => ref(0);', 'src/hooks/useCart/useCart.ts')).toEqual([]);
@@ -31,6 +61,10 @@ describe('blueprint/use-prefix-needs-reactivity', () => {
     expect(out).toHaveLength(1);
     expect(out[0]).toContain('"useCart"');
     expect(out[0]).toContain('pure function');
+    // The message is cause AND remedy. The reader can act on the second half
+    // only — "this is a pure function" leaves them with a verdict and no move,
+    // so both halves are pinned, not just the one that names the problem.
+    expect(out[0]).toContain('drop the prefix and move it where pure helpers live');
   });
 
   it('is not fooled by non-reactive calls, member or otherwise', () => {

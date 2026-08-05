@@ -211,3 +211,67 @@ describe('blueprint/relative-escape · what the rule declines to judge', () => {
     expect(inside).toContain('"index"');
   });
 });
+
+describe('blueprint/relative-escape · what each verdict tells the reader', () => {
+  const report = (code: string, filename: string) =>
+    linter.verify(
+      code,
+      {
+        files: ['**'],
+        plugins: { blueprint: plugin },
+        languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+        rules: { 'blueprint/relative-escape': ['error', { layouts: LAYOUTS }] },
+      },
+      { filename },
+    )[0];
+
+  // The three messageIds were pinned; their texts were not, so all three could
+  // go empty together and every existing assertion would still pass. Each one
+  // has to name the offending specifier back (the file may hold many relative
+  // imports) and give the move for ITS verdict — the moves differ, and handing
+  // the reader the wrong one sends them to a path that is also illegal.
+  it('quotes the specifier and offers the alias when the import escapes src/', () => {
+    const message = report('import x from "../../package.json";', 'src/components/Button.ts')
+      ?.message ?? '';
+
+    expect(message).toContain('"../../package.json"');
+    expect(message).toContain('escapes src/');
+    expect(message).toContain('use the project alias');
+    expect(message).not.toContain('{{');
+  });
+
+  it('offers the alias or a lower layer when the import leaves the layer', () => {
+    const message = report('import x from "../resources/matches";', 'src/components/Button.ts')
+      ?.message ?? '';
+
+    expect(message).toContain('"../resources/matches"');
+    expect(message).toContain('leaves this layer');
+    expect(message).toContain('use the alias, or extract shared code to a lower layer');
+  });
+
+  it('names the entry to import instead when the import reaches inside', () => {
+    // This one interpolates a second value — the target layer's own entry name.
+    // Losing it leaves "import "" instead", which is not a path anyone can type.
+    const message = report(
+      'import x from "../matches/parts/Cell";',
+      'src/resources/markets/Row.ts',
+    )?.message ?? '';
+
+    expect(message).toContain('"../matches/parts/Cell"');
+    expect(message).toContain('reaches past a sibling\'s entry');
+    expect(message).toContain('import "index" instead');
+    expect(message).not.toContain('{{');
+  });
+
+  it('points at the import that broke the rule, not at the first one', () => {
+    // A file's imports sit in a block. Reporting the file, or the block's first
+    // line, leaves the author comparing every specifier against the rule by hand.
+    const out = report([
+      'import a from "./Card";',
+      'import b from "./Panel";',
+      'import c from "../resources/matches";',
+    ].join('\n'), 'src/components/Button.ts');
+
+    expect(out?.line).toBe(3);
+  });
+});
