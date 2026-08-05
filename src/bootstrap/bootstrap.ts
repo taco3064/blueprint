@@ -11,10 +11,12 @@ import {
   buildConfigSource,
   buildNextConfigSource,
   CONFIG_FILE,
+  describeUnreadable,
   detect,
   pathAliasKeys,
   readTexts,
   resolveBlueprint,
+  unreadableTsconfigs,
 } from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
 import { runSurvey } from '../survey';
@@ -209,9 +211,19 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   // convention, not a detected fact. Name the decision instead of letting
   // the choice pass as if the repo had asked for it (field issue #2).
   if (configSource !== null && pathAliasKeys(state.tsconfigs).size === 0) {
+    // "First alias" is a claim about the repo, and an unparseable tsconfig makes
+    // it one init cannot support — the alias it is about to introduce may already
+    // be declared in the file nobody could read. Say which reading produced the
+    // claim rather than letting a broken file pass as an empty one.
+    const unreadable = unreadableTsconfigs(state.tsconfigs);
+
     actions.push({
       kind: 'instruct',
-      note: `The preset introduced "${blueprint.architecture.alias}" as this repo's first import alias. The tilde is deliberate — '@' is npm's scope sigil (@vue/*, @types/*), and an app alias that does not look like a package scope stays visually distinct. Keep it unless the team already has its own alias convention (then set the preset's alias option and re-run init).`,
+      note: `The preset introduced "${blueprint.architecture.alias}" as this repo's first import alias. The tilde is deliberate — '@' is npm's scope sigil (@vue/*, @types/*), and an app alias that does not look like a package scope stays visually distinct. Keep it unless the team already has its own alias convention (then set the preset's alias option and re-run init).${
+        unreadable.length
+          ? ` Note that ${describeUnreadable(unreadable)}, so "first" is read from the configs that could be: if an alias is declared in there, fix that file and re-run init before keeping this one.`
+          : ''
+      }`,
     });
   }
 

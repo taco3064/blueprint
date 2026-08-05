@@ -160,6 +160,24 @@ describe('runDoctor', () => {
     expect(check?.detail?.startsWith('"~app" resolves nowhere')).toBe(true);
     expect(check?.detail).toContain('"~app/*": ["./src/*"]');
     expect(check?.detail).toContain('unresolvable imports');
+    // No unreadable tsconfig here, so the remedy stands alone — the clause below
+    // must not appear on a repo whose configs all parse.
+    expect(check?.detail).not.toContain('could not read');
+  });
+
+  it('blames an unreadable tsconfig before it blames the alias', async () => {
+    adopted();
+    // The alias IS declared — inside a tsconfig with a missing quote. Every
+    // reader of `paths` skips the file, so the check cannot see the declaration.
+    // Telling the reader to declare what is already there sends them to the
+    // wrong file; the broken one is the whole problem.
+    write('tsconfig.json', '{ "compilerOptions": { "paths": { "~app: ["./src/x"] } } }');
+    const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
+
+    const detail = checks.find((c) => c.label.includes('alias'))?.detail;
+
+    expect(detail).toContain('tsconfig.json could not be read (a string literal never closes');
+    expect(detail).toContain('an alias already declared in there would not have been seen');
   });
 
   it('targets the project root in the wiring snippet when sourceRoot is "."', async () => {

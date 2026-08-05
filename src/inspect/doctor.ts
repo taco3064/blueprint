@@ -5,11 +5,13 @@ import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
 import {
   AUTHORING_FILE,
   COMMAND_FILE,
+  describeUnreadable,
   detect,
   loadProjectModule,
   pathAliasKeys,
   quotedIn,
   resolveBlueprint,
+  unreadableTsconfigs,
 } from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
 import type { Blueprint } from '../config';
@@ -125,12 +127,22 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
 
   const dir = sourceRoot === '.' ? '.' : `./${sourceRoot ?? 'src'}`;
 
+  // A tsconfig that is present but unparseable makes every alias inside it
+  // invisible to the check above, so "resolves nowhere" would be the reader's
+  // second problem and not their first. Naming the file first stops the remedy
+  // from misdirecting: the alias may already be declared in there.
+  const unreadable = unreadableTsconfigs(state.tsconfigs);
+
   return {
     label: 'import alias wired to the toolchain',
     ok: false,
     detail: `${unwired.map((name) => `"${name}"`).join(', ')} resolves nowhere — declare it in `
       + `tsconfig compilerOptions.paths ("${unwired[0]}/*": ["${dir}/*"]) or your bundler's `
-      + 'alias config, or the agent contract points at unresolvable imports',
+      + 'alias config, or the agent contract points at unresolvable imports'
+      + (unreadable.length
+        ? ` — but fix ${describeUnreadable(unreadable)} first: this check could not read `
+        + 'it, so an alias already declared in there would not have been seen'
+        : ''),
   };
 }
 

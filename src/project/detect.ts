@@ -315,14 +315,6 @@ function copyString(
 }
 
 /**
- * Tolerant JSONC parse for the tsconfig family: strips line and block
- * comments plus trailing commas — outside string literals only — then
- * `JSON.parse`. Vite + TS starters ship tsconfigs *with comments* by
- * default, so treating JSONC as unreadable would false-red the doctor's
- * alias check on the mainstream path. Returns null when the text still is
- * not JSON after stripping.
- */
-/**
  * Why a JSONC document could not be read, and the character offset the scan gave
  * up at. Reported rather than folded into one null: "I cannot read your tsconfig"
  * is not something an adopter can act on — and a failure with no position leaves
@@ -331,11 +323,24 @@ function copyString(
  */
 export interface JsoncFailure {
   reason: 'unterminated-string' | 'unclosed-comment' | 'not-json';
-  at: number;
+  /**
+   * Character offset the scan came to rest at. Absent — not zero — for
+   * `not-json`: offset 0 is a legitimate position (a file whose first character
+   * is already wrong), so a sentinel there would read as one, and the caller
+   * could not tell "the reader has no position for you" from "look at the start
+   * of the file".
+   */
+  at?: number;
 }
 
 export type JsoncResult = { ok: true; value: unknown } | ({ ok: false } & JsoncFailure);
 
+/**
+ * Tolerant JSONC parse for the tsconfig family: strips line and block comments
+ * plus trailing commas — outside string literals only — then `JSON.parse`. Vite
+ * + TS starters ship tsconfigs *with comments* by default, so treating JSONC as
+ * unreadable would false-red the doctor's alias check on the mainstream path.
+ */
 export function parseJsonc(text: string): JsoncResult {
   // Both passes accumulate into a STRING, not an array joined at the end. The
   // difference is that a string says when the scan reads past the end:
@@ -401,8 +406,59 @@ export function parseJsonc(text: string): JsoncResult {
     // rather than a JSONC one — a different thing to tell the reader. No offset:
     // JSON.parse's own position refers to the stripped text, not the file they
     // have open.
-    return { ok: false, reason: 'not-json', at: 0 };
+    return { ok: false, reason: 'not-json' };
   }
+}
+
+/** A tsconfig the JSONC reader gave up on, named so a caller can say which. */
+export interface UnreadableConfig extends JsoncFailure {
+  file: string;
+}
+
+const JSONC_REASON: Record<JsoncFailure['reason'], string> = {
+  'unterminated-string': 'a string literal never closes',
+  'unclosed-comment': 'a block comment never closes',
+  'not-json': 'it is not valid JSON once the comments are stripped',
+};
+
+/**
+ * The tsconfig/jsconfig files that are present but unparseable.
+ *
+ * Every reader of `paths` skips these, and skipping *silently* is the trap:
+ * an alias declared inside an unreadable tsconfig is invisible, so doctor tells
+ * an adopter to declare what is already there, and init calls a preset's alias
+ * the repo's first. Both mislead in the same direction — they blame the alias for
+ * a broken file. Callers name the file and the offset instead.
+ */
+export function unreadableTsconfigs(
+  tsconfigs: Record<string, string | null>,
+): UnreadableConfig[] {
+  const failures: UnreadableConfig[] = [];
+
+  for (const [file, text] of Object.entries(tsconfigs)) {
+    if (text === null) continue;
+
+    const result = parseJsonc(text);
+
+    if (!result.ok) failures.push({ file, reason: result.reason, at: result.at });
+  }
+
+  return failures;
+}
+
+/**
+ * One clause per unreadable config: which file, what is wrong, where to look.
+ * Shared so doctor and init say it the same way — the same reason `quotedIn` is
+ * the one wiredness standard both of them read.
+ */
+export function describeUnreadable(failures: UnreadableConfig[]): string {
+  return failures
+    .map(({ file, reason, at }) => {
+      const where = at === undefined ? '' : ` at character ${at}`;
+
+      return `${file} could not be read (${JSONC_REASON[reason]}${where})`;
+    })
+    .join('; ');
 }
 
 /** Visit every `compilerOptions.paths` entry across the given tsconfig texts. */

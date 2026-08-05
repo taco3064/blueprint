@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  describeUnreadable,
   detect,
   detectAliases,
   GENERATED_ESLINT_BANNER,
@@ -11,6 +12,7 @@ import {
   pathAliasKeys,
   quotedIn,
   readTexts,
+  unreadableTsconfigs,
   ALLOWED_CARRIER_PEERS,
   REQUIRED_DEPS,
   STACK_DEPS,
@@ -789,14 +791,79 @@ describe('parseJsonc · why it gave up, and where', () => {
     expect(parseJsonc(text)).toEqual({ ok: false, reason: 'unclosed-comment', at: text.length });
   });
 
-  it('separates a JSON mistake from a JSONC one', () => {
+  it('separates a JSON mistake from a JSONC one, and omits the offset it does not have', () => {
     // Comments and trailing commas are gone by now, so what remains is plain
     // invalid JSON — a different thing to report, and with no honest offset.
-    expect(parseJsonc('{"a": 1} /')).toEqual({ ok: false, reason: 'not-json', at: 0 });
-    expect(parseJsonc('{ "compilerOptions": ')).toEqual({ ok: false, reason: 'not-json', at: 0 });
+    // `at` is ABSENT rather than 0: offset 0 is a real position (a file whose
+    // first character is already wrong), so a zero here would be read as one.
+    expect(parseJsonc('{"a": 1} /')).toEqual({ ok: false, reason: 'not-json' });
+    expect(parseJsonc('{ "compilerOptions": ')).toEqual({ ok: false, reason: 'not-json' });
+
+    const result = parseJsonc('{"a": 1} /');
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? undefined : 'at' in result).toBe(false);
   });
 
   it('answers ok with the parsed value for a document it can read', () => {
     expect(parseJsonc('{"a": 1} // tail')).toEqual({ ok: true, value: { a: 1 } });
+  });
+});
+
+describe('unreadableTsconfigs · the failures a paths reader would otherwise swallow', () => {
+  it('names each present-but-unparseable file and skips the readable and absent ones', () => {
+    expect(unreadableTsconfigs({
+      'tsconfig.json': '{ "compilerOptions": { "paths": { "~app/*": ["./src/*"] } } }',
+      'tsconfig.app.json': '{ "compilerOptions": { "paths: {} } }',
+      'jsconfig.json': null,
+    })).toEqual([
+      { file: 'tsconfig.app.json', reason: 'unterminated-string', at: 37 },
+    ]);
+  });
+
+  it('is empty when every config present can be read', () => {
+    expect(unreadableTsconfigs({ 'tsconfig.json': '{}', 'jsconfig.json': null })).toEqual([]);
+  });
+
+  it('reports every unreadable file, not just the first', () => {
+    const failures = unreadableTsconfigs({
+      'tsconfig.json': '{ /* open',
+      'tsconfig.app.json': '{"a": 1} /',
+    });
+
+    expect(failures.map(({ file }) => file))
+      .toEqual(['tsconfig.json', 'tsconfig.app.json']);
+  });
+});
+
+describe('describeUnreadable · one clause per file, and only an offset it has', () => {
+  it('names the file, what is wrong, and where to look', () => {
+    expect(describeUnreadable([
+      { file: 'tsconfig.json', reason: 'unterminated-string', at: 42 },
+    ])).toBe('tsconfig.json could not be read (a string literal never closes at character 42)');
+
+    expect(describeUnreadable([
+      { file: 'tsconfig.app.json', reason: 'unclosed-comment', at: 9 },
+    ])).toBe('tsconfig.app.json could not be read (a block comment never closes at character 9)');
+  });
+
+  it('leaves the position out for a failure that has none', () => {
+    const sentence = describeUnreadable([{ file: 'jsconfig.json', reason: 'not-json' }]);
+
+    expect(sentence).toBe(
+      'jsconfig.json could not be read (it is not valid JSON once the comments are stripped)',
+    );
+
+    expect(sentence).not.toContain('character');
+  });
+
+  it('joins several files into one sentence', () => {
+    expect(describeUnreadable([
+      { file: 'tsconfig.json', reason: 'not-json' },
+      { file: 'jsconfig.json', reason: 'unclosed-comment', at: 4 },
+    ])).toBe(
+      'tsconfig.json could not be read (it is not valid JSON once the comments are stripped); '
+      + 'jsconfig.json could not be read (a block comment never closes at character 4)',
+    );
   });
 });
