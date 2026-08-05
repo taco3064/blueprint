@@ -192,11 +192,18 @@ The complete early-exit checklist — nothing else in this file applies:
    own migration steps name the rule that carries each finding, and mark
    the ones no lint run will ever show. Same logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's
    alias check reads that wiring as text, never as a compile — run the
-   build once too (\`npm run build\`, or \`npx tsc -b\`). Its artifacts
+   build once too (\`npm run build\`, or \`npx tsc -b\`). The same caveat
+   as the lint run applies, and for the same reason: on a repo whose layers
+   hold no files, nothing imports through the alias, so a green build proves
+   the \`tsconfig\`/\`vite\` edits parse and compile — NOT that the alias
+   resolves. It becomes that proof the first time a layer file imports
+   through it. Run it anyway (cheap, and it catches an edit that broke the
+   config outright) and report which of the two you got. Its artifacts
    (\`dist/\`, \`*.tsbuildinfo\`) are the build's normal output, not
    adoption leftovers: leave them to the repo's own ignore rules, and
-   when the repo has none, say so in the report instead of guessing a
-   cleanup. Say it as what it is — a step THIS playbook asked for
+   when the repo has none — including a repo under no version control at
+   all, where nothing is tracked and "untracked" describes everything —
+   say so in the report instead of guessing a cleanup. Say it as what it is — a step THIS playbook asked for
    produced untracked files in someone's working tree — and say that
    deleting them is safe, because nothing adoption wrote depends on them
    and the build can be re-run. Then it is the owner's call rather than
@@ -452,6 +459,19 @@ the answer belongs in this playbook — note the gap in your report instead.
      importers show up as two. If you get it wrong anyway, doctor's
      survival check probes every layer separately and names the one that
      lost its selectors — it is a red you can act on, not a silent pass.
+
+     **How you combine, given that \`...emitLint(blueprint)\` is opaque.**
+     You cannot reach inside the spread to edit the entry it emits, so do not
+     try: write the combined entry yourself and place it AFTER the spread.
+     That is the same later-replaces-earlier property this paragraph opens by
+     warning about, used deliberately — yours becomes the effective entry for
+     that rule key on the files it scopes to. Which is exactly why it has to
+     carry everything the emitted one did: both option sets, the emitted
+     \`ignores\`, and the SAME file scope. Wider, and you impose your rule on
+     layers it never governed; narrower, and the layers you dropped are left
+     with nothing, silently. Confirm with \`npx eslint --print-config\` on one
+     file per affected layer — the one place print-config is not optional,
+     because doctor compares selectors and cannot see scope.
 
      **An entry is more than its selectors — carry the emitted block's
      \`ignores\` too.** Every structural entry exempts test files, and a

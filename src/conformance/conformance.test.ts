@@ -500,6 +500,64 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
   });
 });
 
+describe('a proof step states its own reach (field run #85)', () => {
+  const brownfield = () => ({
+    packageJson: react(),
+    files: Object.fromEntries(
+      Array.from({ length: 12 }, (_, i) => [`src/legacy/mod${i}.js`, 'export const x = 1;\n']),
+    ),
+  });
+
+  it('says what a green build proves on a repo with no layer files', async () => {
+    // The lint sentence one line above already carried this caveat; the build sentence
+    // asked for the same kind of proof and did not. With nothing importing through the
+    // alias, a green build proves the tsconfig/vite edits compile — not that the alias
+    // resolves. A field agent derived the downgrade itself and noted the asymmetry.
+    // Forced onto a starter: the early-exit checklist is the only path that asks for a
+    // build, and the only path these three agents were on.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('The same caveat\n   as the lint run applies');
+    expect(playbook).toContain('NOT that the alias\n   resolves');
+    expect(playbook).toContain('report which of the two you got');
+  });
+
+  it('says how to combine against an opaque spread', async () => {
+    // "Combine into ONE entry" had no mechanism: `...emitLint(blueprint)` cannot be
+    // edited from outside. An agent worked out that you place your own combined entry
+    // AFTER the spread and let later-replaces-earlier make it the effective one —
+    // verified it with print-config — and reported that the playbook never says so.
+    const dir = repo(brownfield());
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('is opaque');
+    expect(playbook).toContain('place it AFTER the spread');
+    expect(playbook).toContain('used deliberately');
+    expect(playbook).toContain('the one place print-config is not optional');
+  });
+
+  it('covers a repo under no version control in the artifact branch', async () => {
+    // Raised in five separate runs. The branch stopped at "does the repo have ignore
+    // rules"; with no VCS at all the word untracked describes everything, and each
+    // agent spent a paragraph reasoning it out from first principles.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('no version control at\n   all');
+    expect(playbook).toContain('"untracked" describes everything');
+  });
+});
+
 describe('the same gap, one artifact further along (swept, not field-reported)', () => {
   it('the handbook states its reach, like the contract now does', async () => {
     // Field runs #79 and #81 raised this about CLAUDE.md, because CLAUDE.md is what
