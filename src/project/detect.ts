@@ -114,6 +114,27 @@ function readJson(file: string): Record<string, unknown> | null {
   }
 }
 
+/**
+ * The vite config's text, when there is one and it can be read.
+ *
+ * One function rather than `viteFile !== undefined && viteText !== null` at the
+ * point of use. That compound asked the same question twice — the text is read FROM
+ * the file, so a non-null text already implies a file — but TypeScript cannot see
+ * the implication, so the redundant half had to stay for the narrowing and could
+ * never be wrong. Written as a sequence, each step decides something: no file, or a
+ * file nothing could read.
+ */
+function readViteConfig(
+  root: string,
+  file: string | undefined,
+): { file: string; text: string } | undefined {
+  if (file === undefined) return undefined;
+
+  const text = readText(path.join(root, file));
+
+  return text === null ? undefined : { file, text };
+}
+
 function readText(file: string): string | null {
   try {
     return fs.readFileSync(file, 'utf-8');
@@ -249,7 +270,7 @@ export function detect(root: string): ProjectState {
         : undefined;
 
   const viteFile = VITE_FILES.find((file) => fs.existsSync(path.join(root, file)));
-  const viteText = viteFile === undefined ? null : readText(path.join(root, viteFile));
+  const viteConfig = readViteConfig(root, viteFile);
 
   return {
     root,
@@ -267,9 +288,9 @@ export function detect(root: string): ProjectState {
     wiredEslintConfig,
     legacyEslintConfig,
     eslintConfigShape,
-    viteConfig: viteFile !== undefined && viteText !== null
-      ? { file: viteFile, text: viteText }
-      : undefined,
+    viteConfig,
+    // Separate on purpose: `hasViteConfig` is "a vite config is there", and an
+    // unreadable one is still there. `viteConfig` is "and this is what it says".
     hasViteConfig: viteFile !== undefined,
     hasTypescript,
     tsconfigs: readTexts(root, TSCONFIG_FILES),
@@ -284,10 +305,23 @@ export function detect(root: string): ProjectState {
  * need this: a tsconfig's own data contains `/*` (every `"@/*"` paths key),
  * so nothing may be stripped inside a string.
  */
-function copyString(
-  text: string,
-  i: number,
-): { copied: string; next: number; stoppedAt: number; closed: boolean } {
+/**
+ * A literal that closed, or the offset the scan gave up at — never both.
+ *
+ * Four fields where two are meaningless on failure is what made the bounds above
+ * unanswerable: on an unterminated literal the caller throws `copied` away, so
+ * whether the copy ran one character too far changed nothing anyone could see. Two
+ * shapes, and each field exists only where it means something.
+ */
+interface ClosedString {
+  closed: true;
+  copied: string;
+  next: number;
+}
+
+type CopiedString = ClosedString | { closed: false; stoppedAt: number };
+
+function copyString(text: string, i: number): CopiedString {
   let copied = text[i];
 
   i++;
@@ -303,15 +337,12 @@ function copyString(
     i++;
   }
 
-  // `stoppedAt` is where the scan came to rest — the closing quote when there is
-  // one, the end of the text when there is not. The caller reports it, which is
-  // what makes every bound above answerable: a scan running one character too far
+  // Ran out of text before the closing quote: report where it came to rest, which
+  // is what makes every bound above answerable — a scan one character too far
   // changes the number a reader is shown.
-  const closed = i < text.length;
+  if (i >= text.length) return { closed: false, stoppedAt: i };
 
-  if (closed) copied += text[i];
-
-  return { copied, next: i + 1, stoppedAt: i, closed };
+  return { closed: true, copied: copied + text[i], next: i + 1 };
 }
 
 /**
@@ -353,22 +384,30 @@ export function parseJsonc(text: string): JsoncResult {
 
   for (let i = 0; i < text.length;) {
     if (text[i] === '"') {
-      const { copied, next, stoppedAt, closed } = copyString(text, i);
+      const literal = copyString(text, i);
 
-      if (!closed) return { ok: false, reason: 'unterminated-string', at: stoppedAt };
+      if (!literal.closed) {
+        return { ok: false, reason: 'unterminated-string', at: literal.stoppedAt };
+      }
 
-      commentFree += copied;
-      i = next;
+      commentFree += literal.copied;
+      i = literal.next;
     } else if (text[i] === '/' && text[i + 1] === '/') {
-      while (i < text.length && text[i] !== '\n') i++;
+      // The comment ends at the newline, or at the end of a file that finishes in
+      // one. `indexOf` answers with the position, so there is no bound to walk one
+      // character past — the old `while (i < text.length && text[i] !== '\n')`
+      // overran by one and nothing downstream could tell.
+      const newline = text.indexOf('\n', i);
+
+      i = newline === -1 ? text.length : newline;
     } else if (text[i] === '/' && text[i + 1] === '*') {
-      i += 2;
+      // From AFTER the opener, or `/*/` reads as a closed comment: the `*/` the
+      // search finds would be the opener's own `*` with the next `/`.
+      const close = text.indexOf('*/', i + 2);
 
-      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++;
+      if (close === -1) return { ok: false, reason: 'unclosed-comment', at: text.length };
 
-      if (i >= text.length) return { ok: false, reason: 'unclosed-comment', at: i };
-
-      i += 2;
+      i = close + 2;
     } else {
       commentFree += text[i];
       i++;
@@ -380,17 +419,23 @@ export function parseJsonc(text: string): JsoncResult {
 
   for (let i = 0; i < commentFree.length;) {
     if (commentFree[i] === '"') {
-      // Already proven closed — the first pass copied this same literal.
-      const { copied, next } = copyString(commentFree, i);
+      // Proven closed by the first pass, which copied this same literal. A cast
+      // rather than a check: the check would be a branch no input can take, and an
+      // unreachable branch is worse than a stated assumption — it reads as a case
+      // somebody handled.
+      const literal = copyString(commentFree, i) as ClosedString;
 
-      clean += copied;
-      i = next;
+      clean += literal.copied;
+      i = literal.next;
     } else if (commentFree[i] === ',') {
-      let next = i + 1;
+      // The next non-space AFTER the comma. Walking an index forward left the
+      // walk's own bound undecidable: one past the end is `undefined`, which is
+      // neither `}` nor `]`, so overrunning kept the comma exactly as stopping
+      // would have.
+      const after = /\S/.exec(commentFree.slice(i + 1));
+      const nextChar = after?.[0];
 
-      while (next < commentFree.length && /\s/.test(commentFree[next])) next++;
-
-      if (commentFree[next] !== '}' && commentFree[next] !== ']') clean += ',';
+      if (nextChar !== '}' && nextChar !== ']') clean += ',';
 
       i++;
     } else {

@@ -145,6 +145,21 @@ describe('detect', () => {
     expect(detect(root).missingDeps).toContain('typescript-eslint');
   });
 
+  it('reports a vite config that exists but cannot be read', () => {
+    // A DIRECTORY named vite.config.ts: `existsSync` says yes, `readFileSync`
+    // throws. The two facts are deliberately separate — the file IS there, so
+    // `hasViteConfig` stands, while `viteConfig` (its contents) does not. An
+    // alias check that reads `viteConfig.text` would otherwise crash on a repo
+    // whose config is unreadable for any reason.
+    writePkg({ name: 'x', dependencies: { vue: '^3' } });
+    fs.mkdirSync(path.join(root, 'vite.config.ts'));
+
+    const state = detect(root);
+
+    expect(state.hasViteConfig).toBe(true);
+    expect(state.viteConfig).toBeUndefined();
+  });
+
   it('tolerates a missing or malformed package.json', () => {
     expect(detect(root).framework).toBeNull();
     expect(detect(root).missingDeps).toContain('eslint');
@@ -807,6 +822,62 @@ describe('parseJsonc · why it gave up, and where', () => {
 
   it('answers ok with the parsed value for a document it can read', () => {
     expect(parseJsonc('{"a": 1} // tail')).toEqual({ ok: true, value: { a: 1 } });
+  });
+
+  it('reads a closed block comment and keeps what follows it', () => {
+    // The reason this parser exists — every Vite + TS starter ships a commented
+    // tsconfig — and nothing asked it to skip a comment that CLOSES. Without a
+    // fixture like this, the jump past `*/` could land anywhere.
+    expect(parseJsonc('{ /* note */ "a": 1, /* and */ "b": 2 }'))
+      .toEqual({ ok: true, value: { a: 1, b: 2 } });
+  });
+
+  it('does not read "/*/" as a comment that closed', () => {
+    // The `*/` a naive search finds here is the opener's own `*` with the next
+    // `/`. Reading it as closed would resume INSIDE the comment and parse its
+    // text as data.
+    expect(parseJsonc('{ "a": 1 /*/ }')).toEqual({
+      ok: false,
+      reason: 'unclosed-comment',
+      at: 14,
+    });
+  });
+
+  it('drops a line comment without eating the line under it', () => {
+    expect(parseJsonc('{\n  // note\n  "a": 1\n}')).toEqual({ ok: true, value: { a: 1 } });
+
+    // …and a file whose last line IS the comment still parses.
+    expect(parseJsonc('{ "a": 1 }\n// trailing')).toEqual({ ok: true, value: { a: 1 } });
+  });
+
+  it('separates a comment opener from a bare "*" in broken text', () => {
+    // `x*/` is not a comment: the `*` has no `/` before it. Treating any `*` as
+    // an opener sends the scan looking for a close that was never opened, and the
+    // reader is told the wrong thing about their file.
+    expect(parseJsonc('{"a":1} x*/')).toEqual({ ok: false, reason: 'not-json' });
+  });
+
+  it('reads a trailing comma across whitespace, and a dangling one as invalid', () => {
+    expect(parseJsonc('{ "a": 1,   \n }')).toEqual({ ok: true, value: { a: 1 } });
+    expect(parseJsonc('[ 1, 2,\t]')).toEqual({ ok: true, value: [1, 2] });
+
+    // A comma with nothing but whitespace after it is kept, so JSON.parse gets to
+    // call it what it is.
+    expect(parseJsonc('{"a": 1,   ')).toEqual({ ok: false, reason: 'not-json' });
+  });
+
+  it('does not read a document of "null" as an object', () => {
+    // `JSON.parse('null')` is a legal parse whose value is null. A tsconfig
+    // holding just that reaches every reader as `ok: true`, and reaching for
+    // `.compilerOptions` on it throws — one unreadable file taking down the whole
+    // alias check.
+    expect(parseJsonc('null')).toEqual({ ok: true, value: null });
+    expect(pathAliasKeys({ 'tsconfig.json': 'null' })).toEqual(new Set());
+    expect(detectAliases({ 'tsconfig.json': 'null' })).toEqual({});
+  });
+
+  it('keeps a comma that separates two members', () => {
+    expect(parseJsonc('{ "a": 1, "b": 2 }')).toEqual({ ok: true, value: { a: 1, b: 2 } });
   });
 });
 
