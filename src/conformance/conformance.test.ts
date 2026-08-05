@@ -500,6 +500,68 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
   });
 });
 
+describe('one config, artifacts that agree about it (field runs #83–#84)', () => {
+  it('does not let the contract promise lint catches a cycle', async () => {
+    // `cycles` is on LINT_GATED_RULE_IDS — which answers "gated at all?" — while its
+    // runtime is `inspect`, because import/no-cycle re-walks the graph per file. The
+    // handbook has said so since field issue #52; the contract had not, and the
+    // previous release attached "by the generated eslint config" to the undivided
+    // list. A field agent found the two artifacts disagreeing and read the contract
+    // as promising a green lint covers cycles. README's whole claim is that artifacts
+    // generated from one config cannot contradict each other.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+
+    const contract = read(dir, 'CLAUDE.md') ?? '';
+
+    expect(contract).toContain('`cycles`');
+    expect(contract).toContain('held by `npx blueprint inspect --baseline` instead');
+    expect(contract).toContain('a green lint says nothing about it');
+    // …and it must not be counted among what lint holds.
+    expect(contract).not.toMatch(/`cycles`[^.;]*fail `npm run lint`/);
+
+    // The handbook, from the same config, says the same thing.
+    const handbook = read(dir, 'docs/architecture-handbook.md') ?? '';
+
+    expect(handbook).toContain('cycles');
+    expect(handbook).toContain('inspect');
+  });
+
+  it('says what codeStyle will demand, on the path that never reads the catalog', async () => {
+    // The rule catalog explains how to land ~68 formatting rules (--fix once, its own
+    // commit) and ships inside the authoring playbook — which the preset path never
+    // writes. A Vite starter has no semicolons and the preset asks for them: silent
+    // today because root files are outside the layer globs, an error the day the
+    // first file moves into a layer.
+    const dir = repo({ packageJson: react() });
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).toContain('`codeStyle` on at error tier');
+    expect(init.output).toContain('npx eslint . --fix');
+    expect(init.output).toContain('its own commit');
+    expect(init.output).toContain('fails the day its first file moves into a layer');
+    expect(init.output).toContain('Set `codeStyle: \'off\'`');
+  });
+
+  it('stays quiet about codeStyle on a repo that already had a config', async () => {
+    // Not a codeStyle test — a path test. An existing config means the owner already
+    // chose, so the note has nothing to announce. (The condition's other half needs an
+    // injected blueprint to reach, so it is covered in bootstrap's own tests; asserting
+    // it here would pass for the wrong reason, since this branch short-circuits first.)
+    const dir = repo({ packageJson: react() });
+
+    write(dir, 'blueprint.config.mjs', configSource(reactBlueprint));
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).not.toContain('codeStyle` on at error tier');
+  });
+});
+
 describe('naming the cause, so a claim can be checked (field runs #79–#81)', () => {
   it('names the .gitignore rule that hid the handbook, not only the file', async () => {
     // A field agent ran `git check-ignore` AFTER init appended its negation, got

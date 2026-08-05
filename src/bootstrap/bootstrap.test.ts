@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { BROWNFIELD_MIN_FILES } from './authoring';
 import { runInit } from './bootstrap';
-import { nextPreset, vuePreset } from '../presets';
+import { nextPreset, reactPreset, vuePreset } from '../presets';
 
 let root: string;
 
@@ -1082,6 +1082,36 @@ describe('runInit · --agent persists into the scaffolded config', () => {
 
     expect(takeover.some((action) => action.kind === 'rm')).toBe(true);
     expect(exists('blueprint-authoring.md')).toBe(true);
+  });
+});
+
+describe('runInit · the codeStyle heads-up is scoped to a fresh scaffold', () => {
+  it('announces what codeStyle will demand when init generated the config', async () => {
+    writePkg({ name: 'demo', dependencies: { react: '^18' } });
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('`codeStyle` on at error tier'),
+    )).toBe(true);
+  });
+
+  it('says nothing when the config was already the repo\'s own', async () => {
+    // The owner already chose; there is nothing to announce. Both halves matter — a
+    // repo with its own config and codeStyle at error tier must stay quiet, which is
+    // what stops the condition collapsing to its second half.
+    writePkg({ name: 'demo', dependencies: { react: '^18' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+
+    const actions = await runInit(root, {
+      install: false,
+      log: silent,
+      loadConfig: async () => reactPreset({ name: 'demo' }),
+    });
+
+    expect(actions.some(
+      (action) => action.kind === 'instruct' && action.note.includes('codeStyle` on at error tier'),
+    )).toBe(false);
   });
 });
 
