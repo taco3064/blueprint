@@ -104,7 +104,11 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     const brownfield = survey.totalFiles >= BROWNFIELD_MIN_FILES;
 
     if (options.authoring || brownfield || (state.hasNext && !state.nextRouter)) {
-      return runAuthoring(root, state, survey, options, log, pristine);
+      // Measured BEFORE anything is written: once init has created the tree, it
+      // cannot tell its own directory from one the owner already had.
+      return runAuthoring(root, state, survey, options, log, pristine, {
+        hadClaudeDir: fs.existsSync(path.join(root, '.claude')),
+      });
     }
 
     // This fork is the biggest decision init makes — narrate it, and say
@@ -406,8 +410,10 @@ function runAuthoring(
   // No default: the one caller always decides, so a default here would be a value
   // nothing ever reads — dead on arrival and invisible to every test.
   removeScaffold: boolean,
+  facts: { hadClaudeDir: boolean },
 ): Action[] {
   const actions = authoringActions(survey, {
+    ...facts,
     packageManager: state.packageManager,
     needsInstall: state.missingDeps.includes('@kekkai/blueprint'),
     install: options.install,

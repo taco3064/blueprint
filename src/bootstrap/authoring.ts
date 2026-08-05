@@ -29,6 +29,20 @@ export const BROWNFIELD_MIN_FILES = 10;
 
 export interface AuthoringOptions {
   packageManager: PackageManager;
+  /**
+   * True when `.claude/` already existed before this run.
+   *
+   * The cleanup step used to assert "init created the tree only to hold this
+   * command" — a fact init knows and had not checked, and false on any repo whose
+   * owner already uses Claude Code. A field agent went back to its own opening
+   * `ls -la` to verify before running `rmdir`, and said so: the tool leaned on the
+   * agent for something it could measure itself.
+   *
+   * Required, and with no default further down: the playbook states this as fact, so
+   * no caller may leave it unstated — a default would be a value nothing reads, and
+   * nothing reading it is exactly what makes a wrong one invisible.
+   */
+  hadClaudeDir: boolean;
   /** True when `@kekkai/blueprint` is not yet a dependency of the project. */
   needsInstall: boolean;
   /** Skip the install action when false (`--no-install`) — instruct instead. */
@@ -54,7 +68,7 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
     {
       kind: 'write',
       path: AUTHORING_FILE,
-      content: authoringBrief(survey, command, options.next),
+      content: authoringBrief(survey, command, options),
       note: `${AUTHORING_FILE} (authoring playbook + survey evidence)`,
     },
     {
@@ -94,7 +108,17 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
 }
 
 /** The playbook: goal, method, acceptance gates, and the survey evidence. */
-export function authoringBrief(survey: SurveyResult, install: string, next = false): string {
+export function authoringBrief(
+  survey: SurveyResult,
+  install: string,
+  // An options object, not two positional booleans. `hadClaudeDir` is required and
+  // `next` has a default, so positionally every caller had to state `next` in order
+  // to reach the field after it — which silently retired `next`'s default and the
+  // only thing exercising it. Two booleans in a row is how that happens.
+  facts: { next?: boolean; hadClaudeDir: boolean },
+): string {
+  const { next = false, hadClaudeDir } = facts;
+
   const nextNote = !next
     ? ''
     : `
@@ -179,8 +203,13 @@ The complete early-exit checklist — nothing else in this file applies:
    an unexplained mess: "leave them" without that sentence reads as "you
    may not touch these", which is not what it means.
 4. Delete this playbook, \`${COMMAND_FILE}\`, and the now-empty
-   \`.claude/commands/\` directory — and \`.claude/\` itself if that
-   leaves it empty (init created the tree only to hold this command).
+   \`.claude/commands/\` directory${
+      hadClaudeDir
+        ? ` — but NOT \`.claude/\` itself: it was already here before this run, so
+   it is the owner's, whatever ends up left in it.`
+        : ` — and \`.claude/\` itself, which init created
+   only to hold this command (it was not here before this run).`
+    }
    Cleanup comes BEFORE the final gate: doctor treats these authoring
    files as leftovers.
 5. \`npx blueprint doctor\` — all checks green. Then commit what adoption
@@ -300,6 +329,15 @@ the answer belongs in this playbook — note the gap in your report instead.
    constraints, and ownership rules. Translate them; use the matrix to verify.
    (One token trap: structure-lint's \`{folder}\` placeholder is blueprint's
    \`{layer}\` in \`layerFiles\`.)
+   One document family is NOT senior evidence: blueprint's own prior output.
+   A \`docs/architecture-handbook.md\` it generated, and any \`BLUEPRINT:START\`
+   marker block in \`CLAUDE.md\`/\`AGENTS.md\`, are a previous answer to this
+   same question — re-adopting a repo blueprint has already adopted, they will
+   hand you back the old config almost verbatim. Read them as an answer to
+   CHECK, never as intent to translate: derive the flow from the matrix
+   independently first, then compare. Agreeing is the good outcome (that is
+   idempotency); agreeing because you copied is how a mistranslation from the
+   first pass becomes permanent.
    Documents also go stale: cross-check every translated clause against the
    survey below. Where they disagree, the document governs *intent* (layer
    order, ownership) and the code governs *shape* (module layout) — downgrade

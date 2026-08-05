@@ -93,7 +93,7 @@ function folderFindings(
           severity: 'info',
           rule: 'declaratory-self-only',
           path: `src/${layer.name}`,
-          message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands.`,
+          message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands. The no-restricted-syntax ENTRY is emitted today, on the importer layer(s) named above, so it collides today: flat config never merges, and a rule of the same id scoped to one of those layers either replaces this entry or is replaced by it — silently, with lint still green. "Cannot fire" is about the ban, not about the entry. Check \`blueprint rules --json\` for the emit points before merging.`,
         });
       }
     }

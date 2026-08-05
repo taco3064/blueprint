@@ -355,7 +355,14 @@ async function main() {
         return [`## ${run.scenario} × ${run.agent} — staging failed, agent never ran`, '', `> ${run.staging}`, ''];
       }
 
-      const doctorLine = run.doctor.output.trim().split('\n').pop();
+      // The VERDICT line, not the last line. Doctor's banner now carries a note
+      // under it when the repo has no version control, and taking the tail made this
+      // summary report the caveat instead of the outcome — which is what the previous
+      // field batch's own issue titles show. Appending after a conclusion breaks every
+      // reader that assumed the conclusion came last; this one was mine.
+      const lines = run.doctor.output.trim().split('\n');
+      const doctorLine = lines.find((line) => /^[✓✗] Adoption/.test(line.trim()))
+        ?? lines[lines.length - 1];
 
       return [
         `## ${run.scenario} × ${run.agent}`,

@@ -30,7 +30,7 @@ const survey: SurveyResult = {
 
 describe('authoringActions', () => {
   it('writes the playbook, the command file, installs the package, then instructs', () => {
-    const actions = authoringActions(survey, { packageManager: 'pnpm', needsInstall: true });
+    const actions = authoringActions(survey, { packageManager: 'pnpm', needsInstall: true, hadClaudeDir: false });
 
     expect(actions.map((action) => action.kind)).toEqual(['write', 'write', 'install', 'instruct']);
 
@@ -58,7 +58,7 @@ describe('authoringActions', () => {
   });
 
   it('skips the install action when the package is already a dependency', () => {
-    const actions = authoringActions(survey, { packageManager: 'npm', needsInstall: false });
+    const actions = authoringActions(survey, { packageManager: 'npm', needsInstall: false, hadClaudeDir: false });
 
     expect(actions.map((action) => action.kind)).toEqual(['write', 'write', 'instruct']);
   });
@@ -66,7 +66,7 @@ describe('authoringActions', () => {
   it('downgrades to an instruct with the exact command under --no-install', () => {
     const actions = authoringActions(survey, {
       packageManager: 'npm',
-      needsInstall: true,
+      needsInstall: true, hadClaudeDir: false,
       install: false,
     });
 
@@ -79,7 +79,7 @@ describe('authoringActions', () => {
 });
 
 describe('authoringBrief', () => {
-  const brief = authoringBrief(survey, 'pnpm add -D @kekkai/blueprint');
+  const brief = authoringBrief(survey, 'pnpm add -D @kekkai/blueprint', { hadClaudeDir: false });
 
   it('opens with the install prerequisite', () => {
     expect(brief).toContain('## Prerequisites');
@@ -104,7 +104,7 @@ describe('authoringBrief', () => {
   });
 
   it('leads with the early-exit verdict below the threshold (batch 10)', () => {
-    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint');
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { hadClaudeDir: false });
 
     // The conclusion must come before the method, not sit buried inside it.
     expect(small.indexOf('Read this first')).toBeGreaterThan(-1);
@@ -146,8 +146,8 @@ describe('authoringBrief', () => {
 
   it('reads exactly the threshold as brownfield, one below it as the early exit', () => {
     const install = 'npm install -D @kekkai/blueprint';
-    const at = authoringBrief({ ...survey, totalFiles: BROWNFIELD_MIN_FILES }, install);
-    const below = authoringBrief({ ...survey, totalFiles: BROWNFIELD_MIN_FILES - 1 }, install);
+    const at = authoringBrief({ ...survey, totalFiles: BROWNFIELD_MIN_FILES }, install, { hadClaudeDir: false });
+    const below = authoringBrief({ ...survey, totalFiles: BROWNFIELD_MIN_FILES - 1 }, install, { hadClaudeDir: false });
 
     // 120 and 3 leave the boundary itself unasserted, and what sits either
     // side of it is a different playbook — not a shade of wording.
@@ -307,7 +307,7 @@ describe('authoringBrief', () => {
   });
 
   it('carries the Next.js route-tree guidance when next is true', () => {
-    const nextBrief = authoringBrief(survey, 'npm install -D @kekkai/blueprint', true);
+    const nextBrief = authoringBrief(survey, 'npm install -D @kekkai/blueprint', { next: true, hadClaudeDir: false });
 
     expect(nextBrief).toContain('Next.js project');
     expect(nextBrief).toContain('app` → `components');
@@ -335,11 +335,11 @@ describe('authoringBrief · the Next.js note', () => {
     // Defaulting it the other way hands every brief a paragraph about a framework
     // the repo may not use, and tells the reader to declare a layer that is not
     // there.
-    const standalone = authoringBrief(survey, 'npm install -D @kekkai/blueprint');
+    const standalone = authoringBrief(survey, 'npm install -D @kekkai/blueprint', { hadClaudeDir: false });
 
     expect(standalone).not.toContain('Next.js project');
 
-    expect(authoringBrief(survey, 'npm install -D @kekkai/blueprint', true))
+    expect(authoringBrief(survey, 'npm install -D @kekkai/blueprint', { next: true, hadClaudeDir: false }))
       .toContain('Next.js project');
   });
 });
