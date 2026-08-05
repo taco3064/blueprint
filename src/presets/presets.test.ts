@@ -304,3 +304,18 @@ describe('nextPreset', () => {
     expect(files.some((glob) => glob.startsWith('src/'))).toBe(false);
   });
 });
+
+describe('every preset declares codeStyle at error tier', () => {
+  // `init` announces on a fresh scaffold what `codeStyle` will demand — indent,
+  // quotes, semicolons, width, ~68 rules — and does so without re-checking the rule,
+  // because a generated config always comes from one of these presets. This is the
+  // check that keeps that safe: a preset that stops declaring it turns this red rather
+  // than leaving the note describing a gate the adopter does not have.
+  it.each([
+    ['vue', vuePreset({ name: 'p' })],
+    ['react', reactPreset({ name: 'p' })],
+    ['next', nextPreset({ router: 'app', name: 'p' })],
+  ])('%s', (_name, blueprint) => {
+    expect(blueprint.rules?.codeStyle).toBe('error');
+  });
+});

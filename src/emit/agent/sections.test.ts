@@ -13,6 +13,7 @@ import {
   renderPlacement,
 } from './sections';
 import type { ArchitectureDef, AxisDef, Blueprint, PrincipleDef } from '../../config';
+import { enforcedBy, LINT_GATED_RULE_IDS } from '../lint';
 
 function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
   return {
@@ -288,6 +289,32 @@ describe('renderCompactContract', () => {
     expect(out).toContain('`maxLines` = 300');
     expect(out).toContain('the working playbook');
     expect(out).not.toContain('### Where code goes');
+
+    // One inspect-held gate reads in the singular, and is NOT counted among what
+    // lint holds — `cycles` sits on LINT_GATED_RULE_IDS (gated at all?) while its
+    // runtime is inspect, and the contract used to say lint catches it.
+    expect(out).toContain('`cycles` is held by `npx blueprint inspect --baseline`');
+    expect(out).toContain('a green lint says nothing about it');
+    expect(out).not.toMatch(/`cycles`[^.;]*fail `npm run lint`/);
+  });
+
+  it('drops the inspect clause entirely when no such gate is declared', () => {
+    // A clause about an empty set reads as a gap where there is none.
+    const lintOnly = renderCompactContract({
+      ...blueprint(),
+      rules: { maxLines: { tier: 'error' as const, value: 300 } },
+    });
+
+    expect(lintOnly).toContain('`maxLines` = 300 fail `npm run lint`');
+    expect(lintOnly).not.toContain('blueprint inspect --baseline` instead');
+  });
+
+  it('is singular because exactly one gate is inspect-held', () => {
+    // The sentence above says "is held by", with no plural arm — correct today and a
+    // branch nothing could take, so it is not written. This is what makes that safe:
+    // add a second inspect-held rule and this turns red, instead of shipping
+    // "cycles, somethingElse is held by".
+    expect(LINT_GATED_RULE_IDS.filter((id) => enforcedBy(id) === 'inspect')).toEqual(['cycles']);
   });
 
   it('announces only the kinds of content the blueprint carries', () => {

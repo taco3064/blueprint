@@ -9,7 +9,7 @@ import type {
 } from '../../config';
 import { readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
 import { handbookPath } from '../docs';
-import { LINT_GATED_RULE_IDS } from '../lint';
+import { enforcedBy, LINT_GATED_RULE_IDS } from '../lint';
 import { formatOwns } from '../../markdown';
 
 function rulesOfTier(rules: Record<string, RuleSetting> | undefined, tier: Tier) {
@@ -47,13 +47,31 @@ export function renderCompactContract(blueprint: Blueprint): string {
   const chain = architecture.layers.map((layer) => `\`${layer.name}\``).join(' → ');
   const handbook = handbookPath(blueprint);
 
-  const gates = rulesOfTier(rules, 'error')
-    .filter(([id]) => LINT_GATED_RULE_IDS.includes(id))
-    .map(([id, setting]) => {
-      const value = readSetting(setting).value;
+  const label = ([id, setting]: [string, RuleSetting]): string => {
+    const value = readSetting(setting).value;
 
-      return `\`${id}\`${value === undefined ? '' : ` = ${value}`}`;
-    });
+    return `\`${id}\`${value === undefined ? '' : ` = ${value}`}`;
+  };
+
+  // Split by WHICH machine holds each gate, not just whether one does.
+  // `LINT_GATED_RULE_IDS` answers "gated at all?" — `cycles` is on it while its
+  // runtime is `inspect`, because import/no-cycle re-walks the whole graph per file
+  // and was measured at 92s on 850 files. The handbook has separated them since field
+  // issue #52; this contract had not, and the previous release attached "by the
+  // generated eslint config" to the undivided list — turning a true sentence ("a
+  // machine holds these") into a false one for `cycles`. A field agent found the two
+  // artifacts disagreeing and read the contract as promising that lint catches cycles.
+  // It does not, and the contract is the file an agent reads with nothing beside it.
+  // Singular on purpose, not an oversight: exactly one declared rule is inspect-held
+  // (`cycles`), so a plural arm here would be a branch no input can take. That count
+  // is pinned in this module's tests, which turn red on a second one rather than
+  // letting "X, Y is held by" ship.
+  // No `LINT_GATED_RULE_IDS` pre-filter: `enforcedBy` answers `docs` for anything not
+  // on that list, so a rule held by neither machine falls out of both splits below on
+  // its own. Filtering first asked the same question twice.
+  const declared = rulesOfTier(rules, 'error');
+  const lintGates = declared.filter(([id]) => enforcedBy(id) === 'lint').map(label);
+  const inspectGates = declared.filter(([id]) => enforcedBy(id) === 'inspect').map(label);
 
   const extras = [
     ...(blueprint.componentShape?.length ? ['component-shape axes'] : []),
@@ -73,7 +91,9 @@ export function renderCompactContract(blueprint: Blueprint): string {
     // repo as vacuous — and this contract, the one artifact a future agent reads with
     // no CLI output beside it, was the only one that did not. Two field agents flagged
     // the gap independently, one noting it is exactly the file read alone.
-    `- Hard gates (machine-enforced by the generated eslint config, on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${gates.length ? `, ${gates.join(', ')}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
+    // One line, not two: this block is budgeted to one screen, and a caveat is not
+    // worth a line of that budget when it fits as a clause.
+    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail \`npm run lint\`${inspectGates.length ? `; ${inspectGates.join(', ')} is held by \`npx blueprint inspect --baseline\` instead, so a green lint says nothing about it` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
     // --baseline so the verify loop fails only on findings the agent itself
     // introduced — plain inspect stays red forever on locked brownfield debt
     // (field issue #10).

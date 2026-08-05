@@ -500,6 +500,168 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
   });
 });
 
+describe('a proof step states its own reach (field run #85)', () => {
+  const brownfield = () => ({
+    packageJson: react(),
+    files: Object.fromEntries(
+      Array.from({ length: 12 }, (_, i) => [`src/legacy/mod${i}.js`, 'export const x = 1;\n']),
+    ),
+  });
+
+  it('says what a green build proves on a repo with no layer files', async () => {
+    // The lint sentence one line above already carried this caveat; the build sentence
+    // asked for the same kind of proof and did not. With nothing importing through the
+    // alias, a green build proves the tsconfig/vite edits compile — not that the alias
+    // resolves. A field agent derived the downgrade itself and noted the asymmetry.
+    // Forced onto a starter: the early-exit checklist is the only path that asks for a
+    // build, and the only path these three agents were on.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('The same caveat\n   as the lint run applies');
+    expect(playbook).toContain('NOT that the alias\n   resolves');
+    expect(playbook).toContain('report which of the two you got');
+  });
+
+  it('says how to combine against an opaque spread', async () => {
+    // "Combine into ONE entry" had no mechanism: `...emitLint(blueprint)` cannot be
+    // edited from outside. An agent worked out that you place your own combined entry
+    // AFTER the spread and let later-replaces-earlier make it the effective one —
+    // verified it with print-config — and reported that the playbook never says so.
+    const dir = repo(brownfield());
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('is opaque');
+    expect(playbook).toContain('place it AFTER the spread');
+    expect(playbook).toContain('used deliberately');
+    expect(playbook).toContain('the one place print-config is not optional');
+  });
+
+  it('covers a repo under no version control in the artifact branch', async () => {
+    // Raised in five separate runs. The branch stopped at "does the repo have ignore
+    // rules"; with no VCS at all the word untracked describes everything, and each
+    // agent spent a paragraph reasoning it out from first principles.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('no version control at\n   all');
+    expect(playbook).toContain('"untracked" describes everything');
+  });
+});
+
+describe('the same gap, one artifact further along (swept, not field-reported)', () => {
+  it('the handbook states its reach, like the contract now does', async () => {
+    // Field runs #79 and #81 raised this about CLAUDE.md, because CLAUDE.md is what
+    // they read. The handbook is the other durable artifact — the contract links to it
+    // for placement decisions — and it said nothing about the net possibly being empty.
+    // Same class, next artifact. Found by sweeping the fixed findings rather than by
+    // waiting for a run to land on it.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+
+    const handbook = read(dir, 'docs/architecture-handbook.md') ?? '';
+
+    expect(handbook).toContain('Every row reaches only the files a layer glob matches');
+    expect(handbook).toContain('runway rather than protection');
+    expect(handbook).toContain('`blueprint doctor` reports which of the two');
+  });
+
+  it('the merge instruct says an entry is more than its selectors', async () => {
+    // `init --preset` never writes the authoring playbook, and the playbook is where
+    // "carry the emitted block's ignores" lives — the half of a merge that fails
+    // SILENTLY. Both merge shapes already said "combine into ONE entry", which is the
+    // half that fails loudly. Same class as the codeStyle finding above: guidance
+    // reaching only the path that does not need it.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'eslint.config.mjs': 'export default [];\n',
+      },
+    });
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    // The reference is written, so a merge is genuinely ahead of the reader.
+    expect(read(dir, 'eslint.config.blueprint.mjs')).toContain('emitLint');
+    expect(init.output).toContain('An entry is more than its selectors');
+    expect(init.output).toContain('`npx blueprint rules --json` carries both');
+    expect(init.output).toContain('Doctor compares selectors, not scope');
+  });
+});
+
+describe('one config, artifacts that agree about it (field runs #83–#84)', () => {
+  it('does not let the contract promise lint catches a cycle', async () => {
+    // `cycles` is on LINT_GATED_RULE_IDS — which answers "gated at all?" — while its
+    // runtime is `inspect`, because import/no-cycle re-walks the graph per file. The
+    // handbook has said so since field issue #52; the contract had not, and the
+    // previous release attached "by the generated eslint config" to the undivided
+    // list. A field agent found the two artifacts disagreeing and read the contract
+    // as promising a green lint covers cycles. README's whole claim is that artifacts
+    // generated from one config cannot contradict each other.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+
+    const contract = read(dir, 'CLAUDE.md') ?? '';
+
+    expect(contract).toContain('`cycles`');
+    expect(contract).toContain('held by `npx blueprint inspect --baseline` instead');
+    expect(contract).toContain('a green lint says nothing about it');
+    // …and it must not be counted among what lint holds.
+    expect(contract).not.toMatch(/`cycles`[^.;]*fail `npm run lint`/);
+
+    // The handbook, from the same config, says the same thing.
+    const handbook = read(dir, 'docs/architecture-handbook.md') ?? '';
+
+    expect(handbook).toContain('cycles');
+    expect(handbook).toContain('inspect');
+  });
+
+  it('says what codeStyle will demand, on the path that never reads the catalog', async () => {
+    // The rule catalog explains how to land ~68 formatting rules (--fix once, its own
+    // commit) and ships inside the authoring playbook — which the preset path never
+    // writes. A Vite starter has no semicolons and the preset asks for them: silent
+    // today because root files are outside the layer globs, an error the day the
+    // first file moves into a layer.
+    const dir = repo({ packageJson: react() });
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).toContain('`codeStyle` on at error tier');
+    expect(init.output).toContain('npx eslint . --fix');
+    expect(init.output).toContain('its own commit');
+    expect(init.output).toContain('fails the day its first file moves into a layer');
+    expect(init.output).toContain('Set `codeStyle: \'off\'`');
+  });
+
+  it('stays quiet about codeStyle on a repo that already had a config', async () => {
+    // Not a codeStyle test — a path test. An existing config means the owner already
+    // chose, so the note has nothing to announce. (The condition's other half needs an
+    // injected blueprint to reach, so it is covered in bootstrap's own tests; asserting
+    // it here would pass for the wrong reason, since this branch short-circuits first.)
+    const dir = repo({ packageJson: react() });
+
+    write(dir, 'blueprint.config.mjs', configSource(reactBlueprint));
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).not.toContain('codeStyle` on at error tier');
+  });
+});
+
 describe('naming the cause, so a claim can be checked (field runs #79–#81)', () => {
   it('names the .gitignore rule that hid the handbook, not only the file', async () => {
     // A field agent ran `git check-ignore` AFTER init appended its negation, got

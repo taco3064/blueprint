@@ -246,6 +246,28 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     });
   }
 
+  // `codeStyle` at error tier pins indent, quotes, semicolons and line width — about
+  // 68 rules. The rule catalog says how to land that ("nearly all auto-fixable, run
+  // --fix once as its own commit"), and the catalog ships in the authoring playbook,
+  // which THIS path never writes: a preset scaffold reaches `init` and stops. So the
+  // guidance existed on the one path that did not need it. It matters most where the
+  // repo already has a style: a Vite starter is written without semicolons, and the
+  // preset asks for them — invisible today, because root files are exempt, and an
+  // error the day the first file moves into a layer (field run #84).
+  //
+  // No `codeStyle` check beside the scaffold check: a generated `configSource` always
+  // comes from a preset (`resolveBlueprint` consults `loadConfig` only when a config
+  // already exists), and every preset declares `codeStyle` at error tier. Asking again
+  // was a condition nothing could falsify. `presets.test.ts` pins that, so a preset
+  // that stops declaring it turns red instead of leaving this note claiming a gate the
+  // adopter does not have.
+  if (configSource !== null) {
+    actions.push({
+      kind: 'instruct',
+      note: 'The preset turned `codeStyle` on at error tier: it pins indent (2), quotes (single), semicolons (required) and line width (90) across ~68 rules. Nearly all are auto-fixable — run `npx eslint . --fix` once and land that pass as its own commit, so the formatting churn never mixes with a real change. It exempts nothing by style: a starter written without semicolons is silent now (root files sit outside the layer globs) and fails the day its first file moves into a layer. Already have a formatter you trust? Set `codeStyle: \'off\'` in the config and keep yours — blueprint does not need it to enforce structure.',
+    });
+  }
+
   // The greenfield default emits both shared contracts — surface the
   // emit.agents narrowing the playbook itself recommends.
   if (!blueprint.emit?.agents && !agentTarget) {

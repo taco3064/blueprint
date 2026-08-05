@@ -268,11 +268,19 @@ export function renderRules(rules: Record<string, RuleSetting> | undefined): str
     '',
     table(['Rule', 'Tier', 'Option', 'Enforced by'], rows),
     '',
+    // Reach, not only tier and machine. This document outlives the adoption and the
+    // agent contract links to it, so it is read long after the CLI output that marks a
+    // net over an empty repo as vacuous. Two field agents raised exactly this about the
+    // contract; the same gap sat one artifact further along. Stated glob-relative rather
+    // than as a count, because this file is generated from the blueprint alone — it
+    // cannot see the repo, and a number would be wrong the day code lands.
     'The tier is what the enforcing machine does with a violation: `error` fails, '
     + '`warn` is advisory, `off` is disabled. Which machine differs — `lint` rows fail '
     + '`npm run lint`, `blueprint inspect` rows fail that command and never appear in a '
     + 'lint run, and documentation-only rows are recorded intent with no gate behind '
-    + 'them at any tier.',
+    + 'them at any tier. Every row reaches only the files a layer glob matches: a '
+    + 'declared layer holding no code has nothing that can fail, which is runway rather '
+    + 'than protection — `blueprint doctor` reports which of the two this repo has today.',
   ].join('\n');
 }
 
