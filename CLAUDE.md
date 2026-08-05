@@ -66,6 +66,11 @@ is not in the config). Field batches 10–12 are the case law.
   `// Stryker disable` comment**; where two guards shield each other, the proof
   names which one keeps the other honest — removing either alone still passes.
   Not chased to 100%.
+- **A string list is one contract per member.** Cover each entry, or the rest can
+  be deleted with the suite green — and every entry in these lists is a real file,
+  directory, rule id, or API name an adopter has. `it.each` over the list is the
+  shape; restate the list in the test when the source keeps it private, so a
+  removal turns one case red.
 - **Formatting is ESLint-driven** (`@stylistic/*`); there is no Prettier. Run
   `npm run lint` / `eslint . --fix`. Enforcement rules mirror the handbook
   stance: never `eslint-disable` to dodge a rule; fix the structure.
