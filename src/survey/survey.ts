@@ -85,8 +85,16 @@ const TEST_PATTERNS: { pattern: string; test: (filePath: string) => boolean }[] 
   { pattern: 'src/test/**', test: (p) => p.startsWith('src/test/') || p.startsWith('src/tests/') },
 ];
 
-/** Direct + scoped dependency names from package.json (prod and dev). */
-function dependencyNames(root: string): string[] {
+/**
+ * Direct + scoped dependency names from package.json (prod and dev).
+ *
+ * Exported for its own test. The failure arm answers `[]`, and through `runSurvey`
+ * that is indistinguishable from answering a list of names nobody imports — the
+ * list exists to be matched against import specifiers, and a wrong name matches
+ * nothing. Asked directly, "no readable package.json is no dependencies" is one
+ * value to compare.
+ */
+export function dependencyNames(root: string): string[] {
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8')) as {
       dependencies?: Record<string, string>;

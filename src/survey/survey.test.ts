@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { renderSurvey, ROOT_BUCKET, runSurvey } from './survey';
+import { dependencyNames, renderSurvey, ROOT_BUCKET, runSurvey } from './survey';
 
 let root: string;
 
@@ -415,5 +415,36 @@ describe('runSurvey · which dependency claims a subpath', () => {
 
     expect(runSurvey(root, { log: silent }).packageUsage)
       .toEqual([{ package: 'axios/lib', folders: ['services'] }]);
+  });
+});
+
+describe('dependencyNames · what "no package.json" answers', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-deps-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('answers nothing for a missing or malformed package.json', () => {
+    // The exact list, not its emptiness. Through `runSurvey` this arm is
+    // undecidable: the names exist to be matched against import specifiers, so a
+    // wrong name matches nothing and reads exactly like no names at all.
+    expect(dependencyNames(dir)).toEqual([]);
+
+    fs.writeFileSync(path.join(dir, 'package.json'), '{ not json');
+    expect(dependencyNames(dir)).toEqual([]);
+  });
+
+  it('reads prod and dev dependencies together, scoped names included', () => {
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ dependencies: { vue: '^3' }, devDependencies: { '@vitejs/plugin-vue': '^5' } }),
+    );
+
+    expect(dependencyNames(dir)).toEqual(['vue', '@vitejs/plugin-vue']);
   });
 });
