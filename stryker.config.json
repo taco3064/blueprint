@@ -6,6 +6,16 @@
     "config). It answers one question about THIS repo's own suite: 100% line",
     "coverage says every line ran, not that a wrong line would be caught.",
     "",
+    "Every source file is mutated. `*.test.ts` is the one exclusion, and it is",
+    "not a judgement call: mutating an assertion and then asking the same",
+    "assertion whether it noticed is circular. Three other exclusions used to sit",
+    "here and were measured out — `index.ts` (14 barrel files, 0 mutants between",
+    "them: a re-export has nothing to mutate once the module path counts as a",
+    "string), `src/e2e/**` (one file, already covered by the test-file rule), and",
+    "`src/conformance/**` (29 real mutants, so it is measured now rather than",
+    "hidden). Lifting all three moved the score 97.86% -> 97.81%; two of them",
+    "were rules that protected nothing while reading as though they did.",
+    "",
     "StringLiteral is excluded, and the reason is a measured line rather than a",
     "blanket claim. Enabling it repo-wide gives 87.79% against 97.86% (6808",
     "mutants against 4574): 2234 of them are string literals, and 731 of those",
@@ -37,10 +47,7 @@
   "coverageAnalysis": "perTest",
   "mutate": [
     "src/**/*.ts",
-    "!src/**/*.test.ts",
-    "!src/**/index.ts",
-    "!src/conformance/**",
-    "!src/e2e/**"
+    "!src/**/*.test.ts"
   ],
   "mutator": {
     "excludedMutations": ["StringLiteral"]

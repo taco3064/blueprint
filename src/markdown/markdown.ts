@@ -54,7 +54,10 @@ export function injectBetweenMarkers(source: string, tag: string, content: strin
   const startIdx = source.indexOf(start);
   const endIdx = source.indexOf(end);
 
-  if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
+  // A missing END needs no test of its own: `indexOf` answers -1, and -1 is below
+  // any real START index, so the ordering check already rejects it. Spelling it out
+  // as a third condition could never decide anything the other two had not.
+  if (startIdx === -1 || endIdx < startIdx) {
     throw new Error(`Markers "${start}" / "${end}" not found (or out of order) in source.`);
   }
 

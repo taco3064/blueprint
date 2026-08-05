@@ -93,7 +93,9 @@ function walk(dir: string, base: string, prefix: string, files: ScannedFile[]): 
  * to the root so `segments[0]` is always the layer.
  */
 export function scan(root: string, sourceRoot = 'src'): ScanResult {
-  const base = sourceRoot === '.' ? root : path.join(root, sourceRoot);
+  // No special case for '.': `path.join(root, '.')` normalises to `root`, so the
+  // branch that used to sit here could only ever produce the same base path.
+  const base = path.join(root, sourceRoot);
 
   if (!fs.existsSync(base)) {
     return { topDirs: [], files: [] };

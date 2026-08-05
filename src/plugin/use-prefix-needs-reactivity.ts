@@ -46,14 +46,18 @@ export const usePrefixNeedsReactivity: Rule.RuleModule = {
       CallExpression(node) {
         const callee = node.callee;
 
+        // '' rather than null for "no readable name": the allowlist holds only
+        // real API names, so the empty string misses it the same way null would —
+        // and the lookup then needs no null guard in front of it, which is a
+        // TypeScript requirement rather than a behavioural one.
         const name
           = callee.type === 'Identifier'
             ? callee.name
             : callee.type === 'MemberExpression' && callee.property.type === 'Identifier'
               ? callee.property.name
-              : null;
+              : '';
 
-        if (name !== null && REACTIVE_API.has(name)) reactive = true;
+        if (REACTIVE_API.has(name)) reactive = true;
       },
       'Program:exit'(node) {
         if (!reactive) context.report({ node, messageId: 'pure', data: { base } });

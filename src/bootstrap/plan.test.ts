@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { plan } from './plan';
 import { reactPreset, vuePreset } from '../presets';
+import type { Blueprint } from '../config';
 import type { Action } from './types';
 import type { ProjectState } from '../project';
 
@@ -689,5 +690,55 @@ describe('plan · every action is labelled so the reader can locate it', () => {
           .toContain(action.path);
       }
     }
+  });
+});
+
+describe('plan · the reference beside a hand-written contract', () => {
+  // The whole point of this branch is to leave the author's document alone and
+  // put the generated block in a file NEXT to it. That only holds if the
+  // reference path differs from the original — and `emit.agents` accepts any
+  // path, so the extension is not guaranteed to be `.md`.
+  const handWritten = (contractPath: string) => {
+    const bp: Blueprint = {
+      ...vuePreset(),
+      emit: { agents: [{ target: 'claude', path: contractPath }] },
+    };
+
+    return plan(state({ hasConfig: true }), bp, null, {
+      existingAgentFiles: { [contractPath]: '# notes I maintain by hand\n' },
+    });
+  };
+
+  it.each([
+    ['ctx.md', 'ctx.blueprint.md'],
+    // A Cursor rules folder, and a docs site — both ordinary places to point a
+    // contract at, and neither ends in `.md`.
+    ['.cursor/rules/context.mdc', '.cursor/rules/context.blueprint.mdc'],
+    ['docs/context.mdx', 'docs/context.blueprint.mdx'],
+    // No extension at all: the suffix still has to go somewhere.
+    ['CONTEXT', 'CONTEXT.blueprint'],
+  ])('writes the reference for %s to %s', (contractPath, expected) => {
+    const actions = handWritten(contractPath);
+    const written = actions.filter((action) => action.kind === 'write').map((a) => a.path);
+
+    expect(written).toContain(expected);
+
+    // The load-bearing half: the hand-written file is NOT among the writes.
+    // A reference path that collapses onto the original turns "leave it alone,
+    // put a copy beside it" into "overwrite it", and the author's document is
+    // gone with no warning — the plan even announces it as a reference.
+    expect(written).not.toContain(contractPath);
+  });
+
+  it('names the reference in both the write note and the integrate instruct', () => {
+    const actions = handWritten('.cursor/rules/context.mdc');
+    const write = actions.find((a) => a.kind === 'write' && a.path.includes('blueprint.mdc'));
+    const instruct = actions.find((a) => a.kind === 'instruct' && a.note.includes('hand-written'));
+
+    // Both messages carry the derived name, so a reader who only sees one of
+    // them can still find the file — and neither can drift from the path above.
+    expect(write?.note).toContain('.cursor/rules/context.blueprint.mdc');
+    expect(instruct?.note).toContain('.cursor/rules/context.blueprint.mdc');
+    expect(instruct?.note).toContain('.cursor/rules/context.mdc');
   });
 });

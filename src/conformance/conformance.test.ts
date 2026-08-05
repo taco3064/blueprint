@@ -1706,3 +1706,52 @@ describe('the merge recipe hands over the whole entry, not just its selectors (#
     expect(out.output).toContain('*.test.');
   });
 });
+
+/**
+ * The fixture DSL's own behaviour, rather than an adoption scenario.
+ *
+ * It lives here because `conformance.ts` is the file this test file is named
+ * after, and because the DSL is now mutated like any other source: it drives
+ * every scenario above, so a defect in it does not fail — it makes a batch of
+ * scenarios pass against the wrong thing.
+ */
+describe('the fixture DSL itself', () => {
+  it('puts console back after a run', () => {
+    // `cli()` swaps console.log/error to capture output and restores them in a
+    // finally. Skip the restore and every later console call in the process
+    // appends to an array nobody reads: the next scenario's `output` comes back
+    // empty and its assertions pass against nothing. A whole batch of green with
+    // no evidence behind it, which is worse than a red.
+    const log = console.log;
+    const error = console.error;
+
+    return cli(repo(), ['--version']).then((result) => {
+      expect(result.code).toBe(0);
+      expect(console.log).toBe(log);
+      expect(console.error).toBe(error);
+    });
+  });
+
+  it('names the manifest it writes when the spec does not', () => {
+    // detect reads `pkg.name` into `projectName`, which titles the handbook and
+    // is quoted into the generated config. A nameless default would run every
+    // scenario that does not care about the name against a manifest npm rejects.
+    expect(JSON.parse(read(repo(), 'package.json') ?? 'null')).toEqual({ name: 'fixture' });
+
+    // And a spec that DOES name it wins — the default is a fallback, not a floor.
+    expect(JSON.parse(read(repo({ packageJson: react() }), 'package.json') ?? 'null'))
+      .toMatchObject({ name: 'fixture', dependencies: { react: '^18.0.0' } });
+  });
+
+  it('removes a path that is already gone without throwing', () => {
+    // Scenarios delete artifacts mid-test (the authoring cleanup, for one) and
+    // the afterEach sweeps the same paths again. Without `force`, that second
+    // removal throws ENOENT out of teardown and takes the rest of the queue's
+    // cleanup with it — leaving temp dirs behind on every later failure.
+    const dir = makeRepo();
+
+    rm(dir);
+    expect(() => rm(dir)).not.toThrow();
+    expect(read(dir, 'package.json')).toBeNull();
+  });
+});

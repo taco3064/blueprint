@@ -284,24 +284,25 @@ export function detect(root: string): ProjectState {
  * need this: a tsconfig's own data contains `/*` (every `"@/*"` paths key),
  * so nothing may be stripped inside a string.
  */
-function copyString(text: string, i: number, out: string[]): number {
-  out.push(text[i]);
+function copyString(text: string, i: number): { copied: string; next: number } {
+  let copied = text[i];
+
   i++;
 
   while (i < text.length && text[i] !== '"') {
-    out.push(text[i]);
+    copied += text[i];
 
     if (text[i] === '\\' && i + 1 < text.length) {
-      out.push(text[i + 1]);
+      copied += text[i + 1];
       i++;
     }
 
     i++;
   }
 
-  if (i < text.length) out.push(text[i]);
+  if (i < text.length) copied += text[i];
 
-  return i + 1;
+  return { copied, next: i + 1 };
 }
 
 /**
@@ -313,11 +314,21 @@ function copyString(text: string, i: number, out: string[]): number {
  * not JSON after stripping.
  */
 export function parseJsonc(text: string): unknown {
-  const stripped: string[] = [];
+  // Both passes accumulate into a STRING, not an array joined at the end. The
+  // difference is that a string says when the scan reads past the end:
+  // `'' + undefined` is the four characters "undefined", where
+  // `[undefined].join('')` is silently empty. Every index bound in here was
+  // therefore unfalsifiable — a scan running one character too far produced
+  // byte-identical output — and the bounds are the whole correctness argument of
+  // a hand-written scanner.
+  let commentFree = '';
 
   for (let i = 0; i < text.length;) {
     if (text[i] === '"') {
-      i = copyString(text, i, stripped);
+      const { copied, next } = copyString(text, i);
+
+      commentFree += copied;
+      i = next;
     } else if (text[i] === '/' && text[i + 1] === '/') {
       while (i < text.length && text[i] !== '\n') i++;
     } else if (text[i] === '/' && text[i + 1] === '*') {
@@ -327,34 +338,36 @@ export function parseJsonc(text: string): unknown {
 
       i += 2;
     } else {
-      stripped.push(text[i]);
+      commentFree += text[i];
       i++;
     }
   }
 
   // Second pass, comment-free: drop a comma whose next non-space is `}`/`]`.
-  const clean: string[] = [];
-  const commentFree = stripped.join('');
+  let clean = '';
 
   for (let i = 0; i < commentFree.length;) {
     if (commentFree[i] === '"') {
-      i = copyString(commentFree, i, clean);
+      const { copied, next } = copyString(commentFree, i);
+
+      clean += copied;
+      i = next;
     } else if (commentFree[i] === ',') {
       let next = i + 1;
 
       while (next < commentFree.length && /\s/.test(commentFree[next])) next++;
 
-      if (commentFree[next] !== '}' && commentFree[next] !== ']') clean.push(',');
+      if (commentFree[next] !== '}' && commentFree[next] !== ']') clean += ',';
 
       i++;
     } else {
-      clean.push(commentFree[i]);
+      clean += commentFree[i];
       i++;
     }
   }
 
   try {
-    return JSON.parse(clean.join(''));
+    return JSON.parse(clean);
   } catch {
     return null; // Still broken after stripping — the --alias flag covers this honestly.
   }
