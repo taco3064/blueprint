@@ -500,6 +500,82 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
   });
 });
 
+describe('a number and a rule the reader can act on (field run #89)', () => {
+  it('names the files outside the layer nets, not just how many', async () => {
+    // `272/275` reads identically whether the three are root wiring (outside by design)
+    // or a layer file a mistyped glob dropped out. A field agent confirmed its globs by
+    // other means and said the number itself was not what told it.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'src/components/Button.jsx': 'export const Button = () => null;\n',
+        'src/main.jsx': 'export const boot = 1;\n',
+      },
+    });
+
+    await cli(dir, ['init', '--no-install']);
+    write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.output).toContain('outside: src/main.jsx');
+    expect(inspect.output).toContain('root wiring belongs here; a layer file does not');
+  });
+
+  it('tells the contract reader which remedy is theirs', async () => {
+    // `inspect` offers two ways out of an undeclared folder — declare it, or move the
+    // code. Every contract said only "do not create them", so an agent reading nothing
+    // else contorts new code into an existing layer instead of reporting that the
+    // architecture outgrew the config. Declaring a layer is the owner's call, the same
+    // call the playbook keeps away from an adopting agent.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+
+    const contract = read(dir, 'CLAUDE.md') ?? '';
+
+    expect(contract).toContain('Its finding names two remedies and only one is yours');
+    expect(contract).toContain('never declare the layer yourself');
+  });
+});
+
+describe('a flag states its outcome, not only its mechanism (field run #88)', () => {
+  it('--authoring says where it lands on a small repo', async () => {
+    // Four agents reached for this flag and had to work out from the run's output that
+    // below the threshold it forces the PLAYBOOK, whose own verdict then sends them to
+    // --preset. One asked outright whether that reading matched the user's intent. The
+    // help described the mechanism and left the outcome to be discovered.
+    const dir = repo({ packageJson: react() });
+
+    const help = await cli(dir, ['init', '--help']);
+
+    expect(help.code).toBe(0);
+    expect(help.output).toContain('Force the authoring playbook even on a small repo');
+    expect(help.output).toContain('Forces the PLAYBOOK, not a hand-authored config');
+    expect(help.output).toContain('ends by running --preset');
+  });
+
+  it('the re-authoring refusal names what cannot come back', async () => {
+    // "exists and has been edited" asserted something init never measured — a config a
+    // previous agent authored differs from a fresh scaffold without anyone editing it,
+    // and a field run was told it had edited a file it had only committed. And
+    // "discard your work" reads as recoverable: the structure is (one run reproduced it
+    // byte for byte), the rationale comments are not.
+    const dir = repo({ packageJson: react() });
+
+    write(dir, 'blueprint.config.mjs', '// why 400: largest file is 117 lines\nexport default {};\n');
+
+    const init = await cli(dir, ['init', '--authoring', '--no-install']);
+
+    expect(init.code).toBe(1);
+    expect(init.output).toContain('differs from what init would scaffold');
+    expect(init.output).toContain('The structure is reproducible');
+    expect(init.output).toContain('Copy anything you want to keep');
+    // …and it kept its hands off the file.
+    expect(read(dir, 'blueprint.config.mjs')).toContain('why 400');
+  });
+});
+
 describe('a proof step states its own reach (field run #85)', () => {
   const brownfield = () => ({
     packageJson: react(),
