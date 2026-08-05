@@ -73,6 +73,24 @@ describe('relativeVerdict', () => {
   it('leaves a flat layer alone — it has no module folders to be inside of', () => {
     expect(relativeVerdict(['utils', 'date.ts'], ['utils', 'money.ts'], layoutOf, entryOf))
       .toBe('ok');
+
+    // The DEEP case, and the invariant this function's shape rests on: a flat
+    // layer has no inside, so a nested relative path within it is not reaching
+    // into anything. Only the sibling case was covered, and there `moduleKey`
+    // collapses both sides to the layer name whatever the layout says — so a
+    // `layoutOf` that answered nonsense produced the same verdict, and the check
+    // that used to catch that (`layoutOf(layer) !== 'folder'`, removed as
+    // unreachable) was the suite's only hold on it.
+    expect(relativeVerdict(['utils', 'date.ts'], ['utils', 'sub', 'helper.ts'], layoutOf, entryOf))
+      .toBe('ok');
+
+    // …while the same shape under a FOLDER layer is exactly what is banned.
+    expect(relativeVerdict(
+      ['resources', 'matches', 'index.ts'],
+      ['resources', 'players', 'parts', 'Row.ts'],
+      layoutOf,
+      entryOf,
+    )).toBe('reaches-inside');
   });
 });
 
