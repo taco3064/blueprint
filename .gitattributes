@@ -1,0 +1,25 @@
+# LF everywhere, on every platform.
+#
+# This repo's own emitted config carries `@stylistic/linebreak-style: unix`, so LF
+# is the stance it takes for the projects it governs; taking a different one for
+# its own tree would be odd. But the reason this file exists is narrower and
+# sharper: `fixtures/adoption/**` are byte-exact test inputs.
+#
+# On Windows, git's default `core.autocrlf=true` rewrites them at checkout. An
+# assertion like `expect(read('CLAUDE.md')).toBe('@AGENTS.md\n')` — which proves
+# blueprint left a hand-written file ALONE — then fails against '@AGENTS.md\r\n',
+# comparing not what blueprint wrote but what git changed on the way in. The
+# fixture stops being a fixture.
+#
+# This does NOT mean CRLF input is out of scope: an adopter's own tsconfig on
+# Windows is very often CRLF, and reading one is a real requirement. That case is
+# covered by tests that build CRLF text explicitly, where the line ending is the
+# subject rather than an accident of checkout.
+* text=auto eol=lf
+
+# Binary-ish assets, left untouched.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

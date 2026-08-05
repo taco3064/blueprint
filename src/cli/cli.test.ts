@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { isCliEntry, parseDepsArgs, parseDoctorArgs, parseImpactArgs, parseInitArgs, parseInspectArgs, parseRulesArgs, parseSurveyArgs, run, version } from './cli';
@@ -116,7 +117,13 @@ describe('run', () => {
 
 describe('isCliEntry', () => {
   // isCliEntry compares against cli.ts's own module URL — not this test file's.
-  const self = path.join(path.dirname(new URL(import.meta.url).pathname), 'cli.ts');
+  //
+  // Via fileURLToPath, never `new URL(...).pathname`: on Windows the pathname of
+  // a file URL is `/D:/a/repo/...`, with a leading slash and forward slashes, and
+  // joining onto that yields a path no filesystem call can resolve. The old form
+  // made realpathSync throw, isCliEntry answer false, and this test claim the
+  // entry guard was broken on a platform where it is fine.
+  const self = path.join(path.dirname(fileURLToPath(import.meta.url)), 'cli.ts');
 
   it('recognizes the real path and — critically — an npm-style bin symlink', () => {
     // Direct invocation: node dist/bin.js
