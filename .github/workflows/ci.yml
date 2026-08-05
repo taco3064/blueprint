@@ -31,10 +31,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
@@ -66,3 +66,44 @@ jobs:
       # done nothing.
       - name: Verify the built artifact
         run: npm run dist:verify
+
+  # `engines` declares ^18.18.0 as the oldest Node an adopter may be on. The
+  # matrix above runs the .nvmrc version, so that floor was a claim read off the
+  # source — every Node API in `src/` predates 18 — rather than something a run
+  # had ever executed. Same "documented but never measured" shape this repo has
+  # been closing elsewhere, so it gets measured.
+  #
+  # The devDependencies cannot install on 18 (vitest needs ^20 || >=22), and they
+  # do not need to: what `engines` constrains is the ADOPTER's runtime. So the
+  # check is the built artifact on the floor — build on the current Node, then
+  # execute `dist/bin.js` and import the package entry on 18.18.0 exactly, not
+  # 18.x, because the floor is the version being claimed.
+  engines-floor:
+    name: node 18 (declared engines floor)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node for the build
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the package
+        run: npm run build
+
+      - name: Switch to the declared floor
+        uses: actions/setup-node@v7
+        with:
+          node-version: '18.18.0'
+
+      # Called directly rather than through `npm run`, so what runs the artifact
+      # is the floor's own node and nothing else is in the way.
+      - name: Run the artifact on it
+        run: node scripts/dist-verify.mjs

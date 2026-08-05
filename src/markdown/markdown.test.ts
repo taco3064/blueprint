@@ -14,6 +14,20 @@ describe('escapeCell', () => {
     expect(escapeCell('  padded  ')).toBe('padded');
     expect(escapeCell('\ntrailing\n')).toBe('trailing');
   });
+
+  it('collapses a CRLF run without leaving the carriage return behind', () => {
+    // A blueprint edited on Windows carries CRLF inside a multi-line `does` or
+    // `mustNot`. Collapsing `\n` alone leaves the `\r` mid-cell, where the
+    // trailing trim cannot reach it — and a stray control character inside a
+    // table cell is a rendering problem in the handbook, not in the config.
+    expect(escapeCell('a\r\nb')).toBe('a b');
+    expect(escapeCell('a\r\n\r\nb')).toBe('a b');
+    expect(escapeCell('\r\ntrailing\r\n')).toBe('trailing');
+    expect(escapeCell('a | b\r\nc')).toBe('a \\| b c');
+
+    // Nothing that looks like a line break survives into the cell.
+    expect(escapeCell('a\r\nb\nc\rd')).not.toMatch(/[\r\n]/);
+  });
 });
 
 describe('table', () => {

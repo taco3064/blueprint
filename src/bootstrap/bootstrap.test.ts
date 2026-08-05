@@ -1452,3 +1452,40 @@ describe('runInit · the ignore check sees the narrowed contract', () => {
     expect(note).toContain('CLAUDE.md');
   });
 });
+
+describe('runInit · a .gitignore that arrived with CRLF', () => {
+  it('detects the ignored artifacts and appends on the file\'s own line ending', async () => {
+    // A .gitignore on Windows is usually CRLF, and two things had to hold for
+    // this to work at all. The rules are parsed per line, so a stray `\r` on the
+    // pattern would stop `CLAUDE.md` matching itself and the artifacts would look
+    // un-ignored — the whole field #4 detection going quiet. And the appended
+    // block has to take the file's ending rather than LF, or blueprint is the
+    // reason a tracked file ends up with two conventions in it.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\r\ndocs\r\n');
+
+    await runInit(root, { install: false, log: silent });
+
+    const gitignore = read('.gitignore');
+
+    // Detection still fired: the negations are there.
+    expect(gitignore).toContain('!CLAUDE.md');
+    expect(gitignore).toContain('!docs/architecture-handbook.md');
+    expect(gitignore).toContain('keep them tracked');
+
+    // And the whole file is on one convention — no lone LF anywhere.
+    expect(gitignore).not.toMatch(/[^\r]\n/);
+    expect(gitignore.startsWith('CLAUDE.md\r\ndocs\r\n')).toBe(true);
+  });
+
+  it('leaves an LF .gitignore on LF', async () => {
+    // The other direction: the ending is read off the file, so neither
+    // convention is imposed on the other.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\ndocs\n');
+
+    await runInit(root, { install: false, log: silent });
+
+    expect(read('.gitignore')).not.toContain('\r');
+  });
+});

@@ -171,10 +171,24 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     // re-include; the note says so instead of pretending.
     const gitignore = fs.readFileSync(path.join(root, '.gitignore'), 'utf-8');
 
+    // The appended lines take the file's own line ending. A .gitignore on Windows
+    // is usually CRLF, and joining LF onto it leaves the file mixed — git reads
+    // both, so nothing breaks, but blueprint would be the reason a tracked file
+    // has two conventions in it.
+    const eol = gitignore.includes('\r\n') ? '\r\n' : '\n';
+
     actions.push({
       kind: 'write',
       path: '.gitignore',
-      content: `${gitignore.replace(/\n*$/, '\n')}\n# @kekkai/blueprint artifacts — the agent contract links to these; keep them tracked\n${hidden.map((file) => `!${file}`).join('\n')}\n`,
+      content: [
+        // How many trailing newlines the file carried is an editor accident —
+        // normalised to exactly one blank line before the appended block.
+        gitignore.replace(/[\r\n]*$/, ''),
+        '',
+        '# @kekkai/blueprint artifacts — the agent contract links to these; keep them tracked',
+        ...hidden.map((file) => `!${file}`),
+        '',
+      ].join(eol),
       note: `.gitignore (re-included ${hidden.join(', ')} via ! — delete the lines to keep ${hidden.length === 1 ? 'it' : 'them'} hidden; if a parent directory is wholly excluded, git needs that directory re-included too)`,
     });
   }

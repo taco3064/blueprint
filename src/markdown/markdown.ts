@@ -1,8 +1,15 @@
 import type { OwnedPrimitive } from '../config';
 
-/** Escape a value for use inside a markdown table cell. */
+/**
+ * Escape a value for use inside a markdown table cell.
+ *
+ * Carriage returns collapse with the newlines rather than surviving them: a
+ * blueprint written on Windows can carry CRLF inside a multi-line `does` or
+ * `mustNot`, and matching `\n` alone leaves a stray `\r` in the middle of the
+ * cell — where the trailing `.trim()` cannot reach it.
+ */
 export function escapeCell(text: string): string {
-  return text.replace(/\|/g, '\\|').replace(/\n+/g, ' ').trim();
+  return text.replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ').trim();
 }
 
 /** Render a markdown table from headers and pre-escaped rows. */
