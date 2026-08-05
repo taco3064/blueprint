@@ -222,12 +222,23 @@ function activeOptions(value: unknown): unknown[] | null {
   return options[0] === 0 || options[0] === 'off' ? null : options;
 }
 
-/** Version-stable artifacts present in the *resolved* rule values. */
+/**
+ * Version-stable artifacts present in the *resolved* rule values, plus a count of
+ * the entries this reader could not make sense of.
+ *
+ * The count is not diagnostics for its own sake. The comparison downstream is by
+ * containment — an entry blueprint does not recognise is the user's business and
+ * never a loss — so an option in a shape this reader cannot parse was silently
+ * dropped, and a hand-folded entry with a typo in it looked exactly like a
+ * deliberate one. Counting them makes the silence audible without turning
+ * someone's own rule into a failure.
+ */
 function resolvedStructural(rules: Record<string, unknown>): {
   groups: Set<string>;
   selectors: Set<string>;
   globals: Set<string>;
   relativeEscape: boolean;
+  unreadable: number;
 } {
   const groups = new Set<string>();
   const selectors = new Set<string>();
@@ -237,15 +248,20 @@ function resolvedStructural(rules: Record<string, unknown>): {
   // with a severity and no options has — so each loop below reads a list rather than
   // a maybe-list. The severity element is dropped there too, in one place instead of
   // three.
+  let unreadable = 0;
+
   for (const option of optionsOf(rules['no-restricted-imports'])) {
     const patterns = (option as { patterns?: unknown[] })?.patterns;
 
+    // A paths-only option carries no patterns at all — that is a shape, not a
+    // mistake, so it is not counted.
     if (!Array.isArray(patterns)) continue;
 
     for (const pattern of patterns) {
       const group = (pattern as { group?: unknown })?.group;
 
       if (Array.isArray(group)) groups.add(JSON.stringify(group));
+      else unreadable++;
     }
   }
 
@@ -253,12 +269,14 @@ function resolvedStructural(rules: Record<string, unknown>): {
     const selector = typeof item === 'string' ? item : (item as { selector?: string })?.selector;
 
     if (selector) selectors.add(selector);
+    else unreadable++;
   }
 
   for (const item of optionsOf(rules['no-restricted-globals'])) {
     const name = typeof item === 'string' ? item : (item as { name?: string })?.name;
 
     if (name) globals.add(name);
+    else unreadable++;
   }
 
   return {
@@ -266,6 +284,7 @@ function resolvedStructural(rules: Record<string, unknown>): {
     selectors,
     globals,
     relativeEscape: activeOptions(rules['blueprint/relative-escape']) !== null,
+    unreadable,
   };
 }
 
@@ -314,6 +333,7 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
 
   const lost: string[] = [];
   const carriers = expectedCarriers(blueprint, hasTypescript);
+  let unreadable = 0;
 
   try {
     const { ESLint } = unwrapModule<EslintApi>(await load('eslint', root));
@@ -323,7 +343,11 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
       const config = await eslint.calculateConfigForFile(path.join(root, probe.path));
       const rules = (config as { rules?: Record<string, unknown> })?.rules ?? {};
 
-      lost.push(...losses(expectedStructural(blueprint, probe.layer), resolvedStructural(rules))
+      const resolved = resolvedStructural(rules);
+
+      unreadable += resolved.unreadable;
+
+      lost.push(...losses(expectedStructural(blueprint, probe.layer), resolved)
         .map((loss) => `${probe.layer}: ${loss}`));
 
       // A gate declared in blueprint.config.mjs whose rule is absent from the
@@ -349,7 +373,20 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
 
   // Say what the ✓ covers. Unqualified, it reads as "every emitted rule is
   // alive", which this check has never been able to promise (field #40).
-  if (!lost.length) return { label: `${LABEL} (${SCOPE})`, ok: true };
+  if (!lost.length) {
+    // Green, but not silent about what was skipped. An entry in a shape this check
+    // cannot read is not a failure — containment means an unrecognised entry is the
+    // user's own business — yet a hand-folded one with a typo looked identical to a
+    // deliberate one, and the check said nothing either way.
+    const note = unreadable === 0
+      ? undefined
+      : `${unreadable} restricted-import/syntax/globals entr${unreadable === 1 ? 'y' : 'ies'} `
+        + 'in the resolved config could not be read by this check (not a blueprint entry, or '
+        + 'a hand-folded one that drifted) — they are not compared, so a typo in one would '
+        + 'not surface here';
+
+    return { label: `${LABEL} (${SCOPE})`, ok: true, detail: note };
+  }
 
   // The check compares exact emitted text, so a red has TWO possible causes
   // — naming only the replace cause sent a field agent chasing a merge
