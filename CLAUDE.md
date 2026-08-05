@@ -56,6 +56,16 @@ is not in the config). Field batches 10–12 are the case law.
 - **100% coverage** (`vitest --coverage`). The only exclusions are real-I/O
   defaults and the bin guard, marked `/* v8 ignore */` because tests inject
   those effects (`exec`, `loadConfig`) instead of running them.
+- **`npx stryker run` audits the suite itself** — 100% line coverage says every
+  line ran, not that a wrong one would be caught. Internal only: no docs page, no
+  handbook section, nothing emitted, and deliberately not a CI gate (Stryker has
+  no approved-survivor ledger, so a threshold is a hard-coded number every `src/`
+  edit invalidates — the unappeasable red this repo argues against elsewhere).
+  Per file while working (`--mutate 'src/x/y.ts'`), full sweep before a merge.
+  **A survivor is proven equivalent in its commit message, never silenced with a
+  `// Stryker disable` comment**; where two guards shield each other, the proof
+  names which one keeps the other honest — removing either alone still passes.
+  Not chased to 100%.
 - **Formatting is ESLint-driven** (`@stylistic/*`); there is no Prettier. Run
   `npm run lint` / `eslint . --fix`. Enforcement rules mirror the handbook
   stance: never `eslint-disable` to dodge a rule; fix the structure.
