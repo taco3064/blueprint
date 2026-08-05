@@ -31,8 +31,18 @@ export function resolveTestFiles(testFiles: string | string[] | undefined): stri
   return testFiles === undefined ? DEFAULT_TEST_FILES : toArray(testFiles);
 }
 
-/** Coerce a `string | string[]` option to an array. */
-export function toArray(value: string | string[]): string[] {
+/**
+ * Coerce a `string | string[]` option to an array — and an absent one to none.
+ *
+ * The `undefined` arm lives here rather than as a `?? []` at each call site. Written
+ * there, it decided nothing measurable: the sentinel a mutation puts in its place
+ * becomes one more glob, and a glob that matches nothing is indistinguishable from
+ * no glob at all. Asked of this function directly, "nothing configured is no globs"
+ * has one answer.
+ */
+export function toArray(value: string | string[] | undefined): string[] {
+  if (value === undefined) return [];
+
   return Array.isArray(value) ? value : [value];
 }
 
@@ -205,7 +215,9 @@ export function deriveGlobalRules(layers: LayerDef[]): GlobalRule[] {
   const byName = new Map<string, GlobalRule>();
 
   for (const layer of layers) {
-    for (const primitive of layer.owns ?? []) {
+    if (!layer.owns) continue;
+
+    for (const primitive of layer.owns) {
       if (typeof primitive === 'string' || !('global' in primitive)) continue;
 
       const existing = byName.get(primitive.global);

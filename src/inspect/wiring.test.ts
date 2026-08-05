@@ -681,3 +681,110 @@ describe('wiringCheck · the shapes a surviving global ban comes back as', () =>
     expect(check.ok).toBe(true);
   });
 });
+
+describe('wiringCheck · entries the reader could not make sense of', () => {
+  it('stays green but names how many it skipped', async () => {
+    // The comparison is by containment on purpose — an entry blueprint does not
+    // recognise belongs to the user, and calling it a loss would redden a config
+    // that is fine. The cost was silence: a hand-folded entry with a typo in it
+    // looked exactly like a deliberate one, and this check reported neither.
+    const expected = blueprint.architecture.layers.map((layer) =>
+      expectedStructural(blueprint, layer.name));
+
+    const groups = new Set(expected.flatMap((e) => [...e.groups]));
+    const selectors = new Set(expected.flatMap((e) => [...e.selectors]));
+    const globals = new Set(expected.flatMap((e) => [...e.globals]));
+
+    const check = await run(scanOf('src/views/Home/index.vue'), {
+      rules: {
+        'blueprint/relative-escape': 'error',
+        'no-restricted-imports': [2, {
+          patterns: [
+            ...[...groups].map((group) => ({ group: JSON.parse(group) as string[] })),
+            // Four unreadable shapes: a pattern with no group at all, one whose
+            // group is a bare string rather than a list, a plain string entry, and
+            // a null slot — the one a hand-folded config leaves behind after a
+            // deleted entry, and the one that makes the difference between reading
+            // `group` through `?.` and crashing the whole doctor run on it.
+            { message: 'no group here' },
+            { group: '~app/legacy/**' },
+            'a bare string pattern',
+            null,
+          ],
+        }],
+        'no-restricted-syntax': [2, ...selectors, { message: 'no selector' }],
+        'no-restricted-globals': [2, ...globals, { message: 'no name' }],
+      },
+    });
+
+    // Everything expected survived, so the verdict is still green.
+    expect(check.ok).toBe(true);
+
+    // The exact count, not just "some": six unreadable entries per probe (four
+    // patterns, one selector, one global) across four probes. A range or a regex
+    // here would let a reader that quietly stops counting one of the three rules
+    // pass, which is the failure the count exists to make visible.
+    expect(check.detail).toContain('24 restricted-import/syntax/globals entries');
+    expect(check.detail).toContain('could not be read by this check');
+    expect(check.detail).toContain('a typo in one would not surface here');
+  });
+
+  it('agrees with itself about one', async () => {
+    // Plural agreement is the whole signal for how many entries the reader is
+    // telling you about. Only one probe's config carries the unreadable entry, so
+    // the count really is 1 rather than one-per-probe.
+    const expected = blueprint.architecture.layers.map((layer) =>
+      expectedStructural(blueprint, layer.name));
+
+    const groups = [...new Set(expected.flatMap((e) => [...e.groups]))];
+    const selectors = new Set(expected.flatMap((e) => [...e.selectors]));
+    const globals = new Set(expected.flatMap((e) => [...e.globals]));
+
+    const survived = (extra: unknown[]) => ({
+      rules: {
+        'blueprint/relative-escape': 'error',
+        'no-restricted-imports': [2, {
+          patterns: [
+            ...groups.map((group) => ({ group: JSON.parse(group) as string[] })),
+            ...extra,
+          ],
+        }],
+        'no-restricted-syntax': [2, ...selectors],
+        'no-restricted-globals': [2, ...globals],
+      },
+    });
+
+    const check = await run(
+      scanOf('src/views/Home/index.vue'),
+      (filePath: string) => (filePath.includes('views') ? survived([{ message: 'no group' }]) : survived([])),
+    );
+
+    expect(check.ok).toBe(true);
+    expect(check.detail).toContain('1 restricted-import/syntax/globals entry ');
+    expect(check.detail).not.toContain('entries');
+  });
+
+  it('says nothing when every entry read cleanly', async () => {
+    // The note has to be absent, not empty: a green check with a blank detail line
+    // reads as an explanation doctor failed to print.
+    const expected = blueprint.architecture.layers.map((layer) =>
+      expectedStructural(blueprint, layer.name));
+
+    const check = await run(scanOf('src/views/Home/index.vue'), {
+      rules: {
+        'blueprint/relative-escape': 'error',
+        'no-restricted-imports': [2, {
+          patterns: new Set(expected.flatMap((e) => [...e.groups])).size === 0
+            ? []
+            : [...new Set(expected.flatMap((e) => [...e.groups]))]
+                .map((group) => ({ group: JSON.parse(group) as string[] })),
+        }],
+        'no-restricted-syntax': [2, ...new Set(expected.flatMap((e) => [...e.selectors]))],
+        'no-restricted-globals': [2, ...new Set(expected.flatMap((e) => [...e.globals]))],
+      },
+    });
+
+    expect(check.ok).toBe(true);
+    expect(check.detail).toBeUndefined();
+  });
+});

@@ -38,6 +38,14 @@ describe('blueprint/relative-escape · flat layer', () => {
     expect(
       messageIds('import x from "../IdleGuard";', 'src/components/layout/Bar.ts'),
     ).toEqual([]);
+
+    // Downward, into a nested folder of a FLAT layer. Both cases above stay at the
+    // same depth, where the module key collapses to the layer name whatever the
+    // layout says — so a `layoutOf` answering nonsense produced the same verdict.
+    // This one does not: read as folder-shaped, `layout/Bar` becomes a module and
+    // reaching into it is a violation. A flat layer has no inside.
+    expect(messageIds('import x from "./layout/Bar";', 'src/components/Button.ts'))
+      .toEqual([]);
   });
 
   it('flags relatives that cross into another layer', () => {

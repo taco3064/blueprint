@@ -77,20 +77,25 @@ function folderFindings(
   // the emitted re-export selector can never fire. Whoever is defusing that
   // rule's merge collision deserves to know the bomb is currently a blank
   // (field batch 12) — info, because intent declared early is not a defect.
-  // Guarded to repos that hold code at all: on an empty scaffold every layer
-  // is a blank, and the coverage line already says so.
-  for (const layer of scan.files.length ? architecture.layers : []) {
-    const selfOnlyImporters = normalizeAllowedImporters(layer.allowedImporters)
-      .filter((importer) => importer.selfOnly)
-      .map((importer) => importer.layer);
+  // Said as a guard, not as an empty list to iterate: on a scaffold with no code
+  // every layer is a blank, and the coverage line already says so. Written as
+  // `for (… of scan.files.length === 0 ? [] : layers)`, the empty arm decided
+  // nothing measurable — a one-element list put in its place is discarded by the
+  // body as the wrong shape, so the arm was never asked.
+  if (scan.files.length > 0) {
+    for (const layer of architecture.layers) {
+      const selfOnlyImporters = normalizeAllowedImporters(layer.allowedImporters)
+        .filter((importer) => importer.selfOnly)
+        .map((importer) => importer.layer);
 
-    if (selfOnlyImporters.length && !scan.files.some((file) => file.segments[0] === layer.name)) {
-      findings.push({
-        severity: 'info',
-        rule: 'declaratory-self-only',
-        path: `src/${layer.name}`,
-        message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands.`,
-      });
+      if (selfOnlyImporters.length && !scan.files.some((file) => file.segments[0] === layer.name)) {
+        findings.push({
+          severity: 'info',
+          rule: 'declaratory-self-only',
+          path: `src/${layer.name}`,
+          message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands.`,
+        });
+      }
     }
   }
 
@@ -231,7 +236,9 @@ function ownersOf(
   const owners: string[] = [];
 
   for (const layer of architecture.layers) {
-    for (const owned of layer.owns ?? []) {
+    if (!layer.owns) continue;
+
+    for (const owned of layer.owns) {
       if (typeof owned === 'string') {
         if (owned === specifier) owners.push(layer.name);
       } else if ('package' in owned && owned.package === specifier) {
@@ -247,7 +254,15 @@ function ownersOf(
   return owners.length ? owners : null;
 }
 
-function detectCycle(edges: Map<string, Set<string>>): string[] | null {
+/**
+ * Exported for its own tests. `visited` is memoization — `stack` is what detects
+ * the cycle — so dropping it changes running time and never the answer, which makes
+ * it invisible to any assertion about the RESULT. What it is not invisible to is a
+ * graph whose paths outnumber its nodes: a 40-node mesh has ~102M distinct paths and
+ * 40 memoized visits. Asked through `analyze`, that graph would be 40 fixture files;
+ * asked here, it is a loop.
+ */
+export function detectCycle(edges: Map<string, Set<string>>): string[] | null {
   const visited = new Set<string>();
   const stack = new Set<string>();
 

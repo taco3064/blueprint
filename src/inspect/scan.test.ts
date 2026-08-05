@@ -76,6 +76,22 @@ describe('extractImports', () => {
       .toEqual(['subtype']);
 
     expect(extractImports('import { type Only } from \'pkg\';')[0].names).toEqual(['Only']);
+
+    // Two spaces after the modifier. Every fixture above uses exactly one, which
+    // let `\s+` be tightened to `\s` unnoticed — the leftover space then had to be
+    // cleaned up by a second trim further along, so the bug was repaired by an
+    // operation whose stated job was something else entirely.
+    expect(extractImports('import { type  Spaced } from \'pkg\';')[0].names)
+      .toEqual(['Spaced']);
+
+    // …and the same on the alias side, where the local name is discarded anyway.
+    expect(extractImports('import { Wide  as  W } from \'pkg\';')[0].names)
+      .toEqual(['Wide']);
+
+    // `type` with nothing after it is a member NAMED type, not a modifier —
+    // legal, and the reason the modifier arm needs a fallback rather than an
+    // index that may not be there.
+    expect(extractImports('import { type } from \'pkg\';')[0].names).toEqual(['type']);
   });
 
   it('reads the spacings a human actually writes', () => {
@@ -197,5 +213,53 @@ describe('scan · every directory on the skip list', () => {
 
     expect(result.files.map((file) => file.path)).toEqual(['src/components/Real.ts']);
     expect(result.topDirs).not.toContain(dir);
+  });
+});
+
+describe('scan · the order it promises, whatever the filesystem answers', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-order-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  /** A reader that answers in the reverse of name order — what ext4 may do. */
+  const reversed = (dir: string) =>
+    fs
+      .readdirSync(dir, { withFileTypes: true })
+      .sort((a, b) => (a.name < b.name ? 1 : -1));
+
+  it('walks files and top dirs in name order even when the reader does not', () => {
+    // macOS answers in name order already, and so does a small ext4 directory —
+    // which is why an unsorted walk looks fine on every machine that runs the
+    // suite and reorders every downstream list on the ones that do not. Every
+    // consumer that sorts its own output (deps' skipped folders, survey's root
+    // files) is downstream of this order, so it has to be settled here.
+    fs.mkdirSync(path.join(root, 'src', 'zebra'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'src', 'apple'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src', 'zebra', 'z.ts'), 'export const z = 1;');
+    fs.writeFileSync(path.join(root, 'src', 'apple', 'a.ts'), 'export const a = 1;');
+    fs.writeFileSync(path.join(root, 'src', 'main.ts'), 'export const m = 1;');
+
+    const result = scan(root, 'src', { readdir: reversed });
+
+    expect(result.topDirs).toEqual(['apple', 'zebra']);
+
+    expect(result.files.map((file) => file.path)).toEqual([
+      'src/apple/a.ts',
+      'src/main.ts',
+      'src/zebra/z.ts',
+    ]);
+  });
+
+  it('reads the same tree the same way through the real reader', () => {
+    fs.mkdirSync(path.join(root, 'src', 'beta'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src', 'beta', 'b.ts'), 'export const b = 1;');
+
+    expect(scan(root, 'src').files.map((file) => file.path)).toEqual(['src/beta/b.ts']);
   });
 });

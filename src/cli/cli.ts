@@ -287,12 +287,25 @@ function parseAgent(value: string | undefined): AgentKind | undefined {
     : undefined;
 }
 
+/**
+ * Every flag parser below walks a copy of argv as a queue, taking a value flag's
+ * value with a second `shift()`.
+ *
+ * Not `for (let i = 0; i < args.length; i++)` with `args[++i]`: that form both
+ * mutates its own loop variable and leaves the bound undecidable — one past the end
+ * is `undefined`, which equals no flag name, so the loop exits on the next
+ * iteration having done nothing either way. Nothing can tell the two apart, which
+ * means nothing can tell a wrong bound from a right one. A queue has no index to
+ * get wrong: it is empty or it is not.
+ */
+
 /** Parse `init` flags. Unknown flags are ignored. */
 export function parseInitArgs(args: string[]): InitOptions {
   const options: InitOptions = {};
+  const rest = [...args];
 
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
+  while (rest.length) {
+    const arg = rest.shift();
 
     if (arg === '--no-install') {
       options.install = false;
@@ -303,7 +316,7 @@ export function parseInitArgs(args: string[]): InitOptions {
     } else if (arg === '--authoring') {
       options.authoring = true;
     } else if (arg === '--agent') {
-      const agent = parseAgent(args[++i]);
+      const agent = parseAgent(rest.shift());
 
       if (!agent) {
         throw new Error(`--agent expects one of: ${AGENT_KINDS.join(' | ')}.`);
@@ -311,7 +324,7 @@ export function parseInitArgs(args: string[]): InitOptions {
 
       options.agent = agent;
     } else if (arg === '--framework') {
-      options.framework = parseFramework(args[++i]) ?? options.framework;
+      options.framework = parseFramework(rest.shift()) ?? options.framework;
     }
   }
 
@@ -321,14 +334,15 @@ export function parseInitArgs(args: string[]): InitOptions {
 /** Parse `survey` flags. Unknown flags are ignored. */
 export function parseSurveyArgs(args: string[]): SurveyOptions {
   const options: SurveyOptions = {};
+  const rest = [...args];
 
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
+  while (rest.length) {
+    const arg = rest.shift();
 
     if (arg === '--json') {
       options.json = true;
     } else if (arg === '--alias') {
-      options.alias = args[++i];
+      options.alias = rest.shift();
     }
   }
 
@@ -338,9 +352,10 @@ export function parseSurveyArgs(args: string[]): SurveyOptions {
 /** Parse `inspect` flags. Unknown flags are ignored. */
 export function parseInspectArgs(args: string[]): InspectOptions {
   const options: InspectOptions = {};
+  const rest = [...args];
 
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
+  while (rest.length) {
+    const arg = rest.shift();
 
     if (arg === '--json') {
       options.json = true;
@@ -349,7 +364,7 @@ export function parseInspectArgs(args: string[]): InspectOptions {
     } else if (arg === '--update-baseline') {
       options.updateBaseline = true;
     } else if (arg === '--framework') {
-      options.framework = parseFramework(args[++i]) ?? options.framework;
+      options.framework = parseFramework(rest.shift()) ?? options.framework;
     }
   }
 
@@ -408,9 +423,7 @@ const KNOWN_FLAGS: Record<string, Set<string>> = {
 /** Flags that consume the next argument as their value. */
 const VALUED_FLAGS = new Set(['--agent', '--framework', '--alias']);
 
-function rejectUnknownFlags(command: string, args: string[]): void {
-  const known = KNOWN_FLAGS[command];
-
+function rejectUnknownFlags(known: Set<string>, command: string, args: string[]): void {
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
 
@@ -440,17 +453,23 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     return 0;
   }
 
-  if (command !== undefined && command in COMMAND_HELP
-    && (rest.includes('--help') || rest.includes('-h'))) {
-    console.log(COMMAND_HELP[command]);
+  // `Object.hasOwn` over `in`, so the undefined-command guard is not needed as a
+  // separate condition: `hasOwn(record, '')` is false, which is the answer wanted
+  // for "no command was given". (`in` cannot take undefined as its left operand at
+  // all, so the guard existed for TypeScript rather than for the lookup — and `in`
+  // would also walk the prototype chain, which a command lookup has no use for.)
+  const help = COMMAND_HELP[command ?? ''];
+
+  if (help !== undefined && (rest.includes('--help') || rest.includes('-h'))) {
+    console.log(help);
 
     return 0;
   }
 
   try {
-    if (command !== undefined && command in KNOWN_FLAGS) {
-      rejectUnknownFlags(command, rest);
-    }
+    const known = KNOWN_FLAGS[command ?? ''];
+
+    if (known !== undefined) rejectUnknownFlags(known, command as string, rest);
 
     if (command === 'init') {
       await runInit(cwd, parseInitArgs(rest));

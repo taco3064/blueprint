@@ -1108,6 +1108,47 @@ describe('runInit · an introduced alias is named as a decision', () => {
       ),
     ).toBe(false);
   });
+
+  it('does not claim "first" on a repo whose tsconfig it could not read', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    // The alias may well be declared in here — the reader cannot tell, because a
+    // missing quote makes the whole file unparseable and every `paths` reader
+    // skips it. "This repo's first alias" is then a claim about a file nobody
+    // read, and the note has to say so or the adopter keeps an alias that
+    // duplicates one they already have.
+    fs.writeFileSync(
+      path.join(root, 'tsconfig.json'),
+      '{ "compilerOptions": { "paths": { "~app: ["./src/x"] } } }',
+    );
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    const note = actions.find(
+      (action) => action.kind === 'instruct' && action.note.includes('first import alias'),
+    );
+
+    expect(note?.kind === 'instruct' && note.note).toContain(
+      'tsconfig.json could not be read (a string literal never closes at character 58)',
+    );
+
+    expect(note?.kind === 'instruct' && note.note).toContain(
+      'so "first" is read from the configs that could be',
+    );
+  });
+
+  it('leaves the caveat off when every config parses', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'tsconfig.json'), '{ "compilerOptions": {} }');
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    const note = actions.find(
+      (action) => action.kind === 'instruct' && action.note.includes('first import alias'),
+    );
+
+    expect(note?.kind === 'instruct' && note.note).not.toContain('could not be read');
+  });
 });
 
 describe('runInit · which config --authoring is allowed to take over', () => {

@@ -123,5 +123,9 @@ function srcSegments(filename: string): string[] | null {
   const parts = filename.split(/[\\/]/).filter(Boolean);
   const at = parts.lastIndexOf('src');
 
-  return at === -1 || at === parts.length - 1 ? null : parts.slice(at + 1);
+  // No second arm for "src is the last segment" — that means the linted path IS a
+  // file named `src`, and `slice` then answers `[]`, which the caller already turns
+  // away one line later (`segments[0]` is undefined, so no layer claims it). The
+  // arm could not decide anything, and its `parts.length - 1` could not be wrong.
+  return at === -1 ? null : parts.slice(at + 1);
 }

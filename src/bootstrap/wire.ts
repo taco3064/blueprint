@@ -53,14 +53,14 @@ export function wireTsconfigPaths(
   // itself on posix. Reusing the captured ending also keeps the file on one
   // convention — a lone LF inserted into a CRLF config leaves it mixed, which the
   // emitted `linebreak-style` gate then reports in the adopter's own lint.
-  const opening = text.match(/"compilerOptions"\s*:\s*\{(\r?\n)(\s*)/);
+  // `exec`, not `String.match`: match answers `index: undefined` for a pattern
+  // carrying the `g` flag, so adding one here — for any reason, by anyone — would
+  // make `insertAt` NaN, and `slice(0, NaN)` is ''. The "patched" config would come
+  // back as the inserted line alone with the file it replaced gone. `exec` reports
+  // an index either way, so the trap is not there to guard against.
+  const opening = /"compilerOptions"\s*:\s*\{(\r?\n)(\s*)/.exec(text);
 
-  // The `index` half is unreachable as written and deliberately kept: `String.match`
-  // returns `index: undefined` when the pattern carries the `g` flag, and adding one
-  // above would make `insertAt` NaN — `slice(0, NaN)` is '', so the patched config
-  // would come back as the inserted line alone, with the file it replaced gone.
-  // Cheaper to guard than to discover.
-  if (!opening || opening.index === undefined) return { kind: 'unparseable' };
+  if (!opening) return { kind: 'unparseable' };
 
   const [eol, indent] = opening.slice(1);
   const insertAt = opening.index + opening[0].length;

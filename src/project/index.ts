@@ -2,6 +2,7 @@ export {
   AUTHORING_FILE,
   COMMAND_FILE,
   CONFIG_FILE,
+  describeUnreadable,
   detect,
   detectAliases,
   GENERATED_ESLINT_BANNER,
@@ -9,7 +10,9 @@ export {
   pathAliasKeys,
   quotedIn,
   readTexts,
+  unreadableTsconfigs,
 } from './detect';
+export type { JsoncFailure, JsoncResult, UnreadableConfig } from './detect';
 export { loadProjectModule, unwrapModule } from './load';
 export { buildConfigSource, buildNextConfigSource, resolveBlueprint } from './resolve';
 export type { ResolveOptions } from './resolve';

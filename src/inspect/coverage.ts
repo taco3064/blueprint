@@ -1,3 +1,4 @@
+import { activeSetting } from '../config';
 import type { Blueprint } from '../config';
 // Import from the patterns leaf, not the emit/lint index — the index also
 // exports lint.ts, which loads the plugin, which shares resolve logic with
@@ -55,12 +56,7 @@ export function computeCoverage(
     .filter((id) => id !== 'deepWatch' || framework !== 'react')
     .filter((id) => id !== 'explicitAny' || hasTypescript);
 
-  const activeRules = gates.filter((id) => {
-    const setting = rules?.[id];
-    const tier = typeof setting === 'string' ? setting : setting?.tier;
-
-    return tier !== undefined && tier !== 'off';
-  }).length;
+  const activeRules = gates.filter((id) => activeSetting(rules?.[id]) !== null).length;
 
   return {
     sourceFiles: source.length,

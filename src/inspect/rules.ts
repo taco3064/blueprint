@@ -17,7 +17,7 @@ import {
   aliasLayerRoots,
   getForbiddenLayers,
   getSelfOnlyTargets,
-  normalizeAllowedImporters,
+  normalizeAllowedImporters, readSetting,
 } from '../config';
 import type { Blueprint } from '../config';
 
@@ -178,12 +178,11 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
 function resolveGate(spec: GateSpec, blueprint: Blueprint | null): GateStatus {
   const setting = blueprint?.rules?.[spec.id];
 
-  const declared
-    = setting === undefined
-      ? null
-      : typeof setting === 'string'
-        ? { tier: setting }
-        : { tier: setting.tier, ...(setting.value !== undefined ? { value: setting.value } : {}) };
+  const read = setting === undefined ? null : readSetting(setting);
+
+  const declared = read === null
+    ? null
+    : { tier: read.tier, ...(read.value !== undefined ? { value: read.value } : {}) };
 
   // Mirror emitLint: deepWatch never emits on React, whatever it declares.
   const framework = blueprint?.framework;

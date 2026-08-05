@@ -85,8 +85,16 @@ const TEST_PATTERNS: { pattern: string; test: (filePath: string) => boolean }[] 
   { pattern: 'src/test/**', test: (p) => p.startsWith('src/test/') || p.startsWith('src/tests/') },
 ];
 
-/** Direct + scoped dependency names from package.json (prod and dev). */
-function dependencyNames(root: string): string[] {
+/**
+ * Direct + scoped dependency names from package.json (prod and dev).
+ *
+ * Exported for its own test. The failure arm answers `[]`, and through `runSurvey`
+ * that is indistinguishable from answering a list of names nobody imports — the
+ * list exists to be matched against import specifiers, and a wrong name matches
+ * nothing. Asked directly, "no readable package.json is no dependencies" is one
+ * value to compare.
+ */
+export function dependencyNames(root: string): string[] {
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8')) as {
       dependencies?: Record<string, string>;
@@ -218,10 +226,12 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
     typescript: state.hasTypescript,
     packageManager: state.packageManager,
     aliases,
+    // `scan` walks in name order, so these arrive sorted — the `.sort()` that used
+    // to close each of these two lines was repairing an order that is now settled
+    // upstream, and could not be measured while it did.
     rootFiles: scanResult.files
       .filter((file) => file.segments.length === 1)
-      .map((file) => file.segments[0])
-      .sort(),
+      .map((file) => file.segments[0]),
     folders: folderEvidence(scanResult),
     edges: [...edgeCounts.entries()]
       .map(([key, count]) => {
@@ -236,7 +246,7 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
       files: scanResult.files.filter((file) => test(file.path)).length,
     })).filter((entry) => entry.files > 0),
     packageUsage: [...packageFolders.entries()]
-      .map(([name, folders]) => ({ package: name, folders: [...folders].sort() }))
+      .map(([name, folders]) => ({ package: name, folders: [...folders] }))
       .sort((a, b) => a.folders.length - b.folders.length || a.package.localeCompare(b.package)),
     unresolved: [...unresolvedCounts.entries()]
       .map(([prefix, count]) => ({ prefix, count }))

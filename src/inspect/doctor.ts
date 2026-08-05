@@ -5,11 +5,13 @@ import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
 import {
   AUTHORING_FILE,
   COMMAND_FILE,
+  describeUnreadable,
   detect,
   loadProjectModule,
   pathAliasKeys,
   quotedIn,
   resolveBlueprint,
+  unreadableTsconfigs,
 } from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
 import type { Blueprint } from '../config';
@@ -108,14 +110,18 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
   const { alias, additionalAliases, sourceRoot } = blueprint.architecture;
   const declared = pathAliasKeys(state.tsconfigs);
 
-  const bundlerTexts = [
-    state.viteConfig?.text,
-    ...BUNDLER_FILES.map((file) => {
-      const full = path.join(root, file);
+  // Built without holes rather than built with holes and filtered. The filter that
+  // used to close this was `(text): text is string => text !== undefined` — a
+  // narrowing for the compiler, and undecidable at runtime, because `quotedIn`
+  // regex-tests its argument and `test(undefined)` searches the string "undefined"
+  // for the alias. Both guards below decide something: read a file that is not
+  // there and `readFileSync` throws; drop the vite arm and an alias wired only in
+  // vite.config.ts reads as wired nowhere.
+  const bundlerTexts = BUNDLER_FILES.map((file) => path.join(root, file))
+    .filter((full) => fs.existsSync(full))
+    .map((full) => fs.readFileSync(full, 'utf-8'));
 
-      return fs.existsSync(full) ? fs.readFileSync(full, 'utf-8') : undefined;
-    }),
-  ].filter((text): text is string => text !== undefined);
+  if (state.viteConfig) bundlerTexts.push(state.viteConfig.text);
 
   const unwired = [alias, ...Object.keys(additionalAliases ?? {})].filter(
     (name) => !declared.has(name) && !bundlerTexts.some((text) => quotedIn(text, name)),
@@ -125,12 +131,22 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
 
   const dir = sourceRoot === '.' ? '.' : `./${sourceRoot ?? 'src'}`;
 
+  // A tsconfig that is present but unparseable makes every alias inside it
+  // invisible to the check above, so "resolves nowhere" would be the reader's
+  // second problem and not their first. Naming the file first stops the remedy
+  // from misdirecting: the alias may already be declared in there.
+  const unreadable = unreadableTsconfigs(state.tsconfigs);
+
   return {
     label: 'import alias wired to the toolchain',
     ok: false,
     detail: `${unwired.map((name) => `"${name}"`).join(', ')} resolves nowhere — declare it in `
       + `tsconfig compilerOptions.paths ("${unwired[0]}/*": ["${dir}/*"]) or your bundler's `
-      + 'alias config, or the agent contract points at unresolvable imports',
+      + 'alias config, or the agent contract points at unresolvable imports'
+      + (unreadable.length
+        ? ` — but fix ${describeUnreadable(unreadable)} first: this check could not read `
+        + 'it, so an alias already declared in there would not have been seen'
+        : ''),
   };
 }
 

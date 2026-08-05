@@ -114,6 +114,27 @@ function readJson(file: string): Record<string, unknown> | null {
   }
 }
 
+/**
+ * The vite config's text, when there is one and it can be read.
+ *
+ * One function rather than `viteFile !== undefined && viteText !== null` at the
+ * point of use. That compound asked the same question twice — the text is read FROM
+ * the file, so a non-null text already implies a file — but TypeScript cannot see
+ * the implication, so the redundant half had to stay for the narrowing and could
+ * never be wrong. Written as a sequence, each step decides something: no file, or a
+ * file nothing could read.
+ */
+function readViteConfig(
+  root: string,
+  file: string | undefined,
+): { file: string; text: string } | undefined {
+  if (file === undefined) return undefined;
+
+  const text = readText(path.join(root, file));
+
+  return text === null ? undefined : { file, text };
+}
+
 function readText(file: string): string | null {
   try {
     return fs.readFileSync(file, 'utf-8');
@@ -249,7 +270,7 @@ export function detect(root: string): ProjectState {
         : undefined;
 
   const viteFile = VITE_FILES.find((file) => fs.existsSync(path.join(root, file)));
-  const viteText = viteFile === undefined ? null : readText(path.join(root, viteFile));
+  const viteConfig = readViteConfig(root, viteFile);
 
   return {
     root,
@@ -267,9 +288,9 @@ export function detect(root: string): ProjectState {
     wiredEslintConfig,
     legacyEslintConfig,
     eslintConfigShape,
-    viteConfig: viteFile !== undefined && viteText !== null
-      ? { file: viteFile, text: viteText }
-      : undefined,
+    viteConfig,
+    // Separate on purpose: `hasViteConfig` is "a vite config is there", and an
+    // unreadable one is still there. `viteConfig` is "and this is what it says".
     hasViteConfig: viteFile !== undefined,
     hasTypescript,
     tsconfigs: readTexts(root, TSCONFIG_FILES),
@@ -284,7 +305,23 @@ export function detect(root: string): ProjectState {
  * need this: a tsconfig's own data contains `/*` (every `"@/*"` paths key),
  * so nothing may be stripped inside a string.
  */
-function copyString(text: string, i: number): { copied: string; next: number } {
+/**
+ * A literal that closed, or the offset the scan gave up at — never both.
+ *
+ * Four fields where two are meaningless on failure is what made the bounds above
+ * unanswerable: on an unterminated literal the caller throws `copied` away, so
+ * whether the copy ran one character too far changed nothing anyone could see. Two
+ * shapes, and each field exists only where it means something.
+ */
+interface ClosedString {
+  closed: true;
+  copied: string;
+  next: number;
+}
+
+type CopiedString = ClosedString | { closed: false; stoppedAt: number };
+
+function copyString(text: string, i: number): CopiedString {
   let copied = text[i];
 
   i++;
@@ -300,20 +337,42 @@ function copyString(text: string, i: number): { copied: string; next: number } {
     i++;
   }
 
-  if (i < text.length) copied += text[i];
+  // Ran out of text before the closing quote: report where it came to rest, which
+  // is what makes every bound above answerable — a scan one character too far
+  // changes the number a reader is shown.
+  if (i >= text.length) return { closed: false, stoppedAt: i };
 
-  return { copied, next: i + 1 };
+  return { closed: true, copied: copied + text[i], next: i + 1 };
 }
 
 /**
- * Tolerant JSONC parse for the tsconfig family: strips line and block
- * comments plus trailing commas — outside string literals only — then
- * `JSON.parse`. Vite + TS starters ship tsconfigs *with comments* by
- * default, so treating JSONC as unreadable would false-red the doctor's
- * alias check on the mainstream path. Returns null when the text still is
- * not JSON after stripping.
+ * Why a JSONC document could not be read, and the character offset the scan gave
+ * up at. Reported rather than folded into one null: "I cannot read your tsconfig"
+ * is not something an adopter can act on — and a failure with no position leaves
+ * every bound in the scanner unanswerable, since running one character too far
+ * produced the same bare null.
  */
-export function parseJsonc(text: string): unknown {
+export interface JsoncFailure {
+  reason: 'unterminated-string' | 'unclosed-comment' | 'not-json';
+  /**
+   * Character offset the scan came to rest at. Absent — not zero — for
+   * `not-json`: offset 0 is a legitimate position (a file whose first character
+   * is already wrong), so a sentinel there would read as one, and the caller
+   * could not tell "the reader has no position for you" from "look at the start
+   * of the file".
+   */
+  at?: number;
+}
+
+export type JsoncResult = { ok: true; value: unknown } | ({ ok: false } & JsoncFailure);
+
+/**
+ * Tolerant JSONC parse for the tsconfig family: strips line and block comments
+ * plus trailing commas — outside string literals only — then `JSON.parse`. Vite
+ * + TS starters ship tsconfigs *with comments* by default, so treating JSONC as
+ * unreadable would false-red the doctor's alias check on the mainstream path.
+ */
+export function parseJsonc(text: string): JsoncResult {
   // Both passes accumulate into a STRING, not an array joined at the end. The
   // difference is that a string says when the scan reads past the end:
   // `'' + undefined` is the four characters "undefined", where
@@ -325,18 +384,30 @@ export function parseJsonc(text: string): unknown {
 
   for (let i = 0; i < text.length;) {
     if (text[i] === '"') {
-      const { copied, next } = copyString(text, i);
+      const literal = copyString(text, i);
 
-      commentFree += copied;
-      i = next;
+      if (!literal.closed) {
+        return { ok: false, reason: 'unterminated-string', at: literal.stoppedAt };
+      }
+
+      commentFree += literal.copied;
+      i = literal.next;
     } else if (text[i] === '/' && text[i + 1] === '/') {
-      while (i < text.length && text[i] !== '\n') i++;
+      // The comment ends at the newline, or at the end of a file that finishes in
+      // one. `indexOf` answers with the position, so there is no bound to walk one
+      // character past — the old `while (i < text.length && text[i] !== '\n')`
+      // overran by one and nothing downstream could tell.
+      const newline = text.indexOf('\n', i);
+
+      i = newline === -1 ? text.length : newline;
     } else if (text[i] === '/' && text[i + 1] === '*') {
-      i += 2;
+      // From AFTER the opener, or `/*/` reads as a closed comment: the `*/` the
+      // search finds would be the opener's own `*` with the next `/`.
+      const close = text.indexOf('*/', i + 2);
 
-      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++;
+      if (close === -1) return { ok: false, reason: 'unclosed-comment', at: text.length };
 
-      i += 2;
+      i = close + 2;
     } else {
       commentFree += text[i];
       i++;
@@ -348,16 +419,23 @@ export function parseJsonc(text: string): unknown {
 
   for (let i = 0; i < commentFree.length;) {
     if (commentFree[i] === '"') {
-      const { copied, next } = copyString(commentFree, i);
+      // Proven closed by the first pass, which copied this same literal. A cast
+      // rather than a check: the check would be a branch no input can take, and an
+      // unreachable branch is worse than a stated assumption — it reads as a case
+      // somebody handled.
+      const literal = copyString(commentFree, i) as ClosedString;
 
-      clean += copied;
-      i = next;
+      clean += literal.copied;
+      i = literal.next;
     } else if (commentFree[i] === ',') {
-      let next = i + 1;
+      // The next non-space AFTER the comma. Walking an index forward left the
+      // walk's own bound undecidable: one past the end is `undefined`, which is
+      // neither `}` nor `]`, so overrunning kept the comma exactly as stopping
+      // would have.
+      const after = /\S/.exec(commentFree.slice(i + 1));
+      const nextChar = after?.[0];
 
-      while (next < commentFree.length && /\s/.test(commentFree[next])) next++;
-
-      if (commentFree[next] !== '}' && commentFree[next] !== ']') clean += ',';
+      if (nextChar !== '}' && nextChar !== ']') clean += ',';
 
       i++;
     } else {
@@ -367,10 +445,65 @@ export function parseJsonc(text: string): unknown {
   }
 
   try {
-    return JSON.parse(clean);
+    return { ok: true, value: JSON.parse(clean) };
   } catch {
-    return null; // Still broken after stripping — the --alias flag covers this honestly.
+    // Comments and trailing commas are gone, so what is left is a JSON mistake
+    // rather than a JSONC one — a different thing to tell the reader. No offset:
+    // JSON.parse's own position refers to the stripped text, not the file they
+    // have open.
+    return { ok: false, reason: 'not-json' };
   }
+}
+
+/** A tsconfig the JSONC reader gave up on, named so a caller can say which. */
+export interface UnreadableConfig extends JsoncFailure {
+  file: string;
+}
+
+const JSONC_REASON: Record<JsoncFailure['reason'], string> = {
+  'unterminated-string': 'a string literal never closes',
+  'unclosed-comment': 'a block comment never closes',
+  'not-json': 'it is not valid JSON once the comments are stripped',
+};
+
+/**
+ * The tsconfig/jsconfig files that are present but unparseable.
+ *
+ * Every reader of `paths` skips these, and skipping *silently* is the trap:
+ * an alias declared inside an unreadable tsconfig is invisible, so doctor tells
+ * an adopter to declare what is already there, and init calls a preset's alias
+ * the repo's first. Both mislead in the same direction — they blame the alias for
+ * a broken file. Callers name the file and the offset instead.
+ */
+export function unreadableTsconfigs(
+  tsconfigs: Record<string, string | null>,
+): UnreadableConfig[] {
+  const failures: UnreadableConfig[] = [];
+
+  for (const [file, text] of Object.entries(tsconfigs)) {
+    if (text === null) continue;
+
+    const result = parseJsonc(text);
+
+    if (!result.ok) failures.push({ file, reason: result.reason, at: result.at });
+  }
+
+  return failures;
+}
+
+/**
+ * One clause per unreadable config: which file, what is wrong, where to look.
+ * Shared so doctor and init say it the same way — the same reason `quotedIn` is
+ * the one wiredness standard both of them read.
+ */
+export function describeUnreadable(failures: UnreadableConfig[]): string {
+  return failures
+    .map(({ file, reason, at }) => {
+      const where = at === undefined ? '' : ` at character ${at}`;
+
+      return `${file} could not be read (${JSONC_REASON[reason]}${where})`;
+    })
+    .join('; ');
 }
 
 /** Visit every `compilerOptions.paths` entry across the given tsconfig texts. */
@@ -381,11 +514,11 @@ function eachPathAlias(
   for (const text of Object.values(tsconfigs)) {
     if (text == null) continue;
 
-    const parsed = parseJsonc(text);
+    const result = parseJsonc(text);
 
-    if (parsed == null) continue;
+    if (!result.ok) continue;
 
-    const options = (parsed as { compilerOptions?: { paths?: unknown } })?.compilerOptions;
+    const options = (result.value as { compilerOptions?: { paths?: unknown } })?.compilerOptions;
     const paths = options?.paths;
 
     if (typeof paths !== 'object' || paths === null) continue;

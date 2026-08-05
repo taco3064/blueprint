@@ -95,7 +95,11 @@ export function relativeVerdict(
 
   const layer = ownSegments[0];
 
-  if (target[0] !== layer || layoutOf(layer) !== 'folder') return 'leaves-layer';
+  // No layout test here: for a flat layer `moduleKey` collapses to the layer name,
+  // so a target inside the same flat layer already matched the equality check above
+  // and returned `ok`. Reaching this line with `target[0] === layer` means the layer
+  // is folder-shaped — a `layoutOf(layer) !== 'folder'` arm could never be taken.
+  if (target[0] !== layer) return 'leaves-layer';
 
   const entry = entryOf(layer);
 

@@ -9,4 +9,6 @@ export {
   normalizeAllowedImporters,
 } from './graph';
 export type { AliasRoot, DiagramEdge } from './graph';
+export { activeSetting, readSetting } from './settings';
+export type { ReadSetting } from './settings';
 export type * from './types';

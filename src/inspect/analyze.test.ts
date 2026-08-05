@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { analyze } from './analyze';
+import { analyze, detectCycle } from './analyze';
 import { defineBlueprint } from '../config';
 import { vuePreset } from '../presets';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
@@ -462,5 +462,40 @@ describe('analyze · the cycle search does not stop early', () => {
       file(['hooks', 'useC', 'index.ts'], [{ specifier: '../useD' }]),
       file(['hooks', 'useD', 'index.ts'], [{ specifier: '../useC' }]),
     ])).toContain('hooks/useC → hooks/useD → hooks/useC');
+  });
+});
+
+describe('detectCycle · memoized, so a mesh stays linear', () => {
+  /** `i → i+1` and `i → i+2`: paths from node 0 grow as Fibonacci(n). */
+  const mesh = (n: number): Map<string, Set<string>> => {
+    const edges = new Map<string, Set<string>>();
+
+    for (let i = 0; i < n; i++) {
+      const next = new Set<string>();
+
+      if (i + 1 < n) next.add(`n${i + 1}`);
+      if (i + 2 < n) next.add(`n${i + 2}`);
+
+      edges.set(`n${i}`, next);
+    }
+
+    return edges;
+  };
+
+  it('answers no cycle on a 40-node mesh without walking its 102M paths', () => {
+    // The only test that can see `visited`. It is memoization, so every assertion
+    // about the RESULT holds with or without it — what does not hold is finishing:
+    // re-entering a visited node turns 40 visits into 102 million paths, each
+    // allocating its own trail. A tool that runs on a real dependency graph cannot
+    // be exponential in it.
+    expect(detectCycle(mesh(40))).toBeNull();
+  });
+
+  it('still finds a cycle in the same shape', () => {
+    const edges = mesh(40);
+
+    edges.get('n39')?.add('n0');
+
+    expect(detectCycle(edges)?.[0]).toBe('n0');
   });
 });

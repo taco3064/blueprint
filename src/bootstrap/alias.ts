@@ -15,9 +15,9 @@ import type { Action } from './types';
 
 /** The primary alias's tsconfig target, e.g. `./src/*` (or `./*` at the project root). */
 function aliasTarget(architecture: ArchitectureDef): string {
-  const root = architecture.sourceRoot ?? 'src';
-
-  return root === '.' ? './*' : `${normalizeDir(root)}/*`;
+  // No special case for the project root: `normalizeDir('.')` already answers `.`,
+  // so the arm that used to sit here produced the same `./*` as the general one.
+  return `${normalizeDir(architecture.sourceRoot ?? 'src')}/*`;
 }
 
 /** Alias → target map for tsconfig `paths`, e.g. `{ "~app/*": ["./src/*"] }`. */
@@ -81,7 +81,11 @@ export function patchTsconfigPaths(
 
 /** Every alias already present in a JSONC config's `compilerOptions.paths`. */
 function jsoncAlreadyWired(text: string, paths: Record<string, string[]>): boolean {
-  const parsed = parseJsonc(text);
+  const result = parseJsonc(text);
+
+  if (!result.ok) return false;
+
+  const parsed = result.value;
 
   if (!isRecord(parsed) || !isRecord(parsed.compilerOptions)) return false;
 

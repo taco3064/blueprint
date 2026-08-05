@@ -7,25 +7,19 @@ import type {
   RuleSetting,
   Tier,
 } from '../../config';
-import { getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
+import { readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
 import { handbookPath } from '../docs';
 import { LINT_GATED_RULE_IDS } from '../lint';
 import { formatOwns } from '../../markdown';
 
-function tierOf(setting: RuleSetting): Tier {
-  return typeof setting === 'string' ? setting : setting.tier;
-}
-
-function valueOf(setting: RuleSetting): number | undefined {
-  return typeof setting === 'string' ? undefined : setting.value;
-}
-
 function rulesOfTier(rules: Record<string, RuleSetting> | undefined, tier: Tier) {
-  return Object.entries(rules ?? {}).filter(([, setting]) => tierOf(setting) === tier);
+  return Object.entries(rules ?? {}).filter(([, setting]) => readSetting(setting).tier === tier);
 }
 
 function claudePrinciples(principles: PrincipleDef[] | undefined): PrincipleDef[] {
-  return (principles ?? []).filter((principle) => principle.land === 'claude');
+  if (!principles) return [];
+
+  return principles.filter((principle) => principle.land === 'claude');
 }
 
 /** Contract heading + provenance. Uses `##` so it can nest inside CLAUDE.md. */
@@ -56,7 +50,7 @@ export function renderCompactContract(blueprint: Blueprint): string {
   const gates = rulesOfTier(rules, 'error')
     .filter(([id]) => LINT_GATED_RULE_IDS.includes(id))
     .map(([id, setting]) => {
-      const value = valueOf(setting);
+      const value = readSetting(setting).value;
 
       return `\`${id}\`${value === undefined ? '' : ` = ${value}`}`;
     });
@@ -185,7 +179,7 @@ export function renderHardRules(
   for (const [id, setting] of rulesOfTier(rules, 'error')) {
     if (!LINT_GATED_RULE_IDS.includes(id)) continue;
 
-    const value = valueOf(setting);
+    const value = readSetting(setting).value;
 
     bullets.push(`- \`${id}\`${value === undefined ? '' : ` = ${value}`} is a hard gate.`);
   }
@@ -231,7 +225,7 @@ export function renderBehavioral(
     ),
   ];
 
-  if (rules?.deadCode !== undefined && tierOf(rules.deadCode) === 'error') {
+  if (rules?.deadCode !== undefined && readSetting(rules.deadCode).tier === 'error') {
     bullets.push(
       '- **Dead code is error-tier, but no lint rule can gate it** — `npx knip` is the gate (in init\'s install set); wire it into whatever verification you run.',
     );
