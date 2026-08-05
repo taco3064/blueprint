@@ -17,6 +17,11 @@ interface IgnoreRule {
 }
 
 function toRule(line: string): IgnoreRule | null {
+  // The trim is also what makes a CRLF .gitignore work. The caller splits on
+  // `\n`, so on Windows every line arrives with a trailing `\r`, and a pattern
+  // carrying one matches nothing — the artifact detection would go quiet on the
+  // platform where a .gitignore is CRLF by default. Removing this as redundant
+  // takes that with it, silently.
   let pattern = line.trim();
 
   if (!pattern || pattern.startsWith('#')) return null;
