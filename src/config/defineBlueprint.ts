@@ -155,9 +155,11 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
       rejectUnknownKeys(bp.emit.lint, ['severity'], 'emit.lint');
     }
 
-    for (const entry of bp.emit.agents ?? []) {
-      if (typeof entry !== 'string') {
-        rejectUnknownKeys(entry, ['target', 'path'], 'an emit.agents entry');
+    if (bp.emit.agents) {
+      for (const entry of bp.emit.agents) {
+        if (typeof entry !== 'string') {
+          rejectUnknownKeys(entry, ['target', 'path'], 'an emit.agents entry');
+        }
       }
     }
   }
@@ -319,7 +321,9 @@ function rejectUnknownKeys(
 }
 
 function validateOwns(layer: LayerDef): void {
-  for (const primitive of layer.owns ?? []) {
+  if (!layer.owns) return;
+
+  for (const primitive of layer.owns) {
     if (typeof primitive === 'string') {
       if (!primitive.trim()) {
         throw new Error(`Layer "${layer.name}" owns an empty package name.`);

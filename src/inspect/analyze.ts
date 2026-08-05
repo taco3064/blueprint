@@ -79,7 +79,9 @@ function folderFindings(
   // (field batch 12) — info, because intent declared early is not a defect.
   // Guarded to repos that hold code at all: on an empty scaffold every layer
   // is a blank, and the coverage line already says so.
-  for (const layer of scan.files.length ? architecture.layers : []) {
+  // Guarded rather than iterating an empty list: on a scaffold with no code every
+  // layer is a blank, and the coverage line already says so.
+  for (const layer of scan.files.length === 0 ? [] : architecture.layers) {
     const selfOnlyImporters = normalizeAllowedImporters(layer.allowedImporters)
       .filter((importer) => importer.selfOnly)
       .map((importer) => importer.layer);
@@ -231,7 +233,9 @@ function ownersOf(
   const owners: string[] = [];
 
   for (const layer of architecture.layers) {
-    for (const owned of layer.owns ?? []) {
+    if (!layer.owns) continue;
+
+    for (const owned of layer.owns) {
       if (typeof owned === 'string') {
         if (owned === specifier) owners.push(layer.name);
       } else if ('package' in owned && owned.package === specifier) {

@@ -17,7 +17,9 @@ function rulesOfTier(rules: Record<string, RuleSetting> | undefined, tier: Tier)
 }
 
 function claudePrinciples(principles: PrincipleDef[] | undefined): PrincipleDef[] {
-  return (principles ?? []).filter((principle) => principle.land === 'claude');
+  if (!principles) return [];
+
+  return principles.filter((principle) => principle.land === 'claude');
 }
 
 /** Contract heading + provenance. Uses `##` so it can nest inside CLAUDE.md. */

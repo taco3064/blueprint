@@ -203,6 +203,16 @@ function pickProbes(
   });
 }
 
+/**
+ * A resolved rule's options WITHOUT its severity — [] when the rule is absent or
+ * off. The severity lives at index 0 of an eslint rule entry and is never an
+ * option, so every reader dropped it separately; doing it here means a reader
+ * cannot forget, and cannot disagree about what "no options" looks like.
+ */
+function optionsOf(value: unknown): unknown[] {
+  return activeOptions(value)?.slice(1) ?? [];
+}
+
 /** A resolved rule's option list, or null when absent / severity off. */
 function activeOptions(value: unknown): unknown[] | null {
   if (value == null) return null;
@@ -223,7 +233,11 @@ function resolvedStructural(rules: Record<string, unknown>): {
   const selectors = new Set<string>();
   const globals = new Set<string>();
 
-  for (const option of activeOptions(rules['no-restricted-imports'])?.slice(1) ?? []) {
+  // `optionsOf` answers [] for a rule that is absent or off — the same shape a rule
+  // with a severity and no options has — so each loop below reads a list rather than
+  // a maybe-list. The severity element is dropped there too, in one place instead of
+  // three.
+  for (const option of optionsOf(rules['no-restricted-imports'])) {
     const patterns = (option as { patterns?: unknown[] })?.patterns;
 
     if (!Array.isArray(patterns)) continue;
@@ -235,13 +249,13 @@ function resolvedStructural(rules: Record<string, unknown>): {
     }
   }
 
-  for (const item of activeOptions(rules['no-restricted-syntax'])?.slice(1) ?? []) {
+  for (const item of optionsOf(rules['no-restricted-syntax'])) {
     const selector = typeof item === 'string' ? item : (item as { selector?: string })?.selector;
 
     if (selector) selectors.add(selector);
   }
 
-  for (const item of activeOptions(rules['no-restricted-globals'])?.slice(1) ?? []) {
+  for (const item of optionsOf(rules['no-restricted-globals'])) {
     const name = typeof item === 'string' ? item : (item as { name?: string })?.name;
 
     if (name) globals.add(name);

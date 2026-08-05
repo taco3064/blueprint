@@ -205,7 +205,9 @@ export function deriveGlobalRules(layers: LayerDef[]): GlobalRule[] {
   const byName = new Map<string, GlobalRule>();
 
   for (const layer of layers) {
-    for (const primitive of layer.owns ?? []) {
+    if (!layer.owns) continue;
+
+    for (const primitive of layer.owns) {
       if (typeof primitive === 'string' || !('global' in primitive)) continue;
 
       const existing = byName.get(primitive.global);
