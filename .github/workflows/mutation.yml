@@ -1,0 +1,50 @@
+name: Mutation
+
+# Manual only, on purpose. A mutation score cannot be a gate here: Stryker has no
+# approved-survivor ledger, so a threshold would be a hard-coded number that
+# every `src/` edit invalidates — and this repo argues against a red nobody can
+# appease (see the wiring check's own skip reasons). Coverage thresholds already
+# fail a PR that adds untested code; this answers the different question of
+# whether the assertions would catch a WRONG line, and that answer is worth
+# reading rather than enforcing.
+#
+# Same division of labour as `npm run field:run`: conformance guards the known
+# scenarios in CI, the manual harness hunts for new ones.
+on:
+  workflow_dispatch:
+
+jobs:
+  mutation:
+    name: Mutation survey
+    runs-on: ubuntu-latest
+    # A full sweep is ~4.6k mutants, ~5 minutes locally. The default 6-hour cap
+    # would let a hung run burn the whole budget before anyone noticed.
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Stryker
+        run: npx stryker run
+
+      # The score is in the log above; the report is how you read WHICH mutants
+      # survived — the only part that is actionable. Uploaded even on failure,
+      # because a run that dies partway still names what it got through.
+      - name: Upload the mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: reports/mutation/
+          retention-days: 30
+          if-no-files-found: warn

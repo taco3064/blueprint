@@ -13,7 +13,7 @@ on:
 
 jobs:
   ci:
-    name: Lint / Type Check / Test
+    name: Lint / Type Check / Test / Build
     runs-on: ubuntu-latest
 
     steps:
@@ -37,3 +37,10 @@ jobs:
 
       - name: Run tests
         run: npm run test
+
+      # The package entry is `dist/`, and nothing before this step touches it:
+      # lint and tsc read `src/`, and the tests import from `src/` too. So a
+      # broken rolldown config or a `.d.ts` that will not emit used to surface in
+      # release.yml — after the tag, on the job that publishes.
+      - name: Build the package
+        run: npm run build
