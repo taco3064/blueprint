@@ -677,3 +677,71 @@ describe('quotedIn · escaping the alias before it becomes a pattern', () => {
     expect(quotedIn('import x from \'@scope/pkg\';', '~app')).toBe(false);
   });
 });
+
+describe('detect · every filename on each config allowlist', () => {
+  // One name per list stood in for all of them, so the rest could be dropped and
+  // nothing would fail. Each is a real file an adopter has: missing one makes
+  // detect report "no eslint config" on a repo that has one, and init then writes
+  // a second config beside the first — two configs, two ledgers, which is the
+  // exact state the legacy check exists to prevent.
+  //
+  // `eslint.config.ts` is the sharp one: it is what THIS repo uses.
+  it.each(['eslint.config.js', 'eslint.config.mjs', 'eslint.config.cjs', 'eslint.config.ts'])(
+    'finds a flat config named %s',
+    (file) => {
+      writePkg({ name: 'x', dependencies: { vue: '^3' } });
+      fs.writeFileSync(path.join(root, file), 'export default [];');
+
+      const state = detect(root);
+
+      expect(state.hasEslintConfig).toBe(true);
+      expect(state.eslintConfigFile).toBe(file);
+      expect(state.legacyEslintConfig).toBeUndefined();
+    },
+  );
+
+  it.each([
+    '.eslintrc.js', '.eslintrc.cjs', '.eslintrc.json',
+    '.eslintrc.yml', '.eslintrc.yaml', '.eslintrc',
+  ])('recognises %s as a legacy config needing migration', (file) => {
+    // A legacy config missed here routes the owner to a fresh flat config written
+    // next to their .eslintrc — instead of to the migration the state requires.
+    writePkg({ name: 'x', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, file), '{}');
+
+    const state = detect(root);
+
+    expect(state.legacyEslintConfig).toBe(file);
+    expect(state.eslintConfigShape).toBe('legacy');
+  });
+
+  it.each(['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite.config.mts'])(
+    'reads the alias out of %s',
+    (file) => {
+      // The vite config is one of the two places an alias can be wired. A name
+      // missed here makes doctor report a declared alias as resolving nowhere on
+      // a repo whose bundler resolves it fine.
+      writePkg({ name: 'x', dependencies: { vue: '^3' } });
+      fs.writeFileSync(path.join(root, file), 'export default { resolve: { alias: { \'~app\': \'/src\' } } };');
+
+      const state = detect(root);
+
+      expect(state.hasViteConfig).toBe(true);
+      expect(state.viteConfig?.file).toBe(file);
+    },
+  );
+
+  it.each(['tsconfig.json', 'tsconfig.app.json', 'jsconfig.json'])(
+    'reads path aliases out of %s',
+    (file) => {
+      writePkg({ name: 'x', dependencies: { vue: '^3' } });
+
+      fs.writeFileSync(
+        path.join(root, file),
+        JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+      );
+
+      expect([...pathAliasKeys(detect(root).tsconfigs)]).toEqual(['~app']);
+    },
+  );
+});

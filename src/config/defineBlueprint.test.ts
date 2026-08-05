@@ -654,3 +654,35 @@ describe('validateBlueprint · checks that see every entry, not just one', () =>
     expect(() => validateBlueprint(config)).toThrow(/must include the "\{layer\}" placeholder/);
   });
 });
+
+describe('validateBlueprint · every rule the emitter manages', () => {
+  // Two of the six stood in for the list, so the other four could be dropped and
+  // a `lintOverrides` entry would silently take effect — silently being the
+  // problem. The emitter writes these rules per layer AFTER the overrides are
+  // spread in, so an override on one of them is not a conflict the author can
+  // see: it is simply discarded, and the layer behaves as if they never wrote it.
+  it.each([
+    'no-restricted-imports',
+    'no-restricted-syntax',
+    'no-restricted-globals',
+    'max-lines',
+    'blueprint/no-deep-watch',
+    'blueprint/use-prefix',
+  ])('refuses a lintOverrides entry for %s', (rule) => {
+    const config = base();
+
+    config.architecture.layers[0].lintOverrides = { [rule]: 'off' };
+
+    expect(() => validateBlueprint(config)).toThrow(/managed by the Enforce emitter/);
+  });
+
+  it('still allows an override the emitter does not write', () => {
+    // The guard is the list, not "no overrides at all" — a layer has to be able
+    // to tune its own rules, which is what lintOverrides is for.
+    const config = base();
+
+    config.architecture.layers[0].lintOverrides = { 'no-console': 'error' };
+
+    expect(() => validateBlueprint(config)).not.toThrow();
+  });
+});

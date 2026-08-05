@@ -42,9 +42,25 @@ describe('blueprint/test-filename-matches-source', () => {
     expect(messages('Card.spec.ts')).toEqual([]);
   });
 
+  // One extension used to stand in for the whole list, so the other five could
+  // be dropped with the suite green — and a dropped extension makes every test
+  // beside a source of that kind an orphan. `.ts` and `.vue` were covered above;
+  // these are the rest, each its own contract.
+  it.each(['.js', '.jsx', '.tsx', '.mjs'])('accepts a sibling source ending %s', (ext) => {
+    fs.writeFileSync(path.join(root, `Widget${ext}`), '');
+
+    expect(messages('Widget.test.ts')).toEqual([]);
+  });
+
   it('flags an orphan test file', () => {
     expect(messages('Ghost.test.ts')).toHaveLength(1);
     expect(messages('Ghost.test.ts')[0]).toContain('"Ghost"');
+
+    // Naming the orphan is the diagnosis; the remedy is the half the reader can
+    // act on, and it says BOTH things they have to get right — where the file
+    // goes, and what it has to be called.
+    expect(messages('Ghost.test.ts')[0])
+      .toContain('co-locate the test next to its source and keep the names aligned');
   });
 
   it('ignores files that are not test files', () => {

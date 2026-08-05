@@ -50,6 +50,21 @@ describe('plugin', () => {
     expect(plugin.rules?.[id]?.meta?.docs?.description).toContain(fragment);
   });
 
+  // `meta.type` is what `eslint --fix-type` and every reporter that groups by
+  // kind read. Nothing asserted it, so all six could go empty — and an empty
+  // type is not one of the three eslint accepts, which is the sort of thing that
+  // surfaces as an adopter's tooling quietly skipping the rule.
+  it.each([
+    ['relative-escape', 'problem'],
+    ['no-deep-watch', 'problem'],
+    ['test-filename-matches-source', 'problem'],
+    ['use-prefix', 'suggestion'],
+    ['no-typedef-only-file', 'suggestion'],
+    ['use-prefix-needs-reactivity', 'suggestion'],
+  ] as const)('%s declares itself a %s', (id, type) => {
+    expect(plugin.rules?.[id]?.meta?.type).toBe(type);
+  });
+
   it.each(NO_OPTIONS)('%s takes no options, and its schema says so', (id) => {
     // The empty schema is what makes eslint reject `['error', {…}]` on this
     // rule, rather than accept a setting it will never read.

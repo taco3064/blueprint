@@ -30,3 +30,16 @@ describe('blueprint/no-typedef-only-file', () => {
     expect(messages('const x = 1;')).toEqual([]);
   });
 });
+
+describe('blueprint/no-typedef-only-file · the remedy half of the message', () => {
+  it('says where the typedef has to go, not just that it is stranded', () => {
+    // The diagnosis ("@typedef but no runtime export") tells the author what is
+    // wrong; only the second half tells them the move — and it names the test
+    // for WHICH file receives it, which is the part they would otherwise guess.
+    const [message] = messages('/** @typedef {object} Foo */\nconst x = 1;');
+
+    expect(message).toContain('no runtime export');
+    expect(message).toContain('move each typedef into the producer file');
+    expect(message).toContain('@returns');
+  });
+});

@@ -89,3 +89,37 @@ describe('blueprint/use-prefix', () => {
     expect(() => withOption({ prefix: 'with' })).not.toThrow();
   });
 });
+
+describe('blueprint/use-prefix · the remedy, and which export it points at', () => {
+  const report = (code: string) =>
+    linter.verify(code, {
+      plugins: { blueprint: plugin },
+      languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+      rules: { 'blueprint/use-prefix': 'error' },
+    })[0];
+
+  it('offers both ways out, and interpolates the configured prefix into them', () => {
+    // Renaming is not the only fix — the export may simply belong a layer down,
+    // and a message offering only the rename pushes every misplaced helper into
+    // a hook-shaped name. The prefix is interpolated, so a data key that stops
+    // arriving renders the placeholder verbatim.
+    const message = report('export function getCart() {}')?.message ?? '';
+
+    expect(message).toContain('"getCart"');
+    expect(message).toContain('name hooks useX');
+    expect(message).toContain('move non-hook code to a lower layer');
+    expect(message).not.toContain('{{');
+  });
+
+  it('points at the offending export, not at the top of the file', () => {
+    // With several exports in a file, the file-level position tells the author
+    // nothing about which one to rename.
+    const out = report([
+      'export function useCart() {}',
+      'export function useTotals() {}',
+      'export function getCart() {}',
+    ].join('\n'));
+
+    expect(out?.line).toBe(3);
+  });
+});

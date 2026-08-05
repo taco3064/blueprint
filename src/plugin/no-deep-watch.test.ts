@@ -54,3 +54,39 @@ describe('blueprint/no-deep-watch', () => {
       .toEqual(['blueprint/no-deep-watch']);
   });
 });
+
+describe('blueprint/no-deep-watch · what the report says, and where it points', () => {
+  const report = (code: string) =>
+    linter.verify(code, {
+      plugins: { blueprint: plugin },
+      languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+      rules: { 'blueprint/no-deep-watch': 'error' },
+    })[0];
+
+  it('states the cost and the way out', () => {
+    // Only the rule id was ever asserted, so the entire message could go empty
+    // and the suite would not notice. The id tells an adopter which rule fired;
+    // the message is the only place they learn why deep watching costs what it
+    // costs, and what to do instead.
+    const message = report('watch(x, cb, { deep: true });')?.message ?? '';
+
+    expect(message).toContain('traverses the whole source on every change');
+    expect(message).toContain('cost = work × frequency');
+    expect(message).toContain('Watch a specific path instead, or restructure the state');
+  });
+
+  it('points at the deep option rather than the watch call', () => {
+    // The report node is the offending property, and a real watch spans several
+    // lines. Reporting the call instead puts the editor's cursor on `watch(` and
+    // leaves the author hunting for which option in the object was the problem.
+    const out = report([
+      'watch(',
+      '  source,',
+      '  cb,',
+      '  { immediate: true, deep: true },',
+      ');',
+    ].join('\n'));
+
+    expect(out?.line).toBe(4);
+  });
+});

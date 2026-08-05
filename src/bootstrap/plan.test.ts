@@ -652,3 +652,42 @@ describe('plan · what licenses a greenfield edit', () => {
     expect(content).toMatch(/\S\n<!-- BLUEPRINT:END -->/);
   });
 });
+
+describe('plan · every action is labelled so the reader can locate it', () => {
+  // `note` is the line init prints to say what it just did. The long instruct
+  // notes were asserted; the short ones on write / mkdir / rm never were, so
+  // each could go empty — and the plan then prints a run of blank rows above a
+  // set of writes the reader cannot attribute to any file.
+  //
+  // Asserted as an invariant rather than a list of expected strings: a new
+  // action inherits the requirement instead of slipping past a fixture that
+  // predates it.
+  const scenarios: [string, Partial<ProjectState>, string | null][] = [
+    ['greenfield, nothing installed', {}, 'export default {};'],
+    ['an existing config and a wired eslint', { hasConfig: true, wiredEslintConfig: true }, null],
+    [
+      'a hand-written flat config to merge into',
+      { hasConfig: true, hasEslintConfig: true, eslintConfigFile: 'eslint.config.mjs', eslintConfigShape: 'flat-array' },
+      null,
+    ],
+    ['a legacy eslintrc', { hasConfig: true, legacyEslintConfig: '.eslintrc.cjs', eslintConfigShape: 'legacy' }, null],
+    ['a TypeScript project with vite', { hasTypescript: true, hasViteConfig: true }, 'export default {};'],
+  ];
+
+  it.each(scenarios)('%s', (_label, over, configSource) => {
+    const actions = plan(state(over), bp, configSource, {});
+
+    expect(actions.length).toBeGreaterThan(0);
+
+    for (const action of actions) {
+      expect(action.note.trim(), `a ${action.kind} action carries a blank note`).not.toBe('');
+
+      // A file-touching action has to name the file it touched. Anything else
+      // leaves the reader matching rows against a filesystem by hand.
+      if (action.kind === 'write' || action.kind === 'mkdir' || action.kind === 'rm') {
+        expect(action.note, `${action.kind} ${action.path} does not name its own path`)
+          .toContain(action.path);
+      }
+    }
+  });
+});
