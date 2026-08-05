@@ -200,10 +200,17 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
         gitignore.replace(/[\r\n]*$/, ''),
         '',
         '# @kekkai/blueprint artifacts — the agent contract links to these; keep them tracked',
-        ...hidden.map((file) => `!${file}`),
+        ...hidden.map(({ file }) => `!${file}`),
         '',
       ].join(eol),
-      note: `.gitignore (re-included ${hidden.join(', ')} via ! — delete the lines to keep ${hidden.length === 1 ? 'it' : 'them'} hidden; if a parent directory is wholly excluded, git needs that directory re-included too)`,
+      // Name the rule that hid each file, not only the file. Checking this claim
+      // AFTER the negation lands answers "not ignored" — the negation working, not
+      // evidence it was unnecessary — and a field agent filed the fix as a no-op on
+      // exactly that reading. With the pattern named, the check is
+      // `git check-ignore -v <file>` against a .gitignore with these lines removed.
+      note: `.gitignore (re-included ${hidden
+        .map(({ file, rule }) => `${file} — hidden by \`${rule}\``)
+        .join('; ')} — via !; delete the appended lines to keep ${hidden.length === 1 ? 'it' : 'them'} hidden; if a parent directory is wholly excluded, git needs that directory re-included too)`,
     });
   }
 

@@ -500,6 +500,83 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
   });
 });
 
+describe('naming the cause, so a claim can be checked (field runs #79–#81)', () => {
+  it('names the .gitignore rule that hid the handbook, not only the file', async () => {
+    // A field agent ran `git check-ignore` AFTER init appended its negation, got
+    // "not ignored", and filed the fix as a no-op. It was not: `docs/*` hid the
+    // handbook, and the negation is what un-hid it. A post-hoc check cannot tell
+    // "never needed" from "currently working" — so the note names the pattern,
+    // which the fix has not changed.
+    const dir = repo({
+      packageJson: react(),
+      files: { '.gitignore': 'node_modules\ndocs/*\n!docs/keep.md\n' },
+    });
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).toContain('hidden by `docs/*`');
+    expect(read(dir, '.gitignore')).toContain('!docs/architecture-handbook.md');
+  });
+
+  it('says the contract gates reach only the files the globs match', async () => {
+    // Every CLI surface marks an empty net as vacuous. The contract — the one
+    // artifact a future agent reads with no CLI output beside it — did not, and two
+    // field agents flagged it independently. Stated as reach rather than as a count,
+    // so it cannot go stale once code lands.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+
+    const contract = read(dir, 'CLAUDE.md') ?? '';
+
+    expect(contract).toContain('Hard gates (machine-enforced');
+    expect(contract).toContain('on the files the layer globs match');
+    expect(contract).toContain('runway, not protection');
+  });
+
+  it('tells a re-adoption not to drop what the matrix cannot express', async () => {
+    // The check-only rule added last round has a second-order effect: ownership, a
+    // selfOnly shape, an empty layer's position and a zero-edge importer cannot be
+    // derived from the matrix at all, so check-only means dropping them — a faithful
+    // re-adoption then hands back a LOOSER config than the one it replaced.
+    const dir = repo({
+      packageJson: react(),
+      files: Object.fromEntries(
+        Array.from({ length: 12 }, (_, i) => [`src/legacy/mod${i}.js`, 'export const x = 1;\n']),
+      ),
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('cannot** be\n   derived from the matrix');
+    expect(playbook).toContain('LOOSER than the one it replaced');
+    expect(playbook).toContain('reproduced rather\n   than derived');
+  });
+
+  it('states the ignores trade in both directions', async () => {
+    // Carrying blueprint's test exemption onto a merged entry stops a house rule at
+    // test files it used to govern — the mirror of the documented hazard, and the
+    // one a field agent hit.
+    const dir = repo({
+      packageJson: react(),
+      files: Object.fromEntries(
+        Array.from({ length: 12 }, (_, i) => [`src/legacy/mod${i}.js`, 'export const x = 1;\n']),
+      ),
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('The same move runs the other way');
+    expect(playbook).toContain('One entry carries one');
+    expect(playbook).toContain('that is where\n     the asymmetry lands');
+  });
+});
+
 describe('what a second output knows about the first (field runs #75–#77)', () => {
   it('says the declaratory selfOnly entry still collides today', async () => {
     // The finding is right at the finding level — an empty layer has nothing to

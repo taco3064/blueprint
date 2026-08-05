@@ -68,7 +68,12 @@ export function renderCompactContract(blueprint: Blueprint): string {
     `- Layer flow: ${chain} — transitive: a layer may import **any** layer after it, unless the target narrows its importers.`,
     `- **Before adding, moving, or renaming any file** — placement, module shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
     '- **Operating discipline** — how to follow the flow, react to lint failures, and the pre-commit checklist: read [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md) (ships inside the package — present once dependencies are installed, always matching the installed version).',
-    `- Hard gates (machine-enforced): one-way imports, module entries, ownership, relative escapes${gates.length ? `, ${gates.join(', ')}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
+    // "Machine-enforced" names the mechanism; this also names its REACH, and does so
+    // without a count that goes stale. Every CLI surface marks a net over an empty
+    // repo as vacuous — and this contract, the one artifact a future agent reads with
+    // no CLI output beside it, was the only one that did not. Two field agents flagged
+    // the gap independently, one noting it is exactly the file read alone.
+    `- Hard gates (machine-enforced by the generated eslint config, on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${gates.length ? `, ${gates.join(', ')}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
     // --baseline so the verify loop fails only on findings the agent itself
     // introduced — plain inspect stays red forever on locked brownfield debt
     // (field issue #10).
