@@ -166,3 +166,36 @@ describe('scan', () => {
     expect(result.files[0].segments).toEqual(['lib', 'x.ts']);
   });
 });
+
+describe('scan · every directory on the skip list', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-skip-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  // One entry stood in for the whole set (`node_modules` and `.next`), so the
+  // other eight could be dropped with the suite green. Each is its own contract,
+  // and the build outputs are the expensive ones to lose: `dist/`, `build/`,
+  // `out/` and `coverage/` hold compiled copies of the very files being scanned,
+  // so every module would be counted twice and every import in the emitted
+  // bundle judged as if a human wrote it.
+  it.each([
+    'node_modules', '.git', '.next', '.nuxt', '.turbo', '.cache',
+    'dist', 'build', 'out', 'coverage',
+  ])('never walks into %s', (dir) => {
+    fs.mkdirSync(path.join(root, 'src', dir), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src', dir, 'noise.ts'), 'export const x = 1;');
+    fs.mkdirSync(path.join(root, 'src', 'components'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src', 'components', 'Real.ts'), 'export const y = 1;');
+
+    const result = scan(root);
+
+    expect(result.files.map((file) => file.path)).toEqual(['src/components/Real.ts']);
+    expect(result.topDirs).not.toContain(dir);
+  });
+});

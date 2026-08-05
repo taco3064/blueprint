@@ -275,3 +275,18 @@ describe('blueprint/relative-escape · what each verdict tells the reader', () =
     expect(out?.line).toBe(3);
   });
 });
+
+describe('blueprint/relative-escape · a layer the options never mention', () => {
+  it('declines to judge a file whose own layer is not in layouts', () => {
+    // The rule checks a file only when its own layer appears in `layouts` — an
+    // unmentioned folder is outside the contract the rule was handed, not a flat
+    // layer by default. Judging it anyway applies a shape nobody declared, and
+    // the emitted config passes `layouts` for exactly the declared layers.
+    expect(messageIds('import x from "../B/B.ts";', 'src/unlisted/A/A.ts')).toEqual([]);
+
+    // A declared folder layer still gets the folder answer — this is a boundary
+    // on what the rule speaks about, not a blanket exemption.
+    expect(messageIds('import x from "../markets/parts/Cell";', 'src/resources/matches/Row.ts'))
+      .toEqual(['reachesInside']);
+  });
+});
