@@ -17,11 +17,24 @@ export interface Coverage {
   sourceFiles: number;
   /** Of those, files matched by a declared layer's file globs. */
   layerFiles: number;
+  /**
+   * The ones NOT matched, by path.
+   *
+   * The count alone is a claim the reader cannot check: `272/275` is correct both when
+   * the three are root wiring (`main.tsx`, `router.js` — outside every layer by design)
+   * and when one is a layer file a mistyped glob dropped out of the net. A field agent
+   * confirmed the glob by other means (`impact` running on layer files, then
+   * `print-config`) and said the number itself was not what told it.
+   */
+  outsideNets: string[];
   /** Lint-gated rule ids active in `blueprint.rules` (tier not `off`). */
   activeRules: number;
   /** Total rule ids a machine can gate (see `LINT_GATED_RULE_IDS`). */
   gatedRules: number;
 }
+
+/** Beyond this many files outside the nets, the list stops being readable. */
+const OUTSIDE_NAMED_MAX = 5;
 
 /**
  * Measure the enforcement net: which files and how many gates reach them.
@@ -44,7 +57,8 @@ export function computeCoverage(
     ),
   ].map(globToRegExp);
 
-  const layerFiles = source.filter((file) => nets.some((net) => net.test(file.path))).length;
+  const outside = source.filter((file) => !nets.some((net) => net.test(file.path)));
+  const layerFiles = source.length - outside.length;
 
   // Mirror emitLint: `deepWatch` never emits on React, so on React it neither
   // counts as available nor as active — a gate you cannot open is not a gate.
@@ -61,6 +75,7 @@ export function computeCoverage(
   return {
     sourceFiles: source.length,
     layerFiles,
+    outsideNets: outside.map((file) => file.path),
     activeRules,
     gatedRules: gates.length,
   };
@@ -74,7 +89,20 @@ export function computeCoverage(
  * `rules` block, so "0 optional gates" must not read as "nothing enforced".
  */
 export function coverageSummary(coverage: Coverage): string {
-  return `${coverage.layerFiles}/${coverage.sourceFiles} source files inside layer nets · `
+  // The files outside the net are NAMED, not just counted. Root wiring belongs out
+  // there and a layer file dropped by a mistyped glob does not, and the count reads
+  // identically either way — so the number is a claim its reader cannot check. Capped,
+  // because on a brownfield repo mid-adoption the list is the whole repo: past the cap
+  // the count is the honest answer and the names would be noise.
+  const outside = coverage.outsideNets;
+
+  const named = outside.length === 0
+    ? ''
+    : outside.length > OUTSIDE_NAMED_MAX
+      ? ` (${outside.length} outside — too many to name; expected while layers are still empty)`
+      : ` (outside: ${outside.join(', ')} — root wiring belongs here; a layer file does not)`;
+
+  return `${coverage.layerFiles}/${coverage.sourceFiles} source files inside layer nets${named} · `
     + `${coverage.activeRules}/${coverage.gatedRules} optional gates active `
     + '(structural boundary rules are always on)';
 }

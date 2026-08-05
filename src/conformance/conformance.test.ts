@@ -500,6 +500,45 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
   });
 });
 
+describe('a number and a rule the reader can act on (field run #89)', () => {
+  it('names the files outside the layer nets, not just how many', async () => {
+    // `272/275` reads identically whether the three are root wiring (outside by design)
+    // or a layer file a mistyped glob dropped out. A field agent confirmed its globs by
+    // other means and said the number itself was not what told it.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'src/components/Button.jsx': 'export const Button = () => null;\n',
+        'src/main.jsx': 'export const boot = 1;\n',
+      },
+    });
+
+    await cli(dir, ['init', '--no-install']);
+    write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.output).toContain('outside: src/main.jsx');
+    expect(inspect.output).toContain('root wiring belongs here; a layer file does not');
+  });
+
+  it('tells the contract reader which remedy is theirs', async () => {
+    // `inspect` offers two ways out of an undeclared folder — declare it, or move the
+    // code. Every contract said only "do not create them", so an agent reading nothing
+    // else contorts new code into an existing layer instead of reporting that the
+    // architecture outgrew the config. Declaring a layer is the owner's call, the same
+    // call the playbook keeps away from an adopting agent.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+
+    const contract = read(dir, 'CLAUDE.md') ?? '';
+
+    expect(contract).toContain('Its finding names two remedies and only one is yours');
+    expect(contract).toContain('never declare the layer yourself');
+  });
+});
+
 describe('a flag states its outcome, not only its mechanism (field run #88)', () => {
   it('--authoring says where it lands on a small repo', async () => {
     // Four agents reached for this flag and had to work out from the run's output that

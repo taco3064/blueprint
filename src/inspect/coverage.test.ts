@@ -35,6 +35,9 @@ describe('computeCoverage', () => {
     expect(coverage).toEqual({
       sourceFiles: 2, // the test file is dropped, root wiring still counts
       layerFiles: 1, // only Button.vue sits inside a declared layer's glob
+      // Named, and the test file is NOT among them — it was dropped before the nets ran,
+      // so calling it uncovered would report a file nobody chose to leave out.
+      outsideNets: ['src/main.ts'],
       activeRules: 2, // maxLines + unusedVars
       gatedRules: LINT_GATED_RULE_IDS.length,
     });
@@ -88,19 +91,62 @@ describe('vacuousNextStep', () => {
 describe('renderCoverage', () => {
   it('renders the one-line summary without implying structural rules are off', () => {
     const line = renderCoverage(
-      { sourceFiles: 2, layerFiles: 1, activeRules: 0, gatedRules: 13 },
+      { sourceFiles: 2, layerFiles: 1, outsideNets: ['src/main.tsx'], activeRules: 0, gatedRules: 13 },
       blueprint,
     );
 
     expect(line).toContain('Coverage: 1/2 source files inside layer nets');
+    // NAMED, not just counted: 1/2 reads the same whether the odd file is root wiring
+    // or a layer file a mistyped glob dropped. A field agent had to confirm the glob by
+    // other means because the number could not tell it.
+    expect(line).toContain('outside: src/main.tsx');
+    expect(line).toContain('root wiring belongs here; a layer file does not');
     // "0 active" must not read as "nothing enforced" — structural rules always emit.
     expect(line).toContain('0/13 optional gates active');
     expect(line).toContain('structural boundary rules are always on');
   });
 
+  it('stops naming past the cap, and says why the count is the answer there', () => {
+    // Mid-adoption on a brownfield repo the list IS the repo, and six names in a
+    // one-line summary stop being readable. Past the cap the count is the honest
+    // answer — but it has to say that, or it reads like the naming broke.
+    const line = renderCoverage(
+      {
+        sourceFiles: 8,
+        layerFiles: 2,
+        outsideNets: ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts', 'f.ts'],
+        activeRules: 2,
+        gatedRules: 13,
+      },
+      blueprint,
+    );
+
+    expect(line).toContain('6 outside — too many to name');
+    expect(line).toContain('expected while layers are still empty');
+    // The names themselves must be gone, or the cap did nothing.
+    expect(line).not.toContain('a.ts');
+
+    // The cap itself, at the boundary: exactly five still get named. `>` and `>=`
+    // differ on this one input and nowhere else, so without it the cap could sit one
+    // file off and every other case would still pass.
+    const atCap = renderCoverage(
+      {
+        sourceFiles: 7,
+        layerFiles: 2,
+        outsideNets: ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts'],
+        activeRules: 2,
+        gatedRules: 13,
+      },
+      blueprint,
+    );
+
+    expect(atCap).toContain('outside: a.ts, b.ts, c.ts, d.ts, e.ts');
+    expect(atCap).not.toContain('too many to name');
+  });
+
   it('screams when files exist but the net catches none of them', () => {
     const line = renderCoverage(
-      { sourceFiles: 3, layerFiles: 0, activeRules: 2, gatedRules: 13 },
+      { sourceFiles: 3, layerFiles: 0, outsideNets: ['a.ts', 'b.ts', 'c.ts'], activeRules: 2, gatedRules: 13 },
       blueprint,
     );
 
@@ -112,12 +158,15 @@ describe('renderCoverage', () => {
 
   it('stays calm on an empty repo — nothing exists to cover yet', () => {
     const line = renderCoverage(
-      { sourceFiles: 0, layerFiles: 0, activeRules: 2, gatedRules: 13 },
+      { sourceFiles: 0, layerFiles: 0, outsideNets: [], activeRules: 2, gatedRules: 13 },
       blueprint,
     );
 
     expect(line).toContain('Coverage: 0/0');
     expect(line).not.toContain('vacuous');
+    // Nothing outside the net either, so the clause must be absent — naming an empty
+    // set reads as a gap where there is none.
+    expect(line).not.toContain('outside');
   });
 });
 

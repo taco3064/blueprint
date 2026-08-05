@@ -97,7 +97,12 @@ export function renderCompactContract(blueprint: Blueprint): string {
     // --baseline so the verify loop fails only on findings the agent itself
     // introduced — plain inspect stays red forever on locked brownfield debt
     // (field issue #10).
-    `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced).`,
+    // `inspect`'s finding offers two remedies ("declare it, or move its code"); this
+    // said only the second, and an agent reading nothing else contorts new code into an
+    // existing layer rather than reporting that the architecture outgrew the config.
+    // Naming both, and whose each is: declaring a layer is an architecture decision, the
+    // same call the authoring playbook keeps away from an adopting agent.
+    `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a module of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.`,
   ].join('\n');
 }
 
@@ -244,7 +249,7 @@ export function renderBehavioral(
   rules: Record<string, RuleSetting> | undefined,
 ): string {
   const bullets = [
-    `- Do not create undeclared folders under \`${architecture.alias}/\`. Every folder is a declared layer or a module inside one. (lint can't see this — inspect will.)`,
+    `- Do not create undeclared folders under \`${architecture.alias}/\`. Every folder is a declared layer or a module inside one. (lint can't see this — inspect will.) Inspect offers to declare the folder instead; that one is not yours. Outgrowing the config is the owner's call to make — report it, do not edit the architecture to fit what you just wrote.`,
     ...claudePrinciples(principles).map(
       (principle) => `- **${principle.say}** — ${principle.why}`,
     ),

@@ -44,7 +44,12 @@
 
 - Do not create undeclared folders under the project alias root. Every folder
   is a declared layer or a module inside one — `blueprint inspect` catches
-  this after the fact; you prevent it.
+  this after the fact; you prevent it. Its finding offers two ways out —
+  declare the folder as a layer, or move the code into an existing one — and
+  only the second is yours. If the architecture has genuinely outgrown the
+  config, that is the owner's decision: report it and stop. Editing the
+  architecture to fit code you just wrote is how a contract stops describing
+  anything.
 - Dead code: `npx knip` is the source of truth, not lint. Confirm removal
   candidates before deleting; leave nothing "temporarily kept" without a
   marker the team agreed on.
