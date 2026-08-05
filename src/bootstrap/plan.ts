@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { aliasActions } from './alias';
 import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
 import { emitHandbook, handbookPath } from '../emit/docs';
@@ -90,7 +92,19 @@ export function plan(
       // (field issue #26: markers were promised, none were visible, and the
       // guessed integration went permanently stale).
       if (existing !== null && !existing.includes(`<!-- ${MARKER}:START -->`)) {
-        const reference = file.path.replace(/\.md$/, '.blueprint.md');
+        // `.blueprint` goes before whatever the extension is, not before a
+        // literal `.md`. `emit.agents` accepts any path, and a contract pointed
+        // at one that does not end in `.md` — `.mdc` for a Cursor rules folder,
+        // `.mdx` for a docs site — produced a reference path IDENTICAL to the
+        // file's own. The write below then landed ON the hand-written document
+        // instead of beside it: the exact graffiti this branch exists to avoid,
+        // except destructive. `path.extname` also answers '' for a dotfile, so
+        // `.gitignore` becomes `.gitignore.blueprint`, never `.blueprint.gitignore`.
+        const ext = path.extname(file.path);
+
+        const reference = ext
+          ? `${file.path.slice(0, -ext.length)}.blueprint${ext}`
+          : `${file.path}.blueprint`;
 
         actions.push(
           {
