@@ -429,7 +429,7 @@ describe('runInit · brownfield authoring flow', () => {
     expect(exists('blueprint-authoring.md')).toBe(true);
   });
 
-  it('--authoring refuses to touch a hand-edited config', async () => {
+  it('--authoring refuses a config that is not init\'s own output', async () => {
     writePkg({ name: 'fresh', dependencies: { react: '^18' } });
 
     fs.writeFileSync(
@@ -437,9 +437,18 @@ describe('runInit · brownfield authoring flow', () => {
       '// hand-tuned\nexport default { framework: \'react\' };',
     );
 
-    await expect(
-      runInit(root, { install: false, authoring: true, log: silent }),
-    ).rejects.toThrow('has been edited');
+    const refusal = runInit(root, { install: false, authoring: true, log: silent });
+
+    // Not "has been edited" — all init knows is that the file differs from what it
+    // would scaffold, and a config a previous agent authored differs without anyone
+    // editing it. A field run was told it had edited a config it had only committed.
+    await expect(refusal).rejects.toThrow('differs from what init would scaffold');
+
+    // And what re-authoring actually costs: it rewrites rather than merges, so the
+    // structure comes back and the rationale does not. "Discard your work" reads as
+    // recoverable when the recoverable half is not the half worth keeping.
+    await expect(refusal).rejects.toThrow('The structure is reproducible');
+    await expect(refusal).rejects.toThrow('Copy anything you want to keep');
 
     expect(read('blueprint.config.mjs')).toContain('hand-tuned');
   });

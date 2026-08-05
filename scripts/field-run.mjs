@@ -329,6 +329,22 @@ async function main() {
       const doctor = capture('npx blueprint doctor', dir);
       const inspect = capture('npx blueprint inspect --baseline', dir);
       const feedbackPath = path.join(dir, FEEDBACK_FILE);
+      const logPath = path.join(dir, 'agent.log');
+
+      // The log's tail is copied into the report ONLY when the feedback is missing,
+      // because that is the one case the report cannot explain on its own. Pointing at
+      // agent.log instead is a pointer into a temp dir the triage will not have: these
+      // are staged under os.tmpdir() and earlier batches were already gone by the time
+      // anyone read the issue. The answer for the first non-zero exit in this harness's
+      // life was 81 bytes long ("API Error: Connection closed mid-response") and would
+      // have been lost with the directory.
+      const tail = (file, lines) => {
+        if (!fs.existsSync(file)) return null;
+
+        const all = fs.readFileSync(file, 'utf-8').trimEnd().split('\n');
+
+        return all.slice(-lines).join('\n');
+      };
 
       runs.push({
         scenario,
@@ -338,6 +354,7 @@ async function main() {
         doctor,
         inspect,
         feedback: fs.existsSync(feedbackPath) ? fs.readFileSync(feedbackPath, 'utf-8') : null,
+        logTail: fs.existsSync(feedbackPath) ? null : tail(logPath, 20),
       });
     }
   }
@@ -374,7 +391,14 @@ async function main() {
         '',
         `### feedback (${FEEDBACK_FILE})`,
         '',
-        run.feedback ?? '(missing — the agent never wrote it; read agent.log)',
+        run.feedback ?? [
+          '(missing — the agent never wrote it. Last 20 lines of agent.log, copied here',
+          'because the staging directory is temporary and will not survive triage:)',
+          '',
+          '```',
+          run.logTail ?? '(agent.log absent too — the agent never started)',
+          '```',
+        ].join('\n'),
         '',
       ];
     }),

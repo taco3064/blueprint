@@ -81,8 +81,17 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
   if (options.authoring && state.hasConfig && !pristine) {
     throw new Error(
-      'blueprint.config.mjs exists and has been edited — re-authoring would discard '
-      + 'your work. Delete the file yourself if you really want the playbook.',
+      // Not "has been edited": all this knows is that the file differs from what init
+      // would scaffold today, and a config authored by a previous agent differs without
+      // anyone having edited it. And name what is actually lost — re-authoring rewrites
+      // from scratch rather than merging, so the structure comes back (a field run
+      // reproduced it byte for byte) while the inline rationale does not. "Discard your
+      // work" reads as recoverable when the recoverable half is not the valuable one.
+      'blueprint.config.mjs differs from what init would scaffold — so it is yours, not '
+      + 'init\'s output, and re-authoring rewrites it from scratch rather than merging. '
+      + 'The structure is reproducible; the comments explaining WHY each threshold and '
+      + 'ownership was chosen are not. Copy anything you want to keep, then delete the '
+      + 'file yourself if you really want the playbook.',
     );
   }
 
