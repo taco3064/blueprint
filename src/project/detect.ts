@@ -284,7 +284,10 @@ export function detect(root: string): ProjectState {
  * need this: a tsconfig's own data contains `/*` (every `"@/*"` paths key),
  * so nothing may be stripped inside a string.
  */
-function copyString(text: string, i: number): { copied: string; next: number } {
+function copyString(
+  text: string,
+  i: number,
+): { copied: string; next: number; stoppedAt: number; closed: boolean } {
   let copied = text[i];
 
   i++;
@@ -300,9 +303,15 @@ function copyString(text: string, i: number): { copied: string; next: number } {
     i++;
   }
 
-  if (i < text.length) copied += text[i];
+  // `stoppedAt` is where the scan came to rest — the closing quote when there is
+  // one, the end of the text when there is not. The caller reports it, which is
+  // what makes every bound above answerable: a scan running one character too far
+  // changes the number a reader is shown.
+  const closed = i < text.length;
 
-  return { copied, next: i + 1 };
+  if (closed) copied += text[i];
+
+  return { copied, next: i + 1, stoppedAt: i, closed };
 }
 
 /**
@@ -313,7 +322,21 @@ function copyString(text: string, i: number): { copied: string; next: number } {
  * alias check on the mainstream path. Returns null when the text still is
  * not JSON after stripping.
  */
-export function parseJsonc(text: string): unknown {
+/**
+ * Why a JSONC document could not be read, and the character offset the scan gave
+ * up at. Reported rather than folded into one null: "I cannot read your tsconfig"
+ * is not something an adopter can act on — and a failure with no position leaves
+ * every bound in the scanner unanswerable, since running one character too far
+ * produced the same bare null.
+ */
+export interface JsoncFailure {
+  reason: 'unterminated-string' | 'unclosed-comment' | 'not-json';
+  at: number;
+}
+
+export type JsoncResult = { ok: true; value: unknown } | ({ ok: false } & JsoncFailure);
+
+export function parseJsonc(text: string): JsoncResult {
   // Both passes accumulate into a STRING, not an array joined at the end. The
   // difference is that a string says when the scan reads past the end:
   // `'' + undefined` is the four characters "undefined", where
@@ -325,7 +348,9 @@ export function parseJsonc(text: string): unknown {
 
   for (let i = 0; i < text.length;) {
     if (text[i] === '"') {
-      const { copied, next } = copyString(text, i);
+      const { copied, next, stoppedAt, closed } = copyString(text, i);
+
+      if (!closed) return { ok: false, reason: 'unterminated-string', at: stoppedAt };
 
       commentFree += copied;
       i = next;
@@ -335,6 +360,8 @@ export function parseJsonc(text: string): unknown {
       i += 2;
 
       while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++;
+
+      if (i >= text.length) return { ok: false, reason: 'unclosed-comment', at: i };
 
       i += 2;
     } else {
@@ -348,6 +375,7 @@ export function parseJsonc(text: string): unknown {
 
   for (let i = 0; i < commentFree.length;) {
     if (commentFree[i] === '"') {
+      // Already proven closed — the first pass copied this same literal.
       const { copied, next } = copyString(commentFree, i);
 
       clean += copied;
@@ -367,9 +395,13 @@ export function parseJsonc(text: string): unknown {
   }
 
   try {
-    return JSON.parse(clean);
+    return { ok: true, value: JSON.parse(clean) };
   } catch {
-    return null; // Still broken after stripping — the --alias flag covers this honestly.
+    // Comments and trailing commas are gone, so what is left is a JSON mistake
+    // rather than a JSONC one — a different thing to tell the reader. No offset:
+    // JSON.parse's own position refers to the stripped text, not the file they
+    // have open.
+    return { ok: false, reason: 'not-json', at: 0 };
   }
 }
 
@@ -381,11 +413,11 @@ function eachPathAlias(
   for (const text of Object.values(tsconfigs)) {
     if (text == null) continue;
 
-    const parsed = parseJsonc(text);
+    const result = parseJsonc(text);
 
-    if (parsed == null) continue;
+    if (!result.ok) continue;
 
-    const options = (parsed as { compilerOptions?: { paths?: unknown } })?.compilerOptions;
+    const options = (result.value as { compilerOptions?: { paths?: unknown } })?.compilerOptions;
     const paths = options?.paths;
 
     if (typeof paths !== 'object' || paths === null) continue;

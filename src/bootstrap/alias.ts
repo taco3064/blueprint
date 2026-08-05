@@ -81,7 +81,11 @@ export function patchTsconfigPaths(
 
 /** Every alias already present in a JSONC config's `compilerOptions.paths`. */
 function jsoncAlreadyWired(text: string, paths: Record<string, string[]>): boolean {
-  const parsed = parseJsonc(text);
+  const result = parseJsonc(text);
+
+  if (!result.ok) return false;
+
+  const parsed = result.value;
 
   if (!isRecord(parsed) || !isRecord(parsed.compilerOptions)) return false;
 
