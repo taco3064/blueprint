@@ -110,14 +110,18 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
   const { alias, additionalAliases, sourceRoot } = blueprint.architecture;
   const declared = pathAliasKeys(state.tsconfigs);
 
-  const bundlerTexts = [
-    state.viteConfig?.text,
-    ...BUNDLER_FILES.map((file) => {
-      const full = path.join(root, file);
+  // Built without holes rather than built with holes and filtered. The filter that
+  // used to close this was `(text): text is string => text !== undefined` — a
+  // narrowing for the compiler, and undecidable at runtime, because `quotedIn`
+  // regex-tests its argument and `test(undefined)` searches the string "undefined"
+  // for the alias. Both guards below decide something: read a file that is not
+  // there and `readFileSync` throws; drop the vite arm and an alias wired only in
+  // vite.config.ts reads as wired nowhere.
+  const bundlerTexts = BUNDLER_FILES.map((file) => path.join(root, file))
+    .filter((full) => fs.existsSync(full))
+    .map((full) => fs.readFileSync(full, 'utf-8'));
 
-      return fs.existsSync(full) ? fs.readFileSync(full, 'utf-8') : undefined;
-    }),
-  ].filter((text): text is string => text !== undefined);
+  if (state.viteConfig) bundlerTexts.push(state.viteConfig.text);
 
   const unwired = [alias, ...Object.keys(additionalAliases ?? {})].filter(
     (name) => !declared.has(name) && !bundlerTexts.some((text) => quotedIn(text, name)),

@@ -47,6 +47,17 @@ describe('toArray', () => {
     expect(toArray('a')).toEqual(['a']);
     expect(toArray(['a', 'b'])).toEqual(['a', 'b']);
   });
+
+  it('answers no globs for an option nobody set', () => {
+    // The exact list, not just its emptiness: at the call site this arm used to be
+    // a `?? []`, where a wrong value becomes one more glob — and a glob matching
+    // nothing is indistinguishable from no glob. Here it is one value to compare.
+    expect(toArray(undefined)).toEqual([]);
+
+    // …and a single undefined is what a lost guard would produce, which downstream
+    // becomes `globToRegExp(undefined)`.
+    expect(toArray(undefined)).not.toContain(undefined);
+  });
 });
 
 describe('resolveLayerFiles', () => {

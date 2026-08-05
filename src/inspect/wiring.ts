@@ -167,7 +167,7 @@ function pickProbes(
   blueprint: Blueprint,
 ): { path: string; layer: string }[] {
   const { architecture, framework } = blueprint;
-  const ignores = toArray(architecture.layerFilesIgnore ?? []).map(globToRegExp);
+  const ignores = toArray(architecture.layerFilesIgnore).map(globToRegExp);
   const tests = resolveTestFiles(architecture.testFiles).map(globToRegExp);
 
   const source = dropTestFiles(scanResult, architecture.testFiles).files.filter(

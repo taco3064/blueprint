@@ -701,11 +701,15 @@ describe('wiringCheck · entries the reader could not make sense of', () => {
         'no-restricted-imports': [2, {
           patterns: [
             ...[...groups].map((group) => ({ group: JSON.parse(group) as string[] })),
-            // Three unreadable shapes: a pattern with no group at all, one whose
-            // group is a bare string rather than a list, and a plain string entry.
+            // Four unreadable shapes: a pattern with no group at all, one whose
+            // group is a bare string rather than a list, a plain string entry, and
+            // a null slot — the one a hand-folded config leaves behind after a
+            // deleted entry, and the one that makes the difference between reading
+            // `group` through `?.` and crashing the whole doctor run on it.
             { message: 'no group here' },
             { group: '~app/legacy/**' },
             'a bare string pattern',
+            null,
           ],
         }],
         'no-restricted-syntax': [2, ...selectors, { message: 'no selector' }],
@@ -716,11 +720,11 @@ describe('wiringCheck · entries the reader could not make sense of', () => {
     // Everything expected survived, so the verdict is still green.
     expect(check.ok).toBe(true);
 
-    // The exact count, not just "some": five unreadable entries per probe (three
+    // The exact count, not just "some": six unreadable entries per probe (four
     // patterns, one selector, one global) across four probes. A range or a regex
     // here would let a reader that quietly stops counting one of the three rules
     // pass, which is the failure the count exists to make visible.
-    expect(check.detail).toContain('20 restricted-import/syntax/globals entries');
+    expect(check.detail).toContain('24 restricted-import/syntax/globals entries');
     expect(check.detail).toContain('could not be read by this check');
     expect(check.detail).toContain('a typo in one would not surface here');
   });

@@ -243,13 +243,11 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
 
 /** `usePrefix` must target a declared layer (default `hooks`) — unless it is off. */
 function validateUsePrefix(bp: Blueprint): void {
-  const setting = bp.rules?.usePrefix;
-
-  if (setting === undefined) return;
-
   // A rule that never emits has no target to validate — `usePrefix: 'off'`
-  // on a repo without a hooks layer must not throw (field batch 8).
-  const read = activeSetting(setting);
+  // on a repo without a hooks layer must not throw (field batch 8). No separate
+  // `undefined` guard in front: `activeSetting` answers null for an absent setting
+  // too, so the guard below already covers both ways of not being configured.
+  const read = activeSetting(bp.rules?.usePrefix);
 
   if (read === null) return;
 

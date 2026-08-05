@@ -129,7 +129,14 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   });
 
   // Read the merge targets init will write into, plus every default agent
-  // path — the extras feed plan's stale-contract cleanup.
+  // path — the extras feed plan's stale-contract cleanup. A merge target may carry
+  // a path of its own (`emit.agents: [{ target, path }]`), which is why the first
+  // half is not simply a subset of the second.
+  //
+  // The `merge` filter is invisible to behaviour and is here for the I/O: `plan`
+  // looks this record up only at merge paths and at default paths, so an extra key
+  // is a file read that nobody ever asks about. Widening it changes what init
+  // reads, not what init does.
   const agentPaths = [
     ...new Set([
       ...emitAgentFiles(blueprint, agentTarget ? [agentTarget] : undefined)
@@ -274,9 +281,6 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 function isPristineScaffold(root: string, state: ProjectState): boolean {
   const text = readTexts(root, [CONFIG_FILE])[CONFIG_FILE];
 
-  /* v8 ignore next 2 -- hasConfig guarantees the file exists; null only on a read race */
-  if (text === null) return false;
-
   // A scaffold written by `init --agent` carries emit.agents — still init's
   // own byte-identical output, so each candidate gets its agent variants.
   const agentVariants = [undefined, ['claude' as const], ['agents' as const]];
@@ -288,7 +292,12 @@ function isPristineScaffold(root: string, state: ProjectState): boolean {
     ]),
   );
 
-  if (state.hasNext && state.nextRouter) {
+  // `state.hasNext &&` is not a second condition: `detectNext` returns a null
+  // router for anything that is not Next, so a router at all already means Next.
+  // What remains is the narrowing `buildNextConfigSource` needs — its `router`
+  // parameter does not accept null, so reaching past this line with one is a type
+  // violation rather than a case.
+  if (state.nextRouter) {
     for (const agents of agentVariants) {
       candidates.push(
         buildNextConfigSource(state.nextRouter, state.nextSrcDir, state.projectName, agents),
@@ -297,7 +306,13 @@ function isPristineScaffold(root: string, state: ProjectState): boolean {
     }
   }
 
-  return candidates.includes(text);
+  // `some` rather than `includes`, so a `null` text needs no guard in front of it.
+  // The guard that used to sit above — "hasConfig guarantees the file exists; null
+  // only on a read race" — was carrying a v8-ignore for a branch that decided
+  // nothing: no candidate equals null, so the answer was already false. It existed
+  // because `includes` will not accept a `string | null`, which is the compiler's
+  // requirement and not this function's.
+  return candidates.some((candidate) => candidate === text);
 }
 
 /**
@@ -314,8 +329,9 @@ function lintScriptAction(root: string, blueprint: Blueprint, greenfield: boolea
   const parsed = JSON.parse(text) as { scripts?: Record<string, string> };
   const lint = parsed.scripts?.lint;
 
-  const sourceRoot = blueprint.architecture.sourceRoot ?? 'src';
-  const target = sourceRoot === '.' ? '.' : sourceRoot;
+  // No special case for the project root: both arms of the ternary that used to sit
+  // here answered `sourceRoot`, since the only value it special-cased was `.`.
+  const target = blueprint.architecture.sourceRoot ?? 'src';
 
   // No lint script at all: nothing runs the generated eslint config (field
   // issue #1 — the agent invented one). On a fresh scaffold, add it; on an
@@ -386,7 +402,9 @@ function runAuthoring(
   survey: ReturnType<typeof runSurvey>,
   options: InitOptions,
   log: (message: string) => void,
-  removeScaffold = false,
+  // No default: the one caller always decides, so a default here would be a value
+  // nothing ever reads — dead on arrival and invisible to every test.
+  removeScaffold: boolean,
 ): Action[] {
   const actions = authoringActions(survey, {
     packageManager: state.packageManager,

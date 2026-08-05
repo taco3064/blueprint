@@ -79,9 +79,9 @@ export function emitAgentFiles(
   blueprint: Blueprint,
   defaultTargets?: AgentTarget[],
 ): AgentFile[] {
+  // No empty-list guard: `[].map` is `[]`, so the guard that used to sit here
+  // returned exactly what the line below returns.
   const entries = normalizeAgentEmit(blueprint.emit?.agents, defaultTargets);
-
-  if (!entries.length) return [];
 
   return entries.map(({ target, path }) => {
     const spec = TARGETS[target];
