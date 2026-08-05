@@ -500,6 +500,84 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
   });
 });
 
+describe('what a second output knows about the first (field runs #75–#77)', () => {
+  it('says the declaratory selfOnly entry still collides today', async () => {
+    // The finding is right at the finding level — an empty layer has nothing to
+    // re-export. But the ENTRY is emitted now, on the importer layers, and a house
+    // rule of the same id scoped to one of them silently replaces it or is replaced
+    // by it. A field agent reasoned exactly this out via `rules --json` and warned
+    // that anyone trusting "cannot fire" alone would lose their own guardrail.
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/components/Button.jsx': 'export const Button = () => null;\n' },
+    });
+
+    write(dir, 'blueprint.config.mjs', configSource({
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [
+          { name: 'components', does: 'render UI' },
+          { name: 'contexts', does: 'cross-tree state', allowedImporters: [{ layer: 'components', selfOnly: true }] },
+        ],
+        module: { layout: 'flat', entry: 'index', private: [] },
+      },
+    }));
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.output).toContain('is declaratory');
+    expect(inspect.output).toContain('ENTRY is emitted today');
+    expect(inspect.output).toContain('flat config never merges');
+    expect(inspect.output).toContain('"Cannot fire" is about the ban, not about the entry');
+  });
+
+  it('does not claim to have created a .claude/ the repo already had', async () => {
+    // Any repo whose owner uses Claude Code already has `.claude/`. The step used to
+    // assert init created it — a fact init knows and had not checked.
+    const dir = repo({ packageJson: react(), files: { '.claude/settings.json': '{}\n' } });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('NOT `.claude/` itself');
+    expect(playbook).toContain('already here before this run');
+    expect(playbook).not.toContain('init created\n   only to hold this command');
+  });
+
+  it('claims it only where it is true', async () => {
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('init created');
+    expect(playbook).toContain('it was not here before this run');
+  });
+
+  it('warns that its own prior output is not upstream intent', async () => {
+    // Re-adopting a repo blueprint has already adopted, the handbook and the marker
+    // block ARE blueprint's previous answer. A field agent noticed it had almost
+    // copied that answer back and could not tell whether the method had led it there.
+    const dir = repo({
+      packageJson: react(),
+      files: Object.fromEntries(
+        Array.from({ length: 12 }, (_, i) => [`src/legacy/mod${i}.js`, 'export const x = 1;\n']),
+      ),
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('One document family is NOT senior evidence');
+    expect(playbook).toContain('an answer to');
+    expect(playbook).toContain('agreeing because you copied');
+  });
+});
+
 describe('a step that creates files owns them (field runs #71–#73)', () => {
   it('the playbook says deleting its build artifacts is safe, and whose call it is', async () => {
     // All three field runs flagged the same discomfort: the playbook asks for a build
