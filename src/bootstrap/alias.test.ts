@@ -417,6 +417,15 @@ describe('aliasActions · which tsconfig receives the paths', () => {
     expect(targetOf(SHELL, null)).toBe('tsconfig.json');
   });
 
+  it('does not read a bare include-only root as a shell', () => {
+    // `{"include": ["src"]}` — no `references`, no `compilerOptions`. A perfectly
+    // ordinary root tsconfig, and the one shape that tells the three conditions
+    // apart: read as a shell, the paths land in tsconfig.app.json and the root
+    // config the project actually extends never gets the alias.
+    expect(targetOf('{"include": ["src"]}', JSON.stringify({ compilerOptions: {} })))
+      .toBe('tsconfig.json');
+  });
+
   it('reads anything else as the target itself', () => {
     const app = JSON.stringify({ compilerOptions: {} });
 
