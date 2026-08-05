@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
@@ -566,7 +567,7 @@ describe('wiringCheck · which files become probes', () => {
     await run(
       scanOf('src/views/skip.gen.ts', 'src/views/Home/x.test.ts', 'src/views/Home/index.vue'),
       (filePath: string) => {
-        probed.push(filePath);
+        probed.push(filePath.split(path.sep).join('/'));
 
         return { rules: {} };
       },
@@ -593,8 +594,12 @@ describe('wiringCheck · which path each layer gets probed at', () => {
       scanResult,
       wired: true,
       hasTypescript: true,
+      // Normalised: `calculateConfigForFile` receives a joined absolute path, so
+      // on Windows it arrives with backslashes while every glob and module key in
+      // this repo is forward-slash. The assertions below are about which FILE was
+      // probed, not how the platform spells it.
       load: loader((filePath: string) => {
-        probed.push(filePath);
+        probed.push(filePath.split(path.sep).join('/'));
 
         return { rules: {} };
       }),

@@ -13,8 +13,21 @@ on:
 
 jobs:
   ci:
-    name: Lint / Type Check / Test / Build
-    runs-on: ubuntu-latest
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Both legs report, so one platform's failure does not hide the other's.
+      fail-fast: false
+      matrix:
+        # This tool reads and writes other people's repositories, and it carries
+        # explicit Windows branches to do it: `scan`, `ignored` and `impact` all
+        # normalise with `.split(path.sep).join('/')`, and the relative-escape rule
+        # splits on `[\\/]`. On posix `path.sep` IS `/`, so those branches are
+        # no-ops here and their Windows behaviour had never been observed. The
+        # note above about a macOS-only filename match is the same lesson from the
+        # other direction.
+        os: [ubuntu-latest, windows-latest]
 
     steps:
       - name: Checkout repository
@@ -44,3 +57,12 @@ jobs:
       # release.yml — after the tag, on the job that publishes.
       - name: Build the package
         run: npm run build
+
+      # The suite drives the CLI in-process (`import { run } from '../cli'`), so
+      # the bundle, the shebang, the package entry points and the argv[1] guard
+      # were checked only by `field:run` and by hand. That guard is the 0.1.1
+      # bug: npm installs the bin as a symlink, and comparing argv[1] to the
+      # entry module without realpathSync makes the published CLI exit 0 having
+      # done nothing.
+      - name: Verify the built artifact
+        run: npm run dist:verify

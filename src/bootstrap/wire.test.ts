@@ -134,3 +134,61 @@ describe('wire · the whitespace shapes a template can ship', () => {
     expect(wireViteAlias(text, '~app')).toEqual({ kind: 'unparseable' });
   });
 });
+
+describe('wireTsconfigPaths · a tsconfig that arrived with CRLF', () => {
+  // Windows checkouts are CRLF by default, so this is the ordinary shape of an
+  // adopter's tsconfig there — not an edge case. The insertion point used to be
+  // matched with a hard-coded `\n` after the brace, which a CRLF file never has:
+  // the result came back `unparseable`, `aliasActions` fell through to an
+  // instruct, and init asked a Windows user to add `paths` by hand while doing it
+  // for them on posix. Found by the windows leg of the CI matrix.
+  const crlf = (lines: string[]) => lines.join('\r\n');
+
+  const JSONC_CRLF = crlf([
+    '{',
+    '  "compilerOptions": {',
+    '    /* Bundler mode */',
+    '    "moduleResolution": "bundler",',
+    '    "jsx": "react-jsx"',
+    '  },',
+    '  "include": ["src"]',
+    '}',
+    '',
+  ]);
+
+  it('inserts the alias instead of giving up', () => {
+    const result = wireTsconfigPaths(JSONC_CRLF, { '~app/*': ['./src/*'] });
+
+    expect(result.kind).toBe('patched');
+
+    const text = result.kind === 'patched' ? result.text : '';
+
+    expect(text).toContain('"paths": { "~app/*": ["./src/*"] },');
+    // The comment is the whole reason this path exists rather than the lossless
+    // JSON.parse rewrite, so it has to survive here too.
+    expect(text).toContain('/* Bundler mode */');
+    expect(text.indexOf('"paths"')).toBeLessThan(text.indexOf('"moduleResolution"'));
+  });
+
+  it('leaves the file on one line-ending convention', () => {
+    // A lone LF inserted into a CRLF config leaves it mixed — and the emitted
+    // config carries `@stylistic/linebreak-style`, so blueprint would be creating
+    // a finding in the adopter's own lint with its own edit.
+    const result = wireTsconfigPaths(JSONC_CRLF, { '~app/*': ['./src/*'] });
+    const text = result.kind === 'patched' ? result.text : '';
+
+    expect(text).not.toMatch(/[^\r]\n/);
+    expect(text.split('\r\n').length).toBe(JSONC_CRLF.split('\r\n').length + 1);
+  });
+
+  it('still keeps an LF config on LF', () => {
+    // The other direction of the same requirement: the ending is read off the
+    // file rather than picked, so neither convention is imposed on the other.
+    const lf = JSONC_CRLF.split('\r\n').join('\n');
+    const result = wireTsconfigPaths(lf, { '~app/*': ['./src/*'] });
+    const text = result.kind === 'patched' ? result.text : '';
+
+    expect(text).not.toContain('\r');
+    expect(text).toContain('"paths": { "~app/*": ["./src/*"] },');
+  });
+});
