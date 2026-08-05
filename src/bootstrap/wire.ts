@@ -46,11 +46,18 @@ export function wireTsconfigPaths(
 ): PatchResult {
   if (/"paths"\s*:/.test(text)) return { kind: 'noop' };
 
-  const opening = text.match(/"compilerOptions"\s*:\s*\{\n(\s*)/);
+  // The line ending is captured, not assumed. A tsconfig checked out on Windows
+  // is very often CRLF, and matching a bare `\n` after the brace failed there:
+  // the result came back `unparseable`, alias surgery downgraded to an instruct,
+  // and init told a Windows adopter to add `paths` by hand where it does the work
+  // itself on posix. Reusing the captured ending also keeps the file on one
+  // convention — a lone LF inserted into a CRLF config leaves it mixed, which the
+  // emitted `linebreak-style` gate then reports in the adopter's own lint.
+  const opening = text.match(/"compilerOptions"\s*:\s*\{(\r?\n)(\s*)/);
 
   if (!opening || opening.index === undefined) return { kind: 'unparseable' };
 
-  const indent = opening[1];
+  const [eol, indent] = opening.slice(1);
   const insertAt = opening.index + opening[0].length;
 
   const entries = Object.entries(paths)
@@ -59,6 +66,6 @@ export function wireTsconfigPaths(
 
   return {
     kind: 'patched',
-    text: `${text.slice(0, insertAt)}"paths": { ${entries} },\n${indent}${text.slice(insertAt)}`,
+    text: `${text.slice(0, insertAt)}"paths": { ${entries} },${eol}${indent}${text.slice(insertAt)}`,
   };
 }
