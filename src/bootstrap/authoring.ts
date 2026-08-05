@@ -172,7 +172,12 @@ The complete early-exit checklist — nothing else in this file applies:
    (\`dist/\`, \`*.tsbuildinfo\`) are the build's normal output, not
    adoption leftovers: leave them to the repo's own ignore rules, and
    when the repo has none, say so in the report instead of guessing a
-   cleanup.
+   cleanup. Say it as what it is — a step THIS playbook asked for
+   produced untracked files in someone's working tree — and say that
+   deleting them is safe, because nothing adoption wrote depends on them
+   and the build can be re-run. Then it is the owner's call rather than
+   an unexplained mess: "leave them" without that sentence reads as "you
+   may not touch these", which is not what it means.
 4. Delete this playbook, \`${COMMAND_FILE}\`, and the now-empty
    \`.claude/commands/\` directory — and \`.claude/\` itself if that
    leaves it empty (init created the tree only to hold this command).

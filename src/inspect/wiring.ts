@@ -402,7 +402,10 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
       + 'version emits. Either a later flat-config entry replaced the rule (flat config '
       + 'never merges: combine both option sets into ONE entry — `blueprint rules --json` '
       + 'carries the exact selfOnly selectors), or a hand-folded copy drifted from this '
-      + 'version\'s output. Fix that entry, then re-run doctor',
+      + 'version\'s output. The comparison is textual, not semantic: a selector or glob '
+      + 'rewritten to an equivalent spelling (`\\/` for `/`, a reordered group) reads as '
+      + 'missing here even though eslint would enforce it — copy the emitted text rather '
+      + 'than retyping it. Fix that entry, then re-run doctor',
   };
 }
 
