@@ -500,6 +500,48 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
   });
 });
 
+describe('the same gap, one artifact further along (swept, not field-reported)', () => {
+  it('the handbook states its reach, like the contract now does', async () => {
+    // Field runs #79 and #81 raised this about CLAUDE.md, because CLAUDE.md is what
+    // they read. The handbook is the other durable artifact — the contract links to it
+    // for placement decisions — and it said nothing about the net possibly being empty.
+    // Same class, next artifact. Found by sweeping the fixed findings rather than by
+    // waiting for a run to land on it.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--no-install']);
+
+    const handbook = read(dir, 'docs/architecture-handbook.md') ?? '';
+
+    expect(handbook).toContain('Every row reaches only the files a layer glob matches');
+    expect(handbook).toContain('runway rather than protection');
+    expect(handbook).toContain('`blueprint doctor` reports which of the two');
+  });
+
+  it('the merge instruct says an entry is more than its selectors', async () => {
+    // `init --preset` never writes the authoring playbook, and the playbook is where
+    // "carry the emitted block's ignores" lives — the half of a merge that fails
+    // SILENTLY. Both merge shapes already said "combine into ONE entry", which is the
+    // half that fails loudly. Same class as the codeStyle finding above: guidance
+    // reaching only the path that does not need it.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'eslint.config.mjs': 'export default [];\n',
+      },
+    });
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    // The reference is written, so a merge is genuinely ahead of the reader.
+    expect(read(dir, 'eslint.config.blueprint.mjs')).toContain('emitLint');
+    expect(init.output).toContain('An entry is more than its selectors');
+    expect(init.output).toContain('`npx blueprint rules --json` carries both');
+    expect(init.output).toContain('Doctor compares selectors, not scope');
+  });
+});
+
 describe('one config, artifacts that agree about it (field runs #83–#84)', () => {
   it('does not let the contract promise lint catches a cycle', async () => {
     // `cycles` is on LINT_GATED_RULE_IDS — which answers "gated at all?" — while its

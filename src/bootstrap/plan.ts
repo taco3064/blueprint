@@ -296,8 +296,20 @@ function eslintWiringNote(state: ProjectState): string {
     + '  declaring the default export as Blueprint. Name the choice in your report.\n'
     : '';
 
+  // The playbook explains what an entry consists of; this path never gets the
+  // playbook. Both merge shapes below already say "combine into ONE entry" — which is
+  // the half that fails LOUDLY. The half that fails silently is the `ignores`: every
+  // structural entry exempts test files, a rebuilt entry has none unless you write one,
+  // and doctor compares selectors rather than scope, so nothing downstream catches it.
+  // A field run lost exactly this and spent a debug cycle on 34 errors in one test file
+  // — with the guidance sitting in the document that only the authoring path writes.
   const shared
-    = `${ts7016}  Resolve rule conflicts explicitly, run your own lint, then DELETE the reference —\n`
+    = `${ts7016}  An entry is more than its selectors: whatever you combine needs the emitted\n`
+      + '  block\'s `ignores` too (every structural entry exempts test files, and a rebuilt\n'
+      + '  entry has none unless you write one). `npx blueprint rules --json` carries both —\n'
+      + '  selectors and their `testExemptions`. Doctor compares selectors, not scope, so a\n'
+      + '  missing exemption stays green here and governs test files it was never meant to.\n'
+      + '  Resolve rule conflicts explicitly, run your own lint, then DELETE the reference —\n'
       + '  adoption is not done while it remains.';
 
   if (state.eslintConfigShape === 'legacy') {
