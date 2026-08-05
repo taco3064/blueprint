@@ -1,5 +1,6 @@
 import type { AgentEmitEntry, AgentTarget, Blueprint, LayerDef, RuleSetting } from './types';
 import { normalizeAllowedImporters } from './graph';
+import { activeSetting } from './settings';
 
 const VALID_TIERS = ['error', 'warn', 'off'];
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/;
@@ -246,11 +247,11 @@ function validateUsePrefix(bp: Blueprint): void {
 
   // A rule that never emits has no target to validate — `usePrefix: 'off'`
   // on a repo without a hooks layer must not throw (field batch 8).
-  const tier = typeof setting === 'string' ? setting : setting.tier;
+  const read = activeSetting(setting);
 
-  if (tier === 'off') return;
+  if (read === null) return;
 
-  const layer = (typeof setting === 'string' ? undefined : (setting.layer as string)) ?? 'hooks';
+  const layer = (read.opts.layer as string | undefined) ?? 'hooks';
 
   if (!bp.architecture.layers.some((candidate) => candidate.name === layer)) {
     throw new Error(
@@ -399,7 +400,16 @@ function validateLintOverrides(layer: LayerDef): void {
   }
 }
 
-/** Normalize a rule setting to its tier string. */
+/**
+ * Normalize a rule setting to its tier string.
+ *
+ * Not `readSetting` on purpose: this runs during validation, where the setting is
+ * whatever a hand-written config put there — including null. The optional chain is
+ * what lets an unknown tier become a precise error instead of a property crash,
+ * and the `typeof` here is observable in a way the reader's is not (mutate the
+ * string arm and a bare tier reads as undefined, which the invalid-tier test
+ * catches).
+ */
 function resolveTier(setting: RuleSetting): string {
   return typeof setting === 'string' ? setting : setting?.tier;
 }

@@ -6,7 +6,7 @@ import type {
   PrincipleDef,
   RuleSetting,
 } from '../../config';
-import { getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
+import { readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
 import { enforcedBy } from '../lint';
 import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
@@ -253,8 +253,7 @@ export function renderRules(rules: Record<string, RuleSetting> | undefined): str
   } as const;
 
   const rows = entries.map(([id, setting]) => {
-    const tier = typeof setting === 'string' ? setting : setting.tier;
-    const value = typeof setting === 'string' ? undefined : setting.value;
+    const { tier, value } = readSetting(setting);
 
     return [
       `\`${id}\``,

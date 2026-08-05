@@ -1,12 +1,11 @@
 import path from 'node:path';
 
-import type { Blueprint, RuleSetting } from '../config';
-import {
+import { activeSetting,
   aliasLayerRoots,
   getForbiddenLayers,
   getModuleShape,
-  getSelfOnlyTargets,
-} from '../config';
+  getSelfOnlyTargets } from '../config';
+import type { Blueprint } from '../config';
 // Import from the patterns leaf, not the emit/lint index — the index also
 // exports lint.ts, which loads the plugin, which shares resolve logic with
 // inspect; routing through the index would close a module cycle. The same
@@ -82,11 +81,6 @@ interface EslintApi {
 }
 
 /** The tier check `emitLint` applies before emitting a rule. */
-function active(setting: RuleSetting | undefined): boolean {
-  const tier = typeof setting === 'string' ? setting : setting?.tier;
-
-  return tier !== undefined && tier !== 'off';
-}
 
 /**
  * The structural artifacts emitLint emits for `layer`, in version-stable
@@ -122,7 +116,7 @@ export function expectedStructural(
     folderTargets: architecture.layers
       .map((entry) => entry.name)
       .filter((name) => layouts[name] === 'folder' && name !== layer && !forbidden.includes(name)),
-    fixtures: active(rules?.fixtureImports)
+    fixtures: activeSetting(rules?.fixtureImports)
       ? aliases.flatMap((alias) => [`${alias}/fixtures`, `${alias}/fixtures/**`])
       : [],
   });
@@ -271,7 +265,7 @@ export function expectedCarriers(
 ): { gate: string; rule: string; carrier: string }[] {
   return CARRIER_GATES.filter(
     (entry) =>
-      active(blueprint.rules?.[entry.gate])
+      activeSetting(blueprint.rules?.[entry.gate]) !== null
       && (!('typescriptOnly' in entry) || hasTypescript),
   );
 }

@@ -1,11 +1,10 @@
 import type { ESLint, Linter } from 'eslint';
-import type { Blueprint, RuleSetting, Tier } from '../../config';
-import {
+import { activeSetting,
   aliasLayerRoots,
   getForbiddenLayers,
   getModuleShape,
-  getSelfOnlyTargets,
-} from '../../config';
+  getSelfOnlyTargets } from '../../config';
+import type { Blueprint, ReadSetting } from '../../config';
 import { plugin } from '../../plugin';
 import {
   buildPackagePatterns,
@@ -75,7 +74,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
 
   // Fixture roots are barred through the same structural rule per layer —
   // a separate entry would *replace* `no-restricted-imports`, not merge it.
-  const fixtures = active(blueprint.rules?.fixtureImports)
+  const fixtures = activeSetting(blueprint.rules?.fixtureImports)
     ? aliases.flatMap((a) => [`${a}/fixtures`, `${a}/fixtures/**`])
     : [];
 
@@ -186,7 +185,7 @@ function ruleGateEntries(
   const shared: Linter.RulesRecord = {};
 
   for (const { id, rule, fallback, wrap } of METRIC_GATES) {
-    const setting = active(rules?.[id]);
+    const setting = activeSetting(rules?.[id]);
 
     if (!setting) continue;
 
@@ -195,7 +194,7 @@ function ruleGateEntries(
     shared[rule] = [setting.tier, wrap ? { max, skipBlankLines: true, skipComments: true } : max];
   }
 
-  const unusedVars = active(rules?.unusedVars);
+  const unusedVars = activeSetting(rules?.unusedVars);
 
   if (unusedVars) {
     if (options.typescript) {
@@ -210,19 +209,19 @@ function ruleGateEntries(
 
   // No core twin exists — `any` cannot appear in JS source, so there is
   // nothing to fall back to when the plugin is absent (unlike unusedVars).
-  const explicitAny = active(rules?.explicitAny);
+  const explicitAny = activeSetting(rules?.explicitAny);
 
   if (explicitAny && options.typescript) {
     shared['@typescript-eslint/no-explicit-any'] = explicitAny.tier;
   }
 
-  const deepWatch = active(rules?.deepWatch);
+  const deepWatch = activeSetting(rules?.deepWatch);
 
   if (deepWatch && framework !== 'react') {
     shared['blueprint/no-deep-watch'] = deepWatch.tier;
   }
 
-  const usePrefixReactivity = active(rules?.usePrefixReactivity);
+  const usePrefixReactivity = activeSetting(rules?.usePrefixReactivity);
 
   if (usePrefixReactivity) {
     shared['blueprint/use-prefix-needs-reactivity'] = usePrefixReactivity.tier;
@@ -258,7 +257,7 @@ function ruleGateEntries(
 
   entries.push(...shapeEntry(blueprint, sharedFiles, options));
 
-  const testFilename = active(rules?.testFilename);
+  const testFilename = activeSetting(rules?.testFilename);
 
   if (testFilename) {
     entries.push({
@@ -268,7 +267,7 @@ function ruleGateEntries(
     });
   }
 
-  const typedefOnlyFile = active(rules?.typedefOnlyFile);
+  const typedefOnlyFile = activeSetting(rules?.typedefOnlyFile);
 
   if (typedefOnlyFile) {
     entries.push({
@@ -279,7 +278,7 @@ function ruleGateEntries(
     });
   }
 
-  const usePrefix = active(rules?.usePrefix);
+  const usePrefix = activeSetting(rules?.usePrefix);
 
   if (usePrefix) {
     const layer = (usePrefix.opts.layer as string | undefined) ?? 'hooks';
@@ -320,7 +319,7 @@ function shapeEntry(
   const { rules } = blueprint;
   const shape: Linter.RulesRecord = {};
 
-  const codeStyle = active(rules?.codeStyle);
+  const codeStyle = activeSetting(rules?.codeStyle);
 
   if (codeStyle && options.stylistic) {
     Object.assign(shape, codeStyleRules(codeStyle, options.stylistic));
@@ -329,7 +328,7 @@ function shapeEntry(
   const statementsPerLine = rules?.statementsPerLine;
 
   if (statementsPerLine !== undefined && options.stylistic) {
-    const on = active(statementsPerLine);
+    const on = activeSetting(statementsPerLine);
 
     if (on) {
       // Hard-wired max: 1 — the gate defines what a line IS for `maxLines`,
@@ -340,7 +339,7 @@ function shapeEntry(
     }
   }
 
-  const statementPadding = active(rules?.statementPadding);
+  const statementPadding = activeSetting(rules?.statementPadding);
 
   if (statementPadding && options.stylistic) {
     shape['@stylistic/padding-line-between-statements'] = [
@@ -349,7 +348,7 @@ function shapeEntry(
     ];
   }
 
-  const importBlock = active(rules?.importBlock);
+  const importBlock = activeSetting(rules?.importBlock);
 
   if (importBlock && options.imports) {
     shape['import-x/first'] = importBlock.tier;
@@ -379,7 +378,7 @@ function shapeEntry(
  * gap that started this), and the factory is a pure function of options the
  * caller can see.
  */
-function codeStyleRules(gate: ActiveRule, stylistic: ESLint.Plugin): Linter.RulesRecord {
+function codeStyleRules(gate: ReadSetting, stylistic: ESLint.Plugin): Linter.RulesRecord {
   const customize = (stylistic as StylisticPlugin).configs?.customize;
 
   if (typeof customize !== 'function') {
@@ -433,23 +432,6 @@ function codeStyleRules(gate: ActiveRule, stylistic: ESLint.Plugin): Linter.Rule
     // counts as ONE statement and slips past max-statements-per-line.
     curly: [gate.tier, 'all'],
   };
-}
-
-interface ActiveRule {
-  tier: Severity;
-  value?: number;
-  /** The full setting object — carrier of rule-specific options (layer, prefix…). */
-  opts: Record<string, unknown>;
-}
-
-/** Normalize a rule setting; null when unset or `off`. */
-function active(setting: RuleSetting | undefined): ActiveRule | null {
-  if (!setting) return null;
-
-  const opts: { tier: Tier; value?: number } & Record<string, unknown>
-    = typeof setting === 'string' ? { tier: setting } : setting;
-
-  return opts.tier === 'off' ? null : { tier: opts.tier, value: opts.value, opts };
 }
 
 /** Build the `no-restricted-globals` rule for globals this layer does not own. */

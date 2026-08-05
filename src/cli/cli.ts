@@ -408,9 +408,7 @@ const KNOWN_FLAGS: Record<string, Set<string>> = {
 /** Flags that consume the next argument as their value. */
 const VALUED_FLAGS = new Set(['--agent', '--framework', '--alias']);
 
-function rejectUnknownFlags(command: string, args: string[]): void {
-  const known = KNOWN_FLAGS[command];
-
+function rejectUnknownFlags(known: Set<string>, command: string, args: string[]): void {
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
 
@@ -440,17 +438,23 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     return 0;
   }
 
-  if (command !== undefined && command in COMMAND_HELP
-    && (rest.includes('--help') || rest.includes('-h'))) {
-    console.log(COMMAND_HELP[command]);
+  // `Object.hasOwn` over `in`, so the undefined-command guard is not needed as a
+  // separate condition: `hasOwn(record, '')` is false, which is the answer wanted
+  // for "no command was given". (`in` cannot take undefined as its left operand at
+  // all, so the guard existed for TypeScript rather than for the lookup — and `in`
+  // would also walk the prototype chain, which a command lookup has no use for.)
+  const help = COMMAND_HELP[command ?? ''];
+
+  if (help !== undefined && (rest.includes('--help') || rest.includes('-h'))) {
+    console.log(help);
 
     return 0;
   }
 
   try {
-    if (command !== undefined && command in KNOWN_FLAGS) {
-      rejectUnknownFlags(command, rest);
-    }
+    const known = KNOWN_FLAGS[command ?? ''];
+
+    if (known !== undefined) rejectUnknownFlags(known, command as string, rest);
 
     if (command === 'init') {
       await runInit(cwd, parseInitArgs(rest));
