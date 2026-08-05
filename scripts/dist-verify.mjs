@@ -25,7 +25,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const failures = [];
@@ -242,7 +242,12 @@ await check('the package entry imports and exports its public surface', async ()
 
   expect(entry, 'package.json declares no exports["."].import');
 
-  const module = await import(path.join(root, entry));
+  // Through pathToFileURL, not the bare path: on Windows an absolute path starts
+  // with a drive letter, and the ESM loader reads `D:` as a URL scheme it does not
+  // support. The mirror of the `url.pathname` mistake fixed in cli.test.ts — one
+  // treated a URL as a path, this treated a path as a URL, and neither shows on
+  // posix where the two happen to coincide.
+  const module = await import(pathToFileURL(path.join(root, entry)).href);
 
   // The names an adopter's blueprint.config.mjs and eslint.config.mjs reach for.
   const required = ['defineBlueprint', 'emitLint', 'emitHandbook', 'emitAgentFiles', 'plugin'];
