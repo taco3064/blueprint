@@ -146,8 +146,14 @@ describe('authoringBrief', () => {
 
   it('reads exactly the threshold as brownfield, one below it as the early exit', () => {
     const install = 'npm install -D @kekkai/blueprint';
-    const at = authoringBrief({ ...survey, totalFiles: BROWNFIELD_MIN_FILES }, install, { hadClaudeDir: false });
-    const below = authoringBrief({ ...survey, totalFiles: BROWNFIELD_MIN_FILES - 1 }, install, { hadClaudeDir: false });
+    const facts = { hadClaudeDir: false };
+    const at = authoringBrief({ ...survey, totalFiles: BROWNFIELD_MIN_FILES }, install, facts);
+
+    const below = authoringBrief(
+      { ...survey, totalFiles: BROWNFIELD_MIN_FILES - 1 },
+      install,
+      facts,
+    );
 
     // 120 and 3 leave the boundary itself unasserted, and what sits either
     // side of it is a different playbook — not a shade of wording.
