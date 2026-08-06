@@ -33,9 +33,30 @@ const AGENT_COMMANDS = {
   codex: (prompt) => ['codex', 'exec', '--full-auto', prompt],
 };
 
+/**
+ * Why an installed CLI still cannot run here. `hasBinary` answers "is it on
+ * PATH", which is a different question: Claude Code refuses to start inside
+ * another Claude Code session, and that refusal lands only after a full build, a
+ * pack and one install per scenario — three runs launched from a session filed
+ * three issues whose every row read `agent exit 1 after 0.0m`. Checked beside
+ * the `--repo` validation, for its reason: before any expensive work.
+ */
+const AGENT_BLOCKERS = {
+  claude: () => (process.env.CLAUDECODE
+    ? 'cannot launch inside a Claude Code session (CLAUDECODE is set) — run the harness '
+      + 'from a plain shell. Unsetting the variable is the CLI\'s own escape hatch, and its '
+      + 'warning that nested sessions crash both is the reason not to reach for it here.'
+    : null),
+};
+
 // Must match the filename the prompt file names — the prompt is the single
 // source (scripts/field-prompt.md), shared verbatim with manual field runs.
 const FEEDBACK_FILE = 'blueprint-field-feedback.md';
+
+// Mirrors the package's own CONFIG_FILE. Hardcoded rather than imported: this
+// script runs before the build it is about to make, so it must not depend on
+// dist/ existing.
+const CONFIG_FILE = 'blueprint.config.mjs';
 
 const PROMPT = [
   // Harness-specific context on top of the shared prompt: the tarball is
@@ -251,14 +272,26 @@ async function main() {
   }
 
   const agents = (args.agents ?? Object.keys(AGENT_COMMANDS)).filter((agent) => {
-    if (hasBinary(AGENT_COMMANDS[agent]('x')[0])) return true;
+    if (!hasBinary(AGENT_COMMANDS[agent]('x')[0])) {
+      console.log(`⚠ ${agent}: CLI not found on this machine — skipped.`);
 
-    console.log(`⚠ ${agent}: CLI not found on this machine — skipped.`);
+      return false;
+    }
 
-    return false;
+    const blocker = AGENT_BLOCKERS[agent]?.();
+
+    if (blocker) {
+      console.log(`⚠ ${agent}: ${blocker}`);
+
+      return false;
+    }
+
+    return true;
   });
 
-  if (!agents.length) throw new Error('no agent CLI available — nothing to run.');
+  if (!agents.length) {
+    throw new Error('no agent CLI can run here — nothing to run; the reason per agent is above.');
+  }
 
   const scenarios = ['new', ...(args.repo ? ['repo'] : [])];
 
@@ -311,6 +344,14 @@ async function main() {
         continue;
       }
 
+      // Measured before the agent runs, because doctor cannot tell afterwards whose
+      // work it is verifying. A `--repo` cloned from an already-adopted project hands
+      // doctor a config it did not write, so the gate goes green on the PRIOR adoption
+      // — and a run whose agent never finished then reports "Adoption complete" for
+      // work it did not do. Same move as the tool's own `hadClaudeDir`: measure the
+      // starting state, or the verdict has no owner.
+      const preAdopted = fs.existsSync(path.join(dir, CONFIG_FILE));
+
       const argv = AGENT_COMMANDS[agent](PROMPT);
 
       if (args.dry) {
@@ -350,6 +391,7 @@ async function main() {
         scenario,
         agent,
         dir,
+        preAdopted,
         ...result,
         doctor,
         inspect,
@@ -386,7 +428,7 @@ async function main() {
         '',
         `- dir: ${run.dir}`,
         `- agent exit ${run.code} after ${run.minutes}m (full log: agent.log)`,
-        `- doctor exit ${run.doctor.code} — ${doctorLine}`,
+        `- doctor exit ${run.doctor.code} — ${doctorLine}${doctorOwner(run)}`,
         `- inspect --baseline exit ${run.inspect.code}`,
         '',
         `### feedback (${FEEDBACK_FILE})`,
@@ -413,12 +455,30 @@ async function main() {
     if (run.staging) {
       console.log(`  ${run.scenario} × ${run.agent}: ✗ staging failed — agent never ran`);
     } else if (!run.dry) {
-      console.log(`  ${run.scenario} × ${run.agent}: agent ${run.code === 0 ? '✓' : `✗(${run.code})`} · doctor ${run.doctor.code === 0 ? '✓' : '✗'} · inspect ${run.inspect.code === 0 ? '✓' : '✗'}`);
+      console.log(`  ${run.scenario} × ${run.agent}: agent ${run.code === 0 ? '✓' : `✗(${run.code})`} · doctor ${run.doctor.code === 0 ? '✓' : '✗'}${run.preAdopted ? ' (repo arrived adopted)' : ''} · inspect ${run.inspect.code === 0 ? '✓' : '✗'}${run.feedback ? '' : ' · no feedback'}`);
     }
   }
 
   if (args.issue && !args.dry) fileIssue(reportFile, runs, tree);
   else if (args.issue) console.log('  (dry) no issue filed');
+}
+
+/**
+ * Whose work doctor's verdict is about. A `--repo` staged from an already-adopted
+ * project is the harness's most productive scenario — the re-adoption path is where
+ * the last two batches found their real defects — so the answer is never to drop the
+ * repo. It is to say what the green covers, because an effect stated without its cause
+ * reads as a claim: "Adoption complete" beside an agent that never started is this
+ * harness making the mistake it exists to catch.
+ */
+function doctorOwner(run) {
+  if (!run.preAdopted) return '';
+
+  return run.code === 0
+    ? ' — NOTE: the staged repo arrived already adopted (the re-adoption path), so read'
+      + ' this against the agent\'s own account of what it re-authored'
+    : ' — NOT this run\'s: the staged repo arrived already adopted and the agent did not'
+      + ' finish, so this verdict belongs to the prior config';
 }
 
 /**
@@ -432,6 +492,22 @@ function fileIssue(reportFile, runs, tree) {
     return;
   }
 
+  // Nothing to triage means nothing to file. A run where no scenario produced
+  // feedback tested the machine, not the tree, and three such reports went into the
+  // inbox as `agent exit 1 after 0.0m` rows that had to be deleted by hand. The
+  // diagnosis is not lost with them: each agent's own error is on screen above and in
+  // the local report. A run where SOME scenario produced feedback still files — the
+  // report copies the failing agent's log tail, which is how an 81-byte "API Error"
+  // survived a temp directory once.
+  const evidence = runs.filter((run) => run.feedback);
+
+  if (!evidence.length) {
+    console.log('⚠ no scenario produced feedback — nothing to triage, so no issue filed.');
+    console.log(`  each agent's own error is in the report: ${reportFile}`);
+
+    return;
+  }
+
   const matrix = runs.map((run) => `${run.scenario}×${run.agent}`).join(', ');
 
   // A visitor scanning the issue list should not have to open one to learn
@@ -439,9 +515,14 @@ function fileIssue(reportFile, runs, tree) {
   // carries the one fact the harness can state honestly at file time — how
   // many scenarios reached a green doctor (mechanical completion, NOT the
   // triage verdict, which is a human call made later on close).
-  const scored = runs.filter((run) => !run.dry && !run.staging);
-  const adopted = scored.filter((run) => run.doctor?.code === 0).length;
-  const scale = scored.length ? ` · doctor ${adopted}/${scored.length} green` : '';
+  // Counted over the scenarios that produced feedback, not over every staged one: a
+  // row with no feedback contributes no evidence, and counting its doctor exit made
+  // the title overstate what the run measured. Silent scenarios are named instead of
+  // dropped, or the matrix and the denominator disagree with no explanation.
+  const adopted = evidence.filter((run) => run.doctor?.code === 0).length;
+  const silent = runs.filter((run) => !run.dry && !run.staging && !run.feedback).length;
+  const scale = ` · doctor ${adopted}/${evidence.length} green`
+    + (silent ? ` · ${silent} produced nothing` : '');
   const title = `Field run @ ${tree} — ${matrix}${scale}`;
 
   const body = [
@@ -452,8 +533,9 @@ function fileIssue(reportFile, runs, tree) {
     '> owner-closed by design — the value is the paper trail, not a bug queue:',
     '> what an adopting agent hit, what was judged fix vs by-design vs reject,',
     '> and the commits that closed it. A green doctor above means adoption',
-    '> mechanically completed; whether any finding was fix-worthy is decided in',
-    '> the triage below.',
+    '> mechanically completed — except where a row says the staged repo arrived',
+    '> already adopted, and that row says what its verdict covers. Whether any',
+    '> finding was fix-worthy is decided in the triage below.',
     '>',
     '> Triage flow: consolidate the findings, judge each item, land fixes with',
     '> their conformance fixtures, then close referencing the commits.',

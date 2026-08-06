@@ -16,6 +16,23 @@ Conformance guards known scenarios; the harness hunts new ones.
 `--dry` stages without spawning agents; `--repo <path>` adds the
 existing-repo scenario from a local clone; `--no-issue` keeps it local.
 
+Three things it will not do, each because it did them once:
+
+- **It refuses to start from inside a Claude Code session.** The agent CLI will
+  not launch nested, and the refusal used to arrive after a build, a pack and one
+  install per scenario. Checked with `--repo`, before any expensive work — run
+  the harness from a plain shell.
+- **No feedback anywhere means no issue.** A run whose scenarios all failed to
+  produce a feedback file tested the machine, not the tree; three such reports
+  went into the inbox and had to be deleted. A *partial* failure still files, so
+  the report keeps the failing agent's log tail.
+- **On a `--repo` that arrives already adopted, doctor's green is labelled.**
+  It is verifying a config the run did not necessarily write, and when the agent
+  did not finish the row says outright that the verdict belongs to the prior
+  config. **This is not a reason to drop such a repo** — the re-adoption path is
+  where the last two batches found their real defects. It is a reason to say what
+  the green covers.
+
 **Triage flow:** consolidate the issue's findings, judge each (fix / by-design /
 reject), put each fix through the two questions below, sweep the class before
 landing, land with conformance fixtures, close the issue referencing the
