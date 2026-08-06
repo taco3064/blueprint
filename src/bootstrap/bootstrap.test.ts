@@ -221,6 +221,22 @@ describe('runInit', () => {
     // own package.json for versions to reconstruct instead (field runs #139, #140).
     expect(output).toContain('npm install -D eslint');
     expect(output).toContain('No version list to find first');
+
+    // And what the kill LEAVES, which only this line can say: the catch block below
+    // explains the half-done tree, and a killed process never reaches it. Four runs
+    // stopped this step as invited and then treated the result as damage — one
+    // hand-wrote the manifest entries from blueprint's own package.json, one filed the
+    // repo as unverifiable (field runs #144–#146). Both facts are computed, not
+    // reassurance: the install is last in the plan, and it is what writes the manifest.
+    expect(output).toContain('Stopping is safe: this is the last step');
+    expect(output).toContain('What stopping omits is these packages in `package.json`');
+    expect(output).toContain('a failure naming one of them is that gap');
+
+    // And it does not claim the file itself is missing: this same run writes
+    // package.json for the lint script two lines above, so "stopping leaves out
+    // package.json" would be one of the paired contradictions #10–#12 are about.
+    expect(output.indexOf('✓ write: package.json')).toBeLessThan(output.indexOf('→ install:'));
+    expect(output).not.toContain('What it leaves out is `package.json`');
   });
 
   it('names what did not happen, and how to finish (field issue #37)', async () => {

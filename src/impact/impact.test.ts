@@ -5,6 +5,7 @@ import stylisticPlugin from '@stylistic/eslint-plugin';
 import importsPlugin from 'eslint-plugin-import-x';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { flattenProse } from '../conformance';
 import type { LintConfigEntry } from '../emit/lint';
 import { reactPreset, vuePreset } from '../presets';
 import { renderImpact, runImpact } from './impact';
@@ -365,7 +366,7 @@ describe('runImpact', () => {
     project({ vue: '^3' });
 
     const loadModule = async (name: string): Promise<unknown> => {
-      throw new Error(`no ${name}`);
+      throw new Error(`Cannot find package 'unrs-resolver' imported from ${name}`);
     };
 
     await expect(
@@ -377,7 +378,35 @@ describe('runImpact', () => {
     // only thing that got them unstuck in one hop was this pointer.
     await expect(
       runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent }),
-    ).rejects.toThrow('blueprint init lists it among the required deps');
+    ).rejects.toThrow('`blueprint init` lists it among the required deps');
+
+    // The loader's own words, verbatim: "installed, but its own tree is
+    // incomplete" and "absent" fail here identically, and the caught error is
+    // the only thing that tells them apart. A run that had the plugin and was
+    // missing a transitive spent three lint runs and three package.json reads
+    // reaching that name for itself (field run #145).
+    await expect(
+      runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent }),
+    ).rejects.toThrow('Cannot find package \'unrs-resolver\'');
+
+    await expect(
+      runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent }),
+    ).rejects.toThrow('If that names a DIFFERENT package');
+  });
+
+  it('reports a non-Error rejection from the loader too', async () => {
+    project({ vue: '^3' });
+
+    // A loader that rejects with a string (or anything else) still has to say
+    // what it said — `error.message` on a non-Error is undefined, and printing
+    // "The loader said: undefined" is the same swallowing with extra steps.
+    await expect(
+      runImpact(root, {
+        loadConfig: async () => vuePreset(),
+        loadModule: async () => Promise.reject('EACCES on the store'),
+        log: silent,
+      }),
+    ).rejects.toThrow('EACCES on the store');
   });
 
   it('quarantines rules that are not blueprint\'s own — isolation artifacts', async () => {
@@ -409,8 +438,22 @@ describe('runImpact', () => {
     // Foreign hits never inflate the wiring-red total.
     expect(total).toBe(1);
     expect(output).toContain('1 hit(s)');
-    expect(output).toContain('Echoes of YOUR OWN config');
+    expect(output).toContain('Names YOUR OWN config owns');
     expect(output).toContain('custom/no-bad-script-literals');
+
+    // What the row IS, because "echo of your own config" said what it is not.
+    // ESLint reports an unresolvable rule id at the directive naming it, so the
+    // count counts comments; a field agent read the count as violations of its
+    // house rule and concluded impact had loaded its config and ignored an
+    // inline disable — neither of which happens (field run #146).
+    const prose = flattenProse(output);
+
+    expect(prose).toContain('a count here counts mentions — not violations');
+    expect(prose).toContain('not a verdict on the code beneath one');
+    // The rows go, the rule stays: "these vanish once emitLint merges" read as
+    // the house rule itself disappearing from the merged config.
+    expect(prose).toContain('The ROWS leave this report');
+    expect(prose).toContain('Your rule does not');
   });
 
   it('keeps the zero-hit verdict even when isolation artifacts exist', async () => {
@@ -432,7 +475,7 @@ describe('runImpact', () => {
 
     expect(total).toBe(0);
     expect(output).toContain('0 hits — wiring emitLint introduces no red today');
-    expect(output).toContain('Echoes of YOUR OWN config');
+    expect(output).toContain('Names YOUR OWN config owns');
   });
 
   it('caps the worst-file list at five', async () => {
@@ -478,9 +521,14 @@ describe('renderImpact', () => {
       10,
     );
 
-    const echoesAt = out.indexOf('Echoes of YOUR OWN');
+    const echoesAt = out.indexOf('Names YOUR OWN config owns');
     const caveatBlock = out.slice(out.indexOf('Isolation caveats'), echoesAt);
     const echoBlock = out.slice(echoesAt);
+
+    // Fails first, and says why: a renamed heading turns the slices into
+    // "everything after Isolation caveats" and "the last character", which the
+    // pairs below do catch — as six lines of block diff about no-console.
+    expect(echoesAt).toBeGreaterThan(-1);
 
     // Each block carries only its own kind. A caveat block that also listed
     // the blueprint hits would present isolation artifacts as

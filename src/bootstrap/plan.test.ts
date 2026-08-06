@@ -48,6 +48,10 @@ describe('plan', () => {
     // two toolchain files hand-edited (field run #131). Asserting the boundary rather
     // than the alias's position: any future effect added below the install strands the
     // same way, whatever it writes.
+    //
+    // The pre-install line now states this to the adopter — "this is the last step, so
+    // every file above is already on disk" — so an effect added below the install makes
+    // that sentence false as well as strands the tree (field runs #144–#146).
     const cases = [
       ['fresh scaffold', plan(state(), bp, 'CONFIG SOURCE', {})],
       ['existing config', plan(state(), bp, null, {})],

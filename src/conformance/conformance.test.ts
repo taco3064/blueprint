@@ -382,8 +382,16 @@ describe('impact tells the truth in isolation (batch 5, real eslint)', () => {
     expect(impact.output).not.toContain('parse-error —');
     expect(impact.output).toContain('1 hit(s)');
     // Rules from the repo's own config render apart and never count.
-    expect(impact.output).toContain('Echoes of YOUR OWN config');
-    expect(impact.output).toContain('custom/no-bad-script-literals');
+    expect(impact.output).toContain('Names YOUR OWN config owns');
+    expect(impact.output).toContain('custom/no-bad-script-literals — 1 file(s)');
+
+    // Real ESLint, so this row's mechanism is settled here rather than asserted:
+    // `legacy.jsx` holds the disable comment and `export const legacy = 1`, and
+    // the house rule is not in this run's config at all. A count of 1 can only be
+    // the comment — ESLint reports an unresolvable rule id at the directive. The
+    // heading has to say that, because "echo of your own config" let a field agent
+    // read the same row as its rule firing on the code below (field run #146).
+    expect(flattenProse(impact.output)).toContain('a count here counts mentions');
   });
 
   it('runs the real TypeScript chain — enum members stay unflagged', async () => {
@@ -1127,7 +1135,11 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
     // authoring files", so an agent on the Method path — which is the one a
     // re-adoption follows — was told to delete two files and nothing about two
     // directories it had just watched init create. It invented the rmdir and said so.
-    // Three sites, one passage now, so a branch cannot go missing from two of them.
+    // Four sites, one passage now, so a branch cannot go missing from three of them.
+    // The fourth was the banner, which #124's own fix left at "delete this file and
+    // the command file — doctor flags BOTH as leftovers": the document's opening
+    // line, read as the authoritative short list, and doctor checks no directory
+    // (field run #145).
     const early = repo({ packageJson: react() });
 
     const method = repo({
@@ -1143,10 +1155,11 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
     const phrase = '`.claude/commands/` directory';
     const count = (text: string) => text.split(phrase).length - 1;
 
-    // Early exit renders the checklist too, so it carries all three; the Method-only
-    // playbook carries step 9's and the gate's. Before the fix the latter was zero.
-    expect(count(flattenProse(read(early, 'blueprint-authoring.md') ?? ''))).toBe(3);
-    expect(count(flattenProse(read(method, 'blueprint-authoring.md') ?? ''))).toBe(2);
+    // Early exit renders the checklist too, so it carries all four; the Method-only
+    // playbook carries the banner's, step 9's and the gate's. Before the fix the
+    // Method path had zero, and the banner none on either path.
+    expect(count(flattenProse(read(early, 'blueprint-authoring.md') ?? ''))).toBe(4);
+    expect(count(flattenProse(read(method, 'blueprint-authoring.md') ?? ''))).toBe(3);
 
     const brief = flattenProse(read(method, 'blueprint-authoring.md') ?? '');
 
@@ -1156,8 +1169,11 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
 
     expect(brief).toContain(`write the report, and delete this playbook, ${command}`);
     expect(brief).toContain(`- [ ] Deleted: this playbook, ${command}`);
+    expect(brief).toContain(`When you finish, delete this playbook, ${command}`);
     // The claim that let the directories be missed, so restoring it turns this red.
     expect(brief).not.toContain('delete the two authoring files');
+    // The banner's own version of it, which survived that fix by naming no list.
+    expect(brief).not.toContain('delete this file and');
   });
 
   it('warns that its own prior output is not upstream intent', async () => {
