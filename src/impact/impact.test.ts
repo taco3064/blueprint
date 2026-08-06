@@ -172,8 +172,10 @@ describe('runImpact', () => {
     await runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent });
 
     expect(loaded).not.toContain('typescript-eslint');
-    // Both carriers are stack-independent — their gates apply everywhere, and
-    // skipping either would report 0 hits for gates that are actually on.
+    // Both carriers load because this preset turns their gates ON, and skipping a
+    // carrier under an active gate reports 0 hits — indistinguishable from a clean
+    // repo. Neither is stack-dependent, which is why the vue/ts arms above do not
+    // decide them; the gates do.
     expect(loaded).toContain('@stylistic/eslint-plugin');
     expect(loaded).toContain('eslint-plugin-import-x');
 
@@ -182,6 +184,47 @@ describe('runImpact', () => {
 
     expect(vueEntry?.languageOptions?.parser).toBe(vueParser);
     expect(vueEntry?.languageOptions?.parserOptions).toBeUndefined();
+  });
+
+  it('does not require a carrier no gate would use (field run #133)', async () => {
+    // A repo translating only structural flow declares no gates, and impact refused
+    // the whole command over `@stylistic/eslint-plugin` — a formatting carrier nothing
+    // in that config would have emitted. The agent lost the verification and rebuilt
+    // it from `eslint --print-config` runs by hand. Requiring a plugin is right where
+    // a gate rides it and wrong where none does, and the tool already computes which:
+    // the same list doctor's survival check reads.
+    project({ vue: '^3' });
+
+    const { module } = fakeEslint([]);
+    const { loadModule, loaded } = loader(module);
+
+    const bare = { ...vuePreset(), rules: {} };
+
+    await expect(
+      runImpact(root, { loadConfig: async () => bare, loadModule, log: silent }),
+    ).resolves.toBeDefined();
+
+    expect(loaded).not.toContain('@stylistic/eslint-plugin');
+    expect(loaded).not.toContain('eslint-plugin-import-x');
+    // eslint is not optional — the run cannot happen without it.
+    expect(loaded).toContain('eslint');
+  });
+
+  it('still requires the carrier when one gate rides it', async () => {
+    // The half that must not regress: `importBlock` alone brings import-x back, and
+    // asking for it is correct there — dropping it would report 0 hits for a gate
+    // that is on. One gate, one carrier, and the other stays unrequested.
+    project({ vue: '^3' });
+
+    const { module } = fakeEslint([]);
+    const { loadModule, loaded } = loader(module);
+
+    const oneGate = { ...vuePreset(), rules: { importBlock: 'error' as const } };
+
+    await runImpact(root, { loadConfig: async () => oneGate, loadModule, log: silent });
+
+    expect(loaded).toContain('eslint-plugin-import-x');
+    expect(loaded).not.toContain('@stylistic/eslint-plugin');
   });
 
   it('measures the injected-plugin gates instead of silently reporting zero', async () => {
