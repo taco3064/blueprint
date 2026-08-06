@@ -1066,6 +1066,48 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
     expect(prose).not.toContain('now-empty');
   });
 
+  it('names the detected runner where it can, and none where it cannot (field run #141)', async () => {
+    // init printed `pnpm`, installed with `pnpm add`, and then wrote a contract telling
+    // the next agent to run `npm run lint` — in a repo whose own CLAUDE.md says not to
+    // use npm. Two answers, from two mediums: the playbook is written by a runtime that
+    // detected the runner, so it names it; the contract and handbook are generated from
+    // the blueprint alone and cannot see the repo, so they name none.
+    const pnpmRepo = repo({
+      packageJson: react(),
+      files: { 'pnpm-lock.yaml': '\n', 'src/main.tsx': 'export const a = 1;\n' },
+    });
+
+    await cli(pnpmRepo, ['init', '--authoring', '--no-install']);
+
+    const prose = flattenProse(read(pnpmRepo, 'blueprint-authoring.md') ?? '');
+
+    // The lint line is unconditional; the build one sits inside a `viteTs` arm this
+    // fixture does not reach, so asserting it here would pin the wrong branch.
+    expect(prose).toContain('`pnpm lint`');
+    expect(prose).not.toContain('npm run lint');
+
+    // The npm arm, so both are live: a helper with one exercised branch is a helper
+    // that could return the same string for every manager and nothing would notice.
+    const npmRepo = repo({
+      packageJson: react(),
+      files: { 'package-lock.json': '{}\n', 'src/main.tsx': 'export const a = 1;\n' },
+    });
+
+    await cli(npmRepo, ['init', '--authoring', '--no-install']);
+
+    expect(flattenProse(read(npmRepo, 'blueprint-authoring.md') ?? '')).toContain('`npm run lint`');
+
+    // And the two config-only emitters name no runner on either repo.
+    await cli(pnpmRepo, ['init', '--preset', '--no-install']);
+
+    for (const file of ['CLAUDE.md', 'docs/architecture-handbook.md']) {
+      const text = read(pnpmRepo, file) ?? '';
+
+      expect(text, file).toContain('the project\'s lint run');
+      expect(text, file).not.toContain('npm run');
+    }
+  });
+
   it('claims it only where it is true', async () => {
     const dir = repo({ packageJson: react() });
 

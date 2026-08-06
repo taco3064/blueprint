@@ -1,6 +1,12 @@
 import { DOC_ONLY_RULES, METRIC_GATES, PLUGIN_GATES } from '../emit/lint';
 import { COMMAND_FILE } from '../project';
-import type { ClaudeDirState, TscArtifactLocation, ViteTsCoverage } from '../project';
+import { scriptCommand } from './plan';
+import type {
+  ClaudeDirState,
+  PackageManager,
+  TscArtifactLocation,
+  ViteTsCoverage,
+} from '../project';
 import { renderSurvey } from '../survey';
 import type { SurveyResult } from '../survey';
 
@@ -123,7 +129,7 @@ export function renderNextNote(next: boolean): string {
  * shape the reader will not guess at — and there the original wording stands,
  * because "go and look" is exactly right when the tool could not.
  */
-function renderBuildChoice(viteTs: ViteTsCoverage | null): string[] {
+function renderBuildChoice(viteTs: ViteTsCoverage | null, pm: PackageManager): string[] {
   const shared = [
     '   Never report that a build verified the vite edit without having established that the build reads the vite config: that claim is the one thing this step can get silently wrong, and `tsc -b` exiting 0 is not evidence for it.',
   ];
@@ -150,7 +156,7 @@ function renderBuildChoice(viteTs: ViteTsCoverage | null): string[] {
   return [
     `   **Which build: \`npx tsc -b\` and then the vite build, separately — and that is measured, not assumed.** No tsconfig project in this repo pulls \`${viteTs.viteFile}\` in (\`${viteTs.tsconfig}\` was read for it), so \`tsc -b\` never reads the file you just edited and exits 0 whatever is in it.`,
     `   The vite build is the only one that loads it.`,
-    `   Run them as two commands rather than one \`npm run build\`: together they cover the same ground, and only the split lets you report which edit each one verified — fused into one result, "the tsconfig edit type-checks" and "the vite config loads" arrive as a single green you then have to hedge.`,
+    `   Run them as two commands rather than one \`${scriptCommand(pm, 'build')}\`: together they cover the same ground, and only the split lets you report which edit each one verified — fused into one result, "the tsconfig edit type-checks" and "the vite config loads" arrive as a single green you then have to hedge.`,
     ...shared,
   ];
 }
@@ -256,20 +262,21 @@ function renderArtifactHandover(): string {
 function renderEarlyExitVerify(
   viteTs: ViteTsCoverage | null,
   tscOut: TscArtifactLocation | null,
+  pm: PackageManager,
 ): string {
   return [
     `3. Did init write \`eslint.config.blueprint.mjs\`?`,
     `   It does exactly when the repo already has its own eslint config: merge it — spread \`...emitLint(blueprint, …)\` AFTER your existing entries, following the reference's inline notes — then DELETE the reference; doctor stays red until you do.`,
     `   No reference written (init's generated config IS the live one)?`,
     `   That gate holds trivially, and trivially true is true — you skipped nothing.`,
-    `   Either way, close this step by running the project's own lint once (\`npm run lint\`, or \`npx eslint .\` without a script): doctor's wired check reads config text and never executes eslint, so only a real run proves the config loads.`,
+    `   Either way, close this step by running the project's own lint once (\`${scriptCommand(pm, 'lint')}\`, or \`npx eslint .\` without a script): doctor's wired check reads config text and never executes eslint, so only a real run proves the config loads.`,
     `   A green lint is not proof the gates are ATTACHED, and on a repo whose layers hold no files yet it proves only that the config parses — there is nothing for a rule to fire on.`,
     `   That gap is doctor's job, not yours: its survival check resolves every declared gate that rides an injected plugin and reds when one resolved to nothing, so **you do not need to print configs by hand on this path**.`,
     `   Reach for \`npx eslint --print-config <file>\` only for what doctor's ✓ says it does NOT compare — thresholds, package-ownership entries, and the survival of your OWN rules — and read the output knowing four things${printConfigCaveats()} Same logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's alias check reads that wiring as text, never as a compile — run a build once too.`,
     `   The same caveat as the lint run applies, and for the same reason: on a repo whose layers hold no files, nothing imports through the alias, so a green build proves the \`tsconfig\`/\`vite\` edits parse and compile — NOT that the alias resolves.`,
     `   It becomes that proof the first time a layer file imports through it.`,
     `   Run it anyway (cheap, and it catches an edit that broke the config outright) and report which of the two you got.`,
-    ...renderBuildChoice(viteTs),
+    ...renderBuildChoice(viteTs, pm),
     renderBuildArtifacts(tscOut),
 
     renderArtifactHandover(),
@@ -281,6 +288,7 @@ export function renderVerdict(
   claudeDir: ClaudeDirState,
   viteTs: ViteTsCoverage | null,
   tscOut: TscArtifactLocation | null,
+  pm: PackageManager,
 ): string {
   if (survey.totalFiles >= BROWNFIELD_MIN_FILES) return '';
 
@@ -299,7 +307,7 @@ export function renderVerdict(
     '   Running as neither tool?',
     '   Plain `--preset`, then declare `emit.agents` in the config and re-run init.',
     '2. `npx blueprint impact` (0 hits → skip `--suppress-all` entirely; an empty suppressions ledger is ceremony) and `npx blueprint inspect --baseline` — both exit 0. (`--update-baseline` is deliberately not on this list: with zero debt it is a no-op that writes nothing — the full method runs it because brownfield repos have debt to lock; a clean early exit has none.)',
-    renderEarlyExitVerify(viteTs, tscOut),
+    renderEarlyExitVerify(viteTs, tscOut, pm),
     `4. Delete ${cleanupTargets(claudeDir)} Cleanup comes BEFORE the final gate: doctor treats these authoring files as leftovers.`,
     `5. \`npx blueprint doctor\` — all checks green, and a \`⊘\` is not green: a skipped check keeps exit 0 while what it verifies stays unverified, so fix what that line names and re-run before you report done.`,
     `   Then commit what adoption wrote, if you can: a ratchet that lives only in an uncommitted working tree is not installed.`,

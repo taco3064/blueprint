@@ -151,12 +151,28 @@ export function authoringBrief(
     claudeDir: ClaudeDirState;
     viteTs?: ViteTsCoverage | null;
     tscOut?: TscArtifactLocation | null;
+    /**
+     * The detected runner, for the two script commands the playbook names. Defaulted
+     * because it is the majority and a wrong default here is visible in one line —
+     * unlike the two emitters that carry the same sentence, which cannot see the repo
+     * at all and so name no runner (field run #141).
+     */
+    packageManager?: PackageManager;
   },
 ): string {
-  const { next = false, claudeDir, viteTs = null, tscOut = null } = facts;
+  const {
+    next = false,
+    claudeDir,
+    viteTs = null,
+    tscOut = null,
+    packageManager = 'npm',
+  } = facts;
 
   return [
-    renderHeader(renderNextNote(next), renderVerdict(survey, claudeDir, viteTs, tscOut)),
+    renderHeader(
+      renderNextNote(next),
+      renderVerdict(survey, claudeDir, viteTs, tscOut, packageManager),
+    ),
     renderPrerequisites(install),
     renderGoal(),
     renderMethod(claudeDir),

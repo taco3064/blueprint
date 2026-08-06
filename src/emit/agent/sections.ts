@@ -93,7 +93,13 @@ export function renderCompactContract(blueprint: Blueprint): string {
     // the gap independently, one noting it is exactly the file read alone.
     // One line, not two: this block is budgeted to one screen, and a caveat is not
     // worth a line of that budget when it fits as a clause.
-    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail \`npm run lint\`${inspectGates.length ? `; ${inspectGates.join(', ')} is held by \`npx blueprint inspect --baseline\` instead, so a green lint says nothing about it` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
+    // "the project's lint run", not `npm run lint`. This file is generated from the
+    // blueprint alone and cannot see the repo — the sibling comment in emit/docs says
+    // so — and the runner is a repo fact: init detected `pnpm`, used `pnpm add`, and
+    // then wrote a contract telling the next agent to run npm, in a repo whose own
+    // CLAUDE.md says not to (field run #141). A name it cannot check is worse than no
+    // name: the reader finds the script in package.json either way.
+    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectGates.join(', ')} is held by \`npx blueprint inspect --baseline\` instead, so a green lint says nothing about it` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
     // --baseline so the verify loop fails only on findings the agent itself
     // introduced — plain inspect stays red forever on locked brownfield debt
     // (field issue #10).

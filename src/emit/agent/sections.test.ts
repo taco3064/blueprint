@@ -295,7 +295,7 @@ describe('renderCompactContract', () => {
     // runtime is inspect, and the contract used to say lint catches it.
     expect(out).toContain('`cycles` is held by `npx blueprint inspect --baseline`');
     expect(out).toContain('a green lint says nothing about it');
-    expect(out).not.toMatch(/`cycles`[^.;]*fail `npm run lint`/);
+    expect(out).not.toMatch(/`cycles`[^.;]*fail the project's lint run/);
   });
 
   it('drops the inspect clause entirely when no such gate is declared', () => {
@@ -305,8 +305,12 @@ describe('renderCompactContract', () => {
       rules: { maxLines: { tier: 'error' as const, value: 300 } },
     });
 
-    expect(lintOnly).toContain('`maxLines` = 300 fail `npm run lint`');
+    expect(lintOnly).toContain('`maxLines` = 300 fail the project\'s lint run');
     expect(lintOnly).not.toContain('blueprint inspect --baseline` instead');
+    // No runner named: this file is generated from the blueprint alone, and init
+    // detecting pnpm while its contract said `npm run lint` is what that guess cost
+    // (field run #141). The reader finds the script in package.json either way.
+    expect(lintOnly).not.toContain('npm run');
   });
 
   it('is singular because exactly one gate is inspect-held', () => {
