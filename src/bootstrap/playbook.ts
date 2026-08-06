@@ -64,6 +64,36 @@ function printConfigCaveats(indent: string): string {
 }
 
 /**
+ * What authoring leaves behind, for every site that instructs its removal. The
+ * early-exit checklist named all of it — the two files and the directories init
+ * created for them, with `hadClaudeDir` deciding whether `.claude/` is one of
+ * them. The Method's finish step and the acceptance gate said "the two authoring
+ * files", so an agent on the Method path was told to delete two files and nothing
+ * about the two directories it had just watched init create. It invented the
+ * `rmdir` and reported having to (field run #124) — correctly, and off a fact the
+ * tool already measures.
+ *
+ * Same shape as `printConfigCaveats`: one passage, three call sites, wrapped for
+ * the deepest indent and reused at the shallower ones. Three copies of a rule
+ * with a branch in it is how the branch goes missing from two of them.
+ */
+function cleanupTargets(hadClaudeDir: boolean, indent: string): string {
+  return [
+    `this playbook, \`${COMMAND_FILE}\`, and the now-empty`,
+    ...(hadClaudeDir
+      ? [
+          '`.claude/commands/` directory — but NOT `.claude/` itself: it was',
+          'already here before this run, so it is the owner\'s, whatever ends up',
+          'left in it.',
+        ]
+      : [
+          '`.claude/commands/` directory — and `.claude/` itself, which init',
+          'created only to hold this command (it was not here before this run).',
+        ]),
+  ].join(`\n${indent}`);
+}
+
+/**
  * The Next.js addendum, appended to the H1 — the route tree is itself a layer,
  * and `src/pages` beside the App Router is a routing convention, not a layer to
  * scaffold. Empty on every other framework.
@@ -276,14 +306,7 @@ export function renderVerdict(
     '   started, blueprint\'s or not (leave untouched, and do not report it as',
     '   adoption\'s). Deciding this by "is it untracked?" deletes the deliverable;',
     '   deciding it by "did I run the command that made it?" does not.',
-    `4. Delete this playbook, \`${COMMAND_FILE}\`, and the now-empty`,
-    `   \`.claude/commands/\` directory${
-      hadClaudeDir
-        ? ` — but NOT \`.claude/\` itself: it was already here before this run, so
-   it is the owner's, whatever ends up left in it.`
-        : ` — and \`.claude/\` itself, which init created
-   only to hold this command (it was not here before this run).`
-    }
+    `4. Delete ${cleanupTargets(hadClaudeDir, '   ')}
    Cleanup comes BEFORE the final gate: doctor treats these authoring
    files as leftovers.
 5. \`npx blueprint doctor\` — all checks green. Then commit what adoption
@@ -452,8 +475,11 @@ export function renderGoal(): string {
  * whole integration boundary, because "finish" is where adoption gets parked:
  * the tool declaration, the lint merge and its flat-config traps, the ratchet
  * posture, the overlapping-tool decision, and what must be committed.
+ *
+ * `hadClaudeDir` reaches here for step 9's cleanup, which names the same targets
+ * the early-exit checklist does — see `cleanupTargets`.
  */
-export function renderMethod(): string {
+export function renderMethod(hadClaudeDir: boolean): string {
   return [
     '',
     '## Method',
@@ -551,7 +577,8 @@ export function renderMethod(): string {
     '   as real, nameable debt.',
     '9. **Finish — and finish means integrated, not parked.** Run',
     '   `npx blueprint init`, then `npx blueprint inspect --update-baseline`,',
-    '   write the report, and delete the two authoring files. The tool never',
+    `   write the report, and delete ${cleanupTargets(hadClaudeDir, '   ')}`,
+    '   The tool never',
     '   touches files you own, so it leaves `*.blueprint.*` references next to',
     '   them — **those references are your input, not the deliverable. Adoption',
     '   is not done while any reference file remains:**',
@@ -597,8 +624,11 @@ export function renderMethod(): string {
     '     comes later silently deletes the other\'s defense while lint stays',
     '     green. Combine both option sets into ONE entry — blueprint\'s patterns',
     '     and selectors plus your own (`npx blueprint rules --json` carries the',
-    '     exact selfOnly selector strings per layer; copy them from there, never',
-    '     from an emitLint dump).',
+    '     exact selfOnly selectors per layer as `jsLiteral` — paste that field,',
+    '     quotes included, never an emitLint dump. Its `note` says why the',
+    '     rendered `selectors` value is not the same string once it is inside JS',
+    '     source; that is a silent break, so take the field that survives the',
+    '     paste rather than the one that reads more naturally).',
     '',
     '     **"ONE entry" means one per COLLISION, not one for the whole rule',
     '     key.** emitLint scopes its entries per layer, so a rule key can have',
@@ -962,8 +992,13 @@ export function renderSchemaSketch(): string {
   ].join('\n');
 }
 
-/** The six checkboxes that define done — `doctor` last, since it flags this file. */
-export function renderAcceptanceGates(): string {
+/**
+ * The six checkboxes that define done — `doctor` last, since it flags this file.
+ * The cleanup box names the directories too: a checkbox is the definition an
+ * agent verifies itself against, so a target missing here is a target left
+ * behind by anyone who works from this list.
+ */
+export function renderAcceptanceGates(hadClaudeDir: boolean): string {
   return [
     '',
     '## Acceptance gates',
@@ -976,8 +1011,8 @@ export function renderAcceptanceGates(): string {
     '      decision item in the report',
     '- [ ] No `*.blueprint.*` reference file remains in the repo',
     '- [ ] The report names every import cycle and every upward dependency found',
-    `- [ ] This playbook and \`${COMMAND_FILE}\` are deleted, THEN`,
-    '      `npx blueprint doctor` passes — doctor flags them as leftovers,',
+    `- [ ] Deleted: ${cleanupTargets(hadClaudeDir, '      ')}`,
+    '      THEN `npx blueprint doctor` passes — doctor flags them as leftovers,',
     '      so it is the last thing you run, not a mid-flow smoke test',
   ].join('\n');
 }

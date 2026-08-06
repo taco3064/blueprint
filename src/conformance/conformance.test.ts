@@ -958,8 +958,47 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
-    expect(playbook).toContain('init created');
+    expect(flattenProse(playbook)).toContain('which init created only to hold this command');
     expect(playbook).toContain('it was not here before this run');
+  });
+
+  it('names the same cleanup targets everywhere it instructs cleanup (field run #124)', async () => {
+    // The early-exit checklist named the two files AND the two directories init made
+    // for them. The Method's finish step and the acceptance gate said "the two
+    // authoring files", so an agent on the Method path — which is the one a
+    // re-adoption follows — was told to delete two files and nothing about two
+    // directories it had just watched init create. It invented the rmdir and said so.
+    // Three sites, one passage now, so a branch cannot go missing from two of them.
+    const early = repo({ packageJson: react() });
+
+    const method = repo({
+      packageJson: react(),
+      files: Object.fromEntries(
+        Array.from({ length: 12 }, (_, i) => [`src/legacy/mod${i}.js`, 'export const x = 1;\n']),
+      ),
+    });
+
+    await cli(early, ['init', '--authoring', '--no-install']);
+    await cli(method, ['init', '--authoring', '--no-install']);
+
+    const phrase = '`.claude/commands/` directory';
+    const count = (text: string) => text.split(phrase).length - 1;
+
+    // Early exit renders the checklist too, so it carries all three; the Method-only
+    // playbook carries step 9's and the gate's. Before the fix the latter was zero.
+    expect(count(flattenProse(read(early, 'blueprint-authoring.md') ?? ''))).toBe(3);
+    expect(count(flattenProse(read(method, 'blueprint-authoring.md') ?? ''))).toBe(2);
+
+    const brief = flattenProse(read(method, 'blueprint-authoring.md') ?? '');
+
+    // The path restated, not imported: it is a file the adopter has, so a rename
+    // should turn this red rather than follow along.
+    const command = '`.claude/commands/blueprint-author.md`';
+
+    expect(brief).toContain(`write the report, and delete this playbook, ${command}`);
+    expect(brief).toContain(`- [ ] Deleted: this playbook, ${command}`);
+    // The claim that let the directories be missed, so restoring it turns this red.
+    expect(brief).not.toContain('delete the two authoring files');
   });
 
   it('warns that its own prior output is not upstream intent', async () => {
@@ -1567,23 +1606,32 @@ describe('selfOnly survives every esquery, and the fold gets its selectors (batc
     const json = await cli(dir, ['rules', '--json']);
 
     const parsed = JSON.parse(json.output) as {
-      bans: { layer: string; selfOnly: { target: string; selectors: string[]; note: string }[] }[];
+      bans: {
+        layer: string;
+        selfOnly: { target: string; selectors: string[]; jsLiteral: string[]; note: string }[];
+      }[];
     };
 
     const views = parsed.bans.find((entry) => entry.layer === 'views');
 
-    expect(views?.selfOnly).toEqual([{
-      target: 'contexts',
-      selectors: emittedSelectors(),
-      note: 'the message text is yours to write — doctor verifies selectors, never messages',
-    }]);
+    expect(views?.selfOnly[0].target).toBe('contexts');
+    expect(views?.selfOnly[0].selectors).toEqual(emittedSelectors());
+
+    // The paste form, end to end through the CLI: a rendered selector loses its
+    // / escape inside a JS string literal and the regex then ends at the bare
+    // `/` — silently, lint green (field run #125). Parsing the literal is what the
+    // paste does, so this asserts the round trip rather than the spelling.
+    expect(views?.selfOnly[0].jsLiteral.map((literal) => JSON.parse(literal) as string))
+      .toEqual(emittedSelectors());
+
+    expect(JSON.parse(`"${emittedSelectors()[0]}"`)).not.toBe(emittedSelectors()[0]);
 
     // The text catalog prints the same strings — an agent without --json
     // still never needs to dump emitLint.
     const text = await cli(dir, ['rules']);
 
-    expect(text.output).toContain('Copy these selectors verbatim');
-    expect(text.output).toContain(emittedSelectors()[0]);
+    expect(text.output).toContain('Paste these verbatim, quotes included');
+    expect(text.output).toContain(views?.selfOnly[0].jsLiteral[0]);
     // And the caveat is in BOTH shapes, from one string. It reached only the text
     // form for three releases, so #117 raised the doubt #23 had already answered —
     // through `--json`, which is where the playbook's merge step sends a fold.
@@ -2285,7 +2333,7 @@ describe('the merge recipe hands over the whole entry, not just its selectors (#
   it('prints the ignores line to paste, next to the selectors to copy', async () => {
     const out = await cli(dir(), ['rules']);
 
-    expect(out.output).toContain('Copy these selectors verbatim');
+    expect(out.output).toContain('Paste these verbatim, quotes included');
     expect(out.output).toContain('ignores: [');
     expect(out.output).toContain('*.test.');
   });

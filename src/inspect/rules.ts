@@ -67,14 +67,25 @@ export interface LayerBans {
    * blueprint's entry into the project's own used to have no supported
    * source for these strings but an emitLint dump (field issue #20).
    *
-   * `note` carries the one thing a fold must NOT copy, beside the things it
-   * must. It repeats per entry rather than sitting once at the top because an
-   * agent arrives here looking for selectors to copy, and the caveat has to be
-   * where that copy happens — the text output has carried it since field issue
-   * #23 and the JSON did not, so the same doubt came back through the channel
-   * the playbook points at (field issue #117).
+   * `selectors` is the value ESLint resolves and doctor compares — right for a
+   * program writing config, and a trap for the paste this catalog exists to
+   * serve. The separators are `/` escapes (a raw `/` would end esquery's
+   * regex early), and JS resolves that escape when it parses a string literal:
+   * paste the rendered value into `'…'` and the selector silently becomes
+   * `/^@/contexts//`, a regex that ends at the bare `/`. No parse error, lint
+   * still green, and doctor's red then reads like the false alarm it warns about
+   * ("an equivalent respelling"), which this is not. `jsLiteral` is the same
+   * selector as JS source, quotes included, so the paste survives (field run
+   * #125 verified both halves).
+   *
+   * `note` carries that and the one thing a fold must NOT copy at all. It
+   * repeats per entry rather than sitting once at the top because an agent
+   * arrives here looking for selectors to copy, and a caveat has to be where the
+   * copy happens — the message half reached only the text output for three
+   * releases, so the same doubt came back through the channel the playbook points
+   * at (field issue #117).
    */
-  selfOnly: { target: string; selectors: string[]; note: string }[];
+  selfOnly: { target: string; selectors: string[]; jsLiteral: string[]; note: string }[];
   /**
    * The test-exemption globs the emitted entry carries alongside these bans.
    * Rebuilding a combined `no-restricted-syntax` entry from `selectors` alone
@@ -103,10 +114,14 @@ export interface GateStatus {
 
 /**
  * One string for both output shapes, so the text form and `--json` cannot drift
- * into disagreeing about the same fold.
+ * into disagreeing about the same fold. It names the fields rather than saying
+ * "these", because the text reader learns from it which of the two `--json`
+ * carries is the one to take.
  */
 const SELF_ONLY_MESSAGE_NOTE
-  = 'the message text is yours to write — doctor verifies selectors, never messages';
+  = 'copy `jsLiteral`, not `selectors`: pasted into JS source a rendered selector '
+    + 'loses its \\u002F escape and the regex ends at the bare /, silently. The ban '
+    + 'message text is yours to write — doctor verifies selectors, never messages';
 
 export const STRUCTURAL_RULES: StructuralRule[] = [
   { rule: 'no-restricted-imports', covers: 'dependency flow, same-layer bans, package ownership — whole packages or named imports ({ package, imports }); same-signature owns merge — and fixture bans' },
@@ -181,11 +196,19 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
     globals: globalRules
       .filter((rule) => !rule.allowedIn.includes(layer.name))
       .map((rule) => rule.global),
-    selfOnly: getSelfOnlyTargets(architecture, layer.name).map((target) => ({
-      target,
-      selectors: aliases.map((alias) => selfOnlyReexportSelector(alias, target)),
-      note: SELF_ONLY_MESSAGE_NOTE,
-    })),
+    selfOnly: getSelfOnlyTargets(architecture, layer.name).map((target) => {
+      const selectors = aliases.map((alias) => selfOnlyReexportSelector(alias, target));
+
+      return {
+        target,
+        selectors,
+        // JSON's string escaping IS JavaScript's here, so stringify is the paste
+        // form rather than a hand-rolled doubling of backslashes — and it brings
+        // the quotes, which is what makes it obvious it is source, not a value.
+        jsLiteral: selectors.map((selector) => JSON.stringify(selector)),
+        note: SELF_ONLY_MESSAGE_NOTE,
+      };
+    }),
     testExemptions: resolveTestFiles(architecture.testFiles),
   }));
 }
@@ -320,9 +343,12 @@ export function renderRules(
             // over-constrained defensively (#101).
             ...entry.selfOnly.flatMap((ban) => [
               `    selfOnly: no re-export from "${ban.target}" — folding your own`
-              + ' no-restricted-syntax into one entry? Copy these selectors verbatim,'
-              + ` per the caveat above (${ban.note}):`,
-              ...ban.selectors.map((selector) => `      ${selector}`),
+              + ' no-restricted-syntax into one entry? Paste these verbatim, quotes'
+              + ' included, per the caveat above — they are JS source, not values'
+              + ` (${ban.note}):`,
+              // The literal, not the value: this line exists to be copied into a
+              // config, and the value does not survive that copy (field run #125).
+              ...ban.jsLiteral.map((literal) => `      ${literal}`),
               // The selectors alone are not the whole entry. The emitted block
               // exempts test files, and an entry rebuilt from selectors carries
               // no such thing — the merged rule then reaches tests, loudly if a
