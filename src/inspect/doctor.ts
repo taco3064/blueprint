@@ -39,6 +39,12 @@ export interface DoctorOptions {
 
 export type { DoctorCheck } from './types';
 
+/**
+ * What the run established. `complete`: every check passed. `unverified`: none failed
+ * and at least one could not run. `incomplete`: something failed.
+ */
+export type DoctorVerdict = 'complete' | 'unverified' | 'incomplete';
+
 const SUPPRESSIONS_FILE = 'eslint-suppressions.json';
 
 /**
@@ -203,16 +209,24 @@ function staleContracts(root: string, blueprint: Blueprint): string[] {
  * the baseline (its detail states the coverage, so a vacuous green is
  * visible). Exit 0 iff every check passes, so you can gate on it — a git
  * hook, CI, an agent's verify loop.
+ *
+ * `ok` is "nothing failed", which the exit code follows. It is NOT "everything was
+ * verified": a check that could not run rides on `ok: true` deliberately, so read
+ * `verdict` when the difference matters — the JSON said `"ok": true` while the text
+ * said `⊘ Adoption unverified` about the same run, and that gap nearly became a
+ * green CI gate (field run #141).
  * @group Runtimes
  * @example
- * const { ok } = await runDoctor(process.cwd());
+ * const { ok, verdict } = await runDoctor(process.cwd());
  *
  * process.exitCode = ok ? 0 : 1;
+ *
+ * if (verdict === 'unverified') console.warn('a check could not run');
  */
 export async function runDoctor(
   root: string,
   options: DoctorOptions = {},
-): Promise<{ ok: boolean; checks: DoctorCheck[] }> {
+): Promise<{ ok: boolean; verdict: DoctorVerdict; checks: DoctorCheck[] }> {
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
 
@@ -230,7 +244,7 @@ export async function runDoctor(
     // not the next step — running init is.
     emit(log, checks, undefined, options.json);
 
-    return { ok: false, checks };
+    return { ok: false, verdict: verdictOf(checks), checks };
   }
 
   const references = referenceFiles(root);
@@ -325,7 +339,7 @@ export async function runDoctor(
 
   emit(log, checks, uncommittedNote(root), options.json);
 
-  return { ok, checks };
+  return { ok, verdict: verdictOf(checks), checks };
 }
 
 /**
@@ -352,6 +366,17 @@ function uncommittedNote(root: string): string | undefined {
     + 'an adopting agent\'s.';
 }
 
+/**
+ * The banner's three states as one value — the field automation should gate on.
+ * `ok` stays what it always meant (nothing FAILED, and the exit code follows it);
+ * this says whether anything was left unproven.
+ */
+function verdictOf(checks: DoctorCheck[]): DoctorVerdict {
+  if (checks.some((check) => !check.ok)) return 'incomplete';
+
+  return checks.some((check) => check.skipped) ? 'unverified' : 'complete';
+}
+
 function emit(
   log: (m: string) => void,
   checks: DoctorCheck[],
@@ -361,7 +386,16 @@ function emit(
   if (json) {
     // The note rides on both channels or the two disagree about the same run, which
     // is its own defect — automation reading JSON must not learn less than a reader.
-    log(JSON.stringify({ ok: checks.every((check) => check.ok), checks, note }, null, 2));
+    // `verdict` beside `ok`, because `ok` cannot carry three states and a skip rides
+    // on `ok: true` by design (exit 0 follows it). So the JSON said `"ok": true` while
+    // the text said `⊘ Adoption unverified` about the same run, and an agent nearly
+    // took it as a CI-usable green before cross-checking with the plain output and its
+    // own lint (field run #141). The banner's three states are now one field.
+    log(JSON.stringify(
+      { ok: checks.every((check) => check.ok), verdict: verdictOf(checks), checks, note },
+      null,
+      2,
+    ));
 
     return;
   }

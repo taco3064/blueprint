@@ -569,6 +569,18 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
   ].join('\n');
 }
 
+/**
+ * How this repo runs a package script. Its sibling below builds the install command
+ * from the same detected fact, and the emitted contract used to hardcode `npm run
+ * lint` beside it — init detecting `pnpm`, installing with `pnpm add`, and then
+ * telling the next agent to run npm (field run #141). The two emitters that carry
+ * that sentence cannot see the repo by design, so they name no runner at all; this
+ * is for the playbook, which is written by a runtime that can.
+ */
+export function scriptCommand(pm: PackageManager, script: string): string {
+  return pm === 'npm' ? `npm run ${script}` : `${pm} ${script}`;
+}
+
 export function installCommand(pm: PackageManager, deps: string[]): string {
   const list = deps.join(' ');
 

@@ -276,8 +276,9 @@ export function renderRules(rules: Record<string, RuleSetting> | undefined): str
     // cannot see the repo, and a number would be wrong the day code lands.
     'The tier is what the enforcing machine does with a violation: `error` fails, '
     + '`warn` is advisory, `off` is disabled. Which machine differs — `lint` rows fail '
-    + '`npm run lint`, `blueprint inspect` rows fail that command and never appear in a '
-    + 'lint run, and documentation-only rows are recorded intent with no gate behind '
+    + 'the project\'s lint run, `blueprint inspect` rows fail `blueprint inspect` and '
+    + 'never appear in a lint run, and documentation-only rows are recorded intent with '
+    + 'no gate behind '
     + 'them at any tier. Every row reaches only the files a layer glob matches: a '
     + 'declared layer holding no code has nothing that can fail, which is runway rather '
     + 'than protection — `blueprint doctor` reports which of the two this repo has today.',
