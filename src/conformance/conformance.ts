@@ -73,6 +73,31 @@ export function read(dir: string, rel: string): string | null {
   }
 }
 
+/**
+ * Collapse every whitespace run, so an assertion names the sentence it cares
+ * about and not the column the source happened to break at.
+ *
+ * The authoring playbook is prose hand-wrapped at ~72 columns inside a template
+ * literal: editing one word re-wraps the rest of its paragraph. Assertions that
+ * carried a `\n` — plus the continuation indent — in the needle were therefore
+ * pinned to the wrapping, and the two failure directions are not symmetric. A
+ * positive one goes red on a re-wrap that changed no meaning: noise, but you see
+ * it. A negative one goes green, because a needle that stops matching is exactly
+ * what `not.toContain` asks for — it quietly stops carrying any signal instead.
+ * Measured, not assumed: re-wrapping the `.claude/` sentence and inverting its
+ * ternary leaves `not.toContain('init created\n   only to hold this command')`
+ * passing, and the case is caught only by the two positive assertions beside it.
+ * So the cost of a wrap-pinned negative is a dead assertion, not a missed bug —
+ * still worth removing, because an assertion that cannot fail reads as cover.
+ *
+ * Whitespace only: punctuation, wording and order still have to match, and a
+ * needle spanning a paragraph break is deliberately still a match — these
+ * assertions are about prose, so the structural ones stay raw.
+ */
+export function flattenProse(text: string): string {
+  return text.replace(/\s+/g, ' ');
+}
+
 export function rm(dir: string): void {
   fs.rmSync(dir, { recursive: true, force: true });
 }

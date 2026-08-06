@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { AGENT_PROMPT, AUTHORING_FILE, authoringActions, authoringBrief, BROWNFIELD_MIN_FILES, COMMAND_FILE } from './authoring';
+// Test-only helper from the test-only module — the playbook is hand-wrapped
+// prose, so an assertion that needs a whole sentence flattens it first rather
+// than naming the column the source broke at.
+import { flattenProse } from '../conformance';
 import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
 import type { SurveyResult } from '../survey';
 
@@ -89,7 +93,7 @@ describe('authoringBrief', () => {
   it('tells the executing agent to run autonomously — the only place that framing lives', () => {
     // The homepage prompt dropped "work autonomously"; the tool output has to
     // carry it now. The header is the first line the agent reads on opening.
-    expect(brief).toContain('autonomously — do\n> not stop to ask for confirmation');
+    expect(flattenProse(brief)).toContain('autonomously — do > not stop to ask for confirmation');
   });
 
   it('carries the goal boundary: author and baseline, never refactor', () => {
@@ -117,8 +121,8 @@ describe('authoringBrief', () => {
     // Field issues #7/#8: "execute fully" vs "early exit" read as a
     // contradiction, and the exit's own steps were scattered — the verdict
     // block now carries the resolution and the complete checklist.
-    expect(small).toContain('IS executing\nthe playbook fully');
-    expect(small).toContain('trivially true is\n   true');
+    expect(flattenProse(small)).toContain('IS executing the playbook fully');
+    expect(flattenProse(small)).toContain('trivially true is true');
     expect(small).toContain('now-empty');
 
     // Issue #9's second catch: the old step 3 promised 'no reference file
@@ -126,13 +130,13 @@ describe('authoringBrief', () => {
     // checklist now carries the merge step conditionally.
     expect(small).toContain('Did init write');
     expect(small).toContain('DELETE the reference');
-    expect(small).toContain('inspect\n   --baseline');
+    expect(flattenProse(small)).toContain('inspect --baseline');
 
     // Every starter run re-derived "why bother on an empty repo" in its
     // judgment section — the answer lived only on the docs site. Doctrine
     // that answers a recurring doubt belongs in the agent's channel.
     expect(small).toContain('emptiness is the point');
-    expect(small).toContain('adopts two years and\n400 files later');
+    expect(flattenProse(small)).toContain('adopts two years and 400 files later');
 
     // Final field round: the checklist claimed completeness while omitting
     // the tool declaration Method step 9 mandates — a literal walk emitted
@@ -177,16 +181,16 @@ describe('authoringBrief', () => {
     // while drafting, and hit the @stylistic load error. Only inspect runs
     // config-only; impact lints, so it waits for the deps init installs.
     expect(brief).toContain('then let `inspect` correct you');
-    expect(brief).toContain('needs nothing\ninstalled');
-    expect(brief).toContain('`impact` is the same kind of read-only feedback\nbut is NOT available at this point');
-    expect(brief).toContain('joins the loop at Method step 9, after\ninit');
+    expect(flattenProse(brief)).toContain('needs nothing installed');
+    expect(flattenProse(brief)).toContain('`impact` is the same kind of read-only feedback but is NOT available at this point');
+    expect(flattenProse(brief)).toContain('joins the loop at Method step 9, after init');
   });
 
   it('forbids manufacturing a net — the empty-net twin of manufactured debt', () => {
     // Batch 9: an agent invented a `*` layer so coverage would be non-zero.
     expect(brief).toContain('An empty net is equally legitimate');
-    expect(brief).toContain('Never invent\na layer');
-    expect(brief).toContain('belongs to\nthe project\'s own lint');
+    expect(flattenProse(brief)).toContain('Never invent a layer');
+    expect(flattenProse(brief)).toContain('belongs to the project\'s own lint');
 
     // Field issue #1: the inverse stance was missing — a preset's declared-
     // but-empty layers are the runway, and the tool must say keep vs slim.
@@ -205,7 +209,7 @@ describe('authoringBrief', () => {
     expect(brief).toContain('Look for existing intent documents first');
     expect(brief).toContain('structure.config.json');
     expect(brief).toContain('senior');
-    expect(brief).toContain('check\n   the documents from step 1 before dropping it');
+    expect(flattenProse(brief)).toContain('check the documents from step 1 before dropping it');
   });
 
   it('encodes the method: intent over zero-findings, per-layer shapes, ownership', () => {
@@ -292,7 +296,7 @@ describe('authoringBrief', () => {
     expect(brief).toContain('Linearize, then verify against the matrix');
 
     // Zero findings is a valid end state — never manufacture debt to lock.
-    expect(brief).toContain('zero\n     lint hits is a complete outcome');
+    expect(flattenProse(brief)).toContain('zero lint hits is a complete outcome');
     expect(brief).toContain('manufacturing debt just to demo the ratchet');
 
     // First live field run: --suppress-all on a clean lint wrote an empty
