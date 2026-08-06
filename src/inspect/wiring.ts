@@ -43,9 +43,17 @@ const LABEL = 'emitted rules survive the merged eslint config';
  * prevent: a field agent dropped the `stylistic` argument, watched lint pass
  * and doctor print this line, and only `eslint --print-config` showed the
  * ~68-rule codeStyle family had silently vanished (field issue #40).
+ *
+ * The reach belongs here too, not only in `pickProbes`'s comment. This check
+ * resolves ONE path per layer, so a merged entry that replaces blueprint's on
+ * part of a layer passes: the probe lands on a sibling that still carries the
+ * emitted selectors. The playbook names the remedy at the merge step
+ * (`--print-config` on one file per affected layer), and an adopter reading a
+ * green here is the one deciding whether to bother.
  */
-const SCOPE = 'structural bans + each active gate\'s carrier rule; thresholds and '
-  + 'package-ownership entries are not compared';
+const SCOPE = 'structural bans + each active gate\'s carrier rule, one probe per layer; '
+  + 'thresholds, package-ownership entries, and a merged entry scoped to only part of '
+  + 'a layer are not compared';
 
 /**
  * Gates whose ESLint rule exists only if the caller handed `emitLint` the

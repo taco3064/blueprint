@@ -643,9 +643,19 @@ describe('a proof step states its own reach (field run #85)', () => {
     // was the most-repeated item in the whole field campaign — fifteen mentions — and
     // the playbook's own first-listed command is what creates the artifact. On a path
     // where the wide build proves nothing extra, stop creating it.
-    expect(playbook).toContain('on this path prefer `npx tsc -b`');
-    expect(playbook).toContain('answers no more of it while emitting a bundle');
+    // The preference is conditional, and used to read as flat. "The full build answers
+    // no more of it" holds only where the vite config sits inside a tsconfig project;
+    // on the other branch it answers strictly more. Two field runs landed on that
+    // sentence — one deviated from it, one nearly filed it (#104, #106).
+    expect(playbook).toContain('where `tsc -b` is enough, prefer it');
+    expect(playbook).toContain('the preference holds only where the answer is yes');
+    expect(playbook).toContain('the full build answers\n   strictly more');
     expect(playbook).toContain('there the bundle is the point');
+
+    // And on that branch the two builds run separately, because the attribution the
+    // step asks for two sentences earlier is exactly what one fused result cannot give.
+    expect(playbook).toContain('running the two separately buys the report its');
+    expect(flattenProse(playbook)).toContain('`tsc -b` then `vite build` covers what the full build covers');
   });
 
   it('says how to combine against an opaque spread', async () => {
@@ -1970,7 +1980,14 @@ describe('a merge that drops a carrier cannot pass doctor (field issue #40)', ()
     // A bare "emitted rules survive" read as a promise about ALL of them; the
     // field agent trusted it over a merge that had silently lost ~68 rules.
     expect(doctor.output).toContain('emitted rules survive the merged eslint config (');
-    expect(doctor.output).toContain('thresholds and package-ownership entries are not compared');
+    expect(doctor.output).toContain('thresholds, package-ownership entries, and a merged entry');
+
+    // The reach, not just the rule families: the check resolves one path per layer, so
+    // an entry that replaces blueprint's on PART of a layer passes — the probe lands on
+    // a sibling that still carries the selectors. `pickProbes` said "sample, not a
+    // proof" in a source comment; the adopter reading the ✓ never saw it.
+    expect(doctor.output).toContain('one probe per layer');
+    expect(doctor.output).toContain('scoped to only part of a layer are not compared');
   });
 
   it('the playbook names --print-config, the step both field runs invented', async () => {
@@ -2493,6 +2510,72 @@ describe('a fact reaches the reader before the red, not after (field run #101)',
 
     // The selector block points at it rather than restating it.
     expect(out.output).toContain('per the caveat above');
+  });
+});
+
+describe('a principle names its own boundary (field runs #104, #106)', () => {
+  it('bridges `noEmit` against the tsbuildinfo the build writes anyway', async () => {
+    // The artifact line named `*.tsbuildinfo` as normal build output. An agent that
+    // had just opened the tsconfig — because the paragraph above tells it to — read
+    // `noEmit: true` there and then watched `tsc -b` write the file, and had to reason
+    // out that build mode's book-keeping is not emit. Two truths, no bridge.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(flattenProse(playbook)).toContain('writes a `*.tsbuildinfo` even under `noEmit: true`');
+    expect(flattenProse(playbook)).toContain('book-keeping of what it already checked');
+    expect(flattenProse(playbook)).toContain('the two settings do not conflict');
+  });
+
+  it('sorts untracked files into the three kinds, only one of them yours', async () => {
+    // The cell that decides itself says "remove what your own verification step
+    // created" — and in a tree with no VCS and no ignore rules, nothing else marks
+    // the difference. `init` installs 96 packages and rewrites the lockfile, which are
+    // as untracked as `dist/`. A field agent extended the principle correctly (keep the
+    // deliverable, remove the verification product, leave what was already there) and
+    // said it had extended it. The playbook states the split now.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+    const flat = flattenProse(playbook);
+
+    expect(flat).toContain('is narrower than "untracked"');
+
+    for (const kind of ['dist/', '*.tsbuildinfo', 'node_modules/', 'lockfile']) {
+      expect(flat, `the cleanup split never names ${kind}`).toContain(kind);
+    }
+
+    expect(flat).toContain('already in the tree before you started');
+    expect(flat).toContain('deciding it by "did I run the command that made it?" does not');
+  });
+
+  it('states the reach of "your own lint passing confirms it"', async () => {
+    // #85 taught the playbook that a proof step states its reach, and the sweep then
+    // covered the playbook only. The same sentence shape sits in the emitted eslint
+    // reference, where the merge decision is made: on a repo whose layers hold no
+    // files, a green lint proves this config loads, not that the parser reaches layer
+    // files. A field agent named the gap and judged it correctly anyway.
+    const dir = repo({
+      packageJson: react({ typescript: '^5.0.0' }),
+      files: {
+        'eslint.config.js': 'export default [];\n',
+        'tsconfig.json': '{"compilerOptions":{"strict":true}}\n',
+        'src/App.tsx': 'export const App = () => null;\n',
+      },
+    });
+
+    await cli(dir, ['init', '--preset', '--no-install']);
+
+    const reference = read(dir, 'eslint.config.blueprint.mjs') ?? '';
+
+    expect(reference).toContain('as far as the files it actually parsed');
+    expect(reference).toContain('proves this config loads, not that the');
+    expect(reference).toContain('Skipping the block is still right either way');
   });
 });
 
