@@ -8,7 +8,7 @@ import type { Blueprint } from '../config';
 // boundary; the fixture needs emitLint's real selectors, not a paraphrase.
 import { emitLint } from '../emit/lint';
 import { reactPreset } from '../presets';
-import { cli, configSource, makeRepo, read, rm, wiredEslintConfig, write } from './conformance';
+import { cli, configSource, flattenProse, makeRepo, read, rm, wiredEslintConfig, write } from './conformance';
 import type { RepoSpec } from './conformance';
 
 /**
@@ -532,7 +532,7 @@ describe('an instruction states its own reach too (field runs #91–#93)', () =>
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
-    expect(playbook).toContain('can\n   come out WORDED differently');
+    expect(flattenProse(playbook)).toContain('can come out WORDED differently');
     expect(playbook).toContain('not drift and not non-idempotency');
     expect(playbook).toContain('Never hand-revert generated text');
   });
@@ -837,9 +837,9 @@ describe('naming the cause, so a claim can be checked (field runs #79–#81)', (
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
-    expect(playbook).toContain('cannot** be\n   derived from the matrix');
+    expect(flattenProse(playbook)).toContain('cannot** be derived from the matrix');
     expect(playbook).toContain('LOOSER than the one it replaced');
-    expect(playbook).toContain('reproduced rather\n   than derived');
+    expect(flattenProse(playbook)).toContain('reproduced rather than derived');
   });
 
   it('states the ignores trade in both directions', async () => {
@@ -859,7 +859,7 @@ describe('naming the cause, so a claim can be checked (field runs #79–#81)', (
 
     expect(playbook).toContain('The same move runs the other way');
     expect(playbook).toContain('One entry carries one');
-    expect(playbook).toContain('that is where\n     the asymmetry lands');
+    expect(flattenProse(playbook)).toContain('that is where the asymmetry lands');
   });
 });
 
@@ -906,7 +906,11 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
 
     expect(playbook).toContain('NOT `.claude/` itself');
     expect(playbook).toContain('already here before this run');
-    expect(playbook).not.toContain('init created\n   only to hold this command');
+    // Flattened because this one is NEGATIVE: pinned to the wrapping, a re-wrap
+    // leaves the needle unmatched and the assertion passing on nothing. The two
+    // above still catch the wrong arm, so this buys back a live assertion rather
+    // than a missed case — the asymmetry is spelled out on `flattenProse`.
+    expect(flattenProse(playbook)).not.toContain('init created only to hold this command');
   });
 
   it('claims it only where it is true', async () => {
@@ -2385,13 +2389,13 @@ describe('a check is asked for, not answered in advance (field runs #99-#100)', 
 
     // The rule, not a list — a list of five would have gone stale the next time a
     // field was added, which is how this one got to three-of-eight in the first place.
-    expect(playbook).toContain('any\n   field in the prior config that the schema sketch below does not show');
-    expect(playbook).toContain('The\n   sketch is a starting shape, not the field list');
+    expect(flattenProse(playbook)).toContain('any field in the prior config that the schema sketch below does not show');
+    expect(flattenProse(playbook)).toContain('The sketch is a starting shape, not the field list');
     expect(playbook).toContain('Diff the prior config against yours field by field');
 
     // …and `sourceRoot` called out by name, because its loss is a different order of
     // damage from a shorter contract: every layer glob points at nothing.
-    expect(playbook).toContain('every layer glob silently points at\n   nothing');
+    expect(flattenProse(playbook)).toContain('every layer glob silently points at nothing');
   });
 
   it('mentions every config field an adopter could have to reproduce', async () => {
@@ -2438,7 +2442,7 @@ describe('a fact reaches the reader before the red, not after (field run #101)',
 
     expect(playbook).toContain('Runway comes in three shapes');
     expect(playbook).toContain('get none — nothing imports them');
-    expect(playbook).toContain('recognize\nyourself rather than read off a report');
+    expect(flattenProse(playbook)).toContain('recognize yourself rather than read off a report');
   });
 
   it('says a cross-layer detector swap moves when the failure fires', async () => {

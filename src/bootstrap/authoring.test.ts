@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
 import { AGENT_PROMPT, AUTHORING_FILE, authoringActions, authoringBrief, BROWNFIELD_MIN_FILES, COMMAND_FILE } from './authoring';
+// Test-only helper from the test-only module — the playbook is hand-wrapped
+// prose, so an assertion that needs a whole sentence flattens it first rather
+// than naming the column the source broke at.
+//
+// This edge runs UPWARD against the layering (`bootstrap` sits well above
+// `conformance`, which imports `../cli`), and it is allowed for one reason: the
+// layer rule governs the SHIPPED graph, and neither rolldown input
+// (`src/index.ts`, `src/cli/cli.ts`) reaches `conformance` or any `*.test.ts`.
+// Both suites assert on the same emitted prose, so one definition of "wrap-
+// independent" beats two. The cost is real and worth knowing before copying the
+// move: importing `conformance` pulls the whole CLI into this unit test's import
+// graph. That is why it stays confined to test files — the same import from a
+// non-test file in `bootstrap` would be a genuine layering break, not this
+// exception.
+import { flattenProse } from '../conformance';
 import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
 import type { SurveyResult } from '../survey';
 
@@ -89,7 +104,19 @@ describe('authoringBrief', () => {
   it('tells the executing agent to run autonomously — the only place that framing lives', () => {
     // The homepage prompt dropped "work autonomously"; the tool output has to
     // carry it now. The header is the first line the agent reads on opening.
-    expect(brief).toContain('autonomously — do\n> not stop to ask for confirmation');
+    //
+    // The banner is a blockquote, so its lines carry a `> ` continuation marker.
+    // Flattening alone folded that marker into the sentence — `do > not stop` —
+    // asserting a string the emitted document does not contain, and crossing the
+    // line `flattenProse` itself draws: whitespace collapses, structure does not.
+    // Strip the marker first, then flatten, and the needle is the real sentence.
+    const banner = flattenProse(brief.replace(/^> /gm, ''));
+
+    expect(banner).toContain('autonomously — do not stop to ask for confirmation');
+
+    // Structure, asserted as position rather than as a line break: the framing
+    // has to sit in the opening banner, not somewhere below the method.
+    expect(banner.indexOf('autonomously')).toBeLessThan(banner.indexOf('## Prerequisites'));
   });
 
   it('carries the goal boundary: author and baseline, never refactor', () => {
@@ -117,8 +144,8 @@ describe('authoringBrief', () => {
     // Field issues #7/#8: "execute fully" vs "early exit" read as a
     // contradiction, and the exit's own steps were scattered — the verdict
     // block now carries the resolution and the complete checklist.
-    expect(small).toContain('IS executing\nthe playbook fully');
-    expect(small).toContain('trivially true is\n   true');
+    expect(flattenProse(small)).toContain('IS executing the playbook fully');
+    expect(flattenProse(small)).toContain('trivially true is true');
     expect(small).toContain('now-empty');
 
     // Issue #9's second catch: the old step 3 promised 'no reference file
@@ -126,13 +153,13 @@ describe('authoringBrief', () => {
     // checklist now carries the merge step conditionally.
     expect(small).toContain('Did init write');
     expect(small).toContain('DELETE the reference');
-    expect(small).toContain('inspect\n   --baseline');
+    expect(flattenProse(small)).toContain('inspect --baseline');
 
     // Every starter run re-derived "why bother on an empty repo" in its
     // judgment section — the answer lived only on the docs site. Doctrine
     // that answers a recurring doubt belongs in the agent's channel.
     expect(small).toContain('emptiness is the point');
-    expect(small).toContain('adopts two years and\n400 files later');
+    expect(flattenProse(small)).toContain('adopts two years and 400 files later');
 
     // Final field round: the checklist claimed completeness while omitting
     // the tool declaration Method step 9 mandates — a literal walk emitted
@@ -177,16 +204,16 @@ describe('authoringBrief', () => {
     // while drafting, and hit the @stylistic load error. Only inspect runs
     // config-only; impact lints, so it waits for the deps init installs.
     expect(brief).toContain('then let `inspect` correct you');
-    expect(brief).toContain('needs nothing\ninstalled');
-    expect(brief).toContain('`impact` is the same kind of read-only feedback\nbut is NOT available at this point');
-    expect(brief).toContain('joins the loop at Method step 9, after\ninit');
+    expect(flattenProse(brief)).toContain('needs nothing installed');
+    expect(flattenProse(brief)).toContain('`impact` is the same kind of read-only feedback but is NOT available at this point');
+    expect(flattenProse(brief)).toContain('joins the loop at Method step 9, after init');
   });
 
   it('forbids manufacturing a net — the empty-net twin of manufactured debt', () => {
     // Batch 9: an agent invented a `*` layer so coverage would be non-zero.
     expect(brief).toContain('An empty net is equally legitimate');
-    expect(brief).toContain('Never invent\na layer');
-    expect(brief).toContain('belongs to\nthe project\'s own lint');
+    expect(flattenProse(brief)).toContain('Never invent a layer');
+    expect(flattenProse(brief)).toContain('belongs to the project\'s own lint');
 
     // Field issue #1: the inverse stance was missing — a preset's declared-
     // but-empty layers are the runway, and the tool must say keep vs slim.
@@ -205,7 +232,7 @@ describe('authoringBrief', () => {
     expect(brief).toContain('Look for existing intent documents first');
     expect(brief).toContain('structure.config.json');
     expect(brief).toContain('senior');
-    expect(brief).toContain('check\n   the documents from step 1 before dropping it');
+    expect(flattenProse(brief)).toContain('check the documents from step 1 before dropping it');
   });
 
   it('encodes the method: intent over zero-findings, per-layer shapes, ownership', () => {
@@ -292,12 +319,70 @@ describe('authoringBrief', () => {
     expect(brief).toContain('Linearize, then verify against the matrix');
 
     // Zero findings is a valid end state — never manufacture debt to lock.
-    expect(brief).toContain('zero\n     lint hits is a complete outcome');
+    expect(flattenProse(brief)).toContain('zero lint hits is a complete outcome');
     expect(brief).toContain('manufacturing debt just to demo the ratchet');
 
     // First live field run: --suppress-all on a clean lint wrote an empty
     // ledger — the ceremony ban now covers the lint side explicitly.
     expect(brief).toContain('an empty ledger is ceremony');
+  });
+
+  // The five members of `printConfigCaveats`, restated because the source keeps
+  // the function private. Before they were one shared unit each site carried its
+  // own paraphrase, and only two of the five were asserted anywhere — the other
+  // three could be deleted with the whole suite green, which is how the two
+  // copies drifted four ways in the first place. One case per member now.
+  const caveats = [
+    ['plugin prefix', 'plugin prefix (`@stylistic/max-len`, never bare `max-len`)'],
+    ['empty layer', 'holds no files does not appear at all (inspect\'s `declaratory-self-only` note, not a loss)'],
+    ['selfOnly importer', 'resolves on the IMPORTER layer inspect names, not on the layer being protected'],
+    ['finding ids', '**inspect\'s finding names are not ESLint rule ids**'],
+    ['migration pointer', 'migration steps name the carrying rule for each finding, and mark the ones no lint run will ever show'],
+  ] as const;
+
+  it.each(caveats)('warns that %s makes a correct config look broken', (_label, text) => {
+    expect(flattenProse(brief)).toContain(text);
+  });
+
+  it('carries the caveats on both paths that reach --print-config, from one source', () => {
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { hadClaudeDir: false });
+    const occurrences = (text: string) => text.split('resolved keys carry their').length - 1;
+
+    // Method step 9's merge always renders; the early-exit checklist's lint step
+    // only below the threshold. Two sites, one text — assert the count, or a
+    // future edit can quietly go back to maintaining two copies by hand.
+    expect(occurrences(brief)).toBe(1);
+    expect(occurrences(small)).toBe(2);
+
+    // Same indent-agnostic text at both, which is the point of sharing it: three
+    // spaces inside the numbered checklist item, five inside the merge bullet.
+    for (const [, text] of caveats) expect(flattenProse(small)).toContain(text);
+  });
+
+  it('indents every caveat line for the list its site sits in', () => {
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { hadClaudeDir: false });
+
+    // Raw, never flattened: the indent IS the assertion, and `flattenProse`
+    // collapses exactly what is under test. Three spaces continues a numbered
+    // checklist item, five continues a bullet nested under one — pass the wrong
+    // one and the emitted markdown list breaks while every other assertion here
+    // stays green. Stryker cannot see it either: `StringLiteral` is excluded by
+    // measurement, which its config calls the boundary around prose and NOT
+    // around a discrete contract per literal. Two indents are that contract.
+    const indents = (text: string) => text
+      .split(', or a correct config looks broken:')
+      .slice(1)
+      .map((rest) => rest
+        .split('will ever show.')[0]
+        .split('\n')
+        .slice(1)
+        .map((line) => line.length - line.trimStart().length))
+      .map((widths) => [...new Set(widths)]);
+
+    // One entry per site, in document order, each holding exactly one width —
+    // so a mixed indent inside a block fails as loudly as a wrong one.
+    expect(indents(brief)).toEqual([[5]]);
+    expect(indents(small)).toEqual([[3], [5]]);
   });
 
   it('embeds the survey evidence and the schema sketch', () => {
