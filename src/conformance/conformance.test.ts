@@ -3062,3 +3062,60 @@ describe('a baseline survives a reworded finding, and an old one says so', () =>
     expect((await cli(dir, ['inspect', '--baseline'])).code).toBe(0);
   });
 });
+
+/**
+ * `scan`'s own doc comment has said "best-effort regex" since it was written, and that
+ * honesty reached nobody: it lived in the source, and no CLI surface, doc page or
+ * README carried it. An adopting agent's priors fill that gap with "tools resolve
+ * imports properly", so a clean architecture report reads as a verdict on the
+ * dependency graph rather than on what a text scan could see — and clean is exactly
+ * where the gap costs something. One text, at every surface that reports a
+ * graph-derived fact, with the correction attached: the hard gates run on the AST, so
+ * "the survey is approximate" must not be read as "the gates are approximate".
+ */
+describe('an output that reports the import graph says how the graph was read', () => {
+  const adopted = (files: Record<string, string> = {}): string =>
+    repo({
+      packageJson: react(),
+      files: { 'blueprint.config.mjs': configSource(reactBlueprint), ...files },
+    });
+
+  it('closes a passing architecture report with the derivation, not only a failing one', async () => {
+    // A run that exits 0 is the one that matters: a report with nothing to act on
+    // reads as a verdict on the dependency graph, and the reader has no other way to
+    // learn what kind of verdict it is.
+    const passing = await cli(adopted(), ['inspect']);
+
+    expect(passing.code).toBe(0);
+    expect(passing.output).toContain('0 error(s)');
+    expect(flattenProse(passing.output)).toContain('source text, not a parsed AST');
+    expect(flattenProse(passing.output)).toContain('they run in ESLint, on the AST');
+  });
+
+  it('carries it into the JSON payload, the only channel a parsing agent has', async () => {
+    const json = await cli(adopted(), ['inspect', '--json']);
+    const parsed = JSON.parse(json.output);
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.derivation).toContain('source text, not a parsed AST');
+  });
+
+  it('closes both deps renderings with it too', async () => {
+    // Both layers are declared and flat in this fixture, so the keys are the layer
+    // names and there is one real edge between them.
+    const dir = adopted({
+      'src/services/api.js': 'export const api = 1;',
+      'src/components/Cart.js': 'import { api } from \'~app/services/api\';\nexport const Cart = () => api;',
+    });
+
+    const leaderboard = await cli(dir, ['deps']);
+    // `services` is a flat layer in this preset, so the answer is at layer granularity.
+    const module = await cli(dir, ['deps', 'services']);
+
+    expect(flattenProse(leaderboard.output)).toContain('source text, not a parsed AST');
+    expect(flattenProse(module.output)).toContain('source text, not a parsed AST');
+    // The blast-radius answer needs it most: a fan-in of 1 that a computed import
+    // made 2 is a wrong decision, not just an incomplete list.
+    expect(module.output).toContain('imported by (1)');
+  });
+});

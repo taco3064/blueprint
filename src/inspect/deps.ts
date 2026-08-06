@@ -2,7 +2,7 @@ import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
 import { buildModuleGraph, layoutResolver, moduleKey } from './resolve';
 import type { LayoutOf } from './resolve';
-import { scan } from './scan';
+import { importGraphDerivation, scan } from './scan';
 import type { ScanResult } from './types';
 
 export interface DepsOptions extends ResolveOptions {
@@ -60,7 +60,10 @@ export async function runDeps(
 
     log(
       options.json
-        ? JSON.stringify(found, null, 2)
+        // `derivation` rides along in the JSON for the same reason it closes the text:
+        // the agent piping this into a decision has no other channel, and every key
+        // beside it is a graph-derived fact.
+        ? JSON.stringify({ ...found, derivation: importGraphDerivation() }, null, 2)
         : renderModule(found, isFlatLayer(found.module, layerNames, layoutOf)),
     );
 
@@ -69,7 +72,7 @@ export async function runDeps(
 
   log(
     options.json
-      ? JSON.stringify({ modules, skipped }, null, 2)
+      ? JSON.stringify({ modules, skipped, derivation: importGraphDerivation() }, null, 2)
       : renderLeaderboard(modules, skipped, layerNames, layoutOf),
   );
 
@@ -145,6 +148,12 @@ function unknownTarget(key: string, skipped: string[]): string {
     : `✗ Unknown module "${key}" — run \`blueprint deps\` to list every module.`;
 }
 
+/**
+ * Both `deps` renderings close on how the graph was read, and the per-module answer
+ * needs it more than the leaderboard does: "who gets hit if I change this" is a
+ * question people act on, and a fan-in of 3 that a dynamic import made 4 is a wrong
+ * decision rather than an incomplete list.
+ */
 function renderModule(entry: ModuleDeps, flatLayer: boolean): string {
   return [
     entry.module + (flatLayer ? ' (flat layer — answers at layer granularity)' : ''),
@@ -152,6 +161,8 @@ function renderModule(entry: ModuleDeps, flatLayer: boolean): string {
     ...entry.importedBy.map((module) => `    ← ${module}`),
     `  imports (${entry.imports.length}):`,
     ...entry.imports.map((module) => `    → ${module}`),
+    '',
+    importGraphDerivation('  '),
   ].join('\n');
 }
 
@@ -177,5 +188,7 @@ function renderLeaderboard(
         + (isFlatLayer(entry.module, layerNames, layoutOf) ? ' (flat layer)' : ''),
     ),
     ...note,
+    '',
+    importGraphDerivation('  '),
   ].join('\n');
 }

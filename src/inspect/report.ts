@@ -1,3 +1,4 @@
+import { importGraphDerivation } from './scan';
 import type { Finding, Severity } from './types';
 
 const ICON: Record<Severity, string> = { error: '✗', warn: '⚠', info: '·' };
@@ -38,10 +39,17 @@ export function hasErrors(findings: Finding[]): boolean {
   return findings.some((finding) => finding.severity === 'error');
 }
 
-/** Render findings as a human-readable Architecture Report with migration steps. */
+/**
+ * Render findings as a human-readable Architecture Report with migration steps.
+ *
+ * The derivation note closes every report, the clean one included — that is the one
+ * this exists for. Six of the ten findings above are read out of an import graph
+ * built from source text, so `✓ Architecture Success` is a verdict on what a text
+ * scan could see, and it is the output most likely to be read as more than that.
+ */
 export function report(findings: Finding[]): string {
   if (!findings.length) {
-    return '✓ Architecture Success — no violations found.';
+    return `✓ Architecture Success — no violations found.\n\n${importGraphDerivation()}`;
   }
 
   const counts = { error: 0, warn: 0, info: 0 };
@@ -71,5 +79,7 @@ export function report(findings: Finding[]): string {
     '',
     `${counts.error} error(s), ${counts.warn} warning(s), ${counts.info} note(s)`,
     ...(steps.length ? ['', 'Recommended migration steps:', ...steps] : []),
+    '',
+    importGraphDerivation(),
   ].join('\n');
 }

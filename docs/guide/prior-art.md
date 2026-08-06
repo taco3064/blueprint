@@ -37,5 +37,9 @@ mechanism.
 
 We have not benchmarked those tools feature by feature, and this page claims no
 lint-layer superiority. If your need is purely an import graph with rules, any of the
-tools above may serve you well. blueprint earns its place when the handbook and the AI
-agent must stay in lockstep with the rules — because they are the same thing.
+tools above may serve you well — and one difference is worth naming plainly:
+`inspect`'s own graph is read from source text, not a parsed AST
+([the boundary](/guide/reference#how-the-import-graph-is-read)), where
+dependency-cruiser resolves imports properly. blueprint's *enforcement* runs on the
+AST, in ESLint; its survey does not. blueprint earns its place when the handbook and
+the AI agent must stay in lockstep with the rules — because they are the same thing.

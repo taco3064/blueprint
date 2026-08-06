@@ -122,13 +122,17 @@ describe('report · icons and the migration block', () => {
     expect(out).not.toContain('undefined');
   });
 
-  it('closes on the counts when no finding carries a migration step', () => {
+  it('leaves the migration slot empty when no finding carries a step', () => {
     // `declaratory-self-only` has no migration entry, so the block has nothing to
-    // list and the report ends at the tally. Anything in that slot promises steps
-    // that were never written.
+    // list. Anything in that slot promises steps that were never written — asserted
+    // by what directly follows the tally, since the report now legitimately
+    // continues into the derivation note.
     const out = report([all[2]]);
+    const lines = out.split('\n');
+    const counts = lines.findIndex((line) => line.includes('note(s)'));
 
     expect(out).not.toContain('Recommended migration steps');
-    expect(out.endsWith('0 error(s), 0 warning(s), 1 note(s)')).toBe(true);
+    expect(lines[counts + 1]).toBe('');
+    expect(lines[counts + 2]).toContain('How this graph was read');
   });
 });

@@ -13,7 +13,7 @@ import {
 } from './baseline';
 import { computeCoverage, renderCoverage } from './coverage';
 import { hasErrors, report } from './report';
-import { scan } from './scan';
+import { importGraphDerivation, scan } from './scan';
 import type { Finding } from './types';
 
 export interface InspectOptions extends ResolveOptions {
@@ -103,6 +103,7 @@ export async function runInspect(
               suppressed: split.suppressed,
               stale: split.stale,
               coverage,
+              derivation: importGraphDerivation(),
             },
             null,
             2,
@@ -117,7 +118,9 @@ export async function runInspect(
 
   log(
     options.json
-      ? JSON.stringify({ ok, findings, coverage }, null, 2)
+      // The `--json` reader gets the derivation too: `ok: true` is a verdict on what
+      // a text scan could see, and JSON is the whole channel for whoever parses it.
+      ? JSON.stringify({ ok, findings, coverage, derivation: importGraphDerivation() }, null, 2)
       : `${report(findings)}\n\n${renderCoverage(coverage, blueprint)}`,
   );
 
