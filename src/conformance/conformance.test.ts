@@ -609,6 +609,10 @@ describe('a flag states its outcome, not only its mechanism (field run #88)', ()
     expect(init.output).toContain('differs from what init would scaffold');
     expect(init.output).toContain('The structure is reproducible');
     expect(init.output).toContain('Copy anything you want to keep');
+    // …and names their destination, which the guard's own purpose implies and its
+    // text did not say (field run #110).
+    expect(init.output).toContain('back into the rewritten config');
+    expect(init.output).toContain('beside the clause it explains');
     // …and it kept its hands off the file.
     expect(read(dir, 'blueprint.config.mjs')).toContain('why 400');
   });
@@ -2575,6 +2579,25 @@ describe('a principle names its own boundary (field runs #104, #106)', () => {
 
     expect(flat).toContain('already in the tree before you started');
     expect(flat).toContain('deciding it by "did I run the command that made it?" does not');
+  });
+
+  it('reconciles the dormant ignore rule with the cell that leaves artifacts alone', async () => {
+    // Two sentences in this passage disagreed, and a field agent quoted both: a
+    // `.gitignore` listing `dist` in a non-git tree is "a rule with nothing to enforce
+    // it", while the same cell was grouped under "leave the artifacts alone — ignore
+    // rules cover them". It withdrew the item only because `tsc -b` wrote its
+    // tsbuildinfo into `node_modules/.tmp` and it never reached the decision (#109).
+    // The test that reconciles them is declared, not enforced.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const flat = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
+
+    expect(flat).toContain('the distinction is declared against enforced');
+    expect(flat).toContain('takes effect the moment anyone runs `git init`');
+    expect(flat).toContain('the one with no declaration anywhere');
+    expect(flat).toContain('enforced today is not the test; declared at all is');
   });
 
   it('states the reach of "your own lint passing confirms it"', async () => {
