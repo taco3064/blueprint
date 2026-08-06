@@ -43,6 +43,17 @@ jobs:
       - name: Build
         run: npm run build
 
+      # main's CI runs this after its own build; this job rebuilds `dist/` and used
+      # to publish that rebuild unverified. A tag can point at a commit main's push
+      # gate never saw, and even on a tag that main did gate, the artifact npm
+      # receives is the one produced here. `dist:verify` is the only layer that
+      # executes `dist/bin.js`, resolves the `bin` field and imports the package
+      # entry — the layer where the 0.1.1 symlink bug lived, which every in-process
+      # test passes. Leaving it out of the one job that actually publishes put the
+      # check everywhere except the last place it can still matter.
+      - name: Verify the built artifact
+        run: npm run dist:verify
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
