@@ -1,6 +1,6 @@
 import { DOC_ONLY_RULES, METRIC_GATES, PLUGIN_GATES } from '../emit/lint';
 import { COMMAND_FILE } from '../project';
-import type { TscArtifactLocation, ViteTsCoverage } from '../project';
+import type { ClaudeDirState, TscArtifactLocation, ViteTsCoverage } from '../project';
 import { renderSurvey } from '../survey';
 import type { SurveyResult } from '../survey';
 
@@ -56,7 +56,7 @@ function printConfigCaveats(): string {
 /**
  * What authoring leaves behind, for every site that instructs its removal. The
  * early-exit checklist named all of it — the two files and the directories init
- * created for them, with `hadClaudeDir` deciding whether `.claude/` is one of
+ * created for them, with `claudeDir` deciding whether `.claude/` is one of
  * them. The Method's finish step and the acceptance gate said "the two authoring
  * files", so an agent on the Method path was told to delete two files and nothing
  * about the two directories it had just watched init create. It invented the
@@ -67,10 +67,21 @@ function printConfigCaveats(): string {
  * the deepest indent and reused at the shallower ones. Three copies of a rule
  * with a branch in it is how the branch goes missing from two of them.
  */
-function cleanupTargets(hadClaudeDir: boolean): string {
+function cleanupTargets(claudeDir: ClaudeDirState): string {
+  // The owner's own commands live here too, and "now-empty" was asserted about a
+  // directory the tool can read. Half of this sentence was already measured — the
+  // `.claude/` arm — so a field agent with `my-existing-command.md` beside blueprint's
+  // got the pre-existing `.claude/` right and `commands/` wrong in the same breath
+  // (field run #139). Nothing about `.claude/` needs deciding when its child stays.
+  if (claudeDir.otherCommands > 0) {
+    return `this playbook and \`${COMMAND_FILE}\`, and nothing else: `
+      + `\`.claude/commands/\` holds ${claudeDir.otherCommands} other command file(s) that `
+      + 'are the owner\'s, so it and `.claude/` both stay.';
+  }
+
   return [
     `this playbook, \`${COMMAND_FILE}\`, and the now-empty`,
-    ...(hadClaudeDir
+    ...(claudeDir.hadDir
       ? [
           '`.claude/commands/` directory — but NOT `.claude/` itself: it was already here before this run, so it is the owner\'s, whatever ends up left in it.',
         ]
@@ -267,7 +278,7 @@ function renderEarlyExitVerify(
 
 export function renderVerdict(
   survey: SurveyResult,
-  hadClaudeDir: boolean,
+  claudeDir: ClaudeDirState,
   viteTs: ViteTsCoverage | null,
   tscOut: TscArtifactLocation | null,
 ): string {
@@ -289,7 +300,7 @@ export function renderVerdict(
     '   Plain `--preset`, then declare `emit.agents` in the config and re-run init.',
     '2. `npx blueprint impact` (0 hits → skip `--suppress-all` entirely; an empty suppressions ledger is ceremony) and `npx blueprint inspect --baseline` — both exit 0. (`--update-baseline` is deliberately not on this list: with zero debt it is a no-op that writes nothing — the full method runs it because brownfield repos have debt to lock; a clean early exit has none.)',
     renderEarlyExitVerify(viteTs, tscOut),
-    `4. Delete ${cleanupTargets(hadClaudeDir)} Cleanup comes BEFORE the final gate: doctor treats these authoring files as leftovers.`,
+    `4. Delete ${cleanupTargets(claudeDir)} Cleanup comes BEFORE the final gate: doctor treats these authoring files as leftovers.`,
     `5. \`npx blueprint doctor\` — all checks green, and a \`⊘\` is not green: a skipped check keeps exit 0 while what it verifies stays unverified, so fix what that line names and re-run before you report done.`,
     `   Then commit what adoption wrote, if you can: a ratchet that lives only in an uncommitted working tree is not installed.`,
     `   Not a VCS repo, or no commit rights?`,
@@ -541,9 +552,9 @@ function renderOverlappingTool(): string {
  * The three short bullets stay inline: a bold lead-in of four to twelve lines is
  * already its own address, and a function per line would be noise.
  */
-function renderFinishStep(hadClaudeDir: boolean): string {
+function renderFinishStep(claudeDir: ClaudeDirState): string {
   return [
-    `9. **Finish — and finish means integrated, not parked.** Run \`npx blueprint init\`, then \`npx blueprint inspect --update-baseline\`, write the report, and delete ${cleanupTargets(hadClaudeDir)} The tool never touches files you own, so it leaves \`*.blueprint.*\` references next to them — **those references are your input, not the deliverable.`,
+    `9. **Finish — and finish means integrated, not parked.** Run \`npx blueprint init\`, then \`npx blueprint inspect --update-baseline\`, write the report, and delete ${cleanupTargets(claudeDir)} The tool never touches files you own, so it leaves \`*.blueprint.*\` references next to them — **those references are your input, not the deliverable.`,
     `   Adoption is not done while any reference file remains:**`,
     '   - **Declare your own tool** in the config — `emit: { agents: [\'claude\'] }` (Claude Code) or `[\'agents\']` (codex & friends) — so init generates one contract file, not one per tool nobody uses.',
     '     Declare the tool RUNNING this adoption — you know who you are; never guess at future tools (the next one is a one-line config change away).',
@@ -609,10 +620,10 @@ function renderIntentDocuments(): string {
  * the tool declaration, the lint merge and its flat-config traps, the ratchet
  * posture, the overlapping-tool decision, and what must be committed.
  *
- * `hadClaudeDir` reaches here for step 9's cleanup, which names the same targets
+ * `claudeDir` reaches here for step 9's cleanup, which names the same targets
  * the early-exit checklist does — see `cleanupTargets`.
  */
-export function renderMethod(hadClaudeDir: boolean): string {
+export function renderMethod(claudeDir: ClaudeDirState): string {
   return [
     '',
     '## Method',
@@ -632,7 +643,7 @@ export function renderMethod(hadClaudeDir: boolean): string {
     '8. **Validate — the loop that keeps you honest.** Run `npx blueprint inspect`.',
     '   A findings explosion (roughly more findings than source files, or one dominant rule everywhere) means you mistranslated intent — revisit the order or the module shapes.',
     '   Converged means: every finding is explainable as real, nameable debt.',
-    renderFinishStep(hadClaudeDir),
+    renderFinishStep(claudeDir),
   ].join('\n');
 }
 
@@ -781,7 +792,7 @@ export function renderSchemaSketch(): string {
  * agent verifies itself against, so a target missing here is a target left
  * behind by anyone who works from this list.
  */
-export function renderAcceptanceGates(hadClaudeDir: boolean): string {
+export function renderAcceptanceGates(claudeDir: ClaudeDirState): string {
   return [
     '',
     '## Acceptance gates',
@@ -791,7 +802,7 @@ export function renderAcceptanceGates(hadClaudeDir: boolean): string {
     '- [ ] The blueprint lint rules run inside the project\'s own lint command (merged, conflicts resolved) — or the legacy-config migration is a named decision item in the report',
     '- [ ] No `*.blueprint.*` reference file remains in the repo',
     '- [ ] The report names every import cycle and every upward dependency found',
-    `- [ ] Deleted: ${cleanupTargets(hadClaudeDir)} THEN \`npx blueprint doctor\` passes with no \`⊘\` — a skip is not a pass and keeps exit 0 — doctor flags them as leftovers, so it is the last thing you run, not a mid-flow smoke test`,
+    `- [ ] Deleted: ${cleanupTargets(claudeDir)} THEN \`npx blueprint doctor\` passes with no \`⊘\` — a skip is not a pass and keeps exit 0 — doctor flags them as leftovers, so it is the last thing you run, not a mid-flow smoke test`,
   ].join('\n');
 }
 

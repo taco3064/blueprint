@@ -1,5 +1,6 @@
 export {
   AUTHORING_FILE,
+  claudeDirState,
   COMMAND_FILE,
   CONFIG_FILE,
   describeUnreadable,
@@ -16,6 +17,7 @@ export {
   viteTsCoverage,
 } from './detect';
 export type {
+  ClaudeDirState,
   JsoncFailure,
   JsoncResult,
   TscArtifactLocation,

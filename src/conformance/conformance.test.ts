@@ -1045,6 +1045,29 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
     expect(flattenProse(playbook)).not.toContain('init created only to hold this command');
   });
 
+  it('does not call `.claude/commands/` empty when the owner has commands there (field run #139)', async () => {
+    // Half of this sentence was already measured — the `.claude/` arm — and the other
+    // half asserted "now-empty" about a directory the tool can read. A repo with the
+    // owner's own command beside blueprint's got the parent right and the child wrong
+    // in the same breath, and was told to delete a directory that would not be empty.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        '.claude/settings.local.json': '{}\n',
+        '.claude/commands/my-existing-command.md': '# mine\n',
+      },
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const prose = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
+
+    expect(prose).toContain('holds 1 other command file(s) that are the owner\'s');
+    expect(prose).toContain('so it and `.claude/` both stay');
+    // The claim that was false here, in either arm it could have taken.
+    expect(prose).not.toContain('now-empty');
+  });
+
   it('claims it only where it is true', async () => {
     const dir = repo({ packageJson: react() });
 

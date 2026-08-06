@@ -17,10 +17,12 @@ import {
   readTexts,
   resolveBlueprint,
   unreadableTsconfigs,
+  claudeDirState,
   tscArtifactsOutOfTree,
   viteTsCoverage,
 } from '../project';
 import type {
+  ClaudeDirState,
   ProjectState,
   ResolveOptions,
   TscArtifactLocation,
@@ -128,9 +130,11 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
     if (options.authoring || brownfield || (state.hasNext && !state.nextRouter)) {
       // Measured BEFORE anything is written: once init has created the tree, it
-      // cannot tell its own directory from one the owner already had.
+      // cannot tell its own directory from one the owner already had — and the same
+      // goes for the commands inside it, which is the half the cleanup sentence used
+      // to assert instead of read (field run #139).
       return runAuthoring(root, state, survey, options, log, pristine, {
-        hadClaudeDir: fs.existsSync(path.join(root, '.claude')),
+        claudeDir: claudeDirState(root),
         // The build step used to hand this question to the agent ("read your
         // tsconfig, do not assume"), which is a per-repo fact with an address.
         viteTs: viteTsCoverage(root),
@@ -469,7 +473,7 @@ function runAuthoring(
   // nothing ever reads — dead on arrival and invisible to every test.
   removeScaffold: boolean,
   facts: {
-    hadClaudeDir: boolean;
+    claudeDir: ClaudeDirState;
     viteTs: ViteTsCoverage | null;
     tscOut: TscArtifactLocation | null;
   },
@@ -560,9 +564,18 @@ function applyAndNarrate(
       // than in the error, because the error is what never arrives.
       (action) => log(
         `  → install: ${action.note}\n`
-        + '      This is the one step that needs the registry. No output while it works is'
-        + ' normal; no output for minutes means it cannot get there — stop it and re-run'
-        + ' with `--no-install`, which prints the command to run yourself.',
+        // The command itself, not a pointer to a flag that prints it. Killing a silent
+        // install leaves whatever is on screen, and "re-run with --no-install to see the
+        // command" is a round trip through the thing that just hung. Two runs then went
+        // reading `node_modules/@kekkai/blueprint/package.json` for version ranges to
+        // hand-write into their own — internals, for a list that does not exist: these
+        // install unpinned on purpose (field runs #139, #140).
+        + `      ${action.command}\n`
+        + '      This is the one step that needs the registry. Silence while it works is'
+        + ' normal; minutes of silence means it cannot get there — stop it and run the line'
+        + ' above yourself, or re-run init with `--no-install`. No version list to find'
+        + ' first: these are your project\'s dependencies, installed unpinned so eslint'
+        + ' resolves to the newest supported major.',
       ),
     );
   } catch (error) {
