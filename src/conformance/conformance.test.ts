@@ -2920,3 +2920,50 @@ describe('the fixture DSL itself', () => {
     expect(read(dir, 'package.json')).toBeNull();
   });
 });
+
+/**
+ * `emit.handbook` and `emit.agents[].path` are adopter-supplied strings that
+ * reached `fs.writeFileSync` unchecked: `../CLAUDE.md` wrote one directory up, an
+ * absolute path wrote wherever it pointed, and both runs printed ✓ beside the
+ * escaping path. `SECURITY.md` puts "anything outside the project root" in scope,
+ * so the tool was contradicting its own stated boundary — and because blueprint's
+ * pitch is that an *agent* authors the config, the realistic input is a relative
+ * path off by one directory rather than a hostile one. Refused in the planner, so
+ * the refusal is atomic and `--dry-run` cannot print a plan the run would reject.
+ */
+describe('init writes only inside the repo it runs in', () => {
+  const escaping = (emit: Blueprint['emit']): Blueprint => ({
+    ...reactPreset({ name: 'fixture' }),
+    emit,
+  });
+
+  it.each([
+    ['emit.handbook above the root', { handbook: '../bp-escaped-handbook.md' } as Blueprint['emit'], '../bp-escaped-handbook.md'],
+    ['an absolute emit.agents path', { agents: [{ target: 'claude' as const, path: '/tmp/bp-escaped-contract.md' }] } as Blueprint['emit'], '/tmp/bp-escaped-contract.md'],
+  ])('refuses %s and leaves the tree untouched', async (_name, emit, offending) => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'blueprint.config.mjs': configSource(escaping(emit)) },
+    });
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(1);
+
+    // The refusal is the adopting agent's only channel, so it carries the path it
+    // refused, the guarantee that nothing landed, and the two fields that set one.
+    const output = flattenProse(init.output);
+
+    expect(output).toContain(offending);
+    expect(output).toContain('outside the project root');
+    expect(output).toContain('nothing was written');
+    expect(output).toContain('emit.handbook');
+    expect(output).toContain('emit.agents[].path');
+
+    // Atomic: the eslint config sits below the handbook in plan order, so a
+    // per-action guard would have written it before reaching the refusal.
+    expect(read(dir, 'eslint.config.mjs')).toBeNull();
+    expect(read(dir, 'docs/architecture-handbook.md')).toBeNull();
+    expect(fs.existsSync(path.resolve(dir, offending))).toBe(false);
+  });
+});

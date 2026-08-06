@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 
+import { assertContained } from './contain';
 import type { Action } from './types';
 
 /** The one injected effect — installing dependencies. Overridable in tests. */
@@ -35,6 +36,11 @@ export function apply(
   onApplied: (action: Action) => void,
   onInstallStarting?: (action: Action & { kind: 'install' }) => void,
 ): void {
+  // Before the loop, not inside it: `apply` is the last boundary between an action
+  // list and the filesystem, and a refusal halfway down has already written half
+  // the list. `plan` checks too — this one holds for a list built any other way.
+  assertContained(actions);
+
   for (const action of actions) {
     if (action.kind === 'install') onInstallStarting?.(action);
 
