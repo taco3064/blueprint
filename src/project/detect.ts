@@ -638,6 +638,78 @@ export function viteTsCoverage(root: string): ViteTsCoverage | null {
   return { verdict: 'outside', viteFile, tsconfig: rootConfig };
 }
 
+export interface TscArtifactLocation {
+  /** The redirected build-info path, relative to root — the fact that decides it. */
+  buildInfo: string;
+  /** The tsconfig declaring it. */
+  tsconfig: string;
+}
+
+/**
+ * Where `tsc -b` keeps its build info, when every project in the graph provably
+ * writes nothing into the working tree.
+ *
+ * The build-artifact paragraph opened on a premise about the adopter's repo — that
+ * the build this playbook asked for left untracked files in their working tree, so
+ * the four gitignore × version-control cells have something to decide. False on the
+ * shape `npm create vite` generates for React + TS: both projects carry `noEmit:
+ * true` AND `tsBuildInfoFile: ./node_modules/.tmp/…`, so the build leaves the tree
+ * untouched and an agent copying the paragraph's instruction writes a statement
+ * about untracked files that do not exist (field run #135). Third time this family
+ * of sentences has been wrong about a tsconfig — `viteTsCoverage` is the second, and
+ * the answer is the same one: measure it.
+ *
+ * Null unless certain, and only the certain negative changes the prose. "Something
+ * landed" is the default the paragraph already assumes and is right about wherever a
+ * bundle gets written, so this never has to establish it — a shape it cannot read is
+ * a shape where the existing wording stands.
+ *
+ * `node_modules/` is the whole test for "out of the way", deliberately narrow: it is
+ * ignored everywhere by convention, and deciding whether some other directory is
+ * ignored needs the `.gitignore` reader that lives above this module.
+ */
+export function tscArtifactsOutOfTree(root: string): TscArtifactLocation | null {
+  const rootConfig = 'tsconfig.json';
+  const rootText = readText(path.join(root, rootConfig));
+
+  if (rootText === null) return null;
+
+  const projects = tsProjectGraph(root, rootConfig, rootText);
+
+  if (projects === null) return null;
+
+  let found: TscArtifactLocation | null = null;
+
+  for (const project of projects) {
+    // A solution config — pure `references`, no files of its own — builds nothing
+    // and writes no build info, which is why the two-project vite shape leaves
+    // exactly two files behind and both are the referenced projects'.
+    if (isSolutionStub(project)) continue;
+
+    const options = project.compilerOptions;
+
+    if (!isRecord(options)) return null;
+
+    const buildInfo = options.tsBuildInfoFile;
+
+    if (options.noEmit !== true || typeof buildInfo !== 'string') return null;
+
+    const rel = normalizeSlashes(buildInfo);
+
+    if (!rel.startsWith('node_modules/')) return null;
+
+    found ??= { buildInfo: rel, tsconfig: project.file };
+  }
+
+  return found;
+}
+
+/** A config that only points at others: nothing to build, nothing written. */
+function isSolutionStub(project: TsProject): boolean {
+  return isStringArray(project.files) && project.files.length === 0
+    && project.include === undefined;
+}
+
 interface TsProject {
   /** Path relative to root, for the message. */
   file: string;
@@ -715,6 +787,7 @@ function toProject(
   return {
     file,
     dir: path.dirname(file) === '.' ? '' : path.dirname(file),
+    compilerOptions: value.compilerOptions,
     files: value.files,
     include: value.include,
     exclude: value.exclude,

@@ -17,9 +17,15 @@ import {
   readTexts,
   resolveBlueprint,
   unreadableTsconfigs,
+  tscArtifactsOutOfTree,
   viteTsCoverage,
 } from '../project';
-import type { ProjectState, ResolveOptions, ViteTsCoverage } from '../project';
+import type {
+  ProjectState,
+  ResolveOptions,
+  TscArtifactLocation,
+  ViteTsCoverage,
+} from '../project';
 import { runSurvey } from '../survey';
 import { authoringActions, BROWNFIELD_MIN_FILES } from './authoring';
 import { agentTargetOf, launchAgent } from './agent';
@@ -128,6 +134,9 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
         // The build step used to hand this question to the agent ("read your
         // tsconfig, do not assume"), which is a per-repo fact with an address.
         viteTs: viteTsCoverage(root),
+        // Same family, one paragraph further on: whether that build leaves anything
+        // in the working tree at all. The artifact cells asserted it did.
+        tscOut: tscArtifactsOutOfTree(root),
       });
     }
 
@@ -459,7 +468,11 @@ function runAuthoring(
   // No default: the one caller always decides, so a default here would be a value
   // nothing ever reads — dead on arrival and invisible to every test.
   removeScaffold: boolean,
-  facts: { hadClaudeDir: boolean; viteTs: ViteTsCoverage | null },
+  facts: {
+    hadClaudeDir: boolean;
+    viteTs: ViteTsCoverage | null;
+    tscOut: TscArtifactLocation | null;
+  },
 ): Action[] {
   const actions = authoringActions(survey, {
     ...facts,

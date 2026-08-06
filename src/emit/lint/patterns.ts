@@ -141,6 +141,34 @@ export const LINT_GATED_RULE_IDS = [
 ];
 
 /**
+ * Why this stack cannot open a gate, or null when it can — mirroring what
+ * `emitLint` actually does rather than restating it.
+ *
+ * One function because there were two, and they disagreed. `inspect` / `doctor`
+ * filtered both of these out of the denominator ("a gate you cannot open is not a
+ * gate"); `blueprint rules` mirrored only the React one. So a JS repo read
+ * `0/17 optional gates` from one output and eighteen rows from the other, with
+ * neither saying which was missing — and the field agent who reported it inferred
+ * `fixtureImports`, which is not it (field run #137). Two numbers for one concept
+ * is a defect whichever is right, and the reader guessing is the cost.
+ */
+export function unavailableGate(
+  id: string,
+  framework: string | undefined,
+  hasTypescript: boolean,
+): string | null {
+  if (id === 'deepWatch' && framework === 'react') {
+    return 'Vue only — never emits on React, whatever it declares';
+  }
+
+  if (id === 'explicitAny' && !hasTypescript) {
+    return '`any` is a TypeScript construct — nothing to catch on a JS project, and no core rule to fall back to';
+  }
+
+  return null;
+}
+
+/**
  * Which machine actually holds a declared rule id — the distinction
  * `LINT_GATED_RULE_IDS` flattens away, because it answers "gated at all?"
  * rather than "gated by what?". The handbook needs the finer answer: it

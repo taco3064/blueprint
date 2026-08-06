@@ -1,5 +1,5 @@
 import { AUTHORING_FILE, COMMAND_FILE } from '../project';
-import type { PackageManager, ViteTsCoverage } from '../project';
+import type { PackageManager, TscArtifactLocation, ViteTsCoverage } from '../project';
 import type { SurveyResult } from '../survey';
 import { installCommand } from './plan';
 import {
@@ -58,6 +58,12 @@ export interface AuthoringOptions {
   hadClaudeDir: boolean;
   /** Measured `tsc -b` coverage of the vite config; null when undecidable. */
   viteTs: ViteTsCoverage | null;
+  /**
+   * Measured: where `tsc -b` keeps its build info when it provably writes nothing
+   * into the working tree. Null unless certain — the artifact paragraph assumes
+   * artifacts, which is right everywhere this cannot say otherwise.
+   */
+  tscOut: TscArtifactLocation | null;
   /** True when `@kekkai/blueprint` is not yet a dependency of the project. */
   needsInstall: boolean;
   /** Skip the install action when false (`--no-install`) — instruct instead. */
@@ -135,12 +141,17 @@ export function authoringBrief(
   // `next` has a default, so positionally every caller had to state `next` in order
   // to reach the field after it — which silently retired `next`'s default and the
   // only thing exercising it. Two booleans in a row is how that happens.
-  facts: { next?: boolean; hadClaudeDir: boolean; viteTs?: ViteTsCoverage | null },
+  facts: {
+    next?: boolean;
+    hadClaudeDir: boolean;
+    viteTs?: ViteTsCoverage | null;
+    tscOut?: TscArtifactLocation | null;
+  },
 ): string {
-  const { next = false, hadClaudeDir, viteTs = null } = facts;
+  const { next = false, hadClaudeDir, viteTs = null, tscOut = null } = facts;
 
   return [
-    renderHeader(renderNextNote(next), renderVerdict(survey, hadClaudeDir, viteTs)),
+    renderHeader(renderNextNote(next), renderVerdict(survey, hadClaudeDir, viteTs, tscOut)),
     renderPrerequisites(install),
     renderGoal(),
     renderMethod(hadClaudeDir),

@@ -9,6 +9,7 @@ import {
   derivePackageRules,
   METRIC_GATES,
   PLUGIN_GATES,
+  unavailableGate,
   selfOnlyReexportSelector,
   resolveTestFiles,
 } from '../emit/lint/patterns';
@@ -106,6 +107,14 @@ export interface GateStatus {
   note: string;
   /** Metric fallback threshold, when the gate is one of the metric family. */
   fallback?: number;
+  /**
+   * Why this stack cannot open the gate — absent when it can. It is the difference
+   * between this catalog's row count and the `N/M optional gates` denominator
+   * `inspect` and `doctor` print: a gate nothing can open is left out of theirs and
+   * listed here, so a reader comparing the two numbers is told which, instead of
+   * inferring it (field run #137 inferred the wrong one).
+   */
+  unavailable?: string;
   /** The declared setting, resolved — null when the config does not declare it. */
   declared: { tier: string; value?: number } | null;
   /** Whether the emitted config would carry it today. */
@@ -213,7 +222,26 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
   }));
 }
 
-function resolveGate(spec: GateSpec, blueprint: Blueprint | null): GateStatus {
+/**
+ * How this catalog's row count reconciles with the `N/M optional gates` denominator
+ * `inspect` and `doctor` print. Two authoritative outputs differing by one, with
+ * neither naming the one, is the shape of the defect this closes.
+ */
+function unavailableNote(gates: GateStatus[]): string {
+  const out = gates.filter((gate) => gate.unavailable !== undefined);
+
+  if (!out.length) return ' — all of them openable on this stack, so `inspect` counts the same number';
+
+  return ` — ${out.length} of them unavailable on this stack (${
+    out.map((gate) => `${gate.id}: ${gate.unavailable}`).join('; ')
+  }), which \`inspect\` and \`doctor\` leave out of their optional-gate count`;
+}
+
+function resolveGate(
+  spec: GateSpec,
+  blueprint: Blueprint | null,
+  hasTypescript: boolean,
+): GateStatus {
   const setting = blueprint?.rules?.[spec.id];
 
   const read = setting === undefined ? null : readSetting(setting);
@@ -222,14 +250,17 @@ function resolveGate(spec: GateSpec, blueprint: Blueprint | null): GateStatus {
     ? null
     : { tier: read.tier, ...(read.value !== undefined ? { value: read.value } : {}) };
 
-  // Mirror emitLint: deepWatch never emits on React, whatever it declares.
-  const framework = blueprint?.framework;
-  const silenced = spec.id === 'deepWatch' && framework === 'react';
+  // Whether this stack can open the gate at all, from the same function inspect's
+  // denominator reads — this used to mirror only the React case, so a JS project saw
+  // `explicitAny` here as an ordinary gate and `0/17 optional gates` there, with
+  // nothing to reconcile them (field run #137).
+  const unavailable = unavailableGate(spec.id, blueprint?.framework, hasTypescript);
 
   return {
     ...spec,
     declared,
-    active: declared !== null && declared.tier !== 'off' && !silenced,
+    ...(unavailable !== null ? { unavailable } : {}),
+    active: declared !== null && declared.tier !== 'off' && unavailable === null,
   };
 }
 
@@ -256,7 +287,7 @@ export async function runRules(
 
   const severity = blueprint?.emit?.lint?.severity ?? 'error';
   const structural = resolveStructural(blueprint);
-  const gates = gateSpecs().map((spec) => resolveGate(spec, blueprint));
+  const gates = gateSpecs().map((spec) => resolveGate(spec, blueprint, state.hasTypescript));
   const bans = blueprint ? layerBans(blueprint) : [];
 
   log(
@@ -283,11 +314,21 @@ export function renderRules(
   hasConfig: boolean,
 ): string {
   const status = (gate: GateStatus) => {
+    // Outranks the tier, and keeps the declared/undeclared split it used to carry as
+    // "never emits here": whether the author set it still matters — declared means a
+    // line in their config does nothing, undeclared means adding one would. What the
+    // old wording lost is WHY, which the reconciliation line above now names.
+    if (gate.unavailable !== undefined) {
+      return gate.declared === null ? '· unavailable here' : '· declared, unavailable here';
+    }
+
     if (gate.declared === null) return '· not declared';
 
-    if (!gate.active) {
-      return gate.declared.tier === 'off' ? '· off' : '· declared, never emits here';
-    }
+    // Declared, not unavailable, and still inactive means exactly one thing: the
+    // author set it to off. The other arm this ternary used to have — "declared,
+    // never emits here" — existed only for the framework-silenced case, which the
+    // unavailable branch above now answers with its reason, so nothing reaches it.
+    if (!gate.active) return '· off';
 
     return `✓ ${gate.declared.tier}${gate.declared.value !== undefined ? `(${gate.declared.value})` : ''}`;
   };
@@ -305,6 +346,11 @@ export function renderRules(
     '',
     'Optional gates — emitted only when declared in `rules` with a tier other than off.',
     'Every gate scopes to the layer file globs — root wiring sits outside all of them.',
+    // The row count against inspect's denominator, stated rather than left to
+    // subtraction: they differ by exactly the gates this stack cannot open, and a
+    // field agent comparing 18 rows to `0/17 optional gates` had to guess which one
+    // and guessed wrong (field run #137).
+    `${gates.length} listed${unavailableNote(gates)}`,
     ...gates.map((gate) => {
       const fallback = gate.fallback !== undefined ? ` (default ${gate.fallback})` : '';
 

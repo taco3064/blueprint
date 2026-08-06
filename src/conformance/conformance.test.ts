@@ -772,6 +772,44 @@ describe('a proof step states its own reach (field run #85)', () => {
     expect(playbook).toContain('a rule with nothing to enforce it');
     expect(playbook).toContain('Say which of the four you are in');
   });
+
+  it('stops claiming artifacts a redirected build never wrote (field run #135)', async () => {
+    // The paragraph opened on a premise about the adopter's repo: "a step THIS playbook
+    // asked for produced untracked files in someone's working tree". False on what
+    // `npm create vite` writes for React + TS — both projects carry `noEmit` and a
+    // `tsBuildInfoFile` under `node_modules/` — so an agent copying that instruction
+    // reports untracked files that do not exist. Third time this family has been wrong
+    // about a tsconfig, and the same answer as the second: measure it.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'tsconfig.json': '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }] }',
+        'tsconfig.app.json': '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./node_modules/.tmp/app.tsbuildinfo" }, "include": ["src"] }',
+      },
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const prose = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
+
+    expect(prose).toContain('`tsc -b` leaves nothing in this working tree, and that is measured');
+    expect(prose).toContain('node_modules/.tmp/app.tsbuildinfo');
+    expect(prose).toContain('The four cells below still decide the bundle');
+    // The cells survive the specialisation — they still decide what the vite build
+    // writes, and a measured arm that dropped them would trade one gap for another.
+    expect(prose).toContain('Say which of the four you are in');
+
+    // And the default arm keeps the premise where nothing was measured, because there
+    // it is right: a repo with no such redirect does get artifacts in its tree.
+    const plain = repo({ packageJson: react() });
+
+    await cli(plain, ['init', '--authoring', '--no-install']);
+
+    const plainProse = flattenProse(read(plain, 'blueprint-authoring.md') ?? '');
+
+    expect(plainProse).toContain('produced untracked files in someone\'s working tree');
+    expect(plainProse).not.toContain('leaves nothing in this working tree');
+  });
 });
 
 describe('the same gap, one artifact further along (swept, not field-reported)', () => {

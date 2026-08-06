@@ -11,10 +11,17 @@ export {
   quotedIn,
   readTexts,
   SUPPORTED_ESLINT_MAJORS,
+  tscArtifactsOutOfTree,
   unreadableTsconfigs,
   viteTsCoverage,
 } from './detect';
-export type { JsoncFailure, JsoncResult, UnreadableConfig, ViteTsCoverage } from './detect';
+export type {
+  JsoncFailure,
+  JsoncResult,
+  TscArtifactLocation,
+  UnreadableConfig,
+  ViteTsCoverage,
+} from './detect';
 export { loadProjectModule, unwrapModule } from './load';
 export { buildConfigSource, buildNextConfigSource, resolveBlueprint } from './resolve';
 export type { ResolveOptions } from './resolve';

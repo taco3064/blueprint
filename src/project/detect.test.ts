@@ -17,6 +17,7 @@ import {
   REQUIRED_DEPS,
   STACK_DEPS,
   SUPPORTED_ESLINT_MAJORS,
+  tscArtifactsOutOfTree,
   viteTsCoverage,
 } from './detect';
 
@@ -1149,5 +1150,86 @@ describe('viteTsCoverage · the fact that used to be three releases of prose', (
       write(file, 'export default {}\n');
       expect(viteTsCoverage(dir), file).toMatchObject({ viteFile: file });
     }
+  });
+});
+
+describe('tscArtifactsOutOfTree · the artifact premise, measured instead of asserted', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-tscout-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  const write = (file: string, text: string) => {
+    fs.mkdirSync(path.join(dir, path.dirname(file)), { recursive: true });
+    fs.writeFileSync(path.join(dir, file), text);
+  };
+
+  /** What `npm create vite` writes for React + TS, which is the shape that matters. */
+  const viteTemplate = (over: { app?: string; node?: string } = {}) => {
+    write('tsconfig.json', '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }] }');
+    write('tsconfig.app.json', over.app ?? '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo" }, "include": ["src"] }');
+    write('tsconfig.node.json', over.node ?? '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo" }, "include": ["vite.config.ts"] }');
+  };
+
+  it('reads the default Vite + TS template as leaving the tree untouched', () => {
+    // The premise the artifact paragraph opened on — "this step produced untracked
+    // files in your working tree" — is false here, and this is not an exotic repo:
+    // it is what the React + TS template generates (field run #135). Both projects
+    // set noEmit and send the build info under node_modules, so `tsc -b` writes
+    // nothing anyone tracks.
+    viteTemplate();
+
+    expect(tscArtifactsOutOfTree(dir)).toEqual({
+      buildInfo: 'node_modules/.tmp/tsconfig.app.tsbuildinfo',
+      tsconfig: 'tsconfig.app.json',
+    });
+  });
+
+  it('declines when one project would still write into the tree', () => {
+    // The whole claim is "nothing landed", so one project that emits breaks it. Both
+    // arms of that are checked, because each is a different way to land a file:
+    // emitting program output, and dropping the build info beside the config.
+    viteTemplate({ node: '{ "compilerOptions": { "tsBuildInfoFile": "./node_modules/.tmp/n.tsbuildinfo" }, "include": ["vite.config.ts"] }' });
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+
+    viteTemplate({ node: '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./.cache/n.tsbuildinfo" }, "include": ["vite.config.ts"] }' });
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+  });
+
+  it('declines on a single root config that says nothing about either', () => {
+    // The common JS-ish shape, and the honest answer is no answer: absent options
+    // mean tsc's defaults, which put the build info beside the config.
+    write('tsconfig.json', '{ "include": ["src"] }');
+
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+  });
+
+  it('declines with no tsconfig, and on one that does not parse', () => {
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+
+    write('tsconfig.json', '{ "files": [], ');
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+  });
+
+  it('reads a root config that redirects on its own, with no references', () => {
+    // No solution stub to skip — the one-project shape has to work too, or the
+    // measurement only ever fires on the template it was written from.
+    write('tsconfig.json', '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "node_modules/.cache/t.tsbuildinfo" }, "include": ["src"] }');
+
+    expect(tscArtifactsOutOfTree(dir)).toEqual({
+      buildInfo: 'node_modules/.cache/t.tsbuildinfo',
+      tsconfig: 'tsconfig.json',
+    });
+  });
+
+  it('declines when a referenced project cannot be read at all', () => {
+    write('tsconfig.json', '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }] }');
+
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
   });
 });

@@ -3,7 +3,7 @@ import type { Blueprint } from '../config';
 // Import from the patterns leaf, not the emit/lint index — the index also
 // exports lint.ts, which loads the plugin, which shares resolve logic with
 // inspect; routing through the index would close a module cycle.
-import { LINT_GATED_RULE_IDS, resolveLayerFiles } from '../emit/lint/patterns';
+import { LINT_GATED_RULE_IDS, resolveLayerFiles, unavailableGate } from '../emit/lint/patterns';
 import { dropTestFiles, globToRegExp } from './filter';
 import type { ScanResult } from './types';
 
@@ -60,15 +60,13 @@ export function computeCoverage(
   const outside = source.filter((file) => !nets.some((net) => net.test(file.path)));
   const layerFiles = source.length - outside.length;
 
-  // Mirror emitLint: `deepWatch` never emits on React, so on React it neither
-  // counts as available nor as active — a gate you cannot open is not a gate.
-  // `explicitAny` is the same shape for a JS project: `any` is a TypeScript
-  // construct, so the gate has nothing to catch and no rule to emit. The two
-  // stylistic gates are NOT filtered here — every stack can open them; whether
-  // the config actually injects the plugin is a wiring fact this cannot see.
+  // A gate you cannot open is not a gate, and which those are now lives in one
+  // place: this filter and `blueprint rules`' own mirror of it had drifted, so a JS
+  // repo read a denominator of 17 here against eighteen rows there (field run #137).
+  // The two stylistic gates are NOT among them — every stack can open those; whether
+  // the config injects the plugin is a wiring fact this cannot see.
   const gates = LINT_GATED_RULE_IDS
-    .filter((id) => id !== 'deepWatch' || framework !== 'react')
-    .filter((id) => id !== 'explicitAny' || hasTypescript);
+    .filter((id) => unavailableGate(id, framework, hasTypescript) === null);
 
   const activeRules = gates.filter((id) => activeSetting(rules?.[id]) !== null).length;
 
