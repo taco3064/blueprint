@@ -119,6 +119,52 @@ describe('authoringBrief', () => {
     expect(banner.indexOf('autonomously')).toBeLessThan(banner.indexOf('## Prerequisites'));
   });
 
+  /**
+   * The emitted table of contents, in order, as one contract instead of twelve
+   * adjacencies nobody asserts.
+   *
+   * The split turned the document's order into a list of `render*` calls, which
+   * is a shape an edit or a merge can permute — and permuting it is invisible to
+   * every other assertion here, because a reordered document still contains every
+   * string. Measured on this suite before the test existed: swapping
+   * `renderMethod()` and `renderSemantics()` in the composition left all 1154
+   * tests green, emitting a playbook whose semantics section precedes the method
+   * it refers to.
+   *
+   * It is the same failure the boundary fix in this refactor had to be caught by
+   * hand: a partition that is shifted, or a sequence that is permuted, satisfies
+   * containment. So the guard is the sequence itself, and `it.each` over pairs
+   * would not do — the contract is the ORDER, which only the whole list carries.
+   */
+  const SECTIONS = [
+    '## Prerequisites',
+    '## Goal and boundary',
+    '## Method',
+    '## Semantics the linter holds you to',
+    '## Rule catalog — ask this file, not the bundle',
+    '## Config schema sketch',
+    '## Acceptance gates',
+    '## If you stop midway',
+    '## Survey evidence',
+  ];
+
+  const headings = (text: string): string[] =>
+    text.split('\n').filter((line) => line.startsWith('## '));
+
+  it('emits every section once, in order', () => {
+    expect(headings(brief)).toEqual(SECTIONS);
+  });
+
+  it('prepends the verdict below the threshold and reorders nothing else', () => {
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { hadClaudeDir: false });
+
+    // The one conditional section, and it leads — the conclusion before the method.
+    expect(headings(small)).toEqual([
+      '## Read this first — the survey already points at the exit',
+      ...SECTIONS,
+    ]);
+  });
+
   it('carries the goal boundary: author and baseline, never refactor', () => {
     expect(brief).toContain('Out of scope: fixing the debt');
     expect(brief).toContain('--update-baseline');
