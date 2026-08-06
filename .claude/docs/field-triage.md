@@ -1,7 +1,8 @@
 # Field runs and triage (`npm run field:run`)
 
 **Trigger:** running the harness; triaging a `field-run` issue; writing or
-rewording any prose an adopting agent reads (playbook, CLI output, contract).
+rewording any prose an adopting agent reads (playbook, CLI output, contract);
+cutting a release.
 
 ## The harness
 
@@ -111,3 +112,32 @@ number worth watching go up.
 A release still needs a run: the prose an agent will *follow* — an instruction,
 not a caveat — is the highest-risk kind, and every second-order finding above
 came from one. Merge, run once, judge by the split, ship.
+
+## Cutting it
+
+`.github/workflows/release.yml` does everything from a pushed tag — gate, build,
+`npm publish --provenance`, and the GitHub Release, whose notes are that
+version's `CHANGELOG.md` section verbatim via `scripts/changelog-section.mjs`.
+So the whole manual part is `npx changeset version`, commit, tag, push the tag.
+
+Those four steps do not need memorising: the workflow refuses a tag whose semver
+does not match `package.json`, a release commit that did not touch
+`CHANGELOG.md`, and any leftover `.changeset/*.md`. The last two print the
+command that fixes them; the version-mismatch one states both numbers and leaves
+the fix to you, which is fair — either the tag or the bump is wrong and it cannot
+know which. Skipping a step is a named failure, not a bad publish.
+
+**One step has no gate behind it: the release-framing entry has to be hoisted.**
+Changesets concatenates entries under Minor/Patch headings in no useful order,
+and this repo writes one entry per release that frames the whole thing — which
+axis moved, which did not, what is measured against inferred. Buried at position
+seven of nineteen it is just another bullet. After `changeset version`, move it
+to the top of that version's section, before the `### Minor Changes` heading. One
+edit covers both channels, because the release notes are the section.
+
+Two things the workflow deliberately will not do. A GitHub Release that already
+exists is left alone — a hand-written one outranks the generated notes, so
+re-pushing a tag never overwrites an edit made after the fact. And nothing here
+runs the mutation sweep or the field harness; both are `workflow_dispatch` or
+local by design, for the reasons in [`mutation-testing.md`](./mutation-testing.md)
+and above.
