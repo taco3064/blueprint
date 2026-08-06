@@ -304,6 +304,64 @@ describe('authoringBrief', () => {
     expect(brief).toContain('an empty ledger is ceremony');
   });
 
+  // The five members of `printConfigCaveats`, restated because the source keeps
+  // the function private. Before they were one shared unit each site carried its
+  // own paraphrase, and only two of the five were asserted anywhere — the other
+  // three could be deleted with the whole suite green, which is how the two
+  // copies drifted four ways in the first place. One case per member now.
+  const caveats = [
+    ['plugin prefix', 'plugin prefix (`@stylistic/max-len`, never bare `max-len`)'],
+    ['empty layer', 'holds no files does not appear at all (inspect\'s `declaratory-self-only` note, not a loss)'],
+    ['selfOnly importer', 'resolves on the IMPORTER layer inspect names, not on the layer being protected'],
+    ['finding ids', '**inspect\'s finding names are not ESLint rule ids**'],
+    ['migration pointer', 'migration steps name the carrying rule for each finding, and mark the ones no lint run will ever show'],
+  ] as const;
+
+  it.each(caveats)('warns that %s makes a correct config look broken', (_label, text) => {
+    expect(flattenProse(brief)).toContain(text);
+  });
+
+  it('carries the caveats on both paths that reach --print-config, from one source', () => {
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { hadClaudeDir: false });
+    const occurrences = (text: string) => text.split('resolved keys carry their').length - 1;
+
+    // Method step 9's merge always renders; the early-exit checklist's lint step
+    // only below the threshold. Two sites, one text — assert the count, or a
+    // future edit can quietly go back to maintaining two copies by hand.
+    expect(occurrences(brief)).toBe(1);
+    expect(occurrences(small)).toBe(2);
+
+    // Same indent-agnostic text at both, which is the point of sharing it: three
+    // spaces inside the numbered checklist item, five inside the merge bullet.
+    for (const [, text] of caveats) expect(flattenProse(small)).toContain(text);
+  });
+
+  it('indents every caveat line for the list its site sits in', () => {
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { hadClaudeDir: false });
+
+    // Raw, never flattened: the indent IS the assertion, and `flattenProse`
+    // collapses exactly what is under test. Three spaces continues a numbered
+    // checklist item, five continues a bullet nested under one — pass the wrong
+    // one and the emitted markdown list breaks while every other assertion here
+    // stays green. Stryker cannot see it either: `StringLiteral` is excluded by
+    // measurement, which its config calls the boundary around prose and NOT
+    // around a discrete contract per literal. Two indents are that contract.
+    const indents = (text: string) => text
+      .split(', or a correct config looks broken:')
+      .slice(1)
+      .map((rest) => rest
+        .split('will ever show.')[0]
+        .split('\n')
+        .slice(1)
+        .map((line) => line.length - line.trimStart().length))
+      .map((widths) => [...new Set(widths)]);
+
+    // One entry per site, in document order, each holding exactly one width —
+    // so a mixed indent inside a block fails as loudly as a wrong one.
+    expect(indents(brief)).toEqual([[5]]);
+    expect(indents(small)).toEqual([[3], [5]]);
+  });
+
   it('embeds the survey evidence and the schema sketch', () => {
     expect(brief).toContain('resources → components');
     expect(brief).toContain('~root/…'); // the unresolved-alias hint travels with the evidence

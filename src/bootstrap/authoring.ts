@@ -107,6 +107,45 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
   ];
 }
 
+/**
+ * The four facts that make a *correct* resolved config look broken, for the two
+ * paths that reach `--print-config`: the early-exit checklist's lint step, and
+ * the merge step of Method 9. It was prose at both sites, and `git blame` names
+ * two commits that edited BOTH copies in one pass — so hand-copied sync, not a
+ * forgotten edit, and it still produced four divergent paraphrases (74.3%
+ * similarity once whitespace is normalised). The wording kept here is the merge
+ * step's: two later commits reached that copy and not the checklist's, so it is
+ * the newer text, which is the reason rather than that it reads tighter.
+ *
+ * Both sites open the sentence themselves — the checklist says "read the output
+ * knowing four things", the merge step "Four things to know before reading that
+ * output" — because there the framing genuinely differs. This carries the part
+ * that must not.
+ *
+ * `indent` is the continuation indent of the list the caller sits in (three
+ * spaces inside a numbered item, five inside a bullet under one). The lines are
+ * wrapped for the deeper one and reused at the shallower, so the checklist's
+ * copy sits two columns short of the margin — invisible once rendered, and
+ * cheaper than a re-wrapper that would have to be right at both widths. The
+ * first line carries no indent: it continues the caller's own line.
+ */
+function printConfigCaveats(indent: string): string {
+  return [
+    ', or a correct config looks broken: resolved keys carry their',
+    'plugin prefix (`@stylistic/max-len`, never bare `max-len`); a',
+    'rule scoped to a layer that holds no files does not appear at all',
+    '(inspect\'s `declaratory-self-only` note, not a loss);',
+    'selfOnly\'s re-export ban resolves on the IMPORTER layer inspect',
+    'names, not on the layer being protected; and **inspect\'s finding',
+    'names are not ESLint rule ids** — `deep-import`,',
+    '`flow-violation` and `package-ownership` all fold into the',
+    'single `no-restricted-imports` entry, so searching for',
+    '`blueprint/deep-import` finds nothing and proves nothing.',
+    'Inspect\'s migration steps name the carrying rule for each finding,',
+    'and mark the ones no lint run will ever show.',
+  ].join(`\n${indent}`);
+}
+
 /** The playbook: goal, method, acceptance gates, and the survey evidence. */
 export function authoringBrief(
   survey: SurveyResult,
@@ -179,18 +218,7 @@ The complete early-exit checklist — nothing else in this file applies:
    \`npx eslint --print-config <file>\` only for what doctor's ✓ says it
    does NOT compare — thresholds, package-ownership entries, and the
    survival of your OWN rules — and read the output knowing four
-   things, or a correct config looks broken: resolved keys carry their
-   plugin prefix (\`@stylistic/max-len\`, never bare \`max-len\`); a rule
-   scoped to a layer that holds no files does not appear at all (that is
-   inspect's \`declaratory-self-only\` note, not a loss); selfOnly's
-   re-export ban resolves on the IMPORTER layer named in inspect's
-   output, not on the layer being protected; and **inspect's finding
-   names are not ESLint rule ids** — \`deep-import\`,
-   \`flow-violation\` and \`package-ownership\` all fold into the single
-   \`no-restricted-imports\` entry, so searching a resolved config for
-   \`blueprint/deep-import\` finds nothing and proves nothing. Inspect's
-   own migration steps name the rule that carries each finding, and mark
-   the ones no lint run will ever show. Same logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's
+   things${printConfigCaveats('   ')} Same logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's
    alias check reads that wiring as text, never as a compile — run a
    build once too. The same caveat as the lint run applies, and for the same
    reason: on a repo whose layers hold no files, nothing imports through the
@@ -580,18 +608,7 @@ the answer belongs in this playbook — note the gap in your report instead.
      \`npx eslint --print-config <file>\` is for; a green lint run does
      not substitute, since it proves the config loads, not that a given
      rule reached a given file. Four things to know before reading that
-     output, or a correct config looks broken: resolved keys carry their
-     plugin prefix (\`@stylistic/max-len\`, never bare \`max-len\`); a
-     rule scoped to a layer that holds no files does not appear at all
-     (inspect's \`declaratory-self-only\` note, not a loss);
-     selfOnly's re-export ban resolves on the IMPORTER layer inspect
-     names, not on the layer being protected; and **inspect's finding
-     names are not ESLint rule ids** — \`deep-import\`,
-     \`flow-violation\` and \`package-ownership\` all fold into the
-     single \`no-restricted-imports\` entry, so searching for
-     \`blueprint/deep-import\` finds nothing and proves nothing.
-     Inspect's migration steps name the carrying rule for each finding,
-     and mark the ones no lint run will ever show. Run the project's own lint command; new findings introduced by
+     output${printConfigCaveats('     ')} Run the project's own lint command; new findings introduced by
      the merge are fixed or explicitly judged, never left dangling — and
      when init wired the alias into \`tsconfig\`/\`vite\`, run the build
      once too (doctor's alias check reads wiring as text, never as a
