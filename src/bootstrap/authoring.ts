@@ -191,19 +191,33 @@ The complete early-exit checklist — nothing else in this file applies:
    \`blueprint/deep-import\` finds nothing and proves nothing. Inspect's
    own migration steps name the rule that carries each finding, and mark
    the ones no lint run will ever show. Same logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's
-   alias check reads that wiring as text, never as a compile — run the
-   build once too (\`npm run build\`, or \`npx tsc -b\`). The same caveat
-   as the lint run applies, and for the same reason: on a repo whose layers
-   hold no files, nothing imports through the alias, so a green build proves
-   the \`tsconfig\`/\`vite\` edits parse and compile — NOT that the alias
-   resolves. It becomes that proof the first time a layer file imports
-   through it. Run it anyway (cheap, and it catches an edit that broke the
-   config outright) and report which of the two you got. Its artifacts
+   alias check reads that wiring as text, never as a compile — run a
+   build once too. The same caveat as the lint run applies, and for the same
+   reason: on a repo whose layers hold no files, nothing imports through the
+   alias, so a green build proves the \`tsconfig\`/\`vite\` edits parse and
+   compile — NOT that the alias resolves. It becomes that proof the first
+   time a layer file imports through it. Run it anyway (cheap, and it catches
+   an edit that broke the config outright) and report which of the two you got.
+   **Which build, though — and on this path prefer \`npx tsc -b\`.** It
+   answers the only question available here, and the full \`npm run build\`
+   answers no more of it while emitting a bundle into a tree that may have
+   nowhere to put one (see below). A Vite + TS starter keeps
+   \`vite.config.ts\` inside a tsconfig project, so \`tsc -b\` type-checks
+   the vite edit too; run the project's full build instead when the vite
+   config sits outside every tsconfig project, or once layer files exist and
+   the alias is genuinely exercised — there the bundle is the point. Its artifacts
    (\`dist/\`, \`*.tsbuildinfo\`) are the build's normal output, not
-   adoption leftovers: leave them to the repo's own ignore rules, and
-   when the repo has none — including a repo under no version control at
-   all, where nothing is tracked and "untracked" describes everything —
-   say so in the report instead of guessing a cleanup. Say it as what it is — a step THIS playbook asked for
+   adoption leftovers: leave them to the repo's own ignore rules, and say so
+   in the report instead of guessing a cleanup when those rules will not
+   cover it. Two independent facts decide that, not one — whether the repo
+   HAS ignore rules, and whether it is under version control at all — and a
+   repo can be any combination. A \`.gitignore\` listing \`dist\` in a tree
+   that is not a git repo is a rule with nothing to enforce it; no
+   \`.gitignore\` under git means the artifacts show up in \`git status\`;
+   neither means "untracked" describes every file in the tree and the word
+   stops distinguishing anything. Say which of the four you are in — it is
+   one sentence, and it is the difference between a report the owner can act
+   on and one they have to re-derive. Say it as what it is — a step THIS playbook asked for
    produced untracked files in someone's working tree — and say that
    deleting them is safe, because nothing adoption wrote depends on them
    and the build can be re-run. Then it is the owner's call rather than
@@ -308,7 +322,11 @@ adopting agent's. When a declared-but-empty layer ALSO looks stale, the
 tiebreak is prose intent: an intent document describing it as a future
 seam makes it runway (keep); one the prose never mentions, contradicted
 by where the code actually lives, is a stale clause (downgrade it and
-record the conflict — Method step 1).
+record the conflict — Method step 1). **A drawn diagram is part of what
+that document says.** A layer absent from every per-layer section but
+still drawn in the same file's flow graph HAS been mentioned — read both
+before calling a clause unmentioned, or the tiebreak decides on half the
+evidence and drops a layer the document is still declaring.
 
 **Work the loop, not the archive.** Everything below is evidence and
 reference — it is NOT a syllabus to master before touching the config.
@@ -371,6 +389,11 @@ the answer belongs in this playbook — note the gap in your report instead.
    often draw a DAG; blueprint's order is linear (a layer may import *any*
    later layer). Linearize, then verify against the matrix — linear is
    transitive, so it is usually a strict relaxation, not a real change.
+   Downgrading a clause leaves that drawing disagreeing with the config you
+   just wrote. Leave it disagreeing: a hand-written document is the repo's,
+   not adoption's to edit, and redrawing one is a doc reconcile no one asked
+   for. Name the specific edge or box that no longer matches, in the report,
+   so the owner can settle it in one pass.
    Several positions equally legal (no matrix edges either way — empty
    layers especially)? Pick the one granting the fewest new import
    permissions: the smallest relaxation.
@@ -480,6 +503,17 @@ the answer belongs in this playbook — note the gap in your report instead.
      with nothing, silently. Confirm with \`npx eslint --print-config\` on one
      file per affected layer — the one place print-config is not optional,
      because doctor compares selectors and cannot see scope.
+
+     **When the two sides' scopes were never the same, "the SAME file scope"
+     cannot hold for both — match blueprint's.** A house rule framed at
+     \`**/*.vue\` folded into a layer glob of \`.{js,vue}\` is the ordinary case,
+     and the two failure directions are not symmetric: your rule reaching a
+     few files it did not govern is visible red you will see on the next run,
+     while blueprint's ban losing files is silent and lint stays green. So
+     widen yours to blueprint's glob rather than narrowing the entry, then say
+     in the report which extensions your rule newly covers and whether any
+     file matches them today — often the widening is an empty set now and a
+     bet on what lands later, which is worth writing down as a bet.
 
      **An entry is more than its selectors — carry the emitted block's
      \`ignores\` too.** Every structural entry exempts test files, and a
@@ -696,8 +730,11 @@ collisions are decided by rule KEY, not by hit count — \`blueprint rules
 selfOnly selector strings a fold needs. Adoption stance for these gates:
 declare one only to translate an existing house threshold (carry its
 value); switching NEW gates on is the owner's later tuning, not the
-adopting agent's call. The metric family falls
-back to these thresholds when no \`value\` is given:
+adopting agent's call. Carrying a value is the OBJECT form of a rule
+setting — \`maxLines: { tier: 'error', value: 1200 }\`, never a tier/value
+array; \`tier\` is required in that form, so the object without it is
+rejected by name at config load rather than emitting a tierless rule. The
+metric family falls back to these thresholds when no \`value\` is given:
 
 ${METRIC_GATES.map((gate) => `- \`${gate.id}\` → \`${gate.rule}\` (default ${gate.fallback})`).join('\n')}
 ${PLUGIN_GATES.map((gate) => `- \`${gate.id}\` → \`${gate.emits}\` — ${gate.note}`).join('\n')}
@@ -754,6 +791,11 @@ export default defineBlueprint({
     layerFiles: 'src/{layer}/**/*.<ext glob>',
     testFiles: ['**/*.test.*', '**/__tests__/**'],
   },
+  // A bare tier takes the gate's default threshold. To carry an existing
+  // house threshold instead, use the object form — \`tier\` required, \`value\`
+  // optional: \`maxLines: { tier: 'error', value: 1200 }\`. Shown here as a
+  // comment ON PURPOSE: declaring a gate you are not translating is the
+  // owner's tuning, so this line stays the two gates a preset already sets.
   rules: { cycles: 'error', unusedVars: 'error' },
 });
 \`\`\`

@@ -635,9 +635,17 @@ describe('a proof step states its own reach (field run #85)', () => {
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
-    expect(playbook).toContain('The same caveat\n   as the lint run applies');
-    expect(playbook).toContain('NOT that the alias\n   resolves');
+    expect(playbook).toContain('The same caveat as the lint run applies');
+    expect(playbook).toContain('NOT that the alias resolves');
     expect(playbook).toContain('report which of the two you got');
+
+    // …and recommends the build that does not emit a bundle here. The artifact question
+    // was the most-repeated item in the whole field campaign — fifteen mentions — and
+    // the playbook's own first-listed command is what creates the artifact. On a path
+    // where the wide build proves nothing extra, stop creating it.
+    expect(playbook).toContain('on this path prefer `npx tsc -b`');
+    expect(playbook).toContain('answers no more of it while emitting a bundle');
+    expect(playbook).toContain('there the bundle is the point');
   });
 
   it('says how to combine against an opaque spread', async () => {
@@ -657,18 +665,20 @@ describe('a proof step states its own reach (field run #85)', () => {
     expect(playbook).toContain('the one place print-config is not optional');
   });
 
-  it('covers a repo under no version control in the artifact branch', async () => {
-    // Raised in five separate runs. The branch stopped at "does the repo have ignore
-    // rules"; with no VCS at all the word untracked describes everything, and each
-    // agent spent a paragraph reasoning it out from first principles.
+  it('treats ignore rules and version control as two facts, not one axis', async () => {
+    // First written as one axis ("no ignore rules — including no VCS at all"), which
+    // collapsed two independent facts. A field repo landed exactly between them: a
+    // `.gitignore` that lists `dist`, in a tree that is not a git repo, so the rule has
+    // nothing to enforce it. The branch had no cell for that.
     const dir = repo({ packageJson: react() });
 
     await cli(dir, ['init', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
-    expect(playbook).toContain('no version control at\n   all');
-    expect(playbook).toContain('"untracked" describes everything');
+    expect(playbook).toContain('Two independent facts decide that, not one');
+    expect(playbook).toContain('a rule with nothing to enforce it');
+    expect(playbook).toContain('Say which of the four you are in');
   });
 });
 
@@ -881,7 +891,7 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
 
     expect(inspect.output).toContain('is declaratory');
     expect(inspect.output).toContain('ENTRY is emitted today');
-    expect(inspect.output).toContain('flat config never merges');
+    expect(inspect.output).toContain('merges neither into the other');
     expect(inspect.output).toContain('"Cannot fire" is about the ban, not about the entry');
   });
 
@@ -2221,6 +2231,93 @@ describe('the merge recipe hands over the whole entry, not just its selectors (#
     expect(out.output).toContain('Copy these selectors verbatim');
     expect(out.output).toContain('ignores: [');
     expect(out.output).toContain('*.test.');
+  });
+});
+
+describe('a claim states the condition it needs (field runs #95–#97)', () => {
+  const brownfield = (): RepoSpec => ({
+    packageJson: react(),
+    files: Object.fromEntries(
+      Array.from({ length: 12 }, (_, i) => [`src/legacy/mod${i}.js`, 'export const x = 1;\n']),
+    ),
+  });
+
+  const playbookOf = async (spec: RepoSpec): Promise<string> => {
+    const dir = repo(spec);
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    return read(dir, 'blueprint-authoring.md') ?? '';
+  };
+
+  it('releases a single-config reader from the selfOnly collision note', async () => {
+    // #75–#77 taught this note to say the ENTRY is live even when the ban is a blank.
+    // It said so as "it collides today" — but a collision needs a SECOND entry of the
+    // id, which only a merge brings. On the early-exit path there is one generated
+    // config and nothing to collide with, and a field agent spent the item deciding
+    // the note did not apply to it. inspect cannot see whether a merge is coming, so
+    // the note carries the condition instead of asserting the consequence.
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/components/Button.jsx': 'export const Button = () => null;\n' },
+    });
+
+    write(dir, 'blueprint.config.mjs', configSource({
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [
+          { name: 'components', does: 'render UI' },
+          { name: 'contexts', does: 'state', allowedImporters: [{ layer: 'components', selfOnly: true }] },
+        ],
+        module: { layout: 'flat', entry: 'index', private: [] },
+      },
+    }));
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.output).toContain('IF a second no-restricted-syntax');
+    expect(inspect.output).toContain('That condition is the whole note');
+    expect(inspect.output).toContain('nothing here to act on');
+  });
+
+  it('writes the syntax for the gate value it asks you to carry', async () => {
+    // The playbook tells you to translate a house threshold by carrying its value, and
+    // no channel — playbook, `rules` catalog, error text — showed the shape. A field
+    // agent could not tell `{ value: 1200 }` from `['error', 1200]` and routed around
+    // the instruction. The object form stays a comment: the `rules:` line is copied
+    // verbatim, and a gate nobody is translating is the owner's tuning, not adoption's.
+    const playbook = await playbookOf(brownfield());
+
+    expect(playbook).toContain('maxLines: { tier: \'error\', value: 1200 }');
+    expect(playbook).toContain('`tier` is required in that form');
+    expect(playbook).toContain('rules: { cycles: \'error\', unusedVars: \'error\' },');
+  });
+
+  it('breaks the scope tie when the two sides never shared a scope', async () => {
+    // "Carry the SAME file scope" cannot hold for both sides when a house rule was
+    // framed at `**/*.vue` and the layer glob is `.{js,vue}`. The playbook stated both
+    // directions as errors and left the case unaddressed; the field agent resolved it
+    // correctly by reasoning from the asymmetry two paragraphs up. Say it instead.
+    const playbook = await playbookOf(brownfield());
+
+    expect(playbook).toContain('cannot hold for both — match blueprint\'s');
+    expect(playbook).toContain('the two failure directions are not symmetric');
+    expect(playbook).toContain('worth writing down as a bet');
+  });
+
+  it('counts a drawn diagram as part of what the document says', async () => {
+    // The stale-vs-runway tiebreak asked whether the prose mentions the layer. A field
+    // agent read the per-layer sections, found nothing, and dropped a clause the same
+    // file's mermaid graph was still drawing — the tiebreak decided on half the
+    // evidence. And once a clause IS downgraded, the drawing disagrees with the config:
+    // that is the repo's document, so it gets named in the report, not redrawn.
+    const playbook = await playbookOf(brownfield());
+
+    expect(playbook).toContain('A drawn diagram is part of what');
+    expect(playbook).toContain('before calling a clause unmentioned');
+    expect(playbook).toContain('Leave it disagreeing');
+    expect(playbook).toContain('not adoption\'s to edit');
   });
 });
 
