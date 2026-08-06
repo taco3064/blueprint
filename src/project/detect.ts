@@ -574,3 +574,243 @@ export function quotedIn(text: string, name: string): boolean {
     `['"\`]${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`,
   ).test(text);
 }
+
+/**
+ * Whether `tsc -b` reads this repo's vite config — measured, not asserted.
+ *
+ * The playbook told an adopting agent to open its tsconfig and work this out,
+ * and before that it asserted the answer ("A Vite + TS starter keeps
+ * `vite.config.ts` inside a tsconfig project"). The assertion was false on the
+ * shape this repo's own harness stages and came back as a finding three batches
+ * running; the instruction that replaced it was correct and still put a
+ * per-repo fact in prose, where it grew a conditional premise and then a third
+ * unowned state. This is that fact with an address, the same move
+ * `hadClaudeDir` was.
+ *
+ * `null` means "could not tell", and the playbook keeps its read-it-yourself
+ * wording for that case only. Every bail-out below returns null rather than a
+ * guess: a wrong verdict here is worse than no verdict, because the whole point
+ * is that the report must not claim a build verified an edit it never read.
+ */
+/**
+ * Local rather than shared: `bootstrap/alias.ts` has the same guard, and it sits
+ * ABOVE this module in the layering — importing it here would run the one-way
+ * rule backwards for a one-line predicate.
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export interface ViteTsCoverage {
+  /** `covered`: some project lists it. `outside`: projects exist, none does. */
+  verdict: 'covered' | 'outside';
+  /** The vite config, relative to root. */
+  viteFile: string;
+  /** The tsconfig that covers it, or the root one consulted when none does. */
+  tsconfig: string;
+}
+
+export function viteTsCoverage(root: string): ViteTsCoverage | null {
+  const viteFile = VITE_FILES.find((file) => fs.existsSync(path.join(root, file)));
+
+  // No vite config, or a JS project with no tsconfig at all: there is no
+  // question to answer, and the build clause has nothing to specialise.
+  if (viteFile === undefined) return null;
+
+  const rootConfig = 'tsconfig.json';
+  const rootText = readText(path.join(root, rootConfig));
+
+  if (rootText === null) return null;
+
+  const projects = tsProjectGraph(root, rootConfig, rootText);
+
+  if (projects === null) return null;
+
+  for (const project of projects) {
+    const covers = projectCovers(project, viteFile);
+
+    // A single undecidable project poisons the whole answer: "none of them
+    // covers it" cannot be claimed while one of them is unread.
+    if (covers === null) return null;
+    if (covers) return { verdict: 'covered', viteFile, tsconfig: project.file };
+  }
+
+  return { verdict: 'outside', viteFile, tsconfig: rootConfig };
+}
+
+interface TsProject {
+  /** Path relative to root, for the message. */
+  file: string;
+  /** Directory the config's globs resolve against, relative to root. */
+  dir: string;
+  compilerOptions?: unknown;
+  files?: unknown;
+  include?: unknown;
+  exclude?: unknown;
+  extends?: unknown;
+}
+
+/**
+ * The root config plus every project it references, one level deep.
+ *
+ * One level is not a shortcut: the two shapes that exist in the wild are a
+ * single root config, and a root of pure `references` pointing at
+ * `tsconfig.app.json` / `tsconfig.node.json` siblings. A reference chain deeper
+ * than that returns null rather than a partial graph.
+ */
+function tsProjectGraph(root: string, file: string, text: string): TsProject[] | null {
+  const parsed = parseJsonc(text);
+
+  if (!parsed.ok || !isRecord(parsed.value)) return null;
+
+  const rootProject = toProject(file, parsed.value);
+  const refs = rootProject.references;
+
+  if (refs === undefined) return [rootProject];
+  if (!Array.isArray(refs)) return null;
+
+  const projects: TsProject[] = [rootProject];
+
+  for (const ref of refs) {
+    if (!isRecord(ref) || typeof ref.path !== 'string') return null;
+
+    const resolved = resolveReference(root, ref.path);
+
+    if (resolved === null) return null;
+
+    const refParsed = parseJsonc(resolved.text);
+
+    if (!refParsed.ok || !isRecord(refParsed.value)) return null;
+
+    const project = toProject(resolved.file, refParsed.value);
+
+    // Depth stops here — see the note above.
+    if (project.references !== undefined) return null;
+
+    projects.push(project);
+  }
+
+  return projects;
+}
+
+/** A `references[].path` may name the file or its directory. */
+function resolveReference(root: string, ref: string): { file: string; text: string } | null {
+  const candidates = ref.endsWith('.json') ? [ref] : [path.join(ref, 'tsconfig.json')];
+
+  for (const candidate of candidates) {
+    const text = readText(path.join(root, candidate));
+
+    // Normalised because this string is printed: a `references` path is written
+    // `./tsconfig.node.json` as often as not, and the playbook names the file.
+    if (text !== null) return { file: normalizeSlashes(candidate), text };
+  }
+
+  return null;
+}
+
+function toProject(
+  file: string,
+  value: Record<string, unknown>,
+): TsProject & { references?: unknown } {
+  return {
+    file,
+    dir: path.dirname(file) === '.' ? '' : path.dirname(file),
+    files: value.files,
+    include: value.include,
+    exclude: value.exclude,
+    extends: value.extends,
+    references: value.references,
+  };
+}
+
+/**
+ * Does `project` pull `viteFile` in? `null` where this cannot say.
+ *
+ * The undecidables are deliberate and each one is a shape TypeScript resolves
+ * in a way this function does not reimplement: an `exclude` list (which can
+ * remove a file `include` pulled in), an `extends` base carrying the globs, and
+ * any glob with a character class or brace expansion. `syntheticPath` in
+ * inspect/wiring takes the same stance for the same reason — an unusual glob
+ * yields no answer, never a wrong one.
+ */
+function projectCovers(project: TsProject, viteFile: string): boolean | null {
+  if (project.exclude !== undefined) return null;
+
+  // The vite config is always a ROOT file — `VITE_FILES` carries no path segments —
+  // so a project rooted in a subdirectory cannot contain it, and a tsconfig's globs
+  // never reach upward. Written as the fact rather than as a general path helper: the
+  // other arm of that helper was unreachable from this one caller, which is a branch
+  // no test could honestly cover.
+  if (project.dir !== '') return false;
+
+  const rel = viteFile;
+
+  if (project.files !== undefined) {
+    if (!isStringArray(project.files)) return null;
+
+    if (project.files.some((entry) => normalizeSlashes(entry) === rel)) return true;
+  }
+
+  if (project.include === undefined) {
+    // No `files` and no `include`: TypeScript includes everything under the
+    // config's directory — unless `extends` supplies globs this cannot see.
+    if (project.files !== undefined) return false;
+
+    return project.extends === undefined ? true : null;
+  }
+
+  if (!isStringArray(project.include)) return null;
+
+  for (const glob of project.include) {
+    const verdict = globCovers(normalizeSlashes(glob), rel);
+
+    if (verdict === null) return null;
+    if (verdict) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Undecidable, and the anchor is the part: unanchoring `^\.\//` strips a `./` from
+ * the middle instead, and for every path a tsconfig can hold that is the same path
+ * either way (`a/./b` and `a/b` resolve identically, which is why TypeScript itself
+ * normalises them). The shape that would differ — a segment ending in `.` before a
+ * slash, `x./y` — is not a path anyone writes. The anchor stays because it spells
+ * the intent, which is to strip a LEADING `./` so `./vite.config.ts` compares equal
+ * to `vite.config.ts`; it is not load-bearing against any input reachable here.
+ */
+function normalizeSlashes(value: string): string {
+  return value.replace(/\\/g, '/').replace(/^\.\//, '');
+}
+
+/**
+ * Does a tsconfig `include` glob cover `file`? One regex, and two deliberate
+ * absences.
+ *
+ * No bare-directory branch: TypeScript reads `"src"` as everything under `src/`,
+ * and the one file this is ever asked about is a ROOT file, so a starless glob can
+ * only match by equalling it. No exact-equality fast path either — the pattern
+ * below escapes the literal and matches it anyway. Both were written first, and
+ * both were mutants no test could honestly kill, which is the tell that the line
+ * decided nothing.
+ *
+ * Braces and character classes return null rather than an answer: `syntheticPath`
+ * in inspect/wiring takes the same stance, and for the same reason — an unusual
+ * glob yields no verdict, never a wrong one.
+ */
+function globCovers(glob: string, file: string): boolean | null {
+  if (/[{}[\]?]/.test(glob)) return null;
+
+  const pattern = glob
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*\*\//g, '(?:.*/)?')
+    .replace(/\*\*/g, '.*')
+    .replace(/\*/g, '[^/]*');
+
+  return new RegExp(`^${pattern}$`).test(file);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+}

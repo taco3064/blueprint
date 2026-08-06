@@ -1,5 +1,6 @@
 import { DOC_ONLY_RULES, METRIC_GATES, PLUGIN_GATES } from '../emit/lint';
 import { COMMAND_FILE } from '../project';
+import type { ViteTsCoverage } from '../project';
 import { renderSurvey } from '../survey';
 import type { SurveyResult } from '../survey';
 
@@ -83,6 +84,76 @@ export function renderNextNote(next: boolean): string {
 }
 
 /**
+ * Which build to run, from a measured fact rather than a per-repo instruction.
+ *
+ * Three releases running, this was prose about the adopter's tsconfig: first an
+ * assertion that a Vite + TS starter keeps `vite.config.ts` inside a tsconfig
+ * project (false on the shape this repo's own harness stages), then an
+ * instruction to go read it, which was correct and still grew a conditional
+ * premise and a fused-attribution problem in the two batches after. Every one of
+ * those findings landed in this same paragraph, which is the signal that prose
+ * was doing a program's job. `viteTsCoverage` reads the tsconfig graph instead.
+ *
+ * `null` is the honest third case — an `exclude` list, an `extends` base, a glob
+ * shape the reader will not guess at — and there the original wording stands,
+ * because "go and look" is exactly right when the tool could not.
+ */
+function renderBuildChoice(viteTs: ViteTsCoverage | null): string[] {
+  const shared = [
+    '   Never report that a build verified the vite edit without having',
+    '   established that the build reads the vite config: that claim is the one',
+    '   thing this step can get silently wrong, and `tsc -b` exiting 0 is not',
+    '   evidence for it.',
+  ];
+
+  if (viteTs === null) {
+    return [
+      '   **Which build, though — and where `tsc -b` is enough, prefer it.** It',
+      '   answers the only question available here without emitting a bundle into a',
+      '   tree that may have nowhere to put one (see below).',
+      '   **Whether `tsc -b` covers your vite edit is a fact about THIS repo, and',
+      '   this run could not settle it — read it, do not assume it.** Templates',
+      '   differ: many put `vite.config.ts` inside a tsconfig project (commonly a',
+      '   `tsconfig.node.json` reached through `references`), and there `tsc -b`',
+      '   type-checks the vite edit too; others leave a single root config at',
+      '   `include: ["src"]`, and there `tsc -b` never reads the file you just',
+      '   edited — it exits 0 whatever you put in it. Open the tsconfig(s) and see',
+      '   which one you have. Inside a project, `tsc -b` is the build to prefer',
+      '   here. Outside every project — or once layer files exercise the alias —',
+      '   run `npx tsc -b` and then the vite build separately: together they cover',
+      '   what the full build covers, and only the split lets you say which edit',
+      '   each one verified.',
+      ...shared,
+    ];
+  }
+
+  if (viteTs.verdict === 'covered') {
+    return [
+      `   **Which build: \`npx tsc -b\`, and that is measured, not assumed.** This`,
+      `   repo's \`${viteTs.tsconfig}\` pulls \`${viteTs.viteFile}\` into a tsconfig`,
+      '   project, so `tsc -b` type-checks the vite edit along with the tsconfig',
+      '   one — a single command covering both, without emitting a bundle into a',
+      '   tree that may have nowhere to put one (see below). Report it as the one',
+      '   build that read both files.',
+      ...shared,
+    ];
+  }
+
+  return [
+    `   **Which build: \`npx tsc -b\` and then the vite build, separately — and`,
+    `   that is measured, not assumed.** No tsconfig project in this repo pulls`,
+    `   \`${viteTs.viteFile}\` in (\`${viteTs.tsconfig}\` was read for it), so`,
+    '   `tsc -b` never reads the file you just edited and exits 0 whatever is in',
+    '   it. The vite build is the only one that loads it. Run them as two',
+    '   commands rather than one `npm run build`: together they cover the same',
+    '   ground, and only the split lets you report which edit each one verified —',
+    '   fused into one result, "the tsconfig edit type-checks" and "the vite',
+    '   config loads" arrive as a single green you then have to hedge.',
+    ...shared,
+  ];
+}
+
+/**
  * The early-exit verdict, and only below the threshold.
  *
  * The most common repo `init` ever meets is a starter, and the correct outcome
@@ -91,7 +162,11 @@ export function renderNextNote(next: boolean): string {
  * the threshold the verdict leads, carrying the complete checklist so nothing
  * else in the file applies.
  */
-export function renderVerdict(survey: SurveyResult, hadClaudeDir: boolean): string {
+export function renderVerdict(
+  survey: SurveyResult,
+  hadClaudeDir: boolean,
+  viteTs: ViteTsCoverage | null,
+): string {
   if (survey.totalFiles >= BROWNFIELD_MIN_FILES) return '';
 
   return [
@@ -146,31 +221,7 @@ export function renderVerdict(survey: SurveyResult, hadClaudeDir: boolean): stri
     '   compile — NOT that the alias resolves. It becomes that proof the first',
     '   time a layer file imports through it. Run it anyway (cheap, and it catches',
     '   an edit that broke the config outright) and report which of the two you got.',
-    '   **Which build, though — and where `tsc -b` is enough, prefer it.** It',
-    '   answers the only question available here without emitting a bundle into a',
-    '   tree that may have nowhere to put one (see below). Whether it is enough is',
-    '   the next paragraph, and the preference holds only where the answer is yes:',
-    '   with the vite config outside every tsconfig project, the full build answers',
-    '   strictly more, because it is the only one that reads that file at all.',
-    '   **Whether `tsc -b` covers your vite edit is a fact about THIS repo — read',
-    '   it, do not assume it.** Templates differ: many put `vite.config.ts` inside',
-    '   a tsconfig project (commonly a `tsconfig.node.json` reached through',
-    '   `references`), and there `tsc -b` type-checks the vite edit too; others',
-    '   leave a single root config at `include: ["src"]`, and there `tsc -b` never',
-    '   reads the file you just edited — it exits 0 whatever you put in it. Open the',
-    '   tsconfig(s) and see which one you have before choosing. Inside a project,',
-    '   `tsc -b` is the build to prefer here. Outside every project — or once layer',
-    '   files exercise the alias — run the project\'s full build, the only build that',
-    '   loads the vite config at all; there the bundle is the point. Either way,',
-    '   never report that a build verified the vite edit without having established',
-    '   that the build reads the vite config: that claim is the one thing this step',
-    '   can get silently wrong, and `tsc -b` exiting 0 is not evidence for it.',
-    '   **On that branch, running the two separately buys the report its',
-    '   attribution.** `tsc -b` then `vite build` covers what the full build covers,',
-    '   and it is the only form that lets you say which edit each one verified —',
-    '   which is what the sentence above asks for. A single `npm run build` reports',
-    '   as one result, so "the tsconfig edit type-checks" and "the vite config',
-    '   loads" arrive fused and you have to hedge the report or split it anyway.',
+    ...renderBuildChoice(viteTs),
     '   Its artifacts',
     '   (`dist/`, `*.tsbuildinfo`) are the build\'s normal output, and',
     '   **`tsc -b` writes a `*.tsbuildinfo` even under `noEmit: true`** — build',

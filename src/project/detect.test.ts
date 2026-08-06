@@ -17,6 +17,7 @@ import {
   REQUIRED_DEPS,
   STACK_DEPS,
   SUPPORTED_ESLINT_MAJORS,
+  viteTsCoverage,
 } from './detect';
 
 let root: string;
@@ -936,5 +937,217 @@ describe('describeUnreadable · one clause per file, and only an offset it has',
       'tsconfig.json could not be read (it is not valid JSON once the comments are stripped); '
       + 'jsconfig.json could not be read (a block comment never closes at character 4)',
     );
+  });
+});
+
+describe('viteTsCoverage · the fact that used to be three releases of prose', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-vitets-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  const write = (file: string, text: string) => {
+    fs.mkdirSync(path.join(dir, path.dirname(file)), { recursive: true });
+    fs.writeFileSync(path.join(dir, file), text);
+  };
+
+  it('reads the referenced project that pulls the vite config in', () => {
+    // The modern Vite + TS template: a root of pure references, and the node
+    // project lists the vite config by name. This is the shape the playbook used
+    // to ASSERT was universal (field #21–#22, still a finding at #99).
+    write('vite.config.ts', 'export default {}\n');
+    // `"files": []` is what makes a solution config compile nothing of its own —
+    // the real template carries it, and the test below shows why it matters here.
+    write('tsconfig.json', '{ "files": [], "references": [{ "path": "./tsconfig.node.json" }] }');
+    write('tsconfig.node.json', '{ "include": ["vite.config.ts"] }');
+
+    expect(viteTsCoverage(dir)).toEqual({
+      verdict: 'covered',
+      viteFile: 'vite.config.ts',
+      tsconfig: 'tsconfig.node.json',
+    });
+  });
+
+  it('reads a single root config whose include leaves the vite config out', () => {
+    // The other real shape, and the one this repo's own harness stages — where a
+    // field agent proved `tsc -b` never reads the file by injecting a type error.
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "include": ["src"], "compilerOptions": { "noEmit": true } }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'outside', tsconfig: 'tsconfig.json' });
+  });
+
+  it('counts a project with no files and no include as covering everything under it', () => {
+    // TypeScript's own default. Reading this as "not covered" would tell an adopter
+    // to run two builds where one reads both files.
+    write('vite.config.mts', 'export default {}\n');
+    write('tsconfig.json', '{ "compilerOptions": { "strict": true } }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'covered', viteFile: 'vite.config.mts' });
+  });
+
+  it('matches a star glob against the root file', () => {
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "include": ["**/*.ts"] }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'covered' });
+
+    // `"src"` is the same bare-directory shape as above and must NOT reach a root file.
+    fs.writeFileSync(path.join(dir, 'tsconfig.json'), '{ "include": ["src/**/*"] }');
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'outside' });
+  });
+
+  it('declines rather than guesses, once per shape it does not resolve', () => {
+    // Each of these is a real tsconfig feature whose semantics this reader does not
+    // reimplement. A wrong verdict is worse than none: the whole point is that the
+    // report must not claim a build verified an edit it never read.
+    write('vite.config.ts', 'export default {}\n');
+
+    const declines: [string, string][] = [
+      ['an exclude list can remove what include pulled in', '{ "include": ["**/*"], "exclude": ["vite.config.ts"] }'],
+      ['an extends base may carry the globs', '{ "extends": "./base.json" }'],
+      ['a brace expansion', '{ "include": ["vite.config.{ts,mts}"] }'],
+      ['a character class', '{ "include": ["vite.config.?s"] }'],
+      ['an unparseable config', '{ "include": [ '],
+      ['a non-string include entry', '{ "include": [42] }'],
+      ['a reference chain deeper than one level', '{ "references": [{ "path": "./a.json" }] }'],
+    ];
+
+    for (const [why, text] of declines) {
+      fs.writeFileSync(path.join(dir, 'tsconfig.json'), text);
+      fs.writeFileSync(path.join(dir, 'a.json'), '{ "references": [{ "path": "./b.json" }] }');
+      expect(viteTsCoverage(dir), `should decline: ${why}`).toBeNull();
+    }
+  });
+
+  it('declines when there is nothing to answer about', () => {
+    // No vite config: the build clause has nothing to specialise.
+    write('tsconfig.json', '{ "include": ["src"] }');
+    expect(viteTsCoverage(dir)).toBeNull();
+
+    // A vite config but no root tsconfig: a JS project, same non-answer.
+    fs.rmSync(path.join(dir, 'tsconfig.json'));
+    write('vite.config.js', 'export default {}\n');
+    expect(viteTsCoverage(dir)).toBeNull();
+  });
+
+  it('resolves a reference that names a directory rather than a file', () => {
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "files": [], "references": [{ "path": "./tools" }] }');
+    write('tools/tsconfig.json', '{ "include": ["../vite.config.ts"] }');
+
+    // The vite config sits above the referenced project's directory, and a
+    // project's globs cannot reach upward — so this is `outside`, not covered.
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'outside' });
+  });
+
+  it('reads a solution config missing `files: []` as covering everything, because it does', () => {
+    // Not a quirk of this reader — TypeScript's default include applies whenever a
+    // config has neither `files` nor `include`, references or not. So `tsc -b` on
+    // such a root really does compile the vite config, and answering `outside` here
+    // would send an adopter to run a second build it does not need. The real Vite
+    // template avoids this by carrying `files: []`.
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "references": [{ "path": "./tsconfig.node.json" }] }');
+    write('tsconfig.node.json', '{ "include": ["src"] }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'covered', tsconfig: 'tsconfig.json' });
+  });
+
+  it('declines when the root config parses to something that is not an object', () => {
+    // `parseJsonc` succeeding says the text was valid JSON, not that it was a config.
+    // A bare string and a literal `null` are the two shapes that reach the record
+    // guard from opposite sides — without them the guard reads as decoration.
+    write('vite.config.ts', 'export default {}\n');
+
+    for (const text of ['"just a string"', 'null', '[]', '42']) {
+      fs.writeFileSync(path.join(dir, 'tsconfig.json'), text);
+      expect(viteTsCoverage(dir), text).toBeNull();
+    }
+  });
+
+  it('will not read a subdirectory project as covering the root file of the same name', () => {
+    // `tools/tsconfig.json` listing `vite.config.ts` means `tools/vite.config.ts`.
+    // Resolving its globs against the ROOT-relative path would read a file that does
+    // not exist as covering the one that does — and hand back `tsc -b` alone for a
+    // build that never reads the vite config.
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "files": [], "references": [{ "path": "./tools/tsconfig.json" }] }');
+    write('tools/tsconfig.json', '{ "include": ["vite.config.ts"] }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'outside', tsconfig: 'tsconfig.json' });
+  });
+
+  it('declines on every malformed shape of `references` itself', () => {
+    // These are the arms a `references` reader can only get wrong silently: a
+    // non-array, an entry that is not an object or carries no string `path`, a path
+    // that resolves to nothing, and a referenced file that will not parse. Each one
+    // is a config someone hand-edited, and each returns no answer rather than a
+    // partial graph read as "none of them covers it".
+    write('vite.config.ts', 'export default {}\n');
+
+    const malformed = [
+      ['references is not an array', '{ "files": [], "references": "./tsconfig.node.json" }'],
+      // An object is the shape that separates this guard from the entry guard below:
+      // dropping it, a `for…of` over a non-iterable throws instead of declining.
+      ['references is an object', '{ "files": [], "references": { "path": "./x.json" } }'],
+      ['an entry is not an object', '{ "files": [], "references": ["./tsconfig.node.json"] }'],
+      ['an entry carries no path', '{ "files": [], "references": [{ "prepend": true }] }'],
+      ['a path that resolves to nothing', '{ "files": [], "references": [{ "path": "./missing.json" }] }'],
+      ['a directory with no tsconfig.json in it', '{ "files": [], "references": [{ "path": "./tools" }] }'],
+    ];
+
+    for (const [why, text] of malformed) {
+      fs.writeFileSync(path.join(dir, 'tsconfig.json'), text);
+      expect(viteTsCoverage(dir), `should decline: ${why}`).toBeNull();
+    }
+
+    // …and a referenced config that parses to nothing usable.
+    fs.writeFileSync(
+      path.join(dir, 'tsconfig.json'),
+      '{ "files": [], "references": [{ "path": "./broken.json" }] }',
+    );
+
+    write('broken.json', '{ "include": [ ');
+    expect(viteTsCoverage(dir)).toBeNull();
+
+    // A referenced config that parses to a NON-object is the other half of that arm.
+    fs.writeFileSync(path.join(dir, 'broken.json'), '["not", "a", "config"]');
+    expect(viteTsCoverage(dir)).toBeNull();
+  });
+
+  it('reads `files` as an exact list, and declines when it is not strings', () => {
+    // `files` names paths verbatim — no globs — so a hit there is the cheapest
+    // `covered` there is. A non-string entry is a hand-edit this will not interpret.
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "files": ["src/main.ts", "./vite.config.ts"] }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'covered', tsconfig: 'tsconfig.json' });
+
+    // Listed, but not this file: `files` present and no include means nothing else
+    // is pulled in, so the answer is a definite `outside` rather than a decline.
+    fs.writeFileSync(path.join(dir, 'tsconfig.json'), '{ "files": ["src/main.ts"] }');
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'outside' });
+
+    fs.writeFileSync(path.join(dir, 'tsconfig.json'), '{ "files": [42] }');
+    expect(viteTsCoverage(dir)).toBeNull();
+  });
+
+  it('names the file it found, whichever extension it is', () => {
+    write('tsconfig.json', '{ "include": ["src"] }');
+
+    for (const file of ['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite.config.mts']) {
+      for (const stale of ['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite.config.mts']) {
+        fs.rmSync(path.join(dir, stale), { force: true });
+      }
+
+      write(file, 'export default {}\n');
+      expect(viteTsCoverage(dir), file).toMatchObject({ viteFile: file });
+    }
   });
 });
