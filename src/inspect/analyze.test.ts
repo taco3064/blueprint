@@ -499,3 +499,68 @@ describe('detectCycle · memoized, so a mesh stays linear', () => {
     expect(detectCycle(edges)?.[0]).toBe('n0');
   });
 });
+
+describe('analyze · a directory finding addresses the source root the config named', () => {
+  // `scan` supports `sourceRoot`, and so did coverage, deps and doctor. The four
+  // directory-level findings built their path from a literal `src/`, so a repo with
+  // `sourceRoot: 'app'` was sent to `src/components` for a folder at
+  // `app/components`. One case per rule per root: this is the whole set of findings
+  // whose path is composed rather than taken from `scan`, so a rule left behind
+  // keeps pointing at a directory the adopter does not have.
+  const withRoot = (sourceRoot?: string) =>
+    defineBlueprint({
+      ...bp,
+      architecture: sourceRoot === undefined
+        ? { ...bp.architecture }
+        : { ...bp.architecture, sourceRoot },
+    });
+
+  /** One scan that trips all four directory findings at once. */
+  const scanIn = (prefix: string): ScanResult => ({
+    topDirs: ['components', 'utils'],
+    files: [
+      { path: `${prefix}components/Button/Button.ts`, segments: ['components', 'Button', 'Button.ts'], imports: [] },
+      { path: `${prefix}utils/helper.ts`, segments: ['utils', 'helper.ts'], imports: [] },
+    ],
+  });
+
+  const pathOf = (
+    sourceRoot: string | undefined,
+    prefix: string,
+    rule: string,
+  ): string | undefined =>
+    analyze(scanIn(prefix), withRoot(sourceRoot)).find((finding) => finding.rule === rule)?.path;
+
+  const roots: [string, string | undefined, string][] = [
+    ['the default src/', undefined, 'src/'],
+    ['a named root', 'app', 'app/'],
+    ['the project root', '.', ''],
+  ];
+
+  it.each(roots)('undeclared-folder under %s', (_name, sourceRoot, prefix) => {
+    expect(pathOf(sourceRoot, prefix, 'undeclared-folder')).toBe(`${prefix}utils`);
+  });
+
+  it.each(roots)('missing-layer under %s', (_name, sourceRoot, prefix) => {
+    expect(pathOf(sourceRoot, prefix, 'missing-layer')).toBe(`${prefix}pages`);
+  });
+
+  it.each(roots)('declaratory-self-only under %s', (_name, sourceRoot, prefix) => {
+    expect(pathOf(sourceRoot, prefix, 'declaratory-self-only')).toBe(`${prefix}contexts`);
+  });
+
+  it.each(roots)('no-entry under %s', (_name, sourceRoot, prefix) => {
+    expect(pathOf(sourceRoot, prefix, 'no-entry')).toBe(`${prefix}components/Button`);
+  });
+
+  it('spells a project-root layout the same way scan does — no "./" prefix', () => {
+    // `scan` passes '' as the prefix for a '.' root, so its own file paths carry
+    // none. A directory finding rendering './components' beside a file finding
+    // rendering 'components/Button/Button.ts' is one path in two spellings, and the
+    // reader has to rule out that they are different places.
+    const paths = analyze(scanIn(''), withRoot('.')).map((finding) => finding.path);
+
+    expect(paths.every((entry) => !entry.startsWith('./'))).toBe(true);
+    expect(paths).toContain('utils');
+  });
+});

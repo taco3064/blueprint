@@ -15,6 +15,27 @@ import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './ty
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
 
+/**
+ * The display prefix for a finding about a directory, from the source root the
+ * config named.
+ *
+ * Per-file findings do not need this — `scan` already puts the prefix on
+ * `file.path`. The directory-level findings built their path from a literal
+ * `src/`, so a repo with `sourceRoot: 'app'` was told to look at `src/components`
+ * for a folder that is at `app/components`. Enforcement was unaffected, which is
+ * what let it live: the finding is correct, and only its address is wrong — in a
+ * tool whose output is read by an agent that will go to that address.
+ *
+ * `'.'` yields an empty prefix, not `'./'`, so a project-root layout reads the same
+ * way here as it does in `scan`'s own paths. Two spellings of one path in a single
+ * report is a difference the reader has to rule out.
+ */
+function sourcePrefix(architecture: ArchitectureDef): string {
+  const root = architecture.sourceRoot ?? 'src';
+
+  return root === '.' ? '' : `${root}/`;
+}
+
 /** Analyze a scan against a blueprint. Pure — the core of `inspect`. */
 export function analyze(scan: ScanResult, blueprint: Blueprint): Finding[] {
   const { architecture } = blueprint;
@@ -46,13 +67,14 @@ function folderFindings(
   layerNames: string[],
 ): Finding[] {
   const findings: Finding[] = [];
+  const prefix = sourcePrefix(architecture);
 
   for (const dir of scan.topDirs) {
     if (!layerNames.includes(dir) && scan.files.some((file) => file.segments[0] === dir)) {
       findings.push({
         severity: 'error',
         rule: 'undeclared-folder',
-        path: `src/${dir}`,
+        path: `${prefix}${dir}`,
         message: `"${dir}" is not a declared layer — declare it, or move its code into a module of an existing layer.`,
       });
     }
@@ -63,7 +85,7 @@ function folderFindings(
       findings.push({
         severity: 'info',
         rule: 'missing-layer',
-        path: `src/${name}`,
+        path: `${prefix}${name}`,
         // Reads like a todo without the second clause — six of these sent
         // a field agent toward "delete the unused layers", the opposite of
         // the keep-is-default doctrine the playbook states (field run #13).
@@ -97,7 +119,7 @@ function folderFindings(
         findings.push({
           severity: 'info',
           rule: 'declaratory-self-only',
-          path: `src/${layer.name}`,
+          path: `${prefix}${layer.name}`,
           message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands. The no-restricted-syntax ENTRY is emitted today, on the importer layer(s) named above, so it is already exposed to a merge: IF a second no-restricted-syntax scoped to one of those layers exists, flat config merges neither into the other — the later entry replaces the earlier, silently, with lint still green. That condition is the whole note. Adopting into a single generated config, there is no second entry, so there is nothing here to act on. "Cannot fire" is about the ban, not about the entry. Check \`blueprint rules --json\` for the emit points before merging.`,
         });
       }
@@ -143,7 +165,7 @@ function noEntryFindings(
       findings.push({
         severity: 'warn',
         rule: 'no-entry',
-        path: `src/${key}`,
+        path: `${sourcePrefix(architecture)}${key}`,
         message: `Module "${key}" has no "${entry}" entry — nothing is importable from outside.`,
       });
     }
