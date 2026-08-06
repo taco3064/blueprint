@@ -221,6 +221,20 @@ export function plan(
   // exception, and the guard comment says to remove the dep with it.
   const deps = state.missingDeps;
 
+  // Every local write lands before the one child process, because that process is
+  // the only step here that can hang for minutes or fail on a network the adopter
+  // does not have. `applyAndNarrate` already stopped CLAIMING the writes below a
+  // failed install (field issue #37) and left them below it, which fixed the
+  // narration and not the state: a codex run aborted the install in a sandbox with
+  // no registry and was left with a config, a contract and an eslint config but no
+  // alias in tsconfig or vite — so `doctor` said `~app resolves nowhere` and two
+  // toolchain files had to be hand-edited (field run #131). The security doc states
+  // the rule for the other child process — "every artifact lands on disk before the
+  // spawn — a failed launch degrades to exactly the manual path" — and this is that
+  // rule applied to the install. An aborted install now leaves a tree that is
+  // complete except for `node_modules`, which one command finishes.
+  actions.push(...aliasActions(state, architecture, configSource !== null));
+
   if (deps.length) {
     if (options.install !== false) {
       actions.push({
@@ -262,8 +276,6 @@ export function plan(
       note: 'CSS token governance (optional): install stylelint + @csstools/stylelint-value-no-unknown-custom-properties, pointing importFrom at your token source file.',
     },
   );
-
-  actions.push(...aliasActions(state, architecture, configSource !== null));
 
   return actions;
 }

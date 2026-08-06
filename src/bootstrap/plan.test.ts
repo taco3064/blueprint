@@ -39,6 +39,36 @@ const write = (actions: Action[], path: string): WriteAction | undefined =>
   );
 
 describe('plan', () => {
+  it('puts every filesystem effect above the install, on every path', () => {
+    // The install is the only action here that can hang for minutes or fail on a
+    // network the adopter does not have, and the alias writes used to sit below it.
+    // #37 stopped the output CLAIMING them; the state stayed half-done, and a codex
+    // run aborted a registry-less install and was left with a config, a contract and
+    // an eslint config but no alias in tsconfig or vite — `~app resolves nowhere`,
+    // two toolchain files hand-edited (field run #131). Asserting the boundary rather
+    // than the alias's position: any future effect added below the install strands the
+    // same way, whatever it writes.
+    const cases = [
+      ['fresh scaffold', plan(state(), bp, 'CONFIG SOURCE', {})],
+      ['existing config', plan(state(), bp, null, {})],
+      ['no install', plan(state(), bp, 'CONFIG SOURCE', { install: false })],
+    ] as const;
+
+    for (const [name, actions] of cases) {
+      const effects = actions
+        .map((action, index) => ({ index, kind: action.kind }))
+        .filter((entry) => entry.kind !== 'instruct' && entry.kind !== 'install');
+
+      const install = actions.findIndex((action) => action.kind === 'install');
+
+      expect(effects.length, name).toBeGreaterThan(0);
+
+      if (install !== -1) {
+        expect(Math.max(...effects.map((entry) => entry.index)), name).toBeLessThan(install);
+      }
+    }
+  });
+
   it('writes config, scaffolds every layer, emits artifacts, and installs', () => {
     const actions = plan(state(), bp, 'CONFIG SOURCE', {});
 

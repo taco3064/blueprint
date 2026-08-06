@@ -185,10 +185,14 @@ describe('runInit', () => {
 
     const lines: string[] = [];
 
-    // The field repro: install sits mid-plan with the alias writes below it,
-    // so an ERESOLVE used to leave an output claiming edits that never
-    // reached disk — and an agent contract promising an alias that resolved
-    // nowhere.
+    // The field repro was an install that threw with the alias writes below it, and
+    // #37 fixed the half of it that was a lie: the output stopped claiming edits that
+    // never reached disk. The other half was the state, and a codex run found it — an
+    // aborted install left a config, a contract and an eslint config with no alias in
+    // tsconfig or vite, so doctor said `~app resolves nowhere` (field run #131). Every
+    // local write now lands ABOVE the install, so this asserts the inverse of what it
+    // used to: the alias IS on disk when the install fails, and the ✓ that says so is
+    // true.
     const failing = runInit(root, {
       log: (message) => lines.push(message),
       exec: () => {
@@ -200,32 +204,39 @@ describe('runInit', () => {
 
     const output = lines.join('\n');
 
-    // Everything narrated with ✓ is genuinely on disk; the step that threw
-    // wears ✗, and nothing below it was announced at all.
     expect(output).toContain('✓ write: eslint.config.mjs');
     expect(exists('eslint.config.mjs')).toBe(true);
     expect(output).toContain('✗ install: eslint,');
     expect(output).not.toContain('✓ install:');
-    expect(output).not.toContain('vite.config.ts');
-    expect(read('vite.config.ts')).not.toContain('~app');
+    // The alias landed first, so it is claimed AND true — the pairing is the contract,
+    // since either half alone is a state #37 or #131 already caught.
+    expect(output).toContain('✓ write: vite.config.ts (import alias added');
+    expect(read('vite.config.ts')).toContain('~app');
+    // And the wait announced itself before the silence, which is what two runs killed.
+    expect(output).toContain('→ install: eslint,');
+    expect(output).toContain('the one step that needs the registry');
+    expect(output.indexOf('→ install:')).toBeLessThan(output.indexOf('✗ install:'));
   });
 
   it('names what did not happen, and how to finish (field issue #37)', async () => {
     writePkg({ name: 'demo', dependencies: { react: '^18' } });
 
-    const failing = runInit(root, {
-      log: silent,
-      exec: () => {
-        throw new Error('npm error ERESOLVE');
-      },
-    });
+    // A failing WRITE, not a failing install, because the install can no longer strand
+    // a planned write — every one of them lands above it now, and only report-only
+    // instructs sit below. So this is the shape that still reaches the missing-effects
+    // list, and it is the honest one: a read-only tree or a path already taken by a
+    // directory. `EISDIR` on the handbook leaves the config and the layer folders on
+    // disk and everything after it unwritten.
+    fs.mkdirSync(path.join(root, 'docs', 'architecture-handbook.md'), { recursive: true });
+
+    const failing = runInit(root, { log: silent, exec: silent });
 
     // A stopped run whose remaining plan is unnamed reads as "init is done,
     // minus one warning" — the message has to carry the missing effects and
     // a route to completion, or the adopter has no reason to look.
-    await expect(failing).rejects.toThrow('init stopped at the install step above');
+    await expect(failing).rejects.toThrow('init stopped at the write step above');
     await expect(failing).rejects.toThrow('did NOT happen');
-    await expect(failing).rejects.toThrow('write: jsconfig.json (import alias)');
+    await expect(failing).rejects.toThrow('write: eslint.config.mjs');
     await expect(failing).rejects.toThrow('blueprint init --no-install');
   });
 

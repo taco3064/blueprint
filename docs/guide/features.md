@@ -41,7 +41,7 @@ to see how to use it.
 
 ## Trust & compatibility
 
-- [Security & trust](/guide/security) — no network, zero runtime dependencies, read-only checks, declared writes, `--dry-run`, provenance-signed releases
+- [Security & trust](/guide/security) — no network code, zero runtime dependencies, the two declared child processes (the `init` install, the opt-in agent launch), read-only checks, declared writes, `--dry-run`, provenance-signed releases
 - [Field-tested setups](/guide/field-tested) — what has actually been run: production apps, all five stacks, monorepo model — plus what is unsupported (Nuxt) and why
 - [Prior art — how it differs](/guide/prior-art) — where blueprint overlaps with import-boundary linters, and what only it compiles from the same source
 - [Programmatic API](/api/) — every emitter and runtime is importable — `emitLint` in your own eslint config, `runInspect` / `runDeps` in your own tooling
