@@ -423,6 +423,47 @@ describe('authoringBrief', () => {
     }
   });
 
+  it('never breaks a line mid-sentence, whichever conditional arm renders', () => {
+    // The sentence-per-line pass came with four invariants, and all four are
+    // preservation properties — no word lost, fences byte-identical, list markers
+    // counted, continuations indented. None of them can see the goal itself, so one
+    // sentence stayed split: a lead-in element ending in "and" sat directly above a
+    // `renderBuildArtifacts()` call, and the `\n` join put a break inside it. It read
+    // fine rendered and could not be grepped, which is the defect the pass existed to
+    // remove. A conjunction, preposition or comma at end of line is the unambiguous
+    // form of it — deliberately narrow, because plenty of legitimate lines (list
+    // items, catalog bullets) end without terminal punctuation.
+    const arms = [
+      authoringBrief(survey, 'npm i', { hadClaudeDir: false }),
+      authoringBrief(survey, 'npm i', { hadClaudeDir: true, next: true }),
+      authoringBrief({ ...survey, totalFiles: 3 }, 'npm i', { hadClaudeDir: false }),
+      authoringBrief({ ...survey, totalFiles: 3 }, 'npm i', {
+        hadClaudeDir: true,
+        viteTs: { verdict: 'covered', viteFile: 'vite.config.ts', tsconfig: 'tsconfig.node.json' },
+      }),
+      authoringBrief({ ...survey, totalFiles: 3 }, 'npm i', {
+        hadClaudeDir: false,
+        viteTs: { verdict: 'outside', viteFile: 'vite.config.ts', tsconfig: 'tsconfig.json' },
+      }),
+    ];
+
+    for (const text of arms) {
+      let fenced = false;
+
+      const dangling = text.split('\n').filter((line) => {
+        if (line.trimStart().startsWith('```')) {
+          fenced = !fenced;
+
+          return false;
+        }
+
+        return !fenced && /(,|\b(and|or|but|of|with|which|that)) *$/.test(line);
+      });
+
+      expect(dangling).toEqual([]);
+    }
+  });
+
   it('embeds the survey evidence and the schema sketch', () => {
     expect(brief).toContain('resources → components');
     expect(brief).toContain('~root/…'); // the unresolved-alias hint travels with the evidence

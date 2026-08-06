@@ -158,10 +158,17 @@ function renderBuildChoice(viteTs: ViteTsCoverage | null): string[] {
  * `*.tsbuildinfo` even under `noEmit`, so the early exit's verification step
  * produces untracked files in someone's working tree — a step THIS playbook asked
  * for, which is why it has to say so rather than leave a mess unexplained.
+ *
+ * The lead-in belongs to the first line rather than to the call site. It sat there,
+ * as its own element ending in "and", so the `\n` join put a line break inside the
+ * sentence and the emitted document had one line that was not one — the exact thing
+ * the sentence-per-line pass removed everywhere else, surviving inside it. Different
+ * from the long-line wrinkle a spliced `${…}` helper leaves: that one keeps the
+ * sentence whole, this one split it and made it ungreppable.
  */
 function renderBuildArtifacts(): string {
   return [
-    '   **`tsc -b` writes a `*.tsbuildinfo` even under `noEmit: true`** — build mode\'s book-keeping of what it already checked, not emitted program output, so the two settings do not conflict and the file is safe to delete.',
+    '   Its artifacts (`dist/`, `*.tsbuildinfo`) are the build\'s normal output, and **`tsc -b` writes a `*.tsbuildinfo` even under `noEmit: true`** — build mode\'s book-keeping of what it already checked, not emitted program output, so the two settings do not conflict and the file is safe to delete.',
     '   Stated because the opposite reading is the natural one: an agent that just opened the tsconfig to answer the paragraph above has `noEmit: true` in front of it, and a file appearing anyway looks like the build overriding the config.',
     '   Either way they are not adoption leftovers: leave them to the repo\'s own ignore rules, and say so in the report instead of guessing a cleanup when those rules will not cover it.',
     '   Two independent facts decide that, not one — whether the repo HAS ignore rules, and whether it is under version control at all — and a repo can be any combination.',
@@ -222,7 +229,6 @@ function renderEarlyExitVerify(viteTs: ViteTsCoverage | null): string {
     `   It becomes that proof the first time a layer file imports through it.`,
     `   Run it anyway (cheap, and it catches an edit that broke the config outright) and report which of the two you got.`,
     ...renderBuildChoice(viteTs),
-    '   Its artifacts (`dist/`, `*.tsbuildinfo`) are the build\'s normal output, and',
     renderBuildArtifacts(),
 
     renderArtifactHandover(),
