@@ -684,6 +684,25 @@ describe('a proof step states its own reach (field run #85)', () => {
     expect(playbook).toContain('the one place print-config is not optional');
   });
 
+  it('names the one part of the emitted entry a fold does NOT carry (field run #117)', async () => {
+    // The same sentence said the combined entry must carry "everything the emitted one
+    // did", two paragraphs after forbidding an emitLint dump — and the emitted entry
+    // holds a message the sanctioned source does not. An agent read the two together as
+    // two sanctioned sources disagreeing and went to the dump for the text.
+    const dir = repo(brownfield());
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const prose = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
+
+    expect(prose).toContain('carry everything the emitted one ENFORCED');
+    expect(prose).toContain('The ban message is the one part that is NOT among those');
+    expect(prose).toContain('doctor compares selectors and never messages');
+    expect(prose).toContain('nothing here sends you into a dump to retrieve a sentence');
+    // The claim that made the message look mandatory, so restoring it turns this red.
+    expect(prose).not.toContain('carry everything the emitted one did');
+  });
+
   it('treats ignore rules and version control as two facts, not one axis', async () => {
     // First written as one axis ("no ignore rules — including no VCS at all"), which
     // collapsed two independent facts. A field repo landed exactly between them: a
@@ -1548,12 +1567,16 @@ describe('selfOnly survives every esquery, and the fold gets its selectors (batc
     const json = await cli(dir, ['rules', '--json']);
 
     const parsed = JSON.parse(json.output) as {
-      bans: { layer: string; selfOnly: { target: string; selectors: string[] }[] }[];
+      bans: { layer: string; selfOnly: { target: string; selectors: string[]; note: string }[] }[];
     };
 
     const views = parsed.bans.find((entry) => entry.layer === 'views');
 
-    expect(views?.selfOnly).toEqual([{ target: 'contexts', selectors: emittedSelectors() }]);
+    expect(views?.selfOnly).toEqual([{
+      target: 'contexts',
+      selectors: emittedSelectors(),
+      note: 'the message text is yours to write — doctor verifies selectors, never messages',
+    }]);
 
     // The text catalog prints the same strings — an agent without --json
     // still never needs to dump emitLint.
@@ -1561,6 +1584,10 @@ describe('selfOnly survives every esquery, and the fold gets its selectors (batc
 
     expect(text.output).toContain('Copy these selectors verbatim');
     expect(text.output).toContain(emittedSelectors()[0]);
+    // And the caveat is in BOTH shapes, from one string. It reached only the text
+    // form for three releases, so #117 raised the doubt #23 had already answered —
+    // through `--json`, which is where the playbook's merge step sends a fold.
+    expect(text.output).toContain(views?.selfOnly[0].note);
   });
 });
 

@@ -260,8 +260,9 @@ describe('runRules', () => {
       .map((item) => (item as { selector: string }).selector);
 
     const views = bans.find((entry) => entry.layer === 'views');
+    const note = 'the message text is yours to write — doctor verifies selectors, never messages';
 
-    expect(views?.selfOnly).toEqual([{ target: 'contexts', selectors: emitted }]);
+    expect(views?.selfOnly).toEqual([{ target: 'contexts', selectors: emitted, note }]);
     expect(views?.selfOnly[0].selectors).toHaveLength(2); // one per alias
     expect(views?.selfOnly[0].selectors[1]).toContain('~root\\u002Fsrc\\u002Fcontexts');
 
@@ -269,6 +270,49 @@ describe('runRules', () => {
 
     expect(output).toContain('Copy these selectors verbatim');
     expect(output).toContain(emitted[0]);
+    // Both output shapes, one string: the caveat reached only the text form for
+    // three releases, so a folding agent sent to `--json` by the playbook's merge
+    // step hit the same doubt #23 already answered (field issue #117). Asserting
+    // the JSON's own note against the text output is what keeps them from drifting.
+    expect(output).toContain(views?.selfOnly[0].note);
+  });
+
+  it('withholds the ban message rather than omitting it by accident (field #117)', async () => {
+    // The emitted entry is { selector, message }. The catalog ships the selector
+    // and states that the message is the adopter's — an agent that read "carry
+    // everything the emitted one did" as including the text went to an emitLint
+    // dump for it, which is the one source the merge step forbids.
+    const selfOnly: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [
+          { name: 'views', does: 'pages' },
+          {
+            name: 'contexts',
+            does: 'state seam',
+            allowedImporters: [{ layer: 'views', selfOnly: true }],
+          },
+        ],
+        module: { layout: 'flat', entry: 'index' },
+      },
+      rules: {},
+    };
+
+    const { bans } = await runRules(repo(selfOnly), { log: () => {} });
+
+    const messages = emitLint(selfOnly)
+      .flatMap((entry) => entry.rules?.['no-restricted-syntax'] as unknown[] ?? [])
+      .slice(1)
+      .map((item) => (item as { message: string }).message);
+
+    expect(messages[0]).toContain('Cannot re-export from "contexts"');
+
+    const ban = bans.find((entry) => entry.layer === 'views')?.selfOnly[0];
+
+    expect(JSON.stringify(ban)).not.toContain('Cannot re-export');
+    expect(ban?.note).toContain('yours to write');
+    expect(ban?.note).toContain('never messages');
   });
 
   it('reads a narrowed importer list as no reason to emit the syntax ban', async () => {
