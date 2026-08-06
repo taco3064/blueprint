@@ -66,8 +66,15 @@ export interface LayerBans {
    * `no-restricted-syntax` selector per (target, alias). A merge that folds
    * blueprint's entry into the project's own used to have no supported
    * source for these strings but an emitLint dump (field issue #20).
+   *
+   * `note` carries the one thing a fold must NOT copy, beside the things it
+   * must. It repeats per entry rather than sitting once at the top because an
+   * agent arrives here looking for selectors to copy, and the caveat has to be
+   * where that copy happens — the text output has carried it since field issue
+   * #23 and the JSON did not, so the same doubt came back through the channel
+   * the playbook points at (field issue #117).
    */
-  selfOnly: { target: string; selectors: string[] }[];
+  selfOnly: { target: string; selectors: string[]; note: string }[];
   /**
    * The test-exemption globs the emitted entry carries alongside these bans.
    * Rebuilding a combined `no-restricted-syntax` entry from `selectors` alone
@@ -93,6 +100,13 @@ export interface GateStatus {
   /** Whether the emitted config would carry it today. */
   active: boolean;
 }
+
+/**
+ * One string for both output shapes, so the text form and `--json` cannot drift
+ * into disagreeing about the same fold.
+ */
+const SELF_ONLY_MESSAGE_NOTE
+  = 'the message text is yours to write — doctor verifies selectors, never messages';
 
 export const STRUCTURAL_RULES: StructuralRule[] = [
   { rule: 'no-restricted-imports', covers: 'dependency flow, same-layer bans, package ownership — whole packages or named imports ({ package, imports }); same-signature owns merge — and fixture bans' },
@@ -170,6 +184,7 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
     selfOnly: getSelfOnlyTargets(architecture, layer.name).map((target) => ({
       target,
       selectors: aliases.map((alias) => selfOnlyReexportSelector(alias, target)),
+      note: SELF_ONLY_MESSAGE_NOTE,
     })),
     testExemptions: resolveTestFiles(architecture.testFiles),
   }));
@@ -292,7 +307,10 @@ export function renderRules(
             // The exact strings a merge fold needs — printing them here is
             // what keeps "combine into ONE entry" doable without an emitLint
             // dump (field issue #20). The message caveat closes the follow-up
-            // doubt (#23): doctor compares selectors only, by design.
+            // doubt (#23): doctor compares selectors only, by design. It reached
+            // only this text form for three releases, so #117 raised #23 again
+            // from `--json` — which is the channel the playbook's merge step
+            // sends a folding agent to. Both carry the one string now.
             //
             // "Verbatim" needs its reason, and the header above carries it —
             // doctor's comparison is textual, which wiring said only once it had
@@ -303,8 +321,7 @@ export function renderRules(
             ...entry.selfOnly.flatMap((ban) => [
               `    selfOnly: no re-export from "${ban.target}" — folding your own`
               + ' no-restricted-syntax into one entry? Copy these selectors verbatim,'
-              + ' per the caveat above (the message text is yours to write — doctor'
-              + ' verifies selectors, never messages):',
+              + ` per the caveat above (${ban.note}):`,
               ...ban.selectors.map((selector) => `      ${selector}`),
               // The selectors alone are not the whole entry. The emitted block
               // exempts test files, and an entry rebuilt from selectors carries
