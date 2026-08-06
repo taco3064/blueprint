@@ -20,6 +20,33 @@ reject), put each fix through the two questions below, sweep the class before
 landing, land with conformance fixtures, close the issue referencing the
 commits — the closed issue is the public record of what shaped the release.
 
+## Only one section is a defect queue
+
+The feedback file has three sections and they are not the same kind of thing.
+
+**卡到的 is the defect queue.** An entry there cost the agent something real —
+blocked time, a wrong decision, an internal it had to reverse-engineer. A
+non-empty one is the signal that gates a release.
+
+**拿不準的 is the paper trail, and reading it as a queue is how the generator
+above gets fed.** It records decisions the agent made that the tool did not make
+for it — and a governance tool is *supposed* to hand architecture decisions back,
+so most entries are the product working. `scripts/field-prompt.md` asks the agent
+to mark each one, because the agent is the only one who knows which it was:
+
+- **有立場, 我照做** — the tool stated a stance and the agent followed it. Not a
+  gap. It belongs in the release notes' "what the owner still decides" list, not
+  in a fix list. Fixing these is what turns one finding into the next one's
+  landing site.
+- **沒立場, 我自己發明** — the tool had no stance and the agent invented one.
+  This is a candidate defect. Still put it through the two questions: a stance
+  that is *absent* is answered with a sentence, and a sentence is the generator.
+  Fix it when the item names prose that is **wrong**, or a fact the tool could
+  **measure**. Record and close it when the remedy is only one more paragraph.
+
+An older report with an unmarked 拿不準的 section has to be sorted by hand, which
+is the sorting the prompt now front-loads.
+
 ## Two questions before the wording
 
 A finding's obvious fix is a better sentence, and that reflex is why the
@@ -61,11 +88,26 @@ commit message. Same argument as the survivor proofs in
 [`mutation-testing.md`](./mutation-testing.md): a judgement in a commit message
 serves the review and afterwards has to be excavated with `git log -S`.
 
-## Not a diverging loop
+## What the counts actually did
 
-Worth stating so the numbers above are not over-read. The finding rate is not
-climbing: three of the four #99/#100 scenarios reported no blocking item, and
-withdrawn-on-investigation entries are rising, which is the playbook preempting
-doubt. What the numbers show is that growth is one-directional and the added
-prose is where later findings land. That is a fix-policy question, not a length
-one — which is why this page leads with the two questions rather than a budget.
+Measured over #95–#107, nine issues and eighteen scenarios:
+
+- **17 of 18 reported nothing under 卡到的.** The exception is #99's new×claude
+  and it is the `tsc -b` universal in question 1 above.
+- **拿不準的 held flat at 6–9 per issue** — 2, 2, 9, 5, 6, 9, 6, 8, 7. No trend,
+  and there should not be one: that section is the product.
+- **5 of the last 12 fixes repaired this project's own earlier sentences.** The
+  `tsc -b` universal and the four-cell artifact table each came back one batch
+  after being written; broadening "mentioned" to include a diagram narrowed the
+  stale branch and left a third state unowned, which is #107.
+
+So the loop was not diverging — it was *fed*, by triaging the paper trail as a
+queue. The stopping rule follows from the split above: a non-empty 卡到的 gates
+the release; a 拿不準的 entry is answered in the issue thread unless it names
+wrong prose or a measurable fact. Withdrawn-on-investigation entries are rising
+across the same window, which is the playbook preempting doubt, and they are the
+number worth watching go up.
+
+A release still needs a run: the prose an agent will *follow* — an instruction,
+not a caveat — is the highest-risk kind, and every second-order finding above
+came from one. Merge, run once, judge by the split, ship.
