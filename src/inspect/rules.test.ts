@@ -136,9 +136,16 @@ describe('runRules', () => {
     // off by the author's choice; `deepWatch` is declared error and silenced by
     // the framework — swap the two and the reader is told to look for a config
     // decision that is not there, and that a rule they switched off is live.
+    // The framework case now says WHY it is silent, and still says it was declared:
+    // one means a line in the config does nothing, the other that adding one would.
     expect(output).toContain('✓ error(300)');
     expect(output).toMatch(/· off\s+usePrefix →/);
-    expect(output).toMatch(/· declared, never emits here deepWatch →/);
+    expect(output).toMatch(/· declared, unavailable here deepWatch →/);
+    // And the row count reconciles with inspect's denominator in place, rather than
+    // by subtraction the reader has to guess at (field run #137).
+    expect(output).toContain('18 listed — 2 of them unavailable on this stack');
+    expect(output).toContain('deepWatch: Vue only');
+    expect(output).toContain('explicitAny: `any` is a TypeScript construct');
     expect(output).not.toContain('static catalog');
 
     // `unusedVars` is a bare tier: no number behind it, so none is printed.
@@ -157,6 +164,27 @@ describe('runRules', () => {
       declared: { tier: 'error' },
       active: true,
     });
+  });
+
+  it('says the row count matches when the stack can open every gate', async () => {
+    // A TypeScript Vue project is the one shape with nothing to exclude, and the note
+    // has to say so rather than go quiet: silence would leave the reader comparing
+    // eighteen rows to a denominator with no statement either way, which is the
+    // position the disagreement put them in (field run #137).
+    const dir = repo({ ...blueprint, framework: 'vue' });
+
+    // `detect` reads TypeScript off the dependency list, not off a tsconfig — the
+    // fixture's package.json has to declare it or `explicitAny` stays unavailable.
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ name: 'fixture', devDependencies: { typescript: '^5' } }),
+    );
+
+    const lines: string[] = [];
+    const { gates } = await runRules(dir, { log: (m) => void lines.push(m) });
+
+    expect(gates.every((gate) => gate.unavailable === undefined)).toBe(true);
+    expect(lines.join('\n')).toContain('all of them openable on this stack');
   });
 
   it('defaults the structural severity when the config declares emit but no lint', async () => {
