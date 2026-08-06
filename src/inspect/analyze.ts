@@ -1,6 +1,7 @@
 import { getForbiddenLayers, getModuleShape, getSelfOnlyTargets, normalizeAllowedImporters } from '../config';
 import type { ArchitectureDef, Blueprint } from '../config';
 import { dropTestFiles } from './filter';
+import { compareText } from './order';
 import {
   aliasList,
   buildModuleGraph,
@@ -49,9 +50,7 @@ export function analyze(scan: ScanResult, blueprint: Blueprint): Finding[] {
     ...scan.files.flatMap((file) => importFindings(file, architecture, layerNames)),
   ];
 
-  const cycle = detectCycle(buildModuleGraph(scan, architecture).edges);
-
-  if (cycle) {
+  for (const cycle of detectCycles(buildModuleGraph(scan, architecture).edges)) {
     findings.push(
       finding('error', 'cycle', cycle[0], `Import cycle between modules: ${cycle.join(' → ')}.`),
     );
@@ -279,6 +278,115 @@ function ownersOf(
   }
 
   return owners.length ? owners : null;
+}
+
+/**
+ * Every independent cycle in the graph, one representative path each.
+ *
+ * `detectCycle` returns on the first cycle it meets, and `analyze` reported that
+ * one. Enforcement was unaffected — one cycle is enough to fail the gate — but the
+ * report is also the brownfield debt inventory, and a repo with three unrelated
+ * cycles was told it had one. "How many" and "whether any" are different questions
+ * for anyone sizing the work, and this is the answer the tool can compute rather
+ * than hedge with "there may be others".
+ *
+ * Not every *elementary* cycle: a graph's cycles can outnumber its nodes
+ * exponentially, and a list like that is not an inventory either. One per strongly
+ * connected component is the useful count — an SCC is a knot of mutual dependency
+ * that has to be broken as a unit, and separate SCCs are separate pieces of work.
+ *
+ * Composed rather than reimplemented: Tarjan finds the components, then each
+ * component's own edges go to `detectCycle` unchanged. That keeps the walk with the
+ * memoization proof on it as the single cycle-finder, and it settles the self-loop
+ * case for free — a one-node component answers null unless it really has an edge to
+ * itself, so nothing here has to classify components as trivial or not.
+ */
+export function detectCycles(edges: Map<string, Set<string>>): string[][] {
+  return stronglyConnected(edges)
+    .map((component) => detectCycle(subgraph(edges, component)))
+    .filter((cycle): cycle is string[] => cycle !== null)
+    // Content-ordered, not traversal-ordered: two cycles can never share a node, so
+    // the head of each path is a total order over them. Tarjan's own output order
+    // depends on which key it started from, and a report that reshuffles when an
+    // unrelated file is added is a diff nobody can read.
+    .sort((a, b) => compareText(a[0], b[0]));
+}
+
+/**
+ * One component's edges, dropping every target outside it, nodes in name order.
+ *
+ * The sort is what makes the representative path reproducible: `detectCycle` walks
+ * from the first key it is given, so an unsorted subgraph would hand back whichever
+ * cycle the insertion order happened to reach first.
+ */
+function subgraph(edges: Map<string, Set<string>>, component: string[]): Map<string, Set<string>> {
+  const members = new Set(component);
+  const restricted = new Map<string, Set<string>>();
+
+  for (const node of [...component].sort(compareText)) {
+    const targets = [...(edges.get(node) ?? [])].filter((target) => members.has(target));
+
+    restricted.set(node, new Set(targets));
+  }
+
+  return restricted;
+}
+
+/**
+ * Tarjan's strongly connected components, in the order the walk closes them.
+ *
+ * `lowest` is returned rather than kept in a map because the value a parent needs
+ * from a child IS the child's lowlink — threading it through the return type makes
+ * the propagation the signature instead of a lookup that could read the wrong node.
+ * The component is spliced off the stack at the root's position: popping until the
+ * root reappears needs a loop whose exit can never be the empty stack, which is an
+ * unreachable branch standing in for a guarantee Tarjan already gives.
+ */
+function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
+  const index = new Map<string, number>();
+  const onStack = new Set<string>();
+  const stack: string[] = [];
+  const components: string[][] = [];
+  let next = 0;
+
+  const visit = (node: string): number => {
+    const own = next++;
+    let lowest = own;
+
+    index.set(node, own);
+    stack.push(node);
+    onStack.add(node);
+
+    for (const target of edges.get(node) ?? []) {
+      const seen = index.get(target);
+
+      if (seen === undefined) {
+        lowest = Math.min(lowest, visit(target));
+      } else if (onStack.has(target)) {
+        // A target already indexed but off the stack belongs to a component that is
+        // already closed — following it would merge two separate knots into one.
+        lowest = Math.min(lowest, seen);
+      }
+    }
+
+    if (lowest === own) {
+      const component = stack.splice(stack.indexOf(node));
+
+      for (const member of component) onStack.delete(member);
+
+      components.push(component);
+    }
+
+    return lowest;
+  };
+
+  for (const node of edges.keys()) {
+    if (index.has(node)) continue;
+
+    visit(node);
+  }
+
+  return components;
 }
 
 /**

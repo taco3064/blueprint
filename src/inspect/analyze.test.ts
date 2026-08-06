@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { analyze, detectCycle } from './analyze';
+import { analyze, detectCycle, detectCycles } from './analyze';
 import { defineBlueprint } from '../config';
 import { vuePreset } from '../presets';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
@@ -454,14 +454,30 @@ describe('analyze · the cycle search does not stop early', () => {
     ])).toContain('components/A → components/C → components/A');
   });
 
-  it('walks past a component it already visited to reach an untouched one', () => {
-    // The first walk covers A and B and finds nothing. The loop then has to
-    // start a fresh walk at the hooks pair rather than treat the graph as done.
+  it('reaches a knot that no walk from the first module can touch', () => {
+    // A → B is a dead end, and nothing connects it to the hooks pair. The
+    // guarantee moved when cycles became an inventory: the component decomposition
+    // is what reaches the second knot now, where it used to be `detectCycle`'s own
+    // outer loop starting a fresh walk. Kept at this level because the assertion is
+    // about the report, and it holds across that change of mechanism — which is
+    // exactly what a test at this altitude should do.
     expect(cycleOf([
       file(['components', 'A', 'index.ts'], [{ specifier: '../B' }]),
       file(['hooks', 'useC', 'index.ts'], [{ specifier: '../useD' }]),
       file(['hooks', 'useD', 'index.ts'], [{ specifier: '../useC' }]),
     ])).toContain('hooks/useC → hooks/useD → hooks/useC');
+  });
+});
+
+describe('detectCycle · asked directly, as its callers ask it', () => {
+  it('treats a target with no entry of its own as a leaf', () => {
+    // A module that imports something and is imported by nobody never becomes a key
+    // in the graph, so `edges.get(target)` is undefined for it. `analyze` used to
+    // hand the whole graph over and covered this incidentally; it now passes one
+    // component at a time, where every node is a key by construction. The absent-key
+    // case is still part of this function's contract — and nothing was left asking
+    // for it, which is how a walk that throws on a leaf ships green.
+    expect(detectCycle(new Map([['a', new Set(['leaf'])]]))).toBeNull();
   });
 });
 
@@ -562,5 +578,96 @@ describe('analyze · a directory finding addresses the source root the config na
 
     expect(paths.every((entry) => !entry.startsWith('./'))).toBe(true);
     expect(paths).toContain('utils');
+  });
+});
+
+describe('detectCycles · every knot, not the first one', () => {
+  const edgesOf = (pairs: [string, string[]][]): Map<string, Set<string>> =>
+    new Map(pairs.map(([node, targets]) => [node, new Set(targets)]));
+
+  it('answers with nothing on an acyclic graph', () => {
+    expect(detectCycles(edgesOf([['a', ['b']], ['b', ['c']]]))).toEqual([]);
+  });
+
+  it('finds two unrelated cycles in one pass', () => {
+    // The reason this exists: `detectCycle` returns on the first cycle it meets, so
+    // a repo with two independent knots was told it had one, and the second only
+    // appeared after the first was fixed and inspect re-run. For a debt inventory
+    // that is the difference between sizing the work and discovering it.
+    expect(detectCycles(edgesOf([
+      ['a', ['b']],
+      ['b', ['a']],
+      ['x', ['y']],
+      ['y', ['x']],
+    ]))).toEqual([['a', 'b', 'a'], ['x', 'y', 'x']]);
+  });
+
+  it('reports one knot per component, not one per elementary cycle', () => {
+    // a → b → c → a and c → b are two elementary cycles through one mutually
+    // dependent trio. Listing both is not an inventory: cycles can outnumber nodes
+    // exponentially, and the trio still has to be broken as a unit.
+    const cycles = detectCycles(edgesOf([
+      ['a', ['b']],
+      ['b', ['c']],
+      ['c', ['a', 'b']],
+    ]));
+
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0][0]).toBe('a');
+  });
+
+  it('counts a module that imports itself', () => {
+    // A one-node component. Nothing here classifies components as trivial or not —
+    // the single walk answers null unless the self-edge is really there — and a
+    // size-based rule would have dropped this case silently.
+    expect(detectCycles(edgesOf([['a', ['a']], ['b', ['a']]]))).toEqual([['a', 'a']]);
+  });
+
+  it('orders the inventory by content, not by which node the walk started from', () => {
+    // Two cycles can never share a node, so the head of each path is a total order.
+    // Tarjan closes components in traversal order, which moves when an unrelated
+    // module is added — and a report that reshuffles is a diff nobody reads.
+    const forward = detectCycles(edgesOf([['a', ['b']], ['b', ['a']], ['x', ['y']], ['y', ['x']]]));
+    const reversed = detectCycles(edgesOf([['y', ['x']], ['x', ['y']], ['b', ['a']], ['a', ['b']]]));
+
+    expect(reversed).toEqual(forward);
+  });
+
+  it('leaves the walk that already carries the memoization proof to find the path', () => {
+    // The 40-node mesh, asked through the component layer: ~102M distinct paths, no
+    // cycle. Composing rather than reimplementing is what keeps that property —
+    // a second hand-written walk would be a second place for it to be lost.
+    const edges = new Map<string, Set<string>>();
+
+    for (let i = 0; i < 40; i++) {
+      const targets = new Set<string>();
+
+      if (i + 1 < 40) targets.add(`n${i + 1}`);
+      if (i + 2 < 40) targets.add(`n${i + 2}`);
+
+      edges.set(`n${i}`, targets);
+    }
+
+    expect(detectCycles(edges)).toEqual([]);
+  });
+});
+
+describe('analyze · a report inventories every cycle', () => {
+  const cycleMessages = (files: ScannedFile[]): string[] =>
+    analyze(scanOf(files), bp)
+      .filter((finding) => finding.rule === 'cycle')
+      .map((finding) => finding.message);
+
+  it('reports both knots when a repo has two', () => {
+    const messages = cycleMessages([
+      file(['components', 'A', 'index.ts'], [{ specifier: '../B' }]),
+      file(['components', 'B', 'index.ts'], [{ specifier: '../A' }]),
+      file(['hooks', 'useC', 'index.ts'], [{ specifier: '../useD' }]),
+      file(['hooks', 'useD', 'index.ts'], [{ specifier: '../useC' }]),
+    ]);
+
+    expect(messages).toHaveLength(2);
+    expect(messages[0]).toContain('components/A → components/B → components/A');
+    expect(messages[1]).toContain('hooks/useC → hooks/useD → hooks/useC');
   });
 });
