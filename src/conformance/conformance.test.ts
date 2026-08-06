@@ -168,6 +168,37 @@ describe('"complete" says what it leaves out (field runs #71–#73)', () => {
 });
 
 describe('brownfield playbook — semantics stated, nothing reverse-engineered (batches 1–3)', () => {
+  it('says a skipped doctor check is neither green nor red, and still exits 0 (field run #129)', async () => {
+    // `doctor` grew a third result in ef03dc7: `⊘` rides on `ok: true`, is left out
+    // of the passed count, and turns the banner into "Adoption unverified". The
+    // playbook described only green and red, which is the reading that let an agent
+    // report the lint wiring as verified — so all three places it tells you to run
+    // doctor now name the skip, and the semantics list explains why exit stays 0.
+    // Below the threshold on purpose: that playbook is the superset — it carries the
+    // early-exit checklist's step 5 on top of the acceptance gates and the semantics
+    // list, so one fixture reaches all three places doctor is invoked.
+    const dir = repo({ packageJson: react(), files: { 'src/main.jsx': 'export const a = 1;\n' } });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const prose = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
+
+    expect(prose).toContain('a `⊘` is not green');
+    expect(prose).toContain('passes with no `⊘`');
+    expect(prose).toContain('never counts it as');
+    expect(prose).toContain('an exit-code gate cannot see one');
+
+    // The check that skips, and BOTH states it skips in — naming only the
+    // unresolvable-config one would be the same defect one state narrower.
+    expect(prose).toContain('emitted rules survive the merged eslint config');
+    expect(prose).toContain('eslint is not wired');
+    expect(prose).toContain('the merged config would not resolve');
+
+    // The old green-or-red-only wording, so reverting any of the above turns this
+    // red rather than only dropping an assertion nobody reads.
+    expect(prose).not.toContain('doctor` — all checks green. Then commit');
+  });
+
   it('init writes the playbook with the rules an agent used to dig from dist', async () => {
     const files = Object.fromEntries([
       ...Array.from({ length: 8 }, (_, i) => [

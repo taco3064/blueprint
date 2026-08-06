@@ -253,7 +253,7 @@ export function renderVerdict(
     '2. `npx blueprint impact` (0 hits → skip `--suppress-all` entirely; an empty suppressions ledger is ceremony) and `npx blueprint inspect --baseline` — both exit 0. (`--update-baseline` is deliberately not on this list: with zero debt it is a no-op that writes nothing — the full method runs it because brownfield repos have debt to lock; a clean early exit has none.)',
     renderEarlyExitVerify(viteTs),
     `4. Delete ${cleanupTargets(hadClaudeDir)} Cleanup comes BEFORE the final gate: doctor treats these authoring files as leftovers.`,
-    `5. \`npx blueprint doctor\` — all checks green.`,
+    `5. \`npx blueprint doctor\` — all checks green, and a \`⊘\` is not green: a skipped check keeps exit 0 while what it verifies stays unverified, so fix what that line names and re-run before you report done.`,
     `   Then commit what adoption wrote, if you can: a ratchet that lives only in an uncommitted working tree is not installed.`,
     `   Not a VCS repo, or no commit rights?`,
     `   Leave the files where they are and say so in your closing reply — never initialize version control on the owner's behalf.`,
@@ -624,6 +624,9 @@ export function renderSemantics(): string {
     '- **`doctor`\'s "eslint wired" check** passes when the eslint config\'s text references `@kekkai/blueprint` (or the config is the generated file itself).',
     '- **`doctor`\'s leftover check matches exact file families** — this playbook, the command file, `*.blueprint.*` references, and marker-bearing contracts outside `emit.agents` — never other files, whatever their names.',
     '  A report or feedback file you were asked to write is safe without a verification re-run.',
+    '- **`doctor` prints `⊘` for a check it could not run** and never counts it as a pass: the banner reads "Adoption unverified — N of M checks passed, K could not run".',
+    '  Exit stays 0, because a skip is not a failure — so an exit-code gate cannot see one, and `--json` carries `skipped` with the reason.',
+    '  The check that skips is `emitted rules survive the merged eslint config`, in two states: eslint is not wired (the wiring check above is the red for that), or the merged config would not resolve, leaving nothing to compare the emitted rules against.',
     '- **Test files are EXEMPT** — `architecture.testFiles` (default `*.test.* / *.spec.*`) sit outside the structural rules and `inspect` alike.',
     '  If the tool you are replacing policed tests too, switching to blueprint deliberately RELAXES that enforcement — say so in the report instead of letting the difference pass silently.',
   ].join('\n');
@@ -751,7 +754,7 @@ export function renderAcceptanceGates(hadClaudeDir: boolean): string {
     '- [ ] The blueprint lint rules run inside the project\'s own lint command (merged, conflicts resolved) — or the legacy-config migration is a named decision item in the report',
     '- [ ] No `*.blueprint.*` reference file remains in the repo',
     '- [ ] The report names every import cycle and every upward dependency found',
-    `- [ ] Deleted: ${cleanupTargets(hadClaudeDir)} THEN \`npx blueprint doctor\` passes — doctor flags them as leftovers, so it is the last thing you run, not a mid-flow smoke test`,
+    `- [ ] Deleted: ${cleanupTargets(hadClaudeDir)} THEN \`npx blueprint doctor\` passes with no \`⊘\` — a skip is not a pass and keeps exit 0 — doctor flags them as leftovers, so it is the last thing you run, not a mid-flow smoke test`,
   ].join('\n');
 }
 
