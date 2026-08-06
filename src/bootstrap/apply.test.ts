@@ -38,6 +38,26 @@ describe('apply · removing init\'s own output', () => {
     expect(fs.existsSync(path.join(root, 'blueprint.config.mjs'))).toBe(true);
   });
 
+  it('refuses a list that would leave the root, before anything lands', () => {
+    // apply is the last boundary between an action list and the filesystem, so it
+    // guards even when the list did not come from `plan`. The first action is
+    // perfectly legal and must still not land: a boundary enforced action-by-action
+    // leaves the run half-applied at the file it refused.
+    const actions: Action[] = [
+      { kind: 'write', path: 'blueprint.config.mjs', content: '// authored', note: 'config' },
+      { kind: 'write', path: '../escaped.md', content: 'outside', note: 'escaped' },
+    ];
+
+    const applied: string[] = [];
+
+    expect(() => apply(root, actions, noExec, (action) => applied.push(action.kind)))
+      .toThrow(/outside the project root/);
+
+    expect(applied).toEqual([]);
+    expect(fs.existsSync(path.join(root, 'blueprint.config.mjs'))).toBe(false);
+    expect(fs.existsSync(path.join(path.dirname(root), 'escaped.md'))).toBe(false);
+  });
+
   it('does remove the file when it is there', () => {
     const scaffold = path.join(root, 'src/components/Placeholder.vue');
 

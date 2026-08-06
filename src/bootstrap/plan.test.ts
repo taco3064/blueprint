@@ -794,3 +794,34 @@ describe('plan · the reference beside a hand-written contract', () => {
     expect(instruct?.note).toContain('.cursor/rules/context.mdc');
   });
 });
+
+describe('plan · containment', () => {
+  // The two adopter-supplied path strings that reach `fs`. Both wrote outside the
+  // project root and both runs reported ✓ — `emit.handbook: '../HANDBOOK.md'`
+  // landed one directory up, an absolute `emit.agents[].path` landed wherever it
+  // pointed. Refused in the planner so `--dry-run` cannot print a plan the real
+  // run would reject, and so nothing at all lands.
+  const withEmit = (emit: Blueprint['emit']): Blueprint => ({ ...bp, emit: { ...bp.emit, ...emit } });
+
+  it.each([
+    ['emit.handbook, relative', { handbook: '../HANDBOOK.md' }],
+    ['emit.handbook, absolute', { handbook: '/tmp/HANDBOOK.md' }],
+    ['emit.agents path, relative', { agents: [{ target: 'claude', path: '../CLAUDE.md' }] }],
+    ['emit.agents path, absolute', { agents: [{ target: 'claude', path: '/tmp/CLAUDE.md' }] }],
+  ] as [string, Blueprint['emit']][])('refuses %s', (_name, emit) => {
+    expect(() => plan(state(), withEmit(emit), 'CONFIG SOURCE', {}))
+      .toThrow(/outside the project root/);
+  });
+
+  it('leaves a config whose paths stay inside the root alone', () => {
+    const inside = withEmit({
+      handbook: 'docs/nested/handbook.md',
+      agents: [{ target: 'claude', path: '.claude/CLAUDE.md' }],
+    });
+
+    const actions = plan(state(), inside, 'CONFIG SOURCE', {});
+
+    expect(write(actions, 'docs/nested/handbook.md')).toBeDefined();
+    expect(write(actions, '.claude/CLAUDE.md')).toBeDefined();
+  });
+});

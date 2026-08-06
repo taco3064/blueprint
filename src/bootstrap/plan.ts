@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 import { aliasActions } from './alias';
+import { assertContained } from './contain';
 import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
 import { emitHandbook, handbookPath } from '../emit/docs';
 import { FRAMEWORK_EXTS } from '../emit/lint';
@@ -276,6 +277,12 @@ export function plan(
       note: 'CSS token governance (optional): install stylelint + @csstools/stylelint-value-no-unknown-custom-properties, pointing importFrom at your token source file.',
     },
   );
+
+  // Last, over the finished list, so no path source can be added above and miss
+  // it — and in the planner rather than only at the effect, so `--dry-run` never
+  // prints a plan the real run would refuse. A divergence between the printed
+  // plan and what apply does is itself in `SECURITY.md`'s scope.
+  assertContained(actions);
 
   return actions;
 }
