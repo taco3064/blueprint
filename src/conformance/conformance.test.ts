@@ -517,10 +517,14 @@ describe('an instruction states its own reach too (field runs #91–#93)', () =>
     expect(init.output).toContain('which is when the --fix pass earns its commit');
   });
 
-  it('tells a re-adoption that regenerated wording is the version, not drift', async () => {
-    // Two runs spent a cycle proving this — one did a full copy-and-diff to rule out
-    // non-idempotency. Regenerated artifacts differ from the committed ones when the
-    // installed version is newer; that is the improvement arriving.
+  it('blames regenerated wording on the build, not on the version string (field run #115)', async () => {
+    // Two runs spent a cycle proving this, so the paragraph exists. It then blamed the
+    // difference on "the installed version is newer" — false for the run that found it:
+    // both sides read 3.0.0 and the text still differed, because the two builds were
+    // different. Structural here, not a fluke — scripts/field-run.mjs packs whatever
+    // version package.json holds, which stays at the last release until changesets bump
+    // it, so every --repo re-adoption run reproduces it. The condition is a different
+    // build; the version string cannot decide it, and the run-twice check is what can.
     const dir = repo({
       packageJson: react(),
       files: Object.fromEntries(
@@ -531,10 +535,18 @@ describe('an instruction states its own reach too (field runs #91–#93)', () =>
     await cli(dir, ['init', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+    const prose = flattenProse(playbook);
 
-    expect(flattenProse(playbook)).toContain('can come out WORDED differently');
-    expect(playbook).toContain('not drift and not non-idempotency');
-    expect(playbook).toContain('Never hand-revert generated text');
+    expect(prose).toContain('can come out WORDED differently from the ones committed whenever a '
+      + 'different BUILD wrote them');
+
+    expect(prose).toContain('Equal version strings do not rule that out');
+    expect(prose).toContain('not drift and not non-idempotency');
+    expect(prose).toContain('the check is the same either way');
+    expect(prose).toContain('Never hand-revert generated text');
+    // The false narrowing itself, so restoring it turns this red rather than only
+    // dropping an assertion nobody reads.
+    expect(prose).not.toContain('when the installed version is newer than the one that wrote them');
   });
 });
 
