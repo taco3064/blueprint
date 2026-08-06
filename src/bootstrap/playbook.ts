@@ -192,6 +192,133 @@ function renderBuildChoice(viteTs: ViteTsCoverage | null): string[] {
  * the threshold the verdict leads, carrying the complete checklist so nothing
  * else in the file applies.
  */
+/**
+ * What the build leaves behind and who owns it. `tsc -b` writes a
+ * `*.tsbuildinfo` even under `noEmit`, so the early exit's verification step
+ * produces untracked files in someone's working tree — a step THIS playbook asked
+ * for, which is why it has to say so rather than leave a mess unexplained.
+ */
+function renderBuildArtifacts(): string {
+  return [
+    '   **`tsc -b` writes a `*.tsbuildinfo` even under `noEmit: true`** — build',
+    '   mode\'s book-keeping of what it already checked, not emitted program',
+    '   output, so the two settings do not conflict and the file is safe to',
+    '   delete. Stated because the opposite reading is the natural one: an agent',
+    '   that just opened the tsconfig to answer the paragraph above has',
+    '   `noEmit: true` in front of it, and a file appearing anyway looks like the',
+    '   build overriding the config. Either way they are not',
+    '   adoption leftovers: leave them to the repo\'s own ignore rules, and say so',
+    '   in the report instead of guessing a cleanup when those rules will not',
+    '   cover it. Two independent facts decide that, not one — whether the repo',
+    '   HAS ignore rules, and whether it is under version control at all — and a',
+    '   repo can be any combination. A `.gitignore` listing `dist` in a tree',
+    '   that is not a git repo is a rule with nothing to enforce it; no',
+    '   `.gitignore` under git means the artifacts show up in `git status`;',
+    '   neither means "untracked" describes every file in the tree and the word',
+    '   stops distinguishing anything. Say which of the four you are in — it is',
+    '   one sentence, and it is the difference between a report the owner can act',
+    '   on and one they have to re-derive. Say it as what it is — a step THIS playbook asked for',
+    '   produced untracked files in someone\'s working tree — and say that',
+    '   deleting them is safe, because nothing adoption wrote depends on them',
+    '   and the build can be re-run. Then it is the owner\'s call rather than',
+    '   an unexplained mess: "leave them" without that sentence reads as "you',
+    '   may not touch these", which is not what it means.',
+  ].join('\n');
+}
+
+/**
+ * The artifact hand-over, as three rules instead of a four-cell table. Naming all
+ * four combinations of ignore-rules x version-control still left one cell
+ * undecided, and three consecutive field runs called it a coin flip; these
+ * paragraphs decide it, and say what "your own verification step" does not cover.
+ */
+function renderArtifactHandover(): string {
+  return [
+    '   **One of the four cells decides itself: no ignore rules AND no version',
+    '   control.** There, "leave them to the repo\'s own ignore rules" names rules',
+    '   that do not exist and an owner who has no `git status` to see them in — so',
+    '   remove what your own verification step created, and say you did. That is not',
+    '   the owner\'s call being taken from them: it is the same reason this path',
+    '   prefers `tsc -b`, applied one step later. The tree you hand back is the tree',
+    '   you were given. In the other three cells leave the artifacts alone: `git',
+    '   status` surfaces them, or an ignore rule names them, and either way',
+    '   something other than your report is keeping track.',
+    '   **An ignore rule with no git behind it still counts as the second kind,',
+    '   and the distinction is declared against enforced.** A `.gitignore`',
+    '   listing `dist` in a tree that is not a git repo enforces nothing today —',
+    '   said plainly above — and it is still the repo author writing down that',
+    '   this artifact is disposable, which takes effect the moment anyone runs',
+    '   `git init`. That declaration is what you leave the artifact on. The cell',
+    '   that decides itself is the one with no declaration anywhere: no rule to',
+    '   go dormant, no history to surface it, nothing but your report. Read those',
+    '   two sentences together or they read as a contradiction — enforced today',
+    '   is not the test; declared at all is.',
+    '   **"Your own verification step" is narrower than "untracked", and in this',
+    '   cell nothing else marks the difference.** Three kinds of file end up',
+    '   untracked here and only the first is yours to remove: what a verification',
+    '   command produced (`dist/`, `*.tsbuildinfo` — remove); what `init`',
+    '   produced, including the install (`node_modules/`, a written or rewritten',
+    '   lockfile, the config, the emitted contract and handbook — these are the',
+    '   adoption, keep every one); and whatever was already in the tree before you',
+    '   started, blueprint\'s or not (leave untouched, and do not report it as',
+    '   adoption\'s). Deciding this by "is it untracked?" deletes the deliverable;',
+    '   deciding it by "did I run the command that made it?" does not.',
+  ].join('\n');
+}
+
+/**
+ * The early exit's verification step — 81 of the verdict block's 106 lines, the
+ * same shape step 9 has inside the Method: one numbered item that is really a
+ * section. Long because a green lint and a green build on a near-empty repo prove
+ * less than they look like they prove, and every clause is a field finding about
+ * that gap — which build to run, what `--print-config` does and does not compare,
+ * and the four ways a correct resolved config reads as broken.
+ *
+ * Takes `viteTs` because this is where the build choice is *answered from the
+ * repo* rather than asserted about it: field #99 disproved the universal that
+ * replaced it, and a measurement is the fix that holds.
+ *
+ * Named so the next finding about it lands somewhere that has a name, instead of
+ * in the middle of a numbered list nothing can address.
+ */
+function renderEarlyExitVerify(viteTs: ViteTsCoverage | null): string {
+  return [
+    '3. Did init write `eslint.config.blueprint.mjs`? It does exactly when',
+    '   the repo already has its own eslint config: merge it — spread',
+    '   `...emitLint(blueprint, …)` AFTER your existing entries, following',
+    '   the reference\'s inline notes — then DELETE the reference; doctor',
+    '   stays red until you do. No reference written (init\'s generated config',
+    '   IS the live one)? That gate holds trivially, and trivially true is',
+    '   true — you skipped nothing. Either way, close this step by running',
+    '   the project\'s own lint once (`npm run lint`, or `npx eslint .`',
+    '   without a script): doctor\'s wired check reads config text and never',
+    '   executes eslint, so only a real run proves the config loads. A green',
+    '   lint is not proof the gates are ATTACHED, and on a repo whose layers',
+    '   hold no files yet it proves only that the config parses — there is',
+    '   nothing for a rule to fire on. That gap is doctor\'s job, not yours:',
+    '   its survival check resolves every declared gate that rides an',
+    '   injected plugin and reds when one resolved to nothing, so **you do',
+    '   not need to print configs by hand on this path**. Reach for',
+    '   `npx eslint --print-config <file>` only for what doctor\'s ✓ says it',
+    '   does NOT compare — thresholds, package-ownership entries, and the',
+    '   survival of your OWN rules — and read the output knowing four',
+    `   things${printConfigCaveats('   ')} Same logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's`,
+    '   alias check reads that wiring as text, never as a compile — run a',
+    '   build once too. The same caveat as the lint run applies, and for the same',
+    '   reason: on a repo whose layers hold no files, nothing imports through the',
+    '   alias, so a green build proves the `tsconfig`/`vite` edits parse and',
+    '   compile — NOT that the alias resolves. It becomes that proof the first',
+    '   time a layer file imports through it. Run it anyway (cheap, and it catches',
+    '   an edit that broke the config outright) and report which of the two you got.',
+    ...renderBuildChoice(viteTs),
+    '   Its artifacts',
+    '   (`dist/`, `*.tsbuildinfo`) are the build\'s normal output, and',
+    renderBuildArtifacts(),
+
+    renderArtifactHandover(),
+  ].join('\n');
+}
+
 export function renderVerdict(
   survey: SurveyResult,
   hadClaudeDir: boolean,
@@ -224,88 +351,7 @@ export function renderVerdict(
     '   on this list: with zero debt it is a no-op that writes nothing — the',
     '   full method runs it because brownfield repos have debt to lock; a',
     '   clean early exit has none.)',
-    '3. Did init write `eslint.config.blueprint.mjs`? It does exactly when',
-    '   the repo already has its own eslint config: merge it — spread',
-    '   `...emitLint(blueprint, …)` AFTER your existing entries, following',
-    '   the reference\'s inline notes — then DELETE the reference; doctor',
-    '   stays red until you do. No reference written (init\'s generated config',
-    '   IS the live one)? That gate holds trivially, and trivially true is',
-    '   true — you skipped nothing. Either way, close this step by running',
-    '   the project\'s own lint once (`npm run lint`, or `npx eslint .`',
-    '   without a script): doctor\'s wired check reads config text and never',
-    '   executes eslint, so only a real run proves the config loads. A green',
-    '   lint is not proof the gates are ATTACHED, and on a repo whose layers',
-    '   hold no files yet it proves only that the config parses — there is',
-    '   nothing for a rule to fire on. That gap is doctor\'s job, not yours:',
-    '   its survival check resolves every declared gate that rides an',
-    '   injected plugin and reds when one resolved to nothing, so **you do',
-    '   not need to print configs by hand on this path**. Reach for',
-    '   `npx eslint --print-config <file>` only for what doctor\'s ✓ says it',
-    '   does NOT compare — thresholds, package-ownership entries, and the',
-    '   survival of your OWN rules — and read the output knowing four',
-    `   things${printConfigCaveats('   ')} Same logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's`,
-    '   alias check reads that wiring as text, never as a compile — run a',
-    '   build once too. The same caveat as the lint run applies, and for the same',
-    '   reason: on a repo whose layers hold no files, nothing imports through the',
-    '   alias, so a green build proves the `tsconfig`/`vite` edits parse and',
-    '   compile — NOT that the alias resolves. It becomes that proof the first',
-    '   time a layer file imports through it. Run it anyway (cheap, and it catches',
-    '   an edit that broke the config outright) and report which of the two you got.',
-    ...renderBuildChoice(viteTs),
-    '   Its artifacts',
-    '   (`dist/`, `*.tsbuildinfo`) are the build\'s normal output, and',
-    '   **`tsc -b` writes a `*.tsbuildinfo` even under `noEmit: true`** — build',
-    '   mode\'s book-keeping of what it already checked, not emitted program',
-    '   output, so the two settings do not conflict and the file is safe to',
-    '   delete. Stated because the opposite reading is the natural one: an agent',
-    '   that just opened the tsconfig to answer the paragraph above has',
-    '   `noEmit: true` in front of it, and a file appearing anyway looks like the',
-    '   build overriding the config. Either way they are not',
-    '   adoption leftovers: leave them to the repo\'s own ignore rules, and say so',
-    '   in the report instead of guessing a cleanup when those rules will not',
-    '   cover it. Two independent facts decide that, not one — whether the repo',
-    '   HAS ignore rules, and whether it is under version control at all — and a',
-    '   repo can be any combination. A `.gitignore` listing `dist` in a tree',
-    '   that is not a git repo is a rule with nothing to enforce it; no',
-    '   `.gitignore` under git means the artifacts show up in `git status`;',
-    '   neither means "untracked" describes every file in the tree and the word',
-    '   stops distinguishing anything. Say which of the four you are in — it is',
-    '   one sentence, and it is the difference between a report the owner can act',
-    '   on and one they have to re-derive. Say it as what it is — a step THIS playbook asked for',
-    '   produced untracked files in someone\'s working tree — and say that',
-    '   deleting them is safe, because nothing adoption wrote depends on them',
-    '   and the build can be re-run. Then it is the owner\'s call rather than',
-    '   an unexplained mess: "leave them" without that sentence reads as "you',
-    '   may not touch these", which is not what it means.',
-    '   **One of the four cells decides itself: no ignore rules AND no version',
-    '   control.** There, "leave them to the repo\'s own ignore rules" names rules',
-    '   that do not exist and an owner who has no `git status` to see them in — so',
-    '   remove what your own verification step created, and say you did. That is not',
-    '   the owner\'s call being taken from them: it is the same reason this path',
-    '   prefers `tsc -b`, applied one step later. The tree you hand back is the tree',
-    '   you were given. In the other three cells leave the artifacts alone: `git',
-    '   status` surfaces them, or an ignore rule names them, and either way',
-    '   something other than your report is keeping track.',
-    '   **An ignore rule with no git behind it still counts as the second kind,',
-    '   and the distinction is declared against enforced.** A `.gitignore`',
-    '   listing `dist` in a tree that is not a git repo enforces nothing today —',
-    '   said plainly above — and it is still the repo author writing down that',
-    '   this artifact is disposable, which takes effect the moment anyone runs',
-    '   `git init`. That declaration is what you leave the artifact on. The cell',
-    '   that decides itself is the one with no declaration anywhere: no rule to',
-    '   go dormant, no history to surface it, nothing but your report. Read those',
-    '   two sentences together or they read as a contradiction — enforced today',
-    '   is not the test; declared at all is.',
-    '   **"Your own verification step" is narrower than "untracked", and in this',
-    '   cell nothing else marks the difference.** Three kinds of file end up',
-    '   untracked here and only the first is yours to remove: what a verification',
-    '   command produced (`dist/`, `*.tsbuildinfo` — remove); what `init`',
-    '   produced, including the install (`node_modules/`, a written or rewritten',
-    '   lockfile, the config, the emitted contract and handbook — these are the',
-    '   adoption, keep every one); and whatever was already in the tree before you',
-    '   started, blueprint\'s or not (leave untouched, and do not report it as',
-    '   adoption\'s). Deciding this by "is it untracked?" deletes the deliverable;',
-    '   deciding it by "did I run the command that made it?" does not.',
+    renderEarlyExitVerify(viteTs),
     `4. Delete ${cleanupTargets(hadClaudeDir, '   ')}
    Cleanup comes BEFORE the final gate: doctor treats these authoring
    files as leftovers.
@@ -471,19 +517,343 @@ export function renderGoal(): string {
 }
 
 /**
- * The nine steps, and the largest section by far — step 9 alone carries the
- * whole integration boundary, because "finish" is where adoption gets parked:
- * the tool declaration, the lint merge and its flat-config traps, the ratchet
- * posture, the overlapping-tool decision, and what must be committed.
- *
- * `hadClaudeDir` reaches here for step 9's cleanup, which names the same targets
- * the early-exit checklist does — see `cleanupTargets`.
+ * The three chained paragraphs about building the combined `no-restricted-*`
+ * entry: one per collision rather than one per rule key, how to combine when the
+ * spread is opaque, and what to do when the two sides' file scopes were never the
+ * same. They stay together because each opens by referring to the last — this is
+ * the one place in the playbook where the order really is load-bearing.
  */
-export function renderMethod(hadClaudeDir: boolean): string {
+function renderCombinedEntry(): string {
   return [
+    '     **"ONE entry" means one per COLLISION, not one for the whole rule',
+    '     key.** emitLint scopes its entries per layer, so a rule key can have',
+    '     several — a `selfOnly` layer with two importers emits',
+    '     `no-restricted-syntax` on BOTH importer layers, and your own rule',
+    '     may overlap only one of them. Combine with the entry you actually',
+    '     collide with, and leave the others exactly as emitted. The two ways',
+    '     to get this wrong are the two the instruction used to walk into:',
+    '     widening your combined entry to cover the other layers as well',
+    '     imposes YOUR rule on files it never governed (new red, visible), and',
+    '     narrowing it to exclude them replaces their emitted entry with',
+    '     nothing (silent, lint still green — the very trap this paragraph',
+    '     opens with). Check the emit points before merging, not after:',
+    '     `npx blueprint rules --json` lists the selectors per layer, so two',
+    '     importers show up as two. If you get it wrong anyway, doctor\'s',
+    '     survival check probes every layer separately and names the one that',
+    '     lost its selectors — it is a red you can act on, not a silent pass.',
     '',
-    '## Method',
+    '     **How you combine, given that `...emitLint(blueprint)` is opaque.**',
+    '     You cannot reach inside the spread to edit the entry it emits, so do not',
+    '     try: write the combined entry yourself and place it AFTER the spread.',
+    '     That is the same later-replaces-earlier property this paragraph opens by',
+    '     warning about, used deliberately — yours becomes the effective entry for',
+    '     that rule key on the files it scopes to. Which is exactly why it has to',
+    '     carry everything the emitted one ENFORCED: both option sets\' patterns and',
+    '     selectors, the emitted `ignores`, and the SAME file scope. The ban message',
+    '     is the one part that is NOT among those: that text is yours to write,',
+    '     doctor compares selectors and never messages, so nothing here sends you',
+    '     into a dump to retrieve a sentence. `rules --json` says the same beside',
+    '     the selectors. Wider, and you impose your rule on',
+    '     layers it never governed; narrower, and the layers you dropped are left',
+    '     with nothing, silently. Confirm with `npx eslint --print-config` on one',
+    '     file per affected layer — the one place print-config is not optional,',
+    '     because doctor compares selectors and cannot see scope.',
     '',
+    '     **When the two sides\' scopes were never the same, "the SAME file scope"',
+    '     cannot hold for both — match blueprint\'s.** A house rule framed at',
+    '     `**/*.vue` folded into a layer glob of `.{js,vue}` is the ordinary case,',
+    '     and the two failure directions are not symmetric: your rule reaching a',
+    '     few files it did not govern is visible red you will see on the next run,',
+    '     while blueprint\'s ban losing files is silent and lint stays green. So',
+    '     widen yours to blueprint\'s glob rather than narrowing the entry, then say',
+    '     in the report which extensions your rule newly covers and whether any',
+    '     file matches them today — often the widening is an empty set now and a',
+    '     bet on what lands later, which is worth writing down as a bet.',
+    '',
+  ].join('\n');
+}
+
+/**
+ * The `ignores` trap: a combined entry rebuilt from selector strings has no test
+ * exemption unless it is written back. Separated from the merge mechanics because
+ * it fails in both directions and neither is symmetric — dropping blueprint's
+ * `ignores` is loud, dropping your own is silent, and doctor compares selectors
+ * rather than scope so nothing downstream catches it. One real run spent a debug
+ * cycle on 34 errors in a single test file getting this wrong.
+ */
+function renderTestExemptions(): string {
+  return [
+    '     **An entry is more than its selectors — carry the emitted block\'s',
+    '     `ignores` too.** Every structural entry exempts test files, and a',
+    '     combined entry you rebuild from selector strings has no such',
+    '     exemption unless you write one. `rules --json` gives it to you as',
+    '     `testExemptions` beside the selectors, and the text output prints',
+    '     the `ignores` line to paste. Skip it and your combined entry starts',
+    '     governing test files: loud if your own rule collided there (a real',
+    '     run lost this and spent a debug cycle on 34 errors in one test file),',
+    '     silent if only blueprint\'s ban did — lint stays green while the test',
+    '     files it was never meant to reach are quietly under it. Doctor',
+    '     compares selectors, not scope, so nothing downstream catches this.',
+    '     The same move runs the other way when YOUR rule had no exemption:',
+    '     carrying blueprint\'s `ignores` onto the combined entry stops your rule',
+    '     at test files it used to govern. One entry carries one `ignores`, so a',
+    '     merge has to pick — decide which scope each rule actually wants, say',
+    '     which one you widened or narrowed and why, and check whether the same',
+    '     rule appears on other layers you did NOT merge, because that is where',
+    '     the asymmetry lands.',
+    '',
+    '     `blueprint doctor` verifies both the',
+    '     emitted structural rules and each declared gate\'s carrier rule',
+    '     survived the merge — so a hand sweep of the emitted gates duplicates',
+    '     it. What doctor does NOT compare is thresholds, package-ownership',
+    '     entries, and the survival of the rules YOU brought to the merge, and',
+    '     its ✓ says so. That remainder is what',
+    '     `npx eslint --print-config <file>` is for; a green lint run does',
+    '     not substitute, since it proves the config loads, not that a given',
+    '     rule reached a given file. Four things to know before reading that',
+    `     output${printConfigCaveats('     ')} Run the project's own lint command; new findings introduced by`,
+    '     the merge are fixed or explicitly judged, never left dangling — and',
+    '     when init wired the alias into `tsconfig`/`vite`, run the build',
+    '     once too (doctor\'s alias check reads wiring as text, never as a',
+    '     compile). Merging into a TypeScript config file',
+    '     (`eslint.config.ts`)? Importing `./blueprint.config.mjs` trips',
+    '     TS7016 when the tsconfig covering that file lacks `allowJs` — add',
+    '     `allowJs: true` there (often `tsconfig.node.json`), or ship a',
+    '     one-line `blueprint.config.d.mts` declaring the default export as',
+    '     `Blueprint`; name the choice in the report. Delete',
+    '     the reference once wired. Exception: a **legacy-format config**',
+    '     (`.eslintrc.*`) needs a flat-config/ESLint-9 migration that can break',
+    '     the project\'s own lint pipeline — do not do that unilaterally; surface',
+    '     it as a decision item in the report instead.',
+  ].join('\n');
+}
+
+/**
+ * Method step 9's lint-merge bullet — 127 lines and the largest single passage in
+ * the playbook, because a flat-config merge is where adoption most often goes
+ * quietly wrong: a later entry REPLACES an earlier one, so a merge that reads
+ * clean can delete a defense while lint stays green.
+ *
+ * Deliberately not split further, though it is still the biggest thing here. Its
+ * paragraphs are one continuous argument — each refers back to the last ("that is
+ * the same later-replaces-earlier property this paragraph opens by warning
+ * about", "The same move runs the other way") — so cutting it into five functions
+ * would make their ORDER load-bearing while stating it nowhere. That is the exact
+ * defect the section-order test guards at the document level; no reason to
+ * manufacture a second instance of it inside one bullet.
+ */
+function renderLintMerge(): string {
+  return [
+    '   - **Wire the lint.** If `eslint.config.blueprint.mjs` was written, merge',
+    '     it into the existing flat config: spread `...emitLint(blueprint, …)`',
+    '     — **carrying its options object over whole**: `stylistic` and',
+    '     `imports` always, plus `typescript: tseslint.plugin` on TypeScript',
+    '     projects. Those arguments are load-bearing, not decoration: five gates',
+    '     ride an injected plugin (`codeStyle`, `statementsPerLine` and',
+    '     `statementPadding` on stylistic; `importBlock` on imports;',
+    '     `explicitAny` on the TS one) and a gate whose plugin is missing emits',
+    '     NOTHING while lint still passes — a dropped argument reads exactly like',
+    '     a clean merge. **Declared no gates from those families?** Pass the',
+    '     carriers anyway, and let `init` install them: that is deliberate, not',
+    '     over-installation. They sit inert until a gate names them, and paying',
+    '     for them now makes turning one on a one-line edit to',
+    '     `blueprint.config.mjs` — instead of a config edit plus an install plus',
+    '     a second pass over this merge, months later, by someone who was not',
+    '     here. Then resolve every rule',
+    '     conflict *explicitly* — house disable conventions, thresholds, rules an',
+    '     existing structure tool already enforces — and note each decision in the',
+    '     report. **`codeStyle` means blueprint\'s emitted config formats this',
+    '     repo**, so a repo that already runs its own formatter is the',
+    '     overlapping-tool case above: keep ONE owner of formatting, and say which',
+    '     in the report. Rules configured under the same key on both sides',
+    '     (`@stylistic/*`, `padding-line-between-statements`) collide',
+    '     mechanically — flat config replaces rather than merges — so those are a',
+    '     wiring precondition, not a preference. Before merging, run `npx blueprint impact`: it lints the layer',
+    '     files with only the emitted config and reports hits per rule, so every',
+    '     conflict is decided on numbers, not by reading the emitted config',
+    '     against the code. Mind flat-config semantics while merging: when two',
+    '     entries configure the same rule, the later entry *replaces* the earlier',
+    '     — nothing merges, and ordering alone cannot save a rule **both sides',
+    '     set** (`no-restricted-imports`, `no-restricted-syntax`): whichever',
+    '     comes later silently deletes the other\'s defense while lint stays',
+    '     green. Combine both option sets into ONE entry — blueprint\'s patterns',
+    '     and selectors plus your own (`npx blueprint rules --json` carries the',
+    '     exact selfOnly selectors per layer as `jsLiteral` — paste that field,',
+    '     quotes included, never an emitLint dump. Its `note` says why the',
+    '     rendered `selectors` value is not the same string once it is inside JS',
+    '     source; that is a silent break, so take the field that survives the',
+    '     paste rather than the one that reads more naturally).',
+    '',
+    renderCombinedEntry(),
+
+    renderTestExemptions(),
+  ].join('\n');
+}
+
+/**
+ * Step 9's debt posture: keep severity at `error` and ratchet, never mute. Earns a
+ * name for the exception it carries — `codeStyle` and `statementPadding` are
+ * nearly all auto-fixable, so they are fixed rather than ledgered, and that fix is
+ * its own commit because it rewrites whitespace across every layer file.
+ */
+function renderRatchet(): string {
+  return [
+    '   - **Red is correct — ratchet it, don\'t mute it.** Keep severity at',
+    '     `error`; adoption\'s job is to make debt visible and lock it, not to',
+    '     quiet the screen. Lock each side in its native ledger: architecture',
+    '     findings via `npx blueprint inspect --update-baseline`, lint',
+    '     violations via `npx eslint . --suppress-all` (`impact` already told',
+    '     you the count — zero hits means SKIP this command, with one carve-out:',
+    '     the anti-bypass guard sits OUTSIDE impact\'s scope, so bare disables it',
+    '     flags in YOUR lint run are real findings — judge them: annotating the',
+    '     disable with its reason is a comment edit, not a source refactor, so',
+    '     it sits INSIDE this pass\'s boundary; the ledger takes whatever you',
+    '     choose to leave, and the report says which you did; ESLint ≥ 9.24 — counts',
+    '     per file × rule, so NEW violations still fail). **The formatting family',
+    '     is the exception to "ledger it, don\'t fix it":** `codeStyle` and',
+    '     `statementPadding` are nearly all auto-fixable, so `eslint --fix`',
+    '     resolves them outright and suppressing them would ledger a reformat',
+    '     nobody needs to review. Run that fix as its OWN commit, touching',
+    '     nothing else, and say so in the report — it rewrites whitespace across',
+    '     every layer file *including tests* (the shape rules are the one gate',
+    '     family tests are NOT exempt from), and a diff that size folded into an',
+    '     architecture commit is unreviewable. It cannot make another gate worse:',
+    '     `maxLines` skips blank lines, so the added lines are free. What',
+    '     `--fix` does NOT resolve is worth naming, because those are the real',
+    '     findings: `max-len` has no fixer (a long line must actually be',
+    '     restructured — and it does not exempt plain strings, so a string cannot',
+    '     hide one), and a `linebreak-style` red usually means git\'s',
+    '     `autocrlf` / `.gitattributes`, NOT the file — fix it there or the',
+    '     next checkout undoes you.',
+    '     Your gate then blocks',
+    '     only new debt on both, and `blueprint doctor` verifies neither ledger',
+    '     has gone stale. The inverse is equally correct: **zero findings and zero',
+    '     lint hits is a complete outcome** — the ledgers simply stay absent',
+    '     (`inspect --baseline` — identical without a ledger — and the',
+    '     project\'s own lint are the gates), and',
+    '     manufacturing debt just to demo the ratchet is mistranslation, not',
+    '     adoption. That includes `--suppress-all`: on a clean lint it writes',
+    '     an EMPTY `eslint-suppressions.json`, and an empty ledger is ceremony',
+    '     — skip the command when there are no hits, and delete the file if one',
+    '     slipped out (`doctor` says so too). Still on ESLint 8 / a legacy config? Transitional fallback:',
+    '     `emit: { lint: { severity: \'warn\' } }` — but state the cost in the',
+    '     report: severity only covers the structural rules, so until the',
+    '     migration, new metric debt (maxLines…) is not gated.',
+  ].join('\n');
+}
+
+/**
+ * Step 9's overlapping-tool decision. Earns a name for the one case where
+ * consolidation stops being the owner's scope decision and becomes a wiring
+ * precondition: when the existing tool configures the SAME ESLint rules emitLint
+ * emits, coexistence is mechanically impossible and doctor's survival check fails.
+ */
+function renderOverlappingTool(): string {
+  return [
+    '   - **If the repo already runs an overlapping structure tool** (e.g.',
+    '     structure-lint, dependency-cruiser), say so in the report: blueprint\'s',
+    '     lint layer duplicates it, and consolidating onto one gate is a scope',
+    '     decision for the user — flag it, don\'t decide it. **Exception:** when',
+    '     the existing tool configures the *same ESLint rules* emitLint emits',
+    '     (`no-restricted-imports`, `no-restricted-syntax`), coexistence is',
+    '     mechanically impossible — the entries overwrite each other and',
+    '     doctor\'s survival check fails. There, consolidation stops being a',
+    '     scope decision and becomes a wiring precondition; do it, and name',
+    '     which gate won in the report. The inverse case — a house rule under',
+    '     a DIFFERENT key with the same semantics (a hand-rolled deep-watch or',
+    '     test-filename twin) — never collides mechanically; it double-reports',
+    '     instead. Keep ONE gate per semantic (the house rule\'s docs footprint',
+    '     usually decides which) and record the choice — declaring blueprint\'s',
+    '     twin on top is noise, not safety. The same rule spans gate LAYERS:',
+    '     a house `import/no-cycle` (lint) and the `cycles` gate (inspect)',
+    '     are one semantic — pick one detector and record it (the catalog\'s',
+    '     perf note usually argues for the inspect side). **But across gate',
+    '     layers the deciding axis is WHEN the failure appears, not perf**, and',
+    '     that is the difference between deciding and flagging. Two lint rules',
+    '     for one semantic are a pure duplicate: drop one, no one\'s workflow',
+    '     changes. Dropping a lint-time detector in favour of `cycles` moves',
+    '     the interception from wherever lint runs — pre-commit hook, editor,',
+    '     CI step — to the `inspect` gate, which may not be wired into any of',
+    '     them yet. That is the adopter\'s pipeline, so declare blueprint\'s gate',
+    '     only if you are also placing `inspect` where the lint rule used to',
+    '     fire; otherwise leave the existing detector alone and put the',
+    '     consolidation in the report as a recommendation with that cost named.',
+    '     Two field runs reached this conclusion by deriving it. And when a tool IS retired, retire it',
+    '     whole: DELETE its config file — a stale architecture config sitting',
+    '     beside blueprint.config.mjs misleads worse than any prose pointer —',
+    '     then sweep the footprint in the same pass: grep the repo for its name',
+    '     (docs, README, code comments, agent skills and commands all go stale',
+    '     the moment the config is deleted) and update or remove every pointer',
+    '     you find. A dependency entry leaves via the package manager, not a',
+    '     text edit; source-code comments referencing the dead tool may outlive',
+    '     the sweep under this playbook\'s no-source-edits boundary — list them',
+    '     in the report instead of editing them.',
+  ].join('\n');
+}
+
+/**
+ * Method step 9 — "Finish means integrated, not parked".
+ *
+ * A step by numbering only: steps 1-8 run one to five lines each, this one runs
+ * 237, and it is the passage field findings land in because integration is where
+ * adoption actually fails. Still emitted inside the numbered list, so the document
+ * is unchanged — the split is so the growth has somewhere named to land. Ten lines
+ * added to `renderLintMerge` read as "the merge guidance grew again"; the same ten
+ * lines in an unnamed middle of a 334-line `renderMethod` read as nothing.
+ *
+ * The three short bullets stay inline: a bold lead-in of four to twelve lines is
+ * already its own address, and a function per line would be noise.
+ */
+function renderFinishStep(hadClaudeDir: boolean): string {
+  return [
+    '9. **Finish — and finish means integrated, not parked.** Run',
+    '   `npx blueprint init`, then `npx blueprint inspect --update-baseline`,',
+    `   write the report, and delete ${cleanupTargets(hadClaudeDir, '   ')}`,
+    '   The tool never',
+    '   touches files you own, so it leaves `*.blueprint.*` references next to',
+    '   them — **those references are your input, not the deliverable. Adoption',
+    '   is not done while any reference file remains:**',
+    '   - **Declare your own tool** in the config — `emit: { agents: [\'claude\'] }`',
+    '     (Claude Code) or `[\'agents\']` (codex & friends) — so init generates one',
+    '     contract file, not one per tool nobody uses. Declare the tool RUNNING',
+    '     this adoption — you know who you are; never guess at future tools',
+    '     (the next one is a one-line config change away). On a preset config, pass it',
+    '     straight in: `reactPreset({ name, emit: { agents: [\'claude\'] } })` —',
+    '     and `init --agent claude` on the preset path scaffolds the config with',
+    '     this already declared, so flag and config end up saying the same thing.',
+    renderLintMerge(),
+    renderRatchet(),
+    '   - **If a hand-written CLAUDE.md / AGENTS.md exists**, integrate the',
+    '     `<name>.blueprint.md` reference into the existing document following',
+    '     *its* structure — link, don\'t duplicate; keep project facts to one',
+    '     screen — then delete the reference.',
+    renderOverlappingTool(),
+    '   - **Everything the adoption produced is meant to be committed** — the',
+    '     config, the generated artifacts, and both ledgers',
+    '     (`.blueprint-baseline.json`, `eslint-suppressions.json`): the',
+    '     gates read the ledgers from the repo, so an uncommitted baseline is',
+    '     a ratchet that only works on your machine. Not a VCS repo (or you',
+    '     lack commit rights)? Leave the files in place and say so in the',
+    '     report — never initialize version control on the owner\'s behalf.',
+    '     The same boundary covers ongoing enforcement: blueprint deliberately',
+    '     scaffolds no CI — the gate commands (`npx blueprint inspect',
+    '     --baseline`, `npx blueprint doctor`) are the deliverable, and',
+    '     wiring them into a pipeline or git hook is the owner\'s call.',
+    '     Recommend it in the report; never add pipeline config yourself.',
+  ].join('\n');
+}
+
+/**
+ * Method step 1 — 65 of the Method's 94 lines, and a section wearing a list
+ * item's number for the same reason step 9 is: it carries the whole re-adoption
+ * problem. An architecture doc already in the repo is intent evidence senior to
+ * the import matrix, EXCEPT when it is blueprint's own prior output, and the
+ * clauses a matrix cannot see (named-import ownership, selfOnly shape, an empty
+ * runway layer's position) have to be reproduced from it or a "faithful"
+ * re-adoption hands back a looser config than it replaced.
+ */
+function renderIntentDocuments(): string {
+  return [
     '1. **Look for existing intent documents first.** An architecture config or doc',
     '   already in the repo (`structure.config.json`, dependency-cruiser rules,',
     '   `docs/architecture*`, `CLAUDE.md`/`AGENTS.md` sections, ADRs) is intent',
@@ -549,6 +919,24 @@ export function renderMethod(hadClaudeDir: boolean): string {
     '   Several positions equally legal (no matrix edges either way — empty',
     '   layers especially)? Pick the one granting the fewest new import',
     '   permissions: the smallest relaxation.',
+  ].join('\n');
+}
+
+/**
+ * The nine steps, and the largest section by far — step 9 alone carries the
+ * whole integration boundary, because "finish" is where adoption gets parked:
+ * the tool declaration, the lint merge and its flat-config traps, the ratchet
+ * posture, the overlapping-tool decision, and what must be committed.
+ *
+ * `hadClaudeDir` reaches here for step 9's cleanup, which names the same targets
+ * the early-exit checklist does — see `cleanupTargets`.
+ */
+export function renderMethod(hadClaudeDir: boolean): string {
+  return [
+    '',
+    '## Method',
+    '',
+    renderIntentDocuments(),
     '2. **Study the survey evidence below.** Every number is deterministic fact',
     '   from this repo; do not re-derive it by grepping.',
     '3. **Decide what is a layer.** Top-level folders under `src/` are candidates;',
@@ -575,243 +963,7 @@ export function renderMethod(hadClaudeDir: boolean): string {
     '   dominant rule everywhere) means you mistranslated intent — revisit the',
     '   order or the module shapes. Converged means: every finding is explainable',
     '   as real, nameable debt.',
-    '9. **Finish — and finish means integrated, not parked.** Run',
-    '   `npx blueprint init`, then `npx blueprint inspect --update-baseline`,',
-    `   write the report, and delete ${cleanupTargets(hadClaudeDir, '   ')}`,
-    '   The tool never',
-    '   touches files you own, so it leaves `*.blueprint.*` references next to',
-    '   them — **those references are your input, not the deliverable. Adoption',
-    '   is not done while any reference file remains:**',
-    '   - **Declare your own tool** in the config — `emit: { agents: [\'claude\'] }`',
-    '     (Claude Code) or `[\'agents\']` (codex & friends) — so init generates one',
-    '     contract file, not one per tool nobody uses. Declare the tool RUNNING',
-    '     this adoption — you know who you are; never guess at future tools',
-    '     (the next one is a one-line config change away). On a preset config, pass it',
-    '     straight in: `reactPreset({ name, emit: { agents: [\'claude\'] } })` —',
-    '     and `init --agent claude` on the preset path scaffolds the config with',
-    '     this already declared, so flag and config end up saying the same thing.',
-    '   - **Wire the lint.** If `eslint.config.blueprint.mjs` was written, merge',
-    '     it into the existing flat config: spread `...emitLint(blueprint, …)`',
-    '     — **carrying its options object over whole**: `stylistic` and',
-    '     `imports` always, plus `typescript: tseslint.plugin` on TypeScript',
-    '     projects. Those arguments are load-bearing, not decoration: five gates',
-    '     ride an injected plugin (`codeStyle`, `statementsPerLine` and',
-    '     `statementPadding` on stylistic; `importBlock` on imports;',
-    '     `explicitAny` on the TS one) and a gate whose plugin is missing emits',
-    '     NOTHING while lint still passes — a dropped argument reads exactly like',
-    '     a clean merge. **Declared no gates from those families?** Pass the',
-    '     carriers anyway, and let `init` install them: that is deliberate, not',
-    '     over-installation. They sit inert until a gate names them, and paying',
-    '     for them now makes turning one on a one-line edit to',
-    '     `blueprint.config.mjs` — instead of a config edit plus an install plus',
-    '     a second pass over this merge, months later, by someone who was not',
-    '     here. Then resolve every rule',
-    '     conflict *explicitly* — house disable conventions, thresholds, rules an',
-    '     existing structure tool already enforces — and note each decision in the',
-    '     report. **`codeStyle` means blueprint\'s emitted config formats this',
-    '     repo**, so a repo that already runs its own formatter is the',
-    '     overlapping-tool case above: keep ONE owner of formatting, and say which',
-    '     in the report. Rules configured under the same key on both sides',
-    '     (`@stylistic/*`, `padding-line-between-statements`) collide',
-    '     mechanically — flat config replaces rather than merges — so those are a',
-    '     wiring precondition, not a preference. Before merging, run `npx blueprint impact`: it lints the layer',
-    '     files with only the emitted config and reports hits per rule, so every',
-    '     conflict is decided on numbers, not by reading the emitted config',
-    '     against the code. Mind flat-config semantics while merging: when two',
-    '     entries configure the same rule, the later entry *replaces* the earlier',
-    '     — nothing merges, and ordering alone cannot save a rule **both sides',
-    '     set** (`no-restricted-imports`, `no-restricted-syntax`): whichever',
-    '     comes later silently deletes the other\'s defense while lint stays',
-    '     green. Combine both option sets into ONE entry — blueprint\'s patterns',
-    '     and selectors plus your own (`npx blueprint rules --json` carries the',
-    '     exact selfOnly selectors per layer as `jsLiteral` — paste that field,',
-    '     quotes included, never an emitLint dump. Its `note` says why the',
-    '     rendered `selectors` value is not the same string once it is inside JS',
-    '     source; that is a silent break, so take the field that survives the',
-    '     paste rather than the one that reads more naturally).',
-    '',
-    '     **"ONE entry" means one per COLLISION, not one for the whole rule',
-    '     key.** emitLint scopes its entries per layer, so a rule key can have',
-    '     several — a `selfOnly` layer with two importers emits',
-    '     `no-restricted-syntax` on BOTH importer layers, and your own rule',
-    '     may overlap only one of them. Combine with the entry you actually',
-    '     collide with, and leave the others exactly as emitted. The two ways',
-    '     to get this wrong are the two the instruction used to walk into:',
-    '     widening your combined entry to cover the other layers as well',
-    '     imposes YOUR rule on files it never governed (new red, visible), and',
-    '     narrowing it to exclude them replaces their emitted entry with',
-    '     nothing (silent, lint still green — the very trap this paragraph',
-    '     opens with). Check the emit points before merging, not after:',
-    '     `npx blueprint rules --json` lists the selectors per layer, so two',
-    '     importers show up as two. If you get it wrong anyway, doctor\'s',
-    '     survival check probes every layer separately and names the one that',
-    '     lost its selectors — it is a red you can act on, not a silent pass.',
-    '',
-    '     **How you combine, given that `...emitLint(blueprint)` is opaque.**',
-    '     You cannot reach inside the spread to edit the entry it emits, so do not',
-    '     try: write the combined entry yourself and place it AFTER the spread.',
-    '     That is the same later-replaces-earlier property this paragraph opens by',
-    '     warning about, used deliberately — yours becomes the effective entry for',
-    '     that rule key on the files it scopes to. Which is exactly why it has to',
-    '     carry everything the emitted one ENFORCED: both option sets\' patterns and',
-    '     selectors, the emitted `ignores`, and the SAME file scope. The ban message',
-    '     is the one part that is NOT among those: that text is yours to write,',
-    '     doctor compares selectors and never messages, so nothing here sends you',
-    '     into a dump to retrieve a sentence. `rules --json` says the same beside',
-    '     the selectors. Wider, and you impose your rule on',
-    '     layers it never governed; narrower, and the layers you dropped are left',
-    '     with nothing, silently. Confirm with `npx eslint --print-config` on one',
-    '     file per affected layer — the one place print-config is not optional,',
-    '     because doctor compares selectors and cannot see scope.',
-    '',
-    '     **When the two sides\' scopes were never the same, "the SAME file scope"',
-    '     cannot hold for both — match blueprint\'s.** A house rule framed at',
-    '     `**/*.vue` folded into a layer glob of `.{js,vue}` is the ordinary case,',
-    '     and the two failure directions are not symmetric: your rule reaching a',
-    '     few files it did not govern is visible red you will see on the next run,',
-    '     while blueprint\'s ban losing files is silent and lint stays green. So',
-    '     widen yours to blueprint\'s glob rather than narrowing the entry, then say',
-    '     in the report which extensions your rule newly covers and whether any',
-    '     file matches them today — often the widening is an empty set now and a',
-    '     bet on what lands later, which is worth writing down as a bet.',
-    '',
-    '     **An entry is more than its selectors — carry the emitted block\'s',
-    '     `ignores` too.** Every structural entry exempts test files, and a',
-    '     combined entry you rebuild from selector strings has no such',
-    '     exemption unless you write one. `rules --json` gives it to you as',
-    '     `testExemptions` beside the selectors, and the text output prints',
-    '     the `ignores` line to paste. Skip it and your combined entry starts',
-    '     governing test files: loud if your own rule collided there (a real',
-    '     run lost this and spent a debug cycle on 34 errors in one test file),',
-    '     silent if only blueprint\'s ban did — lint stays green while the test',
-    '     files it was never meant to reach are quietly under it. Doctor',
-    '     compares selectors, not scope, so nothing downstream catches this.',
-    '     The same move runs the other way when YOUR rule had no exemption:',
-    '     carrying blueprint\'s `ignores` onto the combined entry stops your rule',
-    '     at test files it used to govern. One entry carries one `ignores`, so a',
-    '     merge has to pick — decide which scope each rule actually wants, say',
-    '     which one you widened or narrowed and why, and check whether the same',
-    '     rule appears on other layers you did NOT merge, because that is where',
-    '     the asymmetry lands.',
-    '',
-    '     `blueprint doctor` verifies both the',
-    '     emitted structural rules and each declared gate\'s carrier rule',
-    '     survived the merge — so a hand sweep of the emitted gates duplicates',
-    '     it. What doctor does NOT compare is thresholds, package-ownership',
-    '     entries, and the survival of the rules YOU brought to the merge, and',
-    '     its ✓ says so. That remainder is what',
-    '     `npx eslint --print-config <file>` is for; a green lint run does',
-    '     not substitute, since it proves the config loads, not that a given',
-    '     rule reached a given file. Four things to know before reading that',
-    `     output${printConfigCaveats('     ')} Run the project's own lint command; new findings introduced by`,
-    '     the merge are fixed or explicitly judged, never left dangling — and',
-    '     when init wired the alias into `tsconfig`/`vite`, run the build',
-    '     once too (doctor\'s alias check reads wiring as text, never as a',
-    '     compile). Merging into a TypeScript config file',
-    '     (`eslint.config.ts`)? Importing `./blueprint.config.mjs` trips',
-    '     TS7016 when the tsconfig covering that file lacks `allowJs` — add',
-    '     `allowJs: true` there (often `tsconfig.node.json`), or ship a',
-    '     one-line `blueprint.config.d.mts` declaring the default export as',
-    '     `Blueprint`; name the choice in the report. Delete',
-    '     the reference once wired. Exception: a **legacy-format config**',
-    '     (`.eslintrc.*`) needs a flat-config/ESLint-9 migration that can break',
-    '     the project\'s own lint pipeline — do not do that unilaterally; surface',
-    '     it as a decision item in the report instead.',
-    '   - **Red is correct — ratchet it, don\'t mute it.** Keep severity at',
-    '     `error`; adoption\'s job is to make debt visible and lock it, not to',
-    '     quiet the screen. Lock each side in its native ledger: architecture',
-    '     findings via `npx blueprint inspect --update-baseline`, lint',
-    '     violations via `npx eslint . --suppress-all` (`impact` already told',
-    '     you the count — zero hits means SKIP this command, with one carve-out:',
-    '     the anti-bypass guard sits OUTSIDE impact\'s scope, so bare disables it',
-    '     flags in YOUR lint run are real findings — judge them: annotating the',
-    '     disable with its reason is a comment edit, not a source refactor, so',
-    '     it sits INSIDE this pass\'s boundary; the ledger takes whatever you',
-    '     choose to leave, and the report says which you did; ESLint ≥ 9.24 — counts',
-    '     per file × rule, so NEW violations still fail). **The formatting family',
-    '     is the exception to "ledger it, don\'t fix it":** `codeStyle` and',
-    '     `statementPadding` are nearly all auto-fixable, so `eslint --fix`',
-    '     resolves them outright and suppressing them would ledger a reformat',
-    '     nobody needs to review. Run that fix as its OWN commit, touching',
-    '     nothing else, and say so in the report — it rewrites whitespace across',
-    '     every layer file *including tests* (the shape rules are the one gate',
-    '     family tests are NOT exempt from), and a diff that size folded into an',
-    '     architecture commit is unreviewable. It cannot make another gate worse:',
-    '     `maxLines` skips blank lines, so the added lines are free. What',
-    '     `--fix` does NOT resolve is worth naming, because those are the real',
-    '     findings: `max-len` has no fixer (a long line must actually be',
-    '     restructured — and it does not exempt plain strings, so a string cannot',
-    '     hide one), and a `linebreak-style` red usually means git\'s',
-    '     `autocrlf` / `.gitattributes`, NOT the file — fix it there or the',
-    '     next checkout undoes you.',
-    '     Your gate then blocks',
-    '     only new debt on both, and `blueprint doctor` verifies neither ledger',
-    '     has gone stale. The inverse is equally correct: **zero findings and zero',
-    '     lint hits is a complete outcome** — the ledgers simply stay absent',
-    '     (`inspect --baseline` — identical without a ledger — and the',
-    '     project\'s own lint are the gates), and',
-    '     manufacturing debt just to demo the ratchet is mistranslation, not',
-    '     adoption. That includes `--suppress-all`: on a clean lint it writes',
-    '     an EMPTY `eslint-suppressions.json`, and an empty ledger is ceremony',
-    '     — skip the command when there are no hits, and delete the file if one',
-    '     slipped out (`doctor` says so too). Still on ESLint 8 / a legacy config? Transitional fallback:',
-    '     `emit: { lint: { severity: \'warn\' } }` — but state the cost in the',
-    '     report: severity only covers the structural rules, so until the',
-    '     migration, new metric debt (maxLines…) is not gated.',
-    '   - **If a hand-written CLAUDE.md / AGENTS.md exists**, integrate the',
-    '     `<name>.blueprint.md` reference into the existing document following',
-    '     *its* structure — link, don\'t duplicate; keep project facts to one',
-    '     screen — then delete the reference.',
-    '   - **If the repo already runs an overlapping structure tool** (e.g.',
-    '     structure-lint, dependency-cruiser), say so in the report: blueprint\'s',
-    '     lint layer duplicates it, and consolidating onto one gate is a scope',
-    '     decision for the user — flag it, don\'t decide it. **Exception:** when',
-    '     the existing tool configures the *same ESLint rules* emitLint emits',
-    '     (`no-restricted-imports`, `no-restricted-syntax`), coexistence is',
-    '     mechanically impossible — the entries overwrite each other and',
-    '     doctor\'s survival check fails. There, consolidation stops being a',
-    '     scope decision and becomes a wiring precondition; do it, and name',
-    '     which gate won in the report. The inverse case — a house rule under',
-    '     a DIFFERENT key with the same semantics (a hand-rolled deep-watch or',
-    '     test-filename twin) — never collides mechanically; it double-reports',
-    '     instead. Keep ONE gate per semantic (the house rule\'s docs footprint',
-    '     usually decides which) and record the choice — declaring blueprint\'s',
-    '     twin on top is noise, not safety. The same rule spans gate LAYERS:',
-    '     a house `import/no-cycle` (lint) and the `cycles` gate (inspect)',
-    '     are one semantic — pick one detector and record it (the catalog\'s',
-    '     perf note usually argues for the inspect side). **But across gate',
-    '     layers the deciding axis is WHEN the failure appears, not perf**, and',
-    '     that is the difference between deciding and flagging. Two lint rules',
-    '     for one semantic are a pure duplicate: drop one, no one\'s workflow',
-    '     changes. Dropping a lint-time detector in favour of `cycles` moves',
-    '     the interception from wherever lint runs — pre-commit hook, editor,',
-    '     CI step — to the `inspect` gate, which may not be wired into any of',
-    '     them yet. That is the adopter\'s pipeline, so declare blueprint\'s gate',
-    '     only if you are also placing `inspect` where the lint rule used to',
-    '     fire; otherwise leave the existing detector alone and put the',
-    '     consolidation in the report as a recommendation with that cost named.',
-    '     Two field runs reached this conclusion by deriving it. And when a tool IS retired, retire it',
-    '     whole: DELETE its config file — a stale architecture config sitting',
-    '     beside blueprint.config.mjs misleads worse than any prose pointer —',
-    '     then sweep the footprint in the same pass: grep the repo for its name',
-    '     (docs, README, code comments, agent skills and commands all go stale',
-    '     the moment the config is deleted) and update or remove every pointer',
-    '     you find. A dependency entry leaves via the package manager, not a',
-    '     text edit; source-code comments referencing the dead tool may outlive',
-    '     the sweep under this playbook\'s no-source-edits boundary — list them',
-    '     in the report instead of editing them.',
-    '   - **Everything the adoption produced is meant to be committed** — the',
-    '     config, the generated artifacts, and both ledgers',
-    '     (`.blueprint-baseline.json`, `eslint-suppressions.json`): the',
-    '     gates read the ledgers from the repo, so an uncommitted baseline is',
-    '     a ratchet that only works on your machine. Not a VCS repo (or you',
-    '     lack commit rights)? Leave the files in place and say so in the',
-    '     report — never initialize version control on the owner\'s behalf.',
-    '     The same boundary covers ongoing enforcement: blueprint deliberately',
-    '     scaffolds no CI — the gate commands (`npx blueprint inspect',
-    '     --baseline`, `npx blueprint doctor`) are the deliverable, and',
-    '     wiring them into a pipeline or git hook is the owner\'s call.',
-    '     Recommend it in the report; never add pipeline config yourself.',
+    renderFinishStep(hadClaudeDir),
   ].join('\n');
 }
 
