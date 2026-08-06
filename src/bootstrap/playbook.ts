@@ -1,6 +1,6 @@
 import { DOC_ONLY_RULES, METRIC_GATES, PLUGIN_GATES } from '../emit/lint';
 import { COMMAND_FILE } from '../project';
-import type { ViteTsCoverage } from '../project';
+import type { TscArtifactLocation, ViteTsCoverage } from '../project';
 import { renderSurvey } from '../survey';
 import type { SurveyResult } from '../survey';
 
@@ -166,17 +166,44 @@ function renderBuildChoice(viteTs: ViteTsCoverage | null): string[] {
  * from the long-line wrinkle a spliced `${…}` helper leaves: that one keeps the
  * sentence whole, this one split it and made it ungreppable.
  */
-function renderBuildArtifacts(): string {
+function renderBuildArtifacts(tscOut: TscArtifactLocation | null): string {
+  // Measured, because the paragraph below opens on a premise about this repo and the
+  // premise is false on the shape `npm create vite` generates: `noEmit: true` plus a
+  // `tsBuildInfoFile` under `node_modules/` leaves the working tree untouched, so an
+  // agent told to report untracked files reports files that do not exist (field run
+  // #135). Only the certain negative specialises — everywhere else the wording below
+  // is right, including every repo whose vite build writes a bundle.
+  if (tscOut !== null) {
+    return [
+      `   **\`tsc -b\` leaves nothing in this working tree, and that is measured.** \`${tscOut.tsconfig}\` sets \`noEmit\` and sends the build info to \`${tscOut.buildInfo}\`, which is out of the way by convention — so the build you just ran produced no untracked file here to decide about.`,
+      '   The four cells below still decide the bundle, and only if you ran the vite build: that one does write into the tree.',
+      '   Ran only `tsc -b`? Then the tree is as you found it, and the report says that rather than picking a cell — saying "I removed the artifacts" when none existed is the same wrong sentence as leaving a mess unexplained.',
+      ...renderArtifactCells(),
+    ].join('\n');
+  }
+
   return [
     '   Its artifacts (`dist/`, `*.tsbuildinfo`) are the build\'s normal output, and **`tsc -b` writes a `*.tsbuildinfo` even under `noEmit: true`** — build mode\'s book-keeping of what it already checked, not emitted program output, so the two settings do not conflict and the file is safe to delete.',
     '   Stated because the opposite reading is the natural one: an agent that just opened the tsconfig to answer the paragraph above has `noEmit: true` in front of it, and a file appearing anyway looks like the build overriding the config.',
+    '   Where it lands is the repo\'s call: a `tsBuildInfoFile` pointing under `node_modules/` keeps it out of the tree entirely, and this run could not establish that either way.',
+    ...renderArtifactCells(),
+  ].join('\n');
+}
+
+/**
+ * The four cells, shared by both arms above. One text, because the measured arm needs
+ * the same decision for the bundle that the default arm needs for everything — and
+ * two copies of a four-way decision is how a cell goes missing from one of them.
+ */
+function renderArtifactCells(): string[] {
+  return [
     '   Either way they are not adoption leftovers: leave them to the repo\'s own ignore rules, and say so in the report instead of guessing a cleanup when those rules will not cover it.',
     '   Two independent facts decide that, not one — whether the repo HAS ignore rules, and whether it is under version control at all — and a repo can be any combination.',
     '   A `.gitignore` listing `dist` in a tree that is not a git repo is a rule with nothing to enforce it; no `.gitignore` under git means the artifacts show up in `git status`; neither means "untracked" describes every file in the tree and the word stops distinguishing anything.',
     '   Say which of the four you are in — it is one sentence, and it is the difference between a report the owner can act on and one they have to re-derive.',
     '   Say it as what it is — a step THIS playbook asked for produced untracked files in someone\'s working tree — and say that deleting them is safe, because nothing adoption wrote depends on them and the build can be re-run.',
     '   Then it is the owner\'s call rather than an unexplained mess: "leave them" without that sentence reads as "you may not touch these", which is not what it means.',
-  ].join('\n');
+  ];
 }
 
 /**
@@ -215,7 +242,10 @@ function renderArtifactHandover(): string {
  * Named so the next finding about it lands somewhere that has a name, instead of
  * in the middle of a numbered list nothing can address.
  */
-function renderEarlyExitVerify(viteTs: ViteTsCoverage | null): string {
+function renderEarlyExitVerify(
+  viteTs: ViteTsCoverage | null,
+  tscOut: TscArtifactLocation | null,
+): string {
   return [
     `3. Did init write \`eslint.config.blueprint.mjs\`?`,
     `   It does exactly when the repo already has its own eslint config: merge it — spread \`...emitLint(blueprint, …)\` AFTER your existing entries, following the reference's inline notes — then DELETE the reference; doctor stays red until you do.`,
@@ -229,7 +259,7 @@ function renderEarlyExitVerify(viteTs: ViteTsCoverage | null): string {
     `   It becomes that proof the first time a layer file imports through it.`,
     `   Run it anyway (cheap, and it catches an edit that broke the config outright) and report which of the two you got.`,
     ...renderBuildChoice(viteTs),
-    renderBuildArtifacts(),
+    renderBuildArtifacts(tscOut),
 
     renderArtifactHandover(),
   ].join('\n');
@@ -239,6 +269,7 @@ export function renderVerdict(
   survey: SurveyResult,
   hadClaudeDir: boolean,
   viteTs: ViteTsCoverage | null,
+  tscOut: TscArtifactLocation | null,
 ): string {
   if (survey.totalFiles >= BROWNFIELD_MIN_FILES) return '';
 
@@ -257,7 +288,7 @@ export function renderVerdict(
     '   Running as neither tool?',
     '   Plain `--preset`, then declare `emit.agents` in the config and re-run init.',
     '2. `npx blueprint impact` (0 hits → skip `--suppress-all` entirely; an empty suppressions ledger is ceremony) and `npx blueprint inspect --baseline` — both exit 0. (`--update-baseline` is deliberately not on this list: with zero debt it is a no-op that writes nothing — the full method runs it because brownfield repos have debt to lock; a clean early exit has none.)',
-    renderEarlyExitVerify(viteTs),
+    renderEarlyExitVerify(viteTs, tscOut),
     `4. Delete ${cleanupTargets(hadClaudeDir)} Cleanup comes BEFORE the final gate: doctor treats these authoring files as leftovers.`,
     `5. \`npx blueprint doctor\` — all checks green, and a \`⊘\` is not green: a skipped check keeps exit 0 while what it verifies stays unverified, so fix what that line names and re-run before you report done.`,
     `   Then commit what adoption wrote, if you can: a ratchet that lives only in an uncommitted working tree is not installed.`,
