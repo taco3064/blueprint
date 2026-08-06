@@ -532,10 +532,26 @@ function applyAndNarrate(
   let landed = 0;
 
   try {
-    apply(root, actions, exec, (action) => {
-      landed += 1;
-      log(formatAction(action, false));
-    });
+    apply(
+      root,
+      actions,
+      exec,
+      (action) => {
+        landed += 1;
+        log(formatAction(action, false));
+      },
+      // The only step that can leave the screen quiet, so it says so first. A
+      // package manager with no route to the registry retries silently, and the
+      // next line an adopter sees is nothing at all — read twice as a hung tool
+      // and killed (field runs #131, #132). The escape hatch belongs here rather
+      // than in the error, because the error is what never arrives.
+      (action) => log(
+        `  → install: ${action.note}\n`
+        + '      This is the one step that needs the registry. No output while it works is'
+        + ' normal; no output for minutes means it cannot get there — stop it and re-run'
+        + ' with `--no-install`, which prints the command to run yourself.',
+      ),
+    );
   } catch (error) {
     const skipped = actions.slice(landed + 1).filter((action) => action.kind !== 'instruct');
     const failed = actions[landed];

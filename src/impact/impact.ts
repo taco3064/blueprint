@@ -3,6 +3,7 @@ import type { ESLint as EslintNamespace, Linter } from 'eslint';
 
 import { emitLint, resolveLayerFiles } from '../emit/lint';
 import type { LintConfigEntry } from '../emit/lint';
+import { expectedCarriers } from '../inspect';
 import { detect, loadProjectModule, resolveBlueprint, unwrapModule } from '../project';
 import type { ResolveOptions } from '../project';
 
@@ -120,16 +121,27 @@ export async function runImpact(
     ? unwrapModule<Linter.Parser>(await loadStack(load, root, 'vue-eslint-parser'))
     : null;
 
-  // Loaded unconditionally: impact's whole job is an honest per-rule count
-  // before a merge, and omitting a carrier plugin reports 0 hits for two
-  // ACTIVE gates — indistinguishable from a clean repo.
-  const stylistic = unwrapModule<EslintNamespace.Plugin>(
-    await loadStack(load, root, '@stylistic/eslint-plugin'),
-  );
+  // Required only where a gate would actually use it. Loading both
+  // unconditionally was deliberate — omitting a carrier reports 0 hits for an
+  // ACTIVE gate, indistinguishable from a clean repo — and it made the wrong
+  // trade on a config that declares no gates at all: a repo translating only
+  // structural flow was refused the whole command over a formatting plugin
+  // nothing would have emitted, and had to substitute `--print-config` runs by
+  // hand (field run #133). The gate list is the same one doctor's survival check
+  // reads, so "needed" here means exactly what "expected to resolve" means there.
+  const carriers = new Set(expectedCarriers(blueprint, ts).map((entry) => entry.carrier));
 
-  const imports = unwrapModule<EslintNamespace.Plugin>(
-    await loadStack(load, root, 'eslint-plugin-import-x'),
-  );
+  const stylistic = carriers.has('stylistic')
+    ? unwrapModule<EslintNamespace.Plugin>(
+        await loadStack(load, root, '@stylistic/eslint-plugin'),
+      )
+    : undefined;
+
+  const imports = carriers.has('imports')
+    ? unwrapModule<EslintNamespace.Plugin>(
+        await loadStack(load, root, 'eslint-plugin-import-x'),
+      )
+    : undefined;
 
   // The same parser wiring the generated eslint config carries (see
   // bootstrap's eslintConfigSource) — parsers only, so every file the

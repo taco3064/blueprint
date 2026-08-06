@@ -517,8 +517,14 @@ async function main() {
       // summary report the caveat instead of the outcome — which is what the previous
       // field batch's own issue titles show. Appending after a conclusion breaks every
       // reader that assumed the conclusion came last; this one was mine.
+      //
+      // And it broke again the same way: doctor grew a third marker (`⊘`, a check that
+      // could not run) and this pattern listed two, so the find missed and the fallback
+      // printed the version-control note as the verdict (field run #132's new × codex).
+      // Anchoring on the word rather than on a marker list is why it cannot happen a
+      // third time — a fourth marker would still match.
       const lines = run.doctor.output.trim().split('\n');
-      const doctorLine = lines.find((line) => /^[✓✗] Adoption/.test(line.trim()))
+      const doctorLine = lines.find((line) => /Adoption (complete|unverified|incomplete)/.test(line))
         ?? lines[lines.length - 1];
 
       return [
@@ -617,9 +623,19 @@ function fileIssue(reportFile, runs, tree) {
   // row with no feedback contributes no evidence, and counting its doctor exit made
   // the title overstate what the run measured. Silent scenarios are named instead of
   // dropped, or the matrix and the denominator disagree with no explanation.
-  const adopted = evidence.filter((run) => run.doctor?.code === 0).length;
+  // Green means every check passed, and doctor's exit code stopped saying that: a
+  // check that could not run leaves exit 0 with an "Adoption unverified" banner, so
+  // #132's new × codex was scored green while the one check proving the gates are
+  // wired had never run. The title reads the verdict rather than the status — the same
+  // mistake this harness exists to catch, made about the tool that made it.
+  const verdict = (run) => (/Adoption unverified/.test(run.doctor?.output ?? '')
+    ? 'unverified'
+    : run.doctor?.code === 0 ? 'green' : 'red');
+  const adopted = evidence.filter((run) => verdict(run) === 'green').length;
+  const unverified = evidence.filter((run) => verdict(run) === 'unverified').length;
   const silent = runs.filter((run) => !run.dry && !run.staging && !run.feedback).length;
   const scale = ` · doctor ${adopted}/${evidence.length} green`
+    + (unverified ? ` · ${unverified} unverified` : '')
     + (silent ? ` · ${silent} produced nothing` : '');
   const title = `Field run @ ${tree} — ${matrix}${scale}`;
 
