@@ -260,21 +260,71 @@ describe('runRules', () => {
       .map((item) => (item as { selector: string }).selector);
 
     const views = bans.find((entry) => entry.layer === 'views');
-    const note = 'the message text is yours to write — doctor verifies selectors, never messages';
 
-    expect(views?.selfOnly).toEqual([{ target: 'contexts', selectors: emitted, note }]);
+    const note = 'copy `jsLiteral`, not `selectors`: pasted into JS source a rendered selector '
+      + 'loses its \\u002F escape and the regex ends at the bare /, silently. The ban '
+      + 'message text is yours to write — doctor verifies selectors, never messages';
+
+    expect(views?.selfOnly).toEqual([{
+      target: 'contexts',
+      selectors: emitted,
+      jsLiteral: emitted.map((selector) => JSON.stringify(selector)),
+      note,
+    }]);
+
     expect(views?.selfOnly[0].selectors).toHaveLength(2); // one per alias
     expect(views?.selfOnly[0].selectors[1]).toContain('~root\\u002Fsrc\\u002Fcontexts');
 
     const output = lines.join('\n');
 
-    expect(output).toContain('Copy these selectors verbatim');
-    expect(output).toContain(emitted[0]);
+    expect(output).toContain('Paste these verbatim, quotes included');
+    // The text form prints the LITERAL, because this line exists to be copied into a
+    // config and the value does not survive that copy (field run #125).
+    expect(output).toContain(JSON.stringify(emitted[0]));
     // Both output shapes, one string: the caveat reached only the text form for
     // three releases, so a folding agent sent to `--json` by the playbook's merge
     // step hit the same doubt #23 already answered (field issue #117). Asserting
     // the JSON's own note against the text output is what keeps them from drifting.
     expect(output).toContain(views?.selfOnly[0].note);
+  });
+
+  it('gives the selector in a form that survives being pasted into JS (field run #125)', async () => {
+    // The claim under test is about JS, so it is asserted rather than described. The
+    // separators are / escapes because a raw / ends esquery's regex early — and
+    // JS resolves that same escape when it parses a string literal, so the rendered
+    // value pasted into '…' silently becomes /^~app/contexts// and the regex ends at
+    // the bare /. No parse error, lint green, and doctor's red then reads like the
+    // "equivalent respelling" false alarm it warns about, which this is not.
+    const selfOnly: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [
+          { name: 'views', does: 'pages' },
+          {
+            name: 'contexts',
+            does: 'state seam',
+            allowedImporters: [{ layer: 'views', selfOnly: true }],
+          },
+        ],
+        module: { layout: 'flat', entry: 'index' },
+      },
+      rules: {},
+    };
+
+    const { bans } = await runRules(repo(selfOnly), { log: () => {} });
+
+    const ban = bans.find((entry) => entry.layer === 'views')?.selfOnly[0];
+    const value = ban?.selectors[0] ?? '';
+
+    // The trap: JSON's string escaping is JavaScript's, so parsing the rendered value
+    // as a literal is what pasting it does — and it comes back a different string.
+    expect(JSON.parse(`"${value}"`)).not.toBe(value);
+    expect(JSON.parse(`"${value}"`)).toContain('/^~app/contexts/');
+    // The form that survives: parse the literal and the value comes back intact.
+    expect(JSON.parse(ban?.jsLiteral[0] ?? '')).toBe(value);
+    expect(ban?.jsLiteral[0]).toMatch(/^".*"$/);
+    expect(ban?.jsLiteral[0]).toContain('\\\\u002F');
   });
 
   it('withholds the ban message rather than omitting it by accident (field #117)', async () => {

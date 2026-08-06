@@ -143,11 +143,11 @@ export function authoringBrief(
     renderHeader(renderNextNote(next), renderVerdict(survey, hadClaudeDir, viteTs)),
     renderPrerequisites(install),
     renderGoal(),
-    renderMethod(),
+    renderMethod(hadClaudeDir),
     renderSemantics(),
     renderRuleCatalog(),
     renderSchemaSketch(),
-    renderAcceptanceGates(),
+    renderAcceptanceGates(hadClaudeDir),
     renderResumePoint(),
     renderSurveyEvidence(survey),
   ].join('\n');
