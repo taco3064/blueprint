@@ -635,9 +635,17 @@ describe('a proof step states its own reach (field run #85)', () => {
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
-    expect(playbook).toContain('The same caveat\n   as the lint run applies');
-    expect(playbook).toContain('NOT that the alias\n   resolves');
+    expect(playbook).toContain('The same caveat as the lint run applies');
+    expect(playbook).toContain('NOT that the alias resolves');
     expect(playbook).toContain('report which of the two you got');
+
+    // …and recommends the build that does not emit a bundle here. The artifact question
+    // was the most-repeated item in the whole field campaign — fifteen mentions — and
+    // the playbook's own first-listed command is what creates the artifact. On a path
+    // where the wide build proves nothing extra, stop creating it.
+    expect(playbook).toContain('on this path prefer `npx tsc -b`');
+    expect(playbook).toContain('answers no more of it while emitting a bundle');
+    expect(playbook).toContain('there the bundle is the point');
   });
 
   it('says how to combine against an opaque spread', async () => {
@@ -657,18 +665,20 @@ describe('a proof step states its own reach (field run #85)', () => {
     expect(playbook).toContain('the one place print-config is not optional');
   });
 
-  it('covers a repo under no version control in the artifact branch', async () => {
-    // Raised in five separate runs. The branch stopped at "does the repo have ignore
-    // rules"; with no VCS at all the word untracked describes everything, and each
-    // agent spent a paragraph reasoning it out from first principles.
+  it('treats ignore rules and version control as two facts, not one axis', async () => {
+    // First written as one axis ("no ignore rules — including no VCS at all"), which
+    // collapsed two independent facts. A field repo landed exactly between them: a
+    // `.gitignore` that lists `dist`, in a tree that is not a git repo, so the rule has
+    // nothing to enforce it. The branch had no cell for that.
     const dir = repo({ packageJson: react() });
 
     await cli(dir, ['init', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
-    expect(playbook).toContain('no version control at\n   all');
-    expect(playbook).toContain('"untracked" describes everything');
+    expect(playbook).toContain('Two independent facts decide that, not one');
+    expect(playbook).toContain('a rule with nothing to enforce it');
+    expect(playbook).toContain('Say which of the four you are in');
   });
 });
 

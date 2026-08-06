@@ -191,19 +191,33 @@ The complete early-exit checklist — nothing else in this file applies:
    \`blueprint/deep-import\` finds nothing and proves nothing. Inspect's
    own migration steps name the rule that carries each finding, and mark
    the ones no lint run will ever show. Same logic for the alias: init edited \`tsconfig\`/\`vite\`, and doctor's
-   alias check reads that wiring as text, never as a compile — run the
-   build once too (\`npm run build\`, or \`npx tsc -b\`). The same caveat
-   as the lint run applies, and for the same reason: on a repo whose layers
-   hold no files, nothing imports through the alias, so a green build proves
-   the \`tsconfig\`/\`vite\` edits parse and compile — NOT that the alias
-   resolves. It becomes that proof the first time a layer file imports
-   through it. Run it anyway (cheap, and it catches an edit that broke the
-   config outright) and report which of the two you got. Its artifacts
+   alias check reads that wiring as text, never as a compile — run a
+   build once too. The same caveat as the lint run applies, and for the same
+   reason: on a repo whose layers hold no files, nothing imports through the
+   alias, so a green build proves the \`tsconfig\`/\`vite\` edits parse and
+   compile — NOT that the alias resolves. It becomes that proof the first
+   time a layer file imports through it. Run it anyway (cheap, and it catches
+   an edit that broke the config outright) and report which of the two you got.
+   **Which build, though — and on this path prefer \`npx tsc -b\`.** It
+   answers the only question available here, and the full \`npm run build\`
+   answers no more of it while emitting a bundle into a tree that may have
+   nowhere to put one (see below). A Vite + TS starter keeps
+   \`vite.config.ts\` inside a tsconfig project, so \`tsc -b\` type-checks
+   the vite edit too; run the project's full build instead when the vite
+   config sits outside every tsconfig project, or once layer files exist and
+   the alias is genuinely exercised — there the bundle is the point. Its artifacts
    (\`dist/\`, \`*.tsbuildinfo\`) are the build's normal output, not
-   adoption leftovers: leave them to the repo's own ignore rules, and
-   when the repo has none — including a repo under no version control at
-   all, where nothing is tracked and "untracked" describes everything —
-   say so in the report instead of guessing a cleanup. Say it as what it is — a step THIS playbook asked for
+   adoption leftovers: leave them to the repo's own ignore rules, and say so
+   in the report instead of guessing a cleanup when those rules will not
+   cover it. Two independent facts decide that, not one — whether the repo
+   HAS ignore rules, and whether it is under version control at all — and a
+   repo can be any combination. A \`.gitignore\` listing \`dist\` in a tree
+   that is not a git repo is a rule with nothing to enforce it; no
+   \`.gitignore\` under git means the artifacts show up in \`git status\`;
+   neither means "untracked" describes every file in the tree and the word
+   stops distinguishing anything. Say which of the four you are in — it is
+   one sentence, and it is the difference between a report the owner can act
+   on and one they have to re-derive. Say it as what it is — a step THIS playbook asked for
    produced untracked files in someone's working tree — and say that
    deleting them is safe, because nothing adoption wrote depends on them
    and the build can be re-run. Then it is the owner's call rather than
