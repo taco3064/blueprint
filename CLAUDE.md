@@ -13,9 +13,9 @@ substitute first-principles reasoning for what it says.
 
 | Doc | What it covers |
 |---|---|
-| [`.claude/docs/verification-layers.md`](./.claude/docs/verification-layers.md) | **Trigger:** 加 adoption scenario 的測試；動 `bin` / `exports` / shebang / bundle；重構會產出文件的程式碼。`src/conformance/` 的角色、`npm run dist:verify` 補的那一層（0.1.1 symlink bug）、重構 emitted prose 時的位元組基準。 |
-| [`.claude/docs/mutation-testing.md`](./.claude/docs/mutation-testing.md) | **Trigger:** 跑或讀 `npx stryker run`；判一個 survivor；因為 sweep 說某處沒測而補測試。存活體證明寫在原地（`undecidable` 當帳本）、全掃才是權威、兩種分數怎麼讀、`StringLiteral` 排除的邊界在哪。 |
-| [`.claude/docs/field-triage.md`](./.claude/docs/field-triage.md) | **Trigger:** 跑 `npm run field:run`；triage 一個 `field-run` issue；寫或改任何 adopting agent 會讀到的 prose（playbook / CLI 輸出 / contract）。harness 用法、triage flow、下筆前的兩個問題（工具算得出來嗎／同類還有幾個）。 |
+| [`.claude/docs/verification-layers.md`](./.claude/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring code that emits a document. What `src/conformance/` is for, the layer `npm run dist:verify` covers (the 0.1.1 symlink bug), and the byte baseline that belongs with an emitted-prose refactor. |
+| [`.claude/docs/mutation-testing.md`](./.claude/docs/mutation-testing.md) | **Trigger:** running or reading `npx stryker run`; judging a survivor; adding a test because a sweep called something untested. Survivor proofs at the site (`undecidable` as the ledger), why the full sweep is the authority, how to read both scores, and where the `StringLiteral` exclusion draws its boundary. |
+| [`.claude/docs/field-triage.md`](./.claude/docs/field-triage.md) | **Trigger:** running `npm run field:run`; triaging a `field-run` issue; writing or rewording any prose an adopting agent reads (playbook / CLI output / contract). Harness flags, the triage flow, and the two questions before the wording — can the tool compute this, and how many other instances are there. |
 
 ## Module shape (enforced by convention, checked in review)
 
