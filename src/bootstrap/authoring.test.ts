@@ -4,6 +4,17 @@ import { AGENT_PROMPT, AUTHORING_FILE, authoringActions, authoringBrief, BROWNFI
 // Test-only helper from the test-only module — the playbook is hand-wrapped
 // prose, so an assertion that needs a whole sentence flattens it first rather
 // than naming the column the source broke at.
+//
+// This edge runs UPWARD against the layering (`bootstrap` sits well above
+// `conformance`, which imports `../cli`), and it is allowed for one reason: the
+// layer rule governs the SHIPPED graph, and neither rolldown input
+// (`src/index.ts`, `src/cli/cli.ts`) reaches `conformance` or any `*.test.ts`.
+// Both suites assert on the same emitted prose, so one definition of "wrap-
+// independent" beats two. The cost is real and worth knowing before copying the
+// move: importing `conformance` pulls the whole CLI into this unit test's import
+// graph. That is why it stays confined to test files — the same import from a
+// non-test file in `bootstrap` would be a genuine layering break, not this
+// exception.
 import { flattenProse } from '../conformance';
 import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
 import type { SurveyResult } from '../survey';
@@ -93,7 +104,19 @@ describe('authoringBrief', () => {
   it('tells the executing agent to run autonomously — the only place that framing lives', () => {
     // The homepage prompt dropped "work autonomously"; the tool output has to
     // carry it now. The header is the first line the agent reads on opening.
-    expect(flattenProse(brief)).toContain('autonomously — do > not stop to ask for confirmation');
+    //
+    // The banner is a blockquote, so its lines carry a `> ` continuation marker.
+    // Flattening alone folded that marker into the sentence — `do > not stop` —
+    // asserting a string the emitted document does not contain, and crossing the
+    // line `flattenProse` itself draws: whitespace collapses, structure does not.
+    // Strip the marker first, then flatten, and the needle is the real sentence.
+    const banner = flattenProse(brief.replace(/^> /gm, ''));
+
+    expect(banner).toContain('autonomously — do not stop to ask for confirmation');
+
+    // Structure, asserted as position rather than as a line break: the framing
+    // has to sit in the opening banner, not somewhere below the method.
+    expect(banner.indexOf('autonomously')).toBeLessThan(banner.indexOf('## Prerequisites'));
   });
 
   it('carries the goal boundary: author and baseline, never refactor', () => {

@@ -235,8 +235,6 @@ export function renderHeader(nextNote: string, verdict: string): string {
     '> not stop to ask for confirmation. When you finish, delete this file and',
     `> \`${COMMAND_FILE}\` — then \`blueprint doctor\` has the final word: it flags`,
     `> both as leftovers while they remain.${verdict}`,
-    '',
-    '## Prerequisites',
   ].join('\n');
 }
 
@@ -248,6 +246,8 @@ export function renderHeader(nextNote: string, verdict: string): string {
 export function renderPrerequisites(install: string): string {
   return [
     '',
+    '## Prerequisites',
+    '',
     '`@kekkai/blueprint` must be a devDependency — the config you will write',
     'imports it, and every `npx blueprint` step resolves it from the project.',
     '`init` already installed it unless `--no-install` was passed; verify, or run:',
@@ -255,8 +255,6 @@ export function renderPrerequisites(install: string): string {
     '```bash',
     `${install}`,
     '```',
-    '',
-    '## Goal and boundary',
   ].join('\n');
 }
 
@@ -268,6 +266,8 @@ export function renderPrerequisites(install: string): string {
  */
 export function renderGoal(): string {
   return [
+    '',
+    '## Goal and boundary',
     '',
     '**Know what you are installing.** Blueprint is a governance tool for',
     'AI-driven development: its job is to keep agents — including you, and',
@@ -346,8 +346,6 @@ export function renderGoal(): string {
     'quality, because the acceptance gates are the same. And if you ever feel',
     'the need to read the package\'s `dist/` bundle to answer a question, stop:',
     'the answer belongs in this playbook — note the gap in your report instead.',
-    '',
-    '## Method',
   ].join('\n');
 }
 
@@ -359,6 +357,8 @@ export function renderGoal(): string {
  */
 export function renderMethod(): string {
   return [
+    '',
+    '## Method',
     '',
     '1. **Look for existing intent documents first.** An architecture config or doc',
     '   already in the repo (`structure.config.json`, dependency-cruiser rules,',
@@ -678,8 +678,6 @@ export function renderMethod(): string {
     '     --baseline`, `npx blueprint doctor`) are the deliverable, and',
     '     wiring them into a pipeline or git hook is the owner\'s call.',
     '     Recommend it in the report; never add pipeline config yourself.',
-    '',
-    '## Semantics the linter holds you to',
   ].join('\n');
 }
 
@@ -690,6 +688,8 @@ export function renderMethod(): string {
  */
 export function renderSemantics(): string {
   return [
+    '',
+    '## Semantics the linter holds you to',
     '',
     'Facts about the emitted rules that drive authoring decisions — stated here so',
     'you never have to reverse-engineer them from the bundle:',
@@ -729,8 +729,6 @@ export function renderSemantics(): string {
     '  alike. If the tool you are replacing policed tests too, switching to',
     '  blueprint deliberately RELAXES that enforcement — say so in the report',
     '  instead of letting the difference pass silently.',
-    '',
-    '## Rule catalog — ask this file, not the bundle',
   ].join('\n');
 }
 
@@ -741,6 +739,8 @@ export function renderSemantics(): string {
  */
 export function renderRuleCatalog(): string {
   return [
+    '',
+    '## Rule catalog — ask this file, not the bundle',
     '',
     '(The same catalog is queryable anytime: `npx blueprint rules` — annotated',
     'with the config\'s declared tiers once one exists.)',
@@ -788,8 +788,6 @@ export function renderRuleCatalog(): string {
     '**Documentation-only ids — never an ESLint line:**',
     '',
     `${DOC_ONLY_RULES.map((entry) => `- \`${entry.id}\` — ${entry.note}`).join('\n')}`,
-    '',
-    '## Config schema sketch',
   ].join('\n');
 }
 
@@ -800,6 +798,8 @@ export function renderRuleCatalog(): string {
  */
 export function renderSchemaSketch(): string {
   return [
+    '',
+    '## Config schema sketch',
     '',
     '```js',
     'import { defineBlueprint } from \'@kekkai/blueprint\';',
@@ -855,14 +855,14 @@ export function renderSchemaSketch(): string {
     '  rules: { cycles: \'error\', unusedVars: \'error\' },',
     '});',
     '```',
-    '',
-    '## Acceptance gates',
   ].join('\n');
 }
 
 /** The six checkboxes that define done — `doctor` last, since it flags this file. */
 export function renderAcceptanceGates(): string {
   return [
+    '',
+    '## Acceptance gates',
     '',
     '- [ ] `npx blueprint inspect` findings are all explainable as real debt',
     '- [ ] `npx blueprint inspect --baseline` exits 0 — ledger locked when debt',
@@ -875,8 +875,6 @@ export function renderAcceptanceGates(): string {
     `- [ ] This playbook and \`${COMMAND_FILE}\` are deleted, THEN`,
     '      `npx blueprint doctor` passes — doctor flags them as leftovers,',
     '      so it is the last thing you run, not a mid-flow smoke test',
-    '',
-    '## If you stop midway',
   ].join('\n');
 }
 
@@ -888,11 +886,11 @@ export function renderAcceptanceGates(): string {
 export function renderResumePoint(): string {
   return [
     '',
+    '## If you stop midway',
+    '',
     'Nothing is lost. This playbook and the survey stay on disk; `inspect` is',
     'read-only, `init` is idempotent, and the baseline is only written at the',
     'final step. A human (or another agent) resumes from the same loop.',
-    '',
-    '## Survey evidence',
   ].join('\n');
 }
 
@@ -902,6 +900,8 @@ export function renderResumePoint(): string {
  */
 export function renderSurveyEvidence(survey: SurveyResult): string {
   return [
+    '',
+    '## Survey evidence',
     '',
     '```',
     `${renderSurvey(survey)}`,
