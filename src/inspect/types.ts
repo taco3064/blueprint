@@ -7,6 +7,18 @@ export interface Finding {
   rule: string;
   /** File or directory the finding is about, relative to the project root. */
   path: string;
+  /**
+   * What inside `path` this finding is about — the import specifier, a cycle's
+   * members, `''` where `rule` and `path` already identify it on their own.
+   *
+   * This is the stable half of a finding's identity, and the baseline is keyed on
+   * `rule` + `path` + `subject`. `message` is prose: it gets reworded as the tool
+   * learns to explain itself better, and a ratchet keyed on prose turns red on
+   * an upgrade that changed no violation. One file can hold several findings of
+   * the same rule (two deep imports, two banned packages), which is why dropping
+   * `message` from the key needs something in its place rather than nothing.
+   */
+  subject: string;
   message: string;
 }
 

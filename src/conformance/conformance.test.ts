@@ -313,11 +313,13 @@ describe('zero-debt honesty — notes are not debt (batch 4)', () => {
     expect(locked.output).toContain('informational note(s) are not debt');
     expect(read(dir, '.blueprint-baseline.json')).toBeNull();
 
-    // A pre-1.13 baseline that recorded an info entry still suppresses…
+    // A baseline that recorded an info entry still suppresses…
     write(dir, '.blueprint-baseline.json', JSON.stringify({
+      version: 2,
       findings: [{
         rule: 'missing-layer',
         path: 'src/services',
+        subject: '',
         message: 'Declared layer "services" has no folder yet.',
       }],
     }));
@@ -2965,5 +2967,98 @@ describe('init writes only inside the repo it runs in', () => {
     expect(read(dir, 'eslint.config.mjs')).toBeNull();
     expect(read(dir, 'docs/architecture-handbook.md')).toBeNull();
     expect(fs.existsSync(path.resolve(dir, offending))).toBe(false);
+  });
+});
+
+/**
+ * The ratchet's identity used to include the finding's message. This repo rewords
+ * findings as it learns to explain them better — two of the commits before this one
+ * did nothing else — and each such release silently retired every baseline entry for
+ * the rules it touched: the recorded text stopped matching, the same old debt came
+ * back as `fresh`, the recorded entry counted as `stale`, and a brownfield CI went
+ * red on an upgrade that changed no code. Identity is now the rule, the path and a
+ * subject, none of which a rewording touches. A baseline recorded under the old key
+ * is refused rather than reinterpreted: read under the new one it would suppress
+ * nothing, which is the wall of red the ledger exists to prevent, arriving with no
+ * stated cause.
+ */
+describe('a baseline survives a reworded finding, and an old one says so', () => {
+  const withDebt = (): string => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(reactBlueprint),
+        // An undeclared folder holding code: one error-tier finding to lock.
+        'src/random/x.js': 'export const x = 1;',
+      },
+    });
+
+    return dir;
+  };
+
+  it('records the subject and the version, and keeps the message for the diff', async () => {
+    const dir = withDebt();
+
+    expect((await cli(dir, ['inspect', '--update-baseline'])).code).toBe(0);
+
+    const document = JSON.parse(read(dir, '.blueprint-baseline.json') ?? '{}');
+
+    expect(document.version).toBe(2);
+    expect(document.findings[0].subject).toBe('');
+    expect(document.findings[0].path).toBe('src/random');
+    // Written, and read by nothing — it is what makes the diff of a regenerated
+    // ledger legible, so a rewording shows up as exactly that: a text change that
+    // suppresses the same debt.
+    expect(document.findings[0].message).toContain('not a declared layer');
+  });
+
+  it('still suppresses the debt after the message text is edited under it', async () => {
+    const dir = withDebt();
+
+    expect((await cli(dir, ['inspect', '--update-baseline'])).code).toBe(0);
+
+    // Stand in for the next release rewording that finding: same rule, same path,
+    // same subject, different sentence. Under the old key this alone turned the gate
+    // red and reported the entry as stale.
+    const document = JSON.parse(read(dir, '.blueprint-baseline.json') ?? '{}');
+
+    document.findings[0].message = 'Some future release explains this differently.';
+    write(dir, '.blueprint-baseline.json', JSON.stringify(document));
+
+    const gate = await cli(dir, ['inspect', '--baseline']);
+
+    expect(gate.code).toBe(0);
+    expect(gate.output).toContain('1 baselined finding(s) suppressed.');
+    expect(gate.output).not.toContain('no longer occur');
+  });
+
+  it('refuses a baseline recorded under the old key, and says what to run', async () => {
+    const dir = withDebt();
+
+    write(dir, '.blueprint-baseline.json', JSON.stringify({
+      version: 1,
+      findings: [{
+        rule: 'undeclared-folder',
+        path: 'src/random',
+        message: '"random" is not a declared layer — declare it, or move its code into a module of an existing layer.',
+      }],
+    }));
+
+    const gate = await cli(dir, ['inspect', '--baseline']);
+    const output = flattenProse(gate.output);
+
+    expect(gate.code).toBe(1);
+    // Four things the agent cannot get anywhere else: that this is an upgrade and
+    // not corruption, which version it read, the command, and — the one that decides
+    // whether running it needs a hand audit first — that re-keying suppresses the
+    // same debt rather than quietly widening what the gate ignores.
+    expect(output).toContain('version 1');
+    expect(output).toContain('version 2');
+    expect(output).toContain('--update-baseline');
+    expect(output).toContain('nothing is suppressed that was not suppressed before');
+
+    // And the command it names is one that works: the re-keyed ledger gates green.
+    expect((await cli(dir, ['inspect', '--update-baseline'])).code).toBe(0);
+    expect((await cli(dir, ['inspect', '--baseline'])).code).toBe(0);
   });
 });
