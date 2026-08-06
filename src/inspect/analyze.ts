@@ -353,6 +353,16 @@ function subgraph(edges: Map<string, Set<string>>, component: string[]): Map<str
   const restricted = new Map<string, Set<string>>();
 
   for (const node of [...component].sort(compareText)) {
+    // Undecidable, both halves of this line, and the map's KEY SET is why. Only the
+    // component's own nodes become keys here, so a target left in by dropping the
+    // filter is a node with no edges of its own — `detectCycle` visits it, finds
+    // nothing, and backs out; it can never close a cycle, because closing one needs
+    // every node on it to have an entry. Same reason the `?? []` fallback cannot be
+    // seen: whatever a mutant puts in it is not a member, so the filter removes it,
+    // and even with both changed at once the fabricated target is still a leaf. The
+    // filter stays for the cost it avoids — re-walking foreign subtrees once per
+    // component — and the fallback stays because a component's leaf really does have
+    // no entry in `edges`.
     const targets = [...(edges.get(node) ?? [])].filter((target) => members.has(target));
 
     restricted.set(node, new Set(targets));
@@ -374,6 +384,11 @@ function subgraph(edges: Map<string, Set<string>>, component: string[]): Map<str
 function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
   const index = new Map<string, number>();
   const onStack = new Set<string>();
+  // Undecidable: seeding this with anything is invisible, because the component is
+  // taken with `splice(indexOf(node))` and `node` was pushed after the seed — so a
+  // stray entry sits below every real one forever, never enters a component, and is
+  // never in `onStack`. What keeps it honest is that `splice` cuts at a found index
+  // rather than popping until the root reappears.
   const stack: string[] = [];
   const components: string[][] = [];
   let next = 0;
@@ -386,6 +401,11 @@ function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
     stack.push(node);
     onStack.add(node);
 
+    // Undecidable, the `?? []` arm: a leaf really has no entry in `edges`, and a
+    // fabricated target in its place is absorbed downstream — it gets its own index,
+    // closes as a one-node component, and `detectCycles` then asks `detectCycle` about
+    // it, which answers null because it has no self-edge. So the invented node adds a
+    // component that is dropped, and `Math.min` with its larger index is a no-op.
     for (const target of edges.get(node) ?? []) {
       const seen = index.get(target);
 
@@ -410,6 +430,15 @@ function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
   };
 
   for (const node of edges.keys()) {
+    // Undecidable: re-entering an already-indexed node cannot change the answer. By
+    // the time the loop reaches it, every target it has was indexed during its own
+    // first visit and no component is open, so the re-visit pushes it, finds nothing
+    // on the stack, and closes immediately as a one-node component — which
+    // `detectCycles` then drops, since a lone node with no self-edge has no cycle. It
+    // also re-indexes the node with a larger number, and that is unreadable too: an
+    // index is only consulted for a target that is still `onStack`, and a re-visited
+    // node is spliced off within the same call. Kept for the redundant walks it
+    // avoids, not for the verdict.
     if (index.has(node)) continue;
 
     visit(node);

@@ -108,6 +108,13 @@ export function parseBaseline(text: string): BaselineEntry[] {
     throw new Error('Baseline file is not valid JSON — regenerate it with --update-baseline.');
   }
 
+  // Undecidable, the `parsed !== null` half: the only value that passes the `typeof`
+  // test and fails this one is `null` itself, and `null` is exactly what the false
+  // branch assigns — so dropping it changes the type and never the value. It is here
+  // for the narrowing that makes the cast below legal, and it is load-bearing for that:
+  // every read of `document` past this point is guarded by `document !== null`, which
+  // is what the previous shape (`'findings' in parsed` inline) needed it for at
+  // runtime too.
   const document = typeof parsed === 'object' && parsed !== null
     ? (parsed as { findings?: unknown; version?: unknown })
     : null;

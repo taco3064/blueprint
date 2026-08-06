@@ -9,7 +9,7 @@ import type { Blueprint } from '../config';
 import { emitLint } from '../emit/lint';
 import { reactPreset } from '../presets';
 import { cli, configSource, flattenProse, makeRepo, read, rm, wiredEslintConfig, write } from './conformance';
-import type { RepoSpec } from './conformance';
+import type { CliResult, RepoSpec } from './conformance';
 
 /**
  * The adoption conformance suite, grouped by scenario — every scenario
@@ -2939,34 +2939,57 @@ describe('init writes only inside the repo it runs in', () => {
     emit,
   });
 
-  it.each([
-    ['emit.handbook above the root', { handbook: '../bp-escaped-handbook.md' } as Blueprint['emit'], '../bp-escaped-handbook.md'],
-    ['an absolute emit.agents path', { agents: [{ target: 'claude' as const, path: '/tmp/bp-escaped-contract.md' }] } as Blueprint['emit'], '/tmp/bp-escaped-contract.md'],
-  ])('refuses %s and leaves the tree untouched', async (_name, emit, offending) => {
-    const dir = repo({
-      packageJson: react(),
-      files: { 'blueprint.config.mjs': configSource(escaping(emit)) },
-    });
+  /**
+   * The project root is a subdirectory of the fixture, so a path that leaves the root
+   * still lands inside what this test owns and removes. Pointing an escape at the
+   * system temp directory is an assertion about shared global state, and it poisoned
+   * itself once: a mutation run executed a mutant with the guard removed, the write
+   * landed there for real, and every later run then saw the file it asserts is absent.
+   */
+  const nested = (): { dir: string; outside: string } => {
+    const fixture = repo({ packageJson: react() });
+    const dir = path.join(fixture, 'project');
 
-    const init = await cli(dir, ['init', '--no-install']);
+    write(dir, 'package.json', JSON.stringify(react()));
 
-    expect(init.code).toBe(1);
+    return { dir, outside: fixture };
+  };
 
-    // The refusal is the adopting agent's only channel, so it carries the path it
-    // refused, the guarantee that nothing landed, and the two fields that set one.
+  /** Everything the refusal has to say, in the one channel the agent is guaranteed. */
+  const assertRefused = (init: CliResult, dir: string, offending: string): void => {
     const output = flattenProse(init.output);
 
+    expect(init.code).toBe(1);
     expect(output).toContain(offending);
     expect(output).toContain('outside the project root');
     expect(output).toContain('nothing was written');
     expect(output).toContain('emit.handbook');
     expect(output).toContain('emit.agents[].path');
 
-    // Atomic: the eslint config sits below the handbook in plan order, so a
-    // per-action guard would have written it before reaching the refusal.
+    // Atomic: the eslint config sits below the handbook in plan order, so a guard
+    // that fired per action would have written it before reaching the bad one.
     expect(read(dir, 'eslint.config.mjs')).toBeNull();
     expect(read(dir, 'docs/architecture-handbook.md')).toBeNull();
     expect(fs.existsSync(path.resolve(dir, offending))).toBe(false);
+  };
+
+  it('refuses an emit.handbook above the root and leaves the tree untouched', async () => {
+    const { dir } = nested();
+
+    write(dir, 'blueprint.config.mjs', configSource(escaping({ handbook: '../escaped-handbook.md' })));
+
+    assertRefused(await cli(dir, ['init', '--no-install']), dir, '../escaped-handbook.md');
+  });
+
+  it('refuses an absolute emit.agents path, however ordinary the directory', async () => {
+    // Absolute, and pointing at the fixture that contains the project — containment
+    // is judged against the project root, not against how exotic the path looks.
+    const { dir, outside } = nested();
+    const target = path.join(outside, 'escaped-contract.md');
+
+    write(dir, 'blueprint.config.mjs', configSource(escaping({ agents: [{ target: 'claude', path: target }] })));
+
+    assertRefused(await cli(dir, ['init', '--no-install']), dir, target);
   });
 });
 

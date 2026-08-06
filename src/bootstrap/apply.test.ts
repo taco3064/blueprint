@@ -43,19 +43,33 @@ describe('apply · removing init\'s own output', () => {
     // guards even when the list did not come from `plan`. The first action is
     // perfectly legal and must still not land: a boundary enforced action-by-action
     // leaves the run half-applied at the file it refused.
+    //
+    // The project root is a subdirectory of the fixture, so "outside the root" is
+    // still inside what this test owns and cleans. Asserting on `$TMPDIR` directly is
+    // an assertion about shared global state, and it poisoned itself: a mutation run
+    // executed a mutant with the guard removed, the write landed in `$TMPDIR` for
+    // real, and every later run of this test then saw the file it asserts is absent.
+    const project = path.join(root, 'project');
+    const outside = path.join(root, 'escaped.md');
+
+    fs.mkdirSync(project);
+
     const actions: Action[] = [
       { kind: 'write', path: 'blueprint.config.mjs', content: '// authored', note: 'config' },
       { kind: 'write', path: '../escaped.md', content: 'outside', note: 'escaped' },
+      // Absolute, and still inside the fixture — containment is judged against the
+      // project root, not against how exotic the path looks.
+      { kind: 'write', path: outside, content: 'outside', note: 'absolute' },
     ];
 
     const applied: string[] = [];
 
-    expect(() => apply(root, actions, noExec, (action) => applied.push(action.kind)))
+    expect(() => apply(project, actions, noExec, (action) => applied.push(action.kind)))
       .toThrow(/outside the project root/);
 
     expect(applied).toEqual([]);
-    expect(fs.existsSync(path.join(root, 'blueprint.config.mjs'))).toBe(false);
-    expect(fs.existsSync(path.join(path.dirname(root), 'escaped.md'))).toBe(false);
+    expect(fs.existsSync(path.join(project, 'blueprint.config.mjs'))).toBe(false);
+    expect(fs.existsSync(outside)).toBe(false);
   });
 
   it('does remove the file when it is there', () => {
