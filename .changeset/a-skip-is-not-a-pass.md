@@ -26,6 +26,11 @@ Marking that one too would relabel every greenfield scaffold as unverified on th
 already on screen. The rule is to mark a skip when it hides something the rest of doctor does not
 already say.
 
+Everything that tells you to run doctor now describes all three outcomes rather than two. The
+authoring playbook's early-exit step, its acceptance gate and its semantics list each say what a `⊘`
+means and that it keeps exit 0; `doctor --help` names it too, and points a gate at `--json`'s
+`skipped` instead of the exit code it invites you to read.
+
 This project's own fixtures were resting on the miscount: several asserted "all 7 checks passed" in
 `--no-install` repos where eslint cannot resolve, so the suite had been green through the same
 skipped check.
