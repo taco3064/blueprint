@@ -75,9 +75,12 @@ is not in the config). Field batches 10–12 are the case law.
   At the site, because that is where the next sweep meets it: a proof in a commit
   message serves the review and then has to be excavated with `git log -S`, and
   re-litigating one is expensive (two of these were wrong the first time). Each opens
-  with the word **undecidable**, so `grep -rn undecidable src/ --include='*.ts'` is
+  with the word **undecidable**, so `grep -rni undecidable src/ --include='*.ts'` is
   the ledger — no file to maintain, no line numbers to drift, and the survivor count
-  stays honest because nothing is suppressed.
+  stays honest because nothing is suppressed. **The `-i` is load-bearing**: most of
+  these proofs open a sentence, so the word is capitalized, and the case-sensitive
+  form of this command reported 8 of the 20 proof lines actually in the tree — a
+  ledger that under-counts by 60% while looking like it works.
   Not chased to 100% — but "equivalent" is a claim someone has read the mutant and
   written down why, not a bucket for whatever is left. The first sweep on this suite
   reported 87 survivors and the second 59; of those 59, **43 turned out to be
