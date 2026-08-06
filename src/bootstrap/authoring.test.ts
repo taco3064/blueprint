@@ -45,7 +45,7 @@ const survey: SurveyResult = {
 
 describe('authoringActions', () => {
   it('writes the playbook, the command file, installs the package, then instructs', () => {
-    const actions = authoringActions(survey, { packageManager: 'pnpm', needsInstall: true, hadClaudeDir: false });
+    const actions = authoringActions(survey, { packageManager: 'pnpm', needsInstall: true, hadClaudeDir: false, viteTs: null });
 
     expect(actions.map((action) => action.kind)).toEqual(['write', 'write', 'install', 'instruct']);
 
@@ -73,7 +73,7 @@ describe('authoringActions', () => {
   });
 
   it('skips the install action when the package is already a dependency', () => {
-    const actions = authoringActions(survey, { packageManager: 'npm', needsInstall: false, hadClaudeDir: false });
+    const actions = authoringActions(survey, { packageManager: 'npm', needsInstall: false, hadClaudeDir: false, viteTs: null });
 
     expect(actions.map((action) => action.kind)).toEqual(['write', 'write', 'instruct']);
   });
@@ -81,7 +81,7 @@ describe('authoringActions', () => {
   it('downgrades to an instruct with the exact command under --no-install', () => {
     const actions = authoringActions(survey, {
       packageManager: 'npm',
-      needsInstall: true, hadClaudeDir: false,
+      needsInstall: true, hadClaudeDir: false, viteTs: null,
       install: false,
     });
 

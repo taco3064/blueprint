@@ -17,8 +17,9 @@ import {
   readTexts,
   resolveBlueprint,
   unreadableTsconfigs,
+  viteTsCoverage,
 } from '../project';
-import type { ProjectState, ResolveOptions } from '../project';
+import type { ProjectState, ResolveOptions, ViteTsCoverage } from '../project';
 import { runSurvey } from '../survey';
 import { authoringActions, BROWNFIELD_MIN_FILES } from './authoring';
 import { agentTargetOf, launchAgent } from './agent';
@@ -124,6 +125,9 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
       // cannot tell its own directory from one the owner already had.
       return runAuthoring(root, state, survey, options, log, pristine, {
         hadClaudeDir: fs.existsSync(path.join(root, '.claude')),
+        // The build step used to hand this question to the agent ("read your
+        // tsconfig, do not assume"), which is a per-repo fact with an address.
+        viteTs: viteTsCoverage(root),
       });
     }
 
@@ -455,7 +459,7 @@ function runAuthoring(
   // No default: the one caller always decides, so a default here would be a value
   // nothing ever reads — dead on arrival and invisible to every test.
   removeScaffold: boolean,
-  facts: { hadClaudeDir: boolean },
+  facts: { hadClaudeDir: boolean; viteTs: ViteTsCoverage | null },
 ): Action[] {
   const actions = authoringActions(survey, {
     ...facts,

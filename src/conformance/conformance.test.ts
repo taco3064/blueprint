@@ -647,19 +647,12 @@ describe('a proof step states its own reach (field run #85)', () => {
     // was the most-repeated item in the whole field campaign — fifteen mentions — and
     // the playbook's own first-listed command is what creates the artifact. On a path
     // where the wide build proves nothing extra, stop creating it.
-    // The preference is conditional, and used to read as flat. "The full build answers
-    // no more of it" holds only where the vite config sits inside a tsconfig project;
-    // on the other branch it answers strictly more. Two field runs landed on that
-    // sentence — one deviated from it, one nearly filed it (#104, #106).
-    expect(playbook).toContain('where `tsc -b` is enough, prefer it');
-    expect(playbook).toContain('the preference holds only where the answer is yes');
-    expect(playbook).toContain('the full build answers\n   strictly more');
-    expect(playbook).toContain('there the bundle is the point');
-
-    // And on that branch the two builds run separately, because the attribution the
-    // step asks for two sentences earlier is exactly what one fused result cannot give.
-    expect(playbook).toContain('running the two separately buys the report its');
-    expect(flattenProse(playbook)).toContain('`tsc -b` then `vite build` covers what the full build covers');
+    // Which build is now MEASURED, not argued — three releases of prose about the
+    // adopter's tsconfig collapsed into `viteTsCoverage`. This fixture has no vite
+    // config, so the reader falls back to the read-it-yourself wording, and says so.
+    expect(playbook).toContain('this run could not settle it');
+    expect(flattenProse(playbook)).toContain('only the split lets you say which edit each one verified');
+    expect(playbook).toContain('Never report that a build verified the vite edit');
   });
 
   it('says how to combine against an opaque spread', async () => {
@@ -2376,10 +2369,12 @@ describe('a check is asked for, not answered in advance (field runs #99-#100)', 
     // a build, and the only path all three of these agents were on.
     const playbook = await playbookOf({ packageJson: react() });
 
-    expect(playbook).toContain('is a fact about THIS repo — read');
+    // This fixture has no vite config at all, so the measurement declines and the
+    // read-it-yourself wording stands — which is the only case it is for now.
+    expect(playbook).toContain('is a fact about THIS repo, and');
+    expect(playbook).toContain('this run could not settle it');
     expect(playbook).toContain('it exits 0 whatever you put in it');
-    expect(playbook).toContain('see which one you have');
-    expect(playbook).toContain('never report that a build verified the vite edit');
+    expect(playbook).toContain('Never report that a build verified the vite edit');
 
     // …and the old universal is gone, not merely qualified.
     expect(playbook).not.toContain('A Vite + TS starter keeps');
@@ -2622,6 +2617,78 @@ describe('a principle names its own boundary (field runs #104, #106)', () => {
     expect(reference).toContain('as far as the files it actually parsed');
     expect(reference).toContain('proves this config loads, not that the');
     expect(reference).toContain('Skipping the block is still right either way');
+  });
+});
+
+describe('the build clause is measured, not argued (field runs #104-#111)', () => {
+  const withVite = (tsconfigs: Record<string, string>) => ({
+    packageJson: react(),
+    files: { 'vite.config.ts': 'export default {}\n', ...tsconfigs },
+  });
+
+  const playbookOf = async (spec: RepoSpec): Promise<string> => {
+    const dir = repo(spec);
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    return read(dir, 'blueprint-authoring.md') ?? '';
+  };
+
+  it('names `tsc -b` alone when a tsconfig project pulls the vite config in', async () => {
+    // The modern Vite + TS template. This is the shape the playbook first ASSERTED
+    // was universal (a finding three batches running), then told the agent to go and
+    // check. Now init reads the tsconfig graph and the playbook states the answer.
+    const flat = flattenProse(await playbookOf(withVite({
+      'tsconfig.json': '{ "files": [], "references": [{ "path": "./tsconfig.node.json" }] }\n',
+      'tsconfig.node.json': '{ "include": ["vite.config.ts"] }\n',
+    })));
+
+    expect(flat).toContain('that is measured, not assumed');
+    expect(flat).toContain('`tsconfig.node.json` pulls `vite.config.ts` into a tsconfig');
+    expect(flat).toContain('the one build that read both files');
+
+    // The instruction it replaces is gone — not softened, gone.
+    expect(flat).not.toContain('read it, do not assume it');
+  });
+
+  it('names the split when no project pulls it in, and says which config it read', async () => {
+    // The shape this repo's own harness stages, where a field agent proved `tsc -b`
+    // never reads the vite config by injecting a type error into it.
+    const flat = flattenProse(await playbookOf(withVite({
+      'tsconfig.json': '{ "include": ["src"], "compilerOptions": { "noEmit": true } }\n',
+    })));
+
+    expect(flat).toContain('and then the vite build, separately');
+    expect(flat).toContain('No tsconfig project in this repo pulls `vite.config.ts` in');
+    expect(flat).toContain('(`tsconfig.json` was read for it)');
+    expect(flat).toContain('only the split lets you report which edit each one verified');
+  });
+
+  it('keeps the read-it-yourself wording exactly where the reader declined', async () => {
+    // An `exclude` list is one of the shapes the reader will not resolve, and the
+    // fallback is the point: "go and look" is right when the tool could not tell.
+    const flat = flattenProse(await playbookOf(withVite({
+      'tsconfig.json': '{ "include": ["**/*"], "exclude": ["vite.config.ts"] }\n',
+    })));
+
+    expect(flat).toContain('this run could not settle it');
+    expect(flat).toContain('Open the tsconfig(s) and see which one you have');
+    expect(flat).not.toContain('that is measured, not assumed');
+  });
+
+  it('forbids the over-claim on all three branches', async () => {
+    // The one sentence that must survive whichever way the measurement goes: the
+    // report must never say a build verified an edit it never read.
+    const specs = [
+      withVite({ 'tsconfig.json': '{ "include": ["vite.config.ts"] }\n' }),
+      withVite({ 'tsconfig.json': '{ "include": ["src"] }\n' }),
+      withVite({ 'tsconfig.json': '{ "extends": "./base.json" }\n' }),
+    ];
+
+    for (const spec of specs) {
+      expect(flattenProse(await playbookOf(spec)))
+        .toContain('Never report that a build verified the vite edit');
+    }
   });
 });
 

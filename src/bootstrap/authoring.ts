@@ -1,5 +1,5 @@
 import { AUTHORING_FILE, COMMAND_FILE } from '../project';
-import type { PackageManager } from '../project';
+import type { PackageManager, ViteTsCoverage } from '../project';
 import type { SurveyResult } from '../survey';
 import { installCommand } from './plan';
 import {
@@ -56,6 +56,8 @@ export interface AuthoringOptions {
    * nothing reading it is exactly what makes a wrong one invisible.
    */
   hadClaudeDir: boolean;
+  /** Measured `tsc -b` coverage of the vite config; null when undecidable. */
+  viteTs: ViteTsCoverage | null;
   /** True when `@kekkai/blueprint` is not yet a dependency of the project. */
   needsInstall: boolean;
   /** Skip the install action when false (`--no-install`) — instruct instead. */
@@ -133,12 +135,12 @@ export function authoringBrief(
   // `next` has a default, so positionally every caller had to state `next` in order
   // to reach the field after it — which silently retired `next`'s default and the
   // only thing exercising it. Two booleans in a row is how that happens.
-  facts: { next?: boolean; hadClaudeDir: boolean },
+  facts: { next?: boolean; hadClaudeDir: boolean; viteTs?: ViteTsCoverage | null },
 ): string {
-  const { next = false, hadClaudeDir } = facts;
+  const { next = false, hadClaudeDir, viteTs = null } = facts;
 
   return [
-    renderHeader(renderNextNote(next), renderVerdict(survey, hadClaudeDir)),
+    renderHeader(renderNextNote(next), renderVerdict(survey, hadClaudeDir, viteTs)),
     renderPrerequisites(install),
     renderGoal(),
     renderMethod(),
