@@ -500,6 +500,44 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
   });
 });
 
+describe('an instruction states its own reach too (field runs #91–#93)', () => {
+  it('says the codeStyle --fix pass is a no-op while the layers are empty', async () => {
+    // This text was added last round, and it prescribed running `--fix` and landing a
+    // commit unconditionally. Two agents caught it independently: one downgraded it to
+    // "when the first file lands in a layer", the other nearly filed it as a misleading
+    // instruction. The playbook states reach for its lint and build steps in four
+    // places; this instruct did not — the same class, in my own new sentence.
+    const dir = repo({ packageJson: react() });
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).toContain('when there IS code inside a layer');
+    expect(init.output).toContain('that pass is a no-op');
+    expect(init.output).toContain('which is when the --fix pass earns its commit');
+  });
+
+  it('tells a re-adoption that regenerated wording is the version, not drift', async () => {
+    // Two runs spent a cycle proving this — one did a full copy-and-diff to rule out
+    // non-idempotency. Regenerated artifacts differ from the committed ones when the
+    // installed version is newer; that is the improvement arriving.
+    const dir = repo({
+      packageJson: react(),
+      files: Object.fromEntries(
+        Array.from({ length: 12 }, (_, i) => [`src/legacy/mod${i}.js`, 'export const x = 1;\n']),
+      ),
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('can\n   come out WORDED differently');
+    expect(playbook).toContain('not drift and not non-idempotency');
+    expect(playbook).toContain('Never hand-revert generated text');
+  });
+});
+
 describe('a number and a rule the reader can act on (field run #89)', () => {
   it('names the files outside the layer nets, not just how many', async () => {
     // `272/275` reads identically whether the three are root wiring (outside by design)
