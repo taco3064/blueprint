@@ -450,6 +450,13 @@ describe('runInit · brownfield authoring flow', () => {
     await expect(refusal).rejects.toThrow('The structure is reproducible');
     await expect(refusal).rejects.toThrow('Copy anything you want to keep');
 
+    // …and where they go back to. Saving the WHY was the whole point of this guard,
+    // and it used to stop at "copy" — a field agent put them beside the clauses they
+    // explain and marked that as its own invention, having found no stance (#110).
+    await expect(refusal).rejects.toThrow('back into the rewritten config');
+    await expect(refusal).rejects.toThrow('beside the clause it explains');
+    await expect(refusal).rejects.toThrow('read once while the config is what the next');
+
     expect(read('blueprint.config.mjs')).toContain('hand-tuned');
   });
 

@@ -87,11 +87,18 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
       // from scratch rather than merging, so the structure comes back (a field run
       // reproduced it byte for byte) while the inline rationale does not. "Discard your
       // work" reads as recoverable when the recoverable half is not the valuable one.
+      // And say where the rescued comments go back to. The guard exists to save the
+      // WHY, then stopped at "copy anything you want to keep" — a field agent put them
+      // back beside the clauses they explain and marked that as its own invention,
+      // because nothing here had a stance (field run #110). A report is read once; the
+      // config is what the next re-authoring meets.
       'blueprint.config.mjs differs from what init would scaffold — so it is yours, not '
       + 'init\'s output, and re-authoring rewrites it from scratch rather than merging. '
       + 'The structure is reproducible; the comments explaining WHY each threshold and '
       + 'ownership was chosen are not. Copy anything you want to keep, then delete the '
-      + 'file yourself if you really want the playbook.',
+      + 'file yourself if you really want the playbook. Put those comments back into the '
+      + 'rewritten config, each beside the clause it explains — not only into the report, '
+      + 'which is read once while the config is what the next re-authoring will read.',
     );
   }
 
