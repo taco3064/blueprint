@@ -172,6 +172,7 @@ export function authoringBrief(
     renderHeader(
       renderNextNote(next),
       renderVerdict(survey, claudeDir, viteTs, tscOut, packageManager),
+      claudeDir,
     ),
     renderPrerequisites(install),
     renderGoal(),

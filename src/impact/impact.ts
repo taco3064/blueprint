@@ -45,6 +45,12 @@ export interface RuleImpact {
    * linting in isolation (e.g. an existing `eslint-disable custom/x` comment
    * whose rule lives in the project's own config, absent here). Not counted
    * in the total: merging emitLint into the real config makes these vanish.
+   *
+   * `count` is then a count of MENTIONS, and its location the comment: ESLint
+   * reports an unresolvable name in a directive at the directive, so nothing
+   * here says the code beneath it violates anything. A field agent read one of
+   * these rows as "impact ignored my inline disable and counted the code under
+   * it" — a reasonable reading of a row the report called an echo (run #146).
    */
   foreign: boolean;
 }
@@ -69,12 +75,20 @@ async function loadStack(
 ): Promise<unknown> {
   try {
     return await load(name, root);
-  } catch {
+  } catch (error) {
     // "Not installed" would over-claim: exotic layouts (pnpm isolation +
-    // ESM-only entries) can defeat resolution for an installed package.
+    // ESM-only entries) can defeat resolution for an installed package. The
+    // loader's own error is the only thing that says WHICH package failed, and
+    // discarding it made those two cases identical on screen: a run whose
+    // `eslint-plugin-import-x` was present but missing a transitive read this
+    // as "add the plugin", added it again, and went through three more lint
+    // runs and three package.json files to reach `unrs-resolver` (run #145).
     throw new Error(
-      `impact needs "${name}" from the project's dependencies and could not load it — `
-      + 'is it installed? (blueprint init lists it among the required deps.)',
+      `impact needs "${name}" from the project's dependencies and could not load it. `
+      + `The loader said: ${error instanceof Error ? error.message : String(error)}\n`
+      + `If that names a DIFFERENT package, "${name}" itself is here and its own dependency `
+      + `tree is not: a full install of the project fills that, adding "${name}" again does `
+      + 'not. (`blueprint init` lists it among the required deps.)',
     );
   }
 }
@@ -274,7 +288,7 @@ export function renderImpact(impacts: RuleImpact[], total: number, linted: numbe
         '',
         'Isolation caveats — not wiring-introduced red, never counted above:',
         '(`unused-disable-directive`: the disable suppresses nothing HERE — one',
-        'pointing at your own config\'s rules vanishes after the merge, a truly',
+        'for a rule your real config turns ON vanishes after the merge, a truly',
         'stale one survives it; `parse-error`: the file could not be parsed and',
         'its numbers are untrustworthy. Verify both against your full lint.)',
         '',
@@ -285,11 +299,15 @@ export function renderImpact(impacts: RuleImpact[], total: number, linted: numbe
     ? []
     : [
         '',
-        'Echoes of YOUR OWN config — NOT blueprint findings, NEVER counted:',
-        'these rule ids are yours. They surface only because this run lints',
-        'with the emitted config alone, and vanish once emitLint merges into',
-        'your real config. A row mirroring a blueprint hit above is the same',
-        'spot seen through your rule\'s name — an echo, not a second violation.',
+        'Names YOUR OWN config owns — NOT blueprint findings, NEVER counted:',
+        'this run configures the emitted rules and nothing else, so a row here',
+        'is a name your CODE carries: an `eslint-disable` (or inline config)',
+        'comment naming a house rule. ESLint reports the name it cannot resolve',
+        'AT THAT COMMENT, so a count here counts mentions — not violations, and',
+        'not a verdict on the code beneath one; a row beside a blueprint hit is',
+        'not a second finding. The ROWS leave this report once emitLint merges',
+        'into your real config. Your rule does not: defined again there, it',
+        'judges that code itself, disable comments honored.',
         '',
         ...rows(foreign),
       ];

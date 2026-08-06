@@ -575,7 +575,21 @@ function applyAndNarrate(
         + ' normal; minutes of silence means it cannot get there — stop it and run the line'
         + ' above yourself, or re-run init with `--no-install`. No version list to find'
         + ' first: these are your project\'s dependencies, installed unpinned so eslint'
-        + ' resolves to the newest supported major.',
+        + ' resolves to the newest supported major.\n'
+        // What a killed install leaves behind, said here for the same reason the
+        // escape hatch is: the failure path below explains the half-done tree, and
+        // a killed process reaches neither. Four runs stopped this step as invited
+        // and then read the resulting state as breakage — one hand-wrote the
+        // manifest entries, one called it a repo left unverifiable (field runs
+        // #144–#146). The install is last in the plan, so "everything above is on
+        // disk" is the whole remainder, not a hopeful summary.
+        // Not "what it leaves out is `package.json`": on the preset path a `✓ write:
+        // package.json` sits two lines above this one (the lint script), and the two
+        // read as a contradiction. What stopping omits is these packages IN it.
+        + '      Stopping is safe: this is the last step, so every file above is already on'
+        + ' disk. What stopping omits is these packages in `package.json` — this line is the'
+        + ' only thing that records them there, so until it runs, a failure naming one of'
+        + ' them is that gap and not a broken adoption.',
       ),
     );
   } catch (error) {
