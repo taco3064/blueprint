@@ -201,11 +201,20 @@ The complete early-exit checklist — nothing else in this file applies:
    **Which build, though — and on this path prefer \`npx tsc -b\`.** It
    answers the only question available here, and the full \`npm run build\`
    answers no more of it while emitting a bundle into a tree that may have
-   nowhere to put one (see below). A Vite + TS starter keeps
-   \`vite.config.ts\` inside a tsconfig project, so \`tsc -b\` type-checks
-   the vite edit too; run the project's full build instead when the vite
-   config sits outside every tsconfig project, or once layer files exist and
-   the alias is genuinely exercised — there the bundle is the point. Its artifacts
+   nowhere to put one (see below).
+   **Whether \`tsc -b\` covers your vite edit is a fact about THIS repo — read
+   it, do not assume it.** Templates differ: many put \`vite.config.ts\` inside
+   a tsconfig project (commonly a \`tsconfig.node.json\` reached through
+   \`references\`), and there \`tsc -b\` type-checks the vite edit too; others
+   leave a single root config at \`include: ["src"]\`, and there \`tsc -b\` never
+   reads the file you just edited — it exits 0 whatever you put in it. Open the
+   tsconfig(s) and see which one you have before choosing. Inside a project,
+   \`tsc -b\` is the build to prefer here. Outside every project — or once layer
+   files exercise the alias — run the project's full build, the only build that
+   loads the vite config at all; there the bundle is the point. Either way,
+   never report that a build verified the vite edit without having established
+   that the build reads the vite config: that claim is the one thing this step
+   can get silently wrong, and \`tsc -b\` exiting 0 is not evidence for it. Its artifacts
    (\`dist/\`, \`*.tsbuildinfo\`) are the build's normal output, not
    adoption leftovers: leave them to the repo's own ignore rules, and say so
    in the report instead of guessing a cleanup when those rules will not
@@ -223,6 +232,15 @@ The complete early-exit checklist — nothing else in this file applies:
    and the build can be re-run. Then it is the owner's call rather than
    an unexplained mess: "leave them" without that sentence reads as "you
    may not touch these", which is not what it means.
+   **One of the four cells decides itself: no ignore rules AND no version
+   control.** There, "leave them to the repo's own ignore rules" names rules
+   that do not exist and an owner who has no \`git status\` to see them in — so
+   remove what your own verification step created, and say you did. That is not
+   the owner's call being taken from them: it is the same reason this path
+   prefers \`tsc -b\`, applied one step later. The tree you hand back is the tree
+   you were given. In the other three cells leave the artifacts alone — ignore
+   rules cover them, or \`git status\` surfaces them, and either way something
+   other than your report is keeping track.
 4. Delete this playbook, \`${COMMAND_FILE}\`, and the now-empty
    \`.claude/commands/\` directory${
       hadClaudeDir
@@ -366,7 +384,18 @@ the answer belongs in this playbook — note the gap in your report instead.
    One exception, and it decides the harder cases: some clauses **cannot** be
    derived from the matrix at all — ownership of a named import, the shape of a
    selfOnly narrowing, the position of a layer holding no files, a permitted
-   importer with zero edges today. For those the prior output is the only
+   importer with zero edges today. **And the rule that catches the rest: any
+   field in the prior config that the schema sketch below does not show.** The
+   sketch is a starting shape, not the field list — \`sourceRoot\`,
+   \`layerFilesIgnore\`, \`naming\`, a layer's \`mustNot\` and \`lintOverrides\`,
+   \`principles\`, \`componentShape\`, \`playbook\` are all valid, all invisible to
+   a survey, and every one of them changes what gets emitted. They are the
+   easiest of the set to lose because losing them costs no error: the contract
+   comes back shorter, an override stops being emitted, an ignore stops being
+   applied. \`sourceRoot\` is the one that does real damage — drop it on a repo
+   whose code is not under \`src/\` and every layer glob silently points at
+   nothing. Diff the prior config against yours field by field before you
+   believe you reproduced it. For those the prior output is the only
    evidence there is, so check-only means dropping them, and a "faithful"
    re-adoption then hands back a config LOOSER than the one it replaced.
    Verify each against what the matrix CAN see (is there an edge for this

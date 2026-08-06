@@ -6,7 +6,7 @@ import { emitHandbook, handbookPath } from '../emit/docs';
 import { FRAMEWORK_EXTS } from '../emit/lint';
 import { injectBetweenMarkers } from '../markdown';
 import type { AgentTarget, Blueprint } from '../config';
-import { GENERATED_ESLINT_BANNER } from '../project';
+import { GENERATED_ESLINT_BANNER, SUPPORTED_ESLINT_MAJORS } from '../project';
 import type { PackageManager, ProjectState } from '../project';
 import type { Action } from './types';
 
@@ -228,7 +228,16 @@ export function plan(
         command: installCommand(state.packageManager, deps),
         // The line renders as "✓ install: <note>" — a note that starts with
         // "install" stutters (field issue #34).
-        note: deps.join(', '),
+        //
+        // Unpinned on purpose, and the range says so where the adopter is
+        // already looking. `eslint` resolves to the newest supported major,
+        // which is newer than this package's own devDependency — a field agent
+        // saw ESLint 10 arrive from a tool developed on 9 and could only report
+        // "worked today" (field run #100). The majors are a tested contract,
+        // not whatever npm happened to hand over.
+        note: deps.includes('eslint')
+          ? `${deps.join(', ')} — eslint unpinned, resolving to the newest supported major (${SUPPORTED_ESLINT_MAJORS.join(' and ')} are both tested)`
+          : deps.join(', '),
       });
     } else {
       // --no-install must not silently drop the requirement — surface the
