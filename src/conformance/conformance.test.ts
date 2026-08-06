@@ -684,6 +684,27 @@ describe('a proof step states its own reach (field run #85)', () => {
     expect(playbook).toContain('the one place print-config is not optional');
   });
 
+  it('does not let the sketch understate what a preset sets (field run #127)', async () => {
+    // The sketch's `rules` line showed two gates and called them "the two gates a preset
+    // already sets". An agent checked it against `blueprint rules` on a reactPreset repo:
+    // 17 of the catalog's 18 optional gates are set, 11 at error tier. Zero cost on the
+    // preset path, which never reads the sketch — and a hand-authoring reader would have
+    // taken it as the preset's whole posture, which is the one thing about this tool that
+    // must not be underestimated. No number replaces it: a count has an address, and
+    // `rules` is that address.
+    const dir = repo(brownfield());
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const prose = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
+
+    expect(prose).toContain('two gates that a preset sets too');
+    expect(prose).toContain('NOT the set a preset sets, which is nearly the whole catalog');
+    expect(prose).toContain('`npx blueprint rules` prints that set');
+    // The count-bearing claim itself, so restoring it turns this red.
+    expect(prose).not.toContain('the two gates a preset already sets');
+  });
+
   it('names the one part of the emitted entry a fold does NOT carry (field run #117)', async () => {
     // The same sentence said the combined entry must carry "everything the emitted one
     // did", two paragraphs after forbidding an emitLint dump — and the emitted entry
