@@ -638,6 +638,46 @@ export function viteTsCoverage(root: string): ViteTsCoverage | null {
   return { verdict: 'outside', viteFile, tsconfig: rootConfig };
 }
 
+export interface ClaudeDirState {
+  /**
+   * `.claude/` existed before this run, so it is the owner's whatever ends up in it.
+   * Measured because the playbook used to assert init created it, which init knew and
+   * had not checked — an agent went back to its own opening `ls -la` to be sure.
+   */
+  hadDir: boolean;
+  /**
+   * Command files in `.claude/commands/` other than the one init writes. The
+   * cleanup sentence called that directory "now-empty" while measuring its parent,
+   * so a repo with the owner's own commands beside blueprint's was told to delete a
+   * directory that would not be empty (field run #139).
+   */
+  otherCommands: number;
+}
+
+/**
+ * What `.claude/` looked like before this run — read before init writes anything,
+ * because afterwards the tool cannot tell its own directory from the owner's.
+ */
+export function claudeDirState(root: string): ClaudeDirState {
+  const dir = path.join(root, '.claude');
+  const commands = path.join(dir, 'commands');
+  const own = path.basename(COMMAND_FILE);
+
+  return {
+    hadDir: fs.existsSync(dir),
+    otherCommands: readDir(commands).filter((entry) => entry !== own).length,
+  };
+}
+
+/** Directory entries, or none when the directory is absent or unreadable. */
+function readDir(dir: string): string[] {
+  try {
+    return fs.readdirSync(dir);
+  } catch {
+    return [];
+  }
+}
+
 export interface TscArtifactLocation {
   /** The redirected build-info path, relative to root — the fact that decides it. */
   buildInfo: string;

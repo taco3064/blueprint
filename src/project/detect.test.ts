@@ -16,6 +16,7 @@ import {
   ALLOWED_CARRIER_PEERS,
   REQUIRED_DEPS,
   STACK_DEPS,
+  claudeDirState,
   SUPPORTED_ESLINT_MAJORS,
   tscArtifactsOutOfTree,
   viteTsCoverage,
@@ -1231,5 +1232,47 @@ describe('tscArtifactsOutOfTree · the artifact premise, measured instead of ass
     write('tsconfig.json', '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }] }');
 
     expect(tscArtifactsOutOfTree(dir)).toBeNull();
+  });
+});
+
+describe('claudeDirState · both halves of the cleanup sentence, measured', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-claude-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  const commands = () => path.join(dir, '.claude', 'commands');
+
+  it('reads a repo with neither the directory nor any command', () => {
+    expect(claudeDirState(dir)).toEqual({ hadDir: false, otherCommands: 0 });
+  });
+
+  it('counts the owner commands beside blueprint own, and not blueprint own', () => {
+    // The sentence said "the now-empty `.claude/commands/` directory" while measuring
+    // its parent, so a repo with the owner's commands beside blueprint's was told to
+    // delete a directory that would not be empty (field run #139). blueprint's own
+    // file does not count: it is the one being deleted.
+    fs.mkdirSync(commands(), { recursive: true });
+    fs.writeFileSync(path.join(commands(), 'blueprint-author.md'), '');
+
+    expect(claudeDirState(dir)).toEqual({ hadDir: true, otherCommands: 0 });
+
+    fs.writeFileSync(path.join(commands(), 'my-existing-command.md'), '');
+
+    expect(claudeDirState(dir)).toEqual({ hadDir: true, otherCommands: 1 });
+  });
+
+  it('reads a `.claude/` with no commands directory at all', () => {
+    // The owner uses Claude Code for settings only. `.claude/` is theirs; the
+    // commands directory is init's to make and to remove.
+    fs.mkdirSync(path.join(dir, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.claude', 'settings.json'), '{}');
+
+    expect(claudeDirState(dir)).toEqual({ hadDir: true, otherCommands: 0 });
   });
 });

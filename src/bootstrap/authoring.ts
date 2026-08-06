@@ -1,5 +1,10 @@
 import { AUTHORING_FILE, COMMAND_FILE } from '../project';
-import type { PackageManager, TscArtifactLocation, ViteTsCoverage } from '../project';
+import type {
+  ClaudeDirState,
+  PackageManager,
+  TscArtifactLocation,
+  ViteTsCoverage,
+} from '../project';
 import type { SurveyResult } from '../survey';
 import { installCommand } from './plan';
 import {
@@ -55,7 +60,7 @@ export interface AuthoringOptions {
    * no caller may leave it unstated — a default would be a value nothing reads, and
    * nothing reading it is exactly what makes a wrong one invisible.
    */
-  hadClaudeDir: boolean;
+  claudeDir: ClaudeDirState;
   /** Measured `tsc -b` coverage of the vite config; null when undecidable. */
   viteTs: ViteTsCoverage | null;
   /**
@@ -137,28 +142,28 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
 export function authoringBrief(
   survey: SurveyResult,
   install: string,
-  // An options object, not two positional booleans. `hadClaudeDir` is required and
+  // An options object, not two positional booleans. `claudeDir` is required and
   // `next` has a default, so positionally every caller had to state `next` in order
   // to reach the field after it — which silently retired `next`'s default and the
   // only thing exercising it. Two booleans in a row is how that happens.
   facts: {
     next?: boolean;
-    hadClaudeDir: boolean;
+    claudeDir: ClaudeDirState;
     viteTs?: ViteTsCoverage | null;
     tscOut?: TscArtifactLocation | null;
   },
 ): string {
-  const { next = false, hadClaudeDir, viteTs = null, tscOut = null } = facts;
+  const { next = false, claudeDir, viteTs = null, tscOut = null } = facts;
 
   return [
-    renderHeader(renderNextNote(next), renderVerdict(survey, hadClaudeDir, viteTs, tscOut)),
+    renderHeader(renderNextNote(next), renderVerdict(survey, claudeDir, viteTs, tscOut)),
     renderPrerequisites(install),
     renderGoal(),
-    renderMethod(hadClaudeDir),
+    renderMethod(claudeDir),
     renderSemantics(),
     renderRuleCatalog(),
     renderSchemaSketch(),
-    renderAcceptanceGates(hadClaudeDir),
+    renderAcceptanceGates(claudeDir),
     renderResumePoint(),
     renderSurveyEvidence(survey),
   ].join('\n');

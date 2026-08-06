@@ -45,7 +45,7 @@ const survey: SurveyResult = {
 
 describe('authoringActions', () => {
   it('writes the playbook, the command file, installs the package, then instructs', () => {
-    const actions = authoringActions(survey, { packageManager: 'pnpm', needsInstall: true, hadClaudeDir: false, viteTs: null, tscOut: null });
+    const actions = authoringActions(survey, { packageManager: 'pnpm', needsInstall: true, claudeDir: { hadDir: false, otherCommands: 0 }, viteTs: null, tscOut: null });
 
     expect(actions.map((action) => action.kind)).toEqual(['write', 'write', 'install', 'instruct']);
 
@@ -73,7 +73,7 @@ describe('authoringActions', () => {
   });
 
   it('skips the install action when the package is already a dependency', () => {
-    const actions = authoringActions(survey, { packageManager: 'npm', needsInstall: false, hadClaudeDir: false, viteTs: null, tscOut: null });
+    const actions = authoringActions(survey, { packageManager: 'npm', needsInstall: false, claudeDir: { hadDir: false, otherCommands: 0 }, viteTs: null, tscOut: null });
 
     expect(actions.map((action) => action.kind)).toEqual(['write', 'write', 'instruct']);
   });
@@ -81,7 +81,10 @@ describe('authoringActions', () => {
   it('downgrades to an instruct with the exact command under --no-install', () => {
     const actions = authoringActions(survey, {
       packageManager: 'npm',
-      needsInstall: true, hadClaudeDir: false, viteTs: null, tscOut: null,
+      needsInstall: true,
+      claudeDir: { hadDir: false, otherCommands: 0 },
+      viteTs: null,
+      tscOut: null,
       install: false,
     });
 
@@ -94,7 +97,7 @@ describe('authoringActions', () => {
 });
 
 describe('authoringBrief', () => {
-  const brief = authoringBrief(survey, 'pnpm add -D @kekkai/blueprint', { hadClaudeDir: false });
+  const brief = authoringBrief(survey, 'pnpm add -D @kekkai/blueprint', { claudeDir: { hadDir: false, otherCommands: 0 } });
 
   it('opens with the install prerequisite', () => {
     expect(brief).toContain('## Prerequisites');
@@ -156,7 +159,7 @@ describe('authoringBrief', () => {
   });
 
   it('prepends the verdict below the threshold and reorders nothing else', () => {
-    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { hadClaudeDir: false });
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { claudeDir: { hadDir: false, otherCommands: 0 } });
 
     // The one conditional section, and it leads — the conclusion before the method.
     expect(headings(small)).toEqual([
@@ -177,7 +180,7 @@ describe('authoringBrief', () => {
   });
 
   it('leads with the early-exit verdict below the threshold (batch 10)', () => {
-    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { hadClaudeDir: false });
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { claudeDir: { hadDir: false, otherCommands: 0 } });
 
     // The conclusion must come before the method, not sit buried inside it.
     expect(small.indexOf('Read this first')).toBeGreaterThan(-1);
@@ -219,7 +222,7 @@ describe('authoringBrief', () => {
 
   it('reads exactly the threshold as brownfield, one below it as the early exit', () => {
     const install = 'npm install -D @kekkai/blueprint';
-    const facts = { hadClaudeDir: false };
+    const facts = { claudeDir: { hadDir: false, otherCommands: 0 } };
     const at = authoringBrief({ ...survey, totalFiles: BROWNFIELD_MIN_FILES }, install, facts);
 
     const below = authoringBrief(
@@ -391,7 +394,7 @@ describe('authoringBrief', () => {
   });
 
   it('carries the caveats on both paths that reach --print-config, from one source', () => {
-    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { hadClaudeDir: false });
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { claudeDir: { hadDir: false, otherCommands: 0 } });
     const occurrences = (text: string) => text.split('resolved keys carry their').length - 1;
 
     // Method step 9's merge always renders; the early-exit checklist's lint step
@@ -406,7 +409,7 @@ describe('authoringBrief', () => {
   });
 
   it('emits the shared caveats inline, so there is no indent left to get wrong', () => {
-    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { hadClaudeDir: false });
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { claudeDir: { hadDir: false, otherCommands: 0 } });
 
     // `printConfigCaveats` used to wrap, so it had to be told the indent of the
     // list it sat in — three spaces inside a numbered item, five inside a bullet
@@ -434,15 +437,15 @@ describe('authoringBrief', () => {
     // form of it — deliberately narrow, because plenty of legitimate lines (list
     // items, catalog bullets) end without terminal punctuation.
     const arms = [
-      authoringBrief(survey, 'npm i', { hadClaudeDir: false }),
-      authoringBrief(survey, 'npm i', { hadClaudeDir: true, next: true }),
-      authoringBrief({ ...survey, totalFiles: 3 }, 'npm i', { hadClaudeDir: false }),
+      authoringBrief(survey, 'npm i', { claudeDir: { hadDir: false, otherCommands: 0 } }),
+      authoringBrief(survey, 'npm i', { claudeDir: { hadDir: true, otherCommands: 0 }, next: true }),
+      authoringBrief({ ...survey, totalFiles: 3 }, 'npm i', { claudeDir: { hadDir: false, otherCommands: 0 } }),
       authoringBrief({ ...survey, totalFiles: 3 }, 'npm i', {
-        hadClaudeDir: true,
+        claudeDir: { hadDir: true, otherCommands: 0 },
         viteTs: { verdict: 'covered', viteFile: 'vite.config.ts', tsconfig: 'tsconfig.node.json' },
       }),
       authoringBrief({ ...survey, totalFiles: 3 }, 'npm i', {
-        hadClaudeDir: false,
+        claudeDir: { hadDir: false, otherCommands: 0 },
         viteTs: { verdict: 'outside', viteFile: 'vite.config.ts', tsconfig: 'tsconfig.json' },
       }),
     ];
@@ -477,7 +480,7 @@ describe('authoringBrief', () => {
   });
 
   it('carries the Next.js route-tree guidance when next is true', () => {
-    const nextBrief = authoringBrief(survey, 'npm install -D @kekkai/blueprint', { next: true, hadClaudeDir: false });
+    const nextBrief = authoringBrief(survey, 'npm install -D @kekkai/blueprint', { next: true, claudeDir: { hadDir: false, otherCommands: 0 } });
 
     expect(nextBrief).toContain('Next.js project');
     expect(nextBrief).toContain('app` → `components');
@@ -505,11 +508,11 @@ describe('authoringBrief · the Next.js note', () => {
     // Defaulting it the other way hands every brief a paragraph about a framework
     // the repo may not use, and tells the reader to declare a layer that is not
     // there.
-    const standalone = authoringBrief(survey, 'npm install -D @kekkai/blueprint', { hadClaudeDir: false });
+    const standalone = authoringBrief(survey, 'npm install -D @kekkai/blueprint', { claudeDir: { hadDir: false, otherCommands: 0 } });
 
     expect(standalone).not.toContain('Next.js project');
 
-    expect(authoringBrief(survey, 'npm install -D @kekkai/blueprint', { next: true, hadClaudeDir: false }))
+    expect(authoringBrief(survey, 'npm install -D @kekkai/blueprint', { next: true, claudeDir: { hadDir: false, otherCommands: 0 } }))
       .toContain('Next.js project');
   });
 });

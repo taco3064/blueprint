@@ -216,6 +216,11 @@ describe('runInit', () => {
     expect(output).toContain('→ install: eslint,');
     expect(output).toContain('the one step that needs the registry');
     expect(output.indexOf('→ install:')).toBeLessThan(output.indexOf('✗ install:'));
+    // The command itself, above the silence rather than behind a flag that prints it:
+    // a killed install leaves what is on screen, and two runs went reading blueprint's
+    // own package.json for versions to reconstruct instead (field runs #139, #140).
+    expect(output).toContain('npm install -D eslint');
+    expect(output).toContain('No version list to find first');
   });
 
   it('names what did not happen, and how to finish (field issue #37)', async () => {
