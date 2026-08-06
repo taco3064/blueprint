@@ -671,3 +671,109 @@ describe('analyze · a report inventories every cycle', () => {
     expect(messages[1]).toContain('hooks/useC → hooks/useD → hooks/useC');
   });
 });
+
+describe('detectCycle · the three properties only a whole graph can ask about', () => {
+  // These used to be asked through `analyze`, which handed `detectCycle` the entire
+  // module graph. It now receives one strongly connected component at a time, and a
+  // component by construction has no lead-in, no dead end and no second knot — so
+  // every one of these went unasked the moment the caller changed, with the suite
+  // green and the mutation sweep as the only witness. Asked of the unit directly,
+  // which is where they belong: this function is exported for exactly this.
+  it('trims the walk that led to the cycle, and reports only the cycle', () => {
+    // x is how the walk got there and is not part of it. Reported whole, the path
+    // names a module the reader then cannot find in the loop they are asked to break.
+    expect(detectCycle(new Map([
+      ['x', new Set(['a'])],
+      ['a', new Set(['b'])],
+      ['b', new Set(['a'])],
+    ]))).toEqual(['a', 'b', 'a']);
+  });
+
+  it('keeps checking a node\'s other edges after one leads nowhere', () => {
+    // `dead` is a leaf, so the first branch answers null. Returning that null as the
+    // verdict reports no cycle on a graph that plainly has one — and the order of a
+    // module's imports is not something a reader would suspect.
+    expect(detectCycle(new Map([
+      ['a', new Set(['dead', 'c'])],
+      ['c', new Set(['a'])],
+    ]))).toEqual(['a', 'c', 'a']);
+  });
+
+  it('starts a fresh walk at an untouched node after the first finds nothing', () => {
+    // The first walk covers a and b and answers null. Treating that as the answer
+    // stops before the pair that does cycle.
+    expect(detectCycle(new Map([
+      ['a', new Set(['b'])],
+      ['x', new Set(['y'])],
+      ['y', new Set(['x'])],
+    ]))).toEqual(['x', 'y', 'x']);
+  });
+});
+
+describe('detectCycles · a knot behind another knot is still its own knot', () => {
+  it('closes a component whose edges also point into an already-closed one', () => {
+    // Tarjan's rule that decides this: a target that is indexed but no longer on the
+    // stack belongs to a component that is already closed, and its index must NOT
+    // propagate. Take it anyway and the second component never satisfies
+    // `lowest === own`, so it never closes — and a repo whose hooks cycle imports an
+    // already-reported components cycle loses the hooks one entirely. Two knots, one
+    // reachable from the other, is the ordinary brownfield shape.
+    const cycles = detectCycles(new Map([
+      ['components/A', new Set(['components/B'])],
+      ['components/B', new Set(['components/A'])],
+      ['hooks/useC', new Set(['hooks/useD', 'components/A'])],
+      ['hooks/useD', new Set(['hooks/useC'])],
+    ]));
+
+    expect(cycles).toEqual([
+      ['components/A', 'components/B', 'components/A'],
+      ['hooks/useC', 'hooks/useD', 'hooks/useC'],
+    ]);
+  });
+});
+
+describe('analyze · a finding\'s subject is content, not the order it was walked in', () => {
+  it('sorts a cycle\'s members, so a rotated path is the same knot', () => {
+    // The reported path enters the knot wherever the walk re-met it, and that entry
+    // point moves when an unrelated edge inside the same knot changes. Here the walk
+    // starts at `a` and the cycle it meets is `m → b → m` — so the members in walk
+    // order are `m b`, and in name order `b m`. Unsorted, the same knot re-read from
+    // a different entry is a different baseline entry, which is the failure the
+    // subject exists to prevent.
+    const cycle = analyze(scanOf([
+      file(['components', 'a', 'index.ts'], [{ specifier: '../m' }]),
+      file(['components', 'm', 'index.ts'], [{ specifier: '../b' }]),
+      file(['components', 'b', 'index.ts'], [{ specifier: '../m' }, { specifier: '../a' }]),
+    ]), bp).find((finding) => finding.rule === 'cycle');
+
+    expect(cycle?.message).toContain('components/m → components/b → components/m');
+    expect(cycle?.subject).toBe('components/b components/m');
+    // The address is the first member for the same reason: content-determined, and
+    // always one of the modules named in the message.
+    expect(cycle?.path).toBe('components/b');
+  });
+
+  it('carries an ownership finding\'s named imports, sorted', () => {
+    // Two restricted names from one package in one file is one finding, and the names
+    // are part of what it is about: `{ a, b }` and `{ b, a }` are the same import
+    // written twice, while dropping them entirely would let one baselined name
+    // suppress a second, different one.
+    const owned = defineBlueprint({
+      ...bp,
+      architecture: {
+        ...bp.architecture,
+        layers: bp.architecture.layers.map((layer) =>
+          layer.name === 'contexts'
+            ? { ...layer, owns: [{ package: 'vue', imports: ['provide', 'inject'] }] }
+            : layer),
+      },
+    });
+
+    const finding = analyze(scanOf([
+      file(['components', 'Btn', 'index.ts'], [{ specifier: 'vue', names: ['provide', 'inject'] }]),
+    ]), owned).find((entry) => entry.rule === 'package-ownership');
+
+    expect(finding?.subject).toBe('vue inject,provide');
+    expect(finding?.message).toContain('provide, inject');
+  });
+});
