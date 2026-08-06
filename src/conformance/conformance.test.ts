@@ -105,12 +105,15 @@ describe('greenfield scaffold — init alone completes (batches 1 & 4)', () => {
     const doctor = await cli(dir, ['doctor']);
 
     expect(doctor.code).toBe(0);
-    expect(doctor.output).toContain('Adoption complete — all 7 checks passed');
+    // A `--no-install` fixture has no resolvable eslint, so the survival check cannot
+    // run — and the banner no longer counts that skip as a pass (field run #129).
+    expect(doctor.output).toContain('⊘ Adoption unverified — 6 of 7 checks passed');
+    expect(doctor.output).not.toContain('all 7 checks passed');
   });
 });
 
 describe('"complete" says what it leaves out (field runs #71–#73)', () => {
-  it('names the uncommitted working tree under an all-green banner', async () => {
+  it('names the uncommitted working tree under the banner', async () => {
     // Three agents independently closed on the same gap, in their own words: "what I
     // reported as complete is complete minus commit". The playbook says a ratchet in
     // an uncommitted tree is not installed; doctor is the last thing on screen and
@@ -123,7 +126,7 @@ describe('"complete" says what it leaves out (field runs #71–#73)', () => {
     const doctor = await cli(dir, ['doctor']);
 
     expect(doctor.code).toBe(0);
-    expect(doctor.output).toContain('Adoption complete — all 7 checks passed');
+    expect(doctor.output).toContain('6 of 7 checks passed');
     expect(doctor.output).toContain('nothing adoption wrote is committed');
     expect(doctor.output).toContain('not installed');
     // The remedy, and whose call it is — a note that only states the problem sends an
@@ -146,8 +149,7 @@ describe('"complete" says what it leaves out (field runs #71–#73)', () => {
     // The banner is the LAST line, not merely followed by no VCS wording: the note
     // rides in a `? [x] : []` spread, and an empty arm is only pinned by a seam that
     // would notice anything appearing in it.
-    expect(doctor.output.trimEnd().endsWith('Adoption complete — all 7 checks passed.'))
-      .toBe(true);
+    expect(doctor.output.trimEnd().endsWith('proves what those checks cover.')).toBe(true);
   });
 
   it('carries the same note on the JSON channel', async () => {
@@ -1471,7 +1473,8 @@ describe('doctor and the playbook define "done" identically (field issue #13)', 
     const done = await cli(dir, ['doctor']);
 
     expect(done.code).toBe(0);
-    expect(done.output).toContain('Adoption complete — all 7 checks passed');
+    expect(done.output).toContain('6 of 7 checks passed');
+    expect(done.output).not.toContain('blueprint-authoring.md');
   });
 
   it('the missing-layer note reads as runway, never as a todo', async () => {

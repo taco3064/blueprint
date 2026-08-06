@@ -63,7 +63,13 @@ describe('runDoctor', () => {
 
     expect(ok).toBe(true);
     expect(checks.every((check) => check.ok)).toBe(true);
-    expect(output).toContain('Adoption complete — all 7 checks passed');
+    // Not "all 7 passed", and this fixture is why the claim was worth checking: with no
+    // eslint resolvable here the survival check cannot run, and the banner used to fold
+    // that skip into the pass count — so this suite asserted a verdict resting on a check
+    // that never ran, exactly as a field agent found in the wild (#129).
+    expect(output).toContain('⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run');
+    expect(output).toContain('nothing here proves the emitted rules are alive in it');
+    expect(output).not.toContain('all 7 checks passed');
     // Truly clean, no baseline — the label stays plain instead of claiming
     // coverage by a ledger that does not exist (field run #10).
     expect(checks.map((c) => c.label)).toContain('architecture clean');
