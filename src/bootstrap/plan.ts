@@ -437,7 +437,12 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
           '  // "Already wires" includes presets that do it internally: extending',
           '  // tseslint.configs.recommended (or any typescript-eslint preset)',
           '  // means the TS parser is wired even if no languageOptions.parser',
-          '  // line is visible. Your own lint passing on .ts/.tsx confirms it.',
+          '  // line is visible. Your own lint passing on .ts/.tsx confirms it —',
+          '  // as far as the files it actually parsed. On a repo whose layers hold',
+          '  // no files yet, a green lint proves this config loads, not that the',
+          '  // parser reaches layer files; it becomes that proof with the first',
+          '  // file in a layer. Skipping the block is still right either way: a',
+          '  // parser wired for the stack is wired for files that do not exist yet.',
         ]
       : []),
   ];

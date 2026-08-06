@@ -103,7 +103,13 @@ describe('wiringCheck', () => {
     // rule is alive", which this check cannot promise (field issue #40).
     expect(check.ok).toBe(true);
     expect(check.label).toContain('emitted rules survive the merged eslint config');
-    expect(check.label).toContain('thresholds and package-ownership entries are not compared');
+    expect(check.label).toContain('thresholds, package-ownership entries, and a merged entry');
+
+    // …including its reach. One probe per layer, so a merged entry covering part of a
+    // layer passes on a sibling path — stated where the ✓ is read, not only in the
+    // comment on `pickProbes`.
+    expect(check.label).toContain('one probe per layer');
+    expect(check.label).toContain('scoped to only part of a layer are not compared');
   });
 
   it('probes every layer — a scoped override cannot hide behind the first one', async () => {
