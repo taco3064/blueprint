@@ -27,10 +27,35 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const AGENT_TIMEOUT_MS = 45 * 60 * 1000;
 
-/** Headless invocations per agent — edit here when a CLI changes its flags. */
+/**
+ * Headless invocations per agent. Every flag here is a claim about someone
+ * else's CLI, so `AGENT_HELP` below checks them before a run spends anything —
+ * "edit here when a CLI changes its flags" was the whole mechanism, and codex
+ * changed under it: `--full-auto` became a deprecation warning and the trust
+ * check started refusing a staged temp dir outright (field run #127, two of four
+ * scenarios lost).
+ *
+ * `--sandbox workspace-write` is what codex's own deprecation notice names.
+ * `--skip-git-repo-check` is for where the scenarios live: the `new` fixture is
+ * never a git repo, and a `--repo` staged by copy (no `.git` to clone) is not one
+ * either.
+ */
 const AGENT_COMMANDS = {
   claude: (prompt) => ['claude', '-p', prompt, '--dangerously-skip-permissions'],
-  codex: (prompt) => ['codex', 'exec', '--full-auto', prompt],
+  codex: (prompt) => [
+    'codex', 'exec', '--sandbox', 'workspace-write', '--skip-git-repo-check', prompt,
+  ],
+};
+
+/**
+ * How to ask each CLI what it accepts — the subcommand's own help, since that is
+ * where its flags are documented. Verified against both CLIs: the flags above are
+ * listed, and the `--full-auto` that broke this run is not, so this check would
+ * have caught it before the build.
+ */
+const AGENT_HELP = {
+  claude: ['claude', '--help'],
+  codex: ['codex', 'exec', '--help'],
 };
 
 /**
@@ -168,7 +193,47 @@ function unavailable(agent) {
       + 'on this machine (a config directory under $HOME is not the CLI)';
   }
 
-  return AGENT_BLOCKERS[agent]?.() ?? null;
+  const blocker = AGENT_BLOCKERS[agent]?.();
+
+  if (blocker) return blocker;
+
+  const stale = staleFlags(agent);
+
+  return stale.length
+    ? `the invocation passes ${stale.join(', ')}, which \`${AGENT_HELP[agent].join(' ')}\` does `
+      + 'not list — the CLI changed under the harness. Fix AGENT_COMMANDS in '
+      + 'scripts/field-run.mjs against that help; a run started now spends a build, a pack '
+      + 'and an install per scenario before the agent refuses'
+    : null;
+}
+
+/**
+ * Flags this harness passes that the CLI no longer documents. Runs last in
+ * `unavailable` because it is the only answer that executes the binary.
+ *
+ * An inconclusive probe returns nothing rather than blocking: a `--help` that
+ * fails or prints nothing proves the flags absent no more than it proves them
+ * present, and a check that guesses wrong here stops a run for no reason. Same
+ * rule as the tsconfig reader — decline instead of assume.
+ */
+function staleFlags(agent) {
+  const probe = AGENT_HELP[agent];
+
+  if (!probe) return [];
+
+  const help = capture(probe.join(' '), ROOT);
+
+  if (help.code !== 0 || !help.output.trim()) return [];
+
+  return AGENT_COMMANDS[agent]('probe')
+    .filter((part) => part.startsWith('-'))
+    .filter((flag) => {
+      const escaped = flag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      // Bounded both sides: `-p` must not be matched by `--print` or `-p,`-less
+      // prose, and a renamed `--sandbox-mode` must not satisfy `--sandbox`.
+      return !new RegExp(`(^|[\\s,'"\`])${escaped}([\\s,='"\`]|$)`, 'm').test(help.output);
+    });
 }
 
 function sh(command, cwd) {
