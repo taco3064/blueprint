@@ -77,6 +77,11 @@ function folderFindings(
   // the emitted re-export selector can never fire. Whoever is defusing that
   // rule's merge collision deserves to know the bomb is currently a blank
   // (field batch 12) — info, because intent declared early is not a defect.
+  // The collision itself is conditional on a SECOND entry of that id, which
+  // inspect cannot see, so the note names the condition rather than asserting
+  // the collision: read as an unconditional "it collides today", an adopter on
+  // the single-generated-config path goes hunting a problem that needs a merge
+  // to exist (field batch 13).
   // Said as a guard, not as an empty list to iterate: on a scaffold with no code
   // every layer is a blank, and the coverage line already says so. Written as
   // `for (… of scan.files.length === 0 ? [] : layers)`, the empty arm decided
@@ -93,7 +98,7 @@ function folderFindings(
           severity: 'info',
           rule: 'declaratory-self-only',
           path: `src/${layer.name}`,
-          message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands. The no-restricted-syntax ENTRY is emitted today, on the importer layer(s) named above, so it collides today: flat config never merges, and a rule of the same id scoped to one of those layers either replaces this entry or is replaced by it — silently, with lint still green. "Cannot fire" is about the ban, not about the entry. Check \`blueprint rules --json\` for the emit points before merging.`,
+          message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands. The no-restricted-syntax ENTRY is emitted today, on the importer layer(s) named above, so it is already exposed to a merge: IF a second no-restricted-syntax scoped to one of those layers exists, flat config merges neither into the other — the later entry replaces the earlier, silently, with lint still green. That condition is the whole note. Adopting into a single generated config, there is no second entry, so there is nothing here to act on. "Cannot fire" is about the ban, not about the entry. Check \`blueprint rules --json\` for the emit points before merging.`,
         });
       }
     }

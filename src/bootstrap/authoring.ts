@@ -322,7 +322,11 @@ adopting agent's. When a declared-but-empty layer ALSO looks stale, the
 tiebreak is prose intent: an intent document describing it as a future
 seam makes it runway (keep); one the prose never mentions, contradicted
 by where the code actually lives, is a stale clause (downgrade it and
-record the conflict — Method step 1).
+record the conflict — Method step 1). **A drawn diagram is part of what
+that document says.** A layer absent from every per-layer section but
+still drawn in the same file's flow graph HAS been mentioned — read both
+before calling a clause unmentioned, or the tiebreak decides on half the
+evidence and drops a layer the document is still declaring.
 
 **Work the loop, not the archive.** Everything below is evidence and
 reference — it is NOT a syllabus to master before touching the config.
@@ -385,6 +389,11 @@ the answer belongs in this playbook — note the gap in your report instead.
    often draw a DAG; blueprint's order is linear (a layer may import *any*
    later layer). Linearize, then verify against the matrix — linear is
    transitive, so it is usually a strict relaxation, not a real change.
+   Downgrading a clause leaves that drawing disagreeing with the config you
+   just wrote. Leave it disagreeing: a hand-written document is the repo's,
+   not adoption's to edit, and redrawing one is a doc reconcile no one asked
+   for. Name the specific edge or box that no longer matches, in the report,
+   so the owner can settle it in one pass.
    Several positions equally legal (no matrix edges either way — empty
    layers especially)? Pick the one granting the fewest new import
    permissions: the smallest relaxation.
@@ -494,6 +503,17 @@ the answer belongs in this playbook — note the gap in your report instead.
      with nothing, silently. Confirm with \`npx eslint --print-config\` on one
      file per affected layer — the one place print-config is not optional,
      because doctor compares selectors and cannot see scope.
+
+     **When the two sides' scopes were never the same, "the SAME file scope"
+     cannot hold for both — match blueprint's.** A house rule framed at
+     \`**/*.vue\` folded into a layer glob of \`.{js,vue}\` is the ordinary case,
+     and the two failure directions are not symmetric: your rule reaching a
+     few files it did not govern is visible red you will see on the next run,
+     while blueprint's ban losing files is silent and lint stays green. So
+     widen yours to blueprint's glob rather than narrowing the entry, then say
+     in the report which extensions your rule newly covers and whether any
+     file matches them today — often the widening is an empty set now and a
+     bet on what lands later, which is worth writing down as a bet.
 
      **An entry is more than its selectors — carry the emitted block's
      \`ignores\` too.** Every structural entry exempts test files, and a
@@ -710,8 +730,11 @@ collisions are decided by rule KEY, not by hit count — \`blueprint rules
 selfOnly selector strings a fold needs. Adoption stance for these gates:
 declare one only to translate an existing house threshold (carry its
 value); switching NEW gates on is the owner's later tuning, not the
-adopting agent's call. The metric family falls
-back to these thresholds when no \`value\` is given:
+adopting agent's call. Carrying a value is the OBJECT form of a rule
+setting — \`maxLines: { tier: 'error', value: 1200 }\`, never a tier/value
+array; \`tier\` is required in that form, so the object without it is
+rejected by name at config load rather than emitting a tierless rule. The
+metric family falls back to these thresholds when no \`value\` is given:
 
 ${METRIC_GATES.map((gate) => `- \`${gate.id}\` → \`${gate.rule}\` (default ${gate.fallback})`).join('\n')}
 ${PLUGIN_GATES.map((gate) => `- \`${gate.id}\` → \`${gate.emits}\` — ${gate.note}`).join('\n')}
@@ -768,6 +791,11 @@ export default defineBlueprint({
     layerFiles: 'src/{layer}/**/*.<ext glob>',
     testFiles: ['**/*.test.*', '**/__tests__/**'],
   },
+  // A bare tier takes the gate's default threshold. To carry an existing
+  // house threshold instead, use the object form — \`tier\` required, \`value\`
+  // optional: \`maxLines: { tier: 'error', value: 1200 }\`. Shown here as a
+  // comment ON PURPOSE: declaring a gate you are not translating is the
+  // owner's tuning, so this line stays the two gates a preset already sets.
   rules: { cycles: 'error', unusedVars: 'error' },
 });
 \`\`\`
