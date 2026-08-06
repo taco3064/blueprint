@@ -610,5 +610,10 @@ describe('run · --help belongs to the command that has one', () => {
 
     await run(['doctor', '--help']);
     expect(logged('is adoption actually finished?')).toBe(true);
+    // The exit-code gate this help invites has one blind spot, and the help owes it:
+    // a skipped check keeps exit 0, so `--json`'s `skipped` is what a gate reads
+    // (field run #129 — the skip that was counted as a pass).
+    expect(logged('Exit stays')).toBe(true);
+    expect(logged('look for `skipped` on a check')).toBe(true);
   });
 });
