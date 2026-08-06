@@ -42,6 +42,38 @@ function extractNames(clause: string): string[] {
   return braced[1].split(',').map(importedName).filter(Boolean);
 }
 
+/**
+ * How the import graph was derived, in the words the reader of an output needs.
+ *
+ * This function's own doc comment has said "best-effort regex" since it was written,
+ * and that honesty reached nobody: it is in the source, and `grep -rn best-effort`
+ * over the docs, the README and every CLI surface found nothing. An adopting agent's
+ * priors fill that gap with "tools resolve imports properly", so `✓ Architecture
+ * Success` reads as a verdict on the dependency graph rather than on what a text scan
+ * could see — and a clean result is exactly where the gap costs something.
+ *
+ * Prose rather than a measurement, deliberately. What a regex missed is not something
+ * the tool can count; a boundary and a stance are what prose is for. But it is ONE
+ * text with call sites, not a paragraph per surface — the same shape as
+ * `printConfigCaveats`, and for the same reason: four paraphrases of the
+ * `--print-config` caveats each drifted, and the shape was at fault rather than the
+ * care taken.
+ *
+ * The correction at the end is the load-bearing half. Without it, "the graph is
+ * approximate" reads as "the gates are approximate", which is false and is the more
+ * expensive wrong belief of the two.
+ */
+export function importGraphDerivation(indent = ''): string {
+  return [
+    `${indent}How this graph was read: source text, not a parsed AST. A computed specifier`,
+    `${indent}(\`import(path)\`, \`require(name)\` — anything but a quoted literal), the individual`,
+    `${indent}names behind \`import * as\`, and import-like text inside a string are outside what`,
+    `${indent}it can see — so read it as a survey, not as the last word on any one import. The`,
+    `${indent}hard gates do not share the limit: they run in ESLint, on the AST, which is what`,
+    `${indent}your CI enforces.`,
+  ].join('\n');
+}
+
 /** Extract every import/export/require reference from a source file (best-effort regex). */
 export function extractImports(source: string): ImportRef[] {
   const clean = stripComments(source);

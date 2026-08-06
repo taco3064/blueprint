@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { extractImports, scan } from './scan';
+import { extractImports, importGraphDerivation, scan } from './scan';
 
 describe('extractImports', () => {
   it('extracts static, re-export, side-effect, and dynamic references', () => {
@@ -261,5 +261,35 @@ describe('scan · the order it promises, whatever the filesystem answers', () =>
     fs.writeFileSync(path.join(root, 'src', 'beta', 'b.ts'), 'export const b = 1;');
 
     expect(scan(root, 'src').files.map((file) => file.path)).toEqual(['src/beta/b.ts']);
+  });
+});
+
+describe('importGraphDerivation · one text, wherever a graph-derived fact is reported', () => {
+  const text = importGraphDerivation();
+
+  it('names the mechanism, the three things it cannot see, and where the gate really is', () => {
+    // Each clause is load-bearing and each was absent before. "Source text, not a
+    // parsed AST" is the mechanism, so a reader knows what class of thing is missed
+    // rather than being told to distrust the output generally. The three instances
+    // are what a reader can check their own repo for. And the correction is what
+    // stops "the graph is approximate" from being read as "the gates are
+    // approximate" — false, and the more expensive belief of the two.
+    expect(text).toContain('source text, not a parsed AST');
+    expect(text).toContain('computed specifier');
+    expect(text).toContain('import * as');
+    expect(text).toContain('inside a string');
+    expect(text).toContain('survey');
+    expect(text).toContain('ESLint, on the AST');
+  });
+
+  it('indents every line, so it can sit inside an indented block', () => {
+    // The `printConfigCaveats` shape: one text at two indents. `deps` nests it under
+    // a module heading and `inspect` closes a flush report with it, and a version
+    // that only indented its first line would look like a broken paragraph in one of
+    // them — which is how a second copy gets written.
+    const indented = importGraphDerivation('  ').split('\n');
+
+    expect(indented.every((line) => line.startsWith('  '))).toBe(true);
+    expect(indented.map((line) => line.slice(2))).toEqual(text.split('\n'));
   });
 });

@@ -32,4 +32,6 @@ dependency-cruiser、eslint-plugin-boundaries、Nx module boundaries、sheriff �
 
 我們沒有逐項實測過上述工具，這頁也不主張 lint 層面比較強。<br>
 如果你的需求純粹是 import graph 加規則，上面任何一套都可能很適合你。<br>
+有一個差別值得白話講清楚：`inspect` 自己那張圖是從原始碼文字掃出來的、不是解析 AST（[界線在這](/zh-TW/guide/reference#import-graph-是怎麼讀出來的)），而 dependency-cruiser 是正經解析 import 的。<br>
+blueprint 的**執行面**走 AST、跑在 ESLint 上；它的盤點面不是。<br>
 blueprint 的價值在於：手冊、AI Agent 必須跟規則完全同步的時候 —— 因為它們本來就是同一份東西。

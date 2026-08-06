@@ -365,18 +365,25 @@ describe('runDeps · a layer node is not automatically a flat layer', () => {
 });
 
 describe('runDeps · the leaderboard closes on its last row', () => {
-  it('appends nothing after the table when no folder was skipped', async () => {
-    // The skipped-folder note is the only thing that ever follows the table.
-    // Anything else landing there reads as one more module — one with no
-    // imported-by count in front of it, so the reader cannot tell a row from a
-    // footnote.
+  it('puts nothing that could read as a row between the table and its footer', async () => {
+    // Anything landing directly under the table reads as one more module — one with
+    // no imported-by count in front of it, so the reader cannot tell a row from a
+    // footnote. Two things may follow it and both are set off: the skipped-folder
+    // note (absent here) and the derivation, after a blank line. Asserted by
+    // position rather than as `endsWith`, so a stray line in that slot still fails
+    // now that the output legitimately continues past the last row.
     scaffold();
 
     let output = '';
 
     await runDeps(root, { log: (m) => (output = m) });
 
-    expect(output.endsWith('← pages/Home')).toBe(true);
+    const lines = output.split('\n');
+    const lastRow = lines.findIndex((line) => line.includes('← pages/Home'));
+
+    expect(lines[lastRow + 1]).toBe('');
+    expect(lines[lastRow + 2]).toContain('How this graph was read');
+    expect(output).not.toContain('invisible to deps');
   });
 });
 

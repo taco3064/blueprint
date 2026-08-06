@@ -14,12 +14,23 @@
 - **`relative-escape`** · error —— 相對路徑匯入越出所屬分層、逃逸出原始碼根目錄，或伸進鄰居模組的入口之後。<br>在 `folder` 佈局下，鄰居模組**是**碰得到的 —— `../Sibling` 就是同層之間互相使用的方式，而且是唯一的方式，因為別名寫法（`~app/{自己這層}/Sibling`）仍然被擋
 - **`package-ownership`** · error —— 從非擁有者分層匯入某分層專屬的套件（或受限的具名匯入）
 - **`selfonly-reexport`** · error —— 再匯出標記為 `selfOnly` 的依賴 —— 僅可依賴，不可轉手輸出
-- **`cycle`** · error —— 模組層級的循環匯入，並列出完整路徑
+- **`cycle`** · error —— 模組層級的循環匯入，並列出完整路徑。<br>每一組獨立的循環都會回報，一組互相依賴的模組算一筆 —— 所以數量就是工作量，不是「先找到的那一個」
 - **`no-entry`** · warn —— 資料夾模組缺少公開入口檔 —— 外部無從匯入
 - **`missing-layer`** · info —— 已宣告的分層尚無對應資料夾
 - **`declaratory-self-only`** · info —— `selfOnly` 保護的分層還沒有任何檔案 —— 再匯出禁令是宣告性的，要等 code 進來才會真正生效
 
-既有專案可透過 [baseline 棘輪](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect)，把這份清單轉成「只攔新增的違規」。
+既有專案可透過 [baseline 棘輪](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect)，把這份清單轉成「只攔新增的違規」。<br>
+被 baseline 記錄的違規，是用「規則 + 路徑 + **subject**」來識別的 —— subject 指的是 import specifier、循環的成員這類東西，**不是**訊息文字。<br>
+所以某次改版把訊息改得更好懂，不會害你的 gate 變紅。
+
+### import graph 是怎麼讀出來的
+
+上面每一條跟 import 有關的檢測，都是從一張圖上讀出來的，而那張圖是**從原始碼文字掃出來的，不是解析 AST**。<br>
+算出來的 specifier（`import(path)`、`require(name)`）、`import * as` 背後的個別名稱、字串裡長得像 import 的文字，都在它看不到的範圍內。<br>
+`inspect` 跟 `deps` 的輸出都會以這段說明收尾 —— 因為報告乾淨的時候，才是它最要緊的時候。
+
+**硬性 gate 沒有這個限制**：它們跑在 ESLint 上、走 AST。<br>
+所以 `inspect` 是盤點，你的 lint 才是單一 import 的判決 —— 這也正是「`blueprint inspect` 本身不等於 gate」的原因。
 
 ## 內嵌 ESLint 外掛
 

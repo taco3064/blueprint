@@ -8,6 +8,11 @@ It is the day-to-day companion to [`blueprint inspect`](/guide/getting-started#b
 `inspect` **judges** the architecture (violations, cycles, exit 1), `deps` only
 **describes** it — fan-in and fan-out per module, no verdict attached.
 
+Both read the same graph, and that graph is built from **source text, not a parsed
+AST** — see [how the import graph is read](/guide/reference#how-the-import-graph-is-read).
+A computed `import(path)` does not appear in a fan-in count, so treat a blast radius as
+a floor rather than an exact number. Every `deps` output closes on that note.
+
 ## How to run it
 
 ```bash

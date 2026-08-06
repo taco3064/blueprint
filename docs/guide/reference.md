@@ -15,13 +15,27 @@ without failing the gate. Test files (`architecture.testFiles`) are exempt throu
 - **`relative-escape`** · error — a relative import that leaves its own layer, escapes the source root, or reaches past a sibling module's entry. Under `folder` layout a sibling *is* reachable — `../Sibling` is how one module uses another inside the same layer, and the only way, since the alias spelling (`~app/{ownLayer}/Sibling`) stays banned
 - **`package-ownership`** · error — importing a layer-owned package (or restricted named import) from a non-owner layer
 - **`selfonly-reexport`** · error — re-exporting a dependency marked `selfOnly` — depend on it, never pass it on
-- **`cycle`** · error — a module-level import cycle, with the full path listed
+- **`cycle`** · error — a module-level import cycle, with the full path listed. Every independent cycle is reported, one per knot of mutually dependent modules — so the count is the size of the work, not the first thing found
 - **`no-entry`** · warn — a folder module without its public entry file — nothing is importable from outside
 - **`missing-layer`** · info — a declared layer that has no folder on disk yet
 - **`declaratory-self-only`** · info — a `selfOnly` ban protecting a layer that holds no files — the re-export ban cannot fire until code lands
 
 On brownfield repos the [baseline ratchet](/guide/getting-started#brownfield-—-blueprint-inspect)
-turns this list into "fail only on *new* findings".
+turns this list into "fail only on *new* findings". A baselined finding is identified by
+its rule, its path and its **subject** — the import specifier, a cycle's members — never
+by its message text, so a release that rewords a finding does not turn your gate red.
+
+### How the import graph is read
+
+Every finding above that mentions an import is read out of a graph built from **source
+text, not a parsed AST**. A computed specifier (`import(path)`, `require(name)`), the
+individual names behind `import * as`, and import-like text inside a string are outside
+what it can see. `inspect` and `deps` both close on this note, because a clean report is
+where it matters most.
+
+The **hard gates do not share the limit**: they run in ESLint, on the AST. So `inspect`
+is the survey and your lint run is the authority on any single import — which is also
+why `blueprint inspect` alone is not the gate.
 
 ## The embedded ESLint plugin
 
