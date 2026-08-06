@@ -4,8 +4,8 @@ import { hasErrors, report } from './report';
 import type { Finding } from './types';
 
 const findings: Finding[] = [
-  { severity: 'error', rule: 'undeclared-folder', path: 'src/utils', message: 'nope' },
-  { severity: 'warn', rule: 'no-entry', path: 'src/components/Btn', message: 'no entry' },
+  { severity: 'error', rule: 'undeclared-folder', path: 'src/utils', subject: '', message: 'nope' },
+  { severity: 'warn', rule: 'no-entry', path: 'src/components/Btn', subject: '', message: 'no entry' },
 ];
 
 describe('hasErrors', () => {
@@ -32,9 +32,28 @@ describe('report', () => {
   });
 
   it('omits the migration section when no rule has a step', () => {
-    const out = report([{ severity: 'info', rule: 'mystery', path: 'x', message: 'm' }]);
+    const out = report([{ severity: 'info', rule: 'mystery', path: 'x', subject: '', message: 'm' }]);
 
     expect(out).not.toContain('Recommended migration steps');
+  });
+
+  it('renders the finding without its subject — that field is identity, not prose', () => {
+    // The subject is what the baseline keys on. It is deliberately absent from the
+    // rendered line: the message already names the specifier in a sentence, and a
+    // report that prints both says the same thing twice in two formats.
+    const out = report([
+      {
+        severity: 'error',
+        rule: 'deep-import',
+        path: 'src/pages/Home/Home.tsx',
+        subject: '~app/hooks/useX/impl',
+        message: '"~app/hooks/useX/impl" reaches inside a module — import it through its entry.',
+      },
+    ]);
+
+    expect(out).toContain('[deep-import] src/pages/Home/Home.tsx');
+    expect(out).toContain('reaches inside a module');
+    expect(out.match(/~app\/hooks\/useX\/impl/g)).toHaveLength(1);
   });
 });
 
@@ -46,7 +65,7 @@ describe('report · findings name where they are enforced (field issue #48)', ()
   // merge, that ABSENT read as a dropped rule.
   it('names the ESLint rule that carries a lint-enforced finding', () => {
     const out = report([
-      { severity: 'error', rule: 'deep-import', path: 'src/pages/x.ts', message: 'm' },
+      { severity: 'error', rule: 'deep-import', path: 'src/pages/x.ts', subject: '~app/hooks/useX/impl', message: 'm' },
     ]);
 
     expect(out).toContain('[deep-import]');
@@ -55,10 +74,10 @@ describe('report · findings name where they are enforced (field issue #48)', ()
 
   it('folds the whole structural family into the one rule it really is', () => {
     const out = report([
-      { severity: 'error', rule: 'flow-violation', path: 'a', message: 'm' },
-      { severity: 'error', rule: 'package-ownership', path: 'b', message: 'm' },
-      { severity: 'error', rule: 'selfonly-reexport', path: 'c', message: 'm' },
-      { severity: 'error', rule: 'relative-escape', path: 'd', message: 'm' },
+      { severity: 'error', rule: 'flow-violation', path: 'a', subject: '~app/services/api', message: 'm' },
+      { severity: 'error', rule: 'package-ownership', path: 'b', subject: 'axios', message: 'm' },
+      { severity: 'error', rule: 'selfonly-reexport', path: 'c', subject: '~app/contexts/Theme', message: 'm' },
+      { severity: 'error', rule: 'relative-escape', path: 'd', subject: '../../hooks/useX', message: 'm' },
     ]);
 
     expect(out).toContain('[flow-violation] Rework imports');
@@ -74,8 +93,8 @@ describe('report · findings name where they are enforced (field issue #48)', ()
 
   it('marks the findings a lint run will never show', () => {
     const out = report([
-      { severity: 'error', rule: 'cycle', path: 'a', message: 'm' },
-      { severity: 'info', rule: 'no-entry', path: 'b', message: 'm' },
+      { severity: 'error', rule: 'cycle', path: 'a', subject: 'a b', message: 'm' },
+      { severity: 'info', rule: 'no-entry', path: 'b', subject: '', message: 'm' },
     ]);
 
     // The other half of the same question: not "where do I find this in the
@@ -86,9 +105,9 @@ describe('report · findings name where they are enforced (field issue #48)', ()
 
 describe('report · icons and the migration block', () => {
   const all: Finding[] = [
-    { severity: 'error', rule: 'undeclared-folder', path: 'src/utils', message: 'x' },
-    { severity: 'warn', rule: 'no-entry', path: 'src/components/Btn', message: 'y' },
-    { severity: 'info', rule: 'declaratory-self-only', path: 'src/contexts', message: 'z' },
+    { severity: 'error', rule: 'undeclared-folder', path: 'src/utils', subject: '', message: 'x' },
+    { severity: 'warn', rule: 'no-entry', path: 'src/components/Btn', subject: '', message: 'y' },
+    { severity: 'info', rule: 'declaratory-self-only', path: 'src/contexts', subject: '', message: 'z' },
   ];
 
   it('marks each severity with its own icon', () => {

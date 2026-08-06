@@ -345,10 +345,12 @@ describe('runDoctor', () => {
     write(
       '.blueprint-baseline.json',
       JSON.stringify({
+        version: 2,
         findings: [
           {
             rule: 'undeclared-folder',
             path: 'src/random',
+            subject: '',
             message:
               '"random" is not a declared layer — declare it, or move its code into a module of an existing layer.',
           },
@@ -372,10 +374,12 @@ describe('runDoctor', () => {
     write(
       '.blueprint-baseline.json',
       JSON.stringify({
+        version: 2,
         findings: [
           {
             rule: 'undeclared-folder',
             path: 'src/random',
+            subject: '',
             message:
               '"random" is not a declared layer — declare it, or move its code into a module of an existing layer.',
           },

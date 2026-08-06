@@ -51,8 +51,21 @@ export function analyze(scan: ScanResult, blueprint: Blueprint): Finding[] {
   ];
 
   for (const cycle of detectCycles(buildModuleGraph(scan, architecture).edges)) {
+    // The members, not the printed path: a cycle is a set of mutually dependent
+    // modules, and `a → b → a` and `b → a → b` are one knot printed from two
+    // starting points. Keyed on the path, the same knot read from a different entry
+    // node is a different baseline entry. The address is the first member for the
+    // same reason — content-determined, and always one of the modules in the message.
+    const members = [...new Set(cycle)].sort(compareText);
+
     findings.push(
-      finding('error', 'cycle', cycle[0], `Import cycle between modules: ${cycle.join(' → ')}.`),
+      finding(
+        'error',
+        'cycle',
+        members[0],
+        members.join(' '),
+        `Import cycle between modules: ${cycle.join(' → ')}.`,
+      ),
     );
   }
 
@@ -74,6 +87,11 @@ function folderFindings(
         severity: 'error',
         rule: 'undeclared-folder',
         path: `${prefix}${dir}`,
+        // The four directory findings are one-per-directory by construction, so the
+        // rule and the path already identify them and there is nothing left to
+        // discriminate. Empty rather than a repeat of the path: a subject that
+        // restates its path says the finding has a second axis when it has not.
+        subject: '',
         message: `"${dir}" is not a declared layer — declare it, or move its code into a module of an existing layer.`,
       });
     }
@@ -85,6 +103,7 @@ function folderFindings(
         severity: 'info',
         rule: 'missing-layer',
         path: `${prefix}${name}`,
+        subject: '',
         // Reads like a todo without the second clause — six of these sent
         // a field agent toward "delete the unused layers", the opposite of
         // the keep-is-default doctrine the playbook states (field run #13).
@@ -119,6 +138,7 @@ function folderFindings(
           severity: 'info',
           rule: 'declaratory-self-only',
           path: `${prefix}${layer.name}`,
+          subject: '',
           message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands. The no-restricted-syntax ENTRY is emitted today, on the importer layer(s) named above, so it is already exposed to a merge: IF a second no-restricted-syntax scoped to one of those layers exists, flat config merges neither into the other — the later entry replaces the earlier, silently, with lint still green. That condition is the whole note. Adopting into a single generated config, there is no second entry, so there is nothing here to act on. "Cannot fire" is about the ban, not about the entry. Check \`blueprint rules --json\` for the emit points before merging.`,
         });
       }
@@ -165,6 +185,7 @@ function noEntryFindings(
         severity: 'warn',
         rule: 'no-entry',
         path: `${sourcePrefix(architecture)}${key}`,
+        subject: '',
         message: `Module "${key}" has no "${entry}" entry — nothing is importable from outside.`,
       });
     }
@@ -201,17 +222,17 @@ function importFindings(
       // Depth is judged against the *target* layer's layout — reaching inside
       // a folder-module layer is a violation wherever the import comes from.
       if (layoutOf(target) === 'folder' && parts.length >= 3) {
-        findings.push(finding('error', 'deep-import', file.path, `"${ref.specifier}" reaches inside a module — import it through its entry.`));
+        findings.push(finding('error', 'deep-import', file.path, ref.specifier, `"${ref.specifier}" reaches inside a module — import it through its entry.`));
       }
 
       if (target === fileLayer) {
-        findings.push(finding('error', 'flow-violation', file.path, `Same-layer import "${ref.specifier}" via the alias — use a relative path or extract to a lower layer.`));
+        findings.push(finding('error', 'flow-violation', file.path, ref.specifier, `Same-layer import "${ref.specifier}" via the alias — use a relative path or extract to a lower layer.`));
       } else if (forbidden.includes(target)) {
-        findings.push(finding('error', 'flow-violation', file.path, `"${fileLayer}" may not import "${target}" ("${ref.specifier}").`));
+        findings.push(finding('error', 'flow-violation', file.path, ref.specifier, `"${fileLayer}" may not import "${target}" ("${ref.specifier}").`));
       }
 
       if (ref.isExport && selfOnly.includes(target)) {
-        findings.push(finding('error', 'selfonly-reexport', file.path, `Re-exports "${target}" ("${ref.specifier}"), which is selfOnly — depend on it, do not re-export it.`));
+        findings.push(finding('error', 'selfonly-reexport', file.path, ref.specifier, `Re-exports "${target}" ("${ref.specifier}"), which is selfOnly — depend on it, do not re-export it.`));
       }
     } else if (ref.specifier.startsWith('.')) {
       const escape = relativeEscape(file, ref, layoutOf, entryOf);
@@ -223,7 +244,15 @@ function importFindings(
       if (owners && !owners.includes(fileLayer)) {
         const named = ref.names.length ? ` (${ref.names.join(', ')})` : '';
 
-        findings.push(finding('error', 'package-ownership', file.path, `"${ref.specifier}"${named} is owned by ${owners.join(', ')} — not importable from "${fileLayer}".`));
+        // The names are part of the subject, not just of the sentence: one file can
+        // import two different restricted names from the same package, and those are
+        // two debts with two fixes. Sorted, because `{ a, b }` and `{ b, a }` are the
+        // same import written twice.
+        const subject = ref.names.length
+          ? `${ref.specifier} ${[...ref.names].sort(compareText).join(',')}`
+          : ref.specifier;
+
+        findings.push(finding('error', 'package-ownership', file.path, subject, `"${ref.specifier}"${named} is owned by ${owners.join(', ')} — not importable from "${fileLayer}".`));
       }
     }
   }
@@ -243,14 +272,14 @@ function relativeEscape(
   if (verdict === 'ok') return null;
 
   if (verdict === 'escapes-src') {
-    return finding('error', 'relative-escape', file.path, `Relative import "${ref.specifier}" escapes src/ — use the project alias.`);
+    return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" escapes src/ — use the project alias.`);
   }
 
   if (verdict === 'reaches-inside') {
-    return finding('error', 'relative-escape', file.path, `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${entryOf(file.segments[0])}" instead; what lives behind it is that module's own business.`);
+    return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${entryOf(file.segments[0])}" instead; what lives behind it is that module's own business.`);
   }
 
-  return finding('error', 'relative-escape', file.path, `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.`);
+  return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.`);
 }
 
 /** Owner layers of a package import (given its named imports), or null if unrestricted. */
@@ -439,6 +468,12 @@ function stripExt(name: string): string {
   return name.replace(/\.[^.]+$/, '');
 }
 
-function finding(severity: Severity, rule: string, path: string, message: string): Finding {
-  return { severity, rule, path, message };
+function finding(
+  severity: Severity,
+  rule: string,
+  path: string,
+  subject: string,
+  message: string,
+): Finding {
+  return { severity, rule, path, subject, message };
 }
