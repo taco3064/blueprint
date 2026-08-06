@@ -281,7 +281,10 @@ export function renderRules(
     ...(bans.length
       ? [
           '',
-          'Per-layer bans — what the structural rules enforce, resolved from this config:',
+          'Per-layer bans — what the structural rules enforce, resolved from this config.',
+          'Everything below is what doctor compares, and it compares TEXTUALLY: a pattern',
+          'group reordered or a selector respelled to an equivalent (`\\/` for `/`) reads as',
+          'missing even though eslint would still enforce it. Copy, do not retype.',
           ...bans.flatMap((entry) => [
             `  ${entry.layer.padEnd(14)} no-import: ${entry.forbidden.join(', ') || '(none)'}`
             + ` · packages: ${entry.packages.join(', ') || '(none)'}`
@@ -290,11 +293,18 @@ export function renderRules(
             // what keeps "combine into ONE entry" doable without an emitLint
             // dump (field issue #20). The message caveat closes the follow-up
             // doubt (#23): doctor compares selectors only, by design.
+            //
+            // "Verbatim" needs its reason, and the header above carries it —
+            // doctor's comparison is textual, which wiring said only once it had
+            // already gone red. A field agent deciding how to write an escape
+            // (`\/` against the emitted `/`, the same string at runtime) could
+            // not tell whether a respelling would read as missing, and
+            // over-constrained defensively (#101).
             ...entry.selfOnly.flatMap((ban) => [
               `    selfOnly: no re-export from "${ban.target}" — folding your own`
-              + ' no-restricted-syntax into one entry? Copy these selectors verbatim'
-              + ' (the message text is yours to write — doctor verifies selectors,'
-              + ' never messages):',
+              + ' no-restricted-syntax into one entry? Copy these selectors verbatim,'
+              + ' per the caveat above (the message text is yours to write — doctor'
+              + ' verifies selectors, never messages):',
               ...ban.selectors.map((selector) => `      ${selector}`),
               // The selectors alone are not the whole entry. The emitted block
               // exempts test files, and an entry rebuilt from selectors carries

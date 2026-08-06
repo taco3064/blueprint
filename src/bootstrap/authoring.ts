@@ -331,10 +331,18 @@ a layer to make coverage non-zero (a \`*\` name, a glob contortion): root
 files are wiring, and their hygiene (line counts, unused vars) belongs to
 the project's own lint, not to a manufactured layer. The net starts biting
 when code lands inside declared layers. The inverse also holds: a preset's
-declared-but-empty layers (and an alias no import uses yet) are the
-runway, not a manufactured net — declaring intent costs nothing and
-\`inspect\` tracks it honestly (missing-layer info, the coverage line), so
-keep them. Keeping is the DEFAULT — the preset layers are the baseline,
+declared-but-empty layers are the runway, not a manufactured net —
+declaring intent costs nothing and \`inspect\` tracks them honestly
+(missing-layer info, the coverage line), so keep them.
+**Runway comes in three shapes, and \`inspect\` names only the first.** An
+empty layer gets its note. An alias no import uses yet, and an \`owns\` entry
+for a package the repo has not installed (a preset's \`hooks\` owns
+\`zustand\` whether or not you use it), get none — nothing imports them, so
+there is nothing to count and no finding to raise. Both are still runway:
+they say where a thing goes if it arrives, ban nothing until then, and need
+no dependency added to justify them. Keep them on the same default as the
+layers, and know that these two are the runway you have to recognize
+yourself rather than read off a report. Keeping is the DEFAULT — the preset layers are the baseline,
 and slimming them is the project owner's later decision, never the
 adopting agent's. When a declared-but-empty layer ALSO looks stale, the
 tiebreak is prose intent: an intent document describing it as a future
@@ -659,7 +667,18 @@ the answer belongs in this playbook — note the gap in your report instead.
      twin on top is noise, not safety. The same rule spans gate LAYERS:
      a house \`import/no-cycle\` (lint) and the \`cycles\` gate (inspect)
      are one semantic — pick one detector and record it (the catalog's
-     perf note usually argues for the inspect side). And when a tool IS retired, retire it
+     perf note usually argues for the inspect side). **But across gate
+     layers the deciding axis is WHEN the failure appears, not perf**, and
+     that is the difference between deciding and flagging. Two lint rules
+     for one semantic are a pure duplicate: drop one, no one's workflow
+     changes. Dropping a lint-time detector in favour of \`cycles\` moves
+     the interception from wherever lint runs — pre-commit hook, editor,
+     CI step — to the \`inspect\` gate, which may not be wired into any of
+     them yet. That is the adopter's pipeline, so declare blueprint's gate
+     only if you are also placing \`inspect\` where the lint rule used to
+     fire; otherwise leave the existing detector alone and put the
+     consolidation in the report as a recommendation with that cost named.
+     Two field runs reached this conclusion by deriving it. And when a tool IS retired, retire it
      whole: DELETE its config file — a stale architecture config sitting
      beside blueprint.config.mjs misleads worse than any prose pointer —
      then sweep the footprint in the same pass: grep the repo for its name

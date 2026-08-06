@@ -2415,6 +2415,83 @@ describe('a check is asked for, not answered in advance (field runs #99-#100)', 
   });
 });
 
+describe('a fact reaches the reader before the red, not after (field run #101)', () => {
+  const brownfield = (): RepoSpec => ({
+    packageJson: react(),
+    files: Object.fromEntries(
+      Array.from({ length: 12 }, (_, i) => [`src/legacy/mod${i}.js`, 'export const x = 1;\n']),
+    ),
+  });
+
+  it('names the two runways inspect does not report', async () => {
+    // "Declared-but-empty layers (and an alias no import uses yet) are the runway …
+    // `inspect` tracks it honestly" grouped three things and was true of one: analyze
+    // raises undeclared-folder, missing-layer, declaratory-self-only and no-entry —
+    // nothing for an unused alias, nothing for an `owns` on an absent package. A field
+    // agent hit the third (a preset's `hooks` owns `zustand`, which the repo does not
+    // install) and could not tell runway from over-declaration.
+    const dir = repo(brownfield());
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('Runway comes in three shapes');
+    expect(playbook).toContain('get none — nothing imports them');
+    expect(playbook).toContain('recognize\nyourself rather than read off a report');
+  });
+
+  it('says a cross-layer detector swap moves when the failure fires', async () => {
+    // "Pick one detector and record it (the catalog's perf note usually argues for the
+    // inspect side)" read as a free choice. Two field runs derived the missing half
+    // themselves: dropping a lint-time cycle rule for blueprint's `cycles` gate moves
+    // interception off whatever runs lint — pre-commit, editor, CI — onto a gate that
+    // may be wired nowhere yet. Same-layer twins are a pure duplicate; this is not.
+    const dir = repo(brownfield());
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('the deciding axis is WHEN the failure appears');
+    expect(playbook).toContain('are a pure duplicate');
+    expect(playbook).toContain('only if you are also placing');
+  });
+
+  it('warns that the comparison is textual where the copying happens', async () => {
+    // wiring says "the comparison is textual, not semantic" — in the failure detail,
+    // which a correct merge never sees. The adopter needs it while choosing how to
+    // write an escape: a field agent could not tell whether `\/` for the emitted `/`
+    // (the same string at runtime) would read as missing, and over-constrained. The
+    // caveat now heads the block that prints both the pattern groups and the selectors.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource({
+          framework: 'react',
+          architecture: {
+            alias: '~app',
+            layers: [
+              { name: 'views', does: 'screens' },
+              { name: 'contexts', does: 'state', allowedImporters: [{ layer: 'views', selfOnly: true }] },
+            ],
+            module: { layout: 'flat', entry: 'index', private: [] },
+          },
+        }),
+      },
+    });
+
+    const out = await cli(dir, ['rules']);
+
+    expect(out.output).toContain('it compares TEXTUALLY');
+    expect(out.output).toContain('reordered or a selector respelled');
+    expect(out.output).toContain('Copy, do not retype');
+
+    // The selector block points at it rather than restating it.
+    expect(out.output).toContain('per the caveat above');
+  });
+});
+
 /**
  * The fixture DSL's own behaviour, rather than an adoption scenario.
  *
