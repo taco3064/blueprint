@@ -22,3 +22,13 @@ harness making the mistake it exists to catch, on itself.
   it covers, and the title counts only scenarios that produced evidence, naming the silent ones
   rather than scoring them. The re-adoption path stays: it is where the last two batches found their
   real defects.
+
+**And the matrix was overstated the other way, for longer.** Every run this release was launched as
+`--agents claude,codex` on a machine with no `codex` binary, and every one of them reported a
+claude-only matrix — the skip was a single ⚠ at the top of a long log, and it reached neither the
+report nor the issue. So the runs behind these releases were half the matrix they were believed to
+be, and the record could not show it. An agent named explicitly and unable to run now refuses the
+whole run, before the build, with the reason: a list is a request, and honouring half of it silently
+is a coverage claim nobody made. The default matrix still skips, because there the point is to use
+whatever the machine has, and each skip now appears in the report with its cause. A mistyped name
+used to crash on `AGENT_COMMANDS[agent] is not a function`; it now says which agents exist.

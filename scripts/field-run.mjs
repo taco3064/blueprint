@@ -151,6 +151,26 @@ function hasBinary(name) {
   }
 }
 
+/**
+ * Why this agent cannot run, or null. Three distinct answers, and all three used to
+ * arrive as something other than an answer: an unknown name crashed on
+ * `AGENT_COMMANDS[agent] is not a function`, a missing CLI printed one ⚠ and vanished
+ * from the record, and a CLI that is installed but cannot launch here was not checked
+ * at all.
+ */
+function unavailable(agent) {
+  if (!AGENT_COMMANDS[agent]) {
+    return `unknown agent — this harness knows ${Object.keys(AGENT_COMMANDS).join(', ')}`;
+  }
+
+  if (!hasBinary(AGENT_COMMANDS[agent]('x')[0])) {
+    return `\`${AGENT_COMMANDS[agent]('x')[0]}\` is not on PATH — the CLI is not installed `
+      + 'on this machine (a config directory under $HOME is not the CLI)';
+  }
+
+  return AGENT_BLOCKERS[agent]?.() ?? null;
+}
+
 function sh(command, cwd) {
   console.log(`  $ ${command}`);
   execSync(command, { cwd, stdio: ['ignore', 'inherit', 'inherit'] });
@@ -271,23 +291,32 @@ async function main() {
     );
   }
 
+  const skipped = [];
   const agents = (args.agents ?? Object.keys(AGENT_COMMANDS)).filter((agent) => {
-    if (!hasBinary(AGENT_COMMANDS[agent]('x')[0])) {
-      console.log(`⚠ ${agent}: CLI not found on this machine — skipped.`);
+    const reason = unavailable(agent);
 
-      return false;
-    }
+    if (!reason) return true;
 
-    const blocker = AGENT_BLOCKERS[agent]?.();
+    console.log(`⚠ ${agent}: ${reason}`);
+    skipped.push({ agent, reason });
 
-    if (blocker) {
-      console.log(`⚠ ${agent}: ${blocker}`);
-
-      return false;
-    }
-
-    return true;
+    return false;
   });
+
+  // An explicit --agents list is a request, and honouring half of it silently is how
+  // a whole release's worth of runs looked like a two-agent matrix while only one
+  // agent ever ran: the ⚠ above scrolled past at the top of a long log and never
+  // reached the report or the issue. Named and unavailable now refuses the run, here,
+  // before the build — the default matrix still skips, because there the point is to
+  // use whatever this machine has.
+  if (args.agents && skipped.length) {
+    throw new Error(
+      `--agents named ${skipped.length} agent(s) that cannot run here, and a partial matrix `
+      + 'answers a request you did not make:\n'
+      + skipped.map((entry) => `    ${entry.agent}: ${entry.reason}`).join('\n')
+      + '\n  Install it, or name only the agents this machine has.',
+    );
+  }
 
   if (!agents.length) {
     throw new Error('no agent CLI can run here — nothing to run; the reason per agent is above.');
@@ -406,6 +435,10 @@ async function main() {
     '',
     `tree: ${tree} (unreleased tree; tarball packed as v${packedVersion})`,
     `tarball: ${tarball}`,
+    // The matrix a reader can see is the one that ran. Without this line, an agent the
+    // default matrix dropped leaves no trace at all, and the report reads as though it
+    // was never wanted.
+    ...skipped.map((entry) => `skipped: ${entry.agent} — ${entry.reason}`),
     '',
     ...runs.flatMap((run) => {
       if (run.dry) return [`## ${run.scenario} × ${run.agent} — staged only (--dry): ${run.dir}`, ''];

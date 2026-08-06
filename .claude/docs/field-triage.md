@@ -16,12 +16,20 @@ Conformance guards known scenarios; the harness hunts new ones.
 `--dry` stages without spawning agents; `--repo <path>` adds the
 existing-repo scenario from a local clone; `--no-issue` keeps it local.
 
-Three things it will not do, each because it did them once:
+Four things it will not do, each because it did them once:
 
 - **It refuses to start from inside a Claude Code session.** The agent CLI will
   not launch nested, and the refusal used to arrive after a build, a pack and one
   install per scenario. Checked with `--repo`, before any expensive work — run
   the harness from a plain shell.
+- **An agent named in `--agents` that cannot run refuses the whole run.** A
+  release's worth of runs were launched as `--agents claude,codex` on a machine
+  with no `codex` binary, and every one of them reported a claude-only matrix: the
+  skip was one ⚠ at the top of a long log and reached neither the report nor the
+  issue. An explicit list is a request; half of it silently is a coverage claim
+  nobody made. The default matrix still skips — there the point is to use what the
+  machine has — and now records each skip with its reason in the report, so the
+  issue carries it too. `~/.codex` is a config directory, not a CLI.
 - **No feedback anywhere means no issue.** A run whose scenarios all failed to
   produce a feedback file tested the machine, not the tree; three such reports
   went into the inbox and had to be deleted. A *partial* failure still files, so
