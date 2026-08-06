@@ -335,10 +335,22 @@ export interface WiringParams {
 export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
   const { root, blueprint, scanResult, wired, hasTypescript, load } = params;
 
-  if (!wired) return { label: `${LABEL} (skipped — eslint not wired)`, ok: true };
+  if (!wired) {
+    return {
+      label: `${LABEL} (skipped — eslint not wired)`,
+      ok: true,
+      skipped: 'eslint not wired — the wiring check above is the red for that',
+    };
+  }
 
   const probes = pickProbes(scanResult, blueprint);
 
+  // No `skipped` on this one, deliberately, and the rule it follows is: mark a skip
+  // when it hides something the rest of doctor does not already report. Here there is
+  // no file in any layer, so there is nothing for the rules to protect and nothing to
+  // verify — a state doctor already states outright as vacuous, "a green gate proves
+  // nothing yet". Marking it too would relabel every greenfield scaffold as unverified
+  // on the strength of a fact already on screen.
   if (!probes.length) {
     return { label: `${LABEL} (skipped — no probe derivable from the layer globs)`, ok: true };
   }
@@ -379,8 +391,16 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
   } catch {
     // Unresolvable config = the project's own lint is broken or eslint is
     // not loadable here; that gate speaks for itself — doctor stays honest
-    // by naming the skip, not by inventing a verdict.
-    return { label: `${LABEL} (skipped — could not resolve the merged config)`, ok: true };
+    // by naming the skip, not by inventing a verdict. What it did NOT do was
+    // stop the banner counting the skip as one of the checks that passed, which
+    // is how an agent concluded the lint wiring had been verified (#129).
+    return {
+      label: `${LABEL} (skipped — could not resolve the merged config)`,
+      ok: true,
+      skipped: 'the merged eslint config would not resolve, so nothing here proves the emitted '
+        + 'rules are alive in it. Run the project\'s own lint — it fails for the same reason, and '
+        + 'this check runs once that passes',
+    };
   }
 
   // Say what the ✓ covers. Unqualified, it reads as "every emitted rule is

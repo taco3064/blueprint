@@ -40,4 +40,14 @@ export interface DoctorCheck {
   ok: boolean;
   /** What to do about it, when the check failed. */
   detail?: string;
+  /**
+   * Why the check could not run. `ok` stays true — a red nobody can appease is
+   * worse than no check — but a skip is not a pass, and the banner used to count
+   * it as one: a field agent read `✓ … (skipped — could not resolve the merged
+   * config)` beside `✓ Adoption complete — all 7 checks passed.` and had to run
+   * `impact`, the project's lint and `--print-config` to find out that the one
+   * check proving the gates are wired had never run (field run #129). Structural
+   * rather than a substring of `label`, so the banner and the JSON both see it.
+   */
+  skipped?: string;
 }

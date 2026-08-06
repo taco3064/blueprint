@@ -367,18 +367,29 @@ function emit(
   }
 
   const failed = checks.filter((check) => !check.ok).length;
+  // A skip is not a pass. It rides on `ok: true` so nothing goes red that cannot be
+  // appeased, and the banner used to fold it into "all N checks passed" — the exact
+  // reading that let an agent report the lint wiring as verified (field run #129).
+  const skipped = checks.filter((check) => check.skipped);
+  const passed = checks.length - failed - skipped.length;
 
   log(
     [
       'blueprint doctor',
-      ...checks.map(
-        (check) =>
-          `  ${check.ok ? '✓' : '✗'} ${check.label}${check.detail ? `\n      ${check.detail}` : ''}`,
-      ),
+      ...checks.map((check) => {
+        const mark = check.ok ? (check.skipped ? '⊘' : '✓') : '✗';
+        const under = check.skipped ?? check.detail;
+
+        return `  ${mark} ${check.label}${under ? `\n      ${under}` : ''}`;
+      }),
       '',
-      failed === 0
+      failed === 0 && !skipped.length
         ? `✓ Adoption complete — all ${checks.length} checks passed.`
-        : `✗ Adoption incomplete — ${failed} of ${checks.length} check(s) failed.`,
+        : failed === 0
+          ? `⊘ Adoption unverified — ${passed} of ${checks.length} checks passed, `
+          + `${skipped.length} could not run (⊘ above). Nothing failed, and nothing here `
+          + 'proves what those checks cover.'
+          : `✗ Adoption incomplete — ${failed} of ${checks.length} check(s) failed.`,
       // Under the banner rather than as an eighth check: it cannot fail (init never
       // takes version control into its own hands), and a check that is always green
       // would push the count every conformance fixture states.
