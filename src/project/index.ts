@@ -10,6 +10,7 @@ export {
   pathAliasKeys,
   quotedIn,
   readTexts,
+  SUPPORTED_ESLINT_MAJORS,
   unreadableTsconfigs,
 } from './detect';
 export type { JsoncFailure, JsoncResult, UnreadableConfig } from './detect';

@@ -201,11 +201,20 @@ The complete early-exit checklist — nothing else in this file applies:
    **Which build, though — and on this path prefer \`npx tsc -b\`.** It
    answers the only question available here, and the full \`npm run build\`
    answers no more of it while emitting a bundle into a tree that may have
-   nowhere to put one (see below). A Vite + TS starter keeps
-   \`vite.config.ts\` inside a tsconfig project, so \`tsc -b\` type-checks
-   the vite edit too; run the project's full build instead when the vite
-   config sits outside every tsconfig project, or once layer files exist and
-   the alias is genuinely exercised — there the bundle is the point. Its artifacts
+   nowhere to put one (see below).
+   **Whether \`tsc -b\` covers your vite edit is a fact about THIS repo — read
+   it, do not assume it.** Templates differ: many put \`vite.config.ts\` inside
+   a tsconfig project (commonly a \`tsconfig.node.json\` reached through
+   \`references\`), and there \`tsc -b\` type-checks the vite edit too; others
+   leave a single root config at \`include: ["src"]\`, and there \`tsc -b\` never
+   reads the file you just edited — it exits 0 whatever you put in it. Open the
+   tsconfig(s) and see which one you have before choosing. Inside a project,
+   \`tsc -b\` is the build to prefer here. Outside every project — or once layer
+   files exercise the alias — run the project's full build, the only build that
+   loads the vite config at all; there the bundle is the point. Either way,
+   never report that a build verified the vite edit without having established
+   that the build reads the vite config: that claim is the one thing this step
+   can get silently wrong, and \`tsc -b\` exiting 0 is not evidence for it. Its artifacts
    (\`dist/\`, \`*.tsbuildinfo\`) are the build's normal output, not
    adoption leftovers: leave them to the repo's own ignore rules, and say so
    in the report instead of guessing a cleanup when those rules will not
@@ -223,6 +232,15 @@ The complete early-exit checklist — nothing else in this file applies:
    and the build can be re-run. Then it is the owner's call rather than
    an unexplained mess: "leave them" without that sentence reads as "you
    may not touch these", which is not what it means.
+   **One of the four cells decides itself: no ignore rules AND no version
+   control.** There, "leave them to the repo's own ignore rules" names rules
+   that do not exist and an owner who has no \`git status\` to see them in — so
+   remove what your own verification step created, and say you did. That is not
+   the owner's call being taken from them: it is the same reason this path
+   prefers \`tsc -b\`, applied one step later. The tree you hand back is the tree
+   you were given. In the other three cells leave the artifacts alone — ignore
+   rules cover them, or \`git status\` surfaces them, and either way something
+   other than your report is keeping track.
 4. Delete this playbook, \`${COMMAND_FILE}\`, and the now-empty
    \`.claude/commands/\` directory${
       hadClaudeDir
@@ -313,10 +331,18 @@ a layer to make coverage non-zero (a \`*\` name, a glob contortion): root
 files are wiring, and their hygiene (line counts, unused vars) belongs to
 the project's own lint, not to a manufactured layer. The net starts biting
 when code lands inside declared layers. The inverse also holds: a preset's
-declared-but-empty layers (and an alias no import uses yet) are the
-runway, not a manufactured net — declaring intent costs nothing and
-\`inspect\` tracks it honestly (missing-layer info, the coverage line), so
-keep them. Keeping is the DEFAULT — the preset layers are the baseline,
+declared-but-empty layers are the runway, not a manufactured net —
+declaring intent costs nothing and \`inspect\` tracks them honestly
+(missing-layer info, the coverage line), so keep them.
+**Runway comes in three shapes, and \`inspect\` names only the first.** An
+empty layer gets its note. An alias no import uses yet, and an \`owns\` entry
+for a package the repo has not installed (a preset's \`hooks\` owns
+\`zustand\` whether or not you use it), get none — nothing imports them, so
+there is nothing to count and no finding to raise. Both are still runway:
+they say where a thing goes if it arrives, ban nothing until then, and need
+no dependency added to justify them. Keep them on the same default as the
+layers, and know that these two are the runway you have to recognize
+yourself rather than read off a report. Keeping is the DEFAULT — the preset layers are the baseline,
 and slimming them is the project owner's later decision, never the
 adopting agent's. When a declared-but-empty layer ALSO looks stale, the
 tiebreak is prose intent: an intent document describing it as a future
@@ -366,7 +392,18 @@ the answer belongs in this playbook — note the gap in your report instead.
    One exception, and it decides the harder cases: some clauses **cannot** be
    derived from the matrix at all — ownership of a named import, the shape of a
    selfOnly narrowing, the position of a layer holding no files, a permitted
-   importer with zero edges today. For those the prior output is the only
+   importer with zero edges today. **And the rule that catches the rest: any
+   field in the prior config that the schema sketch below does not show.** The
+   sketch is a starting shape, not the field list — \`sourceRoot\`,
+   \`layerFilesIgnore\`, \`naming\`, a layer's \`mustNot\` and \`lintOverrides\`,
+   \`principles\`, \`componentShape\`, \`playbook\` are all valid, all invisible to
+   a survey, and every one of them changes what gets emitted. They are the
+   easiest of the set to lose because losing them costs no error: the contract
+   comes back shorter, an override stops being emitted, an ignore stops being
+   applied. \`sourceRoot\` is the one that does real damage — drop it on a repo
+   whose code is not under \`src/\` and every layer glob silently points at
+   nothing. Diff the prior config against yours field by field before you
+   believe you reproduced it. For those the prior output is the only
    evidence there is, so check-only means dropping them, and a "faithful"
    re-adoption then hands back a config LOOSER than the one it replaced.
    Verify each against what the matrix CAN see (is there an edge for this
@@ -630,7 +667,18 @@ the answer belongs in this playbook — note the gap in your report instead.
      twin on top is noise, not safety. The same rule spans gate LAYERS:
      a house \`import/no-cycle\` (lint) and the \`cycles\` gate (inspect)
      are one semantic — pick one detector and record it (the catalog's
-     perf note usually argues for the inspect side). And when a tool IS retired, retire it
+     perf note usually argues for the inspect side). **But across gate
+     layers the deciding axis is WHEN the failure appears, not perf**, and
+     that is the difference between deciding and flagging. Two lint rules
+     for one semantic are a pure duplicate: drop one, no one's workflow
+     changes. Dropping a lint-time detector in favour of \`cycles\` moves
+     the interception from wherever lint runs — pre-commit hook, editor,
+     CI step — to the \`inspect\` gate, which may not be wired into any of
+     them yet. That is the adopter's pipeline, so declare blueprint's gate
+     only if you are also placing \`inspect\` where the lint rule used to
+     fire; otherwise leave the existing detector alone and put the
+     consolidation in the report as a recommendation with that cost named.
+     Two field runs reached this conclusion by deriving it. And when a tool IS retired, retire it
      whole: DELETE its config file — a stale architecture config sitting
      beside blueprint.config.mjs misleads worse than any prose pointer —
      then sweep the footprint in the same pass: grep the repo for its name

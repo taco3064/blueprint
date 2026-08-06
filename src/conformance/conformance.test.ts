@@ -2321,6 +2321,177 @@ describe('a claim states the condition it needs (field runs #95–#97)', () => {
   });
 });
 
+describe('a check is asked for, not answered in advance (field runs #99-#100)', () => {
+  const brownfield = (): RepoSpec => ({
+    packageJson: react(),
+    files: Object.fromEntries(
+      Array.from({ length: 12 }, (_, i) => [`src/legacy/mod${i}.js`, 'export const x = 1;\n']),
+    ),
+  });
+
+  const playbookOf = async (spec: RepoSpec): Promise<string> => {
+    const dir = repo(spec);
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    return read(dir, 'blueprint-authoring.md') ?? '';
+  };
+
+  it('sends you to the tsconfig instead of asserting what it contains', async () => {
+    // The batch-12 fix wrote a universal: "A Vite + TS starter keeps `vite.config.ts`
+    // inside a tsconfig project, so `tsc -b` type-checks the vite edit too". The
+    // harness's own starter fixture disproves it — a single root config at
+    // `include: ["src"]` leaves the vite config outside every project, and one field
+    // agent proved it by injecting a type error there (`tsc -b` exit 0) against a
+    // control in `src/` (exit 1). A hedge followed two clauses later, and the second
+    // agent of the same run did follow it — but the leading sentence asserted the
+    // RESULT of a check that varies per repo, and an agent trusting it reports a
+    // verified vite edit that was never read.
+    // Forced onto a starter: the early-exit checklist is the only path that asks for
+    // a build, and the only path all three of these agents were on.
+    const playbook = await playbookOf({ packageJson: react() });
+
+    expect(playbook).toContain('is a fact about THIS repo — read');
+    expect(playbook).toContain('it exits 0 whatever you put in it');
+    expect(playbook).toContain('see which one you have');
+    expect(playbook).toContain('never report that a build verified the vite edit');
+
+    // …and the old universal is gone, not merely qualified.
+    expect(playbook).not.toContain('A Vite + TS starter keeps');
+  });
+
+  it('decides the one artifact cell that has nothing to decide it', async () => {
+    // Three consecutive batches reported this as a coin flip. Naming all four states
+    // (batch 12) told the reader where they were and still left one cell undecided:
+    // no ignore rules AND no VCS means "leave them to the repo's own ignore rules"
+    // points at rules that do not exist, for an owner with no `git status` to see them
+    // in. That cell resolves the same way the build choice does — do not leave the
+    // artifact behind.
+    const playbook = await playbookOf({ packageJson: react() });
+
+    expect(playbook).toContain('One of the four cells decides itself');
+    expect(playbook).toContain('remove what your own verification step created');
+    expect(playbook).toContain('The tree you hand back is the tree');
+    expect(playbook).toContain('In the other three cells leave the artifacts alone');
+  });
+
+  it('names the three fields a re-adoption loses without an error', async () => {
+    // The matrix-invisible list carried four clause shapes and no config FIELDS. A
+    // re-adopting agent reproduced `naming`, `principles` and `lintOverrides` only
+    // because it had read the config it was replacing; a blind one following the
+    // schema sketch drops all three, and nothing goes red — the agent contract just
+    // comes back shorter and an emitted override quietly stops being emitted.
+    const playbook = await playbookOf(brownfield());
+
+    // The rule, not a list — a list of five would have gone stale the next time a
+    // field was added, which is how this one got to three-of-eight in the first place.
+    expect(playbook).toContain('any\n   field in the prior config that the schema sketch below does not show');
+    expect(playbook).toContain('The\n   sketch is a starting shape, not the field list');
+    expect(playbook).toContain('Diff the prior config against yours field by field');
+
+    // …and `sourceRoot` called out by name, because its loss is a different order of
+    // damage from a shorter contract: every layer glob points at nothing.
+    expect(playbook).toContain('every layer glob silently points at\n   nothing');
+  });
+
+  it('mentions every config field an adopter could have to reproduce', async () => {
+    // `defineBlueprint`'s allow-lists are the authoritative field set and are private,
+    // so they are restated here (CLAUDE.md: a string list is one contract per member).
+    // Add a field to the schema and forget the playbook, and this turns red rather
+    // than shipping a document that silently cannot describe the config it validates.
+    const fields = [
+      'name', 'framework', 'architecture', 'rules', 'principles', 'componentShape',
+      'playbook', 'emit',
+      'alias', 'additionalAliases', 'sourceRoot', 'layers', 'module', 'layerFiles',
+      'layerFilesIgnore', 'testFiles', 'naming',
+      'does', 'mustNot', 'owns', 'allowedImporters', 'lintOverrides',
+    ];
+
+    const playbook = await playbookOf(brownfield());
+
+    for (const field of fields) {
+      expect(playbook, `playbook never names the \`${field}\` field`).toContain(field);
+    }
+  });
+});
+
+describe('a fact reaches the reader before the red, not after (field run #101)', () => {
+  const brownfield = (): RepoSpec => ({
+    packageJson: react(),
+    files: Object.fromEntries(
+      Array.from({ length: 12 }, (_, i) => [`src/legacy/mod${i}.js`, 'export const x = 1;\n']),
+    ),
+  });
+
+  it('names the two runways inspect does not report', async () => {
+    // "Declared-but-empty layers (and an alias no import uses yet) are the runway …
+    // `inspect` tracks it honestly" grouped three things and was true of one: analyze
+    // raises undeclared-folder, missing-layer, declaratory-self-only and no-entry —
+    // nothing for an unused alias, nothing for an `owns` on an absent package. A field
+    // agent hit the third (a preset's `hooks` owns `zustand`, which the repo does not
+    // install) and could not tell runway from over-declaration.
+    const dir = repo(brownfield());
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('Runway comes in three shapes');
+    expect(playbook).toContain('get none — nothing imports them');
+    expect(playbook).toContain('recognize\nyourself rather than read off a report');
+  });
+
+  it('says a cross-layer detector swap moves when the failure fires', async () => {
+    // "Pick one detector and record it (the catalog's perf note usually argues for the
+    // inspect side)" read as a free choice. Two field runs derived the missing half
+    // themselves: dropping a lint-time cycle rule for blueprint's `cycles` gate moves
+    // interception off whatever runs lint — pre-commit, editor, CI — onto a gate that
+    // may be wired nowhere yet. Same-layer twins are a pure duplicate; this is not.
+    const dir = repo(brownfield());
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('the deciding axis is WHEN the failure appears');
+    expect(playbook).toContain('are a pure duplicate');
+    expect(playbook).toContain('only if you are also placing');
+  });
+
+  it('warns that the comparison is textual where the copying happens', async () => {
+    // wiring says "the comparison is textual, not semantic" — in the failure detail,
+    // which a correct merge never sees. The adopter needs it while choosing how to
+    // write an escape: a field agent could not tell whether `\/` for the emitted `/`
+    // (the same string at runtime) would read as missing, and over-constrained. The
+    // caveat now heads the block that prints both the pattern groups and the selectors.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource({
+          framework: 'react',
+          architecture: {
+            alias: '~app',
+            layers: [
+              { name: 'views', does: 'screens' },
+              { name: 'contexts', does: 'state', allowedImporters: [{ layer: 'views', selfOnly: true }] },
+            ],
+            module: { layout: 'flat', entry: 'index', private: [] },
+          },
+        }),
+      },
+    });
+
+    const out = await cli(dir, ['rules']);
+
+    expect(out.output).toContain('it compares TEXTUALLY');
+    expect(out.output).toContain('reordered or a selector respelled');
+    expect(out.output).toContain('Copy, do not retype');
+
+    // The selector block points at it rather than restating it.
+    expect(out.output).toContain('per the caveat above');
+  });
+});
+
 /**
  * The fixture DSL's own behaviour, rather than an adoption scenario.
  *

@@ -4,6 +4,7 @@ import { plan } from './plan';
 import { reactPreset, vuePreset } from '../presets';
 import type { Blueprint } from '../config';
 import type { Action } from './types';
+import { SUPPORTED_ESLINT_MAJORS } from '../project';
 import type { ProjectState } from '../project';
 
 function state(over: Partial<ProjectState> = {}): ProjectState {
@@ -497,6 +498,27 @@ describe('plan', () => {
 
     expect(clean.some((a) => a.kind === 'install')).toBe(false);
     expect(clean.some((a) => a.kind === 'instruct' && a.note.includes('Install skipped'))).toBe(false);
+  });
+
+  it('says the eslint it installs is unpinned, and which majors are tested', () => {
+    // `eslint` goes in unpinned, so npm resolves the newest supported major — newer
+    // than this package's own devDependency. A field agent watched ESLint 10 arrive
+    // from a tool developed on 9 and could only report "worked today" (#100): the
+    // support range is a decision in the source that never reached any output.
+    const install = plan(state(), bp, null, {}).find((a) => a.kind === 'install');
+
+    expect(install?.kind === 'install' && install.note).toContain('eslint unpinned');
+
+    for (const major of SUPPORTED_ESLINT_MAJORS) {
+      expect(install?.kind === 'install' && install.note).toContain(String(major));
+    }
+
+    // A repo that already has eslint gets the plain list — the sentence explains a
+    // resolution about to happen, so with nothing to resolve it is noise.
+    const partial = plan(state({ missingDeps: ['@kekkai/blueprint'] }), bp, null, {})
+      .find((a) => a.kind === 'install');
+
+    expect(partial?.kind === 'install' && partial.note).toBe('@kekkai/blueprint');
   });
 
   it('refreshes an existing marker block in place, per agent file', () => {
