@@ -405,30 +405,22 @@ describe('authoringBrief', () => {
     for (const [, text] of caveats) expect(flattenProse(small)).toContain(text);
   });
 
-  it('indents every caveat line for the list its site sits in', () => {
+  it('emits the shared caveats inline, so there is no indent left to get wrong', () => {
     const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { hadClaudeDir: false });
 
-    // Raw, never flattened: the indent IS the assertion, and `flattenProse`
-    // collapses exactly what is under test. Three spaces continues a numbered
-    // checklist item, five continues a bullet nested under one — pass the wrong
-    // one and the emitted markdown list breaks while every other assertion here
-    // stays green. Stryker cannot see it either: `StringLiteral` is excluded by
-    // measurement, which its config calls the boundary around prose and NOT
-    // around a discrete contract per literal. Two indents are that contract.
-    const indents = (text: string) => text
-      .split(', or a correct config looks broken:')
-      .slice(1)
-      .map((rest) => rest
-        .split('will ever show.')[0]
-        .split('\n')
-        .slice(1)
-        .map((line) => line.length - line.trimStart().length))
-      .map((widths) => [...new Set(widths)]);
+    // `printConfigCaveats` used to wrap, so it had to be told the indent of the
+    // list it sat in — three spaces inside a numbered item, five inside a bullet
+    // under one — and passing the wrong one broke the emitted markdown list while
+    // every other assertion stayed green. One sentence per line removed that
+    // decision rather than fixing it: the caveats join their host line, so the
+    // contract is now that they carry no newline at all. A regression to a
+    // `\n`-joined helper puts the opening and the closing on different lines.
+    for (const text of [brief, small]) {
+      const hosts = text.split('\n').filter((line) => line.includes('resolved keys carry their'));
 
-    // One entry per site, in document order, each holding exactly one width —
-    // so a mixed indent inside a block fails as loudly as a wrong one.
-    expect(indents(brief)).toEqual([[5]]);
-    expect(indents(small)).toEqual([[3], [5]]);
+      expect(hosts.length).toBeGreaterThan(0);
+      for (const line of hosts) expect(line).toContain('and mark the ones no lint run will ever show.');
+    }
   });
 
   it('embeds the survey evidence and the schema sketch', () => {
