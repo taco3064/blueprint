@@ -29,6 +29,17 @@ verification command produced; what `init` produced, install included, which is 
 itself; and whatever was already in the tree before you started. Deciding by "is it untracked?"
 deletes the deliverable; deciding by "did I run the command that made it?" does not.
 
+**The stale-vs-runway tiebreak names the third state its own diagram rule opened up.** The
+previous release taught it that a layer drawn in an intent document's flow graph has been
+mentioned — which removed the stale branch's trigger without widening the runway branch's, and
+left "mentioned, but nowhere described as intent" belonging to neither. That is the common case,
+and the one a field agent landed in: a layer drawn in a mermaid graph, described in no
+per-layer section, its code living somewhere else entirely. Two agents reached the right answer
+through the keep-is-default fallback and both said reading the prose alone was a tightrope. The
+two branches are not a partition, so the middle is named: keep it, and hand the owner the
+specific question — drawn here, described nowhere, code at that other path — because the owner
+knows which of the two the drawing meant and an adopting agent does not.
+
 **Two proof steps in emitted output now state their reach, the way the playbook's already did.**
 The emitted eslint reference said "Your own lint passing on .ts/.tsx confirms it" — true as far
 as the files it parsed, and on a repo whose layers hold no files that green proves the config

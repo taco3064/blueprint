@@ -2530,6 +2530,29 @@ describe('a principle names its own boundary (field runs #104, #106)', () => {
     expect(flattenProse(playbook)).toContain('the two settings do not conflict');
   });
 
+  it('names the third state its own diagram rule opened up', async () => {
+    // The tiebreak read as a partition and is not one. Broadening "mentioned" to
+    // include a diagram (field run #97) removed the stale branch's trigger without
+    // widening the runway branch's, leaving "mentioned, never described as intent"
+    // owned by neither — the common case, and the one #107's agent landed in: `icons`
+    // drawn in a mermaid graph, described nowhere, its code living under `assets/`.
+    // Both agents reached the right answer through the keep-is-default fallback, and
+    // both said reading the prose alone was a tightrope.
+    const dir = repo({ packageJson: react() });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const flat = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
+
+    expect(flat).toContain('Those two branches are not a partition');
+    expect(flat).toContain('mentioned, but nowhere described as intent');
+    expect(flat).toContain('neither branch fires. Do not force it into one');
+
+    // And the hand-back is a specific question, not a verdict picked by proximity.
+    expect(flat).toContain('hand the owner the specific question');
+    expect(flat).toContain('the owner knows which of the two');
+  });
+
   it('sorts untracked files into the three kinds, only one of them yours', async () => {
     // The cell that decides itself says "remove what your own verification step
     // created" — and in a tree with no VCS and no ignore rules, nothing else marks
