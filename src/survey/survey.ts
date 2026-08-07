@@ -315,6 +315,24 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
   return result;
 }
 
+/**
+ * Wrap a comma-joined list to `width`, at the given indent. The survey hand-wraps every
+ * other line it prints; a list whose length is the reader's repo cannot be hand-wrapped.
+ */
+function wrapList(items: string[], width: number, indent: string): string[] {
+  const lines: string[] = [];
+
+  for (const item of items) {
+    const last = lines.length - 1;
+    const candidate = lines.length ? `${lines[last]} ${item},` : `${indent}${item},`;
+
+    if (lines.length && candidate.length <= width) lines[last] = candidate;
+    else lines.push(`${indent}${item},`);
+  }
+
+  return lines.map((line, index) => (index === lines.length - 1 ? line.replace(/,$/, '') : line));
+}
+
 /** The human-readable survey report. */
 export function renderSurvey(result: SurveyResult): string {
   const lines: string[] = [
@@ -351,10 +369,17 @@ export function renderSurvey(result: SurveyResult): string {
   const sourceless = result.folders.filter((folder) => folder.files === 0);
 
   if (sourceless.length) {
+    // A blank line and no `  name` opening, because both were there: the note ran at the
+    // rows' own indent with no gap, and its first line began with the folder list — so
+    // `assets, styles: 0 source files means the` read as a fourth row for a folder called
+    // "assets, styles". Every other section here opens on a blank line for the same
+    // reason. The list wraps at 74 too: `public/ assets/ locales/ generated/` is one
+    // ordinary project, and it was the only line in this output nothing bounded.
     lines.push(
-      `  ${sourceless.map((folder) => folder.folder).join(', ')}: 0 source files means the`,
-      '  folder is HERE and holds none — not that it is empty. Whatever is in it (assets,',
-      '  styles, generated output) this survey does not read.',
+      '',
+      '  0 source files means the folder is HERE and holds none — not that it is empty.',
+      '  Whatever is in it (assets, styles, build output) this survey does not read:',
+      ...wrapList(sourceless.map((folder) => folder.folder), 74, '    '),
     );
   }
 

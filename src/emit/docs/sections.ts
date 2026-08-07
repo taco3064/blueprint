@@ -288,9 +288,10 @@ export function renderRules(
     'The tier is what the enforcing machine does with a violation: `error` fails, '
     + '`warn` is advisory, `off` is disabled. Which machine differs — `lint` rows fail '
     + 'the project\'s lint run, `blueprint inspect` rows fail `blueprint inspect` and '
-    + 'never appear in a lint run, and documentation-only rows are recorded intent with '
-    + 'no gate behind '
-    + 'them at any tier. Every row reaches only the files a layer glob matches: a '
+    + 'never appear in a lint run, documentation-only rows are recorded intent with '
+    + 'no gate behind them at any tier, and a row reading `nothing` is lint-gated in '
+    + 'general but cannot emit on THIS blueprint — the cell says which fact rules it '
+    + 'out. Every row reaches only the files a layer glob matches: a '
     + 'declared layer holding no code has nothing that can fail, which is runway rather '
     + 'than protection — `blueprint doctor` reports which of the two this repo has today.',
   ].join('\n');

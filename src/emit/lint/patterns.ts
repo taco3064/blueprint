@@ -152,27 +152,6 @@ export const LINT_GATED_RULE_IDS = [
  * `fixtureImports`, which is not it (field run #137). Two numbers for one concept
  * is a defect whichever is right, and the reader guessing is the cost.
  */
-/**
- * The same question asked with only a blueprint to answer it — what the two pure
- * emitters have. `hasTypescript` is a fact about the dependency list, so they cannot
- * decide `explicitAny` and must not claim to: `true` here means "assume the stack can
- * carry it", which keeps that gate out of this verdict entirely. Framework and
- * `testFiles` are IN the blueprint, so the other two arms answer honestly.
- *
- * It exists because the emitters had no filter at all: the agent contract listed a gate
- * among the ones that "fail the project's lint run" and the handbook table put `lint` in
- * its Enforced-by column, for a rule the emitted config does not contain. #137 swept
- * `rules` and `inspect`; these two are the third and fourth site, and they are the files
- * an adopting agent actually reads every day.
- */
-export function unavailableFromBlueprint(
-  id: string,
-  framework: string | undefined,
-  testFiles: string | string[] | undefined,
-): string | null {
-  return unavailableGate(id, framework, true, testFiles);
-}
-
 export function unavailableGate(
   id: string,
   framework: string | undefined,
@@ -198,6 +177,27 @@ export function unavailableGate(
   }
 
   return null;
+}
+
+/**
+ * The same question asked with only a blueprint to answer it — what the two pure
+ * emitters have. `hasTypescript` is a fact about the dependency list, so they cannot
+ * decide `explicitAny` and must not claim to: `true` here means "assume the stack can
+ * carry it", which keeps that gate out of this verdict entirely. Framework and
+ * `testFiles` are IN the blueprint, so the other two arms answer honestly.
+ *
+ * It exists because the emitters had no filter at all: the agent contract listed a gate
+ * among the ones that "fail the project's lint run" and the handbook table put `lint` in
+ * its Enforced-by column, for a rule the emitted config does not contain. #137 swept
+ * `rules` and `inspect`; these two are the third and fourth site, and they are the files
+ * an adopting agent actually reads every day.
+ */
+export function unavailableFromBlueprint(
+  id: string,
+  framework: string | undefined,
+  testFiles: string | string[] | undefined,
+): string | null {
+  return unavailableGate(id, framework, true, testFiles);
 }
 
 /**
