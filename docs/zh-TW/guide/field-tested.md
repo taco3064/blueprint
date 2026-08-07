@@ -5,16 +5,16 @@
 
 ## 這一頁背後有什麼
 
-六層。沒有一層是備援 —— 每一層被加進來，都是因為既有的那些全綠了，卻看不到某個真實的缺陷。
+這些層沒有一層是備援 —— 每一層被加進來，都是因為既有的那些全綠了，卻看不到某個真實的缺陷。
 
-- **導入 e2e 測試套件** —— 九個納入版本控制的起始範本：Vite React（JS 與 TS）與 Vue、三種 Next.js 形態（App Router 有 `src/` 與沒有 `src/`、Pages Router）、turbo + pnpm 與 yarn workspace 各一個套件，以及植入既有債務的既有專案。<br>
-  每次 commit、push 與發佈，每個範本都會跑一遍 `init`；其中六個繼續跑 `inspect`，既有專案那個則走完到 baseline 棘輪的整段流程。<br>
-  安裝步驟一律跳過，只有兩個 workspace 範本例外 —— 那兩個是拿一個假的 `exec` 去接安裝，那正是「`pnpm add -D` / `yarn add -D` 是從 workspace 根目錄讀出來的」被驗到的地方。<br>
+- **導入 e2e 測試套件** —— 納入版本控制的起始範本，涵蓋本頁記錄的 Vite、Next.js 與 workspace 各種形態，再加上一個植入既有債務的既有專案；整組就是 [`fixtures/adoption/`](https://github.com/taco3064/blueprint/tree/main/fixtures/adoption)。<br>
+  每次 commit、push 與發佈，每個範本都會跑一遍 `init`；再往下走多深，則看它是為了證明什麼而存在 —— 有的停在「`init` 寫出來的檔案樹」，有的接著跑 `inspect`，而既有專案那個走完整條路，一路到 baseline 棘輪。<br>
+  安裝步驟一律跳過，只有 workspace 範本例外 —— 它們是開著安裝、拿一個假的 `exec` 把指令攔下來，因為只有這樣才驗得到「套件管理工具是從 workspace 根目錄讀出來的，不是從套件本身」（`pnpm add -D` / `yarn add -D`）。<br>
   所以這一層證明的是「`init` 在真實起始範本上寫出來的檔案樹」與「`inspect` 回報的檢測項目」：它從不執行 ESLint。
 - **一致性測試套件** —— 每一則實地回饋的情境都被固化成一個 fixture repo，用 DSL 現搭、走 CLI 自己的分派流程，**而且用的是本 repo 開發依賴裡那份真正的 ESLint**。<br>
   這正是上面那個 e2e 套件當不了的一層：`impact` 與合併存活檢查，只有在真的 ESLint 解析真的 config 時才有意義，所以它們是在這裡被驗的。<br>
   真實導入測試找到的新情境，會連同修正一起變成這裡的 fixture。
-- **兩套作業系統，而且兩邊都要回報** —— CI 在 `ubuntu-latest` 與 `windows-latest` 上各跑一次完整檢核，任一邊失敗都不准被另一邊蓋掉。<br>
+- **Linux 與 Windows，兩邊都要回報** —— CI 在 `ubuntu-latest` 與 `windows-latest` 上各跑一次完整檢核，任一邊失敗都不准被另一邊蓋掉。<br>
   這個工具會去讀寫別人的 repo，為此帶了好幾條專門處理 Windows 的分支；在 posix 上那些分支等同空操作，所以它們的行為以前從來沒被實際觀察過。<br>
   另有一條獨立的流程：用當前版本的 Node 建置，再把建置產物拿到 `18.18.0` 上執行 —— `engines` 宣告的下限是被跑出來的，不是宣稱的。
 - **`npm run dist:verify`** —— 行程內測試碰不到的那一層：它實際執行 `dist/bin.js`、解析 `bin` 欄位、匯入套件進入點。<br>
@@ -23,7 +23,7 @@
 - **每週的地形檢查** —— 用最新的上游 `create-vite` 與 `create-next-app` 範本實際建專案跑導入，範本長相漂移時自動開 issue。<br>
   刻意排除在 PR 檢核之外：它依賴網路，而且變數在上游。
 - **真實導入測試** —— 讓真正的 agent CLI 帶著真實 repo 走過 `init` → `inspect` → `impact` → `doctor`，全程無人介入，最後用真的 doctor 驗收。<br>
-  它負責找**新的**情境 —— 已知的那些由上面兩個套件顧著。<br>
+  它負責找**新的**情境 —— 已知的那些由上面那些套件顧著。<br>
   逐項的來龍去脈是公開的，就在本 repo 已關閉的 [`field-run` issues](https://github.com/taco3064/blueprint/issues?q=is%3Aissue+label%3Afield-run)。
 
 **突變測試是 3.0.0 之後才有的**，它稽核的是測試套件本身 —— 問的不是「這行有沒有被測到」，而是「這行如果被改錯，斷言接不接得住」。<br>

@@ -6,25 +6,27 @@ so you know which terrain is proven and which is still frontier.
 
 ## What backs this page
 
-Six layers. None of them is redundancy — each was added because everything already in
-place went green on a defect it could not see:
+None of these layers is redundancy — each was added because everything already in place
+went green on a defect it could not see:
 
-- **The adoption e2e suite** — nine committed starter fixtures: Vite React (JS and TS)
-  and Vue, three Next.js shapes (App Router with and without `src/`, Pages Router), a
-  turbo + pnpm and a yarn workspace package, and a brownfield repo with planted debt.
-  Every one is driven through `init` on every commit, push, and release; six carry on
-  through `inspect`, and the brownfield one walks the whole arc to the baseline ratchet.
-  The install is skipped outright except on the two workspace fixtures, where it runs
-  against a stubbed `exec` — that is what proves `pnpm add -D` / `yarn add -D` is read
-  off the workspace root. So what this layer proves is the tree `init` writes and the
-  findings `inspect` reports on real starter shapes: it never executes ESLint
+- **The adoption e2e suite** — committed starter fixtures covering the Vite, Next.js and
+  workspace shapes this page records, plus a brownfield repo with planted debt; the set
+  is [`fixtures/adoption/`](https://github.com/taco3064/blueprint/tree/main/fixtures/adoption).
+  Every one is driven through `init` on every commit, push, and release, and how much
+  further each goes varies by what it exists to prove: some stop at the tree `init`
+  writes, others carry on through `inspect`, and the brownfield one walks the whole arc
+  to the baseline ratchet. The install is skipped outright except on the workspace
+  fixtures, where it runs against a stubbed `exec` — the only way to prove the package
+  manager is read off the workspace root rather than the package (`pnpm add -D` /
+  `yarn add -D`). So what this layer proves is the tree `init` writes and the findings
+  `inspect` reports on real starter shapes: it never executes ESLint
 - **The conformance suite** — every field-feedback scenario fossilized as a fixture repo
   built from a DSL and driven through the CLI's own dispatch, **against the real ESLint
   from this repo's devDependencies**. That is the layer the e2e suite above cannot be:
   `impact` and the merge-survival check only mean anything when a real ESLint resolves a
   real config, so those are proven here. A scenario the field harness finds lands here
   as a fixture with its fix
-- **Two operating systems, both reporting** — CI runs the whole gate on
+- **Linux and Windows, both reporting** — CI runs the whole gate on
   `ubuntu-latest` *and* `windows-latest`, neither leg allowed to hide the other's
   failure. This tool reads and writes other people's repositories and carries explicit
   Windows branches to do it; on posix those branches are no-ops, so their behaviour had
@@ -42,7 +44,7 @@ place went green on a defect it could not see:
   outside the PR gate: it is network-dependent and upstream-driven
 - **The live field harness** — a real agent CLI taking a real repo through `init` →
   `inspect` → `impact` → `doctor`, headlessly, verified with the real doctor. It hunts
-  *new* scenarios — the two suites above guard the ones already known. The per-item
+  *new* scenarios — the suites above guard the ones already known. The per-item
   paper trail is public: this repo's
   closed [`field-run` issues](https://github.com/taco3064/blueprint/issues?q=is%3Aissue+label%3Afield-run)
 
