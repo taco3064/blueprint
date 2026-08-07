@@ -1084,6 +1084,14 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
     // "below" was a location, and a config with no selfOnly importer has nothing there.
     // The scope sentence stays unconditional; only the pointer went.
     expect(rules.output).not.toContain('selfOnly selectors below');
+
+    // The enumeration itself, and not only the two phrasings it replaced: a negative
+    // assertion goes green when the sentence is DELETED, and the whole of #159 is that
+    // this side of the boundary was never asserted at all. Checked by removing the line
+    // — the suite stayed green on 1314 tests before this.
+    expect(flattenProse(rules.output))
+      .toContain('`no-import`, `globals` and the selfOnly selectors are what doctor compares');
+
     expect(flattenProse(rules.output)).toContain('`packages` is not compared by');
     expect(flattenProse(rules.output)).toContain('--print-config');
 
