@@ -1291,6 +1291,32 @@ describe('tscArtifactsOutOfTree · the artifact premise, measured instead of ass
 
     expect(tscArtifactsOutOfTree(dir)).toBeNull();
   });
+
+  // Skipping the solution config rests on three facts together — `files` is an array,
+  // it is empty, and there is no `include` — and each can be lost on its own. Any of
+  // those losses widens "builds nothing" to cover a config that does build, and a
+  // config that is skipped is never asked about its artifact: its in-tree build info
+  // stops counting and the answer flips from "declines" to a location. Both fixtures
+  // keep a well-behaved project alongside, because a wrong skip only changes the
+  // answer when something else is left to supply one.
+  it('skips only a config that builds nothing, not one that merely resembles it', () => {
+    const solution = '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.lib.json" }] }';
+    const app = '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./node_modules/.tmp/app.tsbuildinfo" }, "include": ["src"] }';
+
+    // Files listed and non-empty: it builds them, and its build info lands beside the
+    // config rather than under node_modules.
+    write('tsconfig.json', solution);
+    write('tsconfig.app.json', app);
+    write('tsconfig.lib.json', '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./lib.tsbuildinfo" }, "files": ["src/lib.ts"] }');
+
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+
+    // Empty `files`, but an `include` that gives it something to build anyway — which
+    // is why the empty list alone cannot decide this.
+    write('tsconfig.lib.json', '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./lib.tsbuildinfo" }, "files": [], "include": ["lib"] }');
+
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+  });
 });
 
 describe('claudeDirState · both halves of the cleanup sentence, measured', () => {
