@@ -380,9 +380,10 @@ function eslintWiringNote(state: ProjectState): string {
       + '      /* …your existing configs */\n'
       + `      ...emitLint(blueprint, ${lintOptions(true)}),\n`
       + '    );\n'
-      + '  emitLint goes LAST — later entries win in flat config, so this keeps the\n'
-      + '  blueprint\'s per-layer tuning alive over broad presets. Rules BOTH sides set\n'
-      + '  (no-restricted-*) still need combining into ONE entry.\n'
+      + '  emitLint goes LAST of the configs you already have — later entries win in flat\n'
+      + '  config, so this keeps the blueprint\'s per-layer tuning alive over broad presets.\n'
+      + '  Rules BOTH sides set (no-restricted-*) still need combining into ONE entry, and\n'
+      + '  that combined entry is the one thing that goes after the spread.\n'
       + injectNote
       + shared;
   }
@@ -400,10 +401,11 @@ function eslintWiringNote(state: ProjectState): string {
     + '    import blueprint from \'./blueprint.config.mjs\';\n'
     + '    import { emitLint } from \'@kekkai/blueprint\';\n'
     + spread
-    + '  emitLint goes LAST — later entries win in flat config, so this keeps the\n'
-    + '  blueprint\'s per-layer tuning alive over broad presets. A `defineConfig([...])`\n'
-    + '  wrapper takes the same spread — its array IS the flat-config array. Rules BOTH\n'
-    + `  sides set (no-restricted-*) still need combining into ONE entry.${state.hasTypescript
+    + '  emitLint goes LAST of the configs you already have — later entries win in flat\n'
+    + '  config, so this keeps the blueprint\'s per-layer tuning alive over broad presets.\n'
+    + '  A `defineConfig([...])` wrapper takes the same spread — its array IS the flat-config array.\n'
+    + '  Rules BOTH sides set (no-restricted-*) still need combining into ONE entry, and that\n'
+    + `  combined entry is the one thing that goes after the spread.${state.hasTypescript
       ? ''
       : ' On a TypeScript\n  project add the TS plugin too — emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }).'}\n`
       + injectNote

@@ -746,6 +746,13 @@ describe('a proof step states its own reach (field run #85)', () => {
     // edited from outside. An agent worked out that you place your own combined entry
     // AFTER the spread and let later-replaces-earlier make it the effective one —
     // verified it with print-config — and reported that the playbook never says so.
+    //
+    // "After the spread" is not the whole placement, and this is the sentence every
+    // reader gets: one whose scopes match and who keeps the original entry (which the
+    // paragraph above tells them to) needs the combined one after THAT too, or their
+    // bare rule wins the overlap back. So the instruction is LAST, stated here rather
+    // than only in the scope-mismatch case downstream — and the mechanism carries the
+    // qualifier that makes it true, which the unqualified version is what #163 was.
     const dir = repo(brownfield());
 
     await cli(dir, ['init', '--authoring', '--no-install']);
@@ -753,7 +760,10 @@ describe('a proof step states its own reach (field run #85)', () => {
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
     expect(playbook).toContain('is opaque');
-    expect(playbook).toContain('place it AFTER the spread');
+    expect(playbook).toContain('place it LAST — after the spread');
+    expect(playbook).toContain('after your own original entry wherever that one already sits');
+    expect(playbook).toContain('only while nothing after it sets the key again');
+    expect(playbook).not.toContain('place it AFTER the spread');
     expect(playbook).toContain('used deliberately');
     expect(playbook).toContain('the one place print-config is not optional');
   });
@@ -2716,7 +2726,7 @@ describe('a claim states the condition it needs (field runs #95–#97)', () => {
     // said first — it satisfies the same ordering by silently re-deciding every OTHER
     // rule key that entry sets; measured, one that also set `no-restricted-imports`
     // flips to blueprint's paths on the move. That remedy must not come back.
-    expect(playbook).toContain('put the combined entry LAST in the array');
+    expect(playbook).toContain('combined one last, yours wherever it already sits');
     expect(playbook).toContain('is the wrong repair');
     expect(playbook).not.toContain('has to stay ABOVE the combined entry');
     expect(playbook).not.toContain('has to move up');

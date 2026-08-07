@@ -449,7 +449,7 @@ export function renderGoal(): string {
  *   house rule's own outlying files resolve nothing. The silent direction runs
  *   against the rule you brought, which doctor states it does not compare.
  * - the arrangement now recommended (original entry untouched + combined entry at
- *   the collision, after the spread): all five file classes resolve exactly the
+ *   the collision, last in the array): all five file classes resolve exactly the
  *   rules they had, including the collision's test files, which the untouched
  *   original still governs after blueprint's `ignores` lifts the combined entry
  *   off them. That last cell is why renderTestExemptions no longer has to pick.
@@ -466,6 +466,14 @@ export function renderGoal(): string {
  *   carries, which is the loss this paragraph exists to prevent, so the constraint
  *   is stated on the new entry instead and nothing has to move.
  *
+ * "Last" belongs to the second paragraph rather than the third, because the third
+ * is entered only when the two scopes differ and the ordering binds either way: a
+ * reader whose scopes match, keeping the original entry as the paragraph above
+ * warns them to, needs the combined one below it too. Stating "after the spread"
+ * there and the full condition only in the scope-mismatch branch would have left
+ * the generator unqualified while the branch downstream of it was correct — the
+ * same shape as the defect #163 filed.
+ *
  * The premise entered one day before #163 (bd3d2f1, field runs #95–#97) as
  * reasoning about which failure is louder, never as a measurement. Prose is the
  * right medium for this — it is doctrine about ESLint, not a fact about the
@@ -480,8 +488,8 @@ function renderCombinedEntry(): string {
     '     Check the emit points before merging, not after: `npx blueprint rules --json` lists the selectors per layer, so two importers show up as two.',
     '     If you get it wrong anyway, doctor\'s survival check probes every layer separately and names the one that lost its selectors — it is a red you can act on, not a silent pass.',
     '',
-    '     **How you combine, given that `...emitLint(blueprint)` is opaque.** You cannot reach inside the spread to edit the entry it emits, so do not try: write the combined entry yourself and place it AFTER the spread.',
-    '     That is the same later-replaces-earlier property this paragraph opens by warning about, used deliberately — yours becomes the effective entry for that rule key on the files it scopes to.',
+    '     **How you combine, given that `...emitLint(blueprint)` is opaque.** You cannot reach inside the spread to edit the entry it emits, so do not try: write the combined entry yourself and place it LAST — after the spread, and after your own original entry wherever that one already sits.',
+    '     That is the same later-replaces-earlier property this paragraph opens by warning about, used deliberately — the LAST entry to set that key on a file is the one that governs it there, so yours is the effective one only while nothing after it sets the key again.',
     '     Which is exactly why it has to carry everything the emitted one ENFORCED there: both option sets\' patterns and selectors, and the emitted `ignores`.',
     '     The ban message is the one part that is NOT among those: that text is yours to write, doctor compares selectors and never messages, so nothing here sends you into a dump to retrieve a sentence.',
     '     `rules --json` says the same beside the selectors.',
@@ -492,7 +500,7 @@ function renderCombinedEntry(): string {
     '',
     '     **When the two sides\' scopes were never the same, do not reconcile them — the collision is the entry, and neither side moves.** A house rule framed at `**/*.vue` folded into a layer glob of `.{js,vue}` is the ordinary case: scope the combined entry to `**/*.vue` inside that layer, and leave your original entry in place rather than folding it into the new one.',
     '     Three entries then cover three sets, and none of them gives a file a rule it never had: yours keeps the files blueprint never governed, the spread keeps the `.js` files your rule never governed, and the combined one wins where they meet.',
-    '     **That holds on one ordering, and it needs no existing entry to move: put the combined entry LAST in the array.** Last is after the spread and after your original entry both — leave the combined one above your original and that original wins the overlap again, your bare rule back on top with blueprint\'s selectors gone there.',
+    '     **The placement above is what makes the three of them work, and it still asks nothing of the entries you have: combined one last, yours wherever it already sits.** Put the combined one above your original instead and that original wins the overlap again — your bare rule back on top, blueprint\'s selectors gone there.',
     '     Lifting your original entry over the spread satisfies the same ordering and is the wrong repair: other rule keys ride along on it, and measured, one that also set `no-restricted-imports` flipped from its own paths to blueprint\'s the moment it moved — silently, while the key you came here for looked right either way.',
     '     Say in the report which set each of the three covers.',
     '',
