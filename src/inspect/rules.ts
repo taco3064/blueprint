@@ -151,6 +151,11 @@ export interface GateStatus {
  * survey.ts draws the line: computed wrapping is for a list whose length is the reader's
  * repo, not for a sentence that is the same every time.
  *
+ * The closing period is the text output's last line, and it travels into the JSON on the
+ * join — while `selfOnly[].note` beside it has none, because that one is spliced inline
+ * into a parenthetical where a period would be wrong. Each is punctuated for how it is
+ * used, so the asymmetry is the correct state and not a thing to harmonise.
+ *
  * It opens on the field name so the text output needs no prefix — the prefixed version
  * read "`packages` is NOT compared: doctor's survival check does not compare package
  * ownership", one fact twice — and so the JSON value still reads as a whole sentence
@@ -425,7 +430,14 @@ export function renderRules(
           // still needs verifying by hand (field run #159). The scope belongs to the
           // check that has it; this says which of ITS columns fall inside, and what
           // to do about the one that does not.
-          '`no-import`, `globals` and the selfOnly selectors below are what doctor compares,',
+          // "below" was a pointer into this output, and in a config with no selfOnly
+          // importer there is nothing below to point at. The ENUMERATION stays
+          // unconditional: it states what the check compares, which is true of doctor
+          // whatever this config holds. That is the line between the two — a statement of
+          // scope is always true, while an instruction to go and verify something is
+          // vacuous when there is nothing to verify, which is why the `packages` paragraph
+          // is gated and this sentence is not.
+          '`no-import`, `globals` and the selfOnly selectors are what doctor compares,',
           'and it compares TEXTUALLY: a pattern group reordered or a selector respelled to',
           'an equivalent (`\\/` for `/`) reads as missing even though eslint would still',
           'enforce it. Copy, do not retype.',
@@ -435,6 +447,12 @@ export function renderRules(
           // text output the counterexample to that reason: on a config where no layer
           // owns a package, this paragraph explained a column reading `(none)` all the
           // way down.
+          //
+          // Which leaves the `packages` column unclassified by the prose in exactly that
+          // case, and that is a decision rather than an oversight: the criterion is
+          // whether anything needs verifying, not whether every printed column gets
+          // named. All-`(none)` carries no risk to warn about — a caveat over it would be
+          // the same empty instruction, one indirection further out.
           ...(bans.some((ban) => ban.packages.length) ? PACKAGES_NOT_COMPARED : []),
           ...bans.flatMap((entry) => [
             `  ${entry.layer.padEnd(14)} no-import: ${entry.forbidden.join(', ') || '(none)'}`

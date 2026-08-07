@@ -1078,6 +1078,12 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
 
     // So `rules` must not claim the whole block, and must say what to do instead.
     expect(rules.output).not.toContain('Everything below is what doctor compares');
+
+    // Nor any pointer into this output for the selfOnly selectors: the enumeration is a
+    // statement about what doctor compares — true whatever this config holds — while
+    // "below" was a location, and a config with no selfOnly importer has nothing there.
+    // The scope sentence stays unconditional; only the pointer went.
+    expect(rules.output).not.toContain('selfOnly selectors below');
     expect(flattenProse(rules.output)).toContain('`packages` is not compared by');
     expect(flattenProse(rules.output)).toContain('--print-config');
 
