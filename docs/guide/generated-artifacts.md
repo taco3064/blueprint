@@ -36,21 +36,36 @@ still merge into ONE entry):
 import { emitLint } from '@kekkai/blueprint';
 import comments from '@eslint-community/eslint-plugin-eslint-comments';
 import stylistic from '@stylistic/eslint-plugin';
+import imports from 'eslint-plugin-import-x';
 import vueParser from 'vue-eslint-parser';
 import blueprint from './blueprint.config.mjs';
 
 export default [
-  // Parser setup — needed when THIS file is the live config. Merging into
-  // a config that already wires parsers? Skip these blocks.
+  // Parser setup — needed when THIS file is the live config. Merging
+  // into an existing config that already wires parsers? Skip these
+  // blocks — copying them re-parses files your config already handles.
+  // A skipped block leaves its parser package installed: leave it — a
+  // later init treats it as required for the stack and re-installs it.
   {
     files: ['**/*.vue'],
     languageOptions: { parser: vueParser },
   },
-  // Both plugins are injected, never library deps. Drop an argument and the
-  // gates riding it emit nothing — silently, with lint still green.
-  ...emitLint(blueprint, { stylistic }),
+  ...emitLint(blueprint, { stylistic, imports }),
+  // The anti-bypass guard — NOT part of emitLint. A silent, unexplained
+  // eslint-disable is exactly how an agent routes around every rule
+  // above, so these two rules force each disable to carry a scope and a
+  // -- reason. Default: ADOPT. On a brownfield config, annotate the
+  // existing bare disables (or ledger them via --suppress-all) rather
+  // than dropping the block; dropping is the exception — only when the
+  // team already owns a disable discipline, and say so in the report.
+  // Its plugin (@eslint-community/eslint-plugin-eslint-comments) is
+  // installed by init on every path; dropping the block? Remove that
+  // dependency with it. When merging, its position relative to the
+  // emitLint spread does not matter — the rule sets never intersect.
+  // Scope: JS/TS disable comments only — Vue template <!-- eslint-disable -->
+  // directives are not gated by these rules.
   {
-    files: ['src/**/*.{js,jsx,ts,tsx,vue}'],
+    files: ['src/**/*.{js,ts,vue}'],
     plugins: {
       '@eslint-community/eslint-comments': comments,
     },
@@ -62,9 +77,11 @@ export default [
 ];
 ```
 
-What `emitLint` expands to — layer flow, ownership, module entries, the
-[embedded plugin rules](/guide/reference#the-embedded-eslint-plugin) — is enumerated
-on the reference page.
+`stylistic` and `imports` are **arguments**, not library dependencies: blueprint has
+none, so a gate whose plugin is missing emits nothing while lint stays green. Which
+plugin each gate rides, and what `emitLint` expands to — layer flow, ownership, module
+entries, the [embedded plugin rules](/guide/reference#the-embedded-eslint-plugin) — is
+enumerated on the reference page.
 
 ## `docs/architecture-handbook.md` — Explain
 
@@ -75,28 +92,35 @@ lint, so it cannot drift. An excerpt:
 ````md
 ## Architecture
 
-Code flows one way: each layer may import only from the layers below it.
+Code flows one way: each layer may import only from the layers below it. Upstream and same-layer imports are barred.
 
 ```mermaid
 flowchart TD
-  pages --> containers
-  containers --> components
-  components --> hooks
-  containers -. Provider only .-> contexts
-  hooks -. Context only · selfOnly .-> contexts
+  pages -.-> containers
+  containers -.-> components
+  components -.-> hooks
+  containers -->|Provider only| contexts
+  hooks -->|Context only · selfOnly| contexts
   containers --> services
   hooks --> services
   contexts --> services
 ```
 
+> **How to read the diagram**: a **solid** edge is a declared importer relation (its label carries the description and/or `selfOnly` — depend on it, never re-export it). A **dotted** edge only records declaration order: adjacent layers are not necessarily related. Reachability is transitive — a layer may import **any** layer below it in the flow, whether or not an edge is drawn, unless the target narrows its importers (`allowedImporters`).
+
 ### Layers
 
 | Layer | Responsibility | Must not | Owns |
 | --- | --- | --- | --- |
-| `pages` | Route layout — assembles containers | hold business logic | — |
-| `components` | Reusable, presentational UI | call services; touch the router | — |
-| `services` | Network primitives | — | `axios`, global `fetch`, global `WebSocket` |
+| `pages` | Route layout — assembles containers; owns routing and SEO concerns. | hold business logic; stack components directly | — |
+| `components` | Reusable, presentational UI. | call services; touch the router; own app state | — |
+| `services` | Network primitives — the only layer that talks to the HTTP client or sockets. | — | `axios`, global `fetch`, global `WebSocket` |
 ````
+
+Three of the six layer rows are shown; the diagram and the legend are the whole of
+that section. **A drawn edge is not the flow** — that is the one thing to read
+carefully, because the intuition runs the other way: reachability is the layer order,
+and an edge is only drawn where a layer *narrowed* who may import it.
 
 The full handbook continues with the component-shape axes, the core principles,
 and the working playbook — the [Philosophy](/philosophy/) section of this site is the
@@ -114,16 +138,25 @@ outside the block across regenerations:
 ## Architecture contract (generated from blueprint)
 
 > Generated by `@kekkai/blueprint` — edit the blueprint, not this block.
+> Your own notes belong OUTSIDE the markers; init rewrites only between them.
+> The strictness is the product — it keeps AI development inside the declared
+> architecture. Never soften or bypass; disagreements go to the maintainer.
 
 - Framework: `vue`. Import alias: `~app`.
-- Layer flow: `pages` → `containers` → `components` → `hooks` → `contexts` → `services`
-- **Before adding, moving, or renaming any file** — read docs/architecture-handbook.md
-- **Operating discipline** — read node_modules/@kekkai/blueprint/agent-contract.md
-- Hard gates (machine-enforced): one-way imports, module entries, ownership,
-  relative escapes, `maxLines` = 400, `unusedVars`, `cycles`, `usePrefix`, …
-- You are the gate for: no undeclared folders under `~app/` (`blueprint inspect` verifies).
+- Layer flow: `pages` → `containers` → `components` → `hooks` → `contexts` → `services` — transitive: a layer may import **any** layer after it, unless the target narrows its importers.
+- **Before adding, moving, or renaming any file** — placement, module shapes, ownership, naming, component-shape axes, behavioral principles, the working playbook: read [docs/architecture-handbook.md](docs/architecture-handbook.md) (generated from the same blueprint — always current).
+- **Operating discipline** — how to follow the flow, react to lint failures, and the pre-commit checklist: read [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md) (ships inside the package — present once dependencies are installed, always matching the installed version).
+- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes, `maxLines` = 400, `unusedVars`, `explicitAny`, `codeStyle`, `statementsPerLine`, `statementPadding`, `importBlock`, `fixtureImports`, `usePrefix`, `testFilename`, `deepWatch` fail the project's lint run; `cycles` is held by `npx blueprint inspect --baseline` instead, so a green lint says nothing about it. When lint fails, fix the structure — never `eslint-disable`, never relocate the violation to a sibling.
+- You are the gate for: no undeclared folders under `~app/` (`blueprint inspect --baseline` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a module of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.
 <!-- BLUEPRINT:END -->
 ```
+
+Three things in there are not decoration. **No runner is named** — "the project's lint
+run", because a contract generated from your blueprint alone cannot see whether your
+repo uses npm or pnpm. **`cycles` is attributed to `blueprint inspect`**, not to lint,
+so a green lint is not read as covering it. And **each hard gate states how far it
+reaches** — only the files a layer glob matches, which is why a freshly scaffolded repo
+with empty layers has nothing that can fail yet.
 
 Distribution targets (Cursor, Windsurf, Gemini, Copilot) are configured with
 [`emit.agents`](/guide/reference#config-fields-beyond-the-quick-start-example).

@@ -4,6 +4,19 @@ Everything blueprint can check, and every config field the guide pages don't wal
 through — in one place. The [API Reference](/api/) has the full type signatures; this
 page is the map.
 
+## What it runs on
+
+- **Node `^18.18.0 || ^20.9.0 || >=21.1.0`** — a floor that is executed rather than read
+  off the source: CI builds on the current Node, then runs the built artifact on
+  `18.18.0` exactly, because the floor is the version being claimed
+- **ESLint 9 or 10, on flat config** — both majors are admitted by every carrier
+  plugin's peer range, so `init` installs `eslint` unpinned and it resolves to the
+  newest supported one. A legacy `.eslintrc` is a
+  [migration decision](/guide/field-tested#framework-notes), never a silent
+  half-adoption
+
+Nothing else — the package itself has zero runtime dependencies.
+
 ## What `inspect` reports
 
 Any `error`-level finding exits `1`; `warn` and `info` inform
@@ -24,6 +37,9 @@ On brownfield repos the [baseline ratchet](/guide/getting-started#brownfield-—
 turns this list into "fail only on *new* findings". A baselined finding is identified by
 its rule, its path and its **subject** — the import specifier, a cycle's members — never
 by its message text, so a release that rewords a finding does not turn your gate red.
+The file carries that key's `"version"`, and one written before the key moved is
+[refused with the command that re-keys it](/guide/getting-started#upgrading-with-a-baseline-already-on-disk)
+rather than reinterpreted.
 
 ### How the import graph is read
 
@@ -57,6 +73,26 @@ owned by the emitter: `no-restricted-imports`, `no-restricted-syntax`,
 `no-restricted-globals`. They cannot be set through `lintOverrides`; change the
 blueprint instead.
 
+### Folding a managed entry into a house rule
+
+Flat config **replaces** rather than merges, so a repo that already sets
+`no-restricted-syntax` cannot let the later entry win — both option sets have to become
+one entry. `npx blueprint rules --json` carries the exact `selfOnly` selectors per layer
+for that, in two spellings, and only one of them survives a paste:
+
+- **`jsLiteral` is the one to copy** — the selector as JS source, quotes included
+- **`selectors` is the value ESLint resolves.** Right for a program that *builds* a
+  config, a trap for one that pastes: the path separators are `/` escapes (a bare
+  `/` would end esquery's regex early), and JavaScript resolves that same escape when it
+  parses a string literal — so the pasted selector ends at the bare `/`. No parse error,
+  lint still green, and the ban silently matching nothing
+- **`testExemptions` rides along and has to come with them.** Rebuilding an entry from
+  the selectors alone drops it quietly in the worst way: the merged entry goes on
+  linting, so the ban starts reaching your test files
+
+The ban's *message* text is yours to write — `doctor` verifies selectors, never
+messages.
+
 ## `blueprint.rules` — which ids actually gate
 
 A rule id in `blueprint.rules` becomes a lint gate only if the machine can check it.
@@ -82,7 +118,12 @@ agent contract as a judgment the agent must hold, and is never presented as a ha
 gate. That split is the [three-tier landing](/philosophy/#the-three-tier-landing).
 
 This whole mapping is queryable in place: `npx blueprint rules` prints the catalog,
-annotated with the declared tiers once a config exists.
+annotated with the declared tiers once a config exists. **A gate this stack cannot open
+keeps its row and carries the reason** — `explicitAny` on a JS project, `testFilename`
+beside `testFiles: []` — rather than being dropped without one. That is also why the
+catalog has more rows than the `N/M optional gates` denominator `inspect` and `doctor`
+print: those count the gates something could open, and a reader comparing the two
+numbers is told which row accounts for the gap instead of guessing at it.
 
 ### Five gates ride an injected plugin
 

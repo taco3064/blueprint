@@ -44,6 +44,28 @@ that are no longer needed get surfaced for removal, so the ratchet keeps tighten
 zero-finding repo needs no baseline file at all — `--baseline` treats a missing file as
 an empty baseline.
 
+### Upgrading with a baseline already on disk
+
+**The first run refuses an existing `.blueprint-baseline.json` and prints one command**
+— re-key it, once:
+
+```bash
+npx @kekkai/blueprint inspect --update-baseline
+```
+
+Re-keying records the same debt: nothing that was suppressed stops being suppressed.
+What moved is what identifies an entry. It used to include the finding's **message
+text** — the one part of a finding that changes while the violation does not — so
+rewording any finding silently retired every baseline entry for that rule: the old debt
+came back as `fresh`, the recorded entries counted as `stale`, and a brownfield CI went
+red on an upgrade that changed no code. Identity is now the rule, the path and the
+**subject** (the import specifier, a cycle's members).
+
+The old file is refused rather than reinterpreted because read under the new key it
+would match nothing — which is the wall of red the ratchet exists to prevent, arriving
+with no stated cause. For `--json` consumers the same move puts `subject` on every
+finding and stamps the file `"version": 2`.
+
 ## Blast radius — `blueprint deps`
 
 ```bash

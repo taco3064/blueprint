@@ -1,14 +1,45 @@
 # Field-Tested Setups
 
-Every release is validated by adopting blueprint on real projects — not just
-unit tests. Two automated layers back this page: an **adoption e2e suite**
-(five committed template fixtures — vite react/vue, Next, a turbo + pnpm
-workspace package, and a brownfield repo with planted debt — driven through
-the full init/inspect/baseline arc on every commit, push, and release), and a
-**weekly terrain run** that scaffolds the *latest* upstream templates and
-opens an issue when they drift. This page records what has actually been run,
-with the outcome and the caveats, so you know which terrain is proven and
-which is still frontier.
+Every release is validated by adopting blueprint on real projects — not just unit
+tests. This page records what has actually been run, with the outcome and the caveats,
+so you know which terrain is proven and which is still frontier.
+
+## What backs this page
+
+Five layers, each one there because the layer below it passes on a real defect:
+
+- **The adoption conformance suite** — five committed template fixtures (vite
+  react/vue, Next, a turbo + pnpm workspace package, and a brownfield repo with planted
+  debt) driven through the full init/inspect/baseline arc on every commit, push, and
+  release, against the real ESLint from this repo's own devDependencies
+- **Two operating systems, both reporting** — CI runs the whole gate on
+  `ubuntu-latest` *and* `windows-latest`, neither leg allowed to hide the other's
+  failure. This tool reads and writes other people's repositories and carries explicit
+  Windows branches to do it; on posix those branches are no-ops, so their behaviour had
+  never been observed. A separate leg builds on the current Node and then runs the built
+  artifact on `18.18.0` exactly — the declared `engines` floor, executed rather than
+  claimed
+- **`npm run dist:verify`** — the layer in-process tests cannot reach: it executes
+  `dist/bin.js`, resolves the `bin` field and imports the package entry. Its reason for
+  existing is the 0.1.1 bug — npm installs the bin as a symlink, and a missing
+  `realpathSync` made the published CLI exit 0 having done nothing, **a state every
+  in-process test passes**. It runs in CI after the build, and again in the job that
+  publishes, because that job produces the `dist/` npm actually receives
+- **A weekly terrain run** — scaffolds the *latest* upstream `create-vite` and
+  `create-next-app` templates and opens an issue when their shapes drift. Deliberately
+  outside the PR gate: it is network-dependent and upstream-driven
+- **The live field harness** — a real agent CLI taking a real repo through `init` →
+  `inspect` → `impact` → `doctor`, headlessly, verified with the real doctor. It hunts
+  *new* scenarios; conformance guards the ones already known, and a scenario that fails
+  there lands as a fixture with its fix. The per-item paper trail is public: this repo's
+  closed [`field-run` issues](https://github.com/taco3064/blueprint/issues?q=is%3Aissue+label%3Afield-run)
+
+**Mutation testing arrived after 3.0.0** and audits the suite itself — whether the
+assertions would catch a *wrong* line, not just an untested one. The suite roughly
+doubled under it, and most of that found places where a wrong edit to the source would
+have shipped with every test green. It is run on demand rather than as a gate, on
+purpose: a score threshold would be a number every source edit invalidates, and this
+project's stance is against a red nobody can appease.
 
 ## Tested and green
 
@@ -63,6 +94,13 @@ which is still frontier.
   `no-var-requires` into `no-require-imports`) can turn old disable comments stale
   mid-merge — it only surfaces when the wired lint actually runs; treat each as a
   merge decision, not a blocker.
+- **Windows**: the full gate runs there on every commit, so the path-normalising
+  branches (`scan`, `ignored`, `impact`, the relative-escape rule) are executed rather
+  than reasoned about. One consequence worth knowing if you are on the platform: a
+  **CRLF `tsconfig.json`** — the Windows default — used to fall through to "add these
+  paths yourself" instead of getting the alias wired, with nothing said. The line ending
+  is read off the file now, which also keeps the edit from mixing conventions into a
+  file your own `linebreak-style` gate would then flag.
 - **Overlapping structure tools** (structure-lint, dependency-cruiser): wiring
   blueprint after them means the shared rule ids take blueprint's semantics
   (proven equivalent on the tested repo); consolidation is flagged as a
@@ -80,8 +118,8 @@ which is still frontier.
 
 ## Not yet tested
 
-Remix / React Router framework mode, Windows paths, tsconfig `paths` inherited
-through `extends` chains (the `--alias` flag covers detection misses). If you
+Remix / React Router framework mode, and tsconfig `paths` inherited through
+`extends` chains (the `--alias` flag covers detection misses). If you
 run blueprint on one of these,
 [an issue with the outcome](https://github.com/taco3064/blueprint/issues) —
 green or red — is the most useful contribution there is.

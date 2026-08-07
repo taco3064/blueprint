@@ -14,7 +14,8 @@ to see how to use it.
 - [`impact`](/guide/ai-adoption#decide-conflicts-on-numbers-—-blueprint-impact) — dry-run the emitted lint rules through the project's own ESLint: hits per rule, heaviest files named — rule conflicts decided on numbers, before wiring
 - [`deps`](/guide/deps) — blast radius per module: who gets hit if I change this, plus the fan-in leaderboard
 - [`rules`](/guide/reference#blueprint-rules-—-which-ids-actually-gate) — the emitted-rule catalog, queryable: what always emits, what needs declaring, metric defaults — annotated with the config's declared tiers
-- [`doctor`](/guide/ai-adoption#verify-it-s-finished-—-blueprint-doctor) — is adoption finished? A read-only checklist: config, no leftover references, eslint wired, alias wired, emitted rules alive in the merged config, architecture clean (with its coverage stated), suppressions ledger current
+- [`doctor`](/guide/ai-adoption#verify-it-s-finished-—-blueprint-doctor) — is adoption finished? A read-only checklist: config, no leftover references or authoring artifacts, eslint wired, alias wired, emitted rules alive in the merged config, architecture clean (with its coverage stated), suppressions ledger current
+- [`doctor` — three outcomes](/guide/ai-adoption#three-outcomes-not-two) — complete / unverified / incomplete: a check that *could not run* is not one that passed, and since a skip still exits 0, a CI gate reads `verdict` out of `--json`
 - [All CLI flags](/guide/reference#cli-flags) — the full flag matrix for every command, including `init --preset` and `--dry-run`
 
 ## Artifacts — what one config compiles into
@@ -41,7 +42,7 @@ to see how to use it.
 
 ## Trust & compatibility
 
-- [Security & trust](/guide/security) — no network code, zero runtime dependencies, the two declared child processes (the `init` install, the opt-in agent launch), read-only checks, declared writes, `--dry-run`, provenance-signed releases
+- [Security & trust](/guide/security) — no network code, zero runtime dependencies, the two declared child processes (the `init` install, the opt-in agent launch), read-only checks, writes declared and bounded to the repo root, `--dry-run`, provenance-signed releases
 - [Field-tested setups](/guide/field-tested) — what has actually been run: production apps, all five stacks, monorepo model — plus what is unsupported (Nuxt) and why
 - [Prior art — how it differs](/guide/prior-art) — where blueprint overlaps with import-boundary linters, and what only it compiles from the same source
 - [Programmatic API](/api/) — every emitter and runtime is importable — `emitLint` in your own eslint config, `runInspect` / `runDeps` in your own tooling

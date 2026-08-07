@@ -128,9 +128,12 @@ introduce. Isolation artifacts render apart and never inflate it:
 and `unused-disable-directive` (an inline disable suppressing nothing *in
 isolation* — one pointing at your own config's rules vanishes after the
 merge, a truly stale one survives it) sit under "Isolation caveats"; rule ids
-blueprint does not emit sit apart as *echoes of your own config* — a row
-there mirroring a blueprint hit is the same spot seen through your house
-rule's name, not a second violation. The report's closing line says it
+blueprint does not emit sit apart as *names your own config owns* — a name
+your code carries in an `eslint-disable` comment, which this isolated run
+cannot resolve, reported **at that comment**. So a count there counts
+mentions, not violations, and says nothing about the code underneath one; a
+row mirroring a blueprint hit is the same spot seen through your house rule's
+name, not a second finding. The report's closing line says it
 plainly: the numbers decide **tiers**, not just suppressions — a rule you
 would suppress everywhere is usually better declared `warn`/`off` in the
 blueprint `rules` block, with suppressions locking only what remains.
@@ -138,18 +141,20 @@ blueprint `rules` block, with suppressions locking only what remains.
 ## Verify it's finished — `blueprint doctor`
 
 "Is adoption actually done?" is a question the prompt's acceptance clause used to
-leave to memory. `blueprint doctor` answers it as a read-only checklist, exit 0 only
-when every check passes — so it drops into an agent's verify loop or CI:
+leave to memory. `blueprint doctor` answers it as a read-only checklist — so it drops
+into an agent's verify loop or CI:
 
 ```bash
 npx @kekkai/blueprint doctor
 ```
 
 - **blueprint.config.mjs present**
-- **no leftover `*.blueprint.*` reference files, no stale contracts** — a reference
-  still on disk means the merge never finished (the single most-missed step), and a
-  marker-bearing contract file outside the emitted `emit.agents` set is an orphan
-  nothing maintains
+- **no leftover reference, authoring, or stale contract files** — a `*.blueprint.*`
+  reference still on disk means the merge never finished (the single most-missed
+  step); `blueprint-authoring.md` and its `/blueprint-author` command file are the
+  playbook's own last step to delete, so a doctor run *mid*-authoring is expected to
+  fail here; and a marker-bearing contract file outside the emitted `emit.agents` set
+  is an orphan nothing maintains
 - **eslint wired to emitLint** — and a legacy `.eslintrc` is flagged to migrate first,
   never silently left half-adopted
 - **import alias wired to the toolchain** — a declared alias that neither tsconfig
@@ -158,17 +163,56 @@ npx @kekkai/blueprint doctor
   snippet
 - **emitted rules survive the merged config** — flat config never merges a rule two
   entries set: a later entry silently *replaces* blueprint's structural bans while
-  lint stays green. Doctor resolves the final config for a real layer file and
-  names what was lost
+  lint stays green. Doctor resolves the final config for a real layer file and names
+  what was lost. Its ✓ also states its own reach: it compares config *text* and never
+  executes ESLint — structural bans plus each active gate's carrier rule, one probe
+  per layer, with thresholds, package-ownership entries and a merged entry covering
+  only part of a layer left uncompared. When the config will not resolve, this check
+  **skips** instead of failing (below), quoting the loader so the missing package is
+  on screen rather than one `npm run lint` away
 - **architecture clean** — no findings outside the baseline; the detail line states
-  the coverage (source files inside layer nets, active optional gates — the
-  structural boundary rules are always on), so a vacuously
-  green gate is visible instead of quietly reassuring — and the vacuous callout
-  names the step that arms the net (move code into a declared layer)
+  the coverage — source files inside layer nets, and the ones outside are *named*
+  (up to a cap), because "12 of 40" is a number its reader cannot check; plus active
+  optional gates, the structural boundary rules being always on. So a vacuously green
+  gate is visible instead of quietly reassuring — and the vacuous callout names the
+  step that arms the net (move code into a declared layer)
 - **lint suppressions ledger current** — stale entries in `eslint-suppressions.json`
   (files that no longer exist) fail the check
 
-`--json` emits the same checklist for tooling.
+### Three outcomes, not two
+
+**A check that could not run is not a check that passed.** The merge-survival check
+skips rather than fails when the config will not resolve — a red you cannot appease is
+worse than no check — and while that skip rode in the pass count, the output read
+`✓ … (skipped)` above `✓ Adoption complete — all 7 checks passed`. What you see now:
+
+```
+⊘ emitted rules survive the merged eslint config (skipped — could not resolve …)
+⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run (⊘ above).
+  Nothing failed, and nothing here proves what those checks cover.
+```
+
+**The exit status is unchanged — a skip is not a failure, so this run still exits 0.**
+Which is the reason to gate on `--json` rather than the exit code:
+
+```json
+{ "ok": true, "verdict": "unverified",
+  "summary": "⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run …",
+  "counts": { "total": 7, "passed": 6, "failed": 0, "skipped": 1 },
+  "checks": [ { "label": "…", "ok": true, "skipped": "why it could not run" } ] }
+```
+
+`ok` keeps the meaning the exit code needs — nothing *failed*. `verdict` is
+`complete` / `unverified` / `incomplete`, and rides on
+[`runDoctor`](/api/functions/runDoctor)'s return value too, so `verdict` or
+`counts.skipped` is what a CI gate should branch on.
+
+One more thing a green says out loud, under the banner rather than as an eighth check
+(it cannot fail, so it would push the count): **on a repo with no version control**,
+every check can pass while nothing adoption wrote is committed — and a ratchet living
+only in an uncommitted working tree is not installed, because the next clone starts
+without it. Initialising version control is the owner's call, never an adopting
+agent's.
 
 ## Existing debt — turn it red, then ratchet it
 
@@ -198,6 +242,16 @@ Every artifact is on disk **before** any agent starts. A launch that fails, or a
 agent that gives up midway, degrades to exactly the manual path — the same playbook,
 walked by you. `inspect` is read-only, `init` is idempotent, and the baseline is only
 written at the final step, so there is no half-adopted state to clean up.
+
+The same ordering holds one level down, inside `init` itself: **every filesystem
+effect lands above the dependency install**, so what an interrupted run leaves behind
+is a complete tree minus `node_modules`. That matters because the install is the one
+step that can sit for minutes — a package manager with no route to the registry
+retries in silence — so the line above it prints the command it is about to run, says
+that quiet is normal and that minutes of quiet means stopping it and running that line
+yourself (or re-running with `--no-install`), and names what stopping omits: these
+packages in `package.json`. Until that line runs, a failure naming one of them is that
+gap, not a broken adoption.
 
 ## Scope honesty
 

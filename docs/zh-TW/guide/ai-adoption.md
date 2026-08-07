@@ -110,14 +110,17 @@ npx @kekkai/blueprint impact --json   # 把數字餵給工具或 Agent
 純資訊、不是關卡 —— 不管中幾發都 exit 0，而且 total **只計**接線會真正引入的違規。<br>
 隔離環境的 artifact 全部另列、不灌水：<br>
 `parse-error`（檔案解析不了、數字不可信）跟 `unused-disable-directive`（這個 disable 在**隔離環境**壓不到東西 —— 指向你自己 config 規則的那種 merge 後就消失，真正過期的才會留下）歸在「Isolation caveats」；<br>
-blueprint 沒 emit 的 rule id 另列成「你自己 config 的回音」—— 那區跟上面 blueprint 命中同檔同行的 row，是同一個點透過你家 rule 的名字再看一次，不是第二筆違規。<br>
+blueprint 沒 emit 的 rule id 另列成「這些名字是你自己 config 的」——<br>
+那是你的 code 寫在 `eslint-disable` 註解裡、而這次隔離執行解析不了的名字，**回報在那句註解的位置上**。<br>
+所以那區的數字數的是「被提到幾次」，不是違規幾次，對註解底下那段 code 什麼都沒說；<br>
+其中跟上面 blueprint 命中同檔同行的 row，是同一個點透過你家 rule 的名字再看一次，不是第二筆違規。<br>
 報告收尾也講明白：命中數是拿來**決定 tier** 的，不是只拿來壓 suppressions ——<br>
 一條你想整片壓掉的 rule，通常該在 blueprint 的 `rules` 直接宣告 `warn`/`off`，suppressions 只鎖剩下的。
 
 ## 驗證有沒有做完 —— `blueprint doctor`
 
 「導入到底做完了沒？」這問題以前只能靠人記 prompt 的驗收條款。<br>
-`blueprint doctor` 把它變成唯讀 checklist，七項全過才 exit 0 ——<br>
+`blueprint doctor` 把它變成一份唯讀 checklist ——<br>
 可以直接塞進 Agent 的驗證迴圈或 CI：
 
 ```bash
@@ -125,8 +128,9 @@ npx @kekkai/blueprint doctor
 ```
 
 - **blueprint.config.mjs 存在**
-- **沒有殘留的 `*.blueprint.*` reference 檔、沒有過期的 contract 檔** ——<br>
-  reference 還在就代表 merge 沒做完（最常漏的一步）；<br>
+- **沒有殘留的 reference 檔、authoring 產出物或過期的 contract 檔** ——<br>
+  `*.blueprint.*` reference 還在就代表 merge 沒做完（最常漏的一步）；<br>
+  `blueprint-authoring.md` 與它的 `/blueprint-author` 指令檔是作業手冊自己最後一步要刪掉的東西，所以在**編寫途中**跑 doctor，這條紅是預期內的；<br>
   帶著 BLUEPRINT 標記、卻不在 `emit.agents` 宣告範圍內的 contract 檔，是沒人維護的孤兒，不准躲在綠燈後面
 - **eslint 真的接上 emitLint** ——<br>
   legacy `.eslintrc` 會被標記為「先遷移」，不會無聲留半套
@@ -135,14 +139,48 @@ npx @kekkai/blueprint doctor
   失敗訊息直接附上 wiring 片段
 - **emitted rules 在合併後的 config 裡活著** ——<br>
   flat config 對同一條 rule 從不合併：後面的 entry 會「靜靜地」整包取代 blueprint 的結構禁令，lint 還是綠的。<br>
-  doctor 用一個真實 layer 檔解析最終 config，點名弄丟了什麼
+  doctor 用一個真實 layer 檔解析最終 config，點名弄丟了什麼。<br>
+  它的 ✓ 也會說出自己的作用範圍：比對的是 config **文字**，從不執行 ESLint —— 涵蓋結構禁令，加上每個有開的關卡的承載規則，每層一個探點；<br>
+  門檻值、套件歸屬的條目，以及只蓋到某一層一部分的合併條目，都不在比對範圍內。<br>
+  config 解析不開的時候，這條檢查是**跳過**而不是失敗（見下），並把 loader 的原話引出來 —— 讓缺的套件直接出現在螢幕上，而不是隔著一次 `npm run lint`
 - **架構乾淨** ——<br>
-  沒有 baseline 以外的違規；detail 會標明 coverage（幾個 source 檔在 layer 網內、幾條 optional gate 有開 —— 結構規則本來就永遠開著），「空網子的綠燈」看得見，不會安靜地騙過你；<br>
-  空網的 callout 還會點名下一步（把 code 搬進宣告的 layer，網子就開始咬）
+  沒有 baseline 以外的違規；detail 會標明 coverage：幾個 source 檔在 layer 網內，而**網外的那些會被點名列出來**（有上限），因為「40 個裡面 12 個」是一個讀的人查不了的數字；<br>
+  再加上幾條 optional gate 有開，以及結構規則本來就永遠開著。<br>
+  這樣「空網子的綠燈」看得見，不會安靜地騙過你；空網的 callout 還會點名下一步（把 code 搬進宣告的 layer，網子就開始咬）
 - **lint suppressions 帳本沒過期** ——<br>
   `eslint-suppressions.json` 裡指向已不存在檔案的條目會讓檢查失敗
 
-`--json` 輸出同一份 checklist 給工具用。
+### 三種結果，不是兩種
+
+**跑不起來的檢查，不等於通過的檢查。**<br>
+合併存活那條檢查在 config 解析不開時是跳過、不是失敗 —— 一個你怎麼弄都消不掉的紅，比沒有這條檢查更糟。<br>
+但那個「跳過」以前還是算在通過數裡面，於是輸出會變成 `✓ …（skipped）` 疊在 `✓ Adoption complete — all 7 checks passed` 上面。<br>
+現在你看到的是：
+
+```
+⊘ emitted rules survive the merged eslint config (skipped — could not resolve …)
+⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run (⊘ above).
+  Nothing failed, and nothing here proves what those checks cover.
+```
+
+**exit code 沒有變 —— 跳過不是失敗，所以這次執行照樣 exit 0。**<br>
+這正是「該用 `--json` 當 gate、不要用 exit code」的理由：
+
+```json
+{ "ok": true, "verdict": "unverified",
+  "summary": "⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run …",
+  "counts": { "total": 7, "passed": 6, "failed": 0, "skipped": 1 },
+  "checks": [ { "label": "…", "ok": true, "skipped": "why it could not run" } ] }
+```
+
+`ok` 維持 exit code 需要的那個意思 —— 沒有任何一項**失敗**。<br>
+`verdict` 是 `complete` / `unverified` / `incomplete` 三選一，也掛在 [`runDoctor`](/zh-TW/api/functions/runDoctor) 的回傳值上，<br>
+所以 CI 的 gate 該看的是 `verdict` 或 `counts.skipped`。
+
+還有一件事，綠燈會直接講出來 —— 放在 banner 底下而不是當成第八條檢查（它不可能失敗，列進去只會灌大分母）：<br>
+**在沒有版本控制的 repo 上**，每一條檢查都可以過，而導入寫下的東西一個都沒被 commit ——<br>
+一副只活在未 commit 工作目錄裡的棘輪等於沒裝，因為下一次 clone 從零開始。<br>
+要不要起版控是擁有者的決定，永遠不是導入中的 Agent 的。
 
 ## 既有債務 —— 弄紅，然後上棘輪
 
@@ -165,6 +203,13 @@ suppressions 需要 ESLint ≥ 9.24 ＋ flat config，那次遷移由你拍板�
 所有產出結果都在任何 AI Agent 啟動**之前**就寫入磁碟。<br>
 啟動失敗、或 Agent 中途放棄，流程就回到手動路徑 —— 同一份作業手冊，改由開發者親自執行。<br>
 `inspect` 唯讀、`init` 冪等、baseline 只在最後一步寫入，所以不存在「導入到一半」的中間狀態要清理。
+
+同樣的順序在 `init` 內部又出現一次：**所有檔案寫入都排在依賴安裝之前**，<br>
+所以一次被中斷的執行留下的是「一棵完整的樹，只少了 `node_modules`」。<br>
+這件事有意義，是因為安裝是唯一一個可能卡上好幾分鐘的步驟 —— 套件管理工具連不到 registry 時會安靜地重試 ——<br>
+所以它上面那行會把接下來要跑的指令印出來，說明安靜是正常的、安靜好幾分鐘就代表該把它停掉、自己跑那行（或加 `--no-install` 重跑），<br>
+並且點名停掉會少什麼：`package.json` 裡的這幾個套件。<br>
+在那行跑完之前，任何指名其中一個套件的失敗都是這個缺口，不是導入壞掉。
 
 ## 範圍的誠實界定
 
