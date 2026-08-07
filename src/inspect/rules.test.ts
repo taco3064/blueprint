@@ -166,6 +166,25 @@ describe('runRules', () => {
     });
   });
 
+  it('separates a gate the stack rules out from one the author also declared', async () => {
+    // Two different instructions live in that split, and only the declared half was
+    // ever asserted. "Declared, unavailable here" means a line already in the config
+    // does nothing — delete it or change stacks. "Unavailable here" alone means adding
+    // one would do nothing either, so there is no config decision to go looking for.
+    // Collapsing them sends the undeclared reader hunting for a line that is not there.
+    const undeclared: Blueprint = { ...blueprint, rules: { unusedVars: 'error' } };
+    const lines: string[] = [];
+
+    await runRules(repo(undeclared), { log: (m) => void lines.push(m) });
+
+    const output = lines.join('\n');
+
+    // `· unavailable here` is not a substring of `· declared, unavailable here` — the
+    // comma sits where the `·` would have to be — so this tells the two apart.
+    expect(output).toMatch(/· unavailable here\s+deepWatch →/);
+    expect(output).not.toMatch(/· declared, unavailable here\s+deepWatch →/);
+  });
+
   it('calls testFilename unavailable when testFiles exempts nothing', async () => {
     // The gate's emitted entry is scoped to the test globs, so `testFiles: []` leaves it
     // nothing to run on — and the emitter drops it, because `files: []` is a config
@@ -294,6 +313,21 @@ describe('runRules', () => {
 
     expect(noOwners.join('\n')).toContain('Per-layer bans');
     expect(noOwners.join('\n')).not.toContain('is not compared by');
+
+    // Positively too, because the caveat is spread in from a ternary whose other arm is
+    // an empty list: anything at all in that arm lands as a line between the paragraph
+    // and the rows, and `not.toContain('is not compared by')` stays green for every one
+    // of them. Pin the seam instead — the last line of the paragraph, then the row.
+    const resolved = noOwners.join('\n');
+    const section = resolved.slice(resolved.indexOf('Per-layer bans')).split('\n');
+
+    // Matched at the end rather than whole, so a re-wrap of the paragraph does not
+    // fail this — the seam is what is being pinned, not the wrapping.
+    expect(section.at(-2)).toMatch(/Copy, do not retype\.$/);
+
+    expect(section.at(-1)).toBe(
+      '  components     no-import: (none) · packages: (none) · globals: (none)',
+    );
 
     const output = lines.join('\n');
 
