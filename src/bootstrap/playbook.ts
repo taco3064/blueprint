@@ -437,7 +437,9 @@ export function renderGoal(): string {
  * per-FILE — an entry contributes nothing to a file it does not match — so the
  * spread stays the carrier everywhere the hand-written entry does not reach, and
  * narrowing cannot make blueprint's ban lose a file. Measured with
- * `eslint --print-config` on ESLint 9, one probe per direction:
+ * `eslint --print-config`, one probe per direction, on **both majors CI runs** —
+ * every cell resolved identically under 9.39.5 and 10.8.0, so none of this rests on
+ * one version's behaviour:
  *
  * - combined entry narrowed to `.vue`: the layer's `.js` file still resolves
  *   blueprint's selector, from the spread. Narrowing costs blueprint nothing.
@@ -451,6 +453,11 @@ export function renderGoal(): string {
  *   rules they had, including the collision's test files, which the untouched
  *   original still governs after blueprint's `ignores` lifts the combined entry
  *   off them. That last cell is why renderTestExemptions no longer has to pick.
+ * - that same arrangement with the original entry BELOW the combined one: the
+ *   overlap resolves the house selector alone and blueprint's is gone there. The
+ *   recommendation is order-dependent, so it now says so — "leave your original
+ *   entry in place" is not enough on its own, since a reader whose entry already
+ *   sat below the spread would be leaving it in the one position that breaks.
  *
  * The premise entered one day before #163 (bd3d2f1, field runs #95–#97) as
  * reasoning about which failure is louder, never as a measurement. Prose is the
@@ -473,10 +480,12 @@ function renderCombinedEntry(): string {
     '     `rules --json` says the same beside the selectors.',
     '     **Scope is not on that list, and the two silent losses are about what the entry CONTAINS.** Leave blueprint\'s selectors out of an entry that matches its files and the ban is gone there — doctor\'s survival check turns that red.',
     '     Fold your own original entry away and keep only the combined one, and your rule quietly stops governing the rest of what it used to — doctor does not compare the rules you brought, and says so, which is what the probe below is for.',
-    '     Confirm with `npx eslint --print-config` on one file per affected layer, plus one file your own rule governed OUTSIDE the collision — the one place print-config is not optional, because doctor compares selectors and cannot see scope.',
+    '     Confirm with `npx eslint --print-config`, and the affected layer takes TWO probes rather than one: a file INSIDE the collision and a file OUTSIDE it, because the arrangement below deliberately makes those two resolve different entries — and the inside one is also what catches a wrong entry order.',
+    '     Add one file your own rule governed outside that layer, for the loss doctor cannot see — that is the whole probe. This is the one place print-config is not optional: doctor resolves a single path per layer, and its ✓ says an entry scoped to part of a layer is not compared, which is now the shape you are aiming for.',
     '',
-    '     **When the two sides\' scopes were never the same, do not reconcile them — the collision is the entry, and neither side moves.** A house rule framed at `**/*.vue` folded into a layer glob of `.{js,vue}` is the ordinary case: scope the combined entry to `**/*.vue` inside that layer, and leave your original entry exactly where it was.',
-    '     Three entries then cover three sets and no file gets a rule it never had: yours keeps the files blueprint never governed, the spread keeps the `.js` files your rule never governed, and the combined one wins where they meet.',
+    '     **When the two sides\' scopes were never the same, do not reconcile them — the collision is the entry, and neither side moves.** A house rule framed at `**/*.vue` folded into a layer glob of `.{js,vue}` is the ordinary case: scope the combined entry to `**/*.vue` inside that layer, and leave your original entry in place rather than folding it into the new one.',
+    '     Three entries then cover three sets, and none of them gives a file a rule it never had: yours keeps the files blueprint never governed, the spread keeps the `.js` files your rule never governed, and the combined one wins where they meet.',
+    '     **That holds on one ordering: your original entry, then the spread, then the combined one.** Yours has to stay ABOVE the combined entry — below it, your bare rule goes back on top in the overlap and blueprint\'s selectors are gone there. The wiring this step already asked for puts you right; an entry that had drifted below the spread has to move up.',
     '     Say in the report which set each of the three covers.',
     '',
   ].join('\n');
@@ -485,10 +494,17 @@ function renderCombinedEntry(): string {
 /**
  * The `ignores` trap: a combined entry rebuilt from selector strings has no test
  * exemption unless it is written back. Separated from the merge mechanics because
- * it fails in both directions and neither is symmetric — dropping blueprint's
- * `ignores` is loud, dropping your own is silent, and doctor compares selectors
- * rather than scope so nothing downstream catches it. One real run spent a debug
- * cycle on 34 errors in a single test file getting this wrong.
+ * dropping blueprint's `ignores` is loud only when a house rule collided on those
+ * test files and silent otherwise, and doctor compares selectors rather than scope
+ * so nothing downstream catches it. One real run spent a debug cycle on 34 errors
+ * in a single test file getting this wrong.
+ *
+ * This used to read "it fails in both directions" — the mirror being that carrying
+ * blueprint's `ignores` onto the combined entry strands YOUR rule on test files it
+ * used to govern. #163 closed that direction rather than balancing it: the combined
+ * entry now covers the collision only and the original entry stays above it, so
+ * those test files keep the house rule once blueprint's `ignores` lifts the combined
+ * entry off them (measured — see renderCombinedEntry). One direction now, not two.
  */
 function renderTestExemptions(): string {
   return [

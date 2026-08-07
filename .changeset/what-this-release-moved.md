@@ -33,8 +33,8 @@ it is still the reason this version is sturdier than the last.
 **And the honest bound:** the wording fixes are reasoned, not measured — with one exception,
 which is also the reason to hold the rest loosely. The lint-merge instruction was reasoned
 too, and one day later a field agent followed it into the wrong edit to its own config;
-correcting it took four `eslint --print-config` probes, one per direction, and the answer was
-the opposite of what the paragraph advised. Several other fixes repaired sentences this
+correcting it took five `eslint --print-config` probes on each of the two ESLint majors, and
+the answer was the opposite of what the paragraph advised. Several other fixes repaired sentences this
 project had written one or two releases earlier, and those net close to nothing — they closed
 gaps their predecessors opened. The per-item paper trail for all of it, including what was
 judged not worth fixing and why, is in this repo's closed `field-run` issues rather than

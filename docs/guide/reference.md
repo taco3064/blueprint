@@ -86,10 +86,12 @@ repo that already sets `no-restricted-syntax` cannot let the later entry win the
 option sets have to become one entry. Only *there*, though. An entry does nothing to a
 file outside its own `files`, so the spread keeps enforcing blueprint's entry wherever
 yours does not reach, and a scope mismatch is resolved by scoping the combined entry to
-the overlap rather than by widening either side to meet the other.
+the overlap rather than by widening either side to meet the other. Your own entry stays
+where it is and keeps the files blueprint never governed — above the combined one, since
+later still wins wherever both match.
 
-`npx blueprint rules --json` carries the exact `selfOnly` selectors per layer
-for that, in two spellings, and only one of them survives a paste:
+`npx blueprint rules --json` carries the exact `selfOnly` selectors that combined entry
+needs, per layer, in two spellings — and only one of them survives a paste:
 
 - **`jsLiteral` is the one to copy** — the selector as JS source, quotes included
 - **`selectors` is the value ESLint resolves.** Right for a program that *builds* a
