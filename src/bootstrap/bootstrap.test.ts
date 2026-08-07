@@ -1549,6 +1549,18 @@ describe('runInit · where the package.json patch lands', () => {
     );
 
     expect(patchAt).toBeGreaterThan(planTailAt);
+
+    // After the LAST action the plan had produced, which is where the assertion above
+    // is blind: `splice(-1, …)` moves the patch exactly one place, so it clears the
+    // bundler instruct either way and only the final optional instruct changes sides.
+    // "Last overall" is not the contract — the preset's own notes are appended after
+    // the wiring — so the pin is the action `splice(-1, …)` jumps ahead of.
+    const optionalTailAt = actions.findIndex(
+      (action) => action.kind === 'instruct' && action.note.includes('CSS token governance'),
+    );
+
+    expect(optionalTailAt).toBeGreaterThan(-1);
+    expect(patchAt).toBeGreaterThan(optionalTailAt);
   });
 });
 

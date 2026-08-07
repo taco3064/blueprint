@@ -83,3 +83,42 @@ describe('apply · removing init\'s own output', () => {
     expect(fs.existsSync(scaffold)).toBe(false);
   });
 });
+
+describe('apply · announcing the install', () => {
+  const install: Action[] = [{ kind: 'install', command: 'npm i -D eslint', note: 'the carrier' }];
+
+  // The announcer is optional, and nothing in the tree asserted that. Every caller
+  // passes one, so making the call unconditional left the suite green while `apply`
+  // gained a crash for any caller that does not — and optionality is the point: the
+  // narration is an addition to `apply`, not a requirement of it.
+  it('runs the install with no announcer attached', () => {
+    const ran: string[] = [];
+    const applied: string[] = [];
+
+    expect(() => apply(root, install, (command) => ran.push(command), (a) => applied.push(a.kind)))
+      .not.toThrow();
+
+    // Not just "did not throw": a guard that skipped the action instead of the
+    // callback would satisfy that on its own.
+    expect(ran).toEqual(['npm i -D eslint']);
+    expect(applied).toEqual(['install']);
+  });
+
+  // BEFORE, which is the whole reason this callback exists rather than reusing
+  // `onApplied`: the install spawns a package manager that can sit for minutes, and
+  // two codex runs read that silence as a hung tool and killed it (field runs #131,
+  // #132). An announcement that arrives after the wait reports nothing.
+  it('announces the install before running it, not after', () => {
+    const order: string[] = [];
+
+    apply(
+      root,
+      install,
+      (command) => order.push(`exec ${command}`),
+      (a) => order.push(`applied ${a.kind}`),
+      (a) => order.push(`starting ${a.command}`),
+    );
+
+    expect(order).toEqual(['starting npm i -D eslint', 'exec npm i -D eslint', 'applied install']);
+  });
+});
