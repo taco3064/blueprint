@@ -5,10 +5,28 @@ test because a sweep said something was untested.
 
 `npx stryker run` audits the suite itself — 100% line coverage says every line
 ran, not that a wrong one would be caught. Internal only: no docs page, no
-handbook section, nothing emitted, and deliberately not a CI gate (Stryker has
-no approved-survivor ledger, so a threshold is a hard-coded number every `src/`
-edit invalidates — the unappeasable red this repo argues against elsewhere).
-Per file while working (`--mutate 'src/x/y.ts'`), full sweep before a merge.
+handbook section, nothing emitted. It runs **on** CI without being a CI **gate**
+— `.github/workflows/mutation.yml` is `workflow_dispatch` and nothing else,
+because Stryker has no approved-survivor ledger, so a threshold is a hard-coded
+number every `src/` edit invalidates — the unappeasable red this repo argues
+against elsewhere.
+
+**Dispatch it rather than running it locally.** Per file while working, full
+sweep before you believe the number:
+
+```
+gh workflow run mutation.yml --ref <branch>                          # whole tree
+gh workflow run mutation.yml --ref <branch> -f mutate='src/x/y.ts'   # one file
+```
+
+A local sweep copies the whole project into `.stryker-tmp` once per core, and
+watching those copies exhausted the editor's file-descriptor budget — the
+workspace now excludes the path, but a clean runner is where a number filed as
+authoritative belongs anyway. The `--ref` is typed rather than inferred and there
+is no `npm run` shortcut on purpose: `gh` is not on this repo's script surface,
+and the one argument a shortcut would guess is the one that decides which tree
+you measured. Read the result in the run's step summary — survivors grouped by
+file, with the scope named; the html artifact carries the diffs.
 
 **A survivor is proven equivalent at the site, never silenced with a
 `// Stryker disable` comment**; where two guards shield each other, the proof
@@ -50,10 +68,13 @@ verdict last.
   `dependencyNames` are all this) — or, where the shape itself is the problem, fix
   the shape: a function returning four fields of which two are garbage on failure
   makes every bound inside it unanswerable, however many tests are written.
-- **Kill leftover processes first.** A stale sandbox makes vitest collect
-  `.stryker-tmp` as test files and the score comes back absurd (0.00%, 5.31%).
-  `rm -rf .stryker-tmp` failing with "Directory not empty" is the tell:
-  `pkill -9 -f "@stryker-mutator"; rm -rf .stryker-tmp`.
+- **A local run leaves processes behind — a dispatched one cannot.** A stale
+  sandbox makes vitest collect `.stryker-tmp` as test files and the score comes
+  back absurd (0.00%, 5.31%). `rm -rf .stryker-tmp` failing with "Directory not
+  empty" is the tell: `pkill -9 -f "@stryker-mutator"; rm -rf .stryker-tmp`. Kept
+  here for the sandbox left over from before this moved to CI, and for reading an
+  absurd score correctly if one ever appears — the runner starts clean every time,
+  so a dispatched sweep cannot produce this.
 
 ## What the sweep cannot see
 

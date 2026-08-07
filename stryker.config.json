@@ -27,6 +27,14 @@
     "mutant that crashed the runner rather than being caught — neither killed nor",
     "survived, and nothing to chase.",
     "",
+    "The `json` reporter exists for triage, not for humans. The sweep is dispatched",
+    "on CI (`.github/workflows/mutation.yml`), where the html report is an artifact",
+    "you have to download and open, and clear-text buries the survivors in a few",
+    "thousand lines of progress. The workflow reads this file instead and groups the",
+    "survivors into the run's step summary. Its `fileName` is pinned even though it",
+    "matches the current default, because the workflow reads that exact path — a",
+    "default that moved would leave the summary silently empty.",
+    "",
     "StringLiteral is excluded, and the reason is a measured line rather than a",
     "blanket claim. Enabling it repo-wide gives 87.79% against 97.86% (6808",
     "mutants against 4574): 2234 of them are string literals, and 731 of those",
@@ -63,9 +71,12 @@
   "mutator": {
     "excludedMutations": ["StringLiteral"]
   },
-  "reporters": ["html", "clear-text", "progress"],
+  "reporters": ["html", "clear-text", "progress", "json"],
   "htmlReporter": {
     "fileName": "reports/mutation/index.html"
+  },
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
   },
   "clearTextReporter": {
     "maxTestsToLog": 2
