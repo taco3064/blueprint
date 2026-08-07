@@ -470,6 +470,49 @@ describe('every carrier init installs can resolve on the adopter\'s stack', () =
   });
 });
 
+describe('every supported ESLint major is one something here executes', () => {
+  // `init`'s install note tells every adopter that `@kekkai/blueprint`'s CI runs its
+  // own suite on each major in SUPPORTED_ESLINT_MAJORS. Nothing bound that sentence
+  // to what CI does, and two changes already in view would have made it lie with the
+  // whole suite green. Adding a major to the list: the carrier-peer checks above go
+  // green the moment the peers admit it, and admitting a version says nothing about
+  // running it. Bumping the devDependency to 10: from that day nothing runs 9, and
+  // the note still says "each". Both are field run #150 returning in the same shape —
+  // a claim in output with no test underneath it.
+  //
+  // A major is covered one of two ways, and one of them has to hold:
+  //   - the devDependency range admits it, so the main matrix runs it, or
+  //   - a ci.yml job installs that exact major, the way `eslint-10` does.
+  //
+  // Read off the two files rather than restated, so a change to either is what turns
+  // this red — the list is the contract, and this is one case per member of it.
+  const eslintRange = (): string => {
+    const manifest = JSON.parse(fs.readFileSync('package.json', 'utf-8')) as {
+      devDependencies: Record<string, string>;
+    };
+
+    return manifest.devDependencies.eslint;
+  };
+
+  it.each(SUPPORTED_ESLINT_MAJORS)('ESLint %i is executed, not merely permitted', (major) => {
+    const range = eslintRange();
+    // Same shape as the peer-range check above: `^9` matches `^9.39.2` and not `^10`.
+    const mainMatrix = new RegExp(`\\^${major}(\\.|\\s|\\||$)`).test(range);
+
+    // `(?!\\d)` so a list containing 1 is not satisfied by a job installing 10.
+    const ownLeg = new RegExp(`eslint@${major}(?!\\d)`)
+      .test(fs.readFileSync('.github/workflows/ci.yml', 'utf-8'));
+
+    expect(
+      mainMatrix || ownLeg,
+      `SUPPORTED_ESLINT_MAJORS names ${major} and the install note tells adopters CI runs `
+      + `the suite on each of them — but the eslint devDependency is "${range}" and no ci.yml `
+      + `job installs eslint@${major}. Widen the devDependency or add a leg beside `
+      + '`eslint-10`; do not leave that note claiming a major nothing here executes.',
+    ).toBe(true);
+  });
+});
+
 describe('parseJsonc · where a comment starts and stops', () => {
   it('strips a line comment that has no newline after it', () => {
     // A tsconfig whose last line is a comment has no terminator, so the scan
