@@ -84,6 +84,47 @@ function sourcelessNames(output: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * A sourceless list whose second line lands exactly ON the wrap width, so the `<=`
+ * boundary is exercised. `< width` survived every other fixture: none reached it.
+ */
+function wrapWidthProbe(): string[] {
+  // indent(4) + `aaaa,` … chosen so the running candidate hits exactly 74 characters.
+  // indent(4) + 20 + ',' = 25; + ' ' + 20 + ',' = 47; + ' ' + 25 + ',' = exactly 74 —
+  // the boundary `<=` must accept. A fourth name follows so that line is not the last
+  // one, whose trailing comma the final map strips (73, and the boundary invisible).
+  const names = ['a'.repeat(20), 'b'.repeat(20), 'c'.repeat(25), 'd'.repeat(10)];
+
+  const output = renderSurvey({
+    framework: null,
+    typescript: false,
+    packageManager: 'npm',
+    aliases: {},
+    rootFiles: [],
+    folders: names.map((folder) => ({
+      folder,
+      files: 0,
+      directFiles: 0,
+      childFolders: 0,
+      indexedChildren: 0,
+      maxDepth: 0,
+    })),
+    edges: [],
+    selfAliasImports: {},
+    testEvidence: [],
+    packageUsage: [],
+    ownableImports: [],
+    unresolved: [],
+    totalFiles: 0,
+  });
+
+  const lines = output.split('\n');
+  const start = lines.findIndex((line) => line.includes('was never counted:'));
+  const end = lines.findIndex((line, index) => index > start && line.trim() === '');
+
+  return lines.slice(start + 1, end);
+}
+
 describe('runSurvey', () => {
   it('builds the matrix, self-alias counts, and package usage', () => {
     scaffold();
@@ -188,6 +229,40 @@ describe('runSurvey', () => {
     // at specifier granularity would be the same fact twice.
     expect(result.ownableImports.map((entry) => entry.name)).not.toContain('useMemo');
     expect(result.ownableImports.map((entry) => entry.package)).not.toContain('zod');
+  });
+
+  it('needs the package spread across folders, and sorts the rows', () => {
+    // Two rules with nothing asserting them, both survivors: `folders.size > 1` on the
+    // package (relaxing it to `>= 1` or dropping the filter survived), and the row sort
+    // (every rewrite of the comparator survived, because the earlier fixture's insertion
+    // order already matched the sorted one).
+    write('package.json', JSON.stringify({
+      name: 'demo',
+      dependencies: { react: '^18', zustand: '^4' },
+    }));
+
+    // zustand: a NAMED import, concentrated in one folder — and its package is in that
+    // one folder too, so the package row above already says it. A specifier row would be
+    // the same fact twice, which is what `spread` is for.
+    write('src/hooks/useStore.ts', 'import { create } from "zustand";\nexport const s = create;');
+
+    // react spans three folders, and its concentrated specifiers arrive in an order the
+    // sort must change: `useTransition` is seen first and sorts last.
+    write('src/pages/App.tsx', 'import { useTransition } from "react";\nexport const A = useTransition;');
+    write('src/contexts/User.tsx', 'import { createContext } from "react";\nexport const C = createContext;');
+    write('src/components/Card.tsx', 'import { useId } from "react";\nexport const D = useId;');
+
+    const result = runSurvey(root, { log: silent });
+
+    expect(result.ownableImports).toEqual([
+      { package: 'react', name: 'createContext', folder: 'contexts' },
+      { package: 'react', name: 'useId', folder: 'components' },
+      { package: 'react', name: 'useTransition', folder: 'pages' },
+    ]);
+
+    // Named, in one folder, and still not a candidate — the package is not spread.
+    expect(result.ownableImports.map((entry) => entry.package)).not.toContain('zustand');
+    expect(result.packageUsage).toContainEqual({ package: 'zustand', folders: ['hooks'] });
   });
 
   it('leaves the src root out of the ownership candidates', () => {
@@ -555,12 +630,25 @@ describe('renderSurvey', () => {
 
     for (const line of note) expect(line.length).toBeLessThanOrEqual(80);
 
-    // Every folder still named, and the last one carries no trailing comma.
-    for (let index = 0; index < 10; index++) {
-      expect(output).toContain(`sourceless-folder-${index}`);
-    }
+    // Every folder still named, in order, and read back as names rather than as a
+    // substring — a `toContain` per name passes on a list that lost its commas.
+    expect(sourcelessNames(output))
+      .toEqual(Array.from({ length: 10 }, (_, index) => `sourceless-folder-${index}`));
 
-    expect(output).toContain('sourceless-folder-9\n');
+    // The punctuation itself: every entry but the last is followed by a comma, and the
+    // last by none. `line.replace(/,$/, '')` applied to EVERY line instead of the last
+    // survived otherwise — it strips the commas that join one wrapped line to the next,
+    // and a name-splitting read cannot tell.
+    const listStart = note.findIndex((line) => line.includes('was never counted:'));
+    const joined = note.slice(listStart + 1).join(' ').replace(/\s+/g, ' ').trim();
+
+    expect(joined).toBe(Array.from({ length: 10 }, (_, index) => `sourceless-folder-${index}`).join(', '));
+
+    // And the width is a `<=`: a candidate landing exactly ON the limit belongs on the
+    // line it fits. `< width` survived, because no fixture had ever hit the boundary.
+    const exact = wrapWidthProbe();
+
+    expect(exact.some((line) => line.length === 74)).toBe(true);
   });
 
   it('caps the specifier list on the same rule as the package list', () => {
@@ -592,6 +680,36 @@ describe('renderSurvey', () => {
     expect(render(15)).not.toContain('more (use --json');
 
     expect(render(16)).toContain('… 1 more (use --json for the full list)');
+
+    // The cap has to CAP: dropping `.slice(0, 15)` prints all sixteen rows AND the
+    // overflow line, and an assertion on the overflow line alone passes either way.
+    expect((render(16).match(/ — hooks only/g) ?? []).length).toBe(15);
+    expect(render(16)).not.toContain('use-15');
+  });
+
+  it('prints no specifier section when there are no candidates', () => {
+    // `if (result.ownableImports.length)` → `if (true)` survived: the heading and its
+    // two-line explanation over an empty list, which every other section here refuses
+    // to do (field issue #6 is the same shape one section up).
+    const empty = renderSurvey({
+      framework: null,
+      typescript: false,
+      packageManager: 'npm',
+      aliases: {},
+      rootFiles: [],
+      folders: [],
+      edges: [],
+      selfAliasImports: {},
+      testEvidence: [],
+      packageUsage: [{ package: 'axios', folders: ['services'] }],
+      ownableImports: [],
+      unresolved: [],
+      totalFiles: 1,
+    });
+
+    expect(empty).toContain('Package usage');
+    expect(empty).not.toContain('Named imports in ONE folder');
+    expect(empty).not.toContain('was never counted');
   });
 });
 
