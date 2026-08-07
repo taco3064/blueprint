@@ -97,6 +97,12 @@ for that, in two spellings, and only one of them survives a paste:
 The ban's *message* text is yours to write — `doctor` verifies selectors, never
 messages.
 
+One scope note that outlives the fold, because it is true of the check rather than of
+your config: **doctor's survival check compares the import bans, the globals and the
+selfOnly selectors — not package ownership.** So a merge that drops a package ban stays
+green there, and that column is yours to verify. `blueprint rules` names the command
+for it, on the layers where you actually own a package.
+
 ## `blueprint.rules` — which ids actually gate
 
 A rule id in `blueprint.rules` becomes a lint gate only if the machine can check it.
