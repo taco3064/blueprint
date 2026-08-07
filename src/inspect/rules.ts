@@ -254,7 +254,12 @@ function resolveGate(
   // denominator reads — this used to mirror only the React case, so a JS project saw
   // `explicitAny` here as an ordinary gate and `0/17 optional gates` there, with
   // nothing to reconcile them (field run #137).
-  const unavailable = unavailableGate(spec.id, blueprint?.framework, hasTypescript);
+  const unavailable = unavailableGate(
+    spec.id,
+    blueprint?.framework,
+    hasTypescript,
+    blueprint?.architecture.testFiles,
+  );
 
   return {
     ...spec,

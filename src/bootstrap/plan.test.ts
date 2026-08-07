@@ -534,7 +534,7 @@ describe('plan', () => {
     expect(clean.some((a) => a.kind === 'instruct' && a.note.includes('Install skipped'))).toBe(false);
   });
 
-  it('says the eslint it installs is unpinned, and which majors are tested', () => {
+  it('says the eslint it installs is unpinned, and what the majors are backed by', () => {
     // `eslint` goes in unpinned, so npm resolves the newest supported major — newer
     // than this package's own devDependency. A field agent watched ESLint 10 arrive
     // from a tool developed on 9 and could only report "worked today" (#100): the
@@ -546,6 +546,15 @@ describe('plan', () => {
     for (const major of SUPPORTED_ESLINT_MAJORS) {
       expect(install?.kind === 'install' && install.note).toContain(String(major));
     }
+
+    // What the note may claim, and it is not "tested": this repo's devDependency is
+    // eslint 9, so nothing here has ever run 10 — while `detect.test.ts` does prove,
+    // per carrier and off the installed manifests, that every peer range admits it.
+    // Say the verified thing (field run #150).
+    expect(install?.kind === 'install' && install.note)
+      .toContain('admitted by every carrier\'s peer range');
+
+    expect(install?.kind === 'install' && install.note).not.toContain('are both tested');
 
     // A repo that already has eslint gets the plain list — the sentence explains a
     // resolution about to happen, so with nothing to resolve it is noise.

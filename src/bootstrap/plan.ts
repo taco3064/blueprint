@@ -248,10 +248,18 @@ export function plan(
         // already looking. `eslint` resolves to the newest supported major,
         // which is newer than this package's own devDependency — a field agent
         // saw ESLint 10 arrive from a tool developed on 9 and could only report
-        // "worked today" (field run #100). The majors are a tested contract,
-        // not whatever npm happened to hand over.
+        // "worked today" (field run #100).
+        //
+        // "both TESTED" was the word, and it overclaimed: this repo's devDependency
+        // is eslint 9, so every suite and every CI leg runs 9 and nothing runs 10. A
+        // field agent checked the adjacent half — `^10.8.0` did land in package.json —
+        // which makes the overclaim worse, not better: it is the version an adopter
+        // actually gets (field run #150). What IS verified, per carrier and read off the
+        // installed manifests in `detect.test.ts`, is that every peer range admits every
+        // major on this list — the fact that decides whether their install resolves at
+        // all, which is the question this note is answering.
         note: deps.includes('eslint')
-          ? `${deps.join(', ')} — eslint unpinned, resolving to the newest supported major (${SUPPORTED_ESLINT_MAJORS.join(' and ')} are both tested)`
+          ? `${deps.join(', ')} — eslint unpinned, resolving to the newest supported major (${SUPPORTED_ESLINT_MAJORS.join(' and ')} are both admitted by every carrier's peer range)`
           : deps.join(', '),
       });
     } else {

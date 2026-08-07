@@ -385,7 +385,10 @@ describe('renderSurvey', () => {
     expect(output).toContain('src/ root files (wiring, not layers): main.ts');
 
     // All six folder numbers reach the line the playbook reads.
-    expect(output).toContain('12 files · 3 direct · 4 child folders (2 with index) · depth 3');
+    expect(output).toContain('12 source files · 3 direct · 4 child folders (2 with index) · depth 3');
+    // Above zero the row stands on its own — the clause below is for the count that
+    // reads as something it does not mean.
+    expect(output).not.toContain('holds no SOURCE file');
     expect(output).toContain('7  views → services');
 
     // Heaviest first — object key order would have put services first.
@@ -426,6 +429,33 @@ describe('renderSurvey', () => {
     expect(render(15)).not.toContain('more (use --json');
 
     expect(render(16)).toContain('… 1 more (use --json for the full list)');
+  });
+
+  it('says a zero-source folder is present, not empty', () => {
+    // The row exists because the directory does, so `0` cannot mean "no folder" — and
+    // it does not mean "nothing in it" either. An adopter read `styles 0 files` as an
+    // empty folder, ran `ls`, and found a directory of `.css` (field run #150).
+    const output = renderSurvey({
+      framework: null,
+      typescript: false,
+      packageManager: 'npm',
+      aliases: {},
+      rootFiles: [],
+      folders: [
+        { folder: 'styles', files: 0, directFiles: 0, childFolders: 0, indexedChildren: 0, maxDepth: 0 },
+      ],
+      edges: [],
+      selfAliasImports: {},
+      testEvidence: [],
+      packageUsage: [],
+      ownableImports: [],
+      unresolved: [],
+      totalFiles: 0,
+    });
+
+    expect(output).toContain('styles              0 source files');
+    expect(output).toContain('the folder is here and holds no SOURCE file');
+    expect(output).toContain('this survey does not read');
   });
 
   it('caps the specifier list on the same rule as the package list', () => {
