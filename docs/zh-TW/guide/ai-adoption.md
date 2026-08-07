@@ -159,9 +159,10 @@ npx @kekkai/blueprint doctor
 
 ```
 ⊘ emitted rules survive the merged eslint config (skipped — could not resolve …)
-⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run (⊘ above).
-  Nothing failed, and nothing here proves what those checks cover.
+⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run (⊘ above). Nothing failed, and nothing here proves what those checks cover.
 ```
+
+（banner 是單一行字串，上面看到的換行是終端機折的。）
 
 **exit code 沒有變 —— 跳過不是失敗，所以這次執行照樣 exit 0。**<br>
 這正是「該用 `--json` 當 gate、不要用 exit code」的理由：
