@@ -378,7 +378,13 @@ export function renderSurvey(result: SurveyResult): string {
     lines.push(
       '',
       '  0 source files means the folder is HERE and holds none — not that it is empty.',
-      '  Whatever is in it (assets, styles, build output) this survey does not read:',
+      // Not a parenthetical list of content KINDS directly above a list of folder
+      // NAMES: on a repo with `assets/` and `styles/` the two read as the same list
+      // twice, and the words were identical. Dashes instead of parentheses, kinds that
+      // do not double as the folder names beside them, and the run-on sentence broken
+      // where it was already asking to be.
+      '  This survey reads source only, so whatever else lives there — stylesheets,',
+      '  images, build output — was never counted:',
       ...wrapList(sourceless.map((folder) => folder.folder), 74, '    '),
     );
   }
