@@ -8,6 +8,16 @@
     "rolldown.config.ts": "eslint.config.ts, vitest.config.ts, typedoc.json",
     "tsconfig.json": "tsconfig.*.json"
   },
+  // Two trees inside the workspace are generated in bulk and never edited: a worktree
+  // under `.claude/worktrees/` carries its own `npm ci` install (~33k files each), and
+  // Stryker copies the whole project once per core into `.stryker-tmp`. Watching them
+  // exhausted the extension host's file descriptors — `rg` failed to spawn with EMFILE,
+  // 35k `spawn EBADF` followed, the host went unresponsive 49 times, and the window
+  // renderer crashed twice in one day. VS Code's defaults cover neither path.
+  "files.watcherExclude": {
+    "**/.claude/worktrees/**": true,
+    "**/.stryker-tmp/**": true
+  },
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
