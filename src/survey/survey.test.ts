@@ -63,6 +63,27 @@ function scaffold(): void {
   write('src/pages/__tests__/App.spec.tsx', '');
 }
 
+/**
+ * The folder names the sourceless note lists, read off the rendered output. A test that
+ * matched `name,` in the whole report was passing on punctuation `wrapList` strips from
+ * the last entry — so the rule it claimed to guard (only a zero-source folder is listed)
+ * was unguarded, and replacing the filter with every folder survived the suite.
+ */
+function sourcelessNames(output: string): string[] {
+  const lines = output.split('\n');
+  const start = lines.findIndex((line) => line.includes('was never counted:'));
+
+  if (start === -1) return [];
+
+  const end = lines.findIndex((line, index) => index > start && line.trim() === '');
+
+  return lines
+    .slice(start + 1, end === -1 ? undefined : end)
+    .flatMap((line) => line.split(','))
+    .map((name) => name.trim())
+    .filter(Boolean);
+}
+
 describe('runSurvey', () => {
   it('builds the matrix, self-alias counts, and package usage', () => {
     scaffold();
@@ -402,9 +423,12 @@ describe('renderSurvey', () => {
 
     // All six folder numbers reach the line the playbook reads.
     expect(output).toContain('12 source files · 3 direct · 4 child folders (2 with index) · depth 3');
-    // Above zero the row stands on its own — the clause below is for the count that
-    // reads as something it does not mean.
-    expect(output).not.toContain('holds no SOURCE file');
+    // Above zero the row stands on its own, so the note is absent entirely. The needle
+    // is the renderer's opening words: this used to read `holds no SOURCE file`, a string
+    // the renderer stopped emitting two commits later — an assertion that cannot fail is
+    // cover, and this one covered the only rule keeping the note off a folder with files.
+    // Replacing the `files === 0` filter with `result.folders` survived all 1305 tests.
+    expect(output).not.toContain('0 source files means');
     expect(output).toContain('7  views → services');
 
     // Heaviest first — object key order would have put services first.
@@ -478,9 +502,12 @@ describe('renderSurvey', () => {
     // Once, not per folder: repeating a three-line note buries the numbers it sits
     // beside — the same reason the row itself does not carry it.
     expect(output.match(/folder is HERE and holds none/g)).toHaveLength(1);
-    expect(output).toContain('styles, assets');
-    // …and the folder that HAS files stays off the list.
-    expect(output).not.toContain('components,');
+
+    // Read the NAMES out of the list rather than matching `components,` in the whole
+    // output: that needle depended on a trailing comma, and `wrapList` strips it from the
+    // last entry — so on a fixture where `components` sorts last the assertion passed
+    // whether the filter ran or not. Names, not punctuation, and order cannot break it.
+    expect(sourcelessNames(output)).toEqual(['styles', 'assets']);
 
     // It must not read as another folder row: a blank line above it, and it opens on
     // the sentence rather than on the names, because `assets, styles: 0 source files`
