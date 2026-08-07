@@ -54,6 +54,28 @@ The feedback file has three sections and they are not the same kind of thing.
 blocked time, a wrong decision, an internal it had to reverse-engineer. A
 non-empty one is the signal that gates a release.
 
+**Inside 卡到的 sits a second channel, and it now carries nearly everything.** A
+statement that does not match reality, or two of the tool's own outputs
+disagreeing, is reported *regardless of cost* — the cost is a property of that
+run, not of the tool, and the next reader pays for the same wrong sentence. That
+carve-out is right and it shipped without a floor, so it could not go quiet: any
+sentence can be made more precise, and "could be sharper" arrived wearing the
+same clothes as "is false". **The floor now lives in `scripts/field-prompt.md`:
+an entry must name the two things that disagree, and both must already exist and
+be checkable** — a command's output, a file on disk, or another line in the same
+document. Three shapes fall below it and belong in 拿不準的: one side only ("this
+could be more precise"); an **absence** ("the tool takes no stance on this
+state") — that is 沒立場, whose remedy is a sentence, which is the generator; and
+a pair whose second half is the agent's own expectation rather than the tool's
+own words.
+
+**Only the cost channel gates a release.** An exception-channel entry is a
+correctness fix on its own schedule — it lands when the prose is *wrong* or the
+fact is measurable, and is otherwise recorded on the issue and batched. It never
+postpones a tag. That sequencing is the terminator the loop was missing: #144–#146
+were 100% exception channel, and waiting for that channel to empty is waiting for
+prose to be finished.
+
 **拿不準的 is the paper trail, and reading it as a queue is how the generator
 above gets fed.** It records decisions the agent made that the tool did not make
 for it — and a governance tool is *supposed* to hand architecture decisions back,
@@ -128,11 +150,33 @@ Measured over #95–#107, nine issues and eighteen scenarios:
   stale branch and left a third state unowned, which is #107.
 
 So the loop was not diverging — it was *fed*, by triaging the paper trail as a
-queue. The stopping rule follows from the split above: a non-empty 卡到的 gates
-the release; a 拿不準的 entry is answered in the issue thread unless it names
-wrong prose or a measurable fact. Withdrawn-on-investigation entries are rising
-across the same window, which is the playbook preempting doubt, and they are the
-number worth watching go up.
+queue. The stopping rule follows from the split above: a non-empty **cost-channel**
+卡到的 gates the release; an exception-channel entry and a 拿不準的 entry are both
+answered in the issue thread unless they name wrong prose or a measurable fact.
+Withdrawn-on-investigation entries are rising across the same window, which is the
+playbook preempting doubt, and they are the number worth watching go up.
+
+Measured again across #95–#146 — thirty-three issues, ninety-six scenarios, the
+matrix widening to four when codex was installed. This is the window the floor
+above was written from:
+
+- **4 cost-channel entries in 96 scenarios**, counting an entry only after its
+  "先講結論：沒有" preamble and its withdrawal records are excluded. The last is
+  #141's `doctor --json`. Five more non-empty entries are one environment fact —
+  codex's sandbox cannot reach the registry — judged and rejected twice, because
+  blueprint shells out to the owner's package manager and choosing a fetch timeout
+  for them is policy on their toolchain.
+- **The emitted playbook stopped growing.** Same two-file starter, generated from
+  `dist/bin.js` at four points: 41,151 bytes at the 08-05 tip, 53,094 by
+  mid-afternoon 08-06, 53,401 that night, 53,563 now. The last five batches added
+  469 bytes; the last two added 162. The 29% jump is all in the first window.
+- **Second-order findings went 2-of-4 to 0-of-4.** #139–#141 repaired two sentences
+  this campaign had written the same day; #144–#146 repaired text first committed
+  07-19 to 07-22 — 15 to 18 days old, surfaced by the wider matrix rather than by
+  new breakage. `git log -S` on the defective string is how that gets checked, and
+  it is worth checking before concluding a batch is churn.
+- **Runs per day: 3, 6, 18, 33** (07-30, 08-03, 08-05, 08-06). Rising volume is the
+  harness getting faster, not the tool getting worse — per-run yield is what to read.
 
 A release still needs a run: the prose an agent will *follow* — an instruction,
 not a caveat — is the highest-risk kind, and every second-order finding above
