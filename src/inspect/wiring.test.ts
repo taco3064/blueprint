@@ -67,7 +67,7 @@ const run = (
     load: loader(resolved, throwOn),
   });
 
-describe('expectedStructural', () => {
+describe('expectedStructural · the shape two prose sites describe', () => {
   it('is the authority two prose sites describe, so its shape is a tripwire', () => {
     // What this check compares is stated in two places that are not code: `SCOPE` in
     // wiring.ts (printed on the ✓) and the per-layer block of `blueprint rules`. They

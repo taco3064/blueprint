@@ -129,12 +129,6 @@ export interface GateStatus {
 }
 
 /**
- * One string for both output shapes, so the text form and `--json` cannot drift
- * into disagreeing about the same fold. It names the fields rather than saying
- * "these", because the text reader learns from it which of the two `--json`
- * carries is the one to take.
- */
-/**
  * What doctor's survival check does NOT compare, in the one string both shapes carry.
  *
  * The text block used to close with "Everything below is what doctor compares" while
@@ -155,6 +149,12 @@ const PACKAGES_NOT_COMPARED
     + 'package ban stays green there, so verify this column yourself with '
     + '`npx eslint --print-config <a file in the layer>`';
 
+/**
+ * One string for both output shapes, so the text form and `--json` cannot drift
+ * into disagreeing about the same fold. It names the fields rather than saying
+ * "these", because the text reader learns from it which of the two `--json`
+ * carries is the one to take.
+ */
 const SELF_ONLY_MESSAGE_NOTE
   = 'copy `jsLiteral`, not `selectors`: pasted into JS source a rendered selector '
     + 'loses its \\u002F escape and the regex ends at the bare /, silently. The ban '
