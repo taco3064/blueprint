@@ -47,6 +47,13 @@ reported 87 survivors and the second 59; of those 59, **43 turned out to be
 untested rather than equivalent**, and three were product defects. Reach the
 verdict last.
 
+**The ledger does the first pass, so start there rather than at the report.** The
+third sweep — the first dispatched, ~8k mutants in 17m04s on a runner against
+5m34s on ten local cores — reported **35 survivors, and the `undecidable` grep
+already accounted for 24 of them**. Reading the report top to bottom would have
+re-litigated two thirds of a list that was answered. Match the report against the
+grep first; what is left is the work.
+
 - **The full sweep is the authority; a per-file run flatters.** Same suite, same
   config, and two mutants that read as killed under `--mutate <one file>` read as
   survived in a whole run. Measure one file to work on it, measure the tree to
