@@ -33,6 +33,14 @@ went green on a defect it could not see:
   never been observed. A separate leg builds on the current Node and then runs the built
   artifact on `18.18.0` exactly — the declared `engines` floor, executed rather than
   claimed
+- **The ESLint major you actually resolve to** — `init` installs `eslint` unpinned, so
+  you land on the newest major every carrier's peer range admits, which is newer than
+  the one this repo develops against. A separate leg swaps that major in and runs the
+  whole suite on it, so the version the tool hands you is one it has executed rather
+  than one it merely permits. It deliberately leaves out this repo's own
+  `npm run lint`: whether *this* project's config is clean on a new major is a
+  different question from whether the config blueprint *emits* still loads there and
+  still holds its rules, and only the second one is a promise to you
 - **`npm run dist:verify`** — the layer in-process tests cannot reach: it executes
   `dist/bin.js`, resolves the `bin` field and imports the package entry. Its reason for
   existing is the 0.1.1 bug — npm installs the bin as a symlink, and a missing
