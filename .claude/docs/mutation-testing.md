@@ -54,6 +54,12 @@ already accounted for 24 of them**. Reading the report top to bottom would have
 re-litigated two thirds of a list that was answered. Match the report against the
 grep first; what is left is the work.
 
+Converging those 11 took the fourth sweep to **24 survivors, every one of them
+proven at the site** (99.35% total / 99.51% covered). That is the floor to expect:
+a higher number means new code arrived without assertions, not that something here
+regressed. None of the 11 turned out to be equivalent, so the convergence touched
+test files only.
+
 - **The full sweep is the authority; a per-file run flatters.** Same suite, same
   config, and two mutants that read as killed under `--mutate <one file>` read as
   survived in a whole run. Measure one file to work on it, measure the tree to

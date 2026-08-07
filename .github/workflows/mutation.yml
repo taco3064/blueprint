@@ -124,9 +124,9 @@ jobs:
                 "",
               ] : []),
               "A survivor is a question, not a defect: the line ran, and nothing asserted",
-              "its result. Judge each one before writing a test, and read the",
-              "`undecidable` ledger first — it accounted for 24 of the 35 in the last",
-              "whole-tree sweep. See `.claude/docs/mutation-testing.md`.",
+              "its result. Judge each one before writing a test — and match this list",
+              "against `grep -rni undecidable src/ --include=*.ts` first, which is where",
+              "most of them are already answered. See `.claude/docs/mutation-testing.md`.",
               "",
             ];
 
