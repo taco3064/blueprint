@@ -40,7 +40,7 @@ export function emitHandbook(blueprint: Blueprint): string {
     renderComponentShape(blueprint.componentShape),
     renderPrinciples(principles),
     renderPlaybook(blueprint.playbook),
-    renderRules(rules),
+    renderRules(rules, { framework: blueprint.framework, testFiles: architecture.testFiles }),
     renderNaming(architecture.naming),
   ].filter(Boolean);
 

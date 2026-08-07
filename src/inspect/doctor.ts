@@ -415,7 +415,13 @@ function summarize(checks: DoctorCheck[]): {
       ? `⊘ Adoption unverified — ${passed} of ${checks.length} checks passed, `
       + `${skipped} could not run (⊘ above). Nothing failed, and nothing here `
       + 'proves what those checks cover.'
-      : `✗ Adoption incomplete — ${failed} of ${checks.length} check(s) failed.`;
+      // A skip riding along under a failure was invisible: the red arm counted only
+      // failures, so `2 of 7 failed` was the whole banner while the JSON said
+      // `skipped: 1`. #129's lesson is that an agent reads the banner and stops — and
+      // fixing the failures would then leave it at a green it had never been told was
+      // partly unproven.
+      : `✗ Adoption incomplete — ${failed} of ${checks.length} check(s) failed`
+        + `${skipped ? `, and ${skipped} could not run (⊘ above) — fixing the ✗ leaves those still unproven` : ''}.`;
 
   return { verdict: verdictOf(checks), passed, failed, skipped, banner };
 }

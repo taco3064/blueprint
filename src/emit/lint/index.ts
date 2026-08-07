@@ -8,6 +8,7 @@ export {
   PLUGIN_GATES,
   resolveLayerFiles,
   resolveTestFiles,
+  unavailableFromBlueprint,
 } from './patterns';
 export type { GateSpec } from './patterns';
 export type { EmitLintOptions, LintConfig, LintConfigEntry } from './types';

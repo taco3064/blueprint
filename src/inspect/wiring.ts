@@ -353,8 +353,12 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
   const LABEL = label(merged);
 
   if (!wired) {
+    // Neither word fits this arm: nothing was merged, and there is no generated config
+    // either — `merged` is `ownedEslintConfig === undefined`, which a repo with no eslint
+    // config at all satisfies. So the one label that stays true says only "the eslint
+    // config", or this path reproduces #148's confusion by the other route.
     return {
-      label: `${LABEL} (skipped — eslint not wired)`,
+      label: 'emitted rules survive the eslint config (skipped — eslint not wired)',
       ok: true,
       skipped: 'eslint not wired — the wiring check above is the red for that',
     };

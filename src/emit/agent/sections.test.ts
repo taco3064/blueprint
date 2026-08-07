@@ -298,6 +298,38 @@ describe('renderCompactContract', () => {
     expect(out).not.toMatch(/`cycles`[^.;]*fail the project's lint run/);
   });
 
+  it('never lists a gate the lint run cannot fail on', () => {
+    // "these fail the project's lint run" is a sentence about the reader's own repo, and
+    // it was false for a gate this blueprint cannot emit: `deepWatch` declared `error`
+    // on React, `testFilename` declared beside `testFiles: []`. The contract is the file
+    // an agent reads with nothing beside it (field run #150).
+    const out = renderCompactContract({
+      ...blueprint({ framework: 'react' }),
+      architecture: { ...arch(), testFiles: [] },
+      rules: {
+        deepWatch: 'error',
+        testFilename: 'error',
+        maxLines: { tier: 'error' as const, value: 300 },
+      },
+    });
+
+    expect(out).not.toContain('deepWatch');
+    expect(out).not.toContain('testFilename');
+    // The one that does emit still holds the sentence up — an empty list would drop the
+    // clause instead, and then nothing would be asserting the split at all.
+    expect(out).toContain('`maxLines`');
+    expect(out).toContain('fail the project\'s lint run');
+
+    // Same gates, the stack each was written for: both back on the list.
+    const vue = renderCompactContract({
+      ...blueprint(),
+      rules: { deepWatch: 'error', testFilename: 'error' },
+    });
+
+    expect(vue).toContain('deepWatch');
+    expect(vue).toContain('testFilename');
+  });
+
   it('drops the inspect clause entirely when no such gate is declared', () => {
     // A clause about an empty set reads as a gap where there is none.
     const lintOnly = renderCompactContract({

@@ -169,6 +169,22 @@ describe('runSurvey', () => {
     expect(result.ownableImports.map((entry) => entry.package)).not.toContain('zod');
   });
 
+  it('leaves the src root out of the ownership candidates', () => {
+    // `(src root)` is not a layer — this survey says as much two sections up — so a
+    // specifier concentrated there is evidence for a clause `owns` cannot express.
+    write('package.json', JSON.stringify({ name: 'demo', dependencies: { react: '^18' } }));
+    write('src/main.tsx', 'import { StrictMode } from "react";\nexport const x = StrictMode;\n');
+    write('src/hooks/useUser.ts', 'import { useMemo } from "react";\nexport const u = useMemo;\n');
+    write('src/components/Card.tsx', 'import { useMemo } from "react";\nexport const C = useMemo;\n');
+
+    const result = runSurvey(root, { log: silent });
+
+    expect(result.ownableImports).toEqual([]);
+    // …and the package row still carries the root, unchanged: that section reports
+    // where a package is used, and wiring is a real answer to that.
+    expect(result.packageUsage[0].folders).toContain('(src root)');
+  });
+
   it('matches the test patterns against the filename, not anywhere in the path', () => {
     write('package.json', JSON.stringify({ name: 'edges' }));
 
@@ -431,7 +447,7 @@ describe('renderSurvey', () => {
     expect(render(16)).toContain('… 1 more (use --json for the full list)');
   });
 
-  it('says a zero-source folder is present, not empty', () => {
+  it('says a zero-source folder is present, not empty — once, not per row', () => {
     // The row exists because the directory does, so `0` cannot mean "no folder" — and
     // it does not mean "nothing in it" either. An adopter read `styles 0 files` as an
     // empty folder, ran `ls`, and found a directory of `.css` (field run #150).
@@ -443,6 +459,8 @@ describe('renderSurvey', () => {
       rootFiles: [],
       folders: [
         { folder: 'styles', files: 0, directFiles: 0, childFolders: 0, indexedChildren: 0, maxDepth: 0 },
+        { folder: 'assets', files: 0, directFiles: 0, childFolders: 0, indexedChildren: 0, maxDepth: 0 },
+        { folder: 'components', files: 4, directFiles: 4, childFolders: 0, indexedChildren: 0, maxDepth: 1 },
       ],
       edges: [],
       selfAliasImports: {},
@@ -450,12 +468,19 @@ describe('renderSurvey', () => {
       packageUsage: [],
       ownableImports: [],
       unresolved: [],
-      totalFiles: 0,
+      totalFiles: 4,
     });
 
     expect(output).toContain('styles              0 source files');
-    expect(output).toContain('the folder is here and holds no SOURCE file');
+    expect(output).toContain('folder is HERE and holds none');
     expect(output).toContain('this survey does not read');
+
+    // Both sourceless folders on one line, and the folder that has files stays off it.
+    // Repeating a 3-line note per folder buries the numbers it sits beside — the same
+    // reason the row does not carry it.
+    expect(output).toContain('styles, assets: 0 source files means the');
+    expect(output.match(/folder is HERE and holds none/g)).toHaveLength(1);
+    expect(output).not.toContain('components: 0 source files');
   });
 
   it('caps the specifier list on the same rule as the package list', () => {

@@ -33,6 +33,10 @@ npx @kekkai/blueprint survey --json   # for tooling / agents
   direction, and the counter-edges that are debt (the matrix counts test files;
   `inspect` excludes them, so its numbers run lower)
 - **package-usage concentration** — `owns` candidates
+- **named imports concentrated in one folder**, from a package spread across several
+  — the only evidence a specifier-level `owns: [{ package, imports: […] }]` can be
+  checked against (read from brace clauses, so a member reached through
+  `import * as` is not counted)
 - test-convention hits — what belongs in `testFiles`, not in `layers`
 
 ## The flow

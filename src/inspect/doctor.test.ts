@@ -122,6 +122,13 @@ describe('runDoctor', () => {
     expect(detail).toContain('CLAUDE.blueprint.md');
     expect(output).toContain('Adoption incomplete');
 
+    // This fixture also SKIPS the survival check (no eslint resolvable here), and the
+    // red arm used to count only failures — so the banner said "1 of 7 failed" while
+    // the JSON said `skipped: 1`. An agent reads the banner and stops (#129): fixing
+    // the ✗ would have handed it a green it was never told was partly unproven.
+    expect(output).toContain('could not run (⊘ above)');
+    expect(output).toContain('fixing the ✗ leaves those still unproven');
+
     // Only a reference is on disk, so its clause is the whole detail. The
     // authoring and stale-contract slots sit after it, and a doctor claiming a
     // live playbook or a stale contract sends the reader hunting for neither.
