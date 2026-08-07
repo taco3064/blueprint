@@ -275,6 +275,10 @@ export async function runDoctor(
     blueprint,
     scanResult,
     wired: eslintWired,
+    // `ownedEslintConfig` is init's own generated file — nothing was merged into it,
+    // so the check must not call it a merge. `wiredEslintConfig` is the other arm of
+    // `eslintWired` above: a hand-maintained config its owner wired the package into.
+    merged: state.ownedEslintConfig === undefined,
     hasTypescript: state.hasTypescript,
     load: options.loadModule ?? loadProjectModule,
   });
@@ -377,12 +381,53 @@ function verdictOf(checks: DoctorCheck[]): DoctorVerdict {
   return checks.some((check) => check.skipped) ? 'unverified' : 'complete';
 }
 
+/**
+ * The banner sentence and the counts behind it — one passage, both channels.
+ *
+ * It used to live inside the text branch, so the JSON carried `ok` and `verdict`
+ * and not this: only a reader was told "6 of 7 passed, 1 could not run". A machine
+ * that read `ok` and stopped saw a plain green, and an agent said so — the field's
+ * suggested remedies were `ok: false` or an explicit skipped aggregate (field run
+ * #149). The aggregate is the right half. Flipping `ok` is not: `ok` means nothing
+ * FAILED, which is exactly what this command's exit code means, so a consumer
+ * following it would start failing on a skip — and a skip is deliberately not a
+ * failure, because the state that produces one (an eslint config that will not
+ * resolve on a machine with no registry) is a red nobody can appease.
+ *
+ * A skip is still not a pass. It rides on `ok: true` so nothing goes red that
+ * cannot be appeased, and the banner used to fold it into "all N checks passed" —
+ * the exact reading that let an agent report the lint wiring as verified (#129).
+ */
+function summarize(checks: DoctorCheck[]): {
+  verdict: DoctorVerdict;
+  passed: number;
+  failed: number;
+  skipped: number;
+  banner: string;
+} {
+  const failed = checks.filter((check) => !check.ok).length;
+  const skipped = checks.filter((check) => check.skipped).length;
+  const passed = checks.length - failed - skipped;
+
+  const banner = failed === 0 && !skipped
+    ? `✓ Adoption complete — all ${checks.length} checks passed.`
+    : failed === 0
+      ? `⊘ Adoption unverified — ${passed} of ${checks.length} checks passed, `
+      + `${skipped} could not run (⊘ above). Nothing failed, and nothing here `
+      + 'proves what those checks cover.'
+      : `✗ Adoption incomplete — ${failed} of ${checks.length} check(s) failed.`;
+
+  return { verdict: verdictOf(checks), passed, failed, skipped, banner };
+}
+
 function emit(
   log: (m: string) => void,
   checks: DoctorCheck[],
   note: string | undefined,
   json?: boolean,
 ): void {
+  const { verdict, passed, failed, skipped, banner } = summarize(checks);
+
   if (json) {
     // The note rides on both channels or the two disagree about the same run, which
     // is its own defect — automation reading JSON must not learn less than a reader.
@@ -390,22 +435,24 @@ function emit(
     // on `ok: true` by design (exit 0 follows it). So the JSON said `"ok": true` while
     // the text said `⊘ Adoption unverified` about the same run, and an agent nearly
     // took it as a CI-usable green before cross-checking with the plain output and its
-    // own lint (field run #141). The banner's three states are now one field.
+    // own lint (field run #141). `verdict` closed that; `summary` and `counts` close
+    // what #141's fix left — the enum was a word where the text had a sentence and a
+    // ratio, so a reader of the JSON still learned less than a reader of the screen.
     log(JSON.stringify(
-      { ok: checks.every((check) => check.ok), verdict: verdictOf(checks), checks, note },
+      {
+        ok: checks.every((check) => check.ok),
+        verdict,
+        summary: banner,
+        counts: { total: checks.length, passed, failed, skipped },
+        checks,
+        note,
+      },
       null,
       2,
     ));
 
     return;
   }
-
-  const failed = checks.filter((check) => !check.ok).length;
-  // A skip is not a pass. It rides on `ok: true` so nothing goes red that cannot be
-  // appeased, and the banner used to fold it into "all N checks passed" — the exact
-  // reading that let an agent report the lint wiring as verified (field run #129).
-  const skipped = checks.filter((check) => check.skipped);
-  const passed = checks.length - failed - skipped.length;
 
   log(
     [
@@ -417,13 +464,7 @@ function emit(
         return `  ${mark} ${check.label}${under ? `\n      ${under}` : ''}`;
       }),
       '',
-      failed === 0 && !skipped.length
-        ? `✓ Adoption complete — all ${checks.length} checks passed.`
-        : failed === 0
-          ? `⊘ Adoption unverified — ${passed} of ${checks.length} checks passed, `
-          + `${skipped.length} could not run (⊘ above). Nothing failed, and nothing here `
-          + 'proves what those checks cover.'
-          : `✗ Adoption incomplete — ${failed} of ${checks.length} check(s) failed.`,
+      banner,
       // Under the banner rather than as an eighth check: it cannot fail (init never
       // takes version control into its own hands), and a check that is always green
       // would push the count every conformance fixture states.

@@ -143,6 +143,32 @@ describe('runSurvey', () => {
     ]);
   });
 
+  it('names the specifiers a package-granular row cannot support an owns clause with', () => {
+    write('package.json', JSON.stringify({ name: 'demo', dependencies: { react: '^18', zod: '^3' } }));
+
+    // The reported case: `owns: [{ package: 'react', imports: ['createContext'] }]` is a
+    // clause the package row cannot verify — react reads as "three folders use it"
+    // whichever specifier the clause names. An agent invented `grep` for it and said so,
+    // over names `scan` was already collecting (field run #148).
+    write('src/contexts/User.tsx', 'import { createContext } from "react";');
+    write('src/hooks/useUser.ts', 'import { useContext, useMemo } from "react";');
+    write('src/components/Card.tsx', 'import { useMemo } from "react";\nimport z from "zod";');
+
+    const result = runSurvey(root, { log: silent });
+
+    expect(result.ownableImports).toEqual([
+      { package: 'react', name: 'createContext', folder: 'contexts' },
+      { package: 'react', name: 'useContext', folder: 'hooks' },
+    ]);
+
+    // `useMemo` spans two folders — on the list it would read as ownable, which is the
+    // one wrong answer this evidence can give. `zod`'s default import is in one folder
+    // and so is the package, so the package row above already carries it: a second row
+    // at specifier granularity would be the same fact twice.
+    expect(result.ownableImports.map((entry) => entry.name)).not.toContain('useMemo');
+    expect(result.ownableImports.map((entry) => entry.package)).not.toContain('zod');
+  });
+
   it('matches the test patterns against the filename, not anywhere in the path', () => {
     write('package.json', JSON.stringify({ name: 'edges' }));
 
@@ -311,6 +337,7 @@ describe('renderSurvey', () => {
       selfAliasImports: {},
       testEvidence: [],
       packageUsage: [],
+      ownableImports: [],
       unresolved: [],
       totalFiles: 0,
     });
@@ -347,6 +374,7 @@ describe('renderSurvey', () => {
       selfAliasImports: { services: 2, views: 9 },
       testEvidence: [{ pattern: '**/*.test.*', files: 4 }],
       packageUsage: [{ package: 'axios', folders: ['services'] }],
+      ownableImports: [{ package: 'react', name: 'createContext', folder: 'contexts' }],
       unresolved: [],
       totalFiles: 12,
     });
@@ -387,6 +415,7 @@ describe('renderSurvey', () => {
           package: `pkg-${index}`,
           folders: ['services'],
         })),
+        ownableImports: [],
         unresolved: [],
         totalFiles: 0,
       });
@@ -394,6 +423,37 @@ describe('renderSurvey', () => {
     // Exactly at the cap every package is already on the list, so the only
     // overflow line available to print would claim "… 0 more".
     expect(render(15)).toContain('pkg-14');
+    expect(render(15)).not.toContain('more (use --json');
+
+    expect(render(16)).toContain('… 1 more (use --json for the full list)');
+  });
+
+  it('caps the specifier list on the same rule as the package list', () => {
+    // Its own section, its own cap, its own overflow line — sharing the wording
+    // with the packages above does not make it the same list, and a react app
+    // reaches sixteen concentrated specifiers long before sixteen packages.
+    const render = (count: number) =>
+      renderSurvey({
+        framework: null,
+        typescript: false,
+        packageManager: 'npm',
+        aliases: {},
+        rootFiles: [],
+        folders: [],
+        edges: [],
+        selfAliasImports: {},
+        testEvidence: [],
+        packageUsage: [],
+        ownableImports: Array.from({ length: count }, (_, index) => ({
+          package: 'react',
+          name: `use-${index}`,
+          folder: 'hooks',
+        })),
+        unresolved: [],
+        totalFiles: 0,
+      });
+
+    expect(render(15)).toContain('react → use-14 — hooks only');
     expect(render(15)).not.toContain('more (use --json');
 
     expect(render(16)).toContain('… 1 more (use --json for the full list)');

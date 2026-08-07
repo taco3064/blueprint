@@ -51,12 +51,18 @@ function loader(
   };
 }
 
-const run = (scanResult: ScanResult, resolved: unknown, throwOn?: 'load' | 'calculate') =>
+const run = (
+  scanResult: ScanResult,
+  resolved: unknown,
+  throwOn?: 'load' | 'calculate',
+  merged = true,
+) =>
   wiringCheck({
     root: '/repo',
     blueprint,
     scanResult,
     wired: true,
+    merged,
     hasTypescript: true,
     load: loader(resolved, throwOn),
   });
@@ -214,6 +220,7 @@ describe('wiringCheck', () => {
       blueprint,
       scanResult: scanOf('src/views/Home/index.vue'),
       wired: false,
+      merged: true,
       hasTypescript: true,
       load: loader({}),
     });
@@ -230,6 +237,45 @@ describe('wiringCheck', () => {
 
     expect(broken.ok).toBe(true);
     expect(broken.label).toContain('could not resolve the merged config');
+
+    // And WHY, in the skip itself. "would not resolve" is the same swallow as
+    // `impact`'s carrier loader: three runs went to `npm run lint` to learn which
+    // package was missing, and doctor is the channel they reach after interrupting
+    // the install that would have provided it (field runs #145, #148, #149).
+    expect(unloadable.skipped).toContain('unresolvable');
+    expect(broken.skipped).toContain('broken config');
+    expect(broken.skipped).toContain('missing from `package.json`');
+  });
+
+  it('calls the config generated when nothing was merged into it', async () => {
+    // The label was hardcoded "merged", and on the path where init writes the live
+    // config itself there is no merge — an agent read the word against its own repo
+    // and had to go verify the check was pointed at the right file (field run #148).
+    const generated = await run(scanOf('src/views/Home/index.vue'), {}, undefined, false);
+
+    expect(generated.label).toContain('emitted rules survive the generated eslint config');
+    expect(generated.label).not.toContain('merged eslint config');
+
+    // The skip says it too, or the two labels of one check disagree about the repo.
+    const unresolvable = await run(scanOf('src/views/Home/index.vue'), {}, 'load', false);
+
+    expect(unresolvable.label).toContain('could not resolve the generated config');
+  });
+
+  it('quotes a non-Error rejection too', async () => {
+    // `error.message` on a thrown string is undefined, and "it would not resolve —
+    // undefined —" is the same swallow with extra steps.
+    const check = await wiringCheck({
+      root: '/repo',
+      blueprint,
+      scanResult: scanOf('src/views/Home/index.vue'),
+      wired: true,
+      merged: true,
+      hasTypescript: true,
+      load: async () => Promise.reject('EACCES on the eslint cache'),
+    });
+
+    expect(check.skipped).toContain('EACCES on the eslint cache');
   });
 
   it('synthesizes probes for empty layers — the empty repo is not exempt', async () => {
@@ -277,6 +323,7 @@ describe('wiringCheck', () => {
       blueprint: odd,
       scanResult: scanOf(),
       wired: true,
+      merged: true,
       hasTypescript: true,
       load: loader({}),
     });
@@ -296,6 +343,7 @@ describe('wiringCheck', () => {
       blueprint: testShaped,
       scanResult: scanOf(),
       wired: true,
+      merged: true,
       hasTypescript: true,
       load: loader({}),
     });
@@ -313,6 +361,7 @@ describe('wiringCheck', () => {
       blueprint: ignoreViews,
       scanResult: scanOf(),
       wired: true,
+      merged: true,
       hasTypescript: true,
       load: loader({ rules: {} }),
     });
@@ -386,6 +435,7 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
       blueprint: gated,
       scanResult: scanOf('src/views/Home/index.vue'),
       wired: true,
+      merged: true,
       hasTypescript,
       load: loader({ rules }),
     });
@@ -448,6 +498,7 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
       blueprint,
       scanResult: scanOf('src/views/Home/index.vue'),
       wired: true,
+      merged: true,
       hasTypescript: true,
       load: loader({ rules: structural() }),
     });
@@ -497,6 +548,7 @@ describe('wiringCheck · selfOnly with several importers (field issue #51)', () 
       blueprint: twoImporters,
       scanResult: scanOf('src/views/Home/index.vue', 'src/composables/useThing/index.ts'),
       wired: true,
+      merged: true,
       hasTypescript: true,
       // The combined entry covers views and keeps its selectors; composables
       // resolves to a config where the emitted entry was replaced away.
@@ -599,6 +651,7 @@ describe('wiringCheck · which path each layer gets probed at', () => {
       blueprint: { ...blueprint, architecture: { ...blueprint.architecture, ...over } },
       scanResult,
       wired: true,
+      merged: true,
       hasTypescript: true,
       // Normalised: `calculateConfigForFile` receives a joined absolute path, so
       // on Windows it arrives with backslashes while every glob and module key in
