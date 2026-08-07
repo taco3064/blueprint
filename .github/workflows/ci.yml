@@ -107,3 +107,56 @@ jobs:
       # is the floor's own node and nothing else is in the way.
       - name: Run the artifact on it
         run: node scripts/dist-verify.mjs
+
+  # `init` installs `eslint` unpinned, so an adopter resolves the newest major in
+  # `SUPPORTED_ESLINT_MAJORS` — a field run measured `^10.8.0` landing in the
+  # project's `package.json`. This repo's own devDependency is `^9.39.2`, so
+  # before this leg every suite and every job above ran 9, and the one version
+  # the tool actually hands people was the one version never executed. Same
+  # "declared but never measured" shape as the engines floor above, which is why
+  # it sits beside it.
+  #
+  # `npm run lint` is deliberately absent. That asks whether THIS repo lints
+  # cleanly under 10 — a different question, and red for reasons that are not
+  # blueprint's: `@eslint/js` is `^9`, `@stylistic/eslint-plugin` is `^5`, and
+  # this repo's own `eslint.config.ts` behaves differently under 10. What needs
+  # verifying is that the config blueprint EMITS loads under 10 and its rules
+  # survive there, and that is `npm test`: the conformance suite and `impact`
+  # both resolve a real config with a real ESLint. `build` and `dist:verify`
+  # never read eslint at all, so the legs above already cover them for 10.
+  eslint-10:
+    name: eslint 10 (the major init resolves to)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # `--no-save` because what this leg swaps is the resolved tree, not the
+      # declared dependency: development stays on 9, and `package.json` staying
+      # put is what keeps the `npm ci` above reproducible. No `--legacy-peer-deps`
+      # is needed — every carrier's peer range admits 10, which `detect.test.ts`
+      # asserts off the installed manifests rather than from a list written here.
+      - name: Swap in the major an adopter gets
+        run: npm i -D eslint@10 --no-save
+
+      # A leg that silently ran 9 would be worse than no leg: it would report as
+      # coverage of a version nothing had executed, which is the failure this job
+      # exists to end. So the swap is asserted rather than assumed.
+      # Single-quoted for the shell on purpose: a double-quoted `node -e` body
+      # hands its backticks and `${}` to the shell instead of to node.
+      - name: Confirm the swap took
+        run: |
+          node -e 'const v = require("eslint/package.json").version; if (!v.startsWith("10.")) { console.error("expected eslint 10, resolved " + v); process.exit(1); } console.log("eslint " + v);'
+
+      - name: Run tests
+        run: npm run test
