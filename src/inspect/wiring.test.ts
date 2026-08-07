@@ -67,6 +67,23 @@ const run = (
     load: loader(resolved, throwOn),
   });
 
+describe('expectedStructural', () => {
+  it('is the authority two prose sites describe, so its shape is a tripwire', () => {
+    // What this check compares is stated in two places that are not code: `SCOPE` in
+    // wiring.ts (printed on the ✓) and the per-layer block of `blueprint rules`. They
+    // disagreed about package ownership for several releases — `rules` claimed
+    // "everything below is what doctor compares" over a block that prints a `packages`
+    // column this function has never returned (field run #159). The conformance case
+    // pins the two texts to each other; this pins them to the thing that decides.
+    //
+    // Adding a key here means doctor started comparing something new: update `SCOPE`,
+    // update `PACKAGES_NOT_COMPARED` and the `rules` block that prints it, then this
+    // list. Removing one means it stopped. Either way both texts move with it.
+    expect(Object.keys(expectedStructural(blueprint, 'views')))
+      .toEqual(['groups', 'selectors', 'globals']);
+  });
+});
+
 describe('wiringCheck', () => {
   it('passes when every layer\'s structural artifacts survive the merge', async () => {
     // Two layers hold files, two probe synthetically — four probes against

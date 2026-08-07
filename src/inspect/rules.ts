@@ -60,6 +60,13 @@ export interface LayerBans {
   forbidden: string[];
   /** Owned packages banned here (named imports in parentheses). */
   packages: string[];
+  /**
+   * Why this column needs verifying by hand — present only where `packages` is, since a
+   * layer banning nothing has nothing to check. Beside the field it is about rather than
+   * once at the top: a consumer reading `bans[i].packages` has no reason to look at a
+   * sibling key, which is how the text output and `--json` came to disagree.
+   */
+  packagesNote?: string;
   /** Owned globals banned here. */
   globals: string[];
   /**
@@ -127,6 +134,27 @@ export interface GateStatus {
  * "these", because the text reader learns from it which of the two `--json`
  * carries is the one to take.
  */
+/**
+ * What doctor's survival check does NOT compare, in the one string both shapes carry.
+ *
+ * The text block used to close with "Everything below is what doctor compares" while
+ * the block below it prints a `packages:` column and doctor's own ✓ says
+ * package-ownership entries are not compared (field run #159). Naming the columns fixed
+ * the text and left `--json` a bare `string[]` — which is exactly #117's shape: the text
+ * gets the caveat, the JSON does not, and the same doubt returns from the other channel a
+ * few releases later. The playbook sends a folding agent to `rules --json` in five
+ * places, so that channel is not the secondary one.
+ *
+ * Stated as a fact about the check rather than as "doctor says so on that check": four of
+ * that check's five outcomes print no scope at all (not wired, no probe derivable, config
+ * unresolvable, and the red), and `rules` prints this block whenever a config exists — so
+ * pointing at a line of another command's output points at nothing in most repos.
+ */
+const PACKAGES_NOT_COMPARED
+  = 'doctor\'s survival check does not compare package ownership — a merge that drops a '
+    + 'package ban stays green there, so verify this column yourself with '
+    + '`npx eslint --print-config <a file in the layer>`';
+
 const SELF_ONLY_MESSAGE_NOTE
   = 'copy `jsLiteral`, not `selectors`: pasted into JS source a rendered selector '
     + 'loses its \\u002F escape and the regex ends at the bare /, silently. The ban '
@@ -196,30 +224,35 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
   const packageRules = derivePackageRules(architecture.layers);
   const globalRules = deriveGlobalRules(architecture.layers);
 
-  return architecture.layers.map((layer) => ({
-    layer: layer.name,
-    forbidden: getForbiddenLayers(architecture, layer.name),
-    packages: packageRules
+  return architecture.layers.map((layer) => {
+    const packages = packageRules
       .filter((rule) => !rule.allowedIn.includes(layer.name))
-      .map((rule) => (rule.imports?.length ? `${rule.package} (${rule.imports.join(', ')})` : rule.package)),
-    globals: globalRules
-      .filter((rule) => !rule.allowedIn.includes(layer.name))
-      .map((rule) => rule.global),
-    selfOnly: getSelfOnlyTargets(architecture, layer.name).map((target) => {
-      const selectors = aliases.map((alias) => selfOnlyReexportSelector(alias, target));
+      .map((rule) => (rule.imports?.length ? `${rule.package} (${rule.imports.join(', ')})` : rule.package));
 
-      return {
-        target,
-        selectors,
-        // JSON's string escaping IS JavaScript's here, so stringify is the paste
-        // form rather than a hand-rolled doubling of backslashes — and it brings
-        // the quotes, which is what makes it obvious it is source, not a value.
-        jsLiteral: selectors.map((selector) => JSON.stringify(selector)),
-        note: SELF_ONLY_MESSAGE_NOTE,
-      };
-    }),
-    testExemptions: resolveTestFiles(architecture.testFiles),
-  }));
+    return {
+      layer: layer.name,
+      forbidden: getForbiddenLayers(architecture, layer.name),
+      packages,
+      ...(packages.length ? { packagesNote: PACKAGES_NOT_COMPARED } : {}),
+      globals: globalRules
+        .filter((rule) => !rule.allowedIn.includes(layer.name))
+        .map((rule) => rule.global),
+      selfOnly: getSelfOnlyTargets(architecture, layer.name).map((target) => {
+        const selectors = aliases.map((alias) => selfOnlyReexportSelector(alias, target));
+
+        return {
+          target,
+          selectors,
+          // JSON's string escaping IS JavaScript's here, so stringify is the paste
+          // form rather than a hand-rolled doubling of backslashes — and it brings
+          // the quotes, which is what makes it obvious it is source, not a value.
+          jsLiteral: selectors.map((selector) => JSON.stringify(selector)),
+          note: SELF_ONLY_MESSAGE_NOTE,
+        };
+      }),
+      testExemptions: resolveTestFiles(architecture.testFiles),
+    };
+  });
 }
 
 /**
@@ -383,9 +416,7 @@ export function renderRules(
           'and it compares TEXTUALLY: a pattern group reordered or a selector respelled to',
           'an equivalent (`\\/` for `/`) reads as missing even though eslint would still',
           'enforce it. Copy, do not retype.',
-          '`packages` is NOT compared — doctor says so on that check — so a merge that drops',
-          'a package ban stays green there. Verify that column yourself with',
-          '`npx eslint --print-config <a file in the layer>`.',
+          `\`packages\` is NOT compared: ${PACKAGES_NOT_COMPARED}.`,
           ...bans.flatMap((entry) => [
             `  ${entry.layer.padEnd(14)} no-import: ${entry.forbidden.join(', ') || '(none)'}`
             + ` · packages: ${entry.packages.join(', ') || '(none)'}`

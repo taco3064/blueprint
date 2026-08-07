@@ -249,6 +249,12 @@ describe('runRules', () => {
       layer: 'components',
       forbidden: [],
       packages: ['react (useContext)', 'axios'],
+      // Beside the column it is about, not once at the top: the playbook sends a
+      // folding agent to `rules --json` in five places, and a consumer reading
+      // `bans[i].packages` has no reason to look at a sibling key. The text output
+      // carrying this caveat while `--json` did not is #117's exact shape, which came
+      // back from the other channel three releases later (field run #159).
+      packagesNote: expect.stringContaining('does not compare package ownership'),
       globals: ['fetch'],
       selfOnly: [],
       // Travels with the selectors on purpose: an entry rebuilt from selector
@@ -262,6 +268,19 @@ describe('runRules', () => {
       packages: ['react (useContext)'],
       globals: [],
     });
+
+    // Absent where the column is: a layer banning no package has nothing to verify, and
+    // a caveat about an empty list sends the reader looking for a column that is not there.
+    const owner = await runRules(repo({
+      ...blueprint,
+      architecture: {
+        ...blueprint.architecture,
+        layers: [{ name: 'components', does: 'UI' }],
+      },
+    }), { log: () => {} });
+
+    expect(owner.bans[0].packages).toEqual([]);
+    expect(owner.bans[0]).not.toHaveProperty('packagesNote');
 
     const output = lines.join('\n');
 

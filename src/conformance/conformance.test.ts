@@ -1080,6 +1080,28 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
     expect(rules.output).not.toContain('Everything below is what doctor compares');
     expect(flattenProse(rules.output)).toContain('`packages` is NOT compared');
     expect(flattenProse(rules.output)).toContain('--print-config');
+
+    // And `--json` carries it beside the column, which is #117's shape: that fix put the
+    // caveat in the text and left the JSON bare, and the same doubt came back three
+    // releases later through the channel the playbook sends a folding agent to.
+    const json = await cli(dir, ['rules', '--json']);
+    const bans = JSON.parse(json.output).bans as { packages: string[]; packagesNote?: string }[];
+    const owningBans = bans.filter((ban) => ban.packages.length);
+
+    expect(owningBans.length).toBeGreaterThan(0);
+
+    for (const ban of owningBans) {
+      expect(ban.packagesNote).toContain('does not compare package ownership');
+      expect(ban.packagesNote).toContain('--print-config');
+    }
+
+    // One string, two shapes — the text and the JSON cannot drift apart again.
+    expect(flattenProse(rules.output)).toContain(owningBans[0].packagesNote);
+
+    // Absent where there is nothing to verify.
+    for (const ban of bans.filter((entry) => !entry.packages.length)) {
+      expect(ban).not.toHaveProperty('packagesNote');
+    }
   });
 
   it('says the declaratory selfOnly entry still collides today', async () => {
