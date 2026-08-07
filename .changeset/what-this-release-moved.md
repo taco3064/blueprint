@@ -2,42 +2,36 @@
 "@kekkai/blueprint": patch
 ---
 
-**What this release moved, and what it did not.** Seventeen entries below are fixes to output an
-adopting agent reads, so it is worth saying plainly which axis they act on — and which one they
-leave alone.
+**What this release moved, and what it did not.** Worth stating plainly, because most of the
+entries below act on one axis and it is not the obvious one.
 
-**Adoption completion did not improve, because it was already at ceiling.** Across the eighteen
-live adoption scenarios that produced these entries, `doctor` finished green in eighteen. It was
-green before them too. Nothing here makes adoption more likely to succeed; the tool was not
-failing.
+**Adoption did not get more likely to succeed, because it was already succeeding.** Every
+entry here came out of live adoption runs — a real agent CLI taking a real repo through
+`init` → `inspect` → `impact` → `doctor` — and across every one of those runs `doctor`
+finished green. It finished green before these fixes too. Nothing here rescues a failing
+adoption.
 
-**The largest stability change in this release is not in this changelog.** Mutation testing
-arrived after 3.0.0 shipped — that tag has no `stryker.conf.json` — and the suite went from 696
-tests to 1160 under it. Surviving mutants went 87 on the first sweep, 59 on the second, 17 now.
-The load-bearing number is inside that middle figure: of those 59, **43 turned out to be untested
-rather than equivalent** — 43 places where a wrong edit to `src/` would have shipped with the
-suite green. None of that produced an adopter-visible change, so none of it has an entry below.
-It is still the reason this version is harder to break than 3.0.0.
+**What moved is whether an adopting agent reaches a true conclusion and writes it into its
+report.** That is the axis: output an agent reads and acts on, where a confident sentence the
+tool could not back turns into a claim in a handoff nobody re-checks. One measured example —
+the build step used to assert that `tsc -b` type-checks your vite config edit; an agent
+disproved it by injecting a type error there, and the next run's agent reported that the
+rewritten passage stopped it from claiming an alias edit it had not verified.
 
-**Six defects were the tool doing the wrong thing rather than explaining itself badly**, and
-three of the six came out of that sweep rather than out of a test: `init` overwriting a
-hand-written contract whose path does not end in `.md` (destructive, and no test was positioned
-to see it), `doctor` and `init` misdirecting on an unreadable tsconfig, and `/*/` read as a
-closed comment. Beside them: two CRLF paths, and the scan's order settled at the scan instead of
-inherited from `readdirSync`, which is the difference between one output and one output per
-filesystem.
+**Six were the tool doing the wrong thing rather than explaining itself badly**, and those
+are the ones to read first if you skim: an overwritten hand-written contract, a config path
+reaching outside the repo, an interrupted install stranding the alias, `testFiles: []`
+emitting a config ESLint refuses, `impact` demanding a plugin no gate would use, and a CRLF
+tsconfig silently skipping the alias edit.
 
-**The remaining entries act on a narrower axis: an adopting agent reaching a false conclusion
-and writing it into its report.** There is one measured save. The build step used to assert that
-a Vite + TS starter keeps `vite.config.ts` inside a tsconfig project, so `tsc -b` type-checks the
-vite edit — false on the starter shape this project's own harness stages, and an agent proved it
-by injecting a type error there against a control in `src/`. Rewritten as a check ("read it, do
-not assume it"), the next run's agent reported that the passage stopped it from claiming a
-verified alias edit it had not verified, and the run after that exercised the other branch and
-confirmed the tsconfig by opening it. Both arms, one measurement each.
+**The largest change to how hard this is to break is not in this changelog.** Mutation
+testing arrived after 3.0.0 — that tag has no `stryker.conf.json` — and the suite roughly
+doubled under it. Most of that found places where a wrong edit to the source would have
+shipped with every test green. It produced no behaviour you can see, so it has no entry, and
+it is still the reason this version is sturdier than the last.
 
-The honest bound on the rest: they are reasoned, not measured, and five of the last twelve
-repaired sentences this project had written one or two batches earlier. Those five net close to
-nothing — they closed gaps their predecessors opened. That pattern is why the triage criterion
-tightened in this window: a finding that cost an agent something gates a release, and a decision
-the tool handed over on purpose is recorded rather than answered with another paragraph.
+**And the honest bound:** the wording fixes are reasoned, not measured. Several of them
+repaired sentences this project had written one or two releases earlier, and those net close
+to nothing — they closed gaps their predecessors opened. The per-item paper trail for all of
+it, including what was judged not worth fixing and why, is in this repo's closed `field-run`
+issues rather than here.
