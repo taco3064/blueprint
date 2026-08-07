@@ -1,5 +1,415 @@
 # @kekkai/blueprint
 
+## 3.1.0
+
+**What this release moved, and what it did not.** Worth stating plainly, because most of the
+entries below act on one axis and it is not the obvious one.
+
+**Adoption did not get more likely to succeed, because it was already succeeding.** Every
+entry here came out of live adoption runs — a real agent CLI taking a real repo through
+`init` → `inspect` → `impact` → `doctor` — and across every one of those runs `doctor`
+finished green. It finished green before these fixes too. Nothing here rescues a failing
+adoption.
+
+**What moved is whether an adopting agent reaches a true conclusion and writes it into its
+report.** That is the axis: output an agent reads and acts on, where a confident sentence the
+tool could not back turns into a claim in a handoff nobody re-checks. One measured example —
+the build step used to assert that `tsc -b` type-checks your vite config edit; an agent
+disproved it by injecting a type error there, and the next run's agent reported that the
+rewritten passage stopped it from claiming an alias edit it had not verified.
+
+**Six were the tool doing the wrong thing rather than explaining itself badly**, and those
+are the ones to read first if you skim: an overwritten hand-written contract, a config path
+reaching outside the repo, an interrupted install stranding the alias, `testFiles: []`
+emitting a config ESLint refuses, `impact` demanding a plugin no gate would use, and a CRLF
+tsconfig silently skipping the alias edit.
+
+**The largest change to how hard this is to break is not in this changelog.** Mutation
+testing arrived after 3.0.0 — that tag has no `stryker.config.json` — and the suite roughly
+doubled under it. Most of that found places where a wrong edit to the source would have
+shipped with every test green. It produced no behaviour you can see, so it has no entry, and
+it is still the reason this version is sturdier than the last.
+
+**And the honest bound:** the wording fixes are reasoned, not measured — with one exception,
+which is also the reason to hold the rest loosely. The lint-merge instruction was reasoned
+too, and one day later a field agent followed it into the wrong edit to its own config;
+correcting it took an `eslint --print-config` probe per direction on each of the two ESLint
+majors, and the answer was the opposite of what the paragraph advised. Several other fixes
+repaired sentences this project had written one or two releases earlier, and those net close
+to nothing — they closed gaps their predecessors opened. The per-item paper trail for all of
+it, including what was judged not worth fixing and why, is in this repo's closed `field-run`
+issues rather than here.
+
+### Minor Changes
+
+- 5aa12b8: **Action required, once: run `npx blueprint inspect --update-baseline`.**
+
+  If you have a `.blueprint-baseline.json`, this release refuses it and prints that
+  instruction. Re-keying records the same debt — nothing that was suppressed stops being
+  suppressed.
+
+  Why it has to happen: baseline identity used to include the finding's **message text**,
+  the one part of a finding that changes while the violation does not. Rewording any
+  finding silently retired every baseline entry for that rule — the old debt came back as
+  `fresh`, the recorded entries counted as `stale`, and a brownfield CI went red on an
+  upgrade that changed no code. Identity is now `rule` + `path` + `subject`, and the
+  message is prose the ledger keeps for whoever reads a diff.
+
+  The old baseline is refused rather than reinterpreted: read under the new key it would
+  match nothing, which is the wall of red the ledger exists to prevent, arriving with no
+  stated cause.
+
+  For `--json` consumers: every finding gains `subject` (what inside `path` the finding is
+  about — the import specifier, a cycle's members, empty where the rule and path already
+  identify it), and the baseline file is `"version": 2`.
+
+- 5aa12b8: **An interrupted install now leaves a tree that one command finishes.**
+
+  `init` installs dependencies as part of its work, and the alias edits to `tsconfig` /
+  `vite.config` used to sit _below_ that step. On a machine that cannot reach the registry,
+  stopping the install left a config, an agent contract and an ESLint config with no alias
+  anywhere in the toolchain — and `doctor` then reported `~app resolves nowhere`, which reads
+  as a broken tool rather than as an install that never finished. Two toolchain files had to
+  be hand-edited to clear the final gate.
+
+  Every filesystem effect now lands **above** the install, so what an interrupted run leaves
+  behind is a complete tree minus `node_modules`.
+
+  **And the install announces itself before it runs.** It is the one step that can sit for
+  minutes — a package manager with no route to the registry retries in silence — so the line
+  above it now carries the command it is about to run, that quiet is normal, that minutes of
+  quiet means stopping it and running that line yourself or re-running with `--no-install`,
+  and what stopping leaves behind:
+
+  ```
+  → install: eslint, @kekkai/blueprint, …
+        npm install -D eslint @kekkai/blueprint …
+        This is the one step that needs the registry. Silence while it works is normal;
+        minutes of silence means it cannot get there — stop it and run the line above
+        yourself, or re-run init with `--no-install`. …
+        Stopping is safe: this is the last step, so every file above is already on disk.
+        What stopping omits is these packages in `package.json` — this line is the only
+        thing that records them there, so until it runs, a failure naming one of them is
+        that gap and not a broken adoption.
+  ```
+
+  No version list to go find: these are your project's dependencies. Which ESLint major
+  that resolves to, and what backs it, is its own entry.
+
+- 5aa12b8: **`doctor` has three outcomes now, not two — and a check that could not run is no longer
+  counted as one that passed.**
+
+  The merge-survival check — the only one proving your emitted rules are alive in the config
+  ESLint actually resolves — skips rather than fails when that config will not resolve,
+  because a red you cannot appease is worse than no check. It used to ride in the pass
+  count anyway, so the output read `✓ … (skipped)` above `✓ Adoption complete — all 7
+checks passed`.
+
+  What you see instead:
+
+  ```
+  ⊘ emitted rules survive the merged eslint config (skipped — could not resolve …)
+  ⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run (⊘ above).
+    Nothing failed, and nothing here proves what those checks cover.
+  ```
+
+  **Exit status is unchanged** — a skip is not a failure. Gate on the JSON instead of the
+  exit code when the difference matters:
+
+  ```json
+  {
+    "ok": true,
+    "verdict": "unverified",
+    "summary": "⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run …",
+    "counts": { "total": 7, "passed": 6, "failed": 0, "skipped": 1 },
+    "checks": [{ "label": "…", "ok": true, "skipped": "why it could not run" }]
+  }
+  ```
+
+  `verdict` is `complete` / `unverified` / `incomplete` and is on `runDoctor`'s return value
+  too. `ok` keeps the meaning the exit code needs — nothing FAILED — so `counts.skipped` or
+  `verdict` is what a CI gate should read.
+
+  Three more things `doctor` now says out loud:
+
+  - **A green banner on a repo with no version control says what it leaves out** — nothing
+    adoption wrote is committed, and a ratchet living only in an uncommitted working tree is
+    not installed.
+  - **The survival check states its reach**: it compares config text and never executes
+    ESLint, one probe per layer, and it does not compare thresholds, package ownership, or a
+    merged entry covering only part of a layer. Its ✓ says so.
+  - **When it cannot resolve your config it quotes the loader**, so the missing package is on
+    screen instead of one `npm run lint` away — and it names the case where that package is
+    also absent from `package.json`, which means an install step never finished.
+
+- 5aa12b8: **More of what you need to author a config is now something the tool computed, not
+  something you have to go and check.**
+
+  **`blueprint survey` names the specifiers an `owns` clause can be verified with.** `owns`
+  takes `{ package: 'react', imports: ['createContext'] }`, and the survey's evidence was
+  package-granular — `react` reads as "half the layers use it" whichever specifier the clause
+  names, so there was nothing to check such a clause against. There is now a section for
+  specifiers that appear in **exactly one folder, from a package that appears in several**:
+
+  ```
+  Named imports in ONE folder, from a package in several (specifier-level ownership
+  candidates — `owns: [{ package, imports: […] }]`; the rows above cannot support one).
+  Read from brace clauses only: a member reached through `import * as` is invisible
+  here, so a folder using one is not counted against the "only":
+    react → createContext — contexts only
+    react → useContext — hooks only
+  ```
+
+  **`blueprint rules --json` carries `jsLiteral` beside `selectors`.** The selectors you are
+  told to copy when folding blueprint's `no-restricted-syntax` entry into a house one escape
+  their path separators — and JavaScript resolves that same escape when it parses a string
+  literal, so pasting the rendered value into `'…'` produced a regex that ends early. No parse
+  error, lint still green, and the ban silently matching nothing. `jsLiteral` is the selector
+  as JS source, quotes included; the text output prints that form, since that line exists to
+  be copied. `selectors` is unchanged for programs that build config rather than paste it.
+
+  **One `inspect` run inventories every import cycle**, not just the first one it meets — one
+  per strongly connected component, ordered by content so an unrelated module does not
+  reshuffle the report. Enforcement never changed (one cycle fails the gate), but "how many"
+  is the question anyone sizing a migration is asking.
+
+  **`inspect`'s coverage line names the files outside your layer nets**, so a number you
+  could not check became a list you can.
+
+  **Every output that reports the import graph says how the graph was read** — source text,
+  not a parsed AST — so a green does not read as a stronger guarantee than it is.
+
+- 5aa12b8: **Two ways `init` could write somewhere you did not point it. Both refused now.**
+
+  **A hand-written contract could be overwritten instead of getting a reference beside
+  it.** When a context file exists without blueprint's managed marker block, `init` leaves it
+  alone and writes the generated block to a reference file next to it. The reference name was
+  built by replacing a trailing `.md` — so for any other extension the replacement did
+  nothing, the reference path came out _identical to the original_, and the write landed on
+  your document while the plan announced it as a reference.
+
+  Who was exposed: anyone setting an `emit.agents[].path` that is not `.md` — `.mdc` for a
+  Cursor rules folder, `.mdx` for a docs site, or no extension at all. The default targets
+  are all `.md`, so a repo that never customised a path was never affected. The suffix now
+  goes before whatever the extension is (`context.mdc` → `context.blueprint.mdc`), and a
+  dotfile keeps its name (`.gitignore` → `.gitignore.blueprint`).
+
+  **A config path could reach outside the repo.** `emit.handbook` and `emit.agents[].path`
+  are strings from your config that reached the filesystem unchecked, so
+  `emit.handbook: '../HANDBOOK.md'` wrote one directory up — with `✓ write:` printed beside
+  the escaping path. The realistic input is not an attack but a relative path off by one
+  directory in a monorepo, written by the agent blueprint asks to author the config. The run
+  is now refused before a single write, so `--dry-run` cannot print a plan the real run would
+  reject, and the refusal names the path, that nothing was written, and the two config fields
+  that set one.
+
+### Patch Changes
+
+- 5aa12b8: **Three configs the tool accepted and then failed on.**
+
+  **`architecture.testFiles: []`** — "tests inherit their layer's rules, nothing is exempt" —
+  validated, passed `inspect`, and then emitted an ESLint config ESLint refuses to load:
+  `Key "files": Expected value to be a non-empty array`. `impact` died on the tool's own
+  output. The `testFilename` entry is scoped to your test globs, so an empty list leaves it
+  no files: that entry is no longer emitted, and `blueprint rules` says the gate is
+  unavailable with the reason, rather than dropping it silently.
+
+  **A config declaring no optional gates** could not run `impact` at all. It loaded
+  `@stylistic/eslint-plugin` and `eslint-plugin-import-x` unconditionally — the right trade
+  when a gate rides one, since a missing carrier makes an active gate report zero hits — and
+  made it even for a repo translating only structural flow, which needs neither. Each carrier
+  is now required exactly where a gate uses it, read from the same list `doctor` checks
+  against.
+
+  **A CRLF `tsconfig.json`** — the Windows default — fell through to "add these paths
+  yourself" instead of getting the alias wired, because the comment-preserving insertion
+  matched a bare `\n`. Same repo, different platform, no indication anything had been skipped.
+  The line ending is read off the file now, which also keeps the edit from mixing conventions
+  into a file your own `@stylistic/linebreak-style` gate would then flag. Two more CRLF
+  remnants went with it: handbook table cells no longer keep a stray carriage return, and the
+  `.gitignore` re-include block takes the file's own line ending.
+
+- 5aa12b8: **The contract and handbook `init` writes stop naming machines that do not hold their
+  rules.** Both are generated from your blueprint alone — they cannot see your repo — and
+  they were writing sentences that need to.
+
+  - **No runner is named.** The agent contract told the next agent to fail `npm run lint` in a
+    pnpm repo. It says "the project's lint run" now. Where a runner _is_ known — the authoring
+    playbook, written by a command that detected your package manager — it stays named.
+  - **A gate your blueprint cannot emit is not listed as machine-enforced.** `deepWatch`
+    declared on React, or `testFilename` declared beside `testFiles: []`, appeared among the
+    rules that "fail the project's lint run" and carried `lint` in the handbook's Enforced-by
+    column — for rules the emitted config does not contain. The contract drops them from that
+    list; the handbook keeps the row, because the declaration is yours, and names why nothing
+    holds it.
+  - **Each hard gate says how far it reaches** — only the files a layer glob matches, so a
+    declared layer holding no code has nothing that can fail, which is runway rather than
+    protection.
+
+- 5aa12b8: **The authoring playbook and the CLI output stopped making claims about your repo they
+  cannot check.** This is the bulk of the release: roughly thirty statements that were
+  asserted, or that two outputs answered differently, replaced by a measurement, a condition,
+  or nothing.
+
+  The ones you would actually notice:
+
+  - **Which build to run is read from your tsconfig graph**, not argued about in prose. The
+    playbook used to assert that a Vite + TS starter keeps `vite.config.ts` inside a tsconfig
+    project — false on the common starter shape, and it invited an agent to report a verified
+    alias edit that `tsc -b` had never read. It now names your file, says whether `tsc -b`
+    covers the vite edit, and where it cannot tell, says to go and look.
+  - **The build-artifact cleanup instruction reads your repo**: whether `tsc -b` writes
+    anything into your working tree at all, and whether ignore rules and version control are
+    there — two separate facts, not one axis, with the "decide it yourself" cell reduced to
+    the case where nothing in the repo settles it.
+  - **`.claude/` is measured before it is described.** The playbook used to tell an agent to
+    delete a directory init had created — false on any repo whose owner already uses Claude
+    Code, and it now says which of the two it found, including when your own command files
+    are sitting in it.
+  - **The cleanup list is the same list everywhere it appears**, including the banner that
+    opens the document, which named two files where the other three sites named five things.
+  - **A finding about a directory addresses the source root your config named**, not a
+    hard-coded `src/`.
+  - **`impact`'s "not blueprint's rules" block says what those rows are** — a name your code
+    mentions in a disable comment that this isolated run cannot resolve, reported at the
+    comment. So the count counts mentions, not violations, and it says nothing about the code
+    under one.
+  - **A re-adoption is told that regenerated wording is a newer build, not drift** — and that
+    equal version strings do not rule that out, since a linked checkout, an unreleased tree
+    and a git dependency all report the last release while emitting later text.
+
+  The rest are the same shape at smaller scale: a claim that needed a condition got one, and
+  a proof step that overstated its reach now states it. Individually none of them changes
+  what you do; together they are the difference between an adopting agent writing a true
+  report and a confident one. (Where two outputs contradicted _each other_ rather than the
+  repo, that is its own entry.)
+
+- b915112: **Four places where two of the tool's own outputs answered the same question differently.**
+  Each pair was individually plausible, which is why they survived: the reader only finds out
+  by putting the two side by side, and then has no way to tell which one to act on.
+
+  **The handbook's `selfOnly` rule against its own diagram legend.** The legend says a
+  **solid** edge is a declared importer relation whose label carries `selfOnly`, and a
+  **dotted** edge only records declaration order. The import-discipline bullet twelve lines
+  down said "a _dashed_ edge may be depended on but never re-exported onward" — pointing a
+  reader at the edges the legend defines as _not_ dependencies, while the genuinely
+  constrained solid edge reads as ordinary. The bullet states the rule now and leaves the
+  notation to the legend.
+
+  **`blueprint rules` against `doctor`'s survival check, about what that check compares.**
+  `rules` closed its per-layer block with "Everything below is what doctor compares" — over a
+  block that prints a `packages:` column, while doctor's ✓ says package-ownership entries are
+  not compared. Someone folding blueprint's entries into a house config reads `rules`, and
+  skips the `--print-config` pass precisely _because_ doctor cannot see that column, so a
+  merge that drops a package ban stays green. `rules` names its own columns now: `no-import`,
+  `globals` and the selfOnly selectors are compared, `packages` is not, and it says to verify
+  that one with `npx eslint --print-config`. **`rules --json` carries the same sentence** on
+  each ban entry that has a `packages` column (`bans[i].packagesNote`) — the playbook sends a
+  merging agent to `--json` in five places, so that is the channel it matters most in.
+
+  **The agent contract against the handbook, about `cycles`.** One said lint holds it, the
+  other `blueprint inspect`. It is `inspect` — a green lint says nothing about cycles — and
+  both say so.
+
+  **`blueprint rules` against `inspect`, about how many optional gates exist.** They counted
+  differently on a stack that cannot open one of them, with neither naming the discrepancy,
+  so `0/17` from one output sat beside eighteen rows from the other. One count now, and the
+  row that is excluded says why.
+
+  None of the four is visible from one output, which is why they lasted. So where two of
+  them now describe the same boundary, one of them owns it and the others point at it
+  instead of restating it in their own words — and a fact that has to reach both the text
+  and `--json` travels as one string rather than two copies that can drift apart.
+
+  What that is worth to you: if you still catch two outputs answering the same question
+  differently, it is a defect worth reporting rather than a distinction you have to
+  arbitrate. Until it is fixed, act on the one attached to the check that produces the
+  answer — `doctor`'s ✓ over a description of it elsewhere — and treat the other as the
+  one that has gone stale.
+
+- 5218f5d: **The ESLint major `init` resolves you to is now one this project runs its suite on.**
+
+  `init` installs `eslint` unpinned, so you land on the newest major every carrier's peer
+  range admits — a field run measured `^10.8.0` arriving that way. Until now, the version
+  you land on was the one version never executed here: this package develops against 9,
+  and nothing ran 10. Both majors are covered now, and by the whole suite — including the
+  scenarios and `impact`, which resolve a real config with a real ESLint rather than
+  asserting about one.
+
+  **The install note says so with its channel named**, rather than claiming a bare "both
+  tested":
+
+  ```
+  → install: eslint, @kekkai/blueprint, … — eslint unpinned, resolving to the newest
+    supported major (9 and 10 are both admitted by every carrier's peer range, and
+    @kekkai/blueprint's CI runs its own suite on each)
+  ```
+
+  The peer-range half leads because it is the half you can check without leaving your own
+  `node_modules`, and because it answers what that line is for: whether the install about
+  to run resolves at all. The CI half names CI because this package's published
+  `package.json` carries `devDependencies` with eslint 9 — and two earlier runs are on
+  record opening that file. "Both tested" sitting beside a visible `^9.39.2`, with nothing
+  bridging them, reads as the tool contradicting itself rather than as two true things.
+
+  What is deliberately not covered is whether _this_ repo lints cleanly on the new major.
+  That is a different question from whether the config blueprint _emits_ still loads there
+  and still holds its rules, and only the second one is a promise to you.
+
+- ec418cd: **The lint-merge instruction stopped telling you to widen your own rule.** This is the one
+  entry in the release where an output did not merely overstate something — it prescribed the
+  wrong edit, and a field agent made it.
+
+  Folding blueprint's emitted `no-restricted-syntax` entry into a house config that already
+  sets that key means writing one combined entry. When the two sides' file scopes were never
+  the same — a house rule framed at `**/*.vue` against a layer glob of `.{js,vue}`, the
+  ordinary case — the playbook said to widen yours to blueprint's glob, and justified it with
+  an asymmetry: your rule reaching new files is visible red, blueprint's ban losing files is
+  silent, so blueprint's scope wins.
+
+  **The justification is false, and flat config is why.** A config entry does nothing at all
+  to a file outside its own `files`, so `...emitLint(blueprint)` goes on enforcing blueprint's
+  entry everywhere your entry does not reach. Narrowing yours cannot make blueprint's ban lose
+  a file — there is no silent side to weigh against the loud one. Following the instruction,
+  an agent widened a date-guard onto a layer's `.js` files and took 38 errors in one test file
+  that deliberately relaxes that rule; the correct edit was the narrowing the paragraph warned
+  against.
+
+  What the outputs say now, verified with `eslint --print-config` per direction — on both
+  ESLint majors CI runs, every cell identical under 9.39.5 and 10.8.0 — rather than reasoned:
+
+  - **The mechanism carries its qualifier.** The later entry replaces the earlier _on the
+    files both of them match_ — so only the overlap has to be combined. That sentence was the
+    generator: three separate scope claims downstream of it were wrong.
+  - **A scope mismatch is resolved by the collision, and neither side moves.** Scope the
+    combined entry to where the two globs meet and leave your original entry in place.
+    Three entries then cover three sets, and no file gets a rule it never had.
+  - **That arrangement is order-dependent, and the constraint sits on the entry you write.**
+    The combined one goes last in the array, which is after the spread and after your own
+    entry both. Put it above your own entry instead and later-replaces-earlier puts your bare
+    rule back on top in the overlap, with blueprint's selectors gone there. Stated the other
+    way round ("move your entry up") it would have been a silent replacement of its own: an
+    entry lifted over the spread hands blueprint every OTHER rule key it sets, measured on a
+    house entry that also set `no-restricted-imports`. Nothing you already had has to move,
+    and "last" is said where the instruction to combine is, not only in the scope-mismatch
+    case downstream of it.
+  - **The verification probe grew the case the new shape needs.** Two `--print-config` probes
+    in the affected layer, one inside the collision and one outside, because the recommended
+    arrangement deliberately makes files in a single layer resolve different entries — and
+    `doctor` resolves one path per layer, which its ✓ already said it does.
+  - **The two silent losses are named, and both are about what the entry contains** — leaving
+    blueprint's selectors out of an entry that matches its files (doctor's survival check
+    reddens), or folding your own original entry away so your rule stops governing the rest of
+    what it used to (doctor does not compare the rules you brought, and the print-config pass
+    now probes for it).
+  - **The `ignores` trade is no longer a trade.** "One entry carries one `ignores`, so a merge
+    has to pick" rested on the same premise one paragraph down. Leave the original entry in
+    place and the collision's test files keep the house rule after blueprint's exemption lifts
+    the combined entry off them, so there is nothing to give up.
+  - **The reference page's folding section says the same thing**, in both languages — it
+    carried the unqualified mechanism too, and a fix to one copy would have made them
+    disagree.
+
 ## 3.0.0
 
 ### Major Changes
