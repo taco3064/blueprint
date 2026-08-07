@@ -5,11 +5,11 @@
 **The ESLint major `init` resolves you to is now one this project runs its suite on.**
 
 `init` installs `eslint` unpinned, so you land on the newest major every carrier's peer
-range admits — a field run measured `^10.8.0` arriving that way. This package develops
-against 9, and until now no suite and no CI job ran 10: the version adopters actually
-get was the one version never executed. There is a leg for it now, so the whole suite —
-including the conformance scenarios and `impact`, which resolve a real config with a
-real ESLint — runs on each major.
+range admits — a field run measured `^10.8.0` arriving that way. Until now, the version
+you land on was the one version never executed here: this package develops against 9,
+and nothing ran 10. Both majors are covered now, and by the whole suite — including the
+scenarios and `impact`, which resolve a real config with a real ESLint rather than
+asserting about one.
 
 **The install note says so with its channel named**, rather than claiming a bare "both
 tested":
@@ -27,6 +27,6 @@ to run resolves at all. The CI half names CI because this package's published
 record opening that file. "Both tested" sitting beside a visible `^9.39.2`, with nothing
 bridging them, reads as the tool contradicting itself rather than as two true things.
 
-What the leg deliberately does not check is whether *this* repo lints cleanly on the new
-major. That is a different question from whether the config blueprint *emits* still loads
-there and still holds its rules, and only the second one is a promise to you.
+What is deliberately not covered is whether *this* repo lints cleanly on the new major.
+That is a different question from whether the config blueprint *emits* still loads there
+and still holds its rules, and only the second one is a promise to you.

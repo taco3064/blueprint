@@ -32,5 +32,5 @@ and what stopping leaves behind:
       that gap and not a broken adoption.
 ```
 
-No version list to go find: these are your project's dependencies, and `eslint` installs
-unpinned so it resolves to the newest supported major.
+No version list to go find: these are your project's dependencies. Which ESLint major
+that resolves to, and what backs it, is its own entry.

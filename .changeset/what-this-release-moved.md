@@ -25,7 +25,7 @@ emitting a config ESLint refuses, `impact` demanding a plugin no gate would use,
 tsconfig silently skipping the alias edit.
 
 **The largest change to how hard this is to break is not in this changelog.** Mutation
-testing arrived after 3.0.0 — that tag has no `stryker.conf.json` — and the suite roughly
+testing arrived after 3.0.0 — that tag has no `stryker.config.json` — and the suite roughly
 doubled under it. Most of that found places where a wrong edit to the source would have
 shipped with every test green. It produced no behaviour you can see, so it has no entry, and
 it is still the reason this version is sturdier than the last.
