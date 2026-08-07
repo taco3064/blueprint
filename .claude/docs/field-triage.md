@@ -69,11 +69,19 @@ sandbox_workspace_write.network_access=true` in the argv, and `npm_config_cache`
 inside the staged repo, since the cache is what the read-only `$HOME` blocked even with
 network allowed.
 
-The cost was not the noise. **No codex scenario had ever verified the ESLint gate** — every
-one of them ends `⊘ Adoption unverified` on the same skipped check, so half the matrix
-produced no evidence about the one check that proves the emitted rules are alive. Expect
-new findings from that half now that it reaches `impact`, the project's lint and the
-survival check for the first time.
+Both halves are load-bearing, and each was tested alone: with only the cache redirected
+npm fails on the network, and with only network allowed it fails on the cache.
+
+The cost lands on one scenario, not on codex generally. **`new × codex` — the preset path
+on the shape most adopters have — has ended `⊘ Adoption unverified` in every batch since
+#136**, on the same skipped survival check, so the one check proving the emitted rules are
+alive in a resolved config has no evidence there across thirteen batches. `repo × codex`
+was never affected: a cloned repo already carries eslint and the carriers, so nothing
+needed installing and it reached green in most batches. And `new × codex` itself was green
+at #131 and #135 under these same flags — so something on the machine or in codex changed
+between #135 and #136, most likely the npm cache turning root-owned, and the fix routes
+around both failure modes whichever it was. Expect findings from that scenario now that it
+reaches `impact`, the project's lint and the survival check again.
 
 Residual risk, unguarded on purpose: `staleFlags` checks argv *flags* against the CLI's
 help, and a `-c key=value` config key is not a flag. If codex renames that key, network
