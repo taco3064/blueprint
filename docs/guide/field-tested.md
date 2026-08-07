@@ -12,10 +12,12 @@ place went green on a defect it could not see:
 - **The adoption e2e suite** — nine committed starter fixtures: Vite React (JS and TS)
   and Vue, three Next.js shapes (App Router with and without `src/`, Pages Router), a
   turbo + pnpm and a yarn workspace package, and a brownfield repo with planted debt.
-  Each is driven through `init` → `inspect` → the baseline ratchet on every commit,
-  push, and release. It runs with `install: false`, so what it proves is the tree `init`
-  writes and the findings `inspect` reports on real starter shapes — it never executes
-  ESLint
+  Every one is driven through `init` on every commit, push, and release; six carry on
+  through `inspect`, and the brownfield one walks the whole arc to the baseline ratchet.
+  The install is skipped outright except on the two workspace fixtures, where it runs
+  against a stubbed `exec` — that is what proves `pnpm add -D` / `yarn add -D` is read
+  off the workspace root. So what this layer proves is the tree `init` writes and the
+  findings `inspect` reports on real starter shapes: it never executes ESLint
 - **The conformance suite** — every field-feedback scenario fossilized as a fixture repo
   built from a DSL and driven through the CLI's own dispatch, **against the real ESLint
   from this repo's devDependencies**. That is the layer the e2e suite above cannot be:
