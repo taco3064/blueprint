@@ -401,11 +401,12 @@ function eslintWiringNote(state: ProjectState): string {
     + '    import blueprint from \'./blueprint.config.mjs\';\n'
     + '    import { emitLint } from \'@kekkai/blueprint\';\n'
     + spread
-    + '  emitLint goes LAST of the configs you already have — later entries win in flat\n'
-    + '  config, so this keeps the blueprint\'s per-layer tuning alive over broad presets.\n'
-    + '  A `defineConfig([...])` wrapper takes the same spread — its array IS the flat-config array.\n'
-    + '  Rules BOTH sides set (no-restricted-*) still need combining into ONE entry, and that\n'
-    + `  combined entry is the one thing that goes after the spread.${state.hasTypescript
+    + '  emitLint goes LAST of the configs you already have — later entries win in\n'
+    + '  flat config, so this keeps the blueprint\'s per-layer tuning alive over broad\n'
+    + '  presets. A `defineConfig([...])` wrapper takes the same spread, and its array\n'
+    + '  IS the flat-config array. Rules BOTH sides set (no-restricted-*) still need\n'
+    + '  combining into ONE entry, and that combined entry is the one thing that goes\n'
+    + `  after the spread.${state.hasTypescript
       ? ''
       : ' On a TypeScript\n  project add the TS plugin too — emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }).'}\n`
       + injectNote
