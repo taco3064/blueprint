@@ -10,11 +10,28 @@ cutting a release.
 packs the local tree (no publish), stages scenario repos in a temp dir, runs
 the adoption prompt through each available agent CLI headlessly, verifies
 with the real doctor/inspect, and collects the structured feedback file into
-one report — filed as a `field-run` GitHub issue, the triage inbox.
-Conformance guards known scenarios; the harness hunts new ones.
+one local report. Conformance guards known scenarios; the harness hunts new ones.
 
 `--dry` stages without spawning agents; `--repo <path>` adds the
 existing-repo scenario from a local clone; `--no-issue` keeps it local.
+
+**The report is local; only findings become an issue.** An issue is a list of
+things to fix, so it carries each agent's 卡到的 and 沒立場 sections and nothing
+else — 好用的, the withdrawal records and 有立場 stay in the report, named in the
+issue by path. **A run that flags nothing files no issue at all, and the console
+says "field test PASSED" in those words**, because silence where an issue used to
+appear reads as a failure. What still forces a file, so "nothing to fix" can never
+stand in for "nothing was measured": a missing `field-verdict` line, a staging
+failure, a non-zero agent exit, a non-zero doctor exit. An `⊘ unverified` doctor
+does not — it prints as a caveat on the pass.
+
+The whole decision is `composeIssue`, kept pure and covered by
+`scripts/field-run.test.mjs` (13 cases, in `npm test`). Three of this harness's
+four self-inflicted bugs were on this path and each shipped because the only way to
+see its output was to spend a real run — a build, a pack, and up to 45 minutes per
+scenario. The feedback file's headings are exact for the same reason: the split is
+done by heading, and a heading that drifted pastes the whole file rather than a
+slice nobody can tell is short.
 
 Four things it will not do, each because it did them once:
 
@@ -44,11 +61,15 @@ Four things it will not do, each because it did them once:
 **Triage flow:** consolidate the issue's findings, judge each (fix / by-design /
 reject), put each fix through the two questions below, sweep the class before
 landing, land with conformance fixtures, close the issue referencing the
-commits — the closed issue is the public record of what shaped the release.
+commits — the closed issue is the public record of what shaped the release. No
+issue means there was nothing to triage, which is the outcome to expect once a
+release is close.
 
 ## Only one section is a defect queue
 
-The feedback file has three sections and they are not the same kind of thing.
+The feedback file has three sections and they are not the same kind of thing. Two
+of them never reach the issue at all now — the harness splits by heading, so the
+distinction below is enforced rather than remembered.
 
 **卡到的 is the defect queue.** An entry there cost the agent something real —
 blocked time, a wrong decision, an internal it had to reverse-engineer. A

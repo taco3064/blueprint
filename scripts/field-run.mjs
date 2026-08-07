@@ -13,10 +13,16 @@
  * each scenario in a throwaway temp dir, installs the tarball, runs the
  * adoption prompt through each agent CLI headlessly, then verifies with the
  * real doctor/inspect and collects the structured feedback file the prompt
- * asks the agent to write. Everything lands in one report.md — and, unless
- * --no-issue, in a `field-run` GitHub issue, which is the triage inbox: the
- * findings get consolidated, judged, and fixed from there, and the closed
- * issue becomes the public record of what shaped the release.
+ * asks the agent to write.
+ *
+ * **Everything lands in one local report.md; only findings land in an issue.**
+ * An issue is a list of things to fix, so it carries each agent's 卡到的 and
+ * 沒立場 sections and nothing else — what an agent liked, the suspicions it
+ * checked and withdrew, and the decisions it took from a stance the tool had
+ * already stated are the run's paper trail and stay in the report. **A run that
+ * flags nothing files no issue at all: that is the field test passing**, and the
+ * console says so. `composeIssue` is the whole decision and is pure, so
+ * `field-run.test.mjs` can exercise it without a gh, a network or an agent.
  */
 import { execSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -512,28 +518,10 @@ async function main() {
         return [`## ${run.scenario} × ${run.agent} — staging failed, agent never ran`, '', `> ${run.staging}`, ''];
       }
 
-      // The VERDICT line, not the last line. Doctor's banner now carries a note
-      // under it when the repo has no version control, and taking the tail made this
-      // summary report the caveat instead of the outcome — which is what the previous
-      // field batch's own issue titles show. Appending after a conclusion breaks every
-      // reader that assumed the conclusion came last; this one was mine.
-      //
-      // And it broke again the same way: doctor grew a third marker (`⊘`, a check that
-      // could not run) and this pattern listed two, so the find missed and the fallback
-      // printed the version-control note as the verdict (field run #132's new × codex).
-      // Anchoring on the word rather than on a marker list is why it cannot happen a
-      // third time — a fourth marker would still match.
-      const lines = run.doctor.output.trim().split('\n');
-      const doctorLine = lines.find((line) => /Adoption (complete|unverified|incomplete)/.test(line))
-        ?? lines[lines.length - 1];
-
       return [
         `## ${run.scenario} × ${run.agent}`,
         '',
-        `- dir: ${run.dir}`,
-        `- agent exit ${run.code} after ${run.minutes}m (full log: agent.log)`,
-        `- doctor exit ${run.doctor.code} — ${doctorLine}${doctorOwner(run)}`,
-        `- inspect --baseline exit ${run.inspect.code}`,
+        ...runFacts(run),
         '',
         `### feedback (${FEEDBACK_FILE})`,
         '',
@@ -563,8 +551,96 @@ async function main() {
     }
   }
 
-  if (args.issue && !args.dry) fileIssue(reportFile, runs, tree);
+  if (args.issue && !args.dry) fileIssue({ reportFile, runs, skipped, tree, packedVersion });
   else if (args.issue) console.log('  (dry) no issue filed');
+}
+
+/**
+ * The four facts about a run that both outputs state — one passage, two call
+ * sites, because the local report and the issue disagreeing about a doctor exit
+ * would be this harness making the mistake it exists to catch.
+ *
+ * The VERDICT line, not the last line. Doctor's banner now carries a note under it
+ * when the repo has no version control, and taking the tail made this summary
+ * report the caveat instead of the outcome — which is what an earlier field
+ * batch's own issue titles show. Appending after a conclusion breaks every reader
+ * that assumed the conclusion came last; this one was mine.
+ *
+ * And it broke again the same way: doctor grew a third marker (`⊘`, a check that
+ * could not run) and this pattern listed two, so the find missed and the fallback
+ * printed the version-control note as the verdict (field run #132's new × codex).
+ * Anchoring on the word rather than on a marker list is why it cannot happen a
+ * third time — a fourth marker would still match.
+ */
+function runFacts(run) {
+  const lines = run.doctor.output.trim().split('\n');
+  const doctorLine = lines.find((line) => /Adoption (complete|unverified|incomplete)/.test(line))
+    ?? lines[lines.length - 1];
+
+  return [
+    `- dir: ${run.dir}`,
+    `- agent exit ${run.code} after ${run.minutes}m (full log: agent.log)`,
+    `- doctor exit ${run.doctor.code} — ${doctorLine}${doctorOwner(run)}`,
+    `- inspect --baseline exit ${run.inspect.code}`,
+  ];
+}
+
+/**
+ * The agent's own count of what it found, from the last line the prompt makes it
+ * write. The harness does not infer it: half the reports open their 卡到的 with
+ * "先講結論：沒有" and then a wall of withdrawal records, so every prose test for
+ * "is this section empty" gets it wrong in one direction or the other — and the
+ * direction that reads a real finding as empty loses the finding. The agent is the
+ * only one who knows, which is the same reason the prompt has it mark each
+ * 拿不準的 entry.
+ *
+ * `null` means the line is missing, and that is NOT a green: a run whose format
+ * drifted gets filed with the whole feedback, because "cannot tell" and "nothing
+ * found" are the two things this harness exists to keep apart.
+ */
+export function parseVerdict(feedback) {
+  const match = /field-verdict:\s*blocked=(\d+)\s+invented=(\d+)\s+withdrawn=(\d+)/i
+    .exec(feedback ?? '');
+
+  return match
+    ? { blocked: Number(match[1]), invented: Number(match[2]), withdrawn: Number(match[3]) }
+    : null;
+}
+
+/**
+ * The two sections that are work — 卡到的 and 沒立場 — sliced out by their exact
+ * headings, which the prompt mandates for this reason. 好用的, the withdrawal
+ * records and 有立場 are the paper trail: they stay in the local report, where they
+ * are still the main evidence that a run verified rather than guessed.
+ *
+ * A heading that drifted returns `null` and the caller pastes the whole file. A
+ * splitter that quietly returned less than it was given would be the same defect
+ * class as `impact`'s foreign rows: a number nobody can tell is short.
+ */
+export function problemSections(feedback) {
+  const blocks = [];
+  let open = null;
+
+  for (const line of (feedback ?? '').split('\n')) {
+    const heading = /^(#{2,4})\s+(.*?)\s*$/.exec(line);
+
+    if (heading) {
+      const wanted = /^卡到的/.test(heading[2]) || /^沒立場/.test(heading[2]);
+
+      open = wanted ? { title: heading[2], body: [] } : null;
+
+      if (open) blocks.push(open);
+      continue;
+    }
+
+    if (open) open.body.push(line);
+  }
+
+  if (!blocks.length) return null;
+
+  return blocks
+    .map((block) => `#### ${block.title}\n${block.body.join('\n').trim()}`)
+    .join('\n\n');
 }
 
 /**
@@ -586,16 +662,26 @@ function doctorOwner(run) {
 }
 
 /**
- * File the report as the triage inbox — a `field-run` GitHub issue. Never
- * fails the run: without gh (or auth) the report simply stays local.
+ * Decide what a run owes the inbox, and compose it. Pure: no gh, no filesystem, no
+ * network — the reporting path is where three of this harness's four self-inflicted
+ * bugs lived, and every one of them shipped because the only way to see this output
+ * was to spend a real run on it.
+ *
+ * Two things it deliberately leaves out, because an issue is a list of things to fix
+ * and the rest of a report is not that. **好用的, the withdrawal records and 有立場
+ * stay in the local report**: they are the evidence that a run verified instead of
+ * speculating — the number worth watching go up — and pasting them into the inbox
+ * made every green run look like a work item. **A run that flagged nothing files no
+ * issue at all**; that is the field test passing.
+ *
+ * What still forces a file, so "nothing to fix" can never cover for "nothing was
+ * measured": a missing `field-verdict` line (format drift is not a green), a staging
+ * failure, a non-zero agent exit, and a non-zero doctor exit. An `⊘ unverified`
+ * doctor keeps exit 0 by design and does not force one — it rides along as a caveat
+ * on the pass, because the check that could not run is usually the sandbox's missing
+ * registry, and that has been judged twice.
  */
-function fileIssue(reportFile, runs, tree) {
-  if (!hasBinary('gh')) {
-    console.log('⚠ gh CLI not found — report stays local (re-run with --no-issue to silence this).');
-
-    return;
-  }
-
+export function composeIssue({ reportFile, runs, skipped, tree, packedVersion }) {
   // Nothing to triage means nothing to file. A run where no scenario produced
   // feedback tested the machine, not the tree, and three such reports went into the
   // inbox as `agent exit 1 after 0.0m` rows that had to be deleted by hand. The
@@ -605,61 +691,171 @@ function fileIssue(reportFile, runs, tree) {
   // survived a temp directory once.
   const evidence = runs.filter((run) => run.feedback);
 
-  if (!evidence.length) {
-    console.log('⚠ no scenario produced feedback — nothing to triage, so no issue filed.');
-    console.log(`  each agent's own error is in the report: ${reportFile}`);
-
-    return;
-  }
+  if (!evidence.length) return { kind: 'nothing-measured' };
 
   const matrix = runs.map((run) => `${run.scenario}×${run.agent}`).join(', ');
 
-  // A visitor scanning the issue list should not have to open one to learn
-  // these are release-validation journals, not a bug backlog. The title
-  // carries the one fact the harness can state honestly at file time — how
-  // many scenarios reached a green doctor (mechanical completion, NOT the
-  // triage verdict, which is a human call made later on close).
+  // Green means every check passed, and doctor's exit code stopped saying that: a
+  // check that could not run leaves exit 0 with an "Adoption unverified" banner, so
+  // #132's new × codex was scored green while the one check proving the gates are
+  // wired had never run. Read the verdict rather than the status — the same mistake
+  // this harness exists to catch, made about the tool that made it.
+  const verdict = (run) => (/Adoption unverified/.test(run.doctor?.output ?? '')
+    ? 'unverified'
+    : run.doctor?.code === 0 ? 'green' : 'red');
+
   // Counted over the scenarios that produced feedback, not over every staged one: a
   // row with no feedback contributes no evidence, and counting its doctor exit made
   // the title overstate what the run measured. Silent scenarios are named instead of
   // dropped, or the matrix and the denominator disagree with no explanation.
-  // Green means every check passed, and doctor's exit code stopped saying that: a
-  // check that could not run leaves exit 0 with an "Adoption unverified" banner, so
-  // #132's new × codex was scored green while the one check proving the gates are
-  // wired had never run. The title reads the verdict rather than the status — the same
-  // mistake this harness exists to catch, made about the tool that made it.
-  const verdict = (run) => (/Adoption unverified/.test(run.doctor?.output ?? '')
-    ? 'unverified'
-    : run.doctor?.code === 0 ? 'green' : 'red');
+  const graded = evidence.map((run) => ({ run, counts: parseVerdict(run.feedback) }));
+  const flagged = graded.filter((entry) => entry.counts
+    && entry.counts.blocked + entry.counts.invented > 0);
+  const unreadable = graded.filter((entry) => !entry.counts);
+  const clean = graded.filter((entry) => entry.counts
+    && entry.counts.blocked + entry.counts.invented === 0);
+  const broke = runs.filter((run) => !run.dry
+    && (run.staging || run.code !== 0 || run.doctor?.code !== 0));
+
   const adopted = evidence.filter((run) => verdict(run) === 'green').length;
   const unverified = evidence.filter((run) => verdict(run) === 'unverified').length;
   const silent = runs.filter((run) => !run.dry && !run.staging && !run.feedback).length;
+  const withdrawn = graded.reduce((sum, entry) => sum + (entry.counts?.withdrawn ?? 0), 0);
+  const findings = flagged.reduce(
+    (sum, entry) => sum + entry.counts.blocked + entry.counts.invented,
+    0,
+  );
+
+  if (!findings && !unreadable.length && !broke.length) {
+    return { kind: 'pass', scenarios: evidence.length, withdrawn, unverified };
+  }
+
   const scale = ` · doctor ${adopted}/${evidence.length} green`
     + (unverified ? ` · ${unverified} unverified` : '')
-    + (silent ? ` · ${silent} produced nothing` : '');
-  const title = `Field run @ ${tree} — ${matrix}${scale}`;
+    + (silent ? ` · ${silent} produced nothing` : '')
+    + (unreadable.length ? ` · ${unreadable.length} verdict unreadable` : '');
+  const title = `Field run @ ${tree} — ${findings} finding(s) in ${evidence.length} scenario(s)${scale}`;
 
   const body = [
     '> **A release-validation journal, not a bug report.** The field harness',
-    '> (`scripts/field-run.mjs`) runs a real agent CLI through blueprint\'s',
-    '> adoption on staged repos, against the local unpublished tree, then files',
-    '> the raw feedback here to be triaged in the open. Owner-authored and',
-    '> owner-closed by design — the value is the paper trail, not a bug queue:',
-    '> what an adopting agent hit, what was judged fix vs by-design vs reject,',
-    '> and the commits that closed it. A green doctor above means adoption',
-    '> mechanically completed — except where a row says the staged repo arrived',
-    '> already adopted, and that row says what its verdict covers. Whether any',
-    '> finding was fix-worthy is decided in the triage below.',
+    '> (`scripts/field-run.mjs`) runs a real agent CLI through blueprint\'s adoption',
+    '> on staged repos, against the local unpublished tree. Owner-authored and',
+    '> owner-closed by design.',
     '>',
-    '> Triage flow: consolidate the findings, judge each item, land fixes with',
-    '> their conformance fixtures, then close referencing the commits.',
+    '> **This issue carries only what the run flagged** — each agent\'s 卡到的 and',
+    '> 沒立場 sections. What an agent liked, the suspicions it checked and withdrew,',
+    '> and the decisions it took from a stance the tool had already stated are the',
+    '> run\'s paper trail and stay in the local report named below: evidence that a',
+    '> run verified rather than guessed, not work items. **A run that flags nothing',
+    '> files no issue at all** — that is the field test passing.',
+    '>',
+    '> A green doctor below means adoption mechanically completed — except where a',
+    '> row says the staged repo arrived already adopted, and that row says what its',
+    '> verdict covers. Whether a finding is fix-worthy is decided in the triage:',
+    '> only a cost-channel 卡到的 gates the release, and the floor an entry has to',
+    '> clear is in `.claude/docs/field-triage.md`.',
     '',
-    fs.readFileSync(reportFile, 'utf-8'),
+    `# Findings — blueprint field run @ ${tree}`,
+    '',
+    `tree: ${tree} (unreleased tree; tarball packed as v${packedVersion})`,
+    `matrix: ${matrix}`,
+    ...skipped.map((entry) => `skipped: ${entry.agent} — ${entry.reason}`),
+    `local report (the full account, deliberately not pasted here): ${reportFile}`,
+    '',
+    ...flagged.flatMap(({ run, counts }) => [
+      `## ${run.scenario} × ${run.agent} — ${counts.blocked} blocked, ${counts.invented} invented`,
+      '',
+      ...runFacts(run),
+      '',
+      problemSections(run.feedback)
+        // Never less than it was given: a drifted heading means the whole file lands
+        // here rather than a slice nobody can tell is short.
+        ?? [
+          '_(headings did not match the outline in `scripts/field-prompt.md`, so the whole',
+          '  feedback file follows rather than the two sections)_',
+          '',
+          run.feedback,
+        ].join('\n'),
+      '',
+    ]),
+    ...unreadable.flatMap(({ run }) => [
+      `## ${run.scenario} × ${run.agent} — verdict line missing`,
+      '',
+      ...runFacts(run),
+      '',
+      '_(no `field-verdict:` line, so the harness cannot tell what this run found —',
+      '  filed whole, because "cannot tell" is not "found nothing")_',
+      '',
+      run.feedback,
+      '',
+    ]),
+    ...broke.filter((run) => !run.feedback).flatMap((run) => [
+      `## ${run.scenario} × ${run.agent} — ${run.staging ? 'staging failed, agent never ran' : 'no feedback'}`,
+      '',
+      run.staging
+        ? `> ${run.staging}`
+        : ['```', run.logTail ?? '(agent.log absent too)', '```'].join('\n'),
+      '',
+    ]),
+    ...(clean.length
+      ? [
+          '## Clean scenarios',
+          '',
+          ...clean.map(({ run, counts }) =>
+            `- ✓ ${run.scenario} × ${run.agent} — doctor ${verdict(run)}`
+            + ` · 0 blocked, 0 invented, ${counts.withdrawn} withdrawn after checking`),
+          '',
+        ]
+      : []),
   ].join('\n').slice(0, 60000);
 
-  const bodyFile = path.join(path.dirname(reportFile), 'issue-body.md');
+  return { kind: 'file', title, body, findings };
+}
 
-  fs.writeFileSync(bodyFile, body);
+/**
+ * Act on that decision: print it, and file when there is something to file. Never
+ * fails the run — without gh (or auth) the report simply stays local.
+ */
+function fileIssue(input) {
+  const outcome = composeIssue(input);
+
+  if (outcome.kind === 'nothing-measured') {
+    console.log('⚠ no scenario produced feedback — nothing was measured, so no issue filed.');
+    console.log('  This is NOT the field test passing: each agent\'s own error is in the report:');
+    console.log(`  ${input.reportFile}`);
+
+    return;
+  }
+
+  if (outcome.kind === 'pass') {
+    console.log(
+      `\n✓ field test PASSED — ${outcome.scenarios} scenario(s), 0 blocked, 0 invented stance(s),`
+      + ` ${outcome.withdrawn} withdrawn after checking.`,
+    );
+    console.log('  No issue filed: the issue is the list of things to fix and there is nothing on it.');
+
+    if (outcome.unverified) {
+      console.log(
+        `  Caveat: ${outcome.unverified} scenario(s) ended on a doctor that could not verify every`
+        + ' check (⊘, exit 0 by design) — the report says which check and why.',
+      );
+    }
+
+    console.log(`  Full account (好用的 / 查證後撤掉 / 有立場) stays local: ${input.reportFile}`);
+
+    return;
+  }
+
+  if (!hasBinary('gh')) {
+    console.log(`⚠ ${outcome.findings} finding(s), but no gh CLI — report stays local.`);
+    console.log(`  ${input.reportFile}`);
+
+    return;
+  }
+
+  const bodyFile = path.join(path.dirname(input.reportFile), 'issue-body.md');
+
+  fs.writeFileSync(bodyFile, outcome.body);
 
   try {
     // The label page is a visitor's aggregate entry point — keep its blurb
@@ -674,17 +870,24 @@ function fileIssue(reportFile, runs, tree) {
     );
 
     const url = execSync(
-      `gh issue create --title "${title}" --body-file "${bodyFile}" --label field-run`,
+      `gh issue create --title "${outcome.title}" --body-file "${bodyFile}" --label field-run`,
       { cwd: ROOT, encoding: 'utf-8' },
     ).trim();
 
-    console.log(`✓ filed as the triage inbox: ${url}`);
+    console.log(`✓ ${outcome.findings} finding(s) filed as the triage inbox: ${url}`);
+    console.log(`  the full account of every scenario stays local: ${input.reportFile}`);
   } catch (error) {
     console.log(`⚠ could not file the issue (${error.message.split('\n')[0]}) — report stays local.`);
   }
 }
 
-main().catch((error) => {
-  console.error(`✗ ${error.message}`);
-  process.exit(1);
-});
+// Run only when invoked, so `field-run.test.mjs` can import the reporting path
+// without starting a build and a pack. That path is where three of this harness's
+// four self-inflicted bugs lived — every one of them shipped because the only way to
+// see its output was to spend a real run on it.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(`✗ ${error.message}`);
+    process.exit(1);
+  });
+}
