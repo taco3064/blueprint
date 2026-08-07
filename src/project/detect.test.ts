@@ -499,9 +499,24 @@ describe('every supported ESLint major is one something here executes', () => {
     // Same shape as the peer-range check above: `^9` matches `^9.39.2` and not `^10`.
     const mainMatrix = new RegExp(`\\^${major}(\\.|\\s|\\||$)`).test(range);
 
+    // Comment lines are stripped before the match, because this check is about what
+    // CI RUNS and a comment runs nothing. Read whole, `# TODO: a leg for eslint@11
+    // once the carriers admit it.` satisfies it — and that sentence is the single most
+    // likely thing to be written at the exact moment this test first goes red, by
+    // someone who saw it and meant to come back. The red would vanish on the way to
+    // the fix. This repo's ci.yml comments are long and name versions and packages
+    // constantly, so the collision is ordinary rather than contrived.
+    //
+    // Residual, unguarded on purpose: a trailing comment on a step line
+    // (`run: … # eslint@11`) still counts. Splitting on `#` mid-line would misread a
+    // `#` inside a quoted yaml scalar, and the failure mode above is a comment LINE.
     // `(?!\\d)` so a list containing 1 is not satisfied by a job installing 10.
-    const ownLeg = new RegExp(`eslint@${major}(?!\\d)`)
-      .test(fs.readFileSync('.github/workflows/ci.yml', 'utf-8'));
+    const steps = fs.readFileSync('.github/workflows/ci.yml', 'utf-8')
+      .split('\n')
+      .filter((line) => !line.trimStart().startsWith('#'))
+      .join('\n');
+
+    const ownLeg = new RegExp(`eslint@${major}(?!\\d)`).test(steps);
 
     expect(
       mainMatrix || ownLeg,
