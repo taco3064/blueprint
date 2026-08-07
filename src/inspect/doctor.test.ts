@@ -520,6 +520,33 @@ describe('runDoctor', () => {
     expect(Array.isArray(parsed.checks)).toBe(true);
   });
 
+  it('gives the JSON the same banner and ratio the screen gets', async () => {
+    // This fixture ends `⊘ unverified` (no eslint resolvable), and the JSON used to
+    // carry `ok: true` and the bare word — so a machine that read `ok` and stopped saw
+    // a plain green, while a reader saw "6 of 7 passed, 1 could not run". #141 added
+    // `verdict`; the sentence and the ratio behind it stayed on one channel (#149).
+    adopted();
+    let text = '';
+    let json = '';
+
+    await runDoctor(root, { loadConfig: load, log: (m) => (text = m) });
+    await runDoctor(root, { loadConfig: load, json: true, log: (m) => (json = m) });
+
+    const parsed = JSON.parse(json);
+
+    expect(parsed.verdict).toBe('unverified');
+    expect(parsed.counts).toEqual({ total: 7, passed: 6, failed: 0, skipped: 1 });
+    // Byte-for-byte the line the reader gets, because two channels wording the same
+    // verdict differently is how the reader and the automation start disagreeing.
+    expect(text).toContain(parsed.summary);
+    expect(parsed.summary).toContain('⊘ Adoption unverified');
+
+    // `ok` stays "nothing FAILED" — the same thing this command's exit code means.
+    // Flipping it on a skip would push a consumer following it into failing on a red
+    // nobody can appease, which is exactly the state that produces the skip.
+    expect(parsed.ok).toBe(true);
+  });
+
   it('reports ok:false in JSON as soon as any check fails', async () => {
     write('blueprint.config.mjs', '// user config');
     let output = '';

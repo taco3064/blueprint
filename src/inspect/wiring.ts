@@ -35,7 +35,17 @@ import type { DoctorCheck, ScanResult } from './types';
  * embedded relative-escape rule.
  */
 
-const LABEL = 'emitted rules survive the merged eslint config';
+/**
+ * What this check calls the config it resolved, and it is two different words.
+ * "merged" was hardcoded, and on the path where init writes the live
+ * `eslint.config.mjs` itself there is no merge at all — a field agent read the
+ * label against its own repo, found nothing merged, and had to go check that the
+ * check was pointed at the right file (field run #148). Nothing else in doctor
+ * needed telling: `detect` already separates its own generated config from a
+ * hand-maintained one that wires the package in.
+ */
+const label = (merged: boolean): string =>
+  `emitted rules survive the ${merged ? 'merged' : 'generated'} eslint config`;
 
 /**
  * What a green on this check does and does NOT prove. An unqualified ✓ over
@@ -321,6 +331,12 @@ export interface WiringParams {
   scanResult: ScanResult;
   /** detect's verdict — when eslint is not wired at all, this check skips. */
   wired: boolean;
+  /**
+   * True when the config it will resolve is a hand-maintained one the owner wired
+   * the package into. False when it is init's own generated config, where nothing
+   * was merged and the label must not say it was (field run #148).
+   */
+  merged: boolean;
   /** Gates the stack cannot carry are not expected — `explicitAny` on JS. */
   hasTypescript: boolean;
   load: (name: string, root: string) => Promise<unknown>;
@@ -333,7 +349,8 @@ export interface WiringParams {
  * cover those states already.
  */
 export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
-  const { root, blueprint, scanResult, wired, hasTypescript, load } = params;
+  const { root, blueprint, scanResult, wired, merged, hasTypescript, load } = params;
+  const LABEL = label(merged);
 
   if (!wired) {
     return {
@@ -388,18 +405,28 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
           ),
       );
     }
-  } catch {
+  } catch (error) {
     // Unresolvable config = the project's own lint is broken or eslint is
     // not loadable here; that gate speaks for itself — doctor stays honest
     // by naming the skip, not by inventing a verdict. What it did NOT do was
     // stop the banner counting the skip as one of the checks that passed, which
     // is how an agent concluded the lint wiring had been verified (#129).
+    //
+    // And the reason came with it, which this threw away. The same swallow as
+    // `impact`'s carrier loader, fixed there one batch earlier and not swept to
+    // here: "would not resolve" sent three runs to `npm run lint` to learn WHICH
+    // package was missing, and doctor is the channel they reach after an install
+    // they had to interrupt — the one place still on screen when the question is
+    // asked (field runs #145, #148, #149).
+    const reason = error instanceof Error ? error.message.split('\n')[0] : String(error);
+
     return {
-      label: `${LABEL} (skipped — could not resolve the merged config)`,
+      label: `${LABEL} (skipped — could not resolve the ${merged ? 'merged' : 'generated'} config)`,
       ok: true,
-      skipped: 'the merged eslint config would not resolve, so nothing here proves the emitted '
-        + 'rules are alive in it. Run the project\'s own lint — it fails for the same reason, and '
-        + 'this check runs once that passes',
+      skipped: `it would not resolve — "${reason}" — so nothing here proves the emitted rules are `
+        + 'alive in it. A package named there that is missing from `package.json` too means '
+        + 'init\'s install step never completed; re-run it, or the project\'s own lint, which '
+        + 'fails for this same reason. This check runs once that passes',
     };
   }
 

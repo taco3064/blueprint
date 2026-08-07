@@ -38,6 +38,7 @@ const survey: SurveyResult = {
   edges: [{ from: 'resources', to: 'components', count: 42 }],
   selfAliasImports: { components: 7 },
   testEvidence: [{ pattern: '**/*.test.*', files: 12 }],
+  ownableImports: [],
   packageUsage: [{ package: 'axios', folders: ['services'] }],
   unresolved: [{ prefix: '~root', count: 12 }],
   totalFiles: 120,

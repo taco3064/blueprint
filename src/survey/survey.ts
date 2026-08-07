@@ -70,6 +70,24 @@ export interface SurveyResult {
   /** Package → folders importing it, most-concentrated first. */
   packageUsage: { package: string; folders: string[] }[];
   /**
+   * Named imports that appear in exactly one folder, from a package that appears
+   * in several — the evidence a specifier-level `owns` clause needs, and the only
+   * evidence that can support one.
+   *
+   * `owns` takes `{ package: 'react', imports: ['createContext'] }`, so a config can
+   * hand one specifier to one layer. The matrix above is package-granular, so a
+   * re-adopting agent told to "verify against what the matrix CAN see" could not
+   * verify that clause at all: `react` reads as "half the layers use it" whichever
+   * specifier the clause names. One agent invented `grep` for it and said so — a gap
+   * the tool had no stance on, over a fact `scan` was already collecting and this
+   * survey was dropping (field run #148).
+   *
+   * Only the concentrated ones, and only where the package is not: a specifier in
+   * three folders supports nothing, and one whose package already sits in a single
+   * folder is covered by the package-level row above.
+   */
+  ownableImports: { package: string; name: string; folder: string }[];
+  /**
    * Alias-looking specifier prefixes (`~x/…`, `@x/…`, `#x/…`) that matched no
    * detected alias and no dependency — usually an undeclared alias (declare it
    * in `additionalAliases`, or pass `--alias`), sometimes a missing dep.
@@ -175,6 +193,10 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
   const edgeCounts = new Map<string, number>();
   const selfAliasImports: Record<string, number> = {};
   const packageFolders = new Map<string, Set<string>>();
+
+  const specifierFolders
+    = new Map<string, { package: string; name: string; folders: Set<string> }>();
+
   const unresolvedCounts = new Map<string, number>();
 
   for (const file of scanResult.files) {
@@ -212,6 +234,21 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
 
         if (dep) {
           packageFolders.set(dep, (packageFolders.get(dep) ?? new Set()).add(from));
+
+          // Keyed on the pair AND carrying it, rather than joined and split back
+          // apart: the separator is the only thing a rejoined key can get wrong, and
+          // it did — one invisible character in place of the space, and every row
+          // failed the package lookup, with the empty list reading exactly like
+          // "this repo has nothing ownable at specifier granularity".
+          for (const name of ref.names) {
+            const key = JSON.stringify([dep, name]);
+
+            const entry = specifierFolders.get(key)
+              ?? { package: dep, name, folders: new Set<string>() };
+
+            entry.folders.add(from);
+            specifierFolders.set(key, entry);
+          }
         } else if (/^[~@#]/.test(ref.specifier)) {
           const prefix = ref.specifier.split('/')[0];
 
@@ -220,6 +257,15 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
       }
     }
   }
+
+  // The packages more than one folder imports — the only ones whose specifiers can
+  // say anything the package row does not. A `Set.has` rather than reading the size
+  // back out of `packageFolders`: every specifier was recorded in the same branch
+  // that recorded its package, so the absent arm of that lookup is unreachable, and
+  // a defensive `?? 0` there is a branch no test can ever reach.
+  const spread = new Set(
+    [...packageFolders].filter(([, folders]) => folders.size > 1).map(([name]) => name),
+  );
 
   const result: SurveyResult = {
     framework: state.framework,
@@ -248,6 +294,10 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
     packageUsage: [...packageFolders.entries()]
       .map(([name, folders]) => ({ package: name, folders: [...folders] }))
       .sort((a, b) => a.folders.length - b.folders.length || a.package.localeCompare(b.package)),
+    ownableImports: [...specifierFolders.values()]
+      .filter((entry) => entry.folders.size === 1 && spread.has(entry.package))
+      .map((entry) => ({ package: entry.package, name: entry.name, folder: [...entry.folders][0] }))
+      .sort((a, b) => a.package.localeCompare(b.package) || a.name.localeCompare(b.name)),
     unresolved: [...unresolvedCounts.entries()]
       .map(([prefix, count]) => ({ prefix, count }))
       .sort((a, b) => b.count - a.count),
@@ -343,6 +393,22 @@ export function renderSurvey(result: SurveyResult): string {
 
     if (result.packageUsage.length > 15) {
       lines.push(`  … ${result.packageUsage.length - 15} more (use --json for the full list)`);
+    }
+  }
+
+  if (result.ownableImports.length) {
+    lines.push(
+      '',
+      'Named imports in ONE folder, from a package in several (specifier-level ownership',
+      'candidates — `owns: [{ package, imports: […] }]`; the rows above cannot support one):',
+    );
+
+    for (const entry of result.ownableImports.slice(0, 15)) {
+      lines.push(`  ${entry.package} → ${entry.name} — ${entry.folder} only`);
+    }
+
+    if (result.ownableImports.length > 15) {
+      lines.push(`  … ${result.ownableImports.length - 15} more (use --json for the full list)`);
     }
   }
 
