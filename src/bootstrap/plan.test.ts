@@ -399,6 +399,15 @@ describe('plan', () => {
     expect(note?.note).toContain('emits NOTHING while lint still');
     // The reference is a merge source with an obligation, not a keepsake.
     expect(note?.note).toContain('DELETE the reference');
+    // Two channels say LAST about two different entries and a reader holds both:
+    // this note means last of the configs the repo already has, the playbook means
+    // the combined no-restricted-* entry, which follows the spread. The bare
+    // "emitLint goes LAST —" read as last of everything and contradicted it.
+    expect(note?.note).toContain('emitLint goes LAST of the configs you already have');
+    // Whitespace-insensitive: the sentence wraps differently in the two copies,
+    // and a re-wrap is not a regression — losing the clause is.
+    expect(note?.note?.replace(/\s+/g, ' ')).toContain('the one thing that goes after the spread');
+    expect(note?.note).not.toContain('emitLint goes LAST —');
   });
 
   it('the flat-array wiring snippet IS the TS version on a TypeScript repo', () => {
@@ -432,6 +441,14 @@ describe('plan', () => {
     // even when the dep scan did not see `typescript`.
     expect(note?.note).toContain('emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports })');
     expect(note?.note).toContain('DELETE the reference');
+    // Same LAST disambiguation as the flat-array note, asserted separately because
+    // this passage is a hand-copied twin of that one and has drifted from it before
+    // — `defineConfig([...])` reached only the other copy.
+    expect(note?.note).toContain('emitLint goes LAST of the configs you already have');
+    // Whitespace-insensitive: the sentence wraps differently in the two copies,
+    // and a re-wrap is not a regression — losing the clause is.
+    expect(note?.note?.replace(/\s+/g, ' ')).toContain('the one thing that goes after the spread');
+    expect(note?.note).not.toContain('emitLint goes LAST —');
   });
 
   it('carries the TS7016 caveat exactly when the existing config is a .ts file (field #22)', () => {
