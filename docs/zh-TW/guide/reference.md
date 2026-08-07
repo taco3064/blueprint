@@ -65,8 +65,12 @@ plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`�
 
 ### 把受管規則併進自己的規則設定
 
-flat config 是**取代**不是合併，所以本來就有設 `no-restricted-syntax` 的 repo，不能放著讓後面那筆贏 ——<br>
-兩邊的選項必須併成同一筆。<br>
+flat config 是**取代**不是合併 —— 但只發生在「兩筆都命中的檔案」上 ——<br>
+所以本來就有設 `no-restricted-syntax` 的 repo，在那些檔案上不能放著讓後面那筆贏：兩邊的選項必須併成同一筆。<br>
+不過也就只有那些檔案。<br>
+一筆設定對「不在自己 `files` 範圍內」的檔案什麼都不做，所以你的設定沒伸到的地方，spread 仍然在替 blueprint 執行它那一筆；<br>
+兩邊範圍不一致時，要做的是把合併後的那一筆縮到重疊區，而不是把任一邊放寬去湊另一邊。
+
 `npx blueprint rules --json` 就是為此帶出每一層確切的 `selfOnly` selector，而且有兩種寫法，只有一種撐得過「貼上」這個動作：
 
 - **要複製的是 `jsLiteral`** —— 這是 selector 的 JS 原始碼形式，連引號一起給。

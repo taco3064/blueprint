@@ -365,6 +365,16 @@ describe('authoringBrief', () => {
     expect(brief).toContain('into ONE entry');
     expect(brief).toContain('survived the merge');
 
+    // …but only on the files BOTH entries match (#163). Stated without that
+    // qualifier, the sentence generated three downstream scope claims that were
+    // false, so the qualifier is a contract of its own rather than a nicety.
+    expect(brief).toContain('on the files both of them match');
+    expect(brief).toContain('only the overlap has to be combined');
+
+    // And the probe that catches the loss doctor cannot see: your own rule's
+    // files outside the collision. "One file per affected layer" alone misses it.
+    expect(brief).toContain('plus one file your own rule governed OUTSIDE the collision');
+
     // Intent docs often draw a DAG; the linear order is a transitive relaxation.
     expect(brief).toContain('Linearize, then verify against the matrix');
 

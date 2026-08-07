@@ -1029,8 +1029,14 @@ describe('naming the cause, so a claim can be checked (field runs #79–#81)', (
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
     expect(playbook).toContain('The same move runs the other way');
-    expect(playbook).toContain('One entry carries one');
-    expect(flattenProse(playbook)).toContain('that is where the asymmetry lands');
+    expect(flattenProse(playbook)).toContain('that is where an asymmetry you introduce here lands');
+
+    // It used to close with "one entry carries one `ignores`, so a merge has to pick" —
+    // the same false premise as #163's scope claim, one paragraph down: true only if the
+    // combined entry is the only entry left. Leave the original in place and the
+    // collision's test files keep the house rule, so there is no trade to make.
+    expect(playbook).toContain('nothing has to be given up');
+    expect(flattenProse(playbook)).not.toContain('so a merge has to pick');
   });
 });
 
@@ -2482,17 +2488,20 @@ describe('"ONE entry" is per collision, not per rule key (field issue #51)', () 
 
     // A selfOnly layer emits its ban on EVERY importer layer, so one rule key
     // owns several scoped entries. "Combine into ONE entry", read literally
-    // against a house rule overlapping just one of them, produced either a
-    // rule imposed on files it never governed or — silently — a replaced
-    // entry and a deleted ban. The paragraph warns about that exact trap two
-    // sentences earlier, which is what made this worth fixing.
+    // against a house rule overlapping just one of them, imposes that rule on
+    // files it never governed.
     expect(playbook).toContain('"ONE entry" means one per COLLISION, not one for the whole rule key');
     expect(playbook).toContain('emits `no-restricted-syntax` on BOTH importer layers');
     expect(playbook).toContain('leave the others exactly as emitted');
-    // Both wrong turns named, with which one is silent.
-    expect(playbook).toContain('new red, visible');
-    expect(playbook).toContain('silent, lint still green');
-    // And the gate that catches it, so the warning does not read as "be careful".
+    // ONE wrong turn, not two. This case used to name narrowing as the silent
+    // twin of widening — "a replaced entry and a deleted ban" — and #163 is an
+    // agent acting on it. A narrow entry replaces nothing on the files it does
+    // not match, so the excluded layers keep what the spread emitted.
+    expect(playbook).toContain('is the way to get this wrong');
+    expect(playbook).toContain('Scoping it narrowly is NOT the opposite error');
+    expect(playbook).not.toContain('narrowing it to exclude them');
+    // And the gate that catches the loss that IS real, so the warning does not
+    // read as "be careful".
     expect(playbook).toContain('probes every layer separately and names the one that lost its selectors');
   });
 });
@@ -2689,16 +2698,33 @@ describe('a claim states the condition it needs (field runs #95–#97)', () => {
     expect(playbook).toContain('rules: { cycles: \'error\', unusedVars: \'error\' },');
   });
 
-  it('breaks the scope tie when the two sides never shared a scope', async () => {
-    // "Carry the SAME file scope" cannot hold for both sides when a house rule was
-    // framed at `**/*.vue` and the layer glob is `.{js,vue}`. The playbook stated both
-    // directions as errors and left the case unaddressed; the field agent resolved it
-    // correctly by reasoning from the asymmetry two paragraphs up. Say it instead.
+  it('resolves a scope mismatch by the collision, not by widening either side', async () => {
+    // #163: the answer used to be "match blueprint's glob", justified by an asymmetry
+    // that is false — narrowing the hand-written entry cannot make blueprint's ban lose
+    // a file, because the spread still carries it wherever that entry does not match.
+    // An agent followed the instruction and took 38 errors in one test file for it.
+    // Measured per direction in renderCombinedEntry's doc comment.
     const playbook = await playbookOf(brownfield());
 
-    expect(playbook).toContain('cannot hold for both — match blueprint\'s');
-    expect(playbook).toContain('the two failure directions are not symmetric');
-    expect(playbook).toContain('worth writing down as a bet');
+    expect(playbook).toContain('do not reconcile them — the collision is the entry');
+    expect(playbook).toContain('leave your original entry exactly where it was');
+    expect(playbook).toContain('Three entries then cover three sets');
+
+    // The mechanism the instruction rests on, and the qualifier that makes it true.
+    // Without these the recommendation reads as a preference a reader can trade away.
+    expect(playbook).toContain('on the files both of them match');
+    expect(playbook).toContain('an entry does nothing at all to a file outside its own');
+    expect(playbook).toContain('Scoping it narrowly is NOT the opposite error');
+
+    // The two losses that ARE silent, so correcting the false one does not read as
+    // "scope no longer matters". Neither is about how wide the entry is.
+    expect(playbook).toContain('the two silent losses are about what the entry CONTAINS');
+    expect(playbook).toContain('Fold your own original entry away');
+
+    // The old wording asserted the inverted asymmetry. It must not survive anywhere.
+    expect(playbook).not.toContain('the SAME file scope');
+    expect(playbook).not.toContain('failure directions are not symmetric');
+    expect(playbook).not.toContain('widen yours to blueprint\'s glob');
   });
 
   it('counts a drawn diagram as part of what the document says', async () => {
