@@ -6,9 +6,13 @@ page is the map.
 
 ## What it runs on
 
-- **Node `^18.18.0 || ^20.9.0 || >=21.1.0`** — a floor that is executed rather than read
-  off the source: CI builds on the current Node, then runs the built artifact on
-  `18.18.0` exactly, because the floor is the version being claimed
+- **Node — minimum `^18.18.0 || ^20.9.0 || >=21.1.0`.** A floor that is executed rather
+  than read off the source: CI builds on the current Node, then runs the built artifact
+  on `18.18.0` exactly, because the floor is the version being claimed. **Recommended:
+  the version this repo itself builds and tests on**, which lives in
+  [`.nvmrc`](https://github.com/taco3064/blueprint/blob/main/.nvmrc) and is deliberately
+  not copied here — a version number pasted into prose goes stale without anyone
+  noticing. Anything above the floor works; that one is the best-travelled path
 - **ESLint 9 or 10, on flat config** — both majors are admitted by every carrier
   plugin's peer range, so `init` installs `eslint` unpinned and it resolves to the
   newest supported one. A legacy `.eslintrc` is a
