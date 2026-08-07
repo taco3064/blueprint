@@ -3,6 +3,16 @@
 本頁彙整 blueprint 所有查得到的東西，以及指南各頁沒逐一說明的 config 欄位。<br>
 完整型別簽名見 [API 文件](/zh-TW/api/)；本頁的定位是索引地圖。
 
+## 執行環境需求
+
+- **Node `^18.18.0 || ^20.9.0 || >=21.1.0`** —— 這個下限是被跑出來的，不是從原始碼讀出來宣稱的：<br>
+  CI 用當前版本的 Node 建置，再把建置產物拿到 `18.18.0` 上執行 —— 因為被宣稱的就是這個版本。
+- **ESLint 9 或 10，flat config** —— 兩個大版本都在每個承載外掛的 peer 範圍內，<br>
+  所以 `init` 安裝 `eslint` 時不鎖版本，讓它解析到支援範圍內最新的那個。<br>
+  舊制的 `.eslintrc` 是一次[遷移決策](/zh-TW/guide/field-tested#框架注意事項)，不會變成默默導入到一半的狀態。
+
+除此之外沒有別的 —— 套件本身零執行期依賴。
+
 ## `inspect` 回報的檢測項目
 
 只要有 `error` 等級的違規，就以 exit code 1 結束；`warn` 與 `info` 只提示、不影響檢核結果。<br>
@@ -21,7 +31,9 @@
 
 既有專案可透過 [baseline 棘輪](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect)，把這份清單轉成「只攔新增的違規」。<br>
 被 baseline 記錄的違規，是用「規則 + 路徑 + **subject**」來識別的 —— subject 指的是 import specifier、循環的成員這類東西，**不是**訊息文字。<br>
-所以某次改版把訊息改得更好懂，不會害你的 gate 變紅。
+所以某次改版把訊息改得更好懂，不會害你的 gate 變紅。<br>
+baseline 檔本身帶著這套識別方式的 `"version"`；<br>
+在識別方式改變之前寫下的檔案會[被拒收，並附上重記的指令](/zh-TW/guide/getting-started#升級時已經有-baseline-檔)，而不是被拿去重新解讀。
 
 ### import graph 是怎麼讀出來的
 
@@ -48,6 +60,23 @@ plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`�
 另有三條**受管規則** —— 由 `layers` / `owns` / `alias` 轉譯而成、歸生成器管：`no-restricted-imports`、`no-restricted-syntax`、`no-restricted-globals`。<br>
 這三條沒辦法透過 `lintOverrides` 設定；要調整就改 blueprint config 本身。
 
+### 把受管規則併進自己的規則設定
+
+flat config 是**取代**不是合併，所以本來就有設 `no-restricted-syntax` 的 repo，不能放著讓後面那筆贏 ——<br>
+兩邊的選項必須併成同一筆。<br>
+`npx blueprint rules --json` 就是為此帶出每一層確切的 `selfOnly` selector，而且有兩種寫法，只有一種撐得過「貼上」這個動作：
+
+- **要複製的是 `jsLiteral`** —— 這是 selector 的 JS 原始碼形式，連引號一起給。
+- **`selectors` 是 ESLint 實際解析的那個值。**<br>
+  對「用程式**組**設定」的情境是對的，對「用貼的」則是陷阱：<br>
+  路徑分隔符在裡面是 `/` 的跳脫寫法（直接放裸 `/` 會讓 esquery 的正規式提早結束），<br>
+  而 JavaScript 解析字串常值時會把同一個跳脫吃掉一層 —— 於是貼進去的 selector 在那個裸 `/` 就結束了。<br>
+  不會有語法錯誤、lint 照樣是綠的，禁令則靜靜地什麼都沒擋到。
+- **`testExemptions` 是一起附著的，得跟著搬過去。**<br>
+  只靠 selector 重組一筆設定會安靜地把它弄丟，而且是最糟的那種安靜：合併後的那筆照跑，於是禁令開始伸進你的測試檔。
+
+禁令的**訊息文字**是你自己寫的 —— `doctor` 驗的是 selector，從來不驗訊息。
+
 ## `blueprint.rules` —— 哪些識別碼會成為檢核關卡
 
 `blueprint.rules` 裡的識別碼，只有機器查得動的才會轉譯成 lint 關卡。<br>
@@ -72,7 +101,10 @@ plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`�
 這個劃分就是[三種級別落點](/zh-TW/philosophy/#三種級別落點)的機制。
 
 這整份對照隨時問得到工具本人：<br>
-`npx blueprint rules` 會印出 catalog，有 config 時還會標註實際宣告的 tier。
+`npx blueprint rules` 會印出 catalog，有 config 時還會標註實際宣告的 tier。<br>
+**這套技術棧開不起來的關卡，那一列會留著、並且附上原因** —— 例如 JS 專案上的 `explicitAny`、`testFiles: []` 旁邊的 `testFilename` —— 而不是連個交代都沒有就被拿掉。<br>
+這也是為什麼這份 catalog 的列數會比 `inspect` 與 `doctor` 印的 `N/M 個選用關卡` 分母來得多：<br>
+那個分母數的是「有東西開得起來」的關卡，而拿兩個數字對照的人會被告知差額落在哪一列，不用自己猜。
 
 ### 有五個關卡靠注入的外掛才活著
 

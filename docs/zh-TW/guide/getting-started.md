@@ -41,6 +41,24 @@ npx @kekkai/blueprint inspect --baseline          # gate：只攔「新增」的
 債務清償之後，baseline 裡已經用不到的紀錄會被列出來提醒移除，檢核範圍隨之逐步收緊。<br>
 零違規的專案不需要 baseline 檔案，`--baseline` 在沒有檔案時視同空 baseline 執行。
 
+### 升級時已經有 baseline 檔
+
+**升級後第一次執行會拒收既有的 `.blueprint-baseline.json`，並印出一行指令** —— 重記一次，只需要這一次：
+
+```bash
+npx @kekkai/blueprint inspect --update-baseline
+```
+
+重記之後記錄的是同一批債務：原本被抑制的，沒有任何一項會變成不抑制。<br>
+變的是「拿什麼來辨識一筆紀錄」。<br>
+以前它包含違規的**訊息文字**，而訊息正是「違規本身沒變、它卻會變」的那一部分 ——<br>
+所以只要改寫任何一則訊息，那條規則底下的 baseline 紀錄就會靜悄悄全部失效：舊債以 `fresh` 的身分回來、原本記下的紀錄被算成 `stale`，一次沒改任何 code 的升級就讓既有專案的 CI 變紅。<br>
+現在的識別方式是規則、路徑，以及 **subject**（匯入的 specifier、循環依賴的成員）。
+
+舊檔是被拒收，而不是拿新規則去重新解讀它 ——<br>
+因為用新的識別方式去讀，它會一項都對不上，那正是棘輪存在的目的所要防止的滿江紅，而且來得沒有任何說明。<br>
+`--json` 的使用者這邊同時多了兩件事：每一筆檢測項目都帶 `subject`，檔案本身標記 `"version": 2`。
+
 ## 影響範圍 —— `blueprint deps`
 
 ```bash

@@ -40,12 +40,28 @@ Blueprint 僅執行兩種外部指令，且執行前均事先明列：<br>
 其二為前述須明確啟用的 Agent 啟動。<br>
 除此之外不執行任何外部指令。
 
+安裝這一步也是**刻意排在最後**：所有檔案寫入都排在它之前，<br>
+所以一次被中斷的執行留下的是「一棵完整的樹，只少了 `node_modules`」，而不是一套接到一半的工具鏈。<br>
+它是唯一一個可能卡上好幾分鐘的步驟（套件管理工具連不到 registry 時會安靜地重試），<br>
+所以它上面那行會把接下來要跑的指令印出來，說明安靜是正常的、安靜好幾分鐘代表它連不上 —— 這時把它停掉、自己跑那行，或加 `--no-install` 重跑就好，<br>
+並且說清楚停掉會少什麼：`package.json` 裡的這幾個套件。<br>
+在那行跑完之前，任何指名其中一個套件的失敗都是這個缺口，不是導入壞掉。
+
 ## 寫入行為均有宣告與邊界
 
+- **不會寫到 repo 外面。**<br>
+  `emit.handbook` 與 `emit.agents[].path` 是來自使用者 config、會一路走到檔案系統的字串；<br>
+  路徑一旦解析到專案根目錄之外（開頭的 `../`、絕對路徑、磁碟機代號），**在寫入第一個檔案之前**就會被拒絕，<br>
+  並且指名是哪個路徑、什麼都沒寫、以及會設出這種路徑的那兩個 config 欄位。<br>
+  真實情境不是攻擊，而是 monorepo 裡少算一層的相對路徑，通常還是 blueprint 請去撰寫 config 的那個 Agent 寫的；<br>
+  config 本身是可執行的 JavaScript，所以這不是權限邊界，而是「這種路徑會大聲失敗」的承諾。<br>
+  拒絕發生在計畫階段，也正是這件事讓 `--dry-run` 不可能印出一份真正執行時會被拒絕的計畫
 - `init --dry-run` 列印全部效果，不寫入任何檔案
 - `inspect` 與 `deps` 為唯讀（`inspect --update-baseline` 僅寫入一個明列的檔案：`.blueprint-baseline.json`；檢測項目為零時不產生任何檔案）
 - 使用者持有的檔案**僅在可無損重寫時**才會修改（即無註解的 `tsconfig.json` / `jsconfig.json`）；<br>
-  其餘情況 —— 包括任何既有的 ESLint config 與手寫的 Agent 守則檔 —— 一律提供可直接使用的合併指引，絕不覆蓋
+  其餘情況 —— 包括任何既有的 ESLint config 與手寫的 Agent 守則檔 —— 一律提供可直接使用的合併指引，絕不覆蓋。<br>
+  承載該指引的參考檔，後綴是加在**副檔名之前**（`context.mdc` → `context.blueprint.mdc`），dotfile 則保留原名（`.gitignore` → `.gitignore.blueprint`），<br>
+  所以自訂的 `emit.agents[].path` 不可能讓產生的區塊落到「它本來只是要待在旁邊」的那份文件上
 - 唯一的範圍例外：於**全新初始化的專案**（blueprint config 於同一次執行中產生），<br>
   init 會將匯入別名一併寫入範本的 `vite.config.*` 與含註解的 tsconfig，並在 `lint` script 沒跑 eslint 時幫它接上（讓 lint 跑得到產生的規則）——<br>
   這些是前置條件保護的文字修改，僅處理已知的範本形態，於 `--dry-run` 中完整可見，形態不符時退回指引。<br>
@@ -56,4 +72,10 @@ Blueprint 僅執行兩種外部指令，且執行前均事先明列：<br>
 ## 發佈附來源簽章
 
 每個版本均由 GitHub Actions 發佈，並附 [npm provenance](https://docs.npmjs.com/generating-provenance-statements) 來源證明 ——<br>
-建置來源可於 Sigstore 公開查驗，且發佈流程受完整測試套件（涵蓋率 100%）把關。
+建置來源可於 Sigstore 公開查驗。
+
+發佈流程的關卡依序是：程式碼檢查、型別檢查、完整測試套件（涵蓋率 100%）、建置，<br>
+**最後再驗建置產物本身** —— 實際執行 `dist/bin.js`、解析 `bin` 欄位、匯入套件進入點。<br>
+最後這一層存在的理由是：發佈的那個 job 會自己建一份 `dist/`，而 npm 收到的就是那一份；<br>
+它同時也是唯一看得到「缺陷躲在打包邊界之後」的一層，而那種狀態在每一項行程內測試裡都是通過的。<br>
+細節見[實測相容性](/zh-TW/guide/field-tested#這一頁背後有什麼)。

@@ -1,9 +1,28 @@
 # 實測相容性
 
 每個版本除了單元測試之外，都會實際在真實專案上跑一次導入來驗證。<br>
-背後有兩層自動化在撐：其一是**導入 e2e 測試套件**（五種納入版本控制的範本 —— Vite React 與 Vue、Next、turbo + pnpm workspace 套件、以及植入既有債務的既有專案 —— 每次 commit、push 與發佈都完整跑一遍 init、inspect 與 baseline 流程）；<br>
-其二是**每週的地形檢查**，用最新的上游範本實際建專案跑導入，範本長相漂移時自動開 issue。<br>
 本頁記錄實際跑過的情境、結果與注意事項，讓你判斷哪些環境已經驗證過、哪些還是未知領域。
+
+## 這一頁背後有什麼
+
+五層，每一層存在的理由都是：它底下那一層碰到真實缺陷時會通過。
+
+- **導入一致性測試套件** —— 五種納入版本控制的範本（Vite React 與 Vue、Next、turbo + pnpm workspace 套件、以及植入既有債務的既有專案），每次 commit、push 與發佈都完整跑一遍 init、inspect 與 baseline 流程，用的是本 repo 自己開發依賴裡那份真正的 ESLint。
+- **兩套作業系統，而且兩邊都要回報** —— CI 在 `ubuntu-latest` 與 `windows-latest` 上各跑一次完整檢核，任一邊失敗都不准被另一邊蓋掉。<br>
+  這個工具會去讀寫別人的 repo，為此帶了好幾條專門處理 Windows 的分支；在 posix 上那些分支等同空操作，所以它們的行為以前從來沒被實際觀察過。<br>
+  另有一條獨立的流程：用當前版本的 Node 建置，再把建置產物拿到 `18.18.0` 上執行 —— `engines` 宣告的下限是被跑出來的，不是宣稱的。
+- **`npm run dist:verify`** —— 行程內測試碰不到的那一層：它實際執行 `dist/bin.js`、解析 `bin` 欄位、匯入套件進入點。<br>
+  它存在的理由是 0.1.1 的那個 bug —— npm 會把 bin 裝成 symlink，少了 `realpathSync` 會讓發佈出去的 CLI 什麼都沒做就以 exit 0 收場，**而這個狀態在每一項行程內測試裡都是通過的**。<br>
+  CI 建置後跑一次，實際發佈的那個 job 再跑一次，因為 npm 收到的產物是那個 job 產出來的。
+- **每週的地形檢查** —— 用最新的上游 `create-vite` 與 `create-next-app` 範本實際建專案跑導入，範本長相漂移時自動開 issue。<br>
+  刻意排除在 PR 檢核之外：它依賴網路，而且變數在上游。
+- **真實導入測試** —— 讓真正的 agent CLI 帶著真實 repo 走過 `init` → `inspect` → `impact` → `doctor`，全程無人介入，最後用真的 doctor 驗收。<br>
+  它負責找**新的**情境；已知的情境交給一致性測試套件顧著，在那裡失敗的情境會連同修正一起變成常駐案例。<br>
+  逐項的來龍去脈是公開的，就在本 repo 已關閉的 [`field-run` issues](https://github.com/taco3064/blueprint/issues?q=is%3Aissue+label%3Afield-run)。
+
+**突變測試是 3.0.0 之後才有的**，它稽核的是測試套件本身 —— 問的不是「這行有沒有被測到」，而是「這行如果被改錯，斷言接不接得住」。<br>
+測試套件因此大約翻倍，而其中大部分找出來的，都是「原始碼改錯了也會帶著全綠的測試出貨」的地方。<br>
+它是需要時手動跑，刻意不當成 gate：分數門檻會是一個每次改 code 就失效的數字，而這個專案的立場是不要一種沒人能安撫的紅燈。
 
 ## 已驗證且通過
 
@@ -51,6 +70,9 @@
   遷移前的過渡姿勢是 severity `'warn'`（代價：新的度量債不擋）；完整 doctrine 見[弄紅，然後上棘輪](/zh-TW/guide/ai-adoption#既有債務-——-弄紅-然後上棘輪)。
 - **上游 plugin 的規則漂移**：規則改名（例如 typescript-eslint v8 把 `no-var-requires` 併進 `no-require-imports`）會讓舊的 disable 註解在合併途中變 stale ——<br>
   只有真的跑起 lint 才會浮現；逐條當合併決策處理，不是 blocker。
+- **Windows**：每次 commit 都會在上面跑完整套檢核，所以那些做路徑正規化的分支（`scan`、`ignored`、`impact`、相對路徑逃逸規則）是被實際執行的，不是用推論的。<br>
+  在這個平台上有一件事值得知道：**CRLF 換行的 `tsconfig.json`**（Windows 的預設）以前會掉進「請自己補上這些 paths」那條路，匯入別名沒被接上，而且什麼都不會說。<br>
+  現在換行字元是從檔案本身讀出來的，這同時也避免了改動把兩種換行慣例混進同一個檔案 —— 那會被你自己的 `linebreak-style` 規則抓。
 - **既有結構治理工具並存**（structure-lint、dependency-cruiser）：將 Blueprint 接於其後時，同名規則由 Blueprint 的語意接管（已於實測專案證實等價）；<br>
   治理工具的整併列為團隊決策事項，不擅自執行。
 
@@ -62,5 +84,5 @@
 
 ## 尚未驗證
 
-Remix / React Router 框架模式、Windows 路徑、經 `extends` 鏈繼承的 tsconfig `paths`（偵測遺漏時可以 `--alias` 參數補足）。<br>
+Remix / React Router 框架模式、經 `extends` 鏈繼承的 tsconfig `paths`（偵測遺漏時可以 `--alias` 參數補足）。<br>
 如果你在上述環境跑過 blueprint，無論結果通過與否，[回報 issue](https://github.com/taco3064/blueprint/issues) 都是最有價值的貢獻。

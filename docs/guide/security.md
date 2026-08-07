@@ -43,15 +43,37 @@ the dependency install (`npm install -D …`) during `init` — printed in the p
 skipped by `--no-install` — and the opt-in agent launch described above. Nothing else
 is executed.
 
+The install is also **the last step, deliberately** — every filesystem effect lands
+above it, so what an interrupted run leaves behind is a complete tree minus
+`node_modules` rather than a half-wired toolchain. It is the one step that can sit for
+minutes (a package manager with no route to the registry retries in silence), so the
+line above it carries the command it is about to run, says that quiet is normal, that
+minutes of quiet means stopping it and running that line yourself or re-running with
+`--no-install`, and what stopping omits: these packages in `package.json`. Until that
+line runs, a failure naming one of them is that gap and not a broken adoption.
+
 ## Writes are declared and bounded
 
+- **Nothing is written outside the repo it runs in.** `emit.handbook` and
+  `emit.agents[].path` are strings from your config that reach the filesystem, and a
+  path resolving outside the project root — a leading `../`, an absolute path, a drive
+  letter — is refused **before a single write**, naming the path, that nothing was
+  written, and the two fields that set one. The realistic input is not an attack but a
+  relative path off by one directory in a monorepo, written by the agent blueprint asks
+  to author the config; the config is executable JavaScript, so this is a promise that
+  such a path fails loudly, not a privilege boundary. Refusing in the planner is also
+  what makes `--dry-run` unable to print a plan the real run would reject
 - `init --dry-run` prints every effect without touching a file
 - `inspect` and `deps` are read-only (`inspect --update-baseline` writes exactly one
   declared file: `.blueprint-baseline.json` — and a zero-finding run writes no file at all)
 - Files you own are edited only when they can be rewritten **losslessly**
   (`tsconfig.json` / `jsconfig.json` without comments); anything else — including any
   existing eslint config and any hand-written agent contract file — gets a paste-ready
-  snippet, never an overwrite
+  snippet, never an overwrite. The reference file that carries the snippet takes its
+  suffix *before* the extension (`context.mdc` → `context.blueprint.mdc`), and a
+  dotfile keeps its name (`.gitignore` → `.gitignore.blueprint`), so a custom
+  `emit.agents[].path` cannot land the generated block on the document it was meant to
+  sit beside
 - One scoped exception: on a **fresh scaffold** (init generated the blueprint config
   in this very run), init also wires the import alias into the template's
   `vite.config.*` and commented tsconfig, and adds `eslint` to a `lint` script that
@@ -65,5 +87,12 @@ is executed.
 
 Every version is published from GitHub Actions with
 [npm provenance](https://docs.npmjs.com/generating-provenance-statements) — the build
-origin is publicly verifiable on Sigstore, and the release workflow gates on the full
-test suite at 100% coverage.
+origin is publicly verifiable on Sigstore.
+
+The release workflow gates on lint, type check, the full test suite at 100% coverage,
+the build — **and then on the built artifact itself**, executing `dist/bin.js`,
+resolving the `bin` field and importing the package entry. That last layer is there
+because the publishing job produces its own `dist/`, and the artifact npm receives is
+that one; it is also the only layer that can see a defect living past the bundle
+boundary, which every in-process test passes. Details in
+[Field-Tested Setups](/guide/field-tested#what-backs-this-page).
