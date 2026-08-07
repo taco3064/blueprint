@@ -193,6 +193,21 @@ describe('runRules', () => {
     expect(output).toContain('18 listed — 3 of them unavailable on this stack');
   });
 
+  it('keeps testFilename available when testFiles names any glob at all', async () => {
+    // The arm is `testFiles.length === 0`, and `&& true` in its place survived — every
+    // array would have marked the gate unavailable, including the ordinary case of a
+    // project that simply names its own test pattern.
+    const named: Blueprint = {
+      ...blueprint,
+      architecture: { ...blueprint.architecture, testFiles: ['**/*.spec.ts'] },
+      rules: { ...blueprint.rules, testFilename: 'error' },
+    };
+
+    const { gates } = await runRules(repo(named), { log: () => {} });
+
+    expect(gates.find((gate) => gate.id === 'testFilename')?.unavailable).toBeUndefined();
+  });
+
   it('says the row count matches when the stack can open every gate', async () => {
     // A TypeScript Vue project is the one shape with nothing to exclude, and the note
     // has to say so rather than go quiet: silence would leave the reader comparing
