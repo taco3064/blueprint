@@ -1078,7 +1078,7 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
 
     // So `rules` must not claim the whole block, and must say what to do instead.
     expect(rules.output).not.toContain('Everything below is what doctor compares');
-    expect(flattenProse(rules.output)).toContain('`packages` is NOT compared');
+    expect(flattenProse(rules.output)).toContain('`packages` is not compared by');
     expect(flattenProse(rules.output)).toContain('--print-config');
 
     // And `--json` carries it beside the column, which is #117's shape: that fix put the
@@ -1091,7 +1091,7 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
     expect(owningBans.length).toBeGreaterThan(0);
 
     for (const ban of owningBans) {
-      expect(ban.packagesNote).toContain('does not compare package ownership');
+      expect(ban.packagesNote).toContain('is not compared by doctor');
       expect(ban.packagesNote).toContain('--print-config');
     }
 

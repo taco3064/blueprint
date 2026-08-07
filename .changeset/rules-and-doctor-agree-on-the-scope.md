@@ -18,7 +18,9 @@ line says what to do about the one that is not — verify that column with
 `npx eslint --print-config`. The scope belongs to the check that has it.
 
 **`rules --json` carries the same sentence, on the ban entries that have a `packages`
-column.** `bans[i].packagesNote` is the one string the text output prints, so the two
-channels cannot drift apart — and the playbook sends a merging agent to `--json` in five
-places, which makes that the channel this matters most in. Absent where `packages` is
-empty: a layer banning nothing has nothing to verify.
+column.** `bans[i].packagesNote` is the passage the text output prints, joined into one
+sentence, so the two channels cannot drift apart — and the playbook sends a merging agent
+to `--json` in five places, which makes that the channel this matters most in.
+
+Both channels withhold it on the same condition: where no layer bans a package, there is
+nothing to verify, so neither the field nor the paragraph appears.

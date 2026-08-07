@@ -254,7 +254,7 @@ describe('runRules', () => {
       // `bans[i].packages` has no reason to look at a sibling key. The text output
       // carrying this caveat while `--json` did not is #117's exact shape, which came
       // back from the other channel three releases later (field run #159).
-      packagesNote: expect.stringContaining('does not compare package ownership'),
+      packagesNote: expect.stringContaining('is not compared by doctor\'s survival check'),
       globals: ['fetch'],
       selfOnly: [],
       // Travels with the selectors on purpose: an entry rebuilt from selector
@@ -281,6 +281,19 @@ describe('runRules', () => {
 
     expect(owner.bans[0].packages).toEqual([]);
     expect(owner.bans[0]).not.toHaveProperty('packagesNote');
+
+    // And the text output gates on the same fact, or it becomes the counterexample to the
+    // reason `--json` withholds the note: a paragraph about a column reading `(none)` all
+    // the way down, which is what "nothing to verify" was supposed to prevent.
+    const noOwners: string[] = [];
+
+    await runRules(repo({
+      ...blueprint,
+      architecture: { ...blueprint.architecture, layers: [{ name: 'components', does: 'UI' }] },
+    }), { log: (m) => void noOwners.push(m) });
+
+    expect(noOwners.join('\n')).toContain('Per-layer bans');
+    expect(noOwners.join('\n')).not.toContain('is not compared by');
 
     const output = lines.join('\n');
 

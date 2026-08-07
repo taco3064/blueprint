@@ -129,7 +129,8 @@ export interface GateStatus {
 }
 
 /**
- * What doctor's survival check does NOT compare, in the one string both shapes carry.
+ * What doctor's survival check does NOT compare — one passage, two shapes: the text
+ * output prints these lines, `--json` carries them joined into one sentence.
  *
  * The text block used to close with "Everything below is what doctor compares" while
  * the block below it prints a `packages:` column and doctor's own ✓ says
@@ -143,11 +144,23 @@ export interface GateStatus {
  * that check's five outcomes print no scope at all (not wired, no probe derivable, config
  * unresolvable, and the red), and `rules` prints this block whenever a config exists — so
  * pointing at a line of another command's output points at nothing in most repos.
+ *
+ * Hand-wrapped, because the length is fixed and this file wraps its prose at 76-81
+ * columns. Extracting it as one sentence lost that and left a 229-column line in the
+ * middle of a hand-wrapped block — a refactor side effect, not a decision. `wrapList` in
+ * survey.ts draws the line: computed wrapping is for a list whose length is the reader's
+ * repo, not for a sentence that is the same every time.
+ *
+ * It opens on the field name so the text output needs no prefix — the prefixed version
+ * read "`packages` is NOT compared: doctor's survival check does not compare package
+ * ownership", one fact twice — and so the JSON value still reads as a whole sentence
+ * about the field it sits beside.
  */
-const PACKAGES_NOT_COMPARED
-  = 'doctor\'s survival check does not compare package ownership — a merge that drops a '
-    + 'package ban stays green there, so verify this column yourself with '
-    + '`npx eslint --print-config <a file in the layer>`';
+const PACKAGES_NOT_COMPARED = [
+  '`packages` is not compared by doctor\'s survival check — a merge that drops a',
+  'package ban stays green there, so verify this column yourself with',
+  '`npx eslint --print-config <a file in the layer>`.',
+];
 
 /**
  * One string for both output shapes, so the text form and `--json` cannot drift
@@ -233,7 +246,7 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
       layer: layer.name,
       forbidden: getForbiddenLayers(architecture, layer.name),
       packages,
-      ...(packages.length ? { packagesNote: PACKAGES_NOT_COMPARED } : {}),
+      ...(packages.length ? { packagesNote: PACKAGES_NOT_COMPARED.join(' ') } : {}),
       globals: globalRules
         .filter((rule) => !rule.allowedIn.includes(layer.name))
         .map((rule) => rule.global),
@@ -416,7 +429,13 @@ export function renderRules(
           'and it compares TEXTUALLY: a pattern group reordered or a selector respelled to',
           'an equivalent (`\\/` for `/`) reads as missing even though eslint would still',
           'enforce it. Copy, do not retype.',
-          `\`packages\` is NOT compared: ${PACKAGES_NOT_COMPARED}.`,
+          // Only where the column has something in it. `--json` gates its copy on the
+          // same fact and for the reason in `packagesNote`'s comment — a layer banning
+          // nothing has nothing to verify — and printing it unconditionally made the
+          // text output the counterexample to that reason: on a config where no layer
+          // owns a package, this paragraph explained a column reading `(none)` all the
+          // way down.
+          ...(bans.some((ban) => ban.packages.length) ? PACKAGES_NOT_COMPARED : []),
           ...bans.flatMap((entry) => [
             `  ${entry.layer.padEnd(14)} no-import: ${entry.forbidden.join(', ') || '(none)'}`
             + ` · packages: ${entry.packages.join(', ') || '(none)'}`
