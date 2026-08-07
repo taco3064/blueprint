@@ -8,8 +8,9 @@
 六層。沒有一層是備援 —— 每一層被加進來，都是因為既有的那些全綠了，卻看不到某個真實的缺陷。
 
 - **導入 e2e 測試套件** —— 九個納入版本控制的起始範本：Vite React（JS 與 TS）與 Vue、三種 Next.js 形態（App Router 有 `src/` 與沒有 `src/`、Pages Router）、turbo + pnpm 與 yarn workspace 各一個套件，以及植入既有債務的既有專案。<br>
-  每次 commit、push 與發佈，每個範本都跑一遍 `init` → `inspect` → baseline 棘輪。<br>
-  它是以 `install: false` 執行的，所以它證明的是「`init` 在真實起始範本上寫出來的檔案樹」與「`inspect` 回報的檢測項目」—— 它從不執行 ESLint。
+  每次 commit、push 與發佈，每個範本都會跑一遍 `init`；其中六個繼續跑 `inspect`，既有專案那個則走完到 baseline 棘輪的整段流程。<br>
+  安裝步驟一律跳過，只有兩個 workspace 範本例外 —— 那兩個是拿一個假的 `exec` 去接安裝，那正是「`pnpm add -D` / `yarn add -D` 是從 workspace 根目錄讀出來的」被驗到的地方。<br>
+  所以這一層證明的是「`init` 在真實起始範本上寫出來的檔案樹」與「`inspect` 回報的檢測項目」：它從不執行 ESLint。
 - **一致性測試套件** —— 每一則實地回饋的情境都被固化成一個 fixture repo，用 DSL 現搭、走 CLI 自己的分派流程，**而且用的是本 repo 開發依賴裡那份真正的 ESLint**。<br>
   這正是上面那個 e2e 套件當不了的一層：`impact` 與合併存活檢查，只有在真的 ESLint 解析真的 config 時才有意義，所以它們是在這裡被驗的。<br>
   真實導入測試找到的新情境，會連同修正一起變成這裡的 fixture。
