@@ -371,9 +371,21 @@ export function renderRules(
       ? [
           '',
           'Per-layer bans — what the structural rules enforce, resolved from this config.',
-          'Everything below is what doctor compares, and it compares TEXTUALLY: a pattern',
-          'group reordered or a selector respelled to an equivalent (`\\/` for `/`) reads as',
-          'missing even though eslint would still enforce it. Copy, do not retype.',
+          // Named columns, not "everything below". That sentence claimed doctor's
+          // comparison covers this whole block, and doctor's own ✓ says the opposite
+          // about one column of it — "package-ownership entries … are not compared".
+          // A field agent quoted both lines side by side: two live command outputs
+          // giving a merge opposite instructions about whether the packages column
+          // still needs verifying by hand (field run #159). The scope belongs to the
+          // check that has it; this says which of ITS columns fall inside, and what
+          // to do about the one that does not.
+          '`no-import`, `globals` and the selfOnly selectors below are what doctor compares,',
+          'and it compares TEXTUALLY: a pattern group reordered or a selector respelled to',
+          'an equivalent (`\\/` for `/`) reads as missing even though eslint would still',
+          'enforce it. Copy, do not retype.',
+          '`packages` is NOT compared — doctor says so on that check — so a merge that drops',
+          'a package ban stays green there. Verify that column yourself with',
+          '`npx eslint --print-config <a file in the layer>`.',
           ...bans.flatMap((entry) => [
             `  ${entry.layer.padEnd(14)} no-import: ${entry.forbidden.join(', ') || '(none)'}`
             + ` · packages: ${entry.packages.join(', ') || '(none)'}`

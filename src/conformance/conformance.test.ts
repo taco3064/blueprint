@@ -1035,6 +1035,53 @@ describe('naming the cause, so a claim can be checked (field runs #79–#81)', (
 });
 
 describe('what a second output knows about the first (field runs #75–#77)', () => {
+  it('rules and doctor agree on what doctor compares (field run #159)', async () => {
+    // Two live outputs, same repo, opposite instructions for a merge. `rules` closed its
+    // per-layer block with "Everything below is what doctor compares" — and the block
+    // below it prints a `packages:` column, while doctor's own ✓ says
+    // "package-ownership entries … are not compared". A folding agent reading `rules`
+    // would skip the `--print-config` pass the playbook asks for precisely because
+    // doctor cannot see that column. Neither sentence was asserted, so they drifted.
+    const owning = {
+      ...reactBlueprint,
+      architecture: {
+        ...reactBlueprint.architecture,
+        layers: [
+          { name: 'components', does: 'render UI' },
+          { name: 'services', does: 'data access', owns: ['axios', { global: 'fetch' }] },
+        ],
+      },
+    };
+
+    // Wired, so the survival check RUNS and prints its scope — the skip label does
+    // not carry it, and the whole point is comparing that scope with what `rules` says.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(owning),
+        'tsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+        'eslint.config.mjs': wiredEslintConfig(owning),
+        'src/components/f.jsx': 'export const f = () => 1;\n',
+        'src/services/api.js': 'export const api = 1;\n',
+      },
+    });
+
+    const rules = await cli(dir, ['rules']);
+    const doctor = await cli(dir, ['doctor']);
+
+    // The column really is printed — without it there is nothing to disagree about.
+    expect(rules.output).toContain('packages: axios');
+
+    // doctor's ✓ owns the scope, and excludes that column.
+    expect(doctor.output).toContain('package-ownership entries');
+    expect(doctor.output).toContain('are not compared');
+
+    // So `rules` must not claim the whole block, and must say what to do instead.
+    expect(rules.output).not.toContain('Everything below is what doctor compares');
+    expect(flattenProse(rules.output)).toContain('`packages` is NOT compared');
+    expect(flattenProse(rules.output)).toContain('--print-config');
+  });
+
   it('says the declaratory selfOnly entry still collides today', async () => {
     // The finding is right at the finding level — an empty layer has nothing to
     // re-export. But the ENTRY is emitted now, on the importer layers, and a house
