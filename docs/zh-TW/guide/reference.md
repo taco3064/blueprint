@@ -164,7 +164,9 @@ export default [
 
 - **`architecture.sourceRoot`** —— 分層所在目錄（相對於專案根目錄）。預設 `src`；根目錄式佈局（如無 `src/` 的 Next.js）設為 `.`
 - **`architecture.additionalAliases`** —— `alias` 以外、同樣納入所有結構禁令的額外匯入根
-- **`architecture.testFiles`** —— 豁免於結構規則與度量關卡的測試檔樣式（預設 `*.test.*` / `*.spec.*`）
+- **`architecture.testFiles`** —— 豁免於結構規則與度量關卡的測試檔樣式（預設 `*.test.*` / `*.spec.*`）。<br>
+  填 `[]` 代表不豁免任何檔 —— 測試檔跟著它那層的規則走 —— 同時也把 `testFilename` 這個關卡關掉：<br>
+  那條規則的範圍就是這些測試檔樣式，空清單等於沒有檔可以讓它檢查。`blueprint rules` 會在該關卡旁邊講明。
 - **`architecture.layerFiles` / `layerFilesIgnore`** —— 框架預設樣式不適用時，逐層指定檔案樣式
 - **`architecture.naming`** —— 依概念設定的命名慣例（如 `{ hook: 'useX + reactivity' }`）—— 寫入手冊與守則
 - **`layer.module`** —— 逐層覆寫共用的模組形狀 —— 例如某一分層採資料夾模組、其餘維持單檔

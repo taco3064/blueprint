@@ -295,7 +295,13 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
       .map(([name, folders]) => ({ package: name, folders: [...folders] }))
       .sort((a, b) => a.folders.length - b.folders.length || a.package.localeCompare(b.package)),
     ownableImports: [...specifierFolders.values()]
-      .filter((entry) => entry.folders.size === 1 && spread.has(entry.package))
+      .filter((entry) => entry.folders.size === 1
+        && spread.has(entry.package)
+        // `(src root)` is not a layer — this survey says so twenty lines above ("root
+        // files (wiring, not layers)") — so a specifier concentrated there is evidence
+        // for a clause `owns` cannot express. The section calls its rows ownership
+        // candidates; a row no config can name is not one.
+        && !entry.folders.has(ROOT_BUCKET))
       .map((entry) => ({ package: entry.package, name: entry.name, folder: [...entry.folders][0] }))
       .sort((a, b) => a.package.localeCompare(b.package) || a.name.localeCompare(b.name)),
     unresolved: [...unresolvedCounts.entries()]
@@ -334,14 +340,21 @@ export function renderSurvey(result: SurveyResult): string {
   for (const folder of result.folders) {
     lines.push(
       `  ${folder.folder.padEnd(16)} ${String(folder.files).padStart(4)} source files · ${folder.directFiles} direct · ${folder.childFolders} child folders (${folder.indexedChildren} with index) · depth ${folder.maxDepth}`,
-      // Every row said "N files", and this row exists BECAUSE the folder is there — so
-      // `0` read as an empty folder, which is the one thing it does not mean. An adopter
-      // took `styles 0 files` for empty, ran `ls`, and found a directory of `.css`
-      // (field run #150). Only the zero case gets the clause: above zero the count says
-      // enough, and a line per folder repeating it would bury the numbers beside it.
-      ...(folder.files === 0
-        ? ['                   ↳ the folder is here and holds no SOURCE file — whatever is in it (assets, styles, generated output) this survey does not read']
-        : []),
+    );
+  }
+
+  // Every row said "N files", and a row exists BECAUSE its folder does — so `0` read as
+  // an empty folder, which is the one thing it cannot mean. An adopter took
+  // `styles 0 files` for empty, ran `ls`, and found a directory of `.css` (field run
+  // #150). Once, under the block, not per row: the same reason the row itself does not
+  // repeat it — N copies of one sentence bury the numbers they sit beside.
+  const sourceless = result.folders.filter((folder) => folder.files === 0);
+
+  if (sourceless.length) {
+    lines.push(
+      `  ${sourceless.map((folder) => folder.folder).join(', ')}: 0 source files means the`,
+      '  folder is HERE and holds none — not that it is empty. Whatever is in it (assets,',
+      '  styles, generated output) this survey does not read.',
     );
   }
 
@@ -408,7 +421,13 @@ export function renderSurvey(result: SurveyResult): string {
     lines.push(
       '',
       'Named imports in ONE folder, from a package in several (specifier-level ownership',
-      'candidates — `owns: [{ package, imports: […] }]`; the rows above cannot support one):',
+      'candidates — `owns: [{ package, imports: […] }]`; the rows above cannot support one).',
+      // The section's claim is stronger than the matrix's — it names ONE owner — so its
+      // one blind spot belongs beside it. `scan` reads source text: it collects the names
+      // in a brace clause and cannot see which members a namespace import touches, so
+      // "hooks only" means "no other folder names it in braces".
+      'Read from brace clauses only: a member reached through `import * as` is invisible',
+      'here, so a folder using one is not counted against the "only":',
     );
 
     for (const entry of result.ownableImports.slice(0, 15)) {

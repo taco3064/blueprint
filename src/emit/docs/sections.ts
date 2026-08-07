@@ -7,7 +7,7 @@ import type {
   RuleSetting,
 } from '../../config';
 import { readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
-import { enforcedBy } from '../lint';
+import { enforcedBy, unavailableFromBlueprint } from '../lint';
 import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
 
@@ -236,7 +236,14 @@ export function renderPlaybook(playbook: PlaybookSection[] | undefined): string 
 }
 
 /** Enforcement rules and their landing tiers. */
-export function renderRules(rules: Record<string, RuleSetting> | undefined): string {
+export function renderRules(
+  rules: Record<string, RuleSetting> | undefined,
+  // Enough of the blueprint to answer "can this gate emit here at all". This document
+  // outlives the adoption and the contract links to it, so a row claiming `lint` holds a
+  // rule the emitted config does not contain is the longest-lived version of that
+  // half-truth (field run #150).
+  facts: { framework?: string; testFiles?: string | string[] } = {},
+): string {
   const entries = Object.entries(rules ?? {});
 
   if (!entries.length) return '';
@@ -254,12 +261,16 @@ export function renderRules(rules: Record<string, RuleSetting> | undefined): str
 
   const rows = entries.map(([id, setting]) => {
     const { tier, value } = readSetting(setting);
+    // The declaration stays on the table — it is the author's, and dropping the row
+    // would hide it. What cannot stay is the machine: nothing holds a gate this
+    // blueprint cannot emit.
+    const unavailable = unavailableFromBlueprint(id, facts.framework, facts.testFiles);
 
     return [
       `\`${id}\``,
       `\`${tier}\``,
       value === undefined ? '—' : `\`${value}\``,
-      HELD_BY[enforcedBy(id)],
+      unavailable === null ? HELD_BY[enforcedBy(id)] : `nothing — ${unavailable}`,
     ];
   });
 

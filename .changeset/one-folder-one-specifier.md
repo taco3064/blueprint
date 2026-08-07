@@ -1,5 +1,5 @@
 ---
-"@kekkai/blueprint": patch
+"@kekkai/blueprint": minor
 ---
 
 **The survey names the specifiers an `owns` clause can be verified with.** `owns` takes
@@ -13,10 +13,16 @@ a gap the tool had no stance on.
 It had the data. `scan` records every named import already, and the survey was dropping
 them. There is now a section for specifiers that appear in **exactly one folder, from a
 package that appears in several** — the only rows that can support a clause the package
-rows cannot. Not on the list is an answer too: either the specifier is spread across
-folders and the clause does not hold today, or its package sits in one folder and the row
-above covers it.
+rows cannot.
 
-So the playbook stops listing "ownership of a named import" among the clauses that cannot
-be derived from the matrix, and points at the evidence instead. One less paragraph of
-judgment, one more measured fact.
+The playbook keeps listing it among the clauses a matrix cannot *derive* — because it
+cannot — and now says what CONFIRMS one, plus the thing that matters more on a
+re-adoption: absence from that list is never a licence to drop the clause. A specifier
+nobody imports yet is a forward-looking ban, one whose package sits in a single folder is
+already covered by the package row, and one several folders import is existing debt for
+the baseline. All three keep the clause; only the first reading of "not on the list" would
+have handed back a config looser than the one it replaced.
+
+Minor, not patch: `SurveyResult` is exported and `ownableImports` is a required field on
+it, so code that constructs the type — rather than only reading `runSurvey`'s return —
+stops compiling until it adds one.

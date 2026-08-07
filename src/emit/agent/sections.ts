@@ -9,7 +9,7 @@ import type {
 } from '../../config';
 import { readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
 import { handbookPath } from '../docs';
-import { enforcedBy, LINT_GATED_RULE_IDS } from '../lint';
+import { enforcedBy, LINT_GATED_RULE_IDS, unavailableFromBlueprint } from '../lint';
 import { formatOwns } from '../../markdown';
 
 function rulesOfTier(rules: Record<string, RuleSetting> | undefined, tier: Tier) {
@@ -69,7 +69,14 @@ export function renderCompactContract(blueprint: Blueprint): string {
   // No `LINT_GATED_RULE_IDS` pre-filter: `enforcedBy` answers `docs` for anything not
   // on that list, so a rule held by neither machine falls out of both splits below on
   // its own. Filtering first asked the same question twice.
-  const declared = rulesOfTier(rules, 'error');
+  // A gate this blueprint cannot emit is not among the ones a lint run fails on, and
+  // saying so was a false sentence about the reader's own repo: `deepWatch` declared
+  // `error` on React, `testFilename` declared beside `testFiles: []`. Both are decidable
+  // from the blueprint alone, which is all this emitter has (field run #150).
+  const emittable = ([id]: [string, unknown]): boolean =>
+    unavailableFromBlueprint(id, blueprint.framework, architecture.testFiles) === null;
+
+  const declared = rulesOfTier(rules, 'error').filter(emittable);
   const lintGates = declared.filter(([id]) => enforcedBy(id) === 'lint').map(label);
   const inspectGates = declared.filter(([id]) => enforcedBy(id) === 'inspect').map(label);
 

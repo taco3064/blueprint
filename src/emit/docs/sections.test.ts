@@ -240,6 +240,34 @@ describe('renderRules', () => {
     expect(out).toContain('| `deepWatch` | `warn` | — |');
   });
 
+  it('names no machine for a gate this blueprint cannot emit', () => {
+    // The declaration stays — it is the author's — but nothing HOLDS a rule the
+    // emitted config does not contain, and this table said `lint`. It is the
+    // longest-lived version of that half-truth: the handbook outlives the adoption
+    // and the agent contract links to it (field run #150). Both arms are decidable
+    // from the blueprint alone, which is all this emitter is given.
+    const react = renderRules(
+      { deepWatch: 'error', testFilename: 'error', maxLines: { tier: 'error', value: 400 } },
+      { framework: 'react', testFiles: [] },
+    );
+
+    expect(react).toContain('| `deepWatch` | `error` | — | nothing — Vue only');
+    expect(react).toContain('| `testFilename` | `error` | — | nothing — `architecture.testFiles: []` exempts nothing');
+    // The gate that CAN emit is untouched, or the column stops meaning anything.
+    expect(react).toContain('| `maxLines` | `error` | `400` | lint |');
+
+    // On the stack each was written for, both hold again — and `explicitAny` is never
+    // in this verdict: whether the stack has TypeScript is not in a blueprint.
+    const vue = renderRules(
+      { deepWatch: 'error', testFilename: 'error', explicitAny: 'error' },
+      { framework: 'vue' },
+    );
+
+    expect(vue).toContain('| `deepWatch` | `error` | — | lint |');
+    expect(vue).toContain('| `testFilename` | `error` | — | lint |');
+    expect(vue).toContain('| `explicitAny` | `error` | — | lint |');
+  });
+
   it('says which machine holds each rule, not just its tier (field issue #52)', () => {
     // The handbook printed `error` beside every declared rule under a legend
     // reading "`error` fails lint" — false for cycles (inspect's finding) and
