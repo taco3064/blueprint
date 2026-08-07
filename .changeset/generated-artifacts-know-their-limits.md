@@ -15,8 +15,6 @@ they were writing sentences that need to.
   column — for rules the emitted config does not contain. The contract drops them from that
   list; the handbook keeps the row, because the declaration is yours, and names why nothing
   holds it.
-- **`cycles` is attributed to `blueprint inspect`, not to lint**, in both artifacts. They
-  used to disagree about it, and the contract's version was the wrong one.
 - **Each hard gate says how far it reaches** — only the files a layer glob matches, so a
   declared layer holding no code has nothing that can fail, which is runway rather than
   protection.

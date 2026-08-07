@@ -34,9 +34,7 @@ reshuffle the report. Enforcement never changed (one cycle fails the gate), but 
 is the question anyone sizing a migration is asking.
 
 **`inspect`'s coverage line names the files outside your layer nets**, so a number you
-could not check became a list you can. And **`inspect` and `blueprint rules` agree on how
-many optional gates there are** — they used to count differently on a stack that cannot
-open one, with nothing to reconcile them.
+could not check became a list you can.
 
 **Every output that reports the import graph says how the graph was read** — source text,
 not a parsed AST — so a green does not read as a stronger guarantee than it is.

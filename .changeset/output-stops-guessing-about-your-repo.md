@@ -34,7 +34,8 @@ The ones you would actually notice:
   equal version strings do not rule that out, since a linked checkout, an unreleased tree
   and a git dependency all report the last release while emitting later text.
 
-The rest are the same shape at smaller scale: a claim that needed a condition got one, a
-proof step that overstated its reach now states it, and where two artifacts generated from
-one config disagreed, they agree. Individually none of them changes what you do; together
-they are the difference between an adopting agent writing a true report and a confident one.
+The rest are the same shape at smaller scale: a claim that needed a condition got one, and
+a proof step that overstated its reach now states it. Individually none of them changes
+what you do; together they are the difference between an adopting agent writing a true
+report and a confident one. (Where two outputs contradicted *each other* rather than the
+repo, that is its own entry.)
