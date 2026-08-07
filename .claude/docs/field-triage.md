@@ -58,6 +58,29 @@ Four things it will not do, each because it did them once:
   where the last two batches found their real defects. It is a reason to say what
   the green covers.
 
+**The codex leg's sandbox was producing findings about itself.** `codex exec --sandbox
+workspace-write` blocks outbound network, and makes `$HOME/.npm` read-only — so every
+`npm install` the adoption ran died, npm retried without printing, and eight scenarios
+across four batches reported the silence as a blueprint defect ("registry unreachable",
+"no fast fail", "half-completed adoption"). The claude leg has no sandbox and installed
+fine on the same machine in the same runs, which is the asymmetry that should have been
+read earlier. Two settings fix it and both are measured: `-c
+sandbox_workspace_write.network_access=true` in the argv, and `npm_config_cache` pointed
+inside the staged repo, since the cache is what the read-only `$HOME` blocked even with
+network allowed.
+
+The cost was not the noise. **No codex scenario had ever verified the ESLint gate** — every
+one of them ends `⊘ Adoption unverified` on the same skipped check, so half the matrix
+produced no evidence about the one check that proves the emitted rules are alive. Expect
+new findings from that half now that it reaches `impact`, the project's lint and the
+survival check for the first time.
+
+Residual risk, unguarded on purpose: `staleFlags` checks argv *flags* against the CLI's
+help, and a `-c key=value` config key is not a flag. If codex renames that key, network
+goes back off silently and the codex rows regress to `⊘ unverified` — which is the state
+they were in for four batches without anyone reading it as a regression. The tell is a
+codex scenario whose skip names a missing carrier package; one grep for the key settles it.
+
 **Triage flow:** consolidate the issue's findings, judge each (fix / by-design /
 reject), put each fix through the two questions below, sweep the class before
 landing, land with conformance fixtures, close the issue referencing the

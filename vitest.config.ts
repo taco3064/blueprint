@@ -7,7 +7,12 @@ export default defineConfig({
     // otherwise, so `npm test` executes a stale copy of every test file beside
     // the real one — and Stryker's own runs score against those copies, whose
     // failures it reads as mutants killed.
-    exclude: ['**/node_modules/**', '**/dist/**', '.stryker-tmp/**'],
+    // `.claude/worktrees` is the same hazard as `.stryker-tmp` from a different
+    // direction: a git worktree checked out inside the repo carries a second copy of
+    // every test file, so `npm test` ran 6556 tests across three checkouts and went red
+    // on a sibling session's work in progress. A worktree is for isolating that work;
+    // collecting its suite here is the opposite of isolating it.
+    exclude: ['**/node_modules/**', '**/dist/**', '.stryker-tmp/**', '.claude/worktrees/**'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],

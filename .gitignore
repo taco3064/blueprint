@@ -16,4 +16,5 @@ docs/.vitepress/.temp/
 examples/
 docs/zh-TW/api/
 .stryker-tmp/
+.claude/worktrees/
 reports/

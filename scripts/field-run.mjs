@@ -49,7 +49,14 @@ const AGENT_TIMEOUT_MS = 45 * 60 * 1000;
 const AGENT_COMMANDS = {
   claude: (prompt) => ['claude', '-p', prompt, '--dangerously-skip-permissions'],
   codex: (prompt) => [
-    'codex', 'exec', '--sandbox', 'workspace-write', '--skip-git-repo-check', prompt,
+    'codex', 'exec', '--sandbox', 'workspace-write', '--skip-git-repo-check',
+    // The sandbox blocks outbound network by default, so every `npm install` the
+    // adoption runs died silently — npm retries without printing, which is the
+    // "90 seconds of nothing" eight scenarios across four batches reported as a
+    // blueprint defect. It was ours: the claude leg has no sandbox and installed
+    // fine on the same machine, in the same runs.
+    '-c', 'sandbox_workspace_write.network_access=true',
+    prompt,
   ],
 };
 
@@ -252,7 +259,17 @@ function runAgent(argv, cwd, logFile) {
   return new Promise((resolve) => {
     const started = Date.now();
     const log = fs.createWriteStream(logFile);
-    const child = spawn(argv[0], argv.slice(1), { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(argv[0], argv.slice(1), {
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      // npm's cache lives in `$HOME/.npm`, which `workspace-write` makes read-only —
+      // so even with network allowed the install failed on writing its own cache and
+      // logs. Pointing the cache INSIDE the staged repo is what the sandbox is for:
+      // measured, a plain `npm install -D eslint@9` goes from silent death to a
+      // populated node_modules and an updated manifest. The claude leg is unaffected
+      // (it runs unsandboxed) and inherits the same value harmlessly.
+      env: { ...process.env, npm_config_cache: path.join(cwd, '.npm-cache') },
+    });
 
     const tee = (stream) =>
       stream.on('data', (chunk) => {

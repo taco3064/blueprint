@@ -22,7 +22,22 @@ const formatting = stylistic.configs.customize({
 export default defineConfig([
   // `.stryker-tmp` holds Stryker's sandboxed copy of src (mutated, `@ts-nocheck`d);
   // `reports` its HTML output. Both are generated — never lint them.
-  globalIgnores(['dist', 'coverage', 'docs', 'examples', 'fixtures', '.stryker-tmp', 'reports']),
+  //
+  // `.claude/worktrees` is the same class arriving from a different direction: a git
+  // worktree checked out INSIDE the repo carries a second copy of everything,
+  // conformance fixtures included, and those are deliberately-bad code. `eslint .`
+  // walked into one and reported 755 errors about a sibling checkout. `fixtures` is
+  // already here for the copy at the top level; this is the copy one level down.
+  globalIgnores([
+    'dist',
+    'coverage',
+    'docs',
+    'examples',
+    'fixtures',
+    '.stryker-tmp',
+    'reports',
+    '.claude/worktrees',
+  ]),
   {
     files: ['**/*.ts'],
     extends: [js.configs.recommended, tseslint.configs.recommended],
