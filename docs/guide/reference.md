@@ -87,8 +87,9 @@ option sets have to become one entry. Only *there*, though. An entry does nothin
 file outside its own `files`, so the spread keeps enforcing blueprint's entry wherever
 yours does not reach, and a scope mismatch is resolved by scoping the combined entry to
 the overlap rather than by widening either side to meet the other. Your own entry stays
-where it is and keeps the files blueprint never governed — above the combined one, since
-later still wins wherever both match.
+where it is and keeps the files blueprint never governed: put the combined entry **last
+in the array** — after the spread and after that entry both, since later still wins
+wherever both match — and nothing you already had has to move.
 
 `npx blueprint rules --json` carries the exact `selfOnly` selectors that combined entry
 needs, per layer, in two spellings — and only one of them survives a paste:

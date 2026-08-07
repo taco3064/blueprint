@@ -30,11 +30,13 @@ ESLint majors CI runs, every cell identical under 9.39.5 and 10.8.0 — rather t
 - **A scope mismatch is resolved by the collision, and neither side moves.** Scope the
   combined entry to where the two globs meet and leave your original entry in place.
   Three entries then cover three sets, and no file gets a rule it never had.
-- **That arrangement is order-dependent, and it says so.** Your own entry has to sit above
-  the combined one — below it, later-replaces-earlier puts your bare rule back on top in
-  the overlap and blueprint's selectors are gone there. The wiring the playbook already
-  asks for (your entries, then the spread) puts you on the right side of it, so this is a
-  constraint to state rather than a step to add.
+- **That arrangement is order-dependent, and the constraint sits on the entry you write.**
+  The combined one goes last in the array — that is after the spread and after your own
+  entry both, and above your own entry instead, later-replaces-earlier puts your bare rule
+  back on top in the overlap with blueprint's selectors gone there. Stated the other way
+  round ("move your entry up") it would have been a silent replacement of its own: an entry
+  lifted over the spread hands blueprint every OTHER rule key it sets, measured on a house
+  entry that also set `no-restricted-imports`. Nothing you already had has to move.
 - **The verification probe grew the case the new shape needs.** Two `--print-config` probes
   in the affected layer, one inside the collision and one outside, because the recommended
   arrangement deliberately makes files in a single layer resolve different entries — and
