@@ -473,7 +473,7 @@ describe('renderSurvey', () => {
 
     expect(output).toContain('styles              0 source files');
     expect(output).toContain('folder is HERE and holds none');
-    expect(output).toContain('this survey does not read');
+    expect(output).toContain('This survey reads source only');
 
     // Once, not per folder: repeating a three-line note buries the numbers it sits
     // beside — the same reason the row itself does not carry it.
