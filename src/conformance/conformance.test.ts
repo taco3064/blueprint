@@ -356,6 +356,37 @@ describe('zero-debt honesty — notes are not debt (batch 4)', () => {
 });
 
 describe('impact tells the truth in isolation (batch 5, real eslint)', () => {
+  it('loads an emitted config from a repo that exempts no test file', async () => {
+    // `testFiles: []` — "tests inherit their layer's rules" — validated, ran clean
+    // through inspect, and emitted `files: []` on the testFilename entry, which ESLint
+    // rejects: `Key "files": Expected value to be a non-empty array at user-defined
+    // index 14`. Every unit test passed: none of them hands the emitted config to
+    // ESLint, and the config-shaped defect only exists once ESLint reads it. So this
+    // belongs here, in the layer that runs the real linter, and it is what the adopter
+    // hit — eight minutes and a trip through `dist/config/types.d.ts` (field run #150).
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource({
+          ...reactBlueprint,
+          architecture: { ...reactBlueprint.architecture, testFiles: [] },
+          rules: { ...reactBlueprint.rules, testFilename: 'error' },
+        }),
+        'src/components/f.jsx': 'export const f = () => 1;\n',
+      },
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.code).toBe(0);
+    expect(impact.output).not.toContain('non-empty array');
+
+    // And the gate says why it is not in that config, rather than going quiet.
+    const rules = await cli(dir, ['rules']);
+
+    expect(rules.output).toContain('testFilename: `architecture.testFiles: []` exempts nothing');
+  });
+
   it('separates blueprint hits, isolation artifacts, and stale disables', async () => {
     const dir = repo({
       packageJson: react(),

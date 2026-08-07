@@ -66,7 +66,7 @@ export function computeCoverage(
   // The two stylistic gates are NOT among them — every stack can open those; whether
   // the config injects the plugin is a wiring fact this cannot see.
   const gates = LINT_GATED_RULE_IDS
-    .filter((id) => unavailableGate(id, framework, hasTypescript) === null);
+    .filter((id) => unavailableGate(id, framework, hasTypescript, architecture.testFiles) === null);
 
   const activeRules = gates.filter((id) => activeSetting(rules?.[id]) !== null).length;
 

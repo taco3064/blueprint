@@ -333,7 +333,15 @@ export function renderSurvey(result: SurveyResult): string {
 
   for (const folder of result.folders) {
     lines.push(
-      `  ${folder.folder.padEnd(16)} ${String(folder.files).padStart(4)} files · ${folder.directFiles} direct · ${folder.childFolders} child folders (${folder.indexedChildren} with index) · depth ${folder.maxDepth}`,
+      `  ${folder.folder.padEnd(16)} ${String(folder.files).padStart(4)} source files · ${folder.directFiles} direct · ${folder.childFolders} child folders (${folder.indexedChildren} with index) · depth ${folder.maxDepth}`,
+      // Every row said "N files", and this row exists BECAUSE the folder is there — so
+      // `0` read as an empty folder, which is the one thing it does not mean. An adopter
+      // took `styles 0 files` for empty, ran `ls`, and found a directory of `.css`
+      // (field run #150). Only the zero case gets the clause: above zero the count says
+      // enough, and a line per folder repeating it would bury the numbers beside it.
+      ...(folder.files === 0
+        ? ['                   ↳ the folder is here and holds no SOURCE file — whatever is in it (assets, styles, generated output) this survey does not read']
+        : []),
     );
   }
 

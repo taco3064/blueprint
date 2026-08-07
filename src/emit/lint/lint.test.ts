@@ -362,6 +362,32 @@ describe('emitLint · rules gates', () => {
     expect(emitLint(custom)[0].ignores).toEqual(['**/*.mytest.js']);
   });
 
+  it('emits no entry scoped to nothing when testFiles exempts nothing', () => {
+    // `testFiles: []` is a repo saying "tests inherit their layer's rules" — legal,
+    // validated, and it made the testFilename entry `files: []`, which ESLint refuses
+    // outright: `Key "files": Expected value to be a non-empty array`. inspect ran
+    // clean and `impact` died on the emitted output, so an adopter read
+    // `dist/config/types.d.ts` and invented a never-matching sentinel glob to stand in
+    // for the empty array (field run #150).
+    const none = defineBlueprint({
+      ...blueprint,
+      architecture: { ...blueprint.architecture, testFiles: [] },
+      rules: { testFilename: 'error' },
+    });
+
+    const emitted = emitLint(none);
+
+    expect(emitted.find((item) => item.rules?.['blueprint/test-filename-matches-source']))
+      .toBeUndefined();
+
+    // The class, not the instance: ESLint rejects an empty `files` on ANY entry, so no
+    // emitted entry may carry one whatever the config says. Every other `files` here is
+    // built from `layers`, which validation already refuses to leave empty.
+    for (const entry of emitted) {
+      if (entry.files !== undefined) expect(entry.files.length).toBeGreaterThan(0);
+    }
+  });
+
   it('bans fixture imports through each layer structural rule', () => {
     const fixture = defineBlueprint({ ...blueprint, rules: { fixtureImports: 'error' } });
 

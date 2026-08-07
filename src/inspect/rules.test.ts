@@ -166,6 +166,33 @@ describe('runRules', () => {
     });
   });
 
+  it('calls testFilename unavailable when testFiles exempts nothing', async () => {
+    // The gate's emitted entry is scoped to the test globs, so `testFiles: []` leaves it
+    // nothing to run on — and the emitter drops it, because `files: []` is a config
+    // ESLint refuses. A drop nobody is told about is the half-truth this column exists
+    // for: an adopter declared the gate `error`, watched it validate, and the rule was
+    // never in the config (field run #150).
+    const none: Blueprint = {
+      ...blueprint,
+      architecture: { ...blueprint.architecture, testFiles: [] },
+      rules: { ...blueprint.rules, testFilename: 'error' },
+    };
+
+    const lines: string[] = [];
+    const { gates } = await runRules(repo(none), { log: (m) => void lines.push(m) });
+
+    expect(gates.find((gate) => gate.id === 'testFilename')?.unavailable)
+      .toContain('exempts nothing');
+
+    const output = lines.join('\n');
+
+    expect(output).toMatch(/· declared, unavailable here testFilename →/);
+    expect(output).toContain('testFilename: `architecture.testFiles: []` exempts nothing');
+
+    // And the denominator moves with it, or the note and the rows disagree again.
+    expect(output).toContain('18 listed — 3 of them unavailable on this stack');
+  });
+
   it('says the row count matches when the stack can open every gate', async () => {
     // A TypeScript Vue project is the one shape with nothing to exclude, and the note
     // has to say so rather than go quiet: silence would leave the reader comparing

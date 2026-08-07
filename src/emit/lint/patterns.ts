@@ -156,6 +156,7 @@ export function unavailableGate(
   id: string,
   framework: string | undefined,
   hasTypescript: boolean,
+  testFiles?: string | string[],
 ): string | null {
   if (id === 'deepWatch' && framework === 'react') {
     return 'Vue only — never emits on React, whatever it declares';
@@ -163,6 +164,16 @@ export function unavailableGate(
 
   if (id === 'explicitAny' && !hasTypescript) {
     return '`any` is a TypeScript construct — nothing to catch on a JS project, and no core rule to fall back to';
+  }
+
+  // `testFiles: []` is how a repo says "tests inherit their layer's rules, nothing is
+  // exempt" — a real intent, and the one this gate has no scope under: the emitted
+  // entry would be `files: []`, which ESLint refuses outright ("Expected value to be a
+  // non-empty array"). Dropping that entry is the fix; saying so here is the other
+  // half, because a gate declared `error` and silently not emitted is the same
+  // half-truth as an `explicitAny` on a JS repo (field run #150).
+  if (id === 'testFilename' && Array.isArray(testFiles) && testFiles.length === 0) {
+    return '`architecture.testFiles: []` exempts nothing, so there is no test file for this to name — declare test globs, or drop this gate';
   }
 
   return null;

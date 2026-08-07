@@ -259,7 +259,15 @@ function ruleGateEntries(
 
   const testFilename = activeSetting(rules?.testFilename);
 
-  if (testFilename) {
+  // `testGlobs.length` because this is the one entry whose `files` IS the test globs,
+  // and `testFiles: []` — a repo saying "nothing is exempt, tests inherit their layer's
+  // rules" — makes it `files: []`, which ESLint rejects outright: `Key "files":
+  // Expected value to be a non-empty array`. The config validated, `inspect` ran clean,
+  // and `impact` died on the emitted output, so an adopter spent eight minutes reading
+  // `dist/config/types.d.ts` and left with a sentinel glob invented to stand in for the
+  // empty array (field run #150). An entry scoped to no file protects nothing; the gate
+  // says it is unavailable through `unavailableGate`, so this drop is not silent.
+  if (testFilename && testGlobs.length) {
     entries.push({
       files: testGlobs,
       plugins: { blueprint: plugin },
