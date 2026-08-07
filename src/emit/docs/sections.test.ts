@@ -129,8 +129,8 @@ describe('renderImportDiscipline', () => {
     expect(out).toContain('**No same-layer imports** — extract shared logic down to a lower layer');
     expect(out).not.toContain('use a relative path');
 
-    // No layer narrows its importers, so there is no dashed edge to explain.
-    // Explaining one anyway sends the reader looking for it on the diagram.
+    // No layer narrows its importers, so there is no selfOnly rule to state.
+    // Stating one anyway describes a constraint this config does not carry.
     expect(out).not.toContain('selfOnly');
   });
 
@@ -165,11 +165,10 @@ describe('renderImportDiscipline', () => {
     expect(renderImportDiscipline(architecture)).toContain('selfOnly');
   });
 
-  it('explains the dashed edge when only one importer of a layer is selfOnly', () => {
-    // One selfOnly importer among several is enough — the note explains a
-    // dashed edge that IS on the diagram. Requiring every importer to be
-    // selfOnly leaves the mixed case (the common one) with an unexplained edge
-    // shape, and the reader has nothing telling them re-export is barred.
+  it('states the rule when only one importer of a layer is selfOnly', () => {
+    // One selfOnly importer among several is enough. Requiring every importer to
+    // be selfOnly leaves the mixed case — the common one — with a constraint the
+    // reader is never told about.
     const architecture = arch();
 
     architecture.layers[1].allowedImporters = [
@@ -177,7 +176,20 @@ describe('renderImportDiscipline', () => {
       { layer: 'pages' },
     ];
 
-    expect(renderImportDiscipline(architecture)).toContain('selfOnly');
+    const out = renderImportDiscipline(architecture);
+
+    expect(out).toContain('selfOnly');
+    expect(out).toContain('must never re-export it onward');
+
+    // And it does not describe how the diagram draws the edge. This bullet said
+    // "a dashed edge may be depended on…" while the legend it sits under says a
+    // SOLID edge carries selfOnly and a dotted one records declaration order —
+    // the wrong half pointed the reader at the edges that are not dependencies.
+    // The legend owns the notation; two descriptions of one drawing is what drifted.
+    for (const word of ['dashed', 'dotted', 'solid', 'edge']) {
+      expect(out, `the discipline bullets describe the drawing again: "${word}"`)
+        .not.toContain(word);
+    }
   });
 });
 
