@@ -359,8 +359,10 @@ describe('authoringBrief', () => {
   });
 
   it('teaches the merge traps: flat-config override, DAG linearization, honest zero', () => {
-    // Same rule in a later entry REPLACES the earlier — ordering cannot save
-    // a rule both sides set; the only fix is merging into one entry.
+    // Same rule in a later entry REPLACES the earlier, so a rule both sides set
+    // needs one merged entry where they overlap. Ordering is not the fix there —
+    // but it is load-bearing for the arrangement that carries the merge, which is
+    // the assertion two blocks down.
     expect(brief).toContain('the later entry *replaces* the earlier');
     expect(brief).toContain('into ONE entry');
     expect(brief).toContain('survived the merge');
@@ -371,9 +373,13 @@ describe('authoringBrief', () => {
     expect(brief).toContain('on the files both of them match');
     expect(brief).toContain('only the overlap has to be combined');
 
-    // And the probe that catches the loss doctor cannot see: your own rule's
-    // files outside the collision. "One file per affected layer" alone misses it.
-    expect(brief).toContain('plus one file your own rule governed OUTSIDE the collision');
+    // And the probe that catches the loss doctor cannot see: your own rule's files
+    // outside the layer, plus BOTH sides of the collision inside it — one file per
+    // layer stopped being enough once a part-of-a-layer entry became the shape we
+    // recommend, which is the blind spot wiring.ts's own SCOPE string names.
+    expect(brief).toContain('takes TWO probes rather than one');
+    expect(brief).toContain('one file your own rule governed outside that layer');
+    expect(brief).toContain('an entry scoped to part of a layer is not compared');
 
     // Intent docs often draw a DAG; the linear order is a transitive relaxation.
     expect(brief).toContain('Linearize, then verify against the matrix');

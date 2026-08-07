@@ -2707,8 +2707,21 @@ describe('a claim states the condition it needs (field runs #95–#97)', () => {
     const playbook = await playbookOf(brownfield());
 
     expect(playbook).toContain('do not reconcile them — the collision is the entry');
-    expect(playbook).toContain('leave your original entry exactly where it was');
+    expect(playbook).toContain('leave your original entry in place');
     expect(playbook).toContain('Three entries then cover three sets');
+
+    // The arrangement is order-dependent and saying "leave it in place" does not
+    // pin that: an original entry that already sat BELOW the spread would be left
+    // in the one position that puts the bare house rule back on top in the overlap.
+    // Measured — the overlap resolves the house selector alone.
+    expect(playbook).toContain('That holds on one ordering');
+    expect(playbook).toContain('has to stay ABOVE the combined entry');
+
+    // Two probes in the affected layer, not one: the recommended shape makes files
+    // in a single layer resolve different entries on purpose, and doctor resolves
+    // one path per layer — its own ✓ says a part-of-a-layer entry is not compared.
+    expect(playbook).toContain('takes TWO probes rather than one');
+    expect(playbook).toContain('a file INSIDE the collision and a file OUTSIDE it');
 
     // The mechanism the instruction rests on, and the qualifier that makes it true.
     // Without these the recommendation reads as a preference a reader can trade away.

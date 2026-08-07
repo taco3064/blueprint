@@ -57,9 +57,13 @@ const label = (merged: boolean): string =>
  * The reach belongs here too, not only in `pickProbes`'s comment. This check
  * resolves ONE path per layer, so a merged entry that replaces blueprint's on
  * part of a layer passes: the probe lands on a sibling that still carries the
- * emitted selectors. The playbook names the remedy at the merge step
- * (`--print-config` on one file per affected layer), and an adopter reading a
- * green here is the one deciding whether to bother.
+ * emitted selectors. And since #163 that partial-layer entry is the shape the
+ * playbook RECOMMENDS — scope the combined entry to the collision, leave the rest
+ * to the spread — so this blind spot went from covering a mistake to covering the
+ * intended arrangement. The playbook's remedy moved with it: two `--print-config`
+ * probes in the affected layer, one inside the collision and one outside, not the
+ * single file per layer that used to be enough. An adopter reading a green here is
+ * still the one deciding whether to bother.
  */
 const SCOPE = 'structural bans + each active gate\'s carrier rule, one probe per layer; '
   + 'thresholds, package-ownership entries, and a merged entry scoped to only part of '
