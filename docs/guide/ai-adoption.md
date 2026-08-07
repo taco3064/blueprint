@@ -188,9 +188,10 @@ worse than no check — and while that skip rode in the pass count, the output r
 
 ```
 ⊘ emitted rules survive the merged eslint config (skipped — could not resolve …)
-⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run (⊘ above).
-  Nothing failed, and nothing here proves what those checks cover.
+⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run (⊘ above). Nothing failed, and nothing here proves what those checks cover.
 ```
+
+(The banner is one line — wrapped here only by your terminal.)
 
 **The exit status is unchanged — a skip is not a failure, so this run still exits 0.**
 Which is the reason to gate on `--json` rather than the exit code:

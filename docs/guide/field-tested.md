@@ -6,12 +6,22 @@ so you know which terrain is proven and which is still frontier.
 
 ## What backs this page
 
-Five layers, each one there because the layer below it passes on a real defect:
+Six layers. None of them is redundancy — each was added because everything already in
+place went green on a defect it could not see:
 
-- **The adoption conformance suite** — five committed template fixtures (vite
-  react/vue, Next, a turbo + pnpm workspace package, and a brownfield repo with planted
-  debt) driven through the full init/inspect/baseline arc on every commit, push, and
-  release, against the real ESLint from this repo's own devDependencies
+- **The adoption e2e suite** — nine committed starter fixtures: Vite React (JS and TS)
+  and Vue, three Next.js shapes (App Router with and without `src/`, Pages Router), a
+  turbo + pnpm and a yarn workspace package, and a brownfield repo with planted debt.
+  Each is driven through `init` → `inspect` → the baseline ratchet on every commit,
+  push, and release. It runs with `install: false`, so what it proves is the tree `init`
+  writes and the findings `inspect` reports on real starter shapes — it never executes
+  ESLint
+- **The conformance suite** — every field-feedback scenario fossilized as a fixture repo
+  built from a DSL and driven through the CLI's own dispatch, **against the real ESLint
+  from this repo's devDependencies**. That is the layer the e2e suite above cannot be:
+  `impact` and the merge-survival check only mean anything when a real ESLint resolves a
+  real config, so those are proven here. A scenario the field harness finds lands here
+  as a fixture with its fix
 - **Two operating systems, both reporting** — CI runs the whole gate on
   `ubuntu-latest` *and* `windows-latest`, neither leg allowed to hide the other's
   failure. This tool reads and writes other people's repositories and carries explicit
@@ -30,8 +40,8 @@ Five layers, each one there because the layer below it passes on a real defect:
   outside the PR gate: it is network-dependent and upstream-driven
 - **The live field harness** — a real agent CLI taking a real repo through `init` →
   `inspect` → `impact` → `doctor`, headlessly, verified with the real doctor. It hunts
-  *new* scenarios; conformance guards the ones already known, and a scenario that fails
-  there lands as a fixture with its fix. The per-item paper trail is public: this repo's
+  *new* scenarios — the two suites above guard the ones already known. The per-item
+  paper trail is public: this repo's
   closed [`field-run` issues](https://github.com/taco3064/blueprint/issues?q=is%3Aissue+label%3Afield-run)
 
 **Mutation testing arrived after 3.0.0** and audits the suite itself — whether the

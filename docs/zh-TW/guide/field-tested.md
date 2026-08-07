@@ -5,9 +5,14 @@
 
 ## 這一頁背後有什麼
 
-五層，每一層存在的理由都是：它底下那一層碰到真實缺陷時會通過。
+六層。沒有一層是備援 —— 每一層被加進來，都是因為既有的那些全綠了，卻看不到某個真實的缺陷。
 
-- **導入一致性測試套件** —— 五種納入版本控制的範本（Vite React 與 Vue、Next、turbo + pnpm workspace 套件、以及植入既有債務的既有專案），每次 commit、push 與發佈都完整跑一遍 init、inspect 與 baseline 流程，用的是本 repo 自己開發依賴裡那份真正的 ESLint。
+- **導入 e2e 測試套件** —— 九個納入版本控制的起始範本：Vite React（JS 與 TS）與 Vue、三種 Next.js 形態（App Router 有 `src/` 與沒有 `src/`、Pages Router）、turbo + pnpm 與 yarn workspace 各一個套件，以及植入既有債務的既有專案。<br>
+  每次 commit、push 與發佈，每個範本都跑一遍 `init` → `inspect` → baseline 棘輪。<br>
+  它是以 `install: false` 執行的，所以它證明的是「`init` 在真實起始範本上寫出來的檔案樹」與「`inspect` 回報的檢測項目」—— 它從不執行 ESLint。
+- **一致性測試套件** —— 每一則實地回饋的情境都被固化成一個 fixture repo，用 DSL 現搭、走 CLI 自己的分派流程，**而且用的是本 repo 開發依賴裡那份真正的 ESLint**。<br>
+  這正是上面那個 e2e 套件當不了的一層：`impact` 與合併存活檢查，只有在真的 ESLint 解析真的 config 時才有意義，所以它們是在這裡被驗的。<br>
+  真實導入測試找到的新情境，會連同修正一起變成這裡的 fixture。
 - **兩套作業系統，而且兩邊都要回報** —— CI 在 `ubuntu-latest` 與 `windows-latest` 上各跑一次完整檢核，任一邊失敗都不准被另一邊蓋掉。<br>
   這個工具會去讀寫別人的 repo，為此帶了好幾條專門處理 Windows 的分支；在 posix 上那些分支等同空操作，所以它們的行為以前從來沒被實際觀察過。<br>
   另有一條獨立的流程：用當前版本的 Node 建置，再把建置產物拿到 `18.18.0` 上執行 —— `engines` 宣告的下限是被跑出來的，不是宣稱的。
@@ -17,7 +22,7 @@
 - **每週的地形檢查** —— 用最新的上游 `create-vite` 與 `create-next-app` 範本實際建專案跑導入，範本長相漂移時自動開 issue。<br>
   刻意排除在 PR 檢核之外：它依賴網路，而且變數在上游。
 - **真實導入測試** —— 讓真正的 agent CLI 帶著真實 repo 走過 `init` → `inspect` → `impact` → `doctor`，全程無人介入，最後用真的 doctor 驗收。<br>
-  它負責找**新的**情境；已知的情境交給一致性測試套件顧著，在那裡失敗的情境會連同修正一起變成常駐案例。<br>
+  它負責找**新的**情境 —— 已知的那些由上面兩個套件顧著。<br>
   逐項的來龍去脈是公開的，就在本 repo 已關閉的 [`field-run` issues](https://github.com/taco3064/blueprint/issues?q=is%3Aissue+label%3Afield-run)。
 
 **突變測試是 3.0.0 之後才有的**，它稽核的是測試套件本身 —— 問的不是「這行有沒有被測到」，而是「這行如果被改錯，斷言接不接得住」。<br>
