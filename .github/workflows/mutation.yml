@@ -37,10 +37,11 @@ jobs:
   mutation:
     name: Mutation survey
     runs-on: ubuntu-latest
-    # A full sweep is ~8k mutants; the last local measurement was 5m34s on ten
-    # cores. Nothing has measured it on a runner yet, so this cap is a guard
-    # against a hung run burning the default 6-hour budget, not a calibrated
-    # number — the first full sweep here is what calibrates it.
+    # Measured here rather than inferred from a laptop: ~8k mutants, 17m04s on this
+    # runner, against 5m34s on ten local cores. The cap is ~2.6x that, which leaves
+    # room for the tree to grow and still stops a hung run from burning the default
+    # six-hour budget. Re-measure it when the mutant count moves materially; a cap
+    # sized against a number nobody has re-taken is the thing this comment replaced.
     timeout-minutes: 45
 
     steps:
@@ -109,17 +110,23 @@ jobs:
             const total = groups.reduce((n, [, mutants]) => n + mutants.length, 0);
             const nocov = Object.values(files)
               .reduce((n, f) => n + f.mutants.filter((m) => m.status === "NoCoverage").length, 0);
+            const count = (n, word) => n + " " + word + (n === 1 ? "" : "s");
 
             const out = [
-              "## " + total + " survivors — scope: " + (process.env.MUTATE || "the whole tree"),
+              "## " + count(total, "survivor") + " — scope: " + (process.env.MUTATE || "the whole tree"),
               "",
-              nocov + " further mutants had no coverage. Those sit in the `/* v8 ignore */`",
-              "real-I/O defaults the tests inject instead of running — the same boundary",
-              "vitest draws, and nothing to chase.",
-              "",
+              // Only when there are any: "0 further mutants had no coverage" spends four
+              // lines explaining a category the run did not produce.
+              ...(nocov > 0 ? [
+                count(nocov, "further mutant") + " had no coverage. Those sit in the `/* v8 ignore */`",
+                "real-I/O defaults the tests inject instead of running — the same boundary",
+                "vitest draws, and nothing to chase.",
+                "",
+              ] : []),
               "A survivor is a question, not a defect: the line ran, and nothing asserted",
-              "its result. Judge each one before writing a test — see",
-              "`.claude/docs/mutation-testing.md`.",
+              "its result. Judge each one before writing a test, and read the",
+              "`undecidable` ledger first — it accounted for 24 of the 35 in the last",
+              "whole-tree sweep. See `.claude/docs/mutation-testing.md`.",
               "",
             ];
 
