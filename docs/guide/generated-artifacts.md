@@ -117,7 +117,7 @@ flowchart TD
 | `services` | Network primitives — the only layer that talks to the HTTP client or sockets. | — | `axios`, global `fetch`, global `WebSocket` |
 ````
 
-Three of the six layer rows are shown; the diagram and the legend are the whole of
+The layer rows are trimmed here; the diagram and the legend are the whole of
 that section. **A drawn edge is not the flow** — that is the one thing to read
 carefully, because the intuition runs the other way: reachability is the layer order,
 and an edge is only drawn where a layer *narrowed* who may import it.
