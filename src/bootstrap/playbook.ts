@@ -429,25 +429,55 @@ export function renderGoal(): string {
  * spread is opaque, and what to do when the two sides' file scopes were never the
  * same. They stay together because each opens by referring to the last — this is
  * the one place in the playbook where the order really is load-bearing.
+ *
+ * All three used to rest on a premise that is false, and field issue #163 is an
+ * agent following it into a wrong scope decision: that the hand-written entry is
+ * the only carrier of blueprint's ban, so it must hold the SAME file scope and a
+ * mismatch has to be resolved by widening to blueprint's glob. Flat config is
+ * per-FILE — an entry contributes nothing to a file it does not match — so the
+ * spread stays the carrier everywhere the hand-written entry does not reach, and
+ * narrowing cannot make blueprint's ban lose a file. Measured with
+ * `eslint --print-config` on ESLint 9, one probe per direction:
+ *
+ * - combined entry narrowed to `.vue`: the layer's `.js` file still resolves
+ *   blueprint's selector, from the spread. Narrowing costs blueprint nothing.
+ * - same glob, blueprint's selectors left out: the ban is gone on every file the
+ *   entry matches. THAT is the silent loss, and it is about contents, not scope.
+ * - original house entry folded away, combined entry kept at the collision: the
+ *   house rule's own outlying files resolve nothing. The silent direction runs
+ *   against the rule you brought, which doctor states it does not compare.
+ * - the arrangement now recommended (original entry untouched + combined entry at
+ *   the collision, after the spread): all five file classes resolve exactly the
+ *   rules they had, including the collision's test files, which the untouched
+ *   original still governs after blueprint's `ignores` lifts the combined entry
+ *   off them. That last cell is why renderTestExemptions no longer has to pick.
+ *
+ * The premise entered one day before #163 (bd3d2f1, field runs #95–#97) as
+ * reasoning about which failure is louder, never as a measurement. Prose is the
+ * right medium for this — it is doctrine about ESLint, not a fact about the
+ * adopter's repo — but the asymmetry it asserted was backwards.
  */
 function renderCombinedEntry(): string {
   return [
     '     **"ONE entry" means one per COLLISION, not one for the whole rule key.** emitLint scopes its entries per layer, so a rule key can have several — a `selfOnly` layer with two importers emits `no-restricted-syntax` on BOTH importer layers, and your own rule may overlap only one of them.',
     '     Combine with the entry you actually collide with, and leave the others exactly as emitted.',
-    '     The two ways to get this wrong are the two the instruction used to walk into: widening your combined entry to cover the other layers as well imposes YOUR rule on files it never governed (new red, visible), and narrowing it to exclude them replaces their emitted entry with nothing (silent, lint still green — the very trap this paragraph opens with).',
+    '     Widening your combined entry to cover the other layers as well is the way to get this wrong: it imposes YOUR rule on files it never governed, and one field run widened a date-guard onto a layer\'s `.js` and took 38 errors in a single test file that deliberately relaxes it.',
+    '     Scoping it narrowly is NOT the opposite error — by the qualifier above, the layers you leave out keep the entry the spread emitted, unchanged.',
     '     Check the emit points before merging, not after: `npx blueprint rules --json` lists the selectors per layer, so two importers show up as two.',
     '     If you get it wrong anyway, doctor\'s survival check probes every layer separately and names the one that lost its selectors — it is a red you can act on, not a silent pass.',
     '',
     '     **How you combine, given that `...emitLint(blueprint)` is opaque.** You cannot reach inside the spread to edit the entry it emits, so do not try: write the combined entry yourself and place it AFTER the spread.',
     '     That is the same later-replaces-earlier property this paragraph opens by warning about, used deliberately — yours becomes the effective entry for that rule key on the files it scopes to.',
-    '     Which is exactly why it has to carry everything the emitted one ENFORCED: both option sets\' patterns and selectors, the emitted `ignores`, and the SAME file scope.',
+    '     Which is exactly why it has to carry everything the emitted one ENFORCED there: both option sets\' patterns and selectors, and the emitted `ignores`.',
     '     The ban message is the one part that is NOT among those: that text is yours to write, doctor compares selectors and never messages, so nothing here sends you into a dump to retrieve a sentence.',
     '     `rules --json` says the same beside the selectors.',
-    '     Wider, and you impose your rule on layers it never governed; narrower, and the layers you dropped are left with nothing, silently.',
-    '     Confirm with `npx eslint --print-config` on one file per affected layer — the one place print-config is not optional, because doctor compares selectors and cannot see scope.',
+    '     **Scope is not on that list, and the two silent losses are about what the entry CONTAINS.** Leave blueprint\'s selectors out of an entry that matches its files and the ban is gone there — doctor\'s survival check turns that red.',
+    '     Fold your own original entry away and keep only the combined one, and your rule quietly stops governing the rest of what it used to — doctor does not compare the rules you brought, and says so, which is what the probe below is for.',
+    '     Confirm with `npx eslint --print-config` on one file per affected layer, plus one file your own rule governed OUTSIDE the collision — the one place print-config is not optional, because doctor compares selectors and cannot see scope.',
     '',
-    '     **When the two sides\' scopes were never the same, "the SAME file scope" cannot hold for both — match blueprint\'s.** A house rule framed at `**/*.vue` folded into a layer glob of `.{js,vue}` is the ordinary case, and the two failure directions are not symmetric: your rule reaching a few files it did not govern is visible red you will see on the next run, while blueprint\'s ban losing files is silent and lint stays green.',
-    '     So widen yours to blueprint\'s glob rather than narrowing the entry, then say in the report which extensions your rule newly covers and whether any file matches them today — often the widening is an empty set now and a bet on what lands later, which is worth writing down as a bet.',
+    '     **When the two sides\' scopes were never the same, do not reconcile them — the collision is the entry, and neither side moves.** A house rule framed at `**/*.vue` folded into a layer glob of `.{js,vue}` is the ordinary case: scope the combined entry to `**/*.vue` inside that layer, and leave your original entry exactly where it was.',
+    '     Three entries then cover three sets and no file gets a rule it never had: yours keeps the files blueprint never governed, the spread keeps the `.js` files your rule never governed, and the combined one wins where they meet.',
+    '     Say in the report which set each of the three covers.',
     '',
   ].join('\n');
 }
@@ -466,8 +496,8 @@ function renderTestExemptions(): string {
     '     `rules --json` gives it to you as `testExemptions` beside the selectors, and the text output prints the `ignores` line to paste.',
     '     Skip it and your combined entry starts governing test files: loud if your own rule collided there (a real run lost this and spent a debug cycle on 34 errors in one test file), silent if only blueprint\'s ban did — lint stays green while the test files it was never meant to reach are quietly under it.',
     '     Doctor compares selectors, not scope, so nothing downstream catches this.',
-    '     The same move runs the other way when YOUR rule had no exemption: carrying blueprint\'s `ignores` onto the combined entry stops your rule at test files it used to govern.',
-    '     One entry carries one `ignores`, so a merge has to pick — decide which scope each rule actually wants, say which one you widened or narrowed and why, and check whether the same rule appears on other layers you did NOT merge, because that is where the asymmetry lands.',
+    '     The same move runs the other way when YOUR rule had no exemption: carrying blueprint\'s `ignores` onto the combined entry stops your rule at test files it used to govern — inside the collision only, and that is the second reason the paragraph above leaves your original entry in place, since it still governs those test files and nothing has to be given up.',
+    '     Check whether the same rule appears on other layers you did NOT merge, because that is where an asymmetry you introduce here lands.',
     '',
     `     \`blueprint doctor\` verifies both the emitted structural rules and each declared gate's carrier rule survived the merge — so a hand sweep of the emitted gates duplicates it.`,
     `     What doctor does NOT compare is thresholds, package-ownership entries, and the survival of the rules YOU brought to the merge, and its ✓ says so.`,
@@ -504,7 +534,8 @@ function renderLintMerge(): string {
     '     **`codeStyle` means blueprint\'s emitted config formats this repo**, so a repo that already runs its own formatter is the overlapping-tool case above: keep ONE owner of formatting, and say which in the report.',
     '     Rules configured under the same key on both sides (`@stylistic/*`, `padding-line-between-statements`) collide mechanically — flat config replaces rather than merges — so those are a wiring precondition, not a preference.',
     '     Before merging, run `npx blueprint impact`: it lints the layer files with only the emitted config and reports hits per rule, so every conflict is decided on numbers, not by reading the emitted config against the code.',
-    '     Mind flat-config semantics while merging: when two entries configure the same rule, the later entry *replaces* the earlier — nothing merges, and ordering alone cannot save a rule **both sides set** (`no-restricted-imports`, `no-restricted-syntax`): whichever comes later silently deletes the other\'s defense while lint stays green.',
+    '     Mind flat-config semantics while merging: when two entries configure the same rule, the later entry *replaces* the earlier **on the files both of them match** — nothing merges, and ordering alone cannot save a rule **both sides set** (`no-restricted-imports`, `no-restricted-syntax`): whichever comes later silently deletes the other\'s defense there while lint stays green.',
+    '     That qualifier is the whole merge rather than a detail of it: an entry does nothing at all to a file outside its own `files`, so the spread goes on enforcing blueprint\'s entry everywhere yours does not reach, and only the overlap has to be combined.',
     '     Combine both option sets into ONE entry — blueprint\'s patterns and selectors plus your own (`npx blueprint rules --json` carries the exact selfOnly selectors per layer as `jsLiteral` — paste that field, quotes included, never an emitLint dump. Its `note` says why the rendered `selectors` value is not the same string once it is inside JS source; that is a silent break, so take the field that survives the paste rather than the one that reads more naturally).',
     '',
     renderCombinedEntry(),

@@ -81,9 +81,14 @@ blueprint instead.
 
 ### Folding a managed entry into a house rule
 
-Flat config **replaces** rather than merges, so a repo that already sets
-`no-restricted-syntax` cannot let the later entry win — both option sets have to become
-one entry. `npx blueprint rules --json` carries the exact `selfOnly` selectors per layer
+Flat config **replaces** rather than merges — on the files both entries match — so a
+repo that already sets `no-restricted-syntax` cannot let the later entry win there: both
+option sets have to become one entry. Only *there*, though. An entry does nothing to a
+file outside its own `files`, so the spread keeps enforcing blueprint's entry wherever
+yours does not reach, and a scope mismatch is resolved by scoping the combined entry to
+the overlap rather than by widening either side to meet the other.
+
+`npx blueprint rules --json` carries the exact `selfOnly` selectors per layer
 for that, in two spellings, and only one of them survives a paste:
 
 - **`jsLiteral` is the one to copy** — the selector as JS source, quotes included
