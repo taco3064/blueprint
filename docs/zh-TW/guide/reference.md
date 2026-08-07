@@ -79,6 +79,11 @@ flat config 是**取代**不是合併，所以本來就有設 `no-restricted-syn
 
 禁令的**訊息文字**是你自己寫的 —— `doctor` 驗的是 selector，從來不驗訊息。
 
+還有一條作用範圍要記著，它講的是這條檢查本身、跟你的 config 無關，所以併完之後仍然成立：<br>
+**doctor 的合併存活檢查比對的是匯入禁令、全域物件與 selfOnly selector —— 不含套件歸屬。**<br>
+所以一次弄丟套件禁令的合併，在那裡照樣是綠的，那一欄要你自己驗。<br>
+`blueprint rules` 會在「你真的有分層持有套件」的情況下，把該跑的指令講出來。
+
 ## `blueprint.rules` —— 哪些識別碼會成為檢核關卡
 
 `blueprint.rules` 裡的識別碼，只有機器查得動的才會轉譯成 lint 關卡。<br>
