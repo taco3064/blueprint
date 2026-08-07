@@ -62,6 +62,35 @@ describe('emitHandbook', () => {
     expect(md).not.toContain('## Naming');
   });
 
+  // The Enforced-by column asks, per row, whether THIS blueprint can open the gate at
+  // all, and two facts decide it: the framework (`deepWatch` never emits on React) and
+  // `testFiles` (`testFilename` has no scope when nothing is exempt). `sections.test.ts`
+  // asserts the renderer with those facts handed to it; nothing asserted that
+  // `emitHandbook` hands them over. Losing them is silent and reads as `lint` — the
+  // table claiming a machine holds a rule the emitted config does not contain, in the
+  // document that outlives the adoption (field run #150). One assertion per fact,
+  // because the two arms are independent and either could be dropped alone.
+  it('hands the rules table both facts that decide whether a gate can emit', () => {
+    const layer = { name: 'components', does: 'UI' };
+    const module = { layout: 'folder' as const, entry: 'index', private: [] };
+
+    const onReact = emitHandbook(defineBlueprint({
+      framework: 'react',
+      architecture: { alias: '~app', layers: [layer], module },
+      rules: { deepWatch: 'error' },
+    }));
+
+    expect(onReact).toContain('nothing — Vue only');
+
+    const exemptingNothing = emitHandbook(defineBlueprint({
+      framework: 'vue',
+      architecture: { alias: '~app', layers: [layer], module, testFiles: [] },
+      rules: { testFilename: 'error' },
+    }));
+
+    expect(exemptingNothing).toContain('`architecture.testFiles: []` exempts nothing');
+  });
+
   it('describes the diagram notation once, and the diagram matches it', () => {
     // The fixture declares a selfOnly importer, so both halves render: the legend under
     // the diagram and the selfOnly rule in the discipline bullets. They disagreed — the
