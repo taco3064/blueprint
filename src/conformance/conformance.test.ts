@@ -50,6 +50,37 @@ const reactBlueprint: Blueprint = {
   rules: { unusedVars: 'error' },
 };
 
+describe('flattenProse · the helper the prose assertions rest on', () => {
+  // Every wrap-insensitive assertion in this file is only as good as this collapse,
+  // and nothing asserted the collapse itself. A markdown wrap is a newline plus the
+  // next line's indentation — a RUN of whitespace — so replacing each character
+  // individually instead of each run leaves the needle unmatched by a different
+  // amount of space. On a positive assertion that is a false red; on a negative one
+  // it passes on nothing, which is the failure this helper exists to prevent.
+  it('collapses a run of whitespace to one space, not one space per character', () => {
+    expect(flattenProse('init created\n   only to hold this command'))
+      .toBe('init created only to hold this command');
+
+    expect(flattenProse('two\t\t tabs and spaces')).toBe('two tabs and spaces');
+  });
+
+  // The documented asymmetries, because they are what makes it safe to use on a
+  // needle written as one line: a paragraph break is still a match, and nothing
+  // about punctuation, wording or order is relaxed.
+  it('matches across a paragraph break, and relaxes nothing else', () => {
+    expect(flattenProse('one sentence.\n\nAnother one.')).toBe('one sentence. Another one.');
+
+    expect(flattenProse('Order, punctuation: kept — verbatim.'))
+      .toBe('Order, punctuation: kept — verbatim.');
+  });
+
+  // Leading and trailing whitespace becomes a single space rather than disappearing,
+  // which is why the needles in this file are written without either.
+  it('leaves one space where it trimmed, so needles carry no edges', () => {
+    expect(flattenProse('\n  padded  \n')).toBe(' padded ');
+  });
+});
+
 describe('fail-loud floor', () => {
   it('a command that needs a config says so on stderr and exits 1', async () => {
     const impact = await cli(repo(), ['impact']);
