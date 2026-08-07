@@ -62,6 +62,28 @@ describe('emitHandbook', () => {
     expect(md).not.toContain('## Naming');
   });
 
+  it('describes the diagram notation once, and the diagram matches it', () => {
+    // The fixture declares a selfOnly importer, so both halves render: the legend under
+    // the diagram and the selfOnly rule in the discipline bullets. They disagreed — the
+    // bullet called it "a dashed edge" while the legend says a SOLID edge carries
+    // selfOnly and a dotted one records declaration order only. One document, two
+    // answers, and the wrong one points at the edges that are explicitly NOT
+    // dependencies. Neither half was asserted, so it shipped.
+    const md = emitHandbook(full());
+
+    // The legend's vocabulary is solid/dotted. "dashed" anywhere is a second vocabulary
+    // for one drawing, which is how these drifted apart.
+    expect(md).not.toContain('dashed');
+
+    // One explanation of the notation, in the legend that owns it.
+    expect(md.match(/\bsolid\b/g) ?? []).toHaveLength(1);
+    expect(md.match(/\bdotted\b/g) ?? []).toHaveLength(1);
+
+    // And the legend is not describing a drawing the diagram does not produce: this
+    // config's selfOnly edge really is solid, and really is labelled.
+    expect(md).toContain('components -->|net only · selfOnly| services');
+  });
+
   it('is deterministic', () => {
     expect(emitHandbook(full())).toBe(emitHandbook(full()));
   });

@@ -142,8 +142,15 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   );
 
   if (hasSelfOnly) {
+    // States the RULE, and leaves the notation to the legend that owns it. This said
+    // "a dashed edge may be depended on…" while the legend twelve lines above says a
+    // solid edge carries `selfOnly` and a dotted one records declaration order only —
+    // one document, two answers, and the wrong one points the reader at the edges that
+    // are explicitly NOT dependencies. Describing the drawing twice is what let them
+    // drift; the legend describes it once.
     bullets.push(
-      '- **selfOnly** — a dashed edge may be depended on but never re-exported onward.',
+      '- **selfOnly** — where a layer narrows its importers with `selfOnly`, that importer'
+      + ' may depend on it but must never re-export it onward.',
     );
   }
 
