@@ -10,15 +10,37 @@ name: Mutation
 #
 # Same division of labour as `npm run field:run`: conformance guards the known
 # scenarios in CI, the manual harness hunts for new ones.
+#
+# How to run it — the ref is the whole point, so it is typed rather than inferred:
+#
+#   gh workflow run mutation.yml --ref <branch>                          # whole tree
+#   gh workflow run mutation.yml --ref <branch> -f mutate='src/x/y.ts'   # one file
+#
+# There is deliberately no `npm run` shortcut. `gh` is not on this repo's script
+# surface (every entry in `scripts` is node or a devDependency binary), and the
+# one argument a shortcut would guess is `--ref` — which, in a repo whose work
+# happens in worktrees, is how you measure a tree you did not mean to and then
+# file the number as authoritative.
 on:
   workflow_dispatch:
+    inputs:
+      # `.claude/docs/mutation-testing.md` prescribes two different runs: one file
+      # while you work on it, the whole tree before you believe the number. Without
+      # this input, checking a single file costs a full sweep — the wrong price for
+      # the loop that runs most often.
+      mutate:
+        description: 'Globs to narrow the sweep, comma-separated. Blank sweeps the whole tree.'
+        required: false
+        type: string
 
 jobs:
   mutation:
     name: Mutation survey
     runs-on: ubuntu-latest
-    # A full sweep is ~4.6k mutants, ~5 minutes locally. The default 6-hour cap
-    # would let a hung run burn the whole budget before anyone noticed.
+    # A full sweep is ~8k mutants; the last local measurement was 5m34s on ten
+    # cores. Nothing has measured it on a runner yet, so this cap is a guard
+    # against a hung run burning the default 6-hour budget, not a calibrated
+    # number — the first full sweep here is what calibrates it.
     timeout-minutes: 45
 
     steps:
@@ -34,8 +56,81 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # `--mutate` REPLACES the config's `mutate` array rather than intersecting
+      # with it, so narrowing to `src/inspect/*.ts` would also hand Stryker the
+      # `.test.ts` files sitting beside them. The config calls that exclusion the
+      # one that is not a judgement call — mutating an assertion and then asking
+      # the same assertion whether it noticed is circular — so the negation is
+      # re-appended here instead of being left to whoever fills in the box.
+      #
+      # The glob travels as an env var, not interpolated into the command line, so
+      # a `!` or a `*` in it reaches Stryker as an argument rather than something
+      # the shell expands first.
       - name: Run Stryker
-        run: npx stryker run
+        env:
+          MUTATE: ${{ inputs.mutate }}
+        run: |
+          if [ -n "$MUTATE" ]; then
+            npx stryker run --mutate "$MUTATE,!src/**/*.test.ts"
+          else
+            npx stryker run
+          fi
+
+      # The log carries the score and the artifact carries the detail, but neither
+      # answers "which mutants survived" in the place you are already looking. This
+      # does — and it names the scope, because a narrowed run flatters: the same
+      # mutant reads killed under one file and survived in a whole tree, and a
+      # partial sweep must not be filed as the authority.
+      #
+      # Single-quoted for the shell on purpose: a double-quoted `node -e` body
+      # hands its backticks and `${}` to the shell instead of to node.
+      - name: Summarise the survivors
+        if: always()
+        env:
+          MUTATE: ${{ inputs.mutate }}
+        run: |
+          node -e '
+            const { existsSync, readFileSync, appendFileSync } = require("node:fs");
+            const summary = process.env.GITHUB_STEP_SUMMARY;
+            const report = "reports/mutation/mutation.json";
+
+            if (!existsSync(report)) {
+              appendFileSync(summary, "No report: the run did not get far enough to write one.\n");
+              process.exit(0);
+            }
+
+            const { files } = JSON.parse(readFileSync(report, "utf8"));
+            const survivors = (f) => f.mutants.filter((m) => m.status === "Survived");
+            const groups = Object.entries(files)
+              .map(([file, f]) => [file, survivors(f)])
+              .filter(([, mutants]) => mutants.length > 0)
+              .sort((a, b) => b[1].length - a[1].length);
+
+            const total = groups.reduce((n, [, mutants]) => n + mutants.length, 0);
+            const nocov = Object.values(files)
+              .reduce((n, f) => n + f.mutants.filter((m) => m.status === "NoCoverage").length, 0);
+
+            const out = [
+              "## " + total + " survivors — scope: " + (process.env.MUTATE || "the whole tree"),
+              "",
+              nocov + " further mutants had no coverage. Those sit in the `/* v8 ignore */`",
+              "real-I/O defaults the tests inject instead of running — the same boundary",
+              "vitest draws, and nothing to chase.",
+              "",
+              "A survivor is a question, not a defect: the line ran, and nothing asserted",
+              "its result. Judge each one before writing a test — see",
+              "`.claude/docs/mutation-testing.md`.",
+              "",
+            ];
+
+            for (const [file, mutants] of groups) {
+              out.push("### " + file + " — " + mutants.length);
+              for (const m of mutants) out.push("- L" + m.location.start.line + " " + m.mutatorName);
+              out.push("");
+            }
+
+            appendFileSync(summary, out.join("\n") + "\n");
+          '
 
       # The score is in the log above; the report is how you read WHICH mutants
       # survived — the only part that is actionable. Uploaded even on failure,
