@@ -34,7 +34,13 @@ differently on a stack that cannot open one of them, with neither naming the dis
 so `0/17` from one output sat beside eighteen rows from the other. One count now, and the
 row that is excluded says why.
 
-The pattern under all four: a boundary described in two places drifts. The rule that came
-out of it — the scope stays with the check that owns it, every other output names its own
-parts rather than restating the boundary, and where a fact must reach two channels they
-share one string rather than two copies.
+None of the four is visible from one output, which is why they lasted. So where two of
+them now describe the same boundary, one of them owns it and the others point at it
+instead of restating it in their own words — and a fact that has to reach both the text
+and `--json` travels as one string rather than two copies that can drift apart.
+
+What that is worth to you: if you still catch two outputs answering the same question
+differently, it is a defect worth reporting rather than a distinction you have to
+arbitrate. Until it is fixed, act on the one attached to the check that produces the
+answer — `doctor`'s ✓ over a description of it elsewhere — and treat the other as the
+one that has gone stale.
