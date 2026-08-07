@@ -453,11 +453,18 @@ export function renderGoal(): string {
  *   rules they had, including the collision's test files, which the untouched
  *   original still governs after blueprint's `ignores` lifts the combined entry
  *   off them. That last cell is why renderTestExemptions no longer has to pick.
- * - that same arrangement with the original entry BELOW the combined one: the
- *   overlap resolves the house selector alone and blueprint's is gone there. The
- *   recommendation is order-dependent, so it now says so — "leave your original
- *   entry in place" is not enough on its own, since a reader whose entry already
- *   sat below the spread would be leaving it in the one position that breaks.
+ * - that same arrangement with the combined entry ABOVE the original: the overlap
+ *   resolves the house selector alone and blueprint's is gone there. The
+ *   recommendation is order-dependent, so it says so — as a property of the entry
+ *   the reader is about to write ("put it last"), which is satisfiable without
+ *   touching a config that already exists.
+ * - the repair this paragraph gave first — lift an original that sat below the
+ *   spread above it — on a house entry that also sets `no-restricted-imports`: the
+ *   collision key resolves correctly either way once the combined entry is last,
+ *   while that OTHER key flips from the house's paths to blueprint's on the move.
+ *   Any instruction to reorder an existing entry silently re-decides every key it
+ *   carries, which is the loss this paragraph exists to prevent, so the constraint
+ *   is stated on the new entry instead and nothing has to move.
  *
  * The premise entered one day before #163 (bd3d2f1, field runs #95–#97) as
  * reasoning about which failure is louder, never as a measurement. Prose is the
@@ -485,7 +492,8 @@ function renderCombinedEntry(): string {
     '',
     '     **When the two sides\' scopes were never the same, do not reconcile them — the collision is the entry, and neither side moves.** A house rule framed at `**/*.vue` folded into a layer glob of `.{js,vue}` is the ordinary case: scope the combined entry to `**/*.vue` inside that layer, and leave your original entry in place rather than folding it into the new one.',
     '     Three entries then cover three sets, and none of them gives a file a rule it never had: yours keeps the files blueprint never governed, the spread keeps the `.js` files your rule never governed, and the combined one wins where they meet.',
-    '     **That holds on one ordering: your original entry, then the spread, then the combined one.** Yours has to stay ABOVE the combined entry — below it, your bare rule goes back on top in the overlap and blueprint\'s selectors are gone there. The wiring this step already asked for puts you right; an entry that had drifted below the spread has to move up.',
+    '     **That holds on one ordering, and it needs no existing entry to move: put the combined entry LAST in the array.** Last is after the spread and after your original entry both — leave the combined one above your original and that original wins the overlap again, your bare rule back on top with blueprint\'s selectors gone there.',
+    '     Lifting your original entry over the spread satisfies the same ordering and is the wrong repair: other rule keys ride along on it, and measured, one that also set `no-restricted-imports` flipped from its own paths to blueprint\'s the moment it moved — silently, while the key you came here for looked right either way.',
     '     Say in the report which set each of the three covers.',
     '',
   ].join('\n');

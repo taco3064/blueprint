@@ -2710,12 +2710,16 @@ describe('a claim states the condition it needs (field runs #95–#97)', () => {
     expect(playbook).toContain('leave your original entry in place');
     expect(playbook).toContain('Three entries then cover three sets');
 
-    // The arrangement is order-dependent and saying "leave it in place" does not
-    // pin that: an original entry that already sat BELOW the spread would be left
-    // in the one position that puts the bare house rule back on top in the overlap.
-    // Measured — the overlap resolves the house selector alone.
-    expect(playbook).toContain('That holds on one ordering');
-    expect(playbook).toContain('has to stay ABOVE the combined entry');
+    // The arrangement is order-dependent, and the constraint is carried by the entry
+    // the reader writes: last in the array is after the spread and after their own
+    // entry both. Stated as "move your own entry up" instead — which this paragraph
+    // said first — it satisfies the same ordering by silently re-deciding every OTHER
+    // rule key that entry sets; measured, one that also set `no-restricted-imports`
+    // flips to blueprint's paths on the move. That remedy must not come back.
+    expect(playbook).toContain('put the combined entry LAST in the array');
+    expect(playbook).toContain('is the wrong repair');
+    expect(playbook).not.toContain('has to stay ABOVE the combined entry');
+    expect(playbook).not.toContain('has to move up');
 
     // Two probes in the affected layer, not one: the recommended shape makes files
     // in a single layer resolve different entries on purpose, and doctor resolves
