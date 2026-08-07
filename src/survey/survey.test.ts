@@ -475,12 +475,65 @@ describe('renderSurvey', () => {
     expect(output).toContain('folder is HERE and holds none');
     expect(output).toContain('this survey does not read');
 
-    // Both sourceless folders on one line, and the folder that has files stays off it.
-    // Repeating a 3-line note per folder buries the numbers it sits beside — the same
-    // reason the row does not carry it.
-    expect(output).toContain('styles, assets: 0 source files means the');
+    // Once, not per folder: repeating a three-line note buries the numbers it sits
+    // beside — the same reason the row itself does not carry it.
     expect(output.match(/folder is HERE and holds none/g)).toHaveLength(1);
-    expect(output).not.toContain('components: 0 source files');
+    expect(output).toContain('styles, assets');
+    // …and the folder that HAS files stays off the list.
+    expect(output).not.toContain('components,');
+
+    // It must not read as another folder row: a blank line above it, and it opens on
+    // the sentence rather than on the names, because `assets, styles: 0 source files`
+    // at the rows' own indent read as a folder called "assets, styles".
+    const lines = output.split('\n');
+    const note = lines.findIndex((line) => line.includes('0 source files means'));
+
+    expect(lines[note - 1]).toBe('');
+    expect(lines[note].trimStart().startsWith('0 source files means')).toBe(true);
+  });
+
+  it('wraps the sourceless folder list — its length is the reader\'s repo', () => {
+    // The one line in this output nothing bounded, and `public/ assets/ locales/
+    // generated/` is an ordinary project. Every other line here is hand-wrapped.
+    const output = renderSurvey({
+      framework: null,
+      typescript: false,
+      packageManager: 'npm',
+      aliases: {},
+      rootFiles: [],
+      folders: Array.from({ length: 10 }, (_, index) => ({
+        folder: `sourceless-folder-${index}`,
+        files: 0,
+        directFiles: 0,
+        childFolders: 0,
+        indexedChildren: 0,
+        maxDepth: 0,
+      })),
+      edges: [],
+      selfAliasImports: {},
+      testEvidence: [],
+      packageUsage: [],
+      ownableImports: [],
+      unresolved: [],
+      totalFiles: 0,
+    });
+
+    // The note's own lines, not the folder rows above it — those are a fixed 93 wherever
+    // the folder name lands, and are not what went unbounded.
+    const lines = output.split('\n');
+    const start = lines.findIndex((line) => line.includes('0 source files means'));
+    const note = lines.slice(start, lines.findIndex((line, index) => index > start && line === ''));
+
+    expect(note.length).toBeGreaterThan(3); // the sentence, plus a wrapped list
+
+    for (const line of note) expect(line.length).toBeLessThanOrEqual(80);
+
+    // Every folder still named, and the last one carries no trailing comma.
+    for (let index = 0; index < 10; index++) {
+      expect(output).toContain(`sourceless-folder-${index}`);
+    }
+
+    expect(output).toContain('sourceless-folder-9\n');
   });
 
   it('caps the specifier list on the same rule as the package list', () => {
