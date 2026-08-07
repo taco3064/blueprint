@@ -15,9 +15,11 @@ page is the map.
   noticing. Anything above the floor works; that one is the best-travelled path
 - **ESLint 9 or 10, on flat config** — both majors are admitted by every carrier
   plugin's peer range, so `init` installs `eslint` unpinned and it resolves to the
-  newest supported one. A legacy `.eslintrc` is a
-  [migration decision](/guide/field-tested#framework-notes), never a silent
-  half-adoption
+  newest supported one; CI runs the suite on
+  [each of them](/guide/field-tested#what-backs-this-page), so the major you resolve
+  to is one this project executes rather than one it merely permits. A legacy
+  `.eslintrc` is a [migration decision](/guide/field-tested#framework-notes), never a
+  silent half-adoption
 
 Nothing else — the package itself has zero runtime dependencies.
 

@@ -250,16 +250,24 @@ export function plan(
         // saw ESLint 10 arrive from a tool developed on 9 and could only report
         // "worked today" (field run #100).
         //
-        // "both TESTED" was the word, and it overclaimed: this repo's devDependency
-        // is eslint 9, so every suite and every CI leg runs 9 and nothing runs 10. A
-        // field agent checked the adjacent half — `^10.8.0` did land in package.json —
-        // which makes the overclaim worse, not better: it is the version an adopter
-        // actually gets (field run #150). What IS verified, per carrier and read off the
-        // installed manifests in `detect.test.ts`, is that every peer range admits every
-        // major on this list — the fact that decides whether their install resolves at
-        // all, which is the question this note is answering.
+        // Two facts, and their order is deliberate. The peer-range half leads because
+        // it is the one checkable from where the adopter is standing — the carriers are
+        // in their own `node_modules` — and because it answers the question this note
+        // is asking: whether the install about to run resolves at all. `detect.test.ts`
+        // proves it per carrier, read off the installed manifests.
+        //
+        // The CI half names its channel rather than claiming a bare "both TESTED".
+        // That bare wording shipped once and overclaimed, because at the time nothing
+        // ran 10 (field run #150, where an agent watched `^10.8.0` land in its own
+        // package.json). The `eslint-10` leg in ci.yml makes it true — but the
+        // published tarball carries `devDependencies` with eslint 9, and two runs are
+        // on record opening `node_modules/@kekkai/blueprint/package.json` looking for
+        // exactly this kind of range (#139, #140 — see the install banner in
+        // `bootstrap.ts`). "Both tested" beside a visible `^9.39.2` is two true things
+        // with nothing bridging them, which is the shape that reads as the tool
+        // contradicting itself. Naming CI is the bridge.
         note: deps.includes('eslint')
-          ? `${deps.join(', ')} — eslint unpinned, resolving to the newest supported major (${SUPPORTED_ESLINT_MAJORS.join(' and ')} are both admitted by every carrier's peer range)`
+          ? `${deps.join(', ')} — eslint unpinned, resolving to the newest supported major (${SUPPORTED_ESLINT_MAJORS.join(' and ')} are both admitted by every carrier's peer range, and @kekkai/blueprint's CI runs its own suite on each)`
           : deps.join(', '),
       });
     } else {

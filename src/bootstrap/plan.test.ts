@@ -547,12 +547,20 @@ describe('plan', () => {
       expect(install?.kind === 'install' && install.note).toContain(String(major));
     }
 
-    // What the note may claim, and it is not "tested": this repo's devDependency is
-    // eslint 9, so nothing here has ever run 10 — while `detect.test.ts` does prove,
-    // per carrier and off the installed manifests, that every peer range admits it.
-    // Say the verified thing (field run #150).
+    // Both halves are asserted, because each answers a different question. The
+    // peer-range one decides whether their install resolves at all, and it is the half
+    // an adopter can check without leaving their own `node_modules` — `detect.test.ts`
+    // proves it per carrier off the installed manifests.
     expect(install?.kind === 'install' && install.note)
       .toContain('admitted by every carrier\'s peer range');
+
+    // The CI half carries its channel, and the bare form stays forbidden. "both
+    // tested" shipped once while nothing ran 10 (field run #150); the `eslint-10` leg
+    // makes it true, but the published tarball ships `devDependencies` with eslint 9
+    // and two runs are on record reading that file (#139, #140), so unbridged it still
+    // reads as the tool contradicting itself.
+    expect(install?.kind === 'install' && install.note)
+      .toContain('CI runs its own suite on each');
 
     expect(install?.kind === 'install' && install.note).not.toContain('are both tested');
 
