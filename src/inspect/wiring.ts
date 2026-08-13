@@ -6,11 +6,8 @@ import { activeSetting,
   getModuleShape,
   getSelfOnlyTargets } from '../config';
 import type { Blueprint } from '../config';
-// Import from the patterns leaf, not the emit/lint index — the index also
-// exports lint.ts, which loads the plugin, which shares resolve logic with
-// inspect; routing through the index would close a module cycle. The same
-// primitives lint.ts compiles from build the expectations here, so the two
-// sides cannot drift.
+// The patterns leaf, not the emit/lint index: the index also exports lint.ts,
+// whose plugin shares resolve logic with inspect, closing a module cycle.
 import {
   buildStructuralPatterns,
   deriveGlobalRules,
@@ -24,58 +21,38 @@ import { dropTestFiles, globToRegExp } from './filter';
 import type { DoctorCheck, ScanResult } from './types';
 
 /**
- * Doctor's merge-survival check. Flat config never merges: when the user's
- * own entry configures the same rule as an emitLint entry, the later one
- * silently *replaces* the earlier — lint stays green while a structural ban
- * (or the user's own defense) disappears. Two field runs hit this from both
- * directions and caught it only by hand. This check resolves the project's
- * final config for one real layer file and verifies blueprint's structural
- * rules are still in it. Package-ownership entries are not yet verified —
- * only the layer-boundary bans, selfOnly selectors, globals, and the
- * embedded relative-escape rule.
+ * Doctor's merge-survival check. Flat config never merges: a later entry
+ * configuring the same rule silently REPLACES the earlier one, so lint stays green
+ * while a structural ban disappears. This resolves the project's final config for
+ * one real layer file and verifies the layer-boundary bans, selfOnly selectors,
+ * globals and the embedded relative-escape rule. Package ownership is not verified.
  */
 
 /**
- * What this check calls the config it resolved, and it is two different words.
- * "merged" was hardcoded, and on the path where init writes the live
- * `eslint.config.mjs` itself there is no merge at all — a field agent read the
- * label against its own repo, found nothing merged, and had to go check that the
- * check was pointed at the right file (field run #148). Nothing else in doctor
- * needed telling: `detect` already separates its own generated config from a
- * hand-maintained one that wires the package in.
+ * What this check calls the config it resolved, and it is two different words: on
+ * the path where init writes the live `eslint.config.mjs` there is no merge at all,
+ * and a hardcoded "merged" sent a reader checking the wrong file (field run #148).
  */
 const label = (merged: boolean): string =>
   `emitted rules survive the ${merged ? 'merged' : 'generated'} eslint config`;
 
 /**
- * What a green on this check does and does NOT prove. An unqualified ✓ over
- * a half-verified merge is the false green this whole module exists to
- * prevent: a field agent dropped the `stylistic` argument, watched lint pass
- * and doctor print this line, and only `eslint --print-config` showed the
- * ~68-rule codeStyle family had silently vanished (field issue #40).
+ * What a green on this check does and does NOT prove — an unqualified ✓ over a
+ * half-verified merge is the false green this module exists to prevent (#40).
  *
- * The reach belongs here too, not only in `pickProbes`'s comment. This check
- * resolves ONE path per layer, so a merged entry that replaces blueprint's on
- * part of a layer passes: the probe lands on a sibling that still carries the
- * emitted selectors. And since #163 that partial-layer entry is the shape the
- * playbook RECOMMENDS — scope the combined entry to the collision, leave the rest
- * to the spread — so this blind spot went from covering a mistake to covering the
- * intended arrangement. The playbook's remedy moved with it: two `--print-config`
- * probes in the affected layer, one inside the collision and one outside, not the
- * single file per layer that used to be enough. An adopter reading a green here is
- * still the one deciding whether to bother.
+ * It resolves ONE path per layer, so an entry that replaces blueprint's on PART of
+ * a layer passes. Since #163 that partial-layer entry is the arrangement the
+ * playbook recommends, so the blind spot now covers the intended shape, and the
+ * playbook's remedy moved with it: two probes in the affected layer, not one.
  */
 const SCOPE = 'structural bans + each active gate\'s carrier rule, one probe per layer; '
   + 'thresholds, package-ownership entries, and a merged entry scoped to only part of '
   + 'a layer are not compared';
 
 /**
- * Gates whose ESLint rule exists only if the caller handed `emitLint` the
- * carrier plugin — the arguments the playbook warns hardest about, because a
- * dropped one emits NOTHING while lint stays green. One representative rule
- * per gate: losing the carrier loses all of them together, so a single id
- * detects it, and comparing one id (not values) keeps this version-stable
- * the way the structural side already is.
+ * Gates whose ESLint rule exists only if the caller handed `emitLint` the carrier
+ * plugin — a dropped one emits NOTHING while lint stays green. One representative
+ * rule per gate: the carrier takes them all together, so a single id detects it.
  */
 const CARRIER_GATES = [
   { gate: 'codeStyle', rule: '@stylistic/max-len', carrier: 'stylistic' },
@@ -159,12 +136,9 @@ export function expectedStructural(
 }
 
 /**
- * Derive a concrete path that satisfies `glob` — the synthetic probe for a
- * layer that holds no files yet. Star and brace shapes synthesize by
- * construction (a `**` prefix collapses, the first brace alternative is
- * taken, remaining stars become the probe name — each substitution matches
- * its own pattern); anything carrying `?` or a character class is not
- * synthesized at all, so an unusual glob yields no probe, never a wrong one.
+ * Derive a concrete path satisfying `glob` — the synthetic probe for a layer with
+ * no files yet. Star and brace shapes synthesize by construction; anything carrying
+ * `?` or a character class yields no probe, never a wrong one.
  */
 function syntheticPath(glob: string): string | null {
   if (/[?[\]]/.test(glob)) return null;
@@ -176,13 +150,10 @@ function syntheticPath(glob: string): string | null {
 }
 
 /**
- * One probe per layer — a single probe would green-light a user entry that
- * swallows the rules of some *other* layer (`files: ['src/services/**']`),
- * the exact scoping the check exists to catch. A layer with no files yet
- * gets a *synthetic* probe: `calculateConfigForFile` resolves by pattern
- * and never touches the filesystem, so the anti-false-green check need not
- * go blind on the empty repos that most need it (field batch 7). Still a
- * sample, not a proof: within a layer, one path stands in for all of them.
+ * One probe per layer — a single probe would green-light an entry that swallows
+ * some OTHER layer's rules, the exact scoping this check exists to catch. An empty
+ * layer gets a synthetic probe, since `calculateConfigForFile` resolves by pattern
+ * and never touches disk. Still a sample: one path stands in for the layer.
  */
 function pickProbes(
   scanResult: ScanResult,
@@ -252,12 +223,10 @@ function activeOptions(value: unknown): unknown[] | null {
  * Version-stable artifacts present in the *resolved* rule values, plus a count of
  * the entries this reader could not make sense of.
  *
- * The count is not diagnostics for its own sake. The comparison downstream is by
- * containment — an entry blueprint does not recognise is the user's business and
- * never a loss — so an option in a shape this reader cannot parse was silently
- * dropped, and a hand-folded entry with a typo in it looked exactly like a
- * deliberate one. Counting them makes the silence audible without turning
- * someone's own rule into a failure.
+ * The comparison downstream is by containment, so an unrecognised entry is the
+ * user's business and never a loss — which made a hand-folded entry with a typo
+ * look exactly like a deliberate one. The count makes that silence audible without
+ * turning someone's own rule into a failure.
  */
 function resolvedStructural(rules: Record<string, unknown>): {
   groups: Set<string>;
@@ -414,18 +383,10 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
       );
     }
   } catch (error) {
-    // Unresolvable config = the project's own lint is broken or eslint is
-    // not loadable here; that gate speaks for itself — doctor stays honest
-    // by naming the skip, not by inventing a verdict. What it did NOT do was
-    // stop the banner counting the skip as one of the checks that passed, which
-    // is how an agent concluded the lint wiring had been verified (#129).
-    //
-    // And the reason came with it, which this threw away. The same swallow as
-    // `impact`'s carrier loader, fixed there one batch earlier and not swept to
-    // here: "would not resolve" sent three runs to `npm run lint` to learn WHICH
-    // package was missing, and doctor is the channel they reach after an install
-    // they had to interrupt — the one place still on screen when the question is
-    // asked (field runs #145, #148, #149).
+    // An unresolvable config is a skip, not a verdict — but a skip the banner
+    // counted as a pass is how an agent concluded the wiring was verified (#129).
+    // The reason travels with it: a bare "would not resolve" sent three runs to
+    // `npm run lint` to learn WHICH package was missing (field runs #145, #148, #149).
     const reason = error instanceof Error ? error.message.split('\n')[0] : String(error);
 
     return {

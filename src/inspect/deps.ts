@@ -111,21 +111,16 @@ function skippedFolders(scanned: ScanResult, layerNames: Set<string>): string[] 
     .map((file) => file.segments[0]);
 
   // No sort of its own: `scan` walks in name order, so first-encounter order IS
-  // name order. The sort that used to sit here was repairing an upstream order
-  // that is now settled — and while it sat here it could not be measured, because
-  // the input it would reorder never arrives out of order.
+  // name order, and a sort here would repair an order already settled upstream.
   return [...new Set(folders)];
 }
 
 /**
  * A single-segment module that IS a flat-layout layer answers at layer granularity.
  *
- * Undecidable, and by reachability rather than by identity: read the way the parser
- * groups it, flipping the inner `&&` gives `(a || b) && c`, which separates from the
- * original only for a module key that is a single segment and NOT a layer name.
- * `buildModuleGraph` builds keys only under declared layers, so no such key arrives.
- * That is a claim about another function's output, not a logical truth — which is why
- * the `layerNames` half stays rather than being deleted as redundant.
+ * undecidable by reachability, not identity: the regrouped condition differs only
+ * for a single-segment key that is not a layer name, and `buildModuleGraph` never
+ * builds one. That is a claim about another function, so the `layerNames` half stays.
  */
 function isFlatLayer(module: string, layerNames: Set<string>, layoutOf: LayoutOf): boolean {
   return !module.includes('/') && layerNames.has(module) && layoutOf(module) === 'flat';
@@ -150,9 +145,8 @@ function unknownTarget(key: string, skipped: string[]): string {
 
 /**
  * Both `deps` renderings close on how the graph was read, and the per-module answer
- * needs it more than the leaderboard does: "who gets hit if I change this" is a
- * question people act on, and a fan-in of 3 that a dynamic import made 4 is a wrong
- * decision rather than an incomplete list.
+ * needs it most: a fan-in of 3 that a dynamic import made 4 is a wrong decision,
+ * not an incomplete list.
  */
 function renderModule(entry: ModuleDeps, flatLayer: boolean): string {
   return [

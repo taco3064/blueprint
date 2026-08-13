@@ -51,10 +51,8 @@ export async function runInspect(
   const baselineFile = path.join(root, BASELINE_FILE);
 
   if (options.updateBaseline) {
-    // The baseline is a debt ledger, and info findings are not debt — a
-    // missing-layer note says "not built yet", nothing a ratchet should
-    // hold. Recording them would also invite manufacturing debt on a clean
-    // repo just to have something to lock.
+    // Info findings are not debt — "not built yet" is nothing a ratchet should hold,
+    // and recording them invites manufacturing debt just to have something to lock.
     const debt = findings.filter((finding) => finding.severity !== 'info');
 
     // A clean repo needs no ratchet — an empty baseline is a file whose only
