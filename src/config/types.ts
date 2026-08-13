@@ -50,6 +50,42 @@ export interface AllowedImporter {
   description?: string;
 }
 
+/**
+ * One feature module at the root of the source tree — a domain, and what it is
+ * allowed to reach. The counterpart of {@link LayerDef} one level up: modules
+ * flow one way at the root, layers flow one way inside each module.
+ */
+export interface ModuleDef {
+  /**
+   * Folder name under the source root, e.g. `Fighter`. Unique among modules —
+   * a layer of the same name is a different namespace and does not collide
+   * (`src/components/engine/` is unambiguous).
+   */
+  name: string;
+  /** One-line responsibility — what this module is for. */
+  does: string;
+  /**
+   * Modules this one may import, each reachable through its entry alone. Omit
+   * for none: a module is isolated until it names a dependency, which is the
+   * opposite of the `layers` default and deliberately so — "Boss depends on
+   * Combat" is a claim about this codebase, so it is written where the need is
+   * rather than as a permission on the module being reached. Every name must be
+   * a module declared AFTER this one, which keeps the graph one-way and acyclic
+   * by construction rather than by a cycle check.
+   */
+  imports?: string[];
+  /**
+   * Opt out of the inner layer vocabulary — how a routing module is expressed,
+   * whatever its router calls its folders. Never keyed on the module's name.
+   *
+   * This drops the inner layer flow, not governance: `imports`, the entry-only
+   * ban, `owns`, metric gates and coverage all still reach inside the module.
+   */
+  layers?: false;
+  /** Primitives (packages / globals) this module exclusively owns. */
+  owns?: OwnedPrimitive[];
+}
+
 /** One layer in the architecture — its responsibility and its boundaries. */
 export interface LayerDef {
   /** Folder / layer name, e.g. `components`. Unique within the blueprint. */
@@ -108,6 +144,15 @@ export interface ArchitectureDef {
    * `layout` / `entry` carry the module shape (see {@link LayerDef.layout}).
    */
   layers: LayerDef[];
+  /**
+   * Ordered feature modules at the root of the source tree, with `layers`
+   * describing what sits inside each one. Order bounds what a module may name:
+   * only modules declared after it (see {@link ModuleDef.imports}).
+   *
+   * Omit for the flat model, unchanged: `src/` is the single implicit module
+   * and `layers` describes it.
+   */
+  modules?: ModuleDef[];
   /**
    * Layer → file glob(s), each carrying a `{layer}` placeholder. Defaults are
    * derived from `framework` when omitted.

@@ -1,9 +1,23 @@
-import type { AgentEmitEntry, AgentTarget, Blueprint, LayerDef, RuleSetting } from './types';
+import type {
+  AgentEmitEntry,
+  AgentTarget,
+  Blueprint,
+  LayerDef,
+  ModuleDef,
+  OwnedPrimitive,
+  RuleSetting,
+} from './types';
 import { normalizeAllowedImporters } from './graph';
 import { activeSetting } from './settings';
 
 const VALID_TIERS = ['error', 'warn', 'off'];
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/;
+
+// A declared name becomes a folder and a substituted glob segment in both
+// namespaces, so both reject the same characters. The sentences differ because
+// what the reader should do about it differs; these two classes must not.
+const GLOB_OR_PATH_CHARS = /[*?{}[\]\\/]/;
+const ARTIFACT_BREAKING_CHARS = /[\s"'()<>|;%&]/;
 
 const AGENT_TARGETS = ['claude', 'agents', 'gemini', 'copilot', 'cursor', 'windsurf'];
 const DEFAULT_AGENT_TARGETS: AgentTarget[] = ['claude', 'agents'];
@@ -20,6 +34,22 @@ const MODULE_FIELD_HINT
     + '(entry defaults to "index", layout to "flat"). `private` is gone with no replacement: the '
     + 'entry-only ban already covers every non-entry file, so nothing was enforcing it. Every 3.x '
     + 'config must make this edit, including a flat project that is not adopting `modules`.';
+
+/**
+ * Keys a module entry attracts from the layer vocabulary next door. Each names
+ * where the thing actually lives, because "unknown key" on a concept that does
+ * exist — one level up or down — reads as "blueprint cannot express this".
+ */
+const MODULE_KEY_HINTS = {
+  allowedImporters: 'Modules are isolated by default, so there is no permission to narrow: write '
+    + 'the dependency as `imports` on the module that HAS it, not on the module it reaches.',
+  layout: '`layout` / `entry` describe the unit shape inside a layer, not a module — declare them '
+    + 'on the layer, inside `architecture.layers`.',
+  entry: '`layout` / `entry` describe the unit shape inside a layer, not a module — declare them '
+    + 'on the layer, inside `architecture.layers`.',
+  mustNot: '`mustNot` is a layer\'s field. A module\'s boundary is its `imports` list, which is '
+    + 'enforced; prose about what it must not do belongs in `does`.',
+};
 
 const MANAGED_RULES = [
   'no-restricted-imports',
@@ -73,7 +103,7 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
 
   rejectUnknownKeys(
     architecture,
-    ['alias', 'additionalAliases', 'sourceRoot', 'layers', 'layerFiles', 'layerFilesIgnore', 'testFiles', 'naming'],
+    ['alias', 'additionalAliases', 'sourceRoot', 'layers', 'modules', 'layerFiles', 'layerFilesIgnore', 'testFiles', 'naming'],
     'architecture',
     { module: MODULE_FIELD_HINT },
   );
@@ -95,7 +125,7 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
       throw new Error('Each layer must have a non-empty name.');
     } else if (names.has(layer.name)) {
       throw new Error(`Duplicate layer name: "${layer.name}".`);
-    } else if (/[*?{}[\]\\/]/.test(layer.name)) {
+    } else if (GLOB_OR_PATH_CHARS.test(layer.name)) {
       // A layer name is substituted into every file glob and scaffolded as a folder,
       // so a `*` name turns each net into a wildcard and creates a literal `src/*/`.
       // Root files are wiring; their lint belongs to the project's own eslint.
@@ -104,7 +134,7 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
         + 'file globs and folders. Root files are wiring, not a layer: leave their '
         + 'hygiene to the project\'s own lint instead of widening the net.',
       );
-    } else if (/[\s"'()<>|;%&]/.test(layer.name)) {
+    } else if (ARTIFACT_BREAKING_CHARS.test(layer.name)) {
       // The name also becomes a mermaid node id, where whitespace, quotes,
       // parens, `&` (node join), `%` (comment), and friends silently corrupt
       // the emitted diagram — fail loud here instead.
@@ -129,7 +159,7 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
       },
     );
 
-    validateOwns(layer);
+    validateOwns(layer, 'Layer');
     validateModuleShape(layer);
     validateLintOverrides(layer);
     // `names` holds only earlier layers here, so requiring importers to be in
@@ -225,6 +255,7 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     }
   }
 
+  validateModules(architecture);
   validateUsePrefix(bp);
   validateAgentEmit(bp);
 
@@ -305,24 +336,196 @@ function rejectUnknownKeys(
   }
 }
 
-function validateOwns(layer: LayerDef): void {
-  if (!layer.owns) return;
+function validateOwns(owner: { name: string; owns?: OwnedPrimitive[] }, kind: 'Layer' | 'Module'): void {
+  if (!owner.owns) return;
 
-  for (const primitive of layer.owns) {
+  const where = `${kind.toLowerCase()} "${owner.name}"`;
+
+  for (const primitive of owner.owns) {
     if (typeof primitive === 'string') {
       if (!primitive.trim()) {
-        throw new Error(`Layer "${layer.name}" owns an empty package name.`);
+        throw new Error(`${kind} "${owner.name}" owns an empty package name.`);
       }
     } else if ('global' in primitive) {
       if (typeof primitive.global !== 'string' || !primitive.global.trim()) {
-        throw new Error(`Layer "${layer.name}" owns a global with no name.`);
+        throw new Error(`${kind} "${owner.name}" owns a global with no name.`);
       }
 
-      rejectUnknownKeys(primitive, ['global'], `layer "${layer.name}" owns entry "${primitive.global}"`);
+      rejectUnknownKeys(primitive, ['global'], `${where} owns entry "${primitive.global}"`);
     } else if (typeof primitive.package !== 'string' || !primitive.package.trim()) {
-      throw new Error(`Layer "${layer.name}" owns a package with no name.`);
+      throw new Error(`${kind} "${owner.name}" owns a package with no name.`);
     } else {
-      rejectUnknownKeys(primitive, ['package', 'imports', 'pattern', 'exempt'], `layer "${layer.name}" owns entry "${primitive.package}"`);
+      rejectUnknownKeys(primitive, ['package', 'imports', 'pattern', 'exempt'], `${where} owns entry "${primitive.package}"`);
+    }
+  }
+}
+
+/**
+ * The identity a ban is emitted for. Two entries with the same key reach the
+ * same primitive however differently they are spelled, which is what makes a
+ * module and a layer claiming it a conflict rather than two facts.
+ */
+function ownedKey(primitive: OwnedPrimitive): string {
+  if (typeof primitive === 'string') return `package:${primitive}`;
+
+  return 'global' in primitive ? `global:${primitive.global}` : `package:${primitive.package}`;
+}
+
+/** `axios` / global `fetch` — how an owned primitive is named in a message. */
+function ownedLabel(primitive: OwnedPrimitive): string {
+  if (typeof primitive === 'string') return `\`${primitive}\``;
+
+  return 'global' in primitive ? `global \`${primitive.global}\`` : `\`${primitive.package}\``;
+}
+
+/**
+ * The declared modules: names that survive becoming folders and globs, and
+ * `imports` edges that point forward into the declared set.
+ *
+ * `architecture.layerFiles` needing a `{module}` placeholder is deliberately
+ * NOT checked here — that rule is about the shape of a custom glob and the
+ * topology it implies, so it lands with the resolver that reads it (#185).
+ */
+function validateModules(architecture: Blueprint['architecture']): void {
+  const { modules, layers } = architecture;
+
+  if (modules === undefined) return;
+
+  if (!Array.isArray(modules) || modules.length === 0) {
+    throw new Error(
+      'architecture.modules must be a non-empty array when declared — omit it entirely for the '
+      + 'flat model, where `src/` is the single implicit module. Declared and empty, the '
+      + 'module × layer glob product is empty too, so every file would sit outside every net.',
+    );
+  }
+
+  const declared = new Set<string>();
+  const folded = new Map<string, string>();
+
+  for (const module of modules) {
+    validateModuleName(module, declared, folded);
+    rejectUnknownKeys(module, ['name', 'does', 'imports', 'layers', 'owns'], `module "${module.name}"`, MODULE_KEY_HINTS);
+
+    if (module.layers !== undefined && module.layers !== false) {
+      throw new Error(
+        `Module "${module.name}" has layers ${JSON.stringify(module.layers)} — the only value is `
+        + 'false, which opts out of the inner layer vocabulary. Omit the key for a layered module.',
+      );
+    }
+
+    validateOwns(module, 'Module');
+    declared.add(module.name);
+    folded.set(module.name.toLowerCase(), module.name);
+  }
+
+  validateModuleImports(modules, declared);
+  validateOwnershipIsSingular(modules, layers);
+}
+
+/** A module name has to survive becoming a folder, a glob, and a diagram node. */
+function validateModuleName(
+  module: ModuleDef,
+  declared: Set<string>,
+  folded: Map<string, string>,
+): void {
+  if (typeof module?.name !== 'string' || !module.name.trim()) {
+    throw new Error('Each module must have a non-empty name.');
+  } else if (declared.has(module.name)) {
+    throw new Error(`Duplicate module name: "${module.name}".`);
+  } else if (folded.has(module.name.toLowerCase())) {
+    // Two entries on Linux, one folder on macOS: the config would validate on
+    // the author's machine and the second module's files would land in the
+    // first module's net — governed by rules nobody wrote for them.
+    throw new Error(
+      `Modules "${folded.get(module.name.toLowerCase())}" and "${module.name}" differ only in case `
+      + '— they are two entries here and one folder on a case-insensitive filesystem. Rename one.',
+    );
+  } else if (GLOB_OR_PATH_CHARS.test(module.name)) {
+    throw new Error(
+      `Module "${module.name}" contains glob or path characters — a module name becomes a folder `
+      + 'under the source root and a segment of every glob built for it. Modules do not nest: a '
+      + 'name is one segment, never a path.',
+    );
+  } else if (ARTIFACT_BREAKING_CHARS.test(module.name)) {
+    throw new Error(
+      `Module "${module.name}" contains characters that corrupt emitted artifacts — a module name `
+      + 'becomes a folder, a file glob, and a diagram node. Stick to letters, digits, ".", "_", "-".',
+    );
+  }
+}
+
+/**
+ * Each `imports` entry names a distinct module declared LATER. Validated
+ * against the complete set, not a growing one: forward is the legal direction
+ * here, which is the mirror image of `allowedImporters` next door — do not read
+ * that implementation as the model for this one.
+ */
+function validateModuleImports(modules: ModuleDef[], declared: Set<string>): void {
+  const position = new Map(modules.map((module, index) => [module.name, index]));
+
+  modules.forEach((module, index) => {
+    if (module.imports === undefined) return;
+
+    if (!Array.isArray(module.imports)) {
+      throw new Error(`Module "${module.name}" has a non-array imports — omit it to depend on nothing.`);
+    }
+
+    const seen = new Set<string>();
+
+    for (const name of module.imports) {
+      if (typeof name !== 'string' || !name.trim()) {
+        throw new Error(`Module "${module.name}" imports an entry with no module name.`);
+      } else if (name === module.name) {
+        throw new Error(`Module "${module.name}" cannot import itself.`);
+      } else if (!declared.has(name)) {
+        throw new Error(
+          `Module "${module.name}" imports "${name}", which is not a declared module.`,
+        );
+      } else if (position.get(name)! < index) {
+        // The acyclicity guarantee: the graph is one-way by construction, so no
+        // cycle check exists downstream to catch a backward edge later.
+        throw new Error(
+          `Module "${module.name}" imports "${name}", which is declared before it — a module may `
+          + 'only name modules declared after itself, which is what keeps the flow one-way. '
+          + 'Reorder the two, or the dependency runs the other way.',
+        );
+      } else if (seen.has(name)) {
+        throw new Error(`Module "${module.name}" imports "${name}" more than once.`);
+      }
+
+      seen.add(name);
+    }
+  });
+}
+
+/**
+ * A primitive has one owner. Two owners have three defensible readings and the
+ * intersection is what two independent ban emitters would produce by accident,
+ * so this is rejected rather than resolved downstream. Loosening later is
+ * additive; tightening would not be.
+ */
+function validateOwnershipIsSingular(modules: ModuleDef[], layers: LayerDef[]): void {
+  const byLayers = new Map<string, string[]>();
+
+  for (const layer of layers) {
+    for (const primitive of layer.owns ?? []) {
+      byLayers.set(ownedKey(primitive), [...(byLayers.get(ownedKey(primitive)) ?? []), layer.name]);
+    }
+  }
+
+  for (const module of modules) {
+    for (const primitive of module.owns ?? []) {
+      const owners = byLayers.get(ownedKey(primitive));
+
+      if (!owners) continue;
+
+      throw new Error(
+        `${ownedLabel(primitive)} is owned by module "${module.name}" and by `
+        + `${owners.length > 1 ? 'layers' : 'layer'} ${owners.map((name) => `"${name}"`).join(', ')} `
+        + '— a primitive has one owner. Two owners could mean the module may use it, that layer in '
+        + 'every module may use it, or only their intersection; blueprint will not pick one. Keep '
+        + 'the declaration on the scope the ban should follow and delete the other.',
+      );
     }
   }
 }
