@@ -81,6 +81,23 @@ describe('detect', () => {
     expect(detect(root).packageManager).toBe('yarn');
   });
 
+  it('keeps every dependency name, prod and dev merged', () => {
+    // The same read `hasTypescript` / `hasNext` / `hasNuxt` are squeezed out of.
+    // Kept as names because a caller asks questions this file cannot enumerate:
+    // `inspect` checks each `owns` package against this list.
+    writePkg({ dependencies: { vue: '^3', axios: '^1' }, devDependencies: { typescript: '5' } });
+
+    expect(detect(root).dependencies.sort()).toEqual(['axios', 'typescript', 'vue']);
+  });
+
+  it('reports no dependencies when package.json declares none', () => {
+    // Empty, never undefined — "the read happened and found nothing" is what
+    // lets a caller distinguish it from "could not read".
+    writePkg({ name: 'x' });
+
+    expect(detect(root).dependencies).toEqual([]);
+  });
+
   it('reports existing files, src dirs, and missing deps', () => {
     writePkg({ name: 'x', devDependencies: { eslint: '9', typescript: '5' } });
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '');

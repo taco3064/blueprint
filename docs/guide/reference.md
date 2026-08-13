@@ -37,6 +37,7 @@ without failing the gate. Test files (`architecture.testFiles`) are exempt throu
 - **`cycle`** · error — a module-level import cycle, with the full path listed. Every independent cycle is reported, one per knot of mutually dependent modules — so the count is the size of the work, not the first thing found
 - **`no-entry`** · warn — a folder module without its public entry file — nothing is importable from outside
 - **`missing-layer`** · info — a declared layer that has no folder on disk yet
+- **`owns-not-installed`** · info — a layer `owns` a package that is not in `package.json` — the ban is emitted and correct, it simply has nothing to reach yet. Installing the package and dropping the declaration are both resolutions
 - **`declaratory-self-only`** · info — a `selfOnly` ban protecting a layer that holds no files — the re-export ban cannot fire until code lands
 
 On brownfield repos the [baseline ratchet](/guide/getting-started#brownfield-—-blueprint-inspect)

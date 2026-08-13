@@ -193,10 +193,17 @@ describe('runInspect · zero-finding baseline hygiene', () => {
     const baseline = path.join(root, '.blueprint-baseline.json');
     let output = '';
 
-    // Truly clean: every declared layer folder exists, no files, no findings.
+    // Truly clean: every declared layer folder exists, every owned package is
+    // installed, no files, no findings. Ownership counts — an `owns` entry with
+    // nothing behind it is an info note, and this arm needs zero of those.
     for (const layer of vuePreset().architecture.layers) {
       fs.mkdirSync(path.join(root, 'src', layer.name), { recursive: true });
     }
+
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({ name: 'x', dependencies: { vue: '^3', pinia: '^2', axios: '^1' } }),
+    );
 
     await runInspect(root, { updateBaseline: true, log: (m) => (output = m) });
     expect(fs.existsSync(baseline)).toBe(false);
@@ -240,6 +247,22 @@ describe('runInspect · zero-finding baseline hygiene', () => {
 
     expect(recorded.findings.some((f) => f.rule === 'undeclared-folder')).toBe(true);
     expect(recorded.findings.some((f) => f.rule === 'missing-layer')).toBe(false);
+    expect(recorded.findings.some((f) => f.rule === 'owns-not-installed')).toBe(false);
+  });
+
+  it('reports an owns package that is not installed without reddening the run', async () => {
+    // The fixture installs `vue` only; the preset owns `pinia` and `axios` too.
+    for (const layer of vuePreset().architecture.layers) {
+      fs.mkdirSync(path.join(root, 'src', layer.name), { recursive: true });
+    }
+
+    const { findings, ok } = await runInspect(root, { log: silent });
+    const uninstalled = findings.filter((finding) => finding.rule === 'owns-not-installed');
+
+    expect(uninstalled.map((finding) => finding.subject).sort()).toEqual(['axios', 'pinia']);
+    // A declaration ahead of its install is not a failure, so the gate stays open.
+    expect(uninstalled.every((finding) => finding.severity === 'info')).toBe(true);
+    expect(ok).toBe(true);
   });
 });
 

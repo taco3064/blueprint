@@ -299,6 +299,7 @@ export function detect(root: string): ProjectState {
     tsconfigs: readTexts(root, TSCONFIG_FILES),
     existingSrcDirs: listSrcDirs(root),
     missingDeps: required.filter((dep) => !(dep in deps)),
+    dependencies: Object.keys(deps),
   };
 }
 

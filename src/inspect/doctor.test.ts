@@ -87,6 +87,26 @@ describe('runDoctor', () => {
     expect(checks.find((c) => c.label.includes('leftover'))?.detail).toBeUndefined();
   });
 
+  it('stays silent about an owns package that is not installed', async () => {
+    // The fixture installs `vue` only, so `inspect` reports `pinia` and `axios`
+    // as declared-not-installed. doctor runs the same analysis and says nothing:
+    // ownership declared ahead of the install is most legitimate at adoption,
+    // which is exactly when doctor runs. `inspect` is the surface that is still
+    // there four issues later, and that is where the note belongs.
+    adopted();
+    let output = '';
+
+    const result = await runDoctor(root, { loadConfig: load, log: (m) => (output = m) });
+
+    expect(result.ok).toBe(true);
+    expect(output).not.toContain('owns-not-installed');
+    expect(output).not.toContain('pinia');
+    expect(output).not.toContain('axios');
+
+    expect(result.checks.find((c) => c.label.includes('architecture'))?.detail)
+      .not.toContain('not in package.json');
+  });
+
   it('flags leftover authoring artifacts — doctor has the final word, not a mid-flow one', async () => {
     adopted();
     write('blueprint-authoring.md', '# playbook');

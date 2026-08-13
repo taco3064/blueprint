@@ -66,6 +66,84 @@ describe('analyze · folders', () => {
   });
 });
 
+describe('analyze · owns declared ahead of the install', () => {
+  // The vue preset owns `vue` and `pinia` on hooks, `vue` on contexts, and
+  // `axios` plus two globals on services.
+  const ownsFrom = (deps?: string[]) =>
+    analyze(scanOf([]), bp, deps).filter((finding) => finding.rule === 'owns-not-installed');
+
+  it('notes each owns package absent from the dependency list', () => {
+    const found = ownsFrom(['vue']);
+
+    expect(found.map((finding) => finding.subject).sort()).toEqual(['axios', 'pinia']);
+
+    const axios = found.find((finding) => finding.subject === 'axios');
+
+    expect(axios).toMatchObject({ severity: 'info', path: 'src/services' });
+    expect(axios?.message).toContain('runway, not a todo');
+    // Both resolutions named, neither prescribed — the same doctrine as
+    // missing-layer, which this tier and wording follow.
+    expect(axios?.message).toContain('owner\'s call');
+  });
+
+  it('says nothing when every owned package resolves', () => {
+    expect(ownsFrom(['vue', 'pinia', 'axios'])).toEqual([]);
+  });
+
+  it('skips the check when the dependency list could not be read', () => {
+    // Not the same as none installed: `undefined` is "unknown", and reporting
+    // every declaration as absent would be a fabricated finding.
+    expect(ownsFrom(undefined)).toEqual([]);
+
+    // An empty list is knowledge, so every declaration answers to it. Four, not
+    // three: `vue` is owned by hooks and by contexts, and the finding names the
+    // declaring layer — deduping by package would drop the address to go to.
+    const none = ownsFrom([]);
+
+    expect(none).toHaveLength(4);
+
+    expect(none.filter((finding) => finding.subject === 'vue').map((f) => f.path))
+      .toEqual(['src/hooks', 'src/contexts']);
+  });
+
+  it('reads both owns forms and ignores owned globals', () => {
+    const architecture = {
+      alias: '~app',
+      layers: [
+        { name: 'components', does: 'UI' },
+        { name: 'hooks', does: 'state', owns: [{ package: 'zustand', imports: ['create'] }] },
+        // A global has no dependency list to answer to.
+        { name: 'services', does: 'net', owns: [{ global: 'fetch' }] },
+      ],
+    };
+
+    const found = analyze(
+      scanOf([], ['components', 'hooks', 'services']),
+      defineBlueprint({ framework: 'react', architecture }),
+      [],
+    ).filter((finding) => finding.rule === 'owns-not-installed');
+
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ subject: 'zustand', path: 'src/hooks' });
+  });
+
+  it('addresses the finding through the configured source root', () => {
+    const rooted = defineBlueprint({
+      framework: 'vue',
+      architecture: {
+        alias: '~app',
+        sourceRoot: '.',
+        layers: [{ name: 'services', does: 'net', owns: ['axios'] }],
+      },
+    });
+
+    expect(analyze(scanOf([], ['services']), rooted, [])[0]).toMatchObject({
+      rule: 'owns-not-installed',
+      path: 'services',
+    });
+  });
+});
+
 describe('analyze · imports', () => {
   // Use the entry file so no-entry never pollutes the empty-result assertions;
   // contexts holds no files in these one-file fixtures, so its declaratory
