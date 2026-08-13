@@ -752,6 +752,11 @@ describe('validateBlueprint · architecture.modules', () => {
       /imports "Session" more than once/],
     ['an entry with no name', { name: 'Combat', does: 'x', imports: ['  '] },
       /imports an entry with no module name/],
+    // A wrong type is not the same as a blank string: looking a number up in the
+    // position map answers "undeclared", which sends the author hunting for a
+    // module named 42 instead of reading the type.
+    ['a non-string entry', { name: 'Combat', does: 'x', imports: [42 as never] },
+      /imports an entry with no module name/],
     ['a non-array imports', { name: 'Combat', does: 'x', imports: 'Session' as never },
       /non-array imports/],
   ])('rejects %s in imports', (_label, module, pattern) => {
