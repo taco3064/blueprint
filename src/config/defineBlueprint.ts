@@ -40,13 +40,15 @@ const MODULE_FIELD_HINT
  * where the thing actually lives, because "unknown key" on a concept that does
  * exist — one level up or down — reads as "blueprint cannot express this".
  */
+const LAYER_SHAPE_HINT
+  = '`layout` / `entry` describe the unit shape inside a layer, not a module — declare them on '
+    + 'the layer, inside `architecture.layers`.';
+
 const MODULE_KEY_HINTS = {
   allowedImporters: 'Modules are isolated by default, so there is no permission to narrow: write '
     + 'the dependency as `imports` on the module that HAS it, not on the module it reaches.',
-  layout: '`layout` / `entry` describe the unit shape inside a layer, not a module — declare them '
-    + 'on the layer, inside `architecture.layers`.',
-  entry: '`layout` / `entry` describe the unit shape inside a layer, not a module — declare them '
-    + 'on the layer, inside `architecture.layers`.',
+  layout: LAYER_SHAPE_HINT,
+  entry: LAYER_SHAPE_HINT,
   mustNot: '`mustNot` is a layer\'s field. A module\'s boundary is its `imports` list, which is '
     + 'enforced; prose about what it must not do belongs in `does`.',
 };
