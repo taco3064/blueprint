@@ -55,19 +55,9 @@ export const REQUIRED_DEPS = [
   'eslint',
   '@kekkai/blueprint',
   '@eslint-community/eslint-plugin-eslint-comments',
-  // Carriers for the shape family and importBlock. The library depends on
-  // neither plugin — the generated config injects them, so the packages are
-  // the project's deps, not blueprint's.
-  //
-  // importBlock rides `eslint-plugin-import-x`, and the two walls it walks
-  // around are why. `eslint-plugin-import` caps its eslint peer at 9 (field
-  // issue #37). `eslint-plugin-import-x` clears that, but peers on
-  // `@typescript-eslint/utils@^8.56` for its resolvers: an optional peer is
-  // still version-checked when the package is PRESENT, and a peer cannot be
-  // satisfied by a nested copy — so any repo pinned below that failed the
-  // whole install (field issue #41). import-x is those same rules ported
-  // without the resolvers, which is exactly what pulled that peer: zero
-  // dependencies, and `eslint` as its only peer.
+  // Carriers the generated config injects — the adopter's deps, not blueprint's.
+  // import-x over import: the eslint peer cap (field issue #37) and the resolver
+  // peer that broke installs (field issue #41).
   '@stylistic/eslint-plugin',
   'eslint-plugin-import-x',
 ];
@@ -88,21 +78,9 @@ export const STACK_DEPS = {
  */
 export const ALLOWED_CARRIER_PEERS: Record<string, string[]> = {
   'typescript-eslint': ['typescript'],
-  // Taken deliberately, on the ESLint 10 baseline. Both are what `import-x`
-  // carries that `import-lite` structurally could not: the resolver stack,
-  // and with it the whole-graph rules (`no-cycle` above all) a resolver-free
-  // plugin can never express.
-  //
-  // The #41 population is not empty, it is narrower: the constraint only
-  // bites a tree that already holds `@typescript-eslint/utils` BELOW ^8.56,
-  // and no honest resolution reaches ESLint 10 while doing so — older
-  // typescript-eslint refuses ESLint 10 as its own peer. What is left is
-  // repos already installing with `--legacy-peer-deps` / `--force`, whose
-  // installs do not abort on peer conflicts in the first place.
-  //
-  // That reasoning is an argument, not evidence. The evidence is the
-  // conformance stack fixtures — if one of them fails to install, this entry
-  // is wrong and the carrier decision reopens.
+  // The resolver stack, and with it the whole-graph rules a resolver-free plugin
+  // cannot express. Held by the conformance stack fixtures, not by the argument:
+  // if one fails to install, this entry is wrong and the carrier choice reopens.
   'eslint-plugin-import-x': ['@typescript-eslint/utils', 'eslint-import-resolver-node'],
 };
 
@@ -117,16 +95,7 @@ function readJson(file: string): Record<string, unknown> | null {
   }
 }
 
-/**
- * The vite config's text, when there is one and it can be read.
- *
- * One function rather than `viteFile !== undefined && viteText !== null` at the
- * point of use. That compound asked the same question twice — the text is read FROM
- * the file, so a non-null text already implies a file — but TypeScript cannot see
- * the implication, so the redundant half had to stay for the narrowing and could
- * never be wrong. Written as a sequence, each step decides something: no file, or a
- * file nothing could read.
- */
+/** The vite config's text, when there is one and it can be read. */
 function readViteConfig(
   root: string,
   file: string | undefined,
@@ -160,12 +129,7 @@ function detectFramework(deps: Record<string, unknown>): Framework | null {
   return hasVue ? 'vue' : 'react';
 }
 
-/**
- * Walk from `root` upward until a package-manager marker is found. In a
- * workspace (pnpm / turbo monorepo) the lockfile lives at the workspace
- * root, not in the package being initialized — looking only at the cwd
- * would misdetect npm and generate the wrong install commands.
- */
+/** Walk upward to the package-manager marker — in a workspace it is above `root`. */
 function detectPackageManager(root: string): PackageManager {
   let dir = path.resolve(root);
 
@@ -188,11 +152,7 @@ function detectPackageManager(root: string): PackageManager {
   }
 }
 
-/**
- * Detect the Next.js route tree: which router (`app` / `pages` / both, for a
- * migration) and whether it sits under `src/`. Drives the Next preset shape
- * so a fresh `create-next-app` adopts in one command.
- */
+/** The Next route tree — which router, and whether it sits under `src/`. */
 function detectNext(
   root: string,
   hasNext: boolean,
@@ -303,20 +263,7 @@ export function detect(root: string): ProjectState {
   };
 }
 
-/**
- * Copy a string literal verbatim (honoring escapes) from `text[i]` into
- * `out`, returning the index after the closing quote. Both JSONC passes
- * need this: a tsconfig's own data contains `/*` (every `"@/*"` paths key),
- * so nothing may be stripped inside a string.
- */
-/**
- * A literal that closed, or the offset the scan gave up at — never both.
- *
- * Four fields where two are meaningless on failure is what made the bounds above
- * unanswerable: on an unterminated literal the caller throws `copied` away, so
- * whether the copy ran one character too far changed nothing anyone could see. Two
- * shapes, and each field exists only where it means something.
- */
+/** A literal that closed, or the offset the scan gave up at — never both. */
 interface ClosedString {
   closed: true;
   copied: string;
@@ -325,6 +272,7 @@ interface ClosedString {
 
 type CopiedString = ClosedString | { closed: false; stoppedAt: number };
 
+/** Copy a literal verbatim from `text[i]` — a tsconfig's own data contains `/*`. */
 function copyString(text: string, i: number): CopiedString {
   let copied = text[i];
 
@@ -359,11 +307,8 @@ function copyString(text: string, i: number): CopiedString {
 export interface JsoncFailure {
   reason: 'unterminated-string' | 'unclosed-comment' | 'not-json';
   /**
-   * Character offset the scan came to rest at. Absent — not zero — for
-   * `not-json`: offset 0 is a legitimate position (a file whose first character
-   * is already wrong), so a sentinel there would read as one, and the caller
-   * could not tell "the reader has no position for you" from "look at the start
-   * of the file".
+   * Character offset the scan came to rest at. Absent — not zero — for `not-json`,
+   * since offset 0 is a legitimate position and would read as one.
    */
   at?: number;
 }
@@ -377,13 +322,9 @@ export type JsoncResult = { ok: true; value: unknown } | ({ ok: false } & JsoncF
  * unreadable would false-red the doctor's alias check on the mainstream path.
  */
 export function parseJsonc(text: string): JsoncResult {
-  // Both passes accumulate into a STRING, not an array joined at the end. The
-  // difference is that a string says when the scan reads past the end:
-  // `'' + undefined` is the four characters "undefined", where
-  // `[undefined].join('')` is silently empty. Every index bound in here was
-  // therefore unfalsifiable — a scan running one character too far produced
-  // byte-identical output — and the bounds are the whole correctness argument of
-  // a hand-written scanner.
+  // A STRING, not an array joined at the end: `'' + undefined` shows an overrun
+  // where `[undefined].join('')` hides it, and the bounds are this scanner's whole
+  // correctness argument.
   let commentFree = '';
 
   for (let i = 0; i < text.length;) {
@@ -397,10 +338,7 @@ export function parseJsonc(text: string): JsoncResult {
       commentFree += literal.copied;
       i = literal.next;
     } else if (text[i] === '/' && text[i + 1] === '/') {
-      // The comment ends at the newline, or at the end of a file that finishes in
-      // one. `indexOf` answers with the position, so there is no bound to walk one
-      // character past — the old `while (i < text.length && text[i] !== '\n')`
-      // overran by one and nothing downstream could tell.
+      // `indexOf` answers with the position, so there is no bound to walk past.
       const newline = text.indexOf('\n', i);
 
       i = newline === -1 ? text.length : newline;
@@ -423,19 +361,15 @@ export function parseJsonc(text: string): JsoncResult {
 
   for (let i = 0; i < commentFree.length;) {
     if (commentFree[i] === '"') {
-      // Proven closed by the first pass, which copied this same literal. A cast
-      // rather than a check: the check would be a branch no input can take, and an
-      // unreachable branch is worse than a stated assumption — it reads as a case
-      // somebody handled.
+      // Proven closed by the first pass. A cast, not a check: the check would be a
+      // branch no input can take, which reads as a case somebody handled.
       const literal = copyString(commentFree, i) as ClosedString;
 
       clean += literal.copied;
       i = literal.next;
     } else if (commentFree[i] === ',') {
-      // The next non-space AFTER the comma. Walking an index forward left the
-      // walk's own bound undecidable: one past the end is `undefined`, which is
-      // neither `}` nor `]`, so overrunning kept the comma exactly as stopping
-      // would have.
+      // undecidable: a hand-walked index past the end yields `undefined`, neither
+      // `}` nor `]`, so overrunning keeps the comma exactly as stopping would.
       const after = /\S/.exec(commentFree.slice(i + 1));
       const nextChar = after?.[0];
 
@@ -451,10 +385,8 @@ export function parseJsonc(text: string): JsoncResult {
   try {
     return { ok: true, value: JSON.parse(clean) };
   } catch {
-    // Comments and trailing commas are gone, so what is left is a JSON mistake
-    // rather than a JSONC one — a different thing to tell the reader. No offset:
-    // JSON.parse's own position refers to the stripped text, not the file they
-    // have open.
+    // No offset: JSON.parse's position refers to the stripped text, not the file
+    // the reader has open.
     return { ok: false, reason: 'not-json' };
   }
 }
@@ -520,10 +452,8 @@ function eachPathAlias(
 
     const result = parseJsonc(text);
 
-    // Undecidable: the `?.` below keeps this one honest. On a failure `result.value`
-    // is `undefined`, the optional chain yields no options, and this file contributes
-    // nothing either way — removing either alone still passes. The `?.` is separately
-    // pinned by a tsconfig whose whole content is `null`, where it stops a throw.
+    // undecidable against the `?.` below, which yields no options on a failure
+    // anyway; that `?.` is separately pinned by a tsconfig whose content is `null`.
     if (!result.ok) continue;
 
     const options = (result.value as { compilerOptions?: { paths?: unknown } })?.compilerOptions;
@@ -576,28 +506,8 @@ export function quotedIn(text: string, name: string): boolean {
   ).test(text);
 }
 
-/**
- * Whether `tsc -b` reads this repo's vite config — measured, not asserted.
- *
- * The playbook told an adopting agent to open its tsconfig and work this out,
- * and before that it asserted the answer ("A Vite + TS starter keeps
- * `vite.config.ts` inside a tsconfig project"). The assertion was false on the
- * shape this repo's own harness stages and came back as a finding three batches
- * running; the instruction that replaced it was correct and still put a
- * per-repo fact in prose, where it grew a conditional premise and then a third
- * unowned state. This is that fact with an address, the same move
- * `hadClaudeDir` was.
- *
- * `null` means "could not tell", and the playbook keeps its read-it-yourself
- * wording for that case only. Every bail-out below returns null rather than a
- * guess: a wrong verdict here is worse than no verdict, because the whole point
- * is that the report must not claim a build verified an edit it never read.
- */
-/**
- * Local rather than shared: `bootstrap/alias.ts` has the same guard, and it sits
- * ABOVE this module in the layering — importing it here would run the one-way
- * rule backwards for a one-line predicate.
- */
+// Local, not shared: the twin in `bootstrap/alias.ts` sits ABOVE this module, so
+// importing it would run the one-way rule backwards for a one-line predicate.
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -611,6 +521,10 @@ export interface ViteTsCoverage {
   tsconfig: string;
 }
 
+/**
+ * Whether `tsc -b` reads this repo's vite config. `null` = could not tell, never a
+ * guess: the report must not claim a build verified an edit it never read.
+ */
 export function viteTsCoverage(root: string): ViteTsCoverage | null {
   const viteFile = VITE_FILES.find((file) => fs.existsSync(path.join(root, file)));
 
@@ -640,18 +554,9 @@ export function viteTsCoverage(root: string): ViteTsCoverage | null {
 }
 
 export interface ClaudeDirState {
-  /**
-   * `.claude/` existed before this run, so it is the owner's whatever ends up in it.
-   * Measured because the playbook used to assert init created it, which init knew and
-   * had not checked — an agent went back to its own opening `ls -la` to be sure.
-   */
+  /** `.claude/` existed before this run, so it is the owner's whatever ends up in it. */
   hadDir: boolean;
-  /**
-   * Command files in `.claude/commands/` other than the one init writes. The
-   * cleanup sentence called that directory "now-empty" while measuring its parent,
-   * so a repo with the owner's own commands beside blueprint's was told to delete a
-   * directory that would not be empty (field run #139).
-   */
+  /** Command files in `.claude/commands/` other than the one init writes. */
   otherCommands: number;
 }
 
@@ -763,14 +668,7 @@ interface TsProject {
   extends?: unknown;
 }
 
-/**
- * The root config plus every project it references, one level deep.
- *
- * One level is not a shortcut: the two shapes that exist in the wild are a
- * single root config, and a root of pure `references` pointing at
- * `tsconfig.app.json` / `tsconfig.node.json` siblings. A reference chain deeper
- * than that returns null rather than a partial graph.
- */
+/** The root config plus its referenced projects, one level deep; deeper = null. */
 function tsProjectGraph(root: string, file: string, text: string): TsProject[] | null {
   const parsed = parseJsonc(text);
 
@@ -838,23 +736,14 @@ function toProject(
 }
 
 /**
- * Does `project` pull `viteFile` in? `null` where this cannot say.
- *
- * The undecidables are deliberate and each one is a shape TypeScript resolves
- * in a way this function does not reimplement: an `exclude` list (which can
- * remove a file `include` pulled in), an `extends` base carrying the globs, and
- * any glob with a character class or brace expansion. `syntheticPath` in
- * inspect/wiring takes the same stance for the same reason — an unusual glob
- * yields no answer, never a wrong one.
+ * Does `project` pull `viteFile` in? `null` for the shapes this does not
+ * reimplement — `exclude`, an `extends` base, character classes, brace expansion.
  */
 function projectCovers(project: TsProject, viteFile: string): boolean | null {
   if (project.exclude !== undefined) return null;
 
-  // The vite config is always a ROOT file — `VITE_FILES` carries no path segments —
-  // so a project rooted in a subdirectory cannot contain it, and a tsconfig's globs
-  // never reach upward. Written as the fact rather than as a general path helper: the
-  // other arm of that helper was unreachable from this one caller, which is a branch
-  // no test could honestly cover.
+  // The vite config is always a ROOT file (`VITE_FILES` carries no path segments)
+  // and a tsconfig's globs never reach upward.
   if (project.dir !== '') return false;
 
   const rel = viteFile;
@@ -885,33 +774,16 @@ function projectCovers(project: TsProject, viteFile: string): boolean | null {
   return false;
 }
 
-/**
- * Undecidable, and the anchor is the part: unanchoring `^\.\//` strips a `./` from
- * the middle instead, and for every path a tsconfig can hold that is the same path
- * either way (`a/./b` and `a/b` resolve identically, which is why TypeScript itself
- * normalises them). The shape that would differ — a segment ending in `.` before a
- * slash, `x./y` — is not a path anyone writes. The anchor stays because it spells
- * the intent, which is to strip a LEADING `./` so `./vite.config.ts` compares equal
- * to `vite.config.ts`; it is not load-bearing against any input reachable here.
- */
+// undecidable on the `^` anchor: unanchored it strips a mid-path `./`, and every
+// path a tsconfig can hold resolves the same either way. It stays because it spells
+// the intent — strip a LEADING `./` — not because any reachable input needs it.
 function normalizeSlashes(value: string): string {
   return value.replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
 /**
- * Does a tsconfig `include` glob cover `file`? One regex, and two deliberate
- * absences.
- *
- * No bare-directory branch: TypeScript reads `"src"` as everything under `src/`,
- * and the one file this is ever asked about is a ROOT file, so a starless glob can
- * only match by equalling it. No exact-equality fast path either — the pattern
- * below escapes the literal and matches it anyway. Both were written first, and
- * both were mutants no test could honestly kill, which is the tell that the line
- * decided nothing.
- *
- * Braces and character classes return null rather than an answer: `syntheticPath`
- * in inspect/wiring takes the same stance, and for the same reason — an unusual
- * glob yields no verdict, never a wrong one.
+ * Does a tsconfig `include` glob cover `file`? Braces and character classes
+ * return null — an unusual glob yields no verdict, never a wrong one.
  */
 function globCovers(glob: string, file: string): boolean | null {
   if (/[{}[\]?]/.test(glob)) return null;

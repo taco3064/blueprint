@@ -3,10 +3,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 /**
- * Load a module from the *project's* dependency tree — the runtime half of
- * the zero-dependency stance: this library never depends on eslint or the
- * parsers, but `impact` and doctor's wiring check need the project's own
- * copies at run time. Kept injectable so tests never touch real resolution.
+ * Load a module from the *project's* dependency tree — the runtime half of the
+ * zero-dependency stance. Injectable so tests never touch real resolution.
  */
 
 /* v8 ignore start -- real module resolution from the project; tests inject a loader */

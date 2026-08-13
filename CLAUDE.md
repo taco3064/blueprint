@@ -66,6 +66,13 @@ is not in the config). Field batches 10–12 are the case law.
   directory, rule id, or API name an adopter has. `it.each` over the list is the
   shape; restate the list in the test when the source keeps it private, so a
   removal turns one case red.
+- **A comment carries only what the name, the type, the test, and the commit
+  message cannot.** History goes to the commit — "this used to be X", a road not
+  taken, a bug's biography. An invariant a test already covers is the test's to
+  state. Two things stay: doc comments on exported symbols (the API docs are
+  generated from them), and the one-line `undecidable` assertion a mutation
+  survivor is proven equivalent by — `grep -rni undecidable src/` is that ledger,
+  so the word stays at the site while the derivation goes in the commit.
 - **Formatting is ESLint-driven** (`@stylistic/*`); there is no Prettier. Run
   `npm run lint` / `eslint . --fix`. Enforcement rules mirror the handbook
   stance: never `eslint-disable` to dodge a rule; fix the structure.
