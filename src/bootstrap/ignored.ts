@@ -4,11 +4,9 @@ import path from 'node:path';
 import { globToRegExp } from '../inspect/filter';
 
 /**
- * Best-effort root-`.gitignore` matching — enough to warn when init's own
- * artifacts (the handbook the contract links to, the contract files) are
- * invisible to version control. Reads only the root `.gitignore`; nested
- * ignore files and exotic patterns are out of scope: a false negative costs
- * one missing heads-up, never a wrong write.
+ * Best-effort root-`.gitignore` matching — enough to warn when init's own artifacts
+ * are invisible to version control. Nested ignore files and exotic patterns are out
+ * of scope: a false negative costs one missing heads-up, never a wrong write.
  */
 
 interface IgnoreRule {
@@ -35,11 +33,9 @@ export interface HiddenArtifact {
  * was the wrong place to ask.
  */
 export function toRule(line: string): IgnoreRule | null {
-  // The trim is also what makes a CRLF .gitignore work. The caller splits on
-  // `\n`, so on Windows every line arrives with a trailing `\r`, and a pattern
-  // carrying one matches nothing — the artifact detection would go quiet on the
-  // platform where a .gitignore is CRLF by default. Removing this as redundant
-  // takes that with it, silently.
+  // The trim is what makes a CRLF .gitignore work: the caller splits on `\n`, so
+  // every line arrives with a trailing `\r` and a pattern carrying one matches
+  // nothing. Removing this as redundant takes that with it, silently.
   let pattern = line.trim();
 
   if (!pattern || pattern.startsWith('#')) return null;
@@ -52,11 +48,9 @@ export function toRule(line: string): IgnoreRule | null {
 
   if (dirOnly) pattern = pattern.slice(0, -1);
 
-  // A slash anywhere (after trimming) anchors the pattern to the repo root;
-  // otherwise it matches at any depth. A LEADING slash is not a second case to
-  // test for: it is a slash, so `includes` has already answered — spelling it out
-  // as `startsWith('/') || includes('/')` made the first half undecidable, since
-  // no pattern can start with a slash and not contain one.
+  // A slash anywhere anchors the pattern to the repo root; otherwise it matches at
+  // any depth. undecidable as `startsWith('/') || includes('/')`: no pattern can
+  // start with a slash and not contain one, so the first half decides nothing.
   const anchored = pattern.includes('/');
   const body = pattern.startsWith('/') ? pattern.slice(1) : pattern;
   const glob = anchored ? body : `**/${body}`;

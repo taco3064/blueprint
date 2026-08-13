@@ -24,13 +24,10 @@ import {
 import type { Action } from './types';
 
 /**
- * The brownfield authoring flow: when `init` runs on a repo with real code
- * and no blueprint.config, scaffolding a preset would be a lie — the layers
- * already exist, someone has to *read* them. This module emits the executable
- * playbook for that judgment call (for an agent or a human), plus the
- * `/blueprint-author` command file that hands it to Claude Code. Everything
- * lands on disk before any agent starts: the manual path is not a fallback,
- * it is the same path — an agent just walks it for you.
+ * The brownfield authoring flow — on a repo with real code, scaffolding a preset
+ * would be a lie, so this emits the playbook for reading the layers instead, plus
+ * the `/blueprint-author` command file. Everything lands on disk before any agent
+ * starts: the manual path is not a fallback, it is the same path.
  */
 
 // Defined in `project` so doctor (a lower layer) can flag leftovers;
@@ -48,25 +45,15 @@ export const AGENT_PROMPT
 export interface AuthoringOptions {
   packageManager: PackageManager;
   /**
-   * True when `.claude/` already existed before this run.
-   *
-   * The cleanup step used to assert "init created the tree only to hold this
-   * command" — a fact init knows and had not checked, and false on any repo whose
-   * owner already uses Claude Code. A field agent went back to its own opening
-   * `ls -la` to verify before running `rmdir`, and said so: the tool leaned on the
-   * agent for something it could measure itself.
-   *
-   * Required, and with no default further down: the playbook states this as fact, so
-   * no caller may leave it unstated — a default would be a value nothing reads, and
-   * nothing reading it is exactly what makes a wrong one invisible.
+   * True when `.claude/` already existed before this run. Required, with no default:
+   * the playbook states it as fact, so no caller may leave it unstated.
    */
   claudeDir: ClaudeDirState;
   /** Measured `tsc -b` coverage of the vite config; null when undecidable. */
   viteTs: ViteTsCoverage | null;
   /**
-   * Measured: where `tsc -b` keeps its build info when it provably writes nothing
-   * into the working tree. Null unless certain — the artifact paragraph assumes
-   * artifacts, which is right everywhere this cannot say otherwise.
+   * Where `tsc -b` keeps its build info when it provably writes nothing into the
+   * working tree. Null unless certain — the artifact paragraph assumes artifacts.
    */
   tscOut: TscArtifactLocation | null;
   /** True when `@kekkai/blueprint` is not yet a dependency of the project. */
@@ -106,16 +93,10 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
     ...install,
     {
       kind: 'instruct',
-      // The primary caller is now an agent that ran this from a one-line
-      // adoption prompt — the homepage no longer spells out the acceptance
-      // gates (the playbook carries them), so the bridge INTO the playbook has
-      // to live here. An agent reading a third-person "have an agent execute
-      // it" concludes its own job is done and hands back to a human; address
-      // the running agent directly, and restore the "autonomously, early exit
-      // = completion" framing the prompt used to carry. "locking a baseline
-      // only when debt exists": the sub-threshold early exit locks nothing —
-      // 0 debt writes no baseline file, and doctor is green without one (field
-      // issue #12).
+      // Addressed to the running agent, not about one: a third-person "have an
+      // agent execute it" reads as "my job is done" and hands back to a human. The
+      // baseline clause is conditional because a sub-threshold early exit locks
+      // nothing and doctor is green without a ledger (field issue #12).
       note: [
         'This repo already has code but no blueprint.config.mjs — authoring one is a',
         '  judgment call, so init generated a playbook instead of guessing.',
@@ -142,20 +123,16 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
 export function authoringBrief(
   survey: SurveyResult,
   install: string,
-  // An options object, not two positional booleans. `claudeDir` is required and
-  // `next` has a default, so positionally every caller had to state `next` in order
-  // to reach the field after it — which silently retired `next`'s default and the
-  // only thing exercising it. Two booleans in a row is how that happens.
+  // An options object, not positional booleans: positionally, reaching a later field
+  // forces every caller to restate an earlier default and silently retire it.
   facts: {
     next?: boolean;
     claudeDir: ClaudeDirState;
     viteTs?: ViteTsCoverage | null;
     tscOut?: TscArtifactLocation | null;
     /**
-     * The detected runner, for the two script commands the playbook names. Defaulted
-     * because it is the majority and a wrong default here is visible in one line —
-     * unlike the two emitters that carry the same sentence, which cannot see the repo
-     * at all and so name no runner (field run #141).
+     * The detected runner, for the script commands the playbook names. Defaulted
+     * because a wrong one here is visible in a single line (field run #141).
      */
     packageManager?: PackageManager;
   },

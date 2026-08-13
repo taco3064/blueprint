@@ -1,13 +1,9 @@
 import type { PatchResult } from './alias';
 
 /**
- * Greenfield alias surgery. On a fresh scaffold the vite config and the
- * commented tsconfig were generated seconds ago by the project template —
- * init owns that setup moment, so it wires the alias in directly instead of
- * leaving "the rules assume infrastructure nobody installed" (a real agent
- * complaint from the field). Both cuts are precondition-guarded text edits:
- * anything that does not match the known template shapes falls back to the
- * instruct path, and brownfield repos never reach this module at all.
+ * Greenfield alias surgery — on a fresh scaffold init owns the setup moment, so it
+ * wires the alias in directly. Both cuts are precondition-guarded text edits:
+ * anything not matching the known template shapes falls back to the instruct path.
  */
 
 const DEFINE_CONFIG = /export default defineConfig\(\s*\{/;
@@ -46,18 +42,12 @@ export function wireTsconfigPaths(
 ): PatchResult {
   if (/"paths"\s*:/.test(text)) return { kind: 'noop' };
 
-  // The line ending is captured, not assumed. A tsconfig checked out on Windows
-  // is very often CRLF, and matching a bare `\n` after the brace failed there:
-  // the result came back `unparseable`, alias surgery downgraded to an instruct,
-  // and init told a Windows adopter to add `paths` by hand where it does the work
-  // itself on posix. Reusing the captured ending also keeps the file on one
-  // convention — a lone LF inserted into a CRLF config leaves it mixed, which the
-  // emitted `linebreak-style` gate then reports in the adopter's own lint.
-  // `exec`, not `String.match`: match answers `index: undefined` for a pattern
-  // carrying the `g` flag, so adding one here — for any reason, by anyone — would
-  // make `insertAt` NaN, and `slice(0, NaN)` is ''. The "patched" config would come
-  // back as the inserted line alone with the file it replaced gone. `exec` reports
-  // an index either way, so the trap is not there to guard against.
+  // The line ending is captured, not assumed: a bare `\n` fails on a CRLF tsconfig,
+  // and reusing the captured one keeps the file on a single convention.
+  //
+  // `exec`, not `String.match`: match answers `index: undefined` for a `g` pattern,
+  // which would make `insertAt` NaN and `slice(0, NaN)` '' — the "patched" config
+  // coming back as the inserted line alone.
   const opening = /"compilerOptions"\s*:\s*\{(\r?\n)(\s*)/.exec(text);
 
   if (!opening) return { kind: 'unparseable' };

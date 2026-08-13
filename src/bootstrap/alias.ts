@@ -5,12 +5,9 @@ import { wireTsconfigPaths, wireViteAlias } from './wire';
 import type { Action } from './types';
 
 /**
- * The alias concern of `init`: wire `architecture.alias` (and any
- * `additionalAliases`) into the project. One rule governs every branch —
- * a user file is only edited when it can be rewritten losslessly
- * (`JSON.parse` succeeds = no comments to destroy); anything else gets an
- * instruct action carrying a paste-ready snippet. Bundler configs are JS,
- * never lossless, so the bundler side is always an instruct.
+ * The alias concern of `init`. One rule governs every branch: a user file is only
+ * edited when it rewrites losslessly (`JSON.parse` succeeds = no comments to
+ * destroy). Bundler configs are JS, so the bundler side is always an instruct.
  */
 
 /** The primary alias's tsconfig target, e.g. `./src/*` (or `./*` at the project root). */
@@ -51,10 +48,8 @@ export function patchTsconfigPaths(
   try {
     config = JSON.parse(text);
   } catch {
-    // JSONC defeats the lossless rewrite — but the aliases may already be
-    // wired (a prior init's greenfield surgery, or the user's own hand).
-    // Re-instructing then reads as a regression, so check presence through
-    // the tolerant parse before giving up.
+    // JSONC defeats the lossless rewrite, but the aliases may already be wired —
+    // re-instructing then reads as a regression.
     return jsoncAlreadyWired(text, paths) ? { kind: 'noop' } : { kind: 'unparseable' };
   }
 
@@ -172,20 +167,16 @@ function bundlerActions(
     }
   }
 
-  // A vite config already carrying every alias as a quoted token is wired by
-  // doctor's own standard — a prior init's surgery, or the user's hand. Init
-  // must not re-instruct what its check already accepts: the nag reads as a
-  // regression on every re-run.
+  // Already wired by doctor's own standard. Init must not re-instruct what its
+  // check accepts — the nag reads as a regression on every re-run.
   const vite = state.viteConfig;
   const names = [architecture.alias, ...Object.keys(architecture.additionalAliases ?? {})];
 
   if (vite && names.every((name) => quotedIn(vite.text, name))) return [];
 
-  // A tsconfig-paths bridge plugin (vite-tsconfig-paths & friends) makes the
-  // tsconfig side — which init wires above — authoritative for the bundler
-  // too. Instructing resolve.alias on top asks for a redundant second wiring
-  // that doctor's check never required: on one field repo init said "add the
-  // alias to vite.config" while doctor passed untouched (field issue #25).
+  // A tsconfig-paths bridge makes the tsconfig side authoritative for the bundler
+  // too, so instructing `resolve.alias` on top asks for a second wiring doctor
+  // never required (field issue #25).
   if (vite && vite.text.includes('tsconfig-paths')) return [];
 
   return [bundlerInstruct(state, architecture)];
@@ -197,10 +188,8 @@ type Target
     | { kind: 'instruct'; file: string };
 
 /**
- * Which config file carries the alias. A root tsconfig that is a pure
- * `references` shell (create-vite style) defers to `tsconfig.app.json`;
- * a TS project with no tsconfig at all gets an instruct — `init` does not
- * invent a tsconfig for a TypeScript setup it cannot see.
+ * Which config file carries the alias. A pure `references` shell defers to
+ * `tsconfig.app.json`; no tsconfig at all gets an instruct, never an invented file.
  */
 function resolveTarget(state: ProjectState): Target {
   const { tsconfigs, hasTypescript } = state;

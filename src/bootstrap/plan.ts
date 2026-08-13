@@ -38,10 +38,8 @@ export function plan(
     actions.push({ kind: 'write', path: 'blueprint.config.mjs', content: configSource, note: 'blueprint.config.mjs' });
   }
 
-  // Empty layer folders are guidance only on a truly empty tree. Where code
-  // already lives, an unbuilt layer's absence is its true state — a .gitkeep
-  // shell would be the physical twin of the manufactured net the playbook
-  // forbids ("never invent a layer").
+  // Where code already lives, an unbuilt layer's absence is its true state — a
+  // .gitkeep shell is the manufactured net the playbook forbids.
   if (!options.hasSourceFiles) {
     for (const layer of architecture.layers) {
       if (!state.existingSrcDirs.includes(layer.name)) {
@@ -61,12 +59,9 @@ export function plan(
     if (file.strategy === 'merge') {
       const existing = options.existingAgentFiles?.[file.path] ?? null;
 
-      // A hand-written file that already mentions the package has been
-      // integrated by its owner — symmetric with the wired eslint config.
-      // "Left as is" is a real trade the owner must hear about: with no
-      // markers there is nothing init can refresh, so a config change later
-      // silently strands the integrated copy (field issue #26 — a stale
-      // layer flow misled every subsequent agent).
+      // Already integrated by its owner, symmetric with the wired eslint config.
+      // The trade is stated: with no markers there is nothing init can refresh, so
+      // a later config change silently strands the copy (field issue #26).
       if (
         existing !== null
         && !existing.includes(`<!-- ${MARKER}:START -->`)
@@ -83,24 +78,15 @@ export function plan(
         continue;
       }
 
-      // A hand-written context file (no marker block) is a document someone
-      // maintains — appending a generated block to it is not a merge, it is
-      // graffiti. Leave a reference next to it instead; a person (or the
-      // authoring agent, as its final step) integrates it in the document's
-      // own structure. The reference ships WITH its marker comments: pasted
-      // verbatim they keep the block refreshable, and the header's "init
-      // rewrites only between them" stays a claim the reader can see
-      // (field issue #26: markers were promised, none were visible, and the
-      // guessed integration went permanently stale).
+      // A hand-written context file is a document someone maintains — appending a
+      // generated block is graffiti, so leave a reference beside it instead. The
+      // reference ships WITH its markers, or the header's "init rewrites only
+      // between them" is a claim the reader cannot see (field issue #26).
       if (existing !== null && !existing.includes(`<!-- ${MARKER}:START -->`)) {
-        // `.blueprint` goes before whatever the extension is, not before a
-        // literal `.md`. `emit.agents` accepts any path, and a contract pointed
-        // at one that does not end in `.md` — `.mdc` for a Cursor rules folder,
-        // `.mdx` for a docs site — produced a reference path IDENTICAL to the
-        // file's own. The write below then landed ON the hand-written document
-        // instead of beside it: the exact graffiti this branch exists to avoid,
-        // except destructive. `path.extname` also answers '' for a dotfile, so
-        // `.gitignore` becomes `.gitignore.blueprint`, never `.blueprint.gitignore`.
+        // `.blueprint` goes before whatever the extension is, not a literal `.md`:
+        // `emit.agents` accepts any path, and a `.mdc` target produced a reference
+        // path IDENTICAL to the file's own, so the write landed ON the document.
+        // `extname` answers '' for a dotfile, giving `.gitignore.blueprint`.
         const ext = path.extname(file.path);
 
         const reference = ext
@@ -141,15 +127,10 @@ export function plan(
     actions.push({ kind: 'write', path: file.path, content: file.content, note: `${file.path} (agent contract)` });
   }
 
-  // A contract a previous init emitted that the current emit.agents no
-  // longer names is a stale artifact — the field workflow was config-edit →
-  // re-init → manual rm. Wholly generated files (nothing outside the marker
-  // block; own-strategy rules files by construction) are init's to remove;
-  // one carrying hand-written content only gets told. The note names the
-  // ACTUAL cause of the narrowing — a deletion whose stated reason points
-  // at a config field that is not there reads as breakage, and a --agent
-  // narrowing silently un-narrows on the next plain init unless the agent
-  // is told how to make it permanent.
+  // A contract the current `emit.agents` no longer names is stale. Wholly generated
+  // files are init's to remove; one carrying hand-written content only gets told.
+  // The note names the ACTUAL cause of the narrowing — a deletion blamed on a config
+  // field that is not there reads as breakage.
   const emitted = new Set(agentFiles.map((file) => file.path));
 
   const cause
@@ -195,10 +176,8 @@ export function plan(
       note: 'eslint config already wires @kekkai/blueprint — nothing to merge.',
     });
   } else if (state.hasEslintConfig || state.legacyEslintConfig !== undefined) {
-    // Copy-ready hand-off: the full generated config lands next to the user's
-    // own as a reference file they can diff and merge from — never wired in.
-    // A legacy `.eslintrc*` gets the reference too (NOT a fresh flat config
-    // written next to it — that would be two configs, two ledgers).
+    // A reference file to diff and merge from, never wired in. A legacy `.eslintrc*`
+    // gets one too — a fresh flat config beside it would be two configs, two ledgers.
     actions.push({
       kind: 'write',
       path: 'eslint.config.blueprint.mjs',
@@ -216,24 +195,14 @@ export function plan(
     });
   }
 
-  // The anti-bypass guard defaults to ADOPT, so its plugin is provisioned
-  // on every path — an agent following the bold default must not hit
-  // "Cannot find package" (field issue #9). Dropping the block is the
-  // exception, and the guard comment says to remove the dep with it.
+  // The anti-bypass guard defaults to ADOPT, so its plugin ships on every path or
+  // the bold default hits "Cannot find package" (field issue #9).
   const deps = state.missingDeps;
 
-  // Every local write lands before the one child process, because that process is
-  // the only step here that can hang for minutes or fail on a network the adopter
-  // does not have. `applyAndNarrate` already stopped CLAIMING the writes below a
-  // failed install (field issue #37) and left them below it, which fixed the
-  // narration and not the state: a codex run aborted the install in a sandbox with
-  // no registry and was left with a config, a contract and an eslint config but no
-  // alias in tsconfig or vite — so `doctor` said `~app resolves nowhere` and two
-  // toolchain files had to be hand-edited (field run #131). The security doc states
-  // the rule for the other child process — "every artifact lands on disk before the
-  // spawn — a failed launch degrades to exactly the manual path" — and this is that
-  // rule applied to the install. An aborted install now leaves a tree that is
-  // complete except for `node_modules`, which one command finishes.
+  // Every local write lands before the one child process — SECURITY.md's rule for
+  // the other spawn, applied to the install. An aborted install then leaves a tree
+  // complete except for `node_modules`, rather than one missing its alias wiring
+  // (field run #131).
   actions.push(...aliasActions(state, architecture, configSource !== null));
 
   if (deps.length) {
@@ -241,31 +210,14 @@ export function plan(
       actions.push({
         kind: 'install',
         command: installCommand(state.packageManager, deps),
-        // The line renders as "✓ install: <note>" — a note that starts with
-        // "install" stutters (field issue #34).
+        // Renders as "✓ install: <note>", so a note opening with "install" stutters
+        // (field issue #34). Unpinned on purpose, and the range says so.
         //
-        // Unpinned on purpose, and the range says so where the adopter is
-        // already looking. `eslint` resolves to the newest supported major,
-        // which is newer than this package's own devDependency — a field agent
-        // saw ESLint 10 arrive from a tool developed on 9 and could only report
-        // "worked today" (field run #100).
-        //
-        // Two facts, and their order is deliberate. The peer-range half leads because
-        // it is the one checkable from where the adopter is standing — the carriers are
-        // in their own `node_modules` — and because it answers the question this note
-        // is asking: whether the install about to run resolves at all. `detect.test.ts`
-        // proves it per carrier, read off the installed manifests.
-        //
-        // The CI half names its channel rather than claiming a bare "both TESTED".
-        // That bare wording shipped once and overclaimed, because at the time nothing
-        // ran 10 (field run #150, where an agent watched `^10.8.0` land in its own
-        // package.json). The `eslint-10` leg in ci.yml makes it true — but the
-        // published tarball carries `devDependencies` with eslint 9, and two runs are
-        // on record opening `node_modules/@kekkai/blueprint/package.json` looking for
-        // exactly this kind of range (#139, #140 — see the install banner in
-        // `bootstrap.ts`). "Both tested" beside a visible `^9.39.2` is two true things
-        // with nothing bridging them, which is the shape that reads as the tool
-        // contradicting itself. Naming CI is the bridge.
+        // Two facts, in this order. The peer-range half leads: it is checkable from
+        // where the adopter stands, and `detect.test.ts` proves it per carrier. The
+        // CI half names its channel rather than a bare "both tested" — the published
+        // tarball's `devDependencies` carry eslint 9, and that claim beside a visible
+        // `^9.39.2` is two true things with nothing bridging them (field run #150).
         note: deps.includes('eslint')
           ? `${deps.join(', ')} — eslint unpinned, resolving to the newest supported major (${SUPPORTED_ESLINT_MAJORS.join(' and ')} are both admitted by every carrier's peer range, and @kekkai/blueprint's CI runs its own suite on each)`
           : deps.join(', '),
@@ -305,10 +257,9 @@ export function plan(
 
 /** Merge the contract into a shared context file: refresh in place, append, or create. */
 /**
- * The wiring instruction for an existing eslint config, tailored to its
- * shape so the user (or an agent) doesn't have to reverse-engineer the merge:
- * a `tseslint.config()` call wraps the spread, a flat array takes it directly,
- * and a legacy `.eslintrc*` needs a flat-config migration decided first.
+ * The wiring instruction for an existing eslint config, tailored to its shape: a
+ * `tseslint.config()` call wraps the spread, a flat array takes it directly, and a
+ * legacy `.eslintrc*` needs a flat-config migration decided first.
  */
 function eslintWiringNote(state: ProjectState): string {
   // Both plugins are injected, never depended on. Getting the options object
@@ -340,13 +291,9 @@ function eslintWiringNote(state: ProjectState): string {
     + '  declaring the default export as Blueprint. Name the choice in your report.\n'
     : '';
 
-  // The playbook explains what an entry consists of; this path never gets the
-  // playbook. Both merge shapes below already say "combine into ONE entry" — which is
-  // the half that fails LOUDLY. The half that fails silently is the `ignores`: every
-  // structural entry exempts test files, a rebuilt entry has none unless you write one,
-  // and doctor compares selectors rather than scope, so nothing downstream catches it.
-  // A field run lost exactly this and spent a debug cycle on 34 errors in one test file
-  // — with the guidance sitting in the document that only the authoring path writes.
+  // This path never gets the playbook. "Combine into ONE entry" is the half that
+  // fails loudly; the `ignores` is the half that fails silently, since doctor
+  // compares selectors rather than scope.
   const shared
     = `${ts7016}  An entry is more than its selectors: whatever you combine needs the emitted\n`
       + '  block\'s `ignores` too (every structural entry exempts test files, and a rebuilt\n'
@@ -438,11 +385,9 @@ function mergeContract(existing: string | null, contract: string): string {
 }
 
 /**
- * The generated flat config: parser wiring for the detected stack, the
- * blueprint-driven rules, and the handbook's third-party CORE block. Parsers
- * only — framework rule packs (eslint-plugin-vue, react-hooks…) stay the
- * user's choice. The library itself never depends on any of these packages —
- * they live in the scaffolded config, and init installs them as project deps.
+ * The generated flat config: parser wiring, the blueprint-driven rules, and the
+ * handbook's third-party CORE block. Parsers only — framework rule packs stay the
+ * user's choice, and none of these packages is a dependency of this library.
  */
 function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
   const framework = blueprint.framework !== 'auto' ? blueprint.framework : state.framework;
@@ -520,13 +465,9 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
       : []),
   ];
 
-  // rules.cycles deliberately emits no ESLint line: `inspect` detects module
-  // cycles already, and `import/no-cycle` re-checks the whole graph per file —
-  // measured at 92s on an 850-file repo. One detector, the cheap one.
-  // rules.deadCode likewise: import/no-unused-modules cannot run under flat
-  // config (import-js/eslint-plugin-import#3079, inherited by the -x fork) —
-  // dead code is knip's job. Both keep their ecosystem names here: blueprint
-  // emits neither, so the id a reader recognizes beats the -x namespace.
+  // `cycles` emits no ESLint line — inspect detects them, and `import/no-cycle`
+  // re-walks the graph per file (92s on 850 files). `deadCode` likewise:
+  // import/no-unused-modules cannot run under flat config, so that is knip's job.
   const core = [
     '      \'@eslint-community/eslint-comments/no-unlimited-disable\': \'error\',',
     '      \'@eslint-community/eslint-comments/require-description\': \'error\',',
@@ -548,12 +489,8 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     'export default [',
     ...(parserBlocks.length ? parserHeader : []),
     ...parserBlocks,
-    // All three plugins are INJECTED, never library deps: on TS the unusedVars
-    // gate needs the TS-aware twin (core false-flags enum members) and
-    // explicitAny has no core twin at all; stylistic carries the shape family,
-    // whose core rules ESLint deprecated; imports carries importBlock, which
-    // nothing in core or stylistic can do. Drop an argument and its gates go
-    // silent without a word — keep the object whole when merging.
+    // All three plugins are INJECTED, never library deps. Drop an argument and its
+    // gates go silent without a word — keep the object whole when merging.
     ts
       ? '  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }),'
       : '  ...emitLint(blueprint, { stylistic, imports }),',
