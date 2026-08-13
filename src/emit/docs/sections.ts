@@ -35,7 +35,7 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
   return [
     '## Architecture',
     '',
-    'Code flows one way: each layer may import only from the layers below it. Upstream and same-layer imports are barred.',
+    'Code flows one way: each layer may import only from the layers below it. Upstream imports are barred, and a same-layer import has exactly one legal shape — a relative path reaching the sibling\'s public surface, never the alias.',
     '',
     emitFlowDiagram(architecture),
     '',
@@ -77,7 +77,7 @@ function moduleTree(group: ModuleShapeGroup): string[] {
 function moduleSentence(group: ModuleShapeGroup): string {
   return group.layout === 'folder'
     ? `module = one folder. Only \`${group.entry}\` is public; everything else stays private to the module.`
-    : 'module = one file (flat layout). Shared logic moves down to a lower layer.';
+    : 'module = one file (flat layout).';
 }
 
 /**
@@ -135,9 +135,13 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
         ? ''
         : ` in ${scoped.map((layer) => `\`${layer}/\``).join(' / ')}`;
 
+      // A folder layer's sibling IS reachable — through its entry, relatively.
+      // Stated as a flat ban, the only remedy left is "extract to a lower
+      // layer", which `blueprint/relative-escape` names as how a `utils/` junk
+      // drawer gets built one honest decision at a time.
       return layout === 'flat'
         ? `- **No same-layer imports via the alias**${scope} — use a relative path instead.`
-        : `- **No same-layer imports**${scope} — extract shared logic down to a lower layer instead.`;
+        : `- **No same-layer imports via the alias**${scope} — reach a sibling through its entry with a relative path (\`../Sibling\`), and never past that entry.`;
     }),
   ];
 
