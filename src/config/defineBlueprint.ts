@@ -8,6 +8,19 @@ const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/;
 const AGENT_TARGETS = ['claude', 'agents', 'gemini', 'copilot', 'cursor', 'windsurf'];
 const DEFAULT_AGENT_TARGETS: AgentTarget[] = ['claude', 'agents'];
 
+/**
+ * `architecture.module` was removed in 4.0.0, so the generic "nothing reads it"
+ * answer would be true and useless — the shape did not disappear, it moved.
+ * The last clause is the one adopters miss: this edit is not opt-in with the
+ * modular model, it is the only way a 3.x config loads at all.
+ */
+const MODULE_FIELD_HINT
+  = 'The module shape moved onto each layer in 4.0.0 — write `layout` / `entry` there instead: '
+    + 'layers: [{ name: \'components\', does: \'…\', layout: \'folder\', entry: \'index\' }] '
+    + '(entry defaults to "index", layout to "flat"). `private` is gone with no replacement: the '
+    + 'entry-only ban already covers every non-entry file, so nothing was enforcing it. Every 3.x '
+    + 'config must make this edit, including a flat project that is not adopting `modules`.';
+
 const MANAGED_RULES = [
   'no-restricted-imports',
   'no-restricted-syntax',
@@ -29,10 +42,9 @@ const MANAGED_RULES = [
  *     alias: '~app',
  *     layers: [
  *       { name: 'components', does: 'Reusable, presentational UI', mustNot: ['import services'] },
- *       { name: 'hooks', does: 'Adapts server and shared state' },
+ *       { name: 'hooks', does: 'Adapts server and shared state', layout: 'folder' },
  *       { name: 'services', does: 'Network primitives', owns: ['axios', { global: 'fetch' }] },
  *     ],
- *     module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
  *   },
  * });
  */
@@ -59,9 +71,14 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     throw new Error('architecture.layers must be an array.');
   }
 
-  rejectUnknownKeys(architecture, ['alias', 'additionalAliases', 'sourceRoot', 'layers', 'module', 'layerFiles', 'layerFilesIgnore', 'testFiles', 'naming'], 'architecture');
+  rejectUnknownKeys(
+    architecture,
+    ['alias', 'additionalAliases', 'sourceRoot', 'layers', 'layerFiles', 'layerFilesIgnore', 'testFiles', 'naming'],
+    'architecture',
+    { module: MODULE_FIELD_HINT },
+  );
 
-  const { alias, additionalAliases, layers, module, layerFiles } = architecture;
+  const { alias, additionalAliases, layers, layerFiles } = architecture;
 
   if (typeof alias !== 'string' || !alias.trim()) {
     throw new Error('architecture.alias must be a non-empty string.');
@@ -100,7 +117,7 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
 
     rejectUnknownKeys(
       layer,
-      ['name', 'does', 'mustNot', 'owns', 'module', 'allowedImporters', 'lintOverrides'],
+      ['name', 'does', 'mustNot', 'owns', 'layout', 'entry', 'allowedImporters', 'lintOverrides'],
       `layer "${layer.name}"`,
       {
         // The exact field shape: selfOnly on the layer validated fine, was
@@ -108,40 +125,17 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
         // (field issue #14). Point at the right home, not just "unknown".
         selfOnly: 'selfOnly lives on an allowedImporters ENTRY, naming the importing layer: '
           + 'allowedImporters: [{ layer: \'views\', selfOnly: true }]',
+        module: MODULE_FIELD_HINT,
       },
     );
 
     validateOwns(layer);
-    validateLayerModule(layer);
+    validateModuleShape(layer);
     validateLintOverrides(layer);
     // `names` holds only earlier layers here, so requiring importers to be in
     // it enforces "declared before" — which keeps the flow one-way and acyclic.
     validateAllowedImporters(layer, names);
     names.add(layer.name);
-  }
-
-  // Optional in whole: the flat default is applied at read time, so a config that
-  // never mentions `module` is complete (field issue #23).
-  if (module !== undefined) {
-    if (module.layout !== undefined && module.layout !== 'folder' && module.layout !== 'flat') {
-      throw new Error(
-        `architecture.module.layout is "${String(module.layout)}" — expected folder | flat, `
-        + 'or omit it for the default (flat).',
-      );
-    }
-
-    if (module.entry !== undefined && (typeof module.entry !== 'string' || !module.entry.trim())) {
-      throw new Error(
-        'architecture.module.entry must be a non-empty string when set — omit it for the '
-        + 'default ("index").',
-      );
-    }
-
-    if (module.private !== undefined && !Array.isArray(module.private)) {
-      throw new Error('architecture.module.private must be an array when set — omit it for none.');
-    }
-
-    rejectUnknownKeys(module, ['layout', 'entry', 'private'], 'architecture.module');
   }
 
   if (bp.emit !== undefined) {
@@ -333,25 +327,19 @@ function validateOwns(layer: LayerDef): void {
   }
 }
 
-/** A layer's `module` override may only narrow layout / entry, both well-formed. */
-function validateLayerModule(layer: LayerDef): void {
-  const override = layer.module;
-
-  if (override === undefined) return;
-
-  rejectUnknownKeys(override, ['layout', 'entry'], `layer "${layer.name}" module override`);
-
-  if (override.layout !== undefined && !['folder', 'flat'].includes(override.layout)) {
+/** A layer's module shape: layout from the pair, entry a real filename. */
+function validateModuleShape(layer: LayerDef): void {
+  if (layer.layout !== undefined && !['folder', 'flat'].includes(layer.layout)) {
     throw new Error(
-      `Layer "${layer.name}" has module.layout "${override.layout}" — expected folder | flat.`,
+      `Layer "${layer.name}" has layout "${layer.layout}" — expected folder | flat, or omit it `
+      + 'for the default (flat).',
     );
   }
 
-  if (
-    override.entry !== undefined
-    && (typeof override.entry !== 'string' || !override.entry.trim())
-  ) {
-    throw new Error(`Layer "${layer.name}" has an empty module.entry override.`);
+  if (layer.entry !== undefined && (typeof layer.entry !== 'string' || !layer.entry.trim())) {
+    throw new Error(
+      `Layer "${layer.name}" has an empty entry — omit it for the default ("index").`,
+    );
   }
 }
 

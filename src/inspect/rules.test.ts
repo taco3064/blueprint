@@ -41,7 +41,6 @@ const blueprint: Blueprint = {
       { name: 'hooks', does: 'state', owns: [{ package: 'react', imports: ['useContext'] }] },
       { name: 'services', does: 'net', owns: ['axios', { global: 'fetch' }] },
     ],
-    module: { layout: 'flat', entry: 'index', private: [] },
   },
   rules: {
     maxLines: { tier: 'error', value: 300 },
@@ -380,7 +379,6 @@ describe('runRules', () => {
             allowedImporters: [{ layer: 'views', selfOnly: true }],
           },
         ],
-        module: { layout: 'flat', entry: 'index' },
       },
       rules: {},
     };
@@ -443,7 +441,6 @@ describe('runRules', () => {
             allowedImporters: [{ layer: 'views', selfOnly: true }],
           },
         ],
-        module: { layout: 'flat', entry: 'index' },
       },
       rules: {},
     };
@@ -480,7 +477,6 @@ describe('runRules', () => {
             allowedImporters: [{ layer: 'views', selfOnly: true }],
           },
         ],
-        module: { layout: 'flat', entry: 'index' },
       },
       rules: {},
     };
@@ -514,7 +510,6 @@ describe('runRules', () => {
           { name: 'views', does: 'pages' },
           { name: 'contexts', does: 'state seam', allowedImporters: ['views'] },
         ],
-        module: { layout: 'flat', entry: 'index' },
       },
       rules: {},
     };
@@ -543,7 +538,6 @@ describe('runRules', () => {
           { name: 'views', does: 'pages', owns: [{ global: 'fetch' }] },
           { name: 'lib', does: 'plumbing', owns: [{ global: 'fetch' }] },
         ],
-        module: { layout: 'flat', entry: 'index' },
       },
       rules: {},
     };
@@ -597,7 +591,6 @@ describe('runRules', () => {
             allowedImporters: [{ layer: 'views', selfOnly: true }],
           },
         ],
-        module: { layout: 'flat', entry: 'index' },
       },
       rules: {},
     };

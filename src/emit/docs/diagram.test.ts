@@ -7,7 +7,6 @@ function arch(): ArchitectureDef {
   return {
     alias: '~app',
     layers: [{ name: 'components', does: '' }, { name: 'hooks', does: '' }, { name: 'services', does: '' }],
-    module: { layout: 'folder', entry: 'index', private: [] },
   };
 }
 

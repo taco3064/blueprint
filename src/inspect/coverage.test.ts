@@ -10,10 +10,9 @@ const blueprint: Blueprint = {
   architecture: {
     alias: '~app',
     layers: [
-      { name: 'components', does: 'render UI' },
-      { name: 'services', does: 'talk to the backend' },
+      { name: 'components', does: 'render UI', layout: 'folder' },
+      { name: 'services', does: 'talk to the backend', layout: 'folder' },
     ],
-    module: { layout: 'folder', entry: 'index', private: [] },
   },
   // `cycles` is off and `deadCode` is docs-only — neither counts as active.
   rules: { maxLines: 'error', unusedVars: { tier: 'warn' }, cycles: 'off', deadCode: 'error' },

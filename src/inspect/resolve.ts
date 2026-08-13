@@ -1,5 +1,5 @@
 import type { AliasRoot, ArchitectureDef } from '../config';
-import { aliasLayerRoots, getModuleShape } from '../config';
+import { aliasLayerRoots, DEFAULT_MODULE_SHAPE, getModuleShape } from '../config';
 import { dropTestFiles } from './filter';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
@@ -64,10 +64,10 @@ export type EntryOf = (layer: string) => string;
 
 /** Build an {@link EntryOf} from the architecture's module shapes. */
 export function entryResolver(architecture: ArchitectureDef): EntryOf {
-  const shared = architecture.module?.entry ?? 'index';
-  const perLayer = new Map(architecture.layers.map((l) => [l.name, l.module?.entry ?? shared]));
+  const { entry: fallback } = DEFAULT_MODULE_SHAPE;
+  const perLayer = new Map(architecture.layers.map((l) => [l.name, l.entry ?? fallback]));
 
-  return (layer) => perLayer.get(layer) ?? shared;
+  return (layer) => perLayer.get(layer) ?? fallback;
 }
 
 /** What a relative import does to its module boundary. */

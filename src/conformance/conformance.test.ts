@@ -45,7 +45,6 @@ const reactBlueprint: Blueprint = {
       { name: 'components', does: 'render UI' },
       { name: 'services', does: 'data access' },
     ],
-    module: { layout: 'flat', entry: 'index', private: [] },
   },
   rules: { unusedVars: 'error' },
 };
@@ -524,7 +523,6 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
           allowedImporters: [{ layer: 'views', selfOnly: true }],
         },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
     },
   };
 
@@ -1184,7 +1182,6 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
           { name: 'components', does: 'render UI' },
           { name: 'contexts', does: 'cross-tree state', allowedImporters: [{ layer: 'components', selfOnly: true }] },
         ],
-        module: { layout: 'flat', entry: 'index', private: [] },
       },
     }));
 
@@ -1673,20 +1670,19 @@ describe('survey counts never promise what impact must measure (field issue #11)
     expect(survey.output).toContain('Same-folder imports via the alias (textual upper bound');
   });
 
-  it('a draft config that never mentions module.private validates and runs', async () => {
+  it('a draft config that declares a layout and no entry validates and runs', async () => {
     const dir = repo({
       packageJson: react(),
       files: {
         'src/components/Button.tsx': 'export const Button = 1;',
         // Hand-written draft-first config — the field shape that tripped on
-        // "private is required": omitting it now means none.
+        // "private is required": a half-declared shape is complete.
         'blueprint.config.mjs': [
           'export default {',
           '  framework: \'react\',',
           '  architecture: {',
           '    alias: \'~app\',',
-          '    layers: [{ name: \'components\', does: \'render UI\' }],',
-          '    module: { layout: \'flat\', entry: \'index\' },',
+          '    layers: [{ name: \'components\', does: \'render UI\', layout: \'flat\' }],',
           '  },',
           '  rules: {},',
           '};',
@@ -1698,7 +1694,37 @@ describe('survey counts never promise what impact must measure (field issue #11)
     const inspect = await cli(dir, ['inspect']);
 
     expect(inspect.code).toBe(0);
-    expect(inspect.output).not.toContain('module.private');
+    expect(inspect.output).not.toContain('entry');
+  });
+
+  it('a 3.x config still carrying architecture.module is told where the shape went', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'src/components/Button.tsx': 'export const Button = 1;',
+        // The shape every 3.x adopter has on disk. `rejectUnknownKeys` would
+        // answer "nothing reads it", which is true and useless — the field did
+        // not go dead, it moved, and a flat project must make the same edit.
+        'blueprint.config.mjs': [
+          'export default {',
+          '  framework: \'react\',',
+          '  architecture: {',
+          '    alias: \'~app\',',
+          '    layers: [{ name: \'components\', does: \'render UI\' }],',
+          '    module: { layout: \'folder\', entry: \'index\', private: [\'hooks\'] },',
+          '  },',
+          '  rules: {},',
+          '};',
+          '',
+        ].join('\n'),
+      },
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.code).toBe(1);
+    expect(inspect.output).toContain('moved onto each layer in 4.0.0');
+    expect(inspect.output).toContain('flat project');
   });
 });
 
@@ -1719,7 +1745,6 @@ describe('a misplaced key fails loud instead of dying silently (field issue #14)
           '      { name: \'views\', does: \'pages\' },',
           '      { name: \'contexts\', does: \'seam\', selfOnly: true, allowedImporters: [\'views\'] },',
           '    ],',
-          '    module: { layout: \'flat\', entry: \'index\' },',
           '  },',
           '  rules: {},',
           '};',
@@ -1878,7 +1903,6 @@ describe('selfOnly survives every esquery, and the fold gets its selectors (batc
           allowedImporters: [{ layer: 'views', selfOnly: true }],
         },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
     },
   };
 
@@ -2055,7 +2079,10 @@ describe('the flat default is real — module is optional (batch 15)', () => {
       files: {
         'blueprint.config.mjs': configSource({
           ...noModule,
-          architecture: { ...noModule.architecture, module: { layout: 'flat' } },
+          architecture: {
+            ...noModule.architecture,
+            layers: [{ name: 'components', does: 'render UI', layout: 'flat' }],
+          },
         }),
         'src/components/Button.jsx': 'export const Button = 1;',
       },
@@ -2072,8 +2099,7 @@ describe('the flat default is real — module is optional (batch 15)', () => {
           framework: 'react',
           architecture: {
             alias: '~app',
-            layers: [{ name: 'components', does: 'render UI' }],
-            module: { layout: 'flat', entry: '' },
+            layers: [{ name: 'components', does: 'render UI', entry: '' }],
           },
         }),
       },
@@ -2085,7 +2111,7 @@ describe('the flat default is real — module is optional (batch 15)', () => {
     expect(inspect.output).toContain('omit it for the');
   });
 
-  it('the playbook sketch says the module block is optional', async () => {
+  it('the playbook sketch says the module shape keys are optional', async () => {
     const dir = repo({
       packageJson: react(),
       files: { 'src/App.jsx': 'export const App = () => null;' },
@@ -2095,8 +2121,8 @@ describe('the flat default is real — module is optional (batch 15)', () => {
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
-    expect(playbook).toContain('omit `module` entirely');
-    expect(playbook).toContain('Optional — omitting module');
+    expect(playbook).toContain('declare neither key');
+    expect(playbook).toContain('Omitting both keys IS the');
   });
 });
 
@@ -2481,7 +2507,7 @@ describe('one violation, one name per channel (field issue #48)', () => {
           ...reactBlueprint,
           architecture: {
             ...reactBlueprint.architecture,
-            module: { layout: 'folder', entry: 'index', private: [] },
+            layers: reactBlueprint.architecture.layers.map((l) => ({ ...l, layout: 'folder' as const })),
           },
         }),
         'src/components/Card/index.js': 'export const Card = 1;\n',
@@ -2589,10 +2615,9 @@ describe('a folder layer shares by the sibling entry, not by sinking (cards)', (
     architecture: {
       alias: '~app',
       layers: [
-        { name: 'components', does: 'ui' },
-        { name: 'hooks', does: 'stateful units' },
+        { name: 'components', does: 'ui', layout: 'folder' },
+        { name: 'hooks', does: 'stateful units', layout: 'folder' },
       ],
-      module: { layout: 'folder', entry: 'index', private: [] },
     },
   };
 
@@ -2650,7 +2675,6 @@ describe('the merge recipe hands over the whole entry, not just its selectors (#
         { name: 'views', does: 'screens' },
         { name: 'contexts', does: 'shared state', allowedImporters: [{ layer: 'views', selfOnly: true }] },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
     },
   };
 
@@ -2715,7 +2739,6 @@ describe('a claim states the condition it needs (field runs #95–#97)', () => {
           { name: 'components', does: 'render UI' },
           { name: 'contexts', does: 'state', allowedImporters: [{ layer: 'components', selfOnly: true }] },
         ],
-        module: { layout: 'flat', entry: 'index', private: [] },
       },
     }));
 
@@ -2957,7 +2980,6 @@ describe('a fact reaches the reader before the red, not after (field run #101)',
               { name: 'views', does: 'screens' },
               { name: 'contexts', does: 'state', allowedImporters: [{ layer: 'views', selfOnly: true }] },
             ],
-            module: { layout: 'flat', entry: 'index', private: [] },
           },
         }),
       },

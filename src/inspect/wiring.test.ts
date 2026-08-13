@@ -11,16 +11,16 @@ const blueprint: Blueprint = {
     alias: '~app',
     additionalAliases: { '~root': 'src' },
     layers: [
-      { name: 'views', does: 'pages' },
+      { name: 'views', does: 'pages', layout: 'folder' },
       {
         name: 'contexts',
         does: 'shared state',
+        layout: 'folder',
         allowedImporters: [{ layer: 'views', selfOnly: true }],
       },
-      { name: 'stores', does: 'state', allowedImporters: ['contexts'] },
-      { name: 'services', does: 'io', owns: [{ global: 'fetch' }] },
+      { name: 'stores', does: 'state', layout: 'folder', allowedImporters: ['contexts'] },
+      { name: 'services', does: 'io', owns: [{ global: 'fetch' }], layout: 'folder' },
     ],
-    module: { layout: 'folder', entry: 'index', private: [] },
     layerFilesIgnore: 'src/**/*.gen.ts',
   },
   rules: { fixtureImports: 'error' },
@@ -606,9 +606,9 @@ describe('expectedStructural · deep-import targets', () => {
       architecture: {
         ...blueprint.architecture,
         layers: [
-          { name: 'views', does: 'pages' },
-          { name: 'utils', does: 'leaf helpers', module: { layout: 'flat' } },
-          { name: 'services', does: 'io' },
+          { name: 'views', does: 'pages', layout: 'folder' },
+          { name: 'utils', does: 'leaf helpers' },
+          { name: 'services', does: 'io', layout: 'folder' },
         ],
       },
     };

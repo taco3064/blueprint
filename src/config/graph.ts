@@ -92,39 +92,75 @@ function dirSegments(dir: string): string[] {
   return dir.split('/').filter((segment) => segment !== '' && segment !== '.');
 }
 
-/**
- * The shared module shape with the flat defaults applied — the playbook's
- * "flat default" made real: `architecture.module` and each of its keys is
- * optional, resolving to `{ layout: 'flat', entry: 'index', private: [] }`
- * (field issue #23: it validated as required while the playbook said
- * omitting it was the default).
- * @internal
- */
-export function getSharedModule(
-  architecture: ArchitectureDef,
-): { layout: 'folder' | 'flat'; entry: string; private: string[] } {
-  return {
-    layout: architecture.module?.layout ?? 'flat',
-    entry: architecture.module?.entry ?? 'index',
-    private: architecture.module?.private ?? [],
-  };
+/** One module shape a layer can declare. */
+export interface ModuleShape {
+  layout: 'folder' | 'flat';
+  entry: string;
 }
 
 /**
- * The effective module shape for a layer: its override, else the shared default.
+ * The shape a layer that declares neither key resolves to — the playbook's
+ * "flat default" made real (field issue #23: `architecture.module` validated
+ * as required while the playbook said omitting it was the default).
  * @internal
  */
-export function getModuleShape(
-  architecture: ArchitectureDef,
-  layerName: string,
-): { layout: 'folder' | 'flat'; entry: string } {
+export const DEFAULT_MODULE_SHAPE: ModuleShape = { layout: 'flat', entry: 'index' };
+
+/**
+ * The effective module shape for a layer: what it declares, else the default.
+ * @internal
+ */
+export function getModuleShape(architecture: ArchitectureDef, layerName: string): ModuleShape {
   const layer = architecture.layers.find((candidate) => candidate.name === layerName);
-  const shared = getSharedModule(architecture);
 
   return {
-    layout: layer?.module?.layout ?? shared.layout,
-    entry: layer?.module?.entry ?? shared.entry,
+    layout: layer?.layout ?? DEFAULT_MODULE_SHAPE.layout,
+    entry: layer?.entry ?? DEFAULT_MODULE_SHAPE.entry,
   };
+}
+
+/** A module shape, with the layers that resolve to it. */
+export interface ModuleShapeGroup extends ModuleShape {
+  /** Layers sharing this shape, in declaration order. */
+  layers: string[];
+}
+
+/**
+ * The distinct module shapes across the layers, first-declared first. Every
+ * document that states the shape renders from this: there is no project-wide
+ * shape to state, so a single group is stated once and several are stated one
+ * by one, naming their layers. A flat layer keys on layout alone — its entry
+ * filename is not a fact about it, so two flat layers never split a group.
+ * @internal
+ */
+export function moduleShapeGroups(architecture: ArchitectureDef): ModuleShapeGroup[] {
+  const groups = new Map<string, ModuleShapeGroup>();
+
+  for (const layer of architecture.layers) {
+    const shape = getModuleShape(architecture, layer.name);
+    const key = shape.layout === 'folder' ? `folder:${shape.entry}` : 'flat';
+    const group = groups.get(key);
+
+    if (group) {
+      group.layers.push(layer.name);
+    } else {
+      groups.set(key, { ...shape, layers: [layer.name] });
+    }
+  }
+
+  return [...groups.values()];
+}
+
+/**
+ * The distinct entry filenames of the folder layers, first-declared first.
+ * Empty when no layer is a folder — which is the state that has no entry to
+ * name, rather than one whose name defaults.
+ * @internal
+ */
+export function folderEntries(architecture: ArchitectureDef): string[] {
+  return moduleShapeGroups(architecture)
+    .filter((group) => group.layout === 'folder')
+    .map((group) => group.entry);
 }
 
 /**

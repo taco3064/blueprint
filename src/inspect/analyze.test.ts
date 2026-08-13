@@ -311,7 +311,6 @@ describe('analyze · flat layout', () => {
     architecture: {
       alias: '~app',
       layers: [{ name: 'a', does: '' }, { name: 'b', does: '' }],
-      module: { layout: 'flat', entry: 'index', private: [] },
     },
   });
 
@@ -334,10 +333,9 @@ describe('analyze · per-layer module layout', () => {
       alias: '~app',
       layers: [
         { name: 'pages', does: '' },
-        { name: 'resources', does: '', module: { layout: 'folder', entry: 'main' } },
+        { name: 'resources', does: '', layout: 'folder', entry: 'main' },
         { name: 'services', does: '' },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
     },
   });
 
@@ -507,7 +505,7 @@ describe('analyze · an entry name that holds a dot', () => {
       ...bp,
       architecture: {
         ...bp.architecture,
-        module: { layout: 'folder', entry: 'index.d', private: [] },
+        layers: bp.architecture.layers.map((layer) => ({ ...layer, entry: 'index.d' })),
       },
     });
 

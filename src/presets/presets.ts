@@ -145,30 +145,37 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
     framework,
     architecture: {
       alias: options.alias ?? '~app',
+      // `entry` is omitted throughout: 'index' is the default, so declaring it
+      // would only restate one.
       layers: [
         {
           name: 'pages',
           does: 'Route layout — assembles containers; owns routing and SEO concerns.',
           mustNot: ['hold business logic', 'stack components directly'],
+          layout: 'folder',
         },
         {
           name: 'containers',
           does: 'A feature: assembles components, owns local state, calls services, drives navigation.',
+          layout: 'folder',
         },
         {
           name: 'components',
           does: 'Reusable, presentational UI.',
           mustNot: ['call services', 'touch the router', 'own app state'],
+          layout: 'folder',
         },
         {
           name: 'hooks',
           does: 'Adapts server and shared state; the only layer that injects context or owns a store.',
           owns: owns.hooks,
+          layout: 'folder',
         },
         {
           name: 'contexts',
           does: 'Defines and provides Context / Provider only.',
           owns: owns.contexts,
+          layout: 'folder',
           allowedImporters: [
             { layer: 'containers', description: 'Provider only' },
             { layer: 'hooks', selfOnly: true, description: 'Context only' },
@@ -178,10 +185,10 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
           name: 'services',
           does: 'Network primitives — the only layer that talks to the HTTP client or sockets.',
           owns: ['axios', { global: 'fetch' }, { global: 'WebSocket' }],
+          layout: 'folder',
           allowedImporters: ['containers', 'hooks', 'contexts'],
         },
       ],
-      module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
       naming: {
         component: 'PascalCase; the implementation file is named after the module',
         hook: 'useX — only when it genuinely uses reactivity',
@@ -307,7 +314,8 @@ export function nextPreset(options: NextPresetOptions = {}): Blueprint {
           does: 'Framework-free plumbing: data access, formatting, config.',
         },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
+      // No `layout` on any layer: flat is the default, so the Next preset's
+      // one-file-per-module shape is what omitting it already means.
       naming: {
         hook: 'useX — only when it genuinely uses reactivity',
       },
