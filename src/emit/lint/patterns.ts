@@ -93,9 +93,8 @@ export interface GateSpec {
   /** Metric fallback threshold, when the gate is one of the metric family. */
   fallback?: number;
   /**
-   * Set when a runtime enforces the gate instead of the emitted lint config.
-   * Machine-gated either way — but "error fails lint" is false for these, and
-   * the handbook used to say it of every declared rule (field issue #52).
+   * Set when a runtime enforces the gate instead of the emitted lint config —
+   * machine-gated either way, but "error fails lint" is false for these (#52).
    */
   runtime?: 'inspect';
 }
@@ -166,12 +165,9 @@ export function unavailableGate(
     return '`any` is a TypeScript construct — nothing to catch on a JS project, and no core rule to fall back to';
   }
 
-  // `testFiles: []` is how a repo says "tests inherit their layer's rules, nothing is
-  // exempt" — a real intent, and the one this gate has no scope under: the emitted
-  // entry would be `files: []`, which ESLint refuses outright ("Expected value to be a
-  // non-empty array"). Dropping that entry is the fix; saying so here is the other
-  // half, because a gate declared `error` and silently not emitted is the same
-  // half-truth as an `explicitAny` on a JS repo (field run #150).
+  // `testFiles: []` is a real intent — tests inherit their layer's rules — and the
+  // one this gate has no scope under, since `files: []` is refused by ESLint. Saying
+  // so is the other half of dropping the entry (field run #150).
   if (id === 'testFilename' && Array.isArray(testFiles) && testFiles.length === 0) {
     return '`architecture.testFiles: []` exempts nothing, so there is no test file for this to name — declare test globs, or drop this gate';
   }
@@ -308,10 +304,9 @@ export function buildStructuralPatterns(params: {
   /** The layer's own module layout (drives the same-layer message wording). */
   moduleLayout: 'folder' | 'flat';
   /**
-   * Downstream folder-layout layers this layer may import — their module
-   * internals are entry-only. Self and forbidden layers are excluded by the
-   * caller: both are already banned wholesale, and `no-restricted-imports`
-   * reports once per matched group, so overlap would double-report.
+   * Downstream folder-layout layers this layer may import, entry-only. Self and
+   * forbidden layers are excluded by the caller — already banned wholesale, and
+   * `no-restricted-imports` reports once per group, so overlap double-reports.
    */
   folderTargets?: string[];
   /** Fixture roots barred from production imports (`rules.fixtureImports`). */

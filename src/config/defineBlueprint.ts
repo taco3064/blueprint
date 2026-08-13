@@ -79,11 +79,9 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     } else if (names.has(layer.name)) {
       throw new Error(`Duplicate layer name: "${layer.name}".`);
     } else if (/[*?{}[\]\\/]/.test(layer.name)) {
-      // A layer name is substituted into every file glob and scaffolded as a
-      // folder — a `*` name turns each net into a wildcard and creates a
-      // literal `src/*/` (field batch 9's root-files workaround). Root files
-      // are wiring: their quality lint belongs to the project's own eslint,
-      // never to a manufactured layer.
+      // A layer name is substituted into every file glob and scaffolded as a folder,
+      // so a `*` name turns each net into a wildcard and creates a literal `src/*/`.
+      // Root files are wiring; their lint belongs to the project's own eslint.
       throw new Error(
         `Layer "${layer.name}" contains glob or path characters — layer names become `
         + 'file globs and folders. Root files are wiring, not a layer: leave their '
@@ -122,10 +120,8 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     names.add(layer.name);
   }
 
-  // The whole block is optional — the flat default the playbook promises
-  // (`{ layout: 'flat', entry: 'index' }`) is applied at read time; a config
-  // that never mentions `module` is complete (field issue #23: the playbook
-  // said "the flat default" while validation demanded module.entry).
+  // Optional in whole: the flat default is applied at read time, so a config that
+  // never mentions `module` is complete (field issue #23).
   if (module !== undefined) {
     if (module.layout !== undefined && module.layout !== 'folder' && module.layout !== 'flat') {
       throw new Error(
@@ -243,10 +239,8 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
 
 /** `usePrefix` must target a declared layer (default `hooks`) — unless it is off. */
 function validateUsePrefix(bp: Blueprint): void {
-  // A rule that never emits has no target to validate — `usePrefix: 'off'`
-  // on a repo without a hooks layer must not throw (field batch 8). No separate
-  // `undefined` guard in front: `activeSetting` answers null for an absent setting
-  // too, so the guard below already covers both ways of not being configured.
+  // A rule that never emits has no target to validate (field batch 8). No separate
+  // `undefined` guard: `activeSetting` answers null for an absent setting too.
   const read = activeSetting(bp.rules?.usePrefix);
 
   if (read === null) return;
@@ -298,9 +292,8 @@ function validateAgentEmit(bp: Blueprint): void {
 /** Validate a layer's `owns` list — each entry is a package, global, or shorthand. */
 /**
  * A key the schema does not know is a silently dead declaration — the author
- * believes a constraint is active while nothing compiles from it (field
- * issue #14: a layer-level `selfOnly` validated fine, and the intended
- * re-export ban never existed). Fail loud, and point misplaced keys home.
+ * believes a constraint is active while nothing compiles from it (field issue #14).
+ * Fail loud, and point misplaced keys home.
  */
 function rejectUnknownKeys(
   value: object,
@@ -403,14 +396,10 @@ function validateLintOverrides(layer: LayerDef): void {
 }
 
 /**
- * Normalize a rule setting to its tier string.
- *
- * Not `readSetting` on purpose: this runs during validation, where the setting is
- * whatever a hand-written config put there — including null. The optional chain is
- * what lets an unknown tier become a precise error instead of a property crash,
- * and the `typeof` here is observable in a way the reader's is not (mutate the
- * string arm and a bare tier reads as undefined, which the invalid-tier test
- * catches).
+ * Normalize a rule setting to its tier string. Not `readSetting`: this runs during
+ * validation, where the setting is whatever a hand-written config put there —
+ * including null, which the optional chain turns into a precise error rather than a
+ * property crash.
  */
 function resolveTier(setting: RuleSetting): string {
   return typeof setting === 'string' ? setting : setting?.tier;

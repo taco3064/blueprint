@@ -53,26 +53,14 @@ export function renderCompactContract(blueprint: Blueprint): string {
     return `\`${id}\`${value === undefined ? '' : ` = ${value}`}`;
   };
 
-  // Split by WHICH machine holds each gate, not just whether one does.
-  // `LINT_GATED_RULE_IDS` answers "gated at all?" — `cycles` is on it while its
-  // runtime is `inspect`, because import/no-cycle re-walks the whole graph per file
-  // and was measured at 92s on 850 files. The handbook has separated them since field
-  // issue #52; this contract had not, and the previous release attached "by the
-  // generated eslint config" to the undivided list — turning a true sentence ("a
-  // machine holds these") into a false one for `cycles`. A field agent found the two
-  // artifacts disagreeing and read the contract as promising that lint catches cycles.
-  // It does not, and the contract is the file an agent reads with nothing beside it.
-  // Singular on purpose, not an oversight: exactly one declared rule is inspect-held
-  // (`cycles`), so a plural arm here would be a branch no input can take. That count
-  // is pinned in this module's tests, which turn red on a second one rather than
-  // letting "X, Y is held by" ship.
-  // No `LINT_GATED_RULE_IDS` pre-filter: `enforcedBy` answers `docs` for anything not
-  // on that list, so a rule held by neither machine falls out of both splits below on
-  // its own. Filtering first asked the same question twice.
-  // A gate this blueprint cannot emit is not among the ones a lint run fails on, and
-  // saying so was a false sentence about the reader's own repo: `deepWatch` declared
-  // `error` on React, `testFilename` declared beside `testFiles: []`. Both are decidable
-  // from the blueprint alone, which is all this emitter has (field run #150).
+  // Split by WHICH machine holds each gate: `cycles` is lint-gated by id while its
+  // runtime is `inspect`, so an undivided list promises that lint catches cycles
+  // (field issue #52). The singular verb below is pinned by this module's tests —
+  // exactly one declared rule is inspect-held, so a plural arm is unreachable.
+  //
+  // No `LINT_GATED_RULE_IDS` pre-filter: `enforcedBy` answers `docs` off that list
+  // anyway. And a gate this blueprint cannot emit is excluded, or the contract makes
+  // a false claim about the reader's own repo (field run #150).
   const emittable = ([id]: [string, unknown]): boolean =>
     unavailableFromBlueprint(id, blueprint.framework, architecture.testFiles) === null;
 
@@ -93,28 +81,15 @@ export function renderCompactContract(blueprint: Blueprint): string {
     `- Layer flow: ${chain} — transitive: a layer may import **any** layer after it, unless the target narrows its importers.`,
     `- **Before adding, moving, or renaming any file** — placement, module shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
     '- **Operating discipline** — how to follow the flow, react to lint failures, and the pre-commit checklist: read [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md) (ships inside the package — present once dependencies are installed, always matching the installed version).',
-    // "Machine-enforced" names the mechanism; this also names its REACH, and does so
-    // without a count that goes stale. Every CLI surface marks a net over an empty
-    // repo as vacuous — and this contract, the one artifact a future agent reads with
-    // no CLI output beside it, was the only one that did not. Two field agents flagged
-    // the gap independently, one noting it is exactly the file read alone.
-    // One line, not two: this block is budgeted to one screen, and a caveat is not
-    // worth a line of that budget when it fits as a clause.
-    // "the project's lint run", not `npm run lint`. This file is generated from the
-    // blueprint alone and cannot see the repo — the sibling comment in emit/docs says
-    // so — and the runner is a repo fact: init detected `pnpm`, used `pnpm add`, and
-    // then wrote a contract telling the next agent to run npm, in a repo whose own
-    // CLAUDE.md says not to (field run #141). A name it cannot check is worse than no
-    // name: the reader finds the script in package.json either way.
+    // Names the gates' REACH as a clause, not a second line: every other CLI surface
+    // marks an empty net as vacuous, and this contract is the one artifact read with
+    // no CLI output beside it. "the project's lint run", never `npm run lint` — the
+    // runner is a repo fact this emitter cannot see (field run #141).
     `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectGates.join(', ')} is held by \`npx blueprint inspect --baseline\` instead, so a green lint says nothing about it` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
-    // --baseline so the verify loop fails only on findings the agent itself
-    // introduced — plain inspect stays red forever on locked brownfield debt
-    // (field issue #10).
-    // `inspect`'s finding offers two remedies ("declare it, or move its code"); this
-    // said only the second, and an agent reading nothing else contorts new code into an
-    // existing layer rather than reporting that the architecture outgrew the config.
-    // Naming both, and whose each is: declaring a layer is an architecture decision, the
-    // same call the authoring playbook keeps away from an adopting agent.
+    // --baseline, or the verify loop stays red forever on locked brownfield debt
+    // (field issue #10). Both remedies are named, and whose each is: told only "move
+    // the code", an agent contorts it into an existing layer instead of reporting
+    // that the architecture outgrew the config.
     `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a module of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.`,
   ].join('\n');
 }

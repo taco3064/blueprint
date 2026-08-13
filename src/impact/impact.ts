@@ -8,12 +8,8 @@ import { detect, loadProjectModule, resolveBlueprint, unwrapModule } from '../pr
 import type { ResolveOptions } from '../project';
 
 /**
- * `blueprint impact` — the rule-impact dry-run. Field feedback's costliest
- * authoring step was deciding rule conflicts before wiring: "how many times
- * would each emitted rule fire on this repo?" was answered by dumping the
- * emitLint output and reading it against the code by hand. This runtime
- * answers it directly: build the emitted config, run the *project's own*
- * ESLint over the layer files with only that config, and report hits per
+ * `blueprint impact` — the rule-impact dry-run: build the emitted config, run the
+ * PROJECT'S OWN ESLint over the layer files with only that config, report hits per
  * rule. Informational, never a gate — the exit code stays 0.
  */
 
@@ -41,16 +37,9 @@ export interface RuleImpact {
   /** The heaviest files, worst first (capped at five). */
   top: { path: string; count: number }[];
   /**
-   * True when the rule id is NOT part of the emitted config — an artifact of
-   * linting in isolation (e.g. an existing `eslint-disable custom/x` comment
-   * whose rule lives in the project's own config, absent here). Not counted
-   * in the total: merging emitLint into the real config makes these vanish.
-   *
-   * `count` is then a count of MENTIONS, and its location the comment: ESLint
-   * reports an unresolvable name in a directive at the directive, so nothing
-   * here says the code beneath it violates anything. A field agent read one of
-   * these rows as "impact ignored my inline disable and counted the code under
-   * it" — a reasonable reading of a row the report called an echo (run #146).
+   * True when the rule id is NOT part of the emitted config — an artifact of linting
+   * in isolation, not counted in the total. `count` is then MENTIONS and its location
+   * the directive, so nothing here says the code beneath it violates anything (#146).
    */
   foreign: boolean;
 }
@@ -76,13 +65,9 @@ async function loadStack(
   try {
     return await load(name, root);
   } catch (error) {
-    // "Not installed" would over-claim: exotic layouts (pnpm isolation +
-    // ESM-only entries) can defeat resolution for an installed package. The
-    // loader's own error is the only thing that says WHICH package failed, and
-    // discarding it made those two cases identical on screen: a run whose
-    // `eslint-plugin-import-x` was present but missing a transitive read this
-    // as "add the plugin", added it again, and went through three more lint
-    // runs and three package.json files to reach `unrs-resolver` (run #145).
+    // "Not installed" would over-claim — resolution can fail for an installed
+    // package. The loader's own error is the only thing naming WHICH package failed,
+    // and discarding it sent a run through three package.json files (#145).
     throw new Error(
       `impact needs "${name}" from the project's dependencies and could not load it. `
       + `The loader said: ${error instanceof Error ? error.message : String(error)}\n`
@@ -135,14 +120,9 @@ export async function runImpact(
     ? unwrapModule<Linter.Parser>(await loadStack(load, root, 'vue-eslint-parser'))
     : null;
 
-  // Required only where a gate would actually use it. Loading both
-  // unconditionally was deliberate — omitting a carrier reports 0 hits for an
-  // ACTIVE gate, indistinguishable from a clean repo — and it made the wrong
-  // trade on a config that declares no gates at all: a repo translating only
-  // structural flow was refused the whole command over a formatting plugin
-  // nothing would have emitted, and had to substitute `--print-config` runs by
-  // hand (field run #133). The gate list is the same one doctor's survival check
-  // reads, so "needed" here means exactly what "expected to resolve" means there.
+  // Required only where a gate would use it: loading both unconditionally refused
+  // the whole command to a config declaring no gates at all (field run #133). The
+  // gate list is doctor's, so "needed" means what "expected to resolve" means there.
   const carriers = new Set(expectedCarriers(blueprint, ts).map((entry) => entry.carrier));
 
   const stylistic = carriers.has('stylistic')

@@ -48,13 +48,10 @@ const TARGETS: Record<AgentTarget, TargetSpec> = {
 };
 
 /**
- * Distribute the agent contract across tool-specific files. Shared context
- * files (`merge` strategy — CLAUDE.md, AGENTS.md…) get the **compact** pointer
- * block: people maintain those documents, so the bulk lives behind links.
- * Tool-owned rule files (`own` — Cursor, Windsurf) get the full contract.
- * `defaultTargets` overrides the built-in default when `emit.agents` is
- * unset — `init --agent claude` narrows to the one tool actually in use.
- * Pure — decides paths and content, writes nothing.
+ * Distribute the agent contract across tool-specific files. Shared context files
+ * (`merge`) get the compact pointer block, since people maintain those documents;
+ * tool-owned rule files (`own`) get the full contract. `defaultTargets` overrides
+ * the built-in default when `emit.agents` is unset. Pure — writes nothing.
  * @group Emitters
  * @example
  * for (const file of emitAgentFiles(blueprint)) {
