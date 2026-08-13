@@ -3,13 +3,10 @@ import { spawnSync } from 'node:child_process';
 import { AGENT_PROMPT } from './authoring';
 
 /**
- * The `--agent` launcher — deliberately the thinnest layer of the authoring
- * flow. It spawns the user's own agent CLI in the foreground (interactive,
- * stdio inherited), feeding it the same entry prompt init already printed.
- * Every artifact is on disk *before* the spawn, so a launch failure — or an
- * agent that gives up midway — degrades to exactly the manual path. Blueprint
- * itself still makes no network calls and holds no credentials; the agent
- * session runs under the user's own CLI permissions.
+ * The `--agent` launcher, deliberately the thinnest layer here: it spawns the
+ * user's own agent CLI in the foreground with the entry prompt init already
+ * printed. Every artifact is on disk BEFORE the spawn, so a launch failure
+ * degrades to exactly the manual path. Blueprint makes no network calls itself.
  */
 
 export const AGENT_KINDS = ['claude', 'codex'] as const;

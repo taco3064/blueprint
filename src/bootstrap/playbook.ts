@@ -11,20 +11,8 @@ import { renderSurvey } from '../survey';
 import type { SurveyResult } from '../survey';
 
 /**
- * The authoring playbook, one function per emitted section.
- *
- * It used to be a single 590-line template literal inside `authoringBrief`, and
- * the cost was not its length: a paragraph had no name, so its only address was
- * its own text. Finding one meant reading the file, an `Edit` anchor could
- * collide with a passage that repeats deliberately, and the same shape let one
- * shared block be maintained as two hand-copied paraphrases (see
- * `printConfigCaveats`). A section with a name is greppable, its call site in
- * `authoringBrief` reads as the table of contents, and a duplicated passage
- * becomes one function called twice instead of two texts to keep in step.
- *
- * The prose is the product here — 79% of the old file was emitted text — so
- * nothing about the wording changed when it moved. Verified as byte-identical
- * output across every conditional combination.
+ * The authoring playbook, one function per emitted section — `authoringBrief`'s
+ * call list is the table of contents, and a passage used twice is one function.
  */
 
 /** A repo counts as brownfield when src/ already holds this many source files. */
@@ -32,25 +20,12 @@ export const BROWNFIELD_MIN_FILES = 10;
 
 /**
  * The four facts that make a *correct* resolved config look broken, for the two
- * paths that reach `--print-config`: the early-exit checklist's lint step, and
- * the merge step of Method 9. It was prose at both sites, and `git blame` names
- * two commits that edited BOTH copies in one pass — so hand-copied sync, not a
- * forgotten edit, and it still produced four divergent paraphrases (74.3%
- * similarity once whitespace is normalised). The wording kept here is the merge
- * step's: two later commits reached that copy and not the checklist's, so it is
- * the newer text, which is the reason rather than that it reads tighter.
+ * paths reaching `--print-config`. Each caller opens the sentence itself, where
+ * the framing genuinely differs; this carries the part that must not.
  *
- * Both sites open the sentence themselves — the checklist says "read the output
- * knowing four things", the merge step "Four things to know before reading that
- * output" — because there the framing genuinely differs. This carries the part
- * that must not.
- *
- * `indent` is the continuation indent of the list the caller sits in (three
- * spaces inside a numbered item, five inside a bullet under one). The lines are
- * wrapped for the deeper one and reused at the shallower, so the checklist's
- * copy sits two columns short of the margin — invisible once rendered, and
- * cheaper than a re-wrapper that would have to be right at both widths. The
- * first line carries no indent: it continues the caller's own line.
+ * `indent` is the caller's continuation indent. Lines are wrapped for the deeper
+ * of the two and reused at the shallower; the first carries no indent, since it
+ * continues the caller's own line.
  */
 function printConfigCaveats(): string {
   return [
@@ -60,26 +35,11 @@ function printConfigCaveats(): string {
 }
 
 /**
- * What authoring leaves behind, for every site that instructs its removal. The
- * early-exit checklist named all of it — the two files and the directories init
- * created for them, with `claudeDir` deciding whether `.claude/` is one of
- * them. The Method's finish step and the acceptance gate said "the two authoring
- * files", so an agent on the Method path was told to delete two files and nothing
- * about the two directories it had just watched init create. It invented the
- * `rmdir` and reported having to (field run #124) — correctly, and off a fact the
- * tool already measures.
- *
- * Same shape as `printConfigCaveats`: one passage, four call sites, wrapped for
- * the deepest indent and reused at the shallower ones. Three copies of a rule
- * with a branch in it is how the branch goes missing from two of them.
- *
- * The fourth site is the banner, and it was the miss in #124's own fix: the
- * extraction covered the three sites that listed targets and left the header
- * naming two files — the version that opens the document, and so the one a
- * reader takes for the authoritative short form. Its "doctor flags BOTH as
- * leftovers" then read as confirmation that the two files were the whole list.
- * Nothing downstream catches the difference: doctor's leftover check matches
- * file families and never looks at a directory (run #145).
+ * What authoring leaves behind — the two files AND the directories init created
+ * for them, with `claudeDir` deciding whether `.claude/` is one. One passage, four
+ * call sites including the banner: doctor's leftover check matches file families
+ * and never looks at a directory, so nothing downstream catches a copy that drops
+ * the directories (field runs #124, #145).
  */
 function cleanupTargets(claudeDir: ClaudeDirState): string {
   // The owner's own commands live here too, and "now-empty" was asserted about a
@@ -123,19 +83,9 @@ export function renderNextNote(next: boolean): string {
 }
 
 /**
- * Which build to run, from a measured fact rather than a per-repo instruction.
- *
- * Three releases running, this was prose about the adopter's tsconfig: first an
- * assertion that a Vite + TS starter keeps `vite.config.ts` inside a tsconfig
- * project (false on the shape this repo's own harness stages), then an
- * instruction to go read it, which was correct and still grew a conditional
- * premise and a fused-attribution problem in the two batches after. Every one of
- * those findings landed in this same paragraph, which is the signal that prose
- * was doing a program's job. `viteTsCoverage` reads the tsconfig graph instead.
- *
- * `null` is the honest third case — an `exclude` list, an `extends` base, a glob
- * shape the reader will not guess at — and there the original wording stands,
- * because "go and look" is exactly right when the tool could not.
+ * Which build to run, from a measured fact rather than a per-repo instruction —
+ * `viteTsCoverage` reads the tsconfig graph. `null` is the honest third case, and
+ * there "go and look" stands, because it is exactly right when the tool could not.
  */
 function renderBuildChoice(viteTs: ViteTsCoverage | null, pm: PackageManager): string[] {
   const shared = [
@@ -170,13 +120,8 @@ function renderBuildChoice(viteTs: ViteTsCoverage | null, pm: PackageManager): s
 }
 
 /**
- * The early-exit verdict, and only below the threshold.
- *
- * The most common repo `init` ever meets is a starter, and the correct outcome
- * there is the early exit — a conclusion that must not sit buried mid-playbook
- * where a hurried agent walks the full ceremony past it (field batch 10). Below
- * the threshold the verdict leads, carrying the complete checklist so nothing
- * else in the file applies.
+ * The early-exit verdict, and only below the threshold — it LEADS there, carrying
+ * the complete checklist, so a hurried agent cannot walk the ceremony past it.
  */
 /**
  * What the build leaves behind and who owns it. `tsc -b` writes a
@@ -184,20 +129,13 @@ function renderBuildChoice(viteTs: ViteTsCoverage | null, pm: PackageManager): s
  * produces untracked files in someone's working tree — a step THIS playbook asked
  * for, which is why it has to say so rather than leave a mess unexplained.
  *
- * The lead-in belongs to the first line rather than to the call site. It sat there,
- * as its own element ending in "and", so the `\n` join put a line break inside the
- * sentence and the emitted document had one line that was not one — the exact thing
- * the sentence-per-line pass removed everywhere else, surviving inside it. Different
- * from the long-line wrinkle a spliced `${…}` helper leaves: that one keeps the
- * sentence whole, this one split it and made it ungreppable.
+ * The lead-in belongs to the first line, not the call site: as its own element the
+ * `\n` join would split the sentence across two lines and make it ungreppable.
  */
 function renderBuildArtifacts(tscOut: TscArtifactLocation | null): string {
-  // Measured, because the paragraph below opens on a premise about this repo and the
-  // premise is false on the shape `npm create vite` generates: `noEmit: true` plus a
-  // `tsBuildInfoFile` under `node_modules/` leaves the working tree untouched, so an
-  // agent told to report untracked files reports files that do not exist (field run
-  // #135). Only the certain negative specialises — everywhere else the wording below
-  // is right, including every repo whose vite build writes a bundle.
+  // Only the certain negative specialises: `npm create vite` pairs `noEmit` with a
+  // `tsBuildInfoFile` under `node_modules/`, so the wording below would name
+  // untracked files that do not exist (field run #135).
   if (tscOut !== null) {
     return [
       `   **\`tsc -b\` leaves nothing in this working tree, and that is measured.** \`${tscOut.tsconfig}\` sets \`noEmit\` and sends the build info to \`${tscOut.buildInfo}\`, which is out of the way by convention — so the build you just ran produced no untracked file here to decide about.`,
@@ -216,9 +154,8 @@ function renderBuildArtifacts(tscOut: TscArtifactLocation | null): string {
 }
 
 /**
- * The four cells, shared by both arms above. One text, because the measured arm needs
- * the same decision for the bundle that the default arm needs for everything — and
- * two copies of a four-way decision is how a cell goes missing from one of them.
+ * The four cells, shared by both arms above — two copies of a four-way decision is
+ * how a cell goes missing from one of them.
  */
 function renderArtifactCells(): string[] {
   return [
@@ -232,10 +169,8 @@ function renderArtifactCells(): string[] {
 }
 
 /**
- * The artifact hand-over, as three rules instead of a four-cell table. Naming all
- * four combinations of ignore-rules x version-control still left one cell
- * undecided, and three consecutive field runs called it a coin flip; these
- * paragraphs decide it, and say what "your own verification step" does not cover.
+ * The artifact hand-over, as three rules rather than a four-cell table — the table
+ * left one cell undecided and three field runs called it a coin flip.
  */
 function renderArtifactHandover(): string {
   return [
@@ -253,19 +188,10 @@ function renderArtifactHandover(): string {
 }
 
 /**
- * The early exit's verification step — 81 of the verdict block's 106 lines, the
- * same shape step 9 has inside the Method: one numbered item that is really a
- * section. Long because a green lint and a green build on a near-empty repo prove
- * less than they look like they prove, and every clause is a field finding about
- * that gap — which build to run, what `--print-config` does and does not compare,
- * and the four ways a correct resolved config reads as broken.
- *
- * Takes `viteTs` because this is where the build choice is *answered from the
- * repo* rather than asserted about it: field #99 disproved the universal that
- * replaced it, and a measurement is the fix that holds.
- *
- * Named so the next finding about it lands somewhere that has a name, instead of
- * in the middle of a numbered list nothing can address.
+ * The early exit's verification step — one numbered item that is really a section,
+ * long because a green lint and build on a near-empty repo prove less than they
+ * look like they prove. `viteTs` is here so the build choice is answered from the
+ * repo rather than asserted about it.
  */
 function renderEarlyExitVerify(
   viteTs: ViteTsCoverage | null,
@@ -424,60 +350,14 @@ export function renderGoal(): string {
 }
 
 /**
- * The three chained paragraphs about building the combined `no-restricted-*`
- * entry: one per collision rather than one per rule key, how to combine when the
- * spread is opaque, and what to do when the two sides' file scopes were never the
- * same. They stay together because each opens by referring to the last — this is
- * the one place in the playbook where the order really is load-bearing.
+ * The three chained paragraphs about building the combined `no-restricted-*` entry.
+ * They stay together and in this order: each opens by referring to the last, and
+ * this is the one place in the playbook where the order is load-bearing.
  *
- * All three used to rest on a premise that is false, and field issue #163 is an
- * agent following it into a wrong scope decision: that the hand-written entry is
- * the only carrier of blueprint's ban, so it must hold the SAME file scope and a
- * mismatch has to be resolved by widening to blueprint's glob. Flat config is
- * per-FILE — an entry contributes nothing to a file it does not match — so the
- * spread stays the carrier everywhere the hand-written entry does not reach, and
- * narrowing cannot make blueprint's ban lose a file. Measured with
- * `eslint --print-config`, one probe per direction, on **both majors CI runs** —
- * every cell resolved identically under 9.39.5 and 10.8.0, so none of this rests on
- * one version's behaviour:
- *
- * - combined entry narrowed to `.vue`: the layer's `.js` file still resolves
- *   blueprint's selector, from the spread. Narrowing costs blueprint nothing.
- * - same glob, blueprint's selectors left out: the ban is gone on every file the
- *   entry matches. THAT is the silent loss, and it is about contents, not scope.
- * - original house entry folded away, combined entry kept at the collision: the
- *   house rule's own outlying files resolve nothing. The silent direction runs
- *   against the rule you brought, which doctor states it does not compare.
- * - the arrangement now recommended (original entry untouched + combined entry at
- *   the collision, last in the array): all five file classes resolve exactly the
- *   rules they had, including the collision's test files, which the untouched
- *   original still governs after blueprint's `ignores` lifts the combined entry
- *   off them. That last cell is why renderTestExemptions no longer has to pick.
- * - that same arrangement with the combined entry ABOVE the original: the overlap
- *   resolves the house selector alone and blueprint's is gone there. The
- *   recommendation is order-dependent, so it says so — as a property of the entry
- *   the reader is about to write ("put it last"), which is satisfiable without
- *   touching a config that already exists.
- * - the repair this paragraph gave first — lift an original that sat below the
- *   spread above it — on a house entry that also sets `no-restricted-imports`: the
- *   collision key resolves correctly either way once the combined entry is last,
- *   while that OTHER key flips from the house's paths to blueprint's on the move.
- *   Any instruction to reorder an existing entry silently re-decides every key it
- *   carries, which is the loss this paragraph exists to prevent, so the constraint
- *   is stated on the new entry instead and nothing has to move.
- *
- * "Last" belongs to the second paragraph rather than the third, because the third
- * is entered only when the two scopes differ and the ordering binds either way: a
- * reader whose scopes match, keeping the original entry as the paragraph above
- * warns them to, needs the combined one below it too. Stating "after the spread"
- * there and the full condition only in the scope-mismatch branch would have left
- * the generator unqualified while the branch downstream of it was correct — the
- * same shape as the defect #163 filed.
- *
- * The premise entered one day before #163 (bd3d2f1, field runs #95–#97) as
- * reasoning about which failure is louder, never as a measurement. Prose is the
- * right medium for this — it is doctrine about ESLint, not a fact about the
- * adopter's repo — but the asymmetry it asserted was backwards.
+ * Every clause of the recommendation is pinned by conformance, negatives included
+ * — "combined one last, yours wherever it already sits" must survive and "has to
+ * move up" must not come back, because reordering an existing entry silently
+ * re-decides every other rule key it carries (field issue #163).
  */
 function renderCombinedEntry(): string {
   return [
@@ -509,18 +389,10 @@ function renderCombinedEntry(): string {
 
 /**
  * The `ignores` trap: a combined entry rebuilt from selector strings has no test
- * exemption unless it is written back. Separated from the merge mechanics because
- * dropping blueprint's `ignores` is loud only when a house rule collided on those
- * test files and silent otherwise, and doctor compares selectors rather than scope
- * so nothing downstream catches it. One real run spent a debug cycle on 34 errors
- * in a single test file getting this wrong.
- *
- * This used to read "it fails in both directions" — the mirror being that carrying
- * blueprint's `ignores` onto the combined entry strands YOUR rule on test files it
- * used to govern. #163 closed that direction rather than balancing it: the combined
- * entry now covers the collision only and the original entry stays above it, so
- * those test files keep the house rule once blueprint's `ignores` lifts the combined
- * entry off them (measured — see renderCombinedEntry). One direction now, not two.
+ * exemption unless it is written back. Separate from the merge mechanics because
+ * dropping blueprint's `ignores` is silent unless a house rule collided there, and
+ * doctor compares selectors rather than scope. One direction only — see
+ * `renderCombinedEntry` for why the mirror case closed.
  */
 function renderTestExemptions(): string {
   return [
@@ -543,18 +415,11 @@ function renderTestExemptions(): string {
 }
 
 /**
- * Method step 9's lint-merge bullet — 127 lines and the largest single passage in
- * the playbook, because a flat-config merge is where adoption most often goes
- * quietly wrong: a later entry REPLACES an earlier one, so a merge that reads
- * clean can delete a defense while lint stays green.
- *
- * Deliberately not split further, though it is still the biggest thing here. Its
- * paragraphs are one continuous argument — each refers back to the last ("that is
- * the same later-replaces-earlier property this paragraph opens by warning
- * about", "The same move runs the other way") — so cutting it into five functions
- * would make their ORDER load-bearing while stating it nowhere. That is the exact
- * defect the section-order test guards at the document level; no reason to
- * manufacture a second instance of it inside one bullet.
+ * Method step 9's lint-merge bullet, the playbook's largest passage: a later flat-
+ * config entry REPLACES an earlier one, so a merge that reads clean can delete a
+ * defense while lint stays green. Not split further on purpose — its paragraphs
+ * refer back to each other, so five functions would make their order load-bearing
+ * while stating it nowhere.
  */
 function renderLintMerge(): string {
   return [
@@ -623,17 +488,9 @@ function renderOverlappingTool(): string {
 }
 
 /**
- * Method step 9 — "Finish means integrated, not parked".
- *
- * A step by numbering only: steps 1-8 run one to five lines each, this one runs
- * 237, and it is the passage field findings land in because integration is where
- * adoption actually fails. Still emitted inside the numbered list, so the document
- * is unchanged — the split is so the growth has somewhere named to land. Ten lines
- * added to `renderLintMerge` read as "the merge guidance grew again"; the same ten
- * lines in an unnamed middle of a 334-line `renderMethod` read as nothing.
- *
- * The three short bullets stay inline: a bold lead-in of four to twelve lines is
- * already its own address, and a function per line would be noise.
+ * Method step 9 — "Finish means integrated, not parked". A step by numbering only,
+ * and the passage field findings land in, because integration is where adoption
+ * actually fails. The three short bullets stay inline.
  */
 function renderFinishStep(claudeDir: ClaudeDirState): string {
   return [
@@ -655,13 +512,10 @@ function renderFinishStep(claudeDir: ClaudeDirState): string {
 }
 
 /**
- * Method step 1 — 65 of the Method's 94 lines, and a section wearing a list
- * item's number for the same reason step 9 is: it carries the whole re-adoption
- * problem. An architecture doc already in the repo is intent evidence senior to
- * the import matrix, EXCEPT when it is blueprint's own prior output, and the
- * clauses a matrix cannot see (named-import ownership, selfOnly shape, an empty
- * runway layer's position) have to be reproduced from it or a "faithful"
- * re-adoption hands back a looser config than it replaced.
+ * Method step 1, carrying the whole re-adoption problem: an architecture doc in the
+ * repo is intent evidence senior to the import matrix, EXCEPT when it is
+ * blueprint's own prior output. The clauses a matrix cannot see must be reproduced
+ * from it, or a "faithful" re-adoption hands back a looser config than it replaced.
  */
 function renderIntentDocuments(): string {
   return [

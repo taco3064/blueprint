@@ -45,10 +45,8 @@ export interface InitOptions extends ResolveOptions {
   /** Force the preset scaffold on a brownfield repo (skip the authoring flow). */
   preset?: boolean;
   /**
-   * Force the authoring playbook even on a small repo (below the file-count
-   * threshold that would otherwise scaffold a preset). The symmetric escape
-   * hatch to `--preset`: an agent told to execute blueprint-authoring.md can
-   * guarantee the file is written. Mutually exclusive with `preset`.
+   * Force the authoring playbook even below the file-count threshold — the
+   * symmetric escape hatch to `--preset`, and mutually exclusive with it.
    */
   authoring?: boolean;
   /** Launch this agent CLI on the authoring playbook after writing it. */
@@ -82,25 +80,16 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     throw new Error('--preset and --authoring are mutually exclusive — pick one.');
   }
 
-  // `--authoring` after a plain init used to be a silent no-op: the scaffolded
-  // preset config made hasConfig true and the fork below never ran. A config
-  // that is byte-identical to init's own scaffold output is init-owned — safe
-  // for --authoring to take over. A hand-edited one is the user's: refuse.
+  // A config byte-identical to init's own scaffold output is init-owned, so
+  // `--authoring` may take it over. A hand-edited one is the user's: refuse.
   const pristine = state.hasConfig && isPristineScaffold(root, state);
 
   if (options.authoring && state.hasConfig && !pristine) {
     throw new Error(
-      // Not "has been edited": all this knows is that the file differs from what init
-      // would scaffold today, and a config authored by a previous agent differs without
-      // anyone having edited it. And name what is actually lost — re-authoring rewrites
-      // from scratch rather than merging, so the structure comes back (a field run
-      // reproduced it byte for byte) while the inline rationale does not. "Discard your
-      // work" reads as recoverable when the recoverable half is not the valuable one.
-      // And say where the rescued comments go back to. The guard exists to save the
-      // WHY, then stopped at "copy anything you want to keep" — a field agent put them
-      // back beside the clauses they explain and marked that as its own invention,
-      // because nothing here had a stance (field run #110). A report is read once; the
-      // config is what the next re-authoring meets.
+      // Not "has been edited" — a config a previous agent authored differs without
+      // anyone editing it. Names what is actually lost (re-authoring rewrites rather
+      // than merges, so the structure returns and the inline rationale does not) and
+      // where the rescued comments go back to (field run #110).
       'blueprint.config.mjs differs from what init would scaffold — so it is yours, not '
       + 'init\'s output, and re-authoring rewrites it from scratch rather than merging. '
       + 'The structure is reproducible; the comments explaining WHY each threshold and '
@@ -122,17 +111,13 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     const surveyRoot = state.hasNext && !state.nextSrcDir ? '.' : undefined;
     const survey = runSurvey(root, { log: () => {}, sourceRoot: surveyRoot });
 
-    // Greenfield Next with a detected router uses nextPreset (below). Anything
-    // brownfield — or a Next project whose route tree we cannot place — is read
-    // by the authoring flow, never guessed. `--authoring` forces it regardless
-    // of file count, so an agent can guarantee the playbook is written.
+    // Brownfield, or a Next project whose route tree cannot be placed, is read by
+    // the authoring flow rather than guessed at.
     const brownfield = survey.totalFiles >= BROWNFIELD_MIN_FILES;
 
     if (options.authoring || brownfield || (state.hasNext && !state.nextRouter)) {
-      // Measured BEFORE anything is written: once init has created the tree, it
-      // cannot tell its own directory from one the owner already had — and the same
-      // goes for the commands inside it, which is the half the cleanup sentence used
-      // to assert instead of read (field run #139).
+      // Measured BEFORE anything is written: afterwards init cannot tell its own
+      // directory, or the commands inside it, from the owner's (field run #139).
       return runAuthoring(root, state, survey, options, log, pristine, {
         claudeDir: claudeDirState(root),
         // The build step used to hand this question to the agent ("read your
@@ -153,11 +138,8 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
         + 'on this path. Force the authoring playbook instead with: blueprint init --authoring.';
   }
 
-  // --agent narrows the contract targets to the one tool in use — and on a
-  // fresh scaffold the choice is PERSISTED into the generated config's
-  // emit.agents, so the next plain init does not grow the second contract
-  // back (field issue #5). An explicit emit.agents in an existing config
-  // still wins.
+  // On a fresh scaffold the choice is PERSISTED into `emit.agents`, or the next
+  // plain init grows the dropped contract back. An existing config still wins.
   const agentTarget = options.agent ? agentTargetOf(options.agent) : undefined;
 
   const { blueprint, configSource } = await resolveBlueprint(root, state, {
@@ -165,16 +147,12 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     ...(agentTarget ? { scaffoldAgents: [agentTarget] } : {}),
   });
 
-  // Read the merge targets init will write into, plus every default agent
-  // path — the extras feed plan's stale-contract cleanup. A merge target may carry
-  // a path of its own (`emit.agents: [{ target, path }]`), which is why the first
-  // half is not simply a subset of the second.
+  // Merge targets plus every default agent path — the extras feed plan's stale-
+  // contract cleanup, and a merge target may carry a path of its own.
   //
-  // Undecidable (three mutants share this): the `merge` filter is invisible to
-  // behaviour and is here for the I/O — `plan`
-  // looks this record up only at merge paths and at default paths, so an extra key
-  // is a file read that nobody ever asks about. Widening it changes what init
-  // reads, not what init does.
+  // undecidable (three mutants): the `merge` filter is I/O, not behaviour — plan
+  // looks this record up only at merge and default paths, so widening it changes
+  // what init reads, never what init does.
   const agentPaths = [
     ...new Set([
       ...emitAgentFiles(blueprint, agentTarget ? [agentTarget] : undefined)
@@ -211,17 +189,12 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   ]);
 
   if (hidden.length) {
-    // The heads-up used to hand the fix back to the user; init wires the
-    // alias into user configs already, so it can wire this too (field
-    // issue #4). Negations win by coming later — appending is enough,
-    // unless git excludes a whole parent DIRECTORY, which a `!file` cannot
-    // re-include; the note says so instead of pretending.
+    // Negations win by coming later, so appending is enough — unless git excludes
+    // a whole parent DIRECTORY, which a `!file` cannot re-include (field issue #4).
     const gitignore = fs.readFileSync(path.join(root, '.gitignore'), 'utf-8');
 
-    // The appended lines take the file's own line ending. A .gitignore on Windows
-    // is usually CRLF, and joining LF onto it leaves the file mixed — git reads
-    // both, so nothing breaks, but blueprint would be the reason a tracked file
-    // has two conventions in it.
+    // The file's own line ending, or blueprint is the reason a tracked file has
+    // two conventions in it.
     const eol = gitignore.includes('\r\n') ? '\r\n' : '\n';
 
     actions.push({
@@ -236,11 +209,9 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
         ...hidden.map(({ file }) => `!${file}`),
         '',
       ].join(eol),
-      // Name the rule that hid each file, not only the file. Checking this claim
-      // AFTER the negation lands answers "not ignored" — the negation working, not
-      // evidence it was unnecessary — and a field agent filed the fix as a no-op on
-      // exactly that reading. With the pattern named, the check is
-      // `git check-ignore -v <file>` against a .gitignore with these lines removed.
+      // Name the rule that hid each file, not only the file: checked after the
+      // negation lands, `git check-ignore` answers "not ignored" and reads as
+      // evidence the fix was a no-op.
       note: `.gitignore (re-included ${hidden
         .map(({ file, rule }) => `${file} — hidden by \`${rule}\``)
         .join('; ')} — via !; delete the appended lines to keep ${hidden.length === 1 ? 'it' : 'them'} hidden; if a parent directory is wholly excluded, git needs that directory re-included too)`,
@@ -263,10 +234,8 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   // convention, not a detected fact. Name the decision instead of letting
   // the choice pass as if the repo had asked for it (field issue #2).
   if (configSource !== null && pathAliasKeys(state.tsconfigs).size === 0) {
-    // "First alias" is a claim about the repo, and an unparseable tsconfig makes
-    // it one init cannot support — the alias it is about to introduce may already
-    // be declared in the file nobody could read. Say which reading produced the
-    // claim rather than letting a broken file pass as an empty one.
+    // "First alias" is a claim an unparseable tsconfig cannot support — say which
+    // reading produced it, rather than letting a broken file pass as an empty one.
     const unreadable = unreadableTsconfigs(state.tsconfigs);
 
     actions.push({
@@ -279,21 +248,13 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     });
   }
 
-  // `codeStyle` at error tier pins indent, quotes, semicolons and line width — about
-  // 68 rules. The rule catalog says how to land that ("nearly all auto-fixable, run
-  // --fix once as its own commit"), and the catalog ships in the authoring playbook,
-  // which THIS path never writes: a preset scaffold reaches `init` and stops. So the
-  // guidance existed on the one path that did not need it. It matters most where the
-  // repo already has a style: a Vite starter is written without semicolons, and the
-  // preset asks for them — invisible today, because root files are exempt, and an
-  // error the day the first file moves into a layer (field run #84).
+  // The `codeStyle` landing guidance ships in the authoring playbook, which this
+  // path never writes — a preset scaffold reaches `init` and stops (field run #84).
   //
-  // No `codeStyle` check beside the scaffold check: a generated `configSource` always
-  // comes from a preset (`resolveBlueprint` consults `loadConfig` only when a config
-  // already exists), and every preset declares `codeStyle` at error tier. Asking again
-  // was a condition nothing could falsify. `presets.test.ts` pins that, so a preset
-  // that stops declaring it turns red instead of leaving this note claiming a gate the
-  // adopter does not have.
+  // No `codeStyle` check beside the scaffold one: a generated `configSource` always
+  // comes from a preset, and every preset declares it at error tier — pinned by
+  // `presets.test.ts`, so a preset that stops turns red instead of leaving this
+  // note claiming a gate the adopter does not have.
   if (configSource !== null) {
     actions.push({
       kind: 'instruct',
@@ -341,9 +302,8 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
 /** Starter-template violations, phrased as a to-do — null when the scaffold is clean. */
 /**
- * True when blueprint.config.mjs is byte-identical to what init itself would
- * scaffold today — i.e. never hand-edited. Only such a config may be taken
- * over by `--authoring`; anything else belongs to the user.
+ * True when blueprint.config.mjs is byte-identical to init's own scaffold output —
+ * the only config `--authoring` may take over.
  */
 function isPristineScaffold(root: string, state: ProjectState): boolean {
   const text = readTexts(root, [CONFIG_FILE])[CONFIG_FILE];
@@ -359,11 +319,8 @@ function isPristineScaffold(root: string, state: ProjectState): boolean {
     ]),
   );
 
-  // `state.hasNext &&` is not a second condition: `detectNext` returns a null
-  // router for anything that is not Next, so a router at all already means Next.
-  // What remains is undecidable: it is the narrowing `buildNextConfigSource` needs —
-  // its `router` parameter does not accept null, so reaching past this line with one
-  // is a type violation rather than a case a test could set up.
+  // undecidable: `detectNext` returns a null router for anything not Next, so this
+  // is the narrowing `buildNextConfigSource` needs, not a case a test could set up.
   if (state.nextRouter) {
     for (const agents of agentVariants) {
       candidates.push(
@@ -373,22 +330,16 @@ function isPristineScaffold(root: string, state: ProjectState): boolean {
     }
   }
 
-  // `some` rather than `includes`, so a `null` text needs no guard in front of it.
-  // The guard that used to sit above — "hasConfig guarantees the file exists; null
-  // only on a read race" — was carrying a v8-ignore for a branch that decided
-  // nothing: no candidate equals null, so the answer was already false. It existed
-  // because `includes` will not accept a `string | null`, which is the compiler's
-  // requirement and not this function's.
+  // `some` rather than `includes`, so a `null` text needs no guard: no candidate
+  // equals null, and `includes` refusing `string | null` is the compiler's
+  // requirement, not this function's.
   return candidates.some((candidate) => candidate === text);
 }
 
 /**
- * The local `lint` script must reach the generated eslint config, or the
- * structural rules never actually run (e.g. a template whose `lint` runs
- * oxlint only) — lint stays green while the architecture goes unchecked.
- * Fresh scaffolds get a precondition-guarded text patch — the exact
- * `"lint": "…"` pair must appear once, or we fall back to the instruction;
- * existing projects always get the instruction.
+ * The local `lint` script must reach the generated eslint config, or lint stays
+ * green while the architecture goes unchecked. Fresh scaffolds get a
+ * precondition-guarded patch; existing projects always get the instruction.
  */
 function lintScriptAction(root: string, blueprint: Blueprint, greenfield: boolean): Action | null {
   const file = path.join(root, 'package.json');
@@ -501,11 +452,9 @@ function runAuthoring(
 
   log(
     `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · brownfield without a config → authoring flow (${survey.totalFiles} source files surveyed)${
-      // --authoring below the threshold writes a playbook whose own verdict
-      // is the early exit — say so up front, or the flag looks like it
-      // produced a self-refuting document (field issues #7/#8). One name and
-      // one number for the gate everywhere — the playbook calls it the
-      // brownfield threshold, so the CLI does too (field run #10).
+      // Below the threshold the playbook's own verdict is the early exit — said up
+      // front, or the flag looks like it produced a self-refuting document. Same
+      // name and number for the gate as the playbook uses (field issues #7/#8, #10).
       forced
         ? ` — below the brownfield threshold (${BROWNFIELD_MIN_FILES} source files), forced by --authoring; the playbook's own verdict will be the early exit`
         : ''
@@ -530,15 +479,9 @@ function runAuthoring(
 }
 
 /**
- * Apply the plan, announcing each effect only once it has landed — and, when
- * one throws, naming what did NOT happen before rethrowing.
- *
- * The old shape printed the whole list with `✓` and applied it afterwards, so
- * a failing install (which sits mid-plan, with the alias writes below it) left
- * an output claiming edits that never reached disk. An adopter reading `✓
- * write: vite.config.ts (import alias added)` has no reason to check, and the
- * agent contract it ships promises an alias that resolves nowhere — the
- * doctor catches it, but only after the lie (field issue #37).
+ * Apply the plan, announcing each effect only once it has landed — and, when one
+ * throws, naming what did NOT happen before rethrowing. Printing the list up front
+ * claimed edits that never reached disk when a mid-plan step failed (field #37).
  */
 function applyAndNarrate(
   root: string,
@@ -576,13 +519,11 @@ function applyAndNarrate(
         + ' above yourself, or re-run init with `--no-install`. No version list to find'
         + ' first: these are your project\'s dependencies, installed unpinned so eslint'
         + ' resolves to the newest supported major.\n'
-        // What a killed install leaves behind, said here for the same reason the
-        // escape hatch is: the failure path below explains the half-done tree, and
-        // a killed process reaches neither. Four runs stopped this step as invited
-        // and then read the resulting state as breakage — one hand-wrote the
-        // manifest entries, one called it a repo left unverifiable (field runs
-        // #144–#146). The install is last in the plan, so "everything above is on
-        // disk" is the whole remainder, not a hopeful summary.
+        // What a killed install leaves behind: the failure path below explains the
+        // half-done tree and a killed process reaches neither, so four runs stopped
+        // here as invited and read the result as breakage (field runs #144–#146).
+        // The install is last in the plan, so "everything above is on disk" is the
+        // whole remainder, not a hopeful summary.
         // Not "what it leaves out is `package.json`": on the preset path a `✓ write:
         // package.json` sits two lines above this one (the lint script), and the two
         // read as a contradiction. What stopping omits is these packages IN it.
@@ -614,11 +555,8 @@ function formatAction(action: Action, dryRun: boolean): string {
     return `  · ${action.note}`;
   }
 
-  // A deletion wearing the same ✓ as the writes around it skims past as one
-  // more thing created — an agent that filtered init's output for `write`
-  // missed the removal of its own config and spent commands hunting a
-  // phantom (field issue #36). The mark says which direction the effect
-  // went; the note still carries the cause.
+  // A deletion wearing the same ✓ as the writes around it skims past as one more
+  // thing created (field issue #36). The mark says which direction the effect went.
   const mark = dryRun ? 'would' : action.kind === 'rm' ? '−' : '✓';
 
   return `  ${mark} ${action.kind}: ${action.note}`;
