@@ -898,6 +898,17 @@ describe('validateBlueprint · module guards that must NOT fire', () => {
     ]))).not.toThrow();
   });
 
+  it('survives a null module entry', () => {
+    // A hand-edited config leaves holes in arrays. Reaching through one without
+    // the optional chain crashes with a TypeError from inside blueprint, and the
+    // adopter reads a stack trace instead of the sentence naming the hole.
+    const config = withModules([{ name: 'Session', does: 'x' }]);
+
+    config.architecture.modules!.push(null as never);
+
+    expect(() => validateBlueprint(config)).toThrow(/Each module must have a non-empty name/);
+  });
+
   it('accepts an empty imports list as "depends on nothing"', () => {
     // The isolated default written out. Rejecting it would force the author to
     // choose between an empty array and an absent key on identical meaning.
