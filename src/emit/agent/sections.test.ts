@@ -102,6 +102,34 @@ describe('renderPlacement', () => {
     expect(out).not.toContain('Exception — `src/services/`');
   });
 
+  it('names the project\'s own test globs, never a hard-coded pair', () => {
+    const out = renderPlacement(arch({ testFiles: ['**/*.spec.ts', '**/*.fixtures.ts'] }));
+
+    expect(out).toContain('files matching `**/*.spec.ts` / `**/*.fixtures.ts` sit outside them');
+    expect(out).not.toContain('*.test.');
+
+    // Omitted means the default pair, which the contract must state rather
+    // than leave the agent to guess.
+    expect(renderPlacement(arch())).toContain('`**/*.test.{js,jsx,ts,tsx,vue}`');
+  });
+
+  it('renders no exemption line when testFiles is empty', () => {
+    const out = renderPlacement(arch({ testFiles: [] }));
+
+    expect(out).not.toContain('Test support is exempt');
+  });
+
+  it('closes the rename-to-escape route the exemption opens', () => {
+    const out = renderPlacement(arch());
+
+    expect(out).toContain('never rename a file to match those globs');
+    expect(out).toContain('never widen `architecture.testFiles` yourself');
+
+    // The third door is a question to raise, not a remedy to take: an agent
+    // told it may widen the globs edits the architecture to clear its own gate.
+    expect(out).toContain('that is a question for the owner');
+  });
+
   it('states the allowed importers, marking selfOnly ones', () => {
     const architecture: ArchitectureDef = {
       alias: '~app',
