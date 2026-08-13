@@ -14,12 +14,9 @@ export interface ResolveOptions {
   /** Load an existing blueprint.config (default dynamic import). */
   loadConfig?: (file: string) => Promise<Blueprint>;
   /**
-   * Persist these contract targets into a scaffolded config (`init --agent`).
-   * Without this, the flag only narrowed the RUN and the scaffolded config
-   * stayed silent — so the next plain init grew the second contract back,
-   * and the only persistent declaration was a hand edit (field issue #5's
-   * chicken-and-egg). An existing config is never touched — its own
-   * `emit.agents` is the declaration.
+   * Persist these contract targets into a scaffolded config (`init --agent`), or
+   * the next plain init grows the dropped contract back. An existing config is
+   * never touched — its own `emit.agents` is the declaration.
    */
   scaffoldAgents?: AgentTarget[];
 }
