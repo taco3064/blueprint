@@ -142,12 +142,9 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   );
 
   if (hasSelfOnly) {
-    // States the RULE, and leaves the notation to the legend that owns it. This said
-    // "a dashed edge may be depended on…" while the legend twelve lines above says a
-    // solid edge carries `selfOnly` and a dotted one records declaration order only —
-    // one document, two answers, and the wrong one points the reader at the edges that
-    // are explicitly NOT dependencies. Describing the drawing twice is what let them
-    // drift; the legend describes it once.
+    // States the RULE and leaves the notation to the legend that owns it — described
+    // twice, the two answers drifted and the wrong one pointed at the edges that are
+    // explicitly NOT dependencies.
     bullets.push(
       '- **selfOnly** — where a layer narrows its importers with `selfOnly`, that importer'
       + ' may depend on it but must never re-export it onward.',
@@ -255,11 +252,8 @@ export function renderRules(
 
   if (!entries.length) return '';
 
-  // "error fails lint" is true of most rows and false of two kinds: `cycles`
-  // is inspect's finding, and `deadCode` is documentation. Printing the tier
-  // under an unqualified legend told a reader of THIS file — the artifact
-  // meant to outlive the adoption — that a doc-only id gates their build
-  // (field issue #52). Each row now says which machine holds it.
+  // "error fails lint" is false for `cycles` (inspect's finding) and `deadCode`
+  // (documentation), so each row says which machine holds it (field issue #52).
   const HELD_BY = {
     lint: 'lint',
     inspect: '`blueprint inspect`',
@@ -286,12 +280,9 @@ export function renderRules(
     '',
     table(['Rule', 'Tier', 'Option', 'Enforced by'], rows),
     '',
-    // Reach, not only tier and machine. This document outlives the adoption and the
-    // agent contract links to it, so it is read long after the CLI output that marks a
-    // net over an empty repo as vacuous. Two field agents raised exactly this about the
-    // contract; the same gap sat one artifact further along. Stated glob-relative rather
-    // than as a count, because this file is generated from the blueprint alone — it
-    // cannot see the repo, and a number would be wrong the day code lands.
+    // Reach, not only tier and machine: this document is read long after the CLI
+    // output that marks an empty net as vacuous. Glob-relative rather than a count,
+    // because it is generated from the blueprint and cannot see the repo.
     'The tier is what the enforcing machine does with a violation: `error` fails, '
     + '`warn` is advisory, `off` is disabled. Which machine differs — `lint` rows fail '
     + 'the project\'s lint run, `blueprint inspect` rows fail `blueprint inspect` and '

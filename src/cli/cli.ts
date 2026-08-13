@@ -303,14 +303,9 @@ function parseAgent(value: string | undefined): AgentKind | undefined {
 
 /**
  * Every flag parser below walks a copy of argv as a queue, taking a value flag's
- * value with a second `shift()`.
- *
- * Not `for (let i = 0; i < args.length; i++)` with `args[++i]`: that form both
- * mutates its own loop variable and leaves the bound undecidable — one past the end
- * is `undefined`, which equals no flag name, so the loop exits on the next
- * iteration having done nothing either way. Nothing can tell the two apart, which
- * means nothing can tell a wrong bound from a right one. A queue has no index to
- * get wrong: it is empty or it is not.
+ * value with a second `shift()`. Not an index loop with `args[++i]`: that leaves the
+ * bound undecidable, since one past the end is `undefined` and the loop exits having
+ * done nothing either way. A queue has no index to get wrong.
  */
 
 /** Parse `init` flags. Unknown flags are ignored. */
@@ -420,9 +415,8 @@ export function parseDoctorArgs(args: string[]): DoctorOptions {
 }
 
 /**
- * Every flag each command answers to. Unknown flags fail loud instead of
- * being silently ignored — a field agent tried `inspect --verbose`, saw
- * identical output, and reasonably concluded the flag was a broken no-op.
+ * Every flag each command answers to. Unknown flags fail loud rather than being
+ * ignored — silently accepted, `inspect --verbose` reads as a broken no-op.
  */
 const KNOWN_FLAGS: Record<string, Set<string>> = {
   init: new Set(['--agent', '--preset', '--authoring', '--framework', '--no-install', '--dry-run']),
@@ -467,11 +461,8 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
     return 0;
   }
 
-  // `Object.hasOwn` over `in`, so the undefined-command guard is not needed as a
-  // separate condition: `hasOwn(record, '')` is false, which is the answer wanted
-  // for "no command was given". (`in` cannot take undefined as its left operand at
-  // all, so the guard existed for TypeScript rather than for the lookup — and `in`
-  // would also walk the prototype chain, which a command lookup has no use for.)
+  // `Object.hasOwn` over `in`: `hasOwn(record, '')` is false, which is the answer
+  // wanted for "no command given", and it does not walk the prototype chain.
   const help = COMMAND_HELP[command ?? ''];
 
   if (help !== undefined && (rest.includes('--help') || rest.includes('-h'))) {

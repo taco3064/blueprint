@@ -9,11 +9,9 @@ import type { ScanResult } from '../inspect/types';
 
 /**
  * `blueprint survey` — deterministic evidence for authoring a blueprint on a
- * brownfield repo. Runs *without* a config (it serves the moment before one
- * exists): folder candidates, the folder-to-folder import matrix, module-shape
- * evidence, test conventions, and package-usage concentration. It reports
- * facts and never judges — the judgment (intended layers, flow order,
- * ownership) belongs to whoever authors the config, human or agent.
+ * brownfield repo, run WITHOUT a config because it serves the moment before one
+ * exists. It reports facts and never judges: the judgment belongs to whoever
+ * authors the config.
  */
 
 /** Imports that resolve to a file directly under `src/` (no folder). */
@@ -70,21 +68,13 @@ export interface SurveyResult {
   /** Package → folders importing it, most-concentrated first. */
   packageUsage: { package: string; folders: string[] }[];
   /**
-   * Named imports that appear in exactly one folder, from a package that appears
-   * in several — the evidence a specifier-level `owns` clause needs, and the only
-   * evidence that can support one.
-   *
-   * `owns` takes `{ package: 'react', imports: ['createContext'] }`, so a config can
-   * hand one specifier to one layer. The matrix above is package-granular, so a
-   * re-adopting agent told to "verify against what the matrix CAN see" could not
-   * verify that clause at all: `react` reads as "half the layers use it" whichever
-   * specifier the clause names. One agent invented `grep` for it and said so — a gap
-   * the tool had no stance on, over a fact `scan` was already collecting and this
-   * survey was dropping (field run #148).
+   * Named imports appearing in exactly one folder, from a package that appears in
+   * several — the only evidence a specifier-level `owns` clause can rest on. The
+   * matrix above is package-granular, so it cannot verify one (field run #148).
    *
    * Only the concentrated ones, and only where the package is not: a specifier in
-   * three folders supports nothing, and one whose package already sits in a single
-   * folder is covered by the package-level row above.
+   * three folders supports nothing, and a package already in one folder is covered
+   * by the package-level row.
    */
   ownableImports: { package: string; name: string; folder: string }[];
   /**

@@ -8,9 +8,8 @@ export interface PresetOptions {
   /** Import alias. Defaults to `~app`. */
   alias?: string;
   /**
-   * Emit overrides — e.g. declaring the agent tool in use
-   * (`emit: { agents: ['claude'] }`), the first customization nearly every
-   * adoption makes. Passed straight through to the generated blueprint.
+   * Emit overrides — e.g. `emit: { agents: ['claude'] }`, the first customization
+   * nearly every adoption makes. Passed straight through.
    */
   emit?: EmitDef;
 }
@@ -48,9 +47,8 @@ function principles(): Blueprint['principles'] {
 }
 
 /**
- * The seven orthogonal component-shape axes — framework-neutral design
- * judgments (the handbook's Part 2). A set, not a pipeline: each axis is
- * judged independently. Triage rules are entry points, never verdicts.
+ * The seven orthogonal component-shape axes. A set, not a pipeline: each is judged
+ * independently, and triage rules are entry points rather than verdicts.
  */
 function componentShape(): AxisDef[] {
   return [
@@ -103,9 +101,8 @@ function componentShape(): AxisDef[] {
 }
 
 /**
- * The working playbook — the handbook's behavioral parts (runtime cost,
- * refactor and collaboration discipline). No tool enforces
- * these; they live in the emitted handbook and agent contract.
+ * The working playbook — the handbook's behavioral parts. No tool enforces these;
+ * they live in the emitted handbook and agent contract.
  */
 function playbook(): PlaybookSection[] {
   return [

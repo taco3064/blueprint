@@ -163,15 +163,11 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
 }
 
 /**
- * Entries for the known `blueprint.rules` ids — where a rule record stops
- * being documentation and becomes a lint gate. Metric ids map to built-in
- * rules; `deepWatch` / `usePrefix` ride the embedded plugin; `explicitAny`,
- * `codeStyle`, the two statement gates and `importBlock` ride a
- * caller-injected plugin and emit nothing without it (the library depends on
- * none of the three). Test files are exempt here because metrics scream on
- * tests — the shape family is the one exception and lives in its own entry.
- * Unknown ids stay docs-only, as do `cycles` (inspect's cycle finding) and
- * `deadCode` (knip's job) — neither emits an ESLint line.
+ * Entries for the known `blueprint.rules` ids — where a rule record stops being
+ * documentation and becomes a lint gate. The caller-injected gates emit nothing
+ * without their plugin. Test files are exempt here because metrics scream on tests;
+ * the shape family is the exception and has its own entry. Unknown ids stay
+ * docs-only, as do `cycles` and `deadCode`.
  */
 function ruleGateEntries(
   blueprint: Blueprint,
@@ -259,14 +255,10 @@ function ruleGateEntries(
 
   const testFilename = activeSetting(rules?.testFilename);
 
-  // `testGlobs.length` because this is the one entry whose `files` IS the test globs,
-  // and `testFiles: []` — a repo saying "nothing is exempt, tests inherit their layer's
-  // rules" — makes it `files: []`, which ESLint rejects outright: `Key "files":
-  // Expected value to be a non-empty array`. The config validated, `inspect` ran clean,
-  // and `impact` died on the emitted output, so an adopter spent eight minutes reading
-  // `dist/config/types.d.ts` and left with a sentinel glob invented to stand in for the
-  // empty array (field run #150). An entry scoped to no file protects nothing; the gate
-  // says it is unavailable through `unavailableGate`, so this drop is not silent.
+  // `testGlobs.length` because this entry's `files` IS the test globs, and
+  // `testFiles: []` makes it `files: []`, which ESLint rejects outright — the config
+  // validated, inspect ran clean, and `impact` died on the emitted output (field run
+  // #150). `unavailableGate` reports the drop, so it is not silent.
   if (testFilename && testGlobs.length) {
     entries.push({
       files: testGlobs,
@@ -309,15 +301,12 @@ interface StylisticPlugin {
 }
 
 /**
- * The one entry whose rules govern the *shape* of any source file — and the
- * only gate entry that does NOT exempt tests. Metrics are exempt because a
- * threshold screams on a test file; indentation, quoting and duplicate
- * imports do not get easier to read there.
+ * The one entry governing the SHAPE of any source file, and the only gate that does
+ * not exempt tests — indentation and quoting do not get easier to read there.
  *
  * Order inside the record is load-bearing: `customize()` already carries
- * `max-statements-per-line`, so the explicit gate is written after the bundle
- * to win — including when it is `off`, which the bundle would otherwise
- * silently switch back on.
+ * `max-statements-per-line`, so the explicit gate is written after it to win —
+ * including when it is `off`, which the bundle would otherwise switch back on.
  */
 function shapeEntry(
   blueprint: Blueprint,
@@ -379,12 +368,9 @@ function shapeEntry(
 }
 
 /**
- * The `codeStyle` bundle: `@stylistic`'s own `customize()` set plus the three
- * rules it leaves out. Reading the factory instead of hand-listing ~65 rule
- * names is deliberate — a hand-picked subset leaves gaps (an emitted config
- * that policed statements-per-line while allowing zero indentation was the
- * gap that started this), and the factory is a pure function of options the
- * caller can see.
+ * The `codeStyle` bundle: `@stylistic`'s own `customize()` set plus the three rules
+ * it leaves out. The factory rather than a hand-listed subset, because a subset
+ * leaves gaps — one policed statements-per-line while allowing zero indentation.
  */
 function codeStyleRules(gate: ReadSetting, stylistic: ESLint.Plugin): Linter.RulesRecord {
   const customize = (stylistic as StylisticPlugin).configs?.customize;
