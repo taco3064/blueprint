@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { defineBlueprint, validateBlueprint } from './defineBlueprint';
-import type { Blueprint } from './types';
+import type { Blueprint, ModuleDef } from './types';
 
 function base(): Blueprint {
   return {
@@ -686,5 +686,222 @@ describe('validateBlueprint · every rule the emitter manages', () => {
     config.architecture.layers[0].lintOverrides = { 'no-console': 'error' };
 
     expect(() => validateBlueprint(config)).not.toThrow();
+  });
+});
+
+describe('validateBlueprint · architecture.modules', () => {
+  /** The RFC's own example, trimmed: ordered, isolated, one router module. */
+  function modular(over: ModuleDef[] = []): Blueprint {
+    const config = base();
+
+    config.architecture.modules = over.length
+      ? over
+      : [
+          { name: 'app', does: 'Routing only.', layers: false, imports: ['GameStage', 'Session'] },
+          { name: 'GameStage', does: 'The run, rendered.', imports: ['Combat', 'Session'] },
+          { name: 'Combat', does: 'Bullets and damage.', imports: ['Session'] },
+          { name: 'Session', does: 'The run state machine.' },
+        ];
+
+    return config;
+  }
+
+  it('accepts an ordered, isolated set — and a config that omits it entirely', () => {
+    expect(() => validateBlueprint(modular())).not.toThrow();
+
+    const flat = base();
+
+    delete flat.architecture.modules;
+    expect(() => validateBlueprint(flat)).not.toThrow();
+  });
+
+  it('rejects a declared-but-empty list, naming the flat model as the way out', () => {
+    // Declared and empty, the module × layer glob product is empty too, so every
+    // file lands outside every net — governed by nothing, and green.
+    const config = modular();
+
+    config.architecture.modules = [];
+
+    expect(() => validateBlueprint(config)).toThrow(/must be a non-empty array when declared/);
+    expect(() => validateBlueprint(config)).toThrow(/outside every net/);
+  });
+
+  it.each([
+    ['a missing name', [{ does: 'x' } as ModuleDef], /Each module must have a non-empty name/],
+    ['a whitespace name', [{ name: '  ', does: 'x' }], /non-empty name/],
+    ['a duplicate name', [{ name: 'Combat', does: 'x' }, { name: 'Combat', does: 'y' }],
+      /Duplicate module name: "Combat"/],
+    // Two entries here, one folder on macOS: the second module's files land in
+    // the first module's net, governed by rules nobody wrote for them.
+    ['names differing only in case', [{ name: 'Fighter', does: 'x' }, { name: 'fighter', does: 'y' }],
+      /differ only in case/],
+    ['a glob character', [{ name: 'Fig*hter', does: 'x' }], /glob or path characters/],
+    // Modules do not nest, so a name is one segment — never a path.
+    ['a path separator', [{ name: 'features/Fighter', does: 'x' }], /never a path/],
+    ['a space', [{ name: 'My Module', does: 'x' }], /corrupt emitted artifacts/],
+    ['a mermaid-breaking character', [{ name: 'Fighter&Boss', does: 'x' }], /corrupt emitted artifacts/],
+  ])('rejects %s', (_label, modules, pattern) => {
+    expect(() => validateBlueprint(modular(modules as ModuleDef[]))).toThrow(pattern);
+  });
+
+  it.each([
+    ['a self-reference', { name: 'Combat', does: 'x', imports: ['Combat'] }, /cannot import itself/],
+    ['an undeclared module', { name: 'Combat', does: 'x', imports: ['Nope'] },
+      /imports "Nope", which is not a declared module/],
+    ['a duplicate entry', { name: 'Combat', does: 'x', imports: ['Session', 'Session'] },
+      /imports "Session" more than once/],
+    ['an entry with no name', { name: 'Combat', does: 'x', imports: ['  '] },
+      /imports an entry with no module name/],
+    ['a non-array imports', { name: 'Combat', does: 'x', imports: 'Session' as never },
+      /non-array imports/],
+  ])('rejects %s in imports', (_label, module, pattern) => {
+    const modules = [module as ModuleDef, { name: 'Session', does: 'The run state machine.' }];
+
+    expect(() => validateBlueprint(modular(modules))).toThrow(pattern);
+  });
+
+  it('rejects an import naming a module declared before it — the acyclicity guarantee', () => {
+    // Order is what makes the graph one-way BY CONSTRUCTION: no cycle check runs
+    // downstream, so a backward edge accepted here is a cycle nothing catches.
+    const backward = modular([
+      { name: 'Session', does: 'The run state machine.' },
+      { name: 'Combat', does: 'Bullets and damage.', imports: ['Session'] },
+    ]);
+
+    expect(() => validateBlueprint(backward)).toThrow(/declared before it/);
+    expect(() => validateBlueprint(backward)).toThrow(/keeps the flow one-way/);
+  });
+
+  it.each([
+    ['true', true],
+    ['a layer list', ['components']],
+    ['an object', {}],
+  ])('rejects layers: %s — false is the only value', (_label, value) => {
+    const modules = [{ name: 'Combat', does: 'x', layers: value as never }];
+
+    expect(() => validateBlueprint(modular(modules))).toThrow(/the only value is false/);
+  });
+
+  it.each([
+    ['allowedImporters', { allowedImporters: ['GameStage'] }, /`imports` on the module that HAS it/],
+    ['layout', { layout: 'folder' }, /unit shape inside a layer/],
+    ['entry', { entry: 'index' }, /unit shape inside a layer/],
+    ['mustNot', { mustNot: ['touch the DOM'] }, /A module's boundary is its `imports` list/],
+  ])('points a misplaced %s at the field that does exist', (_label, extra, pattern) => {
+    // "Unknown key" on a concept that exists one level away reads as "blueprint
+    // cannot express this", and the author writes it somewhere worse.
+    const modules = [{ name: 'Combat', does: 'x', ...extra } as ModuleDef];
+
+    expect(() => validateBlueprint(modular(modules))).toThrow(pattern);
+  });
+
+  it('validates a module owns entry the same way a layer\'s is validated', () => {
+    const empty = modular([{ name: 'Combat', does: 'x', owns: ['   '] }]);
+
+    expect(() => validateBlueprint(empty)).toThrow(/Module "Combat" owns an empty package name/);
+
+    const global = modular([{ name: 'Combat', does: 'x', owns: [{ global: '' }] }]);
+
+    expect(() => validateBlueprint(global)).toThrow(/Module "Combat" owns a global with no name/);
+
+    const stray = modular([
+      { name: 'Combat', does: 'x', owns: [{ package: 'axios', import: ['get'] } as never] },
+    ]);
+
+    expect(() => validateBlueprint(stray)).toThrow(/module "Combat" owns entry "axios"/);
+  });
+
+  it('refuses a primitive owned by both a module and a layer', () => {
+    // The intersection is what two independent ban emitters produce by accident
+    // rather than by design, and nobody asked for it.
+    const config = modular([{ name: 'Network', does: 'x', owns: ['axios'] }]);
+
+    config.architecture.layers[2].owns = ['axios'];
+
+    expect(() => validateBlueprint(config)).toThrow(/`axios` is owned by module "Network" and by layer "services"/);
+    expect(() => validateBlueprint(config)).toThrow(/blueprint will not pick one/);
+  });
+
+  it('sees the conflict across the two spellings of the same package', () => {
+    // `'axios'` and `{ package: 'axios' }` reach the same primitive and emit the
+    // same ban. Comparing entries as written would let the object form through,
+    // and the two owners would land in the emitted config unnoticed.
+    const config = modular([
+      { name: 'Network', does: 'x', owns: [{ package: 'axios', pattern: true }] },
+    ]);
+
+    config.architecture.layers[2].owns = ['axios'];
+
+    expect(() => validateBlueprint(config)).toThrow(/`axios` is owned by module "Network"/);
+  });
+
+  it('names every layer that declares a primitive the module also claims', () => {
+    // Several layers declaring the same primitive is legal — same-signature owns
+    // merge into one rule allowing each. Naming one of them sends the author to
+    // edit half the conflict.
+    const config = modular([{ name: 'Network', does: 'x', owns: [{ global: 'fetch' }] }]);
+
+    config.architecture.layers[0].owns = [{ global: 'fetch' }];
+    config.architecture.layers[1].owns = [{ global: 'fetch' }];
+
+    expect(() => validateBlueprint(config))
+      .toThrow(/global `fetch` is owned by module "Network" and by layers "components", "hooks"/);
+  });
+
+  it('leaves the same primitive alone when only modules declare it', () => {
+    const config = modular([
+      { name: 'Network', does: 'x', owns: ['axios'] },
+      { name: 'Session', does: 'y' },
+    ]);
+
+    config.architecture.layers[2].owns = [{ global: 'fetch' }];
+
+    expect(() => validateBlueprint(config)).not.toThrow();
+  });
+});
+
+describe('validateBlueprint · module guards that must NOT fire', () => {
+  function withModules(modules: ModuleDef[]): Blueprint {
+    const config = base();
+
+    config.architecture.modules = modules;
+
+    return config;
+  }
+
+  it('gives `app` no special treatment', () => {
+    // `app` is a convention, not a reserved name: nothing here may require
+    // `layers: false` on it, or "app is a convention" and "app's internals are
+    // ungoverned" cannot both be true.
+    expect(() => validateBlueprint(withModules([
+      { name: 'app', does: 'Routing only.', imports: ['Session'] },
+      { name: 'Session', does: 'The run state machine.' },
+    ]))).not.toThrow();
+
+    expect(() => validateBlueprint(withModules([{ name: 'app', does: 'Routing only.' }]))).not.toThrow();
+  });
+
+  it('accepts a module and a layer sharing a name', () => {
+    // Different depths, no path collision (`src/components/engine/` is
+    // unambiguous). Forbidding it would be policy with no enforcement behind it.
+    expect(() => validateBlueprint(withModules([{ name: 'components', does: 'A domain.' }])))
+      .not.toThrow();
+  });
+
+  it('accepts the greenfield scaffold: two modules, no imports, no layer folders (#193)', () => {
+    // What `init --structure modular` writes. A module with nothing inside it yet
+    // is runway, not a defect — `missing-module` is a finding's job (#184), never
+    // the schema's.
+    expect(() => validateBlueprint(withModules([
+      { name: 'app', does: 'Routing only.', layers: false },
+      { name: 'common', does: 'Cross-cutting units.' },
+    ]))).not.toThrow();
+  });
+
+  it('accepts an empty imports list as "depends on nothing"', () => {
+    // The isolated default written out. Rejecting it would force the author to
+    // choose between an empty array and an absent key on identical meaning.
+    expect(() => validateBlueprint(withModules([{ name: 'Session', does: 'x', imports: [] }])))
+      .not.toThrow();
   });
 });
