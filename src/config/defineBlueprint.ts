@@ -1,6 +1,7 @@
 import type {
   AgentEmitEntry,
   AgentTarget,
+  ArchitectureDef,
   Blueprint,
   LayerDef,
   ModuleDef,
@@ -388,7 +389,7 @@ function ownedLabel(primitive: OwnedPrimitive): string {
  * NOT checked here — that rule is about the shape of a custom glob and the
  * topology it implies, so it lands with the resolver that reads it (#185).
  */
-function validateModules(architecture: Blueprint['architecture']): void {
+function validateModules(architecture: ArchitectureDef): void {
   const { modules, layers } = architecture;
 
   if (modules === undefined) return;
@@ -420,7 +421,7 @@ function validateModules(architecture: Blueprint['architecture']): void {
     folded.set(module.name.toLowerCase(), module.name);
   }
 
-  validateModuleImports(modules, declared);
+  validateModuleImports(modules);
   validateOwnershipIsSingular(modules, layers);
 }
 
@@ -462,7 +463,9 @@ function validateModuleName(
  * here, which is the mirror image of `allowedImporters` next door — do not read
  * that implementation as the model for this one.
  */
-function validateModuleImports(modules: ModuleDef[], declared: Set<string>): void {
+function validateModuleImports(modules: ModuleDef[]): void {
+  // One map answers both questions — declared at all, and declared where.
+  // Two structures over the same names could disagree; this one cannot.
   const position = new Map(modules.map((module, index) => [module.name, index]));
 
   modules.forEach((module, index) => {
@@ -475,15 +478,19 @@ function validateModuleImports(modules: ModuleDef[], declared: Set<string>): voi
     const seen = new Set<string>();
 
     for (const name of module.imports) {
+      // One lookup, so "is it declared" and "declared where" cannot disagree:
+      // an absent position IS an undeclared module.
+      const target = typeof name === 'string' ? position.get(name) : undefined;
+
       if (typeof name !== 'string' || !name.trim()) {
         throw new Error(`Module "${module.name}" imports an entry with no module name.`);
       } else if (name === module.name) {
         throw new Error(`Module "${module.name}" cannot import itself.`);
-      } else if (!declared.has(name)) {
+      } else if (target === undefined) {
         throw new Error(
           `Module "${module.name}" imports "${name}", which is not a declared module.`,
         );
-      } else if (position.get(name)! < index) {
+      } else if (target < index) {
         // The acyclicity guarantee: the graph is one-way by construction, so no
         // cycle check exists downstream to catch a backward edge later.
         throw new Error(
