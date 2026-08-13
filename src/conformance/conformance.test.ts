@@ -249,7 +249,7 @@ describe('brownfield playbook — semantics stated, nothing reverse-engineered (
     const playbook = read(dir, 'blueprint-authoring.md');
 
     expect(playbook).toContain('## Semantics the linter holds you to');
-    expect(playbook).toContain('must not import each other'); // folder ≠ entry-only (batch 6 fix)
+    expect(playbook).toContain('reachable through its entry, and only that way'); // folder IS entry-only
     expect(playbook).toContain('is a complete outcome'); // zero debt is legitimate (batch 4)
     expect(playbook).toContain('into ONE entry'); // flat-config merge trap (batches 5–6)
     expect(playbook).toContain('includes test files'); // survey/inspect count gap (batch 2)

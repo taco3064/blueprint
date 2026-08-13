@@ -352,10 +352,20 @@ describe('authoringBrief', () => {
     expect(brief).toContain('argsIgnorePattern');
     expect(brief).toContain('eslint wired');
 
-    // Folder layout: siblings are banned outright — not "entry-only", which
-    // would send authors into a wiring explosion; the fix differs by layout.
-    expect(brief).toContain('must not import each other');
+    // Folder layout is entry-only, on both gates: `../Sibling` is the legal
+    // shape and the alias form is not. Stated as an outright ban — the earlier
+    // reading — the only remedy left is sinking the shared part, which
+    // `blueprint/relative-escape` names as how a `utils/` junk drawer gets
+    // built one honest decision at a time.
+    expect(brief).toContain('reachable through its entry, and only that way');
+    expect(brief).toContain('`../Sibling` is legal');
+    expect(brief).not.toContain('must not import each other');
+
+    // Same correction on the remedy: the pre-wiring hits are fixed by pointing
+    // the relative import at the sibling's entry, not by sinking the shared code.
     expect(brief).toContain('layout-dependent');
+    expect(brief).toContain('relative import of the sibling\'s *entry*');
+    expect(brief).not.toContain('extract the shared code downward');
   });
 
   it('teaches the merge traps: flat-config override, DAG linearization, honest zero', () => {

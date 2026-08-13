@@ -162,8 +162,11 @@ describe('renderHardRules', () => {
     });
 
     // The flow rule leads the list unconditionally — it is the one rule that
-    // holds whatever the blueprint declares, so nothing gates it.
-    expect(out).toContain('- Import only from downstream layers — never upstream, never the same layer.');
+    // holds whatever the blueprint declares, so nothing gates it. "never the
+    // same layer" was false in both layouts: the relative form is how a
+    // same-layer edge is spelled, and only the alias form is banned.
+    expect(out).toContain('- Import only from downstream layers — never upstream.');
+    expect(out).toContain('never through the alias, and never past a folder module\'s entry');
     expect(out).toContain('Import a module via its `index`');
     expect(out).toContain('`maxLines` = 400 is a hard gate.');
     expect(out).toContain('`cycles` is a hard gate.');
@@ -232,7 +235,7 @@ describe('renderChecklist', () => {
 
     // The two unconditional items — a checklist that grows with the blueprint
     // still has to carry the parts that hold for every blueprint.
-    expect(bare).toContain('- [ ] Imports follow the one-way flow (no upstream / same-layer).');
+    expect(bare).toContain('- [ ] Imports follow the one-way flow (no upstream; same-layer only as a relative path to the sibling).');
     expect(bare).toContain('modules expose only `index`');
   });
 

@@ -144,7 +144,7 @@ export function renderPlacement(architecture: ArchitectureDef): string {
 
     return group.layout === 'folder'
       ? `- Module shape${scope}: one folder per module. Only \`${group.entry}\` is importable from outside.`
-      : `- Module shape${scope}: one file per module (flat). Extract shared logic to a lower layer.`;
+      : `- Module shape${scope}: one file per module (flat).`;
   });
 
   // Reporting instruction, not a third remedy. An agent that learns "files matching
@@ -178,7 +178,11 @@ export function renderHardRules(
   architecture: ArchitectureDef,
   rules: Record<string, RuleSetting> | undefined,
 ): string {
-  const bullets = ['- Import only from downstream layers — never upstream, never the same layer.'];
+  const bullets = [
+    '- Import only from downstream layers — never upstream. A same-layer import is legal'
+    + ' only as a relative path reaching the sibling\'s public surface: never through the'
+    + ' alias, and never past a folder module\'s entry.',
+  ];
 
   const entries = folderEntries(architecture).map((entry) => `\`${entry}\``);
 
@@ -290,7 +294,7 @@ export function renderChecklist(blueprint: Blueprint): string {
   const entries = folderEntries(architecture).map((entry) => `\`${entry}\``);
 
   const items = [
-    '- [ ] Imports follow the one-way flow (no upstream / same-layer).',
+    '- [ ] Imports follow the one-way flow (no upstream; same-layer only as a relative path to the sibling).',
     entries.length
       ? `- [ ] New code sits in the right layer; modules expose only ${entries.join(' / ')}.`
       : '- [ ] New code sits in the right layer.',

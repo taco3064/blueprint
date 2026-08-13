@@ -70,8 +70,10 @@ describe('renderModule', () => {
 
     expect(out).toContain('flat layout');
     expect(out).not.toContain('```');
-    // Same close, the other layout — one sentence and nothing after it.
-    expect(out.endsWith('Shared logic moves down to a lower layer.')).toBe(true);
+    // Same close, the other layout — one sentence and nothing after it. The
+    // sentence describes the SHAPE and stops: where a sibling may be reached
+    // from is the import-discipline section's, stated once.
+    expect(out.endsWith('One module = one file (flat layout).')).toBe(true);
   });
 
   it('states each shape with its own layers when the layers disagree', () => {
@@ -110,11 +112,13 @@ describe('renderImportDiscipline', () => {
     const out = renderImportDiscipline(arch());
 
     expect(out).toContain('Entry-only');
-    // Both layouts ban the same-layer import; only the remedy differs. A folder
-    // layer's siblings are reachable relatively, so "use a relative path" would
-    // describe a legal import as the fix for an illegal one.
-    expect(out).toContain('**No same-layer imports** — extract shared logic down to a lower layer');
-    expect(out).not.toContain('use a relative path');
+    // Both layouts ban the same-layer import THROUGH THE ALIAS, and only that.
+    // A folder layer's sibling is reachable through its entry, so a flat ban
+    // leaves "extract to a lower layer" as the only remedy — which is how a
+    // `utils/` junk drawer gets built one honest decision at a time.
+    expect(out).toContain('**No same-layer imports via the alias** — reach a sibling through its entry');
+    expect(out).toContain('never past that entry');
+    expect(out).not.toContain('extract shared logic down to a lower layer');
 
     // No layer narrows its importers, so there is no selfOnly rule to state.
     // Stating one anyway describes a constraint this config does not carry.
@@ -140,7 +144,7 @@ describe('renderImportDiscipline', () => {
       }),
     );
 
-    expect(out).toContain('- **No same-layer imports** — extract shared logic down to a lower layer instead.');
+    expect(out).toContain('- **No same-layer imports via the alias** — reach a sibling through its entry');
     expect(out.match(/No same-layer/g)).toHaveLength(1);
   });
 
@@ -156,10 +160,10 @@ describe('renderImportDiscipline', () => {
 
     expect(out).toContain('Entry-only');
     expect(out).toContain('`main`');
-    // One unqualified sentence would hand `services` the folder rule and
-    // `resources` the flat one — each is false where the other applies.
-    expect(out).toContain('**No same-layer imports** in `resources/` —');
-    expect(out).toContain('**No same-layer imports via the alias** in `services/` —');
+    // One unqualified sentence would hand `services` the folder remedy and
+    // `resources` the flat one — each is wrong where the other applies.
+    expect(out).toContain('in `resources/` — reach a sibling through its entry');
+    expect(out).toContain('in `services/` — use a relative path instead.');
   });
 
   it('adds a selfOnly note when a selfOnly importer exists', () => {
