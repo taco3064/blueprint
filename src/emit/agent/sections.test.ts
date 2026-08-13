@@ -19,10 +19,9 @@ function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
   return {
     alias: '~app',
     layers: [
-      { name: 'components', does: 'UI', mustNot: ['import services'], owns: ['clsx'] },
-      { name: 'services', does: 'net' },
+      { name: 'components', does: 'UI', mustNot: ['import services'], owns: ['clsx'], layout: 'folder' },
+      { name: 'services', does: 'net', layout: 'folder' },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
     ...over,
   };
 }
@@ -63,42 +62,34 @@ describe('renderPlacement', () => {
     expect(out.match(/OWNS:/g)).toHaveLength(1);
     expect(out).not.toContain('IMPORTABLE BY:');
     expect(out).toContain('Only `index` is importable');
-    expect(out).toContain('keep `hooks` / `types` private');
   });
 
-  it('drops the private clause when a folder module has none', () => {
-    const out = renderPlacement(arch({ module: { layout: 'folder', entry: 'index', private: [] } }));
+  it('states one shared shape without naming the layers it covers', () => {
+    const out = renderPlacement(arch());
 
-    expect(out).toContain('Only `index` is importable from outside.');
-    expect(out).not.toContain('keep');
-
-    // Omitted entirely reads the same as an explicit empty list.
-    const omitted = renderPlacement(arch({ module: { layout: 'folder', entry: 'index' } }));
-
-    expect(omitted).toContain('Only `index` is importable from outside.');
-    expect(omitted).not.toContain('keep');
+    expect(out).toContain('- Module shape: one folder per module. Only `index` is importable from outside.');
+    expect(out).not.toContain('in `src/');
   });
 
   it('describes a flat module', () => {
-    const out = renderPlacement(arch({ module: { layout: 'flat', entry: 'index', private: [] } }));
+    const out = renderPlacement(arch({ layers: [{ name: 'components', does: 'UI' }] }));
 
     expect(out).toContain('one file per module (flat)');
   });
 
-  it('lists per-layer module exceptions after the shared shape', () => {
+  it('states each shape with its own layers when the layers disagree', () => {
     const out = renderPlacement(
       arch({
-        module: { layout: 'flat', entry: 'index', private: [] },
         layers: [
-          { name: 'resources', does: 'features', module: { layout: 'folder', entry: 'main' } },
-          { name: 'components', does: 'UI', module: { layout: 'flat' } },
+          { name: 'resources', does: 'features', layout: 'folder', entry: 'main' },
+          { name: 'components', does: 'UI' },
           { name: 'services', does: 'net' },
         ],
       }),
     );
 
-    expect(out).toContain('- Exception — `src/resources/`: one folder per module, entry `main`.');
-    expect(out).toContain('- Exception — `src/components/`: one file per module (flat).');
+    expect(out).toContain('- Module shape in `src/resources/`: one folder per module. Only `main` is importable from outside.');
+    expect(out).toContain('- Module shape in `src/components/` / `src/services/`: one file per module (flat).');
     expect(out).not.toContain('Exception — `src/services/`');
   });
 
@@ -142,7 +133,6 @@ describe('renderPlacement', () => {
           allowedImporters: ['components', { layer: 'hooks', selfOnly: true }],
         },
       ],
-      module: { layout: 'folder', entry: 'index', private: [] },
     };
 
     expect(renderPlacement(architecture)).toContain('IMPORTABLE BY: components, hooks (selfOnly).');
@@ -187,7 +177,7 @@ describe('renderHardRules', () => {
   });
 
   it('omits entry-only for flat layout', () => {
-    const out = renderHardRules(arch({ module: { layout: 'flat', entry: 'index', private: [] } }), undefined);
+    const out = renderHardRules(arch({ layers: [{ name: 'components', does: 'UI' }] }), undefined);
 
     // The entry names are interpolated, so an unguarded push renders the rule
     // with an empty slot — "Import a module via its , never its internals." The
@@ -244,6 +234,17 @@ describe('renderChecklist', () => {
     // still has to carry the parts that hold for every blueprint.
     expect(bare).toContain('- [ ] Imports follow the one-way flow (no upstream / same-layer).');
     expect(bare).toContain('modules expose only `index`');
+  });
+
+  it('drops the entry clause when no layer is a folder', () => {
+    // A flat project has no entry file to expose, so naming one asks the agent
+    // to check a filename that governs nothing in this repo.
+    const flat = renderChecklist(blueprint({
+      architecture: arch({ layers: [{ name: 'components', does: 'UI' }] }),
+    }));
+
+    expect(flat).toContain('- [ ] New code sits in the right layer.');
+    expect(flat).not.toContain('modules expose only');
   });
 });
 

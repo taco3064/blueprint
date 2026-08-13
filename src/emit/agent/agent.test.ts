@@ -11,10 +11,9 @@ function full(): Blueprint {
     architecture: {
       alias: '~app',
       layers: [
-        { name: 'components', does: 'UI', mustNot: ['import services'] },
-        { name: 'services', does: 'net', owns: ['axios', { global: 'fetch' }] },
+        { name: 'components', does: 'UI', mustNot: ['import services'], layout: 'folder' },
+        { name: 'services', does: 'net', owns: ['axios', { global: 'fetch' }], layout: 'folder' },
       ],
-      module: { layout: 'folder', entry: 'index', private: ['hooks'] },
       naming: { hook: 'useX' },
     },
     principles: [{ id: 'p', say: 'no utils', why: 'no cohesion', land: 'claude' }],
@@ -54,8 +53,7 @@ describe('emitAgentContract', () => {
       framework: 'vue',
       architecture: {
         alias: '~app',
-        layers: [{ name: 'components', does: 'UI' }],
-        module: { layout: 'folder', entry: 'index', private: [] },
+        layers: [{ name: 'components', does: 'UI', layout: 'folder' }],
       },
     });
 
@@ -76,8 +74,7 @@ describe('emitAgentContract · joining the sections', () => {
       framework: 'vue',
       architecture: {
         alias: '~app',
-        layers: [{ name: 'components', does: 'UI' }],
-        module: { layout: 'folder', entry: 'index', private: [] },
+        layers: [{ name: 'components', does: 'UI', layout: 'folder' }],
       },
     });
 

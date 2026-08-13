@@ -7,7 +7,7 @@ import type {
   RuleSetting,
   Tier,
 } from '../../config';
-import { readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
+import { folderEntries, readSetting, moduleShapeGroups, normalizeAllowedImporters } from '../../config';
 import { handbookPath } from '../docs';
 import { enforcedBy, LINT_GATED_RULE_IDS, resolveTestFiles, unavailableFromBlueprint } from '../lint';
 import { formatOwns } from '../../markdown';
@@ -133,23 +133,19 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     return parts.join('');
   });
 
-  const module = getSharedModule(architecture);
-  const priv = module.private.map((part) => `\`${part}\``).join(' / ');
+  const groups = moduleShapeGroups(architecture);
 
-  const moduleLine
-    = module.layout === 'folder'
-      ? `- Module shape: one folder per module. Only \`${module.entry}\` is importable from outside${priv ? `; keep ${priv} private and never import them across modules` : ''}.`
-      : '- Module shape: one file per module (flat). Extract shared logic to a lower layer.';
+  const moduleLines = groups.map((group) => {
+    // One shape is the project's; several are stated per layer set, since a
+    // single line would hand one layer the other's rule.
+    const scope = groups.length === 1
+      ? ''
+      : ` in ${group.layers.map((layer) => `\`src/${layer}/\``).join(' / ')}`;
 
-  const overrideLines = architecture.layers
-    .filter((layer) => layer.module !== undefined)
-    .map((layer) => {
-      const shape = getModuleShape(architecture, layer.name);
-
-      return shape.layout === 'folder'
-        ? `- Exception — \`src/${layer.name}/\`: one folder per module, entry \`${shape.entry}\`.`
-        : `- Exception — \`src/${layer.name}/\`: one file per module (flat).`;
-    });
+    return group.layout === 'folder'
+      ? `- Module shape${scope}: one folder per module. Only \`${group.entry}\` is importable from outside.`
+      : `- Module shape${scope}: one file per module (flat). Extract shared logic to a lower layer.`;
+  });
 
   // Reporting instruction, not a third remedy. An agent that learns "files matching
   // these globs are exempt from placement", while under pressure to get a gate green,
@@ -161,7 +157,7 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     ? [`- Test support is exempt from every placement rule above: files matching ${testGlobs.map((glob) => `\`${glob}\``).join(' / ')} sit outside them. If a placement rule stops you on files that exist only to serve tests, that is a question for the owner — say so and name them; never widen \`architecture.testFiles\` yourself, and never rename a file to match those globs.`]
     : [];
 
-  return ['### Where code goes', '', ...lines, moduleLine, ...overrideLines, ...exemptLine].join('\n');
+  return ['### Where code goes', '', ...lines, ...moduleLines, ...exemptLine].join('\n');
 }
 
 /** Naming conventions as directives. */
@@ -184,17 +180,10 @@ export function renderHardRules(
 ): string {
   const bullets = ['- Import only from downstream layers — never upstream, never the same layer.'];
 
-  const folderEntries = [
-    ...new Set(
-      architecture.layers
-        .map((layer) => getModuleShape(architecture, layer.name))
-        .filter((shape) => shape.layout === 'folder')
-        .map((shape) => `\`${shape.entry}\``),
-    ),
-  ];
+  const entries = folderEntries(architecture).map((entry) => `\`${entry}\``);
 
-  if (folderEntries.length) {
-    bullets.push(`- Import a module via its ${folderEntries.join(' / ')}, never its internals.`);
+  if (entries.length) {
+    bullets.push(`- Import a module via its ${entries.join(' / ')}, never its internals.`);
   }
 
   bullets.push(
@@ -296,9 +285,15 @@ export function renderPlaybook(playbook: PlaybookSection[] | undefined): string 
 export function renderChecklist(blueprint: Blueprint): string {
   const { architecture, principles } = blueprint;
 
+  // Only folder layers have an entry to expose; an all-flat project gets the
+  // placement half alone rather than a filename that governs nothing there.
+  const entries = folderEntries(architecture).map((entry) => `\`${entry}\``);
+
   const items = [
     '- [ ] Imports follow the one-way flow (no upstream / same-layer).',
-    `- [ ] New code sits in the right layer; modules expose only \`${getSharedModule(architecture).entry}\`.`,
+    entries.length
+      ? `- [ ] New code sits in the right layer; modules expose only ${entries.join(' / ')}.`
+      : '- [ ] New code sits in the right layer.',
   ];
 
   if (architecture.naming && Object.keys(architecture.naming).length) {

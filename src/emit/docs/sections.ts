@@ -2,11 +2,12 @@ import type {
   ArchitectureDef,
   AxisDef,
   Land,
+  ModuleShapeGroup,
   PlaybookSection,
   PrincipleDef,
   RuleSetting,
 } from '../../config';
-import { readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
+import { folderEntries, readSetting, moduleShapeGroups, normalizeAllowedImporters } from '../../config';
 import { enforcedBy, unavailableFromBlueprint } from '../lint';
 import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
@@ -52,87 +53,99 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
   ].join('\n');
 }
 
-/** Feature-folder shape, illustrated with a generated example tree. */
-export function renderModule(architecture: ArchitectureDef, exampleLayer: string): string {
-  const module = getSharedModule(architecture);
-
-  const exceptionLines = architecture.layers
-    .filter((layer) => layer.module !== undefined)
-    .map((layer) => {
-      const shape = getModuleShape(architecture, layer.name);
-
-      return shape.layout === 'folder'
-        ? `- \`${layer.name}/\` — one folder per module, entry \`${shape.entry}\`.`
-        : `- \`${layer.name}/\` — one file per module (flat).`;
-    });
-
-  const exceptions = exceptionLines.length
-    ? ['', 'Per-layer exceptions to the shared shape:', '', ...exceptionLines]
-    : [];
-
-  if (module.layout === 'flat') {
-    return [
-      '## Module shape',
-      '',
-      'One module = one file (flat layout). Shared logic moves down to a lower layer.',
-      ...exceptions,
-    ].join('\n');
-  }
-
+/** The example folder tree for one shape, rooted at a layer that has it. */
+function moduleTree(group: ModuleShapeGroup): string[] {
   const items: [string, string][] = [
-    [module.entry, 'public entry — the only importable file'],
+    [group.entry, 'public entry — the only importable file'],
     ['Example', 'implementation (named after the module)'],
-    ...module.private.map((part): [string, string] => [part, 'private']),
   ];
 
-  const tree = items.map(([part, note], i) => {
-    const connector = i === items.length - 1 ? '└─' : '├─';
+  return [
+    '```',
+    `${group.layers[0]}/`,
+    '└─ Example/',
+    ...items.map(([part, note], i) => {
+      const connector = i === items.length - 1 ? '└─' : '├─';
 
-    return `   ${connector} ${part.padEnd(7)} # ${note}`;
-  });
+      return `   ${connector} ${part.padEnd(7)} # ${note}`;
+    }),
+    '```',
+  ];
+}
+
+/** What one shape is, from the word after "one" — the caller supplies the case. */
+function moduleSentence(group: ModuleShapeGroup): string {
+  return group.layout === 'folder'
+    ? `module = one folder. Only \`${group.entry}\` is public; everything else stays private to the module.`
+    : 'module = one file (flat layout). Shared logic moves down to a lower layer.';
+}
+
+/**
+ * Feature-folder shape, illustrated with a generated example tree. One shape is
+ * stated as the project's; several are stated one by one, naming their layers —
+ * there is no project-wide shape to state once the layers disagree.
+ */
+export function renderModule(architecture: ArchitectureDef): string {
+  const groups = moduleShapeGroups(architecture);
+  const folder = groups.filter((group) => group.layout === 'folder');
+
+  const statement = groups.length === 1
+    ? [`One ${moduleSentence(groups[0])}`]
+    : [
+        'The shape differs by layer:',
+        '',
+        ...groups.map((group) =>
+          `- ${group.layers.map((layer) => `\`${layer}/\``).join(' / ')} — one ${moduleSentence(group)}`,
+        ),
+      ];
 
   return [
     '## Module shape',
     '',
-    `One module = one folder. Only \`${module.entry}\` is public; everything else stays private to the module.`,
-    '',
-    '```',
-    `${exampleLayer}/`,
-    '└─ Example/',
-    ...tree,
-    '```',
-    ...exceptions,
+    ...statement,
+    // One tree however many folder shapes there are: the picture is the same at
+    // every entry filename, and the statement above already names each one.
+    ...(folder.length ? ['', ...moduleTree(folder[0])] : []),
   ].join('\n');
 }
 
 /** Prose for the boundaries the generated ESLint config enforces. */
 export function renderImportDiscipline(architecture: ArchitectureDef): string {
   const { layers } = architecture;
-  const module = getSharedModule(architecture);
+  const groups = moduleShapeGroups(architecture);
 
   const hasSelfOnly = layers.some((layer) =>
     normalizeAllowedImporters(layer.allowedImporters).some((importer) => importer.selfOnly),
   );
 
+  // Merged by layout, not by shape: this rule does not read the entry
+  // filename, so two folder layers that name their entry differently would
+  // otherwise get the same sentence twice, split on a difference it ignores.
+  const layouts = [...new Set(groups.map((group) => group.layout))].map((layout) => ({
+    layout,
+    layers: groups.filter((group) => group.layout === layout).flatMap((group) => group.layers),
+  }));
+
   const bullets = [
     '- **One-way only** — a layer imports only from the layers below it; upstream imports are errors.',
-    module.layout === 'flat'
-      ? '- **No same-layer imports via the alias** — use a relative path instead.'
-      : '- **No same-layer imports** — extract shared logic down to a lower layer instead.',
+    ...layouts.map(({ layout, layers: scoped }) => {
+      // One layout states the rule outright; both name their layers, because
+      // the same sentence is false next door.
+      const scope = layouts.length === 1
+        ? ''
+        : ` in ${scoped.map((layer) => `\`${layer}/\``).join(' / ')}`;
+
+      return layout === 'flat'
+        ? `- **No same-layer imports via the alias**${scope} — use a relative path instead.`
+        : `- **No same-layer imports**${scope} — extract shared logic down to a lower layer instead.`;
+    }),
   ];
 
-  const folderEntries = [
-    ...new Set(
-      layers
-        .map((layer) => getModuleShape(architecture, layer.name))
-        .filter((shape) => shape.layout === 'folder')
-        .map((shape) => `\`${shape.entry}\``),
-    ),
-  ];
+  const entries = folderEntries(architecture).map((entry) => `\`${entry}\``);
 
-  if (folderEntries.length) {
+  if (entries.length) {
     bullets.push(
-      `- **Entry-only** — import a module through its ${folderEntries.join(' / ')}, never its internals.`,
+      `- **Entry-only** — import a module through its ${entries.join(' / ')}, never its internals.`,
     );
   }
 

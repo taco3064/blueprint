@@ -313,7 +313,6 @@ describe('run · impact', () => {
     fs.writeFileSync(
       path.join(dir, 'blueprint.config.mjs'),
       'export default { framework: \'react\', architecture: { alias: \'~app\','
-      + ' module: { layout: \'flat\', entry: \'index\', private: [] },'
       + ' layers: [{ name: \'components\', does: \'ui\' }] },'
       + ' rules: { unusedVars: \'error\' } };',
     );
@@ -365,8 +364,7 @@ describe('run · doctor', () => {
     fs.writeFileSync(
       path.join(dir, 'blueprint.config.mjs'),
       'export default { framework: \'vue\', architecture: { alias: \'~app\','
-      + ' module: { layout: \'folder\', entry: \'index\', private: [] },'
-      + ' layers: [{ name: \'components\', does: \'ui\' }] } };',
+      + ' layers: [{ name: \'components\', does: \'ui\', layout: \'folder\' }] } };',
     );
 
     // The alias check wants the declared alias resolvable by the toolchain.

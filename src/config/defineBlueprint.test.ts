@@ -9,11 +9,10 @@ function base(): Blueprint {
     architecture: {
       alias: '~app',
       layers: [
-        { name: 'components', does: '可重用 UI', mustNot: ['import services'] },
-        { name: 'hooks', does: 'inject / 加工 state' },
+        { name: 'components', does: '可重用 UI', mustNot: ['import services'], layout: 'folder' },
+        { name: 'hooks', does: 'inject / 加工 state', layout: 'folder' },
         { name: 'services', does: '網路原件', owns: ['axios', { global: 'fetch' }] },
       ],
-      module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
     },
   };
 }
@@ -126,26 +125,45 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(/package with no name/);
   });
 
-  it('rejects an empty module entry, accepts an absent module (field issue #23)', () => {
+  it('rejects an empty layer entry, accepts an absent one (field issue #23)', () => {
     const config = base();
 
-    config.architecture.module!.entry = '';
+    config.architecture.layers[0].entry = '';
 
-    expect(() => validateBlueprint(config)).toThrow(/module\.entry/);
+    expect(() => validateBlueprint(config)).toThrow(/empty entry/);
 
-    // The playbook's "flat default" is real: a config that never mentions
-    // module — or writes only { layout: 'flat' } — is complete.
-    delete config.architecture.module;
-
-    expect(() => validateBlueprint(config)).not.toThrow();
-
-    config.architecture.module = { layout: 'flat' };
+    // The playbook's "flat default" is real: a layer that declares neither key
+    // is complete.
+    delete config.architecture.layers[0].entry;
+    delete config.architecture.layers[0].layout;
 
     expect(() => validateBlueprint(config)).not.toThrow();
 
-    config.architecture.module = { layout: 'diagonal' as never };
+    config.architecture.layers[0].layout = 'diagonal' as never;
 
     expect(() => validateBlueprint(config)).toThrow(/folder \| flat/);
+  });
+
+  it('names the replacement when a 3.x config still carries architecture.module', () => {
+    const config = base();
+
+    (config.architecture as unknown as Record<string, unknown>).module
+      = { layout: 'folder', entry: 'index', private: ['hooks'] };
+
+    // Not the generic "nothing reads it": the shape moved rather than vanished,
+    // and a flat project has to make the same edit.
+    expect(() => validateBlueprint(config)).toThrow(/moved onto each layer in 4\.0\.0/);
+    expect(() => validateBlueprint(config)).toThrow(/layout.*entry/s);
+    expect(() => validateBlueprint(config)).toThrow(/flat project/);
+  });
+
+  it('names the replacement when the layer still carries a module override', () => {
+    const config = base();
+
+    (config.architecture.layers[0] as unknown as Record<string, unknown>).module
+      = { layout: 'folder', entry: 'main' };
+
+    expect(() => validateBlueprint(config)).toThrow(/moved onto each layer in 4\.0\.0/);
   });
 
   it('rejects a layer-level selfOnly with the pointed fix (field issue #14)', () => {
@@ -169,13 +187,11 @@ describe('validateBlueprint', () => {
 
     stray((c) => ((c as unknown as Record<string, unknown>).flows = []), /Unknown key "flows" in the blueprint/);
     stray((c) => ((c.architecture as unknown as Record<string, unknown>).flow = 'one-way'), /Unknown key "flow" in architecture/);
-    stray((c) => ((c.architecture.module as unknown as Record<string, unknown>).privates = []), /architecture\.module/);
     stray((c) => ((c as { emit?: Record<string, unknown> }).emit = { agent: ['claude'] }), /Unknown key "agent" in emit/);
     stray((c) => ((c as { emit?: object }).emit = { lint: { level: 'warn' } }), /emit\.lint/);
     stray((c) => ((c as { emit?: object }).emit = { agents: [{ target: 'claude', file: 'X.md' }] }), /emit\.agents entry/);
     stray((c) => (c.architecture.layers[0].owns = [{ package: 'axios', import: ['get'] } as never]), /owns entry "axios"/);
     stray((c) => (c.architecture.layers[0].owns = [{ global: 'fetch', scope: 'all' } as never]), /owns entry "fetch"/);
-    stray((c) => (c.architecture.layers[0].module = { layout: 'flat', entry: 'index', private: [] } as never), /module override/);
 
     stray(
       (c) => (c.architecture.layers[1].allowedImporters = [{ layer: 'components', selfonly: true } as never]),
@@ -183,40 +199,27 @@ describe('validateBlueprint', () => {
     );
   });
 
-  it('rejects a non-array module.private, accepts an omitted one', () => {
+  it('rejects a layer layout that is neither folder nor flat', () => {
     const config = base();
 
-    config.architecture.module!.private = 'nope' as never;
-
-    expect(() => validateBlueprint(config)).toThrow(/module\.private/);
-
-    // Optional with a default of none — a draft-first config that never
-    // mentions private parts is valid (field issue #11).
-    delete config.architecture.module!.private;
-
-    expect(() => validateBlueprint(config)).not.toThrow();
-  });
-
-  it('rejects a layer module override with an unknown layout', () => {
-    const config = base();
-
-    config.architecture.layers[0].module = { layout: 'stacked' as never };
+    config.architecture.layers[0].layout = 'stacked' as never;
 
     expect(() => validateBlueprint(config)).toThrow(/expected folder \| flat/);
   });
 
-  it('rejects a layer module override with an empty entry', () => {
+  it('rejects a whitespace-only layer entry', () => {
     const config = base();
 
-    config.architecture.layers[0].module = { entry: '  ' };
+    config.architecture.layers[0].entry = '  ';
 
-    expect(() => validateBlueprint(config)).toThrow(/empty module\.entry override/);
+    expect(() => validateBlueprint(config)).toThrow(/empty entry/);
   });
 
-  it('accepts a well-formed layer module override', () => {
+  it('accepts layers that disagree about their module shape', () => {
     const config = base();
 
-    config.architecture.layers[0].module = { layout: 'folder', entry: 'main' };
+    config.architecture.layers[0].entry = 'main';
+    config.architecture.layers[2].layout = 'flat';
 
     expect(() => validateBlueprint(config)).not.toThrow();
   });
@@ -539,12 +542,10 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
     ['a layer name', (bp: Blueprint) => { bp.architecture.layers.push({ name: 7 as never, does: 'x' }); },
       /non-empty name/],
     // Anchored on the sentence, not the field name: a TypeError raised by
-    // calling `.trim()` on a number says "module.entry.trim is not a function",
-    // which matches a bare /module\.entry/ just as well.
-    ['module.entry', (bp: Blueprint) => { bp.architecture.module!.entry = 1 as never; },
-      /must be a non-empty string when set/],
-    ['a module override entry', (bp: Blueprint) => { bp.architecture.layers[0].module = { entry: 3 as never }; },
-      /empty module\.entry override/],
+    // calling `.trim()` on a number says "entry.trim is not a function", which
+    // matches a bare /entry/ just as well.
+    ['a layer entry', (bp: Blueprint) => { bp.architecture.layers[0].entry = 1 as never; },
+      /has an empty entry/],
     ['an owned global name', (bp: Blueprint) => { bp.architecture.layers[2].owns = [{ global: 5 as never }]; },
       /global with no name/],
     ['an owned package name', (bp: Blueprint) => { bp.architecture.layers[2].owns = [{ package: 5 as never }]; },
@@ -565,8 +566,8 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
   // validation and the whitespace travels into a filename, a glob, or a
   // restricted-import entry.
   it.each([
-    ['module.entry', (bp: Blueprint) => { bp.architecture.module!.entry = '   '; },
-      /must be a non-empty string when set/],
+    ['a layer entry', (bp: Blueprint) => { bp.architecture.layers[0].entry = '   '; },
+      /has an empty entry/],
     ['an owned package string', (bp: Blueprint) => { bp.architecture.layers[2].owns = ['   ']; },
       /empty package name/],
     ['an owned global name', (bp: Blueprint) => { bp.architecture.layers[2].owns = [{ global: '   ' }]; },
@@ -596,13 +597,14 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
 });
 
 describe('validateBlueprint · the guards that must NOT fire', () => {
-  it('accepts a module block that declares only an entry', () => {
-    // The flat default is real (field issue #23): a module with no `layout` is
+  it('accepts a layer that declares only an entry', () => {
+    // The flat default is real (field issue #23): a layer with no `layout` is
     // complete. Validating the absent layout against the enum rejects a config
     // the playbook tells the author to write.
     const config = base();
 
-    config.architecture.module = { entry: 'index' };
+    delete config.architecture.layers[0].layout;
+    config.architecture.layers[0].entry = 'index';
 
     expect(() => validateBlueprint(config)).not.toThrow();
   });

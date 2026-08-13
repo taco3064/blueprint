@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   aliasLayerRoots,
+  DEFAULT_MODULE_SHAPE,
   getDiagramEdges,
   getForbiddenLayers,
   getModuleShape,
   getSelfOnlyTargets,
-  getSharedModule,
+  moduleShapeGroups,
   normalizeAllowedImporters,
 } from './graph';
 import type { ArchitectureDef } from './types';
@@ -25,7 +26,16 @@ function arch(): ArchitectureDef {
       },
       { name: 'services', does: '', allowedImporters: ['hooks', 'contexts'] },
     ],
-    module: { layout: 'folder', entry: 'index', private: [] },
+  };
+}
+
+/** `arch()` with a module shape declared on the named layers. */
+function shaped(shapes: Record<string, { layout?: 'folder' | 'flat'; entry?: string }>): ArchitectureDef {
+  const base = arch();
+
+  return {
+    ...base,
+    layers: base.layers.map((layer) => ({ ...layer, ...shapes[layer.name] })),
   };
 }
 
@@ -58,20 +68,54 @@ describe('aliasLayerRoots', () => {
   });
 });
 
-describe('getSharedModule', () => {
-  it('applies the flat defaults when module (or any key) is absent (field #23)', () => {
-    const { module: _module, ...rest } = arch();
-    const bare: ArchitectureDef = rest;
+describe('getModuleShape', () => {
+  it('applies the flat defaults to a layer that declares neither key (field #23)', () => {
+    expect(DEFAULT_MODULE_SHAPE).toEqual({ layout: 'flat', entry: 'index' });
+    expect(getModuleShape(arch(), 'pages')).toEqual({ layout: 'flat', entry: 'index' });
+  });
 
-    expect(getSharedModule(bare)).toEqual({ layout: 'flat', entry: 'index', private: [] });
-    expect(getModuleShape(bare, 'pages')).toEqual({ layout: 'flat', entry: 'index' });
+  it('fills the other key when a layer declares only one', () => {
+    const one = shaped({ pages: { layout: 'folder' }, hooks: { entry: 'main' } });
 
-    // A partial declaration keeps the untouched keys at their defaults.
-    expect(getSharedModule({ ...bare, module: { layout: 'folder' } }))
-      .toEqual({ layout: 'folder', entry: 'index', private: [] });
+    expect(getModuleShape(one, 'pages')).toEqual({ layout: 'folder', entry: 'index' });
+    expect(getModuleShape(one, 'hooks')).toEqual({ layout: 'flat', entry: 'main' });
+  });
 
-    // A full declaration passes through unchanged.
-    expect(getSharedModule(arch())).toEqual({ layout: 'folder', entry: 'index', private: [] });
+  it('falls back to the defaults for a layer that is not declared at all', () => {
+    expect(getModuleShape(arch(), 'nope')).toEqual({ layout: 'flat', entry: 'index' });
+  });
+});
+
+describe('moduleShapeGroups', () => {
+  it('collapses layers that agree into one group', () => {
+    const groups = moduleShapeGroups(shaped(Object.fromEntries(
+      ['pages', 'components', 'hooks', 'contexts', 'services'].map((name) => [name, { layout: 'folder' as const }]),
+    )));
+
+    expect(groups).toEqual([
+      { layout: 'folder', entry: 'index', layers: ['pages', 'components', 'hooks', 'contexts', 'services'] },
+    ]);
+  });
+
+  it('splits folder layers by entry, first-declared first', () => {
+    const groups = moduleShapeGroups(shaped({
+      pages: { layout: 'folder', entry: 'main' },
+      components: { layout: 'folder' },
+      hooks: { layout: 'folder', entry: 'main' },
+    }));
+
+    expect(groups).toEqual([
+      { layout: 'folder', entry: 'main', layers: ['pages', 'hooks'] },
+      { layout: 'folder', entry: 'index', layers: ['components'] },
+      { layout: 'flat', entry: 'index', layers: ['contexts', 'services'] },
+    ]);
+  });
+
+  it('keys a flat layer on layout alone — its entry filename governs nothing', () => {
+    const groups = moduleShapeGroups(shaped({ pages: { entry: 'main' }, components: { entry: 'other' } }));
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].layers).toEqual(['pages', 'components', 'hooks', 'contexts', 'services']);
   });
 });
 

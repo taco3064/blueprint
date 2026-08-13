@@ -75,13 +75,17 @@ describe('presets · shape', () => {
 
   it('shape vue and react around the folder module', () => {
     for (const bp of [vuePreset(), reactPreset()]) {
-      // The private list is what makes `hooks/` inside a module unreachable
-      // from outside it; emptied, every module's internals become fair game.
-      expect(bp.architecture.module).toEqual({
-        layout: 'folder',
-        entry: 'index',
-        private: ['hooks', 'styles', 'types'],
-      });
+      // Every layer, not most of them: a layer left flat is one whose modules
+      // have no entry to hide behind, and only this list would show it.
+      expect(bp.architecture.layers.map((l) => [l.name, l.layout ?? 'flat', l.entry ?? 'index']))
+        .toEqual([
+          ['pages', 'folder', 'index'],
+          ['containers', 'folder', 'index'],
+          ['components', 'folder', 'index'],
+          ['hooks', 'folder', 'index'],
+          ['contexts', 'folder', 'index'],
+          ['services', 'folder', 'index'],
+        ]);
 
       // Naming conventions reach the handbook and the agent contract verbatim.
       expect(bp.architecture.naming).toMatchObject({
@@ -97,8 +101,11 @@ describe('presets · shape', () => {
     const next = nextPreset();
 
     // The shape assertions above walk vue and react only, which left the third
-    // preset's module shape, naming and primitives free to empty out.
-    expect(next.architecture.module).toEqual({ layout: 'flat', entry: 'index', private: [] });
+    // preset's module shape, naming and primitives free to empty out. Flat is
+    // the default, so this preset declares neither key on any layer.
+    expect(next.architecture.layers.every((l) => l.layout === undefined && l.entry === undefined))
+      .toBe(true);
+
     expect(next.architecture.naming?.hook).toContain('useX');
     expect(layer(next, 'hooks').owns).toEqual([{ package: 'react', imports: ['useContext'] }]);
   });
@@ -274,7 +281,7 @@ describe('nextPreset', () => {
     expect(bp.architecture.sourceRoot).toBe('src');
     expect(bp.architecture.alias).toBe('@');
     expect(bp.architecture.layers.map((l) => l.name)).toEqual(['app', 'components', 'hooks', 'lib']);
-    expect(bp.architecture.module?.layout).toBe('flat');
+    expect(bp.architecture.layers.every((l) => l.layout === undefined)).toBe(true);
 
     // Server components fetch everywhere — fetch must not be owned by a layer.
     const owners = bp.architecture.layers.flatMap((l) => l.owns ?? []);

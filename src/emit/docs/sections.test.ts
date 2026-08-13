@@ -11,16 +11,15 @@ import {
   renderPrinciples,
   renderRules,
 } from './sections';
-import type { ArchitectureDef, AxisDef, ModuleDef, PrincipleDef } from '../../config';
+import type { ArchitectureDef, AxisDef, PrincipleDef } from '../../config';
 
 function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
   return {
     alias: '~app',
     layers: [
-      { name: 'components', does: 'UI', mustNot: ['import services'], owns: ['clsx'] },
-      { name: 'services', does: 'net', owns: ['axios'] },
+      { name: 'components', does: 'UI', mustNot: ['import services'], owns: ['clsx'], layout: 'folder' },
+      { name: 'services', does: 'net', owns: ['axios'], layout: 'folder' },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
     ...over,
   };
 }
@@ -51,33 +50,23 @@ describe('renderArchitecture', () => {
 });
 
 describe('renderModule', () => {
-  it('renders a folder tree with entry, impl, and private parts', () => {
-    const out = renderModule(arch(), 'components');
+  it('states one shared shape once, with a tree rooted at a layer that has it', () => {
+    const out = renderModule(arch());
 
+    expect(out).toContain('One module = one folder. Only `index` is public');
     expect(out).toContain('components/');
     expect(out).toContain('├─ index');
-    expect(out).toContain('└─ types'); // last private part closes the tree
-    // No layer overrides the shared shape, so the section closes on the fence.
-    // Anything appended after it lands outside the code block, where a reader
-    // takes it for prose about the shape rather than part of the tree.
+    // Every layer agrees, so nothing is stated per layer — naming them would
+    // read as a restriction that only some layers carry this shape.
+    expect(out).not.toContain('differs by layer');
+    expect(out).toContain('└─ Example'); // impl row closes the tree
+    // The section closes on the fence. Anything appended after it lands outside
+    // the code block, where a reader takes it for prose about the shape.
     expect(out.endsWith('```')).toBe(true);
   });
 
-  it('renders a folder tree without private parts when the field is omitted', () => {
-    const out = renderModule(
-      arch({ module: { layout: 'folder', entry: 'index' } }),
-      'components',
-    );
-
-    expect(out).toContain('├─ index');
-    expect(out).toContain('└─ Example'); // impl row closes the tree — nothing private after it
-  });
-
-  it('renders a one-line note for flat layout', () => {
-    const out = renderModule(
-      arch({ module: { layout: 'flat', entry: 'index', private: [] } }),
-      'components',
-    );
+  it('renders a one-line note when every layer is flat', () => {
+    const out = renderModule(arch({ layers: [{ name: 'components', does: 'UI' }] }));
 
     expect(out).toContain('flat layout');
     expect(out).not.toContain('```');
@@ -85,36 +74,34 @@ describe('renderModule', () => {
     expect(out.endsWith('Shared logic moves down to a lower layer.')).toBe(true);
   });
 
-  it('lists per-layer exceptions to the shared shape', () => {
-    const architecture = arch({
-      module: { layout: 'flat', entry: 'index', private: [] },
+  it('states each shape with its own layers when the layers disagree', () => {
+    const out = renderModule(arch({
       layers: [
-        { name: 'resources', does: 'features', module: { layout: 'folder', entry: 'index' } },
-        { name: 'components', does: 'UI', module: { layout: 'flat' } },
+        { name: 'resources', does: 'features', layout: 'folder' },
+        { name: 'components', does: 'UI' },
         { name: 'services', does: 'net' },
       ],
-    });
+    }));
 
-    const out = renderModule(architecture, 'resources');
-
-    expect(out).toContain('Per-layer exceptions');
-    expect(out).toContain('`resources/` — one folder per module, entry `index`.');
-    expect(out).toContain('`components/` — one file per module (flat).');
-    expect(out).not.toContain('`services/` —');
+    expect(out).toContain('The shape differs by layer:');
+    expect(out).toContain('- `resources/` — one module = one folder. Only `index` is public');
+    expect(out).toContain('- `components/` / `services/` — one module = one file (flat layout).');
+    // The tree illustrates the folder shape, rooted at a layer that has it.
+    expect(out).toContain('resources/\n└─ Example/');
   });
 
-  it('renders exceptions under a folder default too', () => {
-    const architecture = arch({
+  it('draws one tree for several folder shapes, since the picture is the same', () => {
+    const out = renderModule(arch({
       layers: [
-        { name: 'components', does: 'UI', module: { layout: 'flat' } },
-        { name: 'services', does: 'net' },
+        { name: 'resources', does: 'features', layout: 'folder', entry: 'main' },
+        { name: 'components', does: 'UI', layout: 'folder' },
       ],
-    });
+    }));
 
-    const out = renderModule(architecture, 'components');
-
-    expect(out).toContain('One module = one folder');
-    expect(out).toContain('`components/` — one file per module (flat).');
+    expect(out).toContain('Only `main` is public');
+    expect(out).toContain('Only `index` is public');
+    expect(out.match(/```/g)).toHaveLength(2);
+    expect(out).toContain('   ├─ main ');
   });
 });
 
@@ -134,20 +121,34 @@ describe('renderImportDiscipline', () => {
     expect(out).not.toContain('selfOnly');
   });
 
-  it('swaps in the relative-path rule and drops entry-only for flat layout', () => {
-    const flat: ModuleDef = { layout: 'flat', entry: 'index', private: [] };
-    const out = renderImportDiscipline(arch({ module: flat }));
+  it('swaps in the relative-path rule and drops entry-only when every layer is flat', () => {
+    const out = renderImportDiscipline(arch({ layers: [{ name: 'components', does: 'UI' }] }));
 
     expect(out).toContain('use a relative path');
     expect(out).not.toContain('Entry-only');
   });
 
-  it('keeps entry-only when any layer overrides to folder layout', () => {
+  it('states the same-layer rule once when only the entry names differ', () => {
+    // The rule does not read the entry filename, so splitting on it would print
+    // one sentence twice over a difference it ignores.
     const out = renderImportDiscipline(
       arch({
-        module: { layout: 'flat', entry: 'index', private: [] },
         layers: [
-          { name: 'resources', does: 'features', module: { layout: 'folder', entry: 'main' } },
+          { name: 'resources', does: 'features', layout: 'folder', entry: 'main' },
+          { name: 'services', does: 'net', layout: 'folder' },
+        ],
+      }),
+    );
+
+    expect(out).toContain('- **No same-layer imports** — extract shared logic down to a lower layer instead.');
+    expect(out.match(/No same-layer/g)).toHaveLength(1);
+  });
+
+  it('names the layers each same-layer rule covers when the layouts disagree', () => {
+    const out = renderImportDiscipline(
+      arch({
+        layers: [
+          { name: 'resources', does: 'features', layout: 'folder', entry: 'main' },
           { name: 'services', does: 'net' },
         ],
       }),
@@ -155,6 +156,10 @@ describe('renderImportDiscipline', () => {
 
     expect(out).toContain('Entry-only');
     expect(out).toContain('`main`');
+    // One unqualified sentence would hand `services` the folder rule and
+    // `resources` the flat one — each is false where the other applies.
+    expect(out).toContain('**No same-layer imports** in `resources/` —');
+    expect(out).toContain('**No same-layer imports via the alias** in `services/` —');
   });
 
   it('adds a selfOnly note when a selfOnly importer exists', () => {

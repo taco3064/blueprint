@@ -7,8 +7,7 @@ import type { Action } from './types';
 
 const ARCH = {
   alias: '~app',
-  layers: [{ name: 'components', does: 'UI' }],
-  module: { layout: 'folder', entry: 'index', private: [] },
+  layers: [{ name: 'components', does: 'UI', layout: 'folder' }],
 } satisfies ArchitectureDef;
 
 const PATHS = { '~app/*': ['./src/*'] };

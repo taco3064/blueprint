@@ -144,15 +144,9 @@ describe('runDeps · flat-layout layers answer at layer granularity', () => {
     framework: 'vue' as const,
     architecture: {
       alias: '~app',
-      module: { layout: 'folder' as const, entry: 'index', private: [] },
       layers: [
-        { name: 'pages', does: 'routes', allowedImporters: [] },
-        {
-          name: 'features',
-          does: 'feature modules',
-          module: { layout: 'flat' as const },
-          allowedImporters: ['pages'],
-        },
+        { name: 'pages', does: 'routes', layout: 'folder' as const, allowedImporters: [] },
+        { name: 'features', does: 'feature modules', allowedImporters: ['pages'] },
       ],
     },
   });
@@ -199,15 +193,15 @@ describe('runDeps · a hand-written config is validated on load', () => {
   });
 
   it('fails with a precise message instead of a deep undefined-property crash', async () => {
-    // An empty entry — a MISSING module is valid since the flat default
-    // became real (field issue #23).
+    // An empty entry — a layer that declares NEITHER key is valid since the
+    // flat default became real (field issue #23).
     const invalid = async () =>
       ({
-        architecture: { alias: '~app', layers: [{ name: 'pages' }], module: { entry: '' } },
+        architecture: { alias: '~app', layers: [{ name: 'pages', entry: '' }] },
       }) as never;
 
     await expect(runDeps(root, { loadConfig: invalid, log: silent })).rejects.toThrow(
-      /blueprint\.config\.mjs: architecture\.module/,
+      /blueprint\.config\.mjs: Layer "pages" has an empty entry/,
     );
   });
 
@@ -313,16 +307,10 @@ describe('runDeps · normalizing the target the user typed', () => {
       framework: 'vue' as const,
       architecture: {
         alias: '~app',
-        // SHARED shape is flat, so `layoutOf` answers "flat" for any name it does
-        // not recognise as a layer — including a `layer/Module` key.
-        module: { layout: 'flat' as const, entry: 'index', private: [] },
+        // Every layer but `pages` is flat, and `layoutOf` answers "flat" for any
+        // name it does not recognise as a layer — including a `layer/Module` key.
         layers: [
-          {
-            name: 'pages',
-            does: 'routes',
-            module: { layout: 'folder' as const },
-            allowedImporters: [],
-          },
+          { name: 'pages', does: 'routes', layout: 'folder' as const, allowedImporters: [] },
           { name: 'services', does: 'io', allowedImporters: ['pages'] },
         ],
       },

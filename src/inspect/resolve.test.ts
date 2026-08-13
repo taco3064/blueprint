@@ -13,11 +13,10 @@ import type { ImportRef, ScannedFile } from './types';
 
 const architecture: ArchitectureDef = {
   alias: '~app',
-  module: { layout: 'folder', entry: 'index' },
   layers: [
-    { name: 'resources', does: 'feature modules' },
-    { name: 'services', does: 'io', module: { entry: 'service' } },
-    { name: 'utils', does: 'leaf helpers', module: { layout: 'flat' } },
+    { name: 'resources', does: 'feature modules', layout: 'folder' },
+    { name: 'services', does: 'io', layout: 'folder', entry: 'service' },
+    { name: 'utils', does: 'leaf helpers' },
   ],
 };
 
@@ -119,21 +118,25 @@ describe('resolveSegments', () => {
   });
 });
 
-describe('entryResolver · a shared entry that is not the default', () => {
-  it('keeps the declared shared entry instead of falling back to index', () => {
-    // `index` is only what a blueprint gets when it declares nothing. A repo
-    // that names its entry `main` has no `index` files at all, so resolving to
-    // one makes every sibling import a reaches-inside violation and inspect
-    // reddens a repo that is correctly shaped.
+describe('entryResolver · an entry that is not the default', () => {
+  it('keeps each layer\'s declared entry instead of falling back to index', () => {
+    // `index` is only what a layer gets when it declares nothing. A layer that
+    // names its entry `main` has no `index` files at all, so resolving to one
+    // makes every sibling import a reaches-inside violation and inspect reddens
+    // a repo that is correctly shaped.
     const named = entryResolver({
       alias: '~app',
-      module: { layout: 'folder', entry: 'main' },
-      layers: [{ name: 'features', does: 'x' }, { name: 'api', does: 'y', module: { entry: 'client' } }],
+      layers: [
+        { name: 'features', does: 'x', layout: 'folder', entry: 'main' },
+        { name: 'api', does: 'y', layout: 'folder', entry: 'client' },
+        { name: 'lib', does: 'z' },
+      ],
     });
 
-    expect(named('features')).toBe('main'); // shared, no override
-    expect(named('api')).toBe('client'); // override still wins
-    expect(named('unknown')).toBe('main'); // and the fallback is the shared one
+    expect(named('features')).toBe('main');
+    expect(named('api')).toBe('client');
+    expect(named('lib')).toBe('index'); // declares neither key
+    expect(named('unknown')).toBe('index'); // and so does an undeclared layer
   });
 });
 
@@ -220,8 +223,7 @@ describe('relativeVerdict · how deep the entry check looks', () => {
     // entry import is reported as reaching inside it.
     const typed: ArchitectureDef = {
       alias: '~app',
-      module: { layout: 'folder', entry: 'index' },
-      layers: [{ name: 'types', does: 'shared shapes', module: { entry: 'index.d' } }],
+      layers: [{ name: 'types', does: 'shared shapes', layout: 'folder', entry: 'index.d' }],
     };
 
     expect(relativeVerdict(
