@@ -9,7 +9,7 @@ import type {
 } from '../../config';
 import { readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
 import { handbookPath } from '../docs';
-import { enforcedBy, LINT_GATED_RULE_IDS, unavailableFromBlueprint } from '../lint';
+import { enforcedBy, LINT_GATED_RULE_IDS, resolveTestFiles, unavailableFromBlueprint } from '../lint';
 import { formatOwns } from '../../markdown';
 
 function rulesOfTier(rules: Record<string, RuleSetting> | undefined, tier: Tier) {
@@ -176,7 +176,17 @@ export function renderPlacement(architecture: ArchitectureDef): string {
         : `- Exception — \`src/${layer.name}/\`: one file per module (flat).`;
     });
 
-  return ['### Where code goes', '', ...lines, moduleLine, ...overrideLines].join('\n');
+  // Reporting instruction, not a third remedy. An agent that learns "files matching
+  // these globs are exempt from placement", while under pressure to get a gate green,
+  // has been handed a rename-to-escape route — the same move the contract already
+  // forbids next door ("never relocate the violation to a sibling").
+  const testGlobs = resolveTestFiles(architecture.testFiles);
+
+  const exemptLine = testGlobs.length
+    ? [`- Test support is exempt from every placement rule above: files matching ${testGlobs.map((glob) => `\`${glob}\``).join(' / ')} sit outside them. If a placement rule stops you on files that exist only to serve tests, that is a question for the owner — say so and name them; never widen \`architecture.testFiles\` yourself, and never rename a file to match those globs.`]
+    : [];
+
+  return ['### Where code goes', '', ...lines, moduleLine, ...overrideLines, ...exemptLine].join('\n');
 }
 
 /** Naming conventions as directives. */
