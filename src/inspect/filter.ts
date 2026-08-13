@@ -5,9 +5,8 @@ import { resolveTestFiles } from '../emit/lint/patterns';
 import type { ScanResult } from './types';
 
 /**
- * Test files are exempt from structural analysis, symmetric with the lint
- * side's per-entry ignores — a co-located `Foo.test.js` importing its sibling
- * through the alias is test plumbing, not an architecture violation.
+ * Test files are exempt from structural analysis, symmetric with the lint side's
+ * per-entry ignores — a co-located test reaching a sibling is plumbing.
  */
 
 /** Compile one glob (`**` / `*` / `?` / `{a,b}`) into an anchored RegExp. */

@@ -2,19 +2,16 @@ import { compareText } from './order';
 import type { Finding } from './types';
 
 /**
- * The brownfield ratchet. A legacy project's first `inspect` is a wall of
- * red; the baseline locks that debt in place so CI fails only on *new*
- * findings — the codebase stops getting worse today, and the baseline
- * shrinks as debt is paid down.
+ * The brownfield ratchet: the baseline locks a legacy project's existing debt so CI
+ * fails only on NEW findings, and shrinks as that debt is paid down.
  */
 
 export const BASELINE_FILE = '.blueprint-baseline.json';
 
 /**
- * The document version, bumped when identity moved off the message text. Entries
- * recorded by an older blueprint carry no `subject`, and matching those by message
- * would keep the failure this fixes alive in exactly the files that already have it
- * — so the reader refuses them by version instead, and says how to re-key.
+ * The document version, bumped when identity moved off the message text. Older
+ * entries carry no `subject`, so the reader refuses them by version and says how to
+ * re-key rather than matching by message and keeping the failure alive.
  */
 const BASELINE_VERSION = 2;
 
@@ -40,23 +37,13 @@ export interface BaselineSplit {
 /**
  * A finding's identity: its rule, where it is, and what inside there it is about.
  *
- * `message` used to be the third field, and it is the one part of a finding that
- * changes while the violation does not. This repo rewords findings often — two of
- * the last handful of commits touching `analyze` did nothing else — and each of
- * those silently retired every baseline entry for the rules it touched: the
- * recorded text stopped matching, so old debt came back as `fresh`, the recorded
- * entry counted as `stale`, and a brownfield CI went red on an upgrade that changed
- * no code. The ratchet is what makes adopting this tool on a legacy repo possible,
- * so its key cannot be the part of a finding whose purpose is to be rewritten.
+ * Not `message` — that is the one part of a finding whose purpose is to be
+ * rewritten, and keying on it turned every rewording into a brownfield CI going red
+ * on an upgrade that changed no code. `subject` takes its place rather than
+ * nothing: one file holds several findings of the same rule.
  *
- * Dropping `message` needs `subject` in its place rather than nothing: one file
- * holds several findings of the same rule (two deep imports, two banned packages),
- * and `rule` + `path` alone would collapse them into one.
- *
- * `\0` separates — the one byte that cannot occur in a rule id, a path or a
- * specifier, so no two fields can spell another pair between them. Written as the
- * escape rather than as a literal NUL in the source, which is what it used to be:
- * the same string at runtime, and one that survives a copy through any tool that
+ * `\0` separates, the one byte that cannot occur in a rule id, a path or a
+ * specifier. Written as the escape, so it survives a copy through any tool that
  * does not expect a control character in a template literal.
  */
 function keyOf(entry: Omit<BaselineEntry, 'message'>): string {
@@ -82,10 +69,8 @@ export function renderBaseline(findings: Finding[]): string {
         rule: finding.rule,
         path: finding.path,
         subject: finding.subject,
-        // Recorded after the key fields, and read by nothing: it is here so the
-        // diff of a regenerated baseline says which finding each line is. A
-        // rewording now shows up as exactly that — a text change with no effect on
-        // what the gate suppresses.
+        // Read by nothing — it is here so a regenerated baseline's diff says which
+        // finding each line is, and a rewording shows up as exactly that.
         message: finding.message,
       },
     ]),
@@ -108,13 +93,9 @@ export function parseBaseline(text: string): BaselineEntry[] {
     throw new Error('Baseline file is not valid JSON — regenerate it with --update-baseline.');
   }
 
-  // Undecidable, the `parsed !== null` half: the only value that passes the `typeof`
-  // test and fails this one is `null` itself, and `null` is exactly what the false
-  // branch assigns — so dropping it changes the type and never the value. It is here
-  // for the narrowing that makes the cast below legal, and it is load-bearing for that:
-  // every read of `document` past this point is guarded by `document !== null`, which
-  // is what the previous shape (`'findings' in parsed` inline) needed it for at
-  // runtime too.
+  // undecidable, the `parsed !== null` half: the only value passing `typeof` and
+  // failing this is `null`, which is what the false branch assigns anyway. It stays
+  // for the narrowing that makes the cast below legal.
   const document = typeof parsed === 'object' && parsed !== null
     ? (parsed as { findings?: unknown; version?: unknown })
     : null;

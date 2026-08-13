@@ -48,10 +48,9 @@ export type DoctorVerdict = 'complete' | 'unverified' | 'incomplete';
 const SUPPRESSIONS_FILE = 'eslint-suppressions.json';
 
 /**
- * The lint side of the debt ledger (ESLint ≥ 9.24 bulk suppressions). Doctor
- * cannot re-run eslint (read-only, zero deps), but it CAN catch the cheap
- * drift: suppressed entries whose file no longer exists, or an unreadable
- * ledger. Absent file = the ledger is simply not in use — fine.
+ * The lint side of the debt ledger. Doctor cannot re-run eslint, but it catches the
+ * cheap drift: suppressed entries whose file is gone, or an unreadable ledger. An
+ * absent file means the ledger is not in use, which is fine.
  */
 function suppressionsCheck(root: string): DoctorCheck {
   const label = 'lint suppressions ledger current';
@@ -96,33 +95,25 @@ function suppressionsCheck(root: string): DoctorCheck {
 }
 
 /**
- * Bundler configs the alias check scans beyond the vite config `detect`
- * already reads — the webpack-era and current homes of a resolve alias. A
- * check that cannot see where the alias is actually wired would be a forever-
- * red gate with no way to appease it.
+ * Bundler configs the alias check scans beyond the vite config `detect` reads. A
+ * check blind to where the alias is actually wired is a forever-red gate.
  */
 const BUNDLER_FILES = ['webpack.config', 'vue.config', 'next.config', 'rsbuild.config']
   .flatMap((name) => ['js', 'cjs', 'mjs', 'ts'].map((ext) => `${name}.${ext}`));
 
 /**
- * The alias is required in the config precisely because a wrong default would
- * silently pass illegal imports — but a *declared-yet-unwired* alias is the
- * inverse trap: the contract tells agents to import through a prefix no
- * toolchain resolves. Wired = the alias appears in tsconfig/jsconfig `paths`
- * (any target), or a bundler config's text carries it as a quoted token
- * (`quotedIn` — the standard init's alias instructs share).
+ * A declared-yet-unwired alias is the inverse trap to a wrong default: the contract
+ * tells agents to import through a prefix no toolchain resolves. Wired = it appears
+ * in tsconfig/jsconfig `paths`, or in a bundler config as a quoted token.
  */
 function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): DoctorCheck {
   const { alias, additionalAliases, sourceRoot } = blueprint.architecture;
   const declared = pathAliasKeys(state.tsconfigs);
 
-  // Built without holes rather than built with holes and filtered. The filter that
-  // used to close this was `(text): text is string => text !== undefined` — a
-  // narrowing for the compiler, and undecidable at runtime, because `quotedIn`
-  // regex-tests its argument and `test(undefined)` searches the string "undefined"
-  // for the alias. Both guards below decide something: read a file that is not
-  // there and `readFileSync` throws; drop the vite arm and an alias wired only in
-  // vite.config.ts reads as wired nowhere.
+  // Built without holes rather than filtered afterwards: the filter was a compiler
+  // narrowing and undecidable at runtime. Both guards below decide something —
+  // `readFileSync` throws on a missing file, and dropping the vite arm makes an
+  // alias wired only in vite.config.ts read as wired nowhere.
   const bundlerTexts = BUNDLER_FILES.map((file) => path.join(root, file))
     .filter((full) => fs.existsSync(full))
     .map((full) => fs.readFileSync(full, 'utf-8'));
@@ -159,11 +150,10 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
 /**
  * Reference files are named `<name>.blueprint.<ext>` — never the config itself.
  *
- * The `.sort()` is undecidable here: `readdirSync` already answers in name order on
- * macOS and on a small ext4 directory, so the guarantee that matters on other volumes
- * cannot be seen where it is cheapest to run. `scan` solves the same problem with an
- * injected reader — `DoctorOptions` is public API, and a reader option there would be
- * adopter-facing surface for a test concern, so this one keeps the sort and the note.
+ * The `.sort()` is undecidable: `readdirSync` already answers in name order on the
+ * volumes a test can run on, so the guarantee it provides elsewhere is unobservable
+ * here. `DoctorOptions` is public API, so an injected reader would be adopter-facing
+ * surface for a test concern — this keeps the sort instead.
  */
 function referenceFiles(root: string): string[] {
   return fs
@@ -173,11 +163,9 @@ function referenceFiles(root: string): string[] {
 }
 
 /**
- * Contract files outside the declared emit set. Init removes a wholly-
- * generated one on its next run, but one carrying hand-written content only
- * gets an instruct — and without this check, that orphan lives on with every
- * gate green (field issue #2/#3: a narrowed emit.agents left AGENTS.md
- * behind and nothing ever said so again).
+ * Contract files outside the declared emit set. One carrying hand-written content
+ * only gets an instruct, so without this check the orphan lives on with every gate
+ * green (field issues #2/#3).
  */
 function staleContracts(root: string, blueprint: Blueprint): string[] {
   const emitted = new Set(emitAgentFiles(blueprint).map((file) => file.path));
@@ -351,18 +339,12 @@ export async function runDoctor(
 }
 
 /**
- * What "complete" leaves out on a repo with no version control.
+ * What "complete" leaves out on a repo with no version control: every check can
+ * pass while nothing adoption wrote is committed, and doctor is the last thing on
+ * screen. Three field agents closed on that gap in their own words.
  *
- * Every check can pass while nothing adoption wrote is committed, and the two
- * truths do not meet anywhere the reader can see them: the authoring playbook says
- * a ratchet living only in an uncommitted working tree is not installed, and then
- * doctor — the last thing on screen, and often the only thing still in an agent's
- * context — prints "Adoption complete". Three field agents closed on exactly that
- * gap in their own words ("what I reported as complete is complete minus commit").
- *
- * Only the no-VCS case, and deliberately: whether a git repo's own working tree is
- * clean needs `git status`, and doctor is read-only with zero dependencies. The
- * absence of `.git` is a fact one `existsSync` settles.
+ * The no-VCS case only — a git repo's own working tree needs `git status`, and
+ * doctor is read-only with zero dependencies.
  */
 function uncommittedNote(root: string): string | undefined {
   if (fs.existsSync(path.join(root, '.git'))) return undefined;
@@ -386,21 +368,13 @@ function verdictOf(checks: DoctorCheck[]): DoctorVerdict {
 }
 
 /**
- * The banner sentence and the counts behind it — one passage, both channels.
+ * The banner sentence and the counts behind it — one passage, both channels, so a
+ * machine reading `ok` learns what a reader is told (field run #149).
  *
- * It used to live inside the text branch, so the JSON carried `ok` and `verdict`
- * and not this: only a reader was told "6 of 7 passed, 1 could not run". A machine
- * that read `ok` and stopped saw a plain green, and an agent said so — the field's
- * suggested remedies were `ok: false` or an explicit skipped aggregate (field run
- * #149). The aggregate is the right half. Flipping `ok` is not: `ok` means nothing
- * FAILED, which is exactly what this command's exit code means, so a consumer
- * following it would start failing on a skip — and a skip is deliberately not a
- * failure, because the state that produces one (an eslint config that will not
- * resolve on a machine with no registry) is a red nobody can appease.
- *
- * A skip is still not a pass. It rides on `ok: true` so nothing goes red that
- * cannot be appeased, and the banner used to fold it into "all N checks passed" —
- * the exact reading that let an agent report the lint wiring as verified (#129).
+ * `ok` is not flipped for a skip: it means nothing FAILED, which is what the exit
+ * code means, so a consumer following it would start failing on a state nobody can
+ * appease. A skip is still not a pass, and folding it into "all N checks passed" is
+ * what let an agent report the lint wiring as verified (#129).
  */
 function summarize(checks: DoctorCheck[]): {
   verdict: DoctorVerdict;
@@ -419,11 +393,9 @@ function summarize(checks: DoctorCheck[]): {
       ? `⊘ Adoption unverified — ${passed} of ${checks.length} checks passed, `
       + `${skipped} could not run (⊘ above). Nothing failed, and nothing here `
       + 'proves what those checks cover.'
-      // A skip riding along under a failure was invisible: the red arm counted only
-      // failures, so `2 of 7 failed` was the whole banner while the JSON said
-      // `skipped: 1`. #129's lesson is that an agent reads the banner and stops — and
-      // fixing the failures would then leave it at a green it had never been told was
-      // partly unproven.
+      // A skip riding under a failure was invisible — the red arm counted only
+      // failures, so fixing them left the reader at a green never flagged as partly
+      // unproven (#129: an agent reads the banner and stops).
       : `✗ Adoption incomplete — ${failed} of ${checks.length} check(s) failed`
         + `${skipped ? `, and ${skipped} could not run (⊘ above) — fixing the ✗ leaves those still unproven` : ''}.`;
 
@@ -439,15 +411,11 @@ function emit(
   const { verdict, passed, failed, skipped, banner } = summarize(checks);
 
   if (json) {
-    // The note rides on both channels or the two disagree about the same run, which
-    // is its own defect — automation reading JSON must not learn less than a reader.
-    // `verdict` beside `ok`, because `ok` cannot carry three states and a skip rides
-    // on `ok: true` by design (exit 0 follows it). So the JSON said `"ok": true` while
-    // the text said `⊘ Adoption unverified` about the same run, and an agent nearly
-    // took it as a CI-usable green before cross-checking with the plain output and its
-    // own lint (field run #141). `verdict` closed that; `summary` and `counts` close
-    // what #141's fix left — the enum was a word where the text had a sentence and a
-    // ratio, so a reader of the JSON still learned less than a reader of the screen.
+    // Both channels or they disagree about the same run, which is its own defect:
+    // automation reading JSON must not learn less than a reader. `verdict` sits
+    // beside `ok` because `ok` cannot carry three states and a skip rides on
+    // `ok: true`; `summary` and `counts` follow because an enum is a word where the
+    // text had a sentence and a ratio (field run #141).
     log(JSON.stringify(
       {
         ok: checks.every((check) => check.ok),

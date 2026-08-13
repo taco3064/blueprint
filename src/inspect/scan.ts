@@ -15,16 +15,9 @@ function stripComments(source: string): string {
 }
 
 /**
- * The imported name in one brace entry — `Foo`, `type Foo`, `Foo as F`.
- *
- * Read as tokens rather than as a chain of string surgery. The old form
- * (trim → strip a leading `type` → split on ` as ` → trim again) had two
- * operations that could not be wrong: its final `.trim()` never fired, because a
- * split's first half ends on a non-space by construction — and while it sat there
- * it silently repaired a `type  Foo` whose `\s+` had been narrowed to `\s`, so the
- * bug was cleaned up by an operation whose stated job was something else. Here
- * every piece decides something: narrow the split and `type  Foo` reads as no name
- * at all; drop the modifier arm and it reads as `type`.
+ * The imported name in one brace entry — `Foo`, `type Foo`, `Foo as F`. Read as
+ * tokens, so every piece decides something: narrow the split and `type  Foo` reads
+ * as no name at all, drop the modifier arm and it reads as `type`.
  */
 function importedName(part: string): string {
   const [first, second] = part.trim().split(/\s+/);
@@ -120,12 +113,10 @@ interface DirEntry {
 
 export interface ScanOptions {
   /**
-   * Directory reader (default `fs.readdirSync`). Injected because the ordering
-   * guarantee below cannot be seen against a real filesystem: macOS answers in
-   * name order already, and so does a small ext4 directory, so the sort that makes
-   * the walk deterministic on every other volume reads as dead code exactly where
-   * it is easiest to run. A reader that answers out of order is the only way to
-   * ask whether the sort is there.
+   * Directory reader (default `fs.readdirSync`). Injected because a real filesystem
+   * cannot show the ordering guarantee below — the volumes a test runs on answer in
+   * name order already, so only an out-of-order reader can ask whether the sort is
+   * there.
    */
   readdir?: (dir: string) => DirEntry[];
 }
@@ -136,13 +127,10 @@ const realReaddir = (dir: string): DirEntry[] =>
   fs.readdirSync(dir, { withFileTypes: true });
 
 /**
- * `readdirSync` answers in filesystem order — creation order on some volumes,
- * name-hash order on others — so an unsorted walk makes every downstream list's
- * order depend on which machine ran it. That is a determinism hole in a tool whose
- * whole job is emitting a contract two people can diff, and it is why several
- * consumers grew a `.sort()` of their own: sorting late papers over an order that
- * was undefined early. Sorted here once, those become guarantees the reader can
- * rely on rather than repairs.
+ * `readdirSync` answers in filesystem order, so an unsorted walk makes every
+ * downstream list depend on which machine ran it — a determinism hole in a tool
+ * emitting a contract two people diff. Sorted here once, so a consumer's own
+ * `.sort()` is a guarantee rather than a late repair.
  */
 function ordered(dir: string, readdir: (dir: string) => DirEntry[]): DirEntry[] {
   // The comparator is asked about its equal case in `compareText`'s own tests, which

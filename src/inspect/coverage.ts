@@ -18,13 +18,9 @@ export interface Coverage {
   /** Of those, files matched by a declared layer's file globs. */
   layerFiles: number;
   /**
-   * The ones NOT matched, by path.
-   *
-   * The count alone is a claim the reader cannot check: `272/275` is correct both when
-   * the three are root wiring (`main.tsx`, `router.js` — outside every layer by design)
-   * and when one is a layer file a mistyped glob dropped out of the net. A field agent
-   * confirmed the glob by other means (`impact` running on layer files, then
-   * `print-config`) and said the number itself was not what told it.
+   * The ones NOT matched, by path. The count alone is uncheckable: `272/275` reads
+   * the same whether the three are root wiring or a layer file a mistyped glob
+   * dropped out of the net.
    */
   outsideNets: string[];
   /** Lint-gated rule ids active in `blueprint.rules` (tier not `off`). */
@@ -60,11 +56,10 @@ export function computeCoverage(
   const outside = source.filter((file) => !nets.some((net) => net.test(file.path)));
   const layerFiles = source.length - outside.length;
 
-  // A gate you cannot open is not a gate, and which those are now lives in one
-  // place: this filter and `blueprint rules`' own mirror of it had drifted, so a JS
-  // repo read a denominator of 17 here against eighteen rows there (field run #137).
-  // The two stylistic gates are NOT among them — every stack can open those; whether
-  // the config injects the plugin is a wiring fact this cannot see.
+  // A gate you cannot open is not a gate, and which those are lives in one place —
+  // this filter and `blueprint rules`' mirror had drifted into two denominators
+  // (field run #137). The stylistic gates are not among them: every stack can open
+  // those, and whether the config injects the plugin is a wiring fact this cannot see.
   const gates = LINT_GATED_RULE_IDS
     .filter((id) => unavailableGate(id, framework, hasTypescript, architecture.testFiles) === null);
 
@@ -87,11 +82,9 @@ export function computeCoverage(
  * `rules` block, so "0 optional gates" must not read as "nothing enforced".
  */
 export function coverageSummary(coverage: Coverage): string {
-  // The files outside the net are NAMED, not just counted. Root wiring belongs out
-  // there and a layer file dropped by a mistyped glob does not, and the count reads
-  // identically either way — so the number is a claim its reader cannot check. Capped,
-  // because on a brownfield repo mid-adoption the list is the whole repo: past the cap
-  // the count is the honest answer and the names would be noise.
+  // NAMED, not just counted: the number reads identically whether the files are root
+  // wiring or a layer file a mistyped glob dropped. Capped, because mid-adoption the
+  // list is the whole repo and past the cap the count is the honest answer.
   const outside = coverage.outsideNets;
 
   const named = outside.length === 0

@@ -16,12 +16,8 @@ const MIGRATION: Record<string, string> = {
 
 /**
  * The ESLint rule each finding resolves into — the bridge between inspect's
- * diagnostic names and what `eslint --print-config` actually shows. Most
- * structural bans fold into ONE rule, so an adopter verifying a merge by
- * searching the resolved config for `blueprint/deep-import` finds nothing and
- * reads it as a dropped rule (field issue #48). `null` marks the findings
- * inspect enforces by itself: they will never appear in a lint run, which is
- * the other half of the same question.
+ * diagnostic names and what `--print-config` shows, since most structural bans fold
+ * into ONE rule (field issue #48). `null` marks what inspect enforces by itself.
  */
 const ENFORCED_BY: Record<string, string | null> = {
   'undeclared-folder': null,

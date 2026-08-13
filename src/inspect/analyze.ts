@@ -17,19 +17,12 @@ import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './ty
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
 
 /**
- * The display prefix for a finding about a directory, from the source root the
- * config named.
+ * The display prefix for a directory finding, from the config's source root — the
+ * address an agent will actually go to. Per-file findings do not need it; `scan`
+ * puts the prefix on `file.path` already.
  *
- * Per-file findings do not need this — `scan` already puts the prefix on
- * `file.path`. The directory-level findings built their path from a literal
- * `src/`, so a repo with `sourceRoot: 'app'` was told to look at `src/components`
- * for a folder that is at `app/components`. Enforcement was unaffected, which is
- * what let it live: the finding is correct, and only its address is wrong — in a
- * tool whose output is read by an agent that will go to that address.
- *
- * `'.'` yields an empty prefix, not `'./'`, so a project-root layout reads the same
- * way here as it does in `scan`'s own paths. Two spellings of one path in a single
- * report is a difference the reader has to rule out.
+ * `'.'` yields an empty prefix, not `'./'`, so a project-root layout spells its
+ * paths the same way here as `scan` does.
  */
 function sourcePrefix(architecture: ArchitectureDef): string {
   const root = architecture.sourceRoot ?? 'src';
@@ -84,15 +77,10 @@ export function analyze(
 }
 
 /**
- * `owns` entries naming a package that is not installed.
- *
- * Declaring ownership before the install is the legitimate order — the emitted ban
- * is correct and simply has nothing to reach yet — so this is `info`, the same tier
- * and the same doctrine as `missing-layer` above. Reported because the alternative
- * is silence: `sky-1945` declared `owns: ['matter-js']` from its first commit and
- * went four issues without it installed, through green runs the whole way.
- *
- * A global has no dependency list to answer to, so `{ global: … }` is skipped.
+ * `owns` entries naming a package that is not installed. `info`, the same tier and
+ * doctrine as `missing-layer`: declaring ownership before the install is the
+ * legitimate order, so the ban is correct and simply has nothing to reach yet. A
+ * global has no dependency list to answer to and is skipped.
  */
 function ownsFindings(
   architecture: ArchitectureDef,
@@ -168,20 +156,14 @@ function folderFindings(
     }
   }
 
-  // A selfOnly ban protecting a layer nobody's code inhabits is declaratory:
-  // the emitted re-export selector can never fire. Whoever is defusing that
-  // rule's merge collision deserves to know the bomb is currently a blank
-  // (field batch 12) — info, because intent declared early is not a defect.
-  // The collision itself is conditional on a SECOND entry of that id, which
-  // inspect cannot see, so the note names the condition rather than asserting
-  // the collision: read as an unconditional "it collides today", an adopter on
-  // the single-generated-config path goes hunting a problem that needs a merge
-  // to exist (field batch 13).
-  // Said as a guard, not as an empty list to iterate: on a scaffold with no code
-  // every layer is a blank, and the coverage line already says so. Written as
-  // `for (… of scan.files.length === 0 ? [] : layers)`, the empty arm decided
-  // nothing measurable — a one-element list put in its place is discarded by the
-  // body as the wrong shape, so the arm was never asked.
+  // A selfOnly ban over a layer nobody inhabits is declaratory — info, because
+  // intent declared early is not a defect (field batch 12). The note states the
+  // collision as a CONDITION: it needs a second entry of that id, which inspect
+  // cannot see, and read as unconditional it sends the single-config adopter
+  // hunting a problem that requires a merge to exist (field batch 13).
+  //
+  // A guard, not an empty list to iterate: on a scaffold every layer is a blank and
+  // the coverage line already says so.
   if (scan.files.length > 0) {
     for (const layer of architecture.layers) {
       const selfOnlyImporters = normalizeAllowedImporters(layer.allowedImporters)
@@ -389,10 +371,8 @@ export function detectCycles(edges: Map<string, Set<string>>): string[][] {
   return stronglyConnected(edges)
     .map((component) => detectCycle(subgraph(edges, component)))
     .filter((cycle): cycle is string[] => cycle !== null)
-    // Content-ordered, not traversal-ordered: two cycles can never share a node, so
-    // the head of each path is a total order over them. Tarjan's own output order
-    // depends on which key it started from, and a report that reshuffles when an
-    // unrelated file is added is a diff nobody can read.
+    // Content-ordered, not traversal-ordered — Tarjan's output depends on its
+    // starting key, and a report that reshuffles on an unrelated file is unreadable.
     .sort((a, b) => compareText(a[0], b[0]));
 }
 
@@ -408,16 +388,10 @@ function subgraph(edges: Map<string, Set<string>>, component: string[]): Map<str
   const restricted = new Map<string, Set<string>>();
 
   for (const node of [...component].sort(compareText)) {
-    // Undecidable, both halves of this line, and the map's KEY SET is why. Only the
-    // component's own nodes become keys here, so a target left in by dropping the
-    // filter is a node with no edges of its own — `detectCycle` visits it, finds
-    // nothing, and backs out; it can never close a cycle, because closing one needs
-    // every node on it to have an entry. Same reason the `?? []` fallback cannot be
-    // seen: whatever a mutant puts in it is not a member, so the filter removes it,
-    // and even with both changed at once the fabricated target is still a leaf. The
-    // filter stays for the cost it avoids — re-walking foreign subtrees once per
-    // component — and the fallback stays because a component's leaf really does have
-    // no entry in `edges`.
+    // undecidable, both halves, because only this component's nodes become keys: a
+    // target the filter would have let through has no entry of its own, so it can
+    // never close a cycle — true even with both changed at once. The filter stays
+    // for the walk it avoids, the fallback because a leaf really has no entry.
     const targets = [...(edges.get(node) ?? [])].filter((target) => members.has(target));
 
     restricted.set(node, new Set(targets));
@@ -429,21 +403,16 @@ function subgraph(edges: Map<string, Set<string>>, component: string[]): Map<str
 /**
  * Tarjan's strongly connected components, in the order the walk closes them.
  *
- * `lowest` is returned rather than kept in a map because the value a parent needs
- * from a child IS the child's lowlink — threading it through the return type makes
- * the propagation the signature instead of a lookup that could read the wrong node.
- * The component is spliced off the stack at the root's position: popping until the
- * root reappears needs a loop whose exit can never be the empty stack, which is an
- * unreachable branch standing in for a guarantee Tarjan already gives.
+ * `lowest` is returned rather than mapped: the value a parent needs from a child IS
+ * the child's lowlink, so the propagation is the signature. The component splices
+ * off at the root's index, because popping until the root reappears needs an exit
+ * branch Tarjan's own guarantee makes unreachable.
  */
 function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
   const index = new Map<string, number>();
   const onStack = new Set<string>();
-  // Undecidable: seeding this with anything is invisible, because the component is
-  // taken with `splice(indexOf(node))` and `node` was pushed after the seed — so a
-  // stray entry sits below every real one forever, never enters a component, and is
-  // never in `onStack`. What keeps it honest is that `splice` cuts at a found index
-  // rather than popping until the root reappears.
+  // undecidable: `splice(indexOf(node))` cuts at a found index, so a seeded entry
+  // sits below every real one forever and never enters a component.
   const stack: string[] = [];
   const components: string[][] = [];
   let next = 0;
@@ -456,11 +425,9 @@ function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
     stack.push(node);
     onStack.add(node);
 
-    // Undecidable, the `?? []` arm: a leaf really has no entry in `edges`, and a
-    // fabricated target in its place is absorbed downstream — it gets its own index,
-    // closes as a one-node component, and `detectCycles` then asks `detectCycle` about
-    // it, which answers null because it has no self-edge. So the invented node adds a
-    // component that is dropped, and `Math.min` with its larger index is a no-op.
+    // undecidable, the `?? []` arm: a fabricated target closes as a one-node
+    // component with no self-edge, so `detectCycle` drops it and `Math.min` against
+    // its larger index is a no-op.
     for (const target of edges.get(node) ?? []) {
       const seen = index.get(target);
 
@@ -533,10 +500,8 @@ export function detectCycle(edges: Map<string, Set<string>>): string[] | null {
     return null;
   };
 
-  // Undecidable: the inner `visited` check keeps this one honest. Re-entering the
-  // walk at an already-visited node recurses nowhere, because that check stops it —
-  // so skipping the work and doing nothing cost the same. The inner one is measured
-  // (a 40-node mesh times out without it); this one shields nothing further.
+  // undecidable: the inner `visited` check already stops a re-entered walk, so this
+  // one shields nothing. The inner one is measured — a 40-node mesh times out.
   for (const node of edges.keys()) {
     if (!visited.has(node)) {
       const found = dfs(node, [node]);

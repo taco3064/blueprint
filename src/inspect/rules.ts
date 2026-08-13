@@ -23,11 +23,9 @@ import {
 import type { Blueprint } from '../config';
 
 /**
- * `blueprint rules` — the emitted-rule catalog as a queryable command. Field
- * agents reverse-engineered this exact table from the minified bundle
- * ("which rules always emit, which need declaring, the defaults") — the
- * compiler model demands the tool answer for itself. With a config present,
- * every gate is annotated with what the blueprint actually declares.
+ * `blueprint rules` — the emitted-rule catalog as a queryable command, so nobody
+ * has to reverse-engineer it from the bundle. With a config present, every gate is
+ * annotated with what the blueprint actually declares.
  */
 
 export interface RulesOptions {
@@ -61,47 +59,29 @@ export interface LayerBans {
   /** Owned packages banned here (named imports in parentheses). */
   packages: string[];
   /**
-   * Why this column needs verifying by hand — present only where `packages` is, since a
-   * layer banning nothing has nothing to check. Beside the field it is about rather than
-   * once at the top: a consumer reading `bans[i].packages` has no reason to look at a
-   * sibling key, which is how the text output and `--json` came to disagree.
+   * Why this column needs verifying by hand. Beside the field it is about, not once
+   * at the top: a consumer reading `bans[i].packages` never looks at a sibling key.
    */
   packagesNote?: string;
   /** Owned globals banned here. */
   globals: string[];
   /**
-   * The selfOnly re-export bans emitted on this layer's files — the exact
-   * `no-restricted-syntax` selector per (target, alias). A merge that folds
-   * blueprint's entry into the project's own used to have no supported
-   * source for these strings but an emitLint dump (field issue #20).
+   * The selfOnly re-export bans on this layer's files — the exact
+   * `no-restricted-syntax` selector per (target, alias).
    *
-   * `selectors` is the value ESLint resolves and doctor compares — right for a
-   * program writing config, and a trap for the paste this catalog exists to
-   * serve. The separators are `/` escapes (a raw `/` would end esquery's
-   * regex early), and JS resolves that escape when it parses a string literal:
-   * paste the rendered value into `'…'` and the selector silently becomes
-   * `/^@/contexts//`, a regex that ends at the bare `/`. No parse error, lint
-   * still green, and doctor's red then reads like the false alarm it warns about
-   * ("an equivalent respelling"), which this is not. `jsLiteral` is the same
-   * selector as JS source, quotes included, so the paste survives (field run
-   * #125 verified both halves).
+   * `selectors` is what ESLint resolves and doctor compares; it is a trap to paste,
+   * because the `/` escapes resolve when JS parses the string literal and the regex
+   * silently ends early — no parse error, lint still green. `jsLiteral` is the same
+   * selector as JS source, quotes included, so the paste survives (field run #125).
    *
-   * `note` carries that and the one thing a fold must NOT copy at all. It
-   * repeats per entry rather than sitting once at the top because an agent
-   * arrives here looking for selectors to copy, and a caveat has to be where the
-   * copy happens — the message half reached only the text output for three
-   * releases, so the same doubt came back through the channel the playbook points
-   * at (field issue #117).
+   * `note` repeats per entry rather than sitting once at the top: an agent arrives
+   * here for selectors to copy, and a caveat has to be where the copy happens.
    */
   selfOnly: { target: string; selectors: string[]; jsLiteral: string[]; note: string }[];
   /**
-   * The test-exemption globs the emitted entry carries alongside these bans.
-   * Rebuilding a combined `no-restricted-syntax` entry from `selectors` alone
-   * silently drops it, and the loss is quiet in the worst way: the merged
-   * entry goes on linting, so a house rule starts reaching test files, and
-   * blueprint's own selfOnly ban does too where nothing collided to make a
-   * noise (field issue #60). Carry it onto whatever entry the selectors land
-   * in.
+   * The test-exemption globs the emitted entry carries alongside these bans. A
+   * combined entry rebuilt from `selectors` alone drops them silently and starts
+   * reaching test files (field issue #60) — carry them wherever the selectors land.
    */
   testExemptions: string[];
 }
@@ -116,10 +96,8 @@ export interface GateStatus {
   fallback?: number;
   /**
    * Why this stack cannot open the gate — absent when it can. It is the difference
-   * between this catalog's row count and the `N/M optional gates` denominator
-   * `inspect` and `doctor` print: a gate nothing can open is left out of theirs and
-   * listed here, so a reader comparing the two numbers is told which, instead of
-   * inferring it (field run #137 inferred the wrong one).
+   * between this catalog's row count and the `N/M optional gates` denominator, so a
+   * reader comparing the two is told which, not left to infer (field run #137).
    */
   unavailable?: string;
   /** The declared setting, resolved — null when the config does not declare it. */
@@ -130,36 +108,16 @@ export interface GateStatus {
 
 /**
  * What doctor's survival check does NOT compare — one passage, two shapes: the text
- * output prints these lines, `--json` carries them joined into one sentence.
+ * output prints these lines, `--json` carries them joined into one sentence. Both,
+ * because the playbook sends a folding agent to `rules --json` in five places, and
+ * a caveat that reaches only the text output comes back as the same doubt from the
+ * other channel a few releases later (field issue #117, field run #159).
  *
- * The text block used to close with "Everything below is what doctor compares" while
- * the block below it prints a `packages:` column and doctor's own ✓ says
- * package-ownership entries are not compared (field run #159). Naming the columns fixed
- * the text and left `--json` a bare `string[]` — which is exactly #117's shape: the text
- * gets the caveat, the JSON does not, and the same doubt returns from the other channel a
- * few releases later. The playbook sends a folding agent to `rules --json` in five
- * places, so that channel is not the secondary one.
- *
- * Stated as a fact about the check rather than as "doctor says so on that check": four of
- * that check's five outcomes print no scope at all (not wired, no probe derivable, config
- * unresolvable, and the red), and `rules` prints this block whenever a config exists — so
- * pointing at a line of another command's output points at nothing in most repos.
- *
- * Hand-wrapped, because the length is fixed and this file wraps its prose at 76-81
- * columns. Extracting it as one sentence lost that and left a 229-column line in the
- * middle of a hand-wrapped block — a refactor side effect, not a decision. `wrapList` in
- * survey.ts draws the line: computed wrapping is for a list whose length is the reader's
- * repo, not for a sentence that is the same every time.
- *
- * The closing period is the text output's last line, and it travels into the JSON on the
- * join — while `selfOnly[].note` beside it has none, because that one is spliced inline
- * into a parenthetical where a period would be wrong. Each is punctuated for how it is
- * used, so the asymmetry is the correct state and not a thing to harmonise.
- *
- * It opens on the field name so the text output needs no prefix — the prefixed version
- * read "`packages` is NOT compared: doctor's survival check does not compare package
- * ownership", one fact twice — and so the JSON value still reads as a whole sentence
- * about the field it sits beside.
+ * A fact about the check, not "doctor says so" — four of that check's five outcomes
+ * print no scope at all, so pointing at its output points at nothing in most repos.
+ * Hand-wrapped, and opening on the field name so the text form needs no prefix and
+ * the JSON value still reads as a whole sentence. The closing period belongs to the
+ * join; `selfOnly[].note` has none because it splices into a parenthetical.
  */
 const PACKAGES_NOT_COMPARED = [
   '`packages` is not compared by doctor\'s survival check — a merge that drops a',
@@ -169,9 +127,8 @@ const PACKAGES_NOT_COMPARED = [
 
 /**
  * One string for both output shapes, so the text form and `--json` cannot drift
- * into disagreeing about the same fold. It names the fields rather than saying
- * "these", because the text reader learns from it which of the two `--json`
- * carries is the one to take.
+ * apart. It names the fields rather than saying "these": the text reader learns
+ * from it which of the two `--json` carries is the one to take.
  */
 const SELF_ONLY_MESSAGE_NOTE
   = 'copy `jsLiteral`, not `selectors`: pasted into JS source a rendered selector '
@@ -192,12 +149,9 @@ export interface StructuralStatus extends StructuralRule {
 }
 
 /**
- * Whether each structural rule would appear in the emitted config — the
- * question a field agent could only answer by calling emitLint and dumping
- * its entries (issue #14: docs said "emits", the config didn't). Mirrors
- * emitLint's conditions from the same primitives — rules.ts must not import
- * lint.ts (module cycle, see the import note above), so the mirror is
- * pinned to emitLint's real output by a test instead.
+ * Whether each structural rule would appear in the emitted config (issue #14).
+ * Mirrors emitLint's conditions from the same primitives — this module must not
+ * import lint.ts — so a test pins the mirror to emitLint's real output.
  */
 function resolveStructural(blueprint: Blueprint | null): StructuralStatus[] {
   if (!blueprint) return STRUCTURAL_RULES.map((rule) => ({ ...rule, active: null }));
@@ -422,56 +376,29 @@ export function renderRules(
       ? [
           '',
           'Per-layer bans — what the structural rules enforce, resolved from this config.',
-          // Named columns, not "everything below". That sentence claimed doctor's
-          // comparison covers this whole block, and doctor's own ✓ says the opposite
-          // about one column of it — "package-ownership entries … are not compared".
-          // A field agent quoted both lines side by side: two live command outputs
-          // giving a merge opposite instructions about whether the packages column
-          // still needs verifying by hand (field run #159). The scope belongs to the
-          // check that has it; this says which of ITS columns fall inside, and what
-          // to do about the one that does not.
-          // "below" was a pointer into this output, and in a config with no selfOnly
-          // importer there is nothing below to point at. The ENUMERATION stays
-          // unconditional: it states what the check compares, which is true of doctor
-          // whatever this config holds. That is the line between the two — a statement of
-          // scope is always true, while an instruction to go and verify something is
-          // vacuous when there is nothing to verify, which is why the `packages` paragraph
-          // is gated and this sentence is not.
+          // Named columns, not "everything below" — doctor's own ✓ says package
+          // ownership is NOT compared, so the broader claim put two live outputs in
+          // contradiction (field run #159). Unconditional, unlike the `packages`
+          // paragraph below: a statement of scope is always true, while an
+          // instruction to verify is vacuous when there is nothing to verify.
           '`no-import`, `globals` and the selfOnly selectors are what doctor compares,',
           'and it compares TEXTUALLY: a pattern group reordered or a selector respelled to',
           'an equivalent (`\\/` for `/`) reads as missing even though eslint would still',
           'enforce it. Copy, do not retype.',
-          // Only where the column has something in it. `--json` gates its copy on the
-          // same fact and for the reason in `packagesNote`'s comment — a layer banning
-          // nothing has nothing to verify — and printing it unconditionally made the
-          // text output the counterexample to that reason: on a config where no layer
-          // owns a package, this paragraph explained a column reading `(none)` all the
-          // way down.
-          //
-          // Which leaves the `packages` column unclassified by the prose in exactly that
-          // case, and that is a decision rather than an oversight: the criterion is
-          // whether anything needs verifying, not whether every printed column gets
-          // named. All-`(none)` carries no risk to warn about — a caveat over it would be
-          // the same empty instruction, one indirection further out.
+          // Only where the column has something in it, same as `--json`. An all-`(none)`
+          // column then goes unclassified by the prose, which is the decision: the
+          // criterion is whether anything needs verifying, not whether every printed
+          // column gets named.
           ...(bans.some((ban) => ban.packages.length) ? PACKAGES_NOT_COMPARED : []),
           ...bans.flatMap((entry) => [
             `  ${entry.layer.padEnd(14)} no-import: ${entry.forbidden.join(', ') || '(none)'}`
             + ` · packages: ${entry.packages.join(', ') || '(none)'}`
             + ` · globals: ${entry.globals.join(', ') || '(none)'}`,
-            // The exact strings a merge fold needs — printing them here is
-            // what keeps "combine into ONE entry" doable without an emitLint
-            // dump (field issue #20). The message caveat closes the follow-up
-            // doubt (#23): doctor compares selectors only, by design. It reached
-            // only this text form for three releases, so #117 raised #23 again
-            // from `--json` — which is the channel the playbook's merge step
-            // sends a folding agent to. Both carry the one string now.
-            //
-            // "Verbatim" needs its reason, and the header above carries it —
-            // doctor's comparison is textual, which wiring said only once it had
-            // already gone red. A field agent deciding how to write an escape
-            // (`\/` against the emitted `/`, the same string at runtime) could
-            // not tell whether a respelling would read as missing, and
-            // over-constrained defensively (#101).
+            // The exact strings a merge fold needs, so "combine into ONE entry" is
+            // doable without an emitLint dump (field issues #20, #23, #117). The
+            // header carries "verbatim"'s reason — doctor's comparison is textual,
+            // and without that an agent cannot tell whether an equivalent respelling
+            // reads as missing, so it over-constrains defensively (#101).
             ...entry.selfOnly.flatMap((ban) => [
               `    selfOnly: no re-export from "${ban.target}" — folding your own`
               + ' no-restricted-syntax into one entry? Paste these verbatim, quotes'

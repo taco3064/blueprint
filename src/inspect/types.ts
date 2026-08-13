@@ -9,14 +9,10 @@ export interface Finding {
   path: string;
   /**
    * What inside `path` this finding is about — the import specifier, a cycle's
-   * members, `''` where `rule` and `path` already identify it on their own.
+   * members, `''` where `rule` and `path` already identify it.
    *
-   * This is the stable half of a finding's identity, and the baseline is keyed on
-   * `rule` + `path` + `subject`. `message` is prose: it gets reworded as the tool
-   * learns to explain itself better, and a ratchet keyed on prose turns red on
-   * an upgrade that changed no violation. One file can hold several findings of
-   * the same rule (two deep imports, two banned packages), which is why dropping
-   * `message` from the key needs something in its place rather than nothing.
+   * The stable half of a finding's identity: the baseline keys on `rule` + `path` +
+   * `subject`, never on `message`, which is prose that gets reworded.
    */
   subject: string;
   message: string;
@@ -53,13 +49,10 @@ export interface DoctorCheck {
   /** What to do about it, when the check failed. */
   detail?: string;
   /**
-   * Why the check could not run. `ok` stays true — a red nobody can appease is
-   * worse than no check — but a skip is not a pass, and the banner used to count
-   * it as one: a field agent read `✓ … (skipped — could not resolve the merged
-   * config)` beside `✓ Adoption complete — all 7 checks passed.` and had to run
-   * `impact`, the project's lint and `--print-config` to find out that the one
-   * check proving the gates are wired had never run (field run #129). Structural
-   * rather than a substring of `label`, so the banner and the JSON both see it.
+   * Why the check could not run. `ok` stays true — a red nobody can appease is worse
+   * than no check — but a skip is not a pass, and a banner counting it as one hid
+   * that the wiring was never verified (field run #129). Structural rather than a
+   * substring of `label`, so the banner and the JSON both see it.
    */
   skipped?: string;
 }
