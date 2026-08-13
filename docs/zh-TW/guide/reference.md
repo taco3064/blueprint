@@ -30,6 +30,7 @@
 - **`cycle`** · error —— 模組層級的循環匯入，並列出完整路徑。<br>每一組獨立的循環都會回報，一組互相依賴的模組算一筆 —— 所以數量就是工作量，不是「先找到的那一個」
 - **`no-entry`** · warn —— 資料夾模組缺少公開入口檔 —— 外部無從匯入
 - **`missing-layer`** · info —— 已宣告的分層尚無對應資料夾
+- **`owns-not-installed`** · info —— 某分層 `owns` 的套件不在 `package.json` 裡。<br>禁令已經產生、內容也正確，只是暫時還碰不到任何東西。<br>把套件裝起來，或是把這筆宣告拿掉，兩種都算解法
 - **`declaratory-self-only`** · info —— `selfOnly` 保護的分層還沒有任何檔案 —— 再匯出禁令是宣告性的，要等 code 進來才會真正生效
 
 既有專案可透過 [baseline 棘輪](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect)，把這份清單轉成「只攔新增的違規」。<br>

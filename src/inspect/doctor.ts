@@ -257,7 +257,11 @@ export async function runDoctor(
   const { blueprint } = await resolveBlueprint(root, state, options);
   const stale = staleContracts(root, blueprint);
   const scanResult = scan(root, blueprint.architecture.sourceRoot);
-  const findings = analyze(scanResult, blueprint);
+  // Same state, same analysis: `analyze` returning different findings for one repo
+  // depending on which runtime asked would be its own defect. Nothing in doctor's
+  // output reads an info finding — the architecture check reports counts only when
+  // there are errors, and `ok` is errors-only — so this changes no verdict.
+  const findings = analyze(scanResult, blueprint, state.dependencies);
   const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
 
   // Undecidable: this list exists to be matched against findings, so a bogus entry

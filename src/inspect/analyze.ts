@@ -37,8 +37,18 @@ function sourcePrefix(architecture: ArchitectureDef): string {
   return root === '.' ? '' : `${root}/`;
 }
 
-/** Analyze a scan against a blueprint. Pure — the core of `inspect`. */
-export function analyze(scan: ScanResult, blueprint: Blueprint): Finding[] {
+/**
+ * Analyze a scan against a blueprint. Pure — the core of `inspect`.
+ *
+ * `dependencies` is the project's installed package names. Omitted means the
+ * caller could not read them, which is not the same as none installed: the
+ * `owns` check is skipped rather than reporting every declaration as absent.
+ */
+export function analyze(
+  scan: ScanResult,
+  blueprint: Blueprint,
+  dependencies?: string[],
+): Finding[] {
   const { architecture } = blueprint;
   const layerNames = architecture.layers.map((layer) => layer.name);
 
@@ -47,6 +57,7 @@ export function analyze(scan: ScanResult, blueprint: Blueprint): Finding[] {
 
   const findings = [
     ...folderFindings(scan, architecture, layerNames),
+    ...ownsFindings(architecture, dependencies),
     ...scan.files.flatMap((file) => importFindings(file, architecture, layerNames)),
   ];
 
@@ -70,6 +81,50 @@ export function analyze(scan: ScanResult, blueprint: Blueprint): Finding[] {
   }
 
   return findings.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+}
+
+/**
+ * `owns` entries naming a package that is not installed.
+ *
+ * Declaring ownership before the install is the legitimate order — the emitted ban
+ * is correct and simply has nothing to reach yet — so this is `info`, the same tier
+ * and the same doctrine as `missing-layer` above. Reported because the alternative
+ * is silence: `sky-1945` declared `owns: ['matter-js']` from its first commit and
+ * went four issues without it installed, through green runs the whole way.
+ *
+ * A global has no dependency list to answer to, so `{ global: … }` is skipped.
+ */
+function ownsFindings(
+  architecture: ArchitectureDef,
+  dependencies: string[] | undefined,
+): Finding[] {
+  if (!dependencies) return [];
+
+  const findings: Finding[] = [];
+  const prefix = sourcePrefix(architecture);
+
+  for (const layer of architecture.layers) {
+    for (const owned of layer.owns ?? []) {
+      // Both forms answer the same question here: whether the package resolves at
+      // all. A named import missing from an installed package is a different one.
+      const pkg = typeof owned === 'string' ? owned : 'package' in owned ? owned.package : null;
+
+      if (pkg === null || dependencies.includes(pkg)) continue;
+
+      findings.push({
+        severity: 'info',
+        rule: 'owns-not-installed',
+        path: `${prefix}${layer.name}`,
+        subject: pkg,
+        message: `Layer "${layer.name}" owns "${pkg}", which is not in package.json — `
+          + 'runway, not a todo: the ban is emitted and correct, it just has nothing to '
+          + 'reach yet. Installing the package and dropping the declaration are both '
+          + 'resolutions, and which one applies is the owner\'s call.',
+      });
+    }
+  }
+
+  return findings;
 }
 
 /** undeclared-folder, missing-layer, and no-entry findings. */

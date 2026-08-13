@@ -62,4 +62,11 @@ export interface ProjectState {
   existingSrcDirs: string[];
   /** Required deps not yet installed. */
   missingDeps: string[];
+  /**
+   * Every dependency name in `package.json`, prod and dev merged. The read
+   * behind `hasTypescript` / `hasNext` / `hasNuxt`, kept as names so a caller
+   * can answer questions this file cannot enumerate — `inspect` asks whether
+   * each `owns` package resolves.
+   */
+  dependencies: string[];
 }

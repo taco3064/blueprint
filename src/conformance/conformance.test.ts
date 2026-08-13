@@ -2904,13 +2904,13 @@ describe('a fact reaches the reader before the red, not after (field run #101)',
     ),
   });
 
-  it('names the two runways inspect does not report', async () => {
+  it('names the runway inspect does not report', async () => {
     // "Declared-but-empty layers (and an alias no import uses yet) are the runway …
-    // `inspect` tracks it honestly" grouped three things and was true of one: analyze
-    // raises undeclared-folder, missing-layer, declaratory-self-only and no-entry —
-    // nothing for an unused alias, nothing for an `owns` on an absent package. A field
-    // agent hit the third (a preset's `hooks` owns `zustand`, which the repo does not
-    // install) and could not tell runway from over-declaration.
+    // `inspect` tracks it honestly" grouped three things and was true of one. A field
+    // agent hit the `owns` shape (a preset's `hooks` owns `zustand`, which the repo
+    // does not install) and could not tell runway from over-declaration. That one is
+    // now an `owns-not-installed` note, leaving the unused alias as the only shape
+    // with no finding behind it — so the playbook has to say two, not one.
     const dir = repo(brownfield());
 
     await cli(dir, ['init', '--authoring', '--no-install']);
@@ -2918,7 +2918,8 @@ describe('a fact reaches the reader before the red, not after (field run #101)',
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
     expect(playbook).toContain('Runway comes in three shapes');
-    expect(playbook).toContain('get none — nothing imports them');
+    expect(playbook).toContain('`inspect` names two of them');
+    expect(playbook).toContain('gets none — nothing imports it');
     expect(flattenProse(playbook)).toContain('recognize yourself rather than read off a report');
   });
 

@@ -20,6 +20,7 @@ function state(over: Partial<ProjectState> = {}): ProjectState {
     tsconfigs: {},
     existingSrcDirs: [],
     missingDeps: [],
+    dependencies: [],
     ...over,
   };
 }

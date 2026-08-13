@@ -30,6 +30,7 @@ function state(over: Partial<ProjectState> = {}): ProjectState {
     tsconfigs: { 'tsconfig.json': null, 'tsconfig.app.json': null, 'jsconfig.json': null },
     existingSrcDirs: [],
     missingDeps: [],
+    dependencies: [],
     ...over,
   };
 }
