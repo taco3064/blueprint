@@ -4,8 +4,9 @@ import { analyze, detectCycle, detectCycles } from './analyze';
 import { crossModuleTarget } from '../boundary';
 import { defineBlueprint } from '../config';
 import type { ModuleDef } from '../config';
+import { emitLint } from '../emit/lint';
 import { vuePreset } from '../presets';
-import type { ImportRef, ScanResult, ScannedFile } from './types';
+import type { Finding, ImportRef, ScanResult, ScannedFile } from './types';
 
 const bp = vuePreset();
 const LAYERS = bp.architecture.layers.map((layer) => layer.name);
@@ -918,12 +919,19 @@ describe('analyze · a modular tree is read at module depth', () => {
     ])).toContain('flow-violation');
   });
 
-  it('flags a same-layer import through the alias, across modules too', () => {
-    expect(modularRules([
+  it('flags a reach past another module\'s entry, and not as a same-layer import', () => {
+    // `Fighter/components` and `Combat/components` are different folders whose
+    // layer names coincide, so the module is decided before the layer is read.
+    // Called same-layer, this answers with the one remedy `module-escape`
+    // forbids — a relative path cannot cross a module boundary.
+    const rules = modularRules([
       file(['Fighter', 'components', 'Ship', 'index.tsx'], [
         { specifier: '~app/Combat/components/Bullet' },
       ]),
-    ])).toContain('flow-violation');
+    ]);
+
+    expect(rules).toContain('deep-import');
+    expect(rules).not.toContain('flow-violation');
   });
 
   it('flags a deep import into another unit', () => {
@@ -1186,6 +1194,288 @@ describe('analyze · governing between modules', () => {
     // A module IS a top-level folder, so its own address needs no explaining and
     // there is no folder to forbid.
     expect(note?.message).not.toContain('Do not create');
+  });
+});
+
+describe('analyze · a cross-module edge is judged before any layer', () => {
+  // The fixture the four cases were measured on: `Fighter` declares `Combat`
+  // and nothing else, so `common` is an undeclared edge and `Combat`'s
+  // internals are a reach past a declared dependency's entry.
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the pilot', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets' },
+        { name: 'common', does: 'shared' },
+      ],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' },
+        { name: 'hooks', does: 'state', layout: 'folder' },
+      ],
+    },
+  });
+
+  const LAYER_FILE = ['Fighter', 'hooks', 'usePilot', 'index.ts'];
+  const ROOT_FILE = ['Fighter', 'Fighter.tsx'];
+
+  /** The errors one file's one import produces — the background notes are info. */
+  const errorsFor = (segments: string[], ref: Partial<ImportRef>): Finding[] =>
+    analyze(
+      { topDirs: ['Fighter', 'Combat', 'common'], files: [file(segments, [ref])] },
+      modular,
+    ).filter((finding) => finding.severity === 'error');
+
+  const only = (segments: string[], specifier: string): Finding => {
+    const errors = errorsFor(segments, { specifier });
+
+    // One import, one verdict. Two findings for one edge is two remedies for
+    // one fix, which is how case C shipped a `deep-import` beside a
+    // `flow-violation` that contradicted it.
+    expect(errors).toHaveLength(1);
+
+    return errors[0];
+  };
+
+  it('A · reports an undeclared edge from a layer file, naming `imports`', () => {
+    const finding = only(LAYER_FILE, '~app/common');
+
+    expect(finding.rule).toBe('undeclared-dependency');
+    expect(finding.path).toBe('src/Fighter/hooks/usePilot/index.ts');
+    expect(finding.subject).toBe('~app/common');
+    expect(finding.message).toContain('reaches module "common", which "Fighter" does not declare');
+    expect(finding.message).toContain('Add "common" to "Fighter"\'s `imports`');
+    // The remedy `module-escape` forbids. An agent that follows it lands on a
+    // second error with a third remedy.
+    expect(finding.message).not.toContain('relative path');
+  });
+
+  it('D · reports the same undeclared edge from the module root', () => {
+    const finding = only(ROOT_FILE, '~app/common');
+
+    expect(finding.rule).toBe('undeclared-dependency');
+    expect(finding.path).toBe('src/Fighter/Fighter.tsx');
+    expect(finding.message).toContain('Add "common" to "Fighter"\'s `imports`');
+  });
+
+  it('C · reports a reach past a declared dependency\'s entry, not a same-layer import', () => {
+    const finding = only(LAYER_FILE, '~app/Combat/hooks/useDamage');
+
+    // `Fighter/hooks` and `Combat/hooks` are different folders whose layer
+    // names coincide, and the old comparison read the layer and not the module.
+    expect(finding.rule).toBe('deep-import');
+    expect(finding.rule).not.toBe('flow-violation');
+    expect(finding.message).toContain('reaches inside module "Combat"');
+    // The entry, spelled — the string the reader types.
+    expect(finding.message).toContain('import it through its entry, "~app/Combat"');
+    // Two truths with no bridge read as a contradiction: red on Combat, beside
+    // Combat being a declared dependency.
+    expect(finding.message).toContain('declared in "Fighter"\'s `imports`, so the entry itself is reachable');
+    expect(finding.message).not.toContain('Same-layer import');
+    expect(finding.message).not.toContain('relative path');
+    expect(finding.message).not.toContain('extract to a lower layer');
+  });
+
+  it('B · reports the same reach from the module root, which reads no layer at all', () => {
+    // `Fighter/Fighter.tsx` puts a FILENAME at `segments[depth]`, so every
+    // layer-keyed test missed it. The cross-module arm never reads that slot.
+    const finding = only(ROOT_FILE, '~app/Combat/hooks/useDamage');
+
+    expect(finding.rule).toBe('deep-import');
+    expect(finding.path).toBe('src/Fighter/Fighter.tsx');
+    expect(finding.message).toContain('import it through its entry, "~app/Combat"');
+  });
+
+  it('leaves a declared edge through the entry green', () => {
+    expect(errorsFor(LAYER_FILE, { specifier: '~app/Combat' })).toEqual([]);
+    expect(errorsFor(ROOT_FILE, { specifier: '~app/Combat' })).toEqual([]);
+  });
+
+  it('still calls a same-layer import INSIDE one module a flow-violation, worded as before', () => {
+    // The half that was right stays right, wording included: a relative path
+    // really is the legal spelling for a same-layer edge within one module.
+    const finding = only(LAYER_FILE, '~app/Fighter/hooks/useOther');
+
+    expect(finding.rule).toBe('flow-violation');
+
+    expect(finding.message).toBe(
+      'Same-layer import "~app/Fighter/hooks/useOther" via the alias — use a relative path or extract to a lower layer.',
+    );
+  });
+
+  it('says nothing about a target no `modules` entry declares, where lint is green too', () => {
+    // The emitted same-layer ban is module-scoped (`~app/Fighter/hooks/**`), so
+    // `~app/Nowhere/hooks/…` matches nothing in lint — while inspect called it a
+    // same-layer import and told the reader to use a relative path. The folder
+    // is ungoverned, which `undeclared-module` reports at the level that can act.
+    expect(errorsFor(LAYER_FILE, { specifier: '~app/Nowhere/hooks/useX' })).toEqual([]);
+    expect(errorsFor(ROOT_FILE, { specifier: '~app/Nowhere/hooks/useX' })).toEqual([]);
+  });
+
+  it('says nothing when the IMPORTING folder is undeclared, for the same reason', () => {
+    // No glob reaches `src/Nowhere/`, so no ban group was emitted for it either.
+    expect(errorsFor(['Nowhere', 'hooks', 'useX', 'index.ts'], { specifier: '~app/common' }))
+      .toEqual([]);
+  });
+
+  it('answers a reach that is deep at BOTH levels once, at the module level', () => {
+    // `~app/Combat/hooks/useDamage/impl` is past Combat's entry AND past the
+    // unit's. The unit-level remedy (`~app/Combat/hooks/useDamage`) is itself
+    // banned, so answering with it would send the reader to the next error.
+    const finding = only(LAYER_FILE, '~app/Combat/hooks/useDamage/impl');
+
+    expect(finding.rule).toBe('deep-import');
+    expect(finding.message).toContain('import it through its entry, "~app/Combat"');
+  });
+
+  it('reports a cross-module re-export as both a pass-through and an edge', () => {
+    // Two lint rules fire on this one line — `blueprint/no-module-reexport` and
+    // `no-restricted-imports` — so two findings is the agreeing count.
+    const errors = errorsFor(LAYER_FILE, { specifier: '~app/common', isExport: true });
+
+    expect(errors.map((finding) => finding.rule).sort())
+      .toEqual(['module-reexport', 'undeclared-dependency']);
+  });
+
+  it('tells an adopter to change the decomposition when the edge runs backwards', () => {
+    // A module may only name modules declared after it, so "add it to `imports`"
+    // is an instruction `defineBlueprint` would reject. Computed from the
+    // declared order rather than carried as a caveat on every forward edge.
+    const finding = only(['common', 'hooks', 'useShared', 'index.ts'], '~app/Fighter');
+
+    expect(finding.rule).toBe('undeclared-dependency');
+    expect(finding.message).toContain('"Fighter" is declared BEFORE "common"');
+    expect(finding.message).toContain('The decomposition is what needs changing, not the config.');
+    expect(finding.message).not.toContain('Add "Fighter"');
+  });
+
+  it('changes nothing on a flat project', () => {
+    // The whole arm is behind `depth > 0`. A flat project has no module segment
+    // to compare, and `~app/components/Other` keeps the sentence it always had.
+    const flat = analyze(
+      scanOf([file(['components', 'Btn', 'index.ts'], [{ specifier: '~app/components/Other' }])]),
+      bp,
+    );
+
+    expect(flat.map((finding) => finding.rule)).not.toContain('undeclared-dependency');
+
+    expect(flat.find((finding) => finding.rule === 'flow-violation')?.message).toBe(
+      'Same-layer import "~app/components/Other" via the alias — use a relative path or extract to a lower layer.',
+    );
+  });
+});
+
+describe('analyze · the cross-module policy is pinned to the config emitLint emits', () => {
+  // `emitLint` compiles `ModuleDef.imports` into ban groups and `analyze` reads
+  // the same field — one reading against one generator, which can drift exactly
+  // as silently as the two readings `boundary` exists to prevent. #212's shape:
+  // equality BOTH ways against the emitter's own output, so neither a missing
+  // entry nor an extra one passes, and neither side is a literal.
+  const NAMES = ['Boss', 'Combat', 'Shared'];
+
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Boss', does: 'the fight', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets', imports: ['Shared'] },
+        { name: 'Shared', does: 'primitives' },
+      ],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' },
+        { name: 'hooks', does: 'state', layout: 'folder' },
+      ],
+    },
+  });
+
+  const others = (module: string) => NAMES.filter((name) => name !== module);
+  const entrySpelling = (target: string) => `~app/${target}`;
+  const insideSpelling = (target: string) => `~app/${target}/hooks/useThing`;
+
+  /**
+   * Every module's two zones, each importing every OTHER module at both
+   * spellings — the layer file and the module root, because the emitted groups
+   * are identical on both and a fix that reads a layer name misses one of them.
+   */
+  const files = NAMES.flatMap((module) => {
+    const imports = others(module).flatMap((target) => [
+      { specifier: entrySpelling(target) },
+      { specifier: insideSpelling(target) },
+    ]);
+
+    return [
+      file([module, 'hooks', 'useThing', 'index.ts'], imports),
+      file([module, `${module}.tsx`], imports),
+    ];
+  });
+
+  const findings = analyze({ topDirs: NAMES, files }, modular)
+    .filter((finding) => finding.severity === 'error');
+
+  /** What `analyze` says about `module`, in the emitter's own vocabulary. */
+  const analyzed = (module: string, zone: string) => {
+    const errored = new Set(
+      findings.filter((finding) => finding.path === zone).map((finding) => finding.subject),
+    );
+
+    return {
+      banned: others(module).filter((target) => errored.has(entrySpelling(target))),
+      entryOnly: others(module).filter(
+        (target) => !errored.has(entrySpelling(target)) && errored.has(insideSpelling(target)),
+      ),
+    };
+  };
+
+  /** What the emitted config bans for `module`, read back out of the groups. */
+  const emitted = (module: string) => {
+    const banned = new Set<string>();
+    const entryOnly = new Set<string>();
+
+    for (const entry of emitLint(modular)) {
+      if (!(entry.files ?? []).some((glob) => glob.startsWith(`src/${module}/`))) continue;
+
+      const setting = entry.rules?.['no-restricted-imports'];
+
+      if (!Array.isArray(setting)) continue;
+
+      const { patterns = [] } = setting[1] as { patterns?: { group: string[] }[] };
+
+      for (const { group } of patterns) {
+        for (const glob of group) {
+          // One segment under the alias, with or without the descendant
+          // wildcard. A structural ban carries two (`~app/Boss/hooks/**`) and
+          // the module's own root rides `paths`, so neither can land here.
+          const match = /^~app\/([^/]+)(\/\*\*)?$/.exec(glob);
+
+          if (match && NAMES.includes(match[1])) (match[2] ? entryOnly : banned).add(match[1]);
+        }
+      }
+    }
+
+    // An undeclared module's group carries BOTH spellings, so the wildcard
+    // alone does not make it entry-only — the pair is what says "banned".
+    for (const name of banned) entryOnly.delete(name);
+
+    return { banned: [...banned].sort(), entryOnly: [...entryOnly].sort() };
+  };
+
+  it.each(NAMES)('%s bans exactly what the emitted config bans it from, both ways', (module) => {
+    const expected = emitted(module);
+
+    for (const zone of [`src/${module}/hooks/useThing/index.ts`, `src/${module}/${module}.tsx`]) {
+      expect(analyzed(module, zone)).toEqual(expected);
+    }
+  });
+
+  it('compared something — the counts the fixture was built to produce', () => {
+    // …and cannot pass on a comparison that found nothing. Boss bans Shared;
+    // Combat and Shared each ban every module declared before them.
+    const total = NAMES.map(emitted);
+
+    expect(total.map((entry) => entry.banned)).toEqual([['Shared'], ['Boss'], ['Boss', 'Combat']]);
+    expect(total.map((entry) => entry.entryOnly)).toEqual([['Combat'], ['Shared'], []]);
   });
 });
 

@@ -160,6 +160,24 @@ describe('report · the module findings are in both tables', () => {
     expect(rendered).toContain('(inspect only — never appears in a lint run)');
   });
 
+  it('gives undeclared-dependency a remedy, and names the rule that really holds it', () => {
+    // Both tables are string lists, one contract per member: an id absent from
+    // MIGRATION renders no step, and one absent from ENFORCED_BY sends a reader
+    // searching `--print-config` for a name that is not there. The edge is a
+    // generated `no-restricted-imports` group, not a rule of its own.
+    const rendered = report([{
+      severity: 'error',
+      rule: 'undeclared-dependency',
+      path: 'src/Fighter/hooks/usePilot/index.ts',
+      subject: '~app/common',
+      message: 'does not declare',
+    }]);
+
+    expect(rendered).toContain('[undeclared-dependency] Declare the edge in the importing module\'s `imports`');
+    expect(rendered).toContain('no-restricted-imports');
+    expect(rendered).not.toContain('inspect only');
+  });
+
   it('gives missing-module no migration line, exactly as missing-layer has none', () => {
     // Runway is not a step. A remedy line here would read as a todo, which is
     // the reading field run #13 had to be talked out of one finding over.

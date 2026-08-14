@@ -13,6 +13,7 @@ const MIGRATION: Record<string, string> = {
   'layer-escape': 'Cross a layer boundary with the project alias, or move the shared code down into a lower layer.',
   'root-import': 'Stop importing the module root from inside a layer — move the shared part down into a layer, or pass it in from the root.',
   'module-escape': 'Cross a module boundary through the alias, never a relative path, and declare the dependency in the module\'s `imports`.',
+  'undeclared-dependency': 'Declare the edge in the importing module\'s `imports`, or move the shared part into a module both may reach. A module may only name modules declared after it, so an edge that runs backwards is a decomposition change rather than a config one.',
   'package-ownership': 'Move restricted package usage into its owning layer (expose it via a hook or service).',
   'selfonly-reexport': 'Depend on selfOnly layers without re-exporting them.',
   'module-reexport': 'Stop forwarding another module\'s surface: let the consumer declare that module itself, or expose this module\'s own API instead. A function that only forwards the call clears the rule and builds nothing.',
@@ -49,6 +50,7 @@ const ENFORCED_BY: Record<string, string | null> = {
   // violation, which is the whole job of this table.
   'root-import': 'blueprint/relative-escape for a relative path; no-restricted-imports (paths) for `~app/<Module>` and `~app/<Module>/index`; blueprint/no-module-root-import for every other alias spelling',
   'module-escape': 'blueprint/relative-escape',
+  'undeclared-dependency': 'no-restricted-imports',
   'package-ownership': 'no-restricted-imports',
   'selfonly-reexport': 'no-restricted-syntax',
   'module-reexport': 'blueprint/no-module-reexport',
