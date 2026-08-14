@@ -34,6 +34,13 @@ describe('presets · shape', () => {
     a.architecture.layers.push({ name: 'extra', does: '' });
 
     expect(b.architecture.layers).toHaveLength(6);
+
+    const c = vuePreset({ structure: 'modular' });
+    const d = vuePreset({ structure: 'modular' });
+
+    c.architecture.modules!.push({ name: 'extra', does: '' });
+
+    expect(d.architecture.modules).toHaveLength(2);
   });
 
   it('apply name and alias options, defaulting the alias', () => {
@@ -115,7 +122,15 @@ describe('presets · shape', () => {
     // and the agent contract. An empty list is not a formatting detail — it is
     // a layer with no prohibition at all, a different architecture from the one
     // the preset claims to document.
-    for (const bp of [vuePreset(), reactPreset(), nextPreset()]) {
+    const presets = [
+      vuePreset(),
+      reactPreset(),
+      nextPreset(),
+      vuePreset({ structure: 'modular' }),
+      reactPreset({ structure: 'modular' }),
+    ];
+
+    for (const bp of presets) {
       for (const entry of bp.architecture.layers) {
         if (entry.mustNot === undefined) continue;
 
@@ -172,6 +187,117 @@ describe('presets · shape', () => {
       expect(rules?.statementPadding).toBe('error');
       expect(rules?.importBlock).toBe('error');
       expect(rules?.maxLines).toEqual({ tier: 'error', value: 400 });
+    }
+  });
+});
+
+describe('presets · structure', () => {
+  it('defaults to flat, which is what every existing call already returns', () => {
+    for (const factory of [reactPreset, vuePreset]) {
+      expect(factory().architecture.modules).toBeUndefined();
+      expect(factory()).toEqual(factory({ structure: 'flat' }));
+    }
+  });
+
+  it.each([
+    ['react', reactPreset({ structure: 'modular' })],
+    ['vue', vuePreset({ structure: 'modular' })],
+  ])('%s modular: two modules, and the four layers that survive them', (_name, blueprint) => {
+    expect(blueprint.architecture.layers.map((entry) => entry.name)).toEqual([
+      'components',
+      'hooks',
+      'contexts',
+      'services',
+    ]);
+
+    expect(blueprint.architecture.modules?.map((entry) => entry.name)).toEqual(['app', 'common']);
+  });
+
+  it.each([
+    ['react', reactPreset({ structure: 'modular' })],
+    ['vue', vuePreset({ structure: 'modular' })],
+  ])('%s modular: app names common, common names nothing', (_name, blueprint) => {
+    const [app, common] = blueprint.architecture.modules!;
+
+    expect(app.imports).toEqual(['common']);
+    // Absent, not empty: a module is isolated until it names a dependency, and
+    // `imports: []` would be a declaration that says the same thing louder.
+    expect(common.imports).toBeUndefined();
+  });
+
+  it('leaves app layered — a preset cannot know whether the router is file-based', () => {
+    const [app] = reactPreset({ structure: 'modular' }).architecture.modules!;
+
+    // `layers: false` counts a file the inner layer flow does not govern as
+    // covered, and nothing in the output tells the two apart.
+    expect(app.layers).toBeUndefined();
+  });
+
+  it('says what each module is for, in its own words', () => {
+    const [app, common] = reactPreset({ structure: 'modular' }).architecture.modules!;
+
+    expect(app.does.trim()).not.toBe('');
+    expect(common.does.trim()).not.toBe('');
+    expect(app.does).not.toBe(common.does);
+  });
+
+  it('drops the containers permission from both lists, in both of its shapes', () => {
+    // Two entries, two shapes, two edits. The four-layer list does not construct
+    // while either survives, and the cheapest way past that failure is to delete
+    // both lists whole — which is what these assertions exist to catch.
+    for (const bp of [reactPreset({ structure: 'modular' }), vuePreset({ structure: 'modular' })]) {
+      expect(layer(bp, 'contexts').allowedImporters).toEqual([
+        { layer: 'hooks', selfOnly: true, description: 'Context only' },
+      ]);
+
+      expect(layer(bp, 'services').allowedImporters).toEqual(['hooks', 'contexts']);
+    }
+
+    for (const bp of [reactPreset(), vuePreset()]) {
+      expect(layer(bp, 'contexts').allowedImporters).toEqual([
+        { layer: 'containers', description: 'Provider only' },
+        { layer: 'hooks', selfOnly: true, description: 'Context only' },
+      ]);
+
+      expect(layer(bp, 'services').allowedImporters).toEqual(['containers', 'hooks', 'contexts']);
+    }
+  });
+
+  it('binds the framework primitives to the modular layers too', () => {
+    const vue = vuePreset({ structure: 'modular' });
+
+    expect(layer(vue, 'contexts').owns).toEqual([{ package: 'vue', imports: ['provide'] }]);
+    expect(layer(vue, 'hooks').owns).toEqual([{ package: 'vue', imports: ['inject'] }, 'pinia']);
+
+    const react = reactPreset({ structure: 'modular' });
+
+    expect(layer(react, 'contexts').owns).toEqual([
+      { package: 'react', imports: ['createContext'] },
+    ]);
+
+    expect(layer(react, 'hooks').owns).toEqual([
+      { package: 'react', imports: ['useContext'] },
+      'zustand',
+    ]);
+
+    // `services` takes no framework argument, so only the modular list itself
+    // could have lost the HTTP client on the way through.
+    expect(layer(react, 'services').owns).toEqual([
+      'axios',
+      { global: 'fetch' },
+      { global: 'WebSocket' },
+    ]);
+  });
+
+  it('keeps every modular layer folder-shaped, entry defaulted', () => {
+    for (const bp of [vuePreset({ structure: 'modular' }), reactPreset({ structure: 'modular' })]) {
+      expect(bp.architecture.layers.map((l) => [l.name, l.layout ?? 'file', l.entry ?? 'index']))
+        .toEqual([
+          ['components', 'folder', 'index'],
+          ['hooks', 'folder', 'index'],
+          ['contexts', 'folder', 'index'],
+          ['services', 'folder', 'index'],
+        ]);
     }
   });
 });
@@ -301,6 +427,26 @@ describe('nextPreset', () => {
     const names = nextPreset({ router: 'both', srcDir: true }).architecture.layers.map((l) => l.name);
 
     expect(names.slice(0, 2)).toEqual(['app', 'pages']);
+  });
+
+  it('refuses structure, naming what is missing rather than calling it nonsense', () => {
+    let message = '';
+
+    try {
+      // @ts-expect-error — `structure` is off NextPresetOptions, so the call is
+      // a type error first. An unused directive here means the Omit was lost.
+      nextPreset({ structure: 'modular' });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+
+    expect(message).toContain('`structure` is not an option on nextPreset');
+    // The cause, at the width it holds: undesigned, not impossible.
+    expect(message).toContain('no Next layer list');
+    expect(message).toContain('`router` and `srcDir`');
+    expect(message).toContain('undesigned, not impossible');
+    // The next step, in the same message rather than a doc the reader has left.
+    expect(message).toContain('declare `architecture.modules` yourself');
   });
 
   it('emits a lint config whose layer globs honor the source root', () => {

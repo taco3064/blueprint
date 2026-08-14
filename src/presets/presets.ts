@@ -1,5 +1,20 @@
 import { defineBlueprint } from '../config';
-import type { AxisDef, Blueprint, EmitDef, Framework, OwnedPrimitive, PlaybookSection } from '../config';
+import type {
+  AxisDef,
+  Blueprint,
+  EmitDef,
+  Framework,
+  LayerDef,
+  ModuleDef,
+  OwnedPrimitive,
+  PlaybookSection,
+} from '../config';
+
+/**
+ * Where the one-way flow starts: technical layers at the source root (`flat`),
+ * or feature modules at the root with those layers inside each one (`modular`).
+ */
+export type PresetStructure = 'flat' | 'modular';
 
 /** Options for a preset factory. */
 export interface PresetOptions {
@@ -12,18 +27,38 @@ export interface PresetOptions {
    * nearly every adoption makes. Passed straight through.
    */
   emit?: EmitDef;
+  /**
+   * Root structure. Defaults to `flat`. `modular` declares the `app` and
+   * `common` modules and drops the two layers that dissolve under them —
+   * routing moves to `app`, and a module's own root is what `containers` was.
+   * The config migration is free and the file migration is not, so this is a
+   * day-one choice.
+   */
+  structure?: PresetStructure;
 }
 
 /** Which Next.js router directory the route tree lives in. */
 export type NextRouter = 'app' | 'pages' | 'both';
 
-/** Options for the Next.js preset. */
-export interface NextPresetOptions extends PresetOptions {
+/**
+ * Options for the Next.js preset. `structure` is omitted rather than inherited:
+ * inherited, the generated API docs would print it as a field of this type while
+ * {@link nextPreset} throws on it.
+ */
+export interface NextPresetOptions extends Omit<PresetOptions, 'structure'> {
   /** Route tree: App Router (`app/`), Pages Router (`pages/`), or both (migration). */
   router?: NextRouter;
   /** Layers live under `src/` (`create-next-app --src-dir`); otherwise the project root. */
   srcDir?: boolean;
 }
+
+const NEXT_STRUCTURE_REFUSAL
+  = '`structure` is not an option on nextPreset — the modular model has no Next layer list '
+    + 'yet, and what `router` and `srcDir` mean once the route tree is a module is undecided. '
+    + 'That is undesigned, not impossible: Next\'s own `app/` is exactly what the modular model '
+    + 'calls a module whose internals belong to the router. Drop the option for the flat Next '
+    + 'shape, or declare `architecture.modules` yourself through defineBlueprint, where you '
+    + 'pick the layer list.';
 
 /** Framework-specific primitive ownership. */
 interface FrameworkOwns {
@@ -138,57 +173,94 @@ function playbook(): PlaybookSection[] {
   ];
 }
 
+/**
+ * The declared layers. Under `modular` the two `containers` permissions are
+ * deleted rather than renamed: what assembled a feature is now the module root,
+ * which is the implicit top layer and not a name in this list.
+ */
+function layers(owns: FrameworkOwns, modular: boolean): LayerDef[] {
+  const dissolved: LayerDef[] = [
+    {
+      name: 'pages',
+      does: 'Route layout — assembles containers; owns routing and SEO concerns.',
+      mustNot: ['hold business logic', 'stack components directly'],
+      layout: 'folder',
+    },
+    {
+      name: 'containers',
+      does: 'A feature: assembles components, owns local state, calls services, drives navigation.',
+      layout: 'folder',
+    },
+  ];
+
+  return [
+    ...(modular ? [] : dissolved),
+    {
+      name: 'components',
+      does: 'Reusable, presentational UI.',
+      mustNot: ['call services', 'touch the router', 'own app state'],
+      layout: 'folder',
+    },
+    {
+      name: 'hooks',
+      does: 'Adapts server and shared state; the only layer that injects context or owns a store.',
+      owns: owns.hooks,
+      layout: 'folder',
+    },
+    {
+      name: 'contexts',
+      does: 'Defines and provides Context / Provider only.',
+      owns: owns.contexts,
+      layout: 'folder',
+      allowedImporters: modular
+        ? [{ layer: 'hooks', selfOnly: true, description: 'Context only' }]
+        : [
+            { layer: 'containers', description: 'Provider only' },
+            { layer: 'hooks', selfOnly: true, description: 'Context only' },
+          ],
+    },
+    {
+      name: 'services',
+      does: 'Network primitives — the only layer that talks to the HTTP client or sockets.',
+      owns: ['axios', { global: 'fetch' }, { global: 'WebSocket' }],
+      layout: 'folder',
+      allowedImporters: modular ? ['hooks', 'contexts'] : ['containers', 'hooks', 'contexts'],
+    },
+  ];
+}
+
+/**
+ * The two modules a preset can declare without inventing a domain: `app` first
+ * so nothing may name it, `common` last so anyone may. A preset knows no domain,
+ * so it declares no feature module and no `owns`.
+ */
+function modules(): ModuleDef[] {
+  return [
+    {
+      name: 'app',
+      does: 'Routing and app-wide composition: the route tree, and what every screen is mounted inside.',
+      imports: ['common'],
+    },
+    {
+      name: 'common',
+      does: 'What more than one module needs and no single module owns.',
+    },
+  ];
+}
+
 /** Build a fresh, validated Blueprint. Every call returns an independent object. */
 function preset(framework: Framework, owns: FrameworkOwns, options: PresetOptions): Blueprint {
+  const modular = options.structure === 'modular';
+
   return defineBlueprint({
     name: options.name,
     framework,
     architecture: {
       alias: options.alias ?? '~app',
+      ...(modular ? { modules: modules() } : {}),
       // `entry` is omitted throughout: 'index' is the default, so declaring it
       // would only restate one.
-      layers: [
-        {
-          name: 'pages',
-          does: 'Route layout — assembles containers; owns routing and SEO concerns.',
-          mustNot: ['hold business logic', 'stack components directly'],
-          layout: 'folder',
-        },
-        {
-          name: 'containers',
-          does: 'A feature: assembles components, owns local state, calls services, drives navigation.',
-          layout: 'folder',
-        },
-        {
-          name: 'components',
-          does: 'Reusable, presentational UI.',
-          mustNot: ['call services', 'touch the router', 'own app state'],
-          layout: 'folder',
-        },
-        {
-          name: 'hooks',
-          does: 'Adapts server and shared state; the only layer that injects context or owns a store.',
-          owns: owns.hooks,
-          layout: 'folder',
-        },
-        {
-          name: 'contexts',
-          does: 'Defines and provides Context / Provider only.',
-          owns: owns.contexts,
-          layout: 'folder',
-          allowedImporters: [
-            { layer: 'containers', description: 'Provider only' },
-            { layer: 'hooks', selfOnly: true, description: 'Context only' },
-          ],
-        },
-        {
-          name: 'services',
-          does: 'Network primitives — the only layer that talks to the HTTP client or sockets.',
-          owns: ['axios', { global: 'fetch' }, { global: 'WebSocket' }],
-          layout: 'folder',
-          allowedImporters: ['containers', 'hooks', 'contexts'],
-        },
-      ],
+      layers: layers(owns, modular),
       naming: {
         component: 'PascalCase; the implementation file is named after the module',
         hook: 'useX — only when it genuinely uses reactivity',
@@ -244,6 +316,9 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
  * import { vuePreset } from '@kekkai/blueprint';
  *
  * export default vuePreset({ name: 'my-app' });
+ * @example
+ * // Feature modules at the root, the layer list inside each one.
+ * export default vuePreset({ name: 'my-app', structure: 'modular' });
  */
 export function vuePreset(options: PresetOptions = {}): Blueprint {
   return preset(
@@ -261,6 +336,9 @@ export function vuePreset(options: PresetOptions = {}): Blueprint {
  * @group Author
  * @example
  * export default reactPreset({ name: 'my-app' });
+ * @example
+ * // Feature modules at the root, the layer list inside each one.
+ * export default reactPreset({ name: 'my-app', structure: 'modular' });
  */
 export function reactPreset(options: PresetOptions = {}): Blueprint {
   return preset(
@@ -284,6 +362,14 @@ export function reactPreset(options: PresetOptions = {}): Blueprint {
  * export default nextPreset({ router: 'app', srcDir: true });
  */
 export function nextPreset(options: NextPresetOptions = {}): Blueprint {
+  // Read past the Omit above: `init` writes blueprint.config.mjs, which is
+  // JavaScript, so the type reaches nobody on the path this tool generates.
+  const { structure } = options as PresetOptions;
+
+  if (structure !== undefined) {
+    throw new Error(NEXT_STRUCTURE_REFUSAL);
+  }
+
   const router = options.router ?? 'app';
   const routeLayers = router === 'both' ? ['app', 'pages'] : [router];
 
