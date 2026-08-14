@@ -70,11 +70,11 @@ describe('relativeVerdict', () => {
     expect(relativeVerdict(own, null, layoutOf, entryOf)).toBe('escapes-src');
   });
 
-  it('leaves a flat layer alone — it has no module folders to be inside of', () => {
+  it('leaves a file layer alone — it has no module folders to be inside of', () => {
     expect(relativeVerdict(['utils', 'date.ts'], ['utils', 'money.ts'], layoutOf, entryOf))
       .toBe('ok');
 
-    // The DEEP case, and the invariant this function's shape rests on: a flat
+    // The DEEP case, and the invariant this function's shape rests on: a file
     // layer has no inside, so a nested relative path within it is not reaching
     // into anything. Only the sibling case was covered, and there `moduleKey`
     // collapses both sides to the layer name whatever the layout says — so a
@@ -349,7 +349,7 @@ describe('moduleKey · the module segment is part of the key', () => {
     expect(moduleKey(['hooks', 'useCart', 'useCart.ts'], folder)).toBe('hooks/useCart');
     expect(moduleKey(['hooks'], folder)).toBe('hooks');
     expect(moduleKey([], folder)).toBe('');
-    expect(moduleKey(['views', 'Home.vue'], () => 'flat')).toBe('views');
+    expect(moduleKey(['views', 'Home.vue'], () => 'file')).toBe('views');
   });
 });
 

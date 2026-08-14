@@ -474,7 +474,7 @@ export function buildStructuralPatterns(params: {
   aliases: string[];
   forbidden: string[];
   /** The layer's own module layout (drives the same-layer message wording). */
-  moduleLayout: 'folder' | 'flat';
+  moduleLayout: 'folder' | 'file';
   /**
    * Downstream folder-layout layers this layer may import, entry-only. Self and
    * forbidden layers are excluded by the caller — already banned wholesale, and
@@ -498,7 +498,7 @@ export function buildStructuralPatterns(params: {
     ...aliases.map((a) => ({
       group: [`${a}/${layer}/**`],
       message:
-        moduleLayout === 'flat'
+        moduleLayout === 'file'
           ? `\n🚫 Same-layer imports must be relative. Replace "${a}/${layer}/X" with "./X".`
           // The sibling is reachable, just not by this spelling: one shape for
           // same-layer edges keeps the cycle surface to relative paths alone.

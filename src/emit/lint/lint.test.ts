@@ -791,7 +791,7 @@ describe('emitLint · per-layer module layout', () => {
       .not.toContain('no-restricted-imports');
   });
 
-  it('does not ban deep paths into flat-layout layers', () => {
+  it('does not ban deep paths into file-layout layers', () => {
     expect(ids('import x from "~app/services/api/client";', 'src/pages/Home.ts'))
       .not.toContain('no-restricted-imports');
   });
@@ -805,7 +805,7 @@ describe('emitLint · per-layer module layout', () => {
     expect(ids('import x from "../../markets/Board";', 'src/resources/matches/components/Row.ts'))
       .toContain('blueprint/relative-escape');
 
-    // In the flat layer, relatives are free within the layer…
+    // In the file layer, relatives are free within the layer…
     expect(ids('import x from "./Nav";', 'src/pages/Home.ts'))
       .not.toContain('blueprint/relative-escape');
 

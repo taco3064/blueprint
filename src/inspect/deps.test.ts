@@ -139,8 +139,8 @@ describe('runDeps · folders outside the declared layers', () => {
   });
 });
 
-describe('runDeps · flat-layout layers answer at layer granularity', () => {
-  const flatConfig = async () => ({
+describe('runDeps · file-layout layers answer at layer granularity', () => {
+  const fileConfig = async () => ({
     framework: 'vue' as const,
     architecture: {
       alias: '~app',
@@ -162,27 +162,27 @@ describe('runDeps · flat-layout layers answer at layer granularity', () => {
 
     const { ok, modules } = await runDeps(root, {
       target: 'features/feed',
-      loadConfig: flatConfig,
+      loadConfig: fileConfig,
       log: (m) => (output = m),
     });
 
     expect(ok).toBe(true);
     expect(modules[0].module).toBe('features');
-    expect(output).toContain('features (flat layer — answers at layer granularity)');
+    expect(output).toContain('features (file-layout layer — answers at layer granularity)');
   });
 
-  it('marks the flat layer on the leaderboard', async () => {
+  it('marks the file-layout layer on the leaderboard', async () => {
     let output = '';
 
-    await runDeps(root, { loadConfig: flatConfig, log: (m) => (output = m) });
+    await runDeps(root, { loadConfig: fileConfig, log: (m) => (output = m) });
 
-    expect(output).toContain('← features (flat layer)');
+    expect(output).toContain('← features (file-layout layer)');
     expect(output).toContain('← pages/Home');
 
     // pages is folder-shaped, so its modules answer at module granularity.
     // Claiming the layer-granularity caveat here would tell the reader the
     // blast radius is wider than it is.
-    expect(output).not.toContain('pages/Home (flat layer)');
+    expect(output).not.toContain('pages/Home (file-layout layer)');
   });
 });
 
@@ -194,7 +194,7 @@ describe('runDeps · a hand-written config is validated on load', () => {
 
   it('fails with a precise message instead of a deep undefined-property crash', async () => {
     // An empty entry — a layer that declares NEITHER key is valid since the
-    // flat default became real (field issue #23).
+    // file default became real (field issue #23).
     const invalid = async () =>
       ({
         architecture: { alias: '~app', layers: [{ name: 'pages', entry: '' }] },
@@ -298,16 +298,16 @@ describe('runDeps · normalizing the target the user typed', () => {
     expect(modules[0].module).toBe('hooks/useCart');
   });
 
-  it('does not call a multi-segment key a flat layer, even when every layer is flat', async () => {
-    // With `layout: 'flat'` as the SHARED shape, `layoutOf` answers flat for any
+  it('does not call a multi-segment key a file layer, even when every layer is one', async () => {
+    // With `layout: 'file'` as the SHARED shape, `layoutOf` answers file for any
     // name — including one that is not a layer at all. The single-segment and
     // is-a-layer checks are what stop `pages/Home` from claiming the
     // layer-granularity caveat.
-    const sharedFlat = async () => ({
+    const sharedFile = async () => ({
       framework: 'vue' as const,
       architecture: {
         alias: '~app',
-        // Every layer but `pages` is flat, and `layoutOf` answers "flat" for any
+        // Every layer but `pages` is file-shaped, and `layoutOf` answers "file" for any
         // name it does not recognise as a layer — including a `layer/Module` key.
         layers: [
           { name: 'pages', does: 'routes', layout: 'folder' as const, allowedImporters: [] },
@@ -322,19 +322,19 @@ describe('runDeps · normalizing the target the user typed', () => {
 
     let output = '';
 
-    await runDeps(root, { loadConfig: sharedFlat, log: (m) => (output = m) });
+    await runDeps(root, { loadConfig: sharedFile, log: (m) => (output = m) });
 
-    // services is flat and collapses to the layer node. pages is folder-shaped,
-    // so its key is `pages/Home` — and `layoutOf` answers "flat" for that key too,
+    // services is file-shaped and collapses to the layer node. pages is folder-shaped,
+    // so its key is `pages/Home` — and `layoutOf` answers "file" for that key too,
     // since it is not a layer name. Only the single-segment and is-a-layer checks
     // keep the caveat off it.
-    expect(output).toContain('services (flat layer)');
-    expect(output).not.toContain('pages/Home (flat layer)');
+    expect(output).toContain('services (file-layout layer)');
+    expect(output).not.toContain('pages/Home (file-layout layer)');
   });
 });
 
-describe('runDeps · a layer node is not automatically a flat layer', () => {
-  it('withholds the flat-layer caveat from a folder-shaped layer', async () => {
+describe('runDeps · a layer node is not automatically a file-layout layer', () => {
+  it('withholds the file-layout caveat from a folder-shaped layer', async () => {
     // Importing the layer itself (`~app/services`, not a module inside it) makes
     // a single-segment node carrying the layer's own name. Both remaining guards
     // on the caveat matter right there: the name IS a layer, so only the layout
@@ -348,7 +348,7 @@ describe('runDeps · a layer node is not automatically a flat layer', () => {
     await runDeps(root, { log: (m) => (output = m) });
 
     expect(output).toMatch(/← services$/m);
-    expect(output).not.toContain('(flat layer)');
+    expect(output).not.toContain('(file-layout layer)');
   });
 });
 
@@ -527,9 +527,9 @@ describe('runDeps · two meanings of "module"', () => {
     expect(JSON.stringify(parsed.units)).not.toContain('"module":"Fighter/hooks');
   });
 
-  it('never labels a feature module a flat layer', async () => {
-    // `layoutOf` answers `flat` for any name it does not know, and every module
-    // name is one — so the layer test in `isFlatLayer` is load-bearing now that
+  it('never labels a feature module a file-layout layer', async () => {
+    // `layoutOf` answers `file` for any name it does not know, and every module
+    // name is one — so the layer test in `isFileLayer` is load-bearing now that
     // the graph builds single-segment keys that are not layer names.
     modular();
 
@@ -537,7 +537,7 @@ describe('runDeps · two meanings of "module"', () => {
 
     await runDeps(root, { log: (m) => void lines.push(m) });
 
-    expect(lines.join('\n')).not.toContain('(flat layer)');
+    expect(lines.join('\n')).not.toContain('(file-layout layer)');
   });
 
   it('reports a folder outside the declared MODULES as skipped', async () => {

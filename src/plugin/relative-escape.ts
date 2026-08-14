@@ -23,7 +23,7 @@ import { relativeVerdict, resolveSegments } from '../inspect/resolve';
  * to a lower layer", which is how a `utils/` junk drawer gets built one
  * honest decision at a time.
  *
- * Options: `{ layouts: { [layer]: 'folder' | 'flat' }, entries: { [layer]:
+ * Options: `{ layouts: { [layer]: 'folder' | 'file' }, entries: { [layer]:
  * string } }` — the per-layer module layout map and entry filename
  * (`index` when absent). Files outside `src/` or outside a declared layer are
  * skipped (the emitted config scopes this rule to layer files anyway).
@@ -55,7 +55,7 @@ export const relativeEscape: Rule.RuleModule = {
         properties: {
           layouts: {
             type: 'object',
-            additionalProperties: { enum: ['folder', 'flat'] },
+            additionalProperties: { enum: ['folder', 'file'] },
           },
           entries: {
             type: 'object',
@@ -90,7 +90,7 @@ export const relativeEscape: Rule.RuleModule = {
   create(context) {
     const { layouts = {}, entries = {}, depth = 0 }
       = (context.options[0] as {
-        layouts?: Record<string, 'folder' | 'flat'>;
+        layouts?: Record<string, 'folder' | 'file'>;
         entries?: Record<string, string>;
         depth?: number;
       } | undefined) ?? {};
@@ -102,7 +102,7 @@ export const relativeEscape: Rule.RuleModule = {
     // registered, and the rule does not run at all. Silence, not a verdict.
     if (!segments || !(segments[depth] in layouts)) return {};
 
-    const layoutOf = (layer: string): 'folder' | 'flat' => layouts[layer] ?? 'flat';
+    const layoutOf = (layer: string): 'folder' | 'file' => layouts[layer] ?? 'file';
     const entryOf = (layer: string): string => entries[layer] ?? 'index';
     const dir = segments.slice(0, -1);
 

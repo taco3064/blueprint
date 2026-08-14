@@ -108,17 +108,17 @@ export function moduleDepth(architecture: ArchitectureDef): number {
 
 /** One module shape a layer can declare. */
 export interface ModuleShape {
-  layout: 'folder' | 'flat';
+  layout: 'folder' | 'file';
   entry: string;
 }
 
 /**
  * The shape a layer that declares neither key resolves to — the playbook's
- * "flat default" made real (field issue #23: `architecture.module` validated
+ * "file default" made real (field issue #23: `architecture.module` validated
  * as required while the playbook said omitting it was the default).
  * @internal
  */
-export const DEFAULT_MODULE_SHAPE: ModuleShape = { layout: 'flat', entry: 'index' };
+export const DEFAULT_MODULE_SHAPE: ModuleShape = { layout: 'file', entry: 'index' };
 
 /**
  * The effective module shape for a layer: what it declares, else the default.
@@ -143,8 +143,8 @@ export interface ModuleShapeGroup extends ModuleShape {
  * The distinct module shapes across the layers, first-declared first. Every
  * document that states the shape renders from this: there is no project-wide
  * shape to state, so a single group is stated once and several are stated one
- * by one, naming their layers. A flat layer keys on layout alone — its entry
- * filename is not a fact about it, so two flat layers never split a group.
+ * by one, naming their layers. A file-layout layer keys on layout alone — its
+ * entry filename is not a fact about it, so two never split a group.
  * @internal
  */
 export function moduleShapeGroups(architecture: ArchitectureDef): ModuleShapeGroup[] {
@@ -152,7 +152,7 @@ export function moduleShapeGroups(architecture: ArchitectureDef): ModuleShapeGro
 
   for (const layer of architecture.layers) {
     const shape = getModuleShape(architecture, layer.name);
-    const key = shape.layout === 'folder' ? `folder:${shape.entry}` : 'flat';
+    const key = shape.layout === 'folder' ? `folder:${shape.entry}` : 'file';
     const group = groups.get(key);
 
     if (group) {

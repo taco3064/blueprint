@@ -275,7 +275,7 @@ export function reactPreset(options: PresetOptions = {}): Blueprint {
 
 /**
  * Canonical Next.js blueprint. The route tree (`app/` and/or `pages/`) is the
- * top layer — flat module layout, since file-based routing owns its own file
+ * top layer — file module layout, since file-based routing owns its own file
  * names and nesting. No `fetch` ownership: server components fetch everywhere
  * by design, so restricting it to one layer would be a lie. `srcDir` picks the
  * source root (`src` vs the project root, where `app/` sits without --src-dir).
@@ -314,7 +314,7 @@ export function nextPreset(options: NextPresetOptions = {}): Blueprint {
           does: 'Framework-free plumbing: data access, formatting, config.',
         },
       ],
-      // No `layout` on any layer: flat is the default, so the Next preset's
+      // No `layout` on any layer: file is the default, so the Next preset's
       // one-file-per-module shape is what omitting it already means.
       naming: {
         hook: 'useX — only when it genuinely uses reactivity',

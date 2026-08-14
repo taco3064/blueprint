@@ -1683,7 +1683,7 @@ describe('survey counts never promise what impact must measure (field issue #11)
           '  framework: \'react\',',
           '  architecture: {',
           '    alias: \'~app\',',
-          '    layers: [{ name: \'components\', does: \'render UI\', layout: \'flat\' }],',
+          '    layers: [{ name: \'components\', does: \'render UI\', layout: \'file\' }],',
           '  },',
           '  rules: {},',
           '};',
@@ -2047,9 +2047,9 @@ describe('merge caveats meet the agent at the point of need (batch 14)', () => {
   });
 });
 
-describe('the flat default is real — module is optional (batch 15)', () => {
+describe('the file default is real — module is optional (batch 15)', () => {
   it('a config that never mentions module validates and inspects clean', async () => {
-    // The field shape verbatim: Method step 5 said "plain files → the flat
+    // The field shape verbatim: Method step 5 said "plain files → the file
     // default", validation demanded module.entry — two edit-run cycles plus
     // a deliberate repro before the agent could prove the tool contradicted
     // itself (field issue #23).
@@ -2082,7 +2082,7 @@ describe('the flat default is real — module is optional (batch 15)', () => {
           ...noModule,
           architecture: {
             ...noModule.architecture,
-            layers: [{ name: 'components', does: 'render UI', layout: 'flat' }],
+            layers: [{ name: 'components', does: 'render UI', layout: 'file' }],
           },
         }),
         'src/components/Button.jsx': 'export const Button = 1;',
@@ -3427,7 +3427,7 @@ describe('an output that reports the import graph says how the graph was read', 
   });
 
   it('closes both deps renderings with it too', async () => {
-    // Both layers are declared and flat in this fixture, so the keys are the layer
+    // Both layers are declared and file-shaped in this fixture, so the keys are the layer
     // names and there is one real edge between them.
     const dir = adopted({
       'src/services/api.js': 'export const api = 1;',
@@ -3435,7 +3435,7 @@ describe('an output that reports the import graph says how the graph was read', 
     });
 
     const leaderboard = await cli(dir, ['deps']);
-    // `services` is a flat layer in this preset, so the answer is at layer granularity.
+    // `services` is a file-layout layer in this preset, so the answer is at layer granularity.
     const module = await cli(dir, ['deps', 'services']);
 
     expect(flattenProse(leaderboard.output)).toContain('source text, not a parsed AST');

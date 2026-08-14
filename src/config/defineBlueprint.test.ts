@@ -132,7 +132,7 @@ describe('validateBlueprint', () => {
 
     expect(() => validateBlueprint(config)).toThrow(/empty entry/);
 
-    // The playbook's "flat default" is real: a layer that declares neither key
+    // The playbook's "file default" is real: a layer that declares neither key
     // is complete.
     delete config.architecture.layers[0].entry;
     delete config.architecture.layers[0].layout;
@@ -141,7 +141,7 @@ describe('validateBlueprint', () => {
 
     config.architecture.layers[0].layout = 'diagonal' as never;
 
-    expect(() => validateBlueprint(config)).toThrow(/folder \| flat/);
+    expect(() => validateBlueprint(config)).toThrow(/folder \| file/);
   });
 
   it('names the replacement when a 3.x config still carries architecture.module', () => {
@@ -199,12 +199,26 @@ describe('validateBlueprint', () => {
     );
   });
 
-  it('rejects a layer layout that is neither folder nor flat', () => {
+  it('rejects a layer layout that is neither folder nor file', () => {
     const config = base();
 
     config.architecture.layers[0].layout = 'stacked' as never;
 
-    expect(() => validateBlueprint(config)).toThrow(/expected folder \| flat/);
+    expect(() => validateBlueprint(config)).toThrow(/expected folder \| file/);
+  });
+
+  it('rejects the retired "flat" spelling, naming the layer, the replacement and the shape', () => {
+    const config = base();
+
+    config.architecture.layers[0].layout = 'flat' as never;
+
+    // Clause by clause: the generic "expected folder | file" line satisfies a
+    // "does it throw" test while telling a 3.x author nothing about which of the
+    // two spellings replaced theirs.
+    expect(() => validateBlueprint(config)).toThrow(/Layer "components" has layout "flat"/);
+    expect(() => validateBlueprint(config)).toThrow(/renamed to "file" in 4\.0\.0/);
+    expect(() => validateBlueprint(config)).toThrow(/layers: \[\{ name: 'components', does: '…', layout: 'file' \}\]/);
+    expect(() => validateBlueprint(config)).toThrow(/Omitting the key resolves to it too/);
   });
 
   it('rejects a whitespace-only layer entry', () => {
@@ -219,7 +233,7 @@ describe('validateBlueprint', () => {
     const config = base();
 
     config.architecture.layers[0].entry = 'main';
-    config.architecture.layers[2].layout = 'flat';
+    config.architecture.layers[2].layout = 'file';
 
     expect(() => validateBlueprint(config)).not.toThrow();
   });
@@ -655,7 +669,7 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
 
 describe('validateBlueprint · the guards that must NOT fire', () => {
   it('accepts a layer that declares only an entry', () => {
-    // The flat default is real (field issue #23): a layer with no `layout` is
+    // The file default is real (field issue #23): a layer with no `layout` is
     // complete. Validating the absent layout against the enum rejects a config
     // the playbook tells the author to write.
     const config = base();

@@ -33,7 +33,7 @@ const DEFAULT_AGENT_TARGETS: AgentTarget[] = ['claude', 'agents'];
 const MODULE_FIELD_HINT
   = 'The module shape moved onto each layer in 4.0.0 — write `layout` / `entry` there instead: '
     + 'layers: [{ name: \'components\', does: \'…\', layout: \'folder\', entry: \'index\' }] '
-    + '(entry defaults to "index", layout to "flat"). `private` is gone with no replacement: the '
+    + '(entry defaults to "index", layout to "file"). `private` is gone with no replacement: the '
     + 'entry-only ban already covers every non-entry file, so nothing was enforcing it. Every 3.x '
     + 'config must make this edit, including a flat project that is not adopting `modules`.';
 
@@ -597,10 +597,22 @@ function validateOwnershipIsSingular(modules: ModuleDef[], layers: LayerDef[]): 
 
 /** A layer's module shape: layout from the pair, entry a real filename. */
 function validateModuleShape(layer: LayerDef): void {
-  if (layer.layout !== undefined && !['folder', 'flat'].includes(layer.layout)) {
+  // Widened off the union on purpose: a 3.x config reaches here still holding
+  // the retired spelling, which is the case the hint below exists for.
+  const layout: string | undefined = layer.layout;
+
+  if (layout === 'flat') {
     throw new Error(
-      `Layer "${layer.name}" has layout "${layer.layout}" — expected folder | flat, or omit it `
-      + 'for the default (flat).',
+      `Layer "${layer.name}" has layout "flat", renamed to "file" in 4.0.0 — same shape, one `
+      + `file per unit: layers: [{ name: '${layer.name}', does: '…', layout: 'file' }]. Omitting `
+      + 'the key resolves to it too, so deleting the line is the other valid edit.',
+    );
+  }
+
+  if (layout !== undefined && !['folder', 'file'].includes(layout)) {
+    throw new Error(
+      `Layer "${layer.name}" has layout "${layout}" — expected folder | file, or omit it `
+      + 'for the default (file).',
     );
   }
 

@@ -30,7 +30,7 @@ function arch(): ArchitectureDef {
 }
 
 /** `arch()` with a module shape declared on the named layers. */
-function shaped(shapes: Record<string, { layout?: 'folder' | 'flat'; entry?: string }>): ArchitectureDef {
+function shaped(shapes: Record<string, { layout?: 'folder' | 'file'; entry?: string }>): ArchitectureDef {
   const base = arch();
 
   return {
@@ -69,20 +69,20 @@ describe('aliasLayerRoots', () => {
 });
 
 describe('getModuleShape', () => {
-  it('applies the flat defaults to a layer that declares neither key (field #23)', () => {
-    expect(DEFAULT_MODULE_SHAPE).toEqual({ layout: 'flat', entry: 'index' });
-    expect(getModuleShape(arch(), 'pages')).toEqual({ layout: 'flat', entry: 'index' });
+  it('applies the file defaults to a layer that declares neither key (field #23)', () => {
+    expect(DEFAULT_MODULE_SHAPE).toEqual({ layout: 'file', entry: 'index' });
+    expect(getModuleShape(arch(), 'pages')).toEqual({ layout: 'file', entry: 'index' });
   });
 
   it('fills the other key when a layer declares only one', () => {
     const one = shaped({ pages: { layout: 'folder' }, hooks: { entry: 'main' } });
 
     expect(getModuleShape(one, 'pages')).toEqual({ layout: 'folder', entry: 'index' });
-    expect(getModuleShape(one, 'hooks')).toEqual({ layout: 'flat', entry: 'main' });
+    expect(getModuleShape(one, 'hooks')).toEqual({ layout: 'file', entry: 'main' });
   });
 
   it('falls back to the defaults for a layer that is not declared at all', () => {
-    expect(getModuleShape(arch(), 'nope')).toEqual({ layout: 'flat', entry: 'index' });
+    expect(getModuleShape(arch(), 'nope')).toEqual({ layout: 'file', entry: 'index' });
   });
 });
 
@@ -107,11 +107,11 @@ describe('moduleShapeGroups', () => {
     expect(groups).toEqual([
       { layout: 'folder', entry: 'main', layers: ['pages', 'hooks'] },
       { layout: 'folder', entry: 'index', layers: ['components'] },
-      { layout: 'flat', entry: 'index', layers: ['contexts', 'services'] },
+      { layout: 'file', entry: 'index', layers: ['contexts', 'services'] },
     ]);
   });
 
-  it('keys a flat layer on layout alone — its entry filename governs nothing', () => {
+  it('keys a file-layout layer on layout alone — its entry filename governs nothing', () => {
     const groups = moduleShapeGroups(shaped({ pages: { entry: 'main' }, components: { entry: 'other' } }));
 
     expect(groups).toHaveLength(1);

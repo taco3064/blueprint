@@ -448,12 +448,12 @@ describe('buildStructuralPatterns', () => {
     expect(groups.some((g) => g.group.includes('~app/**'))).toBe(false);
   });
 
-  it('drops forbidden and deep-import groups for flat layout with none forbidden', () => {
+  it('drops forbidden and deep-import groups for file layout with none forbidden', () => {
     const groups = buildStructuralPatterns({
       layer: 'a',
       aliases: ['~app'],
       forbidden: [],
-      moduleLayout: 'flat',
+      moduleLayout: 'file',
     });
 
     // redundant-segments + same-layer
@@ -464,16 +464,16 @@ describe('buildStructuralPatterns', () => {
 
   it('spells the same-layer replacement the layer\'s own layout allows', () => {
     // Both layouts ban the alias spelling for a sibling, and both point at the
-    // relative one — but at different paths. A flat layer's siblings are files
+    // relative one — but at different paths. A file layer's siblings are files
     // beside you (`./X`); a folder layer's are one level up (`../X`), entry only.
     // The message is the whole fix, so handing a folder layer `./X` sends the
-    // author to a path that does not exist, and handing a flat layer `../X`
+    // author to a path that does not exist, and handing a file layer `../X`
     // sends them out of the layer.
-    const sameLayer = (moduleLayout: 'folder' | 'flat') =>
+    const sameLayer = (moduleLayout: 'folder' | 'file') =>
       buildStructuralPatterns({ layer: 'a', aliases: ['~app'], forbidden: [], moduleLayout })
         .find((group) => group.group.includes('~app/a/**'))?.message;
 
-    expect(sameLayer('flat')).toContain('Replace "~app/a/X" with "./X".');
+    expect(sameLayer('file')).toContain('Replace "~app/a/X" with "./X".');
 
     expect(sameLayer('folder')).toContain('Replace "~app/a/X" with "../X"');
     expect(sameLayer('folder')).toContain('what is behind the entry stays private');

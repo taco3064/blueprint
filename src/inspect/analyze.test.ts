@@ -310,8 +310,8 @@ describe('analyze · cycle', () => {
   });
 });
 
-describe('analyze · flat layout', () => {
-  const flat = defineBlueprint({
+describe('analyze · file layout', () => {
+  const fileShaped = defineBlueprint({
     framework: 'react',
     architecture: {
       alias: '~app',
@@ -322,7 +322,7 @@ describe('analyze · flat layout', () => {
   it('skips deep-import and no-entry, but still flags cross-module relative imports', () => {
     const found = analyze(
       { topDirs: ['a', 'b'], files: [file(['a', 'x.ts'], [{ specifier: '../b/y' }])] },
-      flat,
+      fileShaped,
     ).map((finding) => finding.rule);
 
     expect(found).toContain('layer-escape');
@@ -349,7 +349,7 @@ describe('analyze · per-layer module layout', () => {
       .map((finding) => finding.rule);
 
   it('judges deep imports by the target layer layout', () => {
-    // Into the folder layer: deep. Into a flat layer: not.
+    // Into the folder layer: deep. Into a file layer: not.
     expect(rules([file(['pages', 'Home.ts'], [{ specifier: '~app/resources/matches/impl' }])]))
       .toContain('deep-import');
 
@@ -360,17 +360,17 @@ describe('analyze · per-layer module layout', () => {
   it('applies no-entry only to folder-layout layers, honoring the entry override', () => {
     expect(rules([file(['resources', 'matches', 'main.ts'])])).not.toContain('no-entry');
     expect(rules([file(['resources', 'matches', 'list.ts'])])).toContain('no-entry');
-    // Nested files in a flat layer never demand an entry.
+    // Nested files in a file layer never demand an entry.
     expect(rules([file(['services', 'api', 'client.ts'])])).not.toContain('no-entry');
   });
 
-  it('judges relative escapes per layer: module-bound in folder, layer-bound in flat', () => {
+  it('judges relative escapes per layer: module-bound in folder, layer-bound in file', () => {
     // Folder layer: leaving the module (even to a sibling module) escapes.
     expect(
       rules([file(['resources', 'matches', 'main.ts'], [{ specifier: '../markets/board' }])]),
     ).toContain('entry-bypass');
 
-    // Flat layer: relatives roam the whole layer freely.
+    // File layer: relatives roam the whole layer freely.
     expect(
       rules([file(['services', 'api', 'client.ts'], [{ specifier: '../ws/socket' }])]),
     ).not.toContain('entry-bypass');

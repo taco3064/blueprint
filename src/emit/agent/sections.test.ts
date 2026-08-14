@@ -71,10 +71,10 @@ describe('renderPlacement', () => {
     expect(out).not.toContain('in `src/');
   });
 
-  it('describes a flat module', () => {
+  it('describes a one-file-per-unit layer', () => {
     const out = renderPlacement(arch({ layers: [{ name: 'components', does: 'UI' }] }));
 
-    expect(out).toContain('one file per module (flat)');
+    expect(out).toContain('one file per module (file layout)');
   });
 
   it('states each shape with its own layers when the layers disagree', () => {
@@ -89,7 +89,7 @@ describe('renderPlacement', () => {
     );
 
     expect(out).toContain('- Module shape in `src/resources/`: one folder per module. Only `main` is importable from outside.');
-    expect(out).toContain('- Module shape in `src/components/` / `src/services/`: one file per module (flat).');
+    expect(out).toContain('- Module shape in `src/components/` / `src/services/`: one file per module (file layout).');
     expect(out).not.toContain('Exception — `src/services/`');
   });
 
@@ -179,7 +179,7 @@ describe('renderHardRules', () => {
     expect(out).toContain('Never silence it with `eslint-disable`');
   });
 
-  it('omits entry-only for flat layout', () => {
+  it('omits entry-only for file layout', () => {
     const out = renderHardRules(arch({ layers: [{ name: 'components', does: 'UI' }] }), undefined);
 
     // The entry names are interpolated, so an unguarded push renders the rule

@@ -77,7 +77,7 @@ function moduleTree(group: ModuleShapeGroup): string[] {
 function moduleSentence(group: ModuleShapeGroup): string {
   return group.layout === 'folder'
     ? `module = one folder. Only \`${group.entry}\` is public; everything else stays private to the module.`
-    : 'module = one file (flat layout).';
+    : 'module = one file (file layout).';
 }
 
 /**
@@ -139,7 +139,7 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
       // Stated as a flat ban, the only remedy left is "extract to a lower
       // layer", which `blueprint/relative-escape` names as how a `utils/` junk
       // drawer gets built one honest decision at a time.
-      return layout === 'flat'
+      return layout === 'file'
         ? `- **No same-layer imports via the alias**${scope} — use a relative path instead.`
         : `- **No same-layer imports via the alias**${scope} — reach a sibling through its entry with a relative path (\`../Sibling\`), and never past that entry.`;
     }),

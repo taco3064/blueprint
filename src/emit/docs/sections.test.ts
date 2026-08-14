@@ -69,15 +69,15 @@ describe('renderModule', () => {
     expect(out.endsWith('```')).toBe(true);
   });
 
-  it('renders a one-line note when every layer is flat', () => {
+  it('renders a one-line note when every layer is one file per unit', () => {
     const out = renderModule(arch({ layers: [{ name: 'components', does: 'UI' }] }));
 
-    expect(out).toContain('flat layout');
+    expect(out).toContain('file layout');
     expect(out).not.toContain('```');
     // Same close, the other layout — one sentence and nothing after it. The
     // sentence describes the SHAPE and stops: where a sibling may be reached
     // from is the import-discipline section's, stated once.
-    expect(out.endsWith('One module = one file (flat layout).')).toBe(true);
+    expect(out.endsWith('One module = one file (file layout).')).toBe(true);
   });
 
   it('states each shape with its own layers when the layers disagree', () => {
@@ -91,7 +91,7 @@ describe('renderModule', () => {
 
     expect(out).toContain('The shape differs by layer:');
     expect(out).toContain('- `resources/` — one module = one folder. Only `index` is public');
-    expect(out).toContain('- `components/` / `services/` — one module = one file (flat layout).');
+    expect(out).toContain('- `components/` / `services/` — one module = one file (file layout).');
     // The tree illustrates the folder shape, rooted at a layer that has it.
     expect(out).toContain('resources/\n└─ Example/');
   });
@@ -129,7 +129,7 @@ describe('renderImportDiscipline', () => {
     expect(out).not.toContain('selfOnly');
   });
 
-  it('swaps in the relative-path rule and drops entry-only when every layer is flat', () => {
+  it('swaps in the relative-path rule and drops entry-only when every layer is one file per unit', () => {
     const out = renderImportDiscipline(arch({ layers: [{ name: 'components', does: 'UI' }] }));
 
     expect(out).toContain('use a relative path');

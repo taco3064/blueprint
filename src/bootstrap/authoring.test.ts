@@ -15,6 +15,7 @@ import { AGENT_PROMPT, AUTHORING_FILE, authoringActions, authoringBrief, BROWNFI
 // graph. That is why it stays confined to test files — the same import from a
 // non-test file in `bootstrap` would be a genuine layering break, not this
 // exception.
+import { defineBlueprint } from '../config';
 import { flattenProse } from '../conformance';
 import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
 import type { SurveyResult } from '../survey';
@@ -492,6 +493,31 @@ describe('authoringBrief', () => {
       });
 
       expect(dangling).toEqual([]);
+    }
+  });
+
+  it('writes only layout values the loader accepts', () => {
+    // Both copy-paste sites emit a `layout` for the author to write, and one of
+    // them sits inside a code block. This document has already been older than
+    // the loader once: it read `{ layout: 'flat', entry: 'index' }` while
+    // `defineBlueprint` rejected that spelling, and an adopting agent following
+    // it wrote a config that would not load.
+    const spellings = [...new Set(
+      [...brief.matchAll(/layout: '([^']*)'/g)].map(([, value]) => value),
+    )].sort();
+
+    // The set first, and before the loop: a regex that matched nothing leaves
+    // the loop below iterating over nothing, green, and asserting no document.
+    expect(spellings).toEqual(['file', 'folder']);
+
+    for (const layout of spellings) {
+      expect(() => defineBlueprint({
+        framework: 'react',
+        architecture: {
+          alias: '~app',
+          layers: [{ name: 'components', does: 'render UI', layout: layout as 'file' | 'folder' }],
+        },
+      })).not.toThrow();
     }
   });
 
