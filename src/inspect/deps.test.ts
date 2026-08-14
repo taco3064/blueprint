@@ -749,7 +749,12 @@ describe('runDeps · the modular answers are built, not defaulted', () => {
 
     const { units } = await runDeps(root, { log: silent });
 
-    expect(units.map((entry) => entry.unit)).not.toContain('Fighter/hoosk/useTypo');
+    // On the folder, not on the full unit path: an undeclared folder is not a
+    // layer, so `moduleKey` stops at it and the node would be `Fighter/hoosk`.
+    // Named as the deeper path, this assertion passes while the typo sits in
+    // the graph — which is what it did.
+    expect(units.map((entry) => entry.unit).filter((unit) => unit.startsWith('Fighter/hoosk')))
+      .toEqual([]);
   });
 
   it('never reports a declared module as a skipped folder', async () => {
