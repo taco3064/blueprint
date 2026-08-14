@@ -508,6 +508,15 @@ ever validated by a claim that turns out false — which means **send the ones y
 are least sure of, not the ones you want confirmed.** That is the opposite of what
 asking for review feels like, and it is the whole discipline.
 
+**Nothing about the claim — but the reply still carries something, and it is not
+the same thing.** The output is two-valued: *"no, and here is the line"* kills a
+claim, and *"yes, and here is the line"* says the reader opened the file, which is
+all a correct claim's reply can honestly report. Silence says neither, so answer
+even when you agree. Naming what a yes does carry is also what keeps the sentence
+above from being softened into "a yes is weak evidence" — it is not weak evidence
+about the claim, it is none, and the obvious objection is answered here instead of
+by blunting it there.
+
 Measured once: seven claims sent — **with their reasoning still attached**, which
 is what makes the result an argument for dropping it — and two died. Both were
 things that would otherwise have been carried to the end of the decomposition
