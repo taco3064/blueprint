@@ -24,6 +24,7 @@ import {
 import { unwrapModule } from '../project';
 import { dropTestFiles, globToRegExp } from './filter';
 import type { DoctorCheck, ScanResult } from './types';
+import { moduleZone, zoneWord } from './zone';
 
 /**
  * Doctor's merge-survival check. Flat config never merges: a later entry
@@ -356,13 +357,14 @@ function pickProbes(scanResult: ScanResult, blueprint: Blueprint): Probe[] {
 
     if (path === null) return [];
 
-    // One derivation, read twice: spelled as two ternaries the label and the
-    // zone can disagree, and neither would be wrong on its own.
-    const zone = module.layers === false ? 'module' : 'root';
+    // Zone and word both from `./zone`, so this label and the row `blueprint
+    // rules` prints for the same entry cannot address it differently — an
+    // adopter greps one output for the address the other printed.
+    const zone = moduleZone(module);
 
     return [{
       path,
-      label: `${module.name}/(${zone === 'module' ? 'all' : 'root'})`,
+      label: `${module.name}/(${zoneWord(zone)})`,
       module: module.name,
       zone,
     }];
