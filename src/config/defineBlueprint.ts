@@ -13,6 +13,7 @@ import { activeSetting } from './settings';
 
 const VALID_TIERS = ['error', 'warn', 'off'];
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/;
+const MODULE_PLACEHOLDER = /\{\s*module\s*\}/;
 
 // A declared name becomes a folder and a substituted glob segment in both
 // namespaces, so both reject the same characters. The sentences differ because
@@ -208,6 +209,8 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     if (!LAYER_PLACEHOLDER.test(glob)) {
       throw new Error(`layerFiles entry "${glob}" must include the "{layer}" placeholder.`);
     }
+
+    validateModuleGlob(glob, architecture);
   }
 
   const principleIds = new Set<string>();
@@ -382,12 +385,57 @@ function ownedLabel(primitive: OwnedPrimitive): string {
 }
 
 /**
+ * A custom `layerFiles` glob against the declared shape. Both directions are
+ * rejected, because both produce a glob that matches nothing and reports as a
+ * clean net — the tool's own definition of a silently dead declaration.
+ *
+ * The topology is fixed rather than merely required: `{module}` first under
+ * the source root, `{layer}` immediately after. Modules do not nest and the
+ * module root is resolved from `sourceRoot` plus the name, so a pattern that
+ * puts a segment between the two would leave the root and its own layers in
+ * different trees.
+ */
+function validateModuleGlob(glob: string, architecture: ArchitectureDef): void {
+  const segments = glob.split('/');
+  const moduleAt = segments.findIndex((segment) => MODULE_PLACEHOLDER.test(segment));
+
+  if (architecture.modules === undefined) {
+    if (moduleAt === -1) return;
+
+    throw new Error(
+      `layerFiles entry "${glob}" carries a "{module}" placeholder, but architecture.modules is `
+      + 'not declared — nothing would substitute it, so the glob would look for a directory '
+      + 'literally named "{module}" and match no file. Declare the modules, or drop the placeholder.',
+    );
+  }
+
+  if (moduleAt === -1) {
+    throw new Error(
+      `architecture.layerFiles must include "{module}" when architecture.modules is declared — `
+      + `"${glob}" reads as "layers at the source root", which is not this project's shape. `
+      + 'The one legal topology is <sourceRoot>/{module}/{layer}/…',
+    );
+  }
+
+  const rootDepth = (architecture.sourceRoot ?? 'src') === '.'
+    ? 0
+    : (architecture.sourceRoot ?? 'src').split('/').length;
+
+  const layerAt = segments.findIndex((segment) => LAYER_PLACEHOLDER.test(segment));
+
+  if (moduleAt !== rootDepth || layerAt !== moduleAt + 1) {
+    throw new Error(
+      `layerFiles entry "${glob}" puts the module segment in the wrong place — "{module}" must be `
+      + 'the first segment under the source root and "{layer}" must follow it immediately. '
+      + 'A segment between them, or the two inverted, describes a tree blueprint cannot scan: '
+      + 'depth is fixed at <sourceRoot>/{module}/{layer}/<unit>, and modules do not nest.',
+    );
+  }
+}
+
+/**
  * The declared modules: names that survive becoming folders and globs, and
  * `imports` edges that point forward into the declared set.
- *
- * `architecture.layerFiles` needing a `{module}` placeholder is deliberately
- * NOT checked here — that rule is about the shape of a custom glob and the
- * topology it implies, so it lands with the resolver that reads it (#185).
  */
 function validateModules(architecture: ArchitectureDef): void {
   const { modules, layers } = architecture;

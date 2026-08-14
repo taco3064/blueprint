@@ -8,11 +8,13 @@ import {
   buildStructuralPatterns,
   derivePackageRules,
   deriveGlobalRules,
+  resolveGovernedFiles,
   resolveLayerFiles,
+  resolveModuleFiles,
   selfOnlyReexportSelector,
   toArray,
 } from './patterns';
-import type { LayerDef } from '../../config';
+import type { ArchitectureDef, LayerDef } from '../../config';
 
 describe('PLUGIN_GATES', () => {
   it('lists every conditional gate with an id, what it emits, and a scope note', () => {
@@ -60,21 +62,25 @@ describe('toArray', () => {
   });
 });
 
+/** An architecture carrying only what the resolvers read. */
+function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
+  return { alias: '~app', layers: [{ name: 'hooks', does: '' }], ...over };
+}
+
 describe('resolveLayerFiles', () => {
   it('defaults the glob from the framework', () => {
-    expect(resolveLayerFiles('hooks', undefined, 'vue')).toEqual([
+    expect(resolveLayerFiles('hooks', arch(), 'vue')).toEqual([
       'src/hooks/**/*.{js,ts,vue}',
     ]);
 
-    expect(resolveLayerFiles('hooks', undefined, 'react')).toEqual([
+    expect(resolveLayerFiles('hooks', arch(), 'react')).toEqual([
       'src/hooks/**/*.{js,jsx,ts,tsx}',
     ]);
   });
 
   it('substitutes {layer} in custom globs', () => {
-    expect(resolveLayerFiles('services', ['lib/{layer}/**/*.ts'], 'auto')).toEqual([
-      'lib/services/**/*.ts',
-    ]);
+    expect(resolveLayerFiles('services', arch({ layerFiles: ['lib/{layer}/**/*.ts'] }), 'auto'))
+      .toEqual(['lib/services/**/*.ts']);
   });
 
   it('tolerates the spaces a hand-written placeholder carries', () => {
@@ -82,8 +88,120 @@ describe('resolveLayerFiles', () => {
     // leaves the placeholder in the glob verbatim, and the layer's rules then
     // scope to a directory literally named `{ layer }` — every gate silently
     // matches nothing, and nothing in the output says why.
-    expect(resolveLayerFiles('services', ['lib/{ layer }/**/*.ts'], 'auto')).toEqual([
-      'lib/services/**/*.ts',
+    expect(resolveLayerFiles('services', arch({ layerFiles: ['lib/{ layer }/**/*.ts'] }), 'auto'))
+      .toEqual(['lib/services/**/*.ts']);
+  });
+
+  it('expands the declared modules against the layer, never a wildcard', () => {
+    // `src/*/hooks/**` would match `src/Figthter/hooks/x.ts` — a module nobody
+    // declared, because of a typo. Coverage would count it inside the net while
+    // no module-level rule governed it: half-governed and green.
+    const modular = arch({
+      modules: [
+        { name: 'Fighter', does: '' },
+        { name: 'Combat', does: '' },
+      ],
+    });
+
+    expect(resolveLayerFiles('hooks', modular, 'react')).toEqual([
+      'src/Fighter/hooks/**/*.{js,jsx,ts,tsx}',
+      'src/Combat/hooks/**/*.{js,jsx,ts,tsx}',
+    ]);
+
+    expect(resolveLayerFiles('hooks', modular, 'react').join()).not.toContain('*/hooks');
+  });
+
+  it('skips a layers:false module — it has no layer folders to match', () => {
+    const modular = arch({
+      modules: [
+        { name: 'app', does: '', layers: false },
+        { name: 'Combat', does: '' },
+      ],
+    });
+
+    expect(resolveLayerFiles('hooks', modular, 'react')).toEqual([
+      'src/Combat/hooks/**/*.{js,jsx,ts,tsx}',
+    ]);
+  });
+
+  it('substitutes {module} in a custom glob, per declared module', () => {
+    const modular = arch({
+      layerFiles: 'app/{module}/{layer}/**/*.ts',
+      modules: [{ name: 'Fighter', does: '' }, { name: 'Combat', does: '' }],
+    });
+
+    expect(resolveLayerFiles('hooks', modular, 'auto')).toEqual([
+      'app/Fighter/hooks/**/*.ts',
+      'app/Combat/hooks/**/*.ts',
+    ]);
+  });
+
+  it('honours a project-root source layout in both models', () => {
+    expect(resolveLayerFiles('hooks', arch({ sourceRoot: '.' }), 'react')).toEqual([
+      'hooks/**/*.{js,jsx,ts,tsx}',
+    ]);
+
+    expect(resolveLayerFiles(
+      'hooks',
+      arch({ sourceRoot: '.', modules: [{ name: 'app', does: '' }] }),
+      'react',
+    )).toEqual(['app/hooks/**/*.{js,jsx,ts,tsx}']);
+  });
+});
+
+describe('resolveModuleFiles', () => {
+  it('gives a layered module its root files only', () => {
+    // The module root is the implicit top layer: `Fighter.tsx` and `index.ts`,
+    // not the layer folders beneath them.
+    expect(resolveModuleFiles({ name: 'Fighter', does: '' }, arch(), 'react')).toEqual([
+      'src/Fighter/*.{js,jsx,ts,tsx}',
+    ]);
+  });
+
+  it('gives a layers:false module the whole recursive net', () => {
+    // Root-only here would leave `app/routes/Game.tsx` outside every net — the
+    // wildcard defect wearing different clothes. It opts out of the layer
+    // vocabulary, not out of governance.
+    expect(resolveModuleFiles({ name: 'app', does: '', layers: false }, arch(), 'vue')).toEqual([
+      'src/app/**/*.{js,ts,vue}',
+    ]);
+  });
+
+  it('is built from sourceRoot and the name, never from a custom layerFiles', () => {
+    // A custom layer path says nothing reliable about where the module root
+    // sits; substituting a segment out of it would put the root and its own
+    // layers in two different trees.
+    const custom = arch({ layerFiles: 'packages/{module}/src/{layer}/**/*.ts', sourceRoot: 'app' });
+
+    expect(resolveModuleFiles({ name: 'Fighter', does: '' }, custom, 'react')).toEqual([
+      'app/Fighter/*.{js,jsx,ts,tsx}',
+    ]);
+  });
+});
+
+describe('resolveGovernedFiles', () => {
+  it('is the layer nets alone for a flat config', () => {
+    const flat = arch({ layers: [{ name: 'hooks', does: '' }, { name: 'services', does: '' }] });
+
+    expect(resolveGovernedFiles(flat, 'react')).toEqual([
+      'src/hooks/**/*.{js,jsx,ts,tsx}',
+      'src/services/**/*.{js,jsx,ts,tsx}',
+    ]);
+  });
+
+  it('adds every module root, so the module\'s own composition code is governed', () => {
+    const modular = arch({
+      layers: [{ name: 'hooks', does: '' }],
+      modules: [
+        { name: 'app', does: '', layers: false },
+        { name: 'Fighter', does: '' },
+      ],
+    });
+
+    expect(resolveGovernedFiles(modular, 'react')).toEqual([
+      'src/Fighter/hooks/**/*.{js,jsx,ts,tsx}',
+      'src/app/**/*.{js,jsx,ts,tsx}',
+      'src/Fighter/*.{js,jsx,ts,tsx}',
     ]);
   });
 });

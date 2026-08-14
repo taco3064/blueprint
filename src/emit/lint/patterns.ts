@@ -1,7 +1,8 @@
-import type { Framework, LayerDef, OwnedPackage } from '../../config';
+import type { ArchitectureDef, Framework, LayerDef, ModuleDef, OwnedPackage } from '../../config';
 import type { GlobalRule, GroupPattern, PackageRule, PathPattern } from './types';
 
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/g;
+const MODULE_PLACEHOLDER = /\{\s*module\s*\}/g;
 
 /**
  * Source extensions per framework — the layer-glob default, and the ext set
@@ -14,11 +15,21 @@ export const FRAMEWORK_EXTS: Record<Framework, string> = {
   auto: 'js,jsx,ts,tsx,vue',
 };
 
-/** The default `{layer}` glob for a framework under a given source root. */
-function defaultGlob(framework: Framework, sourceRoot: string): string {
-  const prefix = sourceRoot === '.' ? '' : `${sourceRoot}/`;
+/** The source-root prefix a glob is built on — `''` for a project-root layout. */
+function rootPrefix(sourceRoot: string): string {
+  return sourceRoot === '.' ? '' : `${sourceRoot}/`;
+}
 
-  return `${prefix}{layer}/**/*.{${FRAMEWORK_EXTS[framework]}}`;
+/**
+ * The default layer glob for a framework under a given source root. Modular
+ * configs carry the module segment ahead of the layer, which is the whole
+ * reason an undeclared module is matched by nothing: the product is expanded
+ * per declared module, never wildcarded with `*`.
+ */
+function defaultGlob(framework: Framework, sourceRoot: string, modular: boolean): string {
+  const module = modular ? '{module}/' : '';
+
+  return `${rootPrefix(sourceRoot)}${module}{layer}/**/*.{${FRAMEWORK_EXTS[framework]}}`;
 }
 
 const DEFAULT_TEST_FILES = [
@@ -216,17 +227,86 @@ export function enforcedBy(id: string): 'lint' | 'inspect' | 'docs' {
 /**
  * Resolve a layer's lint file globs. An explicit `layerFiles` wins as-is;
  * otherwise the default is derived from `framework` and `sourceRoot`.
+ *
+ * Takes the whole `architecture` rather than the three fields it reads: a
+ * caller holding `layerFiles` but not `modules` would emit one config and lint
+ * a different file set, silently, which is the defect #191 exists to prevent.
+ * Every call site already has the object.
+ *
+ * With `modules` declared the result is the product of the declared modules
+ * and this layer — expanded per module, never `src/*&#47;<layer>`. A single
+ * wildcard would match a module nobody declared (a typo), coverage would count
+ * it inside the net, and no module-level rule would govern it.
  */
 export function resolveLayerFiles(
   layer: string,
-  layerFiles: string | string[] | undefined,
+  architecture: ArchitectureDef,
   framework: Framework,
-  sourceRoot = 'src',
 ): string[] {
-  const globs
-    = layerFiles === undefined ? [defaultGlob(framework, sourceRoot)] : toArray(layerFiles);
+  const { layerFiles, sourceRoot = 'src', modules } = architecture;
 
-  return globs.map((glob) => glob.replace(LAYER_PLACEHOLDER, layer));
+  const globs = layerFiles === undefined
+    ? [defaultGlob(framework, sourceRoot, modules !== undefined)]
+    : toArray(layerFiles);
+
+  const withLayer = globs.map((glob) => glob.replace(LAYER_PLACEHOLDER, layer));
+
+  if (modules === undefined) return withLayer;
+
+  return layeredModules(modules).flatMap((module) =>
+    withLayer.map((glob) => glob.replace(MODULE_PLACEHOLDER, module.name)),
+  );
+}
+
+/** Modules that carry the layer vocabulary — everything but `layers: false`. */
+function layeredModules(modules: ModuleDef[]): ModuleDef[] {
+  return modules.filter((module) => module.layers !== false);
+}
+
+/**
+ * The files a module governs that no layer glob covers.
+ *
+ * For a layered module that is its root — the implicit top layer, where the
+ * module's own composition code sits. For a `layers: false` module it is the
+ * module entire, since it has no layer globs at all; dropping to root-only
+ * there would leave `app/routes/Game.tsx` outside every net, which is the
+ * wildcard defect wearing different clothes.
+ *
+ * Built from `sourceRoot` and the module name at the framework's own source
+ * extensions, never by substituting a segment out of a custom `layerFiles`: a
+ * custom layer path says nothing reliable about where the module root sits.
+ */
+export function resolveModuleFiles(
+  module: ModuleDef,
+  architecture: ArchitectureDef,
+  framework: Framework,
+): string[] {
+  const depth = module.layers === false ? '**/*' : '*';
+
+  return [
+    `${rootPrefix(architecture.sourceRoot ?? 'src')}${module.name}/${depth}.{${FRAMEWORK_EXTS[framework]}}`,
+  ];
+}
+
+/**
+ * Every file the emitted config governs: each layer across each module, plus
+ * what {@link resolveModuleFiles} covers. The one answer to "which files does
+ * this blueprint reach", so the emitted entries, the coverage net and
+ * `impact`'s lint targets cannot drift apart (field issue #29 in a new place).
+ */
+export function resolveGovernedFiles(
+  architecture: ArchitectureDef,
+  framework: Framework,
+): string[] {
+  const layers = architecture.layers.flatMap((layer) =>
+    resolveLayerFiles(layer.name, architecture, framework),
+  );
+
+  const roots = (architecture.modules ?? []).flatMap((module) =>
+    resolveModuleFiles(module, architecture, framework),
+  );
+
+  return [...new Set([...layers, ...roots])];
 }
 
 /** Group layers' package `owns` by signature; merge which layers allow each. */

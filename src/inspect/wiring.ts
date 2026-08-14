@@ -168,12 +168,7 @@ function pickProbes(
   );
 
   return architecture.layers.flatMap((layer) => {
-    const globs = resolveLayerFiles(
-      layer.name,
-      architecture.layerFiles,
-      framework,
-      architecture.sourceRoot,
-    );
+    const globs = resolveLayerFiles(layer.name, architecture, framework);
 
     const nets = globs.map(globToRegExp);
     const hit = source.find((file) => nets.some((net) => net.test(file.path)));
