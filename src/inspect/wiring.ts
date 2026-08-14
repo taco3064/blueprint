@@ -537,6 +537,12 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
 
   const lost: string[] = [];
   const carriers = expectedCarriers(blueprint, hasTypescript);
+
+  // Carrier rule id → the entries that lost it. Collected across every probe so
+  // the report can say how many of them did, rather than repeating itself once
+  // per probe.
+  const carrierLosses = new Map<string, string[]>();
+
   let unreadable = 0;
 
   try {
@@ -567,14 +573,37 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
       // resolved config means the merge dropped its carrier — the silent
       // failure the playbook spends the most words on, and the one this
       // check used to walk straight past.
+      //
+      // Recorded per probe and reported once. The CHECK has to be per probe: a
+      // merge can drop a carrier from one entry and leave the rest intact, and
+      // a single global lookup misses exactly that. The REPORT must not be —
+      // at 241 entries a globally-dropped carrier printed 241 identical
+      // sentences, and volume hides the one thing a reader needs, which is
+      // whether this is one problem or many. That is a number this loop is
+      // already holding.
+      for (const entry of carriers.filter((gate) => activeOptions(rules[gate.rule]) === null)) {
+        carrierLosses.set(entry.rule, [...(carrierLosses.get(entry.rule) ?? []), probe.label]);
+      }
+    }
+
+    for (const entry of carriers) {
+      const where = carrierLosses.get(entry.rule) ?? [];
+
+      if (!where.length) continue;
+
+      // Every entry against some of them is the whole distinction the per-probe
+      // check buys, so it is what the sentence leads with: one says the argument
+      // never reached `emitLint`, the other says a later entry took it off part
+      // of the tree, and they are different repairs.
+      const scope = where.length === probes.length
+        ? `every one of the ${probes.length} entries probed — emitLint's \`${entry.carrier}\` `
+        + 'argument is missing from the spread itself'
+        : `${where.length} of the ${probes.length} entries probed (${where.join(', ')}) — a later `
+          + `entry replaced the rule there, so emitLint's \`${entry.carrier}\` argument reaches `
+          + 'the rest and not those';
+
       lost.push(
-        ...carriers
-          .filter((entry) => activeOptions(rules[entry.rule]) === null)
-          .map(
-            (entry) =>
-              `${probe.layer}: rules.${entry.gate} is on but ${entry.rule} resolved to nothing `
-              + `— emitLint's \`${entry.carrier}\` argument is missing from the merged entry`,
-          ),
+        `rules.${entry.gate} is on but ${entry.rule} resolved to nothing in ${scope}`,
       );
     }
   } catch (error) {

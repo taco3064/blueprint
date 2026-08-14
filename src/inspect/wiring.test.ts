@@ -1,4 +1,5 @@
 import path from 'node:path';
+import stylisticPlugin from '@stylistic/eslint-plugin';
 import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
@@ -1503,5 +1504,106 @@ describe('expectedStructural · what a modular layer entry is expected to carry'
 
   it('expects the pass-through rule on a module zone too', () => {
     expect(expectedModuleBans(modular, 'Fighter').reexport).toBe(true);
+  });
+});
+
+describe('wiringCheck · a gate loss names the entry that lost it', () => {
+  // The defect this pins printed `undefined: rules.maxLines is on but …` on a
+  // module-zone probe, through a full green suite. Nothing caught it because
+  // the existing assertion begins AFTER the prefix — the whole of the defect
+  // lives in the text before the substring it looks for, so the message could
+  // read `undefined: ` and satisfy it.
+  //
+  // A layer probe cannot fail this way: it has a layer. So these cases are on
+  // zone probes, and they assert the identity rather than the tail.
+  const gated: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'app', does: 'routing', layers: false, imports: ['Fighter'] },
+        { name: 'Fighter', does: 'the ship' },
+      ],
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    },
+    rules: { codeStyle: 'error' },
+  };
+
+  /** Resolves the real emitted config, dropping the carrier on `where`. */
+  const run = async (where: (rel: string) => boolean) => {
+    const check = await wiringCheck({
+      root: '/repo',
+      blueprint: gated,
+      scanResult: scanOf(
+        'src/Fighter/hooks/useRun/index.jsx',
+        'src/Fighter/Fighter.jsx',
+        'src/app/routes/Game.jsx',
+      ),
+      wired: true,
+      merged: true,
+      hasTypescript: true,
+      load: loader((filePath: string) => {
+        const rel = filePath.split(path.sep).join('/').replace('/repo/', '');
+
+        const merged = emitLint(gated, { stylistic: stylisticPlugin })
+          .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
+          .reduce<Record<string, unknown>>((rules, entry) => ({ ...rules, ...entry.rules }), {});
+
+        if (where(rel)) delete merged['@stylistic/max-len'];
+
+        return { rules: merged };
+      }),
+    });
+
+    return check;
+  };
+
+  it('names the module zone, never `undefined`', async () => {
+    // Dropped on the `layers: false` module's own entry — a probe with no layer
+    // at all, which is the shape that printed `undefined`.
+    const check = await run((rel) => rel.startsWith('src/app/'));
+
+    expect(check.ok).toBe(false);
+    expect(check.detail).toContain('app/(all)');
+    // The class, not just this instance: no interpolation in this message may
+    // resolve to `undefined`, and `tsc` cannot say so — interpolating
+    // `string | undefined` is legal.
+    expect(check.detail).not.toContain('undefined');
+  });
+
+  it('names a layered module\'s root zone the same way', async () => {
+    const check = await run((rel) => rel === 'src/Fighter/Fighter.jsx');
+
+    expect(check.ok).toBe(false);
+    expect(check.detail).toContain('Fighter/(root)');
+    expect(check.detail).not.toContain('undefined');
+  });
+
+  it('reports a carrier lost everywhere once, with the count', async () => {
+    // 241 copies of one sentence hide the only thing a reader needs from it,
+    // which is whether this is one problem or many — and that is a number the
+    // check is already holding.
+    const check = await run(() => true);
+
+    expect(check.ok).toBe(false);
+    // Three: one (Fighter, hooks) pair, plus each module's zone — `app`
+    // declared no layers, so it contributes no layer probe.
+    expect(check.detail).toContain('every one of the 3 entries probed');
+    expect(check.detail).toContain('missing from the spread itself');
+    // Once, not once per probe.
+    expect(check.detail?.match(/rules\.codeStyle is on/g)).toHaveLength(1);
+  });
+
+  it('reports a carrier lost on some by naming which, once', async () => {
+    const check = await run((rel) => rel.startsWith('src/app/') || rel === 'src/Fighter/Fighter.jsx');
+
+    expect(check.ok).toBe(false);
+    // Named in declaration order, which is the order the probes are built in
+    // and the order the config itself reads.
+    expect(check.detail).toContain('2 of the 3 entries probed (app/(all), Fighter/(root))');
+    // The other repair: the argument reaches the rest, so a later entry took it
+    // off part of the tree rather than never arriving.
+    expect(check.detail).toContain('a later entry replaced the rule there');
+    expect(check.detail?.match(/rules\.codeStyle is on/g)).toHaveLength(1);
   });
 });
