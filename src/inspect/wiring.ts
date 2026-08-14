@@ -116,10 +116,6 @@ export function expectedStructural(
 
   // The same offset-aware bases emitLint composes from — the expectations
   // and the emitted patterns cannot drift (field issue #29).
-  // undecidable, this `?? []` and the one in `expectedModuleBans`: a fabricated
-  // member is a string, so `entry.name` reads `undefined` and the lookup beside
-  // it finds nothing — the same empty expectation the absent arm produces. Both
-  // stay because the absent arm is real: a flat config reaches here.
   const roots = aliasLayerRoots(architecture)
     .map((root) => [root.alias, ...root.prefix].join('/'));
 
@@ -142,6 +138,10 @@ export function expectedStructural(
   // expectation has to carry them too — compared by containment, a group the
   // emitter writes and this does not is simply never checked, which is the
   // quiet half of a false green.
+  // undecidable, the `?? []` arm: a fabricated member is a string, so
+  // `entry.name` reads `undefined` and the lookup on the next line finds
+  // nothing — the same empty expectation the absent arm produces. It stays
+  // because the absent arm is real: a flat config reaches here.
   const modules = architecture.modules ?? [];
   const declared = modules.find((entry) => entry.name === module);
 
@@ -207,6 +207,11 @@ export function expectedModuleBans(
   module: string,
 ): ReturnType<typeof expectedStructural> {
   const { architecture } = blueprint;
+
+  // undecidable, the `?? []` arm: a fabricated member is a string, so
+  // `entry.name` reads `undefined` and the lookup on the next line finds
+  // nothing — the same empty expectation the absent arm produces. It stays
+  // because the absent arm is real: a flat config reaches here.
   const modules = architecture.modules ?? [];
   const declared = modules.find((entry) => entry.name === module);
 
