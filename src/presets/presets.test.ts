@@ -75,9 +75,9 @@ describe('presets · shape', () => {
 
   it('shape vue and react around the folder module', () => {
     for (const bp of [vuePreset(), reactPreset()]) {
-      // Every layer, not most of them: a layer left flat is one whose modules
-      // have no entry to hide behind, and only this list would show it.
-      expect(bp.architecture.layers.map((l) => [l.name, l.layout ?? 'flat', l.entry ?? 'index']))
+      // Every layer, not most of them: a layer left file-shaped is one whose
+      // modules have no entry to hide behind, and only this list would show it.
+      expect(bp.architecture.layers.map((l) => [l.name, l.layout ?? 'file', l.entry ?? 'index']))
         .toEqual([
           ['pages', 'folder', 'index'],
           ['containers', 'folder', 'index'],
@@ -101,7 +101,7 @@ describe('presets · shape', () => {
     const next = nextPreset();
 
     // The shape assertions above walk vue and react only, which left the third
-    // preset's module shape, naming and primitives free to empty out. Flat is
+    // preset's module shape, naming and primitives free to empty out. `file` is
     // the default, so this preset declares neither key on any layer.
     expect(next.architecture.layers.every((l) => l.layout === undefined && l.entry === undefined))
       .toBe(true);

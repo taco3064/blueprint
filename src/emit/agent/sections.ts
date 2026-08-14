@@ -144,7 +144,7 @@ export function renderPlacement(architecture: ArchitectureDef): string {
 
     return group.layout === 'folder'
       ? `- Module shape${scope}: one folder per module. Only \`${group.entry}\` is importable from outside.`
-      : `- Module shape${scope}: one file per module (flat).`;
+      : `- Module shape${scope}: one file per module (file layout).`;
   });
 
   // Reporting instruction, not a third remedy. An agent that learns "files matching
@@ -289,7 +289,7 @@ export function renderPlaybook(playbook: PlaybookSection[] | undefined): string 
 export function renderChecklist(blueprint: Blueprint): string {
   const { architecture, principles } = blueprint;
 
-  // Only folder layers have an entry to expose; an all-flat project gets the
+  // Only folder layers have an entry to expose; an all-file project gets the
   // placement half alone rather than a filename that governs nothing there.
   const entries = folderEntries(architecture).map((entry) => `\`${entry}\``);
 

@@ -7,13 +7,13 @@ const linter = new Linter({ configType: 'flat' });
 
 const LAYOUTS = {
   resources: 'folder',
-  components: 'flat',
+  components: 'file',
 } as const;
 
 function messageIds(
   code: string,
   filename: string,
-  layouts: Record<string, 'folder' | 'flat'> | null = LAYOUTS,
+  layouts: Record<string, 'folder' | 'file'> | null = LAYOUTS,
   depth = 0,
 ): string[] {
   return linter
@@ -32,7 +32,7 @@ function messageIds(
     .map((message) => message.messageId ?? '');
 }
 
-describe('blueprint/relative-escape · flat layer', () => {
+describe('blueprint/relative-escape · file layer', () => {
   it('allows relatives that stay inside the layer', () => {
     expect(messageIds('import x from "./Card";', 'src/components/Button.ts')).toEqual([]);
 
@@ -40,11 +40,11 @@ describe('blueprint/relative-escape · flat layer', () => {
       messageIds('import x from "../IdleGuard";', 'src/components/layout/Bar.ts'),
     ).toEqual([]);
 
-    // Downward, into a nested folder of a FLAT layer. Both cases above stay at the
+    // Downward, into a nested folder of a FILE layer. Both cases above stay at the
     // same depth, where the module key collapses to the layer name whatever the
     // layout says — so a `layoutOf` answering nonsense produced the same verdict.
     // This one does not: read as folder-shaped, `layout/Bar` becomes a module and
-    // reaching into it is a violation. A flat layer has no inside.
+    // reaching into it is a violation. A file layer has no inside.
     expect(messageIds('import x from "./layout/Bar";', 'src/components/Button.ts'))
       .toEqual([]);
   });
@@ -135,7 +135,7 @@ describe('blueprint/relative-escape · scoping', () => {
       .toEqual([]);
   });
 
-  it('treats targets outside any declared layer as flat (still an escape)', () => {
+  it('treats targets outside any declared layer as file-layout (still an escape)', () => {
     expect(
       messageIds('import x from "../../legacy/utils/x";', 'src/components/layout/Bar.ts'),
     ).toEqual(['leavesLayer']);
@@ -288,8 +288,8 @@ describe('blueprint/relative-escape · what each verdict tells the reader', () =
 describe('blueprint/relative-escape · a layer the options never mention', () => {
   it('declines to judge a file whose own layer is not in layouts', () => {
     // The rule checks a file only when its own layer appears in `layouts` — an
-    // unmentioned folder is outside the contract the rule was handed, not a flat
-    // layer by default. Judging it anyway applies a shape nobody declared, and
+    // unmentioned folder is outside the contract the rule was handed, not a
+    // file-layout layer by default. Judging it anyway applies a shape nobody declared, and
     // the emitted config passes `layouts` for exactly the declared layers.
     expect(messageIds('import x from "../B/B.ts";', 'src/unlisted/A/A.ts')).toEqual([]);
 

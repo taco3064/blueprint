@@ -97,11 +97,11 @@ export interface LayerDef {
   /** Primitives (packages / globals) this layer exclusively owns. */
   owns?: OwnedPrimitive[];
   /**
-   * How a module in this layer is shaped: `folder` = one folder per module
-   * with an entry file; `flat` = one file per module. Optional — omitting it
-   * means `flat`.
+   * How a unit in this layer is shaped: `folder` = one folder per unit with an
+   * entry file; `file` = one file per unit. Optional — omitting it means
+   * `file`.
    */
-  layout?: 'folder' | 'flat';
+  layout?: 'folder' | 'file';
   /**
    * The public entry filename for a folder module in this layer. Everything
    * else is private. Optional — omitting it means `index`.

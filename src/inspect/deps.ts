@@ -114,7 +114,7 @@ export async function runDeps(
         ? JSON.stringify({ ...found, derivation: importGraphDerivation() }, null, 2)
         : unit
           ? renderUnit(unit)
-          : renderModule(found as ModuleDeps, isFlatLayer(key, layerNames, layoutOf)),
+          : renderModule(found as ModuleDeps, isFileLayer(key, layerNames, layoutOf)),
     );
 
     return unit
@@ -225,16 +225,16 @@ function skippedFolders(scanned: ScanResult, layerNames: Set<string>): string[] 
 }
 
 /**
- * A single-segment key that IS a flat-layout layer answers at layer granularity.
+ * A single-segment key that IS a file-layout layer answers at layer granularity.
  *
  * The `layerNames` half used to be undecidable, on the premise that
  * `buildModuleGraph` never built a single-segment key that was not a layer
  * name. It builds them now — every feature module is one — and without that
- * half `layoutOf` answers `flat` for any name it does not know, so every
- * module row would be labelled a flat layer.
+ * half `layoutOf` answers `file` for any name it does not know, so every
+ * module row would be labelled a file-layout layer.
  */
-function isFlatLayer(module: string, layerNames: Set<string>, layoutOf: LayoutOf): boolean {
-  return !module.includes('/') && layerNames.has(module) && layoutOf(module) === 'flat';
+function isFileLayer(module: string, layerNames: Set<string>, layoutOf: LayoutOf): boolean {
+  return !module.includes('/') && layerNames.has(module) && layoutOf(module) === 'file';
 }
 
 /**
@@ -266,9 +266,9 @@ function unknownTarget(key: string, skipped: string[]): string {
  * needs it most: a fan-in of 3 that a dynamic import made 4 is a wrong decision,
  * not an incomplete list.
  */
-function renderModule(entry: ModuleDeps, flatLayer: boolean): string {
+function renderModule(entry: ModuleDeps, fileLayout: boolean): string {
   return [
-    entry.module + (flatLayer ? ' (flat layer — answers at layer granularity)' : ''),
+    entry.module + (fileLayout ? ' (file-layout layer — answers at layer granularity)' : ''),
     `  imported by (${entry.importedBy.length}):`,
     ...entry.importedBy.map((module) => `    ← ${module}`),
     `  imports (${entry.imports.length}):`,
@@ -338,7 +338,7 @@ function renderLeaderboard(
     ...rank(modules.map((entry) => ({
       key: entry.module,
       count: entry.importedBy.length,
-      note: isFlatLayer(entry.module, layerNames, layoutOf) ? ' (flat layer)' : undefined,
+      note: isFileLayer(entry.module, layerNames, layoutOf) ? ' (file-layout layer)' : undefined,
     }))),
     ...unitBlock,
     ...note,

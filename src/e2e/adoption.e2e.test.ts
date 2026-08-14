@@ -366,7 +366,7 @@ describe('e2e · survey and deps on a real repo (Tier 2)', () => {
     const { runDeps } = await import('../inspect');
     const { modules } = await runDeps(root, { target: 'services', log: silent });
 
-    // Flat layout → module keys are layer names. services is imported by
+    // File layout → module keys are layer names. services is imported by
     // features (feed) and utils (fmt, the cycle) — blast radius sees both.
     expect(modules[0].importedBy).toEqual(expect.arrayContaining(['features', 'utils']));
   });

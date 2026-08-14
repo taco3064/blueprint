@@ -10,7 +10,7 @@ import type { ImportRef, ScanResult, ScannedFile } from './types';
  */
 
 /** Per-layer layout resolver — a segment's first element names its layer. */
-export type LayoutOf = (layer: string) => 'folder' | 'flat';
+export type LayoutOf = (layer: string) => 'folder' | 'file';
 
 /** Build a {@link LayoutOf} from the architecture's per-layer module shapes. */
 export function layoutResolver(architecture: ArchitectureDef): LayoutOf {
@@ -73,7 +73,7 @@ export function moduleKey(segments: string[], layoutOf: LayoutOf, depth = 0): st
 
   const layer = segments[depth];
 
-  if (segments.length < depth + 2 || layoutOf(layer) === 'flat') {
+  if (segments.length < depth + 2 || layoutOf(layer) === 'file') {
     return [...module, layer ?? ''].join('/');
   }
 
@@ -179,8 +179,8 @@ export function relativeVerdict(
     if (ownRoot) return atUnitEntry(target, entryOf, depth) ? 'ok' : 'reaches-inside';
   }
 
-  // No layout test: for a flat layer `moduleKey` collapses to the layer name, so the
-  // equality check above already returned `ok` — a `layoutOf` arm here is unreachable.
+  // No layout test: for a file-layout layer `moduleKey` collapses to the layer name, so
+  // the equality check above already returned `ok` — a `layoutOf` arm here is unreachable.
   if (target[depth] !== ownSegments[depth]) return 'leaves-layer';
 
   return atUnitEntry(target, entryOf, depth) ? 'ok' : 'reaches-inside';

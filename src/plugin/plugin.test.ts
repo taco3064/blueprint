@@ -80,7 +80,7 @@ describe('plugin', () => {
       {
         type: 'object',
         properties: {
-          layouts: { type: 'object', additionalProperties: { enum: ['folder', 'flat'] } },
+          layouts: { type: 'object', additionalProperties: { enum: ['folder', 'file'] } },
           entries: { type: 'object', additionalProperties: { type: 'string' } },
           // How many segments sit above the layer — 0 flat, 1 under modules.
           // `additionalProperties: false` is what makes a stale emitted config

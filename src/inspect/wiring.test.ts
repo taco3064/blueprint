@@ -622,7 +622,7 @@ describe('expectedStructural · deep-import targets', () => {
 
     const globs = deepImportGlobs(mixed, 'views');
 
-    // A flat layer has no module folders to reach inside of, so banning deep
+    // A file layer has no module folders to reach inside of, so banning deep
     // imports into it would ban ordinary file imports. And the importing layer
     // is not a target of its own — reaching into a sibling module of the same
     // layer is what `blueprint/relative-escape` covers.

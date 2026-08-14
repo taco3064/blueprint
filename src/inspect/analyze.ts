@@ -410,7 +410,7 @@ function importFindings(
 
       // undecidable: past the root check only a non-layer target reaches this,
       // and every branch below is keyed on the target BEING a declared layer —
-      // `layoutOf` answers `flat` for an unknown name, and neither the
+      // `layoutOf` answers `file` for an unknown name, and neither the
       // same-layer nor the forbidden test can match. Skipping it pushes nothing.
       if (!layerNames.includes(target)) continue;
 
