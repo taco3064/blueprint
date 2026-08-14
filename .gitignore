@@ -3,6 +3,7 @@ dist/
 coverage/
 *.log
 *.tsbuildinfo
+.tmp/
 .eslintcache
 *.tgz
 .DS_Store
