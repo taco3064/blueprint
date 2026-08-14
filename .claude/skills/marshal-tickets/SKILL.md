@@ -302,10 +302,17 @@ Dispatch one sweep per tier, after the tier's last commit lands. **Never run it
 locally; it hangs the machine.** `mutation.yml` by `workflow_dispatch` with
 `--ref <branch>`, then read the run's artifact and step summary.
 
-Judging belongs to the implementation side, and it has exactly two honest
-endings per survivor — a test, or a one-line `undecidable` note at the site with
-the derivation in the commit message. What you check for is the third: a survivor
-waved off as noise, or `src/` edited to make a score go up.
+Judging belongs to the implementation side, and it has three honest endings per
+survivor — a test, a one-line `undecidable` note at the site, or **a change to
+the source**, when the mutant survived on a branch that decides nothing. The
+third is the most valuable of them and the easiest to disguise: it arrived once
+inside a commit typed `test:`, which is exactly what a reader scanning for
+behaviour changes skips. Right change, wrong label — and a wrong label on a
+*wrong* change is the one review catches.
+
+What you check for is the fourth thing, which is not an ending: a survivor waved
+off as noise, or `src/` edited to move a score with no defect behind it. The test
+is whether the commit can name what the mutant proved.
 `.claude/docs/mutation-testing.md` is the doctrine and
 `grep -rni undecidable src/` is the ledger.
 

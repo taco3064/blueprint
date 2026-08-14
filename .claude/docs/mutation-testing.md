@@ -47,6 +47,28 @@ reported 87 survivors and the second 59; of those 59, **43 turned out to be
 untested rather than equivalent**, and three were product defects. Reach the
 verdict last.
 
+**Three endings, and the third is the valuable one.** A survivor is closed by a
+test, by an `undecidable` proof at the site, or **by changing the source** —
+because the mutant survived on a branch that decides nothing, and the honest
+answer is that the branch should not be there. That third ending is what mutation
+testing is *for*: a test written to pin meaningless behaviour makes the suite
+longer and the code no better. `?? {}` defaulting a missing option block into
+empty lists, so a rule with nothing to judge ran anyway and answered "legal" to
+everything, is the shape — the mutant lived because nothing downstream could tell
+the difference, and `if (!options) return {}` is the fix.
+
+**But say so in the commit type.** A source change reached `main` under
+`test: close the survivors in …`, and anyone scanning `git log` for behaviour
+changes skips `test:` by design. Type it `fix:` or `refactor:` and name the
+survivor that forced it. The change was right and the label was not, which is the
+combination that gets waved through — a wrong label on a wrong change gets caught
+by review.
+
+Two endings are still wrong, and neither is this one: a survivor recorded as
+noise, and `src/` edited to move a score with no defect behind it. The test is
+whether you can name what the mutant proved. "It survived" is not an answer;
+"this branch cannot change any output" is.
+
 **The ledger does the first pass, so start there rather than at the report.** The
 third sweep — the first dispatched, ~8k mutants in 17m04s on a runner against
 5m34s on ten local cores — reported **35 survivors, and the `undecidable` grep
