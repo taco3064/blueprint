@@ -314,6 +314,13 @@ function resolvedStructural(rules: Record<string, unknown>): {
   // Read separately from the patterns, and never counted as unreadable: a
   // `paths` list is an ordinary shape this rule has, and most of its entries
   // belong to package ownership, which nothing here expects.
+  //
+  // undecidable, the `?? []` arm and the `name` test together, both shielded by
+  // the same thing: the comparison downstream is by CONTAINMENT, so a
+  // fabricated member and an `undefined` are each one more name the expected
+  // set never asks about. Removing either alone still reports the same losses.
+  // They stay because a set of "every path name the resolved config carries" is
+  // what this reads, and a hand-folded entry with no name really does occur.
   for (const option of optionsOf(rules['no-restricted-imports'])) {
     for (const entry of (option as { paths?: unknown[] })?.paths ?? []) {
       const name = typeof entry === 'string' ? entry : (entry as { name?: string })?.name;
