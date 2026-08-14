@@ -526,7 +526,8 @@ function noEntryFindings(
 
 /**
  * Per-file import findings: deep-import, flow-violation, ownership, selfOnly,
- * and the relative family (src-escape, entry-bypass, layer-escape, root-import).
+ * the cross-module pair (undeclared-dependency, module-reexport), and the
+ * relative family (src-escape, entry-bypass, layer-escape, root-import).
  */
 function importFindings(
   file: ScannedFile,
@@ -535,12 +536,15 @@ function importFindings(
   depth: number,
 ): Finding[] {
   const fileLayer = file.segments[depth];
-  // undecidable, the `?? []` arm: a fabricated member is a string with no `name`,
-  // so this list holds `undefined` — and its one reader, `crossModuleTarget`,
-  // matches a specifier's first segment against it by `includes`, which no
-  // segment answers. It stays because the absent arm is real: every flat project
-  // reaches here.
-  const moduleNames = (architecture.modules ?? []).map((module) => module.name);
+  // undecidable, the `?? []` arm: a fabricated member is a string with no `name`.
+  // `crossModuleTarget` matches a specifier's first segment against the names by
+  // `includes`, and the list then holds `undefined`, which no segment answers;
+  // `crossModuleEdge` looks the importing module up by `name`, gets `undefined`
+  // back, and reads that as a folder nothing governs — reporting nothing, which
+  // is what an empty list yields too. It stays because the absent arm is real:
+  // every flat project reaches here.
+  const moduleDefs = architecture.modules ?? [];
+  const moduleNames = moduleDefs.map((module) => module.name);
 
   // The module root is the implicit top layer, so its imports are governed
   // like any other file's. Judged by the layer test alone it is skipped — its
@@ -566,9 +570,10 @@ function importFindings(
   for (const ref of file.imports) {
     const parts = stripAlias(ref.specifier, aliases);
 
-    // Judged before the layer branch, because a cross-module specifier names a
-    // MODULE at segment 0 and reaches no declared layer at all — read through
-    // the layer test alone it is skipped in silence.
+    // Resolved before the layer branch and read by both cross-module findings
+    // below, because a specifier addressing another module names it at segment
+    // 0 and reaches no declared layer at all — read through the layer test
+    // alone it is skipped in silence.
     //
     // undecidable, the depth test, and shielded by ONE line above: `moduleNames`
     // is `(architecture.modules ?? []).map(…)`, so at depth 0 it is empty and
@@ -592,6 +597,21 @@ function importFindings(
     }
 
     if (parts) {
+      // Crossing the module is decided first, and every test below is why:
+      // `target`, `forbidden` and `selfOnly` all read `parts[depth]`, a LAYER
+      // name, so any of them running on a specifier that addresses another
+      // module is a verdict about a folder this file cannot see — `hooks` in
+      // one module and `hooks` in another compare equal by name alone.
+      // `relativeVerdict` answers the relative spelling of this same question
+      // one line into its modular arm; this is the alias spelling.
+      if (depth > 0 && parts[0] !== file.segments[0]) {
+        const edge = crossModuleEdge(file, ref, parts, moduleTarget, moduleDefs);
+
+        if (edge) findings.push(edge);
+
+        continue;
+      }
+
       // The alias reaches the source root, so a modular specifier spells
       // `~app/<Module>/<layer>/<unit>` and the layer sits at the same offset
       // here as it does in a file path. Read at 0 it is the module name, no
@@ -609,10 +629,13 @@ function importFindings(
         continue;
       }
 
-      // undecidable: past the root check only a non-layer target reaches this,
-      // and every branch below is keyed on the target BEING a declared layer —
-      // `layoutOf` answers `file` for an unknown name, and neither the
-      // same-layer nor the forbidden test can match. Skipping it pushes nothing.
+      // undecidable: a specifier addressing another module continued above, so
+      // what reaches here is this module's own non-layer targets — which is
+      // `addressesModuleRoot`, answered one branch up for every file but the
+      // module root — and a flat project's. Every branch below is keyed on the
+      // target BEING a declared layer: `layoutOf` answers `file` for an unknown
+      // name, and neither the same-layer nor the forbidden test can match.
+      // Skipping it pushes nothing.
       if (!layerNames.includes(target)) continue;
 
       // Depth is judged against the *target* layer's layout — reaching inside
@@ -683,6 +706,66 @@ function importFindings(
   }
 
   return findings;
+}
+
+/**
+ * What an alias specifier addressing ANOTHER module does to the boundary
+ * between them — the edge `emitLint` bans as a `no-restricted-imports` group,
+ * read here off the same `ModuleDef.imports` the emitter compiles from.
+ *
+ * Which module is addressed is `crossModuleTarget`'s answer, shared with
+ * `blueprint/no-module-reexport` so the two gates cannot resolve it
+ * differently. Whether this module may name it is derived here rather than in
+ * `boundary`: a `no-restricted-imports` shape CAN express this set — #182
+ * emits it as per-importing-module ban groups — so a shared verdict would have
+ * exactly one caller, the other side being a generated config rather than a
+ * rule that could call anything. What holds the reading to the generator is a
+ * both-ways equality test against `emitLint`'s own output.
+ *
+ * Null wherever a lint run stays green, so the two gates agree about silence
+ * too: a target no `modules` entry declares, and an importer whose own folder
+ * is undeclared. No glob reaches either, which `undeclared-module` reports at
+ * the folder level — the level that can act on it.
+ */
+function crossModuleEdge(
+  file: ScannedFile,
+  ref: ImportRef,
+  parts: string[],
+  moduleTarget: string | null,
+  modules: ModuleDef[],
+): Finding | null {
+  if (moduleTarget === null) return null;
+
+  const own = modules.find((module) => module.name === file.segments[0]);
+
+  if (own === undefined) return null;
+
+  if ((own.imports ?? []).includes(moduleTarget)) {
+    // The entry, and nothing under it — the one address a declared dependency
+    // exposes, and the same line the emitted groups draw between
+    // `~app/<Target>` and `~app/<Target>/**`.
+    if (parts.length === 1) return null;
+
+    // Spelled as this specifier spells it, alias and all, because the fix is a
+    // string the reader types rather than a shape they have to derive.
+    const entry = ref.specifier.slice(0, ref.specifier.length - parts.slice(1).join('/').length - 1);
+
+    return finding('error', 'deep-import', file.path, ref.specifier, `"${ref.specifier}" reaches inside module "${moduleTarget}" — import it through its entry, "${entry}". "${moduleTarget}" is declared in "${own.name}"'s \`imports\`, so the entry itself is reachable; what sits behind it is that module's own business.`);
+  }
+
+  // A module may only name modules declared after it, so a backwards edge
+  // cannot be declared at all and the remedy above would be a wrong
+  // instruction. Computed rather than carried as a caveat on both: on a plain
+  // forward edge that sentence is true and irrelevant, which is the shape a
+  // reader learns to skip past the one time it matters.
+  const backwards = modules.findIndex((module) => module.name === moduleTarget)
+    < modules.findIndex((module) => module.name === own.name);
+
+  const remedy = backwards
+    ? `"${moduleTarget}" is declared BEFORE "${own.name}", and a module may only name modules declared after it — so this edge cannot be declared at all. The decomposition is what needs changing, not the config.`
+    : `Add "${moduleTarget}" to "${own.name}"'s \`imports\` in blueprint.config.mjs, or move the shared part into a module both may reach. Declaring is the owner's call, never an adopting agent's.`;
+
+  return finding('error', 'undeclared-dependency', file.path, ref.specifier, `"${ref.specifier}" reaches module "${moduleTarget}", which "${own.name}" does not declare — a module reaches nothing it has not named. ${remedy}`);
 }
 
 function relativeEscape(
