@@ -26,9 +26,17 @@ survivors; the expensive part — reading each mutant, deciding between a test, 
 Dispatching again before that list is fully judged buys a second list while the
 first is unread.
 
-So: **one dispatch per ticket** to get the list, judged in full offline, closed in
-one pass. **One full sweep per tier**, after the tier's last commit, to confirm.
-A second dispatch inside a ticket needs a reason that is not *"did my fix work"*.
+So: **no dispatch during a ticket, and one full sweep per tier** — after the
+tier's last commit, its survivors judged, the tests written. That sweep is what
+closes the tier. A dispatch inside a ticket needs a reason, and *"did my fix
+work"* is not one.
+
+A per-ticket dispatch was the rule here until phase 3 measured it. Per-ticket
+runs happened throughout, and the tree-wide sweep still returned **85 survivors,
+57 already proven, 28 residual judged by hand** into fifteen tests and thirteen
+proofs. It bought a number the tree-wide run overturned — a per-file run
+flatters, as this file says two paragraphs down — plus one stall per ticket, and
+it did not shrink the residual it existed to shrink.
 
 The same question generalises past sweeps: **before running anything to learn a
 number, check whether it derives from numbers already in hand.** Doctor's probe
