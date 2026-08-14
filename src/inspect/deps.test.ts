@@ -551,3 +551,124 @@ describe('runDeps · two meanings of "module"', () => {
     expect(lines.join('\n')).toContain('Achievements/');
   });
 });
+
+describe('runDeps · what a flat project must never grow', () => {
+  it('reports no units, and no `units` key in --json', async () => {
+    // A flat project has one granularity. Handing it a second, empty one is a
+    // shape change for every consumer, on the model this release leaves alone.
+    scaffold();
+
+    const lines: string[] = [];
+    const { units } = await runDeps(root, { json: true, log: (m) => void lines.push(m) });
+
+    expect(units).toEqual([]);
+    expect(JSON.parse(lines.join('\n'))).not.toHaveProperty('units');
+  });
+
+  it('keeps src-root wiring files out of the graph', async () => {
+    // `src/main.ts` is entry wiring, not a module — it has always been outside
+    // the graph, and the module-root arm must not reach down and adopt it.
+    scaffold();
+    writeSrc('main.ts', "import { api } from '~app/services/api';");
+
+    const lines: string[] = [];
+    const { modules } = await runDeps(root, { log: (m) => void lines.push(m) });
+
+    expect(modules.map((entry) => entry.module)).not.toContain('main.ts');
+    expect(lines.join('\n')).not.toContain('main.ts');
+  });
+
+  it('answers empty lists for an unknown target rather than a stale one', async () => {
+    scaffold();
+
+    const { ok, modules, units } = await runDeps(root, { target: 'nope/nope', log: silent });
+
+    expect(ok).toBe(false);
+    expect(modules).toEqual([]);
+    expect(units).toEqual([]);
+  });
+});
+
+describe('runDeps · the modular answers are built, not defaulted', () => {
+  function twoUnits(): void {
+    fs.writeFileSync(
+      path.join(root, 'blueprint.config.mjs'),
+      `export default ${JSON.stringify({
+        framework: 'react',
+        architecture: {
+          alias: '~app',
+          modules: [
+            { name: 'app', does: 'routing', layers: false, imports: ['Fighter'] },
+            { name: 'Fighter', does: 'the ship' },
+          ],
+          layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+        },
+      })};\n`,
+    );
+
+    writeSrc('Fighter/index.ts', 'export const F = 1;');
+    writeSrc('Fighter/hooks/useHot/useHot.ts', 'export const hot = 1;');
+    writeSrc('Fighter/hooks/useA/useA.ts', "import { hot } from '~app/Fighter/hooks/useHot';");
+    writeSrc('Fighter/hooks/useB/useB.ts', "import { hot } from '~app/Fighter/hooks/useHot';");
+    writeSrc('app/routes/Game.ts', "import { F } from '~app/Fighter';");
+  }
+
+  it('ranks units by fan-in, not by the module they were grouped under', async () => {
+    twoUnits();
+
+    const { units } = await runDeps(root, { log: silent });
+
+    // Built module-first for the fan-in line, then re-sorted — grouped order
+    // would put useHot last and call it the least load-bearing unit.
+    expect(units[0].unit).toBe('Fighter/hooks/useHot');
+    expect(units[0].importedBy).toEqual(['Fighter/hooks/useA', 'Fighter/hooks/useB']);
+  });
+
+  it('renders every importer and import line of a unit', async () => {
+    twoUnits();
+
+    const lines: string[] = [];
+
+    await runDeps(root, { target: 'Fighter/hooks/useHot', log: (m) => void lines.push(m) });
+
+    const text = lines.join('\n');
+
+    expect(text).toContain('← Fighter/hooks/useA');
+    expect(text).toContain('← Fighter/hooks/useB');
+    expect(lines.join('\n')).toContain('imported by (2):');
+  });
+
+  it('renders the unit ranking rows, not just its heading', async () => {
+    twoUnits();
+
+    const lines: string[] = [];
+
+    await runDeps(root, { log: (m) => void lines.push(m) });
+
+    expect(lines.join('\n')).toContain('2 ← Fighter/hooks/useHot');
+  });
+
+  it('lets a layers:false module into the graph and keeps layered ones apart', async () => {
+    twoUnits();
+
+    const { modules } = await runDeps(root, { log: silent });
+
+    // `app` is one node entire; `Fighter` is a node AND holds units.
+    expect(modules.map((entry) => entry.module).sort()).toEqual(['Fighter', 'app']);
+    expect(modules.find((entry) => entry.module === 'app')?.imports).toEqual(['Fighter']);
+  });
+
+  it('never reports a declared module as a skipped folder', async () => {
+    // The skipped list answers "is this folder in the graph at all", asked of
+    // whatever occupies the top level. Asked with layer names on a modular
+    // repo, every module is reported skipped while the graph holds them all.
+    twoUnits();
+
+    const lines: string[] = [];
+
+    await runDeps(root, { log: (m) => void lines.push(m) });
+
+    expect(lines.join('\n')).not.toContain('Fighter/,');
+    expect(lines.join('\n')).not.toContain('invisible to deps');
+  });
+});
