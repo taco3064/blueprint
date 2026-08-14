@@ -171,8 +171,10 @@ function walk(
 /**
  * Walk the source root (default `src/`, or `sourceRoot` when given — `.`
  * for a project-root layout) and return every source file with its imports.
- * `path` keeps the source-root prefix for display; `segments` are relative
- * to the root so `segments[0]` is always the layer.
+ * `path` keeps the source-root prefix for display; `segments` are relative to
+ * the root — so `segments[0]` is the layer in a flat project and the module
+ * under `architecture.modules`. Read a position through `moduleDepth` rather
+ * than assuming either shape.
  */
 export function scan(root: string, sourceRoot = 'src', options: ScanOptions = {}): ScanResult {
   const readdir = options.readdir ?? realReaddir;

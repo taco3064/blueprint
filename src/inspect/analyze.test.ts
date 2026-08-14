@@ -853,3 +853,125 @@ describe('analyze · a finding\'s subject is content, not the order it was walke
     expect(finding?.message).toContain('provide, inject');
   });
 });
+
+describe('analyze · a modular tree is read at module depth', () => {
+  // The state this suite exists to catch is not a wrong verdict — it is
+  // silence. Every guard below reads `segments[depth]`; left at 0 it reads a
+  // module name, fails the `layerNames` test, and returns early. `inspect`
+  // then reports nothing on a modular repo while coverage (modular since #185)
+  // reads full, so blindness and cleanliness have identical output. Each case
+  // here asserts a finding that must FIRE.
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      layers: [
+        { name: 'components', does: 'ui', layout: 'folder' },
+        { name: 'hooks', does: 'state', layout: 'folder' },
+        {
+          name: 'services',
+          does: 'io',
+          layout: 'folder',
+          owns: ['axios'],
+          allowedImporters: [{ layer: 'hooks', selfOnly: true }],
+        },
+      ],
+      modules: [
+        { name: 'Fighter', does: 'The player ship.', imports: ['Combat'] },
+        { name: 'Combat', does: 'Bullets and damage.' },
+      ],
+    },
+  });
+
+  const modularRules = (files: ScannedFile[]) =>
+    analyze({ topDirs: ['Fighter', 'Combat'], files }, modular).map((finding) => finding.rule);
+
+  it('flags an upstream import from inside a module', () => {
+    // `hooks` is declared after `components`, so reaching back up to it is the
+    // layer flow violated one level down. The specifier is the modular
+    // spelling — the alias reaches the source root, so the module comes first.
+    expect(modularRules([
+      file(['Fighter', 'hooks', 'useInput', 'index.ts'], [
+        { specifier: '~app/Fighter/components/Ship' },
+      ]),
+    ])).toContain('flow-violation');
+  });
+
+  it('flags a same-layer import through the alias, across modules too', () => {
+    expect(modularRules([
+      file(['Fighter', 'components', 'Ship', 'index.tsx'], [
+        { specifier: '~app/Combat/components/Bullet' },
+      ]),
+    ])).toContain('flow-violation');
+  });
+
+  it('flags a deep import into another unit', () => {
+    expect(modularRules([
+      file(['Fighter', 'components', 'Ship', 'index.tsx'], [
+        { specifier: '~app/Fighter/services/api/internals' },
+      ]),
+    ])).toContain('deep-import');
+  });
+
+  it('flags an owned package imported outside its layer', () => {
+    expect(modularRules([
+      file(['Fighter', 'components', 'Ship', 'index.tsx'], [{ specifier: 'axios' }]),
+    ])).toContain('package-ownership');
+  });
+
+  it('flags a selfOnly re-export', () => {
+    expect(modularRules([
+      file(['Fighter', 'hooks', 'useApi', 'index.ts'], [
+        { specifier: '~app/Fighter/services/api', isExport: true },
+      ]),
+    ])).toContain('selfonly-reexport');
+  });
+
+  it('flags a relative import that leaves the layer, and one that reaches inside a sibling', () => {
+    expect(modularRules([
+      file(['Fighter', 'components', 'Ship', 'index.tsx'], [{ specifier: '../../hooks/useInput' }]),
+    ])).toContain('relative-escape');
+
+    expect(modularRules([
+      file(['Fighter', 'components', 'Ship', 'index.tsx'], [{ specifier: '../Hull/internals' }]),
+    ])).toContain('relative-escape');
+  });
+
+  it('accepts a sibling unit reached by its entry, at module depth', () => {
+    // The legal same-layer edge. Reported here, every correctly-shaped modular
+    // repo would be red on its own conventions.
+    expect(modularRules([
+      file(['Fighter', 'components', 'Ship', 'index.tsx'], [{ specifier: '../Hull' }]),
+    ])).not.toContain('relative-escape');
+  });
+
+  it('does not read one module\'s layer as another module\'s', () => {
+    // `Fighter/components` and `Combat/components` are different folders. A
+    // depth-blind comparison sees the same layer name and calls this legal.
+    expect(modularRules([
+      file(['Fighter', 'components', 'Ship', 'index.tsx'], [
+        { specifier: '../../../Combat/components/Bullet' },
+      ]),
+    ])).toContain('relative-escape');
+  });
+
+  it('flags a folder unit with no entry file, at module depth', () => {
+    expect(modularRules([
+      file(['Fighter', 'components', 'Ship', 'Ship.tsx']),
+    ])).toContain('no-entry');
+  });
+
+  it('does not call a layer declaratory when a module holds its files', () => {
+    // `services` has a selfOnly importer, so the note fires only when the layer
+    // is empty. Read at layer depth, no file's first segment is ever a layer
+    // name, and every selfOnly layer is reported empty in every modular repo.
+    expect(modularRules([
+      file(['Fighter', 'services', 'api', 'index.ts']),
+    ])).not.toContain('declaratory-self-only');
+
+    // …and it still fires when the layer really is empty.
+    expect(modularRules([
+      file(['Fighter', 'components', 'Ship', 'index.tsx']),
+    ])).toContain('declaratory-self-only');
+  });
+});

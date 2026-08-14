@@ -1,9 +1,12 @@
 import type { ESLint, Linter } from 'eslint';
-import { activeSetting,
+import {
+  activeSetting,
   aliasLayerRoots,
   getForbiddenLayers,
   getModuleShape,
-  getSelfOnlyTargets } from '../../config';
+  getSelfOnlyTargets,
+  moduleDepth,
+} from '../../config';
 import type { Blueprint, ReadSetting } from '../../config';
 import { plugin } from '../../plugin';
 import {
@@ -144,7 +147,12 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     files: governed,
     ignores: testGlobs,
     plugins: { blueprint: plugin },
-    rules: { 'blueprint/relative-escape': [severity, { layouts, entries }] },
+    rules: {
+      // The depth the rule reads a segment position at — the same derivation
+      // `inspect` uses, passed rather than inferred, so the two gates cannot
+      // disagree about which segment is the layer.
+      'blueprint/relative-escape': [severity, { layouts, entries, depth: moduleDepth(architecture) }],
+    },
   };
 
   return [

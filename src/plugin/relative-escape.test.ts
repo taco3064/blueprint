@@ -14,6 +14,7 @@ function messageIds(
   code: string,
   filename: string,
   layouts: Record<string, 'folder' | 'flat'> | null = LAYOUTS,
+  depth = 0,
 ): string[] {
   return linter
     .verify(
@@ -23,7 +24,7 @@ function messageIds(
         plugins: { blueprint: plugin },
         languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
         rules: {
-          'blueprint/relative-escape': layouts ? ['error', { layouts }] : 'error',
+          'blueprint/relative-escape': layouts ? ['error', { layouts, depth }] : 'error',
         },
       },
       { filename },
@@ -296,5 +297,47 @@ describe('blueprint/relative-escape · a layer the options never mention', () =>
     // on what the rule speaks about, not a blanket exemption.
     expect(messageIds('import x from "../markets/parts/Cell";', 'src/resources/matches/Row.ts'))
       .toEqual(['reachesInside']);
+  });
+});
+
+describe('blueprint/relative-escape · at module depth', () => {
+  // Without the depth the guard reads `Fighter` where it expects a layer name,
+  // matches nothing in `layouts`, and registers no visitors — so every case
+  // below returns [] for the reason that there is no rule, not because the
+  // import is legal. Each one has to fail differently from that.
+  const at = (code: string, filename: string) => messageIds(code, filename, LAYOUTS, 1);
+
+  it('runs at all — the guard reads the layer one segment down', () => {
+    expect(at('import x from "../../components/Button";', 'src/Fighter/resources/Ship/index.ts'))
+      .toEqual(['leavesModule']);
+  });
+
+  it('allows a sibling unit reached by its entry', () => {
+    expect(at('import x from "../Hull";', 'src/Fighter/resources/Ship/index.ts')).toEqual([]);
+  });
+
+  it('flags reaching past a sibling unit\'s entry', () => {
+    expect(at('import x from "../Hull/internals";', 'src/Fighter/resources/Ship/index.ts'))
+      .toEqual(['reachesInside']);
+  });
+
+  it('flags crossing into another module at the same layer', () => {
+    // `Fighter/resources` and `Combat/resources` are different folders. Compared
+    // at layer depth the two names match and the edge reads as legal.
+    expect(at('import x from "../../../Combat/resources/Bullet";', 'src/Fighter/resources/Ship/index.ts'))
+      .toEqual(['leavesModule']);
+  });
+
+  it('still flags climbing above src/', () => {
+    expect(at('import x from "../../../../package.json";', 'src/Fighter/resources/Ship/index.ts'))
+      .toEqual(['escapesSrc']);
+  });
+
+  it('leaves a flat project untouched at depth 0', () => {
+    // The same file path, read flat: `Fighter` IS the layer, and nothing in
+    // `layouts` claims it, so the rule declines — which is today's behaviour
+    // and must not move.
+    expect(messageIds('import x from "../Hull/internals";', 'src/Fighter/resources/Ship/index.ts'))
+      .toEqual([]);
   });
 });

@@ -1,4 +1,10 @@
-import { getForbiddenLayers, getModuleShape, getSelfOnlyTargets, normalizeAllowedImporters } from '../config';
+import {
+  getForbiddenLayers,
+  getModuleShape,
+  getSelfOnlyTargets,
+  moduleDepth,
+  normalizeAllowedImporters,
+} from '../config';
 import type { ArchitectureDef, Blueprint } from '../config';
 import { dropTestFiles } from './filter';
 import { compareText } from './order';
@@ -44,16 +50,22 @@ export function analyze(
 ): Finding[] {
   const { architecture } = blueprint;
   const layerNames = architecture.layers.map((layer) => layer.name);
+  const depth = moduleDepth(architecture);
 
   // Symmetric with the lint side: test files are exempt from structure.
   scan = dropTestFiles(scan, architecture.testFiles);
 
   const findings = [
-    ...folderFindings(scan, architecture, layerNames),
+    ...folderFindings(scan, architecture, layerNames, depth),
     ...ownsFindings(architecture, dependencies),
-    ...scan.files.flatMap((file) => importFindings(file, architecture, layerNames)),
+    ...scan.files.flatMap((file) => importFindings(file, architecture, layerNames, depth)),
   ];
 
+  // Read at layer depth on purpose, so `moduleKey`'s two callers deliberately
+  // disagree about the offset: opening this guard without giving the key its
+  // module segment collapses `Fighter/hooks/useInput` and `Combat/hooks/useInput`
+  // into one node, and `detectCycles` then reports a cycle that does not exist.
+  // The guard and the key are one edit, and it is #190's.
   for (const cycle of detectCycles(buildModuleGraph(scan, architecture).edges)) {
     // The members, not the printed path: a cycle is a set of mutually dependent
     // modules, and `a → b → a` and `b → a → b` are one knot printed from two
@@ -120,6 +132,7 @@ function folderFindings(
   scan: ScanResult,
   architecture: ArchitectureDef,
   layerNames: string[],
+  depth: number,
 ): Finding[] {
   const findings: Finding[] = [];
   const prefix = sourcePrefix(architecture);
@@ -170,7 +183,9 @@ function folderFindings(
         .filter((importer) => importer.selfOnly)
         .map((importer) => importer.layer);
 
-      if (selfOnlyImporters.length && !scan.files.some((file) => file.segments[0] === layer.name)) {
+      const holdsFiles = scan.files.some((file) => file.segments[depth] === layer.name);
+
+      if (selfOnlyImporters.length && !holdsFiles) {
         findings.push({
           severity: 'info',
           rule: 'declaratory-self-only',
@@ -182,7 +197,7 @@ function folderFindings(
     }
   }
 
-  findings.push(...noEntryFindings(scan, architecture, layerNames));
+  findings.push(...noEntryFindings(scan, architecture, layerNames, depth));
 
   return findings;
 }
@@ -191,18 +206,23 @@ function noEntryFindings(
   scan: ScanResult,
   architecture: ArchitectureDef,
   layerNames: string[],
+  depth: number,
 ): Finding[] {
   const modules = new Map<string, ScannedFile[]>();
 
   for (const file of scan.files) {
-    const layer = file.segments[0];
+    const layer = file.segments[depth];
 
     if (
-      file.segments.length >= 3
+      // A unit needs a layer and a folder of its own beneath it, so the file
+      // sits at least two segments below wherever the layer is.
+      file.segments.length >= depth + 3
       && layerNames.includes(layer)
       && getModuleShape(architecture, layer).layout === 'folder'
     ) {
-      const key = `${layer}/${file.segments[1]}`;
+      // Module-qualified so two modules' same-named units stay two units — the
+      // collapse `moduleKey` still has, and #190 fixes there.
+      const key = file.segments.slice(0, depth + 2).join('/');
 
       modules.set(key, [...(modules.get(key) ?? []), file]);
     }
@@ -211,10 +231,11 @@ function noEntryFindings(
   const findings: Finding[] = [];
 
   for (const [key, files] of modules) {
-    const { entry } = getModuleShape(architecture, key.split('/')[0]);
+    const { entry } = getModuleShape(architecture, key.split('/')[depth]);
 
     const hasEntry = files.some(
-      (file) => file.segments.length === 3 && stripExt(file.segments[2]) === entry,
+      (file) =>
+        file.segments.length === depth + 3 && stripExt(file.segments[depth + 2]) === entry,
     );
 
     if (!hasEntry) {
@@ -236,8 +257,9 @@ function importFindings(
   file: ScannedFile,
   architecture: ArchitectureDef,
   layerNames: string[],
+  depth: number,
 ): Finding[] {
-  const fileLayer = file.segments[0];
+  const fileLayer = file.segments[depth];
 
   if (!layerNames.includes(fileLayer)) return [];
 
@@ -252,13 +274,17 @@ function importFindings(
     const parts = stripAlias(ref.specifier, aliases);
 
     if (parts) {
-      const target = parts[0];
+      // The alias reaches the source root, so a modular specifier spells
+      // `~app/<Module>/<layer>/<unit>` and the layer sits at the same offset
+      // here as it does in a file path. Read at 0 it is the module name, no
+      // layer matches, and every alias import is skipped in silence.
+      const target = parts[depth];
 
       if (!layerNames.includes(target)) continue;
 
       // Depth is judged against the *target* layer's layout — reaching inside
       // a folder-module layer is a violation wherever the import comes from.
-      if (layoutOf(target) === 'folder' && parts.length >= 3) {
+      if (layoutOf(target) === 'folder' && parts.length >= depth + 3) {
         findings.push(finding('error', 'deep-import', file.path, ref.specifier, `"${ref.specifier}" reaches inside a module — import it through its entry.`));
       }
 
@@ -272,7 +298,7 @@ function importFindings(
         findings.push(finding('error', 'selfonly-reexport', file.path, ref.specifier, `Re-exports "${target}" ("${ref.specifier}"), which is selfOnly — depend on it, do not re-export it.`));
       }
     } else if (ref.specifier.startsWith('.')) {
-      const escape = relativeEscape(file, ref, layoutOf, entryOf);
+      const escape = relativeEscape(file, ref, layoutOf, entryOf, depth);
 
       if (escape) findings.push(escape);
     } else {
@@ -302,9 +328,10 @@ function relativeEscape(
   ref: ImportRef,
   layoutOf: LayoutOf,
   entryOf: EntryOf,
+  depth: number,
 ): Finding | null {
   const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
-  const verdict = relativeVerdict(file.segments, target, layoutOf, entryOf);
+  const verdict = relativeVerdict(file.segments, target, layoutOf, entryOf, depth);
 
   if (verdict === 'ok') return null;
 
@@ -313,7 +340,7 @@ function relativeEscape(
   }
 
   if (verdict === 'reaches-inside') {
-    return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${entryOf(file.segments[0])}" instead; what lives behind it is that module's own business.`);
+    return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${entryOf(file.segments[depth])}" instead; what lives behind it is that module's own business.`);
   }
 
   return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.`);

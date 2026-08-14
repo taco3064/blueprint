@@ -92,6 +92,20 @@ function dirSegments(dir: string): string[] {
   return dir.split('/').filter((segment) => segment !== '' && segment !== '.');
 }
 
+/**
+ * How many segments sit above the layer: 0 in a flat project, 1 under
+ * `modules`, where `src/<Module>/<layer>/<unit>` puts the module first.
+ *
+ * Derived here and nowhere else. Recomputed at a call site it becomes a second
+ * source of truth for the one fact that decides what every segment position
+ * means, and the two readers of `relativeVerdict` could then disagree about
+ * which segment is the layer — the disagreement the shared function exists to
+ * make inexpressible.
+ */
+export function moduleDepth(architecture: ArchitectureDef): number {
+  return architecture.modules === undefined ? 0 : 1;
+}
+
 /** One module shape a layer can declare. */
 export interface ModuleShape {
   layout: 'folder' | 'flat';

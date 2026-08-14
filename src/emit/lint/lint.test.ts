@@ -191,6 +191,10 @@ describe('emitLint · shape', () => {
       {
         layouts: { components: 'folder', hooks: 'folder', services: 'folder' },
         entries: { components: 'index', hooks: 'index', services: 'index' },
+        // Passed, never inferred by the rule: the plugin cannot see the config,
+        // so a rule left to guess the depth reads a module name as a layer and
+        // registers no visitors at all.
+        depth: 0,
       },
     ]);
 
