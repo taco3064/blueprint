@@ -14,6 +14,7 @@ import {
   moduleRootPaths,
   deriveGlobalRules,
   moduleScopes,
+  resolveModuleFiles,
   resolveModuleLayerFiles,
   resolveTestFiles,
   scopedAliases,
@@ -49,9 +50,10 @@ const label = (merged: boolean): string =>
  * playbook recommends, so the blind spot now covers the intended shape, and the
  * playbook's remedy moved with it: two probes in the affected layer, not one.
  */
-const SCOPE = 'structural bans + the module-root ban + each active gate\'s carrier rule, one '
-  + 'probe per layer; thresholds, package-ownership entries, and a merged entry scoped to only '
-  + 'part of a layer are not compared';
+const SCOPE = 'structural bans + the module-root ban + the embedded plugin rules + each active '
+  + 'gate\'s carrier rule, one probe per emitted entry — per (module, layer) and per module zone '
+  + 'under `modules`; thresholds, package-ownership entries, and a merged entry scoped to only '
+  + 'part of one entry\'s files are not compared';
 
 /**
  * Gates whose ESLint rule exists only if the caller handed `emitLint` the carrier
@@ -102,7 +104,14 @@ export function expectedStructural(
   blueprint: Blueprint,
   layer: string,
   module?: string,
-): { groups: Set<string>; selectors: Set<string>; globals: Set<string>; paths: Set<string> } {
+): {
+  groups: Set<string>;
+  selectors: Set<string>;
+  globals: Set<string>;
+  paths: Set<string>;
+  /** Whether this blueprint emits `blueprint/no-module-reexport` here. */
+  reexport: boolean;
+} {
   const { architecture, rules } = blueprint;
 
   // The same offset-aware bases emitLint composes from — the expectations
@@ -150,6 +159,8 @@ export function expectedStructural(
   });
 
   return {
+    // Emitted on every zone of a modular config, and on none of a flat one.
+    reexport: module !== undefined,
     // Only the module-root entries are expected. Package-ownership paths are
     // deliberately absent: the comparison is by containment, so expecting none
     // of them keeps `packages is not compared` true rather than quietly
@@ -172,6 +183,66 @@ export function expectedStructural(
 }
 
 /**
+ * The structural artifacts emitLint emits for a module's own ZONE — a layered
+ * module's root files, or the whole of a `layers: false` one.
+ *
+ * A sibling of {@link expectedStructural} rather than a parameter on it, because
+ * that function is keyed on a layer name from end to end — `getForbiddenLayers`,
+ * `getSelfOnlyTargets` and the layouts map all take one — and a module zone has
+ * no layer to key on. Asked through it, a root would be compared against a
+ * layer's rules it never carried.
+ *
+ * What the zone entry actually holds, and therefore all this expects: the
+ * cross-module bans, the ban on reaching past a unit's entry from the root, and
+ * the globals some other module owns. No selfOnly selector — `allowedImporters`
+ * is a layer's field — and no module-root path entry, since this entry IS the
+ * root and that ban is about reaching up to it from a layer.
+ */
+export function expectedModuleBans(
+  blueprint: Blueprint,
+  module: string,
+): ReturnType<typeof expectedStructural> {
+  const { architecture } = blueprint;
+  const modules = architecture.modules ?? [];
+  const declared = modules.find((entry) => entry.name === module);
+
+  const roots = aliasLayerRoots(architecture)
+    .map((root) => [root.alias, ...root.prefix].join('/'));
+
+  const scoped = scopedAliases(roots, module);
+
+  const folderLayers = architecture.layers
+    .map((layer) => layer.name)
+    .filter((name) => getModuleShape(architecture, name).layout === 'folder');
+
+  const groups = declared === undefined
+    ? []
+    : [
+        ...buildModulePatterns({ module: declared, modules, aliases: roots }),
+        ...(declared.layers === false || !folderLayers.length
+          ? []
+          : [{
+              group: folderLayers.flatMap((target) => scoped.map((a) => `${a}/${target}/*/**`)),
+              message: '',
+            }]),
+      ];
+
+  return {
+    reexport: true,
+    // Package ownership is not compared at either level, so nothing is expected
+    // here — the same boundary `PACKAGES_NOT_COMPARED` states.
+    paths: new Set<string>(),
+    groups: new Set(groups.map((pattern) => JSON.stringify(pattern.group))),
+    selectors: new Set<string>(),
+    globals: new Set(
+      deriveGlobalRules(modules)
+        .filter((rule) => !rule.allowedIn.includes(module))
+        .map((rule) => rule.global),
+    ),
+  };
+}
+
+/**
  * Derive a concrete path satisfying `glob` — the synthetic probe for a layer with
  * no files yet. Star and brace shapes synthesize by construction; anything carrying
  * `?` or a character class yields no probe, never a wrong one.
@@ -186,20 +257,36 @@ function syntheticPath(glob: string): string | null {
 }
 
 /**
- * One probe per layer — a single probe would green-light an entry that swallows
- * some OTHER layer's rules, the exact scoping this check exists to catch. An empty
- * layer gets a synthetic probe, since `calculateConfigForFile` resolves by pattern
- * and never touches disk. Still a sample: one path stands in for the layer.
- *
- * The scopes are walked rather than their globs flattened, so the probe carries
- * the module it came from: the emitted entry is per (module, layer), so a path
- * without the module that produced it cannot be compared to anything. One probe
- * still stands in for every module of a layer — #194 is where that stops.
+ * What one probe addresses. `label` is how a loss line names it, derived here so
+ * the two cannot disagree: at modules × layers, two losses printed under the
+ * same name read as one problem, and fixing the one an adopter finds leaves lint
+ * green on the other.
  */
-function pickProbes(
-  scanResult: ScanResult,
-  blueprint: Blueprint,
-): { path: string; layer: string; module?: string }[] {
+interface Probe {
+  path: string;
+  label: string;
+  /** Present on a layer probe; a module zone has no layer to key on. */
+  layer?: string;
+  module?: string;
+  zone: 'layer' | 'root' | 'module';
+}
+
+/**
+ * One probe per emitted entry — per (module, layer), plus each module's own
+ * zone.
+ *
+ * A single probe would green-light an entry that swallows some OTHER entry's
+ * rules, the exact scoping this check exists to catch. That argument is the same
+ * one level up: one probe per layer green-lights a merge that replaced the rules
+ * of every module but the one that happened to be sampled, and a modular repo is
+ * where there is most to swallow.
+ *
+ * An entry with no files yet gets a synthetic probe, since
+ * `calculateConfigForFile` resolves by pattern and never touches disk — and that
+ * arm carries a greenfield scaffold entirely, where nothing on disk matches
+ * anything.
+ */
+function pickProbes(scanResult: ScanResult, blueprint: Blueprint): Probe[] {
   const { architecture, framework } = blueprint;
   const ignores = toArray(architecture.layerFilesIgnore).map(globToRegExp);
   const tests = resolveTestFiles(architecture.testFiles).map(globToRegExp);
@@ -208,41 +295,60 @@ function pickProbes(
     (file) => !ignores.some((ignore) => ignore.test(file.path)),
   );
 
+  /** A real file inside `globs`, else a path shaped like one, else nothing. */
+  const pick = (globs: string[]): string | null => {
+    const nets = globs.map(globToRegExp);
+    const hit = source.find((file) => nets.some((net) => net.test(file.path)));
+
+    if (hit) return hit.path;
+
+    // The synthetic candidate must sit exactly where a real file would: inside
+    // the net, outside the ignores, and never shaped like a test file (the
+    // emitted entries exempt those, so expectations would lie).
+    return globs
+      .map(syntheticPath)
+      .find(
+        (candidate): candidate is string =>
+          candidate !== null
+          && !ignores.some((ignore) => ignore.test(candidate))
+          && !tests.some((test) => test.test(candidate)),
+      ) ?? null;
+  };
+
   const scopes = moduleScopes(architecture);
 
-  return architecture.layers.flatMap((layer) => {
-    const candidates = scopes.map((module) => ({
-      module: module?.name,
-      globs: resolveModuleLayerFiles(layer.name, module, architecture, framework),
+  const layerProbes = scopes.flatMap((module) =>
+    architecture.layers.flatMap((layer): Probe[] => {
+      const path = pick(resolveModuleLayerFiles(layer.name, module, architecture, framework));
+
+      if (path === null) return [];
+
+      return [{
+        path,
+        label: module ? `${module.name}/${layer.name}` : layer.name,
+        layer: layer.name,
+        ...(module ? { module: module.name } : {}),
+        zone: 'layer',
+      }];
     }));
 
-    for (const { module, globs } of candidates) {
-      const nets = globs.map(globToRegExp);
-      const hit = source.find((file) => nets.some((net) => net.test(file.path)));
+  // The two zones no layer glob reaches. Unprobed, the entry governing a
+  // module's own composition code — and the whole of a `layers: false` module —
+  // is the one nothing verifies.
+  const zoneProbes = (architecture.modules ?? []).flatMap((module): Probe[] => {
+    const path = pick(resolveModuleFiles(module, architecture, framework));
 
-      if (hit) return [{ path: hit.path, layer: layer.name, module }];
-    }
+    if (path === null) return [];
 
-    // A real file anywhere beats a synthetic one everywhere, so the whole set
-    // of scopes is asked for a hit before any of them is asked for a stand-in.
-    for (const { module, globs } of candidates) {
-      // The synthetic candidate must sit exactly where a real file would:
-      // inside the net, outside the ignores, and never shaped like a test
-      // file (the emitted entries exempt those, so expectations would lie).
-      const synthetic = globs
-        .map(syntheticPath)
-        .find(
-          (candidate): candidate is string =>
-            candidate !== null
-            && !ignores.some((ignore) => ignore.test(candidate))
-            && !tests.some((test) => test.test(candidate)),
-        );
-
-      if (synthetic) return [{ path: synthetic, layer: layer.name, module }];
-    }
-
-    return [];
+    return [{
+      path,
+      label: `${module.name}/(${module.layers === false ? 'all' : 'root'})`,
+      module: module.name,
+      zone: module.layers === false ? 'module' : 'root',
+    }];
   });
+
+  return [...layerProbes, ...zoneProbes];
 }
 
 /**
@@ -283,6 +389,7 @@ function resolvedStructural(rules: Record<string, unknown>): {
   globals: Set<string>;
   paths: Set<string>;
   relativeEscape: boolean;
+  reexport: boolean;
   unreadable: number;
 } {
   const groups = new Set<string>();
@@ -349,6 +456,7 @@ function resolvedStructural(rules: Record<string, unknown>): {
     globals,
     paths,
     relativeEscape: activeOptions(rules['blueprint/relative-escape']) !== null,
+    reexport: activeOptions(rules['blueprint/no-module-reexport']) !== null,
     unreadable,
   };
 }
@@ -435,8 +543,17 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
 
       unreadable += resolved.unreadable;
 
-      lost.push(...losses(expectedStructural(blueprint, probe.layer, probe.module), resolved)
-        .map((loss) => `${probe.layer}: ${loss}`));
+      // Dispatched on the zone: a module root has no layer to key an
+      // expectation on, and asked for one it would be compared against a
+      // layer's rules it never carried.
+      const expected = probe.zone === 'layer'
+        ? expectedStructural(blueprint, probe.layer as string, probe.module)
+        : expectedModuleBans(blueprint, probe.module as string);
+
+      // The label, not the layer: at modules × layers two losses in different
+      // modules printed under one name read as a single problem, and fixing the
+      // one an adopter finds leaves lint green on the other.
+      lost.push(...losses(expected, resolved).map((loss) => `${probe.label}: ${loss}`));
 
       // A gate declared in blueprint.config.mjs whose rule is absent from the
       // resolved config means the merge dropped its carrier — the silent
@@ -534,6 +651,13 @@ function losses(
 
   if (!resolved.relativeEscape) {
     lost.push('blueprint/relative-escape is missing or off');
+  }
+
+  // Symmetric with the rule above, and for the same reason: a plugin rule a
+  // merge dropped leaves lint green while the ban is gone. Only where the
+  // blueprint emits it — a flat config has no other module to forward.
+  if (expected.reexport && !resolved.reexport) {
+    lost.push('blueprint/no-module-reexport is missing or off');
   }
 
   return lost;
