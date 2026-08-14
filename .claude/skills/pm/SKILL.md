@@ -1,6 +1,6 @@
 ---
 name: pm
-description: Break a parent issue into ordered GitHub sub-issues, keep those sub-issues true to the parent, and follow implementation without ever writing code. Use when the owner points at a parent issue to decompose, asks where a decomposition stands, relays a gap the implementation side hit ("the ticket doesn't say", "the ticket contradicts the code"), or when a tier of work closes and the tickets below it have not been re-read against the repo it left behind.
+description: Break a parent issue into ordered GitHub sub-issues, keep those sub-issues true to the parent, and follow implementation without ever writing code. Use when the owner points at a parent issue to decompose, names a parent and a tier to run ("#179, phase 3"), asks where a decomposition stands, relays a gap the implementation side hit ("the ticket doesn't say", "the ticket contradicts the code"), or when a tier of work closes and the tickets below it have not been re-read against the repo it left behind.
 ---
 
 # pm — the ticket layer, and nothing else
@@ -18,7 +18,9 @@ Never, under any framing:
   what you do — see Phase 5. The one exception to the write ban is a scratch
   file for an issue body, and it goes in the scratchpad directory, never in the
   repo.
-- **Commit, push, or open a PR.**
+- **Commit, push, open a PR, or merge one.** The implementation side owns all
+  four, and owns how many commits a ticket takes. You read the result and write
+  what you found on the issue.
 - **Edit the parent issue.** See below — this is the rule the others hang on.
 - **Estimate effort, time, or story points.** This repo does not schedule.
   Sequence and dependency are the only ordering signals; "how long" is noise.
@@ -178,7 +180,57 @@ unavoidable, create the ticket, then edit the header once the number exists.
 
 Label from the existing set only (`gh label list`). Do not invent labels.
 
-## Phase 5 — follow, and read the code while you do it
+## Phase 5 — run the tier
+
+The owner names a parent and a tier. That is the whole input — everything below
+is standing procedure, so do not ask for it and do not wait to be told it again.
+
+### Open the implementation side
+
+Check which situation you are in before you write anything. `ListAgents` shows
+the sessions reachable from here; when the owner already has one working this
+repo, address it by the exact name its row prints and send with `SendMessage`.
+When there is none, spawn one with the Agent tool. It writes code and you do
+not, so it inherits none of this skill's boundary.
+
+**Confirm the target before the first send.** Addressing the wrong session fails
+silently: the message lands, someone answers about a different repo, and nothing
+in the reply says it came from the wrong place. If two rows could plausibly be
+it, ask the owner which — one question now beats a tier of misrouted review.
+
+Hand over: the parent number, the tier's tickets in execution order, and the
+instruction to read `CLAUDE.md` plus every `.claude/docs/` page whose trigger
+fires. Hand over the ticket *numbers*, not your summary of them — a summary is a
+second source of truth for a ticket you already wrote, and the two will differ.
+
+### Ask for the plan before the code
+
+The implementation side plans first, and that plan comes to you before anything
+is written. Read it against the tickets, and answer three questions in the reply:
+
+- **Does the plan reach each ticket's `Done when`?** Not "is it reasonable" —
+  reasonable plans miss acceptance criteria all the time.
+- **Does it stay inside the tier?** Work that belongs to a later ticket, done
+  early because it was convenient, silently empties that ticket.
+- **Where does it contradict a ticket?** That is a Phase 7 report arriving before
+  the cost, and it is usually the ticket that is wrong, not the plan.
+
+### The per-ticket loop
+
+One ticket, one PR. How many commits it takes is the implementation side's call
+and never yours. It merges its own PR without waiting on you.
+
+**So your check is an audit, not a gate**, and that changes the remedy. You read
+the merged result against the ticket's `Done when`; when it falls short, the exit
+is a reopened ticket or a follow-up filed — never a blocked merge, which no
+longer exists to block. Then comment the outcome on the issue: what landed, what
+you verified it against, and anything it did beyond what the ticket asked.
+
+Comment on **every** ticket, including the ones that came back clean. A ticket
+closed in silence is indistinguishable from a ticket nobody checked, and six
+months later that is the only difference anyone needs.
+
+### While it runs
 
 The counter is one cheap call:
 
@@ -208,6 +260,28 @@ it. A closing PR that did half the ticket is a ticket to reopen or a follow-up t
 file, not a silent pass. A PR that did *more* than the ticket asked is worth the
 same sentence in the other direction — it means the ticket understated the work,
 and the next ticket cut from the same reading will understate it too.
+
+### A tier is not closed when its last PR merges
+
+One more gate, and it is the repo's, not GitHub's: **the tier's mutation sweep
+runs, its survivors are judged, and the tests that judging calls for are
+written.** Only then is the tier done. Every ticket can be closed and the counter
+green while the sweep is still holding a survivor nobody has looked at — the
+counter cannot see it, which is exactly why this is written here.
+
+Dispatch one sweep per tier, after the tier's last commit lands. **Never run it
+locally; it hangs the machine.** `mutation.yml` by `workflow_dispatch` with
+`--ref <branch>`, then read the run's artifact and step summary.
+
+Judging belongs to the implementation side, and it has exactly two honest
+endings per survivor — a test, or a one-line `undecidable` note at the site with
+the derivation in the commit message. What you check for is the third: a survivor
+waved off as noise, or `src/` edited to make a score go up.
+`.claude/docs/mutation-testing.md` is the doctrine and
+`grep -rni undecidable src/` is the ledger.
+
+Two sweeps inside one tier is one run's worth of information paid for twice.
+Wait for the last commit.
 
 ## Phase 6 — re-verify the unstarted tickets at every tier boundary
 
