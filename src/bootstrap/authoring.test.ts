@@ -20,7 +20,10 @@ import { configSource, flattenProse, makeRepo, rm } from '../conformance';
 import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
 // The prose below describes this command's rows, so the rows come from the command
 // rather than from a restatement of them here.
+import { emitAgentContract } from '../emit/agent';
+import { emitHandbook } from '../emit/docs';
 import { runRules } from '../inspect';
+import { reactPreset } from '../presets';
 import type { SurveyResult } from '../survey';
 
 const survey: SurveyResult = {
@@ -217,7 +220,7 @@ describe('authoringBrief', () => {
     expect(flattenProse(small)).toContain('adopts two years and 400 files later');
 
     // Final field round: the checklist claimed completeness while omitting
-    // the tool declaration Method step 9 mandates — a literal walk emitted
+    // the tool declaration Method step 10 mandates — a literal walk emitted
     // two contracts with doctor green. Step 1 carries the declaration now.
     expect(small).toContain('--preset --agent claude');
     expect(small).toContain('one run emits one contract');
@@ -261,7 +264,7 @@ describe('authoringBrief', () => {
     expect(brief).toContain('then let `inspect` correct you');
     expect(flattenProse(brief)).toContain('needs nothing installed');
     expect(flattenProse(brief)).toContain('`impact` is the same kind of read-only feedback but is NOT available at this point');
-    expect(flattenProse(brief)).toContain('joins the loop at Method step 9, after init');
+    expect(flattenProse(brief)).toContain('joins the loop at Method step 10, after init');
   });
 
   it('forbids manufacturing a net — the empty-net twin of manufactured debt', () => {
@@ -505,7 +508,7 @@ describe('authoringBrief', () => {
     const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { claudeDir: { hadDir: false, otherCommands: 0 } });
     const occurrences = (text: string) => text.split('resolved keys carry their').length - 1;
 
-    // Method step 9's merge always renders; the early-exit checklist's lint step
+    // Method step 10's merge always renders; the early-exit checklist's lint step
     // only below the threshold. Two sites, one text — assert the count, or a
     // future edit can quietly go back to maintaining two copies by hand.
     expect(occurrences(brief)).toBe(1);
@@ -647,5 +650,166 @@ describe('authoringBrief · the Next.js note', () => {
 
     expect(authoringBrief(survey, 'npm install -D @kekkai/blueprint', { next: true, claudeDir: { hadDir: false, otherCommands: 0 } }))
       .toContain('Next.js project');
+  });
+});
+
+describe('authoringBrief · the Method\'s root-model step', () => {
+  const brief = (kind: SurveyResult['shape']['kind']): string =>
+    authoringBrief(
+      { ...survey, shape: { ...survey.shape, kind } },
+      'npm install -D @kekkai/blueprint',
+      { claudeDir: { hadDir: false, otherCommands: 0 } },
+    );
+
+  it('reads the survey\'s verdict instead of sending the agent back to the tree', () => {
+    // The survey already measured this and printed the answer with its reason.
+    // Prose that re-derives the heuristic is the same passage written twice,
+    // and the copy that cannot see the repo is the one that goes stale.
+    const out = flattenProse(brief('flat'));
+
+    expect(out).toContain('3. **Take the root model from the survey — it decides whether `architecture.modules` exists at all.**');
+    expect(out).toContain('This is measured, not judged: the verdict and the reason that produced it are printed in the survey evidence below');
+
+    // The conditions `detectShape` weighs stay in `detectShape`.
+    for (const derivation of ['index-bearing', 'shared child vocabulary', 'shared vocabulary']) {
+      expect(out, `the step re-derives the verdict: "${derivation}"`).not.toContain(derivation);
+    }
+  });
+
+  it('sits above the layer question, because it decides what a top-level folder is', () => {
+    const out = brief('flat');
+
+    expect(out.indexOf('3. **Take the root model')).toBeLessThan(out.indexOf('4. **Decide what is a layer.**'));
+  });
+
+  it.each([
+    ['modular', 'So declare `architecture.modules` — one entry per top-level folder', ['omit `architecture.modules` entirely', 'could not tell']],
+    ['flat', 'So omit `architecture.modules` entirely', ['So declare `architecture.modules`', 'could not tell']],
+    ['unknown', 'The survey below **could not tell**, and it does not guess.', ['So declare `architecture.modules`', 'So omit `architecture.modules` entirely']],
+  ] as const)('answers the %s verdict with its own arm and no other', (kind, present, absent) => {
+    const out = flattenProse(brief(kind));
+
+    expect(out).toContain(present);
+
+    for (const other of absent) {
+      expect(out, `the ${kind} arm carries another verdict's answer: "${other}"`).not.toContain(other);
+    }
+  });
+
+  it('names the config edit each verdict implies, including the one that is rejected without it', () => {
+    expect(flattenProse(brief('modular')))
+      .toContain('`architecture.layerFiles` must carry a `{module}` placeholder there; the config is rejected without one');
+
+    expect(flattenProse(brief('flat')))
+      .toContain('leave `{module}` out of `architecture.layerFiles`');
+
+    // Not a coin flip and not a blend: the config declares one model for the
+    // whole source root, so the could-not-tell arm asks for a decision and a
+    // reason rather than leaving the cell undecided.
+    expect(flattenProse(brief('unknown')))
+      .toContain('Half-and-half is not a third option: the config declares one model for the whole source root.');
+  });
+
+  it('closes every arm on the finding no lint rule can hold', () => {
+    for (const kind of ['modular', 'flat', 'unknown'] as const) {
+      const out = flattenProse(brief(kind));
+
+      expect(out, kind).toContain('`structure-mismatch` fires when the tree matches one model and the config declares the other');
+      expect(out, kind).toContain('lint runs INSIDE the answer and has no position from which to question it');
+    }
+  });
+
+  it('moves the layer candidates one level down under modules', () => {
+    // Left flat-only, this step contradicts the one above it: under `modules` a
+    // top-level folder is a module, and the layers are its children.
+    expect(brief('modular')).toContain('4. **Decide what is a layer.** The child folders INSIDE each module are the candidates');
+
+    for (const kind of ['flat', 'unknown'] as const) {
+      expect(brief(kind), kind).toContain('4. **Decide what is a layer.** Top-level folders under `src/` are candidates');
+    }
+  });
+
+  it('renumbers the steps the new one displaced, and the reference that names one', () => {
+    const out = flattenProse(brief('flat'));
+
+    expect(out).toContain('10. **Finish — and finish means integrated, not parked.**');
+    expect(out).toContain('joins the loop at Method step 10, after init');
+    expect(out).not.toContain('9. **Finish');
+    // Step 1 is above the insertion, so the two references to it must NOT move.
+    expect(out).toContain('check the documents from step 1 before dropping it');
+    expect(out).toContain('record the conflict — Method step 1');
+  });
+});
+
+describe('the module/unit vocabulary, swept across all three documents', () => {
+  // `deps --json` settled `unit` for the inner thing and `module` for the
+  // feature, and `emitLint`'s own module-root message already says "Import a
+  // unit through its entry". These three documents were the last holdouts, so
+  // the emitted lint message and the emitted handbook contradicted each other
+  // on one repo. One case per retired phrase: a partial sweep is how the
+  // collision came back the first time.
+  const RETIRED = [
+    'one folder per module',
+    'one file per module',
+    'module = one',
+    'the module is the whole layer',
+    'a module is one child folder',
+    'named after the module',
+    'modules expose only',
+    'import a module through its',
+    'Import a module via its',
+    'folder module\'s entry',
+    'Module shape',
+    'module-shape evidence',
+    'module of an existing layer',
+    'module layout',
+  ];
+
+  const documents = (modules: boolean): string[] => {
+    const architecture = {
+      alias: '~app',
+      ...(modules
+        ? {
+            modules: [{ name: 'app', does: 'Routing.' }],
+            layerFiles: 'src/{module}/{layer}/**/*.{ts,tsx}',
+          }
+        : {}),
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' as const },
+        { name: 'services', does: 'net' },
+      ],
+      naming: { component: 'PascalCase' },
+    };
+
+    const config = defineBlueprint({ name: 'V', framework: 'react' as const, architecture });
+
+    return [
+      emitHandbook(config),
+      emitAgentContract(config),
+      emitAgentContract(config, { compact: true }),
+      authoringBrief(
+        { ...survey, shape: { ...survey.shape, kind: modules ? 'modular' : 'flat' } },
+        'npm i',
+        { claudeDir: { hadDir: false, otherCommands: 0 } },
+      ),
+    ];
+  };
+
+  it.each(RETIRED)('no emitted document still says "%s"', (phrase) => {
+    for (const modules of [false, true]) {
+      for (const document of documents(modules)) {
+        // A `not.toContain` sweep is satisfied by an empty string, so the part
+        // that could be wrong here is that these are real documents at all.
+        expect(document.length, `modules: ${modules}`).toBeGreaterThan(500);
+        expect(document, `modules: ${modules}`).not.toContain(phrase);
+      }
+    }
+  });
+
+  it('the preset naming value an adopter reads says unit too', () => {
+    // It renders into the handbook's Naming table and the contract's Naming
+    // section, so it is one of the three documents' sentences wherever it lives.
+    expect(reactPreset({ name: 'X' }).architecture.naming?.component)
+      .toBe('PascalCase; the implementation file is named after the unit');
   });
 });

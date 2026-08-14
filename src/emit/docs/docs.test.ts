@@ -34,7 +34,7 @@ describe('emitHandbook', () => {
     for (const heading of [
       '# Acme — Architecture Handbook',
       '## Architecture',
-      '## Module shape',
+      '## Unit shape',
       '## Import discipline',
       '## Principles',
       '## Rules',
@@ -42,6 +42,30 @@ describe('emitHandbook', () => {
     ]) {
       expect(md).toContain(heading);
     }
+
+    // The outer level exists only where it is declared — a flat project has one
+    // implicit module and nothing to tabulate about it.
+    expect(md).not.toContain('## Modules');
+  });
+
+  it('adds the outer level, above the layer flow it contains', () => {
+    const blueprint = full();
+
+    blueprint.architecture.modules = [
+      { name: 'app', does: 'Routing.', imports: ['common'] },
+      { name: 'common', does: 'Shared.' },
+    ];
+
+    blueprint.architecture.layerFiles = 'src/{module}/{layer}/**/*.{ts,tsx}';
+
+    const md = emitHandbook(blueprint);
+
+    expect(md).toContain('## Modules');
+    // Order, not just presence: the layer flow below is the INNER one, and a
+    // reader who meets it first reads it as the whole architecture — which is
+    // what a modular handbook said until this section existed.
+    expect(md.indexOf('## Modules')).toBeLessThan(md.indexOf('## Architecture'));
+    expect(md).toContain('Code flows one way inside each module:');
   });
 
   it('omits sections with no data', () => {

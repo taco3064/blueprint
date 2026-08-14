@@ -22,6 +22,65 @@ function claudePrinciples(principles: PrincipleDef[] | undefined): PrincipleDef[
   return principles.filter((principle) => principle.land === 'claude');
 }
 
+/** The directory the layers live under — `src` unless the blueprint moves it. */
+function sourceRoot(architecture: ArchitectureDef): string {
+  return architecture.sourceRoot ?? 'src';
+}
+
+/**
+ * Where a layer's code actually sits. Under `modules` a layer has no folder of
+ * its own — it is a folder inside each module — so an address at the source
+ * root names an undeclared module, which `inspect` reports as an error. The
+ * same answer `vacuousNextStep` and `analyze`'s `layerAddress` already give.
+ */
+function layerAddress(architecture: ArchitectureDef, layer: string): string {
+  const root = sourceRoot(architecture);
+
+  return architecture.modules ? `${root}/<module>/${layer}/` : `${root}/${layer}/`;
+}
+
+/**
+ * The module order, as the outer flow. Empty on a flat project, which has one
+ * implicit module and no order to state.
+ */
+function moduleFlow(architecture: ArchitectureDef): string {
+  const { modules } = architecture;
+
+  if (!modules) return '';
+
+  const chain = modules.map((module) => `\`${module.name}\``).join(' → ');
+
+  return `- Module flow: ${chain} — feature modules at the root of \`${architecture.alias}/\`, with the layers inside each one (\`${sourceRoot(architecture)}/<module>/<layer>/\`). A module may name only modules declared after it.`;
+}
+
+/**
+ * The three module boundaries as one directive. None is derivable from the
+ * layer rules, and the re-export width is the part a reader cannot check: the
+ * shipped rule is module-wide, so entry-only prose would describe a two-hop
+ * bypass as legal.
+ */
+function moduleRules(architecture: ArchitectureDef): string {
+  if (!architecture.modules) return '';
+
+  return `- Module boundaries: a module reaches only what its \`imports\` names, through that module's entry alone (\`${architecture.alias}/<module>\`) and never a relative path. Nothing inside a module imports its own root. And no file in a module — **every** file, not only its entry — re-exports another module's surface; a wrapper expressing this module's own responsibility is fine, one added only to clear the rule is the non-fix.`;
+}
+
+/**
+ * What sees a folder nobody declared, and what does not. `undeclared-folder` /
+ * `undeclared-module` carry `ENFORCED_BY: null` by construction — the globs are
+ * built FROM the declared names — so an agent whose loop ends at a green lint
+ * never learns of one.
+ */
+function undeclaredGate(architecture: ArchitectureDef): string {
+  const { alias } = architecture;
+
+  if (architecture.modules) {
+    return `- You are the gate for: no undeclared folders under \`${alias}/\`. A top-level folder nobody declared is an undeclared MODULE — no glob matches it, so no lint rule can see it and a green lint proves nothing about it; worse, it sits outside every module ban too, so a module boundary can be broken inside it while lint stays green. \`blueprint inspect --baseline\` is the only thing that reports it (red only on what you introduced). Its finding names two remedies and only one is yours: fold the code into a module that is already declared. Declaring a new module is the owner's decision — say so and stop; never declare it yourself.`;
+  }
+
+  return `- You are the gate for: no undeclared folders under \`${alias}/\`. A new top-level folder is matched by no layer glob, so no lint rule can see it and a green lint proves nothing about it — \`blueprint inspect --baseline\` is the only thing that reports it (red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a unit of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.`;
+}
+
 /** Contract heading + provenance. Uses `##` so it can nest inside CLAUDE.md. */
 export function renderHeader(): string {
   return [
@@ -74,23 +133,48 @@ export function renderCompactContract(blueprint: Blueprint): string {
     ...(blueprint.playbook?.length ? ['the working playbook'] : []),
   ];
 
+  // Two lines under `modules` and none without, because this block is what
+  // CLAUDE.md / AGENTS.md receive — the one screen nearly every adopter reads.
+  // The module dimension cannot be inferred from the layer flow above it, and
+  // the three bans cannot be inferred from anything on this page.
+  const modular = [moduleFlow(architecture), moduleRules(architecture)].filter(Boolean);
+
+  // The handbook's own section names, so "read the handbook" points at a heading
+  // that is there. `Unit shape` under both structures; `Modules` only where the
+  // handbook grows that section.
+  const pointers = [
+    'placement',
+    ...(architecture.modules ? ['module boundaries'] : []),
+    'unit shapes',
+    'ownership',
+    'naming',
+  ];
+
+  // Named alongside the layer gates rather than folded into "one-way imports":
+  // three of them are separate rules with their own ids, and an agent that reads
+  // a green lint has to know which of its moves those ids were watching.
+  const moduleGates = architecture.modules
+    ? ', module imports, module-root imports, module re-exports'
+    : '';
+
   return [
     renderHeader(),
     '',
     `- Framework: \`${blueprint.framework}\`. Import alias: \`${architecture.alias}\`.`,
+    ...modular,
     `- Layer flow: ${chain} — transitive: a layer may import **any** layer after it, unless the target narrows its importers.`,
-    `- **Before adding, moving, or renaming any file** — placement, module shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
+    `- **Before adding, moving, or renaming any file** — ${pointers.join(', ')}${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
     '- **Operating discipline** — how to follow the flow, react to lint failures, and the pre-commit checklist: read [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md) (ships inside the package — present once dependencies are installed, always matching the installed version).',
     // Names the gates' REACH as a clause, not a second line: every other CLI surface
     // marks an empty net as vacuous, and this contract is the one artifact read with
     // no CLI output beside it. "the project's lint run", never `npm run lint` — the
     // runner is a repo fact this emitter cannot see (field run #141).
-    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectGates.join(', ')} is held by \`npx blueprint inspect --baseline\` instead, so a green lint says nothing about it` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
+    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, unit entries, ownership, relative escapes${moduleGates}${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectGates.join(', ')} is held by \`npx blueprint inspect --baseline\` instead, so a green lint says nothing about it` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
     // --baseline, or the verify loop stays red forever on locked brownfield debt
     // (field issue #10). Both remedies are named, and whose each is: told only "move
     // the code", an agent contorts it into an existing layer instead of reporting
     // that the architecture outgrew the config.
-    `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a module of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.`,
+    undeclaredGate(architecture),
   ].join('\n');
 }
 
@@ -103,14 +187,53 @@ export function renderContext(blueprint: Blueprint): string {
     '### Context',
     '',
     `- Framework: \`${framework}\`. Import alias: \`${architecture.alias}\`.`,
-    `- Layer flow: ${chain}`,
+    ...[moduleFlow(architecture)].filter(Boolean),
+    `- Layer flow: ${chain}${architecture.modules ? ' (inside each module)' : ''}`,
   ].join('\n');
 }
 
-/** Per-layer placement directives + the module shape rule. */
+/**
+ * Per-module and per-layer placement directives + the unit shape rule.
+ *
+ * The module lines come first because they are the outer address: under
+ * `modules` a layer line names `<root>/<module>/<layer>/`, and a reader who has
+ * not met the modules yet cannot resolve the `<module>` in it.
+ */
+function moduleLines(architecture: ArchitectureDef): string[] {
+  const { modules } = architecture;
+
+  if (!modules) return [];
+
+  return modules.map((module) => {
+    const parts = [`- \`${sourceRoot(architecture)}/${module.name}/\` — ${module.does}`];
+
+    parts.push(
+      module.imports?.length
+        ? ` IMPORTS: ${module.imports.map((name) => `\`${name}\``).join(', ')} (through their entry alone).`
+        : ' IMPORTS: nothing — this module declares no dependency, so it may reach no other module.',
+    );
+
+    const owns = formatOwns(module.owns);
+
+    if (owns) {
+      // Module-level ownership bars the primitive in every OTHER module, which
+      // is a second dimension: a file answers to its layer's `owns` and its
+      // module's alike.
+      parts.push(` OWNS (barred in every other module): ${owns}.`);
+    }
+
+    if (module.layers === false) {
+      parts.push(' NOT LAYERED (`layers: false`) — the layer rules below do not apply inside it; everything else still does.');
+    }
+
+    return parts.join('');
+  });
+}
+
+/** Per-layer placement directives + the unit shape rule. */
 export function renderPlacement(architecture: ArchitectureDef): string {
   const lines = architecture.layers.map((layer) => {
-    const parts = [`- \`src/${layer.name}/\` — ${layer.does}.`];
+    const parts = [`- \`${layerAddress(architecture, layer.name)}\` — ${layer.does}.`];
 
     if (layer.mustNot?.length) {
       parts.push(` MUST NOT: ${layer.mustNot.join('; ')}.`);
@@ -135,16 +258,16 @@ export function renderPlacement(architecture: ArchitectureDef): string {
 
   const groups = moduleShapeGroups(architecture);
 
-  const moduleLines = groups.map((group) => {
+  const shapeLines = groups.map((group) => {
     // One shape is the project's; several are stated per layer set, since a
     // single line would hand one layer the other's rule.
     const scope = groups.length === 1
       ? ''
-      : ` in ${group.layers.map((layer) => `\`src/${layer}/\``).join(' / ')}`;
+      : ` in ${group.layers.map((layer) => `\`${layerAddress(architecture, layer)}\``).join(' / ')}`;
 
     return group.layout === 'folder'
-      ? `- Module shape${scope}: one folder per module. Only \`${group.entry}\` is importable from outside.`
-      : `- Module shape${scope}: one file per module (file layout).`;
+      ? `- Unit shape${scope}: one folder per unit. Only \`${group.entry}\` is importable from outside.`
+      : `- Unit shape${scope}: one file per unit (file layout).`;
   });
 
   // Reporting instruction, not a third remedy. An agent that learns "files matching
@@ -157,7 +280,14 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     ? [`- Test support is exempt from every placement rule above: files matching ${testGlobs.map((glob) => `\`${glob}\``).join(' / ')} sit outside them. If a placement rule stops you on files that exist only to serve tests, that is a question for the owner — say so and name them; never widen \`architecture.testFiles\` yourself, and never rename a file to match those globs.`]
     : [];
 
-  return ['### Where code goes', '', ...lines, ...moduleLines, ...exemptLine].join('\n');
+  return [
+    '### Where code goes',
+    '',
+    ...moduleLines(architecture),
+    ...lines,
+    ...shapeLines,
+    ...exemptLine,
+  ].join('\n');
 }
 
 /** Naming conventions as directives. */
@@ -179,20 +309,27 @@ export function renderHardRules(
   rules: Record<string, RuleSetting> | undefined,
 ): string {
   const bullets = [
+    // The module bans lead: they are the outer boundary, and an agent that reads
+    // only the first bullet of a list should meet the widest rule there.
+    ...[moduleRules(architecture)].filter(Boolean),
     '- Import only from downstream layers — never upstream. A same-layer import is legal'
     + ' only as a relative path reaching the sibling\'s public surface: never through the'
-    + ' alias, and never past a folder module\'s entry.',
+    + ' alias, and never past a folder unit\'s entry.',
   ];
 
   const entries = folderEntries(architecture).map((entry) => `\`${entry}\``);
 
   if (entries.length) {
-    bullets.push(`- Import a module via its ${entries.join(' / ')}, never its internals.`);
+    bullets.push(`- Import a unit via its ${entries.join(' / ')}, never its internals.`);
   }
 
   bullets.push(
-    '- Restricted packages / globals live only in their owning layer (see "Where code goes").',
-    '- Relative imports stay inside their module; no redundant segments (`./../`, `././`).',
+    architecture.modules
+      ? '- Restricted packages / globals live only in their owner, and there are two: a layer\'s `owns` bars every other layer, a module\'s bars every other module (both listed under "Where code goes").'
+      : '- Restricted packages / globals live only in their owning layer (see "Where code goes").',
+    architecture.modules
+      ? '- Relative imports stay inside their unit, and never leave their module; no redundant segments (`./../`, `././`).'
+      : '- Relative imports stay inside their unit; no redundant segments (`./../`, `././`).',
   );
 
   // Only rules a machine actually gates may be called hard — anything else
@@ -240,7 +377,9 @@ export function renderBehavioral(
   rules: Record<string, RuleSetting> | undefined,
 ): string {
   const bullets = [
-    `- Do not create undeclared folders under \`${architecture.alias}/\`. Every folder is a declared layer or a module inside one. (lint can't see this — inspect will.) Inspect offers to declare the folder instead; that one is not yours. Outgrowing the config is the owner's call to make — report it, do not edit the architecture to fit what you just wrote.`,
+    architecture.modules
+      ? `- Do not create undeclared folders under \`${architecture.alias}/\`. Every top-level folder is a declared module; every folder inside one is a declared layer or a unit inside that. A folder nobody declared is an undeclared MODULE: no glob matches it, so lint can't see it — a green lint after creating one proves nothing, and inspect is what reports it. It is outside every module ban too, so a boundary can be broken inside it while lint stays green. Inspect offers to declare the module instead; that one is not yours. Outgrowing the config is the owner's call to make — report it, do not edit the architecture to fit what you just wrote.`
+      : `- Do not create undeclared folders under \`${architecture.alias}/\`. Every folder is a declared layer or a unit inside one. A folder nobody declared is matched by no layer glob, so lint can't see it — a green lint after creating one proves nothing, and inspect is what reports it. Inspect offers to declare the folder instead; that one is not yours. Outgrowing the config is the owner's call to make — report it, do not edit the architecture to fit what you just wrote.`,
     ...claudePrinciples(principles).map(
       (principle) => `- **${principle.say}** — ${principle.why}`,
     ),
@@ -296,9 +435,18 @@ export function renderChecklist(blueprint: Blueprint): string {
   const items = [
     '- [ ] Imports follow the one-way flow (no upstream; same-layer only as a relative path to the sibling).',
     entries.length
-      ? `- [ ] New code sits in the right layer; modules expose only ${entries.join(' / ')}.`
+      ? `- [ ] New code sits in the right layer; units expose only ${entries.join(' / ')}.`
       : '- [ ] New code sits in the right layer.',
   ];
+
+  // Its own box rather than a clause on the one above: the module checks are a
+  // different question from "is this the right layer", and a checklist item that
+  // carries two questions gets ticked on the easier one.
+  if (architecture.modules) {
+    items.push(
+      '- [ ] New code sits in the right module; every cross-module import is declared in `imports` and goes through the other module\'s entry; nothing re-exports another module\'s surface, and nothing reaches up to its own module root.',
+    );
+  }
 
   if (architecture.naming && Object.keys(architecture.naming).length) {
     items.push('- [ ] Names follow the conventions above.');

@@ -153,7 +153,9 @@ export function authoringBrief(
     ),
     renderPrerequisites(install),
     renderGoal(),
-    renderMethod(claudeDir),
+    // The Method's structure step reads the verdict the survey already printed
+    // below, rather than sending an agent back to the tree to re-derive it.
+    renderMethod(claudeDir, survey.shape.kind),
     renderSemantics(),
     renderRuleCatalog(),
     renderSchemaSketch(),

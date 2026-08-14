@@ -511,9 +511,13 @@ export function renderSurvey(result: SurveyResult): string {
     '',
   );
 
+  // "unit-shape evidence" under flat, where the counts below DO measure unit
+  // shape; under modular the same counts read the modules' children, which are
+  // layers — so the modular arm says what the rows are instead of naming a
+  // shape they do not measure. Either way the word "module" keeps one meaning.
   lines.push(result.shape.kind === 'modular'
-    ? 'Folders (module-shape evidence — these are the modules):'
-    : 'Folders (module-shape evidence):');
+    ? 'Folders (these are the modules — the counts below read their children):'
+    : 'Folders (unit-shape evidence):');
 
   for (const folder of result.folders) {
     lines.push(

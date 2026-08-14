@@ -467,7 +467,7 @@ describe('renderSurvey', () => {
     // so every empty section says so out loud — and the sections that have
     // nothing to say stay out entirely rather than heading an empty list.
     expect(output).toContain('Alias: none detected in tsconfig paths');
-    expect(output).toContain('Folders (module-shape evidence):\n  — none —');
+    expect(output).toContain('Folders (unit-shape evidence):\n  — none —');
     expect(output).toContain('its counts run lower):\n  — none —');
     expect(output).not.toContain('src/ root files');
     expect(output).not.toContain('Test conventions:');
@@ -893,7 +893,11 @@ describe('renderSurvey · the shape is stated before the rows it explains', () =
     expect(output).toContain('So the folders below are feature MODULES');
     // Every row below means something different depending on the shape — a
     // `hooks` row is a layer under flat and a module under modular.
-    expect(output).toContain('these are the modules');
+    expect(output).toContain('Folders (these are the modules — the counts below read their children):');
+    // "module-shape evidence" would say both meanings of the word in one line
+    // here: the counts read the modules' CHILDREN, and those children are
+    // layers, not units. The heading says what the rows are instead.
+    expect(output).not.toContain('unit-shape evidence');
     expect(output).toContain('Import matrix (module to module');
   });
 
@@ -927,7 +931,7 @@ describe('renderSurvey · the shape is stated before the rows it explains', () =
   it('leaves a flat tree\'s section headings exactly as they were', () => {
     const output = render(['hooks/useCart/index.ts', 'components/Button/index.ts']);
 
-    expect(output).toContain('Folders (module-shape evidence):');
+    expect(output).toContain('Folders (unit-shape evidence):');
     expect(output).toContain('Import matrix (cross-folder, heaviest first');
     expect(output).not.toContain('these are the modules');
     // Asserted as what this arm says, not only as what it does not: the

@@ -268,7 +268,7 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
       // would only restate one.
       layers: layers(owns, modular),
       naming: {
-        component: 'PascalCase; the implementation file is named after the module',
+        component: 'PascalCase; the implementation file is named after the unit',
         hook: 'useX — only when it genuinely uses reactivity',
         service: 'snake_case',
         context: 'XxxProvider / XxxContext',

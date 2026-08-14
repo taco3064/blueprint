@@ -2348,7 +2348,7 @@ describe('the playbook only invites tools that run yet (field issue #35)', () =>
     // step 9.
     expect(playbook).toContain('then let `inspect` correct you');
     expect(playbook).toContain('but is NOT available at this point');
-    expect(playbook).toContain('joins the loop at Method step 9');
+    expect(playbook).toContain('joins the loop at Method step 10');
     expect(playbook).not.toContain('`inspect` and `impact` are read-only');
     // The drafting-loop step names inspect alone; impact appears only with
     // init in front of it. (The dep failure itself cannot be staged here —

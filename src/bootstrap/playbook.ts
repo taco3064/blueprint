@@ -8,7 +8,7 @@ import type {
   ViteTsCoverage,
 } from '../project';
 import { renderSurvey } from '../survey';
-import type { SurveyResult } from '../survey';
+import type { SurveyResult, TreeShape } from '../survey';
 
 /**
  * The authoring playbook, one function per emitted section — `authoringBrief`'s
@@ -78,7 +78,7 @@ export function renderNextNote(next: boolean): string {
     '',
     '> **Next.js project.** The route tree (`app/`, or `pages/` on the Pages Router) is itself a layer — declare it at the top of the flow (a typical shape: `app` → `components` → `hooks` → `lib`).',
     '> Never scaffold or declare an empty `src/pages` alongside the App Router: that folder name is a routing convention.',
-    '> File module layout fits the route tree — relative imports stay free inside a segment while cross-layer traffic uses the alias.',
+    '> File unit layout fits the route tree — relative imports stay free inside a segment while cross-layer traffic uses the alias.',
   ].join('\n');
 }
 
@@ -342,7 +342,7 @@ export function renderGoal(): string {
     '',
     '**Work the loop, not the archive.** Everything below is evidence and reference — it is NOT a syllabus to master before touching the config.',
     'Draft `blueprint.config.mjs` early from the survey and the rule catalog, then let `inspect` correct you: it is read-only, cheap, and needs nothing installed, and a wrong draft fixed in two runs beats a perfect draft after an hour of code archaeology.',
-    '`impact` is the same kind of read-only feedback but is NOT available at this point — it lints with the emitted config, so it needs the plugins `init` installs; it joins the loop at Method step 9, after init.',
+    '`impact` is the same kind of read-only feedback but is NOT available at this point — it lints with the emitted config, so it needs the plugins `init` installs; it joins the loop at Method step 10, after init.',
     'Reaching for it while drafting only earns you a load error.',
     'In field runs, agents that drafted first finished in a fraction of the time of agents that studied first — at the same quality, because the acceptance gates are the same.',
     'And if you ever feel the need to read the package\'s `dist/` bundle to answer a question, stop: the answer belongs in this playbook — note the gap in your report instead.',
@@ -416,7 +416,7 @@ function renderTestExemptions(): string {
 }
 
 /**
- * Method step 9's lint-merge bullet, the playbook's largest passage: a later flat-
+ * Method step 10's lint-merge bullet, the playbook's largest passage: a later flat-
  * config entry REPLACES an earlier one, so a merge that reads clean can delete a
  * defense while lint stays green. Not split further on purpose — its paragraphs
  * refer back to each other, so five functions would make their order load-bearing
@@ -443,7 +443,7 @@ function renderLintMerge(): string {
 }
 
 /**
- * Step 9's debt posture: keep severity at `error` and ratchet, never mute. Earns a
+ * Step 10's debt posture: keep severity at `error` and ratchet, never mute. Earns a
  * name for the exception it carries — `codeStyle` and `statementPadding` are
  * nearly all auto-fixable, so they are fixed rather than ledgered, and that fix is
  * its own commit because it rewrites whitespace across every layer file.
@@ -465,7 +465,7 @@ function renderRatchet(): string {
 }
 
 /**
- * Step 9's overlapping-tool decision. Earns a name for the one case where
+ * Step 10's overlapping-tool decision. Earns a name for the one case where
  * consolidation stops being the owner's scope decision and becomes a wiring
  * precondition: when the existing tool configures the SAME ESLint rules emitLint
  * emits, coexistence is mechanically impossible and doctor's survival check fails.
@@ -489,13 +489,13 @@ function renderOverlappingTool(): string {
 }
 
 /**
- * Method step 9 — "Finish means integrated, not parked". A step by numbering only,
+ * Method step 10 — "Finish means integrated, not parked". A step by numbering only,
  * and the passage field findings land in, because integration is where adoption
  * actually fails. The three short bullets stay inline.
  */
 function renderFinishStep(claudeDir: ClaudeDirState): string {
   return [
-    `9. **Finish — and finish means integrated, not parked.** Run \`npx blueprint init\`, then \`npx blueprint inspect --update-baseline\`, write the report, and delete ${cleanupTargets(claudeDir)} The tool never touches files you own, so it leaves \`*.blueprint.*\` references next to them — **those references are your input, not the deliverable.`,
+    `10. **Finish — and finish means integrated, not parked.** Run \`npx blueprint init\`, then \`npx blueprint inspect --update-baseline\`, write the report, and delete ${cleanupTargets(claudeDir)} The tool never touches files you own, so it leaves \`*.blueprint.*\` references next to them — **those references are your input, not the deliverable.`,
     `   Adoption is not done while any reference file remains:**`,
     '   - **Declare your own tool** in the config — `emit: { agents: [\'claude\'] }` (Claude Code) or `[\'agents\']` (codex & friends) — so init generates one contract file, not one per tool nobody uses.',
     '     Declare the tool RUNNING this adoption — you know who you are; never guess at future tools (the next one is a one-line config change away).',
@@ -543,7 +543,7 @@ function renderIntentDocuments(): string {
     '   Take the new wording and say in your report that it changed.',
     '   Never hand-revert generated text toward what git happens to hold.',
     '   Documents also go stale: cross-check every translated clause against the survey below.',
-    '   Where they disagree, the document governs *intent* (layer order, ownership) and the code governs *shape* (module layout) — downgrade the stale clause and record the conflict in your report.',
+    '   Where they disagree, the document governs *intent* (layer order, ownership) and the code governs *shape* (unit layout) — downgrade the stale clause and record the conflict in your report.',
     '   Flow documents often draw a DAG; blueprint\'s order is linear (a layer may import *any* later layer).',
     '   Linearize, then verify against the matrix — linear is transitive, so it is usually a strict relaxation, not a real change.',
     '   Downgrading a clause leaves that drawing disagreeing with the config you just wrote.',
@@ -555,33 +555,74 @@ function renderIntentDocuments(): string {
 }
 
 /**
- * The nine steps, and the largest section by far — step 9 alone carries the
+ * Step 3 — which root model the config declares, read off the survey's own
+ * verdict rather than derived again here.
+ *
+ * The survey already measured this and printed the answer with its reason, so
+ * this step CONSUMES it. Re-deriving the heuristic in prose would be the same
+ * passage written twice, and the copy that cannot see the repo is the one that
+ * goes stale — `detectShape` is where that reasoning lives and where it changes.
+ *
+ * It sits above "decide what is a layer" because it decides what a top-level
+ * folder even is: a layer under `flat`, a module under `modular`.
+ */
+function renderStructureStep(shape: TreeShape): string {
+  const verdict = {
+    modular: '   The survey below read this tree as **MODULAR**: the top-level folders are feature modules and the technical layers are their children.'
+      + '\n   So declare `architecture.modules` — one entry per top-level folder, ordered so that every module only needs to name modules after it — and put the shared child vocabulary in `layers`.'
+      + '\n   `architecture.layerFiles` must carry a `{module}` placeholder there; the config is rejected without one.',
+    flat: '   The survey below read this tree as **FLAT**: the top-level folders are the technical layers themselves.'
+      + '\n   So omit `architecture.modules` entirely — `src/` is the single implicit module and `layers` describes it — and leave `{module}` out of `architecture.layerFiles`.',
+    unknown: '   The survey below **could not tell**, and it does not guess.'
+      + '\n   Read each folder row on its own evidence, pick the model most of the tree already is, and say in your report which you picked and what decided it.'
+      + '\n   Half-and-half is not a third option: the config declares one model for the whole source root.',
+  }[shape];
+
+  return [
+    '3. **Take the root model from the survey — it decides whether `architecture.modules` exists at all.**',
+    '   This is measured, not judged: the verdict and the reason that produced it are printed in the survey evidence below, and re-deriving them by reading the tree yourself is how the two answers start disagreeing.',
+    verdict,
+    '   Declare the one model and nothing else. `structure-mismatch` fires when the tree matches one model and the config declares the other, and no lint rule can hold it — the config picks the vocabulary every glob is expanded from, so lint runs INSIDE the answer and has no position from which to question it.',
+    '   Declaring the folders as they stand goes green over a list copied off the disk.',
+  ].join('\n');
+}
+
+/**
+ * The ten steps, and the largest section by far — step 10 alone carries the
  * whole integration boundary, because "finish" is where adoption gets parked:
  * the tool declaration, the lint merge and its flat-config traps, the ratchet
  * posture, the overlapping-tool decision, and what must be committed.
  *
- * `claudeDir` reaches here for step 9's cleanup, which names the same targets
- * the early-exit checklist does — see `cleanupTargets`.
+ * `claudeDir` reaches here for step 10's cleanup, which names the same targets
+ * the early-exit checklist does — see `cleanupTargets`. `shape` reaches here
+ * for step 3, which reads the survey's verdict rather than restating it.
  */
-export function renderMethod(claudeDir: ClaudeDirState): string {
+export function renderMethod(claudeDir: ClaudeDirState, shape: TreeShape): string {
+  // Under `modular` a top-level folder is a module and the layer candidates sit
+  // one level down. Said flat-only, this step contradicts the one above it.
+  const candidates = shape === 'modular'
+    ? '4. **Decide what is a layer.** The child folders INSIDE each module are the candidates — the top-level folders are the modules step 3 named, and files sitting directly in a module root are its composition (never a layer).'
+    : '4. **Decide what is a layer.** Top-level folders under `src/` are candidates; root files are app wiring (never a layer).';
+
   return [
     '',
     '## Method',
     '',
     renderIntentDocuments(),
     '2. **Study the survey evidence below.** Every number is deterministic fact from this repo; do not re-derive it by grepping.',
-    '3. **Decide what is a layer.** Top-level folders under `src/` are candidates; root files are app wiring (never a layer).',
+    renderStructureStep(shape),
+    candidates,
     '   Test plumbing (`test/`, `__tests__/`) belongs in `testFiles`, not in `layers`.',
     '   A folder that exists but holds no source files usually signals declared intent — check the documents from step 1 before dropping it.',
-    '4. **Infer the one-way flow.** Order layers so the *majority* direction of the import matrix points downward.',
+    '5. **Infer the one-way flow.** Order layers so the *majority* direction of the import matrix points downward.',
     '   Counter-edges are debt to surface, not intent to encode — never contort the order to make findings zero.',
-    '5. **Choose module shape per layer.** High `index`-coverage child folders → `layout: \'folder\'` on that layer (`entry` defaults to `\'index\'`); plain files → the file default (declare neither key — a layer that omits both resolves to `{ layout: \'file\', entry: \'index\' }`).',
+    '6. **Choose unit shape per layer.** High `index`-coverage child folders → `layout: \'folder\'` on that layer (`entry` defaults to `\'index\'`); plain files → the file default (declare neither key — a layer that omits both resolves to `{ layout: \'file\', entry: \'index\' }`).',
     '   The shape is per layer, so a mixed repo states it on each one; there is no project-wide setting to override.',
-    '6. **Assign ownership.** A package imported by exactly one folder (see the concentration list) is an `owns` candidate for that layer.',
+    '7. **Assign ownership.** A package imported by exactly one folder (see the concentration list) is an `owns` candidate for that layer.',
     '   A candidate the intent documents never mention is a proposal, not intent — leave it out of the config and name it in the report; encoding it is tightening beyond what the repo declared.',
-    '7. **Write the config** with `defineBlueprint` (schema sketch below).',
-    '8. **Validate — the loop that keeps you honest.** Run `npx blueprint inspect`.',
-    '   A findings explosion (roughly more findings than source files, or one dominant rule everywhere) means you mistranslated intent — revisit the order or the module shapes.',
+    '8. **Write the config** with `defineBlueprint` (schema sketch below).',
+    '9. **Validate — the loop that keeps you honest.** Run `npx blueprint inspect`.',
+    '   A findings explosion (roughly more findings than source files, or one dominant rule everywhere) means you mistranslated intent — revisit the order or the unit shapes.',
     '   Converged means: every finding is explainable as real, nameable debt.',
     renderFinishStep(claudeDir),
   ].join('\n');
@@ -599,11 +640,11 @@ export function renderSemantics(): string {
     '',
     'Facts about the emitted rules that drive authoring decisions — stated here so you never have to reverse-engineer them from the bundle:',
     '',
-    '- **File layout:** the module is the whole layer, so same-layer *relative* imports are always legal.',
+    '- **File layout:** the unit is the whole layer, so same-layer *relative* imports are always legal.',
     '  The alias is for crossing layers — a same-layer import through the alias becomes an error the moment the lint is wired.',
-    '- **Folder layout:** a module is one child folder with private internals.',
+    '- **Folder layout:** a unit is one child folder with private internals.',
     '  A *same-layer* sibling is reachable through its entry, and only that way: `../Sibling` is legal, `~app/<own layer>/Sibling` is not — so a same-layer edge has exactly one shape.',
-    '  Reaching *past* that entry (`../Sibling/internals`) is the violation, caught at any depth by `blueprint/relative-escape`. Lower-layer modules are importable through their entry too.',
+    '  Reaching *past* that entry (`../Sibling/internals`) is the violation, caught at any depth by `blueprint/relative-escape`. Lower-layer units are importable through their entry too.',
     '- **Pre-wiring check:** the survey\'s "Same-folder imports via the alias" count is an upper bound on the errors the wiring will introduce, not the exact number — it is a textual count that includes test files (exempt in the emitted config) and non-static references (dynamic imports, mock specifiers, doc comments) the wired rules may never flag.',
     '  Treat non-zero as "look here"; once the config exists, `npx blueprint impact` reports the real per-rule count.',
     '  The fix for true hits is layout-dependent — file: rewrite them as relative imports; folder: rewrite them as a relative import of the sibling\'s *entry* (`../Sibling`), never a deeper path into it (that one does trade the error for `relative-escape`).',
@@ -640,7 +681,7 @@ export function renderRuleCatalog(): string {
     '- `no-restricted-syntax` — re-export bans for `selfOnly` importers, emitted ONLY when an allowedImporters ENTRY declares it (`allowedImporters: [{ layer: \'views\', selfOnly: true }]` — a layer-level `selfOnly` key is invalid and validation rejects it) — no selfOnly, no syntax rule to collide with your own `no-restricted-syntax`.',
     '  `blueprint rules` annotates whether THIS config emits it — never probe emitLint to find out.',
     '- `no-restricted-globals` — global ownership (e.g. `{ global: \'fetch\' }`)',
-    '- `blueprint/relative-escape` — depth-aware `../` module escapes (embedded plugin; ships inside the emitted config)',
+    '- `blueprint/relative-escape` — depth-aware `../` escapes: past a sibling unit\'s entry, out of a layer, out of a module, above the source root (embedded plugin; ships inside the emitted config)',
     '- `blueprint/no-module-reexport` — re-exporting another feature module\'s surface through your own, in any spelling (embedded plugin; emitted only when `architecture.modules` is declared)',
     '- `blueprint/no-module-root-import` — a layer reaching up to its own module root, at the alias spellings a `paths` entry cannot name (embedded plugin; emitted only when `architecture.modules` is declared)',
     '',

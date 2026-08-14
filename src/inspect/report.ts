@@ -5,7 +5,7 @@ const ICON: Record<Severity, string> = { error: '✗', warn: '⚠', info: '·' }
 
 const MIGRATION: Record<string, string> = {
   'structure-mismatch': 'Settle the `structure` choice before any single declaration — the tree matches one model and the config declares the other, so declaring the folders as they stand goes green over a list copied off the disk. The finding names the edit for each answer.',
-  'undeclared-folder': 'Move undeclared folders into a module of an existing layer, or declare them as layers.',
+  'undeclared-folder': 'Move undeclared folders into a unit of an existing layer, or declare them as layers.',
   'undeclared-module': 'Declare the folder in `architecture.modules`, at a position the measured edges allow, or fold its code into a module that is already declared. Until then nothing inside it is governed and lint cannot say so.',
   'flow-violation': 'Rework imports to follow the one-way flow; extract shared code down to a lower layer.',
   'deep-import': 'Import modules through their entry file, never their internals.',
