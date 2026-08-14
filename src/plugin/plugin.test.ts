@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { plugin } from './plugin';
@@ -100,5 +103,62 @@ describe('plugin', () => {
         additionalProperties: false,
       },
     ]);
+  });
+});
+
+const HERE = fileURLToPath(new URL('.', import.meta.url));
+const FILES = fs.readdirSync(HERE).filter((name) => name.endsWith('.ts'));
+const SHIPPED = FILES.filter((name) => !name.endsWith('.test.ts'));
+
+/**
+ * The plugin's entire internal dependency list — one entry, running DOWNWARD.
+ * Stated as the whole list rather than as a ban on the last thing that went
+ * wrong: an allowlist of one reddens for a second dependency as well as for a
+ * returning `inspect`, and a ban on one name only ever catches that name.
+ */
+const INTERNAL_DEPS = ['../boundary'];
+
+/** Every module specifier a file imports or re-exports, comments excluded. */
+function specifiersOf(file: string): string[] {
+  const source = fs.readFileSync(path.join(HERE, file), 'utf8')
+    .split('\n')
+    .filter((line) => !/^\s*(?:\/\/|\/?\*)/.test(line))
+    .join('\n');
+
+  const matches = source.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)'([^']+)'/g);
+
+  return [...matches].map(([, specifier]) => specifier);
+}
+
+/**
+ * `tsc` and a green suite prove these imports resolve; they cannot prove the
+ * direction they run in, which is the only thing a relocation puts at risk.
+ * The plugin ships inside an adopter's flat config and has to stand alone
+ * there, so what it may reach is a contract rather than a convention — and it
+ * was already broken once, quietly, by three rules reading `inspect/resolve`
+ * directly (#234).
+ */
+describe('plugin · what it is allowed to depend on', () => {
+  it('reaches exactly one module outside its own folder', () => {
+    const outside = SHIPPED.flatMap(specifiersOf).filter((specifier) => specifier.startsWith('..'));
+
+    expect([...new Set(outside)].sort()).toEqual(INTERNAL_DEPS);
+  });
+
+  it('imports that one through its entry, never a file inside it', () => {
+    // `../boundary/verdict` would resolve and test green while making the
+    // plugin depend on where a function sits rather than on what the module
+    // publishes. The assertion above reads the whole specifier, so this is
+    // what that equality is buying.
+    expect(INTERNAL_DEPS.every((specifier) => specifier.split('/').length === 2)).toBe(true);
+  });
+
+  it('never reads inspect — not from a rule, and not from a test either', () => {
+    const specifiers = FILES.flatMap(specifiersOf);
+
+    // Anchored, so "no inspect" cannot pass by having read nothing: every rule
+    // file imports `eslint` for its `Rule` type.
+    expect(specifiers).toContain('eslint');
+    expect(specifiers.filter((specifier) => specifier.includes('inspect'))).toEqual([]);
   });
 });
