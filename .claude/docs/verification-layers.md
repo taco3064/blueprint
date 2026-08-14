@@ -33,3 +33,14 @@ Earned in one sitting: splitting `authoringBrief` into per-section renderers
 silently dropped the template's final newline, so every emitted playbook lost
 its trailing blank line, and 1154 green tests did not notice. Only the byte diff
 did. Keep the baseline out of the repo — it is scaffolding, not a contract.
+
+**Every conditional combination, and that word is the whole instruction.** An
+empty diff is the result you are hoping for, which is exactly why it has to be
+earned: a branch you never rendered produces the same empty diff as a branch that
+did not change, and nothing distinguishes them afterwards. So enumerate the
+branches first, from the code, and render one file per combination — then an
+empty diff means something. Skipping to a grep is the shortcut this warns
+against, and it has already cost once: a ticket claimed the emitted prose was
+unaffected by a value rename because `grep` found no hits, when what `grep` had
+matched was the branch *condition* and the strings it selects were never
+inspected.

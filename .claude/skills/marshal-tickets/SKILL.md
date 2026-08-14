@@ -398,6 +398,13 @@ against the code as it stands now:
   helper, or a shared verdict function, name it in the ticket. A ticket that does
   not point at one invites a second implementation of the same rule, and two
   sources of truth that agree today have not agreed about tomorrow.
+- **This skill, and the docs the tickets stand on.** They change under a running
+  tier, and a session already in flight never re-reads them — so a rule added
+  mid-tier reaches nobody working at the time. That is not hypothetical: the rule
+  directly above about writing knowledge down instead of carrying it was merged
+  during a tier, and the next handoff still went out as a message. Re-read at the
+  boundary, and when something changed, say so in the dispatch that starts the
+  next ticket.
 
 Then check one thing that is not a ticket at all:
 
