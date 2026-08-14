@@ -8,6 +8,11 @@ const findings: Finding[] = [
   { severity: 'warn', rule: 'no-entry', path: 'src/components/Btn', subject: '', message: 'no entry' },
 ];
 
+/** The rendered header lines — one per finding, in order. */
+function headers(rendered: string): string[] {
+  return rendered.split('\n').filter((line) => /^ {2}[·⚠✗] \[/.test(line));
+}
+
 describe('hasErrors', () => {
   it('is true only when an error-level finding exists', () => {
     expect(hasErrors(findings)).toBe(true);
@@ -37,10 +42,11 @@ describe('report', () => {
     expect(out).not.toContain('Recommended migration steps');
   });
 
-  it('renders the finding without its subject — that field is identity, not prose', () => {
-    // The subject is what the baseline keys on. It is deliberately absent from the
-    // rendered line: the message already names the specifier in a sentence, and a
-    // report that prints both says the same thing twice in two formats.
+  it('leaves the subject out of a header that identifies its finding already', () => {
+    // `rule` + `path` name one finding here, so the header is complete without the
+    // third part of the identity, and the message already carries the specifier in a
+    // sentence. Pinned as a whole line rather than a substring: a renderer that
+    // appended the subject to every finding would satisfy `toContain` unchanged.
     const out = report([
       {
         severity: 'error',
@@ -51,7 +57,7 @@ describe('report', () => {
       },
     ]);
 
-    expect(out).toContain('[deep-import] src/pages/Home/Home.tsx');
+    expect(headers(out)).toEqual(['  ✗ [deep-import] src/pages/Home/Home.tsx']);
     expect(out).toContain('reaches inside a module');
     expect(out.match(/~app\/hooks\/useX\/impl/g)).toHaveLength(1);
   });
@@ -188,5 +194,107 @@ describe('report · root-import names both rules that hold it', () => {
     // The third channel, for the spellings a `paths` entry cannot name — a root
     // component's own filename among them.
     expect(rendered).toContain('blueprint/no-module-root-import for every other alias spelling');
+  });
+});
+
+describe('report · a repeated header carries what tells its findings apart', () => {
+  // A finding's identity is three-part — the baseline keys on `rule` + `path` +
+  // `subject` — and a header shows the first two. Under `architecture.modules` every
+  // layer-level note is addressed at the source root, so four notes printed `src`
+  // and which layer each was about lived in the prose underneath.
+  const atSourceRoot: Finding[] = [
+    { severity: 'info', rule: 'missing-layer', path: 'src', subject: 'hooks', message: 'Declared layer "hooks" holds no code in any module yet.' },
+    { severity: 'info', rule: 'missing-layer', path: 'src', subject: 'contexts', message: 'Declared layer "contexts" holds no code in any module yet.' },
+    { severity: 'info', rule: 'owns-not-installed', path: 'src', subject: 'rbush', message: 'Layer "hooks" owns "rbush", which is not in package.json.' },
+    { severity: 'info', rule: 'declaratory-self-only', path: 'src', subject: 'contexts', message: 'selfOnly on "contexts" (importer(s): hooks) is declaratory.' },
+  ];
+
+  it('separates two findings that share a rule and a path', () => {
+    expect(headers(report(atSourceRoot)).slice(0, 2)).toEqual([
+      '  · [missing-layer] src — hooks',
+      '  · [missing-layer] src — contexts',
+    ]);
+  });
+
+  it('prints no header line twice', () => {
+    const lines = headers(report(atSourceRoot));
+
+    expect(lines).toHaveLength(atSourceRoot.length);
+    expect(new Set(lines).size).toBe(atSourceRoot.length);
+  });
+
+  it('leaves a header bare when its rule already separates it from its neighbours', () => {
+    // These two are one each, so their rule ids do the work and the subject they
+    // carry stays out of the header — including the `contexts` one note above
+    // renders. The header answers repetition, not the presence of a subject.
+    expect(headers(report(atSourceRoot)).slice(2)).toEqual([
+      '  · [owns-not-installed] src',
+      '  · [declaratory-self-only] src',
+    ]);
+  });
+
+  it('reads the path as part of a header, not the rule alone', () => {
+    // One rule at two paths, each carrying a subject: the paths separate them, so
+    // neither header needs the specifier. A key that read the rule alone would
+    // append one to both.
+    const twoFiles: Finding[] = [
+      { severity: 'error', rule: 'flow-violation', path: 'src/hooks/useA/index.ts', subject: '~app/hooks/useB', message: 'same-layer import' },
+      { severity: 'error', rule: 'flow-violation', path: 'src/hooks/useB/index.ts', subject: '~app/hooks/useA', message: 'same-layer import' },
+    ];
+
+    expect(headers(report(twoFiles))).toEqual([
+      '  ✗ [flow-violation] src/hooks/useA/index.ts',
+      '  ✗ [flow-violation] src/hooks/useB/index.ts',
+    ]);
+  });
+
+  it('leaves a flat project\'s two absent layers as they were', () => {
+    // #244's pinned flat case: the layer has a folder of its own here, so the paths
+    // differ and `subject` is `''` for exactly that reason.
+    const flat: Finding[] = [
+      { severity: 'info', rule: 'missing-layer', path: 'src/hooks', subject: '', message: 'no folder yet' },
+      { severity: 'info', rule: 'missing-layer', path: 'src/contexts', subject: '', message: 'no folder yet' },
+    ];
+
+    expect(headers(report(flat))).toEqual([
+      '  · [missing-layer] src/hooks',
+      '  · [missing-layer] src/contexts',
+    ]);
+  });
+
+  it('separates findings that share a header on a flat project too', () => {
+    // `modules` made this frequent rather than possible: `owns-not-installed` loops
+    // one layer's `owns` list at one path, and the per-import rules fire once per
+    // import ref, so a flat project reaches the same repetition with no `modules` in
+    // the config. Both shapes measured through `dist/bin.js`.
+    const flat: Finding[] = [
+      { severity: 'info', rule: 'owns-not-installed', path: 'src/hooks', subject: 'rbush', message: 'Layer "hooks" owns "rbush".' },
+      { severity: 'info', rule: 'owns-not-installed', path: 'src/hooks', subject: 'zustand', message: 'Layer "hooks" owns "zustand".' },
+      { severity: 'error', rule: 'deep-import', path: 'src/pages/Home/index.tsx', subject: '~app/hooks/useA/impl', message: 'reaches inside a module' },
+      { severity: 'error', rule: 'deep-import', path: 'src/pages/Home/index.tsx', subject: '~app/hooks/useB/impl', message: 'reaches inside a module' },
+    ];
+
+    expect(headers(report(flat))).toEqual([
+      '  · [owns-not-installed] src/hooks — rbush',
+      '  · [owns-not-installed] src/hooks — zustand',
+      '  ✗ [deep-import] src/pages/Home/index.tsx — ~app/hooks/useA/impl',
+      '  ✗ [deep-import] src/pages/Home/index.tsx — ~app/hooks/useB/impl',
+    ]);
+  });
+
+  it('appends nothing when findings sharing a header carry no subject', () => {
+    // No analysis produces this pair: the four directory findings are one per
+    // directory, and they are the ones that leave `subject` empty. Asked of the
+    // renderer directly because the alternative it guards is a header ending in a
+    // bare separator, which is a rendering fault whatever reached it.
+    const twins: Finding[] = [
+      { severity: 'warn', rule: 'no-entry', path: 'src/pages/Home', subject: '', message: 'first' },
+      { severity: 'warn', rule: 'no-entry', path: 'src/pages/Home', subject: '', message: 'second' },
+    ];
+
+    expect(headers(report(twins))).toEqual([
+      '  ⚠ [no-entry] src/pages/Home',
+      '  ⚠ [no-entry] src/pages/Home',
+    ]);
   });
 });

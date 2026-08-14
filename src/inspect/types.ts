@@ -12,7 +12,9 @@ export interface Finding {
    * members, `''` where `rule` and `path` already identify it.
    *
    * The stable half of a finding's identity: the baseline keys on `rule` + `path` +
-   * `subject`, never on `message`, which is prose that gets reworded.
+   * `subject`, never on `message`, which is prose that gets reworded. The text
+   * report shows it in the header wherever that pair repeats, which is the other
+   * half of why it is carried rather than derived from the message.
    */
   subject: string;
   message: string;

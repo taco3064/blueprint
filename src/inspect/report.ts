@@ -61,6 +61,33 @@ export function hasErrors(findings: Finding[]): boolean {
   return findings.some((finding) => finding.severity === 'error');
 }
 
+/** What a header shows of a finding's identity, spelled as the header spells it. */
+function headerKey(finding: Finding): string {
+  return `[${finding.rule}] ${finding.path}`;
+}
+
+/**
+ * The header keys more than one finding answers to.
+ *
+ * A finding's identity is three-part — the baseline keys on `rule` + `path` +
+ * `subject` — and a header shows the first two, so a repeated pair prints one line
+ * twice for findings that are resolved separately.
+ */
+function repeatedHeaders(findings: Finding[]): Set<string> {
+  const seen = new Set<string>();
+  const repeated = new Set<string>();
+
+  for (const finding of findings) {
+    const key = headerKey(finding);
+
+    if (seen.has(key)) repeated.add(key);
+
+    seen.add(key);
+  }
+
+  return repeated;
+}
+
 /**
  * Render findings as a human-readable Architecture Report with migration steps.
  *
@@ -78,9 +105,19 @@ export function report(findings: Finding[]): string {
 
   for (const finding of findings) counts[finding.severity]++;
 
-  const lines = findings.map(
-    (finding) => `  ${ICON[finding.severity]} [${finding.rule}] ${finding.path}\n      ${finding.message}`,
-  );
+  const repeated = repeatedHeaders(findings);
+
+  // The subject joins a header only where that header repeats. Printed always, it
+  // would restate a specifier the message names in a sentence one line down, on
+  // every import finding in every report; printed here, no reader meets two lines
+  // that read alike and has to descend into the prose to tell which is which.
+  const lines = findings.map((finding) => {
+    const shown = repeated.has(headerKey(finding)) && finding.subject !== ''
+      ? ` — ${finding.subject}`
+      : '';
+
+    return `  ${ICON[finding.severity]} [${finding.rule}] ${finding.path}${shown}\n      ${finding.message}`;
+  });
 
   const rules = [...new Set(findings.map((finding) => finding.rule))];
 
