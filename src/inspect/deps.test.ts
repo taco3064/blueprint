@@ -710,6 +710,48 @@ describe('runDeps · the modular answers are built, not defaulted', () => {
     expect(modules.find((entry) => entry.module === 'app')?.imports).toEqual(['Fighter']);
   });
 
+  it('reads an edge only the module root makes', async () => {
+    // `Fighter/index.ts` importing `~app/Combat` is the edge a reader of this
+    // graph most wants, and it is the one a layer test cannot see: the root's
+    // segment at layer depth is a filename. Asserted through an edge NO unit
+    // also makes, or a unit's own edge would cover for it.
+    twoUnits();
+    writeSrc('Combat/index.ts', 'export const C = 1;');
+
+    fs.writeFileSync(
+      path.join(root, 'blueprint.config.mjs'),
+      `export default ${JSON.stringify({
+        framework: 'react',
+        architecture: {
+          alias: '~app',
+          modules: [
+            { name: 'Fighter', does: 'the ship', imports: ['Combat'] },
+            { name: 'Combat', does: 'bullets' },
+          ],
+          layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+        },
+      })};\n`,
+    );
+
+    writeSrc('Fighter/index.ts', 'import { C } from \'~app/Combat\';');
+
+    const { modules } = await runDeps(root, { log: silent });
+
+    expect(modules.find((entry) => entry.module === 'Fighter')?.imports).toEqual(['Combat']);
+  });
+
+  it('keeps a folder inside a module that is not a declared layer out of the graph', async () => {
+    // The layer test still runs at module depth. Dropped, a typo like
+    // `Fighter/hoosk/` joins the graph and `deps` reports a unit nobody wrote —
+    // the same half-governed-and-green state the glob product exists to avoid.
+    twoUnits();
+    writeSrc('Fighter/hoosk/useTypo/useTypo.ts', 'export const t = 1;');
+
+    const { units } = await runDeps(root, { log: silent });
+
+    expect(units.map((entry) => entry.unit)).not.toContain('Fighter/hoosk/useTypo');
+  });
+
   it('never reports a declared module as a skipped folder', async () => {
     // The skipped list answers "is this folder in the graph at all", asked of
     // whatever occupies the top level. Asked with layer names on a modular
