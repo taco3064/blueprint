@@ -196,6 +196,48 @@ await check('`init --dry-run` plans against a real fixture and writes nothing', 
   return 'code 0, tree unchanged';
 });
 
+await check('`init --structure` decides the config it writes, and refuses a bad value', () => {
+  // The one flag whose whole point is the FILE it leaves behind, so a dry run
+  // cannot verify it: the plan prints "would write: blueprint.config.mjs" and
+  // never the body. Driven through the bundle rather than an import, because
+  // that is the only layer where an adopter meets it.
+  const dir = tempDir('bp-dist-structure-');
+
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    JSON.stringify({ name: 'fixture', dependencies: { vue: '^3' } }),
+  );
+
+  const bad = runCmd(process.execPath, [binPath, 'init', '--structure', 'banana'], { cwd: dir });
+
+  expect(bad.code === 1, `a bad value exited ${bad.code}, expected 1`);
+  expect(
+    bad.output.includes('flat | modular'),
+    `the refusal does not name both values: ${JSON.stringify(bad.output.trim())}`,
+  );
+  expect(
+    !fs.existsSync(path.join(dir, 'blueprint.config.mjs')),
+    'a refused run still wrote a config',
+  );
+
+  const { code, output } = runCmd(
+    process.execPath,
+    [binPath, 'init', '--structure', 'modular', '--no-install'],
+    { cwd: dir },
+  );
+
+  expect(code === 0, `exited ${code}\n${output}`);
+
+  const config = fs.readFileSync(path.join(dir, 'blueprint.config.mjs'), 'utf-8');
+
+  expect(
+    config.includes('structure: \'modular\''),
+    `the written config does not declare the structure: ${JSON.stringify(config)}`,
+  );
+
+  return 'code 1 on banana, modular config written';
+});
+
 // -------------------------------------------- the bin through an npm-style link
 
 if (process.platform === 'win32') {

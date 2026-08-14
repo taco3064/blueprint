@@ -1,8 +1,8 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { nextPreset, reactPreset, vuePreset } from '../presets';
-import type { NextRouter } from '../presets';
+import { NEXT_STRUCTURE_REFUSAL, nextPreset, reactPreset, vuePreset } from '../presets';
+import type { NextRouter, PresetStructure } from '../presets';
 import { validateBlueprint } from '../config';
 import type { AgentTarget, Blueprint } from '../config';
 import { CONFIG_FILE } from './detect';
@@ -19,6 +19,12 @@ export interface ResolveOptions {
    * never touched — its own `emit.agents` is the declaration.
    */
   scaffoldAgents?: AgentTarget[];
+  /**
+   * Root structure for a scaffolded config (`init --structure`). Only reached
+   * when one is generated: an existing config's own `architecture.modules` is
+   * the answer, and a flag contradicting it is not a tie to break.
+   */
+  structure?: PresetStructure;
 }
 
 /* v8 ignore start -- real dynamic import, not run in unit tests (loadConfig is injected) */
@@ -60,6 +66,16 @@ export async function resolveBlueprint(
   // Next.js with a detected route tree gets its own preset — the route dir
   // is the top layer, and the source root follows --src-dir.
   if (state.hasNext && state.nextRouter) {
+    // `flat` is what this preset already builds, so it is answered rather than
+    // refused; `modular` has nowhere to land. One text, prefixed with the fact
+    // only this site knows: why a CLI run that never named Next reached it.
+    if (options.structure === 'modular') {
+      throw new Error(
+        '--structure modular is not available here: this repo has a Next.js route tree, '
+        + `so init resolves the Next preset. ${NEXT_STRUCTURE_REFUSAL}`,
+      );
+    }
+
     const blueprint = nextPreset({
       ...(state.projectName ? { name: state.projectName } : {}),
       router: state.nextRouter,
@@ -91,11 +107,12 @@ export async function resolveBlueprint(
   const blueprint = preset({
     ...(state.projectName ? { name: state.projectName } : {}),
     ...(agents ? { emit: { agents } } : {}),
+    ...(options.structure ? { structure: options.structure } : {}),
   });
 
   return {
     blueprint,
-    configSource: buildConfigSource(framework, state.projectName, agents),
+    configSource: buildConfigSource(framework, state.projectName, agents, options.structure),
   };
 }
 
@@ -111,9 +128,18 @@ export function buildConfigSource(
   framework: 'vue' | 'react',
   name?: string,
   agents?: AgentTarget[],
+  structure?: PresetStructure,
 ): string {
   const factory = framework === 'vue' ? 'vuePreset' : 'reactPreset';
-  const fields = [...(name ? [`name: '${name}'`] : []), ...emitField(agents)];
+
+  // `flat` is the preset's default, so declaring it would only restate one —
+  // the same reason `entry` is omitted throughout the presets.
+  const fields = [
+    ...(name ? [`name: '${name}'`] : []),
+    ...(structure === 'modular' ? [`structure: '${structure}'`] : []),
+    ...emitField(agents),
+  ];
+
   const arg = fields.length ? `{ ${fields.join(', ')} }` : '';
 
   return [

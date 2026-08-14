@@ -52,7 +52,13 @@ export interface NextPresetOptions extends Omit<PresetOptions, 'structure'> {
   srcDir?: boolean;
 }
 
-const NEXT_STRUCTURE_REFUSAL
+/**
+ * Why a Next.js project cannot take `structure`. Exported so the CLI path
+ * refuses with this text rather than a paraphrase of it — `init --structure
+ * modular` on a Next repo reaches the same wall from a different door, and two
+ * copies of a caveat drift (the `--print-config` lesson).
+ */
+export const NEXT_STRUCTURE_REFUSAL
   = '`structure` is not an option on nextPreset — the modular model has no Next layer list '
     + 'yet, and what `router` and `srcDir` mean once the route tree is a module is undecided. '
     + 'That is undesigned, not impossible: Next\'s own `app/` is exactly what the modular model '
