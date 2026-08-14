@@ -952,7 +952,48 @@ describe('analyze · a modular tree is read at module depth', () => {
       file(['Fighter', 'components', 'Ship', 'index.tsx'], [
         { specifier: '../../../Combat/components/Bullet' },
       ]),
+    ])).toContain('module-escape');
+  });
+
+  it('governs the module root\'s own imports, in both spellings', () => {
+    // Judged by the layer test alone the root is skipped — its segment at the
+    // layer position is a filename — and the module's own composition code
+    // becomes the least examined code in the module.
+    expect(modularRules([
+      file(['Fighter', 'Fighter.tsx'], [{ specifier: '~app/Fighter/components/Ship/internals' }]),
+    ])).toContain('deep-import');
+
+    expect(modularRules([
+      file(['Fighter', 'Fighter.tsx'], [{ specifier: './components/Ship/internals' }]),
     ])).toContain('relative-escape');
+
+    // …and reaching a unit correctly raises no import finding, or every module
+    // would be red on the one thing its root is for. (`undeclared-folder` still
+    // fires on the module directories themselves — that is #184's, not this.)
+    for (const specifier of ['./components/Ship', '~app/Fighter/components/Ship']) {
+      const rules = modularRules([file(['Fighter', 'Fighter.tsx'], [{ specifier }])]);
+
+      expect(rules).not.toContain('deep-import');
+      expect(rules).not.toContain('relative-escape');
+      expect(rules).not.toContain('root-import');
+      expect(rules).not.toContain('flow-violation');
+    }
+  });
+
+  it('flags a layer reaching up to the module root, in both spellings', () => {
+    for (const specifier of ['~app/Fighter', '~app/Fighter/index', '../../Fighter']) {
+      expect(modularRules([
+        file(['Fighter', 'components', 'Ship', 'index.tsx'], [{ specifier }]),
+      ])).toContain('root-import');
+    }
+  });
+
+  it('does not read a bare layer address as the module root', () => {
+    // `~app/Fighter/components` reaches a declared layer, not the root. Read as
+    // the root it would report the upward edge on a downward one.
+    expect(modularRules([
+      file(['Fighter', 'hooks', 'useInput', 'index.ts'], [{ specifier: '~app/Fighter/components' }]),
+    ])).not.toContain('root-import');
   });
 
   it('flags a folder unit with no entry file, at module depth', () => {
