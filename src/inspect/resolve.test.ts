@@ -234,3 +234,91 @@ describe('relativeVerdict · how deep the entry check looks', () => {
     )).toBe('ok');
   });
 });
+
+describe('relativeVerdict · the implicit module root', () => {
+  // The root is the module's own composition code: `Fighter/Fighter.tsx` and
+  // `Fighter/index.ts`. It sits above every declared layer and is governed as
+  // such — it may reach down through a unit's entry, and nothing inside a
+  // layer may reach back up to it.
+  const modular: ArchitectureDef = {
+    alias: '~app',
+    layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    modules: [{ name: 'Fighter', does: 'The player ship.' }],
+  };
+
+  const layoutOf = layoutResolver(modular);
+  const entryOf = entryResolver(modular);
+
+  const verdict = (own: string[], target: string[]) =>
+    relativeVerdict(own, target, layoutOf, entryOf, 1);
+
+  it.each([
+    // The four the ticket pins, as segment pairs. Both spellings reach this
+    // one function — `analyze` resolves the relative form and `stripAlias` the
+    // alias form — so pinning it here pins both.
+    ['root reaches a layer unit through its entry',
+      ['Fighter', 'Fighter.tsx'], ['Fighter', 'hooks', 'useInput'], 'ok'],
+    ['root reaches past that entry',
+      ['Fighter', 'Fighter.tsx'], ['Fighter', 'hooks', 'useInput', 'private.ts'], 'reaches-inside'],
+    ['a layer unit reaches the root implementation',
+      ['Fighter', 'hooks', 'useInput.ts'], ['Fighter', 'Fighter.tsx'], 'reaches-root'],
+    ['a layer unit reaches the root entry',
+      ['Fighter', 'hooks', 'useInput.ts'], ['Fighter', 'index.ts'], 'reaches-root'],
+  ])('%s', (_label, own, target, expected) => {
+    expect(verdict(own, target)).toBe(expected);
+  });
+
+  it('lets the root talk to itself', () => {
+    // `Fighter.tsx` beside `index.ts` is one unit — the module root — not two
+    // things with a boundary between them.
+    expect(verdict(['Fighter', 'Fighter.tsx'], ['Fighter', 'index.ts'])).toBe('ok');
+  });
+
+  it('names the TARGET layer\'s entry when the root reaches too far', () => {
+    // The root belongs to no layer, so an entry read off the importer would be
+    // whatever `entryOf` defaults to rather than the entry the reader must use.
+    const named: ArchitectureDef = {
+      ...modular,
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder', entry: 'main' }],
+    };
+
+    expect(entryResolver(named)('hooks')).toBe('main');
+
+    expect(relativeVerdict(
+      ['Fighter', 'Fighter.tsx'],
+      ['Fighter', 'hooks', 'useInput', 'main.ts'],
+      layoutResolver(named),
+      entryResolver(named),
+      1,
+    )).toBe('ok');
+  });
+
+  it('calls crossing a module boundary its own verdict', () => {
+    // Not `escapes-src` (it stays inside) and not `leaves-layer` (the layer is
+    // the same name) — neither would tell the reader what the fix is.
+    expect(verdict(['Fighter', 'hooks', 'useInput.ts'], ['Combat', 'hooks', 'useDamage.ts']))
+      .toBe('leaves-module');
+
+    // Including root to root across modules.
+    expect(verdict(['Fighter', 'Fighter.tsx'], ['Combat', 'index.ts'])).toBe('leaves-module');
+  });
+
+  it('leaves a flat project unmoved at depth 0', () => {
+    // The same shapes read flat: `Fighter` IS the layer, so `Fighter/Fighter.tsx`
+    // is a unit inside it and none of the modular arms may fire.
+    const flat: ArchitectureDef = {
+      alias: '~app',
+      layers: [{ name: 'Fighter', does: 'x', layout: 'folder' }],
+    };
+
+    const at0 = (own: string[], target: string[]) =>
+      relativeVerdict(own, target, layoutResolver(flat), entryResolver(flat), 0);
+
+    expect(at0(['Fighter', 'Ship', 'index.ts'], ['Fighter', 'Hull'])).toBe('ok');
+
+    expect(at0(['Fighter', 'Ship', 'index.ts'], ['Fighter', 'Hull', 'private.ts']))
+      .toBe('reaches-inside');
+
+    expect(at0(['Fighter', 'Ship', 'index.ts'], ['hooks', 'useInput'])).toBe('leaves-layer');
+  });
+});

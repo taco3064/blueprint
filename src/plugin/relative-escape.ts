@@ -28,6 +28,21 @@ import { relativeVerdict, resolveSegments } from '../inspect/resolve';
  * (`index` when absent). Files outside `src/` or outside a declared layer are
  * skipped (the emitted config scopes this rule to layer files anyway).
  */
+/**
+ * Verdict → message id, for the four that are reported without extra data.
+ * A map rather than a chain: five verdicts reach here and a fallthrough
+ * `else` would hand the newest one an older verdict's sentence.
+ */
+const MESSAGE_OF = {
+  // `escapes-src` is answered by the null-target test before the lookup, so
+  // this entry is what keeps the two consistent if that ever moves — not a
+  // second path to the same report.
+  'escapes-src': 'escapesSrc',
+  'leaves-layer': 'leavesLayer',
+  'leaves-module': 'leavesModule',
+  'reaches-root': 'reachesRoot',
+} as const;
+
 export const relativeEscape: Rule.RuleModule = {
   meta: {
     type: 'problem',
@@ -56,9 +71,17 @@ export const relativeEscape: Rule.RuleModule = {
     ],
     messages: {
       escapesSrc: '🚫 Relative import "{{specifier}}" escapes src/ — use the project alias.',
-      leavesModule:
+      leavesLayer:
         '🚫 Relative import "{{specifier}}" leaves this layer — use the alias, '
         + 'or extract shared code to a lower layer.',
+      leavesModule:
+        '🚫 Relative import "{{specifier}}" leaves this module — cross a module '
+        + 'boundary through the alias, and declare the dependency in `imports`; '
+        + 'a relative path cannot express it.',
+      reachesRoot:
+        '🚫 Relative import "{{specifier}}" reaches up to the module root — the root '
+        + 'composes the layers, so nothing inside one may import back up to it. Move '
+        + 'the shared part into a layer, or pass it in from the root.',
       reachesInside:
         '🚫 Relative import "{{specifier}}" reaches past a sibling\'s entry — '
         + 'import "{{entry}}" instead; what lives behind it is that module\'s own business.',
@@ -92,21 +115,29 @@ export const relativeEscape: Rule.RuleModule = {
 
       if (verdict === 'ok') return;
 
+      // The same condition the verdict reports as `escapes-src`, tested here as
+      // itself: past this point the target resolved, which is what lets the
+      // message below name a segment of it.
+      if (target === null) {
+        context.report({ node, messageId: 'escapesSrc', data: { specifier } });
+
+        return;
+      }
+
       if (verdict === 'reaches-inside') {
+        // The entry named is the TARGET's layer, which is the importer's own
+        // for a sibling and deliberately not for the module root reaching
+        // down into a layer it does not belong to.
         context.report({
           node,
           messageId: 'reachesInside',
-          data: { specifier, entry: entryOf(segments[depth]) },
+          data: { specifier, entry: entryOf(target[depth]) },
         });
 
         return;
       }
 
-      context.report({
-        node,
-        messageId: verdict === 'escapes-src' ? 'escapesSrc' : 'leavesModule',
-        data: { specifier },
-      });
+      context.report({ node, messageId: MESSAGE_OF[verdict], data: { specifier } });
     };
 
     const fromSource = (node: Rule.Node): void => {

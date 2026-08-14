@@ -75,8 +75,45 @@ export function entryResolver(architecture: ArchitectureDef): EntryOf {
   return (layer) => perLayer.get(layer) ?? fallback;
 }
 
-/** What a relative import does to its module boundary. */
-export type RelativeVerdict = 'ok' | 'escapes-src' | 'leaves-layer' | 'reaches-inside';
+/**
+ * What a relative import does to its module boundary. The last two exist only
+ * under `modules`: a layer reaching the module root is not "leaving a layer",
+ * and crossing a module by relative path is not "escaping src" — neither maps
+ * onto a flat verdict, and reusing one would make the finding say something
+ * the reader then has to unlearn.
+ */
+export type RelativeVerdict
+  = | 'ok'
+    | 'escapes-src'
+    | 'leaves-layer'
+    | 'reaches-inside'
+    | 'reaches-root'
+    | 'leaves-module';
+
+/**
+ * A file directly under the module — `Fighter/Fighter.tsx`, `Fighter/index.ts`.
+ * The implicit top layer: it may reach every declared layer through that
+ * unit's entry, and nothing inside a layer may reach back to it.
+ */
+function isRoot(segments: string[], depth: number): boolean {
+  return segments.length === depth + 1;
+}
+
+/**
+ * Whether `target` stops at a unit's public surface — the unit folder itself,
+ * or the entry file inside it. Judged against the TARGET's layer, which is the
+ * same as the importer's for a sibling and deliberately not for the module
+ * root reaching down.
+ */
+function atUnitEntry(
+  target: string[],
+  entryOf: EntryOf,
+  depth: number,
+): boolean {
+  return target.length === depth + 2
+    || (target.length === depth + 3
+      && target[depth + 2].replace(/\.[^.]+$/, '') === entryOf(target[depth]));
+}
 
 /**
  * The single judgment behind both relative-import gates — `inspect`'s
@@ -99,24 +136,34 @@ export function relativeVerdict(
   if (target === null) return 'escapes-src';
   if (moduleKey(target, layoutOf, depth) === moduleKey(ownSegments, layoutOf, depth)) return 'ok';
 
-  const layer = ownSegments[depth];
+  // The modular arm answers own-root x target-root before any layer is read.
+  // At depth 0 there is no module to be the root of — a file directly under
+  // the source root is app wiring, which the callers skip — so a flat project
+  // never enters here and its verdicts do not move.
+  if (depth > 0) {
+    // Crossing the module is decided first: `hooks` in one module and `hooks`
+    // in another are different folders that compare equal by name alone.
+    if (target[0] !== ownSegments[0]) return 'leaves-module';
 
-  // Crossing the module is decided before the layer is, since under modules
-  // `hooks` in one module and `hooks` in another are different folders that
-  // would otherwise compare equal.
-  if (depth > 0 && target[0] !== ownSegments[0]) return 'leaves-layer';
+    const ownRoot = isRoot(ownSegments, depth);
+    const targetRoot = isRoot(target, depth);
+
+    // Root to root is the module's own composition talking to itself.
+    if (ownRoot && targetRoot) return 'ok';
+
+    // Upward. The root composes the layers; a layer that reaches back to it
+    // inverts the flow the module exists to express.
+    if (targetRoot) return 'reaches-root';
+
+    // Downward, through the target unit's entry — the root's own privilege.
+    if (ownRoot) return atUnitEntry(target, entryOf, depth) ? 'ok' : 'reaches-inside';
+  }
 
   // No layout test: for a flat layer `moduleKey` collapses to the layer name, so the
   // equality check above already returned `ok` — a `layoutOf` arm here is unreachable.
-  if (target[depth] !== layer) return 'leaves-layer';
+  if (target[depth] !== ownSegments[depth]) return 'leaves-layer';
 
-  const entry = entryOf(layer);
-
-  const atEntry
-    = target.length === depth + 2
-      || (target.length === depth + 3 && target[depth + 2].replace(/\.[^.]+$/, '') === entry);
-
-  return atEntry ? 'ok' : 'reaches-inside';
+  return atUnitEntry(target, entryOf, depth) ? 'ok' : 'reaches-inside';
 }
 
 export function resolveSegments(dir: string[], specifier: string): string[] | null {

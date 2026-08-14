@@ -51,7 +51,7 @@ describe('blueprint/relative-escape · flat layer', () => {
 
   it('flags relatives that cross into another layer', () => {
     expect(messageIds('import x from "../resources/matches";', 'src/components/Button.ts'))
-      .toEqual(['leavesModule']);
+      .toEqual(['leavesLayer']);
   });
 
   it('flags relatives that climb above src/', () => {
@@ -89,20 +89,20 @@ describe('blueprint/relative-escape · folder layer', () => {
   it('flags a relative that leaves the layer entirely', () => {
     expect(
       messageIds('import x from "../../services/api";', 'src/resources/matches/Row.ts'),
-    ).toEqual(['leavesModule']);
+    ).toEqual(['leavesLayer']);
   });
 });
 
 describe('blueprint/relative-escape · reference kinds', () => {
   it('checks re-exports and dynamic imports too', () => {
     expect(messageIds('export { x } from "../resources/matches";', 'src/components/Button.ts'))
-      .toEqual(['leavesModule']);
+      .toEqual(['leavesLayer']);
 
     expect(messageIds('export * from "../resources/matches";', 'src/components/Button.ts'))
-      .toEqual(['leavesModule']);
+      .toEqual(['leavesLayer']);
 
     expect(messageIds('const x = await import("../resources/matches");', 'src/components/Button.ts'))
-      .toEqual(['leavesModule']);
+      .toEqual(['leavesLayer']);
   });
 
   it('ignores non-relative and non-literal specifiers, and sourceless exports', () => {
@@ -127,7 +127,7 @@ describe('blueprint/relative-escape · scoping', () => {
         'import x from "../resources/matches";',
         `${process.cwd()}/src/components/Button.ts`,
       ),
-    ).toEqual(['leavesModule']);
+    ).toEqual(['leavesLayer']);
   });
 
   it('defaults to no layouts when options are omitted (rule inert)', () => {
@@ -138,7 +138,7 @@ describe('blueprint/relative-escape · scoping', () => {
   it('treats targets outside any declared layer as flat (still an escape)', () => {
     expect(
       messageIds('import x from "../../legacy/utils/x";', 'src/components/layout/Bar.ts'),
-    ).toEqual(['leavesModule']);
+    ).toEqual(['leavesLayer']);
   });
 });
 
@@ -169,7 +169,7 @@ describe('blueprint/relative-escape · what the rule declines to judge', () => {
     // `src` as the second segment is the ordinary monorepo shape, and the
     // segments after it must still be read as layers.
     expect(messageIds('import x from "../resources/matches";', 'repo/src/components/Button.ts'))
-      .toEqual(['leavesModule']);
+      .toEqual(['leavesLayer']);
 
     expect(messageIds('import x from "./Card";', 'repo/src/components/Button.ts')).toEqual([]);
   });
@@ -196,7 +196,7 @@ describe('blueprint/relative-escape · what the rule declines to judge', () => {
     // An empty path segment would land where the layer name goes, and the rule
     // would then decline to judge the file at all.
     expect(messageIds('import x from "../resources/matches";', 'src//components/Button.ts'))
-      .toEqual(['leavesModule']);
+      .toEqual(['leavesLayer']);
   });
 
   it('leaves a dynamic import whose specifier is not a string', () => {
@@ -309,7 +309,7 @@ describe('blueprint/relative-escape · at module depth', () => {
 
   it('runs at all — the guard reads the layer one segment down', () => {
     expect(at('import x from "../../components/Button";', 'src/Fighter/resources/Ship/index.ts'))
-      .toEqual(['leavesModule']);
+      .toEqual(['leavesLayer']);
   });
 
   it('allows a sibling unit reached by its entry', () => {

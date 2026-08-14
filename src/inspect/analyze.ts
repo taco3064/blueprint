@@ -261,11 +261,19 @@ function importFindings(
 ): Finding[] {
   const fileLayer = file.segments[depth];
 
-  if (!layerNames.includes(fileLayer)) return [];
+  // The module root is the implicit top layer, so its imports are governed
+  // like any other file's. Judged by the layer test alone it is skipped — its
+  // segment at `depth` is a filename — and the module's own composition code
+  // becomes the least examined code in the module.
+  const isModuleRoot = depth > 0 && file.segments.length === depth + 1;
+
+  if (!isModuleRoot && !layerNames.includes(fileLayer)) return [];
 
   const aliases = aliasList(architecture);
-  const forbidden = getForbiddenLayers(architecture, fileLayer);
-  const selfOnly = getSelfOnlyTargets(architecture, fileLayer);
+  // The root sits above every layer, so it may reach all of them and no layer
+  // has declared it a selfOnly importer.
+  const forbidden = isModuleRoot ? [] : getForbiddenLayers(architecture, fileLayer);
+  const selfOnly = isModuleRoot ? [] : getSelfOnlyTargets(architecture, fileLayer);
   const layoutOf = layoutResolver(architecture);
   const entryOf = entryResolver(architecture);
   const findings: Finding[] = [];
@@ -279,6 +287,19 @@ function importFindings(
       // here as it does in a file path. Read at 0 it is the module name, no
       // layer matches, and every alias import is skipped in silence.
       const target = parts[depth];
+
+      // `~app/<Module>` and `~app/<Module>/<root file>` address the module root:
+      // inside the same module, they do not reach a declared layer. The alias
+      // spelling of the upward edge, which the relative one answers as
+      // `reaches-root` — the two gates must agree.
+      const addressesOwnRoot
+        = depth > 0 && parts[0] === file.segments[0] && !layerNames.includes(target);
+
+      if (!isModuleRoot && addressesOwnRoot) {
+        findings.push(finding('error', 'root-import', file.path, ref.specifier, `"${ref.specifier}" reaches up to the module root — the root composes the layers, so nothing inside one may import back up to it. Move the shared part into a layer, or pass it in from the root.`));
+
+        continue;
+      }
 
       if (!layerNames.includes(target)) continue;
 
@@ -335,12 +356,26 @@ function relativeEscape(
 
   if (verdict === 'ok') return null;
 
-  if (verdict === 'escapes-src') {
+  // The same condition the verdict reports as `escapes-src`, tested here as
+  // itself: past this point the target resolved, which is what lets the
+  // messages below name a segment of it.
+  if (target === null) {
     return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" escapes src/ — use the project alias.`);
   }
 
   if (verdict === 'reaches-inside') {
-    return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${entryOf(file.segments[depth])}" instead; what lives behind it is that module's own business.`);
+    // The entry named is the TARGET's layer — the importer's own for a sibling,
+    // and deliberately not for the module root reaching down into a layer it
+    // does not belong to.
+    return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${entryOf(target[depth])}" instead; what lives behind it is that module's own business.`);
+  }
+
+  if (verdict === 'reaches-root') {
+    return finding('error', 'root-import', file.path, ref.specifier, `Relative import "${ref.specifier}" reaches up to the module root — the root composes the layers, so nothing inside one may import back up to it. Move the shared part into a layer, or pass it in from the root.`);
+  }
+
+  if (verdict === 'leaves-module') {
+    return finding('error', 'module-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" leaves this module — cross a module boundary through the alias, and declare the dependency in \`imports\`; a relative path cannot express it.`);
   }
 
   return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.`);
