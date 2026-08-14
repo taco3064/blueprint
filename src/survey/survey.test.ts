@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { dependencyNames, renderSurvey, ROOT_BUCKET, runSurvey } from './survey';
+import { dependencyNames, renderSurvey, ROOT_BUCKET, runSurvey, wrapSentence } from './survey';
 
 let root: string;
 
@@ -926,5 +926,85 @@ describe('renderSurvey · the shape is stated before the rows it explains', () =
     expect(output).toContain('Folders (module-shape evidence):');
     expect(output).toContain('Import matrix (cross-folder, heaviest first');
     expect(output).not.toContain('these are the modules');
+  });
+});
+
+describe('wrapSentence', () => {
+  // Asked directly, because through the report its decisions are invisible:
+  // every wrapping produces the same words in the same order, so an assertion
+  // on the rendered text reads them back whatever happened to the breaks.
+  it('breaks at the width and carries the indent onto every line', () => {
+    expect(wrapSentence('    one two three four', 12)).toEqual([
+      '    one two',
+      '    three',
+      '    four',
+    ]);
+  });
+
+  it('keeps a line that lands exactly on the width', () => {
+    // `<` against `<=`: at the boundary the stricter test breaks a line that
+    // fits, and every wrapped block in the report loses a word per line.
+    expect(wrapSentence('    one two three', 11)).toEqual(['    one two', '    three']);
+  });
+
+  it('measures the width against the indented line, not the words alone', () => {
+    // Counted without the indent, a deeply-indented sentence overflows the
+    // column it was wrapped to fit.
+    expect(wrapSentence('        abc def', 12)).toEqual(['        abc', '        def']);
+  });
+
+  it('reads the indent from the front, never the back', () => {
+    expect(wrapSentence('  padded  ', 40)).toEqual(['  padded']);
+  });
+
+  it('collapses a run of whitespace between words', () => {
+    expect(wrapSentence('  a\n\n   b', 40)).toEqual(['  a b']);
+  });
+
+  it('answers no lines for a sentence with no words', () => {
+    expect(wrapSentence('    ', 40)).toEqual([]);
+  });
+});
+
+describe('detectShape · the evidence lists themselves', () => {
+  const shapeOf192 = (files: string[]) => {
+    write('package.json', JSON.stringify({ name: 'x' }));
+
+    for (const rel of files) write(`src/${rel}`, 'export const x = 1;\n');
+
+    return runSurvey(root, { log: silent }).shape;
+  };
+
+  it('sorts the shared vocabulary, whatever order the tree was walked in', () => {
+    // Insertion order follows the scan, so an unsorted list reshuffles the
+    // reason sentence on an unrelated file being added.
+    // The evidence rows are ordered by file count, so the biggest folder is
+    // read first — and it contributes `zz`. An unsorted list hands back the
+    // order the tree happened to be walked in, which an unrelated file changes.
+    const shape = shapeOf192([
+      'Big/zz/a/1.ts', 'Big/zz/a/2.ts', 'Big/zz/a/3.ts',
+      'Mid/aa/b/1.ts', 'Mid/zz/b/2.ts',
+      'Sml/aa/c/1.ts',
+    ]);
+
+    expect(shape.sharedVocabulary).toEqual(['aa', 'zz']);
+  });
+
+  it('counts a child name once per folder, not once per file', () => {
+    // Two files under one folder's `hooks` is one folder using the name — read
+    // per file it recurs, and a single-module repo reads as modular.
+    const shape = shapeOf192(['Only/hooks/a/x.ts', 'Only/hooks/b/y.ts']);
+
+    expect(shape.sharedVocabulary).toEqual([]);
+    expect(shape.kind).toBe('unknown');
+  });
+
+  it('is flat only when NO folder has a subtree, not when one does not', () => {
+    // `every` against `some`: one flat-file folder beside a folder with a
+    // subtree is not "no second level to read", it is a tree with one.
+    const shape = shapeOf192(['plain/file.ts', 'deep/one/two/x.ts']);
+
+    expect(shape.kind).toBe('unknown');
+    expect(shape.reason).toContain('no child-folder name recurs');
   });
 });

@@ -422,12 +422,22 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
   return result;
 }
 
-/** Wrap a sentence to `width`, keeping the leading indent on every line. */
-function wrapSentence(text: string, width: number): string[] {
+/**
+ * Wrap a sentence to `width`, keeping the leading indent on every line.
+ *
+ * Exported for its own test. Through `renderSurvey` its decisions are invisible:
+ * every wrap choice produces the same words in the same order, and an assertion
+ * on the rendered report reads them back whatever this did with the line breaks.
+ */
+export function wrapSentence(text: string, width: number): string[] {
   const indent = text.slice(0, text.length - text.trimStart().length);
   const lines: string[] = [];
 
-  for (const word of text.trim().split(/\s+/)) {
+  // Filtered rather than trimmed: `''.split(/\s+/)` answers `['']`, so a
+  // wordless sentence would render as one line holding nothing but its own
+  // indent — and dropping the empties covers the leading and trailing
+  // whitespace a `trim()` was there for, which made the trim decide nothing.
+  for (const word of text.split(/\s+/).filter(Boolean)) {
     const last = lines.length - 1;
 
     if (lines.length && `${lines[last]} ${word}`.length <= width) lines[last] += ` ${word}`;
