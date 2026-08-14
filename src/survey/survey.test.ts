@@ -887,6 +887,10 @@ describe('renderSurvey · the shape is stated before the rows it explains', () =
     ]);
 
     expect(output).toContain('Top-level shape: MODULAR.');
+    // The sentence that reads the verdict back as an instruction to the reader,
+    // which is a different line from the folder heading below it — each of the
+    // three shapes has one, and only the could-not-tell arm was asserted.
+    expect(output).toContain('So the folders below are feature MODULES');
     // Every row below means something different depending on the shape — a
     // `hooks` row is a layer under flat and a module under modular.
     expect(output).toContain('these are the modules');
@@ -926,6 +930,26 @@ describe('renderSurvey · the shape is stated before the rows it explains', () =
     expect(output).toContain('Folders (module-shape evidence):');
     expect(output).toContain('Import matrix (cross-folder, heaviest first');
     expect(output).not.toContain('these are the modules');
+    // Asserted as what this arm says, not only as what it does not: the
+    // could-not-tell sentence avoids both phrases above, so the two absences
+    // above pass on it too.
+    expect(output).toContain('So the folders below are the technical LAYERS themselves');
+  });
+
+  it('names the level a flat tree\'s ownership candidates sit at, too', () => {
+    // The other arm of the same heading, and the reason it needs its own case:
+    // a flat tree with no package usage renders no heading at all, so the
+    // modular one above was the only shape this section was ever read in.
+    write('package.json', JSON.stringify({ name: 'x', dependencies: { axios: '^1' } }));
+    write('src/hooks/useCart/index.ts', 'import a from \'axios\';\n');
+    write('src/components/Button/index.ts', 'export const x = 1;\n');
+
+    const lines: string[] = [];
+
+    runSurvey(root, { log: (m) => void lines.push(m) });
+
+    expect(lines.join('\n')).toContain('Top-level shape: FLAT.');
+    expect(lines.join('\n')).toContain('Package usage (most concentrated first — ownership candidates):');
   });
 });
 
