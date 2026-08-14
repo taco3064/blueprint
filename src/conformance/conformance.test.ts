@@ -3444,3 +3444,85 @@ describe('an output that reports the import graph says how the graph was read', 
     expect(module.output).toContain('imported by (1)');
   });
 });
+
+describe('the inner layer flow reaches inside a module (real eslint)', () => {
+  // #185 gave `files:` the module dimension; the alias patterns inside those
+  // entries did not follow, so a modular repo's same-layer, upward-flow and
+  // past-the-entry bans were emitted against `~app/hooks/**` — a path no
+  // modular import spells. All three were green here, and `inspect` reported
+  // them, which is two gates disagreeing with the lint half silent.
+  //
+  // In this layer rather than the unit tests because that is where the real
+  // linter reads the emitted config: the unit suite asserts the patterns, and
+  // a pattern that is correct and unreachable looks identical to one that
+  // bites until ESLint resolves the entry that carries it.
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'GameStage', does: 'the run, rendered', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets and damage' },
+      ],
+      layers: [
+        { name: 'components', does: 'render UI', layout: 'folder' },
+        { name: 'hooks', does: 'reactive state', layout: 'folder' },
+      ],
+    },
+  };
+
+  const modularRepo = (files: Record<string, string>): string =>
+    repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+        }),
+        ...files,
+      },
+    });
+
+  it('flags the same-layer, upward and past-the-entry edges inside one module', async () => {
+    const dir = modularRepo({
+      'src/GameStage/hooks/useRun/index.jsx':
+        'import { useTick } from "~app/GameStage/hooks/useTick";\n'
+        + 'import { Hud } from "~app/GameStage/components/Hud";\n'
+        + 'export const useRun = () => [useTick, Hud];\n',
+      'src/GameStage/hooks/useTick/index.jsx': 'export const useTick = 1;\n',
+      'src/GameStage/components/Hud/index.jsx':
+        'import { impl } from "~app/GameStage/hooks/useRun/impl";\n'
+        + 'export const Hud = impl;\n',
+      'src/GameStage/components/Hud/impl.jsx': 'export const impl = 1;\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.code).toBe(0);
+
+    // Three violations, one rule. Before this they were zero — the count is
+    // the assertion, because a partial fix reads the same as a whole one on a
+    // `toContain` of the rule id alone.
+    expect(impact.output).toContain('3  no-restricted-imports — 2 file(s)');
+  });
+
+  it('leaves the legal edges of the same module alone', async () => {
+    // The other direction, or the test above passes on a config that bans
+    // everything — which is the failure mode a wildcard module segment has.
+    const dir = modularRepo({
+      'src/GameStage/components/Hud/index.jsx':
+        'import { useRun } from "~app/GameStage/hooks/useRun";\n'
+        + 'export const Hud = useRun;\n',
+      'src/GameStage/hooks/useRun/index.jsx':
+        'import { tick } from "../useTick";\n'
+        + 'export const useRun = tick;\n',
+      'src/GameStage/hooks/useTick/index.jsx': 'export const tick = 1;\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.code).toBe(0);
+    expect(impact.output).toContain('0 hits');
+    expect(impact.output).not.toContain('no-restricted-imports');
+  });
+});

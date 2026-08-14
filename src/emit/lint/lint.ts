@@ -15,9 +15,12 @@ import {
   derivePackageRules,
   deriveGlobalRules,
   METRIC_GATES,
+  moduleScopes,
   resolveGovernedFiles,
   resolveLayerFiles,
+  resolveModuleLayerFiles,
   resolveTestFiles,
+  scopedAliases,
   selfOnlyReexportSelector,
   STATEMENT_PADDING,
   toArray,
@@ -80,63 +83,76 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     ? [{ ignores: toArray(layerFilesIgnore) }]
     : [];
 
+  // One entry per (module, layer). The bans name the importing module's own
+  // segment, so they cannot be shared across modules the way `files` was until
+  // now — that is why #185 could move `files` alone and the patterns inside
+  // them could not follow. A flat project has one scope and one entry per
+  // layer, exactly as before.
+  const scopes = moduleScopes(architecture);
+
   const layerConfigs = layers.flatMap((layer) => {
-    const files = resolveLayerFiles(layer.name, architecture, framework);
     const forbidden = getForbiddenLayers(architecture, layer.name);
     const disabledPackages = packageRules.filter((rule) => !rule.allowedIn.includes(layer.name));
     const disabledGlobals = globalRules.filter((rule) => !rule.allowedIn.includes(layer.name));
 
     const selfOnlyTargets = getSelfOnlyTargets(architecture, layer.name);
 
-    const structural = buildStructuralPatterns({
-      layer: layer.name,
-      aliases,
-      forbidden,
-      moduleLayout: layouts[layer.name],
-      folderTargets: folderLayers.filter(
-        (name) => name !== layer.name && !forbidden.includes(name),
-      ),
-      fixtures,
-    });
-
-    const syntaxRules = selfOnlyTargets.flatMap((target) =>
-      aliases.map((a) => ({
-        selector: selfOnlyReexportSelector(a, target),
-        message: `\n🚫 Cannot re-export from "${target}" — a selfOnly dependency must not be exposed to callers.`,
-      })),
+    const folderTargets = folderLayers.filter(
+      (name) => name !== layer.name && !forbidden.includes(name),
     );
-
-    const buildRules = (packages: PackageRule[]): Linter.RulesRecord => {
-      const { paths, patterns } = buildPackagePatterns(packages);
-
-      return {
-        // By contract these are rule entries (validated to spare the managed rules).
-        ...(layer.lintOverrides as Linter.RulesRecord),
-        'no-restricted-imports': [
-          severity,
-          { patterns: [...structural, ...patterns], ...(paths.length ? { paths } : {}) },
-        ],
-        ...(syntaxRules.length ? { 'no-restricted-syntax': [severity, ...syntaxRules] } : {}),
-        ...buildGlobalRule(disabledGlobals, severity),
-      };
-    };
 
     const exemptPatterns = [
       ...new Set(disabledPackages.flatMap((rule) => rule.exempt ?? []).filter(Boolean)),
     ];
 
-    if (!exemptPatterns.length) {
-      return [{ files, ignores: testGlobs, rules: buildRules(disabledPackages) }];
-    }
+    return scopes.flatMap((module) => {
+      const files = resolveModuleLayerFiles(layer.name, module, architecture, framework);
+      const scoped = scopedAliases(aliases, module?.name);
 
-    const nonExempt = disabledPackages.filter((rule) => !rule.exempt?.length);
+      const structural = buildStructuralPatterns({
+        layer: layer.name,
+        aliases: scoped,
+        forbidden,
+        moduleLayout: layouts[layer.name],
+        folderTargets,
+        fixtures,
+      });
 
-    return [
-      // All files (incl. exempt): only the non-exempt package restrictions.
-      { files, ignores: testGlobs, rules: buildRules(nonExempt) },
-      // Non-exempt files only: the full set of package restrictions.
-      { files, ignores: [...exemptPatterns, ...testGlobs], rules: buildRules(disabledPackages) },
-    ];
+      const syntaxRules = selfOnlyTargets.flatMap((target) =>
+        scoped.map((a) => ({
+          selector: selfOnlyReexportSelector(a, target),
+          message: `\n🚫 Cannot re-export from "${target}" — a selfOnly dependency must not be exposed to callers.`,
+        })),
+      );
+
+      const buildRules = (packages: PackageRule[]): Linter.RulesRecord => {
+        const { paths, patterns } = buildPackagePatterns(packages);
+
+        return {
+          // By contract these are rule entries (validated to spare the managed rules).
+          ...(layer.lintOverrides as Linter.RulesRecord),
+          'no-restricted-imports': [
+            severity,
+            { patterns: [...structural, ...patterns], ...(paths.length ? { paths } : {}) },
+          ],
+          ...(syntaxRules.length ? { 'no-restricted-syntax': [severity, ...syntaxRules] } : {}),
+          ...buildGlobalRule(disabledGlobals, severity),
+        };
+      };
+
+      if (!exemptPatterns.length) {
+        return [{ files, ignores: testGlobs, rules: buildRules(disabledPackages) }];
+      }
+
+      const nonExempt = disabledPackages.filter((rule) => !rule.exempt?.length);
+
+      return [
+        // All files (incl. exempt): only the non-exempt package restrictions.
+        { files, ignores: testGlobs, rules: buildRules(nonExempt) },
+        // Non-exempt files only: the full set of package restrictions.
+        { files, ignores: [...exemptPatterns, ...testGlobs], rules: buildRules(disabledPackages) },
+      ];
+    });
   });
 
   const governed = resolveGovernedFiles(architecture, framework);

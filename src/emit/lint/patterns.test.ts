@@ -8,9 +8,12 @@ import {
   buildStructuralPatterns,
   derivePackageRules,
   deriveGlobalRules,
+  moduleScopes,
   resolveGovernedFiles,
   resolveLayerFiles,
   resolveModuleFiles,
+  resolveModuleLayerFiles,
+  scopedAliases,
   selfOnlyReexportSelector,
   toArray,
 } from './patterns';
@@ -158,6 +161,99 @@ describe('resolveLayerFiles', () => {
       arch({ sourceRoot: '.', modules: [{ name: 'app', does: '' }] }),
       'react',
     )).toEqual(['app/hooks/**/*.{js,jsx,ts,tsx}']);
+  });
+});
+
+describe('resolveModuleLayerFiles', () => {
+  it('answers the flat globs when there is no module to scope to', () => {
+    expect(resolveModuleLayerFiles('hooks', undefined, arch(), 'react')).toEqual([
+      'src/hooks/**/*.{js,jsx,ts,tsx}',
+    ]);
+  });
+
+  it('answers ONE module\'s globs, not the product', () => {
+    // The atom the emitted entry is built from: a ban naming the importing
+    // module's own segment cannot be shared across modules, so asking for the
+    // product here would put three modules' files under one module's patterns.
+    const modular = arch({
+      modules: [{ name: 'Fighter', does: '' }, { name: 'Combat', does: '' }],
+    });
+
+    expect(resolveModuleLayerFiles('hooks', modular.modules?.[0], modular, 'react')).toEqual([
+      'src/Fighter/hooks/**/*.{js,jsx,ts,tsx}',
+    ]);
+  });
+
+  it('gives a layers:false module no layer globs at all', () => {
+    // It opted out of the layer vocabulary, so there is no (module, layer)
+    // entry to emit for it — its whole net is `resolveModuleFiles`' business.
+    const modular = arch({ modules: [{ name: 'app', does: '', layers: false }] });
+
+    expect(resolveModuleLayerFiles('hooks', modular.modules?.[0], modular, 'react')).toEqual([]);
+  });
+
+  it('substitutes both placeholders of a custom glob for the one module', () => {
+    const modular = arch({
+      layerFiles: ['app/{module}/{layer}/**/*.ts', 'lib/{ module }/{ layer }/**/*.ts'],
+      modules: [{ name: 'Fighter', does: '' }, { name: 'Combat', does: '' }],
+    });
+
+    expect(resolveModuleLayerFiles('hooks', modular.modules?.[1], modular, 'auto')).toEqual([
+      'app/Combat/hooks/**/*.ts',
+      'lib/Combat/hooks/**/*.ts',
+    ]);
+  });
+
+  it('is what resolveLayerFiles is the union of', () => {
+    // Stated as an identity rather than trusted: the product having a second
+    // derivation is field issue #29 in a new place — the emitted entries would
+    // govern a set of paths the coverage line does not know about.
+    const modular = arch({
+      modules: [
+        { name: 'Fighter', does: '' },
+        { name: 'app', does: '', layers: false },
+        { name: 'Combat', does: '' },
+      ],
+    });
+
+    expect(resolveLayerFiles('hooks', modular, 'react')).toEqual(
+      (modular.modules ?? []).flatMap((module) =>
+        resolveModuleLayerFiles('hooks', module, modular, 'react'),
+      ),
+    );
+  });
+});
+
+describe('moduleScopes', () => {
+  it('gives a flat project one nameless scope, not none', () => {
+    // `[]` here would emit no layer entries at all for every flat config —
+    // every structural ban gone, lint green, and nothing saying why.
+    expect(moduleScopes(arch())).toEqual([undefined]);
+  });
+
+  it('gives a modular project its layered modules, dropping layers:false', () => {
+    const modular = arch({
+      modules: [
+        { name: 'app', does: '', layers: false },
+        { name: 'Fighter', does: '' },
+      ],
+    });
+
+    expect(moduleScopes(modular).map((module) => module?.name)).toEqual(['Fighter']);
+  });
+});
+
+describe('scopedAliases', () => {
+  it('leaves a flat project\'s bases alone', () => {
+    expect(scopedAliases(['~app', '~root/src'], undefined)).toEqual(['~app', '~root/src']);
+  });
+
+  it('puts the module between the alias and the layer', () => {
+    // `~app/hooks/**` matches no modular specifier — the real spelling is
+    // `~app/Fighter/hooks/X`, so the unscoped pattern is a ban that never
+    // fires while lint reports green.
+    expect(scopedAliases(['~app', '~root/src'], 'Fighter'))
+      .toEqual(['~app/Fighter', '~root/src/Fighter']);
   });
 });
 

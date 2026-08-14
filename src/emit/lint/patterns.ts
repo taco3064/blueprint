@@ -225,42 +225,93 @@ export function enforcedBy(id: string): 'lint' | 'inspect' | 'docs' {
 }
 
 /**
- * Resolve a layer's lint file globs. An explicit `layerFiles` wins as-is;
- * otherwise the default is derived from `framework` and `sourceRoot`.
+ * One layer's lint file globs inside ONE module — the atom every other file
+ * answer is built from. `module` is `undefined` for a flat project, where
+ * `src/` is the single implicit module; a `layers: false` module has no layer
+ * folders at all and yields none.
  *
- * Takes the whole `architecture` rather than the three fields it reads: a
- * caller holding `layerFiles` but not `modules` would emit one config and lint
- * a different file set, silently, which is the defect #191 exists to prevent.
- * Every call site already has the object.
+ * The per-module set is the atom rather than the product because a ban naming
+ * the importing module's own segment cannot be shared across modules: the
+ * emitted entry is per (module, layer), and every wider answer below is the
+ * union of exactly these.
  *
- * With `modules` declared the result is the product of the declared modules
- * and this layer — expanded per module, never `src/*&#47;<layer>`. A single
- * wildcard would match a module nobody declared (a typo), coverage would count
- * it inside the net, and no module-level rule would govern it.
+ * Takes the whole `architecture` rather than the fields it reads: a caller
+ * holding `layerFiles` but not `modules` would emit one config and lint a
+ * different file set, silently, which is the defect #191 exists to prevent.
+ */
+export function resolveModuleLayerFiles(
+  layer: string,
+  module: ModuleDef | undefined,
+  architecture: ArchitectureDef,
+  framework: Framework,
+): string[] {
+  const { layerFiles, sourceRoot = 'src', modules } = architecture;
+
+  if (module?.layers === false) return [];
+
+  const globs = layerFiles === undefined
+    ? [defaultGlob(framework, sourceRoot, modules !== undefined)]
+    : toArray(layerFiles);
+
+  return globs.map((glob) => {
+    const withLayer = glob.replace(LAYER_PLACEHOLDER, layer);
+
+    return module === undefined ? withLayer : withLayer.replace(MODULE_PLACEHOLDER, module.name);
+  });
+}
+
+/**
+ * Every file glob a layer covers across the whole project — the product of the
+ * declared modules and this layer, expanded per module and never
+ * `src/*&#47;<layer>`. A single wildcard would match a module nobody declared
+ * (a typo), coverage would count it inside the net, and no module-level rule
+ * would govern it.
  */
 export function resolveLayerFiles(
   layer: string,
   architecture: ArchitectureDef,
   framework: Framework,
 ): string[] {
-  const { layerFiles, sourceRoot = 'src', modules } = architecture;
+  const { modules } = architecture;
 
-  const globs = layerFiles === undefined
-    ? [defaultGlob(framework, sourceRoot, modules !== undefined)]
-    : toArray(layerFiles);
-
-  const withLayer = globs.map((glob) => glob.replace(LAYER_PLACEHOLDER, layer));
-
-  if (modules === undefined) return withLayer;
+  if (modules === undefined) {
+    return resolveModuleLayerFiles(layer, undefined, architecture, framework);
+  }
 
   return layeredModules(modules).flatMap((module) =>
-    withLayer.map((glob) => glob.replace(MODULE_PLACEHOLDER, module.name)),
+    resolveModuleLayerFiles(layer, module, architecture, framework),
   );
 }
 
 /** Modules that carry the layer vocabulary — everything but `layers: false`. */
-function layeredModules(modules: ModuleDef[]): ModuleDef[] {
+export function layeredModules(modules: ModuleDef[]): ModuleDef[] {
   return modules.filter((module) => module.layers !== false);
+}
+
+/**
+ * The module scopes one layer's entries are emitted for: every layered module
+ * under `modules`, or the single implicit one a flat project has.
+ *
+ * The flat arm is `[undefined]` rather than `[]` — a flat project still emits
+ * its layer entry, it simply has no module segment to put in the patterns.
+ */
+export function moduleScopes(architecture: ArchitectureDef): (ModuleDef | undefined)[] {
+  const { modules } = architecture;
+
+  return modules === undefined ? [undefined] : layeredModules(modules);
+}
+
+/**
+ * The alias bases a module's own files address their siblings through —
+ * `~app/Fighter` under `modules`, the bare alias in a flat project.
+ *
+ * One derivation, because the structural pattern groups and the selfOnly
+ * selectors are two emitters of the same address. Scoped in one and not the
+ * other, half of a modular entry's bans would match nothing while lint stayed
+ * green — the state this whole change exists to end.
+ */
+export function scopedAliases(aliases: string[], module: string | undefined): string[] {
+  return module === undefined ? aliases : aliases.map((alias) => `${alias}/${module}`);
 }
 
 /**
@@ -379,6 +430,12 @@ export function deriveGlobalRules(layers: LayerDef[]): GlobalRule[] {
  */
 export function buildStructuralPatterns(params: {
   layer: string;
+  /**
+   * The alias bases these patterns are built on — module-scoped under
+   * `modules` (see {@link scopedAliases}), so `~app/Fighter/hooks/**` is what
+   * a modular entry bans rather than the `~app/hooks/**` no modular import
+   * ever spells.
+   */
   aliases: string[];
   forbidden: string[];
   /** The layer's own module layout (drives the same-layer message wording). */
