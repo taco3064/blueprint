@@ -535,6 +535,11 @@ function importFindings(
   depth: number,
 ): Finding[] {
   const fileLayer = file.segments[depth];
+  // undecidable, the `?? []` arm: a fabricated member is a string with no `name`,
+  // so this list holds `undefined` — and its one reader, `crossModuleTarget`,
+  // matches a specifier's first segment against it by `includes`, which no
+  // segment answers. It stays because the absent arm is real: every flat project
+  // reaches here.
   const moduleNames = (architecture.modules ?? []).map((module) => module.name);
 
   // The module root is the implicit top layer, so its imports are governed
@@ -564,6 +569,13 @@ function importFindings(
     // Judged before the layer branch, because a cross-module specifier names a
     // MODULE at segment 0 and reaches no declared layer at all — read through
     // the layer test alone it is skipped in silence.
+    //
+    // undecidable, the depth test, and shielded by ONE line above: `moduleNames`
+    // is `(architecture.modules ?? []).map(…)`, so at depth 0 it is empty and
+    // `crossModuleTarget` answers `null` — the same value the false arm gives.
+    // Build that list from anything a flat project can fill and this proof is
+    // void. The test stays as the reader's signpost: this arm exists only under
+    // modules.
     const moduleTarget = depth > 0
       ? crossModuleTarget(ref.specifier, aliases, moduleNames, file.segments[0])
       : null;
@@ -627,9 +639,23 @@ function importFindings(
       // layer, and its module. A module-owned package is barred everywhere
       // except its owning module, whatever layer the importer sits in.
       const owners = ownersOf(architecture.layers, ref.specifier, ref.names);
+      // undecidable, the `?? []` arm: a fabricated member carries no `owns`, so
+      // `ownersOf` skips it and answers `null` — which is what an empty list
+      // answers too, and what the guard below reads as "no module owns this".
       const moduleOwners = ownersOf(architecture.modules ?? [], ref.specifier, ref.names);
+      // undecidable, the depth test, and shielded by the line above: on a flat
+      // project `moduleOwners` is `null`, so the guard short-circuits before this
+      // value is read at all. Make `moduleOwners` answerable without `modules`
+      // and this proof is void. The test stays because the module a file sits in
+      // is a fact only a modular tree has.
       const ownModule = depth > 0 ? file.segments[0] : undefined;
 
+      // undecidable, the `ownModule !== undefined` conjunct, shielded by the two
+      // lines above in the other direction: `moduleOwners` is non-null only when
+      // `modules` is declared, which is exactly when `moduleDepth` is above 0 and
+      // `ownModule` holds a segment. So this conjunct can never be the one that
+      // fails. It stays as the narrowing that lets `ownModule` be read as a
+      // string in the message below.
       if (moduleOwners && ownModule !== undefined && !moduleOwners.includes(ownModule)) {
         const named = ref.names.length ? ` (${ref.names.join(', ')})` : '';
 

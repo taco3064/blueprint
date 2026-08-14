@@ -437,6 +437,11 @@ export function wrapSentence(text: string, width: number): string[] {
   // wordless sentence would render as one line holding nothing but its own
   // indent — and dropping the empties covers the leading and trailing
   // whitespace a `trim()` was there for, which made the trim decide nothing.
+  //
+  // undecidable, the `+`: splitting on single whitespace yields an empty string
+  // per extra character, and the filter beside it drops exactly those. The
+  // quantifier stays because "a run of whitespace is one separator" is what this
+  // line means, not something to derive from what the filter cleans up after.
   for (const word of text.split(/\s+/).filter(Boolean)) {
     const last = lines.length - 1;
 

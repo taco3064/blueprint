@@ -244,6 +244,11 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
 
   // The same two derivations one level up, exactly as emitLint has them: a
   // file answers to the layer it sits in AND the module that contains it.
+  //
+  // undecidable, the `?? []` arm, same as emitLint's copy: a fabricated member is
+  // a string, so both derivations read its `owns` as `undefined` and derive
+  // nothing. It stays because the absent arm is real — a flat config reaches
+  // here — and because `barred` leans on this list being empty there.
   const modules = architecture.modules ?? [];
   const modulePackages = derivePackageRules(modules);
   const moduleGlobals = deriveGlobalRules(modules);
@@ -251,6 +256,12 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
   const named = (rule: { package: string; imports?: string[] }): string =>
     (rule.imports?.length ? `${rule.package} (${rule.imports.join(', ')})` : rule.package);
 
+  // undecidable, the `owner === undefined` test, and shielded by ONE line above:
+  // `const modules = architecture.modules ?? []` is what makes `modulePackages`
+  // and `moduleGlobals` empty on a flat config, so the filter answers `[]` there
+  // however this compares. Give that default anything but an empty list and this
+  // proof is void. The test stays because it is what lets `owner` be read as a
+  // string — emitLint's `ownedElsewhere` is the same pair, one module over.
   const barred = <T extends { allowedIn: string[] }>(rules: T[], owner: string | undefined): T[] =>
     (owner === undefined ? [] : rules.filter((rule) => !rule.allowedIn.includes(owner)));
 
