@@ -461,6 +461,22 @@ describe('runInit · brownfield authoring flow', () => {
     expect(exists('blueprint-authoring.md')).toBe(true);
   });
 
+  it('--authoring also takes over a pristine MODULAR scaffold', async () => {
+    // The coupling this flag is most likely to break, and it breaks in another
+    // command: isPristineScaffold enumerates what buildConfigSource can produce,
+    // so an axis missing from that list makes --authoring refuse init's own
+    // output with "differs from what init would scaffold".
+    writePkg({ name: 'fresh', dependencies: { react: '^18' } });
+
+    await runInit(root, { install: false, structure: 'modular', log: silent });
+    expect(read('blueprint.config.mjs')).toContain('structure: \'modular\'');
+
+    await runInit(root, { install: false, authoring: true, log: silent });
+
+    expect(exists('blueprint.config.mjs')).toBe(false);
+    expect(exists('blueprint-authoring.md')).toBe(true);
+  });
+
   it('--authoring refuses a config that is not init\'s own output', async () => {
     writePkg({ name: 'fresh', dependencies: { react: '^18' } });
 
@@ -1130,6 +1146,43 @@ describe('runInit · --agent persists into the scaffolded config', () => {
 
     expect(takeover.some((action) => action.kind === 'rm')).toBe(true);
     expect(exists('blueprint-authoring.md')).toBe(true);
+  });
+});
+
+describe('runInit · --structure reaches the config init writes', () => {
+  it('declares the modular structure in the scaffolded config', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    await runInit(root, { install: false, log: silent, structure: 'modular' });
+
+    // The config is the artifact every later command reads, so it — not the run's
+    // narration — is what has to carry the answer.
+    expect(read('blueprint.config.mjs'))
+      .toContain('export default vuePreset({ name: \'demo\', structure: \'modular\' });');
+  });
+
+  it('plans the modular config under --dry-run and writes nothing', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    const lines: string[] = [];
+
+    const actions = await runInit(root, {
+      install: false,
+      dryRun: true,
+      structure: 'modular',
+      log: (message) => lines.push(message),
+    });
+
+    const config = actions.find(
+      (action) => action.kind === 'write' && action.path === 'blueprint.config.mjs',
+    );
+
+    // Both halves. A dry run that planned a FLAT config would still print this
+    // line and still leave the tree clean, so the plan's content is the half
+    // that reads what the flag did.
+    expect(config).toMatchObject({ content: expect.stringContaining('structure: \'modular\'') });
+    expect(lines.join('\n')).toContain('would write: blueprint.config.mjs');
+    expect(exists('blueprint.config.mjs')).toBe(false);
   });
 });
 

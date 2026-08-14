@@ -222,6 +222,27 @@ describe('per-command help', () => {
     log.mockRestore();
   });
 
+  it('documents --structure: both values, and that a config already answered it', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    expect(await run(['init', '--help'])).toBe(0);
+
+    const help = String(log.mock.calls[0][0]);
+
+    expect(help).toContain('--structure flat|modular');
+    // Both values, each with what it means — a flag whose help names only the
+    // syntax hands the choice back unanswered, and this one is a day-one choice.
+    expect(help).toContain('technical layers at the source root');
+    expect(help).toContain('(flat, the default)');
+    expect(help).toContain('feature modules there with');
+    expect(help).toContain('those layers inside each one (modular)');
+    // And the question it does NOT re-ask, or a re-run with the flag reads as a
+    // migration that silently did nothing.
+    expect(help).toContain('an existing blueprint.config.mjs already');
+    expect(help).toContain('re-run with this flag changes nothing');
+    log.mockRestore();
+  });
+
   it('keeps the value proposition in the top-level usage', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
 
@@ -401,6 +422,22 @@ describe('parseInitArgs · authoring flags', () => {
   });
 });
 
+describe('parseInitArgs · --structure', () => {
+  // One case per member: with a single one covered, the other can be deleted
+  // from the accepted list and the suite stays green.
+  it.each([['flat'], ['modular']] as const)('parses --structure %s', (value) => {
+    expect(parseInitArgs(['--structure', value])).toEqual({ structure: value });
+  });
+
+  it('refuses a bad value and a missing one, naming both values', () => {
+    // Not `--framework`'s silent fallback: an unparsed value there leaves the
+    // option undefined, so a run asked for `modular` would scaffold flat and say
+    // nothing — and the config is the artifact nobody re-reads.
+    expect(() => parseInitArgs(['--structure', 'banana'])).toThrow(/flat \| modular/);
+    expect(() => parseInitArgs(['--structure'])).toThrow(/flat \| modular/);
+  });
+});
+
 describe('parseSurveyArgs', () => {
   it('parses --json and --alias', () => {
     expect(parseSurveyArgs(['--json', '--alias', '@'])).toEqual({ json: true, alias: '@' });
@@ -545,6 +582,42 @@ describe('run · flag validation reaches the right arguments', () => {
     await run(['rules', '--json'], root);
 
     expect(errored('unknown flag')).toBe(false);
+  });
+
+  it('lets init through with --structure and its value', async () => {
+    // KNOWN_FLAGS.init: without the entry the flag dies at the check, before the
+    // parser it was written for ever sees it.
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+    );
+
+    expect(await run(['init', '--structure', 'modular', '--no-install', '--dry-run'], root))
+      .toBe(0);
+
+    expect(errored('unknown flag')).toBe(false);
+  });
+
+  it('reads the token after --structure as its value, however flag-shaped', async () => {
+    // This is the ONLY case the VALUED_FLAGS entry decides. The check skips any
+    // argument not starting with a dash, so `--structure modular` is accepted
+    // with or without the entry — measured on the built bin with the valued flag
+    // that already exists (`survey --alias --json` consumes `--json` as the
+    // value). A flag-shaped value is where the entry is the difference: without
+    // it the run dies on `--bogus` as an unknown flag, and the usage error the
+    // caller can act on never gets printed.
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'x' }));
+
+    expect(await run(['init', '--structure', '--bogus'], root)).toBe(1);
+    expect(errored('--structure expects one of: flat | modular.')).toBe(true);
+    expect(errored('unknown flag')).toBe(false);
+  });
+
+  it('points a mistyped --structure at init --help', async () => {
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'x' }));
+
+    expect(await run(['init', '--sturcture', 'modular'], root)).toBe(1);
+    expect(errored('unknown flag for init: --sturcture — see: blueprint init --help')).toBe(true);
   });
 
   it('does not run the flag check for a command it knows nothing about', async () => {

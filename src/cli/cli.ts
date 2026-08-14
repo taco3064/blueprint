@@ -9,6 +9,7 @@ import { runImpact } from '../impact';
 import type { ImpactOptions } from '../impact';
 import { runDeps, runDoctor, runInspect, runRules } from '../inspect';
 import type { DepsOptions, DoctorOptions, InspectOptions, RulesOptions } from '../inspect';
+import type { PresetStructure } from '../presets';
 import { runSurvey } from '../survey';
 import type { SurveyOptions } from '../survey';
 
@@ -79,6 +80,17 @@ const INIT_HELP = [
   '                          Opposite of --preset; the two cannot be combined.',
   '  --framework vue|react   Only needed when package.json detection is',
   '                          ambiguous — vue/react is otherwise auto-detected.',
+  '  --structure flat|modular',
+  '                          Where the one-way flow starts in a config init',
+  '                          generates: technical layers at the source root',
+  '                          (flat, the default), or feature modules there with',
+  '                          those layers inside each one (modular). A day-one',
+  '                          choice — the config migration is free and moving',
+  '                          the files is not. Read ONLY when init generates the',
+  '                          config: an existing blueprint.config.mjs already',
+  '                          answers it with its own architecture.modules, so a',
+  '                          re-run with this flag changes nothing. Not',
+  '                          available on a Next.js project (init says why).',
   '  --no-install            Skip dependency installation.',
   '  --dry-run               Print the plan, write nothing (never launches).',
   '',
@@ -313,6 +325,15 @@ function parseAgent(value: string | undefined): AgentKind | undefined {
     : undefined;
 }
 
+/** The `--structure` values, and the list the refusal names them from. */
+const STRUCTURES = ['flat', 'modular'] as const satisfies readonly PresetStructure[];
+
+function parseStructure(value: string | undefined): PresetStructure | undefined {
+  return (STRUCTURES as readonly string[]).includes(value ?? '')
+    ? (value as PresetStructure)
+    : undefined;
+}
+
 /**
  * Every flag parser below walks a copy of argv as a queue, taking a value flag's
  * value with a second `shift()`. Not an index loop with `args[++i]`: that leaves the
@@ -346,6 +367,17 @@ export function parseInitArgs(args: string[]): InitOptions {
       options.agent = agent;
     } else if (arg === '--framework') {
       options.framework = parseFramework(rest.shift()) ?? options.framework;
+    } else if (arg === '--structure') {
+      const structure = parseStructure(rest.shift());
+
+      // Throws like --agent rather than falling back like --framework: a silent
+      // fallback writes a flat config for someone who typed `modular`, and the
+      // config is the artifact they will not re-read.
+      if (!structure) {
+        throw new Error(`--structure expects one of: ${STRUCTURES.join(' | ')}.`);
+      }
+
+      options.structure = structure;
     }
   }
 
@@ -431,7 +463,15 @@ export function parseDoctorArgs(args: string[]): DoctorOptions {
  * ignored — silently accepted, `inspect --verbose` reads as a broken no-op.
  */
 const KNOWN_FLAGS: Record<string, Set<string>> = {
-  init: new Set(['--agent', '--preset', '--authoring', '--framework', '--no-install', '--dry-run']),
+  init: new Set([
+    '--agent',
+    '--preset',
+    '--authoring',
+    '--framework',
+    '--structure',
+    '--no-install',
+    '--dry-run',
+  ]),
   survey: new Set(['--alias', '--json']),
   inspect: new Set(['--json', '--framework', '--baseline', '--update-baseline']),
   impact: new Set(['--json']),
@@ -441,7 +481,7 @@ const KNOWN_FLAGS: Record<string, Set<string>> = {
 };
 
 /** Flags that consume the next argument as their value. */
-const VALUED_FLAGS = new Set(['--agent', '--framework', '--alias']);
+const VALUED_FLAGS = new Set(['--agent', '--framework', '--structure', '--alias']);
 
 function rejectUnknownFlags(known: Set<string>, command: string, args: string[]): void {
   for (let i = 0; i < args.length; i++) {

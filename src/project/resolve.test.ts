@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildConfigSource, buildNextConfigSource, resolveBlueprint } from './resolve';
+import { vuePreset } from '../presets';
 import type { ProjectState } from './types';
 
 function state(over: Partial<ProjectState> = {}): ProjectState {
@@ -105,6 +106,82 @@ describe('resolveBlueprint · the Next.js route tree', () => {
   });
 });
 
+describe('resolveBlueprint · the structure flag', () => {
+  it('reaches the preset AND the config it writes — one run cannot say both', async () => {
+    // Both outputs, in one assertion block, because they are the pair that can
+    // disagree: a run reporting a modular blueprint while writing a flat config
+    // leaves every later command reading a repo the run never described.
+    const { blueprint, configSource } = await resolveBlueprint(
+      '/repo',
+      state({ projectName: 'acme' }),
+      { structure: 'modular' },
+    );
+
+    expect(blueprint.architecture.modules?.map((module) => module.name)).toEqual(['app', 'common']);
+
+    expect(blueprint.architecture.layers.map((layer) => layer.name))
+      .toEqual(['components', 'hooks', 'contexts', 'services']);
+
+    expect(configSource).toContain('structure: \'modular\'');
+  });
+
+  it('leaves flat alone — no modules, and the config today would write', async () => {
+    const flat = await resolveBlueprint('/repo', state({ projectName: 'acme' }), {
+      structure: 'flat',
+    });
+
+    const unasked = await resolveBlueprint('/repo', state({ projectName: 'acme' }), {});
+
+    expect(flat.blueprint.architecture.modules).toBeUndefined();
+    expect(flat.configSource).toBe(unasked.configSource);
+  });
+
+  it('does not re-decide over an existing config — no preset is reached at all', async () => {
+    // The guard above returns before any preset call, and it has to stay that way:
+    // the config's own `architecture.modules` is the answer, and a flag
+    // contradicting it is not a tie to break.
+    const existing = vuePreset({ name: 'existing' });
+
+    const { blueprint, configSource } = await resolveBlueprint(
+      '/repo',
+      state({ hasConfig: true }),
+      { structure: 'modular', loadConfig: () => Promise.resolve(existing) },
+    );
+
+    expect(blueprint).toBe(existing);
+    expect(blueprint.architecture.modules).toBeUndefined();
+    expect(configSource).toBeNull();
+  });
+});
+
+describe('resolveBlueprint · the structure flag on a Next.js project', () => {
+  const next = { hasNext: true, nextRouter: 'app' as const, framework: 'react' as const };
+
+  it('refuses modular, naming what is missing and what to do instead', async () => {
+    const refusal = resolveBlueprint('/repo', state(next), { structure: 'modular' });
+
+    // The prefix carries the fact only this site knows — why a run that never
+    // named Next resolved the Next preset…
+    await expect(refusal).rejects.toThrow('--structure modular is not available here');
+    await expect(refusal).rejects.toThrow('this repo has a Next.js route tree');
+    // …and the shared refusal carries the cause and both ways out, so the CLI
+    // and the preset API cannot drift into two different answers.
+    await expect(refusal).rejects.toThrow('the modular model has no Next layer list');
+    await expect(refusal).rejects.toThrow('Drop the option for the flat Next shape');
+    await expect(refusal).rejects.toThrow('declare `architecture.modules` yourself');
+  });
+
+  it('accepts flat — it is the shape this preset already builds', async () => {
+    // Refusing a request the preset already satisfies would leave a greenfield
+    // Next repo with no answer that works once init starts requiring one.
+    const flat = await resolveBlueprint('/repo', state(next), { structure: 'flat' });
+    const unasked = await resolveBlueprint('/repo', state(next), {});
+
+    expect(flat.blueprint.architecture.layers[0].name).toBe('app');
+    expect(flat.configSource).toBe(unasked.configSource);
+  });
+});
+
 describe('buildConfigSource', () => {
   it('names the preset the framework asks for and omits absent fields', () => {
     expect(buildConfigSource('vue')).toContain('import { vuePreset } from \'@kekkai/blueprint\';');
@@ -113,6 +190,32 @@ describe('buildConfigSource', () => {
 
     expect(buildConfigSource('vue', 'acme', ['claude']))
       .toContain('export default vuePreset({ name: \'acme\', emit: { agents: [\'claude\'] } });');
+  });
+});
+
+describe('buildConfigSource · structure', () => {
+  it('writes the modular field, after the name and before emit', () => {
+    // The whole call is read, not a fragment of it: the field has to be inside the
+    // preset's options object and in a fixed place, or the emitted config either
+    // does not parse or reads differently from every other one init writes.
+    expect(buildConfigSource('vue', 'acme', ['claude'], 'modular'))
+      .toContain(
+        'export default vuePreset({ name: \'acme\', structure: \'modular\', '
+        + 'emit: { agents: [\'claude\'] } });',
+      );
+
+    expect(buildConfigSource('react', undefined, undefined, 'modular'))
+      .toContain('export default reactPreset({ structure: \'modular\' });');
+  });
+
+  it('writes nothing for flat — byte-identical to the call that never asked', () => {
+    // `flat` is the preset default, so declaring it restates one. Self-referential
+    // on purpose: whatever today's output is, the flag must not change it.
+    expect(buildConfigSource('vue', 'acme', ['claude'], 'flat'))
+      .toBe(buildConfigSource('vue', 'acme', ['claude']));
+
+    expect(buildConfigSource('react', undefined, undefined, 'flat'))
+      .toBe(buildConfigSource('react'));
   });
 });
 

@@ -312,11 +312,17 @@ function isPristineScaffold(root: string, state: ProjectState): boolean {
   // own byte-identical output, so each candidate gets its agent variants.
   const agentVariants = [undefined, ['claude' as const], ['agents' as const]];
 
+  // `init --structure` adds an axis with two OUTPUTS rather than two values:
+  // `flat` is the preset default and writes no field, so it is the undefined arm.
+  const structureVariants = [undefined, 'modular' as const];
+
   const candidates = (['vue', 'react'] as const).flatMap((framework) =>
-    agentVariants.flatMap((agents) => [
-      buildConfigSource(framework, state.projectName, agents),
-      buildConfigSource(framework, undefined, agents),
-    ]),
+    agentVariants.flatMap((agents) =>
+      structureVariants.flatMap((structure) => [
+        buildConfigSource(framework, state.projectName, agents, structure),
+        buildConfigSource(framework, undefined, agents, structure),
+      ]),
+    ),
   );
 
   // undecidable: `detectNext` returns a null router for anything not Next, so this
