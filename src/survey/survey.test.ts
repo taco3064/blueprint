@@ -97,6 +97,7 @@ function wrapWidthProbe(): string[] {
 
   const output = renderSurvey({
     framework: null,
+    shape: { kind: 'unknown', reason: '', sharedVocabulary: [], layerShaped: [] },
     typescript: false,
     packageManager: 'npm',
     aliases: {},
@@ -440,6 +441,7 @@ describe('renderSurvey', () => {
   it('renders the unknown-framework header without folders', () => {
     const output = renderSurvey({
       framework: null,
+      shape: { kind: 'unknown', reason: '', sharedVocabulary: [], layerShaped: [] },
       typescript: false,
       packageManager: 'npm',
       aliases: {},
@@ -475,6 +477,7 @@ describe('renderSurvey', () => {
   it('renders the alias list, the folder row, and same-folder counts heaviest first', () => {
     const output = renderSurvey({
       framework: 'vue',
+      shape: { kind: 'unknown', reason: '', sharedVocabulary: [], layerShaped: [] },
       typescript: true,
       packageManager: 'pnpm',
       aliases: { '~app': 'src', '~lib': 'src/lib' },
@@ -521,6 +524,7 @@ describe('renderSurvey', () => {
     const render = (count: number) =>
       renderSurvey({
         framework: null,
+        shape: { kind: 'unknown', reason: '', sharedVocabulary: [], layerShaped: [] },
         typescript: false,
         packageManager: 'npm',
         aliases: {},
@@ -552,6 +556,7 @@ describe('renderSurvey', () => {
     // empty folder, ran `ls`, and found a directory of `.css` (field run #150).
     const output = renderSurvey({
       framework: null,
+      shape: { kind: 'unknown', reason: '', sharedVocabulary: [], layerShaped: [] },
       typescript: false,
       packageManager: 'npm',
       aliases: {},
@@ -599,6 +604,7 @@ describe('renderSurvey', () => {
     // generated/` is an ordinary project. Every other line here is hand-wrapped.
     const output = renderSurvey({
       framework: null,
+      shape: { kind: 'unknown', reason: '', sharedVocabulary: [], layerShaped: [] },
       typescript: false,
       packageManager: 'npm',
       aliases: {},
@@ -658,6 +664,7 @@ describe('renderSurvey', () => {
     const render = (count: number) =>
       renderSurvey({
         framework: null,
+        shape: { kind: 'unknown', reason: '', sharedVocabulary: [], layerShaped: [] },
         typescript: false,
         packageManager: 'npm',
         aliases: {},
@@ -693,6 +700,7 @@ describe('renderSurvey', () => {
     // to do (field issue #6 is the same shape one section up).
     const empty = renderSurvey({
       framework: null,
+      shape: { kind: 'unknown', reason: '', sharedVocabulary: [], layerShaped: [] },
       typescript: false,
       packageManager: 'npm',
       aliases: {},
@@ -759,5 +767,164 @@ describe('dependencyNames · what "no package.json" answers', () => {
     );
 
     expect(dependencyNames(dir)).toEqual(['vue', '@vitejs/plugin-vue']);
+  });
+});
+
+describe('runSurvey · which shape the top level is', () => {
+  const tree = (files: string[]): void => {
+    write('package.json', JSON.stringify({ name: 'x', dependencies: { react: '^18' } }));
+
+    for (const rel of files) write(`src/${rel}`, 'export const x = 1;\n');
+  };
+
+  const shapeOf = (files: string[]) => {
+    tree(files);
+
+    return runSurvey(root, { log: silent }).shape;
+  };
+
+  it('reads index-bearing children as layers — the folders ARE the layers', () => {
+    const shape = shapeOf(['hooks/useCart/index.ts', 'components/Button/index.ts']);
+
+    expect(shape.kind).toBe('flat');
+    expect(shape.layerShaped).toEqual(['components', 'hooks']);
+    expect(shape.reason).toContain('they are the technical layers themselves');
+  });
+
+  it('reads a shared child vocabulary with no units as modules', () => {
+    const shape = shapeOf([
+      'Fighter/hooks/useInput/index.ts',
+      'Fighter/components/Ship/index.ts',
+      'Combat/hooks/useHit/index.ts',
+      'Combat/components/Bullet/index.ts',
+    ]);
+
+    expect(shape.kind).toBe('modular');
+    // The units sit one level deeper than the recurring names, which is what
+    // a technical vocabulary that has sunk a level looks like from outside.
+    expect(shape.sharedVocabulary).toEqual(['components', 'hooks']);
+    expect(shape.layerShaped).toEqual([]);
+  });
+
+  it('lets a router-shaped folder abstain rather than veto', () => {
+    // `app`'s children are its router's vocabulary — neither shared layer
+    // names nor index-bearing units. Vetoing on it would call every modular
+    // repo with a router mixed, and `app` is itself a declared module.
+    const shape = shapeOf([
+      'Fighter/hooks/useInput/index.ts',
+      'Combat/hooks/useHit/index.ts',
+      'app/routes/Game.ts',
+      'app/layouts/Main.ts',
+    ]);
+
+    expect(shape.kind).toBe('modular');
+    expect(shape.sharedVocabulary).toEqual(['hooks']);
+  });
+
+  it('vetoes on one layer-shaped folder, and names it', () => {
+    // Condition 3 is a veto, not a tally: `utils` is a layer sitting at module
+    // depth, so the tree is mixed rather than modular with an exception.
+    const shape = shapeOf([
+      'Fighter/hooks/useInput/index.ts',
+      'Combat/hooks/useHit/index.ts',
+      'utils/format/index.ts',
+    ]);
+
+    expect(shape.kind).toBe('unknown');
+    expect(shape.layerShaped).toEqual(['utils']);
+    expect(shape.reason).toContain('utils is layer-shaped at module depth');
+  });
+
+  it('does not read a recurring test folder as a module vocabulary', () => {
+    // `__tests__` recurs, so condition 1 passes on its own — condition 2 is
+    // what stops it, because the layers beside it still hold real units.
+    const shape = shapeOf([
+      'hooks/useCart/index.ts',
+      'hooks/__tests__/useCart.test.ts',
+      'components/Button/index.ts',
+      'components/__tests__/Button.test.ts',
+    ]);
+
+    expect(shape.kind).toBe('unknown');
+    expect(shape.sharedVocabulary).toEqual(['__tests__']);
+    expect(shape.layerShaped).toEqual(['components', 'hooks']);
+  });
+
+  it('says there is no second level to read rather than guessing', () => {
+    const shape = shapeOf(['hooks/useCart.ts', 'components/Button.ts']);
+
+    expect(shape.kind).toBe('flat');
+    expect(shape.reason).toContain('no top-level folder has a subtree');
+  });
+
+  it('reports could-not-tell when neither signal is present', () => {
+    // Subtrees with no recurring name and no units: nothing says layer and
+    // nothing says module. An answer, not a fallback.
+    const shape = shapeOf(['alpha/one/deep/a.ts', 'beta/two/deep/b.ts']);
+
+    expect(shape.kind).toBe('unknown');
+    expect(shape.reason).toContain('no child-folder name recurs');
+  });
+});
+
+describe('renderSurvey · the shape is stated before the rows it explains', () => {
+  const render = (files: string[]) => {
+    write('package.json', JSON.stringify({ name: 'x' }));
+
+    for (const rel of files) write(`src/${rel}`, 'export const x = 1;\n');
+
+    const lines: string[] = [];
+
+    runSurvey(root, { log: (m) => void lines.push(m) });
+
+    return lines.join('\n');
+  };
+
+  it('names the level each section is describing on a modular tree', () => {
+    const output = render([
+      'Fighter/hooks/useInput/index.ts',
+      'Combat/hooks/useHit/index.ts',
+    ]);
+
+    expect(output).toContain('Top-level shape: MODULAR.');
+    // Every row below means something different depending on the shape — a
+    // `hooks` row is a layer under flat and a module under modular.
+    expect(output).toContain('these are the modules');
+    expect(output).toContain('Import matrix (module to module');
+  });
+
+  it('says a module owns across modules, not across layers', () => {
+    // The ownership question changes level with the shape: under modules a
+    // concentrated package is a candidate for a MODULE's `owns`, and the
+    // heading has to say which, or the reader applies it one level off.
+    write('package.json', JSON.stringify({ name: 'x', dependencies: { axios: '^1' } }));
+    write('src/Fighter/hooks/useInput/index.ts', 'import a from \'axios\';\n');
+    write('src/Combat/hooks/useHit/index.ts', 'export const x = 1;\n');
+
+    const lines: string[] = [];
+
+    runSurvey(root, { log: (m) => void lines.push(m) });
+
+    expect(lines.join('\n')).toContain('Package usage per MODULE');
+    expect(lines.join('\n')).toContain('a module owns across other modules');
+  });
+
+  it('says COULD NOT TELL in those words, and why', () => {
+    const output = render([
+      'Fighter/hooks/useInput/index.ts',
+      'Combat/hooks/useHit/index.ts',
+      'utils/format/index.ts',
+    ]);
+
+    expect(output).toContain('COULD NOT TELL — this survey reports facts and does not guess');
+    expect(output).toContain('read each on its own evidence');
+  });
+
+  it('leaves a flat tree\'s section headings exactly as they were', () => {
+    const output = render(['hooks/useCart/index.ts', 'components/Button/index.ts']);
+
+    expect(output).toContain('Folders (module-shape evidence):');
+    expect(output).toContain('Import matrix (cross-folder, heaviest first');
+    expect(output).not.toContain('these are the modules');
   });
 });

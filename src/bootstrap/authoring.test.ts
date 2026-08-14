@@ -20,6 +20,7 @@ import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
 import type { SurveyResult } from '../survey';
 
 const survey: SurveyResult = {
+  shape: { kind: 'unknown', reason: '', sharedVocabulary: [], layerShaped: [] },
   framework: 'react',
   typescript: true,
   packageManager: 'npm',
