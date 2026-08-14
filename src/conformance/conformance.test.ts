@@ -345,7 +345,7 @@ describe('zero-debt honesty — notes are not debt (batch 4)', () => {
 
     // A baseline that recorded an info entry still suppresses…
     write(dir, '.blueprint-baseline.json', JSON.stringify({
-      version: 2,
+      version: 3,
       findings: [{
         rule: 'missing-layer',
         path: 'src/services',
@@ -3328,7 +3328,7 @@ describe('a baseline survives a reworded finding, and an old one says so', () =>
 
     const document = JSON.parse(read(dir, '.blueprint-baseline.json') ?? '{}');
 
-    expect(document.version).toBe(2);
+    expect(document.version).toBe(3);
     expect(document.findings[0].subject).toBe('');
     expect(document.findings[0].path).toBe('src/random');
     // Written, and read by nothing — it is what makes the diff of a regenerated
@@ -3378,7 +3378,7 @@ describe('a baseline survives a reworded finding, and an old one says so', () =>
     // whether running it needs a hand audit first — that re-keying suppresses the
     // same debt rather than quietly widening what the gate ignores.
     expect(output).toContain('version 1');
-    expect(output).toContain('version 2');
+    expect(output).toContain('version 3');
     expect(output).toContain('--update-baseline');
     expect(output).toContain('nothing is suppressed that was not suppressed before');
 

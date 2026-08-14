@@ -13,7 +13,7 @@ export const BASELINE_FILE = '.blueprint-baseline.json';
  * entries carry no `subject`, so the reader refuses them by version and says how to
  * re-key rather than matching by message and keeping the failure alive.
  */
-const BASELINE_VERSION = 2;
+const BASELINE_VERSION = 3;
 
 /** One recorded finding — kept as an object so baseline diffs read well. */
 export interface BaselineEntry {
@@ -61,6 +61,30 @@ export function splitByBaseline(findings: Finding[], baseline: BaselineEntry[]):
 }
 
 /** Serialize findings into a sorted, dedup'd, diff-friendly baseline document. */
+/**
+ * Why the version the reader has stopped matching. One clause per predecessor:
+ * "regenerate it" without a cause reads as corruption, and the safe response to
+ * that is to audit the file by hand before running anything.
+ */
+function whatChanged(version: unknown): string {
+  if (version === 1) {
+    return 'Version 1 identified a finding by its message text, so rewording one retired its '
+      + 'entry and the same debt came back as new; entries are keyed on the rule, the path and '
+      + 'the subject now, which a wording change does not touch.';
+  }
+
+  if (version === 2) {
+    return 'Version 2 recorded three different relative-import problems under one finding id '
+      + '("relative-escape"), which forced one migration step to answer all three. They are '
+      + '"src-escape", "entry-bypass" and "layer-escape" now, each naming the move that is '
+      + 'legal for it, so entries carrying the old id no longer match.';
+  }
+
+  // A version this release has never written — a hand-edit, or a file from a
+  // newer blueprint. Nothing truthful to say about what changed.
+  return 'This blueprint cannot say what that version recorded.';
+}
+
 export function renderBaseline(findings: Finding[]): string {
   const byKey = new Map(
     findings.map((finding) => [
@@ -103,18 +127,16 @@ export function parseBaseline(text: string): BaselineEntry[] {
   const entries = document !== null && 'findings' in document ? document.findings : null;
 
   // Refused rather than migrated, and named as an upgrade rather than as corruption.
-  // A v1 file's entries are keyed on the message text, so reading one under the new
-  // key would silently suppress nothing and report the whole ledger as fresh — the
-  // wall of red the baseline exists to prevent, arriving with no stated cause. The
-  // remedy is one command and loses nothing: the findings are still in the repo.
+  // An older file's entries no longer match under the current key, so reading one
+  // would suppress nothing and report the whole ledger as fresh — the wall of red
+  // the baseline exists to prevent, arriving with no stated cause. The remedy is one
+  // command and loses nothing: the findings are still in the repo.
   if (document !== null && document.version !== BASELINE_VERSION) {
     throw new Error(
       `Baseline file is version ${JSON.stringify(document.version)}, and this blueprint writes `
-      + `version ${BASELINE_VERSION} — regenerate it with --update-baseline. Older baselines `
-      + 'identified a finding by its message text, so rewording one retired its entry and the '
-      + 'same debt came back as new; entries are now keyed on the rule, the path and the '
-      + 'subject, which a wording change does not touch. Re-keying records the same debt: '
-      + 'nothing is suppressed that was not suppressed before.',
+      + `version ${BASELINE_VERSION} — regenerate it with --update-baseline. `
+      + `${whatChanged(document.version)} Re-keying records the same debt: nothing is `
+      + 'suppressed that was not suppressed before.',
     );
   }
 

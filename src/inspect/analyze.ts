@@ -252,7 +252,10 @@ function noEntryFindings(
   return findings;
 }
 
-/** Per-file import findings: deep-import, flow-violation, relative-escape, ownership, selfOnly. */
+/**
+ * Per-file import findings: deep-import, flow-violation, ownership, selfOnly,
+ * and the relative family (src-escape, entry-bypass, layer-escape, root-import).
+ */
 function importFindings(
   file: ScannedFile,
   architecture: ArchitectureDef,
@@ -360,14 +363,14 @@ function relativeEscape(
   // itself: past this point the target resolved, which is what lets the
   // messages below name a segment of it.
   if (target === null) {
-    return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" escapes src/ — use the project alias.`);
+    return finding('error', 'src-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" escapes src/ — use the project alias.`);
   }
 
   if (verdict === 'reaches-inside') {
     // The entry named is the TARGET's layer — the importer's own for a sibling,
     // and deliberately not for the module root reaching down into a layer it
     // does not belong to.
-    return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${entryOf(target[depth])}" instead; what lives behind it is that module's own business.`);
+    return finding('error', 'entry-bypass', file.path, ref.specifier, `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${entryOf(target[depth])}" instead; what lives behind it is that module's own business.`);
   }
 
   if (verdict === 'reaches-root') {
@@ -378,7 +381,7 @@ function relativeEscape(
     return finding('error', 'module-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" leaves this module — cross a module boundary through the alias, and declare the dependency in \`imports\`; a relative path cannot express it.`);
   }
 
-  return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.`);
+  return finding('error', 'layer-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.`);
 }
 
 /** Owner layers of a package import (given its named imports), or null if unrestricted. */

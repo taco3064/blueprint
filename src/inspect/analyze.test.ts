@@ -179,22 +179,26 @@ describe('analyze · imports', () => {
   });
 
   it('flags relative imports that leave the layer or escape src', () => {
-    expect(from('../..')).toContain('relative-escape');
-    expect(from('../../../outside')).toContain('relative-escape');
+    expect(from('../..')).toContain('layer-escape');
+    expect(from('../../../outside')).toContain('src-escape');
     expect(from('./helper')).toEqual([]);
   });
 
-  it('says which kind of escape it found, since all three share one rule id', () => {
+  it('reports each kind of escape under its own id, since the fixes differ', () => {
     // Three verdicts, three different fixes — use the alias, import the entry,
-    // extract to a lower layer. They all report under `relative-escape`, so a
-    // suite reading only the id cannot tell whether the right one was chosen.
-    const messageFor = (specifier: string): string | undefined =>
+    // extract to a lower layer. `MIGRATION` is keyed per id, so one id for the
+    // three forced one sentence to answer all of them, and the sentence it
+    // reached for was legal in only one (#203).
+    const findingFor = (specifier: string) =>
       analyze(scanOf([file(['components', 'Btn', 'index.ts'], [{ specifier, names: [], isExport: false }])]), bp)
-        .find((finding) => finding.rule === 'relative-escape')?.message;
+        .find((finding) => finding.rule.endsWith('escape') || finding.rule === 'entry-bypass');
 
-    expect(messageFor('../../../outside')).toContain('escapes src/');
-    expect(messageFor('../Card/internals')).toContain('reaches past a sibling');
-    expect(messageFor('../../hooks/useX')).toContain('leaves this layer');
+    expect(findingFor('../../../outside')?.rule).toBe('src-escape');
+    expect(findingFor('../../../outside')?.message).toContain('escapes src/');
+    expect(findingFor('../Card/internals')?.rule).toBe('entry-bypass');
+    expect(findingFor('../Card/internals')?.message).toContain('reaches past a sibling');
+    expect(findingFor('../../hooks/useX')?.rule).toBe('layer-escape');
+    expect(findingFor('../../hooks/useX')?.message).toContain('leaves this layer');
   });
 
   // The lint rule and this finding read the same `relativeVerdict`, so a
@@ -203,7 +207,7 @@ describe('analyze · imports', () => {
   // test placed to see it, which is why these two assertions sit together.
   it('allows a sibling entry but not what is behind it', () => {
     expect(from('../Card')).toEqual([]);
-    expect(from('../Card/internals')).toContain('relative-escape');
+    expect(from('../Card/internals')).toContain('entry-bypass');
   });
 
   it('flags a selfOnly re-export but allows a plain import', () => {
@@ -320,7 +324,7 @@ describe('analyze · flat layout', () => {
       flat,
     ).map((finding) => finding.rule);
 
-    expect(found).toContain('relative-escape');
+    expect(found).toContain('layer-escape');
     expect(found).not.toContain('deep-import');
     expect(found).not.toContain('no-entry');
   });
@@ -363,12 +367,12 @@ describe('analyze · per-layer module layout', () => {
     // Folder layer: leaving the module (even to a sibling module) escapes.
     expect(
       rules([file(['resources', 'matches', 'main.ts'], [{ specifier: '../markets/board' }])]),
-    ).toContain('relative-escape');
+    ).toContain('entry-bypass');
 
     // Flat layer: relatives roam the whole layer freely.
     expect(
       rules([file(['services', 'api', 'client.ts'], [{ specifier: '../ws/socket' }])]),
-    ).not.toContain('relative-escape');
+    ).not.toContain('entry-bypass');
   });
 });
 
@@ -930,11 +934,11 @@ describe('analyze · a modular tree is read at module depth', () => {
   it('flags a relative import that leaves the layer, and one that reaches inside a sibling', () => {
     expect(modularRules([
       file(['Fighter', 'components', 'Ship', 'index.tsx'], [{ specifier: '../../hooks/useInput' }]),
-    ])).toContain('relative-escape');
+    ])).toContain('layer-escape');
 
     expect(modularRules([
       file(['Fighter', 'components', 'Ship', 'index.tsx'], [{ specifier: '../Hull/internals' }]),
-    ])).toContain('relative-escape');
+    ])).toContain('entry-bypass');
   });
 
   it('accepts a sibling unit reached by its entry, at module depth', () => {
@@ -942,7 +946,7 @@ describe('analyze · a modular tree is read at module depth', () => {
     // repo would be red on its own conventions.
     expect(modularRules([
       file(['Fighter', 'components', 'Ship', 'index.tsx'], [{ specifier: '../Hull' }]),
-    ])).not.toContain('relative-escape');
+    ])).not.toContain('entry-bypass');
   });
 
   it('does not read one module\'s layer as another module\'s', () => {
@@ -965,7 +969,7 @@ describe('analyze · a modular tree is read at module depth', () => {
 
     expect(modularRules([
       file(['Fighter', 'Fighter.tsx'], [{ specifier: './components/Ship/internals' }]),
-    ])).toContain('relative-escape');
+    ])).toContain('entry-bypass');
 
     // …and reaching a unit correctly raises no import finding, or every module
     // would be red on the one thing its root is for. (`undeclared-folder` still
@@ -974,7 +978,8 @@ describe('analyze · a modular tree is read at module depth', () => {
       const rules = modularRules([file(['Fighter', 'Fighter.tsx'], [{ specifier }])]);
 
       expect(rules).not.toContain('deep-import');
-      expect(rules).not.toContain('relative-escape');
+      expect(rules).not.toContain('entry-bypass');
+      expect(rules).not.toContain('layer-escape');
       expect(rules).not.toContain('root-import');
       expect(rules).not.toContain('flow-violation');
     }

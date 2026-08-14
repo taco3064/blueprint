@@ -373,7 +373,7 @@ describe('runDoctor', () => {
     write(
       '.blueprint-baseline.json',
       JSON.stringify({
-        version: 2,
+        version: 3,
         findings: [
           {
             rule: 'undeclared-folder',
@@ -402,7 +402,7 @@ describe('runDoctor', () => {
     write(
       '.blueprint-baseline.json',
       JSON.stringify({
-        version: 2,
+        version: 3,
         findings: [
           {
             rule: 'undeclared-folder',
