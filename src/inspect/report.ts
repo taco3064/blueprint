@@ -36,7 +36,12 @@ const ENFORCED_BY: Record<string, string | null> = {
   'src-escape': 'blueprint/relative-escape',
   'entry-bypass': 'blueprint/relative-escape',
   'layer-escape': 'blueprint/relative-escape',
-  'root-import': 'blueprint/relative-escape',
+  // Two rules, because the two spellings of this one reach are caught by
+  // different mechanisms: the plugin resolves a relative path, and an exact
+  // `paths` entry catches the alias form. Naming only one sends a reader
+  // searching the resolved config for an id that is not the one holding their
+  // violation — which is the whole job of this table.
+  'root-import': 'blueprint/relative-escape for a relative path, no-restricted-imports for the alias',
   'module-escape': 'blueprint/relative-escape',
   'package-ownership': 'no-restricted-imports',
   'selfonly-reexport': 'no-restricted-syntax',

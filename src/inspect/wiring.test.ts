@@ -86,7 +86,7 @@ describe('expectedStructural · the shape two prose sites describe', () => {
     // update `PACKAGES_NOT_COMPARED` and the `rules` block that prints it, then this
     // list. Removing one means it stopped. Either way both texts move with it.
     expect(Object.keys(expectedStructural(blueprint, 'views')))
-      .toEqual(['groups', 'selectors', 'globals']);
+      .toEqual(['paths', 'groups', 'selectors', 'globals']);
   });
 });
 
@@ -1019,5 +1019,134 @@ describe('wiringCheck · a modular repo is probed inside a module', () => {
     const { probed } = await probeModular(scanOf());
 
     expect(probed).toEqual(['/repo/src/Fighter/components/__blueprint_probe__.js']);
+  });
+});
+
+describe('wiringCheck · the module-root ban is verified, not assumed', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [{ name: 'Fighter', does: 'the ship' }, { name: 'Combat', does: 'bullets' }],
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    },
+  };
+
+  const probe = async (over?: (rules: Record<string, unknown>) => Record<string, unknown>) => {
+    const check = await wiringCheck({
+      root: '/repo',
+      blueprint: modular,
+      scanResult: scanOf('src/Fighter/hooks/useRun/index.jsx'),
+      wired: true,
+      merged: true,
+      hasTypescript: true,
+      load: loader((filePath: string) => {
+        const rel = filePath.split(path.sep).join('/').replace('/repo/', '');
+
+        const merged = emitLint(modular)
+          .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
+          .reduce((rules, entry) => ({ ...rules, ...entry.rules }), {});
+
+        return { rules: over ? over(merged) : merged };
+      }),
+    });
+
+    return check;
+  };
+
+  it('expects it, and an intact config carries it', () => {
+    // `expectedStructural` gaining a key means doctor started comparing
+    // something new — the tripwire above is what makes that deliberate.
+    expect([...expectedStructural(modular, 'hooks', 'Fighter').paths])
+      .toEqual(['~app/Fighter', '~app/Fighter/index']);
+  });
+
+  it('goes green when the paths survive the merge', async () => {
+    const check = await probe();
+
+    expect(check.ok).toBe(true);
+    expect(check.skipped).toBeUndefined();
+  });
+
+  it('names the loss when a merge drops the paths but keeps the patterns', async () => {
+    // The precise shape of a hand-fold that rebuilt the groups and forgot the
+    // exact-path half — green everywhere else, and the upward edge back to
+    // being lint-legal.
+    const check = await probe((rules) => {
+      const setting = rules['no-restricted-imports'] as [unknown, Record<string, unknown>];
+
+      return {
+        ...rules,
+        'no-restricted-imports': ['error', { ...setting[1], paths: [] }],
+      };
+    });
+
+    expect(check.ok).toBe(false);
+    expect(check.detail).toContain('no-restricted-imports lost the module-root ban');
+    expect(check.detail).toContain('~app/Fighter');
+  });
+
+  it('does not read a package-ownership path as the module-root ban', async () => {
+    // Containment, and nothing here expects a package path — so `packages is
+    // not compared` stays true rather than quietly widening what a red means.
+    const owning: Blueprint = {
+      ...modular,
+      architecture: {
+        ...modular.architecture,
+        layers: [{ name: 'hooks', does: 'state', layout: 'folder', owns: ['axios'] }],
+      },
+    };
+
+    expect([...expectedStructural(owning, 'hooks', 'Fighter').paths])
+      .toEqual(['~app/Fighter', '~app/Fighter/index']);
+  });
+});
+
+describe('wiringCheck · the shapes a surviving module-root ban comes back as', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [{ name: 'Fighter', does: 'the ship' }],
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    },
+  };
+
+  const withPaths = async (paths: unknown[]) => wiringCheck({
+    root: '/repo',
+    blueprint: modular,
+    scanResult: scanOf('src/Fighter/hooks/useRun/index.jsx'),
+    wired: true,
+    merged: true,
+    hasTypescript: true,
+    load: loader({
+      rules: {
+        'no-restricted-imports': ['error', {
+          patterns: [...expectedStructural(modular, 'hooks', 'Fighter').groups]
+            .map((group) => ({ group: JSON.parse(group) as string[] })),
+          paths,
+        }],
+        'blueprint/relative-escape': ['error', {}],
+      },
+    }),
+  });
+
+  it('reads the bare-string form eslint also accepts', async () => {
+    const check = await withPaths(['~app/Fighter', '~app/Fighter/index']);
+
+    expect(check.ok).toBe(true);
+  });
+
+  it('ignores an entry with no name instead of choking on it', async () => {
+    // A hand-folded list can carry one. Containment means a garbage entry is
+    // the user's business — it must neither crash the read nor poison the set
+    // that decides whether the real ban survived.
+    const check = await withPaths([
+      { message: 'a fold that lost its name' },
+      '~app/Fighter',
+      { name: '~app/Fighter/index' },
+    ]);
+
+    expect(check.ok).toBe(true);
   });
 });

@@ -8,6 +8,7 @@ import {
   deriveGlobalRules,
   derivePackageRules,
   METRIC_GATES,
+  moduleRootPaths,
   PLUGIN_GATES,
   scopedAliases,
   unavailableGate,
@@ -91,6 +92,13 @@ interface BansCommon {
    * reaching test files (field issue #60) — carry them wherever the selectors land.
    */
   testExemptions: string[];
+  /**
+   * Exact specifiers banned as `paths` rather than patterns — the module root,
+   * in both its spellings. Reported apart from `no-import` because it is a
+   * different mechanism in the emitted entry, and a fold that rebuilds it as a
+   * pattern group takes the module's own layers with it.
+   */
+  moduleRoot: string[];
 }
 
 /**
@@ -277,6 +285,7 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
         };
       }),
       testExemptions: resolveTestFiles(architecture.testFiles),
+      moduleRoot: moduleRootPaths(aliases, module?.name).map((entry) => entry.name),
     };
   };
 
@@ -304,6 +313,9 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
     // layer's field, and this entry governs files that sit in no layer.
     selfOnly: [],
     testExemptions: resolveTestFiles(architecture.testFiles),
+    // Nor a module-root ban: this entry IS the module root, and the rule it
+    // carries is about reaching UP to it from a layer.
+    moduleRoot: [],
   });
 
   if (architecture.modules === undefined) {
@@ -524,7 +536,8 @@ export function renderRules(
           // contradiction (field run #159). Unconditional, unlike the `packages`
           // paragraph below: a statement of scope is always true, while an
           // instruction to verify is vacuous when there is nothing to verify.
-          '`no-import`, `globals` and the selfOnly selectors are what doctor compares,',
+          '`no-import`, `globals`, `module-root` and the selfOnly selectors are what doctor'
+          + ' compares,',
           'and it compares TEXTUALLY: a pattern group reordered or a selector respelled to',
           'an equivalent (`\\/` for `/`) reads as missing even though eslint would still',
           'enforce it. Copy, do not retype.',
@@ -537,7 +550,13 @@ export function renderRules(
             // `Fighter/hooks`, so the row names the entry it came from.
             `  ${banLabel(entry).padEnd(banWidth(bans))} no-import: ${entry.forbidden.join(', ') || '(none)'}`
             + ` · packages: ${entry.packages.join(', ') || '(none)'}`
-            + ` · globals: ${entry.globals.join(', ') || '(none)'}`,
+            + ` · globals: ${entry.globals.join(', ') || '(none)'}`
+            // Its own column, because it is a `paths` entry in the emitted
+            // rule and not a pattern group: rebuilt as a group in a hand-fold
+            // it would ban the module's own layers from each other.
+            + (entry.moduleRoot.length
+              ? ` · module-root (exact paths, never a group): ${entry.moduleRoot.join(', ')}`
+              : ''),
             // The exact strings a merge fold needs, so "combine into ONE entry" is
             // doable without an emitLint dump (field issues #20, #23, #117). The
             // header carries "verbatim"'s reason — doctor's comparison is textual,

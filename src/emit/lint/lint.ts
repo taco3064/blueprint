@@ -12,6 +12,7 @@ import { plugin } from '../../plugin';
 import {
   buildModulePatterns,
   buildPackagePatterns,
+  moduleRootPaths,
   buildStructuralPatterns,
   derivePackageRules,
   deriveGlobalRules,
@@ -163,8 +164,14 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
         ...new Set(disabledPackages.flatMap((rule) => rule.exempt ?? []).filter(Boolean)),
       ];
 
+      // The module's own root, banned as an exact specifier. A `paths` entry
+      // rather than a group, because a group would take the module's layers
+      // with it — see `moduleRootPaths`.
+      const rootPaths = moduleRootPaths(scoped, module?.name);
+
       const buildRules = (packages: PackageRule[]): Linter.RulesRecord => {
-        const { paths, patterns } = buildPackagePatterns(packages);
+        const { paths: packagePaths, patterns } = buildPackagePatterns(packages);
+        const paths = [...rootPaths, ...packagePaths];
 
         return {
           // By contract these are rule entries (validated to spare the managed rules).

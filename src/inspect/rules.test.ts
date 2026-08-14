@@ -284,6 +284,8 @@ describe('runRules', () => {
       // strings alone silently loses the emitted block's test exemption, and
       // the loss is invisible where nothing collides (field issue #60).
       testExemptions: ['**/*.test.{js,jsx,ts,tsx,vue}', '**/*.spec.{js,jsx,ts,tsx,vue}'],
+      // Empty on a flat project: there is no module root to reach up to.
+      moduleRoot: [],
     });
 
     // services owns its primitives — only the hooks-owned import stays banned.
@@ -872,5 +874,62 @@ describe('runRules · the ban table\'s label column', () => {
     const rows = lines.join('\n').split('\n').filter((line) => line.includes('no-import:'));
 
     expect(rows.some((row) => row.startsWith('  ui             no-import:'))).toBe(true);
+  });
+});
+
+describe('runRules · the module-root ban is reported as what it is', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [{ name: 'Fighter', does: 'the ship' }, { name: 'Combat', does: 'bullets' }],
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    },
+    rules: {},
+  };
+
+  it('reports exactly the paths the emitted entry bans', async () => {
+    const { bans } = await runRules(repo(modular), { log: () => {} });
+
+    // Against the emitted config, not a literal — the assertion #212 exists for,
+    // extended to the mechanism this ticket added.
+    const emittedPaths = (module: string) =>
+      emitLint(modular)
+        .filter((entry) => (entry.files ?? []).some((glob) => glob.startsWith(`src/${module}/hooks/`)))
+        .flatMap((entry) => {
+          const setting = entry.rules?.['no-restricted-imports'];
+
+          return Array.isArray(setting)
+            ? ((setting[1] as { paths?: { name: string }[] }).paths ?? []).map((p) => p.name)
+            : [];
+        });
+
+    let checked = 0;
+
+    for (const ban of bans.filter((entry) => entry.zone === 'layer')) {
+      expect(ban.moduleRoot).toEqual(emittedPaths(ban.module as string));
+      checked += ban.moduleRoot.length;
+    }
+
+    expect(checked).toBe(4); // {Fighter, Combat} × {folder, /index}
+  });
+
+  it('says it is a paths entry, so a fold does not rebuild it as a group', async () => {
+    const lines: string[] = [];
+
+    await runRules(repo(modular), { log: (m) => void lines.push(m) });
+
+    const text = lines.join('\n');
+
+    expect(text).toContain('module-root (exact paths, never a group): ~app/Fighter, ~app/Fighter/index');
+    // Rebuilt as a pattern group it would take the module's own layers with it,
+    // which is the whole reason the mechanism differs.
+    expect(text).toContain('`module-root` and the selfOnly selectors are what doctor');
+  });
+
+  it('reports none for the module-root zone, which IS the root', async () => {
+    const { bans } = await runRules(repo(modular), { log: () => {} });
+
+    expect(bans.find((ban) => ban.zone === 'root')?.moduleRoot).toEqual([]);
   });
 });

@@ -1232,3 +1232,98 @@ describe('emitLint · the zones no layer glob reaches', () => {
     );
   });
 });
+
+describe('emitLint · a layer reaching up to its own module root', () => {
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      additionalAliases: { '~root': '.' },
+      modules: [
+        { name: 'app', does: 'routing', layers: false, imports: ['GameStage'] },
+        { name: 'GameStage', does: 'the run', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets' },
+      ],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' },
+        { name: 'hooks', does: 'state', layout: 'folder' },
+      ],
+    },
+  });
+
+  const modularConfig = [
+    { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+    ...emitLint(modular),
+  ];
+
+  const banned = (code: string, filename: string): string[] =>
+    linter
+      .verify(code, modularConfig, { filename })
+      .map((message) => message.ruleId)
+      .filter((id): id is string => id != null && id.startsWith('no-restricted-'));
+
+  const HOOK = 'src/GameStage/hooks/useRun/useRun.ts';
+  const ROOT = 'src/GameStage/GameStage.tsx';
+
+  it('reddens the module folder and its entry, in both spellings', () => {
+    // Red in `inspect` and green in lint until now: `relative-escape` catches
+    // the relative form by resolving it and returns early on anything that does
+    // not start with `.`, and no group covered the root as a target.
+    expect(banned('import { x } from "~app/GameStage";', HOOK))
+      .toContain('no-restricted-imports');
+
+    expect(banned('import { x } from "~app/GameStage/index";', HOOK))
+      .toContain('no-restricted-imports');
+  });
+
+  it('reddens it through a second alias too', () => {
+    expect(banned('import { x } from "~root/src/GameStage";', HOOK))
+      .toContain('no-restricted-imports');
+  });
+
+  it('leaves the module\'s own layers reachable through the alias', () => {
+    // The reason this is `paths` and not a group: `~app/GameStage` as a pattern
+    // is gitignore-matched and takes the whole subtree, cutting the module off
+    // from its own layers — which the same-layer and flow groups already govern.
+    expect(banned('import { r } from "~app/GameStage/hooks/useRun";', 'src/GameStage/components/Hud/Hud.tsx'))
+      .toEqual([]);
+  });
+
+  it('leaves the root itself reaching down through a unit entry', () => {
+    expect(banned('import { r } from "~app/GameStage/hooks/useRun";', ROOT)).toEqual([]);
+
+    // …and still bans reaching past it, which #182 landed.
+    expect(banned('import { i } from "~app/GameStage/hooks/useRun/impl";', ROOT))
+      .toContain('no-restricted-imports');
+  });
+
+  it('says the same thing the finding says', () => {
+    const [message] = linter
+      .verify('import { x } from "~app/GameStage";', modularConfig, { filename: HOOK })
+      .map((entry) => entry.message);
+
+    // One rule, read the same in either gate.
+    expect(message).toContain('reaches up to the module root');
+    expect(message).toContain('move the shared part down into a layer, or pass it in from the root');
+  });
+
+  it('bans nothing of the kind on a layers:false module or a flat config', () => {
+    // No inner layers to reach upward from, and no module root at all.
+    const appEntry = emitLint(modular).find((entry) => entry.files?.[0]?.startsWith('src/app/'));
+
+    const appPaths = (appEntry?.rules?.['no-restricted-imports'] as
+      [unknown, { paths?: { name: string }[] }])[1].paths ?? [];
+
+    expect(appPaths.map((entry) => entry.name)).not.toContain('~app/app');
+
+    const flatPaths = emitLint(blueprint)
+      .flatMap((entry) => {
+        const setting = entry.rules?.['no-restricted-imports'] as
+          [unknown, { paths?: { name: string }[] }] | undefined;
+
+        return setting?.[1].paths ?? [];
+      });
+
+    expect(flatPaths.map((entry) => entry.name)).not.toContain('~app');
+  });
+});

@@ -7,6 +7,13 @@ import type {
 } from '../../config';
 import type { GlobalRule, GroupPattern, PackageRule, PathPattern } from './types';
 
+/**
+ * A module's public entry filename. Fixed rather than read from the config: the
+ * RFC settles it as `index`, and `layers[].entry` is the unit shape INSIDE a
+ * layer — a different thing one level down, which is why this does not borrow it.
+ */
+const MODULE_ENTRY = 'index';
+
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/g;
 const MODULE_PLACEHOLDER = /\{\s*module\s*\}/g;
 
@@ -604,6 +611,41 @@ export function buildModulePatterns(params: {
 /** Distinct members, order kept — a duplicate fails the whole config to load. */
 function dedupe(globs: string[]): string[] {
   return [...new Set(globs)];
+}
+
+/**
+ * The module root as a banned import target — the upward edge in its alias
+ * spelling. `blueprint/relative-escape` catches the relative one by resolving
+ * the path and returns early on any specifier not starting with `.`, so without
+ * this the same reach is red in `inspect` and green in lint.
+ *
+ * **`paths`, not a pattern group, and that is the whole design.** A group is
+ * gitignore-matched: `~app/Fighter` bans `~app/Fighter/hooks/useX` too, which
+ * would cut the module off from its own layers — governed already, by the
+ * same-layer and forbidden-layer groups, with the messages that fit. `paths`
+ * entries match the specifier exactly, which is what "the root, and nothing
+ * under it" needs. Measured against the real linter, not inferred.
+ *
+ * Both spellings, because they are one reach: the module folder, and its entry
+ * named outright.
+ *
+ * Narrower than `inspect`, deliberately and unavoidably: `analyze` reports any
+ * non-layer segment under the own module, a root component included
+ * (`~app/Fighter/Fighter`). No `no-restricted-imports` shape expresses that —
+ * a group cannot re-include the layers once the module is excluded, and `paths`
+ * cannot enumerate filenames the config never sees. So lint carries the two
+ * named spellings and `inspect` stays the wider gate.
+ */
+export function moduleRootPaths(aliases: string[], module: string | undefined): PathPattern[] {
+  if (module === undefined) return [];
+
+  const message
+    = '\n🚫 This reaches up to the module root. The root composes the layers, so nothing inside '
+      + 'one may import back up to it — move the shared part down into a layer, or pass it in '
+      + 'from the root.';
+
+  return [...new Set(aliases.flatMap((a) => [a, `${a}/${MODULE_ENTRY}`]))]
+    .map((name) => ({ name, message }));
 }
 
 /** Split disabled package rules into `no-restricted-imports` paths + patterns. */

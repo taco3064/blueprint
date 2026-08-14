@@ -1135,7 +1135,8 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
     // this side of the boundary was never asserted at all. Checked by removing the line
     // — the suite stayed green on 1314 tests before this.
     expect(flattenProse(rules.output))
-      .toContain('`no-import`, `globals` and the selfOnly selectors are what doctor compares');
+      .toContain('`no-import`, `globals`, `module-root` and the selfOnly selectors are what '
+        + 'doctor compares');
 
     expect(flattenProse(rules.output)).toContain('`packages` is not compared by');
     expect(flattenProse(rules.output)).toContain('--print-config');
@@ -3636,5 +3637,125 @@ describe('governing BETWEEN modules (real eslint)', () => {
 
     expect(doctor.output).toContain('✓ emitted rules survive the merged eslint config (');
     expect(doctor.output).not.toContain('skipped');
+  });
+});
+
+describe('the upward edge is red in both gates (real eslint)', () => {
+  // #196's rules required that the alias and relative paths reach the same
+  // verdict on a layer reaching its module root. That closed with one gate
+  // false, and it was invisible from the source side: the code that would have
+  // emitted the ban is correct code nobody wrote, and everything around it
+  // passed. Found by rendering the config and reading it.
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'GameStage', does: 'the run, rendered', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets and damage' },
+      ],
+      layers: [{ name: 'hooks', does: 'reactive state', layout: 'folder' }],
+    },
+  };
+
+  const modularRepo = (files: Record<string, string>): string =>
+    repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+        }),
+        'src/GameStage/index.jsx': 'export const stage = 1;\n',
+        'src/Combat/index.jsx': 'export const attack = 1;\n',
+        ...files,
+      },
+    });
+
+  it('reddens both alias spellings, and keeps the relative one red', async () => {
+    const dir = modularRepo({
+      'src/GameStage/hooks/useRun/index.jsx':
+        'import { stage } from "~app/GameStage";\n'
+        + 'export const useRun = stage;\n',
+      'src/GameStage/hooks/useTick/index.jsx':
+        'import { stage } from "~app/GameStage/index";\n'
+        + 'export const useTick = stage;\n',
+      'src/GameStage/hooks/useHit/index.jsx':
+        'import { stage } from "../../../GameStage";\n'
+        + 'export const useHit = stage;\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.code).toBe(0);
+    // Two through the new paths entry, one through relative-escape — the
+    // property #196 asked for and could not have shown was true.
+    expect(impact.output).toContain('2  no-restricted-imports — 2 file(s)');
+    expect(impact.output).toContain('1  blueprint/relative-escape — 1 file(s)');
+  });
+
+  it('names the same file as inspect does', async () => {
+    const dir = modularRepo({
+      'src/GameStage/hooks/useRun/index.jsx':
+        'import { stage } from "~app/GameStage";\n'
+        + 'export const useRun = stage;\n',
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.code).toBe(1);
+    expect(inspect.output).toContain('[root-import] src/GameStage/hooks/useRun/index.jsx');
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('src/GameStage/hooks/useRun/index.jsx');
+  });
+
+  it('leaves a module reaching its own layers alone', async () => {
+    // A group would have taken these with it, which is why the ban is an exact
+    // `paths` entry.
+    const dir = modularRepo({
+      'src/GameStage/GameStage.jsx':
+        'import { useRun } from "~app/GameStage/hooks/useRun";\n'
+        + 'export const GameStage = useRun;\n',
+      'src/GameStage/hooks/useRun/index.jsx': 'export const useRun = 1;\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.code).toBe(0);
+    expect(impact.output).toContain('0 hits');
+  });
+
+  it('keeps doctor green, and red when the paths are folded away', async () => {
+    const dir = modularRepo({
+      'src/GameStage/hooks/useRun/index.jsx': 'export const useRun = 1;\n',
+      'eslint.config.mjs': wiredEslintConfig(modular),
+    });
+
+    const green = await cli(dir, ['doctor']);
+
+    expect(green.output).toContain('✓ emitted rules survive the merged eslint config (');
+    expect(green.output).toContain('the module-root ban');
+
+    // A later entry that kept the patterns and dropped the paths — green
+    // everywhere else, and the upward edge back to being lint-legal.
+    const gutting = '  { "files": ["src/GameStage/hooks/**/*.jsx"], '
+      + '"rules": { "no-restricted-imports": ["error", { "patterns": [] }] } },';
+
+    const red = await cli(repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+        }),
+        'src/GameStage/hooks/useRun/index.jsx': 'export const useRun = 1;\n',
+        'eslint.config.mjs': wiredEslintConfig(modular, gutting),
+      },
+    }), ['doctor']);
+
+    expect(red.code).toBe(1);
+    expect(red.output).toContain('lost the module-root ban');
   });
 });

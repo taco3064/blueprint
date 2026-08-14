@@ -11,6 +11,7 @@ import type { Blueprint } from '../config';
 import {
   buildModulePatterns,
   buildStructuralPatterns,
+  moduleRootPaths,
   deriveGlobalRules,
   moduleScopes,
   resolveModuleLayerFiles,
@@ -48,9 +49,9 @@ const label = (merged: boolean): string =>
  * playbook recommends, so the blind spot now covers the intended shape, and the
  * playbook's remedy moved with it: two probes in the affected layer, not one.
  */
-const SCOPE = 'structural bans + each active gate\'s carrier rule, one probe per layer; '
-  + 'thresholds, package-ownership entries, and a merged entry scoped to only part of '
-  + 'a layer are not compared';
+const SCOPE = 'structural bans + the module-root ban + each active gate\'s carrier rule, one '
+  + 'probe per layer; thresholds, package-ownership entries, and a merged entry scoped to only '
+  + 'part of a layer are not compared';
 
 /**
  * Gates whose ESLint rule exists only if the caller handed `emitLint` the carrier
@@ -101,7 +102,7 @@ export function expectedStructural(
   blueprint: Blueprint,
   layer: string,
   module?: string,
-): { groups: Set<string>; selectors: Set<string>; globals: Set<string> } {
+): { groups: Set<string>; selectors: Set<string>; globals: Set<string>; paths: Set<string> } {
   const { architecture, rules } = blueprint;
 
   // The same offset-aware bases emitLint composes from — the expectations
@@ -149,6 +150,11 @@ export function expectedStructural(
   });
 
   return {
+    // Only the module-root entries are expected. Package-ownership paths are
+    // deliberately absent: the comparison is by containment, so expecting none
+    // of them keeps `packages is not compared` true rather than quietly
+    // widening what a red here can mean.
+    paths: new Set(moduleRootPaths(aliases, module).map((entry) => entry.name)),
     groups: new Set(
       [...structural, ...crossModule].map((pattern) => JSON.stringify(pattern.group)),
     ),
@@ -275,10 +281,12 @@ function resolvedStructural(rules: Record<string, unknown>): {
   groups: Set<string>;
   selectors: Set<string>;
   globals: Set<string>;
+  paths: Set<string>;
   relativeEscape: boolean;
   unreadable: number;
 } {
   const groups = new Set<string>();
+  const paths = new Set<string>();
   const selectors = new Set<string>();
   const globals = new Set<string>();
 
@@ -303,6 +311,17 @@ function resolvedStructural(rules: Record<string, unknown>): {
     }
   }
 
+  // Read separately from the patterns, and never counted as unreadable: a
+  // `paths` list is an ordinary shape this rule has, and most of its entries
+  // belong to package ownership, which nothing here expects.
+  for (const option of optionsOf(rules['no-restricted-imports'])) {
+    for (const entry of (option as { paths?: unknown[] })?.paths ?? []) {
+      const name = typeof entry === 'string' ? entry : (entry as { name?: string })?.name;
+
+      if (name) paths.add(name);
+    }
+  }
+
   for (const item of optionsOf(rules['no-restricted-syntax'])) {
     const selector = typeof item === 'string' ? item : (item as { selector?: string })?.selector;
 
@@ -321,6 +340,7 @@ function resolvedStructural(rules: Record<string, unknown>): {
     groups,
     selectors,
     globals,
+    paths,
     relativeEscape: activeOptions(rules['blueprint/relative-escape']) !== null,
     unreadable,
   };
@@ -497,6 +517,12 @@ function losses(
 
   if (globals.length) {
     lost.push(`no-restricted-globals lost ${globals.join(', ')}`);
+  }
+
+  const paths = [...expected.paths].filter((name) => !resolved.paths.has(name));
+
+  if (paths.length) {
+    lost.push(`no-restricted-imports lost the module-root ban (${paths.join(', ')})`);
   }
 
   if (!resolved.relativeEscape) {
