@@ -23,6 +23,7 @@ import {
   normalizeAllowedImporters, readSetting,
 } from '../config';
 import type { Blueprint, LayerDef, ModuleDef } from '../config';
+import { moduleZone, zoneWord } from './zone';
 
 /**
  * `blueprint rules` — the emitted-rule catalog as a queryable command, so nobody
@@ -302,7 +303,7 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
    * failed to name rather than as one it does not have.
    */
   const zoneRow = (module: ModuleDef): LayerBans => ({
-    zone: module.layers === false ? 'module' : 'root',
+    zone: moduleZone(module),
     module: module.name,
     // The root composes this module's layers, so it may reach every one of
     // them; a `layers: false` module has no layer flow at all.
@@ -337,7 +338,7 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
 function banLabel(entry: LayerBans): string {
   // Named for what the entry governs, not for a layer it does not have: the
   // module's own root files, or every file in a module that declared none.
-  const own = entry.zone === 'layer' ? entry.layer : `(${entry.zone === 'root' ? 'root' : 'all'})`;
+  const own = entry.zone === 'layer' ? entry.layer : `(${zoneWord(entry.zone)})`;
 
   return entry.module === undefined ? own : `${entry.module}/${own}`;
 }
