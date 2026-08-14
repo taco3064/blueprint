@@ -305,10 +305,20 @@ export function moduleScopes(architecture: ArchitectureDef): (ModuleDef | undefi
  * The alias bases a module's own files address their siblings through —
  * `~app/Fighter` under `modules`, the bare alias in a flat project.
  *
- * One derivation, because the structural pattern groups and the selfOnly
- * selectors are two emitters of the same address. Scoped in one and not the
- * other, half of a modular entry's bans would match nothing while lint stayed
- * green — the state this whole change exists to end.
+ * One derivation, and its callers are named rather than counted: this doc said
+ * "two emitters" while three call sites existed, and a number is what goes
+ * stale silently when the fourth arrives.
+ *
+ * - `emitLint` — the structural pattern groups AND the selfOnly selectors, the
+ *   config an adopter's lint run actually enforces
+ * - `expectedStructural` — doctor's copy of the same text, compared to the
+ *   resolved config by containment
+ * - `layerBans` — what `blueprint rules` reports, whose `jsLiteral` field is a
+ *   paste source the playbook sends an agent to in four places
+ *
+ * Scoped in some and not the others, the emitted bans and the reported ones
+ * disagree about the same repo: doctor reports a whole layer lost, or an agent
+ * pastes a selector that matches nothing and lint stays green over it.
  */
 export function scopedAliases(aliases: string[], module: string | undefined): string[] {
   return module === undefined ? aliases : aliases.map((alias) => `${alias}/${module}`);
