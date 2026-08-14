@@ -215,6 +215,39 @@ export function crossModuleTarget(
   return target !== own && modules.includes(target) ? target : null;
 }
 
+/**
+ * Whether an alias specifier addresses `module`'s own root, at any spelling.
+ *
+ * The single judgment behind both upward-edge gates —
+ * `blueprint/no-module-root-import` and `inspect`'s `root-import` finding — for
+ * the reason `relativeVerdict` gives above: two callers reading the same
+ * coordinates can still disagree about what they mean, and here the whole point
+ * is that no `no-restricted-imports` shape can express this set. Restating the
+ * condition in the rule would make it two sources of truth that agree today.
+ *
+ * The root is every direct child of the module folder, so this is stated as an
+ * absence: inside the same module, a specifier that reaches no DECLARED layer
+ * reaches the root. That covers `~app/Fighter`, `~app/Fighter/index`,
+ * `~app/Fighter/Fighter` and the same with an extension — and `paths` entries
+ * can only carry the two names a config knows, which is why they cannot close
+ * it and this exists.
+ *
+ * Callers exempt the module root itself: a root file composes the layers and may
+ * reach every one of them.
+ */
+export function addressesModuleRoot(
+  parts: string[],
+  module: string,
+  layerNames: string[],
+  depth: number,
+): boolean {
+  // undecidable, the depth test: at depth 0 the other two conjuncts are
+  // mutually exclusive — `parts[0] === module` makes the target this file's own
+  // layer, which `layerNames.includes` then answers true for. The conjunction
+  // cannot hold there however the depth is compared.
+  return depth > 0 && parts[0] === module && !layerNames.includes(parts[depth]);
+}
+
 export function resolveSegments(dir: string[], specifier: string): string[] | null {
   const stack = [...dir];
 

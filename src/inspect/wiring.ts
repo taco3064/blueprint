@@ -111,6 +111,8 @@ export function expectedStructural(
   paths: Set<string>;
   /** Whether this blueprint emits `blueprint/no-module-reexport` here. */
   reexport: boolean;
+  /** Whether it emits `blueprint/no-module-root-import` here — layer entries only. */
+  rootImport: boolean;
 } {
   const { architecture, rules } = blueprint;
 
@@ -165,6 +167,9 @@ export function expectedStructural(
   return {
     // Emitted on every zone of a modular config, and on none of a flat one.
     reexport: module !== undefined,
+    // Layer entries only: a module root composes its layers and may reach them,
+    // so the rule that bans reaching UP to it has nothing to say there.
+    rootImport: module !== undefined,
     // Only the module-root entries are expected. Package-ownership paths are
     // deliberately absent: the comparison is by containment, so expecting none
     // of them keeps `packages is not compared` true rather than quietly
@@ -238,6 +243,8 @@ export function expectedModuleBans(
 
   return {
     reexport: true,
+    // Not on a module zone — see `expectedStructural`.
+    rootImport: false,
     // Package ownership is not compared at either level, so nothing is expected
     // here — the same boundary `PACKAGES_NOT_COMPARED` states.
     paths: new Set<string>(),
@@ -403,6 +410,7 @@ function resolvedStructural(rules: Record<string, unknown>): {
   paths: Set<string>;
   relativeEscape: boolean;
   reexport: boolean;
+  rootImport: boolean;
   unreadable: number;
 } {
   const groups = new Set<string>();
@@ -470,6 +478,7 @@ function resolvedStructural(rules: Record<string, unknown>): {
     paths,
     relativeEscape: activeOptions(rules['blueprint/relative-escape']) !== null,
     reexport: activeOptions(rules['blueprint/no-module-reexport']) !== null,
+    rootImport: activeOptions(rules['blueprint/no-module-root-import']) !== null,
     unreadable,
   };
 }
@@ -700,6 +709,10 @@ function losses(
   // blueprint emits it — a flat config has no other module to forward.
   if (expected.reexport && !resolved.reexport) {
     lost.push('blueprint/no-module-reexport is missing or off');
+  }
+
+  if (expected.rootImport && !resolved.rootImport) {
+    lost.push('blueprint/no-module-root-import is missing or off');
   }
 
   return lost;

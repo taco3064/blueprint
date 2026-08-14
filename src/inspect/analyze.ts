@@ -9,6 +9,7 @@ import type { ArchitectureDef, Blueprint, OwnedPrimitive } from '../config';
 import { dropTestFiles } from './filter';
 import { compareText } from './order';
 import {
+  addressesModuleRoot,
   aliasList,
   buildFolderGraph,
   buildModuleGraph,
@@ -396,18 +397,12 @@ function importFindings(
       // layer matches, and every alias import is skipped in silence.
       const target = parts[depth];
 
-      // `~app/<Module>` and `~app/<Module>/<root file>` address the module root:
-      // inside the same module, they do not reach a declared layer. The alias
-      // spelling of the upward edge, which the relative one answers as
-      // `reaches-root` — the two gates must agree.
-      // undecidable, the depth test: at depth 0 the other two conjuncts are
-      // mutually exclusive — `parts[0] === file.segments[0]` makes the target
-      // this file's own layer, which `layerNames.includes` then answers true
-      // for. The conjunction cannot hold there however the depth is compared.
-      const addressesOwnRoot
-        = depth > 0 && parts[0] === file.segments[0] && !layerNames.includes(target);
+      // The alias spelling of the upward edge, shared with the plugin rule so
+      // the two gates cannot answer differently — the relative spelling arrives
+      // as `reaches-root` from `relativeVerdict`, next door.
+      const ownRoot = addressesModuleRoot(parts, file.segments[0], layerNames, depth);
 
-      if (!isModuleRoot && addressesOwnRoot) {
+      if (!isModuleRoot && ownRoot) {
         findings.push(finding('error', 'root-import', file.path, ref.specifier, `"${ref.specifier}" reaches up to the module root — the root composes the layers, so nothing inside one may import back up to it. Move the shared part into a layer, or pass it in from the root.`));
 
         continue;

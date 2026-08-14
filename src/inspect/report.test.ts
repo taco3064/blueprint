@@ -184,6 +184,9 @@ describe('report · root-import names both rules that hold it', () => {
     }]);
 
     expect(rendered).toContain('blueprint/relative-escape for a relative path');
-    expect(rendered).toContain('no-restricted-imports for the alias');
+    expect(rendered).toContain('no-restricted-imports (paths) for `~app/<Module>`');
+    // The third channel, for the spellings a `paths` entry cannot name — a root
+    // component's own filename among them.
+    expect(rendered).toContain('blueprint/no-module-root-import for every other alias spelling');
   });
 });

@@ -579,7 +579,11 @@ describe('runRules', () => {
     // inactive too; an owned global bars other layers → globals active
     // (field issue #14). Named rather than counted — an id added to the
     // catalog and silently defaulted to active is the drift this pins.
-    const inactive = ['no-restricted-syntax', 'blueprint/no-module-reexport'];
+    const inactive = [
+      'no-restricted-syntax',
+      'blueprint/no-module-reexport',
+      'blueprint/no-module-root-import',
+    ];
 
     expect(parsed.structural).toEqual(STRUCTURAL_RULES.map((rule) => ({
       ...rule,

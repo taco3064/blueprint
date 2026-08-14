@@ -87,7 +87,7 @@ describe('expectedStructural · the shape two prose sites describe', () => {
     // update `PACKAGES_NOT_COMPARED` and the `rules` block that prints it, then this
     // list. Removing one means it stopped. Either way both texts move with it.
     expect(Object.keys(expectedStructural(blueprint, 'views')))
-      .toEqual(['reexport', 'paths', 'groups', 'selectors', 'globals']);
+      .toEqual(['reexport', 'rootImport', 'paths', 'groups', 'selectors', 'globals']);
   });
 });
 
@@ -1141,6 +1141,7 @@ describe('wiringCheck · the shapes a surviving module-root ban comes back as', 
         }],
         'blueprint/relative-escape': ['error', {}],
         'blueprint/no-module-reexport': ['error', {}],
+        'blueprint/no-module-root-import': ['error', {}],
       },
     }),
   });
@@ -1605,5 +1606,62 @@ describe('wiringCheck · a gate loss names the entry that lost it', () => {
     // off part of the tree rather than never arriving.
     expect(check.detail).toContain('a later entry replaced the rule there');
     expect(check.detail?.match(/rules\.codeStyle is on/g)).toHaveLength(1);
+  });
+});
+
+describe('wiringCheck · the upward-edge rule survives the merge too', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [{ name: 'Fighter', does: 'the ship' }, { name: 'Combat', does: 'bullets' }],
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    },
+  };
+
+  const run = async (drop?: string) => wiringCheck({
+    root: '/repo',
+    blueprint: modular,
+    scanResult: scanOf('src/Fighter/hooks/useRun/index.jsx'),
+    wired: true,
+    merged: true,
+    hasTypescript: true,
+    load: loader((filePath: string) => {
+      const rel = filePath.split(path.sep).join('/').replace('/repo/', '');
+
+      const merged = emitLint(modular)
+        .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
+        .reduce<Record<string, unknown>>((rules, entry) => ({ ...rules, ...entry.rules }), {});
+
+      if (drop) delete merged[drop];
+
+      return { rules: merged };
+    }),
+  });
+
+  it('names it when a merge dropped it', async () => {
+    // Coverage of the branch is not an assertion of the sentence — the gate-loss
+    // line proved that once already, by printing `undefined` through a green
+    // suite because the assertion started after the prefix.
+    const check = await run('blueprint/no-module-root-import');
+
+    expect(check.ok).toBe(false);
+    expect(check.detail).toContain('blueprint/no-module-root-import is missing or off');
+  });
+
+  it('does not expect it on a module zone, which IS the root', async () => {
+    // A root file composes its layers and may reach them, so the rule banning a
+    // reach UP to the root has nothing to say on that entry.
+    expect(expectedModuleBans(modular, 'Fighter').rootImport).toBe(false);
+    expect(expectedStructural(modular, 'hooks', 'Fighter').rootImport).toBe(true);
+  });
+
+  it('does not expect it on a flat config, which emits none', async () => {
+    const flat: Blueprint = {
+      framework: 'react',
+      architecture: { alias: '~app', layers: [{ name: 'hooks', does: 'state', layout: 'folder' }] },
+    };
+
+    expect(expectedStructural(flat, 'hooks').rootImport).toBe(false);
   });
 });
