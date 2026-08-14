@@ -1,13 +1,16 @@
 {
-  "explorer.fileNesting.enabled": true,
   "explorer.sortOrder": "type",
   "explorer.sortOrderLexicographicOptions": "upper",
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {
-    "README.md": "README*, CHANGELOG*, LICENSE*, SECURITY*, CLAUDE*",
-    "package.json": "package-lock.json, .npmrc, .nvmrc",
-    "rolldown.config.ts": "eslint.config.ts, vitest.config.ts, typedoc.json",
-    "tsconfig.json": "tsconfig.*.json"
+    "*.ts": "$(capture).test.ts, $(capture).js, $(capture).d.ts",
+    "*.mjs": "$(capture).test.mjs",
+    "README.md": "CHANGELOG*, LICENSE*, SECURITY*, CLAUDE*, agent-contract.md",
+    "package.json": "package-lock.json, .npmrc, .nvmrc, rolldown.config.ts, eslint.config.ts, vitest.config.ts, stryker.config.json, typedoc.json",
+    ".gitignore": ".gitattributes"
   },
+
   // Two trees inside the workspace are generated in bulk and never edited: a worktree
   // under `.claude/worktrees/` carries its own `npm ci` install (~33k files each), and
   // Stryker copies the whole project once per core into `.stryker-tmp`. Watching them
