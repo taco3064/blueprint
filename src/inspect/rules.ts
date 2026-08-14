@@ -168,6 +168,7 @@ export const STRUCTURAL_RULES: StructuralRule[] = [
   { rule: 'no-restricted-syntax', covers: 'selfOnly re-export bans — emitted only when an allowedImporters ENTRY declares selfOnly: true (a layer-level selfOnly key is invalid)' },
   { rule: 'no-restricted-globals', covers: 'global ownership (owns: [{ global: … }]) — emitted only where some layer is barred from an owned global' },
   { rule: 'blueprint/relative-escape', covers: '../ module escapes at any depth (embedded plugin)' },
+  { rule: 'blueprint/no-module-root-import', covers: 'a layer reaching up to its own module root at any alias spelling — emitted only under architecture.modules, on a module\'s LAYER entries. The two spellings a config can name ride the entry\'s `paths` list; this covers the rest, including the root component\'s own filename, which no pattern or path can enumerate (embedded plugin)' },
   { rule: 'blueprint/no-module-reexport', covers: 'passing another module\'s public surface through this one\'s — emitted only under architecture.modules, and it follows the local BINDING, so the two-statement spelling and every rename are the same violation (embedded plugin)' },
 ];
 
@@ -194,6 +195,8 @@ function resolveStructural(blueprint: Blueprint | null): StructuralStatus[] {
     // Only a modular config has another module to forward, and emitLint emits
     // the rule on exactly that condition.
     'blueprint/no-module-reexport': blueprint.architecture.modules !== undefined,
+    // Same condition: only a modular config has a module root to reach up to.
+    'blueprint/no-module-root-import': blueprint.architecture.modules !== undefined,
     'no-restricted-syntax': layers.some((layer) =>
       normalizeAllowedImporters(layer.allowedImporters)
         .some((importer) => importer.selfOnly === true)),

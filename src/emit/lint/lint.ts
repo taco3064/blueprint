@@ -90,6 +90,26 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
   const pluginOf = (module: ModuleDef | undefined) =>
     module === undefined ? {} : { plugins: { blueprint: plugin } };
 
+  /**
+   * The upward edge at every alias spelling. On a module's LAYER entries only —
+   * a root file composes the layers and may reach them, and the two spellings
+   * `no-restricted-imports` can express ride the entry's own `paths` list.
+   */
+  const rootImportRule = (module: ModuleDef | undefined): Linter.RulesRecord =>
+    module === undefined
+      ? {}
+      : {
+          'blueprint/no-module-root-import': [
+            severity,
+            {
+              aliases,
+              layers: layers.map((entry) => entry.name),
+              module: module.name,
+              depth: moduleDepth(architecture),
+            },
+          ],
+        };
+
   const layouts = Object.fromEntries(
     layers.map((layer) => [layer.name, getModuleShape(architecture, layer.name).layout]),
   );
@@ -190,6 +210,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
           ...(syntaxRules.length ? { 'no-restricted-syntax': [severity, ...syntaxRules] } : {}),
           ...buildGlobalRule(disabledGlobals, severity),
           ...reexportRule(module),
+          ...rootImportRule(module),
         };
       };
 

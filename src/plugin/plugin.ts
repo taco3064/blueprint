@@ -1,6 +1,7 @@
 import type { ESLint } from 'eslint';
 import { noDeepWatch } from './no-deep-watch';
 import { noModuleReexport } from './no-module-reexport';
+import { noModuleRootImport } from './no-module-root-import';
 import { noTypedefOnlyFile } from './no-typedef-only-file';
 import { relativeEscape } from './relative-escape';
 import { testFilenameMatchesSource } from './test-filename-matches-source';
@@ -20,6 +21,7 @@ export const plugin: ESLint.Plugin = {
   rules: {
     'no-deep-watch': noDeepWatch,
     'no-module-reexport': noModuleReexport,
+    'no-module-root-import': noModuleRootImport,
     'no-typedef-only-file': noTypedefOnlyFile,
     'relative-escape': relativeEscape,
     'test-filename-matches-source': testFilenameMatchesSource,

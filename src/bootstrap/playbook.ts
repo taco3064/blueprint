@@ -641,6 +641,7 @@ export function renderRuleCatalog(): string {
     '- `no-restricted-globals` — global ownership (e.g. `{ global: \'fetch\' }`)',
     '- `blueprint/relative-escape` — depth-aware `../` module escapes (embedded plugin; ships inside the emitted config)',
     '- `blueprint/no-module-reexport` — re-exporting another feature module\'s surface through your own, in any spelling (embedded plugin; emitted only when `architecture.modules` is declared)',
+    '- `blueprint/no-module-root-import` — a layer reaching up to its own module root, at the alias spellings a `paths` entry cannot name (embedded plugin; emitted only when `architecture.modules` is declared)',
     '',
     '**Optional gates — emitted only when declared** in `rules` with a tier other than `off`; none of these emits by default, and every gate scopes to the layer file globs — root wiring sits outside all of them.',
     'When merging, collisions are decided by rule KEY, not by hit count — `blueprint rules --json` names every key the emitted config sets, and carries the exact selfOnly selector strings a fold needs, per entry rather than per rule: one row for each layer, or each (module, layer) where modules are declared.',

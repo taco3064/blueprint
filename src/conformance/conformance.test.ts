@@ -3893,3 +3893,142 @@ describe('doctor probes the module dimension (real eslint)', () => {
     expect(red.output).toContain('Combat/hooks: no-restricted-imports lost');
   });
 });
+
+describe('the upward edge is red at every alias spelling (real eslint)', () => {
+  // #220 closed the two spellings `no-restricted-imports` can express and stated
+  // the residual at the site rather than leaving it to be found. This is the
+  // residual: the root by its component's filename, which the RFC says is what
+  // a single-component module's root is CALLED — the likely spelling, not the
+  // exotic one.
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the player ship', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets and damage' },
+      ],
+      layers: [{ name: 'hooks', does: 'reactive state', layout: 'folder' }],
+    },
+  };
+
+  const modularRepo = (files: Record<string, string>): string =>
+    repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+        }),
+        'src/Fighter/Fighter.jsx': 'export const Fighter = 1;\n',
+        'src/Fighter/index.jsx': 'export { Fighter } from "./Fighter";\n',
+        'src/Combat/index.jsx': 'export const attack = 1;\n',
+        ...files,
+      },
+    });
+
+  it('reddens the root component filename, which paths could not reach', async () => {
+    const dir = modularRepo({
+      'src/Fighter/hooks/useX/index.jsx':
+        'import { Fighter } from "~app/Fighter/Fighter";\n'
+        + 'export const useX = Fighter;\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.code).toBe(0);
+    expect(impact.output).toContain('1  blueprint/no-module-root-import — 1 file(s)');
+  });
+
+  it('keeps the two paths spellings red, through their own rule', async () => {
+    const dir = modularRepo({
+      'src/Fighter/hooks/useA/index.jsx':
+        'import { Fighter } from "~app/Fighter";\nexport const useA = Fighter;\n',
+      'src/Fighter/hooks/useB/index.jsx':
+        'import { Fighter } from "~app/Fighter/index";\nexport const useB = Fighter;\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    // Both rules fire on both: the `paths` entry and the plugin rule each cover
+    // these two, and neither has to be the only one that does.
+    expect(impact.output).toContain('2  no-restricted-imports — 2 file(s)');
+    expect(impact.output).toContain('2  blueprint/no-module-root-import — 2 file(s)');
+  });
+
+  it('leaves the legal edges of a layer file alone', async () => {
+    // A same-layer sibling goes through a relative path — the alias spelling of
+    // that edge is banned by its own rule since #208, and it is not this one's.
+    const dir = modularRepo({
+      'src/Fighter/hooks/useX/index.jsx':
+        'import { y } from "../useY";\n'
+        + 'import { attack } from "~app/Combat";\n'
+        + 'export const useX = [y, attack];\n',
+      'src/Fighter/hooks/useY/index.jsx': 'export const y = 1;\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.code).toBe(0);
+    expect(impact.output).toContain('0 hits');
+  });
+
+  it('leaves the module root itself reaching down into its layers', async () => {
+    const dir = modularRepo({
+      'src/Fighter/Fighter.jsx':
+        'import { useX } from "~app/Fighter/hooks/useX";\nexport const Fighter = useX;\n',
+      'src/Fighter/hooks/useX/index.jsx': 'export const useX = 1;\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.code).toBe(0);
+    expect(impact.output).toContain('0 hits');
+  });
+
+  it('says the same thing inspect says, on the same file', async () => {
+    const dir = modularRepo({
+      'src/Fighter/hooks/useX/index.jsx':
+        'import { Fighter } from "~app/Fighter/Fighter";\n'
+        + 'export const useX = Fighter;\n',
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.code).toBe(1);
+    expect(inspect.output).toContain('[root-import] src/Fighter/hooks/useX/index.jsx');
+    // The migration line names all three channels, so a reader searching the
+    // resolved config finds the id that is actually holding their violation.
+    expect(inspect.output).toContain('blueprint/no-module-root-import for every other alias spelling');
+  });
+
+  it('keeps doctor green, and reddens when the rule is switched off', async () => {
+    const dir = modularRepo({
+      'src/Fighter/hooks/useX/index.jsx': 'export const useX = 1;\n',
+      'eslint.config.mjs': wiredEslintConfig(modular),
+    });
+
+    const green = await cli(dir, ['doctor']);
+
+    expect(green.output).toContain('✓ emitted rules survive the merged eslint config (');
+    expect(green.output).not.toContain('skipped');
+
+    const gutting = '  { "files": ["src/Fighter/hooks/**/*.jsx"], '
+      + '"rules": { "blueprint/no-module-root-import": "off" } },';
+
+    const red = await cli(repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+        }),
+        'src/Fighter/hooks/useX/index.jsx': 'export const useX = 1;\n',
+        'eslint.config.mjs': wiredEslintConfig(modular, gutting),
+      },
+    }), ['doctor']);
+
+    expect(red.code).toBe(1);
+    expect(red.output).toContain('blueprint/no-module-root-import is missing or off');
+  });
+});

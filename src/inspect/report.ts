@@ -41,7 +41,13 @@ const ENFORCED_BY: Record<string, string | null> = {
   // `paths` entry catches the alias form. Naming only one sends a reader
   // searching the resolved config for an id that is not the one holding their
   // violation — which is the whole job of this table.
-  'root-import': 'blueprint/relative-escape for a relative path, no-restricted-imports for the alias',
+  // Three rules, because one reach has three channels and no fewer would do:
+  // the plugin resolves a relative path, an exact `paths` entry catches the two
+  // alias spellings a config can name, and a second plugin rule catches the
+  // rest — a root component's filename among them. Naming fewer sends a reader
+  // searching the resolved config for an id that is not holding their
+  // violation, which is the whole job of this table.
+  'root-import': 'blueprint/relative-escape for a relative path; no-restricted-imports (paths) for `~app/<Module>` and `~app/<Module>/index`; blueprint/no-module-root-import for every other alias spelling',
   'module-escape': 'blueprint/relative-escape',
   'package-ownership': 'no-restricted-imports',
   'selfonly-reexport': 'no-restricted-syntax',
