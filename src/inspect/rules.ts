@@ -259,6 +259,22 @@ function banLabel(entry: LayerBans): string {
 }
 
 /**
+ * Whether these rows are addressed by module. True of every row or of none:
+ * `layerBans` builds them from one scope set, so the shape is homogeneous.
+ *
+ * One function because the heading and the column width are the same question,
+ * and written twice they can answer it differently.
+ *
+ * undecidable, `some` against `every`: the two differ only on an empty list,
+ * and both callers sit inside the `bans.length` guard. `layerBans` cannot
+ * return an empty list anyway — `architecture.layers` is rejected empty at
+ * config load, and `moduleScopes` answers `[undefined]` at worst.
+ */
+function addressedByModule(bans: LayerBans[]): boolean {
+  return bans.some((entry) => entry.module !== undefined);
+}
+
+/**
  * The label column's width. A module label is `Fighter/contexts` — longer than
  * the layer names this column was sized for, so a fixed width leaves a modular
  * table stepping raggedly around the longest name.
@@ -271,7 +287,7 @@ function banLabel(entry: LayerBans): string {
 function banWidth(bans: LayerBans[]): number {
   const fixed = 14;
 
-  if (!bans.some((entry) => entry.module !== undefined)) return fixed;
+  if (!addressedByModule(bans)) return fixed;
 
   return Math.max(fixed, ...bans.map((entry) => banLabel(entry).length));
 }
@@ -428,7 +444,7 @@ export function renderRules(
           // it is not the same on both shapes: under modules the emitted config
           // holds one entry per (module, layer), so a heading saying "per-layer"
           // over `Fighter/hooks` rows describes a config the reader does not have.
-          bans.some((ban) => ban.module !== undefined)
+          addressedByModule(bans)
             ? 'Bans per module × layer — what the structural rules enforce, resolved from this'
             + ' config. Each row is one emitted entry, and the selectors under it are that'
             + ' module\'s: a module is isolated by default, so its neighbour\'s row is a'
