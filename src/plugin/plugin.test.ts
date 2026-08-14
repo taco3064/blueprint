@@ -78,6 +78,10 @@ describe('plugin', () => {
         properties: {
           layouts: { type: 'object', additionalProperties: { enum: ['folder', 'flat'] } },
           entries: { type: 'object', additionalProperties: { type: 'string' } },
+          // How many segments sit above the layer — 0 flat, 1 under modules.
+          // `additionalProperties: false` is what makes a stale emitted config
+          // fail loudly instead of having the option ignored.
+          depth: { type: 'integer', minimum: 0 },
         },
         additionalProperties: false,
       },

@@ -46,6 +46,10 @@ export const relativeEscape: Rule.RuleModule = {
             type: 'object',
             additionalProperties: { type: 'string' },
           },
+          depth: {
+            type: 'integer',
+            minimum: 0,
+          },
         },
         additionalProperties: false,
       },
@@ -61,15 +65,19 @@ export const relativeEscape: Rule.RuleModule = {
     },
   },
   create(context) {
-    const { layouts = {}, entries = {} }
+    const { layouts = {}, entries = {}, depth = 0 }
       = (context.options[0] as {
         layouts?: Record<string, 'folder' | 'flat'>;
         entries?: Record<string, string>;
+        depth?: number;
       } | undefined) ?? {};
 
     const segments = srcSegments(context.filename);
 
-    if (!segments || !(segments[0] in layouts)) return {};
+    // The layer sits at `segments[depth]`, so under modules this guard reads
+    // the module name when it is left at 0 — no key matches, no visitors are
+    // registered, and the rule does not run at all. Silence, not a verdict.
+    if (!segments || !(segments[depth] in layouts)) return {};
 
     const layoutOf = (layer: string): 'folder' | 'flat' => layouts[layer] ?? 'flat';
     const entryOf = (layer: string): string => entries[layer] ?? 'index';
@@ -80,7 +88,7 @@ export const relativeEscape: Rule.RuleModule = {
 
       const target = resolveSegments(dir, specifier);
 
-      const verdict = relativeVerdict(segments, target, layoutOf, entryOf);
+      const verdict = relativeVerdict(segments, target, layoutOf, entryOf, depth);
 
       if (verdict === 'ok') return;
 
@@ -88,7 +96,7 @@ export const relativeEscape: Rule.RuleModule = {
         context.report({
           node,
           messageId: 'reachesInside',
-          data: { specifier, entry: entryOf(segments[0]) },
+          data: { specifier, entry: entryOf(segments[depth]) },
         });
 
         return;

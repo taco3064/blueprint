@@ -49,14 +49,19 @@ export function stripAlias(
   return null;
 }
 
-/** The module a path belongs to, under its own layer's layout. */
-export function moduleKey(segments: string[], layoutOf: LayoutOf): string {
-  if (segments.length < 2 || layoutOf(segments[0]) === 'flat') return segments[0] ?? '';
+/**
+ * The module a path belongs to, under its own layer's layout. `depth` is
+ * {@link moduleDepth} — the layer sits at `segments[depth]`.
+ */
+export function moduleKey(segments: string[], layoutOf: LayoutOf, depth = 0): string {
+  const layer = segments[depth];
+
+  if (segments.length < depth + 2 || layoutOf(layer) === 'flat') return layer ?? '';
 
   // A direct file module keeps its extension out of the key, so
   // `deps components/HelloWorld` and an import of `./HelloWorld.vue` both
   // resolve to the same module as the file `components/HelloWorld.vue`.
-  return `${segments[0]}/${segments[1].replace(/\.[^.]+$/, '')}`;
+  return `${layer}/${segments[depth + 1].replace(/\.[^.]+$/, '')}`;
 }
 
 /** A layer's public entry filename, extension stripped. */
@@ -89,21 +94,27 @@ export function relativeVerdict(
   target: string[] | null,
   layoutOf: LayoutOf,
   entryOf: EntryOf,
+  depth = 0,
 ): RelativeVerdict {
   if (target === null) return 'escapes-src';
-  if (moduleKey(target, layoutOf) === moduleKey(ownSegments, layoutOf)) return 'ok';
+  if (moduleKey(target, layoutOf, depth) === moduleKey(ownSegments, layoutOf, depth)) return 'ok';
 
-  const layer = ownSegments[0];
+  const layer = ownSegments[depth];
+
+  // Crossing the module is decided before the layer is, since under modules
+  // `hooks` in one module and `hooks` in another are different folders that
+  // would otherwise compare equal.
+  if (depth > 0 && target[0] !== ownSegments[0]) return 'leaves-layer';
 
   // No layout test: for a flat layer `moduleKey` collapses to the layer name, so the
   // equality check above already returned `ok` — a `layoutOf` arm here is unreachable.
-  if (target[0] !== layer) return 'leaves-layer';
+  if (target[depth] !== layer) return 'leaves-layer';
 
   const entry = entryOf(layer);
 
   const atEntry
-    = target.length === 2
-      || (target.length === 3 && target[2].replace(/\.[^.]+$/, '') === entry);
+    = target.length === depth + 2
+      || (target.length === depth + 3 && target[depth + 2].replace(/\.[^.]+$/, '') === entry);
 
   return atEntry ? 'ok' : 'reaches-inside';
 }

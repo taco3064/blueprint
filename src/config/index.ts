@@ -7,6 +7,7 @@ export {
   getForbiddenLayers,
   getModuleShape,
   getSelfOnlyTargets,
+  moduleDepth,
   moduleShapeGroups,
   normalizeAllowedImporters,
 } from './graph';
