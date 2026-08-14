@@ -383,10 +383,10 @@ is whether the commit can name what the mutant proved.
 
 **Count the dispatches.** The budget and its reasoning live in
 `.claude/docs/mutation-testing.md`; what belongs to you is that the count is
-visible from here and invisible from inside the work. One dispatch per ticket,
-one sweep per tier — a run of them inside a few minutes on one branch is a
-feedback loop wired to a stall, and it is the same class of finding as a survivor
-waved off, costing wall-clock rather than correctness.
+visible from here and invisible from inside the work. **No dispatch during a
+ticket — one sweep per tier**, so a ticket held open waiting for a run is a
+finding, and so is a run of them inside a few minutes on one branch. Same class
+as a survivor waved off, costing wall-clock rather than correctness.
 
 ```bash
 gh run list --workflow=mutation.yml --limit 20 \
