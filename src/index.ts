@@ -13,7 +13,7 @@ export type { AgentFile, AgentFileStrategy } from './emit/agent';
 export type { EmitLintOptions, LintConfig, LintConfigEntry } from './emit/lint';
 export type { ImpactOptions, RuleImpact } from './impact';
 export type { PackageManager } from './project';
-export type { NextPresetOptions, NextRouter, PresetOptions } from './presets';
+export type { NextPresetOptions, NextRouter, PresetOptions, PresetStructure } from './presets';
 export type {
   DepsOptions,
   DoctorCheck,
