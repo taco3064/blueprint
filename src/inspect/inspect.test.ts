@@ -69,6 +69,63 @@ describe('runInspect', () => {
     expect(output).toContain('Enforcement is vacuous');
   });
 
+  it('ends a modular report on a step the report itself does not forbid', async () => {
+    // The composition, not the line. Read alone the footer is defensible on any
+    // tree; read last — which is how an adopting agent reads it — it used to
+    // name `src/components/`, four rows under a `missing-layer` note saying not
+    // to create it and, once that folder exists, under an `✗ undeclared-module`
+    // on the same path. So the assertion is a cross-check between two texts
+    // produced independently: parse the footer's example, then ask the rest of
+    // the report what it says about that exact path.
+
+    // The file has to exist for the injected loader to be reached at all; what
+    // it contains is never read.
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// injected');
+
+    const loadConfig = async () => vuePreset({ structure: 'modular' });
+
+    const endsClean = async (): Promise<string> => {
+      let output = '';
+
+      const { findings } = await runInspect(root, {
+        loadConfig,
+        log: (message) => (output = message),
+      });
+
+      const step = output.trim().split('\n').at(-1) ?? '';
+      const example = /\(e\.g\. (\S+?)\/[\s)]/.exec(step)?.[1];
+
+      expect(step).toContain('Enforcement is vacuous');
+      expect(example).toBeDefined();
+      // Not `undeclared-module`'s subject and not `missing-layer`'s ban. Both
+      // are `src/<layer>`; the footer now names `src/<module>/<layer>/`.
+      expect(output).not.toContain(`Do not create \`${example}\``);
+
+      expect(findings.filter((finding) => finding.severity === 'error').map((f) => f.path))
+        .not.toContain(example);
+
+      return output;
+    };
+
+    // Two participants: `missing-layer` fires, `structure-mismatch` does not —
+    // #266 floors it on a top-level source folder and there is none here.
+    writeSrc('main.ts', 'export {};');
+
+    const bare = await endsClean();
+
+    expect(bare).toContain('Do not create `src/components`');
+    expect(bare).not.toContain('[structure-mismatch]');
+
+    // Three: the folders exist now, so `src/components` is an ✗ on screen.
+    writeSrc('components/Btn.ts', 'export const b = 1;');
+    writeSrc('hooks/useB.ts', 'export const useB = 1;');
+
+    const mismatched = await endsClean();
+
+    expect(mismatched).toContain('[structure-mismatch]');
+    expect(mismatched).toContain('[undeclared-module] src/components');
+  });
+
   it('emits JSON when asked', async () => {
     writeSrc('utils/helper.ts', 'export const x = 1;');
     let output = '';

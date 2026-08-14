@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
 import { vuePreset } from '../presets';
+import { vacuousNextStep } from './coverage';
 import { runDoctor } from './doctor';
 import { runInspect } from './inspect';
 import { GENERATED_ESLINT_BANNER } from '../project';
@@ -307,6 +308,29 @@ describe('runDoctor', () => {
     // "Adoption complete" + "proves nothing" would read as a contradiction —
     // the detail closes the gap by naming the step that arms the net.
     expect(check?.detail).toContain('the wiring is done — next: move code into a declared layer');
+  });
+
+  it('takes the modular next step from the one function, not a paraphrase of it', async () => {
+    // The worse of the two surfaces: doctor prints no findings, so the ✓ and this
+    // sentence are the whole screen — there is no `missing-layer` note here to
+    // say the layer is not a folder at the source root. Asserted against
+    // `vacuousNextStep`'s own return rather than a literal, because a literal
+    // copied into the test is the same shape that let `--print-config` drift into
+    // four paraphrases. The text itself is pinned in `coverage.test.ts`.
+    const modularConfig = async () => vuePreset({ structure: 'modular' });
+
+    adopted();
+    write('src/main.ts', 'export {};');
+
+    const { checks } = await runDoctor(root, { loadConfig: modularConfig, log: silent });
+    const check = checks.find((entry) => entry.label.includes('architecture'));
+
+    expect(check?.ok).toBe(true);
+    expect(check?.detail).toContain('clean, but vacuous');
+    expect(check?.detail).toContain(vacuousNextStep(await modularConfig()));
+    // The path the flat arm would have named here, and the one `inspect` calls
+    // an undeclared module on this config.
+    expect(check?.detail).not.toContain('e.g. src/components/)');
   });
 
   it('fails when a later config entry swallowed the emitted structural rules', async () => {

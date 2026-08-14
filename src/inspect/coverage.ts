@@ -96,17 +96,46 @@ export function coverageSummary(coverage: Coverage): string {
 }
 
 /**
- * The concrete step that arms a vacuous net, named with a real declared
- * layer. "Wired but proves nothing yet" is a tension every vacuous callout
- * carries — stating what closes the gap keeps it from reading as a
- * contradiction of "adoption complete".
+ * The concrete step that arms a vacuous net, named with declarations the
+ * config actually carries. "Wired but proves nothing yet" is a tension every
+ * vacuous callout carries — stating what closes the gap keeps it from reading
+ * as a contradiction of "adoption complete".
+ *
+ * Under `modules` the address is two segments, not one. A layer is a folder
+ * inside a module there, so `<sourceRoot>/<layer>/` is a top-level folder
+ * holding source — which the same report calls an `undeclared-module` error,
+ * and which `missing-layer` says outright not to create. The example carries
+ * why it has two segments because `doctor` prints no findings: there the
+ * sentence is the only thing on screen, under a ✓.
+ *
+ * The module named is the first that is not `layers: false`, because the
+ * example exists to demonstrate the `<root>/<module>/<layer>/` shape and an
+ * opted-out module cannot demonstrate it — the preset's own first module is
+ * `app`, and declaring `app` as a routing module is the documented use of the
+ * opt-out. When every module is opted out the shape genuinely has no layer
+ * segment: `resolveModuleFiles` nets such a module entire, so code anywhere
+ * inside it arms the gate.
  */
 export function vacuousNextStep(blueprint: Blueprint): string {
-  const { layers, sourceRoot } = blueprint.architecture;
+  const { layers, modules, sourceRoot } = blueprint.architecture;
   const root = sourceRoot ?? 'src';
-  const dir = root === '.' ? `${layers[0].name}/` : `${root}/${layers[0].name}/`;
+  const prefix = root === '.' ? '' : `${root}/`;
+  const arms = 'and the net arms itself';
 
-  return `next: move code into a declared layer (e.g. ${dir}) and the net arms itself`;
+  if (modules === undefined) {
+    return `next: move code into a declared layer (e.g. ${prefix}${layers[0].name}/) ${arms}`;
+  }
+
+  const layered = modules.find((module) => module.layers !== false);
+
+  if (layered === undefined) {
+    return `next: move code into a declared module (e.g. ${prefix}${modules[0].name}/ — every `
+      + `declared module sets \`layers: false\`, so there is no inner layer to name) ${arms}`;
+  }
+
+  return 'next: move code into a declared layer inside a declared module (e.g. '
+    + `${prefix}${layered.name}/${layers[0].name}/ — under \`modules\` a layer is a folder inside `
+    + `a module, never one at the source root) ${arms}`;
 }
 
 /** One-line coverage report — loud when the net catches nothing. */
