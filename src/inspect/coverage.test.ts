@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Blueprint } from '../config';
+import type { Blueprint, ModuleDef } from '../config';
 import { LINT_GATED_RULE_IDS } from '../emit/lint/patterns';
 import { computeCoverage, renderCoverage, vacuousNextStep } from './coverage';
 import type { ScanResult } from './types';
@@ -84,6 +84,66 @@ describe('vacuousNextStep', () => {
     const rooted = { ...blueprint, architecture: { ...blueprint.architecture, sourceRoot: '.' } };
 
     expect(vacuousNextStep(rooted)).toContain('(e.g. components/)');
+  });
+});
+
+describe('vacuousNextStep · the module dimension', () => {
+  // `app` opts out AND is declared first, which is the documented shape of a
+  // routing module — so this fixture is the state a literal `modules[0]` gets
+  // wrong, and the layered `Fighter` is what the example must reach for.
+  const modularOf = (modules: ModuleDef[]): Blueprint => ({
+    ...blueprint,
+    architecture: {
+      ...blueprint.architecture,
+      layers: [{ name: 'hooks', does: 'state' }, { name: 'services', does: 'io' }],
+      modules,
+    },
+  });
+
+  const routing: ModuleDef = { name: 'app', does: 'Routing only.', layers: false };
+  const feature: ModuleDef = { name: 'Fighter', does: 'The player ship.' };
+
+  it('names a declared module and a declared layer, skipping an opted-out module', () => {
+    // Whole sentence, not a fragment: the module segment is the fix, the layer
+    // segment is what the flat arm already promised, and the parenthetical is
+    // the only cause `doctor` prints — it shows no findings, so `missing-layer`
+    // is not there to explain the second segment.
+    expect(vacuousNextStep(modularOf([routing, feature]))).toBe(
+      'next: move code into a declared layer inside a declared module (e.g. src/Fighter/hooks/ '
+      + '— under `modules` a layer is a folder inside a module, never one at the source root) '
+      + 'and the net arms itself',
+    );
+  });
+
+  it('never names the source-root layer folder the report calls an undeclared module', () => {
+    // The defect, stated as the thing that must not come back: `src/hooks/` is
+    // what the flat arm would have said here, and it is an `undeclared-module`
+    // error on this config.
+    expect(vacuousNextStep(modularOf([feature]))).not.toContain('e.g. src/hooks/');
+  });
+
+  it('drops the layer segment when every declared module opts out', () => {
+    const step = vacuousNextStep(modularOf([routing, { name: 'legacy', does: 'x', layers: false }]));
+
+    expect(step).toBe(
+      'next: move code into a declared module (e.g. src/app/ — every declared module sets '
+      + '`layers: false`, so there is no inner layer to name) and the net arms itself',
+    );
+
+    // No inner layer exists to move code into, so naming one would send the
+    // reader to a folder no layer glob reaches.
+    expect(step).not.toContain('hooks');
+  });
+
+  it('respects a "." source root on both module arms', () => {
+    const rooted = (modules: ModuleDef[]): Blueprint => {
+      const modular = modularOf(modules);
+
+      return { ...modular, architecture: { ...modular.architecture, sourceRoot: '.' } };
+    };
+
+    expect(vacuousNextStep(rooted([routing, feature]))).toContain('(e.g. Fighter/hooks/ —');
+    expect(vacuousNextStep(rooted([routing]))).toContain('(e.g. app/ —');
   });
 });
 
