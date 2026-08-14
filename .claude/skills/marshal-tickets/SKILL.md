@@ -508,9 +508,12 @@ ever validated by a claim that turns out false — which means **send the ones y
 are least sure of, not the ones you want confirmed.** That is the opposite of what
 asking for review feels like, and it is the whole discipline.
 
-Measured once: seven claims sent, two died, and both were things that would
-otherwise have been carried to the end of the decomposition believed. Both died to
-the reader opening a file, neither to the reader weighing an argument.
+Measured once: seven claims sent — **with their reasoning still attached**, which
+is what makes the result an argument for dropping it — and two died. Both were
+things that would otherwise have been carried to the end of the decomposition
+believed, and both died to the reader opening a file rather than to the reader
+weighing the reasoning that came with them. The reasoning was present and did
+nothing.
 
 **Peer review is not verification**, and two readers agreeing is not two checks —
 they converge on the same resemblance. Three claims this tier survived two
