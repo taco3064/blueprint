@@ -297,23 +297,41 @@ function folderFindings(
   // hunting a problem that requires a merge to exist (field batch 13).
   //
   // A guard, not an empty list to iterate: on a scaffold every layer is a blank and
-  // the coverage line already says so.
+  // the coverage line already says so. It carries more weight under `modules` than it
+  // did: the measurement below reports an empty tree and a tree whose only files sit
+  // outside the layer vocabulary the same way, and the guard is what tells them apart.
   if (scan.files.length > 0) {
     for (const layer of architecture.layers) {
       const selfOnlyImporters = normalizeAllowedImporters(layer.allowedImporters)
         .filter((importer) => importer.selfOnly)
         .map((importer) => importer.layer);
 
-      const holdsFiles = scan.files.some((file) => file.segments[depth] === layer.name);
+      // Only a file some layer glob reaches can arm the ban — under `modules` the
+      // declared, non-opted-out set, which is `modulesHolding`'s `governed` and the same
+      // measurement `missing-layer` uses above. A bare `segments[depth]` test counts a
+      // `layers: false` module's folder and an undeclared folder alike; no glob reaches
+      // either, so it suppressed the note in the exact state the note reports. Flat asks
+      // the files directly: there is no module list to ask, and `src/<layer>` IS the layer.
+      const holdsFiles = modular
+        ? modulesHolding(scan, modules, layer.name, depth).governed.length > 0
+        : scan.files.some((file) => file.segments[depth] === layer.name);
 
       if (selfOnlyImporters.length && !holdsFiles) {
-        // The emptiness this note reports is measured at layer depth, so it fires on
+        // The emptiness this note reports is measured inside the modules, so it fires on
         // a modular repo too — and "it arms once code lands" is an instruction to put
         // code at the address, which is why the explanation is spliced in right
         // there rather than appended: the rest of this message is about a config
         // merge, and 700 characters is too far to carry the question.
         const { path, note } = layerAddress(architecture, layer.name);
 
+        // "The layer holds no files" beside a visible `src/app/contexts/` is two truths
+        // with nothing joining them, and the join is not in this message — it is
+        // `missing-layer`'s `optedOutNote`, which #240 wrote. This note may lean on it
+        // because that note fires on the same emptiness and its loop sits OUTSIDE the
+        // guard above: whenever this one is emitted, that one is too, at the same
+        // address, naming the same layer and the opted-out path (and `undeclared-module`
+        // covers the other case). Move either half and this note quietly stops
+        // explaining a folder the reader can see, with nothing failing.
         findings.push({
           severity: 'info',
           rule: 'declaratory-self-only',
@@ -345,9 +363,12 @@ function folderFindings(
  * the layer governs anything — no layer glob is emitted inside them — but their folders
  * are visible to whoever reads the note, so the message has to account for them.
  *
- * Its own measurement rather than the one `declaratory-self-only` uses: that one asks
- * only whether a file sits at layer depth, which counts an undeclared top folder and a
- * `layers: false` module alike.
+ * One measurement for both layer-level notes: `missing-layer` and
+ * `declaratory-self-only` read the same `governed` list, because "does a layer glob
+ * reach any file here" is one question, and the plain `segments[depth]` test that used
+ * to answer it for the second note counted an undeclared top folder and a
+ * `layers: false` module alike. `declaratory-self-only`'s flat arm still asks the files
+ * directly — there is no module list to ask, and a flat layer owns its own folder.
  */
 function modulesHolding(
   scan: ScanResult,

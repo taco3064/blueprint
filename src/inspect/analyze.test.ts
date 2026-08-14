@@ -1638,6 +1638,167 @@ describe('analyze · a declared layer that no module uses', () => {
   });
 });
 
+describe('analyze · a selfOnly ban is armed only by files a layer glob reaches', () => {
+  // Two selfOnly layers, one of them armed in every fixture below, so each run answers
+  // both halves: the list of layers reported declaratory separates "the empty one" from
+  // "every selfOnly one", which is what an implementation that never measures returns.
+  const withModules = (list: ModuleDef[]) => defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: list,
+      layers: [
+        { name: 'hooks', does: 'state' },
+        { name: 'stores', does: 'state', allowedImporters: [{ layer: 'hooks', selfOnly: true }] },
+        { name: 'contexts', does: 'wiring', allowedImporters: [{ layer: 'hooks', selfOnly: true }] },
+      ],
+    },
+  });
+
+  const two: ModuleDef[] = [{ name: 'M1', does: 'one' }, { name: 'M2', does: 'two' }];
+
+  // `app` opts out of the layer vocabulary, so `resolveModuleLayerFiles` emits no glob
+  // inside it and `app/contexts` is not the `contexts` layer however it is spelled.
+  const optOut: ModuleDef[] = [
+    { name: 'app', does: 'routing', layers: false },
+    { name: 'M1', does: 'one' },
+  ];
+
+  /** Every layer this run called declaratory, in the order reported. */
+  const declaratory = (list: ModuleDef[], topDirs: string[], files: ScannedFile[]) =>
+    analyze({ topDirs, files }, withModules(list))
+      .filter((entry) => entry.rule === 'declaratory-self-only')
+      .map((entry) => entry.subject);
+
+  it('fires when the only folder of that name sits in a `layers: false` module', () => {
+    // `app/contexts` arms nothing — no glob reaches it — while `M1/stores` really does arm
+    // its layer. The whole list, so counting the opt-out as a holder fails here instead of
+    // passing a `toContain` for the name it kept.
+    expect(declaratory(optOut, ['app', 'M1'], [
+      file(['app', 'contexts', 'x.ts']),
+      file(['M1', 'stores', 'session.ts']),
+    ])).toEqual(['contexts']);
+  });
+
+  it('fires when the only folder of that name sits in an undeclared module', () => {
+    const findings = analyze(
+      {
+        topDirs: ['Rogue', 'M1'],
+        files: [file(['Rogue', 'contexts', 'x.ts']), file(['M1', 'stores', 'session.ts'])],
+      },
+      withModules([{ name: 'M1', does: 'one' }]),
+    );
+
+    expect(findings.filter((entry) => entry.rule === 'declaratory-self-only')
+      .map((entry) => entry.subject)).toEqual(['contexts']);
+
+    // The reason asserted rather than assumed: the layer globs are expanded from the
+    // declared module list, so nothing under `Rogue` is reached by one — and the error
+    // saying so is in the same output.
+    expect(findings.filter((entry) => entry.rule === 'undeclared-module')
+      .map((entry) => entry.path)).toEqual(['src/Rogue']);
+  });
+
+  it('says nothing once a declared, layer-bearing module holds the layer', () => {
+    // The case that stops the whole suite passing on "always fires": nothing here is
+    // reported, and an empty list is a claim about the entire run.
+    expect(declaratory(two, ['M1', 'M2'], [
+      file(['M1', 'contexts', 'x.ts']),
+      file(['M1', 'stores', 'session.ts']),
+    ])).toEqual([]);
+  });
+
+  it('needs one real holder, not every module', () => {
+    // `M1` arms the ban; `app` opting out alongside it changes nothing. Counting the
+    // opt-out apart is what keeps this direction and the first case from colliding.
+    expect(declaratory(optOut, ['app', 'M1'], [
+      file(['M1', 'contexts', 'x.ts']),
+      file(['app', 'contexts', 'y.ts']),
+      file(['M1', 'stores', 'session.ts']),
+    ])).toEqual([]);
+  });
+
+  it('leans on `missing-layer` to explain the folder a reader can see', () => {
+    const findings = analyze(
+      {
+        topDirs: ['app', 'M1'],
+        files: [file(['app', 'contexts', 'x.ts']), file(['M1', 'stores', 'session.ts'])],
+      },
+      withModules(optOut),
+    );
+
+    // This note says "the layer holds no files" while `src/app/contexts/` is on disk, and
+    // it carries no join for that — #240's clause on `missing-layer` does. The reliance is
+    // a checked property, not an assumption: both notes in ONE run, at one address, naming
+    // one layer. If either half moves, this note stops explaining the visible folder.
+    expect(findings.filter((entry) => entry.rule === 'declaratory-self-only')
+      .map((entry) => `${entry.path} ${entry.subject}`)).toEqual(['src contexts']);
+
+    const bridge = findings.find(
+      (entry) => entry.rule === 'missing-layer' && entry.subject === 'contexts',
+    );
+
+    expect(bridge?.path).toBe('src');
+    expect(bridge?.message).toContain('Code under `src/app/contexts` is not counted');
+  });
+
+  it('stays quiet on an empty modular tree — the scan-size guard is the difference', () => {
+    // The guard carries more weight than it did: this measurement reports an empty tree
+    // and a tree whose only files are outside the layer vocabulary identically, so the
+    // guard is now the only thing telling a scaffold from the first case above. Asserted
+    // beside the layer notes that DO fire, so a fixture that produced nothing at all
+    // could not pass this.
+    const findings = analyze({ topDirs: [], files: [] }, withModules(two));
+
+    expect(findings.filter((entry) => entry.rule === 'declaratory-self-only')).toEqual([]);
+
+    expect(findings.filter((entry) => entry.rule === 'missing-layer').map((entry) => entry.subject))
+      .toEqual(['hooks', 'stores', 'contexts']);
+  });
+
+  it('leaves a flat project\'s output byte-identical', () => {
+    const flat = defineBlueprint({
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [
+          { name: 'hooks', does: 'state' },
+          { name: 'contexts', does: 'wiring', allowedImporters: [{ layer: 'hooks', selfOnly: true }] },
+        ],
+      },
+    });
+
+    // The whole run and the whole message: "unchanged" is a claim about every field and
+    // every character, and a `toContain` on a phrase or two passes on a message that
+    // moved elsewhere — a spliced opt-out clause among them.
+    expect(analyze({ topDirs: ['hooks'], files: [file(['hooks', 'useX.ts'])] }, flat)).toEqual([
+      {
+        severity: 'info',
+        rule: 'missing-layer',
+        path: 'src/contexts',
+        subject: '',
+        message: 'Declared layer "contexts" has no folder yet — runway, not a todo: the rules arm '
+          + 'when code lands; keeping it is the default, slimming is the owner\'s call.',
+      },
+      {
+        severity: 'info',
+        rule: 'declaratory-self-only',
+        path: 'src/contexts',
+        subject: '',
+        message: 'selfOnly on "contexts" (importer(s): hooks) is declaratory — the layer holds no '
+          + 'files, so the re-export ban cannot fire yet; it arms once code lands. The '
+          + 'no-restricted-syntax ENTRY is emitted today, on the importer layer(s) named above, so '
+          + 'it is already exposed to a merge: IF a second no-restricted-syntax scoped to one of '
+          + 'those layers exists, flat config merges neither into the other — the later entry '
+          + 'replaces the earlier, silently, with lint still green. That condition is the whole '
+          + 'note. Adopting into a single generated config, there is no second entry, so there is '
+          + 'nothing here to act on. "Cannot fire" is about the ban, not about the entry. Check '
+          + '`blueprint rules --json` for the emit points before merging.',
+      },
+    ]);
+  });
+});
+
 describe('analyze · the position hint is measured, not approximated', () => {
   const four = defineBlueprint({
     framework: 'react',
