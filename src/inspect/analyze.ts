@@ -25,6 +25,11 @@ import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './ty
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
 
+/** The directory layers live under, as the config spells it. */
+function sourceRoot(architecture: ArchitectureDef): string {
+  return architecture.sourceRoot ?? 'src';
+}
+
 /**
  * The display prefix for a directory finding, from the config's source root — the
  * address an agent will actually go to. Per-file findings do not need it; `scan`
@@ -34,9 +39,42 @@ const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
  * paths the same way here as `scan` does.
  */
 function sourcePrefix(architecture: ArchitectureDef): string {
-  const root = architecture.sourceRoot ?? 'src';
+  const root = sourceRoot(architecture);
 
   return root === '.' ? '' : `${root}/`;
+}
+
+/**
+ * Where a finding about a LAYER is addressed, and the sentence that explains the
+ * address when it is not the layer's own folder.
+ *
+ * A layer has a folder of its own only on a flat project. Under `modules` it sits
+ * inside each declared module, so `${prefix}${name}` is not merely absent — a
+ * top-level folder holding source is an undeclared module, so creating it to
+ * satisfy the note trades an `info` for an `error` and governs nothing. The source
+ * root is the one address that cannot be reached that way: `undeclared-module`
+ * walks `scan.topDirs`, the directories INSIDE the source root, and the root is
+ * never a member of its own listing.
+ *
+ * The path and its explanation come back together, from one place. A note
+ * addressed away from the thing it names reads as breakage without the reason, and
+ * both findings that address a layer need the same reason — written twice it
+ * becomes two paraphrases that drift, which is the shape `printConfigCaveats` was
+ * extracted from.
+ */
+function layerAddress(architecture: ArchitectureDef, name: string): { path: string; note: string } {
+  const prefix = sourcePrefix(architecture);
+  const own = `${prefix}${name}`;
+
+  if (architecture.modules === undefined) return { path: own, note: '' };
+
+  return {
+    path: sourceRoot(architecture),
+    note: ` This project declares \`modules\`, so "${name}" is a layer inside each one rather than `
+      + 'a folder of its own — it has no single path, and the note is addressed at the source root '
+      + `instead. Do not create \`${own}\` to satisfy it: a top-level folder holding source is an `
+      + 'undeclared module, which `inspect` reports as an error and which governs nothing.',
+  };
 }
 
 /**
@@ -98,33 +136,58 @@ function ownsFindings(
 ): Finding[] {
   if (!dependencies) return [];
 
-  const findings: Finding[] = [];
   const prefix = sourcePrefix(architecture);
 
-  // Modules own primitives too, and a declaration nothing reads is the defect
-  // this finding exists to surface — at either level.
-  for (const layer of [...architecture.layers, ...(architecture.modules ?? [])]) {
-    for (const owned of layer.owns ?? []) {
-      // Both forms answer the same question here: whether the package resolves at
-      // all. A named import missing from an installed package is a different one.
-      const pkg = typeof owned === 'string' ? owned : 'package' in owned ? owned.package : null;
+  // Modules own primitives too, and a declaration nothing reads is the defect this
+  // finding exists to surface — at either level. Two passes rather than one over
+  // both lists concatenated: the word the message opens with IS the level, and the
+  // only thing that knows the level is which list the entry came out of. Read off a
+  // loop variable's name instead, a module was announced as a "Layer" — the
+  // opposite of the vocabulary the release ships.
+  return [
+    ...architecture.layers.flatMap((layer) => {
+      const { path, note } = layerAddress(architecture, layer.name);
 
-      if (pkg === null || dependencies.includes(pkg)) continue;
+      return uninstalled(layer, dependencies)
+        .map((pkg) => ownsFinding('Layer', layer.name, pkg, path, note));
+    }),
+    // A module is a folder at the top of the source tree, so its own address is
+    // the one thing here that needs no explaining.
+    ...(architecture.modules ?? []).flatMap((module) =>
+      uninstalled(module, dependencies)
+        .map((pkg) => ownsFinding('Module', module.name, pkg, `${prefix}${module.name}`, ''))),
+  ];
+}
 
-      findings.push({
-        severity: 'info',
-        rule: 'owns-not-installed',
-        path: `${prefix}${layer.name}`,
-        subject: pkg,
-        message: `Layer "${layer.name}" owns "${pkg}", which is not in package.json — `
-          + 'runway, not a todo: the ban is emitted and correct, it just has nothing to '
-          + 'reach yet. Installing the package and dropping the declaration are both '
-          + 'resolutions, and which one applies is the owner\'s call.',
-      });
-    }
-  }
+/** The packages one owner declares that the project's dependency list does not carry. */
+function uninstalled(owner: { owns?: OwnedPrimitive[] }, dependencies: string[]): string[] {
+  return (owner.owns ?? []).flatMap((owned) => {
+    // Both forms answer the same question here: whether the package resolves at
+    // all. A named import missing from an installed package is a different one.
+    const pkg = typeof owned === 'string' ? owned : 'package' in owned ? owned.package : null;
 
-  return findings;
+    return pkg !== null && !dependencies.includes(pkg) ? [pkg] : [];
+  });
+}
+
+/** One `owns-not-installed` note, at whichever level declared the package. */
+function ownsFinding(
+  level: 'Layer' | 'Module',
+  name: string,
+  pkg: string,
+  path: string,
+  address: string,
+): Finding {
+  return {
+    severity: 'info',
+    rule: 'owns-not-installed',
+    path,
+    subject: pkg,
+    message: `${level} "${name}" owns "${pkg}", which is not in package.json — `
+      + 'runway, not a todo: the ban is emitted and correct, it just has nothing to '
+      + 'reach yet. Installing the package and dropping the declaration are both '
+      + `resolutions, and which one applies is the owner's call.${address}`,
+  };
 }
 
 /** undeclared-folder, missing-layer, and no-entry findings. */
@@ -209,12 +272,19 @@ function folderFindings(
       const holdsFiles = scan.files.some((file) => file.segments[depth] === layer.name);
 
       if (selfOnlyImporters.length && !holdsFiles) {
+        // The emptiness this note reports is measured at layer depth, so it fires on
+        // a modular repo too — and "it arms once code lands" is an instruction to put
+        // code at the address, which is why the explanation is spliced in right
+        // there rather than appended: the rest of this message is about a config
+        // merge, and 700 characters is too far to carry the question.
+        const { path, note } = layerAddress(architecture, layer.name);
+
         findings.push({
           severity: 'info',
           rule: 'declaratory-self-only',
-          path: `${prefix}${layer.name}`,
+          path,
           subject: '',
-          message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands. The no-restricted-syntax ENTRY is emitted today, on the importer layer(s) named above, so it is already exposed to a merge: IF a second no-restricted-syntax scoped to one of those layers exists, flat config merges neither into the other — the later entry replaces the earlier, silently, with lint still green. That condition is the whole note. Adopting into a single generated config, there is no second entry, so there is nothing here to act on. "Cannot fire" is about the ban, not about the entry. Check \`blueprint rules --json\` for the emit points before merging.`,
+          message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands.${note} The no-restricted-syntax ENTRY is emitted today, on the importer layer(s) named above, so it is already exposed to a merge: IF a second no-restricted-syntax scoped to one of those layers exists, flat config merges neither into the other — the later entry replaces the earlier, silently, with lint still green. That condition is the whole note. Adopting into a single generated config, there is no second entry, so there is nothing here to act on. "Cannot fire" is about the ban, not about the entry. Check \`blueprint rules --json\` for the emit points before merging.`,
         });
       }
     }

@@ -327,7 +327,7 @@ export function renderGoal(): string {
     'Never invent a layer to make coverage non-zero (a `*` name, a glob contortion): root files are wiring, and their hygiene (line counts, unused vars) belongs to the project\'s own lint, not to a manufactured layer.',
     'The net starts biting when code lands inside declared layers.',
     'The inverse also holds: a preset\'s declared-but-empty layers are the runway, not a manufactured net — declaring intent costs nothing and `inspect` tracks them honestly (missing-layer info, the coverage line), so keep them.',
-    '**Runway comes in three shapes, and `inspect` names two of them.** An empty layer gets its note, and so does an `owns` entry for a package the repo has not installed (a preset\'s `hooks` owns `zustand` whether or not you use it) — an `owns-not-installed` note naming the layer that declares it.',
+    '**Runway comes in three shapes, and `inspect` names two of them.** An empty layer gets its note, and so does an `owns` entry for a package the repo has not installed (a preset\'s `hooks` owns `zustand` whether or not you use it) — an `owns-not-installed` note naming what declares it, the layer or the module.',
     'An alias no import uses yet gets none — nothing imports it, so there is nothing to count and no finding to raise.',
     'All three are still runway: they say where a thing goes if it arrives, ban nothing until then, and need no dependency added to justify them.',
     'Keep them on the same default as the layers, and know that the alias is the one shape you have to recognize yourself rather than read off a report.',

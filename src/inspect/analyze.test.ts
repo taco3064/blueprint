@@ -53,6 +53,9 @@ describe('analyze · folders', () => {
     expect(note).toMatchObject({ severity: 'info', path: 'src/contexts' });
     expect(note?.message).toContain('cannot fire yet');
     expect(note?.message).toContain('hooks');
+    // Flat: the layer's own folder IS its address, so there is nothing to
+    // explain and no folder to forbid.
+    expect(note?.message).not.toContain('Do not create');
 
     // Files inside the protected layer arm the ban — the note disappears.
     const armed = rulesFor([
@@ -81,10 +84,18 @@ describe('analyze · owns declared ahead of the install', () => {
     const axios = found.find((finding) => finding.subject === 'axios');
 
     expect(axios).toMatchObject({ severity: 'info', path: 'src/services' });
+    // The level and the name, not only that a sentence exists: the word is read
+    // from which list the entry came out of, and on a flat config that is always
+    // `layers`.
+    expect(axios?.message).toContain('Layer "services" owns "axios"');
     expect(axios?.message).toContain('runway, not a todo');
     // Both resolutions named, neither prescribed — the same doctrine as
     // missing-layer, which this tier and wording follow.
     expect(axios?.message).toContain('owner\'s call');
+    // Flat output is unchanged in both fields: `src/services` is the layer's own
+    // folder, so the modular address note has nothing to say here.
+    expect(axios?.message).not.toContain('Do not create');
+    expect(axios?.message).not.toContain('declares `modules`');
   });
 
   it('says nothing when every owned package resolves', () => {
@@ -1141,13 +1152,103 @@ describe('analyze · governing between modules', () => {
     ]).map((entry) => entry.rule)).not.toContain('package-ownership');
   });
 
-  it('notes a module owns entry whose package is not installed', () => {
+  it('notes a module owns entry whose package is not installed, as a MODULE', () => {
     // Same tier and doctrine as the layer-level note: declaring ownership
     // before the install is the legitimate order.
     const note = findingsFor([], []).find((entry) => entry.rule === 'owns-not-installed');
 
     expect(note?.subject).toBe('rbush');
     expect(note?.severity).toBe('info');
+    // The path and the message, not the severity alone. Asserting `subject` and
+    // `severity` is what let both of them be wrong in one green object: the level
+    // word said "Layer" and the address named a folder that must not exist.
+    expect(note?.path).toBe('src/Combat');
+    expect(note?.message).toContain('Module "Combat" owns "rbush"');
+    // #190's vocabulary, in the one place it can be got wrong: the level is read
+    // from which list the entry came out of, never from a loop variable's name.
+    expect(note?.message).not.toContain('Layer "');
+    // A module IS a top-level folder, so its own address needs no explaining and
+    // there is no folder to forbid.
+    expect(note?.message).not.toContain('Do not create');
+  });
+});
+
+describe('analyze · a layer-level note under modules is addressed where an adopter can act', () => {
+  // Both notes below address a LAYER, and a layer under `modules` lives at
+  // `src/<Module>/<layer>` in every module — it has no single folder. `src/hooks`
+  // is not merely absent: a top-level folder holding source is an undeclared
+  // module, so the only action that address suggests trades this `info` for an
+  // `error` and governs nothing.
+  const modular = (sourceRoot?: string) => defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      sourceRoot,
+      modules: [
+        { name: 'GameStage', does: 'the run' },
+        { name: 'Combat', does: 'bullets', owns: ['rbush'] },
+      ],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' },
+        { name: 'hooks', does: 'state', owns: ['zustand'] },
+        { name: 'contexts', does: 'wiring', allowedImporters: [{ layer: 'hooks', selfOnly: true }] },
+      ],
+    },
+  });
+
+  // One file, inside a declared module, in neither `hooks` nor `contexts`: enough
+  // for the selfOnly note to fire (the scan is not a scaffold, the layer is empty)
+  // without making either layer inhabited.
+  const notesFor = (sourceRoot?: string) =>
+    analyze(
+      {
+        topDirs: ['GameStage', 'Combat'],
+        files: [file(['GameStage', 'components', 'Ship', 'index.tsx'])],
+      },
+      modular(sourceRoot),
+      [],
+    );
+
+  const noteOf = (rule: string, sourceRoot?: string) =>
+    notesFor(sourceRoot).find((entry) => entry.rule === rule);
+
+  it('addresses a layer\'s owns note at the source root, and forbids the folder that would satisfy it', () => {
+    const note = notesFor().find(
+      (entry) => entry.rule === 'owns-not-installed' && entry.subject === 'zustand',
+    );
+
+    expect(note?.path).toBe('src');
+    // The constraint stated as itself rather than as one example of it:
+    // `undeclared-module` judges the directories INSIDE the source root, so any
+    // address below the root is one it could reach, and the root is not.
+    expect(note?.path.startsWith('src/')).toBe(false);
+    expect(note?.message).toContain('Layer "hooks" owns "zustand"');
+    expect(note?.message).toContain('a layer inside each one rather than a folder of its own');
+    // The plausible non-fix, named and refused. An agent reading a note at `src`
+    // about `hooks` creates `src/hooks`, which is the one move that makes this
+    // worse — so the reason travels in the same line as the address.
+    expect(note?.message).toContain('Do not create `src/hooks`');
+    expect(note?.message).toContain('undeclared module');
+    expect(note?.severity).toBe('info');
+  });
+
+  it('addresses the declaratory selfOnly note by the same rule, in the same words', () => {
+    // The same defect, one formula over: this note is measured at layer depth, so
+    // it fires on a modular repo, and "it arms once code lands" is an instruction
+    // to put code at the address it prints.
+    const note = noteOf('declaratory-self-only');
+
+    expect(note?.path).toBe('src');
+    expect(note?.message).toContain('selfOnly on "contexts"');
+    expect(note?.message).toContain('Do not create `src/contexts`');
+    expect(note?.severity).toBe('info');
+  });
+
+  it('spells the source root the way the config does', () => {
+    // `sourceRoot: '.'` puts the layers at the project root, so the note is
+    // addressed there and the folder it forbids carries no prefix either.
+    expect(noteOf('owns-not-installed', '.')?.path).toBe('.');
+    expect(noteOf('declaratory-self-only', '.')?.message).toContain('Do not create `contexts`');
   });
 });
 
