@@ -25,15 +25,16 @@ The parent closes when every claim maps to a closed ticket. Not when the
 sub-issue counter hits 100% — the counter proves the tickets closed, not that
 they covered the parent.
 
-### Before it closes, someone who was not here checks it
+### Before it closes, readers who were not here check it
 
 You cut these tickets and you verified them, which makes you the worst available
 reader of whether they hold — and a second session that has been in the
 decomposition with you is the second-worst. **Two readers are not two checks; they
 converge on the same resemblance.**
 
-So before the parent closes, spawn agents that were not part of this and cannot
-write:
+So before the parent closes, **you** spawn agents that were not part of this and
+cannot write. The freshness is a property of the readers, not of who dispatches
+them — this pass does not wait for anybody else to run it:
 
 - **Fresh context, latest `main`, read-only.** A reader that can edit starts
   explaining instead of reporting.
@@ -45,7 +46,10 @@ write:
   top-N: the finding dropped because two others outrank it is the one the next
   reader rediscovers. Without an address it is an opinion.
 - **Findings are unverified reports until you reopen the file.** One that does not
-  hold is dropped *and said to be dropped*.
+  hold is dropped *and said to be dropped* — and the dropping is where your own
+  convergence can hide, since generating findings freshly does not make the
+  verdict on them fresh. Report which dimensions were spawned, what came back,
+  and what you dropped with the reason. That list is the part worth exposing.
 
 ### Then decide what the process keeps
 
