@@ -53,9 +53,10 @@ describe('analyze · folders', () => {
     expect(note).toMatchObject({ severity: 'info', path: 'src/contexts' });
     expect(note?.message).toContain('cannot fire yet');
     expect(note?.message).toContain('hooks');
-    // Flat: the layer's own folder IS its address, so there is nothing to
-    // explain and no folder to forbid.
-    expect(note?.message).not.toContain('Do not create');
+    // Flat: the layer's own folder IS its address, so nothing is spliced in. The
+    // junction asserted as adjacency, since this note carries the address in the
+    // middle — an appended text would leave both halves touching and pass.
+    expect(note?.message).toContain('it arms once code lands. The no-restricted-syntax ENTRY');
 
     // Files inside the protected layer arm the ban — the note disappears.
     const armed = rulesFor([
@@ -93,9 +94,10 @@ describe('analyze · owns declared ahead of the install', () => {
     // missing-layer, which this tier and wording follow.
     expect(axios?.message).toContain('owner\'s call');
     // Flat output is unchanged in both fields: `src/services` is the layer's own
-    // folder, so the modular address note has nothing to say here.
-    expect(axios?.message).not.toContain('Do not create');
-    expect(axios?.message).not.toContain('declares `modules`');
+    // folder, so the modular address note has nothing to say here. `endsWith`, not
+    // two `not.toContain`s — those pass on any appended text that avoids two
+    // phrases, and "nothing is appended" is the contract.
+    expect(axios?.message.endsWith('which one applies is the owner\'s call.')).toBe(true);
   });
 
   it('says nothing when every owned package resolves', () => {
