@@ -56,6 +56,12 @@ export interface SurveyResult {
   packageManager: PackageManager;
   /** Detected (or overridden) import aliases that target `src/`. */
   aliases: Record<string, string>;
+  /**
+   * What the top level reads as — and why. Reported before the folder table,
+   * because every row below it means something different depending on this:
+   * a `hooks` row is a layer under `flat` and a module under `modular`.
+   */
+  shape: ShapeEvidence;
   /** Source files directly under `src/` (entry wiring, not layer code). */
   rootFiles: string[];
   folders: FolderEvidence[];
@@ -115,9 +121,30 @@ export function dependencyNames(root: string): string[] {
   }
 }
 
+/** What `survey` reads a top-level tree as. */
+export type TreeShape = 'flat' | 'modular' | 'unknown';
+
+/**
+ * The shape verdict and the evidence behind it.
+ *
+ * The evidence travels with the verdict because a reader who disagrees has to
+ * be able to see which condition failed and on which folder — otherwise the
+ * shape line is an oracle, and `survey`'s whole stance is that it reports facts
+ * and never judges.
+ */
+export interface ShapeEvidence {
+  kind: TreeShape;
+  /** The verdict in one sentence, naming the folder that decided it. */
+  reason: string;
+  /** Child-folder names that recur across two or more top folders. */
+  sharedVocabulary: string[];
+  /** Top folders whose own children are index-bearing units — layer-shaped. */
+  layerShaped: string[];
+}
+
 type FolderTally = FolderEvidence & { indexed: Set<string>; children: Set<string> };
 
-function folderEvidence(scanResult: ScanResult): FolderEvidence[] {
+function folderTallies(scanResult: ScanResult): FolderTally[] {
   const byFolder = new Map<string, FolderTally>();
 
   for (const dir of scanResult.topDirs) {
@@ -153,12 +180,99 @@ function folderEvidence(scanResult: ScanResult): FolderEvidence[] {
   }
 
   return [...byFolder.values()]
-    .map(({ indexed, children, ...evidence }) => ({
-      ...evidence,
-      childFolders: children.size,
-      indexedChildren: indexed.size,
+    .map((tally) => ({
+      ...tally,
+      childFolders: tally.children.size,
+      indexedChildren: tally.indexed.size,
     }))
     .sort((a, b) => b.files - a.files);
+}
+
+/**
+ * The public evidence rows. Named field by field rather than spread-minus-two:
+ * `FolderEvidence` is a consumed shape, and a projection that says what it
+ * keeps cannot quietly start carrying a working set someone adds to the tally.
+ */
+function folderEvidence(tallies: FolderTally[]): FolderEvidence[] {
+  return tallies.map((tally) => ({
+    folder: tally.folder,
+    files: tally.files,
+    directFiles: tally.directFiles,
+    childFolders: tally.childFolders,
+    indexedChildren: tally.indexedChildren,
+    maxDepth: tally.maxDepth,
+  }));
+}
+
+/**
+ * Which shape the top level is, from three conditions — all required for
+ * `modular`, and anything less is `unknown`, which is a real answer rather than
+ * the bucket everything unclear falls into.
+ *
+ * 1. **A shared vocabulary one level down** — the same child-folder name under
+ *    two or more top folders. A technical vocabulary that has sunk a level is
+ *    what a module tree looks like from outside.
+ * 2. **The children are not units** — under flat, a layer's children ARE
+ *    index-bearing units; under modules they are layers, and the units sit one
+ *    deeper.
+ * 3. **Nothing that is not a module grows its own tree at that level.** A veto,
+ *    not a tally: one layer-shaped folder beside the modules makes the tree
+ *    mixed, not modular with an exception. It is what lets `unknown` be a shape
+ *    the tool detects rather than the absence of a verdict.
+ *
+ * A router-shaped folder abstains. Its children are its router's vocabulary —
+ * neither shared layer names nor index-bearing units — so it contributes to
+ * neither condition 1 nor 2 and does not trip 3. Read without that carve-out,
+ * condition 3 would call every modular repo with a router mixed, which
+ * contradicts the reference tree where `app` is itself a declared module.
+ */
+export function detectShape(folders: FolderTally[]): ShapeEvidence {
+  const seen = new Map<string, number>();
+
+  for (const folder of folders) {
+    for (const child of folder.children) seen.set(child, (seen.get(child) ?? 0) + 1);
+  }
+
+  const sharedVocabulary = [...seen].filter(([, count]) => count > 1).map(([name]) => name).sort();
+
+  const layerShaped = folders.filter((folder) => folder.indexed.size > 0).map((f) => f.folder);
+
+  if (sharedVocabulary.length > 0 && layerShaped.length === 0) {
+    return {
+      kind: 'modular',
+      reason: `top-level folders share a child vocabulary (${sharedVocabulary.join(', ')}) and `
+        + 'none of them holds index-bearing units, so the technical layers sit one level down',
+      sharedVocabulary,
+      layerShaped,
+    };
+  }
+
+  if (sharedVocabulary.length === 0) {
+    return {
+      kind: layerShaped.length > 0 || folders.every((folder) => folder.children.size === 0)
+        ? 'flat'
+        : 'unknown',
+      reason: layerShaped.length > 0
+        ? `top-level folders hold index-bearing units (${layerShaped.join(', ')}) and share no `
+        + 'child vocabulary, so they are the technical layers themselves'
+        : folders.every((folder) => folder.children.size === 0)
+          ? 'no top-level folder has a subtree, so there is no second level to read'
+          : 'no child-folder name recurs across top-level folders, so there is no shared '
+            + 'vocabulary one level down — and nothing holds index-bearing units either',
+      sharedVocabulary,
+      layerShaped,
+    };
+  }
+
+  return {
+    kind: 'unknown',
+    reason: `a shared child vocabulary (${sharedVocabulary.join(', ')}) sits beside folders `
+      + `holding index-bearing units (${layerShaped.join(', ')}) — ${layerShaped.join(', ')} `
+      + 'is layer-shaped at module depth, so this tree is mixed rather than modular with an '
+      + 'exception',
+    sharedVocabulary,
+    layerShaped,
+  };
 }
 
 /**
@@ -176,6 +290,8 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
     ? { [options.alias]: 'src' }
     : detectAliases(state.tsconfigs);
 
+  const tallies = folderTallies(scanResult);
+  const shape = detectShape(tallies);
   const aliasNames = Object.keys(aliases);
   const deps = dependencyNames(root).sort((a, b) => b.length - a.length);
   const folderSet = new Set(scanResult.topDirs);
@@ -268,7 +384,8 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
     rootFiles: scanResult.files
       .filter((file) => file.segments.length === 1)
       .map((file) => file.segments[0]),
-    folders: folderEvidence(scanResult),
+    shape,
+    folders: folderEvidence(tallies),
     edges: [...edgeCounts.entries()]
       .map(([key, count]) => {
         const [from, to] = key.split(' → ');
@@ -303,6 +420,21 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
   log(options.json ? JSON.stringify(result, null, 2) : renderSurvey(result));
 
   return result;
+}
+
+/** Wrap a sentence to `width`, keeping the leading indent on every line. */
+function wrapSentence(text: string, width: number): string[] {
+  const indent = text.slice(0, text.length - text.trimStart().length);
+  const lines: string[] = [];
+
+  for (const word of text.trim().split(/\s+/)) {
+    const last = lines.length - 1;
+
+    if (lines.length && `${lines[last]} ${word}`.length <= width) lines[last] += ` ${word}`;
+    else lines.push(`${indent}${word}`);
+  }
+
+  return lines;
 }
 
 /**
@@ -343,7 +475,30 @@ export function renderSurvey(result: SurveyResult): string {
     lines.push(`src/ root files (wiring, not layers): ${result.rootFiles.join(', ')}`, '');
   }
 
-  lines.push('Folders (module-shape evidence):');
+  // Before the folder table, because every row below means something different
+  // depending on it: a `hooks` row is a layer under `flat` and a module under
+  // `modular`. The reason travels with the verdict — a reader who disagrees has
+  // to see which condition decided it, or this line is an oracle.
+  lines.push(
+    result.shape.kind === 'unknown'
+      ? 'Top-level shape: COULD NOT TELL — this survey reports facts and does not guess.'
+      : `Top-level shape: ${result.shape.kind.toUpperCase()}.`,
+  );
+
+  for (const line of wrapSentence(`  Why: ${result.shape.reason}.`, 76)) lines.push(line);
+
+  lines.push(
+    result.shape.kind === 'modular'
+      ? '  So the folders below are feature MODULES, and the technical layers are their children.'
+      : result.shape.kind === 'flat'
+        ? '  So the folders below are the technical LAYERS themselves.'
+        : '  So the folders below are not one kind of thing — read each on its own evidence.',
+    '',
+  );
+
+  lines.push(result.shape.kind === 'modular'
+    ? 'Folders (module-shape evidence — these are the modules):'
+    : 'Folders (module-shape evidence):');
 
   for (const folder of result.folders) {
     lines.push(
@@ -385,7 +540,9 @@ export function renderSurvey(result: SurveyResult): string {
 
   lines.push(
     '',
-    'Import matrix (cross-folder, heaviest first — includes test files;',
+    result.shape.kind === 'modular'
+      ? 'Import matrix (module to module, heaviest first — includes test files;'
+      : 'Import matrix (cross-folder, heaviest first — includes test files;',
     'inspect excludes them, so its counts run lower):',
   );
 
@@ -427,7 +584,10 @@ export function renderSurvey(result: SurveyResult): string {
   }
 
   if (result.packageUsage.length) {
-    lines.push('', 'Package usage (most concentrated first — ownership candidates):');
+    lines.push('', result.shape.kind === 'modular'
+      ? 'Package usage per MODULE (most concentrated first — ownership candidates;'
+      + ' a module owns across other modules, a layer across other layers):'
+      : 'Package usage (most concentrated first — ownership candidates):');
 
     for (const entry of result.packageUsage.slice(0, 15)) {
       lines.push(`  ${entry.package} — ${entry.folders.join(', ')}`);
