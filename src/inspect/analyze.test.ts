@@ -1263,7 +1263,9 @@ describe('analyze · undeclared-module and missing-module', () => {
       [file(['Achievements', 'hooks', 'useBadge', 'index.ts'], [{ specifier: '~app/Combat' }])],
     ));
 
-    expect(reachesOnly?.message).toContain('Any position before "Combat" is legal');
+    // The separator belongs between two halves, and there is only one here —
+    // a stray one reads as a second clause the message never wrote.
+    expect(reachesOnly?.message).toContain('it reaches "Combat". Any position before "Combat"');
 
     const reachedOnly = find('undeclared-module', scanOfDirs(
       ['Combat', 'Achievements'],
@@ -1273,7 +1275,7 @@ describe('analyze · undeclared-module and missing-module', () => {
       ],
     ));
 
-    expect(reachedOnly?.message).toContain('Any position after "Combat" is legal');
+    expect(reachedOnly?.message).toContain('"Combat" reaches it. Any position after "Combat"');
   });
 
   it('says exactly that, and stops, when there is no evidence', () => {
