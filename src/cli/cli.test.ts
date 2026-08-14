@@ -272,6 +272,34 @@ describe('per-command help', () => {
     log.mockRestore();
   });
 
+  it('shows no example a fresh tree would refuse', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    expect(await run(['init', '--help'])).toBe(0);
+
+    const examples = String(log.mock.calls[0][0])
+      .split('Examples:')[1]
+      .split('\n')
+      .filter((line) => line.includes('blueprint init'));
+
+    // Not a loop over nothing: a heading rename would leave the assertions below
+    // running on an empty list and passing.
+    expect(examples).toHaveLength(3);
+
+    for (const example of examples) {
+      // The reader of this block is about to type one of these lines, and on a
+      // fresh tree two of them exited 1 while the flag's own description twenty
+      // rows above already said they would — the same two-outputs-disagreeing
+      // that description was rewritten for.
+      expect(
+        example.includes('--structure') || example.includes('brownfield'),
+        `an example a fresh tree refuses: ${example.trim()}`,
+      ).toBe(true);
+    }
+
+    log.mockRestore();
+  });
+
   it('keeps the value proposition in the top-level usage', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
 

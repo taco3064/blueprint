@@ -105,9 +105,9 @@ const INIT_HELP = [
   'idempotent.',
   '',
   'Examples:',
-  '  npx @kekkai/blueprint init --dry-run        # see the plan first',
-  '  npx @kekkai/blueprint init                  # scaffold + install',
-  '  npx @kekkai/blueprint init --agent claude   # brownfield: agent authors the config',
+  '  npx @kekkai/blueprint init --structure flat --dry-run   # fresh: see the plan first',
+  '  npx @kekkai/blueprint init --structure modular          # fresh: scaffold + install',
+  '  npx @kekkai/blueprint init --agent claude               # brownfield: authored config',
 ].join('\n');
 
 const SURVEY_HELP = [
