@@ -6,7 +6,9 @@ import importsPlugin from 'eslint-plugin-import-x';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { flattenProse } from '../conformance';
+import { emitLint, resolveGovernedFiles } from '../emit/lint';
 import type { LintConfigEntry } from '../emit/lint';
+import type { ModuleDef } from '../config';
 import { reactPreset, vuePreset } from '../presets';
 import { renderImpact, runImpact } from './impact';
 import type { ImpactOptions, RuleImpact } from './impact';
@@ -584,5 +586,42 @@ describe('renderImpact', () => {
     // that bounds the claim, and an appended row would read as a finding the
     // headline just said does not exist.
     expect(renderImpact([], 0, 2).endsWith('judges its findings)')).toBe(true);
+  });
+});
+
+describe('runImpact · the file set impact lints is the one the config governs (#191)', () => {
+  // `impact` used to collect its own globs by walking the layers a second time.
+  // Under modules that second walk is a different file set from the one
+  // `emitLint` scopes its entries to — the command then reports a number about
+  // neither. Asserted rather than assumed, and asserted through the shared
+  // resolver both sides now call.
+  const modular = {
+    ...reactPreset({ name: 'modular' }),
+    architecture: {
+      ...reactPreset({ name: 'modular' }).architecture,
+      modules: [
+        { name: 'app', does: 'Routing only.', layers: false },
+        { name: 'Fighter', does: 'The player ship.' },
+      ] satisfies ModuleDef[],
+    },
+  };
+
+  it('lints exactly the files the emitted entries scope to', () => {
+    const governed = resolveGovernedFiles(modular.architecture, modular.framework);
+
+    const scoped = new Set(
+      emitLint(modular)
+        .flatMap((entry: LintConfigEntry) => entry.files ?? [])
+        .filter((glob) => !glob.startsWith('**/')),
+    );
+
+    // Every glob impact would hand ESLint is one the config actually governs…
+    for (const glob of governed) {
+      expect(scoped.has(glob)).toBe(true);
+    }
+
+    // …and the module root is among them, in both module shapes.
+    expect(governed).toContain('src/Fighter/*.{js,jsx,ts,tsx}');
+    expect(governed).toContain('src/app/**/*.{js,jsx,ts,tsx}');
   });
 });

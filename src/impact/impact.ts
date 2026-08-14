@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { ESLint as EslintNamespace, Linter } from 'eslint';
 
-import { emitLint, resolveLayerFiles } from '../emit/lint';
+import { emitLint, resolveGovernedFiles } from '../emit/lint';
 import type { LintConfigEntry } from '../emit/lint';
 import { expectedCarriers } from '../inspect';
 import { detect, loadProjectModule, resolveBlueprint, unwrapModule } from '../project';
@@ -169,13 +169,10 @@ export async function runImpact(
 
   const { architecture } = blueprint;
 
-  const globs = [
-    ...new Set(
-      architecture.layers.flatMap((layer) =>
-        resolveLayerFiles(layer.name, architecture.layerFiles, framework, architecture.sourceRoot),
-      ),
-    ),
-  ];
+  // The same resolver emitLint used, not a second walk of the same layers:
+  // linting a different file set than the config governs is a number about
+  // neither (#191).
+  const globs = resolveGovernedFiles(architecture, framework);
 
   const eslint = new ESLint({
     cwd: root,

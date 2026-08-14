@@ -6,7 +6,9 @@ export {
   LINT_GATED_RULE_IDS,
   METRIC_GATES,
   PLUGIN_GATES,
+  resolveGovernedFiles,
   resolveLayerFiles,
+  resolveModuleFiles,
   resolveTestFiles,
   unavailableFromBlueprint,
 } from './patterns';

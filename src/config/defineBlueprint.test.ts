@@ -277,6 +277,49 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(/additionalAliases/);
   });
 
+  it.each([
+    // Both directions produce a glob that matches nothing and reports as a
+    // clean net — the tool's own definition of a silently dead declaration.
+    ['a modular config whose layerFiles omits {module}', ['src/{layer}/**/*.ts'],
+      [{ name: 'app', does: 'x' }], /must include "\{module\}"/],
+    ['a segment between the two', ['src/{module}/src/{layer}/**/*.ts'],
+      [{ name: 'app', does: 'x' }], /wrong place/],
+    ['a prefix segment the scan would read as the module', ['src/features/{module}/{layer}/**'],
+      [{ name: 'app', does: 'x' }], /wrong place/],
+    ['the two inverted', ['src/{layer}/{module}/**/*.ts'],
+      [{ name: 'app', does: 'x' }], /wrong place/],
+    ['a flat config carrying {module}', ['src/{module}/{layer}/**/*.ts'],
+      undefined, /architecture\.modules is not declared/],
+  ])('rejects %s', (_label, layerFiles, modules, pattern) => {
+    const config = base();
+
+    config.architecture.layerFiles = layerFiles;
+    config.architecture.modules = modules as ModuleDef[] | undefined;
+
+    expect(() => validateBlueprint(config)).toThrow(pattern);
+  });
+
+  it('accepts the one legal modular topology, including at a project root', () => {
+    const config = base();
+
+    config.architecture.modules = [{ name: 'app', does: 'x' }];
+    config.architecture.layerFiles = 'src/{module}/{layer}/**/*.ts';
+
+    expect(() => validateBlueprint(config)).not.toThrow();
+
+    // sourceRoot '.' means the module segment IS the first segment.
+    config.architecture.sourceRoot = '.';
+    config.architecture.layerFiles = '{module}/{layer}/**/*.ts';
+
+    expect(() => validateBlueprint(config)).not.toThrow();
+
+    // And a nested source root shifts the required position by its depth.
+    config.architecture.sourceRoot = 'lib/app';
+    config.architecture.layerFiles = 'lib/app/{module}/{layer}/**/*.ts';
+
+    expect(() => validateBlueprint(config)).not.toThrow();
+  });
+
   it('rejects a layerFiles glob without the {layer} placeholder', () => {
     const config = base();
 

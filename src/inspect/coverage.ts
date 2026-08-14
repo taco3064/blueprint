@@ -3,7 +3,7 @@ import type { Blueprint } from '../config';
 // Import from the patterns leaf, not the emit/lint index — the index also
 // exports lint.ts, which loads the plugin, which shares resolve logic with
 // inspect; routing through the index would close a module cycle.
-import { LINT_GATED_RULE_IDS, resolveLayerFiles, unavailableGate } from '../emit/lint/patterns';
+import { LINT_GATED_RULE_IDS, resolveGovernedFiles, unavailableGate } from '../emit/lint/patterns';
 import { dropTestFiles, globToRegExp } from './filter';
 import type { ScanResult } from './types';
 
@@ -45,13 +45,10 @@ export function computeCoverage(
   const { architecture, framework, rules } = blueprint;
   const source = dropTestFiles(scanResult, architecture.testFiles).files;
 
-  const nets = [
-    ...new Set(
-      architecture.layers.flatMap((layer) =>
-        resolveLayerFiles(layer.name, architecture.layerFiles, framework, architecture.sourceRoot),
-      ),
-    ),
-  ].map(globToRegExp);
+  // The module root counts inside the net: it is where a module's own
+  // composition code sits, and listing it as "outside" would report the most
+  // important file in the module as ungoverned.
+  const nets = resolveGovernedFiles(architecture, framework).map(globToRegExp);
 
   const outside = source.filter((file) => !nets.some((net) => net.test(file.path)));
   const layerFiles = source.length - outside.length;

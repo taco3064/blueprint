@@ -190,3 +190,80 @@ describe('computeCoverage · reading a gate tier', () => {
     expect(computeCoverage(empty, objectOff, true).activeRules).toBe(0);
   });
 });
+
+describe('computeCoverage · the module dimension', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+      modules: [
+        { name: 'app', does: 'Routing only.', layers: false },
+        { name: 'Fighter', does: 'The player ship.' },
+      ],
+    },
+    rules: {},
+  };
+
+  it('counts a module root inside the net, not outside it', () => {
+    // The root is where a module's own composition code sits. Reported outside,
+    // the most important file in the module reads as ungoverned.
+    const coverage = computeCoverage(
+      scanOf('src/Fighter/Fighter.tsx', 'src/Fighter/hooks/useInput/index.ts'),
+      modular,
+      true,
+    );
+
+    expect(coverage.sourceFiles).toBe(2);
+    expect(coverage.layerFiles).toBe(2);
+    expect(coverage.outsideNets).toEqual([]);
+  });
+
+  it('puts a mistyped module OUTSIDE the net rather than inside it', () => {
+    // The whole reason the glob set is a product of declared modules rather
+    // than `src/*/hooks/**`: a typo is a module nobody declared, and counting
+    // its files inside the net while no module rule governs them is
+    // half-governed and green — the worst of the three states, and the one
+    // #184's `undeclared-module` finding relies on being visible.
+    const coverage = computeCoverage(
+      scanOf('src/Fighter/hooks/useInput/index.ts', 'src/Figthter/hooks/useInput/index.ts'),
+      modular,
+      true,
+    );
+
+    expect(coverage.layerFiles).toBe(1);
+    expect(coverage.outsideNets).toEqual(['src/Figthter/hooks/useInput/index.ts']);
+  });
+
+  it('reaches everything inside a layers:false module, not just its root', () => {
+    // It opts out of the layer vocabulary, not out of governance. Root-only
+    // would leave `app/routes/Game.tsx` outside every net.
+    const coverage = computeCoverage(
+      scanOf('src/app/main.tsx', 'src/app/routes/Game.tsx'),
+      modular,
+      true,
+    );
+
+    expect(coverage.outsideNets).toEqual([]);
+  });
+
+  it('gives a modular tree the same arithmetic a flat one gets', () => {
+    // Same two source files, same one outside the net, whichever model the
+    // config declares — coverage must not read as better or worse for adopting
+    // modules.
+    const flat = computeCoverage(scanOf('src/hooks/useInput/index.ts', 'src/main.tsx'), {
+      ...modular,
+      architecture: { ...modular.architecture, modules: undefined },
+    }, true);
+
+    const withModules = computeCoverage(
+      scanOf('src/Fighter/hooks/useInput/index.ts', 'src/main.tsx'),
+      modular,
+      true,
+    );
+
+    expect(withModules.sourceFiles).toBe(flat.sourceFiles);
+    expect(withModules.layerFiles).toBe(flat.layerFiles);
+    expect(withModules.outsideNets).toEqual(flat.outsideNets);
+  });
+});
