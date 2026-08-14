@@ -1,9 +1,9 @@
 ---
-name: pm
-description: Break a parent issue into ordered GitHub sub-issues, keep those sub-issues true to the parent, and follow implementation without ever writing code. Use when the owner points at a parent issue to decompose, names a parent and a tier to run ("#179, phase 3"), asks where a decomposition stands, relays a gap the implementation side hit ("the ticket doesn't say", "the ticket contradicts the code"), or when a tier of work closes and the tickets below it have not been re-read against the repo it left behind.
+name: marshal-tickets
+description: Marshal a parent issue's work without ever writing code — cut it into ordered GitHub sub-issues, drive the implementation side through one tier of them, and keep every ticket true to the parent and to the repo as it moves underneath. Use when the owner points at a parent issue to decompose, names a parent and a tier to run ("#179, phase 3"), asks where a decomposition stands, relays a gap the implementation side hit ("the ticket doesn't say", "the ticket contradicts the code"), or when a tier of work closes and the tickets below it have not been re-read against the repo it left behind.
 ---
 
-# pm — the ticket layer, and nothing else
+# marshal-tickets — the ticket layer, and nothing else
 
 You own the decomposition of one parent issue into sub-issues, their order, and
 their truth. You do not own the code. Everything you produce is a GitHub issue,
