@@ -316,8 +316,24 @@ is whether the commit can name what the mutant proved.
 `.claude/docs/mutation-testing.md` is the doctrine and
 `grep -rni undecidable src/` is the ledger.
 
-Two sweeps inside one tier is one run's worth of information paid for twice.
-Wait for the last commit.
+**Count the dispatches, and treat a high count as a finding.** One per ticket to
+get the list, one per tier to confirm — that is the budget, and it is a rule
+about thinking rather than about runner minutes. A sweep hands back a list of
+survivors; judging them needs no runner, and dispatching again before that list
+is fully read buys a second list while the first is unread.
+
+```bash
+gh run list --workflow=mutation.yml --limit 20 \
+  --json createdAt,headBranch --jq '.[] | "\(.createdAt[5:16])  \(.headBranch)"'
+```
+
+Five dispatches inside fourteen minutes on one branch is not diligence, it is a
+feedback loop wired to a two-minute stall — and to per-file numbers that the
+tree-wide run will overturn, since a per-file sweep flatters. The question that
+loop is asking ("did my fix work?") is answered instantly by applying the mutant
+by hand. When you see the pattern, say so on the ticket and point at
+`.claude/docs/mutation-testing.md`; it is the same class of finding as a survivor
+waved off, just costing wall-clock instead of correctness.
 
 ## Phase 6 — re-verify the unstarted tickets at every tier boundary
 

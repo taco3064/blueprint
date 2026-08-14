@@ -11,13 +11,41 @@ because Stryker has no approved-survivor ledger, so a threshold is a hard-coded
 number every `src/` edit invalidates — the unappeasable red this repo argues
 against elsewhere.
 
-**Dispatch it rather than running it locally.** Per file while working, full
-sweep before you believe the number:
+**Dispatch it rather than running it locally**, and dispatch it rarely:
 
 ```
 gh workflow run mutation.yml --ref <branch>                          # whole tree
 gh workflow run mutation.yml --ref <branch> -f mutate='src/x/y.ts'   # one file
 ```
+
+## The dispatch budget: one per ticket, one per tier
+
+**A sweep buys a list, not a verdict.** What it hands back is the set of
+survivors; the expensive part — reading each mutant, deciding between a test, an
+`undecidable` proof and a source fix — happens afterwards and needs no runner.
+Dispatching again before that list is fully judged buys a second list while the
+first is unread.
+
+So: **one dispatch per ticket** to get the list, judged in full offline, closed in
+one pass. **One full sweep per tier**, after the tier's last commit, to confirm.
+A second dispatch inside a ticket needs a reason that is not *"did my fix work"*.
+
+**Because that question already has a zero-latency answer: apply the mutant by
+hand.** Edit the line the way the report shows it, run the one test file, watch it
+go red, put the line back. Instant, no runner, no waiting, and it is what the
+convergence pass on the phase-2 sweeps actually did — three new tests verified by
+applying their mutants one at a time, with the next whole-tree sweep confirming
+them at authority scale rather than being asked to.
+
+The failure mode is not runner minutes, it is stopping. One ticket dispatched
+**five per-file runs inside fourteen minutes** — each 1–2 minutes of runner and
+each a full stop for whoever was waiting on it. And per-file numbers flatter (see
+below), so those five were iterations against a figure the tree-wide run was going
+to overturn anyway.
+
+**Read the report against the ledger before touching anything.** `grep -rni
+undecidable src/ --include='*.ts'` already answers most of the list — on the third
+sweep, 24 of 35. Doing that first is what makes one dispatch enough.
 
 A local sweep copies the whole project into `.stryker-tmp` once per core, and
 watching those copies exhausted the editor's file-descriptor budget — the
