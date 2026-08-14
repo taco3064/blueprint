@@ -17,4 +17,5 @@ examples/
 docs/zh-TW/api/
 .stryker-tmp/
 .claude/worktrees/
+.playwright-mcp/
 reports/
