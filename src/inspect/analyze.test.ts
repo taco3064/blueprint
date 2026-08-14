@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { analyze, detectCycle, detectCycles } from './analyze';
+import { crossModuleTarget } from './resolve';
 import { defineBlueprint } from '../config';
 import { vuePreset } from '../presets';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
@@ -1029,5 +1030,123 @@ describe('analyze · a modular tree is read at module depth', () => {
     expect(modularRules([
       file(['Fighter', 'components', 'Ship', 'index.tsx']),
     ])).toContain('declaratory-self-only');
+  });
+});
+
+describe('analyze · governing between modules', () => {
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'GameStage', does: 'the run', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets', owns: ['rbush'] },
+      ],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' },
+        { name: 'hooks', does: 'state', layout: 'folder' },
+      ],
+    },
+  });
+
+  const modularScan = (files: ScannedFile[]): ScanResult =>
+    ({ topDirs: ['GameStage', 'Combat'], files });
+
+  const findingsFor = (files: ScannedFile[], deps?: string[]) =>
+    analyze(modularScan(files), modular, deps);
+
+  it('reports a re-export of another module through this one\'s surface', () => {
+    const [finding] = findingsFor([
+      file(['GameStage', 'index.ts'], [{ specifier: '~app/Combat', isExport: true }]),
+    ]).filter((entry) => entry.rule === 'module-reexport');
+
+    expect(finding.severity).toBe('error');
+    // The module passed through, so two pass-throughs in one file are two
+    // findings rather than one with a merged subject.
+    expect(finding.subject).toBe('Combat');
+    expect(finding.message).toContain('declares it in its own');
+    // The plausible non-fix, named — an agent under gate pressure reaches for
+    // it otherwise, and a wrapper that only forwards buys nothing.
+    expect(finding.message).toContain('buys nothing');
+  });
+
+  it('leaves an ordinary import of a declared dependency alone', () => {
+    expect(findingsFor([
+      file(['GameStage', 'index.ts'], [{ specifier: '~app/Combat' }]),
+    ]).map((entry) => entry.rule)).not.toContain('module-reexport');
+  });
+
+  it('says nothing about re-exporting this module\'s own surface', () => {
+    expect(findingsFor([
+      file(['GameStage', 'index.ts'], [{ specifier: '~app/GameStage/hooks/useRun', isExport: true }]),
+    ]).map((entry) => entry.rule)).not.toContain('module-reexport');
+  });
+
+  it('agrees with the lint rule about which module a specifier hands over', () => {
+    // Both gates call `crossModuleTarget`, so neither can reach a conclusion
+    // the other would not — the property `relativeVerdict` already carries one
+    // level in, and the reason it is one function rather than two readings.
+    expect(crossModuleTarget('~app/Combat', ['~app'], ['GameStage', 'Combat'], 'GameStage'))
+      .toBe('Combat');
+
+    expect(crossModuleTarget('~app/GameStage/hooks/x', ['~app'], ['GameStage', 'Combat'], 'GameStage'))
+      .toBeNull();
+
+    expect(crossModuleTarget('~app/Nowhere', ['~app'], ['GameStage', 'Combat'], 'GameStage'))
+      .toBeNull();
+
+    expect(crossModuleTarget('./local', ['~app'], ['GameStage', 'Combat'], 'GameStage')).toBeNull();
+  });
+
+  it('bars a module-owned package outside its owning module', () => {
+    // Banned by lint and invisible here would be the same two-gates-one-verdict
+    // split this file's own doctrine exists to prevent.
+    const [finding] = findingsFor([
+      file(['GameStage', 'hooks', 'useRun', 'index.ts'], [{ specifier: 'rbush' }]),
+    ]).filter((entry) => entry.rule === 'package-ownership');
+
+    expect(finding.message).toContain('owned by module Combat');
+    expect(finding.message).toContain('not importable from "GameStage"');
+  });
+
+  it('names the restricted imports in the subject, so two are two debts', () => {
+    // The names are part of the identity, not just of the sentence: one file
+    // importing two restricted names from one package is two debts with two
+    // fixes, and the baseline keys on the subject.
+    const owning = defineBlueprint({
+      ...modular,
+      architecture: {
+        ...modular.architecture,
+        modules: [
+          { name: 'GameStage', does: 'the run', imports: ['Combat'] },
+          { name: 'Combat', does: 'bullets', owns: [{ package: 'rbush', imports: ['insert'] }] },
+        ],
+      },
+    });
+
+    const [finding] = analyze(
+      modularScan([file(['GameStage', 'hooks', 'useRun', 'index.ts'], [
+        { specifier: 'rbush', names: ['insert'] },
+      ])]),
+      owning,
+    ).filter((entry) => entry.rule === 'package-ownership');
+
+    expect(finding.subject).toBe('rbush insert');
+    expect(finding.message).toContain('(insert)');
+  });
+
+  it('leaves a module-owned package alone inside its owner', () => {
+    expect(findingsFor([
+      file(['Combat', 'hooks', 'useDamage', 'index.ts'], [{ specifier: 'rbush' }]),
+    ]).map((entry) => entry.rule)).not.toContain('package-ownership');
+  });
+
+  it('notes a module owns entry whose package is not installed', () => {
+    // Same tier and doctrine as the layer-level note: declaring ownership
+    // before the install is the legitimate order.
+    const note = findingsFor([], []).find((entry) => entry.rule === 'owns-not-installed');
+
+    expect(note?.subject).toBe('rbush');
+    expect(note?.severity).toBe('info');
   });
 });

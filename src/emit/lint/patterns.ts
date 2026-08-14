@@ -1,4 +1,10 @@
-import type { ArchitectureDef, Framework, LayerDef, ModuleDef, OwnedPackage } from '../../config';
+import type {
+  ArchitectureDef,
+  Framework,
+  ModuleDef,
+  OwnedPackage,
+  OwnedPrimitive,
+} from '../../config';
 import type { GlobalRule, GroupPattern, PackageRule, PathPattern } from './types';
 
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/g;
@@ -370,8 +376,20 @@ export function resolveGovernedFiles(
   return [...new Set([...layers, ...roots])];
 }
 
-/** Group layers' package `owns` by signature; merge which layers allow each. */
-export function derivePackageRules(layers: LayerDef[]): PackageRule[] {
+/**
+ * An owner of primitives — a layer, or a module. The two carry the same shape
+ * and the same meaning one level apart, so the derivations below are written
+ * against the shape rather than duplicated per level: a module's `owns` bans
+ * the primitive in every OTHER module exactly as a layer's bans it in every
+ * other layer.
+ */
+export interface PrimitiveOwner {
+  name: string;
+  owns?: OwnedPrimitive[];
+}
+
+/** Group owners' package `owns` by signature; merge which owners allow each. */
+export function derivePackageRules<T extends PrimitiveOwner>(layers: T[]): PackageRule[] {
   const byKey = new Map<string, PackageRule>();
 
   for (const layer of layers) {
@@ -407,8 +425,8 @@ export function derivePackageRules(layers: LayerDef[]): PackageRule[] {
   return [...byKey.values()];
 }
 
-/** Group layers' global `owns` by name; merge which layers allow each. */
-export function deriveGlobalRules(layers: LayerDef[]): GlobalRule[] {
+/** Group owners' global `owns` by name; merge which owners allow each. */
+export function deriveGlobalRules<T extends PrimitiveOwner>(layers: T[]): GlobalRule[] {
   const byName = new Map<string, GlobalRule>();
 
   for (const layer of layers) {
@@ -510,6 +528,82 @@ export function buildStructuralPatterns(params: {
   }
 
   return patterns;
+}
+
+/**
+ * The cross-module bans for one importing module, compiled from its own
+ * `imports`.
+ *
+ * **The graph policy is inverted from the layers', and that is the whole
+ * point.** A layer defaults to reaching everything downstream and
+ * `allowedImporters` narrows it; a module reaches NOTHING until it names a
+ * dependency. So this enumerates the modules that are banned rather than the
+ * ones that are allowed — built from the declared set minus what this module
+ * named, never from a rule about ordering. An implementation that starts from
+ * the layer generator rebuilds the permissive default, which is the property
+ * the design exists to remove.
+ *
+ * Two groups, because the remedies differ and `no-restricted-imports` reports
+ * once per group:
+ *
+ * - an undeclared module, banned at its entry AND inside it
+ * - a declared one, banned only past its entry — `~app/Combat` resolves,
+ *   `~app/Combat/anything` does not
+ *
+ * A backwards edge needs no group: naming a module declared earlier is
+ * rejected by `defineBlueprint`, so no config carrying one is ever emitted.
+ * Source importing an earlier module is an ordinary undeclared edge, which is
+ * exactly what it is — that edge could never have been declared legally.
+ */
+export function buildModulePatterns(params: {
+  module: ModuleDef;
+  modules: ModuleDef[];
+  /** Unscoped alias bases — a cross-module address is `~app/<Other>`. */
+  aliases: string[];
+}): GroupPattern[] {
+  const { module, modules, aliases } = params;
+
+  const declared = module.imports ?? [];
+
+  const banned = modules
+    .map((entry) => entry.name)
+    .filter((name) => name !== module.name && !declared.includes(name));
+
+  const patterns: GroupPattern[] = [];
+
+  if (banned.length) {
+    patterns.push({
+      // Deduped, because `no-restricted-imports` rejects a duplicate item by
+      // failing the WHOLE config to load, not just this entry — and the config
+      // it fails to load is the adopter's whole lint run.
+      group: dedupe(banned.flatMap((name) => aliases.flatMap((a) => [`${a}/${name}`, `${a}/${name}/**`]))),
+      message:
+        '\n🚫 This module does not declare that dependency. A module reaches nothing it has not '
+        + 'named: add the module to this one\'s `imports` in blueprint.config.mjs, or move the '
+        + 'shared part into a module both may reach. Declaring is the owner\'s call, never an '
+        + 'adopting agent\'s — and a module may only name modules declared AFTER it, so if the '
+        + 'edge runs backwards the decomposition is what needs changing, not the config.',
+    });
+  }
+
+  if (declared.length) {
+    patterns.push({
+      // A gitignore `/**` matches descendants only, so the entry itself stays
+      // reachable — which is the one address a declared dependency exposes.
+      group: dedupe(declared.flatMap((name) => aliases.map((a) => `${a}/${name}/**`))),
+      message:
+        '\n🚫 Import a module through its entry, not its internals — "~app/Combat", never '
+        + '"~app/Combat/hooks/useDamage". What is behind the entry is that module\'s own '
+        + 'business, and reaching past it couples you to a decision it never published.',
+    });
+  }
+
+  return patterns;
+}
+
+/** Distinct members, order kept — a duplicate fails the whole config to load. */
+function dedupe(globs: string[]): string[] {
+  return [...new Set(globs)];
 }
 
 /** Split disabled package rules into `no-restricted-imports` paths + patterns. */

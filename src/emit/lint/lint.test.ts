@@ -1026,23 +1026,39 @@ describe('emitLint · the inner layer flow reaches inside a module', () => {
     expect(banned('import { t } from "../useTick";', HOOK)).toEqual([]);
   });
 
-  it('says nothing about a cross-module edge — that ban is #182\'s', () => {
-    // Silent rather than green-by-accident: this entry governs the flow INSIDE
-    // GameStage, and a pattern here that happened to catch `~app/Combat/…`
-    // would be the module graph enforced by the wrong rule.
-    expect(banned('import { d } from "~app/Combat/hooks/useDamage";', HOOK)).toEqual([]);
+  it('bans a cross-module reach past a declared dependency\'s entry', () => {
+    // GameStage declares Combat, so `~app/Combat` resolves — and nothing
+    // deeper. This case was silent until #182 and is the boundary between the
+    // two depths: the entry above governs the flow INSIDE GameStage, and this
+    // group governs what GameStage may address outside itself.
+    expect(banned('import { d } from "~app/Combat/hooks/useDamage";', HOOK))
+      .toContain('no-restricted-imports');
+
+    expect(banned('import { d } from "~app/Combat";', HOOK)).toEqual([]);
+  });
+
+  it('bans a module this one never named, at its entry and inside it', () => {
+    // Isolation by default: GameStage names Combat and nothing else, so the
+    // third module is unreachable however it is addressed.
+    expect(banned('import { x } from "~app/app";', HOOK)).toContain('no-restricted-imports');
+
+    expect(banned('import { x } from "~app/app/routes/Game";', HOOK))
+      .toContain('no-restricted-imports');
   });
 
   it('emits one entry per (module, layer), each scoped to its own module', () => {
     // The dimension cannot live on a shared entry: the ban names the importing
     // module's own segment, so one entry across three modules would ban two of
     // them from a path only the third can spell.
-    const entries = emitLint(modular).filter((entry) => entry.rules?.['no-restricted-imports']);
+    const entries = emitLint(modular).filter(
+      (entry) => entry.rules?.['no-restricted-imports'] && entry.files?.[0].includes('/hooks/'),
+    );
 
-    expect(entries).toHaveLength(4); // {GameStage, Combat} × {components, hooks}
+    expect(entries).toHaveLength(2); // {GameStage, Combat} × {hooks}
 
     for (const entry of entries) {
       const module = entry.files?.[0].split('/')[1];
+      const declared = modular.architecture.modules?.map((entry_) => entry_.name) ?? [];
 
       const groups = (
         entry.rules?.['no-restricted-imports'] as [unknown, { patterns: { group: string[] }[] }]
@@ -1050,20 +1066,37 @@ describe('emitLint · the inner layer flow reaches inside a module', () => {
 
       expect(entry.files).toHaveLength(1);
 
-      for (const group of groups.filter((glob) => glob.startsWith('~app'))) {
-        expect(group.startsWith(`~app/${module}/`)).toBe(true);
-      }
+      // Every group addressing a LAYER carries this module's segment. The
+      // cross-module groups address a module and are excluded by name rather
+      // than by shape, so a layer group losing its segment cannot hide here.
+      const inner = groups
+        .filter((glob) => glob.startsWith('~app'))
+        .filter((glob) => !declared.some((name) => glob.startsWith(`~app/${name}`) && name !== module));
+
+      expect(inner.length).toBeGreaterThan(0);
+
+      for (const group of inner) expect(group.startsWith(`~app/${module}/`)).toBe(true);
     }
   });
 
   it('emits no layer entry for a layers:false module', () => {
     // It has no layer flow to govern. Its files still carry the relative-escape
     // entry, and #182 is what gives them their module-level bans.
-    const files = emitLint(modular).flatMap((entry) => entry.files ?? []);
+    const globs = emitLint(modular).flatMap((entry) => entry.files ?? []);
 
-    expect(files.filter((glob) => glob.startsWith('src/app/'))).toEqual([
-      'src/app/**/*.{js,jsx,ts,tsx}',
-    ]);
+    // No `src/app/<layer>/…` glob exists at all — `app` opted out of the layer
+    // vocabulary, so there is no (app, layer) pair for an entry to govern.
+    const layerNames = modular.architecture.layers.map((layer) => layer.name);
+
+    expect(globs.filter((glob) => layerNames.some((l) => glob.startsWith(`src/app/${l}/`))))
+      .toEqual([]);
+
+    // It does get the module-level entry #182 adds — governance without the
+    // layer vocabulary is the whole point of `layers: false`.
+    const moduleEntry = emitLint(modular).find((entry) =>
+      entry.files?.[0] === 'src/app/**/*.{js,jsx,ts,tsx}' && entry.rules?.['no-restricted-imports']);
+
+    expect(moduleEntry).toBeDefined();
   });
 });
 
@@ -1091,5 +1124,111 @@ describe('emitLint · the selfOnly selector reaches inside a module too', () => 
       .map((item) => (item as { selector: string }).selector);
 
     expect(selectors[0]).toContain('~app\\u002FFighter\\u002Fcontexts\\u002F');
+  });
+});
+
+describe('emitLint · the zones no layer glob reaches', () => {
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'app', does: 'routing', layers: false, imports: ['GameStage'] },
+        { name: 'GameStage', does: 'the run', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets', owns: [{ global: 'requestAnimationFrame' }, 'rbush'] },
+      ],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' },
+        { name: 'hooks', does: 'state', layout: 'folder' },
+      ],
+    },
+  });
+
+  const entryFor = (glob: string) =>
+    emitLint(modular).find((entry) => entry.files?.[0] === glob);
+
+  const groupsOf = (glob: string) => (
+    entryFor(glob)?.rules?.['no-restricted-imports'] as [unknown, { patterns: { group: string[] }[] }]
+  )[1].patterns.flatMap((pattern) => pattern.group);
+
+  it('governs a layered module\'s own root, which no layer glob matches', () => {
+    // Without it the module's own composition code — `Fighter.tsx`, `index.ts`
+    // — is the least governed code in the module: matched by no layer entry,
+    // outside every ban, while `inspect` reports its imports.
+    expect(groupsOf('src/GameStage/*.{js,jsx,ts,tsx}')).toContain('~app/app');
+  });
+
+  it('governs a layers:false module entire, not just its root files', () => {
+    // Root-only here would leave `app/routes/Game.tsx` outside every net — the
+    // wildcard defect wearing different clothes. It opts out of the layer
+    // vocabulary, not out of governance.
+    expect(groupsOf('src/app/**/*.{js,jsx,ts,tsx}')).toContain('~app/Combat');
+  });
+
+  it('lets the module root reach its own layers, but not past a unit\'s entry', () => {
+    // #196's acceptance asked for this in BOTH spellings and closed with it
+    // true in inspect and false in lint, because the alias spelling had no
+    // entry to live in. This is that entry.
+    const groups = groupsOf('src/GameStage/*.{js,jsx,ts,tsx}');
+
+    expect(groups).toContain('~app/GameStage/hooks/*/**');
+    expect(groups).toContain('~app/GameStage/components/*/**');
+    // The unit's entry itself stays reachable — the root composes the layers.
+    expect(groups).not.toContain('~app/GameStage/hooks/**');
+  });
+
+  it('gives a layers:false module no inner-unit group — it declared no layers', () => {
+    expect(groupsOf('src/app/**/*.{js,jsx,ts,tsx}').join(' ')).not.toContain('/*/**');
+  });
+
+  it('bars a module-owned primitive everywhere but its owner', () => {
+    // Ownership is two-dimensional once modules exist. `validateBlueprint`
+    // rejects a primitive claimed at both levels, so the two lists never
+    // disagree about one name.
+    const globals = entryFor('src/GameStage/*.{js,jsx,ts,tsx}')
+      ?.rules?.['no-restricted-globals'] as [unknown, { name: string }] | undefined;
+
+    expect(globals?.slice(1)).toEqual([
+      { name: 'requestAnimationFrame', message: expect.stringContaining('owning layer') },
+    ]);
+
+    // …and its owner keeps it.
+    expect(entryFor('src/Combat/*.{js,jsx,ts,tsx}')?.rules?.['no-restricted-globals'])
+      .toBeUndefined();
+  });
+
+  it('carries the pass-through rule on every zone of a modular config', () => {
+    // Module-wide, not entry-only: an inner file re-exporting Combat and the
+    // entry re-exporting that inner file hands Combat's surface out anyway.
+    const scoped = emitLint(modular)
+      .filter((entry) => entry.rules?.['blueprint/no-module-reexport'])
+      .map((entry) => entry.files?.[0]);
+
+    expect(scoped).toContain('src/GameStage/hooks/**/*.{js,jsx,ts,tsx}');
+    expect(scoped).toContain('src/GameStage/*.{js,jsx,ts,tsx}');
+    expect(scoped).toContain('src/app/**/*.{js,jsx,ts,tsx}');
+  });
+
+  it('tells the rule which module it governs, so it never parses a path', () => {
+    const options = (entryFor('src/GameStage/*.{js,jsx,ts,tsx}')
+      ?.rules?.['blueprint/no-module-reexport'] as [unknown, Record<string, unknown>])[1];
+
+    expect(options).toEqual({
+      aliases: ['~app'],
+      modules: ['app', 'GameStage', 'Combat'],
+      module: 'GameStage',
+    });
+  });
+
+  it('emits none of it on a flat config', () => {
+    // The whole module family is additive: omit `modules` and nothing here
+    // exists to emit.
+    const flat = emitLint(blueprint);
+
+    expect(flat.some((entry) => entry.rules?.['blueprint/no-module-reexport'])).toBe(false);
+
+    expect(flat.flatMap((entry) => Object.keys(entry.rules ?? {}))).not.toContain(
+      'blueprint/no-module-reexport',
+    );
   });
 });

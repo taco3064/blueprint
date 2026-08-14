@@ -5,6 +5,7 @@ import {
   DOC_ONLY_RULES,
   enforcedBy,
   PLUGIN_GATES,
+  buildModulePatterns,
   buildStructuralPatterns,
   derivePackageRules,
   deriveGlobalRules,
@@ -537,5 +538,88 @@ describe('enforcedBy — which machine holds a declared rule (field issue #52)',
     for (const id of DOC_ONLY_RULES.map((rule) => rule.id)) {
       expect(enforcedBy(id)).toBe('docs');
     }
+  });
+});
+
+describe('buildModulePatterns', () => {
+  const modules = [
+    { name: 'app', does: '', layers: false as const, imports: ['GameStage'] },
+    { name: 'GameStage', does: '', imports: ['Combat', 'common'] },
+    { name: 'Combat', does: '', imports: ['common'] },
+    { name: 'common', does: '' },
+  ];
+
+  const groupsOf = (name: string, aliases = ['~app']) =>
+    buildModulePatterns({
+      module: modules.find((entry) => entry.name === name) as (typeof modules)[number],
+      modules,
+      aliases,
+    }).map((pattern) => pattern.group);
+
+  it('bans what the module never named — the default is nothing, not everything', () => {
+    // The inverted policy: a layer defaults to reaching everything downstream
+    // and narrows, a module reaches NOTHING and opens. Built from "declared
+    // minus named", so reordering the array buys no access.
+    expect(groupsOf('GameStage')[0]).toEqual(['~app/app', '~app/app/**']);
+  });
+
+  it('bans an undeclared module at its entry AND inside it', () => {
+    // Both, because either alone is a free workaround: the entry is the only
+    // address a module publishes, and everything under it is the rest.
+    const banned = groupsOf('common')[0];
+
+    expect(banned).toContain('~app/app');
+    expect(banned).toContain('~app/app/**');
+    expect(banned).toContain('~app/GameStage');
+    expect(banned).toContain('~app/Combat');
+  });
+
+  it('bans a declared dependency past its entry, and never at it', () => {
+    // A gitignore `/**` matches descendants only, so `~app/Combat` stays
+    // reachable — the one address a declared dependency exposes.
+    const [, entryOnly] = groupsOf('GameStage');
+
+    expect(entryOnly).toEqual(['~app/Combat/**', '~app/common/**']);
+    expect(entryOnly).not.toContain('~app/Combat');
+  });
+
+  it('names itself in neither group', () => {
+    // A module reaching its own layers is the INNER flow's business, and a
+    // group here would report it twice with the wrong remedy.
+    expect(groupsOf('Combat').flat().join(' ')).not.toContain('~app/Combat');
+  });
+
+  it('emits only the ban group for a module that declares no imports', () => {
+    expect(groupsOf('common')).toHaveLength(1);
+  });
+
+  it('emits only the entry-only group when a module names every other one', () => {
+    const all = [{ name: 'a', does: '', imports: ['b'] }, { name: 'b', does: '' }];
+
+    expect(buildModulePatterns({ module: all[0], modules: all, aliases: ['~app'] })
+      .map((pattern) => pattern.group)).toEqual([['~app/b/**']]);
+  });
+
+  it('dedupes each group — a duplicate fails the WHOLE config to load', () => {
+    // `no-restricted-imports` rejects duplicate items by refusing the entire
+    // config, not just the entry, so the adopter's whole lint run dies. The
+    // duplicate cannot come from `imports` (validateModuleImports rejects one)
+    // — this guards a malformed-but-loadable list reaching the emitter.
+    const dupes = [{ name: 'a', does: '', imports: ['b', 'b'] }, { name: 'b', does: '' }];
+
+    expect(buildModulePatterns({ module: dupes[0], modules: dupes, aliases: ['~app'] })
+      .map((pattern) => pattern.group)).toEqual([['~app/b/**']]);
+
+    // …and across aliases, where the same module yields one glob per base.
+    const twice = groupsOf('GameStage', ['~app', '~app'])[0];
+
+    expect(twice).toEqual([...new Set(twice)]);
+  });
+
+  it('addresses every alias, so a second base is not a bypass', () => {
+    const [banned, entryOnly] = groupsOf('GameStage', ['~app', '~root/src']);
+
+    expect(banned).toEqual(['~app/app', '~app/app/**', '~root/src/app', '~root/src/app/**']);
+    expect(entryOnly).toContain('~root/src/Combat/**');
   });
 });

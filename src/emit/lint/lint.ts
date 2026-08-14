@@ -7,9 +7,10 @@ import {
   getSelfOnlyTargets,
   moduleDepth,
 } from '../../config';
-import type { Blueprint, ReadSetting } from '../../config';
+import type { Blueprint, ModuleDef, ReadSetting } from '../../config';
 import { plugin } from '../../plugin';
 import {
+  buildModulePatterns,
   buildPackagePatterns,
   buildStructuralPatterns,
   derivePackageRules,
@@ -18,6 +19,7 @@ import {
   moduleScopes,
   resolveGovernedFiles,
   resolveLayerFiles,
+  resolveModuleFiles,
   resolveModuleLayerFiles,
   resolveTestFiles,
   scopedAliases,
@@ -58,6 +60,35 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
   const packageRules = derivePackageRules(layers);
   const globalRules = deriveGlobalRules(layers);
 
+  // The same two derivations one level up. A module's `owns` bans the primitive
+  // in every OTHER module, exactly as a layer's bans it in every other layer —
+  // `validateBlueprint` rejects a primitive claimed at both levels, so the two
+  // lists never disagree about one name.
+  const modules = architecture.modules ?? [];
+  const modulePackages = derivePackageRules(modules);
+  const moduleGlobals = deriveGlobalRules(modules);
+
+  /** The cross-module ban groups for one scope — none on a flat config. */
+  const crossModule = (module: ModuleDef | undefined) =>
+    module === undefined ? [] : buildModulePatterns({ module, modules, aliases });
+
+  /**
+   * The pass-through ban, which no specifier pattern can express: it follows a
+   * local binding from its import to its export, not a path.
+   */
+  const reexportRule = (module: ModuleDef | undefined): Linter.RulesRecord =>
+    module === undefined
+      ? {}
+      : {
+          'blueprint/no-module-reexport': [
+            severity,
+            { aliases, modules: modules.map((entry) => entry.name), module: module.name },
+          ],
+        };
+
+  const pluginOf = (module: ModuleDef | undefined) =>
+    module === undefined ? {} : { plugins: { blueprint: plugin } };
+
   const layouts = Object.fromEntries(
     layers.map((layer) => [layer.name, getModuleShape(architecture, layer.name).layout]),
   );
@@ -92,8 +123,8 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
 
   const layerConfigs = layers.flatMap((layer) => {
     const forbidden = getForbiddenLayers(architecture, layer.name);
-    const disabledPackages = packageRules.filter((rule) => !rule.allowedIn.includes(layer.name));
-    const disabledGlobals = globalRules.filter((rule) => !rule.allowedIn.includes(layer.name));
+    const layerPackages = packageRules.filter((rule) => !rule.allowedIn.includes(layer.name));
+    const layerGlobals = globalRules.filter((rule) => !rule.allowedIn.includes(layer.name));
 
     const selfOnlyTargets = getSelfOnlyTargets(architecture, layer.name);
 
@@ -101,13 +132,16 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
       (name) => name !== layer.name && !forbidden.includes(name),
     );
 
-    const exemptPatterns = [
-      ...new Set(disabledPackages.flatMap((rule) => rule.exempt ?? []).filter(Boolean)),
-    ];
-
     return scopes.flatMap((module) => {
       const files = resolveModuleLayerFiles(layer.name, module, architecture, framework);
       const scoped = scopedAliases(aliases, module?.name);
+
+      // A file answers to both owners: the layer it sits in and the module that
+      // contains it. Ownership is two-dimensional once modules exist, and the
+      // two lists are unioned here rather than in `derivePackageRules`, which
+      // knows only one level at a time.
+      const disabledPackages = [...layerPackages, ...ownedElsewhere(modulePackages, module)];
+      const disabledGlobals = [...layerGlobals, ...ownedElsewhere(moduleGlobals, module)];
 
       const structural = buildStructuralPatterns({
         layer: layer.name,
@@ -125,6 +159,10 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
         })),
       );
 
+      const exemptPatterns = [
+        ...new Set(disabledPackages.flatMap((rule) => rule.exempt ?? []).filter(Boolean)),
+      ];
+
       const buildRules = (packages: PackageRule[]): Linter.RulesRecord => {
         const { paths, patterns } = buildPackagePatterns(packages);
 
@@ -133,26 +171,90 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
           ...(layer.lintOverrides as Linter.RulesRecord),
           'no-restricted-imports': [
             severity,
-            { patterns: [...structural, ...patterns], ...(paths.length ? { paths } : {}) },
+            {
+              // The cross-module groups ride this entry rather than one of
+              // their own: a second entry setting `no-restricted-imports` on
+              // the same files REPLACES this one under flat config, so the
+              // inner bans would vanish the moment the outer ones landed.
+              patterns: [...structural, ...crossModule(module), ...patterns],
+              ...(paths.length ? { paths } : {}),
+            },
           ],
           ...(syntaxRules.length ? { 'no-restricted-syntax': [severity, ...syntaxRules] } : {}),
           ...buildGlobalRule(disabledGlobals, severity),
+          ...reexportRule(module),
         };
       };
 
       if (!exemptPatterns.length) {
-        return [{ files, ignores: testGlobs, rules: buildRules(disabledPackages) }];
+        return [{
+          files,
+          ignores: testGlobs,
+          ...pluginOf(module),
+          rules: buildRules(disabledPackages),
+        }];
       }
 
       const nonExempt = disabledPackages.filter((rule) => !rule.exempt?.length);
 
       return [
         // All files (incl. exempt): only the non-exempt package restrictions.
-        { files, ignores: testGlobs, rules: buildRules(nonExempt) },
+        { files, ignores: testGlobs, ...pluginOf(module), rules: buildRules(nonExempt) },
         // Non-exempt files only: the full set of package restrictions.
-        { files, ignores: [...exemptPatterns, ...testGlobs], rules: buildRules(disabledPackages) },
+        {
+          files,
+          ignores: [...exemptPatterns, ...testGlobs],
+          ...pluginOf(module),
+          rules: buildRules(disabledPackages),
+        },
       ];
     });
+  });
+
+  // The two zones no layer glob reaches: a layered module's own root, and the
+  // whole recursive net of a `layers: false` one. `resolveModuleFiles` already
+  // switches between them, so this is one entry per module either way.
+  //
+  // Its own entry rather than a widening of the layer ones, because the files
+  // are disjoint from every layer glob — a module root sits directly under the
+  // module, and a `layers: false` module has no layer entries at all. Nothing
+  // here matches a file some other `no-restricted-imports` entry also matches.
+  const moduleConfigs: LintConfigEntry[] = (architecture.modules ?? []).map((module) => {
+    const scoped = scopedAliases(aliases, module.name);
+    const disabledGlobals = ownedElsewhere(moduleGlobals, module);
+    const { paths, patterns } = buildPackagePatterns(ownedElsewhere(modulePackages, module));
+
+    return {
+      files: resolveModuleFiles(module, architecture, framework),
+      ignores: testGlobs,
+      plugins: { blueprint: plugin },
+      rules: {
+        'no-restricted-imports': [
+          severity,
+          {
+            patterns: [
+              ...crossModule(module),
+              // The root composes this module's layers, so it reaches them
+              // through their units' entries and no further. A `layers: false`
+              // module has no folder-layout layer to name, so this is empty
+              // there rather than special-cased.
+              ...(module.layers === false || !folderLayers.length
+                ? []
+                : [{
+                    group: folderLayers.flatMap((target) => scoped.map((a) => `${a}/${target}/*/**`)),
+                    message:
+                      '\n🚫 Import a unit through its entry, not its internals. The module root '
+                      + 'composes its layers; what is behind a unit\'s entry is that unit\'s own business.',
+                  }]),
+              ...patterns,
+            ],
+            ...(paths.length ? { paths } : {}),
+          },
+        ],
+        ...buildGlobalRule(disabledGlobals, severity),
+        ...reexportRule(module),
+      },
+    };
   });
 
   const governed = resolveGovernedFiles(architecture, framework);
@@ -174,6 +276,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
   return [
     ...ignoreConfig,
     ...layerConfigs,
+    ...moduleConfigs,
     escapeEntry,
     ...ruleGateEntries(blueprint, testGlobs, options),
   ];
@@ -455,4 +558,21 @@ function buildGlobalRule(disabled: GlobalRule[], severity: Severity): Linter.Rul
       })),
     ],
   };
+}
+
+/**
+ * The rules whose owner is some OTHER owner at the same level — what this one
+ * is therefore barred from.
+ *
+ * `undefined` is the flat project's single implicit module, which owns nothing
+ * and is barred from nothing: with no `modules` declared the derived lists are
+ * empty anyway, so this answers none either way.
+ */
+function ownedElsewhere<T extends { allowedIn: string[] }>(
+  rules: T[],
+  module: ModuleDef | undefined,
+): T[] {
+  if (module === undefined) return [];
+
+  return rules.filter((rule) => !rule.allowedIn.includes(module.name));
 }

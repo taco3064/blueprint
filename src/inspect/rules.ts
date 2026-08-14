@@ -8,7 +8,6 @@ import {
   deriveGlobalRules,
   derivePackageRules,
   METRIC_GATES,
-  moduleScopes,
   PLUGIN_GATES,
   scopedAliases,
   unavailableGate,
@@ -22,7 +21,7 @@ import {
   getSelfOnlyTargets,
   normalizeAllowedImporters, readSetting,
 } from '../config';
-import type { Blueprint } from '../config';
+import type { Blueprint, LayerDef, ModuleDef } from '../config';
 
 /**
  * `blueprint rules` — the emitted-rule catalog as a queryable command, so nobody
@@ -54,8 +53,7 @@ export interface StructuralRule {
  * `eslint --print-config` output by hand (issue #7); this is that view,
  * derived from the same primitives emitLint compiles from.
  */
-export interface LayerBans {
-  layer: string;
+interface BansCommon {
   /**
    * The module this entry governs, absent on a flat config. Present because the
    * emitted entry is per (module, layer): without it, two modules' rows print
@@ -94,6 +92,19 @@ export interface LayerBans {
    */
   testExemptions: string[];
 }
+
+/**
+ * One emitted entry's resolved bans.
+ *
+ * `zone` discriminates the row: one per (module, layer), one for a layered
+ * module's own root, one for the whole net of a `layers: false` module. A union
+ * rather than an optional `layer`, because a reader is told to paste from here
+ * — a key that is merely absent reads as one the config failed to name, and
+ * narrowing on `zone` hands a consumer the layer wherever there is one.
+ */
+export type LayerBans
+  = | (BansCommon & { zone: 'layer'; layer: string })
+    | (BansCommon & { zone: 'root' | 'module'; layer?: undefined });
 
 /** One optional gate, annotated with the resolved config when present. */
 export interface GateStatus {
@@ -149,6 +160,7 @@ export const STRUCTURAL_RULES: StructuralRule[] = [
   { rule: 'no-restricted-syntax', covers: 'selfOnly re-export bans — emitted only when an allowedImporters ENTRY declares selfOnly: true (a layer-level selfOnly key is invalid)' },
   { rule: 'no-restricted-globals', covers: 'global ownership (owns: [{ global: … }]) — emitted only where some layer is barred from an owned global' },
   { rule: 'blueprint/relative-escape', covers: '../ module escapes at any depth (embedded plugin)' },
+  { rule: 'blueprint/no-module-reexport', covers: 'passing another module\'s public surface through this one\'s — emitted only under architecture.modules, and it follows the local BINDING, so the two-statement spelling and every rename are the same violation (embedded plugin)' },
 ];
 
 /** A structural rule annotated with whether THIS config's output carries it. */
@@ -171,6 +183,9 @@ function resolveStructural(blueprint: Blueprint | null): StructuralStatus[] {
   const active: Record<string, boolean> = {
     'no-restricted-imports': true,
     'blueprint/relative-escape': true,
+    // Only a modular config has another module to forward, and emitLint emits
+    // the rule on exactly that condition.
+    'blueprint/no-module-reexport': blueprint.architecture.modules !== undefined,
     'no-restricted-syntax': layers.some((layer) =>
       normalizeAllowedImporters(layer.allowedImporters)
         .some((importer) => importer.selfOnly === true)),
@@ -215,47 +230,101 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
   const packageRules = derivePackageRules(architecture.layers);
   const globalRules = deriveGlobalRules(architecture.layers);
 
-  return moduleScopes(architecture).flatMap((module) => {
+  // The same two derivations one level up, exactly as emitLint has them: a
+  // file answers to the layer it sits in AND the module that contains it.
+  const modules = architecture.modules ?? [];
+  const modulePackages = derivePackageRules(modules);
+  const moduleGlobals = deriveGlobalRules(modules);
+
+  const named = (rule: { package: string; imports?: string[] }): string =>
+    (rule.imports?.length ? `${rule.package} (${rule.imports.join(', ')})` : rule.package);
+
+  const barred = <T extends { allowedIn: string[] }>(rules: T[], owner: string | undefined): T[] =>
+    (owner === undefined ? [] : rules.filter((rule) => !rule.allowedIn.includes(owner)));
+
+  const layerRow = (module: ModuleDef | undefined, layer: LayerDef): LayerBans => {
     const aliases = scopedAliases(roots, module?.name);
 
-    return architecture.layers.map((layer) => {
-      const packages = packageRules
-        .filter((rule) => !rule.allowedIn.includes(layer.name))
-        .map((rule) => (rule.imports?.length ? `${rule.package} (${rule.imports.join(', ')})` : rule.package));
+    const packages = [
+      ...packageRules.filter((rule) => !rule.allowedIn.includes(layer.name)),
+      ...barred(modulePackages, module?.name),
+    ].map(named);
 
-      return {
-        layer: layer.name,
-        // Omitted rather than null on a flat config: there is no module, and a
-        // key holding "no module" would read as one the config failed to name.
-        ...(module ? { module: module.name } : {}),
-        forbidden: getForbiddenLayers(architecture, layer.name),
-        packages,
-        ...(packages.length ? { packagesNote: PACKAGES_NOT_COMPARED.join(' ') } : {}),
-        globals: globalRules
-          .filter((rule) => !rule.allowedIn.includes(layer.name))
-          .map((rule) => rule.global),
-        selfOnly: getSelfOnlyTargets(architecture, layer.name).map((target) => {
-          const selectors = aliases.map((alias) => selfOnlyReexportSelector(alias, target));
+    return {
+      zone: 'layer',
+      layer: layer.name,
+      // Omitted rather than null on a flat config: there is no module, and a
+      // key holding "no module" would read as one the config failed to name.
+      ...(module ? { module: module.name } : {}),
+      forbidden: getForbiddenLayers(architecture, layer.name),
+      packages,
+      ...(packages.length ? { packagesNote: PACKAGES_NOT_COMPARED.join(' ') } : {}),
+      globals: [
+        ...globalRules.filter((rule) => !rule.allowedIn.includes(layer.name)),
+        ...barred(moduleGlobals, module?.name),
+      ].map((rule) => rule.global),
+      selfOnly: getSelfOnlyTargets(architecture, layer.name).map((target) => {
+        const selectors = aliases.map((alias) => selfOnlyReexportSelector(alias, target));
 
-          return {
-            target,
-            selectors,
-            // JSON's string escaping IS JavaScript's here, so stringify is the paste
-            // form rather than a hand-rolled doubling of backslashes — and it brings
-            // the quotes, which is what makes it obvious it is source, not a value.
-            jsLiteral: selectors.map((selector) => JSON.stringify(selector)),
-            note: SELF_ONLY_MESSAGE_NOTE,
-          };
-        }),
-        testExemptions: resolveTestFiles(architecture.testFiles),
-      };
-    });
+        return {
+          target,
+          selectors,
+          // JSON's string escaping IS JavaScript's here, so stringify is the paste
+          // form rather than a hand-rolled doubling of backslashes — and it brings
+          // the quotes, which is what makes it obvious it is source, not a value.
+          jsLiteral: selectors.map((selector) => JSON.stringify(selector)),
+          note: SELF_ONLY_MESSAGE_NOTE,
+        };
+      }),
+      testExemptions: resolveTestFiles(architecture.testFiles),
+    };
+  };
+
+  /**
+   * The entry for the zone no layer glob reaches — a layered module's own root,
+   * or the whole net of a `layers: false` one.
+   *
+   * It carries no layer, which is why the row is discriminated by `zone` rather
+   * than by an absent `layer`: a reader pasting from this table has to know
+   * which entry a row belongs to, and a missing key reads as one the config
+   * failed to name rather than as one it does not have.
+   */
+  const zoneRow = (module: ModuleDef): LayerBans => ({
+    zone: module.layers === false ? 'module' : 'root',
+    module: module.name,
+    // The root composes this module's layers, so it may reach every one of
+    // them; a `layers: false` module has no layer flow at all.
+    forbidden: [],
+    packages: barred(modulePackages, module.name).map(named),
+    ...(barred(modulePackages, module.name).length
+      ? { packagesNote: PACKAGES_NOT_COMPARED.join(' ') }
+      : {}),
+    globals: barred(moduleGlobals, module.name).map((rule) => rule.global),
+    // No selfOnly selector is emitted for this zone: `allowedImporters` is a
+    // layer's field, and this entry governs files that sit in no layer.
+    selfOnly: [],
+    testExemptions: resolveTestFiles(architecture.testFiles),
   });
+
+  if (architecture.modules === undefined) {
+    return architecture.layers.map((layer) => layerRow(undefined, layer));
+  }
+
+  // Grouped by module, each module's layer entries followed by its own zone —
+  // the order a reader folding one module's entries needs them in.
+  return architecture.modules.flatMap((module) => [
+    ...(module.layers === false ? [] : architecture.layers.map((layer) => layerRow(module, layer))),
+    zoneRow(module),
+  ]);
 }
 
 /** A ban row's address: `Fighter/hooks` under modules, `hooks` on a flat config. */
 function banLabel(entry: LayerBans): string {
-  return entry.module === undefined ? entry.layer : `${entry.module}/${entry.layer}`;
+  // Named for what the entry governs, not for a layer it does not have: the
+  // module's own root files, or every file in a module that declared none.
+  const own = entry.zone === 'layer' ? entry.layer : `(${entry.zone === 'root' ? 'root' : 'all'})`;
+
+  return entry.module === undefined ? own : `${entry.module}/${own}`;
 }
 
 /**

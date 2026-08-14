@@ -5,12 +5,13 @@ import {
   moduleDepth,
   normalizeAllowedImporters,
 } from '../config';
-import type { ArchitectureDef, Blueprint } from '../config';
+import type { ArchitectureDef, Blueprint, OwnedPrimitive } from '../config';
 import { dropTestFiles } from './filter';
 import { compareText } from './order';
 import {
   aliasList,
   buildModuleGraph,
+  crossModuleTarget,
   entryResolver,
   layoutResolver,
   relativeVerdict,
@@ -103,7 +104,9 @@ function ownsFindings(
   const findings: Finding[] = [];
   const prefix = sourcePrefix(architecture);
 
-  for (const layer of architecture.layers) {
+  // Modules own primitives too, and a declaration nothing reads is the defect
+  // this finding exists to surface — at either level.
+  for (const layer of [...architecture.layers, ...(architecture.modules ?? [])]) {
     for (const owned of layer.owns ?? []) {
       // Both forms answer the same question here: whether the package resolves at
       // all. A named import missing from an installed package is a different one.
@@ -263,6 +266,7 @@ function importFindings(
   depth: number,
 ): Finding[] {
   const fileLayer = file.segments[depth];
+  const moduleNames = (architecture.modules ?? []).map((module) => module.name);
 
   // The module root is the implicit top layer, so its imports are governed
   // like any other file's. Judged by the layer test alone it is skipped — its
@@ -287,6 +291,24 @@ function importFindings(
 
   for (const ref of file.imports) {
     const parts = stripAlias(ref.specifier, aliases);
+
+    // Judged before the layer branch, because a cross-module specifier names a
+    // MODULE at segment 0 and reaches no declared layer at all — read through
+    // the layer test alone it is skipped in silence.
+    const moduleTarget = depth > 0
+      ? crossModuleTarget(ref.specifier, aliases, moduleNames, file.segments[0])
+      : null;
+
+    // The pass-through, sharing one verdict with the plugin rule. Judged
+    // before the layer branch: `~app/Combat` names a MODULE and reaches no
+    // declared layer, so the layer test below skips it and the finding would
+    // never fire. Only the `export … from` spelling reaches here — `scan`
+    // reads source text and cannot follow a local binding from an import to
+    // an export, which is exactly why the other spellings need a rule with a
+    // scope, and why the derivation note on every report states that boundary.
+    if (ref.isExport && moduleTarget !== null) {
+      findings.push(finding('error', 'module-reexport', file.path, moduleTarget, `Re-exports "${moduleTarget}" through this module's own surface — a consumer that needs it declares it in its own \`imports\`, or this module exposes its own API instead of forwarding someone else's. Wrapping the call in a function that only forwards it satisfies the rule and buys nothing: a wrapper is right when it expresses this module's own responsibility.`));
+    }
 
     if (parts) {
       // The alias reaches the source root, so a modular specifier spells
@@ -338,7 +360,22 @@ function importFindings(
 
       if (escape) findings.push(escape);
     } else {
-      const owners = ownersOf(architecture, ref.specifier, ref.names);
+      // Both levels, each judged against the thing that holds this file: its
+      // layer, and its module. A module-owned package is barred everywhere
+      // except its owning module, whatever layer the importer sits in.
+      const owners = ownersOf(architecture.layers, ref.specifier, ref.names);
+      const moduleOwners = ownersOf(architecture.modules ?? [], ref.specifier, ref.names);
+      const ownModule = depth > 0 ? file.segments[0] : undefined;
+
+      if (moduleOwners && ownModule !== undefined && !moduleOwners.includes(ownModule)) {
+        const named = ref.names.length ? ` (${ref.names.join(', ')})` : '';
+
+        const subject = ref.names.length
+          ? `${ref.specifier} ${[...ref.names].sort(compareText).join(',')}`
+          : ref.specifier;
+
+        findings.push(finding('error', 'package-ownership', file.path, subject, `"${ref.specifier}"${named} is owned by module ${moduleOwners.join(', ')} — not importable from "${ownModule}".`));
+      }
 
       if (owners && !owners.includes(fileLayer)) {
         const named = ref.names.length ? ` (${ref.names.join(', ')})` : '';
@@ -396,15 +433,23 @@ function relativeEscape(
   return finding('error', 'layer-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.`);
 }
 
-/** Owner layers of a package import (given its named imports), or null if unrestricted. */
+/**
+ * Owners of a package import (given its named imports), or null if unrestricted.
+ *
+ * Takes the owner list rather than the architecture, because ownership is two
+ * levels: a layer owns a primitive against every other layer, and a module owns
+ * one against every other module. Written against `layers` alone, a
+ * module-owned package is banned by lint and invisible here — the split this
+ * file's own `relative-escape` doctrine exists to prevent.
+ */
 function ownersOf(
-  architecture: ArchitectureDef,
+  owners_: { name: string; owns?: OwnedPrimitive[] }[],
   specifier: string,
   names: string[],
 ): string[] | null {
   const owners: string[] = [];
 
-  for (const layer of architecture.layers) {
+  for (const layer of owners_) {
     if (!layer.owns) continue;
 
     for (const owned of layer.owns) {

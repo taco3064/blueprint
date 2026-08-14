@@ -8,6 +8,7 @@ import { DOC_ONLY_RULES, LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint/
 // boundary (module cycle); the test pins the mirror to the real thing.
 import { emitLint } from '../emit/lint';
 import { runRules, STRUCTURAL_RULES } from './rules';
+import type { LayerBans } from './rules';
 import type { Blueprint } from '../config';
 
 const dirs: string[] = [];
@@ -264,6 +265,10 @@ describe('runRules', () => {
     // components may not import hooks/services and owns nothing — every
     // ownership ban applies to it.
     expect(bans.find((entry) => entry.layer === 'components')).toEqual({
+      // A flat config has one kind of entry, and the row still says which —
+      // a reader pasting from here should not have to infer the shape from
+      // which keys happen to be absent.
+      zone: 'layer',
       layer: 'components',
       forbidden: [],
       packages: ['react (useContext)', 'axios'],
@@ -567,11 +572,16 @@ describe('runRules', () => {
 
     expect(parsed.severity).toBe('warn');
 
-    // Fixture: no selfOnly importer anywhere → syntax inactive; an owned
-    // global bars other layers → globals active (field issue #14).
+    // Fixture: no selfOnly importer anywhere → syntax inactive; no `modules`
+    // declared → the pass-through ban has no other module to forward, so it is
+    // inactive too; an owned global bars other layers → globals active
+    // (field issue #14). Named rather than counted — an id added to the
+    // catalog and silently defaulted to active is the drift this pins.
+    const inactive = ['no-restricted-syntax', 'blueprint/no-module-reexport'];
+
     expect(parsed.structural).toEqual(STRUCTURAL_RULES.map((rule) => ({
       ...rule,
-      active: rule.rule !== 'no-restricted-syntax',
+      active: !inactive.includes(rule.rule),
     })));
 
     expect(parsed.docsOnly).toEqual(DOC_ONLY_RULES);
@@ -640,10 +650,20 @@ describe('runRules · under modules the report IS the emitted config', () => {
     rules: {},
   };
 
-  /** Every option of `rule` in the entries governing one (module, layer). */
-  const emittedOptions = (module: string, layer: string, rule: string): unknown[] =>
+  const layerNames = modular.architecture.layers.map((layer) => layer.name);
+
+  /**
+   * Every option of `rule` in the emitted entries this row describes — found by
+   * the row's own zone, so a `root` row is compared against the module-zone
+   * entry rather than against whichever layer entry happened to match first.
+   */
+  const emittedOptions = (ban: LayerBans, rule: string): unknown[] =>
     emitLint(modular)
-      .filter((entry) => (entry.files ?? []).some((glob) => glob.startsWith(`src/${module}/${layer}/`)))
+      .filter((entry) => (entry.files ?? []).some((glob) =>
+        ban.zone === 'layer'
+          ? glob.startsWith(`src/${ban.module}/${ban.layer}/`)
+          : glob.startsWith(`src/${ban.module}/`)
+            && !layerNames.some((name) => glob.startsWith(`src/${ban.module}/${name}/`))))
       .flatMap((entry) => {
         const setting = entry.rules?.[rule];
 
@@ -657,11 +677,15 @@ describe('runRules · under modules the report IS the emitted config', () => {
   it('reports one row per (module, layer), not one per layer', async () => {
     const { bans } = await runRules(repo(modular), { log: silent });
 
-    expect(bans.map((ban) => `${ban.module}/${ban.layer}`)).toEqual([
-      'Fighter/contexts',
-      'Fighter/hooks',
-      'Combat/contexts',
-      'Combat/hooks',
+    // Grouped by module, each module's layer entries followed by the zone no
+    // layer glob reaches — the order a reader folding one module needs.
+    expect(bans.map((ban) => [ban.module, ban.zone, ban.layer])).toEqual([
+      ['Fighter', 'layer', 'contexts'],
+      ['Fighter', 'layer', 'hooks'],
+      ['Fighter', 'root', undefined],
+      ['Combat', 'layer', 'contexts'],
+      ['Combat', 'layer', 'hooks'],
+      ['Combat', 'root', undefined],
     ]);
 
     // The count is the emitted config's, not a number typed here: two entries
@@ -679,7 +703,7 @@ describe('runRules · under modules the report IS the emitted config', () => {
     for (const ban of bans) {
       const reported = ban.selfOnly.flatMap((entry) => entry.selectors);
 
-      const emitted = emittedOptions(ban.module as string, ban.layer, 'no-restricted-syntax')
+      const emitted = emittedOptions(ban, 'no-restricted-syntax')
         .map((item) => (item as { selector: string }).selector);
 
       // Equality both ways, so neither a missing selector nor an extra one
@@ -698,7 +722,7 @@ describe('runRules · under modules the report IS the emitted config', () => {
     const { bans } = await runRules(repo(modular), { log: silent });
 
     for (const ban of bans) {
-      const groups = emittedOptions(ban.module as string, ban.layer, 'no-restricted-imports')
+      const groups = emittedOptions(ban, 'no-restricted-imports')
         .flatMap((option) => (option as { patterns?: { group: string[] }[] }).patterns ?? [])
         .flatMap((pattern) => pattern.group);
 
@@ -735,6 +759,59 @@ describe('runRules · under modules the report IS the emitted config', () => {
     expect(lines.join('\n')).toContain('Bans per module × layer');
   });
 
+  it('reports the zone row\'s own package and global bans, with the caveat', async () => {
+    // The module-zone entry carries module-level ownership just as the layer
+    // entries do, and the `packages` caveat travels with the column it is
+    // about — doctor does not compare that column at either level.
+    const owning: Blueprint = {
+      ...modular,
+      architecture: {
+        ...modular.architecture,
+        modules: [
+          { name: 'Fighter', does: 'the ship' },
+          { name: 'Combat', does: 'bullets', owns: ['rbush', { global: 'requestAnimationFrame' }] },
+        ],
+      },
+    };
+
+    const { bans } = await runRules(repo(owning), { log: silent });
+    const root = bans.find((ban) => ban.module === 'Fighter' && ban.zone === 'root');
+
+    expect(root?.packages).toEqual(['rbush']);
+    expect(root?.globals).toEqual(['requestAnimationFrame']);
+    expect(root?.packagesNote).toContain('is not compared by doctor');
+
+    // …and the owner's own zone is barred from neither.
+    const owner = bans.find((ban) => ban.module === 'Combat' && ban.zone === 'root');
+
+    expect(owner?.packages).toEqual([]);
+    expect(owner?.packagesNote).toBeUndefined();
+  });
+
+  it('names a layers:false module\'s zone for what it governs — everything', async () => {
+    // `(root)` would be a lie there: the module opted out of the layer
+    // vocabulary, so its entry covers every file beneath it, not the top ones.
+    const routed: Blueprint = {
+      ...modular,
+      architecture: {
+        ...modular.architecture,
+        modules: [
+          { name: 'app', does: 'routing', layers: false, imports: ['Fighter'] },
+          { name: 'Fighter', does: 'the ship' },
+        ],
+      },
+    };
+
+    const lines: string[] = [];
+    const { bans } = await runRules(repo(routed), { log: (m) => void lines.push(m) });
+
+    // One row, and no (app, layer) rows at all — it declared no layers.
+    expect(bans.filter((ban) => ban.module === 'app')).toHaveLength(1);
+    expect(bans.find((ban) => ban.module === 'app')?.zone).toBe('module');
+    expect(lines.join('\n')).toContain('app/(all)');
+    expect(lines.join('\n')).toContain('Fighter/(root)');
+  });
+
   it('leaves a flat config with no module key and the per-layer heading', async () => {
     const lines: string[] = [];
     const { bans } = await runRules(repo(blueprint), { log: (m) => void lines.push(m) });
@@ -766,7 +843,7 @@ describe('runRules · the ban table\'s label column', () => {
 
     const rows = lines.join('\n').split('\n').filter((line) => line.includes('no-import:'));
 
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(6);
 
     // Every row's `no-import:` starts at the same column — the property a fixed
     // width sized for layer names cannot give a label like `Fighter/contexts`.
