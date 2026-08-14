@@ -84,6 +84,17 @@ offer: a second reader who did not write the change, owes its reasoning nothing,
 and is not tired of it. The implementation side already believes its own work —
 that belief is not evidence.
 
+**And read the output, which is a different check.** Not the code that produces
+it — the artifact an adopter receives: `emitLint` against a fixture, `blueprint
+rules`, the playbook, the handbook. **Reading code tells you whether the logic is
+right; reading output tells you whether it touches anything**, and the two feel
+identical while you do them. A ban built from the wrong segment is correct code,
+passes its unit test, raises coverage, and matches no file in the repo it
+governs. Every defect of that shape found here came from rendering, and none was
+reachable by reading source. It is listed again as a boundary check, but its
+moment is not the boundary — it is any time you cannot see a behaviour from the
+code, which is a suspicion rather than a scheduled step.
+
 **Report what you verified, never what somebody said they would do.** *"It is on
 #223"* and *"its last report ended with «next is #223»"* are different claims and
 only the second is yours. An owner who believes the first waits for a PR nobody
