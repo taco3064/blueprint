@@ -616,3 +616,184 @@ describe('runRules', () => {
     }
   });
 });
+
+describe('runRules · under modules the report IS the emitted config', () => {
+  // `blueprint rules --json` is a paste source — the playbook sends an agent to
+  // `jsLiteral` in four places — so a selector reported at the wrong address is
+  // not a stale report. It is a rule the adopter installs on this command's
+  // instruction, matching nothing, with lint green over it.
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      additionalAliases: { '~root': '.' },
+      modules: [{ name: 'Fighter', does: 'the ship' }, { name: 'Combat', does: 'bullets' }],
+      layers: [
+        { name: 'contexts', does: 'providers' },
+        {
+          name: 'hooks',
+          does: 'state',
+          allowedImporters: [{ layer: 'contexts', selfOnly: true }],
+        },
+      ],
+    },
+    rules: {},
+  };
+
+  /** Every option of `rule` in the entries governing one (module, layer). */
+  const emittedOptions = (module: string, layer: string, rule: string): unknown[] =>
+    emitLint(modular)
+      .filter((entry) => (entry.files ?? []).some((glob) => glob.startsWith(`src/${module}/${layer}/`)))
+      .flatMap((entry) => {
+        const setting = entry.rules?.[rule];
+
+        // Per entry, then flattened — a `.slice(1)` on the already-flattened
+        // list drops the first entry's first OPTION rather than each severity.
+        return Array.isArray(setting) ? setting.slice(1) : [];
+      });
+
+  const silent = () => {};
+
+  it('reports one row per (module, layer), not one per layer', async () => {
+    const { bans } = await runRules(repo(modular), { log: silent });
+
+    expect(bans.map((ban) => `${ban.module}/${ban.layer}`)).toEqual([
+      'Fighter/contexts',
+      'Fighter/hooks',
+      'Combat/contexts',
+      'Combat/hooks',
+    ]);
+
+    // The count is the emitted config's, not a number typed here: two entries
+    // reported against four emitted is the defect this closes.
+    const emitted = emitLint(modular).filter((entry) => entry.rules?.['no-restricted-imports']);
+
+    expect(bans).toHaveLength(emitted.length);
+  });
+
+  it('reports selectors that appear verbatim in that module\'s own emitted entry', async () => {
+    const { bans } = await runRules(repo(modular), { log: silent });
+
+    let checked = 0;
+
+    for (const ban of bans) {
+      const reported = ban.selfOnly.flatMap((entry) => entry.selectors);
+
+      const emitted = emittedOptions(ban.module as string, ban.layer, 'no-restricted-syntax')
+        .map((item) => (item as { selector: string }).selector);
+
+      // Equality both ways, so neither a missing selector nor an extra one
+      // passes: this is the assertion that cannot be satisfied by two wrong
+      // literals agreeing with each other, which is how these drifted apart.
+      expect(reported).toEqual(emitted);
+
+      checked += reported.length;
+    }
+
+    // …and it cannot pass on a report that found nothing to compare.
+    expect(checked).toBe(4); // {Fighter, Combat} × {~app, ~root/src}
+  });
+
+  it('reports forbidden layers the emitted entry really bans, at the module address', async () => {
+    const { bans } = await runRules(repo(modular), { log: silent });
+
+    for (const ban of bans) {
+      const groups = emittedOptions(ban.module as string, ban.layer, 'no-restricted-imports')
+        .flatMap((option) => (option as { patterns?: { group: string[] }[] }).patterns ?? [])
+        .flatMap((pattern) => pattern.group);
+
+      for (const forbidden of ban.forbidden) {
+        expect(groups).toContain(`~app/${ban.module}/${forbidden}/**`);
+      }
+    }
+
+    // The `hooks` row has something to check — `contexts` restricts its
+    // importers, so hooks may not reach it.
+    expect(bans.find((ban) => ban.layer === 'hooks')?.forbidden).toEqual(['contexts']);
+  });
+
+  it('carries the module segment in the paste form too', async () => {
+    const lines: string[] = [];
+    const { bans } = await runRules(repo(modular), { log: (m) => void lines.push(m) });
+
+    const fighter = bans.find((ban) => ban.module === 'Fighter' && ban.layer === 'contexts');
+    const combat = bans.find((ban) => ban.module === 'Combat' && ban.layer === 'contexts');
+
+    expect(fighter?.selfOnly[0].selectors[0]).toContain('~app\\u002FFighter\\u002Fhooks\\u002F');
+    expect(fighter?.selfOnly[0].selectors[0]).not.toContain('~app\\u002Fhooks');
+
+    // Two modules, two different strings — pasting one into the other's entry
+    // is the failure the playbook now names.
+    expect(combat?.selfOnly[0].selectors[0]).not.toBe(fighter?.selfOnly[0].selectors[0]);
+
+    // `jsLiteral` is the same selector as JS source: what survives the paste.
+    expect(fighter?.selfOnly[0].jsLiteral[0])
+      .toBe(JSON.stringify(fighter?.selfOnly[0].selectors[0]));
+
+    // The text report addresses its rows too, or two modules print alike.
+    expect(lines.join('\n')).toContain('Fighter/contexts');
+    expect(lines.join('\n')).toContain('Bans per module × layer');
+  });
+
+  it('leaves a flat config with no module key and the per-layer heading', async () => {
+    const lines: string[] = [];
+    const { bans } = await runRules(repo(blueprint), { log: (m) => void lines.push(m) });
+
+    // Absent, not `undefined` spelled out: `--json` is a consumed shape, and a
+    // key holding "no module" reads as one the config failed to name.
+    for (const ban of bans) expect('module' in ban).toBe(false);
+
+    expect(lines.join('\n')).toContain('Per-layer bans —');
+    expect(lines.join('\n')).not.toContain('module × layer');
+  });
+});
+
+describe('runRules · the ban table\'s label column', () => {
+  it('widens for module labels, so a modular table does not step raggedly', async () => {
+    const lines: string[] = [];
+
+    const modular: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        modules: [{ name: 'Fighter', does: '' }, { name: 'Combat', does: '' }],
+        layers: [{ name: 'contexts', does: '' }, { name: 'hooks', does: '' }],
+      },
+      rules: {},
+    };
+
+    await runRules(repo(modular), { log: (m) => void lines.push(m) });
+
+    const rows = lines.join('\n').split('\n').filter((line) => line.includes('no-import:'));
+
+    expect(rows).toHaveLength(4);
+
+    // Every row's `no-import:` starts at the same column — the property a fixed
+    // width sized for layer names cannot give a label like `Fighter/contexts`.
+    const columns = new Set(rows.map((row) => row.indexOf('no-import:')));
+
+    expect(columns.size).toBe(1);
+  });
+
+  it('leaves a flat config\'s column where a long layer name already put it', async () => {
+    // The width is measured only where a module exists. Measured on a flat
+    // config it would come from its own longest name, and every row of a config
+    // with a layer past the fixed 14 would shift — an unrelated table moving.
+    const lines: string[] = [];
+
+    const longNames: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [{ name: 'infrastructureAdapters', does: '' }, { name: 'ui', does: '' }],
+      },
+      rules: {},
+    };
+
+    await runRules(repo(longNames), { log: (m) => void lines.push(m) });
+
+    const rows = lines.join('\n').split('\n').filter((line) => line.includes('no-import:'));
+
+    expect(rows.some((row) => row.startsWith('  ui             no-import:'))).toBe(true);
+  });
+});

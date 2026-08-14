@@ -8,7 +8,9 @@ import {
   deriveGlobalRules,
   derivePackageRules,
   METRIC_GATES,
+  moduleScopes,
   PLUGIN_GATES,
+  scopedAliases,
   unavailableGate,
   selfOnlyReexportSelector,
   resolveTestFiles,
@@ -54,6 +56,13 @@ export interface StructuralRule {
  */
 export interface LayerBans {
   layer: string;
+  /**
+   * The module this entry governs, absent on a flat config. Present because the
+   * emitted entry is per (module, layer): without it, two modules' rows print
+   * and serialize identically while carrying different selectors, and the
+   * reader cannot tell which one they are meant to paste.
+   */
+  module?: string;
   /** Layers this one must not import. */
   forbidden: string[];
   /** Owned packages banned here (named imports in parentheses). */
@@ -186,45 +195,85 @@ function gateSpecs(): GateSpec[] {
   ];
 }
 
-/** Every layer's resolved bans, from the same primitives emitLint uses. */
+/**
+ * Every emitted entry's resolved bans, from the same primitives emitLint uses —
+ * one per (module, layer) under `architecture.modules`, one per layer on a flat
+ * config, because that is what the emitted config holds.
+ *
+ * The third emitter of a module-scoped address, beside the structural pattern
+ * groups and the selfOnly selectors. It joins them rather than deriving the
+ * address again: `jsLiteral` exists to be pasted into a hand-merged config, so
+ * an unscoped selector here is not a stale report but a dead rule the adopter
+ * installed on this command's instruction, with lint green over it.
+ */
 function layerBans(blueprint: Blueprint): LayerBans[] {
   const { architecture } = blueprint;
 
-  const aliases = aliasLayerRoots(architecture)
+  const roots = aliasLayerRoots(architecture)
     .map((root) => [root.alias, ...root.prefix].join('/'));
 
   const packageRules = derivePackageRules(architecture.layers);
   const globalRules = deriveGlobalRules(architecture.layers);
 
-  return architecture.layers.map((layer) => {
-    const packages = packageRules
-      .filter((rule) => !rule.allowedIn.includes(layer.name))
-      .map((rule) => (rule.imports?.length ? `${rule.package} (${rule.imports.join(', ')})` : rule.package));
+  return moduleScopes(architecture).flatMap((module) => {
+    const aliases = scopedAliases(roots, module?.name);
 
-    return {
-      layer: layer.name,
-      forbidden: getForbiddenLayers(architecture, layer.name),
-      packages,
-      ...(packages.length ? { packagesNote: PACKAGES_NOT_COMPARED.join(' ') } : {}),
-      globals: globalRules
+    return architecture.layers.map((layer) => {
+      const packages = packageRules
         .filter((rule) => !rule.allowedIn.includes(layer.name))
-        .map((rule) => rule.global),
-      selfOnly: getSelfOnlyTargets(architecture, layer.name).map((target) => {
-        const selectors = aliases.map((alias) => selfOnlyReexportSelector(alias, target));
+        .map((rule) => (rule.imports?.length ? `${rule.package} (${rule.imports.join(', ')})` : rule.package));
 
-        return {
-          target,
-          selectors,
-          // JSON's string escaping IS JavaScript's here, so stringify is the paste
-          // form rather than a hand-rolled doubling of backslashes — and it brings
-          // the quotes, which is what makes it obvious it is source, not a value.
-          jsLiteral: selectors.map((selector) => JSON.stringify(selector)),
-          note: SELF_ONLY_MESSAGE_NOTE,
-        };
-      }),
-      testExemptions: resolveTestFiles(architecture.testFiles),
-    };
+      return {
+        layer: layer.name,
+        // Omitted rather than null on a flat config: there is no module, and a
+        // key holding "no module" would read as one the config failed to name.
+        ...(module ? { module: module.name } : {}),
+        forbidden: getForbiddenLayers(architecture, layer.name),
+        packages,
+        ...(packages.length ? { packagesNote: PACKAGES_NOT_COMPARED.join(' ') } : {}),
+        globals: globalRules
+          .filter((rule) => !rule.allowedIn.includes(layer.name))
+          .map((rule) => rule.global),
+        selfOnly: getSelfOnlyTargets(architecture, layer.name).map((target) => {
+          const selectors = aliases.map((alias) => selfOnlyReexportSelector(alias, target));
+
+          return {
+            target,
+            selectors,
+            // JSON's string escaping IS JavaScript's here, so stringify is the paste
+            // form rather than a hand-rolled doubling of backslashes — and it brings
+            // the quotes, which is what makes it obvious it is source, not a value.
+            jsLiteral: selectors.map((selector) => JSON.stringify(selector)),
+            note: SELF_ONLY_MESSAGE_NOTE,
+          };
+        }),
+        testExemptions: resolveTestFiles(architecture.testFiles),
+      };
+    });
   });
+}
+
+/** A ban row's address: `Fighter/hooks` under modules, `hooks` on a flat config. */
+function banLabel(entry: LayerBans): string {
+  return entry.module === undefined ? entry.layer : `${entry.module}/${entry.layer}`;
+}
+
+/**
+ * The label column's width. A module label is `Fighter/contexts` — longer than
+ * the layer names this column was sized for, so a fixed width leaves a modular
+ * table stepping raggedly around the longest name.
+ *
+ * Widened only where a module is present. Measured on a flat config too, the
+ * width would come from its own longest layer name, and every row of a config
+ * with a name past the old fixed 14 would shift — a table nobody asked to move,
+ * on the shape this change is supposed to leave alone.
+ */
+function banWidth(bans: LayerBans[]): number {
+  const fixed = 14;
+
+  if (!bans.some((entry) => entry.module !== undefined)) return fixed;
+
+  return Math.max(fixed, ...bans.map((entry) => banLabel(entry).length));
 }
 
 /**
@@ -375,7 +424,16 @@ export function renderRules(
     ...(bans.length
       ? [
           '',
-          'Per-layer bans — what the structural rules enforce, resolved from this config.',
+          // The heading names the granularity the rows below actually have, and
+          // it is not the same on both shapes: under modules the emitted config
+          // holds one entry per (module, layer), so a heading saying "per-layer"
+          // over `Fighter/hooks` rows describes a config the reader does not have.
+          bans.some((ban) => ban.module !== undefined)
+            ? 'Bans per module × layer — what the structural rules enforce, resolved from this'
+            + ' config. Each row is one emitted entry, and the selectors under it are that'
+            + ' module\'s: a module is isolated by default, so its neighbour\'s row is a'
+            + ' different string and not a copy of this one.'
+            : 'Per-layer bans — what the structural rules enforce, resolved from this config.',
           // Named columns, not "everything below" — doctor's own ✓ says package
           // ownership is NOT compared, so the broader claim put two live outputs in
           // contradiction (field run #159). Unconditional, unlike the `packages`
@@ -391,7 +449,8 @@ export function renderRules(
           // column gets named.
           ...(bans.some((ban) => ban.packages.length) ? PACKAGES_NOT_COMPARED : []),
           ...bans.flatMap((entry) => [
-            `  ${entry.layer.padEnd(14)} no-import: ${entry.forbidden.join(', ') || '(none)'}`
+            // `Fighter/hooks`, so the row names the entry it came from.
+            `  ${banLabel(entry).padEnd(banWidth(bans))} no-import: ${entry.forbidden.join(', ') || '(none)'}`
             + ` · packages: ${entry.packages.join(', ') || '(none)'}`
             + ` · globals: ${entry.globals.join(', ') || '(none)'}`,
             // The exact strings a merge fold needs, so "combine into ONE entry" is
