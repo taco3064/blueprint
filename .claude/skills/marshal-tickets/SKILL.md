@@ -222,6 +222,13 @@ bodies, the parent's comments. A PM session that dies is restarted by reading
 them back. That asymmetry is what makes "comment on every ticket, including the
 clean ones" more than bookkeeping — it is the durable half of this role's memory.
 
+**So recover from the record, never from recollection.** After any interruption,
+rebuild state in this order and stop there: the parent's sub-issue list and its
+comments, `git log origin/main`, open PRs and their checks, the workflow runs.
+What a transcript says was happening is a claim about a moment that has passed —
+today a branch scan that was true when it ran was stale by the time it was
+reported, and the gap was one merge wide.
+
 If the owner already has a session open and points at it, use that one.
 `ListAgents` shows what is reachable, and **confirming the target before the
 first send matters**: addressing the wrong session fails silently — the message
@@ -273,6 +280,18 @@ install runs no hooks and reports nothing. Symlinking `node_modules` to save the
 install buys that silence, and shares one incremental `tsc` cache across every
 tree as well. `git show main:<path>` answers "what did this look like before"
 without depending on which branch happens to be checked out.
+
+**A `Done when` starts unmet, and only evidence moves it.** Not "does anything
+look wrong" — "what did I run, and what did it show". Absence of a problem is not
+the evidence; a command whose output you read is. Two tickets closed this way with
+a clause false: one whose acceptance named two gates while only the easier one was
+read, one whose loss lines were never rendered at all. Neither looked wrong.
+
+**And distinguish what you checked from what you did not.** An item you cannot
+point at is *"no evidence found"*, never *"not done"* — those are different
+claims and only one of them is yours. A reader has to be able to tell a checked
+item from an unchecked one, and a flat verdict erases that difference in the
+direction that flatters you.
 
 **Your check is an audit, not a gate**, and that changes the remedy. You read
 the merged result against the ticket's `Done when`; when it falls short, the exit
@@ -362,24 +381,17 @@ is whether the commit can name what the mutant proved.
 `.claude/docs/mutation-testing.md` is the doctrine and
 `grep -rni undecidable src/` is the ledger.
 
-**Count the dispatches, and treat a high count as a finding.** One per ticket to
-get the list, one per tier to confirm — that is the budget, and it is a rule
-about thinking rather than about runner minutes. A sweep hands back a list of
-survivors; judging them needs no runner, and dispatching again before that list
-is fully read buys a second list while the first is unread.
+**Count the dispatches.** The budget and its reasoning live in
+`.claude/docs/mutation-testing.md`; what belongs to you is that the count is
+visible from here and invisible from inside the work. One dispatch per ticket,
+one sweep per tier — a run of them inside a few minutes on one branch is a
+feedback loop wired to a stall, and it is the same class of finding as a survivor
+waved off, costing wall-clock rather than correctness.
 
 ```bash
 gh run list --workflow=mutation.yml --limit 20 \
   --json createdAt,headBranch --jq '.[] | "\(.createdAt[5:16])  \(.headBranch)"'
 ```
-
-Five dispatches inside fourteen minutes on one branch is not diligence, it is a
-feedback loop wired to a two-minute stall — and to per-file numbers that the
-tree-wide run will overturn, since a per-file sweep flatters. The question that
-loop is asking ("did my fix work?") is answered instantly by applying the mutant
-by hand. When you see the pattern, say so on the ticket and point at
-`.claude/docs/mutation-testing.md`; it is the same class of finding as a survivor
-waved off, just costing wall-clock instead of correctness.
 
 ## Phase 6 — re-verify the unstarted tickets at every tier boundary
 
@@ -483,6 +495,15 @@ decomposition rots:
    as commenting on clean tickets: the durable record has to hold what is
    unresolved, not only what is finished.
 
+**Every finding gets two dispositions, and they are independent.** What happens
+to *this* instance — fix now, defer with enough context to act on later, or accept
+and record it so the next sweep stops re-raising it. And separately: **what would
+prevent the next one** — a ticket's wording, a missing convention, a gate, or
+**nothing**. That last option is not a formality. A finding whose only evidence is
+a case the existing process already caught yields "nothing", and writing the
+"nothing" down is what stops the ledger reading as though every finding earned a
+rule.
+
 There is a fourth thing that is not a gap: **discoveries made while building**.
 When implementation surfaces a blind spot inside the ticket's own scope — an
 acceptance criterion that would have passed for the wrong reason — that belongs
@@ -550,6 +571,49 @@ nobody can follow. Then:
 The parent closes when every claim maps to a closed ticket. Not when the
 sub-issue counter hits 100% — the counter proves the tickets closed, not that
 they covered the parent.
+
+### Before it closes, someone who was not here checks it
+
+You cut these tickets and you verified them. You are the worst available reader of
+whether they hold, and a second session that has been in the decomposition with
+you is the second-worst: **two readers do not make two checks, because they
+converge on the same resemblance.** Measured this way once — three claims survived
+two sessions examining them and died to the owner asking what the thing actually
+does. Not a better reviewer. A question from outside.
+
+So before the parent closes, spawn agents that were not part of this and cannot
+write:
+
+- **Fresh context, latest `main`, read-only.** No history of the decisions, no
+  stake in them, and no ability to fix what it finds — a reader that can edit
+  starts explaining instead of reporting.
+- **One agent per dimension, not one for everything.** Split by the kind of claim:
+  the emitted artifacts against the documents that describe them, the parent's
+  claims against the code, the acceptance criteria against what a command shows.
+  A single reviewer given everything returns the shape of its own attention.
+- **Every finding comes back, with a file and a line.** Not a summary and not a
+  ranked top-N: a finding you drop because two others outrank it is the one the
+  next reader has to rediscover. A finding without an address is an opinion.
+- **Findings are unverified reports until you check them.** Reopen the file. One
+  that does not hold is dropped and said to be dropped, not quietly omitted.
+
+### Then decide what the process keeps
+
+A retrospective that only adds rules produces a document nobody reads, and every
+rule in it becomes decoration. So the pass that adds also **merges and deletes**,
+and it is worth measuring rather than sensing: this skill went from 301 lines to
+565 in one day, and the section that grew most was not the section that mattered
+most.
+
+Three questions, and the last is the one that gets skipped:
+
+- **Which assumption did this parent overturn?** Something in it was wrong when
+  written; name it, or the next decomposition inherits it.
+- **Which gap should have been caught earlier, and by what?** The answer is
+  sometimes "nothing available would have", which is worth writing down too.
+- **Which rules here are now duplicated, superseded, or unread?** A rule restated
+  in a doc that owns it is two sources of truth for one requirement. Cut the copy,
+  keep the pointer.
 
 ## Repo facts
 
