@@ -523,6 +523,15 @@ the file and line that would settle each one, and no reasoning attached.** The
 reasoning is not the payload: what kills a wrong claim is somebody opening the
 file, and an argument invites agreement with the argument instead.
 
+**A line number carries no evidence of which tree produced it**, and that is the
+one way this form fails quietly. A `grep` in a checkout three commits behind
+returns a number that looks exactly like a current one — it happened here twice,
+once in a ticket's citations and once in a sweep of another ticket's. So **cite
+the commit with the line**, or read through `git show <ref>:<path>` so there is
+nothing else it could have come from. Reading from git was already the rule; what
+this adds is that the *artifact* shows it, because a rule you followed and a rule
+you skipped produce the same-looking citation.
+
 **A "yes" tells you nothing.** If the claim was right, its reader replied the same
 way whether they checked or nodded, and you cannot tell which. So the form is only
 ever validated by a claim that turns out false — which means **send the ones you
