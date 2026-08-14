@@ -168,3 +168,22 @@ describe('report · the module findings are in both tables', () => {
     expect(rendered).not.toContain('Recommended migration steps');
   });
 });
+
+describe('report · root-import names both rules that hold it', () => {
+  it('tells a reader which id carries their spelling', () => {
+    // One reach, two mechanisms: the plugin resolves a relative path, and an
+    // exact `paths` entry catches the alias form. A reader searching the
+    // resolved config for `relative-escape` after an alias violation finds
+    // nothing, which is the failure this table exists to prevent.
+    const rendered = report([{
+      severity: 'error',
+      rule: 'root-import',
+      path: 'src/GameStage/hooks/useRun/index.ts',
+      subject: '~app/GameStage',
+      message: 'reaches up',
+    }]);
+
+    expect(rendered).toContain('blueprint/relative-escape for a relative path');
+    expect(rendered).toContain('no-restricted-imports for the alias');
+  });
+});
