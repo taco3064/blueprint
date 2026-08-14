@@ -366,6 +366,14 @@ export function buildFolderGraph(scan: ScanResult, architecture: ArchitectureDef
 
     // A file directly under the source root belongs to no folder — it is app
     // wiring, and an edge from it would name a folder that does not exist.
+    //
+    // undecidable, the length test, shielded by the lookup beside it: `folders`
+    // is exactly `scan.topDirs`, and a root file's first segment is a FILENAME
+    // carrying an extension, so it can never be one of those names. Removing
+    // either alone still skips the same files. The pair stays because the two
+    // say different things — one is "this is not in a folder", the other is
+    // "this folder is not one we saw" — and a reader should not have to derive
+    // the first from how extensions happen to look.
     if (file.segments.length < 2 || !folders.has(from)) continue;
 
     for (const ref of file.imports) {
