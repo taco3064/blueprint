@@ -1,6 +1,11 @@
 {
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.lib.tsbuildinfo",
+    /* Under the tree, never under `node_modules`: several checkouts share one
+       `node_modules` here (a worktree symlinks it), and a cache under it is one
+       cache keyed against several source trees — local `tsc` passes while a clean
+       checkout fails (#235). Each tree has its own root, so this is per-tree by
+       construction. Same for the sibling configs. */
+    "tsBuildInfoFile": "./.tmp/tsconfig.lib.tsbuildinfo",
 
     "target": "ES2023",
     "lib": ["ES2023"],
