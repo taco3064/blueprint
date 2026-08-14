@@ -153,6 +153,9 @@ function ownsFindings(
     }),
     // A module is a folder at the top of the source tree, so its own address is
     // the one thing here that needs no explaining.
+    //
+    // undecidable, the `?? []` arm: a fabricated member carries no `owns`, so
+    // `uninstalled` answers nothing and the map that would read its name never runs.
     ...(architecture.modules ?? []).flatMap((module) =>
       uninstalled(module, dependencies)
         .map((pkg) => ownsFinding('Module', module.name, pkg, `${prefix}${module.name}`, ''))),
@@ -176,7 +179,7 @@ function ownsFinding(
   name: string,
   pkg: string,
   path: string,
-  address: string,
+  note: string,
 ): Finding {
   return {
     severity: 'info',
@@ -186,7 +189,7 @@ function ownsFinding(
     message: `${level} "${name}" owns "${pkg}", which is not in package.json — `
       + 'runway, not a todo: the ban is emitted and correct, it just has nothing to '
       + 'reach yet. Installing the package and dropping the declaration are both '
-      + `resolutions, and which one applies is the owner's call.${address}`,
+      + `resolutions, and which one applies is the owner's call.${note}`,
   };
 }
 
