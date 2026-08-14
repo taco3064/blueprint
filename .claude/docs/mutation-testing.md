@@ -30,6 +30,13 @@ So: **one dispatch per ticket** to get the list, judged in full offline, closed 
 one pass. **One full sweep per tier**, after the tier's last commit, to confirm.
 A second dispatch inside a ticket needs a reason that is not *"did my fix work"*.
 
+The same question generalises past sweeps: **before running anything to learn a
+number, check whether it derives from numbers already in hand.** Doctor's probe
+count at 41 modules was confirmed as 200 (module × layer) + 40 zones + 1 for the
+`layers: false` module = 241, matching the measured figure, because doctor emits
+one probe per emitted entry — arithmetic over a tree already measured, and one
+run not spent.
+
 **Because that question already has a zero-latency answer: apply the mutant by
 hand.** Edit the line the way the report shows it, run the one test file, watch it
 go red, put the line back. Instant, no runner, no waiting, and it is what the

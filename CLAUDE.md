@@ -66,6 +66,16 @@ is not in the config). Field batches 10–12 are the case law.
   directory, rule id, or API name an adopter has. `it.each` over the list is the
   shape; restate the list in the test when the source keeps it private, so a
   removal turns one case red.
+- **Assert the part that could be wrong.** A line can run, satisfy coverage, and
+  be asserted by a test that never reads what it says. Five of these landed in one
+  release: a `toContain` matched a folder line two rows above the one it named; an
+  assertion on a message began *after* its prefix, and the prefix was the defect;
+  two cases pinned a finding's `subject` and `severity` while its `path` and
+  `message` went unread; and the layer-level twin of one of those ran only on a
+  flat config, where the wrong path is the right one. Before writing the
+  assertion, name the thing that would break — then check that a wrong value there
+  turns it red. Coverage cannot see this and neither can `tsc`, so nothing else
+  will.
 - **A comment carries only what the name, the type, the test, and the commit
   message cannot.** History goes to the commit — "this used to be X", a road not
   taken, a bug's biography. An invariant a test already covers is the test's to
