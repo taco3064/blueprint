@@ -132,6 +132,13 @@ export function wiredEslintConfig(blueprint: Blueprint, extraEntries = ''): stri
   // plugin does not define, so a hardcoded stub turns "this ticket added a
   // rule" into "doctor could not resolve the config" — a skip riding on
   // `ok: true`, which is the one outcome this fixture exists to disprove.
+  //
+  // undecidable, the `blueprint/` filter: dropping it stubs the core rule ids
+  // too, sliced into junk keys that live under the `blueprint` namespace where no
+  // config references them. The property above — every referenced id is defined —
+  // holds either way, which is why this is not owed an assertion that the stub
+  // holds NOTHING else: that would pin a fixture's incidental shape. The filter
+  // stays because a stub naming `icted-imports` is unreadable.
   const stubbed = [
     ...new Set(
       emitLint(blueprint)

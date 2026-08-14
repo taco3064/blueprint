@@ -65,6 +65,11 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
   // in every OTHER module, exactly as a layer's bans it in every other layer —
   // `validateBlueprint` rejects a primitive claimed at both levels, so the two
   // lists never disagree about one name.
+  //
+  // undecidable, the `?? []` arm: a fabricated member is a string, so both
+  // derivations read its `owns` as `undefined` and derive nothing from it. It
+  // stays because the absent arm is real — a flat config reaches here — and
+  // because `ownedElsewhere` leans on this list being empty there.
   const modules = architecture.modules ?? [];
   const modulePackages = derivePackageRules(modules);
   const moduleGlobals = deriveGlobalRules(modules);
@@ -593,8 +598,14 @@ function buildGlobalRule(disabled: GlobalRule[], severity: Severity): Linter.Rul
  * is therefore barred from.
  *
  * `undefined` is the flat project's single implicit module, which owns nothing
- * and is barred from nothing: with no `modules` declared the derived lists are
- * empty anyway, so this answers none either way.
+ * and is barred from nothing.
+ *
+ * undecidable, the guard, and shielded by ONE line elsewhere: `emitLint`'s
+ * `const modules = architecture.modules ?? []` is what makes both derived lists
+ * empty on a flat config, so the filter below answers `[]` for the implicit
+ * module however this compares. Give that default anything but an empty list and
+ * this proof is void. The guard itself stays because it is what lets
+ * `module.name` be read at all.
  */
 function ownedElsewhere<T extends { allowedIn: string[] }>(
   rules: T[],
