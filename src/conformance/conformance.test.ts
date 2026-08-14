@@ -114,7 +114,7 @@ describe('greenfield scaffold — init alone completes (batches 1 & 4)', () => {
   it('init → inspect green → doctor passes all 7 checks', async () => {
     const dir = repo({ packageJson: react() });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(read(dir, 'blueprint.config.mjs')).toContain('reactPreset');
@@ -150,7 +150,7 @@ describe('"complete" says what it leaves out (field runs #71–#73)', () => {
     // said only "Adoption complete", so the two truths never met where a reader is.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--structure', 'flat', '--no-install']);
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
     const doctor = await cli(dir, ['doctor']);
@@ -168,7 +168,7 @@ describe('"complete" says what it leaves out (field runs #71–#73)', () => {
   it('drops the note once the repo is version-controlled', async () => {
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--structure', 'flat', '--no-install']);
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
     fs.mkdirSync(path.join(dir, '.git'));
 
@@ -186,7 +186,7 @@ describe('"complete" says what it leaves out (field runs #71–#73)', () => {
     // Two channels reporting the same run must not know different things.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--structure', 'flat', '--no-install']);
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
     const doctor = await cli(dir, ['doctor', '--json']);
@@ -612,7 +612,7 @@ describe('an instruction states its own reach too (field runs #91–#93)', () =>
     // places; this instruct did not — the same class, in my own new sentence.
     const dir = repo({ packageJson: react() });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(init.output).toContain('when there IS code inside a layer');
@@ -683,7 +683,7 @@ describe('a number and a rule the reader can act on (field run #89)', () => {
     // call the playbook keeps away from an adopting agent.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     const contract = read(dir, 'CLAUDE.md') ?? '';
 
@@ -901,7 +901,7 @@ describe('the same gap, one artifact further along (swept, not field-reported)',
     // waiting for a run to land on it.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     const handbook = read(dir, 'docs/architecture-handbook.md') ?? '';
 
@@ -923,7 +923,7 @@ describe('the same gap, one artifact further along (swept, not field-reported)',
       },
     });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     expect(init.code).toBe(0);
     // The reference is written, so a merge is genuinely ahead of the reader.
@@ -945,7 +945,7 @@ describe('one config, artifacts that agree about it (field runs #83–#84)', () 
     // generated from one config cannot contradict each other.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     const contract = read(dir, 'CLAUDE.md') ?? '';
 
@@ -970,7 +970,7 @@ describe('one config, artifacts that agree about it (field runs #83–#84)', () 
     // first file moves into a layer.
     const dir = repo({ packageJson: react() });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(init.output).toContain('`codeStyle` on at error tier');
@@ -1008,7 +1008,7 @@ describe('naming the cause, so a claim can be checked (field runs #79–#81)', (
       files: { '.gitignore': 'node_modules\ndocs/*\n!docs/keep.md\n' },
     });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(init.output).toContain('hidden by `docs/*`');
@@ -1022,7 +1022,7 @@ describe('naming the cause, so a claim can be checked (field runs #79–#81)', (
     // so it cannot go stale once code lands.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     const contract = read(dir, 'CLAUDE.md') ?? '';
 
@@ -1267,7 +1267,7 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
     expect(flattenProse(read(npmRepo, 'blueprint-authoring.md') ?? '')).toContain('`npm run lint`');
 
     // And the two config-only emitters name no runner on either repo.
-    await cli(pnpmRepo, ['init', '--preset', '--no-install']);
+    await cli(pnpmRepo, ['init', '--structure', 'flat', '--preset', '--no-install']);
 
     for (const file of ['CLAUDE.md', 'docs/architecture-handbook.md']) {
       const text = read(pnpmRepo, file) ?? '';
@@ -1407,7 +1407,7 @@ describe('init UX honesty — re-runs and starters tell the truth (batch 10)', (
       },
     });
 
-    const first = await cli(dir, ['init', '--no-install']);
+    const first = await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     expect(first.code).toBe(0);
     expect(read(dir, 'tsconfig.json')).toContain('"~app/*"');
@@ -1419,7 +1419,7 @@ describe('init UX honesty — re-runs and starters tell the truth (batch 10)', (
     // The scaffolded config imports the package; offline fixtures swap it for data.
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
-    const second = await cli(dir, ['init', '--no-install']);
+    const second = await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     expect(second.code).toBe(0);
     // The field complaint: init #2 printed "Add the import alias to
@@ -1457,7 +1457,7 @@ describe('an injected-plugin gate cannot go silently vacuous', () => {
       packageJson: { ...react(), devDependencies: { typescript: '^5.0.0' } },
     });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--structure', 'flat', '--no-install']);
     const config = read(dir, 'eslint.config.mjs') ?? '';
 
     expect(init.code).toBe(0);
@@ -1470,7 +1470,7 @@ describe('an injected-plugin gate cannot go silently vacuous', () => {
   it('a JS project still gets stylistic — only the TS argument drops', async () => {
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     const config = read(dir, 'eslint.config.mjs') ?? '';
 
@@ -1524,7 +1524,7 @@ describe('--agent persists into the scaffold — no chicken-and-egg (field issue
   it('first init with --agent claude emits one contract and declares it in the config', async () => {
     const dir = repo({ packageJson: react() });
 
-    const init = await cli(dir, ['init', '--agent', 'claude', '--no-install']);
+    const init = await cli(dir, ['init', '--structure', 'flat', '--agent', 'claude', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(read(dir, 'blueprint.config.mjs')).toContain('emit: { agents: [\'claude\'] }');
@@ -1566,7 +1566,7 @@ describe('scaffold matches the doctrine — no invented structure (batch 11)', (
       files: { 'src/App.jsx': 'export const App = () => null;' },
     });
 
-    const init = await cli(rooted, ['init', '--no-install']);
+    const init = await cli(rooted, ['init', '--structure', 'flat', '--no-install']);
 
     expect(init.code).toBe(0);
     // Code already lives here — an unbuilt layer's absence is its true
@@ -1576,7 +1576,7 @@ describe('scaffold matches the doctrine — no invented structure (batch 11)', (
 
     const empty = repo({ packageJson: react() });
 
-    await cli(empty, ['init', '--no-install']);
+    await cli(empty, ['init', '--structure', 'flat', '--no-install']);
 
     // A truly empty tree still gets the guidance scaffold.
     expect(read(empty, 'src/components/.gitkeep')).toBe('');
@@ -1585,7 +1585,7 @@ describe('scaffold matches the doctrine — no invented structure (batch 11)', (
   it('re-init removes the stale generated contract when emit.agents narrows', async () => {
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     expect(read(dir, 'AGENTS.md')).toContain('<!-- BLUEPRINT:START -->');
 
@@ -1596,7 +1596,7 @@ describe('scaffold matches the doctrine — no invented structure (batch 11)', (
       emit: { agents: ['claude'] },
     }));
 
-    const second = await cli(dir, ['init', '--no-install']);
+    const second = await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     expect(second.code).toBe(0);
     expect(second.output).toContain('stale agent contract');
@@ -1609,7 +1609,7 @@ describe('one story per state — the tools do not contradict each other (field 
   it('doctor never claims a baseline on a truly clean repo', async () => {
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--structure', 'flat', '--no-install']);
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
     const doctor = await cli(dir, ['doctor']);
@@ -1794,7 +1794,7 @@ describe('doctor and the playbook define "done" identically (field issue #13)', 
 
     // The early-exit route: playbook written, preset scaffolded over it.
     await cli(dir, ['init', '--authoring', '--no-install']);
-    await cli(dir, ['init', '--preset', '--no-install']);
+    await cli(dir, ['init', '--structure', 'flat', '--preset', '--no-install']);
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
     // Wiring is complete but the playbook still sits on disk — the state
@@ -1867,7 +1867,7 @@ describe('one output, one story — no snippet contradicts its own prose (field 
       },
     });
 
-    const init = await cli(dir, ['init', '--preset', '--no-install']);
+    const init = await cli(dir, ['init', '--structure', 'flat', '--preset', '--no-install']);
 
     expect(init.code).toBe(0);
 
@@ -2019,7 +2019,7 @@ describe('merge caveats meet the agent at the point of need (batch 14)', () => {
       },
     });
 
-    const init = await cli(dir, ['init', '--preset', '--no-install']);
+    const init = await cli(dir, ['init', '--structure', 'flat', '--preset', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(init.output).toContain('TS7016');
@@ -2170,7 +2170,7 @@ describe('init and doctor tell one alias story; integrated contracts stay fresh 
       },
     });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(init.output).toContain('KEEP the');
@@ -2195,7 +2195,7 @@ describe('init and doctor tell one alias story; integrated contracts stay fresh 
       },
     }));
 
-    const second = await cli(dir, ['init', '--no-install']);
+    const second = await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     expect(second.code).toBe(0);
 
@@ -2300,7 +2300,7 @@ describe('init output reads correctly when skimmed (field issues #34, #36)', () 
 
     // A plain init leaves a pristine preset scaffold; --authoring reclaims it
     // so the playbook can author the real one.
-    expect((await cli(dir, ['init', '--no-install'])).code).toBe(0);
+    expect((await cli(dir, ['init', '--structure', 'flat', '--no-install'])).code).toBe(0);
 
     const authoring = await cli(dir, ['init', '--authoring', '--no-install']);
 
@@ -2317,7 +2317,7 @@ describe('init output reads correctly when skimmed (field issues #34, #36)', () 
   it('the install line does not stutter its own kind', async () => {
     const dir = repo({ packageJson: react() });
 
-    const plan = await cli(dir, ['init', '--dry-run']);
+    const plan = await cli(dir, ['init', '--structure', 'flat', '--dry-run']);
 
     expect(plan.code).toBe(0);
     expect(plan.output).toContain('would install: eslint,');
@@ -2357,7 +2357,7 @@ describe('the required deps install on the stack the project is on (field issues
   it('importBlock rides import-x — config, install set and catalog agree', async () => {
     const dir = repo({ packageJson: react({ typescript: '^5.0.0' }) });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--structure', 'flat', '--no-install']);
 
     expect(init.code).toBe(0);
     // npm resolves the required-deps list as a unit, so one carrier the
@@ -2578,7 +2578,7 @@ describe('the handbook does not promise a gate that does not exist (field issue 
   it('a generated handbook marks which machine holds each declared rule', async () => {
     const dir = repo({ packageJson: react() });
 
-    expect((await cli(dir, ['init', '--no-install'])).code).toBe(0);
+    expect((await cli(dir, ['init', '--structure', 'flat', '--no-install'])).code).toBe(0);
 
     const handbook = read(dir, 'docs/architecture-handbook.md') ?? '';
 
@@ -3095,7 +3095,7 @@ describe('a principle names its own boundary (field runs #104, #106)', () => {
       },
     });
 
-    await cli(dir, ['init', '--preset', '--no-install']);
+    await cli(dir, ['init', '--structure', 'flat', '--preset', '--no-install']);
 
     const reference = read(dir, 'eslint.config.blueprint.mjs') ?? '';
 

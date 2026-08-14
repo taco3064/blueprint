@@ -6,6 +6,7 @@ import { handbookPath } from '../emit/docs';
 import { analyze } from '../inspect/analyze';
 import { scan } from '../inspect/scan';
 import type { Blueprint } from '../config';
+import { NEXT_STRUCTURE_REFUSAL } from '../presets';
 import { ignoredArtifacts } from './ignored';
 import {
   buildConfigSource,
@@ -104,8 +105,13 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   // layers already exist and must be *read*. Emit the authoring playbook
   // instead (an agent or a human executes it; init runs again after).
   let forkNote: string | null = null;
+  let structureNote: string | null = null;
 
-  if ((!state.hasConfig || (options.authoring && pristine)) && options.preset !== true) {
+  // The survey runs whenever init is about to GENERATE a config, `--preset`
+  // included: the structure question below is decided by the file count, and on
+  // the --preset path there was none. The flag governs the two sites inside this
+  // block — the authoring early return and the fork note — not the measurement.
+  if (!state.hasConfig || (options.authoring && pristine)) {
     // A no-srcDir Next project keeps its layers at the root — survey there so
     // the file count reflects reality, not an empty (missing) src/.
     const surveyRoot = state.hasNext && !state.nextSrcDir ? '.' : undefined;
@@ -115,7 +121,8 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     // the authoring flow rather than guessed at.
     const brownfield = survey.totalFiles >= BROWNFIELD_MIN_FILES;
 
-    if (options.authoring || brownfield || (state.hasNext && !state.nextRouter)) {
+    if (options.preset !== true
+      && (options.authoring || brownfield || (state.hasNext && !state.nextRouter))) {
       // Measured BEFORE anything is written: afterwards init cannot tell its own
       // directory, or the commands inside it, from the owner's (field run #139).
       return runAuthoring(root, state, survey, options, log, pristine, {
@@ -129,13 +136,51 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
       });
     }
 
+    // Where the one-way flow starts is a day-one decision, and init has no
+    // evidence for it on a tree this size — so it asks rather than defaulting.
+    if (!brownfield && options.structure === undefined) {
+      // The one exception, and the same condition `resolveBlueprint` picks the
+      // Next preset by: that preset builds one shape and takes no `structure`,
+      // so there is no choice to hand back. Not `hasNext` alone — a Next repo
+      // whose route tree could not be placed resolves the react preset here
+      // (only `--preset` reaches this fork in that state), and that one asks.
+      if (state.hasNext && state.nextRouter) {
+        // The two values are named before the shared text, because that text
+        // ends by telling the reader to drop the option — a sentence addressed
+        // to the modular case, and this run passed no option at all.
+        structureNote
+          = 'No --structure question on this run: init resolved the Next preset from the route '
+            + 'tree it detected. Every other fresh scaffold is asked, because there the choice is '
+            + 'the adopter\'s; here there is one shape — flat is what this preset builds, and '
+            + `modular is refused if you pass it. ${NEXT_STRUCTURE_REFUSAL}`;
+      } else {
+        throw new Error([
+          `blueprint init needs --structure here: ${survey.totalFiles} source files, below the `
+          + `brownfield threshold (${BROWNFIELD_MIN_FILES}) — there is nothing here to measure, `
+          + 'so this is your call, not a detection failure.',
+          '',
+          '  blueprint init --structure flat      the layers at the source root:',
+          '                                       src/components/, src/services/',
+          '  blueprint init --structure modular   feature modules at the source root, each',
+          '                                       holding those layers: src/<module>/services/',
+          '',
+          'init refuses rather than picking one because this is the one choice here that is '
+          + 'expensive to undo: the config migration is free, the file migration is not — '
+          + 'switching later moves every file under src/. Above the threshold init never asks; '
+          + 'it reads the layout you already have.',
+        ].join('\n'));
+      }
+    }
+
     // This fork is the biggest decision init makes — narrate it, and say
     // plainly that NO playbook is written here, or an agent told to execute
     // blueprint-authoring.md hunts for a file that does not exist.
-    forkNote
-      = `Fresh scaffold (${survey.totalFiles} source files < ${BROWNFIELD_MIN_FILES}) — `
-        + 'scaffolding the framework preset directly; no blueprint-authoring.md is written '
-        + 'on this path. Force the authoring playbook instead with: blueprint init --authoring.';
+    if (options.preset !== true) {
+      forkNote
+        = `Fresh scaffold (${survey.totalFiles} source files < ${BROWNFIELD_MIN_FILES}) — `
+          + 'scaffolding the framework preset directly; no blueprint-authoring.md is written '
+          + 'on this path. Force the authoring playbook instead with: blueprint init --authoring.';
+    }
   }
 
   // On a fresh scaffold the choice is PERSISTED into `emit.agents`, or the next
@@ -276,6 +321,8 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   );
 
   if (forkNote) log(`· ${forkNote}`);
+
+  if (structureNote) log(`· ${structureNote}`);
 
   if (options.dryRun) {
     // Nothing is applied, so listing the whole plan up front IS the report:
@@ -466,6 +513,18 @@ function runAuthoring(
         : ''
     }`,
   );
+
+  // The adopter answered a question this path never asks, and an answer nothing
+  // acknowledges reads as an answer that was taken. Not the greenfield refusal's
+  // twin: there the flag decides the config, here nothing downstream reads it.
+  if (options.structure) {
+    log(
+      `· --structure ${options.structure} was not used on this path: the playbook authors `
+      + 'architecture from the shape this repo already has — its survey evidence is inside the '
+      + 'document — so nothing here reads the flag. Want the preset scaffold instead? Re-run: '
+      + `blueprint init --preset --structure ${options.structure}`,
+    );
+  }
 
   if (options.dryRun) {
     // Nothing is applied, so listing the whole plan up front IS the report:

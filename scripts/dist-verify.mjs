@@ -182,9 +182,15 @@ await check('`init --dry-run` plans against a real fixture and writes nothing', 
   );
 
   const before = fs.readdirSync(dir).sort();
-  const { code, output } = runCmd(process.execPath, [binPath, 'init', '--dry-run', '--no-install'], {
-    cwd: dir,
-  });
+
+  // `--structure` is a precondition here rather than the thing under test: below
+  // the brownfield threshold init requires the answer before it plans anything.
+  // The check that it does require it is the next one.
+  const { code, output } = runCmd(
+    process.execPath,
+    [binPath, 'init', '--structure', 'flat', '--dry-run', '--no-install'],
+    { cwd: dir },
+  );
 
   expect(code === 0, `exited ${code}\n${output}`);
   expect(output.includes('blueprint.config.mjs'), 'the plan never mentions the config it would write');
@@ -194,6 +200,36 @@ await check('`init --dry-run` plans against a real fixture and writes nothing', 
   );
 
   return 'code 0, tree unchanged';
+});
+
+await check('a fresh tree without `--structure` exits 1 and names the option', () => {
+  // The `--framework` refusal's sibling, and the highest-traffic error this CLI
+  // emits: every greenfield adoption reaches it. Pinned on the bundle because
+  // the exit code is what a scripted adoption reads, and because a refusal that
+  // wrote a config anyway is only visible on a real tree.
+  const dir = tempDir('bp-dist-no-structure-');
+
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    JSON.stringify({ name: 'fixture', dependencies: { vue: '^3' } }),
+  );
+
+  const { code, output } = runCmd(process.execPath, [binPath, 'init', '--no-install'], { cwd: dir });
+
+  expect(code === 1, `exited ${code}, expected 1\n${output}`);
+  expect(output.includes('--structure'), 'the refusal does not name the option that resolves it');
+  expect(
+    output.includes('blueprint init --structure flat')
+    && output.includes('blueprint init --structure modular'),
+    `the refusal does not print both commands: ${JSON.stringify(output.trim())}`,
+  );
+  expect(
+    output.includes('not a detection failure'),
+    'the refusal does not carry its criterion',
+  );
+  expect(!fs.existsSync(path.join(dir, 'blueprint.config.mjs')), 'a refused run wrote a config');
+
+  return 'code 1, names --structure and both commands';
 });
 
 await check('`init --structure` decides the config it writes, and refuses a bad value', () => {
