@@ -1,5 +1,5 @@
 import type { Rule } from 'eslint';
-import { addressesModuleRoot, stripAlias } from '../inspect/resolve';
+import { addressesModuleRoot, stripAlias } from '../boundary';
 
 /**
  * Nothing inside a layer may reach up to its own module root, at any spelling.

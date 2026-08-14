@@ -10,17 +10,16 @@ import { dropTestFiles } from './filter';
 import { compareText } from './order';
 import {
   addressesModuleRoot,
-  aliasList,
-  buildFolderGraph,
-  buildModuleGraph,
   crossModuleTarget,
   entryResolver,
   layoutResolver,
   relativeVerdict,
   resolveSegments,
   stripAlias,
-} from './resolve';
-import type { EntryOf, FolderGraph, LayoutOf } from './resolve';
+} from '../boundary';
+import type { EntryOf, LayoutOf } from '../boundary';
+import { aliasList, buildFolderGraph, buildModuleGraph } from './resolve';
+import type { FolderGraph } from './resolve';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };

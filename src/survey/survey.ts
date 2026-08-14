@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { scan } from '../inspect/scan';
-import { resolveSegments, stripAlias } from '../inspect/resolve';
+import { resolveSegments, stripAlias } from '../boundary';
 import { detect, detectAliases } from '../project';
 import type { PackageManager } from '../project';
 import type { ScanResult } from '../inspect/types';
