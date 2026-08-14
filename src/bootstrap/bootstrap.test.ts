@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { BROWNFIELD_MIN_FILES } from './authoring';
 import { runInit } from './bootstrap';
+import { runDoctor, runInspect } from '../inspect';
 import { NEXT_STRUCTURE_REFUSAL, nextPreset, reactPreset, vuePreset } from '../presets';
 
 let root: string;
@@ -1892,5 +1893,135 @@ describe('runInit · a .gitignore that arrived with CRLF', () => {
     await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(read('.gitignore')).not.toContain('\r');
+  });
+});
+
+describe('runInit · a modular scaffold builds the modules, not the layers', () => {
+  const blueprint = () => reactPreset({ name: 'demo', structure: 'modular' });
+
+  // Injected: the real path dynamic-imports blueprint.config.mjs, which resolves
+  // `@kekkai/blueprint` from a temp dir that has no node_modules.
+  const loadConfig = async () => blueprint();
+
+  function fresh(): void {
+    writePkg({
+      name: 'demo',
+      dependencies: { react: '^19' },
+      devDependencies: { typescript: '^5' },
+    });
+  }
+
+  async function scaffold(): Promise<void> {
+    fresh();
+
+    await runInit(root, { install: false, structure: 'modular', log: silent });
+  }
+
+  it('creates the declared modules and their entries on an empty tree', async () => {
+    await scaffold();
+
+    expect(read('src/app/index.ts')).toContain('export {};');
+    expect(read('src/app/main.tsx')).toContain('export {};');
+    expect(read('src/common/index.ts')).toContain('export {};');
+  });
+
+  it('creates no layer folder under the config it wrote in the same run', async () => {
+    await scaffold();
+
+    // Every one of these was created by init until #261, under the modular config
+    // init wrote seconds earlier — and each is an `undeclared-module` in it, the
+    // exact position #240's note tells the adopter not to create.
+    for (const layer of blueprint().architecture.layers) {
+      expect(exists(`src/${layer.name}`), `src/${layer.name}`).toBe(false);
+    }
+  });
+
+  it('is clean under inspect, with the module notes gone and the layer notes runway', async () => {
+    await scaffold();
+
+    const { findings, ok } = await runInspect(root, { log: silent, loadConfig });
+
+    expect(ok).toBe(true);
+    expect(findings.filter((finding) => finding.severity === 'error')).toEqual([]);
+    expect(findings.filter((finding) => finding.severity === 'warn')).toEqual([]);
+
+    // Scoped by rule, and counted off the preset: the report carries other notes
+    // here (declaratory-self-only, owns-not-installed), so a total would read
+    // green while these moved.
+    expect(findings.filter((finding) => finding.rule === 'missing-layer'))
+      .toHaveLength(blueprint().architecture.layers.length);
+
+    // The load-bearing one: 2 before this ticket, 0 after. It is the only
+    // assertion here that the modules were really created — `missing-layer`
+    // could be 3 or 5 without moving it.
+    expect(findings.filter((finding) => finding.rule === 'missing-module')).toEqual([]);
+  });
+
+  it('leaves doctor\'s architecture check green on the tree it built', async () => {
+    await scaffold();
+
+    const { checks } = await runDoctor(root, { log: silent, loadConfig });
+    const architecture = checks.find((check) => check.label.includes('architecture'));
+
+    expect(architecture, 'doctor has no architecture check').toBeDefined();
+    expect(architecture).toMatchObject({ ok: true });
+    // A skip rides on `ok: true` by design, so the green has to be read twice.
+    expect(architecture?.skipped).toBeUndefined();
+  });
+
+  it('lists the modules as would-write under --dry-run and touches nothing', async () => {
+    fresh();
+
+    const lines: string[] = [];
+
+    await runInit(root, {
+      install: false,
+      dryRun: true,
+      structure: 'modular',
+      log: (message) => lines.push(message),
+    });
+
+    const out = lines.join('\n');
+
+    expect(out).toContain('would write: src/app/index.ts');
+    expect(out).toContain('would write: src/app/main.tsx');
+    expect(out).toContain('would write: src/common/index.ts');
+    expect(exists('src')).toBe(false);
+  });
+
+  it('scaffolds nothing on a tree that already holds code, and says why in the same run', async () => {
+    fresh();
+    fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/main.tsx'), 'export const x = 1;');
+    fs.writeFileSync(path.join(root, 'src/App.tsx'), 'export const y = 1;');
+
+    const lines: string[] = [];
+
+    await runInit(root, {
+      install: false,
+      structure: 'modular',
+      log: (message) => lines.push(message),
+    });
+
+    expect(exists('src/app')).toBe(false);
+    expect(exists('src/common')).toBe(false);
+
+    const out = lines.join('\n');
+
+    // All three jobs, on the arm where the third is the whole answer.
+    expect(out).toContain('No module folder was created');
+    expect(out).toContain('a net that catches nothing');
+    expect(out).toContain('cannot name a domain it has never seen');
+    expect(out).toContain('nothing on disk demonstrates it');
+  });
+
+  it('leaves a flat scaffold building layer folders and no module entry', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    await runInit(root, { install: false, structure: 'flat', log: silent });
+
+    expect(exists('src/services/.gitkeep')).toBe(true);
+    expect(exists('src/app')).toBe(false);
+    expect(exists('src/common')).toBe(false);
   });
 });
