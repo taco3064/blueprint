@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { analyze, detectCycle, detectCycles } from './analyze';
 import { crossModuleTarget } from '../boundary';
 import { defineBlueprint } from '../config';
+import type { ModuleDef } from '../config';
 import { vuePreset } from '../presets';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
@@ -50,7 +51,9 @@ describe('analyze · folders', () => {
     const withCode = analyze(scanOf([file(['components', 'Card', 'index.ts'])]), bp);
     const note = withCode.find((entry) => entry.rule === 'declaratory-self-only');
 
-    expect(note).toMatchObject({ severity: 'info', path: 'src/contexts' });
+    // `subject` stays empty on a flat project: `src/contexts` IS the layer, so the
+    // rule and the path identify the note without it.
+    expect(note).toMatchObject({ severity: 'info', path: 'src/contexts', subject: '' });
     expect(note?.message).toContain('cannot fire yet');
     expect(note?.message).toContain('hooks');
     // Flat: the layer's own folder IS its address, so nothing is spliced in. The
@@ -1246,11 +1249,53 @@ describe('analyze · a layer-level note under modules is addressed where an adop
     expect(note?.severity).toBe('info');
   });
 
+  it('addresses the layer-absence note the same way, and names the layer in `subject`', () => {
+    // This note sits beside the two above, in the same output, at the same path — so
+    // `rule` and `path` are shared by all three and `subject` is the only field left
+    // to tell them apart. One per layer nobody uses, in declaration order.
+    const notes = notesFor().filter((entry) => entry.rule === 'missing-layer');
+
+    expect(notes.map((entry) => `${entry.path} ${entry.subject}`))
+      .toEqual(['src hooks', 'src contexts']);
+
+    expect(notes[0].severity).toBe('info');
+    expect(notes[0].message).toContain('holds no code in any module yet — runway, not a todo');
+    expect(notes[0].message).toContain('Do not create `src/hooks`');
+  });
+
+  it('gives two selfOnly layers two identities, not one record written twice', () => {
+    // #231 moved this note's path to the source root and left `subject` empty, which
+    // gave both notes the same `rule` + `path` + `subject` — one baseline key for two
+    // findings, and one line for two layers in every consumer that keys on identity.
+    const twoSelfOnly = defineBlueprint({
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        modules: [{ name: 'GameStage', does: 'the run' }],
+        layers: [
+          { name: 'components', does: 'UI' },
+          { name: 'hooks', does: 'state', allowedImporters: [{ layer: 'components', selfOnly: true }] },
+          { name: 'contexts', does: 'wiring', allowedImporters: [{ layer: 'hooks', selfOnly: true }] },
+        ],
+      },
+    });
+
+    const notes = analyze(
+      { topDirs: ['GameStage'], files: [file(['GameStage', 'components', 'Ship.tsx'])] },
+      twoSelfOnly,
+    ).filter((entry) => entry.rule === 'declaratory-self-only');
+
+    expect(notes.map((entry) => `${entry.rule}|${entry.path}|${entry.subject}`))
+      .toEqual(['declaratory-self-only|src|hooks', 'declaratory-self-only|src|contexts']);
+  });
+
   it('spells the source root the way the config does', () => {
     // `sourceRoot: '.'` puts the layers at the project root, so the note is
     // addressed there and the folder it forbids carries no prefix either.
     expect(noteOf('owns-not-installed', '.')?.path).toBe('.');
     expect(noteOf('declaratory-self-only', '.')?.message).toContain('Do not create `contexts`');
+    expect(noteOf('missing-layer', '.')?.path).toBe('.');
+    expect(noteOf('missing-layer', '.')?.message).toContain('Do not create `hooks`');
   });
 });
 
@@ -1429,9 +1474,167 @@ describe('analyze · undeclared-module and missing-module', () => {
     expect(finding?.message).toContain('runway, not a todo');
     expect(finding?.message).toContain('the owner\'s call');
 
-    // And never in the layer's words.
-    expect(analyze(scanOfDirs(['GameStage'], []), modular).map((entry) => entry.rule))
-      .not.toContain('missing-layer');
+    // And never in the layer's words. Asserted as the whole identity of every note in
+    // that run rather than as the absence of a rule id: `missing-layer` IS in this
+    // output now, once per layer no module uses, and what makes it right is that it
+    // names a LAYER. An `not.toContain` here cannot tell the two apart.
+    expect(analyze(scanOfDirs(['GameStage'], []), modular)
+      .map((entry) => `${entry.rule}|${entry.path}|${entry.subject}`))
+      .toEqual([
+        'missing-module|src/Combat|',
+        'missing-module|src/Session|',
+        'missing-layer|src|hooks',
+      ]);
+  });
+});
+
+describe('analyze · a declared layer that no module uses', () => {
+  const withModules = (list: ModuleDef[]) => defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: list,
+      layers: [
+        { name: 'components', does: 'UI' },
+        { name: 'hooks', does: 'state' },
+      ],
+    },
+  });
+
+  const two: ModuleDef[] = [{ name: 'M1', does: 'one' }, { name: 'M2', does: 'two' }];
+
+  // A routing module and an ordinary one: `app` opts out of the layer vocabulary, so
+  // whatever its folders are called, no layer glob reaches inside them.
+  const optOut: ModuleDef[] = [
+    { name: 'app', does: 'routing', layers: false },
+    { name: 'M1', does: 'one' },
+  ];
+
+  /** Every layer this run reported as used by no module, in the order reported. */
+  const absent = (list: ModuleDef[], topDirs: string[], files: ScannedFile[]) =>
+    analyze({ topDirs, files }, withModules(list))
+      .filter((entry) => entry.rule === 'missing-layer')
+      .map((entry) => entry.subject);
+
+  it('reports it once for the layer, never once per module', () => {
+    // The whole list, so a per-module implementation fails on the duplicate rather
+    // than passing a `toContain` for the name it repeated.
+    expect(absent(two, ['M1', 'M2'], [
+      file(['M1', 'components', 'Card.ts']),
+      file(['M2', 'components', 'Panel.ts']),
+    ])).toEqual(['hooks']);
+  });
+
+  it('says nothing about a layer one module uses and another does not', () => {
+    // Ordinary, and reporting it would be the per-module noise #231 rejected.
+    expect(absent(two, ['M1', 'M2'], [
+      file(['M1', 'components', 'Card.ts']),
+      file(['M1', 'hooks', 'useX.ts']),
+      file(['M2', 'components', 'Panel.ts']),
+    ])).toEqual([]);
+  });
+
+  it('never counts a `layers: false` module as use, and still counts every other', () => {
+    // Both directions in one run: `app/components` does not make `components` used —
+    // nothing there answers to a layer glob — and `M1/hooks` does make `hooks` used,
+    // so the opt-out narrows the judgment without disabling it.
+    expect(absent(optOut, ['app', 'M1'], [
+      file(['app', 'components', 'Home.tsx']),
+      file(['M1', 'hooks', 'useX.ts']),
+    ])).toEqual(['components']);
+  });
+
+  it('names the opted-out folder a reader can see, and stops there', () => {
+    const note = analyze(
+      {
+        topDirs: ['app', 'M1'],
+        files: [file(['app', 'hooks', 'useNav.ts']), file(['M1', 'components', 'Card.ts'])],
+      },
+      withModules(optOut),
+    ).find((entry) => entry.rule === 'missing-layer');
+
+    expect(note?.subject).toBe('hooks');
+    // The bridge. "Holds no code in any module" beside a visible `src/app/hooks/` is
+    // two truths with nothing joining them, which reads as the tool being wrong.
+    expect(note?.message).toContain('Code under `src/app/hooks` is not counted');
+    expect(note?.message).toContain('`layers: false` opts a module out of the layer vocabulary');
+
+    // Explanatory, never corrective — and asserted as "the message ends here", since a
+    // remedy sentence telling an adopter to drop `layers: false` would be appended and
+    // would clear any `not.toContain` naming other words.
+    expect(note?.message.endsWith('a folder sharing this layer\'s name is not this layer.'))
+      .toBe(true);
+  });
+
+  it('leaves the clause out when no opted-out module holds the layer', () => {
+    const note = analyze(
+      { topDirs: ['M1', 'M2'], files: [file(['M1', 'components', 'Card.ts'])] },
+      withModules(two),
+    ).find((entry) => entry.rule === 'missing-layer');
+
+    // The address explanation is the last thing in the message, so the clause above is
+    // absent — again by where the text stops, not by naming phrases it avoids.
+    expect(note?.message.endsWith(
+      'a top-level folder holding source is an undeclared module, which `inspect` reports as '
+      + 'an error and which governs nothing.',
+    )).toBe(true);
+  });
+
+  it('fires on an empty tree too — there is deliberately no scan-size guard', () => {
+    // `missing-layer` has never had one: on a flat project it fires on an empty tree
+    // and always has, so a guard here would make one rule id behave two ways. And the
+    // "this reads like a todo on a scaffold" problem was answered for THIS finding by
+    // its second clause after field run #13, not by suppression — which is why
+    // `declaratory-self-only`'s guard next door is not the precedent to copy.
+    // Removing this is a decision, not a cleanup.
+    expect(absent(two, [], [])).toEqual(['components', 'hooks']);
+  });
+
+  it('does not count an undeclared folder as use, and the same run says why', () => {
+    const findings = analyze(
+      {
+        topDirs: ['M1', 'Achievements'],
+        files: [
+          file(['M1', 'components', 'Card.ts']),
+          file(['Achievements', 'hooks', 'useBadge.ts']),
+        ],
+      },
+      withModules([{ name: 'M1', does: 'one' }]),
+    );
+
+    expect(findings.filter((entry) => entry.rule === 'missing-layer').map((entry) => entry.subject))
+      .toEqual(['hooks']);
+
+    // The bridge asserted rather than assumed: the layer glob list is expanded from
+    // the declared modules, so nothing in `Achievements` is reached by one — and the
+    // reason an adopter needs is an error in the same output.
+    expect(findings.filter((entry) => entry.rule === 'undeclared-module').map((entry) => entry.path))
+      .toEqual(['src/Achievements']);
+  });
+
+  it('leaves a flat project\'s note exactly as it was', () => {
+    const flat = defineBlueprint({
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [{ name: 'components', does: 'UI' }, { name: 'hooks', does: 'state' }],
+      },
+    });
+
+    // The whole run, and the whole message: "nothing was appended, `subject` did not
+    // move, and no second note appeared" is a claim about the entire output, and a
+    // pair of `not.toContain`s passes on any text that dodges two phrases.
+    expect(analyze(
+      { topDirs: ['components'], files: [file(['components', 'Card.ts'])] },
+      flat,
+    )).toEqual([{
+      severity: 'info',
+      rule: 'missing-layer',
+      path: 'src/hooks',
+      subject: '',
+      message: 'Declared layer "hooks" has no folder yet — runway, not a todo: the rules arm when '
+        + 'code lands; keeping it is the default, slimming is the owner\'s call.',
+    }]);
   });
 });
 

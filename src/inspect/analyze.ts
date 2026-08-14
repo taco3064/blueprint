@@ -5,7 +5,7 @@ import {
   moduleDepth,
   normalizeAllowedImporters,
 } from '../config';
-import type { ArchitectureDef, Blueprint, OwnedPrimitive } from '../config';
+import type { ArchitectureDef, Blueprint, ModuleDef, OwnedPrimitive } from '../config';
 import { dropTestFiles } from './filter';
 import { compareText } from './order';
 import {
@@ -257,6 +257,39 @@ function folderFindings(
     }
   }
 
+  // Under `modules` the loop above checks the MODULE axis — `declaredTop` holds
+  // module names there — and the layer axis is checked nowhere, so a layer declared
+  // in config and present in no module produced no finding at all. Same rule id: it
+  // still describes a layer, and the two can never both fire for one name.
+  //
+  // No `scan.files.length` guard, deliberately. `missing-layer` has never had one —
+  // it fires on an empty flat tree and always has — and this finding's own history
+  // is where the answer to "it reads badly on a scaffold" already is: the second
+  // clause below, after field run #13. Suppressing the note would override that with
+  // the thing the wording fixed.
+  if (modular) {
+    for (const name of layerNames) {
+      const { governed, optedOut } = modulesHolding(scan, modules, name, depth);
+
+      if (governed.length) continue;
+
+      const { path, note } = layerAddress(architecture, name);
+
+      findings.push({
+        severity: 'info',
+        rule: 'missing-layer',
+        path,
+        // The layer's name, because every layer-level note under modules is addressed
+        // at the source root: `rule` + `path` no longer identify one, so the `''` this
+        // field documents for that case has lost its premise.
+        subject: name,
+        message: `Declared layer "${name}" holds no code in any module yet — runway, not a `
+          + 'todo: the rules arm when code lands; keeping it is the default, slimming is the '
+          + `owner's call.${note}${optedOutNote(prefix, name, optedOut)}`,
+      });
+    }
+  }
+
   // A selfOnly ban over a layer nobody inhabits is declaratory — info, because
   // intent declared early is not a defect (field batch 12). The note states the
   // collision as a CONDITION: it needs a second entry of that id, which inspect
@@ -285,7 +318,10 @@ function folderFindings(
           severity: 'info',
           rule: 'declaratory-self-only',
           path,
-          subject: '',
+          // Same reason as the note above, and the same value: under modules `path`
+          // is the source root for every layer, so two selfOnly layers left at `''`
+          // are one record written twice.
+          subject: modular ? layer.name : '',
           message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands.${note} The no-restricted-syntax ENTRY is emitted today, on the importer layer(s) named above, so it is already exposed to a merge: IF a second no-restricted-syntax scoped to one of those layers exists, flat config merges neither into the other — the later entry replaces the earlier, silently, with lint still green. That condition is the whole note. Adopting into a single generated config, there is no second entry, so there is nothing here to act on. "Cannot fire" is about the ban, not about the entry. Check \`blueprint rules --json\` for the emit points before merging.`,
         });
       }
@@ -295,6 +331,66 @@ function folderFindings(
   findings.push(...noEntryFindings(scan, architecture, layerNames, depth));
 
   return findings;
+}
+
+/**
+ * Which declared modules hold code inside `layer`, split by whether they answer to
+ * the layer vocabulary at all.
+ *
+ * Files, not `scan.topDirs`: that list is the first level under the source root, so a
+ * layer folder sits inside a module and never appears in it — a real difference from
+ * the flat check next door, which can read a layer's own top-level folder.
+ *
+ * `layers: false` modules are counted apart rather than skipped. They are not evidence
+ * the layer governs anything — no layer glob is emitted inside them — but their folders
+ * are visible to whoever reads the note, so the message has to account for them.
+ *
+ * Its own measurement rather than the one `declaratory-self-only` uses: that one asks
+ * only whether a file sits at layer depth, which counts an undeclared top folder and a
+ * `layers: false` module alike.
+ */
+function modulesHolding(
+  scan: ScanResult,
+  modules: ModuleDef[],
+  layer: string,
+  depth: number,
+): { governed: string[]; optedOut: string[] } {
+  const governed: string[] = [];
+  const optedOut: string[] = [];
+
+  for (const module of modules) {
+    const holds = scan.files.some(
+      (file) => file.segments[0] === module.name && file.segments[depth] === layer,
+    );
+
+    if (!holds) continue;
+
+    if (module.layers === false) optedOut.push(module.name);
+    else governed.push(module.name);
+  }
+
+  return { governed, optedOut };
+}
+
+/**
+ * The `layers: false` folders a reader can see, and why they count for nothing here.
+ *
+ * Emitted only when such a file exists, and it names paths rather than modules because
+ * a path is what the reader greps. "Holds no code in any module" beside a visible
+ * `src/app/hooks/` is two truths with no bridge, which reads as the tool being wrong.
+ *
+ * Explanatory, never corrective: opting a module out of the layer vocabulary is a
+ * design decision about a module whose internals are its router's business, so there is
+ * no next step to name — and a sentence implying one would push an adopter to undo it.
+ */
+function optedOutNote(prefix: string, layer: string, optedOut: string[]): string {
+  if (!optedOut.length) return '';
+
+  const paths = optedOut.map((name) => `\`${prefix}${name}/${layer}\``).join(', ');
+
+  return ` Code under ${paths} is not counted: \`layers: false\` opts a module out of the layer `
+    + 'vocabulary, so no layer glob is emitted inside it and a folder sharing this layer\'s name '
+    + 'is not this layer.';
 }
 
 /**
