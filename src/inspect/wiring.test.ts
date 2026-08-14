@@ -1045,7 +1045,10 @@ describe('wiringCheck · the module-root ban is verified, not assumed', () => {
 
         const merged = emitLint(modular)
           .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
-          .reduce((rules, entry) => ({ ...rules, ...entry.rules }), {});
+          .reduce<Record<string, unknown>>(
+            (rules, entry) => ({ ...rules, ...entry.rules }),
+            {},
+          );
 
         return { rules: over ? over(merged) : merged };
       }),
