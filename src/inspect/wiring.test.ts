@@ -2,6 +2,12 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
+// Test-only import of the full emit module — src keeps the patterns-leaf
+// boundary. The modular probe below has to resolve the REAL emitted entries,
+// because a paraphrase of them would agree with the expectations by
+// construction and prove nothing about either.
+import { emitLint } from '../emit/lint';
+import { globToRegExp } from './filter';
 import type { ScanResult } from './types';
 import { expectedStructural, wiringCheck } from './wiring';
 
@@ -862,5 +868,156 @@ describe('wiringCheck · entries the reader could not make sense of', () => {
 
     expect(check.ok).toBe(true);
     expect(check.detail).toBeUndefined();
+  });
+});
+
+describe('expectedStructural · the module the probe came from', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      // Targets the project root, so it reaches the modules through a `src`
+      // prefix — the offset field issue #29 was about, one segment longer now.
+      additionalAliases: { '~root': '.' },
+      modules: [{ name: 'Fighter', does: 'the ship' }, { name: 'Combat', does: 'bullets' }],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' },
+        { name: 'hooks', does: 'state', layout: 'folder' },
+      ],
+    },
+    rules: { fixtureImports: 'error' },
+  };
+
+  it('scopes every alias group to that module, on every alias', () => {
+    // The module goes AFTER the alias's own offset, not before it: `~root`
+    // reaches `src` first and the module sits under that.
+    const groups = [...expectedStructural(modular, 'hooks', 'Fighter').groups].join(' ');
+
+    expect(groups).toContain('~app/Fighter/hooks/**');
+    expect(groups).toContain('~root/src/Fighter/hooks/**');
+    expect(groups).not.toContain('"~app/hooks/**"');
+  });
+
+  it('leaves the fixture roots unscoped — they belong to no module', () => {
+    // `~app/Fighter/fixtures` is a path no repo has. Scoping this group with
+    // the rest would make doctor report a loss on every modular repo that
+    // declares the gate, against a config emitLint wrote correctly.
+    const groups = [...expectedStructural(modular, 'hooks', 'Fighter').groups].join(' ');
+
+    expect(groups).toContain('~app/fixtures');
+    expect(groups).not.toContain('~app/Fighter/fixtures');
+  });
+
+  it('asked without the module, expects what a flat project emits', () => {
+    // The default arm is the flat project, not "any module" — a modular repo
+    // reaching it would compare unscoped groups against scoped ones and report
+    // the whole layer lost.
+    const groups = [...expectedStructural(modular, 'hooks').groups].join(' ');
+
+    expect(groups).toContain('~app/hooks/**');
+    expect(groups).not.toContain('Fighter');
+  });
+});
+
+describe('wiringCheck · a modular repo is probed inside a module', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [{ name: 'Fighter', does: 'the ship' }, { name: 'Combat', does: 'bullets' }],
+      layers: [{ name: 'components', does: 'UI', layout: 'folder' }],
+    },
+  };
+
+  /**
+   * Resolves the probe against the real emitted config, the way flat config
+   * does: every entry whose `files` match, later rules replacing earlier ones.
+   */
+  const probeModular = async (scanResult: ScanResult) => {
+    const probed: string[] = [];
+
+    const check = await wiringCheck({
+      root: '/repo',
+      blueprint: modular,
+      scanResult,
+      wired: true,
+      merged: true,
+      hasTypescript: true,
+      load: loader((filePath: string) => {
+        const probe = filePath.split(path.sep).join('/');
+
+        probed.push(probe);
+
+        const rel = probe.replace('/repo/', '');
+
+        return {
+          rules: emitLint(modular)
+            .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
+            .reduce((merged, entry) => ({ ...merged, ...entry.rules }), {}),
+        };
+      }),
+    });
+
+    return { probed, check };
+  };
+
+  it('compares the probe against ITS module\'s entry, so an intact config is green', async () => {
+    // The regression this guards: with the probe's module dropped, the
+    // expectations carry no module segment, nothing matches, and doctor calls
+    // every emitted pattern lost on a repo whose wiring is perfect.
+    const { probed, check } = await probeModular(
+      scanOf('src/Fighter/components/Hud/index.jsx'),
+    );
+
+    expect(probed).toEqual(['/repo/src/Fighter/components/Hud/index.jsx']);
+    expect(check.ok).toBe(true);
+    expect(check.detail).toBeUndefined();
+
+    // `ok` alone cannot carry this: a loader that throws is caught and returned
+    // as a SKIP riding on `ok: true`, so every assertion above passes while
+    // nothing was compared. This test read green that way once already.
+    expect(check.skipped).toBeUndefined();
+  });
+
+  it('turns red when the module\'s own entry is the one a merge replaced', async () => {
+    // The other direction, because a check that cannot fail is not a check:
+    // the same probe against a config that kept everything EXCEPT this
+    // module's structural entry has to name the loss.
+    const probed: string[] = [];
+
+    const check = await wiringCheck({
+      root: '/repo',
+      blueprint: modular,
+      scanResult: scanOf('src/Fighter/components/Hud/index.jsx'),
+      wired: true,
+      merged: true,
+      hasTypescript: true,
+      load: loader((filePath: string) => {
+        probed.push(filePath);
+
+        const rel = filePath.split(path.sep).join('/').replace('/repo/', '');
+
+        const merged = emitLint(modular)
+          .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
+          .reduce((rules, entry) => ({ ...rules, ...entry.rules }), {});
+
+        // What a later flat-config entry scoped to this module does: flat
+        // config never merges a rule two entries set, so the structural
+        // patterns are gone and lint stays green about it.
+        return { rules: { ...merged, 'no-restricted-imports': ['error', { patterns: [] }] } };
+      }),
+    });
+
+    expect(check.ok).toBe(false);
+    expect(check.detail).toContain('components: no-restricted-imports lost');
+  });
+
+  it('falls back to a synthetic probe inside a declared module, never a bare layer', async () => {
+    // `src/components/__blueprint_probe__…` matches no emitted entry on a
+    // modular repo, so the synthetic path has to carry a module too or the
+    // empty-layer arm resolves a config governing nothing.
+    const { probed } = await probeModular(scanOf());
+
+    expect(probed).toEqual(['/repo/src/Fighter/components/__blueprint_probe__.js']);
   });
 });

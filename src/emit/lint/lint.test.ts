@@ -966,3 +966,130 @@ describe('emitLint · a config that declares emit without a lint block', () => {
     expect((entry?.rules?.['no-restricted-imports'] as [string])[0]).toBe('error');
   });
 });
+
+describe('emitLint · the inner layer flow reaches inside a module', () => {
+  // #185 gave `files:` the module dimension and the alias patterns inside those
+  // entries did not follow, so `~app/hooks/**` was emitted against a tree whose
+  // only real spelling is `~app/GameStage/hooks/X` — three bans that matched
+  // nothing while `analyze` reported the same imports. Every case below is red
+  // through the real linter, not an assertion about the emitted text.
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'app', does: 'routing', layers: false, imports: ['GameStage'] },
+        { name: 'GameStage', does: 'the run', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets' },
+      ],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' },
+        { name: 'hooks', does: 'state', layout: 'folder' },
+      ],
+    },
+  });
+
+  const modularConfig = [
+    { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+    ...emitLint(modular),
+  ];
+
+  /** Restricted-rule ids reported for `code` when linted as `filename`. */
+  const banned = (code: string, filename: string): string[] =>
+    linter
+      .verify(code, modularConfig, { filename })
+      .map((message) => message.ruleId)
+      .filter((id): id is string => id != null && id.startsWith('no-restricted-'));
+
+  // A folder-layout unit, so `../useTick` addresses a sibling rather than the
+  // module root — at `hooks/useRun.ts` the same specifier is the upward edge.
+  const HOOK = 'src/GameStage/hooks/useRun/useRun.ts';
+  const COMPONENT = 'src/GameStage/components/Hud/Hud.tsx';
+
+  it('bans a same-layer import through the module-scoped alias', () => {
+    expect(banned('import { t } from "~app/GameStage/hooks/useTick";', HOOK))
+      .toContain('no-restricted-imports');
+  });
+
+  it('bans an upward-flow import through the module-scoped alias', () => {
+    expect(banned('import { Hud } from "~app/GameStage/components/Hud";', HOOK))
+      .toContain('no-restricted-imports');
+  });
+
+  it('bans a reach past a sibling unit\'s entry inside the module', () => {
+    expect(banned('import { x } from "~app/GameStage/hooks/useRun/impl";', COMPONENT))
+      .toContain('no-restricted-imports');
+  });
+
+  it('leaves the legal edges alone — the unit\'s entry, and a relative sibling', () => {
+    expect(banned('import { useRun } from "~app/GameStage/hooks/useRun";', COMPONENT)).toEqual([]);
+    expect(banned('import { t } from "../useTick";', HOOK)).toEqual([]);
+  });
+
+  it('says nothing about a cross-module edge — that ban is #182\'s', () => {
+    // Silent rather than green-by-accident: this entry governs the flow INSIDE
+    // GameStage, and a pattern here that happened to catch `~app/Combat/…`
+    // would be the module graph enforced by the wrong rule.
+    expect(banned('import { d } from "~app/Combat/hooks/useDamage";', HOOK)).toEqual([]);
+  });
+
+  it('emits one entry per (module, layer), each scoped to its own module', () => {
+    // The dimension cannot live on a shared entry: the ban names the importing
+    // module's own segment, so one entry across three modules would ban two of
+    // them from a path only the third can spell.
+    const entries = emitLint(modular).filter((entry) => entry.rules?.['no-restricted-imports']);
+
+    expect(entries).toHaveLength(4); // {GameStage, Combat} × {components, hooks}
+
+    for (const entry of entries) {
+      const module = entry.files?.[0].split('/')[1];
+
+      const groups = (
+        entry.rules?.['no-restricted-imports'] as [unknown, { patterns: { group: string[] }[] }]
+      )[1].patterns.flatMap((pattern) => pattern.group);
+
+      expect(entry.files).toHaveLength(1);
+
+      for (const group of groups.filter((glob) => glob.startsWith('~app'))) {
+        expect(group.startsWith(`~app/${module}/`)).toBe(true);
+      }
+    }
+  });
+
+  it('emits no layer entry for a layers:false module', () => {
+    // It has no layer flow to govern. Its files still carry the relative-escape
+    // entry, and #182 is what gives them their module-level bans.
+    const files = emitLint(modular).flatMap((entry) => entry.files ?? []);
+
+    expect(files.filter((glob) => glob.startsWith('src/app/'))).toEqual([
+      'src/app/**/*.{js,jsx,ts,tsx}',
+    ]);
+  });
+});
+
+describe('emitLint · the selfOnly selector reaches inside a module too', () => {
+  it('scopes the re-export ban to the importing module', () => {
+    // Same defect as the pattern groups, one rule over: a selector anchored at
+    // `^~app/contexts/` matches no modular specifier, so the ban is
+    // emitted, resolves, and fires on nothing.
+    const selfOnly = defineBlueprint({
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        modules: [{ name: 'Fighter', does: 'the ship' }],
+        layers: [
+          { name: 'views', does: 'screens' },
+          { name: 'contexts', does: 'providers', allowedImporters: [{ layer: 'views', selfOnly: true }] },
+        ],
+      },
+    });
+
+    const entry = emitLint(selfOnly).find((item) => item.rules?.['no-restricted-syntax']);
+
+    const selectors = (entry?.rules?.['no-restricted-syntax'] as [unknown, { selector: string }])
+      .slice(1)
+      .map((item) => (item as { selector: string }).selector);
+
+    expect(selectors[0]).toContain('~app\\u002FFighter\\u002Fcontexts\\u002F');
+  });
+});

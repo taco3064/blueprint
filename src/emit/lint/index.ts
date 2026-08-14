@@ -9,6 +9,7 @@ export {
   resolveGovernedFiles,
   resolveLayerFiles,
   resolveModuleFiles,
+  resolveModuleLayerFiles,
   resolveTestFiles,
   unavailableFromBlueprint,
 } from './patterns';

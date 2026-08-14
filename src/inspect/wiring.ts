@@ -11,8 +11,10 @@ import type { Blueprint } from '../config';
 import {
   buildStructuralPatterns,
   deriveGlobalRules,
-  resolveLayerFiles,
+  moduleScopes,
+  resolveModuleLayerFiles,
   resolveTestFiles,
+  scopedAliases,
   selfOnlyReexportSelector,
   toArray,
 } from '../emit/lint/patterns';
@@ -82,21 +84,35 @@ interface EslintApi {
 /** The tier check `emitLint` applies before emitting a rule. */
 
 /**
- * The structural artifacts emitLint emits for `layer`, in version-stable
- * form: pattern groups (glob arrays), selfOnly selectors, restricted global
- * names. Messages and severities are deliberately excluded — the installed
- * blueprint may be a different version than the one doctor runs from.
+ * The structural artifacts emitLint emits for `layer` inside `module`, in
+ * version-stable form: pattern groups (glob arrays), selfOnly selectors,
+ * restricted global names. Messages and severities are deliberately excluded —
+ * the installed blueprint may be a different version than the one doctor runs
+ * from.
+ *
+ * `module` is the probe's own module, `undefined` on a flat project. It is a
+ * parameter rather than something derived from the layer because the emitted
+ * entry is per (module, layer): asked without it on a modular repo, every
+ * group here would carry no module segment, none would match the resolved
+ * config, and doctor would report the whole layer as lost.
  */
 export function expectedStructural(
   blueprint: Blueprint,
   layer: string,
+  module?: string,
 ): { groups: Set<string>; selectors: Set<string>; globals: Set<string> } {
   const { architecture, rules } = blueprint;
 
   // The same offset-aware bases emitLint composes from — the expectations
   // and the emitted patterns cannot drift (field issue #29).
-  const aliases = aliasLayerRoots(architecture)
+  const roots = aliasLayerRoots(architecture)
     .map((root) => [root.alias, ...root.prefix].join('/'));
+
+  // Two bases, exactly as emitLint has them: the structural bans address a
+  // sibling INSIDE the importing module, while the fixture roots sit at the
+  // source root and belong to no module. Scoping both would ban
+  // `~app/Fighter/fixtures`, a path no repo has.
+  const aliases = scopedAliases(roots, module);
 
   const layouts = Object.fromEntries(
     architecture.layers.map((entry) => [
@@ -116,7 +132,7 @@ export function expectedStructural(
       .map((entry) => entry.name)
       .filter((name) => layouts[name] === 'folder' && name !== layer && !forbidden.includes(name)),
     fixtures: activeSetting(rules?.fixtureImports)
-      ? aliases.flatMap((alias) => [`${alias}/fixtures`, `${alias}/fixtures/**`])
+      ? roots.flatMap((alias) => [`${alias}/fixtures`, `${alias}/fixtures/**`])
       : [],
   });
 
@@ -154,11 +170,16 @@ function syntheticPath(glob: string): string | null {
  * some OTHER layer's rules, the exact scoping this check exists to catch. An empty
  * layer gets a synthetic probe, since `calculateConfigForFile` resolves by pattern
  * and never touches disk. Still a sample: one path stands in for the layer.
+ *
+ * The scopes are walked rather than their globs flattened, so the probe carries
+ * the module it came from: the emitted entry is per (module, layer), so a path
+ * without the module that produced it cannot be compared to anything. One probe
+ * still stands in for every module of a layer — #194 is where that stops.
  */
 function pickProbes(
   scanResult: ScanResult,
   blueprint: Blueprint,
-): { path: string; layer: string }[] {
+): { path: string; layer: string; module?: string }[] {
   const { architecture, framework } = blueprint;
   const ignores = toArray(architecture.layerFilesIgnore).map(globToRegExp);
   const tests = resolveTestFiles(architecture.testFiles).map(globToRegExp);
@@ -167,27 +188,40 @@ function pickProbes(
     (file) => !ignores.some((ignore) => ignore.test(file.path)),
   );
 
+  const scopes = moduleScopes(architecture);
+
   return architecture.layers.flatMap((layer) => {
-    const globs = resolveLayerFiles(layer.name, architecture, framework);
+    const candidates = scopes.map((module) => ({
+      module: module?.name,
+      globs: resolveModuleLayerFiles(layer.name, module, architecture, framework),
+    }));
 
-    const nets = globs.map(globToRegExp);
-    const hit = source.find((file) => nets.some((net) => net.test(file.path)));
+    for (const { module, globs } of candidates) {
+      const nets = globs.map(globToRegExp);
+      const hit = source.find((file) => nets.some((net) => net.test(file.path)));
 
-    if (hit) return [{ path: hit.path, layer: layer.name }];
+      if (hit) return [{ path: hit.path, layer: layer.name, module }];
+    }
 
-    // The synthetic candidate must sit exactly where a real file would:
-    // inside the net, outside the ignores, and never shaped like a test
-    // file (the emitted entries exempt those, so expectations would lie).
-    const synthetic = globs
-      .map(syntheticPath)
-      .find(
-        (candidate): candidate is string =>
-          candidate !== null
-          && !ignores.some((ignore) => ignore.test(candidate))
-          && !tests.some((test) => test.test(candidate)),
-      );
+    // A real file anywhere beats a synthetic one everywhere, so the whole set
+    // of scopes is asked for a hit before any of them is asked for a stand-in.
+    for (const { module, globs } of candidates) {
+      // The synthetic candidate must sit exactly where a real file would:
+      // inside the net, outside the ignores, and never shaped like a test
+      // file (the emitted entries exempt those, so expectations would lie).
+      const synthetic = globs
+        .map(syntheticPath)
+        .find(
+          (candidate): candidate is string =>
+            candidate !== null
+            && !ignores.some((ignore) => ignore.test(candidate))
+            && !tests.some((test) => test.test(candidate)),
+        );
 
-    return synthetic ? [{ path: synthetic, layer: layer.name }] : [];
+      if (synthetic) return [{ path: synthetic, layer: layer.name, module }];
+    }
+
+    return [];
   });
 }
 
@@ -360,7 +394,7 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
 
       unreadable += resolved.unreadable;
 
-      lost.push(...losses(expectedStructural(blueprint, probe.layer), resolved)
+      lost.push(...losses(expectedStructural(blueprint, probe.layer, probe.module), resolved)
         .map((loss) => `${probe.layer}: ${loss}`));
 
       // A gate declared in blueprint.config.mjs whose rule is absent from the
