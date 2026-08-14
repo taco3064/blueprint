@@ -45,6 +45,7 @@ export const noModuleRootImport: Rule.RuleModule = {
           module: { type: 'string' },
           depth: { type: 'integer', minimum: 0 },
         },
+        required: ['aliases', 'layers', 'module', 'depth'],
         additionalProperties: false,
       },
     ],
@@ -59,10 +60,10 @@ export const noModuleRootImport: Rule.RuleModule = {
   },
   create(context) {
     const options = context.options[0] as {
-      aliases?: string[];
-      layers?: string[];
-      module?: string;
-      depth?: number;
+      aliases: string[];
+      layers: string[];
+      module: string;
+      depth: number;
     } | undefined;
 
     // No option block means no module to be the root of, and a rule with
@@ -71,7 +72,11 @@ export const noModuleRootImport: Rule.RuleModule = {
     // rule with the block, so this arm belongs to a hand-written config.
     if (!options) return {};
 
-    const { aliases = [], layers = [], module = '', depth = 0 } = options;
+    // No per-field defaults, and the schema requires all four: a block missing
+    // `aliases` would leave nothing for `stripAlias` to match and the rule would
+    // govern nothing while resolving cleanly. Half a block is the same silent
+    // failure as no block, so it is refused rather than filled in.
+    const { aliases, layers, module, depth } = options;
 
     const check = (node: Rule.Node, specifier: string): void => {
       const parts = stripAlias(specifier, aliases);

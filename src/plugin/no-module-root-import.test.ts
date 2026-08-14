@@ -61,6 +61,19 @@ describe('blueprint/no-module-root-import', () => {
     });
   });
 
+  it('ignores a dynamic import whose argument is not a string', () => {
+    // `import(5)` is legal syntax and its source is a non-string Literal.
+    // Without the type test `stripAlias` would call `.startsWith` on a number
+    // and take ESLint down with it — a crash, not a finding.
+    tester.run('no-module-root-import', noModuleRootImport, {
+      valid: [
+        { code: 'const x = import(5);', options },
+        { code: 'const y = import(`~app/Fighter/Fighter`);', options },
+      ],
+      invalid: [],
+    });
+  });
+
   it('reads every alias base it was given', () => {
     const twoBases = [{ ...options[0], aliases: ['~app', '~root/src'] }];
 
@@ -117,11 +130,29 @@ describe('blueprint/no-module-root-import', () => {
         invalid: [],
       })).toThrow();
 
+    // A COMPLETE block with exactly one field wrong, so the only reason it can
+    // throw is that field. Written as partial blocks these passed for the wrong
+    // reason once `required` landed — every one of them failed on the missing
+    // keys, and the item types went back to being unasserted.
+    const whole = { aliases: ['~app'], layers: ['hooks'], module: 'Fighter', depth: 1 };
+
     refuses('not an object');
-    refuses({ aliases: '~app' });
-    refuses({ layers: [1] });
-    refuses({ module: 1 });
-    refuses({ depth: -1 });
-    refuses({ depth: 1, typo: true });
+    refuses({ ...whole, aliases: '~app' });
+    refuses({ ...whole, aliases: [1] });
+    refuses({ ...whole, layers: 'hooks' });
+    refuses({ ...whole, layers: [1] });
+    refuses({ ...whole, module: 1 });
+    refuses({ ...whole, depth: -1 });
+    refuses({ ...whole, depth: '1' });
+    refuses({ ...whole, typo: true });
+
+    // And half a block, which would leave `stripAlias` nothing to match — a
+    // rule that resolves cleanly while governing nothing is the failure this
+    // whole family is built against.
+    for (const key of Object.keys(whole)) {
+      const { [key]: _dropped, ...partial } = whole as Record<string, unknown>;
+
+      refuses(partial);
+    }
   });
 });
