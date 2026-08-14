@@ -144,6 +144,28 @@ describe('report · icons and the migration block', () => {
 });
 
 describe('report · the module findings are in both tables', () => {
+  it('gives structure-mismatch a remedy that defers to the finding for the edit', () => {
+    const rendered = report([{
+      severity: 'error',
+      rule: 'structure-mismatch',
+      path: 'src',
+      subject: '',
+      message: 'the tree matches none of it',
+    }]);
+
+    // Every other error id carries a step, and this one is the step that comes
+    // first — a reader scanning the migration block for the most important
+    // remedy in the report would find every id but this one.
+    expect(rendered).toContain('[structure-mismatch] Settle the `structure` choice before any single declaration');
+    // Direction-agnostic on purpose: the table is keyed by rule id and the two
+    // directions share one, so the edit lives where the direction is known.
+    expect(rendered).toContain('The finding names the edit for each answer.');
+    // `ENFORCED_BY: null`, and for a stronger reason than undeclared-module's:
+    // the config's structure picks the vocabulary every glob is expanded from,
+    // so lint runs inside the answer and cannot question it.
+    expect(rendered).toContain('(inspect only — never appears in a lint run)');
+  });
+
   it('gives undeclared-module a remedy and says lint never carries it', () => {
     const rendered = report([{
       severity: 'error',

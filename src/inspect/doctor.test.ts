@@ -3,8 +3,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { Blueprint } from '../config';
 import { vuePreset } from '../presets';
 import { runDoctor } from './doctor';
+import { runInspect } from './inspect';
 import { GENERATED_ESLINT_BANNER } from '../project';
 
 let root: string;
@@ -396,6 +398,11 @@ describe('runDoctor', () => {
 
   it('counts baselined findings as clean', async () => {
     adopted();
+    // Code inside a declared layer, so this is a brownfield repo with one accepted
+    // stray rather than a repo that is ENTIRELY the stray — which is a total
+    // structure mismatch (1 of 1 folders undeclared, 6 of 6 layers absent) and
+    // brings a second, unbaselined error with it.
+    write('src/components/Card/index.ts', 'export const Card = 1;');
     write('src/random/x.ts', 'export const x = 1;'); // undeclared folder → 1 finding
 
     // Record that finding as accepted debt — doctor should now read clean.
@@ -671,5 +678,44 @@ describe('runDoctor', () => {
     // `ok` is EVERY check passing, not any of them. A git hook or CI job gates
     // on this field, and "some check passed" is true of almost any repo.
     expect(JSON.parse(output).ok).toBe(false);
+  });
+});
+
+describe('runDoctor · a wrong structure choice reaches the architecture check', () => {
+  const modularConfig = async () => vuePreset({ structure: 'modular' });
+
+  /**
+   * Doctor's architecture check reads `analyze` through the same path `inspect`
+   * does, so what it inherits is the red and the count — never a sentence naming
+   * the structure. Asserted as the count `inspect` reports on the same tree: a
+   * filter that dropped the bridge on the way to doctor would be off by one, and
+   * a bare `ok: false` would pass, since the undeclared folders redden it anyway.
+   */
+  const carries = async (loadConfig: () => Promise<Blueprint>) => {
+    const { findings } = await runInspect(root, { loadConfig, log: silent });
+    const { ok, checks } = await runDoctor(root, { loadConfig, log: silent });
+    const check = checks.find((entry) => entry.label.includes('architecture'));
+
+    expect(findings.map((finding) => finding.rule)).toContain('structure-mismatch');
+    expect(ok).toBe(false);
+    expect(check?.ok).toBe(false);
+    expect(check?.detail).toContain(`${findings.length} finding(s)`);
+  };
+
+  it('carries a flat tree under a modular config', async () => {
+    adopted();
+    write('src/components/A.ts', 'export const a = 1;');
+    write('src/hooks/useB.ts', 'export const useB = () => 1;');
+    write('src/services/api.ts', 'export const api = 1;');
+
+    await carries(modularConfig);
+  });
+
+  it('carries a modular tree under a flat config', async () => {
+    adopted();
+    write('src/Fighter/index.ts', 'export const f = 1;');
+    write('src/Combat/index.ts', 'export const c = 1;');
+
+    await carries(load);
   });
 });
