@@ -408,3 +408,146 @@ describe('runDeps · the logger it uses when the caller supplies none', () => {
     spy.mockRestore();
   });
 });
+
+describe('runDeps · two meanings of "module"', () => {
+  /** A modular repo: Fighter and Combat both hold a `useInput` unit. */
+  function modular(): void {
+    fs.writeFileSync(
+      path.join(root, 'blueprint.config.mjs'),
+      `export default ${JSON.stringify({
+        framework: 'react',
+        architecture: {
+          alias: '~app',
+          modules: [
+            { name: 'app', does: 'routing', layers: false, imports: ['Fighter'] },
+            { name: 'Fighter', does: 'the ship', imports: ['Combat'] },
+            { name: 'Combat', does: 'bullets' },
+            { name: 'Loadout', does: 'points nobody spends yet' },
+          ],
+          layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+        },
+      })};\n`,
+    );
+
+    writeSrc('Combat/index.ts', 'export const attack = 1;');
+    writeSrc('Combat/hooks/useInput/useInput.ts', 'export const useInput = 1;');
+    writeSrc('Fighter/hooks/useInput/useInput.ts', 'import { attack } from \'~app/Combat\';');
+    writeSrc('Fighter/hooks/useLives/useLives.ts', 'import { u } from \'~app/Fighter/hooks/useInput\';');
+    writeSrc('Fighter/index.ts', 'export const Fighter = 1;');
+    writeSrc('app/routes/Game.ts', 'import { F } from \'~app/Fighter\';');
+    writeSrc('Loadout/hooks/usePoints/usePoints.ts', 'export const p = 1;');
+  }
+
+  it('keeps two modules\' same-named units apart in the graph', async () => {
+    modular();
+
+    const { units } = await runDeps(root, { log: silent });
+
+    expect(units.map((entry) => entry.unit).sort()).toContain('Fighter/hooks/useInput');
+    expect(units.map((entry) => entry.unit).sort()).toContain('Combat/hooks/useInput');
+  });
+
+  it('answers a bare module name at feature granularity', async () => {
+    modular();
+
+    const lines: string[] = [];
+    const { modules, units } = await runDeps(root, { target: 'Fighter', log: (m) => void lines.push(m) });
+
+    expect(units).toEqual([]);
+    expect(modules[0].module).toBe('Fighter');
+    // `app` reaches Fighter through its entry; Fighter reaches Combat.
+    expect(modules[0].importedBy).toEqual(['app']);
+    expect(modules[0].imports).toEqual(['Combat']);
+  });
+
+  it('answers a unit path at unit granularity, bounded by its module', async () => {
+    modular();
+
+    const lines: string[] = [];
+
+    const { units } = await runDeps(root, {
+      target: 'Fighter/hooks/useInput',
+      log: (m) => void lines.push(m),
+    });
+
+    expect(units[0].unit).toBe('Fighter/hooks/useInput');
+    expect(units[0].importedBy).toEqual(['Fighter/hooks/useLives']);
+    expect(units[0].module).toBe('Fighter');
+    // The second line: the radius the unit's own list stops at.
+    expect(units[0].moduleImportedBy).toEqual(['app']);
+
+    const text = lines.join('\n');
+
+    expect(text).toContain('Every importer above is inside "Fighter"');
+    expect(text).toContain('"Fighter" is imported by (1): app');
+  });
+
+  it('says so when a unit\'s module is imported by nothing', async () => {
+    modular();
+
+    const lines: string[] = [];
+
+    const { units } = await runDeps(root, {
+      target: 'Loadout/hooks/usePoints',
+      log: (m) => void lines.push(m),
+    });
+
+    expect(units[0].moduleImportedBy).toEqual([]);
+    expect(lines.join('\n')).toContain('imported by nothing — this unit\'s radius ends here');
+  });
+
+  it('prints both rankings, labelled, and never one silently', async () => {
+    modular();
+
+    const lines: string[] = [];
+
+    await runDeps(root, { log: (m) => void lines.push(m) });
+
+    const text = lines.join('\n');
+
+    expect(text).toContain('Blast radius per module (imported-by count):');
+    expect(text).toContain('Blast radius per unit (inside its own module — imported-by count):');
+  });
+
+  it('carries both lists under --json, and the inner one is `unit`', async () => {
+    modular();
+
+    const lines: string[] = [];
+
+    await runDeps(root, { json: true, log: (m) => void lines.push(m) });
+
+    const parsed = JSON.parse(lines.join('\n')) as {
+      modules: { module: string }[];
+      units: { unit: string; module: string }[];
+    };
+
+    expect(parsed.modules.some((entry) => entry.module === 'Fighter')).toBe(true);
+    expect(parsed.units.some((entry) => entry.unit === 'Fighter/hooks/useInput')).toBe(true);
+    // The rename is the point: no key holds both meanings.
+    expect(JSON.stringify(parsed.units)).not.toContain('"module":"Fighter/hooks');
+  });
+
+  it('never labels a feature module a flat layer', async () => {
+    // `layoutOf` answers `flat` for any name it does not know, and every module
+    // name is one — so the layer test in `isFlatLayer` is load-bearing now that
+    // the graph builds single-segment keys that are not layer names.
+    modular();
+
+    const lines: string[] = [];
+
+    await runDeps(root, { log: (m) => void lines.push(m) });
+
+    expect(lines.join('\n')).not.toContain('(flat layer)');
+  });
+
+  it('reports a folder outside the declared MODULES as skipped', async () => {
+    modular();
+    writeSrc('Achievements/hooks/useBadge/useBadge.ts', 'export const b = 1;');
+
+    const lines: string[] = [];
+
+    await runDeps(root, { log: (m) => void lines.push(m) });
+
+    expect(lines.join('\n')).toContain('Achievements/');
+  });
+});

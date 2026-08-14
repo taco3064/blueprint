@@ -1,5 +1,5 @@
 import type { AliasRoot, ArchitectureDef } from '../config';
-import { aliasLayerRoots, DEFAULT_MODULE_SHAPE, getModuleShape } from '../config';
+import { aliasLayerRoots, DEFAULT_MODULE_SHAPE, getModuleShape, moduleDepth } from '../config';
 import { dropTestFiles } from './filter';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
@@ -50,18 +50,37 @@ export function stripAlias(
 }
 
 /**
- * The module a path belongs to, under its own layer's layout. `depth` is
- * {@link moduleDepth} — the layer sits at `segments[depth]`.
+ * The node a path belongs to, under its own layer's layout. `depth` is
+ * {@link moduleDepth} — the layer sits at `segments[depth]`, and everything
+ * above it is the feature module.
+ *
+ * **The module segment is part of the key.** Without it `Fighter/hooks/useInput`
+ * and `Combat/hooks/useInput` collapse into one node: `detectCycles` can then
+ * report a cycle nobody wrote, and `relativeVerdict` answers `ok` to a relative
+ * import that crosses a module boundary into a same-named unit — a false
+ * negative in both gates at once, since they share this function.
+ *
+ * A path that stops at the module itself — `~app/Combat`, or a root file like
+ * `Fighter/index.ts` — keys to the feature, which is the node its entry stands
+ * for. At depth 0 there is no module segment and every arm below is what a flat
+ * project has always produced.
  */
 export function moduleKey(segments: string[], layoutOf: LayoutOf, depth = 0): string {
+  const module = segments.slice(0, depth);
+
+  // The module entry, and the root files that sit beside it.
+  if (depth > 0 && segments.length <= depth + 1) return module.join('/');
+
   const layer = segments[depth];
 
-  if (segments.length < depth + 2 || layoutOf(layer) === 'flat') return layer ?? '';
+  if (segments.length < depth + 2 || layoutOf(layer) === 'flat') {
+    return [...module, layer ?? ''].join('/');
+  }
 
   // A direct file module keeps its extension out of the key, so
   // `deps components/HelloWorld` and an import of `./HelloWorld.vue` both
   // resolve to the same module as the file `components/HelloWorld.vue`.
-  return `${layer}/${segments[depth + 1].replace(/\.[^.]+$/, '')}`;
+  return [...module, layer, segments[depth + 1].replace(/\.[^.]+$/, '')].join('/');
 }
 
 /** A layer's public entry filename, extension stripped. */
@@ -148,8 +167,9 @@ export function relativeVerdict(
     const ownRoot = isRoot(ownSegments, depth);
     const targetRoot = isRoot(target, depth);
 
-    // Root to root is the module's own composition talking to itself.
-    if (ownRoot && targetRoot) return 'ok';
+    // No root-to-root arm: both roots key to the module itself, so the
+    // equality test above already answered `ok` — the module's own composition
+    // talking to itself, decided one comparison earlier.
 
     // Upward. The root composes the layers; a layer that reaches back to it
     // inverts the flow the module exists to express.
@@ -212,33 +232,46 @@ export function resolveSegments(dir: string[], specifier: string): string[] | nu
   return stack;
 }
 
-/** The module a reference targets, or null if it is not a resolvable module import. */
+/**
+ * The node a reference targets, or null if it is not a resolvable import.
+ *
+ * Both arms read the same offset. Given it to the alias arm alone, one function
+ * would key `~app/Combat/hooks/attack` at module depth and
+ * `../../Combat/hooks/attack` at layer depth — two nodes for one file, and a
+ * graph that disagrees with itself about what a segment is.
+ */
 export function targetModuleKey(
   ref: ImportRef,
   file: ScannedFile,
   aliases: (AliasRoot | string)[],
   layerNames: string[],
   layoutOf: LayoutOf,
+  depth = 0,
 ): string | null {
   const parts = stripAlias(ref.specifier, aliases);
 
   if (parts) {
-    return layerNames.includes(parts[0]) ? moduleKey(parts, layoutOf) : null;
+    // `~app/Combat` addresses a module entry — the one legal cross-module
+    // spelling, and the edge that matters most in a modular repo. Read through
+    // the layer test alone it reaches no declared layer and vanishes.
+    if (depth > 0 && parts.length <= depth) return moduleKey(parts, layoutOf, depth);
+
+    return layerNames.includes(parts[depth]) ? moduleKey(parts, layoutOf, depth) : null;
   }
 
   if (ref.specifier.startsWith('.')) {
     const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
 
-    return target ? moduleKey(target, layoutOf) : null;
+    return target ? moduleKey(target, layoutOf, depth) : null;
   }
 
   return null;
 }
 
 export interface ModuleGraph {
-  /** Every module observed under a declared layer. */
+  /** Every node observed — a unit under a declared layer, or a module root. */
   modules: Set<string>;
-  /** `from` module → the modules it imports (self-edges excluded). */
+  /** `from` node → the nodes it imports (self-edges excluded). */
   edges: Map<string, Set<string>>;
 }
 
@@ -251,18 +284,37 @@ export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef
   const layerNames = architecture.layers.map((layer) => layer.name);
   const aliases = aliasList(architecture);
   const layoutOf = layoutResolver(architecture);
+  const depth = moduleDepth(architecture);
+
+  // A `layers: false` module has no layer vocabulary, so nothing inside it
+  // sits at a declared layer and the whole module is one node. Read through the
+  // layer test it contributes nothing at all — and the routing module is
+  // usually the one importing everything, so its edges are the ones a reader
+  // would miss first.
+  const unlayered = new Set(
+    (architecture.modules ?? []).filter((module) => module.layers === false)
+      .map((module) => module.name),
+  );
+
   const modules = new Set<string>();
   const edges = new Map<string, Set<string>>();
 
   for (const file of scan.files) {
-    if (!layerNames.includes(file.segments[0])) continue;
+    // The module root is a node of its own: it is where a module's composition
+    // code sits, and `Fighter/index.ts` importing `~app/Combat` is the edge a
+    // reader of this graph most wants. Judged by the layer test alone it is
+    // skipped, because its segment at layer depth is a filename.
+    const whole = depth > 0 && unlayered.has(file.segments[0]);
+    const isRoot = depth > 0 && file.segments.length === depth + 1;
 
-    const from = moduleKey(file.segments, layoutOf);
+    if (!whole && !isRoot && !layerNames.includes(file.segments[depth])) continue;
+
+    const from = whole ? file.segments[0] : moduleKey(file.segments, layoutOf, depth);
 
     modules.add(from);
 
     for (const ref of file.imports) {
-      const to = targetModuleKey(ref, file, aliases, layerNames, layoutOf);
+      const to = targetModuleKey(ref, file, aliases, layerNames, layoutOf, depth);
 
       if (to && to !== from) {
         edges.set(from, (edges.get(from) ?? new Set()).add(to));

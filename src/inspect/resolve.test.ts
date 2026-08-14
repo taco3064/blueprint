@@ -322,3 +322,84 @@ describe('relativeVerdict · the implicit module root', () => {
     expect(at0(['Fighter', 'Ship', 'index.ts'], ['hooks', 'useInput'])).toBe('leaves-layer');
   });
 });
+
+describe('moduleKey · the module segment is part of the key', () => {
+  const folder = () => 'folder' as const;
+
+  it('keeps two modules\' same-named units apart', () => {
+    // Collapsed, `detectCycles` reports a cycle nobody wrote and
+    // `relativeVerdict` calls a cross-module reach `ok` — one dropped segment,
+    // a fabricated finding in one gate and a missing one in the other.
+    expect(moduleKey(['Fighter', 'hooks', 'useInput', 'x.ts'], folder, 1))
+      .toBe('Fighter/hooks/useInput');
+
+    expect(moduleKey(['Combat', 'hooks', 'useInput', 'y.ts'], folder, 1))
+      .toBe('Combat/hooks/useInput');
+  });
+
+  it('keys a module entry and its root files to the feature itself', () => {
+    // `~app/Combat` and `Fighter/index.ts` both address the whole module —
+    // the node its entry stands for.
+    expect(moduleKey(['Combat'], folder, 1)).toBe('Combat');
+    expect(moduleKey(['Fighter', 'index.ts'], folder, 1)).toBe('Fighter');
+  });
+
+  it('leaves a flat project\'s keys exactly as they were', () => {
+    expect(moduleKey(['hooks', 'useCart', 'useCart.ts'], folder)).toBe('hooks/useCart');
+    expect(moduleKey(['hooks'], folder)).toBe('hooks');
+    expect(moduleKey([], folder)).toBe('');
+    expect(moduleKey(['views', 'Home.vue'], () => 'flat')).toBe('views');
+  });
+});
+
+describe('relativeVerdict · a relative reach into another module', () => {
+  it('leaves the module even when the unit names match', () => {
+    // The defect the collapsed key hid: both sides keyed `hooks/useInput`, so
+    // the equality test answered `ok` before the module check ever ran — in
+    // BOTH gates, since they share this function.
+    expect(relativeVerdict(
+      ['Fighter', 'hooks', 'useInput', 'x.ts'],
+      ['Combat', 'hooks', 'useInput', 'y'],
+      () => 'folder',
+      () => 'index',
+      1,
+    )).toBe('leaves-module');
+  });
+});
+
+describe('targetModuleKey · both spellings of one target', () => {
+  const ref = (specifier: string) => ({ specifier, names: [], isExport: false });
+
+  const from = {
+    path: 'src/Fighter/hooks/useInput/useInput.ts',
+    segments: ['Fighter', 'hooks', 'useInput', 'useInput.ts'],
+    imports: [],
+  };
+
+  it('lands the alias and the relative form on one node', () => {
+    // Given the offset to one arm only, the same file becomes two nodes and
+    // the graph disagrees with itself about what a segment is.
+    const alias = targetModuleKey(ref('~app/Combat'), from, ['~app'], ['hooks'], () => 'folder', 1);
+    const rel = targetModuleKey(ref('../../../Combat'), from, ['~app'], ['hooks'], () => 'folder', 1);
+
+    expect(alias).toBe('Combat');
+    expect(rel).toBe('Combat');
+  });
+
+  it('reads a unit inside another module at the same offset', () => {
+    expect(targetModuleKey(
+      ref('~app/Combat/hooks/useDamage'), from, ['~app'], ['hooks'], () => 'folder', 1,
+    )).toBe('Combat/hooks/useDamage');
+  });
+
+  it('keeps a flat project\'s answers', () => {
+    const flat = { path: 'src/views/Home.ts', segments: ['views', 'Home.ts'], imports: [] };
+
+    expect(targetModuleKey(ref('~app/hooks/useCart'), flat, ['~app'], ['hooks'], () => 'folder'))
+      .toBe('hooks/useCart');
+
+    // Not a declared layer — invisible to the graph, as it always was.
+    expect(targetModuleKey(ref('~app/nope/x'), flat, ['~app'], ['hooks'], () => 'folder'))
+      .toBeNull();
+  });
+});
