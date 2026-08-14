@@ -403,3 +403,17 @@ describe('targetModuleKey · both spellings of one target', () => {
       .toBeNull();
   });
 });
+
+describe('targetModuleKey · the alias root itself', () => {
+  it('is not a node on a flat project', () => {
+    // `~app` alone reaches the source root, which is not a layer and not a
+    // module. The module-entry arm is guarded on depth for exactly this: read
+    // without it, a bare alias becomes an empty-keyed node in every flat graph.
+    const flat = { path: 'src/views/Home.ts', segments: ['views', 'Home.ts'], imports: [] };
+
+    expect(targetModuleKey(
+      { specifier: '~app', names: [], isExport: false },
+      flat, ['~app'], ['views'], () => 'folder',
+    )).toBeNull();
+  });
+});
