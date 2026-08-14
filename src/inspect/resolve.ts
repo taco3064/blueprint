@@ -389,8 +389,16 @@ function folderTarget(
 ): string | null {
   const parts = stripAlias(ref.specifier, aliases);
 
+  // undecidable, both length tests: an empty list reads `[0]` as `undefined`,
+  // and `folders.has(undefined)` is false — the same null the guard produces.
+  // They stay because "the alias root is not a folder" is a statement worth
+  // being able to read here, not an accident of how `Set.has` treats a hole.
   if (parts) return parts.length > 0 && folders.has(parts[0]) ? parts[0] : null;
 
+  // undecidable, the relative test: a bare package name resolves against this
+  // file's own directory, so its first segment is this file's own folder and
+  // the self-edge check drops it. The test stays because that is a coincidence
+  // of where the file sits, not a decision this function should lean on.
   if (ref.specifier.startsWith('.')) {
     const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
 

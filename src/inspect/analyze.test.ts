@@ -1329,3 +1329,82 @@ describe('analyze · undeclared-module and missing-module', () => {
       .not.toContain('missing-layer');
   });
 });
+
+describe('analyze · the position hint is measured, not approximated', () => {
+  const four = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'App', does: 'first', imports: ['Boss', 'Combat', 'Session'] },
+        { name: 'Boss', does: 'second', imports: ['Combat', 'Session'] },
+        { name: 'Combat', does: 'third', imports: ['Session'] },
+        { name: 'Session', does: 'last' },
+      ],
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    },
+  });
+
+  const hint = (files: ScannedFile[], dirs: string[]) =>
+    analyze({ topDirs: dirs, files }, four)
+      .find((entry) => entry.rule === 'undeclared-module')?.message ?? '';
+
+  it('counts only declared modules as evidence', () => {
+    // Two undeclared folders reaching each other says nothing about where
+    // either sits among the declared ones — reported, it reads as a bound.
+    const message = hint([
+      file(['Achievements', 'hooks', 'a', 'index.ts'], [{ specifier: '~app/Trophies' }]),
+      file(['Trophies', 'hooks', 't', 'index.ts'], []),
+    ], ['App', 'Boss', 'Combat', 'Session', 'Achievements', 'Trophies']);
+
+    expect(message).not.toContain('Trophies');
+    expect(message).toContain('every position in the order is legal');
+  });
+
+  it('names the reached modules in a stable order', () => {
+    // Insertion order follows the file's import order, so an unsorted list
+    // reshuffles the message on an unrelated edit.
+    const message = hint([
+      file(['Achievements', 'hooks', 'a', 'index.ts'], [
+        { specifier: '~app/Session' },
+        { specifier: '~app/Combat' },
+      ]),
+    ], ['App', 'Boss', 'Combat', 'Session', 'Achievements']);
+
+    expect(message).toContain('it reaches "Combat", "Session"');
+  });
+
+  it('joins both halves of the evidence with a separator', () => {
+    const message = hint([
+      file(['Achievements', 'hooks', 'a', 'index.ts'], [{ specifier: '~app/Session' }]),
+      file(['Boss', 'hooks', 'b', 'index.ts'], [{ specifier: '~app/Achievements' }]),
+    ], ['App', 'Boss', 'Combat', 'Session', 'Achievements']);
+
+    expect(message).toContain('it reaches "Session"; "Boss" reaches it.');
+  });
+
+  it('keeps an interval of exactly one slot legal', () => {
+    // `Boss` reaches it and it reaches `Combat`, which are adjacent — one slot
+    // between them, and it is a position, not a contradiction. The off-by-one
+    // here reports a legal decomposition as a broken one.
+    const message = hint([
+      file(['Achievements', 'hooks', 'a', 'index.ts'], [{ specifier: '~app/Combat' }]),
+      file(['Boss', 'hooks', 'b', 'index.ts'], [{ specifier: '~app/Achievements' }]),
+    ], ['App', 'Boss', 'Combat', 'Session', 'Achievements']);
+
+    expect(message).toContain('Any position after "Boss" and before "Combat" is legal');
+    expect(message).not.toContain('contradict');
+  });
+
+  it('calls a mutual import a contradiction', () => {
+    // The tightest one: the same module on both sides. It must be declared
+    // before Achievements and after it, which nothing satisfies.
+    const message = hint([
+      file(['Achievements', 'hooks', 'a', 'index.ts'], [{ specifier: '~app/Combat' }]),
+      file(['Combat', 'hooks', 'c', 'index.ts'], [{ specifier: '~app/Achievements' }]),
+    ], ['App', 'Boss', 'Combat', 'Session', 'Achievements']);
+
+    expect(message).toContain('Those edges contradict');
+    expect(message).not.toContain('is legal');
+  });
+});

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ArchitectureDef } from '../config';
 import {
+  buildFolderGraph,
   entryResolver,
   layoutResolver,
   moduleKey,
@@ -434,5 +435,72 @@ describe('targetModuleKey · an undeclared layer inside a module', () => {
       { specifier: '~app/Combat/hoosk/x', names: [], isExport: false },
       from, ['~app'], ['hooks'], () => 'folder', 1,
     )).toBeNull();
+  });
+});
+
+describe('buildFolderGraph', () => {
+  const arch184 = { alias: '~app', layers: [{ name: 'hooks', does: '' }] };
+
+  const scanOf184 = (topDirs: string[], files: ScannedFile[]) => ({ topDirs, files });
+
+  const mk = (segments: string[], specifiers: string[] = []): ScannedFile => ({
+    path: `src/${segments.join('/')}`,
+    segments,
+    imports: specifiers.map((specifier) => ({ specifier, names: [], isExport: false })),
+  });
+
+  const edgesOf = (graph: { edges: Map<string, Set<string>> }) =>
+    [...graph.edges].map(([from, to]) => [from, [...to].sort()] as const)
+      .sort((a, b) => a[0].localeCompare(b[0]));
+
+  it('reads an undeclared folder\'s edges, which is the whole point', () => {
+    const graph = buildFolderGraph(
+      scanOf184(['Achievements', 'Session'], [
+        mk(['Achievements', 'hooks', 'a', 'index.ts'], ['~app/Session']),
+      ]),
+      arch184 as never,
+    );
+
+    expect(edgesOf(graph)).toEqual([['Achievements', ['Session']]]);
+  });
+
+  it('keeps src-root files out — an edge from one names a folder that is not there', () => {
+    const graph = buildFolderGraph(
+      scanOf184(['Session'], [mk(['main.ts'], ['~app/Session'])]),
+      arch184 as never,
+    );
+
+    expect(edgesOf(graph)).toEqual([]);
+  });
+
+  it('reads a file sitting directly in a folder', () => {
+    // Depth two, not three: a module whose only file is its entry still has
+    // edges, and they are usually the ones that matter most.
+    const graph = buildFolderGraph(
+      scanOf184(['Achievements', 'Session'], [
+        mk(['Achievements', 'index.ts'], ['~app/Session']),
+      ]),
+      arch184 as never,
+    );
+
+    expect(edgesOf(graph)).toEqual([['Achievements', ['Session']]]);
+  });
+
+  it('records no self-edge, and nothing for a target outside every folder', () => {
+    const graph = buildFolderGraph(
+      scanOf184(['Achievements'], [
+        mk(['Achievements', 'hooks', 'a', 'index.ts'], [
+          '~app/Achievements/hooks/b',
+          '~app/Nowhere',
+          '~app',
+          'react',
+        ]),
+      ]),
+      arch184 as never,
+    );
+
+    // A folder importing itself is not an edge; a folder nobody has is not a
+    // target; and the alias root is neither.
+    expect(edgesOf(graph)).toEqual([]);
   });
 });

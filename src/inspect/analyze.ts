@@ -240,6 +240,8 @@ function folderFindings(
 function positionHint(dir: string, folders: FolderGraph, modules: string[]): string {
   const index = new Map(modules.map((name, at) => [name, at]));
 
+  // undecidable, the `?? []` arm: a fabricated member is a name no declared
+  // module has, so the filter below drops it — the same empty list either way.
   const reaches = [...(folders.edges.get(dir) ?? [])]
     .filter((name) => index.has(name))
     .sort(compareText);
