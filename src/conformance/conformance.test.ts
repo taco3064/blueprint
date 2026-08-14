@@ -2276,6 +2276,11 @@ describe('locked debt stays green under the baseline ratchet (field issue #10)',
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
     // The field repro: create debt, lock it, then run the gate line.
+    // Code inside a declared layer first, so the repo is a brownfield tree with one
+    // stray rather than a tree that is ENTIRELY the stray — the latter is a total
+    // structure mismatch (1 of 1 folders undeclared, every declared layer absent)
+    // and locks a second finding that has nothing to do with the ratchet.
+    write(dir, 'src/components/Card/index.tsx', 'export const Card = 1;');
     write(dir, 'src/random/x.ts', 'export const x = 1;'); // undeclared folder → error
 
     expect((await cli(dir, ['inspect'])).code).toBe(1);
@@ -3314,6 +3319,10 @@ describe('a baseline survives a reworded finding, and an old one says so', () =>
       packageJson: react(),
       files: {
         'blueprint.config.mjs': configSource(reactBlueprint),
+        // A declared layer holding code, so the tree is not ENTIRELY the stray —
+        // that is a total structure mismatch, which locks a second error and is a
+        // different subject from the one this ratchet fixture is about.
+        'src/components/Card/index.js': 'export const Card = 1;',
         // An undeclared folder holding code: one error-tier finding to lock.
         'src/random/x.js': 'export const x = 1;',
       },

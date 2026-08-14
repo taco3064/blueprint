@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { analyze, detectCycle, detectCycles } from './analyze';
 import { crossModuleTarget } from '../boundary';
 import { defineBlueprint } from '../config';
-import type { ModuleDef } from '../config';
+import type { Blueprint, ModuleDef } from '../config';
 import { emitLint } from '../emit/lint';
-import { vuePreset } from '../presets';
+import { reactPreset, vuePreset } from '../presets';
+import { report } from './report';
 import type { Finding, ImportRef, ScanResult, ScannedFile } from './types';
 
 const bp = vuePreset();
@@ -2176,5 +2177,185 @@ describe('analyze · the position hint is measured, not approximated', () => {
 
     expect(message).toContain('Those edges contradict');
     expect(message).not.toContain('is legal');
+  });
+});
+
+describe('analyze · a wrong structure choice is one finding, not N', () => {
+  const modular = reactPreset({ structure: 'modular' });
+  const flat = reactPreset();
+  const MODULES = modular.architecture.modules?.map((module) => module.name) ?? [];
+  const FLAT_LAYERS = flat.architecture.layers.map((layer) => layer.name);
+
+  const scanOfDirs = (dirs: string[], files: ScannedFile[]): ScanResult =>
+    ({ topDirs: dirs, files });
+
+  const bridges = (scanResult: ScanResult, blueprint: Blueprint) =>
+    analyze(scanResult, blueprint).filter((entry) => entry.rule === 'structure-mismatch');
+
+  const ruleCount = (scanResult: ScanResult, blueprint: Blueprint, rule: string) =>
+    analyze(scanResult, blueprint).filter((entry) => entry.rule === rule).length;
+
+  // Direction 1, the tree the ticket measured: three flat layer folders under
+  // `reactPreset({ structure: 'modular' })`.
+  const flatTree = scanOfDirs(
+    ['components', 'hooks', 'services'],
+    [file(['components', 'A.tsx']), file(['hooks', 'useB.ts']), file(['services', 'api.ts'])],
+  );
+
+  // Direction 2, its mirror: two domain folders under a flat preset.
+  const modularTree = scanOfDirs(
+    ['Fighter', 'Combat'],
+    [file(['Fighter', 'index.ts']), file(['Combat', 'index.ts'])],
+  );
+
+  it('states what is declared, measures both halves, and names an edit that exists', () => {
+    const found = bridges(flatTree, modular);
+
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ severity: 'error', path: 'src', subject: '' });
+    // The declared structure is a fact and is stated as one; what the tree "looks
+    // like" is `survey`'s classifier, which sits above inspect and is not reachable.
+    expect(found[0].message).toContain('declares a modular structure (`architecture.modules`)');
+    expect(found[0].message).toContain('3 of 3 top-level source folder(s) under `src` undeclared');
+
+    expect(found[0].message)
+      .toContain(`${MODULES.length} of ${MODULES.length} declared module(s) with no folder`);
+
+    expect(found[0].message).toContain(`That is one finding, not ${3 + MODULES.length}`);
+    // The line the reader can find. `init` writes no `structure` field for flat, so
+    // an instruction to SET `structure: 'flat'` addresses a line nobody wrote —
+    // which is why this direction says drop, and says why there is nothing to add.
+    expect(found[0].message).toContain('drop `structure: \'modular\'` from the preset call');
+
+    expect(found[0].message)
+      .toContain('flat is the default, so there is no `structure: \'flat\'` to write in its place');
+
+    // The question only the owner can answer, with a path for each answer.
+    expect(found[0].message).toContain('If these folders are layers rather than modules');
+    expect(found[0].message).toContain('If they are modules, the config is right');
+    expect(found[0].message).toContain('never an adopting agent\'s');
+  });
+
+  it('lands on line one, above the evidence it is built from', () => {
+    const findings = analyze(flatTree, modular);
+    const rendered = report(findings);
+
+    // A reader acts on the first message they meet, which is the defect this
+    // bridge repairs — printed under the lines it explains it explains nothing.
+    // `report` prints in array order, and `analyze`'s severity sort is stable.
+    expect(findings[0].rule).toBe('structure-mismatch');
+
+    expect(rendered.indexOf('[structure-mismatch]'))
+      .toBeLessThan(rendered.indexOf('[undeclared-module]'));
+
+    expect(rendered.indexOf('[structure-mismatch]'))
+      .toBeLessThan(rendered.indexOf('[missing-module]'));
+  });
+
+  it('keeps every per-folder finding — they are the evidence, not a duplicate', () => {
+    expect(ruleCount(flatTree, modular, 'undeclared-module')).toBe(3);
+    expect(ruleCount(flatTree, modular, 'missing-module')).toBe(MODULES.length);
+  });
+
+  it('mirrors, and the mirror speaks from its own side of the token set', () => {
+    const found = bridges(modularTree, flat);
+
+    expect(found).toHaveLength(1);
+    expect(found[0].message).toContain('declares a flat structure (no `architecture.modules`)');
+    expect(found[0].message).toContain('2 of 2 top-level source folder(s) under `src` undeclared');
+
+    expect(found[0].message)
+      .toContain(`${FLAT_LAYERS.length} of ${FLAT_LAYERS.length} declared layer(s) with no folder`);
+
+    expect(found[0].message).toContain('add `structure: \'modular\'` to the preset call');
+    expect(found[0].message).toContain('If these folders are modules rather than layers');
+
+    // One text, two token sets. Read from the wrong branch, every assertion above
+    // still passes on whatever the two directions share — so the vocabulary this
+    // direction must NOT be speaking is the half worth pinning.
+    expect(found[0].message).not.toContain('module(s) with no folder');
+    expect(found[0].message).not.toContain('drop `structure: \'modular\'`');
+
+    expect(ruleCount(modularTree, flat, 'undeclared-folder')).toBe(2);
+    expect(ruleCount(modularTree, flat, 'missing-layer')).toBe(FLAT_LAYERS.length);
+  });
+
+  it('says nothing about ordinary drift — two of three folders undeclared', () => {
+    const drift = scanOfDirs(
+      ['app', 'components', 'hooks'],
+      [
+        file(['app', 'pages', 'Home.tsx']),
+        file(['components', 'A.tsx']),
+        file(['hooks', 'useB.ts']),
+      ],
+    );
+
+    expect(bridges(drift, modular)).toHaveLength(0);
+    // "No bridge" only means something while the findings that would have fed it
+    // are still reported — a rule that silenced them would pass the line above.
+    expect(ruleCount(drift, modular, 'undeclared-module')).toBe(2);
+    expect(ruleCount(drift, modular, 'missing-module')).toBe(1);
+  });
+
+  it('says nothing about a correct structure carrying one stray folder', () => {
+    const stray = scanOfDirs(
+      ['app', 'common', 'junk'],
+      [
+        file(['app', 'pages', 'Home.tsx']),
+        file(['common', 'hooks', 'useX.ts']),
+        file(['junk', 'j.ts']),
+      ],
+    );
+
+    expect(bridges(stray, modular)).toHaveLength(0);
+    expect(ruleCount(stray, modular, 'undeclared-module')).toBe(1);
+  });
+
+  it('refuses the Vite shape, where "every folder undeclared" is 0 of 0', () => {
+    const vite = scanOfDirs([], [file(['main.tsx']), file(['App.tsx'])]);
+
+    expect(bridges(vite, modular)).toHaveLength(0);
+    // Both halves of all-and-all really are satisfied here, which is why the floor
+    // is what this case asserts: every declared module is absent, and the
+    // undeclared side is vacuous. Unguarded, the rule tells an adopter their
+    // one-minute-old correct modular config does not match its own tree.
+    expect(ruleCount(vite, modular, 'missing-module')).toBe(MODULES.length);
+  });
+
+  it('refuses an empty tree, whichever structure the config declares', () => {
+    expect(bridges(scanOfDirs([], []), modular)).toHaveLength(0);
+    expect(bridges(scanOfDirs([], []), flat)).toHaveLength(0);
+  });
+
+  it('counts folders that hold SOURCE, not directory entries', () => {
+    // `dropTestFiles` runs before this pass, so `components` holds nothing the rule
+    // can read. Floored on `topDirs` instead, a folder every layer glob already
+    // exempts would satisfy the denominator on its own.
+    const testsOnly = scanOfDirs(['components'], [file(['components', 'A.test.ts'])]);
+
+    expect(bridges(testsOnly, modular)).toHaveLength(0);
+  });
+
+  it('withdraws the moment one declared folder exists, source or not', () => {
+    // The price of having no threshold, accepted rather than fixed: `app` is on
+    // disk holding nothing, so the absent side is no longer every declared module
+    // and the bridge goes quiet — while the per-folder findings report it all.
+    const halfBuilt = scanOfDirs(['app', 'components'], [file(['components', 'A.tsx'])]);
+
+    expect(bridges(halfBuilt, modular)).toHaveLength(0);
+    expect(ruleCount(halfBuilt, modular, 'undeclared-module')).toBe(1);
+    expect(ruleCount(halfBuilt, modular, 'missing-module')).toBe(1);
+  });
+
+  it('fires at one folder against one, and prints the ratio that says so', () => {
+    // Any floor above one is the guess about someone else's repo this rule refuses
+    // to make, so the mitigation is the ratio rather than a threshold: a reader
+    // sees the whole of the evidence in the sentence and can weigh it.
+    const single = scanOfDirs(['components'], [file(['components', 'A.tsx'])]);
+    const found = bridges(single, modular);
+
+    expect(found).toHaveLength(1);
+    expect(found[0].message).toContain('1 of 1 top-level source folder(s)');
+    expect(found[0].message).not.toMatch(/\ball\b/i);
   });
 });

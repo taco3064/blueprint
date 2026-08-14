@@ -216,45 +216,70 @@ function folderFindings(
 
   const declaredTop = modular ? modules.map((module) => module.name) : layerNames;
 
-  for (const dir of scan.topDirs) {
-    if (!declaredTop.includes(dir) && scan.files.some((file) => file.segments[0] === dir)) {
-      findings.push({
-        severity: 'error',
-        rule: modular ? 'undeclared-module' : 'undeclared-folder',
-        path: `${prefix}${dir}`,
-        // The four directory findings are one-per-directory by construction, so the
-        // rule and the path already identify them and there is nothing left to
-        // discriminate. Empty rather than a repeat of the path: a subject that
-        // restates its path says the finding has a second axis when it has not.
-        subject: '',
-        message: modular
-          ? `"${dir}" is not in \`architecture.modules\`, so nothing governs it. The layer globs `
-          + 'are expanded from the declared list, so no glob matches inside this folder and '
-          + 'every structural ban there is inert — it is ungoverned rather than unflagged, and '
-          + `lint stays green throughout.${positionHint(dir, folders, declaredTop)}`
-          : `"${dir}" is not a declared layer — declare it, or move its code into a module of an existing layer.`,
-      });
-    }
+  // Lifted out of the loops below because each list is also a COUNT the structure
+  // mismatch reads — the findings themselves, so the bridge and the evidence under
+  // it can never disagree about how many there are.
+  const sourceTop = scan.topDirs.filter(
+    (dir) => scan.files.some((file) => file.segments[0] === dir),
+  );
+
+  const undeclared = sourceTop.filter((dir) => !declaredTop.includes(dir));
+  const absent = declaredTop.filter((name) => !scan.topDirs.includes(name));
+
+  // Pushed BEFORE its own evidence, and first of everything `analyze` produces: the
+  // sort is by severity and stable, and this is the first error pushed, so it lands
+  // on line one. A reader acts on the first message they meet — which is the defect
+  // this bridge repairs, so printed below the lines it explains it explains nothing.
+  //
+  // undecidable, the middle conjunct, and shielded by the one under it: `absent`
+  // covering every declared name means no declared name is in `topDirs` at all, and
+  // `sourceTop` is a subset of `topDirs` — so no source folder can be a declared one
+  // and `undeclared` is already the whole of `sourceTop`. It stays because
+  // all-and-all is the rule, and half of it written down is a rule a reader has to
+  // re-derive from a filter three lines up.
+  if (
+    sourceTop.length > 0
+    && undeclared.length === sourceTop.length
+    && absent.length === declaredTop.length
+  ) {
+    findings.push(structureMismatch(architecture, modular, sourceTop.length, declaredTop.length));
   }
 
-  for (const name of declaredTop) {
-    if (!scan.topDirs.includes(name)) {
-      findings.push({
-        severity: 'info',
-        rule: modular ? 'missing-module' : 'missing-layer',
-        path: `${prefix}${name}`,
-        subject: '',
-        // Reads like a todo without the second clause — six of these sent
-        // a field agent toward "delete the unused layers", the opposite of
-        // the keep-is-default doctrine the playbook states (field run #13).
-        message: modular
-          ? `Declared module "${name}" has no folder yet — runway, not a todo: its globs and bans `
-          + 'are emitted and correct, they simply have nothing to reach. Building it and dropping '
-          + 'the declaration are both resolutions, and which one applies is the owner\'s call.'
-          : `Declared layer "${name}" has no folder yet — runway, not a todo: `
-            + 'the rules arm when code lands; keeping it is the default, slimming is the owner\'s call.',
-      });
-    }
+  for (const dir of undeclared) {
+    findings.push({
+      severity: 'error',
+      rule: modular ? 'undeclared-module' : 'undeclared-folder',
+      path: `${prefix}${dir}`,
+      // The four directory findings are one-per-directory by construction, so the
+      // rule and the path already identify them and there is nothing left to
+      // discriminate. Empty rather than a repeat of the path: a subject that
+      // restates its path says the finding has a second axis when it has not.
+      subject: '',
+      message: modular
+        ? `"${dir}" is not in \`architecture.modules\`, so nothing governs it. The layer globs `
+        + 'are expanded from the declared list, so no glob matches inside this folder and '
+        + 'every structural ban there is inert — it is ungoverned rather than unflagged, and '
+        + `lint stays green throughout.${positionHint(dir, folders, declaredTop)}`
+        : `"${dir}" is not a declared layer — declare it, or move its code into a module of an existing layer.`,
+    });
+  }
+
+  for (const name of absent) {
+    findings.push({
+      severity: 'info',
+      rule: modular ? 'missing-module' : 'missing-layer',
+      path: `${prefix}${name}`,
+      subject: '',
+      // Reads like a todo without the second clause — six of these sent
+      // a field agent toward "delete the unused layers", the opposite of
+      // the keep-is-default doctrine the playbook states (field run #13).
+      message: modular
+        ? `Declared module "${name}" has no folder yet — runway, not a todo: its globs and bans `
+        + 'are emitted and correct, they simply have nothing to reach. Building it and dropping '
+        + 'the declaration are both resolutions, and which one applies is the owner\'s call.'
+        : `Declared layer "${name}" has no folder yet — runway, not a todo: `
+          + 'the rules arm when code lands; keeping it is the default, slimming is the owner\'s call.',
+    });
   }
 
   // Under `modules` the loop above checks the MODULE axis — `declaredTop` holds
@@ -349,6 +374,85 @@ function folderFindings(
   findings.push(...noEntryFindings(scan, architecture, layerNames, depth));
 
   return findings;
+}
+
+/**
+ * The one finding no per-folder finding is in a position to make: every top-level
+ * source folder undeclared AND every declared position absent is one decision — the
+ * `structure` — wearing the clothes of the N declarations it reads as.
+ *
+ * Floored on folders holding source, never on the tree being non-empty: "all
+ * undeclared" is vacuously true at zero folders, so an unguarded rule fires on a
+ * fresh Vite template under a CORRECT modular config and calls a one-minute-old
+ * right answer a mismatch. `renderCoverage` refuses to call a net vacuous unless
+ * `sourceFiles > 0` for the same reason — a ratio with an empty denominator is no
+ * signal wearing one.
+ *
+ * It does not say which structure the tree looks like, because nothing here can:
+ * that verdict is `survey`'s three-condition classifier, and `survey` sits above
+ * `inspect`. So the declared structure is stated as the fact it is, the other is
+ * offered as an alternative, and the one question only the owner can answer — are
+ * these folders layers, or modules — goes back with a path for each answer.
+ */
+function structureMismatch(
+  architecture: ArchitectureDef,
+  modular: boolean,
+  folders: number,
+  declared: number,
+): Finding {
+  const root = sourceRoot(architecture);
+
+  // One text, two token sets, for the reason `printConfigCaveats` is one text at two
+  // indents: a mirror direction written out twice becomes a paraphrase that drifts.
+  //
+  // The edit each side names is a line the reader can find. `init` writes no
+  // `structure` field for flat — flat is the preset default — so telling an adopter
+  // to SET `structure: 'flat'` sends them hunting a line that was never written.
+  const words = modular
+    ? {
+        structure: 'modular',
+        declaredBy: '`architecture.modules`',
+        noun: 'module',
+        alternative: 'layers rather than modules',
+        undeclaredRule: 'undeclared-module',
+        missingRule: 'missing-module',
+        edit: 'drop `structure: \'modular\'` from the preset call in blueprint.config.mjs — flat '
+          + 'is the default, so there is no `structure: \'flat\'` to write in its place — or drop '
+          + '`architecture.modules` from a hand-written `defineBlueprint`',
+      }
+    : {
+        structure: 'flat',
+        declaredBy: 'no `architecture.modules`',
+        noun: 'layer',
+        alternative: 'modules rather than layers',
+        undeclaredRule: 'undeclared-folder',
+        missingRule: 'missing-layer',
+        edit: 'add `structure: \'modular\'` to the preset call in blueprint.config.mjs, or declare '
+          + '`architecture.modules` in a hand-written `defineBlueprint`',
+      };
+
+  return {
+    severity: 'error',
+    rule: 'structure-mismatch',
+    // The whole tree, so the source root is its address — the same one `layerAddress`
+    // falls back to for a note that answers to no single folder.
+    path: root,
+    subject: '',
+    // Ratios rather than the word "all": both halves are satisfied at one folder
+    // against one, and a reader deciding what to do with this is owed the size of
+    // the evidence rather than a quantifier that reads the same at every scale.
+    message: `The config declares a ${words.structure} structure (${words.declaredBy}) and this `
+      + `tree matches none of it: ${folders} of ${folders} top-level source folder(s) under `
+      + `\`${root}\` undeclared, ${declared} of ${declared} declared ${words.noun}(s) with no `
+      + `folder. That is one finding, not ${folders + declared} — every [${words.undeclaredRule}] `
+      + `and [${words.missingRule}] entry in this report is its evidence, and each of them read `
+      + `alone recommends the opposite of the fix: declare these folders as ${words.noun}s one at `
+      + `a time and the report goes green over a ${words.noun} list that is only a copy of the `
+      + 'folder names on disk. What is in question is the `structure` choice, not any single '
+      + `declaration. If these folders are ${words.alternative}, ${words.edit}. If they are `
+      + `${words.noun}s, the config is right and the code has not moved into them yet. Which of `
+      + 'the two it is, is the owner\'s call and never an adopting agent\'s.',
+  };
 }
 
 /**
