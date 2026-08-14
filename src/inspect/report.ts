@@ -5,6 +5,7 @@ const ICON: Record<Severity, string> = { error: '✗', warn: '⚠', info: '·' }
 
 const MIGRATION: Record<string, string> = {
   'undeclared-folder': 'Move undeclared folders into a module of an existing layer, or declare them as layers.',
+  'undeclared-module': 'Declare the folder in `architecture.modules`, at a position the measured edges allow, or fold its code into a module that is already declared. Until then nothing inside it is governed and lint cannot say so.',
   'flow-violation': 'Rework imports to follow the one-way flow; extract shared code down to a lower layer.',
   'deep-import': 'Import modules through their entry file, never their internals.',
   'src-escape': 'Replace relative paths that climb above the source root with the project alias.',
@@ -26,6 +27,10 @@ const MIGRATION: Record<string, string> = {
  */
 const ENFORCED_BY: Record<string, string | null> = {
   'undeclared-folder': null,
+  // Never appears in a lint run, by construction: the globs are built FROM the
+  // declared list, so an undeclared folder is matched by nothing — which is
+  // exactly why an agent whose loop ends at a green lint never learns of it.
+  'undeclared-module': null,
   'flow-violation': 'no-restricted-imports',
   'deep-import': 'no-restricted-imports',
   'src-escape': 'blueprint/relative-escape',

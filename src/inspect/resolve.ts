@@ -332,3 +332,70 @@ export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef
 
   return { modules, edges };
 }
+
+export interface FolderGraph {
+  /** Top-level folders holding source — declared or not. */
+  folders: Set<string>;
+  /** `from` folder → the top folders it imports (self-edges excluded). */
+  edges: Map<string, Set<string>>;
+}
+
+/**
+ * Top folder → top folder, **undeclared roots included**.
+ *
+ * {@link buildModuleGraph} cannot answer this and is not a near miss: it admits
+ * only files under declared names, and an undeclared module is undeclared by
+ * definition. Asked of it, the position inference would read "no evidence" for
+ * every real case, and the interval outcome the hint exists for would be
+ * unreachable — a hint that is silent exactly where it is needed.
+ *
+ * `survey` computes this same shape and is deliberately not reused: it sits
+ * ABOVE `inspect` in the layering, so importing it would run the dependency
+ * backwards. Two derivations of one shape is the cost, and the layering is what
+ * it buys.
+ */
+export function buildFolderGraph(scan: ScanResult, architecture: ArchitectureDef): FolderGraph {
+  scan = dropTestFiles(scan, architecture.testFiles);
+
+  const aliases = aliasList(architecture);
+  const folders = new Set(scan.topDirs);
+  const edges = new Map<string, Set<string>>();
+
+  for (const file of scan.files) {
+    const from = file.segments[0];
+
+    // A file directly under the source root belongs to no folder — it is app
+    // wiring, and an edge from it would name a folder that does not exist.
+    if (file.segments.length < 2 || !folders.has(from)) continue;
+
+    for (const ref of file.imports) {
+      const to = folderTarget(ref, file, aliases, folders);
+
+      if (to !== null && to !== from) {
+        edges.set(from, (edges.get(from) ?? new Set()).add(to));
+      }
+    }
+  }
+
+  return { folders, edges };
+}
+
+/** The top folder a reference lands in, or null when it lands outside them all. */
+function folderTarget(
+  ref: ImportRef,
+  file: ScannedFile,
+  aliases: AliasRoot[],
+  folders: Set<string>,
+): string | null {
+  const parts = stripAlias(ref.specifier, aliases);
+
+  if (parts) return parts.length > 0 && folders.has(parts[0]) ? parts[0] : null;
+
+  if (ref.specifier.startsWith('.')) {
+    const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
+
+    return target && target.length > 0 && folders.has(target[0]) ? target[0] : null;
+  }
+
+  return null;
+}

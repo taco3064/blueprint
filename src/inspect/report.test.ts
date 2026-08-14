@@ -136,3 +136,35 @@ describe('report · icons and the migration block', () => {
     expect(lines[counts + 2]).toContain('How this graph was read');
   });
 });
+
+describe('report · the module findings are in both tables', () => {
+  it('gives undeclared-module a remedy and says lint never carries it', () => {
+    const rendered = report([{
+      severity: 'error',
+      rule: 'undeclared-module',
+      path: 'src/Achievements',
+      subject: '',
+      message: 'ungoverned',
+    }]);
+
+    expect(rendered).toContain('[undeclared-module] Declare the folder in `architecture.modules`');
+    // `ENFORCED_BY: null` is the point of the finding, not a gap in the table:
+    // the globs are built FROM the declared list, so no lint run can ever
+    // mention this folder — which is why a green lint proves nothing about it.
+    expect(rendered).toContain('(inspect only — never appears in a lint run)');
+  });
+
+  it('gives missing-module no migration line, exactly as missing-layer has none', () => {
+    // Runway is not a step. A remedy line here would read as a todo, which is
+    // the reading field run #13 had to be talked out of one finding over.
+    const rendered = report([{
+      severity: 'info',
+      rule: 'missing-module',
+      path: 'src/Session',
+      subject: '',
+      message: 'runway',
+    }]);
+
+    expect(rendered).not.toContain('Recommended migration steps');
+  });
+});
