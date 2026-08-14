@@ -1,5 +1,5 @@
 import type { Rule } from 'eslint';
-import { crossModuleTarget } from '../inspect/resolve';
+import { crossModuleTarget } from '../boundary';
 
 /**
  * A module must not re-export another module's public surface verbatim.

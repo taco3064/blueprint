@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { analyze, detectCycle, detectCycles } from './analyze';
-import { crossModuleTarget } from './resolve';
+import { crossModuleTarget } from '../boundary';
 import { defineBlueprint } from '../config';
 import { vuePreset } from '../presets';
 import type { ImportRef, ScanResult, ScannedFile } from './types';

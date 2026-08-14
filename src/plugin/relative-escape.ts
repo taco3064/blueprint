@@ -1,5 +1,5 @@
 import type { Rule } from 'eslint';
-import { relativeVerdict, resolveSegments } from '../inspect/resolve';
+import { relativeVerdict, resolveSegments } from '../boundary';
 
 /**
  * Relative imports must stay inside their own module. This is the lint-side

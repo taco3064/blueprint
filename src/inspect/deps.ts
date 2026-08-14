@@ -1,8 +1,9 @@
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
 import { moduleDepth } from '../config';
-import { buildModuleGraph, layoutResolver, moduleKey } from './resolve';
-import type { LayoutOf } from './resolve';
+import { layoutResolver, moduleKey } from '../boundary';
+import type { LayoutOf } from '../boundary';
+import { buildModuleGraph } from './resolve';
 import { importGraphDerivation, scan } from './scan';
 import type { ScanResult } from './types';
 
