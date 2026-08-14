@@ -569,7 +569,7 @@ describe('runDeps · what a flat project must never grow', () => {
     // `src/main.ts` is entry wiring, not a module — it has always been outside
     // the graph, and the module-root arm must not reach down and adopt it.
     scaffold();
-    writeSrc('main.ts', "import { api } from '~app/services/api';");
+    writeSrc('main.ts', 'import { api } from \'~app/services/api\';');
 
     const lines: string[] = [];
     const { modules } = await runDeps(root, { log: (m) => void lines.push(m) });
@@ -608,9 +608,9 @@ describe('runDeps · the modular answers are built, not defaulted', () => {
 
     writeSrc('Fighter/index.ts', 'export const F = 1;');
     writeSrc('Fighter/hooks/useHot/useHot.ts', 'export const hot = 1;');
-    writeSrc('Fighter/hooks/useA/useA.ts', "import { hot } from '~app/Fighter/hooks/useHot';");
-    writeSrc('Fighter/hooks/useB/useB.ts', "import { hot } from '~app/Fighter/hooks/useHot';");
-    writeSrc('app/routes/Game.ts', "import { F } from '~app/Fighter';");
+    writeSrc('Fighter/hooks/useA/useA.ts', 'import { hot } from \'~app/Fighter/hooks/useHot\';');
+    writeSrc('Fighter/hooks/useB/useB.ts', 'import { hot } from \'~app/Fighter/hooks/useHot\';');
+    writeSrc('app/routes/Game.ts', 'import { F } from \'~app/Fighter\';');
   }
 
   it('ranks units by fan-in, not by the module they were grouped under', async () => {
