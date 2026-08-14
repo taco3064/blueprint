@@ -16,8 +16,11 @@ import { AGENT_PROMPT, AUTHORING_FILE, authoringActions, authoringBrief, BROWNFI
 // non-test file in `bootstrap` would be a genuine layering break, not this
 // exception.
 import { defineBlueprint } from '../config';
-import { flattenProse } from '../conformance';
+import { configSource, flattenProse, makeRepo, rm } from '../conformance';
 import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
+// The prose below describes this command's rows, so the rows come from the command
+// rather than from a restatement of them here.
+import { runRules } from '../inspect';
 import type { SurveyResult } from '../survey';
 
 const survey: SurveyResult = {
@@ -403,6 +406,82 @@ describe('authoringBrief', () => {
     // First live field run: --suppress-all on a clean lint wrote an empty
     // ledger — the ceremony ban now covers the lint side explicitly.
     expect(brief).toContain('an empty ledger is ceremony');
+  });
+
+  /**
+   * The three sentences that describe `rules --json`'s rows, each asserted against a
+   * real run of the command. The zones and the row count come out of that run, so a
+   * fourth zone reddens these without anyone re-reading the prose — the failure mode
+   * #245 closed was a sentence written from the union type, which says what the shape
+   * permits rather than what the command emits.
+   */
+  describe('the rules --json rows the playbook sends a folding agent to', () => {
+    const layers = [
+      { name: 'contexts', does: 'providers' },
+      { name: 'hooks', does: 'state', allowedImporters: [{ layer: 'contexts', selfOnly: true }] },
+    ];
+
+    // A layered module and a `layers: false` one, which is what it takes for the
+    // command to emit all three zones.
+    const modules = [
+      { name: 'Fighter', does: 'the ship' },
+      { name: 'app', does: 'routing only', layers: false as const },
+    ];
+
+    const rows = async (config: Parameters<typeof defineBlueprint>[0]) => {
+      const dir = makeRepo({ files: { 'blueprint.config.mjs': configSource(defineBlueprint(config)) } });
+
+      try {
+        return (await runRules(dir, { log: () => {} })).bans;
+      } finally {
+        rm(dir);
+      }
+    };
+
+    it('names every zone it emits, and says which key each zone row carries', async () => {
+      const bans = await rows({ framework: 'react', architecture: { alias: '~app', modules, layers } });
+      const zones = [...new Set(bans.map((ban) => ban.zone))];
+      const prose = flattenProse(brief);
+
+      expect(zones).toEqual(['layer', 'root', 'module']);
+
+      for (const zone of zones) expect(prose).toContain(`\`${zone}\``);
+
+      for (const ban of bans) {
+        // `in`, not `=== undefined`: absent and present-and-undefined are the same
+        // to the type and different to the agent reading the JSON.
+        expect('layer' in ban).toBe(ban.zone === 'layer');
+        expect('module' in ban).toBe(true);
+
+        // The negative the prose states with its reason — `allowedImporters` is a
+        // layer's field, so the two layerless zones have no selector to emit.
+        if (ban.zone !== 'layer') expect(ban.selfOnly).toEqual([]);
+      }
+
+      expect(prose).toContain('told apart by `zone`, not by which keys they have');
+      expect(prose).toContain('carry no `layer` and no selectors either');
+      expect(prose).toContain('`module` is on every row wherever the config declares modules');
+      expect(prose).toContain('every row carrying selectors is one (`module`, `layer`) pair');
+
+      // The count the rule catalog promises, computed from the config it describes:
+      // one row per (module, layer) plus one zone row per module.
+      const layered = modules.filter((module) => module.layers !== false);
+
+      expect(bans.length).toBe(layered.length * layers.length + modules.length);
+      expect(prose).toContain('one per (module, layer) plus one per module zone');
+    });
+
+    it('promises a flat config no key its rows do not carry', async () => {
+      const bans = await rows({ framework: 'react', architecture: { alias: '~app', layers } });
+
+      expect(bans.map((ban) => ban.zone)).toEqual(layers.map(() => 'layer'));
+      expect(bans.every((ban) => 'layer' in ban)).toBe(true);
+      expect(bans.some((ban) => 'module' in ban)).toBe(false);
+
+      // Which is what makes the `module` sentence conditional rather than a claim
+      // about every config, and the zone sentence true on a config with one zone.
+      expect(flattenProse(brief)).toContain('`module` is on every row wherever the config declares modules');
+    });
   });
 
   // The five members of `printConfigCaveats`, restated because the source keeps
