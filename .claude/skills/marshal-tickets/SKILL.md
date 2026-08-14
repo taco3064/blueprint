@@ -77,13 +77,12 @@ ticket; "edit `emit/lint/lint.ts`" is not. A capability names a behaviour an
 adopter can observe; a file list is an implementation detail that will be wrong
 by the time someone works the ticket.
 
-**Do not size a cut by its line count.** The rule above already carries the real
-constraint, and a line budget is only its shadow — one that lies in both
-directions. A ticket landing 229 lines of implementation under 462 lines of test
-reads as three times over any such budget until someone splits the number, and a
-budget that has to be re-derived before it can be obeyed is worse than none. If a
-cut is too big, it is because it holds two verifiable changes, and that is what
-you can see without counting.
+**Do not size a cut by its line count.** The rule above carries the real
+constraint and a line budget is only its shadow, lying in both directions — 229
+lines of implementation under 462 lines of test reads as three times over any
+budget until someone splits the number, and a budget re-derived before it can be
+obeyed is worse than none. A cut that is too big holds two verifiable changes,
+and that is visible without counting.
 
 **Unknowns get their own ticket.** When part of the parent is a question nobody
 has answered ("what should a modular greenfield scaffold create?"), that is a
@@ -199,16 +198,13 @@ every `.claude/docs/` page whose trigger fires. Hand over the ticket *number*,
 not your summary of it — a summary is a second source of truth for something you
 already wrote, and the two will differ.
 
-**A session held across a whole tier is the shape to avoid, and it has already
-failed here.** One reached 850k tokens and then became unreachable mid-tier. What
-it had picked up on the way — a verification habit, a cheaper way to check one
-fix, a build-cache trap — existed only in a transcript nobody else could read, so
-losing it lost all of it, and the recovery was a hand-written handoff.
+**A session held across a whole tier is the shape to avoid.** One died mid-tier
+here holding everything it had learned, because a transcript is not a place
+anything survives.
 
-The rule that falls out of that is the useful part: **anything worth carrying
-between tickets is worth writing down, and anything not worth writing down was
-not worth carrying.** A long session is a way of never making that decision. Each
-kind has a home that outlives any session:
+**Anything worth carrying between tickets is worth writing down, and anything not
+worth writing down was not worth carrying.** A long session is a way of never
+making that decision. Each kind has a home that outlives any session:
 
 - a habit or a stance → `.claude/docs/`, or `CLAUDE.md` when it applies to every edit
 - a repo-specific trap → `CLAUDE.md`, beside the tooling it bites
@@ -216,18 +212,16 @@ kind has a home that outlives any session:
 
 Written there, the next session gets it by reading, which is the ordinary way.
 
-**Your own session is the exception, and by construction rather than by luck.**
-Everything the ticket layer knows is already on GitHub: the tickets, their
-bodies, the parent's comments. A PM session that dies is restarted by reading
-them back. That asymmetry is what makes "comment on every ticket, including the
-clean ones" more than bookkeeping — it is the durable half of this role's memory.
+**Your own session is the exception by construction.** Everything the ticket
+layer knows is already on GitHub, so a dead PM session restarts by reading it
+back — which is what makes "comment on every ticket, including the clean ones"
+the durable half of this role's memory rather than bookkeeping.
 
 **So recover from the record, never from recollection.** After any interruption,
 rebuild state in this order and stop there: the parent's sub-issue list and its
-comments, `git log origin/main`, open PRs and their checks, the workflow runs.
-What a transcript says was happening is a claim about a moment that has passed —
-today a branch scan that was true when it ran was stale by the time it was
-reported, and the gap was one merge wide.
+comments, `git log origin/main`, open PRs and their checks, the workflow runs. A
+transcript describes a moment that has passed, and the gap can be one merge
+wide.
 
 If the owner already has a session open and points at it, use that one.
 `ListAgents` shows what is reachable, and **confirming the target before the
@@ -259,27 +253,24 @@ One ticket, one PR. How many commits it takes is the implementation side's call
 and never yours. It merges its own PR without waiting on you.
 
 **But nothing starts until you send.** The implementation side stops after every
-report and waits — by design, on every ticket, not only the ones where it asked
-something. A report ending *"next is #223"* is stating an intention, and it will
-sit there indefinitely. You are the only actor who can begin the next ticket, so
-a tier stalls in the one way that is hard to notice: no error, no blocked
-message, nothing to answer. Just a silence that reads exactly like work in
-progress.
+report and waits, on every ticket. A report ending *"next is #223"* states an
+intention and will sit there. You are the only actor who can begin the next one,
+so a tier stalls in the one way that is hard to notice: no error, nothing to
+answer, just a silence that reads exactly like work in progress.
 
-**One worktree per ticket, and read your baselines out of git rather than off
-disk.** You and the implementation side are two sessions over one checkout, which
-is not a tidiness problem: a session moving `HEAD` mid-ticket has put commits on
-the wrong local branch, produced an empty remote branch from a successful-looking
-push, and sent a mutation sweep against a tree nobody meant to measure. The
-pre-push hook makes it mutual — it tests the whole working tree, so their half-saved
-file blocks your unrelated push, and `--no-verify` is not the way out of that.
-`git worktree add` **plus `npm ci` in the new tree** — the install is the half
-that looks skippable and is not. `prepare` is what generates husky's runtime, and
-a fresh checkout carries only the two tracked hook scripts, so a tree without the
-install runs no hooks and reports nothing. Symlinking `node_modules` to save the
-install buys that silence, and shares one incremental `tsc` cache across every
-tree as well. `git show main:<path>` answers "what did this look like before"
-without depending on which branch happens to be checked out.
+**One worktree per ticket — `git worktree add` plus `npm ci` in it — and read
+your baselines through `git show <ref>:<path>` rather than off disk.** Two
+sessions over one checkout is not a tidiness problem: a moved `HEAD` has put
+commits on the wrong branch, produced an empty remote branch from a push that
+looked fine, and sent a sweep against a tree nobody meant to measure. The
+pre-push hook makes it mutual, since it tests the whole working tree — and
+`--no-verify` is not the way out of that.
+
+**The install is the half that looks skippable and is not.** `prepare` generates
+husky's runtime and a fresh checkout carries only the two tracked hook scripts,
+so a tree without it runs no hooks and reports nothing. Symlinking `node_modules`
+to save the install buys that silence and shares one incremental `tsc` cache
+across every tree.
 
 **A `Done when` starts unmet, and only evidence moves it.** Not "does anything
 look wrong" — "what did I run, and what did it show". Absence of a problem is not
@@ -316,13 +307,10 @@ Comment on **every** ticket, including the ones that came back clean. A ticket
 closed in silence is indistinguishable from a ticket nobody checked, and six
 months later that is the only difference anyone needs.
 
-**Report what you verified, never what somebody said they would do.** *"The
-implementation side is on #223"* and *"its last report ended with «next is
-#223»"* are different claims, and only the second is yours to make. The first was
-told to an owner once while nothing at all was running: the peer had stopped
-after its report, as it always does, and the intention in its closing line got
-relayed as progress. An owner who believes it waits for a PR nobody is writing —
-and the longer they wait, the more reasonable the wait seems.
+**Report what you verified, never what somebody said they would do.** *"It is on
+#223"* and *"its last report ended with «next is #223»"* are different claims and
+only the second is yours. An owner who believes the first waits for a PR nobody
+is writing, and the longer they wait the more reasonable the wait looks.
 
 ### While it runs
 
@@ -359,25 +347,22 @@ and the next ticket cut from the same reading will understate it too.
 
 One more gate, and it is the repo's, not GitHub's: **the tier's mutation sweep
 runs, its survivors are judged, and the tests that judging calls for are
-written.** Only then is the tier done. Every ticket can be closed and the counter
-green while the sweep is still holding a survivor nobody has looked at — the
-counter cannot see it, which is exactly why this is written here.
+written.** Only then is the tier done — every ticket can be closed and the counter
+green while a survivor sits unexamined, and the counter cannot see it.
 
 Dispatch one sweep per tier, after the tier's last commit lands. **Never run it
 locally; it hangs the machine.** `mutation.yml` by `workflow_dispatch` with
 `--ref <branch>`, then read the run's artifact and step summary.
 
 Judging belongs to the implementation side, and it has three honest endings per
-survivor — a test, a one-line `undecidable` note at the site, or **a change to
-the source**, when the mutant survived on a branch that decides nothing. The
-third is the most valuable of them and the easiest to disguise: it arrived once
-inside a commit typed `test:`, which is exactly what a reader scanning for
-behaviour changes skips. Right change, wrong label — and a wrong label on a
-*wrong* change is the one review catches.
+survivor — a test, a one-line `undecidable` note at the site, or **a change to the
+source**, when the mutant survived on a branch that decides nothing. The third is
+the most valuable and the easiest to disguise: it arrived once inside a commit
+typed `test:`, which is what a reader scanning for behaviour changes skips.
 
 What you check for is the fourth thing, which is not an ending: a survivor waved
-off as noise, or `src/` edited to move a score with no defect behind it. The test
-is whether the commit can name what the mutant proved.
+off, or `src/` edited to move a score with no defect behind it. The test is
+whether the commit can name what the mutant proved.
 `.claude/docs/mutation-testing.md` is the doctrine and
 `grep -rni undecidable src/` is the ledger.
 
@@ -400,9 +385,8 @@ tier that lands moves that repo. So a closed tier is not only a milestone to
 report — it is the trigger to re-read every open ticket below it, before anyone
 picks one up.
 
-**This is the sweep nobody asks you for.** Phase 7 waits for the implementation
-side to hit something; a stale ticket does not announce itself, and by the time
-it does the cost has already been paid by whoever worked it.
+**This is the sweep nobody asks you for.** Phase 7 waits to be told; a stale
+ticket never tells, and by the time it does the cost is already paid.
 
 For each open ticket downstream of the tier that just closed, check three things
 against the code as it stands now:
@@ -411,49 +395,36 @@ against the code as it stands now:
   line that has moved. Correct it, or drop the number and name the function —
   the number was only ever a convenience, and a wrong one sends its reader to a
   passage that argues against the ticket.
-- **Premises the closed tier already satisfied.** The dangerous shape is a ticket
-  that is *half* done: the part it described most vividly has landed, the part it
-  mentioned in passing has not. Its reader rebuilds the finished half — the
-  ticket told them to — and leaves the real gap untouched, with everything green.
-  Say which half moved and which did not.
+- **Premises the closed tier already satisfied.** The dangerous shape is the
+  *half*-done ticket: the part it described most vividly has landed, the part it
+  mentioned in passing has not, and its reader rebuilds the finished half because
+  the ticket told them to. Say which half moved.
 - **Primitives that now exist.** When the closed tier produced a resolver, a
   helper, or a shared verdict function, name it in the ticket. A ticket that does
   not point at one invites a second implementation of the same rule, and two
   sources of truth that agree today have not agreed about tomorrow.
 - **This skill, and the docs the tickets stand on.** They change under a running
-  tier, and a session already in flight never re-reads them — so a rule added
-  mid-tier reaches nobody working at the time. That is not hypothetical: the rule
-  directly above about writing knowledge down instead of carrying it was merged
-  during a tier, and the next handoff still went out as a message. Re-read at the
-  boundary, and when something changed, say so in the dispatch that starts the
-  next ticket.
+  tier and a session in flight never re-reads them, so a rule added mid-tier
+  reaches nobody working at the time — it has already happened here. Re-read at
+  the boundary, and say what moved in the dispatch that starts the next ticket.
 
 Then two questions that are not about any ticket:
 
 - **Which assertion here could be satisfied by the wrong thing?** A standing
-  question, asked every sweep, not a finding to be closed once. `CLAUDE.md` holds
-  the prevention — name what would break before writing the assertion — and this
-  is the detection half, which exists because prevention demonstrably is not
-  enough: one instance of this defect was *introduced while its predecessor was
-  being fixed*, same file, same sitting. Five landed in one release. A rule
-  learned once does not hold against a shape this easy to write.
+  question, asked every sweep, never closed once. `CLAUDE.md` holds the prevention;
+  this is the detection half, and it exists because prevention is demonstrably not
+  enough — one instance was introduced while its predecessor was being fixed, same
+  file, same sitting.
 
 - **Render what the tier emits, and read the output.** Not the code that produces
-  it — the artifact an adopter receives. For this repo that is `emitLint` against
-  a fixture in the shape the tier just enabled, `blueprint rules`, the playbook,
-  the handbook. Three defects of one shape came out of a tier that had closed with
-  every test green, full coverage and every ticket verified: three emitted pattern
-  groups that matched nothing, a reporter printing selectors the config did not
-  contain, and an acceptance clause true in one gate and false in the other. Every
-  one of them was found by rendering and reading, and none of them was reachable
-  by reading source.
+  it — the artifact an adopter receives: `emitLint` against a fixture in the shape
+  the tier just enabled, `blueprint rules`, the playbook, the handbook.
 
-  The reason is worth keeping in front of you, because the two activities feel
-  identical while you are doing them. **Reading code tells you whether the logic
-  is right. Reading output tells you whether it touches anything.** A ban built
-  from the wrong segment is correct code, passes its unit test, raises coverage,
-  and matches no file in the repo it governs. Silence and correctness look the
-  same from the inside.
+  **Reading code tells you whether the logic is right. Reading output tells you
+  whether it touches anything**, and the two feel identical while you do them. A
+  ban built from the wrong segment is correct code, passes its unit test, raises
+  coverage, and matches no file in the repo it governs. Every defect of that shape
+  found here came from rendering; none was reachable by reading source.
 
 The three checks above go back into the ticket bodies they belong to; the two
 questions produce findings, which become tickets or comments in the ordinary way.
@@ -523,42 +494,33 @@ the file and line that would settle each one, and no reasoning attached.** The
 reasoning is not the payload: what kills a wrong claim is somebody opening the
 file, and an argument invites agreement with the argument instead.
 
-**A line number carries no evidence of which tree produced it**, and that is the
-one way this form fails quietly. A `grep` in a checkout three commits behind
-returns a number that looks exactly like a current one — it happened here twice,
-once in a ticket's citations and once in a sweep of another ticket's. So **cite
-the commit with the line**, or read through `git show <ref>:<path>` so there is
-nothing else it could have come from. Reading from git was already the rule; what
-this adds is that the *artifact* shows it, because a rule you followed and a rule
-you skipped produce the same-looking citation.
+**A line number carries no evidence of which tree produced it**, and that is how
+this form fails quietly — a `grep` in a stale checkout returns a number that looks
+current. So **cite the commit with the line**, or read through
+`git show <ref>:<path>`. Reading from git was already the rule and did not stop it
+twice, because a rule you followed and a rule you skipped produce the same-looking
+citation; what this adds is that the artifact shows which.
 
-**A "yes" tells you nothing.** If the claim was right, its reader replied the same
-way whether they checked or nodded, and you cannot tell which. So the form is only
-ever validated by a claim that turns out false — which means **send the ones you
-are least sure of, not the ones you want confirmed.** That is the opposite of what
-asking for review feels like, and it is the whole discipline.
+**A "yes" tells you nothing about the claim.** A correct claim gets the same reply
+whether its reader checked or nodded. So the form is only ever validated by a
+claim that turns out false, which means **send the ones you are least sure of, not
+the ones you want confirmed** — the opposite of what asking for review feels like,
+and the whole discipline.
 
-**Nothing about the claim — but the reply still carries something, and it is not
-the same thing.** The output is two-valued: *"no, and here is the line"* kills a
-claim, and *"yes, and here is the line"* says the reader opened the file, which is
-all a correct claim's reply can honestly report. Silence says neither, so answer
-even when you agree. Naming what a yes does carry is also what keeps the sentence
-above from being softened into "a yes is weak evidence" — it is not weak evidence
-about the claim, it is none, and the obvious objection is answered here instead of
-by blunting it there.
+The reply does carry one thing, and naming it is what stops "tells you nothing"
+being softened into "weak evidence": the output is two-valued. *"No, and here is
+the line"* kills a claim; *"yes, and here is the line"* says the reader opened the
+file. **Silence says neither, so answer even when you agree.**
 
-Measured once: seven claims sent — **with their reasoning still attached**, which
-is what makes the result an argument for dropping it — and two died. Both were
-things that would otherwise have been carried to the end of the decomposition
-believed, and both died to the reader opening a file rather than to the reader
-weighing the reasoning that came with them. The reasoning was present and did
-nothing.
+Measured once: seven claims sent **with their reasoning still attached**, two
+died — both to the reader opening a file, neither to the reader weighing the
+reasoning. The reasoning was present and did nothing, which is the argument for
+leaving it out.
 
 **Peer review is not verification**, and two readers agreeing is not two checks —
-they converge on the same resemblance. Three claims this tier survived two
-sessions examining them and were killed by the owner asking what the thing
-actually does. That is not a better reviewer; it is a different question, and it
-is available to you at any line without any context at all.
+they converge on the same resemblance. Claims here survived two sessions examining
+them and died to the owner asking what the thing actually does. Not a better
+reviewer: a different question, and one that needs no context to ask.
 
 ## Phase 8 — does the sum reach the parent?
 
@@ -574,8 +536,14 @@ nobody can follow. Then:
 - **A claim with no ticket** is a missing cut. File it.
 - **A claim covered "partly"** is a claim you have not actually mapped. Split it
   into the parts and map each.
-- **A ticket serving no claim** is scope you added. Say so and ask the owner
-  whether it stays.
+- **A ticket serving no claim** is one of two things, and calling it the wrong
+  one wastes the owner's answer. Either it is **scope you added** — say so and ask
+  whether it stays — or it is **a defect this work exposed**, which is what a tier
+  spent refining mostly produces: the parent asked for a capability, building it
+  meant using the tool, and using it surfaced something already broken. Those are
+  not scope creep and must not be pruned as though they were. Say which, and for
+  a defect say whether it predates the parent, because that decides whether it is
+  a sub-issue at all (Phase 7, exit 2).
 
 The parent closes when every claim maps to a closed ticket. Not when the
 sub-issue counter hits 100% — the counter proves the tickets closed, not that
@@ -583,36 +551,38 @@ they covered the parent.
 
 ### Before it closes, someone who was not here checks it
 
-You cut these tickets and you verified them. You are the worst available reader of
-whether they hold, and a second session that has been in the decomposition with
-you is the second-worst: **two readers do not make two checks, because they
-converge on the same resemblance.** Measured this way once — three claims survived
-two sessions examining them and died to the owner asking what the thing actually
-does. Not a better reviewer. A question from outside.
+You cut these tickets and you verified them, which makes you the worst available
+reader of whether they hold — and a second session that has been in the
+decomposition with you is the second-worst. **Two readers are not two checks; they
+converge on the same resemblance.**
 
 So before the parent closes, spawn agents that were not part of this and cannot
 write:
 
-- **Fresh context, latest `main`, read-only.** No history of the decisions, no
-  stake in them, and no ability to fix what it finds — a reader that can edit
-  starts explaining instead of reporting.
-- **One agent per dimension, not one for everything.** Split by the kind of claim:
-  the emitted artifacts against the documents that describe them, the parent's
-  claims against the code, the acceptance criteria against what a command shows.
-  A single reviewer given everything returns the shape of its own attention.
-- **Every finding comes back, with a file and a line.** Not a summary and not a
-  ranked top-N: a finding you drop because two others outrank it is the one the
-  next reader has to rediscover. A finding without an address is an opinion.
-- **Findings are unverified reports until you check them.** Reopen the file. One
-  that does not hold is dropped and said to be dropped, not quietly omitted.
+- **Fresh context, latest `main`, read-only.** A reader that can edit starts
+  explaining instead of reporting.
+- **One agent per dimension**, split by the kind of claim — emitted artifacts
+  against the documents describing them, the parent's claims against the code,
+  acceptance against what a command shows. A single reviewer given everything
+  returns the shape of its own attention.
+- **Every finding comes back, with a file, a line and the commit.** Not a ranked
+  top-N: the finding dropped because two others outrank it is the one the next
+  reader rediscovers. Without an address it is an opinion.
+- **Findings are unverified reports until you reopen the file.** One that does not
+  hold is dropped *and said to be dropped*.
 
 ### Then decide what the process keeps
 
 A retrospective that only adds rules produces a document nobody reads, and every
 rule in it becomes decoration. So the pass that adds also **merges and deletes**,
-and it is worth measuring rather than sensing: this skill went from 301 lines to
-565 in one day, and the section that grew most was not the section that mattered
-most.
+measured rather than sensed — this skill nearly doubled in a day, and the section
+that grew most was not the one that mattered most.
+
+**What goes and what stays has a test.** A rule keeps its statement and its
+reason: a rule without a reason gets shortcut, which is why the reasons are here
+at all. What it does not keep is the incident that produced it — that belongs in
+the commit that added the rule, by this repo's own policy that history goes to
+the commit. A skill carrying its own changelog is a skill nobody finishes.
 
 Three questions, and the last is the one that gets skipped:
 
