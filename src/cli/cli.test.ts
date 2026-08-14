@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { BROWNFIELD_MIN_FILES } from '../bootstrap';
 import { isCliEntry, parseDepsArgs, parseDoctorArgs, parseImpactArgs, parseInitArgs, parseInspectArgs, parseRulesArgs, parseSurveyArgs, run, version } from './cli';
 
 describe('parseInitArgs', () => {
@@ -73,7 +74,10 @@ describe('run', () => {
       JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
     );
 
-    expect(await run(['init', '--framework', 'vue', '--no-install', '--dry-run'], root)).toBe(0);
+    expect(await run(
+      ['init', '--framework', 'vue', '--structure', 'flat', '--no-install', '--dry-run'],
+      root,
+    )).toBe(0);
   });
 
   it('runs init in the given cwd and returns 0', async () => {
@@ -82,8 +86,28 @@ describe('run', () => {
       JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
     );
 
-    expect(await run(['init', '--no-install'], root)).toBe(0);
+    expect(await run(['init', '--structure', 'flat', '--no-install'], root)).toBe(0);
     expect(fs.existsSync(path.join(root, 'blueprint.config.mjs'))).toBe(true);
+  });
+
+  it('exits 1 naming --structure when a fresh tree did not answer it', async () => {
+    // The most common failure this CLI will emit, and the exit code is what a
+    // scripted adoption reads. The message itself is bootstrap's contract; what
+    // this layer owns is that the throw becomes code 1 on the error channel.
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+    );
+
+    expect(await run(['init', '--no-install'], root)).toBe(1);
+
+    expect(
+      (console.error as ReturnType<typeof vi.fn>).mock.calls.some((call) =>
+        String(call[0]).includes('blueprint init needs --structure here'),
+      ),
+    ).toBe(true);
+
+    expect(fs.existsSync(path.join(root, 'blueprint.config.mjs'))).toBe(false);
   });
 
   it('returns 1 and reports when init fails', async () => {
@@ -233,9 +257,14 @@ describe('per-command help', () => {
     // Both values, each with what it means — a flag whose help names only the
     // syntax hands the choice back unanswered, and this one is a day-one choice.
     expect(help).toContain('technical layers at the source root');
-    expect(help).toContain('(flat, the default)');
-    expect(help).toContain('feature modules there with');
-    expect(help).toContain('those layers inside each one (modular)');
+    expect(help).toContain('(flat), or feature modules there with those layers');
+    expect(help).toContain('inside each one (modular)');
+    // NOT "flat, the default", which is what this line read while init defaulted.
+    // On a fresh tree the flag is required, and a help page still promising a
+    // default is the tool's own two outputs disagreeing.
+    expect(help).not.toContain('the default');
+    expect(help).toContain('init REQUIRES it rather');
+    expect(help).toContain(`under ${BROWNFIELD_MIN_FILES} source files`);
     // And the question it does NOT re-ask, or a re-run with the flag reads as a
     // migration that silently did nothing.
     expect(help).toContain('an existing blueprint.config.mjs already');

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { BROWNFIELD_MIN_FILES } from './authoring';
 import { runInit } from './bootstrap';
-import { nextPreset, reactPreset, vuePreset } from '../presets';
+import { NEXT_STRUCTURE_REFUSAL, nextPreset, reactPreset, vuePreset } from '../presets';
 
 let root: string;
 
@@ -30,7 +30,7 @@ describe('runInit', () => {
   it('scaffolds a greenfield vue project end to end', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(read('blueprint.config.mjs')).toContain('vuePreset({ name: \'demo\' })');
     expect(read('eslint.config.mjs')).toContain('emitLint');
@@ -50,7 +50,7 @@ describe('runInit', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, 'tsconfig.json'), '{"include": ["src"]}');
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const tsconfig = JSON.parse(read('tsconfig.json'));
 
@@ -63,7 +63,7 @@ describe('runInit', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, 'AGENTS.md'), '# House rules\n\nBe nice.\n');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(read('AGENTS.md')).toBe('# House rules\n\nBe nice.\n');
     expect(read('AGENTS.blueprint.md')).toContain('## Architecture contract');
@@ -76,7 +76,7 @@ describe('runInit', () => {
   it('refreshes its own marker block in place on re-run', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const first = read('CLAUDE.md');
 
@@ -116,7 +116,7 @@ describe('runInit', () => {
 
     const files = ['blueprint.config.mjs', 'eslint.config.mjs', 'CLAUDE.md', 'AGENTS.md', 'docs/architecture-handbook.md', 'jsconfig.json'];
 
-    await runInit(root, { install: false, log: silent, loadConfig });
+    await runInit(root, { structure: 'flat', install: false, log: silent, loadConfig });
     const snapshot = files.map(read);
 
     await runInit(root, { install: false, log: silent, loadConfig });
@@ -128,7 +128,7 @@ describe('runInit', () => {
   it('writes nothing on a dry run', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
-    const actions = await runInit(root, { dryRun: true, log: silent });
+    const actions = await runInit(root, { structure: 'flat', dryRun: true, log: silent });
 
     expect(actions.length).toBeGreaterThan(0);
     expect(exists('blueprint.config.mjs')).toBe(false);
@@ -152,13 +152,13 @@ describe('runInit', () => {
   it('throws when the framework is ambiguous and none is forced', async () => {
     writePkg({ dependencies: {} });
 
-    await expect(runInit(root, { log: silent })).rejects.toThrow(/framework/);
+    await expect(runInit(root, { structure: 'flat', log: silent })).rejects.toThrow(/framework/);
   });
 
   it('honors a forced framework when detection fails', async () => {
     writePkg({ dependencies: {} });
 
-    await runInit(root, { framework: 'react', install: false, log: silent });
+    await runInit(root, { structure: 'flat', framework: 'react', install: false, log: silent });
 
     expect(read('blueprint.config.mjs')).toContain('reactPreset()');
   });
@@ -167,7 +167,7 @@ describe('runInit', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     const commands: string[] = [];
 
-    await runInit(root, { log: silent, exec: (command) => commands.push(command) });
+    await runInit(root, { structure: 'flat', log: silent, exec: (command) => commands.push(command) });
 
     expect(commands).toEqual([
       'npm install -D eslint @kekkai/blueprint @eslint-community/eslint-plugin-eslint-comments'
@@ -194,6 +194,7 @@ describe('runInit', () => {
     // used to: the alias IS on disk when the install fails, and the ✓ that says so is
     // true.
     const failing = runInit(root, {
+      structure: 'flat',
       log: (message) => lines.push(message),
       exec: () => {
         throw new Error('npm error ERESOLVE unable to resolve dependency tree');
@@ -250,7 +251,7 @@ describe('runInit', () => {
     // disk and everything after it unwritten.
     fs.mkdirSync(path.join(root, 'docs', 'architecture-handbook.md'), { recursive: true });
 
-    const failing = runInit(root, { log: silent, exec: silent });
+    const failing = runInit(root, { structure: 'flat', log: silent, exec: silent });
 
     // A stopped run whose remaining plan is unnamed reads as "init is done,
     // minus one warning" — the message has to carry the missing effects and
@@ -272,6 +273,7 @@ describe('runInit', () => {
     );
 
     const failing = runInit(root, {
+      structure: 'flat',
       log: silent,
       exec: () => {
         throw new Error('npm error ERESOLVE');
@@ -285,7 +287,7 @@ describe('runInit', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     const lines: string[] = [];
 
-    await runInit(root, { log: (message) => lines.push(message), exec: () => {} });
+    await runInit(root, { structure: 'flat', log: (message) => lines.push(message), exec: () => {} });
 
     // The renderer already prefixes the kind — "✓ install: install eslint …"
     // read as a bug in the tool's own output.
@@ -401,10 +403,55 @@ describe('runInit · brownfield authoring flow', () => {
     expect(exists('blueprint-authoring.md')).toBe(false);
   });
 
+  it('does not call a --preset run over real code a fresh scaffold', async () => {
+    brownfield();
+
+    const lines: string[] = [];
+
+    await runInit(root, { install: false, preset: true, log: (m) => lines.push(m) });
+
+    expect(read('blueprint.config.mjs')).toContain('reactPreset');
+
+    // The fork note reads its count against the threshold — printed here it
+    // would say "Fresh scaffold (12 source files < 10)", which is false and
+    // arithmetically absurd in the same breath.
+    expect(lines.join('\n')).not.toContain('Fresh scaffold');
+  });
+
+  it('says a --structure passed here reached nothing, and where it would', async () => {
+    brownfield();
+
+    const lines: string[] = [];
+
+    await runInit(root, { install: false, structure: 'modular', log: (m) => lines.push(m) });
+
+    const out = lines.join('\n');
+
+    // The playbook is written and the flag is dropped on the floor. An adopter
+    // who stated a preference and saw no acknowledgement of it reads the run as
+    // having taken it — so the run says which document decides instead.
+    expect(exists('blueprint-authoring.md')).toBe(true);
+    expect(out).toContain('--structure modular was not used on this path');
+    expect(out).toContain('the playbook authors architecture from the shape this repo already has');
+    expect(out).toContain('blueprint init --preset --structure modular');
+  });
+
+  it('says nothing about the flag when none was passed', async () => {
+    brownfield();
+
+    const lines: string[] = [];
+
+    await runInit(root, { install: false, log: (m) => lines.push(m) });
+
+    // The note answers a question the adopter asked. Printed unasked it is a
+    // paragraph about a flag they have never typed.
+    expect(lines.join('\n')).not.toContain('was not used on this path');
+  });
+
   it('keeps the preset path for a near-empty repo', async () => {
     writePkg({ name: 'fresh', dependencies: { react: '^18' } });
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(read('blueprint.config.mjs')).toContain('reactPreset');
     expect(exists('blueprint-authoring.md')).toBe(false);
@@ -424,7 +471,7 @@ describe('runInit · brownfield authoring flow', () => {
 
     // The poison sequence from the field report: plain init scaffolds a
     // preset config, then --authoring used to be a silent no-op.
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
     expect(read('blueprint.config.mjs')).toContain('reactPreset');
 
     const lines: string[] = [];
@@ -520,7 +567,7 @@ describe('runInit · brownfield authoring flow', () => {
     writePkg({ name: 'fresh', dependencies: { react: '^18' } });
     const lines: string[] = [];
 
-    await runInit(root, { install: false, log: (message) => lines.push(message) });
+    await runInit(root, { structure: 'flat', install: false, log: (message) => lines.push(message) });
 
     expect(lines.join('\n')).toContain('no blueprint-authoring.md is written');
     expect(lines.join('\n')).toContain('init --authoring');
@@ -593,7 +640,7 @@ describe('runInit · brownfield authoring flow', () => {
       ].join('\n'),
     );
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const cleanup = actions.find(
       (action) => action.kind === 'instruct' && action.note.includes('Template cleanup'),
@@ -613,7 +660,7 @@ describe('runInit · brownfield authoring flow', () => {
       ['import logo from "../../assets/logo.svg";', 'import a from "../../assets/a.svg";'].join('\n'),
     );
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const cleanup = actions.find(
       (action) => action.kind === 'instruct' && action.note.includes('Template cleanup'),
@@ -630,7 +677,7 @@ describe('runInit · brownfield authoring flow', () => {
   it('emits no cleanup instruct when the scaffold is clean', async () => {
     writePkg({ name: 'fresh', dependencies: { vue: '^3' } });
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(actions.some(
       (action) => action.kind === 'instruct' && action.note.includes('Template cleanup'),
@@ -667,7 +714,7 @@ describe('runInit · artifact hygiene', () => {
   it('regenerates its own eslint config in place instead of writing a reference', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
     expect(read('eslint.config.mjs')).toContain('Generated by @kekkai/blueprint init');
 
     const again = await runInit(root, {
@@ -687,7 +734,7 @@ describe('runInit · artifact hygiene', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, 'eslint.config.mjs'), 'export default [];');
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(read('eslint.config.mjs')).toBe('export default [];');
     expect(exists('eslint.config.blueprint.mjs')).toBe(true);
@@ -697,7 +744,7 @@ describe('runInit · artifact hygiene', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\ndocs\n');
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const gitignore = read('.gitignore');
 
@@ -721,7 +768,7 @@ describe('runInit · artifact hygiene', () => {
     // the seam this write produces must not be.
     fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\ndocs\n\n\n');
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     // Anchored at the start, with the blank lines counted: a leading blank
     // line or a surviving run of trailing ones both show up as an unexplained
@@ -733,7 +780,7 @@ describe('runInit · artifact hygiene', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, '.gitignore'), 'AGENTS.md\n');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const patch = actions.find(
       (action) => action.kind === 'write' && action.path === '.gitignore',
@@ -756,6 +803,7 @@ describe('runInit · artifact hygiene', () => {
     const logs: string[] = [];
 
     await runInit(root, {
+      structure: 'flat',
       install: false,
       agent: 'claude',
       spawn: () => {
@@ -781,7 +829,7 @@ describe('runInit · wired eslint config detection', () => {
       ].join('\n'),
     );
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(exists('eslint.config.blueprint.mjs')).toBe(false);
     expect(read('eslint.config.mjs')).toContain('emitLint(blueprint)');
@@ -867,6 +915,62 @@ describe('runInit · Next.js routing', () => {
     expect(exists('blueprint-authoring.md')).toBe(true);
   });
 
+  it('does not ask a Next repo which structure to build, and says why not', async () => {
+    writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/app/page.tsx'), 'export default () => null;');
+
+    const lines: string[] = [];
+
+    await runInit(root, { install: false, log: (message) => lines.push(message) });
+
+    // Every other fresh scaffold is asked and this one is not, so silence here
+    // reads as a question that was answered on the adopter's behalf.
+    const out = lines.join('\n');
+
+    expect(read('blueprint.config.mjs')).toContain('nextPreset');
+    expect(out).toContain('No --structure question on this run');
+    expect(out).toContain('init resolved the Next preset from the route tree it detected');
+
+    // What each value does HERE, before the shared text — which closes by telling
+    // the reader to drop the option, a line addressed to the modular case while
+    // this run passed none. Getting it wrong is what makes a note advertise a
+    // value this repo would refuse.
+    expect(out).toContain('flat is what this preset builds, and modular is refused if you pass it');
+
+    // The explanation is nextPreset's own, not a second copy of it.
+    expect(out).toContain(NEXT_STRUCTURE_REFUSAL);
+  });
+
+  it('accepts --structure flat on a Next repo, and refuses modular with the Next reason', async () => {
+    writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/app/page.tsx'), 'export default () => null;');
+
+    // The pair is the point: a Next repo below the threshold must have a legal
+    // invocation. `modular` has no Next layer list, so it is refused; `flat` is
+    // the shape nextPreset already builds, so it is answered. Refused first,
+    // because a refusal that had written a config is its own defect.
+    await expect(runInit(root, { install: false, log: silent, structure: 'modular' }))
+      .rejects.toThrow(NEXT_STRUCTURE_REFUSAL);
+
+    expect(exists('blueprint.config.mjs')).toBe(false);
+
+    await runInit(root, { install: false, log: silent, structure: 'flat' });
+
+    expect(read('blueprint.config.mjs')).toContain('nextPreset');
+  });
+
+  it('asks a Next repo whose route tree could not be placed, since react is what it resolves', async () => {
+    // --preset is the only way to reach the fork in this state: without it a
+    // routerless Next repo returns through the authoring branch. The react
+    // preset DOES take a structure, so this one is asked like any other.
+    writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
+
+    await expect(runInit(root, { install: false, preset: true, log: silent }))
+      .rejects.toThrow('blueprint init needs --structure here');
+  });
+
   it('uses nextPreset for --preset on a Next repo (no react-preset warning)', async () => {
     writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
     fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
@@ -895,7 +999,7 @@ describe('runInit · the greenfield/brownfield fork is narrated', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     const lines: string[] = [];
 
-    await runInit(root, { install: false, log: (message) => lines.push(message) });
+    await runInit(root, { structure: 'flat', install: false, log: (message) => lines.push(message) });
 
     expect(lines.join('\n')).toContain('Fresh scaffold (0 source files < 10)');
     expect(lines.join('\n')).toContain('authoring playbook');
@@ -908,13 +1012,13 @@ describe('runInit · how the plan is reported', () => {
 
     const dry: string[] = [];
 
-    await runInit(root, { dryRun: true, install: false, log: (m) => dry.push(m) });
+    await runInit(root, { structure: 'flat', dryRun: true, install: false, log: (m) => dry.push(m) });
 
     expect(dry.join('\n')).toContain('would write');
 
     const applied: string[] = [];
 
-    await runInit(root, { install: false, log: (m) => applied.push(m) });
+    await runInit(root, { structure: 'flat', install: false, log: (m) => applied.push(m) });
 
     // Outside dry-run the applied lines ARE the report. A "would" among them
     // claims something about disk that already happened, or did not.
@@ -927,7 +1031,7 @@ describe('runInit · how the plan is reported', () => {
 
     const lines: string[] = [];
 
-    await runInit(root, { install: false, log: (m) => lines.push(m) });
+    await runInit(root, { structure: 'flat', install: false, log: (m) => lines.push(m) });
     const out = lines.join('\n');
 
     // An instruction reports nothing about disk. Wearing the ✓ of the writes
@@ -952,7 +1056,7 @@ describe('runInit · lint-script wiring', () => {
   it('patches a fresh scaffold whose lint script misses eslint', async () => {
     prettyPkg('oxlint');
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint && eslint src');
   });
@@ -960,7 +1064,7 @@ describe('runInit · lint-script wiring', () => {
   it('lands the package.json patch before the install action', async () => {
     prettyPkg('oxlint');
 
-    const actions = await runInit(root, { log: silent, exec: () => {} });
+    const actions = await runInit(root, { structure: 'flat', log: silent, exec: () => {} });
 
     const writeAt = actions.findIndex(
       (action) => action.kind === 'write' && action.path === 'package.json',
@@ -977,7 +1081,7 @@ describe('runInit · lint-script wiring', () => {
     // Compact JSON — the `"lint": "…"` needle (pretty formatting) misses.
     writePkg({ name: 'demo', dependencies: { vue: '^3' }, scripts: { lint: 'oxlint' } });
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint');
 
@@ -1010,7 +1114,7 @@ describe('runInit · lint-script wiring', () => {
   it('lands the lint-script patch before the install that would clobber it', async () => {
     prettyPkg('oxlint');
 
-    const actions = await runInit(root, { install: true, exec: () => {}, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: true, exec: () => {}, log: silent });
 
     const patchAt = actions.findIndex(
       (action) => action.kind === 'write' && action.path === 'package.json',
@@ -1055,7 +1159,7 @@ describe('runInit · lint-script wiring', () => {
   it('appends the patch when there is no install for it to precede', async () => {
     prettyPkg('oxlint');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const patchAt = actions.findIndex(
       (action) => action.kind === 'write' && action.path === 'package.json',
@@ -1075,7 +1179,7 @@ describe('runInit · lint-script wiring', () => {
   it('leaves a lint script that already runs eslint alone', async () => {
     prettyPkg('eslint .');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(JSON.parse(read('package.json')).scripts.lint).toBe('eslint .');
     expect(actions.some((action) => action.note.includes('&& eslint'))).toBe(false);
@@ -1086,7 +1190,7 @@ describe('runInit · lint-script wiring', () => {
     // shipped none — the field agent had to invent one; init owns it now.
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(JSON.parse(read('package.json')).scripts.lint).toBe('eslint src');
   });
@@ -1115,7 +1219,7 @@ describe('runInit · default agent targets are surfaced', () => {
   it('suggests emit.agents when both default contracts are written', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(
       actions.some(
@@ -1129,7 +1233,7 @@ describe('runInit · --agent persists into the scaffolded config', () => {
   it('scaffolds emit.agents so the narrowing survives the next plain init (field #5)', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
-    const actions = await runInit(root, { install: false, log: silent, agent: 'claude' });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent, agent: 'claude' });
 
     // The chicken-and-egg is gone: first run, one contract, persisted choice.
     expect(read('blueprint.config.mjs')).toContain('emit: { agents: [\'claude\'] }');
@@ -1186,11 +1290,123 @@ describe('runInit · --structure reaches the config init writes', () => {
   });
 });
 
+describe('runInit · a fresh tree is asked which structure to build', () => {
+  /** A Vite-shaped starter: real files, and still below the brownfield threshold. */
+  function starter(deps: Record<string, string> = { vue: '^3' }): void {
+    writePkg({ name: 'demo', dependencies: deps });
+    fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/main.ts'), 'export const x = 1;');
+    fs.writeFileSync(path.join(root, 'src/App.ts'), 'export const y = 1;');
+  }
+
+  it('refuses, naming the flag, both values, and the count against the threshold', async () => {
+    starter();
+
+    const failing = runInit(root, { install: false, log: silent });
+
+    // The criterion, computed rather than asserted: a hard-coded count or a
+    // threshold read from somewhere else turns this line red.
+    await expect(failing).rejects.toThrow(
+      `2 source files, below the brownfield threshold (${BROWNFIELD_MIN_FILES})`,
+    );
+
+    // The clause that stops an adopting agent hunting for a detection fix.
+    await expect(failing).rejects.toThrow('not a detection failure');
+
+    // Both values, each as a command that can be pasted — the refusal's whole
+    // job is to be satisfiable from what it printed.
+    await expect(failing).rejects.toThrow('blueprint init --structure flat');
+    await expect(failing).rejects.toThrow('blueprint init --structure modular');
+
+    // And why it refuses instead of defaulting, or the next reader files it as
+    // a tool that forgot to have a default.
+    await expect(failing).rejects.toThrow('the config migration is free, the file migration is not');
+
+    expect(exists('blueprint.config.mjs')).toBe(false);
+  });
+
+  it.each([
+    ['flat', 'export default vuePreset({ name: \'demo\' });'],
+    ['modular', 'export default vuePreset({ name: \'demo\', structure: \'modular\' });'],
+  ] as const)('proceeds once the answer is %s', async (structure, expected) => {
+    starter();
+
+    await runInit(root, { install: false, log: silent, structure });
+
+    expect(read('blueprint.config.mjs')).toContain(expected);
+  });
+
+  it('does not ask again once a config answers it', async () => {
+    starter();
+
+    await runInit(root, { install: false, log: silent, structure: 'flat' });
+
+    // The re-run an adopter actually types: same tree, same size, no flag. The
+    // config on disk is the answer, so a second question would be one the repo
+    // has already answered in writing.
+    const actions = await runInit(root, {
+      install: false,
+      log: silent,
+      loadConfig: async () => vuePreset({ name: 'demo' }),
+    });
+
+    expect(actions.length).toBeGreaterThan(0);
+    expect(read('blueprint.config.mjs')).toContain('vuePreset');
+  });
+
+  it('refuses on --preset too — that flag skips the playbook, not the question', async () => {
+    starter();
+
+    await expect(runInit(root, { install: false, preset: true, log: silent }))
+      .rejects.toThrow('blueprint init needs --structure here');
+
+    expect(exists('blueprint.config.mjs')).toBe(false);
+  });
+
+  it('never reaches the question under --authoring: the playbook returns first', async () => {
+    starter();
+
+    await runInit(root, { install: false, authoring: true, log: silent });
+
+    expect(exists('blueprint-authoring.md')).toBe(true);
+    expect(exists('blueprint.config.mjs')).toBe(false);
+  });
+
+  it('does not ask a brownfield repo scaffolding a preset', async () => {
+    writePkg({ name: 'legacy', dependencies: { vue: '^3' } });
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+
+    for (let i = 0; i < BROWNFIELD_MIN_FILES; i++) {
+      fs.writeFileSync(path.join(root, `src/app/file${i}.ts`), 'export const x = 1;');
+    }
+
+    // "There is nothing here to measure" is false on a repo this size, and a
+    // refusal whose stated reason is false is worse than a default. So --preset
+    // above the threshold scaffolds flat, unasked.
+    await runInit(root, { install: false, preset: true, log: silent });
+
+    expect(read('blueprint.config.mjs')).toContain('export default vuePreset({ name: \'legacy\' });');
+  });
+
+  it('refuses before printing any of the plan under --dry-run', async () => {
+    starter();
+
+    const lines: string[] = [];
+
+    await expect(runInit(root, { dryRun: true, log: (message) => lines.push(message) }))
+      .rejects.toThrow('blueprint init needs --structure here');
+
+    // A plan printed above the refusal reads as a run that was going to work —
+    // the banner alone ("blueprint init --dry-run · vue · npm") is enough to.
+    expect(lines).toEqual([]);
+  });
+});
+
 describe('runInit · the codeStyle heads-up is scoped to a fresh scaffold', () => {
   it('announces what codeStyle will demand when init generated the config', async () => {
     writePkg({ name: 'demo', dependencies: { react: '^18' } });
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(actions.some(
       (action) => action.kind === 'instruct' && action.note.includes('`codeStyle` on at error tier'),
@@ -1220,7 +1436,7 @@ describe('runInit · an introduced alias is named as a decision', () => {
   it('says the preset introduced the repo\'s first alias — and stays quiet when one existed', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
-    const introduced = await runInit(root, { install: false, log: silent });
+    const introduced = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(
       introduced.some(
@@ -1236,7 +1452,7 @@ describe('runInit · an introduced alias is named as a decision', () => {
       JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }),
     );
 
-    const detected = await runInit(root, { install: false, log: silent });
+    const detected = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(
       detected.some(
@@ -1258,7 +1474,7 @@ describe('runInit · an introduced alias is named as a decision', () => {
       '{ "compilerOptions": { "paths": { "~app: ["./src/x"] } } }',
     );
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const note = actions.find(
       (action) => action.kind === 'instruct' && action.note.includes('first import alias'),
@@ -1277,7 +1493,7 @@ describe('runInit · an introduced alias is named as a decision', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, 'tsconfig.json'), '{ "compilerOptions": {} }');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const note = actions.find(
       (action) => action.kind === 'instruct' && action.note.includes('first import alias'),
@@ -1294,7 +1510,7 @@ describe('runInit · which config --authoring is allowed to take over', () => {
     // over, and re-forking surveys the repo and re-narrates the greenfield
     // decision — on a repo that now has a config.
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const lines: string[] = [];
 
@@ -1313,7 +1529,7 @@ describe('runInit · which config --authoring is allowed to take over', () => {
     // init's own byte-identical output. Missing the variant makes --authoring
     // refuse to take over a config init wrote thirty seconds earlier.
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
-    await runInit(root, { install: false, log: silent, agent: 'codex' });
+    await runInit(root, { structure: 'flat', install: false, log: silent, agent: 'codex' });
 
     expect(read('blueprint.config.mjs')).toContain('emit: { agents: [\'agents\'] }');
 
@@ -1337,7 +1553,7 @@ describe('runInit · where the fork survey looks', () => {
 
     const lines: string[] = [];
 
-    await runInit(root, { install: false, log: (m) => lines.push(m) });
+    await runInit(root, { structure: 'flat', install: false, log: (m) => lines.push(m) });
 
     expect(lines.join('\n')).toContain('Fresh scaffold (2 source files < 10)');
   });
@@ -1359,7 +1575,7 @@ describe('runInit · where the fork survey looks', () => {
 describe('runInit · what a second run must not repeat', () => {
   const secondRun = async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const lines: string[] = [];
 
@@ -1408,7 +1624,7 @@ describe('runInit · what a second run must not repeat', () => {
     // `emit.agents` is in the config, repeating it tells them to declare
     // something they already declared.
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
-    await runInit(root, { install: false, log: silent, agent: 'claude' });
+    await runInit(root, { structure: 'flat', install: false, log: silent, agent: 'claude' });
 
     const actions = await runInit(root, {
       install: false,
@@ -1430,7 +1646,7 @@ describe('runInit · the gitignore heads-up counts what it re-included', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, '.gitignore'), '*.md\nCLAUDE.md\nAGENTS.md\n');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const note = actions.find(
       (action) => action.kind === 'write' && action.path === '.gitignore',
@@ -1591,7 +1807,7 @@ describe('runInit · where the package.json patch lands', () => {
     // patch before the work it is meant to follow.
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const patchAt = actions.findIndex(
       (action) => action.kind === 'write' && action.path === 'package.json',
@@ -1653,7 +1869,7 @@ describe('runInit · a .gitignore that arrived with CRLF', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\r\ndocs\r\n');
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const gitignore = read('.gitignore');
 
@@ -1673,7 +1889,7 @@ describe('runInit · a .gitignore that arrived with CRLF', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\ndocs\n');
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     expect(read('.gitignore')).not.toContain('\r');
   });

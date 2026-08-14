@@ -41,7 +41,7 @@ describe('e2e · vite-react-ts (greenfield preset + alias surgery)', () => {
   it('wires the alias into vite.config and the commented tsconfig, and stays idempotent', async () => {
     useFixture('vite-react-ts');
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     // Vite surgery: resolve.alias + the node:url import, template shape intact.
     const vite = read('vite.config.ts');
@@ -79,7 +79,7 @@ describe('e2e · vite-vue-ts (template cleanup)', () => {
   it('names the starter violations, then converges once imports move to the alias', async () => {
     useFixture('vite-vue-ts');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
 
     const cleanup = actions.find(
       (action) => action.kind === 'instruct' && action.note.includes('Template cleanup'),
@@ -187,6 +187,7 @@ describe('e2e · turbo-pnpm (workspace package)', () => {
     const commands: string[] = [];
 
     await runInit(pkg, {
+      structure: 'flat',
       log: silent,
       exec: (command) => {
         commands.push(command);
@@ -321,7 +322,7 @@ describe('e2e · JS project gets a jsconfig (Tier 1)', () => {
   it('creates jsconfig.json with the alias and runs the vite surgery', async () => {
     useFixture('vite-react-js');
 
-    await runInit(root, { install: false, log: silent });
+    await runInit(root, { structure: 'flat', install: false, log: silent });
 
     // No tsconfig anywhere → init creates jsconfig.json with the alias paths.
     expect(JSON.parse(read('jsconfig.json'))).toEqual({
@@ -337,7 +338,7 @@ describe('e2e · --dry-run writes nothing (Tier 1)', () => {
     useFixture('vite-react-ts');
     const before = fs.readFileSync(path.join(root, 'vite.config.ts'), 'utf-8');
 
-    const actions = await runInit(root, { install: false, dryRun: true, log: silent });
+    const actions = await runInit(root, { structure: 'flat', install: false, dryRun: true, log: silent });
 
     expect(actions.length).toBeGreaterThan(0);
     expect(exists('blueprint.config.mjs')).toBe(false);
@@ -403,6 +404,7 @@ describe('e2e · yarn workspace package (Tier 3)', () => {
     const commands: string[] = [];
 
     await runInit(path.join(root, 'packages', 'ui'), {
+      structure: 'flat',
       log: silent,
       exec: (command) => {
         commands.push(command);
