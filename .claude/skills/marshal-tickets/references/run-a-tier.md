@@ -223,15 +223,11 @@ Then two questions that are not about any ticket:
   enough — one instance was introduced while its predecessor was being fixed, same
   file, same sitting.
 
-- **Render what the tier emits, and read the output.** Not the code that produces
-  it — the artifact an adopter receives: `emitLint` against a fixture in the shape
-  the tier just enabled, `blueprint rules`, the playbook, the handbook.
-
-  **Reading code tells you whether the logic is right. Reading output tells you
-  whether it touches anything**, and the two feel identical while you do them. A
-  ban built from the wrong segment is correct code, passes its unit test, raises
-  coverage, and matches no file in the repo it governs. Every defect of that shape
-  found here came from rendering; none was reachable by reading source.
+- **Render what the tier emits, and read the output** — in the shape the tier just
+  enabled, which is the part the boundary adds. The rule itself is in the spine
+  under *How you verify*, because its moment is not this one: it pays most when
+  reached for mid-ticket, on a suspicion that a behaviour is invisible from the
+  code.
 
 The three checks above go back into the ticket bodies they belong to; the two
 questions produce findings, which become tickets or comments in the ordinary way.
