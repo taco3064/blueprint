@@ -77,8 +77,13 @@ ticket; "edit `emit/lint/lint.ts`" is not. A capability names a behaviour an
 adopter can observe; a file list is an implementation detail that will be wrong
 by the time someone works the ticket.
 
-Size each one to fit a single PR (< 300 changed lines, tests excluded). A cut
-that cannot fit is two cuts.
+**Do not size a cut by its line count.** The rule above already carries the real
+constraint, and a line budget is only its shadow — one that lies in both
+directions. A ticket landing 229 lines of implementation under 462 lines of test
+reads as three times over any such budget until someone splits the number, and a
+budget that has to be re-derived before it can be obeyed is worse than none. If a
+cut is too big, it is because it holds two verifiable changes, and that is what
+you can see without counting.
 
 **Unknowns get their own ticket.** When part of the parent is a question nobody
 has answered ("what should a modular greenfield scaffold create?"), that is a
@@ -220,11 +225,35 @@ is written. Read it against the tickets, and answer three questions in the reply
 One ticket, one PR. How many commits it takes is the implementation side's call
 and never yours. It merges its own PR without waiting on you.
 
-**So your check is an audit, not a gate**, and that changes the remedy. You read
+**One worktree per ticket, and read your baselines out of git rather than off
+disk.** You and the implementation side are two sessions over one checkout, which
+is not a tidiness problem: a session moving `HEAD` mid-ticket has put commits on
+the wrong local branch, produced an empty remote branch from a successful-looking
+push, and sent a mutation sweep against a tree nobody meant to measure. The
+pre-push hook makes it mutual — it tests the whole working tree, so their half-saved
+file blocks your unrelated push, and `--no-verify` is not the way out of that.
+`git worktree add` costs seconds, and `git show main:<path>` answers "what did
+this look like before" without depending on which branch happens to be checked
+out.
+
+**Your check is an audit, not a gate**, and that changes the remedy. You read
 the merged result against the ticket's `Done when`; when it falls short, the exit
 is a reopened ticket or a follow-up filed — never a blocked merge, which no
 longer exists to block. Then comment the outcome on the issue: what landed, what
 you verified it against, and anything it did beyond what the ticket asked.
+
+**There is a third exit, and it is often the right one:** fold the gap into an
+adjacent open ticket — but only when that ticket is already building the thing
+the gap belongs inside. A missing ban group whose entry does not exist yet
+belongs to whoever is creating that entry; reopening the closed ticket to add one
+group to someone else's new work is process for its own sake. When you fold, say
+so on the parent, so the closed ticket is not read as more complete than it was.
+
+**When a `Done when` names two machines, read both.** Acceptance written as "the
+alias and relative spellings reach the same verdict" spans `inspect` and lint,
+and checking the half that is easier to read is how a ticket closes with the
+other half false — which then surfaces two tickets later, inside someone else's
+scope. Nothing about the passing half hints that its twin was never run.
 
 Comment on **every** ticket, including the ones that came back clean. A ticket
 closed in silence is indistinguishable from a ticket nobody checked, and six
@@ -310,6 +339,25 @@ against the code as it stands now:
   helper, or a shared verdict function, name it in the ticket. A ticket that does
   not point at one invites a second implementation of the same rule, and two
   sources of truth that agree today have not agreed about tomorrow.
+
+Then check one thing that is not a ticket at all:
+
+- **Render what the tier emits, and read the output.** Not the code that produces
+  it — the artifact an adopter receives. For this repo that is `emitLint` against
+  a fixture in the shape the tier just enabled, `blueprint rules`, the playbook,
+  the handbook. Three defects of one shape came out of a tier that had closed with
+  every test green, full coverage and every ticket verified: three emitted pattern
+  groups that matched nothing, a reporter printing selectors the config did not
+  contain, and an acceptance clause true in one gate and false in the other. Every
+  one of them was found by rendering and reading, and none of them was reachable
+  by reading source.
+
+  The reason is worth keeping in front of you, because the two activities feel
+  identical while you are doing them. **Reading code tells you whether the logic
+  is right. Reading output tells you whether it touches anything.** A ban built
+  from the wrong segment is correct code, passes its unit test, raises coverage,
+  and matches no file in the repo it governs. Silence and correctness look the
+  same from the inside.
 
 Fix these in the ticket body. It is exit 1 of the gap loop, reached before the
 gap cost anything.
