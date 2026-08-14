@@ -190,23 +190,43 @@ Label from the existing set only (`gh label list`). Do not invent labels.
 The owner names a parent and a tier. That is the whole input — everything below
 is standing procedure, so do not ask for it and do not wait to be told it again.
 
-### Open the implementation side
+### One implementation session per ticket, not one per tier
 
-Check which situation you are in before you write anything. `ListAgents` shows
-the sessions reachable from here; when the owner already has one working this
-repo, address it by the exact name its row prints and send with `SendMessage`.
-When there is none, spawn one with the Agent tool. It writes code and you do
-not, so it inherits none of this skill's boundary.
+Spawn a fresh session for each ticket with the Agent tool. It writes code and you
+do not, so it inherits none of this skill's boundary. Hand it the parent number,
+**the one ticket it is working**, and the instruction to read `CLAUDE.md` plus
+every `.claude/docs/` page whose trigger fires. Hand over the ticket *number*,
+not your summary of it — a summary is a second source of truth for something you
+already wrote, and the two will differ.
 
-**Confirm the target before the first send.** Addressing the wrong session fails
-silently: the message lands, someone answers about a different repo, and nothing
-in the reply says it came from the wrong place. If two rows could plausibly be
-it, ask the owner which — one question now beats a tier of misrouted review.
+**A session held across a whole tier is the shape to avoid, and it has already
+failed here.** One reached 850k tokens and then became unreachable mid-tier. What
+it had picked up on the way — a verification habit, a cheaper way to check one
+fix, a build-cache trap — existed only in a transcript nobody else could read, so
+losing it lost all of it, and the recovery was a hand-written handoff.
 
-Hand over: the parent number, the tier's tickets in execution order, and the
-instruction to read `CLAUDE.md` plus every `.claude/docs/` page whose trigger
-fires. Hand over the ticket *numbers*, not your summary of them — a summary is a
-second source of truth for a ticket you already wrote, and the two will differ.
+The rule that falls out of that is the useful part: **anything worth carrying
+between tickets is worth writing down, and anything not worth writing down was
+not worth carrying.** A long session is a way of never making that decision. Each
+kind has a home that outlives any session:
+
+- a habit or a stance → `.claude/docs/`, or `CLAUDE.md` when it applies to every edit
+- a repo-specific trap → `CLAUDE.md`, beside the tooling it bites
+- something true of one ticket only → that ticket's body
+
+Written there, the next session gets it by reading, which is the ordinary way.
+
+**Your own session is the exception, and by construction rather than by luck.**
+Everything the ticket layer knows is already on GitHub: the tickets, their
+bodies, the parent's comments. A PM session that dies is restarted by reading
+them back. That asymmetry is what makes "comment on every ticket, including the
+clean ones" more than bookkeeping — it is the durable half of this role's memory.
+
+If the owner already has a session open and points at it, use that one.
+`ListAgents` shows what is reachable, and **confirming the target before the
+first send matters**: addressing the wrong session fails silently — the message
+lands, someone answers about a different repo, and nothing in the reply says it
+came from the wrong place.
 
 ### Ask for the plan before the code
 
@@ -224,6 +244,14 @@ is written. Read it against the tickets, and answer three questions in the reply
 
 One ticket, one PR. How many commits it takes is the implementation side's call
 and never yours. It merges its own PR without waiting on you.
+
+**But nothing starts until you send.** The implementation side stops after every
+report and waits — by design, on every ticket, not only the ones where it asked
+something. A report ending *"next is #223"* is stating an intention, and it will
+sit there indefinitely. You are the only actor who can begin the next ticket, so
+a tier stalls in the one way that is hard to notice: no error, no blocked
+message, nothing to answer. Just a silence that reads exactly like work in
+progress.
 
 **One worktree per ticket, and read your baselines out of git rather than off
 disk.** You and the implementation side are two sessions over one checkout, which
@@ -258,6 +286,14 @@ scope. Nothing about the passing half hints that its twin was never run.
 Comment on **every** ticket, including the ones that came back clean. A ticket
 closed in silence is indistinguishable from a ticket nobody checked, and six
 months later that is the only difference anyone needs.
+
+**Report what you verified, never what somebody said they would do.** *"The
+implementation side is on #223"* and *"its last report ended with «next is
+#223»"* are different claims, and only the second is yours to make. The first was
+told to an owner once while nothing at all was running: the peer had stopped
+after its report, as it always does, and the intention in its closing line got
+relayed as progress. An owner who believes it waits for a PR nobody is writing —
+and the longer they wait, the more reasonable the wait seems.
 
 ### While it runs
 
