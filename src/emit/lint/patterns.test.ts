@@ -92,6 +92,18 @@ describe('resolveLayerFiles', () => {
       .toEqual(['lib/services/**/*.ts']);
   });
 
+  it('tolerates the spaces a hand-written {module} carries', () => {
+    // Same stakes as `{ layer }` next door: requiring the braces to hug the word
+    // leaves the placeholder in the glob verbatim, so every net scopes to a
+    // directory literally named `{ module }` and matches nothing — silent, and
+    // green. A mutation sweep found this one; the `{layer}` case had a test and
+    // this one did not.
+    expect(resolveLayerFiles('hooks', arch({
+      layerFiles: 'src/{ module }/{ layer }/**/*.ts',
+      modules: [{ name: 'Fighter', does: '' }],
+    }), 'auto')).toEqual(['src/Fighter/hooks/**/*.ts']);
+  });
+
   it('expands the declared modules against the layer, never a wildcard', () => {
     // `src/*/hooks/**` would match `src/Figthter/hooks/x.ts` — a module nobody
     // declared, because of a typo. Coverage would count it inside the net while

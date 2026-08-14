@@ -993,6 +993,16 @@ describe('analyze · a modular tree is read at module depth', () => {
     }
   });
 
+  it('does not call another module\'s root an upward edge', () => {
+    // `~app/Combat` from inside Fighter is a CROSS-module edge — #182's to judge
+    // once module bans exist — not this module reaching up to its own root. The
+    // guard that separates them is `parts[0] === file.segments[0]`, and nothing
+    // asserted it until a mutation sweep dropped it and every test stayed green.
+    expect(modularRules([
+      file(['Fighter', 'hooks', 'useInput', 'index.ts'], [{ specifier: '~app/Combat' }]),
+    ])).not.toContain('root-import');
+  });
+
   it('does not read a bare layer address as the module root', () => {
     // `~app/Fighter/components` reaches a declared layer, not the root. Read as
     // the root it would report the upward edge on a downward one.
