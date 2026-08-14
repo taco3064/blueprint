@@ -86,6 +86,13 @@ export async function runDeps(
 
   const skipped = skippedFolders(scanned, declared);
   const modules = depth > 0 ? collapse(nodes) : nodes;
+
+  // undecidable, the depth test: on a flat project `withModuleFanIn` answers
+  // nothing anyway. It pairs each node with the module row whose name is that
+  // node's first segment, and a flat graph has no row keyed by a bare layer —
+  // `hooks/useCart` is a node, `hooks` is not. The test stays because "a flat
+  // project reports one granularity" is the decision, not a coincidence of
+  // which keys the graph happens to hold.
   const units = depth > 0 ? withModuleFanIn(nodes, modules) : [];
 
   if (options.target !== undefined) {

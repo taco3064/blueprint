@@ -291,6 +291,10 @@ export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef
   // layer test it contributes nothing at all — and the routing module is
   // usually the one importing everything, so its edges are the ones a reader
   // would miss first.
+  // undecidable, the `?? []` arm: a fabricated member has no `layers` key, so
+  // the filter drops it and the set is empty either way — which is what a flat
+  // project has. Kept because the absent arm is real: this runs before any
+  // depth test, on every project.
   const unlayered = new Set(
     (architecture.modules ?? []).filter((module) => module.layers === false)
       .map((module) => module.name),

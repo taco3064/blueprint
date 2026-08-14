@@ -417,3 +417,22 @@ describe('targetModuleKey · the alias root itself', () => {
     )).toBeNull();
   });
 });
+
+describe('targetModuleKey · an undeclared layer inside a module', () => {
+  it('is not a node — the layer test still runs at module depth', () => {
+    // The module-entry arm is bounded by `parts.length <= depth`. Unbounded, a
+    // specifier reaching any folder inside a module becomes a node, so a typo
+    // like `~app/Combat/hoosk/x` joins the graph instead of being invisible to
+    // it — and `deps` starts reporting a unit nobody wrote.
+    const from = {
+      path: 'src/Fighter/hooks/useInput/useInput.ts',
+      segments: ['Fighter', 'hooks', 'useInput', 'useInput.ts'],
+      imports: [],
+    };
+
+    expect(targetModuleKey(
+      { specifier: '~app/Combat/hoosk/x', names: [], isExport: false },
+      from, ['~app'], ['hooks'], () => 'folder', 1,
+    )).toBeNull();
+  });
+});
