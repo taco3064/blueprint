@@ -9,7 +9,7 @@ import type { Blueprint } from '../config';
 import { emitLint } from '../emit/lint';
 import { globToRegExp } from './filter';
 import type { ScanResult } from './types';
-import { expectedStructural, wiringCheck } from './wiring';
+import { expectedModuleBans, expectedStructural, wiringCheck } from './wiring';
 
 const blueprint: Blueprint = {
   framework: 'vue',
@@ -86,7 +86,7 @@ describe('expectedStructural · the shape two prose sites describe', () => {
     // update `PACKAGES_NOT_COMPARED` and the `rules` block that prints it, then this
     // list. Removing one means it stopped. Either way both texts move with it.
     expect(Object.keys(expectedStructural(blueprint, 'views')))
-      .toEqual(['paths', 'groups', 'selectors', 'globals']);
+      .toEqual(['reexport', 'paths', 'groups', 'selectors', 'globals']);
   });
 });
 
@@ -137,8 +137,8 @@ describe('wiringCheck', () => {
     // …including its reach. One probe per layer, so a merged entry covering part of a
     // layer passes on a sibling path — stated where the ✓ is read, not only in the
     // comment on `pickProbes`.
-    expect(check.label).toContain('one probe per layer');
-    expect(check.label).toContain('scoped to only part of a layer are not compared');
+    expect(check.label).toContain('one probe per emitted entry');
+    expect(check.label).toContain('scoped to only part of one entry\'s files are not compared');
   });
 
   it('probes every layer — a scoped override cannot hide behind the first one', async () => {
@@ -969,7 +969,9 @@ describe('wiringCheck · a modular repo is probed inside a module', () => {
       scanOf('src/Fighter/components/Hud/index.jsx'),
     );
 
-    expect(probed).toEqual(['/repo/src/Fighter/components/Hud/index.jsx']);
+    // One probe per emitted entry now: two modules × one layer, plus each
+    // module's own zone.
+    expect(probed).toContain('/repo/src/Fighter/components/Hud/index.jsx');
     expect(check.ok).toBe(true);
     expect(check.detail).toBeUndefined();
 
@@ -1018,7 +1020,10 @@ describe('wiringCheck · a modular repo is probed inside a module', () => {
     // empty-layer arm resolves a config governing nothing.
     const { probed } = await probeModular(scanOf());
 
-    expect(probed).toEqual(['/repo/src/Fighter/components/__blueprint_probe__.js']);
+    // Every scope gets its own stand-in — a greenfield scaffold has nothing on
+    // disk, so this arm carries the whole check there.
+    expect(probed).toContain('/repo/src/Fighter/components/__blueprint_probe__.js');
+    expect(probed).toContain('/repo/src/Combat/components/__blueprint_probe__.js');
   });
 });
 
@@ -1125,11 +1130,16 @@ describe('wiringCheck · the shapes a surviving module-root ban comes back as', 
     load: loader({
       rules: {
         'no-restricted-imports': ['error', {
-          patterns: [...expectedStructural(modular, 'hooks', 'Fighter').groups]
-            .map((group) => ({ group: JSON.parse(group) as string[] })),
+          // Both expectation shapes, because the probe set now covers the
+          // module's zone as well as its layers.
+          patterns: [
+            ...expectedStructural(modular, 'hooks', 'Fighter').groups,
+            ...expectedModuleBans(modular, 'Fighter').groups,
+          ].map((group) => ({ group: JSON.parse(group) as string[] })),
           paths,
         }],
         'blueprint/relative-escape': ['error', {}],
+        'blueprint/no-module-reexport': ['error', {}],
       },
     }),
   });
@@ -1151,5 +1161,295 @@ describe('wiringCheck · the shapes a surviving module-root ban comes back as', 
     ]);
 
     expect(check.ok).toBe(true);
+  });
+});
+
+describe('wiringCheck · one probe per emitted entry, and losses that name it', () => {
+  const four: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'app', does: 'routing', layers: false, imports: ['Fighter'] },
+        { name: 'Fighter', does: 'the ship', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets' },
+      ],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' },
+        { name: 'hooks', does: 'state', layout: 'folder' },
+      ],
+    },
+  };
+
+  /** Resolves each probe against the real emitted config, with `gut` applied. */
+  const run = async (
+    files: string[],
+    gut?: (rel: string, rules: Record<string, unknown>) => Record<string, unknown>,
+  ) => {
+    const probed: string[] = [];
+
+    const check = await wiringCheck({
+      root: '/repo',
+      blueprint: four,
+      scanResult: scanOf(...files),
+      wired: true,
+      merged: true,
+      hasTypescript: true,
+      load: loader((filePath: string) => {
+        const rel = filePath.split(path.sep).join('/').replace('/repo/', '');
+
+        probed.push(rel);
+
+        const merged = emitLint(four)
+          .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
+          .reduce<Record<string, unknown>>((rules, entry) => ({ ...rules, ...entry.rules }), {});
+
+        return { rules: gut ? gut(rel, merged) : merged };
+      }),
+    });
+
+    return { probed, check };
+  };
+
+  it('probes every (module, layer) pair, not one module per layer', async () => {
+    // The ask: one probe per layer green-lights a merge that replaced the rules
+    // of every module but the one that happened to be sampled.
+    const { probed, check } = await run([
+      'src/Fighter/hooks/useRun/index.jsx',
+      'src/Combat/hooks/useHit/index.jsx',
+    ]);
+
+    expect(probed).toContain('src/Fighter/hooks/useRun/index.jsx');
+    expect(probed).toContain('src/Combat/hooks/useHit/index.jsx');
+    // Both real hits are used — neither stands in for the other.
+    expect(check.ok).toBe(true);
+    expect(check.skipped).toBeUndefined();
+  });
+
+  it('probes each module\'s own zone, and a layers:false module entire', async () => {
+    const { probed } = await run(['src/Fighter/Fighter.jsx', 'src/app/routes/Game.jsx']);
+
+    // The entry governing a module's composition code, and the whole of a
+    // module that declared no layers — both unverified until now.
+    expect(probed).toContain('src/Fighter/Fighter.jsx');
+    expect(probed).toContain('src/app/routes/Game.jsx');
+  });
+
+  it('names the module in a loss, so two modules are two lines', async () => {
+    // The adopter-facing half: printed under one name, two problems read as
+    // one, and fixing the one they find leaves lint green on the other.
+    const { check } = await run(
+      ['src/Fighter/hooks/useRun/index.jsx', 'src/Combat/hooks/useHit/index.jsx'],
+      (rel, rules) => (rel.includes('/hooks/')
+        ? { ...rules, 'no-restricted-imports': ['error', { patterns: [] }] }
+        : rules),
+    );
+
+    expect(check.ok).toBe(false);
+    expect(check.detail).toContain('Fighter/hooks: no-restricted-imports lost');
+    expect(check.detail).toContain('Combat/hooks: no-restricted-imports lost');
+  });
+
+  it('names a module zone as a zone, not as a layer it does not have', async () => {
+    const { check } = await run(
+      ['src/Fighter/Fighter.jsx', 'src/app/routes/Game.jsx'],
+      (rel, rules) => (rel.startsWith('src/Fighter/Fighter') || rel.startsWith('src/app/')
+        ? { ...rules, 'no-restricted-imports': ['error', { patterns: [] }] }
+        : rules),
+    );
+
+    expect(check.ok).toBe(false);
+    expect(check.detail).toContain('Fighter/(root): no-restricted-imports lost');
+    expect(check.detail).toContain('app/(all): no-restricted-imports lost');
+  });
+
+  it('catches a merge that gutted only ONE module', async () => {
+    // The exact scoping this check exists for, one level up: sampled by layer,
+    // whichever module sorted first would have spoken for both.
+    const { check } = await run(
+      ['src/Fighter/hooks/useRun/index.jsx', 'src/Combat/hooks/useHit/index.jsx'],
+      (rel, rules) => (rel.startsWith('src/Combat/')
+        ? { ...rules, 'no-restricted-imports': ['error', { patterns: [] }] }
+        : rules),
+    );
+
+    expect(check.ok).toBe(false);
+    expect(check.detail).toContain('Combat/hooks: no-restricted-imports lost');
+    expect(check.detail).not.toContain('Fighter/hooks: no-restricted-imports lost');
+  });
+
+  it('takes no zone probe from a path the config ignores', async () => {
+    // The emitted entries exempt an ignored path, so a probe taken from one
+    // would be compared against rules that never governed it — the expectation
+    // would lie in the direction of a false red.
+    const ignored: Blueprint = {
+      ...four,
+      architecture: { ...four.architecture, layerFilesIgnore: ['src/Fighter/*'] },
+    };
+
+    const probed: string[] = [];
+
+    await wiringCheck({
+      root: '/repo',
+      blueprint: ignored,
+      scanResult: scanOf(),
+      wired: true,
+      merged: true,
+      hasTypescript: true,
+      load: loader((filePath: string) => {
+        probed.push(filePath.split(path.sep).join('/').replace('/repo/', ''));
+
+        return { rules: {} };
+      }),
+    });
+
+    expect(probed).not.toContain('src/Fighter/__blueprint_probe__.js');
+    // …and the other modules' zones are still probed.
+    expect(probed).toContain('src/Combat/__blueprint_probe__.js');
+  });
+
+  it('gives a greenfield scaffold one probe per entry, not one for the tree', async () => {
+    // Nothing on disk, so the synthetic arm carries the whole check — and it
+    // returned on the first scope's stand-in until now.
+    const { probed } = await run([]);
+
+    expect(probed).toContain('src/Fighter/hooks/__blueprint_probe__.js');
+    expect(probed).toContain('src/Combat/hooks/__blueprint_probe__.js');
+    expect(probed).toContain('src/Fighter/__blueprint_probe__.js');
+    expect(probed).toContain('src/app/__blueprint_probe__.js');
+    // Two modules × two layers, plus three module zones.
+    expect(probed).toHaveLength(7);
+  });
+});
+
+describe('expectedModuleBans', () => {
+  const four: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'app', does: 'routing', layers: false, imports: ['Fighter'] },
+        { name: 'Fighter', does: 'the ship', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets', owns: [{ global: 'requestAnimationFrame' }] },
+      ],
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    },
+  };
+
+  it('expects the cross-module bans and the reach past a unit\'s entry', () => {
+    const groups = [...expectedModuleBans(four, 'Fighter').groups].join(' ');
+
+    // Undeclared module, and the declared one past its entry.
+    expect(groups).toContain('~app/app');
+    expect(groups).toContain('~app/Combat/**');
+    // The root composes its layers, and reaches them through their entries.
+    expect(groups).toContain('~app/Fighter/hooks/*/**');
+  });
+
+  it('expects no inner-unit ban for a layers:false module', () => {
+    // It declared no layers, so there is no unit entry to reach past.
+    expect([...expectedModuleBans(four, 'app').groups].join(' ')).not.toContain('/*/**');
+  });
+
+  it('expects the globals another module owns, and none of its own', () => {
+    expect([...expectedModuleBans(four, 'Fighter').globals]).toEqual(['requestAnimationFrame']);
+    expect([...expectedModuleBans(four, 'Combat').globals]).toEqual([]);
+  });
+
+  it('expects no selfOnly selector and no module-root path', () => {
+    const bans = expectedModuleBans(four, 'Fighter');
+
+    // `allowedImporters` is a layer's field; and this entry IS the root, so the
+    // ban on reaching UP to it belongs to the layer entries.
+    expect([...bans.selectors]).toEqual([]);
+    expect([...bans.paths]).toEqual([]);
+  });
+
+  it('expects nothing at all on a flat config', () => {
+    // Asked of a project with no modules, it answers no verdict rather than
+    // inventing one — the zone it describes does not exist there.
+    const flat: Blueprint = {
+      framework: 'react',
+      architecture: { alias: '~app', layers: [{ name: 'hooks', does: 'state' }] },
+    };
+
+    const bans = expectedModuleBans(flat, 'Fighter');
+
+    expect([...bans.groups]).toEqual([]);
+    expect([...bans.globals]).toEqual([]);
+  });
+
+  it('expects nothing for a name no module has', () => {
+    // A caller asking about an undeclared module gets no verdict rather than a
+    // fabricated one — the same stance `syntheticPath` takes.
+    expect([...expectedModuleBans(four, 'Nowhere').groups]).toEqual([]);
+  });
+});
+
+describe('wiringCheck · the pass-through rule survives the merge too', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [{ name: 'Fighter', does: 'the ship', imports: ['Combat'] }, { name: 'Combat', does: 'bullets' }],
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    },
+  };
+
+  const run = async (drop?: string) => wiringCheck({
+    root: '/repo',
+    blueprint: modular,
+    scanResult: scanOf('src/Fighter/hooks/useRun/index.jsx'),
+    wired: true,
+    merged: true,
+    hasTypescript: true,
+    load: loader((filePath: string) => {
+      const rel = filePath.split(path.sep).join('/').replace('/repo/', '');
+
+      const merged = emitLint(modular)
+        .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
+        .reduce<Record<string, unknown>>((rules, entry) => ({ ...rules, ...entry.rules }), {});
+
+      if (drop) delete merged[drop];
+
+      return { rules: merged };
+    }),
+  });
+
+  it('names it when a merge dropped it', async () => {
+    // Symmetric with `relative-escape`, and for the same reason: a plugin rule
+    // a merge dropped leaves lint green while the ban is simply gone.
+    const check = await run('blueprint/no-module-reexport');
+
+    expect(check.ok).toBe(false);
+    expect(check.detail).toContain('blueprint/no-module-reexport is missing or off');
+  });
+
+  it('does not expect it on a flat config, which emits none', async () => {
+    const flat: Blueprint = {
+      framework: 'react',
+      architecture: { alias: '~app', layers: [{ name: 'hooks', does: 'state', layout: 'folder' }] },
+    };
+
+    const check = await wiringCheck({
+      root: '/repo',
+      blueprint: flat,
+      scanResult: scanOf('src/hooks/useRun/index.jsx'),
+      wired: true,
+      merged: true,
+      hasTypescript: true,
+      load: loader((filePath: string) => {
+        const rel = filePath.split(path.sep).join('/').replace('/repo/', '');
+
+        return {
+          rules: emitLint(flat)
+            .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
+            .reduce<Record<string, unknown>>((rules, entry) => ({ ...rules, ...entry.rules }), {}),
+        };
+      }),
+    });
+
+    expect(check.ok).toBe(true);
+    expect(check.detail).toBeUndefined();
   });
 });

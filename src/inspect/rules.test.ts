@@ -924,7 +924,7 @@ describe('runRules · the module-root ban is reported as what it is', () => {
     expect(text).toContain('module-root (exact paths, never a group): ~app/Fighter, ~app/Fighter/index');
     // Rebuilt as a pattern group it would take the module's own layers with it,
     // which is the whole reason the mechanism differs.
-    expect(text).toContain('`module-root` and the selfOnly selectors are what doctor');
+    expect(text).toContain('`module-root` and the selfOnly selectors are the columns doctor');
   });
 
   it('reports none for the module-root zone, which IS the root', async () => {

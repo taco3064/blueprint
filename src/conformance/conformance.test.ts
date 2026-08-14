@@ -1135,8 +1135,8 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
     // this side of the boundary was never asserted at all. Checked by removing the line
     // — the suite stayed green on 1314 tests before this.
     expect(flattenProse(rules.output))
-      .toContain('`no-import`, `globals`, `module-root` and the selfOnly selectors are what '
-        + 'doctor compares');
+      .toContain('`no-import`, `globals`, `module-root` and the selfOnly selectors are the '
+        + 'columns doctor compares — along with the embedded `blueprint/*` rules');
 
     expect(flattenProse(rules.output)).toContain('`packages` is not compared by');
     expect(flattenProse(rules.output)).toContain('--print-config');
@@ -2434,8 +2434,8 @@ describe('a merge that drops a carrier cannot pass doctor (field issue #40)', ()
     // an entry that replaces blueprint's on PART of a layer passes — the probe lands on
     // a sibling that still carries the selectors. `pickProbes` said "sample, not a
     // proof" in a source comment; the adopter reading the ✓ never saw it.
-    expect(doctor.output).toContain('one probe per layer');
-    expect(doctor.output).toContain('scoped to only part of a layer are not compared');
+    expect(doctor.output).toContain('one probe per emitted entry');
+    expect(doctor.output).toContain('scoped to only part of one entry\'s files are not compared');
   });
 
   it('the playbook names --print-config, the step both field runs invented', async () => {
@@ -3757,5 +3757,139 @@ describe('the upward edge is red in both gates (real eslint)', () => {
 
     expect(red.code).toBe(1);
     expect(red.output).toContain('lost the module-root ban');
+  });
+});
+
+describe('doctor probes the module dimension (real eslint)', () => {
+  // Green is not the same as checking. A doctor that does not know the
+  // dimension exists is green for the wrong reason, and one probe per layer is
+  // exactly that: whichever module sorted first speaks for all of them.
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'app', does: 'routing only', layers: false, imports: ['GameStage'] },
+        { name: 'GameStage', does: 'the run', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets' },
+      ],
+      layers: [{ name: 'hooks', does: 'reactive state', layout: 'folder' }],
+    },
+  };
+
+  const spec = (eslintConfig: string): RepoSpec => ({
+    packageJson: react(),
+    files: {
+      'blueprint.config.mjs': configSource(modular),
+      'jsconfig.json': JSON.stringify({
+        compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+      }),
+      'src/GameStage/hooks/useRun/index.jsx': 'export const useRun = 1;\n',
+      'src/GameStage/GameStage.jsx': 'export const GameStage = 1;\n',
+      'src/Combat/hooks/useHit/index.jsx': 'export const useHit = 1;\n',
+      'src/app/routes/Game.jsx': 'export const Game = 1;\n',
+      'eslint.config.mjs': eslintConfig,
+    },
+  });
+
+  it('verifies an intact modular config, and says what it covered', async () => {
+    const doctor = await cli(repo(spec(wiredEslintConfig(modular))), ['doctor']);
+
+    expect(doctor.output).toContain('✓ emitted rules survive the merged eslint config (');
+    expect(doctor.output).not.toContain('skipped');
+    // The scope sentence says which granularity was sampled — read as "one per
+    // layer" an adopter would trust a check that never ran on their module.
+    expect(doctor.output).toContain('one probe per emitted entry');
+    expect(doctor.code).toBe(0);
+  });
+
+  it('reddens when a merge guts ONE module and names that module', async () => {
+    // The whole point. Sampled per layer, `Combat` would have been spoken for
+    // by `GameStage` and this merge would have passed.
+    const gutting = '  { "files": ["src/Combat/hooks/**/*.jsx"], '
+      + '"rules": { "no-restricted-imports": ["error", { "patterns": [] }] } },';
+
+    const doctor = await cli(repo(spec(wiredEslintConfig(modular, gutting))), ['doctor']);
+
+    expect(doctor.code).toBe(1);
+    expect(doctor.output).toContain('Combat/hooks: no-restricted-imports lost');
+    // And it does not blame the module whose rules are intact.
+    expect(doctor.output).not.toContain('GameStage/hooks: no-restricted-imports lost');
+  });
+
+  it('reddens when the gutted entry is a module\'s own root', async () => {
+    // Unprobed until now: the entry governing a module's composition code.
+    const gutting = '  { "files": ["src/GameStage/*.jsx"], '
+      + '"rules": { "no-restricted-imports": ["error", { "patterns": [] }] } },';
+
+    const doctor = await cli(repo(spec(wiredEslintConfig(modular, gutting))), ['doctor']);
+
+    expect(doctor.code).toBe(1);
+    expect(doctor.output).toContain('GameStage/(root): no-restricted-imports lost');
+  });
+
+  it('reddens when the gutted entry is a layers:false module', async () => {
+    const gutting = '  { "files": ["src/app/**/*.jsx"], '
+      + '"rules": { "no-restricted-imports": ["error", { "patterns": [] }] } },';
+
+    const doctor = await cli(repo(spec(wiredEslintConfig(modular, gutting))), ['doctor']);
+
+    expect(doctor.code).toBe(1);
+    expect(doctor.output).toContain('app/(all): no-restricted-imports lost');
+  });
+
+  it('prints two lines when two modules lose the same thing', async () => {
+    // An adopter reading one line fixes one module and leaves lint green on the
+    // other, which is the cost the module in the label buys back.
+    const gutting = '  { "files": ["src/**/hooks/**/*.jsx"], '
+      + '"rules": { "no-restricted-imports": ["error", { "patterns": [] }] } },';
+
+    const doctor = await cli(repo(spec(wiredEslintConfig(modular, gutting))), ['doctor']);
+
+    expect(doctor.code).toBe(1);
+    expect(doctor.output).toContain('GameStage/hooks: no-restricted-imports lost');
+    expect(doctor.output).toContain('Combat/hooks: no-restricted-imports lost');
+  });
+
+  it('reddens when the merge drops the pass-through rule', async () => {
+    const gutting = '  { "files": ["src/GameStage/**/*.jsx"], '
+      + '"rules": { "blueprint/no-module-reexport": "off" } },';
+
+    const doctor = await cli(repo(spec(wiredEslintConfig(modular, gutting))), ['doctor']);
+
+    expect(doctor.code).toBe(1);
+    expect(doctor.output).toContain('blueprint/no-module-reexport is missing or off');
+  });
+
+  it('probes a modular scaffold with no source files at all', async () => {
+    // Nothing on disk, so every probe is synthetic — the arm that returned on
+    // the first scope's stand-in, and the one a greenfield adoption rides on.
+    const bare: RepoSpec = {
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+        }),
+        'eslint.config.mjs': wiredEslintConfig(modular),
+      },
+    };
+
+    const green = await cli(repo(bare), ['doctor']);
+
+    expect(green.output).toContain('✓ emitted rules survive the merged eslint config (');
+    expect(green.output).not.toContain('skipped');
+
+    // …and a gutted module still reddens with zero files on disk.
+    const gutting = '  { "files": ["src/Combat/hooks/**/*.js"], '
+      + '"rules": { "no-restricted-imports": ["error", { "patterns": [] }] } },';
+
+    const red = await cli(repo({
+      ...bare,
+      files: { ...bare.files, 'eslint.config.mjs': wiredEslintConfig(modular, gutting) },
+    }), ['doctor']);
+
+    expect(red.code).toBe(1);
+    expect(red.output).toContain('Combat/hooks: no-restricted-imports lost');
   });
 });

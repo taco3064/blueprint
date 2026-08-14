@@ -536,8 +536,9 @@ export function renderRules(
           // contradiction (field run #159). Unconditional, unlike the `packages`
           // paragraph below: a statement of scope is always true, while an
           // instruction to verify is vacuous when there is nothing to verify.
-          '`no-import`, `globals`, `module-root` and the selfOnly selectors are what doctor'
-          + ' compares,',
+          '`no-import`, `globals`, `module-root` and the selfOnly selectors are the columns'
+          + ' doctor compares — along with the embedded `blueprint/*` rules, which are not a'
+          + ' column here,',
           'and it compares TEXTUALLY: a pattern group reordered or a selector respelled to',
           'an equivalent (`\\/` for `/`) reads as missing even though eslint would still',
           'enforce it. Copy, do not retype.',
