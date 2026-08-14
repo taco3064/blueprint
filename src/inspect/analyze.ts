@@ -62,11 +62,6 @@ export function analyze(
     ...scan.files.flatMap((file) => importFindings(file, architecture, layerNames, depth)),
   ];
 
-  // Read at layer depth on purpose, so `moduleKey`'s two callers deliberately
-  // disagree about the offset: opening this guard without giving the key its
-  // module segment collapses `Fighter/hooks/useInput` and `Combat/hooks/useInput`
-  // into one node, and `detectCycles` then reports a cycle that does not exist.
-  // The guard and the key are one edit, and it is #190's.
   for (const cycle of detectCycles(buildModuleGraph(scan, architecture).edges)) {
     // The members, not the printed path: a cycle is a set of mutually dependent
     // modules, and `a → b → a` and `b → a → b` are one knot printed from two
@@ -223,8 +218,7 @@ function noEntryFindings(
       && layerNames.includes(layer)
       && getModuleShape(architecture, layer).layout === 'folder'
     ) {
-      // Module-qualified so two modules' same-named units stay two units — the
-      // collapse `moduleKey` still has, and #190 fixes there.
+      // Module-qualified so two modules' same-named units stay two units.
       const key = file.segments.slice(0, depth + 2).join('/');
 
       modules.set(key, [...(modules.get(key) ?? []), file]);

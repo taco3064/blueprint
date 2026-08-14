@@ -1150,3 +1150,47 @@ describe('analyze · governing between modules', () => {
     expect(note?.severity).toBe('info');
   });
 });
+
+describe('analyze · the module graph is live on a modular repo', () => {
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the ship', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets' },
+      ],
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    },
+  });
+
+  it('finds a cycle between two units inside one module', () => {
+    // The acceptance that matters is that something FIRES: with the guard shut
+    // the graph is empty, and an empty graph and a clean repo produce identical
+    // output — a blind analyzer reads exactly like a healthy one.
+    const findings = analyze(
+      { topDirs: ['Fighter'], files: [
+        file(['Fighter', 'hooks', 'useRun', 'index.ts'], [{ specifier: '../useTick' }]),
+        file(['Fighter', 'hooks', 'useTick', 'index.ts'], [{ specifier: '../useRun' }]),
+      ] },
+      modular,
+    );
+
+    expect(findings.map((entry) => entry.rule)).toContain('cycle');
+  });
+
+  it('does NOT invent one from two modules\' same-named units', () => {
+    // The collapse this ticket's key change removes: keyed without the module
+    // segment both files became `hooks/useInput`, and a self-edge between them
+    // is a cycle an adopter cannot reproduce — worse than a missing one.
+    const findings = analyze(
+      { topDirs: ['Fighter', 'Combat'], files: [
+        file(['Fighter', 'hooks', 'useInput', 'index.ts'], [{ specifier: '~app/Combat' }]),
+        file(['Combat', 'hooks', 'useInput', 'index.ts'], []),
+      ] },
+      modular,
+    );
+
+    expect(findings.map((entry) => entry.rule)).not.toContain('cycle');
+  });
+});
