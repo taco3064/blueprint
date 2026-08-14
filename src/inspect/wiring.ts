@@ -116,6 +116,10 @@ export function expectedStructural(
 
   // The same offset-aware bases emitLint composes from — the expectations
   // and the emitted patterns cannot drift (field issue #29).
+  // undecidable, this `?? []` and the one in `expectedModuleBans`: a fabricated
+  // member is a string, so `entry.name` reads `undefined` and the lookup beside
+  // it finds nothing — the same empty expectation the absent arm produces. Both
+  // stay because the absent arm is real: a flat config reaches here.
   const roots = aliasLayerRoots(architecture)
     .map((root) => [root.alias, ...root.prefix].join('/'));
 
@@ -340,11 +344,15 @@ function pickProbes(scanResult: ScanResult, blueprint: Blueprint): Probe[] {
 
     if (path === null) return [];
 
+    // One derivation, read twice: spelled as two ternaries the label and the
+    // zone can disagree, and neither would be wrong on its own.
+    const zone = module.layers === false ? 'module' : 'root';
+
     return [{
       path,
-      label: `${module.name}/(${module.layers === false ? 'all' : 'root'})`,
+      label: `${module.name}/(${zone === 'module' ? 'all' : 'root'})`,
       module: module.name,
-      zone: module.layers === false ? 'module' : 'root',
+      zone,
     }];
   });
 

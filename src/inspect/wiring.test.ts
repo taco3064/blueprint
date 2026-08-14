@@ -1453,3 +1453,55 @@ describe('wiringCheck · the pass-through rule survives the merge too', () => {
     expect(check.detail).toBeUndefined();
   });
 });
+
+describe('expectedStructural · what a modular layer entry is expected to carry', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the ship', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets' },
+        { name: 'Loadout', does: 'unnamed by Fighter' },
+      ],
+      layers: [
+        { name: 'hooks', does: 'state', layout: 'folder' },
+        // A file-per-unit layer, so `folderLayers` is a real filter rather than
+        // every declared layer.
+        { name: 'views', does: 'screens' },
+      ],
+    },
+  };
+
+  const flat: Blueprint = {
+    framework: 'react',
+    architecture: { alias: '~app', layers: [{ name: 'hooks', does: 'state', layout: 'folder' }] },
+  };
+
+  it('expects the cross-module groups #182 emits onto it', () => {
+    // Containment means an expectation that quietly stops asking is green
+    // forever — this is the assertion that the groups are asked for at all.
+    const groups = [...expectedStructural(modular, 'hooks', 'Fighter').groups].join(' ');
+
+    expect(groups).toContain('~app/Loadout');
+    expect(groups).toContain('~app/Combat/**');
+  });
+
+  it('expects the pass-through rule under modules and not on a flat config', () => {
+    expect(expectedStructural(modular, 'hooks', 'Fighter').reexport).toBe(true);
+    expect(expectedStructural(flat, 'hooks').reexport).toBe(false);
+  });
+
+  it('names only the folder-layout layers as unit-entry targets', () => {
+    // A file-per-unit layer has no unit folder to reach past, so banning
+    // `~app/Fighter/views/*/**` would be a rule about paths nobody writes.
+    const groups = [...expectedModuleBans(modular, 'Fighter').groups].join(' ');
+
+    expect(groups).toContain('~app/Fighter/hooks/*/**');
+    expect(groups).not.toContain('~app/Fighter/views/*/**');
+  });
+
+  it('expects the pass-through rule on a module zone too', () => {
+    expect(expectedModuleBans(modular, 'Fighter').reexport).toBe(true);
+  });
+});
