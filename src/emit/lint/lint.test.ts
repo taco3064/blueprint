@@ -937,6 +937,56 @@ describe('emitLint · registering only the plugins an entry needs', () => {
     expect(shared?.plugins?.blueprint).toBeDefined();
     expect(shared?.plugins).not.toHaveProperty('@typescript-eslint');
   });
+
+  it('registers the embedded plugin on every entry that names one of its rules, and no other', () => {
+    // Asked of the whole array rather than of the entries a ticket happened to
+    // touch: the escape entry, the gate entries and the module zones each had
+    // this pinned one at a time, and the (module, layer) entries — the only
+    // family whose registration is conditional — had it nowhere. Both
+    // directions matter, and neither is "the rules would stop working":
+    // ESLint merges `plugins` across every config object matching a file, and
+    // the escape entry registers this plugin over `resolveGovernedFiles`, the
+    // union of every layer glob under the same test-file ignores. So a layer
+    // entry that dropped its own registration still resolves `blueprint/*`
+    // through that one. What breaks is the entry standing alone — and the
+    // other direction is worse than untidy: registering a key an entry does
+    // not use is what collides with the adopting repo's own registration.
+    const modular = defineBlueprint({
+      ...blueprint,
+      architecture: {
+        ...blueprint.architecture,
+        modules: [
+          { name: 'Fighter', does: 'the ship' },
+          { name: 'app', does: 'routing', layers: false },
+        ],
+      },
+    });
+
+    const gated = defineBlueprint({
+      ...modular,
+      rules: {
+        deepWatch: 'error',
+        usePrefix: 'error',
+        usePrefixReactivity: 'error',
+        testFilename: 'error',
+        typedefOnlyFile: 'error',
+      },
+    });
+
+    for (const bp of [blueprint, modular, gated]) {
+      for (const entry of emitLint(bp)) {
+        const needsPlugin = Object.keys(entry.rules ?? {})
+          .some((rule) => rule.startsWith('blueprint/'));
+
+        // Labelled by the entry's own glob: a bare boolean says the array is
+        // wrong somewhere, and this says which entry.
+        const at = entry.files?.[0] ?? '(global ignores)';
+
+        expect(`${at} registers blueprint: ${entry.plugins?.blueprint !== undefined}`)
+          .toBe(`${at} registers blueprint: ${needsPlugin}`);
+      }
+    }
+  });
 });
 
 describe('emitLint · the line unit when nothing overrides it', () => {
@@ -1194,6 +1244,24 @@ describe('emitLint · the zones no layer glob reaches', () => {
 
     // …and its owner keeps it.
     expect(entryFor('src/Combat/*.{js,jsx,ts,tsx}')?.rules?.['no-restricted-globals'])
+      .toBeUndefined();
+
+    // A package is the other kind of primitive this title claims, and only the
+    // global half was asserted. It rides `paths` rather than a group — the
+    // layer entries' identical `paths` guard is pinned and the module zones'
+    // was not, so a module's whole package ban could go missing from here with
+    // the suite green.
+    const paths = (entryFor('src/GameStage/*.{js,jsx,ts,tsx}')
+      ?.rules?.['no-restricted-imports'] as [unknown, { paths?: { name: string }[] }])[1].paths;
+
+    expect(paths).toEqual([
+      { name: 'rbush', message: expect.stringContaining('Do not import "rbush"') },
+    ]);
+
+    // The guard's other arm, on the owner's own zone: nothing to ban, so no
+    // `paths` key at all rather than an empty list ESLint would reject.
+    expect((entryFor('src/Combat/*.{js,jsx,ts,tsx}')
+      ?.rules?.['no-restricted-imports'] as [unknown, { paths?: unknown[] }])[1].paths)
       .toBeUndefined();
   });
 

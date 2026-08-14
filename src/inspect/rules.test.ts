@@ -611,9 +611,21 @@ describe('runRules', () => {
       rules: {},
     };
 
+    // The two module rules are the only rows whose condition is `modules`, and
+    // every blueprint pinned here was flat — where both sides answer false and
+    // the mirror is asserted against a question it never asked. A modular one
+    // is what makes those two rows say anything.
+    const modular: Blueprint = {
+      ...blueprint,
+      architecture: {
+        ...blueprint.architecture,
+        modules: [{ name: 'Fighter', does: 'the ship' }, { name: 'Combat', does: 'bullets' }],
+      },
+    };
+
     // rules.ts mirrors emitLint's conditions instead of calling it (module
     // cycle) — this pin is what keeps the mirror from drifting.
-    for (const bp of [blueprint, selfOnly]) {
+    for (const bp of [blueprint, selfOnly, modular]) {
       const emitted = new Set(
         emitLint(bp).flatMap((entry) => Object.keys(entry.rules ?? {})),
       );

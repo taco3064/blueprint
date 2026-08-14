@@ -108,6 +108,14 @@ describe('renderPlacement', () => {
     const out = renderPlacement(arch({ testFiles: [] }));
 
     expect(out).not.toContain('Test support is exempt');
+
+    // Nothing appended, rather than one phrase absent: the assertion above
+    // passes on any other line this arm might add, and the section is the last
+    // thing in the contract an agent reads — so the empty arm's real output is
+    // that the module-shape line is the end of it.
+    expect(out.split('\n').at(-1)).toBe(
+      '- Module shape: one folder per module. Only `index` is importable from outside.',
+    );
   });
 
   it('closes the rename-to-escape route the exemption opens', () => {

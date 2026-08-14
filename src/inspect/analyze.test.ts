@@ -1125,30 +1125,41 @@ describe('analyze · governing between modules', () => {
     expect(finding.message).toContain('not importable from "GameStage"');
   });
 
-  it('names the restricted imports in the subject, so two are two debts', () => {
+  it('names the restricted imports in the subject, sorted, so two are two debts', () => {
     // The names are part of the identity, not just of the sentence: one file
     // importing two restricted names from one package is two debts with two
     // fixes, and the baseline keys on the subject.
+    //
+    // Two of them, written in the order nobody would sort them into: the layer
+    // level has had that case since it was written and this level was asserted
+    // with one name, where a sort decides nothing. `{ a, b }` and `{ b, a }` are
+    // the same import written twice, and unsorted they are two baseline entries.
     const owning = defineBlueprint({
       ...modular,
       architecture: {
         ...modular.architecture,
         modules: [
           { name: 'GameStage', does: 'the run', imports: ['Combat'] },
-          { name: 'Combat', does: 'bullets', owns: [{ package: 'rbush', imports: ['insert'] }] },
+          {
+            name: 'Combat',
+            does: 'bullets',
+            owns: [{ package: 'rbush', imports: ['insert', 'remove'] }],
+          },
         ],
       },
     });
 
     const [finding] = analyze(
       modularScan([file(['GameStage', 'hooks', 'useRun', 'index.ts'], [
-        { specifier: 'rbush', names: ['insert'] },
+        { specifier: 'rbush', names: ['remove', 'insert'] },
       ])]),
       owning,
     ).filter((entry) => entry.rule === 'package-ownership');
 
-    expect(finding.subject).toBe('rbush insert');
-    expect(finding.message).toContain('(insert)');
+    expect(finding.subject).toBe('rbush insert,remove');
+    // The sentence keeps the source order — it reads the import back to its
+    // author, while the subject is an identity two spellings must share.
+    expect(finding.message).toContain('(remove, insert)');
   });
 
   it('leaves a module-owned package alone inside its owner', () => {
