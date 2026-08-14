@@ -10,6 +10,7 @@ import { dropTestFiles } from './filter';
 import { compareText } from './order';
 import {
   aliasList,
+  buildFolderGraph,
   buildModuleGraph,
   crossModuleTarget,
   entryResolver,
@@ -18,7 +19,7 @@ import {
   resolveSegments,
   stripAlias,
 } from './resolve';
-import type { EntryOf, LayoutOf } from './resolve';
+import type { EntryOf, FolderGraph, LayoutOf } from './resolve';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
@@ -57,7 +58,7 @@ export function analyze(
   scan = dropTestFiles(scan, architecture.testFiles);
 
   const findings = [
-    ...folderFindings(scan, architecture, layerNames, depth),
+    ...folderFindings(scan, architecture, layerNames, depth, buildFolderGraph(scan, architecture)),
     ...ownsFindings(architecture, dependencies),
     ...scan.files.flatMap((file) => importFindings(file, architecture, layerNames, depth)),
   ];
@@ -131,38 +132,61 @@ function folderFindings(
   architecture: ArchitectureDef,
   layerNames: string[],
   depth: number,
+  folders: FolderGraph,
 ): Finding[] {
   const findings: Finding[] = [];
   const prefix = sourcePrefix(architecture);
 
+  // Whatever occupies the top level is what a top folder is checked against:
+  // modules under `architecture.modules`, layers on a flat project. One list
+  // swap rather than an offset — `scan.topDirs` is the same level either way,
+  // and read against `layerNames` a modular repo reports every module as an
+  // undeclared layer.
+  // Asked of the field that answers it, so there is no absent case to invent a
+  // list for: `moduleDepth` is this same fact expressed as an offset — it IS
+  // `modules === undefined` — and the two cannot disagree.
+  const { modules } = architecture;
+  const modular = modules !== undefined;
+
+  const declaredTop = modular ? modules.map((module) => module.name) : layerNames;
+
   for (const dir of scan.topDirs) {
-    if (!layerNames.includes(dir) && scan.files.some((file) => file.segments[0] === dir)) {
+    if (!declaredTop.includes(dir) && scan.files.some((file) => file.segments[0] === dir)) {
       findings.push({
         severity: 'error',
-        rule: 'undeclared-folder',
+        rule: modular ? 'undeclared-module' : 'undeclared-folder',
         path: `${prefix}${dir}`,
         // The four directory findings are one-per-directory by construction, so the
         // rule and the path already identify them and there is nothing left to
         // discriminate. Empty rather than a repeat of the path: a subject that
         // restates its path says the finding has a second axis when it has not.
         subject: '',
-        message: `"${dir}" is not a declared layer — declare it, or move its code into a module of an existing layer.`,
+        message: modular
+          ? `"${dir}" is not in \`architecture.modules\`, so nothing governs it. The layer globs `
+          + 'are expanded from the declared list, so no glob matches inside this folder and '
+          + 'every structural ban there is inert — it is ungoverned rather than unflagged, and '
+          + `lint stays green throughout.${positionHint(dir, folders, declaredTop)}`
+          : `"${dir}" is not a declared layer — declare it, or move its code into a module of an existing layer.`,
       });
     }
   }
 
-  for (const name of layerNames) {
+  for (const name of declaredTop) {
     if (!scan.topDirs.includes(name)) {
       findings.push({
         severity: 'info',
-        rule: 'missing-layer',
+        rule: modular ? 'missing-module' : 'missing-layer',
         path: `${prefix}${name}`,
         subject: '',
         // Reads like a todo without the second clause — six of these sent
         // a field agent toward "delete the unused layers", the opposite of
         // the keep-is-default doctrine the playbook states (field run #13).
-        message: `Declared layer "${name}" has no folder yet — runway, not a todo: `
-          + 'the rules arm when code lands; keeping it is the default, slimming is the owner\'s call.',
+        message: modular
+          ? `Declared module "${name}" has no folder yet — runway, not a todo: its globs and bans `
+          + 'are emitted and correct, they simply have nothing to reach. Building it and dropping '
+          + 'the declaration are both resolutions, and which one applies is the owner\'s call.'
+          : `Declared layer "${name}" has no folder yet — runway, not a todo: `
+            + 'the rules arm when code lands; keeping it is the default, slimming is the owner\'s call.',
       });
     }
   }
@@ -198,6 +222,65 @@ function folderFindings(
   findings.push(...noEntryFindings(scan, architecture, layerNames, depth));
 
   return findings;
+}
+
+/**
+ * Where an undeclared module could legally sit, or why it could not.
+ *
+ * Declaring a module is a name AND a place in the order, and the import graph
+ * knows both halves — so the finding hands over a draft rather than a demand.
+ * It must not promise an answer it does not have: the same discipline
+ * `projectCovers` and `syntheticPath` follow, where an unusual shape yields no
+ * verdict rather than a wrong one.
+ *
+ * A module may only name modules declared after it, so an edge bounds the
+ * position from one side: reaching M puts it before M, being reached by M puts
+ * it after M.
+ */
+function positionHint(dir: string, folders: FolderGraph, modules: string[]): string {
+  const index = new Map(modules.map((name, at) => [name, at]));
+
+  const reaches = [...(folders.edges.get(dir) ?? [])]
+    .filter((name) => index.has(name))
+    .sort(compareText);
+
+  const reachedBy = modules.filter((name) => folders.edges.get(name)?.has(dir));
+
+  if (!reaches.length && !reachedBy.length) {
+    return ' It imports no declared module and no declared module imports it, so every position '
+      + 'in the order is legal — the name is the only decision left.';
+  }
+
+  // Insert at slot `p`: reaching M needs p <= index(M), being reached by M
+  // needs p > index(M).
+  const lowerAt = Math.max(...reachedBy.map((name) => index.get(name) as number), -1);
+  const upperAt = Math.min(...reaches.map((name) => index.get(name) as number), modules.length);
+
+  const measured = ` Measured from its imports:${
+    reaches.length ? ` it reaches ${quoted(reaches)}` : ''
+  }${reaches.length && reachedBy.length ? ';' : ''}${
+    reachedBy.length ? ` ${quoted(reachedBy)} reaches it` : ''
+  }.`;
+
+  if (lowerAt + 1 > upperAt) {
+    return `${measured} Those edges contradict — "${modules[lowerAt]}" must be declared before it `
+      + `and it must be declared before "${modules[upperAt]}", which no ordering satisfies. That `
+      + 'is the finding: the decomposition needs changing, not the config.';
+  }
+
+  const bound = reachedBy.length && reaches.length
+    ? `after "${modules[lowerAt]}" and before "${modules[upperAt]}"`
+    : reachedBy.length
+      ? `after "${modules[lowerAt]}"`
+      : `before "${modules[upperAt]}"`;
+
+  return `${measured} Any position ${bound} is legal. Which one, and what it may import, is the `
+    + 'owner\'s call — declaring a module is never an adopting agent\'s decision.';
+}
+
+/** `"a", "b"` — the module names as a message reads them. */
+function quoted(names: string[]): string {
+  return names.map((name) => `"${name}"`).join(', ');
 }
 
 function noEntryFindings(

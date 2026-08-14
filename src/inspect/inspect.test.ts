@@ -296,3 +296,53 @@ describe('runInspect · the baseline flag gates the ledger', () => {
     expect(output).toContain('0 baselined finding(s) suppressed');
   });
 });
+
+describe('runInspect · the module findings end to end', () => {
+  function modular(): void {
+    fs.writeFileSync(
+      path.join(root, 'blueprint.config.mjs'),
+      `export default ${JSON.stringify({
+        framework: 'react',
+        architecture: {
+          alias: '~app',
+          modules: [
+            { name: 'GameStage', does: 'the run', imports: ['Session'] },
+            { name: 'Session', does: 'the run state' },
+            { name: 'Loadout', does: 'declared, not built yet' },
+          ],
+          layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+        },
+      })};\n`,
+    );
+
+    writeSrc('GameStage/hooks/useRun/index.jsx', 'import { s } from \'~app/Session\';');
+    writeSrc('Session/index.jsx', 'export const s = 1;');
+    writeSrc('Achievements/hooks/useBadge/index.jsx', 'import { s } from \'~app/Session\';');
+  }
+
+  it('reddens on an undeclared module and stays green on a missing one', async () => {
+    modular();
+
+    let output = '';
+    const { ok } = await runInspect(root, { log: (m) => (output = m) });
+
+    // The error gates; the info does not.
+    expect(ok).toBe(false);
+    expect(output).toContain('[undeclared-module] src/Achievements');
+    expect(output).toContain('[missing-module] src/Loadout');
+    expect(output).toContain('1 error(s), 0 warning(s), 1 note(s)');
+  });
+
+  it('keeps the info note out of the baseline as debt', async () => {
+    modular();
+
+    await runInspect(root, { updateBaseline: true, log: silent });
+
+    const recorded = fs.readFileSync(path.join(root, '.blueprint-baseline.json'), 'utf-8');
+
+    // Runway is not debt. Locked, a note would have to be "paid down" to clear
+    // a ledger it never belonged in.
+    expect(recorded).toContain('undeclared-module');
+    expect(recorded).not.toContain('missing-module');
+  });
+});

@@ -1194,3 +1194,138 @@ describe('analyze · the module graph is live on a modular repo', () => {
     expect(findings.map((entry) => entry.rule)).not.toContain('cycle');
   });
 });
+
+describe('analyze · undeclared-module and missing-module', () => {
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'GameStage', does: 'the run', imports: ['Combat', 'Session'] },
+        { name: 'Combat', does: 'bullets', imports: ['Session'] },
+        { name: 'Session', does: 'the run state' },
+      ],
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    },
+  });
+
+  const scanOfDirs = (dirs: string[], files: ScannedFile[]): ScanResult =>
+    ({ topDirs: dirs, files });
+
+  const find = (rule: string, scanResult: ScanResult) =>
+    analyze(scanResult, modular).find((entry) => entry.rule === rule);
+
+  it('reports an undeclared root as ungoverned, not merely unflagged', () => {
+    const finding = find('undeclared-module', scanOfDirs(
+      ['GameStage', 'Combat', 'Session', 'Achievements'],
+      [file(['Achievements', 'hooks', 'useBadge', 'index.ts'], [])],
+    ));
+
+    expect(finding?.severity).toBe('error');
+    expect(finding?.path).toBe('src/Achievements');
+    // The distinction the message exists to make: an agent whose loop ends at a
+    // green lint never learns, because the globs are built FROM the declared list.
+    expect(finding?.message).toContain('no glob matches inside this folder');
+    expect(finding?.message).toContain('ungoverned rather than unflagged');
+  });
+
+  it('never says "undeclared layer" about a module', () => {
+    // Read against `layerNames`, every module on a modular repo reports as an
+    // undeclared layer — loud, and wrong about what the folder even is.
+    const findings = analyze(
+      scanOfDirs(['GameStage'], [file(['GameStage', 'hooks', 'useRun', 'index.ts'], [])]),
+      modular,
+    );
+
+    expect(findings.map((entry) => entry.rule)).not.toContain('undeclared-folder');
+  });
+
+  it('names the legal interval when the edges bound it from both sides', () => {
+    const finding = find('undeclared-module', scanOfDirs(
+      ['GameStage', 'Combat', 'Session', 'Achievements'],
+      [
+        // Achievements reaches Session, so it must be declared before Session.
+        file(['Achievements', 'hooks', 'useBadge', 'index.ts'], [{ specifier: '~app/Session' }]),
+        // GameStage reaches Achievements, so Achievements comes after GameStage.
+        file(['GameStage', 'hooks', 'useRun', 'index.ts'], [{ specifier: '~app/Achievements' }]),
+      ],
+    ));
+
+    expect(finding?.message).toContain('it reaches "Session"');
+    expect(finding?.message).toContain('"GameStage" reaches it');
+    expect(finding?.message).toContain('Any position after "GameStage" and before "Session" is legal');
+    expect(finding?.message).toContain('the owner\'s call');
+  });
+
+  it('bounds from one side when only one side has edges', () => {
+    const reachesOnly = find('undeclared-module', scanOfDirs(
+      ['Combat', 'Achievements'],
+      [file(['Achievements', 'hooks', 'useBadge', 'index.ts'], [{ specifier: '~app/Combat' }])],
+    ));
+
+    expect(reachesOnly?.message).toContain('Any position before "Combat" is legal');
+
+    const reachedOnly = find('undeclared-module', scanOfDirs(
+      ['Combat', 'Achievements'],
+      [
+        file(['Achievements', 'hooks', 'useBadge', 'index.ts'], []),
+        file(['Combat', 'hooks', 'useHit', 'index.ts'], [{ specifier: '~app/Achievements' }]),
+      ],
+    ));
+
+    expect(reachedOnly?.message).toContain('Any position after "Combat" is legal');
+  });
+
+  it('says exactly that, and stops, when there is no evidence', () => {
+    const finding = find('undeclared-module', scanOfDirs(
+      ['GameStage', 'Achievements'],
+      [file(['Achievements', 'hooks', 'useBadge', 'index.ts'], [])],
+    ));
+
+    expect(finding?.message).toContain('every position in the order is legal');
+    // No interval invented from nothing — the outcome is silence about position.
+    expect(finding?.message).not.toContain('Any position after');
+    expect(finding?.message).not.toContain('Measured from its imports');
+  });
+
+  it('reports a contradiction as the finding, not as a position', () => {
+    // Achievements reaches GameStage (so it must precede it) and Session
+    // reaches Achievements (so it must follow Session, which is declared
+    // last) — no ordering satisfies both.
+    const finding = find('undeclared-module', scanOfDirs(
+      ['GameStage', 'Session', 'Achievements'],
+      [
+        file(['Achievements', 'hooks', 'useBadge', 'index.ts'], [{ specifier: '~app/GameStage' }]),
+        file(['Session', 'hooks', 'useRun', 'index.ts'], [{ specifier: '~app/Achievements' }]),
+      ],
+    ));
+
+    expect(finding?.message).toContain('Those edges contradict');
+    expect(finding?.message).toContain('the decomposition needs changing, not the config');
+    expect(finding?.message).not.toContain('is legal');
+  });
+
+  it('reads a relative cross-folder import as an edge too', () => {
+    // The graph is folder-to-folder over both spellings — an inference that
+    // only saw the alias form would answer "no evidence" for half the repos
+    // that have the evidence.
+    const finding = find('undeclared-module', scanOfDirs(
+      ['Combat', 'Achievements'],
+      [file(['Achievements', 'hooks', 'useBadge', 'index.ts'], [{ specifier: '../../../Combat' }])],
+    ));
+
+    expect(finding?.message).toContain('it reaches "Combat"');
+  });
+
+  it('reports a declared module with no folder as runway', () => {
+    const finding = find('missing-module', scanOfDirs(['GameStage'], []));
+
+    expect(finding?.severity).toBe('info');
+    expect(finding?.message).toContain('runway, not a todo');
+    expect(finding?.message).toContain('the owner\'s call');
+
+    // And never in the layer's words.
+    expect(analyze(scanOfDirs(['GameStage'], []), modular).map((entry) => entry.rule))
+      .not.toContain('missing-layer');
+  });
+});
