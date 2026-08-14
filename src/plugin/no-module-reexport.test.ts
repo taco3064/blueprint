@@ -1,7 +1,7 @@
 import { RuleTester } from 'eslint';
 import type { Linter } from 'eslint';
 import tseslint from 'typescript-eslint';
-import { describe, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { noModuleReexport } from './no-module-reexport';
 
@@ -48,6 +48,15 @@ describe('blueprint/no-module-reexport', () => {
         { code: 'import { attack } from "~app/Combat";\nexport default function go() { return attack; }', options },
         // A local of this module's own, exported normally.
         { code: 'const own = 1;\nexport { own };', options },
+        // A binding imported from a PACKAGE, not a module — nothing is bound
+        // to a module here, so exporting it forwards nobody's surface. Without
+        // the guard on the import side the map would hold a null target and
+        // report every such export.
+        { code: 'import { render } from "react-dom";\nexport { render };', options },
+        // An export WITH a source names that source's binding, not the local
+        // one of the same name — the local is shadowed for this statement, so
+        // reading the map here would report a module the export never touches.
+        { code: 'import { attack } from "~app/Combat";\nexport { attack } from "react";', options },
       ],
       invalid: [
         // The two spellings the RFC names.
@@ -111,6 +120,28 @@ describe('blueprint/no-module-reexport', () => {
         },
       ],
     });
+  });
+
+  it('rejects an option block it cannot trust, rather than running on defaults', () => {
+    // The schema is what turns a typo in an adopter's hand-merged config into
+    // an error instead of a rule quietly governing nothing. The plugin ships
+    // inside the emitted config, so this validation runs in repos that never
+    // installed it and never see these tests.
+    const refuses = (opts: unknown) =>
+      expect(() => tester.run('no-module-reexport', noModuleReexport, {
+        valid: [{ code: 'export {};', options: [opts] }],
+        invalid: [],
+      })).toThrow();
+
+    refuses('not an object');
+    refuses({ aliases: '~app' });
+    refuses({ aliases: [1] });
+    refuses({ modules: 'GameStage' });
+    refuses({ modules: [1] });
+    refuses({ module: 1 });
+    // A key nobody reads is a silently dead declaration — the same stance
+    // `rejectUnknownKeys` takes on the config itself.
+    refuses({ modules: [], typo: true });
   });
 
   it('says nothing at all when no module is configured', () => {

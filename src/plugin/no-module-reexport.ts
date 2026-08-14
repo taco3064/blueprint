@@ -56,12 +56,19 @@ export const noModuleReexport: Rule.RuleModule = {
     },
   },
   create(context) {
-    const { aliases = [], modules = [], module = '' }
-      = (context.options[0] as {
-        aliases?: string[];
-        modules?: string[];
-        module?: string;
-      } | undefined) ?? {};
+    const options = context.options[0] as {
+      aliases?: string[];
+      modules?: string[];
+      module?: string;
+    } | undefined;
+
+    // No option block means no module list to judge against, and a rule with
+    // nothing to judge registers no visitors rather than running on defaults
+    // that would answer "legal" to everything. emitLint only ever emits this
+    // rule WITH the block, so this arm is the hand-written config's.
+    if (!options) return {};
+
+    const { aliases = [], modules = [], module = '' } = options;
 
     /** Local binding name → the module its import came from. */
     const imported = new Map<string, string>();
@@ -80,6 +87,14 @@ export const noModuleReexport: Rule.RuleModule = {
      * 1` and `export default attack` are the two arms, and the specifier loop
      * below reuses it rather than repeating a test that can only be true there.
      */
+    //
+    // undecidable, this test and the `name === undefined` one below, each
+    // shielded by the other and both by the map: a non-identifier node has no
+    // `name`, so reading one answers `undefined`, and `imported.get(undefined)`
+    // answers `undefined` too — the same "nothing bound here" either way.
+    // Removing either alone still passes. The pair stays because the type is
+    // real (`export default 1` reaches here) and a lookup keyed on `undefined`
+    // is a coincidence to rely on, not a design.
     const identifier = (node: { type: string }): string | undefined =>
       (node.type === 'Identifier' ? (node as unknown as { name: string }).name : undefined);
 
@@ -105,6 +120,9 @@ export const noModuleReexport: Rule.RuleModule = {
       },
 
       ExportAllDeclaration(node) {
+        // undecidable, the `?.`: `export *` has no spelling without a source,
+        // so the optional chain can never short-circuit here. It matches the
+        // named-export visitor below, where the same read really is optional.
         const target = targetOf(node.source?.value);
 
         if (target !== null) report(node as Rule.Node, target);
