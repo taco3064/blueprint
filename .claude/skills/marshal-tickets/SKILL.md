@@ -489,6 +489,35 @@ acceptance criterion that would have passed for the wrong reason — that belong
 written back into the ticket body under its own heading, so the ticket stays a
 true account of what it covers. That is exit 1 with a better name.
 
+### Your own decisions get no reader — manufacture one
+
+Everything above is you reviewing someone else. Nothing reviews you, and the
+asymmetry has a mechanism: **a decision that becomes code gets a reader; a
+decision that stays in a ticket body does not.** Cuts, orderings, scope calls and
+"this precedent applies here" are all decided once, by one reader, and then
+inherited by everyone downstream as if they had been checked.
+
+So send them out. Not as a general "check my work" — as **specific claims with
+the file and line that would settle each one, and no reasoning attached.** The
+reasoning is not the payload: what kills a wrong claim is somebody opening the
+file, and an argument invites agreement with the argument instead.
+
+**A "yes" tells you nothing.** If the claim was right, its reader replied the same
+way whether they checked or nodded, and you cannot tell which. So the form is only
+ever validated by a claim that turns out false — which means **send the ones you
+are least sure of, not the ones you want confirmed.** That is the opposite of what
+asking for review feels like, and it is the whole discipline.
+
+Measured once: seven claims sent, two died, and both were things that would
+otherwise have been carried to the end of the decomposition believed. Both died to
+the reader opening a file, neither to the reader weighing an argument.
+
+**Peer review is not verification**, and two readers agreeing is not two checks —
+they converge on the same resemblance. Three claims this tier survived two
+sessions examining them and were killed by the owner asking what the thing
+actually does. That is not a better reviewer; it is a different question, and it
+is available to you at any line without any context at all.
+
 ## Phase 8 — does the sum reach the parent?
 
 Run this twice: once after the cut, before anyone starts, and once before the
