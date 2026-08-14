@@ -77,7 +77,7 @@ describe('report · findings name where they are enforced (field issue #48)', ()
       { severity: 'error', rule: 'flow-violation', path: 'a', subject: '~app/services/api', message: 'm' },
       { severity: 'error', rule: 'package-ownership', path: 'b', subject: 'axios', message: 'm' },
       { severity: 'error', rule: 'selfonly-reexport', path: 'c', subject: '~app/contexts/Theme', message: 'm' },
-      { severity: 'error', rule: 'relative-escape', path: 'd', subject: '../../hooks/useX', message: 'm' },
+      { severity: 'error', rule: 'layer-escape', path: 'd', subject: '../../hooks/useX', message: 'm' },
     ]);
 
     expect(out).toContain('[flow-violation] Rework imports');

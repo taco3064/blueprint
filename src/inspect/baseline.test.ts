@@ -13,7 +13,7 @@ const finding = (over: Partial<Finding> = {}): Finding => ({
 });
 
 /** A well-formed v2 document body, for the shape check's own fixtures. */
-const doc = (findings: string): string => `{"version":2,"findings":${findings}}`;
+const doc = (findings: string): string => `{"version":3,"findings":${findings}}`;
 
 const entry = (over: Record<string, unknown> = {}): string =>
   JSON.stringify({ rule: 'r', path: 'p', subject: 's', message: 'm', ...over });
@@ -121,7 +121,7 @@ describe('renderBaseline / parseBaseline', () => {
     // whose entries predate the key, rather than mismatching every one in silence.
     const document = JSON.parse(renderBaseline([finding()]));
 
-    expect(document.version).toBe(2);
+    expect(document.version).toBe(3);
 
     expect(document.findings[0]).toEqual({
       rule: 'flow-violation',
@@ -153,7 +153,7 @@ describe('renderBaseline / parseBaseline', () => {
     ['a bare number', '42', /unexpected shape/],
     ['a bare string', '"findings"', /unexpected shape/],
     ['null, which is typeof object', 'null', /unexpected shape/],
-    ['an object with no findings key', '{"version":2}', /unexpected shape/],
+    ['an object with no findings key', '{"version":3}', /unexpected shape/],
     ['findings that are not an array', doc('42'), /unexpected shape/],
     ['an entry that is not an object', doc('[42]'), /unexpected shape/],
     ['a null entry', doc('[null]'), /unexpected shape/],
@@ -181,9 +181,12 @@ describe('parseBaseline · a baseline from an older blueprint is refused, not re
   // cheaper failure, and the remedy loses nothing: the debt is still in the repo, so
   // re-keying records the same entries.
   it.each([
-    ['version 1, as the previous release wrote it', '{"version":1,"findings":[]}'],
+    ['version 1, as the first release wrote it', '{"version":1,"findings":[]}'],
+    // The version this release replaces: its entries are keyed on finding ids
+    // that no longer exist, so every one of them would come back as fresh debt.
+    ['version 2, keyed on the finding ids #203 split', '{"version":2,"findings":[]}'],
     ['no version at all, hand-written', '{"findings":[]}'],
-    ['a version from the future', '{"version":3,"findings":[]}'],
+    ['a version from the future', '{"version":4,"findings":[]}'],
   ])('refuses %s', (_label, text) => {
     expect(() => parseBaseline(text)).toThrow(/regenerate it with --update-baseline/);
   });
@@ -195,7 +198,7 @@ describe('parseBaseline · a baseline from an older blueprint is refused, not re
     // reading of "regenerate the ledger" is to audit it by hand first.
     const message = (() => {
       try {
-        parseBaseline('{"version":1,"findings":[]}');
+        parseBaseline('{"version":2,"findings":[]}');
       } catch (error) {
         return (error as Error).message;
       }
@@ -203,11 +206,23 @@ describe('parseBaseline · a baseline from an older blueprint is refused, not re
       return '';
     })();
 
-    expect(message).toContain('version 1');
     expect(message).toContain('version 2');
+    expect(message).toContain('version 3');
     expect(message).toContain('--update-baseline');
-    expect(message).toContain('message text');
+    expect(message).toContain('relative-escape');
     expect(message).toContain('nothing is suppressed that was not suppressed before');
+  });
+
+  // One clause per predecessor: "regenerate it" with no cause reads as
+  // corruption, and the safe response to corruption is to audit the file by
+  // hand before running anything. Each version this release has ever written
+  // needs its own answer, or the reader gets someone else's reason.
+  it.each([
+    ['1', '{"version":1,"findings":[]}', /message text/],
+    ['2', '{"version":2,"findings":[]}', /"relative-escape"/],
+    ['one it never wrote', '{"version":9,"findings":[]}', /cannot say what that version recorded/],
+  ])('explains what changed for version %s', (_label, text, pattern) => {
+    expect(() => parseBaseline(text)).toThrow(pattern);
   });
 });
 
