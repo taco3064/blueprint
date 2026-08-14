@@ -228,6 +228,12 @@ first send matters**: addressing the wrong session fails silently — the messag
 lands, someone answers about a different repo, and nothing in the reply says it
 came from the wrong place.
 
+When two rows could both be it, the confirmation goes **in the message** rather
+than in a round trip before it: open by naming what you believe the recipient is
+working on, specifically enough that the wrong one can stop at the first line.
+A question costs a turn and a wrong guess costs the whole exchange; a first line
+costs neither.
+
 ### Ask for the plan before the code
 
 The implementation side plans first, and that plan comes to you before anything
@@ -406,7 +412,15 @@ against the code as it stands now:
   boundary, and when something changed, say so in the dispatch that starts the
   next ticket.
 
-Then check one thing that is not a ticket at all:
+Then two questions that are not about any ticket:
+
+- **Which assertion here could be satisfied by the wrong thing?** A standing
+  question, asked every sweep, not a finding to be closed once. `CLAUDE.md` holds
+  the prevention — name what would break before writing the assertion — and this
+  is the detection half, which exists because prevention demonstrably is not
+  enough: one instance of this defect was *introduced while its predecessor was
+  being fixed*, same file, same sitting. Five landed in one release. A rule
+  learned once does not hold against a shape this easy to write.
 
 - **Render what the tier emits, and read the output.** Not the code that produces
   it — the artifact an adopter receives. For this repo that is `emitLint` against
@@ -425,8 +439,9 @@ Then check one thing that is not a ticket at all:
   and matches no file in the repo it governs. Silence and correctness look the
   same from the inside.
 
-Fix these in the ticket body. It is exit 1 of the gap loop, reached before the
-gap cost anything.
+The three checks above go back into the ticket bodies they belong to; the two
+questions produce findings, which become tickets or comments in the ordinary way.
+Either is exit 1 of the gap loop, reached before the gap cost anything.
 
 Report the sweep as one list: what moved, what turned out half-done, what came
 back clean. **A ticket you checked and found still true is a result** — say so by
@@ -445,8 +460,24 @@ decomposition rots:
 2. **The work is real but belongs to no existing ticket** — file a new
    sub-issue, attach it to the parent, place it in the tiers, and say in the new
    ticket which ticket surfaced it.
+
+   **Unless it is not the parent's at all**, which happens more than the three
+   exits suggest: a defect that predates the parent, or one this work merely made
+   frequent enough to notice. File it standalone, name the work that surfaced it,
+   and **do not attach it**. Attaching keeps a list looking complete and makes the
+   claim-coverage check lie — Phase 8 reads an unattached ticket as out of scope,
+   which it is, and an attached one as serving a claim, which it does not.
 3. **It touches what the parent asserts** — stop. Report to the owner with the
    contradiction stated plainly and the options you see. Do not edit the parent.
+
+   **Then carry the question until it is answered.** A decision asked for inside a
+   comment about something else is lost the moment the next comment lands: two sat
+   unanswered through four tickets, each buried in the last third of a comment
+   headed with a ticket number, while eighteen comment titles said nothing about
+   any decision being open. Every status comment from then on carries the open
+   ones — a short list, at the top, until it is empty. This is the same argument
+   as commenting on clean tickets: the durable record has to hold what is
+   unresolved, not only what is finished.
 
 There is a fourth thing that is not a gap: **discoveries made while building**.
 When implementation surfaces a blind spot inside the ticket's own scope — an
