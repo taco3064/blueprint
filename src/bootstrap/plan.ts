@@ -38,17 +38,9 @@ export function plan(
     actions.push({ kind: 'write', path: 'blueprint.config.mjs', content: configSource, note: 'blueprint.config.mjs' });
   }
 
-  // Where code already lives, an unbuilt layer's absence is its true state — a
-  // .gitkeep shell is the manufactured net the playbook forbids.
-  if (!options.hasSourceFiles) {
-    for (const layer of architecture.layers) {
-      if (!state.existingSrcDirs.includes(layer.name)) {
-        actions.push({ kind: 'mkdir', path: `src/${layer.name}`, note: `src/${layer.name}/` });
-      }
-    }
-  }
-
   const handbook = handbookPath(blueprint);
+
+  actions.push(...scaffoldActions(blueprint, state, handbook, configSource !== null, options));
 
   actions.push({ kind: 'write', path: handbook, content: emitHandbook(blueprint), note: handbook });
 
@@ -253,6 +245,158 @@ export function plan(
   assertContained(actions);
 
   return actions;
+}
+
+/**
+ * A module's entry, and the framework entry point beside it. Fixed strings that
+ * name no module: these files land inside the governed net, where `codeStyle`
+ * caps a line at 90 characters — comments included, and with no fixer — so a
+ * line interpolating a module name drifts with the name and turns an adopter's
+ * first lint red.
+ */
+const MODULE_ENTRY = [
+  '// The module\'s public surface — everything else in this folder is private to it.',
+  'export {};',
+  '',
+].join('\n');
+
+const MODULE_MAIN = [
+  '// The framework entry your bundler loads. It lives inside this module because',
+  '// mounting the app is app-wide composition, not a module of its own.',
+  'export {};',
+  '',
+].join('\n');
+
+/**
+ * What `init` materialises at the source root, and the sentences that explain it.
+ *
+ * The guard is unchanged: where code already lives, an unbuilt position's absence
+ * is its true state — a `.gitkeep` shell is the manufactured net the playbook
+ * forbids. What changes with the config is the LIST it iterates. Under `modules` a
+ * layer is a folder inside a module and has none of its own, so the declared
+ * positions at the source root are the modules; a flat config's are its layers.
+ */
+function scaffoldActions(
+  blueprint: Blueprint,
+  state: ProjectState,
+  handbook: string,
+  generatedConfig: boolean,
+  options: PlanOptions,
+): Action[] {
+  const { architecture } = blueprint;
+  const modules = architecture.modules;
+
+  // `sourceRoot` rather than a literal `src`: a modular config at the project
+  // root is legal (`defineBlueprint` accepts it), and a position written under
+  // `src/` there is a folder that config does not have.
+  const root = architecture.sourceRoot ?? 'src';
+  const prefix = root === '.' ? '' : `${root}/`;
+
+  if (options.hasSourceFiles) {
+    // Only where init generated the config in this run: there the adopter answered
+    // --structure on this run and got no folder for the answer, which reads as a
+    // failed run. An existing modular config means nobody was expecting one, and
+    // the note would be noise on every later init.
+    return modules && generatedConfig
+      ? [{ kind: 'instruct', note: nothingScaffoldedNote(handbook, root) }]
+      : [];
+  }
+
+  if (!modules) {
+    return architecture.layers
+      .filter((layer) => !state.existingSrcDirs.includes(layer.name))
+      .map((layer) => ({ kind: 'mkdir', path: `src/${layer.name}`, note: `src/${layer.name}/` }));
+  }
+
+  const actions: Action[] = [];
+  const ext = state.hasTypescript ? 'ts' : 'js';
+
+  for (const [index, module] of modules.entries()) {
+    const entry = `${prefix}${module.name}/index.${ext}`;
+
+    actions.push({
+      kind: 'write',
+      path: entry,
+      content: MODULE_ENTRY,
+      note: `${entry} (module entry — everything else under ${prefix}${module.name}/ is private to it)`,
+    });
+
+    // `main` is not a declared position. `index` is fixed by the model, while
+    // `main` is a framework fact the preset knows — so it cannot be keyed on a
+    // module's NAME, and a hand-written `[Fighter, Combat, common]` must not
+    // receive `Fighter/main.tsx`. Only where init generated the config is the
+    // first module a name blueprint chose, and only then is writing an entry
+    // point into it a fact rather than a claim about the adopter's architecture.
+    if (index === 0 && generatedConfig) {
+      const main = `${prefix}${module.name}/main.${mainExt(blueprint, state.hasTypescript)}`;
+
+      actions.push({
+        kind: 'write',
+        path: main,
+        content: MODULE_MAIN,
+        note: `${main} (the framework entry — mounting the app is app-wide composition, so it lives in the module rather than at the source root; point your bundler at it)`,
+      });
+    }
+  }
+
+  actions.push({ kind: 'instruct', note: modulesScaffoldedNote(handbook, root) });
+
+  return actions;
+}
+
+/** JSX only where the framework's entry holds JSX — a Vue entry is plain TS/JS. */
+function mainExt(blueprint: Blueprint, typescript: boolean): string {
+  if (blueprint.framework === 'react') return typescript ? 'tsx' : 'jsx';
+
+  return typescript ? 'ts' : 'js';
+}
+
+/** Where the module tree is drawn, in the words both scaffold arms end on. */
+function shapeSentence(handbook: string, root: string): string {
+  return `The shape is in the handbook this run writes, ${handbook} (see "## Modules"): `
+    + `${root}/<module>/<layer>/, with the module's \`index\` as its only public surface`;
+}
+
+/**
+ * A tree holding two folders reads as a failed run, so the run says otherwise
+ * before the adopter concludes it. Three jobs (#193), each carrying its cause and
+ * its next step: this is finished rather than half-built, what was NOT created and
+ * why blueprint could not name it, and where the shape it takes is drawn.
+ */
+function modulesScaffoldedNote(handbook: string, root: string): string {
+  return 'The module folders your config declares are the whole scaffold, and that is this '
+    + 'step finished rather than half-done — under `modules` a layer is a folder INSIDE a '
+    + 'module, so there is nothing else to build at the source root until you name a domain. '
+    + 'Run `npx blueprint inspect` to see it: exit 0, no error, no warning, and one '
+    + 'missing-layer note per declared layer, which is runway (the rules arm when code lands) '
+    + 'rather than a todo. No feature module was created because blueprint cannot name a '
+    + 'domain it has never seen — only what the config declares was built, so add one folder '
+    + `per domain under ${root}/ as they appear and declare each in \`architecture.modules\`; `
+    + 'declaration order is the flow, so a module may import only modules declared after it. '
+    + `${shapeSentence(handbook, root)} — read it before you create the first module folder.`;
+}
+
+/**
+ * The same three jobs where the tree already holds code. The first two change
+ * shape (nothing was scaffolded, and the reason is the predicate's own) and the
+ * third becomes the whole answer — the filesystem demonstrates nothing here.
+ *
+ * It points at `inspect` and never predicts it. Root files are read as wiring and
+ * the tree is clean, but ONE top-level folder makes it `structure-mismatch` plus
+ * `undeclared-module` at error tier — which `templateCleanup` prints a few lines
+ * below this note, in the same run. A claim of "clean" would be this run
+ * contradicting its own output.
+ */
+function nothingScaffoldedNote(handbook: string, root: string): string {
+  return `No module folder was created: ${root}/ already holds code, and an empty module `
+    + 'folder beside it is a net that catches nothing — the manufactured shell blueprint '
+    + 'tells you never to build. Nothing here is half-done; `npx blueprint inspect` is what '
+    + 'reads the tree you actually have. Blueprint cannot name a domain it has never seen, '
+    + 'and it will not move your files for you: create the folder when you name the first '
+    + 'domain, declare it in `architecture.modules`, and move what belongs to it in — '
+    + 'declaration order is the flow, so a module may import only modules declared after it. '
+    + `${shapeSentence(handbook, root)}. On this tree that document is the whole example — `
+    + 'nothing on disk demonstrates it.';
 }
 
 /** Merge the contract into a shared context file: refresh in place, append, or create. */

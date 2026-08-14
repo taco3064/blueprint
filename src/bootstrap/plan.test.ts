@@ -754,7 +754,7 @@ describe('plan · every action is labelled so the reader can locate it', () => {
   // Asserted as an invariant rather than a list of expected strings: a new
   // action inherits the requirement instead of slipping past a fixture that
   // predates it.
-  const scenarios: [string, Partial<ProjectState>, string | null][] = [
+  const scenarios: [string, Partial<ProjectState>, string | null, Blueprint?][] = [
     ['greenfield, nothing installed', {}, 'export default {};'],
     ['an existing config and a wired eslint', { hasConfig: true, wiredEslintConfig: true }, null],
     [
@@ -764,10 +764,13 @@ describe('plan · every action is labelled so the reader can locate it', () => {
     ],
     ['a legacy eslintrc', { hasConfig: true, legacyEslintConfig: '.eslintrc.cjs', eslintConfigShape: 'legacy' }, null],
     ['a TypeScript project with vite', { hasTypescript: true, hasViteConfig: true }, 'export default {};'],
+    // The module scaffold writes files rather than the flat arm's bare mkdirs, so
+    // its notes are new rows that this invariant would otherwise never reach.
+    ['a modular greenfield', {}, 'export default {};', vuePreset({ structure: 'modular' })],
   ];
 
-  it.each(scenarios)('%s', (_label, over, configSource) => {
-    const actions = plan(state(over), bp, configSource, {});
+  it.each(scenarios)('%s', (_label, over, configSource, blueprint) => {
+    const actions = plan(state(over), blueprint ?? bp, configSource, {});
 
     expect(actions.length).toBeGreaterThan(0);
 
@@ -862,5 +865,192 @@ describe('plan · containment', () => {
 
     expect(write(actions, 'docs/nested/handbook.md')).toBeDefined();
     expect(write(actions, '.claude/CLAUDE.md')).toBeDefined();
+  });
+});
+
+describe('plan · what the scaffold materialises at the source root', () => {
+  type Architecture = Blueprint['architecture'];
+
+  const modular = (over: Partial<Architecture> = {}, framework: 'vue' | 'react' = 'react'): Blueprint => {
+    const preset = framework === 'react'
+      ? reactPreset({ structure: 'modular' })
+      : vuePreset({ structure: 'modular' });
+
+    return { ...preset, architecture: { ...preset.architecture, ...over } };
+  };
+
+  const srcWrites = (actions: Action[]): WriteAction[] =>
+    actions.filter((a): a is WriteAction => a.kind === 'write' && a.path.startsWith('src/'));
+
+  const instructs = (actions: Action[]): string =>
+    actions.filter((a) => a.kind === 'instruct').map((a) => a.note).join('\n');
+
+  it('builds the declared modules and their entries on an empty modular tree', () => {
+    const actions = plan(state({ hasTypescript: true }), modular(), 'CONFIG SOURCE', {});
+
+    expect(srcWrites(actions).map((a) => a.path))
+      .toEqual(['src/app/index.ts', 'src/app/main.tsx', 'src/common/index.ts']);
+
+    // `export {}` rather than an empty file: a source file with no top-level
+    // import or export is a script, which `isolatedModules` refuses outright.
+    for (const action of srcWrites(actions)) expect(action.content).toContain('export {};');
+  });
+
+  it('creates no layer folder under a config that declares modules', () => {
+    const bp = modular();
+    const actions = plan(state({ hasTypescript: true }), bp, 'CONFIG SOURCE', {});
+
+    // The defect this replaces: four `src/<layer>/` folders, each an undeclared
+    // module under the very config that produced them (#240's note says not to
+    // create them by hand, and init was creating them by itself).
+    expect(actions.filter((a) => a.kind === 'mkdir')).toEqual([]);
+
+    for (const layer of bp.architecture.layers) {
+      expect(
+        actions.some((a) => a.kind !== 'instruct' && a.kind !== 'install'
+          && a.path.startsWith(`src/${layer.name}`)),
+        `src/${layer.name} is a top-level folder under a config that declares modules`,
+      ).toBe(false);
+    }
+  });
+
+  it('leaves the flat arm as it was — layer mkdirs, and no file written under src/', () => {
+    const flat = vuePreset();
+    const actions = plan(state(), flat, 'CONFIG SOURCE', {});
+
+    // Derived from the preset, so a layer added or reordered there moves this
+    // line rather than passing against a list copied out of it.
+    expect(actions.filter((a) => a.kind === 'mkdir').map((a) => a.path))
+      .toEqual(flat.architecture.layers.map((layer) => `src/${layer.name}`));
+
+    expect(srcWrites(actions)).toEqual([]);
+  });
+
+  it.each([
+    ['react', true, 'src/app/index.ts', 'src/app/main.tsx'],
+    ['react', false, 'src/app/index.js', 'src/app/main.jsx'],
+    ['vue', true, 'src/app/index.ts', 'src/app/main.ts'],
+    ['vue', false, 'src/app/index.js', 'src/app/main.js'],
+  ] as const)('%s, typescript=%s → %s beside %s', (framework, hasTypescript, entry, main) => {
+    // JSX belongs to the framework whose entry mounts a tree; a Vue entry is
+    // plain TS/JS, and a `.tsx` there is a file its own toolchain does not expect.
+    const actions = plan(state({ hasTypescript }), modular({}, framework), 'CONFIG SOURCE', {});
+
+    expect(srcWrites(actions).map((a) => a.path)).toContain(entry);
+    expect(srcWrites(actions).map((a) => a.path)).toContain(main);
+  });
+
+  it('gives a hand-written config every module entry and no main', () => {
+    // `main` is a framework fact the preset knows, so it goes only where the first
+    // module is a name BLUEPRINT chose. Here the names are the adopter's, and
+    // `Fighter/main.tsx` would be a claim about their architecture.
+    const bp = modular({
+      modules: [
+        { name: 'authentication', does: 'Signing in.' },
+        { name: 'Fighter', does: 'The player ship.' },
+        { name: 'common', does: 'Shared.' },
+      ],
+    });
+
+    const actions = plan(state({ hasTypescript: true }), bp, null, {});
+
+    expect(srcWrites(actions).map((a) => a.path)).toEqual([
+      'src/authentication/index.ts',
+      'src/Fighter/index.ts',
+      'src/common/index.ts',
+    ]);
+  });
+
+  it('keeps every scaffolded line inside the emitted line cap, whatever the module is called', () => {
+    // These files land in `src/<module>/*`, a governed net where `codeStyle` runs
+    // `@stylistic/max-len` at 90 — comments included, and with no fixer. The cap
+    // is restated because `emit/lint` keeps it private, and the module name is
+    // long on purpose: a line interpolating it passes on `app` and fails here,
+    // turning an adopter's very first `npm run lint` red.
+    const bp = modular({ modules: [{ name: 'authenticationAndOnboarding', does: 'x' }] });
+    const actions = plan(state({ hasTypescript: true }), bp, 'CONFIG SOURCE', {});
+
+    expect(srcWrites(actions)).not.toEqual([]);
+
+    for (const action of srcWrites(actions)) {
+      for (const line of action.content.split('\n')) {
+        expect(line.length, `${action.path}: ${line}`).toBeLessThanOrEqual(90);
+      }
+    }
+  });
+
+  it('writes the modules at the declared source root, not under a literal src/', () => {
+    const actions = plan(state({ hasTypescript: true }), modular({ sourceRoot: '.' }), 'CONFIG SOURCE', {});
+    const paths = actions.filter((a) => a.kind === 'write').map((a) => a.path);
+
+    expect(paths).toContain('app/index.ts');
+    expect(paths).toContain('app/main.tsx');
+    expect(paths).toContain('common/index.ts');
+  });
+
+  it('scaffolds nothing where the tree already holds code, and says so where modular was chosen', () => {
+    const actions = plan(state({ hasTypescript: true }), modular(), 'CONFIG SOURCE', { hasSourceFiles: true });
+
+    expect(actions.filter((a) => a.kind === 'mkdir')).toEqual([]);
+    expect(srcWrites(actions)).toEqual([]);
+    expect(instructs(actions)).toContain('No module folder was created');
+  });
+
+  it('stays quiet about the absence when the modular config is not this run\'s answer', () => {
+    // An existing modular config means nobody was expecting folders, so the
+    // explanation would be noise on every re-init of an adopted repo.
+    const actions = plan(state({ hasConfig: true }), modular(), null, { hasSourceFiles: true });
+
+    expect(instructs(actions)).not.toContain('No module folder was created');
+  });
+
+  it('never predicts inspect\'s verdict on a tree it did not build', () => {
+    // Root files are wiring and the tree is clean — but ONE top-level folder makes
+    // it `structure-mismatch` + `undeclared-module` at error tier, and on this same
+    // path `templateCleanup` prints those findings a few lines below this note. A
+    // claim of "clean" here is the run contradicting its own output.
+    const note = instructs(plan(state(), modular(), 'CONFIG SOURCE', { hasSourceFiles: true }));
+
+    expect(note).toContain('`npx blueprint inspect` is what reads the tree you actually have');
+
+    for (const prediction of ['no error', 'no warning', 'exit 0', 'is clean', 'are clean']) {
+      expect(note, `the second arm predicts inspect with "${prediction}"`).not.toContain(prediction);
+    }
+  });
+
+  const jobs: [string, string[]][] = [
+    ['it is not a defect', ['step finished rather than half-done', 'npx blueprint inspect']],
+    ['what is missing, and why blueprint could not name it', [
+      'cannot name a domain it has never seen',
+      '`architecture.modules`',
+    ]],
+    ['where the shape is', ['docs/architecture-handbook.md', 'src/<module>/<layer>/']],
+  ];
+
+  it.each(jobs)('the built tree\'s note does the job: %s', (_label, phrases) => {
+    const note = instructs(plan(state({ hasTypescript: true }), modular(), 'CONFIG SOURCE', {}));
+
+    for (const phrase of phrases) expect(note).toContain(phrase);
+  });
+
+  const untouchedJobs: [string, string[]][] = [
+    ['it is not a defect', ['a net that catches nothing', 'Nothing here is half-done']],
+    ['what is missing, and why blueprint could not name it', [
+      'cannot name a domain it has never seen',
+      '`architecture.modules`',
+    ]],
+    // On this arm the handbook is the WHOLE example — the filesystem shows
+    // nothing, which is the half of #193's argument that has to reach the reader.
+    ['where the shape is', [
+      'docs/architecture-handbook.md',
+      'src/<module>/<layer>/',
+      'nothing on disk demonstrates it',
+    ]],
+  ];
+
+  it.each(untouchedJobs)('the untouched tree\'s note does the job: %s', (_label, phrases) => {
+    const note = instructs(plan(state(), modular(), 'CONFIG SOURCE', { hasSourceFiles: true }));
+
+    for (const phrase of phrases) expect(note).toContain(phrase);
   });
 });
