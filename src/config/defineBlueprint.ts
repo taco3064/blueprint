@@ -528,6 +528,9 @@ function validateModuleImports(modules: ModuleDef[]): void {
     for (const name of module.imports) {
       // One lookup, so "is it declared" and "declared where" cannot disagree:
       // an absent position IS an undeclared module.
+      // undecidable, the string guard: a non-string name is rejected by the
+      // first arm below before its position is ever read, so looking one up
+      // for it would change nothing.
       const target = typeof name === 'string' ? position.get(name) : undefined;
 
       if (typeof name !== 'string' || !name.trim()) {
@@ -538,6 +541,8 @@ function validateModuleImports(modules: ModuleDef[]): void {
         throw new Error(
           `Module "${module.name}" imports "${name}", which is not a declared module.`,
         );
+      // undecidable, the comparison: `target === index` is the module naming
+      // itself, which the self-reference arm above already rejected.
       } else if (target < index) {
         // The acyclicity guarantee: the graph is one-way by construction, so no
         // cycle check exists downstream to catch a backward edge later.
@@ -562,6 +567,9 @@ function validateModuleImports(modules: ModuleDef[]): void {
  * additive; tightening would not be.
  */
 function validateOwnershipIsSingular(modules: ModuleDef[], layers: LayerDef[]): void {
+  // undecidable, both `?? []` arms: a fabricated member is a string, which
+  // `ownedKey` reads as a package name. It keys an entry no real declaration
+  // shares, so the conflict test below can never match it.
   const byLayers = new Map<string, string[]>();
 
   for (const layer of layers) {

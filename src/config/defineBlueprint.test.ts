@@ -299,6 +299,20 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(pattern);
   });
 
+  it('accepts the spaces a hand-written {module} placeholder carries', () => {
+    // `{ module }` is how a human writes it, and the resolver substitutes it just
+    // the same. Rejected here, a config that works is refused with a message
+    // telling the author to add a placeholder that is already there. Its `{layer}`
+    // twin has had this test since it was written; a mutation sweep found that
+    // this one did not.
+    const config = base();
+
+    config.architecture.modules = [{ name: 'app', does: 'x' }];
+    config.architecture.layerFiles = 'src/{ module }/{ layer }/**/*.ts';
+
+    expect(() => validateBlueprint(config)).not.toThrow();
+  });
+
   it('accepts the one legal modular topology, including at a project root', () => {
     const config = base();
 
@@ -777,7 +791,9 @@ describe('validateBlueprint · architecture.modules', () => {
     // Two entries here, one folder on macOS: the second module's files land in
     // the first module's net, governed by rules nobody wrote for them.
     ['names differing only in case', [{ name: 'Fighter', does: 'x' }, { name: 'fighter', does: 'y' }],
-      /differ only in case/],
+      // Both names, not just the pattern: the message's whole job is saying WHICH
+      // two collide, and the one it has to look up is the earlier spelling.
+      /Modules "Fighter" and "fighter" differ only in case/],
     ['a glob character', [{ name: 'Fig*hter', does: 'x' }], /glob or path characters/],
     // Modules do not nest, so a name is one segment — never a path.
     ['a path separator', [{ name: 'features/Fighter', does: 'x' }], /never a path/],

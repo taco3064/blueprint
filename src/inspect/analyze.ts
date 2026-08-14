@@ -275,6 +275,10 @@ function importFindings(
   const aliases = aliasList(architecture);
   // The root sits above every layer, so it may reach all of them and no layer
   // has declared it a selfOnly importer.
+  //
+  // undecidable, both empty arms: each list is only ever read through
+  // `.includes(target)` against a declared layer name, so a fabricated member
+  // matches nothing and the root's verdicts are unchanged.
   const forbidden = isModuleRoot ? [] : getForbiddenLayers(architecture, fileLayer);
   const selfOnly = isModuleRoot ? [] : getSelfOnlyTargets(architecture, fileLayer);
   const layoutOf = layoutResolver(architecture);
@@ -295,6 +299,10 @@ function importFindings(
       // inside the same module, they do not reach a declared layer. The alias
       // spelling of the upward edge, which the relative one answers as
       // `reaches-root` — the two gates must agree.
+      // undecidable, the depth test: at depth 0 the other two conjuncts are
+      // mutually exclusive — `parts[0] === file.segments[0]` makes the target
+      // this file's own layer, which `layerNames.includes` then answers true
+      // for. The conjunction cannot hold there however the depth is compared.
       const addressesOwnRoot
         = depth > 0 && parts[0] === file.segments[0] && !layerNames.includes(target);
 
@@ -304,6 +312,10 @@ function importFindings(
         continue;
       }
 
+      // undecidable: past the root check only a non-layer target reaches this,
+      // and every branch below is keyed on the target BEING a declared layer —
+      // `layoutOf` answers `flat` for an unknown name, and neither the
+      // same-layer nor the forbidden test can match. Skipping it pushes nothing.
       if (!layerNames.includes(target)) continue;
 
       // Depth is judged against the *target* layer's layout — reaching inside
