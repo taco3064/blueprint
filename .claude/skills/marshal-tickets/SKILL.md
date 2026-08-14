@@ -266,9 +266,13 @@ the wrong local branch, produced an empty remote branch from a successful-lookin
 push, and sent a mutation sweep against a tree nobody meant to measure. The
 pre-push hook makes it mutual — it tests the whole working tree, so their half-saved
 file blocks your unrelated push, and `--no-verify` is not the way out of that.
-`git worktree add` costs seconds, and `git show main:<path>` answers "what did
-this look like before" without depending on which branch happens to be checked
-out.
+`git worktree add` **plus `npm ci` in the new tree** — the install is the half
+that looks skippable and is not. `prepare` is what generates husky's runtime, and
+a fresh checkout carries only the two tracked hook scripts, so a tree without the
+install runs no hooks and reports nothing. Symlinking `node_modules` to save the
+install buys that silence, and shares one incremental `tsc` cache across every
+tree as well. `git show main:<path>` answers "what did this look like before"
+without depending on which branch happens to be checked out.
 
 **Your check is an audit, not a gate**, and that changes the remedy. You read
 the merged result against the ticket's `Done when`; when it falls short, the exit
