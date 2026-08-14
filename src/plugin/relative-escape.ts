@@ -118,6 +118,11 @@ export const relativeEscape: Rule.RuleModule = {
       // The same condition the verdict reports as `escapes-src`, tested here as
       // itself: past this point the target resolved, which is what lets the
       // message below name a segment of it.
+      //
+      // undecidable: removing this block falls through to `MESSAGE_OF`, which
+      // maps `escapes-src` to the same report. That is what the entry is for.
+      // `inspect`'s half of the check is NOT equivalent — it has no such
+      // fallback, so dropping it there produces a wrong finding.
       if (target === null) {
         context.report({ node, messageId: 'escapesSrc', data: { specifier } });
 

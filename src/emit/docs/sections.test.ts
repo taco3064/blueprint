@@ -59,7 +59,11 @@ describe('renderModule', () => {
     // Every layer agrees, so nothing is stated per layer — naming them would
     // read as a restriction that only some layers carry this shape.
     expect(out).not.toContain('differs by layer');
-    expect(out).toContain('└─ Example'); // impl row closes the tree
+    // The indent is load-bearing: bare `└─ Example` is also satisfied by the
+    // `└─ Example/` FOLDER line two rows up, so the connector on the last tree
+    // row went unasserted — a mutation sweep found it by flipping the row's
+    // connector to `├─` with every test still green.
+    expect(out).toContain('   └─ Example # implementation (named after the module)');
     // The section closes on the fence. Anything appended after it lands outside
     // the code block, where a reader takes it for prose about the shape.
     expect(out.endsWith('```')).toBe(true);
