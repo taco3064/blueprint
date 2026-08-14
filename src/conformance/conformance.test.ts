@@ -3526,3 +3526,115 @@ describe('the inner layer flow reaches inside a module (real eslint)', () => {
     expect(impact.output).not.toContain('no-restricted-imports');
   });
 });
+
+describe('governing BETWEEN modules (real eslint)', () => {
+  // The RFC's second depth. `impact` runs the project's own ESLint over the
+  // emitted config, so every count below is the real linter resolving the real
+  // entries — the layer where a ban that is correct and unreachable stops
+  // looking identical to one that bites.
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'GameStage', does: 'the run, rendered', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets and damage' },
+        { name: 'common', does: 'the loop core' },
+      ],
+      layers: [{ name: 'hooks', does: 'reactive state', layout: 'folder' }],
+      // Generated files an adopter excludes — and the emitted entry carrying
+      // them holds no `rules` at all, which the fixture's plugin stub has to
+      // survive reading.
+      layerFilesIgnore: ['src/**/*.gen.jsx'],
+    },
+  };
+
+  const modularRepo = (files: Record<string, string>): string =>
+    repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+        }),
+        'src/Combat/index.jsx': 'export const attack = 1;\n',
+        'src/Combat/hooks/useDamage/index.jsx': 'export const useDamage = 1;\n',
+        'src/common/index.jsx': 'export const loop = 1;\n',
+        ...files,
+      },
+    });
+
+  it('reddens an undeclared edge and a reach past a declared entry', async () => {
+    const dir = modularRepo({
+      // GameStage names Combat and nothing else.
+      'src/GameStage/hooks/useRun/index.jsx':
+        'import { loop } from "~app/common";\n'
+        + 'import { useDamage } from "~app/Combat/hooks/useDamage";\n'
+        + 'export const useRun = () => [loop, useDamage];\n',
+      // …and the declared one at its entry is legal.
+      'src/GameStage/GameStage.jsx':
+        'import { attack } from "~app/Combat";\nexport const GameStage = attack;\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.code).toBe(0);
+    // Exactly two: the undeclared module, and the reach past a declared one.
+    // The count is the assertion — a partial fix reads the same as a whole one
+    // on a `toContain` of the rule id alone.
+    expect(impact.output).toContain('2  no-restricted-imports — 1 file(s)');
+  });
+
+  it('reddens a pass-through in all four spellings, and leaves a wrapper green', async () => {
+    const dir = modularRepo({
+      'src/GameStage/index.jsx': 'export { attack } from "~app/Combat";\n',
+      'src/GameStage/two.jsx': 'export * from "~app/Combat";\n',
+      'src/GameStage/three.jsx':
+        'import { attack } from "~app/Combat";\nexport { attack };\n',
+      'src/GameStage/four.jsx':
+        'import { attack as ca } from "~app/Combat";\nexport default ca;\n',
+      // Composition, not a pass-through — the boundary that matters.
+      'src/GameStage/five.jsx':
+        'import { attack } from "~app/Combat";\n'
+        + 'export const startGame = () => attack();\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.code).toBe(0);
+    expect(impact.output).toContain('4  blueprint/no-module-reexport — 4 file(s)');
+    expect(impact.output).not.toContain('five.jsx');
+  });
+
+  it('says the same thing through inspect, on the same file', async () => {
+    // Two gates, one repo. The lint half is what an adopter's CI runs and the
+    // inspect half is what the report says; a disagreement here presents as
+    // one of them going quiet rather than as a contradiction anyone can see.
+    const dir = modularRepo({
+      'src/GameStage/index.jsx': 'export { attack } from "~app/Combat";\n',
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.code).toBe(1);
+    expect(inspect.output).toContain('[module-reexport] src/GameStage/index.jsx');
+    expect(inspect.output).toContain('buys nothing');
+    // The migration table names where the finding is actually enforced, so a
+    // reader searching the resolved config finds the id that is in it.
+    expect(inspect.output).toContain('(lint: blueprint/no-module-reexport)');
+  });
+
+  it('keeps doctor green on a correctly-wired modular repo', async () => {
+    // The expectations move with the emitter or doctor reports every emitted
+    // pattern as lost on a repo whose wiring is perfect.
+    const dir = modularRepo({
+      'src/GameStage/hooks/useRun/index.jsx': 'export const useRun = 1;\n',
+      'eslint.config.mjs': wiredEslintConfig(modular),
+    });
+
+    const doctor = await cli(dir, ['doctor']);
+
+    expect(doctor.output).toContain('✓ emitted rules survive the merged eslint config (');
+    expect(doctor.output).not.toContain('skipped');
+  });
+});

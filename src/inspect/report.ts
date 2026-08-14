@@ -14,6 +14,7 @@ const MIGRATION: Record<string, string> = {
   'module-escape': 'Cross a module boundary through the alias, never a relative path, and declare the dependency in the module\'s `imports`.',
   'package-ownership': 'Move restricted package usage into its owning layer (expose it via a hook or service).',
   'selfonly-reexport': 'Depend on selfOnly layers without re-exporting them.',
+  'module-reexport': 'Stop forwarding another module\'s surface: let the consumer declare that module itself, or expose this module\'s own API instead. A function that only forwards the call clears the rule and builds nothing.',
   'no-entry': 'Add an entry (index) file to each module so it has a single public surface.',
   cycle: 'Break the import cycle — invert one dependency or extract the shared part downward.',
 };
@@ -34,6 +35,7 @@ const ENFORCED_BY: Record<string, string | null> = {
   'module-escape': 'blueprint/relative-escape',
   'package-ownership': 'no-restricted-imports',
   'selfonly-reexport': 'no-restricted-syntax',
+  'module-reexport': 'blueprint/no-module-reexport',
   'no-entry': null,
   cycle: null,
 };

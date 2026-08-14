@@ -9,6 +9,7 @@ import type { Blueprint } from '../config';
 // The patterns leaf, not the emit/lint index: the index also exports lint.ts,
 // whose plugin shares resolve logic with inspect, closing a module cycle.
 import {
+  buildModulePatterns,
   buildStructuralPatterns,
   deriveGlobalRules,
   moduleScopes,
@@ -123,6 +124,17 @@ export function expectedStructural(
 
   const forbidden = getForbiddenLayers(architecture, layer);
 
+  // The cross-module groups ride the same entry emitLint puts them on, so the
+  // expectation has to carry them too — compared by containment, a group the
+  // emitter writes and this does not is simply never checked, which is the
+  // quiet half of a false green.
+  const modules = architecture.modules ?? [];
+  const declared = modules.find((entry) => entry.name === module);
+
+  const crossModule = declared === undefined
+    ? []
+    : buildModulePatterns({ module: declared, modules, aliases: roots });
+
   const structural = buildStructuralPatterns({
     layer,
     aliases,
@@ -137,7 +149,9 @@ export function expectedStructural(
   });
 
   return {
-    groups: new Set(structural.map((pattern) => JSON.stringify(pattern.group))),
+    groups: new Set(
+      [...structural, ...crossModule].map((pattern) => JSON.stringify(pattern.group)),
+    ),
     selectors: new Set(
       getSelfOnlyTargets(architecture, layer).flatMap((target) =>
         aliases.map((alias) => selfOnlyReexportSelector(alias, target)),

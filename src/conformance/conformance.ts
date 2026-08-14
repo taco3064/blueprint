@@ -127,14 +127,29 @@ export function wiredEslintConfig(blueprint: Blueprint, extraEntries = ''): stri
       : JSON.stringify(rest);
   });
 
+  // Every `blueprint/*` id the emitted config actually references, derived
+  // rather than listed: ESLint refuses to resolve a config naming a rule its
+  // plugin does not define, so a hardcoded stub turns "this ticket added a
+  // rule" into "doctor could not resolve the config" — a skip riding on
+  // `ok: true`, which is the one outcome this fixture exists to disprove.
+  const stubbed = [
+    ...new Set(
+      emitLint(blueprint)
+        .flatMap((entry) => Object.keys(entry.rules ?? {}))
+        .filter((rule) => rule.startsWith('blueprint/'))
+        .map((rule) => rule.slice('blueprint/'.length)),
+    ),
+  ];
+
   return [
     '// wired from @kekkai/blueprint emitLint — inlined for the conformance fixture',
     // Without a permissive schema, ESLint 9 defaults to "zero options" and
     // rejects the {layouts} option during config resolution.
-    'const stub = { rules: { \'relative-escape\': {',
-    '  meta: { schema: [{ type: \'object\', additionalProperties: true }] },',
-    '  create: () => ({}),',
-    '} } };',
+    'const stub = { rules: {',
+    ...stubbed.map((rule) => `  '${rule}': {`
+      + ' meta: { schema: [{ type: \'object\', additionalProperties: true }] },'
+      + ' create: () => ({}) },'),
+    '} };',
     '',
     'export default [',
     ...entries.map((entry) => `  ${entry},`),

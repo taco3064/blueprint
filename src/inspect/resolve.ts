@@ -166,6 +166,35 @@ export function relativeVerdict(
   return atUnitEntry(target, entryOf, depth) ? 'ok' : 'reaches-inside';
 }
 
+/**
+ * The other module a specifier hands over, or null when it hands over none.
+ *
+ * The single judgment behind both pass-through gates —
+ * `blueprint/no-module-reexport` and `inspect`'s `module-reexport` finding.
+ * One function for the reason `relativeVerdict` gives next door: two callers
+ * reading the same coordinates can still disagree about what they mean, and a
+ * disagreement between a lint rule and a finding presents as one gate going
+ * quiet rather than as a contradiction anyone can see.
+ *
+ * Null for this module's own surface, for a name nobody declared, and for
+ * every non-alias specifier. A relative path that leaves the module is
+ * `relative-escape`'s `leaves-module`; a package is not a module at all.
+ */
+export function crossModuleTarget(
+  specifier: string,
+  aliases: (AliasRoot | string)[],
+  modules: string[],
+  own: string,
+): string | null {
+  const parts = stripAlias(specifier, aliases);
+
+  if (!parts?.length) return null;
+
+  const target = parts[0];
+
+  return target !== own && modules.includes(target) ? target : null;
+}
+
 export function resolveSegments(dir: string[], specifier: string): string[] | null {
   const stack = [...dir];
 

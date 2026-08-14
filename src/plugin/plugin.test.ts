@@ -13,6 +13,7 @@ import { plugin } from './plugin';
 
 const RULE_IDS = [
   'no-deep-watch',
+  'no-module-reexport',
   'no-typedef-only-file',
   'relative-escape',
   'test-filename-matches-source',
@@ -22,6 +23,7 @@ const RULE_IDS = [
 
 const DESCRIPTIONS: [(typeof RULE_IDS)[number], string][] = [
   ['no-deep-watch', 'deep watches'],
+  ['no-module-reexport', 're-export another module'],
   ['no-typedef-only-file', '@typedef'],
   ['relative-escape', 'leave their module'],
   ['test-filename-matches-source', 'co-located, same-named source sibling'],
