@@ -308,6 +308,10 @@ export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef
     // code sits, and `Fighter/index.ts` importing `~app/Combat` is the edge a
     // reader of this graph most wants. Judged by the layer test alone it is
     // skipped, because its segment at layer depth is a filename.
+    // undecidable, the depth test: `unlayered` is built from
+    // `architecture.modules`, so a flat project's set is empty and the lookup
+    // answers false however the depth compares. It stays as the reader's
+    // signpost — this whole arm exists only under modules.
     const whole = depth > 0 && unlayered.has(file.segments[0]);
     const isRoot = depth > 0 && file.segments.length === depth + 1;
 
