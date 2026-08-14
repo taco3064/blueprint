@@ -34,13 +34,22 @@ substitute first-principles reasoning for what it says.
 
 ## Layering (one-way, low → high)
 
-`config` → `markdown` → `plugin` → `emit/*` → `presets` → `project` →
-`inspect` → `survey` / `impact` → `bootstrap` → `cli`. A module imports only
-from lower ones (survey reads inspect's scan; bootstrap embeds the survey in
-its authoring playbook).
+`config` → `boundary` → `markdown` → `plugin` → `emit/*` → `presets` →
+`project` → `inspect` → `survey` / `impact` → `bootstrap` → `cli`. A module
+imports only from lower ones (survey reads inspect's scan; bootstrap embeds the
+survey in its authoring playbook).
 `project` is the shared reader (`detect` + `resolveBlueprint`) for both
-runtimes; `plugin` is the embedded ESLint plugin (plain rule objects, no
-internal deps) that `emit/lint` ships inside its output.
+runtimes; `plugin` is the embedded ESLint plugin that `emit/lint` ships inside
+its output — plain rule objects with exactly one internal dependency,
+`boundary`, running downward.
+`boundary` answers what an import does to a module boundary (`verdict`) and
+where a specifier lands (`resolve`). It sits below `plugin` so that a lint rule
+and the matching `inspect` finding reach **one** judgment rather than two
+readings that can drift apart — which they did, four times, before the
+judgments were shared. An exception permitting `plugin` → `inspect` would have
+been unenforceable: the next rule that wants `analyze` calls itself a verdict,
+and no test can tell it apart. `src/plugin/plugin.test.ts` holds that
+dependency list to one entry.
 
 ## Self-explaining output (every CLI / runtime message)
 
