@@ -84,7 +84,7 @@ export const relativeEscape: Rule.RuleModule = {
         + 'the shared part into a layer, or pass it in from the root.',
       reachesInside:
         '🚫 Relative import "{{specifier}}" reaches past a sibling\'s entry — '
-        + 'import "{{entry}}" instead; what lives behind it is that module\'s own business.',
+        + 'import "{{entry}}" instead; what lives behind it is that unit\'s own business.',
     },
   },
   create(context) {

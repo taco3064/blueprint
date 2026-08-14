@@ -67,14 +67,14 @@ describe('renderPlacement', () => {
   it('states one shared shape without naming the layers it covers', () => {
     const out = renderPlacement(arch());
 
-    expect(out).toContain('- Module shape: one folder per module. Only `index` is importable from outside.');
+    expect(out).toContain('- Unit shape: one folder per unit. Only `index` is importable from outside.');
     expect(out).not.toContain('in `src/');
   });
 
   it('describes a one-file-per-unit layer', () => {
     const out = renderPlacement(arch({ layers: [{ name: 'components', does: 'UI' }] }));
 
-    expect(out).toContain('one file per module (file layout)');
+    expect(out).toContain('one file per unit (file layout)');
   });
 
   it('states each shape with its own layers when the layers disagree', () => {
@@ -88,8 +88,8 @@ describe('renderPlacement', () => {
       }),
     );
 
-    expect(out).toContain('- Module shape in `src/resources/`: one folder per module. Only `main` is importable from outside.');
-    expect(out).toContain('- Module shape in `src/components/` / `src/services/`: one file per module (file layout).');
+    expect(out).toContain('- Unit shape in `src/resources/`: one folder per unit. Only `main` is importable from outside.');
+    expect(out).toContain('- Unit shape in `src/components/` / `src/services/`: one file per unit (file layout).');
     expect(out).not.toContain('Exception — `src/services/`');
   });
 
@@ -114,7 +114,7 @@ describe('renderPlacement', () => {
     // thing in the contract an agent reads — so the empty arm's real output is
     // that the module-shape line is the end of it.
     expect(out.split('\n').at(-1)).toBe(
-      '- Module shape: one folder per module. Only `index` is importable from outside.',
+      '- Unit shape: one folder per unit. Only `index` is importable from outside.',
     );
   });
 
@@ -174,8 +174,8 @@ describe('renderHardRules', () => {
     // same layer" was false in both layouts: the relative form is how a
     // same-layer edge is spelled, and only the alias form is banned.
     expect(out).toContain('- Import only from downstream layers — never upstream.');
-    expect(out).toContain('never through the alias, and never past a folder module\'s entry');
-    expect(out).toContain('Import a module via its `index`');
+    expect(out).toContain('never through the alias, and never past a folder unit\'s entry');
+    expect(out).toContain('Import a unit via its `index`');
     expect(out).toContain('`maxLines` = 400 is a hard gate.');
     expect(out).toContain('`cycles` is a hard gate.');
     expect(out).not.toContain('undefined');
@@ -191,9 +191,9 @@ describe('renderHardRules', () => {
     const out = renderHardRules(arch({ layers: [{ name: 'components', does: 'UI' }] }), undefined);
 
     // The entry names are interpolated, so an unguarded push renders the rule
-    // with an empty slot — "Import a module via its , never its internals." The
+    // with an empty slot — "Import a unit via its , never its internals." The
     // sentence has to be absent, not merely missing the entry name.
-    expect(out).not.toContain('Import a module via its');
+    expect(out).not.toContain('Import a unit via its');
     expect(out).not.toContain('never its internals');
   });
 });
@@ -244,7 +244,7 @@ describe('renderChecklist', () => {
     // The two unconditional items — a checklist that grows with the blueprint
     // still has to carry the parts that hold for every blueprint.
     expect(bare).toContain('- [ ] Imports follow the one-way flow (no upstream; same-layer only as a relative path to the sibling).');
-    expect(bare).toContain('modules expose only `index`');
+    expect(bare).toContain('units expose only `index`');
   });
 
   it('drops the entry clause when no layer is a folder', () => {
@@ -255,7 +255,7 @@ describe('renderChecklist', () => {
     }));
 
     expect(flat).toContain('- [ ] New code sits in the right layer.');
-    expect(flat).not.toContain('modules expose only');
+    expect(flat).not.toContain('units expose only');
   });
 });
 
@@ -451,5 +451,159 @@ describe('renderCompactContract', () => {
     });
 
     expect(out).toContain('[HB.md](HB.md)');
+  });
+});
+
+describe('the module dimension', () => {
+  const modules = [
+    { name: 'app', does: 'Routing.', imports: ['common'], owns: ['lodash'] },
+    { name: 'common', does: 'Shared.', layers: false as const },
+  ];
+
+  const modular = (over: Partial<ArchitectureDef> = {}) => arch({ modules, ...over });
+
+  it('addresses a layer inside a module, never at the source root', () => {
+    // Under `modules` a layer has no folder of its own, so `src/<layer>/` names
+    // an UNDECLARED MODULE — an error `inspect` reports. Three of the tool's
+    // own outputs answer this address and the contract's was the wrong one.
+    const out = renderPlacement(modular());
+
+    expect(out).toContain('- `src/<module>/components/` — UI.');
+    expect(out).toContain('- `src/<module>/services/` — net.');
+    expect(out).not.toContain('- `src/components/`');
+    expect(out).not.toContain('- `src/services/`');
+  });
+
+  it('follows sourceRoot into the layer address', () => {
+    expect(renderPlacement(modular({ sourceRoot: 'app/src' })))
+      .toContain('- `app/src/<module>/components/` — UI.');
+
+    expect(renderPlacement(arch({ sourceRoot: 'app/src' })))
+      .toContain('- `app/src/components/` — UI.');
+  });
+
+  it('lists each module with what it may reach, what it owns, and whether it is layered', () => {
+    const out = renderPlacement(modular());
+
+    expect(out).toContain('- `src/app/` — Routing. IMPORTS: `common` (through their entry alone). OWNS (barred in every other module): `lodash`.');
+    // Omitted `imports` is none, not unknown — the opposite of the layer
+    // default, and the fact a reader is most likely to assume backwards.
+    expect(out).toContain('IMPORTS: nothing — this module declares no dependency, so it may reach no other module.');
+    expect(out).toContain('NOT LAYERED (`layers: false`)');
+    // The outer address first: a layer line reads `<module>`, and a reader who
+    // has not met the modules cannot resolve it.
+    expect(out.indexOf('- `src/app/`')).toBeLessThan(out.indexOf('- `src/<module>/components/`'));
+  });
+
+  it('says nothing about modules on a flat project', () => {
+    const out = renderPlacement(arch());
+
+    for (const phrase of ['IMPORTS:', 'NOT LAYERED', '<module>']) {
+      expect(out, `flat placement carries a modular clause: "${phrase}"`).not.toContain(phrase);
+    }
+  });
+
+  it('states the three module bans at the width they hold, and leads the hard rules', () => {
+    const out = renderHardRules(modular(), undefined);
+
+    expect(out.split('\n')[2]).toContain('- Module boundaries:');
+    expect(out).toContain('through that module\'s entry alone (`~app/<module>`) and never a relative path');
+    expect(out).toContain('Nothing inside a module imports its own root.');
+    // Module-WIDE, not entry-only: entry-only prose describes the two-hop
+    // bypass (inner file re-exports, entry re-exports that file) as legal.
+    expect(out).toContain('no file in a module — **every** file, not only its entry — re-exports another module\'s surface');
+    expect(out).toContain('one added only to clear the rule is the non-fix');
+  });
+
+  it('names both ownership owners, and keeps relative paths inside the module', () => {
+    const out = renderHardRules(modular(), undefined);
+
+    expect(out).toContain('a layer\'s `owns` bars every other layer, a module\'s bars every other module');
+    expect(out).toContain('- Relative imports stay inside their unit, and never leave their module;');
+
+    const flat = renderHardRules(arch(), undefined);
+
+    expect(flat).toContain('- Restricted packages / globals live only in their owning layer (see "Where code goes").');
+    expect(flat).toContain('- Relative imports stay inside their unit; no redundant segments');
+    expect(flat).not.toContain('Module boundaries:');
+  });
+
+  it('calls an undeclared top-level folder a module, and says a green lint hides it', () => {
+    const out = renderBehavioral(modular(), undefined, undefined);
+
+    expect(out).toContain('Every top-level folder is a declared module; every folder inside one is a declared layer or a unit inside that.');
+    expect(out).toContain('A folder nobody declared is an undeclared MODULE');
+    expect(out).toContain('a green lint after creating one proves nothing');
+    expect(out).toContain('It is outside every module ban too, so a boundary can be broken inside it while lint stays green.');
+    // The declaring-is-the-owner's-call sentence stays, in the module's word.
+    expect(out).toContain('Inspect offers to declare the module instead; that one is not yours.');
+  });
+
+  it('keeps the flat wording flat, and still says what a green lint does not prove', () => {
+    const out = renderBehavioral(arch(), undefined, undefined);
+
+    expect(out).toContain('Every folder is a declared layer or a unit inside one.');
+    expect(out).toContain('A folder nobody declared is matched by no layer glob, so lint can\'t see it — a green lint after creating one proves nothing');
+    expect(out).toContain('Inspect offers to declare the folder instead; that one is not yours.');
+    expect(out).not.toContain('MODULE');
+  });
+
+  it('adds a module box to the checklist, separate from the layer one', () => {
+    // Its own box rather than a clause on the layer item: a checklist entry
+    // carrying two questions gets ticked on the easier one.
+    const out = renderChecklist(blueprint({ architecture: modular() }));
+
+    expect(out).toContain('- [ ] New code sits in the right module; every cross-module import is declared in `imports` and goes through the other module\'s entry; nothing re-exports another module\'s surface, and nothing reaches up to its own module root.');
+    expect(renderChecklist(blueprint())).not.toContain('New code sits in the right module');
+  });
+
+  it('states the outer flow in the full contract\'s context', () => {
+    const out = renderContext(blueprint({ architecture: modular() }));
+
+    expect(out).toContain('- Module flow: `app` → `common` — feature modules at the root of `~app/`, with the layers inside each one (`src/<module>/<layer>/`). A module may name only modules declared after it.');
+    // The layer flow below it is the INNER one, and unqualified it reads as
+    // the whole architecture.
+    expect(out).toContain('- Layer flow: `components` → `services` (inside each module)');
+    expect(renderContext(blueprint())).toContain('- Layer flow: `components` → `services`');
+    expect(renderContext(blueprint())).not.toContain('Module flow');
+  });
+
+  it('gains exactly two lines in the compact block, and nothing on a flat config', () => {
+    // The compact block is what CLAUDE.md / AGENTS.md receive — the one screen
+    // nearly every adopter reads — so its budget is the constraint, not an
+    // afterthought. Two lines, because neither is derivable from the page.
+    const flat = renderCompactContract(blueprint());
+    const out = renderCompactContract(blueprint({ architecture: modular() }));
+
+    expect(out.split('\n').length).toBe(flat.split('\n').length + 2);
+    expect(out).toContain('- Module flow: `app` → `common`');
+    expect(out).toContain('- Module boundaries: a module reaches only what its `imports` names');
+    expect(out).toContain('every** file, not only its entry');
+  });
+
+  it('names the module gates and the handbook section in the compact block', () => {
+    const out = renderCompactContract(blueprint({ architecture: modular() }));
+
+    expect(out).toContain('one-way imports, unit entries, ownership, relative escapes, module imports, module-root imports, module re-exports fail the project\'s lint run');
+    expect(out).toContain('placement, module boundaries, unit shapes, ownership, naming');
+
+    const flat = renderCompactContract(blueprint());
+
+    expect(flat).toContain('one-way imports, unit entries, ownership, relative escapes fail the project\'s lint run');
+    expect(flat).toContain('placement, unit shapes, ownership, naming');
+  });
+
+  it('sends the compact reader to the right remedy for the structure they have', () => {
+    const out = renderCompactContract(blueprint({ architecture: modular() }));
+
+    expect(out).toContain('A top-level folder nobody declared is an undeclared MODULE');
+    expect(out).toContain('fold the code into a module that is already declared');
+    expect(out).toContain('Declaring a new module is the owner\'s decision');
+
+    const flat = renderCompactContract(blueprint());
+
+    expect(flat).toContain('move the code into a unit of an existing layer');
+    expect(flat).toContain('never declare the layer yourself');
+    expect(flat).toContain('a green lint proves nothing about it');
   });
 });

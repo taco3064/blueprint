@@ -6,10 +6,11 @@ import {
   renderPlaybook,
   renderHeader,
   renderImportDiscipline,
-  renderModule,
+  renderModules,
   renderNaming,
   renderPrinciples,
   renderRules,
+  renderUnitShape,
 } from './sections';
 import type { ArchitectureDef, AxisDef, PrincipleDef } from '../../config';
 
@@ -49,11 +50,11 @@ describe('renderArchitecture', () => {
   });
 });
 
-describe('renderModule', () => {
+describe('renderUnitShape', () => {
   it('states one shared shape once, with a tree rooted at a layer that has it', () => {
-    const out = renderModule(arch());
+    const out = renderUnitShape(arch());
 
-    expect(out).toContain('One module = one folder. Only `index` is public');
+    expect(out).toContain('One unit = one folder. Only `index` is public');
     expect(out).toContain('components/');
     expect(out).toContain('├─ index');
     // Every layer agrees, so nothing is stated per layer — naming them would
@@ -63,25 +64,25 @@ describe('renderModule', () => {
     // `└─ Example/` FOLDER line two rows up, so the connector on the last tree
     // row went unasserted — a mutation sweep found it by flipping the row's
     // connector to `├─` with every test still green.
-    expect(out).toContain('   └─ Example # implementation (named after the module)');
+    expect(out).toContain('   └─ Example # implementation (named after the unit)');
     // The section closes on the fence. Anything appended after it lands outside
     // the code block, where a reader takes it for prose about the shape.
     expect(out.endsWith('```')).toBe(true);
   });
 
   it('renders a one-line note when every layer is one file per unit', () => {
-    const out = renderModule(arch({ layers: [{ name: 'components', does: 'UI' }] }));
+    const out = renderUnitShape(arch({ layers: [{ name: 'components', does: 'UI' }] }));
 
     expect(out).toContain('file layout');
     expect(out).not.toContain('```');
     // Same close, the other layout — one sentence and nothing after it. The
     // sentence describes the SHAPE and stops: where a sibling may be reached
     // from is the import-discipline section's, stated once.
-    expect(out.endsWith('One module = one file (file layout).')).toBe(true);
+    expect(out.endsWith('One unit = one file (file layout).')).toBe(true);
   });
 
   it('states each shape with its own layers when the layers disagree', () => {
-    const out = renderModule(arch({
+    const out = renderUnitShape(arch({
       layers: [
         { name: 'resources', does: 'features', layout: 'folder' },
         { name: 'components', does: 'UI' },
@@ -90,14 +91,14 @@ describe('renderModule', () => {
     }));
 
     expect(out).toContain('The shape differs by layer:');
-    expect(out).toContain('- `resources/` — one module = one folder. Only `index` is public');
-    expect(out).toContain('- `components/` / `services/` — one module = one file (file layout).');
+    expect(out).toContain('- `resources/` — one unit = one folder. Only `index` is public');
+    expect(out).toContain('- `components/` / `services/` — one unit = one file (file layout).');
     // The tree illustrates the folder shape, rooted at a layer that has it.
     expect(out).toContain('resources/\n└─ Example/');
   });
 
   it('draws one tree for several folder shapes, since the picture is the same', () => {
-    const out = renderModule(arch({
+    const out = renderUnitShape(arch({
       layers: [
         { name: 'resources', does: 'features', layout: 'folder', entry: 'main' },
         { name: 'components', does: 'UI', layout: 'folder' },
@@ -108,6 +109,123 @@ describe('renderModule', () => {
     expect(out).toContain('Only `index` is public');
     expect(out.match(/```/g)).toHaveLength(2);
     expect(out).toContain('   ├─ main ');
+  });
+
+  it('draws no tree under modules — renderModules already drew it at full depth', () => {
+    // The flat tree is rooted at a layer name, and under `modules` that folder
+    // does not exist: a layer at the source root is an undeclared module. Two
+    // trees for one project is also two things to keep in step.
+    const out = renderUnitShape(arch({ modules: [{ name: 'app', does: 'x' }] }));
+
+    expect(out).toContain('One unit = one folder');
+    expect(out).not.toContain('```');
+    expect(out).not.toContain('└─ Example/');
+  });
+});
+
+describe('renderModules', () => {
+  const modular = (over: Partial<ArchitectureDef> = {}) =>
+    arch({
+      modules: [
+        { name: 'app', does: 'Routing.', imports: ['common'], owns: ['lodash'] },
+        { name: 'common', does: 'Shared.' },
+      ],
+      ...over,
+    });
+
+  it('renders nothing on a flat project, which has one implicit module', () => {
+    expect(renderModules(arch())).toBe('');
+  });
+
+  it('tables each module with what it may reach and what it owns', () => {
+    const out = renderModules(modular());
+
+    expect(out).toContain('## Modules');
+    expect(out).toContain('| Module | Responsibility | May import | Layered | Owns |');
+    // `owns` at module level is a second ownership dimension neither document
+    // carried; a row that drops it hides a ban the reader is subject to.
+    expect(out).toContain('| `app` | Routing. | `common` | yes | `lodash` |');
+    // No `imports` is not "unknown" — it is none, which is the opposite of the
+    // layer default and the fact a reader is most likely to assume backwards.
+    expect(out).toContain('| `common` | Shared. | — | yes | — |');
+  });
+
+  it('states the address a layer actually has, and the declaration-order rule', () => {
+    const out = renderModules(modular());
+
+    expect(out).toContain('a layer has no folder of its own, so its address is `src/<module>/<layer>/`');
+    expect(out).toContain('a module may name only modules declared after it');
+  });
+
+  it('follows sourceRoot into both the address and the tree', () => {
+    const out = renderModules(modular({ sourceRoot: 'app/src' }));
+
+    expect(out).toContain('`app/src/<module>/<layer>/`');
+    expect(out).toContain('\n```\napp/src/\n');
+  });
+
+  it('draws the module, its root entry, a layer and a unit inside it', () => {
+    const out = renderModules(modular());
+
+    expect(out).toContain('├─ app/              # a module — its root composes the layers below');
+    // The module entry is `index` whatever a layer's `entry` is — the ban on
+    // reaching the root is written against this one spelling.
+    expect(out).toContain('│  ├─ index          # the module\'s public surface — always `index`');
+    expect(out).toContain('│  └─ components/    # a layer, inside the module');
+    expect(out).toContain('│        ├─ index    # the unit\'s entry — the only importable file');
+    expect(out).toContain('│        └─ Example  # implementation (named after the unit)');
+  });
+
+  it('draws the module entry beside a custom layer entry without confusing the two', () => {
+    const out = renderModules(
+      modular({ layers: [{ name: 'components', does: 'UI', layout: 'folder', entry: 'main' }] }),
+    );
+
+    expect(out).toContain('├─ index          # the module\'s public surface — always `index`');
+    expect(out).toContain('├─ main     # the unit\'s entry — the only importable file');
+  });
+
+  it('draws a file-layout layer as one file per unit', () => {
+    const out = renderModules(modular({ layers: [{ name: 'components', does: 'UI' }] }));
+
+    expect(out).toContain('└─ Example   # one file per unit (file layout)');
+    expect(out).not.toContain('└─ Example/');
+  });
+
+  it('draws the second module as a `layers: false` one when there is one', () => {
+    const out = renderModules(
+      modular({
+        modules: [
+          { name: 'app', does: 'Routing.' },
+          { name: 'common', does: 'Shared.', layers: false },
+        ],
+      }),
+    );
+
+    expect(out).toContain('| `common` | Shared. | — | no (`layers: false`) | — |');
+    expect(out).toContain('└─ common/           # `layers: false` — governed, but not layered');
+  });
+
+  it('still draws a second module when none opts out, so two never look like one', () => {
+    expect(renderModules(modular()))
+      .toContain('└─ common/           # another module — same shape, its own layers');
+  });
+
+  it('drops the layered arm when every module opts out of layers', () => {
+    const out = renderModules(
+      modular({ modules: [{ name: 'common', does: 'Shared.', layers: false }] }),
+    );
+
+    expect(out).toContain('└─ common/  # `layers: false` — governed, but not layered');
+    expect(out).not.toContain('a layer, inside the module');
+  });
+
+  it('says what `layers: false` costs whether or not one is declared', () => {
+    // The Layered column exists either way, so a reader meeting `yes` has to be
+    // told what the other value would have meant.
+    expect(renderModules(modular())).toContain(
+      'A module declared `layers: false` opts out of the inner layer vocabulary and out of nothing else: its `imports`, the entry-only ban, `owns`, the metric gates and coverage all still reach inside it.',
+    );
   });
 });
 
@@ -203,6 +321,70 @@ describe('renderImportDiscipline', () => {
       expect(out, `the discipline bullets describe the drawing again: "${word}"`)
         .not.toContain(word);
     }
+  });
+
+  it('states the three module boundaries, none of them derivable from the layer rules', () => {
+    const out = renderImportDiscipline(arch({ modules: [{ name: 'app', does: 'x' }] }));
+
+    expect(out).toContain('- **A module reaches only what it declares**');
+    expect(out).toContain('reachable through that module\'s entry alone (`~app/<module>`)');
+    // The default is the opposite of the layer one, and a reader who assumes
+    // the layer default writes an undeclared edge believing it is legal.
+    expect(out).toContain('Omitting `imports` means none');
+    expect(out).toContain('- **Nothing inside a module imports its own root**');
+    expect(out).toContain('- **Never re-export another module\'s surface through your own**');
+    // The width is the load-bearing half: entry-only prose describes the
+    // two-hop bypass (inner file re-exports, entry re-exports that file) as
+    // legal, and the shipped rule is emitted on every file of the module.
+    expect(out).toContain('in **every file of the module**, not only its entry');
+    // The non-fix, beside the two the contract already carries.
+    expect(out).toContain('a wrapper added only to clear the rule is the non-fix');
+  });
+
+  it('states no module boundary on a flat project', () => {
+    const out = renderImportDiscipline(arch());
+
+    for (const phrase of [
+      'A module reaches only what it declares',
+      'imports its own root',
+      're-export another module',
+    ]) {
+      expect(out, `flat handbook carries a modular rule: "${phrase}"`).not.toContain(phrase);
+    }
+  });
+
+  it('names both ownership dimensions under modules and one without', () => {
+    // `ModuleDef.owns` bars a primitive in every OTHER module. Said only of
+    // layers, the sentence is false on any config that sets the module-level
+    // one — and it points at a column that does not carry it.
+    expect(renderImportDiscipline(arch({ modules: [{ name: 'app', does: 'x' }] })))
+      .toContain('a layer\'s `owns` bars every other layer (the *Owns* column above), a module\'s bars every other module (the *Owns* column under **Modules**)');
+
+    expect(renderImportDiscipline(arch()))
+      .toContain('- **Ownership** — packages and globals are restricted to their owning layer (see the *Owns* column above).');
+  });
+
+  it('closes on where the list stops — the folder nobody declared', () => {
+    const out = renderImportDiscipline(arch());
+
+    expect(out).toContain('- **A folder nobody declared is outside every rule above.**');
+    expect(out).toContain('`undeclared-folder` is the only thing that does, and it never appears in a lint run');
+    expect(out).toContain('A green lint after creating a folder proves nothing about it: `blueprint inspect --baseline` is where that answer comes from.');
+    // Last, because it is the one bullet saying where the list above ends.
+    expect(out.trimEnd().split('\n').pop()).toContain('A folder nobody declared');
+  });
+
+  it('names the modular finding, and the extra thing a green lint hides there', () => {
+    const out = renderImportDiscipline(arch({ modules: [{ name: 'app', does: 'x' }] }));
+
+    expect(out).toContain('`undeclared-module` is the only thing that does');
+    expect(out).toContain('It is also outside every module ban, so a module boundary can be broken inside it with lint fully green.');
+    expect(out).not.toContain('`undeclared-folder`');
+  });
+
+  it('addresses the caveat at the declared source root', () => {
+    expect(renderImportDiscipline(arch({ sourceRoot: 'app/src' })))
+      .toContain('A new top-level folder under `app/src/`');
   });
 });
 

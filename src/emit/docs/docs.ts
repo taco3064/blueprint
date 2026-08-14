@@ -4,11 +4,12 @@ import {
   renderComponentShape,
   renderHeader,
   renderImportDiscipline,
-  renderModule,
+  renderModules,
   renderNaming,
   renderPlaybook,
   renderPrinciples,
   renderRules,
+  renderUnitShape,
 } from './sections';
 
 /** Where the generated handbook lives — the emit override, or the default. */
@@ -32,8 +33,11 @@ export function emitHandbook(blueprint: Blueprint): string {
 
   const sections = [
     renderHeader(name),
+    // Modules before Architecture: they are the outer level, and the layer flow
+    // below is the inner one that sits inside each of them.
+    renderModules(architecture),
     renderArchitecture(architecture),
-    renderModule(architecture),
+    renderUnitShape(architecture),
     renderImportDiscipline(architecture),
     renderComponentShape(blueprint.componentShape),
     renderPrinciples(principles),
