@@ -613,18 +613,70 @@ describe('runDeps · the modular answers are built, not defaulted', () => {
     writeSrc('app/routes/Game.ts', 'import { F } from \'~app/Fighter\';');
   }
 
-  it('ranks units by fan-in, not by the module they were grouped under', async () => {
-    twoUnits();
+  it('ranks units by fan-in across modules, not by the module grouping', async () => {
+    // The fixture has to fight the grouping or it proves nothing: the heaviest
+    // unit lives in the module that ranks SECOND, so module-grouped order and
+    // fan-in order disagree. Built module-first for the fan-in line and then
+    // re-sorted, and with an earlier fixture the two orders happened to match —
+    // the sort was unasserted while the test read as if it covered it.
+    fs.writeFileSync(
+      path.join(root, 'blueprint.config.mjs'),
+      `export default ${JSON.stringify({
+        framework: 'react',
+        architecture: {
+          alias: '~app',
+          modules: [
+            { name: 'Shell', does: 'ranks LAST by module fan-in, holds the heaviest unit', imports: ['Engine'] },
+            { name: 'Engine', does: 'ranks first — Shell imports it' },
+          ],
+          layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+        },
+      })};\n`,
+    );
 
-    const { units } = await runDeps(root, { log: silent });
+    writeSrc('Engine/index.ts', 'export const E = 1;');
+    writeSrc('Engine/hooks/useCold/useCold.ts', 'export const c = 1;');
+    writeSrc('Engine/hooks/useOne/useOne.ts', 'import { c } from \'~app/Engine/hooks/useCold\';');
+    writeSrc('Shell/hooks/useHot/useHot.ts', 'import { E } from \'~app/Engine\';');
+    writeSrc('Shell/hooks/useA/useA.ts', 'import { hot } from \'~app/Shell/hooks/useHot\';');
+    writeSrc('Shell/hooks/useB/useB.ts', 'import { hot } from \'~app/Shell/hooks/useHot\';');
+    writeSrc('Shell/hooks/useC/useC.ts', 'import { hot } from \'~app/Shell/hooks/useHot\';');
 
-    // Built module-first for the fan-in line, then re-sorted — grouped order
-    // would put useHot last and call it the least load-bearing unit.
-    expect(units[0].unit).toBe('Fighter/hooks/useHot');
-    expect(units[0].importedBy).toEqual(['Fighter/hooks/useA', 'Fighter/hooks/useB']);
+    const { modules, units } = await runDeps(root, { log: silent });
+
+    // Engine leads at module granularity — Shell imports it, nothing imports Shell.
+    expect(modules[0].module).toBe('Engine');
+    // …and Shell's unit still leads the unit ranking, on 3 against 1. Grouped
+    // order would have put Engine's units first and called useHot lighter.
+    expect(units[0].unit).toBe('Shell/hooks/useHot');
+    expect(units[0].importedBy).toHaveLength(3);
   });
 
   it('renders every importer and import line of a unit', async () => {
+    twoUnits();
+
+    const lines: string[] = [];
+
+    const { ok, modules, units } = await runDeps(root, {
+      target: 'Fighter/hooks/useA',
+      log: (m) => void lines.push(m),
+    });
+
+    const text = lines.join('\n');
+
+    // Both directions rendered — an answer that lists importers and drops
+    // imports still reads like a complete one.
+    expect(text).toContain('→ Fighter/hooks/useHot');
+    expect(text).toContain('imports (1):');
+
+    // The unit answer is a found answer: `ok` true, and the module list empty
+    // because this question was not asked at feature granularity.
+    expect(ok).toBe(true);
+    expect(modules).toEqual([]);
+    expect(units).toHaveLength(1);
+  });
+
+  it('renders every importer line of a unit', async () => {
     twoUnits();
 
     const lines: string[] = [];
@@ -635,7 +687,7 @@ describe('runDeps · the modular answers are built, not defaulted', () => {
 
     expect(text).toContain('← Fighter/hooks/useA');
     expect(text).toContain('← Fighter/hooks/useB');
-    expect(lines.join('\n')).toContain('imported by (2):');
+    expect(text).toContain('imported by (2):');
   });
 
   it('renders the unit ranking rows, not just its heading', async () => {
