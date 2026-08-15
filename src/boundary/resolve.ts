@@ -1,5 +1,5 @@
 import type { AliasRoot, ArchitectureDef } from '../config';
-import { DEFAULT_MODULE_SHAPE, getModuleShape } from '../config';
+import { DEFAULT_MODULE_SHAPE, dirSegments, getModuleShape } from '../config';
 
 /**
  * Where a specifier or a path lands, in the coordinates a module boundary is
@@ -38,6 +38,48 @@ export function stripAlias(
 
       return parts.slice(prefix.length);
     }
+  }
+
+  return null;
+}
+
+/**
+ * The layer-relative segments of a file path, or null when no position under
+ * the source root puts a declared layer at `depth`.
+ *
+ * The filename half of {@link stripAlias}. `scan` gets these coordinates for
+ * free by walking from `<root>/<sourceRoot>`; a lint rule is handed an absolute
+ * path and has to find the same origin inside it. So the root run is searched
+ * for rather than assumed at the front — everything above the project sits in
+ * front of it — and a match counts only where the segment at `depth` names a
+ * declared layer.
+ *
+ * **Both halves of that test are load-bearing, and each answers a path the
+ * other gets wrong.** `~/src/proj/src/components/Card.ts` carries a `src` above
+ * the project; `src/components/src/Foo.ts` carries one inside a unit. Taking the
+ * first run reads the first as the root, taking the last reads the second, and
+ * the layer test is what tells them apart. Outermost-first, so the configured
+ * root wins over a repeat of itself further down.
+ *
+ * A `sourceRoot` of `.` leaves no run to find, so the layer test is the whole
+ * anchor there — and an ancestor directory named exactly like a declared layer
+ * is read as that layer.
+ */
+export function stripSourceRoot(
+  filename: string,
+  sourceRoot: string,
+  layerNames: string[],
+  depth = 0,
+): string[] | null {
+  const parts = filename.split(/[\\/]/).filter(Boolean);
+  const root = dirSegments(sourceRoot);
+
+  for (let at = 0; at < parts.length; at++) {
+    if (!root.every((segment, i) => parts[at + i] === segment)) continue;
+
+    const segments = parts.slice(at + root.length);
+
+    if (layerNames.includes(segments[depth])) return segments;
   }
 
   return null;

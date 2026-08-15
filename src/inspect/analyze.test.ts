@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
@@ -2540,6 +2541,122 @@ describe('analyze · the root zone is pinned to what emitLint emits for it', () 
   it('compared something — the rule speaks at one of those positions and not the other', () => {
     expect(lintReports('src/Fighter/hooks/useRun/index.js', '../../../Combat/index')).toBe(1);
     expect(lintReports('src/Fighter/Fighter.jsx', '../Combat/index')).toBe(0);
+  });
+});
+
+/**
+ * The same pin as above, one axis over: not which verdict, but whether the lint
+ * side reaches one at all. `inspect` reads segments `scan` produced by walking
+ * `<root>/<sourceRoot>`, so its coordinates are root-relative by construction;
+ * the rule is handed an absolute path and has to find that origin inside it. On
+ * every root but `src` it did not — it registered no visitor, and each finding
+ * below stood alone against a lint run that was green on the same import (#199).
+ *
+ * One case per root shape, because the roots fail differently: a named root has
+ * a marker the old search could not know about, and `.` has no marker at all.
+ */
+describe('analyze · the relative gates agree at whatever root the config names', () => {
+  const rooted = (sourceRoot?: string): Blueprint =>
+    defineBlueprint({
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        ...(sourceRoot === undefined ? {} : { sourceRoot }),
+        layers: [
+          { name: 'components', does: 'UI', layout: 'folder' },
+          { name: 'services', does: 'io', layout: 'folder' },
+        ],
+      },
+    });
+
+  // Absolute, and rooted at a directory that exists nowhere: ESLint skips a file
+  // outside its base path with "no matching configuration", which counts zero
+  // reports and reads exactly like a rule that declined.
+  const ROOT = path.resolve('/blueprint-fixture');
+  const linter = new Linter({ configType: 'flat', cwd: ROOT });
+
+  /** The rule, run with the options `emitLint` emitted for THIS blueprint. */
+  const lintReports = (blueprint: Blueprint, rel: string, specifier: string): number => {
+    const entry = emitLint(blueprint)
+      .find((item) => item.rules?.['blueprint/relative-escape'] !== undefined);
+
+    const setting = entry?.rules?.['blueprint/relative-escape'] as [string, Record<string, unknown>];
+
+    return linter.verify(
+      `import x from ${JSON.stringify(specifier)};\nexport default x;\n`,
+      {
+        files: ['**'],
+        plugins: { blueprint: plugin },
+        languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+        rules: { 'blueprint/relative-escape': ['error', setting[1]] },
+      },
+      { filename: path.join(ROOT, rel) },
+    ).length;
+  };
+
+  const inspectReports = (
+    blueprint: Blueprint,
+    prefix: string,
+    segments: string[],
+    specifier: string,
+  ): number =>
+    analyze(
+      {
+        topDirs: ['components', 'services'],
+        // The path `scan` would report for this file under this root — segments
+        // stay root-relative there, which is the asymmetry this pins.
+        files: [{
+          path: `${prefix}${segments.join('/')}`,
+          segments,
+          imports: [{ specifier, names: [], isExport: false }],
+        }],
+      },
+      blueprint,
+    ).filter((finding) => finding.rule.endsWith('-escape') || finding.rule === 'entry-bypass').length;
+
+  const UNIT = ['components', 'Card', 'index.js'];
+  const ESCAPE = '../../services/api';
+  const INSIDE = './parts';
+
+  const roots: [string, string | undefined, string][] = [
+    ['the default src/', undefined, 'src/'],
+    ['a named root', 'app', 'app/'],
+    ['a nested root', 'lib/app', 'lib/app/'],
+    ['the project root', '.', ''],
+  ];
+
+  it.each(roots)('agree about a relative import that leaves the layer under %s', (
+    _name,
+    sourceRoot,
+    prefix,
+  ) => {
+    const blueprint = rooted(sourceRoot);
+
+    expect(lintReports(blueprint, `${prefix}${UNIT.join('/')}`, ESCAPE))
+      .toBe(inspectReports(blueprint, prefix, UNIT, ESCAPE));
+  });
+
+  it.each(roots)('agree about a relative import that stays inside the unit under %s', (
+    _name,
+    sourceRoot,
+    prefix,
+  ) => {
+    const blueprint = rooted(sourceRoot);
+
+    expect(lintReports(blueprint, `${prefix}${UNIT.join('/')}`, INSIDE))
+      .toBe(inspectReports(blueprint, prefix, UNIT, INSIDE));
+  });
+
+  it('compared something — the counts equated are one and zero, not zero twice', () => {
+    // Without this, both rows above pass on a moved root where neither gate ever
+    // speaks, which is the exact state before the fix on three of the four.
+    const blueprint = rooted('lib/app');
+
+    expect(lintReports(blueprint, `lib/app/${UNIT.join('/')}`, ESCAPE)).toBe(1);
+    expect(inspectReports(blueprint, 'lib/app/', UNIT, ESCAPE)).toBe(1);
+
+    expect(lintReports(blueprint, `lib/app/${UNIT.join('/')}`, INSIDE)).toBe(0);
+    expect(inspectReports(blueprint, 'lib/app/', UNIT, INSIDE)).toBe(0);
   });
 });
 

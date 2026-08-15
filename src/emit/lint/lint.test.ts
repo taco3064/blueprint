@@ -195,10 +195,33 @@ describe('emitLint · shape', () => {
         // so a rule left to guess the depth reads a module name as a layer and
         // registers no visitors at all.
         depth: 0,
+        // The same argument one axis over. A rule left to guess the root
+        // searched the path for a literal `src`, which answered nothing on a
+        // project rooted anywhere else — and answering nothing is registering
+        // no visitors, not reporting a problem (#199).
+        sourceRoot: 'src',
       },
     ]);
 
     expect(escape?.plugins?.blueprint).toBeDefined();
+  });
+
+  it('emits the root the config declared, not the default it usually is', () => {
+    const rooted = emitLint({
+      ...blueprint,
+      architecture: { ...blueprint.architecture, sourceRoot: 'lib/app' },
+    });
+
+    const escape = rooted.find((entry) => entry.rules?.['blueprint/relative-escape']);
+    const setting = escape?.rules?.['blueprint/relative-escape'] as [string, { sourceRoot: string }];
+
+    expect(setting[1].sourceRoot).toBe('lib/app');
+
+    // The half that was already right, asserted beside it because the two have
+    // to agree: ESLint hands the rule these files, and the rule reads their
+    // paths with that root. A pair that disagrees is the state this fixed —
+    // right globs, and a rule that declines to look at them.
+    expect(escape?.files?.every((glob) => glob.startsWith('lib/app/'))).toBe(true);
   });
 
   it('honors emit.lint.severity', () => {

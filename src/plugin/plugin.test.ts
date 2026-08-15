@@ -89,6 +89,12 @@ describe('plugin', () => {
           // `additionalProperties: false` is what makes a stale emitted config
           // fail loudly instead of having the option ignored.
           depth: { type: 'integer', minimum: 0 },
+          // The source root the coordinates are counted from. Under the same
+          // `additionalProperties: false`, so emitting it without declaring it
+          // here is not a rule running on a default — it is every adopter's
+          // config failing to resolve, which no conformance fixture can see:
+          // the stub there takes `additionalProperties: true`.
+          sourceRoot: { type: 'string' },
         },
         additionalProperties: false,
       },

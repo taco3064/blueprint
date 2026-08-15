@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
@@ -121,7 +122,7 @@ describe('blueprint/relative-escape · scoping', () => {
     expect(messageIds('import x from "./routes";', 'src')).toEqual([]);
   });
 
-  it('handles absolute paths (resolves segments after the last src/)', () => {
+  it('handles absolute paths (segments are counted from the configured root)', () => {
     expect(
       messageIds(
         'import x from "../resources/matches";',
@@ -158,9 +159,10 @@ describe('blueprint/relative-escape · what the rule declines to judge', () => {
       .map((message) => message.message);
 
   it('stays out of files that sit under no src/ directory at all', () => {
-    // Without the `src` anchor the entire path becomes layer segments, and any
-    // top-level folder that happens to share a layer name starts being linted
-    // as that layer.
+    // Under a `src` root, a path with no `src` in it is not this project's
+    // source tree — a sibling package, a script, a config. The rule declines
+    // rather than reading the first layer-named folder it finds, which is what
+    // a root of `.` deliberately does instead.
     expect(messageIds('import x from "../resources/matches";', 'components/Button.ts'))
       .toEqual([]);
   });
@@ -297,6 +299,101 @@ describe('blueprint/relative-escape · a layer the options never mention', () =>
     // on what the rule speaks about, not a blanket exemption.
     expect(messageIds('import x from "../markets/parts/Cell";', 'src/resources/matches/Row.ts'))
       .toEqual(['reachesInside']);
+  });
+});
+
+describe('blueprint/relative-escape · at a source root that is not src', () => {
+  /**
+   * Absolute filenames throughout, and that is the point: ESLint hands a rule
+   * the platform's own absolute path, so a case written as
+   * `lib/app/components/Button.ts` would pass on a string production never
+   * produces — and the root with no marker to find is exactly where the
+   * difference decides whether the rule runs at all.
+   *
+   * The project directory is fabricated rather than taken from `process.cwd()`,
+   * and both halves of that matter. A path outside the linter's base is skipped
+   * with "no matching configuration" — a green run that asserts nothing — so the
+   * base moves here with the filenames. And under a root of `.` the anchor is a
+   * declared layer name, which a checkout path is then free to contain: this
+   * root cannot.
+   */
+  const ROOT = path.resolve('/blueprint-fixture');
+  const rooted = new Linter({ configType: 'flat', cwd: ROOT });
+
+  const at = (sourceRoot: string | undefined, code: string, rel: string): string[] =>
+    rooted
+      .verify(
+        code,
+        {
+          files: ['**'],
+          plugins: { blueprint: plugin },
+          languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+          rules: {
+            'blueprint/relative-escape': [
+              'error',
+              { layouts: LAYOUTS, ...(sourceRoot === undefined ? {} : { sourceRoot }) },
+            ],
+          },
+        },
+        { filename: path.join(ROOT, rel) },
+      )
+      .map((message) => message.messageId ?? '');
+
+  it('runs at a nested root', () => {
+    expect(at(
+      'lib/app',
+      'import x from "../resources/matches";',
+      'lib/app/components/Button.ts',
+    )).toEqual(['leavesLayer']);
+
+    // The control. Without it the row above passes on a rule that reports every
+    // relative import it is handed, which is one of the two ways a wrong anchor
+    // shows up — the other being the silence this issue is about.
+    expect(at('lib/app', 'import x from "./Card";', 'lib/app/components/Button.ts'))
+      .toEqual([]);
+  });
+
+  it('runs at the project root, where the path holds no marker at all', () => {
+    // `nextPreset` emits `sourceRoot: '.'` whenever `srcDir` is not set, so this
+    // is the default shape for a Next adopter rather than an exotic one.
+    expect(at('.', 'import x from "../resources/matches";', 'components/Button.ts'))
+      .toEqual(['leavesLayer']);
+
+    expect(at('.', 'import x from "./Card";', 'components/Button.ts')).toEqual([]);
+  });
+
+  it('does not read a folder named src under that root as the root', () => {
+    // `components/src/` is a unit path. Taken as the root it leaves `Bar.ts`
+    // where the layer name goes, and the rule declines — the same silence, one
+    // root over.
+    expect(at(
+      'lib/app',
+      'import x from "../../resources/matches";',
+      'lib/app/components/src/Bar.ts',
+    )).toEqual(['leavesLayer']);
+  });
+
+  it('keeps the configured root when the path repeats it deeper down', () => {
+    // The row that guards the default: `lastIndexOf` took this deeper `src`,
+    // and a `src`-rooted project is what most adopters have.
+    expect(at(
+      'src',
+      'import x from "../../resources/matches";',
+      'src/components/src/Bar.ts',
+    )).toEqual(['leavesLayer']);
+  });
+
+  it('defaults to src when the option is absent', () => {
+    // What an emitted config written before this option carries. Every other
+    // fixture in this file rides that default, so the contract is stated once
+    // here rather than implied 40 times.
+    expect(at(undefined, 'import x from "../resources/matches";', 'src/components/Button.ts'))
+      .toEqual(['leavesLayer']);
+
+    // …and the default is `src`, not "anywhere": the same file one root over is
+    // outside what the rule speaks about.
+    expect(at(undefined, 'import x from "../resources/matches";', 'lib/app/components/Button.ts'))
+      .toEqual([]);
   });
 });
 
