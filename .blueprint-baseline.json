@@ -81,6 +81,12 @@
     },
     {
       "rule": "relative-escape",
+      "path": "src/bootstrap/method.ts",
+      "subject": "../project",
+      "message": "Relative import \"../project\" leaves this layer — use the alias, or extract shared code to a lower layer."
+    },
+    {
+      "rule": "relative-escape",
       "path": "src/bootstrap/plan.ts",
       "subject": "../config",
       "message": "Relative import \"../config\" leaves this layer — use the alias, or extract shared code to a lower layer."
@@ -135,6 +141,18 @@
     },
     {
       "rule": "relative-escape",
+      "path": "src/bootstrap/verdict.ts",
+      "subject": "../project",
+      "message": "Relative import \"../project\" leaves this layer — use the alias, or extract shared code to a lower layer."
+    },
+    {
+      "rule": "relative-escape",
+      "path": "src/bootstrap/verdict.ts",
+      "subject": "../survey",
+      "message": "Relative import \"../survey\" leaves this layer — use the alias, or extract shared code to a lower layer."
+    },
+    {
+      "rule": "relative-escape",
       "path": "src/cli/cli.ts",
       "subject": "../bootstrap",
       "message": "Relative import \"../bootstrap\" leaves this layer — use the alias, or extract shared code to a lower layer."
@@ -156,6 +174,12 @@
       "path": "src/cli/cli.ts",
       "subject": "../survey",
       "message": "Relative import \"../survey\" leaves this layer — use the alias, or extract shared code to a lower layer."
+    },
+    {
+      "rule": "relative-escape",
+      "path": "src/cli/help.ts",
+      "subject": "../bootstrap",
+      "message": "Relative import \"../bootstrap\" leaves this layer — use the alias, or extract shared code to a lower layer."
     },
     {
       "rule": "relative-escape",
