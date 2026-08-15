@@ -523,14 +523,14 @@ export function buildStructuralPatterns(params: {
     });
   }
 
-  // Entry-only: no reaching inside a folder-layout module via the alias.
-  // `alias/layer/module` (entry) is allowed; a gitignore `/**` matches only
-  // *descendants*, so `alias/L/*/**` bans reaching into a module, not the entry.
+  // Entry-only: no reaching inside a folder-layout unit via the alias.
+  // `alias/layer/unit` (entry) is allowed; a gitignore `/**` matches only
+  // *descendants*, so `alias/L/*/**` bans reaching into a unit, not the entry.
   if (folderTargets?.length) {
     patterns.push({
       group: folderTargets.flatMap((target) => aliases.map((a) => `${a}/${target}/*/**`)),
       message:
-        '\n🚫 Import a module through its entry, not its internals (e.g. "~app/hooks/useX", not "~app/hooks/useX/impl").',
+        '\n🚫 Import a unit through its entry, not its internals (e.g. "~app/hooks/useX", not "~app/hooks/useX/impl").',
     });
   }
 

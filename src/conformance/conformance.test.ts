@@ -4255,6 +4255,9 @@ describe('ownership and the selfOnly ban bite inside a module (real eslint)', ()
         'blueprint.config.mjs': configSource(modular),
         'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
         'src/Combat/index.jsx': 'export const attack = 1;\n',
+        // Both modules carry their entry, so every case below reports its own
+        // subject alone — `no-entry` answers a module without one too.
+        'src/GameStage/index.jsx': 'export const stage = 1;\n',
         ...files,
       },
     });
@@ -4477,7 +4480,18 @@ describe('a relative escape is red at every depth inside a module (real eslint)'
  * reports it, and this suite does not pin a silence nobody has taken a position
  * on. That gap is #282's.
  */
-describe('no-entry finds a unit inside a module, at the depth modules moved it to', () => {
+/**
+ * `no-entry` answers two levels under one id — a unit folder inside a layer, and
+ * the module itself — for the reason the unit rule was written on: the entry is
+ * the folder's only public surface, so `~app/GameStage` and
+ * `~app/GameStage/hooks/useRun` are each the one legal address of the thing they
+ * name, and each resolves to that file.
+ *
+ * Both levels in one describe rather than two, because the pair is the claim:
+ * each message has to say which level it means, and read apart neither case can
+ * show that the other did not fire at the same address.
+ */
+describe('no-entry finds a unit and a module, and says which it means', () => {
   const modular: Blueprint = {
     framework: 'react',
     architecture: {
@@ -4501,8 +4515,12 @@ describe('no-entry finds a unit inside a module, at the depth modules moved it t
       },
     });
 
+  /** The module entry, so a unit-level case reports the unit alone. */
+  const stage = { 'src/GameStage/index.jsx': 'export const stage = 1;\n' };
+
   it('warns on a unit folder with no entry file', async () => {
     const inspect = await cli(modularRepo({
+      ...stage,
       'src/GameStage/hooks/useRun/impl.jsx': 'export const impl = 1;\n',
     }), ['inspect', '--json']);
 
@@ -4511,8 +4529,79 @@ describe('no-entry finds a unit inside a module, at the depth modules moved it t
 
   it('says nothing once that unit has one', async () => {
     const inspect = await cli(modularRepo({
+      ...stage,
       'src/GameStage/hooks/useRun/index.jsx': 'export const useRun = 1;\n',
       'src/GameStage/hooks/useRun/impl.jsx': 'export const impl = 1;\n',
+    }), ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual([]);
+  });
+
+  it('warns on a MODULE whose folder holds code and carries no entry', async () => {
+    // The state the tool had no gate for: every unit below is well formed, the
+    // module is declared, and the one address another module may write for it
+    // resolves to nothing.
+    const inspect = await cli(modularRepo({
+      'src/GameStage/hooks/useRun/index.jsx': 'export const useRun = 1;\n',
+    }), ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual(['no-entry src/GameStage']);
+
+    const message = (JSON.parse(inspect.output).findings as Finding[])
+      .find((finding) => finding.path === 'src/GameStage')?.message ?? '';
+
+    // The level, the address it breaks, and the file to add — the three things a
+    // reader needs before they can act, and the word that tells this apart from
+    // the unit case one line up.
+    expect(message).toContain('Module "GameStage" has no "index" entry');
+    expect(message).toContain('"~app/GameStage" is the only address');
+    expect(message).toContain('Add `src/GameStage/index`');
+  });
+
+  it('says nothing once the module has one, and keeps the unit answer separate', async () => {
+    const inspect = await cli(modularRepo({
+      ...stage,
+      'src/GameStage/hooks/useRun/index.jsx': 'export const useRun = 1;\n',
+    }), ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual([]);
+  });
+
+  it('leaves a declared module with no folder to missing-module alone', async () => {
+    // Two findings over one state would answer it at two tiers with two
+    // remedies — and `missing-module`'s is "runway, not a todo", which is the
+    // right one for a module that has not been built yet.
+    const inspect = await cli(repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+        'src/GameStage/index.jsx': 'export const stage = 1;\n',
+      },
+    }), ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual([]);
+    expect(notes(inspect, 'missing-module')).toEqual(['src/Combat']);
+  });
+
+  it('says nothing at either level on a flat project', async () => {
+    // The module level exists only where `modules` is declared: flat has one
+    // implicit module — `src/` itself — and no entry to ask it for.
+    const flat: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [{ name: 'hooks', does: 'reactive state', layout: 'folder' }],
+      },
+    };
+
+    const inspect = await cli(repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(flat),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+        'src/hooks/useRun/index.jsx': 'export const useRun = 1;\n',
+      },
     }), ['inspect', '--json']);
 
     expect(errors(inspect)).toEqual([]);
@@ -4700,6 +4789,7 @@ describe('a custom layerFiles carrying {module} governs the same tree (real esli
         'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
         'src/Combat/index.jsx': 'export const attack = 1;\n',
         'src/Combat/hooks/useDamage/index.jsx': 'export const useDamage = 1;\n',
+        'src/GameStage/index.jsx': 'export const stage = 1;\n',
         'src/GameStage/hooks/useRun/index.jsx':
           'import { useDamage } from "~app/Combat/hooks/useDamage";\n'
           + 'export const useRun = useDamage;\n',
@@ -4721,18 +4811,28 @@ describe('a custom layerFiles carrying {module} governs the same tree (real esli
  * the inner layer vocabulary, so a router's own folder names never have to be
  * declared — and the module's `imports` still bind inside them.
  *
- * Lint is what this pins, and deliberately only lint: `inspect` reports nothing
- * for any file below such a module's root, which is #282's, not a boundary this
- * suite may certify in either direction.
+ * **Both gates, on the same file, in the same case.** The module is one zone in
+ * the emitted config — no layer glob inside it, and its own entry widened from
+ * `src/app/*` to `src/app/**&#47;*` — so lint reaches every file below the root,
+ * and this suite asks `inspect` for the same verdict on the same import. It used
+ * to ask only lint: `inspect` was silent below the root and pinning that silence
+ * would have made an unowned hole into intended behaviour.
+ *
+ * The negatives carry as much as the positives here. Four shapes are green in a
+ * real lint run inside such a module — the module's own alias root, a relative
+ * path that stays in it, a relative path that LEAVES it, and a declared edge
+ * through the entry — and each is asserted green rather than left unmentioned,
+ * because a fix that opens this zone by widening the layer guard reddens the
+ * first three against a lint run that never moves.
  */
-describe('a layers:false module stays governed below its root (real eslint)', () => {
+describe('a layers:false module answers in both gates, below its root too (real eslint)', () => {
   const routed: Blueprint = {
     framework: 'react',
     architecture: {
       alias: '~app',
       modules: [
         { name: 'app', does: 'routing only', layers: false, imports: ['GameStage'] },
-        { name: 'GameStage', does: 'the run, rendered' },
+        { name: 'GameStage', does: 'the run, rendered', owns: ['zustand'] },
         { name: 'Combat', does: 'bullets and damage' },
       ],
       layers: [{ name: 'hooks', does: 'reactive state', layout: 'folder' }],
@@ -4741,12 +4841,13 @@ describe('a layers:false module stays governed below its root (real eslint)', ()
 
   const routedRepo = (files: Record<string, string>): string =>
     repo({
-      packageJson: react(),
+      packageJson: react({ zustand: '^4.0.0' }),
       files: {
         'blueprint.config.mjs': configSource(routed),
         'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
         'src/GameStage/index.jsx': 'export const stage = 1;\n',
         'src/Combat/index.jsx': 'export const attack = 1;\n',
+        'src/app/index.jsx': 'export const App = 1;\n',
         ...files,
       },
     });
@@ -4760,10 +4861,10 @@ describe('a layers:false module stays governed below its root (real eslint)', ()
 
     const inspect = await cli(dir, ['inspect']);
 
-    expect(inspect.output).toContain('Coverage: 3/3 source files inside layer nets');
+    expect(inspect.output).toContain('Coverage: 4/4 source files inside layer nets');
   });
 
-  it('reddens an undeclared edge and a pass-through from inside routes/', async () => {
+  it('reddens an undeclared edge and a pass-through from inside routes/, in both gates', async () => {
     const dir = routedRepo({
       'src/app/routes/Game/screen.jsx':
         'import { attack } from "~app/Combat";\nexport const Game = attack;\n',
@@ -4774,9 +4875,52 @@ describe('a layers:false module stays governed below its root (real eslint)', ()
 
     expect(impact.output).toContain('1  no-restricted-imports — 1 file(s)');
     expect(impact.output).toContain('1  blueprint/no-module-reexport — 1 file(s)');
+
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([
+      'undeclared-dependency src/app/routes/Game/screen.jsx',
+      'module-reexport src/app/routes/Menu/screen.jsx',
+    ]);
   });
 
-  it('leaves the declared edge alone at the same depth', async () => {
+  it('answers the module root and a file below it identically', async () => {
+    // The root was the one address that already worked, so the pair is the
+    // claim: a fix reaching only the root leaves the depth that broke.
+    const dir = routedRepo({
+      'src/app/index.jsx':
+        'import { attack } from "~app/Combat";\nexport const App = attack;\n',
+      'src/app/routes/Game/screen.jsx':
+        'import { attack } from "~app/Combat";\nexport const Game = attack;\n',
+    });
+
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([
+      'undeclared-dependency src/app/index.jsx',
+      'undeclared-dependency src/app/routes/Game/screen.jsx',
+    ]);
+
+    expect((await cli(dir, ['impact'])).output).toContain('2  no-restricted-imports — 2 file(s)');
+  });
+
+  it('reddens a reach past a declared dependency\'s entry, and a module-owned package', async () => {
+    // The other two things `ModuleDef.layers` promises still reach inside: the
+    // entry-only ban on a declared edge, and `owns`. Both are emitted onto this
+    // module's own entry, so both have to answer here.
+    const dir = routedRepo({
+      'src/GameStage/hooks/useRun/index.jsx': 'export const useRun = 1;\n',
+      'src/app/routes/Game/screen.jsx':
+        'import { useRun } from "~app/GameStage/hooks/useRun";\nexport const Game = useRun;\n',
+      'src/app/routes/Menu/screen.jsx':
+        'import create from "zustand";\nexport const Menu = create;\n',
+    });
+
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([
+      'deep-import src/app/routes/Game/screen.jsx',
+      'package-ownership src/app/routes/Menu/screen.jsx',
+    ]);
+
+    expect((await cli(dir, ['impact'])).output).toContain('2  no-restricted-imports — 2 file(s)');
+  });
+
+  it('leaves the declared edge alone at the same depth, in both gates', async () => {
     const dir = routedRepo({
       'src/app/routes/Game/screen.jsx':
         'import { stage } from "~app/GameStage";\nexport const Game = stage;\n',
@@ -4785,6 +4929,47 @@ describe('a layers:false module stays governed below its root (real eslint)', ()
     const impact = await cli(dir, ['impact']);
 
     expect(impact.output).toContain('0 hits');
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([]);
+  });
+
+  it('keeps the layer vocabulary out of it — three shapes lint runs green over', async () => {
+    // Each is legal precisely because the module has no layers: `routes` is not
+    // a layer to leave, the module root is not above anything inside it, and a
+    // relative path that leaves the module is caught by a plugin rule that
+    // registers no visitor here. Opened by widening the layer guard instead of
+    // splitting the pass by zone, the first two turn red on their own.
+    const dir = routedRepo({
+      'src/app/lib/shared.jsx': 'export const shared = 1;\n',
+      'src/app/routes/Game.jsx':
+        'import { shared } from "../lib/shared";\n'
+        + 'import { App } from "~app/app";\n'
+        + 'import { stage } from "../../GameStage/index";\n'
+        + 'export const Game = [shared, App, stage];\n',
+    });
+
+    expect((await cli(dir, ['impact'])).output).toContain('0 hits');
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([]);
+  });
+
+  it('does not extend the same reach to a LAYERED module\'s undeclared folder', async () => {
+    // The other side of the line, on the same config and in the same suite, or
+    // "governed below the root" reads as a claim about depth. `GameStage` is
+    // layered, so `scratch/` is matched by no glob at all — the layer globs
+    // expand to declared layers and `resolveModuleFiles` stops at
+    // `src/GameStage/*`. Both gates stay quiet, and coverage names the file,
+    // which is the difference from a silence nobody reports.
+    const dir = routedRepo({
+      'src/GameStage/scratch/x.jsx':
+        'import { attack } from "~app/Combat";\nexport const x = attack;\n',
+    });
+
+    expect((await cli(dir, ['impact'])).output).toContain('0 hits');
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([]);
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.output).toContain('Coverage: 3/4 source files inside layer nets');
+    expect(inspect.output).toContain('outside: src/GameStage/scratch/x.jsx');
   });
 });
 

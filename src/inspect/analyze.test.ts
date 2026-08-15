@@ -518,6 +518,184 @@ describe('analyze · what counts as a module entry', () => {
   });
 });
 
+/**
+ * `no-entry` answers two levels under one id — the unit above, and the module
+ * itself — for the reason the unit rule was written on: the entry is the
+ * folder's only public surface, and the one legal address of the thing it names
+ * resolves to that file. One id and two sentences rather than a second id, which
+ * is the shape `deep-import` already carries.
+ */
+describe('analyze · no-entry answers the module level too, and says which it means', () => {
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the pilot' },
+        { name: 'Combat', does: 'bullets' },
+      ],
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    },
+  });
+
+  const noEntry = (files: ScannedFile[]): Finding[] =>
+    analyze({ topDirs: ['Fighter', 'Combat'], files }, modular)
+      .filter((finding) => finding.rule === 'no-entry');
+
+  const FIGHTER_UNIT = file(['Fighter', 'hooks', 'useRun', 'index.ts']);
+  const FIGHTER_ENTRY = file(['Fighter', 'index.ts']);
+  const COMBAT_ENTRY = file(['Combat', 'index.ts']);
+
+  it('warns on a declared module whose folder holds code and carries no entry', () => {
+    const [finding, ...rest] = noEntry([FIGHTER_UNIT, COMBAT_ENTRY]);
+
+    expect(rest).toEqual([]);
+
+    expect(finding).toMatchObject({
+      severity: 'warn',
+      rule: 'no-entry',
+      path: 'src/Fighter',
+      subject: '',
+    });
+
+    // The level, the address that breaks, and the file to add. Without the
+    // middle clause the reader is told a file is missing and not what stops
+    // working without it.
+    expect(finding.message).toContain('Module "Fighter" has no "index" entry');
+    expect(finding.message).toContain('"~app/Fighter" is the only address another module may write');
+    expect(finding.message).toContain('Add `src/Fighter/index`');
+  });
+
+  it('says nothing once the module has one', () => {
+    expect(noEntry([FIGHTER_ENTRY, FIGHTER_UNIT, COMBAT_ENTRY])).toEqual([]);
+  });
+
+  it('reads the entry at the module root and not one level down', () => {
+    // `Fighter/hooks/index.ts` is a file inside a layer, not the module's own
+    // surface. Accepted as one it silences the warning on a module nothing can
+    // import — the same defect the unit-level rule guards against one level up.
+    expect(noEntry([file(['Fighter', 'hooks', 'index.ts']), COMBAT_ENTRY]))
+      .toHaveLength(1);
+  });
+
+  it('leaves a declared module with no folder to missing-module', () => {
+    // Two findings over one state would answer it at two tiers with two
+    // remedies, and `missing-module`'s — runway, not a todo — is the right one.
+    const findings = analyze({ topDirs: ['Fighter'], files: [FIGHTER_ENTRY] }, modular);
+
+    expect(findings.filter((finding) => finding.rule === 'no-entry')).toEqual([]);
+    expect(findings.filter((finding) => finding.rule === 'missing-module')).toHaveLength(1);
+  });
+
+  it('reports a `layers: false` module the same way', () => {
+    // Governance still reaches inside it, and `~app/app` is still the one
+    // address another module may write for it.
+    const routed = defineBlueprint({
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        modules: [
+          { name: 'app', does: 'routing only', layers: false },
+          { name: 'Combat', does: 'bullets' },
+        ],
+        layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+      },
+    });
+
+    const findings = analyze(
+      {
+        topDirs: ['app', 'Combat'],
+        files: [file(['app', 'routes', 'Game.tsx']), file(['Combat', 'index.ts'])],
+      },
+      routed,
+    ).filter((finding) => finding.rule === 'no-entry');
+
+    expect(findings.map((finding) => finding.path)).toEqual(['src/app']);
+  });
+
+  it('has no module level on a flat project', () => {
+    // Flat has one implicit module — `src/` itself — and no entry to ask it for.
+    // A module arm that ran there would report the source root as a module.
+    expect(analyze(scanOf([file(['components', 'Card', 'index.ts'])]), bp)
+      .filter((finding) => finding.rule === 'no-entry')).toEqual([]);
+  });
+});
+
+/**
+ * One word, and #190 settled which: `module` is the feature at the top of the
+ * source tree, `unit` is the folder inside a layer. Three `inspect` messages
+ * still said "module" for the unit after #187's sweep, which covered the three
+ * emitted documents and not this file — so `emitLint` told an adopter to import
+ * a unit through its entry while `inspect` called the same thing a module, in
+ * one repo.
+ *
+ * Pinned as a class, because that is what it is: each of these is the only
+ * message its rule emits at that level, and a fourth site is `emitLint`'s own
+ * (`emit/lint/patterns.ts`), covered in `lint.test.ts` beside the group it
+ * rides.
+ */
+describe('analyze · a unit is called a unit, at every level that carries both words', () => {
+  const messageOf = (rule: string, files: ScannedFile[], blueprint = bp): string =>
+    analyze(scanOf(files), blueprint).find((finding) => finding.rule === rule)?.message ?? '';
+
+  it('no-entry names the unit, and never the feature word', () => {
+    const message = messageOf('no-entry', [file(['components', 'Card', 'impl.ts'])]);
+
+    expect(message).toContain('Unit "components/Card" has no "index" entry');
+    expect(message).not.toContain('Module');
+  });
+
+  it('deep-import names the unit when a unit is what was reached into', () => {
+    const message = messageOf('deep-import', [
+      file(['pages', 'Home', 'index.ts'], [{ specifier: '~app/components/Card/impl' }]),
+    ]);
+
+    expect(message).toBe('"~app/components/Card/impl" reaches inside a unit — import it through its entry.');
+  });
+
+  it('entry-bypass names the unit, exactly as its plugin twin does', () => {
+    // Both gates read one `relativeVerdict`, so the two sentences differing by a
+    // word was one judgment described two ways — the drift `boundary` exists to
+    // make inexpressible, surviving in the prose above it.
+    const message = messageOf('entry-bypass', [
+      file(['components', 'Card', 'index.ts'], [{ specifier: '../Panel/impl' }]),
+    ]);
+
+    expect(message).toContain('what lives behind it is that unit\'s own business');
+  });
+
+  it('keeps the feature word where the feature is what was reached', () => {
+    // The other branch of the same rule id, and the control on the case above:
+    // `deep-import` across a module boundary IS about a module.
+    const modular = defineBlueprint({
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        modules: [
+          { name: 'Fighter', does: 'the pilot', imports: ['Combat'] },
+          { name: 'Combat', does: 'bullets' },
+        ],
+        layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+      },
+    });
+
+    const message = analyze(
+      {
+        topDirs: ['Fighter', 'Combat'],
+        files: [
+          file(
+            ['Fighter', 'hooks', 'useRun', 'index.ts'],
+            [{ specifier: '~app/Combat/hooks/useHit' }],
+          ),
+        ],
+      },
+      modular,
+    ).find((finding) => finding.rule === 'deep-import')?.message ?? '';
+
+    expect(message).toContain('reaches inside module "Combat"');
+  });
+});
+
 describe('analyze · an entry name that holds a dot', () => {
   it('strips only the last extension, so a dotted entry still matches', () => {
     // `entry: 'index.d'` is a legal declaration and `index.d.ts` is then its
@@ -1373,7 +1551,7 @@ describe('analyze · the cross-module policy is pinned to the config emitLint em
   // as silently as the two readings `boundary` exists to prevent. #212's shape:
   // equality BOTH ways against the emitter's own output, so neither a missing
   // entry nor an extra one passes, and neither side is a literal.
-  const NAMES = ['Boss', 'Combat', 'Shared'];
+  const NAMES = ['Boss', 'Combat', 'Shared', 'app'];
 
   const modular = defineBlueprint({
     framework: 'react',
@@ -1383,6 +1561,9 @@ describe('analyze · the cross-module policy is pinned to the config emitLint em
         { name: 'Boss', does: 'the fight', imports: ['Combat'] },
         { name: 'Combat', does: 'bullets', imports: ['Shared'] },
         { name: 'Shared', does: 'primitives' },
+        // Last in the order, so it declares nothing and every edge out of it is
+        // undeclared — and it carries the third zone below.
+        { name: 'app', does: 'routing only', layers: false },
       ],
       layers: [
         { name: 'components', does: 'UI', layout: 'folder' },
@@ -1396,20 +1577,30 @@ describe('analyze · the cross-module policy is pinned to the config emitLint em
   const insideSpelling = (target: string) => `~app/${target}/hooks/useThing`;
 
   /**
-   * Every module's two zones, each importing every OTHER module at both
-   * spellings — the layer file and the module root, because the emitted groups
-   * are identical on both and a fix that reads a layer name misses one of them.
+   * Every zone a module has, each importing every OTHER module at both
+   * spellings. Three of them, not two, and each is a position a fix can miss on
+   * its own: the layer file, the module root — the emitted groups are identical
+   * on both, and a fix that reads a layer name misses the root — and a file
+   * nested inside a `layers: false` module, where no layer glob reaches and the
+   * emitted groups ride the module's own recursive entry instead.
+   *
+   * The third zone exists only under `app`; the others get their two, which is
+   * what `zoneOf` below enumerates.
    */
+  const zoneOf = (module: string): string[][] => [
+    ...(module === 'app'
+      ? [[module, 'routes', 'Game', 'screen.tsx']]
+      : [[module, 'hooks', 'useThing', 'index.ts']]),
+    [module, `${module}.tsx`],
+  ];
+
   const files = NAMES.flatMap((module) => {
     const imports = others(module).flatMap((target) => [
       { specifier: entrySpelling(target) },
       { specifier: insideSpelling(target) },
     ]);
 
-    return [
-      file([module, 'hooks', 'useThing', 'index.ts'], imports),
-      file([module, `${module}.tsx`], imports),
-    ];
+    return zoneOf(module).map((segments) => file(segments, imports));
   });
 
   const findings = analyze({ topDirs: NAMES, files }, modular)
@@ -1465,18 +1656,206 @@ describe('analyze · the cross-module policy is pinned to the config emitLint em
   it.each(NAMES)('%s bans exactly what the emitted config bans it from, both ways', (module) => {
     const expected = emitted(module);
 
-    for (const zone of [`src/${module}/hooks/useThing/index.ts`, `src/${module}/${module}.tsx`]) {
-      expect(analyzed(module, zone)).toEqual(expected);
+    for (const segments of zoneOf(module)) {
+      expect(analyzed(module, ['src', ...segments].join('/'))).toEqual(expected);
     }
   });
 
   it('compared something — the counts the fixture was built to produce', () => {
-    // …and cannot pass on a comparison that found nothing. Boss bans Shared;
-    // Combat and Shared each ban every module declared before them.
+    // …and cannot pass on a comparison that found nothing. Each module bans
+    // every one it did not name — `app` is last in the order and declares
+    // nothing, so it bans all three and all three ban it.
     const total = NAMES.map(emitted);
 
-    expect(total.map((entry) => entry.banned)).toEqual([['Shared'], ['Boss'], ['Boss', 'Combat']]);
-    expect(total.map((entry) => entry.entryOnly)).toEqual([['Combat'], ['Shared'], []]);
+    expect(total.map((entry) => entry.banned)).toEqual([
+      ['Shared', 'app'],
+      ['Boss', 'app'],
+      ['Boss', 'Combat', 'app'],
+      ['Boss', 'Combat', 'Shared'],
+    ]);
+
+    expect(total.map((entry) => entry.entryOnly)).toEqual([['Combat'], ['Shared'], [], []]);
+  });
+});
+
+/**
+ * The layer guard used to answer this whole zone with `return []`, so every
+ * per-file judgment stopped at a `layers: false` module's root while the emitted
+ * config reached every file below it. Four judgments were lint-red and
+ * inspect-silent there, and the fix has to restore exactly those four — widening
+ * the guard instead of splitting the pass by zone turns the negatives below red
+ * against a lint run that never moves, which is the same disagreement in the
+ * other direction.
+ */
+describe('analyze · a layers:false module is one zone, root and every file below it', () => {
+  const routed = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'app', does: 'routing only', layers: false, imports: ['GameStage'] },
+        { name: 'GameStage', does: 'the run', owns: ['zustand'] },
+        { name: 'Combat', does: 'bullets' },
+      ],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder', owns: ['clsx'] },
+        {
+          name: 'hooks',
+          does: 'state',
+          layout: 'folder',
+          allowedImporters: [{ layer: 'components', selfOnly: true }],
+        },
+      ],
+    },
+  });
+
+  const TOP = ['app', 'GameStage', 'Combat'];
+
+  // Three depths inside the opted-out module. `routes` is not a declared layer
+  // and never will be — that is what the opt-out buys — so each of these is a
+  // position the old guard answered with silence.
+  const ROOT = ['app', 'index.tsx'];
+  const NESTED = ['app', 'routes', 'Game.tsx'];
+  const DEEPER = ['app', 'routes', 'Game', 'screen.tsx'];
+
+  const errorsFor = (segments: string[], ref: Partial<ImportRef>): Finding[] =>
+    analyze({ topDirs: TOP, files: [file(segments, [ref])] }, routed)
+      .filter((finding) => finding.severity === 'error');
+
+  const only = (segments: string[], ref: Partial<ImportRef>): Finding => {
+    const errors = errorsFor(segments, ref);
+
+    expect(errors).toHaveLength(1);
+
+    return errors[0];
+  };
+
+  it('reports an undeclared edge from a nested file, naming `imports`', () => {
+    const finding = only(NESTED, { specifier: '~app/Combat' });
+
+    expect(finding.rule).toBe('undeclared-dependency');
+    expect(finding.path).toBe('src/app/routes/Game.tsx');
+    expect(finding.subject).toBe('~app/Combat');
+    expect(finding.message).toContain('reaches module "Combat", which "app" does not declare');
+    expect(finding.message).toContain('Add "Combat" to "app"\'s `imports`');
+  });
+
+  it('reports a pass-through from a nested file', () => {
+    const finding = only(DEEPER, { specifier: '~app/GameStage', isExport: true });
+
+    expect(finding.rule).toBe('module-reexport');
+    expect(finding.path).toBe('src/app/routes/Game/screen.tsx');
+    expect(finding.subject).toBe('GameStage');
+    expect(finding.message).toContain('Re-exports "GameStage" through this module\'s own surface');
+  });
+
+  it('reports a reach past a DECLARED dependency\'s entry from a nested file', () => {
+    const finding = only(NESTED, { specifier: '~app/GameStage/hooks/useRun' });
+
+    expect(finding.rule).toBe('deep-import');
+    expect(finding.message).toContain('reaches inside module "GameStage"');
+    expect(finding.message).toContain('import it through its entry, "~app/GameStage"');
+    // The bridge the self-explaining rule asks for: red on GameStage, beside
+    // GameStage being this module's declared dependency.
+    expect(finding.message).toContain('is declared in "app"\'s `imports`');
+  });
+
+  it('reports a package another MODULE owns, from a nested file', () => {
+    // `owns` is one of the four things `ModuleDef.layers` promises still reach
+    // inside a module that opted out of the layer vocabulary.
+    const finding = only(DEEPER, { specifier: 'zustand' });
+
+    expect(finding.rule).toBe('package-ownership');
+    expect(finding.message).toContain('is owned by module GameStage — not importable from "app"');
+  });
+
+  it('answers the root and every depth below it identically', () => {
+    // The root already worked before the fix, which is why the pair is the
+    // claim: a repair that reaches only the root leaves the depth that broke,
+    // and one that reaches only the depths regresses the root.
+    const verdicts = [ROOT, NESTED, DEEPER].map((segments) => {
+      const finding = only(segments, { specifier: '~app/Combat' });
+
+      return `${finding.rule} ${finding.subject}`;
+    });
+
+    expect(verdicts).toEqual([
+      'undeclared-dependency ~app/Combat',
+      'undeclared-dependency ~app/Combat',
+      'undeclared-dependency ~app/Combat',
+    ]);
+  });
+
+  /**
+   * Every shape a real lint run is green over inside this module, each with the
+   * finding the layer branch would have produced for it. Restated here rather
+   * than derived, so removing one from `analyze` turns exactly one case red.
+   */
+  const SILENT: [string, string[], Partial<ImportRef>][] = [
+    // `routes` is not a layer, so there is no same-layer edge to have.
+    ['a same-named folder addressed through the alias', NESTED, { specifier: '~app/app/routes/Menu' }],
+    // flow-violation: `hooks` may not reach `components` — between LAYERS.
+    ['a folder its config says is not a layer, reaching another', ['app', 'hooks', 'useNav.ts'], { specifier: '~app/app/components/Card' }],
+    // deep-import, unit level: `~app/<layer>/<unit>/<inside>` at module depth.
+    ['a reach past a folder that only looks like a unit', NESTED, { specifier: '~app/app/components/Card/impl' }],
+    // selfonly-reexport: `hooks` is selfOnly to `components`.
+    ['a re-export of a folder a layer would have made selfOnly', ['app', 'components', 'Card.tsx'], { specifier: '~app/app/hooks/useNav', isExport: true }],
+    // root-import: the alias spelling of the upward edge.
+    ['the module\'s own root through the alias', DEEPER, { specifier: '~app/app' }],
+    // package-ownership, LAYER level: no folder here can be in an `allowedIn`.
+    ['a package a LAYER owns', NESTED, { specifier: 'clsx' }],
+    // entry-bypass: the root reaching past what looks like a unit entry.
+    ['the root reaching down into its own folders', ROOT, { specifier: './routes/Game/screen' }],
+    // module-escape: real, and its plugin twin registers no visitor here.
+    ['a relative path that leaves the module', NESTED, { specifier: '../../GameStage/index' }],
+    // The last two are controls rather than assertions that bite: both are legal
+    // whichever way the guard is written, and they are here so the eight above
+    // cannot pass on a fixture that simply reports nothing.
+    ['a relative path that stays inside it', DEEPER, { specifier: '../Menu/screen' }],
+    ['the declared edge through its entry', NESTED, { specifier: '~app/GameStage' }],
+  ];
+
+  it.each(SILENT)('stays silent on %s', (_label, segments, ref) => {
+    expect(errorsFor(segments, ref)).toEqual([]);
+  });
+});
+
+/**
+ * The third zone, and it is not the second one wearing different clothes. A
+ * folder inside a LAYERED module that is not a declared layer is matched by no
+ * emitted glob at all — the layer globs expand to declared names, and
+ * `resolveModuleFiles` stops at `src/<Module>/*` — so lint is green there by
+ * construction and a finding would be red against it, with a remedy that is the
+ * owner's call. `coverage` reports the folder instead, by path.
+ */
+describe('analyze · an undeclared position inside a declared module', () => {
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the pilot' },
+        { name: 'Combat', does: 'bullets' },
+      ],
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    },
+  });
+
+  const errorsFor = (ref: Partial<ImportRef>): Finding[] =>
+    analyze(
+      {
+        topDirs: ['Fighter', 'Combat'],
+        files: [file(['Fighter', 'scratch', 'x.ts'], [ref])],
+      },
+      modular,
+    ).filter((finding) => finding.severity === 'error');
+
+  it.each([
+    ['an undeclared edge', { specifier: '~app/Combat' }],
+    ['a pass-through', { specifier: '~app/Combat', isExport: true }],
+    ['a relative path leaving the module', { specifier: '../../Combat/index' }],
+  ])('says nothing about %s there, matching the lint run', (_label, ref) => {
+    expect(errorsFor(ref)).toEqual([]);
   });
 });
 
