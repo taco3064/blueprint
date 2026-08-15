@@ -68,6 +68,7 @@ export default withMermaid(defineConfig({
               text: 'Get started',
               items: [
                 { text: 'Getting Started', link: '/guide/getting-started' },
+                { text: 'Upgrading', link: '/guide/upgrading' },
                 { text: 'Flat or Modular', link: '/guide/structure' },
                 { text: 'What init Generates', link: '/guide/generated-artifacts' },
                 { text: 'AI-Assisted Adoption', link: '/guide/ai-adoption' },
@@ -118,6 +119,7 @@ export default withMermaid(defineConfig({
               text: '開始使用',
               items: [
                 { text: '快速上手', link: '/zh-TW/guide/getting-started' },
+                { text: '版本升級', link: '/zh-TW/guide/upgrading' },
                 { text: '扁平還是模組化', link: '/zh-TW/guide/structure' },
                 { text: 'init 產出結果', link: '/zh-TW/guide/generated-artifacts' },
                 { text: 'AI 協助導入', link: '/zh-TW/guide/ai-adoption' },
