@@ -24,6 +24,34 @@ export function moduleZone(module: ModuleDef): ModuleZone {
   return module.layers === false ? 'module' : 'root';
 }
 
+/**
+ * The module entry governing one file, or null when a LAYER entry governs it —
+ * or when nothing does.
+ *
+ * `resolveModuleFiles` written as a predicate: the module zone's entry is
+ * `src/<M>/**` and reaches every file in the module, the root zone's is
+ * `src/<M>/*` and reaches one depth. Both halves are asked here, and the module
+ * lookup is the half a depth test written at the reader keeps leaving out — a
+ * file directly under an UNDECLARED top folder sits at root depth too, and no
+ * emitted entry reaches it at any depth.
+ *
+ * Null on a flat project by the same lookup: there are no modules, so no name
+ * matches and no depth is consulted.
+ */
+export function fileZone(
+  segments: string[],
+  modules: ModuleDef[],
+  depth: number,
+): ModuleZone | null {
+  const module = modules.find((entry) => entry.name === segments[0]);
+
+  if (module === undefined) return null;
+
+  const zone = moduleZone(module);
+
+  return zone === 'module' || segments.length === depth + 1 ? zone : null;
+}
+
 // A total map, not a ternary per consumer: a zone added to the union arrives
 // here as a missing key — a compile error — rather than in an else arm that
 // each consumer spells its own way.

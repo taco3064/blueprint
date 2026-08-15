@@ -21,7 +21,7 @@ import {
 import type { EntryOf, LayoutOf } from '../boundary';
 import { aliasList, buildFolderGraph, buildModuleGraph } from './resolve';
 import type { FolderGraph } from './resolve';
-import { moduleZone } from './zone';
+import { fileZone } from './zone';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
@@ -714,53 +714,57 @@ function importFindings(
   // undecidable, the `?? []` arm: a fabricated member is a string with no `name`.
   // `crossModuleTarget` matches a specifier's first segment against the names by
   // `includes`, and the list then holds `undefined`, which no segment answers;
-  // `crossModuleEdge` looks the importing module up by `name`, gets `undefined`
-  // back, and reads that as a folder nothing governs — reporting nothing, which
+  // `crossModuleEdge` and `fileZone` look a module up by `name`, get `undefined`
+  // back, and read that as a folder nothing governs — reporting nothing, which
   // is what an empty list yields too. It stays because the absent arm is real:
   // every flat project reaches here.
   const moduleDefs = architecture.modules ?? [];
   const moduleNames = moduleDefs.map((module) => module.name);
 
-  // The module root is the implicit top layer, so its imports are governed
-  // like any other file's. Judged by the layer test alone it is skipped — its
-  // segment at `depth` is a filename — and the module's own composition code
-  // becomes the least examined code in the module.
-  const isModuleRoot = depth > 0 && file.segments.length === depth + 1;
-
-  // A `layers: false` module is ONE zone — its root and every file below it
-  // alike — and the emitter says so in globs: `resolveModuleLayerFiles` gives
-  // it no layer glob at all, and `resolveModuleFiles` widens its own entry from
-  // `src/<M>/*` to `src/<M>/**/*`. So the module-level bans reach every file
-  // here and the layer-level ones reach none, which is what the three guards
-  // below spell out one arm at a time.
+  // Which emitted entry governs this file, decided BEFORE any layer name is
+  // read — because in three of the four answers `segments[depth]` is not a
+  // layer name, and reading it as one is how a judgment lands where its own
+  // sentence has nothing to name.
   //
-  // Read through `moduleZone` rather than `layers === false` because doctor
-  // dispatches its probes on that same call (`wiring.ts`: `expectedStructural`
-  // for a layer, `expectedModuleBans` for a module zone). Two derivations of
-  // the opt-out is how one file gets judged against a layer's rules on one pass
-  // and a module's on the other, with nothing that fails to compile.
-  const unlayered = depth > 0
-    && moduleDefs.some((module) => module.name === file.segments[0] && moduleZone(module) === 'module');
+  //   'root'   a layered module's own composition files, under `src/<M>/*`
+  //   'module' the whole net of a `layers: false` one, under `src/<M>/**`
+  //   null     a layer's entry governs it — or, at an undeclared top folder or
+  //            an undeclared position inside a module, nothing does
+  //
+  // Read through `zone` rather than a depth test spelled here, because doctor
+  // dispatches its probes on the same `moduleZone` (`wiring.ts`:
+  // `expectedStructural` for a layer, `expectedModuleBans` for a module zone).
+  // Two derivations is how one file gets judged against a layer's rules on one
+  // pass and a module's on the other, with nothing that fails to compile.
+  const zone = fileZone(file.segments, moduleDefs, depth);
 
-  // Three zones, not two, and the third stays out. A file inside a LAYERED
-  // module but under no declared layer — `Fighter/scratch/x.ts` — is matched by
-  // no emitted glob: the layer globs expand to declared layers only, and
-  // `resolveModuleFiles` stops at `src/Fighter/*`. Every ban there is inert, so
-  // a finding would be red against a lint run that is green by construction,
-  // with a remedy — declare a layer, or move the code into one — that is the
-  // owner's call and not an adopting agent's. It is reported, and by the output
-  // positioned to report it: `coverage.outsideNets` names that file by path.
-  if (!unlayered && !isModuleRoot && !layerNames.includes(fileLayer)) return [];
+  // What no emitted glob reaches at all, and it is two positions rather than
+  // one: a folder inside a LAYERED module that is not a declared layer
+  // (`Fighter/scratch/x.ts` — the layer globs expand to declared layers only
+  // and `resolveModuleFiles` stops at `src/Fighter/*`), and anything under a
+  // top folder no `modules` entry declares. Every ban there is inert, so a
+  // finding would be red against a lint run that is green by construction, with
+  // a remedy — declare it, or move the code — that is the owner's call and not
+  // an adopting agent's. Both are reported, by the outputs positioned to report
+  // them: `coverage.outsideNets` names the file by path, and
+  // `undeclared-module` names the folder.
+  if (zone === null && !layerNames.includes(fileLayer)) return [];
 
   const aliases = aliasList(architecture);
-  // The root sits above every layer, so it may reach all of them and no layer
-  // has declared it a selfOnly importer.
+  // Both lists are a LAYER's, so only a file a layer entry governs has one. The
+  // root sits above every layer and may reach all of them, and no layer has
+  // declared it a selfOnly importer; a `layers: false` module has no layer for
+  // either question to be about. Asked of `fileLayer` in either zone the answer
+  // is empty anyway — a filename and an undeclared folder are both names no
+  // layer carries — but that is an accident of the lookup, and stating the rule
+  // once is what keeps it from becoming the next thing a reader has to re-derive.
   //
   // undecidable, both empty arms: each list is only ever read through
-  // `.includes(target)` against a declared layer name, so a fabricated member
-  // matches nothing and the root's verdicts are unchanged.
-  const forbidden = isModuleRoot ? [] : getForbiddenLayers(architecture, fileLayer);
-  const selfOnly = isModuleRoot ? [] : getSelfOnlyTargets(architecture, fileLayer);
+  // `.includes(target)` against a declared layer name — and in the module zone
+  // the alias branch continues before either is read at all — so a fabricated
+  // member matches nothing and no verdict moves.
+  const forbidden = zone === null ? getForbiddenLayers(architecture, fileLayer) : [];
+  const selfOnly = zone === null ? getSelfOnlyTargets(architecture, fileLayer) : [];
   const layoutOf = layoutResolver(architecture);
   const entryOf = entryResolver(architecture);
   const findings: Finding[] = [];
@@ -816,7 +820,12 @@ function importFindings(
       // the emitted entry for it carries no structural group, no `paths` root
       // ban and no `blueprint/no-module-root-import`, and `~app/app/store` from
       // inside `app` is green in a real lint run. Silence, matching it.
-      if (unlayered) continue;
+      //
+      // The ROOT zone does not continue here, and that is the difference
+      // between the two: its module HAS layers, and the entry emitted for it
+      // carries the unit-entry group over every folder-layout one
+      // (`~app/<Module>/<layer>/*/**`), which is `deep-import` below.
+      if (zone === 'module') continue;
 
       // The alias reaches the source root, so a modular specifier spells
       // `~app/<Module>/<layer>/<unit>` and the layer sits at the same offset
@@ -829,7 +838,7 @@ function importFindings(
       // as `reaches-root` from `relativeVerdict`, next door.
       const ownRoot = addressesModuleRoot(parts, file.segments[0], layerNames, depth);
 
-      if (!isModuleRoot && ownRoot) {
+      if (zone === null && ownRoot) {
         findings.push(finding('error', 'root-import', file.path, ref.specifier, `"${ref.specifier}" reaches up to the module root — the root composes the layers, so nothing inside one may import back up to it. Move the shared part into a layer, or pass it in from the root.`));
 
         continue;
@@ -860,16 +869,22 @@ function importFindings(
         findings.push(finding('error', 'selfonly-reexport', file.path, ref.specifier, `Re-exports "${target}" ("${ref.specifier}"), which is selfOnly — depend on it, do not re-export it.`));
       }
     } else if (ref.specifier.startsWith('.')) {
-      // Four of `relativeVerdict`'s five verdicts name a layer — leaving one,
-      // reaching past a unit's entry in one, reaching up from inside one — and
-      // a `layers: false` module has none for them to name. The fifth,
-      // `leaves-module`, does apply, and it stays silent for the other reason:
-      // `blueprint/relative-escape` registers no visitor unless the file's
-      // segment at `depth` is a declared layer, so it never runs inside this
-      // module, and a finding alone would be the inspect-red-lint-green shape
-      // #264 resolved to silence. Closing that is a rule that does not run,
-      // which is the lint side's to fix and not a second reading here.
-      if (unlayered) continue;
+      // Neither module zone reaches here, and ONE fact decides both:
+      // `blueprint/relative-escape` opens on `segments[depth] in layouts` and
+      // registers no visitor otherwise. At a `layers: false` module that
+      // segment is an undeclared folder; at a layered module's root it is the
+      // file's own name. The rule never runs in either, so every verdict below
+      // would be a finding against a lint run that is green — the
+      // inspect-red-lint-green shape #264 resolved to silence.
+      //
+      // Three verdicts are reachable at a root and each was measured green:
+      // `escapes-src`, `leaves-module`, and the root's own reach past a unit's
+      // entry. The last is the sharpest, because the ALIAS spelling of that
+      // same reach IS banned, on this module's own entry — one reach, two
+      // spellings, and only one of them expressible as a pattern. Closing that
+      // is a rule that does not run, which is the lint side's to fix and not a
+      // second reading here.
+      if (zone !== null) continue;
 
       const escape = relativeEscape(file, ref, layoutOf, entryOf, depth);
 
@@ -906,15 +921,19 @@ function importFindings(
         findings.push(finding('error', 'package-ownership', file.path, subject, `"${ref.specifier}"${named} is owned by module ${moduleOwners.join(', ')} — not importable from "${ownModule}".`));
       }
 
-      // The layer half of the same question, and only where a layer holds this
-      // file. Inside a `layers: false` module the emitted entry carries the
-      // module-owned bans and not the layer-owned ones — `fileLayer` there is a
-      // folder its own config says is not a layer, so no `allowedIn` list can
-      // hold it and every layer-owned package would be banned everywhere in the
-      // module, against a green lint run. The module half above still fires:
+      // The layer half of the same question, and only where a LAYER entry holds
+      // this file. A layer's `owns` is emitted onto the layer entries alone; a
+      // module's own entry — root zone or module zone — carries the
+      // module-level bans and none of these. In either zone `fileLayer` is a
+      // name no `allowedIn` list can hold, a filename at a root and an
+      // undeclared folder below a `layers: false` module, so every
+      // layer-owned package would be banned across the whole zone against a
+      // green lint run — and the message would name that filename as the layer
+      // it was not importable from. The module half above still fires in both:
       // `owns` is one of the four things `ModuleDef.layers` promises still
-      // reach inside.
-      if (!unlayered && owners && !owners.includes(fileLayer)) {
+      // reach inside, and it is emitted onto exactly the entry these files sit
+      // under.
+      if (zone === null && owners && !owners.includes(fileLayer)) {
         const named = ref.names.length ? ` (${ref.names.join(', ')})` : '';
 
         // The names are part of the subject, not just of the sentence: one file can
