@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import type { Blueprint } from '../config';
-import { emitLint } from '../emit/lint';
-import { run } from '../cli';
+import type { Blueprint } from '../../src/config';
+import { emitLint } from '../../src/emit/lint';
+import { run } from '../../src/cli';
 
 /**
  * The adoption conformance fixture DSL. Every round of field feedback used

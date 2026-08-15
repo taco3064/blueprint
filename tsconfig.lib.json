@@ -32,12 +32,17 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
+  /* `test` holds the suites that are not co-located with a layer: the
+     conformance DSL and the adoption e2e. They are type-checked exactly like
+     `src`, and deliberately NOT in `tsconfig.types.json` — nothing here reaches
+     `dist/`. */
   "include": [
     "blueprint.config.mjs",
     "rolldown.config.ts",
     "eslint.config.ts",
     "vitest.config.ts",
-    "src"
+    "src",
+    "test"
   ],
-  "exclude": ["dist", "node_modules", "src/**/*.test.ts"]
+  "exclude": ["dist", "node_modules", "**/*.test.ts"]
 }

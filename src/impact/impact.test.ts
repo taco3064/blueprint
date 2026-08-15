@@ -5,7 +5,7 @@ import stylisticPlugin from '@stylistic/eslint-plugin';
 import importsPlugin from 'eslint-plugin-import-x';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { flattenProse } from '../conformance';
+import { flattenProse } from '../../test/conformance';
 import type { LintConfigEntry } from '../emit/lint';
 import { reactPreset, vuePreset } from '../presets';
 import { renderImpact, runImpact } from './impact';

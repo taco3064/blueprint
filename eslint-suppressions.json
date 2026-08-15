@@ -135,11 +135,6 @@
       "count": 1
     }
   },
-  "src/e2e/adoption.e2e.test.ts": {
-    "blueprint/test-filename-matches-source": {
-      "count": 1
-    }
-  },
   "src/emit/agent/agent.ts": {
     "blueprint/relative-escape": {
       "count": 1
@@ -429,6 +424,11 @@
     },
     "blueprint/relative-escape": {
       "count": 5
+    }
+  },
+  "test/e2e/adoption.e2e.test.ts": {
+    "blueprint/test-filename-matches-source": {
+      "count": 1
     }
   }
 }

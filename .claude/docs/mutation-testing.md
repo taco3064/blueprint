@@ -34,7 +34,7 @@ names which one keeps the other honest — removing either alone still passes.
 At the site, because that is where the next sweep meets it: a proof in a commit
 message serves the review and then has to be excavated with `git log -S`, and
 re-litigating one is expensive (two of these were wrong the first time). Each opens
-with the word **undecidable**, so `grep -rni undecidable src/ --include='*.ts'` is
+with the word **undecidable**, so `grep -rni undecidable src/ test/ --include='*.ts'` is
 the ledger — no file to maintain, no line numbers to drift, and the survivor count
 stays honest because nothing is suppressed. **The `-i` is load-bearing**: most of
 these proofs open a sentence, so the word is capitalized, and the case-sensitive

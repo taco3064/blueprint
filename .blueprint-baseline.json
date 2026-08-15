@@ -444,12 +444,6 @@
       "path": "src/survey/survey.ts",
       "subject": "../project",
       "message": "Relative import \"../project\" leaves this layer — use the alias, or extract shared code to a lower layer."
-    },
-    {
-      "rule": "undeclared-folder",
-      "path": "src/conformance",
-      "subject": "",
-      "message": "\"conformance\" is not a declared layer — declare it, or move its code into a module of an existing layer."
     }
   ]
 }

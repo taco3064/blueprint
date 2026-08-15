@@ -15,8 +15,13 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**', '.stryker-tmp/**', '.claude/worktrees/**'],
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts', 'src/**/index.ts'],
+      // `test/` is in the denominator on purpose. Moving the conformance DSL out of
+      // `src/` was a placement decision, not a decision about what 100% covers — and
+      // an `include` that only names `src` would have quietly dropped
+      // `test/conformance/conformance.ts` from the measurement while every figure
+      // still read 100%.
+      include: ['src/**/*.ts', 'test/**/*.ts'],
+      exclude: ['**/*.test.ts', '**/index.ts'],
       reporter: ['text', 'lcov'],
       thresholds: {
         lines: 100,
