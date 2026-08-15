@@ -3,14 +3,30 @@
 ## Greenfield — `blueprint init`
 
 ```bash
-npx @kekkai/blueprint init
+npx @kekkai/blueprint init --structure flat
 ```
 
-One command, and your design philosophy has guardrails in place:
+**One flag is not optional here**, and it is the only one. On a tree below the
+brownfield threshold (10 source files) there is nothing to measure, so `init`
+refuses rather than picking, and prints both options with the trade-off:
+
+```
+✗ blueprint init needs --structure here: 0 source files, below the brownfield threshold (10) — there is nothing here to measure, so this is your call, not a detection failure.
+```
+
+`flat` puts the layers at the source root; `modular` puts feature modules there,
+each holding those layers. The config migration between them is free and the file
+migration is not, which is why it is a day-one choice and why nothing guesses it for
+you — **[Flat or Modular](/guide/structure) draws both trees**. Above the threshold
+`init` never asks: it reads the layout you already have.
+
+With that answered, one command puts guardrails behind your design philosophy:
 
 - `src/<layer>/` folders — scaffolded only into an empty tree; where code
   already lives, an unbuilt layer's absence is its true state and no
-  `.gitkeep` shells are invented
+  `.gitkeep` shells are invented. Under `--structure modular` the module folders
+  and their entry files are the scaffold instead, because a layer is a folder
+  *inside* a module there
 - `blueprint.config.mjs` — the single source of truth
 - `eslint.config.mjs` — structural rules plus the third-party core
 - `docs/architecture-handbook.md` and agent contracts (`CLAUDE.md`, `AGENTS.md`)
@@ -19,7 +35,8 @@ One command, and your design philosophy has guardrails in place:
 The framework is auto-detected from `package.json` (`--framework vue|react` only breaks
 ties). An existing eslint config is **never overwritten** — init prints a merge snippet
 instead (only the config init generated itself, marked by its first-line banner, is
-regenerated in place). Re-running init is idempotent.
+regenerated in place). Re-running init is idempotent, and a re-run with `--structure`
+changes nothing once a config exists — the config already answers it.
 
 ## Brownfield — `blueprint inspect`
 
@@ -87,19 +104,24 @@ export default defineBlueprint({
   architecture: {
     alias: '~app',
     layers: [
-      { name: 'components', does: 'Reusable, presentational UI', mustNot: ['call services'] },
-      { name: 'hooks', does: 'Adapts server and shared state' },
+      { name: 'components', does: 'Reusable, presentational UI', mustNot: ['call services'], layout: 'folder' },
+      { name: 'hooks', does: 'Adapts server and shared state', layout: 'folder' },
       {
         name: 'services',
         does: 'Network primitives',
         owns: ['axios', { global: 'fetch' }],
         allowedImporters: ['hooks'],
+        layout: 'folder',
       },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
   },
 });
 ```
+
+`layout` is the unit shape and it lives on the layer that has it: `folder` is one
+folder per unit behind an `index`, and omitting the key means `file`. To declare the
+modular structure by hand instead, add `architecture.modules` —
+[Flat or Modular](/guide/structure) has both shapes side by side.
 
 Or start from a canonical preset — `vuePreset()` / `reactPreset()` encode the full
 governance handbook: the layer model, core principles, component-shape axes, and a
