@@ -58,7 +58,7 @@
     "docs:api": "typedoc && rm -rf docs/zh-TW/api && cp -R docs/api docs/zh-TW/api && node scripts/zh-api-note.mjs",
     "docs:dev": "npm run docs:api && vitepress dev docs",
     "docs:build": "node scripts/check-changelog-markup.mjs && npm run docs:api && vitepress build docs",
-    "docs:check": "node scripts/check-doc-links.mjs",
+    "docs:check": "node scripts/check-finding-ids.mjs && node scripts/check-doc-links.mjs",
     "field:run": "node scripts/field-run.mjs",
     "dist:verify": "node scripts/dist-verify.mjs"
   },
