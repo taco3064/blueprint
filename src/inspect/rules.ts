@@ -1,8 +1,5 @@
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
-// Import from the patterns leaf, not the emit/lint index — the index also
-// exports lint.ts, which loads the plugin, which shares resolve logic with
-// inspect; routing through the index would close a module cycle.
 import {
   DOC_ONLY_RULES,
   deriveGlobalRules,
@@ -12,8 +9,8 @@ import {
   unavailableGate,
   selfOnlyReexportSelector,
   resolveTestFiles,
-} from '../emit/lint/patterns';
-import type { GateSpec } from '../emit/lint/patterns';
+} from '../emit/lint';
+import type { GateSpec } from '../emit/lint';
 import {
   aliasLayerRoots,
   getForbiddenLayers,

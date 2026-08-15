@@ -133,8 +133,7 @@ export const DOC_ONLY_RULES: Omit<GateSpec, 'emits'>[] = [
  * `inspect` (its `cycle` finding — `import/no-cycle` was dropped from the
  * generated config as a slow re-check of the same graph). Everything else —
  * `deadCode`, unknown ids — is documentation, and the agent contract must not
- * call it a hard gate. Lives in this leaf (not lint.ts) so inspect can count
- * active gates without closing the emit → plugin → inspect module cycle.
+ * call it a hard gate.
  */
 export const LINT_GATED_RULE_IDS = [
   ...METRIC_GATES.map((gate) => gate.id),

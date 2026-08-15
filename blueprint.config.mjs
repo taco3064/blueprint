@@ -33,7 +33,7 @@ export default {
      * consumer of `dist/index.js` with `skipLibCheck: false`.
      *
      * The consequence is the debt below: `blueprint/relative-escape` reports
-     * every cross-module relative import in `src/` (98 today), and the fix is
+     * every cross-module relative import in `src/` (110 today), and the fix is
      * NOT to alias them. It is either a build step that rewrites the mappings,
      * or the rule learning that a published library is a different case.
      * Recorded in `.blueprint-baseline.json` / `eslint-suppressions.json`,
@@ -55,6 +55,11 @@ export default {
      *
      * - `survey` before `impact` is arbitrary. Neither imports the other; the
      *   order follows CLAUDE.md's prose so the two documents cannot drift.
+     * - `markdown` before `boundary` is NOT arbitrary, though neither imports
+     *   the other either. Declared this way round, `boundary` may reach only
+     *   `config`, which is what it should ever need; the other way round it
+     *   would be free to render markdown, and a judgment that can format its
+     *   own answer is one step from owning the message.
      * - No layer declares `allowedImporters`, so every downward edge is legal.
      *   That is the honest starting state, not a finished contract: every count
      *   measured against this config is a LOWER BOUND on what a narrowed
@@ -100,6 +105,10 @@ export default {
       {
         name: 'markdown',
         does: 'Markdown rendering primitives shared by the emitters: tables, cell escaping, `owns` formatting, and marker injection.',
+      },
+      {
+        name: 'boundary',
+        does: 'What an import does to a module boundary, and where a specifier lands — the one judgment `inspect`\'s findings and the embedded lint rules both read.',
       },
       {
         name: 'config',

@@ -3,10 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { DOC_ONLY_RULES, LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint/patterns';
-// Test-only import of the full emit module — src keeps the patterns-leaf
-// boundary (module cycle); the test pins the mirror to the real thing.
-import { emitLint } from '../emit/lint';
+import { DOC_ONLY_RULES, emitLint, LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
 import { runRules, STRUCTURAL_RULES } from './rules';
 import type { Blueprint } from '../config';
 
