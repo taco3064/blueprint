@@ -1,6 +1,6 @@
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
-import { moduleDepth } from '../config';
+import { dirSegments, moduleDepth } from '../config';
 import { layoutResolver, moduleKey } from '../boundary';
 import type { LayoutOf } from '../boundary';
 import { buildModuleGraph, declaredTop } from './resolve';
@@ -8,7 +8,12 @@ import { importGraphDerivation, scan } from './scan';
 import type { ScanResult } from './types';
 
 export interface DepsOptions extends ResolveOptions {
-  /** Module to query, e.g. `hooks/useCart` or `src/hooks/useCart/useCart.ts`. */
+  /**
+   * Module to query, e.g. `hooks/useCart`, or a path from the project root —
+   * `<sourceRoot>/hooks/useCart/useCart.ts`, which is how every finding but
+   * `cycle` prints its address. The prefix is the source root the config
+   * names (`src` by default), never the literal `src`.
+   */
   target?: string;
   /** Emit machine-readable JSON instead of the text report. */
   json?: boolean;
@@ -69,6 +74,7 @@ export async function runDeps(
   const { blueprint } = await resolveBlueprint(root, state, options);
   const { architecture } = blueprint;
   const scanned = scan(root, architecture.sourceRoot);
+  const rootSegments = dirSegments(architecture.sourceRoot ?? 'src');
   const graph = buildModuleGraph(scanned, architecture);
   const layoutOf = layoutResolver(architecture);
   const layerNames = new Set(architecture.layers.map((layer) => layer.name));
@@ -93,7 +99,7 @@ export async function runDeps(
   const units = depth > 0 ? withModuleFanIn(nodes, modules) : [];
 
   if (options.target !== undefined) {
-    const key = normalizeTarget(options.target, layoutOf, depth);
+    const key = normalizeTarget(options.target, rootSegments, layoutOf, depth);
     const unit = units.find((entry) => entry.unit === key);
     const found = unit ?? modules.find((entry) => entry.module === key);
 
@@ -235,16 +241,30 @@ function isFileLayer(module: string, layerNames: Set<string>, layoutOf: LayoutOf
 }
 
 /**
- * `src/hooks/useCart/useCart.ts` / `hooks/useCart` / `./src/hooks` → node key.
+ * `<root>/hooks/useCart/useCart.ts` / `hooks/useCart` / `./<root>/hooks` → node
+ * key, where `<root>` is the source root the config names — the prefix every
+ * finding but `cycle` prints its address with.
  *
  * The same offset the graph was built at, so the two addressing forms fall out
  * of one parse rather than a branch: under `modules` a single segment IS a
  * feature and anything longer is a unit inside one, which is exactly what
  * `moduleKey` already decides.
  */
-function normalizeTarget(input: string, layoutOf: LayoutOf, depth: number): string {
-  const segments = input.split('/').filter((part) => part !== '' && part !== '.');
-  const rest = segments[0] === 'src' ? segments.slice(1) : segments;
+function normalizeTarget(
+  input: string,
+  rootSegments: string[],
+  layoutOf: LayoutOf,
+  depth: number,
+): string {
+  // The root reached this function already parsed by the same function, so a
+  // target can never be read at an offset the root was not.
+  const segments = dirSegments(input);
+
+  // Whole prefix or nothing, as `stripAlias` treats an alias offset; an empty
+  // root (`sourceRoot: '.'`) matches vacuously and eats nothing.
+  const rest = rootSegments.every((segment, index) => segments[index] === segment)
+    ? segments.slice(rootSegments.length)
+    : segments;
 
   return moduleKey(rest, layoutOf, depth);
 }

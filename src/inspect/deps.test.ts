@@ -340,6 +340,129 @@ describe('runDeps · normalizing the target the user typed', () => {
   });
 });
 
+describe('runDeps · a target addresses the source root the config named', () => {
+  // `scan`, `analyze` and `coverage` all read `sourceRoot`, and a finding prints
+  // its address through it — so on a repo rooted anywhere but `src`, the address
+  // the report gave you was the one input `deps` refused. One case per root
+  // shape, because "strip the root" is a different number of segments in each.
+  const rootedConfig = (sourceRoot: string) => async () => ({
+    framework: 'vue' as const,
+    architecture: {
+      alias: '~app',
+      sourceRoot,
+      layers: [
+        { name: 'components', does: 'ui', layout: 'folder' as const, allowedImporters: [] },
+        { name: 'hooks', does: 'state', layout: 'folder' as const, allowedImporters: ['components'] },
+        { name: 'services', does: 'io', layout: 'folder' as const, allowedImporters: ['hooks'] },
+      ],
+    },
+  });
+
+  /** The same three modules, under whichever root the config names. */
+  function scaffoldUnder(prefix: string): void {
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+
+    for (const [rel, content] of [
+      ['services/api/api.ts', 'export const api = 1;'],
+      ['hooks/useCart/useCart.ts', 'import { api } from \'~app/services/api\';'],
+      ['components/Card/Card.ts', 'import { useCart } from \'~app/hooks/useCart\';'],
+    ]) {
+      const full = path.join(root, prefix, rel);
+
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, content);
+    }
+  }
+
+  const roots: [string, string, string][] = [
+    ['the default src/', 'src', 'src/'],
+    ['a named root', 'app', 'app/'],
+    ['a nested root', 'lib/app', 'lib/app/'],
+    ['the project root', '.', ''],
+  ];
+
+  it.each(roots)('answers every addressing form under %s', async (_name, sourceRoot, prefix) => {
+    scaffoldUnder(prefix);
+
+    // The printed address, the same with a leading `./`, and the bare key the
+    // leaderboard prints — one node, so all three must reach one answer.
+    for (const target of [
+      `${prefix}hooks/useCart/useCart.ts`,
+      `./${prefix}hooks/useCart`,
+      'hooks/useCart',
+    ]) {
+      const { ok, modules } = await runDeps(root, {
+        target,
+        loadConfig: rootedConfig(sourceRoot),
+        log: silent,
+      });
+
+      expect(ok, target).toBe(true);
+      expect(modules[0].module, target).toBe('hooks/useCart');
+      // The payload, not just the verdict: a root stripped one segment too far
+      // still answers `ok` for a key that names something else.
+      expect(modules[0].importedBy, target).toEqual(['components/Card']);
+      expect(modules[0].imports, target).toEqual(['services/api']);
+    }
+  });
+
+  it('leaves a literal src/ on the key when the root is not src', async () => {
+    scaffoldUnder('app/');
+    let output = '';
+
+    const { ok } = await runDeps(root, {
+      target: 'src/hooks/useCart',
+      loadConfig: rootedConfig('app'),
+      log: (m) => (output = m),
+    });
+
+    // The mirror of the same defect: stripping a root this project does not have
+    // keys to a module that exists, and the wrong answer arrives as a right one.
+    expect(ok).toBe(false);
+    expect(output).toContain('Unknown module "src"');
+  });
+
+  it('leaves a nested root alone when only its first segment matches', async () => {
+    scaffoldUnder('lib/app/');
+    let output = '';
+
+    const { ok } = await runDeps(root, {
+      target: 'lib/hooks/useCart',
+      loadConfig: rootedConfig('lib/app'),
+      log: (m) => (output = m),
+    });
+
+    // Sharing one segment with the root is not naming it — a strip by length
+    // alone passes every row above and eats `hooks` here.
+    expect(ok).toBe(false);
+    expect(output).toContain('Unknown module "lib"');
+  });
+
+  it('strips the root off an address whose folder is not a declared layer', async () => {
+    scaffoldUnder('app/');
+    fs.mkdirSync(path.join(root, 'app', 'legacy'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'app', 'legacy', 'old.ts'), 'export const old = 1;');
+
+    let output = '';
+
+    // `undeclared-folder` prints `app/legacy`, so this address is one the report
+    // gives you too — and the answer it deserves is the one that names the cause.
+    // The root has to come off BEFORE anything asks what governs the folder;
+    // conditioning the strip on a declared layer sitting under it (the shape
+    // `boundary.stripSourceRoot` needs, since a lint rule searches an absolute
+    // path for the root) sends this address back to `Unknown module "app"`.
+    const { ok } = await runDeps(root, {
+      target: 'app/legacy',
+      loadConfig: rootedConfig('app'),
+      log: (m) => (output = m),
+    });
+
+    expect(ok).toBe(false);
+    expect(output).toContain('"legacy/" is not a declared layer, so nothing governs it');
+    expect(output).not.toContain('Unknown module');
+  });
+});
+
 describe('runDeps · a layer node is not automatically a file-layout layer', () => {
   it('withholds the file-layout caveat from a folder-shaped layer', async () => {
     // Importing the layer itself (`~app/services`, not a module inside it) makes

@@ -20,7 +20,8 @@ npx @kekkai/blueprint deps src/hooks/useCart/useCart.ts   # 以檔案路徑查�
 ```
 
 三種輸入形式都會解析為相同的模組鍵 ——<br>
-是否帶有 `src/` 前綴、是否附上副檔名，均不影響查詢結果。
+是否附上副檔名、是否帶有 [`architecture.sourceRoot`](/zh-TW/guide/reference#快速上手範例以外的-config-欄位) 所指目錄的前綴（預設是 `src/`，設成別的值就是那個值，例如 `app/`），均不影響查詢結果。<br>
+那個前綴正是[除了 cycle 以外每一筆 finding](/zh-TW/guide/reference#inspect-回報的檢測項目) 印出位址時所用的前綴 —— 報告上的位址原樣貼進來就能查。
 
 - `--json` —— 輸出機器可讀格式（供工具或 AI Agent 使用）
 - `--framework vue|react` —— 專案無 config 且框架無法自動判定時，強制指定 preset
