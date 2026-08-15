@@ -86,6 +86,24 @@ export function stripSourceRoot(
 }
 
 /**
+ * The configured source root as a message names it — `src/`, `app/`,
+ * `lib/app/` — or, when the root is the project root, the phrase the rest of
+ * the tool already uses for the concept, because there is no directory to cite.
+ *
+ * Read through the same {@link dirSegments} call {@link stripSourceRoot}
+ * compares against, so a message can only name the spelling the comparator
+ * actually used: `./app` is matched as `app` and is named `app/`, never
+ * `./app/`. Both gates report through this one function — a lint rule and the
+ * matching `src-escape` finding are one sentence for the same reason they are
+ * one verdict.
+ */
+export function sourceRootName(sourceRoot: string): string {
+  const segments = dirSegments(sourceRoot);
+
+  return segments.length === 0 ? 'the source root' : `${segments.join('/')}/`;
+}
+
+/**
  * The node a path belongs to, under its own layer's layout. `depth` is
  * `moduleDepth` — the layer sits at `segments[depth]`, and everything
  * above it is the feature module.
