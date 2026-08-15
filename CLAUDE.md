@@ -50,6 +50,10 @@ judgments were shared. An exception permitting `plugin` → `inspect` would have
 been unenforceable: the next rule that wants `analyze` calls itself a verdict,
 and no test can tell it apart. `src/plugin/plugin.test.ts` holds that
 dependency list to one entry.
+`blueprint.config.mjs` declares the same twelve layers in the **opposite**
+order, and that is the schema, not a disagreement: `architecture.layers` reads
+high → low, because a layer may import only layers declared after it. Edit both
+when the graph moves.
 
 ## Self-explaining output (every CLI / runtime message)
 

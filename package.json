@@ -52,6 +52,7 @@
     "changeset": "changeset",
     "commit": "cz",
     "lint": "eslint .",
+    "lint:blueprint": "eslint . --config eslint.blueprint.config.ts",
     "prepare": "husky",
     "test": "vitest run --coverage",
     "tsc": "tsc -p tsconfig.lib.json && tsc -p tsconfig.test.json",
