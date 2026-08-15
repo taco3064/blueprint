@@ -62,6 +62,18 @@ gh api repos/:owner/:repo/issues/<parent>/sub_issues --paginate \
 
 Report as: what is done, what is in flight, what is unblocked and next, what is blocked and on which ticket. A closed tier is the unit the owner cares about, and the trigger for the boundary sweep.
 
+**Name what is in flight and when it started, in every status comment.** Not
+"what is next" — *what is running now, dispatched at HH:MM*. Done-and-next is
+what a stalled tier and a working tier both look like, and neither the counter
+nor the sub-issue list can tell them apart: a tier that stopped four hours ago
+reads as 34 of 39 with every ticket audited, which is also what a healthy one
+reads as. The owner found a stall here by comparing timestamps, from outside,
+because nothing in the record carried the one fact that would have shown it.
+
+Same class as the counter being blind to an unjudged survivor. What a status
+report omits is not neutral — it is the part nobody can ask about, because they
+do not know it is missing.
+
 ## A tier is not closed when its last PR merges
 
 One more gate, and it is the repo's, not GitHub's: **the tier's mutation sweep
