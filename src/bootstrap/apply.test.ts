@@ -78,7 +78,8 @@ describe('apply · removing init\'s own output', () => {
     fs.mkdirSync(path.dirname(scaffold), { recursive: true });
     fs.writeFileSync(scaffold, 'export default {};');
 
-    apply(root, [{ kind: 'rm', path: 'src/components/Placeholder.vue', note: 'x' }], noExec, noExec);
+    apply(root, [{ kind: 'rm', path: 'src/components/Placeholder.vue', note: 'x' }], noExec,
+      noExec);
 
     expect(fs.existsSync(scaffold)).toBe(false);
   });

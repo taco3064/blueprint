@@ -178,7 +178,8 @@ describe('validateBlueprint', () => {
     stray((c) => (c.architecture.layers[0].module = { layout: 'flat', entry: 'index', private: [] } as never), /module override/);
 
     stray(
-      (c) => (c.architecture.layers[1].allowedImporters = [{ layer: 'components', selfonly: true } as never]),
+      (c) => (c.architecture.layers[1].allowedImporters = [{ layer: 'components',
+        selfonly: true } as never]),
       /allowedImporters entry "components"/,
     );
   });

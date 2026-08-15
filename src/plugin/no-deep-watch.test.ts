@@ -18,7 +18,10 @@ function ruleIds(code: string): (string | null)[] {
 describe('blueprint/no-deep-watch', () => {
   it('flags a truthy deep option, whatever the key style', () => {
     expect(ruleIds('watch(x, cb, { deep: true });')).toEqual(['blueprint/no-deep-watch']);
-    expect(ruleIds('watch(x, cb, { immediate: true, deep: true });')).toEqual(['blueprint/no-deep-watch']);
+
+    expect(ruleIds('watch(x, cb, { immediate: true, deep: true });'))
+      .toEqual(['blueprint/no-deep-watch']);
+
     expect(ruleIds('watch(x, cb, { "deep": true });')).toEqual(['blueprint/no-deep-watch']);
     expect(ruleIds('watch(x, cb, { deep: 1 });')).toEqual(['blueprint/no-deep-watch']);
   });

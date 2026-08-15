@@ -475,7 +475,8 @@ export function renderSurvey(result: SurveyResult): string {
   if (result.unresolved.length) {
     lines.push(
       '',
-      'Unresolved alias-like imports (an undeclared alias? declare it in additionalAliases, or pass --alias):',
+      'Unresolved alias-like imports (an undeclared alias? '
+      + 'declare it in additionalAliases, or pass --alias):',
     );
 
     for (const entry of result.unresolved) {

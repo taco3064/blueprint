@@ -26,7 +26,9 @@ describe('relativeVerdict', () => {
 
   it('allows a sibling by its entry, folder or explicit file', () => {
     expect(relativeVerdict(own, ['resources', 'markets'], layoutOf, entryOf)).toBe('ok');
-    expect(relativeVerdict(own, ['resources', 'markets', 'index.ts'], layoutOf, entryOf)).toBe('ok');
+
+    expect(relativeVerdict(own, ['resources', 'markets', 'index.ts'], layoutOf, entryOf))
+      .toBe('ok');
   });
 
   it('honours a layer own entry name', () => {

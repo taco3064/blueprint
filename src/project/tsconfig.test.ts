@@ -84,7 +84,10 @@ describe('viteTsCoverage · the fact that used to be three releases of prose', (
     write('vite.config.ts', 'export default {}\n');
 
     const declines: [string, string][] = [
-      ['an exclude list can remove what include pulled in', '{ "include": ["**/*"], "exclude": ["vite.config.ts"] }'],
+      [
+        'an exclude list can remove what include pulled in',
+        '{ "include": ["**/*"], "exclude": ["vite.config.ts"] }',
+      ],
       ['an extends base may carry the globs', '{ "extends": "./base.json" }'],
       ['a brace expansion', '{ "include": ["vite.config.{ts,mts}"] }'],
       ['a character class', '{ "include": ["vite.config.?s"] }'],
@@ -173,8 +176,10 @@ describe('viteTsCoverage · the fact that used to be three releases of prose', (
       ['references is an object', '{ "files": [], "references": { "path": "./x.json" } }'],
       ['an entry is not an object', '{ "files": [], "references": ["./tsconfig.node.json"] }'],
       ['an entry carries no path', '{ "files": [], "references": [{ "prepend": true }] }'],
-      ['a path that resolves to nothing', '{ "files": [], "references": [{ "path": "./missing.json" }] }'],
-      ['a directory with no tsconfig.json in it', '{ "files": [], "references": [{ "path": "./tools" }] }'],
+      ['a path that resolves to nothing', '{ "files": [], "references": '
+      + '[{ "path": "./missing.json" }] }'],
+      ['a directory with no tsconfig.json in it', '{ "files": [], "references": '
+      + '[{ "path": "./tools" }] }'],
     ];
 
     for (const [why, text] of malformed) {
@@ -217,7 +222,8 @@ describe('viteTsCoverage · the fact that used to be three releases of prose', (
     write('tsconfig.json', '{ "include": ["src"] }');
 
     for (const file of ['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite.config.mts']) {
-      for (const stale of ['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite.config.mts']) {
+      for (const stale of ['vite.config.js', 'vite.config.ts', 'vite.config.mjs',
+        'vite.config.mts']) {
         fs.rmSync(path.join(dir, stale), { force: true });
       }
 
@@ -245,9 +251,15 @@ describe('tscArtifactsOutOfTree · the artifact premise, measured instead of ass
 
   /** What `npm create vite` writes for React + TS, which is the shape that matters. */
   const viteTemplate = (over: { app?: string; node?: string } = {}) => {
-    write('tsconfig.json', '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }] }');
-    write('tsconfig.app.json', over.app ?? '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo" }, "include": ["src"] }');
-    write('tsconfig.node.json', over.node ?? '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo" }, "include": ["vite.config.ts"] }');
+    write('tsconfig.json', '{ "files": [], "references": [{ "path": '
+    + '"./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }] }');
+
+    write('tsconfig.app.json', over.app ?? '{ "compilerOptions": { "noEmit": true, '
+    + '"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo" }, "include": ["src"] }');
+
+    write('tsconfig.node.json', over.node ?? '{ "compilerOptions": { "noEmit": '
+    + 'true, "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo" '
+    + '}, "include": ["vite.config.ts"] }');
   };
 
   it('reads the default Vite + TS template as leaving the tree untouched', () => {
@@ -268,10 +280,14 @@ describe('tscArtifactsOutOfTree · the artifact premise, measured instead of ass
     // The whole claim is "nothing landed", so one project that emits breaks it. Both
     // arms of that are checked, because each is a different way to land a file:
     // emitting program output, and dropping the build info beside the config.
-    viteTemplate({ node: '{ "compilerOptions": { "tsBuildInfoFile": "./node_modules/.tmp/n.tsbuildinfo" }, "include": ["vite.config.ts"] }' });
+    viteTemplate({ node: '{ "compilerOptions": { "tsBuildInfoFile": '
+      + '"./node_modules/.tmp/n.tsbuildinfo" }, "include": ["vite.config.ts"] }' });
+
     expect(tscArtifactsOutOfTree(dir)).toBeNull();
 
-    viteTemplate({ node: '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./.cache/n.tsbuildinfo" }, "include": ["vite.config.ts"] }' });
+    viteTemplate({ node: '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": '
+      + '"./.cache/n.tsbuildinfo" }, "include": ["vite.config.ts"] }' });
+
     expect(tscArtifactsOutOfTree(dir)).toBeNull();
   });
 
@@ -293,7 +309,8 @@ describe('tscArtifactsOutOfTree · the artifact premise, measured instead of ass
   it('reads a root config that redirects on its own, with no references', () => {
     // No solution stub to skip — the one-project shape has to work too, or the
     // measurement only ever fires on the template it was written from.
-    write('tsconfig.json', '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "node_modules/.cache/t.tsbuildinfo" }, "include": ["src"] }');
+    write('tsconfig.json', '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": '
+    + '"node_modules/.cache/t.tsbuildinfo" }, "include": ["src"] }');
 
     expect(tscArtifactsOutOfTree(dir)).toEqual({
       buildInfo: 'node_modules/.cache/t.tsbuildinfo',
@@ -315,20 +332,26 @@ describe('tscArtifactsOutOfTree · the artifact premise, measured instead of ass
   // keep a well-behaved project alongside, because a wrong skip only changes the
   // answer when something else is left to supply one.
   it('skips only a config that builds nothing, not one that merely resembles it', () => {
-    const solution = '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.lib.json" }] }';
-    const app = '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./node_modules/.tmp/app.tsbuildinfo" }, "include": ["src"] }';
+    const solution = '{ "files": [], "references": [{ "path": '
+      + '"./tsconfig.app.json" }, { "path": "./tsconfig.lib.json" }] }';
+
+    const app = '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": '
+      + '"./node_modules/.tmp/app.tsbuildinfo" }, "include": ["src"] }';
 
     // Files listed and non-empty: it builds them, and its build info lands beside the
     // config rather than under node_modules.
     write('tsconfig.json', solution);
     write('tsconfig.app.json', app);
-    write('tsconfig.lib.json', '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./lib.tsbuildinfo" }, "files": ["src/lib.ts"] }');
+
+    write('tsconfig.lib.json', '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": '
+    + '"./lib.tsbuildinfo" }, "files": ["src/lib.ts"] }');
 
     expect(tscArtifactsOutOfTree(dir)).toBeNull();
 
     // Empty `files`, but an `include` that gives it something to build anyway — which
     // is why the empty list alone cannot decide this.
-    write('tsconfig.lib.json', '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./lib.tsbuildinfo" }, "files": [], "include": ["lib"] }');
+    write('tsconfig.lib.json', '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": '
+    + '"./lib.tsbuildinfo" }, "files": [], "include": ["lib"] }');
 
     expect(tscArtifactsOutOfTree(dir)).toBeNull();
   });

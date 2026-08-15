@@ -107,19 +107,44 @@ export interface GateSpec {
  * can never drift apart, and `LINT_GATED_RULE_IDS` derives from it.
  */
 export const PLUGIN_GATES: GateSpec[] = [
-  { id: 'unusedVars', emits: 'no-unused-vars', note: 'TWO keys on TypeScript — no-unused-vars: off plus @typescript-eslint/no-unused-vars — so check both when merging; argsIgnorePattern \'^_\' and nothing else (no varsIgnorePattern: renaming a dead binding to _x is not deleting it, and the dead-code principle asks for deletion)' },
-  { id: 'explicitAny', emits: '@typescript-eslint/no-explicit-any', note: 'needs the injected TS plugin and emits NOTHING without it — `any` is a TS-only construct, so unlike unusedVars there is no core rule to fall back to' },
-  { id: 'codeStyle', emits: '@stylistic customize() + @stylistic/max-len + @stylistic/linebreak-style + curly (core)', note: 'needs the injected @stylistic plugin AND its configs.customize() factory (throws on a stand-in, rather than governing nothing); ~68 rules, all but 5 auto-fixable, so `eslint --fix` clears most of a first run — land that pass as its own commit. Knobs: indent (2), quotes (single), semi (true), maxLen (90). max-len has NO fixer and does not exempt plain strings — a long line cannot escape the cap by containing one. linebreak-style is unix: a red here usually means git autocrlf / .gitattributes, NOT the file' },
-  { id: 'statementsPerLine', emits: '@stylistic/max-statements-per-line', note: 'needs the injected @stylistic plugin, else emits nothing; hard-wired { max: 1 } because it defines what a line IS for the maxLines family — a line budget with no cap on line content is met by collapsing statements, not by splitting the file. codeStyle\'s bundle carries this rule too; this gate is written after it and wins, so setting it off really turns it off' },
-  { id: 'statementPadding', emits: '@stylistic/padding-line-between-statements', note: 'needs the injected @stylistic plugin, else emits nothing; auto-fixable whitespace, and it cannot push a file over maxLines: that gate skips blank lines' },
-  { id: 'importBlock', emits: 'import-x/first + import-x/no-duplicates', note: 'needs the injected eslint-plugin-import-x, else emits nothing; catches the two import mistakes an incrementally-editing agent makes — a second import of a module already imported, and an import appended below code. No formatter merges duplicate imports' },
-  { id: 'fixtureImports', emits: 'no-restricted-imports', note: 'fixture globs folded into the structural import bans' },
+  { id: 'unusedVars', emits: 'no-unused-vars', note: 'TWO keys on TypeScript — no-unused-vars: '
+    + 'off plus @typescript-eslint/no-unused-vars — so check both when merging; '
+    + 'argsIgnorePattern \'^_\' and nothing else (no varsIgnorePattern: renaming a dead '
+    + 'binding to _x is not deleting it, and the dead-code principle asks for deletion)' },
+  { id: 'explicitAny', emits: '@typescript-eslint/no-explicit-any', note: 'needs the injected TS '
+    + 'plugin and emits NOTHING without it — '
+    + '`any` is a TS-only construct, so unlike unusedVars there is no core rule to fall back to' },
+  { id: 'codeStyle', emits: '@stylistic customize() + @stylistic/max-len + '
+    + '@stylistic/linebreak-style + curly (core)', note: 'needs the injected @stylistic plugin AND '
+      + 'its configs.customize() factory (throws on a stand-in, rather than governing nothing); '
+      + '~68 rules, all but 5 auto-fixable, so `eslint --fix` clears most of a first run — '
+      + 'land that pass as its own commit. Knobs: indent (2), quotes (single), semi (true), '
+      + 'maxLen (90). max-len has NO fixer and does not exempt plain strings — '
+      + 'a long line cannot escape the cap by containing one. linebreak-style is unix: '
+      + 'a red here usually means git autocrlf / .gitattributes, NOT the file' },
+  { id: 'statementsPerLine', emits: '@stylistic/max-statements-per-line', note: 'needs the '
+    + 'injected @stylistic plugin, else emits nothing; '
+    + 'hard-wired { max: 1 } because it defines what a line IS for the maxLines family — '
+    + 'a line budget with no cap on line content is met by collapsing statements, '
+    + 'not by splitting the file. codeStyle\'s bundle carries this rule too; '
+    + 'this gate is written after it and wins, so setting it off really turns it off' },
+  { id: 'statementPadding', emits: '@stylistic/padding-line-between-statements', note: 'needs the '
+    + 'injected @stylistic plugin, else emits nothing; auto-fixable whitespace, '
+    + 'and it cannot push a file over maxLines: that gate skips blank lines' },
+  { id: 'importBlock', emits: 'import-x/first + import-x/no-duplicates', note: 'needs the injected '
+    + 'eslint-plugin-import-x, else emits nothing; catches the two import mistakes an '
+    + 'incrementally-editing agent makes — a second import of a module already imported, '
+    + 'and an import appended below code. No formatter merges duplicate imports' },
+  { id: 'fixtureImports', emits: 'no-restricted-imports', note: 'fixture globs folded into '
+    + 'the structural import bans' },
   { id: 'deepWatch', emits: 'blueprint/no-deep-watch', note: 'Vue only — never emits on React' },
   { id: 'usePrefix', emits: 'blueprint/use-prefix', note: 'on its target layer (default hooks)' },
-  { id: 'usePrefixReactivity', emits: 'blueprint/use-prefix-needs-reactivity', note: 'composing-only hooks are a known false positive' },
+  { id: 'usePrefixReactivity', emits: 'blueprint/use-prefix-needs-reactivity',
+    note: 'composing-only hooks are a known false positive' },
   { id: 'testFilename', emits: 'blueprint/test-filename-matches-source', note: 'test files only' },
   { id: 'typedefOnlyFile', emits: 'blueprint/no-typedef-only-file', note: '.js files only' },
-  { id: 'cycles', emits: 'inspect (cycle finding)', runtime: 'inspect', note: 'no ESLint line — import/no-cycle re-checks the whole graph per file, measured 92s on 850 files' },
+  { id: 'cycles', emits: 'inspect (cycle finding)', runtime: 'inspect', note: 'no ESLint line — '
+    + 'import/no-cycle re-checks the whole graph per file, measured 92s on 850 files' },
 ];
 
 /** Documentation-only ids — never an ESLint line, never a machine gate. */
@@ -163,14 +188,16 @@ export function unavailableGate(
   }
 
   if (id === 'explicitAny' && !hasTypescript) {
-    return '`any` is a TypeScript construct — nothing to catch on a JS project, and no core rule to fall back to';
+    return '`any` is a TypeScript construct — '
+      + 'nothing to catch on a JS project, and no core rule to fall back to';
   }
 
   // `testFiles: []` is a real intent — tests inherit their layer's rules — and the
   // one this gate has no scope under, since `files: []` is refused by ESLint. Saying
   // so is the other half of dropping the entry (field run #150).
   if (id === 'testFilename' && Array.isArray(testFiles) && testFiles.length === 0) {
-    return '`architecture.testFiles: []` exempts nothing, so there is no test file for this to name — declare test globs, or drop this gate';
+    return '`architecture.testFiles: []` exempts nothing, '
+      + 'so there is no test file for this to name — declare test globs, or drop this gate';
   }
 
   return null;
@@ -356,7 +383,8 @@ export function buildStructuralPatterns(params: {
     patterns.push({
       group: fixtures,
       message:
-        '\n🚫 Production code must not import fixtures — missing data renders empty or error, never fake.',
+        '\n🚫 Production code must not import fixtures — '
+        + 'missing data renders empty or error, never fake.',
     });
   }
 
@@ -367,7 +395,8 @@ export function buildStructuralPatterns(params: {
     patterns.push({
       group: folderTargets.flatMap((target) => aliases.map((a) => `${a}/${target}/*/**`)),
       message:
-        '\n🚫 Import a module through its entry, not its internals (e.g. "~app/hooks/useX", not "~app/hooks/useX/impl").',
+        '\n🚫 Import a module through its entry, not its internals (e.g. '
+        + '"~app/hooks/useX", not "~app/hooks/useX/impl").',
     });
   }
 

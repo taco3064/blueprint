@@ -7,10 +7,20 @@ import type {
   RuleSetting,
   Tier,
 } from '../../config';
-import { readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
+import {
+  readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters,
+} from '../../config';
 import { handbookPath } from '../docs';
-import { enforcedBy, LINT_GATED_RULE_IDS, resolveTestFiles, unavailableFromBlueprint } from '../lint';
+import {
+  enforcedBy, LINT_GATED_RULE_IDS, resolveTestFiles, unavailableFromBlueprint,
+} from '../lint';
 import { formatOwns } from '../../markdown';
+
+/**
+ * The packaged contract's install path. Named because the link that carries it
+ * spells it twice, and 103 characters of it cannot sit on a 100-column line.
+ */
+const CONTRACT_PATH = 'node_modules/@kekkai/blueprint/agent-contract.md';
 
 function rulesOfTier(rules: Record<string, RuleSetting> | undefined, tier: Tier) {
   return Object.entries(rules ?? {}).filter(([, setting]) => readSetting(setting).tier === tier);
@@ -82,7 +92,10 @@ export function renderCompactContract(blueprint: Blueprint): string {
     `- Framework: \`${blueprint.framework}\`. Import alias: \`${architecture.alias}\`.`,
     `- Layer flow: ${chain} — transitive: a layer may import **any** layer after it, unless the target narrows its importers.`,
     `- **Before adding, moving, or renaming any file** — placement, module shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
-    '- **Operating discipline** — how to follow the flow, react to lint failures, and the pre-commit checklist: read [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md) (ships inside the package — present once dependencies are installed, always matching the installed version).',
+    '- **Operating discipline** — how to follow the flow, react to lint failures, and the '
+    + `pre-commit checklist: read [${CONTRACT_PATH}](${CONTRACT_PATH}) (ships inside the `
+    + 'package — present once dependencies are installed, '
+    + 'always matching the installed version).',
     // Names the gates' REACH as a clause, not a second line: every other CLI surface
     // marks an empty net as vacuous, and this contract is the one artifact read with
     // no CLI output beside it. "the project's lint run", never `npm run lint` — the
@@ -163,7 +176,8 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     ? [`- Test support is exempt from every placement rule above: files matching ${testGlobs.map((glob) => `\`${glob}\``).join(' / ')} sit outside them. If a placement rule stops you on files that exist only to serve tests, that is a question for the owner — say so and name them; never widen \`architecture.testFiles\` yourself, and never rename a file to match those globs.`]
     : [];
 
-  return ['### Where code goes', '', ...lines, moduleLine, ...overrideLines, ...exemptLine].join('\n');
+  return ['### Where code goes', '', ...lines, moduleLine, ...overrideLines, ...exemptLine]
+    .join('\n');
 }
 
 /** Naming conventions as directives. */
@@ -219,7 +233,8 @@ export function renderHardRules(
   }
 
   bullets.push(
-    '- When lint fails, fix the structure — move the code or extract a lower layer. Never silence it with `eslint-disable`, and never relocate the violation to a sibling.',
+    '- When lint fails, fix the structure — move the code or extract a lower layer. '
+    + 'Never silence it with `eslint-disable`, and never relocate the violation to a sibling.',
   );
 
   return ['### Hard rules (lint enforces these)', '', ...bullets].join('\n');
@@ -263,7 +278,8 @@ export function renderBehavioral(
 
   if (rules?.deadCode !== undefined && readSetting(rules.deadCode).tier === 'error') {
     bullets.push(
-      '- **Dead code is error-tier, but no lint rule can gate it** — `npx knip` is the gate (in init\'s install set); wire it into whatever verification you run.',
+      '- **Dead code is error-tier, but no lint rule can gate it** — `npx knip` is '
+      + 'the gate (in init\'s install set); wire it into whatever verification you run.',
     );
   }
 

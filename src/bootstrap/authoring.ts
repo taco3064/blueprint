@@ -108,7 +108,8 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
         `    claude "${AGENT_PROMPT}"     # or: /blueprint-author inside Claude Code`,
         `    codex "${AGENT_PROMPT}"`,
         '  …or follow the playbook yourself. Prefer a preset scaffold instead? Re-run:',
-        '    blueprint init --preset --agent claude   # or --agent codex; plain --preset as neither',
+        '    blueprint init --preset --agent claude   '
+        + '# or --agent codex; plain --preset as neither',
       ].join('\n'),
     },
   ];

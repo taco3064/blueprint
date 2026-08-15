@@ -189,7 +189,8 @@ describe('analyze · imports', () => {
     // extract to a lower layer. They all report under `relative-escape`, so a
     // suite reading only the id cannot tell whether the right one was chosen.
     const messageFor = (specifier: string): string | undefined =>
-      analyze(scanOf([file(['components', 'Btn', 'index.ts'], [{ specifier, names: [], isExport: false }])]), bp)
+      analyze(scanOf([file(['components', 'Btn', 'index.ts'],
+        [{ specifier, names: [], isExport: false }])]), bp)
         .find((finding) => finding.rule === 'relative-escape')?.message;
 
     expect(messageFor('../../../outside')).toContain('escapes src/');
@@ -245,7 +246,8 @@ describe('analyze · imports', () => {
   });
 
   it('ignores files that live outside a declared layer', () => {
-    expect(rulesFor([file(['utils', 'x.ts'], [{ specifier: '~app/services/api' }])], [...LAYERS, 'utils']))
+    expect(rulesFor([file(['utils', 'x.ts'], [{ specifier: '~app/services/api' }])],
+      [...LAYERS, 'utils']))
       .not.toContain('flow-violation');
   });
 });
@@ -406,7 +408,8 @@ describe('analyze · severity ordering', () => {
 describe('analyze · the depth that makes a module', () => {
   const specifierRules = (specifier: string) =>
     analyze(
-      scanOf([file(['components', 'Btn', 'index.ts'], [{ specifier, names: [], isExport: false }])]),
+      scanOf([file(['components', 'Btn', 'index.ts'],
+        [{ specifier, names: [], isExport: false }])]),
       bp,
     )
       .map((finding) => finding.rule)
@@ -459,7 +462,8 @@ describe('analyze · what an ownership entry covers', () => {
 
     const rulesWith = (specifier: string) =>
       analyze(
-        scanOf([file(['components', 'Btn', 'index.ts'], [{ specifier, names: [], isExport: false }])]),
+        scanOf([file(['components', 'Btn', 'index.ts'],
+          [{ specifier, names: [], isExport: false }])]),
         owned,
       ).map((finding) => finding.rule);
 
@@ -711,7 +715,9 @@ describe('detectCycles · every knot, not the first one', () => {
     // Tarjan closes components in traversal order, which moves when an unrelated
     // module is added — and a report that reshuffles is a diff nobody reads.
     const forward = detectCycles(edgesOf([['a', ['b']], ['b', ['a']], ['x', ['y']], ['y', ['x']]]));
-    const reversed = detectCycles(edgesOf([['y', ['x']], ['x', ['y']], ['b', ['a']], ['a', ['b']]]));
+
+    const reversed = detectCycles(edgesOf([['y', ['x']], ['x', ['y']], ['b', ['a']],
+      ['a', ['b']]]));
 
     expect(reversed).toEqual(forward);
   });

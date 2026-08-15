@@ -107,7 +107,8 @@ describe('runDoctor', () => {
       .not.toContain('not in package.json');
   });
 
-  it('flags leftover authoring artifacts — doctor has the final word, not a mid-flow one', async () => {
+  it('flags leftover authoring artifacts — '
+    + 'doctor has the final word, not a mid-flow one', async () => {
     adopted();
     write('blueprint-authoring.md', '# playbook');
     write('.claude/commands/blueprint-author.md', 'prompt');
@@ -176,7 +177,8 @@ describe('runDoctor', () => {
     write('.eslintrc.cjs', 'module.exports = {};');
     const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
 
-    expect(checks.find((c) => c.label.includes('eslint'))?.detail).toContain('migrate to flat config');
+    expect(checks.find((c) => c.label.includes('eslint'))?.detail)
+      .toContain('migrate to flat config');
   });
 
   it('flags a declared alias no toolchain resolves, with the wiring snippet', async () => {
@@ -254,7 +256,8 @@ describe('runDoctor', () => {
     expect(checks.find((c) => c.label.includes('alias'))?.ok).toBe(true);
   });
 
-  it('demands the vite alias as a quoted token — a scoped-package import is no wiring', async () => {
+  it('demands the vite alias as a quoted token — '
+    + 'a scoped-package import is no wiring', async () => {
     adopted();
     fs.rmSync(path.join(root, 'tsconfig.json'));
 
@@ -314,7 +317,9 @@ describe('runDoctor', () => {
     const selfOnly = async () => {
       const preset = vuePreset();
       // usePrefix targets the preset's hooks layer — gone with the relayout.
-      const { usePrefix: _usePrefix, ...rules } = preset.rules ?? {};
+      const rules = { ...preset.rules };
+
+      delete rules.usePrefix;
 
       return {
         ...preset,
@@ -380,7 +385,8 @@ describe('runDoctor', () => {
             path: 'src/random',
             subject: '',
             message:
-              '"random" is not a declared layer — declare it, or move its code into a module of an existing layer.',
+              '"random" is not a declared layer — '
+              + 'declare it, or move its code into a module of an existing layer.',
           },
         ],
       }),
@@ -409,7 +415,8 @@ describe('runDoctor', () => {
             path: 'src/random',
             subject: '',
             message:
-              '"random" is not a declared layer — declare it, or move its code into a module of an existing layer.',
+              '"random" is not a declared layer — '
+              + 'declare it, or move its code into a module of an existing layer.',
           },
         ],
       }),
@@ -475,7 +482,8 @@ describe('runDoctor', () => {
     expect(detail?.startsWith('.github/copilot-instructions.md, GEMINI.md:')).toBe(true);
   });
 
-  it('passes the suppressions check when the ledger is absent, current, or fails when stale', async () => {
+  it('passes the suppressions check when the ledger is absent, '
+    + 'current, or fails when stale', async () => {
     adopted();
 
     // Absent: not in use — fine.

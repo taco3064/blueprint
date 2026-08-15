@@ -28,8 +28,16 @@ export const BROWNFIELD_MIN_FILES = 10;
  */
 export function printConfigCaveats(): string {
   return [
-    ', or a correct config looks broken: resolved keys carry their plugin prefix (`@stylistic/max-len`, never bare `max-len`); a rule scoped to a layer that holds no files does not appear at all (inspect\'s `declaratory-self-only` note, not a loss); selfOnly\'s re-export ban resolves on the IMPORTER layer inspect names, not on the layer being protected; and **inspect\'s finding names are not ESLint rule ids** — `deep-import`, `flow-violation` and `package-ownership` all fold into the single `no-restricted-imports` entry, so searching for `blueprint/deep-import` finds nothing and proves nothing.',
-    'Inspect\'s migration steps name the carrying rule for each finding, and mark the ones no lint run will ever show.',
+    ', or a correct config looks broken: resolved keys carry their plugin prefix '
+    + '(`@stylistic/max-len`, never bare `max-len`); a rule scoped to a layer that holds no files '
+    + 'does not appear at all (inspect\'s `declaratory-self-only` note, not a loss); '
+    + 'selfOnly\'s re-export ban resolves on the IMPORTER layer inspect names, '
+    + 'not on the layer being protected; and **inspect\'s finding names are not ESLint rule ids** '
+    + '— `deep-import`, `flow-violation` and `package-ownership` all fold into the single '
+    + '`no-restricted-imports` entry, so searching for '
+    + '`blueprint/deep-import` finds nothing and proves nothing.',
+    'Inspect\'s migration steps name the carrying rule for each finding, '
+    + 'and mark the ones no lint run will ever show.',
   ].join(' ');
 }
 
@@ -56,10 +64,12 @@ export function cleanupTargets(claudeDir: ClaudeDirState): string {
     `this playbook, \`${COMMAND_FILE}\`, and the now-empty`,
     ...(claudeDir.hadDir
       ? [
-          '`.claude/commands/` directory — but NOT `.claude/` itself: it was already here before this run, so it is the owner\'s, whatever ends up left in it.',
+          '`.claude/commands/` directory — but NOT `.claude/` itself: it was already '
+          + 'here before this run, so it is the owner\'s, whatever ends up left in it.',
         ]
       : [
-          '`.claude/commands/` directory — and `.claude/` itself, which init created only to hold this command (it was not here before this run).',
+          '`.claude/commands/` directory — and `.claude/` itself, '
+          + 'which init created only to hold this command (it was not here before this run).',
         ]),
   ].join(' ');
 }
@@ -77,9 +87,13 @@ export function renderNextNote(next: boolean): string {
   return [
     '',
     '',
-    '> **Next.js project.** The route tree (`app/`, or `pages/` on the Pages Router) is itself a layer — declare it at the top of the flow (a typical shape: `app` → `components` → `hooks` → `lib`).',
-    '> Never scaffold or declare an empty `src/pages` alongside the App Router: that folder name is a routing convention.',
-    '> Flat module layout fits the route tree — relative imports stay free inside a segment while cross-layer traffic uses the alias.',
+    '> **Next.js project.** The route tree (`app/`, or `pages/` on the Pages Router) is itself a '
+    + 'layer — declare it at the top of the flow (a typical shape: '
+    + '`app` → `components` → `hooks` → `lib`).',
+    '> Never scaffold or declare an empty `src/pages` alongside the App Router: '
+    + 'that folder name is a routing convention.',
+    '> Flat module layout fits the route tree — '
+    + 'relative imports stay free inside a segment while cross-layer traffic uses the alias.',
   ].join('\n');
 }
 
@@ -112,7 +126,8 @@ export function renderPrerequisites(install: string): string {
     '',
     '## Prerequisites',
     '',
-    '`@kekkai/blueprint` must be a devDependency — the config you will write imports it, and every `npx blueprint` step resolves it from the project.',
+    '`@kekkai/blueprint` must be a devDependency — the config you will write imports it, '
+    + 'and every `npx blueprint` step resolves it from the project.',
     '`init` already installed it unless `--no-install` was passed; verify, or run:',
     '',
     '```bash',
@@ -132,48 +147,88 @@ export function renderGoal(): string {
     '',
     '## Goal and boundary',
     '',
-    '**Know what you are installing.** Blueprint is a governance tool for AI-driven development: its job is to keep agents — including you, and every agent that touches this repo after you — from drifting outside the declared architecture.',
+    '**Know what you are installing.** Blueprint is a governance tool for AI-driven development: '
+    + 'its job is to keep agents — including you, and every agent that touches '
+    + 'this repo after you — from drifting outside the declared architecture.',
     'The strictness is the product, not a cost to negotiate down.',
-    'When you feel the urge to soften a tier, skip a gate, or leave yourself an escape hatch, that urge is exactly what this tool exists to catch: install faithfully, and put disagreements in the report for the maintainer — never into a weakened config.',
+    'When you feel the urge to soften a tier, skip a gate, or leave yourself an escape hatch, '
+    + 'that urge is exactly what this tool exists to catch: install faithfully, '
+    + 'and put disagreements in the report for the maintainer — never into a weakened config.',
     '',
-    'Author `blueprint.config.mjs` for this repository so that its architecture rules match the code\'s *intent*, then generate the artifacts and lock the baseline.',
+    'Author `blueprint.config.mjs` for this repository so that its architecture rules '
+    + 'match the code\'s *intent*, then generate the artifacts and lock the baseline.',
     'Deliverables:',
     '',
     '1. `blueprint.config.mjs` — validated, findings explainable',
     '2. `npx blueprint init` artifacts (lint config, handbook, agent contracts)',
-    '3. `npx blueprint inspect --update-baseline` run — it writes `.blueprint-baseline.json` only when debt exists; on a clean repo "No debt to lock" and no file IS the correct outcome',
+    '3. `npx blueprint inspect --update-baseline` run — it writes `.blueprint-baseline.json` '
+    + 'only when debt exists; on a clean repo "No debt to lock" and no file IS the correct outcome',
     '4. A short report: the layer table, debt counts by category, any cycles.',
-    '   It is a message, not an artifact — deliver it as your closing reply to the user (or the PR description when one is opened); never commit a report file',
+    '   It is a message, not an artifact — deliver it as your closing reply to the '
+    + 'user (or the PR description when one is opened); never commit a report file',
     '',
     'Out of scope: fixing the debt.',
-    'Existing violations are recorded in the baseline and paid down later — do not refactor application code in this pass.',
+    'Existing violations are recorded in the baseline and paid down later — '
+    + 'do not refactor application code in this pass.',
     '',
     `**Early exit is a legitimate verdict.** On a repo below the brownfield threshold (${BROWNFIELD_MIN_FILES} source files) whose shape a framework preset already fits, the correct conclusion is to run \`npx blueprint init --preset\`, wire its outputs, delete this playbook and the command file, and stop.`,
     `Walking the full method on a starter is ceremony, not judgment; this playbook earns its cost on repos whose layer boundaries have grown fuzzy.`,
     '',
-    '**An empty net is equally legitimate.** On a root-only app the layer rules reach nothing — that is the true state, not a failure to fix.',
-    'Never invent a layer to make coverage non-zero (a `*` name, a glob contortion): root files are wiring, and their hygiene (line counts, unused vars) belongs to the project\'s own lint, not to a manufactured layer.',
+    '**An empty net is equally legitimate.** On a root-only app the layer rules reach nothing — '
+    + 'that is the true state, not a failure to fix.',
+    'Never invent a layer to make coverage non-zero (a `*` name, a glob contortion): '
+    + 'root files are wiring, and their hygiene (line counts, '
+    + 'unused vars) belongs to the project\'s own lint, not to a manufactured layer.',
     'The net starts biting when code lands inside declared layers.',
-    'The inverse also holds: a preset\'s declared-but-empty layers are the runway, not a manufactured net — declaring intent costs nothing and `inspect` tracks them honestly (missing-layer info, the coverage line), so keep them.',
-    '**Runway comes in three shapes, and `inspect` names two of them.** An empty layer gets its note, and so does an `owns` entry for a package the repo has not installed (a preset\'s `hooks` owns `zustand` whether or not you use it) — an `owns-not-installed` note naming the layer that declares it.',
-    'An alias no import uses yet gets none — nothing imports it, so there is nothing to count and no finding to raise.',
-    'All three are still runway: they say where a thing goes if it arrives, ban nothing until then, and need no dependency added to justify them.',
-    'Keep them on the same default as the layers, and know that the alias is the one shape you have to recognize yourself rather than read off a report.',
-    'Keeping is the DEFAULT — the preset layers are the baseline, and slimming them is the project owner\'s later decision, never the adopting agent\'s.',
-    'When a declared-but-empty layer ALSO looks stale, the tiebreak is prose intent: an intent document describing it as a future seam makes it runway (keep); one the prose never mentions, contradicted by where the code actually lives, is a stale clause (downgrade it and record the conflict — Method step 1).',
-    '**A drawn diagram is part of what that document says.** A layer absent from every per-layer section but still drawn in the same file\'s flow graph HAS been mentioned — read both before calling a clause unmentioned, or the tiebreak decides on half the evidence and drops a layer the document is still declaring.',
-    '**Those two branches are not a partition, and the third state is the common one: mentioned, but nowhere described as intent.** A box in a diagram and nothing else is exactly that — it says the clause is not stale without saying it is a seam, so neither branch fires.',
+    'The inverse also holds: a preset\'s declared-but-empty layers are the runway, '
+    + 'not a manufactured net — declaring intent costs nothing and `inspect` '
+    + 'tracks them honestly (missing-layer info, the coverage line), so keep them.',
+    '**Runway comes in three shapes, and `inspect` names two of them.** '
+    + 'An empty layer gets its note, and so does an `owns` entry for a package the repo has not '
+    + 'installed (a preset\'s `hooks` owns `zustand` whether or not you use it) — '
+    + 'an `owns-not-installed` note naming the layer that declares it.',
+    'An alias no import uses yet gets none — '
+    + 'nothing imports it, so there is nothing to count and no finding to raise.',
+    'All three are still runway: they say where a thing goes if it arrives, '
+    + 'ban nothing until then, and need no dependency added to justify them.',
+    'Keep them on the same default as the layers, and know that the alias is '
+    + 'the one shape you have to recognize yourself rather than read off a report.',
+    'Keeping is the DEFAULT — the preset layers are the baseline, '
+    + 'and slimming them is the project owner\'s later decision, never the adopting agent\'s.',
+    'When a declared-but-empty layer ALSO looks stale, the tiebreak is prose intent: '
+    + 'an intent document describing it as a future seam makes it runway (keep); '
+    + 'one the prose never mentions, contradicted by where the code actually lives, '
+    + 'is a stale clause (downgrade it and record the conflict — Method step 1).',
+    '**A drawn diagram is part of what that document says.** A layer absent from every per-layer '
+    + 'section but still drawn in the same file\'s flow graph HAS been mentioned — '
+    + 'read both before calling a clause unmentioned, or the tiebreak decides '
+    + 'on half the evidence and drops a layer the document is still declaring.',
+    '**Those two branches are not a partition, and the third state is the common one: '
+    + 'mentioned, but nowhere described as intent.** A box in a diagram and nothing else is '
+    + 'exactly that — it says the clause is not stale '
+    + 'without saying it is a seam, so neither branch fires.',
     'Do not force it into one.',
-    'Keeping is already the default, so keep it and hand the owner the specific question: this layer is drawn in <file> and described nowhere, and the code it names lives at <path> instead.',
-    'That sentence is worth more than a verdict you reached by picking the nearer branch — the owner knows which of the two the drawing meant, and you do not.',
-    'Adding a state to the diagram-mention rule is what opened this gap: broadening "mentioned" narrowed the stale branch and left the middle unowned, so it is named rather than implied.',
+    'Keeping is already the default, so keep it and hand the owner the specific question: '
+    + 'this layer is drawn in <file> and described nowhere, '
+    + 'and the code it names lives at <path> instead.',
+    'That sentence is worth more than a verdict you reached by picking the nearer branch — '
+    + 'the owner knows which of the two the drawing meant, and you do not.',
+    'Adding a state to the diagram-mention rule is what opened this gap: broadening "mentioned" '
+    + 'narrowed the stale branch and left the middle unowned, so it is named rather than implied.',
     '',
-    '**Work the loop, not the archive.** Everything below is evidence and reference — it is NOT a syllabus to master before touching the config.',
-    'Draft `blueprint.config.mjs` early from the survey and the rule catalog, then let `inspect` correct you: it is read-only, cheap, and needs nothing installed, and a wrong draft fixed in two runs beats a perfect draft after an hour of code archaeology.',
-    '`impact` is the same kind of read-only feedback but is NOT available at this point — it lints with the emitted config, so it needs the plugins `init` installs; it joins the loop at Method step 9, after init.',
+    '**Work the loop, not the archive.** Everything below is evidence and reference — '
+    + 'it is NOT a syllabus to master before touching the config.',
+    'Draft `blueprint.config.mjs` early from the survey and the rule catalog, '
+    + 'then let `inspect` correct you: it is read-only, cheap, and needs nothing installed, and '
+    + 'a wrong draft fixed in two runs beats a perfect draft after an hour of code archaeology.',
+    '`impact` is the same kind of read-only feedback but is NOT available at this point — '
+    + 'it lints with the emitted config, so it needs the plugins `init` installs; '
+    + 'it joins the loop at Method step 9, after init.',
     'Reaching for it while drafting only earns you a load error.',
-    'In field runs, agents that drafted first finished in a fraction of the time of agents that studied first — at the same quality, because the acceptance gates are the same.',
-    'And if you ever feel the need to read the package\'s `dist/` bundle to answer a question, stop: the answer belongs in this playbook — note the gap in your report instead.',
+    'In field runs, agents that drafted first finished in a fraction of the time of agents '
+    + 'that studied first — at the same quality, because the acceptance gates are the same.',
+    'And if you ever feel the need to read the package\'s `dist/` bundle to answer a question, '
+    + 'stop: the answer belongs in this playbook — note the gap in your report instead.',
   ].join('\n');
 }
 
@@ -187,26 +242,52 @@ export function renderSemantics(): string {
     '',
     '## Semantics the linter holds you to',
     '',
-    'Facts about the emitted rules that drive authoring decisions — stated here so you never have to reverse-engineer them from the bundle:',
+    'Facts about the emitted rules that drive authoring decisions — '
+    + 'stated here so you never have to reverse-engineer them from the bundle:',
     '',
-    '- **Flat layout:** the module is the whole layer, so same-layer *relative* imports are always legal.',
-    '  The alias is for crossing layers — a same-layer import through the alias becomes an error the moment the lint is wired.',
+    '- **Flat layout:** the module is the whole layer, '
+    + 'so same-layer *relative* imports are always legal.',
+    '  The alias is for crossing layers — '
+    + 'a same-layer import through the alias becomes an error the moment the lint is wired.',
     '- **Folder layout:** a module is one child folder with private internals.',
-    '  *Same-layer* sibling modules must not import each other at all — via the alias or `../` alike; the shared part wants to live in a lower layer.',
-    '  Only *lower-layer* folder modules are importable, and entry-only; `../` escapes are caught at any depth by `blueprint/relative-escape`.',
-    '- **Pre-wiring check:** the survey\'s "Same-folder imports via the alias" count is an upper bound on the errors the wiring will introduce, not the exact number — it is a textual count that includes test files (exempt in the emitted config) and non-static references (dynamic imports, mock specifiers, doc comments) the wired rules may never flag.',
-    '  Treat non-zero as "look here"; once the config exists, `npx blueprint impact` reports the real per-rule count.',
-    '  The fix for true hits is layout-dependent — flat: rewrite them as relative imports; folder: extract the shared code downward (a relative rewrite just trades the error for `relative-escape`).',
+    '  *Same-layer* sibling modules must not import each other at all — '
+    + 'via the alias or `../` alike; the shared part wants to live in a lower layer.',
+    '  Only *lower-layer* folder modules are importable, and entry-only; '
+    + '`../` escapes are caught at any depth by `blueprint/relative-escape`.',
+    '- **Pre-wiring check:** the survey\'s "Same-folder imports via the alias" count is an upper '
+    + 'bound on the errors the wiring will introduce, not the exact number — '
+    + 'it is a textual count that includes test files (exempt in the emitted config) and '
+    + 'non-static references (dynamic imports, mock specifiers, '
+    + 'doc comments) the wired rules may never flag.',
+    '  Treat non-zero as "look here"; once the config exists, '
+    + '`npx blueprint impact` reports the real per-rule count.',
+    '  The fix for true hits is layout-dependent — flat: rewrite them as relative imports; folder: '
+    + 'extract the shared code downward (a relative '
+    + 'rewrite just trades the error for `relative-escape`).',
     '  Whatever stays unresolved lands in the suppressions ledger.',
-    '- **`unusedVars`** emits with `argsIgnorePattern: \'^_\'` and nothing else: `_`-prefixed *arguments* are exempt; unused variables and catch parameters are not.',
-    '- **`doctor`\'s "eslint wired" check** passes when the config is the generated file itself, or when its text contains `emitLint(` or `@kekkai/blueprint` — both tells, because neither covers the other: a config reaching `emitLint` through a shared config package never names this package, and one that renames the import on the way in never spells the call.',
-    '- **`doctor`\'s leftover check matches exact file families** — this playbook, the command file, `*.blueprint.*` references, and marker-bearing contracts outside `emit.agents` — never other files, whatever their names.',
+    '- **`unusedVars`** emits with `argsIgnorePattern: \'^_\'` and nothing else: '
+    + '`_`-prefixed *arguments* are exempt; unused variables and catch parameters are not.',
+    '- **`doctor`\'s "eslint wired" check** passes when the config is the generated file itself, '
+    + 'or when its text contains `emitLint(` or `@kekkai/blueprint` — '
+    + 'both tells, because neither covers the other: a config reaching `emitLint` through a shared '
+    + 'config package never names this package, '
+    + 'and one that renames the import on the way in never spells the call.',
+    '- **`doctor`\'s leftover check matches exact file families** — '
+    + 'this playbook, the command file, `*.blueprint.*` references, and marker-bearing '
+    + 'contracts outside `emit.agents` — never other files, whatever their names.',
     '  A report or feedback file you were asked to write is safe without a verification re-run.',
-    '- **`doctor` prints `⊘` for a check it could not run** and never counts it as a pass: the banner reads "Adoption unverified — N of M checks passed, K could not run".',
-    '  Exit stays 0, because a skip is not a failure — so an exit-code gate cannot see one, and `--json` carries `skipped` with the reason.',
-    '  The check that skips is `emitted rules survive the merged eslint config`, in two states: eslint is not wired (the wiring check above is the red for that), or the merged config would not resolve, leaving nothing to compare the emitted rules against.',
-    '- **Test files are EXEMPT** — `architecture.testFiles` (default `*.test.* / *.spec.*`) sit outside the structural rules and `inspect` alike.',
-    '  If the tool you are replacing policed tests too, switching to blueprint deliberately RELAXES that enforcement — say so in the report instead of letting the difference pass silently.',
+    '- **`doctor` prints `⊘` for a check it could not run** and never counts it as a pass: '
+    + 'the banner reads "Adoption unverified — N of M checks passed, K could not run".',
+    '  Exit stays 0, because a skip is not a failure — '
+    + 'so an exit-code gate cannot see one, and `--json` carries `skipped` with the reason.',
+    '  The check that skips is `emitted rules survive the merged eslint config`, in two states: '
+    + 'eslint is not wired (the wiring check above is the red for that), or the merged '
+    + 'config would not resolve, leaving nothing to compare the emitted rules against.',
+    '- **Test files are EXEMPT** — `architecture.testFiles` (default '
+    + '`*.test.* / *.spec.*`) sit outside the structural rules and `inspect` alike.',
+    '  If the tool you are replacing policed tests too, switching to blueprint deliberately '
+    + 'RELAXES that enforcement — say so in the report '
+    + 'instead of letting the difference pass silently.',
   ].join('\n');
 }
 
@@ -220,22 +301,45 @@ export function renderRuleCatalog(): string {
     '',
     '## Rule catalog — ask this file, not the bundle',
     '',
-    '(The same catalog is queryable anytime: `npx blueprint rules` — annotated with the config\'s declared tiers once one exists.)',
+    '(The same catalog is queryable anytime: `npx blueprint rules` — '
+    + 'annotated with the config\'s declared tiers once one exists.)',
     '',
     '**Structural rules — always emitted**, whatever the `rules` block says.',
-    'Their shared severity is `emit.lint.severity` (default `error`), and that knob covers ONLY these:',
+    'Their shared severity is `emit.lint.severity` (default `error`), '
+    + 'and that knob covers ONLY these:',
     '',
-    '- `no-restricted-imports` per layer — dependency flow, same-layer bans, package ownership at whole-package OR named-import granularity (`owns: [{ package: \'vue\', imports: [\'inject\'] }]` bans that named import outside the owning layer; same-signature entries merge into one rule allowing every declaring layer), fixture bans.',
-    '  `additionalAliases` join every structural ban alongside the main alias — with their target\'s offset baked in (`\'~root\': \'.\'` bans `~root/src/views/**`); an alias into a subfolder has no layer surface, so it carries no layer bans.',
-    '- `no-restricted-syntax` — re-export bans for `selfOnly` importers, emitted ONLY when an allowedImporters ENTRY declares it (`allowedImporters: [{ layer: \'views\', selfOnly: true }]` — a layer-level `selfOnly` key is invalid and validation rejects it) — no selfOnly, no syntax rule to collide with your own `no-restricted-syntax`.',
-    '  `blueprint rules` annotates whether THIS config emits it — never probe emitLint to find out.',
+    '- `no-restricted-imports` per layer — dependency flow, same-layer bans, '
+    + 'package ownership at whole-package OR named-import granularity '
+    + '(`owns: [{ package: \'vue\', imports: [\'inject\'] }]` bans that named import outside the '
+    + 'owning layer; same-signature entries merge into one '
+    + 'rule allowing every declaring layer), fixture bans.',
+    '  `additionalAliases` join every structural ban alongside the main alias — '
+    + 'with their target\'s offset baked in (`\'~root\': \'.\'` bans `~root/src/views/**`); '
+    + 'an alias into a subfolder has no layer surface, so it carries no layer bans.',
+    '- `no-restricted-syntax` — re-export bans for `selfOnly` importers, '
+    + 'emitted ONLY when an allowedImporters ENTRY declares it '
+    + '(`allowedImporters: [{ layer: \'views\', selfOnly: true }]` — '
+    + 'a layer-level `selfOnly` key is invalid and validation rejects it) — '
+    + 'no selfOnly, no syntax rule to collide with your own `no-restricted-syntax`.',
+    '  `blueprint rules` annotates whether THIS config emits it — '
+    + 'never probe emitLint to find out.',
     '- `no-restricted-globals` — global ownership (e.g. `{ global: \'fetch\' }`)',
-    '- `blueprint/relative-escape` — depth-aware `../` module escapes (embedded plugin; ships inside the emitted config)',
+    '- `blueprint/relative-escape` — depth-aware `../` module '
+    + 'escapes (embedded plugin; ships inside the emitted config)',
     '',
-    '**Optional gates — emitted only when declared** in `rules` with a tier other than `off`; none of these emits by default, and every gate scopes to the layer file globs — root wiring sits outside all of them.',
-    'When merging, collisions are decided by rule KEY, not by hit count — `blueprint rules --json` names every key the emitted config sets, and carries the exact selfOnly selector strings a fold needs.',
-    'Adoption stance for these gates: declare one only to translate an existing house threshold (carry its value); switching NEW gates on is the owner\'s later tuning, not the adopting agent\'s call.',
-    'Carrying a value is the OBJECT form of a rule setting — `maxLines: { tier: \'error\', value: 1200 }`, never a tier/value array; `tier` is required in that form, so the object without it is rejected by name at config load rather than emitting a tierless rule.',
+    '**Optional gates — emitted only when declared** in `rules` with a tier other than `off`; '
+    + 'none of these emits by default, and every gate scopes to the layer file globs — '
+    + 'root wiring sits outside all of them.',
+    'When merging, collisions are decided by rule KEY, not by hit count — '
+    + '`blueprint rules --json` names every key the emitted config sets, '
+    + 'and carries the exact selfOnly selector strings a fold needs.',
+    'Adoption stance for these gates: declare one only to translate an existing house threshold '
+    + '(carry its value); switching NEW gates on is the owner\'s later tuning, '
+    + 'not the adopting agent\'s call.',
+    'Carrying a value is the OBJECT form of a rule setting — '
+    + '`maxLines: { tier: \'error\', value: 1200 }`, never a tier/value array; '
+    + '`tier` is required in that form, so the object without it is '
+    + 'rejected by name at config load rather than emitting a tierless rule.',
     'The metric family falls back to these thresholds when no `value` is given:',
     '',
     `${METRIC_GATES.map((gate) => `- \`${gate.id}\` → \`${gate.rule}\` (default ${gate.fallback})`).join('\n')}`,
@@ -328,8 +432,10 @@ export function renderAcceptanceGates(claudeDir: ClaudeDirState): string {
     '## Acceptance gates',
     '',
     '- [ ] `npx blueprint inspect` findings are all explainable as real debt',
-    '- [ ] `npx blueprint inspect --baseline` exits 0 — ledger locked when debt exists, correctly absent when it does not',
-    '- [ ] The blueprint lint rules run inside the project\'s own lint command (merged, conflicts resolved) — or the legacy-config migration is a named decision item in the report',
+    '- [ ] `npx blueprint inspect --baseline` exits 0 — '
+    + 'ledger locked when debt exists, correctly absent when it does not',
+    '- [ ] The blueprint lint rules run inside the project\'s own lint command (merged, '
+    + 'conflicts resolved) — or the legacy-config migration is a named decision item in the report',
     '- [ ] No `*.blueprint.*` reference file remains in the repo',
     '- [ ] The report names every import cycle and every upward dependency found',
     `- [ ] Deleted: ${cleanupTargets(claudeDir)} THEN \`npx blueprint doctor\` passes with no \`⊘\` — a skip is not a pass and keeps exit 0 — doctor flags them as leftovers, so it is the last thing you run, not a mid-flow smoke test`,
@@ -347,7 +453,8 @@ export function renderResumePoint(): string {
     '## If you stop midway',
     '',
     'Nothing is lost.',
-    'This playbook and the survey stay on disk; `inspect` is read-only, `init` is idempotent, and the baseline is only written at the final step.',
+    'This playbook and the survey stay on disk; `inspect` is read-only, '
+    + '`init` is idempotent, and the baseline is only written at the final step.',
     'A human (or another agent) resumes from the same loop.',
   ].join('\n');
 }

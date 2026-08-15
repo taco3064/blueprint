@@ -346,13 +346,15 @@ describe('runRules', () => {
     );
 
     expect(output).toContain(
-      '  services       no-import: components, hooks · packages: react (useContext) · globals: (none)',
+      '  services       no-import: components, hooks · packages: '
+      + 'react (useContext) · globals: (none)',
     );
 
     // The resolved view is the last thing the report prints. Anything after it
     // sits below a per-layer table and reads as one more layer's row.
     expect(output.endsWith(
-      '  services       no-import: components, hooks · packages: react (useContext) · globals: (none)',
+      '  services       no-import: components, hooks · packages: '
+      + 'react (useContext) · globals: (none)',
     )).toBe(true);
 
     // No config → no resolved view, just the static catalog.
@@ -423,7 +425,8 @@ describe('runRules', () => {
     expect(output).toContain(views?.selfOnly[0].note);
   });
 
-  it('gives the selector in a form that survives being pasted into JS (field run #125)', async () => {
+  it('gives the selector in a form that survives '
+    + 'being pasted into JS (field run #125)', async () => {
     // The claim under test is about JS, so it is asserted rather than described. The
     // separators are / escapes because a raw / ends esquery's regex early — and
     // JS resolves that same escape when it parses a string literal, so the rendered
@@ -583,7 +586,8 @@ describe('runRules', () => {
     expect(parsed.gates.length).toBeGreaterThan(0);
   });
 
-  it('structural annotation mirrors emitLint exactly — never probe the bundle (field #14)', async () => {
+  it('structural annotation mirrors emitLint exactly — '
+    + 'never probe the bundle (field #14)', async () => {
     const selfOnly: Blueprint = {
       framework: 'react',
       architecture: {
