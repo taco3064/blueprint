@@ -95,6 +95,12 @@ reachable by reading source. It is listed again as a boundary check, but its
 moment is not the boundary — it is any time you cannot see a behaviour from the
 code, which is a suspicion rather than a scheduled step.
 
+**Render in a throwaway directory.** Some of what you run to see the output
+writes files — `init` is the obvious one — and run from the repo root it leaves
+them there. That happened here: a session rendering the adoption flow left an
+authoring playbook and a new `.claude/commands/` in the owner's working tree, and
+nobody noticed because the debris looks like something somebody meant.
+
 **Report what you verified, never what somebody said they would do.** *"It is on
 #223"* and *"its last report ended with «next is #223»"* are different claims and
 only the second is yours. An owner who believes the first waits for a PR nobody
