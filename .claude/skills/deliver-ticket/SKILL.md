@@ -48,6 +48,16 @@ This is the cheapest thing in this file and the easiest to skip, because skippin
 
 **This is the standing half of a pair, and it is the half that pays.** The other is under *How you verify* — *a product question is answered on the published site* — and it fires the moment you notice a doubt. **Doing only that one means every question costs a stop.** Reading up front means most of them never form, and the ones that do land on a reader who already knows where the answer lives.
 
+### A thin ticket is not an underspecified one
+
+**A ticket that states an intent and sketches a shape is specified by what the tool already does.** It says what to add. `docs/` says what the thing already is — the model, what each field means today, what the tool refuses to decide, how the nearest existing analogue behaves. **The new thing is derived from those, not invented beside them.**
+
+So when you reach a question the ticket does not answer — what should this default to, what should it reject, what should the message say, what does it do to the emitted artifacts — **find the nearest thing that already exists and read how it behaves.** The answer is usually *the same way that one does*, and where it differs, the existing one tells you which axis the difference is on.
+
+**Asking the owner how to decide something the tool already decided is not caution. It is a failure to read**, and it costs a round trip to be told what was written down before you started. Once you have read it, extend it and keep going.
+
+**When there is genuinely no analogue** — a decision the published behaviour does not imply, or two published positions that point different ways — **that is a shortfall, not a question that stops the work.** Name it in the comment with what you looked at and why neither settles it, say which way you are proceeding and on what basis, **and carry on with everything that does not depend on it.** The owner reads the comments; a delivery that halts on the first genuinely open question delivers nothing while it waits.
+
 **What you read is also what you may not contradict.** If the change would make a published page false, that is not a licence to change the page — it is a **shortfall**: name it, say which page and which line, and say whether you believe the page or the code. The owner decides which one moves.
 
 ## The ticket is the record, not just the target
