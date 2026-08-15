@@ -12,7 +12,19 @@ Cut stages by **what becomes true**, not by which files you happened to open. *"
 
 **A ticket that only makes sense as one commit is one stage.** Do not manufacture stages to have something to report — a single commit with a single honest comment is a complete delivery.
 
+## Dispatching it
+
+**A fresh sub-agent per stage**, given the ticket number, the one stage it is working, and the instruction to read `CLAUDE.md` and every `.claude/docs/` page whose trigger fires.
+
+Tell it what the stage is in terms of **what must become true**, and tell it the boundary in the same breath — what this stage does *not* cover, and that anything it notices outside the stage is reported rather than fixed. An implementer given a goal and no edge will find the edge by crossing it.
+
+**Ask it for what you need to write the comment**, since it has it and you do not: the commands it ran and their output, which of its claims it measured and which it reasoned, and anything it noticed and did not act on.
+
 ## Before you commit
+
+**Verify what came back rather than accepting it.** *"Done, tests pass"* is the implementer reporting confidence; it is not evidence and it is not yours until you have run it. Re-run the layer that matters, read the artifact if the stage touched one, and read the diff — **not for style, for scope**: a change wider than the stage is the most common thing a dispatch returns, and it is invisible in a summary.
+
+If what came back is wrong or incomplete, **that is not a shortfall** — a shortfall is something true about the repo. It is an unfinished stage: dispatch again with what was missing, and do not commit in between.
 
 - **Run the layer that could catch this**, not the cheapest one. `.claude/docs/verification-layers.md` says which is which. A unit test proves the logic; it does not prove the emitted artifact says anything.
 - **If the change touches emitted prose, render it.** Enumerate the conditional branches from the code first, render one file per combination, and read them. An empty diff from a branch you never rendered looks exactly like an empty diff from a branch that did not change.
