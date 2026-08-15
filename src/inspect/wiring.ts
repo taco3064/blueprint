@@ -6,8 +6,6 @@ import { activeSetting,
   getModuleShape,
   getSelfOnlyTargets } from '../config';
 import type { Blueprint } from '../config';
-// The patterns leaf, not the emit/lint index: the index also exports lint.ts,
-// whose plugin shares resolve logic with inspect, closing a module cycle.
 import {
   buildStructuralPatterns,
   deriveGlobalRules,
@@ -15,7 +13,7 @@ import {
   resolveTestFiles,
   selfOnlyReexportSelector,
   toArray,
-} from '../emit/lint/patterns';
+} from '../emit/lint';
 import { unwrapModule } from '../project';
 import { dropTestFiles, globToRegExp } from './filter';
 import type { DoctorCheck, ScanResult } from './types';

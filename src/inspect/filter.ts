@@ -1,7 +1,4 @@
-// Import from the patterns leaf, not the emit/lint index — the index also
-// exports lint.ts, which loads the plugin, which shares resolve logic with
-// inspect; routing through the index would close a module cycle.
-import { resolveTestFiles } from '../emit/lint/patterns';
+import { resolveTestFiles } from '../emit/lint';
 import type { ScanResult } from './types';
 
 /**

@@ -87,6 +87,21 @@
       "count": 1
     }
   },
+  "src/boundary/resolve.test.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    }
+  },
+  "src/boundary/resolve.ts": {
+    "blueprint/relative-escape": {
+      "count": 2
+    }
+  },
+  "src/boundary/verdict.test.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    }
+  },
   "src/cli/cli.test.ts": {
     "@stylistic/max-len": {
       "count": 1
@@ -225,7 +240,7 @@
       "count": 2
     },
     "blueprint/relative-escape": {
-      "count": 2
+      "count": 4
     }
   },
   "src/inspect/baseline.test.ts": {
@@ -255,7 +270,7 @@
   },
   "src/inspect/deps.ts": {
     "blueprint/relative-escape": {
-      "count": 2
+      "count": 4
     }
   },
   "src/inspect/doctor.test.ts": {
@@ -301,12 +316,12 @@
   },
   "src/inspect/resolve.test.ts": {
     "@stylistic/max-len": {
-      "count": 6
+      "count": 4
     }
   },
   "src/inspect/resolve.ts": {
     "blueprint/relative-escape": {
-      "count": 2
+      "count": 4
     }
   },
   "src/inspect/rules.test.ts": {

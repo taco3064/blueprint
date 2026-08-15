@@ -2,12 +2,6 @@
   "version": 2,
   "findings": [
     {
-      "rule": "cycle",
-      "path": "emit",
-      "subject": "emit inspect plugin",
-      "message": "Import cycle between modules: emit → plugin → inspect → emit."
-    },
-    {
       "rule": "relative-escape",
       "path": "src/bootstrap/alias.ts",
       "subject": "../config",
@@ -153,6 +147,12 @@
     },
     {
       "rule": "relative-escape",
+      "path": "src/boundary/resolve.ts",
+      "subject": "../config",
+      "message": "Relative import \"../config\" leaves this layer — use the alias, or extract shared code to a lower layer."
+    },
+    {
+      "rule": "relative-escape",
       "path": "src/cli/cli.ts",
       "subject": "../bootstrap",
       "message": "Relative import \"../bootstrap\" leaves this layer — use the alias, or extract shared code to a lower layer."
@@ -268,6 +268,12 @@
     {
       "rule": "relative-escape",
       "path": "src/inspect/analyze.ts",
+      "subject": "../boundary",
+      "message": "Relative import \"../boundary\" leaves this layer — use the alias, or extract shared code to a lower layer."
+    },
+    {
+      "rule": "relative-escape",
+      "path": "src/inspect/analyze.ts",
       "subject": "../config",
       "message": "Relative import \"../config\" leaves this layer — use the alias, or extract shared code to a lower layer."
     },
@@ -280,8 +286,14 @@
     {
       "rule": "relative-escape",
       "path": "src/inspect/coverage.ts",
-      "subject": "../emit/lint/patterns",
-      "message": "Relative import \"../emit/lint/patterns\" leaves this layer — use the alias, or extract shared code to a lower layer."
+      "subject": "../emit/lint",
+      "message": "Relative import \"../emit/lint\" leaves this layer — use the alias, or extract shared code to a lower layer."
+    },
+    {
+      "rule": "relative-escape",
+      "path": "src/inspect/deps.ts",
+      "subject": "../boundary",
+      "message": "Relative import \"../boundary\" leaves this layer — use the alias, or extract shared code to a lower layer."
     },
     {
       "rule": "relative-escape",
@@ -310,14 +322,20 @@
     {
       "rule": "relative-escape",
       "path": "src/inspect/filter.ts",
-      "subject": "../emit/lint/patterns",
-      "message": "Relative import \"../emit/lint/patterns\" leaves this layer — use the alias, or extract shared code to a lower layer."
+      "subject": "../emit/lint",
+      "message": "Relative import \"../emit/lint\" leaves this layer — use the alias, or extract shared code to a lower layer."
     },
     {
       "rule": "relative-escape",
       "path": "src/inspect/inspect.ts",
       "subject": "../project",
       "message": "Relative import \"../project\" leaves this layer — use the alias, or extract shared code to a lower layer."
+    },
+    {
+      "rule": "relative-escape",
+      "path": "src/inspect/resolve.ts",
+      "subject": "../boundary",
+      "message": "Relative import \"../boundary\" leaves this layer — use the alias, or extract shared code to a lower layer."
     },
     {
       "rule": "relative-escape",
@@ -334,8 +352,8 @@
     {
       "rule": "relative-escape",
       "path": "src/inspect/rules.ts",
-      "subject": "../emit/lint/patterns",
-      "message": "Relative import \"../emit/lint/patterns\" leaves this layer — use the alias, or extract shared code to a lower layer."
+      "subject": "../emit/lint",
+      "message": "Relative import \"../emit/lint\" leaves this layer — use the alias, or extract shared code to a lower layer."
     },
     {
       "rule": "relative-escape",
@@ -352,8 +370,8 @@
     {
       "rule": "relative-escape",
       "path": "src/inspect/wiring.ts",
-      "subject": "../emit/lint/patterns",
-      "message": "Relative import \"../emit/lint/patterns\" leaves this layer — use the alias, or extract shared code to a lower layer."
+      "subject": "../emit/lint",
+      "message": "Relative import \"../emit/lint\" leaves this layer — use the alias, or extract shared code to a lower layer."
     },
     {
       "rule": "relative-escape",
@@ -370,8 +388,8 @@
     {
       "rule": "relative-escape",
       "path": "src/plugin/relative-escape.ts",
-      "subject": "../inspect/resolve",
-      "message": "Relative import \"../inspect/resolve\" leaves this layer — use the alias, or extract shared code to a lower layer."
+      "subject": "../boundary",
+      "message": "Relative import \"../boundary\" leaves this layer — use the alias, or extract shared code to a lower layer."
     },
     {
       "rule": "relative-escape",
@@ -406,8 +424,8 @@
     {
       "rule": "relative-escape",
       "path": "src/survey/survey.ts",
-      "subject": "../inspect/resolve",
-      "message": "Relative import \"../inspect/resolve\" leaves this layer — use the alias, or extract shared code to a lower layer."
+      "subject": "../boundary",
+      "message": "Relative import \"../boundary\" leaves this layer — use the alias, or extract shared code to a lower layer."
     },
     {
       "rule": "relative-escape",

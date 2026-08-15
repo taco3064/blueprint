@@ -1,17 +1,16 @@
-import { getForbiddenLayers, getModuleShape, getSelfOnlyTargets, normalizeAllowedImporters } from '../config';
-import type { ArchitectureDef, Blueprint } from '../config';
-import { dropTestFiles } from './filter';
-import { compareText } from './order';
 import {
-  aliasList,
-  buildModuleGraph,
   entryResolver,
   layoutResolver,
   relativeVerdict,
   resolveSegments,
   stripAlias,
-} from './resolve';
-import type { EntryOf, LayoutOf } from './resolve';
+} from '../boundary';
+import type { EntryOf, LayoutOf } from '../boundary';
+import { getForbiddenLayers, getModuleShape, getSelfOnlyTargets, normalizeAllowedImporters } from '../config';
+import type { ArchitectureDef, Blueprint } from '../config';
+import { dropTestFiles } from './filter';
+import { compareText } from './order';
+import { aliasList, buildModuleGraph } from './resolve';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
