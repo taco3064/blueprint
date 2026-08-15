@@ -1,13 +1,25 @@
-// This package's own blueprint. Self-referencing `@kekkai/blueprint` resolves
-// through the `exports` field to `./dist/index.js`, so `npm run build` has to
-// have run — the same import an adopter writes, resolved the same way.
+// This package's own blueprint, and it imports nothing on purpose.
+//
+// An adopter writes `import { defineBlueprint } from '@kekkai/blueprint'`, and
+// here that specifier is a self-reference: it resolves through `exports` to
+// `./dist/index.js`, so the config governing `src/` would be compiled from an
+// earlier state of `src/` and nothing would say which. `resolve.ts` is explicit
+// that this is optional — a hand-written config may skip `defineBlueprint`, and
+// `resolveBlueprint` calls `validateBlueprint` on load either way, so a
+// structural mistake still fails with the same message. `eslint.blueprint.config.ts`
+// validates it too, before ESLint sees it.
 //
 // It governs nothing yet. Nothing in `npm run lint` or CI reads this file; the
 // composed run that does is `npm run lint:blueprint`, and it is red by
-// construction. See #293 and #319.
-import { defineBlueprint } from '@kekkai/blueprint';
+// construction. See #293, #319 and #339.
+//
+// The annotation is what `defineBlueprint` was contributing beyond validation:
+// it checks this literal against the schema in the editor. Type-only, erased at
+// runtime, and it names `./src` rather than the package for the same reason the
+// import is gone. An adopter writes `import('@kekkai/blueprint').Blueprint`.
 
-export default defineBlueprint({
+/** @type {import('./src').Blueprint} */
+export default {
   name: '@kekkai/blueprint',
   // Not a front-end app. `auto` is what the schema has for that, and it widens
   // the layer globs to every source extension rather than naming a framework
@@ -76,4 +88,4 @@ export default defineBlueprint({
     typedefOnlyFile: 'warn',
     usePrefixReactivity: 'warn',
   },
-});
+};

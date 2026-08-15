@@ -19,11 +19,20 @@
 import imports from 'eslint-plugin-import-x';
 import stylistic from '@stylistic/eslint-plugin';
 import tseslint from 'typescript-eslint';
-import { emitLint } from '@kekkai/blueprint';
+// `./src`, never the package name. That specifier is a self-reference here and
+// resolves through `exports` to `./dist/index.js` — so the rules measuring `src/`
+// would be built from an earlier `src/`, and a stale run is indistinguishable
+// from a fresh one. ESLint loads this file through jiti, which resolves the
+// entry-only directory imports `src/index.ts` is written with; plain Node cannot,
+// which is why `blueprint.config.mjs` next door imports nothing at all.
+import { emitLint, validateBlueprint } from './src';
 import base from './eslint.config';
 import blueprint from './blueprint.config.mjs';
 
 export default [
   ...base,
-  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }),
+  // The config exports a plain object, so this is the call that would otherwise
+  // be `defineBlueprint`'s — kept here so a structural mistake fails before
+  // ESLint reports a thousand findings derived from it.
+  ...emitLint(validateBlueprint(blueprint), { typescript: tseslint.plugin, stylistic, imports }),
 ];
