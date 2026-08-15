@@ -1,0 +1,551 @@
+{
+  "src/bootstrap/alias.test.ts": {
+    "@stylistic/max-len": {
+      "count": 10
+    }
+  },
+  "src/bootstrap/alias.ts": {
+    "blueprint/relative-escape": {
+      "count": 3
+    },
+    "curly": {
+      "count": 6
+    }
+  },
+  "src/bootstrap/apply.test.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    }
+  },
+  "src/bootstrap/apply.ts": {
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/bootstrap/authoring.test.ts": {
+    "@stylistic/max-len": {
+      "count": 18
+    },
+    "curly": {
+      "count": 2
+    }
+  },
+  "src/bootstrap/authoring.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    },
+    "blueprint/relative-escape": {
+      "count": 4
+    }
+  },
+  "src/bootstrap/bootstrap.test.ts": {
+    "@stylistic/max-len": {
+      "count": 10
+    }
+  },
+  "src/bootstrap/bootstrap.ts": {
+    "@stylistic/max-len": {
+      "count": 3
+    },
+    "blueprint/relative-escape": {
+      "count": 8
+    },
+    "curly": {
+      "count": 8
+    }
+  },
+  "src/bootstrap/contain.ts": {
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/bootstrap/ignored.ts": {
+    "blueprint/relative-escape": {
+      "count": 1
+    },
+    "curly": {
+      "count": 5
+    }
+  },
+  "src/bootstrap/plan.test.ts": {
+    "@stylistic/max-len": {
+      "count": 18
+    }
+  },
+  "src/bootstrap/plan.ts": {
+    "@stylistic/max-len": {
+      "count": 9
+    },
+    "blueprint/relative-escape": {
+      "count": 7
+    },
+    "curly": {
+      "count": 2
+    }
+  },
+  "src/bootstrap/playbook.ts": {
+    "@stylistic/max-len": {
+      "count": 182
+    },
+    "blueprint/relative-escape": {
+      "count": 5
+    },
+    "curly": {
+      "count": 2
+    },
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/bootstrap/wire.test.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    }
+  },
+  "src/bootstrap/wire.ts": {
+    "curly": {
+      "count": 2
+    }
+  },
+  "src/cli/cli.test.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    }
+  },
+  "src/cli/cli.ts": {
+    "blueprint/relative-escape": {
+      "count": 8
+    },
+    "curly": {
+      "count": 4
+    },
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/config/defineBlueprint.test.ts": {
+    "@stylistic/max-len": {
+      "count": 8
+    }
+  },
+  "src/config/defineBlueprint.ts": {
+    "@stylistic/max-len": {
+      "count": 2
+    },
+    "curly": {
+      "count": 4
+    }
+  },
+  "src/config/graph.test.ts": {
+    "@stylistic/max-len": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/config/settings.ts": {
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/e2e/adoption.e2e.test.ts": {
+    "blueprint/test-filename-matches-source": {
+      "count": 1
+    }
+  },
+  "src/emit/agent/agent.ts": {
+    "blueprint/relative-escape": {
+      "count": 1
+    }
+  },
+  "src/emit/agent/sections.test.ts": {
+    "@stylistic/max-len": {
+      "count": 9
+    }
+  },
+  "src/emit/agent/sections.ts": {
+    "@stylistic/max-len": {
+      "count": 6
+    },
+    "blueprint/relative-escape": {
+      "count": 3
+    },
+    "curly": {
+      "count": 5
+    }
+  },
+  "src/emit/agent/targets.test.ts": {
+    "@stylistic/max-len": {
+      "count": 3
+    },
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/emit/agent/targets.ts": {
+    "blueprint/relative-escape": {
+      "count": 2
+    }
+  },
+  "src/emit/docs/diagram.test.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    }
+  },
+  "src/emit/docs/diagram.ts": {
+    "blueprint/relative-escape": {
+      "count": 2
+    },
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/emit/docs/docs.ts": {
+    "blueprint/relative-escape": {
+      "count": 1
+    }
+  },
+  "src/emit/docs/sections.test.ts": {
+    "@stylistic/max-len": {
+      "count": 2
+    }
+  },
+  "src/emit/docs/sections.ts": {
+    "@stylistic/max-len": {
+      "count": 5
+    },
+    "blueprint/relative-escape": {
+      "count": 3
+    },
+    "curly": {
+      "count": 5
+    }
+  },
+  "src/emit/lint/lint.test.ts": {
+    "@stylistic/max-len": {
+      "count": 2
+    },
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/emit/lint/lint.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    },
+    "blueprint/relative-escape": {
+      "count": 3
+    },
+    "curly": {
+      "count": 3
+    }
+  },
+  "src/emit/lint/patterns.ts": {
+    "@stylistic/max-len": {
+      "count": 13
+    },
+    "blueprint/relative-escape": {
+      "count": 1
+    },
+    "curly": {
+      "count": 5
+    }
+  },
+  "src/impact/impact.test.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    },
+    "curly": {
+      "count": 5
+    }
+  },
+  "src/impact/impact.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    },
+    "blueprint/relative-escape": {
+      "count": 5
+    }
+  },
+  "src/inspect/analyze.test.ts": {
+    "@stylistic/max-len": {
+      "count": 5
+    },
+    "curly": {
+      "count": 4
+    }
+  },
+  "src/inspect/analyze.ts": {
+    "@stylistic/max-len": {
+      "count": 2
+    },
+    "blueprint/relative-escape": {
+      "count": 2
+    },
+    "curly": {
+      "count": 13
+    }
+  },
+  "src/inspect/baseline.test.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    }
+  },
+  "src/inspect/baseline.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    }
+  },
+  "src/inspect/coverage.test.ts": {
+    "@stylistic/max-len": {
+      "count": 2
+    }
+  },
+  "src/inspect/coverage.ts": {
+    "blueprint/relative-escape": {
+      "count": 3
+    }
+  },
+  "src/inspect/deps.test.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    }
+  },
+  "src/inspect/deps.ts": {
+    "blueprint/relative-escape": {
+      "count": 2
+    },
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/inspect/doctor.test.ts": {
+    "@stylistic/max-len": {
+      "count": 6
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/inspect/doctor.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    },
+    "blueprint/relative-escape": {
+      "count": 4
+    },
+    "curly": {
+      "count": 6
+    }
+  },
+  "src/inspect/filter.test.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    }
+  },
+  "src/inspect/filter.ts": {
+    "blueprint/relative-escape": {
+      "count": 1
+    }
+  },
+  "src/inspect/inspect.ts": {
+    "blueprint/relative-escape": {
+      "count": 2
+    }
+  },
+  "src/inspect/order.ts": {
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/inspect/report.test.ts": {
+    "@stylistic/max-len": {
+      "count": 7
+    }
+  },
+  "src/inspect/report.ts": {
+    "@stylistic/max-len": {
+      "count": 3
+    },
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/inspect/resolve.test.ts": {
+    "@stylistic/max-len": {
+      "count": 6
+    }
+  },
+  "src/inspect/resolve.ts": {
+    "blueprint/relative-escape": {
+      "count": 2
+    },
+    "curly": {
+      "count": 8
+    }
+  },
+  "src/inspect/rules.test.ts": {
+    "@stylistic/max-len": {
+      "count": 4
+    },
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/inspect/rules.ts": {
+    "@stylistic/max-len": {
+      "count": 5
+    },
+    "blueprint/relative-escape": {
+      "count": 6
+    },
+    "curly": {
+      "count": 4
+    }
+  },
+  "src/inspect/scan.test.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    }
+  },
+  "src/inspect/scan.ts": {
+    "curly": {
+      "count": 2
+    }
+  },
+  "src/inspect/wiring.test.ts": {
+    "@stylistic/max-len": {
+      "count": 3
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 4
+    },
+    "curly": {
+      "count": 2
+    }
+  },
+  "src/inspect/wiring.ts": {
+    "blueprint/relative-escape": {
+      "count": 4
+    },
+    "curly": {
+      "count": 10
+    }
+  },
+  "src/markdown/markdown.ts": {
+    "blueprint/relative-escape": {
+      "count": 1
+    },
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/plugin/no-deep-watch.test.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    }
+  },
+  "src/plugin/no-deep-watch.ts": {
+    "curly": {
+      "count": 3
+    }
+  },
+  "src/plugin/relative-escape.test.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    }
+  },
+  "src/plugin/relative-escape.ts": {
+    "blueprint/relative-escape": {
+      "count": 1
+    },
+    "curly": {
+      "count": 3
+    }
+  },
+  "src/plugin/test-filename-matches-source.ts": {
+    "curly": {
+      "count": 2
+    }
+  },
+  "src/plugin/use-prefix-needs-reactivity.test.ts": {
+    "@stylistic/max-len": {
+      "count": 2
+    }
+  },
+  "src/plugin/use-prefix-needs-reactivity.ts": {
+    "curly": {
+      "count": 3
+    }
+  },
+  "src/plugin/use-prefix.ts": {
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/presets/presets.test.ts": {
+    "@stylistic/max-len": {
+      "count": 2
+    },
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/presets/presets.ts": {
+    "@stylistic/max-len": {
+      "count": 33
+    },
+    "blueprint/relative-escape": {
+      "count": 2
+    }
+  },
+  "src/project/detect.test.ts": {
+    "@stylistic/max-len": {
+      "count": 15
+    }
+  },
+  "src/project/detect.ts": {
+    "blueprint/relative-escape": {
+      "count": 1
+    },
+    "curly": {
+      "count": 44
+    },
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "src/project/resolve.ts": {
+    "blueprint/relative-escape": {
+      "count": 4
+    },
+    "curly": {
+      "count": 1
+    }
+  },
+  "src/project/types.ts": {
+    "blueprint/relative-escape": {
+      "count": 1
+    }
+  },
+  "src/survey/survey.test.ts": {
+    "@stylistic/max-len": {
+      "count": 16
+    },
+    "curly": {
+      "count": 2
+    }
+  },
+  "src/survey/survey.ts": {
+    "@stylistic/max-len": {
+      "count": 1
+    },
+    "blueprint/relative-escape": {
+      "count": 5
+    },
+    "curly": {
+      "count": 6
+    }
+  }
+}

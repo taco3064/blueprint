@@ -267,6 +267,49 @@ await check('the declared types file exists', () => {
   return types;
 });
 
+await check('no emitted declaration carries this repo\'s own import alias', async () => {
+  // `tsc` does not rewrite path mappings. An aliased import inside `src/` lands
+  // verbatim in the per-file declarations `tsconfig.types.json` emits, and a
+  // consumer type-checking against `dist/` gets TS2307 on a path only this
+  // repo's tsconfig resolves. Nothing before this point can see it: in-process
+  // the alias resolves, lint is green, the build succeeds, the bundle runs.
+  //
+  // Read from the blueprint rather than hard-coded — the alias is declared in
+  // one place, and a check spelling it a second time goes stale silently.
+  const { default: blueprint } = await import(
+    pathToFileURL(path.join(root, 'blueprint.config.mjs')).href
+  );
+
+  const alias = blueprint?.architecture?.alias;
+
+  expect(alias, 'blueprint.config.mjs declares no architecture.alias to check for');
+
+  const declarations = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.d.ts')) declarations.push(full);
+    }
+  };
+
+  walk(path.join(root, 'dist'));
+
+  const offenders = declarations
+    .filter((file) => fs.readFileSync(file, 'utf-8').includes(alias))
+    .map((file) => path.relative(root, file));
+
+  expect(
+    !offenders.length,
+    `${alias} survives into ${offenders.length} declaration file(s): ${offenders.join(', ')}\n`
+    + `an adopter type-checking against dist/ gets TS2307 on ${alias}/… — `
+    + 'import relatively inside src/, or teach the build to rewrite the mapping',
+  );
+
+  return `${alias} absent from ${declarations.length} .d.ts files`;
+});
+
 // ------------------------------------------------------------------------- done
 
 for (const dir of temps) fs.rmSync(dir, { recursive: true, force: true });
