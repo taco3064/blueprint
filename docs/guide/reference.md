@@ -135,8 +135,10 @@ The ban's *message* text is yours to write — `doctor` verifies selectors, neve
 messages.
 
 One scope note that outlives the fold, because it is true of the check rather than of
-your config: **doctor's survival check compares the import bans, the globals and the
-selfOnly selectors — not package ownership.** So a merge that drops a package ban stays
+your config: **doctor's survival check compares the import bans, the globals, the
+module-root ban and the selfOnly selectors, plus the embedded `blueprint/*` rules that
+are not a column in `rules` at all — not package ownership.** So a merge that drops a
+package ban stays
 green there, and that column is yours to verify. `blueprint rules` names the command
 for it, on the layers where you actually own a package.
 
