@@ -151,16 +151,27 @@ flat config 是**取代**不是合併 —— 但只發生在「兩筆都命中�
 手動合併的 config 要自己把參數帶過去：
 
 ```js
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import stylistic from '@stylistic/eslint-plugin';
 import imports from 'eslint-plugin-import-x';
 import tseslint from 'typescript-eslint';
 
+const projectRoot = dirname(fileURLToPath(import.meta.url));
+
 export default [
   /* …你原本的設定 */
-  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }),
+  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports, projectRoot }),
 ];
 ```
 
+- **`projectRoot`** 不是外掛，也不是關卡 —— 它是這個 config 檔所在的絕對路徑，<br>
+  也是相對匯入規則用來量出你的分層在哪的依據。<br>
+  少了它，規則就只剩分層「名稱」可以定位，<br>
+  於是一個剛好放在同名目錄（`components/`、`lib/`、`app/`）裡的 checkout 會被讀成住在那個分層裡面，<br>
+  它的相對匯入錯誤在 eslint 這邊安靜下來，`inspect` 那邊照樣報。<br>
+  `cwd` 代替不了 —— 它會跟著 eslint 從哪裡被執行而跑掉，而 config 檔自己的位置不會。<br>
+  這也是唯一一個 `doctor` 會去驗的參數：合併時漏掉它，合併存活檢查會直接紅，而不是安靜地放過。
 - **`explicitAny`** 要 `typescript`。<br>
   跟 `unusedVars` 不一樣，這條沒有原生規則可以退回去 —— `any` 是 TypeScript 才有的東西，<br>
   所以在 JS 專案裡這個關卡沒有意義，`inspect` 會直接把它從涵蓋率的分母移掉，<br>

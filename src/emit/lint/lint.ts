@@ -304,6 +304,12 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
       // from — the same derivations `inspect` uses, passed rather than inferred,
       // so the two gates cannot disagree about which segment is the layer or
       // where the coordinates start.
+      //
+      // `projectRoot` is the third of those and the one `inspect` never needed:
+      // it walks down from `<root>/<sourceRoot>` and the coordinates are free,
+      // while a rule gets an absolute path and must find that origin inside it.
+      // Omitted rather than defaulted when the caller has no root to give —
+      // there is no value this could invent that is better than the search.
       'blueprint/relative-escape': [
         severity,
         {
@@ -311,6 +317,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
           entries,
           depth: moduleDepth(architecture),
           sourceRoot: architecture.sourceRoot ?? 'src',
+          ...(options.projectRoot === undefined ? {} : { projectRoot: options.projectRoot }),
         },
       ],
     },

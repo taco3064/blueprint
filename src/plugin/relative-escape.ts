@@ -24,11 +24,18 @@ import { relativeVerdict, resolveSegments, sourceRootName, stripSourceRoot } fro
  * honest decision at a time.
  *
  * Options: `{ layouts: { [layer]: 'folder' | 'file' }, entries: { [layer]:
- * string }, depth, sourceRoot }` — the per-layer module layout map, the entry
- * filename (`index` when absent), the segment position the layer sits at, and
- * the source root the coordinates are counted from (`src` when absent). Files
- * outside that root, or outside a declared layer, are skipped (the emitted
- * config scopes this rule to layer files anyway).
+ * string }, depth, sourceRoot, projectRoot }` — the per-layer module layout map,
+ * the entry filename (`index` when absent), the segment position the layer sits
+ * at, the source root the coordinates are counted from (`src` when absent), and
+ * the absolute project root the search for that root starts at. Files outside
+ * that root, or outside a declared layer, are skipped (the emitted config scopes
+ * this rule to layer files anyway).
+ *
+ * `projectRoot` is what stops a directory ABOVE the project from being read as a
+ * layer — see `stripSourceRoot`. The rule cannot derive it: eslint hands a rule
+ * `cwd`, which moves to wherever the linter was invoked from, and never the
+ * config file's own location, which does not. So `emitLint` passes it down, the
+ * same way `depth` and `sourceRoot` come down rather than being inferred.
  */
 /**
  * Verdict → message id, for the four that are reported without extra data.
@@ -70,6 +77,9 @@ export const relativeEscape: Rule.RuleModule = {
           sourceRoot: {
             type: 'string',
           },
+          projectRoot: {
+            type: 'string',
+          },
         },
         additionalProperties: false,
       },
@@ -93,15 +103,22 @@ export const relativeEscape: Rule.RuleModule = {
     },
   },
   create(context) {
-    const { layouts = {}, entries = {}, depth = 0, sourceRoot = 'src' }
+    const { layouts = {}, entries = {}, depth = 0, sourceRoot = 'src', projectRoot }
       = (context.options[0] as {
         layouts?: Record<string, 'folder' | 'file'>;
         entries?: Record<string, string>;
         depth?: number;
         sourceRoot?: string;
+        projectRoot?: string;
       } | undefined) ?? {};
 
-    const segments = stripSourceRoot(context.filename, sourceRoot, Object.keys(layouts), depth);
+    const segments = stripSourceRoot(
+      context.filename,
+      sourceRoot,
+      Object.keys(layouts),
+      depth,
+      projectRoot,
+    );
 
     // Null covers both ways a file can be outside what this rule speaks about:
     // no position under the source root, and a position whose segment at

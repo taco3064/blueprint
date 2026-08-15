@@ -28,12 +28,21 @@ export default vuePreset({ name: 'my-app' });
 // 持有」的標記）—— 手寫的 eslint config 一律不覆蓋。
 // 客製化的 entry 請留在你自己的 config 檔，並在那裡展開
 // ...emitLint(blueprint)，不要改這個檔案。
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { emitLint } from '@kekkai/blueprint';
 import comments from '@eslint-community/eslint-plugin-eslint-comments';
 import stylistic from '@stylistic/eslint-plugin';
 import imports from 'eslint-plugin-import-x';
 import vueParser from 'vue-eslint-parser';
 import blueprint from './blueprint.config.mjs';
+
+// 這個檔案所在的位置就是專案根目錄，而這正是重點：相對匯入的規則拿到的是
+// 絕對路徑，除此之外它只有分層名稱可以定位，所以當 checkout 剛好放在一個
+// 跟你某個分層同名的目錄裡，整個專案就會被讀成住在那個分層裡面。
+// cwd 沒辦法代替 —— 它會跟著 eslint 從哪裡被執行而跑掉；這個不會。
+// 刻意寫成長的版本：import.meta.dirname 要 Node 20.11，而這個套件支援到 18。
+const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 export default [
   // Parser 設定 —— 只有在「這個檔案就是實際生效的 config」時才需要。
@@ -45,7 +54,7 @@ export default [
     files: ['**/*.vue'],
     languageOptions: { parser: vueParser },
   },
-  ...emitLint(blueprint, { stylistic, imports }),
+  ...emitLint(blueprint, { stylistic, imports, projectRoot }),
   // 反繞道護欄 —— 這段「不屬於」emitLint。一個安靜、沒說明的
   // eslint-disable，正是 Agent 繞過上面每一條規則的方式，所以這兩條
   // 規則強制每個 disable 都要帶上作用範圍與 -- 理由。預設立場：採用。
@@ -73,6 +82,12 @@ export default [
 `stylistic` 跟 `imports` 是**參數**，不是套件的依賴：blueprint 一個依賴都沒有，<br>
 所以外掛缺席的關卡會完全不 emit，而 lint 照樣是綠的。<br>
 哪個關卡靠哪個外掛，以及 `emitLint` 展開的內容 —— 分層流向、套件所有權、單元入口、[內嵌 plugin 規則](/zh-TW/guide/reference#內嵌-eslint-外掛) —— 總表頁有完整清單。
+
+`projectRoot` 是唯一不是外掛的參數，也是上面那兩個 `node:` import 存在的理由。<br>
+相對匯入的規則拿到的是絕對路徑，除此之外沒有別的東西可以量出你的分層在哪。<br>
+所以少了它，一個剛好放在同名目錄（`components/`、`lib/`、`app/`）裡的 checkout 就會被讀成住在那個分層裡面 —— eslint 這邊安靜下來，`blueprint inspect` 那邊照樣報。<br>
+`cwd` 代替不了：它會跟著 eslint 從哪裡被執行而跑掉，而 config 檔自己的位置不會。<br>
+手動併入既有 config 時，那兩個 import 跟那行 `const` 要跟著展開一起抄過去 —— 少了這個定位點，`blueprint doctor` 的合併存活檢查會直接紅。
 
 ## `docs/architecture-handbook.md` —— 說明
 

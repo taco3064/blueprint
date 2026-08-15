@@ -61,20 +61,37 @@ export function stripAlias(
  * the layer test is what tells them apart. Outermost-first, so the configured
  * root wins over a repeat of itself further down.
  *
- * A `sourceRoot` of `.` leaves no run to find, so the layer test is the whole
- * anchor there — and an ancestor directory named exactly like a declared layer
- * is read as that layer.
+ * `projectRoot` floors the search at the project's own first segment, and it is
+ * the anchor a `sourceRoot` of `.` otherwise lacks entirely: with no root run to
+ * find, the layer test is the whole anchor, so a directory ABOVE the project
+ * named exactly like a declared layer wins it and every verdict below is drawn
+ * in the wrong coordinates. A named root has the same hole one shape further
+ * out — an ancestor carrying `<sourceRoot>/<layer>` in that order — so the floor
+ * is not conditional on `.`.
+ *
+ * The floor is a position, not a prefix test: a `projectRoot` the filename does
+ * not start with leaves the search where it began rather than anchoring
+ * somewhere invented, so the worst a mismatch can do is what this did before it
+ * was passed at all.
  */
 export function stripSourceRoot(
   filename: string,
   sourceRoot: string,
   layerNames: string[],
   depth = 0,
+  projectRoot?: string,
 ): string[] | null {
   const parts = filename.split(/[\\/]/).filter(Boolean);
   const root = dirSegments(sourceRoot);
 
-  for (let at = 0; at < parts.length; at++) {
+  // Split the way `parts` is split, not with `dirSegments`: that one reads
+  // config text and only knows `/`, while this is a real path off the disk and
+  // carries `\` and a drive letter on Windows. Both sides must segment alike or
+  // the count below lands in the wrong place.
+  const project = projectRoot?.split(/[\\/]/).filter(Boolean) ?? [];
+  const floor = project.every((segment, i) => parts[i] === segment) ? project.length : 0;
+
+  for (let at = floor; at < parts.length; at++) {
     if (!root.every((segment, i) => parts[at + i] === segment)) continue;
 
     const segments = parts.slice(at + root.length);

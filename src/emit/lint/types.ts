@@ -62,6 +62,26 @@ export interface EmitLintOptions {
    * walk inside its own source.
    */
   imports?: ESLint.Plugin;
+  /**
+   * The absolute directory the project's own files start under — in the emitted
+   * config, `dirname(fileURLToPath(import.meta.url))`, since that file sits at
+   * the project root.
+   *
+   * Without it the relative-import rule has only the layer NAME to anchor on,
+   * and a directory above the project called `components` (or any other declared
+   * layer) is read as that layer: the rule then judges every relative import in
+   * the wrong coordinates and, in the case that started this, reports nothing at
+   * all while `inspect` reports the same file as a `layer-escape`. A
+   * `sourceRoot` of `.` has no other anchor, and a named root has the same hole
+   * under an ancestor spelling `<sourceRoot>/<layer>`, so this is not a `.`-only
+   * option.
+   *
+   * It cannot be inferred inside the rule: eslint gives a rule `cwd`, which
+   * moves to wherever the linter was invoked from, and never the config file's
+   * location, which does not move. Doctor's merge-survival check reddens when a
+   * merge drops it — unlike the plugin options above, this one is guarded.
+   */
+  projectRoot?: string;
 }
 
 /** A package restriction derived from layers' `owns`, merged by signature. */

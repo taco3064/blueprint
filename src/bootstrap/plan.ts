@@ -411,7 +411,17 @@ function eslintWiringNote(state: ProjectState): string {
   // vacuous gate looks exactly like a passing one — so every snippet below
   // carries the full object rather than the minimal one.
   const lintOptions = (ts: boolean) =>
-    (ts ? '{ typescript: tseslint.plugin, stylistic, imports }' : '{ stylistic, imports }');
+    (ts
+      ? '{ typescript: tseslint.plugin, stylistic, imports, projectRoot }'
+      : '{ stylistic, imports, projectRoot }');
+
+  // `projectRoot` is a value the merged file has to COMPUTE, not a package it
+  // imports, so it travels as these two lines rather than inside the options
+  // object — a merge that copies the spread and not this leaves `projectRoot`
+  // undefined, which is why doctor checks for it.
+  const rootLines = '    import { dirname } from \'node:path\';\n'
+    + '    import { fileURLToPath } from \'node:url\';\n'
+    + '    const projectRoot = dirname(fileURLToPath(import.meta.url));\n';
 
   // A `tseslint.config()` shape IS a TypeScript project whatever the dep scan
   // says, so that branch keeps the TS variant unconditionally.
@@ -421,7 +431,13 @@ function eslintWiringNote(state: ProjectState): string {
     + '  library deps: stylistic carries codeStyle / statementsPerLine /\n'
     + '  statementPadding, imports carries importBlock, and the TS one carries\n'
     + '  explicitAny. A gate whose plugin is absent emits NOTHING while lint still\n'
-    + '  passes — dropping an argument looks exactly like a clean merge.\n';
+    + '  passes — dropping an argument looks exactly like a clean merge.\n'
+    + '  projectRoot is the fourth member and the only one that is not a plugin:\n'
+    + '  it is the absolute path this config file sits at, and it is what stops a\n'
+    + '  checkout inside a directory named like one of your layers from being read\n'
+    + '  as living in that layer. Dropping it silences relative-import errors that\n'
+    + '  `blueprint inspect` still reports — doctor reddens on a missing one, so\n'
+    + '  unlike the three above this member is guarded rather than trusted.\n';
 
   // A TypeScript eslint config importing the .mjs blueprint config trips
   // TS7016 (no declaration file) when the tsconfig covering the config
@@ -467,6 +483,7 @@ function eslintWiringNote(state: ProjectState): string {
       + '    import { emitLint } from \'@kekkai/blueprint\';\n'
       + '    import stylistic from \'@stylistic/eslint-plugin\';\n'
       + '    import imports from \'eslint-plugin-import-x\';\n'
+      + rootLines
       + '    export default tseslint.config(\n'
       + '      /* …your existing configs */\n'
       + `      ...emitLint(blueprint, ${lintOptions(true)}),\n`
@@ -485,6 +502,7 @@ function eslintWiringNote(state: ProjectState): string {
   const spread = (state.hasTypescript ? '    import tseslint from \'typescript-eslint\';\n' : '')
     + '    import stylistic from \'@stylistic/eslint-plugin\';\n'
     + '    import imports from \'eslint-plugin-import-x\';\n'
+    + rootLines
     + `    export default [ /* …your existing entries */ ...emitLint(blueprint, ${options}) ];\n`;
 
   return 'eslint.config already exists — blueprint never edits it, so eslint.config.blueprint.mjs '
@@ -499,7 +517,7 @@ function eslintWiringNote(state: ProjectState): string {
     + '  combining into ONE entry, and that combined entry is the one thing that goes\n'
     + `  after the spread.${state.hasTypescript
       ? ''
-      : ' On a TypeScript\n  project add the TS plugin too — emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }).'}\n`
+      : ' On a TypeScript\n  project add the TS plugin too — emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports, projectRoot }).'}\n`
       + injectNote
       + shared;
 }
@@ -623,6 +641,8 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     '// blueprint-owned) — a hand-written eslint config is never overwritten.',
     '// Keep custom entries in your own config and spread ...emitLint(blueprint)',
     '// there instead of editing this file.',
+    'import { dirname } from \'node:path\';',
+    'import { fileURLToPath } from \'node:url\';',
     'import { emitLint } from \'@kekkai/blueprint\';',
     'import comments from \'@eslint-community/eslint-plugin-eslint-comments\';',
     'import stylistic from \'@stylistic/eslint-plugin\';',
@@ -630,14 +650,23 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
     ...parserImports,
     'import blueprint from \'./blueprint.config.mjs\';',
     '',
+    '// Where this file sits IS the project root, and that is the point: the',
+    '// relative-import rule is handed absolute paths and otherwise has only the',
+    '// layer name to anchor on, so a checkout inside a directory named like one',
+    '// of your layers gets read as living in that layer. cwd cannot stand in —',
+    '// it follows wherever eslint was invoked from; this does not move.',
+    '// Spelled the long way on purpose: import.meta.dirname needs Node 20.11,',
+    '// and this package supports 18.',
+    'const projectRoot = dirname(fileURLToPath(import.meta.url));',
+    '',
     'export default [',
     ...(parserBlocks.length ? parserHeader : []),
     ...parserBlocks,
     // All three plugins are INJECTED, never library deps. Drop an argument and its
     // gates go silent without a word — keep the object whole when merging.
     ts
-      ? '  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }),'
-      : '  ...emitLint(blueprint, { stylistic, imports }),',
+      ? '  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports, projectRoot }),'
+      : '  ...emitLint(blueprint, { stylistic, imports, projectRoot }),',
     '  // The anti-bypass guard — NOT part of emitLint. A silent, unexplained',
     '  // eslint-disable is exactly how an agent routes around every rule',
     '  // above, so these two rules force each disable to carry a scope and a',

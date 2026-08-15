@@ -439,6 +439,68 @@ describe('blueprint/relative-escape · at a source root that is not src', () => 
   });
 });
 
+describe('blueprint/relative-escape · a checkout path that contains a layer name', () => {
+  /**
+   * The fixture above picks a project directory that cannot collide with a layer
+   * name. This one picks the opposite on purpose: `components` is a declared
+   * layer AND an ordinary directory name, so a checkout at
+   * `…/components/app` puts one above the project.
+   *
+   * Under `sourceRoot: '.'` there is no root run to search for, so the layer
+   * name is the entire anchor and the outermost match wins it — the ancestor.
+   * Every verdict below is then drawn from `components/app/…` instead of the
+   * project, and the rule answers `ok` to an import that leaves the layer, while
+   * `inspect` reports the same file as `layer-escape` and names this rule in the
+   * remedy. `projectRoot` is what tells the two apart.
+   */
+  const ROOT = path.resolve('/components/app');
+  const rooted = new Linter({ configType: 'flat', cwd: ROOT });
+
+  const at = (projectRoot: string | undefined, code: string, rel: string): string[] =>
+    rooted
+      .verify(
+        code,
+        {
+          files: ['**'],
+          plugins: { blueprint: plugin },
+          languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+          rules: {
+            'blueprint/relative-escape': [
+              'error',
+              {
+                layouts: LAYOUTS,
+                sourceRoot: '.',
+                ...(projectRoot === undefined ? {} : { projectRoot }),
+              },
+            ],
+          },
+        },
+        { filename: path.join(ROOT, rel) },
+      )
+      .map((message) => message.messageId ?? '');
+
+  it('anchors at the project, not at the ancestor that shares a layer name', () => {
+    expect(at(ROOT, 'import x from "../resources/matches";', 'components/Button.ts'))
+      .toEqual(['leavesLayer']);
+  });
+
+  it('is silent on that same import without the anchor — the defect this closes', () => {
+    // Not a documentation case: this asserts the WRONG answer, so that a floor
+    // that stops working fails here loudly instead of leaving the row above
+    // green for some other reason. `[]` is the whole bug — a verdict the reader
+    // cannot tell from a correct one.
+    expect(at(undefined, 'import x from "../resources/matches";', 'components/Button.ts'))
+      .toEqual([]);
+  });
+
+  it('still allows what is genuinely legal once anchored', () => {
+    // The control the row above needs: with the floor in place the rule must not
+    // simply report everything. A wrong anchor shows up as silence OR as noise,
+    // and one assertion cannot see both.
+    expect(at(ROOT, 'import x from "./Card";', 'components/Button.ts')).toEqual([]);
+  });
+});
+
 describe('blueprint/relative-escape · at module depth', () => {
   // Without the depth the guard reads `Fighter` where it expects a layer name,
   // matches nothing in `layouts`, and registers no visitors — so every case

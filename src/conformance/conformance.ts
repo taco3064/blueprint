@@ -119,12 +119,23 @@ export function configSource(blueprint: Blueprint): string {
  * spread would.
  */
 export function wiredEslintConfig(blueprint: Blueprint, extraEntries = ''): string {
-  const entries = emitLint(blueprint).map((entry) => {
+  // The anchor is a COMPUTED value in the real generated config, not a literal,
+  // so the fixture computes it too: emitLint is handed a sentinel, and the
+  // sentinel is swapped back out for the identifier once the entries are data.
+  // Hardcoding the temp directory here would pass while the spelling adopters
+  // actually run — `import.meta.url` off the config file's own location — went
+  // untested, and that spelling is the whole fix.
+  const ROOT_SENTINEL = '__BLUEPRINT_PROJECT_ROOT__';
+
+  const rooted = (json: string): string =>
+    json.split(JSON.stringify(ROOT_SENTINEL)).join('projectRoot');
+
+  const entries = emitLint(blueprint, { projectRoot: ROOT_SENTINEL }).map((entry) => {
     const { plugins, ...rest } = entry;
 
     return plugins
-      ? `{ ...${JSON.stringify(rest)}, plugins: { blueprint: stub } }`
-      : JSON.stringify(rest);
+      ? `{ ...${rooted(JSON.stringify(rest))}, plugins: { blueprint: stub } }`
+      : rooted(JSON.stringify(rest));
   });
 
   // Every `blueprint/*` id the emitted config actually references, derived
@@ -150,6 +161,11 @@ export function wiredEslintConfig(blueprint: Blueprint, extraEntries = ''): stri
 
   return [
     '// wired from @kekkai/blueprint emitLint — inlined for the conformance fixture',
+    'import { dirname } from \'node:path\';',
+    'import { fileURLToPath } from \'node:url\';',
+    '',
+    'const projectRoot = dirname(fileURLToPath(import.meta.url));',
+    '',
     // Without a permissive schema, ESLint 9 defaults to "zero options" and
     // rejects the {layouts} option during config resolution.
     'const stub = { rules: {',

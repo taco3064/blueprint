@@ -200,7 +200,19 @@ describe('plan', () => {
 
     // No parser blocks: the array opens straight onto the emitLint spread, and
     // the header that explains those blocks stays out along with them.
-    expect(bare).toContain('export default [\n  ...emitLint(blueprint, { stylistic, imports }),');
+    expect(bare).toContain(
+      'export default [\n  ...emitLint(blueprint, { stylistic, imports, projectRoot }),',
+    );
+
+    // The anchor is computed above the array on every path, so it is asserted
+    // here rather than in a shape-specific case. Node 18 is the floor this
+    // package declares and `import.meta.dirname` starts at 20.11 — the short
+    // spelling would leave `projectRoot` undefined on the floor, silently, and
+    // nothing in CI executes this emitted file on 18 to catch it.
+    expect(bare).toContain('const projectRoot = dirname(fileURLToPath(import.meta.url));');
+    expect(bare).toContain('import { dirname } from \'node:path\';');
+    expect(bare).toContain('import { fileURLToPath } from \'node:url\';');
+    expect(bare).not.toContain('import.meta.dirname;');
 
     // vue without typescript: the header appears, its TS-only paragraph does
     // not, so the header runs straight into the first parser block.
@@ -392,7 +404,7 @@ describe('plan', () => {
 
     expect(note?.note).toContain('eslint.config.blueprint.mjs');
     // Non-TS repo: stylistic still rides along — two gates depend on it.
-    expect(note?.note).toContain('...emitLint(blueprint, { stylistic, imports })');
+    expect(note?.note).toContain('...emitLint(blueprint, { stylistic, imports, projectRoot })');
     expect(note?.note).toContain('import stylistic from \'@stylistic/eslint-plugin\';');
     // Not a TS repo — the TS variant stays a prose hint, not the snippet.
     expect(note?.note).toContain('On a TypeScript');
@@ -426,7 +438,7 @@ describe('plan', () => {
     // The copied line must be the correct one — prose four lines later
     // does not save a copy-the-first-snippet agent (field issue #12).
     expect(note?.note)
-      .toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }) ];');
+      .toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports, projectRoot }) ];');
 
     expect(note?.note).toContain('import tseslint from \'typescript-eslint\';');
     expect(note?.note).toContain('import stylistic from \'@stylistic/eslint-plugin\';');
@@ -440,7 +452,7 @@ describe('plan', () => {
     expect(note?.note).toContain('export default tseslint.config(');
     // A tseslint.config() shape IS a TS project — the TS plugin rides along
     // even when the dep scan did not see `typescript`.
-    expect(note?.note).toContain('emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports })');
+    expect(note?.note).toContain('emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports, projectRoot })');
     expect(note?.note).toContain('DELETE the reference');
     // Same LAST disambiguation as the flat-array note, asserted separately because
     // this passage is a hand-copied twin of that one and has drifted from it before

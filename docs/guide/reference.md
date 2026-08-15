@@ -183,16 +183,28 @@ merge. The generated config wires all three plugins and `init` installs them; a
 hand-merged config has to carry the argument itself:
 
 ```js
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import stylistic from '@stylistic/eslint-plugin';
 import imports from 'eslint-plugin-import-x';
 import tseslint from 'typescript-eslint';
 
+const projectRoot = dirname(fileURLToPath(import.meta.url));
+
 export default [
   /* …your entries */
-  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }),
+  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports, projectRoot }),
 ];
 ```
 
+- **`projectRoot`** is not a plugin and not a gate — it is the absolute directory this
+  config file sits in, and it is what the relative-import rule measures your layers
+  from. Without it the rule has only the layer *name* to anchor on, so a checkout
+  inside a directory sharing one (`components/`, `lib/`, `app/`) is read as living in
+  that layer and its relative-import errors go silent while `inspect` still reports
+  them. `cwd` cannot stand in — it follows wherever eslint was invoked from, and the
+  config file's location does not. This is the one argument `doctor` verifies: a merge
+  that drops it fails the merge-survival check rather than passing quietly.
 - **`explicitAny`** needs `typescript`. Unlike `unusedVars` there is no core rule to
   fall back to — `any` is a TypeScript construct, so on a JS project the gate is
   meaningless and `inspect` drops it from the coverage denominator rather than

@@ -181,6 +181,52 @@ describe('stripSourceRoot', () => {
       .toEqual(['components', 'Button.ts']);
   });
 
+  it('floors the search at projectRoot, so an ancestor named like a layer is not the layer', () => {
+    // The whole defect, at the two spellings it ships in. Under `.` there is no
+    // root run to find, so the layer test is the ONLY anchor and the outermost
+    // position wins it — a checkout inside `components/` made every file below
+    // read as layer `components`, and the rule went quiet on imports `inspect`
+    // reports as `layer-escape`. Two gates, opposite answers, one file.
+    expect(stripSourceRoot('/work/components/myapp/services/api/get.ts', '.', LAYERS, 0, '/work/components/myapp'))
+      .toEqual(['services', 'api', 'get.ts']);
+
+    // The checkout ITSELF named like a layer — no intermediate directory needed.
+    expect(stripSourceRoot('/home/dev/components/services/api/get.ts', '.', LAYERS, 0, '/home/dev/components'))
+      .toEqual(['services', 'api', 'get.ts']);
+
+    // Without the floor, both of the above are the wrong answer this fixes.
+    expect(stripSourceRoot('/work/components/myapp/services/api/get.ts', '.', LAYERS))
+      .toEqual(['components', 'myapp', 'services', 'api', 'get.ts']);
+  });
+
+  it('floors a NAMED root too — the same hole one shape further out', () => {
+    // The ticket's title says `'.'`, and the bug is not `.`-only: a named root
+    // needs the ancestor to spell `<sourceRoot>/<layer>` in that order, which is
+    // rarer but is the identical wrong anchor. Passing the root fixes both, so
+    // this case is pinned rather than left to be rediscovered.
+    expect(stripSourceRoot('/work/src/components/myapp/src/components/Card.ts', 'src', LAYERS))
+      .toEqual(['components', 'myapp', 'src', 'components', 'Card.ts']);
+
+    expect(stripSourceRoot('/work/src/components/myapp/src/components/Card.ts', 'src', LAYERS, 0, '/work/src/components/myapp'))
+      .toEqual(['components', 'Card.ts']);
+  });
+
+  it('leaves the search where it was when projectRoot does not prefix the filename', () => {
+    // A floor is a position, not a prefix test, and counting blind would skip
+    // segments off the front of an unrelated path — turning a wrong anchor into
+    // a null, which is silence, which is worse. So the count applies only where
+    // the root really is the front of the path; anywhere else this degrades to
+    // exactly what it did before a root was passed.
+    expect(stripSourceRoot('/elsewhere/src/components/Button.ts', 'src', LAYERS, 0, '/work/myapp'))
+      .toEqual(['components', 'Button.ts']);
+
+    // Windows arrives with backslashes and a drive letter on BOTH sides — the
+    // root is split the way the filename is, or the segment counts disagree and
+    // the floor lands in the middle of the project.
+    expect(stripSourceRoot('C:\\work\\components\\myapp\\services\\api.ts', '.', LAYERS, 0, 'C:\\work\\components\\myapp'))
+      .toEqual(['services', 'api.ts']);
+  });
+
   it('survives the separators a real filename arrives with', () => {
     // ESLint hands the rule the platform's own path, and a doubled separator is
     // a routine typo. An empty segment lands where the layer name goes, and a

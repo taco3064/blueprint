@@ -164,6 +164,9 @@ export async function runImpact(
       ...(tseslint ? { typescript: tseslint.plugin } : {}),
       stylistic,
       imports,
+      // This runtime is the one caller that never has to be told: it was handed
+      // the root. An adopter's own eslint config reads it off its own location.
+      projectRoot: root,
     }),
   ];
 
