@@ -51,10 +51,11 @@ const label = (merged: boolean): string =>
  * playbook recommends, so the blind spot now covers the intended shape, and the
  * playbook's remedy moved with it: two probes in the affected layer, not one.
  */
-const SCOPE = 'structural bans + the module-root ban + the embedded plugin rules + each active '
-  + 'gate\'s carrier rule, one probe per emitted entry — per (module, layer) and per module zone '
-  + 'under `modules`; thresholds, package-ownership entries, and a merged entry scoped to only '
-  + 'part of one entry\'s files are not compared';
+const SCOPE = 'structural bans + the module-root ban + the embedded plugin rules + '
+  + 'relative-escape\'s projectRoot anchor + each active gate\'s carrier rule, one probe per '
+  + 'emitted entry — per (module, layer) and per module zone under `modules`; thresholds, '
+  + 'package-ownership entries, and a merged entry scoped to only part of one entry\'s files '
+  + 'are not compared';
 
 /**
  * Gates whose ESLint rule exists only if the caller handed `emitLint` the carrier
@@ -411,6 +412,7 @@ function resolvedStructural(rules: Record<string, unknown>): {
   globals: Set<string>;
   paths: Set<string>;
   relativeEscape: boolean;
+  relativeEscapeRoot: boolean;
   reexport: boolean;
   rootImport: boolean;
   unreadable: number;
@@ -479,6 +481,15 @@ function resolvedStructural(rules: Record<string, unknown>): {
     globals,
     paths,
     relativeEscape: activeOptions(rules['blueprint/relative-escape']) !== null,
+    // Read one level deeper than the rest of this family, because this one can
+    // be lost WITHOUT the rule going missing: `projectRoot` is a value the
+    // merged config has to compute, not a plugin it imports, so a merge that
+    // copies the spread and leaves the two `node:` lines behind keeps the rule
+    // and drops its anchor. That is the failure mode the anchor exists to fix,
+    // reintroduced by the fix's own merge step, so it is checked rather than
+    // trusted.
+    relativeEscapeRoot: optionsOf(rules['blueprint/relative-escape'])
+      .some((option) => typeof (option as { projectRoot?: unknown })?.projectRoot === 'string'),
     reexport: activeOptions(rules['blueprint/no-module-reexport']) !== null,
     rootImport: activeOptions(rules['blueprint/no-module-root-import']) !== null,
     unreadable,
@@ -559,6 +570,9 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
   // per probe.
   const carrierLosses = new Map<string, string[]>();
 
+  /** Probes whose relative-escape survived but lost its anchor. */
+  const rootless: string[] = [];
+
   let unreadable = 0;
 
   try {
@@ -600,6 +614,35 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
       for (const entry of carriers.filter((gate) => activeOptions(rules[gate.rule]) === null)) {
         carrierLosses.set(entry.rule, [...(carrierLosses.get(entry.rule) ?? []), probe.label]);
       }
+
+      // Same shape as the carriers above and for the same two reasons — the
+      // check has to be per probe because a later entry can replace the rule on
+      // part of the tree, and the report must not be, or one dropped argument
+      // prints once per entry. `losses` cannot host it: a rule that resolved
+      // WITH its options is not a lost rule, and the remedy is not that list's
+      // "combine both option sets into one entry" either.
+      if (resolved.relativeEscape && !resolved.relativeEscapeRoot) {
+        rootless.push(probe.label);
+      }
+    }
+
+    if (rootless.length) {
+      const scope = rootless.length === probes.length
+        ? `every one of the ${probes.length} entries probed — emitLint's \`projectRoot\` `
+        + 'argument is missing from the spread itself'
+        : `${rootless.length} of the ${probes.length} entries probed (${rootless.join(', ')}) — a `
+          + 'later entry replaced the rule there, so emitLint\'s `projectRoot` argument reaches '
+          + 'the rest and not those';
+
+      lost.push(
+        'blueprint/relative-escape resolved without `projectRoot` in '
+        + `${scope}. It is not a plugin and does not come from an import — add `
+        + '`const projectRoot = dirname(fileURLToPath(import.meta.url));` to the config file '
+        + '(`node:path` / `node:url`) and pass it. Without it the rule anchors on the layer '
+        + 'NAME alone, so a checkout inside a directory named like one of your layers is read '
+        + 'as living in that layer, and relative-import errors `blueprint inspect` still '
+        + 'reports go quiet in eslint',
+      );
     }
 
     for (const entry of carriers) {

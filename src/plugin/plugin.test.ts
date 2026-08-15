@@ -95,6 +95,11 @@ describe('plugin', () => {
           // config failing to resolve, which no conformance fixture can see:
           // the stub there takes `additionalProperties: true`.
           sourceRoot: { type: 'string' },
+          // The absolute project root, and it rides the same
+          // `additionalProperties: false`: emitLint began passing it, so a
+          // schema that does not declare it rejects every emitted config
+          // outright rather than falling back to the old anchor.
+          projectRoot: { type: 'string' },
         },
         additionalProperties: false,
       },

@@ -224,6 +224,27 @@ describe('emitLint · shape', () => {
     expect(escape?.files?.every((glob) => glob.startsWith('lib/app/'))).toBe(true);
   });
 
+  it('carries the caller\'s projectRoot into the rule, and omits the key without one', () => {
+    // The third value the rule cannot infer, and the only one that is not
+    // derivable from the blueprint at all: it is where the config FILE sits.
+    // eslint hands a rule `cwd`, which moves to wherever the linter was invoked
+    // from, so a rule left to work it out anchors on the layer name alone and a
+    // directory above the project named like a layer takes the anchor.
+    const rooted = emitLint(blueprint, { projectRoot: '/work/myapp' });
+    const escape = rooted.find((entry) => entry.rules?.['blueprint/relative-escape']);
+    const setting = escape?.rules?.['blueprint/relative-escape'] as [string, { projectRoot?: string }];
+
+    expect(setting[1].projectRoot).toBe('/work/myapp');
+
+    // And absent — not `undefined` — when the caller has none, because doctor
+    // reads the resolved options to decide whether a merge dropped it. A key
+    // present with an undefined value would read to that check as passed.
+    const bare = emitLint(blueprint).find((entry) => entry.rules?.['blueprint/relative-escape']);
+    const bareSetting = bare?.rules?.['blueprint/relative-escape'] as [string, object];
+
+    expect(Object.keys(bareSetting[1])).not.toContain('projectRoot');
+  });
+
   it('honors emit.lint.severity', () => {
     const warned = emitLint({ ...blueprint, emit: { lint: { severity: 'warn' } } });
     const rule = warned[0].rules?.['no-restricted-imports'] as [string];

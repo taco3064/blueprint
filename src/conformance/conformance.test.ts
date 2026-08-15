@@ -577,6 +577,30 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
     expect(doctor.code).toBe(0);
   });
 
+  it('reddens when the merge kept relative-escape but dropped its projectRoot', async () => {
+    // The failure mode this fix could otherwise reintroduce, end to end. The
+    // anchor is not a plugin — it is two `node:` imports and a `const` the
+    // config file computes — so an agent that copies the spread and nothing else
+    // keeps the rule and loses the anchor, and lint goes quiet on relative
+    // imports `blueprint inspect` still reports. Nothing about that state looks
+    // wrong from the outside, which is why doctor has to be the one to say it.
+    const dropped = wiredEslintConfig(selfOnly).replace(/,"projectRoot":projectRoot/g, '');
+
+    // The sentinel: if emitLint stops emitting the key, the replace above is a
+    // no-op and this test would pass against a config that never had an anchor
+    // to lose — green for the wrong reason, which is the shape being fixed.
+    expect(dropped).not.toEqual(wiredEslintConfig(selfOnly));
+
+    const doctor = await cli(repo(spec(dropped)), ['doctor']);
+
+    expect(doctor.code).toBe(1);
+    expect(doctor.output).toContain('✗ emitted rules survive the merged eslint config');
+    expect(doctor.output).toContain('resolved without `projectRoot`');
+    // The remedy travels with the report: the generic tail on this check tells
+    // the reader to combine option sets, which repairs nothing here.
+    expect(doctor.output).toContain('dirname(fileURLToPath(import.meta.url))');
+  });
+
   it('verifies an EMPTY repo through synthetic probes — no skip, no blind spot', async () => {
     const bare = (eslintConfig: string): RepoSpec => ({
       packageJson: react(),
@@ -1489,7 +1513,7 @@ describe('an injected-plugin gate cannot go silently vacuous', () => {
 
     expect(init.code).toBe(0);
     expect(config).toContain('import stylistic from \'@stylistic/eslint-plugin\';');
-    expect(config).toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports })');
+    expect(config).toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports, projectRoot })');
     // The install set must carry the plugin, or the import is a crash.
     expect(init.output).toContain('@stylistic/eslint-plugin');
   });
@@ -1501,7 +1525,7 @@ describe('an injected-plugin gate cannot go silently vacuous', () => {
 
     const config = read(dir, 'eslint.config.mjs') ?? '';
 
-    expect(config).toContain('...emitLint(blueprint, { stylistic, imports })');
+    expect(config).toContain('...emitLint(blueprint, { stylistic, imports, projectRoot })');
     expect(config).not.toContain('tseslint.plugin');
   });
 
@@ -1899,7 +1923,7 @@ describe('one output, one story — no snippet contradicts its own prose (field 
     expect(init.code).toBe(0);
 
     expect(init.output)
-      .toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }) ];');
+      .toContain('...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports, projectRoot }) ];');
 
     expect(init.output).not.toContain('On a TypeScript');
   });

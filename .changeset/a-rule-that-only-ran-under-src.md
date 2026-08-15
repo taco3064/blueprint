@@ -29,9 +29,11 @@ anything it would otherwise guess is handed to it. A project rooted at `src`
 emits `sourceRoot: 'src'` and every verdict it reaches is the one it reached
 before.
 
-**One limit worth stating, because it is a deliberate trade.** Under
-`sourceRoot: '.'` the file's layer is the only anchor in the path, so a directory
-*above* your project named exactly like one of your layers — `/work/services/my-app`
-with a `services` layer — is read as that layer. That is a wrong reading where
-today's behaviour is no reading at all, which is the direction this issue argues
-for: a gate that is silent cannot be argued with.
+**This shipped with one limit, and that limit is closed in this same release.**
+Under `sourceRoot: '.'` the file's layer was the only anchor in the path, so a
+directory *above* your project named exactly like one of your layers —
+`/work/services/my-app` with a `services` layer — was read as that layer. It was
+taken as a deliberate trade at the time: a wrong reading where the behaviour
+before was no reading at all, and a gate that is silent cannot be argued with.
+It did not have to stay a trade — see the entry on anchoring at the project root,
+which passes `emitLint` the one location that is guaranteed to be the project's.

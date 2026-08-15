@@ -112,8 +112,10 @@ describe('wiringCheck', () => {
       ),
       {
         rules: {
-          // Bare-string severity — the non-array shape of an active rule.
-          'blueprint/relative-escape': 'error',
+          // The shape emitLint writes: active, and carrying the projectRoot
+          // anchor. The bare-string form eslint also accepts is a case of its
+          // own further down — it means the rule survived without its anchor.
+          'blueprint/relative-escape': ['error', { projectRoot: '/repo' }],
           'no-restricted-imports': [2, {
             patterns: [...groups].map((group) => ({
               group: JSON.parse(group) as string[],
@@ -147,7 +149,7 @@ describe('wiringCheck', () => {
 
     const survived = {
       rules: {
-        'blueprint/relative-escape': 'error',
+        'blueprint/relative-escape': ['error', { projectRoot: '/repo' }],
         'no-restricted-imports': [2, {
           patterns: [...views.groups].map((group) => ({ group: JSON.parse(group) as string[] })),
         }],
@@ -228,7 +230,7 @@ describe('wiringCheck', () => {
         'no-restricted-imports': [2, { paths: ['lodash'] }, null],
         'no-restricted-syntax': [2, { message: 'no selector here' }, null],
         'no-restricted-globals': [2, { message: 'no name' }, null],
-        'blueprint/relative-escape': [2, { layouts: {} }],
+        'blueprint/relative-escape': [2, { layouts: {}, projectRoot: '/repo' }],
       },
     });
 
@@ -319,7 +321,7 @@ describe('wiringCheck', () => {
 
     const survived = await run(scanOf(), {
       rules: {
-        'blueprint/relative-escape': 'error',
+        'blueprint/relative-escape': ['error', { projectRoot: '/repo' }],
         'no-restricted-imports': [2, {
           patterns: expected
             .flatMap((e) => [...e.groups])
@@ -442,7 +444,7 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
       .map((layer) => expectedStructural(gated, layer.name));
 
     return {
-      'blueprint/relative-escape': 'error',
+      'blueprint/relative-escape': ['error', { projectRoot: '/repo' }],
       'no-restricted-imports': [2, {
         patterns: [...new Set(expected.flatMap((e) => [...e.groups]))].map((group) => ({
           group: JSON.parse(group) as string[],
@@ -533,6 +535,125 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
   });
 });
 
+describe('wiringCheck · relative-escape\'s projectRoot anchor', () => {
+  // The guard that keeps this fix from reintroducing its own defect. The anchor
+  // is a value the merged config has to COMPUTE — two `node:` lines and a
+  // `const` — not a package it imports, so a merge that copies the spread and
+  // leaves those behind keeps the rule alive and drops the anchor. That state is
+  // byte-identical, to lint, to the bug this whole change closes: eslint silent
+  // on a relative import `inspect` still reports.
+  const structural = () => {
+    const expected = blueprint.architecture.layers
+      .map((layer) => expectedStructural(blueprint, layer.name));
+
+    return {
+      'no-restricted-imports': [2, {
+        patterns: [...new Set(expected.flatMap((e) => [...e.groups]))].map((group) => ({
+          group: JSON.parse(group) as string[],
+        })),
+      }],
+      'no-restricted-syntax': [2, ...new Set(expected.flatMap((e) => [...e.selectors]))],
+      'no-restricted-globals': [2, ...new Set(expected.flatMap((e) => [...e.globals]))],
+    } as Record<string, unknown>;
+  };
+
+  const check = (escape: unknown, scanResult = scanOf('src/views/Home/index.vue')) =>
+    wiringCheck({
+      root: '/repo',
+      blueprint,
+      scanResult,
+      wired: true,
+      merged: true,
+      hasTypescript: true,
+      load: loader({ rules: { ...structural(), 'blueprint/relative-escape': escape } }),
+    });
+
+  it('goes red when the rule survived but the anchor did not', async () => {
+    const result = await check(['error', { sourceRoot: '.', depth: 0 }]);
+
+    expect(result.ok).toBe(false);
+    expect(result.detail).toContain('resolved without `projectRoot`');
+    // The remedy has to be IN this sentence: the tail this check appends tells
+    // the reader to combine option sets into one entry, which repairs nothing
+    // here — nothing replaced the rule, the spread was called without a value.
+    expect(result.detail).toContain('dirname(fileURLToPath(import.meta.url))');
+    // And the cause, named as the thing an adopter can check: a wrong anchor is
+    // invisible downstream, so the sentence has to say what goes wrong.
+    expect(result.detail).toContain('named like one of your layers');
+  });
+
+  it('names the whole spread when every probe lost it, not one entry per probe', async () => {
+    // The carrier family learned this at 241 entries: a globally-dropped
+    // argument printed 241 identical sentences and buried the one fact a reader
+    // needs, which is whether this is one problem or many.
+    const result = await check('error', scanOf(
+      'src/views/Home/index.vue',
+      'src/contexts/user/index.ts',
+      'src/stores/cart/index.ts',
+    ));
+
+    expect(result.ok).toBe(false);
+    expect(result.detail).toContain('argument is missing from the spread itself');
+    expect(result.detail?.match(/resolved without `projectRoot`/g)).toHaveLength(1);
+  });
+
+  it('distinguishes a partial loss, which is a different repair', async () => {
+    // Some entries anchored and some not means a later entry replaced the rule
+    // on part of the tree — the spread itself was fine. Telling an adopter to
+    // add the argument would send them to a file that already has it.
+    const result = await wiringCheck({
+      root: '/repo',
+      blueprint,
+      scanResult: scanOf('src/views/Home/index.vue', 'src/services/api/index.ts'),
+      wired: true,
+      merged: true,
+      hasTypescript: true,
+      load: loader((filePath: string) => ({
+        rules: {
+          ...structural(),
+          'blueprint/relative-escape': filePath.includes('services')
+            ? 'error'
+            : ['error', { projectRoot: '/repo' }],
+        },
+      })),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.detail).toContain('1 of the 4 entries probed');
+    expect(result.detail).toContain('a later entry replaced the rule there');
+  });
+
+  it('stays quiet when the rule is missing outright — that is the other sentence', async () => {
+    // Two different repairs, and reporting both would read as two problems. A
+    // rule that is gone cannot also be a rule that lost an option.
+    const result = await check('off');
+
+    expect(result.ok).toBe(false);
+    expect(result.detail).toContain('blueprint/relative-escape is missing or off');
+    expect(result.detail).not.toContain('resolved without `projectRoot`');
+  });
+
+  it('passes on the shape emitLint actually emits', async () => {
+    const emitted = emitLint(blueprint, { projectRoot: '/repo' })
+      .find((entry) => entry.rules?.['blueprint/relative-escape']);
+
+    // The real emitted value, not a paraphrase of it: a hand-written fixture
+    // agrees with the expectation by construction and proves nothing about
+    // whether emitLint and this reader still mean the same thing.
+    expect((await check(emitted?.rules?.['blueprint/relative-escape'])).ok).toBe(true);
+  });
+
+  it('names the anchor in the scope a green prints', async () => {
+    // The ✓ states its reach, and this check now verifies an OPTION rather than
+    // only a rule's presence. A reader who takes the green as "the rule is
+    // there" would not know the anchor was covered too.
+    const result = await check(['error', { projectRoot: '/repo' }]);
+
+    expect(result.ok).toBe(true);
+    expect(result.label).toContain('projectRoot anchor');
+  });
+});
+
 describe('wiringCheck · selfOnly with several importers (field issue #51)', () => {
   // A selfOnly layer emits its re-export ban on EVERY importer layer, so one
   // rule key owns several scoped entries. A house rule that overlaps just one
@@ -578,10 +699,10 @@ describe('wiringCheck · selfOnly with several importers (field issue #51)', () 
       // resolves to a config where the emitted entry was replaced away.
       load: loader((filePath: string) =>
         filePath.includes('composables')
-          ? { rules: { 'blueprint/relative-escape': 'error' } }
+          ? { rules: { 'blueprint/relative-escape': ['error', { projectRoot: '/repo' }] } }
           : {
               rules: {
-                'blueprint/relative-escape': 'error',
+                'blueprint/relative-escape': ['error', { projectRoot: '/repo' }],
                 'no-restricted-imports': [2, {
                   patterns: [...views.groups]
                     .map((group) => ({ group: JSON.parse(group) as string[] })),
@@ -746,7 +867,7 @@ describe('wiringCheck · the shapes a surviving global ban comes back as', () =>
 
     const check = await run(scanOf('src/views/Home/index.vue'), {
       rules: {
-        'blueprint/relative-escape': 'error',
+        'blueprint/relative-escape': ['error', { projectRoot: '/repo' }],
         'no-restricted-imports': [2, {
           patterns: [...groups].map((group) => ({ group: JSON.parse(group) as string[] })),
         }],
@@ -780,7 +901,7 @@ describe('wiringCheck · entries the reader could not make sense of', () => {
 
     const check = await run(scanOf('src/views/Home/index.vue'), {
       rules: {
-        'blueprint/relative-escape': 'error',
+        'blueprint/relative-escape': ['error', { projectRoot: '/repo' }],
         'no-restricted-imports': [2, {
           patterns: [
             ...[...groups].map((group) => ({ group: JSON.parse(group) as string[] })),
@@ -825,7 +946,7 @@ describe('wiringCheck · entries the reader could not make sense of', () => {
 
     const survived = (extra: unknown[]) => ({
       rules: {
-        'blueprint/relative-escape': 'error',
+        'blueprint/relative-escape': ['error', { projectRoot: '/repo' }],
         'no-restricted-imports': [2, {
           patterns: [
             ...groups.map((group) => ({ group: JSON.parse(group) as string[] })),
@@ -855,7 +976,7 @@ describe('wiringCheck · entries the reader could not make sense of', () => {
 
     const check = await run(scanOf('src/views/Home/index.vue'), {
       rules: {
-        'blueprint/relative-escape': 'error',
+        'blueprint/relative-escape': ['error', { projectRoot: '/repo' }],
         'no-restricted-imports': [2, {
           patterns: new Set(expected.flatMap((e) => [...e.groups])).size === 0
             ? []
@@ -952,7 +1073,7 @@ describe('wiringCheck · a modular repo is probed inside a module', () => {
         const rel = probe.replace('/repo/', '');
 
         return {
-          rules: emitLint(modular)
+          rules: emitLint(modular, { projectRoot: '/repo' })
             .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
             .reduce((merged, entry) => ({ ...merged, ...entry.rules }), {}),
         };
@@ -1000,7 +1121,7 @@ describe('wiringCheck · a modular repo is probed inside a module', () => {
 
         const rel = filePath.split(path.sep).join('/').replace('/repo/', '');
 
-        const merged = emitLint(modular)
+        const merged = emitLint(modular, { projectRoot: '/repo' })
           .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
           .reduce((rules, entry) => ({ ...rules, ...entry.rules }), {});
 
@@ -1049,7 +1170,7 @@ describe('wiringCheck · the module-root ban is verified, not assumed', () => {
       load: loader((filePath: string) => {
         const rel = filePath.split(path.sep).join('/').replace('/repo/', '');
 
-        const merged = emitLint(modular)
+        const merged = emitLint(modular, { projectRoot: '/repo' })
           .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
           .reduce<Record<string, unknown>>(
             (rules, entry) => ({ ...rules, ...entry.rules }),
@@ -1139,7 +1260,7 @@ describe('wiringCheck · the shapes a surviving module-root ban comes back as', 
           ].map((group) => ({ group: JSON.parse(group) as string[] })),
           paths,
         }],
-        'blueprint/relative-escape': ['error', {}],
+        'blueprint/relative-escape': ['error', { projectRoot: '/repo' }],
         'blueprint/no-module-reexport': ['error', {}],
         'blueprint/no-module-root-import': ['error', {}],
       },
@@ -1202,7 +1323,7 @@ describe('wiringCheck · one probe per emitted entry, and losses that name it', 
 
         probed.push(rel);
 
-        const merged = emitLint(four)
+        const merged = emitLint(four, { projectRoot: '/repo' })
           .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
           .reduce<Record<string, unknown>>((rules, entry) => ({ ...rules, ...entry.rules }), {});
 
@@ -1408,7 +1529,7 @@ describe('wiringCheck · the pass-through rule survives the merge too', () => {
     load: loader((filePath: string) => {
       const rel = filePath.split(path.sep).join('/').replace('/repo/', '');
 
-      const merged = emitLint(modular)
+      const merged = emitLint(modular, { projectRoot: '/repo' })
         .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
         .reduce<Record<string, unknown>>((rules, entry) => ({ ...rules, ...entry.rules }), {});
 
@@ -1444,7 +1565,7 @@ describe('wiringCheck · the pass-through rule survives the merge too', () => {
         const rel = filePath.split(path.sep).join('/').replace('/repo/', '');
 
         return {
-          rules: emitLint(flat)
+          rules: emitLint(flat, { projectRoot: '/repo' })
             .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
             .reduce<Record<string, unknown>>((rules, entry) => ({ ...rules, ...entry.rules }), {}),
         };
@@ -1546,7 +1667,7 @@ describe('wiringCheck · a gate loss names the entry that lost it', () => {
       load: loader((filePath: string) => {
         const rel = filePath.split(path.sep).join('/').replace('/repo/', '');
 
-        const merged = emitLint(gated, { stylistic: stylisticPlugin })
+        const merged = emitLint(gated, { stylistic: stylisticPlugin, projectRoot: '/repo' })
           .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
           .reduce<Record<string, unknown>>((rules, entry) => ({ ...rules, ...entry.rules }), {});
 
@@ -1629,7 +1750,7 @@ describe('wiringCheck · the upward-edge rule survives the merge too', () => {
     load: loader((filePath: string) => {
       const rel = filePath.split(path.sep).join('/').replace('/repo/', '');
 
-      const merged = emitLint(modular)
+      const merged = emitLint(modular, { projectRoot: '/repo' })
         .filter((entry) => (entry.files ?? []).some((glob) => globToRegExp(glob).test(rel)))
         .reduce<Record<string, unknown>>((rules, entry) => ({ ...rules, ...entry.rules }), {});
 

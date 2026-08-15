@@ -33,12 +33,23 @@ still merge into ONE entry):
 // blueprint-owned) — a hand-written eslint config is never overwritten.
 // Keep custom entries in your own config and spread ...emitLint(blueprint)
 // there instead of editing this file.
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { emitLint } from '@kekkai/blueprint';
 import comments from '@eslint-community/eslint-plugin-eslint-comments';
 import stylistic from '@stylistic/eslint-plugin';
 import imports from 'eslint-plugin-import-x';
 import vueParser from 'vue-eslint-parser';
 import blueprint from './blueprint.config.mjs';
+
+// Where this file sits IS the project root, and that is the point: the
+// relative-import rule is handed absolute paths and otherwise has only the
+// layer name to anchor on, so a checkout inside a directory named like one
+// of your layers gets read as living in that layer. cwd cannot stand in —
+// it follows wherever eslint was invoked from; this does not move.
+// Spelled the long way on purpose: import.meta.dirname needs Node 20.11,
+// and this package supports 18.
+const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 export default [
   // Parser setup — needed when THIS file is the live config. Merging
@@ -50,7 +61,7 @@ export default [
     files: ['**/*.vue'],
     languageOptions: { parser: vueParser },
   },
-  ...emitLint(blueprint, { stylistic, imports }),
+  ...emitLint(blueprint, { stylistic, imports, projectRoot }),
   // The anti-bypass guard — NOT part of emitLint. A silent, unexplained
   // eslint-disable is exactly how an agent routes around every rule
   // above, so these two rules force each disable to carry a scope and a
@@ -82,6 +93,16 @@ none, so a gate whose plugin is missing emits nothing while lint stays green. Wh
 plugin each gate rides, and what `emitLint` expands to — layer flow, ownership, unit
 entries, the [embedded plugin rules](/guide/reference#the-embedded-eslint-plugin) — is
 enumerated on the reference page.
+
+`projectRoot` is the one argument that is not a plugin, and it is why the two `node:`
+imports are there. The relative-import rule receives absolute paths and has nothing
+else to measure your layers from — so without it, a checkout that happens to sit inside
+a directory sharing a layer name (`components/`, `lib/`, `app/`) is read as living in
+that layer, and relative-import errors go quiet in eslint while `blueprint inspect`
+still reports them. `cwd` cannot substitute: it follows wherever eslint was invoked
+from, while the config file's own location does not move. When merging by hand, copy
+the two imports and the `const` along with the spread — `blueprint doctor` fails its
+merge-survival check if the anchor is missing.
 
 ## `docs/architecture-handbook.md` — Explain
 
