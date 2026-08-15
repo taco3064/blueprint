@@ -1,5 +1,5 @@
 import type { Rule } from 'eslint';
-import { relativeVerdict, resolveSegments, stripSourceRoot } from '../boundary';
+import { relativeVerdict, resolveSegments, sourceRootName, stripSourceRoot } from '../boundary';
 
 /**
  * Relative imports must stay inside their own module. This is the lint-side
@@ -75,7 +75,7 @@ export const relativeEscape: Rule.RuleModule = {
       },
     ],
     messages: {
-      escapesSrc: '🚫 Relative import "{{specifier}}" escapes src/ — use the project alias.',
+      escapesSrc: '🚫 Relative import "{{specifier}}" escapes {{root}} — use the project alias.',
       leavesLayer:
         '🚫 Relative import "{{specifier}}" leaves this layer — use the alias, '
         + 'or extract shared code to a lower layer.',
@@ -113,6 +113,7 @@ export const relativeEscape: Rule.RuleModule = {
     const layoutOf = (layer: string): 'folder' | 'file' => layouts[layer] ?? 'file';
     const entryOf = (layer: string): string => entries[layer] ?? 'index';
     const dir = segments.slice(0, -1);
+    const root = sourceRootName(sourceRoot);
 
     const check = (node: Rule.Node, specifier: string): void => {
       if (!specifier.startsWith('.')) return;
@@ -132,7 +133,7 @@ export const relativeEscape: Rule.RuleModule = {
       // `inspect`'s half of the check is NOT equivalent — it has no such
       // fallback, so dropping it there produces a wrong finding.
       if (target === null) {
-        context.report({ node, messageId: 'escapesSrc', data: { specifier } });
+        context.report({ node, messageId: 'escapesSrc', data: { specifier, root } });
 
         return;
       }
@@ -150,7 +151,7 @@ export const relativeEscape: Rule.RuleModule = {
         return;
       }
 
-      context.report({ node, messageId: MESSAGE_OF[verdict], data: { specifier } });
+      context.report({ node, messageId: MESSAGE_OF[verdict], data: { specifier, root } });
     };
 
     const fromSource = (node: Rule.Node): void => {

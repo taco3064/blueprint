@@ -224,14 +224,19 @@ describe('blueprint/relative-escape · what the rule declines to judge', () => {
 });
 
 describe('blueprint/relative-escape · what each verdict tells the reader', () => {
-  const report = (code: string, filename: string) =>
+  const report = (code: string, filename: string, sourceRoot?: string) =>
     linter.verify(
       code,
       {
         files: ['**'],
         plugins: { blueprint: plugin },
         languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
-        rules: { 'blueprint/relative-escape': ['error', { layouts: LAYOUTS }] },
+        rules: {
+          'blueprint/relative-escape': [
+            'error',
+            { layouts: LAYOUTS, ...(sourceRoot === undefined ? {} : { sourceRoot }) },
+          ],
+        },
       },
       { filename },
     )[0];
@@ -248,6 +253,43 @@ describe('blueprint/relative-escape · what each verdict tells the reader', () =
     expect(message).toContain('"../../package.json"');
     expect(message).toContain('escapes src/');
     expect(message).toContain('use the project alias');
+    expect(message).not.toContain('{{');
+  });
+
+  // The sentence above was a literal `src/`, on a rule whose root is an option.
+  // The two rows below are the roots that option actually takes — `nextPreset`
+  // emits `.` whenever `srcDir` is false — and on both of them the old text
+  // named a directory the repo does not have, which reads as the tool being
+  // broken rather than the import being wrong.
+  it('names the configured root when the source root is not src', () => {
+    const message = report(
+      'import x from "../../package.json";',
+      'app/components/Button.ts',
+      'app',
+    )?.message ?? '';
+
+    expect(message).toContain('"../../package.json"');
+    expect(message).toContain('escapes app/');
+    expect(message).toContain('use the project alias');
+    expect(message).not.toContain('src/');
+    expect(message).not.toContain('{{');
+  });
+
+  it('names no directory at all when the source root is the project root', () => {
+    const message = report(
+      'import x from "../../package.json";',
+      'components/Button.ts',
+      '.',
+    )?.message ?? '';
+
+    expect(message).toContain('"../../package.json"');
+    expect(message).toContain('escapes the source root');
+    expect(message).toContain('use the project alias');
+    // The assertion this row exists for. There is no root folder to cite, so
+    // ANY directory here is wrong — pinning the absence of one catches a
+    // `./`, a `.` and a stale `src/` alike, where naming the right string
+    // would only catch the last.
+    expect(message).not.toMatch(/escapes \S+\//);
     expect(message).not.toContain('{{');
   });
 

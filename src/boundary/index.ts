@@ -3,6 +3,7 @@ export {
   layoutResolver,
   moduleKey,
   resolveSegments,
+  sourceRootName,
   stripAlias,
   stripSourceRoot,
 } from './resolve';

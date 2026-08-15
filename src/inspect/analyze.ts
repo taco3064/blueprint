@@ -16,6 +16,7 @@ import {
   layoutResolver,
   relativeVerdict,
   resolveSegments,
+  sourceRootName,
   stripAlias,
 } from '../boundary';
 import type { EntryOf, LayoutOf } from '../boundary';
@@ -832,6 +833,7 @@ function importFindings(
   const selfOnly = zone === 'layer' ? getSelfOnlyTargets(architecture, fileLayer) : [];
   const layoutOf = layoutResolver(architecture);
   const entryOf = entryResolver(architecture);
+  const rootName = sourceRootName(sourceRoot(architecture));
   const findings: Finding[] = [];
 
   for (const ref of file.imports) {
@@ -951,7 +953,7 @@ function importFindings(
       // second reading here.
       if (zone !== 'layer') continue;
 
-      const escape = relativeEscape(file, ref, layoutOf, entryOf, depth);
+      const escape = relativeEscape(file, ref, layoutOf, entryOf, depth, rootName);
 
       if (escape) findings.push(escape);
     } else {
@@ -1088,6 +1090,7 @@ function relativeEscape(
   layoutOf: LayoutOf,
   entryOf: EntryOf,
   depth: number,
+  rootName: string,
 ): Finding | null {
   const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
   const verdict = relativeVerdict(file.segments, target, layoutOf, entryOf, depth);
@@ -1098,7 +1101,7 @@ function relativeEscape(
   // itself: past this point the target resolved, which is what lets the
   // messages below name a segment of it.
   if (target === null) {
-    return finding('error', 'src-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" escapes src/ — use the project alias.`);
+    return finding('error', 'src-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" escapes ${rootName} — use the project alias.`);
   }
 
   if (verdict === 'reaches-inside') {

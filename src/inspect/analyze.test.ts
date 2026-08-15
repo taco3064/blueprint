@@ -2697,7 +2697,11 @@ describe('analyze · the relative gates agree at whatever root the config names'
   const linter = new Linter({ configType: 'flat', cwd: ROOT });
 
   /** The rule, run with the options `emitLint` emitted for THIS blueprint. */
-  const lintReports = (blueprint: Blueprint, rel: string, specifier: string): number => {
+  const lintRun = (
+    blueprint: Blueprint,
+    rel: string,
+    specifier: string,
+  ): Linter.LintMessage[] => {
     const entry = emitLint(blueprint)
       .find((item) => item.rules?.['blueprint/relative-escape'] !== undefined);
 
@@ -2712,15 +2716,18 @@ describe('analyze · the relative gates agree at whatever root the config names'
         rules: { 'blueprint/relative-escape': ['error', setting[1]] },
       },
       { filename: path.join(ROOT, rel) },
-    ).length;
+    );
   };
 
-  const inspectReports = (
+  const lintReports = (blueprint: Blueprint, rel: string, specifier: string): number =>
+    lintRun(blueprint, rel, specifier).length;
+
+  const inspectRun = (
     blueprint: Blueprint,
     prefix: string,
     segments: string[],
     specifier: string,
-  ): number =>
+  ): Finding[] =>
     analyze(
       {
         topDirs: ['components', 'services'],
@@ -2733,17 +2740,31 @@ describe('analyze · the relative gates agree at whatever root the config names'
         }],
       },
       blueprint,
-    ).filter((finding) => finding.rule.endsWith('-escape') || finding.rule === 'entry-bypass').length;
+    ).filter((finding) => finding.rule.endsWith('-escape') || finding.rule === 'entry-bypass');
+
+  const inspectReports = (
+    blueprint: Blueprint,
+    prefix: string,
+    segments: string[],
+    specifier: string,
+  ): number => inspectRun(blueprint, prefix, segments, specifier).length;
 
   const UNIT = ['components', 'Card', 'index.js'];
   const ESCAPE = '../../services/api';
   const INSIDE = './parts';
+  // Climbs past the source root itself rather than merely out of the layer —
+  // the one verdict whose sentence has to name the root, and so the only
+  // specifier that can test the naming.
+  const ABOVE = '../../../outside/thing';
 
-  const roots: [string, string | undefined, string][] = [
-    ['the default src/', undefined, 'src/'],
-    ['a named root', 'app', 'app/'],
-    ['a nested root', 'lib/app', 'lib/app/'],
-    ['the project root', '.', ''],
+  // The fourth column is how the escape message NAMES this root, which is not
+  // the path prefix beside it: a project root has no directory to cite, so the
+  // prefix is empty and the name is the concept.
+  const roots: [string, string | undefined, string, string][] = [
+    ['the default src/', undefined, 'src/', 'src/'],
+    ['a named root', 'app', 'app/', 'app/'],
+    ['a nested root', 'lib/app', 'lib/app/', 'lib/app/'],
+    ['the project root', '.', '', 'the source root'],
   ];
 
   it.each(roots)('agree about a relative import that leaves the layer under %s', (
@@ -2778,6 +2799,45 @@ describe('analyze · the relative gates agree at whatever root the config names'
 
     expect(lintReports(blueprint, `lib/app/${UNIT.join('/')}`, INSIDE)).toBe(0);
     expect(inspectReports(blueprint, 'lib/app/', UNIT, INSIDE)).toBe(0);
+  });
+
+  // Agreeing about WHETHER an import escapes was #199. This is the other half:
+  // agreeing about what to CALL the thing it escaped. Both gates said `src/` as
+  // a literal, so on three of these four rows they agreed on the verdict and
+  // pointed the reader at a directory the project does not have.
+  it.each(roots)('name that root the same way in both gates, under %s', (
+    _name,
+    sourceRoot,
+    prefix,
+    named,
+  ) => {
+    const blueprint = rooted(sourceRoot);
+    const [finding] = inspectRun(blueprint, prefix, UNIT, ABOVE);
+    const [lint] = lintRun(blueprint, `${prefix}${UNIT.join('/')}`, ABOVE);
+
+    // Published — six docs pages and a baseline key on it — so the id is the
+    // one part of this finding that does NOT move with the root.
+    expect(finding.rule).toBe('src-escape');
+    expect(finding.message).toContain(`escapes ${named} — use the project alias.`);
+
+    // One sentence, two gates: the lint text is the finding's with the rule's
+    // icon in front. Pinned by containment rather than by two separate
+    // `toContain`s, because two texts can each hold the right root and still
+    // be different sentences — which is the drift the shared verdict exists
+    // to make inexpressible, wearing a quieter coat.
+    expect(lint.message).toContain(finding.message);
+  });
+
+  it('compared something — a root that is named nowhere fails the row it belongs to', () => {
+    // The rows above read `named` from the table, so a table that agreed with a
+    // broken implementation would pass in silence. These two are written out.
+    expect(inspectRun(rooted('app'), 'app/', UNIT, ABOVE)[0].message)
+      .toBe('Relative import "../../../outside/thing" escapes app/ — use the project alias.');
+
+    // And the project root, where the whole question is that there is nothing
+    // to cite: any directory in this sentence is wrong, not just a stale `src/`.
+    expect(inspectRun(rooted('.'), '', UNIT, ABOVE)[0].message)
+      .not.toMatch(/escapes \S+\//);
   });
 });
 

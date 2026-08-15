@@ -5,6 +5,7 @@ import {
   layoutResolver,
   moduleKey,
   resolveSegments,
+  sourceRootName,
   stripAlias,
   stripSourceRoot,
 } from './resolve';
@@ -190,6 +191,44 @@ describe('stripSourceRoot', () => {
 
     expect(stripSourceRoot('/repo/src//components/Button.ts', 'src', LAYERS))
       .toEqual(['components', 'Button.ts']);
+  });
+});
+
+describe('sourceRootName', () => {
+  // One row per shape a config can hold, because the message that reads this is
+  // the only thing an adopting agent is guaranteed to see, and a root it does
+  // not have reads as the tool being broken rather than the import being wrong.
+  it.each([
+    ['src', 'src/'],
+    ['app', 'app/'],
+    ['lib/app', 'lib/app/'],
+    // No directory to cite, so the name is the concept — the spelling
+    // `report.ts`'s remedy for the same finding already uses.
+    ['.', 'the source root'],
+    ['', 'the source root'],
+    ['./', 'the source root'],
+    // The spellings `stripSourceRoot` normalises: naming what the config typed
+    // rather than what the comparator matched puts a `./` in front of a
+    // directory the scan reports without one.
+    ['./app', 'app/'],
+    ['src/', 'src/'],
+  ])('names %o as %o', (sourceRoot, expected) => {
+    expect(sourceRootName(sourceRoot)).toBe(expected);
+  });
+
+  it('names the root the comparator matched, on every spelling of one root', () => {
+    // The pin that makes the rows above load-bearing rather than a restatement
+    // of the implementation: these four spellings resolve to the SAME
+    // coordinates, so they have to reach the reader under the same name. Read
+    // the config string directly instead and this is where the two diverge.
+    const spellings = ['src', './src', 'src/', 'src//'];
+
+    for (const spelling of spellings) {
+      expect(stripSourceRoot('/repo/src/components/Button.ts', spelling, ['components', 'services']))
+        .toEqual(['components', 'Button.ts']);
+    }
+
+    expect(spellings.map(sourceRootName)).toEqual(['src/', 'src/', 'src/', 'src/']);
   });
 });
 
