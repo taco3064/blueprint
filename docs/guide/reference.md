@@ -109,8 +109,18 @@ in the array** — after the spread and after that entry both, since later still
 wherever both match — and nothing you already had has to move.
 
 `npx blueprint rules --json` carries the exact `selfOnly` selectors that combined entry
-needs, per layer, in two spellings — and only one of them survives a paste:
+needs — one row per emitted entry, in two spellings, and only one of them survives a
+paste:
 
+- **`zone` says what a row governs, and it is not always a layer.** On a flat config
+  there is one row per layer and every row carries `layer`. Under
+  [`modules`](/guide/structure) there is one per (`module`, `layer`), plus one row per
+  module zone — a layered module's own root (`zone: "root"`) or the whole of a
+  `layers: false` module (`zone: "module"`) — and those two carry no `layer` and no
+  selectors, since `allowedImporters` is a layer's field. Take the row for the entry you
+  are combining with: a module is isolated by default, so a neighbour's selector is a
+  different string, and pasting the wrong row installs a ban that matches nothing with
+  lint green over it
 - **`jsLiteral` is the one to copy** — the selector as JS source, quotes included
 - **`selectors` is the value ESLint resolves.** Right for a program that *builds* a
   config, a trap for one that pastes: the path separators are `/` escapes (a bare
