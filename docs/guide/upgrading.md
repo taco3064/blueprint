@@ -9,10 +9,11 @@ measured rather than promised: on a flat project `blueprint rules` and
 `blueprint deps` are unchanged in this release, text and `--json` alike, and the
 emitted ESLint config enables the same fourteen rules over the same globs at the
 same severities. What a flat project *does* see is the emitted **prose**: five
-ban messages say *unit* where they said *module*, and the emitted handbook, agent
-contract and authoring playbook drop a claim that was wrong — that a same-layer
-import is banned outright. It never was. If you sank shared code into a lower
-layer on that advice, the imports you were avoiding were legal.
+ban messages say *unit* where they said *module*, the emitted agent contract says
+*unit* in the same places, and the emitted handbook drops a claim that was wrong
+— that a same-layer import is banned outright. It never was; it has exactly one
+legal shape, a relative path to the sibling's entry. If you sank shared code into
+a lower layer on that advice, the imports you were avoiding were legal.
 
 The model itself is additive. Omit `modules` and the flat structure behaves
 exactly as it did — [Flat or Modular](/guide/structure) draws both trees and is
