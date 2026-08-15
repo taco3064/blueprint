@@ -28,6 +28,15 @@ substitute first-principles reasoning for what it says.
   (`../config/graph`). Within a module, use relative paths (`./types`).
 - **No `utils` junk drawer.** A shared file earns a name for what it does
   (`markdown`, `patterns`), or lives private to its module.
+- **Never write `@kekkai/blueprint` inside this repo.** For an adopter that
+  specifier resolves to an installed, versioned package; **here it is a
+  self-reference, and `exports` sends it to `./dist/index.js`** — so anything
+  written that way is reading whatever was last built rather than the source
+  beside it, and nothing in the output says which. Import from the source, or
+  import nothing: `defineBlueprint` is one line over `validateBlueprint`, which
+  `project/resolve` already calls on load, so a config can be a plain object.
+  The tell is a command whose answer changes when somebody runs `npm run build`
+  and changes nothing else.
 - **Emitters are pure and deterministic** (`emit*`, `defineBlueprint`,
   presets). Side effects live only in the runtimes (`bootstrap`, `inspect`,
   `cli`) and are split plan (pure) / apply (I/O).
