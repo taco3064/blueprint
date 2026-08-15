@@ -171,9 +171,11 @@ notice: no error, nothing to answer, just a silence that reads like work.
 **One worktree per ticket — `git worktree add` plus `npm ci` in it** — and read
 baselines through `git show <ref>:<path>` rather than off disk. Two sessions over
 one checkout has put commits on the wrong branch and sent a sweep against a tree
-nobody meant to measure. The install is the half that looks skippable and is not:
-`prepare` generates husky's runtime, so a tree without it runs no hooks and
-reports nothing.
+nobody meant to measure. The install is the half that looks skippable and is not,
+though **not for the reason this page gave until the hook runtime became tracked**:
+the gate now runs in a fresh worktree and refuses out loud, naming `npm ci`, because
+the commands it shells out to are not installed. So skipping the install costs a
+blocked commit rather than a silent one — louder, and still the same instruction.
 
 **Anything worth carrying between tickets is worth writing down, and anything not
 worth writing down was not worth carrying.** A habit or a stance goes to
