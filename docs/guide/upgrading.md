@@ -5,8 +5,14 @@ big they are. The first four reach a project that adopts nothing new in this
 release; the last two reach nobody who does not declare `architecture.modules`.
 
 There is a line partway down that says where a flat project stops reading. It is
-measured rather than promised: a flat project's emitted output, `blueprint rules`
-and `blueprint deps` are unchanged in this release, text and `--json` alike.
+measured rather than promised: on a flat project `blueprint rules` and
+`blueprint deps` are unchanged in this release, text and `--json` alike, and the
+emitted ESLint config enables the same fourteen rules over the same globs at the
+same severities. What a flat project *does* see is the emitted **prose**: five
+ban messages say *unit* where they said *module*, and the emitted handbook, agent
+contract and authoring playbook drop a claim that was wrong — that a same-layer
+import is banned outright. It never was. If you sank shared code into a lower
+layer on that advice, the imports you were avoiding were legal.
 
 The model itself is additive. Omit `modules` and the flat structure behaves
 exactly as it did — [Flat or Modular](/guide/structure) draws both trees and is
@@ -228,8 +234,14 @@ one installs a rule that matches nothing with lint green over it.
 is worse than a rename, because nothing about the key looks different: `module`
 keeps its name and stops meaning what it meant.
 
-- **In 3.x**, and in 4.0.0 on a flat project, `modules[].module` is the **layer** —
-  `components`, `services`
+- **In 3.x**, and in 4.0.0 on a flat project, `modules[].module` is the layer's
+  child — `components/Button`, `services/api`. Granularity follows each layer's
+  `layout`, not the version: a `folder`-layout layer answers per child, and
+  `reactPreset` and `vuePreset` declare `folder` on every layer they ship
+- **A `file`-layout layer** collapses to one node, and only there is the value a
+  bare layer name — `components`, `services`. That is what `nextPreset` ships,
+  and what omitting `layout` resolves to. In 3.x that layer spelled the value
+  `'flat'` and answered the same way; entry 3 is that rename
 - **Under `architecture.modules`**, `modules[].module` is the **feature** —
   `Fighter`, `Combat` — and the inner thing moves to a new `units` array, keyed
   `unit`, with the module it lives in beside it

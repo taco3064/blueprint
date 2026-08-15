@@ -5,7 +5,12 @@
 後兩件則碰不到任何沒有宣告 `architecture.modules` 的人。
 
 中間有一條線會告訴你「扁平專案讀到這裡就可以停」。<br>
-那條線是量出來的，不是嘴上保證的：扁平專案這一版產出的檔案、`blueprint rules` 與 `blueprint deps` 的輸出都沒有變，文字輸出與 `--json` 都一樣。
+那條線是量出來的，不是嘴上保證的：在扁平專案上，`blueprint rules` 與 `blueprint deps` 的輸出都沒有變，文字輸出與 `--json` 都一樣；<br>
+產出的 ESLint config 也是同樣那十四條規則、同樣的檔案範圍、同樣的嚴重度。<br>
+扁平專案真正會看到差別的地方是**產出的文字**：<br>
+有五則禁令訊息把 *module* 改成了 *unit*，<br>
+而產出的架構手冊、Agent 守則與導入作業手冊都拿掉了一個原本就錯的說法 —— 「同層匯入一律禁止」。<br>
+它從來就不是禁止的。你如果照那個說法把共用邏輯往下沉到更低的分層，那些你當初在閃避的匯入其實一直都是合法的。
 
 模型本身是加法。<br>
 不寫 `modules`，扁平結構的行為跟以前一模一樣 ——<br>
@@ -208,7 +213,12 @@ for (const row of bans) {
 **誰會撞到：在模組化 repo 上讀 `deps --json` 的程式。**<br>
 這一條比單純改名更難搞，因為那個鍵「看起來完全沒變」：`module` 名字留著，意思換掉了。
 
-- **3.x**，以及 4.0.0 的扁平專案，`modules[].module` 是**分層** —— `components`、`services`
+- **3.x**，以及 4.0.0 的扁平專案，`modules[].module` 是分層底下的子項 —— `components/Button`、`services/api`。<br>
+  決定粒度的是每一層的 `layout`，不是版本：`folder` 佈局的分層以子項作答，<br>
+  而 `reactPreset` 與 `vuePreset` 出廠時每一層都寫了 `folder`
+- **`file` 佈局的分層**會收合成單一節點，只有這種情況下的值才是光禿禿的分層名 —— `components`、`services`。<br>
+  這正是 `nextPreset` 出廠的樣子，也是省略 `layout` 時會解析到的結果。<br>
+  在 3.x，這種分層的值寫作 `'flat'`，行為完全一樣；第 3 條講的就是這個改名
 - **在 `architecture.modules` 之下**，`modules[].module` 是**功能模組** —— `Fighter`、`Combat`；<br>
   裡面那一層則搬到新的 `units` 陣列，鍵叫 `unit`，旁邊附上它所屬的模組
 

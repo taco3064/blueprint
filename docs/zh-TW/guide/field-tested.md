@@ -41,7 +41,7 @@
 
 **Vite + React + TypeScript（npm、舊制 `.eslintrc`）**
 - 專案形態 —— 852 個檔案的正式產品，先前無結構治理
-- 結果 —— 依蒐證數據推導 config；**246 項真實檢測項目**鎖定為基準（包含一條真實的 `services → types → resources → services` 循環依賴）；採用分層各異的模組配置（`resources` 為資料夾式模組）。舊制 ESLint config 的遷移列為待決事項，不強制執行。
+- 結果 —— 依蒐證數據推導 config；**246 項真實檢測項目**鎖定為基準（包含一條真實的 `services → types → resources → services` 循環依賴）；採用分層各異的 `layout` 配置（`resources` 為 `folder` 佈局）。舊制 ESLint config 的遷移列為待決事項，不強制執行。
 
 **create-vite `react-ts`（全新）**
 - 專案形態 —— 全新專案

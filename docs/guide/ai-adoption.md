@@ -5,7 +5,7 @@ layers already exist, and someone has to *read* them before rules can encode the
 Blueprint splits that work into three parts — and only the middle one needs
 intelligence:
 
-**Evidence** — folders, import matrix, module shapes, package concentration
+**Evidence** — top-level shape, folders, import matrix, unit shapes, package concentration
 - Who — deterministic
 - Tool — `blueprint survey`
 
@@ -27,8 +27,13 @@ npx @kekkai/blueprint survey          # human-readable
 npx @kekkai/blueprint survey --json   # for tooling / agents
 ```
 
-- top-level folders with **module-shape evidence** (index coverage, nesting depth —
-  the folder-vs-flat call)
+- the **top-level shape verdict** — `flat` or `modular`, with the evidence that
+  decided it (`shape` in `--json`, `Top-level shape:` in the human output). This
+  is the call [`--structure`](/guide/structure) needs, and when the evidence does
+  not decide it prints `COULD NOT TELL` rather than guessing
+- top-level folders with **unit-shape evidence** (index coverage, nesting depth —
+  the folder-vs-file call). Under a `modular` verdict the same rows read the
+  modules' children
 - the **folder-to-folder import matrix**, heaviest edges first — the intended flow
   direction, and the counter-edges that are debt (the matrix counts test files;
   `inspect` excludes them, so its numbers run lower)

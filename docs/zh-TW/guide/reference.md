@@ -249,7 +249,7 @@ export default [
 - **`survey`** —— `--alias <name>`（tsconfig paths 偵測不到別名時指定）· `--json`
 - **`inspect`** —— `--baseline` · `--update-baseline` · `--framework vue|react` · `--json`
 - **`impact`** —— `--json`
-- **`deps [module]`** —— `--framework vue|react` · `--json`
+- **`deps [target]`** —— `--framework vue|react` · `--json`
 - **`rules`** —— `--json`
 - **`doctor`** —— `--json`
 
