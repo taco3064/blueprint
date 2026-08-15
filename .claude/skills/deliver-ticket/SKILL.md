@@ -26,6 +26,16 @@ So: **what you find while building goes into a comment on the ticket you are bui
 
 **When something genuinely falls outside this ticket** — a defect that predates it, a decision that changes what the tool asserts, work that would still be needed if this ticket had never existed — **say so in the comment and stop.** Name it, give its address, and state that it is outside. The owner decides whether it becomes a ticket. **You do not open it, and you do not absorb it either** — silently fixing an out-of-scope thing is the same failure wearing better clothes, because the next reader cannot tell which part of the diff the ticket asked for.
 
+## Before the first commit, read what the tool already promises
+
+**The ticket says what to build. It does not say what blueprint already claims to do** — and that part is published: `docs/guide/` for behaviour, `docs/philosophy/` for the positions behind it, `docs/api/` for the surface, and the emitted artifacts for what an adopter actually receives.
+
+**Read the pages this ticket touches before you write anything.** Not to settle a doubt — to arrive without it. Most of what would otherwise become a question is already written down: what a finding is allowed to claim, what the tool refuses to decide, what belongs to the owner rather than to an agent, which spellings of a thing are equivalent. **A session that reads first extends a judgment that already exists. A session that does not either asks or invents — and the asking costs a round trip, while the inventing ships.**
+
+This is the cheapest thing in this file and the easiest to skip, because skipping it feels like starting sooner.
+
+**What you read is also what you may not contradict.** If the change would make a published page false, that is not a licence to change the page — it is a **shortfall**: name it, say which page and which line, and say whether you believe the page or the code. The owner decides which one moves.
+
 ## The ticket is the record, not just the target
 
 **Every commit leaves a comment on the ticket.** Not a summary at the end — one comment per commit, as it lands. Someone reading the issue afterwards should be able to follow how the thing was built without opening the diff, and should be able to see where it was wrong on the way.
