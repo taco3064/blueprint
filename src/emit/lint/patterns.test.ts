@@ -14,6 +14,7 @@ import {
   resolveLayerFiles,
   resolveModuleFiles,
   resolveModuleLayerFiles,
+  resolveSourceRootFiles,
   scopedAliases,
   selfOnlyReexportSelector,
   toArray,
@@ -312,6 +313,27 @@ describe('resolveGovernedFiles', () => {
       'src/app/**/*.{js,jsx,ts,tsx}',
       'src/Fighter/*.{js,jsx,ts,tsx}',
     ]);
+  });
+});
+
+describe('resolveSourceRootFiles', () => {
+  it.each<[string | undefined, string[]]>([
+    [undefined, ['src/**/*.js']],
+    ['src', ['src/**/*.js']],
+    ['app', ['app/**/*.js']],
+    ['lib/app', ['lib/app/**/*.js']],
+    // The row a root pasted in front unconditionally gets wrong, in both
+    // directions: `./**/*.js` and `/**/*.js` are each one character from this
+    // and neither matches a path ESLint hands a rule.
+    ['.', ['**/*.js']],
+  ])('roots the net at %s', (sourceRoot, expected) => {
+    const over = sourceRoot === undefined ? {} : { sourceRoot };
+
+    expect(resolveSourceRootFiles(arch(over), 'js')).toEqual(expected);
+  });
+
+  it('nets the extension it is asked for, not the one its only caller passes', () => {
+    expect(resolveSourceRootFiles(arch({ sourceRoot: 'app' }), 'ts')).toEqual(['app/**/*.ts']);
   });
 });
 
