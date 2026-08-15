@@ -65,26 +65,46 @@ hooks/useCart
 查詢不存在的模組時，以 exit code 1 結束，並提示可以跑排行榜列出所有模組；<br>
 查詢成功則以 exit code 0 結束。
 
-## 查詢粒度 —— 由 `module.layout` 決定
+## 查詢粒度 —— 由 `layer.layout` 決定
 
 每個查詢結果的單位是**模組**，<br>
-而模組的界定方式取決於 Blueprint config 中的 [`module.layout`](/zh-TW/api/interfaces/ModuleDef)（可透過 `layer.module` 逐層覆寫）：
+而模組的界定方式取決於各分層自己宣告的 [`layout`](/zh-TW/api/interfaces/LayerDef)：
 
 - **`folder` 佈局** —— 分層之下的每個直屬子項各自成為一個模組（`hooks/useCart`、`components/HelloWorld`）。<br>
   直屬檔案的模組鍵不含副檔名，因此 `deps components/HelloWorld` 與 `components/HelloWorld.vue` 指向同一個模組。
-- **`flat` 佈局** —— 整個分層收斂為**單一節點**。<br>
+- **`file` 佈局** —— 整個分層收斂為**單一節點**。<br>
   此佈局適用於「巢狀資料夾並非模組」的分層 —— 例如 Next.js 的路由樹，`app/(marketing)/pricing/page.tsx` 是一條路由，而非功能資料夾。<br>
+  不寫 `layout` 就會落在這裡。<br>
   粒度切換時，deps 會明確標示，不會無聲改變回答的層級：
 
 ```
-app (flat layer — answers at layer granularity)
+app (file-layout layer — answers at layer granularity)
+```
+
+在 [`modules`](/zh-TW/guide/structure) 之下有兩種粒度，排行榜兩份都印 ——<br>
+先是根目錄上的模組，再來是各模組**裡面**的單元，而單元的鍵會帶上它所屬的模組：
+
+```
+Blast radius per module (imported-by count):
+  1 ← common
+  0 ← app
+
+Blast radius per unit (inside its own module — imported-by count):
+  1 ← app/hooks/useThing
+  1 ← common/services/api
+  0 ← app/components/Panel
 ```
 
 ## 相依圖的涵蓋範圍與邊界
 
 - **僅涵蓋已宣告的分層。**<br>
   `architecture.layers` 以外的資料夾不會納入相依圖；排行榜會將其列為略過項目（如上例的 `legacy/`），避免把「未被掃描」誤讀為「沒有任何模組引用」。<br>
-  查詢此類資料夾內的模組時，會直接說明原因：`✗ "legacy/" is not a declared layer`。
+  查詢此類資料夾內的模組時，會直接說明原因，並把兩種解法一起講出來：
+
+```
+✗ "legacy/" is not a declared layer, so nothing governs it — the import graph holds no node inside it and there is no blast radius to report. Declare it in `architecture.layers`, or run `blueprint deps` for the nodes it does hold.
+```
+
 - **測試檔案一律排除**（`architecture.testFiles`）——<br>
   測試對模組的匯入不算進影響範圍，跟 lint 側的行為一致。
 - **僅有別名匯入與相對路徑匯入會構成相依邊。**<br>
@@ -98,5 +118,12 @@ app (flat layer — answers at layer granularity)
 結構性錯誤會立刻以精確訊息回報，而不是在指令跑到一半時炸出一個難以定位的例外：
 
 ```
-✗ blueprint.config.mjs: architecture.module.private must be an array.
+✗ blueprint.config.mjs: architecture.layers must be an array.
+```
+
+不認得的鍵也會被同樣擋下，而且會講明它被什麼取代了 ——<br>
+3.x 的 config 還留著 `architecture.module` 是最常撞到這一則的情況：
+
+```
+✗ blueprint.config.mjs: Unknown key "module" in architecture — nothing reads it, so the declaration is silently dead. The module shape moved onto each layer in 4.0.0 — write `layout` / `entry` there instead: layers: [{ name: 'components', does: '…', layout: 'folder', entry: 'index' }] (entry defaults to "index", layout to "file"). `private` is gone with no replacement: the entry-only ban already covers every non-entry file, so nothing was enforcing it. Every 3.x config must make this edit, including a flat project that is not adopting `modules`.
 ```

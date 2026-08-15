@@ -67,22 +67,37 @@ hooks/useCart
 An unknown target exits `1` with a pointer back to the leaderboard; every successful
 query exits `0`.
 
-## Granularity — set by `module.layout`
+## Granularity — set by `layer.layout`
 
 The unit of every answer is the **module**, and what counts as a module follows the
-blueprint's [`module.layout`](/api/interfaces/ModuleDef) (per layer, via
-`layer.module`):
+[`layout`](/api/interfaces/LayerDef) declared on each layer:
 
 - **`folder` layout** — each direct child of the layer is one module
   (`hooks/useCart`, `components/HelloWorld`). Direct files drop their extension, so
   `deps components/HelloWorld` and `components/HelloWorld.vue` name the same module.
-- **`flat` layout** — the whole layer collapses to **one node**. This fits layers
+- **`file` layout** — the whole layer collapses to **one node**. This fits layers
   whose nested folders are not modules — a Next.js route tree, for example, where
-  `app/(marketing)/pricing/page.tsx` is a route, not a feature folder. Deps says so
-  explicitly rather than silently switching granularity:
+  `app/(marketing)/pricing/page.tsx` is a route, not a feature folder. Omitting
+  `layout` resolves here. Deps says so explicitly rather than silently switching
+  granularity:
 
 ```
-app (flat layer — answers at layer granularity)
+app (file-layout layer — answers at layer granularity)
+```
+
+Under [`modules`](/guide/structure) there are two granularities and the leaderboard
+prints both — modules at the root, then units inside their own module, whose keys
+carry the module they live in:
+
+```
+Blast radius per module (imported-by count):
+  1 ← common
+  0 ← app
+
+Blast radius per unit (inside its own module — imported-by count):
+  1 ← app/hooks/useThing
+  1 ← common/services/api
+  0 ← app/components/Panel
 ```
 
 ## What is in the graph — and what is not
@@ -90,7 +105,11 @@ app (flat layer — answers at layer granularity)
 - **Declared layers only.** Folders outside `architecture.layers` are not scanned into
   the graph; the leaderboard lists them as skipped (see `legacy/` above) so a zero
   fan-in is never misread as "nobody imports this". Querying into one fails with the
-  reason: `✗ "legacy/" is not a declared layer`.
+  reason and both resolutions:
+
+```
+✗ "legacy/" is not a declared layer, so nothing governs it — the import graph holds no node inside it and there is no blast radius to report. Declare it in `architecture.layers`, or run `blueprint deps` for the nodes it does hold.
+```
 - **Test files are excluded** (`architecture.testFiles`) — a test importing a module
   adds nothing to its blast radius, matching the lint side.
 - **Only alias and relative imports form edges.** Package imports (`axios`, `vue`)
@@ -105,5 +124,12 @@ load anyway. A structural mistake fails immediately with a precise message inste
 crashing mid-command:
 
 ```
-✗ blueprint.config.mjs: architecture.module.private must be an array.
+✗ blueprint.config.mjs: architecture.layers must be an array.
+```
+
+An unknown key is refused the same way, and says what replaced it — a 3.x config
+still carrying `architecture.module` is the case that reaches this most:
+
+```
+✗ blueprint.config.mjs: Unknown key "module" in architecture — nothing reads it, so the declaration is silently dead. The module shape moved onto each layer in 4.0.0 — write `layout` / `entry` there instead: layers: [{ name: 'components', does: '…', layout: 'folder', entry: 'index' }] (entry defaults to "index", layout to "file"). `private` is gone with no replacement: the entry-only ban already covers every non-entry file, so nothing was enforcing it. Every 3.x config must make this edit, including a flat project that is not adopting `modules`.
 ```
