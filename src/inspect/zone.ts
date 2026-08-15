@@ -1,4 +1,5 @@
-import type { ModuleDef } from '../config';
+import { moduleDepth } from '../config';
+import type { ArchitectureDef, ModuleDef } from '../config';
 
 /**
  * Which emitted entry a module's own files answer to — one home, because two
@@ -25,31 +26,50 @@ export function moduleZone(module: ModuleDef): ModuleZone {
 }
 
 /**
- * The module entry governing one file, or null when a LAYER entry governs it —
- * or when nothing does.
- *
- * `resolveModuleFiles` written as a predicate: the module zone's entry is
- * `src/<M>/**` and reaches every file in the module, the root zone's is
- * `src/<M>/*` and reaches one depth. Both halves are asked here, and the module
- * lookup is the half a depth test written at the reader keeps leaving out — a
- * file directly under an UNDECLARED top folder sits at root depth too, and no
- * emitted entry reaches it at any depth.
- *
- * Null on a flat project by the same lookup: there are no modules, so no name
- * matches and no depth is consulted.
+ * Which emitted entry governs one file: a module's own — {@link ModuleZone} —
+ * or a LAYER's. `ModuleZone` stays the module-level union rather than being
+ * widened, because `zoneWord` and doctor's probes answer for a module's entry
+ * and have no layer arm to answer with.
  */
-export function fileZone(
-  segments: string[],
-  modules: ModuleDef[],
-  depth: number,
-): ModuleZone | null {
-  const module = modules.find((entry) => entry.name === segments[0]);
+export type FileZone = ModuleZone | 'layer';
 
-  if (module === undefined) return null;
+/**
+ * The emitted entry governing one file, or null when none does — the WHOLE
+ * answer, so no caller finishes it by reading a layer name for itself.
+ *
+ * `resolveGovernedFiles` written as a predicate. The module zone's entry is
+ * `src/<M>` followed by a recursive glob and reaches every file in the module;
+ * the root zone's is `src/<M>/*` and reaches one depth; a layer's is
+ * `src/<M>/<layer>/` recursive, expanded over DECLARED modules only — which is
+ * the half a depth test written at the reader keeps leaving out, twice over. A
+ * file directly under an undeclared top folder sits at root depth, and one at
+ * layer depth below it carries a declared layer's NAME; no emitted entry
+ * reaches either at any depth, and a `null` that meant "ask the layer name" let
+ * the second one back in.
+ *
+ * `depth` is derived here rather than passed, so the module list and the offset
+ * into the path come out of one architecture and cannot disagree.
+ */
+export function fileZone(segments: string[], architecture: ArchitectureDef): FileZone | null {
+  const { layers, modules } = architecture;
+  const depth = moduleDepth(architecture);
 
-  const zone = moduleZone(module);
+  if (modules !== undefined) {
+    const module = modules.find((entry) => entry.name === segments[0]);
 
-  return zone === 'module' || segments.length === depth + 1 ? zone : null;
+    // A top folder `modules` does not carry: no module entry is emitted for it,
+    // and no layer glob is expanded for a name the declared list has not got.
+    if (module === undefined) return null;
+
+    const zone = moduleZone(module);
+
+    if (zone === 'module' || segments.length === depth + 1) return zone;
+  }
+
+  // Flat arrives here with `depth` at 0, where the layer IS the top folder —
+  // the one level a flat project emits entries for, and the reason this test is
+  // not inside the modular arm above.
+  return layers.some((layer) => layer.name === segments[depth]) ? 'layer' : null;
 }
 
 // A total map, not a ternary per consumer: a zone added to the union arrives

@@ -5113,6 +5113,115 @@ describe('a layered module\'s root answers to its module\'s entry, in both gates
 });
 
 /**
+ * One level deeper than the folder above, where the misread thing is a layer's
+ * NAME rather than a root's depth. The layer globs are expanded over the
+ * DECLARED module list, so `src/scratch/hooks/` is reached by nothing while
+ * carrying a declared layer's name at exactly the depth the per-file pass reads.
+ *
+ * Read in `inspect` alone, a repair that silences the position and one that
+ * silences the whole layer zone look identical — so every case here runs the
+ * same file twice, once under `scratch` and once under `Fighter`, and asserts
+ * the real lint run at both. The control is the case: eight judgments and six
+ * lint messages inside the declared module, none of either outside it.
+ */
+describe('an undeclared folder is not governed by a layer that shares its name (real eslint)', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the pilot, rendered', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets and damage', owns: ['rot-js'] },
+      ],
+      layers: [
+        { name: 'components', does: 'render UI', layout: 'folder', owns: ['clsx'] },
+        { name: 'hooks', does: 'reactive state', layout: 'folder', owns: ['zustand'] },
+      ],
+    },
+  };
+
+  const modularRepo = (files: Record<string, string>): string =>
+    repo({
+      packageJson: react({ clsx: '^2.0.0', 'rot-js': '^2.0.0', zustand: '^4.0.0' }),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+        'src/Fighter/index.jsx': 'export const Fighter = 1;\n',
+        'src/Combat/index.jsx': 'export const attack = 1;\n',
+        'src/Fighter/hooks/useY/index.jsx': 'export const useY = 1;\n',
+        'src/Fighter/hooks/useY/impl.jsx': 'export const impl = 1;\n',
+        ...files,
+      },
+    });
+
+  /** The same unit, addressing its own top folder, under either name. */
+  const unit = (top: string): string =>
+    'import cx from "clsx";\n'
+    + 'import ROT from "rot-js";\n'
+    + `import { impl } from "~app/${top}/hooks/useY/impl";\n`
+    + 'import { away } from "../../../../outside/thing";\n'
+    + 'export * from "~app/Combat";\n'
+    + 'export const useX = [cx, ROT, impl, away];\n';
+
+  it('judges the unit inside a declared module, in both gates', async () => {
+    // The control, and it runs first because everything below is a silence.
+    // Six findings against five lint messages, on one path: `deep-import` and
+    // `flow-violation` are two verdicts about ONE specifier, which
+    // `no-restricted-imports` reports once.
+    const dir = modularRepo({ 'src/Fighter/hooks/useX/index.jsx': unit('Fighter') });
+
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([
+      'package-ownership src/Fighter/hooks/useX/index.jsx',
+      'package-ownership src/Fighter/hooks/useX/index.jsx',
+      'deep-import src/Fighter/hooks/useX/index.jsx',
+      'flow-violation src/Fighter/hooks/useX/index.jsx',
+      'src-escape src/Fighter/hooks/useX/index.jsx',
+      'module-reexport src/Fighter/hooks/useX/index.jsx',
+    ]);
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('3  no-restricted-imports — 1 file(s)');
+    expect(impact.output).toContain('1  blueprint/relative-escape — 1 file(s)');
+    expect(impact.output).toContain('1  blueprint/no-module-reexport — 1 file(s)');
+    expect(impact.output).toContain('5 hit(s)');
+  });
+
+  it('says nothing about the same unit under an undeclared top folder, matching lint', async () => {
+    const dir = modularRepo({ 'src/scratch/hooks/useX/index.jsx': unit('scratch') });
+
+    expect((await cli(dir, ['impact'])).output).toContain('0 hits');
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual(['undeclared-module src/scratch']);
+  });
+
+  it('leaves the folder note and the coverage line, which are the two that can act', async () => {
+    // What has to survive: the finding addressed at the level an adopter can
+    // act on, and the line that names the file as outside the nets. Silencing
+    // the position without them would hide the folder instead of stating it.
+    const dir = modularRepo({ 'src/scratch/hooks/useX/index.jsx': unit('scratch') });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.output).toContain('lint stays green throughout');
+    expect(inspect.output).toContain('outside: src/scratch/hooks/useX/index.jsx');
+  });
+
+  it('asks for a unit entry inside the module and not inside the undeclared folder', async () => {
+    // `no-entry`'s unit branch read the same layer name, and its own twin one
+    // level up has asked `modules` since it was written.
+    const inside = modularRepo({ 'src/Fighter/hooks/useNoEntry/thing.jsx': 'export const x = 1;\n' });
+
+    expect(errors(await cli(inside, ['inspect', '--json'])))
+      .toEqual(['no-entry src/Fighter/hooks/useNoEntry']);
+
+    const outside = modularRepo({ 'src/scratch/hooks/useNoEntry/thing.jsx': 'export const x = 1;\n' });
+
+    expect(errors(await cli(outside, ['inspect', '--json'])))
+      .toEqual(['undeclared-module src/scratch']);
+  });
+});
+
+/**
  * The modular adoption path, end to end through the real CLI — every other
  * `init` fixture in this file passes `--structure flat`, so nothing here has ever
  * run the modular arm on a real tree.
