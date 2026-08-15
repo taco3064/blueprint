@@ -55,8 +55,8 @@ npx @kekkai/blueprint init
 Instead of guessing a preset, init surveys the code and writes:
 
 - **`blueprint-authoring.md`** — an executable playbook: the survey evidence, the
-  authoring method, the emitted-rule semantics (flat vs folder layout, what the
-  wiring will flag), the config schema sketch, and the acceptance gates
+  authoring method, the emitted-rule semantics (`file` vs `folder` unit layout,
+  what the wiring will flag), the config schema sketch, and the acceptance gates
 - **`.claude/commands/blueprint-author.md`** — so Claude Code users can just type
   `/blueprint-author`
 
