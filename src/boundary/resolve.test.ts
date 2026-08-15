@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ArchitectureDef } from '../config';
-import { entryResolver, layoutResolver, moduleKey, resolveSegments, stripAlias } from './resolve';
+import {
+  entryResolver,
+  layoutResolver,
+  moduleKey,
+  resolveSegments,
+  stripAlias,
+  stripSourceRoot,
+} from './resolve';
 
 const architecture: ArchitectureDef = {
   alias: '~app',
@@ -99,6 +106,90 @@ describe('stripAlias', () => {
 
   it('answers null for a specifier under no alias at all', () => {
     expect(stripAlias('axios', ['~app'])).toBeNull();
+  });
+});
+
+describe('stripSourceRoot', () => {
+  const LAYERS = ['components', 'services'];
+
+  it('counts from the configured root, whatever that root is', () => {
+    expect(stripSourceRoot('/repo/src/components/Button.ts', 'src', LAYERS))
+      .toEqual(['components', 'Button.ts']);
+
+    // The two roots a `src` search answered null for. Null is what makes the
+    // calling rule register no visitor at all, so both of these were green lint
+    // on a project `inspect` reports — `lib/app` here, and the project root
+    // below, which is what `nextPreset` emits without `srcDir`.
+    expect(stripSourceRoot('/repo/lib/app/components/Button.ts', 'lib/app', LAYERS))
+      .toEqual(['components', 'Button.ts']);
+
+    expect(stripSourceRoot('/repo/components/Button.ts', '.', LAYERS))
+      .toEqual(['components', 'Button.ts']);
+  });
+
+  it('reads a repeat of the root inside the tree as a directory, not as the root', () => {
+    // `lastIndexOf('src')` took the deepest run: coordinates of `['Foo.ts']`,
+    // no layer at position 0, and the rule declines on a `src`-rooted project —
+    // the one shape a fix here could regress.
+    expect(stripSourceRoot('/repo/src/components/src/Foo.ts', 'src', LAYERS))
+      .toEqual(['components', 'src', 'Foo.ts']);
+
+    // The same folder under a moved root: `src` there is a unit path and names
+    // nothing about where the coordinates start.
+    expect(stripSourceRoot('/repo/lib/app/components/src/Foo.ts', 'lib/app', LAYERS))
+      .toEqual(['components', 'src', 'Foo.ts']);
+  });
+
+  it('skips a run of the root that lands on no declared layer', () => {
+    // `~/src/` as the checkout directory is an ordinary developer layout, which
+    // puts a run of the root ABOVE the project. Anchoring there makes `proj` the
+    // layer and silences the rule on a project that has always been governed —
+    // the failure the outermost-first search would have if it did not also test
+    // the layer.
+    expect(stripSourceRoot('/home/dev/src/proj/src/components/Card.ts', 'src', LAYERS))
+      .toEqual(['components', 'Card.ts']);
+  });
+
+  it('answers null where it cannot place a declared layer', () => {
+    // Outside the root entirely…
+    expect(stripSourceRoot('/repo/scripts/build.ts', 'src', LAYERS)).toBeNull();
+
+    // …under the root but in a folder no layer claims…
+    expect(stripSourceRoot('/repo/src/utils/helper.ts', 'src', LAYERS)).toBeNull();
+
+    // …and the root itself, which has no segment after it to name a layer.
+    expect(stripSourceRoot('/repo/src', 'src', LAYERS)).toBeNull();
+  });
+
+  it('reads the layer one segment down under modules', () => {
+    expect(stripSourceRoot('/repo/src/Fighter/components/Ship/index.ts', 'src', LAYERS, 1))
+      .toEqual(['Fighter', 'components', 'Ship', 'index.ts']);
+
+    // The same path read flat: `Fighter` is where the layer would sit, no layer
+    // claims it, and the answer is null rather than a guess one segment over.
+    expect(stripSourceRoot('/repo/src/Fighter/components/Ship/index.ts', 'src', LAYERS))
+      .toBeNull();
+  });
+
+  it.each(['./src', 'src/', 'src//'])('reads "%s" as the root `src` names', (root) => {
+    // Every one of these reaches the emitters as written — `aliasPaths` is
+    // asserted on `src//` — so parsing the value a second time here is how the
+    // alias offset and the layer root come to strip a different number of
+    // segments from the same config.
+    expect(stripSourceRoot('/repo/src/components/Button.ts', root, LAYERS))
+      .toEqual(['components', 'Button.ts']);
+  });
+
+  it('survives the separators a real filename arrives with', () => {
+    // ESLint hands the rule the platform's own path, and a doubled separator is
+    // a routine typo. An empty segment lands where the layer name goes, and a
+    // backslash-only split leaves the whole Windows path as one segment — both
+    // present as the file having no layer at all.
+    expect(stripSourceRoot('C:\\repo\\src\\components\\Button.ts', 'src', LAYERS))
+      .toEqual(['components', 'Button.ts']);
+
+    expect(stripSourceRoot('/repo/src//components/Button.ts', 'src', LAYERS))
+      .toEqual(['components', 'Button.ts']);
   });
 });
 

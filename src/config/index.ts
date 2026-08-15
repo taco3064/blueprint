@@ -2,6 +2,7 @@ export { defineBlueprint, normalizeAgentEmit, validateBlueprint } from './define
 export {
   aliasLayerRoots,
   DEFAULT_MODULE_SHAPE,
+  dirSegments,
   folderEntries,
   getDiagramEdges,
   getForbiddenLayers,

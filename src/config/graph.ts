@@ -87,8 +87,15 @@ export function aliasLayerRoots(architecture: ArchitectureDef): AliasRoot[] {
   ];
 }
 
-/** `./src/` → `['src']`; `.` → `[]`. `..` segments survive and never match. */
-function dirSegments(dir: string): string[] {
+/**
+ * `./src/` → `['src']`; `.` → `[]`. `..` segments survive and never match.
+ *
+ * One reading of a configured directory, shared: `boundary` strips the same
+ * value off a linted file path, and a second parse there would let the alias
+ * offset and the layer root disagree about what `src//` means.
+ * @internal
+ */
+export function dirSegments(dir: string): string[] {
   return dir.split('/').filter((segment) => segment !== '' && segment !== '.');
 }
 

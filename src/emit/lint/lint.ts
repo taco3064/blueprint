@@ -299,10 +299,19 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     ignores: testGlobs,
     plugins: { blueprint: plugin },
     rules: {
-      // The depth the rule reads a segment position at — the same derivation
-      // `inspect` uses, passed rather than inferred, so the two gates cannot
-      // disagree about which segment is the layer.
-      'blueprint/relative-escape': [severity, { layouts, entries, depth: moduleDepth(architecture) }],
+      // The depth the rule reads a segment position at, and the root it counts
+      // from — the same derivations `inspect` uses, passed rather than inferred,
+      // so the two gates cannot disagree about which segment is the layer or
+      // where the coordinates start.
+      'blueprint/relative-escape': [
+        severity,
+        {
+          layouts,
+          entries,
+          depth: moduleDepth(architecture),
+          sourceRoot: architecture.sourceRoot ?? 'src',
+        },
+      ],
     },
   };
 
