@@ -19,7 +19,7 @@ const MIGRATION: Record<string, string> = {
   'selfonly-reexport': 'Depend on selfOnly layers without re-exporting them.',
   'module-reexport': 'Stop forwarding another module\'s surface: let the consumer declare that module itself, or expose this module\'s own API instead. A function that only forwards the call clears the rule and builds nothing.',
   'no-entry': 'Add an `index` entry file to the folder each finding names, so it has a single public surface. Two levels answer under this id and each message says which: a unit folder inside a layer, and — where `modules` is declared — a module whose folder holds code but carries no entry of its own.',
-  cycle: 'Break the import cycle — invert one dependency or extract the shared part downward.',
+  cycle: 'Break the import cycle — invert one dependency or extract the shared part downward. A cycle is between graph nodes, so its address is a module key relative to the source root, where every other finding\'s path is relative to the project root — one folder can appear in this report under both spellings. A module key is what `blueprint deps` takes: `blueprint deps <key>` gives the fan-in at either end before you choose which edge to invert.',
 };
 
 /**

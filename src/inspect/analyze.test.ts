@@ -286,6 +286,23 @@ describe('analyze · cycle', () => {
     expect(found).toContain('cycle');
   });
 
+  it('addresses a cycle by module key, where the same folder is project-root relative elsewhere', () => {
+    // The carve-out `Finding.path`'s doc states. Both halves are the assertion: the
+    // first alone passes on a run that prefixed nothing at all, and the second is the
+    // other address the same folder answers to in the same report — the two spellings
+    // a reader meets with nothing joining them unless the migration line says so.
+    const found = analyze(scanOf([
+      file(['components', 'A', 'A.ts'], [{ specifier: '../B' }]),
+      file(['components', 'B', 'B.ts'], [{ specifier: '../A' }]),
+    ]), bp);
+
+    const pathsOf = (rule: string) =>
+      found.filter((finding) => finding.rule === rule).map((finding) => finding.path);
+
+    expect(pathsOf('cycle')).toEqual(['components/A']);
+    expect(pathsOf('no-entry')).toContain('src/components/A');
+  });
+
   it('reports no cycle when a module is reached by two paths without a loop', () => {
     const found = rulesFor([
       file(['components', 'A', 'index.ts'], [{ specifier: '../B' }, { specifier: '../C' }]),
