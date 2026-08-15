@@ -15,7 +15,7 @@ const MIGRATION: Record<string, string> = {
   'root-import': 'Stop importing the module root from inside a layer — move the shared part down into a layer, or pass it in from the root.',
   'module-escape': 'Cross a module boundary through the alias, never a relative path, and declare the dependency in the module\'s `imports`.',
   'undeclared-dependency': 'Declare the edge in the importing module\'s `imports`, or move the shared part into a module both may reach. A module may only name modules declared after it, so an edge that runs backwards is a decomposition change rather than a config one.',
-  'package-ownership': 'Move restricted package usage into its owning layer (expose it via a hook or service).',
+  'package-ownership': 'Move restricted package usage into its owning layer — and, where `modules` is declared, into its owning module — and expose it from there via a hook or service. Each message names the level it means; this id carries both.',
   'selfonly-reexport': 'Depend on selfOnly layers without re-exporting them.',
   'module-reexport': 'Stop forwarding another module\'s surface: let the consumer declare that module itself, or expose this module\'s own API instead. A function that only forwards the call clears the rule and builds nothing.',
   'no-entry': 'Add an `index` entry file to the folder each finding names, so it has a single public surface. Two levels answer under this id and each message says which: a unit folder inside a layer, and — where `modules` is declared — a module whose folder holds code but carries no entry of its own.',

@@ -40,12 +40,13 @@ describe('report', () => {
     ['no-entry', 'a unit folder inside a layer'],
     ['no-entry', 'a module whose folder holds code but carries no entry of its own'],
     ['deep-import', 'Import a unit — and, where `modules` is declared, a module'],
+    ['package-ownership', 'into its owning layer — and, where `modules` is declared, into its owning module'],
   ])('names both levels in the %s step, since one id carries both', (rule, needle) => {
-    // A step is per RULE, and these two ids each answer a unit folder and a
-    // module. Written for one level, the step hands the reader of the other a
-    // remedy at the wrong address — while the finding three lines above it in
-    // the same report named the right one. That is two of the tool's own
-    // outputs disagreeing, in one screen.
+    // A step is per RULE, and these three ids each answer at two levels — a
+    // unit folder and a module, a layer and a module. Written for one level,
+    // the step hands the reader of the other a remedy at the wrong address —
+    // while the finding three lines above it in the same report named the right
+    // one. That is two of the tool's own outputs disagreeing, in one screen.
     const out = report([
       ...findings,
       {
@@ -54,6 +55,13 @@ describe('report', () => {
         path: 'src/pages/Home/index.tsx',
         subject: '~app/hooks/useX/impl',
         message: '"~app/hooks/useX/impl" reaches inside a unit — import it through its entry.',
+      },
+      {
+        severity: 'error' as const,
+        rule: 'package-ownership',
+        path: 'src/Fighter/Fighter.tsx',
+        subject: 'rot-js',
+        message: '"rot-js" is owned by module Combat — not importable from "Fighter".',
       },
     ]);
 

@@ -1,3 +1,4 @@
+import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
 import { analyze, detectCycle, detectCycles } from './analyze';
@@ -5,6 +6,7 @@ import { crossModuleTarget } from '../boundary';
 import { defineBlueprint } from '../config';
 import type { Blueprint, ModuleDef } from '../config';
 import { emitLint } from '../emit/lint';
+import { plugin } from '../plugin';
 import { reactPreset, vuePreset } from '../presets';
 import { report } from './report';
 import type { Finding, ImportRef, ScanResult, ScannedFile } from './types';
@@ -1163,17 +1165,15 @@ describe('analyze · a modular tree is read at module depth', () => {
     ])).toContain('module-escape');
   });
 
-  it('governs the module root\'s own imports, in both spellings', () => {
+  it('governs the module root\'s own imports, at the spelling the emitted config bans', () => {
     // Judged by the layer test alone the root is skipped — its segment at the
     // layer position is a filename — and the module's own composition code
-    // becomes the least examined code in the module.
+    // becomes the least examined code in the module. What governs it instead is
+    // its module's own entry, `src/Fighter/*`, which carries the unit-entry
+    // group over every folder-layout layer.
     expect(modularRules([
       file(['Fighter', 'Fighter.tsx'], [{ specifier: '~app/Fighter/components/Ship/internals' }]),
     ])).toContain('deep-import');
-
-    expect(modularRules([
-      file(['Fighter', 'Fighter.tsx'], [{ specifier: './components/Ship/internals' }]),
-    ])).toContain('entry-bypass');
 
     // …and reaching a unit correctly raises no import finding, or every module
     // would be red on the one thing its root is for. (`undeclared-folder` still
@@ -1856,6 +1856,318 @@ describe('analyze · an undeclared position inside a declared module', () => {
     ['a relative path leaving the module', { specifier: '../../Combat/index' }],
   ])('says nothing about %s there, matching the lint run', (_label, ref) => {
     expect(errorsFor(ref)).toEqual([]);
+  });
+});
+
+/**
+ * A layered module's ROOT file answers to its module's own emitted entry —
+ * `src/<Module>/*` — and that entry carries four things: the cross-module ban
+ * groups, the unit-entry group over its own folder-layout layers, the
+ * MODULE-level `owns` bans, and `blueprint/no-module-reexport`. It carries no
+ * layer-level ban of any kind, and `blueprint/relative-escape` registers no
+ * visitor on it at all: the rule opens on `segments[depth] in layouts`, and at a
+ * root that segment is the file's own name.
+ *
+ * So four judgments were red here against a lint run green on every one of them,
+ * and one of the four printed that filename in the position its own sentence
+ * promises a layer.
+ */
+describe('analyze · a layered module\'s root is judged by its module\'s entry', () => {
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the pilot', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets', owns: ['rot-js'] },
+        { name: 'Shared', does: 'primitives' },
+      ],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' },
+        {
+          name: 'hooks',
+          does: 'state',
+          layout: 'folder',
+          owns: ['zustand'],
+          allowedImporters: [{ layer: 'components', selfOnly: true }],
+        },
+      ],
+    },
+  });
+
+  const TOP = ['Fighter', 'Combat', 'Shared'];
+  const ROOT = ['Fighter', 'Fighter.jsx'];
+  const LAYER = ['Fighter', 'hooks', 'useRun', 'index.js'];
+
+  const errorsFor = (segments: string[], ref: Partial<ImportRef>): Finding[] =>
+    analyze({ topDirs: TOP, files: [file(segments, [ref])] }, modular)
+      .filter((finding) => finding.severity === 'error');
+
+  /**
+   * Every shape a real lint run is green over at a module root, each with the
+   * finding the layer branch used to produce for it. Restated here rather than
+   * derived, so removing one from `analyze` turns exactly one case red.
+   */
+  const SILENT: [string, Partial<ImportRef>][] = [
+    // package-ownership, LAYER level: the layer `owns` bans ride the layer
+    // entries, and this file is under none of them. The message this used to
+    // emit read `not importable from "Fighter.jsx"` — the defect that named the
+    // ticket.
+    ['a package a LAYER owns', { specifier: 'zustand', names: ['create'] }],
+    // The next three are one fact: `blueprint/relative-escape` never registers
+    // here, so all three of the verdicts reachable at a root are lint-green.
+    ['a relative path that leaves the module', { specifier: '../Combat/index' }],
+    ['a relative path that escapes the source root', { specifier: '../../outside/thing' }],
+    // The sharpest of them: the ALIAS spelling of this same reach IS banned, on
+    // this module's own entry, and is asserted red below. One reach, two
+    // spellings, and only one of them expressible as a pattern.
+    ['the root reaching past its own unit\'s entry, relatively', { specifier: './hooks/useRun/internals' }],
+    // The three layer-keyed judgments that were already off, kept here so a
+    // repair that reopens the zone wholesale cannot pass: the root composes the
+    // layers, so it may reach every one of them and is above all of them.
+    ['the module\'s own alias root', { specifier: '~app/Fighter' }],
+    ['a declared layer through a unit\'s entry', { specifier: '~app/Fighter/hooks/useRun' }],
+    ['a re-export of a layer that is selfOnly to another', { specifier: '~app/Fighter/hooks/useRun', isExport: true }],
+    // The declared edge through its entry — legal whichever way the guard is
+    // written, and here so the cases above cannot pass on a fixture that simply
+    // reports nothing.
+    ['the declared edge through its entry', { specifier: '~app/Combat' }],
+  ];
+
+  it.each(SILENT)('stays silent on %s at the root', (_label, ref) => {
+    expect(errorsFor(ROOT, ref)).toEqual([]);
+  });
+
+  /**
+   * The other half, and it carries as much: everything the module's own entry
+   * DOES ban still bites at the root. A repair that answers the zone with
+   * silence passes the table above and fails every row here.
+   */
+  const SPEAKS: [string, Partial<ImportRef>, string, string][] = [
+    ['a reach past its own unit\'s entry through the alias', { specifier: '~app/Fighter/components/Ship/internals' }, 'deep-import', 'reaches inside a unit'],
+    ['a reach past a declared dependency\'s entry', { specifier: '~app/Combat/hooks/useDamage' }, 'deep-import', 'reaches inside module "Combat"'],
+    ['an undeclared edge', { specifier: '~app/Shared' }, 'undeclared-dependency', 'reaches module "Shared", which "Fighter" does not declare'],
+    ['a pass-through', { specifier: '~app/Combat', isExport: true }, 'module-reexport', 'Re-exports "Combat" through this module\'s own surface'],
+    ['a package another MODULE owns', { specifier: 'rot-js' }, 'package-ownership', 'is owned by module Combat — not importable from "Fighter"'],
+  ];
+
+  it.each(SPEAKS)('still reports %s at the root', (_label, ref, rule, text) => {
+    const errors = errorsFor(ROOT, ref);
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0].rule).toBe(rule);
+    expect(errors[0].message).toContain(text);
+  });
+
+  it('names a module or a unit in every message it emits there, never the file', () => {
+    // The repair stated as its own outcome: the filename does not disappear
+    // from the sentence, the judgment that had nothing but a filename to put
+    // there disappears. Asked of every message at once, so a judgment added to
+    // this zone later has to answer it too.
+    const messages = SPEAKS
+      .flatMap(([, ref]) => errorsFor(ROOT, ref))
+      .map((entry) => entry.message);
+
+    expect(messages).toHaveLength(SPEAKS.length);
+
+    for (const message of messages) expect(message).not.toContain('Fighter.jsx');
+  });
+
+  it('answers a LAYER file in the same module the other way, on the same imports', () => {
+    // The control that makes the silences above a statement about the zone
+    // rather than about the config: a layer entry governs this file, so the two
+    // layer-keyed judgments the root loses are exactly the two it keeps.
+    const owns = errorsFor(['Fighter', 'components', 'Ship', 'index.jsx'], {
+      specifier: 'zustand',
+      names: ['create'],
+    });
+
+    expect(owns).toHaveLength(1);
+    expect(owns[0].rule).toBe('package-ownership');
+    expect(owns[0].message).toContain('is owned by hooks — not importable from "components"');
+
+    const escape = errorsFor(LAYER, { specifier: '../../../Combat/index' });
+
+    expect(escape).toHaveLength(1);
+    expect(escape[0].rule).toBe('module-escape');
+  });
+});
+
+/**
+ * The same misreading one folder over: `Fighter/Fighter.jsx` and
+ * `scratch/notes.js` have the same shape, and the depth test that recognised the
+ * first recognised the second too. Nothing governs a top folder no `modules`
+ * entry declares — the layer globs and the module entries are both expanded from
+ * the declared list — so a lint run there is green by construction.
+ *
+ * `undeclared-module` reports the folder, at the level that can act on it, and
+ * its own message says "lint stays green throughout". Two errors under it in the
+ * same report, on a file that same lint run says nothing about, made that
+ * sentence read as the tool contradicting itself three lines later — and the
+ * pass-through one told a folder that is not a module about "this module's own
+ * surface".
+ */
+describe('analyze · a file at root depth under an undeclared top folder', () => {
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the pilot' },
+        { name: 'Combat', does: 'bullets', owns: ['rot-js'] },
+      ],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' },
+        { name: 'hooks', does: 'state', layout: 'folder', owns: ['zustand'] },
+      ],
+    },
+  });
+
+  const errorsFor = (ref: Partial<ImportRef>): Finding[] =>
+    analyze(
+      { topDirs: ['Fighter', 'Combat', 'scratch'], files: [file(['scratch', 'notes.js'], [ref])] },
+      modular,
+    ).filter((finding) => finding.severity === 'error' && finding.rule !== 'undeclared-module');
+
+  it.each([
+    ['a package a layer owns', { specifier: 'zustand', names: ['create'] }],
+    ['a package another module owns', { specifier: 'rot-js' }],
+    ['a pass-through', { specifier: '~app/Combat', isExport: true }],
+    ['a reach past a unit\'s entry', { specifier: '~app/scratch/hooks/useX/impl' }],
+    ['a relative path leaving the folder', { specifier: '../Combat/index' }],
+  ])('says nothing about %s there, matching the lint run', (_label, ref) => {
+    expect(errorsFor(ref)).toEqual([]);
+  });
+
+  it('still reports the folder itself, which is the level that can act on it', () => {
+    const findings = analyze(
+      { topDirs: ['Fighter', 'Combat', 'scratch'], files: [file(['scratch', 'notes.js'])] },
+      modular,
+    );
+
+    const undeclared = findings.find((finding) => finding.rule === 'undeclared-module');
+
+    expect(undeclared?.path).toBe('src/scratch');
+    // The sentence the two findings above used to contradict, in the same report.
+    expect(undeclared?.message).toContain('lint stays green throughout');
+  });
+});
+
+/**
+ * The root zone's own both-ways pin, and it needs its own because #212's — the
+ * `emitLint` equality above — reads the CROSS-MODULE axis alone, off the
+ * `no-restricted-imports` group patterns. Neither judgment this zone lost is on
+ * that axis: a layer's `owns` rides `paths`/`patterns` derived from the LAYER
+ * list, and the relative family has no pattern at all.
+ *
+ * So the two halves are pinned to two different emitted things, because the lint
+ * side answers them by two different mechanisms — and both are read out of
+ * `emitLint`'s own output rather than restated, which is the only way pinning a
+ * SILENCE means anything.
+ */
+describe('analyze · the root zone is pinned to what emitLint emits for it', () => {
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the pilot' },
+        { name: 'Combat', does: 'bullets', owns: ['rot-js'] },
+      ],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' },
+        { name: 'hooks', does: 'state', layout: 'folder', owns: ['zustand'] },
+      ],
+    },
+  });
+
+  const emitted = emitLint(modular);
+
+  /** The entry whose `files` is a module's OWN — `src/<M>/*`, never a layer's. */
+  const entryFor = (module: string) =>
+    emitted.find((entry) =>
+      (entry.files ?? []).some((glob) => new RegExp(`^src/${module}/\\*\\.\\{`).test(glob)));
+
+  const packagesBannedOn = (module: string): string[] => {
+    const setting = entryFor(module)?.rules?.['no-restricted-imports'];
+
+    if (!Array.isArray(setting)) return [];
+
+    const { paths = [] } = setting[1] as { paths?: { name: string }[] };
+
+    return paths.map((path) => path.name).sort();
+  };
+
+  const ownershipAt = (segments: string[], specifier: string): string[] =>
+    analyze({ topDirs: ['Fighter', 'Combat'], files: [file(segments, [{ specifier }])] }, modular)
+      .filter((finding) => finding.rule === 'package-ownership')
+      .map((finding) => finding.subject);
+
+  it.each(['zustand', 'rot-js'])('answers %s at the root exactly as that entry bans it', (pkg) => {
+    // Both ways: the package is a finding if and only if the module's own entry
+    // carries a `paths` ban for it. `zustand` is a LAYER's and is on no module
+    // entry; `rot-js` is Combat's and is on Fighter's.
+    const banned = packagesBannedOn('Fighter').includes(pkg);
+
+    expect(ownershipAt(['Fighter', 'Fighter.jsx'], pkg)).toEqual(banned ? [pkg] : []);
+  });
+
+  it('compared something — the bans that entry actually carries', () => {
+    // …and cannot pass on a lookup that found no entry at all. A module's own
+    // entry carries the OTHER owners' packages at its own level and nothing
+    // from the layer level.
+    expect(packagesBannedOn('Fighter')).toEqual(['rot-js']);
+    expect(packagesBannedOn('Combat')).toEqual([]);
+  });
+
+  /**
+   * The relative half. There is no pattern to compare against — the lint side
+   * answers this by a rule that declines to register — so the pin runs the real
+   * rule, with the options `emitLint` emitted, and compares its report count to
+   * `analyze`'s finding count on the same import at the same path.
+   */
+  const escapeOptions = () => {
+    const entry = emitted.find((item) => item.rules?.['blueprint/relative-escape'] !== undefined);
+    const setting = entry?.rules?.['blueprint/relative-escape'];
+
+    return (setting as [string, Record<string, unknown>])[1];
+  };
+
+  const linter = new Linter({ configType: 'flat' });
+
+  const lintReports = (filename: string, specifier: string): number =>
+    linter.verify(
+      `import x from ${JSON.stringify(specifier)};\nexport default x;\n`,
+      {
+        files: ['**'],
+        plugins: { blueprint: plugin },
+        languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+        rules: { 'blueprint/relative-escape': ['error', escapeOptions()] },
+      },
+      { filename },
+    ).length;
+
+  const inspectReports = (segments: string[], specifier: string): number =>
+    analyze({ topDirs: ['Fighter', 'Combat'], files: [file(segments, [{ specifier }])] }, modular)
+      .filter((finding) => finding.rule.endsWith('-escape') || finding.rule === 'entry-bypass')
+      .length;
+
+  it.each([
+    ['leaves the module', ['Fighter', 'Fighter.jsx'], '../Combat/index'],
+    ['escapes the source root', ['Fighter', 'Fighter.jsx'], '../../outside/thing'],
+    ['reaches past a unit\'s entry', ['Fighter', 'Fighter.jsx'], './hooks/useRun/internals'],
+    // The control, at the one position where both gates speak — without it every
+    // row above passes on a rule that never reports anywhere.
+    ['leaves the module from a layer file', ['Fighter', 'hooks', 'useRun', 'index.js'], '../../../Combat/index'],
+  ])('agrees with the emitted rule about a relative path that %s', (_label, segments, specifier) => {
+    expect(inspectReports(segments, specifier)).toBe(
+      lintReports(['src', ...segments].join('/'), specifier),
+    );
+  });
+
+  it('compared something — the rule speaks at one of those positions and not the other', () => {
+    expect(lintReports('src/Fighter/hooks/useRun/index.js', '../../../Combat/index')).toBe(1);
+    expect(lintReports('src/Fighter/Fighter.jsx', '../Combat/index')).toBe(0);
   });
 });
 

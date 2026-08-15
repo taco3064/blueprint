@@ -4974,6 +4974,145 @@ describe('a layers:false module answers in both gates, below its root too (real 
 });
 
 /**
+ * The other zone no layer glob reaches, in both gates on the same tree: a
+ * LAYERED module's own root. Its emitted entry is `src/<Module>/*` and it
+ * carries the cross-module groups, the unit-entry group over its own layers,
+ * the module-level `owns` bans and `blueprint/no-module-reexport` — and nothing
+ * from the layer level. `blueprint/relative-escape` never registers on it
+ * either: the rule opens on the file's segment at layer depth, which at a root
+ * is the filename.
+ *
+ * The negatives are the point here. Four judgments were red at a root against a
+ * lint run green on every one of them, and the ownership one printed that
+ * filename where its own sentence promises a layer. So each is asserted green in
+ * BOTH gates rather than left unmentioned — read only in `inspect`, a repair
+ * that silences the zone wholesale and one that fixes it look identical.
+ */
+describe('a layered module\'s root answers to its module\'s entry, in both gates (real eslint)', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the pilot, rendered', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets and damage', owns: ['rot-js'] },
+        { name: 'Shared', does: 'primitives' },
+      ],
+      layers: [{ name: 'hooks', does: 'reactive state', layout: 'folder' }],
+    },
+  };
+
+  const modularRepo = (files: Record<string, string>): string =>
+    repo({
+      packageJson: react({ 'rot-js': '^2.0.0', zustand: '^4.0.0' }),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+        'src/Fighter/index.jsx': 'export const Fighter = 1;\n',
+        'src/Combat/index.jsx': 'export const attack = 1;\n',
+        'src/Shared/index.jsx': 'export const shared = 1;\n',
+        'src/Fighter/hooks/useRun/index.jsx': 'export const useRun = 1;\n',
+        ...files,
+      },
+    });
+
+  it('keeps the layer vocabulary out of the root — four shapes lint runs green over', async () => {
+    // A layer's `owns` is emitted onto the layer entries and this file is under
+    // none of them; the other three are one fact, that the relative rule
+    // registers no visitor here. Read as a layer the root has `Fighter.jsx` for
+    // a layer name, and the ownership message said so out loud.
+    const dir = modularRepo({
+      'src/Fighter/Fighter.jsx':
+        'import create from "zustand";\n'
+        + 'import { attack } from "../Combat/index";\n'
+        + 'import { useRun } from "./hooks/useRun/internals";\n'
+        + 'export const Fighter = [create, attack, useRun];\n',
+      'src/Fighter/hooks/useRun/internals.jsx': 'export const useRun = 1;\n',
+    });
+
+    expect((await cli(dir, ['impact'])).output).toContain('0 hits');
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([]);
+  });
+
+  it('reddens what that entry does ban, at the root, in both gates', async () => {
+    // The other half of the same claim: the zone is judged by its own entry, not
+    // silenced. Four bans ride it and all four have to answer here.
+    const dir = modularRepo({
+      'src/Fighter/Fighter.jsx':
+        'import ROT from "rot-js";\n'
+        + 'import { shared } from "~app/Shared";\n'
+        + 'import { useRun } from "~app/Fighter/hooks/useRun/internals";\n'
+        + 'export const Fighter = [ROT, shared, useRun];\n',
+      'src/Fighter/hooks/useRun/internals.jsx': 'export const useRun = 1;\n',
+      'src/Fighter/Forward.jsx': 'export * from "~app/Combat";\n',
+    });
+
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([
+      'package-ownership src/Fighter/Fighter.jsx',
+      'undeclared-dependency src/Fighter/Fighter.jsx',
+      'deep-import src/Fighter/Fighter.jsx',
+      'module-reexport src/Fighter/Forward.jsx',
+    ]);
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('3  no-restricted-imports — 1 file(s)');
+    expect(impact.output).toContain('1  blueprint/no-module-reexport — 1 file(s)');
+  });
+
+  it('names a module, never the root\'s own filename, in what it does report', async () => {
+    // The repair stated as its outcome. The filename did not get reworded out
+    // of the sentence — the judgment that had only a filename to put there is
+    // the one that no longer runs at this address.
+    const dir = modularRepo({
+      'src/Fighter/Fighter.jsx': 'import ROT from "rot-js";\nexport const Fighter = ROT;\n',
+    });
+
+    const inspect = await cli(dir, ['inspect', '--json']);
+    const findings = JSON.parse(inspect.output).findings as Finding[];
+    const ownership = findings.find((finding) => finding.rule === 'package-ownership');
+
+    expect(ownership?.message).toContain('is owned by module Combat — not importable from "Fighter"');
+    expect(ownership?.message).not.toContain('Fighter.jsx');
+  });
+
+  it('answers a layer file in the same module the other way, on the same imports', async () => {
+    // The control that makes the silences above a statement about the zone and
+    // not about the config: under a layer entry, both judgments come back.
+    const dir = modularRepo({
+      'src/Fighter/hooks/useRun/index.jsx':
+        'import { attack } from "../../../Combat/index";\nexport const useRun = attack;\n',
+    });
+
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([
+      'module-escape src/Fighter/hooks/useRun/index.jsx',
+    ]);
+
+    expect((await cli(dir, ['impact'])).output).toContain('1  blueprint/relative-escape — 1 file(s)');
+  });
+
+  it('extends none of it to an undeclared top folder at the same depth', async () => {
+    // `scratch/notes.jsx` has the root's shape and none of its governance: no
+    // module entry and no layer glob is expanded for a name `modules` does not
+    // carry. `undeclared-module` reports the folder, and its own message says
+    // lint stays green — which two errors under it in the same report used to
+    // contradict three lines later.
+    const dir = modularRepo({
+      'src/scratch/notes.jsx':
+        'import create from "zustand";\nexport * from "~app/Combat";\nexport const notes = create;\n',
+    });
+
+    expect((await cli(dir, ['impact'])).output).toContain('0 hits');
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual(['undeclared-module src/scratch']);
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.output).toContain('lint stays green throughout');
+    expect(inspect.output).toContain('outside: src/scratch/notes.jsx');
+  });
+});
+
+/**
  * The modular adoption path, end to end through the real CLI — every other
  * `init` fixture in this file passes `--structure flat`, so nothing here has ever
  * run the modular arm on a real tree.
