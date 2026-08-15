@@ -5,7 +5,17 @@ export interface Finding {
   severity: Severity;
   /** Kebab-case rule id, e.g. `undeclared-folder`, `flow-violation`. */
   rule: string;
-  /** File or directory the finding is about, relative to the project root. */
+  /**
+   * The file or directory the finding is about, as a path relative to the project
+   * root.
+   *
+   * `cycle` is the one exception: its path is a **module key**, relative to the
+   * source root (`components/A`, not `src/components/A`), and it need not name a
+   * directory — a file placed straight into a layer keys to `components/Card`
+   * while the file on disk is `Card.jsx`. A cycle is between graph nodes rather
+   * than inside a file, and a module key is what `blueprint deps` takes, so a
+   * cycle's address pastes into that command as it is printed.
+   */
   path: string;
   /**
    * What inside `path` this finding is about — the import specifier, a cycle's

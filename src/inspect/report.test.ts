@@ -140,6 +140,25 @@ describe('report · findings name where they are enforced (field issue #48)', ()
     // config" but "why is it not there at all".
     expect(out.match(/\(inspect only — never appears in a lint run\)/g)).toHaveLength(2);
   });
+
+  it('explains the cycle address once, whatever the number of cycles', () => {
+    // One folder, two addresses, in one screen — `components/A` to the cycle and
+    // `src/components/A` to no-entry. Two truths with no bridge read as a
+    // contradiction, and the bridge belongs in the step, which is per RULE: written
+    // per finding it repeats itself down a report whose whole point is that cycles
+    // come as an inventory.
+    const out = report([
+      { severity: 'error', rule: 'cycle', path: 'components/A', subject: 'components/A components/B', message: 'm' },
+      { severity: 'error', rule: 'cycle', path: 'hooks/useC', subject: 'hooks/useC hooks/useD', message: 'm' },
+      { severity: 'warn', rule: 'no-entry', path: 'src/components/A', subject: '', message: 'm' },
+    ]);
+
+    expect(headers(out).filter((line) => line.includes('[cycle]'))).toHaveLength(2);
+    expect(headers(out)).toContain('  ✗ [cycle] components/A');
+    expect(headers(out)).toContain('  ⚠ [no-entry] src/components/A');
+    expect(out).toContain('module key');
+    expect(out.match(/`blueprint deps <key>`/g)).toHaveLength(1);
+  });
 });
 
 describe('report · icons and the migration block', () => {
