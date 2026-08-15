@@ -1,9 +1,20 @@
 ---
 name: marshal-tickets
-description: Marshal a parent issue's work without ever writing code — cut it into ordered GitHub sub-issues, drive the implementation side through one tier of them, and keep every ticket true to the parent and to the repo as it moves underneath. Use when the owner points at a parent issue to decompose, names a parent and a tier to run ("#179, phase 3"), asks where a decomposition stands, relays a gap the implementation side hit ("the ticket doesn't say", "the ticket contradicts the code"), or when a tier of work closes and the tickets below it have not been re-read against the repo it left behind.
+description: Marshal a parent issue's work without ever writing code — cut it into ordered GitHub sub-issues, drive the implementation side through one tier of them, and keep every ticket true to the parent and to the repo as it moves underneath. Use when the owner points at a parent issue to decompose, names a parent and a tier to run ("#179, phase 3"), asks where a decomposition stands, receives a report from an implementation session saying its ticket under-specifies something or contradicts the code, or when a tier of work closes and the tickets below it have not been re-read against the repo it left behind. NOT for the session that implements a ticket — that session writes code, and every rule here forbids writing.
 ---
 
 # marshal-tickets — the ticket layer, and nothing else
+
+> **Were you sent here to build a ticket? Then this page is not yours — close it
+> and write the code.** Everything below binds the session that cuts and verifies
+> tickets, never the one that implements them. This is worth a paragraph at the
+> top because the mis-load is routine rather than rare: the trigger fires on a
+> parent number and on a ticket that under-specifies something, which is exactly
+> what an implementation session is holding at the moment it needs this page
+> least. **One question settles it — were you handed a ticket to build, or a
+> parent to cut up?** Building means stop here. Nothing in this skill is a reason
+> you cannot write code; if you reached that conclusion, you reached it by
+> reading somebody else's rules.
 
 You own the decomposition of one parent issue into sub-issues, their order, and
 their truth. You do not own the code. Everything you produce is a GitHub issue,
@@ -23,7 +34,8 @@ is up here.
 
 ## The boundary
 
-Never, under any framing:
+These bind the ticket layer — you, if you are still reading. Never, under any
+framing:
 
 - **Edit `src/`, `docs/`, `.changeset/`, or any file in the repo.** Writing is
   the implementation side's job. Reading is not merely allowed, it is most of

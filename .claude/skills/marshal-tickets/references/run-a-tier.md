@@ -4,12 +4,20 @@
 
 ## One implementation session per ticket, not one per tier
 
-Spawn a fresh session for each ticket with the Agent tool. It writes code and you
-do not, so it inherits none of this skill's boundary. Hand it the parent number,
-**the one ticket it is working**, and the instruction to read `CLAUDE.md` plus
-every `.claude/docs/` page whose trigger fires. Hand over the ticket *number*,
-not your summary of it — a summary is a second source of truth for something you
-already wrote, and the two will differ.
+Spawn a fresh session for each ticket with the Agent tool. **That session writes
+the code and this one does not, so none of these rules reach it.** Hand it the
+parent number, **the one ticket it is working**, and the instruction to read
+`CLAUDE.md` plus every `.claude/docs/` page whose trigger fires. Hand over the
+ticket *number*, not your summary of it — a summary is a second source of truth
+for something you already wrote, and the two will differ.
+
+**And hand it one line saying `marshal-tickets` is not its skill**, because the
+dispatch itself is what mis-fires the trigger: you are giving it a parent number
+and a ticket, which is most of the skill's own description. Every implementation
+session this ran has stopped to ask how it was supposed to write anything — the
+page's bans are in the second person, so the reader it loads for is the reader it
+binds. The spine now says so at the top; the dispatch says it before the page
+does.
 
 **A session held across a whole tier is the shape to avoid.** One died mid-tier
 here holding everything it had learned, because a transcript is not a place
