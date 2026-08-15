@@ -101,7 +101,8 @@ project's stance is against a red nobody can appease.
 
 - **Next.js**: `init` detects the route tree (`app/` and/or `pages/`, under
   `src/` or the project root) and generates `nextPreset` — the route dir is
-  the top layer, flat module layout, and **no `fetch` ownership** (server
+  the top layer, `file` layout (left unset, which resolves there), and
+  **no `fetch` ownership** (server
   components fetch everywhere by design, so restricting it would be a lie).
   Both routers reduce to the same shape; imports stay explicit, so the
   dependency graph is real and enforcement is genuine.

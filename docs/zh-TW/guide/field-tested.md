@@ -70,7 +70,8 @@
 ## 框架注意事項
 
 - **Next.js**：`init` 會偵測路由樹（`app/` 與／或 `pages/`，位於 `src/` 或專案根），產出 `nextPreset` ——<br>
-  路由目錄即頂層、扁平模組配置，且**不設 `fetch` 歸屬**（server component 本就到處 fetch，強加限制即為造假）。<br>
+  路由目錄即頂層、採 `file` 佈局（preset 不寫這個鍵，而省略就是解析到它），<br>
+  且**不設 `fetch` 歸屬**（server component 本就到處 fetch，強加限制即為造假）。<br>
   兩種 router 收斂為同一形態；匯入皆為顯式，依賴圖真實、強制有效。
 - **Vue 單檔元件**：`<script setup>` 的匯入與一般原始碼相同納入掃描；<br>
   Vite 起始範本需將三處資源匯入改走匯入別名。
