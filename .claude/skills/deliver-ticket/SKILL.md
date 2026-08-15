@@ -34,6 +34,8 @@ So: **what you find while building goes into a comment on the ticket you are bui
 
 This is the cheapest thing in this file and the easiest to skip, because skipping it feels like starting sooner.
 
+**This is the standing half of a pair, and it is the half that pays.** The other is under *How you verify* — *a product question is answered on the published site* — and it fires the moment you notice a doubt. **Doing only that one means every question costs a stop.** Reading up front means most of them never form, and the ones that do land on a reader who already knows where the answer lives.
+
 **What you read is also what you may not contradict.** If the change would make a published page false, that is not a licence to change the page — it is a **shortfall**: name it, say which page and which line, and say whether you believe the page or the code. The owner decides which one moves.
 
 ## The ticket is the record, not just the target
@@ -68,7 +70,11 @@ None of these has a moment that prompts you to look them up. The moment each one
 
 **Render in a throwaway directory.** Some of what you run to see the output writes files — `init` is the obvious one — and run from the repo root it leaves them there.
 
-**A product question is answered on the published site before it is answered here.** *What counts as governed? What is the agent contract for? What does this tool refuse to decide?* — this project publishes its positions, at `docs/philosophy/` and across `docs/guide/`, and an adopter has read them. Deciding one of these fresh in a commit is not deciding, it is forking. **Reading it is not trusting it** — a page can be stale, several were — so when the site and the code disagree, **that disagreement is a shortfall**: write it down, say which one you believe and why.
+**A product question is answered on the published site before it is answered here.** *What counts as governed? What is the agent contract for? What does this tool refuse to decide?* — this project publishes its positions, at `docs/philosophy/` and across `docs/guide/`, and an adopter has read them. Deciding one of these fresh in a commit is not deciding, it is forking.
+
+**This is the reactive half of the pair whose standing half is above** — *read what the tool already promises, before the first commit*. They are not the same rule twice. **The one above stops the question forming; this one stops it being answered by you** when it forms anyway, which it will, because no amount of reading up front anticipates every case. Neither replaces the other: skip the standing half and every question costs a stop; skip this one and the questions you did not anticipate get invented answers.
+
+**And reading it is not trusting it** — a page can be stale, several were — so when the site and the code disagree, **that disagreement is a shortfall**: write it down, say which one you believe and why. That applies to both halves equally.
 
 ## Repo facts
 
