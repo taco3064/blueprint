@@ -87,13 +87,19 @@ understands is worse than no structure:
   each module may reach, whether it is layered, what it owns, and the tree at
   full depth.
 
-**When your `structure` choice does not match your tree, that is one finding.** A
-flat tree under `structure: 'modular'` used to draw a finding per folder, each
-correct about itself and none in a position to see that *every* top folder was
-undeclared while *every* declared module was absent — followed one at a time they
-talk you into declaring your layer names as modules. `structure-mismatch` states
-the ratios it is built from, offers the other structure, and hands back the one
-question only you can answer: are these folders layers, or modules?
+**When your `structure` choice does not match your tree, that is one decision,
+not N declarations.** A flat tree under `structure: 'modular'` used to draw only
+a finding per folder, each correct about itself and none in a position to see
+that *every* top folder was undeclared while *every* declared module was
+absent — followed one at a time they talk you into declaring your layer names
+as modules. `structure-mismatch` lands above the findings it is built from, states
+the ratios, offers the other structure, and hands back the one question only you
+can answer: are these folders layers, or modules? **The per-folder findings all
+still print, and the summary still counts them** — the new finding names them as
+its evidence rather than replacing them, because suppressing what a verdict is
+derived from leaves you nothing to check it against. So the report grows by one
+error rather than collapsing to one: three undeclared folders print four errors,
+and the first of them is the one to act on.
 
 **Flat stays first-class.** Omit `modules` and none of this is in force and
 nothing in your project moves — a small project is right to stay flat and is
