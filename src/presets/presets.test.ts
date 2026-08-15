@@ -275,7 +275,10 @@ describe('nextPreset', () => {
     expect(bp.framework).toBe('react');
     expect(bp.architecture.sourceRoot).toBe('src');
     expect(bp.architecture.alias).toBe('@');
-    expect(bp.architecture.layers.map((l) => l.name)).toEqual(['app', 'components', 'hooks', 'lib']);
+
+    expect(bp.architecture.layers.map((l) => l.name))
+      .toEqual(['app', 'components', 'hooks', 'lib']);
+
     expect(bp.architecture.module?.layout).toBe('flat');
 
     // Server components fetch everywhere — fetch must not be owned by a layer.
@@ -293,7 +296,8 @@ describe('nextPreset', () => {
   });
 
   it('declares both route trees for a migration project', () => {
-    const names = nextPreset({ router: 'both', srcDir: true }).architecture.layers.map((l) => l.name);
+    const names = nextPreset({ router: 'both', srcDir: true })
+      .architecture.layers.map((l) => l.name);
 
     expect(names.slice(0, 2)).toEqual(['app', 'pages']);
   });

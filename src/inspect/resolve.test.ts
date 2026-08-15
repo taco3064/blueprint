@@ -17,7 +17,9 @@ const architecture: ArchitectureDef = {
 const layoutOf = layoutResolver(architecture);
 
 describe('targetModuleKey · which specifiers name a module', () => {
-  const file = (segments: string[]): ScannedFile => ({ path: segments.join('/'), segments, imports: [] });
+  const file = (segments: string[]): ScannedFile => ({ path: segments.join('/'), segments,
+    imports: [] });
+
   const ref = (specifier: string): ImportRef => ({ specifier, names: [], isExport: false });
 
   it('answers null for a bare package specifier', () => {
@@ -26,16 +28,19 @@ describe('targetModuleKey · which specifiers name a module', () => {
     // the module `resources/axios` — a graph edge to a module that is not there,
     // counted in every blast radius and flow check.
     expect(
-      targetModuleKey(ref('axios'), file(['resources', 'Row', 'Row.ts']), ['~app'], ['resources'], layoutOf),
+      targetModuleKey(ref('axios'), file(['resources', 'Row', 'Row.ts']), ['~app'], ['resources'],
+        layoutOf),
     ).toBeNull();
 
     // The two shapes that DO name a module still do.
     expect(
-      targetModuleKey(ref('./parts/Cell'), file(['resources', 'Row', 'Row.ts']), ['~app'], ['resources'], layoutOf),
+      targetModuleKey(ref('./parts/Cell'), file(['resources', 'Row', 'Row.ts']), ['~app'],
+        ['resources'], layoutOf),
     ).toBe('resources/Row');
 
     expect(
-      targetModuleKey(ref('~app/services/api'), file(['resources', 'Row', 'Row.ts']), ['~app'], ['services'], layoutOf),
+      targetModuleKey(ref('~app/services/api'), file(['resources', 'Row', 'Row.ts']), ['~app'],
+        ['services'], layoutOf),
     ).toBe('services/api');
   });
 });

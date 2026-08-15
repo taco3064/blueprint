@@ -1,41 +1,15 @@
 {
-  "src/bootstrap/alias.test.ts": {
-    "@stylistic/max-len": {
-      "count": 10
-    }
-  },
   "src/bootstrap/alias.ts": {
     "blueprint/relative-escape": {
       "count": 3
     }
   },
-  "src/bootstrap/apply.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    }
-  },
-  "src/bootstrap/authoring.test.ts": {
-    "@stylistic/max-len": {
-      "count": 17
-    }
-  },
   "src/bootstrap/authoring.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    },
     "blueprint/relative-escape": {
       "count": 4
     }
   },
-  "src/bootstrap/bootstrap.test.ts": {
-    "@stylistic/max-len": {
-      "count": 10
-    }
-  },
   "src/bootstrap/bootstrap.ts": {
-    "@stylistic/max-len": {
-      "count": 3
-    },
     "blueprint/relative-escape": {
       "count": 8
     }
@@ -46,65 +20,28 @@
     }
   },
   "src/bootstrap/method.ts": {
-    "@stylistic/max-len": {
-      "count": 94
-    },
     "blueprint/relative-escape": {
       "count": 1
     }
   },
-  "src/bootstrap/plan.test.ts": {
-    "@stylistic/max-len": {
-      "count": 18
-    }
-  },
   "src/bootstrap/plan.ts": {
-    "@stylistic/max-len": {
-      "count": 9
-    },
     "blueprint/relative-escape": {
       "count": 7
     }
   },
   "src/bootstrap/playbook.ts": {
-    "@stylistic/max-len": {
-      "count": 63
-    },
     "blueprint/relative-escape": {
       "count": 5
     }
   },
   "src/bootstrap/verdict.ts": {
-    "@stylistic/max-len": {
-      "count": 25
-    },
     "blueprint/relative-escape": {
       "count": 2
-    }
-  },
-  "src/bootstrap/wire.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    }
-  },
-  "src/boundary/resolve.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
     }
   },
   "src/boundary/resolve.ts": {
     "blueprint/relative-escape": {
       "count": 2
-    }
-  },
-  "src/boundary/verdict.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    }
-  },
-  "src/cli/cli.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
     }
   },
   "src/cli/cli.ts": {
@@ -117,55 +54,19 @@
       "count": 1
     }
   },
-  "src/config/defineBlueprint.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    }
-  },
-  "src/config/defineBlueprint.ts": {
-    "@stylistic/max-len": {
-      "count": 2
-    }
-  },
-  "src/config/graph.test.ts": {
-    "@stylistic/max-len": {
-      "count": 2
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/emit/agent/agent.ts": {
     "blueprint/relative-escape": {
       "count": 1
     }
   },
-  "src/emit/agent/sections.test.ts": {
-    "@stylistic/max-len": {
-      "count": 9
-    }
-  },
   "src/emit/agent/sections.ts": {
-    "@stylistic/max-len": {
-      "count": 6
-    },
     "blueprint/relative-escape": {
-      "count": 3
-    }
-  },
-  "src/emit/agent/targets.test.ts": {
-    "@stylistic/max-len": {
       "count": 3
     }
   },
   "src/emit/agent/targets.ts": {
     "blueprint/relative-escape": {
       "count": 2
-    }
-  },
-  "src/emit/docs/diagram.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
     }
   },
   "src/emit/docs/diagram.ts": {
@@ -178,79 +79,29 @@
       "count": 1
     }
   },
-  "src/emit/docs/sections.test.ts": {
-    "@stylistic/max-len": {
-      "count": 2
-    }
-  },
   "src/emit/docs/sections.ts": {
-    "@stylistic/max-len": {
-      "count": 5
-    },
     "blueprint/relative-escape": {
       "count": 3
     }
   },
-  "src/emit/lint/lint.test.ts": {
-    "@stylistic/max-len": {
-      "count": 2
-    }
-  },
   "src/emit/lint/lint.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    },
     "blueprint/relative-escape": {
       "count": 3
     }
   },
   "src/emit/lint/patterns.ts": {
-    "@stylistic/max-len": {
-      "count": 13
-    },
     "blueprint/relative-escape": {
-      "count": 1
-    }
-  },
-  "src/impact/impact.test.ts": {
-    "@stylistic/max-len": {
       "count": 1
     }
   },
   "src/impact/impact.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    },
     "blueprint/relative-escape": {
-      "count": 5
-    }
-  },
-  "src/inspect/analyze.test.ts": {
-    "@stylistic/max-len": {
       "count": 5
     }
   },
   "src/inspect/analyze.ts": {
-    "@stylistic/max-len": {
-      "count": 2
-    },
     "blueprint/relative-escape": {
       "count": 4
-    }
-  },
-  "src/inspect/baseline.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    }
-  },
-  "src/inspect/baseline.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    }
-  },
-  "src/inspect/coverage.test.ts": {
-    "@stylistic/max-len": {
-      "count": 2
     }
   },
   "src/inspect/coverage.ts": {
@@ -258,35 +109,14 @@
       "count": 3
     }
   },
-  "src/inspect/deps.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    }
-  },
   "src/inspect/deps.ts": {
     "blueprint/relative-escape": {
       "count": 4
     }
   },
-  "src/inspect/doctor.test.ts": {
-    "@stylistic/max-len": {
-      "count": 6
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/inspect/doctor.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    },
     "blueprint/relative-escape": {
       "count": 4
-    }
-  },
-  "src/inspect/filter.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
     }
   },
   "src/inspect/filter.ts": {
@@ -299,50 +129,14 @@
       "count": 2
     }
   },
-  "src/inspect/report.test.ts": {
-    "@stylistic/max-len": {
-      "count": 7
-    }
-  },
-  "src/inspect/report.ts": {
-    "@stylistic/max-len": {
-      "count": 3
-    }
-  },
-  "src/inspect/resolve.test.ts": {
-    "@stylistic/max-len": {
-      "count": 4
-    }
-  },
   "src/inspect/resolve.ts": {
     "blueprint/relative-escape": {
       "count": 4
     }
   },
-  "src/inspect/rules.test.ts": {
-    "@stylistic/max-len": {
-      "count": 4
-    }
-  },
   "src/inspect/rules.ts": {
-    "@stylistic/max-len": {
-      "count": 4
-    },
     "blueprint/relative-escape": {
       "count": 6
-    }
-  },
-  "src/inspect/scan.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    }
-  },
-  "src/inspect/wiring.test.ts": {
-    "@stylistic/max-len": {
-      "count": 3
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 4
     }
   },
   "src/inspect/wiring.ts": {
@@ -355,42 +149,14 @@
       "count": 1
     }
   },
-  "src/plugin/no-deep-watch.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    }
-  },
-  "src/plugin/relative-escape.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    }
-  },
   "src/plugin/relative-escape.ts": {
     "blueprint/relative-escape": {
       "count": 1
     }
   },
-  "src/plugin/use-prefix-needs-reactivity.test.ts": {
-    "@stylistic/max-len": {
-      "count": 2
-    }
-  },
-  "src/presets/presets.test.ts": {
-    "@stylistic/max-len": {
-      "count": 2
-    }
-  },
   "src/presets/presets.ts": {
-    "@stylistic/max-len": {
-      "count": 33
-    },
     "blueprint/relative-escape": {
       "count": 2
-    }
-  },
-  "src/project/detect.test.ts": {
-    "@stylistic/max-len": {
-      "count": 1
     }
   },
   "src/project/detect.ts": {
@@ -403,25 +169,12 @@
       "count": 4
     }
   },
-  "src/project/tsconfig.test.ts": {
-    "@stylistic/max-len": {
-      "count": 14
-    }
-  },
   "src/project/types.ts": {
     "blueprint/relative-escape": {
       "count": 1
     }
   },
-  "src/survey/survey.test.ts": {
-    "@stylistic/max-len": {
-      "count": 16
-    }
-  },
   "src/survey/survey.ts": {
-    "@stylistic/max-len": {
-      "count": 1
-    },
     "blueprint/relative-escape": {
       "count": 5
     }

@@ -53,13 +53,19 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     throw new Error('name must be a non-empty string when provided.');
   }
 
-  rejectUnknownKeys(bp, ['name', 'framework', 'architecture', 'rules', 'principles', 'componentShape', 'playbook', 'emit'], 'the blueprint');
+  rejectUnknownKeys(bp, [
+    'name', 'framework', 'architecture', 'rules', 'principles', 'componentShape', 'playbook',
+    'emit',
+  ], 'the blueprint');
 
   if (!architecture || !Array.isArray(architecture.layers)) {
     throw new Error('architecture.layers must be an array.');
   }
 
-  rejectUnknownKeys(architecture, ['alias', 'additionalAliases', 'sourceRoot', 'layers', 'module', 'layerFiles', 'layerFilesIgnore', 'testFiles', 'naming'], 'architecture');
+  rejectUnknownKeys(architecture, [
+    'alias', 'additionalAliases', 'sourceRoot', 'layers', 'module', 'layerFiles',
+    'layerFilesIgnore', 'testFiles', 'naming',
+  ], 'architecture');
 
   const { alias, additionalAliases, layers, module, layerFiles } = architecture;
 

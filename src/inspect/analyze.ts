@@ -6,7 +6,9 @@ import {
   stripAlias,
 } from '../boundary';
 import type { EntryOf, LayoutOf } from '../boundary';
-import { getForbiddenLayers, getModuleShape, getSelfOnlyTargets, normalizeAllowedImporters } from '../config';
+import {
+  getForbiddenLayers, getModuleShape, getSelfOnlyTargets, normalizeAllowedImporters,
+} from '../config';
 import type { ArchitectureDef, Blueprint } from '../config';
 import { dropTestFiles } from './filter';
 import { compareText } from './order';
@@ -154,7 +156,8 @@ function folderFindings(
         // a field agent toward "delete the unused layers", the opposite of
         // the keep-is-default doctrine the playbook states (field run #13).
         message: `Declared layer "${name}" has no folder yet — runway, not a todo: `
-          + 'the rules arm when code lands; keeping it is the default, slimming is the owner\'s call.',
+          + 'the rules arm when code lands; keeping it is the default, '
+          + 'slimming is the owner\'s call.',
       });
     }
   }

@@ -809,7 +809,9 @@ describe('detect · every filename on each config allowlist', () => {
       // missed here makes doctor report a declared alias as resolving nowhere on
       // a repo whose bundler resolves it fine.
       writePkg({ name: 'x', dependencies: { vue: '^3' } });
-      fs.writeFileSync(path.join(root, file), 'export default { resolve: { alias: { \'~app\': \'/src\' } } };');
+
+      fs.writeFileSync(path.join(root, file), 'export default { resolve: { alias: '
+      + '{ \'~app\': \'/src\' } } };');
 
       const state = detect(root);
 

@@ -6,7 +6,9 @@ import type {
   PrincipleDef,
   RuleSetting,
 } from '../../config';
-import { readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
+import {
+  readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters,
+} from '../../config';
 import { enforcedBy, unavailableFromBlueprint } from '../lint';
 import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
@@ -18,7 +20,8 @@ export function renderHeader(name: string | undefined): string {
   return [
     `# ${title}`,
     '',
-    '> Generated from `blueprint.config` by `@kekkai/blueprint` — edit the blueprint, not this file.',
+    '> Generated from `blueprint.config` by `@kekkai/blueprint` — '
+    + 'edit the blueprint, not this file.',
   ].join('\n');
 }
 
@@ -34,7 +37,8 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
   return [
     '## Architecture',
     '',
-    'Code flows one way: each layer may import only from the layers below it. Upstream and same-layer imports are barred.',
+    'Code flows one way: each layer may import only from the layers below it. '
+    + 'Upstream and same-layer imports are barred.',
     '',
     emitFlowDiagram(architecture),
     '',
@@ -115,7 +119,8 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   );
 
   const bullets = [
-    '- **One-way only** — a layer imports only from the layers below it; upstream imports are errors.',
+    '- **One-way only** — a layer imports only from '
+    + 'the layers below it; upstream imports are errors.',
     module.layout === 'flat'
       ? '- **No same-layer imports via the alias** — use a relative path instead.'
       : '- **No same-layer imports** — extract shared logic down to a lower layer instead.',
@@ -138,7 +143,8 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
 
   bullets.push(
     '- **No redundant relative segments** (`./../`, `././`) that bypass the rules.',
-    '- **Ownership** — packages and globals are restricted to their owning layer (see the *Owns* column above).',
+    '- **Ownership** — packages and globals are restricted '
+    + 'to their owning layer (see the *Owns* column above).',
   );
 
   if (hasSelfOnly) {

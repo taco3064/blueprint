@@ -263,7 +263,18 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (configSource !== null) {
     actions.push({
       kind: 'instruct',
-      note: 'The preset turned `codeStyle` on at error tier: it pins indent (2), quotes (single), semicolons (required) and line width (90) across ~68 rules. Nearly all are auto-fixable, so when there IS code inside a layer, run `npx eslint . --fix` once and land that pass as its own commit — the formatting churn never mixes with a real change. While the layers are still empty that pass is a no-op: the gate reaches only files a layer glob matches, and a starter\'s root files sit outside every one of them. It exempts nothing by style either: a starter written without semicolons is silent today and fails the day its first file moves into a layer, which is when the --fix pass earns its commit. Already have a formatter you trust? Set `codeStyle: \'off\'` in the config and keep yours — blueprint does not need it to enforce structure.',
+      note: 'The preset turned `codeStyle` on at error tier: it pins indent (2), quotes (single), '
+        + 'semicolons (required) and line width (90) across ~68 rules. '
+        + 'Nearly all are auto-fixable, so when there IS code inside a layer, '
+        + 'run `npx eslint . --fix` once and land that pass as its own commit — '
+        + 'the formatting churn never mixes with a real change. While the layers are still empty '
+        + 'that pass is a no-op: the gate reaches only files a layer glob matches, '
+        + 'and a starter\'s root files sit outside every one of them. '
+        + 'It exempts nothing by style either: a starter written without semicolons is silent '
+        + 'today and fails the day its first file moves into a layer, '
+        + 'which is when the --fix pass earns its commit. Already have a formatter you trust? '
+        + 'Set `codeStyle: \'off\'` in the config and keep yours — '
+        + 'blueprint does not need it to enforce structure.',
     });
   }
 
@@ -272,7 +283,9 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (!blueprint.emit?.agents && !agentTarget) {
     actions.push({
       kind: 'instruct',
-      note: 'Wrote both CLAUDE.md and AGENTS.md (the default set) — declare emit.agents in blueprint.config.mjs, or re-run init with --agent claude|codex, to emit only the tool you actually use.',
+      note: 'Wrote both CLAUDE.md and AGENTS.md (the default set) — '
+        + 'declare emit.agents in blueprint.config.mjs, '
+        + 'or re-run init with --agent claude|codex, to emit only the tool you actually use.',
     });
   }
 
@@ -560,7 +573,8 @@ function applyAndNarrate(
       + `${skipped.length ? `, and ${skipped.length} planned effect(s) did NOT happen:\n${skipped.map((action) => `    · ${action.kind}: ${action.note}`).join('\n')}` : ' — nothing else was planned below it'}\n\n`
       + '  Re-running `blueprint init` is idempotent: fix the cause and the missing effects land, '
       + 'the applied ones stay. To finish the file plan without this step, run '
-      + '`blueprint init --no-install` — the dependency list is then printed for you to install yourself.',
+      + '`blueprint init --no-install` — '
+      + 'the dependency list is then printed for you to install yourself.',
     );
   }
 }

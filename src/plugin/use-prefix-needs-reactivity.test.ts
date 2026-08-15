@@ -48,7 +48,8 @@ describe('blueprint/use-prefix-needs-reactivity · every API on the allowlist', 
 
 describe('blueprint/use-prefix-needs-reactivity', () => {
   it('passes a use-named file that calls a reactive API', () => {
-    expect(messages('export const useCart = () => ref(0);', 'src/hooks/useCart/useCart.ts')).toEqual([]);
+    expect(messages('export const useCart = () => ref(0);', 'src/hooks/useCart/useCart.ts'))
+      .toEqual([]);
 
     expect(
       messages('export function useCart() { return React.useState(0); }', 'useCart.ts'),
@@ -98,7 +99,8 @@ describe('blueprint/use-prefix-needs-reactivity', () => {
     // member satisfy the rule without a line of reactivity in sight.
     expect(
       messages(
-        'class A { #useState() {} m() { this.#useState(); } }\nexport const useCart = () => new A();',
+        'class A { #useState() {} m() { this.#useState(); '
+        + '} }\nexport const useCart = () => new A();',
         'src/hooks/useCart.ts',
       ),
     ).toHaveLength(1);

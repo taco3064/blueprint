@@ -185,7 +185,8 @@ describe('aliasActions', () => {
 
   it('patches a parseable tsconfig.json in place', () => {
     const actions = aliasActions(
-      state({ tsconfigs: { 'tsconfig.json': '{}', 'tsconfig.app.json': null, 'jsconfig.json': null } }),
+      state({ tsconfigs: { 'tsconfig.json': '{}', 'tsconfig.app.json': null,
+        'jsconfig.json': null } }),
       ARCH,
     );
 
@@ -196,7 +197,8 @@ describe('aliasActions', () => {
     const shell = '{"files": [], "references": [{"path": "./tsconfig.app.json"}]}';
 
     const patched = aliasActions(
-      state({ tsconfigs: { 'tsconfig.json': shell, 'tsconfig.app.json': '{}', 'jsconfig.json': null } }),
+      state({ tsconfigs: { 'tsconfig.json': shell, 'tsconfig.app.json': '{}',
+        'jsconfig.json': null } }),
       ARCH,
     );
 
@@ -221,12 +223,14 @@ describe('aliasActions', () => {
   it('stays on the root when it is not a pure references shell', () => {
     const notShell = (root: string) =>
       aliasActions(
-        state({ tsconfigs: { 'tsconfig.json': root, 'tsconfig.app.json': '{}', 'jsconfig.json': null } }),
+        state({ tsconfigs: { 'tsconfig.json': root, 'tsconfig.app.json': '{}',
+          'jsconfig.json': null } }),
         ARCH,
       );
 
     // Root declares its own compilerOptions → patch the root, not the app config.
-    expect(write(notShell('{"references": [], "compilerOptions": {}}'))?.path).toBe('tsconfig.json');
+    expect(write(notShell('{"references": '
+      + '[], "compilerOptions": {}}'))?.path).toBe('tsconfig.json');
 
     // A root that cannot even parse falls through to the unparseable instruct.
     const broken = notShell('{ oops');
@@ -237,7 +241,8 @@ describe('aliasActions', () => {
 
   it('ignores tsconfig.app.json when there is no root shell, and patches jsconfig', () => {
     const actions = aliasActions(
-      state({ tsconfigs: { 'tsconfig.json': null, 'tsconfig.app.json': null, 'jsconfig.json': '{}' } }),
+      state({ tsconfigs: { 'tsconfig.json': null, 'tsconfig.app.json': null,
+        'jsconfig.json': '{}' } }),
       ARCH,
     );
 
@@ -248,7 +253,8 @@ describe('aliasActions', () => {
     const wired = JSON.stringify({ compilerOptions: { paths: PATHS } });
 
     const actions = aliasActions(
-      state({ tsconfigs: { 'tsconfig.json': wired, 'tsconfig.app.json': null, 'jsconfig.json': null } }),
+      state({ tsconfigs: { 'tsconfig.json': wired, 'tsconfig.app.json': null,
+        'jsconfig.json': null } }),
       ARCH,
     );
 
@@ -270,7 +276,9 @@ describe('aliasActions', () => {
 
     expect(vite).toContain('resolve: { alias: {');
     expect(vite).toContain('\'~app\': fileURLToPath(new URL(\'./src\', import.meta.url))');
-    expect(vite).toContain('\'~shared\': fileURLToPath(new URL(\'./src/shared\', import.meta.url))');
+
+    expect(vite).toContain('\'~shared\': fileURLToPath(new '
+      + 'URL(\'./src/shared\', import.meta.url))');
 
     const soloAlias = instructs(aliasActions(state({ hasViteConfig: true }), ARCH)).at(-1);
 
@@ -278,7 +286,8 @@ describe('aliasActions', () => {
     expect(soloAlias).not.toContain('~shared');
   });
 
-  it('skips the bundler instruct when the vite config already quotes every alias (batch 10)', () => {
+  it('skips the bundler instruct when the vite '
+    + 'config already quotes every alias (batch 10)', () => {
     // A prior init's surgery left this exact shape — re-running init must not
     // instruct the user to add what doctor's wiredness standard already accepts.
     const wired = state({
@@ -299,7 +308,8 @@ describe('aliasActions', () => {
     expect(skipped.every((action) => typeof action.kind === 'string')).toBe(true);
 
     // One alias quoted, one missing — the instruct still fires.
-    const partial = aliasActions(wired, { ...ARCH, additionalAliases: { '~shared': 'src/shared' } });
+    const partial = aliasActions(wired,
+      { ...ARCH, additionalAliases: { '~shared': 'src/shared' } });
 
     expect(instructs(partial).at(-1)).toContain('~shared');
   });
@@ -385,7 +395,8 @@ describe('aliasActions · root-level source (sourceRoot ".")', () => {
     );
 
     const vite = actions.find(
-      (action): action is WriteAction => action.kind === 'write' && action.path === 'vite.config.ts',
+      (action): action is WriteAction =>
+        action.kind === 'write' && action.path === 'vite.config.ts',
     );
 
     expect(vite?.content).toContain('fileURLToPath(new URL(\'.\', import.meta.url))');

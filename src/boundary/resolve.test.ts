@@ -62,7 +62,8 @@ describe('entryResolver · a shared entry that is not the default', () => {
     const named = entryResolver({
       alias: '~app',
       module: { layout: 'folder', entry: 'main' },
-      layers: [{ name: 'features', does: 'x' }, { name: 'api', does: 'y', module: { entry: 'client' } }],
+      layers: [{ name: 'features', does: 'x' },
+        { name: 'api', does: 'y', module: { entry: 'client' } }],
     });
 
     expect(named('features')).toBe('main'); // shared, no override

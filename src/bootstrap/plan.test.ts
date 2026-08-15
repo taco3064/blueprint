@@ -89,7 +89,10 @@ describe('plan', () => {
     ).toMatchObject({ command: 'npm install -D eslint @kekkai/blueprint' });
 
     expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('~app'))).toBe(true);
-    expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('install knip'))).toBe(true);
+
+    expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('install knip')))
+      .toBe(true);
+
     expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('stylelint'))).toBe(true);
   });
 
@@ -195,7 +198,8 @@ describe('plan', () => {
     // No parser imports: the import block runs straight from import-x into the
     // blueprint config.
     expect(bare).toContain(
-      'import imports from \'eslint-plugin-import-x\';\nimport blueprint from \'./blueprint.config.mjs\';',
+      'import imports from \'eslint-plugin-import-x\';\nimport '
+      + 'blueprint from \'./blueprint.config.mjs\';',
     );
 
     // No parser blocks: the array opens straight onto the emitLint spread, and
@@ -239,11 +243,13 @@ describe('plan', () => {
   });
 
   it('omits the config write when configSource is null', () => {
-    expect(write(plan(state({ hasConfig: true }), bp, null, {}), 'blueprint.config.mjs')).toBeUndefined();
+    expect(write(plan(state({ hasConfig: true }), bp, null, {}), 'blueprint.config.mjs'))
+      .toBeUndefined();
   });
 
   it('provisions the anti-bypass plugin on every path — ADOPT is the paved road (field #9)', () => {
-    const missing = ['eslint', '@kekkai/blueprint', '@eslint-community/eslint-plugin-eslint-comments'];
+    const missing = ['eslint', '@kekkai/blueprint',
+      '@eslint-community/eslint-plugin-eslint-comments'];
 
     // The guard defaults to ADOPT; an agent following the bold default on
     // the merge path must not hit "Cannot find package".
@@ -293,7 +299,9 @@ describe('plan', () => {
     expect(actions.some((a) => a.kind === 'rm')).toBe(false);
 
     expect(actions.some(
-      (a) => a.kind === 'instruct' && a.note.includes('AGENTS.md is no longer among the emitted agent contracts'),
+      (a) => a.kind === 'instruct' && a.note.includes(
+        'AGENTS.md is no longer among the emitted agent contracts',
+      ),
     )).toBe(true);
   });
 
@@ -335,7 +343,9 @@ describe('plan', () => {
     expect(actions.some((a) => a.kind === 'rm')).toBe(false);
 
     expect(actions.some(
-      (a) => a.kind === 'instruct' && a.note.includes('AGENTS.md is no longer among the emitted agent contracts'),
+      (a) => a.kind === 'instruct' && a.note.includes(
+        'AGENTS.md is no longer among the emitted agent contracts',
+      ),
     )).toBe(true);
   });
 
@@ -345,7 +355,8 @@ describe('plan', () => {
     const actions = plan(state(), narrowed, null, {
       existingAgentFiles: {
         'AGENTS.md': '# Hand-written, never init\'s\n', // no marker — not ours
-        'docs/AGENTS.md': '<!-- BLUEPRINT:START -->\nx\n<!-- BLUEPRINT:END -->', // custom path — managed by hand
+        'docs/AGENTS.md': '<!-- BLUEPRINT:START '
+          + '-->\nx\n<!-- BLUEPRINT:END -->', // custom path — managed by hand
       },
     });
 
@@ -434,13 +445,18 @@ describe('plan', () => {
   });
 
   it('tailors the wiring note to a tseslint.config() shape', () => {
-    const actions = plan(state({ hasEslintConfig: true, eslintConfigShape: 'tseslint' }), bp, null, {});
+    const actions = plan(state({ hasEslintConfig: true, eslintConfigShape: 'tseslint' }), bp, null,
+      {});
+
     const note = actions.find((a) => a.kind === 'instruct' && a.note.includes('tseslint.config()'));
 
     expect(note?.note).toContain('export default tseslint.config(');
+
     // A tseslint.config() shape IS a TS project — the TS plugin rides along
     // even when the dep scan did not see `typescript`.
-    expect(note?.note).toContain('emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports })');
+    expect(note?.note)
+      .toContain('emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports })');
+
     expect(note?.note).toContain('DELETE the reference');
     // Same LAST disambiguation as the flat-array note, asserted separately because
     // this passage is a hand-copied twin of that one and has drifted from it before
@@ -549,7 +565,9 @@ describe('plan', () => {
     const clean = plan(state({ missingDeps: [] }), bp, null, {});
 
     expect(clean.some((a) => a.kind === 'install')).toBe(false);
-    expect(clean.some((a) => a.kind === 'instruct' && a.note.includes('Install skipped'))).toBe(false);
+
+    expect(clean.some((a) => a.kind === 'instruct' && a.note.includes('Install skipped')))
+      .toBe(false);
   });
 
   it('says the eslint it installs is unpinned, and what the majors are backed by', () => {
@@ -591,7 +609,8 @@ describe('plan', () => {
   });
 
   it('refreshes an existing marker block in place, per agent file', () => {
-    const existing = 'top\n<!-- BLUEPRINT:START -->\nSTALE_CONTRACT\n<!-- BLUEPRINT:END -->\nbottom';
+    const existing = 'top\n<!-- BLUEPRINT:START '
+      + '-->\nSTALE_CONTRACT\n<!-- BLUEPRINT:END -->\nbottom';
 
     const actions = plan(state(), bp, null, {
       existingAgentFiles: { 'CLAUDE.md': existing, 'AGENTS.md': null },
@@ -607,7 +626,8 @@ describe('plan', () => {
   });
 
   it('writes a reference next to a hand-written context file instead of appending', () => {
-    const actions = plan(state(), bp, null, { existingAgentFiles: { 'AGENTS.md': '# My project' } });
+    const actions = plan(state(), bp, null,
+      { existingAgentFiles: { 'AGENTS.md': '# My project' } });
 
     // The hand-written file is not written at all; the reference carries the block.
     expect(write(actions, 'AGENTS.md')).toBeUndefined();
@@ -672,7 +692,8 @@ describe('plan', () => {
   });
 
   it('uses the package manager add syntax for pnpm/yarn', () => {
-    const pnpm = plan(state({ packageManager: 'pnpm' }), bp, null, {}).find((a) => a.kind === 'install');
+    const pnpm = plan(state({ packageManager: 'pnpm' }), bp, null, {})
+      .find((a) => a.kind === 'install');
 
     expect(pnpm).toMatchObject({ command: 'pnpm add -D eslint @kekkai/blueprint' });
   });
@@ -722,7 +743,8 @@ describe('plan · integrated hand-written context file', () => {
   it('leaves an already-integrated hand-written file alone — no reference, no nag', () => {
     const actions = plan(state(), bp, null, {
       existingAgentFiles: {
-        'AGENTS.md': '# My project\n\nContract: see node_modules/@kekkai/blueprint/agent-contract.md',
+        'AGENTS.md': '# My project\n\nContract: '
+          + 'see node_modules/@kekkai/blueprint/agent-contract.md',
       },
     });
 
@@ -781,11 +803,14 @@ describe('plan · every action is labelled so the reader can locate it', () => {
     ['an existing config and a wired eslint', { hasConfig: true, wiredEslintConfig: true }, null],
     [
       'a hand-written flat config to merge into',
-      { hasConfig: true, hasEslintConfig: true, eslintConfigFile: 'eslint.config.mjs', eslintConfigShape: 'flat-array' },
+      { hasConfig: true, hasEslintConfig: true, eslintConfigFile: 'eslint.config.mjs',
+        eslintConfigShape: 'flat-array' },
       null,
     ],
-    ['a legacy eslintrc', { hasConfig: true, legacyEslintConfig: '.eslintrc.cjs', eslintConfigShape: 'legacy' }, null],
-    ['a TypeScript project with vite', { hasTypescript: true, hasViteConfig: true }, 'export default {};'],
+    ['a legacy eslintrc',
+      { hasConfig: true, legacyEslintConfig: '.eslintrc.cjs', eslintConfigShape: 'legacy' }, null],
+    ['a TypeScript project with vite', { hasTypescript: true, hasViteConfig: true },
+      'export default {};'],
   ];
 
   it.each(scenarios)('%s', (_label, over, configSource) => {
@@ -862,7 +887,8 @@ describe('plan · containment', () => {
   // landed one directory up, an absolute `emit.agents[].path` landed wherever it
   // pointed. Refused in the planner so `--dry-run` cannot print a plan the real
   // run would reject, and so nothing at all lands.
-  const withEmit = (emit: Blueprint['emit']): Blueprint => ({ ...bp, emit: { ...bp.emit, ...emit } });
+  const withEmit = (emit: Blueprint['emit']): Blueprint => ({ ...bp,
+    emit: { ...bp.emit, ...emit } });
 
   it.each([
     ['emit.handbook, relative', { handbook: '../HANDBOOK.md' }],

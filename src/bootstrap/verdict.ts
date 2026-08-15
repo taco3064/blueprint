@@ -23,16 +23,27 @@ import type { SurveyResult } from '../survey';
  */
 function renderBuildChoice(viteTs: ViteTsCoverage | null, pm: PackageManager): string[] {
   const shared = [
-    '   Never report that a build verified the vite edit without having established that the build reads the vite config: that claim is the one thing this step can get silently wrong, and `tsc -b` exiting 0 is not evidence for it.',
+    '   Never report that a build verified the vite edit without having established that the build '
+    + 'reads the vite config: that claim is the one thing this step can get silently wrong, '
+    + 'and `tsc -b` exiting 0 is not evidence for it.',
   ];
 
   if (viteTs === null) {
     return [
-      '   **Which build, though — and where `tsc -b` is enough, prefer it.** It answers the only question available here without emitting a bundle into a tree that may have nowhere to put one (see below).',
-      '   **Whether `tsc -b` covers your vite edit is a fact about THIS repo, and this run could not settle it — read it, do not assume it.** Templates differ: many put `vite.config.ts` inside a tsconfig project (commonly a `tsconfig.node.json` reached through `references`), and there `tsc -b` type-checks the vite edit too; others leave a single root config at `include: ["src"]`, and there `tsc -b` never reads the file you just edited — it exits 0 whatever you put in it.',
+      '   **Which build, though — and where `tsc -b` is enough, prefer it.** '
+      + 'It answers the only question available here without emitting a '
+      + 'bundle into a tree that may have nowhere to put one (see below).',
+      '   **Whether `tsc -b` covers your vite edit is a fact about THIS repo, '
+      + 'and this run could not settle it — read it, do not assume it.** '
+      + 'Templates differ: many put `vite.config.ts` inside a tsconfig project (commonly a '
+      + '`tsconfig.node.json` reached through `references`), and there `tsc -b` type-checks the '
+      + 'vite edit too; others leave a single root config at `include: ["src"]`, and there '
+      + '`tsc -b` never reads the file you just edited — it exits 0 whatever you put in it.',
       '   Open the tsconfig(s) and see which one you have.',
       '   Inside a project, `tsc -b` is the build to prefer here.',
-      '   Outside every project — or once layer files exercise the alias — run `npx tsc -b` and then the vite build separately: together they cover what the full build covers, and only the split lets you say which edit each one verified.',
+      '   Outside every project — or once layer files exercise the alias — '
+      + 'run `npx tsc -b` and then the vite build separately: together they cover what the '
+      + 'full build covers, and only the split lets you say which edit each one verified.',
       ...shared,
     ];
   }
@@ -73,16 +84,25 @@ function renderBuildArtifacts(tscOut: TscArtifactLocation | null): string {
   if (tscOut !== null) {
     return [
       `   **\`tsc -b\` leaves nothing in this working tree, and that is measured.** \`${tscOut.tsconfig}\` sets \`noEmit\` and sends the build info to \`${tscOut.buildInfo}\`, which is out of the way by convention — so the build you just ran produced no untracked file here to decide about.`,
-      '   The four cells below still decide the bundle, and only if you ran the vite build: that one does write into the tree.',
-      '   Ran only `tsc -b`? Then the tree is as you found it, and the report says that rather than picking a cell — saying "I removed the artifacts" when none existed is the same wrong sentence as leaving a mess unexplained.',
+      '   The four cells below still decide the bundle, '
+      + 'and only if you ran the vite build: that one does write into the tree.',
+      '   Ran only `tsc -b`? Then the tree is as you found it, and the report says that rather '
+      + 'than picking a cell — saying "I removed the artifacts" when none '
+      + 'existed is the same wrong sentence as leaving a mess unexplained.',
       ...renderArtifactCells(),
     ].join('\n');
   }
 
   return [
-    '   Its artifacts (`dist/`, `*.tsbuildinfo`) are the build\'s normal output, and **`tsc -b` writes a `*.tsbuildinfo` even under `noEmit: true`** — build mode\'s book-keeping of what it already checked, not emitted program output, so the two settings do not conflict and the file is safe to delete.',
-    '   Stated because the opposite reading is the natural one: an agent that just opened the tsconfig to answer the paragraph above has `noEmit: true` in front of it, and a file appearing anyway looks like the build overriding the config.',
-    '   Where it lands is the repo\'s call: a `tsBuildInfoFile` pointing under `node_modules/` keeps it out of the tree entirely, and this run could not establish that either way.',
+    '   Its artifacts (`dist/`, `*.tsbuildinfo`) are the build\'s normal output, '
+    + 'and **`tsc -b` writes a `*.tsbuildinfo` even under `noEmit: true`** — '
+    + 'build mode\'s book-keeping of what it already checked, not emitted program output, '
+    + 'so the two settings do not conflict and the file is safe to delete.',
+    '   Stated because the opposite reading is the natural one: '
+    + 'an agent that just opened the tsconfig to answer the paragraph above has `noEmit: true` '
+    + 'in front of it, and a file appearing anyway looks like the build overriding the config.',
+    '   Where it lands is the repo\'s call: a `tsBuildInfoFile` pointing under `node_modules/` '
+    + 'keeps it out of the tree entirely, and this run could not establish that either way.',
     ...renderArtifactCells(),
   ].join('\n');
 }
@@ -93,12 +113,21 @@ function renderBuildArtifacts(tscOut: TscArtifactLocation | null): string {
  */
 function renderArtifactCells(): string[] {
   return [
-    '   Either way they are not adoption leftovers: leave them to the repo\'s own ignore rules, and say so in the report instead of guessing a cleanup when those rules will not cover it.',
-    '   Two independent facts decide that, not one — whether the repo HAS ignore rules, and whether it is under version control at all — and a repo can be any combination.',
-    '   A `.gitignore` listing `dist` in a tree that is not a git repo is a rule with nothing to enforce it; no `.gitignore` under git means the artifacts show up in `git status`; neither means "untracked" describes every file in the tree and the word stops distinguishing anything.',
-    '   Say which of the four you are in — it is one sentence, and it is the difference between a report the owner can act on and one they have to re-derive.',
-    '   Say it as what it is — a step THIS playbook asked for produced untracked files in someone\'s working tree — and say that deleting them is safe, because nothing adoption wrote depends on them and the build can be re-run.',
-    '   Then it is the owner\'s call rather than an unexplained mess: "leave them" without that sentence reads as "you may not touch these", which is not what it means.',
+    '   Either way they are not adoption leftovers: leave them to the repo\'s own ignore rules, '
+    + 'and say so in the report instead of guessing a cleanup when those rules will not cover it.',
+    '   Two independent facts decide that, not one — whether the repo HAS ignore rules, '
+    + 'and whether it is under version control at all — and a repo can be any combination.',
+    '   A `.gitignore` listing `dist` in a tree that is not a git repo is a rule with nothing to '
+    + 'enforce it; no `.gitignore` under git means the artifacts show up in `git status`; '
+    + 'neither means "untracked" describes every file in '
+    + 'the tree and the word stops distinguishing anything.',
+    '   Say which of the four you are in — it is one sentence, and it is the '
+    + 'difference between a report the owner can act on and one they have to re-derive.',
+    '   Say it as what it is — a step THIS playbook asked for produced untracked files in '
+    + 'someone\'s working tree — and say that deleting them is safe, '
+    + 'because nothing adoption wrote depends on them and the build can be re-run.',
+    '   Then it is the owner\'s call rather than an unexplained mess: "leave them" '
+    + 'without that sentence reads as "you may not touch these", which is not what it means.',
   ];
 }
 
@@ -108,16 +137,34 @@ function renderArtifactCells(): string[] {
  */
 function renderArtifactHandover(): string {
   return [
-    '   **One of the four cells decides itself: no ignore rules AND no version control.** There, "leave them to the repo\'s own ignore rules" names rules that do not exist and an owner who has no `git status` to see them in — so remove what your own verification step created, and say you did.',
-    '   That is not the owner\'s call being taken from them: it is the same reason this path prefers `tsc -b`, applied one step later.',
+    '   **One of the four cells decides itself: no ignore rules AND no version control.** '
+    + 'There, "leave them to the repo\'s own ignore rules" names rules that do not exist and an '
+    + 'owner who has no `git status` to see them in — '
+    + 'so remove what your own verification step created, and say you did.',
+    '   That is not the owner\'s call being taken from them: '
+    + 'it is the same reason this path prefers `tsc -b`, applied one step later.',
     '   The tree you hand back is the tree you were given.',
-    '   In the other three cells leave the artifacts alone: `git status` surfaces them, or an ignore rule names them, and either way something other than your report is keeping track.',
-    '   **An ignore rule with no git behind it still counts as the second kind, and the distinction is declared against enforced.** A `.gitignore` listing `dist` in a tree that is not a git repo enforces nothing today — said plainly above — and it is still the repo author writing down that this artifact is disposable, which takes effect the moment anyone runs `git init`.',
+    '   In the other three cells leave the artifacts alone: `git status` surfaces them, or an '
+    + 'ignore rule names them, and either way something other than your report is keeping track.',
+    '   **An ignore rule with no git behind it still counts as the second kind, '
+    + 'and the distinction is declared against enforced.** A `.gitignore` listing `dist` in a tree '
+    + 'that is not a git repo enforces nothing today — said plainly above — '
+    + 'and it is still the repo author writing down that this artifact is disposable, '
+    + 'which takes effect the moment anyone runs `git init`.',
     '   That declaration is what you leave the artifact on.',
-    '   The cell that decides itself is the one with no declaration anywhere: no rule to go dormant, no history to surface it, nothing but your report.',
-    '   Read those two sentences together or they read as a contradiction — enforced today is not the test; declared at all is.',
-    '   **"Your own verification step" is narrower than "untracked", and in this cell nothing else marks the difference.** Three kinds of file end up untracked here and only the first is yours to remove: what a verification command produced (`dist/`, `*.tsbuildinfo` — remove); what `init` produced, including the install (`node_modules/`, a written or rewritten lockfile, the config, the emitted contract and handbook — these are the adoption, keep every one); and whatever was already in the tree before you started, blueprint\'s or not (leave untouched, and do not report it as adoption\'s).',
-    '   Deciding this by "is it untracked?" deletes the deliverable; deciding it by "did I run the command that made it?" does not.',
+    '   The cell that decides itself is the one with no declaration anywhere: '
+    + 'no rule to go dormant, no history to surface it, nothing but your report.',
+    '   Read those two sentences together or they read as a contradiction — '
+    + 'enforced today is not the test; declared at all is.',
+    '   **"Your own verification step" is narrower than "untracked", '
+    + 'and in this cell nothing else marks the difference.** Three kinds of file end up untracked '
+    + 'here and only the first is yours to remove: what a verification command produced (`dist/`, '
+    + '`*.tsbuildinfo` — remove); what `init` produced, including the install (`node_modules/`, '
+    + 'a written or rewritten lockfile, the config, the emitted contract and handbook — '
+    + 'these are the adoption, keep every one); and whatever was already in the tree before '
+    + 'you started, blueprint\'s or not (leave untouched, and do not report it as adoption\'s).',
+    '   Deciding this by "is it untracked?" deletes the deliverable; '
+    + 'deciding it by "did I run the command that made it?" does not.',
   ].join('\n');
 }
 
@@ -173,10 +220,16 @@ export function renderVerdict(
     '',
     'The complete early-exit checklist — nothing else in this file applies:',
     '',
-    '1. `npx blueprint init --preset --agent claude` (or `--agent codex`) — scaffolds config + artifacts with YOUR contract declared: the flag persists into `emit.agents`, so one run emits one contract file.',
+    '1. `npx blueprint init --preset --agent claude` (or `--agent codex`) — '
+    + 'scaffolds config + artifacts with YOUR contract declared: '
+    + 'the flag persists into `emit.agents`, so one run emits one contract file.',
     '   Running as neither tool?',
     '   Plain `--preset`, then declare `emit.agents` in the config and re-run init.',
-    '2. `npx blueprint impact` (0 hits → skip `--suppress-all` entirely; an empty suppressions ledger is ceremony) and `npx blueprint inspect --baseline` — both exit 0. (`--update-baseline` is deliberately not on this list: with zero debt it is a no-op that writes nothing — the full method runs it because brownfield repos have debt to lock; a clean early exit has none.)',
+    '2. `npx blueprint impact` (0 hits → skip `--suppress-all` entirely; '
+    + 'an empty suppressions ledger is ceremony) and `npx blueprint inspect --baseline` — '
+    + 'both exit 0. (`--update-baseline` is deliberately not on this list: '
+    + 'with zero debt it is a no-op that writes nothing — the full method runs it '
+    + 'because brownfield repos have debt to lock; a clean early exit has none.)',
     renderEarlyExitVerify(viteTs, tscOut, pm),
     `4. Delete ${cleanupTargets(claudeDir)} Cleanup comes BEFORE the final gate: doctor treats these authoring files as leftovers.`,
     `5. \`npx blueprint doctor\` — all checks green, and a \`⊘\` is not green: a skipped check keeps exit 0 while what it verifies stays unverified, so fix what that line names and re-run before you report done.`,

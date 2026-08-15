@@ -144,10 +144,14 @@ describe('runSurvey', () => {
     // vs indexedChildren, so an off-by-one or a flipped comparator here
     // misinforms the architecture decision downstream, not just a report.
     expect(result.folders).toEqual([
-      { folder: 'pages', files: 3, directFiles: 2, childFolders: 1, indexedChildren: 0, maxDepth: 2 },
-      { folder: 'services', files: 3, directFiles: 0, childFolders: 1, indexedChildren: 1, maxDepth: 2 },
-      { folder: 'components', files: 2, directFiles: 2, childFolders: 0, indexedChildren: 0, maxDepth: 1 },
-      { folder: 'hooks', files: 2, directFiles: 2, childFolders: 0, indexedChildren: 0, maxDepth: 1 },
+      { folder: 'pages', files: 3, directFiles: 2, childFolders: 1, indexedChildren: 0,
+        maxDepth: 2 },
+      { folder: 'services', files: 3, directFiles: 0, childFolders: 1, indexedChildren: 1,
+        maxDepth: 2 },
+      { folder: 'components', files: 2, directFiles: 2, childFolders: 0, indexedChildren: 0,
+        maxDepth: 1 },
+      { folder: 'hooks', files: 2, directFiles: 2, childFolders: 0, indexedChildren: 0,
+        maxDepth: 1 },
     ]);
 
     // Alias and relative imports both land in the matrix; root files bucket.
@@ -181,7 +185,9 @@ describe('runSurvey', () => {
   });
 
   it('counts both src/test spellings, and leads package usage with the most concentrated', () => {
-    write('package.json', JSON.stringify({ name: 'demo', dependencies: { axios: '^1', zod: '^3' } }));
+    write('package.json',
+      JSON.stringify({ name: 'demo', dependencies: { axios: '^1', zod: '^3' } }));
+
     write('tsconfig.json', JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }));
 
     // One convention, two spellings — neither is a typo for the other, and
@@ -208,7 +214,8 @@ describe('runSurvey', () => {
   });
 
   it('names the specifiers a package-granular row cannot support an owns clause with', () => {
-    write('package.json', JSON.stringify({ name: 'demo', dependencies: { react: '^18', zod: '^3' } }));
+    write('package.json',
+      JSON.stringify({ name: 'demo', dependencies: { react: '^18', zod: '^3' } }));
 
     // The reported case: `owns: [{ package: 'react', imports: ['createContext'] }]` is a
     // clause the package row cannot verify — react reads as "three folders use it"
@@ -250,8 +257,12 @@ describe('runSurvey', () => {
 
     // react spans three folders, and its concentrated specifiers arrive in an order the
     // sort must change: `useTransition` is seen first and sorts last.
-    write('src/pages/App.tsx', 'import { useTransition } from "react";\nexport const A = useTransition;');
-    write('src/contexts/User.tsx', 'import { createContext } from "react";\nexport const C = createContext;');
+    write('src/pages/App.tsx',
+      'import { useTransition } from "react";\nexport const A = useTransition;');
+
+    write('src/contexts/User.tsx',
+      'import { createContext } from "react";\nexport const C = createContext;');
+
     write('src/components/Card.tsx', 'import { useId } from "react";\nexport const D = useId;');
 
     const result = runSurvey(root, { log: silent });
@@ -273,7 +284,9 @@ describe('runSurvey', () => {
     write('package.json', JSON.stringify({ name: 'demo', dependencies: { react: '^18' } }));
     write('src/main.tsx', 'import { StrictMode } from "react";\nexport const x = StrictMode;\n');
     write('src/hooks/useUser.ts', 'import { useMemo } from "react";\nexport const u = useMemo;\n');
-    write('src/components/Card.tsx', 'import { useMemo } from "react";\nexport const C = useMemo;\n');
+
+    write('src/components/Card.tsx',
+      'import { useMemo } from "react";\nexport const C = useMemo;\n');
 
     const result = runSurvey(root, { log: silent });
 
@@ -294,7 +307,8 @@ describe('runSurvey', () => {
     expect(runSurvey(root, { log: silent }).testEvidence).toEqual([]);
   });
 
-  it('reads an entry as index.<ext> exactly, and climbs deep relative imports from the file', () => {
+  it('reads an entry as index.<ext> exactly, '
+    + 'and climbs deep relative imports from the file', () => {
     write('package.json', JSON.stringify({ name: 'edges' }));
     write('tsconfig.json', JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }));
 
@@ -482,7 +496,8 @@ describe('renderSurvey', () => {
       aliases: { '~app': 'src', '~lib': 'src/lib' },
       rootFiles: ['main.ts'],
       folders: [
-        { folder: 'views', files: 12, directFiles: 3, childFolders: 4, indexedChildren: 2, maxDepth: 3 },
+        { folder: 'views', files: 12, directFiles: 3, childFolders: 4, indexedChildren: 2,
+          maxDepth: 3 },
       ],
       edges: [{ from: 'views', to: 'services', count: 7 }],
       selfAliasImports: { services: 2, views: 9 },
@@ -499,7 +514,9 @@ describe('renderSurvey', () => {
     expect(output).toContain('src/ root files (wiring, not layers): main.ts');
 
     // All six folder numbers reach the line the playbook reads.
-    expect(output).toContain('12 source files · 3 direct · 4 child folders (2 with index) · depth 3');
+    expect(output)
+      .toContain('12 source files · 3 direct · 4 child folders (2 with index) · depth 3');
+
     // Above zero the row stands on its own, so the note is absent entirely. The needle
     // is the renderer's opening words: this used to read `holds no SOURCE file`, a string
     // the renderer stopped emitting two commits later — an assertion that cannot fail is
@@ -559,9 +576,12 @@ describe('renderSurvey', () => {
       aliases: {},
       rootFiles: [],
       folders: [
-        { folder: 'styles', files: 0, directFiles: 0, childFolders: 0, indexedChildren: 0, maxDepth: 0 },
-        { folder: 'assets', files: 0, directFiles: 0, childFolders: 0, indexedChildren: 0, maxDepth: 0 },
-        { folder: 'components', files: 4, directFiles: 4, childFolders: 0, indexedChildren: 0, maxDepth: 1 },
+        { folder: 'styles', files: 0, directFiles: 0, childFolders: 0, indexedChildren: 0,
+          maxDepth: 0 },
+        { folder: 'assets', files: 0, directFiles: 0, childFolders: 0, indexedChildren: 0,
+          maxDepth: 0 },
+        { folder: 'components', files: 4, directFiles: 4, childFolders: 0, indexedChildren: 0,
+          maxDepth: 1 },
       ],
       edges: [],
       selfAliasImports: {},
@@ -759,7 +779,8 @@ describe('dependencyNames · what "no package.json" answers', () => {
   it('reads prod and dev dependencies together, scoped names included', () => {
     fs.writeFileSync(
       path.join(dir, 'package.json'),
-      JSON.stringify({ dependencies: { vue: '^3' }, devDependencies: { '@vitejs/plugin-vue': '^5' } }),
+      JSON.stringify({ dependencies: { vue: '^3' },
+        devDependencies: { '@vitejs/plugin-vue': '^5' } }),
     );
 
     expect(dependencyNames(dir)).toEqual(['vue', '@vitejs/plugin-vue']);

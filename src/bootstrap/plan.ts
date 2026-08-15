@@ -35,7 +35,12 @@ export function plan(
   const actions: Action[] = [];
 
   if (configSource !== null) {
-    actions.push({ kind: 'write', path: 'blueprint.config.mjs', content: configSource, note: 'blueprint.config.mjs' });
+    actions.push({
+      kind: 'write',
+      path: 'blueprint.config.mjs',
+      content: configSource,
+      note: 'blueprint.config.mjs',
+    });
   }
 
   // Where code already lives, an unbuilt layer's absence is its true state — a
@@ -70,7 +75,8 @@ export function plan(
         actions.push({
           kind: 'instruct',
           note: `${file.path} already integrates the blueprint contract without markers — left as is, `
-            + 'and init can never refresh it: after config changes, update it by hand — or wrap the '
+            + 'and init can never refresh it: after config changes, update it by hand — '
+            + 'or wrap the '
             + `generated block in <!-- ${MARKER}:START --> / <!-- ${MARKER}:END --> once, and every `
             + 'later init rewrites just that block.',
         });
@@ -105,8 +111,10 @@ export function plan(
             note: `${file.path} is hand-written, so it was not touched. Integrate ${reference} into it — `
               + 'follow the document\'s own structure, link rather than duplicate, and KEEP the '
               + `<!-- ${MARKER}:START/END --> marker comments around the generated block: they are what `
-              + 'lets a later init refresh the block after config changes (integrating without them '
-              + 'means updating it by hand, forever) — then delete the reference. (An agent running '
+              + 'lets a later init refresh the block after config changes (integrating without '
+              + 'them '
+              + 'means updating it by hand, forever) — then delete the reference. '
+              + '(An agent running '
               + 'the authoring playbook does this as its final step.)',
           },
         );
@@ -243,11 +251,15 @@ export function plan(
       // knip is not installed by default: zero-config knip false-flags entry
       // points, so shipping it commented-out (or pre-installed but unused)
       // is a dangling promise. Recommend it as the opt-in dead-code gate.
-      note: 'Dead code (optional): `blueprint inspect` reports dead files; for dead *exports*, install knip and configure its entry points — that is the source of truth, not the warn-tier `import/no-unused-modules`.',
+      note: 'Dead code (optional): `blueprint inspect` reports dead files; '
+        + 'for dead *exports*, install knip and configure its entry points — '
+        + 'that is the source of truth, not the warn-tier `import/no-unused-modules`.',
     },
     {
       kind: 'instruct',
-      note: 'CSS token governance (optional): install stylelint + @csstools/stylelint-value-no-unknown-custom-properties, pointing importFrom at your token source file.',
+      note: 'CSS token governance (optional): install stylelint + '
+        + '@csstools/stylelint-value-no-unknown-custom-properties, '
+        + 'pointing importFrom at your token source file.',
     },
   );
 
@@ -313,7 +325,8 @@ function eslintWiringNote(state: ProjectState): string {
       + 'blueprint rules needs a flat-config / ESLint-9 migration first — that can break your '
       + 'lint pipeline, so it is a deliberate decision, not a side effect of adoption. Until you '
       + 'migrate, `blueprint inspect --baseline` already gates the architecture without touching '
-      + 'eslint. Once on flat config, spread `...emitLint(blueprint)` from eslint.config.blueprint.mjs.\n'
+      + 'eslint. Once on flat config, spread `...emitLint(blueprint)` from '
+      + 'eslint.config.blueprint.mjs.\n'
       + shared;
   }
 
@@ -349,7 +362,8 @@ function eslintWiringNote(state: ProjectState): string {
     + `    export default [ /* …your existing entries */ ...emitLint(blueprint, ${options}) ];\n`;
 
   return 'eslint.config already exists — blueprint never edits it, so eslint.config.blueprint.mjs '
-    + 'is your merge source, not a keepsake. Diff it, then spread the rules into your flat config:\n'
+    + 'is your merge source, not a keepsake. Diff it, then spread the rules into your flat '
+    + 'config:\n'
     + '    import blueprint from \'./blueprint.config.mjs\';\n'
     + '    import { emitLint } from \'@kekkai/blueprint\';\n'
     + spread
@@ -442,7 +456,8 @@ function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
           '  {',
           '    files: [\'**/*.vue\'],',
           ts
-            ? '    languageOptions: { parser: vueParser, parserOptions: { parser: tseslint.parser } },'
+            ? '    languageOptions: { parser: '
+            + 'vueParser, parserOptions: { parser: tseslint.parser } },'
             : '    languageOptions: { parser: vueParser },',
           '  },',
         ]
