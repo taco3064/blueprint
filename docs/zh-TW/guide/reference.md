@@ -88,8 +88,15 @@ flat config 是**取代**不是合併 —— 但只發生在「兩筆都命中�
 你原本那一筆留在原處、繼續守 blueprint 從來沒管過的檔案 —— 而且不用搬。<br>
 把合併後那一筆放在陣列**最後**就好：最後就同時在 spread 之後、也在你原本那筆之後，因為兩筆都命中的地方仍然是後面的贏。
 
-合併那一筆需要的 `selfOnly` selector，`npx blueprint rules --json` 會照層帶出來，而且有兩種寫法，只有一種撐得過「貼上」這個動作：
+合併那一筆需要的 `selfOnly` selector，`npx blueprint rules --json` 會一列一列帶出來 —— 一列對應一筆實際輸出的設定 —— 而且有兩種寫法，只有一種撐得過「貼上」這個動作：
 
+- **`zone` 講的是這一列在管什麼，而它不一定是某一層。**<br>
+  flat config 下是一層一列，每一列都帶 `layer`。<br>
+  宣告 [`modules`](/zh-TW/guide/structure) 之後，變成一組（`module`、`layer`）一列，<br>
+  再加上每個模組自己的 zone 各一列 —— 有分層的模組是它自己的根（`zone: "root"`），`layers: false` 的模組則是整包（`zone: "module"`）。<br>
+  這兩種都不帶 `layer`，也沒有 selector，因為 `allowedImporters` 是「層」的欄位。<br>
+  要拿的是「你真正要合併的那一筆」所對應的那一列：模組預設彼此隔離，所以隔壁模組的 selector 是另一個字串，<br>
+  貼錯列就會裝上一條什麼都擋不到的規則，而 lint 照樣是綠的。
 - **要複製的是 `jsLiteral`** —— 這是 selector 的 JS 原始碼形式，連引號一起給。
 - **`selectors` 是 ESLint 實際解析的那個值。**<br>
   對「用程式**組**設定」的情境是對的，對「用貼的」則是陷阱：<br>

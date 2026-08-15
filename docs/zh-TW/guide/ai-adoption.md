@@ -141,8 +141,9 @@ npx @kekkai/blueprint doctor
 - **emitted rules 在合併後的 config 裡活著** ——<br>
   flat config 對同一條 rule 從不合併：後面的 entry 會「靜靜地」整包取代 blueprint 的結構禁令，lint 還是綠的。<br>
   doctor 用一個真實 layer 檔解析最終 config，點名弄丟了什麼。<br>
-  它的 ✓ 也會說出自己的作用範圍：比對的是 config **文字**，從不執行 ESLint —— 涵蓋結構禁令，加上每個有開的關卡的承載規則，每層一個探點；<br>
-  門檻值、套件歸屬的條目，以及只蓋到某一層一部分的合併條目，都不在比對範圍內。<br>
+  它的 ✓ 也會說出自己的作用範圍：比對的是 config **文字**，從不執行 ESLint —— 涵蓋結構禁令，加上每個有開的關卡的承載規則，一筆實際輸出的設定一個探點<br>
+  （flat config 是一層一個；宣告 [`modules`](/zh-TW/guide/structure) 之後是每組（`module`、`layer`）一個，再加上每個模組的 zone 各一個）。<br>
+  門檻值、套件歸屬的條目，以及只蓋到某一筆設定一部分檔案的合併條目，都不在比對範圍內。<br>
   config 解析不開的時候，這條檢查是**跳過**而不是失敗（見下），並把 loader 的原話引出來 —— 讓缺的套件直接出現在螢幕上，而不是隔著一次 `npm run lint`
 - **架構乾淨** ——<br>
   沒有 baseline 以外的違規；detail 會標明 coverage：幾個 source 檔在 layer 網內，而**網外的那些會被點名列出來**（有上限），因為「40 個裡面 12 個」是一個讀的人查不了的數字；<br>

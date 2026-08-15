@@ -52,15 +52,22 @@ hooks/useCart
 ```
 
 **加上 `--json`** —— 相同資料的結構化形式。<br>
-排行榜的輸出結構為 `{ modules, skipped }`；單一模組查詢則回傳該模組物件：
+排行榜的輸出結構為 `{ modules, skipped, derivation }`；單一查詢則回傳單一節點物件：
 
 ```json
 {
   "module": "hooks/useCart",
   "importedBy": ["containers/Cart", "pages/Home"],
-  "imports": ["services/api"]
+  "imports": ["services/api"],
+  "derivation": "How this graph was read: source text, not a parsed AST …"
 }
 ```
+
+`derivation` 兩種形式的輸出都會帶著 —— 它就是下面「相依圖的涵蓋範圍與邊界」那段的告誡，濃縮成一個字串，<br>
+讓「拿這張圖去回報的工具」把這個限制一起帶走，而不是自己重講一遍。
+
+宣告 [`modules`](/zh-TW/guide/structure) 之後，兩種輸出都會同時帶上兩種粒度：<br>
+排行榜在 `modules` 旁邊多一個 `units`；單一查詢的 key 則從 `module` 換成 `unit`，並額外帶上它自己的 `module` 與該模組的 `moduleImportedBy`。
 
 查詢不存在的模組時，以 exit code 1 結束，並提示可以跑排行榜列出所有模組；<br>
 查詢成功則以 exit code 0 結束。

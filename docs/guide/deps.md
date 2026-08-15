@@ -54,15 +54,23 @@ hooks/useCart
 ```
 
 **With `--json`** — the same data, structured. The leaderboard payload is
-`{ modules, skipped }`; a target query returns a single module object:
+`{ modules, skipped, derivation }`; a target query returns a single node object:
 
 ```json
 {
   "module": "hooks/useCart",
   "importedBy": ["containers/Cart", "pages/Home"],
-  "imports": ["services/api"]
+  "imports": ["services/api"],
+  "derivation": "How this graph was read: source text, not a parsed AST …"
 }
 ```
+
+`derivation` rides on every payload, both forms — it is the "what is in the graph"
+caveat below as one string, so a tool reporting this graph carries the limit with it.
+
+Under [`modules`](/guide/structure) each payload carries both granularities: the
+leaderboard adds `units` beside `modules`, and a target query is keyed `unit`, with its
+own `module` and that module's `moduleImportedBy` alongside.
 
 An unknown target exits `1` with a pointer back to the leaderboard; every successful
 query exits `0`.
