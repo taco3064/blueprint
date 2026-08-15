@@ -74,10 +74,19 @@ at is *"no evidence found"*, never *"not done"* — those are different claims a
 only one is yours. A flat verdict erases the difference in the direction that
 flatters you.
 
+**Name what your instrument dropped before you write the sentence.** Every way of
+looking narrows: a `--json` selector, a diff of two renders, a grep of one
+column. The narrowing leaves no trace in what comes back — **a dropped field
+looks exactly like a field that was empty** — so a sentence claiming the whole
+(*"that is the whole list"*, *"none of them changes a verdict"*) is a claim about
+the source, made from the projection. The check is one line: what would this
+instrument have hidden, and did I go and look there.
+
 **When a `Done when` names two machines, read both.** Acceptance written as "the
 alias and relative spellings reach the same verdict" spans two gates, and
 checking the half that is easier to read is how a ticket closes with the other
-half false.
+half false. This is the rule above wearing its most common clothes, which is why
+both are here.
 
 **Read the code, and read it often.** This is the whole value the role has to
 offer: a second reader who did not write the change, owes its reasoning nothing,
@@ -94,6 +103,14 @@ governs. Every defect of that shape found here came from rendering, and none was
 reachable by reading source. It is listed again as a boundary check, but its
 moment is not the boundary — it is any time you cannot see a behaviour from the
 code, which is a suspicion rather than a scheduled step.
+
+**And grepping the output is not reading it.** A `grep` answers about the string
+you already suspected, and the defect is normally the one you did not; a search
+returning nothing is equally consistent with *unaffected* and with *matched the
+wrong thing*, while feeling like the first. Print the artifact and read it.
+`verification-layers.md` owns the procedure for the case where the artifact is
+emitted prose and the change is a refactor — this is the same lesson one level
+up, at any output.
 
 **Render in a throwaway directory.** Some of what you run to see the output
 writes files — `init` is the obvious one — and run from the repo root it leaves
