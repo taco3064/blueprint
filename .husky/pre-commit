@@ -1,3 +1,8 @@
-npx lint-staged
+# `lint-staged`, not `npx lint-staged`. `_/h` puts `node_modules/.bin` on PATH, so the
+# bare command resolves with no registry round trip, and exits 127 when it cannot —
+# which husky reports by name. `npx` in a tree with no install fetches the package
+# instead: 70 seconds before failing when the registry is unreachable, and a silent
+# download when it is not.
+lint-staged
 npm run tsc
 npm run test

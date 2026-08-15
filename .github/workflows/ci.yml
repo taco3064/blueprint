@@ -42,6 +42,34 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # `.husky/_` is tracked so that a worktree whose node_modules was symlinked
+      # rather than installed still has the hook runtime, and commits into it run the
+      # gate instead of exiting 0 in silence. Two ways that breaks, one step.
+      #
+      # `prepare` regenerates the same directory on every install, so a husky bump
+      # rewrites those bytes and leaves the tracked copy stale — and the trees that
+      # never install, the ones the tracking exists for, would go on sourcing the old
+      # shim with nothing to say so. `diff --exit-code` is that half.
+      #
+      # The shim list is DERIVED from the hooks rather than written out, because a
+      # string list is one contract per member. Hard-coding today's two would leave the
+      # next hook — `.husky/commit-msg`, say — with nobody to answer for it: its shim
+      # would exist in every installed tree and in none of the symlinked ones, so the
+      # hook would run nowhere, silently, which is the whole defect this file is
+      # guarding. `h` is named on its own because it is the runtime, not a hook.
+      #
+      # `shell: bash` because the Windows leg's default pwsh does not stop the step on
+      # the first non-zero exit, so a failure on one line would be swallowed by a pass
+      # on the next.
+      - name: Every tracked hook has a tracked shim, and the runtime matches its generator
+        shell: bash
+        run: |
+          git ls-files --error-unmatch .husky/_/h
+          for hook in $(git ls-files .husky ':(exclude).husky/_/*'); do
+            git ls-files --error-unmatch ".husky/_/${hook#.husky/}"
+          done
+          git diff --exit-code -- .husky
+
       - name: Run ESLint
         run: npm run lint
 
