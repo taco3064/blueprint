@@ -49,7 +49,7 @@ npx @kekkai/blueprint init
 init 不會硬套 preset，而是掃描程式碼後產出：
 
 - **`blueprint-authoring.md`** —— 可執行的導入作業手冊：<br>
-  蒐證數據、推導方法、規則語意（扁平／資料夾式模組的判定、接線後會咬到什麼）、config 結構速覽與驗收條件
+  蒐證數據、推導方法、規則語意（`file` 與 `folder` 兩種單元佈局的判定、接線後會咬到什麼）、config 結構速覽與驗收條件
 - **`.claude/commands/blueprint-author.md`** —— Claude Code 使用者可直接輸入 `/blueprint-author` 啟動
 
 接著交給 AI Agent 執行：
