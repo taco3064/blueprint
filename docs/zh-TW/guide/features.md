@@ -16,6 +16,7 @@
 - [`rules`](/zh-TW/guide/reference#blueprint-rules-——-哪些識別碼會成為檢核關卡) —— 可查詢的 rule catalog：哪些永遠 emit、哪些要宣告才 emit、metric 預設值 —— 有 config 時標註實際宣告的 tier
 - [`doctor`](/zh-TW/guide/ai-adoption#驗證有沒有做完-——-blueprint-doctor) —— 導入做完了沒？唯讀 checklist：config、無殘留 reference 與 authoring 產出物、eslint 接上、alias 接上、emitted rules 在合併後的 config 裡活著、架構乾淨（附 coverage）、suppressions 帳本沒過期
 - [`doctor` —— 三種結果](/zh-TW/guide/ai-adoption#三種結果-不是兩種) —— complete / unverified / incomplete：**跑不起來**的檢查不等於通過的檢查；而跳過照樣 exit 0，所以 CI 的 gate 要讀 `--json` 裡的 `verdict`
+- [`init --structure flat|modular`](/zh-TW/guide/structure) —— init 自己產的 config 要用哪種根結構。全新的樹上必填 —— 因為那裡沒東西可量 —— 該頁把兩棵樹並排畫出來
 - [完整命令列旗標](/zh-TW/guide/reference#命令列旗標) —— 各指令的旗標總表，含 `init --preset` 與 `--dry-run`
 
 ## 產出結果 —— 一份 config 編譯出的成果
@@ -29,15 +30,16 @@
 - [`defineBlueprint`](/zh-TW/guide/getting-started#blueprint-config) —— 唯一真實來源，定義時**與**每次載入時都會驗證，結構性錯誤以精確訊息即時回報
 - [分層與單向流](/zh-TW/philosophy/layers) —— 有序分層，每層僅可向下匯入；`allowedImporters` 收窄可匯入者，`selfOnly` 禁止再匯出
 - [所有權 —— `owns`](/zh-TW/philosophy/layers#所有權-——-owns) —— 分層專屬持有套件、具名匯入或全域物件 —— 其餘分層一律禁止使用
-- [模組形狀](/zh-TW/philosophy/layers#功能資料夾-——-模組的組成方式) —— `folder` 為一功能一資料夾、以公開入口對外；`flat` 為整層單一節點（如 Next 路由樹）—— 可逐層覆寫
+- [單元形狀 —— `layer.layout`](/zh-TW/philosophy/layers#功能資料夾-——-模組的組成方式) —— `folder` 為一單元一資料夾、以公開入口對外；`file` 為整層單一節點（如 Next 路由樹）—— 寫在每一層上，不寫就是 `file`
+- [功能模組 —— `architecture.modules`](/zh-TW/guide/structure) —— 功能模組擺在原始碼根目錄、分層放進每個模組裡面；模組只碰得到它指名過的模組，也可以對其他所有模組獨佔基元
 - [`blueprint.rules`](/zh-TW/guide/reference#blueprint-rules-——-哪些識別碼會成為檢核關卡) —— 帶等級的規則識別碼：機器查得動的轉譯成 lint 關卡，其餘寫進手冊與 Agent 守則作為判斷準則
 - [其餘 config 欄位](/zh-TW/guide/reference#快速上手範例以外的-config-欄位) —— `sourceRoot`、`additionalAliases`、`naming`、`lintOverrides`、`emit.*` —— 每項一句話，完整型別見 API 文件
 - [preset](/zh-TW/guide/field-tested#框架注意事項) —— `vuePreset` / `reactPreset` 完整編碼治理手冊；`nextPreset` 相容 App 與 Pages 路由、有無 `src/` 皆可
 
 ## 檢測 —— 會被攔下的
 
-- [`inspect` 的檢測項目](/zh-TW/guide/reference#inspect-回報的檢測項目) —— 未宣告資料夾、流向違規、深入匯入、所有權、相對路徑逃逸、selfOnly 再匯出、循環、缺入口、缺分層資料夾、宣告性 selfOnly（空層空包彈）
-- [內嵌 ESLint 規則](/zh-TW/guide/reference#內嵌-eslint-外掛) —— `relative-escape`、`no-deep-watch`、`use-prefix`（含 reactive 檢核）、`test-filename-matches-source`、`no-typedef-only-file`
+- [`inspect` 的檢測項目](/zh-TW/guide/reference#inspect-回報的檢測項目) —— 總共二十項：未宣告資料夾與未宣告模組、結構對不起來、流向違規、深入匯入、所有權、五種相對路徑逃逸、未宣告的跨模組相依、selfOnly 與跨模組再匯出、循環、缺入口、缺分層與缺模組、`owns` 指名的套件沒裝、宣告性 selfOnly（空層空包彈）
+- [內嵌 ESLint 規則](/zh-TW/guide/reference#內嵌-eslint-外掛) —— `relative-escape`、`no-module-root-import`、`no-module-reexport`、`no-deep-watch`、`use-prefix`（含 reactive 檢核）、`test-filename-matches-source`、`no-typedef-only-file`
 - [三種級別落點](/zh-TW/philosophy/#三種級別落點) —— 機器查得動的轉譯成 lint 規則；需要判斷的轉譯成 Agent 守則 —— lint 全綠永遠不等於架構正確
 
 ## 信任與相容性

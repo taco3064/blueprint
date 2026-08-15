@@ -32,6 +32,14 @@ flowchart TD
 
 ## The layers
 
+**This is the `flat` preset's list**, and it is one of two. Under
+[`structure: 'modular'`](/guide/structure) the same presets ship
+`components` → `hooks` → `contexts` → `services` and nothing else: `pages` and
+`containers` are *deleted*, not renamed — routing moves into the `app` module, and
+what assembled a feature is now the module's own root, which is the implicit top
+layer rather than a name in this list. Everything below still holds inside each
+module; only the outermost two entries dissolve.
+
 **`pages`**
 
 - Does — page layout, assembling containers; routes, SEO
@@ -81,6 +89,9 @@ declares the primitives it exclusively owns, and every other layer is barred fro
   so this half is enforced by lint (`no-restricted-globals`), not `inspect`
 - package ownership lands twice: lint (`no-restricted-imports`) and inspect's
   [`package-ownership` finding](/guide/reference#what-inspect-reports)
+- under [`modules`](/guide/structure) a **module** owns primitives the same way, one
+  level up: a layer's `owns` bars every other layer, a module's bars every other
+  module, and the finding names the level it means
 
 ## Feature folder — one module, one folder
 
@@ -93,6 +104,11 @@ components/
    ├─ styles       ← private
    └─ types        ← private
 ```
+
+This shape is declared per layer as [`layout: 'folder'`](/guide/reference#config-fields-beyond-the-quick-start-example)
+(`file` — one file per unit — is what omitting it means), and under
+[`modules`](/guide/structure) the same shape repeats one level up: a module is a
+folder behind its own `index` too.
 
 - `index` is the module's _face_ — the outside world knows nothing else
 - Private sub-components live inside (a container's `ProfileTab`); promotion to
