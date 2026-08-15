@@ -268,10 +268,16 @@ export function renderSemantics(): string {
     '- **`unusedVars`** emits with `argsIgnorePattern: \'^_\'` and nothing else: '
     + '`_`-prefixed *arguments* are exempt; unused variables and catch parameters are not.',
     '- **`doctor`\'s "eslint wired" check** passes when the config is the generated file itself, '
-    + 'or when its text contains `emitLint(` or `@kekkai/blueprint` — '
+    + 'or when its CODE calls `emitLint(` or names `@kekkai/blueprint` — '
     + 'both tells, because neither covers the other: a config reaching `emitLint` through a shared '
     + 'config package never names this package, '
     + 'and one that renames the import on the way in never spells the call.',
+    '  Code, not text: a tell inside a comment or a string literal is NOT wiring, '
+    + 'so a spread you commented out to unblock CI reads `✗` while it sits there '
+    + 'in full — and so does a `function emitLint()` of your own, whose calls are '
+    + 'its own. A config the scanner cannot read straight through '
+    + '(an unterminated literal, a regex it cannot tell from a comment) also reads `✗`, '
+    + 'because the recoverable answer is the one that hands you the reference file.',
     '- **`doctor`\'s leftover check matches exact file families** — '
     + 'this playbook, the command file, `*.blueprint.*` references, and marker-bearing '
     + 'contracts outside `emit.agents` — never other files, whatever their names.',

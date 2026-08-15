@@ -93,8 +93,16 @@ is not in the config). Field batches 10–12 are the case law.
 - **Formatting is ESLint-driven** (`@stylistic/*`); there is no Prettier. Run
   `npm run lint` / `eslint . --fix`. Enforcement rules mirror the handbook
   stance: never `eslint-disable` to dodge a rule; fix the structure.
-- Verify a change with `lint` + `tsc` + `test` + `build`, and drive the CLI
-  end-to-end (`node dist/bin.js init|inspect`) for runtime changes.
+- Verify a change with `lint` + `tsc` + `test` + `doctor` + `build`.
+  `npm run doctor` runs this repo's own gates out of `src/` through jiti
+  (`scripts/blueprint.mjs`), needs no build in front of it, and is the only gate
+  that catches a stale suppressions ledger — CI runs it *above* the build for
+  that reason.
+- For a runtime change, also drive the built CLI end-to-end
+  (`node dist/bin.js init|inspect`). That path is the adopter's, and its answer
+  is a function of when somebody last built — so build immediately before, and
+  read the result as a check on the artifact rather than on the source beside
+  it.
 - Three layers sit past the unit tests, each because the one below it passes on a
   real defect: the conformance suite, `npm run dist:verify`, and the live field
   harness. See [`verification-layers.md`](./.claude/docs/verification-layers.md)

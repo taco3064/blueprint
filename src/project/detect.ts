@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import type { Framework } from '../config';
+import { readScript } from './javascript';
 import { parseJsonc } from './jsonc';
 import type { PackageManager, ProjectState } from './types';
 
@@ -30,12 +31,28 @@ const ESLINT_FILES = [
   'eslint.config.ts',
 ];
 
-// The tells that an eslint config reaches the emitted rules. Both, because
-// neither covers the other: a config reaching `emitLint` through a shared
-// config package (a monorepo's `@acme/eslint-config` re-exporting it) never
-// names this package, and one that renames the import on the way in
-// (`import { emitLint as lint }`) never spells the call.
-const ESLINT_WIRED_TOKENS = ['emitLint(', '@kekkai/blueprint'];
+const PACKAGE_NAME = '@kekkai/blueprint';
+
+/**
+ * `emitLint(…)` as a call — `[...emitLint(bp)]`, and `shared.emitLint(bp)` from
+ * a namespace import. The name has to start where an identifier does, so
+ * `_emitLint(` is somebody else's function; an alias of this one arrives as
+ * `import { emitLint as … }`, which the package tell reads.
+ */
+const EMIT_LINT_CALL = /(?:^|[^\w$])emitLint\(/;
+
+/**
+ * A local `function emitLint(…)`. A module cannot both declare a binding and
+ * import it, so every call in that file resolves to the declaration and
+ * evidences nothing — true whether or not the declaration is also called, which
+ * is the direction to take where a scanner this size cannot tell.
+ */
+const EMIT_LINT_DECLARATION = /function\s+emitLint\(/;
+
+/** Whether `text` calls an `emitLint` it did not declare itself. */
+function callsEmitLint(text: string): boolean {
+  return EMIT_LINT_CALL.test(text) && !EMIT_LINT_DECLARATION.test(text);
+}
 
 const LEGACY_ESLINT_FILES = [
   '.eslintrc.js',
@@ -240,12 +257,30 @@ export function detect(root: string): ProjectState {
     : undefined;
 
   // A hand-maintained config carrying either tell has been wired by its owner
-  // — emitting a reference next to it would be nagging. Text only, comments
-  // included: the "emitted rules survive the merged eslint config" check is
-  // what proves the rules are alive in the config eslint actually resolves.
+  // — emitting a reference next to it would be nagging. Both tells, because
+  // neither covers the other: a config reaching `emitLint` through a shared
+  // config package (a monorepo's `@acme/eslint-config` re-exporting it) never
+  // names this package, and one that renames the import on the way in
+  // (`import { emitLint as lint }`) never spells the call.
+  //
+  // Read off the CODE, never the comments. A commented-out spread is what
+  // somebody writes to unblock CI, and the remedy doctor prints — "spread
+  // ...emitLint(blueprint)" — is the exact text they park beside it, so a check
+  // over the whole file is one the tool's own sentence defeats. The two tells
+  // read different projections because they live in different places: a call is
+  // code, while the package name is only ever inside quotes (it is not a valid
+  // identifier), which is where an import specifier puts it.
+  //
+  // `readScript` returning null — a literal or a block comment that never
+  // closes — lands as NOT wired, and that direction is deliberate. See its
+  // header: a false "not wired" is visible and recoverable, a false "wired"
+  // withholds the reference file in silence.
+  const eslintScript = eslintText === null ? null : readScript(eslintText);
+
   const wiredEslintConfig
     = ownedEslintConfig === undefined
-      && ESLINT_WIRED_TOKENS.some((token) => eslintText?.includes(token) ?? false);
+      && eslintScript !== null
+      && (callsEmitLint(eslintScript.outsideLiterals) || eslintScript.code.includes(PACKAGE_NAME));
 
   // A legacy `.eslintrc*` is NOT a flat config — writing a fresh
   // `eslint.config.mjs` next to it produces two configs / two ledgers. Detect

@@ -25,19 +25,49 @@ export default {
   architecture: {
     /*
      * DECLARED AND WIRED, DELIBERATELY UNUSED — and the reason is measured, not
-     * argued. `tsc` does not rewrite path mappings, so an aliased import inside
-     * `src/` lands verbatim in the per-file declarations `tsconfig.types.json`
-     * emits; a consumer type-checking against `dist/` then gets
-     * `TS2307: Cannot find module '~lib/…'`. Reproduced by aliasing one import
-     * in `src/emit/agent/agent.ts`, building, and type-checking a throwaway
-     * consumer of `dist/index.js` with `skipLibCheck: false`.
+     * argued. `tsc` does not rewrite path mappings, so an aliased TYPE import
+     * inside `src/` lands verbatim in the per-file declarations
+     * `tsconfig.types.json` emits; a consumer type-checking against `dist/`
+     * then gets `TS2307: Cannot find module '~lib/…'`. Reproduced by aliasing
+     * `import type { Blueprint, ReadSetting }` in `src/emit/lint/lint.ts`,
+     * building, and type-checking a throwaway consumer through a symlinked
+     * `node_modules/@kekkai/blueprint` with `skipLibCheck: false`.
      *
-     * The consequence is the debt below: `blueprint/relative-escape` reports
-     * every cross-module relative import in `src/` (110 today), and the fix is
-     * NOT to alias them. It is either a build step that rewrites the mappings,
-     * or the rule learning that a published library is a different case.
-     * Recorded in `.blueprint-baseline.json` / `eslint-suppressions.json`,
-     * not silenced here.
+     * A VALUE import through the alias does not leak: it is not needed by any
+     * declaration, and rolldown resolves the mapping into the bundle. Aliasing
+     * `import { plugin }` in the same file and rebuilding leaves ZERO `~lib` in
+     * `dist/` and `npm run tsc` at 0. So this is a rule about type imports —
+     * and it is still a rule about every import, because
+     * `blueprint/relative-escape` reports every cross-module relative import in
+     * `src/` (110 today) without asking which kind it is. There is no aliasing
+     * half the file: satisfying the rule means aliasing the value imports too,
+     * and the type ones travel with them.
+     *
+     * The fix is NOT to alias them. It is either a build step that rewrites the
+     * mappings, or the rule learning that a published library is a different
+     * case. Recorded in `.blueprint-baseline.json` / `eslint-suppressions.json`,
+     * not silenced here. `scripts/dist-verify.mjs` reads this key and greps
+     * every emitted `.d.ts` for it, so the leak cannot reach a tarball whichever
+     * alias is declared here.
+     *
+     * ONE ROUTE THAT IS NOT A BUILD STEP, AND IS STILL DEAD. A `#`-prefixed
+     * subpath through the package's own `imports` map — `#lib/…` pointing at
+     * each module's emitted `dist/…/index.js`, plus the same prefix in tsconfig
+     * `paths` so nothing needs a build — survives into the declarations
+     * RESOLVABLY: a consumer follows
+     * `import type { Blueprint } from '#lib/config'` through blueprint's own
+     * package.json to `dist/config/index.d.ts`, with no TS2307. Repo `tsc` 0,
+     * vitest green, `doctor` green on a tree with no `dist/` at all.
+     *
+     * It dies on the value imports, which is exactly what the paragraph above
+     * says cannot be left behind. ESLint loads `eslint.config.ts` through its
+     * own jiti, and jiti resolves a `#` specifier through `imports` — to
+     * `dist/plugin/index.js`, a file rolldown never emits (`dist/plugin/` holds
+     * declarations only). With `import { plugin } from '#lib/plugin'` in
+     * `src/emit/lint/lint.ts`: `npm run lint` exits 2 and `npm run doctor`
+     * exits 1 with MODULE_NOT_FOUND, before AND after a build, and 26 of 56
+     * test files go with them. Measured both halves separately — type-only
+     * through `#lib` passes everything.
      *
      * `~lib`, not the presets' `~app`: this is a published Node library, and
      * the alias names the import root rather than repeating the package name.

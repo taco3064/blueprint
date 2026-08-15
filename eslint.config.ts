@@ -11,9 +11,8 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 // through jiti, which resolves the entry-only directory imports plain Node
 // cannot. The name is deliberately not written anywhere in this file, and does
 // not need to be: doctor's "eslint wired to emitLint" check reads the
-// `...emitLint(` spread below, which is the wiring itself. A comment carrying
-// the package name would turn the same check green while wiring nothing, which
-// is the hatch this file used to have.
+// `...emitLint(` spread below, which is the wiring itself — off the code, so a
+// comment naming the package cannot stand in for it either way.
 import { emitLint, validateBlueprint } from './src';
 import blueprint from './blueprint.config.mjs';
 

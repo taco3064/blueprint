@@ -45,8 +45,11 @@ went green on a defect it could not see:
   `dist/bin.js`, resolves the `bin` field and imports the package entry. Its reason for
   existing is the 0.1.1 bug — npm installs the bin as a symlink, and a missing
   `realpathSync` made the published CLI exit 0 having done nothing, **a state every
-  in-process test passes**. It runs in CI after the build, and again in the job that
-  publishes, because that job produces the `dist/` npm actually receives
+  in-process test passes**. One of its checks runs nothing and reads the emitted
+  `.d.ts` files instead: none of them may carry this repo's own import alias, because
+  `tsc` does not rewrite path mappings and a leaked one is `TS2307` in *your* editor,
+  visible nowhere before publishing. It runs in CI after the build, and again in the
+  job that publishes, because that job produces the `dist/` npm actually receives
 - **A weekly terrain run** — scaffolds the *latest* upstream `create-vite` and
   `create-next-app` templates and opens an issue when their shapes drift. Deliberately
   outside the PR gate: it is network-dependent and upstream-driven

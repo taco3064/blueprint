@@ -31,7 +31,8 @@ it.
 ### `test/e2e/` — the adoption e2e
 
 Committed starter templates under `fixtures/adoption/` copied to a tmpdir and
-driven through the same `runInit` / `runInspect` calls the CLI makes. It carries
+driven through the same `runInit` / `runInspect` / `runSurvey` / `runDeps` calls
+the CLI makes. It carries
 the one standing `blueprint/test-filename-matches-source` suppression: its
 subject is the package's own dispatch across nine fixture repos, so a same-named
 source sibling does not exist to co-locate it with. The reason is written at the
@@ -43,10 +44,20 @@ Checks the bundle, the shebang, the `bin` and `exports` fields, and the
 `argv[1]` guard, by executing `dist/bin.js` on throwaway fixtures and importing
 the package entry. Runs in CI after `build`.
 
-The guard is why it exists: npm installs the bin as a symlink, and comparing
-`argv[1]` to the entry module without `realpathSync` makes the published CLI
-exit 0 having done nothing (the 0.1.1 bug) — **a state every in-process test
-passes.** Any change that could only fail after publishing belongs here.
+One check reads the emitted *declarations* rather than running anything: **no
+`.d.ts` may carry this repo's own import alias.** `tsc` does not rewrite path
+mappings, so an aliased type import inside `src/` lands verbatim in the per-file
+declarations and a consumer type-checking against `dist/` gets `TS2307` on a
+path only this repo's tsconfig resolves. It reads the alias out of
+`blueprint.config.mjs` instead of spelling it twice, and it is the reason that
+config's alias is declared and unused — the argument, and the `#`-subpath route
+that also fails, are written there.
+
+The guard is why the script exists: npm installs the bin as a symlink, and
+comparing `argv[1]` to the entry module without `realpathSync` makes the
+published CLI exit 0 having done nothing (the 0.1.1 bug) — **a state every
+in-process test passes.** Any change that could only fail after publishing
+belongs here.
 
 ## A byte baseline, when refactoring emitted prose
 

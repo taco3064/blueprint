@@ -114,9 +114,12 @@ export function configSource(blueprint: Blueprint): string {
  * An eslint flat config whose entries are emitLint's real output, inlined
  * as data: the fixture cannot import `@kekkai/blueprint` (no node_modules),
  * and doctor's survival check only *resolves* configs — it never lints — so
- * a stub `blueprint` plugin object satisfies resolution. The marker comment
- * keeps detect's wired-by-text heuristic satisfied the same way a real
- * spread would.
+ * a stub `blueprint` plugin object satisfies resolution.
+ *
+ * The inlined entries are wrapped in a local `emitLint` that the default export
+ * spreads, so detect's wiring tell reads a real call rather than the marker
+ * comment above it: the tells are read off the code, and a fixture claiming to
+ * be wired should carry the wiring anyway.
  */
 export function wiredEslintConfig(blueprint: Blueprint, extraEntries = ''): string {
   const entries = emitLint(blueprint).map((entry) => {
@@ -136,8 +139,12 @@ export function wiredEslintConfig(blueprint: Blueprint, extraEntries = ''): stri
     '  create: () => ({}),',
     '} } };',
     '',
-    'export default [',
+    'const emitLint = () => [',
     ...entries.map((entry) => `  ${entry},`),
+    '];',
+    '',
+    'export default [',
+    '  ...emitLint(),',
     ...(extraEntries ? [extraEntries] : []),
     '];',
     '',

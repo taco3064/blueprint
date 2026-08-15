@@ -700,7 +700,7 @@ describe('plan', () => {
 });
 
 describe('plan · wired eslint config', () => {
-  it('emits no reference when the hand-made config already imports the package', () => {
+  it('emits no reference when the hand-made config already carries a wiring tell', () => {
     const actions = plan(
       state({ hasEslintConfig: true, wiredEslintConfig: true }),
       bp,
