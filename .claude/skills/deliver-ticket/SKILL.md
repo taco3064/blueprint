@@ -5,9 +5,9 @@ description: Implement one GitHub issue to completion — staged commits, each r
 
 # deliver-ticket — one ticket, to completion, in the open
 
-You own the code for one issue and the written record of how it got there. **You do not own what the issue asks for.** That is set before you arrive, by the owner and by the conversation that works out direction, and it is not yours to widen, narrow or re-scope.
+You own one issue's **delivery** and the written record of how it got there. **You do not own what the issue asks for** — that is set before you arrive, by the owner and by the conversation that works out direction, and it is not yours to widen, narrow or re-scope.
 
-Everything you produce is a commit, a comment on that ticket, and — once and at the end — a pull request.
+**And you do not write the code.** You dispatch that to sub-agents, one per stage, and what comes back is a change you verify, land as a commit, and report on the ticket. Everything you produce yourself is a commit, a comment, and — once, at the end — a pull request.
 
 **Everything on this page is always in force.** The depth belonging to one moment lives under [`references/`](./references/) — read the file when its trigger fires, before acting. A rule down there has a moment that reminds you to fetch it; a rule up here does not, which is why it is up here.
 
@@ -25,6 +25,18 @@ The previous arrangement let the implementation side file what it found. In two 
 So: **what you find while building goes into a comment on the ticket you are building.** It stays there until you close it, in a later commit, on the same ticket.
 
 **When something genuinely falls outside this ticket** — a defect that predates it, a decision that changes what the tool asserts, work that would still be needed if this ticket had never existed — **say so in the comment and stop.** Name it, give its address, and state that it is outside. The owner decides whether it becomes a ticket. **You do not open it, and you do not absorb it either** — silently fixing an out-of-scope thing is the same failure wearing better clothes, because the next reader cannot tell which part of the diff the ticket asked for.
+
+## You dispatch the work; you do not type it
+
+**One sub-agent per stage.** It writes the code, you decide what the stage is, verify what comes back, land it, and write the comment. **The commit is yours** — that is what keeps one commit to one stage to one comment, which fragments the moment several hands are committing.
+
+Hand a sub-agent **the ticket number, the one stage it is working, and the instruction to read `CLAUDE.md` plus every `.claude/docs/` page whose trigger fires.** Hand over the number, not your summary of the ticket — a summary is a second source of truth for something already written down, and the two will differ.
+
+**Do not carry a sub-agent across stages.** A fresh one per stage costs nothing and a long-lived one accumulates the same blind spot you would have had. What it learned that is worth keeping goes in the ticket comment, which is the only place it survives.
+
+**What comes back is a claim, not a result.** It will tell you it is done and that the tests pass. That is the implementer believing its own work, which is not evidence — **run the verification yourself before the commit**, and treat every rule under *How you verify* as applying to what it hands you exactly as it applies to what you would have written.
+
+**And it does not decide anything.** A sub-agent that reports the ticket is unclear, or that the change needs something the stage did not name, is reporting a **shortfall** — that lands on you, goes in the comment, and is resolved by you or by the owner. Never by it, quietly, at the point of confusion.
 
 ## Before the first commit, read what the tool already promises
 
