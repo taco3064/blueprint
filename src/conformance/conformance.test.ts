@@ -7,6 +7,7 @@ import type { Blueprint } from '../config';
 // Test-only import of the full emit module — src keeps the patterns-leaf
 // boundary; the fixture needs emitLint's real selectors, not a paraphrase.
 import { emitLint } from '../emit/lint';
+import type { Finding } from '../inspect';
 import { reactPreset } from '../presets';
 import { cli, configSource, flattenProse, makeRepo, read, rm, wiredEslintConfig, write } from './conformance';
 import type { CliResult, RepoSpec } from './conformance';
@@ -36,6 +37,32 @@ const react = (deps: Record<string, string> = {}) => ({
   name: 'fixture',
   dependencies: { react: '^18.0.0', ...deps },
 });
+
+/**
+ * Every error and warning the JSON channel carries, as `rule path`, asserted
+ * with `toEqual` rather than a `toContain` per finding.
+ *
+ * The whole list, because a `toContain` on one finding reddens when that finding
+ * disappears and stays green when a SECOND one appears beside it — which is how
+ * the double-report #264 found reached a green suite. `toEqual` fails in both
+ * directions, and it is the only shape that lets a case say "this fires, and
+ * nothing else does".
+ *
+ * `info` is dropped: `owns-not-installed` and `declaratory-self-only` counts move
+ * with a fixture's `package.json` and layer list, so pinning them pins the
+ * fixture's incidental shape rather than the behaviour under test. Where a note
+ * count IS the claim, {@link notes} asks for that rule by name.
+ */
+const errors = (result: CliResult): string[] =>
+  (JSON.parse(result.output).findings as Finding[])
+    .filter((finding) => finding.severity !== 'info')
+    .map((finding) => `${finding.rule} ${finding.path}`);
+
+/** One rule's findings, by the field that discriminates them — subject, else path. */
+const notes = (result: CliResult, rule: string): string[] =>
+  (JSON.parse(result.output).findings as Finding[])
+    .filter((finding) => finding.rule === rule)
+    .map((finding) => finding.subject || finding.path);
 
 const reactBlueprint: Blueprint = {
   framework: 'react',
@@ -4039,5 +4066,974 @@ describe('the upward edge is red at every alias spelling (real eslint)', () => {
 
     expect(red.code).toBe(1);
     expect(red.output).toContain('blueprint/no-module-root-import is missing or off');
+  });
+});
+
+/**
+ * `structure` is the one declaration every glob is expanded from, so a tree
+ * matching neither model reports as N findings that each recommend the opposite
+ * of the fix (#266). Three trees rather than two: the rule is "every top-level
+ * source folder undeclared AND every declared position absent", and both halves
+ * are vacuously true at zero folders — so the two mismatched directions were
+ * chosen FROM the rule and only the third says what it does where it has no
+ * data. That third one is a correct config on a one-minute-old repo.
+ */
+describe('the structure choice is one finding, in both directions and in neither at zero', () => {
+  const modular = reactPreset({ name: 'fixture', structure: 'modular' });
+  const flat = reactPreset({ name: 'fixture' });
+
+  const at = (blueprint: Blueprint, files: Record<string, string>): RepoSpec => ({
+    packageJson: react(),
+    files: {
+      'blueprint.config.mjs': configSource(blueprint),
+      'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+      ...files,
+    },
+  });
+
+  const layerTree = {
+    'src/components/Btn.jsx': 'export const Btn = 1;\n',
+    'src/hooks/useX.js': 'export const useX = 1;\n',
+  };
+
+  const moduleTree = {
+    'src/app/index.js': 'export const boot = 1;\n',
+    'src/common/index.js': 'export const shared = 1;\n',
+  };
+
+  it('reads a flat tree under a modular config as one decision, with its evidence', async () => {
+    const inspect = await cli(repo(at(modular, layerTree)), ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual([
+      'structure-mismatch src',
+      'undeclared-module src/components',
+      'undeclared-module src/hooks',
+    ]);
+  });
+
+  it('reads a modular tree under a flat config the same way, mirrored', async () => {
+    const inspect = await cli(repo(at(flat, moduleTree)), ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual([
+      'structure-mismatch src',
+      'undeclared-folder src/app',
+      'undeclared-folder src/common',
+    ]);
+  });
+
+  it('says nothing on a fresh template under a CORRECT modular config', async () => {
+    // A Vite starter: root wiring, no top-level folder at all. "All undeclared"
+    // is satisfied by zero folders, so an unfloored rule calls a right answer a
+    // mismatch — and the two cases above cannot see that, because both were
+    // built with folders in them.
+    const inspect = await cli(repo(at(modular, {
+      'src/main.jsx': 'export const main = 1;\n',
+      'src/App.jsx': 'export const App = 1;\n',
+    })), ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual([]);
+    // The runway notes still fire — this is the tool looking and finding nothing
+    // wrong, not the tool declining to look.
+    expect(notes(inspect, 'missing-module')).toEqual(['src/app', 'src/common']);
+    expect(JSON.parse(inspect.output).ok).toBe(true);
+  });
+});
+
+/**
+ * The RFC's reason for expanding globs per declared module rather than putting a
+ * wildcard in the module segment: a typo nobody declared must be matched by
+ * nothing. Half governed and green is worse than ungoverned and red, so the gate
+ * that reports it is `inspect` and the lint run stays silent by construction —
+ * which is the one thing an adopter cannot infer from a green CI.
+ */
+describe('a mistyped module is ungoverned, and only one gate can say so (real eslint)', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the player ship', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets and damage' },
+      ],
+      layers: [{ name: 'hooks', does: 'reactive state', layout: 'folder' }],
+    },
+  };
+
+  const modularRepo = (files: Record<string, string>): string =>
+    repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+        'src/Combat/index.jsx': 'export const attack = 1;\n',
+        ...files,
+      },
+    });
+
+  it('reports the typo as an undeclared module and leaves its files outside the net', async () => {
+    const dir = modularRepo({
+      'src/Fighter/index.jsx': 'export const Fighter = 1;\n',
+      'src/Figthter/hooks/useX/index.jsx': 'export const useX = 1;\n',
+    });
+
+    const inspect = await cli(dir, ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual(['undeclared-module src/Figthter']);
+
+    const text = await cli(dir, ['inspect']);
+
+    expect(text.output)
+      .toContain('outside: src/Figthter/hooks/useX/index.jsx');
+
+    // The other half of "ungoverned rather than unflagged": the layer glob is
+    // built from the declared names, so the real linter has nothing to say here.
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('0 hits');
+  });
+
+  it('keeps the module root itself inside the net, unlike the typo beside it', async () => {
+    const dir = modularRepo({
+      'src/Fighter/Fighter.jsx': 'export const Fighter = 1;\n',
+      'src/Fighter/index.jsx': 'export { Fighter } from "./Fighter";\n',
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([]);
+    expect(inspect.output).toContain('Coverage: 3/3 source files inside layer nets');
+  });
+
+  it('reads a folder of test files as no module, and a folder of mocks as one', async () => {
+    // Not symmetric, and the asymmetry is the testFiles glob rather than the
+    // folder name: `*.test.*` is exempt everywhere, `__mocks__/x.jsx` is a source
+    // file in a top-level folder nobody declared and is reported as exactly that.
+    const dir = modularRepo({
+      'src/Fighter/index.jsx': 'export const Fighter = 1;\n',
+      'src/__tests__/smoke.test.jsx': 'export const smoke = 1;\n',
+      'src/__mocks__/server.jsx': 'export const server = 1;\n',
+    });
+
+    const inspect = await cli(dir, ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual(['undeclared-module src/__mocks__']);
+  });
+});
+
+/**
+ * Two of the three bans this decomposition recorded as "no evidence found" on a
+ * modular tree. Both fire, in both gates, and the point of fossilizing them is
+ * that neither has ever been red here: an ownership ban emitted against a path
+ * no modular import spells looks exactly like one that bites (#185's shape).
+ */
+describe('ownership and the selfOnly ban bite inside a module (real eslint)', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'GameStage', does: 'the run, rendered', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets and damage', owns: ['lodash'] },
+      ],
+      layers: [
+        { name: 'hooks', does: 'reactive state', layout: 'folder' },
+        {
+          name: 'contexts',
+          does: 'provide shared state',
+          layout: 'folder',
+          allowedImporters: [{ layer: 'hooks', selfOnly: true }],
+        },
+        { name: 'services', does: 'network', layout: 'folder', owns: ['axios'] },
+      ],
+    },
+  };
+
+  const modularRepo = (files: Record<string, string>): string =>
+    repo({
+      packageJson: react({ axios: '^1.0.0', lodash: '^4.0.0' }),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+        'src/Combat/index.jsx': 'export const attack = 1;\n',
+        ...files,
+      },
+    });
+
+  it('reddens a layer-level owns and a module-level owns, in both gates', async () => {
+    const dir = modularRepo({
+      // `services` owns axios; a hooks unit reaching it is the layer dimension.
+      'src/GameStage/hooks/useNet/index.jsx':
+        'import axios from "axios";\nexport const useNet = axios;\n',
+      // `Combat` owns lodash; GameStage reaching it is the MODULE dimension, which
+      // bans the primitive in every other module rather than in every other layer.
+      'src/GameStage/hooks/useSort/index.jsx':
+        'import sortBy from "lodash";\nexport const useSort = sortBy;\n',
+    });
+
+    const inspect = await cli(dir, ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual([
+      'package-ownership src/GameStage/hooks/useNet/index.jsx',
+      'package-ownership src/GameStage/hooks/useSort/index.jsx',
+    ]);
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('2  no-restricted-imports — 2 file(s)');
+  });
+
+  it('reddens a selfOnly re-export inside a module, in both gates', async () => {
+    const dir = modularRepo({
+      'src/GameStage/contexts/Theme/index.jsx': 'export const Theme = 1;\n',
+      'src/GameStage/hooks/useTheme/index.jsx':
+        'export { Theme } from "~app/GameStage/contexts/Theme";\n',
+    });
+
+    const inspect = await cli(dir, ['inspect', '--json']);
+
+    expect(errors(inspect))
+      .toEqual(['selfonly-reexport src/GameStage/hooks/useTheme/index.jsx']);
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('1  no-restricted-syntax — 1 file(s)');
+  });
+
+  it('leaves the same unit DEPENDING on that context alone', async () => {
+    // The ban is on forwarding it, not on using it — without this the case above
+    // passes on a config that bans the layer outright.
+    const dir = modularRepo({
+      'src/GameStage/contexts/Theme/index.jsx': 'export const Theme = 1;\n',
+      'src/GameStage/hooks/useTheme/index.jsx':
+        'import { Theme } from "~app/GameStage/contexts/Theme";\n'
+        + 'export const useTheme = () => Theme;\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([]);
+    expect(impact.output).toContain('0 hits');
+  });
+});
+
+/**
+ * Three of the matrix's cross-module rows answer in both gates and two answer in
+ * lint alone, and the difference is designed rather than a gap to close: `export
+ * { X }` carries no `from`, so the text scan has no specifier to link back to the
+ * import that bound the name. The plugin reads an AST and sees it.
+ *
+ * Written as one fixture holding both kinds, because the silence only means
+ * something beside a spelling that DOES reach `inspect` in the same report — a
+ * `not.toContain` alone passes on a run that produced nothing at all.
+ *
+ * Do not "fix" `inspect` here by putting a parser in the scanner: every report it
+ * prints states this boundary, and the assertion below holds it to saying so.
+ */
+describe('the two-statement re-export is lint-only, and the report says why', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'GameStage', does: 'the run, rendered', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets and damage' },
+      ],
+      layers: [{ name: 'hooks', does: 'reactive state', layout: 'folder' }],
+    },
+  };
+
+  const dir = (): string =>
+    repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+        'src/Combat/index.jsx': 'export const attack = 1;\n',
+        // The spelling with a `from` clause — both gates.
+        'src/GameStage/index.jsx': 'export * from "~app/Combat";\n',
+        // The two-statement spellings — the plugin only.
+        'src/GameStage/two.jsx':
+          'import { attack } from "~app/Combat";\nexport { attack };\n',
+        'src/GameStage/three.jsx':
+          'import { attack } from "~app/Combat";\nexport { attack as go };\n',
+      },
+    });
+
+  it('reddens all three in lint', async () => {
+    const impact = await cli(dir(), ['impact']);
+
+    expect(impact.output).toContain('3  blueprint/no-module-reexport — 3 file(s)');
+  });
+
+  it('reports only the `from` spelling through inspect, and states the boundary', async () => {
+    const inspect = await cli(dir(), ['inspect', '--json']);
+
+    // One entry, not three — and asserted as the whole list, so a scanner that
+    // learned to follow a binding turns this red instead of passing quietly.
+    expect(errors(inspect)).toEqual(['module-reexport src/GameStage/index.jsx']);
+
+    const parsed = JSON.parse(inspect.output) as { derivation: string };
+
+    expect(parsed.derivation).toContain('source text, not a parsed AST');
+
+    expect(flattenProse(parsed.derivation))
+      .toContain('The hard gates do not share the limit: they run in ESLint, on the AST');
+  });
+});
+
+/**
+ * The relative family under `modules`. One plugin rule carries five verdicts, so
+ * the count is the assertion — four of the five firing reads identically to all
+ * five on a `toContain` of the rule id, and `inspect` is what tells them apart by
+ * naming a different finding for each depth.
+ *
+ * The same-layer rule is stated here in its current form, which two conformance
+ * assertions and three test comments once had backwards: the alias spelling is
+ * banned, a sibling's ENTRY is reachable relatively, and reaching past that entry
+ * is not.
+ */
+describe('a relative escape is red at every depth inside a module (real eslint)', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'GameStage', does: 'the run, rendered', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets and damage' },
+      ],
+      layers: [
+        { name: 'components', does: 'render UI', layout: 'folder' },
+        { name: 'hooks', does: 'reactive state', layout: 'folder' },
+      ],
+    },
+  };
+
+  const modularRepo = (files: Record<string, string>): string =>
+    repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+        'src/Combat/index.jsx': 'export const attack = 1;\n',
+        'src/GameStage/index.jsx': 'export const stage = 1;\n',
+        ...files,
+      },
+    });
+
+  it('names a different verdict at each depth, and one rule holds all five', async () => {
+    const dir = modularRepo({
+      'src/GameStage/components/Card/index.jsx': 'export const Card = 1;\n',
+      'src/GameStage/hooks/useB/index.jsx': 'export const b = 1;\n',
+      'src/GameStage/hooks/useB/impl.jsx': 'export const impl = 1;\n',
+      'src/GameStage/hooks/useModule/index.jsx':
+        'import { attack } from "../../../Combat";\nexport const useModule = attack;\n',
+      'src/GameStage/hooks/useEntry/index.jsx':
+        'import { impl } from "../useB/impl";\nexport const useEntry = impl;\n',
+      'src/GameStage/hooks/useLayer/index.jsx':
+        'import { Card } from "../../components/Card";\nexport const useLayer = Card;\n',
+      'src/GameStage/hooks/useRoot/index.jsx':
+        'import { stage } from "../../index";\nexport const useRoot = stage;\n',
+      'src/GameStage/hooks/useOut/index.jsx':
+        'import { z } from "../../../../elsewhere";\nexport const useOut = z;\n',
+    });
+
+    const inspect = await cli(dir, ['inspect', '--json']);
+
+    // Path order, which the scan guarantees by sorting each directory read rather
+    // than trusting the filesystem to answer in name order (`scan.ts`).
+    expect(errors(inspect)).toEqual([
+      'entry-bypass src/GameStage/hooks/useEntry/index.jsx',
+      'layer-escape src/GameStage/hooks/useLayer/index.jsx',
+      'module-escape src/GameStage/hooks/useModule/index.jsx',
+      'src-escape src/GameStage/hooks/useOut/index.jsx',
+      'root-import src/GameStage/hooks/useRoot/index.jsx',
+    ]);
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('5  blueprint/relative-escape — 5 file(s)');
+  });
+
+  it('leaves the one legal relative shape alone — the sibling by its entry', async () => {
+    const dir = modularRepo({
+      'src/GameStage/hooks/useB/index.jsx': 'export const b = 1;\n',
+      'src/GameStage/hooks/useA/index.jsx':
+        'import { b } from "../useB";\nexport const useA = b;\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([]);
+    expect(impact.output).toContain('0 hits');
+  });
+});
+
+/**
+ * `no-entry` under `modules` measures a UNIT inside a layer inside a module —
+ * three segments down — which is a different address from the flat case its depth
+ * arithmetic was written for.
+ *
+ * A declared feature module with no root entry is NOT here: nothing in the tool
+ * reports it, and this suite does not pin a silence nobody has taken a position
+ * on. That gap is #282's.
+ */
+describe('no-entry finds a unit inside a module, at the depth modules moved it to', () => {
+  const modular: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'GameStage', does: 'the run, rendered', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets and damage' },
+      ],
+      layers: [{ name: 'hooks', does: 'reactive state', layout: 'folder' }],
+    },
+  };
+
+  const modularRepo = (files: Record<string, string>): string =>
+    repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(modular),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+        'src/Combat/index.jsx': 'export const attack = 1;\n',
+        ...files,
+      },
+    });
+
+  it('warns on a unit folder with no entry file', async () => {
+    const inspect = await cli(modularRepo({
+      'src/GameStage/hooks/useRun/impl.jsx': 'export const impl = 1;\n',
+    }), ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual(['no-entry src/GameStage/hooks/useRun']);
+  });
+
+  it('says nothing once that unit has one', async () => {
+    const inspect = await cli(modularRepo({
+      'src/GameStage/hooks/useRun/index.jsx': 'export const useRun = 1;\n',
+      'src/GameStage/hooks/useRun/impl.jsx': 'export const impl = 1;\n',
+    }), ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual([]);
+  });
+});
+
+/**
+ * A module and a layer may carry the same name — they are different namespaces,
+ * and `src/components/components/Card/` is unambiguous. What that costs is every
+ * diagnostic having to say which one it means, and the three that can meet on one
+ * repo are checked together here rather than one per fixture: read alone, each is
+ * a sentence about "components" that the other two could contradict.
+ */
+describe('a module and a layer may share a name, and each diagnostic says which', () => {
+  const shared: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'components', does: 'a domain that happens to be called components' },
+        { name: 'Combat', does: 'bullets and damage' },
+      ],
+      layers: [
+        { name: 'components', does: 'render UI', layout: 'folder' },
+        { name: 'hooks', does: 'reactive state', layout: 'folder' },
+      ],
+    },
+  };
+
+  const sharedRepo = (files: Record<string, string>): string =>
+    repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(shared),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+        'src/Combat/index.jsx': 'export const attack = 1;\n',
+        'src/components/index.jsx': 'export const surface = 1;\n',
+        ...files,
+      },
+    });
+
+  it('governs the layer inside the module of the same name', async () => {
+    const dir = sharedRepo({
+      'src/components/components/Card/index.jsx': 'export const Card = 1;\n',
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(errors(await cli(dir, ['inspect', '--json']))).toEqual([]);
+    expect(inspect.output).toContain('Coverage: 3/3 source files inside layer nets');
+  });
+
+  it('reddens that layer file reaching up to the module root, in both gates', async () => {
+    const dir = sharedRepo({
+      'src/components/components/Card/index.jsx':
+        'import { surface } from "~app/components";\nexport const Card = surface;\n',
+    });
+
+    const inspect = await cli(dir, ['inspect', '--json']);
+
+    expect(errors(inspect))
+      .toEqual(['root-import src/components/components/Card/index.jsx']);
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('1  blueprint/no-module-root-import — 1 file(s)');
+  });
+
+  it('uses both meanings in one report without either standing in for the other', async () => {
+    const dir = sharedRepo({
+      'src/components/hooks/useX/index.jsx':
+        'import { z } from "~app/Zed";\nexport const useX = z;\n',
+      'src/Zed/index.jsx': 'export const z = 1;\n',
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    // The position hint reads "components" as the MODULE that reaches Zed…
+    expect(inspect.output).toContain('Measured from its imports: "components" reaches it');
+
+    // …while the runway note on the same report reads it as the LAYER that holds
+    // no code in any module, and addresses itself at the source root because a
+    // layer under `modules` has no folder of its own.
+    expect(flattenProse(inspect.output))
+      .toContain('Declared layer "components" holds no code in any module yet');
+
+    expect(notes(await cli(dir, ['inspect', '--json']), 'missing-layer'))
+      .toEqual(['components']);
+  });
+});
+
+/**
+ * The two architecture fields that move every glob's prefix. `sourceRoot: '.'`
+ * puts the modules at the project root, and an additional alias is a second
+ * spelling of the same tree — a ban that only knows the primary alias is a ban an
+ * adopter walks around by typing the other name, with lint green.
+ */
+describe('sourceRoot and an additional alias reach inside modules (real eslint)', () => {
+  const rooted: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      sourceRoot: '.',
+      additionalAliases: { '~root': '.' },
+      modules: [
+        { name: 'GameStage', does: 'the run, rendered', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets and damage' },
+      ],
+      layers: [{ name: 'hooks', does: 'reactive state', layout: 'folder' }],
+    },
+  };
+
+  const rootedRepo = (files: Record<string, string>): string =>
+    repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(rooted),
+        'jsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./*'], '~root/*': ['./*'] } },
+        }),
+        'Combat/index.jsx': 'export const attack = 1;\n',
+        'Combat/hooks/useDamage/index.jsx': 'export const useDamage = 1;\n',
+        'GameStage/index.jsx': 'export const stage = 1;\n',
+        ...files,
+      },
+    });
+
+  it('reddens a reach past a declared entry spelled with the offset alias', async () => {
+    const dir = rootedRepo({
+      'GameStage/hooks/useRun/index.jsx':
+        'import { useDamage } from "~root/Combat/hooks/useDamage";\n'
+        + 'export const useRun = useDamage;\n',
+    });
+
+    const inspect = await cli(dir, ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual(['deep-import GameStage/hooks/useRun/index.jsx']);
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('1  no-restricted-imports — 1 file(s)');
+  });
+
+  it('reddens the upward edge spelled with the offset alias too', async () => {
+    const dir = rootedRepo({
+      'GameStage/hooks/useRun/index.jsx':
+        'import { stage } from "~root/GameStage";\nexport const useRun = stage;\n',
+    });
+
+    const inspect = await cli(dir, ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual(['root-import GameStage/hooks/useRun/index.jsx']);
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('1  blueprint/no-module-root-import — 1 file(s)');
+  });
+});
+
+/**
+ * A hand-written `layerFiles` under `modules` must carry `{module}` — the config
+ * is rejected without one — and this is the layer that shows the accepted glob
+ * actually governs: a placeholder that expands to the wrong prefix passes
+ * validation and reaches nothing, which reads exactly like a clean repo.
+ */
+describe('a custom layerFiles carrying {module} governs the same tree (real eslint)', () => {
+  const custom: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      layerFiles: 'src/{module}/{layer}/**/*.jsx',
+      modules: [
+        { name: 'GameStage', does: 'the run, rendered', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets and damage' },
+      ],
+      layers: [{ name: 'hooks', does: 'reactive state', layout: 'folder' }],
+    },
+  };
+
+  it('reaches inside the modules the placeholder expands to, in both gates', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(custom),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+        'src/Combat/index.jsx': 'export const attack = 1;\n',
+        'src/Combat/hooks/useDamage/index.jsx': 'export const useDamage = 1;\n',
+        'src/GameStage/hooks/useRun/index.jsx':
+          'import { useDamage } from "~app/Combat/hooks/useDamage";\n'
+          + 'export const useRun = useDamage;\n',
+      },
+    });
+
+    const inspect = await cli(dir, ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual(['deep-import src/GameStage/hooks/useRun/index.jsx']);
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('1  no-restricted-imports — 1 file(s)');
+  });
+});
+
+/**
+ * A `layers: false` module keeps its position in the outer flow and drops only
+ * the inner layer vocabulary, so a router's own folder names never have to be
+ * declared — and the module's `imports` still bind inside them.
+ *
+ * Lint is what this pins, and deliberately only lint: `inspect` reports nothing
+ * for any file below such a module's root, which is #282's, not a boundary this
+ * suite may certify in either direction.
+ */
+describe('a layers:false module stays governed below its root (real eslint)', () => {
+  const routed: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'app', does: 'routing only', layers: false, imports: ['GameStage'] },
+        { name: 'GameStage', does: 'the run, rendered' },
+        { name: 'Combat', does: 'bullets and damage' },
+      ],
+      layers: [{ name: 'hooks', does: 'reactive state', layout: 'folder' }],
+    },
+  };
+
+  const routedRepo = (files: Record<string, string>): string =>
+    repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(routed),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+        'src/GameStage/index.jsx': 'export const stage = 1;\n',
+        'src/Combat/index.jsx': 'export const attack = 1;\n',
+        ...files,
+      },
+    });
+
+  it('counts a nested route file inside the net rather than outside every glob', async () => {
+    // Read as "root files only" this module's internals would sit outside every
+    // net, and a boundary could be broken in `routes/` with lint fully green.
+    const dir = routedRepo({
+      'src/app/routes/Game/screen.jsx': 'export const Game = 1;\n',
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.output).toContain('Coverage: 3/3 source files inside layer nets');
+  });
+
+  it('reddens an undeclared edge and a pass-through from inside routes/', async () => {
+    const dir = routedRepo({
+      'src/app/routes/Game/screen.jsx':
+        'import { attack } from "~app/Combat";\nexport const Game = attack;\n',
+      'src/app/routes/Menu/screen.jsx': 'export * from "~app/GameStage";\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('1  no-restricted-imports — 1 file(s)');
+    expect(impact.output).toContain('1  blueprint/no-module-reexport — 1 file(s)');
+  });
+
+  it('leaves the declared edge alone at the same depth', async () => {
+    const dir = routedRepo({
+      'src/app/routes/Game/screen.jsx':
+        'import { stage } from "~app/GameStage";\nexport const Game = stage;\n',
+    });
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('0 hits');
+  });
+});
+
+/**
+ * The modular adoption path, end to end through the real CLI — every other
+ * `init` fixture in this file passes `--structure flat`, so nothing here has ever
+ * run the modular arm on a real tree.
+ *
+ * `init` writes the DECLARED POSITIONS at the source root, which under `modules`
+ * is the modules and never the layers: a layer folder there is an undeclared
+ * module, which the same tool reports at error tier and tells you not to create.
+ */
+describe('init --structure modular builds the declared modules, and its report agrees', () => {
+  const scaffolded = async (): Promise<string> => {
+    const dir = repo({ packageJson: react() });
+
+    const init = await cli(dir, ['init', '--structure', 'modular', '--preset', '--no-install']);
+
+    expect(init.code).toBe(0);
+
+    // The scaffolded config imports the package; offline fixtures have no
+    // node_modules, so swap in the equivalent preset as data (as the flat
+    // greenfield case above does).
+    write(dir, 'blueprint.config.mjs', configSource(reactPreset({
+      name: 'fixture',
+      structure: 'modular',
+    })));
+
+    return dir;
+  };
+
+  it('writes the two declared modules and no layer folder at the source root', async () => {
+    const dir = repo({ packageJson: react() });
+
+    const init = await cli(dir, ['init', '--structure', 'modular', '--preset', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(read(dir, 'src/app/index.js')).not.toBeNull();
+    expect(read(dir, 'src/app/main.jsx')).not.toBeNull();
+    expect(read(dir, 'src/common/index.js')).not.toBeNull();
+
+    // One contract per member: every layer the modular preset declares, none of
+    // which may exist as a folder of its own.
+    for (const layer of ['components', 'hooks', 'contexts', 'services']) {
+      expect(fs.existsSync(path.join(dir, 'src', layer))).toBe(false);
+    }
+
+    // …and no third module invented for a domain the tool has never seen.
+    expect(fs.readdirSync(path.join(dir, 'src')).sort()).toEqual(['app', 'common']);
+  });
+
+  it('inspects that tree as clean, with one runway note per declared layer', async () => {
+    const dir = await scaffolded();
+
+    const inspect = await cli(dir, ['inspect', '--json']);
+
+    expect(errors(inspect)).toEqual([]);
+
+    // The count IS the claim here, unlike everywhere else in this section. Four
+    // notes, one per declared layer, because a fresh scaffold has no module using
+    // any layer yet: written as "no findings" it is false on the tree the scaffold
+    // produces, and written as "exit 0" it passes while the notes disappear.
+    expect(notes(inspect, 'missing-layer'))
+      .toEqual(['components', 'hooks', 'contexts', 'services']);
+
+    // And zero of the other one — the module notes the pre-scaffold tree carried
+    // are what building the declared positions retires. `missing-layer` could move
+    // to three or five without touching this.
+    expect(notes(inspect, 'missing-module')).toEqual([]);
+
+    const text = await cli(dir, ['inspect']);
+
+    expect(text.code).toBe(0);
+    expect(text.output).toContain('0 error(s), 0 warning(s)');
+    expect(text.output).toContain('Coverage: 3/3 source files inside layer nets');
+  });
+
+  it('passes doctor on the tree it just built', async () => {
+    const doctor = await cli(await scaffolded(), ['doctor']);
+
+    expect(doctor.code).toBe(0);
+    expect(doctor.output).toContain('✓ architecture clean');
+  });
+
+  it('refuses to guess the structure on a greenfield tree, and names the criterion', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'src/main.jsx': 'export const main = 1;\n',
+        'src/App.jsx': 'export const App = 1;\n',
+      },
+    });
+
+    const init = await cli(dir, ['init', '--preset', '--no-install']);
+
+    expect(init.code).toBe(1);
+    expect(init.output).toContain('blueprint init needs --structure here');
+
+    expect(flattenProse(init.output))
+      .toContain('below the brownfield threshold (10) — there is nothing here to measure');
+
+    // Both answers, spelled as the commands that satisfy the refusal.
+    expect(init.output).toContain('blueprint init --structure flat');
+    expect(init.output).toContain('blueprint init --structure modular');
+    expect(read(dir, 'blueprint.config.mjs')).toBeNull();
+  });
+});
+
+/**
+ * Most of this section pins what the tool does. This one pins whether a sentence
+ * the tool prints about ITSELF is still true.
+ *
+ * `init`'s codeStyle note says the modular scaffold's own entries are inside the
+ * gate and already conform to all ~68 rules, which is why `eslint . --fix` is a
+ * no-op there. Nothing else in the repo guards that: a `codeStyle` default moves,
+ * or the scaffolded content gains a line, and an emitted document keeps asserting
+ * a conformance the tree no longer has. It fails differently from its neighbours
+ * — not when behaviour changes, but when a default moves under a sentence nobody
+ * re-read (#279).
+ */
+describe('the codeStyle note\'s claim about its own output is still true (real eslint)', () => {
+  const adopted = async (): Promise<{ dir: string; init: CliResult }> => {
+    const dir = repo({ packageJson: react() });
+
+    const init = await cli(dir, ['init', '--structure', 'modular', '--preset', '--no-install']);
+
+    write(dir, 'blueprint.config.mjs', configSource(reactPreset({
+      name: 'fixture',
+      structure: 'modular',
+    })));
+
+    return { dir, init };
+  };
+
+  it('states the reason the run itself can be checked against', async () => {
+    const { init } = await adopted();
+
+    expect(flattenProse(init.output))
+      .toContain('the module entries above are inside the gate, not outside it');
+
+    expect(flattenProse(init.output))
+      .toContain('already conforming to all ~68 rules');
+  });
+
+  it('runs the real linter over the scaffold and finds nothing to fix', async () => {
+    const { dir } = await adopted();
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('0 hits');
+  });
+
+  it('and that zero is the files conforming, not the gate failing to reach them', async () => {
+    // Without this the case above is the vacuous green it exists to disprove: a
+    // scaffold outside every glob lints clean for the reason the note denies.
+    const { dir } = await adopted();
+
+    write(dir, 'src/app/index.js', 'export const boot = "double"\n');
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('1  @stylistic/quotes — 1 file(s)');
+    expect(impact.output).toContain('1  @stylistic/semi — 1 file(s)');
+    expect(impact.output).toContain('src/app/index.js');
+  });
+});
+
+/**
+ * The handbook and the agent contract are read by an agent with nothing beside
+ * them, and #187's own acceptance was a byte baseline — a throwaway process check
+ * rather than a standing suite. So this is the only place that holds the emitted
+ * documents to describing the tree their config declares, on a real `init` run
+ * rather than on an emitter called in isolation.
+ *
+ * Asserted on what the documents SAY: a fixture checking that a handbook exists
+ * passes on a handbook describing the flat shape, which is the state this release
+ * measured — a 161-line handbook from a config declaring two modules, in which
+ * neither module was named once.
+ */
+describe('the emitted documents describe the structure their config declares', () => {
+  const emitted = async (structure: 'flat' | 'modular'): Promise<string> => {
+    const dir = repo({ packageJson: react() });
+
+    const init = await cli(dir, ['init', '--structure', structure, '--preset', '--no-install']);
+
+    expect(init.code).toBe(0);
+
+    return dir;
+  };
+
+  it('names the declared modules and draws the module tree in the handbook', async () => {
+    const handbook = read(await emitted('modular'), 'docs/architecture-handbook.md') as string;
+
+    expect(handbook).toContain('## Modules');
+    expect(handbook).toContain('| `app` |');
+    expect(handbook).toContain('| `common` |');
+    // The drawn tree is a code fence, so its assertions stay raw — modules at the
+    // root, a layer one level inside one of them.
+    expect(handbook).toContain('├─ app/');
+    expect(handbook).toContain('└─ common/');
+    expect(handbook).toContain('# a layer, inside the module');
+    expect(handbook).toContain('# a module — its root composes the layers below');
+
+    expect(flattenProse(handbook))
+      .toContain('A module declared `layers: false` opts out of the inner layer vocabulary');
+  });
+
+  it('puts no layer at the source root in that handbook', async () => {
+    const handbook = read(await emitted('modular'), 'docs/architecture-handbook.md') as string;
+
+    expect(flattenProse(handbook))
+      .toContain('a layer has no folder of its own, so its address is `src/<module>/<layer>/`');
+
+    // The flat handbook's unit-shape fence is rooted at a layer name in column
+    // one; the modular one must not draw that, or two of the tool's own outputs
+    // disagree about where a layer lives.
+    expect(handbook).not.toContain('\ncomponents/\n');
+  });
+
+  it('carries the outer flow and the module rules into the contract an adopter reads', async () => {
+    // CLAUDE.md gets the COMPACT contract — 14 lines, and the one nearly every
+    // adopter reads. The full contract goes only to Cursor / Windsurf rule files.
+    const contract = read(await emitted('modular'), 'CLAUDE.md') as string;
+
+    expect(contract).toContain('Module flow: `app` → `common`');
+
+    expect(flattenProse(contract))
+      .toContain('Nothing inside a module imports its own root.');
+
+    // The pass-through ban at the width it actually ships at: every file in the
+    // module, not only its entry.
+    expect(flattenProse(contract))
+      .toContain('no file in a module — **every** file, not only its entry — re-exports another');
+
+    expect(contract).toContain('module imports, module-root imports, module re-exports');
+  });
+
+  it('gains nothing modular on a flat config', async () => {
+    const dir = await emitted('flat');
+    const handbook = read(dir, 'docs/architecture-handbook.md') as string;
+    const contract = read(dir, 'CLAUDE.md') as string;
+
+    // Each negative is paired with a positive on the SAME document, because a
+    // `not.toContain` is satisfied by a document that says nothing at all — an
+    // empty or unwritten file passes every absence assertion here on its own.
+    expect(handbook).not.toContain('## Modules');
+    // The flat handbook is where a layer at the source root belongs.
+    expect(handbook).toContain('\npages/\n');
+    expect(contract).not.toContain('Module flow:');
+    expect(contract).toContain('Layer flow: `pages` → `containers`');
   });
 });
