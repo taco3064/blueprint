@@ -28,16 +28,29 @@ Nothing else — the package itself has zero runtime dependencies.
 Any `error`-level finding exits `1`; `warn` and `info` inform
 without failing the gate. Test files (`architecture.testFiles`) are exempt throughout.
 
-- **`undeclared-folder`** · error — a top-level source folder that is not a declared layer
+Nine of these answer only under one [root structure](/guide/structure) — marked
+**flat only** or **modules only** below. Under `modules` a layer is a folder inside a
+module, so the two vocabularies do not overlap and no repo ever meets all twenty.
+
+- **`structure-mismatch`** · error — the tree on disk matches one structure model and the config declares the other. It reports before any single declaration is judged, because declaring the folders as they stand goes green over a list copied off the disk
+- **`undeclared-folder`** · error · flat only — a top-level source folder that is not a declared layer
+- **`undeclared-module`** · error · modules only — a top-level source folder that is not in `architecture.modules`. Nothing inside it is governed: the layer globs are expanded from the declared list, so no glob matches in there and every structural ban is inert — with lint green throughout
 - **`flow-violation`** · error — an upstream import, or a same-layer import via the alias
-- **`deep-import`** · error — an alias import reaching *inside* a folder module instead of through its entry
-- **`relative-escape`** · error — a relative import that leaves its own layer, escapes the source root, or reaches past a sibling module's entry. Under `folder` layout a sibling *is* reachable — `../Sibling` is how one module uses another inside the same layer, and the only way, since the alias spelling (`~app/{ownLayer}/Sibling`) stays banned
-- **`package-ownership`** · error — importing a layer-owned package (or restricted named import) from a non-owner layer
+- **`deep-import`** · error — an alias import reaching *inside* a folder unit instead of through its entry. Under `modules` the same id also answers one level up — reaching inside a module rather than through `~app/<Module>` — and each message names the level it means
+- **`src-escape`** · error — a relative path climbing above the source root. Use the project alias
+- **`entry-bypass`** · error — a relative path reaching past a sibling's entry. `../Sibling` is the only legal spelling of a same-layer edge; the alias form (`~app/{ownLayer}/Sibling`) stays banned, which is why a sibling *is* reachable and only one way
+- **`layer-escape`** · error — a relative path leaving its own layer. Use the alias, or extract the shared code to a lower layer
+- **`root-import`** · error · modules only — a layer reaching up to its own module root, by relative path or any alias spelling. The root composes the layers, so the traffic runs downward only
+- **`module-escape`** · error · modules only — a relative path crossing a module boundary. A module boundary is crossed through the alias or not at all
+- **`undeclared-dependency`** · error · modules only — a cross-module import the importing module never named in its `imports`. A module reaches nothing it has not declared, and may only name modules declared after it
+- **`package-ownership`** · error — importing an owned package (or restricted named import) from a non-owner. Two levels answer under this id: a layer's `owns` bars every other layer, and under `modules` a module's `owns` bars every other module
 - **`selfonly-reexport`** · error — re-exporting a dependency marked `selfOnly` — depend on it, never pass it on
+- **`module-reexport`** · error · modules only — passing another module's public surface through your own, in any spelling. A consumer that needs it declares that module itself. A wrapper expressing this module's own responsibility is fine; one added only to clear the rule goes green and builds nothing
 - **`cycle`** · error — a module-level import cycle, with the whole loop listed. Every independent cycle is reported, one per knot of mutually dependent modules — so the count is the size of the work, not the first thing found. Its address is a **module key** — `components/A`, where every other finding's path is relative to the project root (`src/components/A`) — and a module key is what [`blueprint deps`](/guide/deps) takes, so the address pastes straight into that command
-- **`no-entry`** · warn — a folder module without its public entry file — nothing is importable from outside
-- **`missing-layer`** · info — a declared layer that has no folder on disk yet
-- **`owns-not-installed`** · info — a layer `owns` a package that is not in `package.json` — the ban is emitted and correct, it simply has nothing to reach yet. Installing the package and dropping the declaration are both resolutions
+- **`no-entry`** · warn — a folder unit without its public entry file — nothing is importable from outside. Under `modules` the same id also answers one level up: a declared module whose folder holds code but carries no entry of its own. Each message names the level
+- **`missing-layer`** · info — a declared layer with no folder on disk yet; under `modules`, one that holds no code in any module yet. Runway, not a todo: the rules arm when code lands, and keeping the declaration is the default
+- **`missing-module`** · info · modules only — a declared module with no folder yet. Its globs and bans are emitted and correct, they simply have nothing to reach. Building it and dropping the declaration are both resolutions
+- **`owns-not-installed`** · info — an `owns` entry naming a package that is not in `package.json` — the ban is emitted and correct, it simply has nothing to reach yet. Installing the package and dropping the declaration are both resolutions. The note is addressed at whichever level declared it, a layer or a module
 - **`declaratory-self-only`** · info — a `selfOnly` ban protecting a layer that holds no files — the re-export ban cannot fire until code lands
 
 On brownfield repos the [baseline ratchet](/guide/getting-started#brownfield-—-blueprint-inspect)
@@ -63,12 +76,15 @@ why `blueprint inspect` alone is not the gate.
 ## The embedded ESLint plugin
 
 `emitLint` ships custom rules inside the generated config — nothing extra to
-install. One is structural and always on; the rest are gated by `blueprint.rules` ids.
+install. Three are structural and no `blueprint.rules` id opens them; the rest are
+gated by `blueprint.rules` ids.
 The plugin object is also exported (`import { plugin } from '@kekkai/blueprint'`)
 as the escape hatch for wiring a `blueprint/*` rule by hand in a config that does
 not spread `emitLint` — everyone else never needs it:
 
-- **`blueprint/relative-escape`** · always (structural) — the depth-aware twin of inspect's finding: both call one `relativeVerdict`, so neither can reach a verdict the other would not
+- **`blueprint/relative-escape`** · always (structural) — the depth-aware twin of inspect's relative family (`src-escape`, `entry-bypass`, `layer-escape`, `module-escape`, and `root-import`'s relative spelling): both call one `relativeVerdict`, so neither can reach a verdict the other would not
+- **`blueprint/no-module-root-import`** · structural, emitted only under `architecture.modules` — a layer reaching up to its own module root at any alias spelling. Two spellings ride the entry's `paths` list; this covers the rest, including the root unit's own filename, which no pattern can enumerate
+- **`blueprint/no-module-reexport`** · structural, emitted only under `architecture.modules` — passing another module's public surface through this one's. It follows the local *binding*, so the two-statement spelling and every rename are the same violation
 - **`blueprint/no-deep-watch`** · `rules.deepWatch` — no `deep: true` watches; they traverse the whole source on every change (Vue preset: `error`)
 - **`blueprint/use-prefix`** · `rules.usePrefix` — exported functions in the hook layer must carry the `use` prefix (layer and prefix configurable)
 - **`blueprint/use-prefix-needs-reactivity`** · `rules.usePrefixReactivity` — a `use`-prefixed file must actually call a reactive or lifecycle API
@@ -212,10 +228,11 @@ in the bundle is fixed; a repo that wants different braces turns the gate off an
 declares its own set.
 
 One scope note that bites in practice: **`emit.lint.severity` covers only the
-structural family** (`no-restricted-imports` / `-syntax` / `-globals` and
-`blueprint/relative-escape`). Every rule in the list above keeps its own
-`blueprint.rules` tier — setting severity to `warn` does **not** quiet `maxLines` or
-`unusedVars`.
+structural family** — `no-restricted-imports` / `-syntax` / `-globals`,
+`blueprint/relative-escape`, and the two rules emitted under `architecture.modules`
+(`blueprint/no-module-root-import`, `blueprint/no-module-reexport`). Every rule in the
+list above keeps its own `blueprint.rules` tier — setting severity to `warn` does
+**not** quiet `maxLines` or `unusedVars`.
 
 ## Config fields beyond the quick-start example
 
@@ -235,7 +252,8 @@ examples — the definitions belong here.
 - **`layer.mustNot`** — the things this layer may not do, in prose. Same destination, same lack of enforcement: it is what a reviewer and an agent read when a rule cannot decide
 - **`layer.allowedImporters`** — narrows who may import this layer. Omit it and every earlier layer may; set it and only the listed ones may, each of which must be declared earlier — so narrowing can never introduce a back edge. Entries take `selfOnly` (may depend on this layer but never re-export it onward) and `description` (the edge label in the handbook diagram)
 - **`layer.owns`** — primitives this layer exclusively owns; every other layer is barred from them. A bare string is a whole package (`'axios'`); the object form takes `imports` (specific named imports, e.g. `['createContext']`), `pattern` (treat the name as a glob group), and `exempt` (file globs excused). `{ global: 'fetch' }` owns a global instead of a package
-- **`architecture.module`** — the shared module shape: `layout` (`folder` = one folder per module behind a public entry, `flat` = one file), `entry` (the entry filename, default `index`), and `private` (sub-parts kept behind the entry). Under `folder`, a sibling module is reachable by its entry (`../Sibling`) and by nothing else — not past the entry, and not through the alias
+- **`layer.layout` / `layer.entry`** — the unit shape, declared on the layer that has it. `layout` is `folder` (one folder per unit behind a public entry) or `file` (one file per unit); omitting it means `file`. `entry` is that entry's filename and defaults to `index`. Under `folder`, a sibling unit is reachable by its entry (`../Sibling`) and by nothing else — not past the entry, and not through the alias
+- **`architecture.modules`** — feature modules at the source root, with the layers above describing what sits inside each one. Omit it for the flat model, where `src/` is the single implicit module. Declaring it changes the vocabulary of the whole config, so it is a [day-one choice](/guide/structure). Each entry takes `does` (one-line responsibility), `imports` (the modules it may reach, each through that module's entry alone — omit for none, and every name must be a module declared *after* this one), `owns` (primitives this module holds against every other module), and `layers: false` (opt out of the inner layer vocabulary — how a routing module is expressed — which drops the inner flow and nothing else)
 
 ### Tuning
 
@@ -245,14 +263,13 @@ examples — the definitions belong here.
 - **`architecture.testFiles`** — test glob(s) exempt from structural rules and metric gates (default `*.test.*` / `*.spec.*`). `[]` exempts nothing — tests inherit their layer's rules — and switches the `testFilename` gate off with it: that rule is scoped to the test globs, so an empty list leaves it no file to name. `blueprint rules` says so beside the gate.
 - **`architecture.layerFiles` / `layerFilesIgnore`** — per-layer file globs when the framework defaults don't fit
 - **`architecture.naming`** — naming conventions by concept (e.g. `{ hook: 'useX + reactivity' }`) — rendered into handbook + contract
-- **`layer.module`** — per-layer override of the shared module shape — e.g. folder modules in one layer, flat everywhere else
 - **`layer.lintOverrides`** — per-layer ESLint tweaks (the three managed rules excluded)
 - **`emit.agents`** — contract distribution targets: `claude`, `agents`, `gemini`, `copilot`, `cursor`, `windsurf` (+ per-target `path`). Default `['claude', 'agents']`; `[]` emits none. Narrowing it makes the next init remove a stale contract that is wholly its own output (hand-edited files only get told)
 - **`emit.handbook` / `emit.lint`** — output path for the handbook · severity of the **structural** rules only (metric rules keep their `rules` tiers)
 
 ## CLI flags
 
-- **`init`** — `--agent claude|codex` (launch the authoring agent) · `--preset` (force the preset scaffold) · `--authoring` (force the playbook even on a small repo; opposite of `--preset`) · `--framework vue|react` · `--no-install` · `--dry-run`
+- **`init`** — `--agent claude|codex` (launch the authoring agent) · `--preset` (force the preset scaffold) · `--authoring` (force the playbook even on a small repo; opposite of `--preset`) · `--framework vue|react` · **`--structure flat|modular`** ([the root structure](/guide/structure) of a config init generates — **required** on a tree below the 10-file threshold, ignored when a `blueprint.config.mjs` already answers it, refused on Next.js) · `--no-install` · `--dry-run`
 - **`survey`** — `--alias <name>` (when tsconfig-paths detection finds none) · `--json`
 - **`inspect`** — `--baseline` · `--update-baseline` · `--framework vue|react` · `--json`
 - **`impact`** — `--json`
