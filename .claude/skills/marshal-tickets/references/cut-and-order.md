@@ -24,6 +24,17 @@ ticket; "edit `emit/lint/lint.ts`" is not. A capability names a behaviour an
 adopter can observe; a file list is an implementation detail that will be wrong
 by the time someone works the ticket.
 
+And cut by **cause, not by the site where somebody happened to notice it.** This
+is the same rule one level up and it is the one that fails quietly, because each
+ticket is defensible on its own: six landed here on one cause — every read of
+`architecture.sourceRoot` that assumed the literal `src` — each cut where a
+different session tripped over it, each correct, each verified, each merged. **The
+set was still the wrong shape**, and nothing about any single one of them said so.
+The tell is a ticket whose body could end with *"and there may be others"*. When
+it could, the ticket is one instance of something, and the cut it needs is the
+class plus a sweep that enumerates from the code — **after which a seventh
+instance is a defect in that ticket rather than a new one.**
+
 **Do not size a cut by its line count.** The rule above carries the real
 constraint and a line budget is only its shadow, lying in both directions — 229
 lines of implementation under 462 lines of test reads as three times over any

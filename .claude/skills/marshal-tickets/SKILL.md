@@ -94,6 +94,24 @@ looks exactly like a field that was empty** — so a sentence claiming the whole
 the source, made from the projection. The check is one line: what would this
 instrument have hidden, and did I go and look there.
 
+**The claims most worth opening a file on are the ones that make your own work
+necessary.** A reason and the decision it justifies arrive together, so checking
+the reason feels like doubting the decision — which is why a justification reads
+as settled and gets inherited unread. Every false premise found here was of this
+kind: *the self-reference is how an adopter writes it* (it was optional, and the
+loader said so three files away), *a knot of three or more may hold another cycle*
+(it may not, and the disproof is one subtraction). **Both were written by the
+person the claim excused from doing more work.**
+
+**Say which of your claims you measured and which you reasoned, every time.** They
+look identical on the page and only one of them can be wrong in a way that
+re-reading will never show. An unlabelled mechanism is acted on as measured, and
+"I read the code and there is no other path" is not the same evidence as "I ran it
+and here is the output" — two wrong mechanisms went onto a public issue here
+inside an hour, both from reading, both settled in seconds by executing. **The
+label costs four words and it is the only thing that tells a later reader which
+claims are still owed a run.**
+
 **When a `Done when` names two machines, read both.** Acceptance written as "the
 alias and relative spellings reach the same verdict" spans two gates, and
 checking the half that is easier to read is how a ticket closes with the other
