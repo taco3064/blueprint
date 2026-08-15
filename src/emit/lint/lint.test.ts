@@ -384,7 +384,9 @@ describe('emitLint · rules gates', () => {
     // emitted entry may carry one whatever the config says. Every other `files` here is
     // built from `layers`, which validation already refuses to leave empty.
     for (const entry of emitted) {
-      if (entry.files !== undefined) expect(entry.files.length).toBeGreaterThan(0);
+      if (entry.files !== undefined) {
+        expect(entry.files.length).toBeGreaterThan(0);
+      }
     }
   });
 

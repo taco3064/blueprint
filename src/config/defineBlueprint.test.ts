@@ -533,26 +533,72 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
   // instead of the message naming the field to fix, which is the first thing an
   // adopter sees when a hand-written config is wrong.
   it.each([
-    ['name', (bp: Blueprint) => { bp.name = 42 as never; }, /name must be a non-empty string/],
-    ['alias', (bp: Blueprint) => { bp.architecture.alias = 42 as never; },
-      /alias must be a non-empty string/],
-    ['a layer name', (bp: Blueprint) => { bp.architecture.layers.push({ name: 7 as never, does: 'x' }); },
-      /non-empty name/],
+    [
+      'name',
+      (bp: Blueprint) => {
+        bp.name = 42 as never;
+      },
+      /name must be a non-empty string/,
+    ],
+    [
+      'alias',
+      (bp: Blueprint) => {
+        bp.architecture.alias = 42 as never;
+      },
+      /alias must be a non-empty string/,
+    ],
+    [
+      'a layer name',
+      (bp: Blueprint) => {
+        bp.architecture.layers.push({ name: 7 as never, does: 'x' });
+      },
+      /non-empty name/,
+    ],
     // Anchored on the sentence, not the field name: a TypeError raised by
     // calling `.trim()` on a number says "module.entry.trim is not a function",
     // which matches a bare /module\.entry/ just as well.
-    ['module.entry', (bp: Blueprint) => { bp.architecture.module!.entry = 1 as never; },
-      /must be a non-empty string when set/],
-    ['a module override entry', (bp: Blueprint) => { bp.architecture.layers[0].module = { entry: 3 as never }; },
-      /empty module\.entry override/],
-    ['an owned global name', (bp: Blueprint) => { bp.architecture.layers[2].owns = [{ global: 5 as never }]; },
-      /global with no name/],
-    ['an owned package name', (bp: Blueprint) => { bp.architecture.layers[2].owns = [{ package: 5 as never }]; },
-      /package with no name/],
-    ['an allowed importer layer', (bp: Blueprint) => { bp.architecture.layers[2].allowedImporters = [{ layer: 9 as never }]; },
-      /allowedImporters entry with no layer/],
-    ['an emit.agents path', (bp: Blueprint) => { bp.emit = { agents: [{ target: 'windsurf', path: 4 as never }] }; },
-      /has an empty path/],
+    [
+      'module.entry',
+      (bp: Blueprint) => {
+        bp.architecture.module!.entry = 1 as never;
+      },
+      /must be a non-empty string when set/,
+    ],
+    [
+      'a module override entry',
+      (bp: Blueprint) => {
+        bp.architecture.layers[0].module = { entry: 3 as never };
+      },
+      /empty module\.entry override/,
+    ],
+    [
+      'an owned global name',
+      (bp: Blueprint) => {
+        bp.architecture.layers[2].owns = [{ global: 5 as never }];
+      },
+      /global with no name/,
+    ],
+    [
+      'an owned package name',
+      (bp: Blueprint) => {
+        bp.architecture.layers[2].owns = [{ package: 5 as never }];
+      },
+      /package with no name/,
+    ],
+    [
+      'an allowed importer layer',
+      (bp: Blueprint) => {
+        bp.architecture.layers[2].allowedImporters = [{ layer: 9 as never }];
+      },
+      /allowedImporters entry with no layer/,
+    ],
+    [
+      'an emit.agents path',
+      (bp: Blueprint) => {
+        bp.emit = { agents: [{ target: 'windsurf', path: 4 as never }] };
+      },
+      /has an empty path/,
+    ],
   ])('names the field when %s is not a string', (_label, mutate, pattern) => {
     const config = base();
 
@@ -565,12 +611,27 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
   // validation and the whitespace travels into a filename, a glob, or a
   // restricted-import entry.
   it.each([
-    ['module.entry', (bp: Blueprint) => { bp.architecture.module!.entry = '   '; },
-      /must be a non-empty string when set/],
-    ['an owned package string', (bp: Blueprint) => { bp.architecture.layers[2].owns = ['   ']; },
-      /empty package name/],
-    ['an owned global name', (bp: Blueprint) => { bp.architecture.layers[2].owns = [{ global: '   ' }]; },
-      /global with no name/],
+    [
+      'module.entry',
+      (bp: Blueprint) => {
+        bp.architecture.module!.entry = '   ';
+      },
+      /must be a non-empty string when set/,
+    ],
+    [
+      'an owned package string',
+      (bp: Blueprint) => {
+        bp.architecture.layers[2].owns = ['   '];
+      },
+      /empty package name/,
+    ],
+    [
+      'an owned global name',
+      (bp: Blueprint) => {
+        bp.architecture.layers[2].owns = [{ global: '   ' }];
+      },
+      /global with no name/,
+    ],
   ])('rejects whitespace-only %s', (_label, mutate, pattern) => {
     const config = base();
 

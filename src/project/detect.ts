@@ -100,7 +100,9 @@ function readViteConfig(
   root: string,
   file: string | undefined,
 ): { file: string; text: string } | undefined {
-  if (file === undefined) return undefined;
+  if (file === undefined) {
+    return undefined;
+  }
 
   const text = readText(path.join(root, file));
 
@@ -124,7 +126,10 @@ function detectFramework(deps: Record<string, unknown>): Framework | null {
   const hasVue = 'vue' in deps;
   const hasReact = 'react' in deps;
 
-  if (hasVue === hasReact) return null; // both or neither → ambiguous
+  // both or neither → ambiguous
+  if (hasVue === hasReact) {
+    return null;
+  }
 
   return hasVue ? 'vue' : 'react';
 }
@@ -141,12 +146,19 @@ function detectPackageManager(root: string): PackageManager {
       return 'pnpm';
     }
 
-    if (fs.existsSync(path.join(dir, 'yarn.lock'))) return 'yarn';
-    if (fs.existsSync(path.join(dir, 'package-lock.json'))) return 'npm';
+    if (fs.existsSync(path.join(dir, 'yarn.lock'))) {
+      return 'yarn';
+    }
+
+    if (fs.existsSync(path.join(dir, 'package-lock.json'))) {
+      return 'npm';
+    }
 
     const parent = path.dirname(dir);
 
-    if (parent === dir) return 'npm';
+    if (parent === dir) {
+      return 'npm';
+    }
 
     dir = parent;
   }
@@ -157,7 +169,9 @@ function detectNext(
   root: string,
   hasNext: boolean,
 ): { nextRouter: 'app' | 'pages' | 'both' | null; nextSrcDir: boolean } {
-  if (!hasNext) return { nextRouter: null, nextSrcDir: false };
+  if (!hasNext) {
+    return { nextRouter: null, nextSrcDir: false };
+  }
 
   const has = (rel: string) => fs.existsSync(path.join(root, rel));
   const app = has('src/app') || has('app');
@@ -292,7 +306,9 @@ function copyString(text: string, i: number): CopiedString {
   // Ran out of text before the closing quote: report where it came to rest, which
   // is what makes every bound above answerable — a scan one character too far
   // changes the number a reader is shown.
-  if (i >= text.length) return { closed: false, stoppedAt: i };
+  if (i >= text.length) {
+    return { closed: false, stoppedAt: i };
+  }
 
   return { closed: true, copied: copied + text[i], next: i + 1 };
 }
@@ -347,7 +363,9 @@ export function parseJsonc(text: string): JsoncResult {
       // search finds would be the opener's own `*` with the next `/`.
       const close = text.indexOf('*/', i + 2);
 
-      if (close === -1) return { ok: false, reason: 'unclosed-comment', at: text.length };
+      if (close === -1) {
+        return { ok: false, reason: 'unclosed-comment', at: text.length };
+      }
 
       i = close + 2;
     } else {
@@ -373,7 +391,9 @@ export function parseJsonc(text: string): JsoncResult {
       const after = /\S/.exec(commentFree.slice(i + 1));
       const nextChar = after?.[0];
 
-      if (nextChar !== '}' && nextChar !== ']') clean += ',';
+      if (nextChar !== '}' && nextChar !== ']') {
+        clean += ',';
+      }
 
       i++;
     } else {
@@ -417,11 +437,15 @@ export function unreadableTsconfigs(
   const failures: UnreadableConfig[] = [];
 
   for (const [file, text] of Object.entries(tsconfigs)) {
-    if (text === null) continue;
+    if (text === null) {
+      continue;
+    }
 
     const result = parseJsonc(text);
 
-    if (!result.ok) failures.push({ file, reason: result.reason, at: result.at });
+    if (!result.ok) {
+      failures.push({ file, reason: result.reason, at: result.at });
+    }
   }
 
   return failures;
@@ -448,23 +472,31 @@ function eachPathAlias(
   visit: (alias: string, dir: string | null) => void,
 ): void {
   for (const text of Object.values(tsconfigs)) {
-    if (text == null) continue;
+    if (text == null) {
+      continue;
+    }
 
     const result = parseJsonc(text);
 
     // undecidable against the `?.` below, which yields no options on a failure
     // anyway; that `?.` is separately pinned by a tsconfig whose content is `null`.
-    if (!result.ok) continue;
+    if (!result.ok) {
+      continue;
+    }
 
     const options = (result.value as { compilerOptions?: { paths?: unknown } })?.compilerOptions;
     const paths = options?.paths;
 
-    if (typeof paths !== 'object' || paths === null) continue;
+    if (typeof paths !== 'object' || paths === null) {
+      continue;
+    }
 
     for (const [key, targets] of Object.entries(paths)) {
       const alias = key.replace(/\/\*$/, '');
 
-      if (!alias) continue;
+      if (!alias) {
+        continue;
+      }
 
       const target = Array.isArray(targets) && typeof targets[0] === 'string' ? targets[0] : null;
 
@@ -478,7 +510,9 @@ export function detectAliases(tsconfigs: Record<string, string | null>): Record<
   const found: Record<string, string> = {};
 
   eachPathAlias(tsconfigs, (alias, dir) => {
-    if (dir === 'src' && !(alias in found)) found[alias] = 'src';
+    if (dir === 'src' && !(alias in found)) {
+      found[alias] = 'src';
+    }
   });
 
   return found;
@@ -530,24 +564,35 @@ export function viteTsCoverage(root: string): ViteTsCoverage | null {
 
   // No vite config, or a JS project with no tsconfig at all: there is no
   // question to answer, and the build clause has nothing to specialise.
-  if (viteFile === undefined) return null;
+  if (viteFile === undefined) {
+    return null;
+  }
 
   const rootConfig = 'tsconfig.json';
   const rootText = readText(path.join(root, rootConfig));
 
-  if (rootText === null) return null;
+  if (rootText === null) {
+    return null;
+  }
 
   const projects = tsProjectGraph(root, rootConfig, rootText);
 
-  if (projects === null) return null;
+  if (projects === null) {
+    return null;
+  }
 
   for (const project of projects) {
     const covers = projectCovers(project, viteFile);
 
     // A single undecidable project poisons the whole answer: "none of them
     // covers it" cannot be claimed while one of them is unread.
-    if (covers === null) return null;
-    if (covers) return { verdict: 'covered', viteFile, tsconfig: project.file };
+    if (covers === null) {
+      return null;
+    }
+
+    if (covers) {
+      return { verdict: 'covered', viteFile, tsconfig: project.file };
+    }
   }
 
   return { verdict: 'outside', viteFile, tsconfig: rootConfig };
@@ -618,11 +663,15 @@ export function tscArtifactsOutOfTree(root: string): TscArtifactLocation | null 
   const rootConfig = 'tsconfig.json';
   const rootText = readText(path.join(root, rootConfig));
 
-  if (rootText === null) return null;
+  if (rootText === null) {
+    return null;
+  }
 
   const projects = tsProjectGraph(root, rootConfig, rootText);
 
-  if (projects === null) return null;
+  if (projects === null) {
+    return null;
+  }
 
   let found: TscArtifactLocation | null = null;
 
@@ -630,19 +679,27 @@ export function tscArtifactsOutOfTree(root: string): TscArtifactLocation | null 
     // A solution config — pure `references`, no files of its own — builds nothing
     // and writes no build info, which is why the two-project vite shape leaves
     // exactly two files behind and both are the referenced projects'.
-    if (isSolutionStub(project)) continue;
+    if (isSolutionStub(project)) {
+      continue;
+    }
 
     const options = project.compilerOptions;
 
-    if (!isRecord(options)) return null;
+    if (!isRecord(options)) {
+      return null;
+    }
 
     const buildInfo = options.tsBuildInfoFile;
 
-    if (options.noEmit !== true || typeof buildInfo !== 'string') return null;
+    if (options.noEmit !== true || typeof buildInfo !== 'string') {
+      return null;
+    }
 
     const rel = normalizeSlashes(buildInfo);
 
-    if (!rel.startsWith('node_modules/')) return null;
+    if (!rel.startsWith('node_modules/')) {
+      return null;
+    }
 
     found ??= { buildInfo: rel, tsconfig: project.file };
   }
@@ -672,31 +729,46 @@ interface TsProject {
 function tsProjectGraph(root: string, file: string, text: string): TsProject[] | null {
   const parsed = parseJsonc(text);
 
-  if (!parsed.ok || !isRecord(parsed.value)) return null;
+  if (!parsed.ok || !isRecord(parsed.value)) {
+    return null;
+  }
 
   const rootProject = toProject(file, parsed.value);
   const refs = rootProject.references;
 
-  if (refs === undefined) return [rootProject];
-  if (!Array.isArray(refs)) return null;
+  if (refs === undefined) {
+    return [rootProject];
+  }
+
+  if (!Array.isArray(refs)) {
+    return null;
+  }
 
   const projects: TsProject[] = [rootProject];
 
   for (const ref of refs) {
-    if (!isRecord(ref) || typeof ref.path !== 'string') return null;
+    if (!isRecord(ref) || typeof ref.path !== 'string') {
+      return null;
+    }
 
     const resolved = resolveReference(root, ref.path);
 
-    if (resolved === null) return null;
+    if (resolved === null) {
+      return null;
+    }
 
     const refParsed = parseJsonc(resolved.text);
 
-    if (!refParsed.ok || !isRecord(refParsed.value)) return null;
+    if (!refParsed.ok || !isRecord(refParsed.value)) {
+      return null;
+    }
 
     const project = toProject(resolved.file, refParsed.value);
 
     // Depth stops here — see the note above.
-    if (project.references !== undefined) return null;
+    if (project.references !== undefined) {
+      return null;
+    }
 
     projects.push(project);
   }
@@ -713,7 +785,9 @@ function resolveReference(root: string, ref: string): { file: string; text: stri
 
     // Normalised because this string is printed: a `references` path is written
     // `./tsconfig.node.json` as often as not, and the playbook names the file.
-    if (text !== null) return { file: normalizeSlashes(candidate), text };
+    if (text !== null) {
+      return { file: normalizeSlashes(candidate), text };
+    }
   }
 
   return null;
@@ -740,35 +814,52 @@ function toProject(
  * reimplement — `exclude`, an `extends` base, character classes, brace expansion.
  */
 function projectCovers(project: TsProject, viteFile: string): boolean | null {
-  if (project.exclude !== undefined) return null;
+  if (project.exclude !== undefined) {
+    return null;
+  }
 
   // The vite config is always a ROOT file (`VITE_FILES` carries no path segments)
   // and a tsconfig's globs never reach upward.
-  if (project.dir !== '') return false;
+  if (project.dir !== '') {
+    return false;
+  }
 
   const rel = viteFile;
 
   if (project.files !== undefined) {
-    if (!isStringArray(project.files)) return null;
+    if (!isStringArray(project.files)) {
+      return null;
+    }
 
-    if (project.files.some((entry) => normalizeSlashes(entry) === rel)) return true;
+    if (project.files.some((entry) => normalizeSlashes(entry) === rel)) {
+      return true;
+    }
   }
 
   if (project.include === undefined) {
     // No `files` and no `include`: TypeScript includes everything under the
     // config's directory — unless `extends` supplies globs this cannot see.
-    if (project.files !== undefined) return false;
+    if (project.files !== undefined) {
+      return false;
+    }
 
     return project.extends === undefined ? true : null;
   }
 
-  if (!isStringArray(project.include)) return null;
+  if (!isStringArray(project.include)) {
+    return null;
+  }
 
   for (const glob of project.include) {
     const verdict = globCovers(normalizeSlashes(glob), rel);
 
-    if (verdict === null) return null;
-    if (verdict) return true;
+    if (verdict === null) {
+      return null;
+    }
+
+    if (verdict) {
+      return true;
+    }
   }
 
   return false;
@@ -786,7 +877,9 @@ function normalizeSlashes(value: string): string {
  * return null — an unusual glob yields no verdict, never a wrong one.
  */
 function globCovers(glob: string, file: string): boolean | null {
-  if (/[{}[\]?]/.test(glob)) return null;
+  if (/[{}[\]?]/.test(glob)) {
+    return null;
+  }
 
   const pattern = glob
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
