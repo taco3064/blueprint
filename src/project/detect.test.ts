@@ -560,43 +560,106 @@ describe('detect · the states a config file can be in', () => {
     expect(state.wiredEslintConfig).toBe(false);
   });
 
-  // One case per tell, with the list restated because `detect` keeps it private
-  // — drop one and exactly one case goes red. Each fixture carries its own tell
-  // and NOT the other, so neither case can pass on the strength of the other's
-  // arm. Both are shapes an adopter really has: a config that reached `emitLint`
-  // through a shared config package never names this one, and a config that
-  // renamed the import on the way in never spells the call.
+  // One case per SHAPE a tell can appear in, restated here because `detect`
+  // keeps both tells private — so a shape that stops being read turns a case
+  // red rather than nothing.
+  //
+  // The wired three are shapes an adopter really has, and no two share an arm:
+  // a config reaching `emitLint` through a shared config package never names
+  // this one, and a config that renamed the import on the way in never spells
+  // the call.
+  //
+  // The unwired six each name a tell somewhere that is not code. The first is
+  // the one that matters most: commenting a spread out to unblock CI is
+  // routine, and the note pasted beside it is the remedy doctor itself prints,
+  // so a check reading the whole file is defeated by the tool's own sentence.
   it.each([
     [
-      'the emitLint call',
+      'a spread of the call, importing this package',
+      true,
+      'import { emitLint } from \'@kekkai/blueprint\';\n'
+      + 'import bp from \'./blueprint.config.mjs\';\n\nexport default [...emitLint(bp)];\n',
+    ],
+    [
+      'a shared config package re-exporting the call',
+      true,
       'import { emitLint } from \'@acme/eslint-config\';\n\nexport default [...emitLint(bp)];\n',
     ],
     [
-      'the package name',
+      'an import renamed on the way in, so the call is never spelled',
+      true,
       'import { emitLint as lint } from \'@kekkai/blueprint\';\n\nexport default [...lint(bp)];\n',
     ],
-  ])('reads %s as a config its owner wired', (_tell, source) => {
+    [
+      'a spread commented out to unblock CI',
+      false,
+      '// Commented out to unblock CI:\n// export default [...emitLint(bp)];\n'
+      + 'export default [{ files: [\'**/*.js\'], rules: {} }];\n',
+    ],
+    [
+      'a TODO quoting the remedy doctor prints',
+      false,
+      '// TODO: spread ...emitLint(blueprint)\nexport default [{ rules: {} }];\n',
+    ],
+    [
+      'the package named only in a comment',
+      false,
+      '// see the @kekkai/blueprint docs before touching this\nexport default [{ rules: {} }];\n',
+    ],
+    [
+      'a block comment holding the whole previous wiring',
+      false,
+      '/*\n * import { emitLint } from \'@kekkai/blueprint\';\n'
+      + ' * export default [...emitLint(bp)];\n */\nexport default [{ rules: {} }];\n',
+    ],
+    [
+      'an unrelated local function of the same name',
+      false,
+      'function emitLint(glob) {\n  return { files: [glob], rules: {} };\n}\n\n'
+      + 'export default [emitLint(\'**/*.js\')];\n',
+    ],
+    [
+      'the call as a string literal',
+      false,
+      'const marker = \'emitLint(\';\n\nexport default [{ rules: {}, name: marker }];\n',
+    ],
+    [
+      'a longer identifier that happens to end in the call name',
+      false,
+      'import { _emitLint } from \'./internal.mjs\';\n\nexport default [..._emitLint()];\n',
+    ],
+    [
+      'neither tell anywhere',
+      false,
+      'import js from \'@eslint/js\';\n\nexport default [js.configs.recommended];\n',
+    ],
+  ])('reads %s as wired: %s', (_shape, wired, source) => {
     writePkg({ name: 'x', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, 'eslint.config.mjs'), source);
-
-    expect(detect(root).wiredEslintConfig).toBe(true);
-  });
-
-  it('does not call a config carrying neither tell wired', () => {
-    // The negative is what keeps the two arms above from being vacuous: a flat
-    // config that never reaches these rules has to stay unwired, or `init` skips
-    // the reference file that is the owner's only instruction for merging.
-    writePkg({ name: 'x', dependencies: { vue: '^3' } });
-
-    fs.writeFileSync(
-      path.join(root, 'eslint.config.mjs'),
-      'import js from \'@eslint/js\';\n\nexport default [js.configs.recommended];\n',
-    );
 
     const state = detect(root);
 
     expect(state.hasEslintConfig).toBe(true);
-    expect(state.wiredEslintConfig).toBe(false);
+    expect(state.wiredEslintConfig).toBe(wired);
+  });
+
+  it('reports a config it could not scan as unwired, tells and all', () => {
+    // The fallback direction, at the level an adopter feels it. This file
+    // carries both tells in plain code — and a literal that never closes below
+    // them means the scan cannot say where code ended, so what it read above is
+    // no longer evidence of anything. Answering "not wired" costs a reference
+    // file the owner can ignore; answering "wired" withholds the only thing
+    // that says what to merge, and hands the next check a state that never
+    // happened.
+    writePkg({ name: 'x', dependencies: { vue: '^3' } });
+
+    fs.writeFileSync(
+      path.join(root, 'eslint.config.mjs'),
+      'import { emitLint } from \'@kekkai/blueprint\';\n\n'
+      + 'export default [...emitLint(bp)];\n\nconst trailing = \'never closes;\n',
+    );
+
+    expect(detect(root).wiredEslintConfig).toBe(false);
   });
 
   it('reports a legacy .eslintrc only when there is no flat config', () => {

@@ -308,12 +308,18 @@ export async function runDoctor(
     {
       label: 'eslint wired to emitLint',
       ok: eslintWired,
+      // The remedy names itself, and then names what does not satisfy it. This
+      // red is reachable with the remedy's own words already in the file —
+      // commented out, or held in a string — because the tells are read off the
+      // config's code. Without the second clause that is two truths and no
+      // bridge: the line says "spread it in" beside a config that visibly does.
       detail: eslintWired
         ? undefined
         : state.eslintConfigShape === 'legacy'
           ? `${state.legacyEslintConfig} is legacy — migrate to flat config, then spread ...emitLint(blueprint)`
           : 'spread ...emitLint(blueprint) into your '
-            + 'eslint config (see eslint.config.blueprint.mjs)',
+            + 'eslint config (see eslint.config.blueprint.mjs) — read as CODE, so a '
+            + 'commented-out spread does not count, and neither does a local function of that name',
     },
     aliasCheck(root, blueprint, state),
     wiring,

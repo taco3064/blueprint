@@ -5,8 +5,9 @@
 **The package no longer ships declarations for its test-only fixture DSL.**
 `dist/conformance/conformance.d.ts` and `dist/conformance/index.d.ts` were in the tarball
 because the tree they came from sat under `src/`, which `tsconfig.types.json` emits from.
-That tree now lives in `test/`, so the two files are gone and every other file in `dist/`
-is byte-identical.
+That tree now lives in `test/`, so the two files are gone. Nothing an adopter imports moves
+with them: `dist/index.d.ts` is byte-identical to the last release's, and the entry exports
+the same 15 names.
 
 - Never a public surface: `exports` declares `"."` only, so `@kekkai/blueprint/conformance`
   answered `ERR_PACKAGE_PATH_NOT_EXPORTED` at runtime and `TS2307` under `bundler`,

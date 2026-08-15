@@ -387,6 +387,18 @@ describe('authoringBrief', () => {
     }
   });
 
+  it('says the tells are read off code, or it teaches the string that defeats them', () => {
+    // The remedy doctor prints is literally `spread ...emitLint(blueprint)`, so
+    // an agent parking that line in a comment to unblock CI is following the
+    // tool's own instruction. A playbook stopping at "its text contains" leaves
+    // that agent with a config doctor calls unwired while the words sit in it,
+    // and an `init` that skips the reference file it needs to merge from.
+    expect(flattenProse(brief))
+      .toContain('a tell inside a comment or a string literal is NOT wiring');
+
+    expect(flattenProse(brief)).toContain('cannot read straight through');
+  });
+
   it('teaches the merge traps: flat-config override, DAG linearization, honest zero', () => {
     // Same rule in a later entry REPLACES the earlier, so a rule both sides set
     // needs one merged entry where they overlap. Ordering is not the fix there —

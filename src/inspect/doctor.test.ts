@@ -165,6 +165,12 @@ describe('runDoctor', () => {
 
     expect(ok).toBe(false);
     expect(detail).toContain('...emitLint(blueprint)');
+    // And says what does not satisfy it. This red is reachable with the
+    // remedy's own words already in the config — commented out to unblock CI is
+    // the routine way — because the tells are read off code. Without the
+    // qualifier the line is two truths and no bridge.
+    expect(detail).toContain('read as CODE');
+    expect(detail).toContain('commented-out spread does not count');
     // Both wordings end on the same spread, so the shared clause cannot tell
     // them apart. There is no eslint config here at all — naming a migration
     // sends the reader to convert a file that does not exist, and the legacy
