@@ -372,6 +372,85 @@ describe('analyze · cycle', () => {
 });
 
 /**
+ * The two widths a cycle finding can honestly speak at, and the silence outside them.
+ *
+ * A knot is reported once, from one representative path, so the line a reader sees may
+ * name every mutually dependent module or only some of them. Which of those it is
+ * decides what the finding is allowed to say, and no width may say how many cycles the
+ * knot holds — that is the enumeration `detectCycles` refuses.
+ */
+describe('analyze · a cycle finding says how much of the knot the printed line shows', () => {
+  const messageOf = (files: ScannedFile[]): string | undefined =>
+    analyze(scanOf(files), bp).find((finding) => finding.rule === 'cycle')?.message;
+
+  // #308's own reproduction: `ha ↔ hb` and `ha ↔ hc`, one component of three. Both
+  // imports sit in one file so the walk's entry order is the file's, not the
+  // filesystem's — the printed path is then the same on every platform.
+  const KNOT = [
+    file(['services', 'ha', 'index.ts'], [{ specifier: '../hb' }, { specifier: '../hc' }]),
+    file(['services', 'hb', 'index.ts'], [{ specifier: '../ha' }]),
+    file(['services', 'hc', 'index.ts'], [{ specifier: '../ha' }]),
+  ];
+
+  const RING = [
+    file(['components', 'A', 'index.ts'], [{ specifier: '../B' }]),
+    file(['components', 'B', 'index.ts'], [{ specifier: '../C' }]),
+    file(['components', 'C', 'index.ts'], [{ specifier: '../A' }]),
+  ];
+
+  const PAIR = [
+    file(['components', 'A', 'index.ts'], [{ specifier: '../B' }]),
+    file(['components', 'B', 'index.ts'], [{ specifier: '../A' }]),
+  ];
+
+  it('names the whole knot where the printed path reaches only part of it', () => {
+    // Read alone, that line is a two-module cycle. Breaking it retires the entry and
+    // surfaces `ha ↔ hc` under a different subject, so a baselined repo goes red on
+    // strictly less debt — legible only if this run said the knot held more.
+    const message = messageOf(KNOT);
+
+    expect(message).toContain('Import cycle between modules: services/ha → services/hb → services/ha.');
+    expect(message).toContain('This path does not name the whole knot');
+    // The membership is the assertion: `services/hc` is the part the path omits, and
+    // a reader who cannot see it cannot tell this finding from an ordinary pair.
+    expect(message).toContain('"services/ha", "services/hb", "services/hc" are all mutually dependent here');
+    expect(message).toContain('re-record with `--update-baseline` rather than reverting the fix');
+  });
+
+  it('claims nothing about a second cycle where the path names every module', () => {
+    // Whether another elementary cycle runs through A, B and C costs the enumeration
+    // the tool refuses, so the sentence stops at what holds at that width: clearing
+    // this one CAN leave another. The negative half is the one that matters — the
+    // definite wording would be asserting the tool measured something it did not.
+    const message = messageOf(RING);
+
+    expect(message).toContain('This path names every module in the knot');
+    expect(message).toContain('can leave another one here');
+    expect(message).not.toContain('does not name the whole knot');
+  });
+
+  it('leaves an ordinary two-module cycle reading exactly as it did', () => {
+    // Two modules the path already names are a cycle, not a knot: cutting either edge
+    // ends the component, so there is no rest of it to warn about. Full-string
+    // equality, because a `toContain` passes on precisely the appended sentence this
+    // case exists to keep out — and every ordinary cycle report would then carry a
+    // caveat none of them earned.
+    expect(messageOf(PAIR))
+      .toBe('Import cycle between modules: components/A → components/B → components/A.');
+  });
+
+  it('never puts a number in the message, at any width', () => {
+    // "1 of 3" and "there are 2 more" are both counts of cycles, and one path per
+    // component is all this tool computes — elementary cycles can outnumber modules
+    // exponentially, so a count here would be a guess about the part a reader plans
+    // around. No fixture above carries a digit of its own for one to hide in.
+    for (const message of [messageOf(KNOT), messageOf(RING), messageOf(PAIR)]) {
+      expect(message).not.toMatch(/\d/);
+    }
+  });
+});
+
+/**
  * A cycle is reported about a folder some emitted entry governs, or not at all.
  *
  * Worth stating why the surviving cross-module shape looks so narrow: a cycle
@@ -1018,7 +1097,36 @@ describe('detectCycles · every knot, not the first one', () => {
       ['b', ['a']],
       ['x', ['y']],
       ['y', ['x']],
-    ]))).toEqual([['a', 'b', 'a'], ['x', 'y', 'x']]);
+    ]))).toEqual([
+      { cycle: ['a', 'b', 'a'], component: ['a', 'b'] },
+      { cycle: ['x', 'y', 'x'], component: ['x', 'y'] },
+    ]);
+  });
+
+  it('carries the whole component beside the path it printed', () => {
+    // The path is one elementary cycle out of a component that may hold more, and the
+    // finding has to say which of those two it is looking at. Read off the path alone
+    // there is nothing to compare it against: `c` is mutually dependent with both of
+    // the modules named and appears nowhere in the printed loop.
+    expect(detectCycles(edgesOf([
+      ['a', ['b', 'c']],
+      ['b', ['a']],
+      ['c', ['a']],
+    ]))).toEqual([{ cycle: ['a', 'b', 'a'], component: ['a', 'b', 'c'] }]);
+  });
+
+  it('orders the component by content, not by the order Tarjan closed it in', () => {
+    // Same graph, its keys declared in reverse. Tarjan pops a component in traversal
+    // order, so an unsorted list would put the members of one knot in two different
+    // orders on two repos with the same cycle — and the component is read out into a
+    // message that names every one of them.
+    const knots = detectCycles(edgesOf([
+      ['c', ['a']],
+      ['b', ['a']],
+      ['a', ['c', 'b']],
+    ]));
+
+    expect(knots[0].component).toEqual(['a', 'b', 'c']);
   });
 
   it('reports one knot per component, not one per elementary cycle', () => {
@@ -1032,14 +1140,21 @@ describe('detectCycles · every knot, not the first one', () => {
     ]));
 
     expect(cycles).toHaveLength(1);
-    expect(cycles[0][0]).toBe('a');
+    expect(cycles[0].cycle[0]).toBe('a');
   });
 
   it('counts a module that imports itself', () => {
     // A one-node component. Nothing here classifies components as trivial or not —
     // the single walk answers null unless the self-edge is really there — and a
     // size-based rule would have dropped this case silently.
-    expect(detectCycles(edgesOf([['a', ['a']], ['b', ['a']]]))).toEqual([['a', 'a']]);
+    //
+    // The component equals the path here, at a size the knot language is not true
+    // at, so the finding built from this reads exactly as it did before knots were
+    // described at all. This level is the only one that can ask: `buildModuleGraph`
+    // admits no edge from a module to itself, so a self-import reaches `analyze` as
+    // no edge rather than as a one-node knot.
+    expect(detectCycles(edgesOf([['a', ['a']], ['b', ['a']]])))
+      .toEqual([{ cycle: ['a', 'a'], component: ['a'] }]);
   });
 
   it('orders the inventory by content, not by which node the walk started from', () => {
@@ -1145,8 +1260,14 @@ describe('detectCycles · a knot behind another knot is still its own knot', () 
     ]));
 
     expect(cycles).toEqual([
-      ['components/A', 'components/B', 'components/A'],
-      ['hooks/useC', 'hooks/useD', 'hooks/useC'],
+      {
+        cycle: ['components/A', 'components/B', 'components/A'],
+        component: ['components/A', 'components/B'],
+      },
+      {
+        cycle: ['hooks/useC', 'hooks/useD', 'hooks/useC'],
+        component: ['hooks/useC', 'hooks/useD'],
+      },
     ]);
   });
 });

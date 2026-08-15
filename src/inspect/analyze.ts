@@ -103,7 +103,7 @@ export function analyze(
     ...scan.files.flatMap((file) => importFindings(file, architecture, layerNames, depth)),
   ];
 
-  for (const cycle of detectCycles(buildModuleGraph(scan, architecture).edges)) {
+  for (const { cycle, component } of detectCycles(buildModuleGraph(scan, architecture).edges)) {
     // The members, not the printed path: a cycle is a set of mutually dependent
     // modules, and `a → b → a` and `b → a → b` are one knot printed from two
     // starting points. Keyed on the path, the same knot read from a different entry
@@ -117,12 +117,68 @@ export function analyze(
         'cycle',
         members[0],
         members.join(' '),
-        `Import cycle between modules: ${cycle.join(' → ')}.`,
+        cycleMessage(cycle, component),
       ),
     );
   }
 
   return findings.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+}
+
+/** The half both knot widths share — one text, because the same passage written twice drifts. */
+const RATCHET_NOTE = ' If this cycle is in a baseline, the replacement arrives as a new finding '
+  + 'rather than this one, because the subject is a different set of modules — so the gate can go '
+  + 'red on strictly less debt. That is the ratchet reading the change: re-record with '
+  + '`--update-baseline` rather than reverting the fix.';
+
+/**
+ * What a cycle finding may say about the knot around it: two widths that add a
+ * sentence, and the shape where neither is true.
+ *
+ * Never a count of cycles. `detectCycles` reports one path per component on purpose,
+ * because a graph's elementary cycles can outnumber its nodes exponentially, so "one
+ * of three" is a number nothing here can produce. What it does have is the component
+ * beside the path, which answers a narrower question honestly: whether the line names
+ * every mutually dependent module or only some of them. Same discipline as
+ * `projectCovers`, `syntheticPath` and {@link positionHint} — an unusual shape yields
+ * no answer rather than a wrong one.
+ *
+ * Both arms say `can`, never `will`. Cutting an edge of the printed path can dissolve
+ * the whole component: `a → b → a` inside `{a, b, c}` with `a → c` and `c → b` leaves
+ * nothing cyclic once `b → a` goes, so a promise that the next run reports another
+ * cycle here would be false.
+ *
+ * A knot is three or more mutually dependent modules, which is the only definition
+ * available to a tool that refuses to count cycles. Two modules the path already names
+ * have exactly two edges and therefore exactly one elementary cycle — cut either and
+ * the component is gone — so the careful sentence is false there rather than cautious,
+ * and a caveat on every ordinary cycle report is one none of them earned. A lone
+ * self-loop is the same case, and reaches this only through `detectCycles`: the module
+ * graph drops an edge from a module to itself (`resolve.ts`, `to !== from`).
+ *
+ * One corner, named rather than hidden: `{a, b}` carrying `a → a` alongside `a ↔ b`
+ * does hold two cycles, and which arm fires depends on which edge `detectCycle` walked
+ * first. Both endings are honest — the definite one names the pair, the silent one
+ * withholds a true statement without making a false one — so nothing pins that
+ * traversal order to force one.
+ */
+function cycleMessage(cycle: string[], component: string[]): string {
+  const printed = `Import cycle between modules: ${cycle.join(' → ')}.`;
+  const covered = new Set(cycle).size;
+
+  if (covered < component.length) {
+    return `${printed} This path does not name the whole knot: ${quoted(component)} are all `
+      + 'mutually dependent here. Breaking the cycle above can leave the rest of them knotted, and '
+      + `what is left is reported as a different cycle.${RATCHET_NOTE}`;
+  }
+
+  if (component.length > 2) {
+    return `${printed} This path names every module in the knot, and whether another cycle runs `
+      + 'through the same modules is not something inspect counts — so breaking the cycle above can '
+      + `leave another one here.${RATCHET_NOTE}`;
+  }
+
+  return printed;
 }
 
 /**
@@ -1098,6 +1154,14 @@ function ownersOf(
   return owners.length ? owners : null;
 }
 
+/** One knot: the cycle a report prints, and every module mutually dependent with it. */
+export interface CycleKnot {
+  /** The representative path, its first node repeated at the end. */
+  cycle: string[];
+  /** The whole strongly connected component the path was found in, in name order. */
+  component: string[];
+}
+
 /**
  * Every independent cycle in the graph, one representative path each.
  *
@@ -1118,14 +1182,25 @@ function ownersOf(
  * memoization proof on it as the single cycle-finder, and it settles the self-loop
  * case for free — a one-node component answers null unless it really has an edge to
  * itself, so nothing here has to classify components as trivial or not.
+ *
+ * The component rides along with its path because {@link cycleMessage} has to say
+ * whether that path names the whole knot. It is in hand at this line either way;
+ * asking for it again at the call site would be a second Tarjan run and a second
+ * answer to one question.
  */
-export function detectCycles(edges: Map<string, Set<string>>): string[][] {
+export function detectCycles(edges: Map<string, Set<string>>): CycleKnot[] {
   return stronglyConnected(edges)
-    .map((component) => detectCycle(subgraph(edges, component)))
-    .filter((cycle): cycle is string[] => cycle !== null)
+    .map((component) => ({
+      cycle: detectCycle(subgraph(edges, component)),
+      // Sorted here and not before the `subgraph` call: that function sorts its own
+      // copy to make the representative path reproducible, and handing it an
+      // already-sorted list would leave its sort deciding nothing.
+      component: [...component].sort(compareText),
+    }))
+    .filter((knot): knot is CycleKnot => knot.cycle !== null)
     // Content-ordered, not traversal-ordered — Tarjan's output depends on its
     // starting key, and a report that reshuffles on an unrelated file is unreadable.
-    .sort((a, b) => compareText(a[0], b[0]));
+    .sort((a, b) => compareText(a.cycle[0], b.cycle[0]));
 }
 
 /**

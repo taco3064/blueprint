@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runInspect } from './inspect';
 import { vuePreset } from '../presets';
+import type { Finding } from './types';
 
 let root: string;
 
@@ -203,6 +204,141 @@ describe('runInspect · baseline ratchet', () => {
     expect(parsed.ok).toBe(true);
     expect(parsed.suppressed).toBeGreaterThan(0);
     expect(parsed.stale).toBe(0);
+  });
+});
+
+/**
+ * Removing one cycle of a knot, at the level a developer meets it: the gate's exit
+ * code, not a string out of `analyze`.
+ *
+ * A knot is several pieces of debt, so the survivor arriving as a fresh finding is
+ * correct and the red stays. What had to change is the report — and both halves are
+ * pinned here, because a claim that the behaviour did not move is worth exactly what
+ * its test is worth.
+ */
+describe('runInspect · a knot pays down one cycle at a time', () => {
+  const KNOT_MESSAGE = 'Import cycle between modules: services/ha → services/hb → services/ha.';
+
+  // `ha ↔ hb` and `ha ↔ hc` — one component of three, both of ha's imports in one
+  // file so the walk enters in the file's order rather than the filesystem's.
+  const writeKnot = (): void => {
+    writeSrc('services/ha/index.ts', 'import { hb } from \'../hb\';\nimport { hc } from \'../hc\';\nexport const ha = [hb, hc];\n');
+    writeSrc('services/hb/index.ts', 'import { ha } from \'../ha\';\nexport const hb = ha;\n');
+    writeSrc('services/hc/index.ts', 'import { ha } from \'../ha\';\nexport const hc = ha;\n');
+  };
+
+  const cycleOf = (findings: Finding[]) => findings.filter((f) => f.rule === 'cycle');
+
+  it('still fails the gate on the cycle that is left, and names the knot before it does', async () => {
+    writeKnot();
+
+    // Step 1: the finding a developer reads BEFORE baselining is the one that has to
+    // carry the warning, because the run that goes red later cannot see the knot any
+    // more — by then it is an ordinary pair.
+    const first = await runInspect(root, { log: silent });
+
+    expect(cycleOf(first.findings)[0].message).toContain('This path does not name the whole knot');
+    expect(cycleOf(first.findings)[0].message).toContain('"services/ha", "services/hb", "services/hc"');
+
+    // Steps 2–3: lock it, gate is green.
+    await runInspect(root, { updateBaseline: true, log: silent });
+    expect((await runInspect(root, { baseline: true, log: silent })).ok).toBe(true);
+
+    // Step 4: strictly less debt — hb stops importing ha.
+    writeSrc('services/hb/index.ts', 'export const hb = 1;\n');
+
+    // Step 5: red, and deliberately so. The survivor is a different knot with a
+    // different subject, so no recorded entry covers it. A `splitByBaseline` that
+    // matched a subset would turn this green and take the ratchet's whole claim with
+    // it — one recorded cycle would then suppress every later one in the same folder.
+    const after = await runInspect(root, { baseline: true, log: silent });
+
+    expect(after.ok).toBe(false);
+    expect(cycleOf(after.findings)).toHaveLength(1);
+
+    // Byte-identical to what this pair reported before #308: two modules the path
+    // already names are a cycle, not a knot.
+    expect(cycleOf(after.findings)[0].message)
+      .toBe('Import cycle between modules: services/ha → services/hc → services/ha.');
+  });
+
+  it('retires the entry and offers the tighter ratchet once the knot is fully broken', async () => {
+    writeKnot();
+    await runInspect(root, { updateBaseline: true, log: silent });
+
+    // Both back edges gone: nothing in the component is mutually dependent any more.
+    writeSrc('services/hb/index.ts', 'export const hb = 1;\n');
+    writeSrc('services/hc/index.ts', 'export const hc = 1;\n');
+
+    let output = '';
+    const paid = await runInspect(root, { baseline: true, log: (m) => (output = m) });
+
+    expect(paid.ok).toBe(true);
+    expect(cycleOf(paid.findings)).toHaveLength(0);
+    expect(output).toContain('no longer occur');
+
+    // Tightening all the way: the cycle was the only debt, so the ledger is retired
+    // rather than rewritten — and the run says which of the two it did.
+    let tightened = '';
+
+    await runInspect(root, { updateBaseline: true, log: (m) => (tightened = m) });
+
+    expect(fs.existsSync(path.join(root, '.blueprint-baseline.json'))).toBe(false);
+    expect(tightened).toContain('No debt to lock');
+  });
+
+  it('suppresses a cycle entry recorded before the message carried any of this', async () => {
+    // A three-module ring, whose message this change DOES rewrite — the point of the
+    // case. The document below is what `4.0.0` wrote: version 3, and the old sentence
+    // in `message`. It still matches, because identity is rule + path + subject and
+    // the reworded prose is not part of it. A `BASELINE_VERSION` bump would throw here
+    // instead, and a subject built from the component rather than the path would
+    // arrive fresh — this is the test that says neither happened.
+    writeSrc('components/A/index.ts', 'import { B } from \'../B\';\nexport const A = B;\n');
+    writeSrc('components/B/index.ts', 'import { C } from \'../C\';\nexport const B = C;\n');
+    writeSrc('components/C/index.ts', 'import { A } from \'../A\';\nexport const C = A;\n');
+
+    fs.writeFileSync(path.join(root, '.blueprint-baseline.json'), `${JSON.stringify({
+      version: 3,
+      findings: [{
+        rule: 'cycle',
+        path: 'components/A',
+        subject: 'components/A components/B components/C',
+        message: 'Import cycle between modules: components/A → components/B → components/C → components/A.',
+      }],
+    }, null, 2)}\n`);
+
+    let output = '';
+
+    const { ok, findings } = await runInspect(
+      root,
+      { baseline: true, json: true, log: (m) => (output = m) },
+    );
+
+    const parsed = JSON.parse(output);
+
+    expect(ok).toBe(true);
+    expect(cycleOf(findings)).toHaveLength(0);
+    expect(parsed.suppressed).toBe(1);
+    expect(parsed.stale).toBe(0);
+  });
+
+  it('does not read the knot message as debt of its own', async () => {
+    // The knot sentence names modules the printed path does not, and `subject` is
+    // what the baseline keys on — so a subject that drifted toward the message would
+    // show up as a second, unmatchable entry rather than as a failure to suppress.
+    writeKnot();
+    await runInspect(root, { updateBaseline: true, log: silent });
+
+    const recorded = JSON.parse(
+      fs.readFileSync(path.join(root, '.blueprint-baseline.json'), 'utf-8'),
+    ) as { findings: { rule: string; path: string; subject: string; message: string }[] };
+
+    const entry = recorded.findings.find((f) => f.rule === 'cycle');
+
+    expect(entry?.path).toBe('services/ha');
+    expect(entry?.subject).toBe('services/ha services/hb');
+    expect(entry?.message).toContain(KNOT_MESSAGE);
   });
 });
 
