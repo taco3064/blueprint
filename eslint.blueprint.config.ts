@@ -20,7 +20,7 @@ import imports from 'eslint-plugin-import-x';
 import stylistic from '@stylistic/eslint-plugin';
 import tseslint from 'typescript-eslint';
 import { emitLint } from '@kekkai/blueprint';
-import base from './eslint.config.ts';
+import base from './eslint.config';
 import blueprint from './blueprint.config.mjs';
 
 export default [
