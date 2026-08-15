@@ -7,11 +7,11 @@ import type {
 } from '../project';
 import type { SurveyResult } from '../survey';
 import { installCommand } from './plan';
+import { renderMethod } from './method';
 import {
   renderAcceptanceGates,
   renderGoal,
   renderHeader,
-  renderMethod,
   renderNextNote,
   renderPrerequisites,
   renderResumePoint,
@@ -19,8 +19,8 @@ import {
   renderSchemaSketch,
   renderSemantics,
   renderSurveyEvidence,
-  renderVerdict,
 } from './playbook';
+import { renderVerdict } from './verdict';
 import type { Action } from './types';
 
 /**

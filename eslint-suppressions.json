@@ -45,6 +45,14 @@
       "count": 1
     }
   },
+  "src/bootstrap/method.ts": {
+    "@stylistic/max-len": {
+      "count": 94
+    },
+    "blueprint/relative-escape": {
+      "count": 1
+    }
+  },
   "src/bootstrap/plan.test.ts": {
     "@stylistic/max-len": {
       "count": 18
@@ -60,13 +68,18 @@
   },
   "src/bootstrap/playbook.ts": {
     "@stylistic/max-len": {
-      "count": 182
+      "count": 63
     },
     "blueprint/relative-escape": {
       "count": 5
+    }
+  },
+  "src/bootstrap/verdict.ts": {
+    "@stylistic/max-len": {
+      "count": 25
     },
-    "max-lines": {
-      "count": 1
+    "blueprint/relative-escape": {
+      "count": 2
     }
   },
   "src/bootstrap/wire.test.ts": {
@@ -82,8 +95,10 @@
   "src/cli/cli.ts": {
     "blueprint/relative-escape": {
       "count": 8
-    },
-    "max-lines": {
+    }
+  },
+  "src/cli/help.ts": {
+    "blueprint/relative-escape": {
       "count": 1
     }
   },
@@ -365,20 +380,22 @@
   },
   "src/project/detect.test.ts": {
     "@stylistic/max-len": {
-      "count": 15
+      "count": 1
     }
   },
   "src/project/detect.ts": {
     "blueprint/relative-escape": {
-      "count": 1
-    },
-    "max-lines": {
       "count": 1
     }
   },
   "src/project/resolve.ts": {
     "blueprint/relative-escape": {
       "count": 4
+    }
+  },
+  "src/project/tsconfig.test.ts": {
+    "@stylistic/max-len": {
+      "count": 14
     }
   },
   "src/project/types.ts": {
