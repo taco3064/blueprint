@@ -1,3 +1,4 @@
 # Full test set (incl. the adoption e2e under src/e2e/) must pass before anything leaves the machine.
 # Bare `vitest`, not `npx vitest`, for the reason in pre-commit.
+sh scripts/hook-requires.sh pre-push vitest
 vitest run
