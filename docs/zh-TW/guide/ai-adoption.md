@@ -67,7 +67,8 @@ Agent 依蒐證數據推導 config，反覆對照 `blueprint inspect` 直到每�
 確切的安全邊界見[安全與信任](/zh-TW/guide/security)。
 
 若欲完全跳過編寫流程、即使在既有專案上也直接以框架 preset 建置，可改用 `init --preset` ——<br>
-這是已確認 preset 適用時的快捷途徑。
+這是已確認 preset 適用時的快捷途徑。<br>
+它並不豁免[結構那一題](/zh-TW/guide/structure)：檔數低於門檻時，`--preset` 一樣會先要 `--structure` —— 因為 preset 兩種形狀都出得來，而那麼小的樹裡沒有任何東西分辨得出該用哪一種。
 
 ## 建議的提示詞
 
@@ -88,7 +89,7 @@ prompt 只要釘住「怎樣算完成」：
   零違規就代表完成、帳本留空 —— 那就是成功，不要為了有東西可鎖去製造債
 ```
 
-`--authoring` 保證即使在小 repo 上也會產出 playbook（純 `init` 在檔數低於門檻時會改建 preset、不產 playbook）。<br>
+`--authoring` 保證即使在小 repo 上也會產出 playbook（純 `init` 在檔數低於門檻時會改建 preset、不產 playbook，而且要先問 [`--structure`](/zh-TW/guide/structure) 才肯建；`--authoring` 是唯一能在小 repo 上繞過那一題的路徑 —— playbook 會從證據裡把它答出來）。<br>
 三條驗收各自對應實測中出現過的未完成狀態：整合只做一半、檢核沒跑完、把還債混進導入。<br>
 有兩條在特定 repo 上會「空泛地成立」而且這樣就對了：<br>
 沒有測試的 repo，「原有測試都過」直接成立、不用去補 test runner；<br>
@@ -146,7 +147,8 @@ npx @kekkai/blueprint doctor
 - **架構乾淨** ——<br>
   沒有 baseline 以外的違規；detail 會標明 coverage：幾個 source 檔在 layer 網內，而**網外的那些會被點名列出來**（有上限），因為「40 個裡面 12 個」是一個讀的人查不了的數字；<br>
   再加上幾條 optional gate 有開，以及結構規則本來就永遠開著。<br>
-  這樣「空網子的綠燈」看得見，不會安靜地騙過你；空網的 callout 還會點名下一步（把 code 搬進宣告的 layer，網子就開始咬）
+  這樣「空網子的綠燈」看得見，不會安靜地騙過你；<br>
+  空網的 callout 還會照**你這份 config 實際的位址**點名下一步：扁平是 `src/<layer>/`，[`modules`](/zh-TW/guide/structure) 之下則是 `src/<module>/<layer>/` —— 在那裡分層是模組裡面的資料夾，擺在原始碼根目錄的那種是 `undeclared-module` 錯誤，不是解法
 - **lint suppressions 帳本沒過期** ——<br>
   `eslint-suppressions.json` 裡指向已不存在檔案的條目會讓檢查失敗
 

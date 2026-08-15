@@ -74,7 +74,9 @@ foreground, interactive, under your own agent CLI's permissions — see
 
 To skip the authoring flow entirely and scaffold the framework preset even on a
 brownfield repo, pass `init --preset` — the escape hatch when you already know the
-preset fits.
+preset fits. It does not exempt the [structure question](/guide/structure): below the
+file-count threshold `--preset` still asks for `--structure` first, because the
+preset ships both shapes and nothing in a tree that small can tell them apart.
 
 ## A prompt that works
 
@@ -98,7 +100,10 @@ Acceptance — `blueprint doctor` passes, plus:
 ```
 
 `--authoring` guarantees the playbook is written even on a small repo (plain `init`
-below the file-count threshold scaffolds a preset instead — no playbook). Each
+below the file-count threshold scaffolds a preset instead — no playbook, and it asks
+for [`--structure`](/guide/structure) before it will scaffold one; `--authoring` is
+the one path that reaches a small repo without that question, since the playbook
+answers it from the evidence). Each
 acceptance clause maps to an incomplete state seen in field testing: half-done
 integration, gates never run, debt payments mixed into adoption. Two clauses
 resolve vacuously and that is fine: a repo with no tests passes the tests
@@ -175,7 +180,10 @@ npx @kekkai/blueprint doctor
   (up to a cap), because "12 of 40" is a number its reader cannot check; plus active
   optional gates, the structural boundary rules being always on. So a vacuously green
   gate is visible instead of quietly reassuring — and the vacuous callout names the
-  step that arms the net (move code into a declared layer)
+  step that arms the net at the address *your* config has: `src/<layer>/` on a flat
+  config, `src/<module>/<layer>/` under [`modules`](/guide/structure), where a layer
+  is a folder inside a module and one at the source root is an `undeclared-module`
+  error rather than a remedy
 - **lint suppressions ledger current** — stale entries in `eslint-suppressions.json`
   (files that no longer exist) fail the check
 
