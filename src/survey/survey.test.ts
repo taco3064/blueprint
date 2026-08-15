@@ -73,7 +73,9 @@ function sourcelessNames(output: string): string[] {
   const lines = output.split('\n');
   const start = lines.findIndex((line) => line.includes('was never counted:'));
 
-  if (start === -1) return [];
+  if (start === -1) {
+    return [];
+  }
 
   const end = lines.findIndex((line, index) => index > start && line.trim() === '');
 
@@ -628,7 +630,9 @@ describe('renderSurvey', () => {
 
     expect(note.length).toBeGreaterThan(3); // the sentence, plus a wrapped list
 
-    for (const line of note) expect(line.length).toBeLessThanOrEqual(80);
+    for (const line of note) {
+      expect(line.length).toBeLessThanOrEqual(80);
+    }
 
     // Every folder still named, in order, and read back as names rather than as a
     // substring — a `toContain` per name passes on a list that lost its commas.

@@ -177,7 +177,9 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (configSource !== null) {
     const cleanup = templateCleanup(scanResult, blueprint);
 
-    if (cleanup) actions.push(cleanup);
+    if (cleanup) {
+      actions.push(cleanup);
+    }
   }
 
   // The contract links to the handbook and lives in the agent files — if the
@@ -226,8 +228,11 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (lintWiring) {
     const installAt = actions.findIndex((action) => action.kind === 'install');
 
-    if (lintWiring.kind === 'write' && installAt !== -1) actions.splice(installAt, 0, lintWiring);
-    else actions.push(lintWiring);
+    if (lintWiring.kind === 'write' && installAt !== -1) {
+      actions.splice(installAt, 0, lintWiring);
+    } else {
+      actions.push(lintWiring);
+    }
   }
 
   // A preset on a repo that never had an alias INTRODUCES one — a new
@@ -275,12 +280,16 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · ${blueprint.framework} · ${state.packageManager}`,
   );
 
-  if (forkNote) log(`· ${forkNote}`);
+  if (forkNote) {
+    log(`· ${forkNote}`);
+  }
 
   if (options.dryRun) {
     // Nothing is applied, so listing the whole plan up front IS the report:
     // every line reads "would", none of them claims anything about disk.
-    for (const action of actions) log(formatAction(action, true));
+    for (const action of actions) {
+      log(formatAction(action, true));
+    }
   }
 
   if (!options.dryRun) {
@@ -372,7 +381,9 @@ function lintScriptAction(root: string, blueprint: Blueprint, greenfield: boolea
     };
   }
 
-  if (lint.includes('eslint')) return null;
+  if (lint.includes('eslint')) {
+    return null;
+  }
 
   const needle = `"lint": ${JSON.stringify(lint)}`;
 
@@ -396,7 +407,9 @@ function templateCleanup(scanResult: ReturnType<typeof scan>, blueprint: Bluepri
     (finding) => finding.severity === 'error',
   );
 
-  if (!findings.length) return null;
+  if (!findings.length) {
+    return null;
+  }
 
   const shown = findings.slice(0, 3).map((finding) => `    ${finding.path} — ${finding.message}`);
   const more = findings.length - shown.length;
@@ -464,7 +477,9 @@ function runAuthoring(
   if (options.dryRun) {
     // Nothing is applied, so listing the whole plan up front IS the report:
     // every line reads "would", none of them claims anything about disk.
-    for (const action of actions) log(formatAction(action, true));
+    for (const action of actions) {
+      log(formatAction(action, true));
+    }
   }
 
   if (!options.dryRun) {

@@ -29,7 +29,9 @@ function repo(config?: Blueprint): string {
 }
 
 afterEach(() => {
-  while (dirs.length) fs.rmSync(dirs.pop() as string, { recursive: true, force: true });
+  while (dirs.length) {
+    fs.rmSync(dirs.pop() as string, { recursive: true, force: true });
+  }
 });
 
 const blueprint: Blueprint = {

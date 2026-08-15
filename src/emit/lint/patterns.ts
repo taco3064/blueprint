@@ -41,7 +41,9 @@ export function resolveTestFiles(testFiles: string | string[] | undefined): stri
  * has one answer.
  */
 export function toArray(value: string | string[] | undefined): string[] {
-  if (value === undefined) return [];
+  if (value === undefined) {
+    return [];
+  }
 
   return Array.isArray(value) ? value : [value];
 }
@@ -208,7 +210,9 @@ export function unavailableFromBlueprint(
 export function enforcedBy(id: string): 'lint' | 'inspect' | 'docs' {
   const gate = PLUGIN_GATES.find((entry) => entry.id === id);
 
-  if (gate?.runtime) return gate.runtime;
+  if (gate?.runtime) {
+    return gate.runtime;
+  }
 
   return LINT_GATED_RULE_IDS.includes(id) ? 'lint' : 'docs';
 }
@@ -235,7 +239,9 @@ export function derivePackageRules(layers: LayerDef[]): PackageRule[] {
 
   for (const layer of layers) {
     for (const primitive of layer.owns ?? []) {
-      if (typeof primitive !== 'string' && 'global' in primitive) continue;
+      if (typeof primitive !== 'string' && 'global' in primitive) {
+        continue;
+      }
 
       const pkg: OwnedPackage
         = typeof primitive === 'string' ? { package: primitive } : primitive;
@@ -271,10 +277,14 @@ export function deriveGlobalRules(layers: LayerDef[]): GlobalRule[] {
   const byName = new Map<string, GlobalRule>();
 
   for (const layer of layers) {
-    if (!layer.owns) continue;
+    if (!layer.owns) {
+      continue;
+    }
 
     for (const primitive of layer.owns) {
-      if (typeof primitive === 'string' || !('global' in primitive)) continue;
+      if (typeof primitive === 'string' || !('global' in primitive)) {
+        continue;
+      }
 
       const existing = byName.get(primitive.global);
 

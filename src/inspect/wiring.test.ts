@@ -37,12 +37,16 @@ function loader(
   throwOn?: 'load' | 'calculate',
 ) {
   return async (): Promise<unknown> => {
-    if (throwOn === 'load') throw new Error('unresolvable');
+    if (throwOn === 'load') {
+      throw new Error('unresolvable');
+    }
 
     return {
       ESLint: class {
         async calculateConfigForFile(filePath: string): Promise<unknown> {
-          if (throwOn === 'calculate') throw new Error('broken config');
+          if (throwOn === 'calculate') {
+            throw new Error('broken config');
+          }
 
           return typeof resolved === 'function' ? resolved(filePath) : resolved;
         }

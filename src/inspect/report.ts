@@ -50,7 +50,9 @@ export function report(findings: Finding[]): string {
 
   const counts = { error: 0, warn: 0, info: 0 };
 
-  for (const finding of findings) counts[finding.severity]++;
+  for (const finding of findings) {
+    counts[finding.severity]++;
+  }
 
   const lines = findings.map(
     (finding) => `  ${ICON[finding.severity]} [${finding.rule}] ${finding.path}\n      ${finding.message}`,

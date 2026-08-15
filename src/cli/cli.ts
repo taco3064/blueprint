@@ -435,13 +435,17 @@ function rejectUnknownFlags(known: Set<string>, command: string, args: string[])
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
 
-    if (!arg.startsWith('-')) continue;
+    if (!arg.startsWith('-')) {
+      continue;
+    }
 
     if (!known.has(arg)) {
       throw new Error(`unknown flag for ${command}: ${arg} — see: blueprint ${command} --help`);
     }
 
-    if (VALUED_FLAGS.has(arg)) i++;
+    if (VALUED_FLAGS.has(arg)) {
+      i++;
+    }
   }
 }
 
@@ -474,7 +478,9 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
   try {
     const known = KNOWN_FLAGS[command ?? ''];
 
-    if (known !== undefined) rejectUnknownFlags(known, command as string, rest);
+    if (known !== undefined) {
+      rejectUnknownFlags(known, command as string, rest);
+    }
 
     if (command === 'init') {
       await runInit(cwd, parseInitArgs(rest));
@@ -541,7 +547,9 @@ export function isCliEntry(argv1: string | undefined): boolean {
   // Undecidable: the `catch` below keeps this one honest — `realpathSync(undefined)`
   // throws, and the catch answers `false` too. Removing either alone still passes;
   // the contract itself is pinned by a test (`isCliEntry(undefined)`).
-  if (argv1 === undefined) return false;
+  if (argv1 === undefined) {
+    return false;
+  }
 
   try {
     return import.meta.url === pathToFileURL(realpathSync(argv1)).href;

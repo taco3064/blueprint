@@ -23,7 +23,9 @@ export function table(headers: string[], rows: string[][]): string {
 
 /** Render a layer's owned primitives as an inline markdown fragment. */
 export function formatOwns(owns: OwnedPrimitive[] | undefined): string {
-  if (!owns?.length) return '';
+  if (!owns?.length) {
+    return '';
+  }
 
   return owns
     .map((primitive) => {

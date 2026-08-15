@@ -17,7 +17,9 @@ function rulesOfTier(rules: Record<string, RuleSetting> | undefined, tier: Tier)
 }
 
 function claudePrinciples(principles: PrincipleDef[] | undefined): PrincipleDef[] {
-  if (!principles) return [];
+  if (!principles) {
+    return [];
+  }
 
   return principles.filter((principle) => principle.land === 'claude');
 }
@@ -168,7 +170,9 @@ export function renderPlacement(architecture: ArchitectureDef): string {
 export function renderNaming(naming: Record<string, string> | undefined): string {
   const entries = Object.entries(naming ?? {});
 
-  if (!entries.length) return '';
+  if (!entries.length) {
+    return '';
+  }
 
   return [
     '### Naming',
@@ -205,7 +209,9 @@ export function renderHardRules(
   // Only rules a machine actually gates may be called hard — anything else
   // here would be a promise the tooling does not keep.
   for (const [id, setting] of rulesOfTier(rules, 'error')) {
-    if (!LINT_GATED_RULE_IDS.includes(id)) continue;
+    if (!LINT_GATED_RULE_IDS.includes(id)) {
+      continue;
+    }
 
     const value = readSetting(setting).value;
 
@@ -221,7 +227,9 @@ export function renderHardRules(
 
 /** The component-shape axes as terse directives — each judged independently. */
 export function renderComponentShape(axes: AxisDef[] | undefined): string {
-  if (!axes?.length) return '';
+  if (!axes?.length) {
+    return '';
+  }
 
   const bullets = axes.map((axis) => {
     const triage = axis.triage
@@ -274,7 +282,9 @@ export function renderBehavioral(
 
 /** The working playbook as terse directives, one block per theme. */
 export function renderPlaybook(playbook: PlaybookSection[] | undefined): string {
-  if (!playbook?.length) return '';
+  if (!playbook?.length) {
+    return '';
+  }
 
   const blocks = playbook.map((section) =>
     [

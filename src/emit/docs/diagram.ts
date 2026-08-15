@@ -11,7 +11,9 @@ import { getDiagramEdges } from '../../config';
  */
 export function emitFlowDiagram(architecture: ArchitectureDef): string {
   const lines = getDiagramEdges(architecture).map((edge) => {
-    if (edge.ordered) return `  ${edge.from} -.-> ${edge.to}`;
+    if (edge.ordered) {
+      return `  ${edge.from} -.-> ${edge.to}`;
+    }
 
     const label = [edge.description, edge.selfOnly ? 'selfOnly' : null]
       .filter(Boolean)

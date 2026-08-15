@@ -110,7 +110,9 @@ describe('presets · shape', () => {
     // the preset claims to document.
     for (const bp of [vuePreset(), reactPreset(), nextPreset()]) {
       for (const entry of bp.architecture.layers) {
-        if (entry.mustNot === undefined) continue;
+        if (entry.mustNot === undefined) {
+          continue;
+        }
 
         expect(entry.mustNot.length).toBeGreaterThan(0);
         expect(entry.mustNot.every((line) => line.trim().length > 0)).toBe(true);

@@ -166,7 +166,9 @@ function renderLeaderboard(
   layerNames: Set<string>,
   layoutOf: LayoutOf,
 ): string {
-  if (!modules.length) return 'No modules found under the declared layers.';
+  if (!modules.length) {
+    return 'No modules found under the declared layers.';
+  }
 
   const width = String(modules[0].importedBy.length).length;
 

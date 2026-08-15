@@ -27,15 +27,21 @@ export const noDeepWatch: Rule.RuleModule = {
         // ESTree callee carries a `name` while failing it — a member expression has
         // none, so the comparison answers `undefined !== 'watch'` and returns anyway.
         // The compiler's requirement over an untyped AST, invisible at runtime.
-        if (node.callee.type !== 'Identifier' || node.callee.name !== 'watch') return;
+        if (node.callee.type !== 'Identifier' || node.callee.name !== 'watch') {
+          return;
+        }
 
         const options = node.arguments[2];
 
-        if (!options || options.type !== 'ObjectExpression') return;
+        if (!options || options.type !== 'ObjectExpression') {
+          return;
+        }
 
         const deep = findDeepTrue(options);
 
-        if (deep) context.report({ node: deep, messageId: 'noDeep' });
+        if (deep) {
+          context.report({ node: deep, messageId: 'noDeep' });
+        }
       },
     };
   },

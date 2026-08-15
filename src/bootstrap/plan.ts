@@ -143,7 +143,9 @@ export function plan(
   for (const spec of defaultAgentPaths()) {
     const existing = options.existingAgentFiles?.[spec.path] ?? null;
 
-    if (emitted.has(spec.path) || existing === null) continue;
+    if (emitted.has(spec.path) || existing === null) {
+      continue;
+    }
 
     if (spec.strategy === 'own' || isWhollyGenerated(existing)) {
       actions.push({
@@ -540,7 +542,9 @@ export function scriptCommand(pm: PackageManager, script: string): string {
 export function installCommand(pm: PackageManager, deps: string[]): string {
   const list = deps.join(' ');
 
-  if (pm === 'npm') return `npm install -D ${list}`;
+  if (pm === 'npm') {
+    return `npm install -D ${list}`;
+  }
 
   return `${pm} add -D ${list}`;
 }
