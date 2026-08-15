@@ -105,6 +105,22 @@ offer: a second reader who did not write the change, owes its reasoning nothing,
 and is not tired of it. The implementation side already believes its own work —
 that belief is not evidence.
 
+**A product question is answered on the published site before it is answered
+here.** *Is a knot one piece of debt or several? What is the agent contract for?
+What counts as governed?* — these are not judgment calls to make fresh in a
+ticket. This project publishes its positions, at `docs/philosophy/` (**The
+Operating Contract**, **Core Beliefs**, **Working Discipline**, **Layer
+Architecture**) and across `docs/guide/`, and an adopter has read them. **A ticket
+that decides one of these without opening those pages is not deciding, it is
+forking** — and the fork is invisible, because the ticket sounds reasoned and the
+site says something else to everyone who was not in the room.
+
+**Reading it is not trusting it, and this is the half that is easy to drop.** A
+page can be stale, and several were found stale here in one day. So when the site
+and the code disagree, that disagreement **is the finding** — say which one you
+believe and why, and file the other. What you may not do is pick the one that
+suits the ticket and say nothing, which reads identically to having checked.
+
 **And read the output, which is a different check.** Not the code that produces
 it — the artifact an adopter receives: `emitLint` against a fixture, `blueprint
 rules`, the playbook, the handbook. **Reading code tells you whether the logic is
