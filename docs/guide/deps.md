@@ -21,8 +21,12 @@ npx @kekkai/blueprint deps hooks/useCart        # one module, by module key
 npx @kekkai/blueprint deps src/hooks/useCart/useCart.ts   # same query, by file path
 ```
 
-All three input forms resolve to the same module key — with or without the `src/`
-prefix, with or without the file extension.
+All three input forms resolve to the same module key — with or without the file
+extension, and with or without the prefix of the directory
+[`architecture.sourceRoot`](/guide/reference#config-fields-beyond-the-quick-start-example)
+names (`src/` by default, `app/` on a repo that sets it there). That prefix is how
+[every finding but a cycle](/guide/reference#what-inspect-reports) prints its address, so
+an address off the report pastes in exactly as `inspect` printed it.
 
 - `--json` — machine-readable output (for tooling or an AI agent)
 - `--framework vue|react` — force the preset when no config exists and detection is ambiguous

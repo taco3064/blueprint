@@ -4762,6 +4762,93 @@ describe('sourceRoot and an additional alias reach inside modules (real eslint)'
 });
 
 /**
+ * The report and `deps` are one loop: every finding but `cycle` prints its
+ * address from the project root, and that address is what the reader pastes back
+ * to ask who else a change hits. `deps` stripped a literal `src` from the target,
+ * so on a repo rooted anywhere else it refused the address its own report had
+ * just printed — and accepted a `src/`-prefixed one that names nothing (#295).
+ *
+ * Driven through the CLI on both halves, because both halves are output an
+ * adopter joins by hand: the text one command printed, and the argv the next one
+ * takes. Reading `inspect --json` for the path and calling `runDeps` with it is
+ * green on a build where the printed report and the accepted target disagree.
+ */
+describe('an address the report printed resolves in deps, under a named source root', () => {
+  const rooted: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      sourceRoot: 'app',
+      // Folder-shaped throughout, so every node is a unit and the answer names
+      // the module the address named — a file-shaped layer would collapse the
+      // two ends to `components` / `services` and hide which unit was asked for.
+      layers: [
+        { name: 'components', does: 'render UI', layout: 'folder' },
+        { name: 'hooks', does: 'reactive state', layout: 'folder' },
+        { name: 'services', does: 'data access', layout: 'folder' },
+      ],
+    },
+  };
+
+  it('takes the printed address back into the CLI and answers at exit 0', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(rooted),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./app/*'] } } }),
+        'app/services/api/api.jsx': 'export const api = 1;\n',
+        'app/hooks/useCart/useCart.jsx':
+          'import { api } from "~app/services/api";\nexport const useCart = api;\n',
+        'app/components/Card/Card.jsx':
+          'import { useCart } from "~app/hooks/useCart";\nexport const Card = useCart;\n',
+        'app/legacy/old.jsx': 'export const old = 1;\n',
+      },
+    });
+
+    const report = await cli(dir, ['inspect']);
+    const printed = report.output.match(/\[no-entry\] (\S*useCart)/)?.[1];
+
+    // The prefix is the whole point. An unprefixed address round-trips even with
+    // the defect in place, so a run that printed one would prove nothing — this
+    // pins that the report really addressed the configured root.
+    expect(printed).toBe('app/hooks/useCart');
+
+    const deps = await cli(dir, ['deps', printed as string]);
+
+    expect(deps.code).toBe(0);
+    expect(deps.output).toContain('← components/Card');
+    expect(deps.output).toContain('→ services/api');
+  });
+
+  it('answers an address printed for a folder no layer declares, with the cause', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(rooted),
+        'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./app/*'] } } }),
+        'app/hooks/useCart/index.jsx': 'export const useCart = 1;\n',
+        'app/legacy/old.jsx': 'export const old = 1;\n',
+      },
+    });
+
+    const report = await cli(dir, ['inspect']);
+    const printed = report.output.match(/\[undeclared-folder\] (\S+)/)?.[1];
+
+    // The report addresses an undeclared folder through the source root too, and
+    // that address is as pasteable as any other. `deps` has to take the root off
+    // before it can say what governs the folder — a strip that first requires a
+    // declared layer under the root cannot answer here at all.
+    expect(printed).toBe('app/legacy');
+
+    const deps = await cli(dir, ['deps', printed as string]);
+
+    expect(deps.code).toBe(1);
+    expect(deps.output).toContain('"legacy/" is not a declared layer, so nothing governs it');
+    expect(deps.output).not.toContain('Unknown module');
+  });
+});
+
+/**
  * A hand-written `layerFiles` under `modules` must carry `{module}` — the config
  * is rejected without one — and this is the layer that shows the accepted glob
  * actually governs: a placeholder that expands to the wrong prefix passes
