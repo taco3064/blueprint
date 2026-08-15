@@ -5,6 +5,16 @@ import stylistic from '@stylistic/eslint-plugin';
 import tseslint from 'typescript-eslint';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
+// From the source, never this package's own name: inside this repo that
+// specifier resolves through `exports` to `./dist/index.js`, so a lint run
+// wired that way would enforce whatever was last built. ESLint loads this file
+// through jiti, which resolves the entry-only directory imports plain Node
+// cannot. The name is deliberately not written anywhere in this file — doctor's
+// "eslint wired to emitLint" check is a substring test for it, and a comment
+// that turns the check green is a hatch, not a wiring.
+import { emitLint, validateBlueprint } from './src';
+import blueprint from './blueprint.config.mjs';
+
 // Formatting is ESLint-driven (no Prettier). `customize` reproduces the old
 // Prettier settings: 2-space indent, single quotes, semicolons, trailing
 // commas, 1tbs braces.
@@ -38,6 +48,9 @@ export default defineConfig([
     'reports',
     '.claude/worktrees',
   ]),
+  // The parser and the recommended sets stay on every `.ts` file — the emitted
+  // config declares rules, never a language. Narrowing this entry to the house
+  // globs below would leave `src/` parsed by espree.
   {
     files: ['**/*.ts'],
     extends: [js.configs.recommended, tseslint.configs.recommended],
@@ -45,6 +58,21 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.node,
     },
+  },
+  // The house rules, scoped to what the emitted config does not reach, so
+  // exactly one entry owns any file's formatting. blueprint's globs are
+  // `src/{layer}/**`, and the `ignores` is derived from the blueprint rather
+  // than restated — a layer added there must not silently gain a second owner.
+  //
+  // What stays outside: the root wiring files, `src/index.ts` (the package
+  // entry belongs to no layer), and `src/conformance` / `src/e2e` (test-only
+  // source, which #358 leaves open — until it is decided, the house rules keep
+  // governing them rather than nothing governing them).
+  {
+    files: ['**/*.ts'],
+    ignores: blueprint.architecture.layers.map(
+      (layer) => `${blueprint.architecture.sourceRoot}/${layer.name}/**`,
+    ),
     plugins: {
       '@stylistic': stylistic,
       'import-x': imports,
@@ -93,4 +121,12 @@ export default defineConfig([
       ],
     },
   },
+  // Last in the array, so the emitted entries win wherever they and the house
+  // rules both match. `validateBlueprint` is what the skipped `defineBlueprint`
+  // was doing — the config is a plain literal, and this is where it is checked.
+  ...emitLint(validateBlueprint(blueprint), {
+    typescript: tseslint.plugin,
+    stylistic,
+    imports,
+  }),
 ]);
