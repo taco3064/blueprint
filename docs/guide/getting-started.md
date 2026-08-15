@@ -71,17 +71,28 @@ npx @kekkai/blueprint inspect --update-baseline
 ```
 
 Re-keying records the same debt: nothing that was suppressed stops being suppressed.
-What moved is what identifies an entry. It used to include the finding's **message
-text** — the one part of a finding that changes while the violation does not — so
-rewording any finding silently retired every baseline entry for that rule: the old debt
-came back as `fresh`, the recorded entries counted as `stale`, and a brownfield CI went
-red on an upgrade that changed no code. Identity is now the rule, the path and the
-**subject** (the import specifier, a cycle's members).
+What moves is what *identifies* an entry — and the refusal names the change for the
+version your file actually carries, rather than describing someone else's upgrade:
+
+- **Version 2 → 3**, the move in `4.0.0`. `relative-escape` was a single finding id
+  covering three different relative-import problems, which forced one migration step
+  to answer all three. They are `src-escape`, `entry-bypass` and `layer-escape` now,
+  each naming the move that is legal for it. A finding id is part of an entry's key,
+  so entries recorded under the old id no longer match
+- **Version 1 → 2**, earlier. Identity used to include the finding's **message text** —
+  the one part of a finding that changes while the violation does not — so rewording
+  any finding silently retired every baseline entry for that rule: the old debt came
+  back as `fresh`, the recorded entries counted as `stale`, and a brownfield CI went
+  red on an upgrade that changed no code. Identity is the rule, the path and the
+  **subject** (the import specifier, a cycle's members) now
 
 The old file is refused rather than reinterpreted because read under the new key it
 would match nothing — which is the wall of red the ratchet exists to prevent, arriving
-with no stated cause. For `--json` consumers the same move puts `subject` on every
-finding and stamps the file `"version": 2`.
+with no stated cause. Files written today are stamped `"version": 3`, and for `--json`
+consumers every finding carries `subject`.
+
+Everything else `4.0.0` breaks, in the order you meet it:
+[Upgrading to 4.0.0](/guide/upgrading).
 
 ## Blast radius — `blueprint deps`
 
