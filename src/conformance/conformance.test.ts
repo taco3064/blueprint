@@ -5470,3 +5470,104 @@ describe('the emitted documents describe the structure their config declares', (
     expect(contract).toContain('Layer flow: `pages` → `containers`');
   });
 });
+
+/**
+ * `inspect` and `deps` read one module graph, and nothing made them answer the
+ * same tree in the same run until this block existed. They disagreed: `inspect`
+ * reported a `cycle` inside `src/scratch/`, `deps` ranked its two units and then
+ * closed with a note calling that folder invisible to itself, and three lines
+ * above both, `undeclared-module` said nothing governs it.
+ *
+ * In this layer rather than the unit suites because agreement between two
+ * commands is not a property either one has. Each was internally consistent,
+ * each was covered, and both read `buildModuleGraph` — only running them over
+ * one fixture shows the seam. `deps` is also the second consumer that made this
+ * its own ticket, so the fixture it is measured on has to be the same one.
+ */
+describe('the two graph readers agree about an ungoverned folder (real CLI)', () => {
+  const governedTwice: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the pilot', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets' },
+      ],
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder' },
+        { name: 'hooks', does: 'state', layout: 'folder' },
+      ],
+    },
+  };
+
+  // `hooks` is a declared layer NAME inside `scratch`, and nothing more: no
+  // layer glob is expanded for a top folder the declared list has not got.
+  const tree = (files: Record<string, string> = {}) =>
+    repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(governedTwice),
+        'src/Combat/index.js': 'export const C = 1;',
+        'src/Combat/hooks/useHit/index.js': 'export const hit = 1;',
+        'src/Fighter/index.js': 'import { C } from \'~app/Combat\';\nexport const F = C;',
+        'src/scratch/hooks/useA/index.js': 'import { b } from \'../useB\';\nexport const a = b;',
+        'src/scratch/hooks/useB/index.js': 'import { a } from \'../useA\';\nexport const b = a;',
+        ...files,
+      },
+    });
+
+  it('reports the folder once, as ungoverned, and never as a cycle', async () => {
+    const inspected = await cli(tree(), ['inspect', '--json']);
+
+    // The whole list: a `not.toContain('cycle')` stays green when a second
+    // finding appears beside it, and the defect was two findings about one
+    // folder rather than one wrong one.
+    expect(errors(inspected)).toEqual(['undeclared-module src/scratch']);
+  });
+
+  it('keeps it out of both deps rankings while still naming it skipped', async () => {
+    const parsed = JSON.parse((await cli(tree(), ['deps', '--json'])).output);
+
+    expect(parsed.skipped).toEqual(['scratch']);
+
+    expect(parsed.modules.map((entry: { module: string }) => entry.module).sort())
+      .toEqual(['Combat', 'Fighter']);
+
+    expect(parsed.units.map((entry: { unit: string }) => entry.unit))
+      .toEqual(['Combat/hooks/useHit']);
+  });
+
+  it('answers a query inside it with the reason, in the declared level\'s noun', async () => {
+    const answer = await cli(tree(), ['deps', 'scratch/hooks/useA']);
+
+    expect(answer.output).toContain('"scratch/" is not a declared module');
+    expect(answer.output).toContain('nothing governs it');
+    // Not a fan-in report closing with a sentence about module boundaries, for
+    // a folder no module boundary reaches.
+    expect(answer.output).not.toContain('imported by');
+  });
+
+  it('drops an edge a declared module makes into it, in both commands', async () => {
+    const dir = tree({
+      'src/Fighter/hooks/useAim/index.js':
+        'import { a } from \'../../../scratch/hooks/useA\';\nexport const aim = a;',
+    });
+
+    const inspected = await cli(dir, ['inspect', '--json']);
+    const deps = JSON.parse((await cli(dir, ['deps', '--json'])).output);
+
+    expect(errors(inspected)).toEqual([
+      'undeclared-module src/scratch',
+      'module-escape src/Fighter/hooks/useAim/index.js',
+    ]);
+
+    expect(deps.modules.map((entry: { module: string }) => entry.module)).not.toContain('scratch');
+
+    // Nothing is lost by dropping the edge: the relationship is reported by the
+    // reader built for undeclared roots, in the finding that owns the question.
+    const undeclared = (JSON.parse(inspected.output).findings as Finding[])
+      .find((finding) => finding.rule === 'undeclared-module');
+
+    expect(undeclared?.message).toContain('"Fighter" reaches it');
+  });
+});

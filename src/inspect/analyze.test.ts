@@ -329,6 +329,127 @@ describe('analyze · cycle', () => {
       file(['hooks', 'useD', 'index.ts'], [{ specifier: '../useC' }]),
     ])).toContain('hooks/useC → hooks/useD → hooks/useC');
   });
+
+  it('reports no cycle between folders the same run says nothing governs', () => {
+    // Flat never had the node-side hole — the layer test IS the top-level test
+    // when the layer is the top folder — so this pins that rerouting node
+    // admission through `fileZone` did not open one.
+    //
+    // Two undeclared folders, not two units inside one: on a flat project an
+    // unknown top folder has no declared layout, so `moduleKey` stops at it and
+    // both units key to the same node. Written that way the knot is a self-edge
+    // the graph drops regardless, and the case reports no cycle even with the
+    // layer test removed entirely.
+    const found = analyze(
+      scanOf([
+        file(['scratch', 'x.ts'], [{ specifier: '../junk/y' }]),
+        file(['junk', 'y.ts'], [{ specifier: '../scratch/x' }]),
+      ], [...LAYERS, 'scratch', 'junk']),
+      bp,
+    );
+
+    expect(found.map((finding) => finding.rule)).toContain('undeclared-folder');
+    expect(found.map((finding) => finding.rule)).not.toContain('cycle');
+  });
+});
+
+/**
+ * A cycle is reported about a folder some emitted entry governs, or not at all.
+ *
+ * Worth stating why the surviving cross-module shape looks so narrow: a cycle
+ * among declared modules can never be DECLARED. `defineBlueprint` rejects
+ * `imports` naming a module declared before it — *"Module "Combat" imports
+ * "Fighter", which is declared before it"* — so every cross-module cycle that
+ * reaches this graph has a back edge the config already calls an undeclared
+ * dependency, and the only cycles left are between units inside one module.
+ */
+describe('analyze · a cycle needs a governed folder at both ends', () => {
+  const modular = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: [
+        { name: 'Fighter', does: 'the pilot', imports: ['Combat'] },
+        { name: 'Combat', does: 'bullets' },
+      ],
+      layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+    },
+  });
+
+  const TOP = ['Fighter', 'Combat', 'scratch'];
+
+  const cycleOf = (files: ScannedFile[], topDirs = TOP): Finding | undefined =>
+    analyze({ topDirs, files }, modular).find((finding) => finding.rule === 'cycle');
+
+  it('says nothing about two units knotted inside an undeclared folder', () => {
+    // The ticket's tree. `hooks` is a declared layer name and nothing more here:
+    // no layer glob is expanded for a top folder the declared list has not got,
+    // so lint is green on both files while `inspect` called them an error.
+    const found = analyze(
+      {
+        topDirs: TOP,
+        files: [
+          file(['scratch', 'hooks', 'useA', 'index.ts'], [{ specifier: '../useB' }]),
+          file(['scratch', 'hooks', 'useB', 'index.ts'], [{ specifier: '../useA' }]),
+        ],
+      },
+      modular,
+    );
+
+    // The folder is still reported — as the one thing that IS true about it.
+    expect(found.map((finding) => finding.rule)).toContain('undeclared-module');
+    expect(found.map((finding) => finding.rule)).not.toContain('cycle');
+  });
+
+  it('says nothing about a knot at root depth either', () => {
+    // No declared layer name anywhere: two files one level below the source
+    // root passed a depth test that never asked whose root it was.
+    //
+    // Two DIFFERENT undeclared folders, because root files of one folder all
+    // key to that folder — written as `scratch/a.ts` ↔ `scratch/b.ts` this
+    // reads as a root-depth cycle and is a self-edge the graph drops anyway,
+    // so it passed before the fix as well as after and pinned nothing.
+    expect(cycleOf([
+      file(['scratch', 'index.ts'], [{ specifier: '../junk/index' }]),
+      file(['junk', 'index.ts'], [{ specifier: '../scratch/index' }]),
+    ], ['Fighter', 'Combat', 'scratch', 'junk'])).toBeUndefined();
+  });
+
+  it('still reports a knot between units of a declared module', () => {
+    // The half that must not move. Asserted on the message, not just the rule:
+    // a fix that dropped every node would satisfy the two cases above and this
+    // one's `toBeDefined` alike.
+    expect(cycleOf([
+      file(['Fighter', 'hooks', 'useA', 'index.ts'], [{ specifier: '../useB' }]),
+      file(['Fighter', 'hooks', 'useB', 'index.ts'], [{ specifier: '../useA' }]),
+    ])?.message).toContain(
+      'Fighter/hooks/useA → Fighter/hooks/useB → Fighter/hooks/useA',
+    );
+  });
+
+  it('still reports a knot a declared module closes through another\'s entry', () => {
+    // The cross-module shape, back edge and all: `Combat` reaching `Fighter` is
+    // an undeclared dependency, which is the only way this cycle exists at all.
+    expect(cycleOf([
+      file(['Fighter', 'index.ts'], [{ specifier: '~app/Combat' }]),
+      file(['Combat', 'index.ts'], [{ specifier: '~app/Fighter' }]),
+    ])?.message).toContain('Combat → Fighter → Combat');
+  });
+
+  it('drops the edge a declared module makes INTO an undeclared folder', () => {
+    // Dropped as a node, then minted again as an edge target — `collect` reads
+    // its targets back out. Asserted through the cycle a surviving edge would
+    // close, so the case fails on the graph rather than on a rendering.
+    //
+    // The knot has to close on the two nodes themselves. Routed back through
+    // `~app/Fighter` instead, the return edge lands on a node no file in this
+    // fixture builds, the loop never closes, and the case reports no cycle
+    // before the fix as readily as after.
+    expect(cycleOf([
+      file(['Fighter', 'hooks', 'useAim', 'index.ts'], [{ specifier: '../../../scratch/hooks/useA' }]),
+      file(['scratch', 'hooks', 'useA', 'index.ts'], [{ specifier: '~app/Fighter/hooks/useAim' }]),
+    ])).toBeUndefined();
+  });
 });
 
 describe('analyze · file layout', () => {

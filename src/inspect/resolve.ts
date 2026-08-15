@@ -3,6 +3,7 @@ import { aliasLayerRoots, moduleDepth } from '../config';
 import { layoutResolver, moduleKey, resolveSegments, stripAlias } from '../boundary';
 import type { LayoutOf } from '../boundary';
 import { dropTestFiles } from './filter';
+import { fileZone } from './zone';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
 /**
@@ -61,6 +62,23 @@ export interface ModuleGraph {
   edges: Map<string, Set<string>>;
 }
 
+/**
+ * The names occupying the graph's top level — declared modules, or declared
+ * layers on a flat project.
+ *
+ * One derivation, because two consumers need it and one of them already had it:
+ * `deps` computed this set to write its "invisible to deps" footnote while the
+ * graph itself consulted nothing, so a single rendering listed a folder three
+ * times above a line calling it invisible. Asked of the field that answers it,
+ * the way {@link moduleDepth} is — `modules === undefined` IS the flat/modular
+ * question, so an offset and a list cannot disagree about which level this is.
+ */
+export function declaredTop(architecture: ArchitectureDef): Set<string> {
+  const { layers, modules } = architecture;
+
+  return new Set((modules === undefined ? layers : modules).map((entry) => entry.name));
+}
+
 /** Build the module-level import graph from a scan. */
 export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef): ModuleGraph {
   // Test files neither form modules nor create edges (idempotent re-filter
@@ -71,46 +89,42 @@ export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef
   const aliases = aliasList(architecture);
   const layoutOf = layoutResolver(architecture);
   const depth = moduleDepth(architecture);
-
-  // A `layers: false` module has no layer vocabulary, so nothing inside it
-  // sits at a declared layer and the whole module is one node. Read through the
-  // layer test it contributes nothing at all — and the routing module is
-  // usually the one importing everything, so its edges are the ones a reader
-  // would miss first.
-  // undecidable, the `?? []` arm: a fabricated member has no `layers` key, so
-  // the filter drops it and the set is empty either way — which is what a flat
-  // project has. Kept because the absent arm is real: this runs before any
-  // depth test, on every project.
-  const unlayered = new Set(
-    (architecture.modules ?? []).filter((module) => module.layers === false)
-      .map((module) => module.name),
-  );
+  const declared = declaredTop(architecture);
 
   const modules = new Set<string>();
   const edges = new Map<string, Set<string>>();
 
   for (const file of scan.files) {
-    // The module root is a node of its own: it is where a module's composition
-    // code sits, and `Fighter/index.ts` importing `~app/Combat` is the edge a
-    // reader of this graph most wants. Judged by the layer test alone it is
-    // skipped, because its segment at layer depth is a filename.
-    // undecidable, the depth test: `unlayered` is built from
-    // `architecture.modules`, so a flat project's set is empty and the lookup
-    // answers false however the depth compares. It stays as the reader's
-    // signpost — this whole arm exists only under modules.
-    const whole = depth > 0 && unlayered.has(file.segments[0]);
-    const isRoot = depth > 0 && file.segments.length === depth + 1;
+    // Which emitted entry governs this file, asked of the one lookup that
+    // answers it: `module` for a `layers: false` module's whole net, `root` for
+    // a layered module's composition files, `layer` for a unit. Spelled out
+    // here as three tests instead, the module list went unread — so a file
+    // under a folder `modules` does not carry joined the graph through two of
+    // them, at layer depth by sharing a layer's name and at root depth by
+    // sitting one level down.
+    const zone = fileZone(file.segments, architecture);
 
-    if (!whole && !isRoot && !layerNames.includes(file.segments[depth])) continue;
+    if (zone === null) continue;
 
-    const from = whole ? file.segments[0] : moduleKey(file.segments, layoutOf, depth);
+    // A `layers: false` module is one node: it has no layer vocabulary, so
+    // nothing inside it sits at a declared layer — and the routing module is
+    // usually the one importing everything, so its edges are the ones a reader
+    // would miss first.
+    const from = zone === 'module' ? file.segments[0] : moduleKey(file.segments, layoutOf, depth);
 
     modules.add(from);
 
     for (const ref of file.imports) {
       const to = targetModuleKey(ref, file, aliases, layerNames, layoutOf, depth);
 
-      if (to && to !== from) {
+      // The target is qualified on its own, because it is reached on its own
+      // and by paths the node test never sees: `targetModuleKey`'s relative arm
+      // asks no declared name at all, and its module-entry arm answers from the
+      // offset alone. Left ungated, an edge INTO an ungoverned folder mints the
+      // node the loop above just declined to build — `collect` reads its
+      // targets back out — and both commands report a relationship for a folder
+      // the same run says nothing governs.
+      if (to !== null && to !== from && declared.has(to.split('/')[0])) {
         edges.set(from, (edges.get(from) ?? new Set()).add(to));
       }
     }
