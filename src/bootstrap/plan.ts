@@ -171,11 +171,14 @@ export function plan(
       note: `${state.ownedEslintConfig} (blueprint-owned — regenerated)`,
     });
   } else if (state.wiredEslintConfig) {
-    // The user's own config already imports the package — wired by its
-    // owner. Nothing to hand off, and no reference to nag about.
+    // The user's own config carries one of detect's wiredness tells — wired by
+    // its owner. Nothing to hand off, and no reference to nag about. The note
+    // names no specifier: the tell may have been the `emitLint(` call, and a
+    // config reaching it through a shared config package never spells this
+    // package's name at all.
     actions.push({
       kind: 'instruct',
-      note: 'eslint config already wires @kekkai/blueprint — nothing to merge.',
+      note: 'eslint config already wires blueprint\'s rules — nothing to merge.',
     });
   } else if (state.hasEslintConfig || state.legacyEslintConfig !== undefined) {
     // A reference file to diff and merge from, never wired in. A legacy `.eslintrc*`

@@ -9,9 +9,11 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 // specifier resolves through `exports` to `./dist/index.js`, so a lint run
 // wired that way would enforce whatever was last built. ESLint loads this file
 // through jiti, which resolves the entry-only directory imports plain Node
-// cannot. The name is deliberately not written anywhere in this file — doctor's
-// "eslint wired to emitLint" check is a substring test for it, and a comment
-// that turns the check green is a hatch, not a wiring.
+// cannot. The name is deliberately not written anywhere in this file, and does
+// not need to be: doctor's "eslint wired to emitLint" check reads the
+// `...emitLint(` spread below, which is the wiring itself. A comment carrying
+// the package name would turn the same check green while wiring nothing, which
+// is the hatch this file used to have.
 import { emitLint, validateBlueprint } from './src';
 import blueprint from './blueprint.config.mjs';
 

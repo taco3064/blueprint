@@ -51,6 +51,20 @@ jobs:
       - name: Run tests
         run: npm run test
 
+      # The adoption gate this tool ships, run on the tool. Nothing above asks
+      # its questions: `npm run lint` executes the emitted RULES, while doctor
+      # asks whether they are wired at all, whether the declared alias resolves,
+      # and whether they survive this repo's own eslint config once ESLint has
+      # merged it — the check that goes quiet, not red, when they do not.
+      #
+      # Above the build deliberately. `scripts/blueprint.mjs` loads `src/`
+      # through jiti and never reads `dist/`, but that is a property of the
+      # runner, not something this file shows; here `dist/` does not exist yet,
+      # so the position is the proof that no green on this step can be one a
+      # stale build produced.
+      - name: Run blueprint doctor on this repo
+        run: npm run doctor
+
       # The package entry is `dist/`, and nothing before this step touches it:
       # lint and tsc read `src/`, and the tests import from `src/` too. So a
       # broken rolldown config or a `.d.ts` that will not emit used to surface in

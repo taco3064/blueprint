@@ -627,6 +627,45 @@ describe('detect · the states a config file can be in', () => {
     expect(state.wiredEslintConfig).toBe(false);
   });
 
+  // One case per tell, with the list restated because `detect` keeps it private
+  // — drop one and exactly one case goes red. Each fixture carries its own tell
+  // and NOT the other, so neither case can pass on the strength of the other's
+  // arm. Both are shapes an adopter really has: a config that reached `emitLint`
+  // through a shared config package never names this one, and a config that
+  // renamed the import on the way in never spells the call.
+  it.each([
+    [
+      'the emitLint call',
+      'import { emitLint } from \'@acme/eslint-config\';\n\nexport default [...emitLint(bp)];\n',
+    ],
+    [
+      'the package name',
+      'import { emitLint as lint } from \'@kekkai/blueprint\';\n\nexport default [...lint(bp)];\n',
+    ],
+  ])('reads %s as a config its owner wired', (_tell, source) => {
+    writePkg({ name: 'x', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'eslint.config.mjs'), source);
+
+    expect(detect(root).wiredEslintConfig).toBe(true);
+  });
+
+  it('does not call a config carrying neither tell wired', () => {
+    // The negative is what keeps the two arms above from being vacuous: a flat
+    // config that never reaches these rules has to stay unwired, or `init` skips
+    // the reference file that is the owner's only instruction for merging.
+    writePkg({ name: 'x', dependencies: { vue: '^3' } });
+
+    fs.writeFileSync(
+      path.join(root, 'eslint.config.mjs'),
+      'import js from \'@eslint/js\';\n\nexport default [js.configs.recommended];\n',
+    );
+
+    const state = detect(root);
+
+    expect(state.hasEslintConfig).toBe(true);
+    expect(state.wiredEslintConfig).toBe(false);
+  });
+
   it('reports a legacy .eslintrc only when there is no flat config', () => {
     // A repo mid-migration has both. The flat config is the one eslint reads, so
     // naming the .eslintrc as legacy routes the owner to a migration they have
