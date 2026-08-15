@@ -16,6 +16,7 @@ to see how to use it.
 - [`rules`](/guide/reference#blueprint-rules-—-which-ids-actually-gate) — the emitted-rule catalog, queryable: what always emits, what needs declaring, metric defaults — annotated with the config's declared tiers
 - [`doctor`](/guide/ai-adoption#verify-it-s-finished-—-blueprint-doctor) — is adoption finished? A read-only checklist: config, no leftover references or authoring artifacts, eslint wired, alias wired, emitted rules alive in the merged config, architecture clean (with its coverage stated), suppressions ledger current
 - [`doctor` — three outcomes](/guide/ai-adoption#three-outcomes-not-two) — complete / unverified / incomplete: a check that *could not run* is not one that passed, and since a skip still exits 0, a CI gate reads `verdict` out of `--json`
+- [`init --structure flat|modular`](/guide/structure) — the root structure of a config init generates. Required on a fresh tree, where nothing can be measured — the two trees are drawn side by side
 - [All CLI flags](/guide/reference#cli-flags) — the full flag matrix for every command, including `init --preset` and `--dry-run`
 
 ## Artifacts — what one config compiles into
@@ -29,15 +30,16 @@ to see how to use it.
 - [`defineBlueprint`](/guide/getting-started#the-blueprint) — the single source of truth, validated at definition *and* on every load, so a structural mistake fails with a precise message
 - [Layers & one-way flow](/philosophy/layers) — ordered layers where each imports only downward; `allowedImporters` narrows who may import, `selfOnly` bars re-exporting
 - [Ownership — `owns`](/philosophy/layers#ownership-—-owns) — a layer exclusively owns packages, named imports, or globals — every other layer is barred from them
-- [Module shape](/philosophy/layers#feature-folder-—-one-module-one-folder) — `folder` = one feature per folder behind a public entry; `flat` = the layer is one node (e.g. a Next route tree) — overridable per layer
+- [Unit shape — `layer.layout`](/philosophy/layers#feature-folder-—-one-module-one-folder) — `folder` = one unit per folder behind a public entry; `file` = the layer is one node (e.g. a Next route tree) — declared per layer, and `file` is what omitting it means
+- [Feature modules — `architecture.modules`](/guide/structure) — feature modules at the source root with the layers inside each one; a module reaches only the modules it names, and may own primitives against every other module
 - [`blueprint.rules`](/guide/reference#blueprint-rules-—-which-ids-actually-gate) — rule ids with tiers: the machine-checkable ones become lint gates, the rest land in the handbook and agent contract as judgment
 - [Every other config field](/guide/reference#config-fields-beyond-the-quick-start-example) — `sourceRoot`, `additionalAliases`, `naming`, `lintOverrides`, `emit.*` — one line each, typed in full in the API reference
 - [Presets](/guide/field-tested#framework-notes) — `vuePreset` / `reactPreset` encode the full governance handbook; `nextPreset` adapts to the App or Pages router, with or without `src/`
 
 ## Checks — what gets caught
 
-- [The `inspect` findings](/guide/reference#what-inspect-reports) — undeclared folders, flow violations, deep imports, ownership, relative escapes, selfOnly re-exports, cycles, missing entries, missing layers, declaratory selfOnly bans
-- [The embedded ESLint rules](/guide/reference#the-embedded-eslint-plugin) — `relative-escape`, `no-deep-watch`, `use-prefix` (+ reactivity), `test-filename-matches-source`, `no-typedef-only-file`
+- [The `inspect` findings](/guide/reference#what-inspect-reports) — twenty of them: undeclared folders and modules, a structure mismatch, flow violations, deep imports, ownership, the five relative escapes, undeclared cross-module dependencies, selfOnly and cross-module re-exports, cycles, missing entries, missing layers and modules, uninstalled `owns` entries, declaratory selfOnly bans
+- [The embedded ESLint rules](/guide/reference#the-embedded-eslint-plugin) — `relative-escape`, `no-module-root-import`, `no-module-reexport`, `no-deep-watch`, `use-prefix` (+ reactivity), `test-filename-matches-source`, `no-typedef-only-file`
 - [The three-tier landing](/philosophy/#the-three-tier-landing) — what a machine can check compiles into lint; what needs judgment compiles into the contract — a green lint run is never an architecture verdict
 
 ## Trust & compatibility

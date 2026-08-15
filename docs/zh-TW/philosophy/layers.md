@@ -31,6 +31,12 @@ flowchart TD
 
 ## 各層職責
 
+**下面這份是 `flat` preset 的清單**，而它只是兩份之一。<br>
+在 [`structure: 'modular'`](/zh-TW/guide/structure) 之下，同樣這些 preset 出的是 `components` → `hooks` → `contexts` → `services`，就這四層：<br>
+`pages` 與 `containers` 是被**刪掉**、不是改名 —— 路由搬進 `app` 模組，而原本負責組裝一個功能的那個角色，現在就是模組自己的根，<br>
+它是那個隱含的最上層，不會是這份清單裡的一個名字。<br>
+底下每一層在每個模組**裡面**照樣成立；只有最外面那兩項會溶解掉。
+
 **`pages`**
 
 - 職責 — 頁面版型與 containers 的組裝；對應路由與 SEO
@@ -83,6 +89,8 @@ flowchart TD
   全域物件沒有 import 敘述，所以這半邊是 lint（`no-restricted-globals`）在管、不是 `inspect`
 - 套件所有權有兩道防線：<br>
   lint（`no-restricted-imports`）跟 inspect 的 [`package-ownership` 檢測](/zh-TW/guide/reference#inspect-回報的檢測項目)
+- 在 [`modules`](/zh-TW/guide/structure) 之下，**模組**也用同一套方式獨佔基元，只是高一個層級：<br>
+  分層的 `owns` 擋掉其他分層，模組的 `owns` 擋掉其他模組 —— 檢測訊息會講明它指的是哪一層
 
 ## 功能資料夾 —— 模組的組成方式
 
@@ -95,6 +103,10 @@ components/
    ├─ styles       ← 私有
    └─ types        ← 私有
 ```
+
+這個形狀是逐層宣告的 [`layout: 'folder'`](/zh-TW/guide/reference#快速上手範例以外的-config-欄位)<br>
+（不寫這個鍵就是 `file` —— 一個單元一個檔），<br>
+而在 [`modules`](/zh-TW/guide/structure) 之下，同一個形狀會在高一層重複一次：模組本身也是一個藏在自己 `index` 後面的資料夾。
 
 - `index` 是模組對外的**門面**，外面只認得這個入口
 - 私有子元件就放在模組裡（例如 container 底下的 `ProfileTab`）——<br>
