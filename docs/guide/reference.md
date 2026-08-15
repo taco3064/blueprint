@@ -285,7 +285,7 @@ examples — the definitions belong here.
 - **`survey`** — `--alias <name>` (when tsconfig-paths detection finds none) · `--json`
 - **`inspect`** — `--baseline` · `--update-baseline` · `--framework vue|react` · `--json`
 - **`impact`** — `--json`
-- **`deps [module]`** — `--framework vue|react` · `--json`
+- **`deps [target]`** — `--framework vue|react` · `--json`
 - **`rules`** — `--json`
 - **`doctor`** — `--json`
 

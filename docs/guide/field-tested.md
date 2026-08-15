@@ -71,7 +71,7 @@ project's stance is against a red nobody can appease.
 
 **Vite + React + TS (npm, legacy `.eslintrc`)**
 - Shape — 852-file production app, no prior structure governance
-- Outcome — config authored from the survey; **246 real findings** locked as the baseline (including one genuine `services → types → resources → services` import cycle); per-layer module layout (`resources` as folder modules). The legacy-eslintrc migration is surfaced as a decision, not forced.
+- Outcome — config authored from the survey; **246 real findings** locked as the baseline (including one genuine `services → types → resources → services` import cycle); per-layer layout (`resources` as a `folder`-layout layer). The legacy-eslintrc migration is surfaced as a decision, not forced.
 
 **create-vite `react-ts` (fresh)**
 - Shape — greenfield
