@@ -38,7 +38,7 @@ to see how to use it.
 
 ## Checks — what gets caught
 
-- [The `inspect` findings](/guide/reference#what-inspect-reports) — twenty of them: undeclared folders and modules, a structure mismatch, flow violations, deep imports, ownership, the five relative escapes, undeclared cross-module dependencies, selfOnly and cross-module re-exports, cycles, missing entries, missing layers and modules, uninstalled `owns` entries, declaratory selfOnly bans
+- [The `inspect` findings](/guide/reference#what-inspect-reports) — undeclared folders and modules, a structure mismatch, flow violations, deep imports, ownership, the five relative escapes, undeclared cross-module dependencies, selfOnly and cross-module re-exports, cycles, missing entries, missing layers and modules, uninstalled `owns` entries, declaratory selfOnly bans
 - [The embedded ESLint rules](/guide/reference#the-embedded-eslint-plugin) — `relative-escape`, `no-module-root-import`, `no-module-reexport`, `no-deep-watch`, `use-prefix` (+ reactivity), `test-filename-matches-source`, `no-typedef-only-file`
 - [The three-tier landing](/philosophy/#the-three-tier-landing) — what a machine can check compiles into lint; what needs judgment compiles into the contract — a green lint run is never an architecture verdict
 

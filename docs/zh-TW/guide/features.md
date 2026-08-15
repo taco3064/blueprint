@@ -38,7 +38,7 @@
 
 ## 檢測 —— 會被攔下的
 
-- [`inspect` 的檢測項目](/zh-TW/guide/reference#inspect-回報的檢測項目) —— 總共二十項：未宣告資料夾與未宣告模組、結構對不起來、流向違規、深入匯入、所有權、五種相對路徑逃逸、未宣告的跨模組相依、selfOnly 與跨模組再匯出、循環、缺入口、缺分層與缺模組、`owns` 指名的套件沒裝、宣告性 selfOnly（空層空包彈）
+- [`inspect` 的檢測項目](/zh-TW/guide/reference#inspect-回報的檢測項目) —— 未宣告資料夾與未宣告模組、結構對不起來、流向違規、深入匯入、所有權、五種相對路徑逃逸、未宣告的跨模組相依、selfOnly 與跨模組再匯出、循環、缺入口、缺分層與缺模組、`owns` 指名的套件沒裝、宣告性 selfOnly（空層空包彈）
 - [內嵌 ESLint 規則](/zh-TW/guide/reference#內嵌-eslint-外掛) —— `relative-escape`、`no-module-root-import`、`no-module-reexport`、`no-deep-watch`、`use-prefix`（含 reactive 檢核）、`test-filename-matches-source`、`no-typedef-only-file`
 - [三種級別落點](/zh-TW/philosophy/#三種級別落點) —— 機器查得動的轉譯成 lint 規則；需要判斷的轉譯成 Agent 守則 —— lint 全綠永遠不等於架構正確
 

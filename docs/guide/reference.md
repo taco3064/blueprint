@@ -28,7 +28,7 @@ Nothing else — the package itself has zero runtime dependencies.
 Any `error`-level finding exits `1`; `warn` and `info` inform
 without failing the gate. Test files (`architecture.testFiles`) are exempt throughout.
 
-Nine of these answer only under one [root structure](/guide/structure) — marked
+Some of these answer only under one [root structure](/guide/structure), and carry
 **flat only** or **modules only** below. Under `modules` a layer is a folder inside a
 module, so the two vocabularies do not overlap and no repo ever meets all twenty.
 
