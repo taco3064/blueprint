@@ -3,7 +3,7 @@ import type { ResolveOptions } from '../project';
 import { moduleDepth } from '../config';
 import { layoutResolver, moduleKey } from '../boundary';
 import type { LayoutOf } from '../boundary';
-import { buildModuleGraph } from './resolve';
+import { buildModuleGraph, declaredTop } from './resolve';
 import { importGraphDerivation, scan } from './scan';
 import type { ScanResult } from './types';
 
@@ -78,14 +78,10 @@ export async function runDeps(
   // the only granularity it has.
   const nodes = collect(graph.modules, graph.edges);
 
-  // Declared modules bound the top level under `modules`; declared layers do on
-  // a flat project. Same question — "is this folder in the graph at all" — asked
-  // of whatever occupies that level.
-  const declared = architecture.modules === undefined
-    ? layerNames
-    : new Set(architecture.modules.map((module) => module.name));
-
-  const skipped = skippedFolders(scanned, declared);
+  // The same set the graph admits its nodes and its edge targets by — imported
+  // rather than re-derived, so this footnote and the rows above it answer one
+  // question with one list.
+  const skipped = skippedFolders(scanned, declaredTop(architecture));
   const modules = depth > 0 ? collapse(nodes) : nodes;
 
   // undecidable, the depth test: on a flat project `withModuleFanIn` answers
@@ -102,7 +98,7 @@ export async function runDeps(
     const found = unit ?? modules.find((entry) => entry.module === key);
 
     if (!found) {
-      log(unknownTarget(key, skipped));
+      log(unknownTarget(key, skipped, architecture.modules !== undefined));
 
       return { ok: false, modules: [], units: [] };
     }
@@ -253,12 +249,25 @@ function normalizeTarget(input: string, layoutOf: LayoutOf, depth: number): stri
   return moduleKey(rest, layoutOf, depth);
 }
 
-/** The not-found message — pointing at the skipped folder when that is the cause. */
-function unknownTarget(key: string, skipped: string[]): string {
+/**
+ * The not-found message — pointing at the skipped folder when that is the cause.
+ *
+ * One text with the level substituted, not a sentence per level: the two differ
+ * by one noun, and four paraphrases of the `--print-config` caveats are what a
+ * passage written twice costs.
+ *
+ * It says why as well as what, because "unknown" about a folder the asker can
+ * see on disk reads as the tool failing to find it. `nothing governs it` is
+ * `undeclared-module`'s own wording, so the two commands name one state once.
+ */
+function unknownTarget(key: string, skipped: string[], modular: boolean): string {
   const folder = key.split('/')[0];
+  const level = modular ? 'module' : 'layer';
 
   return skipped.includes(folder)
-    ? `✗ "${folder}/" is not a declared layer — deps only sees modules under declared layers.`
+    ? `✗ "${folder}/" is not a declared ${level}, so nothing governs it — the import graph `
+    + `holds no node inside it and there is no blast radius to report. Declare it in `
+    + `\`architecture.${level}s\`, or run \`blueprint deps\` for the nodes it does hold.`
     : `✗ Unknown module "${key}" — run \`blueprint deps\` to list every module.`;
 }
 

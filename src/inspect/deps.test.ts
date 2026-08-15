@@ -136,6 +136,13 @@ describe('runDeps · folders outside the declared layers', () => {
 
     expect(ok).toBe(false);
     expect(output).toContain('"legacy/" is not a declared layer');
+
+    // Not just the verdict: the asker is looking at the folder on disk, so
+    // "unknown" alone reads as the tool failing to find something that is
+    // plainly there. Cause and next step ride in the same line.
+    expect(output).toContain('nothing governs it');
+    expect(output).toContain('no blast radius to report');
+    expect(output).toContain('`architecture.layers`');
   });
 });
 
@@ -769,5 +776,113 @@ describe('runDeps · the modular answers are built, not defaulted', () => {
 
     expect(lines.join('\n')).not.toContain('Fighter/,');
     expect(lines.join('\n')).not.toContain('invisible to deps');
+  });
+});
+
+describe('runDeps · the leaderboard and the skipped list answer as one', () => {
+  // `scratch` is in no `architecture.modules`, and `hooks` is a declared layer
+  // name and nothing more. Both readings ran on this tree and disagreed: three
+  // rows naming the folder, and two lines under them a note calling it
+  // invisible to the very command printing them.
+  function ungoverned(): void {
+    fs.writeFileSync(
+      path.join(root, 'blueprint.config.mjs'),
+      `export default ${JSON.stringify({
+        framework: 'react',
+        architecture: {
+          alias: '~app',
+          modules: [
+            { name: 'Fighter', does: 'the ship', imports: ['Combat'] },
+            { name: 'Combat', does: 'bullets' },
+          ],
+          layers: [{ name: 'hooks', does: 'state', layout: 'folder' }],
+        },
+      })};\n`,
+    );
+
+    writeSrc('Combat/index.ts', 'export const C = 1;');
+    writeSrc('Combat/hooks/useHit/useHit.ts', 'export const hit = 1;');
+    writeSrc('Fighter/index.ts', 'import { C } from \'~app/Combat\';');
+    writeSrc('scratch/hooks/useA/useA.ts', 'import { b } from \'../useB\';');
+    writeSrc('scratch/hooks/useB/useB.ts', 'import { a } from \'../useA\';');
+  }
+
+  it('keeps a folder it calls invisible out of both rankings', async () => {
+    ungoverned();
+
+    let output = '';
+    const { modules, units } = await runDeps(root, { log: (m) => (output = m) });
+
+    // The declared side is untouched — a graph that dropped everything would
+    // satisfy the two assertions below it.
+    expect(modules.map((entry) => entry.module).sort()).toEqual(['Combat', 'Fighter']);
+    expect(units.map((entry) => entry.unit)).toEqual(['Combat/hooks/useHit']);
+
+    // …and the rendering no longer contradicts itself two lines apart.
+    expect(output).toContain('invisible to deps: scratch/');
+    expect(output).not.toContain('← scratch');
+  });
+
+  it('carries the same answer into the JSON, where the two lists sit side by side', async () => {
+    ungoverned();
+
+    let output = '';
+
+    await runDeps(root, { json: true, log: (m) => (output = m) });
+
+    const parsed = JSON.parse(output);
+
+    // One document holding a node in `units` and the same folder in `skipped`
+    // is the contradiction at its least deniable — nothing to read between.
+    expect(parsed.skipped).toEqual(['scratch']);
+
+    expect([...parsed.modules, ...parsed.units].map((e) => e.module ?? e.unit))
+      .not.toContain('scratch');
+  });
+
+  it('answers a target inside one with the reason, in the level\'s own noun', async () => {
+    // Both addressing forms, because both used to be answered: the unit query
+    // returned a full fan-in report closing with a sentence about module
+    // boundaries, for a folder no module boundary reaches.
+    ungoverned();
+
+    for (const target of ['scratch', 'scratch/hooks/useA']) {
+      let output = '';
+      const { ok } = await runDeps(root, { target, log: (m) => (output = m) });
+
+      expect(ok, `${target} still resolves to a node`).toBe(false);
+      expect(output).toContain('"scratch/" is not a declared module');
+      expect(output).toContain('`architecture.modules`');
+
+      // The noun is the level's, not the flat project's. This message was
+      // written for layers and has been telling modular repos to declare a
+      // layer since it was written; the fix above is what makes it common.
+      expect(output).not.toContain('declared layer');
+    }
+  });
+
+  it('drops an edge a declared module makes into one, at both levels', async () => {
+    // The node test never sees this: the folder is dropped as a NODE and then
+    // minted again as an edge TARGET, because `collect` reads its targets back
+    // out. Measured under `modules` and on a flat project, where the relative
+    // spelling is the only one that ever reached.
+    ungoverned();
+    writeSrc('Fighter/hooks/useAim/useAim.ts', 'import { a } from \'../../../scratch/hooks/useA\';');
+
+    let output = '';
+
+    await runDeps(root, { log: (m) => (output = m) });
+    expect(output).not.toContain('← scratch');
+
+    fs.rmSync(path.join(root, 'src'), { recursive: true, force: true });
+    fs.rmSync(path.join(root, 'blueprint.config.mjs'), { force: true });
+    scaffold();
+    writeSrc('legacy/old.ts', 'export const old = 1;');
+    writeSrc('hooks/useOld/useOld.ts', 'import { old } from \'../../legacy/old\';');
+
+    await runDeps(root, { log: (m) => (output = m) });
+
+    expect(output).toContain('invisible to deps: legacy/');
+    expect(output).not.toContain('← legacy');
   });
 });

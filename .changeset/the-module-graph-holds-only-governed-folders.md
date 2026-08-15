@@ -1,0 +1,17 @@
+---
+'@kekkai/blueprint': patch
+---
+
+**The module import graph admitted files from folders nothing governs, so `inspect` and `deps` each reported relationships inside them — and `deps` contradicted itself two lines apart.**
+
+`buildModuleGraph` built nodes and edges without asking whether a top folder is declared. On a repo with `Fighter` / `Combat` declared and an undeclared `src/scratch/`, `inspect` reported `cycle scratch/hooks/useA` three lines under `undeclared-module` saying "nothing governs it", and `deps` printed `scratch` in the module ranking and both its units in the unit ranking, directly above its own note `(not under a declared layer, invisible to deps: scratch/)`. `deps scratch/hooks/useA` answered with a full fan-in report closing with a sentence about module boundaries, for a folder no module boundary reaches.
+
+There were three ways in, not one. A unit joined by sharing a declared layer's NAME at layer depth; a file joined at root depth with no layer name involved at all; and a declared module importing into the folder minted the node again as an edge TARGET, which the fan-in fold reads back out. **The target half is not modular-only** — on a flat project a relative import into an undeclared folder produced the same self-contradicting leaderboard, with no `modules` in the config. The aliased spelling has answered `null` since it was written, which is why the flat half looks absent until the relative one is measured.
+
+Node admission now asks `fileZone` — the same lookup that decides which emitted entry governs a file — as a replacement for the three tests, not an addition to them. Edge targets are qualified by `declaredTop`, one derivation shared with `deps`, which already computed that set and spent it only on the footnote.
+
+**What still reports, unchanged.** `undeclared-module` names the folder and carries the measured position hint, including `"Fighter" reaches it` when a declared module imports into it — nothing is lost by dropping the edge, because the reader built for undeclared roots still answers. Cycles between units of a declared module, and cycles a declared module closes through another's entry, are byte-identical. `coverage.outsideNets` still names each file. Worth recording why the surviving cross-module shape looks narrow: a cycle among declared modules can never be *declared*, since `defineBlueprint` rejects `imports` naming a module declared before it — so every cross-module cycle reaching this graph has a back edge the config already calls an undeclared dependency.
+
+`deps`' not-found message now says why, in the declared level's own noun. It read "is not a declared layer — deps only sees modules under declared layers" on modular repos too, and this fix is what makes that message common: the query it answers used to resolve to a node.
+
+**On baselines, in both directions.** This change moves a recorded baseline the safe way: `keyOf` is `rule\0path\0subject`, and a suppressed `cycle` inside an undeclared folder simply stops being produced, so it counts as *stale* and never as *fresh*. The related `src/`-prefix defect — `cycle` is the only finding whose `path` carries no source-root prefix, at every level and since before this change — moves it the unsafe way, turning suppressed entries into fresh ones on an upgrade that changed no code. That one is filed separately and needs a migration note; this one does not.
