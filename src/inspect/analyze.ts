@@ -373,7 +373,7 @@ function folderFindings(
     }
   }
 
-  findings.push(...noEntryFindings(scan, architecture, layerNames, depth));
+  findings.push(...noEntryFindings(scan, architecture, depth));
   findings.push(...moduleNoEntryFindings(scan, architecture, depth));
 
   return findings;
@@ -583,15 +583,21 @@ function quoted(names: string[]): string {
 }
 
 /**
- * Unit folders inside a declared layer with no entry file. The word is `unit`
- * and not `module`: under `modules` a module is the feature at the top of the
- * source tree, and {@link moduleNoEntryFindings} below reports that level under
- * this same rule id.
+ * Unit folders inside a layer entry's own net with no entry file. The word is
+ * `unit` and not `module`: under `modules` a module is the feature at the top
+ * of the source tree, and {@link moduleNoEntryFindings} below reports that
+ * level under this same rule id.
+ *
+ * A layer entry's net, not a layer NAME: `modules` is what the layer globs are
+ * expanded over, so `scratch/hooks/useX` carries a declared layer's name in a
+ * folder no glob reaches, and `app/hooks/useX` carries it inside a module whose
+ * `layers: false` says that folder is not this layer. The twin one level up has
+ * asked `modules` since it was written — one rule id answering at two levels
+ * from two readings is the shape `fileZone` exists to close.
  */
 function noEntryFindings(
   scan: ScanResult,
   architecture: ArchitectureDef,
-  layerNames: string[],
   depth: number,
 ): Finding[] {
   const modules = new Map<string, ScannedFile[]>();
@@ -603,7 +609,7 @@ function noEntryFindings(
       // A unit needs a layer and a folder of its own beneath it, so the file
       // sits at least two segments below wherever the layer is.
       file.segments.length >= depth + 3
-      && layerNames.includes(layer)
+      && fileZone(file.segments, architecture) === 'layer'
       && getModuleShape(architecture, layer).layout === 'folder'
     ) {
       // Module-qualified so two modules' same-named units stay two units.
@@ -714,57 +720,60 @@ function importFindings(
   // undecidable, the `?? []` arm: a fabricated member is a string with no `name`.
   // `crossModuleTarget` matches a specifier's first segment against the names by
   // `includes`, and the list then holds `undefined`, which no segment answers;
-  // `crossModuleEdge` and `fileZone` look a module up by `name`, get `undefined`
-  // back, and read that as a folder nothing governs — reporting nothing, which
-  // is what an empty list yields too. It stays because the absent arm is real:
-  // every flat project reaches here.
+  // `crossModuleEdge` looks a module up by `name`, gets `undefined` back, and
+  // reads that as a folder nothing governs — reporting nothing, which is what an
+  // empty list yields too. It stays because the absent arm is real: every flat
+  // project reaches here.
   const moduleDefs = architecture.modules ?? [];
   const moduleNames = moduleDefs.map((module) => module.name);
 
-  // Which emitted entry governs this file, decided BEFORE any layer name is
-  // read — because in three of the four answers `segments[depth]` is not a
-  // layer name, and reading it as one is how a judgment lands where its own
-  // sentence has nothing to name.
+  // Which emitted entry governs this file — the whole answer, and the layer
+  // name is not read again here to finish it. In two of the three zones
+  // `segments[depth]` is not a layer name at all, and in the null case it can
+  // BE one and still name nothing: `src/scratch/hooks/useX/index.ts` carries a
+  // declared layer's name at layer depth under a folder `modules` does not
+  // declare, and a guard that let the name overrule the zone judged it against
+  // that layer's rules while the emitted config governed it with nothing.
   //
   //   'root'   a layered module's own composition files, under `src/<M>/*`
-  //   'module' the whole net of a `layers: false` one, under `src/<M>/**`
-  //   null     a layer's entry governs it — or, at an undeclared top folder or
-  //            an undeclared position inside a module, nothing does
+  //   'module' the whole net of a `layers: false` one, recursive from `src/<M>`
+  //   'layer'  a declared layer's entry, expanded over declared modules only
+  //   null     no emitted entry reaches it, at any depth
   //
   // Read through `zone` rather than a depth test spelled here, because doctor
   // dispatches its probes on the same `moduleZone` (`wiring.ts`:
   // `expectedStructural` for a layer, `expectedModuleBans` for a module zone).
   // Two derivations is how one file gets judged against a layer's rules on one
   // pass and a module's on the other, with nothing that fails to compile.
-  const zone = fileZone(file.segments, moduleDefs, depth);
+  const zone = fileZone(file.segments, architecture);
 
-  // What no emitted glob reaches at all, and it is two positions rather than
-  // one: a folder inside a LAYERED module that is not a declared layer
-  // (`Fighter/scratch/x.ts` — the layer globs expand to declared layers only
-  // and `resolveModuleFiles` stops at `src/Fighter/*`), and anything under a
-  // top folder no `modules` entry declares. Every ban there is inert, so a
-  // finding would be red against a lint run that is green by construction, with
-  // a remedy — declare it, or move the code — that is the owner's call and not
-  // an adopting agent's. Both are reported, by the outputs positioned to report
-  // them: `coverage.outsideNets` names the file by path, and
-  // `undeclared-module` names the folder.
-  if (zone === null && !layerNames.includes(fileLayer)) return [];
+  // What no emitted glob reaches at all, in three positions: a folder inside a
+  // LAYERED module that is not a declared layer (`Fighter/scratch/x.ts` — the
+  // layer globs expand to declared layers only and `resolveModuleFiles` stops
+  // at `src/Fighter/*`), anything under a top folder no `modules` entry
+  // declares, and a flat project's undeclared top folder. Every ban there is
+  // inert, so a finding would be red against a lint run that is green by
+  // construction, with a remedy — declare it, or move the code — that is the
+  // owner's call and not an adopting agent's. They are reported, by the outputs
+  // positioned to report them: `coverage.outsideNets` names the file by path,
+  // and `undeclared-module` names the folder.
+  if (zone === null) return [];
 
   const aliases = aliasList(architecture);
   // Both lists are a LAYER's, so only a file a layer entry governs has one. The
   // root sits above every layer and may reach all of them, and no layer has
   // declared it a selfOnly importer; a `layers: false` module has no layer for
-  // either question to be about. Asked of `fileLayer` in either zone the answer
-  // is empty anyway — a filename and an undeclared folder are both names no
-  // layer carries — but that is an accident of the lookup, and stating the rule
-  // once is what keeps it from becoming the next thing a reader has to re-derive.
+  // either question to be about. Asked of `fileLayer` in either module zone the
+  // answer is empty anyway — a filename and an undeclared folder are both names
+  // no layer carries — but that is an accident of the lookup, and stating the
+  // rule once keeps it from becoming the next thing a reader has to re-derive.
   //
   // undecidable, both empty arms: each list is only ever read through
   // `.includes(target)` against a declared layer name — and in the module zone
   // the alias branch continues before either is read at all — so a fabricated
   // member matches nothing and no verdict moves.
-  const forbidden = zone === null ? getForbiddenLayers(architecture, fileLayer) : [];
-  const selfOnly = zone === null ? getSelfOnlyTargets(architecture, fileLayer) : [];
+  const forbidden = zone === 'layer' ? getForbiddenLayers(architecture, fileLayer) : [];
+  const selfOnly = zone === 'layer' ? getSelfOnlyTargets(architecture, fileLayer) : [];
   const layoutOf = layoutResolver(architecture);
   const entryOf = entryResolver(architecture);
   const findings: Finding[] = [];
@@ -838,7 +847,7 @@ function importFindings(
       // as `reaches-root` from `relativeVerdict`, next door.
       const ownRoot = addressesModuleRoot(parts, file.segments[0], layerNames, depth);
 
-      if (zone === null && ownRoot) {
+      if (zone === 'layer' && ownRoot) {
         findings.push(finding('error', 'root-import', file.path, ref.specifier, `"${ref.specifier}" reaches up to the module root — the root composes the layers, so nothing inside one may import back up to it. Move the shared part into a layer, or pass it in from the root.`));
 
         continue;
@@ -884,7 +893,7 @@ function importFindings(
       // spellings, and only one of them expressible as a pattern. Closing that
       // is a rule that does not run, which is the lint side's to fix and not a
       // second reading here.
-      if (zone !== null) continue;
+      if (zone !== 'layer') continue;
 
       const escape = relativeEscape(file, ref, layoutOf, entryOf, depth);
 
@@ -924,8 +933,8 @@ function importFindings(
       // The layer half of the same question, and only where a LAYER entry holds
       // this file. A layer's `owns` is emitted onto the layer entries alone; a
       // module's own entry — root zone or module zone — carries the
-      // module-level bans and none of these. In either zone `fileLayer` is a
-      // name no `allowedIn` list can hold, a filename at a root and an
+      // module-level bans and none of these. In either module zone `fileLayer`
+      // is a name no `allowedIn` list can hold, a filename at a root and an
       // undeclared folder below a `layers: false` module, so every
       // layer-owned package would be banned across the whole zone against a
       // green lint run — and the message would name that filename as the layer
@@ -933,7 +942,7 @@ function importFindings(
       // `owns` is one of the four things `ModuleDef.layers` promises still
       // reach inside, and it is emitted onto exactly the entry these files sit
       // under.
-      if (zone === null && owners && !owners.includes(fileLayer)) {
+      if (zone === 'layer' && owners && !owners.includes(fileLayer)) {
         const named = ref.names.length ? ` (${ref.names.join(', ')})` : '';
 
         // The names are part of the subject, not just of the sentence: one file can
@@ -967,9 +976,11 @@ function importFindings(
  * both-ways equality test against `emitLint`'s own output.
  *
  * Null wherever a lint run stays green, so the two gates agree about silence
- * too: a target no `modules` entry declares, and an importer whose own folder
- * is undeclared. No glob reaches either, which `undeclared-module` reports at
- * the folder level — the level that can act on it.
+ * too: a target no `modules` entry declares. No glob reaches it, which
+ * `undeclared-module` reports at the folder level — the level that can act on
+ * it. The matching case on the IMPORTER's side is answered before this is
+ * called: `importFindings` returns on a null zone, and under `modules` a zone
+ * is named only for a file whose top folder is a declared module.
  */
 function crossModuleEdge(
   file: ScannedFile,
@@ -980,9 +991,12 @@ function crossModuleEdge(
 ): Finding | null {
   if (moduleTarget === null) return null;
 
-  const own = modules.find((module) => module.name === file.segments[0]);
-
-  if (own === undefined) return null;
+  // The lookup cannot miss, by the zone the caller decided before its loop —
+  // the same list, asked the same question, one branch earlier. It used to be
+  // asked twice and answer `null` here for a file the first ask had already let
+  // through, which is the shape that let an undeclared folder be governed at
+  // all.
+  const own = modules.find((module) => module.name === file.segments[0]) as ModuleDef;
 
   if ((own.imports ?? []).includes(moduleTarget)) {
     // The entry, and nothing under it — the one address a declared dependency
