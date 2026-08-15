@@ -3,13 +3,27 @@
 ## 全新專案 —— `blueprint init`
 
 ```bash
-npx @kekkai/blueprint init
+npx @kekkai/blueprint init --structure flat
 ```
 
-單一指令即可完成設計理念的開發護欄導入：
+**這裡有一個旗標不是選填的**，而且就只有這一個。<br>
+在低於既有專案門檻（10 個原始碼檔）的樹上，根本沒東西可量，所以 `init` 選擇拒絕而不是替你挑，並把兩個選項連同取捨一起印出來：
+
+```
+✗ blueprint init needs --structure here: 0 source files, below the brownfield threshold (10) — there is nothing here to measure, so this is your call, not a detection failure.
+```
+
+`flat` 是把分層擺在原始碼根目錄；<br>
+`modular` 是把功能模組擺在那裡，每個模組裡面各有一份那些分層。<br>
+兩者之間 config 的遷移不用錢、檔案的遷移要 —— 所以這是第一天就得決定的事，也是沒有任何東西會替你猜的原因。<br>
+**[扁平還是模組化](/zh-TW/guide/structure)把兩棵樹都畫出來了。**<br>
+超過門檻時 `init` 根本不會問：它讀你已經有的佈局。
+
+這一題答完之後，一個指令就替你的設計理念裝好護欄：
 
 - `src/<layer>/` 資料夾 —— **只在 source tree 全空時**建立；<br>
-  已經有 code 的 repo，還沒長出來的 layer「不存在」就是它的真實狀態，不會硬造 `.gitkeep` 空殼
+  已經有 code 的 repo，還沒長出來的 layer「不存在」就是它的真實狀態，不會硬造 `.gitkeep` 空殼。<br>
+  在 `--structure modular` 之下，被建出來的改成模組資料夾與它們的入口檔 —— 因為那裡的分層是模組**裡面**的資料夾
 - `blueprint.config.mjs` —— 架構的唯一真實來源
 - `eslint.config.mjs` —— 結構規則與第三方基礎規則
 - `docs/architecture-handbook.md` 與 AI Agent 守則（`CLAUDE.md`、`AGENTS.md`）
@@ -17,7 +31,7 @@ npx @kekkai/blueprint init
 
 框架種類由 `package.json` **自動偵測**（`--framework vue|react` 只在判不出來時才需要）；<br>
 既有的 ESLint config **一律不覆蓋**（init 會改為提供合併指引；只有 init 自己生成、帶第一行 banner 的那份會就地重生成）；<br>
-重複執行 init 的結果具冪等性。
+重複執行 init 的結果具冪等性 —— 而且 config 已經存在時，再帶 `--structure` 跑一次什麼都不會變，因為那份 config 本身就是答案。
 
 ## 既有專案 —— `blueprint inspect`
 
@@ -80,19 +94,24 @@ export default defineBlueprint({
   architecture: {
     alias: '~app',
     layers: [
-      { name: 'components', does: '可重用的使用者介面元件', mustNot: ['呼叫 services'] },
-      { name: 'hooks', does: '加工伺服器資料與共享狀態' },
+      { name: 'components', does: '可重用的使用者介面元件', mustNot: ['呼叫 services'], layout: 'folder' },
+      { name: 'hooks', does: '加工伺服器資料與共享狀態', layout: 'folder' },
       {
         name: 'services',
         does: '網路存取原語',
         owns: ['axios', { global: 'fetch' }],
         allowedImporters: ['hooks'],
+        layout: 'folder',
       },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
   },
 });
 ```
+
+`layout` 是單元形狀，寫在真正有這個形狀的那一層上：<br>
+`folder` 代表一個單元一個資料夾、外面只看得到 `index`；不寫這個鍵就等於 `file`。<br>
+想改用手寫的方式宣告模組化結構，就加上 `architecture.modules` ——<br>
+[扁平還是模組化](/zh-TW/guide/structure)把兩種形狀並排放在一起。
 
 亦可直接採用內建的 preset ——<br>
 `vuePreset()` 與 `reactPreset()` 完整編碼了治理手冊的內容：分層架構、核心信念、元件設計軸線與作業守則。<br>
