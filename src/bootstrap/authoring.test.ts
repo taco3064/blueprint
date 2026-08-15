@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
 import { AGENT_PROMPT, AUTHORING_FILE, authoringActions, authoringBrief, BROWNFIELD_MIN_FILES, COMMAND_FILE } from './authoring';
-// Test-only helper from the test-only module — the playbook is hand-wrapped
+// Test-only helper from the test-only tree — the playbook is hand-wrapped
 // prose, so an assertion that needs a whole sentence flattens it first rather
 // than naming the column the source broke at.
 //
-// This edge runs UPWARD against the layering (`bootstrap` sits well above
-// `conformance`, which imports `../cli`), and it is allowed for one reason: the
-// layer rule governs the SHIPPED graph, and neither rolldown input
-// (`src/index.ts`, `src/cli/cli.ts`) reaches `conformance` or any `*.test.ts`.
-// Both suites assert on the same emitted prose, so one definition of "wrap-
-// independent" beats two. The cost is real and worth knowing before copying the
-// move: importing `conformance` pulls the whole CLI into this unit test's import
-// graph. That is why it stays confined to test files — the same import from a
-// non-test file in `bootstrap` would be a genuine layering break, not this
-// exception.
-import { flattenProse } from '../conformance';
+// This edge leaves `src/` entirely: `conformance` is no layer, and since #358 it
+// does not sit under `sourceRoot` either. What permits it is what permitted it
+// when it read as an upward layer edge — the layer rules govern the SHIPPED
+// graph, and neither rolldown input (`src/index.ts`, `src/cli/cli.ts`) reaches
+// `test/` or any `*.test.ts`. Both suites assert on the same emitted prose, so
+// one definition of "wrap-independent" beats two. The cost is real and worth
+// knowing before copying the move: importing `conformance` pulls the whole CLI
+// into this unit test's import graph. That is why it stays confined to test
+// files — the same import from a non-test file in `bootstrap` would be a genuine
+// break, not this exception.
+import { flattenProse } from '../../test/conformance';
 import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
 import type { SurveyResult } from '../survey';
 

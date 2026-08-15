@@ -13,7 +13,7 @@ substitute first-principles reasoning for what it says.
 
 | Doc | What it covers |
 |---|---|
-| [`.claude/docs/verification-layers.md`](./.claude/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring code that emits a document. What `src/conformance/` is for, the layer `npm run dist:verify` covers (the 0.1.1 symlink bug), and the byte baseline that belongs with an emitted-prose refactor. |
+| [`.claude/docs/verification-layers.md`](./.claude/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring code that emits a document; adding any test file that is not co-located with a source file. Why test-only source lives in `test/` rather than under `sourceRoot`, what `test/conformance/` is for, the layer `npm run dist:verify` covers (the 0.1.1 symlink bug), and the byte baseline that belongs with an emitted-prose refactor. |
 | [`.claude/docs/mutation-testing.md`](./.claude/docs/mutation-testing.md) | **Trigger:** running or reading `npx stryker run`; judging a survivor; adding a test because a sweep called something untested. Survivor proofs at the site (`undecidable` as the ledger), why the full sweep is the authority, how to read both scores, and where the `StringLiteral` exclusion draws its boundary. |
 | [`.claude/docs/field-triage.md`](./.claude/docs/field-triage.md) | **Trigger:** running `npm run field:run`; triaging a `field-run` issue; writing or rewording any prose an adopting agent reads (playbook / CLI output / contract); cutting a release. Harness flags, the triage flow, the two questions before the wording — can the tool compute this, and how many other instances are there — and the release sequence, including the one step no workflow gate covers. |
 
@@ -69,7 +69,12 @@ is not in the config). Field batches 10–12 are the case law.
 ## Tests & tooling
 
 - **Co-locate tests**: `foo.test.ts` beside `foo.ts`; the test name matches the
-  source.
+  source. A suite whose subject is not one file — the conformance fixtures, the
+  adoption e2e — has no source to sit beside, and **test-only source does not
+  live under `sourceRoot`**: it goes in `test/`, because `architecture.sourceRoot`
+  is where layers live and everything under it belongs to a layer and ships.
+  Declaring such a tree as a layer would be false and would let every other layer
+  import it; folding it into one would put fixture code inside shipped source.
 - **100% coverage** (`vitest --coverage`). The only exclusions are real-I/O
   defaults and the bin guard, marked `/* v8 ignore */` because tests inject
   those effects (`exec`, `loadConfig`) instead of running them.
@@ -83,7 +88,7 @@ is not in the config). Field batches 10–12 are the case law.
   taken, a bug's biography. An invariant a test already covers is the test's to
   state. Two things stay: doc comments on exported symbols (the API docs are
   generated from them), and the one-line `undecidable` assertion a mutation
-  survivor is proven equivalent by — `grep -rni undecidable src/` is that ledger,
+  survivor is proven equivalent by — `grep -rni undecidable src/ test/` is that ledger,
   so the word stays at the site while the derivation goes in the commit.
 - **Formatting is ESLint-driven** (`@stylistic/*`); there is no Prettier. Run
   `npm run lint` / `eslint . --fix`. Enforcement rules mirror the handbook

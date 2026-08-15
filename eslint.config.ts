@@ -66,10 +66,11 @@ export default defineConfig([
   // `src/{layer}/**`, and the `ignores` is derived from the blueprint rather
   // than restated — a layer added there must not silently gain a second owner.
   //
-  // What stays outside: the root wiring files, `src/index.ts` (the package
-  // entry belongs to no layer), and `src/conformance` / `src/e2e` (test-only
-  // source, which #358 leaves open — until it is decided, the house rules keep
-  // governing them rather than nothing governing them).
+  // What stays outside: the root wiring files, `src/index.ts` (the package entry
+  // belongs to no layer), and `test/` — the conformance DSL and the adoption e2e,
+  // which ship nothing and therefore live outside `sourceRoot` rather than being
+  // declared as a layer. Being outside the layer nets is what puts them here, and
+  // this entry is what keeps them governed by something.
   {
     files: ['**/*.ts'],
     ignores: blueprint.architecture.layers.map(
