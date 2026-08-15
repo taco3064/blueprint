@@ -7,6 +7,7 @@ import { BROWNFIELD_MIN_FILES } from './authoring';
 import { runInit } from './bootstrap';
 import { runDoctor, runInspect } from '../inspect';
 import { NEXT_STRUCTURE_REFUSAL, nextPreset, reactPreset, vuePreset } from '../presets';
+import type { Action } from './types';
 
 let root: string;
 
@@ -1431,6 +1432,148 @@ describe('runInit · the codeStyle heads-up is scoped to a fresh scaffold', () =
       (action) => action.kind === 'instruct' && action.note.includes('codeStyle` on at error tier'),
     )).toBe(false);
   });
+});
+
+describe('runInit · the codeStyle reason branches on what the run put inside the net', () => {
+  // The byte baseline for the arm this ticket must not touch, restated here because
+  // the source keeps the text private. Rendered from `origin/main` at d35c04e and
+  // diffed against this string — a character moving in EITHER arm's shared halves
+  // turns this red, which is the only thing that can see a shared-text refactor.
+  const FLAT_NOTE
+    = 'The preset turned `codeStyle` on at error tier: it pins indent (2), quotes (single), '
+      + 'semicolons (required) and line width (90) across ~68 rules. Nearly all are auto-fixable, '
+      + 'so when there IS code inside a layer, run `npx eslint . --fix` once and land that pass as '
+      + 'its own commit — the formatting churn never mixes with a real change. While the layers '
+      + 'are still empty that pass is a no-op: the gate reaches only files a layer glob matches, '
+      + 'and a starter\'s root files sit outside every one of them. It exempts nothing by style '
+      + 'either: a starter written without semicolons is silent today and fails the day its first '
+      + 'file moves into a layer, which is when the --fix pass earns its commit. Already have a '
+      + 'formatter you trust? Set `codeStyle: \'off\'` in the config and keep yours — blueprint '
+      + 'does not need it to enforce structure.';
+
+  const noteOf = (actions: Action[]): string | undefined =>
+    actions.find(
+      (action): action is Extract<Action, { kind: 'instruct' }> =>
+        action.kind === 'instruct' && action.note.includes('`codeStyle` on at error tier'),
+    )?.note;
+
+  const fresh = (): void => writePkg({
+    name: 'demo',
+    dependencies: { react: '^19' },
+    devDependencies: { typescript: '^5' },
+  });
+
+  const starter = (): void => {
+    fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/main.tsx'), 'export const x = 1;');
+    fs.writeFileSync(path.join(root, 'src/App.tsx'), 'export const y = 1;');
+  };
+
+  // What `inspect` reports inside the layer nets, read off the line an adopter
+  // reads. `renderCoverage` has two shapes and both are taken; anything else
+  // answers null, so a third shape fails the count assertion instead of skipping.
+  const insideNets = (output: string): number | null => {
+    const counted = /Coverage: (\d+)\/\d+ source files inside layer nets/.exec(output);
+
+    if (counted) return Number(counted[1]);
+
+    return /layer globs match 0 of \d+ source file\(s\)/.test(output) ? 0 : null;
+  };
+
+  it('leaves the flat arm byte for byte', async () => {
+    fresh();
+
+    const actions = await runInit(root, { structure: 'flat', install: false, log: silent });
+
+    expect(noteOf(actions)).toBe(FLAT_NOTE);
+  });
+
+  it('gives a modular scaffold the reason its own writes support', async () => {
+    fresh();
+
+    const actions = await runInit(root, { structure: 'modular', install: false, log: silent });
+    const note = noteOf(actions) ?? '';
+
+    // The conclusion survives — it is the reason underneath it that changes.
+    expect(note).toContain('That pass is a no-op');
+    expect(note).toContain('the module entries above are inside the gate, not outside it');
+    expect(note).toContain('already conforming to all ~68 rules');
+    expect(note).toContain('earns its commit when the first real code lands in a layer');
+
+    // The false clause, and the one this arm must not claim either way: the three
+    // entries sit at the MODULE roots, so `inspect` still reports one missing-layer
+    // per declared layer on this same tree.
+    expect(note).not.toContain('sit outside every one of them');
+    expect(note).not.toContain('While the layers are still empty');
+
+    // A starter's own files are what that sentence is about, and there is no starter
+    // here — the only files in reach are the ones init just wrote.
+    expect(note).not.toContain('written without semicolons');
+  });
+
+  it('takes the flat arm where a modular config scaffolded nothing', async () => {
+    // Keyed on what this run wrote into the net, not on `modules` being declared:
+    // `plan`'s hasSourceFiles guard scaffolds nothing here, so the files in reach
+    // are the starter's own at the source root — which is what the flat arm says.
+    // Compared against the same constant, so the two arms can never drift into two
+    // texts saying one thing.
+    fresh();
+    starter();
+
+    const actions = await runInit(root, { structure: 'modular', install: false, log: silent });
+
+    expect(noteOf(actions)).toBe(FLAT_NOTE);
+  });
+
+  // The composition, not the sentence: whether init may print a reason that says the
+  // gate reaches nothing is decided by what `inspect` measures on the tree init just
+  // built — computed per tree, never read off the fixture's name.
+  const trees = [
+    ['flat, empty', 'flat', 0, () => {}],
+    ['modular, empty', 'modular', 3, () => {}],
+    ['modular, already holding files', 'modular', 0, starter],
+  ] as const;
+
+  it.each(trees)(
+    '%s: no sentence in the init run contradicts what inspect reports for that tree',
+    async (_label, structure, expectedInside, seed) => {
+      fresh();
+      seed();
+
+      const initLines: string[] = [];
+
+      await runInit(root, { structure, install: false, log: (line) => initLines.push(line) });
+
+      const inspectLines: string[] = [];
+
+      await runInspect(root, {
+        log: (line) => inspectLines.push(line),
+        loadConfig: async () => reactPreset({ name: 'demo', structure }),
+      });
+
+      const inside = insideNets(inspectLines.join('\n'));
+
+      // The count itself, or the rule below is satisfied by a scaffold that stopped
+      // writing files: 0/0 would let every tree take the flat arm and stay green.
+      expect(inside, 'files inside the layer nets').toBe(expectedInside);
+
+      // The flat arm's reason, clause by clause. Together they claim the gate reaches
+      // nothing that exists — a claim `inspect` settles for this tree, so it may
+      // appear only where nothing is measured inside the nets.
+      const denied = [
+        'While the layers are still empty',
+        'the gate reaches only files a layer glob matches',
+        'a starter\'s root files sit outside every one of them',
+      ];
+
+      const output = initLines.join('\n');
+
+      for (const clause of denied) {
+        expect(output.includes(clause), `"${clause}" with ${inside} file(s) inside the nets`)
+          .toBe(inside === 0);
+      }
+    },
+  );
 });
 
 describe('runInit · an introduced alias is named as a decision', () => {

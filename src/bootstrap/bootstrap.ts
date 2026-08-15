@@ -209,10 +209,14 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
   const scanResult = scan(root, blueprint.architecture.sourceRoot);
 
+  // Read once: it decides both what `plan` scaffolds and, below, which reason the
+  // `codeStyle` note may give — two answers that have to come from one fact.
+  const hasSourceFiles = scanResult.files.length > 0;
+
   const actions = plan(state, blueprint, configSource, {
     ...options,
     agentTarget,
-    hasSourceFiles: scanResult.files.length > 0,
+    hasSourceFiles,
     existingAgentFiles: readTexts(root, agentPaths),
   });
 
@@ -303,7 +307,9 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (configSource !== null) {
     actions.push({
       kind: 'instruct',
-      note: 'The preset turned `codeStyle` on at error tier: it pins indent (2), quotes (single), semicolons (required) and line width (90) across ~68 rules. Nearly all are auto-fixable, so when there IS code inside a layer, run `npx eslint . --fix` once and land that pass as its own commit — the formatting churn never mixes with a real change. While the layers are still empty that pass is a no-op: the gate reaches only files a layer glob matches, and a starter\'s root files sit outside every one of them. It exempts nothing by style either: a starter written without semicolons is silent today and fails the day its first file moves into a layer, which is when the --fix pass earns its commit. Already have a formatter you trust? Set `codeStyle: \'off\'` in the config and keep yours — blueprint does not need it to enforce structure.',
+      // The modular scaffold writes module entries INTO the net, so the reason
+      // branches on what this run put there — see `codeStyleNote`.
+      note: codeStyleNote(blueprint.architecture.modules !== undefined && !hasSourceFiles),
     });
   }
 
@@ -387,6 +393,52 @@ function isPristineScaffold(root: string, state: ProjectState): boolean {
   // equals null, and `includes` refusing `string | null` is the compiler's
   // requirement, not this function's.
   return candidates.some((candidate) => candidate === text);
+}
+
+/**
+ * When to run `codeStyle`'s first `--fix`. One text; the arms differ only in WHY
+ * that pass is a no-op today, because that is the only fact the tree changes.
+ *
+ * `scaffolded` is "this run wrote module entries", not "the config declares
+ * modules": a modular config over a tree that already holds code scaffolds
+ * nothing (`plan`'s `hasSourceFiles` guard), so the files in reach are the
+ * starter's own at the source root — which is what the other arm already says.
+ * Keyed on `modules` alone, this arm would name entries that do not exist.
+ *
+ * Neither arm may lose its reason: a bare "that pass is a no-op" is a claim with
+ * no support. The scaffolded arm's support is what the same tree measures —
+ * `inspect` counts the entries this run wrote inside the layer nets, so the gate
+ * reaches them, and they are this tool's own output, so they pass. It claims
+ * nothing about the layers themselves: the entries sit at the MODULE roots, and
+ * `inspect` reports one `missing-layer` per declared layer on that same tree.
+ *
+ * The class is one. No other emitted text tells an adopter the nets are empty or
+ * that their files sit outside one; `coverage.ts`'s "expected while layers are
+ * still empty" prints only where files are measured outside.
+ */
+function codeStyleNote(scaffolded: boolean): string {
+  const inside
+    = 'That pass is a no-op on the tree this run just built, and not for want of reach: the '
+      + 'module entries above are inside the gate, not outside it — `npx blueprint inspect` '
+      + 'counts every one of them inside the layer nets — and they are blueprint\'s own output, '
+      + 'already conforming to all ~68 rules. So there is nothing for --fix to change yet; it '
+      + 'earns its commit when the first real code lands in a layer.';
+
+  const outside
+    = 'While the layers are still empty that pass is a no-op: the gate reaches only files a '
+      + 'layer glob matches, and a starter\'s root files sit outside every one of them. It '
+      + 'exempts nothing by style either: a starter written without semicolons is silent today '
+      + 'and fails the day its first file moves into a layer, which is when the --fix pass earns '
+      + 'its commit.';
+
+  const reason = scaffolded ? inside : outside;
+
+  return 'The preset turned `codeStyle` on at error tier: it pins indent (2), quotes (single), '
+    + 'semicolons (required) and line width (90) across ~68 rules. Nearly all are auto-fixable, '
+    + 'so when there IS code inside a layer, run `npx eslint . --fix` once and land that pass as '
+    + `its own commit — the formatting churn never mixes with a real change. ${reason}`
+    + ' Already have a formatter you trust? Set `codeStyle: \'off\'` in the config and keep '
+    + 'yours — blueprint does not need it to enforce structure.';
 }
 
 /**
