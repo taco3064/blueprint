@@ -102,8 +102,10 @@ project that is not adopting `modules`.
 這不是一個「要去 3.x config 裡面翻出來」的欄位 —— `layers[].layout` 在 3.x 根本不存在，翻也翻不到。<br>
 會跟著過來的是那個「值」。
 
-3.x 的時候這個字住在 `architecture.module.layout`，它的值域是 `'folder' | 'flat'`。<br>
-第 2 步要你把 `layout` 搬到分層上，而你如果連值一起照抄，就會得到 `layout: 'flat'` —— 4.0.0 拒收這個值。<br>
+3.x 的時候這個字住在你手上那個 `module` 區塊裡 ——<br>
+共用的 `architecture.module.layout`，或某一層自己覆寫的 `architecture.layers[].module.layout`，兩種寫法的值域都是 `'folder' | 'flat'`。<br>
+第 2 步要你把 `layout` 搬到分層上，而你如果連值一起照抄，就會得到 `layout: 'flat'` ——<br>
+不管你原本是哪一種寫法，4.0.0 都拒收這個值。<br>
 這一條就只有這件事。
 
 ```js
@@ -156,7 +158,8 @@ npx @kekkai/blueprint inspect --update-baseline
 第 5、6 條是兩個指令的 `--json` 形狀變動，兩條都在扁平專案上對照 `v3.1.0` 量過：
 
 - **`blueprint rules --json`** —— 每一列都是 `zone: "layer"`、每一列都帶 `layer`，跟以前完全一樣。<br>
-  `zone` 對扁平專案來說就只是「多了一個鍵」，沒有別的
+  跟 `v3.1.0` 比多出兩個鍵 —— `zone`，以及在扁平專案上永遠是 `[]` 的 `moduleRoot`。<br>
+  兩個都只是「加在你原本讀的東西旁邊」，不是把它改掉，所以 3.x 的使用端本來抓的鍵一個都沒有移位
 - **`blueprint deps --json`** —— 最上層的鍵是 `modules`、`skipped`、`derivation`，<br>
   而 `modules[].module` 裝的還是它一直以來裝的東西。扁平專案「根本沒有」`units` 這個鍵
 

@@ -107,10 +107,12 @@ The per-layer spelling throws the same hint, naming the layer it found it on:
 field to search your 3.x config for — `layers[].layout` did not exist in 3.x, so
 there is nothing there to find. The value is what carries over.
 
-In 3.x the word lived at `architecture.module.layout`, whose values were
+In 3.x the word lived inside whichever `module` block you had — the shared
+`architecture.module.layout`, or a layer's own
+`architecture.layers[].module.layout` — and in both it took the same two values,
 `'folder' | 'flat'`. Edit 2 tells you to move `layout` onto the layer, and if you
 transcribe the value with it you arrive at `layout: 'flat'` — which 4.0.0
-rejects. That is the whole of this entry.
+rejects, whichever spelling you started from. That is the whole of this entry.
 
 ```js
 // what edit 2 produces if you carry the old value across
@@ -167,8 +169,10 @@ Entries 5 and 6 are `--json` shape changes on two commands, and both were
 measured on a flat project against `v3.1.0`:
 
 - **`blueprint rules --json`** — every row is `zone: "layer"` and every row
-  carries `layer`, exactly as before. `zone` reaches a flat project as an added
-  key and nothing else
+  carries `layer`, exactly as before. Two keys arrive that `v3.1.0` did not
+  emit — `zone`, and a `moduleRoot` that is always `[]` on a flat project. Both
+  are additions beside what you already read rather than changes to it, so
+  nothing a 3.x consumer keyed on has moved
 - **`blueprint deps --json`** — the top-level keys are `modules`, `skipped` and
   `derivation`, and `modules[].module` holds what it always held. There is no
   `units` key on a flat project at all
