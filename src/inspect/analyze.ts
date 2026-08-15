@@ -1,4 +1,5 @@
 import {
+  DEFAULT_MODULE_SHAPE,
   getForbiddenLayers,
   getModuleShape,
   getSelfOnlyTargets,
@@ -20,6 +21,7 @@ import {
 import type { EntryOf, LayoutOf } from '../boundary';
 import { aliasList, buildFolderGraph, buildModuleGraph } from './resolve';
 import type { FolderGraph } from './resolve';
+import { moduleZone } from './zone';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
@@ -372,6 +374,7 @@ function folderFindings(
   }
 
   findings.push(...noEntryFindings(scan, architecture, layerNames, depth));
+  findings.push(...moduleNoEntryFindings(scan, architecture, depth));
 
   return findings;
 }
@@ -579,6 +582,12 @@ function quoted(names: string[]): string {
   return names.map((name) => `"${name}"`).join(', ');
 }
 
+/**
+ * Unit folders inside a declared layer with no entry file. The word is `unit`
+ * and not `module`: under `modules` a module is the feature at the top of the
+ * source tree, and {@link moduleNoEntryFindings} below reports that level under
+ * this same rule id.
+ */
 function noEntryFindings(
   scan: ScanResult,
   architecture: ArchitectureDef,
@@ -620,12 +629,74 @@ function noEntryFindings(
         rule: 'no-entry',
         path: `${sourcePrefix(architecture)}${key}`,
         subject: '',
-        message: `Module "${key}" has no "${entry}" entry — nothing is importable from outside.`,
+        message: `Unit "${key}" has no "${entry}" entry — nothing is importable from outside.`,
       });
     }
   }
 
   return findings;
+}
+
+/**
+ * Declared modules whose folder holds source but carries no entry file.
+ *
+ * The feature-level twin of {@link noEntryFindings}, on that rule's own
+ * argument one level up: a module's entry is its only public surface, so
+ * `<alias>/<Module>` is the one address another module may write — the emitted
+ * groups permit exactly it and ban `<alias>/<Module>/**` — and it resolves to
+ * this file. Without it the module is one nothing can legally import, and no
+ * gate said so: `missing-module` answers a module with no FOLDER, and the
+ * cross-module bans are about the specifier rather than what it resolves to.
+ *
+ * One rule id carrying two levels, each with its own sentence, rather than a
+ * second id — the shape `deep-import` already has since #264, where a unit
+ * branch and a module branch answer under one name. The level is what the
+ * message says, not what the id says.
+ *
+ * The entry name is `index` from {@link DEFAULT_MODULE_SHAPE} rather than read
+ * off the config, because no field carries it: `entry` is a LayerDef's, and a
+ * module has no layer to ask. It is also the name `init` writes into every
+ * declared module and the one the handbook states.
+ *
+ * Only a module whose folder holds source. A declared module with no folder is
+ * `missing-module` at info tier with "runway, not a todo" for its remedy, and
+ * two findings over one state would answer it at two tiers with two remedies.
+ */
+function moduleNoEntryFindings(
+  scan: ScanResult,
+  architecture: ArchitectureDef,
+  depth: number,
+): Finding[] {
+  const { modules, alias } = architecture;
+
+  if (modules === undefined) return [];
+
+  const prefix = sourcePrefix(architecture);
+  const { entry } = DEFAULT_MODULE_SHAPE;
+
+  return modules.flatMap((module) => {
+    const files = scan.files.filter((file) => file.segments[0] === module.name);
+
+    if (!files.length) return [];
+
+    const hasEntry = files.some(
+      (file) => file.segments.length === depth + 1 && stripExt(file.segments[depth]) === entry,
+    );
+
+    if (hasEntry) return [];
+
+    return [{
+      severity: 'warn' as const,
+      rule: 'no-entry',
+      path: `${prefix}${module.name}`,
+      subject: '',
+      message: `Module "${module.name}" has no "${entry}" entry — "${alias}/${module.name}" is the `
+        + 'only address another module may write for it, and it resolves to that file, so nothing '
+        + `can legally import this module today. Add \`${prefix}${module.name}/${entry}\` and `
+        + 'export the module\'s public surface from it; everything else under the folder stays '
+        + 'private, which is what the entry is for.',
+    }];
+  });
 }
 
 /**
@@ -656,7 +727,30 @@ function importFindings(
   // becomes the least examined code in the module.
   const isModuleRoot = depth > 0 && file.segments.length === depth + 1;
 
-  if (!isModuleRoot && !layerNames.includes(fileLayer)) return [];
+  // A `layers: false` module is ONE zone — its root and every file below it
+  // alike — and the emitter says so in globs: `resolveModuleLayerFiles` gives
+  // it no layer glob at all, and `resolveModuleFiles` widens its own entry from
+  // `src/<M>/*` to `src/<M>/**/*`. So the module-level bans reach every file
+  // here and the layer-level ones reach none, which is what the three guards
+  // below spell out one arm at a time.
+  //
+  // Read through `moduleZone` rather than `layers === false` because doctor
+  // dispatches its probes on that same call (`wiring.ts`: `expectedStructural`
+  // for a layer, `expectedModuleBans` for a module zone). Two derivations of
+  // the opt-out is how one file gets judged against a layer's rules on one pass
+  // and a module's on the other, with nothing that fails to compile.
+  const unlayered = depth > 0
+    && moduleDefs.some((module) => module.name === file.segments[0] && moduleZone(module) === 'module');
+
+  // Three zones, not two, and the third stays out. A file inside a LAYERED
+  // module but under no declared layer — `Fighter/scratch/x.ts` — is matched by
+  // no emitted glob: the layer globs expand to declared layers only, and
+  // `resolveModuleFiles` stops at `src/Fighter/*`. Every ban there is inert, so
+  // a finding would be red against a lint run that is green by construction,
+  // with a remedy — declare a layer, or move the code into one — that is the
+  // owner's call and not an adopting agent's. It is reported, and by the output
+  // positioned to report it: `coverage.outsideNets` names that file by path.
+  if (!unlayered && !isModuleRoot && !layerNames.includes(fileLayer)) return [];
 
   const aliases = aliasList(architecture);
   // The root sits above every layer, so it may reach all of them and no layer
@@ -716,6 +810,14 @@ function importFindings(
         continue;
       }
 
+      // What is left in this arm addresses this module's own folders, and every
+      // test below reads one of them as a LAYER name. A `layers: false` module
+      // has none, so there is nothing here to be inside, above or forbidden by:
+      // the emitted entry for it carries no structural group, no `paths` root
+      // ban and no `blueprint/no-module-root-import`, and `~app/app/store` from
+      // inside `app` is green in a real lint run. Silence, matching it.
+      if (unlayered) continue;
+
       // The alias reaches the source root, so a modular specifier spells
       // `~app/<Module>/<layer>/<unit>` and the layer sits at the same offset
       // here as it does in a file path. Read at 0 it is the module name, no
@@ -745,7 +847,7 @@ function importFindings(
       // Depth is judged against the *target* layer's layout — reaching inside
       // a folder-module layer is a violation wherever the import comes from.
       if (layoutOf(target) === 'folder' && parts.length >= depth + 3) {
-        findings.push(finding('error', 'deep-import', file.path, ref.specifier, `"${ref.specifier}" reaches inside a module — import it through its entry.`));
+        findings.push(finding('error', 'deep-import', file.path, ref.specifier, `"${ref.specifier}" reaches inside a unit — import it through its entry.`));
       }
 
       if (target === fileLayer) {
@@ -758,6 +860,17 @@ function importFindings(
         findings.push(finding('error', 'selfonly-reexport', file.path, ref.specifier, `Re-exports "${target}" ("${ref.specifier}"), which is selfOnly — depend on it, do not re-export it.`));
       }
     } else if (ref.specifier.startsWith('.')) {
+      // Four of `relativeVerdict`'s five verdicts name a layer — leaving one,
+      // reaching past a unit's entry in one, reaching up from inside one — and
+      // a `layers: false` module has none for them to name. The fifth,
+      // `leaves-module`, does apply, and it stays silent for the other reason:
+      // `blueprint/relative-escape` registers no visitor unless the file's
+      // segment at `depth` is a declared layer, so it never runs inside this
+      // module, and a finding alone would be the inspect-red-lint-green shape
+      // #264 resolved to silence. Closing that is a rule that does not run,
+      // which is the lint side's to fix and not a second reading here.
+      if (unlayered) continue;
+
       const escape = relativeEscape(file, ref, layoutOf, entryOf, depth);
 
       if (escape) findings.push(escape);
@@ -793,7 +906,15 @@ function importFindings(
         findings.push(finding('error', 'package-ownership', file.path, subject, `"${ref.specifier}"${named} is owned by module ${moduleOwners.join(', ')} — not importable from "${ownModule}".`));
       }
 
-      if (owners && !owners.includes(fileLayer)) {
+      // The layer half of the same question, and only where a layer holds this
+      // file. Inside a `layers: false` module the emitted entry carries the
+      // module-owned bans and not the layer-owned ones — `fileLayer` there is a
+      // folder its own config says is not a layer, so no `allowedIn` list can
+      // hold it and every layer-owned package would be banned everywhere in the
+      // module, against a green lint run. The module half above still fires:
+      // `owns` is one of the four things `ModuleDef.layers` promises still
+      // reach inside.
+      if (!unlayered && owners && !owners.includes(fileLayer)) {
         const named = ref.names.length ? ` (${ref.names.join(', ')})` : '';
 
         // The names are part of the subject, not just of the sentence: one file can
@@ -895,7 +1016,7 @@ function relativeEscape(
     // The entry named is the TARGET's layer — the importer's own for a sibling,
     // and deliberately not for the module root reaching down into a layer it
     // does not belong to.
-    return finding('error', 'entry-bypass', file.path, ref.specifier, `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${entryOf(target[depth])}" instead; what lives behind it is that module's own business.`);
+    return finding('error', 'entry-bypass', file.path, ref.specifier, `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${entryOf(target[depth])}" instead; what lives behind it is that unit's own business.`);
   }
 
   if (verdict === 'reaches-root') {

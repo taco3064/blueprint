@@ -372,6 +372,10 @@ describe('runInspect · the module findings end to end', () => {
       })};\n`,
     );
 
+    // Both declared modules holding code carry their entry, so the counts below
+    // are the undeclared/missing pair alone — `no-entry` answers a module
+    // without one, and that is not what this fixture is about.
+    writeSrc('GameStage/index.jsx', 'export const stage = 1;');
     writeSrc('GameStage/hooks/useRun/index.jsx', 'import { s } from \'~app/Session\';');
     writeSrc('Session/index.jsx', 'export const s = 1;');
     writeSrc('Achievements/hooks/useBadge/index.jsx', 'import { s } from \'~app/Session\';');

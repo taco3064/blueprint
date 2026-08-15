@@ -36,6 +36,31 @@ describe('report', () => {
     expect(out).toContain('declare them as layers');
   });
 
+  it.each([
+    ['no-entry', 'a unit folder inside a layer'],
+    ['no-entry', 'a module whose folder holds code but carries no entry of its own'],
+    ['deep-import', 'Import a unit — and, where `modules` is declared, a module'],
+  ])('names both levels in the %s step, since one id carries both', (rule, needle) => {
+    // A step is per RULE, and these two ids each answer a unit folder and a
+    // module. Written for one level, the step hands the reader of the other a
+    // remedy at the wrong address — while the finding three lines above it in
+    // the same report named the right one. That is two of the tool's own
+    // outputs disagreeing, in one screen.
+    const out = report([
+      ...findings,
+      {
+        severity: 'error' as const,
+        rule: 'deep-import',
+        path: 'src/pages/Home/index.tsx',
+        subject: '~app/hooks/useX/impl',
+        message: '"~app/hooks/useX/impl" reaches inside a unit — import it through its entry.',
+      },
+    ]);
+
+    expect(out).toContain(`- [${rule}]`);
+    expect(out).toContain(needle);
+  });
+
   it('omits the migration section when no rule has a step', () => {
     const out = report([{ severity: 'info', rule: 'mystery', path: 'x', subject: '', message: 'm' }]);
 
@@ -53,12 +78,12 @@ describe('report', () => {
         rule: 'deep-import',
         path: 'src/pages/Home/Home.tsx',
         subject: '~app/hooks/useX/impl',
-        message: '"~app/hooks/useX/impl" reaches inside a module — import it through its entry.',
+        message: '"~app/hooks/useX/impl" reaches inside a unit — import it through its entry.',
       },
     ]);
 
     expect(headers(out)).toEqual(['  ✗ [deep-import] src/pages/Home/Home.tsx']);
-    expect(out).toContain('reaches inside a module');
+    expect(out).toContain('reaches inside a unit');
     expect(out.match(/~app\/hooks\/useX\/impl/g)).toHaveLength(1);
   });
 });

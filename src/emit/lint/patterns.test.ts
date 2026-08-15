@@ -446,6 +446,17 @@ describe('buildStructuralPatterns', () => {
     expect(groups.some((g) => g.group.includes('../*/**'))).toBe(false);
     // No closed-world group (deferred to inspect); nothing bans the alias root.
     expect(groups.some((g) => g.group.includes('~app/**'))).toBe(false);
+
+    // The word, not just the glob. What this group bans is reaching inside a
+    // UNIT — `~app/c/Card/impl` — and #190 settled that a module is the feature
+    // at the top of the source tree. Said "module" here, the emitted lint
+    // message contradicts `inspect`'s finding for the same import, which is the
+    // disagreement between two of the tool's outputs the whole vocabulary sweep
+    // exists to close.
+    const entryOnly = groups.find((g) => g.group.includes('~app/c/*/**'));
+
+    expect(entryOnly?.message).toContain('Import a unit through its entry, not its internals');
+    expect(entryOnly?.message).not.toContain('module');
   });
 
   it('drops forbidden and deep-import groups for file layout with none forbidden', () => {

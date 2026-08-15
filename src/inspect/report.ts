@@ -8,7 +8,7 @@ const MIGRATION: Record<string, string> = {
   'undeclared-folder': 'Move undeclared folders into a unit of an existing layer, or declare them as layers.',
   'undeclared-module': 'Declare the folder in `architecture.modules`, at a position the measured edges allow, or fold its code into a module that is already declared. Until then nothing inside it is governed and lint cannot say so.',
   'flow-violation': 'Rework imports to follow the one-way flow; extract shared code down to a lower layer.',
-  'deep-import': 'Import modules through their entry file, never their internals.',
+  'deep-import': 'Import a unit — and, where `modules` is declared, a module — through its entry file, never its internals. Each message names the level it means; this id carries both.',
   'src-escape': 'Replace relative paths that climb above the source root with the project alias.',
   'entry-bypass': 'Import a sibling through its entry — `../Sibling`, which is the only legal spelling; the alias form of a same-layer edge is banned.',
   'layer-escape': 'Cross a layer boundary with the project alias, or move the shared code down into a lower layer.',
@@ -18,7 +18,7 @@ const MIGRATION: Record<string, string> = {
   'package-ownership': 'Move restricted package usage into its owning layer (expose it via a hook or service).',
   'selfonly-reexport': 'Depend on selfOnly layers without re-exporting them.',
   'module-reexport': 'Stop forwarding another module\'s surface: let the consumer declare that module itself, or expose this module\'s own API instead. A function that only forwards the call clears the rule and builds nothing.',
-  'no-entry': 'Add an entry (index) file to each module so it has a single public surface.',
+  'no-entry': 'Add an `index` entry file to the folder each finding names, so it has a single public surface. Two levels answer under this id and each message says which: a unit folder inside a layer, and — where `modules` is declared — a module whose folder holds code but carries no entry of its own.',
   cycle: 'Break the import cycle — invert one dependency or extract the shared part downward.',
 };
 
