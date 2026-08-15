@@ -29,6 +29,13 @@ const ESLINT_FILES = [
   'eslint.config.ts',
 ];
 
+// The tells that an eslint config reaches the emitted rules. Both, because
+// neither covers the other: a config reaching `emitLint` through a shared
+// config package (a monorepo's `@acme/eslint-config` re-exporting it) never
+// names this package, and one that renames the import on the way in
+// (`import { emitLint as lint }`) never spells the call.
+const ESLINT_WIRED_TOKENS = ['emitLint(', '@kekkai/blueprint'];
+
 const LEGACY_ESLINT_FILES = [
   '.eslintrc.js',
   '.eslintrc.cjs',
@@ -224,10 +231,13 @@ export function detect(root: string): ProjectState {
     ? eslintFile
     : undefined;
 
-  // A hand-maintained config that already imports the package has been wired
-  // by its owner — emitting a reference next to it would be nagging.
+  // A hand-maintained config carrying either tell has been wired by its owner
+  // — emitting a reference next to it would be nagging. Text only, comments
+  // included: the "emitted rules survive the merged eslint config" check is
+  // what proves the rules are alive in the config eslint actually resolves.
   const wiredEslintConfig
-    = ownedEslintConfig === undefined && (eslintText?.includes('@kekkai/blueprint') ?? false);
+    = ownedEslintConfig === undefined
+      && ESLINT_WIRED_TOKENS.some((token) => eslintText?.includes(token) ?? false);
 
   // A legacy `.eslintrc*` is NOT a flat config — writing a fresh
   // `eslint.config.mjs` next to it produces two configs / two ledgers. Detect

@@ -694,6 +694,28 @@ describe('plan · wired eslint config', () => {
       (action) => action.kind === 'instruct' && action.note.includes('already wires'),
     )).toBe(true);
   });
+
+  it('names no specifier in that note — the wired config may never spell one', () => {
+    // `wiredEslintConfig` is now true for a config whose only tell is the
+    // `emitLint(` call, which is the shape a monorepo's shared eslint config
+    // produces: it re-exports `emitLint`, and the adopter's config never
+    // mentions this package. A note stating the config "already wires
+    // @kekkai/blueprint" is then a claim about text the reader can open and
+    // fail to find.
+    const actions = plan(
+      state({ hasEslintConfig: true, wiredEslintConfig: true }),
+      bp,
+      null,
+      {},
+    );
+
+    const note = actions.find(
+      (action): action is Extract<Action, { kind: 'instruct' }> =>
+        action.kind === 'instruct' && action.note.includes('already wires'),
+    );
+
+    expect(note?.note).not.toContain('@kekkai/blueprint');
+  });
 });
 
 describe('plan · integrated hand-written context file', () => {

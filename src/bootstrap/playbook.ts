@@ -612,7 +612,7 @@ export function renderSemantics(): string {
     '  The fix for true hits is layout-dependent — flat: rewrite them as relative imports; folder: extract the shared code downward (a relative rewrite just trades the error for `relative-escape`).',
     '  Whatever stays unresolved lands in the suppressions ledger.',
     '- **`unusedVars`** emits with `argsIgnorePattern: \'^_\'` and nothing else: `_`-prefixed *arguments* are exempt; unused variables and catch parameters are not.',
-    '- **`doctor`\'s "eslint wired" check** passes when the eslint config\'s text references `@kekkai/blueprint` (or the config is the generated file itself).',
+    '- **`doctor`\'s "eslint wired" check** passes when the config is the generated file itself, or when its text contains `emitLint(` or `@kekkai/blueprint` — both tells, because neither covers the other: a config reaching `emitLint` through a shared config package never names this package, and one that renames the import on the way in never spells the call.',
     '- **`doctor`\'s leftover check matches exact file families** — this playbook, the command file, `*.blueprint.*` references, and marker-bearing contracts outside `emit.agents` — never other files, whatever their names.',
     '  A report or feedback file you were asked to write is safe without a verification re-run.',
     '- **`doctor` prints `⊘` for a check it could not run** and never counts it as a pass: the banner reads "Adoption unverified — N of M checks passed, K could not run".',

@@ -358,6 +358,24 @@ describe('authoringBrief', () => {
     expect(brief).toContain('layout-dependent');
   });
 
+  it('names every tell doctor\'s "eslint wired" check reads, not just one', () => {
+    // The list is restated here because `detect` keeps it private, and it is
+    // matched against the bullet rather than the whole playbook — the package
+    // name appears in the prerequisites too, so a document-wide `toContain`
+    // would stay green with the bullet naming only one tell. That is the exact
+    // state this assertion exists to catch: an agent told about one arm reads a
+    // config wired through the other as unwired, and re-wires what is already
+    // there. Both were half of one sentence once, and the sentence went stale
+    // the moment the check learned a second arm.
+    const bullet = brief.split('\n').find((line) => line.includes('"eslint wired" check'));
+
+    expect(bullet).toBeDefined();
+
+    for (const tell of ['emitLint(', '@kekkai/blueprint']) {
+      expect(bullet).toContain(`\`${tell}\``);
+    }
+  });
+
   it('teaches the merge traps: flat-config override, DAG linearization, honest zero', () => {
     // Same rule in a later entry REPLACES the earlier, so a rule both sides set
     // needs one merged entry where they overlap. Ordering is not the fix there —
