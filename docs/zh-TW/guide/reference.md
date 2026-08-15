@@ -21,16 +21,28 @@
 只要有 `error` 等級的違規，就以 exit code 1 結束；`warn` 與 `info` 只提示、不影響檢核結果。<br>
 測試檔案（`architecture.testFiles`）一律豁免。
 
-- **`undeclared-folder`** · error —— 原始碼根目錄下存在未宣告為分層的資料夾
+其中九項只在某一種[根結構](/zh-TW/guide/structure)下才會出現，下面標成 **僅扁平** 或 **僅模組化**。<br>
+在 `modules` 之下，分層是模組**裡面**的資料夾，所以兩套詞彙不重疊 —— 沒有任何一個 repo 會二十項全碰到。
+
+- **`structure-mismatch`** · error —— 磁碟上的樹是一種結構模型，config 宣告的卻是另一種。<br>它在任何單筆宣告被判斷之前就先報，因為照著磁碟現況把資料夾宣告一遍會直接變綠，把問題蓋掉
+- **`undeclared-folder`** · error · 僅扁平 —— 原始碼根目錄下存在未宣告為分層的資料夾
+- **`undeclared-module`** · error · 僅模組化 —— 原始碼根目錄下的資料夾不在 `architecture.modules` 裡。<br>裡面的東西完全不受治理：分層的 glob 是從宣告清單展開的，所以那個資料夾裡沒有任何 glob 命中，每一條結構禁令都是空的 —— 而 lint 全程是綠的
 - **`flow-violation`** · error —— 逆向匯入，或透過別名進行的同層匯入
-- **`deep-import`** · error —— 別名匯入直接觸及資料夾模組的**內部**，未經公開入口
-- **`relative-escape`** · error —— 相對路徑匯入越出所屬分層、逃逸出原始碼根目錄，或伸進鄰居模組的入口之後。<br>在 `folder` 佈局下，鄰居模組**是**碰得到的 —— `../Sibling` 就是同層之間互相使用的方式，而且是唯一的方式，因為別名寫法（`~app/{自己這層}/Sibling`）仍然被擋
-- **`package-ownership`** · error —— 從非擁有者分層匯入某分層專屬的套件（或受限的具名匯入）
+- **`deep-import`** · error —— 別名匯入直接觸及單元的**內部**，未經公開入口。<br>在 `modules` 之下，同一個 id 也回答上面一層 —— 伸進模組內部而非走 `~app/<Module>` —— 每則訊息會講明自己指的是哪一層
+- **`src-escape`** · error —— 相對路徑爬到原始碼根目錄之上。改用專案別名
+- **`entry-bypass`** · error —— 相對路徑伸進鄰居單元的入口之後。<br>`../Sibling` 是同層邊唯一合法的寫法；別名寫法（`~app/{自己這層}/Sibling`）仍然被擋 —— 所以鄰居**是**碰得到的，而且只有這一種碰法
+- **`layer-escape`** · error —— 相對路徑越出所屬分層。改用別名，或把共用的部分下沉到更低的分層
+- **`root-import`** · error · 僅模組化 —— 分層往上碰到自己的模組根，不論是相對路徑還是任何一種別名寫法。<br>模組根負責組裝各分層，所以流量只能往下走
+- **`module-escape`** · error · 僅模組化 —— 用相對路徑跨越模組邊界。<br>跨模組邊界只能走別名，沒有第二種寫法
+- **`undeclared-dependency`** · error · 僅模組化 —— 跨模組匯入，但匯入方從沒在自己的 `imports` 裡指名對方。<br>模組碰不到任何它沒宣告過的東西，而且只能指名宣告在自己後面的模組
+- **`package-ownership`** · error —— 從非擁有者匯入被獨佔的套件（或受限的具名匯入）。<br>這個 id 扛兩個層級：分層的 `owns` 擋掉其他所有分層，在 `modules` 之下模組的 `owns` 擋掉其他所有模組
 - **`selfonly-reexport`** · error —— 再匯出標記為 `selfOnly` 的依賴 —— 僅可依賴，不可轉手輸出
+- **`module-reexport`** · error · 僅模組化 —— 把別的模組的公開介面透過自己這一個轉出去，任何寫法都算。<br>需要它的消費端自己去宣告那個模組。<br>包一層來表達自己模組的責任是可以的；純粹為了過規則而包的那種會變綠，但什麼也沒建起來
 - **`cycle`** · error —— 模組層級的循環匯入，並列出整條環路。<br>每一組獨立的循環都會回報，一組互相依賴的模組算一筆 —— 所以數量就是工作量，不是「先找到的那一個」。<br>它印出來的位址是**模組鍵**（`components/A`），其他檢測項目的路徑則是相對於專案根目錄（`src/components/A`）；<br>模組鍵正是 [`blueprint deps`](/zh-TW/guide/deps) 吃的寫法，報告上的位址可以直接貼過去查
-- **`no-entry`** · warn —— 資料夾模組缺少公開入口檔 —— 外部無從匯入
-- **`missing-layer`** · info —— 已宣告的分層尚無對應資料夾
-- **`owns-not-installed`** · info —— 某分層 `owns` 的套件不在 `package.json` 裡。<br>禁令已經產生、內容也正確，只是暫時還碰不到任何東西。<br>把套件裝起來，或是把這筆宣告拿掉，兩種都算解法
+- **`no-entry`** · warn —— 資料夾式單元缺少公開入口檔 —— 外部無從匯入。<br>在 `modules` 之下，同一個 id 也回答上面一層：已宣告的模組資料夾裡有 code，卻沒有自己的入口檔。<br>每則訊息會講明是哪一層
+- **`missing-layer`** · info —— 已宣告的分層尚無對應資料夾；在 `modules` 之下則是「還沒有任何模組裡放了它的 code」。<br>這是跑道不是待辦：規則會在 code 進來時自動啟用，留著才是預設
+- **`missing-module`** · info · 僅模組化 —— 已宣告的模組尚無對應資料夾。<br>它的 glob 與禁令都已經產生、內容也正確，只是暫時還碰不到任何東西。<br>把它建起來，或是把宣告拿掉，兩種都算解法
+- **`owns-not-installed`** · info —— `owns` 指名的套件不在 `package.json` 裡。<br>禁令已經產生、內容也正確，只是暫時還碰不到任何東西。<br>把套件裝起來，或是把這筆宣告拿掉，兩種都算解法。<br>這則提示掛在「是誰宣告的」那一層上 —— 分層或模組都可能
 - **`declaratory-self-only`** · info —— `selfOnly` 保護的分層還沒有任何檔案 —— 再匯出禁令是宣告性的，要等 code 進來才會真正生效
 
 既有專案可透過 [baseline 棘輪](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect)，把這份清單轉成「只攔新增的違規」。<br>
@@ -51,10 +63,12 @@ baseline 檔本身帶著這套識別方式的 `"version"`；<br>
 ## 內嵌 ESLint 外掛
 
 `emitLint` 在生成的 config 裡內建自訂規則 —— 不用額外安裝。<br>
-其中一條是結構規則、永遠開著；其餘由 `blueprint.rules` 的規則識別碼控制。<br>
+其中三條是結構規則，沒有任何 `blueprint.rules` 識別碼可以開關它們；其餘由 `blueprint.rules` 的規則識別碼控制。<br>
 plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`）—— 這是給「不 spread `emitLint`、想手動掛某條 `blueprint/*` 規則」的逃生口，其他人永遠用不到它：
 
-- **`blueprint/relative-escape`** · 恆常啟用（結構規則）—— inspect 同名檢測的「看得懂深度」孿生版：<br>兩者呼叫同一個 `relativeVerdict`，所以任一方都不可能得出另一方不會同意的結論
+- **`blueprint/relative-escape`** · 恆常啟用（結構規則）—— inspect 那一整組相對路徑檢測（`src-escape`、`entry-bypass`、`layer-escape`、`module-escape`，以及 `root-import` 的相對路徑寫法）的「看得懂深度」孿生版：<br>兩者呼叫同一個 `relativeVerdict`，所以任一方都不可能得出另一方不會同意的結論
+- **`blueprint/no-module-root-import`** · 結構規則，只在有 `architecture.modules` 時產生 —— 分層用任何一種別名寫法往上碰自己的模組根。<br>其中兩種寫法由入口的 `paths` 清單擋掉，這條負責剩下的，包含根單元自己的檔名 —— 那是任何 pattern 都列舉不完的
+- **`blueprint/no-module-reexport`** · 結構規則，只在有 `architecture.modules` 時產生 —— 把別的模組的公開介面透過自己這一個轉出去。<br>它跟的是本地的 **binding**，所以拆成兩句寫、以及任何改名，都算同一種違規
 - **`blueprint/no-deep-watch`** · `rules.deepWatch` —— 禁用 `deep: true` 的監聽 —— 每次變更都會遍歷整個資料來源（Vue preset：`error`）
 - **`blueprint/use-prefix`** · `rules.usePrefix` —— hook 分層匯出的函式必須帶 `use` 前綴（分層與前綴皆可設定）
 - **`blueprint/use-prefix-needs-reactivity`** · `rules.usePrefixReactivity` —— 帶 `use` 前綴的檔案必須實際呼叫 reactive 或生命週期 API
@@ -185,7 +199,8 @@ export default [
 寫在 gate 上，例如 `codeStyle: { tier: 'error', indent: 4, maxLen: 120 }`。<br>
 其餘都是固定的 —— 想要不一樣的括號風格就把這個關卡關掉，自己宣告一套。
 
-一個實戰會咬人的範圍細節：**`emit.lint.severity` 只蓋結構家族**（`no-restricted-imports` / `-syntax` / `-globals` 與 `blueprint/relative-escape`）。<br>
+一個實戰會咬人的範圍細節：**`emit.lint.severity` 只蓋結構家族** ——<br>
+`no-restricted-imports` / `-syntax` / `-globals`、`blueprint/relative-escape`，以及有 `architecture.modules` 時才產生的那兩條（`blueprint/no-module-root-import`、`blueprint/no-module-reexport`）。<br>
 上面每條規則都吃自己的 `blueprint.rules` tier —— severity 設 `warn` **不會**讓 `maxLines` 或 `unusedVars` 變安靜。
 
 ## 快速上手範例以外的 config 欄位
@@ -204,7 +219,8 @@ export default [
 - **`layer.mustNot`** —— 這層不該做的事，用白話寫。<br>去處相同、同樣不強制：規則判斷不了的時候，審查者與 Agent 讀的就是這幾句
 - **`layer.allowedImporters`** —— 收窄「誰可以匯入這一層」。<br>不寫的話，排在前面的分層都可以；寫了就只有清單上的可以，而且每一個都必須是更早宣告的分層 —— 所以收窄永遠不可能生出一條回頭的邊。<br>條目可帶 `selfOnly`（可以依賴這層，但不得再往外轉出）與 `description`（手冊關係圖上那條邊的標籤）
 - **`layer.owns`** —— 這層獨佔的基元，其他分層一律被擋。<br>直接給字串代表整個套件（`'axios'`）；物件形式可帶 `imports`（只鎖特定具名匯入，如 `['createContext']`）、`pattern`（把名稱當成 glob 群組）、`exempt`（豁免的檔案樣式）。<br>`{ global: 'fetch' }` 則是獨佔一個全域變數而不是套件
-- **`architecture.module`** —— 共用的模組形狀：`layout`（`folder` ＝ 一個模組一個資料夾、外面只看得到公開入口；`flat` ＝ 單檔）、`entry`（入口檔名，預設 `index`）、`private`（藏在入口後面的子部分）。<br>`folder` 之下，鄰居模組只能透過它的入口碰到（`../Sibling`），其餘皆不可 —— 伸進入口後面不行，走別名也不行
+- **`layer.layout` / `layer.entry`** —— 單元形狀，寫在真正有這個形狀的那一層上。<br>`layout` 是 `folder`（一個單元一個資料夾、外面只看得到公開入口）或 `file`（一個單元一個檔）；不寫等於 `file`。<br>`entry` 是入口檔名，預設 `index`。<br>`folder` 之下，鄰居單元只能透過它的入口碰到（`../Sibling`），其餘皆不可 —— 伸進入口後面不行，走別名也不行
+- **`architecture.modules`** —— 位於原始碼根目錄的功能模組，上面那份分層清單描述的則是「每一個模組裡面」長什麼樣。<br>不寫就是扁平模型 —— `src/` 本身是那個唯一的隱含模組。<br>一旦宣告，整份 config 的詞彙就換掉了，所以這是[第一天就要做的選擇](/zh-TW/guide/structure)。<br>每一筆可以帶 `does`（一句話講責任）、`imports`（這個模組碰得到哪些模組，而且只碰得到對方的入口 —— 不寫代表一個都碰不到，且每個名字都必須是宣告在自己**後面**的模組）、`owns`（這個模組對其他所有模組獨佔的基元），以及 `layers: false`（放棄裡面那層分層詞彙 —— 路由型模組就是這樣表達的 —— 它只拿掉內部流向，其餘治理照舊）
 
 ### 調校
 
@@ -216,14 +232,13 @@ export default [
   那條規則的範圍就是這些測試檔樣式，空清單等於沒有檔可以讓它檢查。`blueprint rules` 會在該關卡旁邊講明。
 - **`architecture.layerFiles` / `layerFilesIgnore`** —— 框架預設樣式不適用時，逐層指定檔案樣式
 - **`architecture.naming`** —— 依概念設定的命名慣例（如 `{ hook: 'useX + reactivity' }`）—— 寫入手冊與守則
-- **`layer.module`** —— 逐層覆寫共用的模組形狀 —— 例如某一分層採資料夾模組、其餘維持單檔
 - **`layer.lintOverrides`** —— 逐層的 ESLint 調整（三條受管規則除外）
 - **`emit.agents`** —— Agent 守則的發佈目標：`claude`、`agents`、`gemini`、`copilot`、`cursor`、`windsurf`（可逐目標指定 `path`）。預設 `['claude', 'agents']`；空陣列就不產出。縮窄清單後，下一次 init 會自動移除「整份都是自己產出」的過期守則檔（被人手改過的只提醒、不動手）
 - **`emit.handbook` / `emit.lint`** —— 手冊輸出路徑 · **結構規則**的等級（度量規則吃自己的 `rules` tier）
 
 ## 命令列旗標
 
-- **`init`** —— `--agent claude|codex`（啟動編寫用的 Agent CLI）· `--preset`（強制建 preset）· `--authoring`（即使小 repo 也強制產 playbook；與 `--preset` 相反）· `--framework vue|react` · `--no-install` · `--dry-run`
+- **`init`** —— `--agent claude|codex`（啟動編寫用的 Agent CLI）· `--preset`（強制建 preset）· `--authoring`（即使小 repo 也強制產 playbook；與 `--preset` 相反）· `--framework vue|react` · **`--structure flat|modular`**（init 自己產的 config 要用哪種[根結構](/zh-TW/guide/structure) —— 在低於 10 個原始碼檔的樹上**必填**，已經有 `blueprint.config.mjs` 時會被忽略，Next.js 專案則直接拒收）· `--no-install` · `--dry-run`
 - **`survey`** —— `--alias <name>`（tsconfig paths 偵測不到別名時指定）· `--json`
 - **`inspect`** —— `--baseline` · `--update-baseline` · `--framework vue|react` · `--json`
 - **`impact`** —— `--json`
