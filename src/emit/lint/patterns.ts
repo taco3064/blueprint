@@ -384,6 +384,18 @@ export function resolveGovernedFiles(
 }
 
 /**
+ * Every file under the source root at one extension — the net for a gate scoped
+ * by language rather than by layer, so it deliberately reaches source files no
+ * layer glob covers. Under `sourceRoot: '.'` the source root is the project, and
+ * the glob carries no prefix at all, which is the case {@link rootPrefix} exists
+ * to get right: a root pasted in front unconditionally yields a leading `./` or
+ * `/` that matches none of the paths ESLint hands a rule.
+ */
+export function resolveSourceRootFiles(architecture: ArchitectureDef, ext: string): string[] {
+  return [`${rootPrefix(architecture.sourceRoot ?? 'src')}**/*.${ext}`];
+}
+
+/**
  * An owner of primitives — a layer, or a module. The two carry the same shape
  * and the same meaning one level apart, so the derivations below are written
  * against the shape rather than duplicated per level: a module's `owns` bans

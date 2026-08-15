@@ -22,6 +22,7 @@ import {
   resolveLayerFiles,
   resolveModuleFiles,
   resolveModuleLayerFiles,
+  resolveSourceRootFiles,
   resolveTestFiles,
   scopedAliases,
   selfOnlyReexportSelector,
@@ -430,7 +431,7 @@ function ruleGateEntries(
 
   if (typedefOnlyFile) {
     entries.push({
-      files: ['src/**/*.js'],
+      files: resolveSourceRootFiles(architecture, 'js'),
       ignores: testGlobs,
       plugins: { blueprint: plugin },
       rules: { 'blueprint/no-typedef-only-file': typedefOnlyFile.tier },

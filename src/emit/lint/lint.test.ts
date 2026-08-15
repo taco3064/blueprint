@@ -462,6 +462,47 @@ describe('emitLint · rules gates', () => {
     expect(typedef?.plugins?.blueprint).toBeDefined();
   });
 
+  it('runs the typedef gate on a moved root, and stops at that root\'s edge', () => {
+    const rooted = defineBlueprint({
+      ...blueprint,
+      architecture: { ...blueprint.architecture, sourceRoot: 'app' },
+      rules: { typedefOnlyFile: 'warn' },
+    });
+
+    const cfg = [
+      { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+      ...emitLint(rooted),
+    ];
+
+    const ids = (filename: string) =>
+      linter
+        .verify('/** @typedef {object} Foo */\nconst x = 1;', cfg, { filename })
+        .map((message) => message.ruleId);
+
+    // The emitted glob decides whether ESLint hands the rule this file at all, and a
+    // glob that matches nothing is silent rather than red — so the gate being ABSENT
+    // is what a wrong root looks like from here, not a failure.
+    expect(ids('app/hooks/useX/useX.js')).toContain('blueprint/no-typedef-only-file');
+    // The other edge, which a fix to a bare `**/*.js` would lose: outside the root the
+    // gate does not reach, and losing this is invisible against the case above alone.
+    expect(ids('scripts/thing.js')).toEqual([]);
+  });
+
+  it('scopes the typedef entry with the declared root, project-root layout included', () => {
+    const filesFor = (sourceRoot: string) =>
+      emitLint(defineBlueprint({
+        ...blueprint,
+        architecture: { ...blueprint.architecture, sourceRoot },
+        rules: { typedefOnlyFile: 'warn' },
+      })).find((item) => item.rules?.['blueprint/no-typedef-only-file'])?.files;
+
+    expect(filesFor('app')).toEqual(['app/**/*.js']);
+    expect(filesFor('lib/app')).toEqual(['lib/app/**/*.js']);
+    // `.` is the row a naive `${sourceRoot}/**/*.js` gets wrong: `./**/*.js` and
+    // `/**/*.js` are both what it produces and neither matches what ESLint is given.
+    expect(filesFor('.')).toEqual(['**/*.js']);
+  });
+
   it('enforces the gates through a real Linter run', () => {
     const config = [
       { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
