@@ -52,8 +52,6 @@
     "changeset": "changeset",
     "commit": "cz",
     "lint": "eslint .",
-    "doctor": "node scripts/blueprint.mjs doctor",
-    "baseline": "node scripts/blueprint.mjs inspect --update-baseline",
     "prepare": "husky",
     "test": "vitest run --coverage",
     "tsc": "tsc -p tsconfig.lib.json && tsc -p tsconfig.test.json",
@@ -100,7 +98,7 @@
     }
   },
   "lint-staged": {
-    "*.{js,mjs,ts}": [
+    "*.{js,ts}": [
       "eslint --fix"
     ],
     "{CHANGELOG.md,.changeset/*.md}": [

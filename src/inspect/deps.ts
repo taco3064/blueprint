@@ -1,8 +1,7 @@
-import { layoutResolver, moduleKey } from '../boundary';
-import type { LayoutOf } from '../boundary';
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
-import { buildModuleGraph } from './resolve';
+import { buildModuleGraph, layoutResolver, moduleKey } from './resolve';
+import type { LayoutOf } from './resolve';
 import { importGraphDerivation, scan } from './scan';
 import type { ScanResult } from './types';
 
@@ -167,9 +166,7 @@ function renderLeaderboard(
   layerNames: Set<string>,
   layoutOf: LayoutOf,
 ): string {
-  if (!modules.length) {
-    return 'No modules found under the declared layers.';
-  }
+  if (!modules.length) return 'No modules found under the declared layers.';
 
   const width = String(modules[0].importedBy.length).length;
 

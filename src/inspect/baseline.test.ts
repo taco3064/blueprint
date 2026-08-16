@@ -188,8 +188,7 @@ describe('parseBaseline · a baseline from an older blueprint is refused, not re
     expect(() => parseBaseline(text)).toThrow(/regenerate it with --update-baseline/);
   });
 
-  it('says which version it read, what changed, '
-    + 'and that re-keying suppresses the same debt', () => {
+  it('says which version it read, what changed, and that re-keying suppresses the same debt', () => {
     // Three things the adopting agent cannot get anywhere else: whether this is
     // corruption or an upgrade, why the old key was wrong, and whether running the
     // fix quietly widens what the gate ignores. Without the last one, the safe

@@ -134,8 +134,7 @@ export function parseBaseline(text: string): BaselineEntry[] {
         || typeof (entry as BaselineEntry).message !== 'string',
     )
   ) {
-    throw new Error('Baseline file has an unexpected shape — '
-      + 'regenerate it with --update-baseline.');
+    throw new Error('Baseline file has an unexpected shape — regenerate it with --update-baseline.');
   }
 
   return entries as BaselineEntry[];

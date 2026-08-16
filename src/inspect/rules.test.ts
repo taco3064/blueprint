@@ -3,7 +3,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { DOC_ONLY_RULES, emitLint, LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
+import { DOC_ONLY_RULES, LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint/patterns';
+// Test-only import of the full emit module — src keeps the patterns-leaf
+// boundary (module cycle); the test pins the mirror to the real thing.
+import { emitLint } from '../emit/lint';
 import { runRules, STRUCTURAL_RULES } from './rules';
 import type { Blueprint } from '../config';
 
@@ -26,9 +29,7 @@ function repo(config?: Blueprint): string {
 }
 
 afterEach(() => {
-  while (dirs.length) {
-    fs.rmSync(dirs.pop() as string, { recursive: true, force: true });
-  }
+  while (dirs.length) fs.rmSync(dirs.pop() as string, { recursive: true, force: true });
 });
 
 const blueprint: Blueprint = {
@@ -346,15 +347,13 @@ describe('runRules', () => {
     );
 
     expect(output).toContain(
-      '  services       no-import: components, hooks · packages: '
-      + 'react (useContext) · globals: (none)',
+      '  services       no-import: components, hooks · packages: react (useContext) · globals: (none)',
     );
 
     // The resolved view is the last thing the report prints. Anything after it
     // sits below a per-layer table and reads as one more layer's row.
     expect(output.endsWith(
-      '  services       no-import: components, hooks · packages: '
-      + 'react (useContext) · globals: (none)',
+      '  services       no-import: components, hooks · packages: react (useContext) · globals: (none)',
     )).toBe(true);
 
     // No config → no resolved view, just the static catalog.
@@ -425,8 +424,7 @@ describe('runRules', () => {
     expect(output).toContain(views?.selfOnly[0].note);
   });
 
-  it('gives the selector in a form that survives '
-    + 'being pasted into JS (field run #125)', async () => {
+  it('gives the selector in a form that survives being pasted into JS (field run #125)', async () => {
     // The claim under test is about JS, so it is asserted rather than described. The
     // separators are / escapes because a raw / ends esquery's regex early — and
     // JS resolves that same escape when it parses a string literal, so the rendered
@@ -586,8 +584,7 @@ describe('runRules', () => {
     expect(parsed.gates.length).toBeGreaterThan(0);
   });
 
-  it('structural annotation mirrors emitLint exactly — '
-    + 'never probe the bundle (field #14)', async () => {
+  it('structural annotation mirrors emitLint exactly — never probe the bundle (field #14)', async () => {
     const selfOnly: Blueprint = {
       framework: 'react',
       architecture: {

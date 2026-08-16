@@ -7,11 +7,11 @@ import type {
 } from '../project';
 import type { SurveyResult } from '../survey';
 import { installCommand } from './plan';
-import { renderMethod } from './method';
 import {
   renderAcceptanceGates,
   renderGoal,
   renderHeader,
+  renderMethod,
   renderNextNote,
   renderPrerequisites,
   renderResumePoint,
@@ -19,8 +19,8 @@ import {
   renderSchemaSketch,
   renderSemantics,
   renderSurveyEvidence,
+  renderVerdict,
 } from './playbook';
-import { renderVerdict } from './verdict';
 import type { Action } from './types';
 
 /**
@@ -108,8 +108,7 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
         `    claude "${AGENT_PROMPT}"     # or: /blueprint-author inside Claude Code`,
         `    codex "${AGENT_PROMPT}"`,
         '  …or follow the playbook yourself. Prefer a preset scaffold instead? Re-run:',
-        '    blueprint init --preset --agent claude   '
-        + '# or --agent codex; plain --preset as neither',
+        '    blueprint init --preset --agent claude   # or --agent codex; plain --preset as neither',
       ].join('\n'),
     },
   ];

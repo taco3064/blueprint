@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { resolveSegments, stripAlias } from '../boundary';
 import { scan } from '../inspect/scan';
+import { resolveSegments, stripAlias } from '../inspect/resolve';
 import { detect, detectAliases } from '../project';
 import type { PackageManager } from '../project';
 import type { ScanResult } from '../inspect/types';
@@ -136,9 +136,7 @@ function folderEvidence(scanResult: ScanResult): FolderEvidence[] {
   for (const file of scanResult.files) {
     const evidence = byFolder.get(file.segments[0]);
 
-    if (!evidence) {
-      continue;
-    }
+    if (!evidence) continue;
 
     evidence.files += 1;
     evidence.maxDepth = Math.max(evidence.maxDepth, file.segments.length - 1);
@@ -210,10 +208,7 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
       } else if (ref.specifier.startsWith('.')) {
         const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
 
-        // climbs out of src/ — inspect's business later.
-        if (target === null) {
-          continue;
-        }
+        if (target === null) continue; // climbs out of src/ — inspect's business later.
 
         const to = folderSet.has(target[0]) ? target[0] : ROOT_BUCKET;
 
@@ -321,11 +316,8 @@ function wrapList(items: string[], width: number, indent: string): string[] {
     const last = lines.length - 1;
     const candidate = lines.length ? `${lines[last]} ${item},` : `${indent}${item},`;
 
-    if (lines.length && candidate.length <= width) {
-      lines[last] = candidate;
-    } else {
-      lines.push(`${indent}${item},`);
-    }
+    if (lines.length && candidate.length <= width) lines[last] = candidate;
+    else lines.push(`${indent}${item},`);
   }
 
   return lines.map((line, index) => (index === lines.length - 1 ? line.replace(/,$/, '') : line));
@@ -389,9 +381,7 @@ export function renderSurvey(result: SurveyResult): string {
 
   // A bare heading over nothing reads as a render failure — say "none"
   // (field issue #6). Same below for the import matrix.
-  if (!result.folders.length) {
-    lines.push('  — none —');
-  }
+  if (!result.folders.length) lines.push('  — none —');
 
   lines.push(
     '',
@@ -403,9 +393,7 @@ export function renderSurvey(result: SurveyResult): string {
     lines.push(`  ${String(edge.count).padStart(4)}  ${edge.from} → ${edge.to}`);
   }
 
-  if (!result.edges.length) {
-    lines.push('  — none —');
-  }
+  if (!result.edges.length) lines.push('  — none —');
 
   const selfEntries = Object.entries(result.selfAliasImports);
 
@@ -475,8 +463,7 @@ export function renderSurvey(result: SurveyResult): string {
   if (result.unresolved.length) {
     lines.push(
       '',
-      'Unresolved alias-like imports (an undeclared alias? '
-      + 'declare it in additionalAliases, or pass --alias):',
+      'Unresolved alias-like imports (an undeclared alias? declare it in additionalAliases, or pass --alias):',
     );
 
     for (const entry of result.unresolved) {

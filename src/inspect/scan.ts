@@ -30,9 +30,7 @@ function importedName(part: string): string {
 function extractNames(clause: string): string[] {
   const braced = clause.match(/\{([^}]*)\}/);
 
-  if (!braced) {
-    return [];
-  }
+  if (!braced) return [];
 
   return braced[1].split(',').map(importedName).filter(Boolean);
 }
@@ -149,9 +147,7 @@ function walk(
 ): void {
   for (const entry of ordered(dir, readdir)) {
     if (entry.isDirectory()) {
-      if (NON_SOURCE_DIRS.has(entry.name)) {
-        continue;
-      }
+      if (NON_SOURCE_DIRS.has(entry.name)) continue;
 
       walk(path.join(dir, entry.name), base, prefix, files, readdir);
     } else if (SOURCE_EXT.test(entry.name)) {

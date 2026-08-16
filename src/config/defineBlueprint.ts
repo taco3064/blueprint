@@ -53,19 +53,13 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     throw new Error('name must be a non-empty string when provided.');
   }
 
-  rejectUnknownKeys(bp, [
-    'name', 'framework', 'architecture', 'rules', 'principles', 'componentShape', 'playbook',
-    'emit',
-  ], 'the blueprint');
+  rejectUnknownKeys(bp, ['name', 'framework', 'architecture', 'rules', 'principles', 'componentShape', 'playbook', 'emit'], 'the blueprint');
 
   if (!architecture || !Array.isArray(architecture.layers)) {
     throw new Error('architecture.layers must be an array.');
   }
 
-  rejectUnknownKeys(architecture, [
-    'alias', 'additionalAliases', 'sourceRoot', 'layers', 'module', 'layerFiles',
-    'layerFilesIgnore', 'testFiles', 'naming',
-  ], 'architecture');
+  rejectUnknownKeys(architecture, ['alias', 'additionalAliases', 'sourceRoot', 'layers', 'module', 'layerFiles', 'layerFilesIgnore', 'testFiles', 'naming'], 'architecture');
 
   const { alias, additionalAliases, layers, module, layerFiles } = architecture;
 
@@ -249,9 +243,7 @@ function validateUsePrefix(bp: Blueprint): void {
   // `undefined` guard: `activeSetting` answers null for an absent setting too.
   const read = activeSetting(bp.rules?.usePrefix);
 
-  if (read === null) {
-    return;
-  }
+  if (read === null) return;
 
   const layer = (read.opts.layer as string | undefined) ?? 'hooks';
 
@@ -310,9 +302,7 @@ function rejectUnknownKeys(
   hints: Record<string, string> = {},
 ): void {
   for (const key of Object.keys(value)) {
-    if (allowed.includes(key)) {
-      continue;
-    }
+    if (allowed.includes(key)) continue;
 
     throw new Error(
       `Unknown key "${key}" in ${where} — nothing reads it, so the declaration is `
@@ -322,9 +312,7 @@ function rejectUnknownKeys(
 }
 
 function validateOwns(layer: LayerDef): void {
-  if (!layer.owns) {
-    return;
-  }
+  if (!layer.owns) return;
 
   for (const primitive of layer.owns) {
     if (typeof primitive === 'string') {
@@ -349,9 +337,7 @@ function validateOwns(layer: LayerDef): void {
 function validateLayerModule(layer: LayerDef): void {
   const override = layer.module;
 
-  if (override === undefined) {
-    return;
-  }
+  if (override === undefined) return;
 
   rejectUnknownKeys(override, ['layout', 'entry'], `layer "${layer.name}" module override`);
 

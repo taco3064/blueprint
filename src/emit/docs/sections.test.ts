@@ -264,10 +264,7 @@ describe('renderRules', () => {
     );
 
     expect(react).toContain('| `deepWatch` | `error` | — | nothing — Vue only');
-
-    expect(react).toContain('| `testFilename` | `error` | — | nothing — '
-      + '`architecture.testFiles: []` exempts nothing');
-
+    expect(react).toContain('| `testFilename` | `error` | — | nothing — `architecture.testFiles: []` exempts nothing');
     // The gate that CAN emit is untouched, or the column stops meaning anything.
     expect(react).toContain('| `maxLines` | `error` | `400` | lint |');
 
@@ -328,8 +325,7 @@ describe('renderNaming', () => {
 
 describe('renderComponentShape', () => {
   const axes: AxisDef[] = [
-    { id: 'a', name: 'Ownership Inversion', say: 'Own it.', why: 'Child derives.',
-      triage: 'max-params' },
+    { id: 'a', name: 'Ownership Inversion', say: 'Own it.', why: 'Child derives.', triage: 'max-params' },
     { id: 'b', name: 'Scoped Writable State', say: 'Lowest owner.', why: 'Hoist late.' },
   ];
 

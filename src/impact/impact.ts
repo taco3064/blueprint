@@ -154,10 +154,7 @@ export async function runImpact(
       ? [{ files: ['**/*.{ts,tsx,mts,cts}'], languageOptions: { parser: tseslint.parser } }]
       : []),
     ...(framework === 'react'
-      ? [{
-          files: ['**/*.{js,jsx}'],
-          languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } },
-        }]
+      ? [{ files: ['**/*.{js,jsx}'], languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } } }]
       : []),
   ];
 

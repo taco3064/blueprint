@@ -3,28 +3,6 @@
   "explorer.sortOrderLexicographicOptions": "upper",
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
-  // A module's satellites deliberately nest under nothing, and that is a
-  // decision rather than a gap. #358 split three files, so every module folder
-  // here is one entry plus several semantically-named parts — and folding those
-  // away costs more than the flatness does. Measured by running VS Code
-  // 1.128.0's own ExplorerFileNestingTrie over these folders:
-  //
-  // - A parent pattern takes one `*` and no substitution tokens ($(dirname) and
-  //   friends are child-pattern only), so "nest the satellites under the file
-  //   named after the module" cannot be written. The expressible near-miss,
-  //   "index.ts": "$(dirname).ts", nests bootstrap.ts under bootstrap/index.ts
-  //   and does nothing at all in src/project/, which has no project.ts.
-  // - Nesting is single-level whatever the patterns chain: a.ts → b.ts plus
-  //   b.ts → c.ts renders b and c as SIBLINGS under a. index.ts → plan.ts →
-  //   plan.test.ts is not a shape the explorer can draw.
-  // - So "index.ts": "*" is the only faithful "one folder, one entry" — and it
-  //   puts every satellite behind one expand, which `expand: false` above makes
-  //   permanent. The names are the module's structure and the folder row already
-  //   collapses the folder; buying a second collapse with them is not a trade.
-  //
-  // A satellite is therefore visible because no pattern claims it — the failure
-  // mode worth having, since an uncovered file appears where it is rather than
-  // under a parent it does not belong to.
   "explorer.fileNesting.patterns": {
     "*.ts": "$(capture).test.ts, $(capture).js, $(capture).d.ts",
     "*.mjs": "$(capture).test.mjs",

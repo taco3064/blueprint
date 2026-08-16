@@ -72,7 +72,7 @@ jobs:
           MUTATE: ${{ inputs.mutate }}
         run: |
           if [ -n "$MUTATE" ]; then
-            npx stryker run --mutate "$MUTATE,!**/*.test.ts"
+            npx stryker run --mutate "$MUTATE,!src/**/*.test.ts"
           else
             npx stryker run
           fi
@@ -125,7 +125,7 @@ jobs:
               ] : []),
               "A survivor is a question, not a defect: the line ran, and nothing asserted",
               "its result. Judge each one before writing a test — and match this list",
-              "against `grep -rni undecidable src/ test/ --include=*.ts` first, which is where",
+              "against `grep -rni undecidable src/ --include=*.ts` first, which is where",
               "most of them are already answered. See `.claude/docs/mutation-testing.md`.",
               "",
             ];

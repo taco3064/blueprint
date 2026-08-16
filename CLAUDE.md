@@ -13,7 +13,7 @@ substitute first-principles reasoning for what it says.
 
 | Doc | What it covers |
 |---|---|
-| [`.claude/docs/verification-layers.md`](./.claude/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring code that emits a document; adding any test file that is not co-located with a source file. Why test-only source lives in `test/` rather than under `sourceRoot`, what `test/conformance/` is for, the layer `npm run dist:verify` covers (the 0.1.1 symlink bug), and the byte baseline that belongs with an emitted-prose refactor. |
+| [`.claude/docs/verification-layers.md`](./.claude/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring code that emits a document. What `src/conformance/` is for, the layer `npm run dist:verify` covers (the 0.1.1 symlink bug), and the byte baseline that belongs with an emitted-prose refactor. |
 | [`.claude/docs/mutation-testing.md`](./.claude/docs/mutation-testing.md) | **Trigger:** running or reading `npx stryker run`; judging a survivor; adding a test because a sweep called something untested. Survivor proofs at the site (`undecidable` as the ledger), why the full sweep is the authority, how to read both scores, and where the `StringLiteral` exclusion draws its boundary. |
 | [`.claude/docs/field-triage.md`](./.claude/docs/field-triage.md) | **Trigger:** running `npm run field:run`; triaging a `field-run` issue; writing or rewording any prose an adopting agent reads (playbook / CLI output / contract); cutting a release. Harness flags, the triage flow, the two questions before the wording — can the tool compute this, and how many other instances are there — and the release sequence, including the one step no workflow gate covers. |
 
@@ -43,16 +43,13 @@ substitute first-principles reasoning for what it says.
 
 ## Layering (one-way, low → high)
 
-`config` → `boundary` → `markdown` → `plugin` → `emit/*` → `presets` →
-`project` → `inspect` → `survey` / `impact` → `bootstrap` → `cli`. A module
-imports only from lower ones (survey reads inspect's scan; bootstrap embeds the
-survey in its authoring playbook).
+`config` → `markdown` → `plugin` → `emit/*` → `presets` → `project` →
+`inspect` → `survey` / `impact` → `bootstrap` → `cli`. A module imports only
+from lower ones (survey reads inspect's scan; bootstrap embeds the survey in
+its authoring playbook).
 `project` is the shared reader (`detect` + `resolveBlueprint`) for both
-runtimes; `plugin` is the embedded ESLint plugin that `emit/lint` ships inside
-its output. `boundary` is what an import does to a module boundary and where a
-specifier lands — it sits below both gates that judge an import, because
-`inspect`'s finding and the plugin's rule call one `relativeVerdict` and a
-shared judgment reached upward is a cycle.
+runtimes; `plugin` is the embedded ESLint plugin (plain rule objects, no
+internal deps) that `emit/lint` ships inside its output.
 
 ## Self-explaining output (every CLI / runtime message)
 
@@ -69,12 +66,7 @@ is not in the config). Field batches 10–12 are the case law.
 ## Tests & tooling
 
 - **Co-locate tests**: `foo.test.ts` beside `foo.ts`; the test name matches the
-  source. A suite whose subject is not one file — the conformance fixtures, the
-  adoption e2e — has no source to sit beside, and **test-only source does not
-  live under `sourceRoot`**: it goes in `test/`, because `architecture.sourceRoot`
-  is where layers live and everything under it belongs to a layer and ships.
-  Declaring such a tree as a layer would be false and would let every other layer
-  import it; folding it into one would put fixture code inside shipped source.
+  source.
 - **100% coverage** (`vitest --coverage`). The only exclusions are real-I/O
   defaults and the bin guard, marked `/* v8 ignore */` because tests inject
   those effects (`exec`, `loadConfig`) instead of running them.
@@ -88,21 +80,13 @@ is not in the config). Field batches 10–12 are the case law.
   taken, a bug's biography. An invariant a test already covers is the test's to
   state. Two things stay: doc comments on exported symbols (the API docs are
   generated from them), and the one-line `undecidable` assertion a mutation
-  survivor is proven equivalent by — `grep -rni undecidable src/ test/` is that ledger,
+  survivor is proven equivalent by — `grep -rni undecidable src/` is that ledger,
   so the word stays at the site while the derivation goes in the commit.
 - **Formatting is ESLint-driven** (`@stylistic/*`); there is no Prettier. Run
   `npm run lint` / `eslint . --fix`. Enforcement rules mirror the handbook
   stance: never `eslint-disable` to dodge a rule; fix the structure.
-- Verify a change with `lint` + `tsc` + `test` + `doctor` + `build`.
-  `npm run doctor` runs this repo's own gates out of `src/` through jiti
-  (`scripts/blueprint.mjs`), needs no build in front of it, and is the only gate
-  that catches a stale suppressions ledger — CI runs it *above* the build for
-  that reason.
-- For a runtime change, also drive the built CLI end-to-end
-  (`node dist/bin.js init|inspect`). That path is the adopter's, and its answer
-  is a function of when somebody last built — so build immediately before, and
-  read the result as a check on the artifact rather than on the source beside
-  it.
+- Verify a change with `lint` + `tsc` + `test` + `build`, and drive the CLI
+  end-to-end (`node dist/bin.js init|inspect`) for runtime changes.
 - Three layers sit past the unit tests, each because the one below it passes on a
   real defect: the conformance suite, `npm run dist:verify`, and the live field
   harness. See [`verification-layers.md`](./.claude/docs/verification-layers.md)

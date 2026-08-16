@@ -37,8 +37,7 @@ describe('extractImports', () => {
 
   it('ignores imports inside comments and strips a leading type modifier', () => {
     const refs = extractImports(
-      '// import x from \'commented\';\n/* import y from \'block\'; '
-      + '*/\nimport { type T, U } from \'real\';',
+      '// import x from \'commented\';\n/* import y from \'block\'; */\nimport { type T, U } from \'real\';',
     );
 
     expect(refs.map((ref) => ref.specifier)).toEqual(['real']);

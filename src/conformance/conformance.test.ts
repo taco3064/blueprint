@@ -3,11 +3,11 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { Blueprint } from '../../src/config';
+import type { Blueprint } from '../config';
 // Test-only import of the full emit module — src keeps the patterns-leaf
 // boundary; the fixture needs emitLint's real selectors, not a paraphrase.
-import { emitLint } from '../../src/emit/lint';
-import { reactPreset } from '../../src/presets';
+import { emitLint } from '../emit/lint';
+import { reactPreset } from '../presets';
 import { cli, configSource, flattenProse, makeRepo, read, rm, wiredEslintConfig, write } from './conformance';
 import type { CliResult, RepoSpec } from './conformance';
 

@@ -131,7 +131,6 @@ describe('composeIssue', () => {
 
     expect(outcome.kind).toBe('file');
     expect(outcome.findings).toBe(1);
-
     expect(outcome.title).toBe(
       'Field run @ abc1234 — 1 finding(s) in 2 scenario(s) · doctor 2/2 green',
     );
@@ -164,7 +163,6 @@ describe('composeIssue', () => {
     // agent that exited non-zero after writing one.
     expect(compose([run({ doctor: { code: 1, output: '✗ Adoption incomplete' } })]).kind)
       .toBe('file');
-
     expect(compose([run({ code: 143 })]).kind).toBe('file');
   });
 

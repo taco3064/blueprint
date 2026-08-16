@@ -38,21 +38,15 @@ export function toRule(line: string): IgnoreRule | null {
   // nothing. Removing this as redundant takes that with it, silently.
   let pattern = line.trim();
 
-  if (!pattern || pattern.startsWith('#')) {
-    return null;
-  }
+  if (!pattern || pattern.startsWith('#')) return null;
 
   const negate = pattern.startsWith('!');
 
-  if (negate) {
-    pattern = pattern.slice(1);
-  }
+  if (negate) pattern = pattern.slice(1);
 
   const dirOnly = pattern.endsWith('/');
 
-  if (dirOnly) {
-    pattern = pattern.slice(0, -1);
-  }
+  if (dirOnly) pattern = pattern.slice(0, -1);
 
   // A slash anywhere anchors the pattern to the repo root; otherwise it matches at
   // any depth. undecidable as `startsWith('/') || includes('/')`: no pattern can
@@ -102,14 +96,10 @@ export function ignoredArtifacts(root: string, candidates: string[]): HiddenArti
     let hiding: string | null = null;
 
     for (const rule of rules) {
-      if (rule.matches(rel)) {
-        hiding = rule.negate ? null : rule.source;
-      }
+      if (rule.matches(rel)) hiding = rule.negate ? null : rule.source;
     }
 
-    if (hiding !== null) {
-      hidden.push({ file: candidate, rule: hiding });
-    }
+    if (hiding !== null) hidden.push({ file: candidate, rule: hiding });
   }
 
   return hidden;

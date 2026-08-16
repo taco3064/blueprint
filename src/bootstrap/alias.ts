@@ -61,9 +61,7 @@ export function patchTsconfigPaths(
   const existing = isRecord(options.paths) ? options.paths : {};
   const missing = Object.entries(paths).filter(([alias]) => !(alias in existing));
 
-  if (!missing.length) {
-    return { kind: 'noop' };
-  }
+  if (!missing.length) return { kind: 'noop' };
 
   const patched = {
     ...config,
@@ -83,15 +81,11 @@ function jsoncAlreadyWired(text: string, paths: Record<string, string[]>): boole
   // Undecidable: the `isRecord` check below keeps this one honest. On a failure
   // `result.value` is `undefined`, which is not a record either, so the answer is
   // already false — removing either guard alone still passes.
-  if (!result.ok) {
-    return false;
-  }
+  if (!result.ok) return false;
 
   const parsed = result.value;
 
-  if (!isRecord(parsed) || !isRecord(parsed.compilerOptions)) {
-    return false;
-  }
+  if (!isRecord(parsed) || !isRecord(parsed.compilerOptions)) return false;
 
   const existing = parsed.compilerOptions.paths;
 
@@ -178,16 +172,12 @@ function bundlerActions(
   const vite = state.viteConfig;
   const names = [architecture.alias, ...Object.keys(architecture.additionalAliases ?? {})];
 
-  if (vite && names.every((name) => quotedIn(vite.text, name))) {
-    return [];
-  }
+  if (vite && names.every((name) => quotedIn(vite.text, name))) return [];
 
   // A tsconfig-paths bridge makes the tsconfig side authoritative for the bundler
   // too, so instructing `resolve.alias` on top asks for a second wiring doctor
   // never required (field issue #25).
-  if (vite && vite.text.includes('tsconfig-paths')) {
-    return [];
-  }
+  if (vite && vite.text.includes('tsconfig-paths')) return [];
 
   return [bundlerInstruct(state, architecture)];
 }
@@ -217,9 +207,7 @@ function resolveTarget(state: ProjectState): Target {
 
   const js = tsconfigs['jsconfig.json'];
 
-  if (js != null) {
-    return { kind: 'patch', file: 'jsconfig.json', text: js };
-  }
+  if (js != null) return { kind: 'patch', file: 'jsconfig.json', text: js };
 
   return hasTypescript ? { kind: 'instruct', file: 'tsconfig.json' } : { kind: 'create' };
 }

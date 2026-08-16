@@ -6,9 +6,7 @@ import type {
   PrincipleDef,
   RuleSetting,
 } from '../../config';
-import {
-  readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters,
-} from '../../config';
+import { readSetting, getModuleShape, getSharedModule, normalizeAllowedImporters } from '../../config';
 import { enforcedBy, unavailableFromBlueprint } from '../lint';
 import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
@@ -20,8 +18,7 @@ export function renderHeader(name: string | undefined): string {
   return [
     `# ${title}`,
     '',
-    '> Generated from `blueprint.config` by `@kekkai/blueprint` — '
-    + 'edit the blueprint, not this file.',
+    '> Generated from `blueprint.config` by `@kekkai/blueprint` — edit the blueprint, not this file.',
   ].join('\n');
 }
 
@@ -37,8 +34,7 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
   return [
     '## Architecture',
     '',
-    'Code flows one way: each layer may import only from the layers below it. '
-    + 'Upstream and same-layer imports are barred.',
+    'Code flows one way: each layer may import only from the layers below it. Upstream and same-layer imports are barred.',
     '',
     emitFlowDiagram(architecture),
     '',
@@ -119,8 +115,7 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   );
 
   const bullets = [
-    '- **One-way only** — a layer imports only from '
-    + 'the layers below it; upstream imports are errors.',
+    '- **One-way only** — a layer imports only from the layers below it; upstream imports are errors.',
     module.layout === 'flat'
       ? '- **No same-layer imports via the alias** — use a relative path instead.'
       : '- **No same-layer imports** — extract shared logic down to a lower layer instead.',
@@ -143,8 +138,7 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
 
   bullets.push(
     '- **No redundant relative segments** (`./../`, `././`) that bypass the rules.',
-    '- **Ownership** — packages and globals are restricted '
-    + 'to their owning layer (see the *Owns* column above).',
+    '- **Ownership** — packages and globals are restricted to their owning layer (see the *Owns* column above).',
   );
 
   if (hasSelfOnly) {
@@ -168,9 +162,7 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
 
 /** The component-shape axes — a set of design judgments, not a pipeline. */
 export function renderComponentShape(axes: AxisDef[] | undefined): string {
-  if (!axes?.length) {
-    return '';
-  }
+  if (!axes?.length) return '';
 
   const blocks = axes.map((axis, i) => {
     const lines = [
@@ -202,9 +194,7 @@ export function renderComponentShape(axes: AxisDef[] | undefined): string {
 
 /** Core beliefs, split by where they land: tooling vs. behavioral. */
 export function renderPrinciples(principles: PrincipleDef[] | undefined): string {
-  if (!principles?.length) {
-    return '';
-  }
+  if (!principles?.length) return '';
 
   const list = (land: Land) =>
     principles
@@ -228,9 +218,7 @@ export function renderPrinciples(principles: PrincipleDef[] | undefined): string
 
 /** The working playbook — behavioral judgment rules, grouped by theme. */
 export function renderPlaybook(playbook: PlaybookSection[] | undefined): string {
-  if (!playbook?.length) {
-    return '';
-  }
+  if (!playbook?.length) return '';
 
   const sections = playbook.map((section) =>
     [
@@ -262,9 +250,7 @@ export function renderRules(
 ): string {
   const entries = Object.entries(rules ?? {});
 
-  if (!entries.length) {
-    return '';
-  }
+  if (!entries.length) return '';
 
   // "error fails lint" is false for `cycles` (inspect's finding) and `deadCode`
   // (documentation), so each row says which machine holds it (field issue #52).
@@ -313,9 +299,7 @@ export function renderRules(
 export function renderNaming(naming: Record<string, string> | undefined): string {
   const entries = Object.entries(naming ?? {});
 
-  if (!entries.length) {
-    return '';
-  }
+  if (!entries.length) return '';
 
   const rows = entries.map(([concept, convention]) => [
     `\`${concept}\``,

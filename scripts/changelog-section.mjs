@@ -14,10 +14,9 @@ const [rawVersion, file = 'CHANGELOG.md'] = process.argv.slice(2);
 
 if (!rawVersion) {
   console.error(
-    'Usage: node scripts/changelog-section.mjs <version> [changelog-path]\n'
-    + 'Prints the CHANGELOG.md section for that version, for use as release notes.',
+    'Usage: node scripts/changelog-section.mjs <version> [changelog-path]\n' +
+      'Prints the CHANGELOG.md section for that version, for use as release notes.',
   );
-
   process.exit(1);
 }
 
@@ -30,11 +29,10 @@ const start = lines.findIndex((line) => line.replace(/^## v?/, '## ').trim() ===
 
 if (start === -1) {
   console.error(
-    `❌ No "## ${version}" section in ${file}\n`
-    + `Fix: the release notes come from the changelog, so a version without a section has `
-    + `nothing to announce — run 'npx changeset version' and commit before tagging.`,
+    `❌ No "## ${version}" section in ${file}\n` +
+      `Fix: the release notes come from the changelog, so a version without a section has ` +
+      `nothing to announce — run 'npx changeset version' and commit before tagging.`,
   );
-
   process.exit(1);
 }
 

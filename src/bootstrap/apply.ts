@@ -42,9 +42,7 @@ export function apply(
   assertContained(actions);
 
   for (const action of actions) {
-    if (action.kind === 'install') {
-      onInstallStarting?.(action);
-    }
+    if (action.kind === 'install') onInstallStarting?.(action);
 
     if (action.kind === 'write') {
       const full = path.resolve(root, action.path);

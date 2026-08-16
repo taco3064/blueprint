@@ -18,9 +18,7 @@ import {
   STATEMENT_PADDING,
   toArray,
 } from './patterns';
-import type {
-  EmitLintOptions, GlobalRule, LintConfig, LintConfigEntry, PackageRule,
-} from './types';
+import type { EmitLintOptions, GlobalRule, LintConfig, LintConfigEntry, PackageRule } from './types';
 
 type Severity = 'error' | 'warn';
 
@@ -185,9 +183,7 @@ function ruleGateEntries(
   for (const { id, rule, fallback, wrap } of METRIC_GATES) {
     const setting = activeSetting(rules?.[id]);
 
-    if (!setting) {
-      continue;
-    }
+    if (!setting) continue;
 
     const max = setting.value ?? fallback;
 
@@ -356,9 +352,7 @@ function shapeEntry(
     shape['import-x/no-duplicates'] = importBlock.tier;
   }
 
-  if (!Object.keys(shape).length) {
-    return [];
-  }
+  if (!Object.keys(shape).length) return [];
 
   const needsStylistic = Object.keys(shape).some((rule) => rule.startsWith('@stylistic/'));
   const needsImports = Object.keys(shape).some((rule) => rule.startsWith('import-x/'));
@@ -436,9 +430,7 @@ function codeStyleRules(gate: ReadSetting, stylistic: ESLint.Plugin): Linter.Rul
 
 /** Build the `no-restricted-globals` rule for globals this layer does not own. */
 function buildGlobalRule(disabled: GlobalRule[], severity: Severity): Linter.RulesRecord {
-  if (!disabled.length) {
-    return {};
-  }
+  if (!disabled.length) return {};
 
   return {
     'no-restricted-globals': [

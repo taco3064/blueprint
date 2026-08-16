@@ -30,8 +30,7 @@ function arch(): ArchitectureDef {
 }
 
 describe('aliasLayerRoots', () => {
-  it('bakes each alias target offset in, '
-    + 'excluding targets with no layer surface (field #29)', () => {
+  it('bakes each alias target offset in, excluding targets with no layer surface (field #29)', () => {
     const roots = aliasLayerRoots({
       ...arch(),
       additionalAliases: {
@@ -54,17 +53,15 @@ describe('aliasLayerRoots', () => {
     expect(aliasLayerRoots({ ...arch(), sourceRoot: '.', additionalAliases: { '~x': '.' } }))
       .toEqual([{ alias: '~app', prefix: [] }, { alias: '~x', prefix: [] }]);
 
-    expect(aliasLayerRoots({ ...arch(), sourceRoot: 'lib/app',
-      additionalAliases: { '~lib': 'lib' } }))
+    expect(aliasLayerRoots({ ...arch(), sourceRoot: 'lib/app', additionalAliases: { '~lib': 'lib' } }))
       .toEqual([{ alias: '~app', prefix: [] }, { alias: '~lib', prefix: ['app'] }]);
   });
 });
 
 describe('getSharedModule', () => {
   it('applies the flat defaults when module (or any key) is absent (field #23)', () => {
-    const bare: ArchitectureDef = arch();
-
-    delete bare.module;
+    const { module: _module, ...rest } = arch();
+    const bare: ArchitectureDef = rest;
 
     expect(getSharedModule(bare)).toEqual({ layout: 'flat', entry: 'index', private: [] });
     expect(getModuleShape(bare, 'pages')).toEqual({ layout: 'flat', entry: 'index' });

@@ -4,9 +4,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { runInit } from '../../src/bootstrap';
-import { runInspect } from '../../src/inspect';
-import { reactPreset } from '../../src/presets';
+import { runInit } from '../bootstrap';
+import { runInspect } from '../inspect';
+import { reactPreset } from '../presets';
 
 /**
  * Adoption end-to-end: real template shapes (committed under
@@ -14,25 +14,6 @@ import { reactPreset } from '../../src/presets';
  * runInit / runInspect calls the CLI makes. This suite runs in the default
  * vitest set, so the husky pre-push hook and the release workflow both gate
  * on it before anything reaches npm.
- *
- * THIS FILE CARRIES THE ONE `blueprint/test-filename-matches-source`
- * SUPPRESSION, and it is a gate this repo cannot open rather than one it has
- * not. The rule wants a same-named source sibling — `adoption.e2e.ts` — because
- * an orphan test usually means its source moved or it tests nothing real. The
- * subject here is the package's own dispatch across nine committed fixture
- * repos, spread over four layers, so there is no one file to sit beside; the
- * sibling would be named after the suite rather than after anything it tests.
- * The helpers below are not that file either — `useFixture`, `read` and
- * `exists` are one-liners closed over the `root` this suite's `beforeEach`
- * reassigns, and extracting them would either thread `root` through every call
- * site or export mutable state, to make a rule green. `test/conformance/` is
- * what a genuine extraction looks like: a DSL with three callers, which this
- * suite deliberately does not use because it drives committed templates rather
- * than synthesized ones.
- *
- * `docs/guide/reference.md` is where the stance is published — "a gate this
- * stack cannot open keeps its row and carries the reason". The row is in
- * `eslint-suppressions.json`, which has nowhere to put a reason; this is it.
  */
 
 const FIXTURES = fileURLToPath(new URL('../../fixtures/adoption', import.meta.url));
@@ -115,7 +96,7 @@ describe('e2e · vite-vue-ts (template cleanup)', () => {
       fs.readFileSync(hello, 'utf-8').replaceAll('../assets/', '~app/assets/'),
     );
 
-    const { vuePreset } = await import('../../src/presets');
+    const { vuePreset } = await import('../presets');
     const { ok } = await runInspect(root, { log: silent, loadConfig: async () => vuePreset() });
 
     expect(ok).toBe(true);
@@ -144,7 +125,7 @@ describe('e2e · next-app (App Router preset, hands off on owned files)', () => 
     expect(exists('eslint.config.blueprint.mjs')).toBe(true);
 
     // inspect resolves the route tree under src/app and finds no violations.
-    const { nextPreset } = await import('../../src/presets');
+    const { nextPreset } = await import('../presets');
 
     const { ok } = await runInspect(root, {
       log: silent,
@@ -166,7 +147,7 @@ describe('e2e · next-app-no-srcdir (root-level App Router)', () => {
     expect(config).toContain('router: \'app\'');
     expect(config).not.toContain('srcDir');
 
-    const { nextPreset } = await import('../../src/presets');
+    const { nextPreset } = await import('../presets');
 
     const { ok, findings } = await runInspect(root, {
       log: silent,
@@ -187,7 +168,7 @@ describe('e2e · next-pages-router', () => {
 
     expect(read('blueprint.config.mjs')).toContain('router: \'pages\'');
 
-    const { nextPreset } = await import('../../src/presets');
+    const { nextPreset } = await import('../presets');
 
     const { ok } = await runInspect(root, {
       log: silent,
@@ -374,7 +355,7 @@ describe('e2e · survey and deps on a real repo (Tier 2)', () => {
 
     // The fixture's tsconfig is JSONC (comments) so alias detection misses —
     // exactly why `--alias` exists; pass it as a user/agent would.
-    const { runSurvey } = await import('../../src/survey');
+    const { runSurvey } = await import('../survey');
     const survey = runSurvey(root, { alias: '@', log: silent });
 
     // The planted edges show up in the matrix.
@@ -383,7 +364,7 @@ describe('e2e · survey and deps on a real repo (Tier 2)', () => {
 
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), BROWNFIELD_CONFIG);
 
-    const { runDeps } = await import('../../src/inspect');
+    const { runDeps } = await import('../inspect');
     const { modules } = await runDeps(root, { target: 'services', log: silent });
 
     // Flat layout → module keys are layer names. services is imported by
