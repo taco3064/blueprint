@@ -6,6 +6,8 @@
 
 **A slice of the ticket that stands on its own: the repo is green and releasable when it lands, whether or not any later stage ever does.** Not a checkpoint of convenience, not "I stopped here because it was late".
 
+**Green is not the same as honest.** A stage can leave every gate passing and still misrepresent the state — a debt ledger carrying rows you already know a later stage removes, a suppression standing in for work simply not done yet. That is still a legitimate stage, and the comment is where the distinction has to live: which rows are debt, and which are only recorded until the commit that closes them. The gate cannot carry that difference and the ledger file has nowhere to put it.
+
 If a slice can only be verified together with the next one, it is not a stage — it is half of one, and committing it splits a single verifiable change into two comments that each prove nothing.
 
 Cut stages by **what becomes true**, not by which files you happened to open. *"The schema accepts the new field and rejects three ways to get it wrong"* is a stage; *"edited `defineBlueprint.ts`"* is not.
@@ -24,11 +26,14 @@ Tell it what the stage is in terms of **what must become true**, and tell it the
 
 **Verify what came back rather than accepting it.** *"Done, tests pass"* is the implementer reporting confidence; it is not evidence and it is not yours until you have run it. Re-run the layer that matters, read the artifact if the stage touched one, and read the diff — **not for style, for scope**: a change wider than the stage is the most common thing a dispatch returns, and it is invisible in a summary.
 
+**When the diff is too large to read, say which instrument read it instead.** A mechanical sweep across sixty files is not something you walk line by line, and reporting it as reviewed when you ran gates over it is the exact failure this page is about. Name what actually carried the check — the suite, a byte baseline, a rendered artifact — and dispatch a reader for what those cannot see. An unread diff with its instrument stated is honest; an unread diff called verified is not.
+
 If what came back is wrong or incomplete, **that is not a shortfall** — a shortfall is something true about the repo. It is an unfinished stage: dispatch again with what was missing, and do not commit in between.
 
 - **Run the layer that could catch this**, not the cheapest one. `.claude/docs/verification-layers.md` says which is which. A unit test proves the logic; it does not prove the emitted artifact says anything.
 - **If the change touches emitted prose, render it.** Enumerate the conditional branches from the code first, render one file per combination, and read them. An empty diff from a branch you never rendered looks exactly like an empty diff from a branch that did not change.
 - **Never bypass the commit gate.** Not `--no-verify`, not `-n`, not `HUSKY=0`. If it stops you, the thing it stopped is the thing to fix.
+- **And a gate that stops you may be saying your stage *order* is wrong, not your stage.** A hook that autofixes on the way in can produce violations no ledger holds, so the first commit touching a governed file fails on work belonging to a stage you have not run yet. Park the finished stage as a patch, land the one the gate named, re-apply. That is the gate working, and the order it forces is usually the honest one.
 
 ## The comment, one per commit
 

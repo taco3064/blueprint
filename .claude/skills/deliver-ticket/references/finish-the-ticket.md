@@ -32,6 +32,8 @@ So before the pull request, **spawn read-only agents that had no part in the wor
 
 **Their findings are unverified reports until you reopen the file yourself.** One that does not hold is dropped **and said in the closing comment to have been dropped, with the reason** — that is where your own convergence hides, since generating findings freshly does not make your verdict on them fresh.
 
+**And when a finding will not reproduce, suspect your reproduction before you suspect the finding.** A reader who ran the real thing and a dispatcher who rebuilt an approximation of it disagree for two reasons, and the approximation is the likelier one — a fixture missing the very property the finding was about looks exactly like a finding that was wrong. Check that yours carries it before you write *dropped*.
+
 **Anything that survives is a shortfall.** Which means step 2 now fails, and you are back in the loop rather than finishing. That is the mechanism working, not a setback.
 
 If any of the five fails, **you are not finishing, you are on another stage.** Go back.
@@ -48,7 +50,11 @@ One per ticket. Open it after the completion test, not before.
 
 ## Merging, and closing
 
-Merge your own PR once CI is green. Then close the ticket with a final comment carrying:
+Merge your own PR once CI is green.
+
+**Then check that what landed is what you tested.** A squash or a rebase rewrites the commits, and a base branch that moved while CI was green produces a tree nothing was ever run against. Compare the merged tree against the one your last verification ran on — if they differ, you are verifying again, not finishing.
+
+Then close the ticket with a final comment carrying:
 
 - **The five completion-test answers**, stated rather than implied. Especially the third — which commit satisfies which part of the goal — and the fifth: which dimensions were read by fresh readers, what they found, and what you dropped with the reason.
 - **What the ticket taught that its body did not know** — an assumption that turned out false, a case the goal did not name, an approach abandoned and why. **This is the part that is worth reading a year from now**, and it exists nowhere else once this session ends.
