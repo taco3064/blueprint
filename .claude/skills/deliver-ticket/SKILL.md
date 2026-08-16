@@ -13,6 +13,7 @@ You own one issue's **delivery** and the written record of how it got there. **Y
 
 | Reference | Trigger |
 |---|---|
+| [`start-or-resume.md`](./references/start-or-resume.md) | The skill loads. Every time, before deciding whether this is a fresh start or a resume — the two look identical until you've read the ticket. |
 | [`deliver-a-stage.md`](./references/deliver-a-stage.md) | You are about to commit, or you have just committed and owe the ticket a comment. What a stage is, what the comment must carry, and how a shortfall is written down. |
 | [`finish-the-ticket.md`](./references/finish-the-ticket.md) | You believe the ticket is done. The completion test, the pull request, the merge, and closing the issue. |
 
@@ -106,8 +107,16 @@ None of these has a moment that prompts you to look them up. The moment each one
 
 ## Repo facts
 
-- Verify with `npm run lint`, `tsc`, `npm test` (100% coverage is the floor), `npm run build`, `npm run dist:verify`, `npm run field:run`, and drive the CLI end to end (`node dist/bin.js init|inspect`) for runtime changes. `.claude/docs/verification-layers.md` says which layer catches what.
-- **One worktree per ticket — `git worktree add` plus `npm ci` in it** — and read baselines through `git show <ref>:<path>` rather than off disk. Two sessions over one checkout has put commits on the wrong branch. The install is not skippable: without it the commit gate refuses.
+- Verify with `npm run lint`, `tsc`, `npm test` (100% coverage is the floor), `npm run build`, `npm run dist:verify`, and drive the CLI end to end (`node dist/bin.js init|inspect`) for runtime changes. `.claude/docs/verification-layers.md` says which layer catches what. **`npm run field:run` is not on this list** — see *The field harness is not a step you run* below.
+- **One worktree per ticket — `git worktree add` plus `npm ci` in it** — and read baselines through `git show <ref>:<path>` rather than off disk. Two sessions over one checkout has put commits on the wrong branch. The install is not skippable: without it the commit gate refuses. `references/start-or-resume.md` covers finding one that already exists versus creating one — never both.
 - Every user-visible change ships a changeset.
 - `CLAUDE.md` and `.claude/docs/` hold the conventions this repo's own code must not contradict. Read the doc when its trigger fires; do not substitute first-principles reasoning for what it says.
 - Commits, comments, PR titles and PR bodies are written in English.
+
+## The field harness is not a step you run
+
+`npm run field:run` refuses to start from inside a Claude Code session — this one — because it spawns an agent CLI and agent CLIs will not launch nested (`.claude/docs/field-triage.md`). That's not a reason to skip it from this session; it's the reason it was never reachable from here, full stop, and adding it to a verification list this skill executes was always going to be a command nobody could actually run.
+
+Its own trigger (`.claude/docs/field-triage.md`: touching `bin`/`exports`/the shebang/the bundle, rewording prose an adopting agent reads, cutting a release) is when a human runs it, from a plain shell, outside any session — and even then with `--no-issue`. Its default behavior on a finding is to file a `field-run` issue, and that is exactly what *you do not create tickets* forbids regardless of which process opens it.
+
+If a stage's change falls under that trigger, say so in the stage's comment as a manual step the owner still owes the tree — not as a check this ticket ran. And if a field run against this ticket's own tree turns up a finding, that finding is a shortfall on this ticket, named and closed the ordinary way; it is never a second issue the harness filed on its own.

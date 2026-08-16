@@ -35,6 +35,14 @@ If what came back is wrong or incomplete, **that is not a shortfall** — a shor
 - **Never bypass the commit gate.** Not `--no-verify`, not `-n`, not `HUSKY=0`. If it stops you, the thing it stopped is the thing to fix.
 - **And a gate that stops you may be saying your stage *order* is wrong, not your stage.** A hook that autofixes on the way in can produce violations no ledger holds, so the first commit touching a governed file fails on work belonging to a stage you have not run yet. Park the finished stage as a patch, land the one the gate named, re-apply. That is the gate working, and the order it forces is usually the honest one.
 
+## Push before the comment, always
+
+The order is **verify → commit → push → comment**, every stage, no exceptions. A comment citing a SHA that only exists in the local worktree is citing something a reader clicking through cannot open — and on a delivery that can run for hours, local-only is one crashed session away from being the only copy that ever existed.
+
+**If the push fails, the stage has not landed.** Do not post the comment claiming it has. Resolve why it failed — a moved remote branch is the likely cause — and push before writing anything.
+
+**If the push succeeds but posting the comment fails, do not start the next stage.** Re-post the comment for the commit that is already public first. A resumed session finds this exact state by diffing `git log <branch>` against `git log origin/<branch>` and against what the comment stream actually names — see `start-or-resume.md`. A pushed commit with no comment naming it is not a new stage to build; it's a comment owed on one already built.
+
 ## The comment, one per commit
 
 Post it as the commit lands, not in a batch at the end. It carries four things and the last one is the one that gets skipped:
