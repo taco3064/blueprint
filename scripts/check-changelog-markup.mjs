@@ -46,6 +46,7 @@ for (const file of files) {
         + 'Vue template, so it reads as an unclosed HTML tag and kills the docs '
         + 'build. Wrap it in backticks.',
       );
+
       bad += 1;
     }
   });
