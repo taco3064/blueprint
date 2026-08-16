@@ -258,6 +258,10 @@ describe('a claim states the condition it needs (field runs #95–#97)', () => {
     // one path per layer — its own ✓ says a part-of-a-layer entry is not compared.
     expect(playbook).toContain('takes TWO probes rather than one');
     expect(playbook).toContain('a file INSIDE the collision and a file OUTSIDE it');
+  });
+
+  it('states the mechanism that remedy rests on, and buries the inverted one', async () => {
+    const playbook = await playbookOf(brownfield());
 
     // The mechanism the instruction rests on, and the qualifier that makes it true.
     // Without these the recommendation reads as a preference a reader can trade away.

@@ -178,6 +178,30 @@ describe('naming the cause, so a claim can be checked (field runs #79–#81)', (
   });
 });
 
+const owning = {
+  ...reactBlueprint,
+  architecture: {
+    ...reactBlueprint.architecture,
+    layers: [
+      { name: 'components', does: 'render UI' },
+      { name: 'services', does: 'data access', owns: ['axios', { global: 'fetch' }] },
+    ],
+  },
+};
+
+// Wired, so the survival check RUNS and prints its scope — the skip label does
+// not carry it, and the whole point is comparing that scope with what `rules` says.
+const owningRepo = (): string => repo({
+  packageJson: react(),
+  files: {
+    'blueprint.config.mjs': configSource(owning),
+    'tsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+    'eslint.config.mjs': wiredEslintConfig(owning),
+    'src/components/f.jsx': 'export const f = () => 1;\n',
+    'src/services/api.js': 'export const api = 1;\n',
+  },
+});
+
 describe('what a second output knows about the first (field runs #75–#77)', () => {
   it('rules and doctor agree on what doctor compares (field run #159)', async () => {
     // Two live outputs, same repo, opposite instructions for a merge. `rules` closed its
@@ -186,29 +210,7 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
     // "package-ownership entries … are not compared". A folding agent reading `rules`
     // would skip the `--print-config` pass the playbook asks for precisely because
     // doctor cannot see that column. Neither sentence was asserted, so they drifted.
-    const owning = {
-      ...reactBlueprint,
-      architecture: {
-        ...reactBlueprint.architecture,
-        layers: [
-          { name: 'components', does: 'render UI' },
-          { name: 'services', does: 'data access', owns: ['axios', { global: 'fetch' }] },
-        ],
-      },
-    };
-
-    // Wired, so the survival check RUNS and prints its scope — the skip label does
-    // not carry it, and the whole point is comparing that scope with what `rules` says.
-    const dir = repo({
-      packageJson: react(),
-      files: {
-        'blueprint.config.mjs': configSource(owning),
-        'tsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
-        'eslint.config.mjs': wiredEslintConfig(owning),
-        'src/components/f.jsx': 'export const f = () => 1;\n',
-        'src/services/api.js': 'export const api = 1;\n',
-      },
-    });
+    const dir = owningRepo();
 
     const rules = await cli(dir, ['rules']);
     const doctor = await cli(dir, ['doctor']);
@@ -238,10 +240,15 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
 
     expect(flattenProse(rules.output)).toContain('`packages` is not compared by');
     expect(flattenProse(rules.output)).toContain('--print-config');
+  });
 
-    // And `--json` carries it beside the column, which is #117's shape: that fix put the
-    // caveat in the text and left the JSON bare, and the same doubt came back three
-    // releases later through the channel the playbook sends a folding agent to.
+  it('carries that same caveat into `rules --json`, beside the column', async () => {
+    // #117's shape: that fix put the caveat in the text and left the JSON bare, and the
+    // same doubt came back three releases later through the channel the playbook sends a
+    // folding agent to.
+    const dir = owningRepo();
+
+    const rules = await cli(dir, ['rules']);
     const json = await cli(dir, ['rules', '--json']);
     const bans = JSON.parse(json.output).bans as { packages: string[]; packagesNote?: string }[];
     const owningBans = bans.filter((ban) => ban.packages.length);
@@ -296,7 +303,9 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
     expect(inspect.output).toContain('merges neither into the other');
     expect(inspect.output).toContain('"Cannot fire" is about the ban, not about the entry');
   });
+});
 
+describe('what the playbook checks before it claims it (field runs #75–#77)', () => {
   it('does not claim to have created a .claude/ the repo already had', async () => {
     // Any repo whose owner uses Claude Code already has `.claude/`. The step used to
     // assert init created it — a fact init knows and had not checked.

@@ -37,9 +37,9 @@ const write = (actions: Action[], path: string): WriteAction | undefined =>
     (action): action is WriteAction => action.kind === 'write' && action.path === path,
   );
 
-describe('plan · the eslint config it writes, and how it says to wire one\'s already there', () => {
+describe('plan · the eslint config it writes', () => {
   it('generates the third-party CORE in eslint.config.mjs, tier-driven', () => {
-    const content = write(plan(state(), bp, null, {}), 'eslint.config.mjs')?.content;
+    const content = write(plan(state(), bp), 'eslint.config.mjs')?.content;
 
     // eslint-plugin-import-x IS wired now (importBlock rides it), but only for
     // import-x/first + import-x/no-duplicates. Two of its rules stay rejected on
@@ -66,7 +66,7 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
 
   it('scopes the guard glob to the detected stack, like the parser blocks (field #30)', () => {
     const config = (blueprint = bp, over = {}) =>
-      write(plan(state(over), blueprint, null, {}), 'eslint.config.mjs')?.content ?? '';
+      write(plan(state(over), blueprint), 'eslint.config.mjs')?.content ?? '';
 
     // vue stack: no jsx/tsx exts, the Vue-template scope caveat applies.
     const vueGuard = config();
@@ -87,9 +87,9 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
     expect(unknown).toContain('files: [\'src/**/*.{js,jsx,ts,tsx,vue}\']');
   });
 
-  it('wires parsers for the detected stack, parsers only', () => {
+  it('wires the vue parsers for a vue stack, parsers only', () => {
     const config = (blueprint = bp, over = {}) =>
-      write(plan(state(over), blueprint, null, {}), 'eslint.config.mjs')?.content ?? '';
+      write(plan(state(over), blueprint), 'eslint.config.mjs')?.content ?? '';
 
     // vue without typescript: the vue parser alone.
     const vueJs = config();
@@ -103,6 +103,11 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
 
     expect(vueTs).toContain('parserOptions: { parser: tseslint.parser }');
     expect(vueTs).toContain('files: [\'**/*.{ts,tsx,mts,cts}\'],');
+  });
+
+  it('wires espree JSX for a react stack, parsers only', () => {
+    const config = (blueprint = bp, over = {}) =>
+      write(plan(state(over), blueprint), 'eslint.config.mjs')?.content ?? '';
 
     // react + typescript: ts parser plus espree JSX; no vue parser. The jsx
     // block carries its own skip criterion — without one, the TS-parser
@@ -120,6 +125,11 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
 
     expect(reactJs).toContain('ecmaFeatures: { jsx: true }');
     expect(reactJs).not.toContain('tseslint');
+  });
+
+  it('wires no parser at all when no framework is detected', () => {
+    const config = (blueprint = bp, over = {}) =>
+      write(plan(state(over), blueprint), 'eslint.config.mjs')?.content ?? '';
 
     // auto framework falls back to the detected one (null → no parser blocks).
     const bare = config({ ...bp, framework: 'auto' as const }, { framework: null });
@@ -130,7 +140,7 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
 
   it('closes every conditional slot cleanly when its condition is false', () => {
     const config = (blueprint = bp, over = {}) =>
-      write(plan(state(over), blueprint, null, {}), 'eslint.config.mjs')?.content ?? '';
+      write(plan(state(over), blueprint), 'eslint.config.mjs')?.content ?? '';
 
     // Each slot below is a spread over `[]`. Anything landing in one is a bare
     // line in a config the project's lint really loads, and no `not.toContain`
@@ -163,7 +173,7 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
 
   it('fills each conditional slot when its condition holds', () => {
     const config = (blueprint = bp, over = {}) =>
-      write(plan(state(over), blueprint, null, {}), 'eslint.config.mjs')?.content ?? '';
+      write(plan(state(over), blueprint), 'eslint.config.mjs')?.content ?? '';
 
     // On a TS stack the parser import and the header's TS-only paragraph both
     // land. The paragraph answers "does my config already wire parsers?" where
@@ -194,15 +204,17 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
     // The guard defaults to ADOPT; an agent following the bold default on
     // the merge path must not hit "Cannot find package".
     for (const over of [{}, { hasEslintConfig: true }]) {
-      const actions = plan(state({ missingDeps: missing, ...over }), bp, 'SRC', {});
+      const actions = plan(state({ missingDeps: missing, ...over }), bp, { configSource: 'SRC' });
       const install = actions.find((a) => a.kind === 'install');
 
       expect(install?.kind === 'install' && install.command).toContain('eslint-comments');
     }
   });
+});
 
+describe('plan · the note that says how to wire an eslint config already there', () => {
   it('writes a diffable reference config instead of touching an existing one', () => {
-    const actions = plan(state({ hasEslintConfig: true }), bp, null, {});
+    const actions = plan(state({ hasEslintConfig: true }), bp);
 
     expect(write(actions, 'eslint.config.mjs')).toBeUndefined();
 
@@ -211,8 +223,10 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
 
     expect(reference?.content).toContain('emitLint');
     expect(reference?.note).toContain('not wired in');
+  });
 
-    const note = actions.find(
+  it('carries the wiring snippet, and the obligation to delete the reference', () => {
+    const note = plan(state({ hasEslintConfig: true }), bp).find(
       (a) => a.kind === 'instruct' && a.note.includes('blueprint never edits it'),
     );
 
@@ -240,10 +254,7 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
   it('the flat-array wiring snippet IS the TS version on a TypeScript repo', () => {
     const actions = plan(
       state({ hasEslintConfig: true, eslintConfigShape: 'flat-array', hasTypescript: true }),
-      bp,
-      null,
-      {},
-    );
+      bp);
 
     const note = actions.find(
       (a) => a.kind === 'instruct' && a.note.includes('blueprint never edits it'),
@@ -262,10 +273,7 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
   it('tailors the wiring note to a tseslint.config() shape', () => {
     const actions = plan(
       state({ hasEslintConfig: true, eslintConfigShape: 'tseslint' }),
-      bp,
-      null,
-      {},
-    );
+      bp);
 
     const note = actions.find((a) => a.kind === 'instruct' && a.note.includes('tseslint.config()'));
 
@@ -287,7 +295,9 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
     expect(note?.note?.replace(/\s+/g, ' ')).toContain('the one thing that goes after the spread');
     expect(note?.note).not.toContain('emitLint goes LAST —');
   });
+});
 
+describe('plan · the existing-config file and shapes that note adapts to', () => {
   it('carries the TS7016 caveat exactly when the existing config is a .ts file (field #22)', () => {
     // eslint.config.ts importing ./blueprint.config.mjs has no declaration
     // file — the repo's own tsc gate goes red unless the covering tsconfig
@@ -299,10 +309,7 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
         eslintConfigShape: 'flat-array',
         hasTypescript: true,
       }),
-      bp,
-      null,
-      {},
-    ).find((a) => a.kind === 'instruct' && a.note.includes('blueprint never edits it'));
+      bp).find((a) => a.kind === 'instruct' && a.note.includes('blueprint never edits it'));
 
     expect(tsConfig?.note).toContain('TS7016');
     expect(tsConfig?.note).toContain('allowJs');
@@ -315,10 +322,7 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
         eslintConfigFile: 'eslint.config.mjs',
         eslintConfigShape: 'flat-array',
       }),
-      bp,
-      null,
-      {},
-    ).find((a) => a.kind === 'instruct' && a.note.includes('blueprint never edits it'));
+      bp).find((a) => a.kind === 'instruct' && a.note.includes('blueprint never edits it'));
 
     expect(mjsConfig?.note).not.toContain('TS7016');
 
@@ -330,10 +334,7 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
         eslintConfigShape: 'tseslint',
         hasTypescript: true,
       }),
-      bp,
-      null,
-      {},
-    ).find((a) => a.kind === 'instruct' && a.note.includes('tseslint.config()'));
+      bp).find((a) => a.kind === 'instruct' && a.note.includes('tseslint.config()'));
 
     expect(tseslintTs?.note).toContain('TS7016');
   });
@@ -341,10 +342,7 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
   it('names defineConfig arrays as spread-equivalent in the flat-array note (field #21)', () => {
     const actions = plan(
       state({ hasEslintConfig: true, eslintConfigShape: 'flat-array' }),
-      bp,
-      null,
-      {},
-    );
+      bp);
 
     const note = actions.find(
       (a) => a.kind === 'instruct' && a.note.includes('blueprint never edits it'),
@@ -357,10 +355,7 @@ describe('plan · the eslint config it writes, and how it says to wire one\'s al
   it('routes a legacy .eslintrc to the migration note, not a fresh flat config', () => {
     const actions = plan(
       state({ legacyEslintConfig: '.eslintrc.cjs', eslintConfigShape: 'legacy' }),
-      bp,
-      null,
-      {},
-    );
+      bp);
 
     // A reference is written, but never a fresh eslint.config.mjs next to it.
     expect(write(actions, 'eslint.config.mjs')).toBeUndefined();

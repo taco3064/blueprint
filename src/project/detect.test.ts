@@ -26,7 +26,7 @@ function writePkg(content: Record<string, unknown>): void {
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify(content));
 }
 
-describe('detect', () => {
+describe('detect · what package.json answers', () => {
   it('detects vue from dependencies and reads the project name', () => {
     writePkg({ name: 'app', dependencies: { vue: '^3' } });
 
@@ -77,12 +77,32 @@ describe('detect', () => {
     expect(detect(root).dependencies).toEqual([]);
   });
 
-  it('reports existing files, src dirs, and missing deps', () => {
+  it('tolerates a missing or malformed package.json', () => {
+    expect(detect(root).framework).toBeNull();
+    expect(detect(root).missingDeps).toContain('eslint');
+    expect(detect(root).missingDeps).toHaveLength(5);
+    expect(detect(root).existingSrcDirs).toEqual([]);
+    expect(detect(root).hasViteConfig).toBe(false);
+    expect(detect(root).hasTypescript).toBe(false);
+
+    fs.writeFileSync(path.join(root, 'package.json'), '{ not json');
+    expect(detect(root).framework).toBeNull();
+  });
+});
+
+describe('detect · what the files on disk answer', () => {
+  it('reports the config files, tsconfig variants and src dirs it finds', () => {
     writePkg({ name: 'x', devDependencies: { eslint: '9', typescript: '5' } });
-    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '');
-    fs.writeFileSync(path.join(root, 'eslint.config.js'), '');
-    fs.writeFileSync(path.join(root, 'vite.config.ts'), '');
-    fs.writeFileSync(path.join(root, 'tsconfig.json'), '{}');
+
+    for (const [file, text] of Object.entries({
+      'blueprint.config.mjs': '',
+      'eslint.config.js': '',
+      'vite.config.ts': '',
+      'tsconfig.json': '{}',
+    })) {
+      fs.writeFileSync(path.join(root, file), text);
+    }
+
     fs.mkdirSync(path.join(root, 'src', 'components'), { recursive: true });
 
     const state = detect(root);
@@ -100,6 +120,16 @@ describe('detect', () => {
 
     expect(state.existingSrcDirs).toEqual(['components']);
 
+    // A bare flat config (no tseslint.config call) reads as a flat array.
+    expect(state.eslintConfigShape).toBe('flat-array');
+    expect(state.legacyEslintConfig).toBeUndefined();
+  });
+
+  it('names the install set, and the runner a repo with no lockfile gets', () => {
+    writePkg({ name: 'x', devDependencies: { eslint: '9', typescript: '5' } });
+
+    const state = detect(root);
+
     // typescript in devDependencies pulls the ts parser into the install set.
     expect(state.missingDeps).toEqual([
       '@kekkai/blueprint',
@@ -110,9 +140,6 @@ describe('detect', () => {
     ]);
 
     expect(state.packageManager).toBe('npm');
-    // A bare flat config (no tseslint.config call) reads as a flat array.
-    expect(state.eslintConfigShape).toBe('flat-array');
-    expect(state.legacyEslintConfig).toBeUndefined();
   });
 
   it('detects the eslint config shape: tseslint vs legacy .eslintrc', () => {
@@ -157,18 +184,6 @@ describe('detect', () => {
 
     expect(state.hasViteConfig).toBe(true);
     expect(state.viteConfig).toBeUndefined();
-  });
-
-  it('tolerates a missing or malformed package.json', () => {
-    expect(detect(root).framework).toBeNull();
-    expect(detect(root).missingDeps).toContain('eslint');
-    expect(detect(root).missingDeps).toHaveLength(5);
-    expect(detect(root).existingSrcDirs).toEqual([]);
-    expect(detect(root).hasViteConfig).toBe(false);
-    expect(detect(root).hasTypescript).toBe(false);
-
-    fs.writeFileSync(path.join(root, 'package.json'), '{ not json');
-    expect(detect(root).framework).toBeNull();
   });
 });
 

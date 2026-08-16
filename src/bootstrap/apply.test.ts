@@ -31,7 +31,7 @@ describe('apply · removing init\'s own output', () => {
 
     const applied: string[] = [];
 
-    expect(() => apply(root, actions, noExec, (action) => applied.push(action.kind)))
+    expect(() => apply(root, actions, { exec: noExec, onApplied: (a) => applied.push(a.kind) }))
       .not.toThrow();
 
     expect(applied).toEqual(['rm', 'write']);
@@ -64,7 +64,7 @@ describe('apply · removing init\'s own output', () => {
 
     const applied: string[] = [];
 
-    expect(() => apply(project, actions, noExec, (action) => applied.push(action.kind)))
+    expect(() => apply(project, actions, { exec: noExec, onApplied: (a) => applied.push(a.kind) }))
       .toThrow(/outside the project root/);
 
     expect(applied).toEqual([]);
@@ -81,8 +81,7 @@ describe('apply · removing init\'s own output', () => {
     apply(
       root,
       [{ kind: 'rm', path: 'src/components/Placeholder.vue', note: 'x' }],
-      noExec,
-      noExec,
+      { exec: noExec, onApplied: noExec },
     );
 
     expect(fs.existsSync(scaffold)).toBe(false);
@@ -100,8 +99,10 @@ describe('apply · announcing the install', () => {
     const ran: string[] = [];
     const applied: string[] = [];
 
-    expect(() => apply(root, install, (command) => ran.push(command), (a) => applied.push(a.kind)))
-      .not.toThrow();
+    expect(() => apply(root, install, {
+      exec: (command) => ran.push(command),
+      onApplied: (a) => applied.push(a.kind),
+    })).not.toThrow();
 
     // Not just "did not throw": a guard that skipped the action instead of the
     // callback would satisfy that on its own.
@@ -116,13 +117,11 @@ describe('apply · announcing the install', () => {
   it('announces the install before running it, not after', () => {
     const order: string[] = [];
 
-    apply(
-      root,
-      install,
-      (command) => order.push(`exec ${command}`),
-      (a) => order.push(`applied ${a.kind}`),
-      (a) => order.push(`starting ${a.command}`),
-    );
+    apply(root, install, {
+      exec: (command) => order.push(`exec ${command}`),
+      onApplied: (a) => order.push(`applied ${a.kind}`),
+      onInstallStarting: (a) => order.push(`starting ${a.command}`),
+    });
 
     expect(order).toEqual(['starting npm i -D eslint', 'exec npm i -D eslint', 'applied install']);
   });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { renderSurvey } from './survey';
+import { renderSurvey } from './render';
 
 /**
  * The folder names the sourceless note lists, read off the rendered output. A test that
@@ -66,7 +66,7 @@ function wrapWidthProbe(): string[] {
   return lines.slice(start + 1, end);
 }
 
-describe('renderSurvey', () => {
+describe('renderSurvey · the sections, and what each says when it is empty', () => {
   it('renders the unknown-framework header without folders', () => {
     const output = renderSurvey({
       framework: null,
@@ -157,35 +157,33 @@ describe('renderSurvey', () => {
     expect(output).not.toContain('— none —');
   });
 
-  it('adds the overflow line only past the 15-package cap, not at it', () => {
-    const render = (count: number) =>
-      renderSurvey({
-        framework: null,
-        typescript: false,
-        packageManager: 'npm',
-        aliases: {},
-        rootFiles: [],
-        folders: [],
-        edges: [],
-        selfAliasImports: {},
-        testEvidence: [],
-        packageUsage: Array.from({ length: count }, (_, index) => ({
-          package: `pkg-${index}`,
-          folders: ['services'],
-        })),
-        ownableImports: [],
-        unresolved: [],
-        totalFiles: 0,
-      });
+  it('prints no specifier section when there are no candidates', () => {
+    // `if (result.ownableImports.length)` → `if (true)` survived: the heading and its
+    // two-line explanation over an empty list, which every other section here refuses
+    // to do (field issue #6 is the same shape one section up).
+    const empty = renderSurvey({
+      framework: null,
+      typescript: false,
+      packageManager: 'npm',
+      aliases: {},
+      rootFiles: [],
+      folders: [],
+      edges: [],
+      selfAliasImports: {},
+      testEvidence: [],
+      packageUsage: [{ package: 'axios', folders: ['services'] }],
+      ownableImports: [],
+      unresolved: [],
+      totalFiles: 1,
+    });
 
-    // Exactly at the cap every package is already on the list, so the only
-    // overflow line available to print would claim "… 0 more".
-    expect(render(15)).toContain('pkg-14');
-    expect(render(15)).not.toContain('more (use --json');
-
-    expect(render(16)).toContain('… 1 more (use --json for the full list)');
+    expect(empty).toContain('Package usage');
+    expect(empty).not.toContain('Named imports in ONE folder');
+    expect(empty).not.toContain('was never counted');
   });
+});
 
+describe('renderSurvey · the sourceless-folder note', () => {
   it('says a zero-source folder is present, not empty — once, not per row', () => {
     // The row exists because the directory does, so `0` cannot mean "no folder" — and
     // it does not mean "nothing in it" either. An adopter read `styles 0 files` as an
@@ -313,6 +311,37 @@ describe('renderSurvey', () => {
 
     expect(exact.some((line) => line.length === 74)).toBe(true);
   });
+});
+
+describe('renderSurvey · the fifteen-row cap on each list', () => {
+  it('adds the overflow line only past the 15-package cap, not at it', () => {
+    const render = (count: number) =>
+      renderSurvey({
+        framework: null,
+        typescript: false,
+        packageManager: 'npm',
+        aliases: {},
+        rootFiles: [],
+        folders: [],
+        edges: [],
+        selfAliasImports: {},
+        testEvidence: [],
+        packageUsage: Array.from({ length: count }, (_, index) => ({
+          package: `pkg-${index}`,
+          folders: ['services'],
+        })),
+        ownableImports: [],
+        unresolved: [],
+        totalFiles: 0,
+      });
+
+    // Exactly at the cap every package is already on the list, so the only
+    // overflow line available to print would claim "… 0 more".
+    expect(render(15)).toContain('pkg-14');
+    expect(render(15)).not.toContain('more (use --json');
+
+    expect(render(16)).toContain('… 1 more (use --json for the full list)');
+  });
 
   it('caps the specifier list on the same rule as the package list', () => {
     // Its own section, its own cap, its own overflow line — sharing the wording
@@ -348,30 +377,5 @@ describe('renderSurvey', () => {
     // overflow line, and an assertion on the overflow line alone passes either way.
     expect((render(16).match(/ — hooks only/g) ?? []).length).toBe(15);
     expect(render(16)).not.toContain('use-15');
-  });
-
-  it('prints no specifier section when there are no candidates', () => {
-    // `if (result.ownableImports.length)` → `if (true)` survived: the heading and its
-    // two-line explanation over an empty list, which every other section here refuses
-    // to do (field issue #6 is the same shape one section up).
-    const empty = renderSurvey({
-      framework: null,
-      typescript: false,
-      packageManager: 'npm',
-      aliases: {},
-      rootFiles: [],
-      folders: [],
-      edges: [],
-      selfAliasImports: {},
-      testEvidence: [],
-      packageUsage: [{ package: 'axios', folders: ['services'] }],
-      ownableImports: [],
-      unresolved: [],
-      totalFiles: 1,
-    });
-
-    expect(empty).toContain('Package usage');
-    expect(empty).not.toContain('Named imports in ONE folder');
-    expect(empty).not.toContain('was never counted');
   });
 });

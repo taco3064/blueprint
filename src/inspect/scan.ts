@@ -140,20 +140,25 @@ function ordered(dir: string, readdir: (dir: string) => DirEntry[]): DirEntry[] 
   return readdir(dir).sort((a, b) => compareText(a.name, b.name));
 }
 
-function walk(
-  dir: string,
-  base: string,
-  prefix: string,
-  files: ScannedFile[],
-  readdir: (dir: string) => DirEntry[],
-): void {
+/** The three facts that hold for the whole walk, so only `dir` and `files` move. */
+interface WalkScope {
+  /** Absolute source root the relative paths are measured from. */
+  base: string;
+  /** Display prefix put back on each path (the source root, unless it is '.'). */
+  prefix: string;
+  readdir: (dir: string) => DirEntry[];
+}
+
+function walk(dir: string, files: ScannedFile[], scope: WalkScope): void {
+  const { base, prefix, readdir } = scope;
+
   for (const entry of ordered(dir, readdir)) {
     if (entry.isDirectory()) {
       if (NON_SOURCE_DIRS.has(entry.name)) {
         continue;
       }
 
-      walk(path.join(dir, entry.name), base, prefix, files, readdir);
+      walk(path.join(dir, entry.name), files, scope);
     } else if (SOURCE_EXT.test(entry.name)) {
       // Paths are matched against forward-slash globs everywhere downstream
       // (globToRegExp nets, coverage, survival probes) — normalize at birth,
@@ -194,7 +199,7 @@ export function scan(root: string, sourceRoot = 'src', options: ScanOptions = {}
 
   const files: ScannedFile[] = [];
 
-  walk(base, base, sourceRoot === '.' ? '' : sourceRoot, files, readdir);
+  walk(base, files, { base, prefix: sourceRoot === '.' ? '' : sourceRoot, readdir });
 
   return { topDirs, files };
 }

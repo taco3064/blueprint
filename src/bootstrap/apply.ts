@@ -14,6 +14,16 @@ export const defaultExec: Exec = (command, cwd) => {
 };
 /* v8 ignore stop */
 
+/** The three effects `apply` is handed — nothing here is computed from the plan. */
+export interface ApplyEffects {
+  /** Dependency install runner. */
+  exec: Exec;
+  /** Called after each action lands. */
+  onApplied: (action: Action) => void;
+  /** Called before the install action starts, while it is still running. */
+  onInstallStarting?: (action: Action & { kind: 'install' }) => void;
+}
+
 /**
  * Execute the planned actions against the filesystem, in order, calling
  * `onApplied` after each one lands. The callback is how the caller narrates
@@ -29,13 +39,9 @@ export const defaultExec: Exec = (command, cwd) => {
  * (field runs #131, #132). Announcing a step that is ABOUT to run is not the claim
  * #37 forbade; claiming one that already ran is.
  */
-export function apply(
-  root: string,
-  actions: Action[],
-  exec: Exec,
-  onApplied: (action: Action) => void,
-  onInstallStarting?: (action: Action & { kind: 'install' }) => void,
-): void {
+export function apply(root: string, actions: Action[], effects: ApplyEffects): void {
+  const { exec, onApplied, onInstallStarting } = effects;
+
   // Before the loop, not inside it: `apply` is the last boundary between an action
   // list and the filesystem, and a refusal halfway down has already written half
   // the list. `plan` checks too — this one holds for a list built any other way.

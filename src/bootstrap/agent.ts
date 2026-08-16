@@ -47,9 +47,10 @@ const defaultSpawner: Spawner = (bin, args, cwd) => {
 export function launchAgent(
   agent: AgentKind,
   root: string,
-  log: (message: string) => void,
-  spawner: Spawner = defaultSpawner,
+  effects: { log: (message: string) => void; spawner?: Spawner },
 ): number {
+  const { log, spawner = defaultSpawner } = effects;
+
   log(`\nLaunching ${agent} (interactive — your agent CLI, your permissions):`);
   log(`  ${launchCommandLine(agent)}`);
 

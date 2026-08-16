@@ -38,12 +38,12 @@ const write = (actions: Action[], path: string): WriteAction | undefined =>
     (action): action is WriteAction => action.kind === 'write' && action.path === path,
   );
 
-describe('plan · the agent contract files, and the marker block inside them', () => {
+describe('plan · the agent contract files it stops emitting', () => {
   it('removes a stale wholly-generated contract when emit.agents narrows (batch 10)', () => {
     const narrowed = { ...bp, emit: { agents: ['claude' as const] } };
     const stale = '<!-- BLUEPRINT:START -->\nold contract\n<!-- BLUEPRINT:END -->\n';
 
-    const actions = plan(state(), narrowed, null, {
+    const actions = plan(state(), narrowed, {
       existingAgentFiles: { 'AGENTS.md': stale, 'CLAUDE.md': stale },
     });
 
@@ -61,7 +61,7 @@ describe('plan · the agent contract files, and the marker block inside them', (
     const narrowed = { ...bp, emit: { agents: ['claude' as const] } };
     const edited = '# Our agents doc\n\n<!-- BLUEPRINT:START -->\nold\n<!-- BLUEPRINT:END -->\n';
 
-    const actions = plan(state(), narrowed, null, {
+    const actions = plan(state(), narrowed, {
       existingAgentFiles: { 'AGENTS.md': edited },
     });
 
@@ -80,7 +80,7 @@ describe('plan · the agent contract files, and the marker block inside them', (
     // --agent narrowed it: the note must not blame a config field that is
     // not there, and must say how to make the narrowing permanent — or the
     // next plain init regrows the file and the agent reads a flip-flop.
-    const viaFlag = plan(state(), bp, null, {
+    const viaFlag = plan(state(), bp, {
       agentTarget: 'claude',
       existingAgentFiles: { 'AGENTS.md': stale },
     }).find((a) => a.kind === 'rm');
@@ -90,7 +90,7 @@ describe('plan · the agent contract files, and the marker block inside them', (
 
     // Config silent, no flag: a stale non-default contract (an old GEMINI.md)
     // is simply not among the default set.
-    const viaDefault = plan(state(), bp, null, {
+    const viaDefault = plan(state(), bp, {
       existingAgentFiles: { 'GEMINI.md': stale },
     }).find((a) => a.kind === 'rm');
 
@@ -105,7 +105,7 @@ describe('plan · the agent contract files, and the marker block inside them', (
     const trailing
       = '<!-- BLUEPRINT:START -->\nold\n<!-- BLUEPRINT:END -->\n\nMy own notes.\n';
 
-    const actions = plan(state(), narrowed, null, {
+    const actions = plan(state(), narrowed, {
       existingAgentFiles: { 'AGENTS.md': trailing },
     });
 
@@ -121,7 +121,7 @@ describe('plan · the agent contract files, and the marker block inside them', (
   it('never touches a marker-free file or one outside the default paths', () => {
     const narrowed = { ...bp, emit: { agents: ['claude' as const] } };
 
-    const actions = plan(state(), narrowed, null, {
+    const actions = plan(state(), narrowed, {
       existingAgentFiles: {
         'AGENTS.md': '# Hand-written, never init\'s\n', // no marker — not ours
         'docs/AGENTS.md': '<!-- BLUEPRINT:START -->\nx\n<!-- BLUEPRINT:END '
@@ -139,7 +139,7 @@ describe('plan · the agent contract files, and the marker block inside them', (
   it('removes a stale own-strategy rules file by construction', () => {
     // .cursor/rules/blueprint.mdc has no merge markers — the whole file is
     // generated, so its presence outside emit.agents is stale by definition.
-    const actions = plan(state(), { ...bp, emit: { agents: ['claude' as const] } }, null, {
+    const actions = plan(state(), { ...bp, emit: { agents: ['claude' as const] } }, {
       existingAgentFiles: { '.cursor/rules/blueprint.mdc': '---\nfrontmatter\n---\n\ncontract' },
     });
 
@@ -148,12 +148,14 @@ describe('plan · the agent contract files, and the marker block inside them', (
       path: '.cursor/rules/blueprint.mdc',
     }));
   });
+});
 
+describe('plan · the agent contract files it writes, and the marker block inside them', () => {
   it('refreshes an existing marker block in place, per agent file', () => {
     const existing = 'top\n<!-- BLUEPRINT:START -->\nSTALE_CONTRACT\n'
       + '<!-- BLUEPRINT:END -->\nbottom';
 
-    const actions = plan(state(), bp, null, {
+    const actions = plan(state(), bp, {
       existingAgentFiles: { 'CLAUDE.md': existing, 'AGENTS.md': null },
     });
 
@@ -170,9 +172,7 @@ describe('plan · the agent contract files, and the marker block inside them', (
     const actions = plan(
       state(),
       bp,
-      null,
-      { existingAgentFiles: { 'AGENTS.md': '# My project' } },
-    );
+      { existingAgentFiles: { 'AGENTS.md': '# My project' } });
 
     // The hand-written file is not written at all; the reference carries the block.
     expect(write(actions, 'AGENTS.md')).toBeUndefined();
@@ -196,7 +196,7 @@ describe('plan · the agent contract files, and the marker block inside them', (
   });
 
   it('narrows the default targets to the tool in use via agentTarget', () => {
-    const actions = plan(state(), bp, null, { agentTarget: 'claude' });
+    const actions = plan(state(), bp, { agentTarget: 'claude' });
 
     expect(write(actions, 'CLAUDE.md')).toBeDefined();
     expect(write(actions, 'AGENTS.md')).toBeUndefined();
@@ -210,7 +210,7 @@ describe('plan · the agent contract files, and the marker block inside them', (
       emit: { handbook: 'HB.md', agents: [{ target: 'claude' as const, path: 'docs/CLAUDE.md' }] },
     };
 
-    const actions = plan(state(), custom, null, {
+    const actions = plan(state(), custom, {
       existingAgentFiles: { 'docs/CLAUDE.md': existing },
     });
 
@@ -226,7 +226,7 @@ describe('plan · the agent contract files, and the marker block inside them', (
   it('overwrites own-strategy rule files without marker merging', () => {
     const custom = { ...bp, emit: { agents: ['cursor' as const] } };
 
-    const actions = plan(state(), custom, null, {
+    const actions = plan(state(), custom, {
       existingAgentFiles: { '.cursor/rules/blueprint.mdc': 'anything' },
     });
 
@@ -239,7 +239,7 @@ describe('plan · the agent contract files, and the marker block inside them', (
 
 describe('plan · integrated hand-written context file', () => {
   it('leaves an already-integrated hand-written file alone — no reference, no nag', () => {
-    const actions = plan(state(), bp, null, {
+    const actions = plan(state(), bp, {
       existingAgentFiles: {
         'AGENTS.md': '# My project\n\nContract: see '
           + 'node_modules/@kekkai/blueprint/agent-contract.md',
@@ -272,7 +272,7 @@ describe('plan · the reference beside a hand-written contract', () => {
       emit: { agents: [{ target: 'claude', path: contractPath }] },
     };
 
-    return plan(state({ hasConfig: true }), bp, null, {
+    return plan(state({ hasConfig: true }), bp, {
       existingAgentFiles: { [contractPath]: '# notes I maintain by hand\n' },
     });
   };

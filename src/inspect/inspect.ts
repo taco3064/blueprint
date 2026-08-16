@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
+import type { Blueprint } from '../config';
 import { analyze } from './analyze';
 import {
   BASELINE_FILE,
@@ -12,6 +13,7 @@ import {
   splitByBaseline,
 } from './baseline';
 import { computeCoverage, renderCoverage } from './coverage';
+import type { Coverage } from './coverage';
 import { hasErrors, report } from './report';
 import { importGraphDerivation, scan } from './scan';
 import type { Finding } from './types';
@@ -51,65 +53,11 @@ export async function runInspect(
   const baselineFile = path.join(root, BASELINE_FILE);
 
   if (options.updateBaseline) {
-    // Info findings are not debt — "not built yet" is nothing a ratchet should hold,
-    // and recording them invites manufacturing debt just to have something to lock.
-    const debt = findings.filter((finding) => finding.severity !== 'info');
-
-    // A clean repo needs no ratchet — an empty baseline is a file whose only
-    // job is to exist. Skip writing it, and retire a paid-off one.
-    if (!debt.length) {
-      const note = findings.length
-        ? ` (${findings.length} informational note(s) are not debt)`
-        : '';
-
-      // Never point at plain `inspect` here — the gate line is
-      // `inspect --baseline` (a missing ledger is an empty one), and telling
-      // the reader plain inspect is the gate invites them to "fix" that line.
-      if (fs.existsSync(baselineFile)) {
-        fs.rmSync(baselineFile);
-        log(`No debt to lock${note} — ${BASELINE_FILE} removed; \`inspect --baseline\` (the gate line) now suppresses nothing.`);
-      } else {
-        log(`No debt to lock${note} — no baseline needed; \`inspect --baseline\` (the gate line) treats a missing ledger as empty.`);
-      }
-
-      return { findings, ok: true };
-    }
-
-    fs.writeFileSync(baselineFile, renderBaseline(debt));
-    log(`Baseline updated — ${debt.length} finding(s) recorded in ${BASELINE_FILE}.`);
-
-    return { findings, ok: true };
+    return lockBaseline(findings, baselineFile, log);
   }
 
   if (options.baseline) {
-    // A missing baseline file is an empty baseline: every finding is fresh.
-    // This keeps `inspect --baseline` one uniform gate line on repos with and
-    // without recorded debt.
-    const recorded = fs.existsSync(baselineFile)
-      ? parseBaseline(fs.readFileSync(baselineFile, 'utf-8'))
-      : [];
-
-    const split = splitByBaseline(findings, recorded);
-    const ok = !hasErrors(split.fresh);
-
-    log(
-      options.json
-        ? JSON.stringify(
-            {
-              ok,
-              findings: split.fresh,
-              suppressed: split.suppressed,
-              stale: split.stale,
-              coverage,
-              derivation: importGraphDerivation(),
-            },
-            null,
-            2,
-          )
-        : `${report(split.fresh)}\n\n${baselineSummary(split)}\n${renderCoverage(coverage, blueprint)}`,
-    );
-
-    return { findings: split.fresh, ok };
+    return baselineGate(findings, baselineFile, { log, coverage, blueprint, json: options.json });
   }
 
   const ok = !hasErrors(findings);
@@ -123,4 +71,84 @@ export async function runInspect(
   );
 
   return { findings, ok };
+}
+
+/** `--update-baseline`: record today's debt, or retire a ledger that is paid off. */
+function lockBaseline(
+  findings: Finding[],
+  baselineFile: string,
+  log: (message: string) => void,
+): { findings: Finding[]; ok: boolean } {
+  // Info findings are not debt — "not built yet" is nothing a ratchet should hold,
+  // and recording them invites manufacturing debt just to have something to lock.
+  const debt = findings.filter((finding) => finding.severity !== 'info');
+
+  if (debt.length) {
+    fs.writeFileSync(baselineFile, renderBaseline(debt));
+    log(`Baseline updated — ${debt.length} finding(s) recorded in ${BASELINE_FILE}.`);
+
+    return { findings, ok: true };
+  }
+
+  // A clean repo needs no ratchet — an empty baseline is a file whose only
+  // job is to exist. Skip writing it, and retire a paid-off one.
+  const note = findings.length
+    ? ` (${findings.length} informational note(s) are not debt)`
+    : '';
+
+  // Never point at plain `inspect` here — the gate line is
+  // `inspect --baseline` (a missing ledger is an empty one), and telling
+  // the reader plain inspect is the gate invites them to "fix" that line.
+  if (fs.existsSync(baselineFile)) {
+    fs.rmSync(baselineFile);
+    log(`No debt to lock${note} — ${BASELINE_FILE} removed; \`inspect --baseline\` (the gate line) now suppresses nothing.`);
+  } else {
+    log(`No debt to lock${note} — no baseline needed; \`inspect --baseline\` (the gate line) treats a missing ledger as empty.`);
+  }
+
+  return { findings, ok: true };
+}
+
+/**
+ * `--baseline`: the gate line. A missing baseline file is an empty baseline, so
+ * every finding is fresh — which keeps one uniform command on repos with and
+ * without recorded debt.
+ */
+function baselineGate(
+  findings: Finding[],
+  baselineFile: string,
+  ctx: {
+    log: (message: string) => void;
+    coverage: Coverage;
+    blueprint: Blueprint;
+    json?: boolean;
+  },
+): { findings: Finding[]; ok: boolean } {
+  const { log, coverage, blueprint } = ctx;
+
+  const recorded = fs.existsSync(baselineFile)
+    ? parseBaseline(fs.readFileSync(baselineFile, 'utf-8'))
+    : [];
+
+  const split = splitByBaseline(findings, recorded);
+  const ok = !hasErrors(split.fresh);
+
+  log(
+    ctx.json
+      ? JSON.stringify(
+          {
+            ok,
+            findings: split.fresh,
+            suppressed: split.suppressed,
+            stale: split.stale,
+            coverage,
+            derivation: importGraphDerivation(),
+          },
+          null,
+          2,
+        )
+      : `${report(split.fresh)}\n\n${baselineSummary(split)}\n${renderCoverage(coverage, blueprint)}`,
+  );
+
+  return { findings: split.fresh, ok };
 }

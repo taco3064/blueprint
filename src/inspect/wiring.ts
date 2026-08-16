@@ -170,12 +170,7 @@ function pickProbes(
   );
 
   return architecture.layers.flatMap((layer) => {
-    const globs = resolveLayerFiles(
-      layer.name,
-      architecture.layerFiles,
-      framework,
-      architecture.sourceRoot,
-    );
+    const globs = resolveLayerFiles(layer.name, framework, architecture);
 
     const nets = globs.map(globToRegExp);
     const hit = source.find((file) => nets.some((net) => net.test(file.path)));
@@ -241,17 +236,35 @@ function resolvedStructural(rules: Record<string, unknown>): {
   relativeEscape: boolean;
   unreadable: number;
 } {
-  const groups = new Set<string>();
-  const selectors = new Set<string>();
-  const globals = new Set<string>();
+  const imports = readPatternGroups(rules['no-restricted-imports']);
+  const selectors = readNamed(rules['no-restricted-syntax'], 'selector');
+  const globals = readNamed(rules['no-restricted-globals'], 'name');
 
-  // `optionsOf` answers [] for a rule that is absent or off — the same shape a rule
-  // with a severity and no options has — so each loop below reads a list rather than
-  // a maybe-list. The severity element is dropped there too, in one place instead of
-  // three.
+  return {
+    groups: imports.values,
+    selectors: selectors.values,
+    globals: globals.values,
+    relativeEscape: activeOptions(rules['blueprint/relative-escape']) !== null,
+    unreadable: imports.unreadable + selectors.unreadable + globals.unreadable,
+  };
+}
+
+/** What one restricted-* rule resolved to, and how much of it this check could not read. */
+interface ReadEntries {
+  values: Set<string>;
+  unreadable: number;
+}
+
+/**
+ * `optionsOf` answers [] for a rule that is absent or off — the same shape a rule
+ * with a severity and no options has — so each reader below takes a list rather than
+ * a maybe-list, and the severity element is dropped there in one place.
+ */
+function readPatternGroups(entry: unknown): ReadEntries {
+  const values = new Set<string>();
   let unreadable = 0;
 
-  for (const option of optionsOf(rules['no-restricted-imports'])) {
+  for (const option of optionsOf(entry)) {
     const patterns = (option as { patterns?: unknown[] })?.patterns;
 
     // A paths-only option carries no patterns at all — that is a shape, not a
@@ -264,40 +277,32 @@ function resolvedStructural(rules: Record<string, unknown>): {
       const group = (pattern as { group?: unknown })?.group;
 
       if (Array.isArray(group)) {
-        groups.add(JSON.stringify(group));
+        values.add(JSON.stringify(group));
       } else {
         unreadable++;
       }
     }
   }
 
-  for (const item of optionsOf(rules['no-restricted-syntax'])) {
-    const selector = typeof item === 'string' ? item : (item as { selector?: string })?.selector;
+  return { values, unreadable };
+}
 
-    if (selector) {
-      selectors.add(selector);
+/** `no-restricted-syntax` / `-globals`: each entry is a bare string or an object. */
+function readNamed(entry: unknown, key: 'selector' | 'name'): ReadEntries {
+  const values = new Set<string>();
+  let unreadable = 0;
+
+  for (const item of optionsOf(entry)) {
+    const value = typeof item === 'string' ? item : (item as Record<string, string>)?.[key];
+
+    if (value) {
+      values.add(value);
     } else {
       unreadable++;
     }
   }
 
-  for (const item of optionsOf(rules['no-restricted-globals'])) {
-    const name = typeof item === 'string' ? item : (item as { name?: string })?.name;
-
-    if (name) {
-      globals.add(name);
-    } else {
-      unreadable++;
-    }
-  }
-
-  return {
-    groups,
-    selectors,
-    globals,
-    relativeEscape: activeOptions(rules['blueprint/relative-escape']) !== null,
-    unreadable,
-  };
+  return { values, unreadable };
 }
 
 /**
@@ -339,7 +344,7 @@ export interface WiringParams {
  * cover those states already.
  */
 export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
-  const { root, blueprint, scanResult, wired, merged, hasTypescript, load } = params;
+  const { blueprint, scanResult, wired, merged } = params;
   const LABEL = label(merged);
 
   if (!wired) {
@@ -366,71 +371,16 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
     return { label: `${LABEL} (skipped — no probe derivable from the layer globs)`, ok: true };
   }
 
-  const lost: string[] = [];
-  const carriers = expectedCarriers(blueprint, hasTypescript);
-  let unreadable = 0;
+  let survey: { lost: string[]; unreadable: number };
 
   try {
-    const { ESLint } = unwrapModule<EslintApi>(await load('eslint', root));
-    const eslint = new ESLint({ cwd: root });
-
-    for (const probe of probes) {
-      const config = await eslint.calculateConfigForFile(path.join(root, probe.path));
-      const rules = (config as { rules?: Record<string, unknown> })?.rules ?? {};
-
-      const resolved = resolvedStructural(rules);
-
-      unreadable += resolved.unreadable;
-
-      lost.push(...losses(expectedStructural(blueprint, probe.layer), resolved)
-        .map((loss) => `${probe.layer}: ${loss}`));
-
-      // A gate declared in blueprint.config.mjs whose rule is absent from the
-      // resolved config means the merge dropped its carrier — the silent
-      // failure the playbook spends the most words on, and the one this
-      // check used to walk straight past.
-      lost.push(
-        ...carriers
-          .filter((entry) => activeOptions(rules[entry.rule]) === null)
-          .map(
-            (entry) =>
-              `${probe.layer}: rules.${entry.gate} is on but ${entry.rule} resolved to nothing `
-              + `— emitLint's \`${entry.carrier}\` argument is missing from the merged entry`,
-          ),
-      );
-    }
+    survey = await surveyProbes(params, probes);
   } catch (error) {
-    // An unresolvable config is a skip, not a verdict — but a skip the banner
-    // counted as a pass is how an agent concluded the wiring was verified (#129).
-    // The reason travels with it: a bare "would not resolve" sent three runs to
-    // `npm run lint` to learn WHICH package was missing (field runs #145, #148, #149).
-    const reason = error instanceof Error ? error.message.split('\n')[0] : String(error);
-
-    return {
-      label: `${LABEL} (skipped — could not resolve the ${merged ? 'merged' : 'generated'} config)`,
-      ok: true,
-      skipped: `it would not resolve — "${reason}" — so nothing here proves the emitted rules are `
-        + 'alive in it. A package named there that is missing from `package.json` too means '
-        + 'init\'s install step never completed; re-run it, or the project\'s own lint, which '
-        + 'fails for this same reason. This check runs once that passes',
-    };
+    return unresolvableConfig(LABEL, merged, error);
   }
 
-  // Say what the ✓ covers. Unqualified, it reads as "every emitted rule is
-  // alive", which this check has never been able to promise (field #40).
-  if (!lost.length) {
-    // Green, but not silent about what was skipped. An entry in a shape this check
-    // cannot read is not a failure — containment means an unrecognised entry is the
-    // user's own business — yet a hand-folded one with a typo looked identical to a
-    // deliberate one, and the check said nothing either way.
-    const note = unreadable === 0
-      ? undefined
-      : `${unreadable} restricted-import/syntax/globals entr${unreadable === 1 ? 'y' : 'ies'} `
-        + 'in the resolved config could not be read by this check (not a blueprint entry, or '
-        + 'a hand-folded one that drifted) — they are not compared, so a typo in one would '
-        + 'not surface here';
-
-    return { label: `${LABEL} (${SCOPE})`, ok: true, detail: note };
+  if (!survey.lost.length) {
+    return surviving(LABEL, survey.unreadable);
   }
 
   // The check compares exact emitted text, so a red has TWO possible causes
@@ -439,7 +389,7 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
   return {
     label: LABEL,
     ok: false,
-    detail: `${lost.join('; ')} — the resolved config no longer carries the exact text this `
+    detail: `${survey.lost.join('; ')} — the resolved config no longer carries the exact text this `
       + 'version emits. Either a later flat-config entry replaced the rule (flat config '
       + 'never merges: combine both option sets into ONE entry — `blueprint rules --json` '
       + 'carries the exact selfOnly selectors), or a hand-folded copy drifted from this '
@@ -448,6 +398,83 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
       + 'missing here even though eslint would enforce it — copy the emitted text rather '
       + 'than retyping it. Fix that entry, then re-run doctor',
   };
+}
+
+/** Resolve the real config for each probe file and collect what it no longer carries. */
+async function surveyProbes(
+  params: WiringParams,
+  probes: ReturnType<typeof pickProbes>,
+): Promise<{ lost: string[]; unreadable: number }> {
+  const { root, blueprint, hasTypescript, load } = params;
+  const carriers = expectedCarriers(blueprint, hasTypescript);
+  const lost: string[] = [];
+  let unreadable = 0;
+
+  const { ESLint } = unwrapModule<EslintApi>(await load('eslint', root));
+  const eslint = new ESLint({ cwd: root });
+
+  for (const probe of probes) {
+    const config = await eslint.calculateConfigForFile(path.join(root, probe.path));
+    const rules = (config as { rules?: Record<string, unknown> })?.rules ?? {};
+    const resolved = resolvedStructural(rules);
+
+    unreadable += resolved.unreadable;
+
+    lost.push(...losses(expectedStructural(blueprint, probe.layer), resolved)
+      .map((loss) => `${probe.layer}: ${loss}`));
+
+    // A gate declared in blueprint.config.mjs whose rule is absent from the
+    // resolved config means the merge dropped its carrier — the silent
+    // failure the playbook spends the most words on, and the one this
+    // check used to walk straight past.
+    lost.push(
+      ...carriers
+        .filter((entry) => activeOptions(rules[entry.rule]) === null)
+        .map(
+          (entry) =>
+            `${probe.layer}: rules.${entry.gate} is on but ${entry.rule} resolved to nothing `
+            + `— emitLint's \`${entry.carrier}\` argument is missing from the merged entry`,
+        ),
+    );
+  }
+
+  return { lost, unreadable };
+}
+
+/**
+ * An unresolvable config is a skip, not a verdict — but a skip the banner counted as
+ * a pass is how an agent concluded the wiring was verified (#129). The reason travels
+ * with it: a bare "would not resolve" sent three runs to `npm run lint` to learn WHICH
+ * package was missing (field runs #145, #148, #149).
+ */
+function unresolvableConfig(label: string, merged: boolean, error: unknown): DoctorCheck {
+  const reason = error instanceof Error ? error.message.split('\n')[0] : String(error);
+
+  return {
+    label: `${label} (skipped — could not resolve the ${merged ? 'merged' : 'generated'} config)`,
+    ok: true,
+    skipped: `it would not resolve — "${reason}" — so nothing here proves the emitted rules are `
+      + 'alive in it. A package named there that is missing from `package.json` too means '
+      + 'init\'s install step never completed; re-run it, or the project\'s own lint, which '
+      + 'fails for this same reason. This check runs once that passes',
+  };
+}
+
+/**
+ * Say what the ✓ covers. Unqualified, it reads as "every emitted rule is alive",
+ * which this check has never been able to promise (field #40) — and an entry in a
+ * shape it cannot read is not a failure, yet a hand-folded one with a typo looked
+ * identical to a deliberate one while the check said nothing either way.
+ */
+function surviving(label: string, unreadable: number): DoctorCheck {
+  const note = unreadable === 0
+    ? undefined
+    : `${unreadable} restricted-import/syntax/globals entr${unreadable === 1 ? 'y' : 'ies'} `
+      + 'in the resolved config could not be read by this check (not a blueprint entry, or '
+      + 'a hand-folded one that drifted) — they are not compared, so a typo in one would '
+      + 'not surface here';
+
+  return { label: `${label} (${SCOPE})`, ok: true, detail: note };
 }
 
 /** What the merge dropped, per artifact family. */

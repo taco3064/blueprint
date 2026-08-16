@@ -54,9 +54,9 @@ describe('plan', () => {
     // every file above is already on disk" — so an effect added below the install makes
     // that sentence false as well as strands the tree (field runs #144–#146).
     const cases = [
-      ['fresh scaffold', plan(state(), bp, 'CONFIG SOURCE', {})],
-      ['existing config', plan(state(), bp, null, {})],
-      ['no install', plan(state(), bp, 'CONFIG SOURCE', { install: false })],
+      ['fresh scaffold', plan(state(), bp, { configSource: 'CONFIG SOURCE' })],
+      ['existing config', plan(state(), bp)],
+      ['no install', plan(state(), bp, { configSource: 'CONFIG SOURCE', install: false })],
     ] as const;
 
     for (const [name, actions] of cases) {
@@ -75,7 +75,7 @@ describe('plan', () => {
   });
 
   it('writes config, scaffolds every layer, emits artifacts, and installs', () => {
-    const actions = plan(state(), bp, 'CONFIG SOURCE', {});
+    const actions = plan(state(), bp, { configSource: 'CONFIG SOURCE' });
 
     expect(write(actions, 'blueprint.config.mjs')).toMatchObject({ content: 'CONFIG SOURCE' });
     expect(actions.filter((a) => a.kind === 'mkdir')).toHaveLength(6);
@@ -99,27 +99,27 @@ describe('plan', () => {
 
   it('omits the config write when configSource is null', () => {
     expect(
-      write(plan(state({ hasConfig: true }), bp, null, {}), 'blueprint.config.mjs'),
+      write(plan(state({ hasConfig: true }), bp), 'blueprint.config.mjs'),
     ).toBeUndefined();
   });
 
   it('scaffolds no empty layer dirs when the tree already holds code (batch 11)', () => {
     // Root-only starter taking the early exit: .gitkeep shells would be the
     // physical twin of the manufactured net the playbook forbids.
-    const actions = plan(state(), bp, 'CONFIG SOURCE', { hasSourceFiles: true });
+    const actions = plan(state(), bp, { configSource: 'CONFIG SOURCE', hasSourceFiles: true });
 
     expect(actions.filter((a) => a.kind === 'mkdir')).toHaveLength(0);
     expect(write(actions, 'blueprint.config.mjs')).toBeDefined(); // the rest of the plan is intact
   });
 
   it('skips layer dirs that already exist', () => {
-    const actions = plan(state({ existingSrcDirs: ['pages', 'services'] }), bp, null, {});
+    const actions = plan(state({ existingSrcDirs: ['pages', 'services'] }), bp);
 
     expect(actions.filter((a) => a.kind === 'mkdir')).toHaveLength(4);
   });
 
   it('surfaces the install command as an instruct under --no-install', () => {
-    const actions = plan(state(), bp, null, { install: false });
+    const actions = plan(state(), bp, { install: false });
 
     expect(actions.some((a) => a.kind === 'install')).toBe(false);
 
@@ -128,7 +128,7 @@ describe('plan', () => {
     expect(note?.note).toContain('npm install -D eslint @kekkai/blueprint');
 
     // Nothing missing → neither an install action nor the instruct.
-    const clean = plan(state({ missingDeps: [] }), bp, null, {});
+    const clean = plan(state({ missingDeps: [] }), bp);
 
     expect(clean.some((a) => a.kind === 'install')).toBe(false);
 
@@ -142,7 +142,7 @@ describe('plan', () => {
     // than this package's own devDependency. A field agent watched ESLint 10 arrive
     // from a tool developed on 9 and could only report "worked today" (#100): the
     // support range is a decision in the source that never reached any output.
-    const install = plan(state(), bp, null, {}).find((a) => a.kind === 'install');
+    const install = plan(state(), bp).find((a) => a.kind === 'install');
 
     expect(install?.kind === 'install' && install.note).toContain('eslint unpinned');
 
@@ -150,38 +150,41 @@ describe('plan', () => {
       expect(install?.kind === 'install' && install.note).toContain(String(major));
     }
 
-    // Both halves are asserted, because each answers a different question. The
+    // Both halves are asserted — this one here, the CI one in the test below —
+    // because each answers a different question. The
     // peer-range one decides whether their install resolves at all, and it is the half
     // an adopter can check without leaving their own `node_modules` — `detect.test.ts`
     // proves it per carrier off the installed manifests.
     expect(install?.kind === 'install' && install.note)
       .toContain('admitted by every carrier\'s peer range');
 
-    // The CI half carries its channel, and the bare form stays forbidden. "both
-    // tested" shipped once while nothing ran 10 (field run #150); the `eslint-10` leg
-    // makes it true, but the published tarball ships `devDependencies` with eslint 9
-    // and two runs are on record reading that file (#139, #140), so unbridged it still
-    // reads as the tool contradicting itself.
-    expect(install?.kind === 'install' && install.note)
-      .toContain('CI runs its own suite on each');
-
-    expect(install?.kind === 'install' && install.note).not.toContain('are both tested');
-
     // A repo that already has eslint gets the plain list — the sentence explains a
     // resolution about to happen, so with nothing to resolve it is noise.
-    const partial = plan(state({ missingDeps: ['@kekkai/blueprint'] }), bp, null, {})
+    const partial = plan(state({ missingDeps: ['@kekkai/blueprint'] }), bp)
       .find((a) => a.kind === 'install');
 
     expect(partial?.kind === 'install' && partial.note).toBe('@kekkai/blueprint');
   });
 
+  it('names the channel that runs each major, and claims no more than it runs', () => {
+    // The other half of the same sentence, and the comment above says why they are
+    // asserted apart: the peer range decides whether the install resolves, this one
+    // says who tested the result. "both tested" shipped once while nothing ran 10
+    // (field run #150); the `eslint-10` leg makes it true, but the published tarball
+    // ships `devDependencies` with eslint 9 and two runs are on record reading that
+    // file (#139, #140), so unbridged it still reads as the tool contradicting itself.
+    const install = plan(state(), bp).find((a) => a.kind === 'install');
+
+    expect(install?.kind === 'install' && install.note)
+      .toContain('CI runs its own suite on each');
+
+    expect(install?.kind === 'install' && install.note).not.toContain('are both tested');
+  });
+
   it('uses the package manager add syntax for pnpm/yarn', () => {
     const pnpm = plan(
       state({ packageManager: 'pnpm' }),
-      bp,
-      null,
-      {},
-    ).find((a) => a.kind === 'install');
+      bp).find((a) => a.kind === 'install');
 
     expect(pnpm).toMatchObject({ command: 'pnpm add -D eslint @kekkai/blueprint' });
   });
@@ -191,10 +194,7 @@ describe('plan · wired eslint config', () => {
   it('emits no reference when the hand-made config already imports the package', () => {
     const actions = plan(
       state({ hasEslintConfig: true, wiredEslintConfig: true }),
-      bp,
-      null,
-      {},
-    );
+      bp);
 
     expect(write(actions, 'eslint.config.blueprint.mjs')).toBeUndefined();
     expect(write(actions, 'eslint.config.mjs')).toBeUndefined();
@@ -217,15 +217,18 @@ describe('plan · what licenses a greenfield edit', () => {
   it('edits vite.config only when init wrote the blueprint config itself', () => {
     // The surgery is licensed by init OWNING that setup moment. With a config
     // already in the repo, the vite file is the user's — instruct, never edit.
-    expect(write(plan(state(withVite), bp, 'source', {}), 'vite.config.ts')).toBeDefined();
-    expect(write(plan(state(withVite), bp, null, {}), 'vite.config.ts')).toBeUndefined();
+    expect(write(plan(state(withVite), bp, { configSource: 'source' }), 'vite.config.ts'))
+      .toBeDefined();
+
+    expect(write(plan(state(withVite), bp), 'vite.config.ts')).toBeUndefined();
   });
 
   it('closes the marker block directly after the contract body', () => {
     // The emitted contract ends with a newline. Left on, the block gains a blank
     // line before its END marker, and every re-init diffs that line back and
     // forth depending on which end got trimmed.
-    const content = write(plan(state(), bp, 'source', {}), 'CLAUDE.md')?.content ?? '';
+    const content
+      = write(plan(state(), bp, { configSource: 'source' }), 'CLAUDE.md')?.content ?? '';
 
     expect(content).toMatch(/\S\n<!-- BLUEPRINT:END -->/);
   });
@@ -266,7 +269,7 @@ describe('plan · every action is labelled so the reader can locate it', () => {
   ];
 
   it.each(scenarios)('%s', (_label, over, configSource) => {
-    const actions = plan(state(over), bp, configSource, {});
+    const actions = plan(state(over), bp, { configSource });
 
     expect(actions.length).toBeGreaterThan(0);
 
@@ -300,7 +303,7 @@ describe('plan · containment', () => {
     ['emit.agents path, relative', { agents: [{ target: 'claude', path: '../CLAUDE.md' }] }],
     ['emit.agents path, absolute', { agents: [{ target: 'claude', path: '/tmp/CLAUDE.md' }] }],
   ] as [string, Blueprint['emit']][])('refuses %s', (_name, emit) => {
-    expect(() => plan(state(), withEmit(emit), 'CONFIG SOURCE', {}))
+    expect(() => plan(state(), withEmit(emit), { configSource: 'CONFIG SOURCE' }))
       .toThrow(/outside the project root/);
   });
 
@@ -310,7 +313,7 @@ describe('plan · containment', () => {
       agents: [{ target: 'claude', path: '.claude/CLAUDE.md' }],
     });
 
-    const actions = plan(state(), inside, 'CONFIG SOURCE', {});
+    const actions = plan(state(), inside, { configSource: 'CONFIG SOURCE' });
 
     expect(write(actions, 'docs/nested/handbook.md')).toBeDefined();
     expect(write(actions, '.claude/CLAUDE.md')).toBeDefined();

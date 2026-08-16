@@ -84,7 +84,7 @@ export const relativeEscape: Rule.RuleModule = {
 
       const target = resolveSegments(dir, specifier);
 
-      const verdict = relativeVerdict(segments, target, layoutOf, entryOf);
+      const verdict = relativeVerdict(segments, target, { layoutOf, entryOf });
 
       if (verdict === 'ok') {
         return;

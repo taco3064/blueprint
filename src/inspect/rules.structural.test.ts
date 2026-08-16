@@ -56,10 +56,9 @@ const blueprint: Blueprint = {
   emit: { lint: { severity: 'warn' } },
 };
 
-describe('runRules · the structural rows a merge needs', () => {
+describe('runRules · the per-layer ban rows', () => {
   it('resolves per-layer bans so nobody parses print-config by hand (field #7)', async () => {
-    const lines: string[] = [];
-    const { bans } = await runRules(repo(blueprint), { log: (m) => void lines.push(m) });
+    const { bans } = await runRules(repo(blueprint), { log: () => {} });
 
     // components may not import hooks/services and owns nothing — every
     // ownership ban applies to it.
@@ -99,7 +98,9 @@ describe('runRules · the structural rows a merge needs', () => {
 
     expect(owner.bans[0].packages).toEqual([]);
     expect(owner.bans[0]).not.toHaveProperty('packagesNote');
+  });
 
+  it('withholds the packages caveat from the text output too', async () => {
     // And the text output gates on the same fact, or it becomes the counterexample to the
     // reason `--json` withholds the note: a paragraph about a column reading `(none)` all
     // the way down, which is what "nothing to verify" was supposed to prevent.
@@ -127,6 +128,12 @@ describe('runRules · the structural rows a merge needs', () => {
     expect(section.at(-1)).toBe(
       '  components     no-import: (none) · packages: (none) · globals: (none)',
     );
+  });
+
+  it('prints one row per layer, and prints it last', async () => {
+    const lines: string[] = [];
+
+    await runRules(repo(blueprint), { log: (m) => void lines.push(m) });
 
     const output = lines.join('\n');
 
@@ -156,7 +163,9 @@ describe('runRules · the structural rows a merge needs', () => {
       '  services       no-import: components, hooks · packages: react (useContext) · globals: '
       + '(none)',
     )).toBe(true);
+  });
 
+  it('prints no resolved view at all without a config', async () => {
     // No config → no resolved view, just the static catalog.
     const bare: string[] = [];
     const empty = await runRules(repo(), { log: (m) => void bare.push(m) });
@@ -164,7 +173,9 @@ describe('runRules · the structural rows a merge needs', () => {
     expect(empty.bans).toEqual([]);
     expect(bare.join('\n')).not.toContain('Per-layer bans');
   });
+});
 
+describe('runRules · the selfOnly selectors a merge fold copies', () => {
   it('carries the exact selfOnly selectors a merge fold needs (field #20)', async () => {
     // '~root' targets the repo root, so its selectors carry the src offset
     // (field #29); a subfolder alias would have no layer surface at all.
@@ -302,7 +313,9 @@ describe('runRules · the structural rows a merge needs', () => {
     expect(ban?.note).toContain('yours to write');
     expect(ban?.note).toContain('never messages');
   });
+});
 
+describe('runRules · which structural rules the config emits', () => {
   it('reads a narrowed importer list as no reason to emit the syntax ban', async () => {
     // `allowedImporters` narrows WHO may import; `selfOnly` additionally bars
     // re-export, and only the second needs no-restricted-syntax. A list without

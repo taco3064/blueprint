@@ -59,6 +59,23 @@ export type JsoncResult = { ok: true; value: unknown } | ({ ok: false } & JsoncF
  * unreadable would false-red the doctor's alias check on the mainstream path.
  */
 export function parseJsonc(text: string): JsoncResult {
+  const stripped = stripComments(text);
+
+  if (!stripped.ok) {
+    return stripped;
+  }
+
+  try {
+    return { ok: true, value: JSON.parse(dropTrailingCommas(stripped.text)) };
+  } catch {
+    // No offset: JSON.parse's position refers to the stripped text, not the file
+    // the reader has open.
+    return { ok: false, reason: 'not-json' };
+  }
+}
+
+/** Pass one: line and block comments out, string literals copied through whole. */
+function stripComments(text: string): { ok: true; text: string } | ({ ok: false } & JsoncFailure) {
   // A STRING, not an array joined at the end: `'' + undefined` shows an overrun
   // where `[undefined].join('')` hides it, and the bounds are this scanner's whole
   // correctness argument.
@@ -74,34 +91,49 @@ export function parseJsonc(text: string): JsoncResult {
 
       commentFree += literal.copied;
       i = literal.next;
-    } else if (text[i] === '/' && text[i + 1] === '/') {
-      // `indexOf` answers with the position, so there is no bound to walk past.
-      const newline = text.indexOf('\n', i);
+    } else if (text[i] === '/' && (text[i + 1] === '/' || text[i + 1] === '*')) {
+      const end = commentEnd(text, i);
 
-      i = newline === -1 ? text.length : newline;
-    } else if (text[i] === '/' && text[i + 1] === '*') {
-      // From AFTER the opener, or `/*/` reads as a closed comment: the `*/` the
-      // search finds would be the opener's own `*` with the next `/`.
-      const close = text.indexOf('*/', i + 2);
-
-      if (close === -1) {
+      if (end === -1) {
         return { ok: false, reason: 'unclosed-comment', at: text.length };
       }
 
-      i = close + 2;
+      i = end;
     } else {
       commentFree += text[i];
       i++;
     }
   }
 
-  // Second pass, comment-free: drop a comma whose next non-space is `}`/`]`.
+  return { ok: true, text: commentFree };
+}
+
+/** Where the comment opening at `i` ends, or -1 for a block comment that never closes. */
+function commentEnd(text: string, i: number): number {
+  if (text[i + 1] === '/') {
+    // `indexOf` answers with the position, so there is no bound to walk past.
+    const newline = text.indexOf('\n', i);
+
+    return newline === -1 ? text.length : newline;
+  }
+
+  // From AFTER the opener, or `/*/` reads as a closed comment: the `*/` the
+  // search finds would be the opener's own `*` with the next `/`.
+  const close = text.indexOf('*/', i + 2);
+
+  return close === -1 ? -1 : close + 2;
+}
+
+/**
+ * Pass two, comment-free: drop a comma whose next non-space is `}`/`]`. Every string
+ * literal here is proven closed by pass one — the cast is that proof, not a check,
+ * because the check would be a branch no input can take.
+ */
+function dropTrailingCommas(commentFree: string): string {
   let clean = '';
 
   for (let i = 0; i < commentFree.length;) {
     if (commentFree[i] === '"') {
-      // Proven closed by the first pass. A cast, not a check: the check would be a
-      // branch no input can take, which reads as a case somebody handled.
       const literal = copyString(commentFree, i) as ClosedString;
 
       clean += literal.copied;
@@ -123,13 +155,7 @@ export function parseJsonc(text: string): JsoncResult {
     }
   }
 
-  try {
-    return { ok: true, value: JSON.parse(clean) };
-  } catch {
-    // No offset: JSON.parse's position refers to the stripped text, not the file
-    // the reader has open.
-    return { ok: false, reason: 'not-json' };
-  }
+  return clean;
 }
 
 /** A tsconfig the JSONC reader gave up on, named so a caller can say which. */

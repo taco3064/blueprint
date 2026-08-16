@@ -23,6 +23,7 @@ const architecture: ArchitectureDef = {
 
 const layoutOf = layoutResolver(architecture);
 const entryOf = entryResolver(architecture);
+const shape = { layoutOf, entryOf };
 
 describe('entryResolver', () => {
   it('takes the shared entry, and a layer override where declared', () => {
@@ -41,40 +42,40 @@ describe('relativeVerdict', () => {
   const own = ['resources', 'matches', 'Row.ts'];
 
   it('allows anything inside the importer own module', () => {
-    expect(relativeVerdict(own, ['resources', 'matches', 'parts', 'Cell.ts'], layoutOf, entryOf))
+    expect(relativeVerdict(own, ['resources', 'matches', 'parts', 'Cell.ts'], shape))
       .toBe('ok');
   });
 
   it('allows a sibling by its entry, folder or explicit file', () => {
-    expect(relativeVerdict(own, ['resources', 'markets'], layoutOf, entryOf)).toBe('ok');
+    expect(relativeVerdict(own, ['resources', 'markets'], shape)).toBe('ok');
 
     expect(
-      relativeVerdict(own, ['resources', 'markets', 'index.ts'], layoutOf, entryOf),
+      relativeVerdict(own, ['resources', 'markets', 'index.ts'], shape),
     ).toBe('ok');
   });
 
   it('honours a layer own entry name', () => {
     const inServices = ['services', 'api', 'client.ts'];
 
-    expect(relativeVerdict(inServices, ['services', 'feed', 'service.ts'], layoutOf, entryOf))
+    expect(relativeVerdict(inServices, ['services', 'feed', 'service.ts'], shape))
       .toBe('ok');
 
-    expect(relativeVerdict(inServices, ['services', 'feed', 'index.ts'], layoutOf, entryOf))
+    expect(relativeVerdict(inServices, ['services', 'feed', 'index.ts'], shape))
       .toBe('reaches-inside');
   });
 
   it('refuses to reach past a sibling entry', () => {
-    expect(relativeVerdict(own, ['resources', 'markets', 'parts', 'Cell.ts'], layoutOf, entryOf))
+    expect(relativeVerdict(own, ['resources', 'markets', 'parts', 'Cell.ts'], shape))
       .toBe('reaches-inside');
   });
 
   it('refuses to leave the layer, and reports an unresolvable target', () => {
-    expect(relativeVerdict(own, ['services', 'api'], layoutOf, entryOf)).toBe('leaves-layer');
-    expect(relativeVerdict(own, null, layoutOf, entryOf)).toBe('escapes-src');
+    expect(relativeVerdict(own, ['services', 'api'], shape)).toBe('leaves-layer');
+    expect(relativeVerdict(own, null, shape)).toBe('escapes-src');
   });
 
   it('leaves a flat layer alone — it has no module folders to be inside of', () => {
-    expect(relativeVerdict(['utils', 'date.ts'], ['utils', 'money.ts'], layoutOf, entryOf))
+    expect(relativeVerdict(['utils', 'date.ts'], ['utils', 'money.ts'], shape))
       .toBe('ok');
 
     // The DEEP case, and the invariant this function's shape rests on: a flat
@@ -84,15 +85,14 @@ describe('relativeVerdict', () => {
     // `layoutOf` that answered nonsense produced the same verdict, and the check
     // that used to catch that (`layoutOf(layer) !== 'folder'`, removed as
     // unreachable) was the suite's only hold on it.
-    expect(relativeVerdict(['utils', 'date.ts'], ['utils', 'sub', 'helper.ts'], layoutOf, entryOf))
+    expect(relativeVerdict(['utils', 'date.ts'], ['utils', 'sub', 'helper.ts'], shape))
       .toBe('ok');
 
     // …while the same shape under a FOLDER layer is exactly what is banned.
     expect(relativeVerdict(
       ['resources', 'matches', 'index.ts'],
       ['resources', 'players', 'parts', 'Row.ts'],
-      layoutOf,
-      entryOf,
+      shape,
     )).toBe('reaches-inside');
   });
 });
@@ -199,9 +199,7 @@ describe('targetModuleKey · which specifiers name a module', () => {
       targetModuleKey(
         ref('axios'),
         file(['resources', 'Row', 'Row.ts']),
-        ['~app'],
-        ['resources'],
-        layoutOf,
+        { aliases: ['~app'], layerNames: ['resources'], layoutOf },
       ),
     ).toBeNull();
 
@@ -210,9 +208,7 @@ describe('targetModuleKey · which specifiers name a module', () => {
       targetModuleKey(
         ref('./parts/Cell'),
         file(['resources', 'Row', 'Row.ts']),
-        ['~app'],
-        ['resources'],
-        layoutOf,
+        { aliases: ['~app'], layerNames: ['resources'], layoutOf },
       ),
     ).toBe('resources/Row');
 
@@ -220,9 +216,7 @@ describe('targetModuleKey · which specifiers name a module', () => {
       targetModuleKey(
         ref('~app/services/api'),
         file(['resources', 'Row', 'Row.ts']),
-        ['~app'],
-        ['services'],
-        layoutOf,
+        { aliases: ['~app'], layerNames: ['services'], layoutOf },
       ),
     ).toBe('services/api');
   });
@@ -237,8 +231,7 @@ describe('relativeVerdict · how deep the entry check looks', () => {
     expect(relativeVerdict(
       ['resources', 'matches', 'Row.ts'],
       ['resources', 'markets', 'index', 'deep.ts'],
-      layoutOf,
-      entryOf,
+      shape,
     )).toBe('reaches-inside');
   });
 
@@ -256,8 +249,7 @@ describe('relativeVerdict · how deep the entry check looks', () => {
     expect(relativeVerdict(
       ['types', 'money', 'money.ts'],
       ['types', 'shape', 'index.d.ts'],
-      layoutResolver(typed),
-      entryResolver(typed),
+      { layoutOf: layoutResolver(typed), entryOf: entryResolver(typed) },
     )).toBe('ok');
   });
 });

@@ -25,38 +25,22 @@ const exists = (file: string) => fs.existsSync(path.join(root, file));
 
 const silent = () => {};
 
-describe('runInit · lint-script wiring', () => {
-  const prettyPkg = (lint: string) =>
-    fs.writeFileSync(
-      path.join(root, 'package.json'),
-      JSON.stringify(
-        { name: 'demo', dependencies: { vue: '^3' }, scripts: { lint } },
-        null,
-        2,
-      ),
-    );
+const prettyPkg = (lint: string) =>
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify(
+      { name: 'demo', dependencies: { vue: '^3' }, scripts: { lint } },
+      null,
+      2,
+    ),
+  );
 
+describe('runInit · lint-script wiring', () => {
   it('patches a fresh scaffold whose lint script misses eslint', async () => {
     prettyPkg('oxlint');
 
     await runInit(root, { install: false, log: silent });
 
-    expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint && eslint src');
-  });
-
-  it('lands the package.json patch before the install action', async () => {
-    prettyPkg('oxlint');
-
-    const actions = await runInit(root, { log: silent, exec: () => {} });
-
-    const writeAt = actions.findIndex(
-      (action) => action.kind === 'write' && action.path === 'package.json',
-    );
-
-    const installAt = actions.findIndex((action) => action.kind === 'install');
-
-    expect(writeAt).toBeGreaterThan(-1);
-    expect(writeAt).toBeLessThan(installAt);
     expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint && eslint src');
   });
 
@@ -92,6 +76,62 @@ describe('runInit · lint-script wiring', () => {
         (action) => action.kind === 'instruct' && action.note.includes('oxlint && eslint .'),
       ),
     ).toBe(true);
+  });
+
+  it('leaves a lint script that already runs eslint alone', async () => {
+    prettyPkg('eslint .');
+
+    const actions = await runInit(root, { install: false, log: silent });
+
+    expect(JSON.parse(read('package.json')).scripts.lint).toBe('eslint .');
+    expect(actions.some((action) => action.note.includes('&& eslint'))).toBe(false);
+  });
+
+  it('adds the missing lint script on a fresh scaffold (field issue #1)', async () => {
+    // The generated rules need a lint script to run through, but the starter
+    // shipped none — the field agent had to invent one; init owns it now.
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    await runInit(root, { install: false, log: silent });
+
+    expect(JSON.parse(read('package.json')).scripts.lint).toBe('eslint src');
+  });
+
+  it('instructs about a missing lint script on an existing project', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+
+    const actions = await runInit(root, {
+      install: false,
+      log: silent,
+      loadConfig: async () => vuePreset(),
+    });
+
+    expect(JSON.parse(read('package.json')).scripts).toBeUndefined();
+
+    expect(
+      actions.some(
+        (action) => action.kind === 'instruct' && action.note.includes('has no `lint` script'),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('runInit · where the lint-script action lands in the plan', () => {
+  it('lands the package.json patch before the install action', async () => {
+    prettyPkg('oxlint');
+
+    const actions = await runInit(root, { log: silent, exec: () => {} });
+
+    const writeAt = actions.findIndex(
+      (action) => action.kind === 'write' && action.path === 'package.json',
+    );
+
+    const installAt = actions.findIndex((action) => action.kind === 'install');
+
+    expect(writeAt).toBeGreaterThan(-1);
+    expect(writeAt).toBeLessThan(installAt);
+    expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint && eslint src');
   });
 
   it('lands the lint-script patch before the install that would clobber it', async () => {
@@ -157,44 +197,6 @@ describe('runInit · lint-script wiring', () => {
     // note — rather than after it.
     expect(skippedAt).toBeGreaterThan(-1);
     expect(patchAt).toBeGreaterThan(skippedAt);
-  });
-
-  it('leaves a lint script that already runs eslint alone', async () => {
-    prettyPkg('eslint .');
-
-    const actions = await runInit(root, { install: false, log: silent });
-
-    expect(JSON.parse(read('package.json')).scripts.lint).toBe('eslint .');
-    expect(actions.some((action) => action.note.includes('&& eslint'))).toBe(false);
-  });
-
-  it('adds the missing lint script on a fresh scaffold (field issue #1)', async () => {
-    // The generated rules need a lint script to run through, but the starter
-    // shipped none — the field agent had to invent one; init owns it now.
-    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
-
-    await runInit(root, { install: false, log: silent });
-
-    expect(JSON.parse(read('package.json')).scripts.lint).toBe('eslint src');
-  });
-
-  it('instructs about a missing lint script on an existing project', async () => {
-    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
-    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
-
-    const actions = await runInit(root, {
-      install: false,
-      log: silent,
-      loadConfig: async () => vuePreset(),
-    });
-
-    expect(JSON.parse(read('package.json')).scripts).toBeUndefined();
-
-    expect(
-      actions.some(
-        (action) => action.kind === 'instruct' && action.note.includes('has no `lint` script'),
-      ),
-    ).toBe(true);
   });
 });
 

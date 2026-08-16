@@ -39,29 +39,29 @@ function restricted(code: string, filename: string): string[] {
 
 const COMPONENT = 'src/components/Button/Button.ts';
 
+const gatedBlueprint = defineBlueprint({
+  ...blueprint,
+  framework: 'vue',
+  rules: {
+    maxLines: { tier: 'warn', value: 50 },
+    deepWatch: 'error',
+    usePrefix: 'error',
+    cycles: 'error', // Verify-side (inspect) — must not surface in lint.
+    customThing: 'error', // unknown id — docs-only.
+  },
+});
+
+const emittedGates = emitLint(gatedBlueprint);
+const gatesEntry = emittedGates.find((entry) => entry.rules?.['max-lines']);
+
 describe('emitLint · rules gates', () => {
-  const gated = defineBlueprint({
-    ...blueprint,
-    framework: 'vue',
-    rules: {
-      maxLines: { tier: 'warn', value: 50 },
-      deepWatch: 'error',
-      usePrefix: 'error',
-      cycles: 'error', // Verify-side (inspect) — must not surface in lint.
-      customThing: 'error', // unknown id — docs-only.
-    },
-  });
-
-  const emitted = emitLint(gated);
-  const gates = emitted.find((entry) => entry.rules?.['max-lines']);
-
   it('maps maxLines to the built-in max-lines across every layer glob', () => {
-    expect(gates?.rules?.['max-lines']).toEqual([
+    expect(gatesEntry?.rules?.['max-lines']).toEqual([
       'warn',
       { max: 50, skipBlankLines: true, skipComments: true },
     ]);
 
-    expect(gates?.files).toEqual([
+    expect(gatesEntry?.files).toEqual([
       'src/components/**/*.{js,ts,vue}',
       'src/hooks/**/*.{js,ts,vue}',
       'src/services/**/*.{js,ts,vue}',
@@ -75,13 +75,8 @@ describe('emitLint · rules gates', () => {
     expect(rule).toEqual(['error', { max: 400, skipBlankLines: true, skipComments: true }]);
   });
 
-  it('ships the embedded plugin alongside blueprint/* rules', () => {
-    expect(gates?.rules?.['blueprint/no-deep-watch']).toBe('error');
-    expect(gates?.plugins?.blueprint).toBeDefined();
-  });
-
   it('attaches use-prefix to the hooks layer only, with the default prefix', () => {
-    const entry = emitted.find((item) => item.rules?.['blueprint/use-prefix']);
+    const entry = emittedGates.find((item) => item.rules?.['blueprint/use-prefix']);
 
     expect(entry?.files).toEqual(['src/hooks/**/*.{js,ts,vue}']);
     expect(entry?.rules?.['blueprint/use-prefix']).toEqual(['error', { prefix: 'use' }]);
@@ -144,7 +139,46 @@ describe('emitLint · rules gates', () => {
 
     expect(entry?.linterOptions).toEqual({ reportUnusedDisableDirectives: 'error' });
   });
+});
 
+describe('emitLint · the embedded plugin rides the entries that carry its rules', () => {
+  it('ships the embedded plugin alongside blueprint/* rules', () => {
+    expect(gatesEntry?.rules?.['blueprint/no-deep-watch']).toBe('error');
+    expect(gatesEntry?.plugins?.blueprint).toBeDefined();
+  });
+
+  it('wires the handbook custom rules: test files, use-reactivity, typedef-only', () => {
+    const custom = defineBlueprint({
+      ...blueprint,
+      rules: { testFilename: 'error', usePrefixReactivity: 'warn', typedefOnlyFile: 'warn' },
+    });
+
+    const config = emitLint(custom);
+    const testEntry = config.find((item) => item.rules?.['blueprint/test-filename-matches-source']);
+
+    expect(testEntry?.files).toEqual([
+      '**/*.test.{js,jsx,ts,tsx,vue}',
+      '**/*.spec.{js,jsx,ts,tsx,vue}',
+    ]);
+
+    expect(testEntry?.plugins?.blueprint).toBeDefined();
+
+    const shared = config.find((item) => item.rules?.['blueprint/use-prefix-needs-reactivity']);
+
+    expect(shared?.rules?.['blueprint/use-prefix-needs-reactivity']).toBe('warn');
+    expect(shared?.plugins?.blueprint).toBeDefined();
+
+    const typedef = config.find((item) => item.rules?.['blueprint/no-typedef-only-file']);
+
+    expect(typedef?.files).toEqual(['src/**/*.js']);
+    // Every entry carrying a `blueprint/*` rule has to ship the plugin with it —
+    // the whole point of embedding it. Without the registration eslint fails to
+    // resolve the rule and the run dies, rather than the rule going quiet.
+    expect(typedef?.plugins?.blueprint).toBeDefined();
+  });
+});
+
+describe('emitLint · the files a gate is scoped to', () => {
   it('exempts test files from layer rules and gates, with overridable globs', () => {
     // Default: same-layer alias import passes in a test file.
     expect(
@@ -154,7 +188,7 @@ describe('emitLint · rules gates', () => {
       ),
     ).toEqual([]);
 
-    expect(emitted[0].ignores).toEqual([
+    expect(emittedGates[0].ignores).toEqual([
       '**/*.test.{js,jsx,ts,tsx,vue}',
       '**/*.spec.{js,jsx,ts,tsx,vue}',
     ]);
@@ -194,7 +228,9 @@ describe('emitLint · rules gates', () => {
       }
     }
   });
+});
 
+describe('emitLint · the gates through a real Linter run', () => {
   it('bans fixture imports through each layer structural rule', () => {
     const fixture = defineBlueprint({ ...blueprint, rules: { fixtureImports: 'error' } });
 
@@ -213,40 +249,10 @@ describe('emitLint · rules gates', () => {
     expect(ids('import { useX } from "~app/hooks/useX";')).toEqual([]);
   });
 
-  it('wires the handbook custom rules: test files, use-reactivity, typedef-only', () => {
-    const custom = defineBlueprint({
-      ...blueprint,
-      rules: { testFilename: 'error', usePrefixReactivity: 'warn', typedefOnlyFile: 'warn' },
-    });
-
-    const config = emitLint(custom);
-    const testEntry = config.find((item) => item.rules?.['blueprint/test-filename-matches-source']);
-
-    expect(testEntry?.files).toEqual([
-      '**/*.test.{js,jsx,ts,tsx,vue}',
-      '**/*.spec.{js,jsx,ts,tsx,vue}',
-    ]);
-
-    expect(testEntry?.plugins?.blueprint).toBeDefined();
-
-    const shared = config.find((item) => item.rules?.['blueprint/use-prefix-needs-reactivity']);
-
-    expect(shared?.rules?.['blueprint/use-prefix-needs-reactivity']).toBe('warn');
-    expect(shared?.plugins?.blueprint).toBeDefined();
-
-    const typedef = config.find((item) => item.rules?.['blueprint/no-typedef-only-file']);
-
-    expect(typedef?.files).toEqual(['src/**/*.js']);
-    // Every entry carrying a `blueprint/*` rule has to ship the plugin with it —
-    // the whole point of embedding it. Without the registration eslint fails to
-    // resolve the rule and the run dies, rather than the rule going quiet.
-    expect(typedef?.plugins?.blueprint).toBeDefined();
-  });
-
   it('enforces the gates through a real Linter run', () => {
     const config = [
       { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
-      ...emitted,
+      ...emittedGates,
     ];
 
     const ids = (code: string, filename: string) =>

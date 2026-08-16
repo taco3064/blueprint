@@ -37,24 +37,7 @@ export async function resolveBlueprint(
   options: ResolveOptions,
 ): Promise<{ blueprint: Blueprint; configSource: string | null }> {
   if (state.hasConfig) {
-    /* v8 ignore next -- the default falls back to a real import; tests inject loadConfig */
-    const load = options.loadConfig ?? defaultLoadConfig;
-    const blueprint = await load(path.resolve(root, CONFIG_FILE));
-
-    // A hand-written config can bypass defineBlueprint entirely — validate on
-    // load so a structural mistake fails right here with a precise message,
-    // not as an undefined-property crash deep inside a command.
-    try {
-      if (!blueprint) {
-        throw new Error('missing default export.');
-      }
-
-      validateBlueprint(blueprint);
-    } catch (error) {
-      throw new Error(`${CONFIG_FILE}: ${(error as Error).message}`);
-    }
-
-    return { blueprint, configSource: null };
+    return { blueprint: await loadAuthored(root, options), configSource: null };
   }
 
   const agents = options.scaffoldAgents;
@@ -62,22 +45,11 @@ export async function resolveBlueprint(
   // Next.js with a detected route tree gets its own preset — the route dir
   // is the top layer, and the source root follows --src-dir.
   if (state.hasNext && state.nextRouter) {
-    const blueprint = nextPreset({
-      ...(state.projectName ? { name: state.projectName } : {}),
-      router: state.nextRouter,
-      srcDir: state.nextSrcDir,
-      ...(agents ? { emit: { agents } } : {}),
-    });
-
-    return {
-      blueprint,
-      configSource: buildNextConfigSource(
-        state.nextRouter,
-        state.nextSrcDir,
-        state.projectName,
-        agents,
-      ),
-    };
+    return nextScaffold(
+      { router: state.nextRouter, srcDir: state.nextSrcDir },
+      state.projectName,
+      agents,
+    );
   }
 
   const framework = options.framework ?? state.framework;
@@ -98,6 +70,45 @@ export async function resolveBlueprint(
   return {
     blueprint,
     configSource: buildConfigSource(framework, state.projectName, agents),
+  };
+}
+
+/**
+ * A hand-written config can bypass defineBlueprint entirely — validate on load so a
+ * structural mistake fails right here with a precise message, not as an
+ * undefined-property crash deep inside a command.
+ */
+async function loadAuthored(root: string, options: ResolveOptions): Promise<Blueprint> {
+  /* v8 ignore next -- the default falls back to a real import; tests inject loadConfig */
+  const load = options.loadConfig ?? defaultLoadConfig;
+  const blueprint = await load(path.resolve(root, CONFIG_FILE));
+
+  try {
+    if (!blueprint) {
+      throw new Error('missing default export.');
+    }
+
+    validateBlueprint(blueprint);
+  } catch (error) {
+    throw new Error(`${CONFIG_FILE}: ${(error as Error).message}`);
+  }
+
+  return blueprint;
+}
+
+/** The Next preset and the config source that reproduces it. */
+function nextScaffold(
+  next: { router: NextRouter; srcDir: boolean },
+  name: string | undefined,
+  agents: AgentTarget[] | undefined,
+): { blueprint: Blueprint; configSource: string } {
+  return {
+    blueprint: nextPreset({
+      ...(name ? { name } : {}),
+      ...next,
+      ...(agents ? { emit: { agents } } : {}),
+    }),
+    configSource: buildNextConfigSource(next, name, agents),
   };
 }
 
@@ -128,15 +139,14 @@ export function buildConfigSource(
 
 /** Render the generated config body for a fresh Next.js project. */
 export function buildNextConfigSource(
-  router: NextRouter,
-  srcDir: boolean,
+  next: { router: NextRouter; srcDir: boolean },
   name?: string,
   agents?: AgentTarget[],
 ): string {
   const opts = [
     ...(name ? [`name: '${name}'`] : []),
-    `router: '${router}'`,
-    ...(srcDir ? ['srcDir: true'] : []),
+    `router: '${next.router}'`,
+    ...(next.srcDir ? ['srcDir: true'] : []),
     ...emitField(agents),
   ].join(', ');
 

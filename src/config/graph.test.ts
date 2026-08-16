@@ -63,8 +63,9 @@ describe('aliasLayerRoots', () => {
 
 describe('getSharedModule', () => {
   it('applies the flat defaults when module (or any key) is absent (field #23)', () => {
-    const { module: _module, ...rest } = arch();
-    const bare: ArchitectureDef = rest;
+    const bare: ArchitectureDef = arch();
+
+    delete bare.module;
 
     expect(getSharedModule(bare)).toEqual({ layout: 'flat', entry: 'index', private: [] });
     expect(getModuleShape(bare, 'pages')).toEqual({ layout: 'flat', entry: 'index' });

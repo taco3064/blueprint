@@ -46,7 +46,7 @@ describe('defineBlueprint', () => {
   });
 });
 
-describe('validateBlueprint', () => {
+describe('validateBlueprint · the config envelope, and the keys nothing reads', () => {
   it('returns the blueprint unchanged so a passing call is visible (batch 10)', () => {
     const config = base();
 
@@ -78,6 +78,37 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(/alias must be a non-empty string/);
   });
 
+  it('rejects unknown keys everywhere a silent no-op could hide', () => {
+    const stray = (mutate: (config: ReturnType<typeof base>) => void, pattern: RegExp) => {
+      const config = base();
+
+      mutate(config);
+      expect(() => validateBlueprint(config)).toThrow(pattern);
+    };
+
+    stray((c) => ((c as unknown as Record<string, unknown>).flows = []), /Unknown key "flows" in the blueprint/);
+    stray((c) => ((c.architecture as unknown as Record<string, unknown>).flow = 'one-way'), /Unknown key "flow" in architecture/);
+    stray((c) => ((c.architecture.module as unknown as Record<string, unknown>).privates = []), /architecture\.module/);
+    stray((c) => ((c as { emit?: Record<string, unknown> }).emit = { agent: ['claude'] }), /Unknown key "agent" in emit/);
+    stray((c) => ((c as { emit?: object }).emit = { lint: { level: 'warn' } }), /emit\.lint/);
+    stray((c) => ((c as { emit?: object }).emit = { agents: [{ target: 'claude', file: 'X.md' }] }), /emit\.agents entry/);
+    stray((c) => (c.architecture.layers[0].owns = [{ package: 'axios', import: ['get'] } as never]), /owns entry "axios"/);
+    stray((c) => (c.architecture.layers[0].owns = [{ global: 'fetch', scope: 'all' } as never]), /owns entry "fetch"/);
+    stray((c) => (c.architecture.layers[0].module = { layout: 'flat', entry: 'index', private: [] } as never), /module override/);
+
+    stray(
+      (c) => (
+        c.architecture.layers[1].allowedImporters = [{
+          layer: 'components',
+          selfonly: true,
+        } as never]
+      ),
+      /allowedImporters entry "components"/,
+    );
+  });
+});
+
+describe('validateBlueprint · layers, and what a layer owns', () => {
   it('rejects empty layers', () => {
     const config = base();
 
@@ -126,6 +157,45 @@ describe('validateBlueprint', () => {
     expect(() => validateBlueprint(config)).toThrow(/package with no name/);
   });
 
+  it('rejects layer names carrying glob or path characters', () => {
+    // Batch 9's workaround: a layer literally named `*` widened every glob
+    // to src/* and scaffolded a literal `src/*/` folder.
+    for (const name of ['*', 'ui?', '{a,b}', 'a[0]', 'a/b', 'a\\b']) {
+      const config = base();
+
+      config.architecture.layers = [{ name, does: 'x' }];
+
+      expect(() => validateBlueprint(config)).toThrow(/glob or path characters/);
+    }
+  });
+
+  it('rejects layer names that would silently corrupt the emitted diagram', () => {
+    // Whitespace breaks a mermaid edge, `&` joins nodes, `%%` comments —
+    // fail loud at validation instead of emitting a broken handbook.
+    for (const name of ['my layer', 'a&b', '(admin)', 'a;b', 'x%y', '"q"', 'it\'s']) {
+      const config = base();
+
+      config.architecture.layers = [{ name, does: 'x' }];
+
+      expect(() => validateBlueprint(config)).toThrow(/corrupt emitted artifacts/);
+    }
+  });
+
+  it('keeps conventional layer names — including scoped-style prefixes — valid', () => {
+    const config = base();
+
+    config.architecture.layers = [
+      { name: '@core', does: 'x' },
+      { name: 'ui-kit', does: 'x' },
+      { name: 'v2.api', does: 'x' },
+      { name: 'i18n_store', does: 'x' },
+    ];
+
+    expect(() => validateBlueprint(config)).not.toThrow();
+  });
+});
+
+describe('validateBlueprint · module layout, at the root and per layer', () => {
   it('rejects an empty module entry, accepts an absent module (field issue #23)', () => {
     const config = base();
 
@@ -146,46 +216,6 @@ describe('validateBlueprint', () => {
     config.architecture.module = { layout: 'diagonal' as never };
 
     expect(() => validateBlueprint(config)).toThrow(/folder \| flat/);
-  });
-
-  it('rejects a layer-level selfOnly with the pointed fix (field issue #14)', () => {
-    const config = base();
-
-    // The exact field shape: intent declared where nothing reads it — the
-    // re-export ban silently never existed.
-    (config.architecture.layers[0] as unknown as Record<string, unknown>).selfOnly = true;
-
-    expect(() => validateBlueprint(config)).toThrow(/allowedImporters ENTRY/);
-    expect(() => validateBlueprint(config)).toThrow(/selfOnly/);
-  });
-
-  it('rejects unknown keys everywhere a silent no-op could hide', () => {
-    const stray = (mutate: (config: ReturnType<typeof base>) => void, pattern: RegExp) => {
-      const config = base();
-
-      mutate(config);
-      expect(() => validateBlueprint(config)).toThrow(pattern);
-    };
-
-    stray((c) => ((c as unknown as Record<string, unknown>).flows = []), /Unknown key "flows" in the blueprint/);
-    stray((c) => ((c.architecture as unknown as Record<string, unknown>).flow = 'one-way'), /Unknown key "flow" in architecture/);
-    stray((c) => ((c.architecture.module as unknown as Record<string, unknown>).privates = []), /architecture\.module/);
-    stray((c) => ((c as { emit?: Record<string, unknown> }).emit = { agent: ['claude'] }), /Unknown key "agent" in emit/);
-    stray((c) => ((c as { emit?: object }).emit = { lint: { level: 'warn' } }), /emit\.lint/);
-    stray((c) => ((c as { emit?: object }).emit = { agents: [{ target: 'claude', file: 'X.md' }] }), /emit\.agents entry/);
-    stray((c) => (c.architecture.layers[0].owns = [{ package: 'axios', import: ['get'] } as never]), /owns entry "axios"/);
-    stray((c) => (c.architecture.layers[0].owns = [{ global: 'fetch', scope: 'all' } as never]), /owns entry "fetch"/);
-    stray((c) => (c.architecture.layers[0].module = { layout: 'flat', entry: 'index', private: [] } as never), /module override/);
-
-    stray(
-      (c) => (
-        c.architecture.layers[1].allowedImporters = [{
-          layer: 'components',
-          selfonly: true,
-        } as never]
-      ),
-      /allowedImporters entry "components"/,
-    );
   });
 
   it('rejects a non-array module.private, accepts an omitted one', () => {
@@ -225,34 +255,15 @@ describe('validateBlueprint', () => {
 
     expect(() => validateBlueprint(config)).not.toThrow();
   });
+});
 
+describe('validateBlueprint · aliases and the layer glob', () => {
   it('rejects invalid additionalAliases', () => {
     const config = base();
 
     config.architecture.additionalAliases = { '~x': '' };
 
     expect(() => validateBlueprint(config)).toThrow(/additionalAliases/);
-  });
-
-  // Every id/title check has three arms: an absent or non-string value, a
-  // blank one, and a null entry the optional chain has to survive. The suite
-  // covered the happy path and the duplicate, leaving the shape arms open —
-  // and these throws are the first thing an adopter sees when a hand-written
-  // config is wrong, so a silently-accepted junk entry surfaces much later as
-  // an undefined somewhere in the emitters.
-  it.each([
-    ['a null principle', { principles: [null] }, /principle must have a non-empty id/],
-    ['a non-string principle id', { principles: [{ id: 1, say: 's', why: 'w' }] }, /principle must have a non-empty id/],
-    ['a blank principle id', { principles: [{ id: '  ', say: 's', why: 'w' }] }, /principle must have a non-empty id/],
-    ['a null component-shape axis', { componentShape: [null] }, /axis must have a non-empty id/],
-    ['a blank axis id', { componentShape: [{ id: ' ' }] }, /axis must have a non-empty id/],
-    ['a null playbook section', { playbook: [null] }, /playbook section must have a non-empty title/],
-    ['a blank playbook title', { playbook: [{ title: '  ', rules: [] }] }, /playbook section must have a non-empty title/],
-    ['a null playbook rule', { playbook: [{ title: 't', rules: [null] }] }, /has a rule with no id/],
-    ['a blank playbook rule id', { playbook: [{ title: 't', rules: [{ id: ' ', say: 's' }] }] }, /has a rule with no id/],
-  ])('rejects %s', (_label, patch, pattern) => {
-    expect(() => validateBlueprint({ ...base(), ...patch } as unknown as Blueprint))
-      .toThrow(pattern);
   });
 
   it.each([
@@ -285,6 +296,19 @@ describe('validateBlueprint', () => {
     config.architecture.layerFiles = ['src/**/*.ts'];
 
     expect(() => validateBlueprint(config)).toThrow(/must include the "\{layer\}" placeholder/);
+  });
+});
+
+describe('validateBlueprint · allowedImporters', () => {
+  it('rejects a layer-level selfOnly with the pointed fix (field issue #14)', () => {
+    const config = base();
+
+    // The exact field shape: intent declared where nothing reads it — the
+    // re-export ban silently never existed.
+    (config.architecture.layers[0] as unknown as Record<string, unknown>).selfOnly = true;
+
+    expect(() => validateBlueprint(config)).toThrow(/allowedImporters ENTRY/);
+    expect(() => validateBlueprint(config)).toThrow(/selfOnly/);
   });
 
   it('rejects an allowed importer with no layer', () => {
@@ -327,7 +351,9 @@ describe('validateBlueprint', () => {
 
     expect(() => validateBlueprint(config)).toThrow(/more than once/);
   });
+});
 
+describe('validateBlueprint · rules and lint overrides', () => {
   it('rejects lintOverrides that touch a managed rule', () => {
     const config = base();
 
@@ -346,6 +372,89 @@ describe('validateBlueprint', () => {
     };
 
     expect(() => validateBlueprint(config)).not.toThrow();
+  });
+
+  it('rejects lintOverrides that touch an embedded plugin rule', () => {
+    const config = base();
+
+    config.architecture.layers[0].lintOverrides = { 'blueprint/no-deep-watch': 'off' };
+
+    expect(() => validateBlueprint(config)).toThrow(/managed by the Enforce emitter/);
+  });
+
+  it('rejects a rule with an invalid tier', () => {
+    const config = base();
+
+    config.rules = { maxLines: { tier: 'loud' as never, value: 400 } };
+
+    expect(() => validateBlueprint(config)).toThrow(/invalid tier/);
+  });
+
+  it('accepts a rule as a bare tier string', () => {
+    const config = base();
+
+    config.rules = { noUtils: 'error' };
+
+    expect(() => validateBlueprint(config)).not.toThrow();
+  });
+
+  it('rejects usePrefix targeting an undeclared layer', () => {
+    const config = base();
+
+    config.rules = { usePrefix: { tier: 'error', layer: 'ghost' } };
+
+    expect(() => validateBlueprint(config)).toThrow(/targets layer "ghost"/);
+  });
+
+  it('defaults usePrefix to the hooks layer and validates it exists', () => {
+    const config = base();
+
+    config.rules = { usePrefix: 'error' };
+    expect(() => validateBlueprint(config)).not.toThrow();
+
+    config.architecture.layers = config.architecture.layers.filter(
+      (layer) => layer.name !== 'hooks',
+    );
+
+    expect(() => validateBlueprint(config)).toThrow(/targets layer "hooks"/);
+  });
+
+  it('never validates the target layer of an OFF usePrefix', () => {
+    const config = base();
+
+    config.architecture.layers = config.architecture.layers.filter(
+      (layer) => layer.name !== 'hooks',
+    );
+
+    // A rule that never emits has no target to validate — both shapes.
+    config.rules = { usePrefix: 'off' };
+    expect(() => validateBlueprint(config)).not.toThrow();
+
+    config.rules = { usePrefix: { tier: 'off' } };
+    expect(() => validateBlueprint(config)).not.toThrow();
+  });
+});
+
+describe('validateBlueprint · principles, playbook and component shape', () => {
+  // Every id/title check has three arms: an absent or non-string value, a
+  // blank one, and a null entry the optional chain has to survive. The suite
+  // covered the happy path and the duplicate, leaving the shape arms open —
+  // and these throws are the first thing an adopter sees when a hand-written
+  // config is wrong, so a silently-accepted junk entry surfaces much later as
+  // an undefined somewhere in the emitters.
+  it.each([
+    ['a null principle', { principles: [null] }, /principle must have a non-empty id/],
+    ['a non-string principle id', { principles: [{ id: 1, say: 's', why: 'w' }] }, /principle must have a non-empty id/],
+    ['a blank principle id', { principles: [{ id: '  ', say: 's', why: 'w' }] }, /principle must have a non-empty id/],
+    ['a null component-shape axis', { componentShape: [null] }, /axis must have a non-empty id/],
+    ['a blank axis id', { componentShape: [{ id: ' ' }] }, /axis must have a non-empty id/],
+    ['a null playbook section', { playbook: [null] }, /playbook section must have a non-empty title/],
+    ['a blank playbook title', { playbook: [{ title: '  ', rules: [] }] }, /playbook section must have a non-empty title/],
+    ['a null playbook rule', { playbook: [{ title: 't', rules: [null] }] }, /has a rule with no id/],
+    ['a blank playbook rule id', { playbook: [{ title: 't', rules: [{ id: ' ', say: 's' }] }] }, /has a rule with no id/],
+  ])('rejects %s', (_label, patch, pattern) => {
+    expect(() => validateBlueprint({ ...base(), ...patch } as unknown as Blueprint))
+      .toThrow(pattern);
   });
 
   it('rejects duplicate principle ids', () => {
@@ -399,104 +508,9 @@ describe('validateBlueprint', () => {
     config.componentShape = [{ ...axis, id: '  ' }];
     expect(() => validateBlueprint(config)).toThrow(/axis must have a non-empty id/);
   });
+});
 
-  it('rejects a rule with an invalid tier', () => {
-    const config = base();
-
-    config.rules = { maxLines: { tier: 'loud' as never, value: 400 } };
-
-    expect(() => validateBlueprint(config)).toThrow(/invalid tier/);
-  });
-
-  it('accepts a rule as a bare tier string', () => {
-    const config = base();
-
-    config.rules = { noUtils: 'error' };
-
-    expect(() => validateBlueprint(config)).not.toThrow();
-  });
-
-  it('rejects layer names carrying glob or path characters', () => {
-    // Batch 9's workaround: a layer literally named `*` widened every glob
-    // to src/* and scaffolded a literal `src/*/` folder.
-    for (const name of ['*', 'ui?', '{a,b}', 'a[0]', 'a/b', 'a\\b']) {
-      const config = base();
-
-      config.architecture.layers = [{ name, does: 'x' }];
-
-      expect(() => validateBlueprint(config)).toThrow(/glob or path characters/);
-    }
-  });
-
-  it('rejects layer names that would silently corrupt the emitted diagram', () => {
-    // Whitespace breaks a mermaid edge, `&` joins nodes, `%%` comments —
-    // fail loud at validation instead of emitting a broken handbook.
-    for (const name of ['my layer', 'a&b', '(admin)', 'a;b', 'x%y', '"q"', 'it\'s']) {
-      const config = base();
-
-      config.architecture.layers = [{ name, does: 'x' }];
-
-      expect(() => validateBlueprint(config)).toThrow(/corrupt emitted artifacts/);
-    }
-  });
-
-  it('keeps conventional layer names — including scoped-style prefixes — valid', () => {
-    const config = base();
-
-    config.architecture.layers = [
-      { name: '@core', does: 'x' },
-      { name: 'ui-kit', does: 'x' },
-      { name: 'v2.api', does: 'x' },
-      { name: 'i18n_store', does: 'x' },
-    ];
-
-    expect(() => validateBlueprint(config)).not.toThrow();
-  });
-
-  it('rejects usePrefix targeting an undeclared layer', () => {
-    const config = base();
-
-    config.rules = { usePrefix: { tier: 'error', layer: 'ghost' } };
-
-    expect(() => validateBlueprint(config)).toThrow(/targets layer "ghost"/);
-  });
-
-  it('defaults usePrefix to the hooks layer and validates it exists', () => {
-    const config = base();
-
-    config.rules = { usePrefix: 'error' };
-    expect(() => validateBlueprint(config)).not.toThrow();
-
-    config.architecture.layers = config.architecture.layers.filter(
-      (layer) => layer.name !== 'hooks',
-    );
-
-    expect(() => validateBlueprint(config)).toThrow(/targets layer "hooks"/);
-  });
-
-  it('never validates the target layer of an OFF usePrefix', () => {
-    const config = base();
-
-    config.architecture.layers = config.architecture.layers.filter(
-      (layer) => layer.name !== 'hooks',
-    );
-
-    // A rule that never emits has no target to validate — both shapes.
-    config.rules = { usePrefix: 'off' };
-    expect(() => validateBlueprint(config)).not.toThrow();
-
-    config.rules = { usePrefix: { tier: 'off' } };
-    expect(() => validateBlueprint(config)).not.toThrow();
-  });
-
-  it('rejects lintOverrides that touch an embedded plugin rule', () => {
-    const config = base();
-
-    config.architecture.layers[0].lintOverrides = { 'blueprint/no-deep-watch': 'off' };
-
-    expect(() => validateBlueprint(config)).toThrow(/managed by the Enforce emitter/);
-  });
-
+describe('validateBlueprint · emit.agents', () => {
   it('accepts emit.agents entries as strings and objects', () => {
     const config = base();
 

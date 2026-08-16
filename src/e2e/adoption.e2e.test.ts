@@ -226,17 +226,19 @@ export default {
 `;
 
 describe('e2e · brownfield (the full adoption arc)', () => {
-  it('walks authoring → findings → baseline → references → wired/integrated quiet', async () => {
+  it('walks 1 — no config: the authoring flow, hand-written files untouched', async () => {
     useFixture('brownfield');
 
-    // 1. No config: authoring flow, hand-written files untouched.
     await runInit(root, { install: false, log: silent });
 
     expect(exists('blueprint-authoring.md')).toBe(true);
     expect(read('CLAUDE.md')).toContain('Do not clobber');
     expect(read('eslint.config.js')).toContain('hand-maintained');
+  });
 
-    // 2. The authored config: inspect finds exactly the planted debt.
+  it('walks 2–3 — the authored config: exactly the planted debt, then a green '
+    + 'ratchet', async () => {
+    useFixture('brownfield');
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), BROWNFIELD_CONFIG);
 
     const { findings, ok } = await runInspect(root, { log: silent });
@@ -251,21 +253,32 @@ describe('e2e · brownfield (the full adoption arc)', () => {
     expect(byRule['flow-violation']).toBe(3); // same-layer + two upward reaches
     expect(byRule.cycle).toBe(1); // services → utils → services
 
-    // 3. Baseline locks the debt; the ratchet goes green.
+    // Baseline locks the debt; the ratchet goes green.
     await runInspect(root, { updateBaseline: true, log: silent });
 
     const ratchet = await runInspect(root, { baseline: true, log: silent });
 
     expect(ratchet.ok).toBe(true);
+  });
 
-    // 4. init with the config: references land next to hand-written files.
+  it('walks 4 — init with the config: references land beside the hand-written '
+    + 'files', async () => {
+    useFixture('brownfield');
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), BROWNFIELD_CONFIG);
+
     await runInit(root, { install: false, log: silent });
 
     expect(exists('CLAUDE.blueprint.md')).toBe(true);
     expect(exists('eslint.config.blueprint.mjs')).toBe(true);
     expect(read('CLAUDE.md')).toContain('Do not clobber'); // still untouched
+  });
 
-    // 5. Simulate the agent finishing the integration; re-init goes quiet.
+  it('walks 5 — the agent finishes the integration and re-init goes quiet', async () => {
+    useFixture('brownfield');
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), BROWNFIELD_CONFIG);
+
+    await runInit(root, { install: false, log: silent });
+
     fs.appendFileSync(
       path.join(root, 'CLAUDE.md'),
       '\n## Architecture contract\n\nSee node_modules/@kekkai/blueprint/agent-contract.md\n',

@@ -58,17 +58,16 @@ function loader(
 const run = (
   scanResult: ScanResult,
   resolved: unknown,
-  throwOn?: 'load' | 'calculate',
-  merged = true,
+  projectEslint: { throwOn?: 'load' | 'calculate'; merged?: boolean } = {},
 ) =>
   wiringCheck({
     root: '/repo',
     blueprint,
     scanResult,
     wired: true,
-    merged,
+    merged: projectEslint.merged ?? true,
     hasTypescript: true,
-    load: loader(resolved, throwOn),
+    load: loader(resolved, projectEslint.throwOn),
   });
 
 describe('wiringCheck · carrier gates (field issue #40)', () => {
@@ -123,14 +122,16 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
     '@typescript-eslint/no-explicit-any': 'error',
   };
 
+  /** `carried` minus the named carriers — what a merge that dropped an argument resolves to. */
+  const carriedWithout = (...dropped: string[]) =>
+    Object.fromEntries(Object.entries(carried).filter(([rule]) => !dropped.includes(rule)));
+
   it('goes red when the merge drops the stylistic argument', async () => {
     // Structural rules all intact — exactly the state that used to pass.
-    const {
-      '@stylistic/max-len': _len,
-      '@stylistic/padding-line-between-statements': _pad,
-      ...rest
-    }
-      = carried;
+    const rest = carriedWithout(
+      '@stylistic/max-len',
+      '@stylistic/padding-line-between-statements',
+    );
 
     const result = await check({ ...structural(), ...rest });
 
@@ -145,7 +146,7 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
   });
 
   it('goes red when the merge drops the imports argument', async () => {
-    const { 'import-x/no-duplicates': _dup, ...rest } = carried;
+    const rest = carriedWithout('import-x/no-duplicates');
     const result = await check({ ...structural(), ...rest });
 
     expect(result.ok).toBe(false);
@@ -170,7 +171,7 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
     // `any` is a TS construct, so emitLint skips the gate without the TS
     // plugin — doctor must mirror that or every JS repo reds on a gate it
     // could never resolve.
-    const { '@typescript-eslint/no-explicit-any': _any, ...rest } = carried;
+    const rest = carriedWithout('@typescript-eslint/no-explicit-any');
 
     expect((await check({ ...structural(), ...rest }, false)).ok).toBe(true);
     expect((await check({ ...structural(), ...rest }, true)).ok).toBe(false);

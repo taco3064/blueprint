@@ -121,13 +121,13 @@ describe('buildNextConfigSource', () => {
     // The generated config is what the repo keeps. A `srcDir: true` that is not
     // true points every layer glob at `src/` in a repo whose routes sit at the
     // root, and inspect then reports an empty net on a repo full of code.
-    expect(buildNextConfigSource('app', false))
+    expect(buildNextConfigSource({ router: 'app', srcDir: false }))
       .toContain('export default nextPreset({ router: \'app\' });');
 
-    expect(buildNextConfigSource('pages', true))
+    expect(buildNextConfigSource({ router: 'pages', srcDir: true }))
       .toContain('export default nextPreset({ router: \'pages\', srcDir: true });');
 
-    expect(buildNextConfigSource('both', true, 'shop', ['claude']))
+    expect(buildNextConfigSource({ router: 'both', srcDir: true }, 'shop', ['claude']))
       .toContain(
         'export default nextPreset({ name: \'shop\', router: \'both\', srcDir: true, '
         + 'emit: { agents: [\'claude\'] } });',

@@ -44,7 +44,7 @@ function adopted(): void {
   );
 }
 
-describe('runDoctor · the checks', () => {
+describe('runDoctor · the verdict and the banner it prints', () => {
   it('fails fast with a single check when there is no config', async () => {
     let output = '';
 
@@ -106,7 +106,9 @@ describe('runDoctor · the checks', () => {
     expect(result.checks.find((c) => c.label.includes('architecture'))?.detail)
       .not.toContain('not in package.json');
   });
+});
 
+describe('runDoctor · files the adoption should have removed', () => {
   it('flags leftover authoring artifacts — doctor has the final word, '
     + 'not a mid-flow one', async () => {
     adopted();
@@ -157,7 +159,9 @@ describe('runDoctor · the checks', () => {
     expect(detail?.startsWith('merge and delete: CLAUDE.blueprint.md')).toBe(true);
     expect(detail?.endsWith('adoption is not done while a reference remains')).toBe(true);
   });
+});
 
+describe('runDoctor · the eslint wiring check', () => {
   it('flags eslint not wired to emitLint', async () => {
     write('blueprint.config.mjs', '// user config');
     const { ok, checks } = await runDoctor(root, { loadConfig: load, log: silent });
@@ -181,7 +185,9 @@ describe('runDoctor · the checks', () => {
       checks.find((c) => c.label.includes('eslint'))?.detail,
     ).toContain('migrate to flat config');
   });
+});
 
+describe('runDoctor · alias resolution', () => {
   it('flags a declared alias no toolchain resolves, with the wiring snippet', async () => {
     adopted();
     fs.rmSync(path.join(root, 'tsconfig.json'));
@@ -286,7 +292,9 @@ describe('runDoctor · the checks', () => {
 
     expect(checks.find((c) => c.label.includes('alias'))?.ok).toBe(true);
   });
+});
 
+describe('runDoctor · the architecture gate and its baseline', () => {
   it('states the coverage on a clean gate, and calls out a vacuous one', async () => {
     adopted();
     write('src/components/Button.vue', 'export default {};');
@@ -309,51 +317,6 @@ describe('runDoctor · the checks', () => {
     // "Adoption complete" + "proves nothing" would read as a contradiction —
     // the detail closes the gap by naming the step that arms the net.
     expect(check?.detail).toContain('the wiring is done — next: move code into a declared layer');
-  });
-
-  it('fails when a later config entry swallowed the emitted structural rules', async () => {
-    adopted();
-    write('src/views/Home/index.vue', 'export default {};');
-
-    const selfOnly = async () => {
-      const preset = vuePreset();
-      // usePrefix targets the preset's hooks layer — gone with the relayout.
-      const { usePrefix: _usePrefix, ...rules } = preset.rules ?? {};
-
-      return {
-        ...preset,
-        rules,
-        architecture: {
-          ...preset.architecture,
-          layers: [
-            { name: 'views', does: 'pages' },
-            {
-              name: 'contexts',
-              does: 'shared state',
-              allowedImporters: [{ layer: 'views', selfOnly: true }],
-            },
-          ],
-        },
-      };
-    };
-
-    // The merged config kept nothing of blueprint's — the codex scenario.
-    const loadModule = async (): Promise<unknown> => ({
-      ESLint: class {
-        async calculateConfigForFile(): Promise<unknown> {
-          return { rules: { 'no-restricted-syntax': [2, 'CallExpression[callee.name=Date]'] } };
-        }
-      },
-    });
-
-    const { ok, checks } = await runDoctor(root, { loadConfig: selfOnly, loadModule, log: silent });
-
-    const check = checks.find((c) => c.label.includes('survive'));
-
-    expect(ok).toBe(false);
-    expect(check?.ok).toBe(false);
-    expect(check?.detail).toContain('selfOnly selector(s)');
-    expect(check?.detail).toContain('combine both option sets into ONE');
   });
 
   it('flags findings without claiming a baseline that does not exist', async () => {
@@ -428,7 +391,9 @@ describe('runDoctor · the checks', () => {
     // Only NOW may the label claim coverage — the ledger is doing work.
     expect(check?.label).toContain('covered by the baseline');
   });
+});
 
+describe('runDoctor · contracts a config change left stale', () => {
   it('flags a marker-bearing contract outside the emitted set (field issues #2/#3)', async () => {
     adopted();
 
@@ -453,12 +418,16 @@ describe('runDoctor · the checks', () => {
 
     expect(check?.ok).toBe(false);
     expect(check?.detail).toContain('.cursor/rules/blueprint.mdc');
+  });
 
-    // A marker-free file at a default path is the user's own — never ours.
-    fs.rmSync(path.join(root, '.cursor'), { recursive: true });
+  it('leaves a marker-free file at a default path alone', async () => {
+    // Our markers are what makes a file ours. Without them the file at that
+    // path is the user's own — calling it stale sends them to delete a doc
+    // blueprint never wrote.
+    adopted();
     write('GEMINI.md', '# hand-written, no marker\n');
 
-    ({ checks } = await runDoctor(root, { loadConfig: load, log: silent }));
+    const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
 
     expect(checks.find((c) => c.label.includes('stale contract'))?.ok).toBe(true);
   });
@@ -480,9 +449,10 @@ describe('runDoctor · the checks', () => {
 
     expect(detail?.startsWith('.github/copilot-instructions.md, GEMINI.md:')).toBe(true);
   });
+});
 
-  it('passes the suppressions check when the ledger is absent, current, '
-    + 'or fails when stale', async () => {
+describe('runDoctor · the suppressions ledger', () => {
+  it('passes with no ledger, and with one whose every file still exists', async () => {
     adopted();
 
     // Absent: not in use — fine.
@@ -506,13 +476,17 @@ describe('runDoctor · the checks', () => {
     // about it. Calling it ceremony here tells the reader to delete a file that
     // is holding the repo's whole lint debt.
     expect(current?.detail).toBeUndefined();
+  });
+
+  it('fails on a stale entry, and on a ledger nothing can parse', async () => {
+    adopted();
 
     // Stale: a suppressed file is gone.
     write('eslint-suppressions.json', JSON.stringify({
       'src/components/Gone.vue': { 'max-lines': { count: 1 } },
     }));
 
-    result = await runDoctor(root, { loadConfig: load, log: silent });
+    let result = await runDoctor(root, { loadConfig: load, log: silent });
 
     const check = result.checks.find((c) => c.label.includes('suppressions'));
 
@@ -530,17 +504,70 @@ describe('runDoctor · the checks', () => {
     // suppressions are fine.
     expect(unreadable?.ok).toBe(false);
     expect(unreadable?.detail).toContain('not valid JSON');
+  });
+
+  it('stays green on an empty ledger, and names the ceremony it is', async () => {
+    adopted();
 
     // Empty: --suppress-all ran on a clean lint (first live field run) —
     // green, but the detail names the ceremony and the fix.
     write('eslint-suppressions.json', '{}');
-    result = await runDoctor(root, { loadConfig: load, log: silent });
 
+    const result = await runDoctor(root, { loadConfig: load, log: silent });
     const empty = result.checks.find((c) => c.label.includes('suppressions'));
 
     expect(empty?.ok).toBe(true);
     expect(empty?.detail).toContain('ceremony');
     expect(empty?.detail).toContain('delete it');
+  });
+});
+
+describe('runDoctor · the rules that survive the merged config', () => {
+  it('fails when a later config entry swallowed the emitted structural rules', async () => {
+    adopted();
+    write('src/views/Home/index.vue', 'export default {};');
+
+    const selfOnly = async () => {
+      const preset = vuePreset();
+      // usePrefix targets the preset's hooks layer — gone with the relayout.
+      const rules = { ...preset.rules };
+
+      delete rules.usePrefix;
+
+      return {
+        ...preset,
+        rules,
+        architecture: {
+          ...preset.architecture,
+          layers: [
+            { name: 'views', does: 'pages' },
+            {
+              name: 'contexts',
+              does: 'shared state',
+              allowedImporters: [{ layer: 'views', selfOnly: true }],
+            },
+          ],
+        },
+      };
+    };
+
+    // The merged config kept nothing of blueprint's — the codex scenario.
+    const loadModule = async (): Promise<unknown> => ({
+      ESLint: class {
+        async calculateConfigForFile(): Promise<unknown> {
+          return { rules: { 'no-restricted-syntax': [2, 'CallExpression[callee.name=Date]'] } };
+        }
+      },
+    });
+
+    const { ok, checks } = await runDoctor(root, { loadConfig: selfOnly, loadModule, log: silent });
+
+    const check = checks.find((c) => c.label.includes('survive'));
+
+    expect(ok).toBe(false);
+    expect(check?.ok).toBe(false);
+    expect(check?.detail).toContain('selfOnly selector(s)');
+    expect(check?.detail).toContain('combine both option sets into ONE');
   });
 
   it('tells the wiring check WHICH config it is about to read', async () => {

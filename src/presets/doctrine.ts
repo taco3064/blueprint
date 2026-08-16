@@ -142,112 +142,121 @@ export function componentShape(): AxisDef[] {
  * they live in the emitted handbook and agent contract.
  */
 export function playbook(): PlaybookSection[] {
-  return [
-    {
-      title: 'Runtime load discipline',
-      rules: [
-        {
-          id: 'reprice-on-attach',
-          say: 'Price every handler attached to a data source.',
-          why: 'Before wiring anything to WS / polling / scroll / input, answer: '
-            + 'events per second, data per event, per-event cost. If you cannot answer, '
-            + 'it does not merge — and copying an existing pattern is no exemption, '
-            + 'because frequency is not in the code.',
-        },
-        {
-          id: 'identity-discipline',
-          say: 'High-frequency updates write in place.',
-          why: 'Patch the changed entry and keep container identity; '
-            + 'whole-replace is for baseline rebuilds only. '
-            + 'A prop whose identity changed while its value did not is the disease. '
-            + 'Write shapes do not port across frameworks.',
-        },
-        {
-          id: 'render-diagnosis',
-          say: 'Diagnose re-renders in four steps, never by guessing.',
-          why: 'Who renders (profiler) → what triggered it (render tracing) '
-            + '→ who produced the identity (grep the assignment sites) '
-            + '→ was it worth it (compare against the event payload).',
-        },
-        {
-          id: 'measurable-perf',
-          say: 'Performance claims must be acceptance-testable.',
-          why: '"Fewer re-renders" is not a claim; "one event re-renders at most N components" is. '
-            + 'Pin it with a render-count or identity-stability test — '
-            + 'an unmeasured performance claim did not happen.',
-        },
-      ],
-    },
-    {
-      title: 'Refactor discipline',
-      rules: [
-        {
-          id: 'safety-net-first',
-          say: 'Safety net first, then split, then tidy the tests.',
-          why: 'Three stages, one commit each, non-overlapping review scopes. '
-            + 'Writing the net first forces the observable contract into the open.',
-        },
-        {
-          id: 'one-arc-one-pr',
-          say: 'One refactor arc = one PR, one commit per phase.',
-          why: 'The PR body maps each commit to its phase; '
-            + 'ask before splitting the arc into separate tickets.',
-        },
-        {
-          id: 'extract-from-source',
-          say: 'Extract by copying from source, never by rewriting from memory.',
-          why: 'After extraction, diff the target against git history — '
-            + 'a passing suite alone does not prove the extraction faithful.',
-        },
-        {
-          id: 'recursive-dep-scan',
-          say: 'Scan every identifier before extracting.',
-          why: 'Not just reactive refs — imports, local definitions, parameters. '
-            + 'A missed dependency surfaces later as a broken extraction.',
-        },
-        {
-          id: 'dont-pin-moving-contracts',
-          say: 'Do not pin what the refactor itself will change.',
-          why: 'A safety net asserting values the arc is about to change fails the moment the '
-            + 'sibling refactor lands.',
-        },
-        {
-          id: 'contract-test-payloads',
-          say: 'AC-named payload fields deserve a contract test.',
-          why: 'Asserting that the mocked service receives field X is not a tautology — '
-            + 'a dropped field or an unbound handler breaks it while the source constant stays '
-            + 'green.',
-        },
-        {
-          id: 'summarize-with-themes',
-          say: 'Wrap an arc with cross-cutting themes and verified numbers.',
-          why: 'Name the forces (ownership inversion, IO shrinkage, SRP) '
-            + 'and attach before/after numbers verified against git history.',
-        },
-      ],
-    },
-    {
-      title: 'Design collaboration',
-      rules: [
-        {
-          id: 'guard-not-deviate',
-          say: 'Frame architectural corrections as guarding the design.',
-          why: 'State the principle being protected, show how the literal ticket reading violates '
-            + 'it, and present the choice as that principle\'s natural consequence.',
-        },
-        {
-          id: 'respect-settled-design',
-          say: 'Do not reopen settled designs.',
-          why: 'When the shape has been specified, implement it as spec. '
-            + 'Raise genuine concerns once, with reasons — not as a menu of alternatives.',
-        },
-        {
-          id: 'bypass-is-no-excuse',
-          say: '"The user can work around it" does not park a bug.',
-          why: 'Judge by diff size, scope, and standalone impact; '
-            + 'a normal-path bug that violates expectations deserves its ticket.',
-        },
-      ],
-    },
-  ];
+  return [runtimeLoadSection(), refactorSection(), designSection()];
+}
+
+/** Every section returns a fresh object — the file's own invariant. */
+function runtimeLoadSection(): PlaybookSection {
+  return {
+    title: 'Runtime load discipline',
+    rules: [
+      {
+        id: 'reprice-on-attach',
+        say: 'Price every handler attached to a data source.',
+        why: 'Before wiring anything to WS / polling / scroll / input, answer: '
+          + 'events per second, data per event, per-event cost. If you cannot answer, '
+          + 'it does not merge — and copying an existing pattern is no exemption, '
+          + 'because frequency is not in the code.',
+      },
+      {
+        id: 'identity-discipline',
+        say: 'High-frequency updates write in place.',
+        why: 'Patch the changed entry and keep container identity; '
+          + 'whole-replace is for baseline rebuilds only. '
+          + 'A prop whose identity changed while its value did not is the disease. '
+          + 'Write shapes do not port across frameworks.',
+      },
+      {
+        id: 'render-diagnosis',
+        say: 'Diagnose re-renders in four steps, never by guessing.',
+        why: 'Who renders (profiler) → what triggered it (render tracing) '
+          + '→ who produced the identity (grep the assignment sites) '
+          + '→ was it worth it (compare against the event payload).',
+      },
+      {
+        id: 'measurable-perf',
+        say: 'Performance claims must be acceptance-testable.',
+        why: '"Fewer re-renders" is not a claim; "one event re-renders at most N components" is. '
+          + 'Pin it with a render-count or identity-stability test — '
+          + 'an unmeasured performance claim did not happen.',
+      },
+    ],
+  };
+}
+
+function refactorSection(): PlaybookSection {
+  return {
+    title: 'Refactor discipline',
+    rules: [
+      {
+        id: 'safety-net-first',
+        say: 'Safety net first, then split, then tidy the tests.',
+        why: 'Three stages, one commit each, non-overlapping review scopes. '
+          + 'Writing the net first forces the observable contract into the open.',
+      },
+      {
+        id: 'one-arc-one-pr',
+        say: 'One refactor arc = one PR, one commit per phase.',
+        why: 'The PR body maps each commit to its phase; '
+          + 'ask before splitting the arc into separate tickets.',
+      },
+      {
+        id: 'extract-from-source',
+        say: 'Extract by copying from source, never by rewriting from memory.',
+        why: 'After extraction, diff the target against git history — '
+          + 'a passing suite alone does not prove the extraction faithful.',
+      },
+      {
+        id: 'recursive-dep-scan',
+        say: 'Scan every identifier before extracting.',
+        why: 'Not just reactive refs — imports, local definitions, parameters. '
+          + 'A missed dependency surfaces later as a broken extraction.',
+      },
+      {
+        id: 'dont-pin-moving-contracts',
+        say: 'Do not pin what the refactor itself will change.',
+        why: 'A safety net asserting values the arc is about to change fails the moment the '
+          + 'sibling refactor lands.',
+      },
+      {
+        id: 'contract-test-payloads',
+        say: 'AC-named payload fields deserve a contract test.',
+        why: 'Asserting that the mocked service receives field X is not a tautology — '
+          + 'a dropped field or an unbound handler breaks it while the source constant stays '
+          + 'green.',
+      },
+      {
+        id: 'summarize-with-themes',
+        say: 'Wrap an arc with cross-cutting themes and verified numbers.',
+        why: 'Name the forces (ownership inversion, IO shrinkage, SRP) '
+          + 'and attach before/after numbers verified against git history.',
+      },
+    ],
+  };
+}
+
+function designSection(): PlaybookSection {
+  return {
+    title: 'Design collaboration',
+    rules: [
+      {
+        id: 'guard-not-deviate',
+        say: 'Frame architectural corrections as guarding the design.',
+        why: 'State the principle being protected, show how the literal ticket reading violates '
+          + 'it, and present the choice as that principle\'s natural consequence.',
+      },
+      {
+        id: 'respect-settled-design',
+        say: 'Do not reopen settled designs.',
+        why: 'When the shape has been specified, implement it as spec. '
+          + 'Raise genuine concerns once, with reasons — not as a menu of alternatives.',
+      },
+      {
+        id: 'bypass-is-no-excuse',
+        say: '"The user can work around it" does not park a bug.',
+        why: 'Judge by diff size, scope, and standalone impact; '
+          + 'a normal-path bug that violates expectations deserves its ticket.',
+      },
+    ],
+  };
 }
