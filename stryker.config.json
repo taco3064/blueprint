@@ -6,15 +6,13 @@
     "config). It answers one question about THIS repo's own suite: 100% line",
     "coverage says every line ran, not that a wrong line would be caught.",
     "",
-    "Every source file is mutated — `src/**` and `test/**` both, since #358 moved",
-    "the test-only trees out of the source root and mutating them was never a",
-    "question about where they sit. `*.test.ts` is the one exclusion, and it is",
+    "Every source file is mutated. `*.test.ts` is the one exclusion, and it is",
     "not a judgement call: mutating an assertion and then asking the same",
     "assertion whether it noticed is circular. Three other exclusions used to sit",
     "here and were measured out — `index.ts` (14 barrel files, 0 mutants between",
     "them: a re-export has nothing to mutate once the module path counts as a",
-    "string), the e2e tree (one file, already covered by the test-file rule), and",
-    "the conformance tree (29 real mutants, so it is measured now rather than",
+    "string), `src/e2e/**` (one file, already covered by the test-file rule), and",
+    "`src/conformance/**` (29 real mutants, so it is measured now rather than",
     "hidden). Lifting all three moved the score 97.86% -> 97.81%; two of them",
     "were rules that protected nothing while reading as though they did.",
     "",
@@ -55,7 +53,7 @@
     "   sentences of long instructs. Pinning those literally would make the tests",
     "   a copy of the text — snapshot testing through the back door, in a suite",
     "   that deliberately has none. What matters about prose is whether an agent",
-    "   reads it and does the right thing, and that is what `test/conformance`",
+    "   reads it and does the right thing, and that is what `src/conformance`",
     "   (known scenarios) and `npm run field:run` (new ones) exist to answer.",
     "",
     "So the exclusion is a boundary between two kinds of check, not a gap: group",
@@ -68,8 +66,7 @@
   "coverageAnalysis": "perTest",
   "mutate": [
     "src/**/*.ts",
-    "test/**/*.ts",
-    "!**/*.test.ts"
+    "!src/**/*.test.ts"
   ],
   "mutator": {
     "excludedMutations": ["StringLiteral"]

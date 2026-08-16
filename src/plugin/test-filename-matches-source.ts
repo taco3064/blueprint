@@ -26,17 +26,13 @@ export const testFilenameMatchesSource: Rule.RuleModule = {
   create(context) {
     return {
       Program(node) {
-        if (!TEST_SUFFIX.test(context.filename)) {
-          return;
-        }
+        if (!TEST_SUFFIX.test(context.filename)) return;
 
         const dir = path.dirname(context.filename);
         const base = path.basename(context.filename).replace(TEST_SUFFIX, '');
         const found = SRC_EXT.some((ext) => fs.existsSync(path.join(dir, base + ext)));
 
-        if (!found) {
-          context.report({ node, messageId: 'orphan', data: { base } });
-        }
+        if (!found) context.report({ node, messageId: 'orphan', data: { base } });
       },
     };
   },

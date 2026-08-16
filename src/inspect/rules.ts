@@ -1,5 +1,8 @@
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
+// Import from the patterns leaf, not the emit/lint index — the index also
+// exports lint.ts, which loads the plugin, which shares resolve logic with
+// inspect; routing through the index would close a module cycle.
 import {
   DOC_ONLY_RULES,
   deriveGlobalRules,
@@ -9,8 +12,8 @@ import {
   unavailableGate,
   selfOnlyReexportSelector,
   resolveTestFiles,
-} from '../emit/lint';
-import type { GateSpec } from '../emit/lint';
+} from '../emit/lint/patterns';
+import type { GateSpec } from '../emit/lint/patterns';
 import {
   aliasLayerRoots,
   getForbiddenLayers,
@@ -133,15 +136,10 @@ const SELF_ONLY_MESSAGE_NOTE
     + 'message text is yours to write — doctor verifies selectors, never messages';
 
 export const STRUCTURAL_RULES: StructuralRule[] = [
-  { rule: 'no-restricted-imports', covers: 'dependency flow, same-layer bans, package ownership — '
-    + 'whole packages or named imports ({ package, imports }); '
-    + 'same-signature owns merge — and fixture bans' },
-  { rule: 'no-restricted-syntax', covers: 'selfOnly re-export bans — emitted only when an '
-    + 'allowedImporters ENTRY declares selfOnly: true (a layer-level selfOnly key is invalid)' },
-  { rule: 'no-restricted-globals', covers: 'global ownership (owns: [{ global: … }]) — '
-    + 'emitted only where some layer is barred from an owned global' },
-  { rule: 'blueprint/relative-escape', covers: '../ module escapes at any '
-    + 'depth (embedded plugin)' },
+  { rule: 'no-restricted-imports', covers: 'dependency flow, same-layer bans, package ownership — whole packages or named imports ({ package, imports }); same-signature owns merge — and fixture bans' },
+  { rule: 'no-restricted-syntax', covers: 'selfOnly re-export bans — emitted only when an allowedImporters ENTRY declares selfOnly: true (a layer-level selfOnly key is invalid)' },
+  { rule: 'no-restricted-globals', covers: 'global ownership (owns: [{ global: … }]) — emitted only where some layer is barred from an owned global' },
+  { rule: 'blueprint/relative-escape', covers: '../ module escapes at any depth (embedded plugin)' },
 ];
 
 /** A structural rule annotated with whether THIS config's output carries it. */
@@ -156,9 +154,7 @@ export interface StructuralStatus extends StructuralRule {
  * import lint.ts — so a test pins the mirror to emitLint's real output.
  */
 function resolveStructural(blueprint: Blueprint | null): StructuralStatus[] {
-  if (!blueprint) {
-    return STRUCTURAL_RULES.map((rule) => ({ ...rule, active: null }));
-  }
+  if (!blueprint) return STRUCTURAL_RULES.map((rule) => ({ ...rule, active: null }));
 
   const { layers } = blueprint.architecture;
   const globalRules = deriveGlobalRules(layers);
@@ -239,9 +235,7 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
 function unavailableNote(gates: GateStatus[]): string {
   const out = gates.filter((gate) => gate.unavailable !== undefined);
 
-  if (!out.length) {
-    return ' — all of them openable on this stack, so `inspect` counts the same number';
-  }
+  if (!out.length) return ' — all of them openable on this stack, so `inspect` counts the same number';
 
   return ` — ${out.length} of them unavailable on this stack (${
     out.map((gate) => `${gate.id}: ${gate.unavailable}`).join('; ')
@@ -338,17 +332,13 @@ export function renderRules(
       return gate.declared === null ? '· unavailable here' : '· declared, unavailable here';
     }
 
-    if (gate.declared === null) {
-      return '· not declared';
-    }
+    if (gate.declared === null) return '· not declared';
 
     // Declared, not unavailable, and still inactive means exactly one thing: the
     // author set it to off. The other arm this ternary used to have — "declared,
     // never emits here" — existed only for the framework-silenced case, which the
     // unavailable branch above now answers with its reason, so nothing reaches it.
-    if (!gate.active) {
-      return '· off';
-    }
+    if (!gate.active) return '· off';
 
     return `✓ ${gate.declared.tier}${gate.declared.value !== undefined ? `(${gate.declared.value})` : ''}`;
   };

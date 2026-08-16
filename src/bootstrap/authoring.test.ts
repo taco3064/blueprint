@@ -1,24 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  AGENT_PROMPT, AUTHORING_FILE, authoringActions, authoringBrief, BROWNFIELD_MIN_FILES,
-  COMMAND_FILE,
-} from './authoring';
-// Test-only helper from the test-only tree — the playbook is hand-wrapped
+import { AGENT_PROMPT, AUTHORING_FILE, authoringActions, authoringBrief, BROWNFIELD_MIN_FILES, COMMAND_FILE } from './authoring';
+// Test-only helper from the test-only module — the playbook is hand-wrapped
 // prose, so an assertion that needs a whole sentence flattens it first rather
 // than naming the column the source broke at.
 //
-// This edge leaves `src/` entirely: `conformance` is no layer, and since #358 it
-// does not sit under `sourceRoot` either. What permits it is what permitted it
-// when it read as an upward layer edge — the layer rules govern the SHIPPED
-// graph, and neither rolldown input (`src/index.ts`, `src/cli/cli.ts`) reaches
-// `test/` or any `*.test.ts`. Both suites assert on the same emitted prose, so
-// one definition of "wrap-independent" beats two. The cost is real and worth
-// knowing before copying the move: importing `conformance` pulls the whole CLI
-// into this unit test's import graph. That is why it stays confined to test
-// files — the same import from a non-test file in `bootstrap` would be a genuine
-// break, not this exception.
-import { flattenProse } from '../../test/conformance';
+// This edge runs UPWARD against the layering (`bootstrap` sits well above
+// `conformance`, which imports `../cli`), and it is allowed for one reason: the
+// layer rule governs the SHIPPED graph, and neither rolldown input
+// (`src/index.ts`, `src/cli/cli.ts`) reaches `conformance` or any `*.test.ts`.
+// Both suites assert on the same emitted prose, so one definition of "wrap-
+// independent" beats two. The cost is real and worth knowing before copying the
+// move: importing `conformance` pulls the whole CLI into this unit test's import
+// graph. That is why it stays confined to test files — the same import from a
+// non-test file in `bootstrap` would be a genuine layering break, not this
+// exception.
+import { flattenProse } from '../conformance';
 import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
 import type { SurveyResult } from '../survey';
 
@@ -49,8 +46,7 @@ const survey: SurveyResult = {
 
 describe('authoringActions', () => {
   it('writes the playbook, the command file, installs the package, then instructs', () => {
-    const actions = authoringActions(survey, { packageManager: 'pnpm', needsInstall: true,
-      claudeDir: { hadDir: false, otherCommands: 0 }, viteTs: null, tscOut: null });
+    const actions = authoringActions(survey, { packageManager: 'pnpm', needsInstall: true, claudeDir: { hadDir: false, otherCommands: 0 }, viteTs: null, tscOut: null });
 
     expect(actions.map((action) => action.kind)).toEqual(['write', 'write', 'install', 'instruct']);
 
@@ -78,8 +74,7 @@ describe('authoringActions', () => {
   });
 
   it('skips the install action when the package is already a dependency', () => {
-    const actions = authoringActions(survey, { packageManager: 'npm', needsInstall: false,
-      claudeDir: { hadDir: false, otherCommands: 0 }, viteTs: null, tscOut: null });
+    const actions = authoringActions(survey, { packageManager: 'npm', needsInstall: false, claudeDir: { hadDir: false, otherCommands: 0 }, viteTs: null, tscOut: null });
 
     expect(actions.map((action) => action.kind)).toEqual(['write', 'write', 'instruct']);
   });
@@ -103,8 +98,7 @@ describe('authoringActions', () => {
 });
 
 describe('authoringBrief', () => {
-  const brief = authoringBrief(survey, 'pnpm add -D @kekkai/blueprint',
-    { claudeDir: { hadDir: false, otherCommands: 0 } });
+  const brief = authoringBrief(survey, 'pnpm add -D @kekkai/blueprint', { claudeDir: { hadDir: false, otherCommands: 0 } });
 
   it('opens with the install prerequisite', () => {
     expect(brief).toContain('## Prerequisites');
@@ -166,8 +160,7 @@ describe('authoringBrief', () => {
   });
 
   it('prepends the verdict below the threshold and reorders nothing else', () => {
-    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint',
-      { claudeDir: { hadDir: false, otherCommands: 0 } });
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { claudeDir: { hadDir: false, otherCommands: 0 } });
 
     // The one conditional section, and it leads — the conclusion before the method.
     expect(headings(small)).toEqual([
@@ -188,8 +181,7 @@ describe('authoringBrief', () => {
   });
 
   it('leads with the early-exit verdict below the threshold (batch 10)', () => {
-    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint',
-      { claudeDir: { hadDir: false, otherCommands: 0 } });
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { claudeDir: { hadDir: false, otherCommands: 0 } });
 
     // The conclusion must come before the method, not sit buried inside it.
     expect(small.indexOf('Read this first')).toBeGreaterThan(-1);
@@ -263,10 +255,7 @@ describe('authoringBrief', () => {
     // config-only; impact lints, so it waits for the deps init installs.
     expect(brief).toContain('then let `inspect` correct you');
     expect(flattenProse(brief)).toContain('needs nothing installed');
-
-    expect(flattenProse(brief)).toContain('`impact` is the same kind of read-only '
-      + 'feedback but is NOT available at this point');
-
+    expect(flattenProse(brief)).toContain('`impact` is the same kind of read-only feedback but is NOT available at this point');
     expect(flattenProse(brief)).toContain('joins the loop at Method step 9, after init');
   });
 
@@ -369,36 +358,6 @@ describe('authoringBrief', () => {
     expect(brief).toContain('layout-dependent');
   });
 
-  it('names every tell doctor\'s "eslint wired" check reads, not just one', () => {
-    // The list is restated here because `detect` keeps it private, and it is
-    // matched against the bullet rather than the whole playbook — the package
-    // name appears in the prerequisites too, so a document-wide `toContain`
-    // would stay green with the bullet naming only one tell. That is the exact
-    // state this assertion exists to catch: an agent told about one arm reads a
-    // config wired through the other as unwired, and re-wires what is already
-    // there. Both were half of one sentence once, and the sentence went stale
-    // the moment the check learned a second arm.
-    const bullet = brief.split('\n').find((line) => line.includes('"eslint wired" check'));
-
-    expect(bullet).toBeDefined();
-
-    for (const tell of ['emitLint(', '@kekkai/blueprint']) {
-      expect(bullet).toContain(`\`${tell}\``);
-    }
-  });
-
-  it('says the tells are read off code, or it teaches the string that defeats them', () => {
-    // The remedy doctor prints is literally `spread ...emitLint(blueprint)`, so
-    // an agent parking that line in a comment to unblock CI is following the
-    // tool's own instruction. A playbook stopping at "its text contains" leaves
-    // that agent with a config doctor calls unwired while the words sit in it,
-    // and an `init` that skips the reference file it needs to merge from.
-    expect(flattenProse(brief))
-      .toContain('a tell inside a comment or a string literal is NOT wiring');
-
-    expect(flattenProse(brief)).toContain('cannot read straight through');
-  });
-
   it('teaches the merge traps: flat-config override, DAG linearization, honest zero', () => {
     // Same rule in a later entry REPLACES the earlier, so a rule both sides set
     // needs one merged entry where they overlap. Ordering is not the fix there —
@@ -441,16 +400,10 @@ describe('authoringBrief', () => {
   // copies drifted four ways in the first place. One case per member now.
   const caveats = [
     ['plugin prefix', 'plugin prefix (`@stylistic/max-len`, never bare `max-len`)'],
-    [
-      'empty layer',
-      'holds no files does not appear at all (inspect\'s `declaratory-self-only` note, not a loss)',
-    ],
-    ['selfOnly importer',
-      'resolves on the IMPORTER layer inspect names, not on the layer being protected'],
+    ['empty layer', 'holds no files does not appear at all (inspect\'s `declaratory-self-only` note, not a loss)'],
+    ['selfOnly importer', 'resolves on the IMPORTER layer inspect names, not on the layer being protected'],
     ['finding ids', '**inspect\'s finding names are not ESLint rule ids**'],
-    ['migration pointer',
-      'migration steps name the carrying rule for each finding, '
-      + 'and mark the ones no lint run will ever show'],
+    ['migration pointer', 'migration steps name the carrying rule for each finding, and mark the ones no lint run will ever show'],
   ] as const;
 
   it.each(caveats)('warns that %s makes a correct config look broken', (_label, text) => {
@@ -458,9 +411,7 @@ describe('authoringBrief', () => {
   });
 
   it('carries the caveats on both paths that reach --print-config, from one source', () => {
-    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint',
-      { claudeDir: { hadDir: false, otherCommands: 0 } });
-
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { claudeDir: { hadDir: false, otherCommands: 0 } });
     const occurrences = (text: string) => text.split('resolved keys carry their').length - 1;
 
     // Method step 9's merge always renders; the early-exit checklist's lint step
@@ -471,14 +422,11 @@ describe('authoringBrief', () => {
 
     // Same indent-agnostic text at both, which is the point of sharing it: three
     // spaces inside the numbered checklist item, five inside the merge bullet.
-    for (const [, text] of caveats) {
-      expect(flattenProse(small)).toContain(text);
-    }
+    for (const [, text] of caveats) expect(flattenProse(small)).toContain(text);
   });
 
   it('emits the shared caveats inline, so there is no indent left to get wrong', () => {
-    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint',
-      { claudeDir: { hadDir: false, otherCommands: 0 } });
+    const small = authoringBrief({ ...survey, totalFiles: 3 }, 'npm install -D @kekkai/blueprint', { claudeDir: { hadDir: false, otherCommands: 0 } });
 
     // `printConfigCaveats` used to wrap, so it had to be told the indent of the
     // list it sat in — three spaces inside a numbered item, five inside a bullet
@@ -491,10 +439,7 @@ describe('authoringBrief', () => {
       const hosts = text.split('\n').filter((line) => line.includes('resolved keys carry their'));
 
       expect(hosts.length).toBeGreaterThan(0);
-
-      for (const line of hosts) {
-        expect(line).toContain('and mark the ones no lint run will ever show.');
-      }
+      for (const line of hosts) expect(line).toContain('and mark the ones no lint run will ever show.');
     }
   });
 
@@ -510,10 +455,8 @@ describe('authoringBrief', () => {
     // items, catalog bullets) end without terminal punctuation.
     const arms = [
       authoringBrief(survey, 'npm i', { claudeDir: { hadDir: false, otherCommands: 0 } }),
-      authoringBrief(survey, 'npm i',
-        { claudeDir: { hadDir: true, otherCommands: 0 }, next: true }),
-      authoringBrief({ ...survey, totalFiles: 3 }, 'npm i',
-        { claudeDir: { hadDir: false, otherCommands: 0 } }),
+      authoringBrief(survey, 'npm i', { claudeDir: { hadDir: true, otherCommands: 0 }, next: true }),
+      authoringBrief({ ...survey, totalFiles: 3 }, 'npm i', { claudeDir: { hadDir: false, otherCommands: 0 } }),
       authoringBrief({ ...survey, totalFiles: 3 }, 'npm i', {
         claudeDir: { hadDir: true, otherCommands: 0 },
         viteTs: { verdict: 'covered', viteFile: 'vite.config.ts', tsconfig: 'tsconfig.node.json' },
@@ -554,8 +497,7 @@ describe('authoringBrief', () => {
   });
 
   it('carries the Next.js route-tree guidance when next is true', () => {
-    const nextBrief = authoringBrief(survey, 'npm install -D @kekkai/blueprint',
-      { next: true, claudeDir: { hadDir: false, otherCommands: 0 } });
+    const nextBrief = authoringBrief(survey, 'npm install -D @kekkai/blueprint', { next: true, claudeDir: { hadDir: false, otherCommands: 0 } });
 
     expect(nextBrief).toContain('Next.js project');
     expect(nextBrief).toContain('app` → `components');
@@ -583,13 +525,11 @@ describe('authoringBrief · the Next.js note', () => {
     // Defaulting it the other way hands every brief a paragraph about a framework
     // the repo may not use, and tells the reader to declare a layer that is not
     // there.
-    const standalone = authoringBrief(survey, 'npm install -D @kekkai/blueprint',
-      { claudeDir: { hadDir: false, otherCommands: 0 } });
+    const standalone = authoringBrief(survey, 'npm install -D @kekkai/blueprint', { claudeDir: { hadDir: false, otherCommands: 0 } });
 
     expect(standalone).not.toContain('Next.js project');
 
-    expect(authoringBrief(survey, 'npm install -D @kekkai/blueprint',
-      { next: true, claudeDir: { hadDir: false, otherCommands: 0 } }))
+    expect(authoringBrief(survey, 'npm install -D @kekkai/blueprint', { next: true, claudeDir: { hadDir: false, otherCommands: 0 } }))
       .toContain('Next.js project');
   });
 });

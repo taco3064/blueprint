@@ -1,9 +1,4 @@
 {
-  "compilerOptions": {
-    "paths": {
-      "~lib/*": ["./src/*"]
-    }
-  },
   "files": [],
   "references": [
     { "path": "./tsconfig.lib.json" },

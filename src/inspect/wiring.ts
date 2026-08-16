@@ -6,6 +6,8 @@ import { activeSetting,
   getModuleShape,
   getSelfOnlyTargets } from '../config';
 import type { Blueprint } from '../config';
+// The patterns leaf, not the emit/lint index: the index also exports lint.ts,
+// whose plugin shares resolve logic with inspect, closing a module cycle.
 import {
   buildStructuralPatterns,
   deriveGlobalRules,
@@ -13,7 +15,7 @@ import {
   resolveTestFiles,
   selfOnlyReexportSelector,
   toArray,
-} from '../emit/lint';
+} from '../emit/lint/patterns';
 import { unwrapModule } from '../project';
 import { dropTestFiles, globToRegExp } from './filter';
 import type { DoctorCheck, ScanResult } from './types';
@@ -139,9 +141,7 @@ export function expectedStructural(
  * `?` or a character class yields no probe, never a wrong one.
  */
 function syntheticPath(glob: string): string | null {
-  if (/[?[\]]/.test(glob)) {
-    return null;
-  }
+  if (/[?[\]]/.test(glob)) return null;
 
   return glob
     .replace(/\*\*\//g, '')
@@ -178,9 +178,7 @@ function pickProbes(
     const nets = globs.map(globToRegExp);
     const hit = source.find((file) => nets.some((net) => net.test(file.path)));
 
-    if (hit) {
-      return [{ path: hit.path, layer: layer.name }];
-    }
+    if (hit) return [{ path: hit.path, layer: layer.name }];
 
     // The synthetic candidate must sit exactly where a real file would:
     // inside the net, outside the ignores, and never shaped like a test
@@ -214,9 +212,7 @@ function optionsOf(value: unknown): unknown[] {
 
 /** A resolved rule's option list, or null when absent / severity off. */
 function activeOptions(value: unknown): unknown[] | null {
-  if (value == null) {
-    return null;
-  }
+  if (value == null) return null;
 
   const options = Array.isArray(value) ? value : [value];
 
@@ -254,39 +250,28 @@ function resolvedStructural(rules: Record<string, unknown>): {
 
     // A paths-only option carries no patterns at all — that is a shape, not a
     // mistake, so it is not counted.
-    if (!Array.isArray(patterns)) {
-      continue;
-    }
+    if (!Array.isArray(patterns)) continue;
 
     for (const pattern of patterns) {
       const group = (pattern as { group?: unknown })?.group;
 
-      if (Array.isArray(group)) {
-        groups.add(JSON.stringify(group));
-      } else {
-        unreadable++;
-      }
+      if (Array.isArray(group)) groups.add(JSON.stringify(group));
+      else unreadable++;
     }
   }
 
   for (const item of optionsOf(rules['no-restricted-syntax'])) {
     const selector = typeof item === 'string' ? item : (item as { selector?: string })?.selector;
 
-    if (selector) {
-      selectors.add(selector);
-    } else {
-      unreadable++;
-    }
+    if (selector) selectors.add(selector);
+    else unreadable++;
   }
 
   for (const item of optionsOf(rules['no-restricted-globals'])) {
     const name = typeof item === 'string' ? item : (item as { name?: string })?.name;
 
-    if (name) {
-      globals.add(name);
-    } else {
-      unreadable++;
-    }
+    if (name) globals.add(name);
+    else unreadable++;
   }
 
   return {

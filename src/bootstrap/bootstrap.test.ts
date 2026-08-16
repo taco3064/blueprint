@@ -114,8 +114,7 @@ describe('runInit', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     const loadConfig = async () => vuePreset({ name: 'demo' });
 
-    const files = ['blueprint.config.mjs', 'eslint.config.mjs', 'CLAUDE.md', 'AGENTS.md',
-      'docs/architecture-handbook.md', 'jsconfig.json'];
+    const files = ['blueprint.config.mjs', 'eslint.config.mjs', 'CLAUDE.md', 'AGENTS.md', 'docs/architecture-handbook.md', 'jsconfig.json'];
 
     await runInit(root, { install: false, log: silent, loadConfig });
     const snapshot = files.map(read);
@@ -145,9 +144,7 @@ describe('runInit', () => {
       loadConfig: async () => vuePreset({ name: 'FromConfig' }),
     });
 
-    expect(actions.some((a) => a.kind === 'write' && a.path === 'blueprint.config.mjs'))
-      .toBe(false);
-
+    expect(actions.some((a) => a.kind === 'write' && a.path === 'blueprint.config.mjs')).toBe(false);
     expect(read('blueprint.config.mjs')).toBe('// user config');
     expect(read('docs/architecture-handbook.md')).toContain('FromConfig');
   });
@@ -183,8 +180,7 @@ describe('runInit', () => {
 
     fs.writeFileSync(
       path.join(root, 'vite.config.ts'),
-      'import { defineConfig } from \'vite\'\n\nexport '
-      + 'default defineConfig({\n  plugins: [],\n})\n',
+      'import { defineConfig } from \'vite\'\n\nexport default defineConfig({\n  plugins: [],\n})\n',
     );
 
     const lines: string[] = [];
@@ -598,8 +594,7 @@ describe('runInit · brownfield authoring flow', () => {
 
     fs.writeFileSync(
       path.join(root, 'src/components/Hello/index.js'),
-      ['import logo from '
-        + '"../../assets/logo.svg";', 'import a from "../../assets/a.svg";'].join('\n'),
+      ['import logo from "../../assets/logo.svg";', 'import a from "../../assets/a.svg";'].join('\n'),
     );
 
     const actions = await runInit(root, { install: false, log: silent });
@@ -682,8 +677,7 @@ describe('runInit · artifact hygiene', () => {
     expect(exists('eslint.config.blueprint.mjs')).toBe(true);
   });
 
-  it('re-includes gitignored artifacts via '
-    + 'negations instead of instructing (field #4)', async () => {
+  it('re-includes gitignored artifacts via negations instead of instructing (field #4)', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\ndocs\n');
 
@@ -705,8 +699,7 @@ describe('runInit · artifact hygiene', () => {
     expect(read('.gitignore').match(/!CLAUDE\.md/g)).toHaveLength(1);
   });
 
-  it('joins the negation block on with exactly one blank line, '
-    + 'whatever the file ended in', async () => {
+  it('joins the negation block on with exactly one blank line, whatever the file ended in', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     // How many trailing newlines a .gitignore carries is an editor accident;
     // the seam this write produces must not be.
@@ -867,10 +860,7 @@ describe('runInit · Next.js routing', () => {
 
     expect(read('blueprint.config.mjs')).toContain('nextPreset');
     expect(read('blueprint.config.mjs')).not.toContain('reactPreset');
-
-    expect(
-      actions.some((action) => action.kind === 'instruct' && action.note.includes('does not fit')),
-    ).toBe(false);
+    expect(actions.some((action) => action.kind === 'instruct' && action.note.includes('does not fit'))).toBe(false);
   });
 });
 
@@ -1150,9 +1140,7 @@ describe('runInit · the codeStyle heads-up is scoped to a fresh scaffold', () =
     const actions = await runInit(root, { install: false, log: silent });
 
     expect(actions.some(
-      (action) => action.kind === 'instruct' && action.note.includes(
-        '`codeStyle` on at error tier',
-      ),
+      (action) => action.kind === 'instruct' && action.note.includes('`codeStyle` on at error tier'),
     )).toBe(true);
   });
 
@@ -1176,8 +1164,7 @@ describe('runInit · the codeStyle heads-up is scoped to a fresh scaffold', () =
 });
 
 describe('runInit · an introduced alias is named as a decision', () => {
-  it('says the preset introduced the repo\'s first alias — '
-    + 'and stays quiet when one existed', async () => {
+  it('says the preset introduced the repo\'s first alias — and stays quiet when one existed', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
     const introduced = await runInit(root, { install: false, log: silent });
@@ -1504,9 +1491,7 @@ describe('runInit · reading the contract files at their declared paths', () => 
     expect(exists('docs/CLAUDE.blueprint.md')).toBe(true);
 
     expect(actions.some(
-      (action) => action.kind === 'instruct' && action.note.includes(
-        'docs/CLAUDE.md is hand-written',
-      ),
+      (action) => action.kind === 'instruct' && action.note.includes('docs/CLAUDE.md is hand-written'),
     )).toBe(true);
   });
 

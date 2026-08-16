@@ -38,9 +38,7 @@ export const usePrefixNeedsReactivity: Rule.RuleModule = {
       .replace(TEST_SUFFIX, '')
       .replace(FILE_EXT, '');
 
-    if (!/^use[A-Z]/.test(base)) {
-      return {};
-    }
+    if (!/^use[A-Z]/.test(base)) return {};
 
     let reactive = false;
 
@@ -59,14 +57,10 @@ export const usePrefixNeedsReactivity: Rule.RuleModule = {
               ? callee.property.name
               : '';
 
-        if (REACTIVE_API.has(name)) {
-          reactive = true;
-        }
+        if (REACTIVE_API.has(name)) reactive = true;
       },
       'Program:exit'(node) {
-        if (!reactive) {
-          context.report({ node, messageId: 'pure', data: { base } });
-        }
+        if (!reactive) context.report({ node, messageId: 'pure', data: { base } });
       },
     };
   },

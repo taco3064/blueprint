@@ -177,9 +177,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (configSource !== null) {
     const cleanup = templateCleanup(scanResult, blueprint);
 
-    if (cleanup) {
-      actions.push(cleanup);
-    }
+    if (cleanup) actions.push(cleanup);
   }
 
   // The contract links to the handbook and lives in the agent files — if the
@@ -228,11 +226,8 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (lintWiring) {
     const installAt = actions.findIndex((action) => action.kind === 'install');
 
-    if (lintWiring.kind === 'write' && installAt !== -1) {
-      actions.splice(installAt, 0, lintWiring);
-    } else {
-      actions.push(lintWiring);
-    }
+    if (lintWiring.kind === 'write' && installAt !== -1) actions.splice(installAt, 0, lintWiring);
+    else actions.push(lintWiring);
   }
 
   // A preset on a repo that never had an alias INTRODUCES one — a new
@@ -263,18 +258,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (configSource !== null) {
     actions.push({
       kind: 'instruct',
-      note: 'The preset turned `codeStyle` on at error tier: it pins indent (2), quotes (single), '
-        + 'semicolons (required) and line width (90) across ~68 rules. '
-        + 'Nearly all are auto-fixable, so when there IS code inside a layer, '
-        + 'run `npx eslint . --fix` once and land that pass as its own commit — '
-        + 'the formatting churn never mixes with a real change. While the layers are still empty '
-        + 'that pass is a no-op: the gate reaches only files a layer glob matches, '
-        + 'and a starter\'s root files sit outside every one of them. '
-        + 'It exempts nothing by style either: a starter written without semicolons is silent '
-        + 'today and fails the day its first file moves into a layer, '
-        + 'which is when the --fix pass earns its commit. Already have a formatter you trust? '
-        + 'Set `codeStyle: \'off\'` in the config and keep yours — '
-        + 'blueprint does not need it to enforce structure.',
+      note: 'The preset turned `codeStyle` on at error tier: it pins indent (2), quotes (single), semicolons (required) and line width (90) across ~68 rules. Nearly all are auto-fixable, so when there IS code inside a layer, run `npx eslint . --fix` once and land that pass as its own commit — the formatting churn never mixes with a real change. While the layers are still empty that pass is a no-op: the gate reaches only files a layer glob matches, and a starter\'s root files sit outside every one of them. It exempts nothing by style either: a starter written without semicolons is silent today and fails the day its first file moves into a layer, which is when the --fix pass earns its commit. Already have a formatter you trust? Set `codeStyle: \'off\'` in the config and keep yours — blueprint does not need it to enforce structure.',
     });
   }
 
@@ -283,9 +267,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (!blueprint.emit?.agents && !agentTarget) {
     actions.push({
       kind: 'instruct',
-      note: 'Wrote both CLAUDE.md and AGENTS.md (the default set) — '
-        + 'declare emit.agents in blueprint.config.mjs, '
-        + 'or re-run init with --agent claude|codex, to emit only the tool you actually use.',
+      note: 'Wrote both CLAUDE.md and AGENTS.md (the default set) — declare emit.agents in blueprint.config.mjs, or re-run init with --agent claude|codex, to emit only the tool you actually use.',
     });
   }
 
@@ -293,16 +275,12 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · ${blueprint.framework} · ${state.packageManager}`,
   );
 
-  if (forkNote) {
-    log(`· ${forkNote}`);
-  }
+  if (forkNote) log(`· ${forkNote}`);
 
   if (options.dryRun) {
     // Nothing is applied, so listing the whole plan up front IS the report:
     // every line reads "would", none of them claims anything about disk.
-    for (const action of actions) {
-      log(formatAction(action, true));
-    }
+    for (const action of actions) log(formatAction(action, true));
   }
 
   if (!options.dryRun) {
@@ -394,9 +372,7 @@ function lintScriptAction(root: string, blueprint: Blueprint, greenfield: boolea
     };
   }
 
-  if (lint.includes('eslint')) {
-    return null;
-  }
+  if (lint.includes('eslint')) return null;
 
   const needle = `"lint": ${JSON.stringify(lint)}`;
 
@@ -420,9 +396,7 @@ function templateCleanup(scanResult: ReturnType<typeof scan>, blueprint: Bluepri
     (finding) => finding.severity === 'error',
   );
 
-  if (!findings.length) {
-    return null;
-  }
+  if (!findings.length) return null;
 
   const shown = findings.slice(0, 3).map((finding) => `    ${finding.path} — ${finding.message}`);
   const more = findings.length - shown.length;
@@ -490,9 +464,7 @@ function runAuthoring(
   if (options.dryRun) {
     // Nothing is applied, so listing the whole plan up front IS the report:
     // every line reads "would", none of them claims anything about disk.
-    for (const action of actions) {
-      log(formatAction(action, true));
-    }
+    for (const action of actions) log(formatAction(action, true));
   }
 
   if (!options.dryRun) {
@@ -573,8 +545,7 @@ function applyAndNarrate(
       + `${skipped.length ? `, and ${skipped.length} planned effect(s) did NOT happen:\n${skipped.map((action) => `    · ${action.kind}: ${action.note}`).join('\n')}` : ' — nothing else was planned below it'}\n\n`
       + '  Re-running `blueprint init` is idempotent: fix the cause and the missing effects land, '
       + 'the applied ones stay. To finish the file plan without this step, run '
-      + '`blueprint init --no-install` — '
-      + 'the dependency list is then printed for you to install yourself.',
+      + '`blueprint init --no-install` — the dependency list is then printed for you to install yourself.',
     );
   }
 }

@@ -1,6 +1,9 @@
 import { activeSetting } from '../config';
 import type { Blueprint } from '../config';
-import { LINT_GATED_RULE_IDS, resolveLayerFiles, unavailableGate } from '../emit/lint';
+// Import from the patterns leaf, not the emit/lint index — the index also
+// exports lint.ts, which loads the plugin, which shares resolve logic with
+// inspect; routing through the index would close a module cycle.
+import { LINT_GATED_RULE_IDS, resolveLayerFiles, unavailableGate } from '../emit/lint/patterns';
 import { dropTestFiles, globToRegExp } from './filter';
 import type { ScanResult } from './types';
 

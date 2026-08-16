@@ -33,9 +33,8 @@ export interface ProjectState {
    */
   ownedEslintConfig?: string;
   /**
-   * A hand-maintained eslint config's text calls `emitLint(` or names
-   * `@kekkai/blueprint` — its owner wired the rules in, so no reference file
-   * is needed.
+   * A hand-maintained eslint config already imports `@kekkai/blueprint` —
+   * its owner wired the rules in, so no reference file is needed.
    */
   wiredEslintConfig: boolean;
   /**

@@ -5,7 +5,7 @@ import stylisticPlugin from '@stylistic/eslint-plugin';
 import importsPlugin from 'eslint-plugin-import-x';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { flattenProse } from '../../test/conformance';
+import { flattenProse } from '../conformance';
 import type { LintConfigEntry } from '../emit/lint';
 import { reactPreset, vuePreset } from '../presets';
 import { renderImpact, runImpact } from './impact';
@@ -66,29 +66,15 @@ function loader(eslintModule: unknown) {
   const loadModule = async (name: string): Promise<unknown> => {
     loaded.push(name);
 
-    if (name === 'eslint') {
-      return eslintModule;
-    }
-
+    if (name === 'eslint') return eslintModule;
     // Wrapped in `default` on purpose — exercises the CJS/ESM interop unwrap.
-    if (name === 'typescript-eslint') {
-      return { default: { parser: tsParser, plugin: tsPlugin } };
-    }
-
-    if (name === 'vue-eslint-parser') {
-      return { default: vueParser };
-    }
-
+    if (name === 'typescript-eslint') return { default: { parser: tsParser, plugin: tsPlugin } };
+    if (name === 'vue-eslint-parser') return { default: vueParser };
     // The real plugins, not stubs: codeStyle reads stylistic's customize()
     // factory, so a `{ rules: {} }` stand-in would not exercise the path the
     // adopting project actually runs.
-    if (name === '@stylistic/eslint-plugin') {
-      return { default: stylisticPlugin };
-    }
-
-    if (name === 'eslint-plugin-import-x') {
-      return { default: importsPlugin };
-    }
+    if (name === '@stylistic/eslint-plugin') return { default: stylisticPlugin };
+    if (name === 'eslint-plugin-import-x') return { default: importsPlugin };
 
     throw new Error(`unexpected module ${name}`);
   };
@@ -165,8 +151,7 @@ describe('runImpact', () => {
 
     await runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent });
 
-    expect(loaded)
-      .toEqual(expect.arrayContaining(['eslint', 'typescript-eslint', 'vue-eslint-parser']));
+    expect(loaded).toEqual(expect.arrayContaining(['eslint', 'typescript-eslint', 'vue-eslint-parser']));
 
     const entries = captured.options?.overrideConfig as LintConfigEntry[];
     const vueEntry = entries.find((e) => e.files?.[0] === '**/*.vue');

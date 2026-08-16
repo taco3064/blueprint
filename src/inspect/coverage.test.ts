@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
-import { LINT_GATED_RULE_IDS } from '../emit/lint';
+import { LINT_GATED_RULE_IDS } from '../emit/lint/patterns';
 import { computeCoverage, renderCoverage, vacuousNextStep } from './coverage';
 import type { ScanResult } from './types';
 
@@ -91,8 +91,7 @@ describe('vacuousNextStep', () => {
 describe('renderCoverage', () => {
   it('renders the one-line summary without implying structural rules are off', () => {
     const line = renderCoverage(
-      { sourceFiles: 2, layerFiles: 1, outsideNets: ['src/main.tsx'], activeRules: 0,
-        gatedRules: 13 },
+      { sourceFiles: 2, layerFiles: 1, outsideNets: ['src/main.tsx'], activeRules: 0, gatedRules: 13 },
       blueprint,
     );
 
@@ -147,8 +146,7 @@ describe('renderCoverage', () => {
 
   it('screams when files exist but the net catches none of them', () => {
     const line = renderCoverage(
-      { sourceFiles: 3, layerFiles: 0, outsideNets: ['a.ts', 'b.ts', 'c.ts'], activeRules: 2,
-        gatedRules: 13 },
+      { sourceFiles: 3, layerFiles: 0, outsideNets: ['a.ts', 'b.ts', 'c.ts'], activeRules: 2, gatedRules: 13 },
       blueprint,
     );
 

@@ -182,14 +182,12 @@ await check('`init --dry-run` plans against a real fixture and writes nothing', 
   );
 
   const before = fs.readdirSync(dir).sort();
-
   const { code, output } = runCmd(process.execPath, [binPath, 'init', '--dry-run', '--no-install'], {
     cwd: dir,
   });
 
   expect(code === 0, `exited ${code}\n${output}`);
   expect(output.includes('blueprint.config.mjs'), 'the plan never mentions the config it would write');
-
   expect(
     JSON.stringify(fs.readdirSync(dir).sort()) === JSON.stringify(before),
     `--dry-run touched the filesystem: ${fs.readdirSync(dir).sort().join(', ')}`,
@@ -228,7 +226,6 @@ if (process.platform === 'win32') {
     const { code, output } = runCmd(link, ['--version'], { cwd: dir });
 
     expect(code === 0, `exited ${code}\n${output}`);
-
     expect(
       output.includes(pkg.version),
       `printed ${JSON.stringify(output.trim())} — the entry guard did not fire through the symlink`,
@@ -268,50 +265,6 @@ await check('the declared types file exists', () => {
   expect(fs.existsSync(path.join(root, types)), `${types} was not emitted`);
 
   return types;
-});
-
-await check('no emitted declaration carries this repo\'s own import alias', async () => {
-  // `tsc` does not rewrite path mappings. An aliased import inside `src/` lands
-  // verbatim in the per-file declarations `tsconfig.types.json` emits, and a
-  // consumer type-checking against `dist/` gets TS2307 on a path only this
-  // repo's tsconfig resolves. Nothing before this point can see it: in-process
-  // the alias resolves, lint is green, the build succeeds, the bundle runs.
-  //
-  // Read from the blueprint rather than hard-coded — the alias is declared in
-  // one place, and a check spelling it a second time goes stale silently.
-  const { default: blueprint } = await import(
-    pathToFileURL(path.join(root, 'blueprint.config.mjs')).href
-  );
-
-  const alias = blueprint?.architecture?.alias;
-
-  expect(alias, 'blueprint.config.mjs declares no architecture.alias to check for');
-
-  const declarations = [];
-
-  const walk = (dir) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-
-      if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith('.d.ts')) declarations.push(full);
-    }
-  };
-
-  walk(path.join(root, 'dist'));
-
-  const offenders = declarations
-    .filter((file) => fs.readFileSync(file, 'utf-8').includes(alias))
-    .map((file) => path.relative(root, file));
-
-  expect(
-    !offenders.length,
-    `${alias} survives into ${offenders.length} declaration file(s): ${offenders.join(', ')}\n`
-    + `an adopter type-checking against dist/ gets TS2307 on ${alias}/… — `
-    + 'import relatively inside src/, or teach the build to rewrite the mapping',
-  );
-
-  return `${alias} absent from ${declarations.length} .d.ts files`;
 });
 
 // ------------------------------------------------------------------------- done

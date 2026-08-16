@@ -23,9 +23,7 @@ describe('emitAgentFiles', () => {
     // compact pointer block, not the full contract dump.
     const compact = emitAgentContract(bp(), { compact: true });
 
-    for (const file of files) {
-      expect(file.content).toBe(compact);
-    }
+    for (const file of files) expect(file.content).toBe(compact);
 
     expect(compact).toContain('docs/architecture-handbook.md');
     expect(compact).toContain('node_modules/@kekkai/blueprint/agent-contract.md');
@@ -48,8 +46,7 @@ describe('emitAgentFiles', () => {
   });
 
   it('maps every target to its tool file', () => {
-    const files = emitAgentFiles(bp(['claude', 'agents', 'gemini', 'copilot', 'cursor',
-      'windsurf']));
+    const files = emitAgentFiles(bp(['claude', 'agents', 'gemini', 'copilot', 'cursor', 'windsurf']));
 
     expect(files.map((file) => file.path)).toEqual([
       'CLAUDE.md',
@@ -88,13 +85,11 @@ describe('emitAgentFiles', () => {
   it('escapes quotes in the name and falls back to "Project" without one', () => {
     const quoted = { ...vuePreset({ name: 'My "X"' }), emit: { agents: ['cursor' as const] } };
 
-    expect(emitAgentFiles(quoted)[0].content).toContain('description: "My \\"X\\" '
-      + 'architecture contract"');
+    expect(emitAgentFiles(quoted)[0].content).toContain('description: "My \\"X\\" architecture contract"');
 
     const unnamed: Blueprint = { ...vuePreset(), name: undefined, emit: { agents: ['cursor'] } };
 
-    expect(emitAgentFiles(unnamed)[0].content).toContain('description: "Project '
-      + 'architecture contract"');
+    expect(emitAgentFiles(unnamed)[0].content).toContain('description: "Project architecture contract"');
   });
 
   it('wraps the windsurf rule with an always-on trigger', () => {

@@ -346,8 +346,7 @@ describe('emitLint · rules gates', () => {
   it('exempts test files from layer rules and gates, with overridable globs', () => {
     // Default: same-layer alias import passes in a test file.
     expect(
-      restricted('import { Card } from '
-        + '"~app/components/Card";', 'src/components/Button/Button.test.ts'),
+      restricted('import { Card } from "~app/components/Card";', 'src/components/Button/Button.test.ts'),
     ).toEqual([]);
 
     expect(emitted[0].ignores).toEqual([
@@ -385,9 +384,7 @@ describe('emitLint · rules gates', () => {
     // emitted entry may carry one whatever the config says. Every other `files` here is
     // built from `layers`, which validation already refuses to leave empty.
     for (const entry of emitted) {
-      if (entry.files !== undefined) {
-        expect(entry.files.length).toBeGreaterThan(0);
-      }
+      if (entry.files !== undefined) expect(entry.files.length).toBeGreaterThan(0);
     }
   });
 
@@ -842,9 +839,7 @@ describe('emitLint · what an exempted package splits into', () => {
   it('bans only the unexcused packages on the entry that covers every file', () => {
     const entries = emitLint(mixed).filter(
       (entry) =>
-        entry.rules?.['no-restricted-imports'] && entry.files?.some(
-          (f) => f.includes('components'),
-        ),
+        entry.rules?.['no-restricted-imports'] && entry.files?.some((f) => f.includes('components')),
     );
 
     expect(entries).toHaveLength(2);

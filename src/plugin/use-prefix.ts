@@ -41,9 +41,7 @@ export const usePrefix: Rule.RuleModule = {
       ExportNamedDeclaration(node) {
         const declaration = node.declaration;
 
-        if (!declaration) {
-          return;
-        }
+        if (!declaration) return;
 
         if (declaration.type === 'FunctionDeclaration') {
           check(declaration.id.name, declaration.id as Rule.Node);

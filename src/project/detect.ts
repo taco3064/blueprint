@@ -2,8 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import type { Framework } from '../config';
-import { readScript } from './javascript';
-import { parseJsonc } from './jsonc';
 import type { PackageManager, ProjectState } from './types';
 
 export const CONFIG_FILE = 'blueprint.config.mjs';
@@ -31,29 +29,6 @@ const ESLINT_FILES = [
   'eslint.config.ts',
 ];
 
-const PACKAGE_NAME = '@kekkai/blueprint';
-
-/**
- * `emitLint(…)` as a call — `[...emitLint(bp)]`, and `shared.emitLint(bp)` from
- * a namespace import. The name has to start where an identifier does, so
- * `_emitLint(` is somebody else's function; an alias of this one arrives as
- * `import { emitLint as … }`, which the package tell reads.
- */
-const EMIT_LINT_CALL = /(?:^|[^\w$])emitLint\(/;
-
-/**
- * A local `function emitLint(…)`. A module cannot both declare a binding and
- * import it, so every call in that file resolves to the declaration and
- * evidences nothing — true whether or not the declaration is also called, which
- * is the direction to take where a scanner this size cannot tell.
- */
-const EMIT_LINT_DECLARATION = /function\s+emitLint\(/;
-
-/** Whether `text` calls an `emitLint` it did not declare itself. */
-function callsEmitLint(text: string): boolean {
-  return EMIT_LINT_CALL.test(text) && !EMIT_LINT_DECLARATION.test(text);
-}
-
 const LEGACY_ESLINT_FILES = [
   '.eslintrc.js',
   '.eslintrc.cjs',
@@ -65,13 +40,7 @@ const LEGACY_ESLINT_FILES = [
 
 const TSCONFIG_FILES = ['tsconfig.json', 'tsconfig.app.json', 'jsconfig.json'];
 
-/** The bundler config filenames this tool reads — `tsconfig.ts` asks about them too. */
-export const VITE_FILES = [
-  'vite.config.js',
-  'vite.config.ts',
-  'vite.config.mjs',
-  'vite.config.mts',
-];
+const VITE_FILES = ['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite.config.mts'];
 
 /**
  * The ESLint majors an adopting project may be on. Every package in
@@ -131,17 +100,14 @@ function readViteConfig(
   root: string,
   file: string | undefined,
 ): { file: string; text: string } | undefined {
-  if (file === undefined) {
-    return undefined;
-  }
+  if (file === undefined) return undefined;
 
   const text = readText(path.join(root, file));
 
   return text === null ? undefined : { file, text };
 }
 
-/** One project-relative file's content, or null when it is absent or unreadable. */
-export function readText(file: string): string | null {
+function readText(file: string): string | null {
   try {
     return fs.readFileSync(file, 'utf-8');
   } catch {
@@ -158,10 +124,7 @@ function detectFramework(deps: Record<string, unknown>): Framework | null {
   const hasVue = 'vue' in deps;
   const hasReact = 'react' in deps;
 
-  // both or neither → ambiguous
-  if (hasVue === hasReact) {
-    return null;
-  }
+  if (hasVue === hasReact) return null; // both or neither → ambiguous
 
   return hasVue ? 'vue' : 'react';
 }
@@ -178,19 +141,12 @@ function detectPackageManager(root: string): PackageManager {
       return 'pnpm';
     }
 
-    if (fs.existsSync(path.join(dir, 'yarn.lock'))) {
-      return 'yarn';
-    }
-
-    if (fs.existsSync(path.join(dir, 'package-lock.json'))) {
-      return 'npm';
-    }
+    if (fs.existsSync(path.join(dir, 'yarn.lock'))) return 'yarn';
+    if (fs.existsSync(path.join(dir, 'package-lock.json'))) return 'npm';
 
     const parent = path.dirname(dir);
 
-    if (parent === dir) {
-      return 'npm';
-    }
+    if (parent === dir) return 'npm';
 
     dir = parent;
   }
@@ -201,9 +157,7 @@ function detectNext(
   root: string,
   hasNext: boolean,
 ): { nextRouter: 'app' | 'pages' | 'both' | null; nextSrcDir: boolean } {
-  if (!hasNext) {
-    return { nextRouter: null, nextSrcDir: false };
-  }
+  if (!hasNext) return { nextRouter: null, nextSrcDir: false };
 
   const has = (rel: string) => fs.existsSync(path.join(root, rel));
   const app = has('src/app') || has('app');
@@ -256,31 +210,10 @@ export function detect(root: string): ProjectState {
     ? eslintFile
     : undefined;
 
-  // A hand-maintained config carrying either tell has been wired by its owner
-  // — emitting a reference next to it would be nagging. Both tells, because
-  // neither covers the other: a config reaching `emitLint` through a shared
-  // config package (a monorepo's `@acme/eslint-config` re-exporting it) never
-  // names this package, and one that renames the import on the way in
-  // (`import { emitLint as lint }`) never spells the call.
-  //
-  // Read off the CODE, never the comments. A commented-out spread is what
-  // somebody writes to unblock CI, and the remedy doctor prints — "spread
-  // ...emitLint(blueprint)" — is the exact text they park beside it, so a check
-  // over the whole file is one the tool's own sentence defeats. The two tells
-  // read different projections because they live in different places: a call is
-  // code, while the package name is only ever inside quotes (it is not a valid
-  // identifier), which is where an import specifier puts it.
-  //
-  // `readScript` returning null — a literal or a block comment that never
-  // closes — lands as NOT wired, and that direction is deliberate. See its
-  // header: a false "not wired" is visible and recoverable, a false "wired"
-  // withholds the reference file in silence.
-  const eslintScript = eslintText === null ? null : readScript(eslintText);
-
+  // A hand-maintained config that already imports the package has been wired
+  // by its owner — emitting a reference next to it would be nagging.
   const wiredEslintConfig
-    = ownedEslintConfig === undefined
-      && eslintScript !== null
-      && (callsEmitLint(eslintScript.outsideLiterals) || eslintScript.code.includes(PACKAGE_NAME));
+    = ownedEslintConfig === undefined && (eslintText?.includes('@kekkai/blueprint') ?? false);
 
   // A legacy `.eslintrc*` is NOT a flat config — writing a fresh
   // `eslint.config.mjs` next to it produces two configs / two ledgers. Detect
@@ -330,37 +263,208 @@ export function detect(root: string): ProjectState {
   };
 }
 
+/** A literal that closed, or the offset the scan gave up at — never both. */
+interface ClosedString {
+  closed: true;
+  copied: string;
+  next: number;
+}
+
+type CopiedString = ClosedString | { closed: false; stoppedAt: number };
+
+/** Copy a literal verbatim from `text[i]` — a tsconfig's own data contains `/*`. */
+function copyString(text: string, i: number): CopiedString {
+  let copied = text[i];
+
+  i++;
+
+  while (i < text.length && text[i] !== '"') {
+    copied += text[i];
+
+    if (text[i] === '\\' && i + 1 < text.length) {
+      copied += text[i + 1];
+      i++;
+    }
+
+    i++;
+  }
+
+  // Ran out of text before the closing quote: report where it came to rest, which
+  // is what makes every bound above answerable — a scan one character too far
+  // changes the number a reader is shown.
+  if (i >= text.length) return { closed: false, stoppedAt: i };
+
+  return { closed: true, copied: copied + text[i], next: i + 1 };
+}
+
+/**
+ * Why a JSONC document could not be read, and the character offset the scan gave
+ * up at. Reported rather than folded into one null: "I cannot read your tsconfig"
+ * is not something an adopter can act on — and a failure with no position leaves
+ * every bound in the scanner unanswerable, since running one character too far
+ * produced the same bare null.
+ */
+export interface JsoncFailure {
+  reason: 'unterminated-string' | 'unclosed-comment' | 'not-json';
+  /**
+   * Character offset the scan came to rest at. Absent — not zero — for `not-json`,
+   * since offset 0 is a legitimate position and would read as one.
+   */
+  at?: number;
+}
+
+export type JsoncResult = { ok: true; value: unknown } | ({ ok: false } & JsoncFailure);
+
+/**
+ * Tolerant JSONC parse for the tsconfig family: strips line and block comments
+ * plus trailing commas — outside string literals only — then `JSON.parse`. Vite
+ * + TS starters ship tsconfigs *with comments* by default, so treating JSONC as
+ * unreadable would false-red the doctor's alias check on the mainstream path.
+ */
+export function parseJsonc(text: string): JsoncResult {
+  // A STRING, not an array joined at the end: `'' + undefined` shows an overrun
+  // where `[undefined].join('')` hides it, and the bounds are this scanner's whole
+  // correctness argument.
+  let commentFree = '';
+
+  for (let i = 0; i < text.length;) {
+    if (text[i] === '"') {
+      const literal = copyString(text, i);
+
+      if (!literal.closed) {
+        return { ok: false, reason: 'unterminated-string', at: literal.stoppedAt };
+      }
+
+      commentFree += literal.copied;
+      i = literal.next;
+    } else if (text[i] === '/' && text[i + 1] === '/') {
+      // `indexOf` answers with the position, so there is no bound to walk past.
+      const newline = text.indexOf('\n', i);
+
+      i = newline === -1 ? text.length : newline;
+    } else if (text[i] === '/' && text[i + 1] === '*') {
+      // From AFTER the opener, or `/*/` reads as a closed comment: the `*/` the
+      // search finds would be the opener's own `*` with the next `/`.
+      const close = text.indexOf('*/', i + 2);
+
+      if (close === -1) return { ok: false, reason: 'unclosed-comment', at: text.length };
+
+      i = close + 2;
+    } else {
+      commentFree += text[i];
+      i++;
+    }
+  }
+
+  // Second pass, comment-free: drop a comma whose next non-space is `}`/`]`.
+  let clean = '';
+
+  for (let i = 0; i < commentFree.length;) {
+    if (commentFree[i] === '"') {
+      // Proven closed by the first pass. A cast, not a check: the check would be a
+      // branch no input can take, which reads as a case somebody handled.
+      const literal = copyString(commentFree, i) as ClosedString;
+
+      clean += literal.copied;
+      i = literal.next;
+    } else if (commentFree[i] === ',') {
+      // undecidable: a hand-walked index past the end yields `undefined`, neither
+      // `}` nor `]`, so overrunning keeps the comma exactly as stopping would.
+      const after = /\S/.exec(commentFree.slice(i + 1));
+      const nextChar = after?.[0];
+
+      if (nextChar !== '}' && nextChar !== ']') clean += ',';
+
+      i++;
+    } else {
+      clean += commentFree[i];
+      i++;
+    }
+  }
+
+  try {
+    return { ok: true, value: JSON.parse(clean) };
+  } catch {
+    // No offset: JSON.parse's position refers to the stripped text, not the file
+    // the reader has open.
+    return { ok: false, reason: 'not-json' };
+  }
+}
+
+/** A tsconfig the JSONC reader gave up on, named so a caller can say which. */
+export interface UnreadableConfig extends JsoncFailure {
+  file: string;
+}
+
+const JSONC_REASON: Record<JsoncFailure['reason'], string> = {
+  'unterminated-string': 'a string literal never closes',
+  'unclosed-comment': 'a block comment never closes',
+  'not-json': 'it is not valid JSON once the comments are stripped',
+};
+
+/**
+ * The tsconfig/jsconfig files that are present but unparseable.
+ *
+ * Every reader of `paths` skips these, and skipping *silently* is the trap:
+ * an alias declared inside an unreadable tsconfig is invisible, so doctor tells
+ * an adopter to declare what is already there, and init calls a preset's alias
+ * the repo's first. Both mislead in the same direction — they blame the alias for
+ * a broken file. Callers name the file and the offset instead.
+ */
+export function unreadableTsconfigs(
+  tsconfigs: Record<string, string | null>,
+): UnreadableConfig[] {
+  const failures: UnreadableConfig[] = [];
+
+  for (const [file, text] of Object.entries(tsconfigs)) {
+    if (text === null) continue;
+
+    const result = parseJsonc(text);
+
+    if (!result.ok) failures.push({ file, reason: result.reason, at: result.at });
+  }
+
+  return failures;
+}
+
+/**
+ * One clause per unreadable config: which file, what is wrong, where to look.
+ * Shared so doctor and init say it the same way — the same reason `quotedIn` is
+ * the one wiredness standard both of them read.
+ */
+export function describeUnreadable(failures: UnreadableConfig[]): string {
+  return failures
+    .map(({ file, reason, at }) => {
+      const where = at === undefined ? '' : ` at character ${at}`;
+
+      return `${file} could not be read (${JSONC_REASON[reason]}${where})`;
+    })
+    .join('; ');
+}
+
 /** Visit every `compilerOptions.paths` entry across the given tsconfig texts. */
 function eachPathAlias(
   tsconfigs: Record<string, string | null>,
   visit: (alias: string, dir: string | null) => void,
 ): void {
   for (const text of Object.values(tsconfigs)) {
-    if (text == null) {
-      continue;
-    }
+    if (text == null) continue;
 
     const result = parseJsonc(text);
 
     // undecidable against the `?.` below, which yields no options on a failure
     // anyway; that `?.` is separately pinned by a tsconfig whose content is `null`.
-    if (!result.ok) {
-      continue;
-    }
+    if (!result.ok) continue;
 
     const options = (result.value as { compilerOptions?: { paths?: unknown } })?.compilerOptions;
     const paths = options?.paths;
 
-    if (typeof paths !== 'object' || paths === null) {
-      continue;
-    }
+    if (typeof paths !== 'object' || paths === null) continue;
 
     for (const [key, targets] of Object.entries(paths)) {
       const alias = key.replace(/\/\*$/, '');
 
-      if (!alias) {
-        continue;
-      }
+      if (!alias) continue;
 
       const target = Array.isArray(targets) && typeof targets[0] === 'string' ? targets[0] : null;
 
@@ -374,9 +478,7 @@ export function detectAliases(tsconfigs: Record<string, string | null>): Record<
   const found: Record<string, string> = {};
 
   eachPathAlias(tsconfigs, (alias, dir) => {
-    if (dir === 'src' && !(alias in found)) {
-      found[alias] = 'src';
-    }
+    if (dir === 'src' && !(alias in found)) found[alias] = 'src';
   });
 
   return found;
@@ -402,6 +504,53 @@ export function quotedIn(text: string, name: string): boolean {
   return new RegExp(
     `['"\`]${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`,
   ).test(text);
+}
+
+// Local, not shared: the twin in `bootstrap/alias.ts` sits ABOVE this module, so
+// importing it would run the one-way rule backwards for a one-line predicate.
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export interface ViteTsCoverage {
+  /** `covered`: some project lists it. `outside`: projects exist, none does. */
+  verdict: 'covered' | 'outside';
+  /** The vite config, relative to root. */
+  viteFile: string;
+  /** The tsconfig that covers it, or the root one consulted when none does. */
+  tsconfig: string;
+}
+
+/**
+ * Whether `tsc -b` reads this repo's vite config. `null` = could not tell, never a
+ * guess: the report must not claim a build verified an edit it never read.
+ */
+export function viteTsCoverage(root: string): ViteTsCoverage | null {
+  const viteFile = VITE_FILES.find((file) => fs.existsSync(path.join(root, file)));
+
+  // No vite config, or a JS project with no tsconfig at all: there is no
+  // question to answer, and the build clause has nothing to specialise.
+  if (viteFile === undefined) return null;
+
+  const rootConfig = 'tsconfig.json';
+  const rootText = readText(path.join(root, rootConfig));
+
+  if (rootText === null) return null;
+
+  const projects = tsProjectGraph(root, rootConfig, rootText);
+
+  if (projects === null) return null;
+
+  for (const project of projects) {
+    const covers = projectCovers(project, viteFile);
+
+    // A single undecidable project poisons the whole answer: "none of them
+    // covers it" cannot be claimed while one of them is unread.
+    if (covers === null) return null;
+    if (covers) return { verdict: 'covered', viteFile, tsconfig: project.file };
+  }
+
+  return { verdict: 'outside', viteFile, tsconfig: rootConfig };
 }
 
 export interface ClaudeDirState {
@@ -433,4 +582,221 @@ function readDir(dir: string): string[] {
   } catch {
     return [];
   }
+}
+
+export interface TscArtifactLocation {
+  /** The redirected build-info path, relative to root — the fact that decides it. */
+  buildInfo: string;
+  /** The tsconfig declaring it. */
+  tsconfig: string;
+}
+
+/**
+ * Where `tsc -b` keeps its build info, when every project in the graph provably
+ * writes nothing into the working tree.
+ *
+ * The build-artifact paragraph opened on a premise about the adopter's repo — that
+ * the build this playbook asked for left untracked files in their working tree, so
+ * the four gitignore × version-control cells have something to decide. False on the
+ * shape `npm create vite` generates for React + TS: both projects carry `noEmit:
+ * true` AND `tsBuildInfoFile: ./node_modules/.tmp/…`, so the build leaves the tree
+ * untouched and an agent copying the paragraph's instruction writes a statement
+ * about untracked files that do not exist (field run #135). Third time this family
+ * of sentences has been wrong about a tsconfig — `viteTsCoverage` is the second, and
+ * the answer is the same one: measure it.
+ *
+ * Null unless certain, and only the certain negative changes the prose. "Something
+ * landed" is the default the paragraph already assumes and is right about wherever a
+ * bundle gets written, so this never has to establish it — a shape it cannot read is
+ * a shape where the existing wording stands.
+ *
+ * `node_modules/` is the whole test for "out of the way", deliberately narrow: it is
+ * ignored everywhere by convention, and deciding whether some other directory is
+ * ignored needs the `.gitignore` reader that lives above this module.
+ */
+export function tscArtifactsOutOfTree(root: string): TscArtifactLocation | null {
+  const rootConfig = 'tsconfig.json';
+  const rootText = readText(path.join(root, rootConfig));
+
+  if (rootText === null) return null;
+
+  const projects = tsProjectGraph(root, rootConfig, rootText);
+
+  if (projects === null) return null;
+
+  let found: TscArtifactLocation | null = null;
+
+  for (const project of projects) {
+    // A solution config — pure `references`, no files of its own — builds nothing
+    // and writes no build info, which is why the two-project vite shape leaves
+    // exactly two files behind and both are the referenced projects'.
+    if (isSolutionStub(project)) continue;
+
+    const options = project.compilerOptions;
+
+    if (!isRecord(options)) return null;
+
+    const buildInfo = options.tsBuildInfoFile;
+
+    if (options.noEmit !== true || typeof buildInfo !== 'string') return null;
+
+    const rel = normalizeSlashes(buildInfo);
+
+    if (!rel.startsWith('node_modules/')) return null;
+
+    found ??= { buildInfo: rel, tsconfig: project.file };
+  }
+
+  return found;
+}
+
+/** A config that only points at others: nothing to build, nothing written. */
+function isSolutionStub(project: TsProject): boolean {
+  return isStringArray(project.files) && project.files.length === 0
+    && project.include === undefined;
+}
+
+interface TsProject {
+  /** Path relative to root, for the message. */
+  file: string;
+  /** Directory the config's globs resolve against, relative to root. */
+  dir: string;
+  compilerOptions?: unknown;
+  files?: unknown;
+  include?: unknown;
+  exclude?: unknown;
+  extends?: unknown;
+}
+
+/** The root config plus its referenced projects, one level deep; deeper = null. */
+function tsProjectGraph(root: string, file: string, text: string): TsProject[] | null {
+  const parsed = parseJsonc(text);
+
+  if (!parsed.ok || !isRecord(parsed.value)) return null;
+
+  const rootProject = toProject(file, parsed.value);
+  const refs = rootProject.references;
+
+  if (refs === undefined) return [rootProject];
+  if (!Array.isArray(refs)) return null;
+
+  const projects: TsProject[] = [rootProject];
+
+  for (const ref of refs) {
+    if (!isRecord(ref) || typeof ref.path !== 'string') return null;
+
+    const resolved = resolveReference(root, ref.path);
+
+    if (resolved === null) return null;
+
+    const refParsed = parseJsonc(resolved.text);
+
+    if (!refParsed.ok || !isRecord(refParsed.value)) return null;
+
+    const project = toProject(resolved.file, refParsed.value);
+
+    // Depth stops here — see the note above.
+    if (project.references !== undefined) return null;
+
+    projects.push(project);
+  }
+
+  return projects;
+}
+
+/** A `references[].path` may name the file or its directory. */
+function resolveReference(root: string, ref: string): { file: string; text: string } | null {
+  const candidates = ref.endsWith('.json') ? [ref] : [path.join(ref, 'tsconfig.json')];
+
+  for (const candidate of candidates) {
+    const text = readText(path.join(root, candidate));
+
+    // Normalised because this string is printed: a `references` path is written
+    // `./tsconfig.node.json` as often as not, and the playbook names the file.
+    if (text !== null) return { file: normalizeSlashes(candidate), text };
+  }
+
+  return null;
+}
+
+function toProject(
+  file: string,
+  value: Record<string, unknown>,
+): TsProject & { references?: unknown } {
+  return {
+    file,
+    dir: path.dirname(file) === '.' ? '' : path.dirname(file),
+    compilerOptions: value.compilerOptions,
+    files: value.files,
+    include: value.include,
+    exclude: value.exclude,
+    extends: value.extends,
+    references: value.references,
+  };
+}
+
+/**
+ * Does `project` pull `viteFile` in? `null` for the shapes this does not
+ * reimplement — `exclude`, an `extends` base, character classes, brace expansion.
+ */
+function projectCovers(project: TsProject, viteFile: string): boolean | null {
+  if (project.exclude !== undefined) return null;
+
+  // The vite config is always a ROOT file (`VITE_FILES` carries no path segments)
+  // and a tsconfig's globs never reach upward.
+  if (project.dir !== '') return false;
+
+  const rel = viteFile;
+
+  if (project.files !== undefined) {
+    if (!isStringArray(project.files)) return null;
+
+    if (project.files.some((entry) => normalizeSlashes(entry) === rel)) return true;
+  }
+
+  if (project.include === undefined) {
+    // No `files` and no `include`: TypeScript includes everything under the
+    // config's directory — unless `extends` supplies globs this cannot see.
+    if (project.files !== undefined) return false;
+
+    return project.extends === undefined ? true : null;
+  }
+
+  if (!isStringArray(project.include)) return null;
+
+  for (const glob of project.include) {
+    const verdict = globCovers(normalizeSlashes(glob), rel);
+
+    if (verdict === null) return null;
+    if (verdict) return true;
+  }
+
+  return false;
+}
+
+// undecidable on the `^` anchor: unanchored it strips a mid-path `./`, and every
+// path a tsconfig can hold resolves the same either way. It stays because it spells
+// the intent — strip a LEADING `./` — not because any reachable input needs it.
+function normalizeSlashes(value: string): string {
+  return value.replace(/\\/g, '/').replace(/^\.\//, '');
+}
+
+/**
+ * Does a tsconfig `include` glob cover `file`? Braces and character classes
+ * return null — an unusual glob yields no verdict, never a wrong one.
+ */
+function globCovers(glob: string, file: string): boolean | null {
+  if (/[{}[\]?]/.test(glob)) return null;
+
+  const pattern = glob
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*\*\//g, '(?:.*/)?')
+    .replace(/\*\*/g, '.*')
+    .replace(/\*/g, '[^/]*');
+
+  return new RegExp(`^${pattern}$`).test(file);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }

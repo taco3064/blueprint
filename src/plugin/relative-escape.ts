@@ -1,5 +1,5 @@
 import type { Rule } from 'eslint';
-import { relativeVerdict, resolveSegments } from '../boundary';
+import { relativeVerdict, resolveSegments } from '../inspect/resolve';
 
 /**
  * Relative imports must stay inside their own module. This is the lint-side
@@ -69,26 +69,20 @@ export const relativeEscape: Rule.RuleModule = {
 
     const segments = srcSegments(context.filename);
 
-    if (!segments || !(segments[0] in layouts)) {
-      return {};
-    }
+    if (!segments || !(segments[0] in layouts)) return {};
 
     const layoutOf = (layer: string): 'folder' | 'flat' => layouts[layer] ?? 'flat';
     const entryOf = (layer: string): string => entries[layer] ?? 'index';
     const dir = segments.slice(0, -1);
 
     const check = (node: Rule.Node, specifier: string): void => {
-      if (!specifier.startsWith('.')) {
-        return;
-      }
+      if (!specifier.startsWith('.')) return;
 
       const target = resolveSegments(dir, specifier);
 
       const verdict = relativeVerdict(segments, target, layoutOf, entryOf);
 
-      if (verdict === 'ok') {
-        return;
-      }
+      if (verdict === 'ok') return;
 
       if (verdict === 'reaches-inside') {
         context.report({

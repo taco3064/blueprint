@@ -100,8 +100,7 @@ describe('blueprint/relative-escape · reference kinds', () => {
     expect(messageIds('export * from "../resources/matches";', 'src/components/Button.ts'))
       .toEqual(['leavesModule']);
 
-    expect(messageIds('const x = await '
-      + 'import("../resources/matches");', 'src/components/Button.ts'))
+    expect(messageIds('const x = await import("../resources/matches");', 'src/components/Button.ts'))
       .toEqual(['leavesModule']);
   });
 

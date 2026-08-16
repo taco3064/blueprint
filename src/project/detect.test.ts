@@ -4,19 +4,23 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  describeUnreadable,
   detect,
   detectAliases,
   GENERATED_ESLINT_BANNER,
+  parseJsonc,
   pathAliasKeys,
   quotedIn,
   readTexts,
+  unreadableTsconfigs,
   ALLOWED_CARRIER_PEERS,
   REQUIRED_DEPS,
   STACK_DEPS,
   claudeDirState,
   SUPPORTED_ESLINT_MAJORS,
+  tscArtifactsOutOfTree,
+  viteTsCoverage,
 } from './detect';
-import { parseJsonc } from './jsonc';
 
 let root: string;
 
@@ -541,6 +545,69 @@ describe('every supported ESLint major is one something here executes', () => {
   });
 });
 
+describe('parseJsonc · where a comment starts and stops', () => {
+  it('strips a line comment that has no newline after it', () => {
+    // A tsconfig whose last line is a comment has no terminator, so the scan
+    // has to stop at the end of the text rather than run past it.
+    expect(readJsonc('{"a": 1} // tail')).toEqual({ a: 1 });
+    expect(readJsonc('{"a": 1}\n// tail\n')).toEqual({ a: 1 });
+  });
+
+  it('strips a block comment wherever it sits', () => {
+    expect(readJsonc('{/* lead */ "a": 1}')).toEqual({ a: 1 });
+    expect(readJsonc('{"a": 1 /* trail */}')).toEqual({ a: 1 });
+    expect(readJsonc('{"a": /* mid */ 1}')).toEqual({ a: 1 });
+  });
+
+  it('does not read a lone slash as the start of a comment', () => {
+    // A slash appears in every path. Only a doubled one, or one followed by a
+    // star, opens a comment — reading a bare slash as one swallows the rest of
+    // the file and false-reds the alias check on a config that is fine.
+    expect(readJsonc('{"a": "x/y"}')).toEqual({ a: 'x/y' });
+    expect(readJsonc('{"a": 1, "b": 2}')).toEqual({ a: 1, b: 2 });
+  });
+
+  it('leaves an unterminated block comment unparseable instead of looping', () => {
+    expect(readJsonc('{"a": 1 /* never closed')).toBeNull();
+  });
+});
+
+describe('parseJsonc · the boundaries the scan must not cross', () => {
+  it('parses a document with no comments or trailing commas at all', () => {
+    // Both passes walk to `< length`. Walking one index further reads
+    // `text[length]` — undefined — and appends the string "undefined" to the
+    // output, so an ordinary tsconfig stops parsing entirely.
+    expect(readJsonc('{"a":1}')).toEqual({ a: 1 });
+
+    expect(readJsonc('{"compilerOptions":{"paths":{"~app/*":["./src/*"]}}}'))
+      .toEqual({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } });
+  });
+
+  it('keeps a comma the object still needs', () => {
+    // Only a comma whose next non-space is `}` or `]` is trailing. Dropping the
+    // `]` half leaves `[1, 2, ]`, which JSON.parse rejects — a commented Vite
+    // starter tsconfig with an array is the mainstream case (field batch 10).
+    expect(readJsonc('{"a": [1, 2, ]}')).toEqual({ a: [1, 2] });
+    expect(readJsonc('{"a": [1, 2], "b": 3}')).toEqual({ a: [1, 2], b: 3 });
+  });
+
+  it('protects a string in the trailing-comma pass too, not only the comment pass', () => {
+    // The second pass re-scans the comment-free text, and it has to skip string
+    // literals for the same reason the first one does: `,}` inside a value is
+    // data. Dropping that guard silently rewrites the string.
+    expect(readJsonc('{"a": ",}"}')).toEqual({ a: ',}' });
+    expect(readJsonc('{"a": [",]"]}')).toEqual({ a: [',]'] });
+  });
+
+  it('does not treat a stray slash or star as opening a block comment', () => {
+    // Both halves of the `/*` test matter. Matching on either character alone
+    // turns a typo into a comment that swallows the rest of the file — and the
+    // file then parses clean, so nothing ever reports the typo.
+    expect(readJsonc('{"a": 1} /')).toBeNull();
+    expect(readJsonc('{"a": 1} *')).toBeNull();
+  });
+});
+
 describe('detect · the states a config file can be in', () => {
   it('does not call blueprint\'s own generated config a hand-wired one', () => {
     // `ownedEslintConfig` means init wrote it, so it names the package by
@@ -558,108 +625,6 @@ describe('detect · the states a config file can be in', () => {
 
     expect(state.ownedEslintConfig).toBe('eslint.config.mjs');
     expect(state.wiredEslintConfig).toBe(false);
-  });
-
-  // One case per SHAPE a tell can appear in, restated here because `detect`
-  // keeps both tells private — so a shape that stops being read turns a case
-  // red rather than nothing.
-  //
-  // The wired three are shapes an adopter really has, and no two share an arm:
-  // a config reaching `emitLint` through a shared config package never names
-  // this one, and a config that renamed the import on the way in never spells
-  // the call.
-  //
-  // The unwired six each name a tell somewhere that is not code. The first is
-  // the one that matters most: commenting a spread out to unblock CI is
-  // routine, and the note pasted beside it is the remedy doctor itself prints,
-  // so a check reading the whole file is defeated by the tool's own sentence.
-  it.each([
-    [
-      'a spread of the call, importing this package',
-      true,
-      'import { emitLint } from \'@kekkai/blueprint\';\n'
-      + 'import bp from \'./blueprint.config.mjs\';\n\nexport default [...emitLint(bp)];\n',
-    ],
-    [
-      'a shared config package re-exporting the call',
-      true,
-      'import { emitLint } from \'@acme/eslint-config\';\n\nexport default [...emitLint(bp)];\n',
-    ],
-    [
-      'an import renamed on the way in, so the call is never spelled',
-      true,
-      'import { emitLint as lint } from \'@kekkai/blueprint\';\n\nexport default [...lint(bp)];\n',
-    ],
-    [
-      'a spread commented out to unblock CI',
-      false,
-      '// Commented out to unblock CI:\n// export default [...emitLint(bp)];\n'
-      + 'export default [{ files: [\'**/*.js\'], rules: {} }];\n',
-    ],
-    [
-      'a TODO quoting the remedy doctor prints',
-      false,
-      '// TODO: spread ...emitLint(blueprint)\nexport default [{ rules: {} }];\n',
-    ],
-    [
-      'the package named only in a comment',
-      false,
-      '// see the @kekkai/blueprint docs before touching this\nexport default [{ rules: {} }];\n',
-    ],
-    [
-      'a block comment holding the whole previous wiring',
-      false,
-      '/*\n * import { emitLint } from \'@kekkai/blueprint\';\n'
-      + ' * export default [...emitLint(bp)];\n */\nexport default [{ rules: {} }];\n',
-    ],
-    [
-      'an unrelated local function of the same name',
-      false,
-      'function emitLint(glob) {\n  return { files: [glob], rules: {} };\n}\n\n'
-      + 'export default [emitLint(\'**/*.js\')];\n',
-    ],
-    [
-      'the call as a string literal',
-      false,
-      'const marker = \'emitLint(\';\n\nexport default [{ rules: {}, name: marker }];\n',
-    ],
-    [
-      'a longer identifier that happens to end in the call name',
-      false,
-      'import { _emitLint } from \'./internal.mjs\';\n\nexport default [..._emitLint()];\n',
-    ],
-    [
-      'neither tell anywhere',
-      false,
-      'import js from \'@eslint/js\';\n\nexport default [js.configs.recommended];\n',
-    ],
-  ])('reads %s as wired: %s', (_shape, wired, source) => {
-    writePkg({ name: 'x', dependencies: { vue: '^3' } });
-    fs.writeFileSync(path.join(root, 'eslint.config.mjs'), source);
-
-    const state = detect(root);
-
-    expect(state.hasEslintConfig).toBe(true);
-    expect(state.wiredEslintConfig).toBe(wired);
-  });
-
-  it('reports a config it could not scan as unwired, tells and all', () => {
-    // The fallback direction, at the level an adopter feels it. This file
-    // carries both tells in plain code — and a literal that never closes below
-    // them means the scan cannot say where code ended, so what it read above is
-    // no longer evidence of anything. Answering "not wired" costs a reference
-    // file the owner can ignore; answering "wired" withholds the only thing
-    // that says what to merge, and hands the next check a state that never
-    // happened.
-    writePkg({ name: 'x', dependencies: { vue: '^3' } });
-
-    fs.writeFileSync(
-      path.join(root, 'eslint.config.mjs'),
-      'import { emitLint } from \'@kekkai/blueprint\';\n\n'
-      + 'export default [...emitLint(bp)];\n\nconst trailing = \'never closes;\n',
-    );
-
-    expect(detect(root).wiredEslintConfig).toBe(false);
   });
 
   it('reports a legacy .eslintrc only when there is no flat config', () => {
@@ -758,15 +723,6 @@ describe('detect · the states a config file can be in', () => {
 });
 
 describe('eachPathAlias · the shapes a paths block comes back as', () => {
-  it('survives a tsconfig whose whole document is `null`', () => {
-    // `JSON.parse('null')` is a legal parse, so `parseJsonc` hands both readers
-    // `ok: true` with a null value (asserted in `jsonc.test.ts`) — and reaching
-    // for `.compilerOptions` on it throws, one unreadable file taking down the
-    // whole alias check.
-    expect(pathAliasKeys({ 'tsconfig.json': 'null' })).toEqual(new Set());
-    expect(detectAliases({ 'tsconfig.json': 'null' })).toEqual({});
-  });
-
   it('skips a paths key explicitly set to null', () => {
     // `typeof null === 'object'`, so the null check is the only thing standing
     // between a hand-written `"paths": null` and `Object.entries(null)` — which
@@ -872,9 +828,7 @@ describe('detect · every filename on each config allowlist', () => {
       // missed here makes doctor report a declared alias as resolving nowhere on
       // a repo whose bundler resolves it fine.
       writePkg({ name: 'x', dependencies: { vue: '^3' } });
-
-      fs.writeFileSync(path.join(root, file), 'export default { resolve: { alias: '
-      + '{ \'~app\': \'/src\' } } };');
+      fs.writeFileSync(path.join(root, file), 'export default { resolve: { alias: { \'~app\': \'/src\' } } };');
 
       const state = detect(root);
 
@@ -896,6 +850,490 @@ describe('detect · every filename on each config allowlist', () => {
       expect([...pathAliasKeys(detect(root).tsconfigs)]).toEqual(['~app']);
     },
   );
+});
+
+describe('parseJsonc · why it gave up, and where', () => {
+  // The failure used to be one null for three different problems, which left every
+  // bound in the scanner unanswerable: reading a character too far produced the
+  // same null. The offset is what turns those bounds into assertions — and it is
+  // the only version an adopter can act on, since "unreadable" does not say where
+  // to look.
+  it('names an unterminated string and the offset the scan reached', () => {
+    const text = '{ "a": "b';
+
+    expect(parseJsonc(text)).toEqual({
+      ok: false,
+      reason: 'unterminated-string',
+      at: text.length,
+    });
+  });
+
+  it('counts an escaped character as part of the literal when reporting the offset', () => {
+    // A trailing backslash consumes the character after it, so the scan ends one
+    // further along than counting quotes would suggest.
+    expect(parseJsonc('{ "a": "b\\')).toEqual({
+      ok: false,
+      reason: 'unterminated-string',
+      at: 10,
+    });
+  });
+
+  it('names an unclosed block comment and where it ran out', () => {
+    const text = '{"a": 1 /* never closed';
+
+    expect(parseJsonc(text)).toEqual({ ok: false, reason: 'unclosed-comment', at: text.length });
+  });
+
+  it('separates a JSON mistake from a JSONC one, and omits the offset it does not have', () => {
+    // Comments and trailing commas are gone by now, so what remains is plain
+    // invalid JSON — a different thing to report, and with no honest offset.
+    // `at` is ABSENT rather than 0: offset 0 is a real position (a file whose
+    // first character is already wrong), so a zero here would be read as one.
+    expect(parseJsonc('{"a": 1} /')).toEqual({ ok: false, reason: 'not-json' });
+    expect(parseJsonc('{ "compilerOptions": ')).toEqual({ ok: false, reason: 'not-json' });
+
+    const result = parseJsonc('{"a": 1} /');
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? undefined : 'at' in result).toBe(false);
+  });
+
+  it('answers ok with the parsed value for a document it can read', () => {
+    expect(parseJsonc('{"a": 1} // tail')).toEqual({ ok: true, value: { a: 1 } });
+  });
+
+  it('reads a closed block comment and keeps what follows it', () => {
+    // The reason this parser exists — every Vite + TS starter ships a commented
+    // tsconfig — and nothing asked it to skip a comment that CLOSES. Without a
+    // fixture like this, the jump past `*/` could land anywhere.
+    expect(parseJsonc('{ /* note */ "a": 1, /* and */ "b": 2 }'))
+      .toEqual({ ok: true, value: { a: 1, b: 2 } });
+  });
+
+  it('does not read "/*/" as a comment that closed', () => {
+    // The `*/` a naive search finds here is the opener's own `*` with the next
+    // `/`. Reading it as closed would resume INSIDE the comment and parse its
+    // text as data.
+    expect(parseJsonc('{ "a": 1 /*/ }')).toEqual({
+      ok: false,
+      reason: 'unclosed-comment',
+      at: 14,
+    });
+  });
+
+  it('drops a line comment without eating the line under it', () => {
+    expect(parseJsonc('{\n  // note\n  "a": 1\n}')).toEqual({ ok: true, value: { a: 1 } });
+
+    // …and a file whose last line IS the comment still parses.
+    expect(parseJsonc('{ "a": 1 }\n// trailing')).toEqual({ ok: true, value: { a: 1 } });
+  });
+
+  it('separates a comment opener from a bare "*" in broken text', () => {
+    // `x*/` is not a comment: the `*` has no `/` before it. Treating any `*` as
+    // an opener sends the scan looking for a close that was never opened, and the
+    // reader is told the wrong thing about their file.
+    expect(parseJsonc('{"a":1} x*/')).toEqual({ ok: false, reason: 'not-json' });
+  });
+
+  it('reads a trailing comma across whitespace, and a dangling one as invalid', () => {
+    expect(parseJsonc('{ "a": 1,   \n }')).toEqual({ ok: true, value: { a: 1 } });
+    expect(parseJsonc('[ 1, 2,\t]')).toEqual({ ok: true, value: [1, 2] });
+
+    // A comma with nothing but whitespace after it is kept, so JSON.parse gets to
+    // call it what it is.
+    expect(parseJsonc('{"a": 1,   ')).toEqual({ ok: false, reason: 'not-json' });
+  });
+
+  it('does not read a document of "null" as an object', () => {
+    // `JSON.parse('null')` is a legal parse whose value is null. A tsconfig
+    // holding just that reaches every reader as `ok: true`, and reaching for
+    // `.compilerOptions` on it throws — one unreadable file taking down the whole
+    // alias check.
+    expect(parseJsonc('null')).toEqual({ ok: true, value: null });
+    expect(pathAliasKeys({ 'tsconfig.json': 'null' })).toEqual(new Set());
+    expect(detectAliases({ 'tsconfig.json': 'null' })).toEqual({});
+  });
+
+  it('keeps a comma that separates two members', () => {
+    expect(parseJsonc('{ "a": 1, "b": 2 }')).toEqual({ ok: true, value: { a: 1, b: 2 } });
+  });
+});
+
+describe('unreadableTsconfigs · the failures a paths reader would otherwise swallow', () => {
+  it('names each present-but-unparseable file and skips the readable and absent ones', () => {
+    expect(unreadableTsconfigs({
+      'tsconfig.json': '{ "compilerOptions": { "paths": { "~app/*": ["./src/*"] } } }',
+      'tsconfig.app.json': '{ "compilerOptions": { "paths: {} } }',
+      'jsconfig.json': null,
+    })).toEqual([
+      { file: 'tsconfig.app.json', reason: 'unterminated-string', at: 37 },
+    ]);
+  });
+
+  it('is empty when every config present can be read', () => {
+    expect(unreadableTsconfigs({ 'tsconfig.json': '{}', 'jsconfig.json': null })).toEqual([]);
+  });
+
+  it('reports every unreadable file, not just the first', () => {
+    const failures = unreadableTsconfigs({
+      'tsconfig.json': '{ /* open',
+      'tsconfig.app.json': '{"a": 1} /',
+    });
+
+    expect(failures.map(({ file }) => file))
+      .toEqual(['tsconfig.json', 'tsconfig.app.json']);
+  });
+});
+
+describe('describeUnreadable · one clause per file, and only an offset it has', () => {
+  it('names the file, what is wrong, and where to look', () => {
+    expect(describeUnreadable([
+      { file: 'tsconfig.json', reason: 'unterminated-string', at: 42 },
+    ])).toBe('tsconfig.json could not be read (a string literal never closes at character 42)');
+
+    expect(describeUnreadable([
+      { file: 'tsconfig.app.json', reason: 'unclosed-comment', at: 9 },
+    ])).toBe('tsconfig.app.json could not be read (a block comment never closes at character 9)');
+  });
+
+  it('leaves the position out for a failure that has none', () => {
+    const sentence = describeUnreadable([{ file: 'jsconfig.json', reason: 'not-json' }]);
+
+    expect(sentence).toBe(
+      'jsconfig.json could not be read (it is not valid JSON once the comments are stripped)',
+    );
+
+    expect(sentence).not.toContain('character');
+  });
+
+  it('joins several files into one sentence', () => {
+    expect(describeUnreadable([
+      { file: 'tsconfig.json', reason: 'not-json' },
+      { file: 'jsconfig.json', reason: 'unclosed-comment', at: 4 },
+    ])).toBe(
+      'tsconfig.json could not be read (it is not valid JSON once the comments are stripped); '
+      + 'jsconfig.json could not be read (a block comment never closes at character 4)',
+    );
+  });
+});
+
+describe('viteTsCoverage · the fact that used to be three releases of prose', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-vitets-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  const write = (file: string, text: string) => {
+    fs.mkdirSync(path.join(dir, path.dirname(file)), { recursive: true });
+    fs.writeFileSync(path.join(dir, file), text);
+  };
+
+  it('reads the referenced project that pulls the vite config in', () => {
+    // The modern Vite + TS template: a root of pure references, and the node
+    // project lists the vite config by name. This is the shape the playbook used
+    // to ASSERT was universal (field #21–#22, still a finding at #99).
+    write('vite.config.ts', 'export default {}\n');
+    // `"files": []` is what makes a solution config compile nothing of its own —
+    // the real template carries it, and the test below shows why it matters here.
+    write('tsconfig.json', '{ "files": [], "references": [{ "path": "./tsconfig.node.json" }] }');
+    write('tsconfig.node.json', '{ "include": ["vite.config.ts"] }');
+
+    expect(viteTsCoverage(dir)).toEqual({
+      verdict: 'covered',
+      viteFile: 'vite.config.ts',
+      tsconfig: 'tsconfig.node.json',
+    });
+  });
+
+  it('reads a single root config whose include leaves the vite config out', () => {
+    // The other real shape, and the one this repo's own harness stages — where a
+    // field agent proved `tsc -b` never reads the file by injecting a type error.
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "include": ["src"], "compilerOptions": { "noEmit": true } }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'outside', tsconfig: 'tsconfig.json' });
+  });
+
+  it('counts a project with no files and no include as covering everything under it', () => {
+    // TypeScript's own default. Reading this as "not covered" would tell an adopter
+    // to run two builds where one reads both files.
+    write('vite.config.mts', 'export default {}\n');
+    write('tsconfig.json', '{ "compilerOptions": { "strict": true } }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'covered', viteFile: 'vite.config.mts' });
+  });
+
+  it('matches a star glob against the root file', () => {
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "include": ["**/*.ts"] }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'covered' });
+
+    // `"src"` is the same bare-directory shape as above and must NOT reach a root file.
+    fs.writeFileSync(path.join(dir, 'tsconfig.json'), '{ "include": ["src/**/*"] }');
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'outside' });
+  });
+
+  it('declines rather than guesses, once per shape it does not resolve', () => {
+    // Each of these is a real tsconfig feature whose semantics this reader does not
+    // reimplement. A wrong verdict is worse than none: the whole point is that the
+    // report must not claim a build verified an edit it never read.
+    write('vite.config.ts', 'export default {}\n');
+
+    const declines: [string, string][] = [
+      ['an exclude list can remove what include pulled in', '{ "include": ["**/*"], "exclude": ["vite.config.ts"] }'],
+      ['an extends base may carry the globs', '{ "extends": "./base.json" }'],
+      ['a brace expansion', '{ "include": ["vite.config.{ts,mts}"] }'],
+      ['a character class', '{ "include": ["vite.config.?s"] }'],
+      ['an unparseable config', '{ "include": [ '],
+      ['a non-string include entry', '{ "include": [42] }'],
+      ['a reference chain deeper than one level', '{ "references": [{ "path": "./a.json" }] }'],
+    ];
+
+    for (const [why, text] of declines) {
+      fs.writeFileSync(path.join(dir, 'tsconfig.json'), text);
+      fs.writeFileSync(path.join(dir, 'a.json'), '{ "references": [{ "path": "./b.json" }] }');
+      expect(viteTsCoverage(dir), `should decline: ${why}`).toBeNull();
+    }
+  });
+
+  it('declines when there is nothing to answer about', () => {
+    // No vite config: the build clause has nothing to specialise.
+    write('tsconfig.json', '{ "include": ["src"] }');
+    expect(viteTsCoverage(dir)).toBeNull();
+
+    // A vite config but no root tsconfig: a JS project, same non-answer.
+    fs.rmSync(path.join(dir, 'tsconfig.json'));
+    write('vite.config.js', 'export default {}\n');
+    expect(viteTsCoverage(dir)).toBeNull();
+  });
+
+  it('resolves a reference that names a directory rather than a file', () => {
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "files": [], "references": [{ "path": "./tools" }] }');
+    write('tools/tsconfig.json', '{ "include": ["../vite.config.ts"] }');
+
+    // The vite config sits above the referenced project's directory, and a
+    // project's globs cannot reach upward — so this is `outside`, not covered.
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'outside' });
+  });
+
+  it('reads a solution config missing `files: []` as covering everything, because it does', () => {
+    // Not a quirk of this reader — TypeScript's default include applies whenever a
+    // config has neither `files` nor `include`, references or not. So `tsc -b` on
+    // such a root really does compile the vite config, and answering `outside` here
+    // would send an adopter to run a second build it does not need. The real Vite
+    // template avoids this by carrying `files: []`.
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "references": [{ "path": "./tsconfig.node.json" }] }');
+    write('tsconfig.node.json', '{ "include": ["src"] }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'covered', tsconfig: 'tsconfig.json' });
+  });
+
+  it('declines when the root config parses to something that is not an object', () => {
+    // `parseJsonc` succeeding says the text was valid JSON, not that it was a config.
+    // A bare string and a literal `null` are the two shapes that reach the record
+    // guard from opposite sides — without them the guard reads as decoration.
+    write('vite.config.ts', 'export default {}\n');
+
+    for (const text of ['"just a string"', 'null', '[]', '42']) {
+      fs.writeFileSync(path.join(dir, 'tsconfig.json'), text);
+      expect(viteTsCoverage(dir), text).toBeNull();
+    }
+  });
+
+  it('will not read a subdirectory project as covering the root file of the same name', () => {
+    // `tools/tsconfig.json` listing `vite.config.ts` means `tools/vite.config.ts`.
+    // Resolving its globs against the ROOT-relative path would read a file that does
+    // not exist as covering the one that does — and hand back `tsc -b` alone for a
+    // build that never reads the vite config.
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "files": [], "references": [{ "path": "./tools/tsconfig.json" }] }');
+    write('tools/tsconfig.json', '{ "include": ["vite.config.ts"] }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'outside', tsconfig: 'tsconfig.json' });
+  });
+
+  it('declines on every malformed shape of `references` itself', () => {
+    // These are the arms a `references` reader can only get wrong silently: a
+    // non-array, an entry that is not an object or carries no string `path`, a path
+    // that resolves to nothing, and a referenced file that will not parse. Each one
+    // is a config someone hand-edited, and each returns no answer rather than a
+    // partial graph read as "none of them covers it".
+    write('vite.config.ts', 'export default {}\n');
+
+    const malformed = [
+      ['references is not an array', '{ "files": [], "references": "./tsconfig.node.json" }'],
+      // An object is the shape that separates this guard from the entry guard below:
+      // dropping it, a `for…of` over a non-iterable throws instead of declining.
+      ['references is an object', '{ "files": [], "references": { "path": "./x.json" } }'],
+      ['an entry is not an object', '{ "files": [], "references": ["./tsconfig.node.json"] }'],
+      ['an entry carries no path', '{ "files": [], "references": [{ "prepend": true }] }'],
+      ['a path that resolves to nothing', '{ "files": [], "references": [{ "path": "./missing.json" }] }'],
+      ['a directory with no tsconfig.json in it', '{ "files": [], "references": [{ "path": "./tools" }] }'],
+    ];
+
+    for (const [why, text] of malformed) {
+      fs.writeFileSync(path.join(dir, 'tsconfig.json'), text);
+      expect(viteTsCoverage(dir), `should decline: ${why}`).toBeNull();
+    }
+
+    // …and a referenced config that parses to nothing usable.
+    fs.writeFileSync(
+      path.join(dir, 'tsconfig.json'),
+      '{ "files": [], "references": [{ "path": "./broken.json" }] }',
+    );
+
+    write('broken.json', '{ "include": [ ');
+    expect(viteTsCoverage(dir)).toBeNull();
+
+    // A referenced config that parses to a NON-object is the other half of that arm.
+    fs.writeFileSync(path.join(dir, 'broken.json'), '["not", "a", "config"]');
+    expect(viteTsCoverage(dir)).toBeNull();
+  });
+
+  it('reads `files` as an exact list, and declines when it is not strings', () => {
+    // `files` names paths verbatim — no globs — so a hit there is the cheapest
+    // `covered` there is. A non-string entry is a hand-edit this will not interpret.
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "files": ["src/main.ts", "./vite.config.ts"] }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'covered', tsconfig: 'tsconfig.json' });
+
+    // Listed, but not this file: `files` present and no include means nothing else
+    // is pulled in, so the answer is a definite `outside` rather than a decline.
+    fs.writeFileSync(path.join(dir, 'tsconfig.json'), '{ "files": ["src/main.ts"] }');
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'outside' });
+
+    fs.writeFileSync(path.join(dir, 'tsconfig.json'), '{ "files": [42] }');
+    expect(viteTsCoverage(dir)).toBeNull();
+  });
+
+  it('names the file it found, whichever extension it is', () => {
+    write('tsconfig.json', '{ "include": ["src"] }');
+
+    for (const file of ['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite.config.mts']) {
+      for (const stale of ['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite.config.mts']) {
+        fs.rmSync(path.join(dir, stale), { force: true });
+      }
+
+      write(file, 'export default {}\n');
+      expect(viteTsCoverage(dir), file).toMatchObject({ viteFile: file });
+    }
+  });
+});
+
+describe('tscArtifactsOutOfTree · the artifact premise, measured instead of asserted', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-tscout-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  const write = (file: string, text: string) => {
+    fs.mkdirSync(path.join(dir, path.dirname(file)), { recursive: true });
+    fs.writeFileSync(path.join(dir, file), text);
+  };
+
+  /** What `npm create vite` writes for React + TS, which is the shape that matters. */
+  const viteTemplate = (over: { app?: string; node?: string } = {}) => {
+    write('tsconfig.json', '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }] }');
+    write('tsconfig.app.json', over.app ?? '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo" }, "include": ["src"] }');
+    write('tsconfig.node.json', over.node ?? '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo" }, "include": ["vite.config.ts"] }');
+  };
+
+  it('reads the default Vite + TS template as leaving the tree untouched', () => {
+    // The premise the artifact paragraph opened on — "this step produced untracked
+    // files in your working tree" — is false here, and this is not an exotic repo:
+    // it is what the React + TS template generates (field run #135). Both projects
+    // set noEmit and send the build info under node_modules, so `tsc -b` writes
+    // nothing anyone tracks.
+    viteTemplate();
+
+    expect(tscArtifactsOutOfTree(dir)).toEqual({
+      buildInfo: 'node_modules/.tmp/tsconfig.app.tsbuildinfo',
+      tsconfig: 'tsconfig.app.json',
+    });
+  });
+
+  it('declines when one project would still write into the tree', () => {
+    // The whole claim is "nothing landed", so one project that emits breaks it. Both
+    // arms of that are checked, because each is a different way to land a file:
+    // emitting program output, and dropping the build info beside the config.
+    viteTemplate({ node: '{ "compilerOptions": { "tsBuildInfoFile": "./node_modules/.tmp/n.tsbuildinfo" }, "include": ["vite.config.ts"] }' });
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+
+    viteTemplate({ node: '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./.cache/n.tsbuildinfo" }, "include": ["vite.config.ts"] }' });
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+  });
+
+  it('declines on a single root config that says nothing about either', () => {
+    // The common JS-ish shape, and the honest answer is no answer: absent options
+    // mean tsc's defaults, which put the build info beside the config.
+    write('tsconfig.json', '{ "include": ["src"] }');
+
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+  });
+
+  it('declines with no tsconfig, and on one that does not parse', () => {
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+
+    write('tsconfig.json', '{ "files": [], ');
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+  });
+
+  it('reads a root config that redirects on its own, with no references', () => {
+    // No solution stub to skip — the one-project shape has to work too, or the
+    // measurement only ever fires on the template it was written from.
+    write('tsconfig.json', '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "node_modules/.cache/t.tsbuildinfo" }, "include": ["src"] }');
+
+    expect(tscArtifactsOutOfTree(dir)).toEqual({
+      buildInfo: 'node_modules/.cache/t.tsbuildinfo',
+      tsconfig: 'tsconfig.json',
+    });
+  });
+
+  it('declines when a referenced project cannot be read at all', () => {
+    write('tsconfig.json', '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }] }');
+
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+  });
+
+  // Skipping the solution config rests on three facts together — `files` is an array,
+  // it is empty, and there is no `include` — and each can be lost on its own. Any of
+  // those losses widens "builds nothing" to cover a config that does build, and a
+  // config that is skipped is never asked about its artifact: its in-tree build info
+  // stops counting and the answer flips from "declines" to a location. Both fixtures
+  // keep a well-behaved project alongside, because a wrong skip only changes the
+  // answer when something else is left to supply one.
+  it('skips only a config that builds nothing, not one that merely resembles it', () => {
+    const solution = '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.lib.json" }] }';
+    const app = '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./node_modules/.tmp/app.tsbuildinfo" }, "include": ["src"] }';
+
+    // Files listed and non-empty: it builds them, and its build info lands beside the
+    // config rather than under node_modules.
+    write('tsconfig.json', solution);
+    write('tsconfig.app.json', app);
+    write('tsconfig.lib.json', '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./lib.tsbuildinfo" }, "files": ["src/lib.ts"] }');
+
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+
+    // Empty `files`, but an `include` that gives it something to build anyway — which
+    // is why the empty list alone cannot decide this.
+    write('tsconfig.lib.json', '{ "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "./lib.tsbuildinfo" }, "files": [], "include": ["lib"] }');
+
+    expect(tscArtifactsOutOfTree(dir)).toBeNull();
+  });
 });
 
 describe('claudeDirState · both halves of the cleanup sentence, measured', () => {

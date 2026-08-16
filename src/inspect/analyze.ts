@@ -1,18 +1,17 @@
+import { getForbiddenLayers, getModuleShape, getSelfOnlyTargets, normalizeAllowedImporters } from '../config';
+import type { ArchitectureDef, Blueprint } from '../config';
+import { dropTestFiles } from './filter';
+import { compareText } from './order';
 import {
+  aliasList,
+  buildModuleGraph,
   entryResolver,
   layoutResolver,
   relativeVerdict,
   resolveSegments,
   stripAlias,
-} from '../boundary';
-import type { EntryOf, LayoutOf } from '../boundary';
-import {
-  getForbiddenLayers, getModuleShape, getSelfOnlyTargets, normalizeAllowedImporters,
-} from '../config';
-import type { ArchitectureDef, Blueprint } from '../config';
-import { dropTestFiles } from './filter';
-import { compareText } from './order';
-import { aliasList, buildModuleGraph } from './resolve';
+} from './resolve';
+import type { EntryOf, LayoutOf } from './resolve';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
@@ -87,9 +86,7 @@ function ownsFindings(
   architecture: ArchitectureDef,
   dependencies: string[] | undefined,
 ): Finding[] {
-  if (!dependencies) {
-    return [];
-  }
+  if (!dependencies) return [];
 
   const findings: Finding[] = [];
   const prefix = sourcePrefix(architecture);
@@ -100,9 +97,7 @@ function ownsFindings(
       // all. A named import missing from an installed package is a different one.
       const pkg = typeof owned === 'string' ? owned : 'package' in owned ? owned.package : null;
 
-      if (pkg === null || dependencies.includes(pkg)) {
-        continue;
-      }
+      if (pkg === null || dependencies.includes(pkg)) continue;
 
       findings.push({
         severity: 'info',
@@ -156,8 +151,7 @@ function folderFindings(
         // a field agent toward "delete the unused layers", the opposite of
         // the keep-is-default doctrine the playbook states (field run #13).
         message: `Declared layer "${name}" has no folder yet — runway, not a todo: `
-          + 'the rules arm when code lands; keeping it is the default, '
-          + 'slimming is the owner\'s call.',
+          + 'the rules arm when code lands; keeping it is the default, slimming is the owner\'s call.',
       });
     }
   }
@@ -245,9 +239,7 @@ function importFindings(
 ): Finding[] {
   const fileLayer = file.segments[0];
 
-  if (!layerNames.includes(fileLayer)) {
-    return [];
-  }
+  if (!layerNames.includes(fileLayer)) return [];
 
   const aliases = aliasList(architecture);
   const forbidden = getForbiddenLayers(architecture, fileLayer);
@@ -262,9 +254,7 @@ function importFindings(
     if (parts) {
       const target = parts[0];
 
-      if (!layerNames.includes(target)) {
-        continue;
-      }
+      if (!layerNames.includes(target)) continue;
 
       // Depth is judged against the *target* layer's layout — reaching inside
       // a folder-module layer is a violation wherever the import comes from.
@@ -284,9 +274,7 @@ function importFindings(
     } else if (ref.specifier.startsWith('.')) {
       const escape = relativeEscape(file, ref, layoutOf, entryOf);
 
-      if (escape) {
-        findings.push(escape);
-      }
+      if (escape) findings.push(escape);
     } else {
       const owners = ownersOf(architecture, ref.specifier, ref.names);
 
@@ -318,9 +306,7 @@ function relativeEscape(
   const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
   const verdict = relativeVerdict(file.segments, target, layoutOf, entryOf);
 
-  if (verdict === 'ok') {
-    return null;
-  }
+  if (verdict === 'ok') return null;
 
   if (verdict === 'escapes-src') {
     return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" escapes src/ — use the project alias.`);
@@ -342,15 +328,11 @@ function ownersOf(
   const owners: string[] = [];
 
   for (const layer of architecture.layers) {
-    if (!layer.owns) {
-      continue;
-    }
+    if (!layer.owns) continue;
 
     for (const owned of layer.owns) {
       if (typeof owned === 'string') {
-        if (owned === specifier) {
-          owners.push(layer.name);
-        }
+        if (owned === specifier) owners.push(layer.name);
       } else if ('package' in owned && owned.package === specifier) {
         const restricted = owned.imports;
 
@@ -461,9 +443,7 @@ function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
     if (lowest === own) {
       const component = stack.splice(stack.indexOf(node));
 
-      for (const member of component) {
-        onStack.delete(member);
-      }
+      for (const member of component) onStack.delete(member);
 
       components.push(component);
     }
@@ -481,9 +461,7 @@ function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
     // index is only consulted for a target that is still `onStack`, and a re-visited
     // node is spliced off within the same call. Kept for the redundant walks it
     // avoids, not for the verdict.
-    if (index.has(node)) {
-      continue;
-    }
+    if (index.has(node)) continue;
 
     visit(node);
   }
@@ -508,16 +486,12 @@ export function detectCycle(edges: Map<string, Set<string>>): string[] | null {
     stack.add(node);
 
     for (const next of edges.get(node) ?? []) {
-      if (stack.has(next)) {
-        return [...path.slice(path.indexOf(next)), next];
-      }
+      if (stack.has(next)) return [...path.slice(path.indexOf(next)), next];
 
       if (!visited.has(next)) {
         const found = dfs(next, [...path, next]);
 
-        if (found) {
-          return found;
-        }
+        if (found) return found;
       }
     }
 
@@ -532,9 +506,7 @@ export function detectCycle(edges: Map<string, Set<string>>): string[] | null {
     if (!visited.has(node)) {
       const found = dfs(node, [node]);
 
-      if (found) {
-        return found;
-      }
+      if (found) return found;
     }
   }
 

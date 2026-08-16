@@ -40,9 +40,7 @@ export function wireTsconfigPaths(
   text: string,
   paths: Record<string, string[]>,
 ): PatchResult {
-  if (/"paths"\s*:/.test(text)) {
-    return { kind: 'noop' };
-  }
+  if (/"paths"\s*:/.test(text)) return { kind: 'noop' };
 
   // The line ending is captured, not assumed: a bare `\n` fails on a CRLF tsconfig,
   // and reusing the captured one keeps the file on a single convention.
@@ -52,9 +50,7 @@ export function wireTsconfigPaths(
   // coming back as the inserted line alone.
   const opening = /"compilerOptions"\s*:\s*\{(\r?\n)(\s*)/.exec(text);
 
-  if (!opening) {
-    return { kind: 'unparseable' };
-  }
+  if (!opening) return { kind: 'unparseable' };
 
   const [eol, indent] = opening.slice(1);
   const insertAt = opening.index + opening[0].length;
