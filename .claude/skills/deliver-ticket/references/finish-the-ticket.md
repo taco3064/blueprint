@@ -25,9 +25,10 @@ Steps 1 to 4 are all you checking your own work, and **you are the worst availab
 So before the pull request, **spawn read-only agents that had no part in the work**:
 
 - **Fresh context, latest branch, and unable to write.** A reader that can edit starts explaining instead of reporting.
-- **One per dimension of what this ticket changed** — the emitted artifact, the CLI's output, the docs pages it touches, the tests it added. A single reviewer given everything returns the shape of its own attention.
-- **Tell each one to run or render rather than read.** Every defect worth finding here has been found that way and none was reachable by reading source.
-- **Every finding comes back with a file, a line, and a command.** Without an address it is an opinion.
+- **One per dimension of what this ticket changed** — the emitted artifact, the CLI's output, the docs pages it touches, the tests it added, **and the diff itself.** A single reviewer given everything returns the shape of its own attention, and a matrix of only output-shaped dimensions returns the shape of *that* mistake: every one of them can report what the code produces and none of them can report what the code structurally is.
+- **The diff dimension is not optional and nothing else covers it.** One reader gets the full diff and nothing else, and is asked specifically for: scope beyond the ticket, a layering or dependency-direction violation against `CLAUDE.md`'s table, a test that would still pass against a wrong implementation, and a consumer the change didn't update. Running the artifact tells you the output is right; it says nothing about whether the diff is the right size or shape, and both failures are invisible from the render side.
+- **Every other reader is told to run or render rather than read** — the artifact, CLI-output, and docs dimensions are exactly where that's earned, because every defect found there so far was found that way. The diff reader is the deliberate exception: it reads, because reading is the only thing that dimension can do.
+- **An address is a file, a symbol, a command, or an output — not necessarily a line.** A wrong line is addressable by number; a missing branch, an uncalled consumer, or an untested reverse case is not, and demanding a line number for those either invents one or drops a real finding for want of one. Require the strongest address the finding actually has.
 - **Ask for the clean list too.** A dimension checked and found sound is a result, and its absence is how "nothing found" hides "nothing looked at".
 
 **Their findings are unverified reports until you reopen the file yourself.** One that does not hold is dropped **and said in the closing comment to have been dropped, with the reason** — that is where your own convergence hides, since generating findings freshly does not make your verdict on them fresh.
@@ -40,19 +41,23 @@ If any of the five fails, **you are not finishing, you are on another stage.** G
 
 ## The pull request
 
-One per ticket. Open it after the completion test, not before.
+One per ticket — with one narrow, named exception in *Merging, and closing* below. Open it after the completion test, not before.
 
 - **Title**: conventional prefix, lowercase, imperative — `feat:` `fix:` `docs:` `test:` `refactor:` `perf:`, and `!` when a published contract breaks.
 - **Body**: what the ticket asked for and what makes it true; how it was verified, with the commands and their output; and, if the diff contains anything the ticket did not literally ask for, an **Out-of-scope changes & rationale** section naming each one and why it is there.
 - **Do not restate the comment stream.** The ticket has it. The PR body is for a reader who arrives at the diff.
 
-**Wait for CI.** All required checks green before merging — the four contexts `main` requires. A red check is a shortfall, and shortfalls do not merge.
+**Wait for CI, read against the PR's current `HEAD`.** Read the PR's required checks as they stand right now (`gh pr checks`, or the branch protection API) and confirm every one is green against the current `HEAD` SHA — not a stale run. The count and the names are `main`'s branch-protection settings, not a fact this file should carry: a check added or removed there makes a hardcoded number here wrong the next time someone reads it. A red check, or a green one that ran against an earlier commit than `HEAD`, is a shortfall, and shortfalls do not merge.
+
+**This is also where the freshness check belongs, not after merging.** If the PR's `HEAD` moved past what CI last verified — a push after CI started, `main` auto-merging into the branch — merging now lands something CI never actually ran against. Wait for CI to re-run against the current `HEAD`. Merging is the irreversible step in this whole procedure, so every check capable of failing belongs on its near side: a failure discovered on the far side has nowhere to go, which is exactly the trap the next section closes off.
 
 ## Merging, and closing
 
-Merge your own PR once CI is green.
+Merge your own PR once its required checks are green against its current `HEAD`.
 
-**Then check that what landed is what you tested.** A squash or a rebase rewrites the commits, and a base branch that moved while CI was green produces a tree nothing was ever run against. Compare the merged tree against the one your last verification ran on — if they differ, you are verifying again, not finishing.
+**Then confirm identity, not correctness.** What GitHub actually placed on `main` should be exactly the tree just verified — a squash writes a new commit from the same diff, a rebase-merge replays it, and either can in principle diverge if something raced the merge. `git diff <merged-sha> <verified-sha>` empty is the whole check; it's cheap because the real verification already happened above, against the actual merge candidate, not because it's being skipped.
+
+**If that diff is not empty, that is an emergency, not a shortfall.** Something landed on `main` that this ticket never actually verified. Diagnose what diverged, and if the ticket's own goal no longer holds on `main`, **this is the one case where a second PR against the same ticket is correct** — *one per ticket*, above, assumes the merge is what it was checked to be, and this is the case where that assumption failed. Name it on the ticket: what diverged, why the pre-merge check above didn't catch it, and the follow-up PR's number. This should be rare enough to never happen; it's named here so the rule has somewhere to go if it ever does, instead of stranding the ticket with `main` broken and no permitted way to fix it.
 
 Then close the ticket with a final comment carrying:
 
