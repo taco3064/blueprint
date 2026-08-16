@@ -182,12 +182,14 @@ await check('`init --dry-run` plans against a real fixture and writes nothing', 
   );
 
   const before = fs.readdirSync(dir).sort();
+
   const { code, output } = runCmd(process.execPath, [binPath, 'init', '--dry-run', '--no-install'], {
     cwd: dir,
   });
 
   expect(code === 0, `exited ${code}\n${output}`);
   expect(output.includes('blueprint.config.mjs'), 'the plan never mentions the config it would write');
+
   expect(
     JSON.stringify(fs.readdirSync(dir).sort()) === JSON.stringify(before),
     `--dry-run touched the filesystem: ${fs.readdirSync(dir).sort().join(', ')}`,
@@ -226,6 +228,7 @@ if (process.platform === 'win32') {
     const { code, output } = runCmd(link, ['--version'], { cwd: dir });
 
     expect(code === 0, `exited ${code}\n${output}`);
+
     expect(
       output.includes(pkg.version),
       `printed ${JSON.stringify(output.trim())} — the entry guard did not fire through the symlink`,

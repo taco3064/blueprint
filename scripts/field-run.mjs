@@ -4,7 +4,7 @@
  * that used to be run by hand, four times per release.
  *
  *   node scripts/field-run.mjs                      # new-project scenario, every available agent
- *   node scripts/field-run.mjs --repo ../miniapp    # + existing-repo scenario (cloned, never touched)
+ *   node scripts/field-run.mjs --repo ../miniapp    # + existing-repo scenario (cloned, untouched)
  *   node scripts/field-run.mjs --agents claude      # limit the agent matrix
  *   node scripts/field-run.mjs --dry                # prep repos + print commands, spawn nothing
  *   node scripts/field-run.mjs --no-issue           # keep the report local, file nothing
@@ -82,8 +82,8 @@ const AGENT_HELP = {
 const AGENT_BLOCKERS = {
   claude: () => (process.env.CLAUDECODE
     ? 'cannot launch inside a Claude Code session (CLAUDECODE is set) — run the harness '
-      + 'from a plain shell. Unsetting the variable is the CLI\'s own escape hatch, and its '
-      + 'warning that nested sessions crash both is the reason not to reach for it here.'
+    + 'from a plain shell. Unsetting the variable is the CLI\'s own escape hatch, and its '
+    + 'warning that nested sessions crash both is the reason not to reach for it here.'
     : null),
 };
 
@@ -214,9 +214,9 @@ function unavailable(agent) {
 
   return stale.length
     ? `the invocation passes ${stale.join(', ')}, which \`${AGENT_HELP[agent].join(' ')}\` does `
-      + 'not list — the CLI changed under the harness. Fix AGENT_COMMANDS in '
-      + 'scripts/field-run.mjs against that help; a run started now spends a build, a pack '
-      + 'and an install per scenario before the agent refuses'
+    + 'not list — the CLI changed under the harness. Fix AGENT_COMMANDS in '
+    + 'scripts/field-run.mjs against that help; a run started now spends a build, a pack '
+    + 'and an install per scenario before the agent refuses'
     : null;
 }
 
@@ -259,6 +259,7 @@ function runAgent(argv, cwd, logFile) {
   return new Promise((resolve) => {
     const started = Date.now();
     const log = fs.createWriteStream(logFile);
+
     const child = spawn(argv[0], argv.slice(1), {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -380,6 +381,7 @@ async function main() {
   }
 
   const skipped = [];
+
   const agents = (args.agents ?? Object.keys(AGENT_COMMANDS)).filter((agent) => {
     const reason = unavailable(agent);
 
@@ -416,10 +418,12 @@ async function main() {
   sh('npm run build', ROOT);
 
   const workRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-field-'));
+
   const packOut = execSync(`npm pack --pack-destination "${workRoot}"`, {
     cwd: ROOT,
     encoding: 'utf-8',
   }).trim().split('\n').pop();
+
   const tarball = path.join(workRoot, packOut);
 
   // The honest identifier of what was tested: the commit, never the package
@@ -458,6 +462,7 @@ async function main() {
       } catch (error) {
         console.log(`✗ staging failed: ${error.message.split('\n')[0]}`);
         runs.push({ scenario, agent, dir, staging: error.message.split('\n')[0] });
+
         continue;
       }
 
@@ -472,10 +477,11 @@ async function main() {
       const argv = AGENT_COMMANDS[agent](PROMPT);
 
       if (args.dry) {
-        const preview = argv.map((part) => (part === PROMPT ? "'<prompt>'" : part)).join(' ');
+        const preview = argv.map((part) => (part === PROMPT ? '\'<prompt>\'' : part)).join(' ');
 
         console.log(`  (dry) would run: ${preview}`);
         runs.push({ scenario, agent, dir, dry: true });
+
         continue;
       }
 
@@ -591,6 +597,7 @@ async function main() {
  */
 function runFacts(run) {
   const lines = run.doctor.output.trim().split('\n');
+
   const doctorLine = lines.find((line) => /Adoption (complete|unverified|incomplete)/.test(line))
     ?? lines[lines.length - 1];
 
@@ -647,6 +654,7 @@ export function problemSections(feedback) {
       open = wanted ? { title: heading[2], body: [] } : null;
 
       if (open) blocks.push(open);
+
       continue;
     }
 
@@ -673,7 +681,7 @@ function doctorOwner(run) {
 
   return run.code === 0
     ? ' — NOTE: the staged repo arrived already adopted (the re-adoption path), so read'
-      + ' this against the agent\'s own account of what it re-authored'
+    + ' this against the agent\'s own account of what it re-authored'
     : ' — NOT this run\'s: the staged repo arrived already adopted and the agent did not'
       + ' finish, so this verdict belongs to the prior config';
 }
@@ -726,11 +734,15 @@ export function composeIssue({ reportFile, runs, skipped, tree, packedVersion })
   // the title overstate what the run measured. Silent scenarios are named instead of
   // dropped, or the matrix and the denominator disagree with no explanation.
   const graded = evidence.map((run) => ({ run, counts: parseVerdict(run.feedback) }));
+
   const flagged = graded.filter((entry) => entry.counts
     && entry.counts.blocked + entry.counts.invented > 0);
+
   const unreadable = graded.filter((entry) => !entry.counts);
+
   const clean = graded.filter((entry) => entry.counts
     && entry.counts.blocked + entry.counts.invented === 0);
+
   const broke = runs.filter((run) => !run.dry
     && (run.staging || run.code !== 0 || run.doctor?.code !== 0));
 
@@ -738,6 +750,7 @@ export function composeIssue({ reportFile, runs, skipped, tree, packedVersion })
   const unverified = evidence.filter((run) => verdict(run) === 'unverified').length;
   const silent = runs.filter((run) => !run.dry && !run.staging && !run.feedback).length;
   const withdrawn = graded.reduce((sum, entry) => sum + (entry.counts?.withdrawn ?? 0), 0);
+
   const findings = flagged.reduce(
     (sum, entry) => sum + entry.counts.blocked + entry.counts.invented,
     0,
@@ -751,6 +764,7 @@ export function composeIssue({ reportFile, runs, skipped, tree, packedVersion })
     + (unverified ? ` · ${unverified} unverified` : '')
     + (silent ? ` · ${silent} produced nothing` : '')
     + (unreadable.length ? ` · ${unreadable.length} verdict unreadable` : '');
+
   const title = `Field run @ ${tree} — ${findings} finding(s) in ${evidence.length} scenario(s)${scale}`;
 
   const body = [
@@ -785,14 +799,14 @@ export function composeIssue({ reportFile, runs, skipped, tree, packedVersion })
       ...runFacts(run),
       '',
       problemSections(run.feedback)
-        // Never less than it was given: a drifted heading means the whole file lands
-        // here rather than a slice nobody can tell is short.
-        ?? [
-          '_(headings did not match the outline in `scripts/field-prompt.md`, so the whole',
-          '  feedback file follows rather than the two sections)_',
-          '',
-          run.feedback,
-        ].join('\n'),
+      // Never less than it was given: a drifted heading means the whole file lands
+      // here rather than a slice nobody can tell is short.
+      ?? [
+        '_(headings did not match the outline in `scripts/field-prompt.md`, so the whole',
+        '  feedback file follows rather than the two sections)_',
+        '',
+        run.feedback,
+      ].join('\n'),
       '',
     ]),
     ...unreadable.flatMap(({ run }) => [
@@ -849,6 +863,7 @@ function fileIssue(input) {
       `\n✓ field test PASSED — ${outcome.scenarios} scenario(s), 0 blocked, 0 invented stance(s),`
       + ` ${outcome.withdrawn} withdrawn after checking.`,
     );
+
     console.log('  No issue filed: the issue is the list of things to fix and there is nothing on it.');
 
     if (outcome.unverified) {

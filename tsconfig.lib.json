@@ -6,6 +6,11 @@
     "lib": ["ES2023"],
     "module": "ESNext",
     "types": ["node"],
+    /* `blueprint.config.mjs` is the only JS in the program, and its JSDoc
+       `@type` is the whole reason it is included — `allowJs` alone puts the
+       file in the program and reports nothing about it. */
+    "allowJs": true,
+    "checkJs": true,
     "skipLibCheck": true,
 
     /* Bundler mode (tsc for typecheck only) */
@@ -26,6 +31,12 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["rolldown.config.ts", "eslint.config.ts", "vitest.config.ts", "src"],
+  "include": [
+    "blueprint.config.mjs",
+    "rolldown.config.ts",
+    "eslint.config.ts",
+    "vitest.config.ts",
+    "src"
+  ],
   "exclude": ["dist", "node_modules", "src/**/*.test.ts"]
 }
