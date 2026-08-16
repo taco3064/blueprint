@@ -11,6 +11,8 @@ You own the discussion that turns a direction into a **decided** shape. **You do
 
 **And if a matching issue already exists, you don't create a second one.** This skill's precondition is that no issue covers this direction yet. If the owner points at an existing issue, or `inspect-the-repo.md`'s search turns one up covering the same root cause, **stop before drafting** and report it — its number, its state, and, if its scope still looks unsettled, that settling it is not this run's job. There is no path in this skill from "an issue already exists" to "file a new one anyway": that would produce exactly the duplicate the completion bar below rules out, and editing the old one in place is an operation this skill doesn't perform either — both ends are closed on purpose. The one way an existing issue legitimately appears in a filed draft is *superseding* it: a closed or withdrawn issue this direction genuinely replaces with a different approach, named in *Related work* the way #364 named #358 and #361. An open issue on the same root cause is never that — it's a stop, not source material.
 
+**This is also the recovery path when deliver-ticket bounces a ticket back for being underspecified** (its own `start-or-resume.md` names the same seam from the other side): the owner closes that issue, naming why, and this run treats it exactly like any other closed issue this direction supersedes. Never editing it while it's still open.
+
 **Everything on this page is always in force.** The depth belonging to one moment lives under [`references/`](./references/) — read the file when its trigger fires, before acting.
 
 | Reference | Trigger |
