@@ -115,7 +115,7 @@ function helpText(command: string | undefined, rest: string[]): string | null {
     return version();
   }
 
-  // `Object.hasOwn` over `in`: `hasOwn(record, \'\')` is false, which is the answer
+  // `Object.hasOwn` over `in`: `hasOwn(record, '')` is false, which is the answer
   // wanted for "no command given", and it does not walk the prototype chain.
   const help = Object.hasOwn(COMMAND_HELP, command ?? '')
     ? COMMAND_HELP[command as string]
@@ -126,7 +126,10 @@ function helpText(command: string | undefined, rest: string[]): string | null {
 
 /** A command that declares its own flag set only accepts those flags. */
 function assertFlagsKnown(command: string, rest: string[]): void {
-  const known = KNOWN_FLAGS[command];
+  // `Object.hasOwn` for the same reason as `helpText`: `KNOWN_FLAGS` is a bare
+  // record whose type says every key holds a Set, and `constructor` holds a
+  // function.
+  const known = Object.hasOwn(KNOWN_FLAGS, command) ? KNOWN_FLAGS[command] : undefined;
 
   if (known !== undefined) {
     rejectUnknownFlags(known, command, rest);

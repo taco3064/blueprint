@@ -3,8 +3,8 @@ import path from 'node:path';
 
 import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
 import { handbookPath } from '../emit/docs';
-import { analyze } from '../inspect/analyze';
-import type { scan } from '../inspect/scan';
+import { analyze } from '../inspect';
+import type { scan } from '../inspect';
 import type { AgentTarget, Blueprint } from '../config';
 import { ignoredArtifacts } from './ignored';
 import { describeUnreadable, pathAliasKeys, unreadableTsconfigs } from '../project';

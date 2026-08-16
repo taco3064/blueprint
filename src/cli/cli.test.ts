@@ -364,6 +364,23 @@ describe('run · flag validation reaches the right arguments', () => {
     expect(errored('unknown flag')).toBe(false);
   });
 
+  it('treats a command named after an Object.prototype member as unknown', async () => {
+    // `COMMAND_HELP` and `KNOWN_FLAGS` are bare records, so `blueprint constructor`
+    // finds a function on the prototype chain in both. Read from the first, it is
+    // printed as the command's help (`[Function: Object]`, exit 0); read from the
+    // second, `.has` is called on it and the run dies with a TypeError printed as a
+    // blueprint error — in place of the usage page, either way.
+    expect(await run(['constructor', '--help'], root)).toBe(1);
+    expect(await run(['constructor', '--json'], root)).toBe(1);
+    expect(errored('✗')).toBe(false);
+
+    expect(
+      (console.log as ReturnType<typeof vi.fn>).mock.calls.every((call) =>
+        String(call[0]).includes('Architecture as Code'),
+      ),
+    ).toBe(true);
+  });
+
   it('does not run the flag check for a command it knows nothing about', async () => {
     // An unrecognised command has no flag set to check against. Checking anyway
     // reads `undefined.has(...)`, so the run dies with a TypeError printed as a
