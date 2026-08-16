@@ -10,7 +10,7 @@
 
 **Where the direction touches something the tool emits or prints** — a CLI message, a rendered doc, an artifact — **read that output, not the code that produces it.** Reading code tells you the logic is right; reading output tells you what it actually says today, and those two diverge more often than either side expects.
 
-**Search issues, PRs, and commits for the same root cause before assuming this is new ground.** `gh issue list --state all`, `gh pr list --state all`, `git log --oneline --grep=...` — a direction that sounds novel is sometimes issue #358's shape wearing a new sentence, and a withdrawn PR (the `discarded-attempt` label marks these) often carries measurements worth reusing rather than re-deriving.
+**Search issues, PRs, and commits for the same root cause before assuming this is new ground — and search wide, not just recent.** `gh issue list` and `gh pr list`, even with `--state all`, default to a short page of the most recently updated items; this repo has passed 300 issues, so a plain list silently misses older ones. Use keyword search instead — `gh search issues "<terms>" --repo <owner>/<repo>` and `gh search prs "<terms>" --repo <owner>/<repo>`, tried against the capability's name, its likely module, and the behavior in the owner's own words, each covering both open and closed results by default. `git log --all --oneline --grep=...` for commits. A direction that sounds novel is sometimes issue #358's shape wearing a new sentence, and a withdrawn PR (the `discarded-attempt` label marks these) often carries measurements worth reusing rather than re-deriving.
 
 **Name the reusable primitives you find**, even ones the direction didn't ask for by name — a resolver, an emitter, a verdict shape already used elsewhere for the same kind of decision. The implementation plan is built out of these, not around them.
 
@@ -32,4 +32,4 @@
 
 **Prefer naming symbols and files over line numbers wherever the plan will outlive this conversation** — a plan that says "the branch in `resolveBlueprint` that handles a missing `layers` array" survives a reformat; one that says "line 214" does not, and this repo's own convention (`CLAUDE.md`, *Self-explaining output*) already treats decaying references as a cost worth avoiding.
 
-**Before the draft is written, re-pull and re-check** — this is cheap if the grounding commit was recorded, and it's covered from the drafting side in `create-the-ticket.md`'s pre-flight.
+**Before the draft is written, sync `origin/main` and re-check — read-only, per `SKILL.md`'s *Re-sync before you draft*.** This is cheap if the grounding commit was recorded here first, and it's covered from the drafting side in `create-the-ticket.md`'s pre-flight.
