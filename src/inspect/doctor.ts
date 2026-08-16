@@ -312,7 +312,8 @@ export async function runDoctor(
         ? undefined
         : state.eslintConfigShape === 'legacy'
           ? `${state.legacyEslintConfig} is legacy — migrate to flat config, then spread ...emitLint(blueprint)`
-          : 'spread ...emitLint(blueprint) into your eslint config (see eslint.config.blueprint.mjs)',
+          : 'spread ...emitLint(blueprint) into your eslint config (see '
+            + 'eslint.config.blueprint.mjs)',
     },
     aliasCheck(root, blueprint, state),
     wiring,

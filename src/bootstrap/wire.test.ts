@@ -96,7 +96,11 @@ describe('wire · the whitespace shapes a template can ship', () => {
   });
 
   it('finds compilerOptions with or without spaces around its colon', () => {
-    const spaced = wireTsconfigPaths('{\n  "compilerOptions" : {\n    "strict": true\n  }\n}', PATHS);
+    const spaced = wireTsconfigPaths(
+      '{\n  "compilerOptions" : {\n    "strict": true\n  }\n}',
+      PATHS,
+    );
+
     const tight = wireTsconfigPaths('{\n  "compilerOptions":{\n    "strict": true\n  }\n}', PATHS);
 
     expect(spaced.kind).toBe('patched');

@@ -53,13 +53,40 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     throw new Error('name must be a non-empty string when provided.');
   }
 
-  rejectUnknownKeys(bp, ['name', 'framework', 'architecture', 'rules', 'principles', 'componentShape', 'playbook', 'emit'], 'the blueprint');
+  rejectUnknownKeys(
+    bp,
+    [
+      'name',
+      'framework',
+      'architecture',
+      'rules',
+      'principles',
+      'componentShape',
+      'playbook',
+      'emit',
+    ],
+    'the blueprint',
+  );
 
   if (!architecture || !Array.isArray(architecture.layers)) {
     throw new Error('architecture.layers must be an array.');
   }
 
-  rejectUnknownKeys(architecture, ['alias', 'additionalAliases', 'sourceRoot', 'layers', 'module', 'layerFiles', 'layerFilesIgnore', 'testFiles', 'naming'], 'architecture');
+  rejectUnknownKeys(
+    architecture,
+    [
+      'alias',
+      'additionalAliases',
+      'sourceRoot',
+      'layers',
+      'module',
+      'layerFiles',
+      'layerFilesIgnore',
+      'testFiles',
+      'naming',
+    ],
+    'architecture',
+  );
 
   const { alias, additionalAliases, layers, module, layerFiles } = architecture;
 
@@ -92,9 +119,9 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
       // parens, `&` (node join), `%` (comment), and friends silently corrupt
       // the emitted diagram — fail loud here instead.
       throw new Error(
-        `Layer "${layer.name}" contains characters that corrupt emitted artifacts — a `
-        + 'layer name becomes a folder, a file glob, and a diagram node. Stick to '
-        + 'letters, digits, ".", "_", "-".',
+        `Layer "${layer.name}" contains characters that corrupt emitted artifacts `
+        + '— a layer name becomes a folder, a file glob, and a diagram node. '
+        + 'Stick to letters, digits, ".", "_", "-".',
       );
     }
 
@@ -132,8 +159,8 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
 
     if (module.entry !== undefined && (typeof module.entry !== 'string' || !module.entry.trim())) {
       throw new Error(
-        'architecture.module.entry must be a non-empty string when set — omit it for the '
-        + 'default ("index").',
+        'architecture.module.entry must be a non-empty string when set '
+        + '— omit it for the default ("index").',
       );
     }
 

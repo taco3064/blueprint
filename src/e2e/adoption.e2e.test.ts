@@ -38,7 +38,8 @@ const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf-8');
 const exists = (file: string) => fs.existsSync(path.join(root, file));
 
 describe('e2e · vite-react-ts (greenfield preset + alias surgery)', () => {
-  it('wires the alias into vite.config and the commented tsconfig, and stays idempotent', async () => {
+  it('wires the alias into vite.config and the commented tsconfig, '
+    + 'and stays idempotent', async () => {
     useFixture('vite-react-ts');
 
     await runInit(root, { install: false, log: silent });
@@ -104,7 +105,8 @@ describe('e2e · vite-vue-ts (template cleanup)', () => {
 });
 
 describe('e2e · next-app (App Router preset, hands off on owned files)', () => {
-  it('scaffolds with nextPreset, never touches src/pages, leaves hand-written agent files alone', async () => {
+  it('scaffolds with nextPreset, never touches src/pages, '
+    + 'leaves hand-written agent files alone', async () => {
     useFixture('next-app');
 
     await runInit(root, { install: false, log: silent });
@@ -271,7 +273,8 @@ describe('e2e · brownfield (the full adoption arc)', () => {
 
     fs.writeFileSync(
       path.join(root, 'eslint.config.js'),
-      'import { emitLint } from \'@kekkai/blueprint\';\nimport blueprint from \'./blueprint.config.mjs\';\nexport default [...emitLint(blueprint)];\n',
+      'import { emitLint } from \'@kekkai/blueprint\';\nimport blueprint from '
+      + '\'./blueprint.config.mjs\';\nexport default [...emitLint(blueprint)];\n',
     );
 
     fs.rmSync(path.join(root, 'CLAUDE.blueprint.md'));
@@ -329,7 +332,9 @@ describe('e2e · JS project gets a jsconfig (Tier 1)', () => {
       compilerOptions: { paths: { '~app/*': ['./src/*'] } },
     });
 
-    expect(read('vite.config.js')).toContain('\'~app\': fileURLToPath(new URL(\'./src\', import.meta.url))');
+    expect(read('vite.config.js')).toContain(
+      '\'~app\': fileURLToPath(new URL(\'./src\', import.meta.url))',
+    );
   });
 });
 

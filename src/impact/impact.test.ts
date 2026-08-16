@@ -165,7 +165,9 @@ describe('runImpact', () => {
 
     await runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent });
 
-    expect(loaded).toEqual(expect.arrayContaining(['eslint', 'typescript-eslint', 'vue-eslint-parser']));
+    expect(loaded).toEqual(
+      expect.arrayContaining(['eslint', 'typescript-eslint', 'vue-eslint-parser']),
+    );
 
     const entries = captured.options?.overrideConfig as LintConfigEntry[];
     const vueEntry = entries.find((e) => e.files?.[0] === '**/*.vue');

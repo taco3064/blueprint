@@ -256,7 +256,12 @@ describe('runDeps · the order and shape of what it reports', () => {
     // importer sort observable at all.
     writeSrc('services/zed/index.ts', 'export const z = 1;');
     writeSrc('services/beta/index.ts', 'export const b = 1;');
-    writeSrc('hooks/useX/index.ts', 'import { z } from \'~app/services/zed\';\nimport { b } from \'~app/services/beta\';');
+
+    writeSrc(
+      'hooks/useX/index.ts',
+      'import { z } from \'~app/services/zed\';\nimport { b } from \'~app/services/beta\';',
+    );
+
     writeSrc('hooks/useA/index.ts', 'import { z } from \'~app/services/zed\';');
 
     const { modules } = await runDeps(root, { log: silent });

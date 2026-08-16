@@ -143,3 +143,23 @@ export function wiredEslintConfig(blueprint: Blueprint, extraEntries = ''): stri
     '',
   ].join('\n');
 }
+
+/** A `package.json` for a React fixture repo, with extra deps merged in. */
+export const react = (deps: Record<string, string> = {}) => ({
+  name: 'fixture',
+  dependencies: { react: '^18.0.0', ...deps },
+});
+
+/** The two-layer React blueprint most scenarios adopt. */
+export const reactBlueprint: Blueprint = {
+  framework: 'react',
+  architecture: {
+    alias: '~app',
+    layers: [
+      { name: 'components', does: 'render UI' },
+      { name: 'services', does: 'data access' },
+    ],
+    module: { layout: 'flat', entry: 'index', private: [] },
+  },
+  rules: { unusedVars: 'error' },
+};
