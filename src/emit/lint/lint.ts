@@ -18,7 +18,13 @@ import {
   STATEMENT_PADDING,
   toArray,
 } from './patterns';
-import type { EmitLintOptions, GlobalRule, LintConfig, LintConfigEntry, PackageRule } from './types';
+import type {
+  EmitLintOptions,
+  GlobalRule,
+  LintConfig,
+  LintConfigEntry,
+  PackageRule,
+} from './types';
 
 type Severity = 'error' | 'warn';
 

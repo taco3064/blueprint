@@ -1,0 +1,429 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
+import type { Blueprint } from '../config';
+// Test-only import of the full emit module — src keeps the patterns-leaf
+// boundary; the fixture needs emitLint's real selectors, not a paraphrase.
+import {
+  cli,
+  configSource,
+  makeRepo,
+  react,
+  reactBlueprint,
+  read,
+  rm,
+  write,
+} from './conformance';
+import type { RepoSpec } from './conformance';
+
+const dirs: string[] = [];
+
+const repo = (spec: RepoSpec = {}): string => {
+  const dir = makeRepo(spec);
+
+  dirs.push(dir);
+
+  return dir;
+};
+
+afterEach(() => {
+  while (dirs.length) {
+    rm(dirs.pop() as string);
+  }
+});
+
+describe('alias wiring honesty (batches 1 & 4 + self-review)', () => {
+  it('reads the commented tsconfig every Vite + TS starter ships', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(reactBlueprint),
+        'tsconfig.json': `{
+          // path aliases — keep in sync with vite.config.ts
+          "compilerOptions": {
+            /* the "@/*" style key is itself comment-shaped */
+            "paths": { "~app/*": ["./src/*"], },
+          },
+        }`,
+      },
+    });
+
+    const doctor = await cli(dir, ['doctor']);
+
+    expect(doctor.output).toContain('✓ import alias wired to the toolchain');
+  });
+
+  it('rejects the vacuous "@" substring match, accepts a quoted token', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource({
+          ...reactBlueprint,
+          architecture: { ...reactBlueprint.architecture, alias: '@' },
+        }),
+        // '@' lives inside every scoped import — this is NOT wiring.
+        'vite.config.js': 'import react from \'@vitejs/plugin-react\';\nexport default {};',
+      },
+    });
+
+    const red = await cli(dir, ['doctor']);
+
+    expect(red.code).toBe(1);
+    expect(red.output).toContain('✗ import alias wired to the toolchain');
+    expect(red.output).toContain('"@/*": ["./src/*"]');
+
+    write(
+      dir,
+      'vite.config.js',
+      'import react from \'@vitejs/plugin-react\';\n'
+      + 'export default { resolve: { alias: { \'@\': \'/src\' } } };',
+    );
+
+    const green = await cli(dir, ['doctor']);
+
+    expect(green.output).toContain('✓ import alias wired to the toolchain');
+  });
+});
+
+describe('a misplaced key fails loud instead of dying silently (field issue #14)', () => {
+  it('layer-level selfOnly errors with the pointed fix — the field config verbatim', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        // The 489-file field repo's shape: selfOnly on the layer object,
+        // where nothing reads it — the intended re-export ban silently
+        // never existed and every gate stayed green.
+        'blueprint.config.mjs': [
+          'export default {',
+          '  framework: \'react\',',
+          '  architecture: {',
+          '    alias: \'~app\',',
+          '    layers: [',
+          '      { name: \'views\', does: \'pages\' },',
+          '      { name: \'contexts\', does: \'seam\', selfOnly: true, allowedImporters: '
+          + '[\'views\'] },',
+          '    ],',
+          '    module: { layout: \'flat\', entry: \'index\' },',
+          '  },',
+          '  rules: {},',
+          '};',
+          '',
+        ].join('\n'),
+        'src/views/home.tsx': 'export const home = 1;',
+      },
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.code).toBe(1);
+    expect(inspect.output).toContain('Unknown key "selfOnly"');
+    expect(inspect.output).toContain('allowedImporters ENTRY');
+  });
+
+  it('rules states whether THIS config emits each structural rule', async () => {
+    // reactBlueprint declares no selfOnly importer — the catalog must say
+    // its no-restricted-syntax is not emitted, instead of listing it
+    // statically while emitLint disagrees.
+    const dir = repo({
+      packageJson: react(),
+      files: { 'blueprint.config.mjs': configSource(reactBlueprint) },
+    });
+
+    const rules = await cli(dir, ['rules']);
+
+    expect(rules.code).toBe(0);
+    expect(rules.output).toContain('· not emitted');
+    expect(rules.output).toContain('✓ emits');
+
+    const json = await cli(dir, ['rules', '--json']);
+    const parsed = JSON.parse(json.output) as { structural: { rule: string; active: boolean }[] };
+
+    expect(
+      parsed.structural.find((row) => row.rule === 'no-restricted-syntax')?.active,
+    ).toBe(false);
+
+    expect(
+      parsed.structural.find((row) => row.rule === 'no-restricted-imports')?.active,
+    ).toBe(true);
+  });
+});
+
+describe('the flat default is real — module is optional (batch 15)', () => {
+  it('a config that never mentions module validates and inspects clean', async () => {
+    // The field shape verbatim: Method step 5 said "plain files → the flat
+    // default", validation demanded module.entry — two edit-run cycles plus
+    // a deliberate repro before the agent could prove the tool contradicted
+    // itself (field issue #23).
+    const noModule: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [{ name: 'components', does: 'render UI' }],
+      },
+    };
+
+    const bare = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(noModule),
+        'src/components/Button.jsx': 'export const Button = 1;',
+      },
+    });
+
+    const inspect = await cli(bare, ['inspect']);
+
+    expect(inspect.code).toBe(0);
+    expect(inspect.output).not.toContain('module.entry');
+
+    // Partial declaration — the exact second repro from the field.
+    const layoutOnly = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource({
+          ...noModule,
+          architecture: { ...noModule.architecture, module: { layout: 'flat' } },
+        }),
+        'src/components/Button.jsx': 'export const Button = 1;',
+      },
+    });
+
+    expect((await cli(layoutOnly, ['inspect'])).code).toBe(0);
+  });
+
+  it('an empty entry still fails loud, now naming the default as the way out', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource({
+          framework: 'react',
+          architecture: {
+            alias: '~app',
+            layers: [{ name: 'components', does: 'render UI' }],
+            module: { layout: 'flat', entry: '' },
+          },
+        }),
+      },
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.code).toBe(1);
+    expect(inspect.output).toContain('omit it for the');
+  });
+
+  it('the playbook sketch says the module block is optional', async () => {
+    const dir = repo({
+      packageJson: react(),
+      files: { 'src/App.jsx': 'export const App = () => null;' },
+    });
+
+    await cli(dir, ['init', '--authoring', '--no-install']);
+
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(playbook).toContain('omit `module` entirely');
+    expect(playbook).toContain('Optional — omitting module');
+  });
+});
+
+describe('init and doctor tell one alias story; integrated contracts stay fresh (batch 16)', () => {
+  it('a tsconfig-paths bridge plugin silences the vite instruct — '
+    + 'init agrees with doctor (field #25)', async () => {
+    // The field repo: alias in tsconfig paths, vite-tsconfig-paths bridging
+    // it — init still said "add resolve.alias" while doctor passed the same
+    // state untouched. Two authorities, two verdicts, minutes of probing.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(reactBlueprint),
+        'tsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+        }),
+        'vite.config.ts': 'import tsconfigPaths from \'vite-tsconfig-paths\';\n'
+          + 'export default { plugins: [tsconfigPaths()] };\n',
+        'src/components/Button.jsx': 'export const Button = 1;',
+      },
+    });
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).not.toContain('resolve.alias');
+
+    const doctor = await cli(dir, ['doctor']);
+
+    expect(doctor.output).toContain('✓ import alias wired to the toolchain');
+  });
+
+  it('a marker-integrated CLAUDE.md is refreshed by the next init (field #26)', async () => {
+    // The field repro inverted: the reference now ships WITH its markers, so
+    // a verbatim integration keeps the block refreshable — the run that
+    // integrated by guesswork ended with a permanently stale layer flow.
+    // (First init scaffolds the config instead of loading one: an in-process
+    // ESM import of blueprint.config.mjs would be cached across cli() calls,
+    // which real per-process runs never hit.)
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'CLAUDE.md': '# My app\n\nhand-written notes\n',
+        'src/components/Button.jsx': 'export const Button = 1;',
+      },
+    });
+
+    const init = await cli(dir, ['init', '--no-install']);
+
+    expect(init.code).toBe(0);
+    expect(init.output).toContain('KEEP the');
+
+    const reference = read(dir, 'CLAUDE.blueprint.md') ?? '';
+
+    expect(reference.startsWith('<!-- BLUEPRINT:START -->')).toBe(true);
+
+    // Integrate verbatim (markers included), delete the reference, then
+    // change the config — the exact sequence that went stale in the field.
+    write(dir, 'CLAUDE.md', `# My app\n\nhand-written notes\n\n${reference}`);
+    rm(`${dir}/CLAUDE.blueprint.md`);
+
+    write(dir, 'blueprint.config.mjs', configSource({
+      ...reactBlueprint,
+      architecture: {
+        ...reactBlueprint.architecture,
+        layers: [
+          { name: 'components', does: 'render UI' },
+          { name: 'api', does: 'data access' },
+        ],
+      },
+    }));
+
+    const second = await cli(dir, ['init', '--no-install']);
+
+    expect(second.code).toBe(0);
+
+    const merged = read(dir, 'CLAUDE.md') ?? '';
+
+    expect(merged).toContain('hand-written notes'); // outside the markers — untouched
+    expect(merged).toContain('`api`'); // inside the markers — refreshed
+    expect(merged).not.toContain('`containers`'); // the scaffold-era flow is gone
+  });
+});
+
+describe('an offset additional alias really joins the bans (batch 19)', () => {
+  // Field issue #29: additionalAliases: { '~root': '.' } emitted
+  // `~root/<layer>` patterns no real import ever used — the whole ~root
+  // leg of every structural ban was a silent no-op, inspect was equally
+  // blind, and the closing report almost claimed a protection that did
+  // not exist.
+  const rooted: Blueprint = {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      additionalAliases: { '~root': '.' },
+      layers: [
+        { name: 'views', does: 'pages' },
+        {
+          name: 'contexts',
+          does: 'shared state',
+          allowedImporters: [{ layer: 'views', selfOnly: true }],
+        },
+      ],
+    },
+  };
+
+  const spec = (): RepoSpec => ({
+    packageJson: react(),
+    files: {
+      'blueprint.config.mjs': configSource(rooted),
+      'jsconfig.json': JSON.stringify({
+        compilerOptions: { paths: { '~app/*': ['./src/*'], '~root/*': ['./*'] } },
+      }),
+      'src/contexts/user.jsx': 'export const user = 1;',
+      'src/views/Home.jsx': 'export { user } from \'~root/src/contexts/user\';\n',
+    },
+  });
+
+  it('impact and inspect both flag the ~root/src re-export', async () => {
+    const impact = await cli(repo(spec()), ['impact']);
+
+    expect(impact.code).toBe(0);
+    expect(impact.output).toContain('no-restricted-syntax');
+    expect(impact.output).toContain('Home.jsx');
+
+    const inspect = await cli(repo(spec()), ['inspect']);
+
+    expect(inspect.code).toBe(1);
+    expect(inspect.output).toContain('selfonly-reexport');
+  });
+
+  it('rules prints the offset selectors a fold would copy', async () => {
+    const json = await cli(repo(spec()), ['rules', '--json']);
+
+    const parsed = JSON.parse(json.output) as {
+      bans: { layer: string; selfOnly: { selectors: string[] }[] }[];
+    };
+
+    const selectors = parsed.bans
+      .find((entry) => entry.layer === 'views')?.selfOnly[0]?.selectors ?? [];
+
+    expect(
+      selectors.some((selector) => selector.includes('~root\\u002Fsrc\\u002Fcontexts')),
+    ).toBe(true);
+  });
+});
+
+describe('a folder layer shares by the sibling entry, not by sinking (cards)', () => {
+  const cards: Blueprint = {
+    name: 'cards',
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      layers: [
+        { name: 'components', does: 'ui' },
+        { name: 'hooks', does: 'stateful units' },
+      ],
+      module: { layout: 'folder', entry: 'index', private: [] },
+    },
+  };
+
+  const at = (files: Record<string, string>): RepoSpec => ({
+    packageJson: react(),
+    files: {
+      'blueprint.config.mjs': configSource(cards),
+      'jsconfig.json': JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+      'src/hooks/useBreakpoint/index.jsx': 'export const useBreakpoint = () => 1;',
+      'src/hooks/useBreakpoint/media.jsx': 'export const media = 1;',
+      ...files,
+    },
+  });
+
+  it('accepts a sibling by its entry', async () => {
+    const dir = repo(at({
+      'src/hooks/useCardsAnimate/index.jsx':
+        'import { useBreakpoint } from \'../useBreakpoint\';\nexport default useBreakpoint;\n',
+    }));
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.output).not.toContain('relative-escape');
+  });
+
+  it('refuses to reach past it, and names the entry to use instead', async () => {
+    const dir = repo(at({
+      'src/hooks/useCardsAnimate/index.jsx':
+        'import { media } from \'../useBreakpoint/media\';\nexport default media;\n',
+    }));
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.output).toContain('relative-escape');
+    expect(inspect.output).toContain('index');
+  });
+});
+
+/**
+ * A merged `no-restricted-syntax` entry rebuilt from `rules --json` carried
+ * the selectors and nothing else, because selectors were all that output had.
+ * The emitted block also exempts test files, so the rebuilt entry started
+ * governing them: 34 errors in one test file when the adopter's own rule
+ * collided there — and, where nothing collides, blueprint's own selfOnly ban
+ * quietly reaching tests behind a green lint (field issue #60). Both halves
+ * of the entry now come from the same command.
+ */

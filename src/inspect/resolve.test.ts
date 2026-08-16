@@ -47,7 +47,10 @@ describe('relativeVerdict', () => {
 
   it('allows a sibling by its entry, folder or explicit file', () => {
     expect(relativeVerdict(own, ['resources', 'markets'], layoutOf, entryOf)).toBe('ok');
-    expect(relativeVerdict(own, ['resources', 'markets', 'index.ts'], layoutOf, entryOf)).toBe('ok');
+
+    expect(
+      relativeVerdict(own, ['resources', 'markets', 'index.ts'], layoutOf, entryOf),
+    ).toBe('ok');
   });
 
   it('honours a layer own entry name', () => {
@@ -128,7 +131,10 @@ describe('entryResolver · a shared entry that is not the default', () => {
     const named = entryResolver({
       alias: '~app',
       module: { layout: 'folder', entry: 'main' },
-      layers: [{ name: 'features', does: 'x' }, { name: 'api', does: 'y', module: { entry: 'client' } }],
+      layers: [
+        { name: 'features', does: 'x' },
+        { name: 'api', does: 'y', module: { entry: 'client' } },
+      ],
     });
 
     expect(named('features')).toBe('main'); // shared, no override
@@ -176,7 +182,12 @@ describe('moduleKey · dropping the extension', () => {
 });
 
 describe('targetModuleKey · which specifiers name a module', () => {
-  const file = (segments: string[]): ScannedFile => ({ path: segments.join('/'), segments, imports: [] });
+  const file = (segments: string[]): ScannedFile => ({
+    path: segments.join('/'),
+    segments,
+    imports: [],
+  });
+
   const ref = (specifier: string): ImportRef => ({ specifier, names: [], isExport: false });
 
   it('answers null for a bare package specifier', () => {
@@ -185,16 +196,34 @@ describe('targetModuleKey · which specifiers name a module', () => {
     // the module `resources/axios` — a graph edge to a module that is not there,
     // counted in every blast radius and flow check.
     expect(
-      targetModuleKey(ref('axios'), file(['resources', 'Row', 'Row.ts']), ['~app'], ['resources'], layoutOf),
+      targetModuleKey(
+        ref('axios'),
+        file(['resources', 'Row', 'Row.ts']),
+        ['~app'],
+        ['resources'],
+        layoutOf,
+      ),
     ).toBeNull();
 
     // The two shapes that DO name a module still do.
     expect(
-      targetModuleKey(ref('./parts/Cell'), file(['resources', 'Row', 'Row.ts']), ['~app'], ['resources'], layoutOf),
+      targetModuleKey(
+        ref('./parts/Cell'),
+        file(['resources', 'Row', 'Row.ts']),
+        ['~app'],
+        ['resources'],
+        layoutOf,
+      ),
     ).toBe('resources/Row');
 
     expect(
-      targetModuleKey(ref('~app/services/api'), file(['resources', 'Row', 'Row.ts']), ['~app'], ['services'], layoutOf),
+      targetModuleKey(
+        ref('~app/services/api'),
+        file(['resources', 'Row', 'Row.ts']),
+        ['~app'],
+        ['services'],
+        layoutOf,
+      ),
     ).toBe('services/api');
   });
 });

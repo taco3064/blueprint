@@ -4,11 +4,14 @@ import type { Finding, Severity } from './types';
 const ICON: Record<Severity, string> = { error: '✗', warn: '⚠', info: '·' };
 
 const MIGRATION: Record<string, string> = {
-  'undeclared-folder': 'Move undeclared folders into a module of an existing layer, or declare them as layers.',
-  'flow-violation': 'Rework imports to follow the one-way flow; extract shared code down to a lower layer.',
+  'undeclared-folder': 'Move undeclared folders into a module of an existing layer, '
+    + 'or declare them as layers.',
+  'flow-violation': 'Rework imports to follow the one-way flow; '
+    + 'extract shared code down to a lower layer.',
   'deep-import': 'Import modules through their entry file, never their internals.',
   'relative-escape': 'Replace cross-module relative imports with the project alias.',
-  'package-ownership': 'Move restricted package usage into its owning layer (expose it via a hook or service).',
+  'package-ownership': 'Move restricted package usage into its owning layer '
+    + '(expose it via a hook or service).',
   'selfonly-reexport': 'Depend on selfOnly layers without re-exporting them.',
   'no-entry': 'Add an entry (index) file to each module so it has a single public surface.',
   cycle: 'Break the import cycle — invert one dependency or extract the shared part downward.',

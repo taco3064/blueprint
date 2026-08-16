@@ -3,27 +3,22 @@ export {
   claudeDirState,
   COMMAND_FILE,
   CONFIG_FILE,
-  describeUnreadable,
   detect,
-  detectAliases,
   GENERATED_ESLINT_BANNER,
-  parseJsonc,
-  pathAliasKeys,
   quotedIn,
   readTexts,
-  SUPPORTED_ESLINT_MAJORS,
+} from './detect';
+export type { ClaudeDirState } from './detect';
+export { SUPPORTED_ESLINT_MAJORS } from './install';
+export { describeUnreadable, parseJsonc, unreadableTsconfigs } from './jsonc';
+export type { JsoncFailure, JsoncResult, UnreadableConfig } from './jsonc';
+export {
+  detectAliases,
+  pathAliasKeys,
   tscArtifactsOutOfTree,
-  unreadableTsconfigs,
   viteTsCoverage,
-} from './detect';
-export type {
-  ClaudeDirState,
-  JsoncFailure,
-  JsoncResult,
-  TscArtifactLocation,
-  UnreadableConfig,
-  ViteTsCoverage,
-} from './detect';
+} from './tsconfig';
+export type { TscArtifactLocation, ViteTsCoverage } from './tsconfig';
 export { loadProjectModule, unwrapModule } from './load';
 export { buildConfigSource, buildNextConfigSource, resolveBlueprint } from './resolve';
 export type { ResolveOptions } from './resolve';

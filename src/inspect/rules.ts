@@ -136,10 +136,26 @@ const SELF_ONLY_MESSAGE_NOTE
     + 'message text is yours to write — doctor verifies selectors, never messages';
 
 export const STRUCTURAL_RULES: StructuralRule[] = [
-  { rule: 'no-restricted-imports', covers: 'dependency flow, same-layer bans, package ownership — whole packages or named imports ({ package, imports }); same-signature owns merge — and fixture bans' },
-  { rule: 'no-restricted-syntax', covers: 'selfOnly re-export bans — emitted only when an allowedImporters ENTRY declares selfOnly: true (a layer-level selfOnly key is invalid)' },
-  { rule: 'no-restricted-globals', covers: 'global ownership (owns: [{ global: … }]) — emitted only where some layer is barred from an owned global' },
-  { rule: 'blueprint/relative-escape', covers: '../ module escapes at any depth (embedded plugin)' },
+  {
+    rule: 'no-restricted-imports',
+    covers: 'dependency flow, same-layer bans, package ownership — '
+      + 'whole packages or named imports ({ package, imports }); same-signature owns merge — '
+      + 'and fixture bans',
+  },
+  {
+    rule: 'no-restricted-syntax',
+    covers: 'selfOnly re-export bans — emitted only when an allowedImporters ENTRY declares '
+      + 'selfOnly: true (a layer-level selfOnly key is invalid)',
+  },
+  {
+    rule: 'no-restricted-globals',
+    covers: 'global ownership (owns: [{ global: … }]) — '
+      + 'emitted only where some layer is barred from an owned global',
+  },
+  {
+    rule: 'blueprint/relative-escape',
+    covers: '../ module escapes at any depth (embedded plugin)',
+  },
 ];
 
 /** A structural rule annotated with whether THIS config's output carries it. */

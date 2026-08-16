@@ -32,7 +32,9 @@ describe('dropTestFiles', () => {
   };
 
   it('drops defaults, keeps sources, honors overrides', () => {
-    expect(dropTestFiles(scan, undefined).files.map((f) => f.path)).toEqual(['src/services/api.js']);
+    expect(
+      dropTestFiles(scan, undefined).files.map((f) => f.path),
+    ).toEqual(['src/services/api.js']);
 
     // Override: only *.spec.* counts as a test file.
     expect(dropTestFiles(scan, '**/*.spec.ts').files).toHaveLength(2);

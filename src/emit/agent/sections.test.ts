@@ -67,7 +67,9 @@ describe('renderPlacement', () => {
   });
 
   it('drops the private clause when a folder module has none', () => {
-    const out = renderPlacement(arch({ module: { layout: 'folder', entry: 'index', private: [] } }));
+    const out = renderPlacement(
+      arch({ module: { layout: 'folder', entry: 'index', private: [] } }),
+    );
 
     expect(out).toContain('Only `index` is importable from outside.');
     expect(out).not.toContain('keep');
@@ -173,7 +175,10 @@ describe('renderHardRules', () => {
 
     // The flow rule leads the list unconditionally — it is the one rule that
     // holds whatever the blueprint declares, so nothing gates it.
-    expect(out).toContain('- Import only from downstream layers — never upstream, never the same layer.');
+    expect(out).toContain(
+      '- Import only from downstream layers — never upstream, never the same layer.',
+    );
+
     expect(out).toContain('Import a module via its `index`');
     expect(out).toContain('`maxLines` = 400 is a hard gate.');
     expect(out).toContain('`cycles` is a hard gate.');
@@ -187,7 +192,10 @@ describe('renderHardRules', () => {
   });
 
   it('omits entry-only for flat layout', () => {
-    const out = renderHardRules(arch({ module: { layout: 'flat', entry: 'index', private: [] } }), undefined);
+    const out = renderHardRules(
+      arch({ module: { layout: 'flat', entry: 'index', private: [] } }),
+      undefined,
+    );
 
     // The entry names are interpolated, so an unguarded push renders the rule
     // with an empty slot — "Import a module via its , never its internals." The
@@ -249,8 +257,19 @@ describe('renderChecklist', () => {
 
 describe('renderComponentShape (contract)', () => {
   const axes: AxisDef[] = [
-    { id: 'a', name: 'IO Shrinkage', say: 'Narrow IO.', why: 'Model the state.', triage: 'max-params' },
-    { id: 'b', name: 'Orchestration Shell', say: 'Pages orchestrate.', why: 'No per-child derivation.' },
+    {
+      id: 'a',
+      name: 'IO Shrinkage',
+      say: 'Narrow IO.',
+      why: 'Model the state.',
+      triage: 'max-params',
+    },
+    {
+      id: 'b',
+      name: 'Orchestration Shell',
+      say: 'Pages orchestrate.',
+      why: 'No per-child derivation.',
+    },
   ];
 
   it('is omitted when there are no axes', () => {
@@ -262,8 +281,15 @@ describe('renderComponentShape (contract)', () => {
     const out = renderComponentShape(axes);
 
     expect(out).toContain('### Component shape (orthogonal axes — judge each independently)');
-    expect(out).toContain('- **IO Shrinkage** — Narrow IO. Model the state. (triage: `max-params` is an entry point, never the verdict)');
-    expect(out).toContain('- **Orchestration Shell** — Pages orchestrate. No per-child derivation.');
+
+    expect(out).toContain(
+      '- **IO Shrinkage** — Narrow IO. Model the state. (triage: `max-params` is an entry point, '
+      + 'never the verdict)',
+    );
+
+    expect(out).toContain(
+      '- **Orchestration Shell** — Pages orchestrate. No per-child derivation.',
+    );
   });
 });
 
@@ -275,7 +301,10 @@ describe('renderPlaybook (contract)', () => {
 
   it('renders terse directives grouped under theme headings', () => {
     const out = renderPlaybook([
-      { title: 'Runtime', rules: [{ id: 'a', say: 'Price it.', why: 'Frequency is not in the code.' }] },
+      {
+        title: 'Runtime',
+        rules: [{ id: 'a', say: 'Price it.', why: 'Frequency is not in the code.' }],
+      },
       { title: 'Refactor', rules: [{ id: 'b', say: 'Net first.' }] },
     ]);
 
@@ -424,7 +453,11 @@ describe('renderCompactContract', () => {
     // naming either on the one-screen contract promises enforcement that never
     // arrives, and the agent stops looking for the parts that are enforced.
     const out = renderCompactContract(blueprint({
-      rules: { maxLines: { tier: 'error' as const, value: 300 }, noUtils: 'error', deadCode: 'error' },
+      rules: {
+        maxLines: { tier: 'error' as const, value: 300 },
+        noUtils: 'error',
+        deadCode: 'error',
+      },
     }));
 
     expect(out).toContain('`maxLines` = 300');

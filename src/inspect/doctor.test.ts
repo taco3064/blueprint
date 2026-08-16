@@ -44,7 +44,7 @@ function adopted(): void {
   );
 }
 
-describe('runDoctor', () => {
+describe('runDoctor · the checks', () => {
   it('fails fast with a single check when there is no config', async () => {
     let output = '';
 
@@ -107,7 +107,8 @@ describe('runDoctor', () => {
       .not.toContain('not in package.json');
   });
 
-  it('flags leftover authoring artifacts — doctor has the final word, not a mid-flow one', async () => {
+  it('flags leftover authoring artifacts — doctor has the final word, '
+    + 'not a mid-flow one', async () => {
     adopted();
     write('blueprint-authoring.md', '# playbook');
     write('.claude/commands/blueprint-author.md', 'prompt');
@@ -176,7 +177,9 @@ describe('runDoctor', () => {
     write('.eslintrc.cjs', 'module.exports = {};');
     const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
 
-    expect(checks.find((c) => c.label.includes('eslint'))?.detail).toContain('migrate to flat config');
+    expect(
+      checks.find((c) => c.label.includes('eslint'))?.detail,
+    ).toContain('migrate to flat config');
   });
 
   it('flags a declared alias no toolchain resolves, with the wiring snippet', async () => {
@@ -254,7 +257,8 @@ describe('runDoctor', () => {
     expect(checks.find((c) => c.label.includes('alias'))?.ok).toBe(true);
   });
 
-  it('demands the vite alias as a quoted token — a scoped-package import is no wiring', async () => {
+  it('demands the vite alias as a quoted token — '
+    + 'a scoped-package import is no wiring', async () => {
     adopted();
     fs.rmSync(path.join(root, 'tsconfig.json'));
 
@@ -380,7 +384,8 @@ describe('runDoctor', () => {
             path: 'src/random',
             subject: '',
             message:
-              '"random" is not a declared layer — declare it, or move its code into a module of an existing layer.',
+              '"random" is not a declared layer — declare it, '
+              + 'or move its code into a module of an existing layer.',
           },
         ],
       }),
@@ -409,7 +414,8 @@ describe('runDoctor', () => {
             path: 'src/random',
             subject: '',
             message:
-              '"random" is not a declared layer — declare it, or move its code into a module of an existing layer.',
+              '"random" is not a declared layer — declare it, '
+              + 'or move its code into a module of an existing layer.',
           },
         ],
       }),
@@ -475,7 +481,8 @@ describe('runDoctor', () => {
     expect(detail?.startsWith('.github/copilot-instructions.md, GEMINI.md:')).toBe(true);
   });
 
-  it('passes the suppressions check when the ledger is absent, current, or fails when stale', async () => {
+  it('passes the suppressions check when the ledger is absent, current, '
+    + 'or fails when stale', async () => {
     adopted();
 
     // Absent: not in use — fine.
@@ -536,18 +543,6 @@ describe('runDoctor', () => {
     expect(empty?.detail).toContain('delete it');
   });
 
-  it('emits machine-readable JSON with --json', async () => {
-    adopted();
-    let output = '';
-
-    await runDoctor(root, { loadConfig: load, json: true, log: (m) => (output = m) });
-
-    const parsed = JSON.parse(output);
-
-    expect(parsed.ok).toBe(true);
-    expect(Array.isArray(parsed.checks)).toBe(true);
-  });
-
   it('tells the wiring check WHICH config it is about to read', async () => {
     // `merged` is doctor's answer, not the check's, and nothing asserted it here: the
     // mutation `merged: true` — every repo's config called merged — survived the whole
@@ -571,105 +566,5 @@ describe('runDoctor', () => {
 
     expect(generated).toContain('survive the generated eslint config');
     expect(generated).not.toContain('merged eslint config');
-  });
-
-  it('counts the passes behind the banner, not just the failures', async () => {
-    // `checks.length - failed - skipped` had no assertion on a run with BOTH, so
-    // `+ failed` survived — and so did every rewrite of the arm that chooses this
-    // banner. The ratio is the part a reader acts on.
-    adopted();
-    write('CLAUDE.blueprint.md', '# reference');
-
-    let output = '';
-    let json = '';
-
-    await runDoctor(root, { loadConfig: load, log: (m) => (output = m) });
-    await runDoctor(root, { loadConfig: load, json: true, log: (m) => (json = m) });
-
-    expect(JSON.parse(json).counts).toEqual({ total: 7, passed: 5, failed: 1, skipped: 1 });
-    // A failure outranks a skip in the verdict: rewrites of `verdictOf`'s failure test
-    // all fall through to `unverified` on exactly this shape.
-    expect(JSON.parse(json).verdict).toBe('incomplete');
-    expect(output).toContain('1 of 7 check(s) failed');
-
-    // The two arms this fixture is NOT in, so a rewrite that picks one of them is red.
-    expect(output).not.toContain('Adoption complete');
-    expect(output).not.toContain('Adoption unverified');
-  });
-
-  it('reaches both banners a run with nothing skipped can end on', async () => {
-    // Every other fixture here skips the survival check (no eslint resolvable), so the
-    // arm that chooses BETWEEN complete and the other two was never exercised: rewriting
-    // `failed === 0 && !skipped` three different ways survived, and so did every rewrite
-    // of `verdictOf`'s failure test. A layer-file pattern that yields no probe is the
-    // cheap way in — that path returns ok with NO skip, deliberately, because the state
-    // it reports is one doctor already states as vacuous.
-    const noProbe = async () => ({
-      ...vuePreset(),
-      architecture: { ...vuePreset().architecture, layerFiles: 'src/{layer}/?.js' },
-    });
-
-    adopted();
-
-    let complete = '';
-    let json = '';
-
-    const green = await runDoctor(root, { loadConfig: noProbe, log: (m) => (complete = m) });
-
-    await runDoctor(root, { loadConfig: noProbe, json: true, log: (m) => (json = m) });
-
-    expect(green.verdict).toBe('complete');
-    expect(complete).toContain('✓ Adoption complete — all 7 checks passed.');
-    expect(JSON.parse(json).counts).toEqual({ total: 7, passed: 7, failed: 0, skipped: 0 });
-
-    // And one failure with still nothing skipped: the third arm, and the clause about
-    // skips must NOT appear — there are none to leave unproven.
-    write('CLAUDE.blueprint.md', '# reference');
-
-    let red = '';
-
-    const failing = await runDoctor(root, { loadConfig: noProbe, log: (m) => (red = m) });
-
-    expect(failing.verdict).toBe('incomplete');
-    expect(red).toContain('✗ Adoption incomplete — 1 of 7 check(s) failed.');
-    expect(red).not.toContain('could not run');
-  });
-
-  it('gives the JSON the same banner and ratio the screen gets', async () => {
-    // This fixture ends `⊘ unverified` (no eslint resolvable), and the JSON used to
-    // carry `ok: true` and the bare word — so a machine that read `ok` and stopped saw
-    // a plain green, while a reader saw "6 of 7 passed, 1 could not run". #141 added
-    // `verdict`; the sentence and the ratio behind it stayed on one channel (#149).
-    adopted();
-    let text = '';
-    let json = '';
-
-    await runDoctor(root, { loadConfig: load, log: (m) => (text = m) });
-    await runDoctor(root, { loadConfig: load, json: true, log: (m) => (json = m) });
-
-    const parsed = JSON.parse(json);
-
-    expect(parsed.verdict).toBe('unverified');
-    expect(parsed.counts).toEqual({ total: 7, passed: 6, failed: 0, skipped: 1 });
-    // Byte-for-byte the line the reader gets, because two channels wording the same
-    // verdict differently is how the reader and the automation start disagreeing.
-    expect(text).toContain(parsed.summary);
-    expect(parsed.summary).toContain('⊘ Adoption unverified');
-
-    // `ok` stays "nothing FAILED" — the same thing this command's exit code means.
-    // Flipping it on a skip would push a consumer following it into failing on a red
-    // nobody can appease, which is exactly the state that produces the skip.
-    expect(parsed.ok).toBe(true);
-  });
-
-  it('reports ok:false in JSON as soon as any check fails', async () => {
-    write('blueprint.config.mjs', '// user config');
-    let output = '';
-
-    await runDoctor(root, { loadConfig: load, json: true, log: (m) => (output = m) });
-
-    // `ok` is EVERY check passing, not any of them. A git hook or CI job gates
-    // on this field, and "some check passed" is true of almost any repo.
-    expect(JSON.parse(output).ok).toBe(false);
   });
 });

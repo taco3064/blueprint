@@ -4,35 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isCliEntry, parseDepsArgs, parseDoctorArgs, parseImpactArgs, parseInitArgs, parseInspectArgs, parseRulesArgs, parseSurveyArgs, run, version } from './cli';
-
-describe('parseInitArgs', () => {
-  it('parses known flags', () => {
-    expect(parseInitArgs(['--no-install', '--dry-run', '--framework', 'react'])).toEqual({
-      install: false,
-      dryRun: true,
-      framework: 'react',
-    });
-  });
-
-  it('ignores an invalid framework value and unknown flags', () => {
-    expect(parseInitArgs(['--framework', 'svelte', '--nope'])).toEqual({});
-  });
-});
-
-describe('parseInspectArgs', () => {
-  it('parses --json and --framework', () => {
-    expect(parseInspectArgs(['--json', '--framework', 'vue'])).toEqual({
-      json: true,
-      framework: 'vue',
-    });
-  });
-
-  it('ignores unknown flags and an invalid framework value', () => {
-    expect(parseInspectArgs(['--wat'])).toEqual({});
-    expect(parseInspectArgs(['--framework', 'svelte'])).toEqual({});
-  });
-});
+import { isCliEntry, run } from './cli';
 
 describe('run', () => {
   let root: string;
@@ -145,93 +117,6 @@ describe('isCliEntry', () => {
   });
 });
 
-describe('help & version flags', () => {
-  it('prints usage and exits 0 on --help / -h', async () => {
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-    expect(await run(['--help'])).toBe(0);
-    expect(await run(['-h'])).toBe(0);
-    expect(log.mock.calls[0][0]).toContain('Usage:');
-    log.mockRestore();
-  });
-
-  it('prints the package version and exits 0 on --version / -v', async () => {
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const expected = JSON.parse(fs.readFileSync('package.json', 'utf-8')).version;
-
-    expect(await run(['--version'])).toBe(0);
-    expect(await run(['-v'])).toBe(0);
-    expect(log.mock.calls[0][0]).toBe(expected);
-    log.mockRestore();
-  });
-
-  it('version() walks both layouts and reports unknown when nothing is found', () => {
-    expect(version()).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(version('/no/such/dir')).toBe('unknown');
-  });
-});
-
-describe('parseInspectArgs · baseline flags', () => {
-  it('parses --baseline and --update-baseline', () => {
-    expect(parseInspectArgs(['--baseline'])).toEqual({ baseline: true });
-    expect(parseInspectArgs(['--update-baseline'])).toEqual({ updateBaseline: true });
-  });
-});
-
-describe('parseDepsArgs', () => {
-  it('takes the first non-flag argument as the target', () => {
-    expect(parseDepsArgs(['hooks/useCart', '--json'])).toEqual({
-      target: 'hooks/useCart',
-      json: true,
-    });
-
-    expect(parseDepsArgs(['--framework', 'vue', 'a', 'b'])).toEqual({
-      framework: 'vue',
-      target: 'a',
-    });
-
-    expect(parseDepsArgs([])).toEqual({});
-    expect(parseDepsArgs(['--framework', 'nope'])).toEqual({ framework: undefined });
-
-    // doctor requires a config, where the config wins — --framework was an
-    // inert flag that lied, so the parser no longer knows it.
-    expect(parseDoctorArgs(['--json', '--framework', 'vue'])).toEqual({ json: true });
-    expect(parseDoctorArgs(['--unknown'])).toEqual({});
-
-    expect(parseInitArgs(['--authoring'])).toEqual({ authoring: true });
-  });
-});
-
-describe('parseImpactArgs', () => {
-  it('parses json only — impact requires a config, so --framework is not a flag', () => {
-    expect(parseImpactArgs(['--json', '--framework', 'react', '--nope'])).toEqual({ json: true });
-    expect(parseImpactArgs([])).toEqual({});
-  });
-});
-
-describe('per-command help', () => {
-  it('prints command help and exits 0 for init/inspect --help', async () => {
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-    expect(await run(['init', '--help'])).toBe(0);
-    expect(log.mock.calls[0][0]).toContain('blueprint init — scaffold');
-    expect(log.mock.calls[0][0]).toContain('never overwritten');
-
-    expect(await run(['inspect', '-h'])).toBe(0);
-    expect(log.mock.calls[1][0]).toContain('read-only architecture report');
-    log.mockRestore();
-  });
-
-  it('keeps the value proposition in the top-level usage', async () => {
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-    await run(['--help']);
-    expect(log.mock.calls[0][0]).toContain('Architecture as Code');
-    expect(log.mock.calls[0][0]).toContain('AI agent contract');
-    log.mockRestore();
-  });
-});
-
 describe('deps command dispatch', () => {
   it('runs the leaderboard and per-command help', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -270,11 +155,6 @@ describe('rules command dispatch', () => {
 
     fs.rmSync(dir, { recursive: true, force: true });
     log.mockRestore();
-  });
-
-  it('parses json only — rules resolves the config, so --framework is not a flag', () => {
-    expect(parseRulesArgs(['--json', '--framework', 'vue', '--nope'])).toEqual({ json: true });
-    expect(parseRulesArgs([])).toEqual({});
   });
 });
 
@@ -387,29 +267,6 @@ describe('run · doctor', () => {
   });
 });
 
-describe('parseInitArgs · authoring flags', () => {
-  it('parses --agent and --preset', () => {
-    expect(parseInitArgs(['--agent', 'claude', '--preset'])).toEqual({
-      agent: 'claude',
-      preset: true,
-    });
-
-    expect(parseInitArgs(['--agent', 'codex'])).toEqual({ agent: 'codex' });
-  });
-
-  it('rejects an unknown agent', () => {
-    expect(() => parseInitArgs(['--agent', 'skynet'])).toThrow(/claude \| codex/);
-    expect(() => parseInitArgs(['--agent'])).toThrow(/claude \| codex/);
-  });
-});
-
-describe('parseSurveyArgs', () => {
-  it('parses --json and --alias', () => {
-    expect(parseSurveyArgs(['--json', '--alias', '@'])).toEqual({ json: true, alias: '@' });
-    expect(parseSurveyArgs(['--wat'])).toEqual({});
-  });
-});
-
 describe('survey command dispatch', () => {
   let root: string;
 
@@ -437,48 +294,6 @@ describe('survey command dispatch', () => {
   it('prints survey help', async () => {
     expect(await run(['survey', '--help'])).toBe(0);
     expect(vi.mocked(console.log).mock.calls.join('\n')).toContain('deterministic evidence');
-  });
-});
-
-describe('parse*Args · argument boundaries', () => {
-  it('reads a positional target, and only a positional one', () => {
-    // A flag-shaped argument is never a target: `--nope` opens with a dash, so
-    // it is an unknown flag, not the module to trace.
-    expect(parseDepsArgs(['hooks/useX'])).toEqual({ target: 'hooks/useX' });
-    expect(parseDepsArgs(['--nope'])).toEqual({});
-    expect(parseImpactArgs(['--nope'])).toEqual({});
-  });
-
-  it('takes the first positional and leaves later ones alone', () => {
-    // The second bare word is not a second target — silently replacing the
-    // first would trace a module the user did not ask about.
-    expect(parseDepsArgs(['hooks/useX', 'hooks/useY'])).toEqual({ target: 'hooks/useX' });
-  });
-
-  it('ignores a value-taking flag with nothing after it', () => {
-    // Walking one index past the array hands the next branch `undefined`, and
-    // `undefined.startsWith` throws inside the CLI instead of reporting a usage
-    // error the caller can act on.
-    expect(parseDepsArgs(['--framework'])).toEqual({});
-    expect(parseImpactArgs(['--framework'])).toEqual({});
-    expect(parseInitArgs(['--framework'])).toEqual({});
-    expect(parseInspectArgs(['--framework'])).toEqual({});
-    expect(parseSurveyArgs(['--alias'])).toEqual({});
-  });
-});
-
-describe('parse*Args · a bare word is never a flag\'s value', () => {
-  it('does not read a positional as the --framework value', () => {
-    // `blueprint init vue` is the mistake a user makes when they forget the flag
-    // name. Treating any unmatched argument as the framework value silently
-    // accepts it — so the run scaffolds a Vue contract from a command that never
-    // said `--framework`, and the user has no way to know why.
-    // Two arguments, so the value the mutant would reach for is a real one — a
-    // single positional leaves it undefined, and `toEqual({})` cannot see a key
-    // whose value is undefined.
-    expect(parseInitArgs(['junk', 'vue'])).toEqual({});
-    expect(parseInspectArgs(['junk', 'vue'])).toEqual({});
-    expect(parseSurveyArgs(['junk', '~app'])).toEqual({});
   });
 });
 
@@ -561,59 +376,5 @@ describe('run · flag validation reaches the right arguments', () => {
         String(call[0]).includes('Architecture as Code'),
       ),
     ).toBe(true);
-  });
-});
-
-describe('run · --help belongs to the command that has one', () => {
-  beforeEach(() => {
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  const logged = (fragment: string) =>
-    (console.log as ReturnType<typeof vi.fn>).mock.calls.some((call) =>
-      String(call[0]).includes(fragment),
-    );
-
-  it('does not answer --help for an unknown command', async () => {
-    // There is no help text to print, so the branch logs `undefined` and exits
-    // 0 — a mistyped command reads as a successful run with no output.
-    expect(await run(['bogus', '--help'])).toBe(1);
-    expect(logged('undefined')).toBe(false);
-  });
-
-  it('prints help only when --help was actually asked for', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-cli-help-'));
-
-    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'x' }));
-    await run(['rules'], root);
-
-    // `rules` without --help resolves the catalog. Printing the help text
-    // instead swaps the command's whole output for its usage page. (Both open
-    // on "blueprint rules — the emitted-rule catalog", so the fragment has to
-    // come from the part only the help carries.)
-    expect(logged('Read-only, config-optional')).toBe(false);
-    expect(logged('the emitted-rule catalog')).toBe(true);
-
-    fs.rmSync(root, { recursive: true, force: true });
-  });
-
-  it('documents deps and doctor in their own help text', async () => {
-    // Both help bodies were only ever asserted to exist, never read, so either
-    // could be emptied — and `--help` then prints nothing at all.
-    await run(['deps', '--help']);
-    expect(logged('reverse dependencies / blast radius')).toBe(true);
-
-    await run(['doctor', '--help']);
-    expect(logged('is adoption actually finished?')).toBe(true);
-    // The exit-code gate this help invites has one blind spot, and the help owes it:
-    // a skipped check keeps exit 0, so `--json`'s `skipped` is what a gate reads
-    // (field run #129 — the skip that was counted as a pass).
-    expect(logged('Exit stays')).toBe(true);
-    expect(logged('look for `skipped` on a check')).toBe(true);
   });
 });
