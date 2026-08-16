@@ -63,6 +63,26 @@ contradiction ("Adoption complete" beside "vacuous"); an effect without a
 stated cause reads as breakage (a deletion blamed on a config field that
 is not in the config). Field batches 10–12 are the case law.
 
+## Looking up a stance this project already took
+
+New work raises questions its ticket does not answer — what this defaults to,
+what the tool refuses to decide, what it says when the code is not there yet.
+**Most of them are already answered, and the answer is usually not on a docs
+page: it is the line some existing surface prints.** `missing-layer` says
+"runway, not a todo: the rules arm when code lands", and that one line is the
+whole position on declaring ahead of the code. `renderCoverage` says enforcement
+is vacuous rather than reporting it green. `unavailableGate` says a gate you
+cannot open is not a gate. **None of those three appears anywhere under
+`docs/`** — a grep there finds the fourth (`utils/` is a junk drawer that grows
+until everything imports it) and misses the rest.
+
+Which is the section above read from the other end: messages carry their cause,
+so the messages are where the causes are kept. So **look a position up by
+reading what the tool already says out loud** — `src/inspect/`, `src/emit/`,
+the CLI help and the published pages together — and extend that answer instead
+of writing a second one beside it. Two positions on one question is a
+contradiction, and an adopter meets it before we do.
+
 ## Tests & tooling
 
 - **Co-locate tests**: `foo.test.ts` beside `foo.ts`; the test name matches the
