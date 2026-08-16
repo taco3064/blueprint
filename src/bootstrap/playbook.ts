@@ -71,7 +71,9 @@ function cleanupTargets(claudeDir: ClaudeDirState): string {
  * scaffold. Empty on every other framework.
  */
 export function renderNextNote(next: boolean): string {
-  if (!next) return '';
+  if (!next) {
+    return '';
+  }
 
   return [
     '',
@@ -224,7 +226,9 @@ export function renderVerdict(
   tscOut: TscArtifactLocation | null,
   pm: PackageManager,
 ): string {
-  if (survey.totalFiles >= BROWNFIELD_MIN_FILES) return '';
+  if (survey.totalFiles >= BROWNFIELD_MIN_FILES) {
+    return '';
+  }
 
   return [
     '',

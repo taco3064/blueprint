@@ -567,8 +567,13 @@ describe('detectCycle · memoized, so a mesh stays linear', () => {
     for (let i = 0; i < n; i++) {
       const next = new Set<string>();
 
-      if (i + 1 < n) next.add(`n${i + 1}`);
-      if (i + 2 < n) next.add(`n${i + 2}`);
+      if (i + 1 < n) {
+        next.add(`n${i + 1}`);
+      }
+
+      if (i + 2 < n) {
+        next.add(`n${i + 2}`);
+      }
 
       edges.set(`n${i}`, next);
     }
@@ -720,8 +725,13 @@ describe('detectCycles · every knot, not the first one', () => {
     for (let i = 0; i < 40; i++) {
       const targets = new Set<string>();
 
-      if (i + 1 < 40) targets.add(`n${i + 1}`);
-      if (i + 2 < 40) targets.add(`n${i + 2}`);
+      if (i + 1 < 40) {
+        targets.add(`n${i + 1}`);
+      }
+
+      if (i + 2 < 40) {
+        targets.add(`n${i + 2}`);
+      }
 
       edges.set(`n${i}`, targets);
     }

@@ -23,7 +23,9 @@ describe('emitAgentFiles', () => {
     // compact pointer block, not the full contract dump.
     const compact = emitAgentContract(bp(), { compact: true });
 
-    for (const file of files) expect(file.content).toBe(compact);
+    for (const file of files) {
+      expect(file.content).toBe(compact);
+    }
 
     expect(compact).toContain('docs/architecture-handbook.md');
     expect(compact).toContain('node_modules/@kekkai/blueprint/agent-contract.md');

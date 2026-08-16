@@ -36,7 +36,9 @@ export function readSetting(setting: RuleSetting): ReadSetting {
  * question every emitter and every runtime asks before it acts on a gate.
  */
 export function activeSetting(setting: RuleSetting | undefined): ReadSetting | null {
-  if (!setting) return null;
+  if (!setting) {
+    return null;
+  }
 
   const read = readSetting(setting);
 

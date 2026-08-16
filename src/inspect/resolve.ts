@@ -40,7 +40,9 @@ export function stripAlias(
 
       // A specifier under the alias but outside the layer offset (e.g.
       // `~root/package.json`) is not a layer import at all.
-      if (!prefix.every((segment, i) => parts[i] === segment)) return null;
+      if (!prefix.every((segment, i) => parts[i] === segment)) {
+        return null;
+      }
 
       return parts.slice(prefix.length);
     }
@@ -51,7 +53,9 @@ export function stripAlias(
 
 /** The module a path belongs to, under its own layer's layout. */
 export function moduleKey(segments: string[], layoutOf: LayoutOf): string {
-  if (segments.length < 2 || layoutOf(segments[0]) === 'flat') return segments[0] ?? '';
+  if (segments.length < 2 || layoutOf(segments[0]) === 'flat') {
+    return segments[0] ?? '';
+  }
 
   // A direct file module keeps its extension out of the key, so
   // `deps components/HelloWorld` and an import of `./HelloWorld.vue` both
@@ -90,14 +94,21 @@ export function relativeVerdict(
   layoutOf: LayoutOf,
   entryOf: EntryOf,
 ): RelativeVerdict {
-  if (target === null) return 'escapes-src';
-  if (moduleKey(target, layoutOf) === moduleKey(ownSegments, layoutOf)) return 'ok';
+  if (target === null) {
+    return 'escapes-src';
+  }
+
+  if (moduleKey(target, layoutOf) === moduleKey(ownSegments, layoutOf)) {
+    return 'ok';
+  }
 
   const layer = ownSegments[0];
 
   // No layout test: for a flat layer `moduleKey` collapses to the layer name, so the
   // equality check above already returned `ok` — a `layoutOf` arm here is unreachable.
-  if (target[0] !== layer) return 'leaves-layer';
+  if (target[0] !== layer) {
+    return 'leaves-layer';
+  }
 
   const entry = entryOf(layer);
 
@@ -112,9 +123,12 @@ export function resolveSegments(dir: string[], specifier: string): string[] | nu
   const stack = [...dir];
 
   for (const part of specifier.split('/')) {
-    if (part === '' || part === '.') continue;
-    else if (part === '..') {
-      if (!stack.length) return null;
+    if (part === '' || part === '.') {
+      continue;
+    } else if (part === '..') {
+      if (!stack.length) {
+        return null;
+      }
 
       stack.pop();
     } else {
@@ -168,7 +182,9 @@ export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef
   const edges = new Map<string, Set<string>>();
 
   for (const file of scan.files) {
-    if (!layerNames.includes(file.segments[0])) continue;
+    if (!layerNames.includes(file.segments[0])) {
+      continue;
+    }
 
     const from = moduleKey(file.segments, layoutOf);
 

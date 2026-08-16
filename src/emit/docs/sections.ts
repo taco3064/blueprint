@@ -162,7 +162,9 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
 
 /** The component-shape axes — a set of design judgments, not a pipeline. */
 export function renderComponentShape(axes: AxisDef[] | undefined): string {
-  if (!axes?.length) return '';
+  if (!axes?.length) {
+    return '';
+  }
 
   const blocks = axes.map((axis, i) => {
     const lines = [
@@ -194,7 +196,9 @@ export function renderComponentShape(axes: AxisDef[] | undefined): string {
 
 /** Core beliefs, split by where they land: tooling vs. behavioral. */
 export function renderPrinciples(principles: PrincipleDef[] | undefined): string {
-  if (!principles?.length) return '';
+  if (!principles?.length) {
+    return '';
+  }
 
   const list = (land: Land) =>
     principles
@@ -218,7 +222,9 @@ export function renderPrinciples(principles: PrincipleDef[] | undefined): string
 
 /** The working playbook — behavioral judgment rules, grouped by theme. */
 export function renderPlaybook(playbook: PlaybookSection[] | undefined): string {
-  if (!playbook?.length) return '';
+  if (!playbook?.length) {
+    return '';
+  }
 
   const sections = playbook.map((section) =>
     [
@@ -250,7 +256,9 @@ export function renderRules(
 ): string {
   const entries = Object.entries(rules ?? {});
 
-  if (!entries.length) return '';
+  if (!entries.length) {
+    return '';
+  }
 
   // "error fails lint" is false for `cycles` (inspect's finding) and `deadCode`
   // (documentation), so each row says which machine holds it (field issue #52).
@@ -299,7 +307,9 @@ export function renderRules(
 export function renderNaming(naming: Record<string, string> | undefined): string {
   const entries = Object.entries(naming ?? {});
 
-  if (!entries.length) return '';
+  if (!entries.length) {
+    return '';
+  }
 
   const rows = entries.map(([concept, convention]) => [
     `\`${concept}\``,
