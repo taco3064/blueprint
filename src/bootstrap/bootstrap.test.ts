@@ -140,7 +140,9 @@ describe('runInit', () => {
     expect(actions.length).toBeGreaterThan(0);
     expect(exists('blueprint.config.mjs')).toBe(false);
   });
+});
 
+describe('runInit · the config it loads and the framework it detects', () => {
   it('loads an existing config instead of generating one', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
@@ -172,6 +174,26 @@ describe('runInit', () => {
 
     expect(read('blueprint.config.mjs')).toContain('reactPreset()');
   });
+});
+
+describe('runInit · the install step, and what a failed step leaves behind', () => {
+  /** A run whose install throws, and the output it left on screen. */
+  async function failedInstall(): Promise<string> {
+    writePkg({ name: 'demo', dependencies: { react: '^18' } });
+
+    const lines: string[] = [];
+
+    const failing = runInit(root, {
+      log: (message) => lines.push(message),
+      exec: () => {
+        throw new Error('npm error ERESOLVE unable to resolve dependency tree');
+      },
+    });
+
+    await expect(failing).rejects.toThrow('ERESOLVE');
+
+    return lines.join('\n');
+  }
 
   it('runs the install command through the injected exec', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
@@ -186,16 +208,6 @@ describe('runInit', () => {
   });
 
   it('claims no effect that a failed step prevented (field issue #37)', async () => {
-    writePkg({ name: 'demo', dependencies: { react: '^18' } });
-
-    fs.writeFileSync(
-      path.join(root, 'vite.config.ts'),
-      'import { defineConfig } from \'vite\'\n\nexport default defineConfig({\n  plugins: '
-      + '[],\n})\n',
-    );
-
-    const lines: string[] = [];
-
     // The field repro was an install that threw with the alias writes below it, and
     // #37 fixed the half of it that was a lie: the output stopped claiming edits that
     // never reached disk. The other half was the state, and a codex run found it — an
@@ -204,16 +216,13 @@ describe('runInit', () => {
     // local write now lands ABOVE the install, so this asserts the inverse of what it
     // used to: the alias IS on disk when the install fails, and the ✓ that says so is
     // true.
-    const failing = runInit(root, {
-      log: (message) => lines.push(message),
-      exec: () => {
-        throw new Error('npm error ERESOLVE unable to resolve dependency tree');
-      },
-    });
+    fs.writeFileSync(
+      path.join(root, 'vite.config.ts'),
+      'import { defineConfig } from \'vite\'\n\nexport default defineConfig({\n  plugins: '
+      + '[],\n})\n',
+    );
 
-    await expect(failing).rejects.toThrow('ERESOLVE');
-
-    const output = lines.join('\n');
+    const output = await failedInstall();
 
     expect(output).toContain('✓ write: eslint.config.mjs');
     expect(exists('eslint.config.mjs')).toBe(true);
@@ -223,22 +232,31 @@ describe('runInit', () => {
     // since either half alone is a state #37 or #131 already caught.
     expect(output).toContain('✓ write: vite.config.ts (import alias added');
     expect(read('vite.config.ts')).toContain('~app');
-    // And the wait announced itself before the silence, which is what two runs killed.
+  });
+
+  it('announces the wait, and prints the command, before the silence', async () => {
+    // The command itself goes above the silence rather than behind a flag that prints
+    // it: a killed install leaves what is on screen, and two runs went reading
+    // blueprint's own package.json for versions to reconstruct instead (field runs
+    // #139, #140).
+    const output = await failedInstall();
+
     expect(output).toContain('→ install: eslint,');
     expect(output).toContain('the one step that needs the registry');
     expect(output.indexOf('→ install:')).toBeLessThan(output.indexOf('✗ install:'));
-    // The command itself, above the silence rather than behind a flag that prints it:
-    // a killed install leaves what is on screen, and two runs went reading blueprint's
-    // own package.json for versions to reconstruct instead (field runs #139, #140).
     expect(output).toContain('npm install -D eslint');
     expect(output).toContain('No version list to find first');
+  });
 
-    // And what the kill LEAVES, which only this line can say: the catch block below
+  it('says what stopping at the install leaves, and what it omits', async () => {
+    // What the kill LEAVES, which only this line can say: the catch block below
     // explains the half-done tree, and a killed process never reaches it. Four runs
     // stopped this step as invited and then treated the result as damage — one
     // hand-wrote the manifest entries from blueprint's own package.json, one filed the
     // repo as unverifiable (field runs #144–#146). Both facts are computed, not
     // reassurance: the install is last in the plan, and it is what writes the manifest.
+    const output = await failedInstall();
+
     expect(output).toContain('Stopping is safe: this is the last step');
     expect(output).toContain('What stopping omits is these packages in `package.json`');
     expect(output).toContain('a failure naming one of them is that gap');

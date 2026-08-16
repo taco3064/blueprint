@@ -63,7 +63,7 @@ function scaffold(): void {
   write('src/pages/__tests__/App.spec.tsx', '');
 }
 
-describe('runSurvey', () => {
+describe('runSurvey · the folder matrix and what counts as a file in it', () => {
   it('builds the matrix, self-alias counts, and package usage', () => {
     scaffold();
 
@@ -144,6 +144,59 @@ describe('runSurvey', () => {
     ]);
   });
 
+  it('matches the test patterns against the filename, not anywhere in the path', () => {
+    write('package.json', JSON.stringify({ name: 'edges' }));
+
+    // `.test.` or `.spec.` inside a DIRECTORY name is not a test file, which
+    // is the whole reason both patterns are anchored at the end of the path.
+    write('src/views/a.test.fixtures/data.ts', '');
+    write('src/views/b.spec.fixtures/data.ts', '');
+
+    expect(runSurvey(root, { log: silent }).testEvidence).toEqual([]);
+  });
+
+  it('reads an entry as index.<ext> exactly, and climbs deep relative imports from the '
+    + 'file', () => {
+    write('package.json', JSON.stringify({ name: 'edges' }));
+    write('tsconfig.json', JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }));
+
+    // `index.test.ts` tests the entry, it is not the entry. `foo.index.ts`
+    // is not an entry at all. A directory *named* `index.x` sits one level
+    // too deep to be one, which is what the depth check is there for.
+    write('src/services/api/index.test.ts', '');
+    write('src/services/lib/foo.index.ts', '');
+    write('src/services/deep/index.x/leaf.ts', '');
+
+    // Two levels down, reaching a sibling layer. The climb starts at the
+    // file's own directory, so `../..` lands exactly on the source root —
+    // starting from one segment instead overshoots and the edge disappears.
+    write('src/components/Button.tsx', '');
+    write('src/services/api/deep.ts', 'import { Button } from "../../components/Button";');
+
+    const result = runSurvey(root, { log: silent });
+
+    expect(result.folders.every((folder) => folder.indexedChildren === 0)).toBe(true);
+    expect(result.edges).toEqual([{ from: 'services', to: 'components', count: 1 }]);
+  });
+
+  it('reports module-shape evidence per folder', () => {
+    scaffold();
+
+    const services = runSurvey(root, { log: silent }).folders.find(
+      (folder) => folder.folder === 'services',
+    );
+
+    expect(services).toMatchObject({
+      files: 3,
+      directFiles: 0,
+      childFolders: 1,
+      indexedChildren: 1,
+      maxDepth: 2,
+    });
+  });
+});
+
+describe('runSurvey · package and ownership evidence', () => {
   it('counts both src/test spellings, and leads package usage with the most concentrated', () => {
     write(
       'package.json',
@@ -266,57 +319,16 @@ describe('runSurvey', () => {
     expect(result.packageUsage[0].folders).toContain('(src root)');
   });
 
-  it('matches the test patterns against the filename, not anywhere in the path', () => {
-    write('package.json', JSON.stringify({ name: 'edges' }));
-
-    // `.test.` or `.spec.` inside a DIRECTORY name is not a test file, which
-    // is the whole reason both patterns are anchored at the end of the path.
-    write('src/views/a.test.fixtures/data.ts', '');
-    write('src/views/b.spec.fixtures/data.ts', '');
-
-    expect(runSurvey(root, { log: silent }).testEvidence).toEqual([]);
-  });
-
-  it('reads an entry as index.<ext> exactly, and climbs deep relative imports from the '
-    + 'file', () => {
-    write('package.json', JSON.stringify({ name: 'edges' }));
-    write('tsconfig.json', JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }));
-
-    // `index.test.ts` tests the entry, it is not the entry. `foo.index.ts`
-    // is not an entry at all. A directory *named* `index.x` sits one level
-    // too deep to be one, which is what the depth check is there for.
-    write('src/services/api/index.test.ts', '');
-    write('src/services/lib/foo.index.ts', '');
-    write('src/services/deep/index.x/leaf.ts', '');
-
-    // Two levels down, reaching a sibling layer. The climb starts at the
-    // file's own directory, so `../..` lands exactly on the source root —
-    // starting from one segment instead overshoots and the edge disappears.
-    write('src/components/Button.tsx', '');
-    write('src/services/api/deep.ts', 'import { Button } from "../../components/Button";');
+  it('survives a missing package.json', () => {
+    write('src/app/a.ts', 'import x from "left-pad";');
 
     const result = runSurvey(root, { log: silent });
 
-    expect(result.folders.every((folder) => folder.indexedChildren === 0)).toBe(true);
-    expect(result.edges).toEqual([{ from: 'services', to: 'components', count: 1 }]);
+    expect(result.packageUsage).toEqual([]);
   });
+});
 
-  it('reports module-shape evidence per folder', () => {
-    scaffold();
-
-    const services = runSurvey(root, { log: silent }).folders.find(
-      (folder) => folder.folder === 'services',
-    );
-
-    expect(services).toMatchObject({
-      files: 3,
-      directFiles: 0,
-      childFolders: 1,
-      indexedChildren: 1,
-      maxDepth: 2,
-    });
-  });
-
+describe('runSurvey · the report it renders', () => {
   it('honors an alias override and renders a readable report', () => {
     scaffold();
     fs.rmSync(path.join(root, 'tsconfig.json'));
@@ -379,14 +391,6 @@ describe('runSurvey', () => {
     // lie in the other direction.
     expect(output).toContain('pkg-14');
     expect(output).not.toContain('pkg-15');
-  });
-
-  it('survives a missing package.json', () => {
-    write('src/app/a.ts', 'import x from "left-pad";');
-
-    const result = runSurvey(root, { log: silent });
-
-    expect(result.packageUsage).toEqual([]);
   });
 
   it('reports alias-like specifiers that resolve to nothing', () => {

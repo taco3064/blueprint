@@ -62,19 +62,20 @@ describe('toArray', () => {
 
 describe('resolveLayerFiles', () => {
   it('defaults the glob from the framework', () => {
-    expect(resolveLayerFiles('hooks', undefined, 'vue')).toEqual([
+    expect(resolveLayerFiles('hooks', 'vue')).toEqual([
       'src/hooks/**/*.{js,ts,vue}',
     ]);
 
-    expect(resolveLayerFiles('hooks', undefined, 'react')).toEqual([
+    expect(resolveLayerFiles('hooks', 'react')).toEqual([
       'src/hooks/**/*.{js,jsx,ts,tsx}',
     ]);
   });
 
   it('substitutes {layer} in custom globs', () => {
-    expect(resolveLayerFiles('services', ['lib/{layer}/**/*.ts'], 'auto')).toEqual([
-      'lib/services/**/*.ts',
-    ]);
+    expect(resolveLayerFiles('services', 'auto', { layerFiles: ['lib/{layer}/**/*.ts'] }))
+      .toEqual([
+        'lib/services/**/*.ts',
+      ]);
   });
 
   it('tolerates the spaces a hand-written placeholder carries', () => {
@@ -82,9 +83,10 @@ describe('resolveLayerFiles', () => {
     // leaves the placeholder in the glob verbatim, and the layer's rules then
     // scope to a directory literally named `{ layer }` — every gate silently
     // matches nothing, and nothing in the output says why.
-    expect(resolveLayerFiles('services', ['lib/{ layer }/**/*.ts'], 'auto')).toEqual([
-      'lib/services/**/*.ts',
-    ]);
+    expect(resolveLayerFiles('services', 'auto', { layerFiles: ['lib/{ layer }/**/*.ts'] }))
+      .toEqual([
+        'lib/services/**/*.ts',
+      ]);
   });
 });
 

@@ -145,7 +145,7 @@ describe('patchTsconfigPaths', () => {
   });
 });
 
-describe('aliasActions', () => {
+describe('aliasActions · writing the paths into a tsconfig or jsconfig', () => {
   it('creates jsconfig.json for a JS project with no config at all', () => {
     const actions = aliasActions(state(), ARCH);
     const created = write(actions);
@@ -267,7 +267,9 @@ describe('aliasActions', () => {
     expect(write(actions)).toBeUndefined();
     expect(instructs(actions)).toHaveLength(1); // only the bundler note remains
   });
+});
 
+describe('aliasActions · the bundler instruct', () => {
   it('tailors the bundler instruct to vite when a vite config exists', () => {
     const generic = instructs(aliasActions(state(), ARCH)).at(-1);
 

@@ -11,7 +11,7 @@ function layer(blueprint: Blueprint, name: string): LayerDef {
   return blueprint.architecture.layers.find((entry) => entry.name === name)!;
 }
 
-describe('presets · shape', () => {
+describe('presets · the architecture they declare', () => {
   it('produce valid blueprints with the canonical six layers', () => {
     for (const bp of [vuePreset(), reactPreset()]) {
       expect(bp.architecture.layers.map((entry) => entry.name)).toEqual([
@@ -23,36 +23,6 @@ describe('presets · shape', () => {
         'services',
       ]);
     }
-  });
-
-  it('return a fresh, independent object each call', () => {
-    const a = vuePreset();
-    const b = vuePreset();
-
-    expect(a).not.toBe(b);
-
-    a.architecture.layers.push({ name: 'extra', does: '' });
-
-    expect(b.architecture.layers).toHaveLength(6);
-  });
-
-  it('apply name and alias options, defaulting the alias', () => {
-    expect(vuePreset({ name: 'Acme' }).name).toBe('Acme');
-    expect(vuePreset().name).toBeUndefined();
-    expect(vuePreset({ alias: '@' }).architecture.alias).toBe('@');
-    expect(vuePreset().architecture.alias).toBe('~app');
-  });
-
-  it('passes an emit override straight through', () => {
-    // Declaring the agent tool must not cost the one-line preset form.
-    expect(reactPreset({ emit: { agents: ['claude'] } }).emit)
-      .toEqual({ agents: ['claude'] });
-
-    // No emit override → no emit block; verification strategy is the adopter's.
-    expect(vuePreset().emit).toBeUndefined();
-
-    expect(nextPreset({ emit: { agents: ['agents'] } }).emit)
-      .toEqual({ agents: ['agents'] });
   });
 
   it('bind framework primitives to the right layers', () => {
@@ -119,7 +89,41 @@ describe('presets · shape', () => {
       }
     }
   });
+});
 
+describe('presets · the options each call takes', () => {
+  it('return a fresh, independent object each call', () => {
+    const a = vuePreset();
+    const b = vuePreset();
+
+    expect(a).not.toBe(b);
+
+    a.architecture.layers.push({ name: 'extra', does: '' });
+
+    expect(b.architecture.layers).toHaveLength(6);
+  });
+
+  it('apply name and alias options, defaulting the alias', () => {
+    expect(vuePreset({ name: 'Acme' }).name).toBe('Acme');
+    expect(vuePreset().name).toBeUndefined();
+    expect(vuePreset({ alias: '@' }).architecture.alias).toBe('@');
+    expect(vuePreset().architecture.alias).toBe('~app');
+  });
+
+  it('passes an emit override straight through', () => {
+    // Declaring the agent tool must not cost the one-line preset form.
+    expect(reactPreset({ emit: { agents: ['claude'] } }).emit)
+      .toEqual({ agents: ['claude'] });
+
+    // No emit override → no emit block; verification strategy is the adopter's.
+    expect(vuePreset().emit).toBeUndefined();
+
+    expect(nextPreset({ emit: { agents: ['agents'] } }).emit)
+      .toEqual({ agents: ['agents'] });
+  });
+});
+
+describe('presets · the doctrine they carry', () => {
   it('carry the nine governance principles, all behavioral', () => {
     const bp = vuePreset();
 
@@ -136,7 +140,9 @@ describe('presets · shape', () => {
       expect(ids[0]).toBe('ownership-inversion');
     }
   });
+});
 
+describe('presets · the gates they declare', () => {
   it('gate deep watches for vue only; hook naming for both', () => {
     expect(vuePreset().rules?.deepWatch).toBe('error');
     expect(reactPreset().rules?.deepWatch).toBeUndefined();

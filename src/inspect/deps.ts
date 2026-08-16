@@ -49,34 +49,52 @@ export async function runDeps(
   const skipped = skippedFolders(scanned, layerNames);
 
   if (options.target !== undefined) {
-    const key = normalizeTarget(options.target, layoutOf);
-    const found = modules.find((entry) => entry.module === key);
-
-    if (!found) {
-      log(unknownTarget(key, skipped));
-
-      return { ok: false, modules: [] };
-    }
-
-    log(
-      options.json
-        // `derivation` rides along in the JSON for the same reason it closes the text:
-        // the agent piping this into a decision has no other channel, and every key
-        // beside it is a graph-derived fact.
-        ? JSON.stringify({ ...found, derivation: importGraphDerivation() }, null, 2)
-        : renderModule(found, isFlatLayer(found.module, layerNames, layoutOf)),
-    );
-
-    return { ok: true, modules: [found] };
+    return reportTarget(options.target, {
+      modules, skipped, layerNames, layoutOf, log, json: options.json,
+    });
   }
 
   log(
     options.json
       ? JSON.stringify({ modules, skipped, derivation: importGraphDerivation() }, null, 2)
-      : renderLeaderboard(modules, skipped, layerNames, layoutOf),
+      : renderLeaderboard(modules, skipped, { layerNames, layoutOf }),
   );
 
   return { ok: true, modules };
+}
+
+/** One module's own blast radius, or the not-found report naming what was skipped. */
+function reportTarget(
+  target: string,
+  ctx: {
+    modules: ModuleDeps[];
+    skipped: string[];
+    layerNames: Set<string>;
+    layoutOf: LayoutOf;
+    log: (message: string) => void;
+    json?: boolean;
+  },
+): { ok: boolean; modules: ModuleDeps[] } {
+  const { modules, skipped, layerNames, layoutOf, log } = ctx;
+  const key = normalizeTarget(target, layoutOf);
+  const found = modules.find((entry) => entry.module === key);
+
+  if (!found) {
+    log(unknownTarget(key, skipped));
+
+    return { ok: false, modules: [] };
+  }
+
+  log(
+    ctx.json
+      // `derivation` rides along in the JSON for the same reason it closes the text:
+      // the agent piping this into a decision has no other channel, and every key
+      // beside it is a graph-derived fact.
+      ? JSON.stringify({ ...found, derivation: importGraphDerivation() }, null, 2)
+      : renderModule(found, isFlatLayer(found.module, layerNames, layoutOf)),
+  );
+
+  return { ok: true, modules: [found] };
 }
 
 /** Fold the raw graph into per-module fan-in / fan-out, sorted by blast radius. */
@@ -163,9 +181,10 @@ function renderModule(entry: ModuleDeps, flatLayer: boolean): string {
 function renderLeaderboard(
   modules: ModuleDeps[],
   skipped: string[],
-  layerNames: Set<string>,
-  layoutOf: LayoutOf,
+  shape: { layerNames: Set<string>; layoutOf: LayoutOf },
 ): string {
+  const { layerNames, layoutOf } = shape;
+
   if (!modules.length) {
     return 'No modules found under the declared layers.';
   }

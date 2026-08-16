@@ -159,6 +159,44 @@ function listSrcDirs(root: string): string[] {
   }
 }
 
+/** What the repo's eslint config is, and whether anything wires blueprint into it. */
+function detectEslint(root: string): {
+  file: string | undefined;
+  owned: string | undefined;
+  wired: boolean;
+  legacy: string | undefined;
+  shape: ProjectState['eslintConfigShape'];
+} {
+  const file = ESLINT_FILES.find((candidate) => fs.existsSync(path.join(root, candidate)));
+  const text = file === undefined ? null : readText(path.join(root, file));
+  const owned = text?.startsWith(GENERATED_ESLINT_BANNER) ? file : undefined;
+
+  // A legacy `.eslintrc*` is NOT a flat config — writing a fresh
+  // `eslint.config.mjs` next to it produces two configs / two ledgers. Detect
+  // it so the merge instruction routes to the flat-config migration instead.
+  const legacy = file === undefined
+    ? LEGACY_ESLINT_FILES.find((candidate) => fs.existsSync(path.join(root, candidate)))
+    : undefined;
+
+  return {
+    file,
+    owned,
+    // A hand-maintained config that already imports the package has been wired
+    // by its owner — emitting a reference next to it would be nagging.
+    wired: owned === undefined && (text?.includes('@kekkai/blueprint') ?? false),
+    legacy,
+    // The existing config's shape, so the merge instruction can be specific
+    // rather than a generic snippet the user must adapt.
+    shape: legacy
+      ? 'legacy'
+      : text?.includes('tseslint.config(')
+        ? 'tseslint'
+        : file !== undefined
+          ? 'flat-array'
+          : undefined,
+  };
+}
+
 /** Read the target project into a {@link ProjectState}. */
 export function detect(root: string): ProjectState {
   const pkg = readJson(path.join(root, 'package.json')) ?? {};
@@ -182,35 +220,7 @@ export function detect(root: string): ProjectState {
     ...(hasTypescript ? [STACK_DEPS.typescript] : []),
   ];
 
-  const eslintFile = ESLINT_FILES.find((file) => fs.existsSync(path.join(root, file)));
-  const eslintText = eslintFile === undefined ? null : readText(path.join(root, eslintFile));
-
-  const ownedEslintConfig = eslintText?.startsWith(GENERATED_ESLINT_BANNER)
-    ? eslintFile
-    : undefined;
-
-  // A hand-maintained config that already imports the package has been wired
-  // by its owner — emitting a reference next to it would be nagging.
-  const wiredEslintConfig
-    = ownedEslintConfig === undefined && (eslintText?.includes('@kekkai/blueprint') ?? false);
-
-  // A legacy `.eslintrc*` is NOT a flat config — writing a fresh
-  // `eslint.config.mjs` next to it produces two configs / two ledgers. Detect
-  // it so the merge instruction routes to the flat-config migration instead.
-  const legacyEslintConfig = eslintFile === undefined
-    ? LEGACY_ESLINT_FILES.find((file) => fs.existsSync(path.join(root, file)))
-    : undefined;
-
-  // The existing config's shape, so the merge instruction can be specific
-  // rather than a generic snippet the user must adapt.
-  const eslintConfigShape = legacyEslintConfig
-    ? 'legacy'
-    : eslintText?.includes('tseslint.config(')
-      ? 'tseslint'
-      : eslintFile !== undefined
-        ? 'flat-array'
-        : undefined;
-
+  const eslint = detectEslint(root);
   const viteFile = VITE_FILES.find((file) => fs.existsSync(path.join(root, file)));
   const viteConfig = readViteConfig(root, viteFile);
 
@@ -220,16 +230,16 @@ export function detect(root: string): ProjectState {
     packageManager: detectPackageManager(root),
     projectName: typeof pkg.name === 'string' ? pkg.name : undefined,
     hasConfig: fs.existsSync(path.join(root, CONFIG_FILE)),
-    hasEslintConfig: eslintFile !== undefined,
-    eslintConfigFile: eslintFile,
+    hasEslintConfig: eslint.file !== undefined,
+    eslintConfigFile: eslint.file,
     hasNext,
     hasNuxt,
     nextRouter,
     nextSrcDir,
-    ownedEslintConfig,
-    wiredEslintConfig,
-    legacyEslintConfig,
-    eslintConfigShape,
+    ownedEslintConfig: eslint.owned,
+    wiredEslintConfig: eslint.wired,
+    legacyEslintConfig: eslint.legacy,
+    eslintConfigShape: eslint.shape,
     viteConfig,
     // Separate on purpose: `hasViteConfig` is "a vite config is there", and an
     // unreadable one is still there. `viteConfig` is "and this is what it says".

@@ -1,4 +1,13 @@
-import type { AgentEmitEntry, AgentTarget, Blueprint, LayerDef, RuleSetting } from './types';
+import type {
+  AgentEmitEntry,
+  AgentTarget,
+  ArchitectureDef,
+  Blueprint,
+  EmitDef,
+  LayerDef,
+  ModuleDef,
+  RuleSetting,
+} from './types';
 import { normalizeAllowedImporters } from './graph';
 import { activeSetting } from './settings';
 
@@ -7,6 +16,49 @@ const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/;
 
 const AGENT_TARGETS = ['claude', 'agents', 'gemini', 'copilot', 'cursor', 'windsurf'];
 const DEFAULT_AGENT_TARGETS: AgentTarget[] = ['claude', 'agents'];
+
+const BLUEPRINT_KEYS = [
+  'name',
+  'framework',
+  'architecture',
+  'rules',
+  'principles',
+  'componentShape',
+  'playbook',
+  'emit',
+];
+
+const ARCHITECTURE_KEYS = [
+  'alias',
+  'additionalAliases',
+  'sourceRoot',
+  'layers',
+  'module',
+  'layerFiles',
+  'layerFilesIgnore',
+  'testFiles',
+  'naming',
+];
+
+const LAYER_KEYS = [
+  'name',
+  'does',
+  'mustNot',
+  'owns',
+  'module',
+  'allowedImporters',
+  'lintOverrides',
+];
+
+/**
+ * Misplaced keys pointed at their real home, keyed by the key rather than by the
+ * object it turned up on: the exact field shape validated fine on the layer, was
+ * silently dead, and the intended re-export ban never emitted (field issue #14).
+ */
+const MISPLACED_KEYS: Record<string, string> = {
+  selfOnly: 'selfOnly lives on an allowedImporters ENTRY, naming the importing layer: '
+    + 'allowedImporters: [{ layer: \'views\', selfOnly: true }]',
+};
 
 const MANAGED_RULES = [
   'no-restricted-imports',
@@ -47,46 +99,34 @@ export function defineBlueprint(config: Blueprint): Blueprint {
  * @group Author
  */
 export function validateBlueprint(bp: Blueprint): Blueprint {
-  const { name, architecture, principles, rules } = bp;
+  validateName(bp.name);
+  rejectUnknownKeys(bp, BLUEPRINT_KEYS, 'the blueprint');
+  validateArchitecture(bp.architecture);
+  validateEmit(bp.emit);
+  validateUniqueIds(bp.principles ?? [], 'principle');
+  validateUniqueIds(bp.componentShape ?? [], 'component-shape axis');
+  validatePlaybook(bp);
+  validateRuleTiers(bp.rules);
+  validateUsePrefix(bp);
+  validateAgentEmit(bp);
 
+  return bp;
+}
+
+/** `name` is optional, but an empty one is a typo rather than a choice. */
+function validateName(name: string | undefined): void {
   if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
     throw new Error('name must be a non-empty string when provided.');
   }
+}
 
-  rejectUnknownKeys(
-    bp,
-    [
-      'name',
-      'framework',
-      'architecture',
-      'rules',
-      'principles',
-      'componentShape',
-      'playbook',
-      'emit',
-    ],
-    'the blueprint',
-  );
-
+/** The architecture block: its own keys, then each part that has its own rules. */
+function validateArchitecture(architecture: ArchitectureDef | undefined): void {
   if (!architecture || !Array.isArray(architecture.layers)) {
     throw new Error('architecture.layers must be an array.');
   }
 
-  rejectUnknownKeys(
-    architecture,
-    [
-      'alias',
-      'additionalAliases',
-      'sourceRoot',
-      'layers',
-      'module',
-      'layerFiles',
-      'layerFilesIgnore',
-      'testFiles',
-      'naming',
-    ],
-    'architecture',
-  );
+  rejectUnknownKeys(architecture, ARCHITECTURE_KEYS, 'architecture');
 
   const { alias, additionalAliases, layers, module, layerFiles } = architecture;
 
@@ -98,46 +138,19 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     throw new Error('architecture.layers must not be empty.');
   }
 
+  validateLayers(layers);
+  validateModule(module);
+  validateAdditionalAliases(additionalAliases);
+  validateLayerFiles(layerFiles);
+}
+
+/** Each layer in declaration order — the order the "declared before" rule reads. */
+function validateLayers(layers: LayerDef[]): void {
   const names = new Set<string>();
 
   for (const layer of layers) {
-    if (typeof layer?.name !== 'string' || !layer.name.trim()) {
-      throw new Error('Each layer must have a non-empty name.');
-    } else if (names.has(layer.name)) {
-      throw new Error(`Duplicate layer name: "${layer.name}".`);
-    } else if (/[*?{}[\]\\/]/.test(layer.name)) {
-      // A layer name is substituted into every file glob and scaffolded as a folder,
-      // so a `*` name turns each net into a wildcard and creates a literal `src/*/`.
-      // Root files are wiring; their lint belongs to the project's own eslint.
-      throw new Error(
-        `Layer "${layer.name}" contains glob or path characters — layer names become `
-        + 'file globs and folders. Root files are wiring, not a layer: leave their '
-        + 'hygiene to the project\'s own lint instead of widening the net.',
-      );
-    } else if (/[\s"'()<>|;%&]/.test(layer.name)) {
-      // The name also becomes a mermaid node id, where whitespace, quotes,
-      // parens, `&` (node join), `%` (comment), and friends silently corrupt
-      // the emitted diagram — fail loud here instead.
-      throw new Error(
-        `Layer "${layer.name}" contains characters that corrupt emitted artifacts `
-        + '— a layer name becomes a folder, a file glob, and a diagram node. '
-        + 'Stick to letters, digits, ".", "_", "-".',
-      );
-    }
-
-    rejectUnknownKeys(
-      layer,
-      ['name', 'does', 'mustNot', 'owns', 'module', 'allowedImporters', 'lintOverrides'],
-      `layer "${layer.name}"`,
-      {
-        // The exact field shape: selfOnly on the layer validated fine, was
-        // silently dead, and the intended re-export ban never emitted
-        // (field issue #14). Point at the right home, not just "unknown".
-        selfOnly: 'selfOnly lives on an allowedImporters ENTRY, naming the importing layer: '
-          + 'allowedImporters: [{ layer: \'views\', selfOnly: true }]',
-      },
-    );
-
+    validateLayerName(layer, names);
+    rejectUnknownKeys(layer, LAYER_KEYS, `layer "${layer.name}"`);
     validateOwns(layer);
     validateLayerModule(layer);
     validateLintOverrides(layer);
@@ -146,95 +159,130 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     validateAllowedImporters(layer, names);
     names.add(layer.name);
   }
+}
 
-  // Optional in whole: the flat default is applied at read time, so a config that
-  // never mentions `module` is complete (field issue #23).
-  if (module !== undefined) {
-    if (module.layout !== undefined && module.layout !== 'folder' && module.layout !== 'flat') {
-      throw new Error(
-        `architecture.module.layout is "${String(module.layout)}" — expected folder | flat, `
-        + 'or omit it for the default (flat).',
-      );
-    }
+/** A layer name becomes a folder, a file glob, and a diagram node id. */
+function validateLayerName(layer: LayerDef, earlier: Set<string>): void {
+  if (typeof layer?.name !== 'string' || !layer.name.trim()) {
+    throw new Error('Each layer must have a non-empty name.');
+  } else if (earlier.has(layer.name)) {
+    throw new Error(`Duplicate layer name: "${layer.name}".`);
+  } else if (/[*?{}[\]\\/]/.test(layer.name)) {
+    // A layer name is substituted into every file glob and scaffolded as a folder,
+    // so a `*` name turns each net into a wildcard and creates a literal `src/*/`.
+    // Root files are wiring; their lint belongs to the project's own eslint.
+    throw new Error(
+      `Layer "${layer.name}" contains glob or path characters — layer names become `
+      + 'file globs and folders. Root files are wiring, not a layer: leave their '
+      + 'hygiene to the project\'s own lint instead of widening the net.',
+    );
+  } else if (/[\s"'()<>|;%&]/.test(layer.name)) {
+    // Whitespace, quotes, parens, `&` (node join), `%` (comment), and friends
+    // silently corrupt the emitted diagram — fail loud here instead.
+    throw new Error(
+      `Layer "${layer.name}" contains characters that corrupt emitted artifacts `
+      + '— a layer name becomes a folder, a file glob, and a diagram node. '
+      + 'Stick to letters, digits, ".", "_", "-".',
+    );
+  }
+}
 
-    if (module.entry !== undefined && (typeof module.entry !== 'string' || !module.entry.trim())) {
-      throw new Error(
-        'architecture.module.entry must be a non-empty string when set '
-        + '— omit it for the default ("index").',
-      );
-    }
-
-    if (module.private !== undefined && !Array.isArray(module.private)) {
-      throw new Error('architecture.module.private must be an array when set — omit it for none.');
-    }
-
-    rejectUnknownKeys(module, ['layout', 'entry', 'private'], 'architecture.module');
+/**
+ * Optional in whole: the flat default is applied at read time, so a config that
+ * never mentions `module` is complete (field issue #23).
+ */
+function validateModule(module: ModuleDef | undefined): void {
+  if (module === undefined) {
+    return;
   }
 
-  if (bp.emit !== undefined) {
-    rejectUnknownKeys(bp.emit, ['handbook', 'agents', 'lint'], 'emit');
-
-    if (bp.emit.lint !== undefined) {
-      rejectUnknownKeys(bp.emit.lint, ['severity'], 'emit.lint');
-    }
-
-    if (bp.emit.agents) {
-      for (const entry of bp.emit.agents) {
-        if (typeof entry !== 'string') {
-          rejectUnknownKeys(entry, ['target', 'path'], 'an emit.agents entry');
-        }
-      }
-    }
+  if (module.layout !== undefined && module.layout !== 'folder' && module.layout !== 'flat') {
+    throw new Error(
+      `architecture.module.layout is "${String(module.layout)}" — expected folder | flat, `
+      + 'or omit it for the default (flat).',
+    );
   }
 
-  if (additionalAliases !== undefined) {
-    const entries = Object.entries(additionalAliases);
-
-    if (
-      typeof additionalAliases !== 'object'
-      || entries.some(([k, v]) => !k.trim() || typeof v !== 'string' || !v.trim())
-    ) {
-      throw new Error(
-        'architecture.additionalAliases must map non-empty strings to non-empty strings.',
-      );
-    }
+  if (module.entry !== undefined && (typeof module.entry !== 'string' || !module.entry.trim())) {
+    throw new Error(
+      'architecture.module.entry must be a non-empty string when set '
+      + '— omit it for the default ("index").',
+    );
   }
 
-  for (const glob of layerFiles === undefined
-    ? []
-    : Array.isArray(layerFiles)
-      ? layerFiles
-      : [layerFiles]) {
+  if (module.private !== undefined && !Array.isArray(module.private)) {
+    throw new Error('architecture.module.private must be an array when set — omit it for none.');
+  }
+
+  rejectUnknownKeys(module, ['layout', 'entry', 'private'], 'architecture.module');
+}
+
+/** Every extra alias maps a non-empty name to a non-empty target. */
+function validateAdditionalAliases(aliases: Record<string, string> | undefined): void {
+  if (aliases === undefined) {
+    return;
+  }
+
+  const entries = Object.entries(aliases);
+
+  if (
+    typeof aliases !== 'object'
+    || entries.some(([k, v]) => !k.trim() || typeof v !== 'string' || !v.trim())
+  ) {
+    throw new Error(
+      'architecture.additionalAliases must map non-empty strings to non-empty strings.',
+    );
+  }
+}
+
+/** A layer glob with no `{layer}` in it matches one fixed path for every layer. */
+function validateLayerFiles(layerFiles: string | string[] | undefined): void {
+  const globs = layerFiles === undefined ? [] : [layerFiles].flat();
+
+  for (const glob of globs) {
     if (!LAYER_PLACEHOLDER.test(glob)) {
       throw new Error(`layerFiles entry "${glob}" must include the "{layer}" placeholder.`);
     }
   }
+}
 
-  const principleIds = new Set<string>();
-
-  for (const principle of principles ?? []) {
-    if (typeof principle?.id !== 'string' || !principle.id.trim()) {
-      throw new Error('Each principle must have a non-empty id.');
-    } else if (principleIds.has(principle.id)) {
-      throw new Error(`Duplicate principle id: "${principle.id}".`);
-    }
-
-    principleIds.add(principle.id);
+/** The `emit` block and each agents entry inside it. */
+function validateEmit(emit: EmitDef | undefined): void {
+  if (emit === undefined) {
+    return;
   }
 
-  const axisIds = new Set<string>();
+  rejectUnknownKeys(emit, ['handbook', 'agents', 'lint'], 'emit');
 
-  for (const axis of bp.componentShape ?? []) {
-    if (typeof axis?.id !== 'string' || !axis.id.trim()) {
-      throw new Error('Each component-shape axis must have a non-empty id.');
-    } else if (axisIds.has(axis.id)) {
-      throw new Error(`Duplicate component-shape axis id: "${axis.id}".`);
-    }
-
-    axisIds.add(axis.id);
+  if (emit.lint !== undefined) {
+    rejectUnknownKeys(emit.lint, ['severity'], 'emit.lint');
   }
 
-  const playbookIds = new Set<string>();
+  for (const entry of emit.agents ?? []) {
+    if (typeof entry !== 'string') {
+      rejectUnknownKeys(entry, ['target', 'path'], 'an emit.agents entry');
+    }
+  }
+}
+
+/** Every entry needs a non-empty id, and no two entries may share one. */
+function validateUniqueIds(items: { id: string }[], subject: string): void {
+  const seen = new Set<string>();
+
+  for (const item of items) {
+    if (typeof item?.id !== 'string' || !item.id.trim()) {
+      throw new Error(`Each ${subject} must have a non-empty id.`);
+    } else if (seen.has(item.id)) {
+      throw new Error(`Duplicate ${subject} id: "${item.id}".`);
+    }
+
+    seen.add(item.id);
+  }
+}
+
+/** Titled sections whose rule ids are unique across the whole playbook. */
+function validatePlaybook(bp: Blueprint): void {
+  const ids = new Set<string>();
 
   for (const section of bp.playbook ?? []) {
     if (typeof section?.title !== 'string' || !section.title.trim()) {
@@ -244,24 +292,22 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
     for (const rule of section.rules ?? []) {
       if (typeof rule?.id !== 'string' || !rule.id.trim()) {
         throw new Error(`Playbook section "${section.title}" has a rule with no id.`);
-      } else if (playbookIds.has(rule.id)) {
+      } else if (ids.has(rule.id)) {
         throw new Error(`Duplicate playbook rule id: "${rule.id}".`);
       }
 
-      playbookIds.add(rule.id);
+      ids.add(rule.id);
     }
   }
+}
 
+/** Every declared rule carries one of the three tiers. */
+function validateRuleTiers(rules: Blueprint['rules']): void {
   for (const [id, setting] of Object.entries(rules ?? {})) {
     if (!VALID_TIERS.includes(resolveTier(setting))) {
       throw new Error(`Rule "${id}" has an invalid tier — expected error | warn | off.`);
     }
   }
-
-  validateUsePrefix(bp);
-  validateAgentEmit(bp);
-
-  return bp;
 }
 
 /** `usePrefix` must target a declared layer (default `hooks`) — unless it is off. */
@@ -318,18 +364,12 @@ function validateAgentEmit(bp: Blueprint): void {
   }
 }
 
-/** Validate a layer's `owns` list — each entry is a package, global, or shorthand. */
 /**
  * A key the schema does not know is a silently dead declaration — the author
  * believes a constraint is active while nothing compiles from it (field issue #14).
  * Fail loud, and point misplaced keys home.
  */
-function rejectUnknownKeys(
-  value: object,
-  allowed: string[],
-  where: string,
-  hints: Record<string, string> = {},
-): void {
+function rejectUnknownKeys(value: object, allowed: string[], where: string): void {
   for (const key of Object.keys(value)) {
     if (allowed.includes(key)) {
       continue;
@@ -337,11 +377,12 @@ function rejectUnknownKeys(
 
     throw new Error(
       `Unknown key "${key}" in ${where} — nothing reads it, so the declaration is `
-      + `silently dead. ${hints[key] ?? `Expected keys: ${allowed.join(', ')}.`}`,
+      + `silently dead. ${MISPLACED_KEYS[key] ?? `Expected keys: ${allowed.join(', ')}.`}`,
     );
   }
 }
 
+/** Validate a layer's `owns` list — each entry is a package, global, or shorthand. */
 function validateOwns(layer: LayerDef): void {
   if (!layer.owns) {
     return;

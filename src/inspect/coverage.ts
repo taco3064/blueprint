@@ -48,7 +48,7 @@ export function computeCoverage(
   const nets = [
     ...new Set(
       architecture.layers.flatMap((layer) =>
-        resolveLayerFiles(layer.name, architecture.layerFiles, framework, architecture.sourceRoot),
+        resolveLayerFiles(layer.name, framework, architecture),
       ),
     ),
   ].map(globToRegExp);
@@ -61,7 +61,10 @@ export function computeCoverage(
   // (field run #137). The stylistic gates are not among them: every stack can open
   // those, and whether the config injects the plugin is a wiring fact this cannot see.
   const gates = LINT_GATED_RULE_IDS
-    .filter((id) => unavailableGate(id, framework, hasTypescript, architecture.testFiles) === null);
+    .filter((id) => unavailableGate(
+      id,
+      { framework, hasTypescript, testFiles: architecture.testFiles },
+    ) === null);
 
   const activeRules = gates.filter((id) => activeSetting(rules?.[id]) !== null).length;
 

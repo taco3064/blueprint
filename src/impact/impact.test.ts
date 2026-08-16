@@ -6,7 +6,6 @@ import importsPlugin from 'eslint-plugin-import-x';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { flattenProse } from '../conformance';
-import type { LintConfigEntry } from '../emit/lint';
 import { reactPreset, vuePreset } from '../presets';
 import { renderImpact, runImpact } from './impact';
 import type { ImpactOptions, RuleImpact } from './impact';
@@ -98,284 +97,11 @@ function loader(eslintModule: unknown) {
 
 const at = (rel: string) => path.join(root, rel);
 
-describe('runImpact', () => {
+describe('runImpact · refuses what it cannot run', () => {
   it('refuses to run without an authored config', async () => {
     fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'x' }));
 
     await expect(runImpact(root, { log: silent })).rejects.toThrow('author the config first');
-  });
-
-  it('aggregates hits per rule with the heaviest files first', async () => {
-    project({ react: '^18' });
-
-    const { module, captured } = fakeEslint([
-      {
-        filePath: at('src/components/A.jsx'),
-        messages: [{ ruleId: 'max-lines' }, { ruleId: 'no-restricted-imports' }],
-      },
-      { filePath: at('src/components/B.jsx'), messages: [{ ruleId: 'max-lines' }] },
-      {
-        filePath: at('src/components/C.jsx'),
-        messages: [{ ruleId: 'max-lines' }, { ruleId: 'max-lines' }],
-      },
-    ]);
-
-    const { loadModule } = loader(module);
-
-    let output = '';
-
-    const options: ImpactOptions = {
-      loadConfig: async () => reactPreset(),
-      loadModule,
-      log: (message) => (output = message),
-    };
-
-    const { impacts, total } = await runImpact(root, options);
-
-    expect(total).toBe(5);
-    expect(impacts[0]).toMatchObject({ rule: 'max-lines', count: 4, files: 3 });
-
-    // Heaviest file first; equal counts fall back to path order.
-    expect(impacts[0].top.map((t) => t.path)).toEqual([
-      'src/components/C.jsx',
-      'src/components/A.jsx',
-      'src/components/B.jsx',
-    ]);
-
-    expect(impacts[1]).toMatchObject({ rule: 'no-restricted-imports', count: 1, files: 1 });
-    expect(output).toContain('max-lines — 3 file(s)');
-    expect(output).toContain('worst: src/components/C.jsx (2)');
-    expect(output).toContain('5 hit(s)');
-    expect(output).toContain('--suppress-all');
-
-    // Layer globs travel to lintFiles; the react preset stays parseable via jsx.
-    expect(captured.patterns?.some((p) => p.includes('components'))).toBe(true);
-    expect(captured.options).toMatchObject({ cwd: root, errorOnUnmatchedPattern: false });
-
-    const entries = captured.options?.overrideConfig as LintConfigEntry[];
-
-    expect(entries.some((e) => e.languageOptions?.parserOptions?.ecmaFeatures?.jsx)).toBe(true);
-  });
-
-  it('wires the project parsers on a Vue + TypeScript stack', async () => {
-    project({ vue: '^3', typescript: '^5' });
-
-    const { module, captured } = fakeEslint([]);
-    const { loadModule, loaded } = loader(module);
-
-    await runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent });
-
-    expect(loaded).toEqual(
-      expect.arrayContaining(['eslint', 'typescript-eslint', 'vue-eslint-parser']),
-    );
-
-    const entries = captured.options?.overrideConfig as LintConfigEntry[];
-    const vueEntry = entries.find((e) => e.files?.[0] === '**/*.vue');
-    const tsEntry = entries.find((e) => e.files?.[0] === '**/*.{ts,tsx,mts,cts}');
-
-    // The .vue entry chains the TS parser for script blocks, like the
-    // generated eslint config does.
-    expect(vueEntry?.languageOptions?.parser).toBe(vueParser);
-    expect(vueEntry?.languageOptions?.parserOptions?.parser).toBe(tsParser);
-    expect(tsEntry?.languageOptions?.parser).toBe(tsParser);
-  });
-
-  it('keeps a plain-JS Vue stack on the vue parser alone', async () => {
-    project({ vue: '^3' });
-
-    const { module, captured } = fakeEslint([]);
-    const { loadModule, loaded } = loader(module);
-
-    await runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent });
-
-    expect(loaded).not.toContain('typescript-eslint');
-    // Both carriers load because this preset turns their gates ON, and skipping a
-    // carrier under an active gate reports 0 hits — indistinguishable from a clean
-    // repo. Neither is stack-dependent, which is why the vue/ts arms above do not
-    // decide them; the gates do.
-    expect(loaded).toContain('@stylistic/eslint-plugin');
-    expect(loaded).toContain('eslint-plugin-import-x');
-
-    const entries = captured.options?.overrideConfig as LintConfigEntry[];
-    const vueEntry = entries.find((e) => e.files?.[0] === '**/*.vue');
-
-    expect(vueEntry?.languageOptions?.parser).toBe(vueParser);
-    expect(vueEntry?.languageOptions?.parserOptions).toBeUndefined();
-  });
-
-  it('does not require a carrier no gate would use (field run #133)', async () => {
-    // A repo translating only structural flow declares no gates, and impact refused
-    // the whole command over `@stylistic/eslint-plugin` — a formatting carrier nothing
-    // in that config would have emitted. The agent lost the verification and rebuilt
-    // it from `eslint --print-config` runs by hand. Requiring a plugin is right where
-    // a gate rides it and wrong where none does, and the tool already computes which:
-    // the same list doctor's survival check reads.
-    project({ vue: '^3' });
-
-    const { module } = fakeEslint([]);
-    const { loadModule, loaded } = loader(module);
-
-    const bare = { ...vuePreset(), rules: {} };
-
-    await expect(
-      runImpact(root, { loadConfig: async () => bare, loadModule, log: silent }),
-    ).resolves.toBeDefined();
-
-    expect(loaded).not.toContain('@stylistic/eslint-plugin');
-    expect(loaded).not.toContain('eslint-plugin-import-x');
-    // eslint is not optional — the run cannot happen without it.
-    expect(loaded).toContain('eslint');
-  });
-
-  it('still requires the carrier when one gate rides it', async () => {
-    // The half that must not regress: `importBlock` alone brings import-x back, and
-    // asking for it is correct there — dropping it would report 0 hits for a gate
-    // that is on. One gate, one carrier, and the other stays unrequested.
-    project({ vue: '^3' });
-
-    const { module } = fakeEslint([]);
-    const { loadModule, loaded } = loader(module);
-
-    const oneGate = { ...vuePreset(), rules: { importBlock: 'error' as const } };
-
-    await runImpact(root, { loadConfig: async () => oneGate, loadModule, log: silent });
-
-    expect(loaded).toContain('eslint-plugin-import-x');
-    expect(loaded).not.toContain('@stylistic/eslint-plugin');
-  });
-
-  it('measures the injected-plugin gates instead of silently reporting zero', async () => {
-    project({ react: '^18' });
-
-    const { module, captured } = fakeEslint([]);
-    const { loadModule } = loader(module);
-
-    await runImpact(root, { loadConfig: async () => reactPreset(), loadModule, log: silent });
-
-    const entries = captured.options?.overrideConfig as LintConfigEntry[];
-    const gate = entries.find((e) => e.rules?.['@stylistic/max-statements-per-line']);
-
-    expect(gate?.rules?.['@stylistic/padding-line-between-statements']).toBeDefined();
-    expect(gate?.rules?.['@stylistic/indent']).toBeDefined(); // the codeStyle bundle
-    expect(gate?.rules?.['import-x/no-duplicates']).toBeDefined();
-    expect(gate?.plugins?.['@stylistic']).toBe(stylisticPlugin);
-    expect(gate?.plugins?.['import-x']).toBe(importsPlugin);
-  });
-
-  it('resolves framework `auto` from the detected project', async () => {
-    project({ react: '^18' });
-
-    const { module, captured } = fakeEslint([]);
-    const { loadModule } = loader(module);
-
-    await runImpact(root, {
-      loadConfig: async () => ({ ...reactPreset(), framework: 'auto' as const }),
-      loadModule,
-      log: silent,
-    });
-
-    const entries = captured.options?.overrideConfig as LintConfigEntry[];
-
-    expect(entries.some((e) => e.languageOptions?.parserOptions?.ecmaFeatures?.jsx)).toBe(true);
-  });
-
-  it('splits null ruleIds by fatality: parse failures vs stale disables', async () => {
-    project({ react: '^18' });
-
-    const { module } = fakeEslint([
-      { filePath: at('src/components/broken.jsx'), messages: [{ ruleId: null, fatal: true }] },
-      // A stale eslint-disable comment — the file parses fine.
-      { filePath: at('src/components/stale.jsx'), messages: [{ ruleId: null }] },
-      { filePath: at('src/components/big.jsx'), messages: [{ ruleId: 'max-lines' }] },
-    ]);
-
-    const { loadModule } = loader(module);
-
-    let output = '';
-
-    const { impacts, total } = await runImpact(root, {
-      loadConfig: async () => reactPreset(),
-      loadModule,
-      log: (message) => (output = message),
-    });
-
-    // Equal counts fall back to rule-name order — both special rows surface.
-    expect(impacts.map((impact) => impact.rule)).toEqual([
-      'max-lines',
-      'parse-error',
-      'unused-disable-directive',
-    ]);
-
-    // Neither special row is red the wiring introduces — counting them under
-    // "would flag today" contradicted the caveat beneath them (batch 8).
-    expect(total).toBe(1);
-    expect(output).toContain('1 hit(s)');
-    expect(output).toContain('Isolation caveats — not wiring-introduced red');
-    expect(output).toContain('vanishes after the merge');
-  });
-
-  it('lets the authored framework outrank what the repo happens to have installed', async () => {
-    // `auto` is the only value that defers to detection. A declared framework
-    // is the contract, and a repo can be mid-migration — vue in the blueprint
-    // before the dependency lands, or a package.json that says nothing at all.
-    // Re-deriving it from detection drops the vue parser, every .vue file then
-    // parse-errors, and its rule hits are reported as caveats instead of hits.
-    project({});
-
-    const { module, captured } = fakeEslint([]);
-    const { loadModule, loaded } = loader(module);
-
-    await runImpact(root, { loadConfig: async () => vuePreset(), loadModule, log: silent });
-
-    expect(loaded).toContain('vue-eslint-parser');
-
-    const entries = captured.options?.overrideConfig as LintConfigEntry[];
-
-    expect(entries.find((e) => e.files?.[0] === '**/*.vue')?.languageOptions?.parser)
-      .toBe(vueParser);
-  });
-
-  it('falls back to the auto glob set when nothing pins the framework', async () => {
-    project({});
-
-    const { module, captured } = fakeEslint([]);
-    const { loadModule } = loader(module);
-
-    await runImpact(root, {
-      loadConfig: async () => ({ ...reactPreset(), framework: 'auto' as const }),
-      loadModule,
-      log: silent,
-    });
-
-    // No detected framework → the widest extension glob, no parser entries.
-    expect(captured.patterns?.[0]).toContain('vue');
-
-    const entries = captured.options?.overrideConfig as LintConfigEntry[];
-
-    expect(entries.every((e) => e.languageOptions === undefined)).toBe(true);
-  });
-
-  it('reports zero hits on the default log and emits JSON when asked', async () => {
-    project({ react: '^18' });
-
-    const { module } = fakeEslint([]);
-    const { loadModule } = loader(module);
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-    await runImpact(root, { loadConfig: async () => reactPreset(), loadModule });
-    expect(log.mock.calls[0][0]).toContain('0 hits');
-    log.mockRestore();
-
-    let output = '';
-
-    await runImpact(root, {
-      loadConfig: async () => reactPreset(),
-      loadModule,
-      json: true,
-      log: (message) => (output = message),
-    });
-
-    expect(JSON.parse(output)).toEqual({ total: 0, linted: 0, impacts: [] });
   });
 
   it('names the missing dependency when the project cannot supply the stack', async () => {
@@ -424,7 +150,135 @@ describe('runImpact', () => {
       }),
     ).rejects.toThrow('EACCES on the store');
   });
+});
 
+describe('runImpact · the tally it reports', () => {
+  it('aggregates hits per rule with the heaviest files first', async () => {
+    project({ react: '^18' });
+
+    const { module } = fakeEslint([
+      {
+        filePath: at('src/components/A.jsx'),
+        messages: [{ ruleId: 'max-lines' }, { ruleId: 'no-restricted-imports' }],
+      },
+      { filePath: at('src/components/B.jsx'), messages: [{ ruleId: 'max-lines' }] },
+      {
+        filePath: at('src/components/C.jsx'),
+        messages: [{ ruleId: 'max-lines' }, { ruleId: 'max-lines' }],
+      },
+    ]);
+
+    const { loadModule } = loader(module);
+
+    let output = '';
+
+    const options: ImpactOptions = {
+      loadConfig: async () => reactPreset(),
+      loadModule,
+      log: (message) => (output = message),
+    };
+
+    const { impacts, total } = await runImpact(root, options);
+
+    expect(total).toBe(5);
+    expect(impacts[0]).toMatchObject({ rule: 'max-lines', count: 4, files: 3 });
+
+    // Heaviest file first; equal counts fall back to path order.
+    expect(impacts[0].top.map((t) => t.path)).toEqual([
+      'src/components/C.jsx',
+      'src/components/A.jsx',
+      'src/components/B.jsx',
+    ]);
+
+    expect(impacts[1]).toMatchObject({ rule: 'no-restricted-imports', count: 1, files: 1 });
+    expect(output).toContain('max-lines — 3 file(s)');
+    expect(output).toContain('worst: src/components/C.jsx (2)');
+    expect(output).toContain('5 hit(s)');
+    expect(output).toContain('--suppress-all');
+  });
+
+  it('splits null ruleIds by fatality: parse failures vs stale disables', async () => {
+    project({ react: '^18' });
+
+    const { module } = fakeEslint([
+      { filePath: at('src/components/broken.jsx'), messages: [{ ruleId: null, fatal: true }] },
+      // A stale eslint-disable comment — the file parses fine.
+      { filePath: at('src/components/stale.jsx'), messages: [{ ruleId: null }] },
+      { filePath: at('src/components/big.jsx'), messages: [{ ruleId: 'max-lines' }] },
+    ]);
+
+    const { loadModule } = loader(module);
+
+    let output = '';
+
+    const { impacts, total } = await runImpact(root, {
+      loadConfig: async () => reactPreset(),
+      loadModule,
+      log: (message) => (output = message),
+    });
+
+    // Equal counts fall back to rule-name order — both special rows surface.
+    expect(impacts.map((impact) => impact.rule)).toEqual([
+      'max-lines',
+      'parse-error',
+      'unused-disable-directive',
+    ]);
+
+    // Neither special row is red the wiring introduces — counting them under
+    // "would flag today" contradicted the caveat beneath them (batch 8).
+    expect(total).toBe(1);
+    expect(output).toContain('1 hit(s)');
+    expect(output).toContain('Isolation caveats — not wiring-introduced red');
+    expect(output).toContain('vanishes after the merge');
+  });
+
+  it('reports zero hits on the default log and emits JSON when asked', async () => {
+    project({ react: '^18' });
+
+    const { module } = fakeEslint([]);
+    const { loadModule } = loader(module);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await runImpact(root, { loadConfig: async () => reactPreset(), loadModule });
+    expect(log.mock.calls[0][0]).toContain('0 hits');
+    log.mockRestore();
+
+    let output = '';
+
+    await runImpact(root, {
+      loadConfig: async () => reactPreset(),
+      loadModule,
+      json: true,
+      log: (message) => (output = message),
+    });
+
+    expect(JSON.parse(output)).toEqual({ total: 0, linted: 0, impacts: [] });
+  });
+
+  it('caps the worst-file list at five', async () => {
+    project({ react: '^18' });
+
+    const { module } = fakeEslint(
+      ['a', 'b', 'c', 'd', 'e', 'f'].map((name) => ({
+        filePath: at(`src/components/${name}.jsx`),
+        messages: [{ ruleId: 'max-lines' }],
+      })),
+    );
+
+    const { loadModule } = loader(module);
+
+    const { impacts } = await runImpact(root, {
+      loadConfig: async () => reactPreset(),
+      loadModule,
+      log: silent,
+    });
+
+    expect(impacts[0].files).toBe(6);
+    expect(impacts[0].top).toHaveLength(5);
+  });
+});
+
+describe('runImpact · rules that are not blueprint\'s own', () => {
   it('quarantines rules that are not blueprint\'s own — isolation artifacts', async () => {
     project({ react: '^18' });
 
@@ -439,12 +293,10 @@ describe('runImpact', () => {
 
     const { loadModule } = loader(module);
 
-    let output = '';
-
     const { impacts, total } = await runImpact(root, {
       loadConfig: async () => reactPreset(),
       loadModule,
-      log: (message) => (output = message),
+      log: silent,
     });
 
     const alien = impacts.find((impact) => impact.rule === 'custom/no-bad-script-literals');
@@ -453,6 +305,28 @@ describe('runImpact', () => {
     expect(impacts.find((impact) => impact.rule === 'max-lines')?.foreign).toBe(false);
     // Foreign hits never inflate the wiring-red total.
     expect(total).toBe(1);
+  });
+
+  it('says what an echoed row IS, not only what it is not (field run #146)', async () => {
+    project({ react: '^18' });
+
+    const { module } = fakeEslint([
+      {
+        filePath: at('src/components/A.jsx'),
+        messages: [{ ruleId: 'custom/no-bad-script-literals' }, { ruleId: 'max-lines' }],
+      },
+    ]);
+
+    const { loadModule } = loader(module);
+
+    let output = '';
+
+    await runImpact(root, {
+      loadConfig: async () => reactPreset(),
+      loadModule,
+      log: (message) => (output = message),
+    });
+
     expect(output).toContain('1 hit(s)');
     expect(output).toContain('Names YOUR OWN config owns');
     expect(output).toContain('custom/no-bad-script-literals');
@@ -492,28 +366,6 @@ describe('runImpact', () => {
     expect(total).toBe(0);
     expect(output).toContain('0 hits — wiring emitLint introduces no red today');
     expect(output).toContain('Names YOUR OWN config owns');
-  });
-
-  it('caps the worst-file list at five', async () => {
-    project({ react: '^18' });
-
-    const { module } = fakeEslint(
-      ['a', 'b', 'c', 'd', 'e', 'f'].map((name) => ({
-        filePath: at(`src/components/${name}.jsx`),
-        messages: [{ ruleId: 'max-lines' }],
-      })),
-    );
-
-    const { loadModule } = loader(module);
-
-    const { impacts } = await runImpact(root, {
-      loadConfig: async () => reactPreset(),
-      loadModule,
-      log: silent,
-    });
-
-    expect(impacts[0].files).toBe(6);
-    expect(impacts[0].top).toHaveLength(5);
   });
 });
 

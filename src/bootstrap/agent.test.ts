@@ -15,10 +15,13 @@ describe('launchAgent', () => {
     const calls: { bin: string; args: string[]; cwd: string }[] = [];
     const logs: string[] = [];
 
-    const code = launchAgent('claude', '/repo', (m) => logs.push(m), (bin, args, cwd) => {
-      calls.push({ bin, args, cwd });
+    const code = launchAgent('claude', '/repo', {
+      log: (m) => logs.push(m),
+      spawner: (bin, args, cwd) => {
+        calls.push({ bin, args, cwd });
 
-      return { status: 0 };
+        return { status: 0 };
+      },
     });
 
     expect(code).toBe(0);
@@ -27,21 +30,22 @@ describe('launchAgent', () => {
   });
 
   it('returns the agent exit status without treating it as an error', () => {
-    const code = launchAgent('codex', '/repo', () => {}, () => ({ status: 130 }));
+    const code = launchAgent('codex', '/repo', { log: () => {}, spawner: () => ({ status: 130 }) });
 
     expect(code).toBe(130);
   });
 
   it('defaults a null status to 0', () => {
-    expect(launchAgent('codex', '/repo', () => {}, () => ({ status: null }))).toBe(0);
+    expect(launchAgent('codex', '/repo', { log: () => {}, spawner: () => ({ status: null }) }))
+      .toBe(0);
   });
 
   it('throws with the manual command when the binary cannot launch', () => {
     expect(() =>
-      launchAgent('claude', '/repo', () => {}, () => ({
-        status: null,
-        error: new Error('ENOENT'),
-      })),
+      launchAgent('claude', '/repo', {
+        log: () => {},
+        spawner: () => ({ status: null, error: new Error('ENOENT') }),
+      }),
     ).toThrow(/could not launch "claude".*run it yourself[\s\S]*claude "/);
   });
 });

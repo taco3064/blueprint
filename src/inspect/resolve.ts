@@ -77,6 +77,12 @@ export function entryResolver(architecture: ArchitectureDef): EntryOf {
 /** What a relative import does to its module boundary. */
 export type RelativeVerdict = 'ok' | 'escapes-src' | 'leaves-layer' | 'reaches-inside';
 
+/** The two per-layer resolvers every module-shape judgment reads. */
+export interface ModuleShape {
+  layoutOf: LayoutOf;
+  entryOf: EntryOf;
+}
+
 /**
  * The single judgment behind both relative-import gates — `inspect`'s
  * `relative-escape` finding and the embedded `blueprint/relative-escape`
@@ -91,9 +97,10 @@ export type RelativeVerdict = 'ok' | 'escapes-src' | 'leaves-layer' | 'reaches-i
 export function relativeVerdict(
   ownSegments: string[],
   target: string[] | null,
-  layoutOf: LayoutOf,
-  entryOf: EntryOf,
+  shape: ModuleShape,
 ): RelativeVerdict {
+  const { layoutOf, entryOf } = shape;
+
   if (target === null) {
     return 'escapes-src';
   }
@@ -143,10 +150,9 @@ export function resolveSegments(dir: string[], specifier: string): string[] | nu
 export function targetModuleKey(
   ref: ImportRef,
   file: ScannedFile,
-  aliases: (AliasRoot | string)[],
-  layerNames: string[],
-  layoutOf: LayoutOf,
+  scope: { aliases: (AliasRoot | string)[]; layerNames: string[]; layoutOf: LayoutOf },
 ): string | null {
+  const { aliases, layerNames, layoutOf } = scope;
   const parts = stripAlias(ref.specifier, aliases);
 
   if (parts) {
@@ -178,8 +184,7 @@ export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef
   const layerNames = architecture.layers.map((layer) => layer.name);
   const aliases = aliasList(architecture);
   const layoutOf = layoutResolver(architecture);
-  const modules = new Set<string>();
-  const edges = new Map<string, Set<string>>();
+  const graph: ModuleGraph = { modules: new Set(), edges: new Map() };
 
   for (const file of scan.files) {
     if (!layerNames.includes(file.segments[0])) {
@@ -188,16 +193,16 @@ export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef
 
     const from = moduleKey(file.segments, layoutOf);
 
-    modules.add(from);
+    graph.modules.add(from);
 
     for (const ref of file.imports) {
-      const to = targetModuleKey(ref, file, aliases, layerNames, layoutOf);
+      const to = targetModuleKey(ref, file, { aliases, layerNames, layoutOf });
 
       if (to && to !== from) {
-        edges.set(from, (edges.get(from) ?? new Set()).add(to));
+        graph.edges.set(from, (graph.edges.get(from) ?? new Set()).add(to));
       }
     }
   }
 
-  return { modules, edges };
+  return graph;
 }

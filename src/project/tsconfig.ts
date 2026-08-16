@@ -10,22 +10,9 @@ function eachPathAlias(
   visit: (alias: string, dir: string | null) => void,
 ): void {
   for (const text of Object.values(tsconfigs)) {
-    if (text == null) {
-      continue;
-    }
+    const paths = pathsOf(text);
 
-    const result = parseJsonc(text);
-
-    // undecidable against the `?.` below, which yields no options on a failure
-    // anyway; that `?.` is separately pinned by a tsconfig whose content is `null`.
-    if (!result.ok) {
-      continue;
-    }
-
-    const options = (result.value as { compilerOptions?: { paths?: unknown } })?.compilerOptions;
-    const paths = options?.paths;
-
-    if (typeof paths !== 'object' || paths === null) {
+    if (paths === null) {
       continue;
     }
 
@@ -41,6 +28,28 @@ function eachPathAlias(
       visit(alias, target?.replace(/^\.\//, '').replace(/\/\*$/, '') ?? null);
     }
   }
+}
+
+/** One tsconfig's `compilerOptions.paths`, or null when it has none this can read. */
+function pathsOf(text: string | null): Record<string, unknown> | null {
+  if (text == null) {
+    return null;
+  }
+
+  const result = parseJsonc(text);
+
+  // undecidable against the `?.` below, which yields no options on a failure
+  // anyway; that `?.` is separately pinned by a tsconfig whose content is `null`.
+  if (!result.ok) {
+    return null;
+  }
+
+  const options = (result.value as { compilerOptions?: { paths?: unknown } })?.compilerOptions;
+  const paths = options?.paths;
+
+  return typeof paths !== 'object' || paths === null
+    ? null
+    : paths as Record<string, unknown>;
 }
 
 /** Aliases in tsconfig/jsconfig `paths` that map onto `src/`, e.g. `@/* → ./src/*`. */
@@ -101,26 +110,39 @@ export function viteTsCoverage(root: string): ViteTsCoverage | null {
   }
 
   const projects = tsProjectGraph(root, rootConfig, rootText);
+  const covering = projects === null ? null : coveringProject(projects, viteFile);
 
-  if (projects === null) {
+  if (covering === null) {
     return null;
   }
 
+  return covering
+    ? { verdict: 'covered', viteFile, tsconfig: covering.file }
+    : { verdict: 'outside', viteFile, tsconfig: rootConfig };
+}
+
+/**
+ * The first project that pulls `viteFile` in — `undefined` when none does, `null`
+ * when one could not be read: a single undecidable project poisons the whole answer,
+ * because "none of them covers it" cannot be claimed while one of them is unread.
+ */
+function coveringProject(
+  projects: TsProject[],
+  viteFile: string,
+): TsProject | null | undefined {
   for (const project of projects) {
     const covers = projectCovers(project, viteFile);
 
-    // A single undecidable project poisons the whole answer: "none of them
-    // covers it" cannot be claimed while one of them is unread.
     if (covers === null) {
       return null;
     }
 
     if (covers) {
-      return { verdict: 'covered', viteFile, tsconfig: project.file };
+      return project;
     }
   }
 
-  return { verdict: 'outside', viteFile, tsconfig: rootConfig };
+  return undefined;
 }
 
 export interface TscArtifactLocation {
@@ -156,12 +178,7 @@ export interface TscArtifactLocation {
 export function tscArtifactsOutOfTree(root: string): TscArtifactLocation | null {
   const rootConfig = 'tsconfig.json';
   const rootText = readText(path.join(root, rootConfig));
-
-  if (rootText === null) {
-    return null;
-  }
-
-  const projects = tsProjectGraph(root, rootConfig, rootText);
+  const projects = rootText === null ? null : tsProjectGraph(root, rootConfig, rootText);
 
   if (projects === null) {
     return null;
@@ -177,21 +194,9 @@ export function tscArtifactsOutOfTree(root: string): TscArtifactLocation | null 
       continue;
     }
 
-    const options = project.compilerOptions;
+    const rel = outOfTreeBuildInfo(project);
 
-    if (!isRecord(options)) {
-      return null;
-    }
-
-    const buildInfo = options.tsBuildInfoFile;
-
-    if (options.noEmit !== true || typeof buildInfo !== 'string') {
-      return null;
-    }
-
-    const rel = normalizeSlashes(buildInfo);
-
-    if (!rel.startsWith('node_modules/')) {
+    if (rel === null) {
       return null;
     }
 
@@ -199,6 +204,31 @@ export function tscArtifactsOutOfTree(root: string): TscArtifactLocation | null 
   }
 
   return found;
+}
+
+/**
+ * Where this project keeps its build info when it provably writes nothing into the
+ * working tree; null for any shape that leaves that unproven. `node_modules/` is the
+ * whole test for "out of the way", deliberately narrow: it is ignored everywhere by
+ * convention, and deciding whether some other directory is ignored needs the
+ * `.gitignore` reader that lives above this module.
+ */
+function outOfTreeBuildInfo(project: TsProject): string | null {
+  const options = project.compilerOptions;
+
+  if (!isRecord(options)) {
+    return null;
+  }
+
+  const buildInfo = options.tsBuildInfoFile;
+
+  if (options.noEmit !== true || typeof buildInfo !== 'string') {
+    return null;
+  }
+
+  const rel = normalizeSlashes(buildInfo);
+
+  return rel.startsWith('node_modules/') ? rel : null;
 }
 
 /** A config that only points at others: nothing to build, nothing written. */
@@ -230,37 +260,18 @@ function tsProjectGraph(root: string, file: string, text: string): TsProject[] |
   const rootProject = toProject(file, parsed.value);
   const refs = rootProject.references;
 
-  if (refs === undefined) {
-    return [rootProject];
-  }
-
   if (!Array.isArray(refs)) {
-    return null;
+    // No `references` key at all is a single-project graph; a `references` in any
+    // other shape is one this reader will not guess at.
+    return refs === undefined ? [rootProject] : null;
   }
 
   const projects: TsProject[] = [rootProject];
 
   for (const ref of refs) {
-    if (!isRecord(ref) || typeof ref.path !== 'string') {
-      return null;
-    }
+    const project = referencedProject(root, ref);
 
-    const resolved = resolveReference(root, ref.path);
-
-    if (resolved === null) {
-      return null;
-    }
-
-    const refParsed = parseJsonc(resolved.text);
-
-    if (!refParsed.ok || !isRecord(refParsed.value)) {
-      return null;
-    }
-
-    const project = toProject(resolved.file, refParsed.value);
-
-    // Depth stops here — see the note above.
-    if (project.references !== undefined) {
+    if (project === null) {
       return null;
     }
 
@@ -268,6 +279,30 @@ function tsProjectGraph(root: string, file: string, text: string): TsProject[] |
   }
 
   return projects;
+}
+
+/** One `references[]` entry as a project — null for anything this cannot follow. */
+function referencedProject(root: string, ref: unknown): TsProject | null {
+  if (!isRecord(ref) || typeof ref.path !== 'string') {
+    return null;
+  }
+
+  const resolved = resolveReference(root, ref.path);
+
+  if (resolved === null) {
+    return null;
+  }
+
+  const parsed = parseJsonc(resolved.text);
+
+  if (!parsed.ok || !isRecord(parsed.value)) {
+    return null;
+  }
+
+  const project = toProject(resolved.file, parsed.value);
+
+  // Depth stops here — see the note above.
+  return project.references === undefined ? project : null;
 }
 
 /** A `references[].path` may name the file or its directory. */
@@ -318,14 +353,12 @@ function projectCovers(project: TsProject, viteFile: string): boolean | null {
     return false;
   }
 
-  const rel = viteFile;
-
   if (project.files !== undefined) {
     if (!isStringArray(project.files)) {
       return null;
     }
 
-    if (project.files.some((entry) => normalizeSlashes(entry) === rel)) {
+    if (project.files.some((entry) => normalizeSlashes(entry) === viteFile)) {
       return true;
     }
   }
@@ -340,12 +373,17 @@ function projectCovers(project: TsProject, viteFile: string): boolean | null {
     return project.extends === undefined ? true : null;
   }
 
-  if (!isStringArray(project.include)) {
+  return includeCovers(project.include, viteFile);
+}
+
+/** Does any `include` glob cover the file? Null when a glob shape yields no verdict. */
+function includeCovers(include: unknown, file: string): boolean | null {
+  if (!isStringArray(include)) {
     return null;
   }
 
-  for (const glob of project.include) {
-    const verdict = globCovers(normalizeSlashes(glob), rel);
+  for (const glob of include) {
+    const verdict = globCovers(normalizeSlashes(glob), file);
 
     if (verdict === null) {
       return null;

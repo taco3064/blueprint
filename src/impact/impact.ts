@@ -4,6 +4,7 @@ import type { ESLint as EslintNamespace, Linter } from 'eslint';
 import { emitLint, resolveLayerFiles } from '../emit/lint';
 import type { LintConfigEntry } from '../emit/lint';
 import { expectedCarriers } from '../inspect';
+import type { Blueprint } from '../config';
 import { detect, loadProjectModule, resolveBlueprint, unwrapModule } from '../project';
 import type { ResolveOptions } from '../project';
 
@@ -102,44 +103,94 @@ export async function runImpact(
   }
 
   const { blueprint } = await resolveBlueprint(root, state, options);
-  const load = options.loadModule ?? loadProjectModule;
 
   const framework
     = blueprint.framework !== 'auto' ? blueprint.framework : state.framework ?? 'auto';
 
-  const vue = framework === 'vue';
-  const ts = state.hasTypescript;
+  const stack = await loadImpactStack(root, blueprint, {
+    load: options.loadModule ?? loadProjectModule,
+    framework,
+    hasTypescript: state.hasTypescript,
+  });
 
-  const { ESLint } = unwrapModule<EslintApi>(await loadStack(load, root, 'eslint'));
+  const config = impactConfig(blueprint, framework, stack);
+  const results = await lintLayers(root, blueprint, { ESLint: stack.ESLint, config });
+  const impacts = tallyImpacts(results, root, emittedRuleIds(config));
 
-  const tseslint = ts
-    ? unwrapModule<TsEslintApi>(await loadStack(load, root, 'typescript-eslint'))
-    : null;
+  // The total answers exactly one question — how much red does the WIRING
+  // introduce. Foreign rows vanish once emitLint merges into the real
+  // config, and the two special rows are isolation caveats, not violations
+  // (counting them under "would flag today" contradicted the caveat below
+  // them — field batch 8 nearly locked three phantom findings).
+  const total = impacts
+    .filter((impact) => !impact.foreign && !SPECIAL_ROWS.has(impact.rule))
+    .reduce((sum, impact) => sum + impact.count, 0);
 
-  const vueParser = vue
-    ? unwrapModule<Linter.Parser>(await loadStack(load, root, 'vue-eslint-parser'))
-    : null;
+  log(
+    options.json
+      ? JSON.stringify({ total, linted: results.length, impacts }, null, 2)
+      : renderImpact(impacts, total, results.length),
+  );
 
-  // Required only where a gate would use it: loading both unconditionally refused
-  // the whole command to a config declaring no gates at all (field run #133). The
-  // gate list is doctor's, so "needed" means what "expected to resolve" means there.
-  const carriers = new Set(expectedCarriers(blueprint, ts).map((entry) => entry.carrier));
+  return { impacts, total };
+}
 
-  const stylistic = carriers.has('stylistic')
-    ? unwrapModule<EslintNamespace.Plugin>(
-        await loadStack(load, root, '@stylistic/eslint-plugin'),
-      )
-    : undefined;
+/** The project's own eslint and every plugin a declared gate would ride. */
+interface ImpactStack {
+  ESLint: EslintApi['ESLint'];
+  tseslint: TsEslintApi | null;
+  vueParser: Linter.Parser | null;
+  stylistic: EslintNamespace.Plugin | undefined;
+  imports: EslintNamespace.Plugin | undefined;
+}
 
-  const imports = carriers.has('imports')
-    ? unwrapModule<EslintNamespace.Plugin>(
-        await loadStack(load, root, 'eslint-plugin-import-x'),
-      )
-    : undefined;
+/**
+ * Load only what a gate would use: loading every carrier unconditionally refused the
+ * whole command to a config declaring no gates at all (field run #133). The gate list
+ * is doctor's, so "needed" means what "expected to resolve" means there.
+ */
+async function loadImpactStack(
+  root: string,
+  blueprint: Blueprint,
+  ctx: { load: (name: string, root: string) => Promise<unknown>;
+    framework: string; hasTypescript: boolean; },
+): Promise<ImpactStack> {
+  const { load, framework, hasTypescript } = ctx;
+  const carriers = new Set(expectedCarriers(blueprint, hasTypescript).map((e) => e.carrier));
 
-  // The same parser wiring the generated eslint config carries (see
-  // bootstrap's eslintConfigSource) — parsers only, so every file the
-  // emitted rules cover can actually be parsed.
+  return {
+    ESLint: unwrapModule<EslintApi>(await loadStack(load, root, 'eslint')).ESLint,
+    tseslint: hasTypescript
+      ? unwrapModule<TsEslintApi>(await loadStack(load, root, 'typescript-eslint'))
+      : null,
+    vueParser: framework === 'vue'
+      ? unwrapModule<Linter.Parser>(await loadStack(load, root, 'vue-eslint-parser'))
+      : null,
+    stylistic: carriers.has('stylistic')
+      ? unwrapModule<EslintNamespace.Plugin>(
+          await loadStack(load, root, '@stylistic/eslint-plugin'),
+        )
+      : undefined,
+    imports: carriers.has('imports')
+      ? unwrapModule<EslintNamespace.Plugin>(
+          await loadStack(load, root, 'eslint-plugin-import-x'),
+        )
+      : undefined,
+  };
+}
+
+/**
+ * The emitted rules, under the same parser wiring the generated eslint config
+ * carries (see bootstrap's eslintConfigSource) — parsers only, so every file the
+ * emitted rules cover can actually be parsed.
+ */
+function impactConfig(
+  blueprint: Blueprint,
+  framework: string,
+  stack: ImpactStack,
+): LintConfigEntry[] {
+  const { tseslint, vueParser, stylistic, imports } = stack;
+
   const parserEntries: LintConfigEntry[] = [
     ...(vueParser
       ? [{
@@ -161,7 +212,7 @@ export async function runImpact(
       : []),
   ];
 
-  const config = [
+  return [
     ...parserEntries,
     ...emitLint(blueprint, {
       ...(tseslint ? { typescript: tseslint.plugin } : {}),
@@ -169,35 +220,54 @@ export async function runImpact(
       imports,
     }),
   ];
+}
 
-  const { architecture } = blueprint;
+/** Lint every layer glob with only the emitted config — the isolation the report is about. */
+function lintLayers(
+  root: string,
+  blueprint: Blueprint,
+  run: { ESLint: EslintApi['ESLint']; config: LintConfigEntry[] },
+): Promise<{ filePath: string; messages: { ruleId: string | null; fatal?: boolean }[] }[]> {
+  const { architecture, framework } = blueprint;
 
   const globs = [
     ...new Set(
       architecture.layers.flatMap((layer) =>
-        resolveLayerFiles(layer.name, architecture.layerFiles, framework, architecture.sourceRoot),
+        resolveLayerFiles(layer.name, framework, architecture),
       ),
     ),
   ];
 
-  const eslint = new ESLint({
+  const eslint = new run.ESLint({
     cwd: root,
     overrideConfigFile: true,
-    overrideConfig: config,
+    overrideConfig: run.config,
     // Greenfield layers may hold no files yet — an empty net is a finding
     // for `inspect`'s coverage line, not a crash here.
     errorOnUnmatchedPattern: false,
   });
 
-  const results = await eslint.lintFiles(globs);
-  const byRule = new Map<string, Map<string, number>>();
+  return eslint.lintFiles(globs);
+}
 
-  // The emitted rule ids, plus the two null-ruleId special rows — anything
-  // else in the results is an isolation artifact, not a blueprint hit.
-  const emitted = new Set([
+/**
+ * The emitted rule ids, plus the two null-ruleId special rows — anything else in
+ * the results is an isolation artifact, not a blueprint hit.
+ */
+function emittedRuleIds(config: LintConfigEntry[]): Set<string> {
+  return new Set([
     ...config.flatMap((entry) => Object.keys(entry.rules ?? {})),
     ...SPECIAL_ROWS,
   ]);
+}
+
+/** Count every message per rule per file, heaviest rule (then file) first. */
+function tallyImpacts(
+  results: { filePath: string; messages: { ruleId: string | null; fatal?: boolean }[] }[],
+  root: string,
+  emitted: Set<string>,
+): RuleImpact[] {
+  const byRule = new Map<string, Map<string, number>>();
 
   for (const result of results) {
     const rel = path.relative(root, result.filePath).split(path.sep).join('/');
@@ -215,7 +285,7 @@ export async function runImpact(
     }
   }
 
-  const impacts: RuleImpact[] = [...byRule.entries()]
+  return [...byRule.entries()]
     .map(([rule, perFile]) => ({
       rule,
       count: [...perFile.values()].reduce((sum, n) => sum + n, 0),
@@ -227,23 +297,6 @@ export async function runImpact(
       foreign: !emitted.has(rule),
     }))
     .sort((a, b) => b.count - a.count || a.rule.localeCompare(b.rule));
-
-  // The total answers exactly one question — how much red does the WIRING
-  // introduce. Foreign rows vanish once emitLint merges into the real
-  // config, and the two special rows are isolation caveats, not violations
-  // (counting them under "would flag today" contradicted the caveat below
-  // them — field batch 8 nearly locked three phantom findings).
-  const total = impacts
-    .filter((impact) => !impact.foreign && !SPECIAL_ROWS.has(impact.rule))
-    .reduce((sum, impact) => sum + impact.count, 0);
-
-  log(
-    options.json
-      ? JSON.stringify({ total, linted: results.length, impacts }, null, 2)
-      : renderImpact(impacts, total, results.length),
-  );
-
-  return { impacts, total };
 }
 
 /**

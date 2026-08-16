@@ -198,6 +198,13 @@ export const LINT_GATED_RULE_IDS = [
   ...PLUGIN_GATES.map((gate) => gate.id),
 ];
 
+/** The three facts that decide whether a stack can open a gate at all. */
+export interface GateStack {
+  framework: string | undefined;
+  hasTypescript: boolean;
+  testFiles?: string | string[];
+}
+
 /**
  * Why this stack cannot open a gate, or null when it can — mirroring what
  * `emitLint` actually does rather than restating it.
@@ -210,12 +217,9 @@ export const LINT_GATED_RULE_IDS = [
  * `fixtureImports`, which is not it (field run #137). Two numbers for one concept
  * is a defect whichever is right, and the reader guessing is the cost.
  */
-export function unavailableGate(
-  id: string,
-  framework: string | undefined,
-  hasTypescript: boolean,
-  testFiles?: string | string[],
-): string | null {
+export function unavailableGate(id: string, stack: GateStack): string | null {
+  const { framework, hasTypescript, testFiles } = stack;
+
   if (id === 'deepWatch' && framework === 'react') {
     return 'Vue only — never emits on React, whatever it declares';
   }
@@ -254,7 +258,7 @@ export function unavailableFromBlueprint(
   framework: string | undefined,
   testFiles: string | string[] | undefined,
 ): string | null {
-  return unavailableGate(id, framework, true, testFiles);
+  return unavailableGate(id, { framework, hasTypescript: true, testFiles });
 }
 
 /**
@@ -282,10 +286,11 @@ export function enforcedBy(id: string): 'lint' | 'inspect' | 'docs' {
  */
 export function resolveLayerFiles(
   layer: string,
-  layerFiles: string | string[] | undefined,
   framework: Framework,
-  sourceRoot = 'src',
+  scope: { layerFiles?: string | string[]; sourceRoot?: string } = {},
 ): string[] {
+  const { layerFiles, sourceRoot = 'src' } = scope;
+
   const globs
     = layerFiles === undefined ? [defaultGlob(framework, sourceRoot)] : toArray(layerFiles);
 

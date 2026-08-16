@@ -80,42 +80,6 @@ describe('emitLint · injected-plugin gates', () => {
     expect(rule[1]).toEqual({ blankLine: 'always', prev: 'block-like', next: '*' });
   });
 
-  it('splits the shape family off the test-exempt entry, each with its plugins', () => {
-    const emitted = emitLint(
-      defineBlueprint({
-        ...blueprint,
-        framework: 'vue',
-        rules: {
-          explicitAny: 'error',
-          deepWatch: 'error',
-          statementPadding: 'error',
-          importBlock: 'error',
-        },
-      }),
-      { typescript: tsPlugin, stylistic: stylisticPlugin, imports: importsPlugin },
-    );
-
-    // Metrics and type hygiene stay exempt from tests…
-    const shared = emitted.find((item) => item.rules?.['blueprint/no-deep-watch']);
-
-    expect(shared?.ignores).toEqual([
-      '**/*.test.{js,jsx,ts,tsx,vue}',
-      '**/*.spec.{js,jsx,ts,tsx,vue}',
-    ]);
-
-    expect(shared?.plugins?.blueprint).toBeDefined();
-    expect(shared?.plugins?.['@typescript-eslint']).toBe(tsPlugin);
-
-    // …while the shape family covers tests too: a duplicate import or a
-    // collapsed line is no easier to read in a spec file.
-    const shape = emitted.find((item) => item.rules?.['import-x/no-duplicates']);
-
-    expect(shape?.ignores).toBeUndefined();
-    expect(shape?.rules?.['@stylistic/padding-line-between-statements']).toBeDefined();
-    expect(shape?.plugins?.['@stylistic']).toBe(stylisticPlugin);
-    expect(shape?.plugins?.['import-x']).toBe(importsPlugin);
-  });
-
   it('enforces both statement gates through a real Linter run', () => {
     const cfg = [
       { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
@@ -153,6 +117,46 @@ describe('emitLint · injected-plugin gates', () => {
 
     expect(ids('export const x = 1;\nimport { a } from "./m";\n')).toContain('import-x/first');
     expect(ids('import { a, b } from "./m";\n\nexport const x = a + b;\n')).toEqual([]);
+  });
+});
+
+describe('emitLint · the two entries the injected gates split across', () => {
+  const tsPlugin = { rules: {} };
+
+  const spanning = emitLint(
+    defineBlueprint({
+      ...blueprint,
+      framework: 'vue',
+      rules: {
+        explicitAny: 'error',
+        deepWatch: 'error',
+        statementPadding: 'error',
+        importBlock: 'error',
+      },
+    }),
+    { typescript: tsPlugin, stylistic: stylisticPlugin, imports: importsPlugin },
+  );
+
+  it('keeps metrics and type hygiene exempt from tests, with their own plugins', () => {
+    const shared = spanning.find((item) => item.rules?.['blueprint/no-deep-watch']);
+
+    expect(shared?.ignores).toEqual([
+      '**/*.test.{js,jsx,ts,tsx,vue}',
+      '**/*.spec.{js,jsx,ts,tsx,vue}',
+    ]);
+
+    expect(shared?.plugins?.blueprint).toBeDefined();
+    expect(shared?.plugins?.['@typescript-eslint']).toBe(tsPlugin);
+  });
+
+  it('puts the shape family on an entry that covers test files too', () => {
+    // A duplicate import or a collapsed line is no easier to read in a spec file.
+    const shape = spanning.find((item) => item.rules?.['import-x/no-duplicates']);
+
+    expect(shape?.ignores).toBeUndefined();
+    expect(shape?.rules?.['@stylistic/padding-line-between-statements']).toBeDefined();
+    expect(shape?.plugins?.['@stylistic']).toBe(stylisticPlugin);
+    expect(shape?.plugins?.['import-x']).toBe(importsPlugin);
   });
 });
 

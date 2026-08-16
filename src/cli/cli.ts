@@ -37,91 +37,100 @@ export function version(dir: string = path.dirname(fileURLToPath(import.meta.url
   return 'unknown';
 }
 
+/**
+ * One entry per command, keyed the same way `KNOWN_FLAGS` and `COMMAND_HELP` are.
+ * A Map rather than an object literal: a bare record answers `blueprint constructor`
+ * with something off Object.prototype.
+ */
+const COMMANDS = new Map<string, (cwd: string, rest: string[]) => Promise<number>>([
+  ['init', async (cwd, rest) => {
+    await runInit(cwd, parseInitArgs(rest));
+
+    return 0;
+  }],
+  ['survey', async (cwd, rest) => {
+    runSurvey(cwd, parseSurveyArgs(rest));
+
+    return 0;
+  }],
+  ['inspect', async (cwd, rest) => ((await runInspect(cwd, parseInspectArgs(rest))).ok ? 0 : 1)],
+  // Informational dry-run — any hit count is a valid answer, so exit 0.
+  ['impact', async (cwd, rest) => {
+    await runImpact(cwd, parseImpactArgs(rest));
+
+    return 0;
+  }],
+  ['deps', async (cwd, rest) => ((await runDeps(cwd, parseDepsArgs(rest))).ok ? 0 : 1)],
+  // The catalog is an answer, never a verdict — exit 0 like impact.
+  ['rules', async (cwd, rest) => {
+    await runRules(cwd, parseRulesArgs(rest));
+
+    return 0;
+  }],
+  ['doctor', async (cwd, rest) => ((await runDoctor(cwd, parseDoctorArgs(rest))).ok ? 0 : 1)],
+]);
+
 /** CLI dispatch. Returns the process exit code. */
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
   const [command, ...rest] = argv;
+  const help = helpText(command, rest);
 
-  if (command === '--help' || command === '-h') {
-    console.log(USAGE);
-
-    return 0;
-  }
-
-  if (command === '--version' || command === '-v') {
-    console.log(version());
-
-    return 0;
-  }
-
-  // `Object.hasOwn` over `in`: `hasOwn(record, '')` is false, which is the answer
-  // wanted for "no command given", and it does not walk the prototype chain.
-  const help = COMMAND_HELP[command ?? ''];
-
-  if (help !== undefined && (rest.includes('--help') || rest.includes('-h'))) {
+  if (help !== null) {
     console.log(help);
 
     return 0;
   }
 
   try {
-    const known = KNOWN_FLAGS[command ?? ''];
+    // Before the dispatch, so an unknown command is still told which flags it got
+    // wrong — and so a command that declares no flag set has a reachable arm.
+    assertFlagsKnown(command ?? '', rest);
 
-    if (known !== undefined) {
-      rejectUnknownFlags(known, command as string, rest);
+    const handler = COMMANDS.get(command ?? '');
+
+    if (handler === undefined) {
+      console.log(USAGE);
+
+      return command === undefined ? 0 : 1;
     }
 
-    if (command === 'init') {
-      await runInit(cwd, parseInitArgs(rest));
-
-      return 0;
-    }
-
-    if (command === 'survey') {
-      runSurvey(cwd, parseSurveyArgs(rest));
-
-      return 0;
-    }
-
-    if (command === 'inspect') {
-      const { ok } = await runInspect(cwd, parseInspectArgs(rest));
-
-      return ok ? 0 : 1;
-    }
-
-    if (command === 'impact') {
-      // Informational dry-run — any hit count is a valid answer, so exit 0.
-      await runImpact(cwd, parseImpactArgs(rest));
-
-      return 0;
-    }
-
-    if (command === 'deps') {
-      const { ok } = await runDeps(cwd, parseDepsArgs(rest));
-
-      return ok ? 0 : 1;
-    }
-
-    if (command === 'rules') {
-      // The catalog is an answer, never a verdict — exit 0 like impact.
-      await runRules(cwd, parseRulesArgs(rest));
-
-      return 0;
-    }
-
-    if (command === 'doctor') {
-      const { ok } = await runDoctor(cwd, parseDoctorArgs(rest));
-
-      return ok ? 0 : 1;
-    }
+    return await handler(cwd, rest);
   } catch (error) {
     console.error(`✗ ${(error as Error).message}`);
 
     return 1;
   }
+}
 
-  console.log(USAGE);
+/**
+ * What gets printed INSTEAD of running anything: the two top-level flags, and a
+ * command asked for its own help. Null when the argv is a real invocation.
+ */
+function helpText(command: string | undefined, rest: string[]): string | null {
+  if (command === '--help' || command === '-h') {
+    return USAGE;
+  }
 
-  return command === undefined ? 0 : 1;
+  if (command === '--version' || command === '-v') {
+    return version();
+  }
+
+  // `Object.hasOwn` over `in`: `hasOwn(record, \'\')` is false, which is the answer
+  // wanted for "no command given", and it does not walk the prototype chain.
+  const help = Object.hasOwn(COMMAND_HELP, command ?? '')
+    ? COMMAND_HELP[command as string]
+    : undefined;
+
+  return help !== undefined && (rest.includes('--help') || rest.includes('-h')) ? help : null;
+}
+
+/** A command that declares its own flag set only accepts those flags. */
+function assertFlagsKnown(command: string, rest: string[]): void {
+  const known = KNOWN_FLAGS[command];
+
+  if (known !== undefined) {
+    rejectUnknownFlags(known, command, rest);
+  }
 }
 
 /**

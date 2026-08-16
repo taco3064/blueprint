@@ -279,12 +279,11 @@ function resolveGate(
   // denominator reads — this used to mirror only the React case, so a JS project saw
   // `explicitAny` here as an ordinary gate and `0/17 optional gates` there, with
   // nothing to reconcile them (field run #137).
-  const unavailable = unavailableGate(
-    spec.id,
-    blueprint?.framework,
+  const unavailable = unavailableGate(spec.id, {
+    framework: blueprint?.framework,
     hasTypescript,
-    blueprint?.architecture.testFiles,
-  );
+    testFiles: blueprint?.architecture.testFiles,
+  });
 
   return {
     ...spec,
@@ -329,7 +328,7 @@ export async function runRules(
           bans,
           docsOnly: DOC_ONLY_RULES,
         }, null, 2)
-      : renderRules(severity, structural, gates, bans, blueprint !== null),
+      : renderRules({ severity, structural, gates, bans }, blueprint !== null),
   );
 
   return { severity, gates, bans };
@@ -337,12 +336,16 @@ export async function runRules(
 
 /** The human-readable catalog. */
 export function renderRules(
-  severity: string,
-  structural: StructuralStatus[],
-  gates: GateStatus[],
-  bans: LayerBans[],
+  catalog: {
+    severity: string;
+    structural: StructuralStatus[];
+    gates: GateStatus[];
+    bans: LayerBans[];
+  },
   hasConfig: boolean,
 ): string {
+  const { severity, structural, gates, bans } = catalog;
+
   const status = (gate: GateStatus) => {
     // Outranks the tier, and keeps the declared/undeclared split it used to carry as
     // "never emits here": whether the author set it still matters — declared means a

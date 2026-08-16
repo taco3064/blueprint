@@ -208,11 +208,18 @@ function renderEarlyExitVerify(
 
 export function renderVerdict(
   survey: SurveyResult,
-  claudeDir: ClaudeDirState,
-  viteTs: ViteTsCoverage | null,
-  tscOut: TscArtifactLocation | null,
-  pm: PackageManager,
+  // An options object, not positional facts — the shape `authoringBrief` already
+  // uses, and the one that stops a later field forcing every caller to restate an
+  // earlier default.
+  facts: {
+    claudeDir: ClaudeDirState;
+    viteTs: ViteTsCoverage | null;
+    tscOut: TscArtifactLocation | null;
+    pm: PackageManager;
+  },
 ): string {
+  const { claudeDir, viteTs, tscOut, pm } = facts;
+
   if (survey.totalFiles >= BROWNFIELD_MIN_FILES) {
     return '';
   }

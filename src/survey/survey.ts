@@ -5,7 +5,8 @@ import { scan } from '../inspect/scan';
 import { resolveSegments, stripAlias } from '../inspect/resolve';
 import { detect, detectAliases } from '../project';
 import type { PackageManager } from '../project';
-import type { ScanResult } from '../inspect/types';
+import type { ImportRef, ScannedFile, ScanResult } from '../inspect/types';
+import { renderSurvey } from './render';
 
 /**
  * `blueprint survey` — deterministic evidence for authoring a blueprint on a
@@ -178,80 +179,155 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
     ? { [options.alias]: 'src' }
     : detectAliases(state.tsconfigs);
 
-  const aliasNames = Object.keys(aliases);
-  const deps = dependencyNames(root).sort((a, b) => b.length - a.length);
-  const folderSet = new Set(scanResult.topDirs);
+  const tally = tallyImports(scanResult, {
+    aliasNames: Object.keys(aliases),
+    folderSet: new Set(scanResult.topDirs),
+    deps: dependencyNames(root).sort((a, b) => b.length - a.length),
+  });
 
-  const edgeCounts = new Map<string, number>();
-  const selfAliasImports: Record<string, number> = {};
-  const packageFolders = new Map<string, Set<string>>();
+  const result = surveyResult(state, scanResult, { aliases, tally });
 
-  const specifierFolders
-    = new Map<string, { package: string; name: string; folders: Set<string> }>();
+  log(options.json ? JSON.stringify(result, null, 2) : renderSurvey(result));
 
-  const unresolvedCounts = new Map<string, number>();
+  return result;
+}
+
+/** Everything one walk of the imports accumulates, keyed by the folder that imports. */
+interface ImportTally {
+  /** `"from → to"` → how many cross-folder imports carry it. */
+  edgeCounts: Map<string, number>;
+  selfAliasImports: Record<string, number>;
+  packageFolders: Map<string, Set<string>>;
+  specifierFolders: Map<string, { package: string; name: string; folders: Set<string> }>;
+  unresolvedCounts: Map<string, number>;
+}
+
+/** What each reference is judged against, plus the folder it is judged FROM. */
+interface RefScope {
+  file: ScannedFile;
+  from: string;
+  aliasNames: string[];
+  folderSet: Set<string>;
+  /** Dependency names, longest first, so `a/b` wins over `a`. */
+  deps: string[];
+}
+
+/** One pass over every import in the tree. */
+function tallyImports(
+  scanResult: ScanResult,
+  scope: { aliasNames: string[]; folderSet: Set<string>; deps: string[] },
+): ImportTally {
+  const tally: ImportTally = {
+    edgeCounts: new Map(),
+    selfAliasImports: {},
+    packageFolders: new Map(),
+    specifierFolders: new Map(),
+    unresolvedCounts: new Map(),
+  };
 
   for (const file of scanResult.files) {
-    const from = folderSet.has(file.segments[0]) ? file.segments[0] : ROOT_BUCKET;
+    const from = bucket(file.segments[0], scope.folderSet);
 
     for (const ref of file.imports) {
-      const parts = stripAlias(ref.specifier, aliasNames);
-
-      if (parts) {
-        const to = folderSet.has(parts[0]) ? parts[0] : ROOT_BUCKET;
-
-        if (to === from && from !== ROOT_BUCKET) {
-          selfAliasImports[from] = (selfAliasImports[from] ?? 0) + 1;
-        } else if (to !== from) {
-          const key = `${from} → ${to}`;
-
-          edgeCounts.set(key, (edgeCounts.get(key) ?? 0) + 1);
-        }
-      } else if (ref.specifier.startsWith('.')) {
-        const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
-
-        // climbs out of src/ — inspect's business later.
-        if (target === null) {
-          continue;
-        }
-
-        const to = folderSet.has(target[0]) ? target[0] : ROOT_BUCKET;
-
-        if (to !== from) {
-          const key = `${from} → ${to}`;
-
-          edgeCounts.set(key, (edgeCounts.get(key) ?? 0) + 1);
-        }
-      } else {
-        const dep = deps.find(
-          (name) => ref.specifier === name || ref.specifier.startsWith(`${name}/`),
-        );
-
-        if (dep) {
-          packageFolders.set(dep, (packageFolders.get(dep) ?? new Set()).add(from));
-
-          // Keyed on the pair AND carrying it, rather than joined and split back
-          // apart: the separator is the only thing a rejoined key can get wrong, and
-          // it did — one invisible character in place of the space, and every row
-          // failed the package lookup, with the empty list reading exactly like
-          // "this repo has nothing ownable at specifier granularity".
-          for (const name of ref.names) {
-            const key = JSON.stringify([dep, name]);
-
-            const entry = specifierFolders.get(key)
-              ?? { package: dep, name, folders: new Set<string>() };
-
-            entry.folders.add(from);
-            specifierFolders.set(key, entry);
-          }
-        } else if (/^[~@#]/.test(ref.specifier)) {
-          const prefix = ref.specifier.split('/')[0];
-
-          unresolvedCounts.set(prefix, (unresolvedCounts.get(prefix) ?? 0) + 1);
-        }
-      }
+      tallyRef(ref, { ...scope, file, from }, tally);
     }
   }
+
+  return tally;
+}
+
+/** A file directly under the source root has no folder — it lands in the root bucket. */
+function bucket(segment: string, folderSet: Set<string>): string {
+  return folderSet.has(segment) ? segment : ROOT_BUCKET;
+}
+
+/** One reference: an alias path, a relative path, or a package. */
+function tallyRef(ref: ImportRef, at: RefScope, tally: ImportTally): void {
+  const parts = stripAlias(ref.specifier, at.aliasNames);
+
+  if (parts) {
+    tallyAliasRef(bucket(parts[0], at.folderSet), at.from, tally);
+
+    return;
+  }
+
+  if (ref.specifier.startsWith('.')) {
+    const target = resolveSegments(at.file.segments.slice(0, -1), ref.specifier);
+
+    // climbs out of src/ — inspect's business later.
+    if (target !== null) {
+      addEdge(bucket(target[0], at.folderSet), at.from, tally);
+    }
+
+    return;
+  }
+
+  tallyPackageRef(ref, at, tally);
+}
+
+/** Reaching the importer's own folder through the alias is what the section counts. */
+function tallyAliasRef(to: string, from: string, tally: ImportTally): void {
+  if (to === from && from !== ROOT_BUCKET) {
+    tally.selfAliasImports[from] = (tally.selfAliasImports[from] ?? 0) + 1;
+
+    return;
+  }
+
+  addEdge(to, from, tally);
+}
+
+/** The matrix is cross-folder by definition, so a self-edge is not one of its rows. */
+function addEdge(to: string, from: string, tally: ImportTally): void {
+  if (to === from) {
+    return;
+  }
+
+  const key = `${from} → ${to}`;
+
+  tally.edgeCounts.set(key, (tally.edgeCounts.get(key) ?? 0) + 1);
+}
+
+/** A bare specifier: a known dependency, or an alias-shaped prefix nothing declares. */
+function tallyPackageRef(ref: ImportRef, at: RefScope, tally: ImportTally): void {
+  const dep = at.deps.find(
+    (name) => ref.specifier === name || ref.specifier.startsWith(`${name}/`),
+  );
+
+  if (!dep) {
+    if (/^[~@#]/.test(ref.specifier)) {
+      const prefix = ref.specifier.split('/')[0];
+
+      tally.unresolvedCounts.set(prefix, (tally.unresolvedCounts.get(prefix) ?? 0) + 1);
+    }
+
+    return;
+  }
+
+  tally.packageFolders.set(dep, (tally.packageFolders.get(dep) ?? new Set()).add(at.from));
+
+  // Keyed on the pair AND carrying it, rather than joined and split back
+  // apart: the separator is the only thing a rejoined key can get wrong, and
+  // it did — one invisible character in place of the space, and every row
+  // failed the package lookup, with the empty list reading exactly like
+  // "this repo has nothing ownable at specifier granularity".
+  for (const name of ref.names) {
+    const key = JSON.stringify([dep, name]);
+
+    const entry = tally.specifierFolders.get(key)
+      ?? { package: dep, name, folders: new Set<string>() };
+
+    entry.folders.add(at.from);
+    tally.specifierFolders.set(key, entry);
+  }
+}
+
+/** The report shape, assembled from the walk. */
+function surveyResult(
+  state: ReturnType<typeof detect>,
+  scanResult: ScanResult,
+  evidence: { aliases: Record<string, string>; tally: ImportTally },
+): SurveyResult {
+  const { aliases, tally } = evidence;
 
   // The packages more than one folder imports — the only ones whose specifiers can
   // say anything the package row does not. A `Set.has` rather than reading the size
@@ -259,10 +335,10 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
   // that recorded its package, so the absent arm of that lookup is unreachable, and
   // a defensive `?? 0` there is a branch no test can ever reach.
   const spread = new Set(
-    [...packageFolders].filter(([, folders]) => folders.size > 1).map(([name]) => name),
+    [...tally.packageFolders].filter(([, folders]) => folders.size > 1).map(([name]) => name),
   );
 
-  const result: SurveyResult = {
+  return {
     framework: state.framework,
     typescript: state.hasTypescript,
     packageManager: state.packageManager,
@@ -274,22 +350,22 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
       .filter((file) => file.segments.length === 1)
       .map((file) => file.segments[0]),
     folders: folderEvidence(scanResult),
-    edges: [...edgeCounts.entries()]
+    edges: [...tally.edgeCounts.entries()]
       .map(([key, count]) => {
         const [from, to] = key.split(' → ');
 
         return { from, to, count };
       })
       .sort((a, b) => b.count - a.count),
-    selfAliasImports,
+    selfAliasImports: tally.selfAliasImports,
     testEvidence: TEST_PATTERNS.map(({ pattern, test }) => ({
       pattern,
       files: scanResult.files.filter((file) => test(file.path)).length,
     })).filter((entry) => entry.files > 0),
-    packageUsage: [...packageFolders.entries()]
+    packageUsage: [...tally.packageFolders.entries()]
       .map(([name, folders]) => ({ package: name, folders: [...folders] }))
       .sort((a, b) => a.folders.length - b.folders.length || a.package.localeCompare(b.package)),
-    ownableImports: [...specifierFolders.values()]
+    ownableImports: [...tally.specifierFolders.values()]
       .filter((entry) => entry.folders.size === 1
         && spread.has(entry.package)
         // `(src root)` is not a layer — this survey says so twenty lines above ("root
@@ -299,190 +375,9 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
         && !entry.folders.has(ROOT_BUCKET))
       .map((entry) => ({ package: entry.package, name: entry.name, folder: [...entry.folders][0] }))
       .sort((a, b) => a.package.localeCompare(b.package) || a.name.localeCompare(b.name)),
-    unresolved: [...unresolvedCounts.entries()]
+    unresolved: [...tally.unresolvedCounts.entries()]
       .map(([prefix, count]) => ({ prefix, count }))
       .sort((a, b) => b.count - a.count),
     totalFiles: scanResult.files.length,
   };
-
-  log(options.json ? JSON.stringify(result, null, 2) : renderSurvey(result));
-
-  return result;
-}
-
-/**
- * Wrap a comma-joined list to `width`, at the given indent. The survey hand-wraps every
- * other line it prints; a list whose length is the reader's repo cannot be hand-wrapped.
- */
-function wrapList(items: string[], width: number, indent: string): string[] {
-  const lines: string[] = [];
-
-  for (const item of items) {
-    const last = lines.length - 1;
-    const candidate = lines.length ? `${lines[last]} ${item},` : `${indent}${item},`;
-
-    if (lines.length && candidate.length <= width) {
-      lines[last] = candidate;
-    } else {
-      lines.push(`${indent}${item},`);
-    }
-  }
-
-  return lines.map((line, index) => (index === lines.length - 1 ? line.replace(/,$/, '') : line));
-}
-
-/** The human-readable survey report. */
-export function renderSurvey(result: SurveyResult): string {
-  const lines: string[] = [
-    `Survey · ${result.framework ?? 'unknown framework'}${result.typescript ? ' + typescript' : ''} · ${result.packageManager} · ${result.totalFiles} source files`,
-    '',
-  ];
-
-  const aliasEntries = Object.entries(result.aliases);
-
-  lines.push(
-    aliasEntries.length
-      ? `Alias: ${aliasEntries.map(([alias, dir]) => `${alias} → ${dir}`).join(', ')}`
-      : 'Alias: none detected in tsconfig paths — pass --alias <name> if the project has one.',
-    '',
-  );
-
-  if (result.rootFiles.length) {
-    lines.push(`src/ root files (wiring, not layers): ${result.rootFiles.join(', ')}`, '');
-  }
-
-  lines.push('Folders (module-shape evidence):');
-
-  for (const folder of result.folders) {
-    lines.push(
-      `  ${folder.folder.padEnd(16)} ${String(folder.files).padStart(4)} source files · ${folder.directFiles} direct · ${folder.childFolders} child folders (${folder.indexedChildren} with index) · depth ${folder.maxDepth}`,
-    );
-  }
-
-  // Every row said "N files", and a row exists BECAUSE its folder does — so `0` read as
-  // an empty folder, which is the one thing it cannot mean. An adopter took
-  // `styles 0 files` for empty, ran `ls`, and found a directory of `.css` (field run
-  // #150). Once, under the block, not per row: the same reason the row itself does not
-  // repeat it — N copies of one sentence bury the numbers they sit beside.
-  const sourceless = result.folders.filter((folder) => folder.files === 0);
-
-  if (sourceless.length) {
-    // A blank line and no `  name` opening, because both were there: the note ran at the
-    // rows' own indent with no gap, and its first line began with the folder list — so
-    // `assets, styles: 0 source files means the` read as a fourth row for a folder called
-    // "assets, styles". Every other section here opens on a blank line for the same
-    // reason. The list wraps at 74 too: `public/ assets/ locales/ generated/` is one
-    // ordinary project, and it was the only line in this output nothing bounded.
-    lines.push(
-      '',
-      '  0 source files means the folder is HERE and holds none — not that it is empty.',
-      // Not a parenthetical list of content KINDS directly above a list of folder
-      // NAMES: on a repo with `assets/` and `styles/` the two read as the same list
-      // twice, and the words were identical. Dashes instead of parentheses, kinds that
-      // do not double as the folder names beside them, and the run-on sentence broken
-      // where it was already asking to be.
-      '  This survey reads source only, so whatever else lives there — stylesheets,',
-      '  images, build output — was never counted:',
-      ...wrapList(sourceless.map((folder) => folder.folder), 74, '    '),
-    );
-  }
-
-  // A bare heading over nothing reads as a render failure — say "none"
-  // (field issue #6). Same below for the import matrix.
-  if (!result.folders.length) {
-    lines.push('  — none —');
-  }
-
-  lines.push(
-    '',
-    'Import matrix (cross-folder, heaviest first — includes test files;',
-    'inspect excludes them, so its counts run lower):',
-  );
-
-  for (const edge of result.edges) {
-    lines.push(`  ${String(edge.count).padStart(4)}  ${edge.from} → ${edge.to}`);
-  }
-
-  if (!result.edges.length) {
-    lines.push('  — none —');
-  }
-
-  const selfEntries = Object.entries(result.selfAliasImports);
-
-  // An unqualified count reads as a promise — the playbook once called it
-  // "exactly how many errors the wiring will introduce" and a field agent
-  // proved it 5 ≠ 0 against impact (test files are exempt, and textual
-  // matches include mock specifiers / dynamic imports / doc comments).
-  // A zero prints as an explicit zero: the playbook cites this section, so
-  // an absent row read as a gap two field agents had to puzzle out
-  // (issues #25, #28).
-  lines.push(
-    '',
-    'Same-folder imports via the alias (textual upper bound incl. test',
-    'files — `impact` reports what the wired rules will really flag):',
-  );
-
-  if (selfEntries.length) {
-    for (const [folder, count] of selfEntries.sort((a, b) => b[1] - a[1])) {
-      lines.push(`  ${String(count).padStart(4)}  ${folder}`);
-    }
-  } else {
-    lines.push('     0  (none found)');
-  }
-
-  if (result.testEvidence.length) {
-    lines.push('', 'Test conventions:');
-
-    for (const entry of result.testEvidence) {
-      lines.push(`  ${String(entry.files).padStart(4)}  ${entry.pattern}`);
-    }
-  }
-
-  if (result.packageUsage.length) {
-    lines.push('', 'Package usage (most concentrated first — ownership candidates):');
-
-    for (const entry of result.packageUsage.slice(0, 15)) {
-      lines.push(`  ${entry.package} — ${entry.folders.join(', ')}`);
-    }
-
-    if (result.packageUsage.length > 15) {
-      lines.push(`  … ${result.packageUsage.length - 15} more (use --json for the full list)`);
-    }
-  }
-
-  if (result.ownableImports.length) {
-    lines.push(
-      '',
-      'Named imports in ONE folder, from a package in several (specifier-level ownership',
-      'candidates — `owns: [{ package, imports: […] }]`; the rows above cannot support one).',
-      // The section's claim is stronger than the matrix's — it names ONE owner — so its
-      // one blind spot belongs beside it. `scan` reads source text: it collects the names
-      // in a brace clause and cannot see which members a namespace import touches, so
-      // "hooks only" means "no other folder names it in braces".
-      'Read from brace clauses only: a member reached through `import * as` is invisible',
-      'here, so a folder using one is not counted against the "only":',
-    );
-
-    for (const entry of result.ownableImports.slice(0, 15)) {
-      lines.push(`  ${entry.package} → ${entry.name} — ${entry.folder} only`);
-    }
-
-    if (result.ownableImports.length > 15) {
-      lines.push(`  … ${result.ownableImports.length - 15} more (use --json for the full list)`);
-    }
-  }
-
-  if (result.unresolved.length) {
-    lines.push(
-      '',
-      'Unresolved alias-like imports (an undeclared alias? declare it in additionalAliases, '
-      + 'or pass --alias):',
-    );
-
-    for (const entry of result.unresolved) {
-      lines.push(`  ${String(entry.count).padStart(4)}  ${entry.prefix}/…`);
-    }
-  }
-
-  return lines.join('\n');
 }

@@ -99,9 +99,8 @@ describe('runRules · the catalog it prints', () => {
     expect(output).toContain('cannot run under flat config\n\n(no blueprint.config.mjs');
   });
 
-  it('annotates the declared tiers, values, and framework silencing', async () => {
-    const lines: string[] = [];
-    const { severity, gates } = await runRules(repo(blueprint), { log: (m) => void lines.push(m) });
+  it('annotates the declared tiers and values on the gates it returns', async () => {
+    const { severity, gates } = await runRules(repo(blueprint), { log: () => {} });
     const byId = new Map(gates.map((gate) => [gate.id, gate]));
 
     expect(severity).toBe('warn'); // emit.lint.severity travels into the header
@@ -127,6 +126,12 @@ describe('runRules · the catalog it prints', () => {
     expect(byId.get('deepWatch')).toMatchObject({ declared: { tier: 'error' }, active: false });
     expect(byId.get('usePrefix')).toMatchObject({ declared: { tier: 'off' }, active: false });
     expect(byId.get('maxParams')).toMatchObject({ declared: null, active: false });
+  });
+
+  it('prints each tier, why a silent gate is silent, and the row count', async () => {
+    const lines: string[] = [];
+
+    await runRules(repo(blueprint), { log: (m) => void lines.push(m) });
 
     const output = lines.join('\n');
 
@@ -152,6 +157,18 @@ describe('runRules · the catalog it prints', () => {
     expect(output).not.toContain('(undefined)');
   });
 
+  it('defaults the structural severity when the config declares emit but no lint', async () => {
+    // `emit` carrying only `agents` is the common shape — `init --agent claude`
+    // writes exactly that. Reaching through it for `lint.severity` without
+    // guarding crashes the whole command on a perfectly ordinary config.
+    const agentsOnly: Blueprint = { ...blueprint, emit: { agents: ['claude'] } };
+    const { severity } = await runRules(repo(agentsOnly), { log: () => {} });
+
+    expect(severity).toBe('error');
+  });
+});
+
+describe('runRules · gates the stack cannot open', () => {
   it('keeps deepWatch live on the framework it was written for', async () => {
     // Only React silences it. Silencing it everywhere reports a declared,
     // active Vue gate as never emitting — and the author, told the rule is
@@ -245,15 +262,5 @@ describe('runRules · the catalog it prints', () => {
 
     expect(gates.every((gate) => gate.unavailable === undefined)).toBe(true);
     expect(lines.join('\n')).toContain('all of them openable on this stack');
-  });
-
-  it('defaults the structural severity when the config declares emit but no lint', async () => {
-    // `emit` carrying only `agents` is the common shape — `init --agent claude`
-    // writes exactly that. Reaching through it for `lint.severity` without
-    // guarding crashes the whole command on a perfectly ordinary config.
-    const agentsOnly: Blueprint = { ...blueprint, emit: { agents: ['claude'] } };
-    const { severity } = await runRules(repo(agentsOnly), { log: () => {} });
-
-    expect(severity).toBe('error');
   });
 });

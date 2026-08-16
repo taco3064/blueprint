@@ -18,9 +18,10 @@ import type { Blueprint } from '../config';
 import { analyze } from './analyze';
 import { BASELINE_FILE, parseBaseline, splitByBaseline } from './baseline';
 import { computeCoverage, coverageSummary, vacuousNextStep } from './coverage';
+import type { Coverage } from './coverage';
 import { hasErrors } from './report';
 import { scan } from './scan';
-import type { DoctorCheck } from './types';
+import type { DoctorCheck, Finding } from './types';
 import { wiringCheck } from './wiring';
 
 // Deliberately NOT extending ResolveOptions: doctor fails loud without a
@@ -228,31 +229,53 @@ export async function runDoctor(
 
   // No config = nothing to check; every other check assumes one exists.
   if (!state.hasConfig) {
-    const checks: DoctorCheck[] = [
-      {
-        label: 'blueprint.config.mjs present',
-        ok: false,
-        detail: 'run `blueprint init` (or `init --authoring` on an existing repo) first',
-      },
-    ];
-
-    // No note on this path: adoption has not started, so "commit what it wrote" is
-    // not the next step — running init is.
-    emit(log, checks, undefined, options.json);
-
-    return { ok: false, verdict: verdictOf(checks), checks };
+    return noConfigResult(log, options.json);
   }
 
-  const references = referenceFiles(root);
+  const { blueprint } = await resolveBlueprint(root, state, options);
+  const scanResult = scan(root, blueprint.architecture.sourceRoot);
+  const checks = await doctorChecks(root, { state, blueprint, scanResult, options });
+  const ok = checks.every((check) => check.ok);
 
-  const authoring = [AUTHORING_FILE, COMMAND_FILE].filter((file) =>
-    fs.existsSync(path.join(root, file)));
+  emit(log, checks, { note: uncommittedNote(root), json: options.json });
 
+  return { ok, verdict: verdictOf(checks), checks };
+}
+
+/**
+ * Adoption has not started, so there is nothing else to check — and no committing
+ * note either, because "commit what it wrote" is not the next step; running init is.
+ */
+function noConfigResult(
+  log: (message: string) => void,
+  json?: boolean,
+): { ok: boolean; verdict: DoctorVerdict; checks: DoctorCheck[] } {
+  const checks: DoctorCheck[] = [
+    {
+      label: 'blueprint.config.mjs present',
+      ok: false,
+      detail: 'run `blueprint init` (or `init --authoring` on an existing repo) first',
+    },
+  ];
+
+  emit(log, checks, { json });
+
+  return { ok: false, verdict: verdictOf(checks), checks };
+}
+
+/** Every check, in the order they are printed. */
+async function doctorChecks(
+  root: string,
+  ctx: {
+    state: ProjectState;
+    blueprint: Blueprint;
+    scanResult: ReturnType<typeof scan>;
+    options: DoctorOptions;
+  },
+): Promise<DoctorCheck[]> {
+  const { state, blueprint, scanResult, options } = ctx;
   const eslintWired = state.ownedEslintConfig !== undefined || state.wiredEslintConfig;
 
-  const { blueprint } = await resolveBlueprint(root, state, options);
-  const stale = staleContracts(root, blueprint);
-  const scanResult = scan(root, blueprint.architecture.sourceRoot);
   // Same state, same analysis: `analyze` returning different findings for one repo
   // depending on which runtime asked would be its own defect. Nothing in doctor's
   // output reads an info finding — the architecture check reports counts only when
@@ -268,8 +291,6 @@ export async function runDoctor(
     ? parseBaseline(fs.readFileSync(path.join(root, BASELINE_FILE), 'utf-8'))
     : [];
 
-  const { fresh, suppressed } = splitByBaseline(findings, recorded);
-
   const wiring = await wiringCheck({
     root,
     blueprint,
@@ -283,68 +304,93 @@ export async function runDoctor(
     load: options.loadModule ?? loadProjectModule,
   });
 
-  const checks: DoctorCheck[] = [
+  return [
     { label: 'blueprint.config.mjs present', ok: true },
-    {
-      label: 'no leftover reference, authoring, or stale contract files',
-      ok: references.length === 0 && stale.length === 0 && authoring.length === 0,
-      detail: references.length || stale.length || authoring.length
-        ? [
-            ...(references.length
-              ? [`merge and delete: ${references.join(', ')} — adoption is not done while a reference remains`]
-              : []),
-            // The playbook defines "done" as including its own cleanup —
-            // doctor saying "complete" over a live playbook told a second,
-            // contradicting story (field issue #13).
-            ...(authoring.length
-              ? [`${authoring.join(', ')}: authoring artifacts still on disk — the playbook's final step deletes them; a doctor run mid-authoring is EXPECTED to fail here`]
-              : []),
-            ...(stale.length
-              ? [`${stale.join(', ')}: carries the BLUEPRINT block but is not among the emitted targets — a wholly-generated file is removed by the next init; one with hand-written content needs its block removed by hand`]
-              : []),
-          ].join('; ')
-        : undefined,
-    },
-    {
-      label: 'eslint wired to emitLint',
-      ok: eslintWired,
-      detail: eslintWired
-        ? undefined
-        : state.eslintConfigShape === 'legacy'
-          ? `${state.legacyEslintConfig} is legacy — migrate to flat config, then spread ...emitLint(blueprint)`
-          : 'spread ...emitLint(blueprint) into your eslint config (see '
-            + 'eslint.config.blueprint.mjs)',
-    },
+    leftoversCheck(root, blueprint),
+    eslintWiredCheck(state, eslintWired),
     aliasCheck(root, blueprint, state),
     wiring,
-    {
-      // The check judges net of the baseline, but the label only mentions
-      // the ledger while it is actually covering something — inspect says
-      // "no baseline needed" on a truly clean repo, and doctor claiming
-      // coverage by a ledger that does not exist told the opposite story
-      // about the same state (field run #10).
-      label: suppressed > 0
-        ? 'architecture clean (findings covered by the baseline)'
-        : 'architecture clean',
-      ok: !hasErrors(fresh),
-      // The green states its reach — a clean report over an empty net is
-      // vacuous, and the reader deserves to see which one they got.
-      detail: hasErrors(fresh)
-        ? suppressed > 0
-          ? `${fresh.length} finding(s) outside the baseline — fix, or \`blueprint inspect --update-baseline\``
-          : `${fresh.length} finding(s) — fix, or lock as accepted debt: \`blueprint inspect --update-baseline\``
-        : coverage.sourceFiles > 0 && coverage.layerFiles === 0
-          ? `clean, but vacuous — layer globs match 0 of ${coverage.sourceFiles} source file(s); the wiring is done — ${vacuousNextStep(blueprint)}`
-          : coverageSummary(coverage),
-    },
+    architectureCheck(splitByBaseline(findings, recorded), coverage, blueprint),
     suppressionsCheck(root),
   ];
+}
 
-  const ok = checks.every((check) => check.ok);
+/**
+ * A reference file, a live authoring playbook, or a contract the current
+ * `emit.agents` no longer names — each one adoption left behind.
+ */
+function leftoversCheck(root: string, blueprint: Blueprint): DoctorCheck {
+  const references = referenceFiles(root);
 
-  emit(log, checks, uncommittedNote(root), options.json);
+  const authoring = [AUTHORING_FILE, COMMAND_FILE].filter((file) =>
+    fs.existsSync(path.join(root, file)));
 
-  return { ok, verdict: verdictOf(checks), checks };
+  const stale = staleContracts(root, blueprint);
+
+  return {
+    label: 'no leftover reference, authoring, or stale contract files',
+    ok: references.length === 0 && stale.length === 0 && authoring.length === 0,
+    detail: references.length || stale.length || authoring.length
+      ? [
+          ...(references.length
+            ? [`merge and delete: ${references.join(', ')} — adoption is not done while a reference remains`]
+            : []),
+          // The playbook defines "done" as including its own cleanup —
+          // doctor saying "complete" over a live playbook told a second,
+          // contradicting story (field issue #13).
+          ...(authoring.length
+            ? [`${authoring.join(', ')}: authoring artifacts still on disk — the playbook's final step deletes them; a doctor run mid-authoring is EXPECTED to fail here`]
+            : []),
+          ...(stale.length
+            ? [`${stale.join(', ')}: carries the BLUEPRINT block but is not among the emitted targets — a wholly-generated file is removed by the next init; one with hand-written content needs its block removed by hand`]
+            : []),
+        ].join('; ')
+      : undefined,
+  };
+}
+
+/** Whether anything actually spreads `emitLint` into the config eslint runs. */
+function eslintWiredCheck(state: ProjectState, eslintWired: boolean): DoctorCheck {
+  return {
+    label: 'eslint wired to emitLint',
+    ok: eslintWired,
+    detail: eslintWired
+      ? undefined
+      : state.eslintConfigShape === 'legacy'
+        ? `${state.legacyEslintConfig} is legacy — migrate to flat config, then spread ...emitLint(blueprint)`
+        : 'spread ...emitLint(blueprint) into your eslint config (see '
+          + 'eslint.config.blueprint.mjs)',
+  };
+}
+
+/**
+ * The findings net of the baseline. The label only mentions the ledger while it is
+ * actually covering something — inspect says "no baseline needed" on a truly clean
+ * repo, and doctor claiming coverage by a ledger that does not exist told the
+ * opposite story about the same state (field run #10).
+ */
+function architectureCheck(
+  baseline: { fresh: Finding[]; suppressed: number },
+  coverage: Coverage,
+  blueprint: Blueprint,
+): DoctorCheck {
+  const { fresh, suppressed } = baseline;
+
+  return {
+    label: suppressed > 0
+      ? 'architecture clean (findings covered by the baseline)'
+      : 'architecture clean',
+    ok: !hasErrors(fresh),
+    // The green states its reach — a clean report over an empty net is
+    // vacuous, and the reader deserves to see which one they got.
+    detail: hasErrors(fresh)
+      ? suppressed > 0
+        ? `${fresh.length} finding(s) outside the baseline — fix, or \`blueprint inspect --update-baseline\``
+        : `${fresh.length} finding(s) — fix, or lock as accepted debt: \`blueprint inspect --update-baseline\``
+      : coverage.sourceFiles > 0 && coverage.layerFiles === 0
+        ? `clean, but vacuous — layer globs match 0 of ${coverage.sourceFiles} source file(s); the wiring is done — ${vacuousNextStep(blueprint)}`
+        : coverageSummary(coverage),
+  };
 }
 
 /**
@@ -418,9 +464,9 @@ function summarize(checks: DoctorCheck[]): {
 function emit(
   log: (m: string) => void,
   checks: DoctorCheck[],
-  note: string | undefined,
-  json?: boolean,
+  report: { note?: string; json?: boolean },
 ): void {
+  const { note, json } = report;
   const { verdict, passed, failed, skipped, banner } = summarize(checks);
 
   if (json) {

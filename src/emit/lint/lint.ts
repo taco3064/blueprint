@@ -27,6 +27,7 @@ import type {
 } from './types';
 
 type Severity = 'error' | 'warn';
+type ModuleLayout = 'folder' | 'flat';
 
 /**
  * Compile a Blueprint's `architecture` into an ESLint flat config that
@@ -60,8 +61,6 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     .map((root) => [root.alias, ...root.prefix].join('/'));
 
   const testGlobs = resolveTestFiles(testFiles);
-  const packageRules = derivePackageRules(layers);
-  const globalRules = deriveGlobalRules(layers);
 
   const layouts = Object.fromEntries(
     layers.map((layer) => [layer.name, getModuleShape(architecture, layer.name).layout]),
@@ -74,6 +73,56 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     layers.map((layer) => [layer.name, getModuleShape(architecture, layer.name).entry]),
   );
 
+  const ignoreConfig: LintConfigEntry[] = layerFilesIgnore
+    ? [{ ignores: toArray(layerFilesIgnore) }]
+    : [];
+
+  const layerConfigs = layerImportEntries(blueprint, { severity, testGlobs, aliases, layouts });
+
+  const allLayerFiles = [
+    ...new Set(
+      layers.flatMap((l) => resolveLayerFiles(l.name, framework, { layerFiles, sourceRoot })),
+    ),
+  ];
+
+  // The depth-aware half of the structural rules: relative imports must not
+  // leave their module. Shares inspect's resolution — see the plugin rule.
+  const escapeEntry: LintConfigEntry = {
+    files: allLayerFiles,
+    ignores: testGlobs,
+    plugins: { blueprint: plugin },
+    rules: { 'blueprint/relative-escape': [severity, { layouts, entries }] },
+  };
+
+  return [
+    ...ignoreConfig,
+    ...layerConfigs,
+    escapeEntry,
+    ...ruleGateEntries(blueprint, testGlobs, options),
+  ];
+}
+
+/**
+ * One `no-restricted-imports` entry per layer — the flow ban, the module-entry
+ * ban, and package / global ownership, all of which are per-layer facts. A layer
+ * with exempt packages needs two entries: flat config REPLACES a rule rather than
+ * merging it, so the exemption cannot be an `ignores` on a single one.
+ */
+function layerImportEntries(
+  blueprint: Blueprint,
+  shape: {
+    severity: Severity;
+    testGlobs: string[];
+    aliases: string[];
+    layouts: Record<string, ModuleLayout>;
+  },
+): LintConfigEntry[] {
+  const { framework, architecture } = blueprint;
+  const { layers, layerFiles, sourceRoot } = architecture;
+  const { severity, testGlobs, aliases, layouts } = shape;
+  const packageRules = derivePackageRules(layers);
+  const globalRules = deriveGlobalRules(layers);
+
   const folderLayers = layers
     .map((layer) => layer.name)
     .filter((name) => layouts[name] === 'folder');
@@ -84,12 +133,8 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     ? aliases.flatMap((a) => [`${a}/fixtures`, `${a}/fixtures/**`])
     : [];
 
-  const ignoreConfig: LintConfigEntry[] = layerFilesIgnore
-    ? [{ ignores: toArray(layerFilesIgnore) }]
-    : [];
-
-  const layerConfigs = layers.flatMap((layer) => {
-    const files = resolveLayerFiles(layer.name, layerFiles, framework, sourceRoot);
+  return layers.flatMap((layer) => {
+    const files = resolveLayerFiles(layer.name, framework, { layerFiles, sourceRoot });
     const forbidden = getForbiddenLayers(architecture, layer.name);
     const disabledPackages = packageRules.filter((rule) => !rule.allowedIn.includes(layer.name));
     const disabledGlobals = globalRules.filter((rule) => !rule.allowedIn.includes(layer.name));
@@ -146,26 +191,6 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
       { files, ignores: [...exemptPatterns, ...testGlobs], rules: buildRules(disabledPackages) },
     ];
   });
-
-  const allLayerFiles = [
-    ...new Set(layers.flatMap((l) => resolveLayerFiles(l.name, layerFiles, framework, sourceRoot))),
-  ];
-
-  // The depth-aware half of the structural rules: relative imports must not
-  // leave their module. Shares inspect's resolution — see the plugin rule.
-  const escapeEntry: LintConfigEntry = {
-    files: allLayerFiles,
-    ignores: testGlobs,
-    plugins: { blueprint: plugin },
-    rules: { 'blueprint/relative-escape': [severity, { layouts, entries }] },
-  };
-
-  return [
-    ...ignoreConfig,
-    ...layerConfigs,
-    escapeEntry,
-    ...ruleGateEntries(blueprint, testGlobs, options),
-  ];
 }
 
 /**
@@ -182,9 +207,50 @@ function ruleGateEntries(
 ): LintConfigEntry[] {
   const { framework, architecture, rules } = blueprint;
   const { layers, layerFiles, sourceRoot } = architecture;
-  const entries: LintConfigEntry[] = [];
 
-  const shared: Linter.RulesRecord = {};
+  const sharedFiles = [
+    ...new Set(
+      layers.flatMap((l) => resolveLayerFiles(l.name, framework, { layerFiles, sourceRoot })),
+    ),
+  ];
+
+  return [
+    ...sharedEntry(sharedRules(blueprint, options), { files: sharedFiles, testGlobs }, options),
+    ...shapeEntry(blueprint, sharedFiles, options),
+    ...testFilenameEntry(rules, testGlobs),
+    ...typedefOnlyEntry(rules, testGlobs),
+    ...usePrefixEntry(blueprint, testGlobs),
+  ];
+}
+
+/**
+ * Every gate that lands in the one shared entry, in emitted order. No @stylistic
+ * rule is here — the whole shape family lives in its own, test-inclusive entry.
+ */
+function sharedRules(blueprint: Blueprint, options: EmitLintOptions): Linter.RulesRecord {
+  const { framework, rules } = blueprint;
+  const explicitAny = activeSetting(rules?.explicitAny);
+  const deepWatch = activeSetting(rules?.deepWatch);
+  const usePrefixReactivity = activeSetting(rules?.usePrefixReactivity);
+
+  return {
+    ...metricRules(rules),
+    ...unusedVarsRules(activeSetting(rules?.unusedVars), options.typescript),
+    // No core twin exists — `any` cannot appear in JS source, so there is
+    // nothing to fall back to when the plugin is absent (unlike unusedVars).
+    ...(explicitAny && options.typescript
+      ? { '@typescript-eslint/no-explicit-any': explicitAny.tier }
+      : {}),
+    ...(deepWatch && framework !== 'react' ? { 'blueprint/no-deep-watch': deepWatch.tier } : {}),
+    ...(usePrefixReactivity
+      ? { 'blueprint/use-prefix-needs-reactivity': usePrefixReactivity.tier }
+      : {}),
+  };
+}
+
+/** The numeric gates, each carrying its declared value or the table's fallback. */
+function metricRules(rules: Blueprint['rules']): Linter.RulesRecord {
+  const record: Linter.RulesRecord = {};
 
   for (const { id, rule, fallback, wrap } of METRIC_GATES) {
     const setting = activeSetting(rules?.[id]);
@@ -195,112 +261,120 @@ function ruleGateEntries(
 
     const max = setting.value ?? fallback;
 
-    shared[rule] = [setting.tier, wrap ? { max, skipBlankLines: true, skipComments: true } : max];
+    record[rule] = [setting.tier, wrap ? { max, skipBlankLines: true, skipComments: true } : max];
   }
 
-  const unusedVars = activeSetting(rules?.unusedVars);
+  return record;
+}
 
-  if (unusedVars) {
-    if (options.typescript) {
-      // Core no-unused-vars false-flags TS enum members and type parameters —
-      // with the caller-injected plugin, the TS-aware twin takes over.
-      shared['no-unused-vars'] = 'off';
-      shared['@typescript-eslint/no-unused-vars'] = [unusedVars.tier, { argsIgnorePattern: '^_' }];
-    } else {
-      shared['no-unused-vars'] = [unusedVars.tier, { argsIgnorePattern: '^_' }];
-    }
+/**
+ * Core `no-unused-vars` false-flags TS enum members and type parameters — with the
+ * caller-injected plugin, the TS-aware twin takes over and the core one goes off.
+ */
+function unusedVarsRules(
+  setting: ReadSetting | null,
+  typescript: EmitLintOptions['typescript'],
+): Linter.RulesRecord {
+  if (!setting) {
+    return {};
   }
 
-  // No core twin exists — `any` cannot appear in JS source, so there is
-  // nothing to fall back to when the plugin is absent (unlike unusedVars).
-  const explicitAny = activeSetting(rules?.explicitAny);
-
-  if (explicitAny && options.typescript) {
-    shared['@typescript-eslint/no-explicit-any'] = explicitAny.tier;
+  if (!typescript) {
+    return { 'no-unused-vars': [setting.tier, { argsIgnorePattern: '^_' }] };
   }
 
-  const deepWatch = activeSetting(rules?.deepWatch);
+  return {
+    'no-unused-vars': 'off',
+    '@typescript-eslint/no-unused-vars': [setting.tier, { argsIgnorePattern: '^_' }],
+  };
+}
 
-  if (deepWatch && framework !== 'react') {
-    shared['blueprint/no-deep-watch'] = deepWatch.tier;
+/** The one entry the shared rules ride, with only the plugins they actually need. */
+function sharedEntry(
+  shared: Linter.RulesRecord,
+  scope: { files: string[]; testGlobs: string[] },
+  options: EmitLintOptions,
+): LintConfigEntry[] {
+  if (!Object.keys(shared).length) {
+    return [];
   }
 
-  const usePrefixReactivity = activeSetting(rules?.usePrefixReactivity);
-
-  if (usePrefixReactivity) {
-    shared['blueprint/use-prefix-needs-reactivity'] = usePrefixReactivity.tier;
-  }
-
-  // No @stylistic rule reaches this entry — the whole shape family lives in
-  // its own, test-inclusive one (see shapeEntry).
   const needsPlugin = Object.keys(shared).some((rule) => rule.startsWith('blueprint/'));
   const needsTs = Object.keys(shared).some((rule) => rule.startsWith('@typescript-eslint/'));
 
-  const sharedFiles = [
-    ...new Set(layers.flatMap((l) => resolveLayerFiles(l.name, layerFiles, framework, sourceRoot))),
-  ];
+  return [{
+    files: scope.files,
+    ignores: scope.testGlobs,
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
+    ...(needsPlugin || needsTs
+      ? {
+          plugins: {
+            ...(needsPlugin ? { blueprint: plugin } : {}),
+            ...(needsTs && options.typescript
+              ? { '@typescript-eslint': options.typescript }
+              : {}),
+          },
+        }
+      : {}),
+    rules: shared,
+  }];
+}
 
-  if (Object.keys(shared).length) {
-    entries.push({
-      files: sharedFiles,
-      ignores: testGlobs,
-      linterOptions: { reportUnusedDisableDirectives: 'error' },
-      ...(needsPlugin || needsTs
-        ? {
-            plugins: {
-              ...(needsPlugin ? { blueprint: plugin } : {}),
-              ...(needsTs && options.typescript
-                ? { '@typescript-eslint': options.typescript }
-                : {}),
-            },
-          }
-        : {}),
-      rules: shared,
-    });
-  }
-
-  entries.push(...shapeEntry(blueprint, sharedFiles, options));
-
+/**
+ * `testGlobs.length` because this entry's `files` IS the test globs, and
+ * `testFiles: []` makes it `files: []`, which ESLint rejects outright — the config
+ * validated, inspect ran clean, and `impact` died on the emitted output (field run
+ * #150). `unavailableGate` reports the drop, so it is not silent.
+ */
+function testFilenameEntry(rules: Blueprint['rules'], testGlobs: string[]): LintConfigEntry[] {
   const testFilename = activeSetting(rules?.testFilename);
 
-  // `testGlobs.length` because this entry's `files` IS the test globs, and
-  // `testFiles: []` makes it `files: []`, which ESLint rejects outright — the config
-  // validated, inspect ran clean, and `impact` died on the emitted output (field run
-  // #150). `unavailableGate` reports the drop, so it is not silent.
-  if (testFilename && testGlobs.length) {
-    entries.push({
-      files: testGlobs,
-      plugins: { blueprint: plugin },
-      rules: { 'blueprint/test-filename-matches-source': testFilename.tier },
-    });
+  if (!testFilename || !testGlobs.length) {
+    return [];
   }
 
+  return [{
+    files: testGlobs,
+    plugins: { blueprint: plugin },
+    rules: { 'blueprint/test-filename-matches-source': testFilename.tier },
+  }];
+}
+
+/** Scoped to JavaScript source: a `.ts` file of types is the TS way to say it. */
+function typedefOnlyEntry(rules: Blueprint['rules'], testGlobs: string[]): LintConfigEntry[] {
   const typedefOnlyFile = activeSetting(rules?.typedefOnlyFile);
 
-  if (typedefOnlyFile) {
-    entries.push({
-      files: ['src/**/*.js'],
-      ignores: testGlobs,
-      plugins: { blueprint: plugin },
-      rules: { 'blueprint/no-typedef-only-file': typedefOnlyFile.tier },
-    });
+  if (!typedefOnlyFile) {
+    return [];
   }
 
+  return [{
+    files: ['src/**/*.js'],
+    ignores: testGlobs,
+    plugins: { blueprint: plugin },
+    rules: { 'blueprint/no-typedef-only-file': typedefOnlyFile.tier },
+  }];
+}
+
+/** The prefix gate, scoped to the one layer it names (default `hooks`). */
+function usePrefixEntry(blueprint: Blueprint, testGlobs: string[]): LintConfigEntry[] {
+  const { framework, architecture, rules } = blueprint;
+  const { layerFiles, sourceRoot } = architecture;
   const usePrefix = activeSetting(rules?.usePrefix);
 
-  if (usePrefix) {
-    const layer = (usePrefix.opts.layer as string | undefined) ?? 'hooks';
-    const prefix = (usePrefix.opts.prefix as string | undefined) ?? 'use';
-
-    entries.push({
-      files: resolveLayerFiles(layer, layerFiles, framework, sourceRoot),
-      ignores: testGlobs,
-      plugins: { blueprint: plugin },
-      rules: { 'blueprint/use-prefix': [usePrefix.tier, { prefix }] },
-    });
+  if (!usePrefix) {
+    return [];
   }
 
-  return entries;
+  const layer = (usePrefix.opts.layer as string | undefined) ?? 'hooks';
+  const prefix = (usePrefix.opts.prefix as string | undefined) ?? 'use';
+
+  return [{
+    files: resolveLayerFiles(layer, framework, { layerFiles, sourceRoot }),
+    ignores: testGlobs,
+    plugins: { blueprint: plugin },
+    rules: { 'blueprint/use-prefix': [usePrefix.tier, { prefix }] },
+  }];
 }
 
 /** The `customize` factory `@stylistic/eslint-plugin` hangs off its configs. */
@@ -321,28 +395,38 @@ function shapeEntry(
   files: string[],
   options: EmitLintOptions,
 ): LintConfigEntry[] {
-  const { rules } = blueprint;
-  const shape: Linter.RulesRecord = {};
+  const shape = shapeRules(blueprint.rules, options);
 
+  if (!Object.keys(shape).length) {
+    return [];
+  }
+
+  const needsStylistic = Object.keys(shape).some((rule) => rule.startsWith('@stylistic/'));
+  const needsImports = Object.keys(shape).some((rule) => rule.startsWith('import-x/'));
+
+  return [{
+    files,
+    plugins: {
+      ...(needsStylistic && options.stylistic ? { '@stylistic': options.stylistic } : {}),
+      ...(needsImports && options.imports ? { 'import-x': options.imports } : {}),
+    },
+    rules: shape,
+  }];
+}
+
+/** Every shape gate that resolved to something, in the order the entry carries them. */
+function shapeRules(rules: Blueprint['rules'], options: EmitLintOptions): Linter.RulesRecord {
+  const shape: Linter.RulesRecord = {};
   const codeStyle = activeSetting(rules?.codeStyle);
 
   if (codeStyle && options.stylistic) {
     Object.assign(shape, codeStyleRules(codeStyle, options.stylistic));
   }
 
-  const statementsPerLine = rules?.statementsPerLine;
-
-  if (statementsPerLine !== undefined && options.stylistic) {
-    const on = activeSetting(statementsPerLine);
-
-    if (on) {
-      // Hard-wired max: 1 — the gate defines what a line IS for `maxLines`,
-      // and a threshold above 1 defines nothing.
-      shape['@stylistic/max-statements-per-line'] = [on.tier, { max: 1 }];
-    } else if (codeStyle) {
-      shape['@stylistic/max-statements-per-line'] = 'off';
-    }
-  }
+  // Assigned after the bundle so the explicit gate wins — including when it is
+  // `off`, which `customize()` would otherwise switch back on. An existing key
+  // keeps its position, so the record's order does not move.
+  Object.assign(shape, statementsPerLineRule(rules, options.stylistic, codeStyle !== null));
 
   const statementPadding = activeSetting(rules?.statementPadding);
 
@@ -360,21 +444,32 @@ function shapeEntry(
     shape['import-x/no-duplicates'] = importBlock.tier;
   }
 
-  if (!Object.keys(shape).length) {
-    return [];
+  return shape;
+}
+
+/**
+ * Hard-wired max: 1 — the gate defines what a line IS for `maxLines`, and a
+ * threshold above 1 defines nothing. Declared-but-off only emits when `codeStyle`
+ * is on, because that is the bundle it has to switch back off.
+ */
+function statementsPerLineRule(
+  rules: Blueprint['rules'],
+  stylistic: EmitLintOptions['stylistic'],
+  hasCodeStyle: boolean,
+): Linter.RulesRecord {
+  const declared = rules?.statementsPerLine;
+
+  if (declared === undefined || !stylistic) {
+    return {};
   }
 
-  const needsStylistic = Object.keys(shape).some((rule) => rule.startsWith('@stylistic/'));
-  const needsImports = Object.keys(shape).some((rule) => rule.startsWith('import-x/'));
+  const on = activeSetting(declared);
 
-  return [{
-    files,
-    plugins: {
-      ...(needsStylistic && options.stylistic ? { '@stylistic': options.stylistic } : {}),
-      ...(needsImports && options.imports ? { 'import-x': options.imports } : {}),
-    },
-    rules: shape,
-  }];
+  if (on) {
+    return { '@stylistic/max-statements-per-line': [on.tier, { max: 1 }] };
+  }
+
+  return hasCodeStyle ? { '@stylistic/max-statements-per-line': 'off' } : {};
 }
 
 /**

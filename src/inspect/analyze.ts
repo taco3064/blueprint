@@ -4,7 +4,7 @@ import {
   getSelfOnlyTargets,
   normalizeAllowedImporters,
 } from '../config';
-import type { ArchitectureDef, Blueprint } from '../config';
+import type { AliasRoot, ArchitectureDef, Blueprint } from '../config';
 import { dropTestFiles } from './filter';
 import { compareText } from './order';
 import {
@@ -16,7 +16,7 @@ import {
   resolveSegments,
   stripAlias,
 } from './resolve';
-import type { EntryOf, LayoutOf } from './resolve';
+import type { EntryOf, LayoutOf, ModuleShape } from './resolve';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
@@ -68,13 +68,11 @@ export function analyze(
     const members = [...new Set(cycle)].sort(compareText);
 
     findings.push(
-      finding(
-        'error',
-        'cycle',
-        members[0],
-        members.join(' '),
-        `Import cycle between modules: ${cycle.join(' → ')}.`,
-      ),
+      finding('error', 'cycle', {
+        path: members[0],
+        subject: members.join(' '),
+        message: `Import cycle between modules: ${cycle.join(' → ')}.`,
+      }),
     );
   }
 
@@ -241,6 +239,19 @@ function noEntryFindings(
   return findings;
 }
 
+/** Everything a layer's imports are judged against, resolved once per file. */
+interface ImportContext {
+  architecture: ArchitectureDef;
+  layerNames: string[];
+  aliases: (AliasRoot | string)[];
+  /** Layers this file's layer may not import. */
+  forbidden: string[];
+  /** Layers this file's layer may depend on but must not re-export. */
+  selfOnly: string[];
+  layoutOf: LayoutOf;
+  entryOf: EntryOf;
+}
+
 /** Per-file import findings: deep-import, flow-violation, relative-escape, ownership, selfOnly. */
 function importFindings(
   file: ScannedFile,
@@ -253,88 +264,115 @@ function importFindings(
     return [];
   }
 
-  const aliases = aliasList(architecture);
-  const forbidden = getForbiddenLayers(architecture, fileLayer);
-  const selfOnly = getSelfOnlyTargets(architecture, fileLayer);
-  const layoutOf = layoutResolver(architecture);
-  const entryOf = entryResolver(architecture);
+  const context: ImportContext = {
+    architecture,
+    layerNames,
+    aliases: aliasList(architecture),
+    forbidden: getForbiddenLayers(architecture, fileLayer),
+    selfOnly: getSelfOnlyTargets(architecture, fileLayer),
+    layoutOf: layoutResolver(architecture),
+    entryOf: entryResolver(architecture),
+  };
+
+  return file.imports.flatMap((ref) => refFindings(file, ref, context));
+}
+
+/** One reference, routed by what it is: an alias path, a relative path, a package. */
+function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext): Finding[] {
+  const parts = stripAlias(ref.specifier, context.aliases);
+
+  if (parts) {
+    return aliasFindings(file, ref, { ...context, target: parts[0], depth: parts.length });
+  }
+
+  if (ref.specifier.startsWith('.')) {
+    return relativeEscape(file, ref, context);
+  }
+
+  return packageFindings(file, ref, context);
+}
+
+/** An alias import into a declared layer: module depth, the flow ban, selfOnly re-export. */
+function aliasFindings(
+  file: ScannedFile,
+  ref: ImportRef,
+  context: ImportContext & { target: string; depth: number },
+): Finding[] {
+  const { target, depth, layerNames, layoutOf, forbidden, selfOnly } = context;
+  const fileLayer = file.segments[0];
+
+  if (!layerNames.includes(target)) {
+    return [];
+  }
+
   const findings: Finding[] = [];
+  const at = { path: file.path, subject: ref.specifier };
 
-  for (const ref of file.imports) {
-    const parts = stripAlias(ref.specifier, aliases);
+  // Depth is judged against the *target* layer's layout — reaching inside
+  // a folder-module layer is a violation wherever the import comes from.
+  if (layoutOf(target) === 'folder' && depth >= 3) {
+    findings.push(finding('error', 'deep-import', { ...at, message: `"${ref.specifier}" reaches inside a module — import it through its entry.` }));
+  }
 
-    if (parts) {
-      const target = parts[0];
+  if (target === fileLayer) {
+    findings.push(finding('error', 'flow-violation', { ...at, message: `Same-layer import "${ref.specifier}" via the alias — use a relative path or extract to a lower layer.` }));
+  } else if (forbidden.includes(target)) {
+    findings.push(finding('error', 'flow-violation', { ...at, message: `"${fileLayer}" may not import "${target}" ("${ref.specifier}").` }));
+  }
 
-      if (!layerNames.includes(target)) {
-        continue;
-      }
-
-      // Depth is judged against the *target* layer's layout — reaching inside
-      // a folder-module layer is a violation wherever the import comes from.
-      if (layoutOf(target) === 'folder' && parts.length >= 3) {
-        findings.push(finding('error', 'deep-import', file.path, ref.specifier, `"${ref.specifier}" reaches inside a module — import it through its entry.`));
-      }
-
-      if (target === fileLayer) {
-        findings.push(finding('error', 'flow-violation', file.path, ref.specifier, `Same-layer import "${ref.specifier}" via the alias — use a relative path or extract to a lower layer.`));
-      } else if (forbidden.includes(target)) {
-        findings.push(finding('error', 'flow-violation', file.path, ref.specifier, `"${fileLayer}" may not import "${target}" ("${ref.specifier}").`));
-      }
-
-      if (ref.isExport && selfOnly.includes(target)) {
-        findings.push(finding('error', 'selfonly-reexport', file.path, ref.specifier, `Re-exports "${target}" ("${ref.specifier}"), which is selfOnly — depend on it, do not re-export it.`));
-      }
-    } else if (ref.specifier.startsWith('.')) {
-      const escape = relativeEscape(file, ref, layoutOf, entryOf);
-
-      if (escape) {
-        findings.push(escape);
-      }
-    } else {
-      const owners = ownersOf(architecture, ref.specifier, ref.names);
-
-      if (owners && !owners.includes(fileLayer)) {
-        const named = ref.names.length ? ` (${ref.names.join(', ')})` : '';
-
-        // The names are part of the subject, not just of the sentence: one file can
-        // import two different restricted names from the same package, and those are
-        // two debts with two fixes. Sorted, because `{ a, b }` and `{ b, a }` are the
-        // same import written twice.
-        const subject = ref.names.length
-          ? `${ref.specifier} ${[...ref.names].sort(compareText).join(',')}`
-          : ref.specifier;
-
-        findings.push(finding('error', 'package-ownership', file.path, subject, `"${ref.specifier}"${named} is owned by ${owners.join(', ')} — not importable from "${fileLayer}".`));
-      }
-    }
+  if (ref.isExport && selfOnly.includes(target)) {
+    findings.push(finding('error', 'selfonly-reexport', { ...at, message: `Re-exports "${target}" ("${ref.specifier}"), which is selfOnly — depend on it, do not re-export it.` }));
   }
 
   return findings;
 }
 
-function relativeEscape(
-  file: ScannedFile,
-  ref: ImportRef,
-  layoutOf: LayoutOf,
-  entryOf: EntryOf,
-): Finding | null {
-  const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
-  const verdict = relativeVerdict(file.segments, target, layoutOf, entryOf);
+/** A bare package import the blueprint gave to some other layer. */
+function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportContext): Finding[] {
+  const fileLayer = file.segments[0];
+  const owners = ownersOf(context.architecture, ref.specifier, ref.names);
 
-  if (verdict === 'ok') {
-    return null;
+  if (!owners || owners.includes(fileLayer)) {
+    return [];
   }
 
+  const named = ref.names.length ? ` (${ref.names.join(', ')})` : '';
+
+  // The names are part of the subject, not just of the sentence: one file can
+  // import two different restricted names from the same package, and those are
+  // two debts with two fixes. Sorted, because `{ a, b }` and `{ b, a }` are the
+  // same import written twice.
+  const subject = ref.names.length
+    ? `${ref.specifier} ${[...ref.names].sort(compareText).join(',')}`
+    : ref.specifier;
+
+  return [finding('error', 'package-ownership', {
+    path: file.path,
+    subject,
+    message: `"${ref.specifier}"${named} is owned by ${owners.join(', ')} — not importable from "${fileLayer}".`,
+  })];
+}
+
+/** A relative import, judged by the same verdict the embedded lint rule reads. */
+function relativeEscape(file: ScannedFile, ref: ImportRef, shape: ModuleShape): Finding[] {
+  const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
+  const verdict = relativeVerdict(file.segments, target, shape);
+
+  if (verdict === 'ok') {
+    return [];
+  }
+
+  const at = { path: file.path, subject: ref.specifier };
+
   if (verdict === 'escapes-src') {
-    return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" escapes src/ — use the project alias.`);
+    return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" escapes src/ — use the project alias.` })];
   }
 
   if (verdict === 'reaches-inside') {
-    return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${entryOf(file.segments[0])}" instead; what lives behind it is that module's own business.`);
+    return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${shape.entryOf(file.segments[0])}" instead; what lives behind it is that module's own business.` })];
   }
 
-  return finding('error', 'relative-escape', file.path, ref.specifier, `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.`);
+  return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.` })];
 }
 
 /** Owner layers of a package import (given its named imports), or null if unrestricted. */
@@ -439,6 +477,17 @@ function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
   const components: string[][] = [];
   let next = 0;
 
+  /** `node` is a component root: everything above it on the stack is one knot. */
+  const close = (node: string): void => {
+    const component = stack.splice(stack.indexOf(node));
+
+    for (const member of component) {
+      onStack.delete(member);
+    }
+
+    components.push(component);
+  };
+
   const visit = (node: string): number => {
     const own = next++;
     let lowest = own;
@@ -463,13 +512,7 @@ function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
     }
 
     if (lowest === own) {
-      const component = stack.splice(stack.indexOf(node));
-
-      for (const member of component) {
-        onStack.delete(member);
-      }
-
-      components.push(component);
+      close(node);
     }
 
     return lowest;
@@ -549,12 +592,14 @@ function stripExt(name: string): string {
   return name.replace(/\.[^.]+$/, '');
 }
 
+/**
+ * `path` and `subject` are both strings and both addresses, so they go in named —
+ * swapping them positionally produced a finding nothing could be traced back to.
+ */
 function finding(
   severity: Severity,
   rule: string,
-  path: string,
-  subject: string,
-  message: string,
+  about: { path: string; subject: string; message: string },
 ): Finding {
-  return { severity, rule, path, subject, message };
+  return { severity, rule, ...about };
 }

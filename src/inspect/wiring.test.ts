@@ -57,17 +57,16 @@ function loader(
 const run = (
   scanResult: ScanResult,
   resolved: unknown,
-  throwOn?: 'load' | 'calculate',
-  merged = true,
+  projectEslint: { throwOn?: 'load' | 'calculate'; merged?: boolean } = {},
 ) =>
   wiringCheck({
     root: '/repo',
     blueprint,
     scanResult,
     wired: true,
-    merged,
+    merged: projectEslint.merged ?? true,
     hasTypescript: true,
-    load: loader(resolved, throwOn),
+    load: loader(resolved, projectEslint.throwOn),
   });
 
 describe('expectedStructural · the shape two prose sites describe', () => {
@@ -87,7 +86,7 @@ describe('expectedStructural · the shape two prose sites describe', () => {
   });
 });
 
-describe('wiringCheck', () => {
+describe('wiringCheck · a merge that kept every artifact', () => {
   it('passes when every layer\'s structural artifacts survive the merge', async () => {
     // Two layers hold files, two probe synthetically — four probes against
     // one merged config, so it must carry the union of every expectation.
@@ -137,7 +136,9 @@ describe('wiringCheck', () => {
     expect(check.label).toContain('one probe per layer');
     expect(check.label).toContain('scoped to only part of a layer are not compared');
   });
+});
 
+describe('wiringCheck · the losses it names', () => {
   it('probes every layer — a scoped override cannot hide behind the first one', async () => {
     const views = expectedStructural(blueprint, 'views');
 
@@ -233,7 +234,9 @@ describe('wiringCheck', () => {
     // The escape rule is present and active — not among the losses.
     expect(check.detail).not.toContain('relative-escape');
   });
+});
 
+describe('wiringCheck · what it skips rather than reds on', () => {
   it('skips honestly instead of failing on unreachable preconditions', async () => {
     const unwired = await wiringCheck({
       root: '/repo',
@@ -248,12 +251,12 @@ describe('wiringCheck', () => {
     expect(unwired).toMatchObject({ ok: true });
     expect(unwired.label).toContain('skipped — eslint not wired');
 
-    const unloadable = await run(scanOf('src/views/Home/index.vue'), {}, 'load');
+    const unloadable = await run(scanOf('src/views/Home/index.vue'), {}, { throwOn: 'load' });
 
     expect(unloadable.ok).toBe(true);
     expect(unloadable.label).toContain('could not resolve the merged config');
 
-    const broken = await run(scanOf('src/views/Home/index.vue'), {}, 'calculate');
+    const broken = await run(scanOf('src/views/Home/index.vue'), {}, { throwOn: 'calculate' });
 
     expect(broken.ok).toBe(true);
     expect(broken.label).toContain('could not resolve the merged config');
@@ -271,13 +274,17 @@ describe('wiringCheck', () => {
     // The label was hardcoded "merged", and on the path where init writes the live
     // config itself there is no merge — an agent read the word against its own repo
     // and had to go verify the check was pointed at the right file (field run #148).
-    const generated = await run(scanOf('src/views/Home/index.vue'), {}, undefined, false);
+    const generated = await run(scanOf('src/views/Home/index.vue'), {}, { merged: false });
 
     expect(generated.label).toContain('emitted rules survive the generated eslint config');
     expect(generated.label).not.toContain('merged eslint config');
 
     // The skip says it too, or the two labels of one check disagree about the repo.
-    const unresolvable = await run(scanOf('src/views/Home/index.vue'), {}, 'load', false);
+    const unresolvable = await run(
+      scanOf('src/views/Home/index.vue'),
+      {},
+      { throwOn: 'load', merged: false },
+    );
 
     expect(unresolvable.label).toContain('could not resolve the generated config');
   });
@@ -297,7 +304,9 @@ describe('wiringCheck', () => {
 
     expect(check.skipped).toContain('EACCES on the eslint cache');
   });
+});
 
+describe('wiringCheck · layers with no file to probe', () => {
   it('synthesizes probes for empty layers — the empty repo is not exempt', async () => {
     // No source files at all (batch 7's greenfield): every layer probes via
     // a synthetic path, so a gutted config still turns red.

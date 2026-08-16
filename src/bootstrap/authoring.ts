@@ -146,7 +146,7 @@ export function authoringBrief(
   return [
     renderHeader(
       renderNextNote(next),
-      renderVerdict(survey, claudeDir, viteTs, tscOut, packageManager),
+      renderVerdict(survey, { claudeDir, viteTs, tscOut, pm: packageManager }),
       claudeDir,
     ),
     renderPrerequisites(install),
