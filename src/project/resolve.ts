@@ -45,7 +45,9 @@ export async function resolveBlueprint(
     // load so a structural mistake fails right here with a precise message,
     // not as an undefined-property crash deep inside a command.
     try {
-      if (!blueprint) throw new Error('missing default export.');
+      if (!blueprint) {
+        throw new Error('missing default export.');
+      }
 
       validateBlueprint(blueprint);
     } catch (error) {

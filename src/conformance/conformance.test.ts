@@ -29,7 +29,9 @@ const repo = (spec: RepoSpec = {}): string => {
 };
 
 afterEach(() => {
-  while (dirs.length) rm(dirs.pop() as string);
+  while (dirs.length) {
+    rm(dirs.pop() as string);
+  }
 });
 
 const react = (deps: Record<string, string> = {}) => ({

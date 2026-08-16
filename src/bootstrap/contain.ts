@@ -24,7 +24,9 @@ import type { Action } from './types';
  *   is portable, and so is this.
  */
 export function escapesRoot(target: string): boolean {
-  if (path.isAbsolute(target) || path.win32.isAbsolute(target)) return true;
+  if (path.isAbsolute(target) || path.win32.isAbsolute(target)) {
+    return true;
+  }
 
   const normalized = path.posix.normalize(target.split('\\').join('/'));
 

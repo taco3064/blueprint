@@ -422,7 +422,9 @@ describe('authoringBrief', () => {
 
     // Same indent-agnostic text at both, which is the point of sharing it: three
     // spaces inside the numbered checklist item, five inside the merge bullet.
-    for (const [, text] of caveats) expect(flattenProse(small)).toContain(text);
+    for (const [, text] of caveats) {
+      expect(flattenProse(small)).toContain(text);
+    }
   });
 
   it('emits the shared caveats inline, so there is no indent left to get wrong', () => {
@@ -439,7 +441,10 @@ describe('authoringBrief', () => {
       const hosts = text.split('\n').filter((line) => line.includes('resolved keys carry their'));
 
       expect(hosts.length).toBeGreaterThan(0);
-      for (const line of hosts) expect(line).toContain('and mark the ones no lint run will ever show.');
+
+      for (const line of hosts) {
+        expect(line).toContain('and mark the ones no lint run will ever show.');
+      }
     }
   });
 

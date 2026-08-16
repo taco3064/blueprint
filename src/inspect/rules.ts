@@ -154,7 +154,9 @@ export interface StructuralStatus extends StructuralRule {
  * import lint.ts — so a test pins the mirror to emitLint's real output.
  */
 function resolveStructural(blueprint: Blueprint | null): StructuralStatus[] {
-  if (!blueprint) return STRUCTURAL_RULES.map((rule) => ({ ...rule, active: null }));
+  if (!blueprint) {
+    return STRUCTURAL_RULES.map((rule) => ({ ...rule, active: null }));
+  }
 
   const { layers } = blueprint.architecture;
   const globalRules = deriveGlobalRules(layers);
@@ -235,7 +237,9 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
 function unavailableNote(gates: GateStatus[]): string {
   const out = gates.filter((gate) => gate.unavailable !== undefined);
 
-  if (!out.length) return ' — all of them openable on this stack, so `inspect` counts the same number';
+  if (!out.length) {
+    return ' — all of them openable on this stack, so `inspect` counts the same number';
+  }
 
   return ` — ${out.length} of them unavailable on this stack (${
     out.map((gate) => `${gate.id}: ${gate.unavailable}`).join('; ')
@@ -332,13 +336,17 @@ export function renderRules(
       return gate.declared === null ? '· unavailable here' : '· declared, unavailable here';
     }
 
-    if (gate.declared === null) return '· not declared';
+    if (gate.declared === null) {
+      return '· not declared';
+    }
 
     // Declared, not unavailable, and still inactive means exactly one thing: the
     // author set it to off. The other arm this ternary used to have — "declared,
     // never emits here" — existed only for the framework-silenced case, which the
     // unavailable branch above now answers with its reason, so nothing reaches it.
-    if (!gate.active) return '· off';
+    if (!gate.active) {
+      return '· off';
+    }
 
     return `✓ ${gate.declared.tier}${gate.declared.value !== undefined ? `(${gate.declared.value})` : ''}`;
   };
