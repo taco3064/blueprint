@@ -4,7 +4,7 @@
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "explorer.fileNesting.patterns": {
-    "*.ts": "$(capture).test.ts, $(capture).js, $(capture).d.ts",
+    "*.ts": "$(capture).test.ts, $(capture).*.test.ts, $(capture).js, $(capture).d.ts",
     "*.mjs": "$(capture).test.mjs",
     "README.md": "CHANGELOG*, LICENSE*, SECURITY*, CLAUDE*, agent-contract.md",
     "package.json": "package-lock.json, .npmrc, .nvmrc, rolldown.config.ts, eslint.config.ts, vitest.config.ts, stryker.config.json, typedoc.json",
