@@ -7,9 +7,9 @@ description: Turn a stated direction into one new GitHub issue deliver-ticket ca
 
 You own the discussion that turns a direction into a **decided** shape. **You do not own how it gets built** — that is [deliver-ticket](../deliver-ticket/SKILL.md)'s, and it starts from the issue you write, not from this conversation. Once the issue is filed, this skill's job is done. Reopening the same discussion later, or shaping a different direction, is a new invocation.
 
-**You do not touch the repository.** No edit, no commit, no branch, no PR — and that includes never switching, pulling, merging, or resetting whatever checkout this session happens to be sitting in, even mid-investigation. The one exception is syncing the local read-only ref to `origin/main`, which changes nothing tracked; see *Re-sync before you draft*. The one artifact you produce is a single GitHub issue — everything else this skill does is investigation and conversation that either becomes a line in that issue or is discarded.
+**You do not touch the repository.** No edit, no commit, no branch, no PR — and that includes never switching, pulling, merging, or resetting whatever checkout this session happens to be sitting in, even mid-investigation. The one exception is syncing the local read-only ref to `origin/main` — first thing in `inspect-the-repo.md`, again in *Re-sync before you draft* below — which changes nothing tracked. The one artifact you produce is a single GitHub issue — everything else this skill does is investigation and conversation that either becomes a line in that issue or is discarded.
 
-**And you do not revise an existing issue either.** This skill's whole output is one *new* issue. If the owner brings an issue whose scope is still unsettled, that's a `resolve-the-direction.md` conversation same as any other direction, and it ends the same way — a new issue is filed, and the old one is named in *Related work* rather than edited. Updating an issue in place is a different operation this skill doesn't perform; don't invent one under pressure to finish.
+**And if a matching issue already exists, you don't create a second one.** This skill's precondition is that no issue covers this direction yet. If the owner points at an existing issue, or `inspect-the-repo.md`'s search turns one up covering the same root cause, **stop before drafting** and report it — its number, its state, and, if its scope still looks unsettled, that settling it is not this run's job. There is no path in this skill from "an issue already exists" to "file a new one anyway": that would produce exactly the duplicate the completion bar below rules out, and editing the old one in place is an operation this skill doesn't perform either — both ends are closed on purpose. The one way an existing issue legitimately appears in a filed draft is *superseding* it: a closed or withdrawn issue this direction genuinely replaces with a different approach, named in *Related work* the way #364 named #358 and #361. An open issue on the same root cause is never that — it's a stop, not source material.
 
 **Everything on this page is always in force.** The depth belonging to one moment lives under [`references/`](./references/) — read the file when its trigger fires, before acting.
 
@@ -44,7 +44,7 @@ That is why the completion bar below is strict, and why it's checked before the 
 - Every plan stage is independently landable and verifiable — the same bar `deliver-a-stage.md` holds a commit to, applied one level up.
 - Every acceptance criterion names a command, an output, or an artifact — not "works correctly" — and maps back to a goal clause or a plan stage. An orphan criterion or an unproven goal clause is a hole.
 - Anything adjacent that this issue does not cover is named as out of scope, not left for the reader to guess.
-- Nothing in the draft duplicates an issue (open or closed), a PR (open or merged), or a `discarded-attempt`-labeled one.
+- Nothing in the draft silently duplicates another issue's scope. An open issue already covering this root cause means the run stopped before a draft ever existed (see *And if a matching issue already exists* below); a closed or withdrawn one this direction genuinely supersedes is named in *Related work*, not silently repeated.
 
 ## Discussion is not a form
 
@@ -56,11 +56,9 @@ Every question carries, in this order: the current state and the evidence for it
 
 ## Re-sync before you draft
 
-This repo moves same-day: issues close, PRs merge, `main` is not the commit the discussion started against. **Before writing the draft, sync and re-verify — without touching the working tree.**
+`inspect-the-repo.md`'s *Ground the investigation before it starts* fetches `origin/main` and records its SHA before the first question is even asked — everything from there on, including every product decision `resolve-the-direction.md` settles, is read against that commit, never against whatever the session's own checkout happens to be on. This repo moves same-day, though, so before writing the draft that grounding needs a second, identical sync: `git fetch origin`, read-only, changing no tracked file and moving no branch — never `git pull`, `git checkout`, `git merge`, or `git reset`, which is exactly what *you do not touch the repository* rules out, applied to this skill's own investigation instead of to the code.
 
-`git fetch origin` updates only the local remote-tracking ref for `origin/main`; it changes no tracked file and doesn't move whatever branch this session happens to be on. Read against that ref directly — `git show origin/main:<path>` for a file at the tip, `git log origin/main -- <path>` for its history — or the GitHub read tools if there's no local checkout at all. **Never `git pull`, `git checkout`, `git merge`, or `git reset`** — those change working-tree or branch state, which is exactly what *you do not touch the repository* rules out, applied to this skill's own investigation instead of to the code.
-
-Re-verify every fact the plan leans on against that ref: a symbol renamed, a module split, a helper added underneath the conversation all turn a sound plan into one that references something that no longer exists. `inspect-the-repo.md` and `create-the-ticket.md`'s pre-flight cover how to keep this cheap rather than re-doing the whole investigation.
+**Diff the two SHAs instead of re-reading everything.** `git diff <grounding-sha> origin/main` names exactly which facts moved since grounding; an empty diff on the paths this direction touches means the investigation still holds, and a non-empty one says precisely what to re-check rather than triggering a second full pass. `create-the-ticket.md`'s pre-flight covers this from the drafting side.
 
 ## Repo facts
 

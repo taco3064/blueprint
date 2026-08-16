@@ -6,9 +6,9 @@
 
 Do this before writing a word of the draft, even if the investigation feels current:
 
-- **Sync `origin/main`, without touching the working tree.** `git fetch origin`, then read against `origin/main` directly (`git show origin/main:<path>`, `git log origin/main -- <path>`) or through the GitHub read tools — never `git pull`, `git checkout`, or `git merge`. The commit `inspect-the-repo.md` grounded on may not be the tip anymore — this repo closes issues same-day.
-- **Re-verify every fact the plan leans on against that tip.** A renamed symbol, a moved module, a helper that already exists now and didn't when the discussion started, all turn a sound plan into one that cites something no longer there.
-- **Re-run the duplicate search from `inspect-the-repo.md` at the current tip, not just the grounding commit.** Cover issues open and closed, PRs open and merged, and anything carrying the `discarded-attempt` label, using the keyword search there rather than a plain recency list — something matching this direction may have been filed or merged during the discussion itself. A withdrawn attempt isn't a blocker, but its measurements belong in the draft instead of being re-derived, the way issue #364 reused #358's and #361's numbers instead of re-running them.
+- **Sync `origin/main` a second time, and diff against the grounding SHA.** `git fetch origin`, then `git diff <grounding-sha> origin/main`. Read any changed path directly (`git show origin/main:<path>`) rather than off disk, and never `git pull`, `git checkout`, or `git merge`. `inspect-the-repo.md`'s *Ground the investigation before it starts* recorded the first SHA before the first question was asked; this repo closes issues same-day, so this second check is not optional.
+- **Re-verify every fact the diff touches.** A renamed symbol, a moved module, a helper that now exists and didn't when the discussion started each shows up as a changed path — and each turns a sound plan into one that cites something no longer there if skipped.
+- **Re-run the duplicate search from `inspect-the-repo.md` at the current tip, not just the grounding commit — same `--limit` bump, same multiple queries.** Cover issues open and closed, PRs open and merged, and anything carrying the `discarded-attempt` label; something matching this direction may have been filed or merged during the discussion itself. **If this turns up an issue still open on the same root cause, stop — report it instead of filing**, per `SKILL.md`'s *And if a matching issue already exists, you don't create a second one*. A withdrawn attempt isn't a blocker, but its measurements belong in the draft instead of being re-derived, the way issue #364 reused #358's and #361's numbers instead of re-running them.
 - **Confirm exactly one issue is about to be created.** If the investigation ever surfaced more than one ticket's worth, this is the last checkpoint before that either gets said out loud or gets buried in a single oversized draft.
 - **Confirm no product decision is still open.** Re-run `resolve-the-direction.md`'s convergence list against the current draft, not against memory of having checked it earlier.
 - **Confirm the acceptance criteria can't be trivially gamed.** A wrong or no-op implementation should be visibly unable to pass them. "The function exists" is not a criterion; "`npx eslint .` reports 0 errors across all 130 tracked files, and `--print-config` returns a non-empty rule set for each" is — because a lint config that governs nothing would pass the first and fail the second.
@@ -27,7 +27,7 @@ State the current behavior, the desired behavior, and the concrete cost of the g
 
 ### Implementation Plan
 
-Built on `main` as it stands at the pre-flight commit, not as a fresh design:
+Built on `origin/main` as it stands after the pre-flight sync, not as a fresh design:
 
 - **Name the module and layer that already owns this**, per `CLAUDE.md`'s layering table. If the direction seems to belong to two, that tension is itself a finding — surface it rather than picking silently.
 - **Name the primitives already in the repo** that the plan reuses, and name every consumer that needs to move with the change (a resolver's caller, a rule the preset recommends, a page in `docs/` that documents the old behavior).
