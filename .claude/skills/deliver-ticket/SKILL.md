@@ -26,6 +26,8 @@ So: **what you find while building goes into a comment on the ticket you are bui
 
 **When something genuinely falls outside this ticket** — a defect that predates it, a decision that changes what the tool asserts, work that would still be needed if this ticket had never existed — **say so in the comment and stop.** Name it, give its address, and state that it is outside. The owner decides whether it becomes a ticket. **You do not open it, and you do not absorb it either** — silently fixing an out-of-scope thing is the same failure wearing better clothes, because the next reader cannot tell which part of the diff the ticket asked for.
 
+**The hardest version is an outside thing sitting inside a hunk you already have open** — a missing assertion in a file you just split, a test that passes vacuously in a file you just reformatted. Ten lines, already in the diff, and nobody would ever query it. It is still outside, and the reason survives the convenience: a file being in the diff for one reason does not license a second.
+
 ## You dispatch the work; you do not type it
 
 **One sub-agent per stage.** It writes the code, you decide what the stage is, verify what comes back, land it, and write the comment. **The commit is yours** — that is what keeps one commit to one stage to one comment, which fragments the moment several hands are committing.
@@ -33,6 +35,8 @@ So: **what you find while building goes into a comment on the ticket you are bui
 Hand a sub-agent **the ticket number, the one stage it is working, and the instruction to read `CLAUDE.md` plus every `.claude/docs/` page whose trigger fires.** Hand over the number, not your summary of the ticket — a summary is a second source of truth for something already written down, and the two will differ.
 
 **Do not carry a sub-agent across stages.** A fresh one per stage costs nothing and a long-lived one accumulates the same blind spot you would have had. What it learned that is worth keeping goes in the ticket comment, which is the only place it survives.
+
+**What it *built* to check itself is a different thing, and a comment is the wrong home for it.** A render harness, a probe config, a mutation script — the next stage needs the same one and will spend the same hour deriving it. Say where the last one left them in the next dispatch. The rule above is about judgment accumulating blind spots; a script has none.
 
 **What comes back is a claim, not a result.** It will tell you it is done and that the tests pass. That is the implementer believing its own work, which is not evidence — **run the verification yourself before the commit**, and treat every rule under *How you verify* as applying to what it hands you exactly as it applies to what you would have written.
 
@@ -53,6 +57,8 @@ This is the cheapest thing in this file and the easiest to skip, because skippin
 **A ticket that states an intent and sketches a shape is specified by what the tool already does.** It says what to add. `docs/` says what the thing already is — the model, what each field means today, what the tool refuses to decide, how the nearest existing analogue behaves. **The new thing is derived from those, not invented beside them.**
 
 So when you reach a question the ticket does not answer — what should this default to, what should it reject, what should the message say, what does it do to the emitted artifacts — **find the nearest thing that already exists and read how it behaves.** The answer is usually *the same way that one does*, and where it differs, the existing one tells you which axis the difference is on.
+
+**Sometimes the nearest thing is not in this repo.** How an editor renders a folder, what a resolver does with a specifier, which of three spellings a parser accepts — those are answered by *executing that tool*, not by reaching for the closest local convention. A convention picked because it was the nearest **available** answer is an invention wearing a precedent's clothes.
 
 **Asking the owner how to decide something the tool already decided is not caution. It is a failure to read**, and it costs a round trip to be told what was written down before you started. Once you have read it, extend it and keep going.
 
