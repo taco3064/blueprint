@@ -31,8 +31,9 @@ import type { Action } from './types';
 // re-exported here because they are authoring concepts first.
 export { AUTHORING_FILE, COMMAND_FILE } from '../project';
 
-// The threshold lives with the verdict that reads it; re-exported because
-// bootstrap and the CLI both quote it, and they know this module, not playbook.
+// The threshold lives in `playbook`, next to the prose that quotes it;
+// re-exported because bootstrap and the CLI both quote it too, and they know
+// this module, not playbook.
 export { BROWNFIELD_MIN_FILES } from './playbook';
 
 /** The entry prompt every launcher (or human) feeds the agent. */

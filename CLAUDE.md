@@ -86,7 +86,18 @@ contradiction, and an adopter meets it before we do.
 ## Tests & tooling
 
 - **Co-locate tests**: `foo.test.ts` beside `foo.ts`; the test name matches the
-  source.
+  source. **A suite too big for one file splits by aspect, not by moving away
+  from its source**: `<source>.<aspect>.test.ts`, still beside `<source>.ts`
+  (`plan.eslint.test.ts`, `bootstrap.repo.test.ts`, `conformance.lint.test.ts`).
+  `architecture.testFiles: []` puts tests under `maxLines` (400), so a source
+  file under 400 lines whose test runs past it cannot satisfy both the gate and
+  a strict 1:1 name — the aspect suffix is what gives. The one suite with no
+  single source (`src/e2e/adoption.e2e.test.ts`) has no sibling to sit beside
+  and takes the same shape. **The rule that would check the 1:1 name
+  (`blueprint/test-filename-matches-source`) is declared `error` in
+  `blueprint.config.mjs` and left with no files to run on by `testFiles: []` —
+  the comment there says so in those terms** — because a gate this repo declares
+  and cannot meet is the suppressions ledger #364 exists to not have.
 - **100% coverage** (`vitest --coverage`). The only exclusions are real-I/O
   defaults and the bin guard, marked `/* v8 ignore */` because tests inject
   those effects (`exec`, `loadConfig`) instead of running them.

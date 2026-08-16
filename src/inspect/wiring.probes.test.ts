@@ -5,25 +5,26 @@ import type { Blueprint } from '../config';
 import type { ScanResult } from './types';
 import { expectedStructural, wiringCheck } from './wiring';
 
+/**
+ * Four plain layers and an ignore glob. Every flow declaration the wider fixture
+ * in `wiring.test.ts` carries — a second alias, allowedImporters, package
+ * ownership, a module shape, a declared rule tier — is left out: this file asks
+ * which files become probes and which carrier gates are expected, and both sides
+ * of every comparison here are computed from this same object, so a ban declared
+ * on it decides nothing. `alias` stays only because the type demands one.
+ */
 const blueprint: Blueprint = {
   framework: 'vue',
   architecture: {
     alias: '~app',
-    additionalAliases: { '~root': 'src' },
     layers: [
       { name: 'views', does: 'pages' },
-      {
-        name: 'contexts',
-        does: 'shared state',
-        allowedImporters: [{ layer: 'views', selfOnly: true }],
-      },
-      { name: 'stores', does: 'state', allowedImporters: ['contexts'] },
-      { name: 'services', does: 'io', owns: [{ global: 'fetch' }] },
+      { name: 'contexts', does: 'shared state' },
+      { name: 'stores', does: 'state' },
+      { name: 'services', does: 'io' },
     ],
-    module: { layout: 'folder', entry: 'index', private: [] },
     layerFilesIgnore: 'src/**/*.gen.ts',
   },
-  rules: { fixtureImports: 'error' },
 };
 
 const scanOf = (...paths: string[]): ScanResult => ({
@@ -31,43 +32,31 @@ const scanOf = (...paths: string[]): ScanResult => ({
   files: paths.map((p) => ({ path: p, segments: p.split('/').slice(1), imports: [] })),
 });
 
-/** A fake project-eslint whose final resolved config is programmable. */
-function loader(
-  resolved: unknown | ((filePath: string) => unknown),
-  throwOn?: 'load' | 'calculate',
-) {
-  return async (): Promise<unknown> => {
-    if (throwOn === 'load') {
-      throw new Error('unresolvable');
-    }
-
-    return {
-      ESLint: class {
-        async calculateConfigForFile(filePath: string): Promise<unknown> {
-          if (throwOn === 'calculate') {
-            throw new Error('broken config');
-          }
-
-          return typeof resolved === 'function' ? resolved(filePath) : resolved;
-        }
-      },
-    };
-  };
+/**
+ * A fake project-eslint whose final resolved config is programmable. It cannot
+ * be made to throw here — every skip path (an unresolvable config, a broken
+ * one, an unwired repo) is `wiring.test.ts`'s, and a parameter this file passes
+ * one value to is a branch nothing in it decides.
+ */
+function loader(resolved: unknown | ((filePath: string) => unknown)) {
+  return async (): Promise<unknown> => ({
+    ESLint: class {
+      async calculateConfigForFile(filePath: string): Promise<unknown> {
+        return typeof resolved === 'function' ? resolved(filePath) : resolved;
+      }
+    },
+  });
 }
 
-const run = (
-  scanResult: ScanResult,
-  resolved: unknown,
-  projectEslint: { throwOn?: 'load' | 'calculate'; merged?: boolean } = {},
-) =>
+const run = (scanResult: ScanResult, resolved: unknown) =>
   wiringCheck({
     root: '/repo',
     blueprint,
     scanResult,
     wired: true,
-    merged: projectEslint.merged ?? true,
+    merged: true,
     hasTypescript: true,
-    load: loader(resolved, projectEslint.throwOn),
+    load: loader(resolved),
   });
 
 describe('wiringCheck · carrier gates (field issue #40)', () => {
