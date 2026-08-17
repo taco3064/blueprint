@@ -69,6 +69,16 @@ Then close the ticket with a final comment carrying:
 - **What the ticket taught that its body did not know** — an assumption that turned out false, a case the goal did not name, an approach abandoned and why. **This is the part that is worth reading a year from now**, and it exists nowhere else once this session ends.
 - **Anything named as outside the ticket**, restated in one list so the owner does not have to walk the comment stream to recover it. **You still do not file it.**
 
+## Cleaning up
+
+Once the ticket is closed, the worktree, the local branch, and usually the remote branch have stopped being useful — and `SKILL.md`'s one-worktree-per-ticket convention accumulates indefinitely across tickets if nothing ever removes one.
+
+**Leave the worktree before removing it.** `cd` back to the main checkout, or any other worktree, first. `git worktree remove` on the directory currently sitting under you is exactly the kind of thing that fails or leaves things in a strange state, and there's no reason to still be there once the ticket is closed.
+
+- `git worktree remove <path>` for the ticket's worktree.
+- `git branch -D ticket/<n>-<slug>` for the local branch. **`-D`, not `-d`.** This repo's only merge strategy is rebase-merge, which gives every landed commit a new SHA on `main` — so git's own "is this merged" check, which `-d` relies on, says no even though it is. The identity check two sections up already proved the content landed; that's the safety this step depends on, not git's heuristic.
+- The remote branch: this repo deletes the head branch on merge automatically, so `git fetch origin --prune` and check it's actually gone (`git branch -r --list 'origin/ticket/<n>-*'`) before deleting it by hand. Push a delete only if it's somehow still there.
+
 ## What does not happen here
 
 **No new tickets.** Not for the outside-scope list, not for a follow-up, not for "the obvious next step". That list is the owner's input, not your output.

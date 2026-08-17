@@ -15,7 +15,7 @@ You own one issue's **delivery** and the written record of how it got there. **Y
 |---|---|
 | [`start-or-resume.md`](./references/start-or-resume.md) | The skill loads. Every time, before deciding whether this is a fresh start or a resume — the two look identical until you've read the ticket. |
 | [`deliver-a-stage.md`](./references/deliver-a-stage.md) | You are about to commit, or you have just committed and owe the ticket a comment. What a stage is, what the comment must carry, and how a shortfall is written down. |
-| [`finish-the-ticket.md`](./references/finish-the-ticket.md) | You believe the ticket is done. The completion test, the pull request, the merge, and closing the issue. |
+| [`finish-the-ticket.md`](./references/finish-the-ticket.md) | You believe the ticket is done. The completion test, the pull request, the merge, closing the issue, and cleaning up the worktree and branches. |
 
 ## You do not create tickets
 
