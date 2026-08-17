@@ -107,6 +107,64 @@ export interface FolderDef {
   private?: string[];
 }
 
+/**
+ * A module permitted to import another, with optional constraints. A bare
+ * string is shorthand for `{ module }`.
+ */
+export interface ModuleAllowedImporter {
+  /** The importing module's name. Must be a module declared earlier. */
+  module: string;
+  /** The importer may depend on this module but never re-export it onward. */
+  selfOnly?: boolean;
+  /** Human note, rendered as the edge label in the Explain diagram. */
+  description?: string;
+}
+
+/**
+ * One feature module at the source root — a folder holding the declared
+ * `architecture.layers` inside it (or, with `layers: false`, its files
+ * directly).
+ *
+ * Not {@link FolderDef}, which is the same idea one depth down: a `FolderDef`
+ * is the *shape* every feature folder inside a layer takes, declared once and
+ * nameless. A module is declared one by one, ordered against its siblings,
+ * and carries what only a named unit can — who may import it, and the
+ * primitives it owns.
+ */
+export interface ModuleDef {
+  /** Module folder name, e.g. `Combat`. Unique within the blueprint. */
+  name: string;
+  /** One-line responsibility — what code in this module is for. */
+  does: string;
+  /**
+   * `false` for a module that holds its files directly rather than the
+   * shared `architecture.layers`. Omit it (the default) to keep those layers
+   * nested one level inside the module; `false` is the only other accepted
+   * value.
+   */
+  layers?: false;
+  /**
+   * Primitives (packages / globals) this module exclusively owns. Ownership
+   * cascades to every layer inside the module — a file group may reach a
+   * primitive its layer owns OR its module owns.
+   */
+  owns?: OwnedPrimitive[];
+  /**
+   * Restrict who may import this module. Omit to keep the default — every
+   * module declared before it may import it. When set, only the listed
+   * modules may, and each must be a module declared earlier (which keeps the
+   * flow one-way and acyclic by construction, mirroring
+   * {@link LayerDef.allowedImporters}).
+   */
+  allowedImporters?: (string | ModuleAllowedImporter)[];
+  /**
+   * Override the module's own public entry filename. Omit to inherit
+   * `architecture.folder?.entry` (default `index`) — the same resolution
+   * {@link LayerFolderDef.entry} already does for a layer.
+   */
+  entry?: string;
+}
+
 export interface ArchitectureDef {
   /**
    * Project import alias, e.g. `~app`. Every structural ban pattern is built
@@ -128,6 +186,19 @@ export interface ArchitectureDef {
    * import a given layer (see {@link LayerDef.allowedImporters}).
    */
   layers: LayerDef[];
+  /**
+   * Ordered feature modules at the source root. Omit it for the flat
+   * structure, where `layers` are themselves the top-level folders —
+   * unchanged, byte-for-byte. Declared, the source root holds one folder per
+   * module and `layers` describes what lives nested inside each one (or,
+   * for a module with `layers: false`, its files directly). `layers` and
+   * `modules` are orthogonal: `layers` is always the technical-layer
+   * definition, `modules` only decides *where* those layers live. Order
+   * defines the module flow the same way layer order does — a module may
+   * import only modules declared after it (see
+   * {@link ModuleDef.allowedImporters}).
+   */
+  modules?: ModuleDef[];
   /** Dependency direction. Only `one-way` for now (upstream imports banned). */
   /**
    * Feature-folder shape shared across layers. Optional — omitting it (or

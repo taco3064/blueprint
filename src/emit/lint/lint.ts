@@ -1,21 +1,26 @@
 import type { ESLint, Linter } from 'eslint';
-import { activeSetting,
-  aliasLayerRoots,
-  getForbiddenLayers,
-  getFolderShape,
-  getSelfOnlyTargets } from '../../config';
-import type { Blueprint, ReadSetting } from '../../config';
+import { activeSetting, getFolderShape, getModules } from '../../config';
+import type { ArchitectureDef, Blueprint, ReadSetting } from '../../config';
 import { plugin } from '../../plugin';
 import {
+  barredIn,
+  netModuleSelfOnly,
+  netPatterns,
+  netSelfBanPaths,
+  netSelfOnly,
+  resolveBanScope,
+} from './bans';
+import type { BanScope } from './bans';
+import { METRIC_GATES, STATEMENT_PADDING } from './gates';
+import { allNetFiles, resolveFileNets } from './nets';
+import type { FileNet } from './nets';
+import {
   buildPackagePatterns,
-  buildStructuralPatterns,
-  derivePackageRules,
-  deriveGlobalRules,
-  METRIC_GATES,
+  ownerPhrase,
   resolveLayerFiles,
   resolveTestFiles,
+  selfOnlyModuleReexportSelector,
   selfOnlyReexportSelector,
-  STATEMENT_PADDING,
   toArray,
 } from './patterns';
 import type {
@@ -28,6 +33,14 @@ import type {
 
 type Severity = 'error' | 'warn';
 type FolderLayout = 'folder' | 'flat';
+
+/** Everything a net's rules compile from, resolved once for the whole config. */
+interface NetContext {
+  severity: Severity;
+  testGlobs: string[];
+  architecture: ArchitectureDef;
+  banScope: BanScope;
+}
 
 /**
  * Compile a Blueprint's `architecture` into an ESLint flat config that
@@ -43,28 +56,14 @@ type FolderLayout = 'folder' | 'flat';
  */
 export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): LintConfig {
   const { framework, architecture } = blueprint;
-
-  const {
-    layers,
-    layerFiles,
-    layerFilesIgnore,
-    testFiles,
-    sourceRoot,
-  } = architecture;
-
+  const { layers, layerFilesIgnore, testFiles } = architecture;
   const severity: Severity = blueprint.emit?.lint?.severity ?? 'error';
-
-  // Each alias's layer base carries the offset from its target to the
-  // source root — `'~root': '.'` bans `~root/src/views/**`, not the
-  // `~root/views/**` no import ever uses (field issue #29).
-  const aliases = aliasLayerRoots(architecture)
-    .map((root) => [root.alias, ...root.prefix].join('/'));
-
   const testGlobs = resolveTestFiles(testFiles);
 
-  const layouts = Object.fromEntries(
-    layers.map((layer) => [layer.name, getFolderShape(architecture, layer.name).layout]),
-  );
+  // The one resolution of what this blueprint forbids — every net reads the
+  // same facts, so the bans written here can never disagree with themselves.
+  const banScope = resolveBanScope(blueprint);
+  const context: NetContext = { severity, testGlobs, architecture, banScope };
 
   // The rule needs the entry filename to tell a sibling's front door from its
   // inside; without it a layer whose entry is not `index` reads every entry
@@ -77,120 +76,135 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     ? [{ ignores: toArray(layerFilesIgnore) }]
     : [];
 
-  const layerConfigs = layerImportEntries(blueprint, { severity, testGlobs, aliases, layouts });
-
-  const allLayerFiles = [
-    ...new Set(
-      layers.flatMap((l) => resolveLayerFiles(l.name, framework, { layerFiles, sourceRoot })),
-    ),
-  ];
-
-  // The depth-aware half of the structural rules: relative imports must not
-  // leave their folder. Shares inspect's resolution — see the plugin rule.
-  const escapeEntry: LintConfigEntry = {
-    files: allLayerFiles,
-    ignores: testGlobs,
-    plugins: { blueprint: plugin },
-    rules: { 'blueprint/relative-escape': [severity, { layouts, entries }] },
-  };
-
   return [
     ...ignoreConfig,
-    ...layerConfigs,
-    escapeEntry,
+    // One `no-restricted-imports` entry per governed file group — the flow ban,
+    // the folder-entry ban, and package / global ownership, all of which are
+    // facts about the group rather than about the file. Flat, a group is a
+    // layer. Modular, it is one layer inside one module, or a module's own
+    // root files.
+    ...resolveFileNets(architecture, framework).flatMap((net) => netEntries(net, context)),
+    ...escapeEntries(blueprint, { severity, testGlobs, layouts: banScope.layouts, entries }),
     ...ruleGateEntries(blueprint, testGlobs, options),
   ];
 }
 
 /**
- * One `no-restricted-imports` entry per layer — the flow ban, the folder-entry
- * ban, and package / global ownership, all of which are per-layer facts. A layer
- * with exempt packages needs two entries: flat config REPLACES a rule rather than
- * merging it, so the exemption cannot be an `ignores` on a single one.
+ * The one or two entries a single file group needs. A group with exempt packages
+ * needs two: flat config REPLACES a rule rather than merging it, so the exemption
+ * cannot be an `ignores` on a single one.
  */
-function layerImportEntries(
+function netEntries(net: FileNet, context: NetContext): LintConfigEntry[] {
+  const { severity, testGlobs, architecture, banScope } = context;
+
+  const disabledPackages = banScope.packageRules.filter((rule) => barredIn(net, rule));
+  const disabledGlobals = banScope.globalRules.filter((rule) => barredIn(net, rule));
+  const structural = netPatterns(net, banScope);
+  const selfBanPaths = netSelfBanPaths(net, banScope);
+
+  const syntaxRules = [
+    ...netSelfOnly(net, architecture).flatMap(({ target, path }) =>
+      banScope.aliases.map((a) => ({
+        selector: selfOnlyReexportSelector(a, path),
+        message: `\n🚫 Cannot re-export from "${target}" — a selfOnly dependency must not be exposed to callers.`,
+      })),
+    ),
+    // A module's own bare entry IS its re-exportable spelling, so its selfOnly
+    // ban needs the selector that also matches that exact form — the layer
+    // selector only ever matches one segment deeper.
+    ...netModuleSelfOnly(net, architecture).flatMap(({ target, path }) =>
+      banScope.aliases.map((a) => ({
+        selector: selfOnlyModuleReexportSelector(a, path),
+        message: `\n🚫 Cannot re-export from "${target}" — a selfOnly dependency must not be exposed to callers.`,
+      })),
+    ),
+  ];
+
+  // `lintOverrides` lives on the shared layer declaration, keyed by its bare
+  // name — a module net's `layer` names the same shared entry, so the override
+  // cascades into every module that nests it, exactly like the layer itself.
+  const overrides = net.layer === null
+    ? undefined
+    : architecture.layers.find((l) => l.name === net.layer)?.lintOverrides;
+
+  const buildRules = (packages: PackageRule[]): Linter.RulesRecord => {
+    const { paths, patterns } = buildPackagePatterns(packages);
+    const allPaths = [...selfBanPaths, ...paths];
+
+    return {
+      // By contract these are rule entries (validated to spare the managed rules).
+      ...(overrides as Linter.RulesRecord),
+      'no-restricted-imports': [
+        severity,
+        { patterns: [...structural, ...patterns], ...(allPaths.length ? { paths: allPaths } : {}) },
+      ],
+      ...(syntaxRules.length ? { 'no-restricted-syntax': [severity, ...syntaxRules] } : {}),
+      ...buildGlobalRule(disabledGlobals, severity),
+    };
+  };
+
+  const exemptPatterns = [
+    ...new Set(disabledPackages.flatMap((rule) => rule.exempt ?? []).filter(Boolean)),
+  ];
+
+  if (!exemptPatterns.length) {
+    return [{ files: net.files, ignores: testGlobs, rules: buildRules(disabledPackages) }];
+  }
+
+  const nonExempt = disabledPackages.filter((rule) => !rule.exempt?.length);
+
+  return [
+    // All files (incl. exempt): only the non-exempt package restrictions.
+    { files: net.files, ignores: testGlobs, rules: buildRules(nonExempt) },
+    // Non-exempt files only: the full set of package restrictions.
+    {
+      files: net.files,
+      ignores: [...exemptPatterns, ...testGlobs],
+      rules: buildRules(disabledPackages),
+    },
+  ];
+}
+
+/**
+ * The depth-aware half of the structural rules: relative imports must not leave
+ * their folder. Shares inspect's resolution — see the plugin rule.
+ *
+ * Modular, one entry per module, each naming the module its files sit in: the
+ * rule's segment math is off by one without it, reading the module name where
+ * the layer should be. Scoping `files` per module is what lets a single `root`
+ * option be right for every file the entry reaches.
+ */
+function escapeEntries(
   blueprint: Blueprint,
   shape: {
     severity: Severity;
     testGlobs: string[];
-    aliases: string[];
     layouts: Record<string, FolderLayout>;
+    entries: Record<string, string>;
   },
 ): LintConfigEntry[] {
   const { framework, architecture } = blueprint;
-  const { layers, layerFiles, sourceRoot } = architecture;
-  const { severity, testGlobs, aliases, layouts } = shape;
-  const packageRules = derivePackageRules(layers);
-  const globalRules = deriveGlobalRules(layers);
+  const { severity, testGlobs, layouts, entries } = shape;
+  const nets = resolveFileNets(architecture, framework);
+  const modules = getModules(architecture);
 
-  const folderLayers = layers
-    .map((layer) => layer.name)
-    .filter((name) => layouts[name] === 'folder');
-
-  // Fixture roots are barred through the same structural rule per layer —
-  // a separate entry would *replace* `no-restricted-imports`, not merge it.
-  const fixtures = activeSetting(blueprint.rules?.fixtureImports)
-    ? aliases.flatMap((a) => [`${a}/fixtures`, `${a}/fixtures/**`])
-    : [];
-
-  return layers.flatMap((layer) => {
-    const files = resolveLayerFiles(layer.name, framework, { layerFiles, sourceRoot });
-    const forbidden = getForbiddenLayers(architecture, layer.name);
-    const disabledPackages = packageRules.filter((rule) => !rule.allowedIn.includes(layer.name));
-    const disabledGlobals = globalRules.filter((rule) => !rule.allowedIn.includes(layer.name));
-
-    const selfOnlyTargets = getSelfOnlyTargets(architecture, layer.name);
-
-    const structural = buildStructuralPatterns({
-      layer: layer.name,
-      aliases,
-      forbidden,
-      folderLayout: layouts[layer.name],
-      folderTargets: folderLayers.filter(
-        (name) => name !== layer.name && !forbidden.includes(name),
-      ),
-      fixtures,
-    });
-
-    const syntaxRules = selfOnlyTargets.flatMap((target) =>
-      aliases.map((a) => ({
-        selector: selfOnlyReexportSelector(a, target),
-        message: `\n🚫 Cannot re-export from "${target}" — a selfOnly dependency must not be exposed to callers.`,
-      })),
-    );
-
-    const buildRules = (packages: PackageRule[]): Linter.RulesRecord => {
-      const { paths, patterns } = buildPackagePatterns(packages);
-
-      return {
-        // By contract these are rule entries (validated to spare the managed rules).
-        ...(layer.lintOverrides as Linter.RulesRecord),
-        'no-restricted-imports': [
-          severity,
-          { patterns: [...structural, ...patterns], ...(paths.length ? { paths } : {}) },
-        ],
-        ...(syntaxRules.length ? { 'no-restricted-syntax': [severity, ...syntaxRules] } : {}),
-        ...buildGlobalRule(disabledGlobals, severity),
-      };
-    };
-
-    const exemptPatterns = [
-      ...new Set(disabledPackages.flatMap((rule) => rule.exempt ?? []).filter(Boolean)),
-    ];
-
-    if (!exemptPatterns.length) {
-      return [{ files, ignores: testGlobs, rules: buildRules(disabledPackages) }];
-    }
-
-    const nonExempt = disabledPackages.filter((rule) => !rule.exempt?.length);
-
-    return [
-      // All files (incl. exempt): only the non-exempt package restrictions.
-      { files, ignores: testGlobs, rules: buildRules(nonExempt) },
-      // Non-exempt files only: the full set of package restrictions.
-      { files, ignores: [...exemptPatterns, ...testGlobs], rules: buildRules(disabledPackages) },
-    ];
+  const entry = (files: string[], root?: string): LintConfigEntry => ({
+    files,
+    ignores: testGlobs,
+    plugins: { blueprint: plugin },
+    rules: {
+      'blueprint/relative-escape': [severity, { layouts, entries, ...(root ? { root } : {}) }],
+    },
   });
+
+  if (!modules.length) {
+    return [entry([...new Set(nets.flatMap((net) => net.files))])];
+  }
+
+  return modules.map((module) => entry(
+    [...new Set(nets.filter((net) => net.module === module.name).flatMap((net) => net.files))],
+    module.name,
+  ));
 }
 
 /**
@@ -206,13 +220,7 @@ function ruleGateEntries(
   options: EmitLintOptions,
 ): LintConfigEntry[] {
   const { framework, architecture, rules } = blueprint;
-  const { layers, layerFiles, sourceRoot } = architecture;
-
-  const sharedFiles = [
-    ...new Set(
-      layers.flatMap((l) => resolveLayerFiles(l.name, framework, { layerFiles, sourceRoot })),
-    ),
-  ];
+  const sharedFiles = allNetFiles(architecture, framework);
 
   return [
     ...sharedEntry(sharedRules(blueprint, options), { files: sharedFiles, testGlobs }, options),
@@ -356,7 +364,11 @@ function typedefOnlyEntry(rules: Blueprint['rules'], testGlobs: string[]): LintC
   }];
 }
 
-/** The prefix gate, scoped to the one layer it names (default `hooks`). */
+/**
+ * The prefix gate, scoped to the one layer it names (default `hooks`) — through
+ * the nets rather than the bare layer glob, so under a modular structure it
+ * reaches that layer inside every module instead of a `src/hooks/` nobody has.
+ */
 function usePrefixEntry(blueprint: Blueprint, testGlobs: string[]): LintConfigEntry[] {
   const { framework, architecture, rules } = blueprint;
   const { layerFiles, sourceRoot } = architecture;
@@ -369,8 +381,19 @@ function usePrefixEntry(blueprint: Blueprint, testGlobs: string[]): LintConfigEn
   const layer = (usePrefix.opts.layer as string | undefined) ?? 'hooks';
   const prefix = (usePrefix.opts.prefix as string | undefined) ?? 'use';
 
+  const nets = resolveFileNets(architecture, framework)
+    .filter((net) => net.layer === layer)
+    .flatMap((net) => net.files);
+
+  // A layer with no net at all is one the blueprint does not declare, and
+  // `validateBlueprint` refuses that config — but `emitLint` is callable
+  // without it, and `files: []` is what ESLint rejects outright.
+  const files = nets.length
+    ? [...new Set(nets)]
+    : resolveLayerFiles(layer, framework, { layerFiles, sourceRoot });
+
   return [{
-    files: resolveLayerFiles(layer, framework, { layerFiles, sourceRoot }),
+    files,
     ignores: testGlobs,
     plugins: { blueprint: plugin },
     rules: { 'blueprint/use-prefix': [usePrefix.tier, { prefix }] },
@@ -544,7 +567,10 @@ function buildGlobalRule(disabled: GlobalRule[], severity: Severity): Linter.Rul
       severity,
       ...disabled.map((rule) => ({
         name: rule.global,
-        message: `\n🚫 Use of "${rule.global}" is restricted to its owning layer.`,
+        // Named, not "its owning layer": a global declared on a module is not in
+        // `architecture.layers`, and that sentence sends the reader to the wrong half
+        // of their own config looking for a declaration that was never there.
+        message: `\n🚫 Use of "${rule.global}" is restricted to ${ownerPhrase(rule)}.`,
       })),
     ],
   };

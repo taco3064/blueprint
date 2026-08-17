@@ -78,6 +78,7 @@ describe('plugin', () => {
         properties: {
           layouts: { type: 'object', additionalProperties: { enum: ['folder', 'flat'] } },
           entries: { type: 'object', additionalProperties: { type: 'string' } },
+          root: { type: 'string' },
         },
         additionalProperties: false,
       },

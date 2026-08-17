@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { defineBlueprint } from '../../config';
 import { emitLint } from './lint';
-import { STATEMENT_PADDING } from './patterns';
+import { STATEMENT_PADDING } from './gates';
 
 const blueprint = defineBlueprint({
   framework: 'auto',

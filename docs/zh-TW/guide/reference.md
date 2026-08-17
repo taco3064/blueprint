@@ -206,6 +206,25 @@ export default [
 - **`layer.owns`** —— 這層獨佔的基元，其他分層一律被擋。<br>直接給字串代表整個套件（`'axios'`）；物件形式可帶 `imports`（只鎖特定具名匯入，如 `['createContext']`）、`pattern`（把名稱當成 glob 群組）、`exempt`（豁免的檔案樣式）。<br>`{ global: 'fetch' }` 則是獨佔一個全域變數而不是套件
 - **`architecture.folder`** —— 共用的資料夾形狀：`layout`（`folder` ＝ 一個功能一個資料夾、外面只看得到公開入口；`flat` ＝ 單檔）、`entry`（入口檔名，預設 `index`）、`private`（藏在入口後面的子部分）。<br>`folder` 之下，鄰居資料夾只能透過它的入口碰到（`../Sibling`），其餘皆不可 —— 伸進入口後面不行，走別名也不行
 
+### 功能模組
+
+這是一條正交軸，不是第二套 schema：`architecture.layers` 永遠是分層的技術定義；<br>
+`architecture.modules` 只決定這些分層**放在哪裡**。<br>
+不寫它，原始碼根目錄就直接放分層，跟上面一樣；<br>
+寫了，根目錄就變成一個模組一個資料夾，每個模組裡面再放一份共用分層（或者，設了 `layers: false` 的話，模組直接放自己的檔案 —— 不再嵌套分層）。
+
+- **`architecture.modules`** —— 有順序的功能模組清單。<br>**順序就是流向**，跟 `architecture.layers` 同一條規則：模組預設只能匯入排在它後面的模組
+- **`module.does`** —— 一句話說明這個模組的程式碼是幹嘛的，去處跟 `layer.does` 一樣
+- **`module.layers`** —— 不寫就把共用分層嵌進這個模組；唯一的另一個值是 `false`，代表這個模組直接放自己的檔案
+- **`module.allowedImporters`** —— 收窄「誰可以匯入這個模組」，形狀與預設值跟 `layer.allowedImporters` 一樣 —— 只是條目裡寫的是 `module`，不是 `layer`
+- **`module.owns`** —— 這個模組獨佔的基元，形狀跟 `layer.owns` 一樣。<br>擁有權會往下蓋：一組檔案可以碰它自己那層擁有的基元，**或**它所屬模組擁有的基元
+- **`module.entry`** —— 覆寫這個模組自己的公開入口檔名。<br>不寫就繼承 `architecture.folder.entry`（預設 `index`）—— 跟 `layer.folder.entry` 給單一分層的解法一樣
+
+模組自己的根目錄檔案（入口、以及跟入口同一層的其他檔）從外面看是「只能走入口」——<br>
+伸進 `~app/N/**`、越過 `~app/N` 本身，會被擋下來，跟資料夾佈局分層的內部被擋是同一套道理。<br>
+從模組**裡面**看，走別名指回模組自己也一樣得走相對路徑（`~app/N` 被擋，`./` 不擋）——<br>
+但模組裡巢狀的某個分層，走 `~app/N/<分層>` 是碰得到的，這就是單層模型裡「跨分層別名匯入」搬到模組深一層的版本。
+
 ### 調校
 
 

@@ -126,6 +126,50 @@ export function relativeVerdict(
   return atEntry ? 'ok' : 'reaches-inside';
 }
 
+/** What a relative import does to its boundaries under a modular structure. */
+export type ModularVerdict = RelativeVerdict | 'leaves-module';
+
+/** The folder-shape resolvers, plus the one question a module depth adds. */
+export interface ModuleShape extends FolderShape {
+  /** Whether a segment names a declared layer. */
+  isLayer: (name: string) => boolean;
+}
+
+/**
+ * The modular twin of {@link relativeVerdict}, and one function for the same
+ * reason: the embedded lint rule and `inspect` must not be able to reach
+ * different conclusions about the same import.
+ *
+ * Another module is reachable only at its entry, through the alias, so a
+ * relative path that lands in one is a violation whatever it points at.
+ * Inside the module the layer model applies verbatim — the module segment is
+ * stripped from both sides, so `relativeVerdict` never learns that modules
+ * exist. A file sitting at the module's own root (or inside a module holding
+ * its files directly) is in no layer, so it has no layer boundary to cross:
+ * it may relatively import anything inside its own module, unconstrained.
+ */
+export function modularVerdict(
+  ownSegments: string[],
+  target: string[] | null,
+  shape: ModuleShape,
+): ModularVerdict {
+  if (target === null) {
+    return 'escapes-src';
+  }
+
+  if (target[0] !== ownSegments[0]) {
+    return 'leaves-module';
+  }
+
+  const own = ownSegments.slice(1);
+
+  if (own.length < 2 || !shape.isLayer(own[0])) {
+    return 'ok';
+  }
+
+  return relativeVerdict(own, target.slice(1), shape);
+}
+
 export function resolveSegments(dir: string[], specifier: string): string[] | null {
   const stack = [...dir];
 

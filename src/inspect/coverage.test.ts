@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
-import { LINT_GATED_RULE_IDS } from '../emit/lint/patterns';
+import { LINT_GATED_RULE_IDS } from '../emit/lint/gates';
 import { computeCoverage, renderCoverage, vacuousNextStep } from './coverage';
 import type { ScanResult } from './types';
 

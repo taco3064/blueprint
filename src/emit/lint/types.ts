@@ -64,21 +64,25 @@ export interface EmitLintOptions {
   imports?: ESLint.Plugin;
 }
 
-/** A package restriction derived from layers' `owns`, merged by signature. */
+/** A package restriction derived from layers' (and modules') `owns`, merged by signature. */
 export interface PackageRule {
   package: string;
   imports?: string[];
   pattern?: boolean;
   exempt?: string[];
-  /** Layers where this package is allowed. Every other layer is barred. */
+  /** Layers/modules where this package is allowed. Every other owner is barred. */
   allowedIn: string[];
+  /** Which of `allowedIn` are modules rather than layers — absent for the flat structure. */
+  modules?: string[];
 }
 
-/** A global restriction derived from layers' `owns`. */
+/** A global restriction derived from layers' (and modules') `owns`. */
 export interface GlobalRule {
   global: string;
-  /** Layers where this global is allowed. Every other layer is barred. */
+  /** Layers/modules where this global is allowed. Every other owner is barred. */
   allowedIn: string[];
+  /** Which of `allowedIn` are modules rather than layers — absent for the flat structure. */
+  modules?: string[];
 }
 
 /** A `no-restricted-imports` group pattern with a teaching message. */

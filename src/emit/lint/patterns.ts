@@ -1,7 +1,11 @@
-import type { Framework, LayerDef, OwnedPackage } from '../../config';
+import type { Framework, LayerDef, ModuleDef, OwnedPackage } from '../../config';
 import type { GlobalRule, GroupPattern, PackageRule, PathPattern } from './types';
 
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/g;
+// The descent a layer glob makes past its own folder: the placeholder, then a
+// globstar segment. Collapsing it is how a module's own root files are derived
+// from the same template its layers are.
+const LAYER_DESCENT = /\{\s*layer\s*\}\/\*\*\//g;
 
 /**
  * Source extensions per framework — the layer-glob default, and the ext set
@@ -48,261 +52,103 @@ export function toArray(value: string | string[] | undefined): string[] {
   return Array.isArray(value) ? value : [value];
 }
 
-/**
- * The built-in metric gates: rules id → ESLint rule + default threshold.
- * `wrap` marks the rules whose option is `{ max }` with comment skipping.
- */
-export const METRIC_GATES = [
-  { id: 'maxLines', rule: 'max-lines', fallback: 400, wrap: true },
-  { id: 'maxLinesPerFunction', rule: 'max-lines-per-function', fallback: 100, wrap: true },
-  { id: 'maxParams', rule: 'max-params', fallback: 3, wrap: false },
-  { id: 'maxStatements', rule: 'max-statements', fallback: 15, wrap: false },
-  { id: 'complexity', rule: 'complexity', fallback: 12, wrap: false },
-] as const;
-
-/**
- * The `statementPadding` gate's option list — hard-wired, not configurable.
- * The gate's dial is its tier: a project that wants different grouping turns
- * it off and declares its own rule, rather than re-specifying 17 entries
- * through `blueprint.rules` (YAGNI — the handbook's own principle).
- */
-export const STATEMENT_PADDING = [
-  { blankLine: 'always', prev: 'block-like', next: '*' },
-  { blankLine: 'always', prev: 'const', next: 'expression' },
-  { blankLine: 'always', prev: 'let', next: 'expression' },
-  { blankLine: 'always', prev: 'class', next: '*' },
-  { blankLine: 'always', prev: 'function', next: '*' },
-  { blankLine: 'always', prev: 'multiline-expression', next: '*' },
-  { blankLine: 'always', prev: 'multiline-const', next: '*' },
-  { blankLine: 'always', prev: 'multiline-let', next: '*' },
-  { blankLine: 'always', prev: '*', next: 'block-like' },
-  { blankLine: 'always', prev: '*', next: 'function' },
-  { blankLine: 'always', prev: '*', next: 'multiline-expression' },
-  { blankLine: 'always', prev: '*', next: 'multiline-const' },
-  { blankLine: 'always', prev: '*', next: 'multiline-let' },
-  { blankLine: 'always', prev: '*', next: 'break' },
-  { blankLine: 'always', prev: '*', next: 'continue' },
-  { blankLine: 'always', prev: '*', next: 'return' },
-  { blankLine: 'always', prev: '*', next: 'throw' },
-] as const;
-
-/** One optional gate's catalog row — id, what it emits, and its scope note. */
-export interface GateSpec {
-  id: string;
-  /** The ESLint rule it emits — or the runtime that enforces it instead. */
-  emits: string;
-  note: string;
-  /** Metric fallback threshold, when the gate is one of the metric family. */
-  fallback?: number;
-  /**
-   * Set when a runtime enforces the gate instead of the emitted lint config —
-   * machine-gated either way, but "error fails lint" is false for these (#52).
-   */
-  runtime?: 'inspect';
+/** Where a layer's files are looked for, before the placeholder is filled in. */
+export interface FileScope {
+  layerFiles?: string | string[];
+  sourceRoot?: string;
 }
 
-/**
- * The non-metric optional gates, as catalog rows. Both catalog renderings —
- * the authoring playbook and `blueprint rules` — read from here, so the two
- * can never drift apart, and `LINT_GATED_RULE_IDS` derives from it.
- */
-export const PLUGIN_GATES: GateSpec[] = [
-  {
-    id: 'unusedVars',
-    emits: 'no-unused-vars',
-    note: 'TWO keys on TypeScript — no-unused-vars: off plus @typescript-eslint/no-unused-vars — '
-      + 'so check both when merging; argsIgnorePattern \'^_\' and nothing else (no '
-      + 'varsIgnorePattern: renaming a dead binding to _x is not deleting it, '
-      + 'and the dead-code principle asks for deletion)',
-  },
-  {
-    id: 'explicitAny',
-    emits: '@typescript-eslint/no-explicit-any',
-    note: 'needs the injected TS plugin and emits NOTHING without it — '
-      + '`any` is a TS-only construct, so unlike unusedVars there is no core rule to fall back to',
-  },
-  {
-    id: 'codeStyle',
-    emits: '@stylistic customize() + @stylistic/max-len + @stylistic/linebreak-style + curly '
-      + '(core)',
-    note: 'needs the injected @stylistic plugin AND its configs.customize() '
-      + 'factory (throws on a stand-in, rather than governing nothing); ~68 rules, '
-      + 'all but 5 auto-fixable, so `eslint --fix` clears most of a first run — '
-      + 'land that pass as its own commit. Knobs: indent (2), quotes (single), semi (true), '
-      + 'maxLen (90). max-len has NO fixer and does not exempt plain strings — '
-      + 'a long line cannot escape the cap by containing one. linebreak-style is unix: '
-      + 'a red here usually means git autocrlf / .gitattributes, NOT the file',
-  },
-  {
-    id: 'statementsPerLine',
-    emits: '@stylistic/max-statements-per-line',
-    note: 'needs the injected @stylistic plugin, else emits nothing; hard-wired { max: '
-      + '1 } because it defines what a line IS for the maxLines family — '
-      + 'a line budget with no cap on line content is met by collapsing statements, '
-      + 'not by splitting the file. codeStyle\'s bundle carries this rule too; '
-      + 'this gate is written after it and wins, so setting it off really turns it off',
-  },
-  {
-    id: 'statementPadding',
-    emits: '@stylistic/padding-line-between-statements',
-    note: 'needs the injected @stylistic plugin, else emits nothing; auto-fixable whitespace, '
-      + 'and it cannot push a file over maxLines: that gate skips blank lines',
-  },
-  {
-    id: 'importBlock',
-    emits: 'import-x/first + import-x/no-duplicates',
-    note: 'needs the injected eslint-plugin-import-x, else emits nothing; '
-      + 'catches the two import mistakes an incrementally-editing agent makes — '
-      + 'a second import of a module already imported, and an import appended below code. '
-      + 'No formatter merges duplicate imports',
-  },
-  {
-    id: 'fixtureImports',
-    emits: 'no-restricted-imports',
-    note: 'fixture globs folded into the structural import bans',
-  },
-  { id: 'deepWatch', emits: 'blueprint/no-deep-watch', note: 'Vue only — never emits on React' },
-  { id: 'usePrefix', emits: 'blueprint/use-prefix', note: 'on its target layer (default hooks)' },
-  {
-    id: 'usePrefixReactivity',
-    emits: 'blueprint/use-prefix-needs-reactivity',
-    note: 'composing-only hooks are a known false positive',
-  },
-  { id: 'testFilename', emits: 'blueprint/test-filename-matches-source', note: 'test files only' },
-  { id: 'typedefOnlyFile', emits: 'blueprint/no-typedef-only-file', note: '.js files only' },
-  {
-    id: 'cycles',
-    emits: 'inspect (cycle finding)',
-    runtime: 'inspect',
-    note: 'no ESLint line — import/no-cycle re-checks the whole graph per file, '
-      + 'measured 92s on 850 files',
-  },
-];
+/** The `{layer}` glob templates in force — the explicit ones, or the framework default. */
+function layerGlobs(framework: Framework, scope: FileScope): string[] {
+  const { layerFiles, sourceRoot = 'src' } = scope;
 
-/** Documentation-only ids — never an ESLint line, never a machine gate. */
-export const DOC_ONLY_RULES: Omit<GateSpec, 'emits'>[] = [
-  { id: 'deadCode', note: 'knip\'s job — import/no-unused-modules cannot run under flat config' },
-];
-
-/**
- * The rule ids a machine actually gates out of the box: the metric family and
- * plugin rules land in the emitted ESLint config; `cycles` lands in
- * `inspect` (its `cycle` finding — `import/no-cycle` was dropped from the
- * generated config as a slow re-check of the same graph). Everything else —
- * `deadCode`, unknown ids — is documentation, and the agent contract must not
- * call it a hard gate. Lives in this leaf (not lint.ts) so inspect can count
- * active gates without closing the emit → plugin → inspect module cycle.
- */
-export const LINT_GATED_RULE_IDS = [
-  ...METRIC_GATES.map((gate) => gate.id),
-  ...PLUGIN_GATES.map((gate) => gate.id),
-];
-
-/** The three facts that decide whether a stack can open a gate at all. */
-export interface GateStack {
-  framework: string | undefined;
-  hasTypescript: boolean;
-  testFiles?: string | string[];
-}
-
-/**
- * Why this stack cannot open a gate, or null when it can — mirroring what
- * `emitLint` actually does rather than restating it.
- *
- * One function because there were two, and they disagreed. `inspect` / `doctor`
- * filtered both of these out of the denominator ("a gate you cannot open is not a
- * gate"); `blueprint rules` mirrored only the React one. So a JS repo read
- * `0/17 optional gates` from one output and eighteen rows from the other, with
- * neither saying which was missing — and the field agent who reported it inferred
- * `fixtureImports`, which is not it (field run #137). Two numbers for one concept
- * is a defect whichever is right, and the reader guessing is the cost.
- */
-export function unavailableGate(id: string, stack: GateStack): string | null {
-  const { framework, hasTypescript, testFiles } = stack;
-
-  if (id === 'deepWatch' && framework === 'react') {
-    return 'Vue only — never emits on React, whatever it declares';
-  }
-
-  if (id === 'explicitAny' && !hasTypescript) {
-    return '`any` is a TypeScript construct — nothing to catch on a JS project, '
-      + 'and no core rule to fall back to';
-  }
-
-  // `testFiles: []` is a real intent — tests inherit their layer's rules — and the
-  // one this gate has no scope under, since `files: []` is refused by ESLint. Saying
-  // so is the other half of dropping the entry (field run #150).
-  if (id === 'testFilename' && Array.isArray(testFiles) && testFiles.length === 0) {
-    return '`architecture.testFiles: []` exempts nothing, '
-      + 'so there is no test file for this to name — declare test globs, or drop this gate';
-  }
-
-  return null;
-}
-
-/**
- * The same question asked with only a blueprint to answer it — what the two pure
- * emitters have. `hasTypescript` is a fact about the dependency list, so they cannot
- * decide `explicitAny` and must not claim to: `true` here means "assume the stack can
- * carry it", which keeps that gate out of this verdict entirely. Framework and
- * `testFiles` are IN the blueprint, so the other two arms answer honestly.
- *
- * It exists because the emitters had no filter at all: the agent contract listed a gate
- * among the ones that "fail the project's lint run" and the handbook table put `lint` in
- * its Enforced-by column, for a rule the emitted config does not contain. #137 swept
- * `rules` and `inspect`; these two are the third and fourth site, and they are the files
- * an adopting agent actually reads every day.
- */
-export function unavailableFromBlueprint(
-  id: string,
-  framework: string | undefined,
-  testFiles: string | string[] | undefined,
-): string | null {
-  return unavailableGate(id, { framework, hasTypescript: true, testFiles });
-}
-
-/**
- * Which machine actually holds a declared rule id — the distinction
- * `LINT_GATED_RULE_IDS` flattens away, because it answers "gated at all?"
- * rather than "gated by what?". The handbook needs the finer answer: it
- * printed `error` beside every declared rule under a legend reading "`error`
- * fails lint", which is false for `cycles` (inspect's finding) and false for
- * `deadCode` (documentation, knip's job) — two generated artifacts from one
- * source disagreeing (field issue #52).
- */
-export function enforcedBy(id: string): 'lint' | 'inspect' | 'docs' {
-  const gate = PLUGIN_GATES.find((entry) => entry.id === id);
-
-  if (gate?.runtime) {
-    return gate.runtime;
-  }
-
-  return LINT_GATED_RULE_IDS.includes(id) ? 'lint' : 'docs';
+  return layerFiles === undefined ? [defaultGlob(framework, sourceRoot)] : toArray(layerFiles);
 }
 
 /**
  * Resolve a layer's lint file globs. An explicit `layerFiles` wins as-is;
  * otherwise the default is derived from `framework` and `sourceRoot`.
+ *
+ * Under a modular structure the caller passes `<module>/<layer>`: the module
+ * prefix rides the same placeholder the source root already sits in front of,
+ * so a configured `layerFiles` takes it without a second substitution rule.
  */
 export function resolveLayerFiles(
   layer: string,
   framework: Framework,
-  scope: { layerFiles?: string | string[]; sourceRoot?: string } = {},
+  scope: FileScope = {},
 ): string[] {
-  const { layerFiles, sourceRoot = 'src' } = scope;
-
-  const globs
-    = layerFiles === undefined ? [defaultGlob(framework, sourceRoot)] : toArray(layerFiles);
-
-  return globs.map((glob) => glob.replace(LAYER_PLACEHOLDER, layer));
+  return layerGlobs(framework, scope).map((glob) => glob.replace(LAYER_PLACEHOLDER, layer));
 }
 
-/** Group layers' package `owns` by signature; merge which layers allow each. */
-export function derivePackageRules(layers: LayerDef[]): PackageRule[] {
+/**
+ * A module's own root files — its public entry and whatever sits beside it,
+ * one level deep. Derived from the same templates the layer nets use, so a
+ * configured `layerFiles` keeps its extensions here: what collapses is the
+ * descent into the layer folder, not the glob.
+ */
+export function resolveModuleRootFiles(
+  module: string,
+  framework: Framework,
+  scope: FileScope = {},
+): string[] {
+  return layerGlobs(framework, scope).map((glob) =>
+    glob.replace(LAYER_DESCENT, `${module}/`).replace(LAYER_PLACEHOLDER, module),
+  );
+}
+
+/**
+ * Anything that can own primitives exclusively: a layer, or a feature module.
+ * The two are the same declaration one depth apart, and a file group inside a
+ * module may reach a primitive its layer owns OR its module owns.
+ */
+export type PrimitiveOwner = LayerDef | ModuleDef;
+
+/**
+ * Who a restriction's owners are, in the words the ban has to say.
+ *
+ * A layer-only restriction answers exactly what it always did, because that is
+ * the only case a flat blueprint can produce and its wording must not move. A
+ * module owner is named outright — "its owning layer" sends the reader to a
+ * block of the config where the declaration is not.
+ */
+export function ownerPhrase(rule: { allowedIn: string[]; modules?: string[] }): string {
+  const modules = rule.modules ?? [];
+
+  if (!modules.length) {
+    return 'its owning layer';
+  }
+
+  const named = modules.map((name) => `"${name}"`).join(', ');
+  const phrase = modules.length === 1 ? `module ${named}` : `modules ${named}`;
+
+  return rule.allowedIn.length > modules.length ? `${phrase} and its owning layer` : phrase;
+}
+
+/** Mark the owners that are modules, leaving a layer-only rule untouched. */
+function tagModules<T extends { allowedIn: string[] }>(rules: T[], modules: string[]): T[] {
+  return rules.map((rule) => {
+    const owned = rule.allowedIn.filter((name) => modules.includes(name));
+
+    // Spread only when there is something to say, so a flat blueprint's rules are
+    // the same objects they were — no key to leak into a message or a comparison.
+    return owned.length ? { ...rule, modules: owned } : rule;
+  });
+}
+
+/**
+ * Group owners' package `owns` by signature; merge which owners allow each.
+ * `moduleNames` tags which of `owners` are modules rather than layers — omit
+ * it for the flat structure, where every owner is a layer.
+ */
+export function derivePackageRules(
+  owners: PrimitiveOwner[],
+  moduleNames: string[] = [],
+): PackageRule[] {
   const byKey = new Map<string, PackageRule>();
 
-  for (const layer of layers) {
-    for (const primitive of layer.owns ?? []) {
+  for (const owner of owners) {
+    for (const primitive of owner.owns ?? []) {
       if (typeof primitive !== 'string' && 'global' in primitive) {
         continue;
       }
@@ -320,32 +166,39 @@ export function derivePackageRules(layers: LayerDef[]): PackageRule[] {
       const existing = byKey.get(key);
 
       if (existing) {
-        existing.allowedIn.push(layer.name);
+        existing.allowedIn.push(owner.name);
       } else {
         byKey.set(key, {
           package: pkg.package,
           imports: pkg.imports,
           pattern: pkg.pattern,
           exempt: pkg.exempt,
-          allowedIn: [layer.name],
+          allowedIn: [owner.name],
         });
       }
     }
   }
 
-  return [...byKey.values()];
+  return tagModules([...byKey.values()], moduleNames);
 }
 
-/** Group layers' global `owns` by name; merge which layers allow each. */
-export function deriveGlobalRules(layers: LayerDef[]): GlobalRule[] {
+/**
+ * Group owners' global `owns` by name; merge which owners allow each.
+ * `moduleNames` tags which of `owners` are modules rather than layers — omit
+ * it for the flat structure, where every owner is a layer.
+ */
+export function deriveGlobalRules(
+  owners: PrimitiveOwner[],
+  moduleNames: string[] = [],
+): GlobalRule[] {
   const byName = new Map<string, GlobalRule>();
 
-  for (const layer of layers) {
-    if (!layer.owns) {
+  for (const owner of owners) {
+    if (!owner.owns) {
       continue;
     }
 
-    for (const primitive of layer.owns) {
+    for (const primitive of owner.owns) {
       if (typeof primitive === 'string' || !('global' in primitive)) {
         continue;
       }
@@ -353,14 +206,14 @@ export function deriveGlobalRules(layers: LayerDef[]): GlobalRule[] {
       const existing = byName.get(primitive.global);
 
       if (existing) {
-        existing.allowedIn.push(layer.name);
+        existing.allowedIn.push(owner.name);
       } else {
-        byName.set(primitive.global, { global: primitive.global, allowedIn: [layer.name] });
+        byName.set(primitive.global, { global: primitive.global, allowedIn: [owner.name] });
       }
     }
   }
 
-  return [...byName.values()];
+  return tagModules([...byName.values()], moduleNames);
 }
 
 /**
@@ -372,11 +225,17 @@ export function deriveGlobalRules(layers: LayerDef[]): GlobalRule[] {
  * imports. That check is deferred to the Verify runtime (S6 `inspect`).
  */
 export function buildStructuralPatterns(params: {
-  layer: string;
+  /**
+   * The layer these files are in, alias-spelled — `components`, or
+   * `Combat/components` inside a feature module. Absent for a group that
+   * belongs to no layer (a module's own root files), which has no same-layer
+   * edge to ban.
+   */
+  layer?: string;
   aliases: string[];
   forbidden: string[];
   /** The layer's own folder layout (drives the same-layer message wording). */
-  folderLayout: 'folder' | 'flat';
+  folderLayout?: 'folder' | 'flat';
   /**
    * Downstream folder-layout layers this layer may import, entry-only. Self and
    * forbidden layers are excluded by the caller — already banned wholesale, and
@@ -391,22 +250,26 @@ export function buildStructuralPatterns(params: {
   // Escaping the folder via `../` cannot be expressed as a literal pattern
   // (it depends on the importing file's depth) — that ban lives in the
   // embedded `blueprint/relative-escape` rule, sharing inspect's resolution.
+  const sameLayer = layer === undefined
+    ? []
+    : aliases.map((a) => ({
+        group: [`${a}/${layer}/**`],
+        message:
+          folderLayout === 'flat'
+            ? `\n🚫 Same-layer imports must be relative. Replace "${a}/${layer}/X" with "./X".`
+            // The sibling is reachable, just not by this spelling: one shape for
+            // same-layer edges keeps the cycle surface to relative paths alone.
+            : `\n🚫 Same-layer imports must be relative. Replace "${a}/${layer}/X" with "../X" `
+              + '— its entry only; what is behind the entry stays private.',
+      }));
+
   const patterns: GroupPattern[] = [
     {
       group: ['./../**', '././**'],
       message:
         '\n🚫 Redundant relative segments (././, ./../) bypass the structural import rules.',
     },
-    ...aliases.map((a) => ({
-      group: [`${a}/${layer}/**`],
-      message:
-        folderLayout === 'flat'
-          ? `\n🚫 Same-layer imports must be relative. Replace "${a}/${layer}/X" with "./X".`
-          // The sibling is reachable, just not by this spelling: one shape for
-          // same-layer edges keeps the cycle surface to relative paths alone.
-          : `\n🚫 Same-layer imports must be relative. Replace "${a}/${layer}/X" with "../X" `
-            + '— its entry only; what is behind the entry stays private.',
-    })),
+    ...sameLayer,
   ];
 
   if (forbidden.length) {
@@ -441,15 +304,113 @@ export function buildStructuralPatterns(params: {
   return patterns;
 }
 
+/**
+ * The module-flow `no-restricted-imports` group patterns for one feature module,
+ * from OUTSIDE it — the module-axis twin of the `forbidden` / `folderTargets`
+ * halves of {@link buildStructuralPatterns}.
+ *
+ * Two bans of opposite shape. A module this one may not import is barred at both
+ * spellings — the bare alias path IS the entry, so banning only `alias/N/**`
+ * would leave the front door open. A module it MAY import is barred at
+ * `alias/N/**` alone, and that is the same gitignore semantics the folder-target
+ * ban above relies on: `/**` matches descendants only, so the entry survives and
+ * everything behind it does not.
+ */
+export function buildModulePatterns(params: {
+  module: string;
+  aliases: string[];
+  /** Modules this one may not import at all. */
+  forbidden: string[];
+  /** Modules this one may import — at their entry, and no deeper. */
+  allowed: string[];
+}): GroupPattern[] {
+  const { module, aliases, forbidden, allowed } = params;
+  const patterns: GroupPattern[] = [];
+
+  if (forbidden.length) {
+    patterns.push({
+      group: forbidden.flatMap((name) => aliases.flatMap((a) => [`${a}/${name}`, `${a}/${name}/**`])),
+      message:
+        `\n🚫 "${module}" may not import this module — a module may import only a module `
+        + 'declared after it, and only if that module\'s own allowedImporters does not narrow '
+        + 'it out. Reorder the declaration, or move the shared code into a module both may reach.',
+    });
+  }
+
+  if (allowed.length) {
+    patterns.push({
+      group: allowed.flatMap((name) => aliases.map((a) => `${a}/${name}/**`)),
+      message:
+        '\n🚫 Import a module through its entry, not its internals — the alias spelling of the '
+        + 'module name IS the entry, and what is behind it is that module\'s own business.',
+    });
+  }
+
+  return patterns;
+}
+
+/**
+ * The same-module self-ban for one governed group inside a feature module: an
+ * alias import of the module's OWN files must be relative instead, the module-axis
+ * twin of a flat layer's own `sameLayer` ban.
+ *
+ * Two enumerated shapes, not one wildcard — `no-restricted-imports` groups cannot
+ * re-include a path once a broader glob has already excluded it (the same
+ * closed-world constraint {@link buildStructuralPatterns} documents), so a `**`
+ * ban can never carve a declared layer back out. The bare alias spelling of the
+ * module IS its entry, banned as an exact `paths` entry rather than a `group` glob:
+ * a bare gitignore-style pattern with no wildcard matches its own name AND every
+ * descendant, which is exactly the blanket a layered module must not get. One
+ * level deeper, this module's declared layer names are excluded from a
+ * single-level `*` by exact literal negation — which works, unlike negating a
+ * path a wildcard already matched. Everything past that one level (a declared
+ * layer's own internals) is somebody else's ban: the ordinary intra-module layer
+ * permission model, one segment in.
+ */
+export function buildModuleSelfBan(params: {
+  module: string;
+  aliases: string[];
+  /**
+   * This module's own declared layer names, excluded from the root-file ban —
+   * reaching one via the alias one level in is the legal cross-layer route
+   * (`~app/N/hooks`, the modular restatement of the flat model's own
+   * cross-layer `~app/hooks`). Empty for a `layers: false` module: there is no
+   * declared layer to wrongly catch, so the ban covers the whole subtree.
+   */
+  layers: string[];
+}): { paths: PathPattern[]; patterns: GroupPattern[] } {
+  const { module, aliases, layers } = params;
+
+  const message = (path: string) =>
+    `\n🚫 Same-module imports must be relative. Replace "${path}/X" with "./X" — the alias is `
+    + 'how a module is reached from outside it.';
+
+  return {
+    paths: aliases.map((a) => ({ name: `${a}/${module}`, message: message(`${a}/${module}`) })),
+    patterns: aliases.map((a) => ({
+      group: layers.length
+        ? [`${a}/${module}/*`, ...layers.map((name) => `!${a}/${module}/${name}`)]
+        : [`${a}/${module}/**`],
+      message: message(`${a}/${module}`),
+    })),
+  };
+}
+
 /** Split disabled package rules into `no-restricted-imports` paths + patterns. */
 export function buildPackagePatterns(disabled: PackageRule[]): {
   paths: PathPattern[];
   patterns: GroupPattern[];
 } {
+  // "in this layer" is the whole answer while a layer is the only thing that can
+  // own a package. Once a module can, the ban has to say which one does — the
+  // reader's next move is to open that declaration, and they need its address.
+  const where = (pkg: PackageRule) =>
+    pkg.modules?.length ? `here — it is owned by ${ownerPhrase(pkg)}` : 'in this layer';
+
   const message = (pkg: PackageRule) =>
     pkg.imports?.length
-      ? `\n🚫 Do not import ${pkg.imports.join(', ')} from "${pkg.package}" in this layer.`
-      : `\n🚫 Do not import "${pkg.package}" in this layer.`;
+      ? `\n🚫 Do not import ${pkg.imports.join(', ')} from "${pkg.package}" ${where(pkg)}.`
+      : `\n🚫 Do not import "${pkg.package}" ${where(pkg)}.`;
 
   return {
     paths: disabled
@@ -466,16 +427,43 @@ export function buildPackagePatterns(disabled: PackageRule[]): {
 }
 
 /**
+ * One `source.value` regex attribute for a selfOnly re-export selector, anchored
+ * on `alias/target` with `suffix` deciding how deep it must reach. `/` is
+ * encoded as the `\u002F` regex escape: esquery's regex literal ends at the
+ * first raw `/`, and versions below 1.7 reject the `\/` escape too —
+ * truncating the pattern and crashing ESLint on every file of the layer
+ * (field issue #19) — while `\u002F` parses on every version and still
+ * means `/` to the RegExp.
+ */
+function reexportAttr(alias: string, target: string, suffix: string): string {
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\//g, '\\u002F');
+
+  return `[source.value=/^${esc(alias)}\\u002F${esc(target)}${suffix}/]`;
+}
+
+/**
  * Build the `no-restricted-syntax` selector banning re-export of a selfOnly
- * target. `/` is encoded as the `\u002F` regex escape: esquery's regex
- * literal ends at the first raw `/`, and versions below 1.7 reject the
- * `\/` escape too — truncating the pattern and crashing ESLint on every
- * file of the layer (field issue #19) — while `\u002F` parses on every
- * version and still means `/` to the RegExp.
+ * layer target — always reached one segment deeper than its own name (a
+ * layer has no single entry file the bare alias path resolves to; the
+ * caller always names something inside it, e.g. `~app/services/api`).
  */
 export function selfOnlyReexportSelector(alias: string, target: string): string {
-  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\//g, '\\u002F');
-  const attr = `[source.value=/^${esc(alias)}\\u002F${esc(target)}\\u002F/]`;
+  const attr = reexportAttr(alias, target, '\\u002F');
 
   return `ExportNamedDeclaration${attr}, ExportAllDeclaration${attr}`;
+}
+
+/**
+ * The module-axis twin of {@link selfOnlyReexportSelector}. A module's public
+ * face IS the bare alias path (`~app/Lobby` resolves to its entry, with
+ * nothing after it) — unlike a layer, which has no single entry file the bare
+ * alias path resolves to, so re-exporting a module's selfOnly import has to be
+ * caught at that exact spelling too, not only one segment deeper.
+ */
+export function selfOnlyModuleReexportSelector(alias: string, target: string): string {
+  const bare = reexportAttr(alias, target, '$');
+  const deeper = reexportAttr(alias, target, '\\u002F');
+
+  return `ExportNamedDeclaration${bare}, ExportAllDeclaration${bare}, `
+    + `ExportNamedDeclaration${deeper}, ExportAllDeclaration${deeper}`;
 }

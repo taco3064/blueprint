@@ -95,6 +95,21 @@ describe('emitLint · rules gates', () => {
     expect(entry?.rules?.['blueprint/use-prefix']).toEqual(['warn', { prefix: 'with' }]);
   });
 
+  it('falls back to the bare layer glob when the target layer has no net at all', () => {
+    // `validateBlueprint` refuses a usePrefix layer that is not declared, but
+    // `emitLint` is callable directly without going through it — `files: []`
+    // is what ESLint rejects outright, so this is the guard against that,
+    // not a state a validated config can reach.
+    const noNet = emitLint({
+      ...blueprint,
+      rules: { usePrefix: { tier: 'warn', layer: 'not-a-layer' } },
+    });
+
+    const entry = noNet.find((item) => item.rules?.['blueprint/use-prefix']);
+
+    expect(entry?.files).toEqual(['src/not-a-layer/**/*.{js,jsx,ts,tsx,vue}']);
+  });
+
   it('drops deep-watch for react and every gate set to off', () => {
     const react = emitLint(defineBlueprint({
       ...blueprint,

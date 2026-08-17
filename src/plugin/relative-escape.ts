@@ -1,5 +1,5 @@
 import type { Rule } from 'eslint';
-import { relativeVerdict, resolveSegments } from '../inspect/resolve';
+import { modularVerdict, relativeVerdict, resolveSegments } from '../inspect/resolve';
 
 /**
  * Relative imports must stay inside their own folder. This is the lint-side
@@ -24,9 +24,17 @@ import { relativeVerdict, resolveSegments } from '../inspect/resolve';
  * honest decision at a time.
  *
  * Options: `{ layouts: { [layer]: 'folder' | 'flat' }, entries: { [layer]:
- * string } }` — the per-layer folder layout map and entry filename
- * (`index` when absent). Files outside `src/` or outside a declared layer are
- * skipped (the emitted config scopes this rule to layer files anyway).
+ * string }, root?: string }` — the per-layer folder layout map and entry
+ * filename (`index` when absent). Files outside `src/` or outside a declared
+ * layer are skipped (the emitted config scopes this rule to layer files anyway).
+ *
+ * `root` names the feature module the linted files sit in — set only when
+ * `emitLint` is compiling a modular blueprint. Without it the segment math is
+ * off by one under a modular structure: `segments[0]` would be the module,
+ * not the layer. Set, the layer model applies to what is left after the
+ * module name, and a relative path landing in a *different* module is its own
+ * verdict — another module has exactly one reachable point, its entry, and
+ * only the alias reaches it.
  */
 export const relativeEscape: Rule.RuleModule = {
   meta: {
@@ -46,6 +54,7 @@ export const relativeEscape: Rule.RuleModule = {
             type: 'object',
             additionalProperties: { type: 'string' },
           },
+          root: { type: 'string' },
         },
         additionalProperties: false,
       },
@@ -55,27 +64,39 @@ export const relativeEscape: Rule.RuleModule = {
       leavesFolder:
         '🚫 Relative import "{{specifier}}" leaves this layer — use the alias, '
         + 'or extract shared code to a lower layer.',
+      leavesModule:
+        '🚫 Relative import "{{specifier}}" leaves module "{{module}}" — another module is '
+        + 'reachable only at its entry, through the project alias, and only if that module '
+        + 'allows this one to import it.',
       reachesInside:
         '🚫 Relative import "{{specifier}}" reaches past a sibling\'s entry — '
         + 'import "{{entry}}" instead; what lives behind it is that folder\'s own business.',
     },
   },
   create(context) {
-    const { layouts = {}, entries = {} }
+    const { layouts = {}, entries = {}, root }
       = (context.options[0] as {
         layouts?: Record<string, 'folder' | 'flat'>;
         entries?: Record<string, string>;
+        root?: string;
       } | undefined) ?? {};
 
     const segments = srcSegments(context.filename);
 
-    if (!segments || !(segments[0] in layouts)) {
+    // Flat, a file outside every declared layer is not this rule's business.
+    // Modular, the module is what the file must be inside — the emitted config
+    // scopes each entry to one module, so `root` and `segments[0]` agree.
+    if (!segments || (root === undefined ? !(segments[0] in layouts) : segments[0] !== root)) {
       return {};
     }
 
     const layoutOf = (layer: string): 'folder' | 'flat' => layouts[layer] ?? 'flat';
     const entryOf = (layer: string): string => entries[layer] ?? 'index';
+    const isLayer = (name: string): boolean => name in layouts;
+    const shape = { layoutOf, entryOf, isLayer };
     const dir = segments.slice(0, -1);
+    // The layer sits one segment further in once a module is in front of it.
+    const layer = segments[root === undefined ? 0 : 1];
 
     const check = (node: Rule.Node, specifier: string): void => {
       if (!specifier.startsWith('.')) {
@@ -84,7 +105,9 @@ export const relativeEscape: Rule.RuleModule = {
 
       const target = resolveSegments(dir, specifier);
 
-      const verdict = relativeVerdict(segments, target, { layoutOf, entryOf });
+      const verdict = root === undefined
+        ? relativeVerdict(segments, target, shape)
+        : modularVerdict(segments, target, shape);
 
       if (verdict === 'ok') {
         return;
@@ -94,7 +117,17 @@ export const relativeEscape: Rule.RuleModule = {
         context.report({
           node,
           messageId: 'reachesInside',
-          data: { specifier, entry: entryOf(segments[0]) },
+          data: { specifier, entry: entryOf(layer) },
+        });
+
+        return;
+      }
+
+      if (verdict === 'leaves-module') {
+        context.report({
+          node,
+          messageId: 'leavesModule',
+          data: { specifier, module: root as string },
         });
 
         return;

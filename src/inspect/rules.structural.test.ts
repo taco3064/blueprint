@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { DOC_ONLY_RULES } from '../emit/lint/patterns';
+import { DOC_ONLY_RULES } from '../emit/lint/gates';
 // Test-only import of the full emit module — src keeps the patterns-leaf
 // boundary (module cycle); the test pins the mirror to the real thing.
 import { emitLint } from '../emit/lint';

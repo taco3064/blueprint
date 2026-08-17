@@ -237,6 +237,30 @@ examples — the definitions belong here.
 - **`layer.owns`** — primitives this layer exclusively owns; every other layer is barred from them. A bare string is a whole package (`'axios'`); the object form takes `imports` (specific named imports, e.g. `['createContext']`), `pattern` (treat the name as a glob group), and `exempt` (file globs excused). `{ global: 'fetch' }` owns a global instead of a package
 - **`architecture.folder`** — the shared feature-folder shape: `layout` (`folder` = one folder per feature behind a public entry, `flat` = one file), `entry` (the entry filename, default `index`), and `private` (sub-parts kept behind the entry). Under `folder`, a sibling folder is reachable by its entry (`../Sibling`) and by nothing else — not past the entry, and not through the alias
 
+### Feature modules
+
+An orthogonal axis, not a second schema: `architecture.layers` is always the
+technical-layer definition; `architecture.modules` only decides *where* those
+layers live. Omit it and the source root holds the layers directly, exactly
+as above. Declare it and the source root holds one folder per module, each
+nesting the same shared layers one level in (or, with `layers: false`, its
+files directly — no nested layers at all).
+
+- **`architecture.modules`** — ordered feature modules. **Order is the flow**, the same rule `architecture.layers` uses: a module may import only modules declared after it, by default
+- **`module.does`** — one line on what code in this module is for, same destination as `layer.does`
+- **`module.layers`** — omit it to nest the shared layers inside the module; `false` is the only other value, for a module that holds its files directly
+- **`module.allowedImporters`** — narrows who may import this module, same shape and default as `layer.allowedImporters` — entries name a `module`, not a `layer`
+- **`module.owns`** — primitives this module exclusively owns, same shape as `layer.owns`. Ownership cascades: a file group may reach a primitive its own layer owns *or* its owning module owns
+- **`module.entry`** — override the module's own public entry filename. Omit it to inherit `architecture.folder.entry` (default `index`), the same resolution `layer.folder.entry` gives one layer
+
+A module's own root files (its entry, and whatever sits beside it) are
+entry-only from outside — reaching past `~app/N` into `~app/N/**` is caught
+the same way a folder-layout layer's internals are. From *inside* the module,
+the alias spelling of the module itself must stay relative too (`~app/N` is
+banned, `./` is not) — but a declared layer nested inside is reachable at
+`~app/N/<layer>`, the modular restatement of the flat model's own
+cross-layer alias import.
+
 ### Tuning
 
 

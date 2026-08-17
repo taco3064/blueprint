@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint/patterns';
+import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint/gates';
 import { runRules } from './rules';
 import type { Blueprint } from '../config';
 
