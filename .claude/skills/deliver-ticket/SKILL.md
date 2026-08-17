@@ -1,6 +1,6 @@
 ---
 name: deliver-ticket
-description: Implement one GitHub issue to completion — staged commits, each reported back on the ticket, every shortfall recorded there and then closed, until the ticket's own goal is met; then the PR, the merge and the close. Use when the owner points at an issue to build ("do #204", "implement this one"), when work on a ticket resumes, or when a stage has landed and the next has not started. NOT for deciding what a ticket should ask for, never for cutting one into more tickets, and refuses to start on any issue that doesn't already carry shape-ticket's `## Goal` / `## Implementation Plan` / `## Acceptance Criteria` structure.
+description: Implement one GitHub issue to completion — staged commits, each reported back on the ticket, every shortfall recorded there and then closed, until the ticket's own goal is met; then the PR, the merge and the close. Use when the owner points at an issue to build ("do #204", "implement this one"), when work on a ticket resumes, or when a stage has landed and the next has not started. NOT for deciding what a ticket should ask for, never for cutting one into more tickets, and refuses to start — checked on every load, not just the first — on any issue that doesn't carry a valid shape-ticket fingerprint.
 ---
 
 # deliver-ticket — one ticket, to completion, in the open
@@ -13,7 +13,7 @@ You own one issue's **delivery** and the written record of how it got there. **Y
 
 | Reference | Trigger |
 |---|---|
-| [`start-or-resume.md`](./references/start-or-resume.md) | The skill loads. Every time, before deciding whether this is a fresh start or a resume — the two look identical until you've read the ticket — and, for a fresh one, before the hard gate on whether this issue is shape-ticket's shape at all. |
+| [`start-or-resume.md`](./references/start-or-resume.md) | The skill loads. Every time — fresh start or resume alike — before the hard gate on whether this issue carries a real shape-ticket fingerprint, not just its shape. |
 | [`deliver-a-stage.md`](./references/deliver-a-stage.md) | You are about to commit, or you have just committed and owe the ticket a comment. What a stage is, what the comment must carry, and how a shortfall is written down. |
 | [`finish-the-ticket.md`](./references/finish-the-ticket.md) | You believe the ticket is done. The completion test, the pull request, the merge, closing the issue, and cleaning up the worktree and branches. |
 
@@ -31,7 +31,9 @@ So: **what you find while building goes into a comment on the ticket you are bui
 
 ## You dispatch the work; you do not type it
 
-**One sub-agent per stage.** It writes the code, you decide what the stage is, verify what comes back, land it, and write the comment. **The commit is yours** — that is what keeps one commit to one stage to one comment, which fragments the moment several hands are committing.
+**One sub-agent per stage — and the stage is the issue's to name, not yours to invent.** A ticket carrying shape-ticket's fingerprint already cut its stages the way `deliver-a-stage.md` cuts a commit, because `create-the-ticket.md` requires exactly that; adopt them as written rather than re-deriving a staging shape-ticket already produced. **Deviate only when something proves the plan's staging doesn't hold** — the drift diff from *Before the first commit* touches a module the plan cited, a dispatched stage's returned work shows a planned slice isn't actually releasable on its own, or an earlier stage's shortfall makes a later one's premise false — never on a hunch that a different cut would read better. Report the deviation itself, in the stage's comment, when it happens; a plan silently re-cut is indistinguishable from a plan that was never read.
+
+Once the stage is set, a sub-agent writes the code, you verify what comes back, land it, and write the comment. **The commit is yours** — that is what keeps one commit to one stage to one comment, which fragments the moment several hands are committing.
 
 Hand a sub-agent **the ticket number, the one stage it is working, and the instruction to read `CLAUDE.md` plus every `.claude/docs/` page whose trigger fires.** Hand over the number, not your summary of the ticket — a summary is a second source of truth for something already written down, and the two will differ.
 
@@ -46,6 +48,8 @@ Hand a sub-agent **the ticket number, the one stage it is working, and the instr
 ## Before the first commit, read what the tool already promises
 
 **The ticket says what to build. It does not say what blueprint already claims to do** — and that part is published: `docs/guide/` for behaviour, `docs/philosophy/` for the positions behind it, `docs/api/` for the surface, and the emitted artifacts for what an adopter actually receives.
+
+**Start from what the issue already cites, not from an open-ended search — `start-or-resume.md`'s gate hands you exactly this.** A ticket carrying shape-ticket's fingerprint names its owning module and layer, the primitives it reuses, and the consumers and docs pages its Implementation Plan and Evidence point at; `git diff <sha> origin/main`, where `<sha>` is the fingerprint's own `grounded-at`, says what's moved since that plan was written. Where the diff doesn't touch a citation, read it as cited — shape-ticket already did the search this section used to ask you to redo from scratch. Where the diff does touch one, that citation is exactly what to re-verify before trusting it; the rest of this section is about what "before you write anything" means once you're there. **A ticket without a valid fingerprint never reaches this paragraph** — `start-or-resume.md`'s gate stops those first — so by construction, everything past this point is read against citations that exist, not invented from nothing.
 
 **Read the pages this ticket touches before you write anything.** Not to settle a doubt — to arrive without it. Most of what would otherwise become a question is already written down: what a finding is allowed to claim, what the tool refuses to decide, what belongs to the owner rather than to an agent, which spellings of a thing are equivalent. **A session that reads first extends a judgment that already exists. A session that does not either asks or invents — and the asking costs a round trip, while the inventing ships.**
 
