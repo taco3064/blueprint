@@ -145,9 +145,15 @@ The hashes are what make a resume precise rather than approximate: a staged tree
 - **Comment on the ticket** — a new comment, because this one has to reach the owner: the stage, the base SHA, where the patch is, what the owner has to decide, and **a link to the review-state comment for the round-by-round detail rather than a second copy of it.** The findings are already there verbatim; restating them creates two accounts of the same rounds that will differ. Then set that comment's `state` to `escalated` and stop — no commit, no next stage. `start-or-resume.md` reads both to recognise this state on the way back in.
 - **A stage that fails three reviews is evidence about the plan, the packet or the ticket** rather than about the code, and a fourth attempt at the code is the one response that cannot help. If the ticket itself turns out to be wrong, `SKILL.md`'s drift branch is where that goes.
 
-## Push before the comment, always
+## Push before the stage delivery comment, always
 
-The order is **verify → review → commit → push → comment**, every stage, no exceptions. A comment citing a SHA that only exists in the local worktree is citing something a reader clicking through cannot open — and on a delivery that can run for hours, local-only is one crashed session away from being the only copy that ever existed.
+The order is **verify → review → commit → push → comment**, every stage, no exceptions — and **the comment it names is the stage delivery comment**, the one per commit below. **The review-state comment is not that comment**: it is the gate's own durable state, it goes up before part one is dispatched, and it is updated at every transition including this push. Read unqualified, "no comment before the push" and *the review state goes on the ticket at the dispatch* are two orders that cannot both be carried out; this is which one governs which comment.
+
+A delivery comment citing a SHA that only exists in the local worktree is citing something a reader clicking through cannot open — and on a delivery that can run for hours, local-only is one crashed session away from being the only copy that ever existed.
+
+**Re-check the requirement hash before the push, not only before the commit.** The commit runs the gate's whole suite, which takes minutes, and the ticket can move inside them: a body revision, a new owner decision, a criterion that shifts. Then the code that lands is exactly what the reviewer read and **the requirement it lands against is not** — which the post-commit identity check cannot see, because it only compares trees. So re-read the sources and compare before pushing, on a resumed `committed <sha>, awaiting push` exactly as on the straight path. A difference stops the push and goes back to a fresh part one: `VOID`, no fix round consumed.
+
+**Push is a checkpoint because it is the step that makes the SHA public and citable.** Past it, `start-or-resume.md` forbids rewriting that commit — so nothing after the push can quietly correct what the push published, which is precisely the property that makes the near side of it the last place a check is free.
 
 **If the push fails, the stage has not landed.** Do not post the comment claiming it has. Resolve why it failed — a moved remote branch is the likely cause — and push before writing anything.
 
