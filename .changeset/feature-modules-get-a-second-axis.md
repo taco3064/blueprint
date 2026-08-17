@@ -139,11 +139,68 @@ diverged from what each still reported:**
   `--print-config` is still for there. The separate `packages` caveat is unchanged
   and still true: package ownership is genuinely not compared.
 
-**Still open:** `analyze`'s own per-file findings (`flow-violation`,
-`relative-escape`, `undeclared-folder`, `missing-layer`, package ownership, …)
-do not yet know about `architecture.modules` — a module folder at the source
-root still reads as an undeclared layer, and a bare cross-module import is not
-its own `inspect` finding (it can still surface indirectly, if it happens to
-close an import cycle). `emitLint`'s embedded rule already enforces the real
-boundary regardless of this gap; making `inspect`'s own report agree is
-follow-up work.
+**`inspect`'s own finding engine now reads both depths, so a modular repo stops
+being misreported — loudly and quietly.** `analyze` built its whole world from
+`architecture.layers.map(…)` and every finding path read that one array. The loud
+half: on a correctly-declared 2-module fixture the previous code reported 2
+`undeclared-folder` **errors** against `src/App/` and `src/common/` — the module
+folders the config declares — plus a `missing-layer` note per layer, aimed at
+source-root folders a modular repo must not have. The quiet half was worse. The
+per-file import checks early-returned on every file whose `segments[0]` was not a
+declared layer, which under a modular structure is **every file there is** — so a
+modular repo got no import finding at all, for any file, with nothing on screen
+saying so. Measured on a 10-file fixture carrying five real violations, `inspect`
+reported zero of them while the ESLint config the same blueprint emits reported
+all five.
+
+- **Folders are judged at the depth the blueprint declares them.** A declared
+  module's own folder is never `undeclared-folder`; an undeclared one names the
+  module axis and points at `architecture.modules`. A declared *layer's* folder
+  sitting at the source root is its own sentence, because "declare it" — the flat
+  message's next step — is advice the config cannot take: `validateModuleName`
+  rejects a module that shares a layer's name, so the remedy is to move the code
+  one level in. One level inside a layered module, a folder that is not a declared
+  layer gets the flat message it always had, now keyed `App/utils`.
+- **`missing-module`**, info tier, in `missing-layer`'s own runway wording — the
+  rules arm when code lands. A module with no folder at all reports once and stops
+  there: its layers would be the same absence counted `layers.length` times. A
+  module that *does* have a folder is asked about its layers, as `App/hooks`.
+- **`no-entry` at the module depth.** A module's entry is the one point another
+  module may reach it at, so a module without one is unreachable for the same
+  reason a feature folder without one is — the same sentence, one depth up, and
+  the filename it looks for is that module's own `entry` override.
+- **`declaratory-self-only` is asked per net rather than per layer**, because that
+  is where the `no-restricted-syntax` entry is emitted: modular, one declaration is
+  armed in a module that has the layer and blank in a module that does not, and a
+  single verdict over the whole repo was wrong for one of them. It now addresses
+  `src/<module>/<layer>` — the bare layer name pointed at the source-root folder
+  `undeclared-folder` tells a modular repo to move out of.
+- **`owns` declared on a module is visible to `inspect` at last** — both as
+  `owns-not-installed` (named `Module "X" owns …`) and as the ownership cascade a
+  package import is judged by: a file may reach a primitive its layer owns *or* its
+  module owns, the same either/or `barredIn` gives the emitted config. A barred
+  import names the net it was made from (`App/components`, or `common`), not a bare
+  layer name that does not locate it.
+- **Cross-module and intra-module verdicts come from the primitives `emitLint`
+  already compiles from** — `getForbiddenModules`, `getModuleSelfOnlyTargets`,
+  `getModuleEntry`, `netLabel`, and `modularVerdict` (the same function the embedded
+  `blueprint/relative-escape` rule switches to, reported in that rule's own words).
+  Measured end-to-end on a modular fixture wired to a real `eslint.config.mjs`
+  spreading `emitLint(blueprint)`: five violations, five ESLint errors, the same
+  five files, the same five reasons — and zero against zero on the legal tree.
+- A folder no net covers (`App/utils/**`, a top-level folder no module declares)
+  gets no import verdict at all, on purpose: the emitted config writes no entry for
+  it, so a finding there would be a story ESLint never tells. The folder itself is
+  still reported.
+
+Omitting `modules` leaves every one of these exactly as it was — measured by
+running both builds over the same flat fixtures and diffing the whole report,
+migration steps and coverage footer included.
+
+**Still open:** `inspect`'s two *summary* surfaces have not been through this pass
+and still speak the flat structure to a modular repo — the migration-step table
+under the report ("declare them as layers", for a finding whose own text just said
+a module cannot be named after a layer), and the vacuous-coverage line's next step
+(`e.g. src/components/`, a folder the same run calls undeclared). Both are single
+strings today and both need the resolved blueprint to answer, which is the shape of
+the fix rather than a better sentence.

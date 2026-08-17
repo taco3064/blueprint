@@ -1,10 +1,12 @@
 import {
   getForbiddenLayers,
-  getFolderShape,
+  getForbiddenModules,
+  getModuleSelfOnlyTargets,
   getSelfOnlyTargets,
-  normalizeAllowedImporters,
 } from '../config';
 import type { AliasRoot, ArchitectureDef, Blueprint } from '../config';
+// The `nets` leaf, not the emit/lint index — see `structure.ts`'s own note.
+import { netLabel } from '../emit/lint/nets';
 import { dropTestFiles } from './filter';
 import { compareText } from './order';
 import {
@@ -12,28 +14,18 @@ import {
   buildModuleGraph,
   entryResolver,
   layoutResolver,
+  modularVerdict,
+  pathScope,
   relativeVerdict,
   resolveSegments,
   stripAlias,
+  structureOf,
 } from './resolve';
-import type { EntryOf, FolderShape, LayoutOf } from './resolve';
+import type { EntryOf, LayoutOf, PathScope, Structure } from './resolve';
+import { structureFindings } from './structure';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
-
-/**
- * The display prefix for a directory finding, from the config's source root — the
- * address an agent will actually go to. Per-file findings do not need it; `scan`
- * puts the prefix on `file.path` already.
- *
- * `'.'` yields an empty prefix, not `'./'`, so a project-root layout spells its
- * paths the same way here as `scan` does.
- */
-function sourcePrefix(architecture: ArchitectureDef): string {
-  const root = architecture.sourceRoot ?? 'src';
-
-  return root === '.' ? '' : `${root}/`;
-}
 
 /**
  * Analyze a scan against a blueprint. Pure — the core of `inspect`.
@@ -48,15 +40,14 @@ export function analyze(
   dependencies?: string[],
 ): Finding[] {
   const { architecture } = blueprint;
-  const layerNames = architecture.layers.map((layer) => layer.name);
+  const structure = structureOf(architecture);
 
   // Symmetric with the lint side: test files are exempt from structure.
   scan = dropTestFiles(scan, architecture.testFiles);
 
   const findings = [
-    ...folderFindings(scan, architecture, layerNames),
-    ...ownsFindings(architecture, dependencies),
-    ...scan.files.flatMap((file) => importFindings(file, architecture, layerNames)),
+    ...structureFindings(scan, { architecture, structure, dependencies }),
+    ...scan.files.flatMap((file) => importFindings(file, architecture, structure)),
   ];
 
   for (const cycle of detectCycles(buildModuleGraph(scan, architecture).edges)) {
@@ -79,197 +70,56 @@ export function analyze(
   return findings.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }
 
-/**
- * `owns` entries naming a package that is not installed. `info`, the same tier and
- * doctrine as `missing-layer`: declaring ownership before the install is the
- * legitimate order, so the ban is correct and simply has nothing to reach yet. A
- * global has no dependency list to answer to and is skipped.
- */
-function ownsFindings(
-  architecture: ArchitectureDef,
-  dependencies: string[] | undefined,
-): Finding[] {
-  if (!dependencies) {
-    return [];
-  }
-
-  const findings: Finding[] = [];
-  const prefix = sourcePrefix(architecture);
-
-  for (const layer of architecture.layers) {
-    for (const owned of layer.owns ?? []) {
-      // Both forms answer the same question here: whether the package resolves at
-      // all. A named import missing from an installed package is a different one.
-      const pkg = typeof owned === 'string' ? owned : 'package' in owned ? owned.package : null;
-
-      if (pkg === null || dependencies.includes(pkg)) {
-        continue;
-      }
-
-      findings.push({
-        severity: 'info',
-        rule: 'owns-not-installed',
-        path: `${prefix}${layer.name}`,
-        subject: pkg,
-        message: `Layer "${layer.name}" owns "${pkg}", which is not in package.json — `
-          + 'runway, not a todo: the ban is emitted and correct, it just has nothing to '
-          + 'reach yet. Installing the package and dropping the declaration are both '
-          + 'resolutions, and which one applies is the owner\'s call.',
-      });
-    }
-  }
-
-  return findings;
-}
-
-/** undeclared-folder, missing-layer, and no-entry findings. */
-function folderFindings(
-  scan: ScanResult,
-  architecture: ArchitectureDef,
-  layerNames: string[],
-): Finding[] {
-  const findings: Finding[] = [];
-  const prefix = sourcePrefix(architecture);
-
-  for (const dir of scan.topDirs) {
-    if (!layerNames.includes(dir) && scan.files.some((file) => file.segments[0] === dir)) {
-      findings.push({
-        severity: 'error',
-        rule: 'undeclared-folder',
-        path: `${prefix}${dir}`,
-        // The four directory findings are one-per-directory by construction, so the
-        // rule and the path already identify them and there is nothing left to
-        // discriminate. Empty rather than a repeat of the path: a subject that
-        // restates its path says the finding has a second axis when it has not.
-        subject: '',
-        message: `"${dir}" is not a declared layer — declare it, or move its code into a folder of an existing layer.`,
-      });
-    }
-  }
-
-  for (const name of layerNames) {
-    if (!scan.topDirs.includes(name)) {
-      findings.push({
-        severity: 'info',
-        rule: 'missing-layer',
-        path: `${prefix}${name}`,
-        subject: '',
-        // Reads like a todo without the second clause — six of these sent
-        // a field agent toward "delete the unused layers", the opposite of
-        // the keep-is-default doctrine the playbook states (field run #13).
-        message: `Declared layer "${name}" has no folder yet — runway, not a todo: `
-          + 'the rules arm when code lands; keeping it is the default, '
-          + 'slimming is the owner\'s call.',
-      });
-    }
-  }
-
-  // A selfOnly ban over a layer nobody inhabits is declaratory — info, because
-  // intent declared early is not a defect (field batch 12). The note states the
-  // collision as a CONDITION: it needs a second entry of that id, which inspect
-  // cannot see, and read as unconditional it sends the single-config adopter
-  // hunting a problem that requires a merge to exist (field batch 13).
-  //
-  // A guard, not an empty list to iterate: on a scaffold every layer is a blank and
-  // the coverage line already says so.
-  if (scan.files.length > 0) {
-    for (const layer of architecture.layers) {
-      const selfOnlyImporters = normalizeAllowedImporters(layer.allowedImporters)
-        .filter((importer) => importer.selfOnly)
-        .map((importer) => importer.layer);
-
-      if (selfOnlyImporters.length && !scan.files.some((file) => file.segments[0] === layer.name)) {
-        findings.push({
-          severity: 'info',
-          rule: 'declaratory-self-only',
-          path: `${prefix}${layer.name}`,
-          subject: '',
-          message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands. The no-restricted-syntax ENTRY is emitted today, on the importer layer(s) named above, so it is already exposed to a merge: IF a second no-restricted-syntax scoped to one of those layers exists, flat config merges neither into the other — the later entry replaces the earlier, silently, with lint still green. That condition is the whole note. Adopting into a single generated config, there is no second entry, so there is nothing here to act on. "Cannot fire" is about the ban, not about the entry. Check \`blueprint rules --json\` for the emit points before merging.`,
-        });
-      }
-    }
-  }
-
-  findings.push(...noEntryFindings(scan, architecture, layerNames));
-
-  return findings;
-}
-
-function noEntryFindings(
-  scan: ScanResult,
-  architecture: ArchitectureDef,
-  layerNames: string[],
-): Finding[] {
-  const folders = new Map<string, ScannedFile[]>();
-
-  for (const file of scan.files) {
-    const layer = file.segments[0];
-
-    if (
-      file.segments.length >= 3
-      && layerNames.includes(layer)
-      && getFolderShape(architecture, layer).layout === 'folder'
-    ) {
-      const key = `${layer}/${file.segments[1]}`;
-
-      folders.set(key, [...(folders.get(key) ?? []), file]);
-    }
-  }
-
-  const findings: Finding[] = [];
-
-  for (const [key, files] of folders) {
-    const { entry } = getFolderShape(architecture, key.split('/')[0]);
-
-    const hasEntry = files.some(
-      (file) => file.segments.length === 3 && stripExt(file.segments[2]) === entry,
-    );
-
-    if (!hasEntry) {
-      findings.push({
-        severity: 'warn',
-        rule: 'no-entry',
-        path: `${sourcePrefix(architecture)}${key}`,
-        subject: '',
-        message: `Folder "${key}" has no "${entry}" entry — nothing is importable from outside.`,
-      });
-    }
-  }
-
-  return findings;
-}
-
-/** Everything a layer's imports are judged against, resolved once per file. */
+/** Everything a file's imports are judged against, resolved once per file. */
 interface ImportContext {
   architecture: ArchitectureDef;
-  layerNames: string[];
+  structure: Structure;
+  /** Where the importing file sits — its module, its layer, its inner segments. */
+  scope: PathScope;
   aliases: (AliasRoot | string)[];
   /** Layers this file's layer may not import. */
   forbidden: string[];
   /** Layers this file's layer may depend on but must not re-export. */
   selfOnly: string[];
+  /** Modules this file's module may not import. */
+  forbiddenModules: string[];
+  /** Modules this file's module may depend on but must not re-export. */
+  moduleSelfOnly: string[];
   layoutOf: LayoutOf;
   entryOf: EntryOf;
 }
 
-/** Per-file import findings: deep-import, flow-violation, relative-escape, ownership, selfOnly. */
+/**
+ * Per-file import findings: deep-import, flow-violation, relative-escape,
+ * ownership, selfOnly.
+ *
+ * An ungoverned file is skipped, and which files those are is `pathScope`'s
+ * answer, not a bare "is `segments[0]` a layer" — which under a modular
+ * structure is false for EVERY file, so this returned nothing at all for a
+ * whole repo while saying nothing about having done so.
+ */
 function importFindings(
   file: ScannedFile,
   architecture: ArchitectureDef,
-  layerNames: string[],
+  structure: Structure,
 ): Finding[] {
-  const fileLayer = file.segments[0];
+  const scope = pathScope(file.segments, structure);
 
-  if (!layerNames.includes(fileLayer)) {
+  if (!scope.governed) {
     return [];
   }
 
+  const { layer, module } = scope;
+
   const context: ImportContext = {
     architecture,
-    layerNames,
+    structure,
+    scope,
     aliases: aliasList(architecture),
-    forbidden: getForbiddenLayers(architecture, fileLayer),
-    selfOnly: getSelfOnlyTargets(architecture, fileLayer),
+    forbidden: layer === null ? [] : getForbiddenLayers(architecture, layer),
+    selfOnly: layer === null ? [] : getSelfOnlyTargets(architecture, layer),
+    forbiddenModules: module === null ? [] : getForbiddenModules(architecture, module),
+    moduleSelfOnly: module === null ? [] : getModuleSelfOnlyTargets(architecture, module),
     layoutOf: layoutResolver(architecture),
     entryOf: entryResolver(architecture),
   };
@@ -282,7 +132,9 @@ function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext):
   const parts = stripAlias(ref.specifier, context.aliases);
 
   if (parts) {
-    return aliasFindings(file, ref, { ...context, target: parts[0], depth: parts.length });
+    return context.structure.modules.length
+      ? moduleAliasFindings(file, ref, { ...context, parts })
+      : aliasFindings(file, ref, { ...context, target: parts[0], depth: parts.length });
   }
 
   if (ref.specifier.startsWith('.')) {
@@ -292,16 +144,81 @@ function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext):
   return packageFindings(file, ref, context);
 }
 
+/**
+ * An alias import under a modular structure, where `parts[0]` names a module and
+ * never a layer — the same asymmetry `targetModuleKey` reads, because modules
+ * and layers are never both governed dimensions for one segment.
+ *
+ * Its own module's name routes back into the layer model one segment in: the
+ * module is stripped, so {@link aliasFindings} never learns modules exist and
+ * the two structures cannot drift into two judgments.
+ */
+function moduleAliasFindings(
+  file: ScannedFile,
+  ref: ImportRef,
+  context: ImportContext & { parts: string[] },
+): Finding[] {
+  const { parts, scope, structure } = context;
+  const target = structure.modules.find((module) => module.name === parts[0]);
+
+  if (!target) {
+    return [];
+  }
+
+  if (target.name !== scope.module) {
+    return crossModuleFindings(file, ref, { ...context, target: target.name });
+  }
+
+  const inner = parts.slice(1);
+
+  // Inside a module the alias has exactly one legal spelling — the cross-layer
+  // reach its own declared layers are addressed at (`~app/App/hooks`). Anything
+  // else is the module reaching itself, which is what a relative path is for.
+  return target.layers !== false && structure.isLayer(inner[0])
+    ? aliasFindings(file, ref, { ...context, target: inner[0], depth: inner.length })
+    : [finding('error', 'flow-violation', {
+        path: file.path,
+        subject: ref.specifier,
+        message: `Same-module import "${ref.specifier}" via the alias — use a relative path; the alias is how a module is reached from outside it.`,
+      })];
+}
+
+/** An alias import into another module: the module flow ban, entry-only depth, selfOnly. */
+function crossModuleFindings(
+  file: ScannedFile,
+  ref: ImportRef,
+  context: ImportContext & { parts: string[]; target: string },
+): Finding[] {
+  const { parts, target, scope, forbiddenModules, moduleSelfOnly } = context;
+  const findings: Finding[] = [];
+  const at = { path: file.path, subject: ref.specifier };
+
+  if (forbiddenModules.includes(target)) {
+    findings.push(finding('error', 'flow-violation', { ...at, message: `"${scope.module}" may not import module "${target}" ("${ref.specifier}") — a module may import only a module declared after it, unless that module's allowedImporters narrows it out.` }));
+  } else if (parts.length >= 2) {
+    // Only when the module is reachable at all: a module barred outright is
+    // barred at both spellings and reported once, so a second finding for
+    // reaching inside it would split one debt with one fix into two.
+    findings.push(finding('error', 'deep-import', { ...at, message: `"${ref.specifier}" reaches inside module "${target}" — import the module through its entry.` }));
+  }
+
+  if (ref.isExport && moduleSelfOnly.includes(target)) {
+    findings.push(finding('error', 'selfonly-reexport', { ...at, message: `Re-exports "${target}" ("${ref.specifier}"), which is selfOnly — depend on it, do not re-export it.` }));
+  }
+
+  return findings;
+}
+
 /** An alias import into a declared layer: folder depth, the flow ban, selfOnly re-export. */
 function aliasFindings(
   file: ScannedFile,
   ref: ImportRef,
   context: ImportContext & { target: string; depth: number },
 ): Finding[] {
-  const { target, depth, layerNames, layoutOf, forbidden, selfOnly } = context;
-  const fileLayer = file.segments[0];
+  const { target, depth, structure, layoutOf, forbidden, selfOnly } = context;
+  const fileLayer = context.scope.layer;
 
-  if (!layerNames.includes(target)) {
+  if (!structure.isLayer(target)) {
     return [];
   }
 
@@ -327,12 +244,14 @@ function aliasFindings(
   return findings;
 }
 
-/** A bare package import the blueprint gave to some other layer. */
+/** A bare package import the blueprint gave to some other layer or module. */
 function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportContext): Finding[] {
-  const fileLayer = file.segments[0];
-  const owners = ownersOf(context.architecture, ref.specifier, ref.names);
+  const { scope } = context;
+  const owners = ownersOf(context, ref);
 
-  if (!owners || owners.includes(fileLayer)) {
+  // Either axis clears it: a file may reach a primitive its layer owns OR its
+  // module owns, the same cascade `barredIn` gives the emitted config.
+  if (!owners || owners.some((owner) => owner === scope.layer || owner === scope.module)) {
     return [];
   }
 
@@ -349,14 +268,24 @@ function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportConte
   return [finding('error', 'package-ownership', {
     path: file.path,
     subject,
-    message: `"${ref.specifier}"${named} is owned by ${owners.join(', ')} — not importable from "${fileLayer}".`,
+    message: `"${ref.specifier}"${named} is owned by ${owners.join(', ')} — not importable from "${netLabel(scope)}".`,
   })];
 }
 
-/** A relative import, judged by the same verdict the embedded lint rule reads. */
-function relativeEscape(file: ScannedFile, ref: ImportRef, shape: FolderShape): Finding[] {
+/**
+ * A relative import, judged by the same verdict the embedded lint rule reads —
+ * `modularVerdict` once modules are declared, exactly as `relative-escape.ts`
+ * switches on its own `root` option. Two verdict functions for two structures,
+ * never two implementations of one.
+ */
+function relativeEscape(file: ScannedFile, ref: ImportRef, context: ImportContext): Finding[] {
+  const { structure, scope, layoutOf, entryOf } = context;
   const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
-  const verdict = relativeVerdict(file.segments, target, shape);
+  const shape = { layoutOf, entryOf, isLayer: structure.isLayer };
+
+  const verdict = structure.modules.length
+    ? modularVerdict(file.segments, target, shape)
+    : relativeVerdict(file.segments, target, shape);
 
   if (verdict === 'ok') {
     return [];
@@ -368,36 +297,36 @@ function relativeEscape(file: ScannedFile, ref: ImportRef, shape: FolderShape): 
     return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" escapes src/ — use the project alias.` })];
   }
 
+  if (verdict === 'leaves-module') {
+    return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" leaves module "${scope.module}" — another module is reachable only at its entry, through the project alias, and only if that module allows this one to import it.` })];
+  }
+
   if (verdict === 'reaches-inside') {
-    return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${shape.entryOf(file.segments[0])}" instead; what lives behind it is that folder's own business.` })];
+    return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${entryOf(scope.inner[0])}" instead; what lives behind it is that folder's own business.` })];
   }
 
   return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.` })];
 }
 
-/** Owner layers of a package import (given its named imports), or null if unrestricted. */
-function ownersOf(
-  architecture: ArchitectureDef,
-  specifier: string,
-  names: string[],
-): string[] | null {
+/**
+ * Owners of a package import (given its named imports), or null if unrestricted.
+ * Layers and modules in one list — a module owns primitives the same way a layer
+ * does, and `resolveBanScope` derives the emitted ban from the same pair.
+ */
+function ownersOf(context: ImportContext, ref: ImportRef): string[] | null {
   const owners: string[] = [];
 
-  for (const layer of architecture.layers) {
-    if (!layer.owns) {
-      continue;
-    }
-
-    for (const owned of layer.owns) {
+  for (const owner of [...context.architecture.layers, ...context.structure.modules]) {
+    for (const owned of owner.owns ?? []) {
       if (typeof owned === 'string') {
-        if (owned === specifier) {
-          owners.push(layer.name);
+        if (owned === ref.specifier) {
+          owners.push(owner.name);
         }
-      } else if ('package' in owned && owned.package === specifier) {
+      } else if ('package' in owned && owned.package === ref.specifier) {
         const restricted = owned.imports;
 
-        if (!restricted?.length || names.some((name) => restricted.includes(name))) {
-          owners.push(layer.name);
+        if (!restricted?.length || ref.names.some((name) => restricted.includes(name))) {
+          owners.push(owner.name);
         }
       }
     }
@@ -586,10 +515,6 @@ export function detectCycle(edges: Map<string, Set<string>>): string[] | null {
   }
 
   return null;
-}
-
-function stripExt(name: string): string {
-  return name.replace(/\.[^.]+$/, '');
 }
 
 /**

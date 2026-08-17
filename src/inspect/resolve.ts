@@ -1,5 +1,9 @@
 import type { AliasRoot, ArchitectureDef, ModuleDef } from '../config';
 import { aliasLayerRoots, getFolderShape, getModules } from '../config';
+// The `nets` leaf, not the emit/lint index — the index also exports lint.ts,
+// which loads the plugin, which imports this file. Type-only, so nothing of it
+// survives into the plugin's own bundle either.
+import type { NetScope } from '../emit/lint/nets';
 import { dropTestFiles } from './filter';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
@@ -76,6 +80,68 @@ export function layerChecker(architecture: ArchitectureDef): IsLayer {
   const names = new Set(architecture.layers.map((layer) => layer.name));
 
   return (name) => names.has(name);
+}
+
+/** The declared shape a scanned path is read against, resolved once per run. */
+export interface Structure {
+  /** Declared feature modules — empty under the flat structure. */
+  modules: ModuleDef[];
+  isLayer: IsLayer;
+}
+
+/** Read the module + layer declarations a scan is judged against. */
+export function structureOf(architecture: ArchitectureDef): Structure {
+  return { modules: getModules(architecture), isLayer: layerChecker(architecture) };
+}
+
+/**
+ * Where one path sits in the declared structure. {@link NetScope} is the same
+ * coordinate pair `emit/lint` writes one config entry per, read from the other
+ * end — from a scanned path rather than from the declaration — so a file and the
+ * entry governing it are named by one vocabulary.
+ */
+export interface PathScope extends NetScope {
+  /** The segments with the module stripped: the flat layer model's own view. */
+  inner: string[];
+  /** False when no declared module or layer covers this path at all. */
+  governed: boolean;
+}
+
+/**
+ * Which module and layer a path's segments sit in. Flat, `module` is null and
+ * `inner` IS `segments` — `segments[0]` is the layer, exactly as before modules
+ * existed.
+ *
+ * Modular, a path is governed when it reaches a net: a `layers: false` module's
+ * whole subtree, a layered module's own root file, or a declared layer inside
+ * one. A folder that is neither (`App/utils/`) is ungoverned on purpose — the
+ * emitted config writes no entry for it, so a finding about its imports would be
+ * a story eslint never tells.
+ */
+export function pathScope(segments: string[], structure: Structure): PathScope {
+  const { modules, isLayer } = structure;
+
+  if (!modules.length) {
+    const layer = isLayer(segments[0]) ? segments[0] : null;
+
+    return { module: null, layer, inner: segments, governed: layer !== null };
+  }
+
+  const module = modules.find((entry) => entry.name === segments[0]);
+
+  if (!module) {
+    return { module: null, layer: null, inner: segments, governed: false };
+  }
+
+  const inner = segments.slice(1);
+
+  if (module.layers === false) {
+    return { module: module.name, layer: null, inner, governed: true };
+  }
+
+  const layer = isLayer(inner[0]) ? inner[0] : null;
+
+  return { module: module.name, layer, inner, governed: layer !== null || inner.length <= 1 };
 }
 
 /** A layer's public entry filename, extension stripped. */
