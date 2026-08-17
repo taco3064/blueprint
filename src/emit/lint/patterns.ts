@@ -1,3 +1,4 @@
+import { dirSegments } from '../../config';
 import type { Framework, LayerDef, ModuleDef, OwnedPackage } from '../../config';
 import type { GlobalRule, GroupPattern, PackageRule, PathPattern } from './types';
 
@@ -18,9 +19,19 @@ export const FRAMEWORK_EXTS: Record<Framework, string> = {
   auto: 'js,jsx,ts,tsx,vue',
 };
 
-/** The default `{layer}` glob for a framework under a given source root. */
+/**
+ * The default `{layer}` glob for a framework under a given source root.
+ *
+ * Normalized through the same `dirSegments` `relative-escape.ts` reads
+ * `sourceRoot` through — a raw `${sourceRoot}/` concatenation let a
+ * normalized-but-not-bare-`'.'` form (`'./lib/app/'`, `'./'`) through as a
+ * double-slash glob (`lib/app//components/**`), the exact shape `dirSegments`
+ * exists to collapse. Joining the segments back with `/` is what keeps this
+ * site and the rule it feeds reading `sourceRoot` the same way.
+ */
 function defaultGlob(framework: Framework, sourceRoot: string): string {
-  const prefix = sourceRoot === '.' ? '' : `${sourceRoot}/`;
+  const segments = dirSegments(sourceRoot);
+  const prefix = segments.length ? `${segments.join('/')}/` : '';
 
   return `${prefix}{layer}/**/*.{${FRAMEWORK_EXTS[framework]}}`;
 }

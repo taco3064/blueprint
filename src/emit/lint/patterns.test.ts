@@ -57,6 +57,37 @@ describe('resolveLayerFiles', () => {
         'lib/services/**/*.ts',
       ]);
   });
+
+  it('normalizes a multi-segment sourceRoot the same way relative-escape.ts does', () => {
+    // Before this fix, defaultGlob string-concatenated the raw sourceRoot: a
+    // normalized-but-not-bare-'.' form produced a double slash
+    // ('./lib/app//components/**' → after the leading './' trim still
+    // 'lib/app//...') that this rule's own emitted `files` glob carried into
+    // every generated config — the site relative-escape.ts's dirSegments fix
+    // never touched.
+    expect(resolveLayerFiles('components', 'react', { sourceRoot: './lib/app/' })).toEqual([
+      'lib/app/components/**/*.{js,jsx,ts,tsx}',
+    ]);
+  });
+
+  it('normalizes a trailing-slash-only sourceRoot ("./") to no prefix at all', () => {
+    expect(resolveLayerFiles('components', 'react', { sourceRoot: './' })).toEqual([
+      'components/**/*.{js,jsx,ts,tsx}',
+    ]);
+  });
+
+  it('keeps the single-segment cases byte-identical to before this fix', () => {
+    // dirSegments('src').join('/') === 'src' and dirSegments('app').join('/')
+    // === 'app' — the two cases the strict `sourceRoot === '.'` check already
+    // got right, and this fix must not move.
+    expect(resolveLayerFiles('components', 'react')).toEqual([
+      'src/components/**/*.{js,jsx,ts,tsx}',
+    ]);
+
+    expect(resolveLayerFiles('components', 'react', { sourceRoot: 'app' })).toEqual([
+      'app/components/**/*.{js,jsx,ts,tsx}',
+    ]);
+  });
 });
 
 describe('derivePackageRules · what counts as the same ownership', () => {
