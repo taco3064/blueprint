@@ -2,46 +2,57 @@
 
 **Trigger:** new evidence — a review, a hand-traced bug, a stalled assumption
 — shows a real gap in an issue's plan or acceptance criteria, and
-`deliver-ticket` has already landed at least one of its stages against it.
+`deliver-ticket` has already been invoked on it. **A landed stage is not a
+precondition** — this applies whether zero stages have landed (the gap
+surfaced during `deliver-ticket`'s own pre-first-commit read, or from a
+review that ran before any dispatch) or several have; the rule below is
+about what a landed stage does to the decision when there is one, not about
+requiring one to exist first.
 
 This is the narrow exception to *You do not touch the repository* and to
 "never for touching a ticket already handed to delivery" above. It exists
 because the alternative already in this skill — the owner closes the issue,
 naming why, and a fresh run supersedes it — is a full reset, and a full reset
-is the wrong tool when the goal hasn't moved and what already shipped is
-still correct. #371 is the case this file generalizes from: six review
+is the wrong tool when the goal hasn't moved and nothing that shipped is
+invalidated. #371 is the case this file first generalized from: six review
 passes corrected its plan and acceptance criteria after stage 1 had already
 landed, none of them touched stage 1 itself, and treating each one as a
-close-and-reopen would have manufactured seven tickets out of one.
+close-and-reopen would have manufactured seven tickets out of one. **The
+zero-landed-stages case is the same logic at lower risk, not a different
+one** — a gap found before any code exists costs even less to fix in place,
+since there is nothing yet that a revision could possibly invalidate.
 
 ## Which path this is — checked before anything else
 
-**Both of these must hold, or this is not a revision — it's the existing
-bounce-back path (owner closes the issue, names why, a fresh run supersedes
-it):**
+| Fingerprint | Goal | Landed stages | Path |
+|---|---|---|---|
+| Missing or invalid | — | — | Bounce back: owner closes, a fresh run supersedes it |
+| Valid | Changed | — | Bounce back: owner closes, a fresh run supersedes it |
+| Valid | Unchanged | One or more, and the fix would invalidate any of them | Bounce back: owner closes, a fresh run supersedes it |
+| Valid | Unchanged | Zero, or one or more and every one still valid under the fix | **This file: in-place revision** |
+| — (not a ticket problem) | — | The plan and acceptance criteria are correct; the *code* just doesn't meet them | `deliver-ticket`'s own shortfall loop — no issue edit, no shape-ticket invocation |
 
-- **The goal is unchanged.** The gap is in the plan or the acceptance
-  criteria — a missing consumer, an underspecified field, a stage ordering
-  that assumed something a later stage was meant to build, a criterion a
-  wrong implementation could still satisfy. The Goal section's own text does
-  not need to change.
-- **Every already-landed stage stays valid under the correction.** If the
-  new evidence proves shipped behavior is actually wrong — not "the plan
-  for what comes next was wrong," but "what already landed needs to be
-  undone or redone" — that is not a revision. Route it to the bounce-back
-  path instead: a correction that quietly asks a landed stage to be redone
-  is the scope change this exception does not cover.
+**Zero landed stages is not a special case — it falls out of the same rule.**
+"Every already-landed stage stays valid" is vacuously true when there are
+none yet, and that is the *lower*-risk end of this path, not a reason to
+fall back to bouncing the ticket: a plan gap found before the first commit
+costs nothing to fix in place, because nothing yet exists that the fix could
+invalidate. Requiring a stage to already be landed before allowing an
+in-place revision would create exactly the dead end this file exists to
+close: `deliver-ticket` finding a plan gap pre-first-commit, routing to this
+path per its own rule, and this file rejecting the case because its
+precondition was written too narrowly.
 
-**And a third case isn't either path, because it isn't a ticket problem at
-all: the plan and acceptance criteria are fine, and a sub-agent's actual
-output just doesn't meet them.** That's a shortfall, `deliver-ticket`'s own
-mechanism (`SKILL.md`'s *Shortfalls close where they were found*) — commented,
-dispatched, closed in a later commit, no issue edit and no shape-ticket
-invocation at all. The tell: does reading the *plan* find the gap, or does
-reading the *diff against a plan that's already correct* find it? Only the
-first is this file's business — misrouting the second here would turn every
-ordinary code-review finding into a ticket revision, which is its own way of
-eroding trust in what a revision means.
+**The row that isn't either path is worth naming as clearly as the two that
+are.** The plan and acceptance criteria are fine, and a sub-agent's actual
+output just doesn't meet them — that's a shortfall, `deliver-ticket`'s own
+mechanism (`SKILL.md`'s *Shortfalls close where they were found*):
+commented, dispatched, closed in a later commit, no issue edit and no
+shape-ticket invocation at all. The tell: does reading the *plan* find the
+gap, or does reading the *diff against a plan that's already correct* find
+it? Only the first is this file's business — misrouting the second here
+would turn every ordinary code-review finding into a ticket revision, which
+is its own way of eroding trust in what a revision means.
 
 ## How to revise
 
