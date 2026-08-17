@@ -1,6 +1,6 @@
 ---
 name: deliver-ticket
-description: Implement one GitHub issue to completion — staged commits, each reported back on the ticket, every shortfall recorded there and then closed, until the ticket's own goal is met; then the PR, the merge and the close. Use when the owner points at an issue to build ("do #204", "implement this one"), when work on a ticket resumes, or when a stage has landed and the next has not started. NOT for deciding what a ticket should ask for, and never for cutting one into more tickets.
+description: Implement one GitHub issue to completion — staged commits, each reported back on the ticket, every shortfall recorded there and then closed, until the ticket's own goal is met; then the PR, the merge and the close. Use when the owner points at an issue to build ("do #204", "implement this one"), when work on a ticket resumes, or when a stage has landed and the next has not started. NOT for deciding what a ticket should ask for, never for cutting one into more tickets, and refuses to start on any issue that doesn't already carry shape-ticket's `## Goal` / `## Implementation Plan` / `## Acceptance Criteria` structure.
 ---
 
 # deliver-ticket — one ticket, to completion, in the open
@@ -13,7 +13,7 @@ You own one issue's **delivery** and the written record of how it got there. **Y
 
 | Reference | Trigger |
 |---|---|
-| [`start-or-resume.md`](./references/start-or-resume.md) | The skill loads. Every time, before deciding whether this is a fresh start or a resume — the two look identical until you've read the ticket. |
+| [`start-or-resume.md`](./references/start-or-resume.md) | The skill loads. Every time, before deciding whether this is a fresh start or a resume — the two look identical until you've read the ticket — and, for a fresh one, before the hard gate on whether this issue is shape-ticket's shape at all. |
 | [`deliver-a-stage.md`](./references/deliver-a-stage.md) | You are about to commit, or you have just committed and owe the ticket a comment. What a stage is, what the comment must carry, and how a shortfall is written down. |
 | [`finish-the-ticket.md`](./references/finish-the-ticket.md) | You believe the ticket is done. The completion test, the pull request, the merge, closing the issue, and cleaning up the worktree and branches. |
 
