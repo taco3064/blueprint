@@ -32,8 +32,6 @@ import {
   getForbiddenLayers,
   getForbiddenModules,
   getModules,
-  normalizeAllowedImporters,
-  normalizeModuleAllowedImporters,
   readSetting,
 } from '../config';
 import type { Blueprint } from '../config';
@@ -253,12 +251,14 @@ export interface StructuralStatus extends StructuralRule {
  * Mirrors emitLint's conditions from the same primitives — this module must not
  * import lint.ts — so a test pins the mirror to emitLint's real output.
  *
- * `no-restricted-syntax` and `no-restricted-globals` used to read `architecture.layers`
- * alone: a selfOnly importer or an owned global declared only on a MODULE (stage 2's
- * own cascade) never flipped either flag, so `rules --json` reported `active: false`
- * for a rule `emitLint` was already emitting — the exact "consumers and the emitter
- * disagree" gap stage 3 promised to close. Both now read the combined layer+module
- * facts `resolveBanScope` already resolves for the emitted config itself.
+ * Every conditional row reads the NETS, never the declarations, because those
+ * answer two different questions. `emitLint` writes its rules per net, so a
+ * declaration only reaches the output if some net carries it — and a config can
+ * declare one that none does: layer-level `selfOnly` while every module sets
+ * `layers: false` leaves no net with a layer at all, so the ban is emitted
+ * nowhere while the declaration sits right there in the config. This catalog
+ * answers what the emitted entries carry, which is the only question an adopter
+ * comparing it against their own eslint run is asking.
  */
 function resolveStructural(blueprint: Blueprint | null): StructuralStatus[] {
   if (!blueprint) {
@@ -266,22 +266,24 @@ function resolveStructural(blueprint: Blueprint | null): StructuralStatus[] {
   }
 
   const { architecture, framework } = blueprint;
-  const modules = getModules(architecture);
   const scope = resolveBanScope(blueprint);
   const nets = resolveFileNets(architecture, framework);
 
-  const layerSelfOnly = architecture.layers.some((layer) =>
-    normalizeAllowedImporters(layer.allowedImporters)
-      .some((importer) => importer.selfOnly === true));
-
-  const moduleSelfOnly = modules.some((module) =>
-    normalizeModuleAllowedImporters(module.allowedImporters)
-      .some((importer) => importer.selfOnly === true));
-
   const active: Record<string, boolean> = {
+    // The two unconditional rows, and they are not unconditional for the same
+    // reason. `escapeEntries` writes an entry for ANY shape, nets or not.
+    // `no-restricted-imports` rides every net, so it needs one to exist — which
+    // `validateBlueprint` guarantees by refusing an empty `architecture.layers`,
+    // and a blueprint only reaches here through that check. Drop the emptiness
+    // rule and this row starts lying before anything else does.
     'no-restricted-imports': true,
     'blueprint/relative-escape': true,
-    'no-restricted-syntax': layerSelfOnly || moduleSelfOnly,
+    // Active where SOME net actually carries a selfOnly ban on either axis —
+    // the same two resolvers the emitted entry's syntax rules are built from,
+    // both of which answer empty for a net the axis does not reach.
+    'no-restricted-syntax': nets.some((net) =>
+      netSelfOnly(net, architecture).length > 0
+      || netModuleSelfOnly(net, architecture).length > 0),
     // Active where SOME net is barred from SOME owned global — an owner
     // whose cascade reaches every net (a layer, or a module covering every
     // layer nested inside it) leaves nothing left to restrict.

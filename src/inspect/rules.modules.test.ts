@@ -407,20 +407,31 @@ const emittedSelectors = (): Set<string> =>
   );
 
 describe('runRules · the selfOnly selectors a modular merge fold copies', () => {
-  it('reports only selectors emitLint actually emits — every one, verbatim', async () => {
-    // The anti-drift pin, and the strongest form available: this column is copied
-    // into a hand-merged config and then compared TEXTUALLY by doctor, so a selector
-    // that is merely plausible is worthless. Containment in the real emitted set is
-    // what "verbatim" means operationally.
+  it('reports exactly the selectors emitLint emits — no extras, none missing, '
+    + 'verbatim', async () => {
+    // The anti-drift pin, and it has to hold in BOTH directions, because the two
+    // failures it guards are different and only one of them is loud. An extra —
+    // a selector reported that nothing emits — gets pasted into a hand-merged
+    // config, where doctor compares TEXTUALLY, so a merely plausible selector
+    // guards nothing. A missing one is the defect this suite exists for: a
+    // `layers: false` module appeared in no section of the catalog at all, and a
+    // fold copying what the catalog showed silently dropped its bans. Containment
+    // alone would have stayed green through exactly that.
     const { bans } = await runRules(repo(allShapes), { log: () => {} });
     const emitted = emittedSelectors();
-    const reported = bans.flatMap((ban) => ban.selfOnly.flatMap((entry) => entry.selectors));
 
-    expect(reported.length).toBeGreaterThan(0);
+    const reported = new Set(
+      bans.flatMap((ban) => ban.selfOnly.flatMap((entry) => entry.selectors)),
+    );
 
-    for (const selector of reported) {
-      expect(emitted).toContain(selector);
-    }
+    expect(reported.size).toBeGreaterThan(0);
+
+    // Distinct selectors on both sides, not multiplicity: one ban rides every net
+    // it covers — a module-axis selfOnly repeats across all three nets inside the
+    // importing module — so both the catalog and the emitted config restate it,
+    // and how many times is not the claim. Sorted arrays rather than set compare
+    // so a failure names the selector that moved.
+    expect([...reported].sort()).toEqual([...emitted].sort());
   });
 
   it('anchors a layer target on its OWN module, not the bare layer name', async () => {

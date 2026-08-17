@@ -318,6 +318,70 @@ describe('runRules · the selfOnly selectors a merge fold copies', () => {
   });
 });
 
+const mirrorLayers: Blueprint['architecture']['layers'] = [
+  { name: 'views', does: 'pages' },
+  {
+    name: 'contexts',
+    does: 'provide/inject seam',
+    allowedImporters: [{ layer: 'views', selfOnly: true }],
+  },
+];
+
+const modular = (modules: Blueprint['architecture']['modules']): Blueprint => ({
+  framework: 'react',
+  architecture: {
+    alias: '~app',
+    layers: mirrorLayers,
+    modules,
+    folder: { layout: 'flat', entry: 'index' },
+  },
+  rules: {},
+});
+
+const flatSelfOnly: Blueprint = {
+  framework: 'react',
+  architecture: { alias: '~app', layers: mirrorLayers, folder: { layout: 'flat', entry: 'index' } },
+  rules: {},
+};
+
+/**
+ * What the mirror pin is fed — both axes of the config, because a mirror can
+ * only be checked against the shapes it is given. Every fixture here used to be
+ * flat, so the module axis was invisible to the one test built to catch exactly
+ * this drift, and a layer-level `selfOnly` under all-`layers: false` modules —
+ * declared in the config, and emitted nowhere, because no net has a layer to
+ * hang it on — read as active.
+ */
+const mirrorFixtures: [string, Blueprint][] = [
+  ['flat', blueprint],
+  ['flat · layer selfOnly', flatSelfOnly],
+  ['modular · layered modules', modular([
+    { name: 'Shell', does: 'app chrome' },
+    { name: 'Combat', does: 'the fight loop' },
+  ])],
+  // The one that fails on a declaration-derived mirror: layer selfOnly is
+  // declared, no net has a layer, so emitLint writes the ban nowhere.
+  ['modular · every module layers: false', modular([
+    { name: 'Shell', does: 'app chrome', layers: false },
+    { name: 'Combat', does: 'the fight loop', layers: false },
+  ])],
+  // The same shape with the ban reaching the output down the OTHER axis, so the
+  // row is not merely "false whenever modules hold their own files".
+  ['modular · layers: false, module-axis selfOnly', modular([
+    { name: 'Shell', does: 'app chrome', layers: false },
+    {
+      name: 'Combat',
+      does: 'the fight loop',
+      layers: false,
+      allowedImporters: [{ module: 'Shell', selfOnly: true }],
+    },
+  ])],
+  ['modular · mixed', modular([
+    { name: 'Shell', does: 'app chrome' },
+    { name: 'Combat', does: 'the fight loop', layers: false },
+  ])],
+];
+
 describe('runRules · which structural rules the config emits', () => {
   it('reads a narrowed importer list as no reason to emit the syntax ban', async () => {
     // `allowedImporters` narrows WHO may import; `selfOnly` additionally bars
@@ -404,26 +468,7 @@ describe('runRules · which structural rules the config emits', () => {
 
   it('structural annotation mirrors emitLint exactly — '
     + 'never probe the bundle (field #14)', async () => {
-    const selfOnly: Blueprint = {
-      framework: 'react',
-      architecture: {
-        alias: '~app',
-        layers: [
-          { name: 'views', does: 'pages' },
-          {
-            name: 'contexts',
-            does: 'provide/inject seam',
-            allowedImporters: [{ layer: 'views', selfOnly: true }],
-          },
-        ],
-        folder: { layout: 'flat', entry: 'index' },
-      },
-      rules: {},
-    };
-
-    // rules.ts mirrors emitLint's conditions instead of calling it (module
-    // cycle) — this pin is what keeps the mirror from drifting.
-    for (const bp of [blueprint, selfOnly]) {
+    for (const [label, bp] of mirrorFixtures) {
       const emitted = new Set(
         emitLint(bp).flatMap((entry) => Object.keys(entry.rules ?? {})),
       );
@@ -437,7 +482,10 @@ describe('runRules · which structural rules the config emits', () => {
       };
 
       for (const row of parsed.structural) {
-        expect(`${row.rule}=${String(row.active)}`).toBe(`${row.rule}=${String(emitted.has(row.rule))}`);
+        // The label rides the compared string: six fixtures share this
+        // assertion, and `true !== false` alone does not say which one moved.
+        expect(`${label} ${row.rule}=${String(row.active)}`)
+          .toBe(`${label} ${row.rule}=${String(emitted.has(row.rule))}`);
       }
     }
   });

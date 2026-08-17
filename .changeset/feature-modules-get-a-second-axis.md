@@ -88,8 +88,13 @@ diverged from what each still reported:**
   an owned package/global declared only on a MODULE (stage 2's own cascade,
   already live in `emitLint`) reported `active: false` for a rule the emitted
   config actually carries, and a layer nested inside the owning module still
-  showed the owned thing as banned there. Both now read `resolveBanScope`'s
-  combined layer+module facts and `barredIn`'s per-net check. Since the same bare
+  showed the owned thing as banned there. Both now read the governed nets rather
+  than the declarations: `no-restricted-globals` and the per-net package/global
+  columns through `resolveBanScope`'s combined layer+module facts and `barredIn`,
+  `no-restricted-syntax` through each net's own `netSelfOnly` /
+  `netModuleSelfOnly` — so a selfOnly that no net actually carries (every module
+  `layers: false`, leaving no net with a layer to hang it on) reports inactive,
+  matching an emitted config that carries no such rule. Since the same bare
   layer name can be nested inside more than one module with a different cascade
   in each, `layerBans` now carries one row per net rather than one per bare layer
   name — a new `module` field on each row, and the printed/JSON `layer` label
