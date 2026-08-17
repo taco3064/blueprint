@@ -59,12 +59,12 @@ describe('report', () => {
         rule: 'deep-import',
         path: 'src/pages/Home/Home.tsx',
         subject: '~app/hooks/useX/impl',
-        message: '"~app/hooks/useX/impl" reaches inside a module — import it through its entry.',
+        message: '"~app/hooks/useX/impl" reaches inside a folder — import it through its entry.',
       },
     ]);
 
     expect(out).toContain('[deep-import] src/pages/Home/Home.tsx');
-    expect(out).toContain('reaches inside a module');
+    expect(out).toContain('reaches inside a folder');
     expect(out.match(/~app\/hooks\/useX\/impl/g)).toHaveLength(1);
   });
 });

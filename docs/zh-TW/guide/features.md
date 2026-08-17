@@ -20,7 +20,7 @@
 
 ## 產出結果 —— 一份 config 編譯出的成果
 
-- [`eslint.config.mjs`](/zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制) —— `emitLint` 將分層流向、套件所有權與模組邊界轉譯為 lint config —— plugin 內建，不用額外安裝
+- [`eslint.config.mjs`](/zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制) —— `emitLint` 將分層流向、套件所有權與資料夾邊界轉譯為 lint config —— plugin 內建，不用額外安裝
 - [`docs/architecture-handbook.md`](/zh-TW/guide/generated-artifacts#docs-architecture-handbook-md-——-說明) —— `emitHandbook` 由與規則相同的來源產出架構手冊（mermaid 圖、分層表、作業守則）—— 兩者不會脫節
 - [`CLAUDE.md` / `AGENTS.md` / …](/zh-TW/guide/generated-artifacts#claude-md-agents-md-——-協作) —— `emitAgentFiles` 將同一份 AI Agent 守則發佈至 Claude、AGENTS.md、Gemini、Copilot、Cursor 與 Windsurf —— 標記區塊外的手寫內容一律保留
 
@@ -29,7 +29,7 @@
 - [`defineBlueprint`](/zh-TW/guide/getting-started#blueprint-config) —— 唯一真實來源，定義時**與**每次載入時都會驗證，結構性錯誤以精確訊息即時回報
 - [分層與單向流](/zh-TW/philosophy/layers) —— 有序分層，每層僅可向下匯入；`allowedImporters` 收窄可匯入者，`selfOnly` 禁止再匯出
 - [所有權 —— `owns`](/zh-TW/philosophy/layers#所有權-——-owns) —— 分層專屬持有套件、具名匯入或全域物件 —— 其餘分層一律禁止使用
-- [模組形狀](/zh-TW/philosophy/layers#功能資料夾-——-模組的組成方式) —— `folder` 為一功能一資料夾、以公開入口對外；`flat` 為整層單一節點（如 Next 路由樹）—— 可逐層覆寫
+- [資料夾形狀](/zh-TW/philosophy/layers#功能資料夾-——-一個功能一個資料夾) —— `folder` 為一功能一資料夾、以公開入口對外；`flat` 為整層單一節點（如 Next 路由樹）—— 可逐層覆寫
 - [`blueprint.rules`](/zh-TW/guide/reference#blueprint-rules-——-哪些識別碼會成為檢核關卡) —— 帶等級的規則識別碼：機器查得動的轉譯成 lint 關卡，其餘寫進手冊與 Agent 守則作為判斷準則
 - [其餘 config 欄位](/zh-TW/guide/reference#快速上手範例以外的-config-欄位) —— `sourceRoot`、`additionalAliases`、`naming`、`lintOverrides`、`emit.*` —— 每項一句話，完整型別見 API 文件
 - [preset](/zh-TW/guide/field-tested#框架注意事項) —— `vuePreset` / `reactPreset` 完整編碼治理手冊；`nextPreset` 相容 App 與 Pages 路由、有無 `src/` 皆可

@@ -72,11 +72,11 @@ export default [
 
 `stylistic` 跟 `imports` 是**參數**，不是套件的依賴：blueprint 一個依賴都沒有，<br>
 所以外掛缺席的關卡會完全不 emit，而 lint 照樣是綠的。<br>
-哪個關卡靠哪個外掛，以及 `emitLint` 展開的內容 —— 分層流向、套件所有權、模組入口、[內嵌 plugin 規則](/zh-TW/guide/reference#內嵌-eslint-外掛) —— 總表頁有完整清單。
+哪個關卡靠哪個外掛，以及 `emitLint` 展開的內容 —— 分層流向、套件所有權、資料夾入口、[內嵌 plugin 規則](/zh-TW/guide/reference#內嵌-eslint-外掛) —— 總表頁有完整清單。
 
 ## `docs/architecture-handbook.md` —— 說明
 
-給人閱讀的架構手冊：分層圖（mermaid）、職責表、模組形狀與匯入紀律 ——<br>
+給人閱讀的架構手冊：分層圖（mermaid）、職責表、資料夾形狀與匯入紀律 ——<br>
 跟 lint 規則出自同一份 config，所以不會彼此脫節。節錄如下：
 
 ````md
@@ -130,10 +130,10 @@ AI Agent 守則刻意保持精簡：分層流向與硬性關卡直接內嵌，�
 
 - 框架：`vue`。匯入別名：`~app`。
 - 分層流向：`pages` → `containers` → `components` → `hooks` → `contexts` → `services` —— 具遞移性：一層可以匯入排在它後面的**任何**一層，除非目標那層收窄了自己的匯入者。
-- **新增、搬移或重新命名任何檔案之前** —— 放在哪裡、模組形狀、專屬持有、命名、元件設計軸線、行為準則、作業守則：讀 [docs/architecture-handbook.md](docs/architecture-handbook.md)（由同一份 blueprint 生成 —— 永遠是最新的）。
+- **新增、搬移或重新命名任何檔案之前** —— 放在哪裡、資料夾形狀、專屬持有、命名、元件設計軸線、行為準則、作業守則：讀 [docs/architecture-handbook.md](docs/architecture-handbook.md)（由同一份 blueprint 生成 —— 永遠是最新的）。
 - **作業紀律** —— 怎麼順著流向走、lint 失敗時怎麼反應、commit 前的檢查清單：讀 [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md)（隨套件一起出貨 —— 裝好依賴就會在，而且永遠對得上安裝的版本）。
-- 硬性關卡（由機器強制，作用範圍是 layer glob 打到的檔案 —— 一層還沒有 code 就沒有東西會失敗，那是跑道，不是保護）：單向匯入、模組入口、專屬持有、相對路徑逃逸、`maxLines` = 400、`unusedVars`、`explicitAny`、`codeStyle`、`statementsPerLine`、`statementPadding`、`importBlock`、`fixtureImports`、`usePrefix`、`testFilename`、`deepWatch` 會讓專案的 lint 失敗；`cycles` 改由 `npx blueprint inspect --baseline` 把關，所以綠燈的 lint 對它什麼都沒說。lint 失敗時，去修結構 —— 永遠不要 `eslint-disable`，也不要把違規搬到隔壁檔案。
-- 由你把關的部分：`~app/` 底下不得有未宣告的資料夾（`blueprint inspect --baseline` 會驗 —— 只對你新引入的東西變紅）。它的檢測項目會給兩個解法，而只有一個是你的：把 code 搬進既有分層的某個模組。如果架構真的長超過這份 config 了，那是擁有者的決定 —— 講出來然後停手；永遠不要自己宣告新的分層。
+- 硬性關卡（由機器強制，作用範圍是 layer glob 打到的檔案 —— 一層還沒有 code 就沒有東西會失敗，那是跑道，不是保護）：單向匯入、資料夾入口、專屬持有、相對路徑逃逸、`maxLines` = 400、`unusedVars`、`explicitAny`、`codeStyle`、`statementsPerLine`、`statementPadding`、`importBlock`、`fixtureImports`、`usePrefix`、`testFilename`、`deepWatch` 會讓專案的 lint 失敗；`cycles` 改由 `npx blueprint inspect --baseline` 把關，所以綠燈的 lint 對它什麼都沒說。lint 失敗時，去修結構 —— 永遠不要 `eslint-disable`，也不要把違規搬到隔壁檔案。
+- 由你把關的部分：`~app/` 底下不得有未宣告的資料夾（`blueprint inspect --baseline` 會驗 —— 只對你新引入的東西變紅）。它的檢測項目會給兩個解法，而只有一個是你的：把 code 搬進既有分層的某個資料夾。如果架構真的長超過這份 config 了，那是擁有者的決定 —— 講出來然後停手；永遠不要自己宣告新的分層。
 <!-- BLUEPRINT:END -->
 ```
 

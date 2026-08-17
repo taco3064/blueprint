@@ -58,7 +58,7 @@ function headerLines(result: SurveyResult): string[] {
 }
 
 /**
- * The module-shape evidence. A bare heading over nothing reads as a render failure —
+ * The folder-shape evidence. A bare heading over nothing reads as a render failure —
  * say "none" (field issue #6). Same below for the import matrix.
  */
 function folderLines(result: SurveyResult): string[] {
@@ -68,7 +68,7 @@ function folderLines(result: SurveyResult): string[] {
   );
 
   return [
-    'Folders (module-shape evidence):',
+    'Folders (folder-shape evidence):',
     ...rows,
     ...sourcelessNote(result),
     ...(rows.length ? [] : ['  — none —']),

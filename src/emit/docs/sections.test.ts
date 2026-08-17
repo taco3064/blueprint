@@ -6,12 +6,12 @@ import {
   renderPlaybook,
   renderHeader,
   renderImportDiscipline,
-  renderModule,
+  renderFolder,
   renderNaming,
   renderPrinciples,
   renderRules,
 } from './sections';
-import type { ArchitectureDef, AxisDef, ModuleDef, PrincipleDef } from '../../config';
+import type { ArchitectureDef, AxisDef, FolderDef, PrincipleDef } from '../../config';
 
 function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
   return {
@@ -20,7 +20,7 @@ function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
       { name: 'components', does: 'UI', mustNot: ['import services'], owns: ['clsx'] },
       { name: 'services', does: 'net', owns: ['axios'] },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
+    folder: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
     ...over,
   };
 }
@@ -50,9 +50,9 @@ describe('renderArchitecture', () => {
   });
 });
 
-describe('renderModule', () => {
+describe('renderFolder', () => {
   it('renders a folder tree with entry, impl, and private parts', () => {
-    const out = renderModule(arch(), 'components');
+    const out = renderFolder(arch(), 'components');
 
     expect(out).toContain('components/');
     expect(out).toContain('├─ index');
@@ -64,8 +64,8 @@ describe('renderModule', () => {
   });
 
   it('renders a folder tree without private parts when the field is omitted', () => {
-    const out = renderModule(
-      arch({ module: { layout: 'folder', entry: 'index' } }),
+    const out = renderFolder(
+      arch({ folder: { layout: 'folder', entry: 'index' } }),
       'components',
     );
 
@@ -74,8 +74,8 @@ describe('renderModule', () => {
   });
 
   it('renders a one-line note for flat layout', () => {
-    const out = renderModule(
-      arch({ module: { layout: 'flat', entry: 'index', private: [] } }),
+    const out = renderFolder(
+      arch({ folder: { layout: 'flat', entry: 'index', private: [] } }),
       'components',
     );
 
@@ -87,34 +87,34 @@ describe('renderModule', () => {
 
   it('lists per-layer exceptions to the shared shape', () => {
     const architecture = arch({
-      module: { layout: 'flat', entry: 'index', private: [] },
+      folder: { layout: 'flat', entry: 'index', private: [] },
       layers: [
-        { name: 'resources', does: 'features', module: { layout: 'folder', entry: 'index' } },
-        { name: 'components', does: 'UI', module: { layout: 'flat' } },
+        { name: 'resources', does: 'features', folder: { layout: 'folder', entry: 'index' } },
+        { name: 'components', does: 'UI', folder: { layout: 'flat' } },
         { name: 'services', does: 'net' },
       ],
     });
 
-    const out = renderModule(architecture, 'resources');
+    const out = renderFolder(architecture, 'resources');
 
     expect(out).toContain('Per-layer exceptions');
-    expect(out).toContain('`resources/` — one folder per module, entry `index`.');
-    expect(out).toContain('`components/` — one file per module (flat).');
+    expect(out).toContain('`resources/` — one folder per feature, entry `index`.');
+    expect(out).toContain('`components/` — one file per feature (flat).');
     expect(out).not.toContain('`services/` —');
   });
 
   it('renders exceptions under a folder default too', () => {
     const architecture = arch({
       layers: [
-        { name: 'components', does: 'UI', module: { layout: 'flat' } },
+        { name: 'components', does: 'UI', folder: { layout: 'flat' } },
         { name: 'services', does: 'net' },
       ],
     });
 
-    const out = renderModule(architecture, 'components');
+    const out = renderFolder(architecture, 'components');
 
-    expect(out).toContain('One module = one folder');
-    expect(out).toContain('`components/` — one file per module (flat).');
+    expect(out).toContain('One feature = one folder');
+    expect(out).toContain('`components/` — one file per feature (flat).');
   });
 });
 
@@ -135,8 +135,8 @@ describe('renderImportDiscipline', () => {
   });
 
   it('swaps in the relative-path rule and drops entry-only for flat layout', () => {
-    const flat: ModuleDef = { layout: 'flat', entry: 'index', private: [] };
-    const out = renderImportDiscipline(arch({ module: flat }));
+    const flat: FolderDef = { layout: 'flat', entry: 'index', private: [] };
+    const out = renderImportDiscipline(arch({ folder: flat }));
 
     expect(out).toContain('use a relative path');
     expect(out).not.toContain('Entry-only');
@@ -145,9 +145,9 @@ describe('renderImportDiscipline', () => {
   it('keeps entry-only when any layer overrides to folder layout', () => {
     const out = renderImportDiscipline(
       arch({
-        module: { layout: 'flat', entry: 'index', private: [] },
+        folder: { layout: 'flat', entry: 'index', private: [] },
         layers: [
-          { name: 'resources', does: 'features', module: { layout: 'folder', entry: 'main' } },
+          { name: 'resources', does: 'features', folder: { layout: 'folder', entry: 'main' } },
           { name: 'services', does: 'net' },
         ],
       }),

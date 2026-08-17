@@ -21,7 +21,7 @@ const blueprint = defineBlueprint({
         allowedImporters: [{ layer: 'components', selfOnly: true }, 'hooks'],
       },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
+    folder: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
   },
 });
 
@@ -44,7 +44,7 @@ const COMPONENT = 'src/components/Button/Button.ts';
 const SERVICE = 'src/services/api/api.ts';
 
 describe('emitLint · dependency flow', () => {
-  it('allows importing a downstream module through its entry', () => {
+  it('allows importing a downstream folder through its entry', () => {
     expect(restricted('import { useX } from "~app/hooks/useX";', COMPONENT)).toEqual([]);
   });
 
@@ -69,7 +69,7 @@ describe('emitLint · dependency flow', () => {
     expect(ids).toContain('blueprint/relative-escape');
   });
 
-  it('allows a relative import that stays inside the module', () => {
+  it('allows a relative import that stays inside the folder', () => {
     const ids = linter
       .verify('import { helper } from "./helper";', config, { filename: COMPONENT })
       .map((message) => message.ruleId);
@@ -78,8 +78,8 @@ describe('emitLint · dependency flow', () => {
   });
 });
 
-describe('emitLint · module boundaries', () => {
-  it('bans reaching inside another module (deep import)', () => {
+describe('emitLint · folder boundaries', () => {
+  it('bans reaching inside another folder (deep import)', () => {
     expect(restricted('import x from "~app/hooks/useX/impl";', COMPONENT)).toContain(
       'no-restricted-imports',
     );
@@ -217,7 +217,7 @@ describe('emitLint · shape', () => {
           { name: 'services', does: '', owns: [{ package: 'axios', exempt: ['**/*.gen.ts'] }] },
         ],
         layerFilesIgnore: ['**/*.d.ts'],
-        module: { layout: 'folder', entry: 'index', private: [] },
+        folder: { layout: 'folder', entry: 'index', private: [] },
       },
     });
 
@@ -236,17 +236,17 @@ describe('emitLint · shape', () => {
   });
 });
 
-describe('emitLint · per-layer module layout', () => {
+describe('emitLint · per-layer folder layout', () => {
   const mixed = defineBlueprint({
     framework: 'auto',
     architecture: {
       alias: '~app',
       layers: [
         { name: 'pages', does: 'routes' },
-        { name: 'resources', does: 'features', module: { layout: 'folder' } },
+        { name: 'resources', does: 'features', folder: { layout: 'folder' } },
         { name: 'services', does: 'net' },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
+      folder: { layout: 'flat', entry: 'index', private: [] },
     },
   });
 
@@ -271,12 +271,12 @@ describe('emitLint · per-layer module layout', () => {
       .not.toContain('no-restricted-imports');
   });
 
-  it('mirrors inspect: intra-module relatives pass, cross-module relatives fail', () => {
-    // Inside a folder module, `../` stays within the module.
+  it('mirrors inspect: intra-folder relatives pass, cross-folder relatives fail', () => {
+    // Inside a folder-layout layer, `../` stays within the folder.
     expect(ids('import x from "../MatchesList";', 'src/resources/matches/components/Row.ts'))
       .not.toContain('blueprint/relative-escape');
 
-    // Crossing into a sibling module leaves it.
+    // Crossing into a sibling folder leaves it.
     expect(ids('import x from "../../markets/Board";', 'src/resources/matches/components/Row.ts'))
       .toContain('blueprint/relative-escape');
 
@@ -305,7 +305,7 @@ describe('emitLint · what an exempted package splits into', () => {
           owns: [{ package: 'axios', exempt: ['**/*.gen.ts', ''] }, { package: 'lodash' }],
         },
       ],
-      module: { layout: 'folder', entry: 'index', private: [] },
+      folder: { layout: 'folder', entry: 'index', private: [] },
     },
   });
 
@@ -357,7 +357,7 @@ describe('emitLint · which layers become deep-import targets', () => {
     expect(groups).toContain('~app/hooks/*/**');
     expect(groups).toContain('~app/services/*/**');
 
-    // The layer's own modules are already banned wholesale by the same-layer
+    // The layer's own folders are already banned wholesale by the same-layer
     // group, and no-restricted-imports reports once per matched group — so
     // naming itself here double-reports every same-layer deep import.
     expect(groups).not.toContain('~app/components/*/**');

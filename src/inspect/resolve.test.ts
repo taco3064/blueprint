@@ -13,11 +13,11 @@ import type { ImportRef, ScannedFile } from './types';
 
 const architecture: ArchitectureDef = {
   alias: '~app',
-  module: { layout: 'folder', entry: 'index' },
+  folder: { layout: 'folder', entry: 'index' },
   layers: [
-    { name: 'resources', does: 'feature modules' },
-    { name: 'services', does: 'io', module: { entry: 'service' } },
-    { name: 'utils', does: 'leaf helpers', module: { layout: 'flat' } },
+    { name: 'resources', does: 'feature folders' },
+    { name: 'services', does: 'io', folder: { entry: 'service' } },
+    { name: 'utils', does: 'leaf helpers', folder: { layout: 'flat' } },
   ],
 };
 
@@ -41,7 +41,7 @@ describe('entryResolver', () => {
 describe('relativeVerdict', () => {
   const own = ['resources', 'matches', 'Row.ts'];
 
-  it('allows anything inside the importer own module', () => {
+  it('allows anything inside the importer own folder', () => {
     expect(relativeVerdict(own, ['resources', 'matches', 'parts', 'Cell.ts'], shape))
       .toBe('ok');
   });
@@ -74,7 +74,7 @@ describe('relativeVerdict', () => {
     expect(relativeVerdict(own, null, shape)).toBe('escapes-src');
   });
 
-  it('leaves a flat layer alone — it has no module folders to be inside of', () => {
+  it('leaves a flat layer alone — it has no feature folders to be inside of', () => {
     expect(relativeVerdict(['utils', 'date.ts'], ['utils', 'money.ts'], shape))
       .toBe('ok');
 
@@ -130,10 +130,10 @@ describe('entryResolver · a shared entry that is not the default', () => {
     // reddens a repo that is correctly shaped.
     const named = entryResolver({
       alias: '~app',
-      module: { layout: 'folder', entry: 'main' },
+      folder: { layout: 'folder', entry: 'main' },
       layers: [
         { name: 'features', does: 'x' },
-        { name: 'api', does: 'y', module: { entry: 'client' } },
+        { name: 'api', does: 'y', folder: { entry: 'client' } },
       ],
     });
 
@@ -227,7 +227,7 @@ describe('relativeVerdict · how deep the entry check looks', () => {
     // Three segments is the ONLY shape where the third can be the entry file.
     // Dropping the length check lets `../markets/index/deep.ts` pass as an entry
     // import, because segment three happens to read `index` — a path that goes
-    // straight through the entry into the module's private interior.
+    // straight through the entry into the folder's private interior.
     expect(relativeVerdict(
       ['resources', 'matches', 'Row.ts'],
       ['resources', 'markets', 'index', 'deep.ts'],
@@ -242,8 +242,8 @@ describe('relativeVerdict · how deep the entry check looks', () => {
     // entry import is reported as reaching inside it.
     const typed: ArchitectureDef = {
       alias: '~app',
-      module: { layout: 'folder', entry: 'index' },
-      layers: [{ name: 'types', does: 'shared shapes', module: { entry: 'index.d' } }],
+      folder: { layout: 'folder', entry: 'index' },
+      layers: [{ name: 'types', does: 'shared shapes', folder: { entry: 'index.d' } }],
     };
 
     expect(relativeVerdict(

@@ -24,14 +24,14 @@ export function renderSemantics(): string {
     'Facts about the emitted rules that drive authoring decisions — '
     + 'stated here so you never have to reverse-engineer them from the bundle:',
     '',
-    '- **Flat layout:** the module is the whole layer, '
+    '- **Flat layout:** the layer itself is the unit, '
     + 'so same-layer *relative* imports are always legal.',
     '  The alias is for crossing layers — a same-layer import through the alias becomes an error '
     + 'the moment the lint is wired.',
-    '- **Folder layout:** a module is one child folder with private internals.',
-    '  *Same-layer* sibling modules must not import each other at all — '
+    '- **Folder layout:** a feature folder is one child folder with private internals.',
+    '  *Same-layer* sibling folders must not import each other at all — '
     + 'via the alias or `../` alike; the shared part wants to live in a lower layer.',
-    '  Only *lower-layer* folder modules are importable, and entry-only; '
+    '  Only *lower-layer* feature folders are importable, and entry-only; '
     + '`../` escapes are caught at any depth by `blueprint/relative-escape`.',
     '- **Pre-wiring check:** the survey\'s "Same-folder imports via the alias" count is an upper '
     + 'bound on the errors the wiring will introduce, not the exact number — '
@@ -101,7 +101,7 @@ export function renderRuleCatalog(): string {
     '  `blueprint rules` annotates whether THIS config emits it — '
     + 'never probe emitLint to find out.',
     '- `no-restricted-globals` — global ownership (e.g. `{ global: \'fetch\' }`)',
-    '- `blueprint/relative-escape` — depth-aware `../` module escapes (embedded plugin; '
+    '- `blueprint/relative-escape` — depth-aware `../` folder escapes (embedded plugin; '
     + 'ships inside the emitted config)',
     '',
     '**Optional gates — emitted only when declared** in `rules` with a tier other than `off`; '
@@ -163,7 +163,7 @@ export function renderSchemaSketch(): string {
     '      {',
     '        name: \'features\',',
     '        does: \'…\',',
-    '        module: { layout: \'folder\', entry: \'index\' }, // per-layer override',
+    '        folder: { layout: \'folder\', entry: \'index\' }, // per-layer override',
     '      },',
     '      // owns entries — the full shape (nothing else lives only in dist).',
     '      // A package several layers may use: declare the SAME entry in each of',
@@ -177,10 +177,10 @@ export function renderSchemaSketch(): string {
     '      //   { global: \'fetch\' }                        global identifier',
     '      { name: \'services\', does: \'…\', owns: [\'axios\', { global: \'fetch\' }] },',
     '    ],',
-    '    // Optional — omitting module (or any of its keys) IS the flat default',
+    '    // Optional — omitting folder (or any of its keys) IS the flat default',
     '    // ({ layout: \'flat\', entry: \'index\' }); private: [\'hooks\', …] keeps',
     '    // parts behind the entry.',
-    '    module: { layout: \'flat\', entry: \'index\' },',
+    '    folder: { layout: \'flat\', entry: \'index\' },',
     '    layerFiles: \'src/{layer}/**/*.<ext glob>\',',
     '    testFiles: [\'**/*.test.*\', \'**/__tests__/**\'],',
     '  },',

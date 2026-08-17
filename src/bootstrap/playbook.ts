@@ -89,7 +89,7 @@ export function renderNextNote(next: boolean): string {
     + '`app` → `components` → `hooks` → `lib`).',
     '> Never scaffold or declare an empty `src/pages` alongside the App Router: '
     + 'that folder name is a routing convention.',
-    '> Flat module layout fits the route tree — '
+    '> Flat folder layout fits the route tree — '
     + 'relative imports stay free inside a segment while cross-layer traffic uses the alias.',
   ].join('\n');
 }

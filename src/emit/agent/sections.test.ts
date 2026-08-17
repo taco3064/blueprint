@@ -22,7 +22,7 @@ function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
       { name: 'components', does: 'UI', mustNot: ['import services'], owns: ['clsx'] },
       { name: 'services', does: 'net' },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
+    folder: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
     ...over,
   };
 }
@@ -66,41 +66,41 @@ describe('renderPlacement', () => {
     expect(out).toContain('keep `hooks` / `types` private');
   });
 
-  it('drops the private clause when a folder module has none', () => {
+  it('drops the private clause when a folder layout has none', () => {
     const out = renderPlacement(
-      arch({ module: { layout: 'folder', entry: 'index', private: [] } }),
+      arch({ folder: { layout: 'folder', entry: 'index', private: [] } }),
     );
 
     expect(out).toContain('Only `index` is importable from outside.');
     expect(out).not.toContain('keep');
 
     // Omitted entirely reads the same as an explicit empty list.
-    const omitted = renderPlacement(arch({ module: { layout: 'folder', entry: 'index' } }));
+    const omitted = renderPlacement(arch({ folder: { layout: 'folder', entry: 'index' } }));
 
     expect(omitted).toContain('Only `index` is importable from outside.');
     expect(omitted).not.toContain('keep');
   });
 
-  it('describes a flat module', () => {
-    const out = renderPlacement(arch({ module: { layout: 'flat', entry: 'index', private: [] } }));
+  it('describes a flat layout', () => {
+    const out = renderPlacement(arch({ folder: { layout: 'flat', entry: 'index', private: [] } }));
 
-    expect(out).toContain('one file per module (flat)');
+    expect(out).toContain('one file per feature (flat)');
   });
 
-  it('lists per-layer module exceptions after the shared shape', () => {
+  it('lists per-layer folder exceptions after the shared shape', () => {
     const out = renderPlacement(
       arch({
-        module: { layout: 'flat', entry: 'index', private: [] },
+        folder: { layout: 'flat', entry: 'index', private: [] },
         layers: [
-          { name: 'resources', does: 'features', module: { layout: 'folder', entry: 'main' } },
-          { name: 'components', does: 'UI', module: { layout: 'flat' } },
+          { name: 'resources', does: 'features', folder: { layout: 'folder', entry: 'main' } },
+          { name: 'components', does: 'UI', folder: { layout: 'flat' } },
           { name: 'services', does: 'net' },
         ],
       }),
     );
 
-    expect(out).toContain('- Exception — `src/resources/`: one folder per module, entry `main`.');
-    expect(out).toContain('- Exception — `src/components/`: one file per module (flat).');
+    expect(out).toContain('- Exception — `src/resources/`: one folder per feature, entry `main`.');
+    expect(out).toContain('- Exception — `src/components/`: one file per feature (flat).');
     expect(out).not.toContain('Exception — `src/services/`');
   });
 
@@ -144,7 +144,7 @@ describe('renderPlacement', () => {
           allowedImporters: ['components', { layer: 'hooks', selfOnly: true }],
         },
       ],
-      module: { layout: 'folder', entry: 'index', private: [] },
+      folder: { layout: 'folder', entry: 'index', private: [] },
     };
 
     expect(renderPlacement(architecture)).toContain('IMPORTABLE BY: components, hooks (selfOnly).');
@@ -179,7 +179,7 @@ describe('renderHardRules', () => {
       '- Import only from downstream layers — never upstream, never the same layer.',
     );
 
-    expect(out).toContain('Import a module via its `index`');
+    expect(out).toContain('Import a folder via its `index`');
     expect(out).toContain('`maxLines` = 400 is a hard gate.');
     expect(out).toContain('`cycles` is a hard gate.');
     expect(out).not.toContain('undefined');
@@ -193,14 +193,14 @@ describe('renderHardRules', () => {
 
   it('omits entry-only for flat layout', () => {
     const out = renderHardRules(
-      arch({ module: { layout: 'flat', entry: 'index', private: [] } }),
+      arch({ folder: { layout: 'flat', entry: 'index', private: [] } }),
       undefined,
     );
 
     // The entry names are interpolated, so an unguarded push renders the rule
-    // with an empty slot — "Import a module via its , never its internals." The
+    // with an empty slot — "Import a folder via its , never its internals." The
     // sentence has to be absent, not merely missing the entry name.
-    expect(out).not.toContain('Import a module via its');
+    expect(out).not.toContain('Import a folder via its');
     expect(out).not.toContain('never its internals');
   });
 });
@@ -251,7 +251,7 @@ describe('renderChecklist', () => {
     // The two unconditional items — a checklist that grows with the blueprint
     // still has to carry the parts that hold for every blueprint.
     expect(bare).toContain('- [ ] Imports follow the one-way flow (no upstream / same-layer).');
-    expect(bare).toContain('modules expose only `index`');
+    expect(bare).toContain('folders expose only `index`');
   });
 });
 

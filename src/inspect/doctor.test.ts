@@ -348,7 +348,7 @@ describe('runDoctor · the architecture gate and its baseline', () => {
             subject: '',
             message:
               '"random" is not a declared layer — declare it, '
-              + 'or move its code into a module of an existing layer.',
+              + 'or move its code into a folder of an existing layer.',
           },
         ],
       }),
@@ -378,7 +378,7 @@ describe('runDoctor · the architecture gate and its baseline', () => {
             subject: '',
             message:
               '"random" is not a declared layer — declare it, '
-              + 'or move its code into a module of an existing layer.',
+              + 'or move its code into a folder of an existing layer.',
           },
         ],
       }),

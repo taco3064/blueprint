@@ -48,7 +48,7 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
           allowedImporters: [{ layer: 'views', selfOnly: true }],
         },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
+      folder: { layout: 'flat', entry: 'index', private: [] },
     },
   };
 
@@ -236,7 +236,7 @@ describe('selfOnly survives every esquery, and the fold gets its selectors (batc
           allowedImporters: [{ layer: 'views', selfOnly: true }],
         },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
+      folder: { layout: 'flat', entry: 'index', private: [] },
     },
   };
 

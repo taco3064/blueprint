@@ -19,7 +19,7 @@ const blueprint: Blueprint = {
       { name: 'stores', does: 'state', allowedImporters: ['contexts'] },
       { name: 'services', does: 'io', owns: [{ global: 'fetch' }] },
     ],
-    module: { layout: 'folder', entry: 'index', private: [] },
+    folder: { layout: 'folder', entry: 'index', private: [] },
     layerFilesIgnore: 'src/**/*.gen.ts',
   },
   rules: { fixtureImports: 'error' },
@@ -438,7 +438,7 @@ describe('expectedStructural · deep-import targets', () => {
         ...blueprint.architecture,
         layers: [
           { name: 'views', does: 'pages' },
-          { name: 'utils', does: 'leaf helpers', module: { layout: 'flat' } },
+          { name: 'utils', does: 'leaf helpers', folder: { layout: 'flat' } },
           { name: 'services', does: 'io' },
         ],
       },
@@ -446,9 +446,9 @@ describe('expectedStructural · deep-import targets', () => {
 
     const globs = deepImportGlobs(mixed, 'views');
 
-    // A flat layer has no module folders to reach inside of, so banning deep
+    // A flat layer has no feature folders to reach inside of, so banning deep
     // imports into it would ban ordinary file imports. And the importing layer
-    // is not a target of its own — reaching into a sibling module of the same
+    // is not a target of its own — reaching into a sibling folder of the same
     // layer is what `blueprint/relative-escape` covers.
     expect(globs).toContain('~app/services/*/**');
     expect(globs?.some((glob) => glob.includes('utils'))).toBe(false);

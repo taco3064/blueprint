@@ -326,7 +326,7 @@ describe('authoringBrief · the method it prescribes', () => {
 
   it('encodes the method: intent over zero-findings, per-layer shapes, ownership', () => {
     expect(brief).toContain('never contort the order to make findings zero');
-    expect(brief).toContain('module: { layout: \'folder\', entry: \'index\' }');
+    expect(brief).toContain('folder: { layout: \'folder\', entry: \'index\' }');
     expect(brief).toContain('owns');
     expect(brief).toContain('findings explosion');
   });

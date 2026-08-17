@@ -102,7 +102,7 @@ describe('a misplaced key fails loud instead of dying silently (field issue #14)
           '      { name: \'contexts\', does: \'seam\', selfOnly: true, allowedImporters: '
           + '[\'views\'] },',
           '    ],',
-          '    module: { layout: \'flat\', entry: \'index\' },',
+          '    folder: { layout: \'flat\', entry: \'index\' },',
           '  },',
           '  rules: {},',
           '};',
@@ -147,10 +147,10 @@ describe('a misplaced key fails loud instead of dying silently (field issue #14)
   });
 });
 
-describe('the flat default is real — module is optional (batch 15)', () => {
-  it('a config that never mentions module validates and inspects clean', async () => {
+describe('the flat default is real — folder is optional (batch 15)', () => {
+  it('a config that never mentions folder validates and inspects clean', async () => {
     // The field shape verbatim: Method step 5 said "plain files → the flat
-    // default", validation demanded module.entry — two edit-run cycles plus
+    // default", validation demanded folder.entry — two edit-run cycles plus
     // a deliberate repro before the agent could prove the tool contradicted
     // itself (field issue #23).
     const noModule: Blueprint = {
@@ -172,7 +172,7 @@ describe('the flat default is real — module is optional (batch 15)', () => {
     const inspect = await cli(bare, ['inspect']);
 
     expect(inspect.code).toBe(0);
-    expect(inspect.output).not.toContain('module.entry');
+    expect(inspect.output).not.toContain('folder.entry');
 
     // Partial declaration — the exact second repro from the field.
     const layoutOnly = repo({
@@ -180,7 +180,7 @@ describe('the flat default is real — module is optional (batch 15)', () => {
       files: {
         'blueprint.config.mjs': configSource({
           ...noModule,
-          architecture: { ...noModule.architecture, module: { layout: 'flat' } },
+          architecture: { ...noModule.architecture, folder: { layout: 'flat' } },
         }),
         'src/components/Button.jsx': 'export const Button = 1;',
       },
@@ -198,7 +198,7 @@ describe('the flat default is real — module is optional (batch 15)', () => {
           architecture: {
             alias: '~app',
             layers: [{ name: 'components', does: 'render UI' }],
-            module: { layout: 'flat', entry: '' },
+            folder: { layout: 'flat', entry: '' },
           },
         }),
       },
@@ -210,7 +210,7 @@ describe('the flat default is real — module is optional (batch 15)', () => {
     expect(inspect.output).toContain('omit it for the');
   });
 
-  it('the playbook sketch says the module block is optional', async () => {
+  it('the playbook sketch says the folder block is optional', async () => {
     const dir = repo({
       packageJson: react(),
       files: { 'src/App.jsx': 'export const App = () => null;' },
@@ -220,8 +220,8 @@ describe('the flat default is real — module is optional (batch 15)', () => {
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
-    expect(playbook).toContain('omit `module` entirely');
-    expect(playbook).toContain('Optional — omitting module');
+    expect(playbook).toContain('omit `folder` entirely');
+    expect(playbook).toContain('Optional — omitting folder');
   });
 });
 
@@ -379,7 +379,7 @@ describe('a folder layer shares by the sibling entry, not by sinking (cards)', (
         { name: 'components', does: 'ui' },
         { name: 'hooks', does: 'stateful units' },
       ],
-      module: { layout: 'folder', entry: 'index', private: [] },
+      folder: { layout: 'folder', entry: 'index', private: [] },
     },
   };
 

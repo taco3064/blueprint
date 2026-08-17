@@ -206,7 +206,7 @@ describe('a claim states the condition it needs (field runs #95–#97)', () => {
             allowedImporters: [{ layer: 'components', selfOnly: true }],
           },
         ],
-        module: { layout: 'flat', entry: 'index', private: [] },
+        folder: { layout: 'flat', entry: 'index', private: [] },
       },
     }));
 
@@ -381,7 +381,7 @@ describe('a check is asked for, not answered in advance (field runs #99-#100)', 
     const fields = [
       'name', 'framework', 'architecture', 'rules', 'principles', 'componentShape',
       'playbook', 'emit',
-      'alias', 'additionalAliases', 'sourceRoot', 'layers', 'module', 'layerFiles',
+      'alias', 'additionalAliases', 'sourceRoot', 'layers', 'folder', 'layerFiles',
       'layerFilesIgnore', 'testFiles', 'naming',
       'does', 'mustNot', 'owns', 'allowedImporters', 'lintOverrides',
     ];
@@ -459,7 +459,7 @@ describe('a fact reaches the reader before the red, not after (field run #101)',
                 allowedImporters: [{ layer: 'views', selfOnly: true }],
               },
             ],
-            module: { layout: 'flat', entry: 'index', private: [] },
+            folder: { layout: 'flat', entry: 'index', private: [] },
           },
         }),
       },

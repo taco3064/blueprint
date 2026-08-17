@@ -65,10 +65,10 @@ hooks/useCart
 查詢不存在的模組時，以 exit code 1 結束，並提示可以跑排行榜列出所有模組；<br>
 查詢成功則以 exit code 0 結束。
 
-## 查詢粒度 —— 由 `module.layout` 決定
+## 查詢粒度 —— 由 `folder.layout` 決定
 
 每個查詢結果的單位是**模組**，<br>
-而模組的界定方式取決於 Blueprint config 中的 [`module.layout`](/zh-TW/api/interfaces/ModuleDef)（可透過 `layer.module` 逐層覆寫）：
+而模組的界定方式取決於 Blueprint config 中的 [`folder.layout`](/zh-TW/api/interfaces/FolderDef)（可透過 `layer.folder` 逐層覆寫）：
 
 - **`folder` 佈局** —— 分層之下的每個直屬子項各自成為一個模組（`hooks/useCart`、`components/HelloWorld`）。<br>
   直屬檔案的模組鍵不含副檔名，因此 `deps components/HelloWorld` 與 `components/HelloWorld.vue` 指向同一個模組。
@@ -98,5 +98,5 @@ app (flat layer — answers at layer granularity)
 結構性錯誤會立刻以精確訊息回報，而不是在指令跑到一半時炸出一個難以定位的例外：
 
 ```
-✗ blueprint.config.mjs: architecture.module.private must be an array.
+✗ blueprint.config.mjs: architecture.folder.private must be an array.
 ```

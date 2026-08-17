@@ -18,7 +18,7 @@ const blueprint = defineBlueprint({
         allowedImporters: [{ layer: 'components', selfOnly: true }, 'hooks'],
       },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
+    folder: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
   },
 });
 

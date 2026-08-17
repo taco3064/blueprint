@@ -30,12 +30,12 @@ without failing the gate. Test files (`architecture.testFiles`) are exempt throu
 
 - **`undeclared-folder`** · error — a top-level source folder that is not a declared layer
 - **`flow-violation`** · error — an upstream import, or a same-layer import via the alias
-- **`deep-import`** · error — an alias import reaching *inside* a folder module instead of through its entry
-- **`relative-escape`** · error — a relative import that leaves its own layer, escapes the source root, or reaches past a sibling module's entry. Under `folder` layout a sibling *is* reachable — `../Sibling` is how one module uses another inside the same layer, and the only way, since the alias spelling (`~app/{ownLayer}/Sibling`) stays banned
+- **`deep-import`** · error — an alias import reaching *inside* a feature folder instead of through its entry
+- **`relative-escape`** · error — a relative import that leaves its own layer, escapes the source root, or reaches past a sibling folder's entry. Under `folder` layout a sibling *is* reachable — `../Sibling` is how one folder uses another inside the same layer, and the only way, since the alias spelling (`~app/{ownLayer}/Sibling`) stays banned
 - **`package-ownership`** · error — importing a layer-owned package (or restricted named import) from a non-owner layer
 - **`selfonly-reexport`** · error — re-exporting a dependency marked `selfOnly` — depend on it, never pass it on
 - **`cycle`** · error — a module-level import cycle, with the full path listed. Every independent cycle is reported, one per knot of mutually dependent modules — so the count is the size of the work, not the first thing found
-- **`no-entry`** · warn — a folder module without its public entry file — nothing is importable from outside
+- **`no-entry`** · warn — a feature folder without its public entry file — nothing is importable from outside
 - **`missing-layer`** · info — a declared layer that has no folder on disk yet
 - **`owns-not-installed`** · info — a layer `owns` a package that is not in `package.json` — the ban is emitted and correct, it simply has nothing to reach yet. Installing the package and dropping the declaration are both resolutions
 - **`declaratory-self-only`** · info — a `selfOnly` ban protecting a layer that holds no files — the re-export ban cannot fire until code lands
@@ -235,7 +235,7 @@ examples — the definitions belong here.
 - **`layer.mustNot`** — the things this layer may not do, in prose. Same destination, same lack of enforcement: it is what a reviewer and an agent read when a rule cannot decide
 - **`layer.allowedImporters`** — narrows who may import this layer. Omit it and every earlier layer may; set it and only the listed ones may, each of which must be declared earlier — so narrowing can never introduce a back edge. Entries take `selfOnly` (may depend on this layer but never re-export it onward) and `description` (the edge label in the handbook diagram)
 - **`layer.owns`** — primitives this layer exclusively owns; every other layer is barred from them. A bare string is a whole package (`'axios'`); the object form takes `imports` (specific named imports, e.g. `['createContext']`), `pattern` (treat the name as a glob group), and `exempt` (file globs excused). `{ global: 'fetch' }` owns a global instead of a package
-- **`architecture.module`** — the shared module shape: `layout` (`folder` = one folder per module behind a public entry, `flat` = one file), `entry` (the entry filename, default `index`), and `private` (sub-parts kept behind the entry). Under `folder`, a sibling module is reachable by its entry (`../Sibling`) and by nothing else — not past the entry, and not through the alias
+- **`architecture.folder`** — the shared feature-folder shape: `layout` (`folder` = one folder per feature behind a public entry, `flat` = one file), `entry` (the entry filename, default `index`), and `private` (sub-parts kept behind the entry). Under `folder`, a sibling folder is reachable by its entry (`../Sibling`) and by nothing else — not past the entry, and not through the alias
 
 ### Tuning
 
@@ -245,7 +245,7 @@ examples — the definitions belong here.
 - **`architecture.testFiles`** — test glob(s) exempt from structural rules and metric gates (default `*.test.*` / `*.spec.*`). `[]` exempts nothing — tests inherit their layer's rules — and switches the `testFilename` gate off with it: that rule is scoped to the test globs, so an empty list leaves it no file to name. `blueprint rules` says so beside the gate.
 - **`architecture.layerFiles` / `layerFilesIgnore`** — per-layer file globs when the framework defaults don't fit
 - **`architecture.naming`** — naming conventions by concept (e.g. `{ hook: 'useX + reactivity' }`) — rendered into handbook + contract
-- **`layer.module`** — per-layer override of the shared module shape — e.g. folder modules in one layer, flat everywhere else
+- **`layer.folder`** — per-layer override of the shared feature-folder shape — e.g. folder layout in one layer, flat everywhere else
 - **`layer.lintOverrides`** — per-layer ESLint tweaks (the three managed rules excluded)
 - **`emit.agents`** — contract distribution targets: `claude`, `agents`, `gemini`, `copilot`, `cursor`, `windsurf` (+ per-target `path`). Default `['claude', 'agents']`; `[]` emits none. Narrowing it makes the next init remove a stale contract that is wholly its own output (hand-edited files only get told)
 - **`emit.handbook` / `emit.lint`** — output path for the handbook · severity of the **structural** rules only (metric rules keep their `rules` tiers)

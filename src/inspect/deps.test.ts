@@ -144,13 +144,13 @@ describe('runDeps · flat-layout layers answer at layer granularity', () => {
     framework: 'vue' as const,
     architecture: {
       alias: '~app',
-      module: { layout: 'folder' as const, entry: 'index', private: [] },
+      folder: { layout: 'folder' as const, entry: 'index', private: [] },
       layers: [
         { name: 'pages', does: 'routes', allowedImporters: [] },
         {
           name: 'features',
           does: 'feature modules',
-          module: { layout: 'flat' as const },
+          folder: { layout: 'flat' as const },
           allowedImporters: ['pages'],
         },
       ],
@@ -203,11 +203,11 @@ describe('runDeps · a hand-written config is validated on load', () => {
     // became real (field issue #23).
     const invalid = async () =>
       ({
-        architecture: { alias: '~app', layers: [{ name: 'pages' }], module: { entry: '' } },
+        architecture: { alias: '~app', layers: [{ name: 'pages' }], folder: { entry: '' } },
       }) as never;
 
     await expect(runDeps(root, { loadConfig: invalid, log: silent })).rejects.toThrow(
-      /blueprint\.config\.mjs: architecture\.module/,
+      /blueprint\.config\.mjs: architecture\.folder/,
     );
   });
 
@@ -320,12 +320,12 @@ describe('runDeps · normalizing the target the user typed', () => {
         alias: '~app',
         // SHARED shape is flat, so `layoutOf` answers "flat" for any name it does
         // not recognise as a layer — including a `layer/Module` key.
-        module: { layout: 'flat' as const, entry: 'index', private: [] },
+        folder: { layout: 'flat' as const, entry: 'index', private: [] },
         layers: [
           {
             name: 'pages',
             does: 'routes',
-            module: { layout: 'folder' as const },
+            folder: { layout: 'folder' as const },
             allowedImporters: [],
           },
           { name: 'services', does: 'io', allowedImporters: ['pages'] },

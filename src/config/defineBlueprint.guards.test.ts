@@ -13,7 +13,7 @@ function base(): Blueprint {
         { name: 'hooks', does: 'inject / 加工 state' },
         { name: 'services', does: '網路原件', owns: ['axios', { global: 'fetch' }] },
       ],
-      module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
+      folder: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
     },
   };
 }
@@ -42,17 +42,17 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
       /non-empty name/,
     ],
     // Anchored on the sentence, not the field name: a TypeError raised by
-    // calling `.trim()` on a number says "module.entry.trim is not a function",
-    // which matches a bare /module\.entry/ just as well.
+    // calling `.trim()` on a number says "folder.entry.trim is not a function",
+    // which matches a bare /folder\.entry/ just as well.
     [
-      'module.entry',
-      (bp: Blueprint) => { bp.architecture.module!.entry = 1 as never; },
+      'folder.entry',
+      (bp: Blueprint) => { bp.architecture.folder!.entry = 1 as never; },
       /must be a non-empty string when set/,
     ],
     [
-      'a module override entry',
-      (bp: Blueprint) => { bp.architecture.layers[0].module = { entry: 3 as never }; },
-      /empty module\.entry override/,
+      'a folder override entry',
+      (bp: Blueprint) => { bp.architecture.layers[0].folder = { entry: 3 as never }; },
+      /empty folder\.entry override/,
     ],
     [
       'an owned global name',
@@ -89,8 +89,8 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
   // restricted-import entry.
   it.each([
     [
-      'module.entry',
-      (bp: Blueprint) => { bp.architecture.module!.entry = '   '; },
+      'folder.entry',
+      (bp: Blueprint) => { bp.architecture.folder!.entry = '   '; },
       /must be a non-empty string when set/,
     ],
     [
@@ -128,13 +128,13 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
 });
 
 describe('validateBlueprint · the guards that must NOT fire', () => {
-  it('accepts a module block that declares only an entry', () => {
-    // The flat default is real (field issue #23): a module with no `layout` is
+  it('accepts a folder block that declares only an entry', () => {
+    // The flat default is real (field issue #23): a folder with no `layout` is
     // complete. Validating the absent layout against the enum rejects a config
     // the playbook tells the author to write.
     const config = base();
 
-    config.architecture.module = { entry: 'index' };
+    config.architecture.folder = { entry: 'index' };
 
     expect(() => validateBlueprint(config)).not.toThrow();
   });

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { activeSetting,
   aliasLayerRoots,
   getForbiddenLayers,
-  getModuleShape,
+  getFolderShape,
   getSelfOnlyTargets } from '../config';
 import type { Blueprint } from '../config';
 // The patterns leaf, not the emit/lint index: the index also exports lint.ts,
@@ -101,7 +101,7 @@ export function expectedStructural(
   const layouts = Object.fromEntries(
     architecture.layers.map((entry) => [
       entry.name,
-      getModuleShape(architecture, entry.name).layout,
+      getFolderShape(architecture, entry.name).layout,
     ]),
   );
 
@@ -111,7 +111,7 @@ export function expectedStructural(
     layer,
     aliases,
     forbidden,
-    moduleLayout: layouts[layer],
+    folderLayout: layouts[layer],
     folderTargets: architecture.layers
       .map((entry) => entry.name)
       .filter((name) => layouts[name] === 'folder' && name !== layer && !forbidden.includes(name)),

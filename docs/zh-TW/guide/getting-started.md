@@ -89,7 +89,7 @@ export default defineBlueprint({
         allowedImporters: ['hooks'],
       },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
+    folder: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
   },
 });
 ```

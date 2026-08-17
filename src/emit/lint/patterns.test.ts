@@ -206,7 +206,7 @@ describe('buildStructuralPatterns', () => {
       layer: 'a',
       aliases: ['~app'],
       forbidden: ['b'],
-      moduleLayout: 'folder',
+      folderLayout: 'folder',
       folderTargets: ['c'],
     });
 
@@ -228,7 +228,7 @@ describe('buildStructuralPatterns', () => {
       layer: 'a',
       aliases: ['~app'],
       forbidden: [],
-      moduleLayout: 'flat',
+      folderLayout: 'flat',
     });
 
     // redundant-segments + same-layer
@@ -244,8 +244,8 @@ describe('buildStructuralPatterns', () => {
     // The message is the whole fix, so handing a folder layer `./X` sends the
     // author to a path that does not exist, and handing a flat layer `../X`
     // sends them out of the layer.
-    const sameLayer = (moduleLayout: 'folder' | 'flat') =>
-      buildStructuralPatterns({ layer: 'a', aliases: ['~app'], forbidden: [], moduleLayout })
+    const sameLayer = (folderLayout: 'folder' | 'flat') =>
+      buildStructuralPatterns({ layer: 'a', aliases: ['~app'], forbidden: [], folderLayout })
         .find((group) => group.group.includes('~app/a/**'))?.message;
 
     expect(sameLayer('flat')).toContain('Replace "~app/a/X" with "./X".');

@@ -76,7 +76,7 @@ describe('runSurvey · the folder matrix and what counts as a file in it', () =>
 
     // Every count asserted, in files-descending order. These six numbers are
     // the evidence the authoring playbook reasons about — "does this folder
-    // look like a module layer?" is answered by directFiles vs childFolders
+    // look like a folder-layout layer?" is answered by directFiles vs childFolders
     // vs indexedChildren, so an off-by-one or a flipped comparator here
     // misinforms the architecture decision downstream, not just a report.
     expect(result.folders).toEqual([
@@ -179,7 +179,7 @@ describe('runSurvey · the folder matrix and what counts as a file in it', () =>
     expect(result.edges).toEqual([{ from: 'services', to: 'components', count: 1 }]);
   });
 
-  it('reports module-shape evidence per folder', () => {
+  it('reports folder-shape evidence per folder', () => {
     scaffold();
 
     const services = runSurvey(root, { log: silent }).folders.find(

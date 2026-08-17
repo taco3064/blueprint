@@ -223,7 +223,7 @@ function renderIntentDocuments(): string {
     '   Never hand-revert generated text toward what git happens to hold.',
     '   Documents also go stale: cross-check every translated clause against the survey below.',
     '   Where they disagree, the document governs *intent* (layer order, ownership) '
-    + 'and the code governs *shape* (module layout) — '
+    + 'and the code governs *shape* (folder layout) — '
     + 'downgrade the stale clause and record the conflict in your report.',
     '   Flow documents often draw a DAG; blueprint\'s order is linear (a layer may import *any* '
     + 'later layer).',
@@ -265,9 +265,9 @@ export function renderMethod(claudeDir: ClaudeDirState): string {
     + 'points downward.',
     '   Counter-edges are debt to surface, not intent to encode — '
     + 'never contort the order to make findings zero.',
-    '5. **Choose module shape per layer.** High `index`-coverage child folders → `module: '
+    '5. **Choose folder shape per layer.** High `index`-coverage child folders → `folder: '
     + '{ layout: \'folder\', entry: \'index\' }` on that layer; '
-    + 'plain files → the flat default (omit `module` entirely — '
+    + 'plain files → the flat default (omit `folder` entirely — '
     + 'it validates and resolves to `{ layout: \'flat\', entry: \'index\' }`).',
     '   Mixed repos usually need per-layer overrides.',
     '6. **Assign ownership.** A package imported by exactly one folder (see the concentration '
@@ -279,7 +279,7 @@ export function renderMethod(claudeDir: ClaudeDirState): string {
     '8. **Validate — the loop that keeps you honest.** Run `npx blueprint inspect`.',
     '   A findings explosion (roughly more findings than source files, '
     + 'or one dominant rule everywhere) means you mistranslated intent — '
-    + 'revisit the order or the module shapes.',
+    + 'revisit the order or the folder shapes.',
     '   Converged means: every finding is explainable as real, nameable debt.',
     renderFinishStep(claudeDir),
   ].join('\n');

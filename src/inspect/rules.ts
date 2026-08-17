@@ -154,7 +154,7 @@ export const STRUCTURAL_RULES: StructuralRule[] = [
   },
   {
     rule: 'blueprint/relative-escape',
-    covers: '../ module escapes at any depth (embedded plugin)',
+    covers: '../ folder escapes at any depth (embedded plugin)',
   },
 ];
 

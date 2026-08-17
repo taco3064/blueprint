@@ -20,7 +20,7 @@ to see how to use it.
 
 ## Artifacts — what one config compiles into
 
-- [`eslint.config.mjs`](/guide/generated-artifacts#eslint-config-mjs-—-enforce) — `emitLint` compiles the layer flow, ownership, and module boundaries into a flat config — embedded plugin included, nothing extra to install
+- [`eslint.config.mjs`](/guide/generated-artifacts#eslint-config-mjs-—-enforce) — `emitLint` compiles the layer flow, ownership, and folder boundaries into a flat config — embedded plugin included, nothing extra to install
 - [`docs/architecture-handbook.md`](/guide/generated-artifacts#docs-architecture-handbook-md-—-explain) — `emitHandbook` renders the human handbook (mermaid diagram, layer table, playbook) from the same source as the rules — it cannot drift
 - [`CLAUDE.md` / `AGENTS.md` / …](/guide/generated-artifacts#claude-md-agents-md-—-collaborate) — `emitAgentFiles` distributes one agent contract across Claude, AGENTS.md, Gemini, Copilot, Cursor, and Windsurf — hand-written content survives behind markers
 
@@ -29,7 +29,7 @@ to see how to use it.
 - [`defineBlueprint`](/guide/getting-started#the-blueprint) — the single source of truth, validated at definition *and* on every load, so a structural mistake fails with a precise message
 - [Layers & one-way flow](/philosophy/layers) — ordered layers where each imports only downward; `allowedImporters` narrows who may import, `selfOnly` bars re-exporting
 - [Ownership — `owns`](/philosophy/layers#ownership-—-owns) — a layer exclusively owns packages, named imports, or globals — every other layer is barred from them
-- [Module shape](/philosophy/layers#feature-folder-—-one-module-one-folder) — `folder` = one feature per folder behind a public entry; `flat` = the layer is one node (e.g. a Next route tree) — overridable per layer
+- [Folder shape](/philosophy/layers#feature-folder-—-one-feature-one-folder) — `folder` = one feature per folder behind a public entry; `flat` = the layer is one node (e.g. a Next route tree) — overridable per layer
 - [`blueprint.rules`](/guide/reference#blueprint-rules-—-which-ids-actually-gate) — rule ids with tiers: the machine-checkable ones become lint gates, the rest land in the handbook and agent contract as judgment
 - [Every other config field](/guide/reference#config-fields-beyond-the-quick-start-example) — `sourceRoot`, `additionalAliases`, `naming`, `lintOverrides`, `emit.*` — one line each, typed in full in the API reference
 - [Presets](/guide/field-tested#framework-notes) — `vuePreset` / `reactPreset` encode the full governance handbook; `nextPreset` adapts to the App or Pages router, with or without `src/`

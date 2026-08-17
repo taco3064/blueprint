@@ -13,7 +13,7 @@ function base(): Blueprint {
         { name: 'hooks', does: 'inject / 加工 state' },
         { name: 'services', does: '網路原件', owns: ['axios', { global: 'fetch' }] },
       ],
-      module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
+      folder: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
     },
   };
 }
@@ -88,13 +88,13 @@ describe('validateBlueprint · the config envelope, and the keys nothing reads',
 
     stray((c) => ((c as unknown as Record<string, unknown>).flows = []), /Unknown key "flows" in the blueprint/);
     stray((c) => ((c.architecture as unknown as Record<string, unknown>).flow = 'one-way'), /Unknown key "flow" in architecture/);
-    stray((c) => ((c.architecture.module as unknown as Record<string, unknown>).privates = []), /architecture\.module/);
+    stray((c) => ((c.architecture.folder as unknown as Record<string, unknown>).privates = []), /architecture\.folder/);
     stray((c) => ((c as { emit?: Record<string, unknown> }).emit = { agent: ['claude'] }), /Unknown key "agent" in emit/);
     stray((c) => ((c as { emit?: object }).emit = { lint: { level: 'warn' } }), /emit\.lint/);
     stray((c) => ((c as { emit?: object }).emit = { agents: [{ target: 'claude', file: 'X.md' }] }), /emit\.agents entry/);
     stray((c) => (c.architecture.layers[0].owns = [{ package: 'axios', import: ['get'] } as never]), /owns entry "axios"/);
     stray((c) => (c.architecture.layers[0].owns = [{ global: 'fetch', scope: 'all' } as never]), /owns entry "fetch"/);
-    stray((c) => (c.architecture.layers[0].module = { layout: 'flat', entry: 'index', private: [] } as never), /module override/);
+    stray((c) => (c.architecture.layers[0].folder = { layout: 'flat', entry: 'index', private: [] } as never), /folder override/);
 
     stray(
       (c) => (
@@ -195,65 +195,81 @@ describe('validateBlueprint · layers, and what a layer owns', () => {
   });
 });
 
-describe('validateBlueprint · module layout, at the root and per layer', () => {
-  it('rejects an empty module entry, accepts an absent module (field issue #23)', () => {
+describe('validateBlueprint · folder layout, at the root and per layer', () => {
+  it('rejects an empty folder entry, accepts an absent folder (field issue #23)', () => {
     const config = base();
 
-    config.architecture.module!.entry = '';
+    config.architecture.folder!.entry = '';
 
-    expect(() => validateBlueprint(config)).toThrow(/module\.entry/);
+    expect(() => validateBlueprint(config)).toThrow(/folder\.entry/);
 
     // The playbook's "flat default" is real: a config that never mentions
-    // module — or writes only { layout: 'flat' } — is complete.
-    delete config.architecture.module;
+    // folder — or writes only { layout: 'flat' } — is complete.
+    delete config.architecture.folder;
 
     expect(() => validateBlueprint(config)).not.toThrow();
 
-    config.architecture.module = { layout: 'flat' };
+    config.architecture.folder = { layout: 'flat' };
 
     expect(() => validateBlueprint(config)).not.toThrow();
 
-    config.architecture.module = { layout: 'diagonal' as never };
+    config.architecture.folder = { layout: 'diagonal' as never };
 
     expect(() => validateBlueprint(config)).toThrow(/folder \| flat/);
   });
 
-  it('rejects a non-array module.private, accepts an omitted one', () => {
+  it('rejects a non-array folder.private, accepts an omitted one', () => {
     const config = base();
 
-    config.architecture.module!.private = 'nope' as never;
+    config.architecture.folder!.private = 'nope' as never;
 
-    expect(() => validateBlueprint(config)).toThrow(/module\.private/);
+    expect(() => validateBlueprint(config)).toThrow(/folder\.private/);
 
     // Optional with a default of none — a draft-first config that never
     // mentions private parts is valid (field issue #11).
-    delete config.architecture.module!.private;
+    delete config.architecture.folder!.private;
 
     expect(() => validateBlueprint(config)).not.toThrow();
   });
 
-  it('rejects a layer module override with an unknown layout', () => {
+  it('rejects a layer folder override with an unknown layout', () => {
     const config = base();
 
-    config.architecture.layers[0].module = { layout: 'stacked' as never };
+    config.architecture.layers[0].folder = { layout: 'stacked' as never };
 
     expect(() => validateBlueprint(config)).toThrow(/expected folder \| flat/);
   });
 
-  it('rejects a layer module override with an empty entry', () => {
+  it('rejects a layer folder override with an empty entry', () => {
     const config = base();
 
-    config.architecture.layers[0].module = { entry: '  ' };
+    config.architecture.layers[0].folder = { entry: '  ' };
 
-    expect(() => validateBlueprint(config)).toThrow(/empty module\.entry override/);
+    expect(() => validateBlueprint(config)).toThrow(/empty folder\.entry override/);
   });
 
-  it('accepts a well-formed layer module override', () => {
+  it('accepts a well-formed layer folder override', () => {
     const config = base();
 
-    config.architecture.layers[0].module = { layout: 'folder', entry: 'main' };
+    config.architecture.layers[0].folder = { layout: 'folder', entry: 'main' };
 
     expect(() => validateBlueprint(config)).not.toThrow();
+  });
+
+  it.each([
+    ['architecture', (c: ReturnType<typeof base>): object => c.architecture],
+    ['a layer', (c: ReturnType<typeof base>): object => c.architecture.layers[0]],
+  ])('sends the old `module` spelling to `folder` on %s', (_where, target) => {
+    const config = base();
+
+    delete config.architecture.folder;
+    (target(config) as Record<string, unknown>).module = { layout: 'folder' };
+
+    // A bare "unknown key" reads as "this field was removed" to an adopter
+    // upgrading, and the remedy is one word away. Both depths carry it: the
+    // shared shape and the per-layer override were renamed together.
+    expect(() => validateBlueprint(config)).toThrow(/RENAMED to folder/);
+    expect(() => validateBlueprint(config)).toThrow(/nothing removed/);
   });
 });
 

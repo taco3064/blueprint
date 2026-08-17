@@ -117,7 +117,7 @@ describe('analyze · imports', () => {
     expect(from('~app/components/Other')).toContain('flow-violation');
   });
 
-  it('flags a deep import into a module', () => {
+  it('flags a deep import into a folder', () => {
     expect(from('~app/hooks/useX/impl')).toContain('deep-import');
   });
 

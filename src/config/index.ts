@@ -2,10 +2,10 @@ export { defineBlueprint, normalizeAgentEmit, validateBlueprint } from './define
 export {
   aliasLayerRoots,
   getDiagramEdges,
+  getFolderShape,
   getForbiddenLayers,
-  getModuleShape,
   getSelfOnlyTargets,
-  getSharedModule,
+  getSharedFolder,
   normalizeAllowedImporters,
 } from './graph';
 export type { AliasRoot, DiagramEdge } from './graph';

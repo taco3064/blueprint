@@ -91,7 +91,7 @@ blueprint 在乎的是這些，不是底下那個框架。<br>
 每一種規則，都對應到 blueprint 裡的一個欄位，<br>
 以及承載它的那份產物：
 
-- **分層架構、模組形狀、套件歸屬** — `architecture` → `emitLint` 與 `inspect`
+- **分層架構、資料夾形狀、套件歸屬** — `architecture` → `emitLint` 與 `inspect`
 - **核心信念** — `principles` → 手冊與 agent 守則
 - **元件設計** — `componentShape` → 手冊與 agent 守則
 - **執行期負載／重構／協作** — `playbook` → 手冊與 agent 守則

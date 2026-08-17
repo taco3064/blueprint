@@ -9,8 +9,8 @@ import type {
 } from '../../config';
 import {
   readSetting,
-  getModuleShape,
-  getSharedModule,
+  getFolderShape,
+  getSharedFolder,
   normalizeAllowedImporters,
 } from '../../config';
 import { handbookPath } from '../docs';
@@ -94,7 +94,7 @@ export function renderCompactContract(blueprint: Blueprint): string {
     '',
     `- Framework: \`${blueprint.framework}\`. Import alias: \`${architecture.alias}\`.`,
     `- Layer flow: ${chain} — transitive: a layer may import **any** layer after it, unless the target narrows its importers.`,
-    `- **Before adding, moving, or renaming any file** — placement, module shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
+    `- **Before adding, moving, or renaming any file** — placement, folder shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
     '- **Operating discipline** — how to follow the flow, react to lint failures, '
     + `and the pre-commit checklist: read [${CONTRACT_DOC}](${CONTRACT_DOC}) `
     + '(ships inside the package — present once dependencies are installed, '
@@ -103,12 +103,12 @@ export function renderCompactContract(blueprint: Blueprint): string {
     // marks an empty net as vacuous, and this contract is the one artifact read with
     // no CLI output beside it. "the project's lint run", never `npm run lint` — the
     // runner is a repo fact this emitter cannot see (field run #141).
-    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectGates.join(', ')} is held by \`npx blueprint inspect --baseline\` instead, so a green lint says nothing about it` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
+    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, folder entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectGates.join(', ')} is held by \`npx blueprint inspect --baseline\` instead, so a green lint says nothing about it` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
     // --baseline, or the verify loop stays red forever on locked brownfield debt
     // (field issue #10). Both remedies are named, and whose each is: told only "move
     // the code", an agent contorts it into an existing layer instead of reporting
     // that the architecture outgrew the config.
-    `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a module of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.`,
+    `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a folder of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.`,
   ].join('\n');
 }
 
@@ -125,7 +125,7 @@ export function renderContext(blueprint: Blueprint): string {
   ].join('\n');
 }
 
-/** Per-layer placement directives + the module shape rule. */
+/** Per-layer placement directives + the folder shape rule. */
 export function renderPlacement(architecture: ArchitectureDef): string {
   const lines = architecture.layers.map((layer) => {
     const parts = [`- \`src/${layer.name}/\` — ${layer.does}.`];
@@ -151,22 +151,22 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     return parts.join('');
   });
 
-  const module = getSharedModule(architecture);
-  const priv = module.private.map((part) => `\`${part}\``).join(' / ');
+  const folder = getSharedFolder(architecture);
+  const priv = folder.private.map((part) => `\`${part}\``).join(' / ');
 
-  const moduleLine
-    = module.layout === 'folder'
-      ? `- Module shape: one folder per module. Only \`${module.entry}\` is importable from outside${priv ? `; keep ${priv} private and never import them across modules` : ''}.`
-      : '- Module shape: one file per module (flat). Extract shared logic to a lower layer.';
+  const folderLine
+    = folder.layout === 'folder'
+      ? `- Folder shape: one folder per feature. Only \`${folder.entry}\` is importable from outside${priv ? `; keep ${priv} private and never import them across folders` : ''}.`
+      : '- Folder shape: one file per feature (flat). Extract shared logic to a lower layer.';
 
   const overrideLines = architecture.layers
-    .filter((layer) => layer.module !== undefined)
+    .filter((layer) => layer.folder !== undefined)
     .map((layer) => {
-      const shape = getModuleShape(architecture, layer.name);
+      const shape = getFolderShape(architecture, layer.name);
 
       return shape.layout === 'folder'
-        ? `- Exception — \`src/${layer.name}/\`: one folder per module, entry \`${shape.entry}\`.`
-        : `- Exception — \`src/${layer.name}/\`: one file per module (flat).`;
+        ? `- Exception — \`src/${layer.name}/\`: one folder per feature, entry \`${shape.entry}\`.`
+        : `- Exception — \`src/${layer.name}/\`: one file per feature (flat).`;
     });
 
   // Reporting instruction, not a third remedy. An agent that learns "files matching
@@ -183,7 +183,7 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     '### Where code goes',
     '',
     ...lines,
-    moduleLine,
+    folderLine,
     ...overrideLines,
     ...exemptLine,
   ].join('\n');
@@ -214,19 +214,19 @@ export function renderHardRules(
   const folderEntries = [
     ...new Set(
       architecture.layers
-        .map((layer) => getModuleShape(architecture, layer.name))
+        .map((layer) => getFolderShape(architecture, layer.name))
         .filter((shape) => shape.layout === 'folder')
         .map((shape) => `\`${shape.entry}\``),
     ),
   ];
 
   if (folderEntries.length) {
-    bullets.push(`- Import a module via its ${folderEntries.join(' / ')}, never its internals.`);
+    bullets.push(`- Import a folder via its ${folderEntries.join(' / ')}, never its internals.`);
   }
 
   bullets.push(
     '- Restricted packages / globals live only in their owning layer (see "Where code goes").',
-    '- Relative imports stay inside their module; no redundant segments (`./../`, `././`).',
+    '- Relative imports stay inside their folder; no redundant segments (`./../`, `././`).',
   );
 
   // Only rules a machine actually gates may be called hard — anything else
@@ -279,7 +279,7 @@ export function renderBehavioral(
   rules: Record<string, RuleSetting> | undefined,
 ): string {
   const bullets = [
-    `- Do not create undeclared folders under \`${architecture.alias}/\`. Every folder is a declared layer or a module inside one. (lint can't see this — inspect will.) Inspect offers to declare the folder instead; that one is not yours. Outgrowing the config is the owner's call to make — report it, do not edit the architecture to fit what you just wrote.`,
+    `- Do not create undeclared folders under \`${architecture.alias}/\`. Every folder is a declared layer or a feature folder inside one. (lint can't see this — inspect will.) Inspect offers to declare the folder instead; that one is not yours. Outgrowing the config is the owner's call to make — report it, do not edit the architecture to fit what you just wrote.`,
     ...claudePrinciples(principles).map(
       (principle) => `- **${principle.say}** — ${principle.why}`,
     ),
@@ -334,7 +334,7 @@ export function renderChecklist(blueprint: Blueprint): string {
 
   const items = [
     '- [ ] Imports follow the one-way flow (no upstream / same-layer).',
-    `- [ ] New code sits in the right layer; modules expose only \`${getSharedModule(architecture).entry}\`.`,
+    `- [ ] New code sits in the right layer; folders expose only \`${getSharedFolder(architecture).entry}\`.`,
   ];
 
   if (architecture.naming && Object.keys(architecture.naming).length) {

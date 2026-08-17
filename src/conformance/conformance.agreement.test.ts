@@ -292,7 +292,7 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
             allowedImporters: [{ layer: 'components', selfOnly: true }],
           },
         ],
-        module: { layout: 'flat', entry: 'index', private: [] },
+        folder: { layout: 'flat', entry: 'index', private: [] },
       },
     }));
 
@@ -575,12 +575,12 @@ describe('one violation, one name per channel (field issue #48)', () => {
           ...reactBlueprint,
           architecture: {
             ...reactBlueprint.architecture,
-            module: { layout: 'folder', entry: 'index', private: [] },
+            folder: { layout: 'folder', entry: 'index', private: [] },
           },
         }),
         'src/components/Card/index.js': 'export const Card = 1;\n',
         'src/components/Card/inner.js': 'export const inner = 1;\n',
-        // Reaches inside a folder-layout module — inspect's [deep-import],
+        // Reaches inside a folder-layout feature folder — inspect's [deep-import],
         // emitted as one more pattern group on no-restricted-imports.
         'src/services/api.js': 'import { inner } from \'~app/components/Card/inner\';\nexport '
           + 'const api = inner;\n',

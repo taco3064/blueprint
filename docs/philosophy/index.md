@@ -86,7 +86,7 @@ them. The convictions hold across both; only the primitives change.
 
 Each kind of rule maps to a field in the blueprint, and to the artifact that carries it:
 
-- **Layer architecture, module shape, ownership** — `architecture` → `emitLint` + `inspect`
+- **Layer architecture, folder shape, ownership** — `architecture` → `emitLint` + `inspect`
 - **Core beliefs** — `principles` → handbook + agent contract
 - **Component shape** — `componentShape` → handbook + agent contract
 - **Runtime / refactor / collaboration** — `playbook` → handbook + agent contract

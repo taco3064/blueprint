@@ -38,7 +38,7 @@ export interface FolderEvidence {
   directFiles: number;
   /** Distinct direct child folders. */
   childFolders: number;
-  /** Child folders exposing a direct `index.*` — folder-module evidence. */
+  /** Child folders exposing a direct `index.*` — folder-layout evidence. */
   indexedChildren: number;
   /** Deepest nesting below the folder. */
   maxDepth: number;

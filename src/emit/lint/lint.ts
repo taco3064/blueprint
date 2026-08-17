@@ -2,7 +2,7 @@ import type { ESLint, Linter } from 'eslint';
 import { activeSetting,
   aliasLayerRoots,
   getForbiddenLayers,
-  getModuleShape,
+  getFolderShape,
   getSelfOnlyTargets } from '../../config';
 import type { Blueprint, ReadSetting } from '../../config';
 import { plugin } from '../../plugin';
@@ -27,11 +27,11 @@ import type {
 } from './types';
 
 type Severity = 'error' | 'warn';
-type ModuleLayout = 'folder' | 'flat';
+type FolderLayout = 'folder' | 'flat';
 
 /**
  * Compile a Blueprint's `architecture` into an ESLint flat config that
- * enforces the one-way dependency flow, module-entry boundaries, and package
+ * enforces the one-way dependency flow, folder-entry boundaries, and package
  * / global ownership. Pure — returns the config array, writes nothing.
  * @group Emitters
  * @example
@@ -63,14 +63,14 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
   const testGlobs = resolveTestFiles(testFiles);
 
   const layouts = Object.fromEntries(
-    layers.map((layer) => [layer.name, getModuleShape(architecture, layer.name).layout]),
+    layers.map((layer) => [layer.name, getFolderShape(architecture, layer.name).layout]),
   );
 
   // The rule needs the entry filename to tell a sibling's front door from its
   // inside; without it a layer whose entry is not `index` reads every entry
   // import as reaching past one.
   const entries = Object.fromEntries(
-    layers.map((layer) => [layer.name, getModuleShape(architecture, layer.name).entry]),
+    layers.map((layer) => [layer.name, getFolderShape(architecture, layer.name).entry]),
   );
 
   const ignoreConfig: LintConfigEntry[] = layerFilesIgnore
@@ -86,7 +86,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
   ];
 
   // The depth-aware half of the structural rules: relative imports must not
-  // leave their module. Shares inspect's resolution — see the plugin rule.
+  // leave their folder. Shares inspect's resolution — see the plugin rule.
   const escapeEntry: LintConfigEntry = {
     files: allLayerFiles,
     ignores: testGlobs,
@@ -103,7 +103,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
 }
 
 /**
- * One `no-restricted-imports` entry per layer — the flow ban, the module-entry
+ * One `no-restricted-imports` entry per layer — the flow ban, the folder-entry
  * ban, and package / global ownership, all of which are per-layer facts. A layer
  * with exempt packages needs two entries: flat config REPLACES a rule rather than
  * merging it, so the exemption cannot be an `ignores` on a single one.
@@ -114,7 +114,7 @@ function layerImportEntries(
     severity: Severity;
     testGlobs: string[];
     aliases: string[];
-    layouts: Record<string, ModuleLayout>;
+    layouts: Record<string, FolderLayout>;
   },
 ): LintConfigEntry[] {
   const { framework, architecture } = blueprint;
@@ -145,7 +145,7 @@ function layerImportEntries(
       layer: layer.name,
       aliases,
       forbidden,
-      moduleLayout: layouts[layer.name],
+      folderLayout: layouts[layer.name],
       folderTargets: folderLayers.filter(
         (name) => name !== layer.name && !forbidden.includes(name),
       ),

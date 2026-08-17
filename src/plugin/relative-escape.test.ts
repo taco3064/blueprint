@@ -50,7 +50,7 @@ describe('blueprint/relative-escape · flat layer', () => {
 
   it('flags relatives that cross into another layer', () => {
     expect(messageIds('import x from "../resources/matches";', 'src/components/Button.ts'))
-      .toEqual(['leavesModule']);
+      .toEqual(['leavesFolder']);
   });
 
   it('flags relatives that climb above src/', () => {
@@ -60,13 +60,13 @@ describe('blueprint/relative-escape · flat layer', () => {
 });
 
 describe('blueprint/relative-escape · folder layer', () => {
-  it('allows intra-module relatives at any depth', () => {
+  it('allows intra-folder relatives at any depth', () => {
     expect(
       messageIds('import x from "../MatchesList";', 'src/resources/matches/components/Row.ts'),
     ).toEqual([]);
   });
 
-  it('allows a sibling module by its entry', () => {
+  it('allows a sibling folder by its entry', () => {
     expect(
       messageIds('import x from "../markets";', 'src/resources/matches/Row.ts'),
     ).toEqual([]);
@@ -88,22 +88,22 @@ describe('blueprint/relative-escape · folder layer', () => {
   it('flags a relative that leaves the layer entirely', () => {
     expect(
       messageIds('import x from "../../services/api";', 'src/resources/matches/Row.ts'),
-    ).toEqual(['leavesModule']);
+    ).toEqual(['leavesFolder']);
   });
 });
 
 describe('blueprint/relative-escape · reference kinds', () => {
   it('checks re-exports and dynamic imports too', () => {
     expect(messageIds('export { x } from "../resources/matches";', 'src/components/Button.ts'))
-      .toEqual(['leavesModule']);
+      .toEqual(['leavesFolder']);
 
     expect(messageIds('export * from "../resources/matches";', 'src/components/Button.ts'))
-      .toEqual(['leavesModule']);
+      .toEqual(['leavesFolder']);
 
     expect(
       messageIds('const x = await import("../resources/matches");', 'src/components/Button.ts'),
     )
-      .toEqual(['leavesModule']);
+      .toEqual(['leavesFolder']);
   });
 
   it('ignores non-relative and non-literal specifiers, and sourceless exports', () => {
@@ -128,7 +128,7 @@ describe('blueprint/relative-escape · scoping', () => {
         'import x from "../resources/matches";',
         `${process.cwd()}/src/components/Button.ts`,
       ),
-    ).toEqual(['leavesModule']);
+    ).toEqual(['leavesFolder']);
   });
 
   it('defaults to no layouts when options are omitted (rule inert)', () => {
@@ -139,7 +139,7 @@ describe('blueprint/relative-escape · scoping', () => {
   it('treats targets outside any declared layer as flat (still an escape)', () => {
     expect(
       messageIds('import x from "../../legacy/utils/x";', 'src/components/layout/Bar.ts'),
-    ).toEqual(['leavesModule']);
+    ).toEqual(['leavesFolder']);
   });
 });
 
@@ -170,7 +170,7 @@ describe('blueprint/relative-escape · what the rule declines to judge', () => {
     // `src` as the second segment is the ordinary monorepo shape, and the
     // segments after it must still be read as layers.
     expect(messageIds('import x from "../resources/matches";', 'repo/src/components/Button.ts'))
-      .toEqual(['leavesModule']);
+      .toEqual(['leavesFolder']);
 
     expect(messageIds('import x from "./Card";', 'repo/src/components/Button.ts')).toEqual([]);
   });
@@ -187,9 +187,9 @@ describe('blueprint/relative-escape · what the rule declines to judge', () => {
 
   it('leaves a bare specifier alone even where the resolver would call it a reach', () => {
     // Resolved as a path, a package specifier lands under the importer's own
-    // directory and deep enough that the folder-module verdict reads it as
+    // directory and deep enough that the folder-layout verdict reads it as
     // reaching past an entry. The relative guard is the only thing keeping
-    // every package import in a folder-module layer from being reported.
+    // every package import in a folder-layout layer from being reported.
     expect(messageIds('import x from "lodash/fp/curry";', 'src/resources/index.ts')).toEqual([]);
   });
 
@@ -197,7 +197,7 @@ describe('blueprint/relative-escape · what the rule declines to judge', () => {
     // An empty path segment would land where the layer name goes, and the rule
     // would then decline to judge the file at all.
     expect(messageIds('import x from "../resources/matches";', 'src//components/Button.ts'))
-      .toEqual(['leavesModule']);
+      .toEqual(['leavesFolder']);
   });
 
   it('leaves a dynamic import whose specifier is not a string', () => {

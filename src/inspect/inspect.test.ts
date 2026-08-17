@@ -150,7 +150,7 @@ describe('runInspect · baseline ratchet', () => {
 });
 
 describe('runInspect · test files are exempt from structure', () => {
-  it('ignores same-layer alias imports and cross-module escapes inside tests', async () => {
+  it('ignores same-layer alias imports and cross-folder escapes inside tests', async () => {
     // The miniapp scenario: a co-located test importing its sibling via the
     // alias — legal test plumbing, not an architecture violation.
     writeSrc('services/api/api.ts', 'export const api = 1;');

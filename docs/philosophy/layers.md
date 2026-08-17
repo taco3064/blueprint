@@ -63,7 +63,7 @@ flowchart TD
 **There is no `stores` layer and no `utils` layer.** A store has a single owner hook —
 its public face; other features read through that hook. And `utils/` is a cohesion-free
 junk drawer that grows without bound until everything imports it — pure functions get
-homes by ownership instead: module-private files, or a named, domain-scoped module.
+homes by ownership instead: folder-private files, or a named, domain-scoped folder.
 
 ## Ownership — `owns`
 
@@ -82,22 +82,22 @@ declares the primitives it exclusively owns, and every other layer is barred fro
 - package ownership lands twice: lint (`no-restricted-imports`) and inspect's
   [`package-ownership` finding](/guide/reference#what-inspect-reports)
 
-## Feature folder — one module, one folder
+## Feature folder — one feature, one folder
 
 ```
 components/
 └─ Dropdown/
    ├─ index        ← the only public entry
-   ├─ Dropdown     ← implementation, named after the module (never "Component")
+   ├─ Dropdown     ← implementation, named after the folder (never "Component")
    ├─ hooks        ← private
    ├─ styles       ← private
    └─ types        ← private
 ```
 
-- `index` is the module's _face_ — the outside world knows nothing else
+- `index` is the folder's _face_ — the outside world knows nothing else
 - Private sub-components live inside (a container's `ProfileTab`); promotion to
   `components/` happens **when sharing actually arrives**, not speculatively
-- The implementation file carries the module's name — a tab bar of ten `Component.tsx`
+- The implementation file carries the folder's name — a tab bar of ten `Component.tsx`
   is unnavigable
 
 `components` vs `containers` in one question: **"would it survive a feature swap?"**

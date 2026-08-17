@@ -8,7 +8,7 @@ dependency-cruiser、eslint-plugin-boundaries、Nx module boundaries、sheriff �
 ## blueprint 重疊的部分
 
 在 lint 這一層，blueprint 做的事跟這些工具一樣：<br>
-單向分層流、模組只能走公開入口、套件與全域物件的所有權 —— 轉譯成 ESLint flat config，plugin 內建。<br>
+單向分層流、資料夾只能走公開入口、套件與全域物件的所有權 —— 轉譯成 ESLint flat config，plugin 內建。<br>
 跟既有結構檢查工具並存也實測過，見[實測相容性](/zh-TW/guide/field-tested#框架注意事項)。
 
 ## 差異的部分

@@ -432,7 +432,7 @@ describe('the merge recipe hands over the whole entry, not just its selectors (#
           allowedImporters: [{ layer: 'views', selfOnly: true }],
         },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
+      folder: { layout: 'flat', entry: 'index', private: [] },
     },
   };
 

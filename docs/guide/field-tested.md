@@ -71,7 +71,7 @@ project's stance is against a red nobody can appease.
 
 **Vite + React + TS (npm, legacy `.eslintrc`)**
 - Shape — 852-file production app, no prior structure governance
-- Outcome — config authored from the survey; **246 real findings** locked as the baseline (including one genuine `services → types → resources → services` import cycle); per-layer module layout (`resources` as folder modules). The legacy-eslintrc migration is surfaced as a decision, not forced.
+- Outcome — config authored from the survey; **246 real findings** locked as the baseline (including one genuine `services → types → resources → services` import cycle); per-layer folder layout (`resources` as folder layout). The legacy-eslintrc migration is surfaced as a decision, not forced.
 
 **create-vite `react-ts` (fresh)**
 - Shape — greenfield
@@ -101,7 +101,7 @@ project's stance is against a red nobody can appease.
 
 - **Next.js**: `init` detects the route tree (`app/` and/or `pages/`, under
   `src/` or the project root) and generates `nextPreset` — the route dir is
-  the top layer, flat module layout, and **no `fetch` ownership** (server
+  the top layer, flat folder layout, and **no `fetch` ownership** (server
   components fetch everywhere by design, so restricting it would be a lie).
   Both routers reduce to the same shape; imports stay explicit, so the
   dependency graph is real and enforcement is genuine.

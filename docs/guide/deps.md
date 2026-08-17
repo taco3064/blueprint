@@ -67,11 +67,11 @@ hooks/useCart
 An unknown target exits `1` with a pointer back to the leaderboard; every successful
 query exits `0`.
 
-## Granularity — set by `module.layout`
+## Granularity — set by `folder.layout`
 
 The unit of every answer is the **module**, and what counts as a module follows the
-blueprint's [`module.layout`](/api/interfaces/ModuleDef) (per layer, via
-`layer.module`):
+blueprint's [`folder.layout`](/api/interfaces/FolderDef) (per layer, via
+`layer.folder`):
 
 - **`folder` layout** — each direct child of the layer is one module
   (`hooks/useCart`, `components/HelloWorld`). Direct files drop their extension, so
@@ -105,5 +105,5 @@ load anyway. A structural mistake fails immediately with a precise message inste
 crashing mid-command:
 
 ```
-✗ blueprint.config.mjs: architecture.module.private must be an array.
+✗ blueprint.config.mjs: architecture.folder.private must be an array.
 ```

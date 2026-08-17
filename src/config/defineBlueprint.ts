@@ -4,8 +4,8 @@ import type {
   ArchitectureDef,
   Blueprint,
   EmitDef,
+  FolderDef,
   LayerDef,
-  ModuleDef,
   RuleSetting,
 } from './types';
 import { normalizeAllowedImporters } from './graph';
@@ -33,7 +33,7 @@ const ARCHITECTURE_KEYS = [
   'additionalAliases',
   'sourceRoot',
   'layers',
-  'module',
+  'folder',
   'layerFiles',
   'layerFilesIgnore',
   'testFiles',
@@ -45,19 +45,23 @@ const LAYER_KEYS = [
   'does',
   'mustNot',
   'owns',
-  'module',
+  'folder',
   'allowedImporters',
   'lintOverrides',
 ];
 
 /**
- * Misplaced keys pointed at their real home, keyed by the key rather than by the
- * object it turned up on: the exact field shape validated fine on the layer, was
- * silently dead, and the intended re-export ban never emitted (field issue #14).
+ * Keys the schema turns away pointed at where they went — a home they were never
+ * at, or a name they used to have. Keyed by the key rather than by the object it
+ * turned up on: the exact field shape validated fine on the layer, was silently
+ * dead, and the intended re-export ban never emitted (field issue #14). A bare
+ * "unknown key" reads as "removed", so a renamed key names its successor here.
  */
 const MISPLACED_KEYS: Record<string, string> = {
   selfOnly: 'selfOnly lives on an allowedImporters ENTRY, naming the importing layer: '
     + 'allowedImporters: [{ layer: \'views\', selfOnly: true }]',
+  module: 'module was RENAMED to folder — same keys, same behavior, nothing removed. '
+    + 'Spell it folder: { layout: \'folder\', entry: \'index\' } here.',
 };
 
 const MANAGED_RULES = [
@@ -84,7 +88,7 @@ const MANAGED_RULES = [
  *       { name: 'hooks', does: 'Adapts server and shared state' },
  *       { name: 'services', does: 'Network primitives', owns: ['axios', { global: 'fetch' }] },
  *     ],
- *     module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
+ *     folder: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
  *   },
  * });
  */
@@ -128,7 +132,7 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
 
   rejectUnknownKeys(architecture, ARCHITECTURE_KEYS, 'architecture');
 
-  const { alias, additionalAliases, layers, module, layerFiles } = architecture;
+  const { alias, additionalAliases, layers, folder, layerFiles } = architecture;
 
   if (typeof alias !== 'string' || !alias.trim()) {
     throw new Error('architecture.alias must be a non-empty string.');
@@ -139,7 +143,7 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
   }
 
   validateLayers(layers);
-  validateModule(module);
+  validateFolder(folder);
   validateAdditionalAliases(additionalAliases);
   validateLayerFiles(layerFiles);
 }
@@ -152,7 +156,7 @@ function validateLayers(layers: LayerDef[]): void {
     validateLayerName(layer, names);
     rejectUnknownKeys(layer, LAYER_KEYS, `layer "${layer.name}"`);
     validateOwns(layer);
-    validateLayerModule(layer);
+    validateLayerFolder(layer);
     validateLintOverrides(layer);
     // `names` holds only earlier layers here, so requiring importers to be in
     // it enforces "declared before" — which keeps the flow one-way and acyclic.
@@ -189,32 +193,32 @@ function validateLayerName(layer: LayerDef, earlier: Set<string>): void {
 
 /**
  * Optional in whole: the flat default is applied at read time, so a config that
- * never mentions `module` is complete (field issue #23).
+ * never mentions `folder` is complete (field issue #23).
  */
-function validateModule(module: ModuleDef | undefined): void {
-  if (module === undefined) {
+function validateFolder(folder: FolderDef | undefined): void {
+  if (folder === undefined) {
     return;
   }
 
-  if (module.layout !== undefined && module.layout !== 'folder' && module.layout !== 'flat') {
+  if (folder.layout !== undefined && folder.layout !== 'folder' && folder.layout !== 'flat') {
     throw new Error(
-      `architecture.module.layout is "${String(module.layout)}" — expected folder | flat, `
+      `architecture.folder.layout is "${String(folder.layout)}" — expected folder | flat, `
       + 'or omit it for the default (flat).',
     );
   }
 
-  if (module.entry !== undefined && (typeof module.entry !== 'string' || !module.entry.trim())) {
+  if (folder.entry !== undefined && (typeof folder.entry !== 'string' || !folder.entry.trim())) {
     throw new Error(
-      'architecture.module.entry must be a non-empty string when set '
+      'architecture.folder.entry must be a non-empty string when set '
       + '— omit it for the default ("index").',
     );
   }
 
-  if (module.private !== undefined && !Array.isArray(module.private)) {
-    throw new Error('architecture.module.private must be an array when set — omit it for none.');
+  if (folder.private !== undefined && !Array.isArray(folder.private)) {
+    throw new Error('architecture.folder.private must be an array when set — omit it for none.');
   }
 
-  rejectUnknownKeys(module, ['layout', 'entry', 'private'], 'architecture.module');
+  rejectUnknownKeys(folder, ['layout', 'entry', 'private'], 'architecture.folder');
 }
 
 /** Every extra alias maps a non-empty name to a non-empty target. */
@@ -407,19 +411,19 @@ function validateOwns(layer: LayerDef): void {
   }
 }
 
-/** A layer's `module` override may only narrow layout / entry, both well-formed. */
-function validateLayerModule(layer: LayerDef): void {
-  const override = layer.module;
+/** A layer's `folder` override may only narrow layout / entry, both well-formed. */
+function validateLayerFolder(layer: LayerDef): void {
+  const override = layer.folder;
 
   if (override === undefined) {
     return;
   }
 
-  rejectUnknownKeys(override, ['layout', 'entry'], `layer "${layer.name}" module override`);
+  rejectUnknownKeys(override, ['layout', 'entry'], `layer "${layer.name}" folder override`);
 
   if (override.layout !== undefined && !['folder', 'flat'].includes(override.layout)) {
     throw new Error(
-      `Layer "${layer.name}" has module.layout "${override.layout}" — expected folder | flat.`,
+      `Layer "${layer.name}" has folder.layout "${override.layout}" — expected folder | flat.`,
     );
   }
 
@@ -427,7 +431,7 @@ function validateLayerModule(layer: LayerDef): void {
     override.entry !== undefined
     && (typeof override.entry !== 'string' || !override.entry.trim())
   ) {
-    throw new Error(`Layer "${layer.name}" has an empty module.entry override.`);
+    throw new Error(`Layer "${layer.name}" has an empty folder.entry override.`);
   }
 }
 

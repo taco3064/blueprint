@@ -50,8 +50,8 @@ export interface AllowedImporter {
   description?: string;
 }
 
-/** Per-layer override of the shared module shape (see {@link ModuleDef}). */
-export interface LayerModuleDef {
+/** Per-layer override of the shared feature-folder shape (see {@link FolderDef}). */
+export interface LayerFolderDef {
   /** Override the layout for this layer only. */
   layout?: 'folder' | 'flat';
   /** Override the public entry filename for this layer only. */
@@ -69,10 +69,10 @@ export interface LayerDef {
   /** Primitives (packages / globals) this layer exclusively owns. */
   owns?: OwnedPrimitive[];
   /**
-   * Override the shared `architecture.module` shape for this layer — e.g.
-   * folder modules in a feature layer while the rest of the project is flat.
+   * Override the shared `architecture.folder` shape for this layer — e.g.
+   * folder layout in a feature layer while the rest of the project is flat.
    */
-  module?: LayerModuleDef;
+  folder?: LayerFolderDef;
   /**
    * Restrict who may import this layer. Omit to keep the default — every
    * layer declared before it may import it. When set, only the listed layers
@@ -88,10 +88,10 @@ export interface LayerDef {
   lintOverrides?: Record<string, unknown>;
 }
 
-/** How a single module (feature folder) is shaped. */
-export interface ModuleDef {
+/** How a single feature folder is shaped. */
+export interface FolderDef {
   /**
-   * `folder` = one folder per module with an entry file; `flat` = single
+   * `folder` = one folder per feature with an entry file; `flat` = single
    * file. Optional — omitting it means `flat`.
    */
   layout?: 'folder' | 'flat';
@@ -134,7 +134,7 @@ export interface ArchitectureDef {
    * any of its keys) means the flat default, `{ layout: 'flat', entry:
    * 'index' }`; declare it to switch to folder layout or rename the entry.
    */
-  module?: ModuleDef;
+  folder?: FolderDef;
   /**
    * Layer → file glob(s), each carrying a `{layer}` placeholder. Defaults are
    * derived from `framework` when omitted.
@@ -242,7 +242,7 @@ export interface Blueprint {
    */
   framework: Framework;
   /**
-   * The load-bearing block: layers, flow, alias, module shape — everything
+   * The load-bearing block: layers, flow, alias, folder shape — everything
    * the structural lint rules and `inspect` findings compile from.
    */
   architecture: ArchitectureDef;

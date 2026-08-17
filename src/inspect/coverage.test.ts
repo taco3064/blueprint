@@ -13,7 +13,7 @@ const blueprint: Blueprint = {
       { name: 'components', does: 'render UI' },
       { name: 'services', does: 'talk to the backend' },
     ],
-    module: { layout: 'folder', entry: 'index', private: [] },
+    folder: { layout: 'folder', entry: 'index', private: [] },
   },
   // `cycles` is off and `deadCode` is docs-only — neither counts as active.
   rules: { maxLines: 'error', unusedVars: { tier: 'warn' }, cycles: 'off', deadCode: 'error' },

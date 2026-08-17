@@ -23,12 +23,12 @@
 
 - **`undeclared-folder`** · error —— 原始碼根目錄下存在未宣告為分層的資料夾
 - **`flow-violation`** · error —— 逆向匯入，或透過別名進行的同層匯入
-- **`deep-import`** · error —— 別名匯入直接觸及資料夾模組的**內部**，未經公開入口
-- **`relative-escape`** · error —— 相對路徑匯入越出所屬分層、逃逸出原始碼根目錄，或伸進鄰居模組的入口之後。<br>在 `folder` 佈局下，鄰居模組**是**碰得到的 —— `../Sibling` 就是同層之間互相使用的方式，而且是唯一的方式，因為別名寫法（`~app/{自己這層}/Sibling`）仍然被擋
+- **`deep-import`** · error —— 別名匯入直接觸及功能資料夾的**內部**，未經公開入口
+- **`relative-escape`** · error —— 相對路徑匯入越出所屬分層、逃逸出原始碼根目錄，或伸進鄰居資料夾的入口之後。<br>在 `folder` 佈局下，鄰居資料夾**是**碰得到的 —— `../Sibling` 就是同層之間互相使用的方式，而且是唯一的方式，因為別名寫法（`~app/{自己這層}/Sibling`）仍然被擋
 - **`package-ownership`** · error —— 從非擁有者分層匯入某分層專屬的套件（或受限的具名匯入）
 - **`selfonly-reexport`** · error —— 再匯出標記為 `selfOnly` 的依賴 —— 僅可依賴，不可轉手輸出
 - **`cycle`** · error —— 模組層級的循環匯入，並列出完整路徑。<br>每一組獨立的循環都會回報，一組互相依賴的模組算一筆 —— 所以數量就是工作量，不是「先找到的那一個」
-- **`no-entry`** · warn —— 資料夾模組缺少公開入口檔 —— 外部無從匯入
+- **`no-entry`** · warn —— 功能資料夾缺少公開入口檔 —— 外部無從匯入
 - **`missing-layer`** · info —— 已宣告的分層尚無對應資料夾
 - **`owns-not-installed`** · info —— 某分層 `owns` 的套件不在 `package.json` 裡。<br>禁令已經產生、內容也正確，只是暫時還碰不到任何東西。<br>把套件裝起來，或是把這筆宣告拿掉，兩種都算解法
 - **`declaratory-self-only`** · info —— `selfOnly` 保護的分層還沒有任何檔案 —— 再匯出禁令是宣告性的，要等 code 進來才會真正生效
@@ -204,7 +204,7 @@ export default [
 - **`layer.mustNot`** —— 這層不該做的事，用白話寫。<br>去處相同、同樣不強制：規則判斷不了的時候，審查者與 Agent 讀的就是這幾句
 - **`layer.allowedImporters`** —— 收窄「誰可以匯入這一層」。<br>不寫的話，排在前面的分層都可以；寫了就只有清單上的可以，而且每一個都必須是更早宣告的分層 —— 所以收窄永遠不可能生出一條回頭的邊。<br>條目可帶 `selfOnly`（可以依賴這層，但不得再往外轉出）與 `description`（手冊關係圖上那條邊的標籤）
 - **`layer.owns`** —— 這層獨佔的基元，其他分層一律被擋。<br>直接給字串代表整個套件（`'axios'`）；物件形式可帶 `imports`（只鎖特定具名匯入，如 `['createContext']`）、`pattern`（把名稱當成 glob 群組）、`exempt`（豁免的檔案樣式）。<br>`{ global: 'fetch' }` 則是獨佔一個全域變數而不是套件
-- **`architecture.module`** —— 共用的模組形狀：`layout`（`folder` ＝ 一個模組一個資料夾、外面只看得到公開入口；`flat` ＝ 單檔）、`entry`（入口檔名，預設 `index`）、`private`（藏在入口後面的子部分）。<br>`folder` 之下，鄰居模組只能透過它的入口碰到（`../Sibling`），其餘皆不可 —— 伸進入口後面不行，走別名也不行
+- **`architecture.folder`** —— 共用的資料夾形狀：`layout`（`folder` ＝ 一個功能一個資料夾、外面只看得到公開入口；`flat` ＝ 單檔）、`entry`（入口檔名，預設 `index`）、`private`（藏在入口後面的子部分）。<br>`folder` 之下，鄰居資料夾只能透過它的入口碰到（`../Sibling`），其餘皆不可 —— 伸進入口後面不行，走別名也不行
 
 ### 調校
 
@@ -216,7 +216,7 @@ export default [
   那條規則的範圍就是這些測試檔樣式，空清單等於沒有檔可以讓它檢查。`blueprint rules` 會在該關卡旁邊講明。
 - **`architecture.layerFiles` / `layerFilesIgnore`** —— 框架預設樣式不適用時，逐層指定檔案樣式
 - **`architecture.naming`** —— 依概念設定的命名慣例（如 `{ hook: 'useX + reactivity' }`）—— 寫入手冊與守則
-- **`layer.module`** —— 逐層覆寫共用的模組形狀 —— 例如某一分層採資料夾模組、其餘維持單檔
+- **`layer.folder`** —— 逐層覆寫共用的資料夾形狀 —— 例如某一分層採資料夾佈局、其餘維持單檔
 - **`layer.lintOverrides`** —— 逐層的 ESLint 調整（三條受管規則除外）
 - **`emit.agents`** —— Agent 守則的發佈目標：`claude`、`agents`、`gemini`、`copilot`、`cursor`、`windsurf`（可逐目標指定 `path`）。預設 `['claude', 'agents']`；空陣列就不產出。縮窄清單後，下一次 init 會自動移除「整份都是自己產出」的過期守則檔（被人手改過的只提醒、不動手）
 - **`emit.handbook` / `emit.lint`** —— 手冊輸出路徑 · **結構規則**的等級（度量規則吃自己的 `rules` tier）

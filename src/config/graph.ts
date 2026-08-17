@@ -93,37 +93,37 @@ function dirSegments(dir: string): string[] {
 }
 
 /**
- * The shared module shape with the flat defaults applied — the playbook's
- * "flat default" made real: `architecture.module` and each of its keys is
+ * The shared folder shape with the flat defaults applied — the playbook's
+ * "flat default" made real: `architecture.folder` and each of its keys is
  * optional, resolving to `{ layout: 'flat', entry: 'index', private: [] }`
  * (field issue #23: it validated as required while the playbook said
  * omitting it was the default).
  * @internal
  */
-export function getSharedModule(
+export function getSharedFolder(
   architecture: ArchitectureDef,
 ): { layout: 'folder' | 'flat'; entry: string; private: string[] } {
   return {
-    layout: architecture.module?.layout ?? 'flat',
-    entry: architecture.module?.entry ?? 'index',
-    private: architecture.module?.private ?? [],
+    layout: architecture.folder?.layout ?? 'flat',
+    entry: architecture.folder?.entry ?? 'index',
+    private: architecture.folder?.private ?? [],
   };
 }
 
 /**
- * The effective module shape for a layer: its override, else the shared default.
+ * The effective folder shape for a layer: its override, else the shared default.
  * @internal
  */
-export function getModuleShape(
+export function getFolderShape(
   architecture: ArchitectureDef,
   layerName: string,
 ): { layout: 'folder' | 'flat'; entry: string } {
   const layer = architecture.layers.find((candidate) => candidate.name === layerName);
-  const shared = getSharedModule(architecture);
+  const shared = getSharedFolder(architecture);
 
   return {
-    layout: layer?.module?.layout ?? shared.layout,
-    entry: layer?.module?.entry ?? shared.entry,
+    layout: layer?.folder?.layout ?? shared.layout,
+    entry: layer?.folder?.entry ?? shared.entry,
   };
 }
 

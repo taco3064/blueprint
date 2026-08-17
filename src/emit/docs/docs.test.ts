@@ -19,7 +19,7 @@ function full(): Blueprint {
           allowedImporters: [{ layer: 'components', selfOnly: true, description: 'net only' }],
         },
       ],
-      module: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
+      folder: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
       naming: { hook: 'useX + reactivity' },
     },
     principles: [{ id: 'p', say: 'split by responsibility', why: 'not by size', land: 'claude' }],
@@ -34,7 +34,7 @@ describe('emitHandbook', () => {
     for (const heading of [
       '# Acme — Architecture Handbook',
       '## Architecture',
-      '## Module shape',
+      '## Folder shape',
       '## Import discipline',
       '## Principles',
       '## Rules',
@@ -50,7 +50,7 @@ describe('emitHandbook', () => {
       architecture: {
         alias: '~app',
         layers: [{ name: 'components', does: 'UI' }],
-        module: { layout: 'folder', entry: 'index', private: [] },
+        folder: { layout: 'folder', entry: 'index', private: [] },
       },
     });
 
@@ -72,11 +72,11 @@ describe('emitHandbook', () => {
   // because the two arms are independent and either could be dropped alone.
   it('hands the rules table both facts that decide whether a gate can emit', () => {
     const layer = { name: 'components', does: 'UI' };
-    const module = { layout: 'folder' as const, entry: 'index', private: [] };
+    const folder = { layout: 'folder' as const, entry: 'index', private: [] };
 
     const onReact = emitHandbook(defineBlueprint({
       framework: 'react',
-      architecture: { alias: '~app', layers: [layer], module },
+      architecture: { alias: '~app', layers: [layer], folder },
       rules: { deepWatch: 'error' },
     }));
 
@@ -84,7 +84,7 @@ describe('emitHandbook', () => {
 
     const exemptingNothing = emitHandbook(defineBlueprint({
       framework: 'vue',
-      architecture: { alias: '~app', layers: [layer], module, testFiles: [] },
+      architecture: { alias: '~app', layers: [layer], folder, testFiles: [] },
       rules: { testFilename: 'error' },
     }));
 
@@ -127,7 +127,7 @@ describe('emitHandbook · joining the sections', () => {
       architecture: {
         alias: '~app',
         layers: [{ name: 'components', does: 'UI' }],
-        module: { layout: 'folder', entry: 'index', private: [] },
+        folder: { layout: 'folder', entry: 'index', private: [] },
       },
     });
 

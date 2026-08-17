@@ -4,7 +4,7 @@ import {
   renderComponentShape,
   renderHeader,
   renderImportDiscipline,
-  renderModule,
+  renderFolder,
   renderNaming,
   renderPlaybook,
   renderPrinciples,
@@ -35,7 +35,7 @@ export function emitHandbook(blueprint: Blueprint): string {
   const sections = [
     renderHeader(name),
     renderArchitecture(architecture),
-    renderModule(architecture, exampleLayer),
+    renderFolder(architecture, exampleLayer),
     renderImportDiscipline(architecture),
     renderComponentShape(blueprint.componentShape),
     renderPrinciples(principles),

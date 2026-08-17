@@ -1,6 +1,6 @@
 import {
   getForbiddenLayers,
-  getModuleShape,
+  getFolderShape,
   getSelfOnlyTargets,
   normalizeAllowedImporters,
 } from '../config';
@@ -16,7 +16,7 @@ import {
   resolveSegments,
   stripAlias,
 } from './resolve';
-import type { EntryOf, LayoutOf, ModuleShape } from './resolve';
+import type { EntryOf, FolderShape, LayoutOf } from './resolve';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
@@ -142,7 +142,7 @@ function folderFindings(
         // discriminate. Empty rather than a repeat of the path: a subject that
         // restates its path says the finding has a second axis when it has not.
         subject: '',
-        message: `"${dir}" is not a declared layer — declare it, or move its code into a module of an existing layer.`,
+        message: `"${dir}" is not a declared layer — declare it, or move its code into a folder of an existing layer.`,
       });
     }
   }
@@ -200,7 +200,7 @@ function noEntryFindings(
   architecture: ArchitectureDef,
   layerNames: string[],
 ): Finding[] {
-  const modules = new Map<string, ScannedFile[]>();
+  const folders = new Map<string, ScannedFile[]>();
 
   for (const file of scan.files) {
     const layer = file.segments[0];
@@ -208,18 +208,18 @@ function noEntryFindings(
     if (
       file.segments.length >= 3
       && layerNames.includes(layer)
-      && getModuleShape(architecture, layer).layout === 'folder'
+      && getFolderShape(architecture, layer).layout === 'folder'
     ) {
       const key = `${layer}/${file.segments[1]}`;
 
-      modules.set(key, [...(modules.get(key) ?? []), file]);
+      folders.set(key, [...(folders.get(key) ?? []), file]);
     }
   }
 
   const findings: Finding[] = [];
 
-  for (const [key, files] of modules) {
-    const { entry } = getModuleShape(architecture, key.split('/')[0]);
+  for (const [key, files] of folders) {
+    const { entry } = getFolderShape(architecture, key.split('/')[0]);
 
     const hasEntry = files.some(
       (file) => file.segments.length === 3 && stripExt(file.segments[2]) === entry,
@@ -231,7 +231,7 @@ function noEntryFindings(
         rule: 'no-entry',
         path: `${sourcePrefix(architecture)}${key}`,
         subject: '',
-        message: `Module "${key}" has no "${entry}" entry — nothing is importable from outside.`,
+        message: `Folder "${key}" has no "${entry}" entry — nothing is importable from outside.`,
       });
     }
   }
@@ -292,7 +292,7 @@ function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext):
   return packageFindings(file, ref, context);
 }
 
-/** An alias import into a declared layer: module depth, the flow ban, selfOnly re-export. */
+/** An alias import into a declared layer: folder depth, the flow ban, selfOnly re-export. */
 function aliasFindings(
   file: ScannedFile,
   ref: ImportRef,
@@ -309,9 +309,9 @@ function aliasFindings(
   const at = { path: file.path, subject: ref.specifier };
 
   // Depth is judged against the *target* layer's layout — reaching inside
-  // a folder-module layer is a violation wherever the import comes from.
+  // a folder-layout layer is a violation wherever the import comes from.
   if (layoutOf(target) === 'folder' && depth >= 3) {
-    findings.push(finding('error', 'deep-import', { ...at, message: `"${ref.specifier}" reaches inside a module — import it through its entry.` }));
+    findings.push(finding('error', 'deep-import', { ...at, message: `"${ref.specifier}" reaches inside a folder — import it through its entry.` }));
   }
 
   if (target === fileLayer) {
@@ -354,7 +354,7 @@ function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportConte
 }
 
 /** A relative import, judged by the same verdict the embedded lint rule reads. */
-function relativeEscape(file: ScannedFile, ref: ImportRef, shape: ModuleShape): Finding[] {
+function relativeEscape(file: ScannedFile, ref: ImportRef, shape: FolderShape): Finding[] {
   const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
   const verdict = relativeVerdict(file.segments, target, shape);
 
@@ -369,7 +369,7 @@ function relativeEscape(file: ScannedFile, ref: ImportRef, shape: ModuleShape): 
   }
 
   if (verdict === 'reaches-inside') {
-    return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${shape.entryOf(file.segments[0])}" instead; what lives behind it is that module's own business.` })];
+    return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${shape.entryOf(file.segments[0])}" instead; what lives behind it is that folder's own business.` })];
   }
 
   return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.` })];

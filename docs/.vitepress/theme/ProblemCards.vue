@@ -17,7 +17,7 @@ const COPY = {
         pain: "The AI ships a working feature — and drops the new files wherever was convenient. A few sessions later, nothing lives where it should.",
         tag: "blueprint pins where each layer’s code belongs — and lint blocks the crossing",
         mechanism:
-          "Your layers and module shape become import-boundary rules the AI reads up front (agent contract) and can’t cross (lint). New code lands in the right folder, or the build goes red.",
+          "Your layers and folder shape become import-boundary rules the AI reads up front (agent contract) and can’t cross (lint). New code lands in the right folder, or the build goes red.",
         proof: "✗ services/ may not import from pages/",
       },
       {
@@ -42,7 +42,7 @@ const COPY = {
         pain: "The feature passes. But the AI optimized for done, not for the next reader — and the next reader is another agent that now can’t navigate it.",
         tag: "blueprint briefs every session on the same readability bar",
         mechanism:
-          "The handbook and agent contract state the bar — naming, module shape, ownership — so every session writes to one standard instead of its own taste.",
+          "The handbook and agent contract state the bar — naming, folder shape, ownership — so every session writes to one standard instead of its own taste.",
         proof:
           "docs/architecture-handbook.md + CLAUDE.md ← one source, every agent",
       },
@@ -74,7 +74,7 @@ const COPY = {
         pain: "AI 交出一個能正常運作的功能，卻把新檔案隨手放在方便的位置。幾個 session 之後，每個檔案都偏離了它原本該待的地方。",
         tag: "blueprint 定義每一層程式的歸屬，跨越邊界就交給 lint 擋下",
         mechanism:
-          "你的分層與模組結構會編譯成 import 邊界規則。AI 一開始就能從 agent contract 讀到這些規則，而 lint 則負責阻止它跨越邊界。新程式不是落在正確的位置，就是讓 build 直接失敗。",
+          "你的分層與資料夾結構會編譯成 import 邊界規則。AI 一開始就能從 agent contract 讀到這些規則，而 lint 則負責阻止它跨越邊界。新程式不是落在正確的位置，就是讓 build 直接失敗。",
         proof: "✗ services/ may not import from pages/",
       },
       {
@@ -99,7 +99,7 @@ const COPY = {
         pain: "功能通過了。但 AI 最佳化的是「完成」，不是「讓下一個人容易理解」。而下一個閱讀的人，很可能就是另一個 AI agent。",
         tag: "blueprint 讓每個 session 都依循同一套可讀性標準",
         mechanism:
-          "handbook 與 agent contract 明確定義共同標準，包括命名、模組結構與責任歸屬，讓每個 session 都朝著同一個方向撰寫程式，而不是各自憑感覺。",
+          "handbook 與 agent contract 明確定義共同標準，包括命名、資料夾結構與責任歸屬，讓每個 session 都朝著同一個方向撰寫程式，而不是各自憑感覺。",
         proof:
           "docs/architecture-handbook.md + CLAUDE.md ← one source, every agent",
       },

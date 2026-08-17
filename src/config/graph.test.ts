@@ -4,9 +4,9 @@ import {
   aliasLayerRoots,
   getDiagramEdges,
   getForbiddenLayers,
-  getModuleShape,
+  getFolderShape,
   getSelfOnlyTargets,
-  getSharedModule,
+  getSharedFolder,
   normalizeAllowedImporters,
 } from './graph';
 import type { ArchitectureDef } from './types';
@@ -25,7 +25,7 @@ function arch(): ArchitectureDef {
       },
       { name: 'services', does: '', allowedImporters: ['hooks', 'contexts'] },
     ],
-    module: { layout: 'folder', entry: 'index', private: [] },
+    folder: { layout: 'folder', entry: 'index', private: [] },
   };
 }
 
@@ -61,21 +61,21 @@ describe('aliasLayerRoots', () => {
   });
 });
 
-describe('getSharedModule', () => {
-  it('applies the flat defaults when module (or any key) is absent (field #23)', () => {
+describe('getSharedFolder', () => {
+  it('applies the flat defaults when folder (or any key) is absent (field #23)', () => {
     const bare: ArchitectureDef = arch();
 
-    delete bare.module;
+    delete bare.folder;
 
-    expect(getSharedModule(bare)).toEqual({ layout: 'flat', entry: 'index', private: [] });
-    expect(getModuleShape(bare, 'pages')).toEqual({ layout: 'flat', entry: 'index' });
+    expect(getSharedFolder(bare)).toEqual({ layout: 'flat', entry: 'index', private: [] });
+    expect(getFolderShape(bare, 'pages')).toEqual({ layout: 'flat', entry: 'index' });
 
     // A partial declaration keeps the untouched keys at their defaults.
-    expect(getSharedModule({ ...bare, module: { layout: 'folder' } }))
+    expect(getSharedFolder({ ...bare, folder: { layout: 'folder' } }))
       .toEqual({ layout: 'folder', entry: 'index', private: [] });
 
     // A full declaration passes through unchanged.
-    expect(getSharedModule(arch())).toEqual({ layout: 'folder', entry: 'index', private: [] });
+    expect(getSharedFolder(arch())).toEqual({ layout: 'folder', entry: 'index', private: [] });
   });
 });
 

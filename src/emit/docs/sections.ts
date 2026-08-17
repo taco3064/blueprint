@@ -8,8 +8,8 @@ import type {
 } from '../../config';
 import {
   readSetting,
-  getModuleShape,
-  getSharedModule,
+  getFolderShape,
+  getSharedFolder,
   normalizeAllowedImporters,
 } from '../../config';
 import { enforcedBy, unavailableFromBlueprint } from '../lint';
@@ -60,36 +60,36 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
 }
 
 /** Feature-folder shape, illustrated with a generated example tree. */
-export function renderModule(architecture: ArchitectureDef, exampleLayer: string): string {
-  const module = getSharedModule(architecture);
+export function renderFolder(architecture: ArchitectureDef, exampleLayer: string): string {
+  const folder = getSharedFolder(architecture);
 
   const exceptionLines = architecture.layers
-    .filter((layer) => layer.module !== undefined)
+    .filter((layer) => layer.folder !== undefined)
     .map((layer) => {
-      const shape = getModuleShape(architecture, layer.name);
+      const shape = getFolderShape(architecture, layer.name);
 
       return shape.layout === 'folder'
-        ? `- \`${layer.name}/\` — one folder per module, entry \`${shape.entry}\`.`
-        : `- \`${layer.name}/\` — one file per module (flat).`;
+        ? `- \`${layer.name}/\` — one folder per feature, entry \`${shape.entry}\`.`
+        : `- \`${layer.name}/\` — one file per feature (flat).`;
     });
 
   const exceptions = exceptionLines.length
     ? ['', 'Per-layer exceptions to the shared shape:', '', ...exceptionLines]
     : [];
 
-  if (module.layout === 'flat') {
+  if (folder.layout === 'flat') {
     return [
-      '## Module shape',
+      '## Folder shape',
       '',
-      'One module = one file (flat layout). Shared logic moves down to a lower layer.',
+      'One feature = one file (flat layout). Shared logic moves down to a lower layer.',
       ...exceptions,
     ].join('\n');
   }
 
   const items: [string, string][] = [
-    [module.entry, 'public entry — the only importable file'],
-    ['Example', 'implementation (named after the module)'],
-    ...module.private.map((part): [string, string] => [part, 'private']),
+    [folder.entry, 'public entry — the only importable file'],
+    ['Example', 'implementation (named after the folder)'],
+    ...folder.private.map((part): [string, string] => [part, 'private']),
   ];
 
   const tree = items.map(([part, note], i) => {
@@ -99,9 +99,9 @@ export function renderModule(architecture: ArchitectureDef, exampleLayer: string
   });
 
   return [
-    '## Module shape',
+    '## Folder shape',
     '',
-    `One module = one folder. Only \`${module.entry}\` is public; everything else stays private to the module.`,
+    `One feature = one folder. Only \`${folder.entry}\` is public; everything else stays private to the folder.`,
     '',
     '```',
     `${exampleLayer}/`,
@@ -115,7 +115,7 @@ export function renderModule(architecture: ArchitectureDef, exampleLayer: string
 /** Prose for the boundaries the generated ESLint config enforces. */
 export function renderImportDiscipline(architecture: ArchitectureDef): string {
   const { layers } = architecture;
-  const module = getSharedModule(architecture);
+  const folder = getSharedFolder(architecture);
 
   const hasSelfOnly = layers.some((layer) =>
     normalizeAllowedImporters(layer.allowedImporters).some((importer) => importer.selfOnly),
@@ -124,7 +124,7 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   const bullets = [
     '- **One-way only** — a layer imports only from the layers below it; '
     + 'upstream imports are errors.',
-    module.layout === 'flat'
+    folder.layout === 'flat'
       ? '- **No same-layer imports via the alias** — use a relative path instead.'
       : '- **No same-layer imports** — extract shared logic down to a lower layer instead.',
   ];
@@ -132,7 +132,7 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   const folderEntries = [
     ...new Set(
       layers
-        .map((layer) => getModuleShape(architecture, layer.name))
+        .map((layer) => getFolderShape(architecture, layer.name))
         .filter((shape) => shape.layout === 'folder')
         .map((shape) => `\`${shape.entry}\``),
     ),
@@ -140,7 +140,7 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
 
   if (folderEntries.length) {
     bullets.push(
-      `- **Entry-only** — import a module through its ${folderEntries.join(' / ')}, never its internals.`,
+      `- **Entry-only** — import a folder through its ${folderEntries.join(' / ')}, never its internals.`,
     );
   }
 

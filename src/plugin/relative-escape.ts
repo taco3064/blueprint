@@ -2,16 +2,16 @@ import type { Rule } from 'eslint';
 import { relativeVerdict, resolveSegments } from '../inspect/resolve';
 
 /**
- * Relative imports must stay inside their own module. This is the lint-side
+ * Relative imports must stay inside their own folder. This is the lint-side
  * twin of `inspect`'s `relative-escape` finding: both call one
  * `relativeVerdict`, so neither can reach a conclusion the other would not.
  * Sharing resolution *primitives* was the earlier claim and it was not worth
  * anything — two callers can read the same coordinates and still disagree
  * about what they mean, which is exactly what happened. A literal
  * `no-restricted-imports` pattern cannot express this: whether `../x` leaves
- * the module depends on the importing file's depth, which globs cannot see.
+ * the folder depends on the importing file's depth, which globs cannot see.
  *
- * A sibling's **entry** is reachable: `../Sibling` is how one module uses
+ * A sibling's **entry** is reachable: `../Sibling` is how one folder uses
  * another inside the same layer, and it is the only way — the alias form
  * (`~app/{ownLayer}/Sibling`) stays banned, so same-layer edges have exactly
  * one shape. What stays banned is reaching *past* that entry
@@ -24,7 +24,7 @@ import { relativeVerdict, resolveSegments } from '../inspect/resolve';
  * honest decision at a time.
  *
  * Options: `{ layouts: { [layer]: 'folder' | 'flat' }, entries: { [layer]:
- * string } }` — the per-layer module layout map and entry filename
+ * string } }` — the per-layer folder layout map and entry filename
  * (`index` when absent). Files outside `src/` or outside a declared layer are
  * skipped (the emitted config scopes this rule to layer files anyway).
  */
@@ -32,7 +32,7 @@ export const relativeEscape: Rule.RuleModule = {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Relative imports must not leave their module — use the project alias.',
+      description: 'Relative imports must not leave their folder — use the project alias.',
     },
     schema: [
       {
@@ -52,12 +52,12 @@ export const relativeEscape: Rule.RuleModule = {
     ],
     messages: {
       escapesSrc: '🚫 Relative import "{{specifier}}" escapes src/ — use the project alias.',
-      leavesModule:
+      leavesFolder:
         '🚫 Relative import "{{specifier}}" leaves this layer — use the alias, '
         + 'or extract shared code to a lower layer.',
       reachesInside:
         '🚫 Relative import "{{specifier}}" reaches past a sibling\'s entry — '
-        + 'import "{{entry}}" instead; what lives behind it is that module\'s own business.',
+        + 'import "{{entry}}" instead; what lives behind it is that folder\'s own business.',
     },
   },
   create(context) {
@@ -102,7 +102,7 @@ export const relativeEscape: Rule.RuleModule = {
 
       context.report({
         node,
-        messageId: verdict === 'escapes-src' ? 'escapesSrc' : 'leavesModule',
+        messageId: verdict === 'escapes-src' ? 'escapesSrc' : 'leavesFolder',
         data: { specifier },
       });
     };

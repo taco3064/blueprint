@@ -41,7 +41,7 @@
 
 **Vite + React + TypeScript（npm、舊制 `.eslintrc`）**
 - 專案形態 —— 852 個檔案的正式產品，先前無結構治理
-- 結果 —— 依蒐證數據推導 config；**246 項真實檢測項目**鎖定為基準（包含一條真實的 `services → types → resources → services` 循環依賴）；採用分層各異的模組配置（`resources` 為資料夾式模組）。舊制 ESLint config 的遷移列為待決事項，不強制執行。
+- 結果 —— 依蒐證數據推導 config；**246 項真實檢測項目**鎖定為基準（包含一條真實的 `services → types → resources → services` 循環依賴）；採用分層各異的資料夾配置（`resources` 為資料夾佈局）。舊制 ESLint config 的遷移列為待決事項，不強制執行。
 
 **create-vite `react-ts`（全新）**
 - 專案形態 —— 全新專案
@@ -70,7 +70,7 @@
 ## 框架注意事項
 
 - **Next.js**：`init` 會偵測路由樹（`app/` 與／或 `pages/`，位於 `src/` 或專案根），產出 `nextPreset` ——<br>
-  路由目錄即頂層、扁平模組配置，且**不設 `fetch` 歸屬**（server component 本就到處 fetch，強加限制即為造假）。<br>
+  路由目錄即頂層、扁平資料夾配置，且**不設 `fetch` 歸屬**（server component 本就到處 fetch，強加限制即為造假）。<br>
   兩種 router 收斂為同一形態；匯入皆為顯式，依賴圖真實、強制有效。
 - **Vue 單檔元件**：`<script setup>` 的匯入與一般原始碼相同納入掃描；<br>
   Vite 起始範本需將三處資源匯入改走匯入別名。

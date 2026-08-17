@@ -261,7 +261,7 @@ describe('survey counts never promise what impact must measure (field issue #11)
     expect(survey.output).toContain('Same-folder imports via the alias (textual upper bound');
   });
 
-  it('a draft config that never mentions module.private validates and runs', async () => {
+  it('a draft config that never mentions folder.private validates and runs', async () => {
     const dir = repo({
       packageJson: react(),
       files: {
@@ -274,7 +274,7 @@ describe('survey counts never promise what impact must measure (field issue #11)
           '  architecture: {',
           '    alias: \'~app\',',
           '    layers: [{ name: \'components\', does: \'render UI\' }],',
-          '    module: { layout: \'flat\', entry: \'index\' },',
+          '    folder: { layout: \'flat\', entry: \'index\' },',
           '  },',
           '  rules: {},',
           '};',
@@ -286,7 +286,7 @@ describe('survey counts never promise what impact must measure (field issue #11)
     const inspect = await cli(dir, ['inspect']);
 
     expect(inspect.code).toBe(0);
-    expect(inspect.output).not.toContain('module.private');
+    expect(inspect.output).not.toContain('folder.private');
   });
 });
 
@@ -419,7 +419,7 @@ describe('a baseline survives a reworded finding, and an old one says so', () =>
         rule: 'undeclared-folder',
         path: 'src/random',
         message: '"random" is not a declared layer — declare it, '
-          + 'or move its code into a module of an existing layer.',
+          + 'or move its code into a folder of an existing layer.',
       }],
     }));
 

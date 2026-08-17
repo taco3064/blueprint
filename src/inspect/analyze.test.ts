@@ -38,7 +38,7 @@ describe('analyze · folders', () => {
     expect(rulesFor([], LAYERS.slice(1))).toContain('missing-layer');
   });
 
-  it('warns when a module has no entry file, but not when it does', () => {
+  it('warns when a folder has no entry file, but not when it does', () => {
     expect(rulesFor([file(['components', 'Button', 'Button.ts'])])).toContain('no-entry');
     expect(rulesFor([file(['components', 'Card', 'index.ts'])])).not.toContain('no-entry');
   });
@@ -72,11 +72,11 @@ describe('analyze · flat layout', () => {
     architecture: {
       alias: '~app',
       layers: [{ name: 'a', does: '' }, { name: 'b', does: '' }],
-      module: { layout: 'flat', entry: 'index', private: [] },
+      folder: { layout: 'flat', entry: 'index', private: [] },
     },
   });
 
-  it('skips deep-import and no-entry, but still flags cross-module relative imports', () => {
+  it('skips deep-import and no-entry, but still flags cross-folder relative imports', () => {
     const found = analyze(
       { topDirs: ['a', 'b'], files: [file(['a', 'x.ts'], [{ specifier: '../b/y' }])] },
       flat,
@@ -88,17 +88,17 @@ describe('analyze · flat layout', () => {
   });
 });
 
-describe('analyze · per-layer module layout', () => {
+describe('analyze · per-layer folder layout', () => {
   const mixed = defineBlueprint({
     framework: 'react',
     architecture: {
       alias: '~app',
       layers: [
         { name: 'pages', does: '' },
-        { name: 'resources', does: '', module: { layout: 'folder', entry: 'main' } },
+        { name: 'resources', does: '', folder: { layout: 'folder', entry: 'main' } },
         { name: 'services', does: '' },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
+      folder: { layout: 'flat', entry: 'index', private: [] },
     },
   });
 
@@ -122,8 +122,8 @@ describe('analyze · per-layer module layout', () => {
     expect(rules([file(['services', 'api', 'client.ts'])])).not.toContain('no-entry');
   });
 
-  it('judges relative escapes per layer: module-bound in folder, layer-bound in flat', () => {
-    // Folder layer: leaving the module (even to a sibling module) escapes.
+  it('judges relative escapes per layer: folder-bound in folder, layer-bound in flat', () => {
+    // Folder layer: leaving the folder (even to a sibling folder) escapes.
     expect(
       rules([file(['resources', 'matches', 'main.ts'], [{ specifier: '../markets/board' }])]),
     ).toContain('relative-escape');
@@ -137,7 +137,7 @@ describe('analyze · per-layer module layout', () => {
 
 describe('analyze · severity ordering', () => {
   it('leads with the errors, whatever order the checks produced them in', () => {
-    // Three severities from one scan: a module with no entry (warn), a banned
+    // Three severities from one scan: a folder with no entry (warn), a banned
     // cross-layer import (error), and the declaratory selfOnly note (info). The
     // folder checks run before the import checks, so the raw order opens on the
     // warn — a reader scanning the top of this list would meet it first.
@@ -164,7 +164,7 @@ describe('analyze · severity ordering', () => {
   });
 });
 
-describe('analyze · the depth that makes a module', () => {
+describe('analyze · the depth that makes a folder', () => {
   const specifierRules = (specifier: string) =>
     analyze(
       scanOf([
@@ -175,14 +175,14 @@ describe('analyze · the depth that makes a module', () => {
       .map((finding) => finding.rule)
       .filter((rule) => rule !== 'declaratory-self-only');
 
-  it('does not read a file sitting directly in a layer as a module', () => {
-    // `components/Button.ts` is a file IN the layer, not a module folder. It has
+  it('does not read a file sitting directly in a layer as a folder', () => {
+    // `components/Button.ts` is a file IN the layer, not a feature folder. It has
     // no entry to be missing, and demanding one sends the reader to write an
     // index for a single file.
     expect(rulesFor([file(['components', 'Button.ts'])])).not.toContain('no-entry');
   });
 
-  it('needs a third segment before an import reaches inside a module', () => {
+  it('needs a third segment before an import reaches inside a folder', () => {
     // `~app/hooks/useX` IS the entry. Reporting it as a deep import tells the
     // reader to import through an entry they already used.
     expect(specifierRules('~app/hooks/useX')).not.toContain('deep-import');
@@ -190,33 +190,33 @@ describe('analyze · the depth that makes a module', () => {
   });
 
   it('judges depth only for targets that are declared layers', () => {
-    // `nope` is not a layer, so its module shape is unknown and the shared
+    // `nope` is not a layer, so its folder shape is unknown and the shared
     // fallback would read any deep path as reaching inside one. The
     // undeclared-folder rule owns that case instead.
     expect(specifierRules('~app/nope/x/y')).not.toContain('deep-import');
   });
 });
 
-describe('analyze · what counts as a module entry', () => {
-  it('accepts an entry sitting beside other files in the module', () => {
-    // A module is normally more than its entry. Requiring EVERY file to be the
-    // entry reports a missing entry on a module that has one.
+describe('analyze · what counts as a folder entry', () => {
+  it('accepts an entry sitting beside other files in the folder', () => {
+    // A folder is normally more than its entry. Requiring EVERY file to be the
+    // entry reports a missing entry on a folder that has one.
     expect(rulesFor([
       file(['components', 'Card', 'index.ts']),
       file(['components', 'Card', 'helper.ts']),
     ])).not.toContain('no-entry');
   });
 
-  it('wants the entry directly in the module, not nested below it', () => {
+  it('wants the entry directly in the folder, not nested below it', () => {
     // `components/Card/index/x.ts` puts a folder called `index` inside the
-    // module. That is not an entry file, and accepting it as one silences the
-    // warning on a module nothing can import.
+    // folder. That is not an entry file, and accepting it as one silences the
+    // warning on a folder nothing can import.
     expect(rulesFor([file(['components', 'Card', 'index', 'x.ts'])])).toContain('no-entry');
   });
 
   it('strips only the last extension when reading a filename', () => {
-    // `index.d.ts` is a declaration file, not the module entry — stripping both
-    // extensions turns it into one and the module reads as importable.
+    // `index.d.ts` is a declaration file, not the folder entry — stripping both
+    // extensions turns it into one and the folder reads as importable.
     expect(rulesFor([file(['components', 'Card', 'index.d.ts'])])).toContain('no-entry');
   });
 });
@@ -225,13 +225,13 @@ describe('analyze · an entry name that holds a dot', () => {
   it('strips only the last extension, so a dotted entry still matches', () => {
     // `entry: 'index.d'` is a legal declaration and `index.d.ts` is then its
     // entry file. Stripping both extensions turns that filename into `index`,
-    // which no longer matches what was declared — the module reads as having no
+    // which no longer matches what was declared — the folder reads as having no
     // entry at all, and the fix suggested is to add the file that is right there.
     const dotted = defineBlueprint({
       ...bp,
       architecture: {
         ...bp.architecture,
-        module: { layout: 'folder', entry: 'index.d', private: [] },
+        folder: { layout: 'folder', entry: 'index.d', private: [] },
       },
     });
 

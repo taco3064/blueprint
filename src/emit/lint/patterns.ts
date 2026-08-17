@@ -375,8 +375,8 @@ export function buildStructuralPatterns(params: {
   layer: string;
   aliases: string[];
   forbidden: string[];
-  /** The layer's own module layout (drives the same-layer message wording). */
-  moduleLayout: 'folder' | 'flat';
+  /** The layer's own folder layout (drives the same-layer message wording). */
+  folderLayout: 'folder' | 'flat';
   /**
    * Downstream folder-layout layers this layer may import, entry-only. Self and
    * forbidden layers are excluded by the caller — already banned wholesale, and
@@ -386,9 +386,9 @@ export function buildStructuralPatterns(params: {
   /** Fixture roots barred from production imports (`rules.fixtureImports`). */
   fixtures?: string[];
 }): GroupPattern[] {
-  const { layer, aliases, forbidden, moduleLayout, folderTargets, fixtures } = params;
+  const { layer, aliases, forbidden, folderLayout, folderTargets, fixtures } = params;
 
-  // Escaping the module via `../` cannot be expressed as a literal pattern
+  // Escaping the folder via `../` cannot be expressed as a literal pattern
   // (it depends on the importing file's depth) — that ban lives in the
   // embedded `blueprint/relative-escape` rule, sharing inspect's resolution.
   const patterns: GroupPattern[] = [
@@ -400,7 +400,7 @@ export function buildStructuralPatterns(params: {
     ...aliases.map((a) => ({
       group: [`${a}/${layer}/**`],
       message:
-        moduleLayout === 'flat'
+        folderLayout === 'flat'
           ? `\n🚫 Same-layer imports must be relative. Replace "${a}/${layer}/X" with "./X".`
           // The sibling is reachable, just not by this spelling: one shape for
           // same-layer edges keeps the cycle surface to relative paths alone.
@@ -426,14 +426,14 @@ export function buildStructuralPatterns(params: {
     });
   }
 
-  // Entry-only: no reaching inside a folder-layout module via the alias.
-  // `alias/layer/module` (entry) is allowed; a gitignore `/**` matches only
-  // *descendants*, so `alias/L/*/**` bans reaching into a module, not the entry.
+  // Entry-only: no reaching inside a folder-layout feature folder via the alias.
+  // `alias/layer/folder` (entry) is allowed; a gitignore `/**` matches only
+  // *descendants*, so `alias/L/*/**` bans reaching into a folder, not the entry.
   if (folderTargets?.length) {
     patterns.push({
       group: folderTargets.flatMap((target) => aliases.map((a) => `${a}/${target}/*/**`)),
       message:
-        '\n🚫 Import a module through its entry, not its internals (e.g. "~app/hooks/useX", '
+        '\n🚫 Import a folder through its entry, not its internals (e.g. "~app/hooks/useX", '
         + 'not "~app/hooks/useX/impl").',
     });
   }

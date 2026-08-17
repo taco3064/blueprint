@@ -8,7 +8,7 @@ import { expectedStructural, wiringCheck } from './wiring';
 /**
  * Four plain layers and an ignore glob. Every flow declaration the wider fixture
  * in `wiring.test.ts` carries — a second alias, allowedImporters, package
- * ownership, a module shape, a declared rule tier — is left out: this file asks
+ * ownership, a folder shape, a declared rule tier — is left out: this file asks
  * which files become probes and which carrier gates are expected, and both sides
  * of every comparison here are computed from this same object, so a ban declared
  * on it decides nothing. `alias` stays only because the type demands one.

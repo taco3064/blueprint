@@ -11,7 +11,7 @@ function arch(): ArchitectureDef {
       { name: 'hooks', does: '' },
       { name: 'services', does: '' },
     ],
-    module: { layout: 'folder', entry: 'index', private: [] },
+    folder: { layout: 'folder', entry: 'index', private: [] },
   };
 }
 

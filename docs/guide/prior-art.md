@@ -9,7 +9,7 @@ scorecard.
 ## Where blueprint overlaps
 
 On the lint layer, blueprint does the same job those tools do: one-way layer flow,
-entry-only module boundaries, package and global ownership — compiled into an ESLint
+entry-only folder boundaries, package and global ownership — compiled into an ESLint
 flat config with an embedded plugin. Running blueprint next to an incumbent structure
 linter has been field-tested; see
 [Field-Tested Setups](/guide/field-tested#framework-notes).

@@ -1,5 +1,5 @@
 import type { AliasRoot, ArchitectureDef } from '../config';
-import { aliasLayerRoots, getModuleShape } from '../config';
+import { aliasLayerRoots, getFolderShape } from '../config';
 import { dropTestFiles } from './filter';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
@@ -12,9 +12,9 @@ import type { ImportRef, ScanResult, ScannedFile } from './types';
 /** Per-layer layout resolver — a segment's first element names its layer. */
 export type LayoutOf = (layer: string) => 'folder' | 'flat';
 
-/** Build a {@link LayoutOf} from the architecture's per-layer module shapes. */
+/** Build a {@link LayoutOf} from the architecture's per-layer folder shapes. */
 export function layoutResolver(architecture: ArchitectureDef): LayoutOf {
-  return (layer) => getModuleShape(architecture, layer).layout;
+  return (layer) => getFolderShape(architecture, layer).layout;
 }
 
 /** The layer-reaching aliases with their offsets — see {@link aliasLayerRoots}. */
@@ -66,19 +66,19 @@ export function moduleKey(segments: string[], layoutOf: LayoutOf): string {
 /** A layer's public entry filename, extension stripped. */
 export type EntryOf = (layer: string) => string;
 
-/** Build an {@link EntryOf} from the architecture's module shapes. */
+/** Build an {@link EntryOf} from the architecture's folder shapes. */
 export function entryResolver(architecture: ArchitectureDef): EntryOf {
-  const shared = architecture.module?.entry ?? 'index';
-  const perLayer = new Map(architecture.layers.map((l) => [l.name, l.module?.entry ?? shared]));
+  const shared = architecture.folder?.entry ?? 'index';
+  const perLayer = new Map(architecture.layers.map((l) => [l.name, l.folder?.entry ?? shared]));
 
   return (layer) => perLayer.get(layer) ?? shared;
 }
 
-/** What a relative import does to its module boundary. */
+/** What a relative import does to its folder boundary. */
 export type RelativeVerdict = 'ok' | 'escapes-src' | 'leaves-layer' | 'reaches-inside';
 
-/** The two per-layer resolvers every module-shape judgment reads. */
-export interface ModuleShape {
+/** The two per-layer resolvers every folder-shape judgment reads. */
+export interface FolderShape {
   layoutOf: LayoutOf;
   entryOf: EntryOf;
 }
@@ -97,7 +97,7 @@ export interface ModuleShape {
 export function relativeVerdict(
   ownSegments: string[],
   target: string[] | null,
-  shape: ModuleShape,
+  shape: FolderShape,
 ): RelativeVerdict {
   const { layoutOf, entryOf } = shape;
 
