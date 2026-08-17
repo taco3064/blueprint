@@ -14,7 +14,7 @@ You own one issue's **delivery** and the written record of how it got there. **Y
 | Reference | Trigger |
 |---|---|
 | [`start-or-resume.md`](./references/start-or-resume.md) | The skill loads. Every time — fresh start or resume alike — before the hard gate on whether this issue carries a real shape-ticket fingerprint, not just its shape. |
-| [`deliver-a-stage.md`](./references/deliver-a-stage.md) | You are about to commit, or you have just committed and owe the ticket a comment. What a stage is, what the comment must carry, and how a shortfall is written down. |
+| [`deliver-a-stage.md`](./references/deliver-a-stage.md) | You are about to dispatch a sub-agent, commit, or you have just committed and owe the ticket a comment. What a stage is, what a dispatched sub-agent is given and withheld, what the comment must carry, and how a shortfall is written down. |
 | [`finish-the-ticket.md`](./references/finish-the-ticket.md) | You believe the ticket is done. The completion test, the pull request, the merge, closing the issue, and cleaning up the worktree and branches. |
 
 ## You do not create tickets
@@ -31,11 +31,20 @@ So: **what you find while building goes into a comment on the ticket you are bui
 
 ## You dispatch the work; you do not type it
 
-**One sub-agent per stage — and the stage is the issue's to name, not yours to invent.** A ticket carrying shape-ticket's fingerprint already cut its stages the way `deliver-a-stage.md` cuts a commit, because `create-the-ticket.md` requires exactly that; adopt them as written rather than re-deriving a staging shape-ticket already produced. **Deviate only when something proves the plan's staging doesn't hold** — the drift diff from *Before the first commit* touches a module the plan cited, a dispatched stage's returned work shows a planned slice isn't actually releasable on its own, or an earlier stage's shortfall makes a later one's premise false — never on a hunch that a different cut would read better. Report the deviation itself, in the stage's comment, when it happens; a plan silently re-cut is indistinguishable from a plan that was never read.
+**One sub-agent per stage — and the stage is the issue's to name, not yours to invent.** A ticket carrying shape-ticket's fingerprint already cut its stages the way `deliver-a-stage.md` cuts a commit, because `create-the-ticket.md` requires exactly that: the Implementation Plan's stages are the execution queue, adopted as written, not re-split or merged on arrival.
+
+**Deviate only when one of four things proves the plan's staging doesn't hold — never on a hunch that a different cut would read better:**
+
+- The drift diff from *Before the first commit* touches a module a stage depends on.
+- A commit gate proves the planned order isn't feasible — `deliver-a-stage.md`'s own rule about a gate that autofixes on the way in and blames work belonging to a stage not yet started.
+- A dispatched stage's returned work shows the planned slice isn't actually releasable on its own — `deliver-a-stage.md`'s own test for what a stage is.
+- Implementation reveals one of the plan's technical assumptions doesn't hold, whether or not an earlier stage's shortfall already named it.
+
+**Every deviation is recorded as a shortfall, in the stage's comment, when it happens — never a silent re-plan.** A plan adjusted without saying so is indistinguishable, to the next reader, from a plan that was never read.
 
 Once the stage is set, a sub-agent writes the code, you verify what comes back, land it, and write the comment. **The commit is yours** — that is what keeps one commit to one stage to one comment, which fragments the moment several hands are committing.
 
-Hand a sub-agent **the ticket number, the one stage it is working, and the instruction to read `CLAUDE.md` plus every `.claude/docs/` page whose trigger fires.** Hand over the number, not your summary of the ticket — a summary is a second source of truth for something already written down, and the two will differ.
+Hand a sub-agent **the ticket number and a reading scope, never a summary of the ticket in its place** — a summary is a second source of truth for something already written down, and the two will differ. `deliver-a-stage.md`'s *Dispatching it* says exactly what that scope is, and what it deliberately excludes.
 
 **Do not carry a sub-agent across stages.** A fresh one per stage costs nothing and a long-lived one accumulates the same blind spot you would have had. What it learned that is worth keeping goes in the ticket comment, which is the only place it survives.
 
@@ -49,7 +58,13 @@ Hand a sub-agent **the ticket number, the one stage it is working, and the instr
 
 **The ticket says what to build. It does not say what blueprint already claims to do** — and that part is published: `docs/guide/` for behaviour, `docs/philosophy/` for the positions behind it, `docs/api/` for the surface, and the emitted artifacts for what an adopter actually receives.
 
-**Start from what the issue already cites, not from an open-ended search — `start-or-resume.md`'s gate hands you exactly this.** A ticket carrying shape-ticket's fingerprint names its owning module and layer, the primitives it reuses, and the consumers and docs pages its Implementation Plan and Evidence point at; `git diff <sha> origin/main`, where `<sha>` is the fingerprint's own `grounded-at`, says what's moved since that plan was written. Where the diff doesn't touch a citation, read it as cited — shape-ticket already did the search this section used to ask you to redo from scratch. Where the diff does touch one, that citation is exactly what to re-verify before trusting it; the rest of this section is about what "before you write anything" means once you're there. **A ticket without a valid fingerprint never reaches this paragraph** — `start-or-resume.md`'s gate stops those first — so by construction, everything past this point is read against citations that exist, not invented from nothing.
+**Read the contracts and implementation references named by the shaped issue. Expand beyond them only when repository drift or implementation evidence proves the handoff incomplete.** `start-or-resume.md`'s gate already computed this by the time this section applies: `git diff <sha> origin/main`, where `<sha>` is the fingerprint's own `grounded-at`, against everything the issue's Implementation Plan and Evidence cite — the module, the primitives, the consumers, and the docs pages it names as required reading.
+
+- **Untouched by the diff** → shape-ticket's own investigation of it still holds. Read the citation once, trust it, move on — this is where the open-ended search this section used to ask for gets cut, not repeated more narrowly.
+- **Touched by the diff** → that citation, and only that one, needs a fresh look before you rely on it.
+- **Touched in a way that breaks the citation's premise** — the module it names was removed, restructured past recognition, or the primitive it reuses no longer exists — **that's not a citation to re-verify, it's the plan failing to hold.** Stop before the first commit and say so on the ticket, the same way `start-or-resume.md`'s gate handles a missing fingerprint: the owner closes the issue, re-runs shape-ticket on the direction now that the repo has moved past what it was shaped against, and the new issue supersedes this one. A plan built on a premise that's gone is a direction again, however complete the rest of it reads.
+
+**A ticket without a valid fingerprint never reaches this section at all** — `start-or-resume.md`'s gate stops those first — so by construction, every read from here on is scoped to citations that exist, not an open-ended search invented from nothing.
 
 **Read the pages this ticket touches before you write anything.** Not to settle a doubt — to arrive without it. Most of what would otherwise become a question is already written down: what a finding is allowed to claim, what the tool refuses to decide, what belongs to the owner rather than to an agent, which spellings of a thing are equivalent. **A session that reads first extends a judgment that already exists. A session that does not either asks or invents — and the asking costs a round trip, while the inventing ships.**
 

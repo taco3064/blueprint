@@ -1,6 +1,6 @@
 # Delivering a stage
 
-**Trigger:** you are about to commit, or you have just committed and owe the ticket a comment.
+**Trigger:** you are about to dispatch a sub-agent, about to commit, or you have just committed and owe the ticket a comment.
 
 ## What a stage is
 
@@ -16,7 +16,17 @@ Cut stages by **what becomes true**, not by which files you happened to open. *"
 
 ## Dispatching it
 
-**A fresh sub-agent per stage**, given the ticket number, the one stage it is working, and the instruction to read `CLAUDE.md` and every `.claude/docs/` page whose trigger fires.
+**A fresh sub-agent per stage, given the ticket number and a reading scope — not a summary written in its place.** The issue stays the single source of truth; the main agent says which parts of it and the repo matter for this stage, it does not re-narrate them. Hand over:
+
+- The issue's `## Goal`.
+- The one stage it's building, and that stage's own acceptance criteria.
+- Whatever the plan states must not change (the global invariants).
+- Shape-ticket's cited references — the module, the primitives, the consumers, the docs pages named as required reading.
+- The commits of stages already landed, so it builds on top of real code rather than re-deriving it.
+- Any shortfall still open that affects this stage.
+- The instruction to read `CLAUDE.md` and every `.claude/docs/` page whose trigger fires for this change.
+
+**What it doesn't need**: shape-ticket's discussion history, the full text of options the discussion rejected, every closed shortfall's full history, other stages' implementation detail, or any prior agent's reasoning. None of that changes what this stage has to make true, and carrying it anyway is exactly the cost this scope exists to cut.
 
 Tell it what the stage is in terms of **what must become true**, and tell it the boundary in the same breath — what this stage does *not* cover, and that anything it notices outside the stage is reported rather than fixed. An implementer given a goal and no edge will find the edge by crossing it.
 
