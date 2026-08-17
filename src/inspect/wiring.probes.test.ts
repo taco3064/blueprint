@@ -2,8 +2,12 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
+import type { NetScope } from '../emit/lint/nets';
 import type { ScanResult } from './types';
 import { expectedStructural, wiringCheck } from './wiring';
+
+/** A flat, non-modular net — every fixture in this file declares no modules. */
+const netOf = (layer: string): NetScope => ({ module: null, layer });
 
 /**
  * Four plain layers and an ignore glob. Every flow declaration the wider fixture
@@ -79,7 +83,7 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
 
   const structural = () => {
     const expected = gated.architecture.layers
-      .map((layer) => expectedStructural(gated, layer.name));
+      .map((layer) => expectedStructural(gated, netOf(layer.name)));
 
     return {
       'blueprint/relative-escape': 'error',
@@ -210,12 +214,14 @@ describe('wiringCheck · selfOnly with several importers (field issue #51)', () 
   };
 
   it('emits the ban on both importers, not just the first', () => {
-    expect(expectedStructural(twoImporters, 'views').selectors.size).toBeGreaterThan(0);
-    expect(expectedStructural(twoImporters, 'composables').selectors.size).toBeGreaterThan(0);
+    expect(expectedStructural(twoImporters, netOf('views')).selectors.size).toBeGreaterThan(0);
+
+    expect(expectedStructural(twoImporters, netOf('composables')).selectors.size)
+      .toBeGreaterThan(0);
   });
 
   it('names the importer whose ban a narrowed combined entry replaced', async () => {
-    const views = expectedStructural(twoImporters, 'views');
+    const views = expectedStructural(twoImporters, netOf('views'));
 
     const check = await wiringCheck({
       root: '/repo',
@@ -346,7 +352,7 @@ describe('wiringCheck · the shapes a surviving global ban comes back as', () =>
     // compares an object against `fetch` and reports the ban as lost — doctor
     // then reddens the one merge that is completely correct.
     const expected = blueprint.architecture.layers.map((layer) =>
-      expectedStructural(blueprint, layer.name));
+      expectedStructural(blueprint, netOf(layer.name)));
 
     const groups = new Set(expected.flatMap((e) => [...e.groups]));
     const selectors = new Set(expected.flatMap((e) => [...e.selectors]));
@@ -380,7 +386,7 @@ describe('wiringCheck · entries the reader could not make sense of', () => {
     // that is fine. The cost was silence: a hand-folded entry with a typo in it
     // looked exactly like a deliberate one, and this check reported neither.
     const expected = blueprint.architecture.layers.map((layer) =>
-      expectedStructural(blueprint, layer.name));
+      expectedStructural(blueprint, netOf(layer.name)));
 
     const groups = new Set(expected.flatMap((e) => [...e.groups]));
     const selectors = new Set(expected.flatMap((e) => [...e.selectors]));
@@ -425,7 +431,7 @@ describe('wiringCheck · entries the reader could not make sense of', () => {
     // telling you about. Only one probe's config carries the unreadable entry, so
     // the count really is 1 rather than one-per-probe.
     const expected = blueprint.architecture.layers.map((layer) =>
-      expectedStructural(blueprint, layer.name));
+      expectedStructural(blueprint, netOf(layer.name)));
 
     const groups = [...new Set(expected.flatMap((e) => [...e.groups]))];
     const selectors = new Set(expected.flatMap((e) => [...e.selectors]));
@@ -461,7 +467,7 @@ describe('wiringCheck · entries the reader could not make sense of', () => {
     // The note has to be absent, not empty: a green check with a blank detail line
     // reads as an explanation doctor failed to print.
     const expected = blueprint.architecture.layers.map((layer) =>
-      expectedStructural(blueprint, layer.name));
+      expectedStructural(blueprint, netOf(layer.name)));
 
     const check = await run(scanOf('src/views/Home/index.vue'), {
       rules: {

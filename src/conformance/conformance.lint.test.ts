@@ -411,12 +411,12 @@ describe('a merge that drops a carrier cannot pass doctor (field issue #40)', ()
     expect(doctor.output).toContain('emitted rules survive the merged eslint config (');
     expect(doctor.output).toContain('thresholds, package-ownership entries, and a merged entry');
 
-    // The reach, not just the rule families: the check resolves one path per layer, so
-    // an entry that replaces blueprint's on PART of a layer passes — the probe lands on
-    // a sibling that still carries the selectors. `pickProbes` said "sample, not a
-    // proof" in a source comment; the adopter reading the ✓ never saw it.
-    expect(doctor.output).toContain('one probe per layer');
-    expect(doctor.output).toContain('scoped to only part of a layer are not compared');
+    // The reach, not just the rule families: the check resolves one path per governed
+    // net, so an entry that replaces blueprint's on PART of one passes — the probe
+    // lands on a sibling that still carries the selectors. `pickProbes` said "sample,
+    // not a proof" in a source comment; the adopter reading the ✓ never saw it.
+    expect(doctor.output).toContain('one probe per governed net');
+    expect(doctor.output).toContain('scoped to only part of a net are not compared');
   });
 
   it('the playbook names --print-config, the step both field runs invented', async () => {

@@ -1,18 +1,24 @@
 import path from 'node:path';
 
-import { activeSetting,
-  aliasLayerRoots,
-  getForbiddenLayers,
-  getFolderShape,
-  getSelfOnlyTargets } from '../config';
+import { activeSetting } from '../config';
 import type { Blueprint } from '../config';
-// The patterns leaf, not the emit/lint index: the index also exports lint.ts,
-// whose plugin shares resolve logic with inspect, closing a module cycle.
+// The patterns / bans / nets leaves, not the emit/lint index: the index also
+// exports lint.ts, whose plugin shares resolve logic with inspect, closing a
+// module cycle. `bans.ts` is the same resolver `emitLint` itself compiles the
+// emitted patterns from — the expectations below and the real output are the
+// same function call, not two hand-rolled ones that happen to agree today.
 import {
-  buildStructuralPatterns,
-  deriveGlobalRules,
-  resolveLayerFiles,
+  barredIn,
+  netModuleSelfOnly,
+  netPatterns,
+  netSelfOnly,
+  resolveBanScope,
+} from '../emit/lint/bans';
+import { netLabel, resolveFileNets } from '../emit/lint/nets';
+import type { NetScope } from '../emit/lint/nets';
+import {
   resolveTestFiles,
+  selfOnlyModuleReexportSelector,
   selfOnlyReexportSelector,
   toArray,
 } from '../emit/lint/patterns';
@@ -24,8 +30,10 @@ import type { DoctorCheck, ScanResult } from './types';
  * Doctor's merge-survival check. Flat config never merges: a later entry
  * configuring the same rule silently REPLACES the earlier one, so lint stays green
  * while a structural ban disappears. This resolves the project's final config for
- * one real layer file and verifies the layer-boundary bans, selfOnly selectors,
- * globals and the embedded relative-escape rule. Package ownership is not verified.
+ * one real file per governed net — a layer, or (under a modular blueprint) a
+ * module's own root files, or a layer nested inside a module — and verifies the
+ * structural bans, selfOnly selectors, globals and the embedded relative-escape
+ * rule. Package ownership is not verified.
  */
 
 /**
@@ -40,14 +48,15 @@ const label = (merged: boolean): string =>
  * What a green on this check does and does NOT prove — an unqualified ✓ over a
  * half-verified merge is the false green this module exists to prevent (#40).
  *
- * It resolves ONE path per layer, so an entry that replaces blueprint's on PART of
- * a layer passes. Since #163 that partial-layer entry is the arrangement the
+ * It resolves ONE path per governed net, so an entry that replaces blueprint's on
+ * PART of a net passes. Since #163 that partial-layer entry is the arrangement the
  * playbook recommends, so the blind spot now covers the intended shape, and the
- * playbook's remedy moved with it: two probes in the affected layer, not one.
+ * playbook's remedy moved with it: two probes in the affected net, not one.
  */
-const SCOPE = 'structural bans + each active gate\'s carrier rule, one probe per layer; '
-  + 'thresholds, package-ownership entries, and a merged entry scoped to only part of '
-  + 'a layer are not compared';
+const SCOPE = 'structural bans + each active gate\'s carrier rule, one probe per governed '
+  + 'net (a layer, or under a modular blueprint a module\'s own root files, or a layer '
+  + 'nested inside a module); thresholds, package-ownership entries, and a merged entry '
+  + 'scoped to only part of a net are not compared';
 
 /**
  * Gates whose ESLint rule exists only if the caller handed `emitLint` the carrier
@@ -82,55 +91,41 @@ interface EslintApi {
 /** The tier check `emitLint` applies before emitting a rule. */
 
 /**
- * The structural artifacts emitLint emits for `layer`, in version-stable
- * form: pattern groups (glob arrays), selfOnly selectors, restricted global
- * names. Messages and severities are deliberately excluded — the installed
+ * The structural artifacts emitLint emits for `net`, in version-stable form:
+ * pattern groups (glob arrays), selfOnly selectors, restricted global names.
+ * Messages and severities are deliberately excluded — the installed
  * blueprint may be a different version than the one doctor runs from.
+ *
+ * Built from the same `bans.ts` primitives `emitLint` itself compiles from —
+ * `resolveBanScope` resolves the whole blueprint's ban facts once, and
+ * `netPatterns` / `netSelfOnly` / `netModuleSelfOnly` / `barredIn` cut one
+ * net's structural artifacts from them, layer flow AND (inside a module)
+ * module flow together. The expectation and the emitted patterns are the
+ * same function call, not two hand-rolled ones that happen to agree today
+ * (field issue #29's failure mode, one level up).
  */
 export function expectedStructural(
   blueprint: Blueprint,
-  layer: string,
+  net: NetScope,
 ): { groups: Set<string>; selectors: Set<string>; globals: Set<string> } {
-  const { architecture, rules } = blueprint;
+  const { architecture } = blueprint;
+  const scope = resolveBanScope(blueprint);
 
-  // The same offset-aware bases emitLint composes from — the expectations
-  // and the emitted patterns cannot drift (field issue #29).
-  const aliases = aliasLayerRoots(architecture)
-    .map((root) => [root.alias, ...root.prefix].join('/'));
-
-  const layouts = Object.fromEntries(
-    architecture.layers.map((entry) => [
-      entry.name,
-      getFolderShape(architecture, entry.name).layout,
-    ]),
-  );
-
-  const forbidden = getForbiddenLayers(architecture, layer);
-
-  const structural = buildStructuralPatterns({
-    layer,
-    aliases,
-    forbidden,
-    folderLayout: layouts[layer],
-    folderTargets: architecture.layers
-      .map((entry) => entry.name)
-      .filter((name) => layouts[name] === 'folder' && name !== layer && !forbidden.includes(name)),
-    fixtures: activeSetting(rules?.fixtureImports)
-      ? aliases.flatMap((alias) => [`${alias}/fixtures`, `${alias}/fixtures/**`])
-      : [],
-  });
+  const selectors = [
+    ...netSelfOnly(net, architecture).flatMap(({ path }) =>
+      scope.aliases.map((alias) => selfOnlyReexportSelector(alias, path))),
+    // A module's own bare entry IS its re-exportable spelling, so its
+    // selfOnly ban needs the selector that also matches that exact form —
+    // see `selfOnlyModuleReexportSelector`'s own doc comment.
+    ...netModuleSelfOnly(net, architecture).flatMap(({ path }) =>
+      scope.aliases.map((alias) => selfOnlyModuleReexportSelector(alias, path))),
+  ];
 
   return {
-    groups: new Set(structural.map((pattern) => JSON.stringify(pattern.group))),
-    selectors: new Set(
-      getSelfOnlyTargets(architecture, layer).flatMap((target) =>
-        aliases.map((alias) => selfOnlyReexportSelector(alias, target)),
-      ),
-    ),
+    groups: new Set(netPatterns(net, scope).map((pattern) => JSON.stringify(pattern.group))),
+    selectors: new Set(selectors),
     globals: new Set(
-      deriveGlobalRules(architecture.layers)
-        .filter((rule) => !rule.allowedIn.includes(layer))
-        .map((rule) => rule.global),
+      scope.globalRules.filter((rule) => barredIn(net, rule)).map((rule) => rule.global),
     ),
   };
 }
@@ -152,15 +147,25 @@ function syntheticPath(glob: string): string | null {
 }
 
 /**
- * One probe per layer — a single probe would green-light an entry that swallows
- * some OTHER layer's rules, the exact scoping this check exists to catch. An empty
- * layer gets a synthetic probe, since `calculateConfigForFile` resolves by pattern
- * and never touches disk. Still a sample: one path stands in for the layer.
+ * One probe per governed net — `resolveFileNets`, the same resolver `emitLint`
+ * itself compiles the config from. Flat, that is unchanged: one net per layer.
+ * Modular, it is one net per module's own root files plus one per layer nested
+ * inside each module — the exact groups `emitLint` governs, so a merge that
+ * silently drops a module-scoped ban has somewhere to be caught; iterating
+ * `architecture.layers` alone (as this used to) builds probes like
+ * `resolveLayerFiles('hooks', ...)`, which no real file under a module ever
+ * matches (`src/Combat/hooks/**`), so a modular repo's module-axis bans went
+ * unprobed entirely.
+ *
+ * A single probe would green-light an entry that swallows some OTHER net's
+ * rules, the exact scoping this check exists to catch. An empty net gets a
+ * synthetic probe, since `calculateConfigForFile` resolves by pattern and
+ * never touches disk. Still a sample: one path stands in for the whole net.
  */
 function pickProbes(
   scanResult: ScanResult,
   blueprint: Blueprint,
-): { path: string; layer: string }[] {
+): { path: string; net: NetScope }[] {
   const { architecture, framework } = blueprint;
   const ignores = toArray(architecture.layerFilesIgnore).map(globToRegExp);
   const tests = resolveTestFiles(architecture.testFiles).map(globToRegExp);
@@ -169,20 +174,18 @@ function pickProbes(
     (file) => !ignores.some((ignore) => ignore.test(file.path)),
   );
 
-  return architecture.layers.flatMap((layer) => {
-    const globs = resolveLayerFiles(layer.name, framework, architecture);
-
-    const nets = globs.map(globToRegExp);
-    const hit = source.find((file) => nets.some((net) => net.test(file.path)));
+  return resolveFileNets(architecture, framework).flatMap((net) => {
+    const globs = net.files.map(globToRegExp);
+    const hit = source.find((file) => globs.some((glob) => glob.test(file.path)));
 
     if (hit) {
-      return [{ path: hit.path, layer: layer.name }];
+      return [{ path: hit.path, net }];
     }
 
     // The synthetic candidate must sit exactly where a real file would:
     // inside the net, outside the ignores, and never shaped like a test
     // file (the emitted entries exempt those, so expectations would lie).
-    const synthetic = globs
+    const synthetic = net.files
       .map(syntheticPath)
       .find(
         (candidate): candidate is string =>
@@ -191,7 +194,7 @@ function pickProbes(
           && !tests.some((test) => test.test(candidate)),
       );
 
-    return synthetic ? [{ path: synthetic, layer: layer.name }] : [];
+    return synthetic ? [{ path: synthetic, net }] : [];
   });
 }
 
@@ -420,8 +423,10 @@ async function surveyProbes(
 
     unreadable += resolved.unreadable;
 
-    lost.push(...losses(expectedStructural(blueprint, probe.layer), resolved)
-      .map((loss) => `${probe.layer}: ${loss}`));
+    const label = netLabel(probe.net);
+
+    lost.push(...losses(expectedStructural(blueprint, probe.net), resolved)
+      .map((loss) => `${label}: ${loss}`));
 
     // A gate declared in blueprint.config.mjs whose rule is absent from the
     // resolved config means the merge dropped its carrier — the silent
@@ -432,7 +437,7 @@ async function surveyProbes(
         .filter((entry) => activeOptions(rules[entry.rule]) === null)
         .map(
           (entry) =>
-            `${probe.layer}: rules.${entry.gate} is on but ${entry.rule} resolved to nothing `
+            `${label}: rules.${entry.gate} is on but ${entry.rule} resolved to nothing `
             + `— emitLint's \`${entry.carrier}\` argument is missing from the merged entry`,
         ),
     );

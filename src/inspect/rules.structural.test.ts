@@ -64,6 +64,9 @@ describe('runRules · the per-layer ban rows', () => {
     // ownership ban applies to it.
     expect(bans.find((entry) => entry.layer === 'components')).toEqual({
       layer: 'components',
+      // No `architecture.modules` on this fixture — every row is a flat, bare
+      // layer, exactly as before this fix (the module axis stays null).
+      module: null,
       forbidden: [],
       packages: ['react (useContext)', 'axios'],
       // Beside the column it is about, not once at the top: the playbook sends a

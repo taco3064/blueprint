@@ -1,8 +1,8 @@
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
-// Import from the patterns / gates leaves, not the emit/lint index — the index
-// also exports lint.ts, which loads the plugin, which shares resolve logic
-// with inspect; routing through the index would close a module cycle.
+// Import from the patterns / gates / bans / nets leaves, not the emit/lint index —
+// the index also exports lint.ts, which loads the plugin, which shares resolve
+// logic with inspect; routing through the index would close a module cycle.
 import {
   DOC_ONLY_RULES,
   METRIC_GATES,
@@ -10,19 +10,31 @@ import {
   unavailableGate,
 } from '../emit/lint/gates';
 import type { GateSpec } from '../emit/lint/gates';
+// `bans.ts` is the same resolver `emitLint` itself compiles the emitted
+// patterns from — `resolveBanScope` derives `packageRules` / `globalRules`
+// from layers AND modules together exactly once, and `barredIn` is the same
+// ownership check a net's real rules are filtered by, so the catalog and the
+// emitted config can never independently drift about who owns what.
 import {
-  deriveGlobalRules,
-  derivePackageRules,
-  selfOnlyReexportSelector,
+  barredIn,
+  netModuleSelfOnly,
+  netSelfOnly,
+  resolveBanScope,
+} from '../emit/lint/bans';
+import { netLabel, resolveFileNets } from '../emit/lint/nets';
+import type { NetScope } from '../emit/lint/nets';
+import {
   resolveTestFiles,
+  selfOnlyModuleReexportSelector,
+  selfOnlyReexportSelector,
 } from '../emit/lint/patterns';
 import {
-  aliasLayerRoots,
   getForbiddenLayers,
   getForbiddenModules,
   getModules,
-  getSelfOnlyTargets,
-  normalizeAllowedImporters, readSetting,
+  normalizeAllowedImporters,
+  normalizeModuleAllowedImporters,
+  readSetting,
 } from '../config';
 import type { Blueprint } from '../config';
 
@@ -51,14 +63,41 @@ export interface StructuralRule {
 }
 
 /**
- * One layer's resolved bans — what the structural rules actually enforce
- * there. Field agents answered "is the rule really wired?" by parsing
+ * One governed file group's resolved bans — what the structural rules actually
+ * enforce there. Field agents answered "is the rule really wired?" by parsing
  * `eslint --print-config` output by hand (issue #7); this is that view,
  * derived from the same primitives emitLint compiles from.
+ *
+ * One row per NET, which under the flat structure is one row per layer and
+ * nothing has moved. `layer` + `module` together are `NetScope`, deliberately:
+ * this view answers what a group of files may do, and that is the unit emitLint
+ * writes an entry for.
  */
 export interface LayerBans {
-  layer: string;
-  /** Layers this one must not import. */
+  /**
+   * The layer these files sit in, or null when the group belongs to no layer:
+   * a module's own root files, or a `layers: false` module holding its files
+   * directly. Null is not "unknown" — those groups carry real bans (the
+   * same-module root restriction, and any package/global their module does not
+   * own), and omitting them reported a `layers: false` module in no section of
+   * this catalog at all.
+   */
+  layer: string | null;
+  /**
+   * The feature module this row's files sit in, or null under the flat
+   * structure. A shared layer nested inside more than one module (every
+   * `layers !== false` module reuses the same declared layer set) gets one
+   * row per module rather than one merged row — package/global ownership can
+   * cascade differently per module, and a single bare-name row could not show
+   * "not banned inside the owning module" and "still banned in a different
+   * one" at the same time.
+   */
+  module: string | null;
+  /**
+   * Layers this one must not import. Empty for a no-layer group: it sits at no
+   * layer, so it has no layer-flow edge to violate — what constrains it is the
+   * module axis (`ModuleBans`) and the same-module root restriction.
+   */
   forbidden: string[];
   /** Owned packages banned here (named imports in parentheses). */
   packages: string[];
@@ -70,8 +109,19 @@ export interface LayerBans {
   /** Owned globals banned here. */
   globals: string[];
   /**
-   * The selfOnly re-export bans on this layer's files — the exact
-   * `no-restricted-syntax` selector per (target, alias).
+   * The selfOnly re-export bans on this group's files — the exact
+   * `no-restricted-syntax` selector per (target, alias), for BOTH axes: a layer
+   * this group's layer may depend on but not re-export, and a module its module
+   * may depend on but not re-export.
+   *
+   * Per net, not per bare layer name, and that is load-bearing rather than tidy:
+   * inside a module the target sits one segment deeper, so the layer selector is
+   * anchored on `alias/Module/target` — a bare `alias/target` pasted into a
+   * modular repo's config matches no file it was meant to guard and silently
+   * protects nothing. The module-axis targets need the OTHER builder again
+   * ({@link selfOnlyModuleReexportSelector}), which also matches the module's
+   * bare entry spelling. Both come from `emit/lint/bans.ts`, the same functions
+   * `emitLint` emits from and `doctor` compares against.
    *
    * `selectors` is what ESLint resolves and doctor compares; it is a trap to paste,
    * because the `/` escapes resolve when JS parses the string literal and the regex
@@ -91,15 +141,18 @@ export interface LayerBans {
 }
 
 /**
- * One declared module's resolved bans — the module-axis twin of `LayerBans`,
+ * One declared module's resolved flow bans — the module-axis twin of `LayerBans`,
  * from the same primitive `emitLint` reads (`getForbiddenModules`). Empty under
  * the flat structure: no `architecture.modules`, nothing to report here.
  *
- * Narrower than `LayerBans` on purpose: `packages` / `globals` / `selfOnly` stay
- * on the layer view above, which already carries the module-owned cascade (a
- * module's `owns` reaches every layer nested inside it) — a second axis, keyed
- * by bare module name, could not repeat that per-net nuance without becoming the
- * net-scoped catalog this column intentionally is not.
+ * The two views split by what varies, not by axis. `LayerBans` is the net-scoped
+ * catalog — one row per governed group — because its columns genuinely differ
+ * between nets: the ownership cascade answers differently for a layer inside the
+ * owning module than for the same layer inside a sibling, and a selfOnly selector
+ * is anchored on the module whose files it guards. A module's flow bans do not
+ * vary that way: every net inside `Combat` carries the identical "may not import
+ * Shell", so stating it per net would be one fact restated N times. This column
+ * answers it once, keyed by bare module name.
  */
 export interface ModuleBans {
   module: string;
@@ -199,23 +252,41 @@ export interface StructuralStatus extends StructuralRule {
  * Whether each structural rule would appear in the emitted config (issue #14).
  * Mirrors emitLint's conditions from the same primitives — this module must not
  * import lint.ts — so a test pins the mirror to emitLint's real output.
+ *
+ * `no-restricted-syntax` and `no-restricted-globals` used to read `architecture.layers`
+ * alone: a selfOnly importer or an owned global declared only on a MODULE (stage 2's
+ * own cascade) never flipped either flag, so `rules --json` reported `active: false`
+ * for a rule `emitLint` was already emitting — the exact "consumers and the emitter
+ * disagree" gap stage 3 promised to close. Both now read the combined layer+module
+ * facts `resolveBanScope` already resolves for the emitted config itself.
  */
 function resolveStructural(blueprint: Blueprint | null): StructuralStatus[] {
   if (!blueprint) {
     return STRUCTURAL_RULES.map((rule) => ({ ...rule, active: null }));
   }
 
-  const { layers } = blueprint.architecture;
-  const globalRules = deriveGlobalRules(layers);
+  const { architecture, framework } = blueprint;
+  const modules = getModules(architecture);
+  const scope = resolveBanScope(blueprint);
+  const nets = resolveFileNets(architecture, framework);
+
+  const layerSelfOnly = architecture.layers.some((layer) =>
+    normalizeAllowedImporters(layer.allowedImporters)
+      .some((importer) => importer.selfOnly === true));
+
+  const moduleSelfOnly = modules.some((module) =>
+    normalizeModuleAllowedImporters(module.allowedImporters)
+      .some((importer) => importer.selfOnly === true));
 
   const active: Record<string, boolean> = {
     'no-restricted-imports': true,
     'blueprint/relative-escape': true,
-    'no-restricted-syntax': layers.some((layer) =>
-      normalizeAllowedImporters(layer.allowedImporters)
-        .some((importer) => importer.selfOnly === true)),
-    'no-restricted-globals': layers.some((layer) =>
-      globalRules.some((rule) => !rule.allowedIn.includes(layer.name))),
+    'no-restricted-syntax': layerSelfOnly || moduleSelfOnly,
+    // Active where SOME net is barred from SOME owned global — an owner
+    // whose cascade reaches every net (a layer, or a module covering every
+    // layer nested inside it) leaves nothing left to restrict.
+    'no-restricted-globals': scope.globalRules.some((rule) =>
+      nets.some((net) => barredIn(net, rule))),
   };
 
   return STRUCTURAL_RULES.map((rule) => ({ ...rule, active: active[rule.rule] }));
@@ -235,45 +306,78 @@ function gateSpecs(): GateSpec[] {
   ];
 }
 
-/** Every layer's resolved bans, from the same primitives emitLint uses. */
+/**
+ * Every declared layer's resolved bans, from the same primitives emitLint uses —
+ * one row per NET rather than one per bare layer name: flat, that is unchanged
+ * (one row per layer, `module: null`); modular, a shared layer nested inside
+ * several modules gets one row per module, because `barredIn` can answer
+ * differently for each — a module that owns a package cascades it to every
+ * layer nested inside it, and a sibling module that does not own it still
+ * bars the very same bare layer name. `packageRules` / `globalRules` come
+ * from `resolveBanScope`, derived from layers AND modules together exactly
+ * once — the same facts `emitLint` filters each net's rules from.
+ */
 function layerBans(blueprint: Blueprint): LayerBans[] {
-  const { architecture } = blueprint;
+  const { architecture, framework } = blueprint;
+  const scope = resolveBanScope(blueprint);
+  const { packageRules, globalRules } = scope;
 
-  const aliases = aliasLayerRoots(architecture)
-    .map((root) => [root.alias, ...root.prefix].join('/'));
-
-  const packageRules = derivePackageRules(architecture.layers);
-  const globalRules = deriveGlobalRules(architecture.layers);
-
-  return architecture.layers.map((layer) => {
+  return resolveFileNets(architecture, framework).map((net) => {
     const packages = packageRules
-      .filter((rule) => !rule.allowedIn.includes(layer.name))
+      .filter((rule) => barredIn(net, rule))
       .map((rule) => (rule.imports?.length ? `${rule.package} (${rule.imports.join(', ')})` : rule.package));
 
     return {
-      layer: layer.name,
-      forbidden: getForbiddenLayers(architecture, layer.name),
+      layer: net.layer,
+      module: net.module,
+      // A no-layer group sits at no layer, so it has no layer-flow edge —
+      // exactly what `moduleLayerScope` gives it (`forbidden: []`).
+      forbidden: net.layer === null ? [] : getForbiddenLayers(architecture, net.layer),
       packages,
       ...(packages.length ? { packagesNote: PACKAGES_NOT_COMPARED.join(' ') } : {}),
       globals: globalRules
-        .filter((rule) => !rule.allowedIn.includes(layer.name))
+        .filter((rule) => barredIn(net, rule))
         .map((rule) => rule.global),
-      selfOnly: getSelfOnlyTargets(architecture, layer.name).map((target) => {
-        const selectors = aliases.map((alias) => selfOnlyReexportSelector(alias, target));
-
-        return {
-          target,
-          selectors,
-          // JSON's string escaping IS JavaScript's here, so stringify is the paste
-          // form rather than a hand-rolled doubling of backslashes — and it brings
-          // the quotes, which is what makes it obvious it is source, not a value.
-          jsLiteral: selectors.map((selector) => JSON.stringify(selector)),
-          note: SELF_ONLY_MESSAGE_NOTE,
-        };
-      }),
+      selfOnly: netSelfOnlyBans(net, scope),
       testExemptions: resolveTestFiles(architecture.testFiles),
     };
   });
+}
+
+/**
+ * One net's selfOnly re-export bans, both axes, in the exact spelling `emitLint`
+ * emits — `netSelfOnly` carries the module-prefixed path a layer target is really
+ * reached at, and `netModuleSelfOnly` the module targets, which need the selector
+ * that also matches a module's bare entry. Deriving either by hand from the bare
+ * layer name is how this column came to print a selector no modular repo has a
+ * file for.
+ */
+function netSelfOnlyBans(
+  net: NetScope,
+  scope: ReturnType<typeof resolveBanScope>,
+): LayerBans['selfOnly'] {
+  const { architecture, aliases } = scope;
+
+  const entries = [
+    ...netSelfOnly(net, architecture).map(({ target, path }) => ({
+      target,
+      selectors: aliases.map((alias) => selfOnlyReexportSelector(alias, path)),
+    })),
+    ...netModuleSelfOnly(net, architecture).map(({ target, path }) => ({
+      target,
+      selectors: aliases.map((alias) => selfOnlyModuleReexportSelector(alias, path)),
+    })),
+  ];
+
+  return entries.map(({ target, selectors }) => ({
+    target,
+    selectors,
+    // JSON's string escaping IS JavaScript's here, so stringify is the paste
+    // form rather than a hand-rolled doubling of backslashes — and it brings
+    // the quotes, which is what makes it obvious it is source, not a value.
+    jsLiteral: selectors.map((selector) => JSON.stringify(selector)),
+    note: SELF_ONLY_MESSAGE_NOTE,
+  }));
 }
 
 /**
@@ -446,13 +550,33 @@ export function renderRules(
           'and it compares TEXTUALLY: a pattern group reordered or a selector respelled to',
           'an equivalent (`\\/` for `/`) reads as missing even though eslint would still',
           'enforce it. Copy, do not retype.',
+          // What a bare-module row IS — said here rather than crammed into the label,
+          // because the two shapes that produce one are not distinguishable from the
+          // row itself and a label claiming "root" would be wrong for the second.
+          // Only on a modular blueprint: under the flat structure no such row exists,
+          // and a paragraph about a row shape nobody has is noise (the same criterion
+          // the `packages` caveat below is gated on).
+          ...(bans.some((ban) => ban.layer === null)
+            ? [
+                'A row keyed by a bare module name is that module\'s own file group — its root',
+                'files when the module nests the shared layers, the whole module when it',
+                'declares `layers: false`. Its `no-import` is always (none): it sits at no',
+                'layer, so what constrains it is the module axis below plus the same-module',
+                'rule that its own files be reached relatively, never through the alias.',
+              ]
+            : []),
           // Only where the column has something in it, same as `--json`. An all-`(none)`
           // column then goes unclassified by the prose, which is the decision: the
           // criterion is whether anything needs verifying, not whether every printed
           // column gets named.
           ...(bans.some((ban) => ban.packages.length) ? PACKAGES_NOT_COMPARED : []),
           ...bans.flatMap((entry) => [
-            `  ${entry.layer.padEnd(14)} no-import: ${entry.forbidden.join(', ') || '(none)'}`
+            // Module-qualified once nested, through the same `netLabel` doctor names a
+            // lost net by: the same bare layer name can carry a different cascade per
+            // module, and an unqualified row would silently pick one and hide the
+            // other (see `LayerBans.module`'s own doc comment). Two spellings of one
+            // net's name is a bridge the reader doctor sent here has to build.
+            `  ${netLabel(entry).padEnd(14)} no-import: ${entry.forbidden.join(', ') || '(none)'}`
             + ` · packages: ${entry.packages.join(', ') || '(none)'}`
             + ` · globals: ${entry.globals.join(', ') || '(none)'}`,
             // The exact strings a merge fold needs, so "combine into ONE entry" is
@@ -486,9 +610,13 @@ export function renderRules(
       ? [
           '',
           'Per-module bans — the module-axis flow this blueprint declares, from the same',
-          'primitive the per-layer bans above read (`getForbiddenModules`). NOT compared',
-          'by doctor\'s survival check — that check is layer-scoped only; verify with',
-          '`npx eslint --print-config <a file at the module\'s own root>`.',
+          'primitive the per-layer bans above read (`getForbiddenModules`). Doctor\'s survival',
+          'check DOES compare these: it probes one file per governed net, and every net inside',
+          'a module carries that module\'s flow bans, so a merge that drops one turns red there',
+          'under the net\'s own name. Its remaining blind spot on this axis is narrower — the',
+          'same-module rule\'s bare-entry half (`~app/<module>` itself, emitted as an exact',
+          '`paths` entry, and the check reads `patterns` only). That half is what',
+          '`npx eslint --print-config <a file at the module\'s own root>` is still for.',
           ...modules.map((entry) =>
             `  ${entry.module.padEnd(14)} no-import: ${entry.forbidden.join(', ') || '(none)'}`),
         ]

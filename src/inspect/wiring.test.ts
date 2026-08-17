@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
+import type { NetScope } from '../emit/lint/nets';
 import type { ScanResult } from './types';
 import { expectedStructural, wiringCheck } from './wiring';
+
+/** A flat, non-modular net — every fixture in this file declares no modules. */
+const netOf = (layer: string): NetScope => ({ module: null, layer });
 
 const blueprint: Blueprint = {
   framework: 'vue',
@@ -81,7 +85,7 @@ describe('expectedStructural · the shape two prose sites describe', () => {
     // Adding a key here means doctor started comparing something new: update `SCOPE`,
     // update `PACKAGES_NOT_COMPARED` and the `rules` block that prints it, then this
     // list. Removing one means it stopped. Either way both texts move with it.
-    expect(Object.keys(expectedStructural(blueprint, 'views')))
+    expect(Object.keys(expectedStructural(blueprint, netOf('views'))))
       .toEqual(['groups', 'selectors', 'globals']);
   });
 });
@@ -91,7 +95,7 @@ describe('wiringCheck · a merge that kept every artifact', () => {
     // Two layers hold files, two probe synthetically — four probes against
     // one merged config, so it must carry the union of every expectation.
     const expected = blueprint.architecture.layers.map((layer) =>
-      expectedStructural(blueprint, layer.name));
+      expectedStructural(blueprint, netOf(layer.name)));
 
     const groups = new Set(expected.flatMap((e) => [...e.groups]));
     const selectors = new Set(expected.flatMap((e) => [...e.selectors]));
@@ -130,17 +134,17 @@ describe('wiringCheck · a merge that kept every artifact', () => {
     expect(check.label).toContain('emitted rules survive the merged eslint config');
     expect(check.label).toContain('thresholds, package-ownership entries, and a merged entry');
 
-    // …including its reach. One probe per layer, so a merged entry covering part of a
-    // layer passes on a sibling path — stated where the ✓ is read, not only in the
+    // …including its reach. One probe per governed net, so a merged entry covering part
+    // of one passes on a sibling path — stated where the ✓ is read, not only in the
     // comment on `pickProbes`.
-    expect(check.label).toContain('one probe per layer');
-    expect(check.label).toContain('scoped to only part of a layer are not compared');
+    expect(check.label).toContain('one probe per governed net');
+    expect(check.label).toContain('scoped to only part of a net are not compared');
   });
 });
 
 describe('wiringCheck · the losses it names', () => {
   it('probes every layer — a scoped override cannot hide behind the first one', async () => {
-    const views = expectedStructural(blueprint, 'views');
+    const views = expectedStructural(blueprint, netOf('views'));
 
     const survived = {
       rules: {
@@ -320,7 +324,7 @@ describe('wiringCheck · layers with no file to probe', () => {
 
     // And an intact merge verifies green — the union of every layer's needs.
     const layers = ['views', 'contexts', 'stores', 'services'];
-    const expected = layers.map((layer) => expectedStructural(blueprint, layer));
+    const expected = layers.map((layer) => expectedStructural(blueprint, netOf(layer)));
 
     const survived = await run(scanOf(), {
       rules: {
@@ -404,7 +408,8 @@ describe('wiringCheck · layers with no file to probe', () => {
 describe('expectedStructural', () => {
   it('mirrors emitLint tier handling for the fixtures ban', () => {
     const hasFixtures = (bp: Blueprint) =>
-      [...expectedStructural(bp, 'views').groups].some((group) => group.includes('fixtures'));
+      [...expectedStructural(bp, netOf('views')).groups]
+        .some((group) => group.includes('fixtures'));
 
     expect(hasFixtures({ ...blueprint, rules: { fixtureImports: { tier: 'warn' } } })).toBe(true);
     expect(hasFixtures({ ...blueprint, rules: { fixtureImports: { tier: 'off' } } })).toBe(false);
@@ -412,7 +417,7 @@ describe('expectedStructural', () => {
   });
 
   it('is version-stable: groups and selectors, no messages or severities', () => {
-    const expected = expectedStructural(blueprint, 'views');
+    const expected = expectedStructural(blueprint, netOf('views'));
 
     // Same-layer ban across both aliases, redundant-segment ban, fixtures ban.
     expect([...expected.groups].some((g) => g.includes('~app/views/**'))).toBe(true);
@@ -427,7 +432,7 @@ describe('expectedStructural', () => {
 describe('expectedStructural · deep-import targets', () => {
   // The deep-import ban's glob list — the folder-target list made visible.
   const deepImportGlobs = (bp: Blueprint, layer: string): string[] | undefined =>
-    [...expectedStructural(bp, layer).groups]
+    [...expectedStructural(bp, netOf(layer)).groups]
       .map((group) => JSON.parse(group) as string[])
       .find((group) => group.some((glob) => glob.endsWith('/*/**')));
 

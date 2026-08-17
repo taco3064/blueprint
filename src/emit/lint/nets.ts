@@ -30,6 +30,32 @@ export interface FileNet extends NetScope {
   files: string[];
 }
 
+/**
+ * How one net is named to a reader: the bare layer name under the flat
+ * structure, `module/layer` for a layer nested inside a module, and the bare
+ * module name for a net that has no layer — a module's own root files, or a
+ * `layers: false` module's single group.
+ *
+ * One function rather than one per consumer, because a reader crosses between
+ * them: `doctor` names the net it lost a ban from, and its own failure message
+ * sends them to `blueprint rules --json` for the exact text to restore. Two
+ * spellings of one net's name is a bridge that reader has to build themselves.
+ *
+ * A no-layer net is deliberately named by the module alone, not decorated as
+ * "root": the two shapes that reach it — a layered module's root files, and a
+ * `layers: false` module's whole subtree — are not distinguishable from a
+ * `NetScope`, and a label that claimed "root" would be wrong for the second.
+ * Which of the two it is belongs to prose beside the table, where it can be
+ * said precisely.
+ */
+export function netLabel(net: NetScope): string {
+  if (net.module === null) {
+    return net.layer as string;
+  }
+
+  return net.layer === null ? net.module : `${net.module}/${net.layer}`;
+}
+
 /** The facts a blueprint's nets are cut from, resolved once for the whole config. */
 interface GlobScope extends FileScope {
   layers: LayerDef[];
