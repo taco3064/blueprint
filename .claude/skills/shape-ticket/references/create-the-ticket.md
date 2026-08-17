@@ -19,7 +19,7 @@ This repo's issue titles state the outcome or a directive with its reason, in pl
 
 ## Body
 
-Three sections are required. Everything else is supporting material around them.
+Three sections are required. Everything else is supporting material around them. **In the issue itself these are top-level headings — `## Goal`, `## Implementation Plan`, `## Acceptance Criteria` — the same register #364 and every other issue in this repo use for their own top-level sections.** The `###` below is this reference file's own organization for presenting the guidance one part at a time; it is not an instruction to nest the issue's sections under a literal "Body" heading, which the issue never has. Each optional item under *Auxiliary content* likewise becomes its own `##` section when it's included, the way #364 has its own `## Out of scope`.
 
 ### Goal
 

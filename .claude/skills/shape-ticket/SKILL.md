@@ -39,6 +39,8 @@ The opposite failure is just as real, and it's the one deliver-ticket's own "you
 
 deliver-ticket reads the ticket number, not a summary of this conversation — that's stated in its own SKILL.md, and it means whatever you leave implicit here does not survive the handoff. An implementer with a goal and no edge finds the edge by crossing it; a plan with an unstated assumption gets a different assumption substituted at build time; an acceptance criterion that doesn't name a command gets satisfied by whatever the builder believes is close enough. **Ambiguity you don't resolve here is not deferred — it is reassigned to someone with less context than you have right now.**
 
+**It's also a stricter gate than a briefing.** deliver-ticket's own `start-or-resume.md` refuses to start work on any issue that doesn't carry `## Goal`, `## Implementation Plan`, and `## Acceptance Criteria` as literal, populated headings — the exact three `create-the-ticket.md` requires below, checked structurally rather than re-argued. An issue this skill files is deliver-ticket's only accepted entry point, not merely its preferred one; getting the shape right here is what lets the other skill trust it without re-deriving it.
+
 That is why the completion bar below is strict, and why it's checked before the draft is shown, not after:
 
 - The goal has no open product decision left in it.
