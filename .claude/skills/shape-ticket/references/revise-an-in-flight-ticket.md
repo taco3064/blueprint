@@ -32,14 +32,39 @@ it):**
   path instead: a correction that quietly asks a landed stage to be redone
   is the scope change this exception does not cover.
 
+**And a third case isn't either path, because it isn't a ticket problem at
+all: the plan and acceptance criteria are fine, and a sub-agent's actual
+output just doesn't meet them.** That's a shortfall, `deliver-ticket`'s own
+mechanism (`SKILL.md`'s *Shortfalls close where they were found*) — commented,
+dispatched, closed in a later commit, no issue edit and no shape-ticket
+invocation at all. The tell: does reading the *plan* find the gap, or does
+reading the *diff against a plan that's already correct* find it? Only the
+first is this file's business — misrouting the second here would turn every
+ordinary code-review finding into a ticket revision, which is its own way of
+eroding trust in what a revision means.
+
 ## How to revise
 
 - **Edit the issue body in place** (`gh issue edit --body-file`). Never file
   a second issue for the same goal — that is exactly the duplicate
   `inspect-the-repo.md`'s search exists to prevent, arrived at from the
   other direction.
-- **One comment per revision pass, posted immediately after the edit**,
-  recording what changed and why. Split it the same way
+- **One comment per revision pass, posted immediately after the edit, and
+  the edit's own before/after text is quoted in it — not summarized.** The
+  issue body is overwritten each pass, so the comment is the only place the
+  prior wording survives; "tightened AC1's baseline" is a claim nobody can
+  check six passes later, while the literal old sentence and the literal new
+  one, side by side, are. Every revision comment carries, at minimum:
+  - the exact prior text of what changed, quoted;
+  - the exact new text, quoted;
+  - which stage(s) or acceptance criteria it touches;
+  - which already-landed stage(s) it leaves valid, and why (this is what
+    makes the next bullet's "judged by the criteria that stood at the time"
+    actually reconstructable later, instead of a claim resting on nothing);
+  - whether the finding was executed-and-observed or read-and-inferred (see
+    below).
+
+  Beyond that floor, split the reasoning the same way
   `create-the-ticket.md`'s independent feasibility check already splits
   findings: a **technical fix** (a stale symbol, a missing consumer, a
   citation that named the wrong file) is stated as a correction; a
@@ -62,10 +87,16 @@ it):**
   (byte-identical against the post-stage-1 baseline, not the original). A
   single bar that only ever passed by accident is not a bar; state the tier
   it actually belongs to.
-- **State what's landed and what's pending, updated, near the top of the
-  revision** — a reader picking the ticket up mid-flight should not have to
-  reconstruct execution state from a stage table meant to describe the
-  target shape, not the current one.
+- **Say what's landed as of this revision, in the comment — never as a
+  maintained section of the issue body.** A "here's what's done" line in the
+  body is correct for exactly as long as nothing lands before someone reads
+  it, and nothing in this flow updates it when a stage does — `deliver-ticket`
+  already reconstructs current state from commits and comments, per its own
+  `start-or-resume.md`, and a second, unmaintained status living in the body
+  is a second source of truth that goes stale first and is trusted anyway
+  because it's the one at the top. Say it as a fact about this moment
+  instead — "as of this revision, stages 1–3 have landed" — which stays true
+  forever precisely because it never claims to be current.
 - **Label a revision's own evidence the same way `inspect-the-repo.md`
   labels everything else**: executed-and-observed (ran it, traced the real
   function, read the actual committed diff) or read-and-inferred (reasoned
