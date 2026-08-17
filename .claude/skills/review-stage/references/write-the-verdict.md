@@ -19,13 +19,15 @@ The dispatcher now hands over the implementer's report and its commit message, v
 
 **Where pass two and pass one disagree, pass one wins and the disagreement is the finding.** You built that account from the authority sources and the code; the report is rank five.
 
+**Part two may also carry a previous reviewer's findings**, when the session holding your predecessor ended and you were dispatched in its place. Nothing changes: it arrives in part two precisely because it is somebody else's conclusion, it is audited with the same six buckets, and **a predecessor's finding is re-verified by re-running its reproduction, never by trusting that it once held.** The round count arrives with it and continues — a new reviewer is not a new budget.
+
 ## The report
 
 Exactly this shape. The dispatcher reads it as input to a binary decision, so the fields it acts on come first:
 
 ```
 Verdict: PASS | BLOCKED
-Reviewed: base <sha> + staged diff <hash>, worktree <path>
+Reviewed: base <sha>, code hash <hash>, requirement hash <hash>, worktree <path>
 Stage: <the stage as the packet named it>
 Authority checked: <which of ranks 1–4 you read, and what each one said this stage owes>
 

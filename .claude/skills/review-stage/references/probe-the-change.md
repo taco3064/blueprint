@@ -1,4 +1,4 @@
-# The seven probes
+# The eight probes
 
 **Trigger:** your own account of the change holds and it is time to decide what to run.
 
@@ -100,3 +100,20 @@ expect(inspectResult).toBe(true);
 Check it where the answer actually lives: `package.json`, `rolldown.config.ts`, the `external` list, the `files` array, the `exports` map, `npm run dist:verify`, and whatever `README.md` and `docs/` publicly promise.
 
 **The measured case:** during #371, *"adding a matcher would break zero runtime dependencies"* was offered as a reason not to align. `package.json` has no `dependencies` at all, and `rolldown.config.ts` marks only `node:` builtins external — so a non-external dependency is **bundled into `dist`** and never appears in an adopter's install tree. The premise was false, and the design decision resting on it therefore had no support. **"Sounds plausible for a build system" is not a finding either way; read the build.**
+
+## 8. Walk the state transitions, and the interruption points between them
+
+**Triggered by: any change to a skill, a workflow, a CLI sequence, a GitHub operation, or anything else executed in more than one step.** The other seven probes read code and output. This one reads **a process**, and a process fails in a way none of them can see: correctly at every step, and unrecoverably between two of them.
+
+For every state the change defines, answer:
+
+- **How is this state identified** from the outside, by somebody arriving with no memory of how it was reached?
+- **What is the next legal action** from here, and is exactly one of them legal?
+- **What evidence is already durable** at this point, and what exists only in the running session's context?
+- **Is a re-run safe** — idempotent, or does it duplicate work, or double-spend a budget?
+- **What is lost if the process dies right here** — a verdict, a round already consumed, work not yet written down, a decision nobody can reconstruct?
+- **Can a gate be skipped** by arriving at a later state directly?
+
+**Then simulate an interruption at each boundary rather than reasoning about them in general.** For this repo's own delivery loop that is: after the fixer and before staging; after staging and before the review; part one done and part two unsent; BLOCKED and no fix yet; fix done and re-review not run; PASS and no commit; committed and not pushed; pushed and no comment. **Both review rounds of #373 found their defects this way and nothing else found them** — the rules read correctly forwards, and the evidence chain broke backwards.
+
+**A documented command also has to be executable as written**, which is the same class of defect one level down. #373's first attempt said *"run the commit gate's fixer before you stage"* — conceptually right, and `lint-staged` runs **on staged files**, so no reading of that instruction executes. Check, for each command a process document names: its required precondition, what it actually reads, whether it mutates the worktree, the index or nothing, what it leaves behind on failure, and **whether the documented order can be performed in that order at all.**

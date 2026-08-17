@@ -16,7 +16,7 @@ That sentence is the whole job. You own **one verdict on one stage's change, del
 | Reference | Trigger |
 |---|---|
 | [`rebuild-the-picture.md`](./references/rebuild-the-picture.md) | The Review Packet has arrived and you have not run anything yet. Pass one — what you read, in what order, the five questions you answer yourself, and what a packet that cannot be reviewed looks like. |
-| [`probe-the-change.md`](./references/probe-the-change.md) | Your own picture holds and it is time to decide what to run. The seven probe classes, which of them this change triggers, and what each has already caught in this repo. |
+| [`probe-the-change.md`](./references/probe-the-change.md) | Your own picture holds and it is time to decide what to run. The eight probe classes, which of them this change triggers, and what each has already caught in this repo. |
 | [`write-the-verdict.md`](./references/write-the-verdict.md) | Pass one is written and the implementer's claims have arrived, or a fixed tree has come back for a second look. The claim audit, the report's shape, the three severities, and what a re-review re-runs before anything else. |
 
 **One other caller borrows this page.** deliver-ticket's completion test spawns readers over the *assembled ticket* rather than one stage (`finish-the-ticket.md`, step 5). They take the authority order, the finding format and the probe classes; they do not gate a commit, because by then every commit has landed, and a finding there becomes a shortfall on the ticket instead of a BLOCKED on a stage. Everything else here applies unchanged — read "the stage" as "the ticket".

@@ -14,6 +14,7 @@ The dispatcher extracts these verbatim — they are the authority sources, ranks
 - **Whatever the plan states must not change** — the global invariants.
 - **The citations the issue named**: the module, the primitives, the consumers, the docs pages it made required reading.
 - **The base**: the branch's `HEAD` SHA, the worktree path, and the fact that the change under review is *staged and uncommitted* there.
+- **Two hashes**: the **code hash** of the staged diff, and the **requirement hash** of the authority text above. Both are re-checked when your report lands, and either one having moved discards the verdict — the second one because **code that has not changed does not mean the requirement it must satisfy has not changed**, and a PASS earned against a criterion revised mid-review is worth nothing.
 - **Anything the owner already ruled out of scope** for this ticket. That is a decision, not a claim, and re-litigating it wastes a round.
 
 ## Read in this order, and stop between the steps
@@ -47,6 +48,6 @@ Four mechanical conditions, and each one means **no review happened** — so the
 - **Insufficient** — an authority question this stage turns on has no answer in the packet, and inferring it from the nearest analogue is exactly what rank one forbids. **A decision handed over without provenance is insufficient in the same way**, when the stage turns on it: undated, it is indistinguishable from one already superseded, and *"the owner decided this"* is not a claim you have any way to age.
 - **Self-contradictory** — the acceptance criteria and the plan text ask for different things, or an invariant rules out what a criterion requires.
 - **Contaminated** — the implementer's report, summary, or verification claims arrived inside pass one. Name what you saw.
-- **Moved** — `git status --porcelain` does not match what the dispatcher handed you. Something changed the tree while you were reading it.
+- **Moved** — `git status --porcelain` or the code hash does not match what the dispatcher handed you: something changed the tree while you were reading it. **The requirement moving counts the same way** — if a source you were handed turns out to have been superseded while the pass was running, the verdict would be a verdict on a question nobody is asking any more.
 
 **`VOID` is not a hedge and it is not a soft `BLOCKED`.** It is available for exactly these four conditions and nothing else — never for "I could not decide", never for a probe you found hard to build. The dispatcher does not count a `VOID` as a fix round, because nothing was reviewed; that is precisely why it must not become the exit from a difficult review.
