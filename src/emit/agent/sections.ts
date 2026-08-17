@@ -10,10 +10,18 @@ import type {
 import {
   readSetting,
   getFolderShape,
+  getModules,
   getSharedFolder,
   normalizeAllowedImporters,
 } from '../../config';
 import { handbookPath } from '../docs';
+import {
+  compactModuleBullet,
+  moduleChain,
+  moduleGateReach,
+  moduleHardRules,
+  modulePlacement,
+} from './modules';
 import {
   enforcedBy,
   LINT_GATED_RULE_IDS,
@@ -83,6 +91,17 @@ export function renderCompactContract(blueprint: Blueprint): string {
   const lintGates = declared.filter(([id]) => enforcedBy(id) === 'lint').map(label);
   const inspectGates = declared.filter(([id]) => enforcedBy(id) === 'inspect').map(label);
 
+  // The undeclared-folder remedy is an address, so it moves with the depth that
+  // declares folders: `undeclared-folder` itself says "an existing module" at a
+  // modular source root and "an existing layer" one segment in. Two live outputs
+  // naming different destinations for one finding is what an adopter meets first.
+  const modular = getModules(architecture).length > 0;
+  const declarable = modular ? 'module or layer' : 'layer';
+
+  const destination = modular
+    ? 'an existing module — or, one segment in, a folder of an existing layer inside one'
+    : 'a folder of an existing layer';
+
   const extras = [
     ...(blueprint.componentShape?.length ? ['component-shape axes'] : []),
     ...(claudePrinciples(blueprint.principles).length ? ['behavioral principles'] : []),
@@ -94,6 +113,7 @@ export function renderCompactContract(blueprint: Blueprint): string {
     '',
     `- Framework: \`${blueprint.framework}\`. Import alias: \`${architecture.alias}\`.`,
     `- Layer flow: ${chain} — transitive: a layer may import **any** layer after it, unless the target narrows its importers.`,
+    ...compactModuleBullet(architecture),
     `- **Before adding, moving, or renaming any file** — placement, folder shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
     '- **Operating discipline** — how to follow the flow, react to lint failures, '
     + `and the pre-commit checklist: read [${CONTRACT_DOC}](${CONTRACT_DOC}) `
@@ -103,12 +123,12 @@ export function renderCompactContract(blueprint: Blueprint): string {
     // marks an empty net as vacuous, and this contract is the one artifact read with
     // no CLI output beside it. "the project's lint run", never `npm run lint` — the
     // runner is a repo fact this emitter cannot see (field run #141).
-    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, folder entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectGates.join(', ')} is held by \`npx blueprint inspect --baseline\` instead, so a green lint says nothing about it` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
+    `- Hard gates (machine-enforced on ${moduleGateReach(architecture) ?? 'the files the layer globs match — a layer holding no code'} has nothing failing yet, which is runway, not protection): one-way imports, folder entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectGates.join(', ')} is held by \`npx blueprint inspect --baseline\` instead, so a green lint says nothing about it` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
     // --baseline, or the verify loop stays red forever on locked brownfield debt
     // (field issue #10). Both remedies are named, and whose each is: told only "move
     // the code", an agent contorts it into an existing layer instead of reporting
     // that the architecture outgrew the config.
-    `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a folder of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.`,
+    `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into ${destination}. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the ${declarable} yourself.`,
   ].join('\n');
 }
 
@@ -117,18 +137,26 @@ export function renderContext(blueprint: Blueprint): string {
   const { framework, architecture } = blueprint;
   const chain = architecture.layers.map((layer) => `\`${layer.name}\``).join(' → ');
 
+  const modules = moduleChain(architecture);
+
   return [
     '### Context',
     '',
     `- Framework: \`${framework}\`. Import alias: \`${architecture.alias}\`.`,
     `- Layer flow: ${chain}`,
+    ...(modules === null ? [] : [`- Module flow: ${modules}`]),
   ].join('\n');
 }
 
 /** Per-layer placement directives + the folder shape rule. */
 export function renderPlacement(architecture: ArchitectureDef): string {
+  // The address, not just the name: under a modular blueprint a layer folder does
+  // not sit at the source root at all, and a directive pointing at `src/hooks/`
+  // there names a path `undeclared-folder` exists to move code out of.
+  const at = getModules(architecture).length ? 'src/<Module>' : 'src';
+
   const lines = architecture.layers.map((layer) => {
-    const parts = [`- \`src/${layer.name}/\` — ${layer.does}.`];
+    const parts = [`- \`${at}/${layer.name}/\` — ${layer.does}.`];
 
     if (layer.mustNot?.length) {
       parts.push(` MUST NOT: ${layer.mustNot.join('; ')}.`);
@@ -165,8 +193,8 @@ export function renderPlacement(architecture: ArchitectureDef): string {
       const shape = getFolderShape(architecture, layer.name);
 
       return shape.layout === 'folder'
-        ? `- Exception — \`src/${layer.name}/\`: one folder per feature, entry \`${shape.entry}\`.`
-        : `- Exception — \`src/${layer.name}/\`: one file per feature (flat).`;
+        ? `- Exception — \`${at}/${layer.name}/\`: one folder per feature, entry \`${shape.entry}\`.`
+        : `- Exception — \`${at}/${layer.name}/\`: one file per feature (flat).`;
     });
 
   // Reporting instruction, not a third remedy. An agent that learns "files matching
@@ -182,6 +210,7 @@ export function renderPlacement(architecture: ArchitectureDef): string {
   return [
     '### Where code goes',
     '',
+    ...modulePlacement(architecture),
     ...lines,
     folderLine,
     ...overrideLines,
@@ -224,8 +253,14 @@ export function renderHardRules(
     bullets.push(`- Import a folder via its ${folderEntries.join(' / ')}, never its internals.`);
   }
 
+  const ownership = getModules(architecture).length
+    ? '- Restricted packages / globals live only in their owning layer or module — what a '
+    + 'module owns reaches every layer inside it (see "Where code goes").'
+    : '- Restricted packages / globals live only in their owning layer (see "Where code goes").';
+
   bullets.push(
-    '- Restricted packages / globals live only in their owning layer (see "Where code goes").',
+    ...moduleHardRules(architecture),
+    ownership,
     '- Relative imports stay inside their folder; no redundant segments (`./../`, `././`).',
   );
 
@@ -278,8 +313,15 @@ export function renderBehavioral(
   principles: PrincipleDef[] | undefined,
   rules: Record<string, RuleSetting> | undefined,
 ): string {
+  // Not "module, then layer, then feature": a module that declares `layers: false`
+  // holds its feature folders directly, so a three-rung ladder would be false for it.
+  const shape = getModules(architecture).length
+    ? 'Every folder at the source root is a declared module; inside one, a declared layer or a '
+    + 'feature folder.'
+    : 'Every folder is a declared layer or a feature folder inside one.';
+
   const bullets = [
-    `- Do not create undeclared folders under \`${architecture.alias}/\`. Every folder is a declared layer or a feature folder inside one. (lint can't see this — inspect will.) Inspect offers to declare the folder instead; that one is not yours. Outgrowing the config is the owner's call to make — report it, do not edit the architecture to fit what you just wrote.`,
+    `- Do not create undeclared folders under \`${architecture.alias}/\`. ${shape} (lint can't see this — inspect will.) Inspect offers to declare the folder instead; that one is not yours. Outgrowing the config is the owner's call to make — report it, do not edit the architecture to fit what you just wrote.`,
     ...claudePrinciples(principles).map(
       (principle) => `- **${principle.say}** — ${principle.why}`,
     ),
@@ -334,7 +376,7 @@ export function renderChecklist(blueprint: Blueprint): string {
 
   const items = [
     '- [ ] Imports follow the one-way flow (no upstream / same-layer).',
-    `- [ ] New code sits in the right layer; folders expose only \`${getSharedFolder(architecture).entry}\`.`,
+    `- [ ] New code sits in the right ${getModules(architecture).length ? 'module and layer' : 'layer'}; folders expose only \`${getSharedFolder(architecture).entry}\`.`,
   ];
 
   if (architecture.naming && Object.keys(architecture.naming).length) {

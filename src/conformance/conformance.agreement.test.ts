@@ -4,9 +4,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 // boundary; the fixture needs emitLint's real selectors, not a paraphrase.
 import { reactPreset } from '../presets';
 import {
+  allOptOutBlueprint,
   cli,
   configSource,
   flattenProse,
+  lintFixture,
   makeRepo,
   react,
   reactBlueprint,
@@ -92,6 +94,49 @@ describe('one config, artifacts that agree about it (field runs #83–#84)', () 
 
     expect(init.code).toBe(0);
     expect(init.output).not.toContain('codeStyle` on at error tier');
+  });
+
+  it('does not let a module sentence deny the alias route the same lint leaves open', async () => {
+    // The branch a mixed fixture cannot see. Every module is `layers: false`, so
+    // the alias entry is the ONLY cross-module route there is, and the opt-out
+    // module is declared FIRST so the module flow actually permits the reach —
+    // declared last, it is a flow violation either way and any sentence about it
+    // reads true by accident of declaration order.
+    const dir = repo({
+      packageJson: react(),
+      files: {
+        'blueprint.config.mjs': configSource(allOptOutBlueprint),
+        // The route itself: Alpha's own entry file, reaching Beta at its.
+        'src/Alpha/index.js': 'import \'~app/Beta\';\nexport const Alpha = 1;\n',
+        // Both controls, in one file under the same config, so "clean" above is a
+        // verdict and not a file the run never reached: one segment past that
+        // entry, and the same-module spelling the sentence IS about.
+        'src/Alpha/banned.js': 'import \'~app/Beta/deep\';\nimport \'~app/Alpha/other\';\n',
+        'src/Beta/index.js': 'export const Beta = 1;\n',
+      },
+    });
+
+    await cli(dir, ['init', '--no-install']);
+
+    const byFile = await lintFixture(dir, allOptOutBlueprint, ['src/**/*.js']);
+
+    expect(byFile.get('src/Alpha/index.js')).toEqual([]);
+
+    const banned = (byFile.get('src/Alpha/banned.js') ?? []).map((verdict) => verdict.message);
+
+    expect(banned[0]).toContain('🚫 Import a module through its entry, not its internals');
+    expect(banned[1]).toContain('🚫 Same-module imports must be relative');
+
+    // So the sentence both documents carry closes the same-module ban only, and
+    // each still names the entry route beside it.
+    const closed = 'ban covers each module\'s whole subtree — there is no cross-layer route';
+    const contract = flattenProse(read(dir, 'CLAUDE.md') ?? '');
+    const handbook = flattenProse(read(dir, 'docs/architecture-handbook.md') ?? '');
+
+    expect(contract).toContain(closed);
+    expect(contract).toContain('Import another module at `~app/<Module>` and no deeper');
+    expect(handbook).toContain(closed);
+    expect(handbook).toContain('reach another module at `~app/<Module>`');
   });
 });
 

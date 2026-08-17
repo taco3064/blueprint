@@ -130,12 +130,12 @@ describe('authoringBrief · merging with an eslint config already there', () => 
     expect(brief).toContain('only the overlap has to be combined');
 
     // And the probe that catches the loss doctor cannot see: your own rule's files
-    // outside the layer, plus BOTH sides of the collision inside it — one file per
-    // layer stopped being enough once a part-of-a-layer entry became the shape we
+    // outside the net, plus BOTH sides of the collision inside it — one file per
+    // net stopped being enough once a part-of-a-net entry became the shape we
     // recommend, which is the blind spot wiring.ts's own SCOPE string names.
     expect(brief).toContain('takes TWO probes rather than one');
-    expect(brief).toContain('one file your own rule governed outside that layer');
-    expect(brief).toContain('an entry scoped to part of a layer is not compared');
+    expect(brief).toContain('one file your own rule governed outside that net');
+    expect(brief).toContain('an entry scoped to part of a net is not compared');
 
     // Intent docs often draw a DAG; the linear order is a transitive relaxation.
     expect(brief).toContain('Linearize, then verify against the matrix');
@@ -157,12 +157,12 @@ describe('authoringBrief · merging with an eslint config already there', () => 
   const caveats = [
     ['plugin prefix', 'plugin prefix (`@stylistic/max-len`, never bare `max-len`)'],
     [
-      'empty layer',
+      'empty net',
       'holds no files does not appear at all (inspect\'s `declaratory-self-only` note, not a loss)',
     ],
     [
       'selfOnly importer',
-      'resolves on the IMPORTER layer inspect names, not on the layer being protected',
+      'resolves on the IMPORTER net inspect names, not on the net being protected',
     ],
     ['finding ids', '**inspect\'s finding names are not ESLint rule ids**'],
     [

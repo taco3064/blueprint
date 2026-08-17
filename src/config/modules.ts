@@ -20,6 +20,36 @@ export function getModules(architecture: ArchitectureDef): ModuleDef[] {
   return architecture.modules ?? [];
 }
 
+/** Which declared modules nest the shared layers, and which hold their files. */
+export interface ModuleLayerSplit {
+  /** Modules that keep `architecture.layers` nested one level inside them. */
+  layered: string[];
+  /** Modules that declare `layers: false` and hold their own files directly. */
+  unlayered: string[];
+}
+
+/**
+ * Split the declared modules by whether a layer sits inside them. One query
+ * rather than a filter at each site, because the split decides a fact three
+ * emitted documents state out loud: what the same-module ban leaves open.
+ * `alias/<Module>/<layer>` is that one path, and only where a layer is nested
+ * to name it — a `layers: false` module has no layer name to negate back out
+ * of its same-module ban (`buildModuleSelfBan` writes it the blanket
+ * `alias/<Module>/**`), so the ban covers its whole subtree. It answers for
+ * that ban and no other: reaching ANOTHER module at `alias/<Other>` is
+ * `getForbiddenModules`'s call and stays legal inside a `layers: false`
+ * module — in an all-opt-out repo it is the only cross-module route there is.
+ * @internal
+ */
+export function splitModulesByLayers(architecture: ArchitectureDef): ModuleLayerSplit {
+  const modules = getModules(architecture);
+
+  return {
+    layered: modules.filter((module) => module.layers !== false).map((module) => module.name),
+    unlayered: modules.filter((module) => module.layers === false).map((module) => module.name),
+  };
+}
+
 /**
  * Normalize the mixed module `allowedImporters` list into objects — the
  * module-axis twin of `normalizeAllowedImporters`.
@@ -34,15 +64,37 @@ export function normalizeModuleAllowedImporters(
 }
 
 /**
- * Names of modules permitted to import the module at `index`: its explicit
+ * Modules permitted to import the module at `index`: its explicit
  * `allowedImporters` list, or — by default — every module declared before it.
  */
-function moduleImporterNames(modules: ModuleDef[], index: number): string[] {
+function moduleImporters(modules: ModuleDef[], index: number): ModuleAllowedImporter[] {
   const { allowedImporters } = modules[index];
 
   return allowedImporters
-    ? normalizeModuleAllowedImporters(allowedImporters).map((importer) => importer.module)
-    : modules.slice(0, index).map((module) => module.name);
+    ? normalizeModuleAllowedImporters(allowedImporters)
+    : modules.slice(0, index).map((module) => ({ module: module.name }));
+}
+
+/** {@link moduleImporters}, reduced to the names. */
+function moduleImporterNames(modules: ModuleDef[], index: number): string[] {
+  return moduleImporters(modules, index).map((importer) => importer.module);
+}
+
+/**
+ * Who may import `moduleName`, resolved rather than read off the field: the
+ * declared `allowedImporters` when there is one, else the default every module
+ * declared before it gets. Empty for the first-declared module, which nothing
+ * may import — that is the flow, not an omission.
+ * @internal
+ */
+export function getModuleImporters(
+  architecture: ArchitectureDef,
+  moduleName: string,
+): ModuleAllowedImporter[] {
+  const modules = getModules(architecture);
+  const index = modules.findIndex((module) => module.name === moduleName);
+
+  return index === -1 ? [] : moduleImporters(modules, index);
 }
 
 /**

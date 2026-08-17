@@ -2,6 +2,7 @@ import type {
   ArchitectureDef,
   AxisDef,
   Land,
+  ModuleDef,
   PlaybookSection,
   PrincipleDef,
   RuleSetting,
@@ -9,12 +10,15 @@ import type {
 import {
   readSetting,
   getFolderShape,
+  getModules,
   getSharedFolder,
   normalizeAllowedImporters,
+  normalizeModuleAllowedImporters,
 } from '../../config';
 import { enforcedBy, unavailableFromBlueprint } from '../lint';
 import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
+import { featureRoot, moduleDiscipline, renderModules, renderModuleTree } from './modules';
 
 /** Title + provenance banner. */
 export function renderHeader(name: string | undefined): string {
@@ -40,8 +44,19 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
   return [
     '## Architecture',
     '',
-    'Code flows one way: each layer may import only from the layers below it. '
-    + 'Upstream and same-layer imports are barred.',
+    [
+      'Code flows one way: each layer may import only from the layers below it.',
+      'Upstream and same-layer imports are barred.',
+      // The outer depth, stated where the reader first meets the flow — the
+      // layers table below addresses folders that do not sit at the source
+      // root under a modular blueprint. Placement, not existence: a config
+      // whose every module declares `layers: false` has no layer folder at
+      // all, and this sentence still says where one would go.
+      ...(getModules(architecture).length
+        ? ['The source root holds one folder per feature module, and a declared layer sits one '
+          + 'level inside a module rather than at the source root.']
+        : []),
+    ].join(' '),
     '',
     emitFlowDiagram(architecture),
     '',
@@ -52,6 +67,10 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
     + ' transitive — a layer may import **any** layer below it in the flow,'
     + ' whether or not an edge is drawn, unless the target narrows its'
     + ' importers (`allowedImporters`).',
+    // Outermost declaration first, the order `structureFindings` reports in:
+    // a modular repo's source root holds modules, and the layers table that
+    // follows describes what is nested inside one of them.
+    ...renderModules(architecture),
     '',
     '### Layers',
     '',
@@ -63,24 +82,34 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
 export function renderFolder(architecture: ArchitectureDef, exampleLayer: string): string {
   const folder = getSharedFolder(architecture);
 
+  // The address, not just the name — the same move `renderPlacement` makes in the
+  // agent contract: under a modular blueprint no layer folder sits at the source
+  // root, so a bare `components/` here names the very path `undeclared-folder`
+  // exists to move code out of. Generic `<Module>/`, not the example module the
+  // tree above draws: the exception holds in every module that nests the layers.
+  const at = getModules(architecture).length ? '<Module>/' : '';
+
   const exceptionLines = architecture.layers
     .filter((layer) => layer.folder !== undefined)
     .map((layer) => {
       const shape = getFolderShape(architecture, layer.name);
 
       return shape.layout === 'folder'
-        ? `- \`${layer.name}/\` — one folder per feature, entry \`${shape.entry}\`.`
-        : `- \`${layer.name}/\` — one file per feature (flat).`;
+        ? `- \`${at}${layer.name}/\` — one folder per feature, entry \`${shape.entry}\`.`
+        : `- \`${at}${layer.name}/\` — one file per feature (flat).`;
     });
 
   const exceptions = exceptionLines.length
     ? ['', 'Per-layer exceptions to the shared shape:', '', ...exceptionLines]
     : [];
 
+  const moduleTree = renderModuleTree(architecture);
+
   if (folder.layout === 'flat') {
     return [
       '## Folder shape',
       '',
+      ...moduleTree,
       'One feature = one file (flat layout). Shared logic moves down to a lower layer.',
       ...exceptions,
     ].join('\n');
@@ -101,10 +130,11 @@ export function renderFolder(architecture: ArchitectureDef, exampleLayer: string
   return [
     '## Folder shape',
     '',
+    ...moduleTree,
     `One feature = one folder. Only \`${folder.entry}\` is public; everything else stays private to the folder.`,
     '',
     '```',
-    `${exampleLayer}/`,
+    `${featureRoot(architecture, exampleLayer)}/`,
     '└─ Example/',
     ...tree,
     '```',
@@ -117,8 +147,14 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   const { layers } = architecture;
   const folder = getSharedFolder(architecture);
 
-  const hasSelfOnly = layers.some((layer) =>
+  // Both axes, because `emitLint` emits the re-export ban from both: a module-level
+  // `selfOnly` with no layer-level one used to leave the ban enforced and unstated.
+  const selfOnlyLayers = layers.some((layer) =>
     normalizeAllowedImporters(layer.allowedImporters).some((importer) => importer.selfOnly),
+  );
+
+  const selfOnlyModules = getModules(architecture).some((module) =>
+    normalizeModuleAllowedImporters(module.allowedImporters).some((importer) => importer.selfOnly),
   );
 
   const bullets = [
@@ -144,18 +180,28 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
     );
   }
 
+  const ownership = getModules(architecture).length
+    ? '- **Ownership** — packages and globals are restricted to their owning layer or module '
+    + '(see the *Owns* columns above). What a module owns reaches every layer nested inside '
+    + 'it, and no layer outside it.'
+    : '- **Ownership** — packages and globals are restricted to their owning layer '
+      + '(see the *Owns* column above).';
+
   bullets.push(
+    ...moduleDiscipline(architecture),
     '- **No redundant relative segments** (`./../`, `././`) that bypass the rules.',
-    '- **Ownership** — packages and globals are restricted to their owning layer (see the *Owns* '
-    + 'column above).',
+    ownership,
   );
 
-  if (hasSelfOnly) {
+  if (selfOnlyLayers || selfOnlyModules) {
     // States the RULE and leaves the notation to the legend that owns it — described
     // twice, the two answers drifted and the wrong one pointed at the edges that are
     // explicitly NOT dependencies.
+    const both = selfOnlyLayers && selfOnlyModules;
+    const narrows = both ? 'a layer or module' : (selfOnlyModules ? 'a module' : 'a layer');
+
     bullets.push(
-      '- **selfOnly** — where a layer narrows its importers with `selfOnly`, that importer'
+      `- **selfOnly** — where ${narrows} narrows its importers with \`selfOnly\`, that importer`
       + ' may depend on it but must never re-export it onward.',
     );
   }
@@ -257,11 +303,12 @@ export function renderPlaybook(playbook: PlaybookSection[] | undefined): string 
 /** Enforcement rules and their landing tiers. */
 export function renderRules(
   rules: Record<string, RuleSetting> | undefined,
-  // Enough of the blueprint to answer "can this gate emit here at all". This document
-  // outlives the adoption and the contract links to it, so a row claiming `lint` holds a
-  // rule the emitted config does not contain is the longest-lived version of that
-  // half-truth (field run #150).
-  facts: { framework?: string; testFiles?: string | string[] } = {},
+  // Enough of the blueprint to answer "can this gate emit here at all", and what
+  // surface the ones that do emit reach. This document outlives the adoption and the
+  // contract links to it, so a row claiming `lint` holds a rule the emitted config
+  // does not contain is the longest-lived version of that half-truth (field run #150)
+  // — and so is a reach sentence naming a folder depth this blueprint does not have.
+  facts: { framework?: string; testFiles?: string | string[]; modules?: ModuleDef[] } = {},
 ): string {
   const entries = Object.entries(rules ?? {});
 
@@ -292,6 +339,13 @@ export function renderRules(
     ];
   });
 
+  // Modular, the globs are cut per module — a `layers: false` module has no layer
+  // at all and its whole subtree is one governed group — so "a layer glob" names
+  // nothing an all-opt-out repo has, and its reader reads "nothing is armed".
+  const reach = facts.modules?.length
+    ? 'the files a module glob matches: a declared module or layer holding no code'
+    : 'the files a layer glob matches: a declared layer holding no code';
+
   return [
     '## Rules',
     '',
@@ -306,9 +360,9 @@ export function renderRules(
     + 'never appear in a lint run, documentation-only rows are recorded intent with '
     + 'no gate behind them at any tier, and a row reading `nothing` is lint-gated in '
     + 'general but cannot emit on THIS blueprint — the cell says which fact rules it '
-    + 'out. Every row reaches only the files a layer glob matches: a '
-    + 'declared layer holding no code has nothing that can fail, which is runway rather '
-    + 'than protection — `blueprint doctor` reports which of the two this repo has today.',
+    + `out. Every row reaches only ${reach} has nothing that can fail, which is runway `
+    + 'rather than protection — `blueprint doctor` reports which of the two this repo '
+    + 'has today.',
   ].join('\n');
 }
 

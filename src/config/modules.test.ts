@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   getForbiddenModules,
   getModuleEntry,
+  getModuleImporters,
   getModules,
   getModuleSelfOnlyTargets,
   normalizeModuleAllowedImporters,
+  splitModulesByLayers,
 } from './modules';
 import type { ArchitectureDef } from './types';
 
@@ -66,6 +68,51 @@ describe('getForbiddenModules', () => {
 
   it('never forbids a module from itself', () => {
     expect(getForbiddenModules(arch(), 'Replay')).not.toContain('Replay');
+  });
+});
+
+describe('getModuleImporters', () => {
+  it('resolves the default importer set, not the raw field', () => {
+    // Lobby declares no allowedImporters, so the default — every module before
+    // it — is what may import it. Reading the field would answer "nobody".
+    expect(getModuleImporters(arch(), 'Lobby')).toEqual([{ module: 'Combat' }]);
+  });
+
+  it('is empty for the first-declared module, which nothing may import', () => {
+    expect(getModuleImporters(arch(), 'Combat')).toEqual([]);
+  });
+
+  it('carries the declared list with its selfOnly flag when there is one', () => {
+    expect(getModuleImporters(arch(), 'Menu')).toEqual([
+      { module: 'Shell', selfOnly: true, description: 'Menu only' },
+    ]);
+  });
+
+  it('answers none for a module it does not know', () => {
+    expect(getModuleImporters(arch(), 'not-a-module')).toEqual([]);
+  });
+});
+
+describe('splitModulesByLayers', () => {
+  it('splits on the layers opt-out, in declaration order', () => {
+    const architecture: ArchitectureDef = {
+      ...arch(),
+      modules: [
+        { name: 'Shell', does: '' },
+        { name: 'common', does: '', layers: false },
+        { name: 'Combat', does: '' },
+      ],
+    };
+
+    expect(splitModulesByLayers(architecture)).toEqual({
+      layered: ['Shell', 'Combat'],
+      unlayered: ['common'],
+    });
+  });
+
+  it('answers two empty lists for the flat structure', () => {
+    expect(splitModulesByLayers({ ...arch(), modules: undefined }))
+      .toEqual({ layered: [], unlayered: [] });
   });
 });
 

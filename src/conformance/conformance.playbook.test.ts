@@ -413,8 +413,27 @@ describe('"ONE entry" is per collision, not per rule key (field issue #51)', () 
     // And the gate that catches the loss that IS real, so the warning does not
     // read as "be careful".
     expect(playbook).toContain(
-      'probes every layer separately and names the one that lost its selectors',
+      'probes every net separately and names the one that lost its selectors',
     );
+
+    // And what a net is, said where the playbook first sends the reader to list
+    // them: a layer under the flat structure, cut per module once modules are
+    // declared. The claim is the granularity, so a playbook that names the unit
+    // without defining it is the version this replaced.
+    expect(playbook).toContain('A net is what one emitted entry governs');
+    expect(playbook).toContain('flat it is exactly one per layer');
+
+    // Measured, not adjectival: three declared layers plus two `layers: false`
+    // modules is TWO nets against three layers, so "finer" — the word this
+    // replaced — is checkably false. What protects the reader is the instruction
+    // to read the list off the command, and that half is what stays.
+    expect(playbook).toContain(
+      'the list is cut per module instead and stops tracking the layer count in either '
+      + 'direction',
+    );
+
+    expect(playbook).toContain('read it off that command rather than counting layers');
+    expect(playbook).not.toContain('the list is finer');
   });
 });
 

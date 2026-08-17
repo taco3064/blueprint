@@ -231,6 +231,28 @@ export const modularBlueprint: Blueprint = {
   },
 };
 
+/**
+ * Every module holding its own files, the opt-out one declared FIRST — the
+ * shape `modularBlueprint` cannot reach. Its `common` is declared last, so from
+ * inside it every other module is a flow violation, and a claim about what the
+ * alias may reach there reads true whatever it says.
+ */
+export const allOptOutBlueprint: Blueprint = {
+  framework: 'react',
+  architecture: {
+    alias: '~app',
+    layers: [
+      { name: 'components', does: 'render UI' },
+      { name: 'hooks', does: 'state' },
+    ],
+    modules: [
+      { name: 'Alpha', does: 'first', layers: false },
+      { name: 'Beta', does: 'second', layers: false },
+    ],
+    folder: { layout: 'flat', entry: 'index', private: [] },
+  },
+};
+
 /** The two-layer React blueprint most scenarios adopt. */
 export const reactBlueprint: Blueprint = {
   framework: 'react',

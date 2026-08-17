@@ -86,7 +86,7 @@ export function renderRuleCatalog(): string {
     'Their shared severity is `emit.lint.severity` (default `error`), '
     + 'and that knob covers ONLY these:',
     '',
-    '- `no-restricted-imports` per layer — dependency flow, same-layer bans, '
+    '- `no-restricted-imports` per governed net — dependency flow, same-layer bans, '
     + 'package ownership at whole-package OR named-import granularity (`owns: [{ package: '
     + '\'vue\', imports: [\'inject\'] }]` bans that named import outside the owning layer; '
     + 'same-signature entries merge into one rule allowing every declaring layer), fixture bans.',

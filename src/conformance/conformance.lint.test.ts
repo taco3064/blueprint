@@ -455,10 +455,10 @@ describe('a merge that drops a carrier cannot pass doctor (field issue #40)', ()
 
     // Three ways a correct config reads as broken through this command. Each
     // cost a field agent a detour: a bare rule name looked MISSING, an unarmed
-    // layer looked dropped, and selfOnly looked absent from the wrong layer.
+    // net looked dropped, and selfOnly looked absent from the wrong net.
     expect(playbook).toContain('never bare `max-len`');
     expect(playbook).toContain('does not appear at all');
-    expect(playbook).toContain('resolves on the IMPORTER layer');
+    expect(playbook).toContain('resolves on the IMPORTER net');
   });
 
   it('says why the carriers install even with no gate declared', async () => {

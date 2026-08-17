@@ -253,9 +253,9 @@ describe('a claim states the condition it needs (field runs #95–#97)', () => {
     expect(playbook).not.toContain('has to stay ABOVE the combined entry');
     expect(playbook).not.toContain('has to move up');
 
-    // Two probes in the affected layer, not one: the recommended shape makes files
-    // in a single layer resolve different entries on purpose, and doctor resolves
-    // one path per layer — its own ✓ says a part-of-a-layer entry is not compared.
+    // Two probes in the affected net, not one: the recommended shape makes files
+    // in a single net resolve different entries on purpose, and doctor resolves
+    // one path per net — its own ✓ says a part-of-a-net entry is not compared.
     expect(playbook).toContain('takes TWO probes rather than one');
     expect(playbook).toContain('a file INSIDE the collision and a file OUTSIDE it');
   });

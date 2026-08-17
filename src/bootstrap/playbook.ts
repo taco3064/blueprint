@@ -25,10 +25,10 @@ export function printConfigCaveats(): string {
   return [
     ', or a correct config looks broken: resolved keys carry their plugin prefix '
     + '(`@stylistic/max-len`, never bare `max-len`); '
-    + 'a rule scoped to a layer that holds no files does not appear at all (inspect\'s '
+    + 'a rule scoped to a net that holds no files does not appear at all (inspect\'s '
     + '`declaratory-self-only` note, not a loss); '
-    + 'selfOnly\'s re-export ban resolves on the IMPORTER layer inspect names, '
-    + 'not on the layer being protected; and **inspect\'s finding names are not ESLint rule '
+    + 'selfOnly\'s re-export ban resolves on the IMPORTER net inspect names, '
+    + 'not on the net being protected; and **inspect\'s finding names are not ESLint rule '
     + 'ids** — `deep-import`, `flow-violation` and `package-ownership` all fold into the single '
     + '`no-restricted-imports` entry, so searching for `blueprint/deep-import` finds nothing and '
     + 'proves nothing.',

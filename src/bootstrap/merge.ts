@@ -20,22 +20,27 @@ import { printConfigCaveats } from './playbook';
 function renderCombinedEntry(): string {
   return [
     '     **"ONE entry" means one per COLLISION, '
-    + 'not one for the whole rule key.** emitLint scopes its entries per layer, '
+    + 'not one for the whole rule key.** emitLint scopes its entries per governed net, '
     + 'so a rule key can have several — a `selfOnly` layer with two importers emits '
     + '`no-restricted-syntax` on BOTH importer layers, '
     + 'and your own rule may overlap only one of them.',
     '     Combine with the entry you actually collide with, '
     + 'and leave the others exactly as emitted.',
-    '     Widening your combined entry to cover the other layers as well is the way to get this '
+    '     Widening your combined entry to cover the other nets as well is the way to get this '
     + 'wrong: it imposes YOUR rule on files it never governed, '
     + 'and one field run widened a date-guard onto a layer\'s `.js` and took 38 errors in a '
     + 'single test file that deliberately relaxes it.',
     '     Scoping it narrowly is NOT the opposite error — by the qualifier above, '
-    + 'the layers you leave out keep the entry the spread emitted, unchanged.',
+    + 'the nets you leave out keep the entry the spread emitted, unchanged.',
     '     Check the emit points before merging, not after: '
-    + '`npx blueprint rules --json` lists the selectors per layer, '
+    + '`npx blueprint rules --json` lists every governed net and its selectors, '
     + 'so two importers show up as two.',
-    '     If you get it wrong anyway, doctor\'s survival check probes every layer separately and '
+    '     A net is what one emitted entry governs, and it is not always a layer: '
+    + 'flat it is exactly one per layer, and once `architecture.modules` is declared '
+    + 'the list is cut per module instead and stops tracking the layer count in either '
+    + 'direction — read it off that command rather than counting layers, '
+    + 'and doctor names a lost one the same way.',
+    '     If you get it wrong anyway, doctor\'s survival check probes every net separately and '
     + 'names the one that lost its selectors — it is a red you can act on, not a silent pass.',
     '',
     '     **How you combine, given that `...emitLint(blueprint)` is opaque.** You cannot reach '
@@ -59,20 +64,20 @@ function renderCombinedEntry(): string {
     + 'doctor does not compare the rules you brought, and says so, '
     + 'which is what the probe below is for.',
     '     Confirm with `npx eslint --print-config`, '
-    + 'and the affected layer takes TWO probes rather than one: '
+    + 'and the affected net takes TWO probes rather than one: '
     + 'a file INSIDE the collision and a file OUTSIDE it, '
     + 'because the arrangement below deliberately makes those two resolve different entries — '
     + 'and the inside one is also what catches a wrong entry order.',
-    '     Add one file your own rule governed outside that layer, for the loss doctor cannot see — '
+    '     Add one file your own rule governed outside that net, for the loss doctor cannot see — '
     + 'that is the whole probe. This is the one place print-config is not optional: '
-    + 'doctor resolves a single path per layer, '
-    + 'and its ✓ says an entry scoped to part of a layer is not compared, '
+    + 'doctor resolves a single path per net, '
+    + 'and its ✓ says an entry scoped to part of a net is not compared, '
     + 'which is now the shape you are aiming for.',
     '',
     '     **When the two sides\' scopes were never the same, do not reconcile them — '
     + 'the collision is the entry, and neither side moves.** A house rule framed at `**/*.vue` '
-    + 'folded into a layer glob of `.{js,vue}` is the ordinary case: '
-    + 'scope the combined entry to `**/*.vue` inside that layer, '
+    + 'folded into a net glob of `.{js,vue}` is the ordinary case: '
+    + 'scope the combined entry to `**/*.vue` inside that net, '
     + 'and leave your original entry in place rather than folding it into the new one.',
     '     Three entries then cover three sets, and none of them gives a file a rule it never had: '
     + 'yours keeps the files blueprint never governed, '
@@ -117,7 +122,7 @@ function renderTestExemptions(): string {
     + 'used to govern — inside the collision only, '
     + 'and that is the second reason the paragraph above leaves your original entry in place, '
     + 'since it still governs those test files and nothing has to be given up.',
-    '     Check whether the same rule appears on other layers you did NOT merge, '
+    '     Check whether the same rule appears on other nets you did NOT merge, '
     + 'because that is where an asymmetry you introduce here lands.',
     '',
     `     \`blueprint doctor\` verifies both the emitted structural rules and each declared gate's carrier rule survived the merge — so a hand sweep of the emitted gates duplicates it.`,
@@ -165,8 +170,8 @@ export function renderLintMerge(): string {
     + 'flat config replaces rather than merges — so those are a wiring precondition, '
     + 'not a preference.',
     '     Before merging, run `npx blueprint impact`: '
-    + 'it lints the layer files with only the emitted config and reports hits per rule, '
-    + 'so every conflict is decided on numbers, '
+    + 'it lints the files the emitted config governs, with only that config, '
+    + 'and reports hits per rule, so every conflict is decided on numbers, '
     + 'not by reading the emitted config against the code.',
     '     Mind flat-config semantics while merging: when two entries configure the same rule, '
     + 'the later entry *replaces* the earlier **on the files both of them match** — '
@@ -179,7 +184,7 @@ export function renderLintMerge(): string {
     + 'and only the overlap has to be combined.',
     '     Combine both option sets into ONE entry — '
     + 'blueprint\'s patterns and selectors plus your own (`npx blueprint rules --json` carries '
-    + 'the exact selfOnly selectors per layer as `jsLiteral` — paste that field, '
+    + 'the exact selfOnly selectors per governed net as `jsLiteral` — paste that field, '
     + 'quotes included, never an emitLint dump. '
     + 'Its `note` says why the rendered `selectors` value is not the same string once it is '
     + 'inside JS source; that is a silent break, '
