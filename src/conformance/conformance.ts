@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { ESLint } from 'eslint';
+
 import type { Blueprint } from '../config';
 import { emitLint } from '../emit/lint';
 import { run } from '../cli';
@@ -144,11 +146,90 @@ export function wiredEslintConfig(blueprint: Blueprint, extraEntries = ''): stri
   ].join('\n');
 }
 
+/** One ESLint message, reduced to what a scenario asserts about it. */
+export interface Verdict {
+  /** The rule that reported, or null for a parse failure. */
+  rule: string | null;
+  message: string;
+}
+
+/**
+ * Every verdict real ESLint reaches over a fixture repo, keyed by the file's
+ * path relative to it — `emitLint`'s own output as the whole config, this
+ * repo's own `eslint` as the engine, the fixture's own files on disk.
+ *
+ * `wiredEslintConfig` cannot answer this: its plugin is a stub, because the
+ * surface it serves (doctor) only ever RESOLVES a config. A scenario asserting
+ * what an adopter's lint run says needs the real embedded plugin and real
+ * messages, so this runs `emitLint` directly rather than through the fixture's
+ * `eslint.config.mjs` — the fixture has no `node_modules` to import the package
+ * from. `impact` is the CLI route to the same engine and reports per-rule
+ * counts; a message an adopter reads is what a ban's wording is checked
+ * against, so both routes stay.
+ */
+export async function lintFixture(
+  dir: string,
+  blueprint: Blueprint,
+  patterns: string[],
+): Promise<Map<string, Verdict[]>> {
+  const eslint = new ESLint({
+    cwd: dir,
+    overrideConfigFile: true,
+    overrideConfig: [
+      { languageOptions: { ecmaVersion: 2022, sourceType: 'module' } },
+      ...emitLint(blueprint),
+    ] as ESLint.Options['overrideConfig'],
+  });
+
+  const results = await eslint.lintFiles(patterns);
+
+  return new Map(results.map((result) => [
+    path.relative(dir, result.filePath).split(path.sep).join('/'),
+    result.messages.map((message) => ({ rule: message.ruleId, message: message.message })),
+  ]));
+}
+
 /** A `package.json` for a React fixture repo, with extra deps merged in. */
 export const react = (deps: Record<string, string> = {}) => ({
   name: 'fixture',
   dependencies: { react: '^18.0.0', ...deps },
 });
+
+/**
+ * The modular blueprint the `architecture.modules` scenarios adopt — four
+ * modules chosen so every module-axis edge the config can express is present
+ * exactly once.
+ *
+ * `Shell` → `Combat` is the declared-order edge: `Combat` names no
+ * `allowedImporters`, so the default (every module declared before it) is what
+ * permits it. `Lobby` narrows that same default to `Shell` alone and marks it
+ * `selfOnly`, so `Combat` — which declaration order would have allowed — is
+ * barred, and `Shell` may depend on `Lobby` without re-exporting it. `Combat`
+ * owns a primitive, which every layer inside it inherits and no other module
+ * may reach. `common` holds its files directly (`layers: false`) and is
+ * declared last, so every other module may reach it at its entry.
+ */
+export const modularBlueprint: Blueprint = {
+  framework: 'react',
+  architecture: {
+    alias: '~app',
+    layers: [
+      { name: 'components', does: 'render UI' },
+      { name: 'hooks', does: 'state' },
+    ],
+    modules: [
+      { name: 'Shell', does: 'app frame' },
+      { name: 'Combat', does: 'the fight loop', owns: ['zustand'] },
+      {
+        name: 'Lobby',
+        does: 'matchmaking',
+        allowedImporters: [{ module: 'Shell', selfOnly: true }],
+      },
+      { name: 'common', does: 'shared helpers', layers: false },
+    ],
+    folder: { layout: 'flat', entry: 'index', private: [] },
+  },
+};
 
 /** The two-layer React blueprint most scenarios adopt. */
 export const reactBlueprint: Blueprint = {

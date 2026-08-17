@@ -179,37 +179,45 @@ describe('one owns entry, one verdict — the exempt half', () => {
     expect(impact.output).toContain('1 hit(s)');
   });
 
+  /**
+   * AC16's fixture, verbatim: one exempt glob, and a `testFiles` list whose
+   * negation reaches back into it. Shared by the two scenarios below because
+   * they are two readings of ONE repo — a second copy could drift and the
+   * agreement they assert would stop being about the same file.
+   */
+  const negationSpec = (): RepoSpec => ({
+    packageJson: react({ axios: '^1.0.0' }),
+    files: {
+      'blueprint.config.mjs': configSource({
+        ...reactBlueprint,
+        architecture: {
+          ...reactBlueprint.architecture,
+          layers: [
+            { name: 'components', does: 'render UI' },
+            {
+              name: 'services',
+              does: 'data access',
+              owns: [{ package: 'axios', exempt: ['src/components/legacy/**'] }],
+            },
+          ],
+          testFiles: ['**/*.test.{js,jsx}', '!src/components/legacy/**'],
+        },
+      }),
+      'src/components/legacy/Old.test.jsx':
+        'import axios from \'axios\';\n\nexport const Old = () => axios;\n',
+      'src/components/Fresh.test.jsx':
+        'import axios from \'axios\';\n\nexport const Fresh = () => axios;\n',
+      'src/services/api.jsx': 'export const api = 1;\n',
+    },
+  });
+
   it('reports the file a testFiles negation puts back inside the restriction', async () => {
     // The exemption and the test globs are ONE ordered `ignores` on the emitted
     // entry, so a `!` in `testFiles` re-includes what the exempt glob excused.
     // Reading the exempt half alone made `inspect` call this file exempt while
     // eslint flagged it — the false-NEGATIVE direction, a real violation with
     // nothing on screen. Both engines are asked here for that reason.
-    const dir = repo({
-      packageJson: react({ axios: '^1.0.0' }),
-      files: {
-        'blueprint.config.mjs': configSource({
-          ...reactBlueprint,
-          architecture: {
-            ...reactBlueprint.architecture,
-            layers: [
-              { name: 'components', does: 'render UI' },
-              {
-                name: 'services',
-                does: 'data access',
-                owns: [{ package: 'axios', exempt: ['src/components/legacy/**'] }],
-              },
-            ],
-            testFiles: ['**/*.test.{js,jsx}', '!src/components/legacy/**'],
-          },
-        }),
-        'src/components/legacy/Old.test.jsx':
-          'import axios from \'axios\';\n\nexport const Old = () => axios;\n',
-        'src/components/Fresh.test.jsx':
-          'import axios from \'axios\';\n\nexport const Fresh = () => axios;\n',
-        'src/services/api.jsx': 'export const api = 1;\n',
-      },
-    });
+    const dir = repo(negationSpec());
 
     const inspect = await cli(dir, ['inspect']);
 
@@ -222,5 +230,36 @@ describe('one owns entry, one verdict — the exempt half', () => {
 
     expect(impact.output).toContain('src/components/legacy/Old.test.jsx');
     expect(impact.output).toContain('1 hit(s)');
+  });
+
+  it('names the SAME file list in both engines, not merely a non-empty one each', async () => {
+    // "Both caught something" is satisfied by two readers disagreeing about
+    // WHICH file — and that is the shape the drift actually took: one of them
+    // was reading the exempt globs without the test globs after them. Both
+    // outputs are taken as lists here and compared as lists, so a future edit
+    // to either side that adds or drops a file turns this red rather than
+    // leaving two plausible-looking reports beside each other.
+    const dir = repo(negationSpec());
+
+    const inspect = await cli(dir, ['inspect', '--json']);
+    const impact = await cli(dir, ['impact', '--json']);
+
+    const report = JSON.parse(inspect.output) as { findings: { rule: string; path: string }[] };
+
+    const dryRun = JSON.parse(impact.output) as {
+      impacts: { rule: string; top: { path: string }[] }[];
+    };
+
+    const found = report.findings
+      .filter((finding) => finding.rule === 'package-ownership')
+      .map((finding) => finding.path);
+
+    const flagged = dryRun.impacts
+      .filter((entry) => entry.rule === 'no-restricted-imports')
+      .flatMap((entry) => entry.top.map((file) => file.path));
+
+    expect(found).toEqual(flagged);
+    // …and the list is the one file, so "equal" is not two empty lists agreeing.
+    expect(found).toEqual(['src/components/legacy/Old.test.jsx']);
   });
 });
