@@ -16,17 +16,22 @@ Cut stages by **what becomes true**, not by which files you happened to open. *"
 
 ## Dispatching it
 
-**A fresh sub-agent per stage, given the ticket number and a reading scope — not a summary written in its place.** The issue stays the single source of truth; the main agent says which parts of it and the repo matter for this stage, it does not re-narrate them. Hand over:
+**A fresh sub-agent per stage, given a Stage Packet — not the ticket number and an instruction to go read it.** Handing over the number and trusting a sub-agent to read "just the relevant part" doesn't bound anything: `gh issue view` returns the whole body and every comment regardless of what it was told to focus on, and a sub-agent that fetches the issue itself has paid the full ticket's cost no matter how narrowly it was asked to read. The packet is what actually shrinks the input; an instruction alone only shrinks the attention.
 
-- The issue's `## Goal`.
-- The one stage it's building, and that stage's own acceptance criteria.
-- Whatever the plan states must not change (the global invariants).
+**Build the packet by extracting verbatim, not by summarizing.** The issue stays the single source of truth; the packet is a projection of it, not a second account of it — copy the exact text spans, don't restate them, the same discipline as *hand over the number, not your summary* applied to the parts instead of the whole. It carries:
+
+- The issue's `## Goal`, verbatim.
+- The one stage's own text from the Implementation Plan, verbatim, and its corresponding acceptance criteria, verbatim.
+- Whatever the plan states must not change (the global invariants), verbatim.
 - Shape-ticket's cited references — the module, the primitives, the consumers, the docs pages named as required reading.
 - The commits of stages already landed, so it builds on top of real code rather than re-deriving it.
 - Any shortfall still open that affects this stage.
+- The issue's number and URL, for traceability — not as an invitation to fetch it.
 - The instruction to read `CLAUDE.md` and every `.claude/docs/` page whose trigger fires for this change.
 
-**What it doesn't need**: shape-ticket's discussion history, the full text of options the discussion rejected, every closed shortfall's full history, other stages' implementation detail, or any prior agent's reasoning. None of that changes what this stage has to make true, and carrying it anyway is exactly the cost this scope exists to cut.
+**Tell the sub-agent not to load the full issue or its comment thread — the packet is what it works from.** The one exception is the packet turning out self-contradictory or missing something the stage actually needs; that's reported back as a shortfall or a question, not a license to go fetch the rest quietly and reconcile it itself.
+
+**What the packet excludes**: shape-ticket's discussion history, the full text of options the discussion rejected, every closed shortfall's full history, other stages' implementation detail, or any prior agent's reasoning. None of that changes what this stage has to make true, and carrying it anyway is exactly the cost this packet exists to cut.
 
 Tell it what the stage is in terms of **what must become true**, and tell it the boundary in the same breath — what this stage does *not* cover, and that anything it notices outside the stage is reported rather than fixed. An implementer given a goal and no edge will find the edge by crossing it.
 
