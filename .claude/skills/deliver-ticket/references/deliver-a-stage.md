@@ -58,12 +58,35 @@ If what came back is wrong or incomplete, **that is not a shortfall** — a shor
 
 **One reviewer per stage, continued across its parts and its rounds** — fresh per stage exactly as the implementer is, and continued within one, because re-verifying a finding means re-running the reproduction whoever wrote it holds. **That trade is deliberate and it is not free**: a reviewer carried across rounds accumulates its own investment in the findings it filed. `review-stage`'s re-review rules are what answer that — a PASS at the end has to rest on the fix diff read as a change in its own right, not on three earlier findings having disappeared.
 
-**Run the commit gate's own fixer before you stage anything.** `lint-staged` autofixes on the way into a commit, so **a tree that has not been through it is not the tree that will land** — read what it runs from `package.json`'s `lint-staged`, not from this line, which will drift the moment that config changes. Fixing first is what makes the hash below mean anything: the alternative is discovering *after* the verdict that the gate rewrote what the reviewer read, and then having to rule on how much of a rewrite is too much — an exception this repo has already removed once, from this skill's own fingerprint gate.
+**Continuity is the ideal path, not a fact you can assert.** A sub-agent does not outlive the session that spawned it, and writing *"the same reviewer"* in a rule does not make a fresh one the same. So the downgrade is defined rather than improvised:
 
-**Then stage the change: `git add -A`.** One command now shows the whole thing (`git diff --cached`), which a plain `git diff` does not — a file the stage added and never staged is invisible in a diff, and that is exactly where a stray fixture or a half-written module hides. Staging is also what gives you an identity to check the review against:
+- **The original is still reachable** → continue it, which is the case above.
+- **It is gone** → dispatch a new one **with part one only**: the current requirement text and the current diff, and nothing about what its predecessor concluded. It does its own pass one first.
+- **Then part two carries the prior findings, the fix reports and the round count.** That needs no new machinery — part two is already where every account written by somebody else arrives — only the discipline not to shortcut it.
+- **Rounds already spent stay spent.** A new reviewer is not a new budget; the count lives on the ticket precisely so a change of reviewer cannot reset it.
 
-- `git diff --cached | git hash-object --stdin` and `git status --porcelain`, recorded **before** the dispatch and again when the report lands.
+**Handing a replacement its predecessor's findings on arrival is exactly the anchoring the two-part packet exists to prevent** — and it is more tempting here than anywhere else, because old findings feel like context rather than like someone else's conclusions.
+
+**Stage first, then run the gate's own fixer, then stage again.** `lint-staged` runs *on staged files* — that is what it is — so "run the fixer before staging" is not an instruction that can be executed, and rebuilding an equivalent by hand out of its config runs a different program than the hook does. **A tree that has not been through the gate's fixer is not the tree that will land**, so the order is:
+
+1. **`git add -A`.** One command then shows the whole change (`git diff --cached`), which a plain `git diff` does not — a file the stage added and never staged is invisible in a diff, and that is exactly where a stray fixture or a half-written module hides.
+2. **`npx lint-staged`** — the gate's own fixer, on the tree it will actually see, rather than a reconstruction of it. **If it fails, the stage fails here instead of after a review has been spent on it**, which is the same filter as *verify it yourself first*.
+3. **`git add -A` again**, for anything the fixer rewrote and did not itself re-stage.
+4. **`git status --porcelain`** — nothing should be left unstaged. If something is, find out what wrote it before going further.
+5. **`git diff --cached | git hash-object --stdin`** — the **code hash**, recorded now.
+
+Then the identity to check the review against:
+
+- The code hash and `git status --porcelain`, recorded **before** the dispatch and again when the report lands.
 - **If either moved, the review is void.** Discard the verdict whatever it said, find what wrote to the tree, and dispatch again. A verdict on a tree that no longer exists is worse than no verdict, because it reads exactly like a real one.
+
+### Hash the requirement, not only the diff
+
+**Code that has not changed does not mean the requirement it has to satisfy has not changed.** A reviewer can be mid-pass while `shape-ticket` revises the issue body, the owner adds a decision, an acceptance criterion moves, or a revision comment is updated — and **the code hash is identical through every one of those**, so a PASS earned against the old requirement is indistinguishable from one earned against the new.
+
+So take a **requirement hash** over the authority half of the packet: the Goal, this stage's plan text, its acceptance criteria, the invariants, the owner's decision with its source, and every revision comment's URL, timestamp and body — the exact text you handed over, hashed the same way (`git hash-object --stdin`).
+
+**Re-read those from the source when the verdict lands, before the commit, and compare.** A difference means the verdict was earned against a requirement that no longer exists: that is `VOID` — back to part one with the current text — **and it does not consume a fix round**, because nothing about the work was wrong. Re-reading the issue is yours to do; the reviewer is the one forbidden from fetching it.
 
 ### The Review Packet, in two parts
 
@@ -74,7 +97,7 @@ If what came back is wrong or incomplete, **that is not a shortfall** — a shor
 - **Every revision comment that amended this stage's plan or criteria, verbatim.** `shape-ticket`'s `revise-an-in-flight-ticket.md` **overwrites the issue body on each pass**, so that comment is the only place the prior wording survives — and it is also the only record of which already-landed stage the revision leaves valid, which is what makes "judged by the criteria that stood at the time" reconstructable at all. **A reviewer reading only the current body cannot tell a criterion that always said this from one revised yesterday, and cannot tell which version a landed stage was judged against.** Extract those comments; do not hand over the thread they sit in.
 - **Provenance on both of the above**: the comment URL, the author, and the timestamp. *"The owner decided X"* with no source is unfalsifiable as **latest** — which is the one property rank one is ranked for — and a reviewer that cannot date a decision cannot tell it from one that was superseded an hour later.
 - Shape-ticket's cited references, and anything the owner has already ruled out of scope on this ticket.
-- The base SHA, the worktree path, and the staged-diff hash you just recorded.
+- The base SHA, the worktree path, and both hashes you just recorded — the code hash and the requirement hash.
 - The instruction to load `review-stage`, and to read `CLAUDE.md` plus every `.claude/docs/` page whose trigger fires for this change.
 
 **What part one withholds is the whole point of the gate**: the implementer's report, its command output, its reasoning, its self-assessment, **your own verification results**, any earlier stage's reviewer findings, and the issue's comment thread — which is where all of that is written down. Tell it not to fetch the issue, for the same mechanical reason the implementer is told: `gh issue view` returns every comment regardless of what it was asked to focus on.
@@ -83,34 +106,43 @@ If what came back is wrong or incomplete, **that is not a shortfall** — a shor
 
 ### Reading the verdict
 
-- **PASS** → commit, then prove the commit is what was reviewed. `git diff HEAD~1 HEAD | git hash-object --stdin` compares the same two trees the reviewed hash was taken across, so it has to match **exactly**. **Any difference at all goes back for a fresh PASS before the push — there is no "only formatting" exception**, because an autofix does not guarantee it touched only layout, and even where it provably did, the verdict is no longer a verdict on the tree that exists. The whole gate rests on *the reviewed tree is the landed tree*; a size threshold on the divergence dissolves that claim quietly, which is the same shape as the bypass removed from the fingerprint gate. Running the fixer before staging is what makes this check normally pass on the first try.
+**Every verdict updates the review-state comment before you act on it** — that is what makes the next step recoverable if this session ends between the two.
+
+- **PASS** → **re-read the requirement from the source and compare its hash first** (*Hash the requirement* above): a verdict earned against text that has since moved is `VOID`, not a pass. Then commit, and prove the commit is what was reviewed. `git diff HEAD~1 HEAD | git hash-object --stdin` compares the same two trees the reviewed hash was taken across, so it has to match **exactly**. **Any difference at all goes back for a fresh PASS before the push — there is no "only formatting" exception**, because an autofix does not guarantee it touched only layout, and even where it provably did, the verdict is no longer a verdict on the tree that exists. The whole gate rests on *the reviewed tree is the landed tree*; a size threshold on the divergence dissolves that claim quietly, which is the same shape as the bypass removed from the fingerprint gate. Running the gate's own fixer at step 2 above is what makes this check normally pass on the first try.
   - **This is the one window where amending is allowed.** The commit is not pushed and no comment cites it, so `git commit --amend` is how a re-reviewed version replaces it. `start-or-resume.md`'s no-rewrite rule begins at the push — which is exactly why *push before the comment* is the line that makes a SHA public.
   - **A re-review forced by the gate does not consume a fix round if it passes** — nothing was fixed, the gate moved the tree. If the reviewer blocks on something the autofix introduced, that is a real finding and it costs a round like any other.
   - Then `push → comment` below.
 - **BLOCKED** → this is *an unfinished stage*, per the rule above, not a shortfall: the repo is not yet what the ticket asked for. Dispatch a fix, with the findings **verbatim** and nothing about which of them you found persuasive. Do not commit in between.
-- **VOID** → nothing was reviewed. Fix the condition it named — an insufficient packet, a contaminated pass one, a moved tree — and dispatch again. **A VOID does not consume a fix round**, and neither does a finding the reviewer withdraws.
+- **VOID** → nothing was reviewed. Fix the condition it named — an insufficient packet, a contaminated pass one, a moved tree, a requirement that moved under it — and dispatch again. **A VOID does not consume a fix round**, and neither does a finding the reviewer withdraws.
 - **A finding that will not reproduce** → one exchange back to the reviewer, carrying your reproduction attempt in full. Suspect yours first: a fixture missing the property the finding was about looks exactly like a finding that was wrong. If the reviewer defends it, it stands.
 
-### The round count lives on the ticket, not in this session
+### The review state goes on the ticket at the dispatch, not at the first BLOCKED
 
-**A BLOCKED that exists only in your context is a round that gets spent twice.** Until the escalation, the gate writes to the ticket at exactly one moment — the PASS's stage comment — and a run that dies after round one's fix leaves a staged tree with nothing on the ticket to explain it. `start-or-resume.md` cannot tell that apart from a review that never started: the budget resets to zero, the reviewer's findings are gone, and **an overnight loop can spend rounds on one stage indefinitely while every rule about a two-round budget stays technically satisfied.**
+**Everything between the dispatch and the stage comment is a window where the only record of the gate is in your context, and your context does not survive the session.** Waiting for a BLOCKED to start writing leaves the *commonest* path unrecorded: a stage that passes first time, gets committed, and dies before the push has a local commit, no comment, and **no evidence a review ever happened** — not the verdict, not which hash was reviewed, not whether the commit gate rewrote it afterwards, not whether a forced re-review was owed. The pushed-but-comment-failed case is worse: the recovery in `start-or-resume.md` posts the comment owed from the commit's own diff, and would be attesting to a PASS that nobody can point at.
 
-So **post a review-state comment the moment the first BLOCKED lands, and update that same comment every round.** It is not a stage comment — it precedes the commit and may never become one — so it carries its own marker as its first line, which is also how a resumed session finds it:
+So **post the review-state comment before part one goes out, and update it at every transition.** It is not a stage comment — it precedes the commit and may never become one — so it carries its own marker as its first line, which is also how a resumed session finds it:
 
 ```
 <!-- deliver-ticket:stage-review:<stage-slug> -->
 ```
 
-Each update carries: the stage, the base SHA, **the staged-diff hash that round was reviewed at**, the round number against the budget, the reviewer's findings for that round **verbatim**, and what the fix changed. The hash is what makes a resume precise rather than approximate — a staged tree matching the last round's hash means that round's verdict still stands, and one that differs means the fix landed and the re-review did not, so that round is already spent.
+It carries, and keeps current:
+
+- **`state`** — one of `dispatched`, `blocked (round n of 2)`, `passed`, `committed <sha>, awaiting push`, `landed <sha>`, `escalated`.
+- **The base SHA, the code hash, and the requirement hash** the current round was reviewed against.
+- **The round number against the budget.**
+- **The reviewer's findings for each round, verbatim**, and what each fix changed.
+
+The hashes are what make a resume precise rather than approximate: a staged tree matching the last round's code hash means that verdict still stands; one that differs means a fix landed and its re-review did not, so that round is already spent.
 
 **Locate it by the marker, not with `--edit-last`.** `gh issue comment --edit-last` targets your most recent comment on the issue, which is the wrong one as soon as anything else has landed since — and on this ticket something will have. `gh api repos/:owner/:repo/issues/<n>/comments` filtered on the marker gives the id, and `gh api -X PATCH repos/:owner/:repo/issues/comments/<id>` updates it.
 
-**Close it out when the stage resolves**: a PASS edits it a final time to name the commit that landed, and an exhausted budget edits it to point at the escalation comment. **A review-state comment left open reads as a stage still mid-review**, which is precisely the state a resumed session is trying to identify.
+**Close it out only once the stage has actually landed** — pushed, with its stage comment posted — by setting `state` to `landed <sha>`; an exhausted budget closes it as `escalated`, pointing at the escalation comment. **A review-state comment left open reads as a stage still mid-review**, which is exactly the state a resumed session is trying to identify. The closing edit also records **how many rounds the stage spent, and whether it passed first time** — the one measurement this loop produces for free, and the only way to tell later whether the gate is catching things or just costing rounds.
 
 **Two fix rounds is the budget.** When the second re-review still returns BLOCKED, **the stage escalates and nothing commits**:
 
 - **Park the work where it survives the session.** `git diff --cached > <patch>` into the scratchpad or a `mktemp -d` — **never inside the worktree**, which would add an untracked file to the very diff under review. Leave the worktree staged and otherwise untouched.
-- **Comment on the ticket**: the stage, the reviewer's findings verbatim across every round, what each fix round changed, the base SHA, where the patch is, and that this is now waiting on the owner. Then stop — no commit, no next stage. `start-or-resume.md` reads that comment to recognise this state on the way back in.
+- **Comment on the ticket** — a new comment, because this one has to reach the owner: the stage, the base SHA, where the patch is, what the owner has to decide, and **a link to the review-state comment for the round-by-round detail rather than a second copy of it.** The findings are already there verbatim; restating them creates two accounts of the same rounds that will differ. Then set that comment's `state` to `escalated` and stop — no commit, no next stage. `start-or-resume.md` reads both to recognise this state on the way back in.
 - **A stage that fails three reviews is evidence about the plan, the packet or the ticket** rather than about the code, and a fourth attempt at the code is the one response that cannot help. If the ticket itself turns out to be wrong, `SKILL.md`'s drift branch is where that goes.
 
 ## Push before the comment, always
@@ -131,7 +163,7 @@ Post it as the commit lands, not in a batch at the end. It carries five things a
 
 **3. Which claims are measured and which are reasoned.** Mark them. A mechanism you inferred from reading is worth writing down and is not the same as one you executed, and only the label tells a later reader which ones are still owed a run.
 
-**4. The review.** That it returned `PASS`, and on which base and staged-diff hash — and if it took rounds to get there, what each round's findings were and what closed them. **A stage that passed first time says so explicitly.** This is the only durable record that the gate ran at all: a commit and a comment look identical whether a reviewer cleared them or nobody was ever asked, which is exactly the gap `start-or-resume.md`'s fingerprint gate exists to close one level up. Anything the reviewer filed as **FOLLOW-UP** is not closed by the PASS — it becomes a shortfall below, or something the owner rules outside, by the ordinary rules.
+**4. The review.** That it returned `PASS`, on which base, code hash and requirement hash — and if it took rounds to get there, what each round's findings were and what closed them. **A stage that passed first time says so explicitly.** This is the only durable record that the gate ran at all: a commit and a comment look identical whether a reviewer cleared them or nobody was ever asked, which is exactly the gap `start-or-resume.md`'s fingerprint gate exists to close one level up. Anything the reviewer filed as **FOLLOW-UP** is not closed by the PASS — it becomes a shortfall below, or something the owner rules outside, by the ordinary rules.
 
 **5. Shortfalls.** Everything you noticed and did not close in this commit, each with an address — file and line, or the command and the output. **Repeat the ones still open from earlier comments.** A shortfall named once and never mentioned again is indistinguishable from a shortfall that was fixed.
 

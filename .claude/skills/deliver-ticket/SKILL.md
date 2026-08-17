@@ -72,6 +72,8 @@ Hand a sub-agent **a Stage Packet — verbatim excerpts of its scope, not the ti
 
 **And you do not fix it yourself to save a round.** *You dispatch the work; you do not type it* has no exception for "three lines, and the reviewer already said what to do" — a fix you type is a change nobody outside it has read, arriving exactly when the loop is under the most pressure to be finished.
 
+**What all of this protects is narrower than "every step was followed".** Before each step that is harder to undo than the one before it, **five things have to be provable from outside this session**: the code version (the code hash), the baseline it was judged against (the requirement hash), who cleared it (the reviewer's own report), how far the loop had got (the review-state comment), and what actually landed (the post-commit and post-merge identity checks). Any one of them held only in your context is a link that breaks silently at the moment a run dies — and **every gap found in this gate so far has been one of those five, never a missing rule.**
+
 ## Before the first commit, read what the tool already promises
 
 **The ticket says what to build. It does not say what blueprint already claims to do** — and that part is published: `docs/guide/` for behaviour, `docs/philosophy/` for the positions behind it, `docs/api/` for the surface, and the emitted artifacts for what an adopter actually receives.
