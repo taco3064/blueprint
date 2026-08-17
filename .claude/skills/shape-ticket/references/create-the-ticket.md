@@ -44,6 +44,7 @@ Built on `origin/main` as it stands after the pre-flight sync, not as a fresh de
 
 - **Name the module and layer that already owns this**, per `CLAUDE.md`'s layering table. If the direction seems to belong to two, that tension is itself a finding — surface it rather than picking silently.
 - **Name the primitives already in the repo** that the plan reuses, and name every consumer that needs to move with the change (a resolver's caller, a rule the preset recommends, a page in `docs/` that documents the old behavior).
+- **Name the docs pages and existing output deliver-ticket must read before touching this** — the specific `docs/philosophy/`, `docs/guide/`, `docs/api/` pages, or a rendered artifact/CLI output, this plan depends on or must not contradict. This is deliver-ticket's reading list, not a suggestion: its own `SKILL.md` reads exactly these citations by default and nothing more, so a page that actually matters but isn't cited here is a missing citation, not something to add later out of caution.
 - **Cut into stages the way `deliver-a-stage.md` cuts a commit** — each stage is something that becomes true and leaves the repo releasable on its own, not a list of files to touch. A plan that only makes sense as one commit is one stage; don't manufacture more to look thorough.
 - **State what must not change** alongside what must — an implementer needs the invariant as much as the delta.
 - **Say whether a changeset, a docs update, or a migration note is needed**, matching this repo's own practice (every user-visible change ships a changeset).
