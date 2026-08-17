@@ -5,7 +5,7 @@ import type { Blueprint } from '../config';
 // with inspect; routing through the index would close a module cycle.
 import { LINT_GATED_RULE_IDS, unavailableGate } from '../emit/lint/gates';
 import { allNetFiles } from '../emit/lint/nets';
-import { dropTestFiles, globToRegExp } from './filter';
+import { dropTestFiles, fileGlobMatches } from './filter';
 import type { ScanResult } from './types';
 
 /**
@@ -53,9 +53,12 @@ export function computeCoverage(
   // modular structure: a module file's path carries the module segment the
   // bare layer glob does not expect, so every one of them read as outside
   // every net — not governed but invisible, actually uncounted.
-  const nets = allNetFiles(architecture, framework).map(globToRegExp);
+  const nets = allNetFiles(architecture, framework);
 
-  const outside = source.filter((file) => !nets.some((net) => net.test(file.path)));
+  const outside = source.filter(
+    (file) => !nets.some((glob) => fileGlobMatches(glob, file.path)),
+  );
+
   const layerFiles = source.length - outside.length;
 
   // A gate you cannot open is not a gate, and which those are lives in one place —

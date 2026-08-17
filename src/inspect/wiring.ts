@@ -23,7 +23,7 @@ import {
   toArray,
 } from '../emit/lint/patterns';
 import { unwrapModule } from '../project';
-import { dropTestFiles, globToRegExp } from './filter';
+import { dropTestFiles, fileGlobMatches, ignoresFile } from './filter';
 import type { DoctorCheck, ScanResult } from './types';
 
 /**
@@ -167,16 +167,23 @@ function pickProbes(
   blueprint: Blueprint,
 ): { path: string; net: NetScope }[] {
   const { architecture, framework } = blueprint;
-  const ignores = toArray(architecture.layerFilesIgnore).map(globToRegExp);
-  const tests = resolveTestFiles(architecture.testFiles).map(globToRegExp);
+  // The test globs ARE a net entry's own `ignores`, and `ignoresFile` is how
+  // ESLint reads one: an ordered list, not a test per entry. `layerFilesIgnore`
+  // is the other shape — global ignores, an entry with no `files` — which ESLint
+  // decides by a parent-directory walk first, where an ignored directory's
+  // descendants can no longer be re-included. Measured: `['gen', '!gen/keep.ts']`
+  // ignores every file under `gen/` as global ignores and none of them as an
+  // entry's. Probe picking reads the file half alone, as it always has; that gap
+  // can only leave a candidate in, never take one out.
+  const ignores = toArray(architecture.layerFilesIgnore);
+  const tests = resolveTestFiles(architecture.testFiles);
 
   const source = dropTestFiles(scanResult, architecture.testFiles).files.filter(
-    (file) => !ignores.some((ignore) => ignore.test(file.path)),
+    (file) => !ignoresFile(ignores, file.path),
   );
 
   return resolveFileNets(architecture, framework).flatMap((net) => {
-    const globs = net.files.map(globToRegExp);
-    const hit = source.find((file) => globs.some((glob) => glob.test(file.path)));
+    const hit = source.find((file) => net.files.some((glob) => fileGlobMatches(glob, file.path)));
 
     if (hit) {
       return [{ path: hit.path, net }];
@@ -190,8 +197,8 @@ function pickProbes(
       .find(
         (candidate): candidate is string =>
           candidate !== null
-          && !ignores.some((ignore) => ignore.test(candidate))
-          && !tests.some((test) => test.test(candidate)),
+          && !ignoresFile(ignores, candidate)
+          && !ignoresFile(tests, candidate),
       );
 
     return synthetic ? [{ path: synthetic, net }] : [];

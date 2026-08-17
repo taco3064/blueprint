@@ -270,6 +270,59 @@ await check('the declared types file exists', () => {
   return types;
 });
 
+// ------------------------------------------------------- zero runtime dependencies
+
+await check('package.json declares no runtime dependency', () => {
+  // README's front page says "zero runtime dependencies". `minimatch` and `ignore`
+  // are devDependencies rolldown inlines, and the whole arrangement rests on them
+  // staying on that side of the line — moving either one here is a one-word edit
+  // that makes the front page false with nothing else going red.
+  const runtime = ['dependencies', 'peerDependencies']
+    .flatMap((field) => Object.keys(pkg[field] ?? {}).map((name) => `${field}.${name}`));
+
+  expect(!runtime.length, `declared and shipped to every adopter: ${runtime.join(', ')}`);
+
+  return 'dependencies {}, peerDependencies {}';
+});
+
+await check('the bundle runs with no node_modules anywhere above it', async () => {
+  // The other half of the same claim, and the half a package.json read cannot make:
+  // an adopter installs this package with nothing beside it, so anything rolldown
+  // left unbundled — `minimatch` and `ignore` above all — is a bare specifier Node
+  // cannot resolve there, and the failure only exists after publishing. Copied out
+  // of the repo on purpose: run in place, the repo's own node_modules resolves
+  // every one of them and the check passes on a broken artifact.
+  const dir = tempDir('bp-dist-isolated-');
+  const ancestors = [];
+
+  for (let at = dir; !ancestors.includes(at); at = path.dirname(at)) {
+    ancestors.push(at);
+  }
+
+  const shadowing = ancestors.filter((at) => fs.existsSync(path.join(at, 'node_modules')));
+
+  expect(
+    !shadowing.length,
+    `node_modules sits above the temp dir (${shadowing.join(', ')}), so an unbundled import`
+    + ' would resolve there and this check would prove nothing',
+  );
+
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ type: 'module' }));
+  fs.copyFileSync(path.join(root, 'dist', 'index.js'), path.join(dir, 'index.js'));
+  fs.copyFileSync(binPath, path.join(dir, 'bin.js'));
+
+  // Both entries, because they are two rolldown builds with two `external` lists.
+  await import(pathToFileURL(path.join(dir, 'index.js')).href);
+
+  const { code, output } = runCmd(process.execPath, [path.join(dir, 'bin.js'), '--version'], {
+    cwd: dir,
+  });
+
+  expect(code === 0, `the bin exited ${code} outside the repo\n${output}`);
+
+  return 'index.js imported, bin.js ran';
+});
+
 // ------------------------------------------------------------------------- done
 
 for (const dir of temps) fs.rmSync(dir, { recursive: true, force: true });

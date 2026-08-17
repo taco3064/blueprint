@@ -6,7 +6,7 @@ import type { ArchitectureDef, ModuleDef, OwnedPackage, OwnedPrimitive } from '.
 import { netLabel } from '../emit/lint/nets';
 import type { NetScope } from '../emit/lint/nets';
 import type { PrimitiveOwner } from '../emit/lint/patterns';
-import { packageGlobToRegExp } from './filter';
+import { groupReaches } from './filter';
 import { pathScope } from './resolve';
 import type { Structure } from './resolve';
 import { sourcePrefix } from './scan';
@@ -421,7 +421,7 @@ function primitiveOwners(
  */
 function installed(owned: OwnedPackage, dependencies: string[]): boolean {
   return owned.pattern
-    ? dependencies.some((dep) => packageGlobToRegExp(owned.package).test(dep))
+    ? dependencies.some((dep) => groupReaches([owned.package], dep))
     : dependencies.includes(owned.package);
 }
 

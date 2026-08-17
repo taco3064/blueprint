@@ -25,6 +25,9 @@ import type { ImportRef, ScanResult, ScannedFile } from './types';
 
 const OWNING_LAYER = 'hooks';
 
+/** The one exempt glob two suites below share, so the negation can quote it. */
+const EXEMPT = 'src/components/legacy/**';
+
 /** A two-layer blueprint whose `hooks` (and optionally `components`) own something. */
 function owning(hooks: OwnedPrimitive[], components: OwnedPrimitive[] = []): Blueprint {
   return defineBlueprint({
@@ -194,6 +197,50 @@ describe('analyze · an exempt glob lifts the restriction off a file', () => {
       .toEqual({ inspect: true, eslint: true });
 
     expect(verdicts(mixed, ['components', 'legacy', 'W.tsx'], { specifier: 'lodash' }))
+      .toEqual({ inspect: false, eslint: false });
+  });
+});
+
+describe('analyze · a testFiles negation re-includes what the exempt glob excused', () => {
+  // The exemption and the test globs ride ONE ordered `ignores` on the emitted
+  // entry, so a `!` in `testFiles` re-includes a file the exempt glob before it
+  // excluded — and reading the exempt half alone called that file exempt while
+  // eslint linted it. A false NEGATIVE: a real violation, on screen nowhere.
+  const negated = defineBlueprint({
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      layers: [
+        { name: 'components', does: 'ui' },
+        { name: OWNING_LAYER, does: 'state', owns: [{ package: 'lodash', exempt: [EXEMPT] }] },
+      ],
+      folder: { layout: 'flat', entry: 'index', private: [] },
+      testFiles: ['**/*.test.{js,jsx}', `!${EXEMPT}`],
+    },
+  });
+
+  it('flags the re-included test file, in both engines', () => {
+    expect(verdicts(negated, ['components', 'legacy', 'Old.test.jsx'], { specifier: 'lodash' }))
+      .toEqual({ inspect: true, eslint: true });
+  });
+
+  it('re-includes the whole excused subtree, not only the tests in it', () => {
+    // The negation is the LAST entry of one list, so it re-includes everything
+    // the exempt glob matched — a plain file included. The same file under the
+    // same exempt glob with no negation declared is exempt, which is what makes
+    // the ordering (not the exempt half alone) the thing that decides.
+    const plain = ['components', 'legacy', 'Old.jsx'];
+
+    expect(verdicts(negated, plain, { specifier: 'lodash' }))
+      .toEqual({ inspect: true, eslint: true });
+
+    expect(verdicts(owning([{ package: 'lodash', exempt: [EXEMPT] }]), plain, {
+      specifier: 'lodash',
+    })).toEqual({ inspect: false, eslint: false });
+  });
+
+  it('leaves a test file the negation does not reach exempt from everything', () => {
+    expect(verdicts(negated, ['components', 'Fresh.test.jsx'], { specifier: 'lodash' }))
       .toEqual({ inspect: false, eslint: false });
   });
 });

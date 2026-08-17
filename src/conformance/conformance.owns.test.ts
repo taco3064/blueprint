@@ -24,7 +24,7 @@ afterEach(() => {
   }
 });
 
-describe('one owns entry, one verdict — the glob halves agree too', () => {
+describe('one owns entry, one verdict — the pattern half', () => {
   const grouping = {
     ...reactBlueprint,
     architecture: {
@@ -91,11 +91,11 @@ describe('one owns entry, one verdict — the glob halves agree too', () => {
     expect(impact.output).not.toContain('no-restricted-imports');
   });
 
-  it('refuses a glob it could only approximate, naming the construct and the subset', async () => {
-    // `foo[A-Z]*` is a form ESLint's own documentation uses, and the emitted
-    // group would enforce it while inspect read the brackets literally. There is
-    // no runtime dependency to borrow a matcher from — README promises none — so
-    // the narrow contract is declared and the broad one refused.
+  it('reads a character class in a pattern group the way the linter does', async () => {
+    // `foo[A-Z]*` is a form ESLint's own documentation uses. A compiler that read
+    // the brackets literally enforced a ban it could not see, so the fix is to
+    // ask the rule's own matcher — which expands the class AND is case-insensitive,
+    // so `fooabc` is reached too.
     const dir = repo({
       packageJson: react(),
       files: {
@@ -113,14 +113,114 @@ describe('one owns entry, one verdict — the glob halves agree too', () => {
             ],
           },
         }),
-        'src/components/Btn.jsx': 'export const Btn = () => null;\n',
+        'src/components/Btn.jsx':
+          'import x from \'fooABC\';\n\nexport const Btn = () => x;\n',
+        'src/services/api.jsx': 'export const api = 1;\n',
       },
     });
 
     const inspect = await cli(dir, ['inspect']);
 
     expect(inspect.code).toBe(1);
-    expect(inspect.output).toContain('"[…]" character class');
-    expect(inspect.output).toContain('A pattern glob may use');
+    expect(inspect.output).toContain('"fooABC" is owned by services');
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('no-restricted-imports');
+    expect(impact.output).toContain('1 hit(s)');
+  });
+});
+
+describe('one owns entry, one verdict — the exempt half', () => {
+  it('exempts through braces carrying wildcards, in both engines', async () => {
+    // The `exempt` half's own version of the same defect: braces are split and
+    // the `*` INSIDE each branch escaped, where minimatch expands the braces and
+    // then honours it. So `src/components/{legacy*,vendor*}/**` exempted nothing
+    // in inspect and a whole tree in eslint — three files with two verdicts.
+    const dir = repo({
+      packageJson: react({ axios: '^1.0.0' }),
+      files: {
+        'blueprint.config.mjs': configSource({
+          ...reactBlueprint,
+          architecture: {
+            ...reactBlueprint.architecture,
+            layers: [
+              { name: 'components', does: 'render UI' },
+              {
+                name: 'services',
+                does: 'data access',
+                owns: [{ package: 'axios', exempt: ['src/components/{legacy*,vendor*}/**'] }],
+              },
+            ],
+          },
+        }),
+        'src/components/legacy/Old.jsx':
+          'import axios from \'axios\';\n\nexport const Old = () => axios;\n',
+        'src/components/vendorX/Wrap.jsx':
+          'import axios from \'axios\';\n\nexport const Wrap = () => axios;\n',
+        'src/components/modern/New.jsx':
+          'import axios from \'axios\';\n\nexport const New = () => axios;\n',
+        'src/services/api.jsx': 'export const api = 1;\n',
+      },
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.code).toBe(1);
+    expect(inspect.output).toContain('src/components/modern/New.jsx');
+    expect(inspect.output).not.toContain('src/components/legacy/Old.jsx');
+    expect(inspect.output).not.toContain('src/components/vendorX/Wrap.jsx');
+
+    // One hit in the other engine too — the exempted pair reach the entry that
+    // carries no axios restriction, exactly as inspect just read them.
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('no-restricted-imports');
+    expect(impact.output).toContain('1 hit(s)');
+  });
+
+  it('reports the file a testFiles negation puts back inside the restriction', async () => {
+    // The exemption and the test globs are ONE ordered `ignores` on the emitted
+    // entry, so a `!` in `testFiles` re-includes what the exempt glob excused.
+    // Reading the exempt half alone made `inspect` call this file exempt while
+    // eslint flagged it — the false-NEGATIVE direction, a real violation with
+    // nothing on screen. Both engines are asked here for that reason.
+    const dir = repo({
+      packageJson: react({ axios: '^1.0.0' }),
+      files: {
+        'blueprint.config.mjs': configSource({
+          ...reactBlueprint,
+          architecture: {
+            ...reactBlueprint.architecture,
+            layers: [
+              { name: 'components', does: 'render UI' },
+              {
+                name: 'services',
+                does: 'data access',
+                owns: [{ package: 'axios', exempt: ['src/components/legacy/**'] }],
+              },
+            ],
+            testFiles: ['**/*.test.{js,jsx}', '!src/components/legacy/**'],
+          },
+        }),
+        'src/components/legacy/Old.test.jsx':
+          'import axios from \'axios\';\n\nexport const Old = () => axios;\n',
+        'src/components/Fresh.test.jsx':
+          'import axios from \'axios\';\n\nexport const Fresh = () => axios;\n',
+        'src/services/api.jsx': 'export const api = 1;\n',
+      },
+    });
+
+    const inspect = await cli(dir, ['inspect']);
+
+    expect(inspect.code).toBe(1);
+    expect(inspect.output).toContain('src/components/legacy/Old.test.jsx');
+    // Still a test file everywhere the negation does not reach, so still silent.
+    expect(inspect.output).not.toContain('src/components/Fresh.test.jsx');
+
+    const impact = await cli(dir, ['impact']);
+
+    expect(impact.output).toContain('src/components/legacy/Old.test.jsx');
+    expect(impact.output).toContain('1 hit(s)');
   });
 });

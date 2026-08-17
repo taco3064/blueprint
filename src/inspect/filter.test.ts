@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { dropTestFiles, globToRegExp, isTestFile } from './filter';
+import { dropTestFiles, globToRegExp, ignoresFile } from './filter';
 import type { ScanResult } from './types';
 
 describe('globToRegExp', () => {
@@ -40,9 +40,28 @@ describe('dropTestFiles', () => {
     expect(dropTestFiles(scan, '**/*.spec.ts').files).toHaveLength(2);
   });
 
-  it('isTestFile matches against compiled patterns', () => {
-    expect(isTestFile('a/b.test.js', [globToRegExp('**/*.test.js')])).toBe(true);
-    expect(isTestFile('a/b.js', [globToRegExp('**/*.test.js')])).toBe(false);
+  it('honors a negation in testFiles, because the emitted ignores does', () => {
+    // `testFiles` is written verbatim into every net's `ignores`, where a later
+    // "!" re-includes. Read as a set of independent globs this file would be
+    // dropped from the scan while ESLint kept linting it.
+    const kept = dropTestFiles(scan, ['**/*.test.js', '!src/services/api.test.js']);
+
+    expect(kept.files.map((f) => f.path)).toContain('src/services/api.test.js');
+  });
+});
+
+describe('ignoresFile · the compiled matchers are reused, not rebuilt', () => {
+  it('answers the same on a second call with the same list', () => {
+    // Both minimatch caches are exercised here: the plain pattern on the first
+    // entry, and — only because the first entry already matched — the negated
+    // one on the second. A cache that returned a differently-configured matcher
+    // for a repeat pattern would answer differently the second time.
+    const list = ['**/*.gen.ts', '!src/keep.gen.ts'];
+
+    expect(ignoresFile(list, 'src/keep.gen.ts')).toBe(false);
+    expect(ignoresFile(list, 'src/keep.gen.ts')).toBe(false);
+    expect(ignoresFile(list, 'src/a.gen.ts')).toBe(true);
+    expect(ignoresFile(list, 'src/a.gen.ts')).toBe(true);
   });
 });
 
@@ -50,7 +69,7 @@ describe('globToRegExp · what each star form consumes', () => {
   it('spans zero directories for a slash-terminated double star', () => {
     // `src/**/*.ts` has to match a file sitting directly in src/ as well as one
     // nested below it. Reading the stars as a single-segment `*` breaks the
-    // zero-directory case, and layerFiles globs are written in exactly this shape.
+    // zero-directory case, and a `.gitignore` line is written in this shape.
     const net = globToRegExp('src/**/*.ts');
 
     expect(net.test('src/a.ts')).toBe(true);

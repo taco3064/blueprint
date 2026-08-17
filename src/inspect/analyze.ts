@@ -10,9 +10,9 @@ import type { AliasRoot, ArchitectureDef, Blueprint } from '../config';
 // own siblings, so none of them reaches back into the plugin the index loads.
 import { barredIn } from '../emit/lint/bans';
 import { netLabel } from '../emit/lint/nets';
-import { derivePackageRules } from '../emit/lint/patterns';
+import { derivePackageRules, netIgnores, resolveTestFiles } from '../emit/lint/patterns';
 import type { PackageRule } from '../emit/lint/types';
-import { dropTestFiles, globToRegExp, packageGlobToRegExp } from './filter';
+import { dropTestFiles, groupReaches, ignoresFile } from './filter';
 import { compareText } from './order';
 import {
   aliasList,
@@ -53,6 +53,7 @@ export function analyze(
   const analysis: AnalysisScope = {
     architecture,
     structure,
+    testGlobs: resolveTestFiles(architecture.testFiles),
     // The emitted config's own restriction list, compiled from the same pair of
     // owner arrays `resolveBanScope` hands `derivePackageRules`.
     packageRules: derivePackageRules(
@@ -90,6 +91,8 @@ export function analyze(
 interface AnalysisScope {
   architecture: ArchitectureDef;
   structure: Structure;
+  /** The test globs every emitted entry ignores, resolved once for the scan. */
+  testGlobs: string[];
   /** Every package restriction the emitted config carries, in its own shape. */
   packageRules: PackageRule[];
 }
@@ -320,13 +323,17 @@ function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportConte
  * Read through the FILE matcher, because `exempt` is emitted as that entry's
  * `ignores` — a different grammar from the specifier globs below, and the two
  * are never compiled by one function here for the same reason ESLint does not
- * match them with one library.
+ * match them with one library. `netIgnores` hands over that entry's WHOLE list,
+ * in order, exempt globs then test globs, because `ignores` is ordered and the
+ * halves decide nothing apart: a `testFiles` negation re-includes a file the
+ * exempt glob before it excluded, and reading the exempt half alone called such
+ * a file exempt while ESLint linted it.
  */
 function activeRules(file: ScannedFile, context: ImportContext): PackageRule[] {
   const barred = context.packageRules.filter((rule) => barredIn(context.scope, rule));
-  const exempt = [...new Set(barred.flatMap((rule) => rule.exempt ?? []))];
+  const ignores = netIgnores(barred, context.testGlobs);
 
-  return exempt.some((glob) => globToRegExp(glob).test(file.path))
+  return ignores && ignoresFile(ignores, file.path)
     ? barred.filter((rule) => !rule.exempt?.length)
     : barred;
 }
@@ -334,14 +341,10 @@ function activeRules(file: ScannedFile, context: ImportContext): PackageRule[] {
 /**
  * Whether a restriction reaches a specifier, in the two shapes
  * `buildPackagePatterns` splits them into: a `paths` entry matches the module
- * name exactly, a `patterns` entry matches its glob the way the emitted
- * `no-restricted-imports` group does — case-insensitively, at any segment when
- * the glob has no `/`, and through everything under a match.
+ * name exactly, a `patterns` entry goes to the rule's own group matcher.
  */
 function reaches(rule: PackageRule, specifier: string): boolean {
-  return rule.pattern
-    ? packageGlobToRegExp(rule.package).test(specifier)
-    : rule.package === specifier;
+  return rule.pattern ? groupReaches([rule.package], specifier) : rule.package === specifier;
 }
 
 /**

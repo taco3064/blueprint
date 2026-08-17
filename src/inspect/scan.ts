@@ -180,7 +180,7 @@ function walk(dir: string, files: ScannedFile[], scope: WalkScope): void {
       walk(path.join(dir, entry.name), files, scope);
     } else if (SOURCE_EXT.test(entry.name)) {
       // Paths are matched against forward-slash globs everywhere downstream
-      // (globToRegExp nets, coverage, survival probes) — normalize at birth,
+      // (the layer nets, coverage, survival probes) — normalize at birth,
       // or every net silently matches nothing on Windows.
       const rel = path
         .relative(base, path.join(dir, entry.name))

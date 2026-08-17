@@ -407,6 +407,24 @@ export function buildModuleSelfBan(params: {
   };
 }
 
+/**
+ * The whole `ignores` list a net's restricting entry carries, in the order it
+ * carries it: every exempt glob in force there — declaration order, deduped,
+ * empty globs dropped — then the test globs. `null` when nothing here is
+ * exempt, which is the net that emits one entry and has no such list at all.
+ *
+ * Both readers of that entry call this: `emitLint` writes the list, `inspect`
+ * asks whether a file is inside it. It is one list rather than two because
+ * `ignores` is ORDERED — a `testFiles` negation re-includes a file an earlier
+ * exempt glob excluded, so the halves decide nothing apart, and reading either
+ * one alone answers a question ESLint never asked.
+ */
+export function netIgnores(disabled: PackageRule[], testGlobs: string[]): string[] | null {
+  const exempt = [...new Set(disabled.flatMap((rule) => rule.exempt ?? []).filter(Boolean))];
+
+  return exempt.length ? [...exempt, ...testGlobs] : null;
+}
+
 /** Split disabled package rules into `no-restricted-imports` paths + patterns. */
 export function buildPackagePatterns(disabled: PackageRule[]): {
   paths: PathPattern[];

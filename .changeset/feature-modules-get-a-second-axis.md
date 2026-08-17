@@ -258,13 +258,13 @@ reader still concatenating the field by hand — it offers `e.g. .//components/`
 under `'./'` — so it is two fixes on one line, and both belong to whoever rewrites
 it against the resolved blueprint.
 
-**The two engines now agree about the GLOB in an `owns` entry, and where they
-cannot, the config is refused rather than approximated.** The pass above judged
-package ownership through the rules `emitLint` compiles, but it matched a
-`pattern` group with this repo's own `globToRegExp` — which is neither matcher
-ESLint uses. Measured against ESLint 9.39, three of its answers were wrong: the
-rule passes `ignorecase: !caseSensitive` and defaults `caseSensitive` to false,
-so owning `axios` flags an import of `AXIOS`; a group with no `/` is unanchored,
+**The two engines now agree about the GLOB in an `owns` entry, because `inspect`
+calls the same two libraries ESLint calls.** The pass above judged package
+ownership through the rules `emitLint` compiles, but it matched every glob with
+this repo's own `globToRegExp` — which is neither matcher ESLint uses. Measured
+against ESLint 9.39, three of its answers were wrong: `no-restricted-imports`
+passes `ignorecase: !caseSensitive` and defaults `caseSensitive` to false, so
+owning `axios` flags an import of `AXIOS`; a group with no `/` is unanchored,
 because gitignore matches such a pattern against every path segment, so owning
 `foo*` flags `@scope/foo`; and `exempt` is emitted as a config entry's `ignores`,
 which is minimatch and reaches no descendants at all, where the old reading added
@@ -272,34 +272,72 @@ a `/**` the file matcher never has. An owner writing
 `{ package: 'foo[A-Z]*', pattern: true }` — a form ESLint's own documentation
 uses — got a ban `eslint` enforced and `inspect` could not see.
 
-- **Two matchers, because ESLint has two.** `packageGlobToRegExp` compiles a
-  `pattern` package the way `no-restricted-imports` matches a `patterns[].group`
-  (case-insensitive, unanchored when the glob has no `/`, reaching everything
-  under a match); `globToRegExp` keeps matching an `exempt` glob the way
-  `files` / `ignores` does (anchored, case-sensitive, file-by-file, `{a,b}`
-  expanded). Only the specifier path became case-insensitive: every other caller
-  of `globToRegExp` — test-file filtering, `layerFilesIgnore`, the coverage and
-  probe nets, the `.gitignore` reader — matches paths against globs ESLint or git
-  reads case-sensitively, and widening those would silently change what counts as
-  a test file.
-- **BREAKING: `defineBlueprint` refuses a `pattern` / `exempt` glob outside the
-  subset it can model faithfully**, naming the construct, why the two engines
-  part company on it, and what IS supported. The subset is `*`, `**` as a whole
-  path segment, and `?`, plus a flat `{a,b}` alternation on the `exempt` side
-  only — gitignore has no brace expansion, so `{merge,pick}` in a `pattern` bans
-  a literal specifier nobody publishes. Refused: `[…]` classes, `(…)` extglobs,
-  `\` escapes, a leading `!` or `/`, a trailing `/`, `**` inside a segment, and
-  nested / comma-less / `..`-range brace groups. Adopting a runtime `minimatch` +
-  `ignore` instead was the other option and is closed: README's front page
-  promises "no network code, zero runtime dependencies", both packages are
-  resolvable here only through the devDependency on eslint, and an adopter who
-  has not installed eslint has neither. A gate you cannot open is not a gate, and
-  a contract you can honour beats a broader one you approximate. The release is
-  already `4.0.0`, so this costs no extra bump.
-- Every accepted form is measured, not asserted: `filter.eslint.test.ts` asks the
-  real linter for each `(glob, specifier)` and each `(glob, path)` pair and
-  compares, and the refused forms are in the same file as the disagreement that
-  justifies each one.
+- **`minimatch` and `ignore` are devDependencies, bundled into `dist`.** Not
+  runtime dependencies: `rolldown.config.ts` marks only `node:*` builtins
+  external, so both are inlined into `dist/index.js` and `dist/bin.js`, and
+  `package.json` still declares no `dependencies` and no `peerDependencies`.
+  README's "No network code, zero runtime dependencies" stays literally true, and
+  it is now a gate rather than a memory: `npm run dist:verify` fails if either
+  field gains an entry, and copies `dist/` to a temp directory with no
+  `node_modules` above it and runs both entries there, so anything left
+  unbundled is `ERR_MODULE_NOT_FOUND` before publishing rather than after.
+- **Three matchers, because ESLint uses three shapes.** `groupReaches` is the
+  rule's own `ignore` instance, built with the options the rule builds one with
+  (`allowRelativePaths`, `ignorecase: true`) and given the whole group at once.
+  `fileGlobMatches` is `@eslint/config-array`'s `doMatch` — minimatch with
+  `{ dot: true, allowWindowsEscape: true }`, after the leading `./` that config
+  normalization strips. `ignoresFile` is its `shouldIgnorePath` reduce over a
+  whole ORDERED list, which is the one a `.some()` can never express: `exempt:
+  ['src/gen/**', '!src/gen/keep.ts']` re-includes the second file, and per-entry
+  testing calls it exempt while ESLint lints it. `owns-not-installed` asks
+  `groupReaches` too, so "is any installed dependency reached by this pattern"
+  and "is this import banned" are one code path.
+- **Every construct ESLint accepts, blueprint accepts.** Character classes,
+  extglobs, negation and re-inclusion, escapes, a leading `/` or `#`, a trailing
+  `/`, `**` inside a segment, braces around wildcards, dotfiles and case
+  differences all resolve to whatever the real library says, including the
+  surprising answers — `{a,b}` is three literal characters in a `pattern` group
+  because gitignore has no brace expansion, and a leading `#` is a comment in
+  BOTH libraries, so such a glob matches nothing at all.
+- **The exemption and the test globs are ONE ordered list, built by one
+  function.** A net's restricting entry carries `[...exempt, ...testGlobs]` as a
+  single `ignores`, so a `!` among the test globs re-includes a file an exempt
+  glob before it excused. `inspect` read the exempt half alone and called such a
+  file exempt while the emitted config linted it — the false-NEGATIVE direction,
+  a real violation reported nowhere. Measured through the CLI on
+  `exempt: ['src/components/legacy/**']` with
+  `testFiles: ['**/*.test.{js,jsx}', '!src/components/legacy/**']`: real `eslint`
+  and `blueprint impact` each reported 2, `inspect` reported 1 and never named
+  `src/components/legacy/Old.test.jsx`. Both readers now take that whole list, in
+  order, from `emit/lint`'s own `netIgnores`, and a test asserts the emitted
+  entry's `ignores` and the list `inspect` reads are the same array — because
+  "both non-empty" is satisfied by two lists that disagree about a file.
+- **The other `globToRegExp` callers moved with it.** Test-file filtering,
+  `layerFilesIgnore`, doctor's probe nets and the coverage nets are all `files` /
+  `ignores` globs, so they now go through the same minimatch the emitted entry
+  does — the test globs as the ordered list they are emitted as, on each net's
+  own entry. `layerFilesIgnore` is a different shape and is not claimed to be
+  read as one: it is emitted as GLOBAL ignores (an entry with no `files`), which
+  ESLint decides by a parent-directory walk before it reads the list, and an
+  ignored directory's descendants can no longer be re-included — measured,
+  `['gen', '!gen/keep.ts']` ignores every file under `gen/` as global ignores and
+  none of them as an entry's. Only its file half is read here, exactly as before
+  this change, and `analyze` still does not read it at all; both are pre-existing
+  and belong to a follow-up rather than to this release note. Measured over 369
+  paths: the default test globs
+  and every plain star / globstar / brace / dotfile override classify
+  identically, and the only shapes that move are the ones the old compiler read
+  wrong (a `./` prefix, a character class, an extglob, a `!` negation), each now
+  answering as ESLint does. `globToRegExp` itself stays, unchanged, for its one
+  remaining caller: `bootstrap/ignored.ts`, which reads real `.gitignore` lines
+  and wraps its own anchoring, negation and directory handling around it.
+- Every form is measured, not asserted: `filter.eslint.test.ts` asks the real
+  linter for each `(glob, specifier)`, `(glob, path)` and `(list, path)` triple
+  and asserts the answer as well as the agreement, so a both-wrong pair cannot
+  pass. The one thing it deliberately does not model is named in the same file —
+  ESLint discounts a config whose `files` are all universal patterns unless
+  another config matches the file specifically, which is a fact about the config
+  array rather than about a glob.
 
 **`owns-not-installed` reads a pattern owner as a group.** `dependencies
 .includes(pkg)` can never find `@scope/*` in a `package.json`, so the note fired

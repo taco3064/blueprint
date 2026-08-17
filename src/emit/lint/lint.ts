@@ -16,6 +16,7 @@ import { allNetFiles, resolveFileNets } from './nets';
 import type { FileNet } from './nets';
 import {
   buildPackagePatterns,
+  netIgnores,
   ownerPhrase,
   resolveLayerFiles,
   resolveTestFiles,
@@ -143,11 +144,9 @@ function netEntries(net: FileNet, context: NetContext): LintConfigEntry[] {
     };
   };
 
-  const exemptPatterns = [
-    ...new Set(disabledPackages.flatMap((rule) => rule.exempt ?? []).filter(Boolean)),
-  ];
+  const restrictedIgnores = netIgnores(disabledPackages, testGlobs);
 
-  if (!exemptPatterns.length) {
+  if (!restrictedIgnores) {
     return [{ files: net.files, ignores: testGlobs, rules: buildRules(disabledPackages) }];
   }
 
@@ -156,12 +155,11 @@ function netEntries(net: FileNet, context: NetContext): LintConfigEntry[] {
   return [
     // All files (incl. exempt): only the non-exempt package restrictions.
     { files: net.files, ignores: testGlobs, rules: buildRules(nonExempt) },
-    // Non-exempt files only: the full set of package restrictions.
-    {
-      files: net.files,
-      ignores: [...exemptPatterns, ...testGlobs],
-      rules: buildRules(disabledPackages),
-    },
+    // Non-exempt files only: the full set of package restrictions. Its `ignores`
+    // is not built here — `inspect` reads the same list to decide the same thing,
+    // and two spellings of one ordered list is a false negative waiting for a
+    // `testFiles` negation to arrive.
+    { files: net.files, ignores: restrictedIgnores, rules: buildRules(disabledPackages) },
   ];
 }
 

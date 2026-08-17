@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
+import { emitLint } from './lint';
 import {
   buildPackagePatterns,
   buildStructuralPatterns,
   derivePackageRules,
   deriveGlobalRules,
+  netIgnores,
   resolveLayerFiles,
+  resolveTestFiles,
   selfOnlyReexportSelector,
   toArray,
 } from './patterns';
+import { defineBlueprint } from '../../config';
 import type { LayerDef } from '../../config';
 
 describe('toArray', () => {
@@ -252,6 +256,66 @@ describe('buildStructuralPatterns', () => {
 
     expect(sameLayer('folder')).toContain('Replace "~app/a/X" with "../X"');
     expect(sameLayer('folder')).toContain('what is behind the entry stays private');
+  });
+});
+
+describe('netIgnores', () => {
+  const TESTS = ['**/*.test.{js,jsx}', '!src/components/legacy/**'];
+  const EXEMPT = 'src/components/legacy/**';
+
+  it('answers null when nothing in this net is exempt', () => {
+    // Not an empty list. Null is "this net emits ONE entry", and the caller
+    // that reads a list decides whether a file is exempt at all — handed `[]`
+    // it would answer "not exempt" for a net that has no exemption entry to
+    // miss, which is the same answer by accident rather than by the shape.
+    expect(netIgnores([{ package: 'axios', allowedIn: ['services'] }], TESTS)).toBeNull();
+
+    // An exempt list that is only empty strings is the same case: `ignores: ['']`
+    // is not a glob eslint can use, so no second entry is emitted for it.
+    expect(netIgnores([{ package: 'axios', allowedIn: ['s'], exempt: [''] }], TESTS)).toBeNull();
+  });
+
+  it('puts the exempt globs first, deduped, then the test globs', () => {
+    // Order is the whole contract: the test globs come last so a `!` among them
+    // can re-include what an exempt glob excluded, which is how ESLint reads it.
+    expect(netIgnores(
+      [
+        { package: 'axios', allowedIn: ['s'], exempt: ['src/gen/**', ''] },
+        { package: 'lodash', allowedIn: ['s'], exempt: ['src/gen/**', 'src/vendor/**'] },
+      ],
+      TESTS,
+    )).toEqual(['src/gen/**', 'src/vendor/**', ...TESTS]);
+  });
+
+  it('is the list the emitted entry carries, not a second spelling of it', () => {
+    // Both readers call this one function, and the assertion is that the two
+    // outputs are the SAME array. "Both non-empty" is satisfied by two lists
+    // that disagree about a file — which is exactly what shipped: `inspect` read
+    // the exempt half alone, called the re-included test file exempt, and said
+    // nothing about a violation eslint reported.
+    const bp = defineBlueprint({
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        layers: [
+          { name: 'components', does: 'ui' },
+          { name: 'hooks', does: 'state', owns: [{ package: 'lodash', exempt: [EXEMPT] }] },
+        ],
+        folder: { layout: 'flat', entry: 'index', private: [] },
+        testFiles: TESTS,
+      },
+    });
+
+    const narrow = emitLint(bp).find((entry) => entry.ignores?.includes(EXEMPT));
+
+    expect(narrow?.ignores).toEqual(
+      netIgnores(
+        derivePackageRules(bp.architecture.layers),
+        resolveTestFiles(bp.architecture.testFiles),
+      ),
+    );
+
+    expect(narrow?.ignores).toEqual([EXEMPT, ...TESTS]);
   });
 });
 
