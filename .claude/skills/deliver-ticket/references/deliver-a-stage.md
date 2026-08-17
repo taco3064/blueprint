@@ -109,12 +109,29 @@ So take a **requirement hash** over the authority half of the packet: the Goal, 
 **Every verdict updates the review-state comment before you act on it** — that is what makes the next step recoverable if this session ends between the two.
 
 - **PASS** → **re-read the requirement from the source and compare its hash first** (*Hash the requirement* above): a verdict earned against text that has since moved is `VOID`, not a pass. Then commit, and prove the commit is what was reviewed. `git diff HEAD~1 HEAD | git hash-object --stdin` compares the same two trees the reviewed hash was taken across, so it has to match **exactly**. **Any difference at all goes back for a fresh PASS before the push — there is no "only formatting" exception**, because an autofix does not guarantee it touched only layout, and even where it provably did, the verdict is no longer a verdict on the tree that exists. The whole gate rests on *the reviewed tree is the landed tree*; a size threshold on the divergence dissolves that claim quietly, which is the same shape as the bypass removed from the fingerprint gate. Running the gate's own fixer at step 2 above is what makes this check normally pass on the first try.
-  - **This is the one window where amending is allowed.** The commit is not pushed and no comment cites it, so `git commit --amend` is how a re-reviewed version replaces it. `start-or-resume.md`'s no-rewrite rule begins at the push — which is exactly why *push before the comment* is the line that makes a SHA public.
+  - **A difference sends the commit back through *Restoring an unpushed commit to the review target*, below** — not straight to a re-dispatch, because a reviewer cannot be pointed at a commit.
   - **A re-review forced by the gate does not consume a fix round if it passes** — nothing was fixed, the gate moved the tree. If the reviewer blocks on something the autofix introduced, that is a real finding and it costs a round like any other.
   - Then `push → comment` below.
 - **BLOCKED** → this is *an unfinished stage*, per the rule above, not a shortfall: the repo is not yet what the ticket asked for. Dispatch a fix, with the findings **verbatim** and nothing about which of them you found persuasive. Do not commit in between.
 - **VOID** → nothing was reviewed. Fix the condition it named — an insufficient packet, a contaminated pass one, a moved tree, a requirement that moved under it — and dispatch again. **A VOID does not consume a fix round**, and neither does a finding the reviewer withdraws.
 - **A finding that will not reproduce** → one exchange back to the reviewer, carrying your reproduction attempt in full. Suspect yours first: a fixture missing the property the finding was about looks exactly like a finding that was wrong. If the reviewer defends it, it stands.
+
+### Restoring an unpushed commit to the review target
+
+**Three paths end with you holding a commit that has to be reviewed again — and a commit is not something `review-stage` can be pointed at.** Its target is a staged, uncommitted diff, per `rebuild-the-picture.md`'s invariant, and `git diff --cached` against a committed tree is **empty**, so such a dispatch hands a reviewer nothing at all. **Amending does not rescue it either: the re-review has to happen before the replacement commit exists.** So each of the three restores the target first, by the same steps:
+
+1. **Confirm it is unpushed and uncited** — absent from `origin/<branch>`, named by no stage delivery comment. If it is either, stop: that is `start-or-resume.md`'s pushed-with-no-record case and it belongs to the owner. It is also `HEAD`, which the one-commit-per-stage and push-per-stage ordering guarantees; two unpushed commits means something else went wrong, and that is the owner's too.
+2. **Save the commit message first.** It is the one thing the reset discards, and re-deriving it later is how a stage's message quietly stops describing what the stage did.
+3. **`git reset --soft HEAD~1`** — the staged diff comes back byte-identical and nothing in the worktree moves.
+4. **Re-confirm the tree**: `git status --porcelain`, nothing left unstaged.
+5. **Re-hash both halves**, code and requirement, from the current sources.
+6. **Set the review-state comment back to `dispatched`**, naming which of the three paths sent it back.
+7. **Run the gate normally** — part one, part two, verdict.
+8. **On PASS, re-commit with the saved message**, then the post-commit identity check and the pre-push requirement check as usual.
+
+The three paths in: the post-commit code hash differs from the reviewed one; the pre-push requirement check finds the requirement moved; a resumed session finds an unpushed commit no review-state comment names. **None of them consumes a fix round on its own** — the work is not what failed. A finding the re-review then raises does.
+
+**This is the only place that sequence is written down.** Every caller points here instead of restating it: two copies of a recovery are two recoveries that drift, and the one that drifts is always the one nobody reads until a session has already died.
 
 ### The review state goes on the ticket at the dispatch, not at the first BLOCKED
 
@@ -151,7 +168,7 @@ The order is **verify → review → commit → push → comment**, every stage,
 
 A delivery comment citing a SHA that only exists in the local worktree is citing something a reader clicking through cannot open — and on a delivery that can run for hours, local-only is one crashed session away from being the only copy that ever existed.
 
-**Re-check the requirement hash before the push, not only before the commit.** The commit runs the gate's whole suite, which takes minutes, and the ticket can move inside them: a body revision, a new owner decision, a criterion that shifts. Then the code that lands is exactly what the reviewer read and **the requirement it lands against is not** — which the post-commit identity check cannot see, because it only compares trees. So re-read the sources and compare before pushing, on a resumed `committed <sha>, awaiting push` exactly as on the straight path. A difference stops the push and goes back to a fresh part one: `VOID`, no fix round consumed.
+**Re-check the requirement hash before the push, not only before the commit.** The commit runs the gate's whole suite, which takes minutes, and the ticket can move inside them: a body revision, a new owner decision, a criterion that shifts. Then the code that lands is exactly what the reviewer read and **the requirement it lands against is not** — which the post-commit identity check cannot see, because it only compares trees. So re-read the sources and compare before pushing, on a resumed `committed <sha>, awaiting push` exactly as on the straight path. A difference stops the push, and the commit goes back through *Restoring an unpushed commit to the review target* above before part one can be dispatched at all: `VOID`, no fix round consumed.
 
 **Push is a checkpoint because it is the step that makes the SHA public and citable.** Past it, `start-or-resume.md` forbids rewriting that commit — so nothing after the push can quietly correct what the push published, which is precisely the property that makes the near side of it the last place a check is free.
 
