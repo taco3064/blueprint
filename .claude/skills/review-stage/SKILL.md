@@ -27,7 +27,7 @@ That sentence is the whole job. You own **one verdict on one stage's change, del
 
 1. **The owner's latest decision**, as the packet records it.
 2. **The issue's current Goal and Acceptance Criteria** — current, not as first filed.
-3. **Later revision comments on the issue** that amend the plan or the criteria (`shape-ticket`'s `revise-an-in-flight-ticket.md` is the mechanism that produces them).
+3. **Later revision comments on the issue** that amend the plan or the criteria — handed to you verbatim in the packet, because `shape-ticket`'s `revise-an-in-flight-ticket.md` **overwrites the issue body on each pass**, so the comment is the only surviving record of the prior wording *and* of which already-landed stage the revision leaves valid. A landed stage is judged by the criteria that stood at the time, and rank 2 alone cannot tell you what those were.
 4. **The public contract the existing code already establishes** — what `emit/*` actually emits, what the CLI prints, what `docs/` publishes, what the type surface promises.
 5. **The implementer's plan and its completion report**, which is rank five for a reason: it is the only source on this list authored by the party whose work is under review.
 
