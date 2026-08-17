@@ -8,8 +8,9 @@
 
 The dispatcher extracts these verbatim — they are the authority sources, ranks 1 to 4, and none of them is the implementer's account of its own work:
 
-- **The owner's latest decision** on anything this stage turns on, quoted as the owner stated it.
+- **The owner's latest decision** on anything this stage turns on, quoted as the owner stated it, **with its source: the comment URL, the author, and the timestamp.** A decision with no provenance cannot be checked for being the *latest* one, which is the only property rank one is ranked for.
 - **The issue's current `## Goal`**, and **this stage's own plan text and acceptance criteria**, verbatim — current, including any in-flight revision, not as first filed.
+- **Every revision comment that amended this stage's plan or criteria**, verbatim and with the same provenance. Rank 3 reaches you here or not at all: the body edit destroyed the prior wording, and you are not permitted to go read the thread.
 - **Whatever the plan states must not change** — the global invariants.
 - **The citations the issue named**: the module, the primitives, the consumers, the docs pages it made required reading.
 - **The base**: the branch's `HEAD` SHA, the worktree path, and the fact that the change under review is *staged and uncommitted* there.
@@ -43,7 +44,7 @@ Written down, before any probe is chosen. They are what turn a diff into an atta
 
 Four mechanical conditions, and each one means **no review happened** — so the report carries no verdict at all. Report `VOID`, name which condition, and hand it back:
 
-- **Insufficient** — an authority question this stage turns on has no answer in the packet, and inferring it from the nearest analogue is exactly what rank one forbids.
+- **Insufficient** — an authority question this stage turns on has no answer in the packet, and inferring it from the nearest analogue is exactly what rank one forbids. **A decision handed over without provenance is insufficient in the same way**, when the stage turns on it: undated, it is indistinguishable from one already superseded, and *"the owner decided this"* is not a claim you have any way to age.
 - **Self-contradictory** — the acceptance criteria and the plan text ask for different things, or an invariant rules out what a criterion requires.
 - **Contaminated** — the implementer's report, summary, or verification claims arrived inside pass one. Name what you saw.
 - **Moved** — `git status --porcelain` does not match what the dispatcher handed you. Something changed the tree while you were reading it.

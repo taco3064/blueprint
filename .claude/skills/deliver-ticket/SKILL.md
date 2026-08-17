@@ -68,6 +68,8 @@ Hand a sub-agent **a Stage Packet — verbatim excerpts of its scope, not the ti
 
 **Two fix rounds, then the stage stops being yours.** BLOCKED → fix → re-review → BLOCKED → fix → re-review → still BLOCKED means it escalates to the owner with everything named, and nothing commits. **That number is a guard against a loop that never lands anything, not a target** — a stage failing three reviews is telling you the plan, the packet or the ticket is wrong, and none of those gets fixed by a fourth attempt at the code.
 
+**And the count is written on the ticket as it happens, not held in your context.** A BLOCKED only you remember is a round spent twice: a session that dies mid-loop leaves a staged tree and no record of why, and the resumed run starts the budget again at zero — every rule about two rounds still technically satisfied while one stage burns an entire night. `deliver-a-stage.md`'s *The round count lives on the ticket* is the mechanism, and `start-or-resume.md` is what reads it back. **It is the one comment this skill posts that is not a commit's comment.**
+
 **And you do not fix it yourself to save a round.** *You dispatch the work; you do not type it* has no exception for "three lines, and the reviewer already said what to do" — a fix you type is a change nobody outside it has read, arriving exactly when the loop is under the most pressure to be finished.
 
 ## Before the first commit, read what the tool already promises
