@@ -62,7 +62,11 @@ Hand a sub-agent **a Stage Packet — verbatim excerpts of its scope, not the ti
 
 - **Untouched by the diff** → shape-ticket's own investigation of it still holds. Read the citation once, trust it, move on.
 - **Touched by the diff** → that citation, and only that one, needs a fresh look before you rely on it.
-- **Touched in a way that breaks the citation's premise, or a citation surfaces a product decision the plan never actually made** — the module was removed, a consumer's real behavior contradicts what the plan assumed, an ambiguity the three headings' presence didn't catch — **stop before the first commit.** Comment it on the ticket, the same way `start-or-resume.md`'s gate handles a missing fingerprint: the owner closes the issue, re-runs shape-ticket on the direction, the new issue supersedes this one. **Deriving the missing decision yourself from the nearest analogue is exactly the failure this gate exists to prevent** — a ticket that reaches deliver-ticket is supposed to carry no open product decision, and a decided shape with a gap in it is a direction wearing a shape's clothes, not a shape with one flaw.
+- **Touched in a way that breaks the citation's premise, or a citation surfaces a product decision the plan never actually made** — the module was removed, a consumer's real behavior contradicts what the plan assumed, an ambiguity the three headings' presence didn't catch — **stop before the next commit.** Comment it on the ticket, naming the citation, what it now says, and what it contradicts. **Deriving the missing decision yourself from the nearest analogue is exactly the failure this gate exists to prevent** — a ticket that reaches deliver-ticket is supposed to carry no open product decision, and a decided shape with a gap in it is a direction wearing a shape's clothes, not a shape with one flaw.
+
+  **What happens next is `start-or-resume.md`'s branch, not a single path**: unchanged goal and every landed stage still valid is an in-place revision on this same issue, run by the owner through `shape-ticket`, after which this ticket resumes exactly where it stopped; a moved goal or an invalidated landed stage is the close-and-reopen path. Neither is this skill's call to make alone — comment which branch applies and why, and stop for the owner.
+
+  **This is not a shortfall**, even though it is also found mid-work and also goes in a comment: a shortfall is the code not matching a ticket that is itself correct; this is the ticket being wrong. *Shortfalls close where they were found*, below, is the other one.
 
 **Expanding past the citations is that third bullet, not a fallback search.** One more file the drift diff actually touched is a narrow, forced read; "the whole repo, to find the nearest analogue" is the open-ended search this section used to ask for, and it's gone — what replaced it is stop-and-reshape.
 
@@ -80,7 +84,7 @@ That is not ceremony. **A ticket whose only comment is "done" is indistinguishab
 
 ## Shortfalls close where they were found
 
-While building a stage you will notice things: a case the ticket did not name, a message that is wrong, a test that pins nothing, an assumption that turns out false. **Each one is a shortfall, it goes in that commit's comment, and it is yours to close.**
+While building a stage you will notice things: a case the ticket did not name, a message that is wrong, a test that pins nothing, an implementation assumption that turns out false. **Each one is a shortfall, it goes in that commit's comment, and it is yours to close.** **The line that matters is whose assumption it was**: how to build what the ticket asked for is yours to get wrong and fix here; what the ticket itself asked for being wrong is *Before the first commit*'s branch above, not this one.
 
 The loop is: **commit → comment, naming what landed and what fell short → next commit closes a shortfall → comment again**, until a comment can say there are none left. **A shortfall you cannot close is not silently dropped** — it stays named in every subsequent comment until it is either closed or ruled out of scope by the owner.
 
