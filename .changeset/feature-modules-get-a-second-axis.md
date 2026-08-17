@@ -197,10 +197,63 @@ Omitting `modules` leaves every one of these exactly as it was — measured by
 running both builds over the same flat fixtures and diffing the whole report,
 migration steps and coverage footer included.
 
+**`inspect` judges package ownership per RESTRICTION now, through the rules
+`emitLint` compiles, so the two stop telling an adopter different stories about
+one import.** The previous reading re-derived ownership from raw `owns` and
+aggregated it: every owner of anything matching the specifier went into one list,
+and the whole import passed when the file's own net was in that list. Measured on
+a flat repo with no modules at all — `components` owning react's `createContext`,
+`hooks` owning `useState`, one file importing both — `inspect` reported no
+violations while the ESLint config the same blueprint emits reported `'useState'
+import from 'react' is restricted`. This predates `architecture.modules`; it is
+fixed here because this is the pass that claims the two engines cannot disagree.
+
+- **One finding per restriction, naming only what that restriction covers.**
+  `derivePackageRules` compiles the list and `barredIn` answers which of them a
+  net is barred from — the same two functions `emitLint` calls — so a package two
+  owners split by name produces one finding per owner, each carrying its own names
+  in its own subject. That is also what ESLint does: measured, one import of
+  `{ provide, inject }` under two overlapping vue restrictions reports three
+  messages. A name the importing layer really does own now stays out of both the
+  sentence and the baseline subject, so baselining the debt cannot baseline the
+  legal import beside it.
+- **`pattern` and `exempt` are honored at all for the first time.** A
+  `pattern: true` ownership compiles to a `no-restricted-imports` group, which is
+  gitignore-shaped — owning `@scope/*` reaches `@scope/foo` and `@scope/foo/bar`
+  alike — while the exact-string comparison it was judged by meant a glob matched
+  nothing and `inspect` was silent about every import ESLint flagged. `exempt`
+  went the other way: the emitted config lets those files through and `inspect`
+  reported them anyway. The exemption is read as `emitLint` writes it — scoped to
+  the NET, since a net with any exempt glob emits two entries and an exempt file
+  only ever reaches the one carrying the restrictions that declared no `exempt`.
+
+**Every address a finding carries normalizes `sourceRoot`, so the path `inspect`
+prints is a path that exists.** `71414f4` and `e01274b` already routed this field
+through `dirSegments` on the emitter side; three readers on the runtime side still
+concatenated it. Measured through the CLI, a `sourceRoot` of `'./'` addressed a
+declared-but-absent module as `.//Ghost` and `'./lib/app/'` as `./lib/app//Ghost`,
+while the globs governing those same files were correct — so the report sent an
+agent to a folder that is not there.
+
+- The finding address (`structure.ts`) and the scanned file path (`scan.ts`) come
+  from one `sourcePrefix` now, so a folder and the files inside it can never be
+  spelled two ways. That second one was not cosmetic either: the coverage line
+  matches scanned paths against the layer globs, which do normalize, so a
+  fully governed repo under `sourceRoot: './'` reported **enforcement vacuous —
+  layer globs match 0 of 3 source file(s)**, and now reports the 2 of 3 the bare
+  `'.'` spelling always reported.
+- `doctor`'s alias remedy is a path the reader pastes into tsconfig, and it
+  offered `"~app/*": ["././/*"]` for `'./'` — a target resolving nothing, inside
+  the line that exists to make the alias resolve. It reads the field through
+  `dirSegments` too.
+
 **Still open:** `inspect`'s two *summary* surfaces have not been through this pass
 and still speak the flat structure to a modular repo — the migration-step table
 under the report ("declare them as layers", for a finding whose own text just said
 a module cannot be named after a layer), and the vacuous-coverage line's next step
 (`e.g. src/components/`, a folder the same run calls undeclared). Both are single
 strings today and both need the resolved blueprint to answer, which is the shape of
-the fix rather than a better sentence.
+the fix rather than a better sentence. That next step is also the one `sourceRoot`
+reader still concatenating the field by hand — it offers `e.g. .//components/`
+under `'./'` — so it is two fixes on one line, and both belong to whoever rewrites
+it against the resolved blueprint.

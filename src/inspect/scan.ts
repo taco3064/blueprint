@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { dirSegments } from '../config';
 import { compareText } from './order';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
@@ -140,11 +141,29 @@ function ordered(dir: string, readdir: (dir: string) => DirEntry[]): DirEntry[] 
   return readdir(dir).sort((a, b) => compareText(a.name, b.name));
 }
 
+/**
+ * The display prefix every address `inspect` prints carries — the source root
+ * with its separator, or empty for a project-root layout.
+ *
+ * Normalized through the same `dirSegments` the layer globs and
+ * `blueprint/relative-escape` read this field through. A raw `${sourceRoot}/`
+ * concatenation let every spelling that is normalized-but-not-bare-`'.'`
+ * (`'./'`, `'./lib/app/'`) through as a double slash, so the addresses in the
+ * report named a path that does not exist while the globs governing those same
+ * files were right — and the coverage line, which matches one against the other,
+ * called a fully governed repo vacuous.
+ */
+export function sourcePrefix(sourceRoot = 'src'): string {
+  const segments = dirSegments(sourceRoot);
+
+  return segments.length ? `${segments.join('/')}/` : '';
+}
+
 /** The three facts that hold for the whole walk, so only `dir` and `files` move. */
 interface WalkScope {
   /** Absolute source root the relative paths are measured from. */
   base: string;
-  /** Display prefix put back on each path (the source root, unless it is '.'). */
+  /** Display prefix put back on each path — see {@link sourcePrefix}. */
   prefix: string;
   readdir: (dir: string) => DirEntry[];
 }
@@ -169,7 +188,7 @@ function walk(dir: string, files: ScannedFile[], scope: WalkScope): void {
         .join('/');
 
       files.push({
-        path: prefix ? `${prefix}/${rel}` : rel,
+        path: `${prefix}${rel}`,
         segments: rel.split('/'),
         imports: extractImports(fs.readFileSync(path.join(dir, entry.name), 'utf-8')),
       });
@@ -199,7 +218,7 @@ export function scan(root: string, sourceRoot = 'src', options: ScanOptions = {}
 
   const files: ScannedFile[] = [];
 
-  walk(base, files, { base, prefix: sourceRoot === '.' ? '' : sourceRoot, readdir });
+  walk(base, files, { base, prefix: sourcePrefix(sourceRoot), readdir });
 
   return { topDirs, files };
 }

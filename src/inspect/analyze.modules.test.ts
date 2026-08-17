@@ -441,4 +441,30 @@ describe('analyze · a directory finding carries the configured source root', ()
     expect(paths).toContain('app/App/components/Card');
     expect(paths).toContain('app/App');
   });
+
+  // Every spelling of one root, because a finding's path is an address the reader
+  // goes to and `'app'` — the only one covered before — is the one shape a raw
+  // `${sourceRoot}/` concatenation gets right. Measured against the CLI, `'./'`
+  // addressed `.//Ghost` and `'./lib/app/'` addressed `./lib/app//Ghost`.
+  type Spelling = [name: string, sourceRoot: string, prefix: string];
+
+  const SPELLINGS: Spelling[] = [
+    ['the project root, bare', '.', ''],
+    ['the project root, with a separator', './', ''],
+    ['a nested root', 'lib/app', 'lib/app/'],
+    ['a nested root, dotted and trailing', './lib/app/', 'lib/app/'],
+  ];
+
+  it.each(SPELLINGS)('addresses a missing module under %s', (_name, sourceRoot, prefix) => {
+    const rooted = defineBlueprint({
+      ...modular,
+      architecture: { ...modular.architecture, sourceRoot },
+    });
+
+    const missing = analyze({ topDirs: [], files: [] }, rooted)
+      .filter((finding) => finding.rule === 'missing-module')
+      .map((finding) => finding.path);
+
+    expect(missing).toEqual([`${prefix}App`, `${prefix}common`]);
+  });
 });

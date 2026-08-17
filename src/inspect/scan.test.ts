@@ -182,6 +182,30 @@ describe('scan', () => {
     expect(result.files[0].path).toBe('source/lib/x.ts');
     expect(result.files[0].segments).toEqual(['lib', 'x.ts']);
   });
+
+  // One root, four spellings, one address. A raw `${sourceRoot}/` prefix gets only
+  // the bare ones right, and the double slash it produced was not cosmetic: the
+  // coverage line matches these paths against the layer globs — which normalize —
+  // so a fully governed repo reported enforcement vacuous.
+  type Spelling = [name: string, sourceRoot: string, prefix: string];
+
+  const SPELLINGS: Spelling[] = [
+    ['the project root, bare', '.', ''],
+    ['the project root, with a separator', './', ''],
+    ['a nested root', 'lib/app', 'lib/app/'],
+    ['a nested root, dotted and trailing', './lib/app/', 'lib/app/'],
+  ];
+
+  it.each(SPELLINGS)('normalizes %s into one path', (_name, sourceRoot, prefix) => {
+    const dir = prefix ? path.join(root, ...prefix.split('/').filter(Boolean)) : root;
+
+    fs.mkdirSync(path.join(dir, 'components'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'components', 'x.ts'), 'export const x = 1;');
+
+    const result = scan(root, sourceRoot);
+
+    expect(result.files.map((file) => file.path)).toContain(`${prefix}components/x.ts`);
+  });
 });
 
 describe('scan · every directory on the skip list', () => {

@@ -14,6 +14,7 @@ import {
   unreadableTsconfigs,
 } from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
+import { dirSegments } from '../config';
 import type { Blueprint } from '../config';
 import { analyze } from './analyze';
 import { BASELINE_FILE, parseBaseline, splitByBaseline } from './baseline';
@@ -133,7 +134,12 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
     return { label: 'import alias wired to the toolchain', ok: true };
   }
 
-  const dir = sourceRoot === '.' ? '.' : `./${sourceRoot ?? 'src'}`;
+  // Through `dirSegments`, like every other reader of this field: the remedy is a
+  // path the reader pastes into tsconfig, and `./` + a trailing-slash spelling
+  // produced `["././/*"]` — a target that resolves nothing, inside the line that
+  // exists to make the alias resolve.
+  const segments = dirSegments(sourceRoot ?? 'src');
+  const dir = segments.length ? `./${segments.join('/')}` : '.';
 
   // A tsconfig that is present but unparseable makes every alias inside it
   // invisible to the check above, so "resolves nowhere" would be the reader's

@@ -328,11 +328,13 @@ describe('analyze · a finding\'s subject is content, not the order it was walke
     expect(cycle?.path).toBe('components/b');
   });
 
-  it('carries an ownership finding\'s named imports, sorted', () => {
-    // Two restricted names from one package in one file is one finding, and the names
-    // are part of what it is about: `{ a, b }` and `{ b, a }` are the same import
-    // written twice, while dropping them entirely would let one baselined name
-    // suppress a second, different one.
+  it('carries an ownership finding\'s named imports, sorted, one finding per restriction', () => {
+    // Two restricted names from one restriction is one finding, and the names are part
+    // of what it is about: `{ a, b }` and `{ b, a }` are the same import written twice,
+    // while dropping them entirely would let one baselined name suppress a second,
+    // different one. Two restrictions is two findings — the preset already gives
+    // `hooks` vue/inject, so overriding contexts to vue/provide+inject makes this one
+    // import reach both, and the emitted config reports each separately.
     const owned = defineBlueprint({
       ...bp,
       architecture: {
@@ -344,11 +346,17 @@ describe('analyze · a finding\'s subject is content, not the order it was walke
       },
     });
 
-    const finding = analyze(scanOf([
+    const found = analyze(scanOf([
       file(['components', 'Btn', 'index.ts'], [{ specifier: 'vue', names: ['provide', 'inject'] }]),
-    ]), owned).find((entry) => entry.rule === 'package-ownership');
+    ]), owned).filter((entry) => entry.rule === 'package-ownership');
 
-    expect(finding?.subject).toBe('vue inject,provide');
-    expect(finding?.message).toContain('provide, inject');
+    // Each names only what its own restriction covers, so the two subjects differ and
+    // neither baselines the other away.
+    expect(found.map((entry) => entry.subject)).toEqual(['vue inject', 'vue inject,provide']);
+
+    const contexts = found.find((entry) => entry.message.includes('owned by contexts'));
+
+    expect(contexts?.subject).toBe('vue inject,provide');
+    expect(contexts?.message).toContain('provide, inject');
   });
 });

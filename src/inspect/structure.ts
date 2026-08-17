@@ -8,6 +8,7 @@ import type { NetScope } from '../emit/lint/nets';
 import type { PrimitiveOwner } from '../emit/lint/patterns';
 import { pathScope } from './resolve';
 import type { Structure } from './resolve';
+import { sourcePrefix } from './scan';
 import type { Finding, ScanResult } from './types';
 
 /**
@@ -17,25 +18,15 @@ import type { Finding, ScanResult } from './types';
  * root, and the declared layers nested inside each one.
  */
 
-/**
- * The display prefix for a directory finding, from the config's source root — the
- * address an agent will actually go to. Per-file findings do not need it; `scan`
- * puts the prefix on `file.path` already.
- *
- * `'.'` yields an empty prefix, not `'./'`, so a project-root layout spells its
- * paths the same way here as `scan` does.
- */
-function sourcePrefix(architecture: ArchitectureDef): string {
-  const root = architecture.sourceRoot ?? 'src';
-
-  return root === '.' ? '' : `${root}/`;
-}
-
 /** Everything the folder checks read, resolved once for the whole scan. */
 interface StructureScope {
   scan: ScanResult;
   architecture: ArchitectureDef;
   structure: Structure;
+  /**
+   * The address prefix a directory finding carries — `scan`'s own, so a folder
+   * and the files inside it are never spelled two different ways.
+   */
   prefix: string;
   /** Directory names one level inside each layered module, keyed by module. */
   inside: Map<string, Set<string>>;
@@ -57,7 +48,7 @@ export function structureFindings(
     scan,
     architecture,
     structure,
-    prefix: sourcePrefix(architecture),
+    prefix: sourcePrefix(architecture.sourceRoot),
     inside: new Map(
       structure.modules
         .filter((module) => module.layers !== false)

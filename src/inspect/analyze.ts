@@ -5,9 +5,14 @@ import {
   getSelfOnlyTargets,
 } from '../config';
 import type { AliasRoot, ArchitectureDef, Blueprint } from '../config';
-// The `nets` leaf, not the emit/lint index — see `structure.ts`'s own note.
+// The `bans` / `nets` / `patterns` leaves, not the emit/lint index — see
+// `structure.ts`'s own note. Each of these three imports only `config` and its
+// own siblings, so none of them reaches back into the plugin the index loads.
+import { barredIn } from '../emit/lint/bans';
 import { netLabel } from '../emit/lint/nets';
-import { dropTestFiles } from './filter';
+import { derivePackageRules } from '../emit/lint/patterns';
+import type { PackageRule } from '../emit/lint/types';
+import { dropTestFiles, globToRegExp } from './filter';
 import { compareText } from './order';
 import {
   aliasList,
@@ -45,9 +50,20 @@ export function analyze(
   // Symmetric with the lint side: test files are exempt from structure.
   scan = dropTestFiles(scan, architecture.testFiles);
 
+  const analysis: AnalysisScope = {
+    architecture,
+    structure,
+    // The emitted config's own restriction list, compiled from the same pair of
+    // owner arrays `resolveBanScope` hands `derivePackageRules`.
+    packageRules: derivePackageRules(
+      [...architecture.layers, ...structure.modules],
+      structure.modules.map((module) => module.name),
+    ),
+  };
+
   const findings = [
     ...structureFindings(scan, { architecture, structure, dependencies }),
-    ...scan.files.flatMap((file) => importFindings(file, architecture, structure)),
+    ...scan.files.flatMap((file) => importFindings(file, analysis)),
   ];
 
   for (const cycle of detectCycles(buildModuleGraph(scan, architecture).edges)) {
@@ -70,10 +86,16 @@ export function analyze(
   return findings.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }
 
-/** Everything a file's imports are judged against, resolved once per file. */
-interface ImportContext {
+/** The blueprint facts every file is judged against, resolved once per scan. */
+interface AnalysisScope {
   architecture: ArchitectureDef;
   structure: Structure;
+  /** Every package restriction the emitted config carries, in its own shape. */
+  packageRules: PackageRule[];
+}
+
+/** Everything a file's imports are judged against, resolved once per file. */
+interface ImportContext extends AnalysisScope {
   /** Where the importing file sits — its module, its layer, its inner segments. */
   scope: PathScope;
   aliases: (AliasRoot | string)[];
@@ -98,11 +120,8 @@ interface ImportContext {
  * structure is false for EVERY file, so this returned nothing at all for a
  * whole repo while saying nothing about having done so.
  */
-function importFindings(
-  file: ScannedFile,
-  architecture: ArchitectureDef,
-  structure: Structure,
-): Finding[] {
+function importFindings(file: ScannedFile, analysis: AnalysisScope): Finding[] {
+  const { architecture, structure } = analysis;
   const scope = pathScope(file.segments, structure);
 
   if (!scope.governed) {
@@ -112,8 +131,7 @@ function importFindings(
   const { layer, module } = scope;
 
   const context: ImportContext = {
-    architecture,
-    structure,
+    ...analysis,
     scope,
     aliases: aliasList(architecture),
     forbidden: layer === null ? [] : getForbiddenLayers(architecture, layer),
@@ -244,32 +262,101 @@ function aliasFindings(
   return findings;
 }
 
-/** A bare package import the blueprint gave to some other layer or module. */
+/**
+ * A bare package import the blueprint gave to some other layer or module — one
+ * finding per restriction that bars it, which is what the emitted config reports
+ * too: `emitLint` writes one `no-restricted-imports` entry per RULE, so a file
+ * importing two names one package's two owners split between them is two debts
+ * with two fixes.
+ *
+ * Judged per restriction rather than per declaration, and against the compiled
+ * list rather than raw `owns`. Aggregating the owners of everything matching the
+ * specifier and passing the whole import when this net was among them let a layer
+ * owning react's `createContext` also reach `useState` — which the emitted config
+ * restricted, on a flat repo with no modules at all.
+ */
 function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportContext): Finding[] {
   const { scope } = context;
-  const owners = ownersOf(context, ref);
 
-  // Either axis clears it: a file may reach a primitive its layer owns OR its
-  // module owns, the same cascade `barredIn` gives the emitted config.
-  if (!owners || owners.some((owner) => owner === scope.layer || owner === scope.module)) {
-    return [];
+  return activeRules(file, context).flatMap((rule) => {
+    const names = restrictedNames(rule, ref);
+
+    if (!reaches(rule, ref.specifier) || names === null) {
+      return [];
+    }
+
+    const named = names.length ? ` (${names.join(', ')})` : '';
+
+    // The names are part of the subject, not just of the sentence: one file can
+    // import two different restricted names from the same package, and those are
+    // two debts with two fixes. Sorted, because `{ a, b }` and `{ b, a }` are the
+    // same import written twice.
+    const subject = names.length
+      ? `${ref.specifier} ${[...names].sort(compareText).join(',')}`
+      : ref.specifier;
+
+    return [finding('error', 'package-ownership', {
+      path: file.path,
+      subject,
+      message: `"${ref.specifier}"${named} is owned by ${rule.allowedIn.join(', ')}`
+        + ` — not importable from "${netLabel(scope)}".`,
+    })];
+  });
+}
+
+/**
+ * The package restrictions in force on one file: the ones its net is barred from
+ * — `barredIn`'s own either/or, a file may reach what its layer owns OR what its
+ * module owns — minus every exempt-carrying one when the file matches an exempt
+ * glob.
+ *
+ * The exemption is scoped to the NET rather than to the rule whose `exempt`
+ * declared the glob, because that is the config `emitLint` writes: a net with any
+ * exempt glob emits two entries, and a file matching one of them only ever
+ * reaches the first, which carries the non-exempt restrictions alone. Flat config
+ * replaces a rule rather than merging it, so this reach is the emitted behavior
+ * itself and not an approximation of it.
+ */
+function activeRules(file: ScannedFile, context: ImportContext): PackageRule[] {
+  const barred = context.packageRules.filter((rule) => barredIn(context.scope, rule));
+  const exempt = [...new Set(barred.flatMap((rule) => rule.exempt ?? []))];
+
+  return exempt.some((glob) => globReaches(glob, file.path))
+    ? barred.filter((rule) => !rule.exempt?.length)
+    : barred;
+}
+
+/**
+ * Whether a restriction reaches a specifier, in the two shapes
+ * `buildPackagePatterns` splits them into: a `paths` entry matches the module
+ * name exactly, a `patterns` entry matches its glob.
+ */
+function reaches(rule: PackageRule, specifier: string): boolean {
+  return rule.pattern ? globReaches(rule.package, specifier) : rule.package === specifier;
+}
+
+/**
+ * A glob and everything under it — the gitignore reach `no-restricted-imports`
+ * gives a `patterns` group. Measured: owning `@scope/*` flags an import of
+ * `@scope/foo/bar`, not only of `@scope/foo`.
+ */
+function globReaches(glob: string, subject: string): boolean {
+  return globToRegExp(glob).test(subject) || globToRegExp(`${glob}/**`).test(subject);
+}
+
+/**
+ * Which of a reference's names one restriction covers, or null when it narrows to
+ * named imports and this reference brought none of them — the difference between
+ * "owns the package outright" and "owns two of its exports".
+ */
+function restrictedNames(rule: PackageRule, ref: ImportRef): string[] | null {
+  if (!rule.imports?.length) {
+    return ref.names;
   }
 
-  const named = ref.names.length ? ` (${ref.names.join(', ')})` : '';
+  const covered = ref.names.filter((name) => rule.imports?.includes(name));
 
-  // The names are part of the subject, not just of the sentence: one file can
-  // import two different restricted names from the same package, and those are
-  // two debts with two fixes. Sorted, because `{ a, b }` and `{ b, a }` are the
-  // same import written twice.
-  const subject = ref.names.length
-    ? `${ref.specifier} ${[...ref.names].sort(compareText).join(',')}`
-    : ref.specifier;
-
-  return [finding('error', 'package-ownership', {
-    path: file.path,
-    subject,
-    message: `"${ref.specifier}"${named} is owned by ${owners.join(', ')} — not importable from "${netLabel(scope)}".`,
-  })];
+  return covered.length ? covered : null;
 }
 
 /**
@@ -306,33 +393,6 @@ function relativeEscape(file: ScannedFile, ref: ImportRef, context: ImportContex
   }
 
   return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.` })];
-}
-
-/**
- * Owners of a package import (given its named imports), or null if unrestricted.
- * Layers and modules in one list — a module owns primitives the same way a layer
- * does, and `resolveBanScope` derives the emitted ban from the same pair.
- */
-function ownersOf(context: ImportContext, ref: ImportRef): string[] | null {
-  const owners: string[] = [];
-
-  for (const owner of [...context.architecture.layers, ...context.structure.modules]) {
-    for (const owned of owner.owns ?? []) {
-      if (typeof owned === 'string') {
-        if (owned === ref.specifier) {
-          owners.push(owner.name);
-        }
-      } else if ('package' in owned && owned.package === ref.specifier) {
-        const restricted = owned.imports;
-
-        if (!restricted?.length || ref.names.some((name) => restricted.includes(name))) {
-          owners.push(owner.name);
-        }
-      }
-    }
-  }
-
-  return owners.length ? owners : null;
 }
 
 /**

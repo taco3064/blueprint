@@ -208,6 +208,33 @@ describe('runDoctor · alias resolution', () => {
     expect(check?.detail).not.toContain('could not read');
   });
 
+  // The remedy is a path the reader pastes into tsconfig, so every spelling of the
+  // root has to produce one that resolves. Concatenated, `'./'` gave `["././/*"]`.
+  type Spelling = [name: string, sourceRoot: string, target: string];
+
+  const SPELLINGS: Spelling[] = [
+    ['the project root, bare', '.', '.'],
+    ['the project root, with a separator', './', '.'],
+    ['a nested root', 'lib/app', './lib/app'],
+    ['a nested root, dotted and trailing', './lib/app/', './lib/app'],
+  ];
+
+  it.each(SPELLINGS)('points the alias at %s', async (_name, sourceRoot, target) => {
+    adopted();
+    fs.rmSync(path.join(root, 'tsconfig.json'));
+
+    const rooted = async () => {
+      const blueprint = vuePreset();
+
+      return { ...blueprint, architecture: { ...blueprint.architecture, sourceRoot } };
+    };
+
+    const { checks } = await runDoctor(root, { loadConfig: rooted, log: silent });
+
+    expect(checks.find((c) => c.label.includes('alias'))?.detail)
+      .toContain(`"~app/*": ["${target}/*"]`);
+  });
+
   it('blames an unreadable tsconfig before it blames the alias', async () => {
     adopted();
     // The alias IS declared — inside a tsconfig with a missing quote. Every
