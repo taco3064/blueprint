@@ -19,6 +19,8 @@ import {
 import {
   aliasLayerRoots,
   getForbiddenLayers,
+  getForbiddenModules,
+  getModules,
   getSelfOnlyTargets,
   normalizeAllowedImporters, readSetting,
 } from '../config';
@@ -86,6 +88,33 @@ export interface LayerBans {
    * reaching test files (field issue #60) — carry them wherever the selectors land.
    */
   testExemptions: string[];
+}
+
+/**
+ * One declared module's resolved bans — the module-axis twin of `LayerBans`,
+ * from the same primitive `emitLint` reads (`getForbiddenModules`). Empty under
+ * the flat structure: no `architecture.modules`, nothing to report here.
+ *
+ * Narrower than `LayerBans` on purpose: `packages` / `globals` / `selfOnly` stay
+ * on the layer view above, which already carries the module-owned cascade (a
+ * module's `owns` reaches every layer nested inside it) — a second axis, keyed
+ * by bare module name, could not repeat that per-net nuance without becoming the
+ * net-scoped catalog this column intentionally is not.
+ */
+export interface ModuleBans {
+  module: string;
+  /** Modules this one must not import at all. */
+  forbidden: string[];
+}
+
+/** Every declared module's resolved flow bans, from the same primitive emitLint uses. */
+function moduleBans(blueprint: Blueprint): ModuleBans[] {
+  const { architecture } = blueprint;
+
+  return getModules(architecture).map((module) => ({
+    module: module.name,
+    forbidden: getForbiddenModules(architecture, module.name),
+  }));
 }
 
 /** One optional gate, annotated with the resolved config when present. */
@@ -308,7 +337,7 @@ function resolveGate(
 export async function runRules(
   root: string,
   options: RulesOptions = {},
-): Promise<{ severity: string; gates: GateStatus[]; bans: LayerBans[] }> {
+): Promise<{ severity: string; gates: GateStatus[]; bans: LayerBans[]; modules: ModuleBans[] }> {
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
 
@@ -320,6 +349,7 @@ export async function runRules(
   const structural = resolveStructural(blueprint);
   const gates = gateSpecs().map((spec) => resolveGate(spec, blueprint, state.hasTypescript));
   const bans = blueprint ? layerBans(blueprint) : [];
+  const modules = blueprint ? moduleBans(blueprint) : [];
 
   log(
     options.json
@@ -328,12 +358,13 @@ export async function runRules(
           structural,
           gates,
           bans,
+          modules,
           docsOnly: DOC_ONLY_RULES,
         }, null, 2)
-      : renderRules({ severity, structural, gates, bans }, blueprint !== null),
+      : renderRules({ severity, structural, gates, bans, modules }, blueprint !== null),
   );
 
-  return { severity, gates, bans };
+  return { severity, gates, bans, modules };
 }
 
 /** The human-readable catalog. */
@@ -343,10 +374,11 @@ export function renderRules(
     structural: StructuralStatus[];
     gates: GateStatus[];
     bans: LayerBans[];
+    modules: ModuleBans[];
   },
   hasConfig: boolean,
 ): string {
-  const { severity, structural, gates, bans } = catalog;
+  const { severity, structural, gates, bans, modules } = catalog;
 
   const status = (gate: GateStatus) => {
     // Outranks the tier, and keeps the declared/undeclared split it used to carry as
@@ -446,6 +478,19 @@ export function renderRules(
               }] — without it your combined entry lints test files that this ban never covered`,
             ]),
           ]),
+        ]
+      : []),
+    // Empty under the flat structure — no `architecture.modules`, nothing to
+    // report here, and the layer table above stays the report's last section.
+    ...(modules.length
+      ? [
+          '',
+          'Per-module bans — the module-axis flow this blueprint declares, from the same',
+          'primitive the per-layer bans above read (`getForbiddenModules`). NOT compared',
+          'by doctor\'s survival check — that check is layer-scoped only; verify with',
+          '`npx eslint --print-config <a file at the module\'s own root>`.',
+          ...modules.map((entry) =>
+            `  ${entry.module.padEnd(14)} no-import: ${entry.forbidden.join(', ') || '(none)'}`),
         ]
       : []),
     ...(hasConfig

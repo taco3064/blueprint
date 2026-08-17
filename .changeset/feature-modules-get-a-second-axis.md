@@ -38,6 +38,34 @@ decides *where* those layers live.
   forcing every edge (not just the exception) to be written out breaks the
   "majority direction is free" authoring flow the rest of this tool depends on.
 
-`emitLint` is the only emitter that reads any of this yet — the import-graph node
-identity `deps` and `analyze` use (`moduleKey` / `buildModuleGraph`), and the
-`rules` / `doctor` / `impact` consumers, are follow-up work.
+**`deps`, `rules`, `doctor`, and `impact` now agree with `emitLint` about what a
+modular repo governs — they no longer silently mistake a module for a layer.**
+Before this, all four assumed the flat structure: `moduleKey` / `buildModuleGraph`
+read `segments[0]` as a layer name, so `blueprint deps` on a modular repo reported
+an empty leaderboard (every file dropped by a filter that never matched); `inspect`
+coverage and `blueprint impact` built their file nets from the bare layer globs
+alone, so a module's files always read as ungoverned and `impact` always linted
+zero files; `blueprint rules` had no module-axis section at all, so a cross-module
+ban `emitLint` enforced was invisible to the catalog.
+
+- `deps`: `moduleKey` / `buildModuleGraph` gain the module dimension in their
+  segment arithmetic (module at `segments[0]`, layer at `segments[1]`, a
+  folder-layout feature-folder at `segments[2]`) — the same either/or a module's
+  own alias-reach already uses. `blueprint deps <target>` also strips a declared
+  `sourceRoot` (single- or multi-segment) instead of a hardcoded `'src'`.
+- `inspect` coverage and `impact`: both now build their file nets from
+  `emitLint`'s own resolver (`resolveFileNets` / `allNetFiles`), so a module's own
+  root files and its files nested a layer deep are counted and linted, not
+  silently excluded for having no bare layer glob to match.
+- `rules`: a new **Per-module bans** section, from the same `getForbiddenModules`
+  primitive `emitLint` reads — the module-axis twin of the existing per-layer
+  bans table.
+
+**Still open:** `analyze`'s own per-file findings (`flow-violation`,
+`relative-escape`, `undeclared-folder`, `missing-layer`, package ownership, …)
+do not yet know about `architecture.modules` — a module folder at the source
+root still reads as an undeclared layer, and a bare cross-module import is not
+its own `inspect` finding (it can still surface indirectly, if it happens to
+close an import cycle). `emitLint`'s embedded rule already enforces the real
+boundary regardless of this gap; making `inspect`'s own report agree is
+follow-up work.

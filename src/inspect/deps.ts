@@ -1,7 +1,9 @@
+import { dirSegments, getModules } from '../config';
+import type { ArchitectureDef, ModuleDef } from '../config';
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
-import { buildModuleGraph, layoutResolver, moduleKey } from './resolve';
-import type { LayoutOf } from './resolve';
+import { buildModuleGraph, graphKey, layerChecker, layoutResolver } from './resolve';
+import type { IsLayer, LayoutOf } from './resolve';
 import { importGraphDerivation, scan } from './scan';
 import type { ScanResult } from './types';
 
@@ -44,23 +46,59 @@ export async function runDeps(
   const scanned = scan(root, architecture.sourceRoot);
   const graph = buildModuleGraph(scanned, architecture);
   const modules = collect(graph.modules, graph.edges);
-  const layoutOf = layoutResolver(architecture);
-  const layerNames = new Set(architecture.layers.map((layer) => layer.name));
-  const skipped = skippedFolders(scanned, layerNames);
+
+  const { layoutOf, layerNames, isLayer, moduleDefs, modular, governedNames }
+    = depsScope(architecture);
+
+  const skipped = skippedFolders(scanned, governedNames);
 
   if (options.target !== undefined) {
     return reportTarget(options.target, {
-      modules, skipped, layerNames, layoutOf, log, json: options.json,
+      modules,
+      skipped,
+      layerNames,
+      isLayer,
+      moduleDefs,
+      sourceRoot: architecture.sourceRoot,
+      layoutOf,
+      log,
+      json: options.json,
     });
   }
 
   log(
     options.json
       ? JSON.stringify({ modules, skipped, derivation: importGraphDerivation() }, null, 2)
-      : renderLeaderboard(modules, skipped, { layerNames, layoutOf }),
+      : renderLeaderboard(modules, skipped, { layerNames, layoutOf, modular }),
   );
 
   return { ok: true, modules };
+}
+
+/**
+ * The layer/module context every deps computation reads, resolved once per
+ * run. `modular` is the one either/or switch: a declared layer nested inside a
+ * module is reached through the module folder, never both dimensions at once
+ * (the same either/or `resolve.ts`'s `graphKey` reads).
+ */
+function depsScope(architecture: ArchitectureDef): {
+  layoutOf: LayoutOf;
+  layerNames: Set<string>;
+  /** The one canonical "is this a declared layer" check — `graphKey`'s own. */
+  isLayer: IsLayer;
+  moduleDefs: ModuleDef[];
+  modular: boolean;
+  /** The declared modules when modular, else the declared layers. */
+  governedNames: Set<string>;
+} {
+  const layoutOf = layoutResolver(architecture);
+  const layerNames = new Set(architecture.layers.map((layer) => layer.name));
+  const isLayer = layerChecker(architecture);
+  const moduleDefs = getModules(architecture);
+  const modular = moduleDefs.length > 0;
+  const governedNames = modular ? new Set(moduleDefs.map((entry) => entry.name)) : layerNames;
+
+  return { layoutOf, layerNames, isLayer, moduleDefs, modular, governedNames };
 }
 
 /** One module's own blast radius, or the not-found report naming what was skipped. */
@@ -70,17 +108,20 @@ function reportTarget(
     modules: ModuleDeps[];
     skipped: string[];
     layerNames: Set<string>;
+    isLayer: IsLayer;
+    moduleDefs: ModuleDef[];
+    sourceRoot?: string;
     layoutOf: LayoutOf;
     log: (message: string) => void;
     json?: boolean;
   },
 ): { ok: boolean; modules: ModuleDeps[] } {
-  const { modules, skipped, layerNames, layoutOf, log } = ctx;
-  const key = normalizeTarget(target, layoutOf);
+  const { modules, skipped, layerNames, isLayer, moduleDefs, sourceRoot, layoutOf, log } = ctx;
+  const key = normalizeTarget(target, { sourceRoot, modules: moduleDefs, isLayer, layoutOf });
   const found = modules.find((entry) => entry.module === key);
 
   if (!found) {
-    log(unknownTarget(key, skipped));
+    log(unknownTarget(key, skipped, moduleDefs.length > 0));
 
     return { ok: false, modules: [] };
   }
@@ -122,10 +163,15 @@ function collect(moduleSet: Set<string>, edges: Map<string, Set<string>>): Modul
     );
 }
 
-/** Top-level sourceRoot folders outside the declared layers — invisible to deps. */
-function skippedFolders(scanned: ScanResult, layerNames: Set<string>): string[] {
+/**
+ * Top-level sourceRoot folders outside the governed set — invisible to deps.
+ * `governedNames` is the declared layers under the flat structure, or the
+ * declared modules under a modular one (never both — a declared layer nested
+ * inside a module is reached through the module folder, not instead of it).
+ */
+function skippedFolders(scanned: ScanResult, governedNames: Set<string>): string[] {
   const folders = scanned.files
-    .filter((file) => file.segments.length > 1 && !layerNames.has(file.segments[0]))
+    .filter((file) => file.segments.length > 1 && !governedNames.has(file.segments[0]))
     .map((file) => file.segments[0]);
 
   // No sort of its own: `scan` walks in name order, so first-encounter order IS
@@ -144,20 +190,39 @@ function isFlatLayer(module: string, layerNames: Set<string>, layoutOf: LayoutOf
   return !module.includes('/') && layerNames.has(module) && layoutOf(module) === 'flat';
 }
 
-/** `src/hooks/useCart/useCart.ts` / `hooks/useCart` / `./src/hooks` → module key. */
-function normalizeTarget(input: string, layoutOf: LayoutOf): string {
+/**
+ * `src/hooks/useCart/useCart.ts` / `hooks/useCart` / `./src/hooks` → module key —
+ * `Combat/hooks/useCombat` / `src/Combat/hooks/useCombat.ts` under a modular
+ * blueprint, the same way.
+ *
+ * A leading `sourceRoot` is stripped through the same `dirSegments` normalization
+ * `config/graph.ts` and `relative-escape.ts` trust — a bare hardcoded `'src'` (the
+ * shape `71414f4` and `bc0d8a5` fixed elsewhere) left a custom or multi-segment
+ * `sourceRoot` (`'lib/app'`) un-stripped, so a target typed with it stayed one
+ * segment too long and read as an unknown module sitting right there.
+ */
+function normalizeTarget(
+  input: string,
+  scope: { sourceRoot?: string; modules: ModuleDef[]; isLayer: IsLayer; layoutOf: LayoutOf },
+): string {
+  const { sourceRoot, modules, isLayer, layoutOf } = scope;
   const segments = input.split('/').filter((part) => part !== '' && part !== '.');
-  const rest = segments[0] === 'src' ? segments.slice(1) : segments;
+  const root = dirSegments(sourceRoot ?? 'src');
 
-  return moduleKey(rest, layoutOf);
+  const rest = root.length && root.every((part, i) => segments[i] === part)
+    ? segments.slice(root.length)
+    : segments;
+
+  return graphKey(rest, { modules, isLayer, layoutOf });
 }
 
 /** The not-found message — pointing at the skipped folder when that is the cause. */
-function unknownTarget(key: string, skipped: string[]): string {
+function unknownTarget(key: string, skipped: string[], modular: boolean): string {
   const folder = key.split('/')[0];
+  const noun = modular ? 'module' : 'layer';
 
   return skipped.includes(folder)
-    ? `✗ "${folder}/" is not a declared layer — deps only sees modules under declared layers.`
+    ? `✗ "${folder}/" is not a declared ${noun} — deps only sees modules under declared ${noun}s.`
     : `✗ Unknown module "${key}" — run \`blueprint deps\` to list every module.`;
 }
 
@@ -181,18 +246,19 @@ function renderModule(entry: ModuleDeps, flatLayer: boolean): string {
 function renderLeaderboard(
   modules: ModuleDeps[],
   skipped: string[],
-  shape: { layerNames: Set<string>; layoutOf: LayoutOf },
+  shape: { layerNames: Set<string>; layoutOf: LayoutOf; modular: boolean },
 ): string {
-  const { layerNames, layoutOf } = shape;
+  const { layerNames, layoutOf, modular } = shape;
+  const noun = modular ? 'module' : 'layer';
 
   if (!modules.length) {
-    return 'No modules found under the declared layers.';
+    return `No modules found under the declared ${noun}s.`;
   }
 
   const width = String(modules[0].importedBy.length).length;
 
   const note = skipped.length
-    ? [`  (not under a declared layer, invisible to deps: ${skipped.join('/, ')}/)`]
+    ? [`  (not under a declared ${noun}, invisible to deps: ${skipped.join('/, ')}/)`]
     : [];
 
   return [

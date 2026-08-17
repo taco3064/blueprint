@@ -1,10 +1,10 @@
 import { activeSetting } from '../config';
 import type { Blueprint } from '../config';
-// Import from the patterns / gates leaves, not the emit/lint index — the index
-// also exports lint.ts, which loads the plugin, which shares resolve logic
+// Import from the patterns / gates / nets leaves, not the emit/lint index — the
+// index also exports lint.ts, which loads the plugin, which shares resolve logic
 // with inspect; routing through the index would close a module cycle.
 import { LINT_GATED_RULE_IDS, unavailableGate } from '../emit/lint/gates';
-import { resolveLayerFiles } from '../emit/lint/patterns';
+import { allNetFiles } from '../emit/lint/nets';
 import { dropTestFiles, globToRegExp } from './filter';
 import type { ScanResult } from './types';
 
@@ -46,13 +46,14 @@ export function computeCoverage(
   const { architecture, framework, rules } = blueprint;
   const source = dropTestFiles(scanResult, architecture.testFiles).files;
 
-  const nets = [
-    ...new Set(
-      architecture.layers.flatMap((layer) =>
-        resolveLayerFiles(layer.name, framework, architecture),
-      ),
-    ),
-  ].map(globToRegExp);
+  // The same nets `emitLint` compiles — flat, one per layer; modular, one per
+  // module's own root files plus one per declared layer inside it (or one for
+  // the whole module when it holds its files directly). Iterating
+  // `architecture.layers` alone, as this used to, matches nothing under a
+  // modular structure: a module file's path carries the module segment the
+  // bare layer glob does not expect, so every one of them read as outside
+  // every net — not governed but invisible, actually uncounted.
+  const nets = allNetFiles(architecture, framework).map(globToRegExp);
 
   const outside = source.filter((file) => !nets.some((net) => net.test(file.path)));
   const layerFiles = source.length - outside.length;

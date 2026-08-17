@@ -1,8 +1,12 @@
 import path from 'node:path';
 import type { ESLint as EslintNamespace, Linter } from 'eslint';
 
-import { emitLint, resolveLayerFiles } from '../emit/lint';
+import { emitLint } from '../emit/lint';
 import type { LintConfigEntry } from '../emit/lint';
+// The nets leaf, not re-exported from the emit/lint index — deep-imported here
+// for the same reason coverage.ts does: `emitLint`'s own file-scope resolver,
+// not a second hand-rolled glob loop a modular blueprint would leave blind.
+import { allNetFiles } from '../emit/lint/nets';
 import { expectedCarriers } from '../inspect';
 import type { Blueprint } from '../config';
 import { detect, loadProjectModule, resolveBlueprint, unwrapModule } from '../project';
@@ -222,7 +226,15 @@ function impactConfig(
   ];
 }
 
-/** Lint every layer glob with only the emitted config — the isolation the report is about. */
+/**
+ * Lint every governed glob with only the emitted config — the isolation the
+ * report is about. `allNetFiles` is the same resolver `emitLint` itself compiled
+ * the config from: flat, one net per layer; modular, one per module's own root
+ * files plus one per declared layer inside it. Iterating `architecture.layers`
+ * alone, as this used to, never reaches a module's files at all — their real path
+ * carries the module segment the bare layer glob does not expect — so `impact`
+ * reported zero hits from files the real merged config was already linting.
+ */
 function lintLayers(
   root: string,
   blueprint: Blueprint,
@@ -230,13 +242,7 @@ function lintLayers(
 ): Promise<{ filePath: string; messages: { ruleId: string | null; fatal?: boolean }[] }[]> {
   const { architecture, framework } = blueprint;
 
-  const globs = [
-    ...new Set(
-      architecture.layers.flatMap((layer) =>
-        resolveLayerFiles(layer.name, framework, architecture),
-      ),
-    ),
-  ];
+  const globs = allNetFiles(architecture, framework);
 
   const eslint = new run.ESLint({
     cwd: root,

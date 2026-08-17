@@ -1,5 +1,5 @@
-import type { AliasRoot, ArchitectureDef } from '../config';
-import { aliasLayerRoots, getFolderShape } from '../config';
+import type { AliasRoot, ArchitectureDef, ModuleDef } from '../config';
+import { aliasLayerRoots, getFolderShape, getModules } from '../config';
 import { dropTestFiles } from './filter';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
@@ -61,6 +61,21 @@ export function moduleKey(segments: string[], layoutOf: LayoutOf): string {
   // `deps components/HelloWorld` and an import of `./HelloWorld.vue` both
   // resolve to the same module as the file `components/HelloWorld.vue`.
   return `${segments[0]}/${segments[1].replace(/\.[^.]+$/, '')}`;
+}
+
+/** Whether a name is one of the architecture's declared layers. */
+export type IsLayer = (name: string) => boolean;
+
+/**
+ * Build an {@link IsLayer} from the architecture's declared layers — the same
+ * "is this a layer" question {@link ModuleShape.isLayer} answers for
+ * {@link modularVerdict}. One builder, so a segment-count shortcut standing in
+ * for it (as `graphKey` once did) is not a second, silently different answer.
+ */
+export function layerChecker(architecture: ArchitectureDef): IsLayer {
+  const names = new Set(architecture.layers.map((layer) => layer.name));
+
+  return (name) => names.has(name);
 }
 
 /** A layer's public entry filename, extension stripped. */
@@ -190,23 +205,78 @@ export function resolveSegments(dir: string[], specifier: string): string[] | nu
   return stack;
 }
 
+/**
+ * The full-path deps-graph key: `moduleKey`'s layer+folder arithmetic, with the
+ * module dimension composed on top. `modules` empty (the flat structure), this IS
+ * `moduleKey` unchanged — `segments[0]` is the layer. Modular and `segments[0]`
+ * names a declared module, it is stripped and the layer model applies to what
+ * remains — UNLESS the module has no layer dimension to key deeper on at all.
+ *
+ * A `layers: false` module never has one, so every file collapses to the bare
+ * module name regardless of depth. A layered module's single remaining segment
+ * is genuinely ambiguous on segment count alone — `moduleKey(['hooks'], ...)`
+ * and `moduleKey(['Combat.tsx'], ...)` are both one segment — and `isLayer` is
+ * what tells them apart, the same primitive `modularVerdict` already reads for
+ * the identical question one line above it: `inner[0]` naming a declared layer
+ * is a bare cross-layer entry reach (`~app/Combat/hooks`, AC2's own paired
+ * example) and keys one segment deeper — `moduleKey` on a single segment already
+ * answers that segment's own name via its own length check, so composing
+ * through it costs nothing extra. Anything else at one segment or none — a real
+ * root file (`Combat/Combat.tsx`) or the bare module entry (`~app/Combat`) — is
+ * the module's own root and collapses to the module name, the same "one net for
+ * the whole thing" `nets.ts`'s `moduleNets` builds for either root shape.
+ */
+export function graphKey(
+  segments: string[],
+  scope: { modules: ModuleDef[]; isLayer: IsLayer; layoutOf: LayoutOf },
+): string {
+  const { modules, isLayer, layoutOf } = scope;
+  const module = modules.find((entry) => entry.name === segments[0]);
+
+  if (!module) {
+    return moduleKey(segments, layoutOf);
+  }
+
+  const inner = segments.slice(1);
+
+  if (module.layers === false || inner.length === 0 || !isLayer(inner[0])) {
+    return module.name;
+  }
+
+  return `${module.name}/${moduleKey(inner, layoutOf)}`;
+}
+
 /** The module a reference targets, or null if it is not a resolvable module import. */
 export function targetModuleKey(
   ref: ImportRef,
   file: ScannedFile,
-  scope: { aliases: (AliasRoot | string)[]; layerNames: string[]; layoutOf: LayoutOf },
+  scope: {
+    aliases: (AliasRoot | string)[];
+    isLayer: IsLayer;
+    /** Declared modules — omit (or empty) for the flat structure. */
+    modules?: ModuleDef[];
+    layoutOf: LayoutOf;
+  },
 ): string | null {
-  const { aliases, layerNames, layoutOf } = scope;
+  const { aliases, isLayer, modules = [], layoutOf } = scope;
   const parts = stripAlias(ref.specifier, aliases);
 
   if (parts) {
-    return layerNames.includes(parts[0]) ? moduleKey(parts, layoutOf) : null;
+    // Modular, the alias reaches the module folders, not the layer folders directly
+    // — `parts[0]` names a module, and a bare layer name there is not one (the
+    // asymmetry with the flat check below is real: modules and layers are never
+    // both governed dimensions for the same segment at once).
+    const governed = modules.length
+      ? modules.some((entry) => entry.name === parts[0])
+      : isLayer(parts[0]);
+
+    return governed ? graphKey(parts, { modules, isLayer, layoutOf }) : null;
   }
 
   if (ref.specifier.startsWith('.')) {
     const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
 
-    return target ? moduleKey(target, layoutOf) : null;
+    return target ? graphKey(target, { modules, isLayer, layoutOf }) : null;
   }
 
   return null;
@@ -219,34 +289,65 @@ export interface ModuleGraph {
   edges: Map<string, Set<string>>;
 }
 
-/** Build the module-level import graph from a scan. */
+/**
+ * Build the module-level import graph from a scan. `segments[0]` names a
+ * declared module when `architecture.modules` is set — never a layer, which is
+ * exactly the arithmetic `graphKey` composes on top of `moduleKey`. Flat, this is
+ * unchanged: `segments[0]` IS the layer, gated the same way it always was.
+ */
 export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef): ModuleGraph {
   // Test files neither form modules nor create edges (idempotent re-filter
   // when the caller already dropped them).
   scan = dropTestFiles(scan, architecture.testFiles);
 
-  const layerNames = architecture.layers.map((layer) => layer.name);
-  const aliases = aliasList(architecture);
-  const layoutOf = layoutResolver(architecture);
+  const ctx = graphContext(architecture);
   const graph: ModuleGraph = { modules: new Set(), edges: new Map() };
 
   for (const file of scan.files) {
-    if (!layerNames.includes(file.segments[0])) {
-      continue;
-    }
-
-    const from = moduleKey(file.segments, layoutOf);
-
-    graph.modules.add(from);
-
-    for (const ref of file.imports) {
-      const to = targetModuleKey(ref, file, { aliases, layerNames, layoutOf });
-
-      if (to && to !== from) {
-        graph.edges.set(from, (graph.edges.get(from) ?? new Set()).add(to));
-      }
-    }
+    addFileToGraph(graph, file, ctx);
   }
 
   return graph;
+}
+
+/** Every fact `buildModuleGraph` reads per file, resolved once for the whole scan. */
+interface GraphContext {
+  isLayer: IsLayer;
+  modules: ModuleDef[];
+  aliases: AliasRoot[];
+  layoutOf: LayoutOf;
+}
+
+function graphContext(architecture: ArchitectureDef): GraphContext {
+  return {
+    isLayer: layerChecker(architecture),
+    modules: getModules(architecture),
+    aliases: aliasList(architecture),
+    layoutOf: layoutResolver(architecture),
+  };
+}
+
+/** One scanned file's own node and its outgoing edges, added in place. */
+function addFileToGraph(graph: ModuleGraph, file: ScannedFile, ctx: GraphContext): void {
+  const { isLayer, modules, aliases, layoutOf } = ctx;
+
+  const governed = modules.length
+    ? modules.some((entry) => entry.name === file.segments[0])
+    : isLayer(file.segments[0]);
+
+  if (!governed) {
+    return;
+  }
+
+  const from = graphKey(file.segments, { modules, isLayer, layoutOf });
+
+  graph.modules.add(from);
+
+  for (const ref of file.imports) {
+    const to = targetModuleKey(ref, file, { aliases, isLayer, modules, layoutOf });
+
+    if (to && to !== from) {
+      graph.edges.set(from, (graph.edges.get(from) ?? new Set()).add(to));
+    }
+  }
 }

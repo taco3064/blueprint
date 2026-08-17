@@ -199,7 +199,7 @@ describe('targetModuleKey · which specifiers name a module', () => {
       targetModuleKey(
         ref('axios'),
         file(['resources', 'Row', 'Row.ts']),
-        { aliases: ['~app'], layerNames: ['resources'], layoutOf },
+        { aliases: ['~app'], isLayer: (name) => name === 'resources', layoutOf },
       ),
     ).toBeNull();
 
@@ -208,7 +208,7 @@ describe('targetModuleKey · which specifiers name a module', () => {
       targetModuleKey(
         ref('./parts/Cell'),
         file(['resources', 'Row', 'Row.ts']),
-        { aliases: ['~app'], layerNames: ['resources'], layoutOf },
+        { aliases: ['~app'], isLayer: (name) => name === 'resources', layoutOf },
       ),
     ).toBe('resources/Row');
 
@@ -216,7 +216,7 @@ describe('targetModuleKey · which specifiers name a module', () => {
       targetModuleKey(
         ref('~app/services/api'),
         file(['resources', 'Row', 'Row.ts']),
-        { aliases: ['~app'], layerNames: ['services'], layoutOf },
+        { aliases: ['~app'], isLayer: (name) => name === 'services', layoutOf },
       ),
     ).toBe('services/api');
   });

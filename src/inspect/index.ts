@@ -13,5 +13,5 @@ export { scan } from './scan';
 // Which carrier plugins THIS blueprint needs. Exported for `impact` rather than
 // copied — a gate-to-carrier table that exists twice goes out of step.
 export { expectedCarriers } from './wiring';
-export type { GateStatus, LayerBans, RulesOptions } from './rules';
+export type { GateStatus, LayerBans, ModuleBans, RulesOptions } from './rules';
 export type { Finding, Severity } from './types';
