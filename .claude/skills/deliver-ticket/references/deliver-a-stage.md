@@ -125,7 +125,7 @@ So take a **requirement hash** over the authority half of the packet: the Goal, 
 3. **`git reset --soft HEAD~1`** — the staged diff comes back byte-identical and nothing in the worktree moves.
 4. **Re-confirm the tree**: `git status --porcelain`, nothing left unstaged.
 5. **Re-hash both halves**, code and requirement, from the current sources.
-6. **Set the review-state comment back to `dispatched`**, naming which of the three paths sent it back.
+6. **Create the review-state comment if none exists; otherwise set the existing one back to `dispatched`.** The third path in is *a resumed session finding an unpushed commit no review-state comment names*, so "set it back" is not always an available operation — there is nothing to set. Either way it ends up carrying the marker, the base SHA, both hashes, the round count, and which recovery path caused the re-dispatch. **If the create or the update fails, stop before dispatching part one** — a review running with no durable state is the memory gap this whole section exists to close, and it reopens the moment the write is skipped rather than retried.
 7. **Run the gate normally** — part one, part two, verdict.
 8. **On PASS, re-commit with the saved message**, then the post-commit identity check and the pre-push requirement check as usual.
 
