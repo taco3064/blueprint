@@ -44,9 +44,9 @@ So: **what you find while building goes into a comment on the ticket you are bui
 
 Once the stage is set, a sub-agent writes the code, you verify what comes back, land it, and write the comment. **The commit is yours** — that is what keeps one commit to one stage to one comment, which fragments the moment several hands are committing.
 
-Hand a sub-agent **the ticket number and a reading scope, never a summary of the ticket in its place** — a summary is a second source of truth for something already written down, and the two will differ. `deliver-a-stage.md`'s *Dispatching it* says exactly what that scope is, and what it deliberately excludes.
+Hand a sub-agent **a Stage Packet — verbatim excerpts of its scope, not the ticket number and an instruction to go read it, and not a summary written in its place.** A summary is a second source of truth for something already written down and the two will differ; handing over the number doesn't bound anything either, since fetching the issue returns the whole thing regardless of what it was asked to focus on. `deliver-a-stage.md`'s *Dispatching it* says exactly what the packet carries, and what it deliberately excludes.
 
-**Do not carry a sub-agent across stages.** A fresh one per stage costs nothing and a long-lived one accumulates the same blind spot you would have had. What it learned that is worth keeping goes in the ticket comment, which is the only place it survives.
+**Do not carry a sub-agent across stages.** A fresh one per stage has a real token cost — a new context, a packet built and read again — spent on something specific: independence from the blind spot a long-lived one would carry across stages. What it learned that is worth keeping goes in the ticket comment, which is the only place it survives.
 
 **What it *built* to check itself is a different thing, and a comment is the wrong home for it.** A render harness, a probe config, a mutation script — the next stage needs the same one and will spend the same hour deriving it. Say where the last one left them in the next dispatch. The rule above is about judgment accumulating blind spots; a script has none.
 
@@ -58,31 +58,17 @@ Hand a sub-agent **the ticket number and a reading scope, never a summary of the
 
 **The ticket says what to build. It does not say what blueprint already claims to do** — and that part is published: `docs/guide/` for behaviour, `docs/philosophy/` for the positions behind it, `docs/api/` for the surface, and the emitted artifacts for what an adopter actually receives.
 
-**Read the contracts and implementation references named by the shaped issue. Expand beyond them only when repository drift or implementation evidence proves the handoff incomplete.** `start-or-resume.md`'s gate already computed this by the time this section applies: `git diff <sha> origin/main`, where `<sha>` is the fingerprint's own `grounded-at`, against everything the issue's Implementation Plan and Evidence cite — the module, the primitives, the consumers, and the docs pages it names as required reading.
+**Read the contracts and implementation references named by the shaped issue, and nothing beyond them by default.** `start-or-resume.md`'s gate already computed what to check: `git diff <sha> origin/main`, where `<sha>` is the fingerprint's own `grounded-at`, against everything the issue's Implementation Plan and Evidence cite — the module, the primitives, the consumers, and the docs pages it names as required reading.
 
-- **Untouched by the diff** → shape-ticket's own investigation of it still holds. Read the citation once, trust it, move on — this is where the open-ended search this section used to ask for gets cut, not repeated more narrowly.
+- **Untouched by the diff** → shape-ticket's own investigation of it still holds. Read the citation once, trust it, move on.
 - **Touched by the diff** → that citation, and only that one, needs a fresh look before you rely on it.
-- **Touched in a way that breaks the citation's premise** — the module it names was removed, restructured past recognition, or the primitive it reuses no longer exists — **that's not a citation to re-verify, it's the plan failing to hold.** Stop before the first commit and say so on the ticket, the same way `start-or-resume.md`'s gate handles a missing fingerprint: the owner closes the issue, re-runs shape-ticket on the direction now that the repo has moved past what it was shaped against, and the new issue supersedes this one. A plan built on a premise that's gone is a direction again, however complete the rest of it reads.
+- **Touched in a way that breaks the citation's premise, or a citation surfaces a product decision the plan never actually made** — the module was removed, a consumer's real behavior contradicts what the plan assumed, an ambiguity the three headings' presence didn't catch — **stop before the first commit.** Comment it on the ticket, the same way `start-or-resume.md`'s gate handles a missing fingerprint: the owner closes the issue, re-runs shape-ticket on the direction, the new issue supersedes this one. **Deriving the missing decision yourself from the nearest analogue is exactly the failure this gate exists to prevent** — a ticket that reaches deliver-ticket is supposed to carry no open product decision, and a decided shape with a gap in it is a direction wearing a shape's clothes, not a shape with one flaw.
 
-**A ticket without a valid fingerprint never reaches this section at all** — `start-or-resume.md`'s gate stops those first — so by construction, every read from here on is scoped to citations that exist, not an open-ended search invented from nothing.
+**Expanding past the citations is that third bullet, not a fallback search.** One more file the drift diff actually touched is a narrow, forced read; "the whole repo, to find the nearest analogue" is the open-ended search this section used to ask for, and it's gone — what replaced it is stop-and-reshape.
 
-**Read the pages this ticket touches before you write anything.** Not to settle a doubt — to arrive without it. Most of what would otherwise become a question is already written down: what a finding is allowed to claim, what the tool refuses to decide, what belongs to the owner rather than to an agent, which spellings of a thing are equivalent. **A session that reads first extends a judgment that already exists. A session that does not either asks or invents — and the asking costs a round trip, while the inventing ships.**
+**A ticket without a valid fingerprint never reaches this section at all** — `start-or-resume.md`'s gate stops those first — so by construction, every read from here on is scoped to citations that exist, not invented from nothing.
 
-This is the cheapest thing in this file and the easiest to skip, because skipping it feels like starting sooner.
-
-**This is the standing half of a pair, and it is the half that pays.** The other is under *How you verify* — *a product question is answered on the published site* — and it fires the moment you notice a doubt. **Doing only that one means every question costs a stop.** Reading up front means most of them never form, and the ones that do land on a reader who already knows where the answer lives.
-
-### A thin ticket is not an underspecified one
-
-**A ticket that states an intent and sketches a shape is specified by what the tool already does.** It says what to add. `docs/` says what the thing already is — the model, what each field means today, what the tool refuses to decide, how the nearest existing analogue behaves. **The new thing is derived from those, not invented beside them.**
-
-So when you reach a question the ticket does not answer — what should this default to, what should it reject, what should the message say, what does it do to the emitted artifacts — **find the nearest thing that already exists and read how it behaves.** The answer is usually *the same way that one does*, and where it differs, the existing one tells you which axis the difference is on.
-
-**Sometimes the nearest thing is not in this repo.** How an editor renders a folder, what a resolver does with a specifier, which of three spellings a parser accepts — those are answered by *executing that tool*, not by reaching for the closest local convention. A convention picked because it was the nearest **available** answer is an invention wearing a precedent's clothes.
-
-**Asking the owner how to decide something the tool already decided is not caution. It is a failure to read**, and it costs a round trip to be told what was written down before you started. Once you have read it, extend it and keep going.
-
-**When there is genuinely no analogue** — a decision the published behaviour does not imply, or two published positions that point different ways — **that is a shortfall, not a question that stops the work.** Name it in the comment with what you looked at and why neither settles it, say which way you are proceeding and on what basis, **and carry on with everything that does not depend on it.** The owner reads the comments; a delivery that halts on the first genuinely open question delivers nothing while it waits.
+**This is the standing half of a pair with *How you verify*'s reactive half.** Reading the citations before the first commit is what keeps most doubts from forming; the reactive half — *a product question is answered on the published site* — is for the rare one that forms anyway, mid-work, from something genuinely unscoped by anything shape-ticket could have anticipated. Neither replaces the other, but the standing half now does most of the work a much larger search used to.
 
 **What you read is also what you may not contradict.** If the change would make a published page false, that is not a licence to change the page — it is a **shortfall**: name it, say which page and which line, and say whether you believe the page or the code. The owner decides which one moves.
 
