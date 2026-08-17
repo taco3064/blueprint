@@ -1,0 +1,145 @@
+# Revising a ticket deliver-ticket has already started
+
+**Trigger:** new evidence — a review, a hand-traced bug, a stalled assumption
+— shows a real gap in an issue's plan or acceptance criteria, and
+`deliver-ticket` has already been invoked on it. **A landed stage is not a
+precondition** — this applies whether zero stages have landed (the gap
+surfaced during `deliver-ticket`'s own pre-first-commit read, or from a
+review that ran before any dispatch) or several have; the rule below is
+about what a landed stage does to the decision when there is one, not about
+requiring one to exist first.
+
+This is the narrow exception to *You do not touch the repository* and to
+"never for touching a ticket already handed to delivery" above. It exists
+because the alternative already in this skill — the owner closes the issue,
+naming why, and a fresh run supersedes it — is a full reset, and a full reset
+is the wrong tool when the goal hasn't moved and nothing that shipped is
+invalidated. #371 is the case this file first generalized from: six review
+passes corrected its plan and acceptance criteria after stage 1 had already
+landed, none of them touched stage 1 itself, and treating each one as a
+close-and-reopen would have manufactured seven tickets out of one. **The
+zero-landed-stages case is the same logic at lower risk, not a different
+one** — a gap found before any code exists costs even less to fix in place,
+since there is nothing yet that a revision could possibly invalidate.
+
+## Which path this is — checked before anything else
+
+| Fingerprint | Goal | Landed stages | Path |
+|---|---|---|---|
+| Missing or invalid | — | — | Bounce back: owner closes, a fresh run supersedes it |
+| Valid | Changed | — | Bounce back: owner closes, a fresh run supersedes it |
+| Valid | Unchanged | One or more, and the fix would invalidate any of them | Bounce back: owner closes, a fresh run supersedes it |
+| Valid | Unchanged | Zero, or one or more and every one still valid under the fix | **This file: in-place revision** |
+| — (not a ticket problem) | — | The plan and acceptance criteria are correct; the *code* just doesn't meet them | `deliver-ticket`'s own shortfall loop — no issue edit, no shape-ticket invocation |
+
+**Zero landed stages is not a special case — it falls out of the same rule.**
+"Every already-landed stage stays valid" is vacuously true when there are
+none yet, and that is the *lower*-risk end of this path, not a reason to
+fall back to bouncing the ticket: a plan gap found before the first commit
+costs nothing to fix in place, because nothing yet exists that the fix could
+invalidate. Requiring a stage to already be landed before allowing an
+in-place revision would create exactly the dead end this file exists to
+close: `deliver-ticket` finding a plan gap pre-first-commit, routing to this
+path per its own rule, and this file rejecting the case because its
+precondition was written too narrowly.
+
+**The row that isn't either path is worth naming as clearly as the two that
+are.** The plan and acceptance criteria are fine, and a sub-agent's actual
+output just doesn't meet them — that's a shortfall, `deliver-ticket`'s own
+mechanism (`SKILL.md`'s *Shortfalls close where they were found*):
+commented, dispatched, closed in a later commit, no issue edit and no
+shape-ticket invocation at all. The tell: does reading the *plan* find the
+gap, or does reading the *diff against a plan that's already correct* find
+it? Only the first is this file's business — misrouting the second here
+would turn every ordinary code-review finding into a ticket revision, which
+is its own way of eroding trust in what a revision means.
+
+## How to revise
+
+- **Edit the issue body in place** (`gh issue edit --body-file`). Never file
+  a second issue for the same goal — that is exactly the duplicate
+  `inspect-the-repo.md`'s search exists to prevent, arrived at from the
+  other direction.
+- **One comment per revision pass, posted immediately after the edit, and
+  the edit's own before/after text is quoted in it — not summarized.** The
+  issue body is overwritten each pass, so the comment is the only place the
+  prior wording survives; "tightened AC1's baseline" is a claim nobody can
+  check six passes later, while the literal old sentence and the literal new
+  one, side by side, are. Every revision comment carries, at minimum:
+  - the exact prior text of what changed, quoted;
+  - the exact new text, quoted;
+  - which stage(s) or acceptance criteria it touches;
+  - which already-landed stage(s) it leaves valid, and why (this is what
+    makes the next bullet's "judged by the criteria that stood at the time"
+    actually reconstructable later, instead of a claim resting on nothing);
+  - whether the finding was executed-and-observed or read-and-inferred (see
+    below).
+
+  Beyond that floor, split the reasoning the same way
+  `create-the-ticket.md`'s independent feasibility check already splits
+  findings: a **technical fix** (a stale symbol, a missing consumer, a
+  citation that named the wrong file) is stated as a correction; a
+  **re-opened product decision** (a tradeoff reconsidered with a real
+  counter-argument, not just a mistake) carries the old reasoning, the new
+  reasoning, and which one won — the same way *Decisions made* already
+  records a first-round decision, now applied to a decision revisited after
+  filing. A reader who only sees the final shape, without this trail, can
+  plausibly reintroduce a defect an earlier pass already found and fixed —
+  #371's own fifth and sixth passes are the case in point: the fifth pass's
+  fix was itself found overcorrected by the sixth, and the comment trail is
+  what let that be stated as a correction to a specific prior claim rather
+  than a fresh, unexplained flip.
+- **A landed stage is judged by the acceptance criteria that stood when it
+  landed, never retroactively by a criterion written after.** If a
+  correction would make an already-landed stage newly fail, that correction
+  needs a two-tier bar instead — one for the stage as landed, one for
+  everything after it — the way #371's AC1 split into a stage-1 tier
+  (text-diff-only, because stage 1 was a rename) and a stage-2-onward tier
+  (byte-identical against the post-stage-1 baseline, not the original). A
+  single bar that only ever passed by accident is not a bar; state the tier
+  it actually belongs to.
+- **Say what's landed as of this revision, in the comment — never as a
+  maintained section of the issue body.** A "here's what's done" line in the
+  body is correct for exactly as long as nothing lands before someone reads
+  it, and nothing in this flow updates it when a stage does — `deliver-ticket`
+  already reconstructs current state from commits and comments, per its own
+  `start-or-resume.md`, and a second, unmaintained status living in the body
+  is a second source of truth that goes stale first and is trusted anyway
+  because it's the one at the top. Say it as a fact about this moment
+  instead — "as of this revision, stages 1–3 have landed" — which stays true
+  forever precisely because it never claims to be current.
+- **Label a revision's own evidence the same way `inspect-the-repo.md`
+  labels everything else**: executed-and-observed (ran it, traced the real
+  function, read the actual committed diff) or read-and-inferred (reasoned
+  from how the mechanism is scoped elsewhere). A revision that overturns a
+  read-and-inferred claim with an executed one is strictly progress; say
+  which kind each pass's finding was, the way #371's fourth pass labeled its
+  own conclusion read-and-inferred and its sixth pass corrected it with a
+  real disposable ESLint run rather than more reasoning.
+- **The fingerprint's `grounded-at` does not move for a plan-only
+  revision.** It records the commit the *shaping* was grounded in; that fact
+  does not change because the plan text was corrected. Re-sync and bump it
+  only if the revision itself was triggered by `origin/main` moving under
+  the ticket — the ordinary pre-flight case, not this one.
+
+## Recognizing diminishing returns
+
+Not every finding earns another pass. Before starting one, check what kind
+the previous pass's own fix produced:
+
+- **A new, independent defect** — a different file, a different mechanism, a
+  different claim than the fix just applied — is real signal. Revise.
+- **A defect *in* the fix just applied** — the same mechanism, corrected
+  again — is still real signal once, maybe twice. #371's fifth pass (closing
+  a loophole) and sixth pass (narrowing that close so it stopped
+  overcorrecting) are one continuous thread on one mechanism, not two
+  unrelated findings, and both were worth fixing.
+- **Three or more consecutive passes tracing back to the same underlying
+  design choice, each patching the previous patch**, is the signal to stop
+  patching and ask whether the *choice* needs the owner's input rather than
+  another implementation fix — the same "genuinely unknown, goes to the
+  owner" bucket `resolve-the-direction.md` already uses, applied to a
+  decision that resurfaced after filing instead of one raised before it.
+
+The goal of a revision pass is a ticket a reader can trust without re-running
+the trail themselves — not a ticket that has survived the most rounds.
