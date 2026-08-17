@@ -1,5 +1,5 @@
 ---
-"@kekkai/blueprint": minor
+"@kekkai/blueprint": major
 ---
 
 **Add `architecture.modules`** — ordered feature modules at the source root, each a
