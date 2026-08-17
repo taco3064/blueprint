@@ -187,13 +187,17 @@ function escapeEntries(
   const { severity, testGlobs, layouts, entries } = shape;
   const nets = resolveFileNets(architecture, framework);
   const modules = getModules(architecture);
+  const { sourceRoot } = architecture;
 
   const entry = (files: string[], root?: string): LintConfigEntry => ({
     files,
     ignores: testGlobs,
     plugins: { blueprint: plugin },
     rules: {
-      'blueprint/relative-escape': [severity, { layouts, entries, ...(root ? { root } : {}) }],
+      'blueprint/relative-escape': [
+        severity,
+        { layouts, entries, ...(root ? { root } : {}), ...(sourceRoot ? { sourceRoot } : {}) },
+      ],
     },
   });
 

@@ -24,9 +24,12 @@ import { modularVerdict, relativeVerdict, resolveSegments } from '../inspect/res
  * honest decision at a time.
  *
  * Options: `{ layouts: { [layer]: 'folder' | 'flat' }, entries: { [layer]:
- * string }, root?: string }` — the per-layer folder layout map and entry
- * filename (`index` when absent). Files outside `src/` or outside a declared
- * layer are skipped (the emitted config scopes this rule to layer files anyway).
+ * string }, root?: string, sourceRoot?: string }` — the per-layer folder
+ * layout map and entry filename (`index` when absent), plus
+ * `architecture.sourceRoot` (`src` when absent, matching its own documented
+ * default — `.` names a project-root layout with no source-root segment at
+ * all). Files outside the source root or outside a declared layer are
+ * skipped (the emitted config scopes this rule to layer files anyway).
  *
  * `root` names the feature module the linted files sit in — set only when
  * `emitLint` is compiling a modular blueprint. Without it the segment math is
@@ -55,6 +58,7 @@ export const relativeEscape: Rule.RuleModule = {
             additionalProperties: { type: 'string' },
           },
           root: { type: 'string' },
+          sourceRoot: { type: 'string' },
         },
         additionalProperties: false,
       },
@@ -74,14 +78,15 @@ export const relativeEscape: Rule.RuleModule = {
     },
   },
   create(context) {
-    const { layouts = {}, entries = {}, root }
+    const { layouts = {}, entries = {}, root, sourceRoot = 'src' }
       = (context.options[0] as {
         layouts?: Record<string, 'folder' | 'flat'>;
         entries?: Record<string, string>;
         root?: string;
+        sourceRoot?: string;
       } | undefined) ?? {};
 
-    const segments = srcSegments(context.filename);
+    const segments = srcSegments(context.filename, sourceRoot, context.cwd);
 
     // Flat, a file outside every declared layer is not this rule's business.
     // Modular, the module is what the file must be inside — the emitted config
@@ -157,14 +162,40 @@ export const relativeEscape: Rule.RuleModule = {
   },
 };
 
-/** Path segments after the last `src/` directory, or null when not under one. */
-function srcSegments(filename: string): string[] | null {
+/**
+ * Path segments after the last `sourceRoot` directory, or null when not under
+ * one. `sourceRoot` is a literal path segment to search for (`'src'`, `'app'`)
+ * — except `'.'`, which names a project-root layout with no such segment to
+ * search for at all (`ArchitectureDef.sourceRoot`'s own documented case, e.g.
+ * a Next.js project without `srcDir`). There, the filename's segments ARE the
+ * layer-relative segments already: as given, if it is already relative (the
+ * low-level `Linter` API used in this rule's own tests passes filenames
+ * through unchanged); stripped of the leading `cwd` segments otherwise, which
+ * is what real ESLint hands the rule (confirmed against this repo's own
+ * `eslint` dependency — `ESLint#lintFiles` resolves every `context.filename`
+ * to an absolute path before a rule ever sees it). No "outside cwd" arm: a
+ * file ESLint hands to this rule at all has already matched the config's
+ * `files` glob against that same `cwd`, so an absolute filename with a
+ * different prefix cannot reach here — a mismatch falls through to the same
+ * already-relative answer a relative filename gets.
+ */
+function srcSegments(filename: string, sourceRoot: string, cwd: string): string[] | null {
   const parts = filename.split(/[\\/]/).filter(Boolean);
-  const at = parts.lastIndexOf('src');
 
-  // No second arm for "src is the last segment" — that means the linted path IS a
-  // file named `src`, and `slice` then answers `[]`, which the caller already turns
-  // away one line later (`segments[0]` is undefined, so no layer claims it). The
-  // arm could not decide anything, and its `parts.length - 1` could not be wrong.
+  if (sourceRoot === '.') {
+    const cwdParts = cwd.split(/[\\/]/).filter(Boolean);
+
+    return cwdParts.every((segment, i) => parts[i] === segment)
+      ? parts.slice(cwdParts.length)
+      : parts;
+  }
+
+  const at = parts.lastIndexOf(sourceRoot);
+
+  // No second arm for "sourceRoot is the last segment" — that means the linted path
+  // IS a file named exactly the source root, and `slice` then answers `[]`, which the
+  // caller already turns away one line later (`segments[0]` is undefined, so no layer
+  // claims it). The arm could not decide anything, and its `parts.length - 1` could
+  // not be wrong.
   return at === -1 ? null : parts.slice(at + 1);
 }

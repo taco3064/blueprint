@@ -1,5 +1,5 @@
 import { getSharedFolder } from './graph';
-import type { ArchitectureDef, ModuleAllowedImporter, ModuleDef } from './types';
+import type { ArchitectureDef, LayerDef, ModuleAllowedImporter, ModuleDef } from './types';
 import { rejectUnknownKeys, validateOwns } from './validate';
 
 /**
@@ -94,9 +94,12 @@ export function getModuleEntry(architecture: ArchitectureDef, moduleName: string
 /**
  * `architecture.modules` in whole: optional, and when present, an array of at
  * least one module — an empty array says nothing an omitted key does not.
+ * `layers` is `architecture.layers`, already fully validated by the time this
+ * runs — passed through so a module's name can be checked against the whole
+ * layer set (see {@link validateModuleName}).
  * @internal
  */
-export function validateModules(modules: ModuleDef[] | undefined): void {
+export function validateModules(modules: ModuleDef[] | undefined, layers: LayerDef[]): void {
   if (modules === undefined) {
     return;
   }
@@ -117,7 +120,7 @@ export function validateModules(modules: ModuleDef[] | undefined): void {
   const names = new Set<string>();
 
   for (const module of modules) {
-    validateModuleName(module, names);
+    validateModuleName(module, names, new Set(layers.map((layer) => layer.name)));
     rejectUnknownKeys(module, MODULE_KEYS, `module "${module.name}"`);
     validateOwns(module, 'Module');
     validateModuleLayers(module);
@@ -129,12 +132,33 @@ export function validateModules(modules: ModuleDef[] | undefined): void {
   }
 }
 
-/** A module name becomes a folder, a file glob, and a diagram node id. */
-function validateModuleName(module: ModuleDef, earlier: Set<string>): void {
+/**
+ * A module name becomes a folder, a file glob, and a diagram node id — and,
+ * since a module can own primitives the same way a layer does, an ownership
+ * key too: `emit/lint` resolves a net's owners by bare name across both
+ * layers and modules in one list (`bans.ts`'s `owners` array), so a module
+ * and a layer sharing a name would let one axis's `owns` silently grant
+ * access on the other. Checking the module's name against every declared
+ * layer name closes both directions of that collision — layers are already
+ * fully validated by the time a module is, so the whole layer set is known
+ * up front.
+ */
+function validateModuleName(
+  module: ModuleDef,
+  earlier: Set<string>,
+  layerNames: Set<string>,
+): void {
   if (typeof module?.name !== 'string' || !module.name.trim()) {
     throw new Error('Each module must have a non-empty name.');
   } else if (earlier.has(module.name)) {
     throw new Error(`Duplicate module name: "${module.name}".`);
+  } else if (layerNames.has(module.name)) {
+    throw new Error(
+      `Module "${module.name}" shares its name with a declared layer — a module and a layer `
+      + 'name each double as a folder name, a file glob, and now an ownership key, so the '
+      + 'collision is not cosmetic: one axis\'s "owns" could silently apply to the other. '
+      + 'Rename the module or the layer.',
+    );
   } else if (/[*?{}[\]\\/]/.test(module.name)) {
     throw new Error(
       `Module "${module.name}" contains glob or path characters — module names become `

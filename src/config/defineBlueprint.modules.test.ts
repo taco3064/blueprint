@@ -123,6 +123,21 @@ describe('defineBlueprint · architecture.modules — module identity', () => {
 
     expect(() => defineBlueprint(config)).toThrow(/Duplicate module name: "Combat"/);
   });
+
+  // A layer and a module sharing one name: `emit/lint`'s ownership resolution
+  // (bans.ts) keys owners by bare name across both axes, so this exact collision
+  // is what would let the module's `owns` silently apply to the same-named layer
+  // too. Rejecting it here is the chosen fix — see modules.ts's own comment.
+  it('rejects a module sharing a name with a declared layer', () => {
+    const config = base();
+
+    config.architecture.layers.push({ name: 'Combat', does: 'a nested layer' });
+    config.architecture.modules![0].owns = ['axios'];
+
+    expect(() => defineBlueprint(config)).toThrow(
+      /Module "Combat" shares its name with a declared layer/,
+    );
+  });
 });
 
 describe('defineBlueprint · architecture.modules — layers: false is the only opt-out', () => {

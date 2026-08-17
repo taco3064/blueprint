@@ -132,7 +132,7 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
   }
 
   validateLayers(layers);
-  validateModules(architecture.modules);
+  validateModules(architecture.modules, layers);
   validateFolder(folder);
   validateAdditionalAliases(additionalAliases);
   validateLayerFiles(layerFiles);
