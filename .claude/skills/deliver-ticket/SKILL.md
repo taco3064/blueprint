@@ -1,20 +1,20 @@
 ---
 name: deliver-ticket
-description: Implement one GitHub issue to completion — staged commits, each reported back on the ticket, every shortfall recorded there and then closed, until the ticket's own goal is met; then the PR, the merge and the close. Use when the owner points at an issue to build ("do #204", "implement this one"), when work on a ticket resumes, or when a stage has landed and the next has not started. NOT for deciding what a ticket should ask for, never for cutting one into more tickets, and refuses to start — checked on every load, not just the first — on any issue that doesn't carry a valid shape-ticket fingerprint.
+description: Implement one GitHub issue to completion — staged commits, each cleared by an independent review before it lands and reported back on the ticket, every shortfall recorded there and then closed, until the ticket's own goal is met; then the PR, the merge and the close. Use when the owner points at an issue to build ("do #204", "implement this one"), when work on a ticket resumes, or when a stage has landed and the next has not started. NOT for deciding what a ticket should ask for, never for cutting one into more tickets, and refuses to start — checked on every load, not just the first — on any issue that doesn't carry a valid shape-ticket fingerprint.
 ---
 
 # deliver-ticket — one ticket, to completion, in the open
 
 You own one issue's **delivery** and the written record of how it got there. **You do not own what the issue asks for** — that is set before you arrive, by the owner and by the conversation that works out direction, and it is not yours to widen, narrow or re-scope.
 
-**And you do not write the code.** You dispatch that to sub-agents, one per stage, and what comes back is a change you verify, land as a commit, and report on the ticket. Everything you produce yourself is a commit, a comment, and — once, at the end — a pull request.
+**And you do not write the code.** You dispatch that to sub-agents, one per stage, and what comes back is a change you verify, put through a review you did not perform, land as a commit, and report on the ticket. Everything you produce yourself is a commit, a comment, and — once, at the end — a pull request.
 
 **Everything on this page is always in force.** The depth belonging to one moment lives under [`references/`](./references/) — read the file when its trigger fires, before acting. A rule down there has a moment that reminds you to fetch it; a rule up here does not, which is why it is up here.
 
 | Reference | Trigger |
 |---|---|
 | [`start-or-resume.md`](./references/start-or-resume.md) | The skill loads. Every time — fresh start or resume alike — before the hard gate on whether this issue carries a real shape-ticket fingerprint, not just its shape. |
-| [`deliver-a-stage.md`](./references/deliver-a-stage.md) | You are about to dispatch a sub-agent, commit, or you have just committed and owe the ticket a comment. What a stage is, what a dispatched sub-agent is given and withheld, what the comment must carry, and how a shortfall is written down. |
+| [`deliver-a-stage.md`](./references/deliver-a-stage.md) | You are about to dispatch a sub-agent, about to dispatch or answer a reviewer, about to commit, or you have just committed and owe the ticket a comment. What a stage is, what a dispatched sub-agent is given and withheld, the review gate every stage passes before it becomes a commit, what the comment must carry, and how a shortfall is written down. |
 | [`finish-the-ticket.md`](./references/finish-the-ticket.md) | You believe the ticket is done. The completion test, the pull request, the merge, closing the issue, and cleaning up the worktree and branches. |
 
 ## You do not create tickets
@@ -50,9 +50,25 @@ Hand a sub-agent **a Stage Packet — verbatim excerpts of its scope, not the ti
 
 **What it *built* to check itself is a different thing, and a comment is the wrong home for it.** A render harness, a probe config, a mutation script — the next stage needs the same one and will spend the same hour deriving it. Say where the last one left them in the next dispatch. The rule above is about judgment accumulating blind spots; a script has none.
 
-**What comes back is a claim, not a result.** It will tell you it is done and that the tests pass. That is the implementer believing its own work, which is not evidence — **run the verification yourself before the commit**, and treat every rule under *How you verify* as applying to what it hands you exactly as it applies to what you would have written.
+**What comes back is a claim, not a result.** It will tell you it is done and that the tests pass. That is the implementer believing its own work, which is not evidence — **run the verification yourself before the review gate below**, and treat every rule under *How you verify* as applying to what it hands you exactly as it applies to what you would have written.
 
 **And it does not decide anything.** A sub-agent that reports the ticket is unclear, or that the change needs something the stage did not name, is reporting a **shortfall** — that lands on you, goes in the comment, and is resolved by you or by the owner. Never by it, quietly, at the point of confusion.
+
+## A stage is not yours to pass
+
+**Every stage goes through a review you did not perform, and nothing commits before that review returns `PASS`.** Not a second pass over your own diff — a fresh agent, dispatched in the background, that loads [`review-stage`](../review-stage/SKILL.md) and returns a verdict. `deliver-a-stage.md`'s *The review gate* holds the mechanics: what the packet carries in each of its two parts, how the tree is hashed around the review, how rounds are counted, and what happens when they run out.
+
+**Your own verification neither becomes that review nor is made redundant by it.** You still run the layer that matters first — a stage that does not build has no business costing a review round — but *"I ran the tests and read the diff"* checks the work against your own instruction, which is a narrower question than whether the work is right. **You chose the stage and wrote the packet, so you cannot also be the one who confirms the packet asked for the right thing.**
+
+**The verdict is only ever the reviewer's own word.** Three things follow, and each is the tempting shortcut at 3am:
+
+- **The implementer never declares it.** *"Addressed all the reviewer's points"* is a fix report. Only the reviewer's own report, naming the base and the diff it read, is a verdict.
+- **You never write it on the reviewer's behalf, and you never overturn a BLOCKED by disagreeing with it.** You are still required to verify a finding rather than acting on it blind — and one that will not reproduce goes back for a single exchange, which the reviewer either withdraws or defends. If it defends it, it stands.
+- **A stage with no verdict has not been reviewed.** A reviewer that died, a dispatch that never loaded the skill, a report with no `PASS` or `BLOCKED` line, a `VOID` — one state, and it is re-dispatched rather than interpreted.
+
+**Two fix rounds, then the stage stops being yours.** BLOCKED → fix → re-review → BLOCKED → fix → re-review → still BLOCKED means it escalates to the owner with everything named, and nothing commits. **That number is a guard against a loop that never lands anything, not a target** — a stage failing three reviews is telling you the plan, the packet or the ticket is wrong, and none of those gets fixed by a fourth attempt at the code.
+
+**And you do not fix it yourself to save a round.** *You dispatch the work; you do not type it* has no exception for "three lines, and the reviewer already said what to do" — a fix you type is a change nobody outside it has read, arriving exactly when the loop is under the most pressure to be finished.
 
 ## Before the first commit, read what the tool already promises
 
