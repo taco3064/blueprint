@@ -1,11 +1,12 @@
 import { getFolderShape, getModuleEntry, normalizeAllowedImporters } from '../config';
-import type { ArchitectureDef, ModuleDef } from '../config';
+import type { ArchitectureDef, ModuleDef, OwnedPackage, OwnedPrimitive } from '../config';
 // The `nets` / `patterns` leaves, not the emit/lint index — the index also
 // exports lint.ts, which loads the plugin, which shares resolve logic with
 // inspect; routing through the index would close a module cycle.
 import { netLabel } from '../emit/lint/nets';
 import type { NetScope } from '../emit/lint/nets';
 import type { PrimitiveOwner } from '../emit/lint/patterns';
+import { packageGlobToRegExp } from './filter';
 import { pathScope } from './resolve';
 import type { Structure } from './resolve';
 import { sourcePrefix } from './scan';
@@ -383,12 +384,54 @@ function featureFolders(scope: StructureScope): Map<string, FolderGroup> {
   return folders;
 }
 
-/** Anything that can own a primitive, paired with the noun its finding names it by. */
-function primitiveOwners(scope: StructureScope): { owner: PrimitiveOwner; kind: string }[] {
+/**
+ * Anything that can own a primitive, paired with the noun its finding names it
+ * by and the address that finding carries.
+ *
+ * A module's name maps 1:1 to one real folder, so its address is that folder. A
+ * layer's name does not, once modules are declared: the layers live inside each
+ * of them (`src/Alpha/views`, `src/Beta/views`), and `owns-not-installed`'s
+ * remedy is in neither — it is `package.json`, or the declaration in
+ * `blueprint.config.mjs`. So the layer half is the bare layer name, the
+ * content-determined address `cycle` already gives its members, rather than one
+ * of the real folders picked to look like a path. Picking one would send a
+ * reader there to find nothing, and would move the baseline key
+ * (`rule\0path\0subject`) whenever a module is added, renamed or reordered
+ * without the underlying fact changing.
+ */
+function primitiveOwners(
+  scope: StructureScope,
+): { owner: PrimitiveOwner; kind: string; at: string }[] {
   return [
-    ...scope.architecture.layers.map((owner) => ({ owner, kind: 'Layer' })),
-    ...scope.structure.modules.map((owner) => ({ owner, kind: 'Module' })),
+    ...scope.architecture.layers.map((owner) => ({ owner, kind: 'Layer', at: owner.name })),
+    ...scope.structure.modules.map((owner) => ({
+      owner,
+      kind: 'Module',
+      at: `${scope.prefix}${owner.name}`,
+    })),
   ];
+}
+
+/**
+ * Whether an owned package resolves at all. A `pattern: true` ownership names a
+ * GROUP rather than a package, so any installed dependency the group reaches
+ * satisfies it — read through the same matcher the emitted
+ * `no-restricted-imports` group is matched by, so the note and the ban agree
+ * about which dependencies count.
+ */
+function installed(owned: OwnedPackage, dependencies: string[]): boolean {
+  return owned.pattern
+    ? dependencies.some((dep) => packageGlobToRegExp(owned.package).test(dep))
+    : dependencies.includes(owned.package);
+}
+
+/** The `owns` entry as a package, or null for a global — which has no install to check. */
+function ownedPackage(owned: OwnedPrimitive): OwnedPackage | null {
+  if (typeof owned === 'string') {
+    return { package: owned };
+  }
+
+  return 'global' in owned ? null : owned;
 }
 
 /**
@@ -396,33 +439,42 @@ function primitiveOwners(scope: StructureScope): { owner: PrimitiveOwner; kind: 
  * doctrine as `missing-layer`: declaring ownership before the install is the
  * legitimate order, so the ban is correct and simply has nothing to reach yet. A
  * global has no dependency list to answer to and is skipped.
+ *
+ * A pattern owner says the same thing in the two clauses where "the package"
+ * would be a package nobody declared: it is the group that reaches nothing, and
+ * installing anything under it resolves the note.
  */
 function ownsFindings(scope: StructureScope): Finding[] {
-  const { dependencies, prefix } = scope;
+  const { dependencies } = scope;
 
   if (!dependencies) {
     return [];
   }
 
-  return primitiveOwners(scope).flatMap(({ owner, kind }) =>
-    (owner.owns ?? []).flatMap((owned) => {
+  return primitiveOwners(scope).flatMap(({ owner, kind, at }) =>
+    (owner.owns ?? []).flatMap((primitive) => {
       // Both forms answer the same question here: whether the package resolves at
       // all. A named import missing from an installed package is a different one.
-      const pkg = typeof owned === 'string' ? owned : 'package' in owned ? owned.package : null;
+      const owned = ownedPackage(primitive);
 
-      if (pkg === null || dependencies.includes(pkg)) {
+      if (owned === null || installed(owned, dependencies)) {
         return [];
       }
+
+      const absence = owned.pattern
+        ? 'which no dependency in package.json matches'
+        : 'which is not in package.json';
 
       return [{
         severity: 'info' as const,
         rule: 'owns-not-installed',
-        path: `${prefix}${owner.name}`,
-        subject: pkg,
-        message: `${kind} "${owner.name}" owns "${pkg}", which is not in package.json — `
+        path: at,
+        subject: owned.package,
+        message: `${kind} "${owner.name}" owns "${owned.package}", ${absence} — `
           + 'runway, not a todo: the ban is emitted and correct, it just has nothing to '
-          + 'reach yet. Installing the package and dropping the declaration are both '
-          + 'resolutions, and which one applies is the owner\'s call.',
+          + `reach yet. Installing ${owned.pattern ? 'a package it reaches' : 'the package'} `
+          + 'and dropping the declaration are both resolutions, and which one applies is '
+          + 'the owner\'s call.',
       }];
     }));
 }

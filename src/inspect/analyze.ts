@@ -12,7 +12,7 @@ import { barredIn } from '../emit/lint/bans';
 import { netLabel } from '../emit/lint/nets';
 import { derivePackageRules } from '../emit/lint/patterns';
 import type { PackageRule } from '../emit/lint/types';
-import { dropTestFiles, globToRegExp } from './filter';
+import { dropTestFiles, globToRegExp, packageGlobToRegExp } from './filter';
 import { compareText } from './order';
 import {
   aliasList,
@@ -316,12 +316,17 @@ function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportConte
  * reaches the first, which carries the non-exempt restrictions alone. Flat config
  * replaces a rule rather than merging it, so this reach is the emitted behavior
  * itself and not an approximation of it.
+ *
+ * Read through the FILE matcher, because `exempt` is emitted as that entry's
+ * `ignores` — a different grammar from the specifier globs below, and the two
+ * are never compiled by one function here for the same reason ESLint does not
+ * match them with one library.
  */
 function activeRules(file: ScannedFile, context: ImportContext): PackageRule[] {
   const barred = context.packageRules.filter((rule) => barredIn(context.scope, rule));
   const exempt = [...new Set(barred.flatMap((rule) => rule.exempt ?? []))];
 
-  return exempt.some((glob) => globReaches(glob, file.path))
+  return exempt.some((glob) => globToRegExp(glob).test(file.path))
     ? barred.filter((rule) => !rule.exempt?.length)
     : barred;
 }
@@ -329,19 +334,14 @@ function activeRules(file: ScannedFile, context: ImportContext): PackageRule[] {
 /**
  * Whether a restriction reaches a specifier, in the two shapes
  * `buildPackagePatterns` splits them into: a `paths` entry matches the module
- * name exactly, a `patterns` entry matches its glob.
+ * name exactly, a `patterns` entry matches its glob the way the emitted
+ * `no-restricted-imports` group does — case-insensitively, at any segment when
+ * the glob has no `/`, and through everything under a match.
  */
 function reaches(rule: PackageRule, specifier: string): boolean {
-  return rule.pattern ? globReaches(rule.package, specifier) : rule.package === specifier;
-}
-
-/**
- * A glob and everything under it — the gitignore reach `no-restricted-imports`
- * gives a `patterns` group. Measured: owning `@scope/*` flags an import of
- * `@scope/foo/bar`, not only of `@scope/foo`.
- */
-function globReaches(glob: string, subject: string): boolean {
-  return globToRegExp(glob).test(subject) || globToRegExp(`${glob}/**`).test(subject);
+  return rule.pattern
+    ? packageGlobToRegExp(rule.package).test(specifier)
+    : rule.package === specifier;
 }
 
 /**

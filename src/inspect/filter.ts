@@ -9,8 +9,45 @@ import type { ScanResult } from './types';
  * per-entry ignores — a co-located test reaching a sibling is plumbing.
  */
 
-/** Compile one glob (`**` / `*` / `?` / `{a,b}`) into an anchored RegExp. */
+/**
+ * Compile one file glob (`**` / `*` / `?` / `{a,b}`) into an anchored RegExp —
+ * the matcher ESLint gives a config entry's `files` / `ignores`, which is
+ * minimatch: anchored at the base, case-sensitive, and file-by-file. Measured
+ * against ESLint 9.39: an `ignores` of `src/legacy` exempts a file *named*
+ * `src/legacy` and nothing under `src/legacy/`, so there is no descendant reach
+ * to add here.
+ */
 export function globToRegExp(glob: string): RegExp {
+  return new RegExp(`^${wildcards(glob, true)}$`);
+}
+
+/**
+ * Compile one package glob into a RegExp over import specifiers — the OTHER
+ * matcher, the one `no-restricted-imports` gives a `patterns[].group`. It is
+ * the `ignore` package, and three of its answers differ from the file matcher
+ * above; each measured against ESLint 9.39 rather than read off the docs.
+ *
+ * The rule passes `ignorecase: !caseSensitive` and defaults `caseSensitive` to
+ * false, so `FOO*` flags `fooxyz`. A group with no `/` is unanchored, because
+ * gitignore matches such a pattern against every path segment — so `foo*` flags
+ * `@scope/foo`. And a match reaches everything under it, so `@scope/*` flags
+ * `@scope/foo/bar`.
+ *
+ * `{a,b}` stays literal here on purpose: gitignore has no brace expansion, and
+ * `validateOwns` refuses the form rather than letting the two engines split.
+ */
+export function packageGlobToRegExp(glob: string): RegExp {
+  // Unanchored is the gitignore rule for a slashless pattern, not a widening.
+  const anywhere = glob.includes('/') ? '' : '(?:.*/)?';
+
+  return new RegExp(`^${anywhere}${wildcards(glob, false)}(?:/.*)?$`, 'i');
+}
+
+/**
+ * The star grammar both matchers share, as a RegExp source fragment. `braces`
+ * is the one place they part: minimatch expands `{a,b}`, gitignore does not.
+ */
+function wildcards(glob: string, braces: boolean): string {
   let pattern = '';
 
   for (let i = 0; i < glob.length; i++) {
@@ -27,7 +64,7 @@ export function globToRegExp(glob: string): RegExp {
       }
     } else if (char === '?') {
       pattern += '[^/]';
-    } else if (char === '{') {
+    } else if (char === '{' && braces) {
       const end = glob.indexOf('}', i);
       const body = glob.slice(i + 1, end).split(',').map(escape).join('|');
 
@@ -38,7 +75,7 @@ export function globToRegExp(glob: string): RegExp {
     }
   }
 
-  return new RegExp(`^${pattern}$`);
+  return pattern;
 }
 
 function escape(text: string): string {

@@ -36,7 +36,10 @@ describe('analyze · owns declared ahead of the install', () => {
 
     const axios = found.find((finding) => finding.subject === 'axios');
 
-    expect(axios).toMatchObject({ severity: 'info', path: 'src/services' });
+    // The bare layer name, not `src/services`: the remedy is package.json or the
+    // declaration, never a folder, and under a modular blueprint the same layer
+    // has one folder per module. See `primitiveOwners`.
+    expect(axios).toMatchObject({ severity: 'info', path: 'services' });
     expect(axios?.message).toContain('runway, not a todo');
     // Both resolutions named, neither prescribed — the same doctrine as
     // missing-layer, which this tier and wording follow.
@@ -60,7 +63,7 @@ describe('analyze · owns declared ahead of the install', () => {
     expect(none).toHaveLength(4);
 
     expect(none.filter((finding) => finding.subject === 'vue').map((f) => f.path))
-      .toEqual(['src/hooks', 'src/contexts']);
+      .toEqual(['hooks', 'contexts']);
   });
 
   it('reads both owns forms and ignores owned globals', () => {
@@ -81,7 +84,38 @@ describe('analyze · owns declared ahead of the install', () => {
     ).filter((finding) => finding.rule === 'owns-not-installed');
 
     expect(found).toHaveLength(1);
-    expect(found[0]).toMatchObject({ subject: 'zustand', path: 'src/hooks' });
+    expect(found[0]).toMatchObject({ subject: 'zustand', path: 'hooks' });
+  });
+
+  it('answers a pattern owner with the dependencies that pattern reaches', () => {
+    const grouped = (deps: string[]) => analyze(
+      scanOf([], ['services']),
+      defineBlueprint({
+        framework: 'react',
+        architecture: {
+          alias: '~app',
+          layers: [
+            { name: 'services', does: 'net', owns: [{ package: '@scope/*', pattern: true }] },
+          ],
+        },
+      }),
+      deps,
+    ).filter((finding) => finding.rule === 'owns-not-installed');
+
+    // A group name is never a key in package.json, so `includes` reported this
+    // forever — including on a repo that had installed exactly what it names.
+    expect(grouped(['@scope/foo'])).toEqual([]);
+    // The same reach the emitted ban has: under a match as well as at it.
+    expect(grouped(['@scope/foo/bar'])).toEqual([]);
+    expect(grouped(['@other/foo'])).toHaveLength(1);
+
+    // And the note says what is absent — "not in package.json" is true of the
+    // group's own spelling whether or not the group is satisfied, so it would
+    // read as a fact about the wrong thing.
+    const [note] = grouped([]);
+
+    expect(note.message).toContain('owns "@scope/*", which no dependency in package.json matches');
+    expect(note.message).toContain('Installing a package it reaches');
   });
 
   it('addresses the finding through the configured source root', () => {

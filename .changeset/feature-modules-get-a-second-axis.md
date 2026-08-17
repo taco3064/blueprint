@@ -257,3 +257,69 @@ the fix rather than a better sentence. That next step is also the one `sourceRoo
 reader still concatenating the field by hand — it offers `e.g. .//components/`
 under `'./'` — so it is two fixes on one line, and both belong to whoever rewrites
 it against the resolved blueprint.
+
+**The two engines now agree about the GLOB in an `owns` entry, and where they
+cannot, the config is refused rather than approximated.** The pass above judged
+package ownership through the rules `emitLint` compiles, but it matched a
+`pattern` group with this repo's own `globToRegExp` — which is neither matcher
+ESLint uses. Measured against ESLint 9.39, three of its answers were wrong: the
+rule passes `ignorecase: !caseSensitive` and defaults `caseSensitive` to false,
+so owning `axios` flags an import of `AXIOS`; a group with no `/` is unanchored,
+because gitignore matches such a pattern against every path segment, so owning
+`foo*` flags `@scope/foo`; and `exempt` is emitted as a config entry's `ignores`,
+which is minimatch and reaches no descendants at all, where the old reading added
+a `/**` the file matcher never has. An owner writing
+`{ package: 'foo[A-Z]*', pattern: true }` — a form ESLint's own documentation
+uses — got a ban `eslint` enforced and `inspect` could not see.
+
+- **Two matchers, because ESLint has two.** `packageGlobToRegExp` compiles a
+  `pattern` package the way `no-restricted-imports` matches a `patterns[].group`
+  (case-insensitive, unanchored when the glob has no `/`, reaching everything
+  under a match); `globToRegExp` keeps matching an `exempt` glob the way
+  `files` / `ignores` does (anchored, case-sensitive, file-by-file, `{a,b}`
+  expanded). Only the specifier path became case-insensitive: every other caller
+  of `globToRegExp` — test-file filtering, `layerFilesIgnore`, the coverage and
+  probe nets, the `.gitignore` reader — matches paths against globs ESLint or git
+  reads case-sensitively, and widening those would silently change what counts as
+  a test file.
+- **BREAKING: `defineBlueprint` refuses a `pattern` / `exempt` glob outside the
+  subset it can model faithfully**, naming the construct, why the two engines
+  part company on it, and what IS supported. The subset is `*`, `**` as a whole
+  path segment, and `?`, plus a flat `{a,b}` alternation on the `exempt` side
+  only — gitignore has no brace expansion, so `{merge,pick}` in a `pattern` bans
+  a literal specifier nobody publishes. Refused: `[…]` classes, `(…)` extglobs,
+  `\` escapes, a leading `!` or `/`, a trailing `/`, `**` inside a segment, and
+  nested / comma-less / `..`-range brace groups. Adopting a runtime `minimatch` +
+  `ignore` instead was the other option and is closed: README's front page
+  promises "no network code, zero runtime dependencies", both packages are
+  resolvable here only through the devDependency on eslint, and an adopter who
+  has not installed eslint has neither. A gate you cannot open is not a gate, and
+  a contract you can honour beats a broader one you approximate. The release is
+  already `4.0.0`, so this costs no extra bump.
+- Every accepted form is measured, not asserted: `filter.eslint.test.ts` asks the
+  real linter for each `(glob, specifier)` and each `(glob, path)` pair and
+  compares, and the refused forms are in the same file as the disagreement that
+  justifies each one.
+
+**`owns-not-installed` reads a pattern owner as a group.** `dependencies
+.includes(pkg)` can never find `@scope/*` in a `package.json`, so the note fired
+forever — measured on a repo with `@scope/foo` genuinely installed. A pattern
+owner is satisfied when any installed dependency the group reaches is there,
+through the same matcher the emitted ban uses, and the note says what is actually
+absent: "which no dependency in package.json matches", resolved by "installing a
+package it reaches". The exact-package wording is unchanged to the byte.
+
+**`owns-not-installed`'s layer address is the layer name, not a folder** —
+`views`, where it used to print `src/views`. Its remedy was never inside
+`src/<layer>/`: it is `package.json`, or the declaration in
+`blueprint.config.mjs`. On a flat repo `src/views` merely happened to also be a
+real folder; under `architecture.modules` the layers live inside each module
+(`src/Alpha/views`, `src/Beta/views`), so there are two real folders and still
+one remedy, and printing either invites a reader to go look there and find
+nothing. `cycle` is the precedent — its `path` is a graph key, content-determined
+— while `missing-layer` / `no-entry` keep theirs, because their remedy really is
+inside that folder. It also keeps the baseline key (`rule\0path\0subject`) still
+when a module is added, renamed or reordered without the underlying fact
+changing. **A MODULE owner keeps `src/Gamma`**: a module name maps 1:1 to one
+real folder, so the coincidence has not broken there. The column now shows two
+shapes, and flat repos see the address change.
