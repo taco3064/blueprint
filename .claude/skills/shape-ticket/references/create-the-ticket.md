@@ -30,6 +30,8 @@ This repo's issue titles state the outcome or a directive with its reason, in pl
 
 **`v1` is the only version this file writes.** It moves only when the contract between the two skills changes in a way deliver-ticket needs to know about — not on a wording tweak to this file. A version bump is a decision made in both `SKILL.md`s together, not a number changed here alone.
 
+**This is a workflow handoff marker, not a security proof.** Nothing stops a hand-written issue from copying these two lines and pasting in a real commit SHA — the fingerprint's job is catching accidental drift and a genuinely unshaped ticket in a solo, non-adversarial pipeline, not defending against someone deliberately forging it. That's an accepted boundary here, not a gap that needs signing or any heavier mechanism to close.
+
 ## Body
 
 Three sections are required, directly beneath the fingerprint above. Everything else is supporting material around them. **In the issue itself these are top-level headings — `## Goal`, `## Implementation Plan`, `## Acceptance Criteria` — the same register #364 and every other issue in this repo use for their own top-level sections.** The `###` below is this reference file's own organization for presenting the guidance one part at a time; it is not an instruction to nest the issue's sections under a literal "Body" heading, which the issue never has. Each optional item under *Auxiliary content* likewise becomes its own `##` section when it's included, the way #364 has its own `## Out of scope`.
