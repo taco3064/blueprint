@@ -6,7 +6,9 @@
 
 **The issue body and every comment, in full** — not the latest comment, not a summary of the ticket someone gave you in the prompt. The comment stream is deliver-ticket's own record of every stage that landed, every shortfall opened and closed, and every reason a decision went the way it did. Skipping to the bottom loses the shortfalls that have no address anywhere else.
 
-**Search for what already exists, before assuming there's nothing.** `git worktree list` and `git branch --list 'ticket/<n>-*'` find deliver-ticket's own worktrees and branches — they always carry the ticket number, per the naming rule in *New work gets a new environment* below, even though this repo's other feature branches read by outcome instead (`CLAUDE.md`'s convention for everything that isn't this skill's own bookkeeping). `gh pr list --search "<n> in:body"`, or by title, and a commit-message grep for the number cover the case where the branch predates this convention or was made by hand outside this skill.
+**`git fetch origin --prune` first — every time, before searching or branching.** A stale `origin/main` and a stale set of remote-tracking refs both look identical to "nothing's there" from inside a session that hasn't talked to the remote yet, and that's indistinguishable from an actual fresh start until you've fetched.
+
+**Then search for what already exists, before assuming there's nothing.** `git worktree list`, `git branch --list 'ticket/<n>-*'`, **and `git branch -r --list 'origin/ticket/<n>-*'`** — the remote-tracking search matters because a worktree from an earlier session may have been cleaned up locally while its branch is still live on the remote, and only the fetch above makes that branch visible at all. These find deliver-ticket's own worktrees and branches — they always carry the ticket number, per the naming rule in *New work gets a new environment* below, even though this repo's other feature branches read by outcome instead (`CLAUDE.md`'s convention for everything that isn't this skill's own bookkeeping). `gh pr list --search "<n> in:body"`, or by title, and a commit-message grep for the number cover the case where the branch predates this convention or was made by hand outside this skill.
 
 ## Reconstruct the state; don't assume it
 
@@ -25,11 +27,15 @@ From that comparison, build the same list `finish-the-ticket.md`'s completion te
 
 **One worktree per ticket**, per `SKILL.md`'s Repo facts — but *per ticket*, not per session. If the search above found an existing worktree or branch for this ticket, that is the one to continue in, not a second `git worktree add` beside it. Two worktrees for one ticket is exactly the failure the Repo facts note already names: commits landing on the wrong one because two sessions each believed they owned the checkout.
 
-If nothing exists yet, this is a genuine start: branch from the current `origin/main` tip — not from whatever the session's own working directory happens to be on — create the worktree, `npm ci` inside it, and record where it branched from the same way the first stage comment will need to.
+If nothing exists yet, this is a genuine start: branch from the `origin/main` tip the fetch above just resolved — not from whatever the session's own working directory happens to be on, and not from a local `origin/main` that predates that fetch — create the worktree, `npm ci` inside it, and record where it branched from the same way the first stage comment will need to.
 
 **Name both the branch and the worktree directory with the ticket number**: `ticket/<n>-<slug>`. This repo's other branches read by outcome instead, but that's exactly what defeats a resume here — an outcome-named branch says nothing about which ticket it belongs to until a commit or comment references the number, and a session interrupted before either exists leaves nothing to search for. The number in the name is what *Search for what already exists* above depends on.
 
-**Being behind `origin/main` mid-ticket is a judgment call, not a mandate to fix** — `deliver-a-stage.md`'s stage-order rule already covers the one case where updating is forced (a commit gate failing on work belonging to a stage not yet started). **What's never allowed is rewriting or force-pushing a commit that's already been pushed and cited in a comment.** `deliver-a-stage.md`'s push-before-comment rule exists to make that SHA a stable, public reference; rewriting history out from under a comment that already named it breaks the one guarantee that rule was for.
+**Being behind `origin/main` mid-ticket is a judgment call, not a mandate to fix** — `deliver-a-stage.md`'s stage-order rule already covers the one case where updating is forced (a commit gate failing on work belonging to a stage not yet started).
+
+**Before any stage has landed — no commit pushed and cited in a comment yet — rebasing onto `origin/main` is fine.** There is nothing yet a rewrite could invalidate.
+
+**Once one has, only `git merge origin/main` is allowed, for the rest of the ticket's life. Never rebase, and never force-push, either window.** A rebase replays every commit unique to the branch, not just the new ones being caught up — so it rewrites the SHA a comment already cited even when the only intent was to move the branch's own base forward, and there is no way to rebase selectively enough to avoid that once a cited commit exists. `deliver-a-stage.md`'s push-before-comment rule exists to make that SHA a stable, public reference; a merge commit brings `origin/main` in without touching it, which is why merge is always the safe operation and rebase, past this point, never is.
 
 ## The ticket has to already be a ticket, not a direction
 
