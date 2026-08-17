@@ -87,8 +87,14 @@ export function aliasLayerRoots(architecture: ArchitectureDef): AliasRoot[] {
   ];
 }
 
-/** `./src/` → `['src']`; `.` → `[]`. `..` segments survive and never match. */
-function dirSegments(dir: string): string[] {
+/**
+ * `./src/` → `['src']`; `.` → `[]`. `..` segments survive and never match.
+ * Shared with `plugin/relative-escape.ts`, which runs the same normalization
+ * over `sourceRoot` before searching a filename's segments for it — one
+ * normalization for the field, not two that could drift apart.
+ * @internal
+ */
+export function dirSegments(dir: string): string[] {
   return dir.split('/').filter((segment) => segment !== '' && segment !== '.');
 }
 

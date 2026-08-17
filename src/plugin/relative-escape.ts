@@ -1,4 +1,6 @@
 import type { Rule } from 'eslint';
+
+import { dirSegments } from '../config';
 import { modularVerdict, relativeVerdict, resolveSegments } from '../inspect/resolve';
 
 /**
@@ -28,8 +30,9 @@ import { modularVerdict, relativeVerdict, resolveSegments } from '../inspect/res
  * layout map and entry filename (`index` when absent), plus
  * `architecture.sourceRoot` (`src` when absent, matching its own documented
  * default — `.` names a project-root layout with no source-root segment at
- * all). Files outside the source root or outside a declared layer are
- * skipped (the emitted config scopes this rule to layer files anyway).
+ * all, and a multi-segment root like `'lib/app'` is legal too). Files outside
+ * the source root or outside a declared layer are skipped (the emitted config
+ * scopes this rule to layer files anyway).
  *
  * `root` names the feature module the linted files sit in — set only when
  * `emitLint` is compiling a modular blueprint. Without it the segment math is
@@ -163,26 +166,30 @@ export const relativeEscape: Rule.RuleModule = {
 };
 
 /**
- * Path segments after the last `sourceRoot` directory, or null when not under
- * one. `sourceRoot` is a literal path segment to search for (`'src'`, `'app'`)
- * — except `'.'`, which names a project-root layout with no such segment to
- * search for at all (`ArchitectureDef.sourceRoot`'s own documented case, e.g.
- * a Next.js project without `srcDir`). There, the filename's segments ARE the
- * layer-relative segments already: as given, if it is already relative (the
- * low-level `Linter` API used in this rule's own tests passes filenames
- * through unchanged); stripped of the leading `cwd` segments otherwise, which
- * is what real ESLint hands the rule (confirmed against this repo's own
- * `eslint` dependency — `ESLint#lintFiles` resolves every `context.filename`
- * to an absolute path before a rule ever sees it). No "outside cwd" arm: a
- * file ESLint hands to this rule at all has already matched the config's
- * `files` glob against that same `cwd`, so an absolute filename with a
- * different prefix cannot reach here — a mismatch falls through to the same
- * already-relative answer a relative filename gets.
+ * Path segments after the last run that matches `sourceRoot`, or null when
+ * not under one. `sourceRoot` can be multi-segment (`'lib/app'`) — the same
+ * `dirSegments` normalization `config/graph.ts` already trusts for this field
+ * (`aliasLayerRoots`) splits it, and `findLastSubsequence` searches for that
+ * whole contiguous run, not just each name appearing somewhere. Zero segments
+ * (`'.'`, `'./'`, and `ArchitectureDef.sourceRoot`'s own documented empty
+ * case) means a project-root layout with no segment to search for at all
+ * (e.g. a Next.js project without `srcDir`). There, the filename's segments
+ * ARE the layer-relative segments already: as given, if it is already
+ * relative (the low-level `Linter` API used in this rule's own tests passes
+ * filenames through unchanged); stripped of the leading `cwd` segments
+ * otherwise, which is what real ESLint hands the rule (confirmed against this
+ * repo's own `eslint` dependency — `ESLint#lintFiles` resolves every
+ * `context.filename` to an absolute path before a rule ever sees it). No
+ * "outside cwd" arm: a file ESLint hands to this rule at all has already
+ * matched the config's `files` glob against that same `cwd`, so an absolute
+ * filename with a different prefix cannot reach here — a mismatch falls
+ * through to the same already-relative answer a relative filename gets.
  */
 function srcSegments(filename: string, sourceRoot: string, cwd: string): string[] | null {
   const parts = filename.split(/[\\/]/).filter(Boolean);
+  const root = dirSegments(sourceRoot);
 
-  if (sourceRoot === '.') {
+  if (root.length === 0) {
     const cwdParts = cwd.split(/[\\/]/).filter(Boolean);
 
     return cwdParts.every((segment, i) => parts[i] === segment)
@@ -190,12 +197,27 @@ function srcSegments(filename: string, sourceRoot: string, cwd: string): string[
       : parts;
   }
 
-  const at = parts.lastIndexOf(sourceRoot);
+  const at = findLastSubsequence(parts, root);
 
-  // No second arm for "sourceRoot is the last segment" — that means the linted path
-  // IS a file named exactly the source root, and `slice` then answers `[]`, which the
-  // caller already turns away one line later (`segments[0]` is undefined, so no layer
-  // claims it). The arm could not decide anything, and its `parts.length - 1` could
-  // not be wrong.
-  return at === -1 ? null : parts.slice(at + 1);
+  // No second arm for "sourceRoot is the trailing run" — that means the linted path
+  // IS exactly the source root, and `slice` then answers `[]`, which the caller
+  // already turns away one line later (`segments[0]` is undefined, so no layer
+  // claims it). The arm could not decide anything, and its `parts.length - root.length`
+  // could not be wrong.
+  return at === -1 ? null : parts.slice(at + root.length);
+}
+
+/**
+ * The start index of the last contiguous occurrence of `needle` in `parts`,
+ * or -1. The multi-segment generalization of `Array#lastIndexOf`: a
+ * single-segment `needle` behaves identically to `parts.lastIndexOf(needle[0])`.
+ */
+function findLastSubsequence(parts: string[], needle: string[]): number {
+  for (let i = parts.length - needle.length; i >= 0; i--) {
+    if (needle.every((segment, j) => parts[i + j] === segment)) {
+      return i;
+    }
+  }
+
+  return -1;
 }

@@ -1,4 +1,8 @@
-import { Linter } from 'eslint';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+import { ESLint, Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
 import { plugin } from './plugin';
@@ -146,4 +150,130 @@ describe('blueprint/relative-escape · sourceRoot: "." (project-root layout, no 
 
     expect(ids).toEqual(['leavesFolder']);
   });
+
+  it('treats a trailing slash ("./") the same way — a related gap this fix also closes', () => {
+    // Before this fix, only the exact string `'.'` took the no-anchor branch;
+    // `'./'` fell into the segment search instead, and since no path segment
+    // is ever literally named `./`, it silently matched nothing. Unifying the
+    // branch on "zero normalized segments" (`dirSegments('./')` is `[]`, same
+    // as `dirSegments('.')`) closes this alongside the multi-segment fix,
+    // since both fixes read `sourceRoot` through the same normalization.
+    expect(
+      messageIds(
+        'import x from "../resources/matches";',
+        'components/Button.ts',
+        { sourceRoot: './' },
+      ),
+    ).toEqual(['leavesFolder']);
+  });
+});
+
+describe('blueprint/relative-escape · sourceRoot: "lib/app" (a multi-segment, legal root)', () => {
+  it('catches a relative import that leaves its layer — silently broken before this fix', () => {
+    // Before this fix, `srcSegments` searched for `sourceRoot` as one literal
+    // array element (`parts.lastIndexOf(sourceRoot)`). A multi-segment root
+    // like `lib/app` can never appear as a single element once the filename
+    // is split on path separators, so the rule read every file here as
+    // outside the source root and reported nothing — the same silent
+    // non-enforcement `bc0d8a5` closed for `'app'` and `'.'`, just for this
+    // shape of legal, already-supported input (`config/graph.test.ts` already
+    // exercises `sourceRoot: 'lib/app'` for `aliasLayerRoots`).
+    expect(
+      messageIds(
+        'import x from "../resources/matches";',
+        'lib/app/components/Button.ts',
+        { sourceRoot: 'lib/app' },
+      ),
+    ).toEqual(['leavesFolder']);
+  });
+
+  it('still allows a legal same-folder relative import', () => {
+    expect(
+      messageIds(
+        'import x from "./Card";',
+        'lib/app/components/Button.ts',
+        { sourceRoot: 'lib/app' },
+      ),
+    ).toEqual([]);
+  });
+
+  it('normalizes a leading "./" and trailing "/" the same way as the bare form', () => {
+    expect(
+      messageIds(
+        'import x from "../resources/matches";',
+        'lib/app/components/Button.ts',
+        { sourceRoot: './lib/app/' },
+      ),
+    ).toEqual(['leavesFolder']);
+
+    expect(
+      messageIds(
+        'import x from "./Card";',
+        'lib/app/components/Button.ts',
+        { sourceRoot: './lib/app/' },
+      ),
+    ).toEqual([]);
+  });
+
+  it(
+    'catches the violation against real on-disk files through ESLint#lintFiles, not just the '
+    + 'low-level Linter API',
+    async () => {
+      // The low-level `Linter` tests above prove the segment math; this proves
+      // it against what real ESLint actually hands the rule — absolute
+      // `context.filename`s resolved by `ESLint#lintFiles` from files that
+      // exist on disk, exercising the real npm `eslint` dependency end to end
+      // the same way `bc0d8a5`'s own `sourceRoot: '.'` case claimed to (its
+      // landed test only simulated the absolute-path shape through `Linter`
+      // with a `cwd` option — this is the first case in this file that
+      // actually runs `lintFiles` against real files).
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blueprint-relative-escape-'));
+
+      try {
+        fs.mkdirSync(path.join(dir, 'lib/app/components'), { recursive: true });
+
+        fs.writeFileSync(
+          path.join(dir, 'lib/app/components/Button.ts'),
+          'import x from "../resources/matches";\n',
+        );
+
+        fs.writeFileSync(
+          path.join(dir, 'lib/app/components/Card.ts'),
+          'import x from "./Button";\n',
+        );
+
+        const eslint = new ESLint({
+          cwd: dir,
+          overrideConfigFile: true,
+          overrideConfig: {
+            files: ['**/*.ts'],
+            plugins: { blueprint: plugin },
+            languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+            rules: {
+              'blueprint/relative-escape': ['error', { layouts: LAYOUTS, sourceRoot: 'lib/app' }],
+            },
+          },
+        });
+
+        const results = await eslint.lintFiles(['**/*.ts']);
+
+        const byFile = new Map(
+          results.map((result) => [
+            path.relative(dir, result.filePath),
+            result.messages.map((message) => message.messageId),
+          ]),
+        );
+
+        expect(results).toHaveLength(2);
+
+        expect(byFile.get(path.join('lib', 'app', 'components', 'Button.ts'))).toEqual([
+          'leavesFolder',
+        ]);
+
+        expect(byFile.get(path.join('lib', 'app', 'components', 'Card.ts'))).toEqual([]);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
 });
