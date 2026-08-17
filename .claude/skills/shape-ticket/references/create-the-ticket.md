@@ -17,9 +17,22 @@ Do this before writing a word of the draft, even if the investigation feels curr
 
 This repo's issue titles state the outcome or a directive with its reason, in plain sentences — not ticket-speak, not a filename standing in for the capability it belongs to. `"The gates run at error, and the code meets them"`, `"Both ledgers come out, and nothing goes red"`, `"Add an eslint 10 CI leg — the tool installs it unpinned and nothing tests it"` are the register to match. `RFC:` is this repo's own prefix for a direction that's deliberately being opened rather than decided — use it only when the owner has said this ticket is that, not as a hedge for an unfinished discussion. Mark a break to a published contract in the title itself, the way a PR title would carry `!`.
 
+## Fingerprint
+
+**The issue body's first two lines, before anything else — including a restatement of the title — are an HTML comment fingerprint:**
+
+```
+<!-- blueprint-shape-ticket:v1 -->
+<!-- grounded-at:<sha> -->
+```
+
+`<sha>` is `origin/main`'s tip as confirmed in *Pre-flight* above — the exact commit this draft was last verified against. This is what lets deliver-ticket trust the issue without re-deriving what this skill already determined, rather than merely reading as if it did: three headings with the right names are something anyone typing an issue by hand can produce, and deliver-ticket's own gate no longer takes that as enough. A fingerprint naming a real, resolvable commit is not something a hand-written issue produces by accident. GitHub renders an HTML comment as nothing, so it costs a human reader nothing to have it there.
+
+**`v1` is the only version this file writes.** It moves only when the contract between the two skills changes in a way deliver-ticket needs to know about — not on a wording tweak to this file. A version bump is a decision made in both `SKILL.md`s together, not a number changed here alone.
+
 ## Body
 
-Three sections are required. Everything else is supporting material around them. **In the issue itself these are top-level headings — `## Goal`, `## Implementation Plan`, `## Acceptance Criteria` — the same register #364 and every other issue in this repo use for their own top-level sections.** The `###` below is this reference file's own organization for presenting the guidance one part at a time; it is not an instruction to nest the issue's sections under a literal "Body" heading, which the issue never has. Each optional item under *Auxiliary content* likewise becomes its own `##` section when it's included, the way #364 has its own `## Out of scope`.
+Three sections are required, directly beneath the fingerprint above. Everything else is supporting material around them. **In the issue itself these are top-level headings — `## Goal`, `## Implementation Plan`, `## Acceptance Criteria` — the same register #364 and every other issue in this repo use for their own top-level sections.** The `###` below is this reference file's own organization for presenting the guidance one part at a time; it is not an instruction to nest the issue's sections under a literal "Body" heading, which the issue never has. Each optional item under *Auxiliary content* likewise becomes its own `##` section when it's included, the way #364 has its own `## Out of scope`.
 
 ### Goal
 
@@ -73,6 +86,7 @@ Show the complete draft — title and full body, not a summary of it. Name, in t
 
 ## Filing and handoff
 
+- **Before calling `gh issue create`, confirm the fingerprint's `<sha>` is still `origin/main`'s tip.** Owner confirmation can take a while; if `origin/main` moved during it, re-sync once more (per *Pre-flight*) and use the new tip in the fingerprint — one that names a commit no longer at the tip it claims is stale before the issue even exists.
 - Create exactly one issue, with only labels that already exist in the repo (`gh label list`) — never a new one.
 - No assignee, milestone, or parent issue unless the owner explicitly asked for one.
 - Report back the issue number and its URL.
