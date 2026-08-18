@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { emitAgentContract } from './agent';
 import {
   renderCompactContract,
   renderBehavioral,
@@ -148,6 +149,51 @@ describe('renderPlacement', () => {
     };
 
     expect(renderPlacement(architecture)).toContain('IMPORTABLE BY: components, hooks (selfOnly).');
+  });
+});
+
+// Every physical address the contract prints is the normalized `sourceRoot` plus
+// the folder — all four spellings `dirSegments` already accepts on that field.
+// Hardcoded, the flat half addressed a `src/` that a project-root or nested-root
+// repo does not have, and the contract is the one instruction an adopting agent
+// follows with nothing beside it to check the path against.
+describe.each([
+  ['unset', undefined, 'src/'],
+  ['.', '.', ''],
+  ['./', './', ''],
+  ['lib/app', 'lib/app', 'lib/app/'],
+  ['./lib/app/', './lib/app/', 'lib/app/'],
+])('the flat contract at sourceRoot %s', (_label, sourceRoot, prefix) => {
+  const out = emitAgentContract(blueprint({
+    architecture: arch({
+      sourceRoot,
+      folder: { layout: 'flat', entry: 'index', private: [] },
+      layers: [
+        { name: 'components', does: 'UI', folder: { layout: 'folder', entry: 'main' } },
+        { name: 'services', does: 'net' },
+      ],
+    }),
+  }));
+
+  it('anchors every layer directive there', () => {
+    expect(out).toContain(`- \`${prefix}components/\` — UI.`);
+    expect(out).toContain(`- \`${prefix}services/\` — net.`);
+  });
+
+  it('anchors the per-layer folder exception there too', () => {
+    expect(out).toContain(
+      `- Exception — \`${prefix}components/\`: one folder per feature, entry \`main\`.`,
+    );
+  });
+
+  // Restated as the whole set, not three `toContain`s: a fourth address left on
+  // the old hardcoded prefix would satisfy every positive assertion above.
+  it('spells the source root exactly one way across the whole contract', () => {
+    expect(out.match(/`[\w./]*(?:components|services)\//g)).toEqual([
+      `\`${prefix}components/`,
+      `\`${prefix}services/`,
+      `\`${prefix}components/`,
+    ]);
   });
 });
 

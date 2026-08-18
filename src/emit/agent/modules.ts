@@ -3,6 +3,7 @@ import {
   getModuleEntry,
   getModules,
   normalizeModuleAllowedImporters,
+  sourcePrefix,
   splitModulesByLayers,
 } from '../../config';
 import { formatOwns } from '../../markdown';
@@ -131,6 +132,11 @@ export function modulePlacement(architecture: ArchitectureDef): string[] {
     return [];
   }
 
+  // Same normalization the layer directives beside these are built from — a
+  // module folder's address is the source root plus its name, and hardcoding
+  // `src/` names a folder a `sourceRoot: '.'` or `'lib/app'` repo does not have.
+  const root = sourcePrefix(architecture.sourceRoot);
+
   return [
     '- The source root holds one folder per module; a declared layer sits one level inside a '
     + 'module, never at the source root.',
@@ -140,7 +146,7 @@ export function modulePlacement(architecture: ArchitectureDef): string[] {
       // creating the module has to write it, and inferring it from the shared
       // folder shape two bullets down is a step it can get wrong silently.
       const parts = [
-        `- \`src/${module.name}/\` — ${module.does}.`,
+        `- \`${root}${module.name}/\` — ${module.does}.`,
         ` ENTRY: \`${getModuleEntry(architecture, module.name)}\`.`,
       ];
 

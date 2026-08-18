@@ -1,4 +1,9 @@
-import { getFolderShape, getModuleEntry, normalizeAllowedImporters } from '../config';
+import {
+  getFolderShape,
+  getModuleEntry,
+  normalizeAllowedImporters,
+  sourcePrefix,
+} from '../config';
 import type { ArchitectureDef, ModuleDef, OwnedPackage, OwnedPrimitive } from '../config';
 // The `nets` / `patterns` leaves, not the emit/lint index — the index also
 // exports lint.ts, which loads the plugin, which shares resolve logic with
@@ -9,7 +14,6 @@ import type { PrimitiveOwner } from '../emit/lint/patterns';
 import { groupReaches } from './filter';
 import { pathScope } from './resolve';
 import type { Structure } from './resolve';
-import { sourcePrefix } from './scan';
 import type { Finding, ScanResult } from './types';
 
 /**

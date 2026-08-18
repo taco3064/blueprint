@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { emitAgentContract } from './agent';
 import {
   compactModuleBullet,
   moduleChain,
@@ -311,5 +312,49 @@ describe('the contract sections that carry them', () => {
 
     expect(renderChecklist(blueprint(arch())))
       .toContain('- [ ] New code sits in the right layer;');
+  });
+});
+
+// The module axis has two physical depths and `sourceRoot` moves both: the module
+// folder AND the layer nested inside it. Hardcoded `src/`, the contract told an
+// agent to create `src/Shell/` in a repo whose modules sit at the project root, or
+// under `lib/app/` — a placement `undeclared-folder` then reports against it.
+describe.each([
+  ['unset', undefined, 'src/'],
+  ['.', '.', ''],
+  ['./', './', ''],
+  ['lib/app', 'lib/app', 'lib/app/'],
+  ['./lib/app/', './lib/app/', 'lib/app/'],
+])('the modular contract at sourceRoot %s', (_label, sourceRoot, prefix) => {
+  const out = emitAgentContract(blueprint(arch({ sourceRoot }, layered)));
+
+  it('anchors each module folder there', () => {
+    expect(out).toContain(`- \`${prefix}Shell/\` — app frame. ENTRY: \`index\`.`);
+    expect(out).toContain(`- \`${prefix}common/\` — shared helpers. ENTRY: \`index\`.`);
+  });
+
+  it('anchors the layer one level inside a module there', () => {
+    expect(out).toContain(`- \`${prefix}<Module>/components/\` — UI.`);
+    expect(out).toContain(`- \`${prefix}<Module>/services/\` — net.`);
+  });
+
+  // The alias spellings are NOT physical paths and must not move with the root:
+  // `~app/<Module>` is what an import resolves through, wherever the tree starts.
+  it('leaves every alias spelling alone', () => {
+    expect(out).toContain('Import another module at `~app/<Module>` only');
+    expect(out).toContain('`~app/<Module>/<layer>`');
+  });
+
+  // Restated as the whole set: one address left on the old hardcoded prefix
+  // satisfies every positive assertion above and still misdirects the agent.
+  it('spells the source root exactly one way across the whole contract', () => {
+    expect(out.match(/^- `[\w./<>]+\/` —/gm)).toEqual([
+      `- \`${prefix}Shell/\` —`,
+      `- \`${prefix}Combat/\` —`,
+      `- \`${prefix}Lobby/\` —`,
+      `- \`${prefix}common/\` —`,
+      `- \`${prefix}<Module>/components/\` —`,
+      `- \`${prefix}<Module>/services/\` —`,
+    ]);
   });
 });

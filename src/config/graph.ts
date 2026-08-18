@@ -99,6 +99,26 @@ export function dirSegments(dir: string): string[] {
 }
 
 /**
+ * The display prefix a physical address under the source root carries — the
+ * source root with its separator, or empty for a project-root layout. Read it
+ * for any path an output PRINTS; `dirSegments` is for matching one.
+ *
+ * Lives here, beside the normalization it wraps, because both runtimes and the
+ * emitters print such addresses: `inspect`'s findings, and the agent contract's
+ * placement directives. A raw `${sourceRoot}/` concatenation let every spelling
+ * that is normalized-but-not-bare-`'.'` (`'./'`, `'./lib/app/'`) through as a
+ * double slash, so the addresses in the report named a path that does not exist
+ * while the globs governing those same files were right — and the coverage line,
+ * which matches one against the other, called a fully governed repo vacuous.
+ * @internal
+ */
+export function sourcePrefix(sourceRoot = 'src'): string {
+  const segments = dirSegments(sourceRoot);
+
+  return segments.length ? `${segments.join('/')}/` : '';
+}
+
+/**
  * The shared folder shape with the flat defaults applied — the playbook's
  * "flat default" made real: `architecture.folder` and each of its keys is
  * optional, resolving to `{ layout: 'flat', entry: 'index', private: [] }`

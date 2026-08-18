@@ -13,6 +13,7 @@ import {
   getModules,
   getSharedFolder,
   normalizeAllowedImporters,
+  sourcePrefix,
 } from '../../config';
 import { handbookPath } from '../docs';
 import {
@@ -150,13 +151,16 @@ export function renderContext(blueprint: Blueprint): string {
 
 /** Per-layer placement directives + the folder shape rule. */
 export function renderPlacement(architecture: ArchitectureDef): string {
-  // The address, not just the name: under a modular blueprint a layer folder does
-  // not sit at the source root at all, and a directive pointing at `src/hooks/`
-  // there names a path `undeclared-folder` exists to move code out of.
-  const at = getModules(architecture).length ? 'src/<Module>' : 'src';
+  // The physical address, not just the name, and computed at both depths it has:
+  // `sourceRoot` is where the tree actually starts (`'.'` prefixes nothing), and
+  // under a modular blueprint no layer sits at that root — a directive naming
+  // `src/hooks/` sends an agent to create the very folder `undeclared-folder`
+  // exists to move code out of, or to a `src/` a project-root repo does not have.
+  const nested = getModules(architecture).length ? '<Module>/' : '';
+  const at = `${sourcePrefix(architecture.sourceRoot)}${nested}`;
 
   const lines = architecture.layers.map((layer) => {
-    const parts = [`- \`${at}/${layer.name}/\` — ${layer.does}.`];
+    const parts = [`- \`${at}${layer.name}/\` — ${layer.does}.`];
 
     if (layer.mustNot?.length) {
       parts.push(` MUST NOT: ${layer.mustNot.join('; ')}.`);
@@ -193,8 +197,8 @@ export function renderPlacement(architecture: ArchitectureDef): string {
       const shape = getFolderShape(architecture, layer.name);
 
       return shape.layout === 'folder'
-        ? `- Exception — \`${at}/${layer.name}/\`: one folder per feature, entry \`${shape.entry}\`.`
-        : `- Exception — \`${at}/${layer.name}/\`: one file per feature (flat).`;
+        ? `- Exception — \`${at}${layer.name}/\`: one folder per feature, entry \`${shape.entry}\`.`
+        : `- Exception — \`${at}${layer.name}/\`: one file per feature (flat).`;
     });
 
   // Reporting instruction, not a third remedy. An agent that learns "files matching

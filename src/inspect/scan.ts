@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { dirSegments } from '../config';
+import { sourcePrefix } from '../config';
 import { compareText } from './order';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
@@ -139,24 +139,6 @@ function ordered(dir: string, readdir: (dir: string) => DirEntry[]): DirEntry[] 
   // The comparator is asked about its equal case in `compareText`'s own tests, which
   // is the only place that can: two entries in one directory cannot share a name.
   return readdir(dir).sort((a, b) => compareText(a.name, b.name));
-}
-
-/**
- * The display prefix every address `inspect` prints carries — the source root
- * with its separator, or empty for a project-root layout.
- *
- * Normalized through the same `dirSegments` the layer globs and
- * `blueprint/relative-escape` read this field through. A raw `${sourceRoot}/`
- * concatenation let every spelling that is normalized-but-not-bare-`'.'`
- * (`'./'`, `'./lib/app/'`) through as a double slash, so the addresses in the
- * report named a path that does not exist while the globs governing those same
- * files were right — and the coverage line, which matches one against the other,
- * called a fully governed repo vacuous.
- */
-export function sourcePrefix(sourceRoot = 'src'): string {
-  const segments = dirSegments(sourceRoot);
-
-  return segments.length ? `${segments.join('/')}/` : '';
 }
 
 /** The three facts that hold for the whole walk, so only `dir` and `files` move. */

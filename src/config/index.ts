@@ -8,6 +8,7 @@ export {
   getSelfOnlyTargets,
   getSharedFolder,
   normalizeAllowedImporters,
+  sourcePrefix,
 } from './graph';
 export type { AliasRoot, DiagramEdge } from './graph';
 export {
