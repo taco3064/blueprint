@@ -27,7 +27,7 @@ The dispatcher extracts these verbatim — they are the authority sources, ranks
 
 **When the change is too large to read line by line, name the instrument in the report.** A mechanical sweep across sixty files is read by a byte baseline, a rendered artifact, or a targeted probe — not by scrolling. An unread diff with its instrument stated is honest; an unread diff called reviewed is the exact failure this skill was created for.
 
-## Then answer these five yourself
+## Then answer these six yourself
 
 Written down, before any probe is chosen. They are what turn a diff into an attackable claim:
 
@@ -40,6 +40,8 @@ Written down, before any probe is chosen. They are what turn a diff into an atta
 **4. Is there a second derivation?** Something already computed from a source, now computed again from the same source by different code. That is the defect shape this repo pays for most, and it survives every unit test because both derivations get tested against their own author's expectations.
 
 **5. Which existing consumers does this affect?** Answer it with a search, not from the diff — `probe-the-change.md`'s class 3 has the method and the measured numbers. The ticket's own list of files is a starting point that has never yet been complete.
+
+**6. What does this stage claim is *true* — as against what it added?** Take it from the authority text you wrote down in step 1, never from the file list: a scope read off the diff **is** the diff, and it makes every question above tautological. The two come apart hardest when the stage's own job is verification — a conformance or integration stage adds nothing but tests, and claims the assembled behaviour holds. **Write the claim in behavioural terms and the scope falls out of it**: *"`emitLint` and `inspect` return the same verdict for a modular config"* is a claim about verdicts, so any reproducible divergence in a verdict is inside it, whoever wrote the code that diverges and however many stages ago. `SKILL.md`'s three FOLLOW-UP conditions are read against this line, and it goes in the report as `Claimed scope` — **it has to exist before the first probe**, because a scope written afterwards is written by whatever you found.
 
 ## A packet you cannot review
 
