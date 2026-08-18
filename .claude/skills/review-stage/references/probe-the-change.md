@@ -37,6 +37,8 @@ That last one is exactly how #371's divergence surfaced. The change permitted a 
 
 **Triggered by: any change to a config field, a shared type, or the meaning of an existing term.**
 
+**Also triggered by: any new output that encodes a file location, an import specifier, a module or layer name, or the extent of what is governed** — with no config field anywhere in the diff. Here the scan runs **backwards**: not *"who reads the field I changed"* but *"which existing field already decides the thing I just emitted"*. A stage that adds a consumer which should read a field and does not moves that field's line count by zero, so every trigger phrased around the diff misses it by construction — and the output ships wrong for exactly the adopters who set the field.
+
 Search for the readers yourself. The ticket's file list is a starting point and has not yet been complete:
 
 ```
@@ -46,6 +48,8 @@ grep -rl "<fieldName>" src --include="*.ts" | grep -v test
 Measured on this tree while writing this page: **`sourceRoot` has 18 non-test readers, `owns` 22, `modules` 17** — spanning `config`, `emit/*`, `plugin`, `inspect`, `bootstrap`, `survey`, `impact`, `project` and `presets`. The raw list is wider than the true consumer set, because the word also appears in prose and comments; **triaging it is the work, and starting from the ticket's list instead is the mistake.** Run it again rather than trusting these numbers — they were true of one commit.
 
 Beyond the field name, search for: the **types** that carry it, the **shared helpers** that read it, **hand-built string concatenation** that assembles what the field is supposed to produce, **duplicated conditionals** testing the same thing in two places, and **assumptions about an older data shape** left behind by whoever changed the shape.
+
+**One mechanical check, because this repo already has the shape:** a literal `src/` in a new path string owes a proof that the path is not `sourceRoot`'s to decide. Measured on this tree — `emit/lint/patterns.ts:19` is where `sourceRoot` resolves (`sourceRoot === '.' ? '' : `${sourceRoot}/``), so under `sourceRoot: 'app'` the emitted ESLint config governs `app/**`, while `emit/agent/sections.ts:131` hands that same adopter ``- `src/<layer>/` `` from a `renderPlacement(architecture)` that has `architecture.sourceRoot` in scope and never reads it (`emit/agent/` and `emit/docs/` contain zero occurrences of the field). **One config, two answers, and the prose is the one the agent obeys.** Re-measure rather than trusting the line numbers; the class is the point.
 
 `blueprint.config.mjs`'s own `testFiles: []` is the case for why one field's second consumer matters: that row sets what the size gates reach *and* silently empties the file set of `test-filename-matches-source`, which is declared `error` and therefore runs on nothing. Two contracts, one field, and the second one is invisible unless you look for it.
 
@@ -67,6 +71,16 @@ Do not ask whether the happy path passes. **Ask what minimal input breaks the co
 
 **One counterexample that reproduces outranks any number of representative cases that pass.**
 
+### Cross the dimensions — walking them one at a time is how a change passes each column and fails every cell
+
+**The list above is axes. The defects live in the pairs.** Every one this repo has paid for so far needed two values held at once: a forbidden direction **and** a bare layer entry; `layers: false` **and** a folder whose name collides with a globally declared layer; a custom `sourceRoot` **and** an emitter that assembles its own path. Each axis had been exercised alone, and each passed alone — which is exactly what a report saying "all the edge cases are covered" is describing when it is wrong.
+
+So before probing, **write down the axes this change actually puts in play, with their values** — that list is the report's `Axes in play`, and it is written here, before the pairs are formed, because an axis dropped at this step leaves no trace at the next one. For the module axis that came to: module shape (layered / `layers: false`), import site (module root / layer entry / inside a layer), spelling (relative / alias), permission (allowed / forbidden), source root (`src` / `.` / a nested path).
+
+**Then take the pairs, not the product.** The full grid is unaffordable and mostly inert; the selection rule is the one the failures share — **for each pair, ask whether one axis has a value that suspends or reroutes the other axis's normal handling.** `layers: false` suspends layer-name resolution, so it crosses with everything that resolves a name; a bare entry suspends the depth arithmetic, so it crosses with everything that counts segments; a non-default `sourceRoot` reroutes every path, so it crosses with everything that emits one. Pairs where neither axis touches the other's path are the large, cheap remainder.
+
+**Every pair those axes make is then crossed, or ruled out with the reason, under the report's `Dimensions crossed`** — the same standard the probe classes themselves are held to. A pair ruled out because the two axes provably cannot reach the same code is a result. A pair nobody wrote down is indistinguishable from one that was crossed and found clean, and that is the difference this record exists to keep.
+
 ## 5. Differential-test anything claimed consistent
 
 **Triggered by: the stage asserting two mechanisms agree.** Then a differential test is mandatory, and it has a required shape: one config, one input, the authoritative result, the checked result, and **an expected answer you derived independently of both**.
@@ -79,6 +93,8 @@ expect(inspectResult).toBe(eslintResult);
 expect(eslintResult).toBe(true);
 expect(inspectResult).toBe(true);
 ```
+
+**And the input has to be one the implementer's tests do not already contain.** Re-running their fixture through your own harness tests the harness, not the claim — a divergence that survived their suite lives precisely in the case nobody thought to write. So a consistency claim is checked against an input you constructed, or it is not checked.
 
 **And the config has to come through the real emitter.** A hand-written lookalike tests two things that were never the pair in question — `src/conformance/` is the existing shape for this: fixtures driven through the CLI's own dispatch and the real ESLint from this repo's devDeps.
 

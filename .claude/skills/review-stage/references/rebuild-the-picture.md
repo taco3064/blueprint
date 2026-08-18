@@ -27,7 +27,7 @@ The dispatcher extracts these verbatim — they are the authority sources, ranks
 
 **When the change is too large to read line by line, name the instrument in the report.** A mechanical sweep across sixty files is read by a byte baseline, a rendered artifact, or a targeted probe — not by scrolling. An unread diff with its instrument stated is honest; an unread diff called reviewed is the exact failure this skill was created for.
 
-## Then answer these five yourself
+## Then answer these six yourself
 
 Written down, before any probe is chosen. They are what turn a diff into an attackable claim:
 
@@ -41,11 +41,13 @@ Written down, before any probe is chosen. They are what turn a diff into an atta
 
 **5. Which existing consumers does this affect?** Answer it with a search, not from the diff — `probe-the-change.md`'s class 3 has the method and the measured numbers. The ticket's own list of files is a starting point that has never yet been complete.
 
+**6. What does this stage claim is *true* — as against what it added?** Take it from the authority text you wrote down in step 1, never from the file list: a scope read off the diff **is** the diff, and it makes every question above tautological. The two come apart hardest when the stage's own job is verification — a conformance or integration stage adds nothing but tests, and claims the assembled behaviour holds. **Write the claim in behavioural terms and the scope falls out of it**: *"`emitLint` and `inspect` return the same verdict for a modular config"* is a claim about verdicts, so any reproducible divergence in a verdict is inside it, whoever wrote the code that diverges and however many stages ago. `SKILL.md`'s three FOLLOW-UP conditions are read against this line, and it goes in the report as `Claimed scope` — **it has to exist before the first probe**, because a scope written afterwards is written by whatever you found.
+
 ## A packet you cannot review
 
 Four mechanical conditions, and each one means **no review happened** — so the report carries no verdict at all. Report `VOID`, name which condition, and hand it back:
 
-- **Insufficient** — an authority question this stage turns on has no answer in the packet, and inferring it from the nearest analogue is exactly what rank one forbids. **A decision handed over without provenance is insufficient in the same way**, when the stage turns on it: undated, it is indistinguishable from one already superseded, and *"the owner decided this"* is not a claim you have any way to age.
+- **Insufficient** — an authority question this stage turns on has no answer in the packet, and inferring it from the nearest analogue is exactly what rank one forbids. **Name what is missing and stop there: whether it is missing from the packet or missing from the world is not yours to say**, because you are forbidden from reading the ticket and that is where the difference is visible. The dispatcher can read it, and the two answers are unalike — one is a re-extraction, the other is a product question that goes to the owner (`deliver-a-stage.md`'s *The protocol's own budget*). **A decision handed over without provenance is insufficient in the same way**, when the stage turns on it: undated, it is indistinguishable from one already superseded, and *"the owner decided this"* is not a claim you have any way to age.
 - **Self-contradictory** — the acceptance criteria and the plan text ask for different things, or an invariant rules out what a criterion requires.
 - **Contaminated** — the implementer's report, summary, or verification claims arrived inside pass one. Name what you saw.
 - **Moved** — `git status --porcelain` or the code hash does not match what the dispatcher handed you: something changed the tree while you were reading it. **The requirement moving counts the same way** — if a source you were handed turns out to have been superseded while the pass was running, the verdict would be a verdict on a question nobody is asking any more.
