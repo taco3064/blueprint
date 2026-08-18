@@ -94,9 +94,12 @@ describe('buildStructuralPatterns · layer omitted', () => {
       fixtures: ['~app/fixtures', '~app/fixtures/**'],
     });
 
+    // The forbidden ban carries both spellings and the folderTarget one carries
+    // neither: a layer this net may not reach is closed at its entry as well as
+    // behind it, and one it MAY reach is open at the entry and closed inside.
     expect(groups.map((g) => g.group)).toEqual([
       ['./../**', '././**'],
-      ['~app/services/**'],
+      ['~app/services', '~app/services/**'],
       ['~app/fixtures', '~app/fixtures/**'],
       ['~app/hooks/*/**'],
     ]);

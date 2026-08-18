@@ -63,6 +63,24 @@ function verify(code: string, filename: string) {
   return linter.verify(code, config, { filename });
 }
 
+/**
+ * What each restricted-import report SAYS, not just that one happened. Two bans
+ * can catch an alias import inside a module and both report as
+ * `no-restricted-imports`, so an assertion on the rule id alone cannot tell
+ * which one fired — and the two are reached by different declarations.
+ */
+function bans(code: string, filename: string): string[] {
+  return verify(code, filename)
+    .filter((message) => message.ruleId?.startsWith('no-restricted-') === true)
+    .map((message) => message.message);
+}
+
+/** The module self-ban's own words (`buildModuleSelfBan`), reached via `paths`. */
+const SELF_BAN = '🚫 Same-module imports must be relative.';
+
+/** The layer-flow ban's own words, compiled from `getForbiddenLayers` via `group`. */
+const FLOW_BAN = '🚫 This import violates the dependency flow.';
+
 const SHELL_ROOT = 'src/Shell/Shell.tsx';
 const COMBAT_ROOT = 'src/Combat/Combat.tsx';
 const COMBAT_HOOKS = 'src/Combat/hooks/useCombat.ts';
@@ -121,15 +139,42 @@ describe('AC2 · root ↔ inner-layer direction, both routes', () => {
   });
 });
 
+/**
+ * The vantages the module root is reached from here. The self-ban's `paths`
+ * entry is emitted per NET rather than once per module — three of them carry it
+ * in this fixture, the module's own root files and each of its two layers — so
+ * an assertion from one vantage covers that net's copy and no other.
+ */
+const INSIDE_COMBAT: [string, string][] = [
+  ['a hooks file', COMBAT_HOOKS],
+  ['a components file', COMBAT_COMPONENTS],
+];
+
 describe('AC2 · the paired alias case, both arms, in one fixture', () => {
-  it('fails: reaching back to the module root via the alias, from inside the module', () => {
-    expect(restricted('import { Combat } from "~app/Combat";', COMBAT_COMPONENTS))
-      .toContain('no-restricted-imports');
-  });
+  it.each(INSIDE_COMBAT)(
+    'fails: reaching back to the module root via the alias, from %s',
+    (_name, from) => {
+      expect(bans('import { Combat } from "~app/Combat";', from))
+        .toEqual([expect.stringContaining(SELF_BAN)]);
+    },
+  );
 
   it('passes: the intra-module cross-layer alias import stays legal', () => {
-    expect(restricted('import { useCombat } from "~app/Combat/hooks";', COMBAT_COMPONENTS))
+    // Here the vantage IS the point. Layer order is hooks (0) < components (1),
+    // so from `hooks` the legal cross-layer alias route runs hooks → components.
+    // The self-ban's group carves this module's declared layers back out by
+    // exact negation; drop the negations and this line is what goes with them.
+    expect(bans('import { Fighter } from "~app/Combat/components";', COMBAT_HOOKS))
       .toEqual([]);
+
+    // The mirror, from `components`: upstream, so the FLOW ban is the one that
+    // must catch it — and the assertion reads the message, because both bans
+    // report as `no-restricted-imports` and an id-level check cannot tell them
+    // apart. The self-ban negates this exact path, so if it were the one firing
+    // here the message would say "Same-module imports must be relative" instead
+    // and this goes red.
+    expect(bans('import { useCombat } from "~app/Combat/hooks";', COMBAT_COMPONENTS))
+      .toEqual([expect.stringContaining(FLOW_BAN)]);
   });
 });
 

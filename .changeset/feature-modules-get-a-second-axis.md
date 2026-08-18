@@ -5,9 +5,24 @@
 **Add `architecture.modules`** — ordered feature modules at the source root, each a
 folder holding the declared `architecture.layers` nested one level inside it (or, with
 `layers: false`, its files directly). Omitting `modules` leaves the flat structure
-exactly as it is today, byte-for-byte — the two config surfaces coexist by
-construction: `layers` is always the technical-layer definition, `modules` only
-decides *where* those layers live.
+exactly as it is today, byte-for-byte, with the one ruled exception named directly
+below — the two config surfaces coexist by construction: `layers` is always the
+technical-layer definition, `modules` only decides *where* those layers live.
+
+- **The one thing that changes for a repo that never declares `modules`: a
+  forbidden layer's BARE entry is now actually banned.** The emitted rules banned
+  `~app/<forbidden-layer>/**` — descendants only — so `import '~app/components'`
+  from a `services` file passed lint, while `inspect` reported the same import as
+  a `flow-violation`. Two artifacts compiled from one config, disagreeing about
+  the spelling reached for first. The gap predates this release and was never
+  module-specific, so it is fixed for flat and modular together. **On upgrade this
+  is the one rule that can newly fail your lint** — and only on an import
+  `inspect` was already calling a violation, with the same fix it always named:
+  reorder the layer declarations, or move the shared code down to a layer both may
+  reach. `npx blueprint inspect` lists them before you upgrade. Opting out of
+  `modules` costs you nothing else: every artifact `init` writes is byte-identical,
+  and the generated `eslint.config.mjs` never inlined these rules — it spreads
+  `emitLint(blueprint)`, so what moved is what that unchanged file resolves to.
 
 - **The schema.** `name` / `does` (parallel `layer.name` / `layer.does`), `layers?:
   false` (the only opt-out — omit it to nest the shared layers, `false` for a module

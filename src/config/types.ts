@@ -189,9 +189,13 @@ export interface ArchitectureDef {
   /**
    * Ordered feature modules at the source root. Omit it for the flat
    * structure, where `layers` are themselves the top-level folders —
-   * unchanged, byte-for-byte. Declared, the source root holds one folder per
-   * module and `layers` describes what lives nested inside each one (or,
-   * for a module with `layers: false`, its files directly). `layers` and
+   * unchanged, byte-for-byte, with one ruled exception that reaches flat
+   * repos too: a forbidden layer's BARE entry (`~app/<forbidden-layer>`,
+   * not only the paths beneath it) is banned by the emitted rules now,
+   * closing a gap where `inspect` reported that import and lint did not.
+   * Declared, the source root holds one folder per module and `layers`
+   * describes what lives nested inside each one (or, for a module with
+   * `layers: false`, its files directly). `layers` and
    * `modules` are orthogonal: `layers` is always the technical-layer
    * definition, `modules` only decides *where* those layers live. Order
    * defines the module flow the same way layer order does — a module may

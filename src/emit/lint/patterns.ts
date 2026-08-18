@@ -283,9 +283,15 @@ export function buildStructuralPatterns(params: {
     ...sameLayer,
   ];
 
+  // Both spellings, for the reason {@link buildModulePatterns} bans a forbidden
+  // module at both: `/**` is descendants only, so the bare alias path — which
+  // `inspect` judges as an ordinary flow violation — walked past a ban naming
+  // only what is behind it.
   if (forbidden.length) {
     patterns.push({
-      group: forbidden.flatMap((banned) => aliases.map((a) => `${a}/${banned}/**`)),
+      group: forbidden.flatMap(
+        (banned) => aliases.flatMap((a) => [`${a}/${banned}`, `${a}/${banned}/**`]),
+      ),
       message:
         '\n🚫 This import violates the dependency flow. Only import from allowed lower layers.',
     });
