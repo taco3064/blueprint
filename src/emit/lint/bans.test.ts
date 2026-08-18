@@ -95,6 +95,26 @@ describe('netPatterns · a module root-file net (layered module)', () => {
   });
 });
 
+describe('netPatterns · a `layers: false` module is one governance scope', () => {
+  it('bans its subtree whole, and writes no layer ban on a folder inside it', () => {
+    const scope = resolveBanScope(blueprint);
+
+    // Exactly these groups, in this order: `bans.ts` reads the module's own
+    // `layers: false` twice, and this list is what both readings decide. Drop
+    // `netSelfBan`'s and the self-ban becomes `~app/Lobby/*` with
+    // `!~app/Lobby/hooks` and `!~app/Lobby/components` negated back out, so an
+    // alias import into a subfolder carrying a declared layer's name goes
+    // unbanned inside a module that has no layers. Drop `moduleLayerScope`'s and
+    // a fourth group `~app/Lobby/components/*/**` appears — the entry-only ban a
+    // folder-layout layer gets, written where there is no layer to protect.
+    expect(netPatterns(netFor('Lobby', null), scope).map((pattern) => pattern.group)).toEqual([
+      ['./../**', '././**'],
+      ['~app/Combat', '~app/Combat/**'],
+      ['~app/Lobby/**'],
+    ]);
+  });
+});
+
 describe('netPatterns · an inner layer net carries the module self-ban too', () => {
   it('includes the self-ban patterns alongside the structural and module-flow bans', () => {
     const scope = resolveBanScope(blueprint);

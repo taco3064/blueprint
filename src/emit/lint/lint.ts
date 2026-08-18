@@ -1,6 +1,6 @@
 import type { ESLint, Linter } from 'eslint';
 import { activeSetting, getFolderShape, getModules } from '../../config';
-import type { ArchitectureDef, Blueprint, ReadSetting } from '../../config';
+import type { ArchitectureDef, Blueprint, ModuleDef, ReadSetting } from '../../config';
 import { plugin } from '../../plugin';
 import {
   barredIn,
@@ -171,6 +171,12 @@ function netEntries(net: FileNet, context: NetContext): LintConfigEntry[] {
  * rule's segment math is off by one without it, reading the module name where
  * the layer should be. Scoping `files` per module is what lets a single `root`
  * option be right for every file the entry reaches.
+ *
+ * A module that holds its files directly carries its own `layers: false` into
+ * its entry. The layer names are architecture-wide and the layouts map stays
+ * whole beside it — this is the module saying they do not reach inside it, so
+ * a folder of its own that happens to be called `hooks` is judged as a folder
+ * rather than as the declared layer it shares a name with.
  */
 function escapeEntries(
   blueprint: Blueprint,
@@ -187,14 +193,20 @@ function escapeEntries(
   const modules = getModules(architecture);
   const { sourceRoot } = architecture;
 
-  const entry = (files: string[], root?: string): LintConfigEntry => ({
+  const entry = (files: string[], module?: ModuleDef): LintConfigEntry => ({
     files,
     ignores: testGlobs,
     plugins: { blueprint: plugin },
     rules: {
       'blueprint/relative-escape': [
         severity,
-        { layouts, entries, ...(root ? { root } : {}), ...(sourceRoot ? { sourceRoot } : {}) },
+        {
+          layouts,
+          entries,
+          ...(module ? { root: module.name } : {}),
+          ...(module?.layers === false ? { layers: false } : {}),
+          ...(sourceRoot ? { sourceRoot } : {}),
+        },
       ],
     },
   });
@@ -205,7 +217,7 @@ function escapeEntries(
 
   return modules.map((module) => entry(
     [...new Set(nets.filter((net) => net.module === module.name).flatMap((net) => net.files))],
-    module.name,
+    module,
   ));
 }
 

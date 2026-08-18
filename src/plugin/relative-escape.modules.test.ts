@@ -24,6 +24,24 @@ function messageIds(code: string, filename: string, root = 'Combat'): string[] {
     .map((message) => message.messageId ?? '');
 }
 
+/** The same call with the module's own `layers: false` carried into the options. */
+function unlayeredIds(code: string, filename: string, root = 'Combat'): string[] {
+  return linter
+    .verify(
+      code,
+      {
+        files: ['**'],
+        plugins: { blueprint: plugin },
+        languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+        rules: {
+          'blueprint/relative-escape': ['error', { layouts: LAYOUTS, root, layers: false }],
+        },
+      },
+      { filename },
+    )
+    .map((message) => message.messageId ?? '');
+}
+
 describe('blueprint/relative-escape · root option, a module root file', () => {
   it('imports anything inside its own module, unconstrained', () => {
     expect(messageIds('import x from "./hooks/useCombat";', 'src/Combat/Combat.tsx'))
@@ -86,6 +104,34 @@ describe('blueprint/relative-escape · root option, scoping', () => {
 
   it('still reports escapesSrc for a target that climbs past the root', () => {
     expect(messageIds('import x from "../../../package.json";', 'src/Combat/hooks/useCombat.ts'))
+      .toEqual(['escapesSrc']);
+  });
+});
+
+describe('blueprint/relative-escape · layers option, a module holding its files directly', () => {
+  it('reads a folder that shares a declared layer\'s name as a folder', () => {
+    // `layouts` stays the architecture-wide map either way — the layer names are
+    // declared once for the whole repo. `layers: false` is this module saying
+    // they do not reach inside it, and it is the only difference between the two
+    // calls below. Without it the file is told to use the alias instead, and
+    // emitLint's same-module ban forbids that alias: no legal route out.
+    expect(unlayeredIds('import x from "../hooks";', 'src/Combat/components/Fighter.tsx'))
+      .toEqual([]);
+
+    expect(messageIds('import x from "../hooks";', 'src/Combat/components/Fighter.tsx'))
+      .toEqual(['leavesFolder']);
+  });
+
+  it('reaches past such a folder\'s entry too — one governance scope, at any depth', () => {
+    expect(unlayeredIds('import x from "../hooks/clamp";', 'src/Combat/components/Fighter.tsx'))
+      .toEqual([]);
+  });
+
+  it('still holds the module boundary and the source root around it', () => {
+    expect(unlayeredIds('import x from "../../Lobby/Lobby";', 'src/Combat/components/F.tsx'))
+      .toEqual(['leavesModule']);
+
+    expect(unlayeredIds('import x from "../../../package.json";', 'src/Combat/components/F.tsx'))
       .toEqual(['escapesSrc']);
   });
 });

@@ -26,8 +26,8 @@ import { modularVerdict, relativeVerdict, resolveSegments } from '../inspect/res
  * honest decision at a time.
  *
  * Options: `{ layouts: { [layer]: 'folder' | 'flat' }, entries: { [layer]:
- * string }, root?: string, sourceRoot?: string }` — the per-layer folder
- * layout map and entry filename (`index` when absent), plus
+ * string }, root?: string, layers?: false, sourceRoot?: string }` — the
+ * per-layer folder layout map and entry filename (`index` when absent), plus
  * `architecture.sourceRoot` (`src` when absent, matching its own documented
  * default — `.` names a project-root layout with no source-root segment at
  * all, and a multi-segment root like `'lib/app'` is legal too). Files outside
@@ -41,6 +41,14 @@ import { modularVerdict, relativeVerdict, resolveSegments } from '../inspect/res
  * module name, and a relative path landing in a *different* module is its own
  * verdict — another module has exactly one reachable point, its entry, and
  * only the alias reaches it.
+ *
+ * `layers` carries that module's own `layers: false` through verbatim, and
+ * `layouts` stays the architecture-wide map beside it: the layer names are
+ * declared once for the whole repo, and this says they do not reach inside
+ * this module. Without it a folder named after a declared layer is read as
+ * that layer — the module is told its own subfolder is a boundary it may not
+ * cross relatively, while `emitLint`'s same-module ban forbids the alias the
+ * message recommends, and the file has no legal route out at all.
  */
 export const relativeEscape: Rule.RuleModule = {
   meta: {
@@ -61,6 +69,7 @@ export const relativeEscape: Rule.RuleModule = {
             additionalProperties: { type: 'string' },
           },
           root: { type: 'string' },
+          layers: { enum: [false] },
           sourceRoot: { type: 'string' },
         },
         additionalProperties: false,
@@ -81,11 +90,12 @@ export const relativeEscape: Rule.RuleModule = {
     },
   },
   create(context) {
-    const { layouts = {}, entries = {}, root, sourceRoot = 'src' }
+    const { layouts = {}, entries = {}, root, layers, sourceRoot = 'src' }
       = (context.options[0] as {
         layouts?: Record<string, 'folder' | 'flat'>;
         entries?: Record<string, string>;
         root?: string;
+        layers?: false;
         sourceRoot?: string;
       } | undefined) ?? {};
 
@@ -101,7 +111,7 @@ export const relativeEscape: Rule.RuleModule = {
     const layoutOf = (layer: string): 'folder' | 'flat' => layouts[layer] ?? 'flat';
     const entryOf = (layer: string): string => entries[layer] ?? 'index';
     const isLayer = (name: string): boolean => name in layouts;
-    const shape = { layoutOf, entryOf, isLayer };
+    const shape = { layoutOf, entryOf, isLayer, layered: layers !== false };
     const dir = segments.slice(0, -1);
     // The layer sits one segment further in once a module is in front of it.
     const layer = segments[root === undefined ? 0 : 1];

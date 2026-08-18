@@ -181,6 +181,29 @@ describe('AC13a · a layers: false module — file-group and cross-module entry-
     expect(hasEntryOnlyBan).toBe(true);
   });
 
+  it('carries the module\'s own layers: false into its relative-escape options', () => {
+    // The rule reads `layouts` as the declared layer names, and they are
+    // architecture-wide — so without this the module is judged to have layers it
+    // declared it has not. Asserted as the whole option object, per module, so a
+    // key emitted on the wrong one is a red rather than a silent widening.
+    const options = new Map(entries.flatMap((entry) => {
+      const rule = entry.rules?.['blueprint/relative-escape'] as
+        | [string, { root?: string }]
+        | undefined;
+
+      return rule ? [[rule[1].root ?? null, rule[1]]] : [];
+    }));
+
+    const shape = {
+      layouts: { hooks: 'flat', components: 'flat' },
+      entries: { hooks: 'index', components: 'index' },
+    };
+
+    expect(options.get('Lobby')).toEqual({ ...shape, root: 'Lobby', layers: false });
+    expect(options.get('Combat')).toEqual({ ...shape, root: 'Combat' });
+    expect(options.get('Shell')).toEqual({ ...shape, root: 'Shell' });
+  });
+
   it('bans BOTH spellings for a module that may not import it at all (Shell)', () => {
     const hasWholesaleBan = entries.some((entry) => {
       const patterns = (entry.rules?.['no-restricted-imports'] as unknown[] | undefined)?.[1] as

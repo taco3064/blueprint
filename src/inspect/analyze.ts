@@ -110,6 +110,11 @@ interface ImportContext extends AnalysisScope {
   forbiddenModules: string[];
   /** Modules this file's module may depend on but must not re-export. */
   moduleSelfOnly: string[];
+  /**
+   * Whether this file's module nests the declared layers — false is its own
+   * `layers: false`, which makes the whole module one governance scope.
+   */
+  layered: boolean;
   layoutOf: LayoutOf;
   entryOf: EntryOf;
 }
@@ -132,6 +137,7 @@ function importFindings(file: ScannedFile, analysis: AnalysisScope): Finding[] {
   }
 
   const { layer, module } = scope;
+  const owner = structure.modules.find((declared) => declared.name === module);
 
   const context: ImportContext = {
     ...analysis,
@@ -141,6 +147,7 @@ function importFindings(file: ScannedFile, analysis: AnalysisScope): Finding[] {
     selfOnly: layer === null ? [] : getSelfOnlyTargets(architecture, layer),
     forbiddenModules: module === null ? [] : getForbiddenModules(architecture, module),
     moduleSelfOnly: module === null ? [] : getModuleSelfOnlyTargets(architecture, module),
+    layered: owner?.layers !== false,
     layoutOf: layoutResolver(architecture),
     entryOf: entryResolver(architecture),
   };
@@ -369,9 +376,9 @@ function restrictedNames(rule: PackageRule, ref: ImportRef): string[] | null {
  * never two implementations of one.
  */
 function relativeEscape(file: ScannedFile, ref: ImportRef, context: ImportContext): Finding[] {
-  const { structure, scope, layoutOf, entryOf } = context;
+  const { structure, scope, layered, layoutOf, entryOf } = context;
   const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
-  const shape = { layoutOf, entryOf, isLayer: structure.isLayer };
+  const shape = { layoutOf, entryOf, isLayer: structure.isLayer, layered };
 
   const verdict = structure.modules.length
     ? modularVerdict(file.segments, target, shape)

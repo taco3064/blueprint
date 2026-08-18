@@ -22,7 +22,10 @@ const architecture: ArchitectureDef = {
 const layoutOf = layoutResolver(architecture);
 const entryOf = entryResolver(architecture);
 const isLayer = (name: string): boolean => architecture.layers.some((l) => l.name === name);
-const shape = { layoutOf, entryOf, isLayer };
+const shape = { layoutOf, entryOf, isLayer, layered: true };
+
+/** The same architecture, read from inside a module that declared `layers: false`. */
+const unlayered = { ...shape, layered: false };
 
 describe('modularVerdict · a module root file', () => {
   it('imports anything inside its own module, unconstrained — no layer boundary to cross', () => {
@@ -44,8 +47,38 @@ describe('modularVerdict · a module root file', () => {
 
 describe('modularVerdict · a module holding its files directly (layers: false)', () => {
   it('treats every file as root — no layer to cross for any relative target', () => {
-    expect(modularVerdict(['Lobby', 'a.ts'], ['Lobby', 'b.ts'], shape)).toBe('ok');
-    expect(modularVerdict(['Lobby', 'a.ts'], ['Lobby', 'sub', 'c.ts'], shape)).toBe('ok');
+    expect(modularVerdict(['Lobby', 'a.ts'], ['Lobby', 'b.ts'], unlayered)).toBe('ok');
+    expect(modularVerdict(['Lobby', 'a.ts'], ['Lobby', 'sub', 'c.ts'], unlayered)).toBe('ok');
+  });
+
+  it('reads a folder that shares a declared layer\'s name as a folder', () => {
+    // The layer names are architecture-wide, so `hooks` and `components` exist
+    // as names whatever a module declares — and a module holding its files
+    // directly is free to use them for ordinary folders. Judged against the
+    // global names, this pair is "leaves this layer — use the alias", while the
+    // same module's self-ban forbids that alias: a file with no legal way to
+    // import its own neighbour. `layered` is the whole difference, which is why
+    // the same call is asserted both ways here.
+    expect(modularVerdict(
+      ['Lobby', 'components', 'Seat.ts'],
+      ['Lobby', 'hooks'],
+      unlayered,
+    )).toBe('ok');
+
+    expect(modularVerdict(
+      ['Lobby', 'components', 'Seat.ts'],
+      ['Lobby', 'hooks'],
+      shape,
+    )).toBe('leaves-layer');
+  });
+
+  it('still holds the module boundary and the source root around it', () => {
+    // One governance scope, not no governance: the module is still the edge.
+    expect(modularVerdict(['Lobby', 'components', 'Seat.ts'], ['Combat', 'index.ts'], unlayered))
+      .toBe('leaves-module');
+
+    expect(modularVerdict(['Lobby', 'components', 'Seat.ts'], null, unlayered))
+      .toBe('escapes-src');
   });
 });
 

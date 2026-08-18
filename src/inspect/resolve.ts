@@ -210,10 +210,19 @@ export function relativeVerdict(
 /** What a relative import does to its boundaries under a modular structure. */
 export type ModularVerdict = RelativeVerdict | 'leaves-module';
 
-/** The folder-shape resolvers, plus the one question a module depth adds. */
+/** The folder-shape resolvers, plus the two questions a module depth adds. */
 export interface ModuleShape extends FolderShape {
   /** Whether a segment names a declared layer. */
   isLayer: (name: string) => boolean;
+  /**
+   * Whether the module the importing file sits in nests the declared layers.
+   * `false` is that module's own `layers: false`, and it is asked separately
+   * from {@link ModuleShape.isLayer} because the layer names stay global while
+   * the opt-out is per module: a folder called `hooks` inside a module that
+   * declared it has none is a folder, not a layer, and `isLayer` alone cannot
+   * tell the two apart.
+   */
+  layered: boolean;
 }
 
 /**
@@ -228,6 +237,14 @@ export interface ModuleShape extends FolderShape {
  * exist. A file sitting at the module's own root (or inside a module holding
  * its files directly) is in no layer, so it has no layer boundary to cross:
  * it may relatively import anything inside its own module, unconstrained.
+ *
+ * `layers: false` makes that true of the WHOLE module, at any depth — one
+ * governance scope, with the module boundary as its only edge. The layer names
+ * are architecture-wide, so a module holding its files directly can still have
+ * a folder called `hooks`, and judging that folder against the global names
+ * puts the file in a layer its own module denies having. The verdict there is
+ * "leaves this layer — use the alias", which the same module's self-ban
+ * forbids: a file with no legal way to import its own neighbour.
  */
 export function modularVerdict(
   ownSegments: string[],
@@ -244,7 +261,7 @@ export function modularVerdict(
 
   const own = ownSegments.slice(1);
 
-  if (own.length < 2 || !shape.isLayer(own[0])) {
+  if (!shape.layered || own.length < 2 || !shape.isLayer(own[0])) {
     return 'ok';
   }
 
