@@ -25,7 +25,9 @@ The dispatcher now hands over the implementer's report and its commit message, v
 
 ## The report
 
-Exactly this shape. The dispatcher reads it as input to a binary decision, so the fields it acts on come first:
+Exactly this shape. The dispatcher reads it as input to a binary decision, so the fields it acts on come first.
+
+**The pass-one handback is this same report with `Claim audit` empty and the verdict line reading `pass one — not yet computed`.** The claims have not arrived, so the audit cannot exist and the verdict is not computable; everything else — scope, axes, crossings, findings, verified, verification status — is filled in and goes back at that point. That is the artifact part two and every later round are measured against.
 
 ```
 Verdict: PASS | BLOCKED
@@ -50,9 +52,12 @@ Required findings (REQUIRED):
 Verified:
 - <what you checked and found sound, one line each — including probe classes ruled not triggered, with the reason>
 
+Axes in play:
+- <axis>: <its values in this change — the ones a probe could actually take>
+
 Dimensions crossed:
-- <axis x axis: the input you ran and what it returned — or the reason the two provably
-  cannot reach the same code>
+- <axis=value x axis=value>: <the probe you ran and what it returned — or the reason
+  these two provably cannot reach the same code>
 
 Out of scope (FOLLOW-UP):
 - <real, addressed, and explicitly not blocking this stage>
@@ -70,6 +75,12 @@ Verification status:
 **`Required direction` is a constraint, not a patch.** Say what the fix must satisfy — *"one authority for glob semantics, shared rather than reimplemented"* — and stop. Writing the patch makes you the author of the code you are reviewing, and the next review has nobody outside it. **And if the direction turns on a product decision, that is not yours either**: name it as a BLOCKER that needs the owner, and say what the options cost. `SKILL.md`'s authority order is what makes that a stop rather than a judgement call.
 
 **`Claimed scope` and `Dimensions crossed` are load-bearing, not headings.** The first is what stops FOLLOW-UP absorbing the very behaviour a verification stage exists to prove, and it is only worth that if it was written before the probes (`rebuild-the-picture.md`, question 6). The second is the record that a change was not merely walked one axis at a time. **Neither is a field you fill in after choosing the verdict** — a PASS with either one reconstructed from what you happened to find is the failure mode both were added for.
+
+**`Axes in play` is the half of the crossing record that has to survive.** Crossings alone record what you probed and lose what you were choosing from, so a whole axis dropped before the pairs were formed reads exactly like an axis that had no interesting pairs — the same ambiguity the crossings were added to remove, moved one level up. List the axes with their values, then account for **every** pair they make: probed, or ruled out with the reason.
+
+**All three blocks are pass-one output and freeze there.** They go back with the pass-one findings, before part two exists. Pass two audits claims and adds no crossings; a re-review carries them forward unchanged and **may only extend** — a fix introducing a new value on an axis adds a row, and nothing already listed is removed or reworded. **An axis first written down after reading the implementer's report is an axis that report chose**, which is the anchoring the two-pass split exists to prevent, and the same holds for a scope, and for a pair that appears only once it has been found clean.
+
+**And the dispatcher checks the blocks are there before it reads the verdict word** — `deliver-a-stage.md`'s *Reading the verdict*. A PASS missing one of them comes back `VOID`, unread, costing no fix round. That check is what makes `SKILL.md`'s *PASS asserts…* a gate rather than an instruction, so the two pages are one mechanism: **do not answer a returned `VOID` by adding the heading** — the block is a record of work, and a record written to satisfy a shape check is the thing this whole page is against.
 
 **`Verified` is not optional padding.** A dimension checked and found sound is a result; its absence is how *"nothing found"* hides *"nothing looked at"*, and it is the only record that a probe class was considered at all.
 
