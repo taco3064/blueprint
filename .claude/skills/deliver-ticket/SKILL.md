@@ -138,7 +138,7 @@ None of these has a moment that prompts you to look them up. The moment each one
 
 - Verify with `npm run lint`, `tsc`, `npm test` (100% coverage is the floor), `npm run build`, `npm run dist:verify`, and drive the CLI end to end (`node dist/bin.js init|inspect`) for runtime changes. `.claude/docs/verification-layers.md` says which layer catches what. **`npm run field:run` is not on this list** — see *The field harness is not a step you run* below.
 - **One worktree per ticket — `git worktree add` plus `npm ci` in it** — and read baselines through `git show <ref>:<path>` rather than off disk. Two sessions over one checkout has put commits on the wrong branch. The install is not skippable: without it the commit gate refuses. `references/start-or-resume.md` covers finding one that already exists versus creating one — never both.
-- Every user-visible change ships a changeset.
+- Every user-visible change ships a changeset — **one per ticket, assembled in its own commit at the end** from the delivery's own stage comments, per `finish-the-ticket.md`'s *The release note is assembled here*. **No stage owes one and no stage is judged on one**: nothing gates it before the release tag, and a per-stage changeset states the plan's prediction where the final one states what landed.
 - `CLAUDE.md` and `.claude/docs/` hold the conventions this repo's own code must not contradict. Read the doc when its trigger fires; do not substitute first-principles reasoning for what it says.
 - Commits, comments, PR titles and PR bodies are written in English.
 

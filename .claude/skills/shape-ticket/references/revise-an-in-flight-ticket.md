@@ -102,9 +102,9 @@ is its own way of eroding trust in what a revision means.
   and overwriting the issue body does not move those copies.** This page is
   careful about which landed *stage* a revision leaves valid and says nothing
   about which landed *sentence* it leaves false — but a stage that has landed
-  has written the ticket's claims into places an adopter reads: a changeset
-  that becomes the release note verbatim, a doc comment that becomes the API
-  reference, the emitted prose, a fixture docstring. **So a revision that
+  has written the ticket's claims into places an adopter reads: a doc comment
+  that becomes the API reference, the emitted prose, a fixture docstring — and,
+  once `finish-the-ticket.md` has assembled it, the changeset. **So a revision that
   changes what a claim says names every copy it can find, in its own comment,
   as work owed** — not as a suggestion, because the next reviewer will find
   them one at a time and each one costs a round. #371 is the case: the ninth
