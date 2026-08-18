@@ -17,6 +17,8 @@ The dispatcher now hands over the implementer's report and its commit message, v
 
 **The last two buckets are findings by construction.** The middle two are findings when the stage's acceptance rests on them — an over-generalisation nothing depends on is a wording problem; one holding up an acceptance criterion is REQUIRED.
 
+**A report that hands you its own evidence gap has not thereby discharged it.** *"I removed the `layers: false` guard and the suite still passed"* is not a seventh bucket and not a courtesy — it is a **proof, supplied by the only party in a position to supply it, that nothing pins the behaviour.** If the surviving mutation changes real behaviour and sits inside the claimed scope, it is **REQUIRED**, and *the code is currently correct* is not the answer to it: what is missing is the thing that keeps the code correct after the next edit. The one exit is `CLAUDE.md`'s ledger — the one-line `undecidable` assertion at the site, proving the mutant is equivalent — so a survivor that is genuinely equivalent either carries that line or does not have the exit. Outside the claimed scope it is FOLLOW-UP like anything else.
+
 **Where pass two and pass one disagree, pass one wins and the disagreement is the finding.** You built that account from the authority sources and the code; the report is rank five.
 
 **Part two may also carry a previous reviewer's findings**, when the session holding your predecessor ended and you were dispatched in its place. Nothing changes: it arrives in part two precisely because it is somebody else's conclusion, it is audited with the same six buckets, and **a predecessor's finding is re-verified by re-running its reproduction, never by trusting that it once held.** The round count arrives with it and continues — a new reviewer is not a new budget.
@@ -29,6 +31,8 @@ Exactly this shape. The dispatcher reads it as input to a binary decision, so th
 Verdict: PASS | BLOCKED
 Reviewed: base <sha>, code hash <hash>, requirement hash <hash>, worktree <path>
 Stage: <the stage as the packet named it>
+Claimed scope: <what this stage asserts is TRUE, in behavioural terms — not what it added.
+               This is the line every FOLLOW-UP is judged against>
 Authority checked: <which of ranks 1–4 you read, and what each one said this stage owes>
 
 Blocking findings (BLOCKER):
@@ -46,6 +50,10 @@ Required findings (REQUIRED):
 Verified:
 - <what you checked and found sound, one line each — including probe classes ruled not triggered, with the reason>
 
+Dimensions crossed:
+- <axis x axis: the input you ran and what it returned — or the reason the two provably
+  cannot reach the same code>
+
 Out of scope (FOLLOW-UP):
 - <real, addressed, and explicitly not blocking this stage>
 
@@ -60,6 +68,8 @@ Verification status:
 **Every finding carries all six fields or it is not a finding yet.** A finding with no reproduction is a guess that costs a fix round; one with no expected-and-actual pair leaves the implementer to invent the target; one with no rank cited invites a fix that satisfies a lower authority than the one it violated.
 
 **`Required direction` is a constraint, not a patch.** Say what the fix must satisfy — *"one authority for glob semantics, shared rather than reimplemented"* — and stop. Writing the patch makes you the author of the code you are reviewing, and the next review has nobody outside it. **And if the direction turns on a product decision, that is not yours either**: name it as a BLOCKER that needs the owner, and say what the options cost. `SKILL.md`'s authority order is what makes that a stop rather than a judgement call.
+
+**`Claimed scope` and `Dimensions crossed` are load-bearing, not headings.** The first is what stops FOLLOW-UP absorbing the very behaviour a verification stage exists to prove, and it is only worth that if it was written before the probes (`rebuild-the-picture.md`, question 6). The second is the record that a change was not merely walked one axis at a time. **Neither is a field you fill in after choosing the verdict** — a PASS with either one reconstructed from what you happened to find is the failure mode both were added for.
 
 **`Verified` is not optional padding.** A dimension checked and found sound is a result; its absence is how *"nothing found"* hides *"nothing looked at"*, and it is the only record that a probe class was considered at all.
 
@@ -82,6 +92,8 @@ It is required to verify your findings rather than acting on them — so this wi
 3. **Did the fix create a second semantics** — a new parallel judgement, normaliser or comparator introduced to satisfy the finding?
 4. **Did it add a public contract change** the ticket never asked for — a new field, a changed output line, a widened type?
 5. **Does it still obey every earlier decision**, including the ones the first pass confirmed it obeyed?
+   The `Claimed scope` line does not move between rounds either — a fix is not an occasion to
+   redraw what the stage said it was proving.
 6. **Did anything that previously passed regress?** The fix diff is a change in its own right, and a fix for one finding is the most common cause of the next one.
 
 **Then review the fix diff completely**, as pass one, scoped to what it touched.
