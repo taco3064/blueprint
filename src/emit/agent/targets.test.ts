@@ -100,6 +100,17 @@ describe('emitAgentFiles', () => {
     );
   });
 
+  it('carries a name with a replacement pattern in it through untouched', () => {
+    // Safe for a reason neither the escapers nor the function replacements
+    // share: the adopter's data is the SUBJECT of this replace, not its
+    // replacement — only the constant `\\"` is substituted. Named so a sweep
+    // over `$`-in-a-replacement does not rediscover it as an anomaly.
+    const dollar = { ...vuePreset({ name: 'A$&B' }), emit: { agents: ['cursor' as const] } };
+
+    expect(emitAgentFiles(dollar)[0].content)
+      .toContain('description: "A$&B architecture contract"');
+  });
+
   it('wraps the windsurf rule with an always-on trigger', () => {
     const [windsurf] = emitAgentFiles(bp(['windsurf']));
 

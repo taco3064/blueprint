@@ -92,6 +92,19 @@ describe('resolveLayerFiles', () => {
       'app/components/**/*.{js,jsx,ts,tsx}',
     ]);
   });
+
+  // The name is the REPLACEMENT, and a string replacement is a pattern language:
+  // `$$` means one `$`, `` $` `` means everything before the match. Both names
+  // below are legal — `validateLayerName` turns away glob, path, quote and
+  // diagram characters and neither set holds `$` or a backtick — so the layer's
+  // net silently stops matching the folder the adopter was told to create, and
+  // the rules scoped to it enforce nothing.
+  it.each([
+    ['price$$tag', 'src/price$$tag/**/*.{js,jsx,ts,tsx}'],
+    ['a$`b', 'src/a$`b/**/*.{js,jsx,ts,tsx}'],
+  ])('substitutes %s as literal data, not as a replacement pattern', (layer, glob) => {
+    expect(resolveLayerFiles(layer, 'react')).toEqual([glob]);
+  });
 });
 
 describe('derivePackageRules · what counts as the same ownership', () => {
@@ -351,5 +364,19 @@ describe('selfOnlyReexportSelector', () => {
     expect(regex).toBe('^~app\\u002Fcontexts\\u002F');
     expect(new RegExp(regex).test('~app/contexts/theme')).toBe(true);
     expect(new RegExp(regex).test('~app/contexts-x/theme')).toBe(false);
+  });
+
+  it('escapes a regex metacharacter in the target, keeping $& as the escaper it is', () => {
+    // `$&` here is deliberate and load-bearing — it means "backslash, then
+    // whatever matched". Flattening it to a `split`/`join` drops the matched
+    // character instead of prefixing it: `v1.2` becomes `v1\2`, which is a
+    // VALID regex (an octal escape) that throws nothing, compiles fine, and
+    // matches the wrong things. `.` is a legal layer name character.
+    const selector = selfOnlyReexportSelector('~app', 'v1.2');
+    const [, regex] = selector.match(/\/(.*?)\/(?=\])/) ?? [];
+
+    expect(regex).toBe('^~app\\u002Fv1\\.2\\u002F');
+    expect(new RegExp(regex).test('~app/v1.2/theme')).toBe(true);
+    expect(new RegExp(regex).test('~app/v1X2/theme')).toBe(false);
   });
 });

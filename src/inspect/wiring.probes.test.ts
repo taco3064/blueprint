@@ -330,6 +330,34 @@ describe('wiringCheck · which path each layer gets probed at', () => {
     expect(probed.some((file) => file.includes('__blueprint_probe____'))).toBe(false);
   });
 
+  it('spells a replacement pattern in the probe path as literal text', async () => {
+    // Three replacements build a probe — the `**/` strip, the brace collapse,
+    // and the star fill — and only the middle one is a FUNCTION replacement,
+    // whose return value is used verbatim. The other two substitute constants.
+    // None of them may read a `$` in the value flowing through: `price$$tag` is
+    // a legal layer name, and a probe path spelled `price$tag` asks the merged
+    // config about a file that is in no net, so the check answers about nothing.
+    const { probed } = await probeWith(
+      { layers: [{ name: 'price$$tag', does: 'pricing' }] },
+      scanOf(),
+    );
+
+    expect(probed).toEqual(['/repo/src/price$$tag/__blueprint_probe__.js']);
+  });
+
+  it('uses the brace collapse\'s return verbatim — it is a function replacement', async () => {
+    // The brace body is adopter data too: it is the extension list of a
+    // configured `layerFiles`, and its first alternative is what the probe
+    // takes. A function's return is used as written, so nothing in it is read
+    // as a directive.
+    const { probed } = await probeWith(
+      { layers: [{ name: 'views', does: 'pages' }], layerFiles: 'src/{layer}/**/*.{$&x,ts}' },
+      scanOf(),
+    );
+
+    expect(probed).toEqual(['/repo/src/views/__blueprint_probe__.$&x']);
+  });
+
   it('walks past a glob synthesis cannot handle to one it can', async () => {
     // `?` survives synthesis untransformed, so that glob yields no candidate —
     // but the layer's other glob still does. Accepting the null stops at the

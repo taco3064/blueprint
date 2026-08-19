@@ -44,6 +44,30 @@ describe('runInit · lint-script wiring', () => {
     expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint && eslint src');
   });
 
+  // The existing script is spliced into the replacement, and a string
+  // replacement is a pattern language: `$&` there means "whatever the needle
+  // matched" and re-inserts the whole `"lint": "…"` line inside its own value,
+  // while `$$` collapses to one `$`. npm hands a script to the shell verbatim,
+  // so both spellings are legal in one — `$$` is the shell's own PID.
+  it.each([
+    // Loud: the re-inserted quotes leave a package.json that no longer parses.
+    ['$&', 'oxlint && echo "$&"'],
+    // Quiet, and worse: still valid JSON, one character short of what was there.
+    ['$$', 'oxlint --output /tmp/lint.$$.log'],
+  ])('keeps %s in an existing lint script as text when it patches around it', async (_, script) => {
+    prettyPkg(script);
+
+    await runInit(root, { install: false, log: silent });
+
+    // The raw text first — a corrupted file fails `JSON.parse` before any
+    // assertion about the value it holds can be read.
+    expect(read('package.json')).toContain(
+      `"lint": ${JSON.stringify(`${script} && eslint src`)}`,
+    );
+
+    expect(JSON.parse(read('package.json')).scripts.lint).toBe(`${script} && eslint src`);
+  });
+
   it('falls back to an instruction when the script cannot be patched safely', async () => {
     // Compact JSON — the `"lint": "…"` needle (pretty formatting) misses.
     writePkg({ name: 'demo', dependencies: { vue: '^3' }, scripts: { lint: 'oxlint' } });

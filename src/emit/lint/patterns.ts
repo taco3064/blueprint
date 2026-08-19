@@ -2,6 +2,12 @@ import { dirSegments } from '../../config';
 import type { Framework, LayerDef, ModuleDef, OwnedPackage } from '../../config';
 import type { GlobalRule, GroupPattern, PackageRule, PathPattern } from './types';
 
+// Both placeholders below are filled by a FUNCTION replacement, at every site
+// in this file. A string replacement is a pattern language — `$$`, `` $` ``,
+// `$'` and `$&` are directives in it — and a layer or module name may legally
+// carry them: `validateLayerName` turns away glob, path, quote and diagram
+// characters, and neither set holds `$` or a backtick. A function's return
+// value is used verbatim, which is what `wireViteAlias` already relies on.
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/g;
 // The descent a layer glob makes past its own folder: the placeholder, then a
 // globstar segment. Collapsing it is how a module's own root files are derived
@@ -89,7 +95,7 @@ export function resolveLayerFiles(
   framework: Framework,
   scope: FileScope = {},
 ): string[] {
-  return layerGlobs(framework, scope).map((glob) => glob.replace(LAYER_PLACEHOLDER, layer));
+  return layerGlobs(framework, scope).map((glob) => glob.replace(LAYER_PLACEHOLDER, () => layer));
 }
 
 /**
@@ -104,7 +110,7 @@ export function resolveModuleRootFiles(
   scope: FileScope = {},
 ): string[] {
   return layerGlobs(framework, scope).map((glob) =>
-    glob.replace(LAYER_DESCENT, `${module}/`).replace(LAYER_PLACEHOLDER, module),
+    glob.replace(LAYER_DESCENT, () => `${module}/`).replace(LAYER_PLACEHOLDER, () => module),
   );
 }
 

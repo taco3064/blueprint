@@ -25,6 +25,19 @@ describe('wireViteAlias', () => {
     expect(text).toContain('plugins: [react()]');
   });
 
+  it('writes an alias carrying a replacement pattern verbatim', () => {
+    // The cut is a FUNCTION replacement, so what it returns is used as-is —
+    // this is the idiom the string-replacement sites elsewhere were fixed to.
+    // Rewritten as a string, `$&` in the alias would splice the matched
+    // `export default defineConfig({` into the wired config.
+    const result = wireViteAlias(VITE_REACT, '~app$&', './src$$lib');
+
+    const text = result.kind === 'patched' ? result.text : '';
+
+    expect(text).toContain('\'~app$&\': fileURLToPath(new URL(\'./src$$lib\', import.meta.url))');
+    expect(text).not.toContain('~appexport default defineConfig({');
+  });
+
   it('does not duplicate an existing node:url import', () => {
     const withImport = `import { fileURLToPath, URL } from 'node:url'\n${VITE_REACT}`;
     const result = wireViteAlias(withImport, '~app');

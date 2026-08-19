@@ -229,7 +229,14 @@ export function lintScriptAction(
     return {
       kind: 'write',
       path: 'package.json',
-      content: text.replace(needle, `"lint": ${JSON.stringify(`${lint} && eslint ${target}`)}`),
+      // A FUNCTION replacement: the existing script is spliced into the new
+      // one, and a string replacement would read `$&` there as "whatever the
+      // needle matched" and `$$` as one `$` — npm hands a script to the shell
+      // verbatim, so both are legal in one. The same shape `wireViteAlias` uses.
+      content: text.replace(
+        needle,
+        () => `"lint": ${JSON.stringify(`${lint} && eslint ${target}`)}`,
+      ),
       note: 'package.json (lint script now also runs eslint — so lint runs the generated rules)',
     };
   }

@@ -28,6 +28,22 @@ describe('resolveModuleRootFiles', () => {
     expect(resolveModuleRootFiles('Combat', 'react', { sourceRoot: '.' }))
       .toEqual(['Combat/*.{js,jsx,ts,tsx}']);
   });
+
+  // TWO substitutions, and each is reached by a different template — the default
+  // glob descends (`{layer}/**/`) so the collapse fires and the placeholder pass
+  // finds nothing left; a template with no descent leaves the placeholder for the
+  // second pass. One fixed and one missed still renders a wrong path, so both are
+  // asked separately. `Price$$Tag` is a legal module name: `validateModuleName`
+  // turns away glob, path, quote and diagram characters, and `$` is in neither set.
+  it('collapses the descent with the module name as literal data', () => {
+    expect(resolveModuleRootFiles('Price$$Tag', 'react'))
+      .toEqual(['src/Price$$Tag/*.{js,jsx,ts,tsx}']);
+  });
+
+  it('fills the placeholder with the module name as literal data', () => {
+    expect(resolveModuleRootFiles('Price$$Tag', 'react', { layerFiles: 'app/{layer}/*.ts' }))
+      .toEqual(['app/Price$$Tag/*.ts']);
+  });
 });
 
 describe('ownerPhrase', () => {

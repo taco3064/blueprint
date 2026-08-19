@@ -195,6 +195,18 @@ describe('viteTsCoverage · the fact that used to be three releases of prose', (
     expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'covered', viteFile: 'vite.config.mts' });
   });
 
+  it('escapes an include glob by prefixing the metacharacter, not by replacing it', () => {
+    // `globCovers` escapes with `replace(/[…]/g, '\\$&')`, where `$&` is the
+    // function: backslash, then whatever matched. Flattened to a `split`/`join`
+    // the character is dropped — `vite.config.ts` compiles to `^vite\config\ts$`,
+    // where `\t` is a TAB. It throws nothing and matches nothing, so the verdict
+    // flips to `outside` on the exact shape the modern Vite + TS template ships.
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "include": ["vite.config.ts"] }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'covered' });
+  });
+
   it('matches a star glob against the root file', () => {
     write('vite.config.ts', 'export default {}\n');
     write('tsconfig.json', '{ "include": ["**/*.ts"] }');

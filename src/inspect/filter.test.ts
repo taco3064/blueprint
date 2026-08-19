@@ -19,6 +19,20 @@ describe('globToRegExp', () => {
     expect(globToRegExp('a.b').test('aXb')).toBe(false); // dot escaped
     expect(globToRegExp('**').test('anything/at/all.js')).toBe(true);
   });
+
+  it('escapes by prefixing the metacharacter, not by replacing it', () => {
+    // `$&` means "backslash, then whatever matched"; a `split`/`join` drops the
+    // character instead, and `a.b` compiles to `^a\b$` — a valid regex meaning
+    // word-boundary, answering about a different set of files without throwing.
+    // Three cases in this file already redden on that flatten, but sideways:
+    // one throws `Unmatched ')'` out of a brace body, two fail on `**/` spans.
+    // What is asked only here is the class itself, one contract per member —
+    // dropping `+` from it reddens this case and nothing else in the suite,
+    // while dropping `.` reddens only the negative `aXb` line above, because a
+    // positive can never catch an unescaped `.`.
+    expect(globToRegExp('a.b').test('a.b')).toBe(true);
+    expect(globToRegExp('src/x+y.js').test('src/x+y.js')).toBe(true);
+  });
 });
 
 describe('dropTestFiles', () => {
