@@ -98,6 +98,24 @@ is its own way of eroding trust in what a revision means.
   (byte-identical against the post-stage-1 baseline, not the original). A
   single bar that only ever passed by accident is not a bar; state the tier
   it actually belongs to.
+- **A claim you are correcting may already have been copied into the tree,
+  and overwriting the issue body does not move those copies.** This page is
+  careful about which landed *stage* a revision leaves valid and says nothing
+  about which landed *sentence* it leaves false — but a stage that has landed
+  has written the ticket's claims into places an adopter reads: a doc comment
+  that becomes the API reference, the emitted prose, a fixture docstring — and,
+  once `finish-the-ticket.md` has assembled it, the changeset. **So a revision that
+  changes what a claim says names every copy it can find, in its own comment,
+  as work owed** — not as a suggestion, because the next reviewer will find
+  them one at a time and each one costs a round. #371 is the case: the ninth
+  revision amended the Goal for exactly one sentence about flat repos being
+  unchanged, the thirteenth reversed its framing again, and the tree's two
+  copies of it were still standing at stage 5 — where they blocked a commit
+  whose code no reviewer ever found a defect in. **You do not edit those
+  copies** — that is `deliver-ticket`'s tree and its own
+  `deliver-a-stage.md` now enumerates these surfaces before a commit — but a
+  revision that does not name them has handed the work to whoever trips over
+  it.
 - **Say what's landed as of this revision, in the comment — never as a
   maintained section of the issue body.** A "here's what's done" line in the
   body is correct for exactly as long as nothing lands before someone reads
