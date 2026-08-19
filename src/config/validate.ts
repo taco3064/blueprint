@@ -9,23 +9,56 @@ import type { LayerDef, ModuleDef } from './types';
  */
 
 /**
- * Keys the schema turns away pointed at where they went — a home they were never
- * at, or a name they used to have. Keyed by the key rather than by the object it
- * turned up on: the exact field shape validated fine on the layer, was silently
- * dead, and the intended re-export ban never emitted (field issue #14). A bare
- * "unknown key" reads as "removed", so a renamed key names its successor here.
+ * Keys the schema turns away pointed at the home they were never at. Keyed by
+ * the key rather than by the object it turned up on: the exact field shape
+ * validated fine on the layer, was silently dead, and the intended re-export ban
+ * never emitted (field issue #14). The declaration really is dead here, so the
+ * generic opening below states the truth and this pointer suffixes it — which is
+ * the half a rename does NOT share, see {@link RENAMED_KEYS}.
  */
 const MISPLACED_KEYS: Record<string, string> = {
   selfOnly: 'selfOnly lives on an allowedImporters ENTRY, naming the importing layer: '
     + 'allowedImporters: [{ layer: \'views\', selfOnly: true }]',
-  module: 'module was RENAMED to folder — same keys, same behavior, nothing removed. '
-    + 'Spell it folder: { layout: \'folder\', entry: \'index\' } here.',
 };
+
+/**
+ * Keys a major version renamed, each carrying its successor and the sentence
+ * that migrates the author — `{where}` is filled with the site the key turned
+ * up on, because that is the declaration they have to edit.
+ *
+ * A rename is not a typo, so it does not open like one. The author typed what
+ * the previous major documented, and "nothing reads it, so the declaration is
+ * silently dead" reports that as a mistake before saying the field moved — so
+ * a rename replaces that opening rather than suffixing a note to it.
+ *
+ * `to` is separate from the prose because it decides whether the rename is the
+ * answer at this site at all: a site that does not accept the successor never
+ * accepted the old spelling either, so the key is genuinely unknown there and
+ * takes the generic rejection. Measured before the split: `module` on an
+ * `architecture.modules` entry, and at the blueprint root, both told the author
+ * to spell `folder` at a site with no `folder` key.
+ */
+const RENAMED_KEYS: Record<string, { to: string; migration: string }> = {
+  module: {
+    to: 'folder',
+    migration: 'module was RENAMED to folder — same keys, same behavior, nothing removed. '
+      + 'Spell it folder: { layout: \'folder\', entry: \'index\' } in {where}.',
+  },
+};
+
+/**
+ * Fill a migration's `{where}` with the site as literal text — `join` has no
+ * replacement-pattern language, and `replace`'s second argument does.
+ */
+function fillSite(migration: string, where: string): string {
+  return migration.split('{where}').join(where);
+}
 
 /**
  * A key the schema does not know is a silently dead declaration — the author
  * believes a constraint is active while nothing compiles from it (field issue #14).
- * Fail loud, and point misplaced keys home.
+ * Fail loud, point misplaced keys home, and open on the rename for a key this
+ * major renamed out from under a config that spelled it the documented way.
  */
 export function rejectUnknownKeys(value: object, allowed: string[], where: string): void {
   for (const key of Object.keys(value)) {
@@ -33,9 +66,13 @@ export function rejectUnknownKeys(value: object, allowed: string[], where: strin
       continue;
     }
 
+    const renamed = RENAMED_KEYS[key];
+
     throw new Error(
-      `Unknown key "${key}" in ${where} — nothing reads it, so the declaration is `
-      + `silently dead. ${MISPLACED_KEYS[key] ?? `Expected keys: ${allowed.join(', ')}.`}`,
+      renamed && allowed.includes(renamed.to)
+        ? fillSite(renamed.migration, where)
+        : `Unknown key "${key}" in ${where} — nothing reads it, so the declaration is `
+          + `silently dead. ${MISPLACED_KEYS[key] ?? `Expected keys: ${allowed.join(', ')}.`}`,
     );
   }
 }

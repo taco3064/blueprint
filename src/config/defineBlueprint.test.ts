@@ -87,7 +87,7 @@ describe('validateBlueprint · the config envelope, and the keys nothing reads',
     };
 
     stray((c) => ((c as unknown as Record<string, unknown>).flows = []), /Unknown key "flows" in the blueprint/);
-    stray((c) => ((c.architecture as unknown as Record<string, unknown>).flow = 'one-way'), /Unknown key "flow" in architecture/);
+    stray((c) => ((c.architecture as unknown as Record<string, unknown>).flow = 'one-way'), /Unknown key "flow" in architecture — nothing reads it, so the declaration is silently dead\. Expected keys: alias, /);
     stray((c) => ((c.architecture.folder as unknown as Record<string, unknown>).privates = []), /architecture\.folder/);
     stray((c) => ((c as { emit?: Record<string, unknown> }).emit = { agent: ['claude'] }), /Unknown key "agent" in emit/);
     stray((c) => ((c as { emit?: object }).emit = { lint: { level: 'warn' } }), /emit\.lint/);
@@ -257,19 +257,37 @@ describe('validateBlueprint · folder layout, at the root and per layer', () => 
   });
 
   it.each([
-    ['architecture', (c: ReturnType<typeof base>): object => c.architecture],
-    ['a layer', (c: ReturnType<typeof base>): object => c.architecture.layers[0]],
-  ])('sends the old `module` spelling to `folder` on %s', (_where, target) => {
+    ['architecture', 'in architecture.', (c: ReturnType<typeof base>): object => c.architecture],
+    [
+      'a layer',
+      'in layer "components".',
+      (c: ReturnType<typeof base>): object => c.architecture.layers[0],
+    ],
+  ])('opens on the rename for the old `module` spelling on %s', (_where, site, target) => {
     const config = base();
 
     delete config.architecture.folder;
     (target(config) as Record<string, unknown>).module = { layout: 'folder' };
 
-    // A bare "unknown key" reads as "this field was removed" to an adopter
-    // upgrading, and the remedy is one word away. Both depths carry it: the
-    // shared shape and the per-layer override were renamed together.
+    // The adopter typed what 3.1.0 documented, so the generic opening has to be
+    // absent rather than merely followed by the rename — reporting a typo first
+    // and correcting it afterwards is the shape this asserts against. Both
+    // depths carry it: the shared shape and the per-layer override were renamed
+    // together, and each names the declaration to edit.
     expect(() => validateBlueprint(config)).toThrow(/RENAMED to folder/);
     expect(() => validateBlueprint(config)).toThrow(/nothing removed/);
+    expect(() => validateBlueprint(config)).toThrow(site);
+    expect(() => validateBlueprint(config)).not.toThrow(/nothing reads it, so the declaration is silently dead/);
+  });
+
+  it('leaves a config that never spelled the renamed field alone (3.1.0 shape)', () => {
+    // Indistinguishable from a 4.0.0 flat config, and read as flat because that
+    // is what it says — not as a fallback for a `modules` block it never had.
+    const config = base();
+
+    delete config.architecture.folder;
+
+    expect(validateBlueprint(config)).toBe(config);
   });
 });
 
