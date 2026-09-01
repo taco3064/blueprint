@@ -100,6 +100,13 @@ describe('globToRegExp · an unmatched { is a literal, and the scan terminates',
     // `{` compiles every other glob in this file byte-identically and still
     // hangs here.
     ['**/*.{test,spec}.{ts', '^(?:.*\\/)?[^/]*\\.(?:test|spec)\\.\\{ts$'],
+    // The same shape with nothing between the pair and the stray `{`, which is
+    // what makes the guard's start index visible: search from `i - 1` instead of
+    // `i` and the `}` that already closed answers for this `{`, while the
+    // group's own `indexOf('}', i)` still returns -1 and the cursor walks
+    // backwards. Every other glob in this file compiles byte-identically under
+    // that edit, so this row is the only thing standing between it and the heap.
+    ['{a,b}{c', '^(?:a|b)\\{c$'],
   ])('compiles %s to %s', (glob, source) => {
     expect(globToRegExp(glob).source).toBe(source);
   });
@@ -119,6 +126,13 @@ describe('globToRegExp · every balanced brace compiles where it did', () => {
   // glob is legal and ordinary, and it would start matching other paths silently.
   it.each([
     ['src/{a,b}/**', '^src\\/(?:a|b)\\/.*$'],
+    // A group holding a `/`. Legal, and the reason the guard reads the whole
+    // tail rather than the segment the `{` sits in: scoping the search to
+    // `glob.slice(i).split('/')[0]` — the natural read of "a group cannot cross
+    // a directory separator" — leaves every other row in this file untouched
+    // while compiling this one to `^src\/\{a,b\/c\}\/.*$`, which matches
+    // nothing it used to.
+    ['src/{a,b/c}/**', '^src\\/(?:a|b\\/c)\\/.*$'],
     ['**/*.test.{js,ts,vue}', '^(?:.*\\/)?[^/]*\\.test\\.(?:js|ts|vue)$'],
     ['{a}{b}', '^(?:a)(?:b)$'],
     // Nested braces compile to garbage — but they terminate, which makes them a
