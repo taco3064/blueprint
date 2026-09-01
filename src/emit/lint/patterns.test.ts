@@ -11,6 +11,8 @@ import {
   resolveLayerFiles,
   selfOnlyReexportSelector,
   toArray,
+  unavailableGate,
+  unreachedTestGlobs,
 } from './patterns';
 import type { LayerDef } from '../../config';
 
@@ -313,5 +315,104 @@ describe('enforcedBy — which machine holds a declared rule (field issue #52)',
     for (const id of DOC_ONLY_RULES.map((rule) => rule.id)) {
       expect(enforcedBy(id)).toBe('docs');
     }
+  });
+});
+
+describe('unreachedTestGlobs — every declared entry measured against the tree', () => {
+  const dead = [{ glob: '**/*.test.{ts', matched: 0 }];
+
+  it('names the entry that reaches nothing, and leaves the verdict to the owner', () => {
+    const why = unreachedTestGlobs(dead);
+
+    // The glob has an address, so it is quoted rather than described.
+    expect(why).toContain('`**/*.test.{ts`');
+    expect(why).toContain('no file here matches');
+    // The consequence, in the same line as the cause — this is why a red appears
+    // against files the author believed were exempt.
+    expect(why).toContain('inspected and linted as ordinary source');
+    // Both resolutions and no guess between them: the two repos this can be — one
+    // that mistyped a glob, one whose tests have not landed — are the same
+    // measurement, so it says so and ends in the owner's call.
+    expect(why).toContain('look identical from here');
+    expect(why).toContain('fix the glob');
+    expect(why).toContain('the exemption arms itself when a file matches');
+    expect(why).toContain('the owner\'s call');
+  });
+
+  it('names only the dead entries of a net that still reaches files', () => {
+    // The shape a truncated second extension list has, and the reason the measurement
+    // is per entry: judged as a union this net is healthy and the typo is invisible.
+    const why = unreachedTestGlobs([
+      { glob: '**/*.test.ts', matched: 4 },
+      { glob: '**/*.spec.{ts', matched: 0 },
+    ]);
+
+    expect(why).toContain('`**/*.spec.{ts`');
+    expect(why).not.toContain('`**/*.test.ts`');
+  });
+
+  it('names each dead entry when more than one is', () => {
+    expect(unreachedTestGlobs([
+      { glob: '**/*.test.{ts', matched: 0 },
+      { glob: '**/*.spec.{ts', matched: 0 },
+    ])).toContain('`**/*.test.{ts`, `**/*.spec.{ts`');
+  });
+
+  it('says nothing when there is no declaration to be wrong about', () => {
+    // The list is built from the DECLARED globs, so an absent field and `[]` both
+    // arrive here as no entries. `[]` has its own arm in `unavailableGate`.
+    expect(unreachedTestGlobs([])).toBeNull();
+  });
+
+  it('says nothing to a caller that did not measure', () => {
+    // The two pure emitters. Absent means "not measured", never "reaches nothing" —
+    // guessing here is what would move what they emit.
+    expect(unreachedTestGlobs(undefined)).toBeNull();
+  });
+
+  it('says nothing when every entry reaches a file', () => {
+    expect(unreachedTestGlobs([{ glob: '**/*.test.ts', matched: 3 }])).toBeNull();
+  });
+});
+
+describe('unavailableGate · testFilename against a measured net', () => {
+  const stack = { framework: 'react', hasTypescript: true, testFiles: ['**/*.test.{ts'] };
+
+  it('closes the gate when every declared entry reaches nothing', () => {
+    // One function, two readers — the catalog's verdict line and inspect's footer
+    // cannot phrase this two ways.
+    const reach = [{ glob: '**/*.test.{ts', matched: 0 }];
+
+    expect(unavailableGate('testFilename', { ...stack, testReach: reach }))
+      .toBe(unreachedTestGlobs(reach));
+  });
+
+  it('leaves the gate open when the net still reaches a file', () => {
+    // EVERY, not any: `.test.ts` files are exempt and `testFilename` does name them,
+    // so calling the gate unavailable here would be false. The dead entry is reported
+    // by `runRules` on its own line instead.
+    expect(unavailableGate('testFilename', {
+      ...stack,
+      testFiles: ['**/*.test.ts', '**/*.spec.{ts'],
+      testReach: [
+        { glob: '**/*.test.ts', matched: 4 },
+        { glob: '**/*.spec.{ts', matched: 0 },
+      ],
+    })).toBeNull();
+  });
+
+  it('says nothing without a measurement, and nothing for any other gate', () => {
+    // No measurement, no claim — which is exactly what the emitters pass.
+    expect(unavailableGate('testFilename', stack)).toBeNull();
+
+    // An empty measurement is the undeclared case, not a broken one.
+    expect(unavailableGate('testFilename', { ...stack, testFiles: undefined, testReach: [] }))
+      .toBeNull();
+
+    // And it is scoped to this gate: nothing else keys on the test globs.
+    expect(unavailableGate('maxLines', {
+      ...stack,
+      testReach: [{ glob: '**/*.test.{ts', matched: 0 }],
+    })).toBeNull();
   });
 });

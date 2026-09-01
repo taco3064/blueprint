@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
 import { LINT_GATED_RULE_IDS } from '../emit/lint/patterns';
-import { computeCoverage, renderCoverage, vacuousNextStep } from './coverage';
+import { computeCoverage, renderCoverage, testFileReach, vacuousNextStep } from './coverage';
 import type { ScanResult } from './types';
 
 const blueprint: Blueprint = {
@@ -168,6 +168,44 @@ describe('renderCoverage', () => {
     expect(line).toContain('next: move code into a declared layer (e.g. src/components/)');
   });
 
+  it('carries a broken test exemption onto the vacuous branch too', () => {
+    // The vacuous branch returns early, and it is where a broken exemption is most
+    // likely to land: unexempted test files are files outside every layer net. A cause
+    // that prints only on the healthy branch is missing exactly where it is needed.
+    const why = '`architecture.testFiles` (`**/*.test.{ts`) matches no file here';
+
+    const vacuous = renderCoverage(
+      {
+        sourceFiles: 3,
+        layerFiles: 0,
+        outsideNets: ['a.test.ts', 'b.test.ts', 'c.test.ts'],
+        activeRules: 2,
+        gatedRules: 13,
+        testExemption: why,
+      },
+      blueprint,
+    );
+
+    expect(vacuous).toContain('Enforcement is vacuous');
+    expect(vacuous).toContain(`\n· ${why}`);
+
+    // Info tier, on its own line — the findings above already carry the verdict, and
+    // nothing here turns a passing run red.
+    const healthy = renderCoverage(
+      {
+        sourceFiles: 2,
+        layerFiles: 2,
+        outsideNets: [],
+        activeRules: 2,
+        gatedRules: 13,
+        testExemption: why,
+      },
+      blueprint,
+    );
+
+    expect(healthy).toContain(`\n· ${why}`);
+  });
+
   it('stays calm on an empty repo — nothing exists to cover yet', () => {
     const line = renderCoverage(
       { sourceFiles: 0, layerFiles: 0, outsideNets: [], activeRules: 2, gatedRules: 13 },
@@ -179,6 +217,29 @@ describe('renderCoverage', () => {
     // Nothing outside the net either, so the clause must be absent — naming an empty
     // set reads as a gap where there is none.
     expect(line).not.toContain('outside');
+  });
+});
+
+describe('testFileReach — the measurement, per declared entry', () => {
+  const tree = scanOf('src/pages/a.ts', 'src/pages/a.test.ts', 'src/services/b.spec.ts');
+
+  it('counts each declared glob separately, live entries included', () => {
+    // The union of these two reaches two files and looks healthy; the second entry
+    // reaches none. One total cannot hold both facts, so there is no total.
+    expect(testFileReach(tree, ['**/*.test.ts', '**/*.spec.{ts'])).toEqual([
+      { glob: '**/*.test.ts', matched: 1 },
+      { glob: '**/*.spec.{ts', matched: 0 },
+    ]);
+  });
+
+  it('measures what the config declares, never the built-in pair', () => {
+    // An absent field and `[]` are the same thing here: nothing declared is nothing
+    // to measure, so no entry can be reported dead. Substituting the default pair
+    // would make every testless repo look like a broken config.
+    expect(testFileReach(tree, undefined)).toEqual([]);
+    expect(testFileReach(tree, [])).toEqual([]);
+    // A bare string is one entry, not a spread of characters.
+    expect(testFileReach(tree, '**/*.spec.ts')).toEqual([{ glob: '**/*.spec.ts', matched: 1 }]);
   });
 });
 
