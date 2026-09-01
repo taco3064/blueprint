@@ -3,11 +3,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-// The conformance module is test support, not a scenario list: `flattenProse` is
-// already imported this way from `bootstrap` and `impact`. What lands in
-// `src/conformance/` is the fossil record of FIELD findings, and this case is not one.
-import { wiredEslintConfig } from '../conformance';
 import type { Blueprint } from '../config';
+// Test-only import of the full emit module, the route `rules.structural.test.ts`
+// already takes downward. The wired config below is assembled here rather than taken
+// from `src/conformance/`, which imports the CLI: `inspect` sits under `cli`, and a
+// public entry does not make the layer order two-way.
+import { emitLint } from '../emit/lint';
 import { vuePreset } from '../presets';
 import { runDoctor } from './doctor';
 import { runInspect } from './inspect';
@@ -256,6 +257,43 @@ const WIRED_SOURCES: Record<string, string> = {
   // The file the healthy entry holds out of probe candidacy, and the dead one does not.
   'src/components/Widget.gen.ts': 'export const widget = 1;',
 };
+
+/**
+ * An eslint flat config whose entries are emitLint's real output, inlined as data:
+ * the fixture has no node_modules to import the package from, and doctor's survival
+ * check only *resolves* configs — it never lints — so a stub `blueprint` plugin object
+ * satisfies resolution. The marker comment is what `detect` reads wiredness off, the
+ * same way a real spread would be.
+ *
+ * A copy of `src/conformance/`'s helper of the same name and not a call to it, because
+ * that module reaches the CLI. The copy cannot drift silently: both are `emitLint`'s
+ * output, and scaffolding that stopped resolving leaves this file's survival check
+ * skipped, which is the one thing every assertion below refuses.
+ */
+function wiredEslintConfig(blueprint: Blueprint): string {
+  const entries = emitLint(blueprint).map((entry) => {
+    const { plugins, ...rest } = entry;
+
+    return plugins
+      ? `{ ...${JSON.stringify(rest)}, plugins: { blueprint: stub } }`
+      : JSON.stringify(rest);
+  });
+
+  return [
+    '// wired from @kekkai/blueprint emitLint — inlined for the fixture',
+    // Without a permissive schema, ESLint 9 defaults to "zero options" and
+    // rejects the {layouts} option during config resolution.
+    'const stub = { rules: { \'relative-escape\': {',
+    '  meta: { schema: [{ type: \'object\', additionalProperties: true }] },',
+    '  create: () => ({}),',
+    '} } };',
+    '',
+    'export default [',
+    ...entries.map((entry) => `  ${entry},`),
+    '];',
+    '',
+  ].join('\n');
+}
 
 function wiredRepo(blueprint: Blueprint, sources = WIRED_SOURCES): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-doctor-wired-'));
