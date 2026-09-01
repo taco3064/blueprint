@@ -34,6 +34,18 @@ describe('ignoredArtifacts', () => {
       .toEqual([{ file: 'docs/architecture-handbook.md', rule: 'docs' }]);
   });
 
+  it('reads a line with an unclosed brace as a literal path, not a group', () => {
+    // Git's ignore syntax has no brace expansion at all, so `{cache` is an
+    // ordinary path, and every line that survives `toRule` is compiled. This is
+    // the caller that builds its own globs — `**/` in front, and a `/**` suffix
+    // compiled separately — so it is the one place that composed pair is proved,
+    // and it reads a file blueprint does not own: it has to degrade, not throw.
+    gitignore(['docs', '{cache']);
+
+    expect(ignoredArtifacts(root, ['docs/architecture-handbook.md']))
+      .toEqual([{ file: 'docs/architecture-handbook.md', rule: 'docs' }]);
+  });
+
   it('skips blank lines and comments instead of reading them as globs', () => {
     gitignore(['', '# just a note', 'unrelated.txt', '']);
 
