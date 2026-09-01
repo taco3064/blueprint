@@ -2,8 +2,16 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
-import type { ScanResult } from './types';
+import type { DoctorCheck, ScanResult } from './types';
 import { expectedStructural, wiringCheck } from './wiring';
+
+/**
+ * The verdict half of `wiringCheck`'s pair. Every case below is about what the check
+ * concluded; the other half — whether it picked a probe at all — is asserted on its
+ * own, here and at the site that reads it.
+ */
+const checkOf = async (params: Parameters<typeof wiringCheck>[0]): Promise<DoctorCheck> =>
+  (await wiringCheck(params)).check;
 
 /**
  * Four plain layers and an ignore glob. Every flow declaration the wider fixture
@@ -49,7 +57,7 @@ function loader(resolved: unknown | ((filePath: string) => unknown)) {
 }
 
 const run = (scanResult: ScanResult, resolved: unknown) =>
-  wiringCheck({
+  checkOf({
     root: '/repo',
     blueprint,
     scanResult,
@@ -94,7 +102,7 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
   };
 
   const check = (rules: Record<string, unknown>, hasTypescript = true) =>
-    wiringCheck({
+    checkOf({
       root: '/repo',
       blueprint: gated,
       scanResult: scanOf('src/views/Home/index.vue'),
@@ -167,7 +175,7 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
   });
 
   it('expects nothing when the gates themselves are off', async () => {
-    const off = await wiringCheck({
+    const off = await checkOf({
       root: '/repo',
       blueprint,
       scanResult: scanOf('src/views/Home/index.vue'),
@@ -217,7 +225,7 @@ describe('wiringCheck · selfOnly with several importers (field issue #51)', () 
   it('names the importer whose ban a narrowed combined entry replaced', async () => {
     const views = expectedStructural(twoImporters, 'views');
 
-    const check = await wiringCheck({
+    const check = await checkOf({
       root: '/repo',
       blueprint: twoImporters,
       scanResult: scanOf('src/views/Home/index.vue', 'src/composables/useThing/index.ts'),
@@ -278,7 +286,7 @@ describe('wiringCheck · which path each layer gets probed at', () => {
   const probeWith = async (over: Partial<Blueprint['architecture']>, scanResult: ScanResult) => {
     const probed: string[] = [];
 
-    const check = await wiringCheck({
+    const check = await checkOf({
       root: '/repo',
       blueprint: { ...blueprint, architecture: { ...blueprint.architecture, ...over } },
       scanResult,

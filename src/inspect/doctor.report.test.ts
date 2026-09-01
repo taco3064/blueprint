@@ -10,6 +10,8 @@ import { wiredEslintConfig } from '../conformance';
 import type { Blueprint } from '../config';
 import { vuePreset } from '../presets';
 import { runDoctor } from './doctor';
+import { runInspect } from './inspect';
+import type { DoctorCheck } from './types';
 
 let root: string;
 
@@ -19,6 +21,17 @@ const load = async () => vuePreset();
 const withIgnore = (layerFilesIgnore: string[]): Blueprint => ({
   ...vuePreset(),
   architecture: { ...vuePreset().architecture, layerFilesIgnore },
+});
+
+/**
+ * The same preset with declared test globs and the one gate scoped to them — the axis
+ * that moves doctor's optional-gate denominator, since `unavailableGate` drops
+ * `testFilename` from it once every declared entry reaches nothing.
+ */
+const withTests = (testFiles: string[]): Blueprint => ({
+  ...vuePreset(),
+  architecture: { ...vuePreset().architecture, testFiles },
+  rules: { ...vuePreset().rules, testFilename: 'error' },
 });
 
 // One character apart, and the difference is measured against the tree rather than
@@ -34,6 +47,20 @@ const loads = (blueprint: Blueprint) => async () => blueprint;
 
 const dead = loads(deadBlueprint);
 const healthy = loads(healthyBlueprint);
+
+// The same one-character pair on the other field: `**/*.test.{ts` matches a file
+// literally named `x.test.{ts`, so the declared net reaches nothing here.
+// The entry class criterion 10 clause one names: it points outside `sourceRoot`, so
+// `scan` never reaches the real file behind it and the measurement here says nothing
+// about what the emitted `ignores` does with it.
+const outsideRoot = loads(withIgnore(['scripts/**']));
+
+const deadTests = loads(withTests(['**/*.test.{ts']));
+const liveTests = loads(withTests(['**/*.test.ts']));
+
+/** The architecture check's detail — where the counts a reader acts on are printed. */
+const coverageDetail = (checks: DoctorCheck[]): string | undefined =>
+  checks.find((check) => check.label.startsWith('architecture clean'))?.detail;
 
 /**
  * The wired comparison's blueprint — hand-written, NOT the preset. `wiredEslintConfig`
@@ -385,6 +412,10 @@ describe('runDoctor · the notes under the banner', () => {
     expect(broken).toContain('`**/*.{gen`');
     expect(intact).not.toContain('layerFilesIgnore');
 
+    // The other direction on the clause the unwired run must not print: here the check
+    // did pick a probe, so the sentence saying what it picked is the run's own record.
+    expect(broken).toContain('merge-survival check picks its probe as if the entry were absent');
+
     // Info, not error: against the same run with the glob spelled correctly the ONLY
     // movement is the added line, and `ok` — which the exit code follows — and the
     // verdict both stand still.
@@ -432,5 +463,151 @@ describe('runDoctor · the notes under the banner', () => {
     await runDoctor(root, { loadConfig: load, json: true, log: (m) => (json = m) });
 
     expect('note' in JSON.parse(json)).toBe(false);
+  });
+});
+
+/**
+ * What the ignore sentence is allowed to assert, and of which run — its own describe
+ * for the reason the block above has one: the per-function line cap.
+ */
+describe('runDoctor · what the ignore note claims, and for which run', () => {
+  it('reaches an entry pointing outside `sourceRoot`, with a real file behind it', async () => {
+    // The class clause one exists for, and the one the wording alone does not pin.
+    // `scan` reads `sourceRoot` only, so `scripts/build.js` is invisible to this run
+    // while `emit/lint` copies the entry into a `files`-less `ignores` that ESLint
+    // honours repo-wide — the entry works, and doctor still has to say what it could
+    // and could not see. So the assertion is the note's PRESENCE for this class: a
+    // narrowing that drops an entry which could never have matched under `sourceRoot`
+    // deletes exactly this case, and the wording assertions below would not notice.
+    adopted();
+    write('src/components/Button.vue', '<template><div /></template>');
+    write('scripts/build.js', 'console.log(1);');
+
+    let reported = '';
+    let control = '';
+
+    const withEntry = await runDoctor(
+      root,
+      { loadConfig: outsideRoot, log: (m) => (reported = m) },
+    );
+
+    const without = await runDoctor(root, { loadConfig: load, log: (m) => (control = m) });
+
+    expect(reported).toContain('`architecture.layerFilesIgnore` — no file here matches');
+    expect(reported).toContain('`scripts/**`');
+    // And the half of the sentence this class is the reason for.
+    expect(reported).toContain('repo-wide ignore');
+
+    // Info tier on a working entry above all: against the same tree with the entry
+    // removed, the ONLY movement is the added line.
+    expect(withEntry.ok).toBe(without.ok);
+    expect(withEntry.verdict).toBe(without.verdict);
+    expect(withEntry.checks).toEqual(without.checks);
+    expect(reported.split('\n').filter((line) => !control.includes(line))).toHaveLength(1);
+  });
+
+  it('scopes the ignore note to what it measured, and puts that before the edit', async () => {
+    // The wording half, on the dead-in-every-sense entry: the sentence must scope its
+    // claim and offer the scope before the edit whichever entry produced it. The class
+    // that makes the scope necessary — an entry outside `sourceRoot` with a real file
+    // behind it — is the case above, and this one must not be read as covering it.
+    adopted();
+
+    let output = '';
+
+    await runDoctor(root, { loadConfig: dead, log: (m) => (output = m) });
+
+    expect(output).not.toContain('is not in effect');
+    expect(output).toContain('repo-wide ignore');
+
+    const note = output
+      .split('\n')
+      .find((line) => line.includes('`architecture.layerFilesIgnore`')) as string;
+
+    // Order is the load-bearing half: "fix the glob" first sends the owner of a working
+    // `scripts/**` to change it before they are told this scan could not have seen it.
+    expect(note.indexOf('repo-wide ignore')).toBeLessThan(note.indexOf('fix the glob'));
+    // And the resolutions themselves still stand — this scopes the claim, it does not
+    // withdraw it.
+    expect(note).toContain('fix the glob, or leave it');
+    expect(note).toContain('owner\'s call');
+  });
+
+  it('does not say what the survival check did in a run where it never ran', async () => {
+    // The path criterion 6 never took. Everything but the eslint config, so the check
+    // skips — and the note used to report what that skipped check picked, one line under
+    // the `⊘` saying it could not run.
+    write('blueprint.config.mjs', '// user config');
+
+    write(
+      'tsconfig.json',
+      JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+    );
+
+    write('src/components/Button.vue', '<template><div /></template>');
+
+    let output = '';
+
+    await runDoctor(root, { loadConfig: dead, log: (m) => (output = m) });
+
+    expect(output).toContain('(skipped — eslint not wired)');
+    expect(output).toContain('`architecture.layerFilesIgnore` — no file here matches');
+    expect(output).not.toContain('merge-survival check');
+  });
+});
+
+/**
+ * The `testFiles` half of the same question, in its own describe for the reason the
+ * block above has one: the per-function line cap.
+ */
+describe('runDoctor · the note behind the optional-gate count', () => {
+  it('names the dead test glob behind the optional-gate count it just dropped', async () => {
+    // Stage 2 put `testReach` in the `unavailableGate` call that filters `gates`, and
+    // `gates.length` is doctor's denominator — so a dead entry moved the number here
+    // while `inspect` moved the same number AND named the glob. `unavailableNote` says
+    // out loud that unavailable gates leave `doctor`'s count; doctor did not.
+    adopted();
+    write('src/components/Widget.ts', 'export const w = 1;');
+    write('src/components/Widget.test.ts', 'export const t = 1;');
+
+    let broken = '';
+    let intact = '';
+
+    const red = await runDoctor(root, { loadConfig: deadTests, log: (m) => (broken = m) });
+    const green = await runDoctor(root, { loadConfig: liveTests, log: (m) => (intact = m) });
+
+    // The counts still move — that is stage 2 working — and are now reachable from the
+    // same output, by the glob that moved them.
+    expect(coverageDetail(red.checks)).not.toBe(coverageDetail(green.checks));
+    expect(broken).toContain('`architecture.testFiles`');
+    expect(broken).toContain('`**/*.test.{ts`');
+    expect(intact).not.toContain('architecture.testFiles');
+
+    // Info tier, the one stage 3 set for a declaration with nothing behind it: no
+    // verdict movement, and `ok` — which the exit code follows — stands still.
+    expect(red.ok).toBe(green.ok);
+    expect(red.verdict).toBe(green.verdict);
+  });
+
+  it('prints inspect\'s sentence for that glob, not a second one written here', async () => {
+    // One question, one position. A doctor-only paraphrase is the drift `unreachedTestGlobs`
+    // was pulled into its own function to prevent, and two outputs wording one measurement
+    // differently is how a reader and an automation start disagreeing.
+    adopted();
+    write('src/components/Widget.ts', 'export const w = 1;');
+    write('src/components/Widget.test.ts', 'export const t = 1;');
+
+    let fromDoctor = '';
+    let fromInspect = '';
+
+    await runDoctor(root, { loadConfig: deadTests, log: (m) => (fromDoctor = m) });
+    await runInspect(root, { loadConfig: deadTests, log: (m) => (fromInspect = m) });
+
+    const sentence = fromInspect
+      .split('\n')
+      .find((line) => line.startsWith('· `architecture.testFiles`')) as string;
+
+    expect(sentence).toBeDefined();
+    expect(fromDoctor).toContain(sentence.slice('· '.length));
   });
 });

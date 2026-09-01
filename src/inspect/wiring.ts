@@ -393,13 +393,27 @@ export interface WiringParams {
   load: (name: string, root: string) => Promise<unknown>;
 }
 
+/** The check's verdict, and whether it got as far as having one to reach. */
+export interface WiringResult {
+  check: DoctorCheck;
+  /**
+   * Whether a probe was picked. Doctor's note on `layerFilesIgnore` says what this
+   * check did with the entry, so it has to take the same fork — and both arms that
+   * return before `probes` exists would leave that note speaking for a run that never
+   * happened. It rides with the verdict rather than being derived a second time beside
+   * it, which is the shape `layerProbeSites` already imposes on its two readers. Not
+   * readable back off `check`: the no-probe arm is deliberately not a `skipped`.
+   */
+  probed: boolean;
+}
+
 /**
  * Run the merge-survival check. Every unreachable precondition skips with a
  * labeled reason instead of failing — a red nobody can appease is worse
  * than no check; the "eslint wired" check and the project's own lint run
  * cover those states already.
  */
-export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
+export async function wiringCheck(params: WiringParams): Promise<WiringResult> {
   const { blueprint, scanResult, wired, merged } = params;
   const LABEL = label(merged);
 
@@ -409,9 +423,12 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
     // config at all satisfies. So the one label that stays true says only "the eslint
     // config", or this path reproduces #148's confusion by the other route.
     return {
-      label: 'emitted rules survive the eslint config (skipped — eslint not wired)',
-      ok: true,
-      skipped: 'eslint not wired — the wiring check above is the red for that',
+      check: {
+        label: 'emitted rules survive the eslint config (skipped — eslint not wired)',
+        ok: true,
+        skipped: 'eslint not wired — the wiring check above is the red for that',
+      },
+      probed: false,
     };
   }
 
@@ -424,9 +441,26 @@ export async function wiringCheck(params: WiringParams): Promise<DoctorCheck> {
   // nothing yet". Marking it too would relabel every greenfield scaffold as unverified
   // on the strength of a fact already on screen.
   if (!probes.length) {
-    return { label: `${LABEL} (skipped — no probe derivable from the layer globs)`, ok: true };
+    return {
+      check: { label: `${LABEL} (skipped — no probe derivable from the layer globs)`, ok: true },
+      probed: false,
+    };
   }
 
+  return { check: await comparedTo(params, probes, LABEL), probed: true };
+}
+
+/**
+ * The three verdicts a picked probe can produce, once there is one to resolve — split
+ * out so the arms above can return the pair without this tail growing a second copy of
+ * it.
+ */
+async function comparedTo(
+  params: WiringParams,
+  probes: ReturnType<typeof pickProbes>,
+  LABEL: string,
+): Promise<DoctorCheck> {
+  const { merged } = params;
   let survey: { lost: string[]; unreadable: number };
 
   try {

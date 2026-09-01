@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
-import type { ScanResult } from './types';
+import type { DoctorCheck, ScanResult } from './types';
 import { expectedStructural, wiringCheck } from './wiring';
+
+/**
+ * The verdict half of `wiringCheck`'s pair. Every case below is about what the check
+ * concluded; the other half — whether it picked a probe at all — is asserted on its
+ * own, here and at the site that reads it.
+ */
+const checkOf = async (params: Parameters<typeof wiringCheck>[0]): Promise<DoctorCheck> =>
+  (await wiringCheck(params)).check;
 
 const blueprint: Blueprint = {
   framework: 'vue',
@@ -59,7 +67,7 @@ const run = (
   resolved: unknown,
   projectEslint: { throwOn?: 'load' | 'calculate'; merged?: boolean } = {},
 ) =>
-  wiringCheck({
+  checkOf({
     root: '/repo',
     blueprint,
     scanResult,
@@ -238,7 +246,7 @@ describe('wiringCheck · the losses it names', () => {
 
 describe('wiringCheck · what it skips rather than reds on', () => {
   it('skips honestly instead of failing on unreachable preconditions', async () => {
-    const unwired = await wiringCheck({
+    const unwired = await checkOf({
       root: '/repo',
       blueprint,
       scanResult: scanOf('src/views/Home/index.vue'),
@@ -292,7 +300,7 @@ describe('wiringCheck · what it skips rather than reds on', () => {
   it('quotes a non-Error rejection too', async () => {
     // `error.message` on a thrown string is undefined, and "it would not resolve —
     // undefined —" is the same swallow with extra steps.
-    const check = await wiringCheck({
+    const check = await checkOf({
       root: '/repo',
       blueprint,
       scanResult: scanOf('src/views/Home/index.vue'),
@@ -347,7 +355,7 @@ describe('wiringCheck · layers with no file to probe', () => {
       architecture: { ...blueprint.architecture, layerFiles: 'src/{layer}/?.js' },
     };
 
-    const skipped = await wiringCheck({
+    const skipped = await checkOf({
       root: '/repo',
       blueprint: odd,
       scanResult: scanOf(),
@@ -367,7 +375,7 @@ describe('wiringCheck · layers with no file to probe', () => {
       architecture: { ...blueprint.architecture, layerFiles: 'src/{layer}/**/*.test.js' },
     };
 
-    const discarded = await wiringCheck({
+    const discarded = await checkOf({
       root: '/repo',
       blueprint: testShaped,
       scanResult: scanOf(),
@@ -385,7 +393,7 @@ describe('wiringCheck · layers with no file to probe', () => {
       architecture: { ...blueprint.architecture, layerFilesIgnore: 'src/views/**' },
     };
 
-    const partial = await wiringCheck({
+    const partial = await checkOf({
       root: '/repo',
       blueprint: ignoreViews,
       scanResult: scanOf(),
@@ -463,5 +471,42 @@ describe('expectedStructural · deep-import targets', () => {
     // and the weaker message is the one a reader would hit first.
     expect(globs).toContain('~app/services/*/**');
     expect(globs?.some((glob) => glob.includes('stores'))).toBe(false);
+  });
+});
+
+/**
+ * The other half of the pair. Doctor's note on `layerFilesIgnore` speaks for this
+ * check, so it reads this rather than deriving the probes again — and a wrong answer
+ * here puts a sentence about what the check picked under a `⊘` saying it never ran.
+ */
+describe('wiringCheck · whether it got as far as a probe', () => {
+  it('reports the fork it took, on every arm that has one', async () => {
+    const params = (over: Partial<Parameters<typeof wiringCheck>[0]>) => ({
+      root: '/repo',
+      blueprint,
+      scanResult: scanOf('src/views/Home/index.vue'),
+      wired: true,
+      merged: true,
+      hasTypescript: true,
+      load: loader({}),
+      ...over,
+    });
+
+    // Both pre-verdict arms return before a probe exists.
+    expect((await wiringCheck(params({ wired: false }))).probed).toBe(false);
+
+    const noProbe = {
+      ...blueprint,
+      architecture: { ...blueprint.architecture, layerFiles: 'src/{layer}/?.js' },
+    };
+
+    expect((await wiringCheck(params({ blueprint: noProbe, scanResult: scanOf() }))).probed)
+      .toBe(false);
+
+    // And true wherever one was picked — including the arm that then failed to resolve
+    // the config, because picking is what the sentence downstream claims happened.
+    expect((await wiringCheck(params({}))).probed).toBe(true);
+
+    expect((await wiringCheck(params({ load: loader({}, 'load') }))).probed).toBe(true);
   });
 });
