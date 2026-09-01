@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint/patterns';
 import { runRules } from './rules';
@@ -248,6 +248,34 @@ describe('runRules · gates the stack cannot open', () => {
 
     const { gates } = await runRules(dir, { log: () => {} });
 
+    expect(gates.find((gate) => gate.id === 'testFilename')?.unavailable).toBeUndefined();
+  });
+
+  it('reads no layer folder when the config declares no test globs', async () => {
+    // The scan feeds one thing here — a count per DECLARED glob — so a config that
+    // declares none buys a full-tree read whose answer is `[]` whatever the tree holds.
+    // `reactPreset` declares none, so that is the ordinary run of this command, and the
+    // absence is what has to be asserted: the output cannot tell the two apart.
+    const dir = repo(blueprint);
+
+    fs.mkdirSync(path.join(dir, 'src', 'components'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'src', 'components', 'a.ts'), 'export const a = 1;\n');
+
+    const readdir = vi.spyOn(fs, 'readdirSync');
+    const { gates } = await runRules(dir, { log: () => {} });
+    const read = readdir.mock.calls.map(([target]) => String(target));
+
+    readdir.mockRestore();
+
+    // `detect` reads `src` itself for the layer names whatever else runs, so the walk is
+    // the only thing that descends INTO a layer folder — and the positive half is what
+    // keeps this from passing on a run that read nothing at all.
+    expect(read).toContain(path.join(dir, 'src'));
+    expect(read).not.toContain(path.join(dir, 'src', 'components'));
+
+    // The row the discarded measurement fed. Skipping the walk must hand `unavailableGate`
+    // the `[]` it would have computed, not an absent measurement, or the gate this repo
+    // ships open closes on the shape every preset has.
     expect(gates.find((gate) => gate.id === 'testFilename')?.unavailable).toBeUndefined();
   });
 

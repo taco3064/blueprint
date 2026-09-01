@@ -9,6 +9,7 @@ import {
   derivePackageRules,
   METRIC_GATES,
   PLUGIN_GATES,
+  toArray,
   unavailableGate,
   unreachedTestGlobs,
   selfOnlyReexportSelector,
@@ -319,10 +320,17 @@ function measureTestGlobs(
     return { testExemption: null };
   }
 
-  const testReach = testFileReach(
-    scan(root, blueprint.architecture.sourceRoot),
-    blueprint.architecture.testFiles,
-  );
+  const declared = toArray(blueprint.architecture.testFiles);
+
+  // `testFileReach` maps over the DECLARED globs, so with none declared its answer is
+  // `[]` whatever the tree holds — and `reactPreset` declares none, which puts every
+  // adopter on that shape through a full-tree walk this catalog then discards. The
+  // empty list rather than no measurement: that is the value the walk produced.
+  if (!declared.length) {
+    return { testReach: [], testExemption: null };
+  }
+
+  const testReach = testFileReach(scan(root, blueprint.architecture.sourceRoot), declared);
 
   return {
     testReach,
