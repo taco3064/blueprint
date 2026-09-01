@@ -239,12 +239,29 @@ export async function runDoctor(
 
   const { blueprint } = await resolveBlueprint(root, state, options);
   const scanResult = scan(root, blueprint.architecture.sourceRoot);
-  const checks = await doctorChecks(root, { state, blueprint, scanResult, options });
+
+  // Measured once and read twice: the gate count the architecture check prints and the
+  // sentence saying why it moved come from the same `Coverage`, so they cannot disagree.
+  const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
+
+  const { checks, probed } = await doctorChecks(
+    root,
+    { state, blueprint, scanResult, coverage, options },
+  );
+
   const ok = checks.every((check) => check.ok);
 
-  // Ordered as the reader acts on them: the config fact first, then the closing step.
-  const notes = [unreachedIgnoreNote(scanResult, blueprint), uncommittedNote(root)]
-    .filter((note) => note !== undefined);
+  // Ordered as the reader acts on them: the config facts as `architecture` declares
+  // them, then the closing step.
+  const notes = [
+    unreachedIgnoreNote(scanResult, blueprint, probed),
+    // `inspect`'s sentence, not a second one written here. `unavailableNote` already
+    // commits the tool to saying that an unavailable gate leaves DOCTOR's optional-gate
+    // count, and doctor was the surface that did not say it: a dead `testFiles` glob
+    // dropped `testFilename` out of the count and named nothing.
+    coverage.testExemption,
+    uncommittedNote(root),
+  ].filter((note) => note !== undefined);
 
   emit(log, checks, { notes, json: options.json });
 
@@ -272,17 +289,24 @@ function noConfigResult(
   return { ok: false, verdict: verdictOf(checks), checks };
 }
 
-/** Every check, in the order they are printed. */
+/**
+ * Every check, in the order they are printed — and the one fact about the run that no
+ * check carries: whether the survival check got as far as picking a probe. The note
+ * under the banner says what that check did with a dead ignore entry, so it has to know
+ * whether it ran, and `wiringCheck` reports it beside its verdict — derived where the
+ * probes are, so there is no second computation here to drift from that one.
+ */
 async function doctorChecks(
   root: string,
   ctx: {
     state: ProjectState;
     blueprint: Blueprint;
     scanResult: ReturnType<typeof scan>;
+    coverage: Coverage;
     options: DoctorOptions;
   },
-): Promise<DoctorCheck[]> {
-  const { state, blueprint, scanResult, options } = ctx;
+): Promise<{ checks: DoctorCheck[]; probed: boolean }> {
+  const { state, blueprint, scanResult, coverage, options } = ctx;
   const eslintWired = state.ownedEslintConfig !== undefined || state.wiredEslintConfig;
 
   // Same state, same analysis: `analyze` returning different findings for one repo
@@ -290,7 +314,6 @@ async function doctorChecks(
   // output reads an info finding — the architecture check reports counts only when
   // there are errors, and `ok` is errors-only — so this changes no verdict.
   const findings = analyze(scanResult, blueprint, state.dependencies);
-  const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
 
   // Undecidable: this list exists to be matched against findings, so a bogus entry
   // put in the empty arm's place matches nothing and reads exactly like no baseline.
@@ -313,15 +336,18 @@ async function doctorChecks(
     load: options.loadModule ?? loadProjectModule,
   });
 
-  return [
-    { label: 'blueprint.config.mjs present', ok: true },
-    leftoversCheck(root, blueprint),
-    eslintWiredCheck(state, eslintWired),
-    aliasCheck(root, blueprint, state),
-    wiring,
-    architectureCheck(splitByBaseline(findings, recorded), coverage, blueprint),
-    suppressionsCheck(root),
-  ];
+  return {
+    checks: [
+      { label: 'blueprint.config.mjs present', ok: true },
+      leftoversCheck(root, blueprint),
+      eslintWiredCheck(state, eslintWired),
+      aliasCheck(root, blueprint, state),
+      wiring.check,
+      architectureCheck(splitByBaseline(findings, recorded), coverage, blueprint),
+      suppressionsCheck(root),
+    ],
+    probed: wiring.probed,
+  };
 }
 
 /**
@@ -440,10 +466,17 @@ function uncommittedNote(root: string): string | undefined {
  * either way, names both resolutions and ends in the owner's call. Not "runway", which
  * `missing-layer` and `owns-not-installed` can promise because a declaration ahead of
  * the code arms itself when the code lands — a mistyped glob never arms.
+ *
+ * `probed` gates the clause that speaks for the merge-survival check. Ungated, that
+ * clause reports what a check that never ran did with the entry, in the same output
+ * where its skip is on screen — and the skip is the case the measurement below cannot
+ * reach on its own, since an entry weighed against a probe nobody picked was weighed
+ * against nothing.
  */
 function unreachedIgnoreNote(
   scanResult: ReturnType<typeof scan>,
   blueprint: Blueprint,
+  probed: boolean,
 ): string | undefined {
   const dead = unreachedIgnoreGlobs(scanResult, blueprint);
 
@@ -455,23 +488,28 @@ function unreachedIgnoreNote(
   // `testFiles` scopes both the analysis and the emitted lint entries, while a healthy
   // `layerFilesIgnore` changes exactly one thing inside this runtime — probe candidacy.
   // Coverage counts these files either way, so "inspected as ordinary source" would be
-  // true of the healthy glob too and name a cost that is not this one. It stops at
-  // this runtime because `emit/lint` copies the entry into `ignores` verbatim and
-  // ESLint globs it, and nothing here has measured that a second globber agrees.
+  // true of the healthy glob too and name a cost that is not this one.
   //
   // So probe candidacy is the whole claim, and probe candidacy is therefore what
-  // `unreachedIgnoreGlobs` measures — both sets of it. Said off the tree alone this
-  // sentence denies its own run: an entry can match no file and still be the reason a
-  // layer went unprobed, which the merge-survival check in the same output is at that
-  // moment reporting as a skip.
+  // `unreachedIgnoreGlobs` measures — both sets of it: an entry can match no file and
+  // still be the reason a layer went unprobed, which is a thing held out rather than an
+  // inert entry.
   return '`architecture.layerFilesIgnore` — no file here matches '
     + `${dead.map((glob) => `\`${glob}\``).join(', ')}, and neither does the stand-in `
-    + 'path doctor uses to probe a layer that has none. So the exclusion that entry '
-    + 'declares is not in effect: nothing is held out of the layers through it, and '
-    + 'doctor\'s merge-survival check picks its probe as if the entry were absent. '
-    + 'A mistyped glob and a convention whose files have not landed look identical from '
-    + 'here — fix the glob, or leave it and the exclusion arms itself when a file '
-    + 'matches; which one applies is the owner\'s call.';
+    + 'path doctor uses to probe a layer that has none. So nothing this run read is held '
+    + 'out through it: no scanned file is dropped from the layers'
+    + (probed
+      ? ', and doctor\'s merge-survival check picks its probe as if the entry were absent'
+      : '')
+    + '. That is this scan\'s reach, not a verdict on the entry — `emit/lint` copies it '
+    + 'into ESLint\'s `ignores` verbatim, and an entry carrying no `files` beside it is a '
+    + 'repo-wide ignore there, so one naming a path outside `architecture.sourceRoot`, or '
+    + 'a file type this scan does not read, holds its files out of the lint run it is '
+    + 'emitted into and is unreached only here. Check which of the two it is before '
+    + 'editing: for an entry that does '
+    + 'point inside the scanned tree, a mistyped glob and a convention whose files have '
+    + 'not landed look identical from here — fix the glob, or leave it and the exclusion '
+    + 'arms itself when a file matches; which one applies is the owner\'s call.';
 }
 
 /**
