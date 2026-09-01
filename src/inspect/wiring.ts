@@ -151,6 +151,73 @@ function syntheticPath(glob: string): string | null {
     .replace(/\*+/g, '__blueprint_probe__');
 }
 
+/** The candidates one layer's globs can construct, in the order `pickProbes` weighs them. */
+function syntheticCandidates(globs: string[]): string[] {
+  return globs
+    .map(syntheticPath)
+    .filter((candidate): candidate is string => candidate !== null);
+}
+
+/**
+ * Each declared layer with its globs and the first non-ignored file that reaches it,
+ * or `null` when none does — the fork `pickProbes` takes to a stand-in, held in one
+ * place because the report on the ignores has to take the same fork or it speaks about
+ * a probe this runtime never derives.
+ *
+ * `ignores` is a parameter rather than read off the blueprint because that other caller
+ * asks the question with one entry lifted out; see `syntheticProbePaths`.
+ */
+function layerProbeSites(
+  blueprint: Blueprint,
+  scanResult: ScanResult,
+  ignores: string[],
+): { layer: string; globs: string[]; hit: string | null }[] {
+  const { architecture, framework } = blueprint;
+  const held = ignores.map(globToRegExp);
+
+  const source = dropTestFiles(scanResult, architecture.testFiles).files.filter(
+    (file) => !held.some((ignore) => ignore.test(file.path)),
+  );
+
+  return architecture.layers.map((layer) => {
+    const globs = resolveLayerFiles(layer.name, framework, architecture);
+    const nets = globs.map(globToRegExp);
+
+    return {
+      layer: layer.name,
+      globs,
+      hit: source.find((file) => nets.some((net) => net.test(file.path)))?.path ?? null,
+    };
+  });
+}
+
+/**
+ * Every path this runtime would probe a layer with in place of a file it does not
+ * have, in `scanResult` under `ignores` — the OTHER set `layerFilesIgnore` is compiled
+ * against, and the reason a files-only reach measurement cannot speak for the field.
+ *
+ * `pickProbes` rejects a synthetic candidate the ignores match exactly as it rejects
+ * a real file, so an entry matching one of these is not inert: it removed that
+ * layer's probe, and in a tree whose layers hold no files at all it removed every one
+ * and the check skipped. Anything reporting such an entry as reaching nothing weighs
+ * it against this list too, or it denies what the run printing it just did.
+ *
+ * "In place of a file it does not have" is the other half, and it is a fact about a
+ * tree, not about a declaration — hence the two parameters. A layer holding a file is
+ * probed with that file, so an entry colliding with a stand-in for it collides with a
+ * path nothing derives, holds nothing out, and is precisely the dead entry the report
+ * exists to name.
+ */
+export function syntheticProbePaths(
+  blueprint: Blueprint,
+  scanResult: ScanResult,
+  ignores: string[],
+): string[] {
+  return layerProbeSites(blueprint, scanResult, ignores)
+    .filter((site) => site.hit === null)
+    .flatMap((site) => syntheticCandidates(site.globs));
+}
+
 /**
  * One probe per layer — a single probe would green-light an entry that swallows
  * some OTHER layer's rules, the exact scoping this check exists to catch. An empty
@@ -161,37 +228,26 @@ function pickProbes(
   scanResult: ScanResult,
   blueprint: Blueprint,
 ): { path: string; layer: string }[] {
-  const { architecture, framework } = blueprint;
-  const ignores = toArray(architecture.layerFilesIgnore).map(globToRegExp);
+  const { architecture } = blueprint;
+  const declared = toArray(architecture.layerFilesIgnore);
+  const ignores = declared.map(globToRegExp);
   const tests = resolveTestFiles(architecture.testFiles).map(globToRegExp);
 
-  const source = dropTestFiles(scanResult, architecture.testFiles).files.filter(
-    (file) => !ignores.some((ignore) => ignore.test(file.path)),
-  );
-
-  return architecture.layers.flatMap((layer) => {
-    const globs = resolveLayerFiles(layer.name, framework, architecture);
-
-    const nets = globs.map(globToRegExp);
-    const hit = source.find((file) => nets.some((net) => net.test(file.path)));
-
-    if (hit) {
-      return [{ path: hit.path, layer: layer.name }];
+  return layerProbeSites(blueprint, scanResult, declared).flatMap(({ layer, globs, hit }) => {
+    if (hit !== null) {
+      return [{ path: hit, layer }];
     }
 
     // The synthetic candidate must sit exactly where a real file would:
     // inside the net, outside the ignores, and never shaped like a test
     // file (the emitted entries exempt those, so expectations would lie).
-    const synthetic = globs
-      .map(syntheticPath)
-      .find(
-        (candidate): candidate is string =>
-          candidate !== null
-          && !ignores.some((ignore) => ignore.test(candidate))
-          && !tests.some((test) => test.test(candidate)),
-      );
+    const synthetic = syntheticCandidates(globs).find(
+      (candidate) =>
+        !ignores.some((ignore) => ignore.test(candidate))
+        && !tests.some((test) => test.test(candidate)),
+    );
 
-    return synthetic ? [{ path: synthetic, layer: layer.name }] : [];
+    return synthetic ? [{ path: synthetic, layer }] : [];
   });
 }
 

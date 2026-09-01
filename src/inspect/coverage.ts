@@ -13,6 +13,7 @@ import {
 import type { TestGlobReach } from '../emit/lint/patterns';
 import { dropTestFiles, globToRegExp, isTestFile } from './filter';
 import type { ScanResult } from './types';
+import { syntheticProbePaths } from './wiring';
 
 /**
  * How much of the repo the blueprint's enforcement actually reaches. A green
@@ -63,6 +64,54 @@ export function testFileReach(
       glob,
       matched: scanResult.files.filter((file) => isTestFile(file.path, patterns)).length,
     };
+  });
+}
+
+/**
+ * The DECLARED `layerFilesIgnore` entries that hold nothing out here — `testFileReach`'s
+ * sibling for the other declared net this package compiles against a real tree.
+ *
+ * A sibling rather than one shared helper. `testFileReach` answers with a count per
+ * entry because two callers do arithmetic on it — `unavailableGate`'s `every` and the
+ * optional-gate denominator — and nothing counts these: an ignore entry is only ever
+ * asked whether it holds anything out, so a shared shape would carry a number no
+ * caller reads. What the two do share is the position on what a dead entry means, and
+ * that stays one sentence rather than two.
+ *
+ * Two candidate sets, because `pickProbes` compiles the field against two. The scan
+ * is taken whole rather than as the `dropTestFiles` list `pickProbes` filters: the
+ * sentence this feeds says no file here matches, which has to stay literally true of
+ * the tree, and an entry naming only test files would otherwise be called dead while
+ * it is doing exactly what it was written to do. `syntheticProbePaths` is the other
+ * half, and without it this measurement contradicts the run it prints under — an
+ * entry can match no file in the tree and still swallow a layer's synthetic probe,
+ * which is a thing held out, not an inert entry.
+ *
+ * The second set is weighed per entry and holds only the stand-ins `pickProbes` would
+ * really derive here, which is the "in place of a file it does not have" half of it: a
+ * layer holding a file is probed with that file, so an entry colliding with a stand-in
+ * for that layer collides with a path nothing derives and is dead however well the
+ * collision reads. What comes back is the set whose removal leaves `pickProbes` alone.
+ */
+export function unreachedIgnoreGlobs(scanResult: ScanResult, blueprint: Blueprint): string[] {
+  const declared = toArray(blueprint.architecture.layerFilesIgnore);
+
+  return declared.filter((glob, index) => {
+    const pattern = globToRegExp(glob);
+
+    // Which layers need a stand-in depends on the ignores, so the entry under
+    // measurement is lifted out before asking. Left in, an entry that swallows a
+    // layer's only file is the reason that layer needs a stand-in, and matching it
+    // proves only that the entry matched itself. Undecidable against the file test
+    // below, which already excludes every entry that reaches a file and therefore
+    // every entry that can move a hit; the lift is what keeps the two independent.
+    const standIns = syntheticProbePaths(blueprint, scanResult, [
+      ...declared.slice(0, index),
+      ...declared.slice(index + 1),
+    ]);
+
+    return !scanResult.files.some((file) => pattern.test(file.path))
+      && !standIns.some((candidate) => pattern.test(candidate));
   });
 }
 
