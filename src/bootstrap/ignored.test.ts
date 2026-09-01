@@ -39,11 +39,29 @@ describe('ignoredArtifacts', () => {
     // ordinary path, and every line that survives `toRule` is compiled. This is
     // the caller that builds its own globs — `**/` in front, and a `/**` suffix
     // compiled separately — so it is the one place that composed pair is proved,
-    // and it reads a file blueprint does not own: it has to degrade, not throw.
+    // and each candidate names its half: `{cache` is hidden by the `**/` self
+    // pattern alone, `{cache/x.json` by the `/**` descendants one alone, and
+    // `sub/{cache/y.json` needs the prefix to span a directory as well. `docs`
+    // stays because `{cache` sits after it and last match wins — a brace line
+    // compiled over-broadly would steal that decision. And it reads a file
+    // blueprint does not own: it has to degrade, not throw.
     gitignore(['docs', '{cache']);
 
-    expect(ignoredArtifacts(root, ['docs/architecture-handbook.md']))
-      .toEqual([{ file: 'docs/architecture-handbook.md', rule: 'docs' }]);
+    expect(
+      ignoredArtifacts(root, [
+        'docs/architecture-handbook.md',
+        '{cache',
+        '{cache/x.json',
+        'sub/{cache/y.json',
+        'cache',
+        'cache/x.json',
+      ]),
+    ).toEqual([
+      { file: 'docs/architecture-handbook.md', rule: 'docs' },
+      { file: '{cache', rule: '{cache' },
+      { file: '{cache/x.json', rule: '{cache' },
+      { file: 'sub/{cache/y.json', rule: '{cache' },
+    ]);
   });
 
   it('skips blank lines and comments instead of reading them as globs', () => {
