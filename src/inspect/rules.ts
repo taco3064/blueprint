@@ -10,10 +10,11 @@ import {
   METRIC_GATES,
   PLUGIN_GATES,
   unavailableGate,
+  unreachedTestGlobs,
   selfOnlyReexportSelector,
   resolveTestFiles,
 } from '../emit/lint/patterns';
-import type { GateSpec } from '../emit/lint/patterns';
+import type { GateSpec, TestGlobReach } from '../emit/lint/patterns';
 import {
   aliasLayerRoots,
   getForbiddenLayers,
@@ -21,6 +22,8 @@ import {
   normalizeAllowedImporters, readSetting,
 } from '../config';
 import type { Blueprint } from '../config';
+import { testFileReach } from './coverage';
+import { scan } from './scan';
 
 /**
  * `blueprint rules` — the emitted-rule catalog as a queryable command, so nobody
@@ -265,7 +268,7 @@ function unavailableNote(gates: GateStatus[]): string {
 function resolveGate(
   spec: GateSpec,
   blueprint: Blueprint | null,
-  hasTypescript: boolean,
+  stack: { hasTypescript: boolean; testReach?: TestGlobReach[] },
 ): GateStatus {
   const setting = blueprint?.rules?.[spec.id];
 
@@ -281,8 +284,9 @@ function resolveGate(
   // nothing to reconcile them (field run #137).
   const unavailable = unavailableGate(spec.id, {
     framework: blueprint?.framework,
-    hasTypescript,
+    hasTypescript: stack.hasTypescript,
     testFiles: blueprint?.architecture.testFiles,
+    testReach: stack.testReach,
   });
 
   return {
@@ -290,6 +294,41 @@ function resolveGate(
     declared,
     ...(unavailable !== null ? { unavailable } : {}),
     active: declared !== null && declared.tier !== 'off' && unavailable === null,
+  };
+}
+
+/**
+ * The one thing this catalog reads off the tree, and it reads it for one gate.
+ * `testFilename`'s scope IS the test globs, so whether it can be opened here is a fact
+ * about what those globs reach — the same fact `inspect` counts its denominator from.
+ * Answering it from the declaration instead is how the two outputs came to disagree
+ * once already (field run #137); a scan is what makes them one answer, not two.
+ *
+ * `testExemption` is the case the gate row cannot carry: a dead entry in a net that
+ * still reaches files through another one. The row there is `✓`, and correctly —
+ * `testFilename` does have test files to name — so without a line of its own the whole
+ * catalog is byte-identical to the same repo with the entry spelled right. Where every
+ * entry is dead the row IS the home, and printing it twice in one output is the drift
+ * this exists to close.
+ */
+function measureTestGlobs(
+  root: string,
+  blueprint: Blueprint | null,
+): { testReach?: TestGlobReach[]; testExemption: string | null } {
+  if (!blueprint) {
+    return { testExemption: null };
+  }
+
+  const testReach = testFileReach(
+    scan(root, blueprint.architecture.sourceRoot),
+    blueprint.architecture.testFiles,
+  );
+
+  return {
+    testReach,
+    testExemption: testReach.some((entry) => entry.matched > 0)
+      ? unreachedTestGlobs(testReach)
+      : null,
   };
 }
 
@@ -316,7 +355,12 @@ export async function runRules(
 
   const severity = blueprint?.emit?.lint?.severity ?? 'error';
   const structural = resolveStructural(blueprint);
-  const gates = gateSpecs().map((spec) => resolveGate(spec, blueprint, state.hasTypescript));
+
+  const { testReach, testExemption } = measureTestGlobs(root, blueprint);
+
+  const gates = gateSpecs()
+    .map((spec) => resolveGate(spec, blueprint, { hasTypescript: state.hasTypescript, testReach }));
+
   const bans = blueprint ? layerBans(blueprint) : [];
 
   log(
@@ -327,8 +371,12 @@ export async function runRules(
           gates,
           bans,
           docsOnly: DOC_ONLY_RULES,
+          // Both shapes or neither: the playbook sends a folding agent to `rules
+          // --json`, and a cause that reaches only the text output comes back as the
+          // same doubt from the other channel (field issue #117, field run #159).
+          ...(testExemption === null ? {} : { testExemption }),
         }, null, 2)
-      : renderRules({ severity, structural, gates, bans }, blueprint !== null),
+      : renderRules({ severity, structural, gates, bans, testExemption }, blueprint !== null),
   );
 
   return { severity, gates, bans };
@@ -341,10 +389,12 @@ export function renderRules(
     structural: StructuralStatus[];
     gates: GateStatus[];
     bans: LayerBans[];
+    /** Set only where no gate row carries it — see `runRules`. */
+    testExemption?: string | null;
   },
   hasConfig: boolean,
 ): string {
-  const { severity, structural, gates, bans } = catalog;
+  const { severity, structural, gates, bans, testExemption } = catalog;
 
   const status = (gate: GateStatus) => {
     // Outranks the tier, and keeps the declared/undeclared split it used to carry as
@@ -388,6 +438,10 @@ export function renderRules(
     // field agent comparing 18 rows to `0/17 optional gates` had to guess which one
     // and guessed wrong (field run #137).
     `${gates.length} listed${unavailableNote(gates)}`,
+    // Beside the reconciliation line, because it is the same kind of fact: something
+    // the rows alone cannot show. `·`, the info marker the rows use, and never a ⚠ —
+    // one of the two states it covers is a repo doing nothing wrong.
+    ...(testExemption ? [`· ${testExemption}`] : []),
     ...gates.map((gate) => {
       const fallback = gate.fallback !== undefined ? ` (default ${gate.fallback})` : '';
 

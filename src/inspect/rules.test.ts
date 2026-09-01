@@ -228,17 +228,25 @@ describe('runRules · gates the stack cannot open', () => {
     expect(output).toContain('18 listed — 3 of them unavailable on this stack');
   });
 
-  it('keeps testFilename available when testFiles names any glob at all', async () => {
-    // The arm is `testFiles.length === 0`, and `&& true` in its place survived — every
-    // array would have marked the gate unavailable, including the ordinary case of a
-    // project that simply names its own test pattern.
+  it('keeps testFilename available when a declared glob reaches a test file', async () => {
+    // The `[]` arm is `testFiles.length === 0`, and `&& true` in its place survived —
+    // every array would have marked the gate unavailable, including the ordinary case
+    // of a project that simply names its own test pattern. What separates the two is
+    // now measured rather than counted, so the fixture carries a file for the glob to
+    // reach: without one this gate is unavailable for the other reason, and the
+    // survivor walks back in.
     const named: Blueprint = {
       ...blueprint,
       architecture: { ...blueprint.architecture, testFiles: ['**/*.spec.ts'] },
       rules: { ...blueprint.rules, testFilename: 'error' },
     };
 
-    const { gates } = await runRules(repo(named), { log: () => {} });
+    const dir = repo(named);
+
+    fs.mkdirSync(path.join(dir, 'src', 'components'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'src', 'components', 'a.spec.ts'), 'export const a = 1;\n');
+
+    const { gates } = await runRules(dir, { log: () => {} });
 
     expect(gates.find((gate) => gate.id === 'testFilename')?.unavailable).toBeUndefined();
   });

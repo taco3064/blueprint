@@ -3,8 +3,15 @@ import type { Blueprint } from '../config';
 // Import from the patterns leaf, not the emit/lint index — the index also
 // exports lint.ts, which loads the plugin, which shares resolve logic with
 // inspect; routing through the index would close a module cycle.
-import { LINT_GATED_RULE_IDS, resolveLayerFiles, unavailableGate } from '../emit/lint/patterns';
-import { dropTestFiles, globToRegExp } from './filter';
+import {
+  LINT_GATED_RULE_IDS,
+  resolveLayerFiles,
+  toArray,
+  unavailableGate,
+  unreachedTestGlobs,
+} from '../emit/lint/patterns';
+import type { TestGlobReach } from '../emit/lint/patterns';
+import { dropTestFiles, globToRegExp, isTestFile } from './filter';
 import type { ScanResult } from './types';
 
 /**
@@ -27,6 +34,36 @@ export interface Coverage {
   activeRules: number;
   /** Total rule ids a machine can gate (see `LINT_GATED_RULE_IDS`). */
   gatedRules: number;
+  /**
+   * Which declared `testFiles` entries reach no file here — absent when every one of
+   * them reaches something, which is the ordinary case. It rides on the coverage
+   * report because the run that prints findings against test files is the one that
+   * has to say why those files stopped being exempt.
+   */
+  testExemption?: string;
+}
+
+/**
+ * What each DECLARED test-exemption glob reaches here — the measurement no blueprint
+ * can make, taken once so both runtimes read the same numbers.
+ *
+ * `toArray`, not `resolveTestFiles`: this measures what the config says, so a config
+ * that says nothing has nothing measured and nothing to be told about. It compiles
+ * through the same `globToRegExp` / `isTestFile` pair `dropTestFiles` exempts by, so
+ * "matched 0 here" and "exempted nothing there" cannot come apart.
+ */
+export function testFileReach(
+  scanResult: ScanResult,
+  testFiles: string | string[] | undefined,
+): TestGlobReach[] {
+  return toArray(testFiles).map((glob) => {
+    const patterns = [globToRegExp(glob)];
+
+    return {
+      glob,
+      matched: scanResult.files.filter((file) => isTestFile(file.path, patterns)).length,
+    };
+  });
 }
 
 /** Beyond this many files outside the nets, the list stops being readable. */
@@ -44,6 +81,7 @@ export function computeCoverage(
 ): Coverage {
   const { architecture, framework, rules } = blueprint;
   const source = dropTestFiles(scanResult, architecture.testFiles).files;
+  const testReach = testFileReach(scanResult, architecture.testFiles);
 
   const nets = [
     ...new Set(
@@ -63,10 +101,11 @@ export function computeCoverage(
   const gates = LINT_GATED_RULE_IDS
     .filter((id) => unavailableGate(
       id,
-      { framework, hasTypescript, testFiles: architecture.testFiles },
+      { framework, hasTypescript, testFiles: architecture.testFiles, testReach },
     ) === null);
 
   const activeRules = gates.filter((id) => activeSetting(rules?.[id]) !== null).length;
+  const testExemption = unreachedTestGlobs(testReach);
 
   return {
     sourceFiles: source.length,
@@ -74,6 +113,7 @@ export function computeCoverage(
     outsideNets: outside.map((file) => file.path),
     activeRules,
     gatedRules: gates.length,
+    ...(testExemption === null ? {} : { testExemption }),
   };
 }
 
@@ -117,10 +157,16 @@ export function vacuousNextStep(blueprint: Blueprint): string {
 
 /** One-line coverage report — loud when the net catches nothing. */
 export function renderCoverage(coverage: Coverage, blueprint: Blueprint): string {
+  // On both branches, not just the healthy one: a broken exemption puts test files
+  // back inside the analysis, which is exactly where a vacuous net gets reported too.
+  // Info tier — the findings above already carry the verdict, and this line only says
+  // where they came from, so a repo that is green today stays green.
+  const exemption = coverage.testExemption === undefined ? '' : `\n· ${coverage.testExemption}`;
+
   if (coverage.sourceFiles > 0 && coverage.layerFiles === 0) {
     return `⚠ Enforcement is vacuous — layer globs match 0 of ${coverage.sourceFiles} source `
-      + `file(s); a green gate proves nothing yet — ${vacuousNextStep(blueprint)}.`;
+      + `file(s); a green gate proves nothing yet — ${vacuousNextStep(blueprint)}.${exemption}`;
   }
 
-  return `Coverage: ${coverageSummary(coverage)}`;
+  return `Coverage: ${coverageSummary(coverage)}${exemption}`;
 }
