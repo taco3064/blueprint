@@ -78,3 +78,53 @@ describe('globToRegExp · what each star form consumes', () => {
     expect(net.test('axyzc')).toBe(false);
   });
 });
+
+describe('globToRegExp · an unmatched { is a literal, and the scan terminates', () => {
+  // Termination is half of what these pin, and it cannot be written as an
+  // assertion. A `{` read as a group with no `}` to close it puts the cursor at
+  // -1, the loop's `i++` restarts the scan from the front of the glob, and
+  // `pattern` gains a whole segment per pass until V8 aborts on heap exhaustion
+  // — the adopter sees a command that never comes back, never a named glob. A
+  // synchronous loop never yields, so vitest's timeout cannot fire either: a
+  // regression here takes the worker down instead of going red. Accepted, since
+  // the alternative is a child-process harness and this repo keeps those in
+  // `scripts/`.
+  it.each([
+    ['src/{a/**', '^src\\/\\{a\\/.*$'],
+    ['{', '^\\{$'],
+    // Its `}` sits BEFORE the `{` and closes nothing. A guard asking only
+    // whether the glob holds a `}` somewhere leaves this one hanging.
+    ['a}b{c', '^a\\}b\\{c$'],
+    // A balanced pair followed by an unmatched one — the commonest real shape,
+    // a truncated second extension list. A guard computed once from the FIRST
+    // `{` compiles every other glob in this file byte-identically and still
+    // hangs here.
+    ['**/*.{test,spec}.{ts', '^(?:.*\\/)?[^/]*\\.(?:test|spec)\\.\\{ts$'],
+  ])('compiles %s to %s', (glob, source) => {
+    expect(globToRegExp(glob).source).toBe(source);
+  });
+
+  it('matches the path spelled with the brace, and reads no group into it', () => {
+    expect(globToRegExp('src/{a/**').test('src/{a/b.ts')).toBe(true);
+    expect(globToRegExp('src/{a/**').test('src/a/b.ts')).toBe(false);
+    expect(globToRegExp('a}b{c').test('a}b{c')).toBe(true);
+  });
+});
+
+describe('globToRegExp · every balanced brace compiles where it did', () => {
+  // Pinned as `.source`, because a path assertion cannot see the difference. The
+  // one-edit repair that reaches for `lastIndexOf('}')` — as the guard and as the
+  // group's end — leaves every case above and every `.test(path)` in this file
+  // green while compiling `{a}{b}` to `^(?:a\}\{b)$`: two brace groups in one
+  // glob is legal and ordinary, and it would start matching other paths silently.
+  it.each([
+    ['src/{a,b}/**', '^src\\/(?:a|b)\\/.*$'],
+    ['**/*.test.{js,ts,vue}', '^(?:.*\\/)?[^/]*\\.test\\.(?:js|ts|vue)$'],
+    ['{a}{b}', '^(?:a)(?:b)$'],
+    // Nested braces compile to garbage — but they terminate, which makes them a
+    // different defect. Pinned so this repair cannot drift into it.
+    ['{a,{b,c}}', '^(?:a|\\{b|c)\\}$'],
+  ])('compiles %s to %s', (glob, source) => {
+    expect(globToRegExp(glob).source).toBe(source);
+  });
+});
