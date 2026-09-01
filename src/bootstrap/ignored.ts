@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { globToRegExp } from '../inspect/filter';
+import { globToRegExp } from '../inspect';
 
 /**
  * Best-effort root-`.gitignore` matching — enough to warn when init's own artifacts
