@@ -17,7 +17,12 @@ import type { ProjectState, ResolveOptions } from '../project';
 import type { Blueprint } from '../config';
 import { analyze } from './analyze';
 import { BASELINE_FILE, parseBaseline, splitByBaseline } from './baseline';
-import { computeCoverage, coverageSummary, vacuousNextStep } from './coverage';
+import {
+  computeCoverage,
+  coverageSummary,
+  unreachedIgnoreGlobs,
+  vacuousNextStep,
+} from './coverage';
 import type { Coverage } from './coverage';
 import { hasErrors } from './report';
 import { scan } from './scan';
@@ -237,7 +242,11 @@ export async function runDoctor(
   const checks = await doctorChecks(root, { state, blueprint, scanResult, options });
   const ok = checks.every((check) => check.ok);
 
-  emit(log, checks, { note: uncommittedNote(root), json: options.json });
+  // Ordered as the reader acts on them: the config fact first, then the closing step.
+  const notes = [unreachedIgnoreNote(scanResult, blueprint), uncommittedNote(root)]
+    .filter((note) => note !== undefined);
+
+  emit(log, checks, { notes, json: options.json });
 
   return { ok, verdict: verdictOf(checks), checks };
 }
@@ -414,6 +423,58 @@ function uncommittedNote(root: string): string | undefined {
 }
 
 /**
+ * The other thing a green run leaves out. `layerFilesIgnore` is compiled in exactly one
+ * place — `pickProbes` — and no check counts what it did there: doctor's output was
+ * byte-identical for a healthy glob and a dead one, banner and exit code included. The
+ * only surface that reads the field could not say the field was inert.
+ *
+ * Under the banner rather than as an eighth check, for `uncommittedNote`'s two reasons,
+ * and both hold here: it cannot fail — this reports a declaration, it does not fail a
+ * build that passes today — and a check that is always green would push the count every
+ * conformance fixture states.
+ *
+ * One sentence for both states the entry can be in, which is the position
+ * `unreachedTestGlobs` already settled for `testFiles`: nothing in the tree separates a
+ * mistyped glob from a convention whose files have not landed, the measurement is the
+ * same and only intent differs, and intent has no address. So it says what is true
+ * either way, names both resolutions and ends in the owner's call. Not "runway", which
+ * `missing-layer` and `owns-not-installed` can promise because a declaration ahead of
+ * the code arms itself when the code lands — a mistyped glob never arms.
+ */
+function unreachedIgnoreNote(
+  scanResult: ReturnType<typeof scan>,
+  blueprint: Blueprint,
+): string | undefined {
+  const dead = unreachedIgnoreGlobs(scanResult, blueprint);
+
+  if (!dead.length) {
+    return undefined;
+  }
+
+  // Narrower than `unreachedTestGlobs`' consequence clause, because the field is:
+  // `testFiles` scopes both the analysis and the emitted lint entries, while a healthy
+  // `layerFilesIgnore` changes exactly one thing inside this runtime — probe candidacy.
+  // Coverage counts these files either way, so "inspected as ordinary source" would be
+  // true of the healthy glob too and name a cost that is not this one. It stops at
+  // this runtime because `emit/lint` copies the entry into `ignores` verbatim and
+  // ESLint globs it, and nothing here has measured that a second globber agrees.
+  //
+  // So probe candidacy is the whole claim, and probe candidacy is therefore what
+  // `unreachedIgnoreGlobs` measures — both sets of it. Said off the tree alone this
+  // sentence denies its own run: an entry can match no file and still be the reason a
+  // layer went unprobed, which the merge-survival check in the same output is at that
+  // moment reporting as a skip.
+  return '`architecture.layerFilesIgnore` — no file here matches '
+    + `${dead.map((glob) => `\`${glob}\``).join(', ')}, and neither does the stand-in `
+    + 'path doctor uses to probe a layer that has none. So the exclusion that entry '
+    + 'declares is not in effect: nothing is held out of the layers through it, and '
+    + 'doctor\'s merge-survival check picks its probe as if the entry were absent. '
+    + 'A mistyped glob and a convention whose files have not landed look identical from '
+    + 'here — fix the glob, or leave it and the exclusion arms itself when a file '
+    + 'matches; which one applies is the owner\'s call.';
+}
+
+/**
  * The banner's three states as one value — the field automation should gate on.
  * `ok` stays what it always meant (nothing FAILED, and the exit code follows it);
  * this says whether anything was left unproven.
@@ -464,9 +525,9 @@ function summarize(checks: DoctorCheck[]): {
 function emit(
   log: (m: string) => void,
   checks: DoctorCheck[],
-  report: { note?: string; json?: boolean },
+  report: { notes?: string[]; json?: boolean },
 ): void {
-  const { note, json } = report;
+  const { notes = [], json } = report;
   const { verdict, passed, failed, skipped, banner } = summarize(checks);
 
   if (json) {
@@ -482,7 +543,11 @@ function emit(
         summary: banner,
         counts: { total: checks.length, passed, failed, skipped },
         checks,
-        note,
+        // Still one `note`, joined: the key names what is printed under the banner,
+        // which is one thing that now has more than one sentence in it. Renaming it for
+        // the second sentence would break a consumer keyed on the first (field run #141
+        // is why this channel carries the note at all).
+        note: notes.length ? notes.join('\n') : undefined,
       },
       null,
       2,
@@ -502,10 +567,11 @@ function emit(
       }),
       '',
       banner,
-      // Under the banner rather than as an eighth check: it cannot fail (init never
-      // takes version control into its own hands), and a check that is always green
-      // would push the count every conformance fixture states.
-      ...(note ? [`  ${note}`] : []),
+      // Under the banner rather than as further checks: neither can fail — init never
+      // takes version control into its own hands, and a dead ignore glob is reported
+      // rather than failed — and a check that is always green would push the count
+      // every conformance fixture states.
+      ...notes.map((note) => `  ${note}`),
     ].join('\n'),
   );
 }

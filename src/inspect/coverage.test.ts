@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
 import { LINT_GATED_RULE_IDS } from '../emit/lint/patterns';
-import { computeCoverage, renderCoverage, testFileReach, vacuousNextStep } from './coverage';
+import {
+  computeCoverage,
+  renderCoverage,
+  testFileReach,
+  unreachedIgnoreGlobs,
+  vacuousNextStep,
+} from './coverage';
 import type { ScanResult } from './types';
 
 const blueprint: Blueprint = {
@@ -240,6 +246,67 @@ describe('testFileReach — the measurement, per declared entry', () => {
     expect(testFileReach(tree, [])).toEqual([]);
     // A bare string is one entry, not a spread of characters.
     expect(testFileReach(tree, '**/*.spec.ts')).toEqual([{ glob: '**/*.spec.ts', matched: 1 }]);
+  });
+});
+
+describe('unreachedIgnoreGlobs — the sibling measurement, per declared entry', () => {
+  const tree = scanOf('src/pages/a.ts', 'src/pages/a.gen.ts', 'src/pages/a.test.ts');
+
+  const ignoring = (layerFilesIgnore: string | string[]): Blueprint => ({
+    ...blueprint,
+    architecture: { ...blueprint.architecture, layerFilesIgnore },
+  });
+
+  it('names only the entries that reach nothing, never the whole declaration', () => {
+    // The union of these two holds a file out and looks healthy; the second entry
+    // holds out nothing. A per-net answer cannot say which one to fix.
+    expect(unreachedIgnoreGlobs(tree, ignoring(['**/*.gen.ts', '**/*.{gen'])))
+      .toEqual(['**/*.{gen']);
+
+    expect(unreachedIgnoreGlobs(tree, ignoring(['**/*.gen.ts']))).toEqual([]);
+  });
+
+  it('measures what the config declares, so an undeclared field reports nothing', () => {
+    // Absent and `[]` are the same state: nothing declared is nothing that can be
+    // dead, and a repo that never wrote this field must not be told about it.
+    expect(unreachedIgnoreGlobs(tree, blueprint)).toEqual([]);
+    expect(unreachedIgnoreGlobs(tree, ignoring([]))).toEqual([]);
+    // A bare string is one entry, not a spread of characters.
+    expect(unreachedIgnoreGlobs(tree, ignoring('**/*.{gen'))).toEqual(['**/*.{gen']);
+  });
+
+  it('measures the whole scan, not the non-test files `pickProbes` filters', () => {
+    // An entry naming only test files holds nothing out of probe candidacy, because
+    // `dropTestFiles` removed those files first — but "no file here matches" would be
+    // a false sentence about the tree, and it is the sentence this feeds.
+    expect(unreachedIgnoreGlobs(tree, ignoring('**/*.test.ts'))).toEqual([]);
+  });
+
+  it('measures the stand-in probe paths too, so a swallowed layer is not called dead', () => {
+    // `pickProbes` compiles this field against two sets, and an entry reaching only the
+    // second is the opposite of inert: it removed a layer's probe. Measured off the tree
+    // alone, both of these read as dead, and the sentence it feeds would deny the run
+    // printing it — under `all 7 checks passed`, beside the skip it caused.
+    expect(unreachedIgnoreGlobs(tree, ignoring('src/services/**'))).toEqual([]);
+    // The reachable extreme: no file anywhere, so every layer's probe goes.
+    expect(unreachedIgnoreGlobs(scanOf(), ignoring('src/**'))).toEqual([]);
+    // And still dead when it reaches neither set — the entry this note exists for.
+    expect(unreachedIgnoreGlobs(scanOf(), ignoring('**/*.{gen'))).toEqual(['**/*.{gen']);
+  });
+
+  it('weighs an entry only against the stand-ins a populated tree still derives', () => {
+    // Both layers hold a file, so `pickProbes` probes with those files and derives no
+    // stand-in at all here. `**/*.js` collides with `src/components/__blueprint_probe__.js`
+    // and the control one character away collides with nothing — neither changes a probe,
+    // so both are dead, and this tree is where a whole-declaration list silences the first.
+    const populated = scanOf('src/components/Button.vue', 'src/services/api.ts');
+
+    expect(unreachedIgnoreGlobs(populated, ignoring('**/*.js'))).toEqual(['**/*.js']);
+    expect(unreachedIgnoreGlobs(populated, ignoring('**/*.nope'))).toEqual(['**/*.nope']);
+
+    // The layer with no file still derives one, so the same entry stays silent there.
+    expect(unreachedIgnoreGlobs(scanOf('src/components/Button.vue'), ignoring('**/*.js')))
+      .toEqual([]);
   });
 });
 
