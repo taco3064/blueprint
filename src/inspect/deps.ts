@@ -1,5 +1,10 @@
+// Import from the patterns leaf, not the emit/lint index — the index also
+// exports lint.ts, which loads the plugin, which shares resolve logic with
+// inspect; routing through the index would close a module cycle.
+import { unreachedTestGlobs } from '../emit/lint/patterns';
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
+import { testFileReach } from './coverage';
 import { buildModuleGraph, layoutResolver, moduleKey } from './resolve';
 import type { LayoutOf } from './resolve';
 import { importGraphDerivation, scan } from './scan';
@@ -47,20 +52,68 @@ export async function runDeps(
   const layoutOf = layoutResolver(architecture);
   const layerNames = new Set(architecture.layers.map((layer) => layer.name));
   const skipped = skippedFolders(scanned, layerNames);
+  const testExemption = exemptionNote(modules, scanned, architecture.testFiles);
 
   if (options.target !== undefined) {
     return reportTarget(options.target, {
-      modules, skipped, layerNames, layoutOf, log, json: options.json,
+      modules, skipped, layerNames, layoutOf, log, testExemption, json: options.json,
     });
   }
 
   log(
     options.json
-      ? JSON.stringify({ modules, skipped, derivation: importGraphDerivation() }, null, 2)
-      : renderLeaderboard(modules, skipped, { layerNames, layoutOf }),
+      ? JSON.stringify(
+          // Absent, not null, and the same string the text prints: a key always
+          // present reads as "measured, nothing wrong" from a channel that cannot
+          // see the other one.
+          { modules, skipped, ...exemptionKey(testExemption), derivation: importGraphDerivation() },
+          null,
+          2,
+        )
+      : renderLeaderboard(modules, skipped, { layerNames, layoutOf, testExemption }),
   );
 
   return { ok: true, modules };
+}
+
+/**
+ * Why the counts it prints under are the counts they are, when a declared
+ * `architecture.testFiles` entry reaches no file here. `inspect`'s sentence, printed
+ * verbatim rather than paraphrased for this surface — two positions on one question is
+ * the contradiction an adopter meets before we do — with one clause added for what it
+ * costs HERE.
+ *
+ * The clause is needed because the shared sentence names the surfaces it was written
+ * for ("inspected and linted as ordinary source") and this is a third one: a reader
+ * looking at a fan-in that moved would otherwise read those two truths as unrelated.
+ * It claims nothing about the tree, so it stays true of the state where the entry is
+ * runway rather than a typo and there is no such file to count.
+ *
+ * Not on the empty leaderboard and not on the unknown-target message, and on NEITHER
+ * channel: a dead entry only ever ADDS files to this graph, so it can be the cause of a
+ * count but never of a module that is missing. Decided here rather than in a renderer,
+ * because the renderer only speaks for the text — a `--json` payload emitting a cause
+ * the text suppressed is two answers about one run.
+ */
+function exemptionNote(
+  modules: ModuleDeps[],
+  scanned: ScanResult,
+  testFiles: string | string[] | undefined,
+): string | null {
+  // The one decision, and both renderings read it: the sentence closes on "the blast
+  // radius above", so a graph with no module in it has nothing for it to be about. The
+  // text renderer keeps an early return of its own, and it decides nothing here.
+  const cause = modules.length ? unreachedTestGlobs(testFileReach(scanned, testFiles)) : null;
+
+  return cause === null
+    ? null
+    : `${cause} — and the blast radius above is counted under the net as written, so an `
+      + 'import that entry was meant to exempt counts in it';
+}
+
+/** The `--json` half of {@link exemptionNote} — the key exists only when there is one. */
+function exemptionKey(testExemption: string | null): { testExemption?: string } {
+  return testExemption === null ? {} : { testExemption };
 }
 
 /** One module's own blast radius, or the not-found report naming what was skipped. */
@@ -72,10 +125,11 @@ function reportTarget(
     layerNames: Set<string>;
     layoutOf: LayoutOf;
     log: (message: string) => void;
+    testExemption: string | null;
     json?: boolean;
   },
 ): { ok: boolean; modules: ModuleDeps[] } {
-  const { modules, skipped, layerNames, layoutOf, log } = ctx;
+  const { modules, skipped, layerNames, layoutOf, log, testExemption } = ctx;
   const key = normalizeTarget(target, layoutOf);
   const found = modules.find((entry) => entry.module === key);
 
@@ -90,8 +144,12 @@ function reportTarget(
       // `derivation` rides along in the JSON for the same reason it closes the text:
       // the agent piping this into a decision has no other channel, and every key
       // beside it is a graph-derived fact.
-      ? JSON.stringify({ ...found, derivation: importGraphDerivation() }, null, 2)
-      : renderModule(found, isFlatLayer(found.module, layerNames, layoutOf)),
+      ? JSON.stringify(
+          { ...found, ...exemptionKey(testExemption), derivation: importGraphDerivation() },
+          null,
+          2,
+        )
+      : renderModule(found, isFlatLayer(found.module, layerNames, layoutOf), testExemption),
   );
 
   return { ok: true, modules: [found] };
@@ -166,24 +224,37 @@ function unknownTarget(key: string, skipped: string[]): string {
  * needs it most: a fan-in of 3 that a dynamic import made 4 is a wrong decision,
  * not an incomplete list.
  */
-function renderModule(entry: ModuleDeps, flatLayer: boolean): string {
+function renderModule(
+  entry: ModuleDeps,
+  flatLayer: boolean,
+  testExemption: string | null,
+): string {
   return [
     entry.module + (flatLayer ? ' (flat layer — answers at layer granularity)' : ''),
     `  imported by (${entry.importedBy.length}):`,
     ...entry.importedBy.map((module) => `    ← ${module}`),
     `  imports (${entry.imports.length}):`,
     ...entry.imports.map((module) => `    → ${module}`),
+    ...exemptionLine(testExemption),
     '',
     importGraphDerivation('  '),
   ].join('\n');
 }
 
+/**
+ * `·`, the info marker `inspect` and `rules` already print this cause behind, and never
+ * a ⚠: one of the two states it covers is a repo doing nothing wrong.
+ */
+function exemptionLine(testExemption: string | null): string[] {
+  return testExemption === null ? [] : [`  · ${testExemption}`];
+}
+
 function renderLeaderboard(
   modules: ModuleDeps[],
   skipped: string[],
-  shape: { layerNames: Set<string>; layoutOf: LayoutOf },
+  shape: { layerNames: Set<string>; layoutOf: LayoutOf; testExemption: string | null },
 ): string {
-  const { layerNames, layoutOf } = shape;
+  const { layerNames, layoutOf, testExemption } = shape;
 
   if (!modules.length) {
     return 'No modules found under the declared layers.';
@@ -203,6 +274,7 @@ function renderLeaderboard(
         + (isFlatLayer(entry.module, layerNames, layoutOf) ? ' (flat layer)' : ''),
     ),
     ...note,
+    ...exemptionLine(testExemption),
     '',
     importGraphDerivation('  '),
   ].join('\n');
