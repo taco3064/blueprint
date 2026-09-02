@@ -330,6 +330,19 @@ describe('outsideScanReach · the class of dead glob the tree does not have to e
       `a directory this scan never descends into (\`${dir}\`)`,
     );
   });
+
+  it.each(['*', '?', '[', ']', '{', '}'])(
+    'stops reading a segment as a literal path segment at %s',
+    (meta) => {
+      // One contract per member of `GLOB_META`, the third list at this site. The same
+      // glob with the character taken out names a segment, and the segment leaves the
+      // root; with it in, the segment is a pattern and the comparison has nothing to
+      // stand on. Drop `?` from the set and `sr?/**` — which matches `src/pages/a.ts` —
+      // is reported as outside the very root it points into.
+      expect(outsideScanReach('sr/**')).toBe('outside the source root `src`');
+      expect(outsideScanReach(`sr${meta}/**`)).toBeNull();
+    },
+  );
 });
 
 /**
