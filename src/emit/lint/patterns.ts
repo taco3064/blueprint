@@ -214,13 +214,6 @@ export interface GateStack {
   framework: string | undefined;
   hasTypescript: boolean;
   testFiles?: string | string[];
-  /**
-   * The one fact here that a blueprint cannot answer — it takes a scan. Absent
-   * means "not measured", never "reaches nothing", so the arm that reads it falls
-   * through for a caller that has no tree. Built from the DECLARED globs, so a
-   * config that declares none has an empty list here, not the built-in pair.
-   */
-  testReach?: TestGlobReach[];
 }
 
 /**
@@ -242,9 +235,10 @@ export interface GateStack {
  * handing it back asserts that one of two things is true while a third is. That one
  * `outsideScanReach` settles, and `outOfScanReachClause` states.
  *
- * Its own function because `computeCoverage` needs this sentence as well as this
- * verdict: the run that reports findings against test files is where the cause has to
- * be legible, and a second phrasing there would be two positions on one question.
+ * Its own function because three printers need this sentence — `inspect`'s coverage
+ * report, the `rules` catalog and `deps`: the run that reports findings against test
+ * files is where the cause has to be legible, and a second phrasing in any of them
+ * would be two positions on one question.
  */
 export function unreachedTestGlobs(reach: TestGlobReach[] | undefined): string | null {
   const dead = (reach ?? []).filter((entry) => entry.matched === 0);
@@ -253,17 +247,29 @@ export function unreachedTestGlobs(reach: TestGlobReach[] | undefined): string |
     return null;
   }
 
-  // What the shared clause below leaves to its caller. Every `ignores` `emit/lint`
-  // writes these globs into carries a `files` beside it, where `layerFilesIgnore` is
-  // emitted as an entry of its own with none — so the two costs are not the same one.
+  // The `ignores` role, and what the shared clause below leaves to its caller. Every
+  // `ignores` `emit/lint` writes these globs into carries a `files` beside it, where
+  // `layerFilesIgnore` is emitted as an entry of its own with none — so the two fields'
+  // costs are not the same one.
   const scopedThere = 'what `emit/lint` emits for it is scoped rather than repo-wide — '
     + 'every `ignores` it writes these globs into sits beside a `files`, so it subtracts '
     + 'only from the set that `files` names';
+
+  // The `files` role — the same globs are the `testFilename` entry's own scope, so the
+  // gate stays armed over whatever they match while this sentence says nothing here is
+  // exempt. Unconditional, unlike the clause above: the entry is emitted whatever class
+  // the dead entries fall in, and a gate reported open beside a note accounting only for
+  // the exemption is two truths with no bridge. The sibling note carries its own.
+  const armedThere = '. That is this scan\'s reach, not a verdict on the entry — '
+    + '`emit/lint` writes these globs into the `testFilename` entry\'s own `files` too, '
+    + 'so where that gate is on it is emitted all the same and governs whatever they '
+    + 'do match';
 
   return '`architecture.testFiles` — no file here matches '
     + `${dead.map((entry) => `\`${entry.glob}\``).join(', ')}, so nothing this run read `
     + 'is exempt through that part of the net: no scanned file is dropped from the '
     + 'analysis'
+    + armedThere
     + outOfScanReachClause(dead, scopedThere)
     + ownersCallClause(dead, {
       opening: 'A mistyped glob and a test convention',
@@ -391,7 +397,7 @@ export function divergentReadingClause(entries: GlobReach[]): string {
  * is a defect whichever is right, and the reader guessing is the cost.
  */
 export function unavailableGate(id: string, stack: GateStack): string | null {
-  const { framework, hasTypescript, testFiles, testReach } = stack;
+  const { framework, hasTypescript, testFiles } = stack;
 
   if (id === 'deepWatch' && framework === 'react') {
     return 'Vue only — never emits on React, whatever it declares';
@@ -405,22 +411,21 @@ export function unavailableGate(id: string, stack: GateStack): string | null {
   // `testFiles: []` is a real intent — tests inherit their layer's rules — and the
   // one this gate has no scope under, since `files: []` is refused by ESLint. Saying
   // so is the other half of dropping the entry (field run #150).
+  //
+  // The ONLY test-glob arm, and it mirrors ONE of `testFilenameEntry`'s two conditions.
+  // That guard is `!testFilename || !testGlobs.length`; the second disjunct is the one a
+  // stack fact can answer, and it is this. The first is the tier, which `declared` and
+  // `active` already carry on the row: measured, an undeclared `testFilename` over a dead
+  // net reads `· not declared` and `0/16` — no entry emitted, and the gate still in the
+  // denominator, because a gate nobody asked for is not a gate this stack cannot open.
+  //
+  // So every other net — dead, negated, pointing outside the scan — is emitted with the
+  // rule beside its `files` and fires wherever ESLint's own reading of it lands. What a
+  // dead entry costs is the exemption, not the gate, and the callers that print
+  // `unreachedTestGlobs` say so on a line of their own.
   if (id === 'testFilename' && Array.isArray(testFiles) && testFiles.length === 0) {
     return '`architecture.testFiles: []` exempts nothing, '
       + 'so there is no test file for this to name — declare test globs, or drop this gate';
-  }
-
-  // The same gate one cause further down: declaring globs is not reaching files, and a
-  // net whose every entry reaches nothing governs exactly as much as `files: []` does.
-  //
-  // EVERY, not any. A net that still reaches files through one of its globs does have
-  // test files for this to name, so the gate is open and saying otherwise would be
-  // false; the dead entry in it is reported without closing the gate, by the callers
-  // that print `unreachedTestGlobs` on their own line. An empty list reaches this arm
-  // as `[]` — every() holds and the sentence is null, which is the fall-through the
-  // undeclared and `[]` cases both want.
-  if (id === 'testFilename' && testReach?.every((entry) => entry.matched === 0)) {
-    return unreachedTestGlobs(testReach);
   }
 
   return null;
@@ -431,10 +436,9 @@ export function unavailableGate(id: string, stack: GateStack): string | null {
  * emitters have. `hasTypescript` is a fact about the dependency list, so they cannot
  * decide `explicitAny` and must not claim to: `true` here means "assume the stack can
  * carry it", which keeps that gate out of this verdict entirely. Framework and
- * `testFiles` are IN the blueprint, so the other two arms answer honestly. `testReach`
- * is the same restraint from the other side — it takes a scan, so no `testReach` is
- * passed and `unreachedTestGlobs` falls through rather than guessing; what these two
- * emit does not move when a runtime starts measuring it.
+ * `testFiles` are IN the blueprint, so the other two arms answer honestly — and nothing
+ * a scan measures reaches this verdict at all, so what these two emit does not move when
+ * a runtime walks the tree.
  *
  * It exists because the emitters had no filter at all: the agent contract listed a gate
  * among the ones that "fail the project's lint run" and the handbook table put `lint` in

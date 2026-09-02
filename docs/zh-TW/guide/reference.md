@@ -215,7 +215,7 @@ export default [
 - **`architecture.testFiles`** —— 豁免於結構規則與度量關卡的測試檔樣式（預設 `*.test.*` / `*.spec.*`）。<br>
   填 `[]` 代表不豁免任何檔 —— 測試檔跟著它那層的規則走 —— 同時也把 `testFilename` 這個關卡關掉：<br>
   那條規則的範圍就是這些測試檔樣式，空清單等於沒有檔可以讓它檢查。`blueprint rules` 會在該關卡旁邊講明。<br>
-  宣告了、卻對不上任何檔的 glob，結果落在同一個位置 ——<br>
+  宣告了、卻對不上任何檔的 glob，賠掉的是豁免、不是關卡 ——<br>
   這一輪讀到的檔案沒有一個因它而豁免，掃到的檔案一個也沒有被排除在分析之外。
 - **`architecture.layerFiles` / `layerFilesIgnore`** —— 框架預設樣式不適用時，逐層指定檔案樣式
 - **`architecture.naming`** —— 依概念設定的命名慣例（如 `{ hook: 'useX + reactivity' }`）—— 寫入手冊與守則

@@ -26,8 +26,9 @@ const withIgnore = (layerFilesIgnore: string[]): Blueprint => ({
 
 /**
  * The same preset with declared test globs and the one gate scoped to them — the axis
- * that moves doctor's optional-gate denominator, since `unavailableGate` drops
- * `testFilename` from it once every declared entry reaches nothing.
+ * that moves what doctor exempts. NOT the optional-gate denominator: `emitLint` emits
+ * `testFilename` over whatever these globs name, so a dead net moves the source count
+ * and leaves the gate count where it was.
  */
 const withTests = (testFiles: string[]): Blueprint => ({
   ...vuePreset(),
@@ -74,6 +75,18 @@ const movement = (from: string, against: string): string[][] => [
 /** The architecture check's detail — where the counts a reader acts on are printed. */
 const coverageDetail = (checks: DoctorCheck[]): string | undefined =>
   checks.find((check) => check.label.startsWith('architecture clean'))?.detail;
+
+/**
+ * The optional-gate count out of that detail, asserted present before it is returned:
+ * two runs that both printed no count compare equal and prove nothing.
+ */
+const gateCount = (checks: DoctorCheck[]): string => {
+  const found = /\d+\/\d+ optional gates active/.exec(coverageDetail(checks) ?? '');
+
+  expect(found).not.toBeNull();
+
+  return (found as RegExpExecArray)[0];
+};
 
 /**
  * The wired comparison's blueprint — hand-written, NOT the preset. `wiredEslintConfig`
@@ -619,12 +632,13 @@ describe('runDoctor · what the ignore note claims, and for which run', () => {
  * The `testFiles` half of the same question, in its own describe for the reason the
  * block above has one: the per-function line cap.
  */
-describe('runDoctor · the note behind the optional-gate count', () => {
-  it('names the dead test glob behind the optional-gate count it just dropped', async () => {
-    // Stage 2 put `testReach` in the `unavailableGate` call that filters `gates`, and
-    // `gates.length` is doctor's denominator — so a dead entry moved the number here
-    // while `inspect` moved the same number AND named the glob. `unavailableNote` says
-    // out loud that unavailable gates leave `doctor`'s count; doctor did not.
+describe('runDoctor · the note behind the counts it prints', () => {
+  it('moves the source count, names the glob, and holds the gate count', async () => {
+    // Two numbers ride the same line and a dead net moves exactly one of them. The
+    // exemption is gone, so the test file joins the source count — that is the number
+    // the glob has to be reachable from. The optional-gate denominator is NOT: the
+    // emitted config carries `testFilename` over these globs either way, and a
+    // denominator that moved here would report a gate this run ships as armed.
     adopted();
     write('src/components/Widget.ts', 'export const w = 1;');
     write('src/components/Widget.test.ts', 'export const t = 1;');
@@ -635,9 +649,10 @@ describe('runDoctor · the note behind the optional-gate count', () => {
     const red = await runDoctor(root, { loadConfig: deadTests, log: (m) => (broken = m) });
     const green = await runDoctor(root, { loadConfig: liveTests, log: (m) => (intact = m) });
 
-    // The counts still move — that is stage 2 working — and are now reachable from the
-    // same output, by the glob that moved them.
-    expect(coverageDetail(red.checks)).not.toBe(coverageDetail(green.checks));
+    expect(coverageDetail(red.checks)).toContain('2/2 source files inside layer nets');
+    expect(coverageDetail(green.checks)).toContain('1/1 source files inside layer nets');
+    expect(gateCount(red.checks)).toBe(gateCount(green.checks));
+
     expect(broken).toContain('`architecture.testFiles`');
     expect(broken).toContain('`**/*.test.{ts`');
     expect(intact).not.toContain('architecture.testFiles');

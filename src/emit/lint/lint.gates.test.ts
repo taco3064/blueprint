@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { defineBlueprint } from '../../config';
 import { emitLint } from './lint';
+import { resolveTestFiles, unavailableGate } from './patterns';
 
 const blueprint = defineBlueprint({
   framework: 'auto',
@@ -228,6 +229,47 @@ describe('emitLint · the files a gate is scoped to', () => {
       }
     }
   });
+
+  /**
+   * `unavailableGate`'s own doc comment: it exists for "mirroring what `emitLint`
+   * actually does rather than restating it". Restated, the two drifted — a net the scan
+   * could not reach was reported `declared, unavailable here` and dropped from the
+   * optional-gate denominator while this entry was in the emitted config, armed. So the
+   * mirror is asserted against `emitLint`'s real output rather than described.
+   *
+   * The declaration is the whole axis. Every shape below is a config an adopter can
+   * write, and the tree they write it against never enters either side.
+   */
+  it.each([
+    ['undefined', undefined, true],
+    ['a bare string', '**/*.mytest.js', true],
+    ['the built-in pair written out', resolveTestFiles(undefined), true],
+    ['a glob compiling to a literal brace', ['**/*.test.{ts'], true],
+    ['a net outside any source root', ['tests/**/*.ts'], true],
+    ['an entry beginning with a negation', ['!**/*.gen.ts'], true],
+    ['the empty list', [], false],
+  ] as [string, string | string[] | undefined, boolean][])(
+    'agrees with the emitted config on %s',
+    (_case, testFiles, emits) => {
+      const custom = defineBlueprint({
+        ...blueprint,
+        architecture: { ...blueprint.architecture, testFiles },
+        rules: { testFilename: 'error' },
+      });
+
+      const entry = emitLint(custom)
+        .find((item) => item.rules?.['blueprint/test-filename-matches-source']);
+
+      expect(entry !== undefined).toBe(emits);
+
+      // The mirror itself: one is null exactly when the other is emitted.
+      expect(unavailableGate('testFilename', {
+        framework: custom.framework,
+        hasTypescript: true,
+        testFiles,
+      }) === null).toBe(entry !== undefined);
+    },
+  );
 });
 
 describe('emitLint · the gates through a real Linter run', () => {
