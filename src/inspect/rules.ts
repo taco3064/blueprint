@@ -15,7 +15,7 @@ import {
   selfOnlyReexportSelector,
   resolveTestFiles,
 } from '../emit/lint/patterns';
-import type { GateSpec, TestGlobReach } from '../emit/lint/patterns';
+import type { GateSpec } from '../emit/lint/patterns';
 import {
   aliasLayerRoots,
   getForbiddenLayers,
@@ -85,7 +85,8 @@ export interface LayerBans {
   /**
    * The test-exemption globs the emitted entry carries alongside these bans. A
    * combined entry rebuilt from `selectors` alone drops them silently and starts
-   * reaching test files (field issue #60) — carry them wherever the selectors land.
+   * reaching the test files those globs reach (field issue #60) — carry them wherever
+   * the selectors land.
    */
   testExemptions: string[];
 }
@@ -270,7 +271,8 @@ function unavailableNote(gates: GateStatus[]): string {
  * where the reason sits on the gate it belongs to and nothing above them aggregates it.
  * Folded into the count sentence they needed a predicate to share, and the predicate was
  * `on this stack`: true of `explicitAny`, false of a `testFilename` closed by the
- * config's own globs, which is a fact about the config and not about the machine.
+ * config's own `testFiles: []`, which is a fact about the config and not about the
+ * machine.
  */
 function unavailableCauses(gates: GateStatus[]): string[] {
   return gates
@@ -281,7 +283,7 @@ function unavailableCauses(gates: GateStatus[]): string[] {
 function resolveGate(
   spec: GateSpec,
   blueprint: Blueprint | null,
-  stack: { hasTypescript: boolean; testReach?: TestGlobReach[] },
+  stack: { hasTypescript: boolean },
 ): GateStatus {
   const setting = blueprint?.rules?.[spec.id];
 
@@ -299,7 +301,6 @@ function resolveGate(
     framework: blueprint?.framework,
     hasTypescript: stack.hasTypescript,
     testFiles: blueprint?.architecture.testFiles,
-    testReach: stack.testReach,
   });
 
   return {
@@ -311,49 +312,35 @@ function resolveGate(
 }
 
 /**
- * The one thing this catalog reads off the tree, and it reads it for one gate.
- * `testFilename`'s scope IS the test globs, so whether it can be opened here is a fact
- * about what those globs reach — the same fact `inspect` counts its denominator from.
- * Answering it from the declaration instead is how the two outputs came to disagree
- * once already (field run #137); a scan is what makes them one answer, not two.
+ * The one thing this catalog reads off the tree, and it decides no gate row: what the
+ * declared globs reach is a fact about the exemption, and the gate a dead net still
+ * emits is armed over exactly those globs. So the measurement has one destination — a
+ * line of its own, the same sentence `inspect` and `deps` print.
  *
- * `testExemption` is the case the gate row cannot carry: a dead entry in a net that
- * still reaches files through another one. The row there is `✓`, and correctly —
- * `testFilename` does have test files to name — so without a line of its own the whole
- * catalog is byte-identical to the same repo with the entry spelled right. Where every
- * entry is dead the row IS the home, and printing it twice in one output is the drift
- * this exists to close.
+ * Unconditional over the dead entries, whether the net still reaches files through
+ * another of them or through none. Both states leave the row at `✓`, correctly, so
+ * without this line the whole catalog is byte-identical to the same repo with the entry
+ * spelled right — which is the wrong green stage 2 was written for, one predicate over.
  */
-function measureTestGlobs(
-  root: string,
-  blueprint: Blueprint | null,
-): { testReach?: TestGlobReach[]; testExemption: string | null } {
+function measureTestGlobs(root: string, blueprint: Blueprint | null): string | null {
   if (!blueprint) {
-    return { testExemption: null };
+    return null;
   }
 
   const declared = toArray(blueprint.architecture.testFiles);
 
   // `testFileReach` maps over the DECLARED globs, so with none declared its answer is
-  // `[]` whatever the tree holds — and `reactPreset` declares none, which puts every
-  // adopter on that shape through a full-tree walk this catalog then discards. The
-  // empty list rather than no measurement: that is the value the walk produced.
+  // `[]` whatever the tree holds — and `reactPreset` declares none, which would put every
+  // adopter on that shape through a full-tree walk with no sentence to show for it.
   if (!declared.length) {
-    return { testReach: [], testExemption: null };
+    return null;
   }
 
-  const testReach = testFileReach(
+  return unreachedTestGlobs(testFileReach(
     scan(root, blueprint.architecture.sourceRoot),
     declared,
     blueprint.architecture.sourceRoot,
-  );
-
-  return {
-    testReach,
-    testExemption: testReach.some((entry) => entry.matched > 0)
-      ? unreachedTestGlobs(testReach)
-      : null,
-  };
+  ));
 }
 
 /**
@@ -380,10 +367,10 @@ export async function runRules(
   const severity = blueprint?.emit?.lint?.severity ?? 'error';
   const structural = resolveStructural(blueprint);
 
-  const { testReach, testExemption } = measureTestGlobs(root, blueprint);
+  const testExemption = measureTestGlobs(root, blueprint);
 
   const gates = gateSpecs()
-    .map((spec) => resolveGate(spec, blueprint, { hasTypescript: state.hasTypescript, testReach }));
+    .map((spec) => resolveGate(spec, blueprint, { hasTypescript: state.hasTypescript }));
 
   const bans = blueprint ? layerBans(blueprint) : [];
 
@@ -413,7 +400,7 @@ export function renderRules(
     structural: StructuralStatus[];
     gates: GateStatus[];
     bans: LayerBans[];
-    /** Set only where no gate row carries it — see `runRules`. */
+    /** The dead declared test globs, as one sentence — see `measureTestGlobs`. */
     testExemption?: string | null;
   },
   hasConfig: boolean,

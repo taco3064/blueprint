@@ -82,10 +82,10 @@ export function testFileReach(
  * sibling for the other declared net this package compiles against a real tree.
  *
  * A sibling rather than one shared helper. `testFileReach` answers with a count per
- * entry because two callers do arithmetic on it — `unavailableGate`'s `every` and the
- * optional-gate denominator — and nothing counts these: an ignore entry is only ever
- * asked whether it holds anything out, so a shared shape would carry a number no
- * caller reads. What the two do share is the position on what a dead entry means, and
+ * entry because `unreachedTestGlobs` names the entries that reached nothing while the
+ * net around them may have reached plenty — and nothing counts these: an ignore entry is
+ * only ever asked whether it holds anything out, so a shared shape would carry a number
+ * no caller reads. What the two do share is the position on what a dead entry means, and
  * that stays one sentence rather than two.
  *
  * Two candidate sets, because `pickProbes` compiles the field against two. The scan
@@ -160,7 +160,7 @@ export function computeCoverage(
   const gates = LINT_GATED_RULE_IDS
     .filter((id) => unavailableGate(
       id,
-      { framework, hasTypescript, testFiles: architecture.testFiles, testReach },
+      { framework, hasTypescript, testFiles: architecture.testFiles },
     ) === null);
 
   const activeRules = gates.filter((id) => activeSetting(rules?.[id]) !== null).length;

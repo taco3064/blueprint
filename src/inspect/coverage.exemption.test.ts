@@ -1,9 +1,14 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { Linter } from 'eslint';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { unreachedTestGlobs } from '../emit/lint/patterns';
+// Test-only import of the full emit module, the route `doctor.report.test.ts` already
+// takes downward: the real-ESLint case needs emitLint's actual entries, not a paraphrase
+// of the shape they are believed to have.
+import { emitLint } from '../emit/lint';
+import { resolveTestFiles, unreachedTestGlobs } from '../emit/lint/patterns';
 import { runInspect } from './inspect';
 import { runRules } from './rules';
 import type { Blueprint } from '../config';
@@ -98,12 +103,12 @@ async function outputs(dir: string): Promise<{ rules: string; inspect: string; o
 /**
  * How many times the cause for one dead `glob` appears in an output.
  *
- * Built from the same function both surfaces print, so what this pins is the property
- * — the cause has ONE home in any given output — rather than a sentence a reword would
- * take out from under the count. Two surfaces can carry it, the gate row and the
- * catalog's own line, and which one does is decided by two predicates that can be
- * edited apart; no substring assertion can see the second copy, because `toContain`
- * reads the same at one copy and at two.
+ * Built from the same function the surface prints, so what this pins is the property —
+ * the cause has ONE home in any given output — rather than a sentence a reword would
+ * take out from under the count. The catalog's own line is that home, and a gate row
+ * that started carrying it too would print the same ~500-character sentence twice; no
+ * substring assertion can see the second copy, because `toContain` reads the same at
+ * one copy and at two.
  */
 function causeCount(output: string, glob: string): number {
   const cause = unreachedTestGlobs([{ glob, matched: 0 }]);
@@ -111,49 +116,65 @@ function causeCount(output: string, glob: string): number {
   return cause === null ? 0 : output.split(cause).length - 1;
 }
 
+/**
+ * The optional-gate count exactly as an agent reads it — asserted present before it is
+ * compared, because two runs that both printed no count compare equal and prove nothing.
+ * The count is the half a verdict line cannot carry: it is what `inspect` exits on and
+ * what an adopting agent acts on.
+ */
+function gateCount(output: string): string {
+  const found = /\d+\/\d+ optional gates active/.exec(output);
+
+  expect(found).not.toBeNull();
+
+  return (found as RegExpExecArray)[0];
+}
+
 describe('a testFiles net whose every entry reaches nothing · both runtimes', () => {
-  it.each(UNREACHING)('reports %s as declared-but-unavailable, count included', async (glob) => {
+  it.each(UNREACHING)('reports %s as an armed gate, count included', async (glob) => {
     const broken = await outputs(repo([glob], ORPHAN));
     const healthy = await outputs(repo(['**/*.test.ts'], ORPHAN));
 
     // The control first, or the assertions below prove nothing about this glob: a
     // working one is `✓ error` and counts itself in.
     expect(healthy.rules).toMatch(/✓ error\s+testFilename →/);
-    expect(healthy.inspect).toContain('1/16 optional gates active');
+    expect(gateCount(healthy.inspect)).toBe('1/16 optional gates active');
 
-    // The whole catalog, not a substring: at c7985d1 `rules` printed the healthy
-    // config's bytes exactly for a broken glob, so inequality here is an assertion a
-    // no-op cannot pass. The claim is scoped to `rules` on purpose — `inspect` already
-    // differed at c7985d1, because the unexempted test file lands in the source count,
-    // so the same assertion there passes without proving anything and the two
-    // `toContain`s below are what carry that half.
+    // `emitLint` writes `files: [glob]` with the rule here exactly as it does for the
+    // control: `testFilenameEntry`'s guard is `!testFilename || !testGlobs.length`, and
+    // neither disjunct fires — the tier is `error` and the list is not empty. So the
+    // gate is armed in both and the denominator cannot move.
+    expect(broken.rules).toMatch(/✓ error\s+testFilename →/);
+    expect(gateCount(broken.inspect)).toBe(gateCount(healthy.inspect));
+
+    // What the dead entry costs is the exemption, and the catalog still says so: the
+    // two are not byte-identical, which is the assertion a no-op cannot pass.
     expect(broken.rules).not.toBe(healthy.rules);
-
-    expect(broken.rules).toMatch(/· declared, unavailable here testFilename →/);
-    // The count moves WITH the verdict line. They come from different callers, and one
-    // moving alone leaves the two outputs contradicting each other again (field run #137).
-    expect(broken.inspect).toContain('0/15 optional gates active');
 
     // The glob has an address, so both outputs name it rather than describing it.
     expect(broken.rules).toContain(glob);
     expect(broken.inspect).toContain(glob);
 
-    // Once, not twice. All-dead is the case where the gate row IS the cause's home and
-    // the catalog's own line stands down; let both fire and the same ~400-character
-    // sentence prints on two consecutive lines with every assertion above still green.
+    // Once, not twice. The gate row carries no cause now, so the catalog's own line is
+    // this net's only home for it — let a second surface fire and the same ~500-character
+    // sentence prints twice with every assertion above still green.
     expect(causeCount(broken.rules, glob)).toBe(1);
   });
 
-  it('gives an empty list the same class of verdict, under its own cause', async () => {
+  it('closes the gate on an empty list, the testFiles shape emitLint drops', async () => {
     const empty = await outputs(repo([], ORPHAN));
+    const healthy = await outputs(repo(['**/*.test.ts'], ORPHAN));
 
+    // The other direction, and the one a repair that simply armed everything would
+    // fail: `files: []` is refused by ESLint, so `emitLint` emits no entry at all and
+    // the gate really is unopenable here.
     expect(empty.rules).toMatch(/· declared, unavailable here testFilename →/);
-    expect(empty.inspect).toContain('0/15 optional gates active');
+    expect(gateCount(empty.inspect)).toBe('0/15 optional gates active');
+    expect(gateCount(empty.inspect)).not.toBe(gateCount(healthy.inspect));
     expect(empty.rules).toContain('`architecture.testFiles: []` exempts nothing');
 
-    // Same class, different cause — `[]` is the author's own stated intent, so it
-    // keeps its own next step. "Declare test globs" is wrong advice for someone who
-    // did declare them, which is why the measured case has a sentence of its own.
+    // Its own cause, not the dead-net one — `[]` is the author's own stated intent, so
+    // "declare test globs" is the right next step here and wrong for someone who did.
     expect(empty.rules).not.toContain('no file here matches');
     expect(empty.inspect).not.toContain('no file here matches');
   });
@@ -166,16 +187,84 @@ describe('a testFiles net whose every entry reaches nothing · both runtimes', (
     const runway = await outputs(repo(['**/*.test.ts'], { 'src/pages/a.ts': SOURCE }));
 
     expect(runway.ok).toBe(true);
-    expect(runway.rules).toMatch(/· declared, unavailable here testFilename →/);
     expect(runway.inspect).toContain('no file here matches `**/*.test.ts`');
     expect(runway.inspect).toContain('the exemption arms itself when a file matches');
 
-    // And it does arm itself: the same config over a tree with one test file in it is
-    // silent, which is what makes the line above a fact about the tree, not the glob.
+    // And the gate above that sentence is armed, with the bridge between them in the
+    // sentence itself: nothing is exempt yet, and the rule is emitted over these globs
+    // all the same. Two truths with no bridge read as a contradiction.
+    expect(runway.rules).toMatch(/✓ error\s+testFilename →/);
+    expect(gateCount(runway.inspect)).toBe('1/16 optional gates active');
+    expect(runway.inspect).toContain('the `testFilename` entry\'s own `files`');
+
+    // And the exemption does arm itself: the same config over a tree with one test file
+    // in it is silent, which is what makes the line above a fact about the tree.
     const armed = await outputs(repo(['**/*.test.ts'], ORPHAN));
 
     expect(armed.rules).not.toContain('no file here matches');
     expect(armed.inspect).not.toContain('no file here matches');
+  });
+});
+
+/**
+ * The three nets a scan cannot answer for, each measured against the run that leaves the
+ * field undeclared. `emitLint` emits the same `testFilename` entry for both sides of
+ * every pair, so a count that differs is the tool reporting a gate it ships as armed.
+ */
+describe('a net the scan cannot speak for reads like the undeclared field', () => {
+  /** No test file of any spelling, so the built-in pair reaches nothing here either. */
+  const PROD = { 'src/pages/a.ts': SOURCE };
+
+  /** The tree the root-level net is measured in — `scan` never leaves `src`. */
+  const ROOTED = { ...PROD, 'tests/a.test.ts': SOURCE };
+
+  const DEFAULTS = ['**/*.test.{js,jsx,ts,tsx,vue}', '**/*.spec.{js,jsx,ts,tsx,vue}'];
+
+  it('writes out exactly what an undeclared field resolves to', () => {
+    // The third input is only that input while these two lists are one list: written by
+    // hand it has to be byte-for-byte what `resolveTestFiles` hands `emitLint` for an
+    // undeclared field, or the pair below differs by more than the declaration.
+    expect(DEFAULTS).toEqual(resolveTestFiles(undefined));
+  });
+
+  it.each([
+    ['an entry beginning with a negation', ['!**/*.gen.ts'], PROD],
+    ['a root-level tests/ net the scan never descends to', ['tests/**/*.ts'], ROOTED],
+    ['the resolved defaults written out explicitly', DEFAULTS, PROD],
+  ])('holds the count and the row steady on %s', async (_case, testFiles, files) => {
+    const declared = await outputs(repo(testFiles, files));
+    const implicit = await outputs(repo(undefined, files));
+
+    expect(declared.rules).toMatch(/✓ error\s+testFilename →/);
+    expect(gateCount(implicit.inspect)).toBe('1/16 optional gates active');
+    expect(gateCount(declared.inspect)).toBe(gateCount(implicit.inspect));
+  });
+
+  it('fires in real ESLint on the net it just reported armed', async () => {
+    // The claim the count makes, put through the linter rather than reasoned off the
+    // emitted shape. `tests/a.test.ts` is an orphan — no `tests/a.*` source beside it —
+    // and it sits outside `sourceRoot`, so blueprint's own scan never reads it.
+    const dir = repo(['tests/**/*.ts'], ROOTED);
+
+    const config = [
+      { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+      ...emitLint({
+        ...base,
+        architecture: { ...base.architecture, testFiles: ['tests/**/*.ts'] },
+      }),
+    ];
+
+    const ids = new Linter({ configType: 'flat', cwd: dir })
+      .verify(SOURCE, config, { filename: path.join(dir, 'tests', 'a.test.ts') })
+      .map((message) => message.ruleId);
+
+    expect(ids).toContain('blueprint/test-filename-matches-source');
+
+    // The same tree through the runtimes: armed there too, and counted in.
+    const armed = await outputs(dir);
+
+    expect(armed.rules).toMatch(/✓ error\s+testFilename →/);
+    expect(gateCount(armed.inspect)).toBe('1/16 optional gates active');
   });
 });
 
@@ -199,7 +288,7 @@ describe('one dead entry inside a net that still reaches files', () => {
     // would be false. The defect is one entry inside the net, and only a per-entry
     // measurement can name which.
     expect(broken.rules).toMatch(/✓ error\s+testFilename →/);
-    expect(broken.inspect).toContain('1/16 optional gates active');
+    expect(gateCount(broken.inspect)).toBe('1/16 optional gates active');
 
     // Which is why a union-level verdict is not enough on its own: at c7985d1 the
     // catalog was byte-identical to the same repo with the entry spelled right. (The
@@ -281,13 +370,14 @@ describe('a __tests__ convention — the reason architecture.testFiles exists', 
     const healthy = await outputs(repo(['**/__tests__/**/*.ts'], NESTED));
 
     expect(healthy.rules).toMatch(/✓ error\s+testFilename →/);
-    expect(healthy.inspect).toContain('1/16 optional gates active');
+    expect(gateCount(healthy.inspect)).toBe('1/16 optional gates active');
 
     // Byte-identical catalogs at c7985d1 — two repos whose only difference is one
-    // character in a glob, reporting the same healthy gate.
+    // character in a glob, with nothing said about the exemption either lost. The gate
+    // itself is armed in both: `emitLint` emits it over whatever the globs name.
     expect(broken.rules).not.toBe(healthy.rules);
-    expect(broken.rules).toMatch(/· declared, unavailable here testFilename →/);
-    expect(broken.inspect).toContain('0/15 optional gates active');
+    expect(broken.rules).toMatch(/✓ error\s+testFilename →/);
+    expect(gateCount(broken.inspect)).toBe(gateCount(healthy.inspect));
     expect(broken.inspect).toContain('`**/__tests__/**/*.{ts`');
   });
 

@@ -264,10 +264,9 @@ export async function runDoctor(
   // them, then the closing step.
   const notes = [
     unreachedIgnoreNote(scanResult, blueprint, probed),
-    // `inspect`'s sentence, not a second one written here. `unavailableNote` already
-    // commits the tool to saying that an unavailable gate leaves DOCTOR's optional-gate
-    // count, and doctor was the surface that did not say it: a dead `testFiles` glob
-    // dropped `testFilename` out of the count and named nothing.
+    // `inspect`'s sentence, not a second one written here. A dead `testFiles` glob moves
+    // the source count above — the files it stopped exempting land in it — and this line
+    // is the only place in doctor's output that glob has an address.
     coverage.testExemption,
     uncommittedNote(root),
   ].filter((note) => note !== undefined);

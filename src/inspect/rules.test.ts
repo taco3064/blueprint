@@ -241,32 +241,27 @@ describe('runRules · gates the stack cannot open', () => {
     expect(output).toContain('18 listed — 3 of them unavailable here');
   });
 
-  it('keeps testFilename available when a declared glob reaches a test file', async () => {
+  it('keeps testFilename available for a declared net, reached or not', async () => {
     // The `[]` arm is `testFiles.length === 0`, and `&& true` in its place survived —
     // every array would have marked the gate unavailable, including the ordinary case
-    // of a project that simply names its own test pattern. What separates the two is
-    // now measured rather than counted, so the fixture carries a file for the glob to
-    // reach: without one this gate is unavailable for the other reason, and the
-    // survivor walks back in.
+    // of a project that simply names its own test pattern. The fixture carries NO file
+    // for the glob to reach, deliberately: `emitLint` writes this net into the gate's
+    // `files` whatever the tree holds, so a predicate keyed on reach would close a gate
+    // the emitted config has armed, and a fixture file would hide exactly that.
     const named: Blueprint = {
       ...blueprint,
       architecture: { ...blueprint.architecture, testFiles: ['**/*.spec.ts'] },
       rules: { ...blueprint.rules, testFilename: 'error' },
     };
 
-    const dir = repo(named);
-
-    fs.mkdirSync(path.join(dir, 'src', 'components'), { recursive: true });
-    fs.writeFileSync(path.join(dir, 'src', 'components', 'a.spec.ts'), 'export const a = 1;\n');
-
-    const { gates } = await runRules(dir, { log: () => {} });
+    const { gates } = await runRules(repoWithSource(named), { log: () => {} });
 
     expect(gates.find((gate) => gate.id === 'testFilename')?.unavailable).toBeUndefined();
   });
 
   it('reads no layer folder when the config declares no test globs', async () => {
     // The scan feeds one thing here — a count per DECLARED glob — so a config that
-    // declares none buys a full-tree read whose answer is `[]` whatever the tree holds.
+    // declares none buys a full-tree read with no sentence to show for it.
     // `reactPreset` declares none, so that is the ordinary run of this command, and the
     // absence is what has to be asserted: the output cannot tell the two apart.
     const dir = repo(blueprint);
@@ -286,9 +281,8 @@ describe('runRules · gates the stack cannot open', () => {
     expect(read).toContain(path.join(dir, 'src'));
     expect(read).not.toContain(path.join(dir, 'src', 'components'));
 
-    // The row the discarded measurement fed. Skipping the walk must hand `unavailableGate`
-    // the `[]` it would have computed, not an absent measurement, or the gate this repo
-    // ships open closes on the shape every preset has.
+    // And skipping the walk costs the output nothing: an undeclared field has no dead
+    // entry to name, and the gate this repo ships open stays open.
     expect(gates.find((gate) => gate.id === 'testFilename')?.unavailable).toBeUndefined();
   });
 
@@ -316,11 +310,10 @@ describe('runRules · gates the stack cannot open', () => {
 
 describe('runRules · the dead test glob measured against the declared root', () => {
   it('classifies it against the DECLARED sourceRoot, not the default one', async () => {
-    // The third runtime carrying `sourceRoot` into `testFileReach`, and the one whose
-    // sentence arrives through `unavailableGate` rather than a note of its own. Read at
-    // `src` this glob leaves the root; read at `app` it is inside and the extension is
-    // the disqualifier — so a hardcoded `'src'` on this path turns the row's reason into
-    // a different sentence, and the repo would hold two answers for one glob.
+    // The third runtime carrying `sourceRoot` into `testFileReach`. Read at `src` this
+    // glob leaves the root; read at `app` it is inside and the extension is the
+    // disqualifier — so a hardcoded `'src'` on this path turns the catalog's note into a
+    // different sentence, and the repo would hold two answers for one glob.
     const dir = repo({
       ...blueprint,
       architecture: { ...blueprint.architecture, sourceRoot: 'app', testFiles: ['app/**/*.css'] },
@@ -344,8 +337,8 @@ describe('runRules · the dead test glob measured against the declared root', ()
     // The case above moves `sourceRoot` through the CLASSIFIER only: its glob is dead
     // under either root, so nothing it prints can see which root the WALK was handed.
     // This net reaches a file at `app` and nothing at the default, so a walk that reads
-    // the default finds an empty tree, `every` entry matches 0, and the gate closes with
-    // the sentence for a dead net — a working config reported as one an adopter must fix.
+    // the default finds an empty tree, every entry matches 0, and the catalog prints the
+    // dead-net sentence — a working config reported as one an adopter must fix.
     const dir = repo({
       ...blueprint,
       architecture: {
@@ -370,22 +363,26 @@ describe('runRules · the dead test glob measured against the declared root', ()
     expect(gate?.unavailable).toBeUndefined();
     expect(gate?.active).toBe(true);
 
-    // And the row an adopter reads says so, rather than the marker a dead net earns.
+    // And the row an adopter reads says so.
     expect(lines.join('\n')).toMatch(/✓ error\s+testFilename/);
-    expect(lines.join('\n')).not.toContain('declared, unavailable here testFilename');
+
+    // The load-bearing half now that the row is `✓` under either root: the note is what
+    // the walk's root reaches, so a walk handed `src` prints a dead net for a net that
+    // is not dead. Without this the whole case passes on a hardcoded default.
+    expect(lines.join('\n')).not.toContain('no file here matches');
   });
 
   it('gives each unavailable gate its own cause, saying what `--json` says', async () => {
     // Two gates out for two different KINDS of reason: `explicitAny` because the
     // dependency list carries no typescript, `testFilename` because this config's own
-    // globs reach nothing — which is a fact about the config, not about the machine.
-    // Any one predicate over the pair is false for one of them, so the count line
-    // carries none and each cause sits on the gate it belongs to, which is the shape
-    // `--json` has had all along.
+    // net is empty and `files: []` is refused by ESLint — which is a fact about the
+    // config, not about the machine. Any one predicate over the pair is false for one
+    // of them, so the count line carries none and each cause sits on the gate it
+    // belongs to, which is the shape `--json` has had all along.
     const dir = repoWithSource({
       ...blueprint,
       framework: 'vue',
-      architecture: { ...blueprint.architecture, testFiles: ['scripts/**'] },
+      architecture: { ...blueprint.architecture, testFiles: [] },
       rules: { ...blueprint.rules, testFilename: 'error', explicitAny: 'error' },
     });
 

@@ -9,6 +9,7 @@ import {
   derivePackageRules,
   deriveGlobalRules,
   resolveLayerFiles,
+  resolveTestFiles,
   selfOnlyReexportSelector,
   toArray,
   unavailableGate,
@@ -384,23 +385,12 @@ describe('unreachedTestGlobs — every declared entry measured against the tree'
     expect(unreachedTestGlobs([{ glob: '**/*.test.{ts', matched: 0 }]))
       .toBe('`architecture.testFiles` — no file here matches `**/*.test.{ts`, so nothing '
         + 'this run read is exempt through that part of the net: no scanned file is dropped '
-        + 'from the analysis. A mistyped glob and a test convention whose files '
+        + 'from the analysis. That is this scan\'s reach, not a verdict on the entry — '
+        + '`emit/lint` writes these globs into the `testFilename` entry\'s own `files` too, '
+        + 'so where that gate is on it is emitted all the same and governs whatever they '
+        + 'do match. A mistyped glob and a test convention whose files '
         + 'have not landed look identical from here — fix the glob, or leave it and the '
         + 'exemption arms itself when a file matches; which one applies is the owner\'s call');
-  });
-
-  it('says what the emitted config does with an unreachable entry, not that it applies', () => {
-    // The consequence `layerFilesIgnore` prints is true of an `ignores` carrying no
-    // `files` — a repo-wide one, which still applies wherever it matches. Every
-    // `ignores` the test globs ride sits beside a `files`, so the same tail here would
-    // claim a reach the emitted config does not give the entry either.
-    const said = unreachedTestGlobs([
-      { glob: 'scripts/**', matched: 0, unreached: 'outside the source root `src`' },
-    ]) as string;
-
-    expect(said).toContain('scoped rather than repo-wide');
-    expect(said).toContain('sits beside a `files`');
-    expect(said).not.toContain('still applies it wherever it does match');
   });
 
   it('neither classifies nor hands back an entry beginning with a negation', () => {
@@ -466,44 +456,76 @@ describe('unreachedTestGlobs — every declared entry measured against the tree'
   });
 });
 
-describe('unavailableGate · testFilename against a measured net', () => {
-  const stack = { framework: 'react', hasTypescript: true, testFiles: ['**/*.test.{ts'] };
+/**
+ * The two roles `emit/lint` gives these globs, and the consequence each one carries. Its
+ * own block because the half above it is a different question — which CLASS a dead entry
+ * is in — and the per-function line cap is what the split answers to.
+ */
+describe('unreachedTestGlobs · what the emitted config still does with a dead entry', () => {
+  it('accounts for BOTH roles the emitted config gives these globs', () => {
+    // `emit/lint` puts `testFiles` in two places, and a note naming only one of them
+    // contradicts the gate row beside it: that row reports `testFilename` armed — the
+    // entry is emitted whatever these globs reach — while the sentence would explain
+    // only why nothing is exempt.
+    const said = unreachedTestGlobs([
+      { glob: 'scripts/**', matched: 0, unreached: 'outside the source root `src`' },
+    ]) as string;
 
-  it('closes the gate when every declared entry reaches nothing', () => {
-    // One function, two readers — the catalog's verdict line and inspect's footer
-    // cannot phrase this two ways.
-    const reach = [{ glob: '**/*.test.{ts', matched: 0 }];
+    // The `files` role: the gate's own scope IS this net.
+    expect(said).toContain('the `testFilename` entry\'s own `files`');
+    expect(said).toContain('governs whatever they do match');
 
-    expect(unavailableGate('testFilename', { ...stack, testReach: reach }))
-      .toBe(unreachedTestGlobs(reach));
+    // The `ignores` role, which is this field's own consequence and not its sibling's.
+    // `layerFilesIgnore` is copied into an `ignores` carrying no `files` — repo-wide,
+    // and the tail that says so would claim a reach these globs do not get there.
+    expect(said).toContain('scoped rather than repo-wide');
+    expect(said).toContain('sits beside a `files`');
+    expect(said).not.toContain('still applies it wherever it does match');
   });
 
-  it('leaves the gate open when the net still reaches a file', () => {
-    // EVERY, not any: `.test.ts` files are exempt and `testFilename` does name them,
-    // so calling the gate unavailable here would be false. The dead entry is reported
-    // by `runRules` on its own line instead.
-    expect(unavailableGate('testFilename', {
-      ...stack,
-      testFiles: ['**/*.test.ts', '**/*.spec.{ts'],
-      testReach: [
-        { glob: '**/*.test.ts', matched: 4 },
-        { glob: '**/*.spec.{ts', matched: 0 },
-      ],
-    })).toBeNull();
+  it('carries the `files` role on every class, not only the ones it can classify', () => {
+    // The bridge is unconditional because the gate is: a hand-back and a decline emit
+    // the same entry a classified one does. Hung off `outOfScanReachClause` instead, the
+    // commonest dead glob of all — a typo inside the source root — would print the gate
+    // as armed with nothing beside it saying why.
+    for (const dead of [
+      [{ glob: '**/*.test.{ts', matched: 0 }],
+      [{ glob: '!**/*.gen.ts', matched: 0 }],
+    ]) {
+      expect(unreachedTestGlobs(dead)).toContain('governs whatever they do match');
+      expect(unreachedTestGlobs(dead)).not.toContain('Measured:');
+    }
+  });
+});
+
+describe('unavailableGate · testFilename against the declaration', () => {
+  const stack = { framework: 'react', hasTypescript: true };
+
+  // Every shape that is NOT the empty list, including the three the scan cannot speak
+  // for: a `{` with no `}`, a net pointing outside the source root, a leading `!`, and
+  // the built-in pair written out by hand. With the gate declared, `emitLint` emits the
+  // rule beside its `files` for all of them, so a verdict here would be a claim about
+  // the tree wearing the clothes of a claim about the config.
+  it.each([
+    ['a glob that compiles to a literal brace', ['**/*.test.{ts']],
+    ['a net outside the source root', ['tests/**/*.ts']],
+    ['an entry this scan and ESLint read differently', ['!**/*.gen.ts']],
+    ['the resolved defaults written out', resolveTestFiles(undefined)],
+    ['one glob as a bare string', '**/*.mytest.js'],
+  ] as [string, string | string[]][])('leaves the gate open for %s', (_case, testFiles) => {
+    expect(unavailableGate('testFilename', { ...stack, testFiles })).toBeNull();
   });
 
-  it('says nothing without a measurement, and nothing for any other gate', () => {
-    // No measurement, no claim — which is exactly what the emitters pass.
-    expect(unavailableGate('testFilename', stack)).toBeNull();
+  it('closes it on the empty list — the testFiles shape emitLint drops', () => {
+    expect(unavailableGate('testFilename', { ...stack, testFiles: [] }))
+      .toContain('`architecture.testFiles: []` exempts nothing');
+  });
 
-    // An empty measurement is the undeclared case, not a broken one.
-    expect(unavailableGate('testFilename', { ...stack, testFiles: undefined, testReach: [] }))
-      .toBeNull();
+  it('says nothing for an undeclared field, and nothing for any other gate', () => {
+    expect(unavailableGate('testFilename', { ...stack, testFiles: undefined })).toBeNull();
 
-    // And it is scoped to this gate: nothing else keys on the test globs.
-    expect(unavailableGate('maxLines', {
-      ...stack,
-      testReach: [{ glob: '**/*.test.{ts', matched: 0 }],
-    })).toBeNull();
+    // Scoped to this gate: nothing else keys on the test globs, in either direction.
+    expect(unavailableGate('maxLines', { ...stack, testFiles: [] })).toBeNull();
+    expect(unavailableGate('maxLines', { ...stack, testFiles: ['**/*.test.{ts'] })).toBeNull();
   });
 });
