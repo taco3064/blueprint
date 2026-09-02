@@ -54,15 +54,16 @@ there that matches nothing still surfaces only as the existing vacuous-enforceme
   compiled, not rejected.
 - **What moves on `--json`.** `doctor --json`'s existing `note` key is newline-joined and can
   now carry up to three sentences where it previously carried one — the `layerFilesIgnore`
-  note, the `testFiles` note, and the pre-existing version-control note. `deps --json` and
-  `rules --json` gain a conditional top-level `testExemption` key, and `inspect --json` gains
-  it inside `coverage`. **Which of the two places carries it depends on the config, and the
-  split is not the obvious one.** For **any** dead declared glob — one of several or all of
-  them — the cause is the **top-level `testExemption`**, and the gate stays `active: true`,
-  because the rule is still emitted. For **`testFiles: []`** it is the other way round: the
-  cause rides `gates[]`'s `testFilename` element under `unavailable`, `active: false`, and
-  there is no top-level key — because that is the one config `emitLint` emits nothing for.
-  **A consumer reading one place and not the other will miss a case.**
+  note, the `testFiles` note, and the pre-existing version-control note. `deps --json` gains a
+  conditional top-level `testExemption` key and `inspect --json` gains it inside `coverage`;
+  **each of those two has exactly one place, and uses it for every unhealthy `testFiles`,
+  `[]` included.** Neither has a `gates` array.
+- **`rules --json` is the one command with two places, and the config picks.** Any dead
+  declared glob — one of several, or all of them — puts the cause in the **top-level
+  `testExemption`**, with the gate still `active: true` because the rule is emitted. **Only
+  `testFiles: []`** puts it on the `gates` element whose `id` is `testFilename`, under
+  `unavailable`, `active: false` — because that is the one config `emitLint` emits nothing
+  for. **A consumer reading one place and not the other will miss that case.**
 - **The exemption guarantee now states its condition everywhere it is asserted.** Every
   surface that said test files are exempt said it flat; the guarantee only ever held as far
   as the declared globs reach. `inspect --help`, `deps --help`, `blueprint rules`,
@@ -71,19 +72,20 @@ there that matches nothing still surfaces only as the existing vacuous-enforceme
   published pages carry the same sentence** — `reference.md`, `deps.md` and `ai-adoption.md`,
   in both locales.
 - **Two emitted documents change, so an `init` re-run rewrites them.** The full agent
-  contract (`.cursor/rules/blueprint.mdc`, `.windsurf/rules/blueprint.md`) gains one line;
-  the authoring playbook gains six. **Both are one-for-one line replacements** — the line
-  count is unchanged in every conditional combination, and no neighbouring line moves. The
-  compact contract (`CLAUDE.md` / `AGENTS.md`) is **byte-identical**: it carries no exemption
-  claim to qualify. If you have committed a generated contract, expect that diff and nothing
-  else.
-- **`blueprint rules` moves its unavailability causes onto their own lines.** The header
-  counted them and then carried every cause inside one parenthetical, attributed to *"this
-  stack"* — which is true of a gate the stack cannot open and false of one the config's own
-  globs closed. The count stays in the header; each cause now sits on the gate it belongs
-  to, matching what `rules --json` already reported. **The JSON's shape does not move** —
-  same top-level keys, cause still on its gate object. **One cause string does change**,
-  because it is the `testFiles` sentence this release rewrote.
+  contract (`.cursor/rules/blueprint.mdc`, `.windsurf/rules/blueprint.md`) and the authoring
+  playbook are edited in place: **one line replaced in the contract, seven in the playbook**,
+  and the line count is unchanged in every conditional combination — nothing is added and no
+  neighbouring line moves. The compact contract (`CLAUDE.md` / `AGENTS.md`) is
+  **byte-identical**: it carries no exemption claim to qualify. **Measured against 3.1.0
+  rather than against this branch's base, the playbook shows more** — the extra lines belong
+  to the other changesets shipping in the same release.
+- **`blueprint rules` moves its unavailability causes out of the header.** The header counted
+  them and then carried every cause inside one parenthetical, attributed to *"this stack"* —
+  true of a gate the stack cannot open, false of one the config's own globs closed. The count
+  stays in the header, and each cause now gets **its own line, prefixed with the gate id**, in
+  a block between the count and the listing — **not on the gate's own row**, which still
+  carries only its verdict. **No cause string changed**: all three are byte-identical to
+  3.1.0, and what moved is the header's predicate and the layout.
 - **No balanced glob moved.** Everything that compiled before compiles to the byte-identical
   pattern. Two brace shapes are still wrong and are deliberately left alone: nested braces
   (`{a,{b,c}}`), and a `{` whose closing `}` belongs to a *later* group
