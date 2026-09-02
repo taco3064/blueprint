@@ -4,6 +4,7 @@ import type { Blueprint } from '../config';
 // exports lint.ts, which loads the plugin, which shares resolve logic with
 // inspect; routing through the index would close a module cycle.
 import {
+  emptyTestGlobs,
   LINT_GATED_RULE_IDS,
   resolveLayerFiles,
   toArray,
@@ -37,10 +38,11 @@ export interface Coverage {
   /** Total rule ids a machine can gate (see `LINT_GATED_RULE_IDS`). */
   gatedRules: number;
   /**
-   * Which declared `testFiles` entries reach no file here — absent when every one of
-   * them reaches something, which is the ordinary case. It rides on the coverage
-   * report because the run that prints findings against test files is the one that
-   * has to say why those files stopped being exempt.
+   * Why the declared test exemption reaches nothing here — which entries reach no file,
+   * or that the net was declared empty — absent when it reaches something, which is the
+   * ordinary case. It rides on the coverage report because the run that prints findings
+   * against test files is the one that has to say why those files stopped being exempt,
+   * and the empty net is the shape that also moves `gatedRules` two fields up.
    */
   testExemption?: string;
 }
@@ -164,7 +166,13 @@ export function computeCoverage(
     ) === null);
 
   const activeRules = gates.filter((id) => activeSetting(rules?.[id]) !== null).length;
-  const testExemption = unreachedTestGlobs(testReach);
+
+  // The two sentences about one field, taken where the count that moves with them is
+  // taken: `unavailableGate` above has already dropped `testFilename` out of `gates` on
+  // an empty net, and the entry-naming sentence has no entry to name there. Here rather
+  // than at each reader, so the count and the reason it moved come off one measurement
+  // and cannot arrive at one surface without the other.
+  const testExemption = unreachedTestGlobs(testReach) ?? emptyTestGlobs(architecture.testFiles);
 
   return {
     sourceFiles: source.length,

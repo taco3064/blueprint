@@ -279,6 +279,30 @@ export function unreachedTestGlobs(reach: TestGlobReach[] | undefined): string |
 }
 
 /**
+ * Why a net declared EMPTY exempts nothing, as one sentence — null for every other shape
+ * of the field, an absent one included.
+ *
+ * `unreachedTestGlobs`' counterpart on the one input it cannot speak for. That sentence
+ * names the declared entries reaching no file, and `[]` declares none — so on the config
+ * whose gate `unavailableGate` drops out of the count for exactly this reason, it answers
+ * null. The verdict set and the sentence set are different sets, and every surface that
+ * reports the drop reads one or the other: both have to exist, or `[]` falls between them.
+ *
+ * The gate's own arm, exported, rather than a second sentence for the surfaces with no
+ * gate row to put it on — two phrasings of one fact is the contradiction an adopter meets
+ * before we do, and what an empty net needs doing about it does not change with the
+ * surface that asks.
+ */
+export function emptyTestGlobs(testFiles: string | string[] | undefined): string | null {
+  if (Array.isArray(testFiles) && testFiles.length === 0) {
+    return '`architecture.testFiles: []` exempts nothing, '
+      + 'so there is no test file for this to name — declare test globs, or drop this gate';
+  }
+
+  return null;
+}
+
+/**
  * One declared glob and what the scan's own reach settles about it. `unreached` carries
  * the reason it could never have matched here, and is absent when the glob text does not
  * settle it.
@@ -423,9 +447,8 @@ export function unavailableGate(id: string, stack: GateStack): string | null {
   // rule beside its `files` and fires wherever ESLint's own reading of it lands. What a
   // dead entry costs is the exemption, not the gate, and the callers that print
   // `unreachedTestGlobs` say so on a line of their own.
-  if (id === 'testFilename' && Array.isArray(testFiles) && testFiles.length === 0) {
-    return '`architecture.testFiles: []` exempts nothing, '
-      + 'so there is no test file for this to name — declare test globs, or drop this gate';
+  if (id === 'testFilename') {
+    return emptyTestGlobs(testFiles);
   }
 
   return null;

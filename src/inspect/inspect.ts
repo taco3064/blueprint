@@ -53,7 +53,7 @@ export async function runInspect(
   const baselineFile = path.join(root, BASELINE_FILE);
 
   if (options.updateBaseline) {
-    return lockBaseline(findings, baselineFile, log);
+    return lockBaseline(findings, baselineFile, { log, coverage });
   }
 
   if (options.baseline) {
@@ -77,8 +77,20 @@ export async function runInspect(
 function lockBaseline(
   findings: Finding[],
   baselineFile: string,
-  log: (message: string) => void,
+  ctx: { log: (message: string) => void; coverage: Coverage },
 ): { findings: Finding[]; ok: boolean } {
+  const { log, coverage } = ctx;
+
+  // Before the write, and the reason this path needed it most: the other two report a
+  // finding a reader can still investigate, while this one PERMANENTLY accepts it — so a
+  // finding that exists only because the exemption is broken is recorded as expected
+  // behaviour, by an agent that was never told why it was there. Same sentence, same
+  // marker, same measurement `inspect` and `--baseline` print; it is the passing of it
+  // that was missing, and the ledger below is untouched by having it.
+  if (coverage.testExemption !== undefined) {
+    log(`· ${coverage.testExemption}`);
+  }
+
   // Info findings are not debt — "not built yet" is nothing a ratchet should hold,
   // and recording them invites manufacturing debt just to have something to lock.
   const debt = findings.filter((finding) => finding.severity !== 'info');
