@@ -358,6 +358,80 @@ describe('unreachedTestGlobs — every declared entry measured against the tree'
     ])).toContain('`**/*.test.{ts`, `**/*.spec.{ts`');
   });
 
+  it.each([
+    ['scripts/**', 'outside the source root `src`'],
+    ['src/**/*.css', 'a file type this scan does not read (`.css`)'],
+    ['dist/**', 'a directory this scan never descends into (`dist`)'],
+  ])('states, for %s, the class the scan settles rather than handing it back', (glob, why) => {
+    // Criterion 18's three stating fixtures, on this field. `unreached` is filled in by
+    // `testFileReach`, because `emit/lint` sits below `inspect` and cannot ask.
+    const said = unreachedTestGlobs([{ glob, matched: 0, unreached: why }]) as string;
+
+    expect(said).toContain(`\`${glob}\` — ${why}`);
+    // Neither of the two it is NOT: handing this back asserts one of them is true.
+    expect(said).not.toContain('look identical from here');
+    expect(said).not.toContain('fix the glob');
+    expect(said).not.toContain('owner\'s call');
+  });
+
+  it('hands back the entry the scan could have reached, and says nothing extra', () => {
+    // Criterion 18's fourth fixture on this field, and the byte the sibling ruling
+    // turns on: with nothing settled, this sentence is what it has printed since stage
+    // 2 — no naming, no clause. `inspect` / `rules` / `deps` all print it verbatim.
+    expect(unreachedTestGlobs([{ glob: '**/*.test.{ts', matched: 0 }]))
+      .toBe('`architecture.testFiles` — no file here matches `**/*.test.{ts`, so nothing is '
+        + 'exempt through that part of the net: whatever it was meant to cover is inspected '
+        + 'and linted as ordinary source. A mistyped glob and a test convention whose files '
+        + 'have not landed look identical from here — fix the glob, or leave it and the '
+        + 'exemption arms itself when a file matches; which one applies is the owner\'s call');
+  });
+
+  it('neither classifies nor hands back an entry beginning with a negation', () => {
+    // `globToRegExp` has no `!` branch, so this side measures a directory literally named
+    // `!src` and `outsideScanReach` answers for it — correctly, on blueprint's reading.
+    // ESLint reads a leading `!` in a config glob as a negation, so that reading is not
+    // the adopter's. Both other shapes assert something unavailable here: the
+    // classification speaks for what the linter will do, the hand-back for a typo or
+    // unlanded files. `unreached` is supplied to prove the decline outranks it.
+    const said = unreachedTestGlobs([
+      { glob: '!src/**/*.css', matched: 0, unreached: 'outside the source root `src`' },
+    ]) as string;
+
+    expect(said).toContain('`!src/**/*.css`');
+    expect(said).toContain('not read the same way on both sides');
+    expect(said).toContain('neither classifies it nor hands it back');
+
+    expect(said).not.toContain('Measured:');
+    expect(said).not.toContain('look identical from here');
+    expect(said).not.toContain('fix the glob');
+  });
+
+  it('keeps a negated entry out of both clauses while a sibling still gets one', () => {
+    // The mixed net: the decline must not swallow the entry beside it, and that entry
+    // must not drag the negated one into a verdict.
+    const said = unreachedTestGlobs([
+      { glob: '!src/**/*.css', matched: 0, unreached: 'outside the source root `src`' },
+      { glob: 'src/**/*.gen.ts', matched: 0 },
+    ]) as string;
+
+    expect(said).toContain('which leaves `src/**/*.gen.ts` undecided');
+    expect(said).toContain('neither classifies it nor hands it back: `!src/**/*.css`');
+    expect(said).not.toContain('Measured:');
+  });
+
+  it('splits a net holding both, and names the undecided half only then', () => {
+    // The second listing earns its place only once the entries have been split — with
+    // one class the opening clause already lists every dead entry.
+    const said = unreachedTestGlobs([
+      { glob: 'scripts/**', matched: 0, unreached: 'outside the source root `src`' },
+      { glob: '**/*.test.{ts', matched: 0 },
+    ]) as string;
+
+    expect(said).toContain('Measured: `scripts/**` — outside the source root `src`.');
+    expect(said).toContain('which leaves `**/*.test.{ts` undecided');
+    expect(said).toContain('owner\'s call');
+  });
+
   it('says nothing when there is no declaration to be wrong about', () => {
     // The list is built from the DECLARED globs, so an absent field and `[]` both
     // arrive here as no entries. `[]` has its own arm in `unavailableGate`.

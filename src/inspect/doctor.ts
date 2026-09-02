@@ -2,6 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
+// The patterns leaf, not the emit/lint index — the index also exports lint.ts, whose
+// plugin shares resolve logic with inspect, closing a module cycle. Reached DOWN for,
+// because the three clauses are also what `unreachedTestGlobs` prints, and `emit/lint`
+// sits below this module so it cannot reach up here to borrow them.
+import {
+  divergentReadingClause,
+  outOfScanReachClause,
+  undecidableClause,
+} from '../emit/lint/patterns';
 import {
   AUTHORING_FILE,
   COMMAND_FILE,
@@ -25,7 +34,7 @@ import {
 } from './coverage';
 import type { Coverage } from './coverage';
 import { hasErrors } from './report';
-import { scan } from './scan';
+import { outsideScanReach, scan } from './scan';
 import type { DoctorCheck, Finding } from './types';
 import { wiringCheck } from './wiring';
 
@@ -459,13 +468,23 @@ function uncommittedNote(root: string): string | undefined {
  * build that passes today — and a check that is always green would push the count every
  * conformance fixture states.
  *
- * One sentence for both states the entry can be in, which is the position
- * `unreachedTestGlobs` already settled for `testFiles`: nothing in the tree separates a
- * mistyped glob from a convention whose files have not landed, the measurement is the
- * same and only intent differs, and intent has no address. So it says what is true
- * either way, names both resolutions and ends in the owner's call. Not "runway", which
- * `missing-layer` and `owns-not-installed` can promise because a declaration ahead of
- * the code arms itself when the code lands — a mistyped glob never arms.
+ * Three states, and `outsideScanReach` separates one of them from the tree: an entry
+ * outside `sourceRoot`, inside a directory the walk never descends into, or at a file
+ * type it does not read, is unreached HERE by where it points, whatever the tree holds.
+ * The other two it cannot separate and does not try: a mistyped glob and a convention
+ * whose files have not landed measure identically, only intent differs, and intent has
+ * no address — the position `unreachedTestGlobs` settled for `testFiles`. So that half
+ * says what is true either way, names both resolutions and ends in the owner's call.
+ * Not "runway", which `missing-layer` and `owns-not-installed` can promise because a
+ * declaration ahead of the code arms itself when the code lands — a mistyped glob never
+ * arms. Guessing which of those two it is would trade a hand-back for a fabrication;
+ * handing back the FIRST one asserts that one of two things is true while a third is,
+ * which is the same trade the other way round.
+ *
+ * Both clauses come from `emit/lint/patterns`, which is also where `unreachedTestGlobs`
+ * reads them. One question — is this entry reachable here? — gets one text, on the field
+ * that holds files out and on the field that exempts them; the consequence of being dead
+ * still differs per field and stays above.
  *
  * `probed` gates the clause that speaks for the merge-survival check. Ungated, that
  * clause reports what a check that never ran did with the entry, in the same output
@@ -483,6 +502,18 @@ function unreachedIgnoreNote(
   if (!dead.length) {
     return undefined;
   }
+
+  const { sourceRoot } = blueprint.architecture;
+  const reach = dead.map((glob) => ({ glob, unreached: outsideScanReach(glob, sourceRoot) }));
+
+  // The shared clauses carry no closing period: `deps` appends to the sibling sentence,
+  // so they cannot end one. This note is a line of its own and closes here.
+  const tail = outOfScanReachClause(reach)
+    + undecidableClause(reach, {
+      opening: 'Inside the scanned tree a mistyped glob and a convention',
+      noun: 'exclusion',
+    })
+    + divergentReadingClause(reach);
 
   // Narrower than `unreachedTestGlobs`' consequence clause, because the field is:
   // `testFiles` scopes both the analysis and the emitted lint entries, while a healthy
@@ -503,13 +534,8 @@ function unreachedIgnoreNote(
       : '')
     + '. That is this scan\'s reach, not a verdict on the entry — `emit/lint` copies it '
     + 'into ESLint\'s `ignores` verbatim, and an entry carrying no `files` beside it is a '
-    + 'repo-wide ignore there, so one naming a path outside `architecture.sourceRoot`, or '
-    + 'a file type this scan does not read, holds its files out of the lint run it is '
-    + 'emitted into and is unreached only here. Check which of the two it is before '
-    + 'editing: for an entry that does '
-    + 'point inside the scanned tree, a mistyped glob and a convention whose files have '
-    + 'not landed look identical from here — fix the glob, or leave it and the exclusion '
-    + 'arms itself when a file matches; which one applies is the owner\'s call.';
+    + 'repo-wide ignore there'
+    + `${tail}.`;
 }
 
 /**

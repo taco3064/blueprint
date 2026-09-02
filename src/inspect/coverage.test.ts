@@ -230,7 +230,7 @@ describe('testFileReach — the measurement, per declared entry', () => {
   it('counts each declared glob separately, live entries included', () => {
     // The union of these two reaches two files and looks healthy; the second entry
     // reaches none. One total cannot hold both facts, so there is no total.
-    expect(testFileReach(tree, ['**/*.test.ts', '**/*.spec.{ts'])).toEqual([
+    expect(testFileReach(tree, ['**/*.test.ts', '**/*.spec.{ts'], 'src')).toEqual([
       { glob: '**/*.test.ts', matched: 1 },
       { glob: '**/*.spec.{ts', matched: 0 },
     ]);
@@ -240,10 +240,34 @@ describe('testFileReach — the measurement, per declared entry', () => {
     // An absent field and `[]` are the same thing here: nothing declared is nothing
     // to measure, so no entry can be reported dead. Substituting the default pair
     // would make every testless repo look like a broken config.
-    expect(testFileReach(tree, undefined)).toEqual([]);
-    expect(testFileReach(tree, [])).toEqual([]);
+    expect(testFileReach(tree, undefined, 'src')).toEqual([]);
+    expect(testFileReach(tree, [], 'src')).toEqual([]);
+
     // A bare string is one entry, not a spread of characters.
-    expect(testFileReach(tree, '**/*.spec.ts')).toEqual([{ glob: '**/*.spec.ts', matched: 1 }]);
+    expect(testFileReach(tree, '**/*.spec.ts', 'src'))
+      .toEqual([{ glob: '**/*.spec.ts', matched: 1 }]);
+  });
+
+  it('carries the reach verdict for the sibling field, and only when there is one', () => {
+    // The channel `unreachedTestGlobs` reads: `emit/lint` sits below `inspect` and
+    // cannot ask `outsideScanReach` itself, so the answer rides on the measurement.
+    // Absent rather than null for a glob it could not settle — a reader comparing
+    // objects compares a measurement, not an absence.
+    expect(testFileReach(tree, ['scripts/**'], 'src')).toEqual([
+      { glob: 'scripts/**', matched: 0, unreached: 'outside the source root `src`' },
+    ]);
+
+    // A glob the walk COULD have reached carries no verdict either — the key appearing
+    // here is what turns the sibling's hand-back into a statement, so an over-eager
+    // classifier is caught at the measurement rather than in the prose.
+    expect(testFileReach(tree, ['src/**/*.gen.ts'], 'src')).toEqual([
+      { glob: 'src/**/*.gen.ts', matched: 0 },
+    ]);
+
+    // The same glob under a root that does contain it: no verdict, and the key is gone.
+    expect(testFileReach(tree, ['scripts/**'], '.')).toEqual([
+      { glob: 'scripts/**', matched: 0 },
+    ]);
   });
 });
 

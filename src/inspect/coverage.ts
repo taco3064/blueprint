@@ -12,6 +12,7 @@ import {
 } from '../emit/lint/patterns';
 import type { TestGlobReach } from '../emit/lint/patterns';
 import { dropTestFiles, globToRegExp, isTestFile } from './filter';
+import { outsideScanReach } from './scan';
 import type { ScanResult } from './types';
 import { syntheticProbePaths } from './wiring';
 
@@ -52,17 +53,26 @@ export interface Coverage {
  * that says nothing has nothing measured and nothing to be told about. It compiles
  * through the same `globToRegExp` / `isTestFile` pair `dropTestFiles` exempts by, so
  * "matched 0 here" and "exempted nothing there" cannot come apart.
+ *
+ * `sourceRoot` is required rather than defaulted, and it is what carries `outsideScanReach`
+ * to the sibling field. `emit/lint` sits below `inspect`, so `unreachedTestGlobs` cannot
+ * ask that question itself; the answer rides on the measurement, and a default here would
+ * let a call site state a classification against a root it never passed. `unreached` is
+ * omitted rather than set to null, so a reader compares a measurement, not an absence.
  */
 export function testFileReach(
   scanResult: ScanResult,
   testFiles: string | string[] | undefined,
+  sourceRoot: string | undefined,
 ): TestGlobReach[] {
   return toArray(testFiles).map((glob) => {
     const patterns = [globToRegExp(glob)];
+    const unreached = outsideScanReach(glob, sourceRoot);
 
     return {
       glob,
       matched: scanResult.files.filter((file) => isTestFile(file.path, patterns)).length,
+      ...(unreached === null ? {} : { unreached }),
     };
   });
 }
@@ -130,7 +140,7 @@ export function computeCoverage(
 ): Coverage {
   const { architecture, framework, rules } = blueprint;
   const source = dropTestFiles(scanResult, architecture.testFiles).files;
-  const testReach = testFileReach(scanResult, architecture.testFiles);
+  const testReach = testFileReach(scanResult, architecture.testFiles, architecture.sourceRoot);
 
   const nets = [
     ...new Set(

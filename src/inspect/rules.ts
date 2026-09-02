@@ -330,7 +330,11 @@ function measureTestGlobs(
     return { testReach: [], testExemption: null };
   }
 
-  const testReach = testFileReach(scan(root, blueprint.architecture.sourceRoot), declared);
+  const testReach = testFileReach(
+    scan(root, blueprint.architecture.sourceRoot),
+    declared,
+    blueprint.architecture.sourceRoot,
+  );
 
   return {
     testReach,

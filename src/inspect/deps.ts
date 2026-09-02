@@ -2,6 +2,7 @@
 // exports lint.ts, which loads the plugin, which shares resolve logic with
 // inspect; routing through the index would close a module cycle.
 import { unreachedTestGlobs } from '../emit/lint/patterns';
+import type { Blueprint } from '../config';
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
 import { testFileReach } from './coverage';
@@ -52,7 +53,7 @@ export async function runDeps(
   const layoutOf = layoutResolver(architecture);
   const layerNames = new Set(architecture.layers.map((layer) => layer.name));
   const skipped = skippedFolders(scanned, layerNames);
-  const testExemption = exemptionNote(modules, scanned, architecture.testFiles);
+  const testExemption = exemptionNote(modules, scanned, architecture);
 
   if (options.target !== undefined) {
     return reportTarget(options.target, {
@@ -98,12 +99,16 @@ export async function runDeps(
 function exemptionNote(
   modules: ModuleDeps[],
   scanned: ScanResult,
-  testFiles: string | string[] | undefined,
+  architecture: Blueprint['architecture'],
 ): string | null {
   // The one decision, and both renderings read it: the sentence closes on "the blast
   // radius above", so a graph with no module in it has nothing for it to be about. The
   // text renderer keeps an early return of its own, and it decides nothing here.
-  const cause = modules.length ? unreachedTestGlobs(testFileReach(scanned, testFiles)) : null;
+  const { testFiles, sourceRoot } = architecture;
+
+  const cause = modules.length
+    ? unreachedTestGlobs(testFileReach(scanned, testFiles, sourceRoot))
+    : null;
 
   return cause === null
     ? null
