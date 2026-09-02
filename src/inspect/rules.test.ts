@@ -340,6 +340,41 @@ describe('runRules · the dead test glob measured against the declared root', ()
     expect(printed).not.toContain('outside the source root');
   });
 
+  it('walks the DECLARED root too, so a net healthy there is not reported dead', async () => {
+    // The case above moves `sourceRoot` through the CLASSIFIER only: its glob is dead
+    // under either root, so nothing it prints can see which root the WALK was handed.
+    // This net reaches a file at `app` and nothing at the default, so a walk that reads
+    // the default finds an empty tree, `every` entry matches 0, and the gate closes with
+    // the sentence for a dead net — a working config reported as one an adopter must fix.
+    const dir = repo({
+      ...blueprint,
+      architecture: {
+        ...blueprint.architecture,
+        sourceRoot: 'app',
+        testFiles: ['app/**/*.spec.ts'],
+      },
+      rules: { ...blueprint.rules, testFilename: 'error' },
+    });
+
+    fs.mkdirSync(path.join(dir, 'app', 'components'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(dir, 'app', 'components', 'Card.spec.ts'),
+      'export const c = 1;\n',
+    );
+
+    const lines: string[] = [];
+    const { gates } = await runRules(dir, { log: (message) => void lines.push(message) });
+    const gate = gates.find((entry) => entry.id === 'testFilename');
+
+    expect(gate?.unavailable).toBeUndefined();
+    expect(gate?.active).toBe(true);
+
+    // And the row an adopter reads says so, rather than the marker a dead net earns.
+    expect(lines.join('\n')).toMatch(/✓ error\s+testFilename/);
+    expect(lines.join('\n')).not.toContain('declared, unavailable here testFilename');
+  });
+
   it('gives each unavailable gate its own cause, saying what `--json` says', async () => {
     // Two gates out for two different KINDS of reason: `explicitAny` because the
     // dependency list carries no typescript, `testFilename` because this config's own

@@ -13,11 +13,17 @@ import { runDoctor } from './doctor';
  * rather than a fourth block in `doctor.report.test.ts`, which is at the repo's
  * `maxLines` — the split is by aspect and stays beside `doctor.ts`.
  *
- * Every case runs a REAL runtime under a NON-DEFAULT `sourceRoot`, and declares one glob
- * on BOTH fields. Both halves are load-bearing. `testFiles` reaches `outsideScanReach`
- * only through `computeCoverage` → `testFileReach`, so a case that hand-injects the
- * verdict, or one that runs at the default root, leaves that plumbing free to hardcode
- * `'src'` — which type-checks at every call site and was green across 570 tests.
+ * Every case runs a REAL runtime and declares one glob on BOTH fields — `testFiles`
+ * reaches `outsideScanReach` only through `computeCoverage` → `testFileReach`, so a case
+ * that hand-injects the verdict, or that reads the sibling field alone, leaves that
+ * plumbing free to hardcode `'src'`, which type-checks at every call site and was green
+ * across 570 tests.
+ *
+ * A NON-DEFAULT `sourceRoot` is what closes that hardcode, and it moves exactly one
+ * thing: what `outsideScanReach` answers. So it rides on the four limbs that answer
+ * decides, and the two declined limbs run AT the default deliberately — a decline turns
+ * on the leading `!`, the reach never gets to speak there, and a root that changed no
+ * answer would prove nothing while looking like it proved something.
  */
 
 /** One class, the tree it is measured in, and what both fields must do with it. */
@@ -79,6 +85,19 @@ const LIMBS: Limb[] = [
     shape: 'declines',
     files: { 'src/components/Button.vue': VUE },
   },
+  {
+    // The same decline with nothing under it. `!src/**/*.css` reads as a directory
+    // literally named `!src`, which the scan settles as outside the root — so the
+    // hand-back clause drops it on the reach and never reaches its own negation guard,
+    // and that guard decides nothing on any fixture carrying a reason. Here the leading
+    // `!` sits on a wildcard, the reach settles nothing, and the decline has to outrank a
+    // hand-back rather than arrive after one.
+    limb: 'a negation the scan settles nothing about',
+    sourceRoot: 'src',
+    glob: '!**/*.gen.ts',
+    shape: 'declines',
+    files: { 'src/components/Button.vue': VUE },
+  },
 ];
 
 let root: string;
@@ -134,18 +153,46 @@ const noteFor = (output: string, field: string) =>
   output.split('\n').find((line) => line.includes(`\`architecture.${field}\``)) ?? '';
 
 /**
- * The verdict a field gives on WHICH class this glob is in — the `Measured:` sentence, or
- * null when the field handed the call back instead. Ends at the shared clause rather than
- * at a full stop, since a reason can carry one (`` `.css` ``).
+ * Where each class's shared text opens in a note, and where the field's own words resume.
  *
- * Deliberately stops before what being dead COSTS: an ignore entry excludes and a test
- * glob exempts, and those two words are each field's own from long before this stage.
- * Classification is the thing that must not have two positions.
+ * One window per shape, opening at text neither other shape can produce. What being dead
+ * COSTS is each field's own — an ignore entry excludes and a test glob exempts — and so is
+ * the noun a handed-back entry arms, so those two windows close before them. A declined
+ * entry carries neither, so its window runs to the end of the note: past the full stop
+ * only the field printing a line of its own carries, which is the one character trimmed.
  */
-const verdict = (line: string) => {
-  const at = line.indexOf('Measured:');
+const CLASS_WINDOWS: { shape: Limb['shape']; opens: string; closes?: string }[] = [
+  { shape: 'states', opens: 'Measured:', closes: 'This scan reads' },
+  { shape: 'hands back', opens: 'whose files have not landed', closes: '— fix the glob' },
+  { shape: 'declines', opens: 'An entry beginning' },
+];
 
-  return at === -1 ? null : line.slice(at, line.indexOf('This scan reads', at)).trim();
+/**
+ * The verdict a field gives on WHICH class this glob is in, in the words BOTH fields have
+ * to give it — null only when the note names no class at all, which no limb allows.
+ *
+ * All three shapes, not the stated one alone. A reader that sees only `Measured:` answers
+ * null on the two shapes that state nothing, and an agreement between two nulls is an
+ * agreement about nothing — on the two limbs least able to afford one, since a field
+ * disagreeing there disagrees in text neither field can be caught on alone.
+ *
+ * Classification is the thing that must not have two positions; the cost each field prints
+ * beside it is one per field, and is asserted per field below.
+ */
+const verdict = (line: string): string | null => {
+  const found = CLASS_WINDOWS
+    .map((window) => ({ window, at: line.indexOf(window.opens) }))
+    .find(({ at }) => at !== -1);
+
+  if (!found) {
+    return null;
+  }
+
+  const { window, at } = found;
+
+  return window.closes === undefined
+    ? line.slice(at).trim().replace(/\.$/, '')
+    : line.slice(at, line.indexOf(window.closes, at)).trim();
 };
 
 /**
@@ -196,9 +243,7 @@ describe('runDoctor · which class a dead declared glob is put in', () => {
   it.each(LIMBS)('gives $limb one verdict, not two, in one run', async (limb) => {
     // The two-positions state the sibling's own doc comment forbids — "a second phrasing
     // there would be two positions on one question". One tree, one glob, both fields: the
-    // same verdict text, not two individually sensible ones. Non-vacuous on the handed-back
-    // limb because the expected verdict is asserted first, and the case above proves both
-    // notes really did hand back rather than going silent.
+    // same verdict text, not two individually sensible ones.
     adopted(limb.files);
 
     let output = '';
@@ -208,9 +253,13 @@ describe('runDoctor · which class a dead declared glob is put in', () => {
     const ignore = noteFor(output, 'layerFilesIgnore');
     const tests = noteFor(output, 'testFiles');
 
-    expect(verdict(ignore)).toBe(
-      limb.shape === 'states' ? `Measured: \`${limb.glob}\` — ${limb.reason}.` : null,
-    );
+    // A window on every limb, or the comparison below compares nothing: the two shapes
+    // that state no reason are the two a null reader cannot see a disagreement in.
+    expect(verdict(ignore)).not.toBeNull();
+
+    if (limb.shape === 'states') {
+      expect(verdict(ignore)).toBe(`Measured: \`${limb.glob}\` — ${limb.reason}.`);
+    }
 
     expect(verdict(tests)).toBe(verdict(ignore));
   });
