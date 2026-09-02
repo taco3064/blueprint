@@ -31,7 +31,7 @@ npx @kekkai/blueprint survey --json   # for tooling / agents
   the folder-vs-flat call)
 - the **folder-to-folder import matrix**, heaviest edges first — the intended flow
   direction, and the counter-edges that are debt (the matrix counts test files;
-  `inspect` excludes them, so its numbers run lower)
+  `inspect` excludes the ones its globs reach, so its numbers run lower by that much)
 - **package-usage concentration** — `owns` candidates
 - **named imports concentrated in one folder**, from a package spread across several
   — the only evidence a specifier-level `owns: [{ package, imports: […] }]` can be

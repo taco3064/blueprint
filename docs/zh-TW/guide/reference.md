@@ -19,7 +19,8 @@
 ## `inspect` 回報的檢測項目
 
 只要有 `error` 等級的違規，就以 exit code 1 結束；`warn` 與 `info` 只提示、不影響檢核結果。<br>
-測試檔案（`architecture.testFiles`）一律豁免。
+測試檔案（`architecture.testFiles`）在這些項目上都豁免，但只豁免到 glob 掃得到的範圍 ——<br>
+沒有一條 glob 對得上的檔案，會被當成一般原始碼檢查。
 
 - **`undeclared-folder`** · error —— 原始碼根目錄下存在未宣告為分層的資料夾
 - **`flow-violation`** · error —— 逆向匯入，或透過別名進行的同層匯入
@@ -83,7 +84,7 @@ flat config 是**取代**不是合併 —— 但只發生在「兩筆都命中�
   而 JavaScript 解析字串常值時會把同一個跳脫吃掉一層 —— 於是貼進去的 selector 在那個裸 `/` 就結束了。<br>
   不會有語法錯誤、lint 照樣是綠的，禁令則靜靜地什麼都沒擋到。
 - **`testExemptions` 是一起附著的，得跟著搬過去。**<br>
-  只靠 selector 重組一筆設定會安靜地把它弄丟，而且是最糟的那種安靜：合併後的那筆照跑，於是禁令開始伸進你的測試檔。
+  只靠 selector 重組一筆設定會安靜地把它弄丟，而且是最糟的那種安靜：合併後的那筆照跑，於是禁令開始伸進 glob 掃得到的那些測試檔。
 
 禁令的**訊息文字**是你自己寫的 —— `doctor` 驗的是 selector，從來不驗訊息。
 
@@ -213,7 +214,9 @@ export default [
 - **`architecture.additionalAliases`** —— `alias` 以外、同樣納入所有結構禁令的額外匯入根
 - **`architecture.testFiles`** —— 豁免於結構規則與度量關卡的測試檔樣式（預設 `*.test.*` / `*.spec.*`）。<br>
   填 `[]` 代表不豁免任何檔 —— 測試檔跟著它那層的規則走 —— 同時也把 `testFilename` 這個關卡關掉：<br>
-  那條規則的範圍就是這些測試檔樣式，空清單等於沒有檔可以讓它檢查。`blueprint rules` 會在該關卡旁邊講明。
+  那條規則的範圍就是這些測試檔樣式，空清單等於沒有檔可以讓它檢查。`blueprint rules` 會在該關卡旁邊講明。<br>
+  宣告了、卻對不上任何檔的 glob，結果落在同一個位置 ——<br>
+  它什麼都沒豁免，本來要蓋的檔案會被當成一般原始碼去檢查、去 lint。
 - **`architecture.layerFiles` / `layerFilesIgnore`** —— 框架預設樣式不適用時，逐層指定檔案樣式
 - **`architecture.naming`** —— 依概念設定的命名慣例（如 `{ hook: 'useX + reactivity' }`）—— 寫入手冊與守則
 - **`layer.module`** —— 逐層覆寫共用的模組形狀 —— 例如某一分層採資料夾模組、其餘維持單檔
