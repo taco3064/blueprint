@@ -2,10 +2,12 @@
 "@kekkai/blueprint": patch
 ---
 
-**A glob with an unmatched `{` no longer hangs the command, and a glob that reaches nothing
-now says so.** A `{` with no `}` after it used to grow a pattern until Node died with
-`FATAL ERROR: Ineffective mark-compacts near heap limit`, naming neither the glob nor the
-field it came from. It now compiles as a literal brace and the command finishes.
+**A glob with an unmatched `{` no longer hangs the command, and a dead `testFiles` or
+`layerFilesIgnore` entry now says so.** A `{` with no `}` after it used to grow a pattern
+until Node died with `FATAL ERROR: Ineffective mark-compacts near heap limit`, naming
+neither the glob nor the field it came from. It now compiles as a literal brace and the
+command finishes. **`architecture.layerFiles` gains no new per-entry report** — a glob
+there that matches nothing still surfaces only as the existing vacuous-enforcement line.
 
 - **Where it could bite: four inputs, five commands.** A root `.gitignore` line reaches it
   through `init` — including every `init` re-run in a repo that already has a config, which is
@@ -37,12 +39,14 @@ field it came from. It now compiles as a literal brace and the command finishes.
 - **Everything new is info tier, and no exit code moves.** Nothing that passes today fails.
   There is still no new error, no new warning and no config validation — a malformed glob is
   compiled, not rejected.
-- **What moves on `--json`.** `doctor --json`'s existing `note` key can now carry two
-  sentences, newline-joined, where it previously carried one. `deps --json` and `rules --json`
-  gain a conditional top-level `testExemption` key. On `rules`, that key appears when *some*
-  declared entries are dead; when **every** entry is dead the cause rides the existing
-  `gates.testFilename.unavailable` instead, so a consumer reading one and not the other will
-  miss a case.
+- **What moves on `--json`.** `doctor --json`'s existing `note` key is newline-joined and can
+  now carry up to three sentences where it previously carried one — the `layerFilesIgnore`
+  note, the `testFiles` note, and the pre-existing version-control note. `deps --json` and
+  `rules --json` gain a conditional top-level `testExemption` key, and `inspect --json` gains
+  it inside `coverage`. On `rules`, that key appears when *some* declared entries are dead;
+  when **every** entry is dead the cause rides the existing gate entry instead — `gates` is an
+  array, so it is the element whose `id` is `testFilename`, under `unavailable`. A consumer
+  reading one and not the other will miss a case.
 - **No balanced glob moved.** Everything that compiled before compiles to the byte-identical
   pattern. Two brace shapes are still wrong and are deliberately left alone: nested braces
   (`{a,{b,c}}`), and a `{` whose closing `}` belongs to a *later* group
