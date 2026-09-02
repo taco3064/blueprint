@@ -66,7 +66,8 @@ export function renderSemantics(): string {
     + '(default `*.test.* / *.spec.*`) sit outside the structural rules and `inspect` alike, '
     + 'and a scanned file no declared glob matches is ordinary source on both sides.',
     '  If the tool you are replacing policed tests too, '
-    + 'switching to blueprint deliberately RELAXES that enforcement — '
+    + 'switching to blueprint deliberately RELAXES that enforcement '
+    + 'over the test files those globs reach — '
     + 'say so in the report instead of letting the difference pass silently.',
   ].join('\n');
 }

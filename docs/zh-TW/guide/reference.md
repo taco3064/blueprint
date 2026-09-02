@@ -118,7 +118,7 @@ flat config 是**取代**不是合併 —— 但只發生在「兩筆都命中�
 
 這整份對照隨時問得到工具本人：<br>
 `npx blueprint rules` 會印出 catalog，有 config 時還會標註實際宣告的 tier。<br>
-**這套技術棧開不起來的關卡，那一列會留著、並且附上原因** —— 例如 JS 專案上的 `explicitAny`、`testFiles: []` 旁邊的 `testFilename` —— 而不是連個交代都沒有就被拿掉。<br>
+**在這裡開不起來的關卡，那一列會留著、標記 `unavailable here`，原因則單獨列在關卡列表上方** —— 例如 JS 專案上的 `explicitAny`、`testFiles: []` 旁邊的 `testFilename` —— 而不是連個交代都沒有就被拿掉。<br>
 這也是為什麼這份 catalog 的列數會比 `inspect` 與 `doctor` 印的 `N/M 個選用關卡` 分母來得多：<br>
 那個分母數的是「有東西開得起來」的關卡，而拿兩個數字對照的人會被告知差額落在哪一列，不用自己猜。
 

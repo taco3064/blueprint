@@ -100,9 +100,10 @@ export interface GateStatus {
   /** Metric fallback threshold, when the gate is one of the metric family. */
   fallback?: number;
   /**
-   * Why this stack cannot open the gate — absent when it can. It is the difference
-   * between this catalog's row count and the `N/M optional gates` denominator, so a
-   * reader comparing the two is told which, not left to infer (field run #137).
+   * Why the gate is unavailable here — absent when it can be opened. It is the
+   * difference between this catalog's row count and the `N/M optional gates`
+   * denominator, so a reader comparing the two is told which, not left to infer
+   * (field run #137).
    */
   unavailable?: string;
   /** The declared setting, resolved — null when the config does not declare it. */
@@ -259,7 +260,7 @@ function unavailableNote(gates: GateStatus[]): string {
   const out = gates.filter((gate) => gate.unavailable !== undefined);
 
   if (!out.length) {
-    return ' — all of them openable on this stack, so `inspect` counts the same number';
+    return ' — none of them unavailable here, so `inspect` counts the same number';
   }
 
   return ` — ${out.length} of them unavailable here, which \`inspect\` and \`doctor\` `
@@ -293,7 +294,7 @@ function resolveGate(
     ? null
     : { tier: read.tier, ...(read.value !== undefined ? { value: read.value } : {}) };
 
-  // Whether this stack can open the gate at all, from the same function inspect's
+  // Whether the gate can be opened here at all, from the same function inspect's
   // denominator reads — this used to mirror only the React case, so a JS project saw
   // `explicitAny` here as an ordinary gate and `0/17 optional gates` there, with
   // nothing to reconcile them (field run #137).
@@ -507,7 +508,7 @@ export function renderRules(
               // blueprint's ban did (field issue #60).
               `      …and carry the exemption the emitted block has for the test files those globs reach: ignores: [${
                 entry.testExemptions.map((glob) => `'${glob}'`).join(', ')
-              }] — without it your combined entry lints test files that this ban never covered`,
+              }] — without it your combined entry lints the test files those globs reach, which this ban never covered`,
             ]),
           ]),
         ]

@@ -140,9 +140,10 @@ agent contract as a judgment the agent must hold, and is never presented as a ha
 gate. That split is the [three-tier landing](/philosophy/#the-three-tier-landing).
 
 This whole mapping is queryable in place: `npx blueprint rules` prints the catalog,
-annotated with the declared tiers once a config exists. **A gate this stack cannot open
-keeps its row and carries the reason** — `explicitAny` on a JS project, `testFilename`
-beside `testFiles: []` — rather than being dropped without one. That is also why the
+annotated with the declared tiers once a config exists. **A gate that cannot be opened
+here keeps its row, marked `unavailable here`, and its cause is printed on a line of its
+own above the rows** — `explicitAny` on a JS project, `testFilename` beside
+`testFiles: []` — rather than being dropped without one. That is also why the
 catalog has more rows than the `N/M optional gates` denominator `inspect` and `doctor`
 print: those count the gates something could open, and a reader comparing the two
 numbers is told which row accounts for the gap instead of guessing at it.
