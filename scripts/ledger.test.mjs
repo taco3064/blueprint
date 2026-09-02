@@ -28,10 +28,17 @@ import { describe, expect, it } from 'vitest';
  * already makes one level up against a mutation-score threshold.
  *
  * **Outside `src/` because it has to be.** A guard that matches the word contains the
- * word, so in `src/` it would answer its own grep — four more hits, none of them a
- * proof, which is the defect it exists to catch. The scope it measures is the scope it
- * cannot live in. `field-run.test.mjs` beside it is the standing case for a test that
- * runs in `npm test` while having nothing under `src/` to sit next to.
+ * word, so in `src/` it would answer its own grep — SEVEN more hits, none of them a
+ * proof, and the two halves fail in opposite ways. FOUR are code: the two regexes, the
+ * `describe` title, and the assertion's own quoted proof. The code assertion below
+ * catches every one of them, loudly. THREE are prose in this comment, and that same
+ * assertion is written to pass over prose — so they would sit in the ledger as three
+ * more entries with nothing anywhere saying they are not proofs. **The silent three
+ * are why this file cannot live in `src/`.** A loud red is a bug report; a ledger
+ * three entries too long is the defect this guard exists to catch. The scope it
+ * measures is the scope it cannot live in. `field-run.test.mjs` beside it is the
+ * standing case for a test that runs in `npm test` while having nothing under `src/`
+ * to sit next to.
  */
 
 const SRC = fileURLToPath(new URL('../src', import.meta.url));

@@ -117,7 +117,7 @@ function importMatrixLines(result: SurveyResult): string[] {
   return [
     '',
     'Import matrix (cross-folder, heaviest first — includes test files;',
-    'inspect excludes them, so its counts run lower):',
+    'inspect excludes the ones its globs reach, so its counts run lower):',
     ...rows,
     ...(rows.length ? [] : ['  — none —']),
   ];

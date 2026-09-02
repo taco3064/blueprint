@@ -211,3 +211,19 @@ describe('authoringBrief · merging with an eslint config already there', () => 
     }
   });
 });
+
+describe('authoringBrief · every statement of the exemption carries its condition', () => {
+  // The playbook states the test exemption in five places, and an agent reads
+  // whichever one its task lands on. A declared glob that matches no file exempts
+  // nothing — so a bullet that states the promise without the limit is the promise,
+  // whatever a different bullet three sections away says.
+  it.each([
+    ['the semantics bullet', 'Test files are EXEMPT as far as the globs reach'],
+    ['the pre-wiring count', 'exempt in the emitted config as far as the globs reach'],
+    ['the formatting family', 'the rest exempt only the test files those globs reach'],
+    ['the `ignores` trap', 'Every structural entry exempts the test files those globs reach'],
+    ['the mirror case', 'no exemption over the test files those globs reach'],
+  ])('%s states it with the limit', (_where, text) => {
+    expect(flattenProse(brief)).toContain(text);
+  });
+});
