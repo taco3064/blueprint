@@ -181,7 +181,7 @@ describe('runRules · the catalog it prints', () => {
   });
 });
 
-describe('runRules · gates the stack cannot open', () => {
+describe('runRules · gates that are unavailable here', () => {
   it('keeps deepWatch live on the framework it was written for', async () => {
     // Only React silences it. Silencing it everywhere reports a declared,
     // active Vue gate as never emitting — and the author, told the rule is
@@ -286,7 +286,7 @@ describe('runRules · gates the stack cannot open', () => {
     expect(gates.find((gate) => gate.id === 'testFilename')?.unavailable).toBeUndefined();
   });
 
-  it('says the row count matches when the stack can open every gate', async () => {
+  it('says the row count matches when no gate is unavailable here', async () => {
     // A TypeScript Vue project is the one shape with nothing to exclude, and the note
     // has to say so rather than go quiet: silence would leave the reader comparing
     // eighteen rows to a denominator with no statement either way, which is the
@@ -304,7 +304,7 @@ describe('runRules · gates the stack cannot open', () => {
     const { gates } = await runRules(dir, { log: (m) => void lines.push(m) });
 
     expect(gates.every((gate) => gate.unavailable === undefined)).toBe(true);
-    expect(lines.join('\n')).toContain('all of them openable on this stack');
+    expect(lines.join('\n')).toContain('none of them unavailable here');
   });
 });
 

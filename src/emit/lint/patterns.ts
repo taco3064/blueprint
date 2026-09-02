@@ -209,7 +209,7 @@ export interface TestGlobReach extends GlobReach {
   matched: number;
 }
 
-/** The facts that decide whether a stack can open a gate at all. */
+/** The facts that decide whether a gate can be opened here at all. */
 export interface GateStack {
   framework: string | undefined;
   hasTypescript: boolean;
@@ -318,6 +318,22 @@ export interface GlobReach {
 }
 
 /**
+ * Whether this scan and the config it is emitted into read the same entry off this
+ * string — today, exactly a leading `!`. `globToRegExp` has no `!` branch, so this side
+ * reads it as an ordinary path character; ESLint reads a leading `!` in a config glob as
+ * a negation. One string, two entries.
+ *
+ * Not a position on what `!` means, and not validation of the glob — nothing here
+ * changes what any glob matches. It is the one input the clauses below are not entitled
+ * to speak for, because neither can know it is describing the entry the adopter's linter
+ * will apply. Stage 9's own rule, turned on an input stage 9 gets wrong: state what the
+ * tool can determine, decline what it cannot.
+ */
+function readDifferently(entry: GlobReach): boolean {
+  return entry.glob.startsWith('!');
+}
+
+/**
  * What the scan's own reach settles about a set of dead declared globs — ONE text for
  * both `architecture.testFiles` and `architecture.layerFilesIgnore`, and empty when the
  * set holds no such entry.
@@ -335,22 +351,6 @@ export interface GlobReach {
  * test globs ride sits beside a `files` and subtracts only from that entry's own set.
  * So the consequence is the caller's to supply, which is the split those two already had.
  */
-/**
- * Whether this scan and the config it is emitted into read the same entry off this
- * string — today, exactly a leading `!`. `globToRegExp` has no `!` branch, so this side
- * reads it as an ordinary path character; ESLint reads a leading `!` in a config glob as
- * a negation. One string, two entries.
- *
- * Not a position on what `!` means, and not validation of the glob — nothing here
- * changes what any glob matches. It is the one input the clauses below are not entitled
- * to speak for, because neither can know it is describing the entry the adopter's linter
- * will apply. Stage 9's own rule, turned on an input stage 9 gets wrong: state what the
- * tool can determine, decline what it cannot.
- */
-function readDifferently(entry: GlobReach): boolean {
-  return entry.glob.startsWith('!');
-}
-
 export function outOfScanReachClause(entries: GlobReach[], consequence: string): string {
   const named = entries
     .filter((entry) => entry.unreached && !readDifferently(entry))
@@ -409,7 +409,7 @@ export function divergentReadingClause(entries: GlobReach[]): string {
 }
 
 /**
- * Why this stack cannot open a gate, or null when it can — mirroring what
+ * Why a gate is unavailable here, or null when it can be opened — mirroring what
  * `emitLint` actually does rather than restating it.
  *
  * One function because there were two, and they disagreed. `inspect` / `doctor`
@@ -437,11 +437,12 @@ export function unavailableGate(id: string, stack: GateStack): string | null {
   // so is the other half of dropping the entry (field run #150).
   //
   // The ONLY test-glob arm, and it mirrors ONE of `testFilenameEntry`'s two conditions.
-  // That guard is `!testFilename || !testGlobs.length`; the second disjunct is the one a
-  // stack fact can answer, and it is this. The first is the tier, which `declared` and
-  // `active` already carry on the row: measured, an undeclared `testFilename` over a dead
-  // net reads `· not declared` and `0/16` — no entry emitted, and the gate still in the
-  // denominator, because a gate nobody asked for is not a gate this stack cannot open.
+  // That guard is `!testFilename || !testGlobs.length`; the second disjunct is
+  // `architecture.testFiles`, which is what this function is given. The first is the
+  // tier, which `declared` and `active` already carry on the row: measured, an undeclared
+  // `testFilename` over a dead net reads `· not declared` and `0/16` — no entry emitted,
+  // and the gate still in the denominator, because a gate nobody asked for is not a gate
+  // that is unavailable here.
   //
   // So every other net — dead, negated, pointing outside the scan — is emitted with the
   // rule beside its `files` and fires wherever ESLint's own reading of it lands. What a

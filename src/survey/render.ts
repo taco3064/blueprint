@@ -126,10 +126,10 @@ function importMatrixLines(result: SurveyResult): string[] {
 /**
  * An unqualified count reads as a promise — the playbook once called it "exactly how
  * many errors the wiring will introduce" and a field agent proved it 5 ≠ 0 against
- * impact (test files are exempt, and textual matches include mock specifiers / dynamic
- * imports / doc comments). A zero prints as an explicit zero: the playbook cites this
- * section, so an absent row read as a gap two field agents had to puzzle out (issues
- * #25, #28).
+ * impact (test files are exempt as far as the globs reach, and textual matches include
+ * mock specifiers / dynamic imports / doc comments). A zero prints as an explicit zero:
+ * the playbook cites this section, so an absent row read as a gap two field agents had
+ * to puzzle out (issues #25, #28).
  */
 function selfAliasLines(result: SurveyResult): string[] {
   const entries = Object.entries(result.selfAliasImports);

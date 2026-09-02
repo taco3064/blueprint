@@ -196,9 +196,9 @@ function layerImportEntries(
 /**
  * Entries for the known `blueprint.rules` ids — where a rule record stops being
  * documentation and becomes a lint gate. The caller-injected gates emit nothing
- * without their plugin. Test files are exempt here because metrics scream on tests;
- * the shape family is the exception and has its own entry. Unknown ids stay
- * docs-only, as do `cycles` and `deadCode`.
+ * without their plugin. Test files are exempt here as far as the globs reach, because
+ * metrics scream on tests; the shape family is the exception and has its own entry.
+ * Unknown ids stay docs-only, as do `cycles` and `deadCode`.
  */
 function ruleGateEntries(
   blueprint: Blueprint,

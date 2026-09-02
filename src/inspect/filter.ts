@@ -5,8 +5,9 @@ import { resolveTestFiles } from '../emit/lint/patterns';
 import type { ScanResult } from './types';
 
 /**
- * Test files are exempt from structural analysis, symmetric with the lint side's
- * per-entry ignores — a co-located test reaching a sibling is plumbing.
+ * Test files are exempt from structural analysis as far as the globs reach,
+ * symmetric with the lint side's per-entry ignores — a co-located test reaching a
+ * sibling is plumbing.
  */
 
 /**

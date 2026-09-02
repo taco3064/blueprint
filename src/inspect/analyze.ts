@@ -50,7 +50,8 @@ export function analyze(
   const { architecture } = blueprint;
   const layerNames = architecture.layers.map((layer) => layer.name);
 
-  // Symmetric with the lint side: test files are exempt from structure.
+  // Symmetric with the lint side: test files are exempt from structure as far as the
+  // globs reach.
   scan = dropTestFiles(scan, architecture.testFiles);
 
   const findings = [
