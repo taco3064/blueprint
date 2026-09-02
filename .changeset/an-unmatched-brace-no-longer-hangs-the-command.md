@@ -9,21 +9,24 @@ neither the glob nor the field it came from. It now compiles as a literal brace 
 command finishes. **`architecture.layerFiles` gains no new per-entry report** — a glob
 there that matches nothing still surfaces only as the existing vacuous-enforcement line.
 
-- **Where it could bite: four inputs, five commands.** A root `.gitignore` line reaches it
+- **Where it could bite: four inputs, four commands.** A root `.gitignore` line reaches it
   through `init` — including every `init` re-run in a repo that already has a config, which is
   the commonest one you type. `architecture.layerFiles` reaches it through `inspect` and
   `doctor`, `architecture.layerFilesIgnore` through `doctor`, and `architecture.testFiles`
-  through `inspect`, `doctor`, `deps` and `rules`.
+  through `inspect`, `doctor` and `deps`. **`blueprint rules` was never exposed** — it did not
+  compile a test glob before this release, and it does now only because this release made it a
+  reader.
 - **New: a declared glob that reaches no file is reported instead of passing silently.**
   `architecture.testFiles` is reported by `inspect`, `rules`, `doctor` and `deps`;
   `architecture.layerFilesIgnore` by `doctor`. Measured **per declared entry**, so a list like
   `['**/*.test.*', '**/__tests__/**']` tells you *which* half is dead rather than only that
   something is.
-- **A dead `testFiles` net no longer reads as a healthy gate.** When **every** declared entry
-  reaches nothing, `testFilename` was reported `✓ error` with a full optional-gate count —
-  byte-identical to a working config, for a rule ESLint then applied to zero files. It now gets
-  the same class of verdict as `testFiles: []`. With a live entry beside a dead one the gate
-  stays open and only the dead entry is named.
+- **A dead `testFiles` net is named, and the gate it emits is reported as emitted.** The gate
+  stays `✓ error` with the same optional-gate count as a healthy config — **because the rule
+  really is emitted**, beside a `files` holding that glob, and ESLint applies it to whatever it
+  matches. What changed is that the run now **names the dead entry** on its own line, so the
+  two configs are no longer byte-identical. `testFiles: []` is the one case that closes the
+  gate, because it is the one case `emitLint` emits nothing for.
 - **`blueprint deps` explains a blast radius it could not explain before.** A dead `testFiles`
   entry stops the exemption applying, so a test file's import counts toward a module's fan-in.
   **That number has not changed** — it is what "matching the lint side" already meant, because
@@ -43,10 +46,13 @@ there that matches nothing still surfaces only as the existing vacuous-enforceme
   now carry up to three sentences where it previously carried one — the `layerFilesIgnore`
   note, the `testFiles` note, and the pre-existing version-control note. `deps --json` and
   `rules --json` gain a conditional top-level `testExemption` key, and `inspect --json` gains
-  it inside `coverage`. On `rules`, that key appears when *some* declared entries are dead;
-  when **every** entry is dead the cause rides the existing gate entry instead — `gates` is an
-  array, so it is the element whose `id` is `testFilename`, under `unavailable`. A consumer
-  reading one and not the other will miss a case.
+  it inside `coverage`. **Which of the two places carries it depends on the config, and the
+  split is not the obvious one.** For **any** dead declared glob — one of several or all of
+  them — the cause is the **top-level `testExemption`**, and the gate stays `active: true`,
+  because the rule is still emitted. For **`testFiles: []`** it is the other way round: the
+  cause rides `gates[]`'s `testFilename` element under `unavailable`, `active: false`, and
+  there is no top-level key — because that is the one config `emitLint` emits nothing for.
+  **A consumer reading one place and not the other will miss a case.**
 - **The exemption guarantee now states its condition everywhere it is asserted.** Every
   surface that said test files are exempt said it flat; the guarantee only ever held as far
   as the declared globs reach. `inspect --help`, `deps --help`, `blueprint rules`,
