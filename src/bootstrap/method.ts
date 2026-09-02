@@ -34,7 +34,8 @@ function renderRatchet(): string {
     + 'nobody needs to review.',
     '     Run that fix as its OWN commit, touching nothing else, and say so in the report — '
     + 'it rewrites whitespace across every layer file *including tests* (the shape rules are the '
-    + 'one gate family tests are NOT exempt from), '
+    + 'one gate family tests are NOT exempt from; the rest exempt only the test files '
+    + 'those globs reach), '
     + 'and a diff that size folded into an architecture commit is unreviewable.',
     '     It cannot make another gate worse: `maxLines` skips blank lines, '
     + 'so the added lines are free.',

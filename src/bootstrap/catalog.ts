@@ -35,7 +35,8 @@ export function renderSemantics(): string {
     + '`../` escapes are caught at any depth by `blueprint/relative-escape`.',
     '- **Pre-wiring check:** the survey\'s "Same-folder imports via the alias" count is an upper '
     + 'bound on the errors the wiring will introduce, not the exact number — '
-    + 'it is a textual count that includes test files (exempt in the emitted config) '
+    + 'it is a textual count that includes test files (exempt in the emitted config '
+    + 'as far as the globs reach) '
     + 'and non-static references (dynamic imports, mock specifiers, doc comments) '
     + 'the wired rules may never flag.',
     '  Treat non-zero as "look here"; once the config exists, '
@@ -61,8 +62,9 @@ export function renderSemantics(): string {
     + 'eslint is not wired (the wiring check above is the red for that), '
     + 'or the merged config would not resolve, leaving nothing to compare the emitted rules '
     + 'against.',
-    '- **Test files are EXEMPT** — `architecture.testFiles` (default `*.test.* / *.spec.*`) '
-    + 'sit outside the structural rules and `inspect` alike.',
+    '- **Test files are EXEMPT as far as the globs reach** — `architecture.testFiles` '
+    + '(default `*.test.* / *.spec.*`) sit outside the structural rules and `inspect` alike, '
+    + 'and a scanned file no declared glob matches is ordinary source on both sides.',
     '  If the tool you are replacing policed tests too, '
     + 'switching to blueprint deliberately RELAXES that enforcement — '
     + 'say so in the report instead of letting the difference pass silently.',

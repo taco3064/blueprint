@@ -121,6 +121,19 @@ describe('renderPlacement', () => {
     expect(out).not.toContain('Test support is exempt');
   });
 
+  it('bounds the exemption by what the globs reach, in the line an agent places by', () => {
+    const out = renderPlacement(arch());
+
+    // The contract is read with no CLI output beside it, so this line is the whole
+    // of what the agent knows. Unqualified it says test support is outside placement
+    // full stop — and a declared glob that matches no file exempts nothing, which
+    // sends the agent to put a file where the rules above forbid it.
+    const bound = 'a file none of them matches is placed by the rules above like any other';
+
+    expect(out).toContain('exempt from every placement rule above as far as those globs reach');
+    expect(out).toContain(bound);
+  });
+
   it('closes the rename-to-escape route the exemption opens', () => {
     const out = renderPlacement(arch());
 

@@ -514,11 +514,11 @@ export function renderRules(
               // config, and the value does not survive that copy (field run #125).
               ...ban.jsLiteral.map((literal) => `      ${literal}`),
               // The selectors alone are not the whole entry. The emitted block
-              // exempts test files, and an entry rebuilt from selectors carries
-              // no such thing — the merged rule then reaches tests, loudly if a
-              // house rule collided there, silently if only blueprint's ban did
-              // (field issue #60).
-              `      …and carry the exemption the emitted block has: ignores: [${
+              // exempts the test files these globs reach, and an entry rebuilt from
+              // selectors carries no such thing — the merged rule then reaches
+              // tests, loudly if a house rule collided there, silently if only
+              // blueprint's ban did (field issue #60).
+              `      …and carry the exemption the emitted block has for the test files those globs reach: ignores: [${
                 entry.testExemptions.map((glob) => `'${glob}'`).join(', ')
               }] — without it your combined entry lints test files that this ban never covered`,
             ]),

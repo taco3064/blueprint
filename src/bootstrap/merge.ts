@@ -102,19 +102,21 @@ function renderCombinedEntry(): string {
 function renderTestExemptions(): string {
   return [
     '     **An entry is more than its selectors — '
-    + 'carry the emitted block\'s `ignores` too.** Every structural entry exempts test files, '
+    + 'carry the emitted block\'s `ignores` too.** Every structural entry exempts '
+    + 'the test files those globs reach, '
     + 'and a combined entry you rebuild from selector strings has no such exemption unless you '
     + 'write one.',
     '     `rules --json` gives it to you as `testExemptions` beside the selectors, '
     + 'and the text output prints the `ignores` line to paste.',
-    '     Skip it and your combined entry starts governing test files: '
+    '     Skip it and your combined entry starts governing those test files: '
     + 'loud if your own rule collided there (a real run lost this and spent a debug cycle on 34 '
     + 'errors in one test file), silent if only blueprint\'s ban did — '
     + 'lint stays green while the test files it was never meant to reach are quietly under it.',
     '     Doctor compares selectors, not scope, so nothing downstream catches this.',
-    '     The same move runs the other way when YOUR rule had no exemption: '
-    + 'carrying blueprint\'s `ignores` onto the combined entry stops your rule at test files it '
-    + 'used to govern — inside the collision only, '
+    '     The same move runs the other way when YOUR rule had no exemption over '
+    + 'the test files those globs reach: '
+    + 'carrying blueprint\'s `ignores` onto the combined entry stops your rule there, '
+    + 'where it used to govern — inside the collision only, '
     + 'and that is the second reason the paragraph above leaves your original entry in place, '
     + 'since it still governs those test files and nothing has to be given up.',
     '     Check whether the same rule appears on other layers you did NOT merge, '

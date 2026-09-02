@@ -338,8 +338,10 @@ describe('runSurvey · the report it renders', () => {
 
     expect(result.aliases).toEqual({ '@': 'src' });
     expect(output).toContain('Import matrix');
-    // The matrix counts test files while inspect skips them — say so in place.
-    expect(output).toContain('inspect excludes them, so its counts run lower');
+    // The matrix counts test files while inspect skips the ones its globs reach — say
+    // so in place, condition included, or the gap between the two numbers is unexplained
+    // for exactly the config that made it wider.
+    expect(output).toContain('inspect excludes the ones its globs reach, so its counts run lower');
     expect(output).toContain('pages → components');
     expect(output).toContain('Same-folder imports via the alias');
     expect(output).toContain('ownership candidates');

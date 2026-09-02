@@ -299,6 +299,14 @@ describe('the same gap, one artifact further along (swept, not field-reported)',
     expect(init.output).toContain('An entry is more than its selectors');
     expect(init.output).toContain('`npx blueprint rules --json` carries both');
     expect(init.output).toContain('Doctor compares selectors, not scope');
+
+    // Both halves of the note say what the `ignores` actually holds out. Dropped,
+    // they promise every structural entry exempts test files — which a declared
+    // glob matching no file makes false, on the one channel the reader has here.
+    const note = flattenProse(init.output);
+
+    expect(note).toContain('every structural entry exempts the test files those globs reach');
+    expect(note).toContain('governs the test files those globs reach, which it was never meant to');
   });
 });
 
@@ -458,6 +466,12 @@ describe('the merge recipe hands over the whole entry, not just its selectors (#
     expect(out.output).toContain('Paste these verbatim, quotes included');
     expect(out.output).toContain('ignores: [');
     expect(out.output).toContain('*.test.');
+
+    // The line names what the emitted block's `ignores` actually exempts. Without
+    // that, "the exemption the emitted block has" is a promise the globs may not
+    // keep, printed beside the very globs that would fail it.
+    expect(out.output).toContain('the exemption the emitted block has for the test files '
+      + 'those globs reach');
   });
 });
 

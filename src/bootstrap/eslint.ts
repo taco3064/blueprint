@@ -263,10 +263,12 @@ function sharedWiringTail(state: ProjectState): string {
     : '';
 
   return `${ts7016}  An entry is more than its selectors: whatever you combine needs the emitted\n`
-    + '  block\'s `ignores` too (every structural entry exempts test files, and a rebuilt\n'
-    + '  entry has none unless you write one). `npx blueprint rules --json` carries both —\n'
-    + '  selectors and their `testExemptions`. Doctor compares selectors, not scope, so a\n'
-    + '  missing exemption stays green here and governs test files it was never meant to.\n'
+    + '  block\'s `ignores` too (every structural entry exempts the test files those\n'
+    + '  globs reach, and a rebuilt entry has none unless you write one).\n'
+    + '  `npx blueprint rules --json` carries both — selectors and their\n'
+    + '  `testExemptions`. Doctor compares selectors, not scope, so a missing exemption\n'
+    + '  stays green here and governs the test files those globs reach, which it was\n'
+    + '  never meant to.\n'
     + '  Resolve rule conflicts explicitly, run your own lint, then DELETE the reference —\n'
     + '  adoption is not done while it remains.';
 }

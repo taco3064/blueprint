@@ -176,7 +176,7 @@ export function renderPlacement(architecture: ArchitectureDef): string {
   const testGlobs = resolveTestFiles(architecture.testFiles);
 
   const exemptLine = testGlobs.length
-    ? [`- Test support is exempt from every placement rule above: files matching ${testGlobs.map((glob) => `\`${glob}\``).join(' / ')} sit outside them. If a placement rule stops you on files that exist only to serve tests, that is a question for the owner — say so and name them; never widen \`architecture.testFiles\` yourself, and never rename a file to match those globs.`]
+    ? [`- Test support is exempt from every placement rule above as far as those globs reach: files matching ${testGlobs.map((glob) => `\`${glob}\``).join(' / ')} sit outside them, and a file none of them matches is placed by the rules above like any other. If a placement rule stops you on files that exist only to serve tests, that is a question for the owner — say so and name them; never widen \`architecture.testFiles\` yourself, and never rename a file to match those globs.`]
     : [];
 
   return [
