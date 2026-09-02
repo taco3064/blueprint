@@ -328,8 +328,11 @@ describe('unreachedTestGlobs — every declared entry measured against the tree'
     expect(why).toContain('`**/*.test.{ts`');
     expect(why).toContain('no file here matches');
     // The consequence, in the same line as the cause — this is why a red appears
-    // against files the author believed were exempt.
-    expect(why).toContain('inspected and linted as ordinary source');
+    // against files the author believed were exempt. Bounded to what the run read,
+    // because a glob can point where the scan never went and this sentence would
+    // then be speaking for files it never saw.
+    expect(why).toContain('nothing this run read is exempt');
+    expect(why).toContain('no scanned file is dropped from the analysis');
     // Both resolutions and no guess between them: the two repos this can be — one
     // that mistyped a glob, one whose tests have not landed — are the same
     // measurement, so it says so and ends in the owner's call.
@@ -379,11 +382,25 @@ describe('unreachedTestGlobs — every declared entry measured against the tree'
     // turns on: with nothing settled, this sentence is what it has printed since stage
     // 2 — no naming, no clause. `inspect` / `rules` / `deps` all print it verbatim.
     expect(unreachedTestGlobs([{ glob: '**/*.test.{ts', matched: 0 }]))
-      .toBe('`architecture.testFiles` — no file here matches `**/*.test.{ts`, so nothing is '
-        + 'exempt through that part of the net: whatever it was meant to cover is inspected '
-        + 'and linted as ordinary source. A mistyped glob and a test convention whose files '
+      .toBe('`architecture.testFiles` — no file here matches `**/*.test.{ts`, so nothing '
+        + 'this run read is exempt through that part of the net: no scanned file is dropped '
+        + 'from the analysis. A mistyped glob and a test convention whose files '
         + 'have not landed look identical from here — fix the glob, or leave it and the '
         + 'exemption arms itself when a file matches; which one applies is the owner\'s call');
+  });
+
+  it('says what the emitted config does with an unreachable entry, not that it applies', () => {
+    // The consequence `layerFilesIgnore` prints is true of an `ignores` carrying no
+    // `files` — a repo-wide one, which still applies wherever it matches. Every
+    // `ignores` the test globs ride sits beside a `files`, so the same tail here would
+    // claim a reach the emitted config does not give the entry either.
+    const said = unreachedTestGlobs([
+      { glob: 'scripts/**', matched: 0, unreached: 'outside the source root `src`' },
+    ]) as string;
+
+    expect(said).toContain('scoped rather than repo-wide');
+    expect(said).toContain('sits beside a `files`');
+    expect(said).not.toContain('still applies it wherever it does match');
   });
 
   it('neither classifies nor hands back an entry beginning with a negation', () => {

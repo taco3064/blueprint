@@ -25,6 +25,16 @@ function repo(config?: Blueprint): string {
   return dir;
 }
 
+/** The same fixture with one real source file, so a dead glob is dead against a tree. */
+function repoWithSource(config: Blueprint): string {
+  const dir = repo(config);
+
+  fs.mkdirSync(path.join(dir, 'src', 'components'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src', 'components', 'a.ts'), 'export const a = 1;\n');
+
+  return dir;
+}
+
 afterEach(() => {
   while (dirs.length) {
     fs.rmSync(dirs.pop() as string, { recursive: true, force: true });
@@ -147,9 +157,12 @@ describe('runRules · the catalog it prints', () => {
     expect(output).toMatch(/· declared, unavailable here deepWatch →/);
     // And the row count reconciles with inspect's denominator in place, rather than
     // by subtraction the reader has to guess at (field run #137).
-    expect(output).toContain('18 listed — 2 of them unavailable on this stack');
-    expect(output).toContain('deepWatch: Vue only');
-    expect(output).toContain('explicitAny: `any` is a TypeScript construct');
+    expect(output).toContain('18 listed — 2 of them unavailable here');
+    // Each cause on its own line, under the count rather than inside it: the count
+    // sentence would need one predicate for all of them, and the causes are not of
+    // one kind.
+    expect(output).toContain('\n· deepWatch: Vue only');
+    expect(output).toContain('\n· explicitAny: `any` is a TypeScript construct');
     expect(output).not.toContain('static catalog');
 
     // `unusedVars` is a bare tier: no number behind it, so none is printed.
@@ -222,10 +235,10 @@ describe('runRules · gates the stack cannot open', () => {
     const output = lines.join('\n');
 
     expect(output).toMatch(/· declared, unavailable here testFilename →/);
-    expect(output).toContain('testFilename: `architecture.testFiles: []` exempts nothing');
+    expect(output).toContain('\n· testFilename: `architecture.testFiles: []` exempts nothing');
 
     // And the denominator moves with it, or the note and the rows disagree again.
-    expect(output).toContain('18 listed — 3 of them unavailable on this stack');
+    expect(output).toContain('18 listed — 3 of them unavailable here');
   });
 
   it('keeps testFilename available when a declared glob reaches a test file', async () => {
@@ -325,5 +338,48 @@ describe('runRules · the dead test glob measured against the declared root', ()
 
     expect(printed).toContain('Measured: `app/**/*.css` — a file type this scan does not read');
     expect(printed).not.toContain('outside the source root');
+  });
+
+  it('gives each unavailable gate its own cause, saying what `--json` says', async () => {
+    // Two gates out for two different KINDS of reason: `explicitAny` because the
+    // dependency list carries no typescript, `testFilename` because this config's own
+    // globs reach nothing — which is a fact about the config, not about the machine.
+    // Any one predicate over the pair is false for one of them, so the count line
+    // carries none and each cause sits on the gate it belongs to, which is the shape
+    // `--json` has had all along.
+    const dir = repoWithSource({
+      ...blueprint,
+      framework: 'vue',
+      architecture: { ...blueprint.architecture, testFiles: ['scripts/**'] },
+      rules: { ...blueprint.rules, testFilename: 'error', explicitAny: 'error' },
+    });
+
+    const text: string[] = [];
+    const payload: string[] = [];
+
+    await runRules(dir, { log: (message) => void text.push(message) });
+    await runRules(dir, { json: true, log: (message) => void payload.push(message) });
+
+    const printed = text.join('\n');
+
+    const parsed = JSON.parse(payload.join('\n')) as {
+      gates: { id: string; unavailable?: string }[];
+    };
+
+    const out = parsed.gates.filter((gate) => gate.unavailable !== undefined);
+
+    expect(out.map((gate) => gate.id)).toEqual(['explicitAny', 'testFilename']);
+    expect(printed).toContain(`18 listed — ${out.length} of them unavailable here`);
+    expect(printed).not.toContain('unavailable on this stack');
+
+    // Gate for gate, the text carries the JSON's own string — not a paraphrase, and
+    // not a cause the other channel does not have.
+    for (const gate of out) {
+      expect(printed).toContain(`\n· ${gate.id}: ${gate.unavailable}`);
+    }
+
+    // And the JSON did not move for it: the causes did not become a payload key of
+    // their own, and no aggregate note followed them across.
+    expect(Object.keys(parsed)).toEqual(['severity', 'structural', 'gates', 'bans', 'docsOnly']);
   });
 });

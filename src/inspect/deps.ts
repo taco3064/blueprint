@@ -84,11 +84,14 @@ export async function runDeps(
  * the contradiction an adopter meets before we do — with one clause added for what it
  * costs HERE.
  *
- * The clause is needed because the shared sentence names the surfaces it was written
- * for ("inspected and linted as ordinary source") and this is a third one: a reader
- * looking at a fan-in that moved would otherwise read those two truths as unrelated.
- * It claims nothing about the tree, so it stays true of the state where the entry is
- * runway rather than a typo and there is no such file to count.
+ * The clause is needed because the shared sentence stops at what this run read ("no
+ * scanned file is dropped from the analysis") rather than at what that costs on this
+ * surface: a reader looking at a fan-in that moved would otherwise read the two truths
+ * as unrelated.
+ * It claims nothing about the tree, so it stays true of every state the sentence above
+ * hands back: the entry that is runway rather than a typo and has no such file to count,
+ * and the entry outside the scan, whose files this graph never read and whose imports
+ * are therefore in no count at all.
  *
  * Not on the empty leaderboard and not on the unknown-target message, and on NEITHER
  * channel: a dead entry only ever ADDS files to this graph, so it can be the cause of a
@@ -112,8 +115,8 @@ function exemptionNote(
 
   return cause === null
     ? null
-    : `${cause} — and the blast radius above is counted under the net as written, so an `
-      + 'import that entry was meant to exempt counts in it';
+    : `${cause} — and the blast radius above is counted under the net as written, so `
+      + 'nothing in it was exempted through them';
 }
 
 /** The `--json` half of {@link exemptionNote} — the key exists only when there is one. */

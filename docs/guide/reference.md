@@ -27,7 +27,7 @@ Nothing else — the package itself has zero runtime dependencies.
 
 Any `error`-level finding exits `1`; `warn` and `info` inform
 without failing the gate. Test files (`architecture.testFiles`) are exempt throughout —
-as far as the globs reach: a file no declared glob matches is inspected as ordinary source.
+as far as the globs reach: a scanned file no declared glob matches is inspected as ordinary source.
 
 - **`undeclared-folder`** · error — a top-level source folder that is not a declared layer
 - **`flow-violation`** · error — an upstream import, or a same-layer import via the alias
@@ -243,7 +243,7 @@ examples — the definitions belong here.
 
 - **`architecture.sourceRoot`** — where layers live, relative to the project root. Default `src`; `.` for root-level layouts (e.g. Next.js without `src/`)
 - **`architecture.additionalAliases`** — extra import roots beyond `alias` that participate in every structural ban
-- **`architecture.testFiles`** — test glob(s) exempt from structural rules and metric gates (default `*.test.*` / `*.spec.*`). `[]` exempts nothing — tests inherit their layer's rules — and switches the `testFilename` gate off with it: that rule is scoped to the test globs, so an empty list leaves it no file to name. `blueprint rules` says so beside the gate. A declared glob that matches no file lands in the same place: it exempts nothing, and what it was meant to cover is inspected and linted as ordinary source.
+- **`architecture.testFiles`** — test glob(s) exempt from structural rules and metric gates (default `*.test.*` / `*.spec.*`). `[]` exempts nothing — tests inherit their layer's rules — and switches the `testFilename` gate off with it: that rule is scoped to the test globs, so an empty list leaves it no file to name. `blueprint rules` says so beside the gate. A declared glob that matches no file lands in the same place: nothing the run read is exempt through it, and no scanned file is dropped from the analysis.
 - **`architecture.layerFiles` / `layerFilesIgnore`** — per-layer file globs when the framework defaults don't fit
 - **`architecture.naming`** — naming conventions by concept (e.g. `{ hook: 'useX + reactivity' }`) — rendered into handbook + contract
 - **`layer.module`** — per-layer override of the shared module shape — e.g. folder modules in one layer, flat everywhere else

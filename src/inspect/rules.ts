@@ -261,9 +261,21 @@ function unavailableNote(gates: GateStatus[]): string {
     return ' — all of them openable on this stack, so `inspect` counts the same number';
   }
 
-  return ` — ${out.length} of them unavailable on this stack (${
-    out.map((gate) => `${gate.id}: ${gate.unavailable}`).join('; ')
-  }), which \`inspect\` and \`doctor\` leave out of their optional-gate count`;
+  return ` — ${out.length} of them unavailable here, which \`inspect\` and \`doctor\` `
+    + 'leave out of their optional-gate count';
+}
+
+/**
+ * Each unavailable gate's cause on a line of its own — the shape `--json` already has,
+ * where the reason sits on the gate it belongs to and nothing above them aggregates it.
+ * Folded into the count sentence they needed a predicate to share, and the predicate was
+ * `on this stack`: true of `explicitAny`, false of a `testFilename` closed by the
+ * config's own globs, which is a fact about the config and not about the machine.
+ */
+function unavailableCauses(gates: GateStatus[]): string[] {
+  return gates
+    .filter((gate) => gate.unavailable !== undefined)
+    .map((gate) => `· ${gate.id}: ${gate.unavailable}`);
 }
 
 function resolveGate(
@@ -446,10 +458,11 @@ export function renderRules(
     'Optional gates — emitted only when declared in `rules` with a tier other than off.',
     'Every gate scopes to the layer file globs — root wiring sits outside all of them.',
     // The row count against inspect's denominator, stated rather than left to
-    // subtraction: they differ by exactly the gates this stack cannot open, and a
+    // subtraction: they differ by exactly the gates that cannot be opened here, and a
     // field agent comparing 18 rows to `0/17 optional gates` had to guess which one
     // and guessed wrong (field run #137).
     `${gates.length} listed${unavailableNote(gates)}`,
+    ...unavailableCauses(gates),
     // Beside the reconciliation line, because it is the same kind of fact: something
     // the rows alone cannot show. `·`, the info marker the rows use, and never a ⚠ —
     // one of the two states it covers is a repo doing nothing wrong.

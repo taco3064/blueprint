@@ -9,7 +9,7 @@ import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
 import {
   divergentReadingClause,
   outOfScanReachClause,
-  undecidableClause,
+  ownersCallClause,
 } from '../emit/lint/patterns';
 import {
   AUTHORING_FILE,
@@ -506,10 +506,16 @@ function unreachedIgnoreNote(
   const { sourceRoot } = blueprint.architecture;
   const reach = dead.map((glob) => ({ glob, unreached: outsideScanReach(glob, sourceRoot) }));
 
+  // This field's own consequence, which the shared clause takes rather than states:
+  // `emit/lint` copies the entry into an `ignores` carrying no `files` beside it, so
+  // it governs the whole repo there whatever this scan could reach.
+  const repoWideThere = 'it is unreached only here, and the config `emit/lint` emits '
+    + 'still applies it wherever it does match';
+
   // The shared clauses carry no closing period: `deps` appends to the sibling sentence,
   // so they cannot end one. This note is a line of its own and closes here.
-  const tail = outOfScanReachClause(reach)
-    + undecidableClause(reach, {
+  const tail = outOfScanReachClause(reach, repoWideThere)
+    + ownersCallClause(reach, {
       opening: 'Inside the scanned tree a mistyped glob and a convention',
       noun: 'exclusion',
     })
@@ -518,8 +524,8 @@ function unreachedIgnoreNote(
   // Narrower than `unreachedTestGlobs`' consequence clause, because the field is:
   // `testFiles` scopes both the analysis and the emitted lint entries, while a healthy
   // `layerFilesIgnore` changes exactly one thing inside this runtime — probe candidacy.
-  // Coverage counts these files either way, so "inspected as ordinary source" would be
-  // true of the healthy glob too and name a cost that is not this one.
+  // Coverage counts these files either way, so "no scanned file is dropped from the
+  // analysis" would be true of the healthy glob too and name a cost that is not this one.
   //
   // So probe candidacy is the whole claim, and probe candidacy is therefore what
   // `unreachedIgnoreGlobs` measures — both sets of it: an entry can match no file and

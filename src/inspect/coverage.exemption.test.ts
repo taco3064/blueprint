@@ -254,7 +254,7 @@ describe('one dead entry inside a net that still reaches files', () => {
     expect(broken.ok).toBe(false);
     expect(broken.inspect).toContain('✗ [relative-escape] src/services/b.spec.ts');
     expect(broken.inspect).toContain('`**/*.spec.{ts`');
-    expect(broken.inspect).toContain('inspected and linted as ordinary source');
+    expect(broken.inspect).toContain('no scanned file is dropped from the analysis');
 
     // Spelled right, the same tree is green — so the finding above belongs to the
     // glob, not to the code.
@@ -314,7 +314,7 @@ describe('a repo whose test exemption is broken can find out why', () => {
     expect(broken.ok).toBe(false);
     expect(broken.inspect).toContain('✗ [relative-escape] src/services/b.test.ts');
     expect(broken.inspect).toContain(glob);
-    expect(broken.inspect).toContain('inspected and linted as ordinary source');
+    expect(broken.inspect).toContain('no scanned file is dropped from the analysis');
 
     // A working glob on the same tree exempts the file and the red goes away — which
     // is what makes the red above attributable to the glob rather than to the code.
