@@ -215,3 +215,57 @@ describe('runDoctor · which class a dead declared glob is put in', () => {
     expect(verdict(tests)).toBe(verdict(ignore));
   });
 });
+
+/**
+ * The half `verdict` above deliberately stops before: not which class the entry is in,
+ * but how far this run is entitled to speak for it, and what being dead costs. The
+ * first question is one question, so it is one wording; the cost is one per field.
+ */
+describe('runDoctor · how far a dead entry reaches, and what it costs', () => {
+  // The qualification `layerFilesIgnore` has carried since stage 5, and the sibling now
+  // takes rather than rephrases. Load-bearing on the first limb, whose `scripts/**` has
+  // a real file sitting at it that this walk never went near.
+  const QUALIFIED = ['nothing this run read is', 'no scanned file is dropped from the'];
+
+  it.each(LIMBS)('bounds both fields to what this run read, on $limb', async (limb) => {
+    adopted(limb.files);
+
+    let output = '';
+
+    await runDoctor(root, { loadConfig: configFor(limb), log: (m) => (output = m) });
+
+    for (const phrase of QUALIFIED) {
+      expect(noteFor(output, 'layerFilesIgnore')).toContain(phrase);
+      expect(noteFor(output, 'testFiles')).toContain(phrase);
+    }
+  });
+
+  it.each(LIMBS.filter((limb) => limb.shape === 'states'))(
+    'leaves the consequence with the field that prints it, on $limb',
+    async (limb) => {
+      // `emit/lint` writes `layerFilesIgnore` into an `ignores` with no `files` beside
+      // it — repo-wide there, so unreached HERE really is unreached only here. Every
+      // `ignores` the test globs ride sits beside a `files`, so the same tail on that
+      // field would promise a reach the emitted config does not give it either.
+      adopted(limb.files);
+
+      let output = '';
+
+      await runDoctor(root, { loadConfig: configFor(limb), log: (m) => (output = m) });
+
+      const ignore = noteFor(output, 'layerFilesIgnore');
+      const tests = noteFor(output, 'testFiles');
+
+      expect(ignore).toContain('it is unreached only here, and the config `emit/lint` '
+        + 'emits still applies it wherever it does match');
+
+      expect(tests).not.toContain('still applies it wherever it does match');
+      expect(tests).toContain('scoped rather than repo-wide');
+
+      // And the clause they share is still one text, up to the colon the cost hangs off.
+      for (const note of [ignore, tests]) {
+        expect(note).toContain('could not have matched here however the tree grew:');
+      }
+    },
+  );
+});

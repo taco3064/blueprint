@@ -339,3 +339,20 @@ describe('deps · the states with no count for a cause to be about', () => {
     expect(out.join('\n')).not.toContain('testExemption');
   });
 });
+
+describe('deps · an entry the scan could never have reached', () => {
+  it('promises no counted import for files this graph never read', async () => {
+    // Every `PAIRS` row above is a malformed brace INSIDE the tree, so the files the
+    // entry was meant to cover are scanned and their imports really are in the count.
+    // `scripts/**` is the other half: it points outside `sourceRoot`, the walk never
+    // read those files, and their imports count nowhere. The tail said one thing for
+    // both — and this line has ALREADY said the entry is outside the scan, so the two
+    // truths sat side by side with nothing bridging them.
+    const { board } = await run(repo(['scripts/**'], { ...PROD, 'scripts/build.ts': SOURCE }));
+
+    expect(board).toContain('outside the source root `src`');
+    expect(board).toContain('counted under the net as written');
+    expect(board).toContain('nothing in it was exempted through them');
+    expect(board).not.toContain('meant to exempt counts in it');
+  });
+});

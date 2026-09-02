@@ -20,7 +20,7 @@
 
 只要有 `error` 等級的違規，就以 exit code 1 結束；`warn` 與 `info` 只提示、不影響檢核結果。<br>
 測試檔案（`architecture.testFiles`）在這些項目上都豁免，但只豁免到 glob 掃得到的範圍 ——<br>
-沒有一條 glob 對得上的檔案，會被當成一般原始碼檢查。
+掃到、而且沒有一條 glob 對得上的檔案，會被當成一般原始碼檢查。
 
 - **`undeclared-folder`** · error —— 原始碼根目錄下存在未宣告為分層的資料夾
 - **`flow-violation`** · error —— 逆向匯入，或透過別名進行的同層匯入
@@ -216,7 +216,7 @@ export default [
   填 `[]` 代表不豁免任何檔 —— 測試檔跟著它那層的規則走 —— 同時也把 `testFilename` 這個關卡關掉：<br>
   那條規則的範圍就是這些測試檔樣式，空清單等於沒有檔可以讓它檢查。`blueprint rules` 會在該關卡旁邊講明。<br>
   宣告了、卻對不上任何檔的 glob，結果落在同一個位置 ——<br>
-  它什麼都沒豁免，本來要蓋的檔案會被當成一般原始碼去檢查、去 lint。
+  這一輪讀到的檔案沒有一個因它而豁免，掃到的檔案一個也沒有被排除在分析之外。
 - **`architecture.layerFiles` / `layerFilesIgnore`** —— 框架預設樣式不適用時，逐層指定檔案樣式
 - **`architecture.naming`** —— 依概念設定的命名慣例（如 `{ hook: 'useX + reactivity' }`）—— 寫入手冊與守則
 - **`layer.module`** —— 逐層覆寫共用的模組形狀 —— 例如某一分層採資料夾模組、其餘維持單檔

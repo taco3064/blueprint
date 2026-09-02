@@ -253,12 +253,19 @@ export function unreachedTestGlobs(reach: TestGlobReach[] | undefined): string |
     return null;
   }
 
+  // What the shared clause below leaves to its caller. Every `ignores` `emit/lint`
+  // writes these globs into carries a `files` beside it, where `layerFilesIgnore` is
+  // emitted as an entry of its own with none — so the two costs are not the same one.
+  const scopedThere = 'what `emit/lint` emits for it is scoped rather than repo-wide — '
+    + 'every `ignores` it writes these globs into sits beside a `files`, so it subtracts '
+    + 'only from the set that `files` names';
+
   return '`architecture.testFiles` — no file here matches '
-    + `${dead.map((entry) => `\`${entry.glob}\``).join(', ')}, so nothing is exempt through `
-    + 'that part of the net: whatever it was meant to cover is inspected and linted as '
-    + 'ordinary source'
-    + outOfScanReachClause(dead)
-    + undecidableClause(dead, {
+    + `${dead.map((entry) => `\`${entry.glob}\``).join(', ')}, so nothing this run read `
+    + 'is exempt through that part of the net: no scanned file is dropped from the '
+    + 'analysis'
+    + outOfScanReachClause(dead, scopedThere)
+    + ownersCallClause(dead, {
       opening: 'A mistyped glob and a test convention',
       noun: 'exemption',
     })
@@ -291,9 +298,12 @@ export interface GlobReach {
  * reverse is not, which is exactly why the alternative was two phrasings. The sibling
  * sentence three functions up already names that as the thing not to do.
  *
- * It states the reach and stops. What being unreachable COSTS differs per field — an
- * ignore entry holds nothing out, a test glob exempts nothing — so each caller keeps
- * its own consequence clause, which is the split those two already had.
+ * It states the reach and takes the cost as an argument. What being unreachable COSTS
+ * differs per field, and so does what the emitted config still does with the entry:
+ * `layerFilesIgnore` is copied into an `ignores` carrying no `files`, which is a
+ * repo-wide ignore and still applies wherever it matches, while every `ignores` the
+ * test globs ride sits beside a `files` and subtracts only from that entry's own set.
+ * So the consequence is the caller's to supply, which is the split those two already had.
  */
 /**
  * Whether this scan and the config it is emitted into read the same entry off this
@@ -311,7 +321,7 @@ function readDifferently(entry: GlobReach): boolean {
   return entry.glob.startsWith('!');
 }
 
-export function outOfScanReachClause(entries: GlobReach[]): string {
+export function outOfScanReachClause(entries: GlobReach[], consequence: string): string {
   const named = entries
     .filter((entry) => entry.unreached && !readDifferently(entry))
     .map((entry) => `\`${entry.glob}\` — ${entry.unreached}`);
@@ -323,11 +333,10 @@ export function outOfScanReachClause(entries: GlobReach[]): string {
   return `. Measured: ${named.join('; ')}. `
     + 'This scan reads the source root and nothing above it, never descends into the '
     + 'directories a build writes, and reads only source extensions, so an entry outside '
-    + 'all three could not have matched here however the tree grew: it is unreached only '
-    + 'here, and the config `emit/lint` emits still applies it wherever it does match';
+    + `all three could not have matched here however the tree grew: ${consequence}`;
 }
 
-export function undecidableClause(
+export function ownersCallClause(
   entries: GlobReach[],
   wording: { opening: string; noun: 'exemption' | 'exclusion' },
 ): string {

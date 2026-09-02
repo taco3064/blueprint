@@ -234,6 +234,50 @@ describe('emitLint · shape', () => {
     expect(componentEntries).toHaveLength(2);
     expect(componentEntries.some((entry) => entry.ignores?.includes('**/*.gen.ts'))).toBe(true);
   });
+
+  it('scopes every test-glob ignore to a files set, where layerFilesIgnore has none', () => {
+    // The asymmetry `unreachedTestGlobs` states out loud, and the reason the two fields
+    // cannot share one consequence clause: a `layerFilesIgnore` entry is emitted alone
+    // and ignores repo-wide wherever it matches, while every `ignores` a test glob rides
+    // subtracts only from the `files` beside it — so a glob outside that set is unreached
+    // in the emitted config as well, not just here.
+    const spec = '**/*.spec.ts';
+
+    const bp = defineBlueprint({
+      framework: 'auto',
+      architecture: {
+        alias: '~app',
+        layers: [{ name: 'components', does: '' }, { name: 'hooks', does: '' }],
+        testFiles: [spec],
+        layerFilesIgnore: ['**/*.d.ts'],
+        module: { layout: 'folder', entry: 'index', private: [] },
+      },
+      // One per site that writes the globs into an `ignores`: the shared scope, the JS
+      // entry, the prefixed layer — the escape entry and the per-layer entries are
+      // unconditional. A site dropped from this list is a site this stops covering.
+      rules: {
+        maxLines: 'error',
+        typedefOnlyFile: 'error',
+        usePrefix: 'error',
+        testFilename: 'error',
+      },
+    });
+
+    const emitted = emitLint(bp);
+    const riding = emitted.filter((entry) => entry.ignores?.includes(spec));
+
+    // escape + two layer entries + shared + JS + prefix. Counted, so a site that stops
+    // exempting tests fails here rather than passing on the ones that still do.
+    expect(riding).toHaveLength(6);
+    expect(riding.every((entry) => Array.isArray(entry.files))).toBe(true);
+
+    // The one entry whose `files` IS the globs — a scope rather than an exemption, which
+    // is why the sentence speaks for what the ignores do and not for the whole entry.
+    expect(emitted.filter((entry) => entry.files?.includes(spec))).toHaveLength(1);
+
+    // And the sibling field for contrast: an ignore with no `files` beside it at all.
+    expect(emitted[0]).toEqual({ ignores: ['**/*.d.ts'] });
+  });
 });
 
 describe('emitLint · per-layer module layout', () => {
