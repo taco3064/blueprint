@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { unreachedTestGlobs } from '../emit/lint/patterns';
+import { emptyTestGlobs, unreachedTestGlobs } from '../emit/lint/patterns';
 import { runDeps } from './deps';
 import type { Blueprint } from '../config';
 
@@ -136,6 +136,9 @@ function causeCount(output: string, glob: string): number {
   return cause === null ? 0 : output.split(cause).length - 1;
 }
 
+/** The other sentence about this field, read from its one home for the same reason. */
+const EMPTY_CAUSE = emptyTestGlobs([]) as string;
+
 describe('deps · a declared testFiles entry that reaches no file', () => {
   it.each(PAIRS)('names %s on every rendering', async (dead, healthy, files) => {
     const broken = await run(repo([dead], files));
@@ -194,16 +197,6 @@ describe('deps · the states that must stay silent', () => {
     expect(quiet.boardJson).not.toHaveProperty('testExemption');
   });
 
-  it('says nothing for testFiles: [], which is the author\'s own stated intent', async () => {
-    const empty = await run(repo([], ESCAPE));
-
-    // The test file is counted here, and correctly: `[]` exempts nothing on purpose.
-    // "No file here matches" would be advice for someone who declared globs.
-    expect(empty.fanIn).toBe(1);
-    expect(empty.board).not.toContain('no file here matches');
-    expect(empty.boardJson).not.toHaveProperty('testExemption');
-  });
-
   it('says nothing once every declared entry reaches a file', async () => {
     const armed = await run(repo(['**/*.test.ts', '**/*.spec.ts'], {
       ...ESCAPE,
@@ -212,6 +205,27 @@ describe('deps · the states that must stay silent', () => {
 
     expect(armed.board).not.toContain('no file here matches');
     expect(armed.boardJson).not.toHaveProperty('testExemption');
+  });
+});
+
+describe('deps · the empty net speaks, in the catalog\'s words', () => {
+  it('names testFiles: [] on every rendering, and never as a dead entry', async () => {
+    const empty = await run(repo([], ESCAPE));
+
+    // The count moves the way a dead glob moves it — the test file is counted here, and
+    // correctly, because `[]` exempts nothing on purpose. What it needs beside the number
+    // is the reason, in the words the catalog puts on the `testFilename` row: this
+    // surface has no such row, so the sentence is the only place it can arrive.
+    expect(empty.fanIn).toBe(1);
+    expect(empty.board).toContain(EMPTY_CAUSE);
+    expect(empty.module).toContain(EMPTY_CAUSE);
+    expect(empty.boardJson.testExemption).toContain(EMPTY_CAUSE);
+    expect(empty.moduleJson.testExemption).toContain(EMPTY_CAUSE);
+
+    // Its own cause, not the dead-net one. "No file here matches" is advice for someone
+    // who declared globs, and the author of `[]` declared none.
+    expect(empty.board).not.toContain('no file here matches');
+    expect(empty.module).not.toContain('no file here matches');
   });
 });
 

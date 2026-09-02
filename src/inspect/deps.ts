@@ -1,7 +1,7 @@
 // Import from the patterns leaf, not the emit/lint index — the index also
 // exports lint.ts, which loads the plugin, which shares resolve logic with
 // inspect; routing through the index would close a module cycle.
-import { unreachedTestGlobs } from '../emit/lint/patterns';
+import { emptyTestGlobs, unreachedTestGlobs } from '../emit/lint/patterns';
 import type { Blueprint } from '../config';
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
@@ -104,14 +104,20 @@ function exemptionNote(
   scanned: ScanResult,
   architecture: Blueprint['architecture'],
 ): string | null {
+  const { testFiles, sourceRoot } = architecture;
+
   // The one decision, and both renderings read it: the sentence closes on "the blast
   // radius above", so a graph with no module in it has nothing for it to be about. The
   // text renderer keeps an early return of its own, and it decides nothing here.
-  const { testFiles, sourceRoot } = architecture;
+  if (!modules.length) {
+    return null;
+  }
 
-  const cause = modules.length
-    ? unreachedTestGlobs(testFileReach(scanned, testFiles, sourceRoot))
-    : null;
+  // An empty net arrives here by the same route and for the same reason: the files it
+  // stops exempting are counted in the blast radius above, and the sentence that names
+  // dead entries has none to name. One cause, two shapes of the same field.
+  const cause = unreachedTestGlobs(testFileReach(scanned, testFiles, sourceRoot))
+    ?? emptyTestGlobs(testFiles);
 
   return cause === null
     ? null
