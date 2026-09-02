@@ -280,6 +280,47 @@ describe('deps · the states with no count for a cause to be about', () => {
     expect(empty.json).not.toHaveProperty('testExemption');
   });
 
+  it('classifies the dead entry against the DECLARED root, not the default one', async () => {
+    // `runDeps` is the second of three runtimes that carry `sourceRoot` into
+    // `testFileReach`, and arity is not provenance: all three type-check with a
+    // hardcoded `'src'`. Read at `src` this glob leaves the root; read at the root the
+    // config declares, it is inside it and the extension is what disqualifies it. The
+    // two sentences differ, so a hardcoded root turns this red.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-deps-root-'));
+
+    dirs.push(dir);
+
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ name: 'fixture', dependencies: { react: '^18' } }),
+    );
+
+    for (const [rel, content] of Object.entries({
+      'app/components/Card.ts': SOURCE,
+      'app/services/api.ts': importsCard('../'),
+    })) {
+      const full = path.join(dir, rel);
+
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, content);
+    }
+
+    fs.writeFileSync(
+      path.join(dir, 'blueprint.config.mjs'),
+      `export default ${JSON.stringify({
+        ...base,
+        architecture: { ...base.architecture, sourceRoot: 'app', testFiles: ['app/**/*.css'] },
+      })};\n`,
+    );
+
+    const out: string[] = [];
+
+    await runDeps(dir, { log: (message) => void out.push(message) });
+
+    expect(out[0]).toContain('Measured: `app/**/*.css` — a file type this scan does not read');
+    expect(out[0]).not.toContain('outside the source root');
+  });
+
   it('stays silent on both channels for an unknown target', async () => {
     const dir = repo(['**/*.test.{ts'], ESCAPE);
     const out: string[] = [];

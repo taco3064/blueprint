@@ -300,3 +300,30 @@ describe('runRules · gates the stack cannot open', () => {
     expect(lines.join('\n')).toContain('all of them openable on this stack');
   });
 });
+
+describe('runRules · the dead test glob measured against the declared root', () => {
+  it('classifies it against the DECLARED sourceRoot, not the default one', async () => {
+    // The third runtime carrying `sourceRoot` into `testFileReach`, and the one whose
+    // sentence arrives through `unavailableGate` rather than a note of its own. Read at
+    // `src` this glob leaves the root; read at `app` it is inside and the extension is
+    // the disqualifier — so a hardcoded `'src'` on this path turns the row's reason into
+    // a different sentence, and the repo would hold two answers for one glob.
+    const dir = repo({
+      ...blueprint,
+      architecture: { ...blueprint.architecture, sourceRoot: 'app', testFiles: ['app/**/*.css'] },
+      rules: { ...blueprint.rules, testFilename: 'error' },
+    });
+
+    fs.mkdirSync(path.join(dir, 'app', 'components'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'app', 'components', 'Card.ts'), 'export const c = 1;\n');
+
+    const lines: string[] = [];
+
+    await runRules(dir, { log: (message) => void lines.push(message) });
+
+    const printed = lines.join('\n');
+
+    expect(printed).toContain('Measured: `app/**/*.css` — a file type this scan does not read');
+    expect(printed).not.toContain('outside the source root');
+  });
+});

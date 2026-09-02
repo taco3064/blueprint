@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { extractImports, importGraphDerivation, scan } from './scan';
+import { extractImports, importGraphDerivation, outsideScanReach, scan } from './scan';
 
 describe('extractImports', () => {
   it('extracts static, re-export, side-effect, and dynamic references', () => {
@@ -292,5 +292,216 @@ describe('importGraphDerivation · one text, wherever a graph-derived fact is re
 
     expect(indented.every((line) => line.startsWith('  '))).toBe(true);
     expect(indented.map((line) => line.slice(2))).toEqual(text.split('\n'));
+  });
+});
+
+describe('outsideScanReach · the class of dead glob the tree does not have to explain', () => {
+  it.each(['js', 'jsx', 'ts', 'tsx', 'mjs', 'cjs', 'vue'])(
+    'settles nothing against a glob pinned to .%s, which this walk reads',
+    (ext) => {
+      // One contract per member of `SOURCE_EXT`: drop one and doctor starts telling an
+      // adopter that a live ignore entry names a file type it does not read.
+      expect(outsideScanReach(`src/**/*.${ext}`)).toBeNull();
+    },
+  );
+
+  it.each(['css', 'json', 'md', 'snap', 'mts'])(
+    'names .%s as a type this walk does not read',
+    (ext) => {
+      expect(outsideScanReach(`src/**/*.${ext}`)).toBe(
+        `a file type this scan does not read (\`.${ext}\`)`,
+      );
+    },
+  );
+
+  it.each([
+    'node_modules', '.git', '.next', '.nuxt', '.turbo', '.cache',
+    'dist', 'build', 'out', 'coverage',
+  ])('names %s as a directory this walk never descends into', (dir) => {
+    // One contract per member of `NON_SOURCE_DIRS`: drop one and the walk starts
+    // descending into it, and this sentence becomes the false statement it replaced.
+    // Under a `.` root, which is the layout where these sit inside the scanned tree.
+    expect(outsideScanReach(`${dir}/**`, '.')).toBe(
+      `a directory this scan never descends into (\`${dir}\`)`,
+    );
+
+    // And below a named root, where the prefix test cannot reach it.
+    expect(outsideScanReach(`src/${dir}/**/*.ts`)).toBe(
+      `a directory this scan never descends into (\`${dir}\`)`,
+    );
+  });
+});
+
+/**
+ * The invariant the three limbs above all rest on, and the only one here asserted by a
+ * test rather than by a sentence: NO POSITIONAL LIMB EVER TESTS A SEGMENT LYING INSIDE
+ * `sourceRoot`. Its own describe because it is a different claim — those cases ask what
+ * each limb answers, these ask what no limb may touch.
+ *
+ * The axis is varied MECHANICALLY. A list of spellings is what failed three times: each
+ * repair normalised the one spelling in front of it, and the next spelling walked
+ * through. So the spellings here are GENERATED from the two rules `canonicalSegments`
+ * normalises by — a segment that denotes no directory (`.`) and the empties a leading,
+ * trailing or doubled separator leaves — composed over each other. Adding a rule to the
+ * canonicaliser means adding a transform here, not a row.
+ */
+const SPELLINGS: [name: string, spell: (path: string) => string][] = [
+  ['plain', (path) => path],
+  ['leading ./', (path) => `./${path}`],
+  ['trailing /', (path) => `${path}/`],
+  ['wrapped', (path) => `./${path}/`],
+  ['doubled separators', (path) => `//${path.split('/').join('//')}`],
+  ['interleaved .', (path) => `./${path.split('/').join('/./')}/.`],
+];
+
+/** Both root shapes: one segment, and nested — the second is where an offset can slip. */
+const ROOT_PATHS = ['src', 'out/app'];
+
+describe('outsideScanReach · the segments no limb may test', () => {
+  /** Every spelling of `path`, paired with a glob whose literal prefix is that same path. */
+  const cells = (path: string, tail: string) =>
+    SPELLINGS.flatMap(([rootName, spellRoot]) =>
+      SPELLINGS.map(([globName, spellGlob]): [string, string | null] => [
+        `root ${rootName} × glob ${globName}`,
+        outsideScanReach(`${spellGlob(path)}/${tail}`, spellRoot(path)),
+      ]));
+
+  it.each(ROOT_PATHS)('reads every spelling of %s as the same root, on both sides', (path) => {
+    // Equal roots FIRST, before anything about limbs: a glob whose literal prefix names
+    // the declared root is inside it, so a readable file under it settles nothing at all.
+    // Any spelling the canonicaliser fails to collapse fires a positional limb here.
+    const answers = cells(path, '**/*.ts');
+
+    expect(answers.filter(([, reason]) => reason !== null)).toEqual([]);
+  });
+
+  it.each(ROOT_PATHS)('gives one answer for every spelling of %s', (path) => {
+    // And with the extension limb — the one limb that is root-independent — the answer
+    // must be not merely non-positional but IDENTICAL in every cell.
+    const answers = cells(path, '**/*.css');
+
+    expect([...new Set(answers.map(([, reason]) => reason))])
+      .toEqual(['a file type this scan does not read (`.css`)']);
+  });
+
+  it('places a skipped directory the same way however the root is spelled', () => {
+    // The offset reads the root's segment COUNT, so a spelling that leaves a phantom
+    // segment moves where the limb starts looking. `dist` sits one below each root.
+    const answers = SPELLINGS.map(
+      ([, spell]) => outsideScanReach('src/dist/**/*.ts', spell('src')),
+    );
+
+    expect([...new Set(answers)])
+      .toEqual(['a directory this scan never descends into (`dist`)']);
+  });
+
+  it('names the root the way the config spells it, not the way it was compared', () => {
+    // The comparison needs every spelling to be one path; the adopter needs to find the
+    // string their own config holds.
+    expect(outsideScanReach('scripts/**', './src/')).toBe('outside the source root `./src/`');
+  });
+});
+
+describe('outsideScanReach · the limbs, on shapes the axis does not generate', () => {
+  it('never tests a segment lying inside the source root, however the glob spells it', () => {
+    // The pair that was never formed: a NESTED root whose FIRST segment is itself in
+    // `NON_SOURCE_DIRS`. Offset by whether the glob spells the whole root, `out` falls
+    // back to index 0 and gets tested — and the same run reports files found under it.
+    // The operative disqualifier here is the extension, and that is what must be said.
+    expect(outsideScanReach('out/**/*.css', 'out/app'))
+      .toBe('a file type this scan does not read (`.css`)');
+
+    expect(outsideScanReach('out/**/*.ts', 'out/app')).toBeNull();
+    expect(outsideScanReach('build/**/*.ts', 'build/src')).toBeNull();
+    expect(outsideScanReach('coverage/**', 'coverage/app')).toBeNull();
+
+    // Past the root, the limb still fires — the offset shortens its reach, it does not
+    // switch it off.
+    expect(outsideScanReach('out/app/dist/**/*.ts', 'out/app'))
+      .toBe('a directory this scan never descends into (`dist`)');
+  });
+
+  it('reads `./x` and `x` as one path, so a glob inside the root is not called outside', () => {
+    // `./src/**/*.css` points INSIDE `src`. Compared segment for segment, `.` is not
+    // `src`, the root limb fires first and the true reason behind it never runs.
+    expect(outsideScanReach('./src/**/*.css'))
+      .toBe('a file type this scan does not read (`.css`)');
+
+    expect(outsideScanReach('./src/**/*.ts')).toBeNull();
+
+    expect(outsideScanReach('./src/dist/**/*.ts'))
+      .toBe('a directory this scan never descends into (`dist`)');
+
+    // And a normalised glob that really does leave the root still says so.
+    expect(outsideScanReach('./scripts/**')).toBe('outside the source root `src`');
+  });
+
+  it('settles nothing positional about a glob carrying `..`', () => {
+    // Resolving `..` needs the root as a real path, and this is told only how it is
+    // spelled — `out/../src/**` reads as leaving `src` while landing inside it. The
+    // extension limb does not depend on position, so it still answers.
+    expect(outsideScanReach('../src/**/*.ts')).toBeNull();
+    expect(outsideScanReach('out/../src/**/*.ts')).toBeNull();
+
+    expect(outsideScanReach('out/../src/**/*.css'))
+      .toBe('a file type this scan does not read (`.css`)');
+  });
+
+  it('reads the skipped directory past the source root, never as the root itself', () => {
+    // The walk STARTS at the root and only tests entries below it, so a root that is
+    // itself called `dist` is descended into. Read from segment zero, this fixture
+    // would report a repo whose sources live in `dist/` as unreachable.
+    expect(outsideScanReach('dist/**/*.ts', 'dist')).toBeNull();
+    expect(outsideScanReach('dist/pages/**/*.ts', 'dist')).toBeNull();
+
+    // One level down under that same root is skipped again.
+    expect(outsideScanReach('dist/dist/**/*.ts', 'dist'))
+      .toBe('a directory this scan never descends into (`dist`)');
+  });
+
+  it('reaches a skipped directory named after a wildcard, and not in file position', () => {
+    // Every path `**/dist/**` matches carries a `dist` component, so the walk cannot
+    // produce one — decidable even though the literal prefix is empty.
+    expect(outsideScanReach('**/dist/**')).toBe(
+      'a directory this scan never descends into (`dist`)',
+    );
+
+    // Last segment is a filename, not a directory, so the name decides nothing there.
+    expect(outsideScanReach('src/pages/dist')).toBeNull();
+  });
+
+  it('names a literal prefix that leaves the source root, and names the root it left', () => {
+    expect(outsideScanReach('scripts/**')).toBe('outside the source root `src`');
+    expect(outsideScanReach('scripts/**', 'app')).toBe('outside the source root `app`');
+
+    expect(outsideScanReach('packages/lib/**', 'packages/app'))
+      .toBe('outside the source root `packages/app`');
+  });
+
+  it('settles nothing a wildcard could still carry back into the root', () => {
+    // Conservative in one direction only: the caller states this class as fact and hands
+    // everything else back, so a wrong reason is a fabrication where a null is a
+    // hand-back. Each of these could match a scanned path.
+    expect(outsideScanReach('**/scripts/**')).toBeNull();
+    expect(outsideScanReach('src/generated/**')).toBeNull();
+    expect(outsideScanReach('packages/**', 'packages/app')).toBeNull();
+    // A root of `.` is the whole project, so nothing is outside it — the fork `scan`
+    // takes when it decides the prefix it puts back on each path.
+    expect(outsideScanReach('scripts/**', '.')).toBeNull();
+  });
+
+  it('leaves an extension a brace could still expand undecided', () => {
+    // The shape this ticket is about. `**/*.{gen` compiles to a literal brace and
+    // reaches nothing, but the type it pins cannot be read off the text — calling it a
+    // type this walk does not read reports a typo as an entry that is working.
+    expect(outsideScanReach('src/**/*.{gen')).toBeNull();
+    expect(outsideScanReach('src/**/*.{ts,tsx}')).toBeNull();
+  });
+
+  it('reads the extension off the last segment, and only when the glob pins one', () => {
+    expect(outsideScanReach('src/a.b/**')).toBeNull();
+    expect(outsideScanReach('src/**/*.d.ts')).toBeNull();
+    expect(outsideScanReach('src/pages/a.')).toBeNull();
+    expect(outsideScanReach('src/.eslintrc')).toBeNull();
   });
 });

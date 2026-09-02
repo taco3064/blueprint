@@ -205,8 +205,7 @@ export const LINT_GATED_RULE_IDS = [
  * whole while one of its entries reaches none, and a total cannot name which. The
  * entry is the thing an adopter can fix, so the entry is what gets measured.
  */
-export interface TestGlobReach {
-  glob: string;
+export interface TestGlobReach extends GlobReach {
   matched: number;
 }
 
@@ -232,13 +231,16 @@ export interface GateStack {
  * and a `{` whose `}` closes a later group both compile to a net that matches
  * nothing, and neither looks wrong.
  *
- * One sentence for both states a dead entry can be in. A mistyped glob and a test
- * convention whose files have not landed produce the same measurement, and nothing in
- * the tree tells them apart — the built-in `*.test.* / *.spec.*` pair least of all,
- * since a repo that declares this field is usually a repo those two do not fit. So it
- * says what is true either way, names both resolutions and ends in the owner's call,
- * which is what `missing-layer` and `owns-not-installed` already do with this shape of
- * question. Nothing here needs to know which of the two it is looking at.
+ * Three states a dead entry can be in, and the reader hands back only the two it
+ * cannot tell apart. A mistyped glob and a test convention whose files have not landed
+ * produce the same measurement, and nothing in the tree separates them — the built-in
+ * `*.test.* / *.spec.*` pair least of all, since a repo that declares this field is
+ * usually a repo those two do not fit. So that half says what is true either way, names
+ * both resolutions and ends in the owner's call, which is what `missing-layer` and
+ * `owns-not-installed` already do with this shape of question. The third is not like
+ * them: an entry the scan could never have reached is neither a typo nor runway, and
+ * handing it back asserts that one of two things is true while a third is. That one
+ * `outsideScanReach` settles, and `outOfScanReachClause` states.
  *
  * Its own function because `computeCoverage` needs this sentence as well as this
  * verdict: the run that reports findings against test files is where the cause has to
@@ -254,9 +256,117 @@ export function unreachedTestGlobs(reach: TestGlobReach[] | undefined): string |
   return '`architecture.testFiles` — no file here matches '
     + `${dead.map((entry) => `\`${entry.glob}\``).join(', ')}, so nothing is exempt through `
     + 'that part of the net: whatever it was meant to cover is inspected and linted as '
-    + 'ordinary source. A mistyped glob and a test convention whose files have not landed '
-    + 'look identical from here — fix the glob, or leave it and the exemption arms itself '
-    + 'when a file matches; which one applies is the owner\'s call';
+    + 'ordinary source'
+    + outOfScanReachClause(dead)
+    + undecidableClause(dead, {
+      opening: 'A mistyped glob and a test convention',
+      noun: 'exemption',
+    })
+    + divergentReadingClause(dead);
+}
+
+/**
+ * One declared glob and what the scan's own reach settles about it. `unreached` carries
+ * the reason it could never have matched here, and is absent when the glob text does not
+ * settle it.
+ *
+ * A field of the measurement rather than something this module computes: the facts are
+ * `scan`'s — the root, the skipped directories, the extension set — and `emit/lint` sits
+ * BELOW `inspect` in the layer order, so it cannot reach `outsideScanReach` and must not
+ * grow a second copy of the answer. The inspect-side reader fills it in.
+ */
+export interface GlobReach {
+  glob: string;
+  unreached?: string | null;
+}
+
+/**
+ * What the scan's own reach settles about a set of dead declared globs — ONE text for
+ * both `architecture.testFiles` and `architecture.layerFilesIgnore`, and empty when the
+ * set holds no such entry.
+ *
+ * Here rather than beside either caller because it is the answer to one question — is
+ * this entry reachable here at all? — and this leaf is the lowest module both readers
+ * can import. `doctor` reaching down for it is the direction the layers allow; the
+ * reverse is not, which is exactly why the alternative was two phrasings. The sibling
+ * sentence three functions up already names that as the thing not to do.
+ *
+ * It states the reach and stops. What being unreachable COSTS differs per field — an
+ * ignore entry holds nothing out, a test glob exempts nothing — so each caller keeps
+ * its own consequence clause, which is the split those two already had.
+ */
+/**
+ * Whether this scan and the config it is emitted into read the same entry off this
+ * string — today, exactly a leading `!`. `globToRegExp` has no `!` branch, so this side
+ * reads it as an ordinary path character; ESLint reads a leading `!` in a config glob as
+ * a negation. One string, two entries.
+ *
+ * Not a position on what `!` means, and not validation of the glob — nothing here
+ * changes what any glob matches. It is the one input the clauses below are not entitled
+ * to speak for, because neither can know it is describing the entry the adopter's linter
+ * will apply. Stage 9's own rule, turned on an input stage 9 gets wrong: state what the
+ * tool can determine, decline what it cannot.
+ */
+function readDifferently(entry: GlobReach): boolean {
+  return entry.glob.startsWith('!');
+}
+
+export function outOfScanReachClause(entries: GlobReach[]): string {
+  const named = entries
+    .filter((entry) => entry.unreached && !readDifferently(entry))
+    .map((entry) => `\`${entry.glob}\` — ${entry.unreached}`);
+
+  if (!named.length) {
+    return '';
+  }
+
+  return `. Measured: ${named.join('; ')}. `
+    + 'This scan reads the source root and nothing above it, never descends into the '
+    + 'directories a build writes, and reads only source extensions, so an entry outside '
+    + 'all three could not have matched here however the tree grew: it is unreached only '
+    + 'here, and the config `emit/lint` emits still applies it wherever it does match';
+}
+
+export function undecidableClause(
+  entries: GlobReach[],
+  wording: { opening: string; noun: 'exemption' | 'exclusion' },
+): string {
+  const left = entries.filter((entry) => !entry.unreached && !readDifferently(entry));
+
+  if (!left.length) {
+    return '';
+  }
+
+  // Named only once the dead entries have been split across clauses: with one clause the
+  // opening already lists every one of them, and a second listing is the same set twice.
+  const split = left.length !== entries.length;
+  const names = left.map((entry) => `\`${entry.glob}\``).join(', ');
+
+  return `. ${wording.opening} whose files have not landed look identical from here`
+    + (split ? `, which leaves ${names} undecided` : '')
+    + ` — fix the glob, or leave it and the ${wording.noun} arms itself when a file `
+    + 'matches; which one applies is the owner\'s call';
+}
+
+/**
+ * The entries neither other clause may speak for, and why — one text for both fields,
+ * beside the two it withholds.
+ *
+ * Says what is missing as well as why: an adopter who gets no verdict on one entry and a
+ * verdict on the next needs the gap named, or the silence reads as the entry being fine.
+ * The list sits last so no pronoun has to agree with its length.
+ */
+export function divergentReadingClause(entries: GlobReach[]): string {
+  const named = entries.filter(readDifferently).map((entry) => `\`${entry.glob}\``);
+
+  if (!named.length) {
+    return '';
+  }
+
+  return '. An entry beginning `!` is not read the same way on both sides — an ordinary '
+    + 'path character to this scan, a negation to ESLint in a config glob — so blueprint '
+    + 'cannot say what it holds out, and neither classifies it nor hands it back: '
+    + named.join(', ');
 }
 
 /**
