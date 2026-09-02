@@ -59,6 +59,18 @@ const outsideRoot = loads(withIgnore(['scripts/**']));
 const deadTests = loads(withTests(['**/*.test.{ts']));
 const liveTests = loads(withTests(['**/*.test.ts']));
 
+/**
+ * What two outputs do not share, as whole lines: the ones `from` added, then the ones it
+ * dropped. Whole lines and both directions, because the one-directional substring form
+ * (`!control.includes(line)`) asks whether the text appears ANYWHERE in the other output
+ * — so a line one run SHORTENED is still found inside the longer original and reads as
+ * unchanged, and a line it dropped is not a line on that side to test at all.
+ */
+const movement = (from: string, against: string): string[][] => [
+  from.split('\n').filter((line) => !against.split('\n').includes(line)),
+  against.split('\n').filter((line) => !from.split('\n').includes(line)),
+];
+
 /** The architecture check's detail — where the counts a reader acts on are printed. */
 const coverageDetail = (checks: DoctorCheck[]): string | undefined =>
   checks.find((check) => check.label.startsWith('architecture clean'))?.detail;
@@ -85,6 +97,12 @@ const wiredBlueprint = (layerFilesIgnore: string[]): Blueprint => ({
   emit: { agents: [] },
   rules: { unusedVars: 'error' },
 });
+
+// The one-character pair again, on the blueprint the wired comparison resolves against.
+// Module scope beside the unwired pair above, and for the same reason: both are pure
+// constructions, and the test that reads them is at the repo's per-function cap.
+const wiredDead = wiredBlueprint(['**/*.{gen']);
+const wiredHealthy = wiredBlueprint(['**/*.{gen,generated}.ts']);
 
 /** Fixture roots the wired comparison owns, torn down beside `root`. */
 const wiredRoots: string[] = [];
@@ -425,20 +443,17 @@ describe('runDoctor · the notes under the banner', () => {
     // compiled only in `pickProbes`, behind THIS check, so the check has to be live for
     // the comparison to be about the field. At the parent commit these two runs were
     // byte-identical, banner and exit code included.
-    const deadBp = wiredBlueprint(['**/*.{gen']);
-    const healthyBp = wiredBlueprint(['**/*.{gen,generated}.ts']);
-
     let broken = '';
     let intact = '';
 
     const red = await runDoctor(
-      wiredRepo(deadBp),
-      { loadConfig: loads(deadBp), log: (m) => (broken = m) },
+      wiredRepo(wiredDead),
+      { loadConfig: loads(wiredDead), log: (m) => (broken = m) },
     );
 
     const green = await runDoctor(
-      wiredRepo(healthyBp),
-      { loadConfig: loads(healthyBp), log: (m) => (intact = m) },
+      wiredRepo(wiredHealthy),
+      { loadConfig: loads(wiredHealthy), log: (m) => (intact = m) },
     );
 
     // Ran, rather than skipped. The skip label shares the check's prefix, so demand the
@@ -459,7 +474,13 @@ describe('runDoctor · the notes under the banner', () => {
     // verdict both stand still.
     expect(red.ok).toBe(green.ok);
     expect(red.verdict).toBe(green.verdict);
-    expect(broken.split('\n').filter((line) => !intact.includes(line))).toHaveLength(1);
+    // One line added, none removed and none reshaped.
+    expect(movement(broken, intact).map((lines) => lines.length)).toEqual([1, 0]);
+
+    // The structured channel too, the way the sibling case below states it. It is what
+    // `--json` hands a machine, and it catches the movement lines cannot: a run that
+    // keeps every line and only moves a check reads as motionless from the text.
+    expect(red.checks).toEqual(green.checks);
   });
 
   it('stays silent when the entry swallowed a probe instead of reaching nothing', async () => {
