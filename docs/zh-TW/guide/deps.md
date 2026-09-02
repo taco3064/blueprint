@@ -85,8 +85,10 @@ app (flat layer — answers at layer granularity)
 - **僅涵蓋已宣告的分層。**<br>
   `architecture.layers` 以外的資料夾不會納入相依圖；排行榜會將其列為略過項目（如上例的 `legacy/`），避免把「未被掃描」誤讀為「沒有任何模組引用」。<br>
   查詢此類資料夾內的模組時，會直接說明原因：`✗ "legacy/" is not a declared layer`。
-- **測試檔案一律排除**（`architecture.testFiles`）——<br>
-  測試對模組的匯入不算進影響範圍，跟 lint 側的行為一致。
+- **測試檔案排除在外**（`architecture.testFiles`）——<br>
+  測試對模組的匯入不算進影響範圍，跟 lint 側的行為一致。<br>
+  這件事只成立到 glob 掃得到的範圍 ——<br>
+  沒有一條 glob 對得上的測試檔，兩邊都算一般原始碼，它的匯入就會被計入。
 - **僅有別名匯入與相對路徑匯入會構成相依邊。**<br>
   套件匯入（`axios`、`vue`）不屬於模組相依圖 —— 套件的**所有權**檢核屬於 `inspect` 的職責。
 - **循環相依僅如實列出，不作裁決。**<br>

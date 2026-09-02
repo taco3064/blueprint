@@ -92,7 +92,9 @@ app (flat layer — answers at layer granularity)
   fan-in is never misread as "nobody imports this". Querying into one fails with the
   reason: `✗ "legacy/" is not a declared layer`.
 - **Test files are excluded** (`architecture.testFiles`) — a test importing a module
-  adds nothing to its blast radius, matching the lint side.
+  adds nothing to its blast radius, matching the lint side. That holds as far as the
+  globs reach: a test no declared glob matches is ordinary source on both sides, so
+  its import counts.
 - **Only alias and relative imports form edges.** Package imports (`axios`, `vue`)
   are not part of the module graph — package *ownership* is `inspect`'s job.
 - **Cycles are listed, not judged.** Two modules importing each other simply show up
