@@ -196,20 +196,18 @@ describe('renderCoverage', () => {
     expect(vacuous).toContain(`\n· ${why}`);
 
     // Info tier, on its own line — the findings above already carry the verdict, and
-    // nothing here turns a passing run red.
-    const healthy = renderCoverage(
-      {
-        sourceFiles: 2,
-        layerFiles: 2,
-        outsideNets: [],
-        activeRules: 2,
-        gatedRules: 13,
-        testExemption: why,
-      },
-      blueprint,
-    );
+    // nothing here turns a passing run red. One shape, rendered with the key and then
+    // without it, because that difference is the whole of what the guard reads.
+    const shape
+      = { sourceFiles: 2, layerFiles: 2, outsideNets: [], activeRules: 2, gatedRules: 13 };
 
-    expect(healthy).toContain(`\n· ${why}`);
+    expect(renderCoverage({ ...shape, testExemption: why }, blueprint)).toContain(`\n· ${why}`);
+
+    // And absent when the key is: `undefined` is what the emit side leaves on a repo
+    // whose every declared entry reaches something, and this guard is its only reader —
+    // read `null` there instead and every green run carries a bare `· undefined`.
+    expect(renderCoverage(shape, blueprint)).not.toContain('\n· ');
+    expect(renderCoverage({ ...shape, layerFiles: 0 }, blueprint)).not.toContain('\n· ');
   });
 
   it('stays calm on an empty repo — nothing exists to cover yet', () => {
@@ -307,6 +305,26 @@ describe('unreachedIgnoreGlobs — the sibling measurement, per declared entry',
     // The layer with no file still derives one, so the same entry stays silent there.
     expect(unreachedIgnoreGlobs(scanOf('src/components/Button.vue'), ignoring('**/*.js')))
       .toEqual([]);
+  });
+
+  it('lifts one entry, not the declaration — a sibling can be why a stand-in exists', () => {
+    // Two entries, and the second is alive only because of the first. `src/services/**`
+    // takes that layer's only file out of probe candidacy, so `pickProbes` falls back to
+    // `src/services/__blueprint_probe__.js` — and `**/*.js` takes that stand-in too, which
+    // is a probe removed, not an inert entry. Lift the whole declaration instead of just
+    // the entry under measurement and both layers keep their files, no stand-in is derived
+    // anywhere, and the live entry reads as dead. Every other fixture here declares one
+    // entry, where lifting one and lifting all are the same operation.
+    const populated = scanOf('src/components/Button.vue', 'src/services/api.ts');
+
+    expect(unreachedIgnoreGlobs(populated, ignoring(['src/services/**', '**/*.js']))).toEqual([]);
+
+    // The same two entries the other way round, because one order cannot separate the
+    // two halves of the lift. With the swallower first, the entry that needs it is at a
+    // LATER index and only the preceding half carries it; reversed, only the following
+    // half does. An order that loses the mirror loses this: the live entry reported as
+    // reaching nothing, which is the class stage 5 spent a stage removing.
+    expect(unreachedIgnoreGlobs(populated, ignoring(['**/*.js', 'src/services/**']))).toEqual([]);
   });
 });
 

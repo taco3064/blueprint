@@ -217,6 +217,15 @@ describe('one dead entry inside a net that still reaches files', () => {
     // predicate decides it — the count above says the row does not double the catalog's
     // line, this one says the catalog's line does not double the row.
     expect(causeCount(broken.rules, '**/*.spec.{ts')).toBe(1);
+
+    // And on an info-tier line: `·`, the marker the gate rows already use for a state
+    // that is not a failure, never `⚠`. The gate is open and this run exits 0, so a
+    // warning marker would contradict the run it prints in. Doctor's side of the same
+    // distinction is pinned; this side was asserted nowhere, and every assertion above
+    // reads the sentence rather than what stands in front of it.
+    const cause = unreachedTestGlobs([{ glob: '**/*.spec.{ts', matched: 0 }]) as string;
+
+    expect(broken.rules).toContain(`\n· ${cause}`);
   });
 
   it('carries the same cause into --json, or the two channels drift', async () => {
