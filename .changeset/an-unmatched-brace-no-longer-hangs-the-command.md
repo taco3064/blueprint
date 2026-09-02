@@ -21,6 +21,16 @@ there that matches nothing still surfaces only as the existing vacuous-enforceme
   `architecture.layerFilesIgnore` by `doctor`. Measured **per declared entry**, so a list like
   `['**/*.test.*', '**/__tests__/**']` tells you *which* half is dead rather than only that
   something is.
+- **`architecture.testFiles: []` now says why on every surface that reacts to it.** An empty
+  list switches the `testFilename` gate off, and the optional-gate count drops on `inspect`,
+  `doctor` and `deps` — but only `blueprint rules` used to say so. Those three now carry the
+  same sentence `rules` already printed. **If you declare `testFiles: []` you will see one
+  new line on three commands**, and nothing anywhere if your test globs reach a file.
+- **`blueprint inspect --update-baseline` states the cause before it writes.** Its whole
+  output used to be `Baseline updated — N finding(s) recorded`. When a broken or empty test
+  net is why a finding exists at all, that finding was being **recorded as accepted debt**
+  with nothing in the run to say so. **What it records on disk is unchanged** — this is what
+  the run tells you, not what it accepts.
 - **A dead `testFiles` net is named, and the gate it emits is reported as emitted.** The gate
   stays `✓ error` with the same optional-gate count as a healthy config — **because the rule
   really is emitted**, beside a `files` holding that glob, and ESLint applies it to whatever it
