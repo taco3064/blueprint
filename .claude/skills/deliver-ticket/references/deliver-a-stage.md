@@ -188,6 +188,8 @@ So **post the review-state comment before part one goes out, and update it at ev
 <!-- deliver-ticket:stage-review:<stage-slug> -->
 ```
 
+**The marker stays the first line and the role word is the first line that renders.** GitHub shows an HTML comment as nothing, so the two never compete for the slot: the marker is for the session that comes back and for the `gh api` lookup that finds it, the role word is for whoever is scanning the stream — `SKILL.md`'s *The ticket is the record, not just the target*.
+
 It carries, and keeps current:
 
 - **`state`** — one of `dispatched`, `pass one recorded, part two unsent`, `blocked (n of 2 fix rounds spent)`, `passed`, `committed <sha>, awaiting push`, `landed <sha>`, `escalated`. **The second exists because this file now requires a write between the two parts**: without it, a session dying in that window is indistinguishable from one that died before part one came back, and the difference is whether a first pass has to be redone.
@@ -206,7 +208,7 @@ The hashes are what make a resume precise rather than approximate: a staged tree
 **Two fix rounds is the budget**, counted as *The review state goes on the ticket* above counts them — by fixes dispatched, not by verdicts received. When the second re-review still returns BLOCKED, **the stage escalates and nothing commits** — and this is the exit *The protocol's own budget* uses too, so **the comment says what ended the stage**, because the ways it can end are unalike and what the owner does next differs with each. An exhausted **fix** budget is evidence about the code, the plan or the ticket. An exhausted **protocol** budget is evidence about the loop, and re-running it unchanged reproduces it. **A question only the owner can answer** — an undecided decision, a self-contradictory requirement, a tree nobody can account for — spent no budget and is waiting on them, not on another attempt. **And an external change** — the requirement moved twice, or the owner edited the tree — spent nothing and broke nothing: the work is intact and what is owed is a target that holds still.
 
 - **Park the work where it survives the session.** `git diff --cached > <patch>` into the scratchpad or a `mktemp -d` — **never inside the worktree**, which would add an untracked file to the very diff under review. Leave the worktree staged and otherwise untouched.
-- **Comment on the ticket** — a new comment, because this one has to reach the owner: the stage, the base SHA, where the patch is, what the owner has to decide, and **a link to the review-state comment for the round-by-round detail rather than a second copy of it.** The findings are already there verbatim; restating them creates two accounts of the same rounds that will differ. Then set that comment's `state` to `escalated` and stop — no commit, no next stage. `start-or-resume.md` reads both to recognise this state on the way back in.
+- **Comment on the ticket** — a new comment, because this one has to reach the owner: the stage, the base SHA, where the patch is, what the owner has to decide, and **a link to the review-state comment for the round-by-round detail rather than a second copy of it.** The findings are already there verbatim; restating them creates two accounts of the same rounds that will differ. Then set that comment's `state` to `escalated` and stop — no commit, no next stage. `start-or-resume.md` reads both to recognise this state on the way back in. **That order is the citation rule and not a convenience**: the pointer to the escalation goes into the review-state comment once the escalation has been posted, never before — `SKILL.md`'s *The ticket is the record, not just the target*, whose incident this pair is.
 - **A stage that fails three reviews is evidence about the plan, the packet or the ticket** rather than about the code, and a fourth attempt at the code is the one response that cannot help. If the ticket itself turns out to be wrong, `SKILL.md`'s drift branch is where that goes.
 
 ## Push before the stage delivery comment, always
@@ -225,7 +227,7 @@ A delivery comment citing a SHA that only exists in the local worktree is citing
 
 ## The comment, one per commit
 
-Post it as the commit lands, not in a batch at the end. It carries five things and the last one is the one that gets skipped:
+Post it as the commit lands, not in a batch at the end. **It opens with the role word** — `SKILL.md`'s *The ticket is the record, not just the target* — and then carries five things; the last one is the one that gets skipped:
 
 **1. What landed, and the commit.** The short SHA and one line on what is now true that was not. Not a file list — the file list is in the diff.
 
