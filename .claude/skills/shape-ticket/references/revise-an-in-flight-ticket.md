@@ -155,6 +155,47 @@ is its own way of eroding trust in what a revision means.
   authored here, and its stage 7/8 split is where the plan bullet
   criterion 14 went on gating was dropped.
 
+## When it lands, and who hears about it
+
+- **A ticket that should move, moves.** Holding a sentence you already know
+  is wrong so that a running review can finish against it does not save that
+  review — it spends the next stage instead of this one. **The delivery queue
+  is not the bar**; being right about the ticket is. #379 ran both errors in
+  one ticket. *Early:* two revisions landed under a running review and stopped
+  the stage on `deliver-a-stage.md`'s second-movement rule — *"a second
+  movement on one stage stops"* — a review cycle spent on a target that would
+  not hold still. *Then, over-correcting:* two further corrections were
+  **queued** for a gap between stages, one of them restating the *Decisions
+  made* entry stage 3's first implementation had misread; the delivering
+  session ruled it correctly at a hand-back's cost, and the ticket still said
+  the old thing while stage 3 went out for review. The owner ruled the
+  queueing out — **「該動就要動」**.
+- **Every edit to a live issue is announced to the delivering session, in the
+  same breath as the push.** Not only one that moves a requirement — **any**
+  edit: a body correction, a re-worded decision, a fixed citation, a label.
+  The delivering side is the only party that can price what a change costs it,
+  and it can only do that if it knows the change happened. **The revision
+  comment above is the record, not the announcement** — a comment on the issue
+  does not reach a session that is already running. A silent edit is how a
+  reviewer earns a verdict against text that no longer exists. This is
+  the other half of the same ruling — **「issue 有任何改動記得都要通知
+  deliver 端」** — and it is what makes moving immediately safe.
+- **The announcement carries what the delivering side needs in order to
+  decide, and stops there:** which sections moved, whether any acceptance
+  criterion or stage scope moved, which landed stages stay valid and why —
+  and this run's read on materiality **offered as basis, never as a ruling.**
+  `deliver-a-stage.md`'s movement bookkeeping belongs to the delivering
+  session, and the shaper is the one party with an interest in its own edit
+  being judged immaterial.
+- **Batching stays a preference and stops being a reason to wait.** Two
+  corrections found in one sitting go in one pass; a correction found alone
+  does not wait for a second to keep it company.
+
+**Once this skill dispatches delivery itself** — `create-the-ticket.md`'s
+*The owner's word starts delivery* — that announcement is a message to this
+run's own delivery agent rather than to a peer session. The channel changes;
+the requirement does not.
+
 ## Recognizing diminishing returns
 
 Not every finding earns another pass. Before starting one, check what kind
