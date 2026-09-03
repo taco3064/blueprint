@@ -498,6 +498,39 @@ describe('unreachedTestGlobs · what the emitted config still does with a dead e
   });
 });
 
+/**
+ * The one clause in this sentence that speaks for the WHOLE net rather than for the dead
+ * part of it, so it is the one that moves with what the rest of the net reached. Its own
+ * block for the same reason the one above it has one: the per-function line cap.
+ */
+describe('unreachedTestGlobs · what the dead entries cost the run printing them', () => {
+  it('leaves the drop with the rest of the net, where the rest of the net made it', () => {
+    // `**/*.test.ts` matched, so a file this run scanned really is dropped from the
+    // analysis — by the run printing the sentence.
+    const said = unreachedTestGlobs([
+      { glob: '**/*.test.ts', matched: 1 },
+      { glob: '**/*.spec.{ts', matched: 0 },
+    ]) as string;
+
+    expect(said).toContain('nothing this run read is exempt through that part of the net: '
+      + 'the scanned files dropped from the analysis are the ones the rest of the net '
+      + 'matched');
+
+    expect(said).not.toContain('no scanned file is dropped');
+
+    // "The rest", and no further: the entries this sentence gives an address to are the
+    // ones an adopter can fix, and the working one is not among them.
+    expect(said).not.toContain('`**/*.test.ts`');
+  });
+
+  it('says nothing was dropped where the whole net is dead, and nothing was', () => {
+    // The other direction, on the same dead entry: with nothing beside it to do the
+    // dropping, the run analysed everything it scanned and the wording does not move.
+    expect(unreachedTestGlobs([{ glob: '**/*.spec.{ts', matched: 0 }]))
+      .toContain('that part of the net: no scanned file is dropped from the analysis');
+  });
+});
+
 describe('unavailableGate · testFilename against the declaration', () => {
   const stack = { framework: 'react', hasTypescript: true };
 
