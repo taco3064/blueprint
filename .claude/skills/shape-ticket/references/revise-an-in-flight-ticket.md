@@ -9,6 +9,14 @@ review that ran before any dispatch) or several have; the rule below is
 about what a landed stage does to the decision when there is one, not about
 requiring one to exist first.
 
+**The floor is checked before this trigger is.** New evidence enters this
+path only when it is related to what the ticket is fixing —
+`resolve-the-direction.md`'s *The floor — is it related to what this ticket
+is fixing* is that test, and evidence that fails it is recorded in the issue
+and the ticket ships, with no pass on offer however real the defect is.
+#379's plan reached twenty stages across fifteen revision passes entered
+here, and not one of them was asked that question.
+
 This is the narrow exception to *You do not touch the repository* and to
 "never for touching a ticket already handed to delivery" above. It exists
 because the alternative already in this skill — the owner closes the issue,
@@ -146,7 +154,10 @@ Not every finding earns another pass. Before starting one, check what kind
 the previous pass's own fix produced:
 
 - **A new, independent defect** — a different file, a different mechanism, a
-  different claim than the fix just applied — is real signal. Revise.
+  different claim than the fix just applied — is real signal once it has
+  cleared the floor above. **Independent of the last fix is not the same as
+  related to the ticket**: #379's four follow-ups (#386–#389) were each
+  independent, and each one failed that test.
 - **A defect *in* the fix just applied** — the same mechanism, corrected
   again — is still real signal once, maybe twice. #371's fifth pass (closing
   a loophole) and sixth pass (narrowing that close so it stopped
