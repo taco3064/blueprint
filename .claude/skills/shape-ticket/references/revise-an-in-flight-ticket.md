@@ -2,14 +2,22 @@
 
 **Trigger:** new evidence — a review, a hand-traced bug, a stalled assumption
 — shows a real gap in an issue's plan or acceptance criteria, and
-`deliver-ticket` has already been invoked on it. **A landed stage is not a
+`deliver-ticket` has already been invoked on it — **or any edit at all is
+about to be made to an issue under delivery**: a body correction, a
+re-worded decision, a fixed citation, a label. **That second case is not a
+smaller version of the first.** *When it lands, and who hears about it*
+holds one announcement rule for every edit and not only for the ones that
+move a requirement, so the run reaching for a label or a citation is exactly
+the run that rule was widened to cover — and a trigger naming only a plan or
+acceptance-criteria gap is one that run never fires. **A landed stage is not a
 precondition** — this applies whether zero stages have landed (the gap
 surfaced during `deliver-ticket`'s own pre-first-commit read, or from a
 review that ran before any dispatch) or several have; the rule below is
 about what a landed stage does to the decision when there is one, not about
 requiring one to exist first.
 
-**The floor is checked before this trigger is.** New evidence enters this
+**The floor is checked before the new-evidence case of that trigger is**, and
+it is a test on findings rather than on edits. New evidence enters this
 path only when it is related to what the ticket is fixing —
 `resolve-the-direction.md`'s *The floor — is it related to what this ticket
 is fixing* is that test, and evidence that fails it is recorded in the issue
@@ -73,13 +81,19 @@ is its own way of eroding trust in what a revision means.
   issue body is overwritten each pass, so the comment is the only place the
   prior wording survives; "tightened AC1's baseline" is a claim nobody can
   check six passes later, while the literal old sentence and the literal new
-  one, side by side, are. Every revision comment carries, at minimum:
+  one, side by side, are. Every revision comment **opens with the role
+  word** — `SKILL.md`'s *Every comment names its author, a retraction
+  reaches back, and a citation waits for its target* — and then carries, at
+  minimum:
   - the exact prior text of what changed, quoted;
   - the exact new text, quoted;
   - which stage(s) or acceptance criteria it touches;
   - which already-landed stage(s) it leaves valid, and why (this is what
-    makes the next bullet's "judged by the criteria that stood at the time"
-    actually reconstructable later, instead of a claim resting on nothing);
+    makes *A landed stage is judged by the acceptance criteria that stood when
+    it landed*, on this page, actually reconstructable later rather than a claim
+    resting on nothing — a stage judged by the criteria of its own moment needs
+    a record of which stages each pass left standing, and this is where that
+    record is written);
   - whether the finding was executed-and-observed or read-and-inferred (see
     below).
 
@@ -97,6 +111,23 @@ is its own way of eroding trust in what a revision means.
   fix was itself found overcorrected by the sixth, and the comment trail is
   what let that be stated as a correction to a specific prior claim rather
   than a fresh, unexplained flip.
+- **A pass that replaces a claim an earlier pass made marks it at that
+  claim, not only here.** Edit that earlier comment to say which of the three
+  happened — superseded, in this case — **where the role word already is**,
+  and to point at this pass, leaving the rest of its body intact. **The mode
+  and the placement are both the obligation**: a mark that does not say which
+  of the three happened leaves a reader guessing, and one that sits anywhere
+  but where the role word already is fails the test the role word passes,
+  since it has to read as marked without the comment being opened. Mode and
+  placement alike come from
+  `SKILL.md`'s *Every comment names its author, a retraction reaches back,
+  and a citation waits for its target*, which names this **the commonest of
+  the three modes on this side**, since each pass keeps its prior wording in
+  its own comment and #379 ran fifteen of them. Find the comment through
+  `gh api`, never `--edit-last`, which targets the latest comment on the
+  issue — and the pass being corrected is usually several passes back.
+  **The pointer is written after this pass's comment exists**: create, then
+  cite, from the same page.
 - **A landed stage is judged by the acceptance criteria that stood when it
   landed, never retroactively by a criterion written after.** If a
   correction would make an already-landed stage newly fail, that correction

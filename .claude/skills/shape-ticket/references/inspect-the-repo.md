@@ -1,6 +1,6 @@
 # Inspecting the repo
 
-**Trigger:** before the first question to the owner, technical or product.
+**Trigger:** before the first fact that will shape a plan is read, technical or product — **whether or not this run ever puts a question to the owner.** The first question is not the event, and keying this page to it would be keying it to something `resolve-the-direction.md`'s bar makes rare on purpose: a run targeting zero escalations would never open the page at all, and it still has to ground its investigation, still anchors by symbol rather than by position, still labels what it measured against what it reasoned, and still meets the record-issue carve-out here. **Reading it is what makes a run entitled to ask nothing**, not a consolation for having asked.
 
 ## Ground the investigation before it starts
 
