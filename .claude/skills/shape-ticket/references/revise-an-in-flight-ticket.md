@@ -147,6 +147,13 @@ is its own way of eroding trust in what a revision means.
   does not change because the plan text was corrected. Re-sync and bump it
   only if the revision itself was triggered by `origin/main` moving under
   the ticket — the ordinary pre-flight case, not this one.
+- **A revision that splits or merges a stage, or writes a new criterion,
+  runs `create-the-ticket.md`'s *Two passes over the finished draft* over
+  what it changed.** Those passes are keyed to restructuring, not to
+  filing, and this is the path restructuring actually happens on: #379's
+  stages 7, 8, 10 and 13 and its criterion 19 were every one of them
+  authored here, and its stage 7/8 split is where the plan bullet
+  criterion 14 went on gating was dropped.
 
 ## Recognizing diminishing returns
 
