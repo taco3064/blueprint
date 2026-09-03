@@ -66,7 +66,7 @@ Each criterion names an actual command, output, or artifact — never "works cor
 
 ### Auxiliary content, as needed
 
-- **Evidence**, cited to the pre-flight commit — measured counts, current behavior quoted from the code or its output, the same way issue #364 carries its rule counts and file names.
+- **Evidence**, cited to the pre-flight commit — measured counts, current behavior quoted from the code or its output, the same way issue #364 carries its rule counts and file names. **Every behavioral claim the issue makes carries its label** — a measured one names the command and the fixture that produced it, a reasoned one says it was reasoned — and that holds wherever the claim sits, this section or a plan entry's rationale. The rule is `inspect-the-repo.md`'s *Facts vs inference*.
 - **Decisions made**, restated briefly, and the options that were rejected with why — so the owner reading the filed issue later doesn't have to reconstruct the conversation to see why an alternative isn't there.
 - **Out of scope**, explicit, even for things adjacent enough that a reader might otherwise assume they're included.
 - **Related work** — issues, PRs, or discarded attempts this supersedes or reuses, linked by number.
