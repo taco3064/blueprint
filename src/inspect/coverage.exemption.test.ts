@@ -11,6 +11,7 @@ import { emitLint } from '../emit/lint';
 import { resolveTestFiles, unreachedTestGlobs } from '../emit/lint/patterns';
 import { runInspect } from './inspect';
 import { runRules } from './rules';
+import type { TestGlobReach } from '../emit/lint/patterns';
 import type { Blueprint } from '../config';
 
 /**
@@ -101,7 +102,7 @@ async function outputs(dir: string): Promise<{ rules: string; inspect: string; o
 }
 
 /**
- * How many times the cause for one dead `glob` appears in an output.
+ * How many times the cause for one measured net appears in an output.
  *
  * Built from the same function the surface prints, so what this pins is the property —
  * the cause has ONE home in any given output — rather than a sentence a reword would
@@ -109,9 +110,13 @@ async function outputs(dir: string): Promise<{ rules: string; inspect: string; o
  * that started carrying it too would print the same ~500-character sentence twice; no
  * substring assertion can see the second copy, because `toContain` reads the same at
  * one copy and at two.
+ *
+ * The whole net, not the dead entry alone: the sentence says what the dead entry cost
+ * the run, and what it cost turns on whether anything else in the net matched. Handed
+ * only the dead half, this rebuilds a sentence a mixed net never printed and counts none.
  */
-function causeCount(output: string, glob: string): number {
-  const cause = unreachedTestGlobs([{ glob, matched: 0 }]);
+function causeCount(output: string, reach: TestGlobReach[]): number {
+  const cause = unreachedTestGlobs(reach);
 
   return cause === null ? 0 : output.split(cause).length - 1;
 }
@@ -158,7 +163,7 @@ describe('a testFiles net whose every entry reaches nothing · both runtimes', (
     // Once, not twice. The gate row carries no cause now, so the catalog's own line is
     // this net's only home for it — let a second surface fire and the same ~500-character
     // sentence prints twice with every assertion above still green.
-    expect(causeCount(broken.rules, glob)).toBe(1);
+    expect(causeCount(broken.rules, [{ glob, matched: 0 }])).toBe(1);
   });
 
   it('closes the gate on an empty list, the testFiles shape emitLint drops', async () => {
@@ -279,6 +284,69 @@ describe('one dead entry inside a net that still reaches files', () => {
     'src/services/b.spec.ts': importsA('../'),
   };
 
+  /** What `NET` measures on `MIXED`: the second entry dead, the first reaching a file. */
+  const NET_REACH: TestGlobReach[] = [
+    { glob: '**/*.test.ts', matched: 1 },
+    { glob: '**/*.spec.{ts', matched: 0 },
+  ];
+
+  /** The consequence clause a net with a live entry in it earns. */
+  const DROPPED = 'the scanned files dropped from the analysis are the ones the rest of '
+    + 'the net matched';
+
+  /** Every rendering of one repo, since one string reaches all five surfaces. */
+  async function renderings(testFiles: string[]): Promise<{
+    text: string;
+    catalog: string;
+    coverage: { sourceFiles: number; testExemption: string };
+  }> {
+    const dir = repo(testFiles, MIXED);
+    const text: string[] = [];
+    const payload: string[] = [];
+    const catalog: string[] = [];
+
+    await runInspect(dir, { log: (m) => void text.push(m) });
+    await runInspect(dir, { json: true, log: (m) => void payload.push(m) });
+    await runRules(dir, { log: (m) => void catalog.push(m) });
+
+    const { coverage } = JSON.parse(payload.join('')) as {
+      coverage: { sourceFiles: number; testExemption: string };
+    };
+
+    return { text: text.join('\n'), catalog: catalog.join('\n'), coverage };
+  }
+
+  it('says what the rest of the net dropped, rather than that nothing was', async () => {
+    // `**/*.test.ts` matches `src/pages/a.test.ts`, so a file this run scanned really is
+    // dropped from the analysis — by the run printing the sentence. Two surfaces and both
+    // channels, because one string reaches all five and a fix keyed on one surface drifts.
+    const { text, catalog, coverage } = await renderings(NET);
+
+    for (const said of [text, catalog, coverage.testExemption]) {
+      expect(said).toContain(DROPPED);
+      expect(said).not.toContain('no scanned file is dropped');
+    }
+
+    // And the count printed beside it agrees: three files scanned, one dropped by the
+    // live entry, two analysed. Both come off one run, so they answer for the same tree.
+    expect(coverage.sourceFiles).toBe(2);
+    expect(text).toContain('2/2 source files inside layer nets');
+  });
+
+  it('leaves the wording alone where the whole net is dead and nothing was dropped', async () => {
+    // The other direction, same tree: take the live entry out and the run really does
+    // analyse everything it scanned, so the original clause is true and stays.
+    const { text, catalog, coverage } = await renderings(['**/*.spec.{ts']);
+
+    for (const said of [text, catalog, coverage.testExemption]) {
+      expect(said).toContain('no scanned file is dropped from the analysis');
+      expect(said).not.toContain(DROPPED);
+    }
+
+    expect(coverage.sourceFiles).toBe(3);
+    expect(text).toContain('3/3 source files inside layer nets');
+  });
+
   it('names the dead entry while leaving the working gate open', async () => {
     const broken = await outputs(repo(NET, MIXED));
     const healthy = await outputs(repo(SPELLED_RIGHT, MIXED));
@@ -305,14 +373,14 @@ describe('one dead entry inside a net that still reaches files', () => {
     // is this net's only home for the cause. Same property, stated where the other
     // predicate decides it — the count above says the row does not double the catalog's
     // line, this one says the catalog's line does not double the row.
-    expect(causeCount(broken.rules, '**/*.spec.{ts')).toBe(1);
+    expect(causeCount(broken.rules, NET_REACH)).toBe(1);
 
     // And on an info-tier line: `·`, the marker the gate rows already use for a state
     // that is not a failure, never `⚠`. The gate is open and this run exits 0, so a
     // warning marker would contradict the run it prints in. Doctor's side of the same
     // distinction is pinned; this side was asserted nowhere, and every assertion above
     // reads the sentence rather than what stands in front of it.
-    const cause = unreachedTestGlobs([{ glob: '**/*.spec.{ts', matched: 0 }]) as string;
+    const cause = unreachedTestGlobs(NET_REACH) as string;
 
     expect(broken.rules).toContain(`\n· ${cause}`);
   });
@@ -343,7 +411,7 @@ describe('one dead entry inside a net that still reaches files', () => {
     expect(broken.ok).toBe(false);
     expect(broken.inspect).toContain('✗ [relative-escape] src/services/b.spec.ts');
     expect(broken.inspect).toContain('`**/*.spec.{ts`');
-    expect(broken.inspect).toContain('no scanned file is dropped from the analysis');
+    expect(broken.inspect).toContain(DROPPED);
 
     // Spelled right, the same tree is green — so the finding above belongs to the
     // glob, not to the code.

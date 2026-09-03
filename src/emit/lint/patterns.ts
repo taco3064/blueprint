@@ -241,7 +241,8 @@ export interface GateStack {
  * would be two positions on one question.
  */
 export function unreachedTestGlobs(reach: TestGlobReach[] | undefined): string | null {
-  const dead = (reach ?? []).filter((entry) => entry.matched === 0);
+  const measured = reach ?? [];
+  const dead = measured.filter((entry) => entry.matched === 0);
 
   if (!dead.length) {
     return null;
@@ -265,10 +266,19 @@ export function unreachedTestGlobs(reach: TestGlobReach[] | undefined): string |
     + 'so where that gate is on it is emitted all the same and governs whatever they '
     + 'do match';
 
+  // What the dead entries cost this run's own analysis. A claim about the WHOLE net, so
+  // unlike the clause it follows it cannot be qualified to the dead part and left there:
+  // `TestGlobReach` is per entry because a net reaches files while one of its entries
+  // reaches none, and in that shape the drop is real and the rest of the net made it.
+  // Named no further than "the rest" — the entries this sentence puts an address on are
+  // the ones an adopter can fix, and the working one is not among them.
+  const droppedHere = dead.length === measured.length
+    ? 'no scanned file is dropped from the analysis'
+    : 'the scanned files dropped from the analysis are the ones the rest of the net matched';
+
   return '`architecture.testFiles` — no file here matches '
     + `${dead.map((entry) => `\`${entry.glob}\``).join(', ')}, so nothing this run read `
-    + 'is exempt through that part of the net: no scanned file is dropped from the '
-    + 'analysis'
+    + `is exempt through that part of the net: ${droppedHere}`
     + armedThere
     + outOfScanReachClause(dead, scopedThere)
     + ownersCallClause(dead, {
