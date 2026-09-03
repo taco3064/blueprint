@@ -22,15 +22,16 @@ there that matches nothing still surfaces only as the existing vacuous-enforceme
   `['**/*.test.*', '**/__tests__/**']` tells you *which* half is dead rather than only that
   something is.
 - **`architecture.testFiles: []` now says why on every surface that reacts to it.** An empty
-  list switches the `testFilename` gate off, and the optional-gate count drops on `inspect`,
-  `doctor` and `deps` — but only `blueprint rules` used to say so. Those three now carry the
-  same sentence `rules` already printed. **If you declare `testFiles: []` you will see one
-  new line on three commands**, and nothing anywhere if your test globs reach a file.
+  list switches the `testFilename` gate off. The optional-gate count drops on `inspect` and
+  `doctor` — `deps` has no such count, and what moves there is the blast radius — but only
+  `blueprint rules` used to say so. All three now carry the core sentence `rules` already
+  printed. **If you declare `testFiles: []` you will see one new line on three commands**,
+  and nothing anywhere if every declared glob reaches a file.
 - **`blueprint inspect --update-baseline` states the cause before it writes.** Its whole
-  output used to be `Baseline updated — N finding(s) recorded`. When a broken or empty test
-  net is why a finding exists at all, that finding was being **recorded as accepted debt**
-  with nothing in the run to say so. **What it records on disk is unchanged** — this is what
-  the run tells you, not what it accepts.
+  output used to be `Baseline updated — N finding(s) recorded in .blueprint-baseline.json.`
+  When a broken or empty test net is why a finding exists at all, that finding was being
+  **recorded as accepted debt** with nothing in the run to say so. **What it records on disk
+  is unchanged** — this is what the run tells you, not what it accepts.
 - **A dead `testFiles` net is named, and the gate it emits is reported as emitted.** The gate
   stays `✓ error` with the same optional-gate count as a healthy config — **because the rule
   really is emitted**, beside a `files` holding that glob, and ESLint applies it to whatever it
@@ -64,21 +65,23 @@ there that matches nothing still surfaces only as the existing vacuous-enforceme
   `testFiles: []`** puts it on the `gates` element whose `id` is `testFilename`, under
   `unavailable`, `active: false` — because that is the one config `emitLint` emits nothing
   for. **A consumer reading one place and not the other will miss that case.**
-- **The exemption guarantee now states its condition everywhere it is asserted.** Every
-  surface that said test files are exempt said it flat; the guarantee only ever held as far
-  as the declared globs reach. `inspect --help`, `deps --help`, `blueprint rules`,
-  `blueprint survey`, `init`'s eslint-wiring note, the emitted agent contract and the
-  authoring playbook all now carry the condition, in one wording rather than several. **The
-  published pages carry the same sentence** — `reference.md`, `deps.md` and `ai-adoption.md`,
-  in both locales.
-- **Two emitted documents change, so an `init` re-run rewrites them.** The full agent
-  contract (`.cursor/rules/blueprint.mdc`, `.windsurf/rules/blueprint.md`) and the authoring
-  playbook are edited in place: **one line replaced in the contract, seven in the playbook**,
-  and the line count is unchanged in every conditional combination — nothing is added and no
-  neighbouring line moves. The compact contract (`CLAUDE.md` / `AGENTS.md`) is
-  **byte-identical**: it carries no exemption claim to qualify. **Measured against 3.1.0
-  rather than against this branch's base, the playbook shows more** — the extra lines belong
-  to the other changesets shipping in the same release.
+- **The exemption guarantee states its condition on the guide pages, the CLI's output and
+  the emitted documents.** Every surface that said test files are exempt said it flat; the
+  guarantee only ever held as far as the declared globs reach. `inspect --help`,
+  `deps --help`, `blueprint rules`, `blueprint survey`, `init`'s eslint-wiring note, the
+  emitted agent contract and the authoring playbook all now carry the condition, in one
+  wording rather than several. **The published pages carry the same sentence** —
+  `reference.md`, `deps.md` and `ai-adoption.md`, in both locales.
+- **Two emitted documents change.** The full agent contract (`.cursor/rules/blueprint.mdc`,
+  `.windsurf/rules/blueprint.md`) and the authoring playbook are edited in place, and no
+  single `init` run rewrites both: the scaffold fork writes the contract, the authoring fork
+  (a repo with code and no config) writes the playbook. One line is replaced in the contract
+  and seven bullets in the playbook, one of which wraps onto a second line; the line count is
+  unchanged in every conditional combination, and no neighbouring line moves. The compact
+  contract (`CLAUDE.md` / `AGENTS.md`) is **byte-identical**: it carries no exemption claim to
+  qualify. **Measured against 3.1.0 rather than against this branch's base, both show more,
+  and the contract gains a line** — that added line and the playbook's extra replacements
+  belong to the other changesets shipping in the same release.
 - **`blueprint rules` moves its unavailability causes out of the header.** The header counted
   them and then carried every cause inside one parenthetical, attributed to *"this stack"* —
   true of a gate the stack cannot open, false of one the config's own globs closed. The count
