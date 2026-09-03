@@ -18,7 +18,7 @@ You own the discussion that turns a direction into a **decided** shape. **You do
 | Reference | Trigger |
 |---|---|
 | [`inspect-the-repo.md`](./references/inspect-the-repo.md) | Before the first question to the owner, technical or product. What counts as an investigated fact, and how "not found by this search" differs from "does not exist". |
-| [`resolve-the-direction.md`](./references/resolve-the-direction.md) | A direction or behavior exists that the current code cannot uniquely answer. How to classify it, how to ask it, and how the answer stops being re-asked. |
+| [`resolve-the-direction.md`](./references/resolve-the-direction.md) | A direction or behavior exists that the current code cannot uniquely answer, or a finding is reported against a ticket already in delivery. How to classify it, what a question costs, how the answer stops being re-asked, and the floor a reported finding has to clear. |
 | [`create-the-ticket.md`](./references/create-the-ticket.md) | Goal, plan and acceptance are all settled and it is time to draft or file the issue. |
 | [`revise-an-in-flight-ticket.md`](./references/revise-an-in-flight-ticket.md) | New evidence shows a real gap in a filed issue's plan or acceptance criteria, and `deliver-ticket` has already been invoked on it — whether or not a stage has landed yet. |
 
@@ -27,6 +27,8 @@ You own the discussion that turns a direction into a **decided** shape. **You do
 Most of what feels like an open question is already decided. `CLAUDE.md` states positions directly (module shape, layering, what counts as an out-of-scope change). `docs/philosophy/` and `docs/guide/` state the product's stances for an adopter. And the code itself states the rest: `missing-layer`'s message is the position on declaring ahead of code, `renderCoverage` is the position on reporting enforcement that is not real — `CLAUDE.md`'s own **"Looking up a stance this project already took"** section is this exact discipline, aimed at the code instead of a conversation. It applies here undiminished: **read what the tool already says out loud before asking whether it says it.**
 
 A direction is *underspecified*, not *unanswerable*, when the repo already implies the missing piece. The discussion budget belongs to the part nothing already answers — not to re-deriving a stance that exists two files away from where you're about to ask about it.
+
+**And a question is not free.** Each one costs a round-trip and a slice of the owner's attention, spent before anything else can move — which is why anything that *feels* consequential gets routed to him regardless of which bucket it is actually in. **So the default is decide-and-state**: settle it, record the basis, and let the owner override if he disagrees. **Escalate only when proceeding under any assumption would be unsafe, or would make the work useless if wrong.** This skill's first run put ten decisions to the owner and at most two of them needed him; `resolve-the-direction.md` carries the bar, the three ways a question gets manufactured, and the floor a reported finding has to clear.
 
 ## One direction can hide several tickets
 
@@ -58,6 +60,18 @@ That is why the completion bar below is strict, and why it's checked before the 
 Every question carries, in this order: the current state and the evidence for it, the real options with their actual consequences (not which is less work to build), and a recommendation with its reasoning. A question with two options that behave identically isn't a question — it's a coin flip dressed as one, and it costs the owner's attention for nothing.
 
 **Keep a running decision log for the length of the conversation** — what's confirmed, what was considered and rejected and why, which constraints must hold, and which of those came from the owner versus were derived by you from the repo. Don't re-ask a settled decision. If something surfaces later that contradicts one, that contradiction goes back to the owner explicitly — it is not quietly reconciled in your own head, because a silent reconciliation is a second, unreviewed decision wearing the first one's name.
+
+## The run reports its own bill
+
+**A run reports three numbers about itself, together or not at all — whenever the run ends, however it ends.** Handing the issue over is one ending; so is the end of an in-flight revision pass; so is a stop that files nothing — a duplicate found at pre-flight, or a direction that turned out to be more than one ticket. **That last exit is the cheapest one to reach and the one nobody counts**, and it is reached after the whole discussion has already been paid for:
+
+- **Decisions put to the owner**, each with its basis. A question the issue text, the repo, or a stated default already answered is a defect of this run rather than a data point. The number to beat is this skill's first run: ten, of which two were justified.
+- **Requirement movements this run authored after filing**, per stage and in total, **counted from the record and not from memory** — the one-per-pass revision comments `revise-an-in-flight-ticket.md` requires, and the `requirement movement count` `deliver-ticket` keeps on each stage's review-state comment. The number to beat is #379's: fifteen revision passes, and three movements on stage 9 alone.
+- **What the run cost** — elapsed time, comments, issues opened, and what actually shipped. #379's was two days, 60 comments, 11 issues, and 24 commits for a fix that is one guard on one branch of one function, filed as one stage and planned to twenty.
+
+**On an exit that files nothing, the second number is zero and *what shipped* reads *nothing*** — a movement needs an issue to move. Zero is a reading, not a reason to skip the report: that exit is the one where every escalation was already spent and nothing came back for it.
+
+**Two of the three is not a measurement.** Escalations and movements are one bill with two ends: a run reporting zero questions and more movements than #379 has not improved, it has moved the cost onto the delivering session, where it arrives as voided reviews and stopped stages. **And a run that decides better and costs more has not improved either** — which is the third number's whole job.
 
 ## Re-sync before you draft
 
