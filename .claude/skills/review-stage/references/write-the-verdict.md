@@ -25,13 +25,15 @@ The dispatcher now hands over the implementer's report and its commit message, v
 
 **Where pass two and pass one disagree, pass one wins and the disagreement is the finding.** You built that account from the authority sources and the code; the report is rank five.
 
-**Part two may also carry a previous reviewer's findings**, when the session holding your predecessor ended and you were dispatched in its place. Nothing changes: it arrives in part two precisely because it is somebody else's conclusion, it is audited with the same six buckets, and **a predecessor's finding is re-verified by re-running its reproduction, never by trusting that it once held.** The round count arrives with it and continues — a new reviewer is not a new budget.
+**Part two may also carry a previous reviewer's findings**, when the session holding your predecessor ended and you were dispatched in its place — recovered from the handback file your predecessor wrote before it could return it, as often as from a message that did arrive. Nothing changes, and the recovery changes nothing either: it arrives in part two precisely because it is somebody else's conclusion, it is audited with the same six buckets, and **a predecessor's finding is re-verified by re-running its reproduction, never by trusting that it once held.** The round count arrives with it and continues — a new reviewer is not a new budget.
 
 ## The report
 
 Exactly this shape. The dispatcher reads it as input to a binary decision, so the fields it acts on come first.
 
 **The pass-one handback is this same report with `Claim audit` empty and the verdict line reading `pass one — not yet computed`.** The claims have not arrived, so the audit cannot exist and the verdict is not computable; everything else — scope, axes, crossings, findings, verified, verification status — is filled in and goes back at that point. That is the artifact part two and every later round are measured against.
+
+**Both artifacts are written to the file the dispatch named — when it named one — before either is returned, and the path goes back with them** — the handback with the `pass one — not yet computed` line, the final report with the verdict line (`SKILL.md`'s *You do not write*, which carries that scope and names the one caller it does not reach). **Writing it first is what makes a finding outlive the agent that found it**: #385's stage IV reviewer raised a REQUIRED, was killed between part one and part two, and its handback existed nowhere but in the message it never got to send — the replacement's independent pass one did not find the same thing, and a completion-test reader found it again two stages later. **It moves nothing about the passes themselves.** Pass one is still written before the claims are opened, the blocks still freeze there, and the file is still not a comment on the ticket.
 
 ```
 Verdict: PASS | BLOCKED
