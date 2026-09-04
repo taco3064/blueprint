@@ -226,10 +226,15 @@ export function lintScriptAction(
   const needle = `"lint": ${JSON.stringify(lint)}`;
 
   if (greenfield && text.split(needle).length === 2) {
+    // A replacer function, so the adopter's script lands verbatim: npm hands a script to
+    // the shell as-is, so a `$` sequence is legal in one, and a string replacement would
+    // re-read it as a pattern and splice the manifest's own text into the value.
+    const patched = `"lint": ${JSON.stringify(`${lint} && eslint ${target}`)}`;
+
     return {
       kind: 'write',
       path: 'package.json',
-      content: text.replace(needle, `"lint": ${JSON.stringify(`${lint} && eslint ${target}`)}`),
+      content: text.replace(needle, () => patched),
       note: 'package.json (lint script now also runs eslint — so lint runs the generated rules)',
     };
   }
