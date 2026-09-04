@@ -91,6 +91,28 @@ describe('resolveLayerFiles', () => {
         'lib/services/**/*.ts',
       ]);
   });
+
+  // `String.prototype.replace` reads a STRING replacement as a pattern language, so each
+  // of these four sequences rewrote the glob around the placeholder rather than landing
+  // in it: `$$` collapsed to one `$`, `$&` put the placeholder back, and the last two
+  // spliced in the glob's own head and tail. Every one of them names a real directory an
+  // adopter can have, and the emitted file nets, flow bans and `layouts` keys all compile
+  // from here — so a rewritten glob points where no file is and enforcement goes vacuous.
+  //
+  // All four, not just the two a config can reach today: `validateLayerName` rejects `&`
+  // and `'` for the unrelated reason that they corrupt the emitted mermaid diagram, and a
+  // fix resting on that is a fix resting on a guard that was never about this.
+  it.each([
+    'price$$tag',
+    'a$`b',
+    'a$&b',
+    'x$\'y',
+  ])('lands a layer name carrying a `$` sequence verbatim (%s)', (layer) => {
+    expect(resolveLayerFiles(layer, 'auto', { layerFiles: ['src/{layer}/**/*.{ts,tsx,vue}'] }))
+      .toEqual([
+        `src/${layer}/**/*.{ts,tsx,vue}`,
+      ]);
+  });
 });
 
 describe('derivePackageRules · what counts as the same ownership', () => {
@@ -290,6 +312,21 @@ describe('selfOnlyReexportSelector', () => {
     expect(regex).toBe('^~app\\u002Fcontexts\\u002F');
     expect(new RegExp(regex).test('~app/contexts/theme')).toBe(true);
     expect(new RegExp(regex).test('~app/contexts-x/theme')).toBe(false);
+  });
+
+  it('backslash-prefixes a regex metacharacter the target carries', () => {
+    // `.` is a legal layer name character — `validateLayerName` names it in the set it
+    // tells adopters to stick to — and it is the metacharacter `esc` exists for. The two
+    // cases above pass `~app` and `contexts`, which hold nothing in `[.*+?^${}()|[\]\\]`,
+    // so `esc` is the identity on them and they stay green with the escape swept away.
+    const selector = selfOnlyReexportSelector('~app', 'ui.kit');
+    const [, regex] = selector.match(/\/(.*?)\/(?=\])/) ?? [];
+
+    expect(regex).toBe('^~app\\u002Fui\\.kit\\u002F');
+    expect(new RegExp(regex).test('~app/ui.kit/theme')).toBe(true);
+
+    // Unescaped, the `.` matches any character and the ban reaches a sibling layer.
+    expect(new RegExp(regex).test('~app/uiXkit/theme')).toBe(false);
   });
 });
 

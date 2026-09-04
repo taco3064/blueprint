@@ -521,7 +521,9 @@ export function resolveLayerFiles(
   const globs
     = layerFiles === undefined ? [defaultGlob(framework, sourceRoot)] : toArray(layerFiles);
 
-  return globs.map((glob) => glob.replace(LAYER_PLACEHOLDER, layer));
+  // A replacer function, so the name lands verbatim: a string replacement re-reads a
+  // `$` sequence in it as a pattern and rewrites the glob around the placeholder.
+  return globs.map((glob) => glob.replace(LAYER_PLACEHOLDER, () => layer));
 }
 
 /** Group layers' package `owns` by signature; merge which layers allow each. */
