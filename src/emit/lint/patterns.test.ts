@@ -92,16 +92,9 @@ describe('resolveLayerFiles', () => {
       ]);
   });
 
-  // `String.prototype.replace` reads a STRING replacement as a pattern language, so each
-  // of these four sequences rewrote the glob around the placeholder rather than landing
-  // in it: `$$` collapsed to one `$`, `$&` put the placeholder back, and the last two
-  // spliced in the glob's own head and tail. Every one of them names a real directory an
-  // adopter can have, and the emitted file nets, flow bans and `layouts` keys all compile
-  // from here — so a rewritten glob points where no file is and enforcement goes vacuous.
-  //
-  // All four, not just the two a config can reach today: `validateLayerName` rejects `&`
-  // and `'` for the unrelated reason that they corrupt the emitted mermaid diagram, and a
-  // fix resting on that is a fix resting on a guard that was never about this.
+  // Four cases, not just the two a config can reach today: `validateLayerName` rejects
+  // `&` and `'` for the unrelated reason that they corrupt the emitted mermaid diagram,
+  // and a fix resting on that is a fix resting on a guard that was never about this.
   it.each([
     'price$$tag',
     'a$`b',

@@ -39,12 +39,9 @@ const manifest = (lint: string): string => [
 ].join('\n');
 
 describe('lintScriptAction · adopter data, not a replacement pattern', () => {
-  // npm hands a script to the shell verbatim, so every one of `String.prototype.replace`'s
-  // four tokens is legal inside one and no validator can reject them — it is the adopter's
-  // text, not blueprint's config. Read as a pattern, three of these spliced the manifest's
-  // own head or tail into the value and the written package.json stopped parsing, which
-  // `apply` puts on disk unchecked; `a $$ b` parsed and quietly lost a `$`. `oxlint` is the
-  // control: the overwhelmingly common case, and it must not move.
+  // All four tokens are legal inside an npm script: npm hands the value to the shell
+  // verbatim, so this is the adopter's text and no validator can reject it. `oxlint` is
+  // the control — the overwhelmingly common case, and it must not move.
   it.each([
     'echo $&',
     'tsc && echo $\'',
