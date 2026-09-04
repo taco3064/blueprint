@@ -179,12 +179,19 @@ is its own way of eroding trust in what a revision means.
   only if the revision itself was triggered by `origin/main` moving under
   the ticket — the ordinary pre-flight case, not this one.
 - **A revision that splits or merges a stage, or writes a new criterion,
-  runs `create-the-ticket.md`'s *Two passes over the finished draft* over
-  what it changed.** Those passes are keyed to restructuring, not to
-  filing, and this is the path restructuring actually happens on: #379's
-  stages 7, 8, 10 and 13 and its criterion 19 were every one of them
-  authored here, and its stage 7/8 split is where the plan bullet
-  criterion 14 went on gating was dropped.
+  runs `create-the-ticket.md`'s *Two passes over the finished draft* — and
+  the two have different scopes.** The **adversarial** pass is
+  per-criterion, so running it over the criteria this pass changed is the
+  whole of it. **The correspondence pass is not, and scoping it to the
+  diff does not run it**: it is total over both lists every time, because
+  the orphan it looks for is on the side the restructuring did not touch.
+  Those passes are keyed to restructuring, not to filing, and this is the
+  path restructuring actually happens on: #379's stages 7, 8, 10 and 13
+  and its criterion 19 were every one of them authored here, and its
+  stage 7/8 split is where the plan bullet criterion 14 went on gating
+  was dropped — **the bullet inside the two stages that split, the
+  criterion in neither**, which is exactly what a pass reading only the
+  changed text would not have opened.
 
 ## When it lands, and who hears about it
 
