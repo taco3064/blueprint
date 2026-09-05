@@ -1,7 +1,7 @@
 {
   "name": "@kekkai/blueprint",
   "version": "3.1.0",
-  "description": "Architecture as Code for Vue & React — one config compiles into ESLint rules, a handbook, and an AI agent contract.",
+  "description": "Architecture as Code for AI-assisted development governance — one config compiles into ESLint rules, a handbook, and an AI agent contract. Vue & React.",
   "type": "module",
   "license": "MIT",
   "author": "taco3064 <tabacotaco@gmail.com>",
@@ -16,6 +16,11 @@
   "keywords": [
     "architecture",
     "architecture-as-code",
+    "ai-assisted-development",
+    "ai-governance",
+    "agent-governance",
+    "frontend-architecture",
+    "engineering-productivity",
     "eslint",
     "vue",
     "react",
