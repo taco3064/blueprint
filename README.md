@@ -16,7 +16,7 @@
 > contract — one source, so what the linter enforces, what the docs say, and what
 > the agent is told can never disagree.
 
-Created by **[Taco Chang](https://github.com/taco3064)** — [Resume](https://taco-resume.deep-pin-7619.chatgpt.site/)
+Created by **[Taco Chang](https://github.com/taco3064)** — [Resume](https://taco-resume.deep-pin-7619.chatgpt.site/) · [LinkedIn](https://www.linkedin.com/in/tabacotaco/)
 
 ## When an AI writes your code, the architecture is the first thing it quietly erodes
 
