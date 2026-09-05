@@ -16,9 +16,8 @@ got substituted. Both now insert the text verbatim.
   bans and the `relative-escape` `layouts` / `entries` keys are built from the raw layer
   name and keep the correct spelling. Resolve the real config for a file in a `$` layer
   before the fix and both `no-restricted-imports` and `blueprint/relative-escape` are
-  **absent**; after it, both are there. **Enforcement over the `$` layer's own code was
-  silently vacuous** — the rules were emitted, they simply matched nothing. One emitted
-  config could carry two spellings of one layer name at once.
+  **absent**; after it, both are there. One emitted config could carry two spellings of
+  one layer name at once.
 - **It reached past the emitted lint config.** The same globs are what `inspect` measures
   coverage against, what `doctor` picks its per-layer probe from, and what `impact` hands
   to a real ESLint run — so `inspect` counted the layer's own files as outside every net,
@@ -47,10 +46,12 @@ got substituted. Both now insert the text verbatim.
 - **No configuration is newly rejected.** `architecture.layers[].name` accepts exactly
   what it accepted before. A `$` in a layer name was legal and stays legal — it no longer
   corrupts what is emitted, which is the validator's own criterion.
-- **Anything to do after upgrading? For a layer name, no.** The generated
-  `eslint.config.mjs` is a thin wrapper that calls `emitLint(blueprint)` at lint time, so
-  the corrected globs apply on the next lint run with nothing to regenerate. **For
-  `package.json`, check `scripts.lint` once** if a first `init` through the scaffold fork
-  patched a script carrying a `$`: three of the four sequences broke the manifest loudly
-  at the time, but `a $$ b` parsed and silently dropped a `$`, and upgrading does not
-  repair a file already written.
+- **Anything to do after upgrading? For a layer name, look before you lint.** The
+  generated `eslint.config.mjs` is a thin wrapper that calls `emitLint(blueprint)` at lint
+  time, so the corrected globs apply on the next lint run with nothing to regenerate.
+  **That run can report findings over a `$` layer that it did not report before, and
+  `blueprint doctor` can go red over the same layer** — `blueprint impact` shows them
+  before your gate does. **For `package.json`, check `scripts.lint` once** if a first
+  `init` through the scaffold fork patched a script carrying a `$`: three of the four
+  sequences broke the manifest loudly at the time, but `a $$ b` parsed and silently
+  dropped a `$`, and upgrading does not repair a file already written.
