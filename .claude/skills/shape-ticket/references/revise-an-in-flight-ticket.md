@@ -25,6 +25,38 @@ and the ticket ships, with no pass on offer however real the defect is.
 #379's plan reached twenty stages across fifteen revision passes entered
 here, and not one of them was asked that question.
 
+**Relatedness is the first gate and it is not the last one. The second is
+materiality: would the sentence, left wrong, change what gets delivered?**
+Related and immaterial is the common case and it does not enter this path —
+**it is recorded in a comment, the body is not edited, the requirement hash
+does not move, and the ticket ships.** *「該動就要動」* governs a sentence whose
+wrongness reaches the deliverable; it was never a licence to chase every
+imprecision in the ticket's own prose, and reading it as one turns each
+found typo into an edit, an announcement, a materiality ruling on the
+delivering side and, when a review is in flight, a voided pass.
+
+**The test is concrete: name the artifact that comes out different.** A file
+in the tree, an emitted string, a published page, a command's output, a
+changeset. **If the only thing that changes is the issue text, it is
+immaterial by definition** — the issue is not a deliverable. Two shapes are
+material on their face and need no argument: **a criterion that cannot be
+decided as written** (it contradicts itself, or asks for something
+unmeasurable), and **a criterion that describes the deliverable wrongly**, so
+meeting it produces the wrong thing.
+
+**#387 is the case, and it cost more than the ticket it was correcting.**
+Three revision passes on one ticket, all three on the same clause — the prose
+inside an acceptance criterion characterising the evidence corpus. **One
+carried a material finding** (two criteria stating absolutes that were
+unsatisfiable together, which would have shipped a rule nobody could meet).
+**The other two changed nothing that was delivered**: a check target naming
+the wrong comment, and a count that disagreed with the list printed beside
+it. **The second of those never reached a file at all.** The bill for them
+was a reviewer's complete pass one discarded as `VOID` — 180,120 tokens of
+review thrown away — plus a killed fix implementer and three re-groundings on
+the delivering side. **Every one of the three passed the relatedness test
+easily**, which is exactly why relatedness alone is not the gate.
+
 This is the narrow exception to *You do not touch the repository* and to
 "never for touching a ticket already handed to delivery" above. It exists
 because the alternative already in this skill — the owner closes the issue,
