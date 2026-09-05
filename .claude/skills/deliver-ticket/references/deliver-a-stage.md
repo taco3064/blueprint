@@ -104,12 +104,14 @@ If what came back is wrong or incomplete, **that is not a shortfall** — a shor
 2. **`npx lint-staged`** — the gate's own fixer, on the tree it will actually see, rather than a reconstruction of it. **If it fails, the stage fails here instead of after a review has been spent on it**, which is the same filter as *verify it yourself first*.
 3. **`git add -A` again**, for anything the fixer rewrote and did not itself re-stage.
 4. **`git status --porcelain`** — nothing should be left unstaged. If something is, find out what wrote it before going further.
-5. **`git diff --cached | git hash-object --stdin`** — the **code hash**, recorded now.
+5. **`git write-tree`** — the **code hash**, recorded now. **Not through a pipe.** `git diff --cached | git hash-object --stdin` hashes whatever the shell handed it, so a shell that puts anything of its own into the stream returns a different, perfectly stable hash for a tree nobody touched. A dispatcher and a reviewer in different shells then read a genuine PASS as a moved tree and pay for a restore and a re-review that nothing needed. Measured on this repo against an empty staged diff, which both shells should hash identically: the pipe returns `e69de29b…` under Git Bash — git's own empty-blob SHA, so that side is right — and `5f28270…` under PowerShell, which put something into an empty stream. `git write-tree` returned `22fd0ee8…` in both. It reads the index itself, so there is no stream to re-encode. **Whoever recomputes the code hash uses this command and no other.**
 
 Then the identity to check the review against:
 
 - The code hash and `git status --porcelain`, recorded **before** the dispatch and again when the report lands.
 - **If either moved, the review is void.** Discard the verdict whatever it said, find what wrote to the tree, and dispatch again. A verdict on a tree that no longer exists is worse than no verdict, because it reads exactly like a real one.
+
+**Run the gates this diff can move, and name the ones you skipped with the command that decided it.** `git diff --cached --name-only` decides, not judgement: a staged tree touching no file under `src/` cannot change what `npm test`, `npm run build` or `npm run dist:verify` report, and running them anyway spends the whole suite per attempt. #380 ran 1575 tests and a bundle build four times over edits to markdown and code comments. **Put the deciding command and its output in the packet** so the reviewer re-runs it instead of assuming. A diff that touches `src/` at all runs everything — a comment and a statement are the same file to every gate, and guessing which kind of line moved is exactly the judgement this rule exists to avoid.
 
 ### Hash the requirement, not only the diff
 
