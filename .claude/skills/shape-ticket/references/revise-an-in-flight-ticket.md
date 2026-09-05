@@ -27,35 +27,67 @@ here, and not one of them was asked that question.
 
 **Relatedness is the first gate and it is not the last one. The second is
 materiality: would the sentence, left wrong, change what gets delivered?**
-Related and immaterial is the common case and it does not enter this path —
-**it is recorded in a comment, the body is not edited, the requirement hash
-does not move, and the ticket ships.** *「該動就要動」* governs a sentence whose
-wrongness reaches the deliverable; it was never a licence to chase every
-imprecision in the ticket's own prose, and reading it as one turns each
-found typo into an edit, an announcement, a materiality ruling on the
-delivering side and, when a review is in flight, a voided pass.
+
+**The gate decides the disposition, never the entry.** Every edit still
+enters this path — that is what the Trigger above says and it is unchanged,
+because a finding that never enters is a finding nobody applies a gate to.
+What the gate settles is which of two things happens next:
+
+- **Material** → the body is edited, and everything below on this page runs:
+  the revision comment, the announcement, the delivering session's own
+  ruling on what the movement costs it.
+- **Related but immaterial** → **the finding is recorded in a comment, the
+  body is not edited, and the ticket ships.** No requirement moved, so there
+  is nothing for the delivering side to price. **The comment is still
+  announced, in the same breath as posting it**, on this page's own rule
+  that a comment does not reach a running session: it may be reviewing
+  against the very sentence you have just recorded as wrong, and the
+  disposition is yours to state rather than its to discover.
+
+**That split is what keeps the shaper inside its own authority.** *When it
+lands, and who hears about it* holds that this run's materiality read is
+*"offered as basis, never as a ruling"* — and it still is, because the
+ruling that belongs to the delivering session is **what a movement costs**.
+Immaterial means no movement happened, so the two never meet: you are
+deciding your own act, not grading its bill.
 
 **The test is concrete: name the artifact that comes out different.** A file
 in the tree, an emitted string, a published page, a command's output, a
-changeset. **If the only thing that changes is the issue text, it is
-immaterial by definition** — the issue is not a deliverable. Two shapes are
-material on their face and need no argument: **a criterion that cannot be
-decided as written** (it contradicts itself, or asks for something
-unmeasurable), and **a criterion that describes the deliverable wrongly**, so
-meeting it produces the wrong thing.
+changeset, a commit message that is about to be pushed. **If the only thing
+that changes is the issue text, it is immaterial by definition** — the issue
+is not a deliverable. Two shapes are material on their face and need no
+argument: **a criterion that cannot be decided as written** (it contradicts
+itself, or asks for something unmeasurable), and **a criterion that
+describes the deliverable wrongly**, so meeting it produces the wrong thing.
 
-**#387 is the case, and it cost more than the ticket it was correcting.**
-Three revision passes on one ticket, all three on the same clause — the prose
-inside an acceptance criterion characterising the evidence corpus. **One
-carried a material finding** (two criteria stating absolutes that were
-unsatisfiable together, which would have shipped a rule nobody could meet).
-**The other two changed nothing that was delivered**: a check target naming
-the wrong comment, and a count that disagreed with the list printed beside
-it. **The second of those never reached a file at all.** The bill for them
-was a reviewer's complete pass one discarded as `VOID` — 180,120 tokens of
-review thrown away — plus a killed fix implementer and three re-groundings on
-the delivering side. **Every one of the three passed the relatedness test
-easily**, which is exactly why relatedness alone is not the gate.
+**This is the one statement of what repairing the body costs**;
+`create-the-ticket.md` and `review-stage`'s `write-the-verdict.md` cite it
+rather than repeat it, because a list whose members get compared is a list
+that will disagree with itself. **The cost is four things**: an issue edit,
+an announcement, the delivering session's ruling on the movement, and —
+where a review is running against the text — that review, discarded.
+**That is the bill for editing the body anyway** — the counterfactual the
+immaterial branch declines, not a charge it incurs.
+
+**#387 is the case, and what it actually shows is narrower than it looks.**
+Three revision passes on one ticket. **One was material** and is the reason
+this gate does not simply forbid revising: two criteria stated absolutes
+that could not both be satisfied, and no tree could have met them.
+**Two were not.** A check target naming a comment that did not exhibit the
+property, and a count that disagreed with the list printed beside it in the
+same sentence — **the second never reached a file at all.**
+
+**The cost cannot honestly be pinned on those two, and the record says so.**
+The `VOID`ed pass one is the number that first got quoted here; measured
+against the ticket, that pass carried **two** REQUIRED findings, and the
+material one would have forced the same `VOID` alone. **What is cleanly
+attributable is the next occurrence, after these gates landed**: the same
+class of defect — a residual miscount in a criterion's own prose — was
+raised by the following review, classified FOLLOW-UP, recorded, and cost
+**nothing**. One measurement, one cause, and it is the one worth keeping.
+
+**Every one of the three passed the relatedness test easily**, which is the
+whole point: relatedness was never the gate.
 
 This is the narrow exception to *You do not touch the repository* and to
 "never for touching a ticket already handed to delivery" above. It exists
