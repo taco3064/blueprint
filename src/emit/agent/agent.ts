@@ -1,4 +1,5 @@
 import type { Blueprint } from '../../config';
+import type { StackFacts } from '../lint';
 import {
   renderBehavioral,
   renderChecklist,
@@ -12,7 +13,7 @@ import {
   renderPlaybook,
 } from './sections';
 
-export interface AgentContractOptions {
+export interface AgentContractOptions extends StackFacts {
   /**
    * Emit the compact pointer block (one screen: project facts + links to the
    * generated handbook and the packaged discipline document) instead of the
@@ -38,8 +39,12 @@ export function emitAgentContract(
   blueprint: Blueprint,
   options: AgentContractOptions = {},
 ): string {
-  if (options.compact) {
-    return `${renderCompactContract(blueprint)}\n`;
+  // Rest, not a re-listed field: the stack facts pass through untouched, so a fact
+  // added to `StackFacts` reaches both renderers without a second edit here.
+  const { compact, ...stack } = options;
+
+  if (compact) {
+    return `${renderCompactContract(blueprint, stack)}\n`;
   }
 
   const { architecture, principles, rules } = blueprint;
@@ -49,7 +54,7 @@ export function emitAgentContract(
     renderContext(blueprint),
     renderPlacement(architecture),
     renderNaming(architecture.naming),
-    renderHardRules(blueprint),
+    renderHardRules(blueprint, stack),
     renderComponentShape(blueprint.componentShape),
     renderBehavioral(architecture, principles, rules),
     renderPlaybook(blueprint.playbook),

@@ -1,5 +1,11 @@
 import type { Framework, LayerDef, OwnedPackage } from '../../config';
-import type { GlobalRule, GroupPattern, PackageRule, PathPattern } from './types';
+import type {
+  EmitFacts,
+  GlobalRule,
+  GroupPattern,
+  PackageRule,
+  PathPattern,
+} from './types';
 
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/g;
 
@@ -466,13 +472,11 @@ export function unavailableGate(id: string, stack: GateStack): string | null {
 }
 
 /**
- * The same question asked with only a blueprint to answer it — what the two pure
- * emitters have. `hasTypescript` is a fact about the dependency list, so they cannot
- * decide `explicitAny` and must not claim to: `true` here means "assume the stack can
- * carry it", which keeps that gate out of this verdict entirely. Framework and
- * `testFiles` are IN the blueprint, so the other two arms answer honestly — and nothing
- * a scan measures reaches this verdict at all, so what these two emit does not move when
- * a runtime walks the tree.
+ * The same question as the two pure emitters can put it: `framework` and `testFiles`
+ * are IN the blueprint, and `hasTypescript` reaches them from whichever runtime read
+ * the dependency list — {@link EmitFacts} carries why it travels that way and what its
+ * absence stands for. Nothing a scan measures reaches this verdict, so what those two
+ * emit does not move when a runtime walks the tree.
  *
  * It exists because the emitters had no filter at all: the agent contract listed a gate
  * among the ones that "fail the project's lint run" and the handbook table put `lint` in
@@ -480,12 +484,12 @@ export function unavailableGate(id: string, stack: GateStack): string | null {
  * `rules` and `inspect`; these two are the third and fourth site, and they are the files
  * an adopting agent actually reads every day.
  */
-export function unavailableFromBlueprint(
-  id: string,
-  framework: string | undefined,
-  testFiles: string | string[] | undefined,
-): string | null {
-  return unavailableGate(id, { framework, hasTypescript: true, testFiles });
+export function unavailableForEmit(id: string, facts: EmitFacts): string | null {
+  return unavailableGate(id, {
+    framework: facts.framework,
+    hasTypescript: facts.hasTypescript ?? true,
+    testFiles: facts.testFiles,
+  });
 }
 
 /**

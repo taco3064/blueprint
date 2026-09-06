@@ -15,6 +15,29 @@ export interface LintConfigEntry {
 /** The ESLint flat config emitted from a Blueprint's architecture. */
 export type LintConfig = LintConfigEntry[];
 
+/**
+ * The stack fact no Blueprint carries, handed to a pure emitter by whoever detected it.
+ *
+ * An author's declaration is not a dependency list, so `hasTypescript` reaches the
+ * document emitters the way `EmitLintOptions` already hands `emitLint` its plugins —
+ * through the options argument, never through `Blueprint`. It decides one gate:
+ * `explicitAny` has no carrier and no core rule to fall back to on a JS project, so a
+ * document naming it hard promises what nothing keeps.
+ *
+ * Omitted it reads `true`, which keeps that gate out of the verdict entirely — the
+ * assumption an emitter told nothing has to make, since guessing `false` would strip a
+ * gate a TypeScript project genuinely holds.
+ */
+export interface StackFacts {
+  hasTypescript?: boolean;
+}
+
+/** Everything gate availability turns on: {@link StackFacts} plus the two a Blueprint holds. */
+export interface EmitFacts extends StackFacts {
+  framework?: string;
+  testFiles?: string | string[];
+}
+
 /** Caller-supplied wiring for `emitLint` — kept injectable so the library stays zero-dependency. */
 export interface EmitLintOptions {
   /**

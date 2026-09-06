@@ -14,7 +14,8 @@ import {
   normalizeAllowedImporters,
 } from '../../config';
 import { handbookPath } from '../docs';
-import { enforcedBy, resolveTestFiles, unavailableFromBlueprint } from '../lint';
+import { enforcedBy, resolveTestFiles, unavailableForEmit } from '../lint';
+import type { StackFacts } from '../lint';
 import { formatOwns } from '../../markdown';
 
 function rulesOfTier(rules: Record<string, RuleSetting> | undefined, tier: Tier) {
@@ -37,18 +38,22 @@ function gateLabel([id, setting]: [string, RuleSetting]): string {
 }
 
 /**
- * The error-tier rules this blueprint can actually gate — one answer, read by both
- * contracts. A gate this blueprint cannot emit is excluded, or the contract makes a
- * false claim about the reader's own repo (field run #150); asked twice it is two
- * renderers that can disagree, which is the shape `unavailableGate` itself records.
+ * The error-tier rules this blueprint can actually gate on this stack — one answer,
+ * read by both contracts. A gate that cannot emit here is excluded, or the contract
+ * makes a false claim about the reader's own repo (field run #150); asked twice it is
+ * two renderers that can disagree, which is the shape `unavailableGate` itself records.
  *
  * No `LINT_GATED_RULE_IDS` pre-filter: `enforcedBy` answers `docs` off that list anyway.
  */
-function emittableGates(blueprint: Blueprint): [string, RuleSetting][] {
+function emittableGates(blueprint: Blueprint, stack: StackFacts): [string, RuleSetting][] {
   const { architecture, framework, rules } = blueprint;
 
   return rulesOfTier(rules, 'error').filter(
-    ([id]) => unavailableFromBlueprint(id, framework, architecture.testFiles) === null,
+    ([id]) => unavailableForEmit(id, {
+      framework,
+      testFiles: architecture.testFiles,
+      hasTypescript: stack.hasTypescript,
+    }) === null,
   );
 }
 
@@ -88,14 +93,14 @@ const CONTRACT_DOC = 'node_modules/@kekkai/blueprint/agent-contract.md';
  * (Cursor/Windsurf) still carry the full contract: they are generated files,
  * not documents a person maintains.
  */
-export function renderCompactContract(blueprint: Blueprint): string {
+export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = {}): string {
   const { architecture } = blueprint;
   const chain = architecture.layers.map((layer) => `\`${layer.name}\``).join(' → ');
   const handbook = handbookPath(blueprint);
 
   // Split by WHICH machine holds each gate: an undivided list promises that lint
   // catches cycles (field issue #52).
-  const declared = emittableGates(blueprint);
+  const declared = emittableGates(blueprint, stack);
   const lintGates = declared.filter(([id]) => enforcedBy(id) === 'lint').map(gateLabel);
   const inspectGates = declared.filter(([id]) => enforcedBy(id) === 'inspect').map(gateLabel);
 
@@ -221,7 +226,7 @@ export function renderNaming(naming: Record<string, string> | undefined): string
 }
 
 /** The lint-enforced rules, phrased as imperatives, + how to react to a failure. */
-export function renderHardRules(blueprint: Blueprint): string {
+export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): string {
   const { architecture } = blueprint;
   const bullets = ['- Import only from downstream layers — never upstream, never the same layer.'];
 
@@ -247,7 +252,7 @@ export function renderHardRules(blueprint: Blueprint): string {
   // be a promise the tooling does not keep, and "which machine" is the second half of
   // that: a gate lint does not hold is named with its real holder rather than dropped,
   // or an error-tier declaration leaves this document with no cause given for it.
-  for (const [id, setting] of emittableGates(blueprint)) {
+  for (const [id, setting] of emittableGates(blueprint, stack)) {
     const held = enforcedBy(id);
     const gate = gateLabel([id, setting]);
 

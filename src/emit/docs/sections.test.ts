@@ -256,8 +256,8 @@ describe('renderRules', () => {
     // The declaration stays — it is the author's — but nothing HOLDS a rule the
     // emitted config does not contain, and this table said `lint`. It is the
     // longest-lived version of that half-truth: the handbook outlives the adoption
-    // and the agent contract links to it (field run #150). Both arms are decidable
-    // from the blueprint alone, which is all this emitter is given.
+    // and the agent contract links to it (field run #150). These two arms are
+    // decidable from the blueprint alone; the third is the case below.
     const react = renderRules(
       { deepWatch: 'error', testFilename: 'error', maxLines: { tier: 'error', value: 400 } },
       { framework: 'react', testFiles: [] },
@@ -272,8 +272,9 @@ describe('renderRules', () => {
     // The gate that CAN emit is untouched, or the column stops meaning anything.
     expect(react).toContain('| `maxLines` | `error` | `400` | lint |');
 
-    // On the stack each was written for, both hold again — and `explicitAny` is never
-    // in this verdict: whether the stack has TypeScript is not in a blueprint.
+    // On the stack each was written for, both hold again — and `explicitAny` holds
+    // too while nothing says otherwise: whether the stack has TypeScript is not in a
+    // blueprint, so a caller that hands over no fact gets the assumption below.
     const vue = renderRules(
       { deepWatch: 'error', testFilename: 'error', explicitAny: 'error' },
       { framework: 'vue' },
@@ -282,6 +283,34 @@ describe('renderRules', () => {
     expect(vue).toContain('| `deepWatch` | `error` | — | lint |');
     expect(vue).toContain('| `testFilename` | `error` | — | lint |');
     expect(vue).toContain('| `explicitAny` | `error` | — | lint |');
+  });
+
+  it('names no machine for `explicitAny` when the stack has no TypeScript', () => {
+    // The third arm of the same guard, and the only one no blueprint can answer — the
+    // dependency list is not in an author's declaration, so the fact arrives through
+    // the options argument instead. Until it did, this table read `lint` for a rule
+    // the emitted config cannot contain on a JS project, while `blueprint rules` on
+    // the same repo called the gate unavailable.
+    const rules = {
+      explicitAny: 'error' as const,
+      maxLines: { tier: 'error' as const, value: 400 },
+    };
+
+    const js = renderRules(rules, { framework: 'vue', hasTypescript: false });
+
+    expect(js).toContain(
+      '| `explicitAny` | `error` | — | nothing — `any` is a TypeScript construct',
+    );
+
+    // Both directions — and the caller that supplies nothing keeps the gate, or an
+    // emitter told nothing would strip one a TypeScript project genuinely holds.
+    for (const facts of [{ hasTypescript: true }, {}]) {
+      expect(renderRules(rules, { framework: 'vue', ...facts }))
+        .toContain('| `explicitAny` | `error` | — | lint |');
+    }
+
+    // The row beside it does not move.
+    expect(js).toContain('| `maxLines` | `error` | `400` | lint |');
   });
 
   it('says which machine holds each rule, not just its tier (field issue #52)', () => {
