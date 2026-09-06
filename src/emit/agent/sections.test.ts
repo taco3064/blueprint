@@ -179,9 +179,10 @@ describe('renderHardRules', () => {
     const out = renderHardRules(blueprint({
       rules: {
         maxLines: { tier: 'error', value: 400 },
-        // Gated, error-tier, and carrying no number — a bare tier must not grow
-        // one. "`cycles` = undefined is a hard gate" reads as a real threshold,
-        // and the agent has no way to know which number it is supposed to be.
+        // Bare tiers, one per arm — a bare tier must not grow a number.
+        // "`unusedVars` = undefined is a hard gate" reads as a real threshold,
+        // and the agent has no way to know it is not one.
+        unusedVars: 'error',
         cycles: 'error',
         noUtils: 'error',
         soft: 'warn',
@@ -196,6 +197,7 @@ describe('renderHardRules', () => {
 
     expect(out).toContain('Import a module via its `index`');
     expect(out).toContain('`maxLines` = 400 is a hard gate.');
+    expect(out).toContain('- `unusedVars` is a hard gate.');
     expect(out).not.toContain('undefined');
     // Unknown ids are documentation — the contract must not call them gates.
     expect(out).not.toContain('`noUtils` is a hard gate.');
