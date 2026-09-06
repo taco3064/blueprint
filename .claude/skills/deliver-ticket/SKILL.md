@@ -124,6 +124,14 @@ The loop is: **commit → comment, naming what landed and what fell short → ne
 
 None of these has a moment that prompts you to look them up. The moment each one applies is the moment you are least likely to go and read it.
 
+**Doubt the instrument before the artifact.** When a check says the work is wrong, the likeliest explanation is that the check is wrong — because you wrote the check just now, against text you were already looking at, while the work has been through a gate. **A zero on one side against a one on the other is a question, not a result.**
+
+**So no probe reports until it has been run at both ends.** Run it where the thing should be absent and where it should be present; a probe that cannot tell those apart has told you nothing, whichever way it came out. **That single discipline is what separates a finding from a false alarm here**, and it is cheap: it is one extra run of a command you have already written.
+
+**#387 recorded twenty-two of these, every one a probe rather than an artifact, and none caught by the check that produced it.** Several would have destroyed correct work: one reported a repaired file as still broken because the repair *appended* and the old string survived inside the new one; one printed a false `VOID` on a sound review because a regex built in a double-quoted string executed instead of matching; one returned zero on a quotation that was simply wrapped across two lines. **An empty result and a clean result are indistinguishable**, and so are a hit and a stale substring — which is why the discriminating anchor is the part that *changed*, not the part that stayed.
+
+**`review-stage/SKILL.md` states this same rule under the same heading, and the two move together or not at all.** Two copies, because the reviewer never loads this page and you never load that one, and the rule has to be in hand at the moment a probe returns rather than one skill away — the same reason *The ticket is the record* is held in two places. **A change to either is a change to both.**
+
 **A ticket's goal starts unmet, and only evidence moves it.** Not "does this look right" — "what did I run, and what did it show". Absence of a problem is not evidence; a command whose output you read is.
 
 **Say which of your claims you measured and which you reasoned, every time.** They look identical on the page and only one kind can be wrong in a way that re-reading will never show. An unlabelled mechanism is acted on as measured. *"I read the code and there is no other path"* is not the same evidence as *"I ran it and here is the output"*, and the label costs four words.
