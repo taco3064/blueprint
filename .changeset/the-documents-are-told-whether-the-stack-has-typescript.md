@@ -4,16 +4,21 @@
 
 **The three emitted documents stop calling `explicitAny` hard on a project without
 TypeScript.** `any` is a TypeScript construct with no core rule to fall back to, so the
-gate cannot be opened on a JS stack — `blueprint rules` and `blueprint inspect` have said
-so since 3.0.0. The full agent contract, the compact contract and the handbook did not,
-because a document is generated from your blueprint and a blueprint does not contain your
-dependency list.
+gate cannot be opened on a JS stack. The two runtimes reached that verdict first, and not in
+the same release: `blueprint inspect` has left the gate out of the `optional gates active`
+count it prints since 3.0.0 — the number moved and nothing said why — and
+`blueprint rules` has marked the row `· declared, unavailable here` and printed the reason
+beside it since 3.1.0. None of it reached the three documents, because a document is
+generated from your blueprint and a blueprint does not contain your dependency list.
 
 **The fact now travels, and it is the one you already have.** `emitHandbook` takes an
 options argument for the first time, and `emitAgentFiles` takes a third one; both accept
-`{ hasTypescript }`, the same way `emitLint` already takes its plugin carriers. `init`
-passes what `detect` read off your `package.json`, so nothing is asked of you — this is
-additive, and every existing call keeps its current behaviour.
+`StackFacts` — `{ hasTypescript?: boolean }` — the same way `emitLint` already takes its
+plugin carriers. `StackFacts` is exported from the package entry, and it is the one name
+this change adds to `dist/index.d.ts`, with nothing there removed or renamed; that addition
+is what the minor bump is for. `init` passes what `detect` read off your `package.json`, so
+nothing is asked of you — the fact is optional, and every existing call keeps its current
+behaviour.
 
 **Regenerating on a JS project changes one line per document, and nothing else.**
 
@@ -45,3 +50,13 @@ in them belongs to the other changesets in this release, not to this one.
 than your dependency list, and `blueprint doctor` is the surface that reads a real config
 and reports them. `explicitAny` moved because it is the one this tool can answer at emit
 time.
+
+**One position on `explicitAny`, across both entries in this release.** The patch entry
+"The full agent contract stops calling a gate hard where nothing keeps that promise" ends
+on its own *What this does not fix*, which names `explicitAny` among the gates it leaves
+alone and puts the whole group down to your dependency list; it was written against the
+tree before this change. **This entry is what changes its `explicitAny` line.** The split
+above is the one that holds — only `explicitAny` turns on your dependency list, and the
+other three it names turn on your ESLint wiring. What still stands there is a TypeScript
+project whose config omits the `typescript` carrier: the gate is available on that stack,
+so the contract still names it hard, and `blueprint doctor` is still where that shows up.
