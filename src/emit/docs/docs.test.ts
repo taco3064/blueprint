@@ -62,15 +62,17 @@ describe('emitHandbook', () => {
     expect(md).not.toContain('## Naming');
   });
 
-  // The Enforced-by column asks, per row, whether THIS blueprint can open the gate at
-  // all, and two facts decide it: the framework (`deepWatch` never emits on React) and
-  // `testFiles` (`testFilename` has no scope when nothing is exempt). `sections.test.ts`
-  // asserts the renderer with those facts handed to it; nothing asserted that
-  // `emitHandbook` hands them over. Losing them is silent and reads as `lint` — the
-  // table claiming a machine holds a rule the emitted config does not contain, in the
-  // document that outlives the adoption (field run #150). One assertion per fact,
-  // because the two arms are independent and either could be dropped alone.
-  it('hands the rules table both facts that decide whether a gate can emit', () => {
+  // The Enforced-by column asks, per row, whether the gate can be opened here at all,
+  // and three facts decide it: the framework (`deepWatch` never emits on React),
+  // `testFiles` (`testFilename` has no scope when nothing is exempt), and the stack's
+  // TypeScript (`explicitAny` has no carrier and no core fallback without it). Two come
+  // off the blueprint; the third is not in one and arrives through the options argument.
+  // `sections.test.ts` asserts the renderer with those facts handed to it; nothing
+  // asserted that `emitHandbook` hands them over. Losing one is silent and reads as
+  // `lint` — the table claiming a machine holds a rule the emitted config does not
+  // contain, in the document that outlives the adoption (field run #150). One assertion
+  // per fact, because the arms are independent and any one could be dropped alone.
+  it('hands the rules table every fact that decides whether a gate can emit', () => {
     const layer = { name: 'components', does: 'UI' };
     const module = { layout: 'folder' as const, entry: 'index', private: [] };
 
@@ -89,6 +91,22 @@ describe('emitHandbook', () => {
     }));
 
     expect(exemptingNothing).toContain('`architecture.testFiles: []` exempts nothing');
+
+    const noTypescript = defineBlueprint({
+      framework: 'vue',
+      architecture: { alias: '~app', layers: [layer], module },
+      rules: { explicitAny: 'error' },
+    });
+
+    expect(emitHandbook(noTypescript, { hasTypescript: false }))
+      .toContain('nothing — `any` is a TypeScript construct');
+
+    // Both directions on the one fact this emitter is handed rather than reads: the
+    // stack that carries it keeps the row, and so does a caller that says nothing.
+    for (const stack of [{ hasTypescript: true }, {}, undefined]) {
+      expect(emitHandbook(noTypescript, stack))
+        .toContain('| `explicitAny` | `error` | — | lint |');
+    }
   });
 
   it('describes the diagram notation once, and the diagram matches it', () => {

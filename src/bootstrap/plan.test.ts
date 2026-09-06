@@ -97,6 +97,31 @@ describe('plan', () => {
     expect(actions.some((a) => a.kind === 'instruct' && a.note.includes('stylelint'))).toBe(true);
   });
 
+  it('hands the detected stack to both documents it writes', () => {
+    // `hasTypescript` is the one availability fact no blueprint carries, and `detect`
+    // already read it. Plan is where it reaches the two pure emitters — dropped here,
+    // both documents fall back to "assume the stack carries it" and an adopter without
+    // TypeScript is told `explicitAny` is a hard gate their lint run keeps.
+    const js = plan(state({ hasTypescript: false }), bp, { configSource: 'source' });
+    const ts = plan(state({ hasTypescript: true }), bp, { configSource: 'source' });
+
+    // The contracts drop the gate; both directions, or the thread passes by never
+    // emitting it at all.
+    for (const path of ['CLAUDE.md', 'AGENTS.md']) {
+      expect(write(js, path)?.content, path).not.toContain('explicitAny');
+      expect(write(ts, path)?.content, path).toContain('`explicitAny`');
+    }
+
+    // The handbook keeps the author's declaration and names no machine for it.
+    const handbook = 'docs/architecture-handbook.md';
+
+    expect(write(js, handbook)?.content)
+      .toContain('| `explicitAny` | `error` | — | nothing — `any` is a TypeScript construct');
+
+    expect(write(ts, handbook)?.content)
+      .toContain('| `explicitAny` | `error` | — | lint |');
+  });
+
   it('omits the config write when configSource is null', () => {
     expect(
       write(plan(state({ hasConfig: true }), bp), 'blueprint.config.mjs'),

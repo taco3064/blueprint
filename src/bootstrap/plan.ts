@@ -61,9 +61,15 @@ export function plan(
   const { configSource = null } = options;
   const handbook = handbookPath(blueprint);
 
+  // The two emitters that render content get the detected stack; the three call sites
+  // that read only `path` do not, because a path is decided by `emit.agents` and the
+  // target table, never by what the contract says.
+  const stack = { hasTypescript: state.hasTypescript };
+
   const agentFiles = emitAgentFiles(
     blueprint,
     options.agentTarget ? [options.agentTarget] : undefined,
+    stack,
   );
 
   const actions: Action[] = [
@@ -73,7 +79,12 @@ export function plan(
     // Where code already lives, an unbuilt layer's absence is its true state — a
     // .gitkeep shell is the manufactured net the playbook forbids.
     ...(options.hasSourceFiles ? [] : scaffoldDirs(state, architecture.layers)),
-    { kind: 'write', path: handbook, content: emitHandbook(blueprint), note: handbook },
+    {
+      kind: 'write',
+      path: handbook,
+      content: emitHandbook(blueprint, stack),
+      note: handbook,
+    },
     ...agentContractActions(agentFiles, options.existingAgentFiles),
     ...staleContractActions(agentFiles, emit, options),
     ...eslintConfigActions(blueprint, state),

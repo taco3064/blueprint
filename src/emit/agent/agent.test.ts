@@ -62,6 +62,42 @@ describe('emitAgentContract', () => {
     expect(emitAgentContract(noNaming)).not.toContain('### Naming');
   });
 
+  it('hands the stack fact to whichever contract it renders', () => {
+    // `compact` picks the renderer; the stack facts are what remains of the bag and
+    // must reach either one. Dropped on one branch the defect is invisible — the two
+    // documents ship side by side and only one over-promises. `explicitAny` is the
+    // gate this decides: `any` is a TypeScript construct with no core rule behind it,
+    // and a blueprint does not carry the dependency list that settles it.
+    const bp = defineBlueprint({
+      framework: 'vue',
+      architecture: {
+        alias: '~app',
+        layers: [{ name: 'components', does: 'UI' }],
+        module: { layout: 'folder', entry: 'index', private: [] },
+      },
+      rules: { explicitAny: 'error', maxLines: { tier: 'error', value: 400 } },
+    });
+
+    // The full contract gives each hard gate a bullet; the compact block lists them in
+    // one clause. Both forms are pinned, so a drop cannot be mistaken for a re-wording.
+    const forms = [
+      [false, '- `explicitAny` is a hard gate.'],
+      [true, '`explicitAny`, `maxLines` = 400 fail the project\'s lint run'],
+    ] as const;
+
+    for (const [compact, named] of forms) {
+      expect(emitAgentContract(bp, { compact, hasTypescript: false }))
+        .not.toContain('explicitAny');
+
+      // Both directions, or the fact passes by never emitting the gate at all — and
+      // the caller that supplies nothing keeps it, since an emitter told nothing would
+      // otherwise strip a gate a TypeScript project genuinely holds.
+      for (const stack of [{ hasTypescript: true }, {}]) {
+        expect(emitAgentContract(bp, { compact, ...stack })).toContain(named);
+      }
+    }
+  });
+
   it('is deterministic', () => {
     expect(emitAgentContract(full())).toBe(emitAgentContract(full()));
   });

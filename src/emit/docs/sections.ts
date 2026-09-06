@@ -12,7 +12,8 @@ import {
   getSharedModule,
   normalizeAllowedImporters,
 } from '../../config';
-import { enforcedBy, unavailableFromBlueprint } from '../lint';
+import { enforcedBy, unavailableForEmit } from '../lint';
+import type { EmitFacts } from '../lint';
 import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
 
@@ -257,11 +258,11 @@ export function renderPlaybook(playbook: PlaybookSection[] | undefined): string 
 /** Enforcement rules and their landing tiers. */
 export function renderRules(
   rules: Record<string, RuleSetting> | undefined,
-  // Enough of the blueprint to answer "can this gate emit here at all". This document
-  // outlives the adoption and the contract links to it, so a row claiming `lint` holds a
-  // rule the emitted config does not contain is the longest-lived version of that
-  // half-truth (field run #150).
-  facts: { framework?: string; testFiles?: string | string[] } = {},
+  // Enough to answer "can this gate emit here at all" — two facts off the blueprint and
+  // one off the dependency list. This document outlives the adoption and the contract
+  // links to it, so a row claiming `lint` holds a rule the emitted config does not
+  // contain is the longest-lived version of that half-truth (field run #150).
+  facts: EmitFacts = {},
 ): string {
   const entries = Object.entries(rules ?? {});
 
@@ -282,7 +283,7 @@ export function renderRules(
     // The declaration stays on the table — it is the author's, and dropping the row
     // would hide it. What cannot stay is the machine: nothing holds a gate this
     // blueprint cannot emit.
-    const unavailable = unavailableFromBlueprint(id, facts.framework, facts.testFiles);
+    const unavailable = unavailableForEmit(id, facts);
 
     return [
       `\`${id}\``,

@@ -1,6 +1,7 @@
 import type { AgentTarget, Blueprint } from '../../config';
 import { normalizeAgentEmit } from '../../config';
 import { emitAgentContract } from './agent';
+import type { StackFacts } from '../lint';
 
 /**
  * How a target's file relates to user content. `merge` — a shared context
@@ -51,7 +52,9 @@ const TARGETS: Record<AgentTarget, TargetSpec> = {
  * Distribute the agent contract across tool-specific files. Shared context files
  * (`merge`) get the compact pointer block, since people maintain those documents;
  * tool-owned rule files (`own`) get the full contract. `defaultTargets` overrides
- * the built-in default when `emit.agents` is unset. Pure — writes nothing.
+ * the built-in default when `emit.agents` is unset; `stack` carries the fact no
+ * Blueprint holds, which decides whether `explicitAny` may be named hard here.
+ * Pure — writes nothing.
  * @group Emitters
  * @example
  * for (const file of emitAgentFiles(blueprint)) {
@@ -75,6 +78,7 @@ export function defaultAgentPaths(): Pick<AgentFile, 'target' | 'path' | 'strate
 export function emitAgentFiles(
   blueprint: Blueprint,
   defaultTargets?: AgentTarget[],
+  stack: StackFacts = {},
 ): AgentFile[] {
   // No empty-list guard: `[].map` is `[]`, so the guard that used to sit here
   // returned exactly what the line below returns.
@@ -82,7 +86,11 @@ export function emitAgentFiles(
 
   return entries.map(({ target, path }) => {
     const spec = TARGETS[target];
-    const contract = emitAgentContract(blueprint, { compact: spec.strategy === 'merge' });
+
+    const contract = emitAgentContract(blueprint, {
+      ...stack,
+      compact: spec.strategy === 'merge',
+    });
 
     return {
       target,

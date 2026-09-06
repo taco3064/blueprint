@@ -10,7 +10,7 @@ export { runSurvey } from './survey';
 export type * from './config';
 export type { FolderEvidence, SurveyEdge, SurveyOptions, SurveyResult } from './survey';
 export type { AgentFile, AgentFileStrategy } from './emit/agent';
-export type { EmitLintOptions, LintConfig, LintConfigEntry } from './emit/lint';
+export type { EmitLintOptions, LintConfig, LintConfigEntry, StackFacts } from './emit/lint';
 export type { ImpactOptions, RuleImpact } from './impact';
 export type { PackageManager } from './project';
 export type { NextPresetOptions, NextRouter, PresetOptions } from './presets';
