@@ -176,15 +176,17 @@ describe('renderNaming', () => {
 
 describe('renderHardRules', () => {
   it('includes entry-only for folder layout and lists error-tier gates', () => {
-    const out = renderHardRules(arch(), {
-      maxLines: { tier: 'error', value: 400 },
-      // Gated, error-tier, and carrying no number — a bare tier must not grow
-      // one. "`cycles` = undefined is a hard gate" reads as a real threshold,
-      // and the agent has no way to know which number it is supposed to be.
-      cycles: 'error',
-      noUtils: 'error',
-      soft: 'warn',
-    });
+    const out = renderHardRules(blueprint({
+      rules: {
+        maxLines: { tier: 'error', value: 400 },
+        // Gated, error-tier, and carrying no number — a bare tier must not grow
+        // one. "`cycles` = undefined is a hard gate" reads as a real threshold,
+        // and the agent has no way to know which number it is supposed to be.
+        cycles: 'error',
+        noUtils: 'error',
+        soft: 'warn',
+      },
+    }));
 
     // The flow rule leads the list unconditionally — it is the one rule that
     // holds whatever the blueprint declares, so nothing gates it.
@@ -194,7 +196,6 @@ describe('renderHardRules', () => {
 
     expect(out).toContain('Import a module via its `index`');
     expect(out).toContain('`maxLines` = 400 is a hard gate.');
-    expect(out).toContain('`cycles` is a hard gate.');
     expect(out).not.toContain('undefined');
     // Unknown ids are documentation — the contract must not call them gates.
     expect(out).not.toContain('`noUtils` is a hard gate.');
@@ -205,16 +206,90 @@ describe('renderHardRules', () => {
   });
 
   it('omits entry-only for flat layout', () => {
-    const out = renderHardRules(
-      arch({ module: { layout: 'flat', entry: 'index', private: [] } }),
-      undefined,
-    );
+    const out = renderHardRules(blueprint({
+      architecture: arch({ module: { layout: 'flat', entry: 'index', private: [] } }),
+    }));
 
     // The entry names are interpolated, so an unguarded push renders the rule
     // with an empty slot — "Import a module via its , never its internals." The
     // sentence has to be absent, not merely missing the entry name.
     expect(out).not.toContain('Import a module via its');
     expect(out).not.toContain('never its internals');
+  });
+});
+
+describe('renderHardRules · only what the tooling actually holds', () => {
+  // `error` is what the author declared; hard is what a machine can keep. Three gates
+  // were called hard here that nothing enforces — on the one document an agent reads
+  // with no CLI output beside it, which is why the compact contract already guards
+  // both questions and this one had neither.
+  const kept = { maxLines: { tier: 'error' as const, value: 400 } };
+
+  it('drops a gate the stack cannot open, and keeps it on the stack that can', () => {
+    const onReact = renderHardRules(blueprint({
+      framework: 'react',
+      architecture: arch({ testFiles: ['**/*.test.ts'] }),
+      rules: { deepWatch: 'error', ...kept },
+    }));
+
+    expect(onReact).not.toContain('deepWatch');
+    // A genuinely hard gate still appears, in the same words — assert both directions
+    // or the fix passes by emptying the section.
+    expect(onReact).toContain('`maxLines` = 400 is a hard gate.');
+
+    const onVue = renderHardRules(blueprint({
+      architecture: arch({ testFiles: ['**/*.test.ts'] }),
+      rules: { deepWatch: 'error', ...kept },
+    }));
+
+    expect(onVue).toContain('`deepWatch` is a hard gate.');
+  });
+
+  it('drops `testFilename` where `testFiles: []` leaves it no scope', () => {
+    const empty = renderHardRules(blueprint({
+      architecture: arch({ testFiles: [] }),
+      rules: { testFilename: 'error', ...kept },
+    }));
+
+    expect(empty).not.toContain('testFilename');
+    expect(empty).toContain('`maxLines` = 400 is a hard gate.');
+
+    const declared = renderHardRules(blueprint({
+      architecture: arch({ testFiles: ['**/*.test.ts'] }),
+      rules: { testFilename: 'error', ...kept },
+    }));
+
+    expect(declared).toContain('`testFilename` is a hard gate.');
+  });
+
+  it('names `cycles`\' real holder instead of calling it a lint gate', () => {
+    const out = renderHardRules(blueprint({ rules: { cycles: 'error', ...kept } }));
+
+    // Not dropped like the two above: `cycles` IS enforced, by a runtime this list
+    // was attributing to lint. A repo holding a baseline reads "hard gate" and takes
+    // a green lint as covering it; silently removing the row instead would leave an
+    // error-tier declaration gone from the contract with no cause stated.
+    expect(out).not.toContain('`cycles` is a hard gate.');
+
+    expect(out).toContain(
+      '- `cycles` is held by `npx blueprint inspect --baseline` instead, '
+      + 'so a green lint says nothing about it.',
+    );
+
+    expect(out).toContain('`maxLines` = 400 is a hard gate.');
+  });
+
+  it('says it in the compact contract\'s own words, from the same helper', () => {
+    // Two renderers phrasing one fact separately is how they come to disagree — the
+    // shape `unavailableGate` itself was consolidated out of. If either sentence
+    // drifts, this is the case that turns red.
+    const bp = blueprint({ rules: { cycles: 'error', ...kept } });
+
+    const held = '`cycles` is held by `npx blueprint inspect --baseline` instead, '
+      + 'so a green lint says nothing about it';
+
+    expect(renderHardRules(bp)).toContain(held);
+    expect(renderCompactContract(bp)).toContain(held);
   });
 });
 

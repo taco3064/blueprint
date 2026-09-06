@@ -49,7 +49,7 @@ export function emitAgentContract(
     renderContext(blueprint),
     renderPlacement(architecture),
     renderNaming(architecture.naming),
-    renderHardRules(architecture, rules),
+    renderHardRules(blueprint),
     renderComponentShape(blueprint.componentShape),
     renderBehavioral(architecture, principles, rules),
     renderPlaybook(blueprint.playbook),

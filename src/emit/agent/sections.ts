@@ -14,12 +14,7 @@ import {
   normalizeAllowedImporters,
 } from '../../config';
 import { handbookPath } from '../docs';
-import {
-  enforcedBy,
-  LINT_GATED_RULE_IDS,
-  resolveTestFiles,
-  unavailableFromBlueprint,
-} from '../lint';
+import { enforcedBy, resolveTestFiles, unavailableFromBlueprint } from '../lint';
 import { formatOwns } from '../../markdown';
 
 function rulesOfTier(rules: Record<string, RuleSetting> | undefined, tier: Tier) {
@@ -32,6 +27,42 @@ function claudePrinciples(principles: PrincipleDef[] | undefined): PrincipleDef[
   }
 
   return principles.filter((principle) => principle.land === 'claude');
+}
+
+/** A gate as either contract names it: the id, plus the option where the setting has one. */
+function gateLabel([id, setting]: [string, RuleSetting]): string {
+  const value = readSetting(setting).value;
+
+  return `\`${id}\`${value === undefined ? '' : ` = ${value}`}`;
+}
+
+/**
+ * The error-tier rules this blueprint can actually gate — one answer, read by both
+ * contracts. A gate this blueprint cannot emit is excluded, or the contract makes a
+ * false claim about the reader's own repo (field run #150); asked twice it is two
+ * renderers that can disagree, which is the shape `unavailableGate` itself records.
+ *
+ * No `LINT_GATED_RULE_IDS` pre-filter: `enforcedBy` answers `docs` off that list anyway.
+ */
+function emittableGates(blueprint: Blueprint): [string, RuleSetting][] {
+  const { architecture, framework, rules } = blueprint;
+
+  return rulesOfTier(rules, 'error').filter(
+    ([id]) => unavailableFromBlueprint(id, framework, architecture.testFiles) === null,
+  );
+}
+
+/**
+ * What an inspect-held gate is named as — one text at both call sites, because two
+ * phrasings of one fact is the contradiction an adopter meets before we do. `cycles` is
+ * lint-gated by id while its runtime is `inspect`, so a list that leaves it among what
+ * lint fails on promises lint catches cycles (field issue #52). The singular verb is
+ * pinned by this module's tests — exactly one declared rule is inspect-held, so a plural
+ * arm is unreachable.
+ */
+function inspectHeldClause(gates: string): string {
+  return `${gates} is held by \`npx blueprint inspect --baseline\` instead, `
+    + 'so a green lint says nothing about it';
 }
 
 /** Contract heading + provenance. Uses `##` so it can nest inside CLAUDE.md. */
@@ -58,30 +89,15 @@ const CONTRACT_DOC = 'node_modules/@kekkai/blueprint/agent-contract.md';
  * not documents a person maintains.
  */
 export function renderCompactContract(blueprint: Blueprint): string {
-  const { architecture, rules } = blueprint;
+  const { architecture } = blueprint;
   const chain = architecture.layers.map((layer) => `\`${layer.name}\``).join(' → ');
   const handbook = handbookPath(blueprint);
 
-  const label = ([id, setting]: [string, RuleSetting]): string => {
-    const value = readSetting(setting).value;
-
-    return `\`${id}\`${value === undefined ? '' : ` = ${value}`}`;
-  };
-
-  // Split by WHICH machine holds each gate: `cycles` is lint-gated by id while its
-  // runtime is `inspect`, so an undivided list promises that lint catches cycles
-  // (field issue #52). The singular verb below is pinned by this module's tests —
-  // exactly one declared rule is inspect-held, so a plural arm is unreachable.
-  //
-  // No `LINT_GATED_RULE_IDS` pre-filter: `enforcedBy` answers `docs` off that list
-  // anyway. And a gate this blueprint cannot emit is excluded, or the contract makes
-  // a false claim about the reader's own repo (field run #150).
-  const emittable = ([id]: [string, unknown]): boolean =>
-    unavailableFromBlueprint(id, blueprint.framework, architecture.testFiles) === null;
-
-  const declared = rulesOfTier(rules, 'error').filter(emittable);
-  const lintGates = declared.filter(([id]) => enforcedBy(id) === 'lint').map(label);
-  const inspectGates = declared.filter(([id]) => enforcedBy(id) === 'inspect').map(label);
+  // Split by WHICH machine holds each gate: an undivided list promises that lint
+  // catches cycles (field issue #52).
+  const declared = emittableGates(blueprint);
+  const lintGates = declared.filter(([id]) => enforcedBy(id) === 'lint').map(gateLabel);
+  const inspectGates = declared.filter(([id]) => enforcedBy(id) === 'inspect').map(gateLabel);
 
   const extras = [
     ...(blueprint.componentShape?.length ? ['component-shape axes'] : []),
@@ -103,7 +119,7 @@ export function renderCompactContract(blueprint: Blueprint): string {
     // marks an empty net as vacuous, and this contract is the one artifact read with
     // no CLI output beside it. "the project's lint run", never `npm run lint` — the
     // runner is a repo fact this emitter cannot see (field run #141).
-    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectGates.join(', ')} is held by \`npx blueprint inspect --baseline\` instead, so a green lint says nothing about it` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
+    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectHeldClause(inspectGates.join(', '))}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
     // --baseline, or the verify loop stays red forever on locked brownfield debt
     // (field issue #10). Both remedies are named, and whose each is: told only "move
     // the code", an agent contorts it into an existing layer instead of reporting
@@ -205,10 +221,8 @@ export function renderNaming(naming: Record<string, string> | undefined): string
 }
 
 /** The lint-enforced rules, phrased as imperatives, + how to react to a failure. */
-export function renderHardRules(
-  architecture: ArchitectureDef,
-  rules: Record<string, RuleSetting> | undefined,
-): string {
+export function renderHardRules(blueprint: Blueprint): string {
+  const { architecture } = blueprint;
   const bullets = ['- Import only from downstream layers — never upstream, never the same layer.'];
 
   const folderEntries = [
@@ -229,16 +243,21 @@ export function renderHardRules(
     '- Relative imports stay inside their module; no redundant segments (`./../`, `././`).',
   );
 
-  // Only rules a machine actually gates may be called hard — anything else
-  // here would be a promise the tooling does not keep.
-  for (const [id, setting] of rulesOfTier(rules, 'error')) {
-    if (!LINT_GATED_RULE_IDS.includes(id)) {
-      continue;
+  // Only rules a machine actually gates may be called hard — anything else here would
+  // be a promise the tooling does not keep, and "which machine" is the second half of
+  // that: a gate lint does not hold is named with its real holder rather than dropped,
+  // or an error-tier declaration leaves this document with no cause given for it.
+  for (const [id, setting] of emittableGates(blueprint)) {
+    const held = enforcedBy(id);
+    const gate = gateLabel([id, setting]);
+
+    if (held === 'lint') {
+      bullets.push(`- ${gate} is a hard gate.`);
     }
 
-    const value = readSetting(setting).value;
-
-    bullets.push(`- \`${id}\`${value === undefined ? '' : ` = ${value}`} is a hard gate.`);
+    if (held === 'inspect') {
+      bullets.push(`- ${inspectHeldClause(gate)}.`);
+    }
   }
 
   bullets.push(
