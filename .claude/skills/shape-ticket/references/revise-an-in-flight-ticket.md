@@ -51,14 +51,25 @@ ruling that belongs to the delivering session is **what a movement costs**.
 Immaterial means no movement happened, so the two never meet: you are
 deciding your own act, not grading its bill.
 
-**The test is concrete: name the artifact that comes out different.** A file
-in the tree, an emitted string, a published page, a command's output, a
-changeset, a commit message that is about to be pushed. **If the only thing
-that changes is the issue text, it is immaterial by definition** — the issue
-is not a deliverable. Two shapes are material on their face and need no
-argument: **a criterion that cannot be decided as written** (it contradicts
-itself, or asks for something unmeasurable), and **a criterion that
-describes the deliverable wrongly**, so meeting it produces the wrong thing.
+**The test is concrete: name who is harmed by the sentence staying wrong.**
+A file in the tree, an emitted string, a published page, a command's output,
+a changeset — each has a reader downstream who acts on it. **If the only
+thing that changes is the issue text, it is immaterial by definition** — the
+issue is not a deliverable. Two shapes are material on their face and need
+no argument: **a criterion that cannot be decided as written** (it
+contradicts itself, or asks for something unmeasurable), and **a criterion
+that describes the deliverable wrongly**, so meeting it produces the wrong
+thing.
+
+**"An artifact comes out different" is the wrong test, and this file used to
+state it.** It is satisfied by anything at all that changes, so it swept in
+a commit message — permanent, yes, and read by nobody who then does
+something differently. **The rule that had to be added to keep it out of the
+list is the tell that the list was built on the wrong question.** Strictness
+belongs on the code and on what a user sees; **a commit message is on
+neither side of that line**, and `review-stage`'s `write-the-verdict.md` now
+files a finding on one as FOLLOW-UP for the same reason. **Harm, not
+change.**
 
 **This is the one statement of what repairing the body costs**;
 `create-the-ticket.md` and `review-stage`'s `write-the-verdict.md` cite it
