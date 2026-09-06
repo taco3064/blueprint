@@ -38,6 +38,20 @@ describe('one stack, three documents agreeing about `explicitAny` (#389)', () =>
   const CONTRACTS = ['CLAUDE.md', '.cursor/rules/blueprint.mdc'];
   const HANDBOOK = 'docs/architecture-handbook.md';
 
+  /**
+   * An emitted document's text, with its existence asserted first. Every claim below is
+   * about what a document says, and a file that is not there collapses to `''`, which
+   * answers every negative one of them — so an emitter that stopped writing on this
+   * stack would read as one that wrote a clean document.
+   */
+  function document(dir: string, path: string): string {
+    const content = read(dir, path);
+
+    expect(content, path).not.toBeNull();
+
+    return content ?? '';
+  }
+
   /** The reason `blueprint rules` prints for this repo — never a copy pasted here. */
   async function catalogReason(dir: string): Promise<string> {
     const catalog = await cli(dir, ['rules', '--json']);
@@ -46,7 +60,14 @@ describe('one stack, three documents agreeing about `explicitAny` (#389)', () =>
       gates: { id: string; unavailable?: string }[];
     };
 
-    return gates.find((gate) => gate.id === 'explicitAny')?.unavailable ?? '';
+    const gate = gates.find((entry) => entry.id === 'explicitAny');
+
+    // The authority for the reason has to carry the row it is authority over: gone from
+    // the catalog and available here both answer `''` otherwise, and the TypeScript case
+    // below reads that `''` as the second one.
+    expect(gate, 'explicitAny in `blueprint rules --json`').toBeDefined();
+
+    return gate?.unavailable ?? '';
   }
 
   it('names it hard in none of the three, in each surface\'s own form', async () => {
@@ -67,14 +88,19 @@ describe('one stack, three documents agreeing about `explicitAny` (#389)', () =>
     expect(reason).toContain('TypeScript construct');
 
     // Both contracts drop the gate — the form each already uses for a gate the stack
-    // cannot open.
+    // cannot open. `unusedVars` is declared beside it and needs no carrier, so it has to
+    // survive: dropping every gate on a JS stack satisfies the negative line on its own,
+    // and that is the failure the TypeScript case names from its own side.
     for (const path of CONTRACTS) {
-      expect(read(dir, path) ?? '', path).not.toContain('explicitAny');
+      const contract = document(dir, path);
+
+      expect(contract, path).toContain('`unusedVars`');
+      expect(contract, path).not.toContain('explicitAny');
     }
 
     // The handbook keeps the row, because the declaration is the author's, and its
     // legend already documents the `nothing` cell for exactly this case.
-    expect(read(dir, HANDBOOK) ?? '')
+    expect(document(dir, HANDBOOK))
       .toContain(`| \`explicitAny\` | \`error\` | — | nothing — ${reason} |`);
   });
 
@@ -93,11 +119,11 @@ describe('one stack, three documents agreeing about `explicitAny` (#389)', () =>
     // the reason off it rather than out of this file.
     expect(await catalogReason(dir)).toBe('');
 
-    expect(read(dir, 'CLAUDE.md') ?? '').toContain('`explicitAny`');
+    expect(document(dir, 'CLAUDE.md')).toContain('`explicitAny`');
 
-    expect(read(dir, '.cursor/rules/blueprint.mdc') ?? '')
+    expect(document(dir, '.cursor/rules/blueprint.mdc'))
       .toContain('- `explicitAny` is a hard gate.');
 
-    expect(read(dir, HANDBOOK) ?? '').toContain('| `explicitAny` | `error` | — | lint |');
+    expect(document(dir, HANDBOOK)).toContain('| `explicitAny` | `error` | — | lint |');
   });
 });

@@ -128,8 +128,7 @@ describe('emitAgentFiles · which form each strategy receives', () => {
 
   it('carries the stack fact into every target, whichever form it gets', () => {
     // `compact` is this function's to decide per strategy; the stack facts are the
-    // caller's and pass through untouched. Spread the wrong way round, `compact` would
-    // be overwritten and the merge targets would ship the full contract.
+    // caller's and pass through untouched.
     const targets = ['claude', 'agents', 'gemini', 'copilot', 'cursor', 'windsurf'] as const;
 
     // The preset declares `explicitAny: 'error'`, so every target names it today.
@@ -142,6 +141,9 @@ describe('emitAgentFiles · which form each strategy receives', () => {
     expect(js.map((file) => file.target)).toEqual([...targets]);
 
     for (const file of js) {
+      // The preset declares `unusedVars` too, and no carrier decides that one: a stack
+      // fact read as "drop every gate" satisfies the line below on its own.
+      expect(file.content, file.target).toContain('`unusedVars`');
       expect(file.content, file.target).not.toContain('explicitAny');
 
       // The strategy still decides the form — the fact rides along, it does not steer.
