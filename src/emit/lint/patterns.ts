@@ -714,7 +714,7 @@ export function buildPackagePatterns(disabled: PackageRule[]): {
  */
 export function selfOnlyReexportSelector(alias: string, target: string): string {
   const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\//g, '\\u002F');
-  const attr = `[source.value=/^${esc(alias)}\\u002F${esc(target)}\\u002F/]`;
+  const attr = `[source.value=/^${esc(alias)}\\u002F${esc(target)}(?:\\u002F|$)/]`;
 
   return `ExportNamedDeclaration${attr}, ExportAllDeclaration${attr}`;
 }

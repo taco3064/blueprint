@@ -302,7 +302,7 @@ describe('selfOnlyReexportSelector', () => {
     const selector = selfOnlyReexportSelector('~app', 'contexts');
     const [, regex] = selector.match(/\/(.*?)\/(?=\])/) ?? [];
 
-    expect(regex).toBe('^~app\\u002Fcontexts\\u002F');
+    expect(regex).toBe('^~app\\u002Fcontexts(?:\\u002F|$)');
     expect(new RegExp(regex).test('~app/contexts/theme')).toBe(true);
     expect(new RegExp(regex).test('~app/contexts-x/theme')).toBe(false);
   });
@@ -315,7 +315,7 @@ describe('selfOnlyReexportSelector', () => {
     const selector = selfOnlyReexportSelector('~app', 'ui.kit');
     const [, regex] = selector.match(/\/(.*?)\/(?=\])/) ?? [];
 
-    expect(regex).toBe('^~app\\u002Fui\\.kit\\u002F');
+    expect(regex).toBe('^~app\\u002Fui\\.kit(?:\\u002F|$)');
     expect(new RegExp(regex).test('~app/ui.kit/theme')).toBe(true);
 
     // Unescaped, the `.` matches any character and the ban reaches a sibling layer.
