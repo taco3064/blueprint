@@ -33,12 +33,14 @@ them. A CI run that starts failing here was failing the architecture before, sil
   Refresh the folded copy from the current output rather than retyping it, then re-run doctor.
 
 **These are not alternatives, and lint is not what tells you which one you are on.** The merge
-this project's own playbook prescribes is one combined entry *per collision*, leaving every
-other layer exactly as emitted — so the ordinary outcome is both at once: new lint errors in
-the layers you did not fold, and a doctor red on the layer you did. **Fixing what lint named is
-therefore not the whole job**, and quiet from lint in a folded layer is not a clean bill of
-health — it is the folded entry, not the absence of bare-entry imports. Run `blueprint doctor`
-after upgrading whether or not lint said anything.
+this project's own playbook prescribes is one combined entry *per collision*, leaving everything
+it does not collide with exactly as emitted — so the ordinary outcome is both at once: new lint
+errors everywhere the fold does not reach, and a doctor red on the entry you folded. **The fold
+is the unit here, not the layer** — an entry scoped to part of a layer leaves the rest of that
+same layer reporting. **Fixing what lint named is therefore not the whole job**, and quiet from
+lint where a folded entry governs is not a clean bill of health — it is that entry, not the
+absence of bare-entry imports. Run `blueprint doctor` after upgrading whether or not lint said
+anything.
 
 **The same-layer message now states its own extent**, because its remedy named a shape the
 bare spelling does not have:
