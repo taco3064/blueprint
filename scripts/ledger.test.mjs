@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 /**
  * The survivor ledger, guarded as a property rather than as a count.
  *
- * `.claude/docs/mutation-testing.md` keeps the ledger of mutants proven equivalent at
+ * `.agents/docs/mutation-testing.md` keeps the ledger of mutants proven equivalent at
  * the sites themselves — no file to maintain, no line numbers to drift. Until #399
  * converts the corpus it reads in two forms at once, and an entry is either one: the
  * older prose proof, found by `grep -rni undecidable src/ --include='*.ts'`, or the
