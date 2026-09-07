@@ -76,8 +76,8 @@ export interface LayerDef {
   /**
    * Restrict who may import this layer. Omit to keep the default — every
    * layer declared before it may import it. When set, only the listed layers
-   * may, and each must be a layer declared earlier (which keeps the flow
-   * one-way and acyclic by construction).
+   * may, and each must be a layer declared earlier (which keeps the declared
+   * layer flow one-way and acyclic; module import cycles are diagnosed by inspect).
    */
   allowedImporters?: (string | AllowedImporter)[];
   /**

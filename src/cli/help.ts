@@ -204,7 +204,7 @@ const RULES_HELP = [
   '  · Optional gates — emitted only when declared in `rules` with a tier',
   '    other than off; metric defaults shown (maxLines 400, complexity 12, …)',
   '  · Documentation-only ids — never an ESLint line (deadCode → knip;',
-  '    cycles is enforced by `inspect`, not the lint config)',
+  '    cycles is diagnosed when `inspect` runs, not continuously by lint)',
   '',
   'With a blueprint.config.mjs present, every gate is annotated with the',
   'declared tier/value and whether it emits today (e.g. deepWatch declared',

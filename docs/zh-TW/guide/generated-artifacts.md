@@ -132,15 +132,30 @@ AI Agent 守則刻意保持精簡：分層流向與硬性關卡直接內嵌，�
 - 分層流向：`pages` → `containers` → `components` → `hooks` → `contexts` → `services` —— 具遞移性：一層可以匯入排在它後面的**任何**一層，除非目標那層收窄了自己的匯入者。
 - **新增、搬移或重新命名任何檔案之前** —— 放在哪裡、模組形狀、專屬持有、命名、元件設計軸線、行為準則、作業守則：讀 [docs/architecture-handbook.md](docs/architecture-handbook.md)（由同一份 blueprint 生成 —— 永遠是最新的）。
 - **作業紀律** —— 怎麼順著流向走、lint 失敗時怎麼反應、commit 前的檢查清單：讀 [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md)（隨套件一起出貨 —— 裝好依賴就會在，而且永遠對得上安裝的版本）。
-- 硬性關卡（由機器強制，作用範圍是 layer glob 打到的檔案 —— 一層還沒有 code 就沒有東西會失敗，那是跑道，不是保護）：單向匯入、模組入口、專屬持有、相對路徑逃逸、`maxLines` = 400、`unusedVars`、`codeStyle`、`statementsPerLine`、`statementPadding`、`importBlock`、`fixtureImports`、`usePrefix`、`testFilename`、`deepWatch` 會讓專案的 lint 失敗；`cycles` 改由 `npx blueprint inspect --baseline` 把關，所以綠燈的 lint 對它什麼都沒說。lint 失敗時，去修結構 —— 永遠不要 `eslint-disable`，也不要把違規搬到隔壁檔案。
+- 硬性關卡（由機器強制，作用範圍是 layer glob 打到的檔案 —— 一層還沒有 code 就沒有東西會失敗，那是跑道，不是保護）：單向匯入、模組入口、專屬持有、相對路徑逃逸、`maxLines` = 400、`unusedVars`、`codeStyle`、`statementsPerLine`、`statementPadding`、`importBlock`、`fixtureImports`、`usePrefix`、`testFilename`、`deepWatch` 會讓專案的 lint 失敗；`cycles` 只在執行 `npx blueprint inspect --baseline` 時診斷；baseline 會保留已記錄的 finding，因此這不是持續的編輯期預防，綠燈的 lint 對它什麼都沒說。lint 失敗時，去修結構 —— 永遠不要 `eslint-disable`，也不要把違規搬到隔壁檔案。
 - 由你把關的部分：`~app/` 底下不得有未宣告的資料夾（`blueprint inspect --baseline` 會驗 —— 只對你新引入的東西變紅）。它的檢測項目會給兩個解法，而只有一個是你的：把 code 搬進既有分層的某個模組。如果架構真的長超過這份 config 了，那是擁有者的決定 —— 講出來然後停手；永遠不要自己宣告新的分層。
 <!-- BLUEPRINT:END -->
 ```
 
 裡面有四件事不是裝飾用的。<br>
 **不指名執行器** —— 寫的是「專案的 lint」（原文 the project's lint run），因為只從 blueprint config 生成的守則，看不到你的 repo 用 npm 還是 pnpm。<br>
-**`cycles` 歸給 `blueprint inspect`**，不是 lint，所以綠燈的 lint 不會被讀成「循環依賴也顧到了」。<br>
+**`cycles` 是 `blueprint inspect` 被執行時或 CI 裡的診斷**，不是持續的 lint 檢查。<br>
+`--baseline` 會保留已記錄的 cycle finding，只對新 finding 失敗，所以綠燈的 lint 不會被讀成「循環依賴也顧到了」。<br>
 **每條硬性關卡都寫出自己的作用範圍** —— 只管 layer glob 打到的檔案，這也是為什麼剛建好、分層還空著的專案沒有東西會失敗。<br>
 **清單上會出現哪些關卡，取決於技術棧** —— 上面這個範例是 JS 專案，所以 `explicitAny` 不在它的清單裡，而 TypeScript 專案的守則就會有；只有工具真的擋得住的關卡，才會被列成硬性關卡。
 
 發佈目標（Cursor、Windsurf、Gemini、Copilot）由 [`emit.agents`](/zh-TW/guide/reference#快速上手範例以外的-config-欄位) 設定。
+
+如果要讓每一次 lint 都拒絕 cycle，可以透過生成 config 已經匯入的 import 外掛 opt in。<br>
+把這個 entry 放在 `...emitLint(...)` 後面：
+
+```js
+{
+  plugins: { 'import-x': imports },
+  rules: { 'import-x/no-cycle': 'error' },
+}
+```
+
+這不是預設值，因為該規則會逐檔重走 dependency graph，在 850 檔的 repo
+實測為 92 秒。只有在持續預防值得這筆 lint 成本時才啟用；否則在 CI 執行
+`blueprint inspect --baseline`。

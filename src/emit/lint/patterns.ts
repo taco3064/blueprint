@@ -180,8 +180,10 @@ export const PLUGIN_GATES: GateSpec[] = [
     id: 'cycles',
     emits: 'inspect (cycle finding)',
     runtime: 'inspect',
-    note: 'no ESLint line — import/no-cycle re-checks the whole graph per file, '
-      + 'measured 92s on 850 files',
+    note: 'on-demand/CI diagnosis only — a baseline grandfathers recorded findings; '
+      + 'no ESLint line by default. Opt into import-x/no-cycle for continuous '
+      + 'prevention, at the cost of re-checking the graph per file '
+      + '(measured 92s on 850 files)',
   },
 ];
 
@@ -193,7 +195,7 @@ export const DOC_ONLY_RULES: Omit<GateSpec, 'emits'>[] = [
 /**
  * The rule ids a machine actually gates out of the box: the metric family and
  * plugin rules land in the emitted ESLint config; `cycles` lands in
- * `inspect` (its `cycle` finding — `import/no-cycle` was dropped from the
+ * `inspect` (its `cycle` finding — `import-x/no-cycle` was dropped from the
  * generated config as a slow re-check of the same graph). Everything else —
  * `deadCode`, unknown ids — is documentation, and the agent contract must not
  * call it a hard gate. Lives in this leaf (not lint.ts) so inspect can count

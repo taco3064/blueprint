@@ -66,9 +66,10 @@ function emittableGates(blueprint: Blueprint, stack: StackFacts): [string, RuleS
  * pinned by this module's tests — exactly one declared rule is inspect-held, so a plural
  * arm is unreachable.
  */
-function inspectHeldClause(gates: string): string {
-  return `${gates} is held by \`npx blueprint inspect --baseline\` instead, `
-    + 'so a green lint says nothing about it';
+function inspectDiagnosisClause(gates: string): string {
+  return `${gates} is diagnosed only when \`npx blueprint inspect --baseline\` runs; `
+    + 'the baseline grandfathers recorded findings, so this is not continuous '
+    + 'edit-time prevention and a green lint says nothing about it';
 }
 
 /** Contract heading + provenance. Uses `##` so it can nest inside CLAUDE.md. */
@@ -125,7 +126,7 @@ export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = 
     // marks an empty net as vacuous, and this contract is the one artifact read with
     // no CLI output beside it. "the project's lint run", never `npm run lint` — the
     // runner is a repo fact this emitter cannot see (field run #141).
-    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectHeldClause(inspectGates.join(', '))}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
+    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectDiagnosisClause(inspectGates.join(', '))}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
     // --baseline, or the verify loop stays red forever on locked brownfield debt
     // (field issue #10). Both remedies are named, and whose each is: told only "move
     // the code", an agent contorts it into an existing layer instead of reporting
@@ -262,7 +263,7 @@ export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): s
     }
 
     if (held === 'inspect') {
-      bullets.push(`- ${inspectHeldClause(gate)}.`);
+      bullets.push(`- ${inspectDiagnosisClause(gate)}.`);
     }
   }
 
@@ -271,7 +272,7 @@ export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): s
     + 'Never silence it with `eslint-disable`, and never relocate the violation to a sibling.',
   );
 
-  return ['### Hard rules (lint enforces these)', '', ...bullets].join('\n');
+  return ['### Machine checks', '', ...bullets].join('\n');
 }
 
 /** The component-shape axes as terse directives — each judged independently. */

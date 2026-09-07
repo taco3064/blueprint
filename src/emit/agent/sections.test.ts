@@ -274,8 +274,9 @@ describe('renderHardRules · only what the tooling actually holds', () => {
     expect(out).not.toContain('`cycles` is a hard gate.');
 
     expect(out).toContain(
-      '- `cycles` is held by `npx blueprint inspect --baseline` instead, '
-      + 'so a green lint says nothing about it.',
+      '- `cycles` is diagnosed only when `npx blueprint inspect --baseline` runs; '
+      + 'the baseline grandfathers recorded findings, so this is not continuous '
+      + 'edit-time prevention and a green lint says nothing about it.',
     );
 
     expect(out).toContain('`maxLines` = 400 is a hard gate.');
@@ -287,8 +288,9 @@ describe('renderHardRules · only what the tooling actually holds', () => {
     // drifts, this is the case that turns red.
     const bp = blueprint({ rules: { cycles: 'error', ...kept } });
 
-    const held = '`cycles` is held by `npx blueprint inspect --baseline` instead, '
-      + 'so a green lint says nothing about it';
+    const held = '`cycles` is diagnosed only when `npx blueprint inspect --baseline` runs; '
+      + 'the baseline grandfathers recorded findings, so this is not continuous '
+      + 'edit-time prevention and a green lint says nothing about it';
 
     expect(renderHardRules(bp)).toContain(held);
     expect(renderCompactContract(bp)).toContain(held);
@@ -440,8 +442,6 @@ describe('renderCompactContract', () => {
     // One inspect-held gate reads in the singular, and is NOT counted among what
     // lint holds — `cycles` sits on LINT_GATED_RULE_IDS (gated at all?) while its
     // runtime is inspect, and the contract used to say lint catches it.
-    expect(out).toContain('`cycles` is held by `npx blueprint inspect --baseline`');
-    expect(out).toContain('a green lint says nothing about it');
     expect(out).not.toMatch(/`cycles`[^.;]*fail the project's lint run/);
   });
 
@@ -493,10 +493,10 @@ describe('renderCompactContract', () => {
   });
 
   it('is singular because exactly one gate is inspect-held', () => {
-    // The sentence above says "is held by", with no plural arm — correct today and a
+    // The sentence above uses a singular verb, with no plural arm — correct today and a
     // branch nothing could take, so it is not written. This is what makes that safe:
     // add a second inspect-held rule and this turns red, instead of shipping
-    // "cycles, somethingElse is held by".
+    // "cycles, somethingElse is diagnosed".
     expect(LINT_GATED_RULE_IDS.filter((id) => enforcedBy(id) === 'inspect')).toEqual(['cycles']);
   });
 

@@ -49,7 +49,13 @@ describe('one config, artifacts that agree about it (field runs #83–#84)', () 
     const contract = read(dir, 'CLAUDE.md') ?? '';
 
     expect(contract).toContain('`cycles`');
-    expect(contract).toContain('held by `npx blueprint inspect --baseline` instead');
+
+    expect(contract).toContain(
+      'diagnosed only when `npx blueprint inspect --baseline` runs',
+    );
+
+    expect(contract).toContain('the baseline grandfathers recorded findings');
+    expect(contract).toContain('not continuous edit-time prevention');
     expect(contract).toContain('a green lint says nothing about it');
     // …and it must not be counted among what lint holds.
     expect(contract).not.toMatch(/`cycles`[^.;]*fail `npm run lint`/);
