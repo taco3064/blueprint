@@ -50,6 +50,44 @@ describe('runDeps · target', () => {
     }
   });
 
+  it.each([
+    ['lib/app', 'lib/app/hooks/useCart/useCart.ts'],
+    ['.', 'hooks/useCart/useCart.ts'],
+  ])('accepts a file target under sourceRoot %s', async (sourceRoot, target) => {
+    const rooted = {
+      framework: 'vue' as const,
+      architecture: {
+        alias: '~app',
+        sourceRoot,
+        layers: [
+          { name: 'hooks', does: 'state' },
+          { name: 'services', does: 'network' },
+        ],
+        module: { layout: 'folder' as const },
+      },
+    };
+
+    const write = (rel: string, content: string) => {
+      const full = path.join(root, sourceRoot, rel);
+
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, content);
+    };
+
+    write('services/api/index.ts', 'export const api = 1;');
+    write('hooks/useCart/index.ts', 'import { api } from "~app/services/api";');
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// test config');
+
+    const result = await runDeps(root, {
+      target,
+      log: silent,
+      loadConfig: async () => rooted,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.modules[0].module).toBe('hooks/useCart');
+  });
+
   it('renders arrows in the text report and raw JSON with --json', async () => {
     scaffold();
     let output = '';

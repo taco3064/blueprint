@@ -1,5 +1,7 @@
 import type { AliasRoot, ArchitectureDef } from '../config';
 import { aliasLayerRoots, getModuleShape } from '../config';
+import { moduleKey, resolveSegments } from '../plugin';
+import type { EntryOf, LayoutOf } from '../plugin';
 import { dropTestFiles } from './filter';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
@@ -9,8 +11,8 @@ import type { ImportRef, ScanResult, ScannedFile } from './types';
  * rule: specifier → module key, plus the module import graph itself.
  */
 
-/** Per-layer layout resolver — a segment's first element names its layer. */
-export type LayoutOf = (layer: string) => 'folder' | 'flat';
+export type { EntryOf, LayoutOf, ModuleShape, RelativeVerdict } from '../plugin';
+export { moduleKey, relativeVerdict, resolveSegments } from '../plugin';
 
 /** Build a {@link LayoutOf} from the architecture's per-layer module shapes. */
 export function layoutResolver(architecture: ArchitectureDef): LayoutOf {
@@ -51,99 +53,12 @@ export function stripAlias(
   return null;
 }
 
-/** The module a path belongs to, under its own layer's layout. */
-export function moduleKey(segments: string[], layoutOf: LayoutOf): string {
-  if (segments.length < 2 || layoutOf(segments[0]) === 'flat') {
-    return segments[0] ?? '';
-  }
-
-  // A direct file module keeps its extension out of the key, so
-  // `deps components/HelloWorld` and an import of `./HelloWorld.vue` both
-  // resolve to the same module as the file `components/HelloWorld.vue`.
-  return `${segments[0]}/${segments[1].replace(/\.[^.]+$/, '')}`;
-}
-
-/** A layer's public entry filename, extension stripped. */
-export type EntryOf = (layer: string) => string;
-
 /** Build an {@link EntryOf} from the architecture's module shapes. */
 export function entryResolver(architecture: ArchitectureDef): EntryOf {
   const shared = architecture.module?.entry ?? 'index';
   const perLayer = new Map(architecture.layers.map((l) => [l.name, l.module?.entry ?? shared]));
 
   return (layer) => perLayer.get(layer) ?? shared;
-}
-
-/** What a relative import does to its module boundary. */
-export type RelativeVerdict = 'ok' | 'escapes-src' | 'leaves-layer' | 'reaches-inside';
-
-/** The two per-layer resolvers every module-shape judgment reads. */
-export interface ModuleShape {
-  layoutOf: LayoutOf;
-  entryOf: EntryOf;
-}
-
-/**
- * The single judgment behind both relative-import gates — `inspect`'s
- * `relative-escape` finding and the embedded `blueprint/relative-escape`
- * rule. It lives here because the two claimed to agree by sharing
- * resolution primitives, and did not: the same `../Sibling` could be legal
- * to one and illegal to the other, with no test positioned to see it. One
- * function means the disagreement is not expressible.
- *
- * A sibling's entry is reachable; reaching past it is not. Leaving the layer
- * is the alias's job, never a relative path.
- */
-export function relativeVerdict(
-  ownSegments: string[],
-  target: string[] | null,
-  shape: ModuleShape,
-): RelativeVerdict {
-  const { layoutOf, entryOf } = shape;
-
-  if (target === null) {
-    return 'escapes-src';
-  }
-
-  if (moduleKey(target, layoutOf) === moduleKey(ownSegments, layoutOf)) {
-    return 'ok';
-  }
-
-  const layer = ownSegments[0];
-
-  // No layout test: for a flat layer `moduleKey` collapses to the layer name, so the
-  // equality check above already returned `ok` — a `layoutOf` arm here is unreachable.
-  if (target[0] !== layer) {
-    return 'leaves-layer';
-  }
-
-  const entry = entryOf(layer);
-
-  const atEntry
-    = target.length === 2
-      || (target.length === 3 && target[2].replace(/\.[^.]+$/, '') === entry);
-
-  return atEntry ? 'ok' : 'reaches-inside';
-}
-
-export function resolveSegments(dir: string[], specifier: string): string[] | null {
-  const stack = [...dir];
-
-  for (const part of specifier.split('/')) {
-    if (part === '' || part === '.') {
-      continue;
-    } else if (part === '..') {
-      if (!stack.length) {
-        return null;
-      }
-
-      stack.pop();
-    } else {
-      stack.push(part);
-    }
-  }
-
-  return stack;
 }
 
 /** The module a reference targets, or null if it is not a resolvable module import. */

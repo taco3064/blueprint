@@ -5,6 +5,7 @@ export {
   CONFIG_FILE,
   detect,
   GENERATED_ESLINT_BANNER,
+  listSourceDirs,
   quotedIn,
   readTexts,
 } from './detect';

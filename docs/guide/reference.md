@@ -242,7 +242,7 @@ examples — the definitions belong here.
 ### Tuning
 
 
-- **`architecture.sourceRoot`** — where layers live, relative to the project root. Default `src`; `.` for root-level layouts (e.g. Next.js without `src/`)
+- **`architecture.sourceRoot`** — where layers live, relative to the project root. Default `src`; `.` for root-level layouts (e.g. Next.js without `src/`). Lint, inspect, init scaffolding, deps targets, and generated agent placement guidance all resolve source paths from this root.
 - **`architecture.additionalAliases`** — extra import roots beyond `alias` that participate in every structural ban
 - **`architecture.testFiles`** — test glob(s) exempt from structural rules and metric gates (default `*.test.*` / `*.spec.*`). `[]` exempts nothing — tests inherit their layer's rules — and switches the `testFilename` gate off with it: that rule is scoped to the test globs, so an empty list leaves it no file to name. `blueprint rules` says so beside the gate. A declared glob that matches no file costs the exemption but not the gate: nothing the run read is exempt through it.
 - **`architecture.layerFiles`** — per-layer file globs when the framework defaults don't fit

@@ -215,6 +215,27 @@ describe('plan', () => {
   });
 });
 
+describe('plan · sourceRoot scaffolding', () => {
+  it.each([
+    ['lib/app', 'lib/app/pages', 'lib/app/services'],
+    ['.', 'pages', 'services'],
+  ])('scaffolds and detects layers under sourceRoot %s', (sourceRoot, pagePath, servicePath) => {
+    const rooted = {
+      ...bp,
+      architecture: { ...bp.architecture, sourceRoot },
+    };
+
+    const actions = plan(state(), rooted, { existingSourceDirs: ['pages'] });
+
+    const dirs = actions
+      .filter((action): action is Extract<Action, { kind: 'mkdir' }> => action.kind === 'mkdir')
+      .map((action) => action.path);
+
+    expect(dirs).not.toContain(pagePath);
+    expect(dirs).toContain(servicePath);
+  });
+});
+
 describe('plan · wired eslint config', () => {
   it('emits no reference when the hand-made config already imports the package', () => {
     const actions = plan(

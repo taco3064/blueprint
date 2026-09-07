@@ -76,6 +76,27 @@ describe('emitLint · dependency flow', () => {
 
     expect(ids).not.toContain('blueprint/relative-escape');
   });
+
+  it.each([
+    ['lib/app', 'lib/app/components/Button/Button.ts'],
+    ['.', 'components/Button/Button.ts'],
+  ])('enforces relative escapes under sourceRoot %s', (sourceRoot, filename) => {
+    const rooted = defineBlueprint({
+      ...blueprint,
+      architecture: { ...blueprint.architecture, sourceRoot },
+    });
+
+    const rootedConfig = [
+      { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+      ...emitLint(rooted),
+    ];
+
+    const ids = linter
+      .verify('import { useX } from "../hooks/useX";', rootedConfig, { filename })
+      .map((message) => message.ruleId);
+
+    expect(ids).toContain('blueprint/relative-escape');
+  });
 });
 
 describe('emitLint · module boundaries', () => {
@@ -190,6 +211,7 @@ describe('emitLint · shape', () => {
       {
         layouts: { components: 'folder', hooks: 'folder', services: 'folder' },
         entries: { components: 'index', hooks: 'index', services: 'index' },
+        sourceRoot: 'src',
       },
     ]);
 

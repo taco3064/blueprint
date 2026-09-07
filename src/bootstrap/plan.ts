@@ -7,7 +7,8 @@ import type { AgentFile } from '../emit/agent';
 import { emitHandbook, handbookPath } from '../emit/docs';
 import { eslintConfigSource, eslintWiringNote } from './eslint';
 import { injectBetweenMarkers } from '../markdown';
-import type { AgentTarget, Blueprint, EmitDef, LayerDef } from '../config';
+import { sourcePath } from '../config';
+import type { AgentTarget, ArchitectureDef, Blueprint, EmitDef } from '../config';
 import { SUPPORTED_ESLINT_MAJORS } from '../project';
 import type { PackageManager, ProjectState } from '../project';
 import type { Action } from './types';
@@ -29,6 +30,7 @@ export interface PlanOptions {
   agentTarget?: AgentTarget;
   /** The source tree already holds code — skip empty-layer scaffolding. */
   hasSourceFiles?: boolean;
+  existingSourceDirs?: string[];
 }
 
 /**
@@ -78,7 +80,12 @@ export function plan(
       : [configWrite(configSource)]),
     // Where code already lives, an unbuilt layer's absence is its true state — a
     // .gitkeep shell is the manufactured net the playbook forbids.
-    ...(options.hasSourceFiles ? [] : scaffoldDirs(state, architecture.layers)),
+    ...(options.hasSourceFiles
+      ? []
+      : scaffoldDirs(
+          architecture,
+          options.existingSourceDirs ?? state.existingSrcDirs,
+        )),
     {
       kind: 'write',
       path: handbook,
@@ -116,13 +123,13 @@ function configWrite(configSource: string): Action {
 }
 
 /** One `.gitkeep` shell per declared layer the source tree does not have yet. */
-function scaffoldDirs(state: ProjectState, layers: LayerDef[]): Action[] {
-  return layers
-    .filter((layer) => !state.existingSrcDirs.includes(layer.name))
+function scaffoldDirs(architecture: ArchitectureDef, existing: string[]): Action[] {
+  return architecture.layers
+    .filter((layer) => !existing.includes(layer.name))
     .map((layer) => ({
       kind: 'mkdir',
-      path: `src/${layer.name}`,
-      note: `src/${layer.name}/`,
+      path: sourcePath(architecture, layer.name),
+      note: `${sourcePath(architecture, layer.name)}/`,
     }));
 }
 
