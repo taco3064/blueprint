@@ -49,19 +49,6 @@ const TARGETS: Record<AgentTarget, TargetSpec> = {
 };
 
 /**
- * Distribute the agent contract across tool-specific files. Shared context files
- * (`merge`) get the compact pointer block, since people maintain those documents;
- * tool-owned rule files (`own`) get the full contract. `defaultTargets` overrides
- * the built-in default when `emit.agents` is unset; `stack` carries the fact no
- * Blueprint holds, which decides whether `explicitAny` may be named hard here.
- * Pure — writes nothing.
- * @group Emitters
- * @example
- * for (const file of emitAgentFiles(blueprint)) {
- *   writeFileSync(file.path, file.content); // e.g. 'CLAUDE.md', '.cursor/rules/blueprint.mdc'
- * }
- */
-/**
  * Every target's default file location — the candidate set init scans for
  * stale contracts: files a previous run emitted that the current
  * `emit.agents` no longer names. Custom `path` overrides are not
@@ -75,6 +62,19 @@ export function defaultAgentPaths(): Pick<AgentFile, 'target' | 'path' | 'strate
   }));
 }
 
+/**
+ * Distribute the agent contract across tool-specific files. Shared context files
+ * (`merge`) get the compact pointer block, since people maintain those documents;
+ * tool-owned rule files (`own`) get the full contract. `defaultTargets` overrides
+ * the built-in default when `emit.agents` is unset; `stack` carries the fact no
+ * Blueprint holds, which decides whether `explicitAny` may be named hard here.
+ * Pure — writes nothing.
+ * @group Emitters
+ * @example
+ * for (const file of emitAgentFiles(blueprint)) {
+ *   writeFileSync(file.path, file.content); // e.g. 'CLAUDE.md', '.cursor/rules/blueprint.mdc'
+ * }
+ */
 export function emitAgentFiles(
   blueprint: Blueprint,
   defaultTargets?: AgentTarget[],
