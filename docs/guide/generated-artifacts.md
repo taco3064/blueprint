@@ -83,6 +83,10 @@ plugin each gate rides, and what `emitLint` expands to — layer flow, ownership
 entries, the [embedded plugin rules](/guide/reference#the-embedded-eslint-plugin) — is
 enumerated on the reference page.
 
+The sample's `src/**/*` scope comes from the default `architecture.sourceRoot`, not a
+fixed path in the generator. A configured root replaces `src` everywhere in this file;
+with `sourceRoot: '.'`, the generated scopes start at the project root.
+
 ## `docs/architecture-handbook.md` — Explain
 
 The human handbook: the layer diagram (mermaid), a responsibility table, the module

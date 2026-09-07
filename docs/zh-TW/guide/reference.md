@@ -63,7 +63,9 @@ plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`�
 - **`blueprint/no-typedef-only-file`** · `rules.typedefOnlyFile` —— JS 檔案不得僅含 `@typedef` 宣告（僅套用於 `.js`）
 
 另有三條**受管規則** —— 由 `layers` / `owns` / `alias` 轉譯而成、歸生成器管：`no-restricted-imports`、`no-restricted-syntax`、`no-restricted-globals`。<br>
-這三條沒辦法透過 `lintOverrides` 設定；要調整就改 blueprint config 本身。
+這三條沒辦法透過 `lintOverrides` 設定；要調整就改 blueprint config 本身。<br>
+dependency-flow 禁令、同層禁令與 `selfOnly` 再匯出 selector 都會透過每個已宣告別名，同時涵蓋裸的分層入口與其下所有路徑。<br>
+這不會放寬資料夾模組的公開面：獲准的匯入者仍可使用模組入口，但不能伸進入口後方。
 
 ### 把受管規則併進自己的規則設定
 
@@ -219,6 +221,11 @@ export default [
   這一輪讀到的檔案沒有一個因它而豁免。
 - **`architecture.layerFiles`** —— 框架預設樣式不適用時，逐層指定檔案樣式
 - **`architecture.layerFilesIgnore`** —— 從產出的 lint 與由 lint 執行的 `inspect` findings 中全域排除的檔案樣式。這些檔案仍會接受 undeclared folder、cycle 等只由 `inspect` 執行的檢查；coverage 會將它們列為刻意忽略，而不會宣稱 lint 已涵蓋
+
+lint 與 inspect 共通的可攜 glob 語法，是以 `/` 分隔的路徑搭配 `**`、`*`、`?`，
+以及 `*.{ts,tsx}` 這類單層 brace alternatives；`layerFiles` 另會把 `{layer}`
+替換成每個已宣告的分層名稱。Negation、character classes、extglobs 與巢狀 braces
+不在共通語法內。維持在這個可攜子集合，lint 與 inspect 才會選到同一批檔案。
 - **`architecture.naming`** —— 依概念設定的命名慣例（如 `{ hook: 'useX + reactivity' }`）—— 寫入手冊與守則
 - **`layer.module`** —— 逐層覆寫共用的模組形狀 —— 例如某一分層採資料夾模組、其餘維持單檔
 - **`layer.lintOverrides`** —— 逐層的 ESLint 調整（三條受管規則除外）

@@ -74,6 +74,9 @@ export default [
 所以外掛缺席的關卡會完全不 emit，而 lint 照樣是綠的。<br>
 哪個關卡靠哪個外掛，以及 `emitLint` 展開的內容 —— 分層流向、套件所有權、模組入口、[內嵌 plugin 規則](/zh-TW/guide/reference#內嵌-eslint-外掛) —— 總表頁有完整清單。
 
+範例中的 `src/**/*` 範圍來自 `architecture.sourceRoot` 的預設值，不是生成器寫死的路徑。<br>
+設定其他 root 時，這份檔案中的 `src` 會全部換成該 root；設為 `sourceRoot: '.'` 時，生成範圍會從專案根目錄開始。
+
 ## `docs/architecture-handbook.md` —— 說明
 
 給人閱讀的架構手冊：分層圖（mermaid）、職責表、模組形狀與匯入紀律 ——<br>
