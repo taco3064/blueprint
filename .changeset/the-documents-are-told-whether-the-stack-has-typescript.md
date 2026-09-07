@@ -60,3 +60,12 @@ above is the one that holds — only `explicitAny` turns on your dependency list
 other three it names turn on your ESLint wiring. What still stands there is a TypeScript
 project whose config omits the `typescript` carrier: the gate is available on that stack,
 so the contract still names it hard, and `blueprint doctor` is still where that shows up.
+
+**One position on which documents move, across the same two entries.** The patch entry's
+*Nothing else in any emitted document moves* calls the compact contract and the handbook
+byte-identical, and against the tree it was measured on — this branch before this change
+landed — they were. **On a stack with no TypeScript both of them move, one line each, and
+this entry is what moves them**, as the bullets above describe — so a JS adopter holding a
+diff in both is looking at this change, not a defect. On a TypeScript stack nothing in
+either document moves and that sentence holds as written, which is the stack it was
+measured on.
