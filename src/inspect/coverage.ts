@@ -12,7 +12,7 @@ import {
   unreachedTestGlobs,
 } from '../emit/lint/patterns';
 import type { TestGlobReach } from '../emit/lint/patterns';
-import { dropTestFiles, globToRegExp, isTestFile } from './filter';
+import { dropLayerFilesIgnored, dropTestFiles, globToRegExp, isTestFile } from './filter';
 import { outsideScanReach } from './scan';
 import type { ScanResult } from './types';
 import { syntheticProbePaths } from './wiring';
@@ -33,6 +33,8 @@ export interface Coverage {
    * dropped out of the net.
    */
   outsideNets: string[];
+  /** Files inside a declared layer net that lint deliberately ignores. */
+  ignoredFiles?: string[];
   /** Lint-gated rule ids active in `blueprint.rules` (tier not `off`). */
   activeRules: number;
   /** Total rule ids a machine can gate (see `LINT_GATED_RULE_IDS`). */
@@ -153,7 +155,12 @@ export function computeCoverage(
   ].map(globToRegExp);
 
   const outside = source.filter((file) => !nets.some((net) => net.test(file.path)));
-  const layerFiles = source.length - outside.length;
+
+  const inside = { ...scanResult, files: source.filter((file) =>
+    nets.some((net) => net.test(file.path))) };
+
+  const reached = dropLayerFilesIgnored(inside, architecture.layerFilesIgnore).files;
+  const ignored = inside.files.filter((file) => !reached.includes(file));
 
   // A gate you cannot open is not a gate, and which those are lives in one place —
   // this filter and `blueprint rules`' mirror had drifted into two denominators
@@ -176,8 +183,9 @@ export function computeCoverage(
 
   return {
     sourceFiles: source.length,
-    layerFiles,
+    layerFiles: reached.length,
     outsideNets: outside.map((file) => file.path),
+    ...(ignored.length ? { ignoredFiles: ignored.map((file) => file.path) } : {}),
     activeRules,
     gatedRules: gates.length,
     ...(testExemption === null ? {} : { testExemption }),
@@ -203,7 +211,17 @@ export function coverageSummary(coverage: Coverage): string {
       ? ` (${outside.length} outside — too many to name; expected while layers are still empty)`
       : ` (outside: ${outside.join(', ')} — root wiring belongs here; a layer file does not)`;
 
-  return `${coverage.layerFiles}/${coverage.sourceFiles} source files inside layer nets${named} · `
+  const ignored = coverage.ignoredFiles === undefined || coverage.ignoredFiles.length === 0
+    ? ''
+    : coverage.ignoredFiles.length > OUTSIDE_NAMED_MAX
+      ? ` (${coverage.ignoredFiles.length} lint ignored — too many to name)`
+      : ` (lint ignored: ${coverage.ignoredFiles.join(', ')})`;
+
+  const reach = coverage.ignoredFiles === undefined
+    ? 'source files inside layer nets'
+    : 'source files reached by layer lint rules';
+
+  return `${coverage.layerFiles}/${coverage.sourceFiles} ${reach}${ignored}${named} · `
     + `${coverage.activeRules}/${coverage.gatedRules} optional gates active `
     + '(structural boundary rules are always on)';
 }
@@ -230,7 +248,8 @@ export function renderCoverage(coverage: Coverage, blueprint: Blueprint): string
   // where they came from, so a repo that is green today stays green.
   const exemption = coverage.testExemption === undefined ? '' : `\n· ${coverage.testExemption}`;
 
-  if (coverage.sourceFiles > 0 && coverage.layerFiles === 0) {
+  if (coverage.sourceFiles > 0 && coverage.layerFiles === 0
+    && (coverage.ignoredFiles?.length ?? 0) === 0) {
     return `⚠ Enforcement is vacuous — layer globs match 0 of ${coverage.sourceFiles} source `
       + `file(s); a green gate proves nothing yet — ${vacuousNextStep(blueprint)}.${exemption}`;
   }

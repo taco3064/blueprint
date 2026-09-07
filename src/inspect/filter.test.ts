@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { dropTestFiles, globToRegExp, isTestFile } from './filter';
+import { dropLayerFilesIgnored, dropTestFiles, globToRegExp, isTestFile } from './filter';
 import type { ScanResult } from './types';
 
 describe('globToRegExp', () => {
@@ -43,6 +43,22 @@ describe('dropTestFiles', () => {
   it('isTestFile matches against compiled patterns', () => {
     expect(isTestFile('a/b.test.js', [globToRegExp('**/*.test.js')])).toBe(true);
     expect(isTestFile('a/b.js', [globToRegExp('**/*.test.js')])).toBe(false);
+  });
+});
+
+describe('dropLayerFilesIgnored', () => {
+  it('drops only files matched by a declared ignore glob', () => {
+    const paths = ['src/pages/a.ts', 'src/pages/api.gen.ts', 'src/services/b.ts'];
+
+    const scan: ScanResult = {
+      topDirs: ['pages', 'services'],
+      files: paths.map((path) => ({ path, segments: path.split('/').slice(1), imports: [] })),
+    };
+
+    expect(dropLayerFilesIgnored(scan, 'src/**/*.gen.ts').files.map((file) => file.path))
+      .toEqual(['src/pages/a.ts', 'src/services/b.ts']);
+
+    expect(dropLayerFilesIgnored(scan, undefined)).toEqual(scan);
   });
 });
 

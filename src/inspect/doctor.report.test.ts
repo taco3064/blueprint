@@ -60,21 +60,16 @@ const outsideRoot = loads(withIgnore(['scripts/**']));
 const deadTests = loads(withTests(['**/*.test.{ts']));
 const liveTests = loads(withTests(['**/*.test.ts']));
 
-/**
- * What two outputs do not share, as whole lines: the ones `from` added, then the ones it
- * dropped. Whole lines and both directions, because the one-directional substring form
- * (`!control.includes(line)`) asks whether the text appears ANYWHERE in the other output
- * — so a line one run SHORTENED is still found inside the longer original and reads as
- * unchanged, and a line it dropped is not a line on that side to test at all.
- */
-const movement = (from: string, against: string): string[][] => [
-  from.split('\n').filter((line) => !against.split('\n').includes(line)),
-  against.split('\n').filter((line) => !from.split('\n').includes(line)),
-];
-
 /** The architecture check's detail — where the counts a reader acts on are printed. */
 const coverageDetail = (checks: DoctorCheck[]): string | undefined =>
   checks.find((check) => check.label.startsWith('architecture clean'))?.detail;
+
+const expectIgnoreMovesCoverage = (ignored: DoctorCheck[], reached: DoctorCheck[]): void => {
+  expect(coverageDetail(ignored)).toContain('source files reached by layer lint rules');
+  expect(coverageDetail(ignored)).toContain('lint ignored:');
+  expect(coverageDetail(reached)).toContain('source files inside layer nets');
+  expect(coverageDetail(reached)).not.toContain('lint ignored:');
+};
 
 /**
  * The optional-gate count out of that detail, asserted present before it is returned:
@@ -367,24 +362,21 @@ describe('runDoctor · the notes under the banner', () => {
     write('src/components/Widget.gen.ts', 'export const w = 1;');
 
     let broken = '';
-    let intact = '';
-
     const red = await runDoctor(root, { loadConfig: dead, log: (m) => (broken = m) });
-    const green = await runDoctor(root, { loadConfig: healthy, log: (m) => (intact = m) });
+    const green = await runDoctor(root, { loadConfig: healthy, log: () => {} });
 
     expect(broken).toContain('`architecture.layerFilesIgnore` — no file here matches');
     // The offending entry by name: a report that cannot be acted on is a report of
     // nothing, and a net of several globs cannot say which one to fix without it.
     expect(broken).toContain('`**/*.{gen`');
 
-    // Info tier, measured the way the criterion states it: against the same run with
-    // the glob spelled correctly, the ONLY movement is the added line. Verdict, check
-    // count and `ok` — which the exit code follows — all stand still.
+    // Info tier: verdict, check count and `ok` — which the exit code follows — stand
+    // still. The correctly spelled control now also reports the lint reach it removed.
     expect(red.ok).toBe(green.ok);
     expect(red.verdict).toBe(green.verdict);
-    expect(red.checks).toEqual(green.checks);
+    expectIgnoreMovesCoverage(green.checks, red.checks);
 
-    expect(broken.split('\n').filter((line) => !intact.includes(line)))
+    expect(broken.split('\n').filter((line) => line.includes('layerFilesIgnore')))
       .toHaveLength(1);
 
     // Both resolutions and whose call it is — the same shape `unreachedTestGlobs` uses,
@@ -482,18 +474,11 @@ describe('runDoctor · the notes under the banner', () => {
     // did pick a probe, so the sentence saying what it picked is the run's own record.
     expect(broken).toContain('merge-survival check picks its probe as if the entry were absent');
 
-    // Info, not error: against the same run with the glob spelled correctly the ONLY
-    // movement is the added line, and `ok` — which the exit code follows — and the
-    // verdict both stand still.
+    // Info, not error: `ok` — which the exit code follows — and the verdict stand still.
+    // The correctly spelled control also reports the lint reach it deliberately removed.
     expect(red.ok).toBe(green.ok);
     expect(red.verdict).toBe(green.verdict);
-    // One line added, none removed and none reshaped.
-    expect(movement(broken, intact).map((lines) => lines.length)).toEqual([1, 0]);
-
-    // The structured channel too, the way the sibling case below states it. It is what
-    // `--json` hands a machine, and it catches the movement lines cannot: a run that
-    // keeps every line and only moves a check reads as motionless from the text.
-    expect(red.checks).toEqual(green.checks);
+    expectIgnoreMovesCoverage(green.checks, red.checks);
   });
 
   it('stays silent when the entry swallowed a probe instead of reaching nothing', async () => {

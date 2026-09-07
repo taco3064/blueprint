@@ -217,6 +217,58 @@ describe('analyze · imports', () => {
   });
 });
 
+describe('analyze · layerFilesIgnore', () => {
+  const files = [
+    file(['components', 'Card', 'Card.generated.ts'], [
+      { specifier: '~app/services/api' },
+      { specifier: '~app/hooks/useX/impl' },
+      { specifier: '../../hooks/useX' },
+      { specifier: 'axios' },
+    ]),
+    file(
+      ['hooks', 'useT', 'useT.generated.ts'],
+      [{ specifier: '~app/contexts/Theme', isExport: true }],
+    ),
+  ];
+
+  const ignored = defineBlueprint({
+    ...bp,
+    architecture: { ...bp.architecture, layerFilesIgnore: 'src/**/*.generated.ts' },
+  });
+
+  it('drops every lint-enforced import finding only while the ignore is declared', () => {
+    const expected = [
+      'deep-import',
+      'flow-violation',
+      'package-ownership',
+      'relative-escape',
+      'selfonly-reexport',
+    ];
+
+    const without = analyze(scanOf(files), bp).map((finding) => finding.rule);
+    const withIgnore = analyze(scanOf(files), ignored).map((finding) => finding.rule);
+
+    for (const rule of expected) {
+      expect(without).toContain(rule);
+      expect(withIgnore).not.toContain(rule);
+    }
+  });
+
+  it('keeps an ignored file in inspect-only cycle detection', () => {
+    const cycle = [
+      file(['components', 'A', 'index.ts'], [{ specifier: '../B' }]),
+      file(['components', 'B', 'index.ts'], [{ specifier: '../A' }]),
+    ];
+
+    const ignoresA = defineBlueprint({
+      ...bp,
+      architecture: { ...bp.architecture, layerFilesIgnore: 'src/components/A/**' },
+    });
+
+    expect(analyze(scanOf(cycle), ignoresA).map((finding) => finding.rule)).toContain('cycle');
+  });
+});
+
 describe('analyze · what an ownership entry covers', () => {
   it('owns the package when ANY of the imported names is restricted', () => {
     // `inject` is owned, `ref` is not. Importing both is still reaching for the

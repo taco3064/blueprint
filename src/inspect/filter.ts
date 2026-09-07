@@ -69,3 +69,16 @@ export function dropTestFiles(
 
   return { ...scan, files: scan.files.filter((file) => !isTestFile(file.path, patterns)) };
 }
+
+export function dropLayerFilesIgnored(
+  scan: ScanResult,
+  layerFilesIgnore: string | string[] | undefined,
+): ScanResult {
+  const globs = layerFilesIgnore === undefined
+    ? []
+    : Array.isArray(layerFilesIgnore) ? layerFilesIgnore : [layerFilesIgnore];
+
+  const patterns = globs.map(globToRegExp);
+
+  return { ...scan, files: scan.files.filter((file) => !isTestFile(file.path, patterns)) };
+}

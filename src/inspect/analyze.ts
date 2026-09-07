@@ -5,7 +5,7 @@ import {
   normalizeAllowedImporters,
 } from '../config';
 import type { AliasRoot, ArchitectureDef, Blueprint } from '../config';
-import { dropTestFiles } from './filter';
+import { dropLayerFilesIgnored, dropTestFiles } from './filter';
 import { compareText } from './order';
 import {
   aliasList,
@@ -53,11 +53,12 @@ export function analyze(
   // Symmetric with the lint side: test files are exempt from structure as far as the
   // globs reach.
   scan = dropTestFiles(scan, architecture.testFiles);
+  const lintScan = dropLayerFilesIgnored(scan, architecture.layerFilesIgnore);
 
   const findings = [
     ...folderFindings(scan, architecture, layerNames),
     ...ownsFindings(architecture, dependencies),
-    ...scan.files.flatMap((file) => importFindings(file, architecture, layerNames)),
+    ...lintScan.files.flatMap((file) => importFindings(file, architecture, layerNames)),
   ];
 
   for (const cycle of detectCycles(buildModuleGraph(scan, architecture).edges)) {
