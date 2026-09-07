@@ -18,21 +18,27 @@ that missed it.**
   `export { a } from '~app/contexts'` are now reported, where before only
   `~app/contexts/theme` was.
 
-**On upgrade you will see one of two things, depending on how your ESLint config is built.**
+**On upgrade, expect new lint errors, a `blueprint doctor` red, or both — and check for both.**
 Either way it is this fix working, not a new rule: the rule you declared always forbade these
 imports, `inspect` has been reporting them, and the catalog already claimed lint enforced
 them. A CI run that starts failing here was failing the architecture before, silently.
 
-- **If you spread `emitLint(blueprint)` directly — lint reports imports it previously let
-  through.** Fix the imports, or change the layer declaration that forbids them.
-- **If you hand-folded blueprint's groups into a combined `no-restricted-imports` entry**
-  — the merge the playbook walks you through when another config already sets that rule —
-  **you will see no new lint errors at all, and `blueprint doctor` will go red instead.** Your
-  entry replaced blueprint's, so it still carries the old descendants-only groups and enforces
-  nothing new; doctor compares the emitted patterns textually and reports the entry as having
-  lost structural pattern groups. Refresh that copy from the current output rather than
-  retyping it, then re-run doctor. **Silence from lint here is not a clean bill of health** —
-  it is the merged entry, not the absence of bare-entry imports.
+- **In every layer your config governs by spreading `emitLint(blueprint)`, lint reports
+  imports it previously let through.** Fix the imports, or change the layer declaration that
+  forbids them.
+- **In any layer where you hand-folded blueprint's groups into a combined
+  `no-restricted-imports` entry**, that entry still carries the old descendants-only groups.
+  It enforces nothing new and **lint stays quiet there**. `blueprint doctor` is what reports
+  it, as that entry having lost structural pattern groups — the comparison is textual.
+  Refresh the folded copy from the current output rather than retyping it, then re-run doctor.
+
+**These are not alternatives, and lint is not what tells you which one you are on.** The merge
+this project's own playbook prescribes is one combined entry *per collision*, leaving every
+other layer exactly as emitted — so the ordinary outcome is both at once: new lint errors in
+the layers you did not fold, and a doctor red on the layer you did. **Fixing what lint named is
+therefore not the whole job**, and quiet from lint in a folded layer is not a clean bill of
+health — it is the folded entry, not the absence of bare-entry imports. Run `blueprint doctor`
+after upgrading whether or not lint said anything.
 
 **The same-layer message now states its own extent**, because its remedy named a shape the
 bare spelling does not have:
