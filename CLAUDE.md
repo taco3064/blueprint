@@ -14,7 +14,7 @@ substitute first-principles reasoning for what it says.
 | Doc | What it covers |
 |---|---|
 | [`.claude/docs/verification-layers.md`](./.claude/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring code that emits a document. What `src/conformance/` is for, the layer `npm run dist:verify` covers (the 0.1.1 symlink bug), and the byte baseline that belongs with an emitted-prose refactor. |
-| [`.claude/docs/mutation-testing.md`](./.claude/docs/mutation-testing.md) | **Trigger:** running or reading `npx stryker run`; judging a survivor; adding a test because a sweep called something untested. Survivor proofs at the site (`undecidable` as the ledger), why the full sweep is the authority, how to read both scores, and where the `StringLiteral` exclusion draws its boundary. |
+| [`.claude/docs/mutation-testing.md`](./.claude/docs/mutation-testing.md) | **Trigger:** running or reading `npx stryker run`; judging a survivor; adding a test because a sweep called something untested. Survivor proofs as `// Stryker disable next-line` directives, why the full sweep is the authority, how to read both scores, and where the `StringLiteral` exclusion draws its boundary. |
 | [`.claude/docs/field-triage.md`](./.claude/docs/field-triage.md) | **Trigger:** running `npm run field:run`; triaging a `field-run` issue; writing or rewording any prose an adopting agent reads (playbook / CLI output / contract); cutting a release. Harness flags, the triage flow, the two questions before the wording — can the tool compute this, and how many other instances are there — and the release sequence, including the one step no workflow gate covers. |
 
 ## Module shape (enforced by convention, checked in review)
@@ -106,13 +106,22 @@ contradiction, and an adopter meets it before we do.
   directory, rule id, or API name an adopter has. `it.each` over the list is the
   shape; restate the list in the test when the source keeps it private, so a
   removal turns one case red.
-- **A comment carries only what the name, the type, the test, and the commit
-  message cannot.** History goes to the commit — "this used to be X", a road not
-  taken, a bug's biography. An invariant a test already covers is the test's to
-  state. Two things stay: doc comments on exported symbols (the API docs are
-  generated from them), and the one-line `undecidable` assertion a mutation
-  survivor is proven equivalent by — `grep -rni undecidable src/` is that ledger,
-  so the word stays at the site while the derivation goes in the commit.
+- **No comments. The ticket is the record.** No rationale block, no road not
+  taken, no bug's biography, no invariant restated beside the code that already
+  holds it, no note explaining the implementation to whoever reads it next. Each
+  of those has a home that outlives the line and is searchable from outside the
+  file — the issue comment, the commit message, the test. **Nothing compiles a
+  comment and no gate reads one**, so a comment is a second copy of a record, and
+  the copy is the one that goes stale.
+- **Two exemptions, and neither of them is commentary.** A **doc comment on an
+  exported symbol** is a published page: `typedoc` compiles it into the API
+  reference an adopter reads, so it is output, held to what every other emitted
+  document is held to. It says what the symbol is for and never how it works
+  inside. And a mutation survivor proven equivalent is recorded with **Stryker's
+  own directive** — `// Stryker disable next-line <Mutator>: <why the mutant
+  changes nothing observable>` — which is an instruction to a tool rather than a
+  note to a reader: the reason lands in the report beside the mutant it is about,
+  so nothing is reconciled by hand. The derivation still goes in the commit.
 - **Formatting is ESLint-driven** (`@stylistic/*`); there is no Prettier. Run
   `npm run lint` / `eslint . --fix`. Enforcement rules mirror the handbook
   stance: never `eslint-disable` to dodge a rule; fix the structure.
