@@ -55,6 +55,14 @@ case-sensitive form reported 8 of the 20 proof lines in the tree, under-counting
 by 60% while looking like it worked.** An instrument that answers plausibly and
 wrong is the argument for using the one the tool ships.
 
+**Both forms are the ledger until #399 lands.** The replacement is decided, not
+done: the older form still stands at 29 sites, #399 converts them, and nothing
+removes them before it does. So a proof written now takes the directive, and an
+`undecidable` line already at a site is a proof rather than a comment to strip —
+the grep above is still how you read that half of the ledger.
+`scripts/ledger.test.mjs` guards the union of the two, which is why it stays
+green through the conversion instead of going red on it.
+
 **An ignored mutant leaves the score, so the score moves.** `total` and `covered`
 both climb as proofs land, and the floor recorded below was measured while these
 were survivors. Re-measure the floor after the conversion; until then, compare a
