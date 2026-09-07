@@ -14,7 +14,7 @@ You own one issue's **delivery** and the written record of how it got there. **Y
 | Reference | Trigger |
 |---|---|
 | [`start-or-resume.md`](./references/start-or-resume.md) | The skill loads. Every time — fresh start or resume alike — before the hard gate on whether this issue carries a real shape-ticket fingerprint, not just its shape. |
-| [`deliver-a-stage.md`](./references/deliver-a-stage.md) | You are about to dispatch a sub-agent, about to dispatch or answer a reviewer, about to commit, or you have just committed and owe the ticket a comment. What a stage is, what a dispatched sub-agent is given and withheld, the review gate every stage passes before it becomes a commit, what the comment must carry, and how a shortfall is written down. |
+| [`deliver-a-stage.md`](./references/deliver-a-stage.md) | You are about to dispatch a sub-agent, about to dispatch or answer a reviewer, about to commit, or you have just committed and owe the ticket a comment. What a stage is, what a dispatched sub-agent is given and withheld, the review gate the assembled ticket passes once every requirement has landed, what the comment must carry, and how a shortfall is written down. |
 | [`finish-the-ticket.md`](./references/finish-the-ticket.md) | You believe the ticket is done. The completion test, the pull request, the merge, closing the issue, and cleaning up the worktree and branches. |
 
 ## You do not create tickets
