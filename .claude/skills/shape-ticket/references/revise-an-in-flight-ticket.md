@@ -38,11 +38,18 @@ What the gate settles is which of two things happens next:
   ruling on what the movement costs it.
 - **Related but immaterial** → **the finding is recorded in a comment, the
   body is not edited, and the ticket ships.** No requirement moved, so there
-  is nothing for the delivering side to price. **The comment is still
-  announced, in the same breath as posting it**, on this page's own rule
-  that a comment does not reach a running session: it may be reviewing
-  against the very sentence you have just recorded as wrong, and the
-  disposition is yours to state rather than its to discover.
+  is nothing for the delivering side to price. **The comment still names
+  what editing the body would have cost** — that a body edit is a
+  requirement movement, and never what that movement would have been worth,
+  which stays the delivering session's to price. That is what makes this a
+  disposition rather than an omission. **Where a repair would cost nothing
+  there was no judgement to make and the thing is simply repaired.**
+  `deliver-ticket`'s `finish-the-ticket.md` states the same rule for what it
+  records rather than repairs, and the two move together or not at all.
+  **The comment is still announced, in the same breath as posting it**, on
+  this page's own rule that a comment does not reach a running session: it
+  may be reviewing against the very sentence you have just recorded as
+  wrong, and the disposition is yours to state rather than its to discover.
 
 **That split is what keeps the shaper inside its own authority.** *When it
 lands, and who hears about it* holds that this run's materiality read is
