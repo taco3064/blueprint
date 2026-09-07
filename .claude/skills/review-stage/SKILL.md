@@ -1,13 +1,15 @@
 ---
 name: review-stage
-description: Review one stage's change before it becomes a commit — attack the conclusion the stage claims, under the owner's latest decision, from the issue's text, the tree as it now stands and the whole diff; audit the implementer's claims only after your own pass is written; return exactly one verdict, PASS or BLOCKED, with every finding carrying a reproduction, an expected and an actual. Use when deliver-ticket dispatches a review of a stage it is about to commit, or a re-review after a fix has come back. NOT for writing the code, not for fixing what you find, not for deciding a product question, and never for committing, pushing, commenting on the ticket, or filing anything.
+description: Review one ticket's assembled change once every requirement has landed — attack the conclusion the ticket claims, under the owner's latest decision, from the issue's text, the tree as it now stands and the whole diff; audit the implementer's claims only after your own pass is written; return exactly one verdict, PASS or BLOCKED, with every finding carrying a reproduction, an expected and an actual. Use when deliver-ticket dispatches the review of a ticket whose stages have all landed, or a re-review after a fix has come back. NOT for writing the code, not for fixing what you find, not for deciding a product question, and never for committing, pushing, commenting on the ticket, or filing anything.
 ---
 
-# review-stage — one stage, judged from the code, not from the report
+# review-stage — one ticket, judged from the code, not from the report
 
 **Do not review whether the implementation is impressive. Review whether the evidence proves the exact claim, under the owner's latest decision, without a counterexample the public contract already permits.**
 
-That sentence is the whole job. You own **one verdict on one stage's change, delivered before that change becomes a commit** — not a quality opinion, not a redesign, not a second implementation plan. The only artifact you produce is a report ending in `PASS` or `BLOCKED`.
+That sentence is the whole job. You own **one verdict on one ticket's assembled change, delivered before it becomes a pull request** — not a quality opinion, not a redesign, not a second implementation plan. The only artifact you produce is a report ending in `PASS` or `BLOCKED`.
+
+**You are the ticket's only review, and its stages are already committed.** Nothing outside the dispatcher has read any of them, so there is no earlier verdict to defer to and no clean sheet to be reassured by. What a `BLOCKED` stops is the pull request, not a commit — the repair lands as a further commit on the same branch and comes back to you.
 
 **You are not re-running the tests.** The dispatcher already did, and the implementer did before that; a third green run adds nothing. What neither of them can do is attack the conclusion the stage asserts, because they are both structurally the wrong reader of it: the implementer knows what each line was *meant* to do, so it reads the intent instead of the text, and the dispatcher is checking the work against its own instruction — a narrower question than whether the work is right. Neither is being careless. Both are blind in the same direction, and you were spent on that.
 
@@ -19,7 +21,7 @@ That sentence is the whole job. You own **one verdict on one stage's change, del
 | [`probe-the-change.md`](./references/probe-the-change.md) | Your own picture holds and it is time to decide what to run. The eight probe classes, which of them this change triggers, and what each has already caught in this repo. |
 | [`write-the-verdict.md`](./references/write-the-verdict.md) | Pass one is written and the implementer's claims have arrived, or a fixed tree has come back for a second look. The claim audit, the report's shape, the three severities, and what a re-review re-runs before anything else. |
 
-**One other caller borrows this page.** deliver-ticket's completion test spawns readers over the *assembled ticket* rather than one stage (`finish-the-ticket.md`, step 5). They take the authority order, the finding format and the probe classes; they do not gate a commit, because by then every commit has landed, and a finding there becomes a shortfall on the ticket instead of a BLOCKED on a stage. Everything else here applies unchanged — read "the stage" as "the ticket". **Their target is the one exception to the staged-and-uncommitted rule in `rebuild-the-picture.md`**: they read committed history, because by then there is nothing else to read, and they are gating nothing when they do it.
+**There is one caller and one dispatch.** deliver-ticket runs this review inside its completion test, over the assembled ticket, once the last requirement has landed (`finish-the-ticket.md`, step 5) — it is not a second reading after a per-stage gate, because there is no per-stage gate. A finding inside the frozen frontier becomes a shortfall that fails the completion test and sends the ticket back into the loop; one outside it is an observation and gates nothing. **This target is the one exception to the staged-and-uncommitted rule in `rebuild-the-picture.md`**: you read committed history, because by then there is nothing else to read.
 
 ## The authority order
 

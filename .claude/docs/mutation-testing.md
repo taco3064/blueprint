@@ -28,18 +28,37 @@ and the one argument a shortcut would guess is the one that decides which tree
 you measured. Read the result in the run's step summary — survivors grouped by
 file, with the scope named; the html artifact carries the diffs.
 
-**A survivor is proven equivalent at the site, never silenced with a
-`// Stryker disable` comment**; where two guards shield each other, the proof
-names which one keeps the other honest — removing either alone still passes.
-At the site, because that is where the next sweep meets it: a proof in a commit
-message serves the review and then has to be excavated with `git log -S`, and
-re-litigating one is expensive (two of these were wrong the first time). Each opens
-with the word **undecidable**, so `grep -rni undecidable src/ --include='*.ts'` is
-the ledger — no file to maintain, no line numbers to drift, and the survivor count
-stays honest because nothing is suppressed. **The `-i` is load-bearing**: most of
-these proofs open a sentence, so the word is capitalized, and the case-sensitive
-form of this command reported 8 of the 20 proof lines actually in the tree — a
-ledger that under-counts by 60% while looking like it works.
+**A survivor is proven equivalent with Stryker's own directive**, at the site:
+
+```
+// Stryker disable next-line <Mutator>: <why this mutant changes nothing observable>
+```
+
+Where two guards shield each other, the proof names which one keeps the other
+honest — removing either alone still passes. At the site, because that is where
+the next sweep meets it: a proof in a commit message serves the review and then
+has to be excavated with `git log -S`, and re-litigating one is expensive (two of
+these were wrong the first time).
+
+**Name the mutator, never `all`.** `all` suppresses every mutant on that line,
+including ones nobody has read, and a proof that covers more than it argues is
+the dishonest count this is written to avoid. The mutator's name comes from the
+sweep report, which is why a proof is written after a sweep rather than guessed
+at while editing.
+
+**The directive is the ledger, and the tool keeps it.** The reason travels into
+the report beside the mutant it is about, a disabled mutant stays visible there
+with an `ignored` status, and nothing has to be matched by hand. **This replaced
+a local `undecidable` comment convention whose ledger was
+`grep -rni undecidable src/` — and that grep's `-i` was load-bearing: the
+case-sensitive form reported 8 of the 20 proof lines in the tree, under-counting
+by 60% while looking like it worked.** An instrument that answers plausibly and
+wrong is the argument for using the one the tool ships.
+
+**An ignored mutant leaves the score, so the score moves.** `total` and `covered`
+both climb as proofs land, and the floor recorded below was measured while these
+were survivors. Re-measure the floor after the conversion; until then, compare a
+sweep against the previous sweep rather than against that number.
 
 Not chased to 100% — but "equivalent" is a claim someone has read the mutant and
 written down why, not a bucket for whatever is left. The first sweep on this suite
@@ -47,18 +66,20 @@ reported 87 survivors and the second 59; of those 59, **43 turned out to be
 untested rather than equivalent**, and three were product defects. Reach the
 verdict last.
 
-**The ledger does the first pass, so start there rather than at the report.** The
-third sweep — the first dispatched, ~8k mutants in 17m04s on a runner against
-5m34s on ten local cores — reported **35 survivors, and the `undecidable` grep
-already accounted for 24 of them**. Reading the report top to bottom would have
-re-litigated two thirds of a list that was answered. Match the report against the
-grep first; what is left is the work.
+**The answered ones are already answered, so read what is left rather than the
+whole report.** The third sweep — the first dispatched, ~8k mutants in 17m04s on
+a runner against 5m34s on ten local cores — reported **35 survivors, of which 24
+already carried a proof**. Reading the report top to bottom would have
+re-litigated two thirds of a list that was settled. With the directive those 24
+arrive as `ignored` rather than as survivors, so the report separates them
+itself; the survivors it still lists are the work.
 
 Converging those 11 took the fourth sweep to **24 survivors, every one of them
-proven at the site** (99.35% total / 99.51% covered). That is the floor to expect:
-a higher number means new code arrived without assertions, not that something here
-regressed. None of the 11 turned out to be equivalent, so the convergence touched
-test files only.
+proven at the site** (99.35% total / 99.51% covered). **Those numbers were
+measured while a proof left the mutant counted as survived**, so they are the
+floor for that convention and not for this one — see the score note above. None
+of the 11 turned out to be equivalent, so the convergence touched test files
+only.
 
 - **The full sweep is the authority; a per-file run flatters.** Same suite, same
   config, and two mutants that read as killed under `--mutate <one file>` read as
