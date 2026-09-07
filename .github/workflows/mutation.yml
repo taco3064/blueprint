@@ -24,7 +24,7 @@ name: Mutation
 on:
   workflow_dispatch:
     inputs:
-      # `.claude/docs/mutation-testing.md` prescribes two different runs: one file
+      # `.agents/docs/mutation-testing.md` prescribes two different runs: one file
       # while you work on it, the whole tree before you believe the number. Without
       # this input, checking a single file costs a full sweep — the wrong price for
       # the loop that runs most often.
@@ -130,7 +130,7 @@ jobs:
               "so never reaches this list; the older one is still at its site, under",
               "`grep -rni undecidable src/ --include=*.ts`. Match this list against that",
               "grep, and write anything new as a directive. See",
-              "`.claude/docs/mutation-testing.md`.",
+              "`.agents/docs/mutation-testing.md`.",
               "",
             ];
 

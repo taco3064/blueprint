@@ -784,7 +784,7 @@ export function composeIssue({ reportFile, runs, skipped, tree, packedVersion })
     '> row says the staged repo arrived already adopted, and that row says what its',
     '> verdict covers. Whether a finding is fix-worthy is decided in the triage:',
     '> only a cost-channel 卡到的 gates the release, and the floor an entry has to',
-    '> clear is in `.claude/docs/field-triage.md`.',
+    '> clear is in `.agents/docs/field-triage.md`.',
     '',
     `# Findings — blueprint field run @ ${tree}`,
     '',
