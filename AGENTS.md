@@ -7,16 +7,16 @@ aliases, framework primitives) does **not** apply to this repo — the handbook
 ideas below do.
 
 Everything on this page applies to **every** edit. The depth that applies only
-to a particular job lives under [`.claude/docs/`](./.claude/docs/) — read the doc
+to a particular job lives under [`.agents/docs/`](./.agents/docs/) — read the doc
 when its trigger fires, before drafting a plan or an opinion, and don't
 substitute first-principles reasoning for what it says.
 
 | Doc | What it covers |
 |---|---|
-| [`.claude/docs/autonomous-delivery.md`](./.claude/docs/autonomous-delivery.md) | **Trigger:** shaping, delivering, resuming, or accepting a GitHub ticket. The shared rules for autonomy, scope, evidence, durable state, progress, and final acceptance. |
-| [`.claude/docs/verification-layers.md`](./.claude/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring code that emits a document. What `src/conformance/` is for, the layer `npm run dist:verify` covers (the 0.1.1 symlink bug), and the byte baseline that belongs with an emitted-prose refactor. |
-| [`.claude/docs/mutation-testing.md`](./.claude/docs/mutation-testing.md) | **Trigger:** running or reading `npx stryker run`; judging a survivor; adding a test because a sweep called something untested. Survivor proofs as `// Stryker disable next-line` directives, why the full sweep is the authority, how to read both scores, and where the `StringLiteral` exclusion draws its boundary. |
-| [`.claude/docs/field-triage.md`](./.claude/docs/field-triage.md) | **Trigger:** running `npm run field:run`; triaging a `field-run` issue; writing or rewording any prose an adopting agent reads (playbook / CLI output / contract); cutting a release. Harness flags, the triage flow, the two questions before the wording — can the tool compute this, and how many other instances are there — and the release sequence, including the one step no workflow gate covers. |
+| [`.agents/docs/autonomous-delivery.md`](./.agents/docs/autonomous-delivery.md) | **Trigger:** shaping, delivering, resuming, or accepting a GitHub ticket. The shared rules for autonomy, scope, evidence, durable state, progress, and final acceptance. |
+| [`.agents/docs/verification-layers.md`](./.agents/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring code that emits a document. What `src/conformance/` is for, the layer `npm run dist:verify` covers (the 0.1.1 symlink bug), and the byte baseline that belongs with an emitted-prose refactor. |
+| [`.agents/docs/mutation-testing.md`](./.agents/docs/mutation-testing.md) | **Trigger:** running or reading `npx stryker run`; judging a survivor; adding a test because a sweep called something untested. Survivor proofs as `// Stryker disable next-line` directives, why the full sweep is the authority, how to read both scores, and where the `StringLiteral` exclusion draws its boundary. |
+| [`.agents/docs/field-triage.md`](./.agents/docs/field-triage.md) | **Trigger:** running `npm run field:run`; triaging a `field-run` issue; writing or rewording any prose an adopting agent reads (playbook / CLI output / contract); cutting a release. Harness flags, the triage flow, the two questions before the wording — can the tool compute this, and how many other instances are there — and the release sequence, including the one step no workflow gate covers. |
 
 ## Module shape (enforced by convention, checked in review)
 
@@ -134,7 +134,7 @@ contradiction, and an adopter meets it before we do.
   end-to-end (`node dist/bin.js init|inspect`) for runtime changes.
 - Three layers sit past the unit tests, each because the one below it passes on a
   real defect: the conformance suite, `npm run dist:verify`, and the live field
-  harness. See [`verification-layers.md`](./.claude/docs/verification-layers.md)
-  and [`field-triage.md`](./.claude/docs/field-triage.md);
-  [`mutation-testing.md`](./.claude/docs/mutation-testing.md) audits the suite
+  harness. See [`verification-layers.md`](./.agents/docs/verification-layers.md)
+  and [`field-triage.md`](./.agents/docs/field-triage.md);
+  [`mutation-testing.md`](./.agents/docs/mutation-testing.md) audits the suite
   itself and is why "100% coverage" above is a floor, not the claim.
