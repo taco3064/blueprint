@@ -31,7 +31,7 @@ describe('emitAgentContract', () => {
       '### Context',
       '### Where code goes',
       '### Naming',
-      '### Hard rules',
+      '### Machine checks',
       '### Behavioral rules',
       '### Before you commit',
     ]) {

@@ -146,15 +146,17 @@ outside the block across regenerations:
 - Layer flow: `pages` → `containers` → `components` → `hooks` → `contexts` → `services` — transitive: a layer may import **any** layer after it, unless the target narrows its importers.
 - **Before adding, moving, or renaming any file** — placement, module shapes, ownership, naming, component-shape axes, behavioral principles, the working playbook: read [docs/architecture-handbook.md](docs/architecture-handbook.md) (generated from the same blueprint — always current).
 - **Operating discipline** — how to follow the flow, react to lint failures, and the pre-commit checklist: read [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md) (ships inside the package — present once dependencies are installed, always matching the installed version).
-- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes, `maxLines` = 400, `unusedVars`, `codeStyle`, `statementsPerLine`, `statementPadding`, `importBlock`, `fixtureImports`, `usePrefix`, `testFilename`, `deepWatch` fail the project's lint run; `cycles` is held by `npx blueprint inspect --baseline` instead, so a green lint says nothing about it. When lint fails, fix the structure — never `eslint-disable`, never relocate the violation to a sibling.
+- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes, `maxLines` = 400, `unusedVars`, `codeStyle`, `statementsPerLine`, `statementPadding`, `importBlock`, `fixtureImports`, `usePrefix`, `testFilename`, `deepWatch` fail the project's lint run; `cycles` is diagnosed only when `npx blueprint inspect --baseline` runs; the baseline grandfathers recorded findings, so this is not continuous edit-time prevention and a green lint says nothing about it. When lint fails, fix the structure — never `eslint-disable`, never relocate the violation to a sibling.
 - You are the gate for: no undeclared folders under `~app/` (`blueprint inspect --baseline` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a module of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.
 <!-- BLUEPRINT:END -->
 ```
 
 Four things in there are not decoration. **No runner is named** — "the project's lint
 run", because a contract generated from your blueprint alone cannot see whether your
-repo uses npm or pnpm. **`cycles` is attributed to `blueprint inspect`**, not to lint,
-so a green lint is not read as covering it. **Each hard gate states how far it
+repo uses npm or pnpm. **`cycles` is an on-demand or CI diagnosis from
+`blueprint inspect`**, not a continuous lint check. `--baseline` grandfathers recorded
+cycle findings and fails only on new ones, so a green lint is not read as covering it.
+**Each hard gate states how far it
 reaches** — only the files a layer glob matches, which is why a freshly scaffolded repo
 with empty layers has nothing that can fail yet. And **which gates appear depends on the
 stack** — the sample above is a JS project, so `explicitAny` is absent from its list, and
@@ -163,3 +165,17 @@ can actually enforce it.
 
 Distribution targets (Cursor, Windsurf, Gemini, Copilot) are configured with
 [`emit.agents`](/guide/reference#config-fields-beyond-the-quick-start-example).
+
+To reject cycles on every lint run, opt in through the import plugin that the generated
+config already imports. Add this entry after `...emitLint(...)`:
+
+```js
+{
+  plugins: { 'import-x': imports },
+  rules: { 'import-x/no-cycle': 'error' },
+}
+```
+
+This is deliberately not the default: the rule re-walks the dependency graph per file
+and was measured at 92 seconds on an 850-file repository. Use it when continuous
+prevention is worth that lint cost; otherwise run `blueprint inspect --baseline` in CI.

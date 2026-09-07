@@ -110,7 +110,7 @@ flat config 是**取代**不是合併 —— 但只發生在「兩筆都命中�
 - **`statementPadding`** → `@stylistic/padding-line-between-statements`，帶固定的 17 條設定 · error
 - **`importBlock`** → `import-x/first` + `import-x/no-duplicates` · error
 - **`fixtureImports`** → 禁止產品程式碼匯入 fixture 目錄 · error（Vue preset）
-- **`cycles`** → inspect 的 `cycle` 檢測（模組層級；生成 config 已不再帶 `import/no-cycle` —— 它逐檔重查同一張圖，850 檔實測要 92 秒）· error
+- **`cycles`** → inspect 的 `cycle` 檢測（模組層級，只在 inspect 執行時診斷；baseline 會保留已記錄的 finding）。生成 config 預設不做持續預防；能接受逐檔重查圖的成本時，可[選擇啟用 `import-x/no-cycle`](/zh-TW/guide/generated-artifacts#claude-md-agents-md-——-協作) · error
 - **`deepWatch` / `usePrefix` / `usePrefixReactivity` / `testFilename` / `typedefOnlyFile`** → 上面外掛那節的規則（見上）
 
 其餘任何識別碼（例如 `deadCode`）都屬於文件性質：會寫進手冊與 AI Agent 守則，作為 Agent 必須持守的判斷，但不會被說成硬性關卡。<br>
@@ -200,7 +200,7 @@ export default [
 這些鍵比上面那份關卡目錄更早存在，也因此一直只在範例裡露臉 —— 定義該有個家。
 
 - **`architecture.alias`** —— 專案的匯入根，例如 `~app`。<br>必填、沒有預設值：猜錯的別名會讓非法匯入靜靜通過，因為每一條結構禁令的樣式都是拿這個字串組出來的
-- **`architecture.layers`** —— 有順序的分層清單。<br>**順序就是流向**：一個分層只能匯入排在它後面的分層。<br>把方向寫成「順序」而不是「一條條的邊」，單向與無環就是結構本身保證的 —— 環不是「你被擋著不准寫」，是這個形狀根本說不出那句話
+- **`architecture.layers`** —— 有順序的分層清單。<br>**順序就是流向**：一個分層只能匯入排在它後面的分層。<br>因此宣告本身說不出回頭邊，無環的是「宣告的分層圖」；這不會持續阻止模組匯入 cycle，後者只在 `blueprint inspect` 執行時診斷
 - **`layer.does`** —— 一句話說明這層的程式碼是幹嘛的。<br>寫進手冊與 Agent 守則；沒有規則會強制它
 - **`layer.mustNot`** —— 這層不該做的事，用白話寫。<br>去處相同、同樣不強制：規則判斷不了的時候，審查者與 Agent 讀的就是這幾句
 - **`layer.allowedImporters`** —— 收窄「誰可以匯入這一層」。<br>不寫的話，排在前面的分層都可以；寫了就只有清單上的可以，而且每一個都必須是更早宣告的分層 —— 所以收窄永遠不可能生出一條回頭的邊。<br>條目可帶 `selfOnly`（可以依賴這層，但不得再往外轉出）與 `description`（手冊關係圖上那條邊的標籤）

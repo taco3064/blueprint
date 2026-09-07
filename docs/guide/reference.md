@@ -132,7 +132,7 @@ The gated set:
 - **`statementPadding`** → `@stylistic/padding-line-between-statements` with a fixed 17-entry option list · error
 - **`importBlock`** → `import-x/first` + `import-x/no-duplicates` · error
 - **`fixtureImports`** → restricted fixture imports in production code · error (vue preset)
-- **`cycles`** → inspect's `cycle` finding (module-level; `import/no-cycle` was dropped from the generated config — a slow per-file re-check of the same graph) · error
+- **`cycles`** → inspect's `cycle` finding (module-level, diagnosed only when inspect runs; a baseline grandfathers recorded findings). The generated config leaves continuous prevention off by default; [opt into `import-x/no-cycle`](/guide/generated-artifacts#claude-md-agents-md-—-collaborate) when its per-file graph cost is acceptable · error
 - **`deepWatch` / `usePrefix` / `usePrefixReactivity` / `testFilename` / `typedefOnlyFile`** → the plugin rules above (see that section)
 
 Any **other** id (e.g. `deadCode`) is documentation: it lands in the handbook and the
@@ -232,7 +232,7 @@ catalog above, which is why most of them were only ever visible through
 examples — the definitions belong here.
 
 - **`architecture.alias`** — the project import root, e.g. `~app`. Required, with no default: a guessed alias silently passes illegal imports, because every structural ban pattern is built on this string
-- **`architecture.layers`** — the ordered layers. **Order is the flow**: a layer may import only layers declared after it. Expressing direction as a sequence rather than a list of edges is what makes the graph one-way and acyclic by construction — a cycle is not something you are stopped from writing, it is something the shape cannot say
+- **`architecture.layers`** — the ordered layers. **Order is the flow**: a layer may import only layers declared after it. The declaration therefore cannot express a back edge. This makes the declared layer graph acyclic; it does not continuously prevent module import cycles, which `blueprint inspect` diagnoses only when it runs
 - **`layer.does`** — one line on what code in this layer is for. Feeds the handbook and the agent contract; no rule enforces it
 - **`layer.mustNot`** — the things this layer may not do, in prose. Same destination, same lack of enforcement: it is what a reviewer and an agent read when a rule cannot decide
 - **`layer.allowedImporters`** — narrows who may import this layer. Omit it and every earlier layer may; set it and only the listed ones may, each of which must be declared earlier — so narrowing can never introduce a back edge. Entries take `selfOnly` (may depend on this layer but never re-export it onward) and `description` (the edge label in the handbook diagram)

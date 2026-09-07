@@ -83,7 +83,7 @@ function renderOverlappingTool(): string {
     + 'it double-reports instead.',
     '     Keep ONE gate per semantic (the house rule\'s docs footprint usually decides which) '
     + 'and record the choice — declaring blueprint\'s twin on top is noise, not safety.',
-    '     The same rule spans gate LAYERS: a house `import/no-cycle` (lint) '
+    '     The same rule spans gate LAYERS: a house `import-x/no-cycle` (lint) '
     + 'and the `cycles` gate (inspect) are one semantic — '
     + 'pick one detector and record it (the catalog\'s perf note usually argues for the inspect '
     + 'side).',

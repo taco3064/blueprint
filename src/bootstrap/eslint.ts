@@ -126,7 +126,7 @@ function parserEntries(framework: Framework | null, ts: boolean): string[] {
 /**
  * The anti-bypass guard — NOT part of emitLint, and the one entry the generated
  * config owns outright. `cycles` emits no ESLint line either (inspect detects them,
- * and `import/no-cycle` re-walks the graph per file — 92s on 850 files); `deadCode`
+ * and `import-x/no-cycle` re-walks the graph per file — 92s on 850 files); `deadCode`
  * likewise, since import/no-unused-modules cannot run under flat config.
  */
 function antiBypassGuard(guardExts: string, guardRoot: string): string[] {
