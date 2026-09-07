@@ -12,9 +12,10 @@ export { runRules } from './rules';
 // reaching them by deep path is what the entry rule bans.
 export { analyze } from './analyze';
 export { globToRegExp } from './filter';
+export { resolveSegments, stripAlias } from './resolve';
 export { scan } from './scan';
 // Which carrier plugins THIS blueprint needs. Exported for `impact` rather than
 // copied — a gate-to-carrier table that exists twice goes out of step.
 export { expectedCarriers } from './wiring';
 export type { GateStatus, LayerBans, RulesOptions } from './rules';
-export type { Finding, Severity } from './types';
+export type { Finding, ImportRef, ScannedFile, ScanResult, Severity } from './types';
