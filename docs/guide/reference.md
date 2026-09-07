@@ -79,7 +79,10 @@ not spread `emitLint` — everyone else never needs it:
 Three further rules are **managed** — compiled from `layers` / `owns` / `alias` and
 owned by the emitter: `no-restricted-imports`, `no-restricted-syntax`,
 `no-restricted-globals`. They cannot be set through `lintOverrides`; change the
-blueprint instead.
+blueprint instead. Dependency-flow bans, same-layer bans, and `selfOnly` re-export
+selectors cover both the bare layer entry and its descendants through every declared
+alias. This does not widen a folder module's public surface: an allowed importer may
+still use a module entry, but not anything behind that entry.
 
 ### Folding a managed entry into a house rule
 
@@ -247,6 +250,12 @@ examples — the definitions belong here.
 - **`architecture.testFiles`** — test glob(s) exempt from structural rules and metric gates (default `*.test.*` / `*.spec.*`). `[]` exempts nothing — tests inherit their layer's rules — and switches the `testFilename` gate off with it: that rule is scoped to the test globs, so an empty list leaves it no file to name. `blueprint rules` says so beside the gate. A declared glob that matches no file costs the exemption but not the gate: nothing the run read is exempt through it.
 - **`architecture.layerFiles`** — per-layer file globs when the framework defaults don't fit
 - **`architecture.layerFilesIgnore`** — global file globs excluded from emitted lint and lint-backed `inspect` findings. The files remain visible to inspect-only checks such as undeclared folders and cycles, and coverage names them as deliberately ignored rather than reached
+
+The portable glob dialect across lint and inspect is `/`-separated paths with `**`,
+`*`, `?`, and flat brace alternatives such as `*.{ts,tsx}`; `layerFiles` additionally
+replaces `{layer}` with each declared layer name. Negation, character classes, extglobs,
+and nested braces are outside that shared dialect. Keep to the portable subset so lint
+and inspect select the same files.
 - **`architecture.naming`** — naming conventions by concept (e.g. `{ hook: 'useX + reactivity' }`) — rendered into handbook + contract
 - **`layer.module`** — per-layer override of the shared module shape — e.g. folder modules in one layer, flat everywhere else
 - **`layer.lintOverrides`** — per-layer ESLint tweaks (the three managed rules excluded)
