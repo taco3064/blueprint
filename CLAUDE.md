@@ -122,6 +122,10 @@ contradiction, and an adopter meets it before we do.
   changes nothing observable>` — which is an instruction to a tool rather than a
   note to a reader: the reason lands in the report beside the mutant it is about,
   so nothing is reconciled by hand. The derivation still goes in the commit.
+  **The older `undecidable` prose form still stands at 29 sites, #399 converts
+  them, and nothing removes them before it does** — so until that lands both
+  forms are the ledger: the directive is what a new proof is written as, and an
+  existing `undecidable` line is a proof, not a comment to strip.
 - **Formatting is ESLint-driven** (`@stylistic/*`); there is no Prettier. Run
   `npm run lint` / `eslint . --fix`. Enforcement rules mirror the handbook
   stance: never `eslint-disable` to dodge a rule; fix the structure.

@@ -124,9 +124,13 @@ jobs:
                 "",
               ] : []),
               "A survivor is a question, not a defect: the line ran, and nothing asserted",
-              "its result. Judge each one before writing a test — and match this list",
-              "against `grep -rni undecidable src/ --include=*.ts` first, which is where",
-              "most of them are already answered. See `.claude/docs/mutation-testing.md`.",
+              "its result. Judge each one before writing a test — most of them are already",
+              "answered, in one of the two forms the ledger currently takes. The newer form",
+              "is a `// Stryker disable next-line` directive, which reports as `ignored` and",
+              "so never reaches this list; the older one is still at its site, under",
+              "`grep -rni undecidable src/ --include=*.ts`. Match this list against that",
+              "grep, and write anything new as a directive. See",
+              "`.claude/docs/mutation-testing.md`.",
               "",
             ];
 
