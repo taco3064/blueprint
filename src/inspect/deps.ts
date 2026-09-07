@@ -2,7 +2,8 @@
 // exports lint.ts, which loads the plugin, which shares resolve logic with
 // inspect; routing through the index would close a module cycle.
 import { emptyTestGlobs, unreachedTestGlobs } from '../emit/lint/patterns';
-import type { Blueprint } from '../config';
+import { stripSourceRoot } from '../config';
+import type { ArchitectureDef, Blueprint } from '../config';
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
 import { testFileReach } from './coverage';
@@ -57,7 +58,7 @@ export async function runDeps(
 
   if (options.target !== undefined) {
     return reportTarget(options.target, {
-      modules, skipped, layerNames, layoutOf, log, testExemption, json: options.json,
+      modules, skipped, layerNames, layoutOf, architecture, log, testExemption, json: options.json,
     });
   }
 
@@ -138,13 +139,14 @@ function reportTarget(
     skipped: string[];
     layerNames: Set<string>;
     layoutOf: LayoutOf;
+    architecture: ArchitectureDef;
     log: (message: string) => void;
     testExemption: string | null;
     json?: boolean;
   },
 ): { ok: boolean; modules: ModuleDeps[] } {
-  const { modules, skipped, layerNames, layoutOf, log, testExemption } = ctx;
-  const key = normalizeTarget(target, layoutOf);
+  const { modules, skipped, layerNames, layoutOf, architecture, log, testExemption } = ctx;
+  const key = normalizeTarget(target, architecture, layoutOf);
   const found = modules.find((entry) => entry.module === key);
 
   if (!found) {
@@ -217,11 +219,12 @@ function isFlatLayer(module: string, layerNames: Set<string>, layoutOf: LayoutOf
 }
 
 /** `src/hooks/useCart/useCart.ts` / `hooks/useCart` / `./src/hooks` → module key. */
-function normalizeTarget(input: string, layoutOf: LayoutOf): string {
-  const segments = input.split('/').filter((part) => part !== '' && part !== '.');
-  const rest = segments[0] === 'src' ? segments.slice(1) : segments;
-
-  return moduleKey(rest, layoutOf);
+function normalizeTarget(
+  input: string,
+  architecture: ArchitectureDef,
+  layoutOf: LayoutOf,
+): string {
+  return moduleKey(stripSourceRoot(input, architecture), layoutOf);
 }
 
 /** The not-found message — pointing at the skipped folder when that is the cause. */

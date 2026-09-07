@@ -12,6 +12,7 @@ import {
   getModuleShape,
   getSharedModule,
   normalizeAllowedImporters,
+  sourcePath,
 } from '../../config';
 import { handbookPath } from '../docs';
 import { enforcedBy, resolveTestFiles, unavailableForEmit } from '../lint';
@@ -149,7 +150,7 @@ export function renderContext(blueprint: Blueprint): string {
 /** Per-layer placement directives + the module shape rule. */
 export function renderPlacement(architecture: ArchitectureDef): string {
   const lines = architecture.layers.map((layer) => {
-    const parts = [`- \`src/${layer.name}/\` — ${layer.does}.`];
+    const parts = [`- \`${sourcePath(architecture, layer.name)}/\` — ${layer.does}.`];
 
     if (layer.mustNot?.length) {
       parts.push(` MUST NOT: ${layer.mustNot.join('; ')}.`);
@@ -186,8 +187,8 @@ export function renderPlacement(architecture: ArchitectureDef): string {
       const shape = getModuleShape(architecture, layer.name);
 
       return shape.layout === 'folder'
-        ? `- Exception — \`src/${layer.name}/\`: one folder per module, entry \`${shape.entry}\`.`
-        : `- Exception — \`src/${layer.name}/\`: one file per module (flat).`;
+        ? `- Exception — \`${sourcePath(architecture, layer.name)}/\`: one folder per module, entry \`${shape.entry}\`.`
+        : `- Exception — \`${sourcePath(architecture, layer.name)}/\`: one file per module (flat).`;
     });
 
   // Reporting instruction, not a third remedy. An agent that learns "files matching

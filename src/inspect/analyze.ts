@@ -3,6 +3,7 @@ import {
   getModuleShape,
   getSelfOnlyTargets,
   normalizeAllowedImporters,
+  sourceRootLabel,
 } from '../config';
 import type { AliasRoot, ArchitectureDef, Blueprint } from '../config';
 import { dropLayerFilesIgnored, dropTestFiles } from './filter';
@@ -356,7 +357,11 @@ function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportConte
 }
 
 /** A relative import, judged by the same verdict the embedded lint rule reads. */
-function relativeEscape(file: ScannedFile, ref: ImportRef, shape: ModuleShape): Finding[] {
+function relativeEscape(
+  file: ScannedFile,
+  ref: ImportRef,
+  shape: ModuleShape & { architecture: ArchitectureDef },
+): Finding[] {
   const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
   const verdict = relativeVerdict(file.segments, target, shape);
 
@@ -367,7 +372,7 @@ function relativeEscape(file: ScannedFile, ref: ImportRef, shape: ModuleShape): 
   const at = { path: file.path, subject: ref.specifier };
 
   if (verdict === 'escapes-src') {
-    return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" escapes src/ — use the project alias.` })];
+    return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" escapes ${sourceRootLabel(shape.architecture)} — use the project alias.` })];
   }
 
   if (verdict === 'reaches-inside') {

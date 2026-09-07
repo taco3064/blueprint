@@ -210,7 +210,7 @@ export default [
 ### 調校
 
 
-- **`architecture.sourceRoot`** —— 分層所在目錄（相對於專案根目錄）。預設 `src`；根目錄式佈局（如無 `src/` 的 Next.js）設為 `.`
+- **`architecture.sourceRoot`** —— 分層所在目錄（相對於專案根目錄）。預設 `src`；根目錄式佈局（如無 `src/` 的 Next.js）設為 `.`。Lint、inspect、init scaffold、deps target 與產生的 agent placement guidance 都會從此根目錄解析來源路徑。
 - **`architecture.additionalAliases`** —— `alias` 以外、同樣納入所有結構禁令的額外匯入根
 - **`architecture.testFiles`** —— 豁免於結構規則與度量關卡的測試檔樣式（預設 `*.test.*` / `*.spec.*`）。<br>
   填 `[]` 代表不豁免任何檔 —— 測試檔跟著它那層的規則走 —— 同時也把 `testFilename` 這個關卡關掉：<br>

@@ -148,10 +148,10 @@ function detectNext(
   };
 }
 
-function listSrcDirs(root: string): string[] {
+export function listSourceDirs(root: string, sourceRoot = 'src'): string[] {
   try {
     return fs
-      .readdirSync(path.join(root, 'src'), { withFileTypes: true })
+      .readdirSync(path.join(root, sourceRoot), { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name);
   } catch {
@@ -246,7 +246,7 @@ export function detect(root: string): ProjectState {
     hasViteConfig: viteFile !== undefined,
     hasTypescript,
     tsconfigs: readTexts(root, TSCONFIG_FILES),
-    existingSrcDirs: listSrcDirs(root),
+    existingSrcDirs: listSourceDirs(root),
     missingDeps: required.filter((dep) => !(dep in deps)),
     dependencies: Object.keys(deps),
   };

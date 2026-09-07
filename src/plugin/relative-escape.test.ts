@@ -2,6 +2,7 @@ import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
 import { plugin } from './plugin';
+import { sourceSegments } from './relative-escape';
 
 const linter = new Linter({ configType: 'flat' });
 
@@ -13,8 +14,15 @@ const LAYOUTS = {
 function messageIds(
   code: string,
   filename: string,
-  layouts: Record<string, 'folder' | 'flat'> | null = LAYOUTS,
+  options: {
+    layouts?: Record<string, 'folder' | 'flat'>;
+    sourceRoot?: string;
+  } | null = {},
 ): string[] {
+  const ruleOptions = options === null
+    ? null
+    : { layouts: options.layouts ?? LAYOUTS, sourceRoot: options.sourceRoot ?? 'src' };
+
   return linter
     .verify(
       code,
@@ -23,7 +31,7 @@ function messageIds(
         plugins: { blueprint: plugin },
         languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
         rules: {
-          'blueprint/relative-escape': layouts ? ['error', { layouts }] : 'error',
+          'blueprint/relative-escape': ruleOptions ? ['error', ruleOptions] : 'error',
         },
       },
       { filename },
@@ -56,6 +64,27 @@ describe('blueprint/relative-escape · flat layer', () => {
   it('flags relatives that climb above src/', () => {
     expect(messageIds('import x from "../../package.json";', 'src/components/Button.ts'))
       .toEqual(['escapesSrc']);
+  });
+
+  it.each([
+    ['lib/app', 'lib/app/components/Button.ts'],
+    ['.', 'components/Button.ts'],
+    ['src', 'src/components/Button.ts'],
+  ])('enforces files under sourceRoot %s', (sourceRoot, filename) => {
+    expect(messageIds('import x from "../resources/matches";', filename, { sourceRoot }))
+      .toEqual(['leavesModule']);
+  });
+
+  it('does not apply a custom-root rule to a same-named layer outside that root', () => {
+    expect(messageIds(
+      'import x from "../resources/matches";',
+      'components/Button.ts',
+      { sourceRoot: 'lib/app' },
+    )).toEqual([]);
+  });
+
+  it('does not classify a project-root file outside the lint working directory', () => {
+    expect(sourceSegments('/repo-sibling/components/Button.ts', '/repo', '.')).toBeNull();
   });
 });
 
@@ -223,14 +252,14 @@ describe('blueprint/relative-escape · what the rule declines to judge', () => {
 });
 
 describe('blueprint/relative-escape · what each verdict tells the reader', () => {
-  const report = (code: string, filename: string) =>
+  const report = (code: string, filename: string, sourceRoot = 'src') =>
     linter.verify(
       code,
       {
         files: ['**'],
         plugins: { blueprint: plugin },
         languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
-        rules: { 'blueprint/relative-escape': ['error', { layouts: LAYOUTS }] },
+        rules: { 'blueprint/relative-escape': ['error', { layouts: LAYOUTS, sourceRoot }] },
       },
       { filename },
     )[0];
@@ -257,6 +286,16 @@ describe('blueprint/relative-escape · what each verdict tells the reader', () =
     expect(message).toContain('"../resources/matches"');
     expect(message).toContain('leaves this layer');
     expect(message).toContain('use the alias, or extract shared code to a lower layer');
+  });
+
+  it.each([
+    ['lib/app', 'lib/app/components/Button.ts', 'lib/app/'],
+    ['.', 'components/Button.ts', 'the project root'],
+  ])('names sourceRoot %s when an import escapes it', (sourceRoot, filename, label) => {
+    const message = report('import x from "../../package.json";', filename, sourceRoot)
+      ?.message ?? '';
+
+    expect(message).toContain(`escapes ${label}`);
   });
 
   it('names the entry to import instead when the import reaches inside', () => {

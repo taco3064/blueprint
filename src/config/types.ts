@@ -119,7 +119,8 @@ export interface ArchitectureDef {
    * The directory layers live under, relative to the project root. Defaults to
    * `src`. Use `.` for frameworks that keep layers at the project root
    * (e.g. a Next.js project without `srcDir`, where `app/` sits at the root).
-   * Drives the scan base, the default layer-file globs, and the alias target.
+   * Drives every source-tree path used by lint, inspect, init, deps, and
+   * generated agent guidance.
    */
   sourceRoot?: string;
   /**

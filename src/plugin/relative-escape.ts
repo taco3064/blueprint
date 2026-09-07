@@ -1,5 +1,6 @@
+import path from 'node:path';
 import type { Rule } from 'eslint';
-import { relativeVerdict, resolveSegments } from '../inspect/resolve';
+import { relativeVerdict, resolveSegments } from './relative';
 
 /**
  * Relative imports must stay inside their own module. This is the lint-side
@@ -46,12 +47,14 @@ export const relativeEscape: Rule.RuleModule = {
             type: 'object',
             additionalProperties: { type: 'string' },
           },
+          sourceRoot: { type: 'string' },
         },
         additionalProperties: false,
       },
     ],
     messages: {
-      escapesSrc: '🚫 Relative import "{{specifier}}" escapes src/ — use the project alias.',
+      escapesSrc: '🚫 Relative import "{{specifier}}" escapes {{sourceRoot}} — '
+        + 'use the project alias.',
       leavesModule:
         '🚫 Relative import "{{specifier}}" leaves this layer — use the alias, '
         + 'or extract shared code to a lower layer.',
@@ -61,13 +64,15 @@ export const relativeEscape: Rule.RuleModule = {
     },
   },
   create(context) {
-    const { layouts = {}, entries = {} }
+    const { layouts = {}, entries = {}, sourceRoot = 'src' }
       = (context.options[0] as {
         layouts?: Record<string, 'folder' | 'flat'>;
         entries?: Record<string, string>;
+        sourceRoot?: string;
       } | undefined) ?? {};
 
-    const segments = srcSegments(context.filename);
+    const cwd = (context as Rule.RuleContext & { cwd: string }).cwd;
+    const segments = sourceSegments(context.filename, cwd, sourceRoot);
 
     if (!segments || !(segments[0] in layouts)) {
       return {};
@@ -103,7 +108,10 @@ export const relativeEscape: Rule.RuleModule = {
       context.report({
         node,
         messageId: verdict === 'escapes-src' ? 'escapesSrc' : 'leavesModule',
-        data: { specifier },
+        data: {
+          specifier,
+          sourceRoot: sourceRoot === '.' ? 'the project root' : `${sourceRoot}/`,
+        },
       });
     };
 
@@ -124,14 +132,24 @@ export const relativeEscape: Rule.RuleModule = {
   },
 };
 
-/** Path segments after the last `src/` directory, or null when not under one. */
-function srcSegments(filename: string): string[] | null {
-  const parts = filename.split(/[\\/]/).filter(Boolean);
-  const at = parts.lastIndexOf('src');
+export function sourceSegments(
+  filename: string,
+  cwd: string,
+  sourceRoot: string,
+): string[] | null {
+  const relative = path.isAbsolute(filename) ? path.relative(cwd, filename) : filename;
+  const parts = relative.split(/[\\/]/).filter((part) => part !== '' && part !== '.');
+  const root = sourceRoot.split(/[\\/]/).filter((part) => part !== '' && part !== '.');
 
-  // No second arm for "src is the last segment" — that means the linted path IS a
-  // file named `src`, and `slice` then answers `[]`, which the caller already turns
-  // away one line later (`segments[0]` is undefined, so no layer claims it). The
-  // arm could not decide anything, and its `parts.length - 1` could not be wrong.
-  return at === -1 ? null : parts.slice(at + 1);
+  if (!root.length) {
+    return parts[0] === '..' ? null : parts;
+  }
+
+  for (let at = parts.length - root.length; at >= 0; at -= 1) {
+    if (root.every((part, index) => parts[at + index] === part)) {
+      return parts.slice(at + root.length);
+    }
+  }
+
+  return null;
 }

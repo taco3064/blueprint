@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runInit } from './bootstrap';
+import type { Action } from './types';
 import { nextPreset, vuePreset } from '../presets';
 
 let root: string;
@@ -34,6 +35,59 @@ const prettyPkg = (lint: string) =>
       2,
     ),
   );
+
+describe('runInit · sourceRoot scaffolding', () => {
+  it.each([
+    ['lib/app', 'lib/app/pages', 'lib/app/services'],
+    ['src', 'src/pages', 'src/services'],
+  ])('plans missing layers under %s and detects existing ones', async (
+    sourceRoot,
+    existing,
+    missing,
+  ) => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+    fs.mkdirSync(path.join(root, existing), { recursive: true });
+
+    const preset = vuePreset();
+
+    const actions = await runInit(root, {
+      dryRun: true,
+      install: false,
+      log: silent,
+      loadConfig: async () => ({
+        ...preset,
+        architecture: { ...preset.architecture, sourceRoot },
+      }),
+    });
+
+    const dirs = actions
+      .filter((action): action is Extract<Action, { kind: 'mkdir' }> => action.kind === 'mkdir')
+      .map((action) => action.path);
+
+    expect(dirs).not.toContain(existing);
+    expect(dirs).toContain(missing);
+  });
+
+  it('plans root-level Next layers without malformed paths', async () => {
+    writePkg({ name: 'demo', dependencies: { next: '^15' } });
+    fs.mkdirSync(path.join(root, 'app'), { recursive: true });
+
+    const actions = await runInit(root, {
+      dryRun: true,
+      install: false,
+      log: silent,
+    });
+
+    const dirs = actions
+      .filter((action): action is Extract<Action, { kind: 'mkdir' }> => action.kind === 'mkdir')
+      .map((action) => action.path);
+
+    expect(dirs).not.toContain('app');
+    expect(dirs).toContain('components');
+    expect(dirs.every((dir) => !dir.startsWith('./') && !dir.startsWith('/'))).toBe(true);
+  });
+});
 
 describe('runInit · lint-script wiring', () => {
   it('patches a fresh scaffold whose lint script misses eslint', async () => {

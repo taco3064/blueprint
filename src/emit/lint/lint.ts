@@ -91,7 +91,10 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     files: allLayerFiles,
     ignores: testGlobs,
     plugins: { blueprint: plugin },
-    rules: { 'blueprint/relative-escape': [severity, { layouts, entries }] },
+    rules: { 'blueprint/relative-escape': [
+      severity,
+      { layouts, entries, sourceRoot: sourceRoot ?? 'src' },
+    ] },
   };
 
   return [
@@ -218,7 +221,7 @@ function ruleGateEntries(
     ...sharedEntry(sharedRules(blueprint, options), { files: sharedFiles, testGlobs }, options),
     ...shapeEntry(blueprint, sharedFiles, options),
     ...testFilenameEntry(rules, testGlobs),
-    ...typedefOnlyEntry(rules, testGlobs),
+    ...typedefOnlyEntry(architecture, rules, testGlobs),
     ...usePrefixEntry(blueprint, testGlobs),
   ];
 }
@@ -341,7 +344,11 @@ function testFilenameEntry(rules: Blueprint['rules'], testGlobs: string[]): Lint
 }
 
 /** Scoped to JavaScript source: a `.ts` file of types is the TS way to say it. */
-function typedefOnlyEntry(rules: Blueprint['rules'], testGlobs: string[]): LintConfigEntry[] {
+function typedefOnlyEntry(
+  architecture: Blueprint['architecture'],
+  rules: Blueprint['rules'],
+  testGlobs: string[],
+): LintConfigEntry[] {
   const typedefOnlyFile = activeSetting(rules?.typedefOnlyFile);
 
   if (!typedefOnlyFile) {
@@ -349,7 +356,9 @@ function typedefOnlyEntry(rules: Blueprint['rules'], testGlobs: string[]): LintC
   }
 
   return [{
-    files: ['src/**/*.js'],
+    files: [architecture.sourceRoot === '.'
+      ? '**/*.js'
+      : `${architecture.sourceRoot ?? 'src'}/**/*.js`],
     ignores: testGlobs,
     plugins: { blueprint: plugin },
     rules: { 'blueprint/no-typedef-only-file': typedefOnlyFile.tier },

@@ -159,6 +159,24 @@ describe('analyze · imports', () => {
     expect(messageFor('../../hooks/useX')).toContain('leaves this layer');
   });
 
+  it.each([
+    ['lib/app', 'escapes lib/app/'],
+    ['.', 'escapes the project root'],
+    ['src', 'escapes src/'],
+  ])('names sourceRoot %s in escape findings', (sourceRoot, expected) => {
+    const rooted = {
+      ...bp,
+      architecture: { ...bp.architecture, sourceRoot },
+    };
+
+    const finding = analyze(
+      scanOf([file(['components', 'Btn', 'index.ts'], [{ specifier: '../../../outside' }])]),
+      rooted,
+    ).find((entry) => entry.rule === 'relative-escape');
+
+    expect(finding?.message).toContain(expected);
+  });
+
   // The lint rule and this finding read the same `relativeVerdict`, so a
   // sibling's entry is legal to both and reaching past it is illegal to both.
   // They disagreed once — same `../Sibling`, one gate green, one red — with no

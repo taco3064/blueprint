@@ -5,6 +5,7 @@ import {
   buildNextConfigSource,
   CONFIG_FILE,
   detect,
+  listSourceDirs,
   readTexts,
   resolveBlueprint,
   claudeDirState,
@@ -185,6 +186,7 @@ async function runScaffold(
     configSource,
     agentTarget,
     hasSourceFiles: scanResult.files.length > 0,
+    existingSourceDirs: listSourceDirs(root, blueprint.architecture.sourceRoot),
     existingAgentFiles: readTexts(root, contractPaths(blueprint, agentTarget)),
   });
 

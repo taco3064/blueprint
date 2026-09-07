@@ -177,6 +177,45 @@ describe('emitLint · the embedded plugin rides the entries that carry its rules
     // resolve the rule and the run dies, rather than the rule going quiet.
     expect(typedef?.plugins?.blueprint).toBeDefined();
   });
+
+  it.each([
+    ['lib/app', 'lib/app/**/*.js'],
+    ['.', '**/*.js'],
+    ['src', 'src/**/*.js'],
+  ])('scopes typedef-only files to sourceRoot %s', (sourceRoot, files) => {
+    const rooted = defineBlueprint({
+      ...blueprint,
+      architecture: { ...blueprint.architecture, sourceRoot },
+      rules: { typedefOnlyFile: 'error' },
+    });
+
+    const entry = emitLint(rooted)
+      .find((item) => item.rules?.['blueprint/no-typedef-only-file']);
+
+    expect(entry?.files).toEqual([files]);
+  });
+
+  it.each([
+    ['lib/app', 'lib/app/types.js'],
+    ['.', 'types.js'],
+  ])('enforces typedef-only files under sourceRoot %s', (sourceRoot, filename) => {
+    const rooted = defineBlueprint({
+      ...blueprint,
+      architecture: { ...blueprint.architecture, sourceRoot },
+      rules: { typedefOnlyFile: 'error' },
+    });
+
+    const rootedConfig = [
+      { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+      ...emitLint(rooted),
+    ];
+
+    const ids = linter
+      .verify('/** @typedef {object} Foo */\nconst x = 1;', rootedConfig, { filename })
+      .map((message) => message.ruleId);
+
+    expect(ids).toContain('blueprint/no-typedef-only-file');
+  });
 });
 
 describe('emitLint · the files a gate is scoped to', () => {
