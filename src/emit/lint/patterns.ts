@@ -630,21 +630,27 @@ export function buildStructuralPatterns(params: {
       message:
         '\n🚫 Redundant relative segments (././, ./../) bypass the structural import rules.',
     },
-    ...aliases.map((a) => ({
-      group: [`${a}/${layer}/**`],
-      message:
-        moduleLayout === 'flat'
-          ? `\n🚫 Same-layer imports must be relative. Replace "${a}/${layer}/X" with "./X".`
-          // The sibling is reachable, just not by this spelling: one shape for
-          // same-layer edges keeps the cycle surface to relative paths alone.
-          : `\n🚫 Same-layer imports must be relative. Replace "${a}/${layer}/X" with "../X" `
-            + '— its entry only; what is behind the entry stays private.',
-    })),
+    ...aliases.map((a) => {
+      const head
+        = `\n🚫 Same-layer imports must be relative. "${a}/${layer}" and everything under it `
+          + `is banned. Replace "${a}/${layer}/X" with `;
+
+      return {
+        group: [`${a}/${layer}`, `${a}/${layer}/**`],
+        message:
+          moduleLayout === 'flat'
+            ? `${head}"./X".`
+            // The sibling is reachable, just not by this spelling: one shape for
+            // same-layer edges keeps the cycle surface to relative paths alone.
+            : `${head}"../X" — its entry only; what is behind the entry stays private.`,
+      };
+    }),
   ];
 
   if (forbidden.length) {
     patterns.push({
-      group: forbidden.flatMap((banned) => aliases.map((a) => `${a}/${banned}/**`)),
+      group: forbidden.flatMap((banned) =>
+        aliases.flatMap((a) => [`${a}/${banned}`, `${a}/${banned}/**`])),
       message:
         '\n🚫 This import violates the dependency flow. Only import from allowed lower layers.',
     });
