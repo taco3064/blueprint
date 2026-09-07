@@ -217,7 +217,8 @@ export default [
   那條規則的範圍就是這些測試檔樣式，空清單等於沒有檔可以讓它檢查。`blueprint rules` 會在該關卡旁邊講明。<br>
   宣告了、卻對不上任何檔的 glob，賠掉的是豁免、不是關卡 ——<br>
   這一輪讀到的檔案沒有一個因它而豁免。
-- **`architecture.layerFiles` / `layerFilesIgnore`** —— 框架預設樣式不適用時，逐層指定檔案樣式
+- **`architecture.layerFiles`** —— 框架預設樣式不適用時，逐層指定檔案樣式
+- **`architecture.layerFilesIgnore`** —— 從產出的 lint 與由 lint 執行的 `inspect` findings 中全域排除的檔案樣式。這些檔案仍會接受 undeclared folder、cycle 等只由 `inspect` 執行的檢查；coverage 會將它們列為刻意忽略，而不會宣稱 lint 已涵蓋
 - **`architecture.naming`** —— 依概念設定的命名慣例（如 `{ hook: 'useX + reactivity' }`）—— 寫入手冊與守則
 - **`layer.module`** —— 逐層覆寫共用的模組形狀 —— 例如某一分層採資料夾模組、其餘維持單檔
 - **`layer.lintOverrides`** —— 逐層的 ESLint 調整（三條受管規則除外）
