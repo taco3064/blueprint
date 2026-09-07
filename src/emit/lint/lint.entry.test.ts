@@ -142,3 +142,97 @@ describe('emitLint · the groups the widened bans are composed of (#382)', () =>
     expect(groupsFor('src/pages/')).toContainEqual(['~app/hooks/*/**', '~root/src/hooks/*/**']);
   });
 });
+
+const selfOnly = defineBlueprint({
+  framework: 'auto',
+  architecture: {
+    alias: '~app',
+    additionalAliases: { '~root': '.' },
+    layers: [
+      { name: 'pages', does: 'routes' },
+      { name: 'contexts', does: 'state', allowedImporters: [{ layer: 'pages', selfOnly: true }] },
+      { name: 'services', does: 'net' },
+    ],
+  },
+});
+
+const selfOnlyConfig = [
+  { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+  ...emitLint(selfOnly),
+];
+
+function reexportBans(code: string): string[] {
+  const messages = linter.verify(code, selfOnlyConfig, { filename: PAGE });
+  const unmatched = messages.filter((message) => message.ruleId === null);
+
+  expect(unmatched.map((message) => message.message)).toEqual([]);
+
+  return messages
+    .filter((message) => message.ruleId === 'no-restricted-syntax')
+    .map((message) => message.message);
+}
+
+const REEXPORT = 'Cannot re-export from "contexts"';
+
+describe('emitLint · a selfOnly target\'s own entry (#382 site C)', () => {
+  it('reports the bare entry re-exported by star and by name', () => {
+    expect(reexportBans('export * from "~app/contexts";')).toHaveLength(1);
+    expect(reexportBans('export * from "~app/contexts";')[0]).toContain(REEXPORT);
+
+    expect(reexportBans('export { a } from "~app/contexts";')).toHaveLength(1);
+  });
+
+  it('still reports a descendant, and still leaves a name-prefixed sibling alone', () => {
+    expect(reexportBans('export * from "~app/contexts/theme";')).toHaveLength(1);
+
+    expect(reexportBans('export * from "~app/contexts-x/theme";')).toEqual([]);
+    expect(reexportBans('export * from "~app/contextsy";')).toEqual([]);
+  });
+
+  it('reports the bare entry through every alias, not only the first', () => {
+    expect(reexportBans('export * from "~root/src/contexts";')).toHaveLength(1);
+    expect(reexportBans('export * from "~root/src/contexts/theme";')).toHaveLength(1);
+  });
+
+  it('still lets the selfOnly target be imported, entry included', () => {
+    expect(reexportBans('import { a } from "~app/contexts";')).toEqual([]);
+    expect(reexportBans('import { a } from "~app/contexts/theme";')).toEqual([]);
+  });
+});
+
+describe('emitLint · the selfOnly selectors it emits (#382 site C)', () => {
+  const regexLiterals = (): string[] =>
+    emitLint(selfOnly)
+      .flatMap((entry) => {
+        const rule = entry.rules?.['no-restricted-syntax'] as
+          [string, ...{ selector: string }[]] | undefined;
+
+        return rule ? rule.slice(1) as { selector: string }[] : [];
+      })
+      .flatMap(({ selector }) =>
+        [...selector.matchAll(/\[source\.value=\/(.+?)\/\]/g)].map(([, body]) => body));
+
+  it('spells every separator as the escape — no raw slash, no backslashed one', () => {
+    const bodies = regexLiterals();
+
+    expect(bodies.length).toBeGreaterThan(0);
+
+    for (const body of bodies) {
+      expect(body).not.toContain('/');
+      expect(body).not.toContain('\\/');
+    }
+  });
+
+  it('matches the entry and everything under it, once per alias', () => {
+    const hits = (specifier: string) =>
+      new Set(regexLiterals().filter((body) => new RegExp(body).test(specifier))).size;
+
+    expect(hits('~app/contexts')).toBe(1);
+    expect(hits('~app/contexts/theme')).toBe(1);
+    expect(hits('~root/src/contexts')).toBe(1);
+    expect(hits('~root/src/contexts/theme')).toBe(1);
+
+    expect(hits('~app/contexts-x/theme')).toBe(0);
+    expect(hits('~app/contextsy')).toBe(0);
+  });
+});

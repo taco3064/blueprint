@@ -241,7 +241,7 @@ describe('runRules · the selfOnly selectors a merge fold copies', () => {
     // The claim under test is about JS, so it is asserted rather than described. The
     // separators are / escapes because a raw / ends esquery's regex early — and
     // JS resolves that same escape when it parses a string literal, so the rendered
-    // value pasted into '…' silently becomes /^~app/contexts// and the regex ends at
+    // value pasted into '…' silently becomes /^~app/contexts(?:/|$)/ and the regex ends at
     // the bare /. No parse error, lint green, and doctor's red then reads like the
     // "equivalent respelling" false alarm it warns about, which this is not.
     const selfOnly: Blueprint = {
@@ -269,7 +269,7 @@ describe('runRules · the selfOnly selectors a merge fold copies', () => {
     // The trap: JSON's string escaping is JavaScript's, so parsing the rendered value
     // as a literal is what pasting it does — and it comes back a different string.
     expect(JSON.parse(`"${value}"`)).not.toBe(value);
-    expect(JSON.parse(`"${value}"`)).toContain('/^~app/contexts/');
+    expect(JSON.parse(`"${value}"`)).toContain('/^~app/contexts(?:/|$)/');
     // The form that survives: parse the literal and the value comes back intact.
     expect(JSON.parse(ban?.jsLiteral[0] ?? '')).toBe(value);
     expect(ban?.jsLiteral[0]).toMatch(/^".*"$/);
