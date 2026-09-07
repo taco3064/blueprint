@@ -1,11 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { scan } from '../inspect/scan';
-import { resolveSegments, stripAlias } from '../inspect/resolve';
+import { resolveSegments, scan, stripAlias } from '../inspect';
+import type { ImportRef, ScannedFile, ScanResult } from '../inspect';
 import { detect, detectAliases } from '../project';
 import type { PackageManager } from '../project';
-import type { ImportRef, ScannedFile, ScanResult } from '../inspect/types';
 import { renderSurvey } from './render';
 
 /**

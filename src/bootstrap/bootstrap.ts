@@ -1,4 +1,4 @@
-import { scan } from '../inspect/scan';
+import { scan } from '../inspect';
 import type { AgentTarget } from '../config';
 import {
   buildConfigSource,
