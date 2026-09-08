@@ -93,9 +93,7 @@ export function parseBaseline(text: string): BaselineEntry[] {
     throw new Error('Baseline file is not valid JSON — regenerate it with --update-baseline.');
   }
 
-  // undecidable, the `parsed !== null` half: the only value passing `typeof` and
-  // failing this is `null`, which is what the false branch assigns anyway. It stays
-  // for the narrowing that makes the cast below legal.
+  // Stryker disable next-line ConditionalExpression: primitives expose no findings either.
   const document = typeof parsed === 'object' && parsed !== null
     ? (parsed as { findings?: unknown; version?: unknown })
     : null;

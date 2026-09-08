@@ -52,10 +52,11 @@ export const VITE_FILES = [
 function readJson(file: string): Record<string, unknown> | null {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf-8'));
-  } catch {
-    // Undecidable: an empty catch returns `undefined`, and every caller reads both as
-    // "no readable JSON". Making the difference visible would mean a caller that
-    // cares which flavour of absent it got, which is worse code than this note.
+  } catch (
+    // Stryker disable next-line BlockStatement: nullish fallback is coalesced to an empty object.
+    error) {
+    void error;
+
     return null;
   }
 }

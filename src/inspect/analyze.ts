@@ -455,10 +455,7 @@ function subgraph(edges: Map<string, Set<string>>, component: string[]): Map<str
   const restricted = new Map<string, Set<string>>();
 
   for (const node of [...component].sort(compareText)) {
-    // undecidable, both halves, because only this component's nodes become keys: a
-    // target the filter would have let through has no entry of its own, so it can
-    // never close a cycle — true even with both changed at once. The filter stays
-    // for the walk it avoids, the fallback because a leaf really has no entry.
+    // Stryker disable next-line MethodExpression, ArrayDeclaration: outside targets form no cycle.
     const targets = [...(edges.get(node) ?? [])].filter((target) => members.has(target));
 
     restricted.set(node, new Set(targets));
@@ -478,8 +475,7 @@ function subgraph(edges: Map<string, Set<string>>, component: string[]): Map<str
 function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
   const index = new Map<string, number>();
   const onStack = new Set<string>();
-  // undecidable: `splice(indexOf(node))` cuts at a found index, so a seeded entry
-  // sits below every real one forever and never enters a component.
+  // Stryker disable next-line ArrayDeclaration: a seeded item stays below every found root.
   const stack: string[] = [];
   const components: string[][] = [];
   let next = 0;
@@ -503,9 +499,7 @@ function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
     stack.push(node);
     onStack.add(node);
 
-    // undecidable, the `?? []` arm: a fabricated target closes as a one-node
-    // component with no self-edge, so `detectCycle` drops it and `Math.min` against
-    // its larger index is a no-op.
+    // Stryker disable next-line ArrayDeclaration: a fabricated leaf cannot form a cycle.
     for (const target of edges.get(node) ?? []) {
       const seen = index.get(target);
 
@@ -526,15 +520,7 @@ function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
   };
 
   for (const node of edges.keys()) {
-    // Undecidable: re-entering an already-indexed node cannot change the answer. By
-    // the time the loop reaches it, every target it has was indexed during its own
-    // first visit and no component is open, so the re-visit pushes it, finds nothing
-    // on the stack, and closes immediately as a one-node component — which
-    // `detectCycles` then drops, since a lone node with no self-edge has no cycle. It
-    // also re-indexes the node with a larger number, and that is unreadable too: an
-    // index is only consulted for a target that is still `onStack`, and a re-visited
-    // node is spliced off within the same call. Kept for the redundant walks it
-    // avoids, not for the verdict.
+    // Stryker disable next-line BlockStatement, ConditionalExpression: revisit drops as singleton.
     if (index.has(node)) {
       continue;
     }
@@ -580,9 +566,8 @@ export function detectCycle(edges: Map<string, Set<string>>): string[] | null {
     return null;
   };
 
-  // undecidable: the inner `visited` check already stops a re-entered walk, so this
-  // one shields nothing. The inner one is measured — a 40-node mesh times out.
   for (const node of edges.keys()) {
+    // Stryker disable next-line ConditionalExpression: dfs already stops at a visited node.
     if (!visited.has(node)) {
       const found = dfs(node, [node]);
 

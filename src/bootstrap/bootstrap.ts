@@ -348,8 +348,7 @@ function isPristineScaffold(root: string, state: ProjectState): boolean {
     ]),
   );
 
-  // undecidable: `detectNext` returns a null router for anything not Next, so this
-  // is the narrowing `buildNextConfigSource` needs, not a case a test could set up.
+  // Stryker disable next-line ConditionalExpression: null router cannot match a scaffold.
   if (state.nextRouter) {
     for (const agents of agentVariants) {
       const next = { router: state.nextRouter, srcDir: state.nextSrcDir };

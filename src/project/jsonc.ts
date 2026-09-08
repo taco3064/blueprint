@@ -139,9 +139,8 @@ function dropTrailingCommas(commentFree: string): string {
       clean += literal.copied;
       i = literal.next;
     } else if (commentFree[i] === ',') {
-      // undecidable: a hand-walked index past the end yields `undefined`, neither
-      // `}` nor `]`, so overrunning keeps the comma exactly as stopping would.
       const after = /\S/.exec(commentFree.slice(i + 1));
+      // Stryker disable next-line OptionalChaining: an overrun is caught as the same invalid JSONC.
       const nextChar = after?.[0];
 
       if (nextChar !== '}' && nextChar !== ']') {

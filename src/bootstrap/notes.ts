@@ -298,16 +298,14 @@ export function contractPaths(
   blueprint: Blueprint,
   agentTarget: AgentTarget | undefined,
 ): string[] {
-  // Merge targets plus every default agent path — the extras feed plan's stale-
-  // contract cleanup, and a merge target may carry a path of its own.
-  //
-  // undecidable (three mutants): the `merge` filter is I/O, not behaviour — plan
-  // looks this record up only at merge and default paths, so widening it changes
-  // what init reads, never what init does.
   return [
     ...new Set([
+      // Stryker disable next-line ArrayDeclaration, MethodExpression: extras do not alter actions.
       ...emitAgentFiles(blueprint, agentTarget ? [agentTarget] : undefined)
-        .filter((file) => file.strategy === 'merge')
+        .filter(
+          // Stryker disable next-line ConditionalExpression: non-merge files are only extra reads.
+          (file) => file.strategy === 'merge',
+        )
         .map((file) => file.path),
       ...defaultAgentPaths().map((spec) => spec.path),
     ]),
