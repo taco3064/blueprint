@@ -105,7 +105,9 @@ Acceptance — `blueprint doctor` passes, plus:
 ```
 
 `--authoring` guarantees the playbook is written even on a small repo (plain `init`
-below the file-count threshold scaffolds a preset instead — no playbook). Each
+below the file-count threshold scaffolds a preset instead — no playbook). A zero-file
+multi-app workspace is not a starter verdict: choose an application with `survey
+--source-root` before applying the threshold. Each
 acceptance clause maps to an incomplete state seen in field testing: half-done
 integration, gates never run, debt payments mixed into adoption. Two clauses
 resolve vacuously and that is fine: a repo with no tests passes the tests

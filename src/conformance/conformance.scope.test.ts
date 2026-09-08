@@ -13,6 +13,13 @@ const repo = (files: Record<string, string>): string => {
   return dir;
 };
 
+const multiAppRepo = (): string => repo({
+  'apps/admin/package.json': '{"name":"admin"}',
+  'apps/admin/src/main.ts': 'export const admin = true;\n',
+  'apps/web/package.json': '{"name":"web"}',
+  'apps/web/src/main.ts': 'export const web = true;\n',
+});
+
 afterEach(() => {
   while (dirs.length) {
     rm(dirs.pop() as string);
@@ -93,12 +100,7 @@ describe('brownfield project scope conformance (#422)', () => {
   });
 
   it('requires an application source root before authoring in a multi-app workspace', async () => {
-    const dir = repo({
-      'apps/admin/package.json': '{"name":"admin"}',
-      'apps/admin/src/main.ts': 'export const admin = true;\n',
-      'apps/web/package.json': '{"name":"web"}',
-      'apps/web/src/main.ts': 'export const web = true;\n',
-    });
+    const dir = multiAppRepo();
 
     const survey = await cli(dir, ['survey', '--json']);
 
@@ -117,5 +119,19 @@ describe('brownfield project scope conformance (#422)', () => {
     expect(init.output).toContain('--source-root <application>/src');
     expect(init.output).toContain('not a starter verdict');
     expect(init.output).not.toContain('early exit the playbook prescribes IS completion');
+  });
+
+  it('qualifies the threshold claim in forced authoring output and help', async () => {
+    const dir = multiAppRepo();
+
+    const forced = await cli(dir, ['init', '--authoring', '--dry-run', '--no-install']);
+
+    expect(forced.code).toBe(0);
+    expect(forced.output).not.toContain('playbook\'s own verdict will be the early exit');
+
+    const help = await cli(dir, ['init', '--help']);
+
+    expect(help.output).toContain('zero-file workspace survey is not a starter verdict');
+    expect(help.output).toContain('multi-app workspace must choose --source-root first');
   });
 });

@@ -96,6 +96,7 @@ prompt 只要釘住「怎樣算完成」：
 ```
 
 `--authoring` 保證即使在小 repo 上也會產出 playbook（純 `init` 在檔數低於門檻時會改建 preset、不產 playbook）。<br>
+多 application workspace 的零檔案結果不是 starter 判定；套用門檻前，必須先以 `survey --source-root` 選定 application。<br>
 三條驗收各自對應實測中出現過的未完成狀態：整合只做一半、檢核沒跑完、把還債混進導入。<br>
 有兩條在特定 repo 上會「空泛地成立」而且這樣就對了：<br>
 沒有測試的 repo，「原有測試都過」直接成立、不用去補 test runner；<br>
