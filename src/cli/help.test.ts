@@ -41,6 +41,7 @@ describe('per-command help', () => {
 
     expect(await run(['inspect', '-h'])).toBe(0);
     expect(log.mock.calls[1][0]).toContain('read-only architecture report');
+    expect(log.mock.calls[1][0]).toContain('architecture.sourceRoot (src/ by default)');
     log.mockRestore();
   });
 

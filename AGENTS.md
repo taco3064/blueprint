@@ -18,6 +18,10 @@ substitute first-principles reasoning for what it says.
 | [`.agents/docs/mutation-testing.md`](./.agents/docs/mutation-testing.md) | **Trigger:** running or reading `npx stryker run`; judging a survivor; adding a test because a sweep called something untested. Survivor proofs as `// Stryker disable next-line` directives, why the full sweep is the authority, how to read both scores, and where the `StringLiteral` exclusion draws its boundary. |
 | [`.agents/docs/field-triage.md`](./.agents/docs/field-triage.md) | **Trigger:** running `npm run field:run`; triaging a `field-run` issue; writing or rewording any prose an adopting agent reads (playbook / CLI output / contract); cutting a release. Harness flags, the triage flow, the two questions before the wording — can the tool compute this, and how many other instances are there — and the release sequence, including the one step no workflow gate covers. |
 
+Repository workflows live under [`.agents/skills/`](./.agents/skills/). Use
+`audit-docs` when checking whether published guides, CLI help, the public API,
+translations, generated examples, and runtime output still describe the same product.
+
 ## Module shape (enforced by convention, checked in review)
 
 - **One module = one folder** with a single public entry `index.ts`. The

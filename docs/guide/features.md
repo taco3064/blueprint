@@ -9,7 +9,7 @@ to see how to use it.
 - [`init` — brownfield authoring](/guide/ai-adoption#the-flow) — on a repo with code but no config, writes an executable authoring playbook instead of guessing a preset
 - [`init --agent claude|codex`](/guide/ai-adoption) — launches your own agent CLI on that playbook; it derives the config from evidence and iterates until every finding is explainable
 - [`survey`](/guide/ai-adoption#why-the-survey-matters) — deterministic repo evidence: folder shapes, the import matrix, package concentration — the raw material for authoring a config
-- [`inspect`](/guide/getting-started#brownfield-—-blueprint-inspect) — scans `src/` against the blueprint and lists every violation; any error-level finding exits 1 — gate on it anywhere (a git hook, CI, whatever you run)
+- [`inspect`](/guide/getting-started#brownfield-—-blueprint-inspect) — scans the configured `architecture.sourceRoot` (`src/` by default) against the blueprint and lists every violation; any error-level finding exits 1 — gate on it anywhere (a git hook, CI, whatever you run)
 - [`inspect --baseline`](/guide/getting-started#brownfield-—-blueprint-inspect) — the brownfield ratchet: lock today's debt, fail only on *new* findings, tighten as debt is paid down
 - [`impact`](/guide/ai-adoption#decide-conflicts-on-numbers-—-blueprint-impact) — dry-run the emitted lint rules through the project's own ESLint: hits per rule, heaviest files named — rule conflicts decided on numbers, before wiring
 - [`deps`](/guide/deps) — blast radius per module: who gets hit if I change this, plus the fan-in leaderboard
