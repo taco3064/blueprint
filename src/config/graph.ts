@@ -41,10 +41,10 @@ export function getForbiddenLayers(architecture: ArchitectureDef, layerName: str
     .map((layer) => layer.name);
 }
 
-/** An alias paired with the path segments between its target and the layer folders. */
+/** An alias paired with the path segments between its target and the source root. */
 export interface AliasRoot {
   alias: string;
-  /** Segments to cross from the alias target to reach the layers, e.g. `['src']`. */
+  /** Segments to cross from the alias target down to the source root. */
   prefix: string[];
   /** Segments the alias target contributes below the source root. */
   prepend?: string[];
@@ -75,42 +75,44 @@ export function aliasRoot(alias: string, target: string, sourceRoot: string): Al
   return null;
 }
 
-export function aliasSpecifier(root: AliasRoot | string, layer: string): string | null {
+export function aliasSpecifier(
+  root: AliasRoot | string,
+  layer: string,
+  module?: string,
+): string | null {
+  const path = module === undefined ? [layer] : [module, layer];
+
   if (typeof root === 'string') {
-    return `${root}/${layer}`;
+    return [root, ...path].join('/');
   }
 
-  if (root.prepend?.length) {
-    return root.prepend[0] === layer ? root.alias : null;
+  const prepend = root.prepend ?? [];
+
+  if (prepend.length) {
+    if (!prepend.every((segment, index) => path[index] === segment)) {
+      return null;
+    }
+
+    return [root.alias, ...path.slice(prepend.length)].join('/');
   }
 
-  return [root.alias, ...root.prefix, layer].join('/');
+  return [root.alias, ...root.prefix, ...path].join('/');
 }
 
 function dirSegments(dir: string): string[] {
-  return dir.split('/').filter((segment) => segment !== '' && segment !== '.');
+  return dir.split(/[\\/]/).filter((segment) => segment !== '' && segment !== '.');
 }
 
-export function getSharedModule(
-  architecture: ArchitectureDef,
-): { layout: 'folder' | 'flat'; entry: string; private: string[] } {
-  return {
-    layout: architecture.module?.layout ?? 'flat',
-    entry: architecture.module?.entry ?? 'index',
-    private: architecture.module?.private ?? [],
-  };
-}
-
-export function getModuleShape(
+/** Unit shape inside one layer. */
+export function getUnitShape(
   architecture: ArchitectureDef,
   layerName: string,
-): { layout: 'folder' | 'flat'; entry: string } {
+): { layout: 'folder' | 'file'; entry: string } {
   const layer = architecture.layers.find((candidate) => candidate.name === layerName);
-  const shared = getSharedModule(architecture);
 
   return {
-    layout: layer?.module?.layout ?? shared.layout,
-    entry: layer?.module?.entry ?? shared.entry,
+    layout: layer?.layout ?? 'file',
+    entry: layer?.entry ?? 'index',
   };
 }
 
