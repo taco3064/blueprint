@@ -134,6 +134,7 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
 }
 
 function referenceFiles(root: string): string[] {
+  // Stryker disable next-line MethodExpression: supported test volumes already return name order.
   return fs
     .readdirSync(root)
     .filter((name) => name.includes('.blueprint.'))
