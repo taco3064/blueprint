@@ -47,7 +47,7 @@ export interface AuthoringOptions {
    * the playbook states it as fact, so no caller may leave it unstated.
    */
   claudeDir: ClaudeDirState;
-  /** Measured `tsc -b` coverage of the vite config; null when undecidable. */
+  /** Measured `tsc -b` coverage of the vite config; null when it cannot be determined. */
   viteTs: ViteTsCoverage | null;
   /**
    * Where `tsc -b` keeps its build info when it provably writes nothing into the

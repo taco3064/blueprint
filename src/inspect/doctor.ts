@@ -127,8 +127,8 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
   const { alias, additionalAliases, sourceRoot } = blueprint.architecture;
   const declared = pathAliasKeys(state.tsconfigs);
 
-  // Built without holes rather than filtered afterwards: the filter was a compiler
-  // narrowing and undecidable at runtime. Both guards below decide something —
+  // Built without holes rather than filtered afterwards: the filter was only a
+  // compiler narrowing at runtime. Both guards below decide something —
   // `readFileSync` throws on a missing file, and dropping the vite arm makes an
   // alias wired only in vite.config.ts read as wired nowhere.
   const bundlerTexts = BUNDLER_FILES.map((file) => path.join(root, file))
@@ -171,12 +171,13 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
 /**
  * Reference files are named `<name>.blueprint.<ext>` — never the config itself.
  *
- * The `.sort()` is undecidable: `readdirSync` already answers in name order on the
+ * The `.sort()` is unobservable: `readdirSync` already answers in name order on the
  * volumes a test can run on, so the guarantee it provides elsewhere is unobservable
  * here. `DoctorOptions` is public API, so an injected reader would be adopter-facing
  * surface for a test concern — this keeps the sort instead.
  */
 function referenceFiles(root: string): string[] {
+  // Stryker disable next-line MethodExpression: supported test volumes already return name order.
   return fs
     .readdirSync(root)
     .filter((name) => name.includes('.blueprint.'))

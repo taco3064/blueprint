@@ -22,7 +22,7 @@ function parseAgent(value: string | undefined): AgentKind | undefined {
 /**
  * Every flag parser below walks a copy of argv as a queue, taking a value flag's
  * value with a second `shift()`. Not an index loop with `args[++i]`: that leaves the
- * bound undecidable, since one past the end is `undefined` and the loop exits having
+ * bound unobservable, since one past the end is `undefined` and the loop exits having
  * done nothing either way. A queue has no index to get wrong.
  */
 
