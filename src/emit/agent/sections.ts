@@ -31,21 +31,12 @@ function claudePrinciples(principles: PrincipleDef[] | undefined): PrincipleDef[
   return principles.filter((principle) => principle.land === 'claude');
 }
 
-/** A gate as either contract names it: the id, plus the option where the setting has one. */
 function gateLabel([id, setting]: [string, RuleSetting]): string {
   const value = readSetting(setting).value;
 
   return `\`${id}\`${value === undefined ? '' : ` = ${value}`}`;
 }
 
-/**
- * The error-tier rules this blueprint can actually gate on this stack — one answer,
- * read by both contracts. A gate that cannot emit here is excluded, or the contract
- * makes a false claim about the reader's own repo (field run #150); asked twice it is
- * two renderers that can disagree, which is the shape `unavailableGate` itself records.
- *
- * No `LINT_GATED_RULE_IDS` pre-filter: `enforcedBy` answers `docs` off that list anyway.
- */
 function emittableGates(blueprint: Blueprint, stack: StackFacts): [string, RuleSetting][] {
   const { architecture, framework, rules } = blueprint;
 
@@ -58,21 +49,12 @@ function emittableGates(blueprint: Blueprint, stack: StackFacts): [string, RuleS
   );
 }
 
-/**
- * What an inspect-held gate is named as — one text at both call sites, because two
- * phrasings of one fact is the contradiction an adopter meets before we do. `cycles` is
- * lint-gated by id while its runtime is `inspect`, so a list that leaves it among what
- * lint fails on promises lint catches cycles (field issue #52). The singular verb is
- * pinned by this module's tests — exactly one declared rule is inspect-held, so a plural
- * arm is unreachable.
- */
 function inspectDiagnosisClause(gates: string): string {
   return `${gates} is diagnosed only when \`npx blueprint inspect --baseline\` runs; `
     + 'the baseline grandfathers recorded findings, so this is not continuous '
     + 'edit-time prevention and a green lint says nothing about it';
 }
 
-/** Contract heading + provenance. Uses `##` so it can nest inside CLAUDE.md. */
 export function renderHeader(): string {
   return [
     '## Architecture contract (generated from blueprint)',
@@ -84,24 +66,13 @@ export function renderHeader(): string {
   ].join('\n');
 }
 
-/** The discipline document shipped inside the package, linked as `[path](path)`. */
 const CONTRACT_DOC = 'node_modules/@kekkai/blueprint/agent-contract.md';
 
-/**
- * The compact pointer block for shared context files (CLAUDE.md, AGENTS.md,
- * GEMINI.md, copilot). One screen of project facts; the bulk lives behind two
- * links — the generated handbook (project half) and the discipline document
- * shipped inside the package (generic half). Tool-owned rule files
- * (Cursor/Windsurf) still carry the full contract: they are generated files,
- * not documents a person maintains.
- */
 export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = {}): string {
   const { architecture } = blueprint;
   const chain = architecture.layers.map((layer) => `\`${layer.name}\``).join(' → ');
   const handbook = handbookPath(blueprint);
 
-  // Split by WHICH machine holds each gate: an undivided list promises that lint
-  // catches cycles (field issue #52).
   const declared = emittableGates(blueprint, stack);
   const lintGates = declared.filter(([id]) => enforcedBy(id) === 'lint').map(gateLabel);
   const inspectGates = declared.filter(([id]) => enforcedBy(id) === 'inspect').map(gateLabel);
@@ -122,20 +93,13 @@ export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = 
     + `and the pre-commit checklist: read [${CONTRACT_DOC}](${CONTRACT_DOC}) `
     + '(ships inside the package — present once dependencies are installed, '
     + 'always matching the installed version).',
-    // Names the gates' REACH as a clause, not a second line: every other CLI surface
-    // marks an empty net as vacuous, and this contract is the one artifact read with
-    // no CLI output beside it. "the project's lint run", never `npm run lint` — the
-    // runner is a repo fact this emitter cannot see (field run #141).
+
     `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectDiagnosisClause(inspectGates.join(', '))}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
-    // --baseline, or the verify loop stays red forever on locked brownfield debt
-    // (field issue #10). Both remedies are named, and whose each is: told only "move
-    // the code", an agent contorts it into an existing layer instead of reporting
-    // that the architecture outgrew the config.
+
     `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a module of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.`,
   ].join('\n');
 }
 
-/** One-liner orientation: framework, alias, layer order. */
 export function renderContext(blueprint: Blueprint): string {
   const { framework, architecture } = blueprint;
   const chain = architecture.layers.map((layer) => `\`${layer.name}\``).join(' → ');
@@ -148,7 +112,6 @@ export function renderContext(blueprint: Blueprint): string {
   ].join('\n');
 }
 
-/** Per-layer placement directives + the module shape rule. */
 export function renderPlacement(architecture: ArchitectureDef): string {
   const lines = architecture.layers.map((layer) => {
     const parts = [`- \`${sourcePath(architecture, layer.name)}/\` — ${layer.does}.`];
@@ -192,10 +155,6 @@ export function renderPlacement(architecture: ArchitectureDef): string {
         : `- Exception — \`${sourcePath(architecture, layer.name)}/\`: one file per module (flat).`;
     });
 
-  // Reporting instruction, not a third remedy. An agent that learns "files matching
-  // these globs are exempt from placement", while under pressure to get a gate green,
-  // has been handed a rename-to-escape route — the same move the contract already
-  // forbids next door ("never relocate the violation to a sibling").
   const testGlobs = resolveTestFiles(architecture.testFiles);
 
   const exemptLine = testGlobs.length
@@ -212,7 +171,6 @@ export function renderPlacement(architecture: ArchitectureDef): string {
   ].join('\n');
 }
 
-/** Naming conventions as directives. */
 export function renderNaming(naming: Record<string, string> | undefined): string {
   const entries = Object.entries(naming ?? {});
 
@@ -227,7 +185,6 @@ export function renderNaming(naming: Record<string, string> | undefined): string
   ].join('\n');
 }
 
-/** The lint-enforced rules, phrased as imperatives, + how to react to a failure. */
 export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): string {
   const { architecture } = blueprint;
   const bullets = ['- Import only from downstream layers — never upstream, never the same layer.'];
@@ -250,10 +207,6 @@ export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): s
     '- Relative imports stay inside their module; no redundant segments (`./../`, `././`).',
   );
 
-  // Only rules a machine actually gates may be called hard — anything else here would
-  // be a promise the tooling does not keep, and "which machine" is the second half of
-  // that: a gate lint does not hold is named with its real holder rather than dropped,
-  // or an error-tier declaration leaves this document with no cause given for it.
   for (const [id, setting] of emittableGates(blueprint, stack)) {
     const held = enforcedBy(id);
     const gate = gateLabel([id, setting]);
@@ -275,7 +228,6 @@ export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): s
   return ['### Machine checks', '', ...bullets].join('\n');
 }
 
-/** The component-shape axes as terse directives — each judged independently. */
 export function renderComponentShape(axes: AxisDef[] | undefined): string {
   if (!axes?.length) {
     return '';
@@ -298,7 +250,6 @@ export function renderComponentShape(axes: AxisDef[] | undefined): string {
   ].join('\n');
 }
 
-/** Rules no tool can catch — the agent is the only gate. */
 export function renderBehavioral(
   architecture: ArchitectureDef,
   principles: PrincipleDef[] | undefined,
@@ -332,7 +283,6 @@ export function renderBehavioral(
   ].join('\n');
 }
 
-/** The working playbook as terse directives, one block per theme. */
 export function renderPlaybook(playbook: PlaybookSection[] | undefined): string {
   if (!playbook?.length) {
     return '';
@@ -354,7 +304,6 @@ export function renderPlaybook(playbook: PlaybookSection[] | undefined): string 
   ].join('\n');
 }
 
-/** A short pre-commit checklist, growing with the blueprint's data. */
 export function renderChecklist(blueprint: Blueprint): string {
   const { architecture, principles } = blueprint;
 

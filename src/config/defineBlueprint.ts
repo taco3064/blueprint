@@ -50,11 +50,6 @@ const LAYER_KEYS = [
   'lintOverrides',
 ];
 
-/**
- * Misplaced keys pointed at their real home, keyed by the key rather than by the
- * object it turned up on: the exact field shape validated fine on the layer, was
- * silently dead, and the intended re-export ban never emitted (field issue #14).
- */
 const MISPLACED_KEYS: Record<string, string> = {
   selfOnly: 'selfOnly lives on an allowedImporters ENTRY, naming the importing layer: '
     + 'allowedImporters: [{ layer: \'views\', selfOnly: true }]',
@@ -113,14 +108,12 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
   return bp;
 }
 
-/** `name` is optional, but an empty one is a typo rather than a choice. */
 function validateName(name: string | undefined): void {
   if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
     throw new Error('name must be a non-empty string when provided.');
   }
 }
 
-/** The architecture block: its own keys, then each part that has its own rules. */
 function validateArchitecture(architecture: ArchitectureDef | undefined): void {
   if (!architecture || !Array.isArray(architecture.layers)) {
     throw new Error('architecture.layers must be an array.');
@@ -144,7 +137,6 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
   validateLayerFiles(layerFiles);
 }
 
-/** Each layer in declaration order — the order the "declared before" rule reads. */
 function validateLayers(layers: LayerDef[]): void {
   const names = new Set<string>();
 
@@ -154,31 +146,24 @@ function validateLayers(layers: LayerDef[]): void {
     validateOwns(layer);
     validateLayerModule(layer);
     validateLintOverrides(layer);
-    // `names` holds only earlier layers here, so requiring importers to be in
-    // it enforces "declared before" — which keeps the flow one-way and acyclic.
+
     validateAllowedImporters(layer, names);
     names.add(layer.name);
   }
 }
 
-/** A layer name becomes a folder, a file glob, and a diagram node id. */
 function validateLayerName(layer: LayerDef, earlier: Set<string>): void {
   if (typeof layer?.name !== 'string' || !layer.name.trim()) {
     throw new Error('Each layer must have a non-empty name.');
   } else if (earlier.has(layer.name)) {
     throw new Error(`Duplicate layer name: "${layer.name}".`);
   } else if (/[*?{}[\]\\/]/.test(layer.name)) {
-    // A layer name is substituted into every file glob and scaffolded as a folder,
-    // so a `*` name turns each net into a wildcard and creates a literal `src/*/`.
-    // Root files are wiring; their lint belongs to the project's own eslint.
     throw new Error(
       `Layer "${layer.name}" contains glob or path characters — layer names become `
       + 'file globs and folders. Root files are wiring, not a layer: leave their '
       + 'hygiene to the project\'s own lint instead of widening the net.',
     );
   } else if (/[\s"'()<>|;%&]/.test(layer.name)) {
-    // Whitespace, quotes, parens, `&` (node join), `%` (comment), and friends
-    // silently corrupt the emitted diagram — fail loud here instead.
     throw new Error(
       `Layer "${layer.name}" contains characters that corrupt emitted artifacts `
       + '— a layer name becomes a folder, a file glob, and a diagram node. '
@@ -187,10 +172,6 @@ function validateLayerName(layer: LayerDef, earlier: Set<string>): void {
   }
 }
 
-/**
- * Optional in whole: the flat default is applied at read time, so a config that
- * never mentions `module` is complete (field issue #23).
- */
 function validateModule(module: ModuleDef | undefined): void {
   if (module === undefined) {
     return;
@@ -217,7 +198,6 @@ function validateModule(module: ModuleDef | undefined): void {
   rejectUnknownKeys(module, ['layout', 'entry', 'private'], 'architecture.module');
 }
 
-/** Every extra alias maps a non-empty name to a non-empty target. */
 function validateAdditionalAliases(aliases: Record<string, string> | undefined): void {
   if (aliases === undefined) {
     return;
@@ -235,7 +215,6 @@ function validateAdditionalAliases(aliases: Record<string, string> | undefined):
   }
 }
 
-/** A layer glob with no `{layer}` in it matches one fixed path for every layer. */
 function validateLayerFiles(layerFiles: string | string[] | undefined): void {
   const globs = layerFiles === undefined ? [] : [layerFiles].flat();
 
@@ -246,7 +225,6 @@ function validateLayerFiles(layerFiles: string | string[] | undefined): void {
   }
 }
 
-/** The `emit` block and each agents entry inside it. */
 function validateEmit(emit: EmitDef | undefined): void {
   if (emit === undefined) {
     return;
@@ -265,7 +243,6 @@ function validateEmit(emit: EmitDef | undefined): void {
   }
 }
 
-/** Every entry needs a non-empty id, and no two entries may share one. */
 function validateUniqueIds(items: { id: string }[], subject: string): void {
   const seen = new Set<string>();
 
@@ -280,7 +257,6 @@ function validateUniqueIds(items: { id: string }[], subject: string): void {
   }
 }
 
-/** Titled sections whose rule ids are unique across the whole playbook. */
 function validatePlaybook(bp: Blueprint): void {
   const ids = new Set<string>();
 
@@ -301,7 +277,6 @@ function validatePlaybook(bp: Blueprint): void {
   }
 }
 
-/** Every declared rule carries one of the three tiers. */
 function validateRuleTiers(rules: Blueprint['rules']): void {
   for (const [id, setting] of Object.entries(rules ?? {})) {
     if (!VALID_TIERS.includes(resolveTier(setting))) {
@@ -310,10 +285,7 @@ function validateRuleTiers(rules: Blueprint['rules']): void {
   }
 }
 
-/** `usePrefix` must target a declared layer (default `hooks`) — unless it is off. */
 function validateUsePrefix(bp: Blueprint): void {
-  // A rule that never emits has no target to validate (field batch 8). No separate
-  // `undefined` guard: `activeSetting` answers null for an absent setting too.
   const read = activeSetting(bp.rules?.usePrefix);
 
   if (read === null) {
@@ -329,13 +301,6 @@ function validateUsePrefix(bp: Blueprint): void {
   }
 }
 
-/**
- * Normalize the mixed `emit.agents` list. An explicit config always wins;
- * `defaultTargets` replaces the built-in default (`claude` + `agents`) when
- * the config is silent — e.g. `init --agent claude` narrows to the one tool
- * actually in use.
- * @internal
- */
 export function normalizeAgentEmit(
   agents: (AgentTarget | AgentEmitEntry)[] | undefined,
   defaultTargets?: AgentTarget[],
@@ -345,7 +310,6 @@ export function normalizeAgentEmit(
   );
 }
 
-/** Each agents entry must name a known target, at most once, with a non-empty path. */
 function validateAgentEmit(bp: Blueprint): void {
   const seen = new Set<string>();
 
@@ -364,11 +328,6 @@ function validateAgentEmit(bp: Blueprint): void {
   }
 }
 
-/**
- * A key the schema does not know is a silently dead declaration — the author
- * believes a constraint is active while nothing compiles from it (field issue #14).
- * Fail loud, and point misplaced keys home.
- */
 function rejectUnknownKeys(value: object, allowed: string[], where: string): void {
   for (const key of Object.keys(value)) {
     if (allowed.includes(key)) {
@@ -382,7 +341,6 @@ function rejectUnknownKeys(value: object, allowed: string[], where: string): voi
   }
 }
 
-/** Validate a layer's `owns` list — each entry is a package, global, or shorthand. */
 function validateOwns(layer: LayerDef): void {
   if (!layer.owns) {
     return;
@@ -407,7 +365,6 @@ function validateOwns(layer: LayerDef): void {
   }
 }
 
-/** A layer's `module` override may only narrow layout / entry, both well-formed. */
 function validateLayerModule(layer: LayerDef): void {
   const override = layer.module;
 
@@ -431,7 +388,6 @@ function validateLayerModule(layer: LayerDef): void {
   }
 }
 
-/** Each allowed importer must be a distinct layer declared before this one. */
 function validateAllowedImporters(layer: LayerDef, earlier: Set<string>): void {
   const seen = new Set<string>();
 
@@ -460,7 +416,6 @@ function validateAllowedImporters(layer: LayerDef, earlier: Set<string>): void {
   }
 }
 
-/** The Enforce emitter owns the three managed rules; overriding them is rejected. */
 function validateLintOverrides(layer: LayerDef): void {
   for (const rule of Object.keys(layer.lintOverrides ?? {})) {
     if (MANAGED_RULES.includes(rule)) {
@@ -471,12 +426,6 @@ function validateLintOverrides(layer: LayerDef): void {
   }
 }
 
-/**
- * Normalize a rule setting to its tier string. Not `readSetting`: this runs during
- * validation, where the setting is whatever a hand-written config put there —
- * including null, which the optional chain turns into a precise error rather than a
- * property crash.
- */
 function resolveTier(setting: RuleSetting): string {
   return typeof setting === 'string' ? setting : setting?.tier;
 }

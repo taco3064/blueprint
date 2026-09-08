@@ -26,13 +26,11 @@ export interface NextPresetOptions extends PresetOptions {
   srcDir?: boolean;
 }
 
-/** Framework-specific primitive ownership. */
 interface FrameworkOwns {
   hooks: OwnedPrimitive[];
   contexts: OwnedPrimitive[];
 }
 
-/** Build a fresh, validated Blueprint. Every call returns an independent object. */
 function preset(framework: Framework, owns: FrameworkOwns, options: PresetOptions): Blueprint {
   return defineBlueprint({
     name: options.name,
@@ -90,23 +88,19 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
     playbook: playbook(),
     rules: {
       maxLines: { tier: 'error', value: 400 },
-      // SRP triage — entry points only, never verdicts (handbook axes #2/#3).
+
       maxLinesPerFunction: { tier: 'warn', value: 100 },
       maxParams: { tier: 'warn', value: 3 },
       maxStatements: { tier: 'warn', value: 15 },
       complexity: { tier: 'warn', value: 12 },
       unusedVars: 'error',
-      // `any` is the cheapest way to widen an interface past the point where
-      // illegal states are unrepresentable (principle: narrow-interfaces).
+
       explicitAny: 'error',
-      // ESLint owns formatting here — there is no second formatter to
-      // coordinate with, and a red line is the agent's own repair signal.
+
       codeStyle: 'error',
-      // Pins what a "line" means for maxLines above — without it the budget
-      // is satisfiable by collapsing statements onto one line.
+
       statementsPerLine: 'error',
-      // Statement grouping is what a reader (human or agent) reads when
-      // deciding where a unit splits.
+
       statementPadding: 'error',
       importBlock: 'error',
       fixtureImports: 'error',
@@ -114,11 +108,11 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
       deadCode: 'error',
       usePrefix: 'error',
       testFilename: 'error',
-      // warn — composing-only hooks are a known false positive (handbook caveat).
+
       usePrefixReactivity: 'warn',
-      // Attached to .js files only; TS projects are unaffected by construction.
+
       typedefOnlyFile: 'warn',
-      // Deep watch is a Vue cost trap; React has no equivalent call to gate.
+
       ...(framework === 'vue' ? { deepWatch: 'error' as const } : {}),
     },
     emit: options.emit,

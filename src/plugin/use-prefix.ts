@@ -1,11 +1,5 @@
 import type { Rule } from 'eslint';
 
-/**
- * Exported functions in the layer this rule is attached to must carry the
- * hook prefix (`useX` by default). Only function-shaped named exports are
- * checked — types, plain constants, and re-export specifiers cannot be proven
- * hooks statically, so they pass rather than risk false positives.
- */
 export const usePrefix: Rule.RuleModule = {
   meta: {
     type: 'suggestion',

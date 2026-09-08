@@ -1,12 +1,6 @@
 import type { Rule } from 'eslint';
 import type { Literal, ObjectExpression, Property } from 'estree';
 
-/**
- * Disallow `watch(source, cb, { deep: true })` (Vue composition API). A deep
- * watch traverses the whole source on every change — cost = work × frequency,
- * and the frequency is invisible at the call site. Only the literal options
- * argument is checked; an options identifier cannot be proven deep statically.
- */
 export const noDeepWatch: Rule.RuleModule = {
   meta: {
     type: 'problem',
@@ -44,7 +38,6 @@ export const noDeepWatch: Rule.RuleModule = {
   },
 };
 
-/** The `deep: <truthy literal>` property of an options object, if present. */
 function findDeepTrue(options: ObjectExpression): Property | undefined {
   return options.properties.find(
     (prop): prop is Property =>
@@ -59,7 +52,6 @@ function findDeepTrue(options: ObjectExpression): Property | undefined {
   );
 }
 
-// A non-computed property key is always an Identifier or a Literal.
 function keyName(prop: Property): string {
   return prop.key.type === 'Identifier' ? prop.key.name : String((prop.key as Literal).value);
 }
