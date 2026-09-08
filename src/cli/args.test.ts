@@ -93,8 +93,10 @@ describe('parseInitArgs · authoring flags', () => {
 });
 
 describe('parseSurveyArgs', () => {
-  it('parses --json and --alias', () => {
-    expect(parseSurveyArgs(['--json', '--alias', '@'])).toEqual({ json: true, alias: '@' });
+  it('parses --json, --alias, and --source-root', () => {
+    expect(parseSurveyArgs(['--json', '--alias', '@', '--source-root', 'apps/web/src']))
+      .toEqual({ json: true, alias: '@', sourceRoot: 'apps/web/src' });
+
     expect(parseSurveyArgs(['--wat'])).toEqual({});
   });
 });

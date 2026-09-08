@@ -355,7 +355,7 @@ describe('run · flag validation reaches the right arguments', () => {
       JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
     );
 
-    await run(['survey', '--alias', '~app', '--json'], root);
+    await run(['survey', '--alias', '~app', '--source-root', 'src', '--json'], root);
     await run(['doctor', '--json'], root);
     await run(['deps', '--json', '--framework', 'vue'], root);
     await run(['impact', '--json'], root);

@@ -26,6 +26,13 @@ npx @kekkai/blueprint survey          # 供人閱讀的報告
 npx @kekkai/blueprint survey --json   # 供工具或 Agent 讀取
 ```
 
+若 workspace 包含多個 application，survey 會要求指定範圍，不會把 workspace 根目錄
+誤判成 starter。請針對要導入的 application 重新執行：
+
+```bash
+npx @kekkai/blueprint survey --source-root apps/web/src
+```
+
 - 頂層資料夾清單與**模組形狀證據**（`index` 檔覆蓋率、巢狀深度 —— 作為判斷資料夾式或扁平式模組的依據）
 - **資料夾之間的匯入關係矩陣**，依匯入次數由高至低排列 ——<br>
   呈現設計意圖中的依賴方向，以及屬於債務的逆向依賴（矩陣含測試檔；`inspect` 會把 glob 掃得到的那些排除掉，所以 inspect 的數字會少掉這一段）

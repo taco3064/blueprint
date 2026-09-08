@@ -39,6 +39,56 @@ function instructions(actions: Action[]): string {
 }
 
 describe('aliasActions · nested application toolchain', () => {
+  it('does not patch a solution config when its referenced app already owns the alias', () => {
+    write('tsconfig.json', JSON.stringify({
+      files: [],
+      references: [{ path: './config/ts/tsconfig.app.json' }],
+    }));
+
+    write('config/ts/tsconfig.app.json', JSON.stringify({
+      compilerOptions: { baseUrl: '../..', paths: { '@/*': ['./*'] } },
+      include: ['../../app', '../../features'],
+    }));
+
+    const actions = aliasActions(detect(root), {
+      ...architecture,
+      alias: '@',
+      sourceRoot: '.',
+    });
+
+    expect(actions.some((action) => action.kind === 'write' && action.path.endsWith('.json')))
+      .toBe(false);
+  });
+
+  it('falls back to the solution config when its reference cannot be read', () => {
+    write('tsconfig.json', JSON.stringify({
+      files: [],
+      references: [{ path: './config/ts/missing.json' }],
+    }));
+
+    const actions = aliasActions(detect(root), architecture);
+
+    expect(actions.some((action) => action.kind === 'write' && action.path === 'tsconfig.json'))
+      .toBe(true);
+  });
+
+  it('patches a readable referenced config instead of the solution config', () => {
+    write('tsconfig.json', JSON.stringify({
+      files: [],
+      references: [{ path: './config/ts/tsconfig.app.json' }],
+    }));
+
+    write('config/ts/tsconfig.app.json', JSON.stringify({ compilerOptions: {} }));
+
+    const actions = aliasActions(detect(root), architecture);
+
+    expect(actions.some((action) => action.kind === 'write'
+      && action.path === 'config/ts/tsconfig.app.json')).toBe(true);
+
+    expect(actions.some((action) => action.kind === 'write' && action.path === 'tsconfig.json'))
+      .toBe(false);
+  });
+
   it('uses the application tsconfig and names its delegated Vite config', () => {
     write('tsconfig.json', JSON.stringify({ compilerOptions: {} }));
 

@@ -5,7 +5,7 @@ import { aliasRoot } from '../config';
 import type { AliasRoot } from '../config';
 import { resolveSegments, scan, stripAlias } from '../inspect';
 import type { ImportRef, ScannedFile, ScanResult } from '../inspect';
-import { detect, detectAliases, surveyScope } from '../project';
+import { detect, detectAliases, surveyScope, toolchainForSource } from '../project';
 import type { PackageManager } from '../project';
 import { renderSurvey } from './render';
 
@@ -52,6 +52,8 @@ export interface SurveyResult {
   sourceRoot?: string;
   /** Scope boundary or inference the adopter must account for. */
   scopeNote?: string;
+  /** Multiple application roots were found, so authoring needs an explicit scope. */
+  scopeRequired?: boolean;
   /** Detected (or overridden) import aliases that target `src/`. */
   aliases: Record<string, string>;
   /** Source files directly under `src/` (entry wiring, not layer code). */
@@ -167,7 +169,7 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
 
   const aliases = options.alias
     ? { [options.alias]: sourceRoot }
-    : detectAliases(state.tsconfigs);
+    : detectAliases(toolchainForSource(root, sourceRoot).tsconfigs);
 
   const structuralAliases = Object.entries(aliases)
     .map(([alias, target]) => aliasRoot(alias, target, sourceRoot))
@@ -330,6 +332,7 @@ function surveyResult(
     packageManager: state.packageManager,
     sourceRoot: scope.sourceRoot,
     ...(scope.note ? { scopeNote: scope.note } : {}),
+    ...(scope.required ? { scopeRequired: true } : {}),
     aliases,
 
     rootFiles: scanResult.files

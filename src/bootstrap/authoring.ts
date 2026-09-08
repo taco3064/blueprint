@@ -73,9 +73,8 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
         'This repo already has code but no blueprint.config.mjs — authoring one is a',
         '  judgment call, so init generated a playbook instead of guessing.',
         '  If you are the agent that ran this, keep going — do not hand back: read',
-        '  blueprint-authoring.md and execute it to the end yourself, autonomously. An',
-        '  early exit the playbook prescribes IS completion; it ends by re-running init',
-        '  (and locking a baseline only when debt exists).',
+        '  blueprint-authoring.md and execute it to the end yourself, autonomously.',
+        ...authoringRoute(survey),
         '  Driving this by hand instead? Launch a fresh agent on the playbook:',
         `    claude "${AGENT_PROMPT}"     # or: /blueprint-author inside Claude Code`,
         `    codex "${AGENT_PROMPT}"`,
@@ -85,6 +84,19 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
       ].join('\n'),
     },
   ];
+}
+
+function authoringRoute(survey: SurveyResult): string[] {
+  return survey.scopeRequired
+    ? [
+        '  This workspace has multiple application roots: first run blueprint survey',
+        '  --source-root <application>/src, then author that path as architecture.sourceRoot.',
+        '  The current zero-file count is not a starter verdict and does not permit early exit.',
+      ]
+    : [
+        '  An early exit the playbook prescribes IS completion; it ends by re-running init',
+        '  (and locking a baseline only when debt exists).',
+      ];
 }
 
 export function authoringBrief(

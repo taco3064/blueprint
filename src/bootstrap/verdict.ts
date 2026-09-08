@@ -177,6 +177,20 @@ export function renderVerdict(
 ): string {
   const { claudeDir, viteTs, tscOut, pm } = facts;
 
+  if (survey.scopeRequired) {
+    return [
+      '',
+      '',
+      '## Read this first — choose the application scope before authoring',
+      '',
+      'The workspace contains multiple application roots, so the current zero-file survey is '
+      + 'not a starter verdict.',
+      'Run `npx blueprint survey --source-root <application>/src`, then set the same path as '
+      + '`architecture.sourceRoot` in the config you author.',
+      'Do not take the preset early exit until one application scope has been measured.',
+    ].join('\n');
+  }
+
   if (survey.totalFiles >= BROWNFIELD_MIN_FILES) {
     return '';
   }

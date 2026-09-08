@@ -17,6 +17,7 @@ export interface ProjectToolchain {
 export interface SurveyScope {
   sourceRoot: string;
   note?: string;
+  required?: boolean;
 }
 
 export function toolchainForSource(root: string, sourceRoot = 'src'): ProjectToolchain {
@@ -25,9 +26,7 @@ export function toolchainForSource(root: string, sourceRoot = 'src'): ProjectToo
   const relativeToolRoot = normalizeRelative(root, toolRoot);
   const qualify = (file: string) => relativeToolRoot ? `${relativeToolRoot}/${file}` : file;
 
-  const tsconfigs = Object.fromEntries(
-    TSCONFIG_FILES.map((file) => [qualify(file), readText(path.join(toolRoot, file))]),
-  );
+  const tsconfigs = projectTsconfigs(toolRoot, qualify);
 
   const viteFile = VITE_FILES.find((file) => fs.existsSync(path.join(toolRoot, file)));
   const viteText = viteFile === undefined ? null : readText(path.join(toolRoot, viteFile));
@@ -48,8 +47,12 @@ export function toolchainForProject(
   const detected = toolchainForSource(state.root, sourceRoot);
   const viteConfig = state.viteConfig ? { viteConfig: state.viteConfig } : {};
 
+  const readable = Object.fromEntries(
+    Object.entries(detected.tsconfigs).filter(([, text]) => text !== null),
+  );
+
   return detected.root === ''
-    ? { ...detected, tsconfigs: state.tsconfigs, ...viteConfig }
+    ? { ...detected, tsconfigs: { ...state.tsconfigs, ...readable }, ...viteConfig }
     : detected;
 }
 
@@ -84,9 +87,17 @@ function nearestToolRoot(root: string, start: string): string {
 }
 
 function inferSourceRoot(root: string): SurveyScope | null {
+  if (applicationRoots(root).length > 1) {
+    return workspaceScope();
+  }
+
   const evidence = sourceRootEvidence(root);
 
-  if (evidence.roots.size === 1 && evidence.roots.has('src') && !evidence.rootFile) {
+  if ([...evidence.roots].some((entry) => WORKSPACE_DIRS.has(entry))) {
+    return workspaceScope();
+  }
+
+  if (evidence.roots.has('src') && fs.existsSync(path.join(root, 'src'))) {
     return { sourceRoot: 'src' };
   }
 
@@ -97,15 +108,28 @@ function inferSourceRoot(root: string): SurveyScope | null {
     };
   }
 
-  if ([...evidence.roots].some((entry) => WORKSPACE_DIRS.has(entry))) {
-    return {
-      sourceRoot: 'src',
-      note: 'Workspace TypeScript projects span multiple application roots; '
-        + 'choose one architecture.sourceRoot explicitly.',
-    };
-  }
-
   return null;
+}
+
+function workspaceScope(): SurveyScope {
+  return {
+    sourceRoot: 'src',
+    note: 'Workspace projects span multiple application roots; '
+      + 'choose one with --source-root before authoring architecture.',
+    required: true,
+  };
+}
+
+function applicationRoots(root: string): string[] {
+  try {
+    return fs.readdirSync(path.join(root, 'apps'), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(root, 'apps', entry.name))
+      .filter((dir) => fs.existsSync(path.join(dir, 'package.json'))
+        && fs.existsSync(path.join(dir, 'src')));
+  } catch {
+    return [];
+  }
 }
 
 function isRootLayout(roots: Set<string>): boolean {
@@ -135,7 +159,7 @@ function sourceRootEvidence(root: string): { roots: Set<string>; rootFile: boole
 }
 
 function parsedProjects(root: string): [string, Record<string, unknown>][] {
-  return referencedTsconfigs(root).flatMap(([file, text]) => {
+  return Object.entries(projectTsconfigs(root, (file) => file)).flatMap(([file, text]) => {
     const parsed = text === null ? null : parseJsonc(text);
 
     return parsed !== null && parsed.ok && isRecord(parsed.value)
@@ -144,24 +168,44 @@ function parsedProjects(root: string): [string, Record<string, unknown>][] {
   });
 }
 
-function referencedTsconfigs(root: string): [string, string | null][] {
-  const rootFile = 'tsconfig.json';
-  const rootText = readText(path.join(root, rootFile));
-  const files: [string, string | null][] = [[rootFile, rootText]];
-  const parsed = rootText === null ? null : parseJsonc(rootText);
+function projectTsconfigs(
+  root: string,
+  qualify: (file: string) => string,
+): Record<string, string | null> {
+  const configs: Record<string, string | null> = {};
+  const pending = [...TSCONFIG_FILES];
+
+  while (pending.length) {
+    const file = normalizeRelative('', pending.shift() as string);
+
+    if (file in configs) {
+      continue;
+    }
+
+    const text = readText(path.join(root, file));
+
+    configs[file] = text;
+
+    pending.push(...referencedConfigFiles(file, text));
+  }
+
+  return Object.fromEntries(Object.entries(configs).map(([file, text]) => [qualify(file), text]));
+}
+
+function referencedConfigFiles(file: string, text: string | null): string[] {
+  const parsed = text === null ? null : parseJsonc(text);
 
   if (parsed === null || !parsed.ok || !isRecord(parsed.value)) {
-    return files;
+    return [];
   }
 
-  for (const ref of referencePaths(parsed.value.references)) {
-    const file = ref.endsWith('.json') ? ref : path.join(ref, 'tsconfig.json');
-    const normalized = normalizeRelative('', file);
+  const dir = path.dirname(file) === '.' ? '' : path.dirname(file);
 
-    files.push([normalized, readText(path.join(root, normalized))]);
-  }
+  return referencePaths(parsed.value.references).map((ref) => {
+    const target = ref.endsWith('.json') ? ref : path.join(ref, 'tsconfig.json');
 
-  return files;
+    return path.join(dir, target);
+  });
 }
 
 function referencePaths(value: unknown): string[] {
