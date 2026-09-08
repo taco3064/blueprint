@@ -206,7 +206,7 @@ function runAuthoring(
   log(
     `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · brownfield without a config → authoring flow (${survey.totalFiles} source files surveyed)${
 
-      options.authoring && survey.totalFiles < BROWNFIELD_MIN_FILES
+      options.authoring && survey.totalFiles < BROWNFIELD_MIN_FILES && !survey.scopeRequired
         ? ` — below the brownfield threshold (${BROWNFIELD_MIN_FILES} source files), forced by --authoring; the playbook's own verdict will be the early exit`
         : ''
     }`,
