@@ -64,8 +64,7 @@ export async function runInspect(
 
   log(
     options.json
-      // The `--json` reader gets the derivation too: `ok: true` is a verdict on what
-      // a text scan could see, and JSON is the whole channel for whoever parses it.
+
       ? JSON.stringify({ ok, findings, coverage, derivation: importGraphDerivation() }, null, 2)
       : `${report(findings)}\n\n${renderCoverage(coverage, blueprint)}`,
   );
@@ -73,7 +72,6 @@ export async function runInspect(
   return { findings, ok };
 }
 
-/** `--update-baseline`: record today's debt, or retire a ledger that is paid off. */
 function lockBaseline(
   findings: Finding[],
   baselineFile: string,
@@ -81,18 +79,10 @@ function lockBaseline(
 ): { findings: Finding[]; ok: boolean } {
   const { log, coverage } = ctx;
 
-  // Before the write, and the reason this path needed it most: the other two report a
-  // finding a reader can still investigate, while this one PERMANENTLY accepts it — so a
-  // finding that exists only because the exemption is broken is recorded as expected
-  // behaviour, by an agent that was never told why it was there. Same sentence, same
-  // marker, same measurement `inspect` and `--baseline` print; it is the passing of it
-  // that was missing, and the ledger below is untouched by having it.
   if (coverage.testExemption !== undefined) {
     log(`· ${coverage.testExemption}`);
   }
 
-  // Info findings are not debt — "not built yet" is nothing a ratchet should hold,
-  // and recording them invites manufacturing debt just to have something to lock.
   const debt = findings.filter((finding) => finding.severity !== 'info');
 
   if (debt.length) {
@@ -102,15 +92,10 @@ function lockBaseline(
     return { findings, ok: true };
   }
 
-  // A clean repo needs no ratchet — an empty baseline is a file whose only
-  // job is to exist. Skip writing it, and retire a paid-off one.
   const note = findings.length
     ? ` (${findings.length} informational note(s) are not debt)`
     : '';
 
-  // Never point at plain `inspect` here — the gate line is
-  // `inspect --baseline` (a missing ledger is an empty one), and telling
-  // the reader plain inspect is the gate invites them to "fix" that line.
   if (fs.existsSync(baselineFile)) {
     fs.rmSync(baselineFile);
     log(`No debt to lock${note} — ${BASELINE_FILE} removed; \`inspect --baseline\` (the gate line) now suppresses nothing.`);
@@ -121,11 +106,6 @@ function lockBaseline(
   return { findings, ok: true };
 }
 
-/**
- * `--baseline`: the gate line. A missing baseline file is an empty baseline, so
- * every finding is fresh — which keeps one uniform command on repos with and
- * without recorded debt.
- */
 function baselineGate(
   findings: Finding[],
   baselineFile: string,
