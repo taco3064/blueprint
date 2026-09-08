@@ -1,5 +1,79 @@
 # @kekkai/blueprint
 
+## 3.2.0
+
+This release improves adoption of existing projects with root-level or nested application
+sources and makes generated rules and guidance follow the configured source scope more
+consistently. It also closes enforcement gaps for bare layer imports and literal `$`
+characters, and prevents malformed brace patterns from hanging commands.
+
+The minor API addition is optional stack facts for document emitters; existing calls remain
+compatible. Architecture ownership and the application scope of a multi-app workspace remain
+owner decisions. Upgrading can expose previously missed imports; review the upgrade notes
+below and regenerate contracts to receive the corrected enforcement guidance.
+
+### Minor Changes
+
+- 72b684b: Add the exported `StackFacts` type and optional stack facts to `emitHandbook` and
+  `emitAgentFiles`. Existing calls remain compatible.
+
+  `blueprint init` now supplies the detected TypeScript capability, so generated handbooks and
+  agent contracts no longer claim that `explicitAny` is enforced in JavaScript-only projects.
+  TypeScript projects keep their existing output.
+
+### Patch Changes
+
+- 8479e54: Preserve `$` sequences literally when generating layer globs and updating an existing
+  `package.json` lint script. Configurations such as `price$$tag` now govern the intended
+  folder, and `blueprint init` no longer risks corrupting valid scripts containing `$`.
+
+  After upgrading, projects with `$` in a layer name may surface architecture findings that
+  were previously missed. If an earlier scaffold run modified a lint script containing `$`,
+  check that script once because upgrading cannot repair an already-written manifest.
+
+- c4908ad: Enforce architecture bans against a layer's bare entry import, such as `~app/pages`, in
+  addition to imports below that entry. This closes gaps in dependency-flow, same-layer, and
+  `selfOnly` re-export enforcement across every configured alias.
+
+  Upgrading may reveal imports that `inspect` already considered invalid but ESLint previously
+  missed. Projects that manually merged Blueprint's generated `no-restricted-imports` groups
+  should refresh those copied groups and run `blueprint doctor`.
+
+- bad63ea: Prevent commands from hanging when a configured glob or `.gitignore` pattern contains an
+  unmatched `{`; it is now treated as a literal brace.
+
+  `inspect`, `rules`, `doctor`, and `deps` now also identify `testFiles` entries that match no
+  files, while `doctor` reports ineffective `layerFilesIgnore` entries. These diagnostics are
+  informational and do not change exit codes. JSON output gains the corresponding conditional
+  `testExemption` details.
+
+- 70b463a: Discover root-level TypeScript applications and aliases declared in referenced configs during
+  brownfield survey, preserve conventional `src/` scopes, require an explicit application scope
+  for multi-app workspaces, resolve aliases that target individual architecture layers, and use a
+  nested application's own TypeScript and Vite configuration when `architecture.sourceRoot`
+  scopes Blueprint below the repository root. Keep authoring output and CLI help consistent with
+  the required application-scope decision.
+- 717d2ac: Align `inspect` with the generated ESLint scope: files matched by
+  `architecture.layerFilesIgnore` no longer produce lint-backed findings or count toward lint
+  coverage. Inspect-only checks continue to include them, and coverage output now identifies
+  deliberately ignored layer files.
+- be37bfa: Add an informational `owns-not-installed` finding when a layer declares ownership of a
+  package that is not installed. It names the package and layer without changing exit codes or
+  baseline contents.
+- e4d1def: Describe `blueprint inspect` as scanning the configured source root, with `src/` as the
+  default, and export `DoctorVerdict` so consumers can name the public doctor result type.
+- 89905a2: Honor `architecture.sourceRoot` consistently in init scaffolding, generated agent guidance,
+  dependency targets, relative-import and typedef-only enforcement, and inspect messages.
+  Projects using a source directory other than `src` now receive paths and rules for the
+  configured root.
+- 32be831: Include the configured `architecture.testFiles` patterns in full generated agent contracts,
+  so agents know that test-support files may be exempt from normal placement rules. Compact
+  `CLAUDE.md` and `AGENTS.md` contracts are unchanged.
+- 2096a9d: Make full generated agent contracts describe enforcement accurately: unavailable
+  `testFilename` and `deepWatch` gates are no longer called hard lint gates, while `cycles` is
+  identified as enforced by `blueprint inspect --baseline` rather than ESLint. Regenerate the
+  contract to receive the corrected wording.
+
 ## 3.1.0
 
 **What this release moved, and what it did not.** Worth stating plainly, because most of the
