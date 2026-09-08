@@ -1,12 +1,11 @@
 import path from 'node:path';
 import type { Rule } from 'eslint';
 
-/** The reactive / lifecycle vocabulary of both frameworks. */
 const REACTIVE_API = new Set([
-  // Vue
+
   'ref', 'reactive', 'computed', 'watch', 'watchEffect', 'shallowRef', 'toRef', 'toRefs',
   'onMounted', 'onUnmounted', 'onBeforeMount', 'onBeforeUnmount', 'provide', 'inject',
-  // React
+
   'useState', 'useEffect', 'useMemo', 'useRef', 'useCallback', 'useReducer',
   'useContext', 'useLayoutEffect', 'useSyncExternalStore',
 ]);
@@ -14,11 +13,6 @@ const REACTIVE_API = new Set([
 const TEST_SUFFIX = /\.(test|spec)\.[jt]sx?$/;
 const FILE_EXT = /\.(vue|[jt]sx?|mjs)$/;
 
-/**
- * A `useX`-named file must actually use reactivity — otherwise it is a pure
- * function wearing a hook costume. Known caveat (why this is triage-tier):
- * a unit that only composes other custom hooks reports a false positive.
- */
 export const usePrefixNeedsReactivity: Rule.RuleModule = {
   meta: {
     type: 'suggestion',
@@ -48,10 +42,6 @@ export const usePrefixNeedsReactivity: Rule.RuleModule = {
       CallExpression(node) {
         const callee = node.callee;
 
-        // '' rather than null for "no readable name": the allowlist holds only
-        // real API names, so the empty string misses it the same way null would —
-        // and the lookup then needs no null guard in front of it, which is a
-        // TypeScript requirement rather than a behavioural one.
         const name
           = callee.type === 'Identifier'
             ? callee.name

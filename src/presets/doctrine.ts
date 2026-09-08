@@ -1,12 +1,5 @@
 import type { AxisDef, Blueprint, PlaybookSection } from '../config';
 
-/**
- * The behavioral half of every preset — what no tool enforces and review holds:
- * the governance beliefs, the component-shape axes, and the working playbook.
- * Identical across frameworks, which is why the factories share one copy.
- */
-
-/** The nine governance beliefs — all behavioral (held in review / CLAUDE.md). */
 export function principles(): Blueprint['principles'] {
   return [
     {
@@ -68,10 +61,6 @@ export function principles(): Blueprint['principles'] {
   ];
 }
 
-/**
- * The seven orthogonal component-shape axes. A set, not a pipeline: each is judged
- * independently, and triage rules are entry points rather than verdicts.
- */
 export function componentShape(): AxisDef[] {
   return [
     {
@@ -137,15 +126,10 @@ export function componentShape(): AxisDef[] {
   ];
 }
 
-/**
- * The working playbook — the handbook's behavioral parts. No tool enforces these;
- * they live in the emitted handbook and agent contract.
- */
 export function playbook(): PlaybookSection[] {
   return [runtimeLoadSection(), refactorSection(), designSection()];
 }
 
-/** Every section returns a fresh object — the file's own invariant. */
 function runtimeLoadSection(): PlaybookSection {
   return {
     title: 'Runtime load discipline',

@@ -23,7 +23,7 @@ export interface AgentFile {
 interface TargetSpec {
   path: string;
   strategy: AgentFileStrategy;
-  /** Wrap the shared contract body in this tool's file format. */
+
   wrap?: (contract: string, blueprint: Blueprint) => string;
 }
 
@@ -48,12 +48,6 @@ const TARGETS: Record<AgentTarget, TargetSpec> = {
   },
 };
 
-/**
- * Every target's default file location — the candidate set init scans for
- * stale contracts: files a previous run emitted that the current
- * `emit.agents` no longer names. Custom `path` overrides are not
- * discoverable here; a file moved by hand is a file managed by hand.
- */
 export function defaultAgentPaths(): Pick<AgentFile, 'target' | 'path' | 'strategy'>[] {
   return (Object.entries(TARGETS) as [AgentTarget, TargetSpec][]).map(([target, spec]) => ({
     target,
@@ -80,8 +74,6 @@ export function emitAgentFiles(
   defaultTargets?: AgentTarget[],
   stack: StackFacts = {},
 ): AgentFile[] {
-  // No empty-list guard: `[].map` is `[]`, so the guard that used to sit here
-  // returned exactly what the line below returns.
   const entries = normalizeAgentEmit(blueprint.emit?.agents, defaultTargets);
 
   return entries.map(({ target, path }) => {

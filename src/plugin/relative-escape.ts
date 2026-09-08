@@ -2,33 +2,6 @@ import path from 'node:path';
 import type { Rule } from 'eslint';
 import { relativeVerdict, resolveSegments } from './relative';
 
-/**
- * Relative imports must stay inside their own module. This is the lint-side
- * twin of `inspect`'s `relative-escape` finding: both call one
- * `relativeVerdict`, so neither can reach a conclusion the other would not.
- * Sharing resolution *primitives* was the earlier claim and it was not worth
- * anything — two callers can read the same coordinates and still disagree
- * about what they mean, which is exactly what happened. A literal
- * `no-restricted-imports` pattern cannot express this: whether `../x` leaves
- * the module depends on the importing file's depth, which globs cannot see.
- *
- * A sibling's **entry** is reachable: `../Sibling` is how one module uses
- * another inside the same layer, and it is the only way — the alias form
- * (`~app/{ownLayer}/Sibling`) stays banned, so same-layer edges have exactly
- * one shape. What stays banned is reaching *past* that entry
- * (`../Sibling/internals`), which is the import that couples to a decision
- * the sibling did not publish.
- *
- * Banning the entry too was the earlier reading, and it left a folder-layout
- * layer with no legal way to share at all — the only advice left was "extract
- * to a lower layer", which is how a `utils/` junk drawer gets built one
- * honest decision at a time.
- *
- * Options: `{ layouts: { [layer]: 'folder' | 'flat' }, entries: { [layer]:
- * string } }` — the per-layer module layout map and entry filename
- * (`index` when absent). Files outside `src/` or outside a declared layer are
- * skipped (the emitted config scopes this rule to layer files anyway).
- */
 export const relativeEscape: Rule.RuleModule = {
   meta: {
     type: 'problem',

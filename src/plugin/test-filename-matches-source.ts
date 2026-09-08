@@ -5,11 +5,6 @@ import type { Rule } from 'eslint';
 const SRC_EXT = ['.js', '.ts', '.jsx', '.tsx', '.vue', '.mjs'];
 const TEST_SUFFIX = /\.(test|spec)\.[jt]sx?$/;
 
-/**
- * A `*.test.*` / `*.spec.*` file must sit next to a same-named source file.
- * Tests are co-located and named after what they test; an orphan test file
- * means the source moved, was renamed, or the test tests nothing real.
- */
 export const testFilenameMatchesSource: Rule.RuleModule = {
   meta: {
     type: 'problem',

@@ -14,10 +14,6 @@ export interface DiagramEdge {
   ordered?: boolean;
 }
 
-/**
- * Normalize the mixed `allowedImporters` list into objects.
- * @internal
- */
 export function normalizeAllowedImporters(
   allowed: (string | AllowedImporter)[] | undefined,
 ): AllowedImporter[] {
@@ -26,10 +22,6 @@ export function normalizeAllowedImporters(
   );
 }
 
-/**
- * Names of layers permitted to import the layer at `index`: its explicit
- * `allowedImporters` list, or — by default — every layer declared before it.
- */
 function importerNames(layers: LayerDef[], index: number): string[] {
   const { allowedImporters } = layers[index];
 
@@ -38,11 +30,6 @@ function importerNames(layers: LayerDef[], index: number): string[] {
     : layers.slice(0, index).map((layer) => layer.name);
 }
 
-/**
- * Layers `layerName` may NOT import: every other layer that does not list
- * `layerName` among its permitted importers (upstream layers included).
- * @internal
- */
 export function getForbiddenLayers(architecture: ArchitectureDef, layerName: string): string[] {
   const { layers } = architecture;
 
@@ -61,17 +48,6 @@ export interface AliasRoot {
   prefix: string[];
 }
 
-/**
- * Every alias that can reach the layer folders, with the offset baked in.
- * The main alias targets the source root by wiring convention (prefix
- * `[]`); an additional alias carries its declared target — `'~root': '.'`
- * reaches the layers through a `src` prefix, and one targeting a folder
- * that cannot contain them (a subfolder, an outside dir) is excluded.
- * Emit and inspect both derive from here, so the ban patterns and the
- * findings can never disagree (field issue #29: patterns composed as
- * `alias/layer` banned paths no real import ever used — a silent no-op).
- * @internal
- */
 export function aliasLayerRoots(architecture: ArchitectureDef): AliasRoot[] {
   const src = dirSegments(architecture.sourceRoot ?? 'src');
 
@@ -87,19 +63,10 @@ export function aliasLayerRoots(architecture: ArchitectureDef): AliasRoot[] {
   ];
 }
 
-/** `./src/` → `['src']`; `.` → `[]`. `..` segments survive and never match. */
 function dirSegments(dir: string): string[] {
   return dir.split('/').filter((segment) => segment !== '' && segment !== '.');
 }
 
-/**
- * The shared module shape with the flat defaults applied — the playbook's
- * "flat default" made real: `architecture.module` and each of its keys is
- * optional, resolving to `{ layout: 'flat', entry: 'index', private: [] }`
- * (field issue #23: it validated as required while the playbook said
- * omitting it was the default).
- * @internal
- */
 export function getSharedModule(
   architecture: ArchitectureDef,
 ): { layout: 'folder' | 'flat'; entry: string; private: string[] } {
@@ -110,10 +77,6 @@ export function getSharedModule(
   };
 }
 
-/**
- * The effective module shape for a layer: its override, else the shared default.
- * @internal
- */
 export function getModuleShape(
   architecture: ArchitectureDef,
   layerName: string,
@@ -127,10 +90,6 @@ export function getModuleShape(
   };
 }
 
-/**
- * Layers `layerName` may import but must not re-export (selfOnly importers).
- * @internal
- */
 export function getSelfOnlyTargets(architecture: ArchitectureDef, layerName: string): string[] {
   return architecture.layers
     .filter((layer) =>
@@ -141,11 +100,6 @@ export function getSelfOnlyTargets(architecture: ArchitectureDef, layerName: str
     .map((layer) => layer.name);
 }
 
-/**
- * Edges for the dependency diagram: the adjacent spine for default layers,
- * and each explicit importer edge for layers that restrict their importers.
- * @internal
- */
 export function getDiagramEdges(architecture: ArchitectureDef): DiagramEdge[] {
   const { layers } = architecture;
   const edges: DiagramEdge[] = [];

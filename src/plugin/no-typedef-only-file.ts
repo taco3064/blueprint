@@ -1,10 +1,5 @@
 import type { Rule } from 'eslint';
 
-/**
- * A file holding only `@typedef` JSDoc and no runtime export is a type junk
- * drawer — the typedef belongs in the file whose `@returns` declares it.
- * JS + JSDoc projects only; the emitter attaches it to `.js` files.
- */
 export const noTypedefOnlyFile: Rule.RuleModule = {
   meta: {
     type: 'suggestion',

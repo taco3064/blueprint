@@ -17,7 +17,6 @@ import type { EmitFacts } from '../lint';
 import { escapeCell, formatOwns, table } from '../../markdown';
 import { emitFlowDiagram } from './diagram';
 
-/** Title + provenance banner. */
 export function renderHeader(name: string | undefined): string {
   const title = name ? `${name} — Architecture Handbook` : 'Architecture Handbook';
 
@@ -29,7 +28,6 @@ export function renderHeader(name: string | undefined): string {
   ].join('\n');
 }
 
-/** One-way flow intro, the mermaid diagram, and the layers table. */
 export function renderArchitecture(architecture: ArchitectureDef): string {
   const rows = architecture.layers.map((layer) => [
     `\`${layer.name}\``,
@@ -60,7 +58,6 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
   ].join('\n');
 }
 
-/** Feature-folder shape, illustrated with a generated example tree. */
 export function renderModule(architecture: ArchitectureDef, exampleLayer: string): string {
   const module = getSharedModule(architecture);
 
@@ -113,7 +110,6 @@ export function renderModule(architecture: ArchitectureDef, exampleLayer: string
   ].join('\n');
 }
 
-/** Prose for the boundaries the generated ESLint config enforces. */
 export function renderImportDiscipline(architecture: ArchitectureDef): string {
   const { layers } = architecture;
   const module = getSharedModule(architecture);
@@ -152,9 +148,6 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   );
 
   if (hasSelfOnly) {
-    // States the RULE and leaves the notation to the legend that owns it — described
-    // twice, the two answers drifted and the wrong one pointed at the edges that are
-    // explicitly NOT dependencies.
     bullets.push(
       '- **selfOnly** — where a layer narrows its importers with `selfOnly`, that importer'
       + ' may depend on it but must never re-export it onward.',
@@ -170,7 +163,6 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   ].join('\n');
 }
 
-/** The component-shape axes — a set of design judgments, not a pipeline. */
 export function renderComponentShape(axes: AxisDef[] | undefined): string {
   if (!axes?.length) {
     return '';
@@ -204,7 +196,6 @@ export function renderComponentShape(axes: AxisDef[] | undefined): string {
   ].join('\n');
 }
 
-/** Core beliefs, split by where they land: tooling vs. behavioral. */
 export function renderPrinciples(principles: PrincipleDef[] | undefined): string {
   if (!principles?.length) {
     return '';
@@ -230,7 +221,6 @@ export function renderPrinciples(principles: PrincipleDef[] | undefined): string
   return out.join('\n').trimEnd();
 }
 
-/** The working playbook — behavioral judgment rules, grouped by theme. */
 export function renderPlaybook(playbook: PlaybookSection[] | undefined): string {
   if (!playbook?.length) {
     return '';
@@ -255,13 +245,9 @@ export function renderPlaybook(playbook: PlaybookSection[] | undefined): string 
   ].join('\n');
 }
 
-/** Enforcement rules and their landing tiers. */
 export function renderRules(
   rules: Record<string, RuleSetting> | undefined,
-  // Enough to answer "can this gate emit here at all" — two facts off the blueprint and
-  // one off the dependency list. This document outlives the adoption and the contract
-  // links to it, so a row claiming `lint` holds a rule the emitted config does not
-  // contain is the longest-lived version of that half-truth (field run #150).
+
   facts: EmitFacts = {},
 ): string {
   const entries = Object.entries(rules ?? {});
@@ -270,8 +256,6 @@ export function renderRules(
     return '';
   }
 
-  // "error fails lint" is false for `cycles` (inspect's finding) and `deadCode`
-  // (documentation), so each row says which machine holds it (field issue #52).
   const HELD_BY = {
     lint: 'lint',
     inspect: '`blueprint inspect`',
@@ -280,9 +264,7 @@ export function renderRules(
 
   const rows = entries.map(([id, setting]) => {
     const { tier, value } = readSetting(setting);
-    // The declaration stays on the table — it is the author's, and dropping the row
-    // would hide it. What cannot stay is the machine: nothing holds a gate this
-    // blueprint cannot emit.
+
     const unavailable = unavailableForEmit(id, facts);
 
     return [
@@ -298,9 +280,7 @@ export function renderRules(
     '',
     table(['Rule', 'Tier', 'Option', 'Enforced by'], rows),
     '',
-    // Reach, not only tier and machine: this document is read long after the CLI
-    // output that marks an empty net as vacuous. Glob-relative rather than a count,
-    // because it is generated from the blueprint and cannot see the repo.
+
     'The tier is what the enforcing machine does with a violation: `error` fails, '
     + '`warn` is advisory, `off` is disabled. Which machine differs — `lint` rows fail '
     + 'the project\'s lint run, `blueprint inspect` rows fail `blueprint inspect` and '
@@ -313,7 +293,6 @@ export function renderRules(
   ].join('\n');
 }
 
-/** Naming conventions, keyed by concept. */
 export function renderNaming(naming: Record<string, string> | undefined): string {
   const entries = Object.entries(naming ?? {});
 

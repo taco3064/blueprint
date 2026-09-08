@@ -54,9 +54,6 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
 
   const severity: Severity = blueprint.emit?.lint?.severity ?? 'error';
 
-  // Each alias's layer base carries the offset from its target to the
-  // source root — `'~root': '.'` bans `~root/src/views/**`, not the
-  // `~root/views/**` no import ever uses (field issue #29).
   const aliases = aliasLayerRoots(architecture)
     .map((root) => [root.alias, ...root.prefix].join('/'));
 
@@ -66,9 +63,6 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     layers.map((layer) => [layer.name, getModuleShape(architecture, layer.name).layout]),
   );
 
-  // The rule needs the entry filename to tell a sibling's front door from its
-  // inside; without it a layer whose entry is not `index` reads every entry
-  // import as reaching past one.
   const entries = Object.fromEntries(
     layers.map((layer) => [layer.name, getModuleShape(architecture, layer.name).entry]),
   );
@@ -85,8 +79,6 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     ),
   ];
 
-  // The depth-aware half of the structural rules: relative imports must not
-  // leave their module. Shares inspect's resolution — see the plugin rule.
   const escapeEntry: LintConfigEntry = {
     files: allLayerFiles,
     ignores: testGlobs,
@@ -105,12 +97,6 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
   ];
 }
 
-/**
- * One `no-restricted-imports` entry per layer — the flow ban, the module-entry
- * ban, and package / global ownership, all of which are per-layer facts. A layer
- * with exempt packages needs two entries: flat config REPLACES a rule rather than
- * merging it, so the exemption cannot be an `ignores` on a single one.
- */
 function layerImportEntries(
   blueprint: Blueprint,
   shape: {
@@ -130,8 +116,6 @@ function layerImportEntries(
     .map((layer) => layer.name)
     .filter((name) => layouts[name] === 'folder');
 
-  // Fixture roots are barred through the same structural rule per layer —
-  // a separate entry would *replace* `no-restricted-imports`, not merge it.
   const fixtures = activeSetting(blueprint.rules?.fixtureImports)
     ? aliases.flatMap((a) => [`${a}/fixtures`, `${a}/fixtures/**`])
     : [];
@@ -166,7 +150,7 @@ function layerImportEntries(
       const { paths, patterns } = buildPackagePatterns(packages);
 
       return {
-        // By contract these are rule entries (validated to spare the managed rules).
+
         ...(layer.lintOverrides as Linter.RulesRecord),
         'no-restricted-imports': [
           severity,
@@ -188,21 +172,14 @@ function layerImportEntries(
     const nonExempt = disabledPackages.filter((rule) => !rule.exempt?.length);
 
     return [
-      // All files (incl. exempt): only the non-exempt package restrictions.
+
       { files, ignores: testGlobs, rules: buildRules(nonExempt) },
-      // Non-exempt files only: the full set of package restrictions.
+
       { files, ignores: [...exemptPatterns, ...testGlobs], rules: buildRules(disabledPackages) },
     ];
   });
 }
 
-/**
- * Entries for the known `blueprint.rules` ids — where a rule record stops being
- * documentation and becomes a lint gate. The caller-injected gates emit nothing
- * without their plugin. Test files are exempt here as far as the globs reach, because
- * metrics scream on tests; the shape family is the exception and has its own entry.
- * Unknown ids stay docs-only, as do `cycles` and `deadCode`.
- */
 function ruleGateEntries(
   blueprint: Blueprint,
   testGlobs: string[],
@@ -226,10 +203,6 @@ function ruleGateEntries(
   ];
 }
 
-/**
- * Every gate that lands in the one shared entry, in emitted order. No @stylistic
- * rule is here — the whole shape family lives in its own, test-inclusive entry.
- */
 function sharedRules(blueprint: Blueprint, options: EmitLintOptions): Linter.RulesRecord {
   const { framework, rules } = blueprint;
   const explicitAny = activeSetting(rules?.explicitAny);
@@ -239,8 +212,7 @@ function sharedRules(blueprint: Blueprint, options: EmitLintOptions): Linter.Rul
   return {
     ...metricRules(rules),
     ...unusedVarsRules(activeSetting(rules?.unusedVars), options.typescript),
-    // No core twin exists — `any` cannot appear in JS source, so there is
-    // nothing to fall back to when the plugin is absent (unlike unusedVars).
+
     ...(explicitAny && options.typescript
       ? { '@typescript-eslint/no-explicit-any': explicitAny.tier }
       : {}),
@@ -251,7 +223,6 @@ function sharedRules(blueprint: Blueprint, options: EmitLintOptions): Linter.Rul
   };
 }
 
-/** The numeric gates, each carrying its declared value or the table's fallback. */
 function metricRules(rules: Blueprint['rules']): Linter.RulesRecord {
   const record: Linter.RulesRecord = {};
 
@@ -270,10 +241,6 @@ function metricRules(rules: Blueprint['rules']): Linter.RulesRecord {
   return record;
 }
 
-/**
- * Core `no-unused-vars` false-flags TS enum members and type parameters — with the
- * caller-injected plugin, the TS-aware twin takes over and the core one goes off.
- */
 function unusedVarsRules(
   setting: ReadSetting | null,
   typescript: EmitLintOptions['typescript'],
@@ -292,7 +259,6 @@ function unusedVarsRules(
   };
 }
 
-/** The one entry the shared rules ride, with only the plugins they actually need. */
 function sharedEntry(
   shared: Linter.RulesRecord,
   scope: { files: string[]; testGlobs: string[] },
@@ -323,12 +289,6 @@ function sharedEntry(
   }];
 }
 
-/**
- * `testGlobs.length` because this entry's `files` IS the test globs, and
- * `testFiles: []` makes it `files: []`, which ESLint rejects outright — the config
- * validated, inspect ran clean, and `impact` died on the emitted output (field run
- * #150). `unavailableGate` reports the drop, so it is not silent.
- */
 function testFilenameEntry(rules: Blueprint['rules'], testGlobs: string[]): LintConfigEntry[] {
   const testFilename = activeSetting(rules?.testFilename);
 
@@ -343,7 +303,6 @@ function testFilenameEntry(rules: Blueprint['rules'], testGlobs: string[]): Lint
   }];
 }
 
-/** Scoped to JavaScript source: a `.ts` file of types is the TS way to say it. */
 function typedefOnlyEntry(
   architecture: Blueprint['architecture'],
   rules: Blueprint['rules'],
@@ -365,7 +324,6 @@ function typedefOnlyEntry(
   }];
 }
 
-/** The prefix gate, scoped to the one layer it names (default `hooks`). */
 function usePrefixEntry(blueprint: Blueprint, testGlobs: string[]): LintConfigEntry[] {
   const { framework, architecture, rules } = blueprint;
   const { layerFiles, sourceRoot } = architecture;
@@ -386,19 +344,10 @@ function usePrefixEntry(blueprint: Blueprint, testGlobs: string[]): LintConfigEn
   }];
 }
 
-/** The `customize` factory `@stylistic/eslint-plugin` hangs off its configs. */
 interface StylisticPlugin {
   configs?: { customize?: (options: Record<string, unknown>) => { rules?: Linter.RulesRecord } };
 }
 
-/**
- * The one entry governing the SHAPE of any source file, and the only gate that does
- * not exempt tests — indentation and quoting do not get easier to read there.
- *
- * Order inside the record is load-bearing: `customize()` already carries
- * `max-statements-per-line`, so the explicit gate is written after it to win —
- * including when it is `off`, which the bundle would otherwise switch back on.
- */
 function shapeEntry(
   blueprint: Blueprint,
   files: string[],
@@ -423,7 +372,6 @@ function shapeEntry(
   }];
 }
 
-/** Every shape gate that resolved to something, in the order the entry carries them. */
 function shapeRules(rules: Blueprint['rules'], options: EmitLintOptions): Linter.RulesRecord {
   const shape: Linter.RulesRecord = {};
   const codeStyle = activeSetting(rules?.codeStyle);
@@ -432,9 +380,6 @@ function shapeRules(rules: Blueprint['rules'], options: EmitLintOptions): Linter
     Object.assign(shape, codeStyleRules(codeStyle, options.stylistic));
   }
 
-  // Assigned after the bundle so the explicit gate wins — including when it is
-  // `off`, which `customize()` would otherwise switch back on. An existing key
-  // keeps its position, so the record's order does not move.
   Object.assign(shape, statementsPerLineRule(rules, options.stylistic, codeStyle !== null));
 
   const statementPadding = activeSetting(rules?.statementPadding);
@@ -456,11 +401,6 @@ function shapeRules(rules: Blueprint['rules'], options: EmitLintOptions): Linter
   return shape;
 }
 
-/**
- * Hard-wired max: 1 — the gate defines what a line IS for `maxLines`, and a
- * threshold above 1 defines nothing. Declared-but-off only emits when `codeStyle`
- * is on, because that is the bundle it has to switch back off.
- */
 function statementsPerLineRule(
   rules: Blueprint['rules'],
   stylistic: EmitLintOptions['stylistic'],
@@ -481,17 +421,10 @@ function statementsPerLineRule(
   return hasCodeStyle ? { '@stylistic/max-statements-per-line': 'off' } : {};
 }
 
-/**
- * The `codeStyle` bundle: `@stylistic`'s own `customize()` set plus the three rules
- * it leaves out. The factory rather than a hand-listed subset, because a subset
- * leaves gaps — one policed statements-per-line while allowing zero indentation.
- */
 function codeStyleRules(gate: ReadSetting, stylistic: ESLint.Plugin): Linter.RulesRecord {
   const customize = (stylistic as StylisticPlugin).configs?.customize;
 
   if (typeof customize !== 'function') {
-    // Emitting nothing here would be the exact failure this whole gate family
-    // guards against: a declared rule that silently governs nothing.
     throw new Error(
       'blueprint: rules.codeStyle needs @stylistic/eslint-plugin\'s configs.customize() '
       + 'factory, and the plugin passed as emitLint\'s `stylistic` option does not expose '
@@ -509,8 +442,7 @@ function codeStyleRules(gate: ReadSetting, stylistic: ESLint.Plugin): Linter.Rul
     indent: num('indent', 2),
     quotes: opts.quotes === 'double' ? 'double' : 'single',
     semi: opts.semi !== false,
-    // Not exposed as knobs — blueprint's own house values. A repo that wants
-    // different braces turns the gate off and declares its own set.
+
     arrowParens: true,
     braceStyle: '1tbs',
     commaDangle: 'always-multiline',
@@ -520,29 +452,22 @@ function codeStyleRules(gate: ReadSetting, stylistic: ESLint.Plugin): Linter.Rul
 
   return {
     ...bundle.rules,
-    // Three the factory omits. max-len has NO fixer — it reports and the code
-    // must actually be restructured, which is the point.
+
     '@stylistic/max-len': [gate.tier, {
       code: num('maxLen', 90),
       ignoreUrls: true,
       ignoreTemplateLiterals: true,
       ignoreRegExpLiterals: true,
-      // Deliberately NOT ignoring plain strings: a long line escapes a length
-      // cap entirely by containing one, which is a free bypass.
+
       ignoreStrings: false,
     }],
-    // LF everywhere. Mixed line endings are what breaks cross-platform work,
-    // not LF itself. The cause of a red here is usually git's autocrlf /
-    // .gitattributes, NOT the file — the gate catalog says so, since the
-    // rule's own message cannot.
+
     '@stylistic/linebreak-style': [gate.tier, 'unix'],
-    // Core, not deprecated, no plugin needed. Without it `if (x) return;`
-    // counts as ONE statement and slips past max-statements-per-line.
+
     curly: [gate.tier, 'all'],
   };
 }
 
-/** Build the `no-restricted-globals` rule for globals this layer does not own. */
 function buildGlobalRule(disabled: GlobalRule[], severity: Severity): Linter.RulesRecord {
   if (!disabled.length) {
     return {};

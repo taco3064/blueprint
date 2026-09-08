@@ -12,7 +12,6 @@ import {
   renderRules,
 } from './sections';
 
-/** Where the generated handbook lives — the emit override, or the default. */
 export function handbookPath(blueprint: Blueprint): string {
   return blueprint.emit?.handbook ?? 'docs/architecture-handbook.md';
 }
@@ -31,7 +30,7 @@ export function handbookPath(blueprint: Blueprint): string {
  */
 export function emitHandbook(blueprint: Blueprint, stack: StackFacts = {}): string {
   const { name, architecture, principles, rules } = blueprint;
-  // Trusts a validated blueprint (non-empty layers), same as emitLint.
+
   const exampleLayer = architecture.layers[0].name;
 
   const sections = [
