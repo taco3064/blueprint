@@ -33,7 +33,7 @@ For each step:
 
 Do not wait for confirmation after ordinary progress. Do not post one issue comment per step or commit.
 
-When a remote job will outlive the useful interactive work, follow the shared long-running-work policy. Continue independent steps first; when its result becomes the next dependency, schedule a durable continuation if the current environment supports it, otherwise leave a self-contained resume prompt. Do not poll merely to keep the turn alive.
+When a remote job will outlive the useful interactive work, follow the shared long-running-work policy. Continue independent steps first; when its result becomes the next dependency, leave a self-contained resume prompt and end the turn. Do not poll merely to keep the turn alive.
 
 ## Verify
 
