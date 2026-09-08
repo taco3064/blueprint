@@ -21,17 +21,9 @@ afterEach(() => {
 });
 
 describe('one stack, three documents agreeing about `explicitAny` (#389)', () => {
-  // The one gate whose availability is not in the blueprint: `any` is a TypeScript
-  // construct with no core rule behind it, so on a JS project nothing holds it. The rule
-  // catalog said so from the start; the three emitted documents did not, because the two
-  // pure emitters were handed a forced `hasTypescript: true` rather than the fact
-  // `detect` already had. One document disagreeing with the other two about one config
-  // is the shape this suite exists to catch.
   const declaring: Blueprint = {
     ...reactBlueprint,
     rules: { ...reactBlueprint.rules, explicitAny: 'error' },
-    // One target of each strategy: the compact pointer block a person maintains, and
-    // the tool-owned file carrying the full contract. Two renderers, one helper.
     emit: { agents: ['claude', 'cursor'] },
   };
 
