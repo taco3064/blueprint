@@ -34,11 +34,9 @@ Do not create a parallel protocol state machine in issue comments. Fingerprints,
 
 Treat a remote build, survey, deployment, or other durable job as asynchronous work rather than a reason to keep an interactive turn open. Record its provider, run identifier, target ref and commit, expected artifact, and authoritative timeout. A later session must be able to recover from those remote facts without the original process or local workspace.
 
-Continue any useful work that does not depend on the result. When the result is the next real dependency and the execution environment exposes scheduled tasks, create a one-time continuation for the expected completion time plus a reasonable buffer, then end the current turn. Do this only when the owner has authorized creating the scheduled task. The continuation prompt must contain the durable identifiers, success path, failure path, and verification boundary; it must not depend on an uncommitted local file or transient worktree.
+Continue any useful work that does not depend on the result. When the result becomes the next real dependency, end the current turn with a self-contained resume prompt containing the durable identifiers, success path, failure path, and verification boundary. The handoff must not depend on an uncommitted local file or transient worktree.
 
-Codex IDE and CLI sessions do not provide the scheduled-task management interface. In those environments, preserve the same durable state and return a self-contained resume prompt for the owner or an explicitly configured external orchestrator. Never claim that an unavailable scheduler will wake the session, and never replace an authoritative check with a smaller one merely to avoid the handoff.
-
-A scheduled continuation is transport, not evidence. On resume, verify that the job measured the intended commit and scope before using its result. Diagnose failure or timeout from the durable logs; do not report a queued or running job as passed.
+On resume, verify that the job measured the intended commit and scope before using its result. Diagnose failure or timeout from the durable logs; do not report a queued or running job as passed, and never replace an authoritative check with a smaller one merely to avoid the handoff.
 
 ## Progress and verification
 
