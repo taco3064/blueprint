@@ -21,6 +21,7 @@ export function renderSurvey(result: SurveyResult): string {
   return [
     ...headerLines(result),
     ...folderLines(result),
+    ...repeatedFolderShapeLines(result),
     ...importMatrixLines(result),
     ...selfAliasLines(result),
     ...testConventionLines(result),
@@ -28,6 +29,26 @@ export function renderSurvey(result: SurveyResult): string {
     ...ownableImportLines(result),
     ...unresolvedLines(result),
   ].join('\n');
+}
+
+function repeatedFolderShapeLines(result: SurveyResult): string[] {
+  const shapes = result.repeatedFolderShapes ?? [];
+
+  if (!shapes.length) {
+    return [];
+  }
+
+  return [
+    '',
+    'Repeated sibling-folder evidence (measured repetition only — not an architecture',
+    'classification, recommendation, dependency rule, or enforcement claim):',
+    ...shapes.flatMap((shape) => [
+      `  ${shape.parent} — sibling instances: ${shape.instances.join(', ')}`,
+      ...shape.repeatedChildren.map(
+        (child) => `    ${child.folder} — ${child.presentIn}/${child.instanceCount} instances`,
+      ),
+    ]),
+  ];
 }
 
 function headerLines(result: SurveyResult): string[] {

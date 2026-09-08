@@ -92,6 +92,7 @@ const SURVEY_HELP = [
   'Runs without a config (it serves the moment before one exists). Reports:',
   '  · top-level src/ folders with module-shape evidence (files, child folders,',
   '    index coverage, nesting depth) and the src-root wiring files',
+  '  · repeated direct-child folders among sibling folder instances, with counts',
   '  · the folder-to-folder import matrix (alias + relative), heaviest first',
   '  · same-folder alias imports, test-convention hits',
   '  · package-usage concentration — ownership candidates',

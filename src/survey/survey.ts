@@ -8,6 +8,7 @@ import type { ImportRef, ScannedFile, ScanResult } from '../inspect';
 import { detect, detectAliases, surveyScope, toolchainForSource } from '../project';
 import type { PackageManager } from '../project';
 import { renderSurvey } from './render';
+import { measureRepeatedFolderShapes } from './shapes';
 
 export const ROOT_BUCKET = '(src root)';
 
@@ -44,6 +45,19 @@ export interface SurveyEdge {
   count: number;
 }
 
+/** Repeated direct-child folder evidence among sibling folder instances. */
+export interface RepeatedFolderShape {
+  /** Directory containing the sibling instances. */
+  parent: string;
+  /** Siblings connected by at least one repeated direct-child folder. */
+  instances: string[];
+  repeatedChildren: {
+    folder: string;
+    presentIn: number;
+    instanceCount: number;
+  }[];
+}
+
 export interface SurveyResult {
   framework: string | null;
   typescript: boolean;
@@ -59,6 +73,8 @@ export interface SurveyResult {
   /** Source files directly under `src/` (entry wiring, not layer code). */
   rootFiles: string[];
   folders: FolderEvidence[];
+  /** Measured repetition among sibling folders; evidence, not an architecture classification. */
+  repeatedFolderShapes?: RepeatedFolderShape[];
   /** Cross-folder edges, heaviest first. */
   edges: SurveyEdge[];
   /** Same-folder imports going through the alias, per folder. */
@@ -339,6 +355,7 @@ function surveyResult(
       .filter((file) => file.segments.length === 1)
       .map((file) => file.segments[0]),
     folders: folderEvidence(scanResult),
+    repeatedFolderShapes: measureRepeatedFolderShapes(scanResult, scope.sourceRoot),
     edges: [...tally.edgeCounts.entries()]
       .map(([key, count]) => {
         const [from, to] = key.split(' → ');

@@ -8,7 +8,13 @@ export { runImpact } from './impact';
 export { runDeps, runDoctor, runInspect, runRules } from './inspect';
 export { runSurvey } from './survey';
 export type * from './config';
-export type { FolderEvidence, SurveyEdge, SurveyOptions, SurveyResult } from './survey';
+export type {
+  FolderEvidence,
+  RepeatedFolderShape,
+  SurveyEdge,
+  SurveyOptions,
+  SurveyResult,
+} from './survey';
 export type { AgentFile, AgentFileStrategy } from './emit/agent';
 export type { EmitLintOptions, LintConfig, LintConfigEntry, StackFacts } from './emit/lint';
 export type { ImpactOptions, RuleImpact } from './impact';
