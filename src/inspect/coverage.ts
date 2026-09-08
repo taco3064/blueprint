@@ -113,14 +113,10 @@ export function unreachedIgnoreGlobs(scanResult: ScanResult, blueprint: Blueprin
   return declared.filter((glob, index) => {
     const pattern = globToRegExp(glob);
 
-    // Which layers need a stand-in depends on the ignores, so the entry under
-    // measurement is lifted out before asking. Left in, an entry that swallows a
-    // layer's only file is the reason that layer needs a stand-in, and matching it
-    // proves only that the entry matched itself. Undecidable against the file test
-    // below, which already excludes every entry that reaches a file and therefore
-    // every entry that can move a hit; the lift is what keeps the two independent.
     const standIns = syntheticProbePaths(blueprint, scanResult, [
+      // Stryker disable next-line MethodExpression: file-reaching entries fail below.
       ...declared.slice(0, index),
+      // Stryker disable next-line MethodExpression, ArithmeticOperator: file hits fail below.
       ...declared.slice(index + 1),
     ]);
 

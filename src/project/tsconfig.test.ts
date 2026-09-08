@@ -258,6 +258,13 @@ describe('viteTsCoverage · the fact that used to be three releases of prose', (
     expect(viteTsCoverage(dir)).toBeNull();
   });
 
+  it('does not collapse a distinct mid-path dot segment into the vite config path', () => {
+    write('vite.config.ts', 'export default {}\n');
+    write('tsconfig.json', '{ "files": ["vite./.config.ts"] }');
+
+    expect(viteTsCoverage(dir)).toMatchObject({ verdict: 'outside' });
+  });
+
   it('names the file it found, whichever extension it is', () => {
     write('tsconfig.json', '{ "include": ["src"] }');
 

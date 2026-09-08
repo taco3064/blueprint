@@ -323,13 +323,12 @@ async function doctorChecks(
   // there are errors, and `ok` is errors-only — so this changes no verdict.
   const findings = analyze(scanResult, blueprint, state.dependencies);
 
-  // Undecidable: this list exists to be matched against findings, so a bogus entry
-  // put in the empty arm's place matches nothing and reads exactly like no baseline.
-  // Nothing here counts entries it failed to match — the lint ledger's stale check is
-  // the symmetric thing this side does not have.
+  // Stryker disable next-line ArrayDeclaration: unmatched fabricated entries change no finding.
+  const unrecorded: ReturnType<typeof parseBaseline> = [];
+
   const recorded = fs.existsSync(path.join(root, BASELINE_FILE))
     ? parseBaseline(fs.readFileSync(path.join(root, BASELINE_FILE), 'utf-8'))
-    : [];
+    : unrecorded;
 
   const wiring = await wiringCheck({
     root,

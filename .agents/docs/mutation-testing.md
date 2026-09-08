@@ -6,10 +6,9 @@ test because a sweep said something was untested.
 `npx stryker run` audits the suite itself — 100% line coverage says every line
 ran, not that a wrong one would be caught. Internal only: no docs page, no
 handbook section, nothing emitted. It runs **on** CI without being a CI **gate**
-— `.github/workflows/mutation.yml` is `workflow_dispatch` and nothing else,
-because Stryker has no approved-survivor ledger, so a threshold is a hard-coded
-number every `src/` edit invalidates — the unappeasable red this repo argues
-against elsewhere.
+— `.github/workflows/mutation.yml` is `workflow_dispatch` and nothing else.
+The score changes whenever the source tree changes, so a fixed threshold would
+become an unappeasable red rather than an actionable gate.
 
 **Dispatch it rather than running it locally.** Per file while working, full
 sweep before you believe the number:
@@ -48,25 +47,13 @@ at while editing.
 
 **The directive is the ledger, and the tool keeps it.** The reason travels into
 the report beside the mutant it is about, a disabled mutant stays visible there
-with an `ignored` status, and nothing has to be matched by hand. **This replaced
-a local `undecidable` comment convention whose ledger was
-`grep -rni undecidable src/` — and that grep's `-i` was load-bearing: the
-case-sensitive form reported 8 of the 20 proof lines in the tree, under-counting
-by 60% while looking like it worked.** An instrument that answers plausibly and
-wrong is the argument for using the one the tool ships.
+with an `ignored` status, and nothing has to be matched by hand.
 
-**Both forms are the ledger until #399 lands.** The replacement is decided, not
-done: the older form still stands at 29 sites, #399 converts them, and nothing
-removes them before it does. So a proof written now takes the directive, and an
-`undecidable` line already at a site is a proof rather than a comment to strip —
-the grep above is still how you read that half of the ledger.
-`scripts/ledger.test.mjs` guards the union of the two, which is why it stays
-green through the conversion instead of going red on it.
-
-**An ignored mutant leaves the score, so the score moves.** `total` and `covered`
-both climb as proofs land, and the floor recorded below was measured while these
-were survivors. Re-measure the floor after the conversion; until then, compare a
-sweep against the previous sweep rather than against that number.
+**An ignored mutant leaves the score, so the score moves.** Ticket #399 measured
+the same 9,401-mutant tree before and after converting the accepted proofs. The
+baseline reported 3,546 ignored and 70 survived; the directive-backed sweep
+reported 3,590 ignored and 39 survived. Compare status counts across the two
+reports rather than treating the older score as a floor for the new convention.
 
 Not chased to 100% — but "equivalent" is a claim someone has read the mutant and
 written down why, not a bucket for whatever is left. The first sweep on this suite

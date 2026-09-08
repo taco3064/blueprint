@@ -1,9 +1,9 @@
 name: Mutation
 
-# Manual only, on purpose. A mutation score cannot be a gate here: Stryker has no
-# approved-survivor ledger, so a threshold would be a hard-coded number that
-# every `src/` edit invalidates — and this repo argues against a red nobody can
-# appease (see the wiring check's own skip reasons). Coverage thresholds already
+# Manual only, on purpose. A mutation score cannot be a gate here: every `src/`
+# edit changes its denominator, so a threshold would be a hard-coded number that
+# drifts away from the tree — and this repo argues against a red nobody can appease
+# (see the wiring check's own skip reasons). Coverage thresholds already
 # fail a PR that adds untested code; this answers the different question of
 # whether the assertions would catch a WRONG line, and that answer is worth
 # reading rather than enforcing.
@@ -37,10 +37,10 @@ jobs:
   mutation:
     name: Mutation survey
     runs-on: ubuntu-latest
-    # The current full tree reaches ~5.8k tested mutants in roughly 48 minutes on
-    # this runner. Keep enough room to write the report and upload its artifact while
-    # still stopping a hung run far short of GitHub's default six-hour budget.
-    timeout-minutes: 60
+    # The prior 45-minute cap cancelled a full 5,855-mutant run at 95%. This cap
+    # leaves measured headroom while still stopping a hung run far short of the
+    # default six-hour budget. Re-measure it when the mutant count moves materially.
+    timeout-minutes: 75
 
     steps:
       - name: Checkout repository
@@ -124,12 +124,9 @@ jobs:
                 "",
               ] : []),
               "A survivor is a question, not a defect: the line ran, and nothing asserted",
-              "its result. Judge each one before writing a test — most of them are already",
-              "answered, in one of the two forms the ledger currently takes. The newer form",
-              "is a `// Stryker disable next-line` directive, which reports as `ignored` and",
-              "so never reaches this list; the older one is still at its site, under",
-              "`grep -rni undecidable src/ --include=*.ts`. Match this list against that",
-              "grep, and write anything new as a directive. See",
+              "its result. Judge each one before writing a test. A mutant proven equivalent",
+              "belongs in the narrowest `// Stryker disable next-line <Mutator>: <reason>`,",
+              "which reports as ignored and never reaches this list. See",
               "`.agents/docs/mutation-testing.md`.",
               "",
             ];

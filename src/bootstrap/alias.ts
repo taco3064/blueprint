@@ -80,9 +80,7 @@ export function patchTsconfigPaths(
 function jsoncAlreadyWired(text: string, paths: Record<string, string[]>): boolean {
   const result = parseJsonc(text);
 
-  // Undecidable: the `isRecord` check below keeps this one honest. On a failure
-  // `result.value` is `undefined`, which is not a record either, so the answer is
-  // already false — removing either guard alone still passes.
+  // Stryker disable next-line BlockStatement, ConditionalExpression: fallthrough is false too.
   if (!result.ok) {
     return false;
   }
@@ -229,10 +227,11 @@ function isReferencesShell(text: string): boolean {
     const parsed: unknown = JSON.parse(text);
 
     return isRecord(parsed) && Array.isArray(parsed.references) && !('compilerOptions' in parsed);
-  } catch {
-    // Undecidable: an empty catch returns `undefined`, and the caller reads that as
-    // the same falsy answer. The patch attempt will surface `unparseable` on the
-    // root itself either way.
+  } catch (
+    // Stryker disable next-line BlockStatement: caller treats this fallback as falsy.
+    error) {
+    void error;
+
     return false;
   }
 }

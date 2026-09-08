@@ -258,10 +258,7 @@ function pickProbes(
  * cannot forget, and cannot disagree about what "no options" looks like.
  */
 function optionsOf(value: unknown): unknown[] {
-  // Undecidable, and deliberately so: the option list is matched by shape, so a bogus
-  // entry in the empty arm's place is ignored by every reader. Rejecting unrecognised
-  // shapes loudly is the opposite of what this check promises — an entry it cannot
-  // read belongs to the user, which is why it is counted and reported, never failed.
+  // Stryker disable next-line ArrayDeclaration: readers ignore a fabricated unmatched option.
   return activeOptions(value)?.slice(1) ?? [];
 }
 

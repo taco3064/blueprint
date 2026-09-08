@@ -144,9 +144,7 @@ function assertFlagsKnown(command: string, rest: string[]): void {
  * silent no-op (the 0.1.1 bug).
  */
 export function isCliEntry(argv1: string | undefined): boolean {
-  // Undecidable: the `catch` below keeps this one honest — `realpathSync(undefined)`
-  // throws, and the catch answers `false` too. Removing either alone still passes;
-  // the contract itself is pinned by a test (`isCliEntry(undefined)`).
+  // Stryker disable next-line BlockStatement, ConditionalExpression: same false catch.
   if (argv1 === undefined) {
     return false;
   }

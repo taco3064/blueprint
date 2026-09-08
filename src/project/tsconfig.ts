@@ -38,8 +38,7 @@ function pathsOf(text: string | null): Record<string, unknown> | null {
 
   const result = parseJsonc(text);
 
-  // undecidable against the `?.` below, which yields no options on a failure
-  // anyway; that `?.` is separately pinned by a tsconfig whose content is `null`.
+  // Stryker disable next-line BlockStatement, ConditionalExpression: fallthrough has no paths too.
   if (!result.ok) {
     return null;
   }
@@ -397,9 +396,6 @@ function includeCovers(include: unknown, file: string): boolean | null {
   return false;
 }
 
-// undecidable on the `^` anchor: unanchored it strips a mid-path `./`, and every
-// path a tsconfig can hold resolves the same either way. It stays because it spells
-// the intent — strip a LEADING `./` — not because any reachable input needs it.
 function normalizeSlashes(value: string): string {
   return value.replace(/\\/g, '/').replace(/^\.\//, '');
 }
