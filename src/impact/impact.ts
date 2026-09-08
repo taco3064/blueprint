@@ -318,8 +318,6 @@ export function renderImpact(impacts: RuleImpact[], total: number, linted: numbe
         + 'nothing until code lands in a layer.'
         : '✓ Rule impact: 0 hits — wiring emitLint introduces no red today.',
 
-      // its findings (bare eslint-disables) surface only in the project's
-
       '  (scope: emitLint only — the anti-bypass guard is separate; the '
       + 'project\'s own lint judges its findings)',
       ...caveatBlock,
