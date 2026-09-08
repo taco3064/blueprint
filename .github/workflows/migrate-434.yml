@@ -1,0 +1,34 @@
+name: One-shot #434 fixture migration
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.head_ref == 'feat/434-module-first-topology'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: node scripts/migrate-434.mjs
+      - name: Commit migrated fixtures
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src scripts
+          git commit -m "refactor: migrate 3.x fixtures to 4.0 unit shape (#434)"
+          git push origin HEAD:${{ github.head_ref }}
