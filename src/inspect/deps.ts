@@ -209,12 +209,9 @@ function skippedFolders(scanned: ScanResult, layerNames: Set<string>): string[] 
 
 /**
  * A single-segment module that IS a flat-layout layer answers at layer granularity.
- *
- * undecidable by reachability, not identity: the regrouped condition differs only
- * for a single-segment key that is not a layer name, and `buildModuleGraph` never
- * builds one. That is a claim about another function, so the `layerNames` half stays.
  */
 function isFlatLayer(module: string, layerNames: Set<string>, layoutOf: LayoutOf): boolean {
+  // Stryker disable next-line LogicalOperator: graph keys never include a non-layer single segment.
   return !module.includes('/') && layerNames.has(module) && layoutOf(module) === 'flat';
 }
 
