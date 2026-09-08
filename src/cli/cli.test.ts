@@ -294,6 +294,10 @@ describe('survey command dispatch', () => {
   it('prints survey help', async () => {
     expect(await run(['survey', '--help'])).toBe(0);
     expect(vi.mocked(console.log).mock.calls.join('\n')).toContain('deterministic evidence');
+
+    expect(vi.mocked(console.log).mock.calls.join('\n')).toContain(
+      'repeated direct-child folders among sibling',
+    );
   });
 });
 

@@ -36,6 +36,9 @@ npx @kekkai/blueprint survey --source-root apps/web/src
 
 - top-level folders with **module-shape evidence** (index coverage, nesting depth —
   the folder-vs-flat call)
+- **repeated direct-child folders among sibling instances**, with the measured parent,
+  participating siblings and explicit counts — evidence only, not a feature/module
+  classification or an architecture recommendation
 - the **folder-to-folder import matrix**, heaviest edges first — the intended flow
   direction, and the counter-edges that are debt (the matrix counts test files;
   `inspect` excludes the ones its globs reach, so its numbers run lower by that much)
