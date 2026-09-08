@@ -116,6 +116,26 @@ describe('authoringActions', () => {
     expect(actions.map((action) => action.kind)).toEqual(['write', 'write', 'instruct']);
   });
 
+  it('requires an application scope instead of offering the starter exit', () => {
+    const actions = authoringActions(
+      { ...survey, scopeRequired: true, totalFiles: 0 },
+      {
+        packageManager: 'pnpm',
+        needsInstall: false,
+        claudeDir: { hadDir: false, otherCommands: 0 },
+        viteTs: null,
+        tscOut: null,
+      },
+    );
+
+    const instruction = actions.find((action) => action.kind === 'instruct')?.note ?? '';
+
+    expect(instruction).toContain('blueprint survey');
+    expect(instruction).toContain('--source-root <application>/src');
+    expect(instruction).toContain('does not permit early exit');
+    expect(instruction).not.toContain('early exit the playbook prescribes IS completion');
+  });
+
   it('downgrades to an instruct with the exact command under --no-install', () => {
     const actions = authoringActions(survey, {
       packageManager: 'npm',

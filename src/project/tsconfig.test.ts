@@ -30,6 +30,14 @@ describe('detectAliases', () => {
     ).toEqual({ '@': 'src', '~app': 'src', '#shared': 'packages/shared' });
   });
 
+  it('resolves a referenced config alias through its own baseUrl', () => {
+    expect(detectAliases({
+      'config/ts/tsconfig.app.json': JSON.stringify({
+        compilerOptions: { baseUrl: '../..', paths: { '@/*': ['./*'] } },
+      }),
+    })).toEqual({ '@': '.' });
+  });
+
   it('skips truly broken files and shapeless configs', () => {
     expect(
       detectAliases({

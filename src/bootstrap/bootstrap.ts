@@ -121,6 +121,7 @@ function takesAuthoringPath(
   survey: SurveyResult,
 ): boolean {
   return Boolean(options.authoring)
+    || survey.scopeRequired === true
     || survey.totalFiles >= BROWNFIELD_MIN_FILES
     || (state.hasNext && !state.nextRouter);
 }

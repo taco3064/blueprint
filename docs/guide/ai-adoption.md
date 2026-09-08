@@ -27,6 +27,13 @@ npx @kekkai/blueprint survey          # human-readable
 npx @kekkai/blueprint survey --json   # for tooling / agents
 ```
 
+When a workspace contains several applications, survey asks for a scope instead of
+classifying the workspace root as a starter. Re-run it for the application you are adopting:
+
+```bash
+npx @kekkai/blueprint survey --source-root apps/web/src
+```
+
 - top-level folders with **module-shape evidence** (index coverage, nesting depth —
   the folder-vs-flat call)
 - the **folder-to-folder import matrix**, heaviest edges first — the intended flow

@@ -56,6 +56,8 @@ export function parseSurveyArgs(args: string[]): SurveyOptions {
       options.json = true;
     } else if (arg === '--alias') {
       options.alias = rest.shift();
+    } else if (arg === '--source-root') {
+      options.sourceRoot = rest.shift();
     }
   }
 
@@ -115,7 +117,7 @@ export function parseDoctorArgs(args: string[]): DoctorOptions {
 
 export const KNOWN_FLAGS: Record<string, Set<string>> = {
   init: new Set(['--agent', '--preset', '--authoring', '--framework', '--no-install', '--dry-run']),
-  survey: new Set(['--alias', '--json']),
+  survey: new Set(['--alias', '--source-root', '--json']),
   inspect: new Set(['--json', '--framework', '--baseline', '--update-baseline']),
   impact: new Set(['--json']),
   deps: new Set(['--json', '--framework']),
@@ -123,7 +125,7 @@ export const KNOWN_FLAGS: Record<string, Set<string>> = {
   doctor: new Set(['--json']),
 };
 
-const VALUED_FLAGS = new Set(['--agent', '--framework', '--alias']);
+const VALUED_FLAGS = new Set(['--agent', '--framework', '--alias', '--source-root']);
 
 export function rejectUnknownFlags(known: Set<string>, command: string, args: string[]): void {
   for (let i = 0; i < args.length; i++) {

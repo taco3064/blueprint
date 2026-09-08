@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import type { ArchitectureDef } from '../config';
-import { parseJsonc, quotedIn, toolchainForProject } from '../project';
+import { parseJsonc, pathAliasKeys, quotedIn, toolchainForProject } from '../project';
 import type { ProjectToolchain, ProjectState } from '../project';
 import { wireTsconfigPaths, wireViteAlias } from './wire';
 import type { Action } from './types';
@@ -91,41 +91,59 @@ export function aliasActions(
 ): Action[] {
   const toolchain = toolchainForProject(state, architecture.sourceRoot);
   const paths = aliasPaths(architecture, toolchain.root);
-  const actions: Action[] = [];
-  const target = resolveTarget(state, toolchain);
-
-  if (target.kind === 'create') {
-    actions.push({
-      kind: 'write',
-      path: toolchain.root ? `${toolchain.root}/jsconfig.json` : 'jsconfig.json',
-      content: render({ compilerOptions: { paths } }),
-      note: 'jsconfig.json (import alias)',
-    });
-  } else if (target.kind === 'instruct') {
-    actions.push(tsconfigInstruct(target.file, paths));
-  } else {
-    let result = patchTsconfigPaths(target.text, paths);
-
-    if (result.kind === 'unparseable' && greenfield) {
-      result = wireTsconfigPaths(target.text, paths);
-    }
-
-    if (result.kind === 'patched') {
-      actions.push({
-        kind: 'write',
-        path: target.file,
-        content: result.text,
-
-        note: `${target.file} (import alias added — existing content preserved)`,
-      });
-    } else if (result.kind === 'unparseable') {
-      actions.push(tsconfigInstruct(target.file, paths));
-    }
-  }
+  const actions = tsconfigActions(state, { toolchain, paths, greenfield });
 
   actions.push(...bundlerActions(state, architecture, { greenfield, toolchain }));
 
   return actions;
+}
+
+function tsconfigActions(
+  state: ProjectState,
+  scope: {
+    toolchain: ProjectToolchain;
+    paths: Record<string, string[]>;
+    greenfield: boolean;
+  },
+): Action[] {
+  const { toolchain, paths, greenfield } = scope;
+  const names = Object.keys(paths).map((name) => name.replace(/\/\*$/, ''));
+
+  if (names.every((name) => pathAliasKeys(toolchain.tsconfigs).has(name))) {
+    return [];
+  }
+
+  const target = resolveTarget(state, toolchain);
+
+  if (target.kind === 'create') {
+    return [{
+      kind: 'write',
+      path: toolchain.root ? `${toolchain.root}/jsconfig.json` : 'jsconfig.json',
+      content: render({ compilerOptions: { paths } }),
+      note: 'jsconfig.json (import alias)',
+    }];
+  }
+
+  if (target.kind === 'instruct') {
+    return [tsconfigInstruct(target.file, paths)];
+  }
+
+  let result = patchTsconfigPaths(target.text, paths);
+
+  if (result.kind === 'unparseable' && greenfield) {
+    result = wireTsconfigPaths(target.text, paths);
+  }
+
+  if (result.kind === 'patched') {
+    return [{
+      kind: 'write',
+      path: target.file,
+      content: result.text,
+      note: `${target.file} (import alias added — existing content preserved)`,
+    }];
+  }
+
+  return result.kind === 'unparseable' ? [tsconfigInstruct(target.file, paths)] : [];
 }
 
 function bundlerActions(
@@ -177,14 +195,7 @@ function resolveTarget(state: ProjectState, toolchain: ProjectToolchain): Target
   const root = toolchain.tsconfigs[rootFile];
 
   if (root != null) {
-    const appFile = at('tsconfig.app.json');
-    const app = toolchain.tsconfigs[appFile];
-
-    if (app != null && isReferencesShell(root)) {
-      return { kind: 'patch', file: appFile, text: app };
-    }
-
-    return { kind: 'patch', file: rootFile, text: root };
+    return rootTarget(root, rootFile, toolchain);
   }
 
   const jsFile = at('jsconfig.json');
@@ -195,6 +206,35 @@ function resolveTarget(state: ProjectState, toolchain: ProjectToolchain): Target
   }
 
   return hasTypescript ? { kind: 'instruct', file: rootFile } : { kind: 'create' };
+}
+
+function rootTarget(
+  root: string,
+  rootFile: string,
+  toolchain: ProjectToolchain,
+): Target {
+  const appFile = rootFile.replace(/tsconfig\.json$/, 'tsconfig.app.json');
+  const app = toolchain.tsconfigs[appFile];
+
+  if (app != null && isReferencesShell(root)) {
+    return { kind: 'patch', file: appFile, text: app };
+  }
+
+  const referenced = isReferencesShell(root) ? referencedTarget(toolchain, rootFile) : null;
+
+  return referenced ?? { kind: 'patch', file: rootFile, text: root };
+}
+
+function referencedTarget(toolchain: ProjectToolchain, rootFile: string): Target | null {
+  for (const [file, text] of Object.entries(toolchain.tsconfigs)) {
+    if (file === rootFile || text === null) {
+      continue;
+    }
+
+    return { kind: 'patch', file, text };
+  }
+
+  return null;
 }
 
 function isReferencesShell(text: string): boolean {

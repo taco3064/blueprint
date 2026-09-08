@@ -526,7 +526,8 @@ describe('runSurvey · project scope and layer aliases', () => {
     const result = runSurvey(root, { log: silent });
 
     expect(result.totalFiles).toBe(0);
-    expect(result.scopeNote).toContain('choose one architecture.sourceRoot explicitly');
+    expect(result.scopeRequired).toBe(true);
+    expect(result.scopeNote).toContain('choose one with --source-root');
   });
 
   it('recognizes a root file include as a root-level application', () => {

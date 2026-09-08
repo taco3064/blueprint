@@ -8,14 +8,14 @@ function eachPathAlias(
   tsconfigs: Record<string, string | null>,
   visit: (alias: string, dir: string | null) => void,
 ): void {
-  for (const text of Object.values(tsconfigs)) {
-    const paths = pathsOf(text);
+  for (const [file, text] of Object.entries(tsconfigs)) {
+    const config = pathsOf(text);
 
-    if (paths === null) {
+    if (config === null) {
       continue;
     }
 
-    for (const [key, targets] of Object.entries(paths)) {
+    for (const [key, targets] of Object.entries(config.paths)) {
       const alias = key.replace(/\/\*$/, '');
 
       if (!alias) {
@@ -24,12 +24,18 @@ function eachPathAlias(
 
       const target = Array.isArray(targets) && typeof targets[0] === 'string' ? targets[0] : null;
 
-      visit(alias, target?.replace(/\/\*$/, '').replace(/^\.\//, '') ?? null);
+      const normalized = target === null
+        ? null
+        : resolveAliasTarget(file, config.baseUrl, target.replace(/\/\*$/, ''));
+
+      visit(alias, normalized);
     }
   }
 }
 
-function pathsOf(text: string | null): Record<string, unknown> | null {
+function pathsOf(
+  text: string | null,
+): { paths: Record<string, unknown>; baseUrl?: string } | null {
   if (text == null) {
     return null;
   }
@@ -41,12 +47,33 @@ function pathsOf(text: string | null): Record<string, unknown> | null {
     return null;
   }
 
-  const options = (result.value as { compilerOptions?: { paths?: unknown } })?.compilerOptions;
+  const options = (result.value as {
+    compilerOptions?: { paths?: unknown; baseUrl?: unknown };
+  })?.compilerOptions;
+
   const paths = options?.paths;
 
-  return typeof paths !== 'object' || paths === null
-    ? null
-    : paths as Record<string, unknown>;
+  if (typeof paths !== 'object' || paths === null) {
+    return null;
+  }
+
+  return {
+    paths: paths as Record<string, unknown>,
+    ...(typeof options?.baseUrl === 'string' ? { baseUrl: options.baseUrl } : {}),
+  };
+}
+
+function resolveAliasTarget(file: string, baseUrl: string | undefined, target: string): string {
+  const cleanTarget = target.replace(/^\.\//, '');
+
+  if (cleanTarget.split('/').includes('.')) {
+    return cleanTarget;
+  }
+
+  const dir = path.posix.dirname(file) === '.' ? '' : path.posix.dirname(file);
+  const resolved = path.posix.normalize(path.posix.join(dir, baseUrl ?? '.', cleanTarget));
+
+  return resolved.replace(/^\.\//, '');
 }
 
 export function detectAliases(tsconfigs: Record<string, string | null>): Record<string, string> {

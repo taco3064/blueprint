@@ -96,6 +96,7 @@ const SURVEY_HELP = [
   '',
   'Flags:',
   '  --alias <name>   Import alias when tsconfig paths detection finds none.',
+  '  --source-root <path>  Application source root when a workspace has several.',
   '  --json           Machine-readable output.',
   '',
   'Examples:',
