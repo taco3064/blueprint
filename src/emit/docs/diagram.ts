@@ -1,8 +1,8 @@
+import { resolveArchitecture } from '../../config';
 import type { ArchitectureDef } from '../../config';
-import { getDiagramEdges } from '../../config';
 
 export function emitFlowDiagram(architecture: ArchitectureDef): string {
-  const lines = getDiagramEdges(architecture).map((edge) => {
+  const lines = resolveArchitecture(architecture).diagramEdges.map((edge) => {
     if (edge.ordered) {
       return `  ${edge.from} -.-> ${edge.to}`;
     }

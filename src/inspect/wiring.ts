@@ -1,17 +1,13 @@
 import path from 'node:path';
 
 import { activeSetting,
-  aliasLayerRoots,
   aliasSpecifier,
-  getForbiddenLayers,
-  getModuleShape,
-  getSelfOnlyTargets } from '../config';
+  resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
 
 import {
   buildStructuralPatterns,
   deriveGlobalRules,
-  resolveLayerFiles,
   resolveTestFiles,
   selfOnlyReexportSelector,
   toArray,
@@ -56,24 +52,24 @@ export function expectedStructural(
   layer: string,
 ): { groups: Set<string>; selectors: Set<string>; globals: Set<string> } {
   const { architecture, rules } = blueprint;
-
-  const aliases = aliasLayerRoots(architecture);
+  const resolved = resolveArchitecture(architecture);
+  const aliases = resolved.aliases;
 
   const layouts = Object.fromEntries(
-    architecture.layers.map((entry) => [
+    resolved.layers.map((entry) => [
       entry.name,
-      getModuleShape(architecture, entry.name).layout,
+      entry.module.layout,
     ]),
   );
 
-  const forbidden = getForbiddenLayers(architecture, layer);
+  const forbidden = resolved.forbiddenLayers(layer);
 
   const structural = buildStructuralPatterns({
     layer,
     aliases,
     forbidden,
     moduleLayout: layouts[layer],
-    folderTargets: architecture.layers
+    folderTargets: resolved.layers
       .map((entry) => entry.name)
       .filter((name) => layouts[name] === 'folder' && name !== layer && !forbidden.includes(name)),
     fixtures: activeSetting(rules?.fixtureImports)
@@ -88,7 +84,7 @@ export function expectedStructural(
   return {
     groups: new Set(structural.map((pattern) => JSON.stringify(pattern.group))),
     selectors: new Set(
-      getSelfOnlyTargets(architecture, layer).flatMap((target) =>
+      resolved.selfOnlyTargets(layer).flatMap((target) =>
         aliases.flatMap((alias) => {
           const specifier = aliasSpecifier(alias, target);
 
@@ -97,7 +93,7 @@ export function expectedStructural(
       ),
     ),
     globals: new Set(
-      deriveGlobalRules(architecture.layers)
+      deriveGlobalRules(resolved.layers.map((entry) => entry.definition))
         .filter((rule) => !rule.allowedIn.includes(layer))
         .map((rule) => rule.global),
     ),
@@ -133,8 +129,8 @@ function layerProbeSites(
     (file) => !held.some((ignore) => ignore.test(file.path)),
   );
 
-  return architecture.layers.map((layer) => {
-    const globs = resolveLayerFiles(layer.name, framework, architecture);
+  return resolveArchitecture(architecture).layers.map(({ definition: layer }) => {
+    const globs = resolveArchitecture(architecture).layerFiles(layer.name, framework);
     const nets = globs.map(globToRegExp);
 
     return {

@@ -1,4 +1,5 @@
 import { FRAMEWORK_EXTS } from '../emit/lint';
+import { resolveArchitecture } from '../config';
 import type { Blueprint, Framework } from '../config';
 import { GENERATED_ESLINT_BANNER } from '../project';
 import type { ProjectState } from '../project';
@@ -8,7 +9,7 @@ export function eslintConfigSource(blueprint: Blueprint, state: ProjectState): s
   const ts = state.hasTypescript;
 
   const guardExts = framework ? FRAMEWORK_EXTS[framework] : FRAMEWORK_EXTS.auto;
-  const sourceRoot = blueprint.architecture.sourceRoot ?? 'src';
+  const sourceRoot = resolveArchitecture(blueprint.architecture).sourceRoot;
   const guardRoot = sourceRoot === '.' ? '' : `${sourceRoot}/`;
   const parserBlocks = parserEntries(framework, ts);
 

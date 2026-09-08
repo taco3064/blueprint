@@ -1,11 +1,8 @@
 import type { ESLint, Linter } from 'eslint';
 import { activeSetting,
-  aliasLayerRoots,
   aliasSpecifier,
-  getForbiddenLayers,
-  getModuleShape,
-  getSelfOnlyTargets } from '../../config';
-import type { Blueprint, ReadSetting } from '../../config';
+  resolveArchitecture } from '../../config';
+import type { AliasRoot, Blueprint, ReadSetting } from '../../config';
 import { plugin } from '../../plugin';
 import {
   buildPackagePatterns,
@@ -13,7 +10,6 @@ import {
   derivePackageRules,
   deriveGlobalRules,
   METRIC_GATES,
-  resolveLayerFiles,
   resolveTestFiles,
   selfOnlyReexportSelector,
   STATEMENT_PADDING,
@@ -44,27 +40,22 @@ type ModuleLayout = 'folder' | 'flat';
  */
 export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): LintConfig {
   const { framework, architecture } = blueprint;
+  const resolved = resolveArchitecture(architecture);
 
-  const {
-    layers,
-    layerFiles,
-    layerFilesIgnore,
-    testFiles,
-    sourceRoot,
-  } = architecture;
+  const { layerFilesIgnore, testFiles } = architecture;
 
   const severity: Severity = blueprint.emit?.lint?.severity ?? 'error';
 
-  const aliases = aliasLayerRoots(architecture);
+  const aliases = resolved.aliases;
 
   const testGlobs = resolveTestFiles(testFiles);
 
   const layouts = Object.fromEntries(
-    layers.map((layer) => [layer.name, getModuleShape(architecture, layer.name).layout]),
+    resolved.layers.map((layer) => [layer.name, layer.module.layout]),
   );
 
   const entries = Object.fromEntries(
-    layers.map((layer) => [layer.name, getModuleShape(architecture, layer.name).entry]),
+    resolved.layers.map((layer) => [layer.name, layer.module.entry]),
   );
 
   const ignoreConfig: LintConfigEntry[] = layerFilesIgnore
@@ -75,7 +66,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
 
   const allLayerFiles = [
     ...new Set(
-      layers.flatMap((l) => resolveLayerFiles(l.name, framework, { layerFiles, sourceRoot })),
+      resolved.layers.flatMap((layer) => resolved.layerFiles(layer.name, framework)),
     ),
   ];
 
@@ -85,7 +76,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     plugins: { blueprint: plugin },
     rules: { 'blueprint/relative-escape': [
       severity,
-      { layouts, entries, sourceRoot: sourceRoot ?? 'src' },
+      { layouts, entries, sourceRoot: resolved.sourceRoot },
     ] },
   };
 
@@ -102,12 +93,13 @@ function layerImportEntries(
   shape: {
     severity: Severity;
     testGlobs: string[];
-    aliases: ReturnType<typeof aliasLayerRoots>;
+    aliases: AliasRoot[];
     layouts: Record<string, ModuleLayout>;
   },
 ): LintConfigEntry[] {
   const { framework, architecture } = blueprint;
-  const { layers, layerFiles, sourceRoot } = architecture;
+  const resolved = resolveArchitecture(architecture);
+  const layers = resolved.layers.map((layer) => layer.definition);
   const { severity, testGlobs, aliases, layouts } = shape;
   const packageRules = derivePackageRules(layers);
   const globalRules = deriveGlobalRules(layers);
@@ -125,12 +117,13 @@ function layerImportEntries(
     : [];
 
   return layers.flatMap((layer) => {
-    const files = resolveLayerFiles(layer.name, framework, { layerFiles, sourceRoot });
-    const forbidden = getForbiddenLayers(architecture, layer.name);
+    const files = resolved.layerFiles(layer.name, framework);
+
+    const forbidden = resolved.forbiddenLayers(layer.name);
     const disabledPackages = packageRules.filter((rule) => !rule.allowedIn.includes(layer.name));
     const disabledGlobals = globalRules.filter((rule) => !rule.allowedIn.includes(layer.name));
 
-    const selfOnlyTargets = getSelfOnlyTargets(architecture, layer.name);
+    const selfOnlyTargets = resolved.selfOnlyTargets(layer.name);
 
     const structural = buildStructuralPatterns({
       layer: layer.name,
@@ -196,11 +189,11 @@ function ruleGateEntries(
   options: EmitLintOptions,
 ): LintConfigEntry[] {
   const { framework, architecture, rules } = blueprint;
-  const { layers, layerFiles, sourceRoot } = architecture;
+  const resolved = resolveArchitecture(architecture);
 
   const sharedFiles = [
     ...new Set(
-      layers.flatMap((l) => resolveLayerFiles(l.name, framework, { layerFiles, sourceRoot })),
+      resolved.layers.flatMap((layer) => resolved.layerFiles(layer.name, framework)),
     ),
   ];
 
@@ -325,9 +318,9 @@ function typedefOnlyEntry(
   }
 
   return [{
-    files: [architecture.sourceRoot === '.'
+    files: [resolveArchitecture(architecture).sourceRoot === '.'
       ? '**/*.js'
-      : `${architecture.sourceRoot ?? 'src'}/**/*.js`],
+      : `${resolveArchitecture(architecture).sourceRoot}/**/*.js`],
     ignores: testGlobs,
     plugins: { blueprint: plugin },
     rules: { 'blueprint/no-typedef-only-file': typedefOnlyFile.tier },
@@ -336,7 +329,6 @@ function typedefOnlyEntry(
 
 function usePrefixEntry(blueprint: Blueprint, testGlobs: string[]): LintConfigEntry[] {
   const { framework, architecture, rules } = blueprint;
-  const { layerFiles, sourceRoot } = architecture;
   const usePrefix = activeSetting(rules?.usePrefix);
 
   if (!usePrefix) {
@@ -347,7 +339,7 @@ function usePrefixEntry(blueprint: Blueprint, testGlobs: string[]): LintConfigEn
   const prefix = (usePrefix.opts.prefix as string | undefined) ?? 'use';
 
   return [{
-    files: resolveLayerFiles(layer, framework, { layerFiles, sourceRoot }),
+    files: resolveArchitecture(architecture).layerFiles(layer, framework),
     ignores: testGlobs,
     plugins: { blueprint: plugin },
     rules: { 'blueprint/use-prefix': [usePrefix.tier, { prefix }] },

@@ -5,6 +5,7 @@ import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
 import { handbookPath } from '../emit/docs';
 import { analyze } from '../inspect';
 import type { scan } from '../inspect';
+import { resolveArchitecture } from '../config';
 import type { AgentTarget, Blueprint } from '../config';
 import { ignoredArtifacts } from './ignored';
 import { describeUnreadable, pathAliasKeys, unreadableTsconfigs } from '../project';
@@ -160,7 +161,7 @@ export function lintScriptAction(
   const parsed = JSON.parse(text) as { scripts?: Record<string, string> };
   const lint = parsed.scripts?.lint;
 
-  const target = blueprint.architecture.sourceRoot ?? 'src';
+  const target = resolveArchitecture(blueprint.architecture).sourceRoot;
 
   if (lint === undefined) {
     return noLintScript(parsed, target, greenfield);

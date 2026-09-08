@@ -1,5 +1,5 @@
 import { emptyTestGlobs, unreachedTestGlobs } from '../emit/lint/patterns';
-import { stripSourceRoot } from '../config';
+import { resolveArchitecture, stripSourceRoot } from '../config';
 import type { ArchitectureDef, Blueprint } from '../config';
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
@@ -45,11 +45,11 @@ export async function runDeps(
   const state = detect(root);
   const { blueprint } = await resolveBlueprint(root, state, options);
   const { architecture } = blueprint;
-  const scanned = scan(root, architecture.sourceRoot);
+  const scanned = scan(root, resolveArchitecture(architecture).sourceRoot);
   const graph = buildModuleGraph(scanned, architecture);
   const modules = collect(graph.modules, graph.edges);
   const layoutOf = layoutResolver(architecture);
-  const layerNames = new Set(architecture.layers.map((layer) => layer.name));
+  const layerNames = new Set(resolveArchitecture(architecture).layerNames);
   const skipped = skippedFolders(scanned, layerNames);
   const testExemption = exemptionNote(modules, scanned, architecture);
 
@@ -78,7 +78,8 @@ function exemptionNote(
   scanned: ScanResult,
   architecture: Blueprint['architecture'],
 ): string | null {
-  const { testFiles, sourceRoot } = architecture;
+  const { testFiles } = architecture;
+  const sourceRoot = resolveArchitecture(architecture).sourceRoot;
 
   if (!modules.length) {
     return null;

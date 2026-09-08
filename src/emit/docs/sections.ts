@@ -8,9 +8,7 @@ import type {
 } from '../../config';
 import {
   readSetting,
-  getModuleShape,
-  getSharedModule,
-  normalizeAllowedImporters,
+  resolveArchitecture,
 } from '../../config';
 import { enforcedBy, unavailableForEmit } from '../lint';
 import type { EmitFacts } from '../lint';
@@ -29,7 +27,9 @@ export function renderHeader(name: string | undefined): string {
 }
 
 export function renderArchitecture(architecture: ArchitectureDef): string {
-  const rows = architecture.layers.map((layer) => [
+  const resolved = resolveArchitecture(architecture);
+
+  const rows = resolved.layers.map(({ definition: layer }) => [
     `\`${layer.name}\``,
     escapeCell(layer.does),
     layer.mustNot?.length ? escapeCell(layer.mustNot.join('; ')) : '—',
@@ -59,12 +59,13 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
 }
 
 export function renderModule(architecture: ArchitectureDef, exampleLayer: string): string {
-  const module = getSharedModule(architecture);
+  const resolved = resolveArchitecture(architecture);
+  const module = resolved.folderShape;
 
-  const exceptionLines = architecture.layers
-    .filter((layer) => layer.module !== undefined)
+  const exceptionLines = resolved.layers
+    .filter((layer) => layer.definition.module !== undefined)
     .map((layer) => {
-      const shape = getModuleShape(architecture, layer.name);
+      const shape = layer.module;
 
       return shape.layout === 'folder'
         ? `- \`${layer.name}/\` — one folder per module, entry \`${shape.entry}\`.`
@@ -111,12 +112,10 @@ export function renderModule(architecture: ArchitectureDef, exampleLayer: string
 }
 
 export function renderImportDiscipline(architecture: ArchitectureDef): string {
-  const { layers } = architecture;
-  const module = getSharedModule(architecture);
+  const resolved = resolveArchitecture(architecture);
+  const module = resolved.folderShape;
 
-  const hasSelfOnly = layers.some((layer) =>
-    normalizeAllowedImporters(layer.allowedImporters).some((importer) => importer.selfOnly),
-  );
+  const hasSelfOnly = resolved.hasSelfOnly;
 
   const bullets = [
     '- **One-way only** — a layer imports only from the layers below it; '
@@ -128,8 +127,8 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
 
   const folderEntries = [
     ...new Set(
-      layers
-        .map((layer) => getModuleShape(architecture, layer.name))
+      resolved.layers
+        .map((layer) => layer.module)
         .filter((shape) => shape.layout === 'folder')
         .map((shape) => `\`${shape.entry}\``),
     ),

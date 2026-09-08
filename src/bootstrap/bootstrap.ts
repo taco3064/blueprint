@@ -1,4 +1,5 @@
 import { scan } from '../inspect';
+import { resolveArchitecture } from '../config';
 import type { AgentTarget } from '../config';
 import {
   buildConfigSource,
@@ -146,14 +147,15 @@ async function runScaffold(
     ...(agentTarget ? { scaffoldAgents: [agentTarget] } : {}),
   });
 
-  const scanResult = scan(root, blueprint.architecture.sourceRoot);
+  const sourceRoot = resolveArchitecture(blueprint.architecture).sourceRoot;
+  const scanResult = scan(root, sourceRoot);
 
   const actions = plan(state, blueprint, {
     ...options,
     configSource,
     agentTarget,
     hasSourceFiles: scanResult.files.length > 0,
-    existingSourceDirs: listSourceDirs(root, blueprint.architecture.sourceRoot),
+    existingSourceDirs: listSourceDirs(root, sourceRoot),
     existingAgentFiles: readTexts(root, contractPaths(blueprint, agentTarget)),
   });
 

@@ -1,5 +1,5 @@
 import type { AliasRoot, ArchitectureDef } from '../config';
-import { aliasLayerRoots, getModuleShape } from '../config';
+import { resolveArchitecture } from '../config';
 import { moduleKey, resolveSegments } from '../plugin';
 import type { EntryOf, LayoutOf } from '../plugin';
 import { dropTestFiles } from './filter';
@@ -9,11 +9,14 @@ export type { EntryOf, LayoutOf, ModuleShape, RelativeVerdict } from '../plugin'
 export { moduleKey, relativeVerdict, resolveSegments } from '../plugin';
 
 export function layoutResolver(architecture: ArchitectureDef): LayoutOf {
-  return (layer) => getModuleShape(architecture, layer).layout;
+  const resolved = resolveArchitecture(architecture);
+
+  return (layer) => resolved.layers.find((candidate) => candidate.name === layer)?.module.layout
+    ?? resolved.folderShape.layout;
 }
 
 export function aliasList(architecture: ArchitectureDef): AliasRoot[] {
-  return aliasLayerRoots(architecture);
+  return resolveArchitecture(architecture).aliases;
 }
 
 export function stripAlias(
@@ -40,8 +43,9 @@ export function stripAlias(
 }
 
 export function entryResolver(architecture: ArchitectureDef): EntryOf {
-  const shared = architecture.module?.entry ?? 'index';
-  const perLayer = new Map(architecture.layers.map((l) => [l.name, l.module?.entry ?? shared]));
+  const resolved = resolveArchitecture(architecture);
+  const shared = resolved.folderShape.entry;
+  const perLayer = new Map(resolved.layers.map((layer) => [layer.name, layer.module.entry]));
 
   return (layer) => perLayer.get(layer) ?? shared;
 }
@@ -77,7 +81,7 @@ export interface ModuleGraph {
 export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef): ModuleGraph {
   scan = dropTestFiles(scan, architecture.testFiles);
 
-  const layerNames = architecture.layers.map((layer) => layer.name);
+  const layerNames = resolveArchitecture(architecture).layerNames;
   const aliases = aliasList(architecture);
   const layoutOf = layoutResolver(architecture);
   const graph: ModuleGraph = { modules: new Set(), edges: new Map() };

@@ -15,11 +15,9 @@ import {
 } from '../emit/lint/patterns';
 import type { GateSpec } from '../emit/lint/patterns';
 import {
-  aliasLayerRoots,
   aliasSpecifier,
-  getForbiddenLayers,
-  getSelfOnlyTargets,
-  normalizeAllowedImporters, readSetting,
+  readSetting,
+  resolveArchitecture,
 } from '../config';
 import type { Blueprint } from '../config';
 import { testFileReach } from './coverage';
@@ -151,15 +149,14 @@ function resolveStructural(blueprint: Blueprint | null): StructuralStatus[] {
     return STRUCTURAL_RULES.map((rule) => ({ ...rule, active: null }));
   }
 
-  const { layers } = blueprint.architecture;
+  const architecture = resolveArchitecture(blueprint.architecture);
+  const layers = architecture.layers.map((layer) => layer.definition);
   const globalRules = deriveGlobalRules(layers);
 
   const active: Record<string, boolean> = {
     'no-restricted-imports': true,
     'blueprint/relative-escape': true,
-    'no-restricted-syntax': layers.some((layer) =>
-      normalizeAllowedImporters(layer.allowedImporters)
-        .some((importer) => importer.selfOnly === true)),
+    'no-restricted-syntax': architecture.hasSelfOnly,
     'no-restricted-globals': layers.some((layer) =>
       globalRules.some((rule) => !rule.allowedIn.includes(layer.name))),
   };
@@ -182,26 +179,27 @@ function gateSpecs(): GateSpec[] {
 
 function layerBans(blueprint: Blueprint): LayerBans[] {
   const { architecture } = blueprint;
+  const resolved = resolveArchitecture(architecture);
+  const aliases = resolved.aliases;
 
-  const aliases = aliasLayerRoots(architecture);
+  const definitions = resolved.layers.map((layer) => layer.definition);
+  const packageRules = derivePackageRules(definitions);
+  const globalRules = deriveGlobalRules(definitions);
 
-  const packageRules = derivePackageRules(architecture.layers);
-  const globalRules = deriveGlobalRules(architecture.layers);
-
-  return architecture.layers.map((layer) => {
+  return definitions.map((layer) => {
     const packages = packageRules
       .filter((rule) => !rule.allowedIn.includes(layer.name))
       .map((rule) => (rule.imports?.length ? `${rule.package} (${rule.imports.join(', ')})` : rule.package));
 
     return {
       layer: layer.name,
-      forbidden: getForbiddenLayers(architecture, layer.name),
+      forbidden: resolved.forbiddenLayers(layer.name),
       packages,
       ...(packages.length ? { packagesNote: PACKAGES_NOT_COMPARED.join(' ') } : {}),
       globals: globalRules
         .filter((rule) => !rule.allowedIn.includes(layer.name))
         .map((rule) => rule.global),
-      selfOnly: getSelfOnlyTargets(architecture, layer.name).map((target) => {
+      selfOnly: resolved.selfOnlyTargets(layer.name).map((target) => {
         const selectors = aliases.flatMap((alias) => {
           const specifier = aliasSpecifier(alias, target);
 
@@ -276,10 +274,12 @@ function measureTestGlobs(root: string, blueprint: Blueprint | null): string | n
     return null;
   }
 
+  const sourceRoot = resolveArchitecture(blueprint.architecture).sourceRoot;
+
   return unreachedTestGlobs(testFileReach(
-    scan(root, blueprint.architecture.sourceRoot),
+    scan(root, sourceRoot),
     declared,
-    blueprint.architecture.sourceRoot,
+    sourceRoot,
   ));
 }
 

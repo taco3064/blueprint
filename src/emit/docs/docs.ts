@@ -1,3 +1,4 @@
+import { resolveArchitecture } from '../../config';
 import type { Blueprint } from '../../config';
 import type { StackFacts } from '../lint';
 import {
@@ -31,7 +32,7 @@ export function handbookPath(blueprint: Blueprint): string {
 export function emitHandbook(blueprint: Blueprint, stack: StackFacts = {}): string {
   const { name, architecture, principles, rules } = blueprint;
 
-  const exampleLayer = architecture.layers[0].name;
+  const exampleLayer = resolveArchitecture(architecture).layers[0].name;
 
   const sections = [
     renderHeader(name),
