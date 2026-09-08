@@ -9,6 +9,7 @@ import type {
   RuleSetting,
 } from './types';
 import { normalizeAllowedImporters } from './graph';
+import { resolveArchitecture } from './resolved';
 import { activeSetting } from './settings';
 
 const VALID_TIERS = ['error', 'warn', 'off'];
@@ -104,6 +105,7 @@ export function validateBlueprint(bp: Blueprint): Blueprint {
   validateRuleTiers(bp.rules);
   validateUsePrefix(bp);
   validateAgentEmit(bp);
+  resolveArchitecture(bp.architecture);
 
   return bp;
 }

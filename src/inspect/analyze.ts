@@ -1,8 +1,5 @@
 import {
-  getForbiddenLayers,
-  getModuleShape,
-  getSelfOnlyTargets,
-  normalizeAllowedImporters,
+  resolveArchitecture,
   sourceRootLabel,
 } from '../config';
 import type { AliasRoot, ArchitectureDef, Blueprint } from '../config';
@@ -23,7 +20,7 @@ import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './ty
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
 
 function sourcePrefix(architecture: ArchitectureDef): string {
-  const root = architecture.sourceRoot ?? 'src';
+  const root = resolveArchitecture(architecture).sourceRoot;
 
   return root === '.' ? '' : `${root}/`;
 }
@@ -34,7 +31,8 @@ export function analyze(
   dependencies?: string[],
 ): Finding[] {
   const { architecture } = blueprint;
-  const layerNames = architecture.layers.map((layer) => layer.name);
+  const resolved = resolveArchitecture(architecture);
+  const layerNames = resolved.layerNames;
 
   scan = dropTestFiles(scan, architecture.testFiles);
   const lintScan = dropLayerFilesIgnored(scan, architecture.layerFilesIgnore);
@@ -71,8 +69,8 @@ function ownsFindings(
   const findings: Finding[] = [];
   const prefix = sourcePrefix(architecture);
 
-  for (const layer of architecture.layers) {
-    for (const owned of layer.owns ?? []) {
+  for (const { definition: layer } of resolveArchitecture(architecture).ownership) {
+    for (const owned of layer.owns!) {
       const pkg = typeof owned === 'string' ? owned : 'package' in owned ? owned.package : null;
 
       if (pkg === null || dependencies.includes(pkg)) {
@@ -132,8 +130,8 @@ function folderFindings(
   }
 
   if (scan.files.length > 0) {
-    for (const layer of architecture.layers) {
-      const selfOnlyImporters = normalizeAllowedImporters(layer.allowedImporters)
+    for (const layer of resolveArchitecture(architecture).layers) {
+      const selfOnlyImporters = layer.allowedImporters
         .filter((importer) => importer.selfOnly)
         .map((importer) => importer.layer);
 
@@ -167,7 +165,7 @@ function noEntryFindings(
     if (
       file.segments.length >= 3
       && layerNames.includes(layer)
-      && getModuleShape(architecture, layer).layout === 'folder'
+      && resolveArchitecture(architecture).matchLayer(file.segments)?.module.layout === 'folder'
     ) {
       const key = `${layer}/${file.segments[1]}`;
 
@@ -178,7 +176,7 @@ function noEntryFindings(
   const findings: Finding[] = [];
 
   for (const [key, files] of modules) {
-    const { entry } = getModuleShape(architecture, key.split('/')[0]);
+    const entry = resolveArchitecture(architecture).matchLayer(key)!.module.entry;
 
     const hasEntry = files.some(
       (file) => file.segments.length === 3 && stripExt(file.segments[2]) === entry,
@@ -225,8 +223,8 @@ function importFindings(
     architecture,
     layerNames,
     aliases: aliasList(architecture),
-    forbidden: getForbiddenLayers(architecture, fileLayer),
-    selfOnly: getSelfOnlyTargets(architecture, fileLayer),
+    forbidden: resolveArchitecture(architecture).forbiddenLayers(fileLayer),
+    selfOnly: resolveArchitecture(architecture).selfOnlyTargets(fileLayer),
     layoutOf: layoutResolver(architecture),
     entryOf: entryResolver(architecture),
   };
@@ -238,7 +236,14 @@ function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext):
   const parts = stripAlias(ref.specifier, context.aliases);
 
   if (parts) {
-    return aliasFindings(file, ref, { ...context, target: parts[0], depth: parts.length });
+    const target = resolveArchitecture(context.architecture)
+      .resolveImportTarget(file.segments, ref.specifier);
+
+    return aliasFindings(file, ref, {
+      ...context,
+      target: target?.name ?? parts[0],
+      depth: parts.length,
+    });
   }
 
   if (ref.specifier.startsWith('.')) {
@@ -333,12 +338,8 @@ function ownersOf(
 ): string[] | null {
   const owners: string[] = [];
 
-  for (const layer of architecture.layers) {
-    if (!layer.owns) {
-      continue;
-    }
-
-    for (const owned of layer.owns) {
+  for (const { definition: layer } of resolveArchitecture(architecture).ownership) {
+    for (const owned of layer.owns!) {
       if (typeof owned === 'string') {
         if (owned === specifier) {
           owners.push(layer.name);

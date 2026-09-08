@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
+import { resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
 import { analyze } from './analyze';
 import {
@@ -47,7 +48,7 @@ export async function runInspect(
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
   const { blueprint } = await resolveBlueprint(root, state, options);
-  const scanResult = scan(root, blueprint.architecture.sourceRoot);
+  const scanResult = scan(root, resolveArchitecture(blueprint.architecture).sourceRoot);
   const findings = analyze(scanResult, blueprint, state.dependencies);
   const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
   const baselineFile = path.join(root, BASELINE_FILE);

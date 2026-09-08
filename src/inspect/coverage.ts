@@ -1,10 +1,9 @@
-import { activeSetting } from '../config';
+import { activeSetting, resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
 
 import {
   emptyTestGlobs,
   LINT_GATED_RULE_IDS,
-  resolveLayerFiles,
   toArray,
   unavailableGate,
   unreachedTestGlobs,
@@ -75,14 +74,13 @@ export function computeCoverage(
   hasTypescript: boolean,
 ): Coverage {
   const { architecture, framework, rules } = blueprint;
+  const resolved = resolveArchitecture(architecture);
   const source = dropTestFiles(scanResult, architecture.testFiles).files;
-  const testReach = testFileReach(scanResult, architecture.testFiles, architecture.sourceRoot);
+  const testReach = testFileReach(scanResult, architecture.testFiles, resolved.sourceRoot);
 
   const nets = [
     ...new Set(
-      architecture.layers.flatMap((layer) =>
-        resolveLayerFiles(layer.name, framework, architecture),
-      ),
+      resolved.layers.flatMap((layer) => resolved.layerFiles(layer.name, framework)),
     ),
   ].map(globToRegExp);
 
@@ -140,9 +138,8 @@ export function coverageSummary(coverage: Coverage): string {
 }
 
 export function vacuousNextStep(blueprint: Blueprint): string {
-  const { layers, sourceRoot } = blueprint.architecture;
-  const root = sourceRoot ?? 'src';
-  const dir = root === '.' ? `${layers[0].name}/` : `${root}/${layers[0].name}/`;
+  const architecture = resolveArchitecture(blueprint.architecture);
+  const dir = `${architecture.layers[0].root}/`;
 
   return `next: move code into a declared layer (e.g. ${dir}) and the net arms itself`;
 }

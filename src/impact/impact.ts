@@ -1,9 +1,10 @@
 import path from 'node:path';
 import type { ESLint as EslintNamespace, Linter } from 'eslint';
 
-import { emitLint, resolveLayerFiles } from '../emit/lint';
+import { emitLint } from '../emit/lint';
 import type { LintConfigEntry } from '../emit/lint';
 import { expectedCarriers } from '../inspect';
+import { resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
 import { detect, loadProjectModule, resolveBlueprint, unwrapModule } from '../project';
 import type { ResolveOptions } from '../project';
@@ -209,8 +210,8 @@ function lintLayers(
 
   const globs = [
     ...new Set(
-      architecture.layers.flatMap((layer) =>
-        resolveLayerFiles(layer.name, framework, architecture),
+      resolveArchitecture(architecture).layers.flatMap((layer) =>
+        resolveArchitecture(architecture).layerFiles(layer.name, framework),
       ),
     ),
   ];

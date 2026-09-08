@@ -7,7 +7,7 @@ import type { AgentFile } from '../emit/agent';
 import { emitHandbook, handbookPath } from '../emit/docs';
 import { eslintConfigSource, eslintWiringNote } from './eslint';
 import { injectBetweenMarkers } from '../markdown';
-import { sourcePath } from '../config';
+import { resolveArchitecture, sourcePath } from '../config';
 import type { AgentTarget, ArchitectureDef, Blueprint, EmitDef } from '../config';
 import { SUPPORTED_ESLINT_MAJORS } from '../project';
 import type { PackageManager, ProjectState } from '../project';
@@ -102,7 +102,7 @@ function configWrite(configSource: string): Action {
 }
 
 function scaffoldDirs(architecture: ArchitectureDef, existing: string[]): Action[] {
-  return architecture.layers
+  return resolveArchitecture(architecture).layers
     .filter((layer) => !existing.includes(layer.name))
     .map((layer) => ({
       kind: 'mkdir',

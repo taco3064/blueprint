@@ -1,7 +1,8 @@
 import type { ArchitectureDef } from './types';
+import { resolveArchitecture } from './resolved';
 
 export function sourceRoot(architecture: ArchitectureDef): string {
-  return architecture.sourceRoot ?? 'src';
+  return resolveArchitecture(architecture).sourceRoot;
 }
 
 export function sourcePath(architecture: ArchitectureDef, ...parts: string[]): string {

@@ -1,3 +1,4 @@
+import { resolveLayerFilePatterns } from '../../config';
 import type { Framework, LayerDef, OwnedPackage } from '../../config';
 import type {
   EmitFacts,
@@ -7,19 +8,11 @@ import type {
   PathPattern,
 } from './types';
 
-const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/g;
-
 export const FRAMEWORK_EXTS: Record<Framework, string> = {
   vue: 'js,ts,vue',
   react: 'js,jsx,ts,tsx',
   auto: 'js,jsx,ts,tsx,vue',
 };
-
-function defaultGlob(framework: Framework, sourceRoot: string): string {
-  const prefix = sourceRoot === '.' ? '' : `${sourceRoot}/`;
-
-  return `${prefix}{layer}/**/*.{${FRAMEWORK_EXTS[framework]}}`;
-}
 
 const DEFAULT_TEST_FILES = [
   '**/*.test.{js,jsx,ts,tsx,vue}',
@@ -311,12 +304,7 @@ export function resolveLayerFiles(
   framework: Framework,
   scope: { layerFiles?: string | string[]; sourceRoot?: string } = {},
 ): string[] {
-  const { layerFiles, sourceRoot = 'src' } = scope;
-
-  const globs
-    = layerFiles === undefined ? [defaultGlob(framework, sourceRoot)] : toArray(layerFiles);
-
-  return globs.map((glob) => glob.replace(LAYER_PLACEHOLDER, () => layer));
+  return resolveLayerFilePatterns(layer, framework, scope);
 }
 
 export function derivePackageRules(layers: LayerDef[]): PackageRule[] {

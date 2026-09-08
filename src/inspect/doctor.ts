@@ -21,6 +21,7 @@ import {
   unreadableTsconfigs,
 } from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
+import { resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
 import { analyze } from './analyze';
 import { BASELINE_FILE, parseBaseline, splitByBaseline } from './baseline';
@@ -98,7 +99,8 @@ const BUNDLER_FILES = ['webpack.config', 'vue.config', 'next.config', 'rsbuild.c
   .flatMap((name) => ['js', 'cjs', 'mjs', 'ts'].map((ext) => `${name}.${ext}`));
 
 function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): DoctorCheck {
-  const { alias, additionalAliases, sourceRoot } = blueprint.architecture;
+  const architecture = resolveArchitecture(blueprint.architecture);
+  const { sourceRoot } = architecture;
   const toolchain = toolchainForProject(state, sourceRoot);
   const declared = pathAliasKeys(toolchain.tsconfigs);
 
@@ -110,7 +112,7 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
     bundlerTexts.push(toolchain.viteConfig.text);
   }
 
-  const unwired = [alias, ...Object.keys(additionalAliases ?? {})].filter(
+  const unwired = architecture.aliasMappings.map(([alias]) => alias).filter(
     (name) => !declared.has(name) && !bundlerTexts.some((text) => quotedIn(text, name)),
   );
 
@@ -118,7 +120,7 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
     return { label: 'import alias wired to the toolchain', ok: true };
   }
 
-  const dir = sourceRoot === '.' ? '.' : `./${sourceRoot ?? 'src'}`;
+  const dir = sourceRoot === '.' ? '.' : `./${sourceRoot}`;
 
   const unreadable = unreadableTsconfigs(toolchain.tsconfigs);
 
@@ -199,7 +201,7 @@ export async function runDoctor(
   }
 
   const { blueprint } = await resolveBlueprint(root, state, options);
-  const scanResult = scan(root, blueprint.architecture.sourceRoot);
+  const scanResult = scan(root, resolveArchitecture(blueprint.architecture).sourceRoot);
 
   const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
 
@@ -374,7 +376,7 @@ function unreachedIgnoreNote(
     return undefined;
   }
 
-  const { sourceRoot } = blueprint.architecture;
+  const sourceRoot = resolveArchitecture(blueprint.architecture).sourceRoot;
   const reach = dead.map((glob) => ({ glob, unreached: outsideScanReach(glob, sourceRoot) }));
 
   const repoWideThere = 'it is unreached only here, and the config `emit/lint` emits '

@@ -9,9 +9,7 @@ import type {
 } from '../../config';
 import {
   readSetting,
-  getModuleShape,
-  getSharedModule,
-  normalizeAllowedImporters,
+  resolveArchitecture,
   sourcePath,
 } from '../../config';
 import { handbookPath } from '../docs';
@@ -70,7 +68,8 @@ const CONTRACT_DOC = 'node_modules/@kekkai/blueprint/agent-contract.md';
 
 export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = {}): string {
   const { architecture } = blueprint;
-  const chain = architecture.layers.map((layer) => `\`${layer.name}\``).join(' → ');
+  const resolved = resolveArchitecture(architecture);
+  const chain = resolved.layers.map((layer) => `\`${layer.name}\``).join(' → ');
   const handbook = handbookPath(blueprint);
 
   const declared = emittableGates(blueprint, stack);
@@ -102,7 +101,8 @@ export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = 
 
 export function renderContext(blueprint: Blueprint): string {
   const { framework, architecture } = blueprint;
-  const chain = architecture.layers.map((layer) => `\`${layer.name}\``).join(' → ');
+  const resolved = resolveArchitecture(architecture);
+  const chain = resolved.layers.map((layer) => `\`${layer.name}\``).join(' → ');
 
   return [
     '### Context',
@@ -113,8 +113,10 @@ export function renderContext(blueprint: Blueprint): string {
 }
 
 export function renderPlacement(architecture: ArchitectureDef): string {
-  const lines = architecture.layers.map((layer) => {
-    const parts = [`- \`${sourcePath(architecture, layer.name)}/\` — ${layer.does}.`];
+  const resolved = resolveArchitecture(architecture);
+
+  const lines = resolved.layers.map(({ definition: layer, root, allowedImporters }) => {
+    const parts = [`- \`${root}/\` — ${layer.does}.`];
 
     if (layer.mustNot?.length) {
       parts.push(` MUST NOT: ${layer.mustNot.join('; ')}.`);
@@ -127,7 +129,7 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     }
 
     if (layer.allowedImporters) {
-      const importers = normalizeAllowedImporters(layer.allowedImporters)
+      const importers = allowedImporters
         .map((importer) => (importer.selfOnly ? `${importer.layer} (selfOnly)` : importer.layer))
         .join(', ');
 
@@ -137,7 +139,7 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     return parts.join('');
   });
 
-  const module = getSharedModule(architecture);
+  const module = resolved.folderShape;
   const priv = module.private.map((part) => `\`${part}\``).join(' / ');
 
   const moduleLine
@@ -145,10 +147,10 @@ export function renderPlacement(architecture: ArchitectureDef): string {
       ? `- Module shape: one folder per module. Only \`${module.entry}\` is importable from outside${priv ? `; keep ${priv} private and never import them across modules` : ''}.`
       : '- Module shape: one file per module (flat). Extract shared logic to a lower layer.';
 
-  const overrideLines = architecture.layers
-    .filter((layer) => layer.module !== undefined)
+  const overrideLines = resolved.layers
+    .filter((layer) => layer.definition.module !== undefined)
     .map((layer) => {
-      const shape = getModuleShape(architecture, layer.name);
+      const shape = layer.module;
 
       return shape.layout === 'folder'
         ? `- Exception — \`${sourcePath(architecture, layer.name)}/\`: one folder per module, entry \`${shape.entry}\`.`
@@ -191,8 +193,8 @@ export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): s
 
   const folderEntries = [
     ...new Set(
-      architecture.layers
-        .map((layer) => getModuleShape(architecture, layer.name))
+      resolveArchitecture(architecture).layers
+        .map((layer) => layer.module)
         .filter((shape) => shape.layout === 'folder')
         .map((shape) => `\`${shape.entry}\``),
     ),
@@ -306,10 +308,11 @@ export function renderPlaybook(playbook: PlaybookSection[] | undefined): string 
 
 export function renderChecklist(blueprint: Blueprint): string {
   const { architecture, principles } = blueprint;
+  const resolved = resolveArchitecture(architecture);
 
   const items = [
     '- [ ] Imports follow the one-way flow (no upstream / same-layer).',
-    `- [ ] New code sits in the right layer; modules expose only \`${getSharedModule(architecture).entry}\`.`,
+    `- [ ] New code sits in the right layer; modules expose only \`${resolved.folderShape.entry}\`.`,
   ];
 
   if (architecture.naming && Object.keys(architecture.naming).length) {

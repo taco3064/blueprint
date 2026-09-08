@@ -1,5 +1,6 @@
 import path from 'node:path';
 
+import { resolveArchitecture } from '../config';
 import type { ArchitectureDef } from '../config';
 import { parseJsonc, pathAliasKeys, quotedIn, toolchainForProject } from '../project';
 import type { ProjectToolchain, ProjectState } from '../project';
@@ -15,12 +16,8 @@ function aliasTarget(target: string, toolRoot: string): string {
 }
 
 export function aliasPaths(architecture: ArchitectureDef, toolRoot = ''): Record<string, string[]> {
-  const entries: [string, string[]][] = [
-    [`${architecture.alias}/*`, [aliasTarget(architecture.sourceRoot ?? 'src', toolRoot)]],
-    ...Object.entries(architecture.additionalAliases ?? {}).map(
-      ([alias, target]): [string, string[]] => [`${alias}/*`, [aliasTarget(target, toolRoot)]],
-    ),
-  ];
+  const entries: [string, string[]][] = resolveArchitecture(architecture).aliasMappings
+    .map(([alias, target]) => [`${alias}/*`, [aliasTarget(target, toolRoot)]]);
 
   return Object.fromEntries(entries);
 }
@@ -89,7 +86,7 @@ export function aliasActions(
   architecture: ArchitectureDef,
   greenfield = false,
 ): Action[] {
-  const toolchain = toolchainForProject(state, architecture.sourceRoot);
+  const toolchain = toolchainForProject(state, resolveArchitecture(architecture).sourceRoot);
   const paths = aliasPaths(architecture, toolchain.root);
   const actions = tsconfigActions(state, { toolchain, paths, greenfield });
 
@@ -154,7 +151,11 @@ function bundlerActions(
   const { greenfield, toolchain } = scope;
 
   if (greenfield && toolchain.viteConfig && !architecture.additionalAliases) {
-    const root = aliasTarget(architecture.sourceRoot ?? 'src', toolchain.root).replace(/\/\*$/, '');
+    const root = aliasTarget(
+      resolveArchitecture(architecture).sourceRoot,
+      toolchain.root,
+    ).replace(/\/\*$/, '');
+
     const result = wireViteAlias(toolchain.viteConfig.text, architecture.alias, root);
 
     if (result.kind === 'patched') {
@@ -170,7 +171,7 @@ function bundlerActions(
   }
 
   const vite = toolchain.viteConfig;
-  const names = [architecture.alias, ...Object.keys(architecture.additionalAliases ?? {})];
+  const names = resolveArchitecture(architecture).aliasMappings.map(([alias]) => alias);
 
   if (vite && names.every((name) => quotedIn(vite.text, name))) {
     return [];
@@ -270,10 +271,7 @@ function bundlerInstruct(
     };
   }
 
-  const lines = [
-    [architecture.alias, architecture.sourceRoot ?? 'src'] as const,
-    ...Object.entries(architecture.additionalAliases ?? {}),
-  ].map(
+  const lines = resolveArchitecture(architecture).aliasMappings.map(
     ([alias, dir]) => `'${alias}': fileURLToPath(new URL('${aliasTarget(dir, toolchain.root).replace(/\/\*$/, '')}', import.meta.url))`,
   );
 
