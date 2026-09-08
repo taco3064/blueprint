@@ -157,11 +157,12 @@ export function isCliEntry(argv1: string | undefined): boolean {
 }
 
 /* v8 ignore start -- the live bin invocation; isCliEntry itself is unit-tested.
-   Its mutants are undecidable in-process too: this module is imported by the tests,
+   Its mutants are unobservable in-process too: this module is imported by the tests,
    never executed as the entry, so flipping the condition changes nothing they can
    see. `npm run dist:verify` runs the built bin through an npm-style symlink, which
    is the check that catches it — the 0.1.1 bug, where the published CLI exited 0
    having done nothing while every in-process test passed. */
+// Stryker disable next-line ConditionalExpression: tests import rather than execute this entry.
 if (isCliEntry(process.argv[1])) {
   run(process.argv.slice(2)).then((code) => process.exit(code));
 }

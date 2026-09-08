@@ -122,7 +122,7 @@ export function viteTsCoverage(root: string): ViteTsCoverage | null {
 
 /**
  * The first project that pulls `viteFile` in — `undefined` when none does, `null`
- * when one could not be read: a single undecidable project poisons the whole answer,
+ * when one could not be read: a single unreadable project poisons the whole answer,
  * because "none of them covers it" cannot be claimed while one of them is unread.
  */
 function coveringProject(

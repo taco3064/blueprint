@@ -52,7 +52,7 @@ with an `ignored` status, and nothing has to be matched by hand.
 **An ignored mutant leaves the score, so the score moves.** Ticket #399 measured
 the same 9,401-mutant tree before and after converting the accepted proofs. The
 baseline reported 3,546 ignored and 70 survived; the directive-backed sweep
-reported 3,590 ignored and 39 survived. Compare status counts across the two
+reported 3,594 ignored and 38 survived. Compare status counts across the two
 reports rather than treating the older score as a floor for the new convention.
 
 Not chased to 100% — but "equivalent" is a claim someone has read the mutant and

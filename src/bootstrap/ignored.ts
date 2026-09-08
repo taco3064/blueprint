@@ -55,7 +55,7 @@ export function toRule(line: string): IgnoreRule | null {
   }
 
   // A slash anywhere anchors the pattern to the repo root; otherwise it matches at
-  // any depth. undecidable as `startsWith('/') || includes('/')`: no pattern can
+  // any depth. `startsWith('/') || includes('/')` adds no case: no pattern can
   // start with a slash and not contain one, so the first half decides nothing.
   const anchored = pattern.includes('/');
   const body = pattern.startsWith('/') ? pattern.slice(1) : pattern;
