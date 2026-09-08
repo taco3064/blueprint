@@ -14,6 +14,9 @@ import { activeSetting } from './settings';
 
 const VALID_TIERS = ['error', 'warn', 'off'];
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/;
+const MODULE_PLACEHOLDER = /\{\s*module\s*\}/;
+const UNSAFE_PATH_NAME = /[*?{}[\]\\/]/;
+const UNSAFE_ARTIFACT_NAME = /[\s"'()<>|;%&]/;
 
 const AGENT_TARGETS = ['claude', 'agents', 'gemini', 'copilot', 'cursor', 'windsurf'];
 const DEFAULT_AGENT_TARGETS: AgentTarget[] = ['claude', 'agents'];
@@ -33,20 +36,22 @@ const ARCHITECTURE_KEYS = [
   'alias',
   'additionalAliases',
   'sourceRoot',
+  'modules',
   'layers',
-  'module',
   'layerFiles',
   'layerFilesIgnore',
   'testFiles',
   'naming',
 ];
 
+const MODULE_KEYS = ['name', 'does'];
 const LAYER_KEYS = [
   'name',
   'does',
   'mustNot',
   'owns',
-  'module',
+  'layout',
+  'entry',
   'allowedImporters',
   'lintOverrides',
 ];
@@ -75,12 +80,15 @@ const MANAGED_RULES = [
  *   framework: 'auto',
  *   architecture: {
  *     alias: '~app',
- *     layers: [
- *       { name: 'components', does: 'Reusable, presentational UI', mustNot: ['import services'] },
- *       { name: 'hooks', does: 'Adapts server and shared state' },
- *       { name: 'services', does: 'Network primitives', owns: ['axios', { global: 'fetch' }] },
+ *     modules: [
+ *       { name: 'auth', does: 'Authentication' },
+ *       { name: 'checkout', does: 'Checkout' },
  *     ],
- *     module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
+ *     layers: [
+ *       { name: 'components', does: 'Reusable, presentational UI', layout: 'folder' },
+ *       { name: 'hooks', does: 'Adapts server and shared state' },
+ *       { name: 'services', does: 'Network primitives', owns: ['axios'] },
+ *     ],
  *   },
  * });
  */
@@ -121,9 +129,10 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
     throw new Error('architecture.layers must be an array.');
   }
 
+  rejectRetiredArchitectureShape(architecture);
   rejectUnknownKeys(architecture, ARCHITECTURE_KEYS, 'architecture');
 
-  const { alias, additionalAliases, layers, module, layerFiles } = architecture;
+  const { alias, additionalAliases, modules, layers, layerFiles } = architecture;
 
   if (typeof alias !== 'string' || !alias.trim()) {
     throw new Error('architecture.alias must be a non-empty string.');
@@ -133,24 +142,80 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
     throw new Error('architecture.layers must not be empty.');
   }
 
+  validateModules(modules);
   validateLayers(layers);
-  validateModule(module);
   validateAdditionalAliases(additionalAliases);
-  validateLayerFiles(layerFiles);
+  validateLayerFiles(layerFiles, modules !== undefined);
+}
+
+function rejectRetiredArchitectureShape(architecture: ArchitectureDef): void {
+  if ('module' in architecture) {
+    throw new Error(
+      'architecture.module was removed in 4.0.0 — move `layout` / `entry` onto each '
+      + 'architecture.layers[] entry that needs them. `module.private` has no replacement; '
+      + 'a folder-layout unit exposes only its entry and everything behind it stays private.',
+    );
+  }
+}
+
+function validateModules(modules: ModuleDef[] | undefined): void {
+  if (modules === undefined) {
+    return;
+  }
+
+  if (!Array.isArray(modules) || modules.length === 0) {
+    throw new Error(
+      'architecture.modules must be a non-empty array when set — omit it for layer-first topology.',
+    );
+  }
+
+  const exact = new Set<string>();
+  const folded = new Map<string, string>();
+
+  for (const module of modules) {
+    rejectUnknownKeys(module, MODULE_KEYS, `module "${module?.name}"`);
+    validateSourceFolderName(module?.name, 'Module');
+
+    if (exact.has(module.name)) {
+      throw new Error(`Duplicate module name: "${module.name}".`);
+    }
+
+    const key = module.name.toLowerCase();
+    const collision = folded.get(key);
+
+    if (collision !== undefined) {
+      throw new Error(
+        `Modules "${collision}" and "${module.name}" differ only in case — they map to the `
+        + 'same source-root folder on case-insensitive filesystems.',
+      );
+    }
+
+    exact.add(module.name);
+    folded.set(key, module.name);
+  }
 }
 
 function validateLayers(layers: LayerDef[]): void {
   const names = new Set<string>();
 
   for (const layer of layers) {
+    rejectRetiredLayerShape(layer);
     validateLayerName(layer, names);
     rejectUnknownKeys(layer, LAYER_KEYS, `layer "${layer.name}"`);
     validateOwns(layer);
-    validateLayerModule(layer);
+    validateLayerShape(layer);
     validateLintOverrides(layer);
-
     validateAllowedImporters(layer, names);
     names.add(layer.name);
+  }
+}
+
+function rejectRetiredLayerShape(layer: LayerDef): void {
+  if ('module' in layer) {
+    throw new Error(
+      `Layer "${layer?.name}" uses retired \`module\` shape — in 4.0.0 put \`layout\` and `
+      + '`entry` directly on that layer.',
+    );
   }
 }
 
@@ -159,13 +224,13 @@ function validateLayerName(layer: LayerDef, earlier: Set<string>): void {
     throw new Error('Each layer must have a non-empty name.');
   } else if (earlier.has(layer.name)) {
     throw new Error(`Duplicate layer name: "${layer.name}".`);
-  } else if (/[*?{}[\]\\/]/.test(layer.name)) {
+  } else if (UNSAFE_PATH_NAME.test(layer.name)) {
     throw new Error(
       `Layer "${layer.name}" contains glob or path characters — layer names become `
       + 'file globs and folders. Root files are wiring, not a layer: leave their '
       + 'hygiene to the project\'s own lint instead of widening the net.',
     );
-  } else if (/[\s"'()<>|;%&]/.test(layer.name)) {
+  } else if (UNSAFE_ARTIFACT_NAME.test(layer.name)) {
     throw new Error(
       `Layer "${layer.name}" contains characters that corrupt emitted artifacts `
       + '— a layer name becomes a folder, a file glob, and a diagram node. '
@@ -174,30 +239,49 @@ function validateLayerName(layer: LayerDef, earlier: Set<string>): void {
   }
 }
 
-function validateModule(module: ModuleDef | undefined): void {
-  if (module === undefined) {
-    return;
+function validateSourceFolderName(name: string | undefined, noun: string): void {
+  if (typeof name !== 'string' || !name.trim()) {
+    throw new Error(`Each ${noun.toLowerCase()} must have a non-empty name.`);
   }
 
-  if (module.layout !== undefined && module.layout !== 'folder' && module.layout !== 'flat') {
+  if (name === '.' || name === '..' || UNSAFE_PATH_NAME.test(name)) {
     throw new Error(
-      `architecture.module.layout is "${String(module.layout)}" — expected folder | flat, `
-      + 'or omit it for the default (flat).',
+      `${noun} "${name}" cannot map to one direct source-root folder — use a single folder `
+      + 'name without path or glob characters.',
     );
   }
 
-  if (module.entry !== undefined && (typeof module.entry !== 'string' || !module.entry.trim())) {
+  if (UNSAFE_ARTIFACT_NAME.test(name)) {
     throw new Error(
-      'architecture.module.entry must be a non-empty string when set '
-      + '— omit it for the default ("index").',
+      `${noun} "${name}" contains characters that corrupt emitted paths or diagrams — `
+      + 'stick to letters, digits, ".", "_", "-".',
+    );
+  }
+}
+
+function validateLayerShape(layer: LayerDef): void {
+  const layout = (layer as unknown as Record<string, unknown>).layout;
+
+  if (layout === 'flat') {
+    throw new Error(
+      `Layer "${layer.name}" has layout "flat", renamed to "file" in 4.0.0 — same shape, `
+      + 'one file per unit. Use `layout: "file"`, or omit it because file is the default.',
     );
   }
 
-  if (module.private !== undefined && !Array.isArray(module.private)) {
-    throw new Error('architecture.module.private must be an array when set — omit it for none.');
+  if (layout !== undefined && layout !== 'folder' && layout !== 'file') {
+    throw new Error(
+      `Layer "${layer.name}" has layout "${String(layout)}" — expected folder | file, `
+      + 'or omit it for the default (file).',
+    );
   }
 
-  rejectUnknownKeys(module, ['layout', 'entry', 'private'], 'architecture.module');
+  if (layer.entry !== undefined && (typeof layer.entry !== 'string' || !layer.entry.trim())) {
+    throw new Error(
+      `Layer "${layer.name}" entry must be a non-empty string when set — `
+      + 'omit it for the default ("index").',
+    );
+  }
 }
 
 function validateAdditionalAliases(aliases: Record<string, string> | undefined): void {
@@ -217,12 +301,29 @@ function validateAdditionalAliases(aliases: Record<string, string> | undefined):
   }
 }
 
-function validateLayerFiles(layerFiles: string | string[] | undefined): void {
+function validateLayerFiles(
+  layerFiles: string | string[] | undefined,
+  moduleFirst: boolean,
+): void {
   const globs = layerFiles === undefined ? [] : [layerFiles].flat();
 
   for (const glob of globs) {
     if (!LAYER_PLACEHOLDER.test(glob)) {
       throw new Error(`layerFiles entry "${glob}" must include the "{layer}" placeholder.`);
+    }
+
+    if (moduleFirst && !MODULE_PLACEHOLDER.test(glob)) {
+      throw new Error(
+        `layerFiles entry "${glob}" must include both "{module}" and "{layer}" when `
+        + 'architecture.modules is declared.',
+      );
+    }
+
+    if (!moduleFirst && MODULE_PLACEHOLDER.test(glob)) {
+      throw new Error(
+        `layerFiles entry "${glob}" uses "{module}" but architecture.modules is omitted — `
+        + 'drop the placeholder for layer-first topology.',
+      );
     }
   }
 }
@@ -364,29 +465,6 @@ function validateOwns(layer: LayerDef): void {
     } else {
       rejectUnknownKeys(primitive, ['package', 'imports', 'pattern', 'exempt'], `layer "${layer.name}" owns entry "${primitive.package}"`);
     }
-  }
-}
-
-function validateLayerModule(layer: LayerDef): void {
-  const override = layer.module;
-
-  if (override === undefined) {
-    return;
-  }
-
-  rejectUnknownKeys(override, ['layout', 'entry'], `layer "${layer.name}" module override`);
-
-  if (override.layout !== undefined && !['folder', 'flat'].includes(override.layout)) {
-    throw new Error(
-      `Layer "${layer.name}" has module.layout "${override.layout}" — expected folder | flat.`,
-    );
-  }
-
-  if (
-    override.entry !== undefined
-    && (typeof override.entry !== 'string' || !override.entry.trim())
-  ) {
-    throw new Error(`Layer "${layer.name}" has an empty module.entry override.`);
   }
 }
 
