@@ -24,7 +24,7 @@ function eachPathAlias(
 
       const target = Array.isArray(targets) && typeof targets[0] === 'string' ? targets[0] : null;
 
-      visit(alias, target?.replace(/^\.\//, '').replace(/\/\*$/, '') ?? null);
+      visit(alias, target?.replace(/\/\*$/, '').replace(/^\.\//, '') ?? null);
     }
   }
 }
@@ -53,8 +53,11 @@ export function detectAliases(tsconfigs: Record<string, string | null>): Record<
   const found: Record<string, string> = {};
 
   eachPathAlias(tsconfigs, (alias, dir) => {
-    if (dir === 'src' && !(alias in found)) {
-      found[alias] = 'src';
+    if (dir !== null
+      && !dir.includes('*')
+      && (dir === '.' || !dir.split('/').includes('.'))
+      && !(alias in found)) {
+      found[alias] = dir;
     }
   });
 

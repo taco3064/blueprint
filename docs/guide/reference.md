@@ -245,8 +245,12 @@ examples — the definitions belong here.
 ### Tuning
 
 
-- **`architecture.sourceRoot`** — where layers live, relative to the project root. Default `src`; `.` for root-level layouts (e.g. Next.js without `src/`). Lint, inspect, init scaffolding, deps targets, and generated agent placement guidance all resolve source paths from this root.
-- **`architecture.additionalAliases`** — extra import roots beyond `alias` that participate in every structural ban
+- **`architecture.sourceRoot`** — where layers live, relative to the project root. Default `src`; `.` for root-level layouts (e.g. Next.js without `src/`). Lint, inspect, init scaffolding, deps targets, and generated agent placement guidance all resolve source paths from this root. Before a config exists, survey can infer a root-level layout from TypeScript includes; a workspace with several application roots asks you to choose this field explicitly.
+- **`architecture.additionalAliases`** — extra import roots beyond `alias` that participate in every structural ban. An alias may target the source root, an ancestor of it, or one declared layer such as `src/shared`.
+
+One blueprint models one ordered layer axis. It can govern the outer relationship between
+root-level folders such as `app → features`, but it does not independently model a second
+`ui/application/infrastructure/domain` axis repeated inside every feature.
 - **`architecture.testFiles`** — test glob(s) exempt from structural rules and metric gates (default `*.test.*` / `*.spec.*`). `[]` exempts nothing — tests inherit their layer's rules — and switches the `testFilename` gate off with it: that rule is scoped to the test globs, so an empty list leaves it no file to name. `blueprint rules` says so beside the gate. A declared glob that matches no file costs the exemption but not the gate: nothing the run read is exempt through it.
 - **`architecture.layerFiles`** — per-layer file globs when the framework defaults don't fit
 - **`architecture.layerFilesIgnore`** — global file globs excluded from emitted lint and lint-backed `inspect` findings. The files remain visible to inspect-only checks such as undeclared folders and cycles, and coverage names them as deliberately ignored rather than reached

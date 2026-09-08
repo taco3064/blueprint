@@ -490,6 +490,38 @@ describe('runInit · where the fork survey looks', () => {
     expect(exists('blueprint-authoring.md')).toBe(true);
     expect(exists('blueprint.config.mjs')).toBe(false);
   });
+
+  it('follows referenced TypeScript includes for a root-level application', async () => {
+    writePkg({
+      name: 'root-app',
+      dependencies: { react: '^19' },
+      devDependencies: { typescript: '^5' },
+    });
+
+    fs.writeFileSync(path.join(root, 'tsconfig.json'), JSON.stringify({
+      files: [],
+      references: [{ path: './tsconfig.app.json' }],
+    }));
+
+    fs.writeFileSync(path.join(root, 'tsconfig.app.json'), JSON.stringify({
+      include: ['app', 'features', 'config'],
+      compilerOptions: { paths: { '@/*': ['./*'] } },
+    }));
+
+    fs.mkdirSync(path.join(root, 'app'), { recursive: true });
+
+    for (let i = 0; i < BROWNFIELD_MIN_FILES; i++) {
+      fs.writeFileSync(path.join(root, `app/file${i}.ts`), 'export const x = 1;');
+    }
+
+    const lines: string[] = [];
+
+    await runInit(root, { install: false, log: (message) => lines.push(message) });
+
+    expect(exists('blueprint-authoring.md')).toBe(true);
+    expect(lines.join('\n')).toContain(`${BROWNFIELD_MIN_FILES} source files surveyed`);
+    expect(lines.join('\n')).not.toContain('Fresh scaffold');
+  });
 });
 
 describe('runInit · --authoring at the threshold itself', () => {

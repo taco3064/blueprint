@@ -24,3 +24,5 @@ export { loadProjectModule, unwrapModule } from './load';
 export { buildConfigSource, buildNextConfigSource, resolveBlueprint } from './resolve';
 export type { ResolveOptions } from './resolve';
 export type { PackageManager, ProjectState } from './types';
+export { surveyScope, toolchainForProject, toolchainForSource } from './scope';
+export type { ProjectToolchain, SurveyScope } from './scope';

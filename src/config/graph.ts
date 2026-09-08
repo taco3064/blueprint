@@ -46,21 +46,45 @@ export interface AliasRoot {
   alias: string;
   /** Segments to cross from the alias target to reach the layers, e.g. `['src']`. */
   prefix: string[];
+  /** Segments the alias target contributes below the source root. */
+  prepend?: string[];
 }
 
 export function aliasLayerRoots(architecture: ArchitectureDef): AliasRoot[] {
-  const src = dirSegments(architecture.sourceRoot ?? 'src');
+  const sourceRoot = architecture.sourceRoot ?? 'src';
 
   return [
     { alias: architecture.alias, prefix: [] },
-    ...Object.entries(architecture.additionalAliases ?? {}).flatMap(([alias, target]) => {
-      const segments = dirSegments(target);
-
-      return segments.every((segment, i) => src[i] === segment)
-        ? [{ alias, prefix: src.slice(segments.length) }]
-        : [];
-    }),
+    ...Object.entries(architecture.additionalAliases ?? {}).flatMap(([alias, target]) =>
+      aliasRoot(alias, target, sourceRoot) ?? []),
   ];
+}
+
+export function aliasRoot(alias: string, target: string, sourceRoot: string): AliasRoot | null {
+  const src = dirSegments(sourceRoot);
+  const segments = dirSegments(target);
+
+  if (segments.every((segment, i) => src[i] === segment)) {
+    return { alias, prefix: src.slice(segments.length) };
+  }
+
+  if (src.every((segment, i) => segments[i] === segment)) {
+    return { alias, prefix: [], prepend: segments.slice(src.length) };
+  }
+
+  return null;
+}
+
+export function aliasSpecifier(root: AliasRoot | string, layer: string): string | null {
+  if (typeof root === 'string') {
+    return `${root}/${layer}`;
+  }
+
+  if (root.prepend?.length) {
+    return root.prepend[0] === layer ? root.alias : null;
+  }
+
+  return [root.alias, ...root.prefix, layer].join('/');
 }
 
 function dirSegments(dir: string): string[] {

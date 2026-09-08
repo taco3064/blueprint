@@ -16,7 +16,11 @@ const blueprint: Blueprint = {
   framework: 'vue',
   architecture: {
     alias: '~app',
-    additionalAliases: { '~root': 'src' },
+    additionalAliases: {
+      '~root': 'src',
+      '~contexts': 'src/contexts',
+      '~views': 'src/views',
+    },
     layers: [
       { name: 'views', does: 'pages' },
       {
@@ -422,7 +426,7 @@ describe('expectedStructural', () => {
   it('is version-stable: groups and selectors, no messages or severities', () => {
     const expected = expectedStructural(blueprint, 'views');
 
-    // Same-layer ban across both aliases, redundant-segment ban, fixtures ban.
+    // Same-layer bans, redundant-segment ban, and fixtures ban.
     expect([...expected.groups].some((g) => g.includes('~app/views/**'))).toBe(true);
     expect([...expected.groups].some((g) => g.includes('~root/fixtures'))).toBe(true);
     // stores is forbidden for views (allowedImporters: contexts only).

@@ -183,7 +183,7 @@ describe('runRules · the selfOnly selectors a merge fold copies', () => {
       framework: 'react',
       architecture: {
         alias: '~app',
-        additionalAliases: { '~root': '.' },
+        additionalAliases: { '~root': '.', '~c': 'src/contexts', '~v': 'src/views' },
         layers: [
           { name: 'views', does: 'pages' },
           {
@@ -220,8 +220,9 @@ describe('runRules · the selfOnly selectors a merge fold copies', () => {
       note,
     }]);
 
-    expect(views?.selfOnly[0].selectors).toHaveLength(2); // one per alias
+    expect(views?.selfOnly[0].selectors).toHaveLength(3); // one per applicable alias
     expect(views?.selfOnly[0].selectors[1]).toContain('~root\\u002Fsrc\\u002Fcontexts');
+    expect(views?.selfOnly[0].selectors[2]).toContain('~c');
 
     const output = lines.join('\n');
 

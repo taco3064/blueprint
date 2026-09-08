@@ -32,16 +32,19 @@ export function renderSurvey(result: SurveyResult): string {
 
 function headerLines(result: SurveyResult): string[] {
   const aliasEntries = Object.entries(result.aliases);
+  const sourceRoot = result.sourceRoot ?? 'src';
+  const rootLabel = sourceRoot === '.' ? 'Project' : `${sourceRoot}/`;
 
   return [
     `Survey · ${result.framework ?? 'unknown framework'}${result.typescript ? ' + typescript' : ''} · ${result.packageManager} · ${result.totalFiles} source files`,
+    `Source root: ${sourceRoot}${result.scopeNote ? ` — ${result.scopeNote}` : ''}`,
     '',
     aliasEntries.length
       ? `Alias: ${aliasEntries.map(([alias, dir]) => `${alias} → ${dir}`).join(', ')}`
       : 'Alias: none detected in tsconfig paths — pass --alias <name> if the project has one.',
     '',
     ...(result.rootFiles.length
-      ? [`src/ root files (wiring, not layers): ${result.rootFiles.join(', ')}`, '']
+      ? [`${rootLabel} root files (wiring, not layers): ${result.rootFiles.join(', ')}`, '']
       : []),
   ];
 }

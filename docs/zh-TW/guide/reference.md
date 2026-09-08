@@ -212,8 +212,10 @@ export default [
 ### 調校
 
 
-- **`architecture.sourceRoot`** —— 分層所在目錄（相對於專案根目錄）。預設 `src`；根目錄式佈局（如無 `src/` 的 Next.js）設為 `.`。Lint、inspect、init scaffold、deps target 與產生的 agent placement guidance 都會從此根目錄解析來源路徑。
-- **`architecture.additionalAliases`** —— `alias` 以外、同樣納入所有結構禁令的額外匯入根
+- **`architecture.sourceRoot`** —— 分層所在目錄（相對於專案根目錄）。預設 `src`；根目錄式佈局（如無 `src/` 的 Next.js）設為 `.`。Lint、inspect、init scaffold、deps target 與產生的 agent placement guidance 都會從此根目錄解析來源路徑。Config 尚未建立時，survey 可由 TypeScript includes 推導根目錄式佈局；若 workspace 有多個 application root，則會要求明確選擇此欄位。
+- **`architecture.additionalAliases`** —— `alias` 以外、同樣納入所有結構禁令的額外匯入根。Alias 可指向 source root、其上層，或 `src/shared` 之類的單一已宣告 layer。
+
+一份 blueprint 只描述一條有序的 layer 軸。它可以治理 `app → features` 這類根目錄資料夾的外層關係，但不會同時將每個 feature 內重複的 `ui/application/infrastructure/domain` 視為第二條獨立分層軸。
 - **`architecture.testFiles`** —— 豁免於結構規則與度量關卡的測試檔樣式（預設 `*.test.*` / `*.spec.*`）。<br>
   填 `[]` 代表不豁免任何檔 —— 測試檔跟著它那層的規則走 —— 同時也把 `testFilename` 這個關卡關掉：<br>
   那條規則的範圍就是這些測試檔樣式，空清單等於沒有檔可以讓它檢查。`blueprint rules` 會在該關卡旁邊講明。<br>

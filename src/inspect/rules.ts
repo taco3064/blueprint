@@ -16,6 +16,7 @@ import {
 import type { GateSpec } from '../emit/lint/patterns';
 import {
   aliasLayerRoots,
+  aliasSpecifier,
   getForbiddenLayers,
   getSelfOnlyTargets,
   normalizeAllowedImporters, readSetting,
@@ -182,8 +183,7 @@ function gateSpecs(): GateSpec[] {
 function layerBans(blueprint: Blueprint): LayerBans[] {
   const { architecture } = blueprint;
 
-  const aliases = aliasLayerRoots(architecture)
-    .map((root) => [root.alias, ...root.prefix].join('/'));
+  const aliases = aliasLayerRoots(architecture);
 
   const packageRules = derivePackageRules(architecture.layers);
   const globalRules = deriveGlobalRules(architecture.layers);
@@ -202,7 +202,11 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
         .filter((rule) => !rule.allowedIn.includes(layer.name))
         .map((rule) => rule.global),
       selfOnly: getSelfOnlyTargets(architecture, layer.name).map((target) => {
-        const selectors = aliases.map((alias) => selfOnlyReexportSelector(alias, target));
+        const selectors = aliases.flatMap((alias) => {
+          const specifier = aliasSpecifier(alias, target);
+
+          return specifier === null ? [] : selfOnlyReexportSelector(specifier);
+        });
 
         return {
           target,

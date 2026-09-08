@@ -80,6 +80,34 @@ describe('runInspect', () => {
     expect(Array.isArray(parsed.findings)).toBe(true);
     expect(parsed.coverage.sourceFiles).toBe(1);
   });
+
+  it('reports a reverse dependency imported through a layer-targeting alias', async () => {
+    writeSrc('app/index.ts', 'export const app = 1;');
+    writeSrc('shared/probe.ts', 'import { app } from "~app/index";');
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), 'export default {};');
+
+    const result = await runInspect(root, {
+      log: silent,
+      loadConfig: async () => ({
+        framework: 'vue',
+        architecture: {
+          alias: '~root',
+          additionalAliases: { '~app': 'src/app', '~shared': 'src/shared' },
+          layers: [
+            { name: 'app', does: 'Application entry' },
+            { name: 'shared', does: 'Shared primitives' },
+          ],
+        },
+      }),
+    });
+
+    expect(result.ok).toBe(false);
+
+    expect(result.findings).toContainEqual(expect.objectContaining({
+      rule: 'flow-violation',
+      path: 'src/shared/probe.ts',
+    }));
+  });
 });
 
 describe('runInspect · baseline ratchet', () => {
