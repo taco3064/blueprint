@@ -26,7 +26,8 @@ npx @kekkai/blueprint inspect
 ```
 
 唯讀指令。<br>
-掃描 `src/`、對照 blueprint config，列出所有違規與遷移建議；<br>
+掃描設定的 `architecture.sourceRoot`（預設為 `src/`）、對照 blueprint config，<br>
+列出所有違規與遷移建議；<br>
 只要有 error 等級的違規，就以 exit code 1 結束。
 
 歷史較久的專案第一次跑，通常會噴出一大片違規 ——<br>

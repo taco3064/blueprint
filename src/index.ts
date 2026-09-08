@@ -18,6 +18,7 @@ export type {
   DepsOptions,
   DoctorCheck,
   DoctorOptions,
+  DoctorVerdict,
   Finding,
   GateStatus,
   InspectOptions,

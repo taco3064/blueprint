@@ -27,8 +27,9 @@ regenerated in place). Re-running init is idempotent.
 npx @kekkai/blueprint inspect
 ```
 
-Read-only. Scans `src/`, checks it against the blueprint, and prints an Architecture
-Report with migration steps. Any error-level finding exits `1`.
+Read-only. Scans the configured `architecture.sourceRoot` (`src/` by default), checks
+it against the blueprint, and prints an Architecture Report with migration steps. Any
+error-level finding exits `1`.
 
 A legacy project's first report is a wall of red — that is what the **baseline ratchet**
 is for:

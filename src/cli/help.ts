@@ -106,7 +106,8 @@ const SURVEY_HELP = [
 const INSPECT_HELP = [
   'blueprint inspect — read-only architecture report.',
   '',
-  'Scans src/, checks it against the blueprint, and reports: undeclared',
+  'Scans architecture.sourceRoot (src/ by default), checks it against the',
+  'blueprint, and reports: undeclared',
   'folders, flow violations, deep imports, package ownership, relative',
   'escapes, missing module entries, selfOnly re-exports, import cycles,',
   'and declared layers with no folder yet (info).',
