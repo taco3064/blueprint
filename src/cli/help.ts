@@ -1,11 +1,5 @@
 import { BROWNFIELD_MIN_FILES } from '../bootstrap';
 
-/**
- * Every line the CLI prints when asked what a command does — the top-level usage
- * and one block per command, keyed for dispatch. Text only: nothing here reads a
- * flag or touches disk.
- */
-
 export const USAGE = [
   'blueprint — Architecture as Code. One blueprint compiles into ESLint rules,',
   'a human handbook, and an AI agent contract.',

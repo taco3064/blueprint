@@ -32,47 +32,37 @@ import type { Exec } from './apply';
 import type { Action } from './types';
 
 export interface InitOptions extends ResolveOptions {
-  /** Install missing deps (default true). */
+
   install?: boolean;
-  /** Print the plan without applying it. */
+
   dryRun?: boolean;
-  /** Force the preset scaffold on a brownfield repo (skip the authoring flow). */
+
   preset?: boolean;
-  /**
-   * Force the authoring playbook even below the file-count threshold — the
-   * symmetric escape hatch to `--preset`, and mutually exclusive with it.
-   */
+
   authoring?: boolean;
-  /** Launch this agent CLI on the authoring playbook after writing it. */
+
   agent?: AgentKind;
-  /** Dependency install runner (default `execSync`). */
+
   exec?: Exec;
-  /** Agent-CLI spawn runner (default `spawnSync`, stdio inherited). */
+
   spawn?: Spawner;
-  /** Output sink (default `console.log`). */
+
   log?: (message: string) => void;
 }
 
-/** Everything a run needs after the fork decision, so no path carries seven arguments. */
 interface RunContext {
   options: InitOptions;
   log: (message: string) => void;
 }
 
-/** Run `blueprint init` in `root`. Returns the planned actions (for tests / dry-run). */
 export async function runInit(root: string, options: InitOptions = {}): Promise<Action[]> {
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
 
-  // A config byte-identical to init's own scaffold output is init-owned, so
-  // `--authoring` may take it over. A hand-edited one is the user's: refuse.
   const pristine = state.hasConfig && isPristineScaffold(root, state);
 
   assertInitSupported(state, options, pristine);
 
-  // Brownfield without a config: scaffolding a preset would be a lie — the
-  // layers already exist and must be *read*. Survey first; the playbook is
-  // emitted instead (an agent or a human executes it; init runs again after).
   const survey = configIsInitsToWrite(state, options, pristine) ? surveySource(root, state) : null;
 
   if (survey && takesAuthoringPath(state, options, survey)) {
@@ -82,11 +72,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   return runScaffold(root, state, { options, log, forkNote: survey && freshScaffoldNote(survey) });
 }
 
-/** The three states init refuses outright, each for a different reason. */
 function assertInitSupported(state: ProjectState, options: InitOptions, pristine: boolean): void {
-  // Nuxt is unsupported by construction: its auto-imports leave no import
-  // statements, so blueprint's static graph would be near-empty and report a
-  // hollow "clean". Refuse rather than emit a false-green setup.
   if (state.hasNuxt) {
     throw new Error(
       'Nuxt is not supported. Blueprint enforces the dependency flow through '
@@ -102,10 +88,7 @@ function assertInitSupported(state: ProjectState, options: InitOptions, pristine
 
   if (options.authoring && state.hasConfig && !pristine) {
     throw new Error(
-      // Not "has been edited" — a config a previous agent authored differs without
-      // anyone editing it. Names what is actually lost (re-authoring rewrites rather
-      // than merges, so the structure returns and the inline rationale does not) and
-      // where the rescued comments go back to (field run #110).
+
       'blueprint.config.mjs differs from what init would scaffold — so it is yours, not '
       + 'init\'s output, and re-authoring rewrites it from scratch rather than merging. '
       + 'The structure is reproducible; the comments explaining WHY each threshold and '
@@ -117,7 +100,6 @@ function assertInitSupported(state: ProjectState, options: InitOptions, pristine
   }
 }
 
-/** Whether this run is the one that decides what the config says. */
 function configIsInitsToWrite(
   state: ProjectState,
   options: InitOptions,
@@ -126,10 +108,6 @@ function configIsInitsToWrite(
   return (!state.hasConfig || Boolean(options.authoring && pristine)) && options.preset !== true;
 }
 
-/**
- * A no-srcDir Next project keeps its layers at the root — survey there so the
- * file count reflects reality, not an empty (missing) src/.
- */
 function surveySource(root: string, state: ProjectState): SurveyResult {
   return runSurvey(root, {
     log: () => {},
@@ -137,10 +115,6 @@ function surveySource(root: string, state: ProjectState): SurveyResult {
   });
 }
 
-/**
- * Brownfield, or a Next project whose route tree cannot be placed, is read by
- * the authoring flow rather than guessed at.
- */
 function takesAuthoringPath(
   state: ProjectState,
   options: InitOptions,
@@ -151,18 +125,12 @@ function takesAuthoringPath(
     || (state.hasNext && !state.nextRouter);
 }
 
-/**
- * This fork is the biggest decision init makes — narrate it, and say plainly that
- * NO playbook is written here, or an agent told to execute blueprint-authoring.md
- * hunts for a file that does not exist.
- */
 function freshScaffoldNote(survey: SurveyResult): string {
   return `Fresh scaffold (${survey.totalFiles} source files < ${BROWNFIELD_MIN_FILES}) — `
     + 'scaffolding the framework preset directly; no blueprint-authoring.md is written '
     + 'on this path. Force the authoring playbook instead with: blueprint init --authoring.';
 }
 
-/** The preset branch: resolve a config, plan every effect, then narrate applying it. */
 async function runScaffold(
   root: string,
   state: ProjectState,
@@ -170,8 +138,6 @@ async function runScaffold(
 ): Promise<Action[]> {
   const { options } = ctx;
 
-  // On a fresh scaffold the choice is PERSISTED into `emit.agents`, or the next
-  // plain init grows the dropped contract back. An existing config still wins.
   const agentTarget = options.agent ? agentTargetOf(options.agent) : undefined;
 
   const { blueprint, configSource } = await resolveBlueprint(root, state, {
@@ -208,7 +174,6 @@ async function runScaffold(
   return actions;
 }
 
-/** The authoring branch: playbook + command file, then (optionally) the agent. */
 function runAuthoring(
   root: string,
   state: ProjectState,
@@ -217,14 +182,11 @@ function runAuthoring(
   const { options, log, survey, removeScaffold } = ctx;
 
   const actions = authoringActions(survey, {
-    // Measured BEFORE anything is written: afterwards init cannot tell its own
-    // directory, or the commands inside it, from the owner's (field run #139).
+
     claudeDir: claudeDirState(root),
-    // The build step used to hand this question to the agent ("read your
-    // tsconfig, do not assume"), which is a per-repo fact with an address.
+
     viteTs: viteTsCoverage(root),
-    // Same family, one paragraph further on: whether that build leaves anything
-    // in the working tree at all. The artifact cells asserted it did.
+
     tscOut: tscArtifactsOutOfTree(root),
     packageManager: state.packageManager,
     needsInstall: state.missingDeps.includes('@kekkai/blueprint'),
@@ -232,9 +194,6 @@ function runAuthoring(
     next: state.hasNext,
   });
 
-  // A pristine preset scaffold left by a plain init would mislead the
-  // authoring agent (and make the playbook's final init a no-op decision).
-  // It is init's own output, so removing it stays inside the trust model.
   if (removeScaffold) {
     actions.unshift({
       kind: 'rm',
@@ -245,9 +204,7 @@ function runAuthoring(
 
   log(
     `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · brownfield without a config → authoring flow (${survey.totalFiles} source files surveyed)${
-      // Below the threshold the playbook's own verdict is the early exit — said up
-      // front, or the flag looks like it produced a self-refuting document. Same
-      // name and number for the gate as the playbook uses (field issues #7/#8, #10).
+
       options.authoring && survey.totalFiles < BROWNFIELD_MIN_FILES
         ? ` — below the brownfield threshold (${BROWNFIELD_MIN_FILES} source files), forced by --authoring; the playbook's own verdict will be the early exit`
         : ''
@@ -255,8 +212,6 @@ function runAuthoring(
   );
 
   if (options.dryRun) {
-    // Nothing is applied, so listing the whole plan up front IS the report:
-    // every line reads "would", none of them claims anything about disk.
     for (const action of actions) {
       log(formatAction(action, true));
     }
@@ -280,11 +235,6 @@ interface NarrateContext extends RunContext {
   agentNote: string | null;
 }
 
-/**
- * The header line, then either the whole plan under `--dry-run` or the effects as
- * they land. `agentNote` is passed in already phrased: only the scaffold path can
- * say "nothing to author", and it is the one that knows why.
- */
 function narrate(actions: Action[], root: string, ctx: NarrateContext): void {
   const { options, log } = ctx;
 
@@ -297,8 +247,6 @@ function narrate(actions: Action[], root: string, ctx: NarrateContext): void {
   }
 
   if (options.dryRun) {
-    // Nothing is applied, so listing the whole plan up front IS the report:
-    // every line reads "would", none of them claims anything about disk.
     for (const action of actions) {
       log(formatAction(action, true));
     }
@@ -313,10 +261,6 @@ function narrate(actions: Action[], root: string, ctx: NarrateContext): void {
   }
 }
 
-/**
- * Nothing to author on the scaffold path — but the flag still narrowed the
- * contract to that tool. Phrase it by what actually happened.
- */
 function agentSessionNote(
   agent: AgentKind | undefined,
   configSource: string | null,
@@ -330,15 +274,9 @@ function agentSessionNote(
     : `\n--agent ${agent}: fresh scaffold, nothing to author — no session launched; contract emitted for ${agent} only.`;
 }
 
-/**
- * True when blueprint.config.mjs is byte-identical to init's own scaffold output —
- * the only config `--authoring` may take over.
- */
 function isPristineScaffold(root: string, state: ProjectState): boolean {
   const text = readTexts(root, [CONFIG_FILE])[CONFIG_FILE];
 
-  // A scaffold written by `init --agent` carries emit.agents — still init's
-  // own byte-identical output, so each candidate gets its agent variants.
   const agentVariants: (AgentTarget[] | undefined)[] = [undefined, ['claude'], ['agents']];
 
   const candidates = (['vue', 'react'] as const).flatMap((framework) =>
@@ -360,17 +298,9 @@ function isPristineScaffold(root: string, state: ProjectState): boolean {
     }
   }
 
-  // `some` rather than `includes`, so a `null` text needs no guard: no candidate
-  // equals null, and `includes` refusing `string | null` is the compiler's
-  // requirement, not this function's.
   return candidates.some((candidate) => candidate === text);
 }
 
-/**
- * Apply the plan, announcing each effect only once it has landed — and, when one
- * throws, naming what did NOT happen before rethrowing. Printing the list up front
- * claimed edits that never reached disk when a mid-plan step failed (field #37).
- */
 function applyAndNarrate(
   root: string,
   actions: Action[],
@@ -386,33 +316,17 @@ function applyAndNarrate(
         landed += 1;
         log(formatAction(action, false));
       },
-      // The only step that can leave the screen quiet, so it says so first. A
-      // package manager with no route to the registry retries silently, and the
-      // next line an adopter sees is nothing at all — read twice as a hung tool
-      // and killed (field runs #131, #132). The escape hatch belongs here rather
-      // than in the error, because the error is what never arrives.
+
       onInstallStarting: (action) => log(
         `  → install: ${action.note}\n`
-        // The command itself, not a pointer to a flag that prints it. Killing a silent
-        // install leaves whatever is on screen, and "re-run with --no-install to see the
-        // command" is a round trip through the thing that just hung. Two runs then went
-        // reading `node_modules/@kekkai/blueprint/package.json` for version ranges to
-        // hand-write into their own — internals, for a list that does not exist: these
-        // install unpinned on purpose (field runs #139, #140).
+
         + `      ${action.command}\n`
         + '      This is the one step that needs the registry. Silence while it works is'
         + ' normal; minutes of silence means it cannot get there — stop it and run the line'
         + ' above yourself, or re-run init with `--no-install`. No version list to find'
         + ' first: these are your project\'s dependencies, installed unpinned so eslint'
         + ' resolves to the newest supported major.\n'
-        // What a killed install leaves behind: the failure path below explains the
-        // half-done tree and a killed process reaches neither, so four runs stopped
-        // here as invited and read the result as breakage (field runs #144–#146).
-        // The install is last in the plan, so "everything above is on disk" is the
-        // whole remainder, not a hopeful summary.
-        // Not "what it leaves out is `package.json`": on the preset path a `✓ write:
-        // package.json` sits two lines above this one (the lint script), and the two
-        // read as a contradiction. What stopping omits is these packages IN it.
+
         + '      Stopping is safe: this is the last step, so every file above is already on'
         + ' disk. What stopping omits is these packages in `package.json` — this line is the'
         + ' only thing that records them there, so until it runs, a failure naming one of'
@@ -442,8 +356,6 @@ function formatAction(action: Action, dryRun: boolean): string {
     return `  · ${action.note}`;
   }
 
-  // A deletion wearing the same ✓ as the writes around it skims past as one more
-  // thing created (field issue #36). The mark says which direction the effect went.
   const mark = dryRun ? 'would' : action.kind === 'rm' ? '−' : '✓';
 
   return `  ${mark} ${action.kind}: ${action.note}`;

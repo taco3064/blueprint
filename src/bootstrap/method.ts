@@ -2,19 +2,6 @@ import type { ClaudeDirState } from '../project';
 import { renderLintMerge } from './merge';
 import { cleanupTargets } from './playbook';
 
-/**
- * The nine steps. Step 1 carries the re-adoption problem and step 9 the whole
- * integration boundary — the tool declaration, the ratchet posture, the
- * overlapping-tool decision, and what must be committed. The lint merge, step 9's
- * largest passage, sits in `merge.ts`.
- */
-
-/**
- * Step 9's debt posture: keep severity at `error` and ratchet, never mute. Earns a
- * name for the exception it carries — `codeStyle` and `statementPadding` are
- * nearly all auto-fixable, so they are fixed rather than ledgered, and that fix is
- * its own commit because it rewrites whitespace across every layer file.
- */
 function renderRatchet(): string {
   return [
     '   - **Red is correct — ratchet it, don\'t mute it.** Keep severity at `error`; '
@@ -61,12 +48,6 @@ function renderRatchet(): string {
   ].join('\n');
 }
 
-/**
- * Step 9's overlapping-tool decision. Earns a name for the one case where
- * consolidation stops being the owner's scope decision and becomes a wiring
- * precondition: when the existing tool configures the SAME ESLint rules emitLint
- * emits, coexistence is mechanically impossible and doctor's survival check fails.
- */
 function renderOverlappingTool(): string {
   return [
     '   - **If the repo already runs an overlapping structure tool** (e.g. structure-lint, '
@@ -111,11 +92,6 @@ function renderOverlappingTool(): string {
   ].join('\n');
 }
 
-/**
- * Method step 9 — "Finish means integrated, not parked". A step by numbering only,
- * and the passage field findings land in, because integration is where adoption
- * actually fails. The three short bullets stay inline.
- */
 function renderFinishStep(claudeDir: ClaudeDirState): string {
   return [
     `9. **Finish — and finish means integrated, not parked.** Run \`npx blueprint init\`, then \`npx blueprint inspect --update-baseline\`, write the report, and delete ${cleanupTargets(claudeDir)} The tool never touches files you own, so it leaves \`*.blueprint.*\` references next to them — **those references are your input, not the deliverable.`,
@@ -149,12 +125,6 @@ function renderFinishStep(claudeDir: ClaudeDirState): string {
   ].join('\n');
 }
 
-/**
- * Method step 1, carrying the whole re-adoption problem: an architecture doc in the
- * repo is intent evidence senior to the import matrix, EXCEPT when it is
- * blueprint's own prior output. The clauses a matrix cannot see must be reproduced
- * from it, or a "faithful" re-adoption hands back a looser config than it replaced.
- */
 function renderIntentDocuments(): string {
   return [
     '1. **Look for existing intent documents first.** An architecture config or doc already in the '
@@ -240,15 +210,6 @@ function renderIntentDocuments(): string {
   ].join('\n');
 }
 
-/**
- * The nine steps, and the largest section by far — step 9 alone carries the
- * whole integration boundary, because "finish" is where adoption gets parked:
- * the tool declaration, the lint merge and its flat-config traps, the ratchet
- * posture, the overlapping-tool decision, and what must be committed.
- *
- * `claudeDir` reaches here for step 9's cleanup, which names the same targets
- * the early-exit checklist does — see `cleanupTargets`.
- */
 export function renderMethod(claudeDir: ClaudeDirState): string {
   return [
     '',

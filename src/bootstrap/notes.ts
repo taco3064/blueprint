@@ -11,14 +11,6 @@ import { describeUnreadable, pathAliasKeys, unreadableTsconfigs } from '../proje
 import type { ProjectState } from '../project';
 import type { Action } from './types';
 
-/**
- * What init adds to the plan once the plan is built. Its own satellite because
- * every entry here exists for the same reason — an effect the action list alone
- * would not explain, or a decision nothing in the repo asked for — while
- * `plan` only ever decides the effects themselves.
- */
-
-/** What the fresh-scaffold path adds once the plan is built, in emitted order. */
 export function scaffoldNotes(
   state: ProjectState,
   blueprint: Blueprint,
@@ -31,11 +23,6 @@ export function scaffoldNotes(
   ];
 }
 
-/**
- * A preset on a repo that never had an alias INTRODUCES one — a new convention,
- * not a detected fact. Name the decision instead of letting the choice pass as if
- * the repo had asked for it (field issue #2).
- */
 function firstAliasNote(
   state: ProjectState,
   blueprint: Blueprint,
@@ -45,8 +32,6 @@ function firstAliasNote(
     return [];
   }
 
-  // "First alias" is a claim an unparseable tsconfig cannot support — say which
-  // reading produced it, rather than letting a broken file pass as an empty one.
   const unreadable = unreadableTsconfigs(state.tsconfigs);
 
   return [{
@@ -59,15 +44,6 @@ function firstAliasNote(
   }];
 }
 
-/**
- * The `codeStyle` landing guidance ships in the authoring playbook, which this
- * path never writes — a preset scaffold reaches `init` and stops (field run #84).
- *
- * No `codeStyle` check beside the scaffold one: a generated `configSource` always
- * comes from a preset, and every preset declares it at error tier — pinned by
- * `presets.test.ts`, so a preset that stops turns red instead of leaving this
- * note claiming a gate the adopter does not have.
- */
 function codeStyleNote(configSource: string | null): Action[] {
   if (configSource === null) {
     return [];
@@ -91,10 +67,6 @@ function codeStyleNote(configSource: string | null): Action[] {
   }];
 }
 
-/**
- * The greenfield default emits both shared contracts — surface the
- * emit.agents narrowing the playbook itself recommends.
- */
 function bothContractsNote(blueprint: Blueprint, agentTarget: AgentTarget | undefined): Action[] {
   if (blueprint.emit?.agents || agentTarget) {
     return [];
@@ -108,11 +80,6 @@ function bothContractsNote(blueprint: Blueprint, agentTarget: AgentTarget | unde
   }];
 }
 
-/**
- * The contract links to the handbook and lives in the agent files — if the repo
- * gitignores them, whoever clones it gets dead links. Intentional is fine; silent
- * is not.
- */
 export function gitignoreActions(
   root: string,
   blueprint: Blueprint,
@@ -129,41 +96,28 @@ export function gitignoreActions(
     return [];
   }
 
-  // Negations win by coming later, so appending is enough — unless git excludes
-  // a whole parent DIRECTORY, which a `!file` cannot re-include (field issue #4).
   const gitignore = fs.readFileSync(path.join(root, '.gitignore'), 'utf-8');
 
-  // The file's own line ending, or blueprint is the reason a tracked file has
-  // two conventions in it.
   const eol = gitignore.includes('\r\n') ? '\r\n' : '\n';
 
   return [{
     kind: 'write',
     path: '.gitignore',
     content: [
-      // How many trailing newlines the file carried is an editor accident —
-      // normalised to exactly one blank line before the appended block.
+
       gitignore.replace(/[\r\n]*$/, ''),
       '',
       '# @kekkai/blueprint artifacts — the agent contract links to these; keep them tracked',
       ...hidden.map(({ file }) => `!${file}`),
       '',
     ].join(eol),
-    // Name the rule that hid each file, not only the file: checked after the
-    // negation lands, `git check-ignore` answers "not ignored" and reads as
-    // evidence the fix was a no-op.
+
     note: `.gitignore (re-included ${hidden
       .map(({ file, rule }) => `${file} — hidden by \`${rule}\``)
       .join('; ')} — via !; delete the appended lines to keep ${hidden.length === 1 ? 'it' : 'them'} hidden; if a parent directory is wholly excluded, git needs that directory re-included too)`,
   }];
 }
 
-/**
- * Starter-template violations, phrased as a to-do. A fresh preset scaffold may
- * violate the preset out of the box (e.g. `../assets` relative imports) — say
- * exactly what to fix rather than letting the first lint run read as a broken
- * install. Only a scaffold gets this: an existing config is not init's doing.
- */
 export function templateCleanupActions(
   scanResult: ReturnType<typeof scan>,
   blueprint: Blueprint,
@@ -196,11 +150,6 @@ export function templateCleanupActions(
   }];
 }
 
-/**
- * The local `lint` script must reach the generated eslint config, or lint stays
- * green while the architecture goes unchecked. Fresh scaffolds get a
- * precondition-guarded patch; existing projects always get the instruction.
- */
 export function lintScriptAction(
   root: string,
   blueprint: Blueprint,
@@ -211,8 +160,6 @@ export function lintScriptAction(
   const parsed = JSON.parse(text) as { scripts?: Record<string, string> };
   const lint = parsed.scripts?.lint;
 
-  // No special case for the project root: both arms of the ternary that used to sit
-  // here answered `sourceRoot`, since the only value it special-cased was `.`.
   const target = blueprint.architecture.sourceRoot ?? 'src';
 
   if (lint === undefined) {
@@ -226,9 +173,6 @@ export function lintScriptAction(
   const needle = `"lint": ${JSON.stringify(lint)}`;
 
   if (greenfield && text.split(needle).length === 2) {
-    // A replacer function, so the adopter's script lands verbatim: npm hands a script to
-    // the shell as-is, so a `$` sequence is legal in one, and a string replacement would
-    // re-read it as a pattern and splice the manifest's own text into the value.
     const patched = `"lint": ${JSON.stringify(`${lint} && eslint ${target}`)}`;
 
     return {
@@ -245,11 +189,6 @@ export function lintScriptAction(
   };
 }
 
-/**
- * No lint script at all: nothing runs the generated eslint config (field issue #1
- * — the agent invented one). On a fresh scaffold, add it; on an existing project,
- * say so instead.
- */
 function noLintScript(
   parsed: { scripts?: Record<string, string> },
   target: string,
@@ -272,11 +211,6 @@ function noLintScript(
   };
 }
 
-/**
- * The package.json patch must land BEFORE the install action — npm install
- * rewrites package.json (adding devDependencies) but preserves scripts, so
- * write-then-install composes; the reverse clobbers what npm just added.
- */
 export function applyLintWiring(actions: Action[], wiring: Action | null): void {
   if (wiring === null) {
     return;
@@ -293,7 +227,6 @@ export function applyLintWiring(actions: Action[], wiring: Action | null): void 
   actions.push(wiring);
 }
 
-/** Every default agent path plus the merge targets — what plan reads to decide. */
 export function contractPaths(
   blueprint: Blueprint,
   agentTarget: AgentTarget | undefined,

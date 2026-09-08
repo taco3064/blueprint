@@ -3,25 +3,10 @@ import type { Blueprint, Framework } from '../config';
 import { GENERATED_ESLINT_BANNER } from '../project';
 import type { ProjectState } from '../project';
 
-/**
- * The eslint config init writes, and the instruction for merging it into one that
- * already exists. Its own satellite because both are emitted prose about the same
- * artifact — the flat config's entry order and the plugins that ride it — while
- * `plan` decides which of the two a repo gets.
- */
-
-/**
- * The generated flat config: parser wiring, the blueprint-driven rules, and the
- * handbook's third-party CORE block. Parsers only — framework rule packs stay the
- * user's choice, and none of these packages is a dependency of this library.
- */
 export function eslintConfigSource(blueprint: Blueprint, state: ProjectState): string {
   const framework = blueprint.framework !== 'auto' ? blueprint.framework : state.framework;
   const ts = state.hasTypescript;
 
-  // The guard scopes to the detected stack's extensions, like the parser
-  // blocks — a react repo's guard used to carry `.vue`, and four field
-  // agents hand-trimmed it (issue #30). Unknown stack keeps the full set.
   const guardExts = framework ? FRAMEWORK_EXTS[framework] : FRAMEWORK_EXTS.auto;
   const sourceRoot = blueprint.architecture.sourceRoot ?? 'src';
   const guardRoot = sourceRoot === '.' ? '' : `${sourceRoot}/`;
@@ -44,8 +29,7 @@ export function eslintConfigSource(blueprint: Blueprint, state: ProjectState): s
     'export default [',
     ...(parserBlocks.length ? parserHeader(ts) : []),
     ...parserBlocks,
-    // All three plugins are INJECTED, never library deps. Drop an argument and its
-    // gates go silent without a word — keep the object whole when merging.
+
     ts
       ? '  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }),'
       : '  ...emitLint(blueprint, { stylistic, imports }),',
@@ -55,10 +39,6 @@ export function eslintConfigSource(blueprint: Blueprint, state: ProjectState): s
   ].join('\n');
 }
 
-/**
- * Why the parser blocks are skippable in a merge. Kept beside the blocks it
- * describes: it is only ever emitted when there is at least one of them.
- */
 function parserHeader(ts: boolean): string[] {
   return [
     '  // Parser setup — needed when THIS file is the live config. Merging',
@@ -66,9 +46,7 @@ function parserHeader(ts: boolean): string[] {
     '  // blocks — copying them re-parses files your config already handles.',
     '  // A skipped block leaves its parser package installed: leave it — a',
     '  // later init treats it as required for the stack and re-installs it.',
-    // "Does my config already wire parsers?" recurred in the field with a
-    // preset that wires one internally — answer it here, where the merge
-    // decision is being made (only meaningful on a TS stack).
+
     ...(ts
       ? [
           '  // "Already wires" includes presets that do it internally: extending',
@@ -85,7 +63,6 @@ function parserHeader(ts: boolean): string[] {
   ];
 }
 
-/** Parsers only, so every file the rules cover can actually be parsed. */
 function parserEntries(framework: Framework | null, ts: boolean): string[] {
   return [
     ...(framework === 'vue'
@@ -109,9 +86,7 @@ function parserEntries(framework: Framework | null, ts: boolean): string[] {
       : []),
     ...(framework === 'react'
       ? [
-          // The TS-parser skip criterion above reads as the only rule
-          // without this — the js/jsx call was a judgment nobody backed
-          // (field issue #21).
+
           '  // This jsx block matters only while .js/.jsx source exists — on a',
           '  // TS-only repo it is dormant, and skipping it in a merge loses nothing.',
           '  {',
@@ -123,12 +98,6 @@ function parserEntries(framework: Framework | null, ts: boolean): string[] {
   ];
 }
 
-/**
- * The anti-bypass guard — NOT part of emitLint, and the one entry the generated
- * config owns outright. `cycles` emits no ESLint line either (inspect detects them,
- * and `import-x/no-cycle` re-walks the graph per file — 92s on 850 files); `deadCode`
- * likewise, since import/no-unused-modules cannot run under flat config.
- */
 function antiBypassGuard(guardExts: string, guardRoot: string): string[] {
   return [
     '  // The anti-bypass guard — NOT part of emitLint. A silent, unexplained',
@@ -161,11 +130,6 @@ function antiBypassGuard(guardExts: string, guardRoot: string): string[] {
   ];
 }
 
-/**
- * The wiring instruction for an existing eslint config, tailored to its shape: a
- * `tseslint.config()` call wraps the spread, a flat array takes it directly, and a
- * legacy `.eslintrc*` needs a flat-config migration decided first.
- */
 export function eslintWiringNote(state: ProjectState): string {
   if (state.eslintConfigShape === 'legacy') {
     return `${state.legacyEslintConfig} is a legacy (non-flat) eslint config. Wiring the `
@@ -177,10 +141,6 @@ export function eslintWiringNote(state: ProjectState): string {
       + sharedWiringTail(state);
   }
 
-  // emitLint spreads LAST: flat config's later-entries-win means an earlier
-  // spread lets a preset (e.g. tseslint.recommended) silently override the
-  // tuned per-layer rules — the exact trap the playbook warns about, which
-  // this hint used to walk people into (field issue #6).
   if (state.eslintConfigShape === 'tseslint') {
     return 'Your eslint config uses `tseslint.config()`. Wire blueprint in by wrapping the spread '
       + '(eslint.config.blueprint.mjs is your merge source):\n'
@@ -190,8 +150,7 @@ export function eslintWiringNote(state: ProjectState): string {
       + '    import imports from \'eslint-plugin-import-x\';\n'
       + '    export default tseslint.config(\n'
       + '      /* …your existing configs */\n'
-      // A `tseslint.config()` shape IS a TypeScript project whatever the dep scan
-      // says, so this branch keeps the TS variant unconditionally.
+
       + `      ...emitLint(blueprint, ${lintOptions(true)}),\n`
       + '    );\n'
       + '  emitLint goes LAST of the configs you already have — later entries win in flat\n'
@@ -202,9 +161,6 @@ export function eslintWiringNote(state: ProjectState): string {
       + sharedWiringTail(state);
   }
 
-  // The snippet is what gets copied — on a TS repo it must BE the TS
-  // version, not a JS version corrected by prose four lines later (field
-  // issue #12: a copy-the-first-snippet agent ships non-TS-aware rules).
   const spread = (state.hasTypescript ? '    import tseslint from \'typescript-eslint\';\n' : '')
     + '    import stylistic from \'@stylistic/eslint-plugin\';\n'
     + '    import imports from \'eslint-plugin-import-x\';\n'
@@ -229,11 +185,6 @@ export function eslintWiringNote(state: ProjectState): string {
       + sharedWiringTail(state);
 }
 
-/**
- * Both plugins are injected, never depended on. Getting the options object wrong is
- * silent: the gates riding a missing plugin emit nothing, and a vacuous gate looks
- * exactly like a passing one — so every snippet carries the full object.
- */
 function lintOptions(ts: boolean): string {
   return ts ? '{ typescript: tseslint.plugin, stylistic, imports }' : '{ stylistic, imports }';
 }
@@ -244,17 +195,7 @@ const INJECT_NOTE = '  Carry that options object over WHOLE. Three plugins are i
   + '  explicitAny. A gate whose plugin is absent emits NOTHING while lint still\n'
   + '  passes — dropping an argument looks exactly like a clean merge.\n';
 
-/**
- * The tail every wiring note ends on. This path never gets the playbook: "combine
- * into ONE entry" is the half that fails loudly; the `ignores` is the half that
- * fails silently, since doctor compares selectors rather than scope.
- */
 function sharedWiringTail(state: ProjectState): string {
-  // A TypeScript eslint config importing the .mjs blueprint config trips
-  // TS7016 (no declaration file) when the tsconfig covering the config
-  // lacks allowJs — the repo's own tsc gate goes red after an otherwise
-  // clean merge, and the fix looks like the agent's own invention unless
-  // it is named here (field issue #22).
   const ts7016 = state.eslintConfigFile?.endsWith('.ts')
     ? '  Your config file is TypeScript: importing ./blueprint.config.mjs trips TS7016\n'
     + '  when the tsconfig covering it lacks allowJs — add `allowJs: true` to that\n'

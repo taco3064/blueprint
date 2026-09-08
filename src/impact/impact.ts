@@ -14,9 +14,6 @@ import type { ResolveOptions } from '../project';
  * rule. Informational, never a gate — the exit code stays 0.
  */
 
-// Deliberately NOT extending ResolveOptions: impact requires an authored
-// config, and `framework` only steers the no-config preset fallback — a
-// `--framework` here would be an inert flag that lies to whoever reads it.
 export interface ImpactOptions {
   /** Emit machine-readable JSON instead of the text report. */
   json?: boolean;
@@ -66,9 +63,6 @@ async function loadStack(
   try {
     return await load(name, root);
   } catch (error) {
-    // "Not installed" would over-claim — resolution can fail for an installed
-    // package. The loader's own error is the only thing naming WHICH package failed,
-    // and discarding it sent a run through three package.json files (#145).
     throw new Error(
       `impact needs "${name}" from the project's dependencies and could not load it. `
       + `The loader said: ${error instanceof Error ? error.message : String(error)}\n`
@@ -117,11 +111,6 @@ export async function runImpact(
   const results = await lintLayers(root, blueprint, { ESLint: stack.ESLint, config });
   const impacts = tallyImpacts(results, root, emittedRuleIds(config));
 
-  // The total answers exactly one question — how much red does the WIRING
-  // introduce. Foreign rows vanish once emitLint merges into the real
-  // config, and the two special rows are isolation caveats, not violations
-  // (counting them under "would flag today" contradicted the caveat below
-  // them — field batch 8 nearly locked three phantom findings).
   const total = impacts
     .filter((impact) => !impact.foreign && !SPECIAL_ROWS.has(impact.rule))
     .reduce((sum, impact) => sum + impact.count, 0);
@@ -135,7 +124,6 @@ export async function runImpact(
   return { impacts, total };
 }
 
-/** The project's own eslint and every plugin a declared gate would ride. */
 interface ImpactStack {
   ESLint: EslintApi['ESLint'];
   tseslint: TsEslintApi | null;
@@ -144,11 +132,6 @@ interface ImpactStack {
   imports: EslintNamespace.Plugin | undefined;
 }
 
-/**
- * Load only what a gate would use: loading every carrier unconditionally refused the
- * whole command to a config declaring no gates at all (field run #133). The gate list
- * is doctor's, so "needed" means what "expected to resolve" means there.
- */
 async function loadImpactStack(
   root: string,
   blueprint: Blueprint,
@@ -179,11 +162,6 @@ async function loadImpactStack(
   };
 }
 
-/**
- * The emitted rules, under the same parser wiring the generated eslint config
- * carries (see bootstrap's eslintConfigSource) — parsers only, so every file the
- * emitted rules cover can actually be parsed.
- */
 function impactConfig(
   blueprint: Blueprint,
   framework: string,
@@ -222,7 +200,6 @@ function impactConfig(
   ];
 }
 
-/** Lint every layer glob with only the emitted config — the isolation the report is about. */
 function lintLayers(
   root: string,
   blueprint: Blueprint,
@@ -242,18 +219,13 @@ function lintLayers(
     cwd: root,
     overrideConfigFile: true,
     overrideConfig: run.config,
-    // Greenfield layers may hold no files yet — an empty net is a finding
-    // for `inspect`'s coverage line, not a crash here.
+
     errorOnUnmatchedPattern: false,
   });
 
   return eslint.lintFiles(globs);
 }
 
-/**
- * The emitted rule ids, plus the two null-ruleId special rows — anything else in
- * the results is an isolation artifact, not a blueprint hit.
- */
 function emittedRuleIds(config: LintConfigEntry[]): Set<string> {
   return new Set([
     ...config.flatMap((entry) => Object.keys(entry.rules ?? {})),
@@ -261,7 +233,6 @@ function emittedRuleIds(config: LintConfigEntry[]): Set<string> {
   ]);
 }
 
-/** Count every message per rule per file, heaviest rule (then file) first. */
 function tallyImpacts(
   results: { filePath: string; messages: { ruleId: string | null; fatal?: boolean }[] }[],
   root: string,
@@ -273,10 +244,6 @@ function tallyImpacts(
     const rel = path.relative(root, result.filePath).split(path.sep).join('/');
 
     for (const message of result.messages) {
-      // A null ruleId is two very different stories, split by `fatal`: a real
-      // parse failure (that file's numbers cannot be trusted), or a stale
-      // inline disable flagged by reportUnusedDisableDirectives (the file is
-      // fine — the comment suppresses nothing). Both surface, never swallowed.
       const rule = message.ruleId ?? (message.fatal ? 'parse-error' : 'unused-disable-directive');
       const perFile = byRule.get(rule) ?? new Map<string, number>();
 
@@ -299,14 +266,8 @@ function tallyImpacts(
     .sort((a, b) => b.count - a.count || a.rule.localeCompare(b.rule));
 }
 
-/**
- * The two rows an isolated run produces that are not rule violations: a
- * parse failure, and a disable comment that suppresses nothing *here*.
- * Never counted in the total; rendered under their own caveat heading.
- */
 const SPECIAL_ROWS = new Set(['parse-error', 'unused-disable-directive']);
 
-/** The human-readable impact report. Caveats and foreign rows render apart. */
 export function renderImpact(impacts: RuleImpact[], total: number, linted: number): string {
   const own = impacts.filter((i) => !i.foreign && !SPECIAL_ROWS.has(i.rule));
   const caveats = impacts.filter((i) => SPECIAL_ROWS.has(i.rule));
@@ -350,20 +311,15 @@ export function renderImpact(impacts: RuleImpact[], total: number, linted: numbe
 
   if (!own.length) {
     return [
-      // A 0 over an empty net must not read as "the rules ran clean" —
-      // inspect warns about the same state, and the two tools telling
-      // different stories sent an agent to judge on the wrong reason
-      // (field issue #12).
+
       linted === 0
         ? '✓ Rule impact: 0 hits — vacuous: the layer globs match no files, so no '
         + 'rule ever ran. Wiring emitLint introduces no red today, and proves '
         + 'nothing until code lands in a layer.'
         : '✓ Rule impact: 0 hits — wiring emitLint introduces no red today.',
-      // "No red" is an emitLint claim, not a whole-config one: the anti-
-      // bypass guard rides in the generated config OUTSIDE emitLint, and
+
       // its findings (bare eslint-disables) surface only in the project's
-      // own lint — a field agent nearly shipped on this headline alone
-      // (field issue #17).
+
       '  (scope: emitLint only — the anti-bypass guard is separate; the '
       + 'project\'s own lint judges its findings)',
       ...caveatBlock,

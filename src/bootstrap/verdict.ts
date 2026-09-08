@@ -8,17 +8,6 @@ import type { SurveyResult } from '../survey';
 import { scriptCommand } from './plan';
 import { BROWNFIELD_MIN_FILES, cleanupTargets, printConfigCaveats } from './playbook';
 
-/**
- * The early-exit verdict, and only below the brownfield threshold — it LEADS the
- * playbook, carrying the complete checklist, so a hurried agent cannot walk the
- * ceremony past it. Everything here is rendered by that one section.
- */
-
-/**
- * Which build to run, from a measured fact rather than a per-repo instruction —
- * `viteTsCoverage` reads the tsconfig graph. `null` is the honest third case, and
- * there "go and look" stands, because it is exactly right when the tool could not.
- */
 function renderBuildChoice(viteTs: ViteTsCoverage | null, pm: PackageManager): string[] {
   const shared = [
     '   Never report that a build verified the vite edit without having established that the build '
@@ -64,23 +53,7 @@ function renderBuildChoice(viteTs: ViteTsCoverage | null, pm: PackageManager): s
   ];
 }
 
-/**
- * The early-exit verdict, and only below the threshold — it LEADS there, carrying
- * the complete checklist, so a hurried agent cannot walk the ceremony past it.
- */
-/**
- * What the build leaves behind and who owns it. `tsc -b` writes a
- * `*.tsbuildinfo` even under `noEmit`, so the early exit's verification step
- * produces untracked files in someone's working tree — a step THIS playbook asked
- * for, which is why it has to say so rather than leave a mess unexplained.
- *
- * The lead-in belongs to the first line, not the call site: as its own element the
- * `\n` join would split the sentence across two lines and make it ungreppable.
- */
 function renderBuildArtifacts(tscOut: TscArtifactLocation | null): string {
-  // Only the certain negative specialises: `npm create vite` pairs `noEmit` with a
-  // `tsBuildInfoFile` under `node_modules/`, so the wording below would name
-  // untracked files that do not exist (field run #135).
   if (tscOut !== null) {
     return [
       `   **\`tsc -b\` leaves nothing in this working tree, and that is measured.** \`${tscOut.tsconfig}\` sets \`noEmit\` and sends the build info to \`${tscOut.buildInfo}\`, which is out of the way by convention — so the build you just ran produced no untracked file here to decide about.`,
@@ -109,10 +82,6 @@ function renderBuildArtifacts(tscOut: TscArtifactLocation | null): string {
   ].join('\n');
 }
 
-/**
- * The four cells, shared by both arms above — two copies of a four-way decision is
- * how a cell goes missing from one of them.
- */
 function renderArtifactCells(): string[] {
   return [
     '   Either way they are not adoption leftovers: leave them to the repo\'s own ignore rules, '
@@ -136,10 +105,6 @@ function renderArtifactCells(): string[] {
   ];
 }
 
-/**
- * The artifact hand-over, as three rules rather than a four-cell table — the table
- * left one cell undecided and three field runs called it a coin flip.
- */
 function renderArtifactHandover(): string {
   return [
     '   **One of the four cells decides itself: no ignore rules AND no version control.** There, '
@@ -176,12 +141,6 @@ function renderArtifactHandover(): string {
   ].join('\n');
 }
 
-/**
- * The early exit's verification step — one numbered item that is really a section,
- * long because a green lint and build on a near-empty repo prove less than they
- * look like they prove. `viteTs` is here so the build choice is answered from the
- * repo rather than asserted about it.
- */
 function renderEarlyExitVerify(
   viteTs: ViteTsCoverage | null,
   tscOut: TscArtifactLocation | null,
@@ -208,9 +167,7 @@ function renderEarlyExitVerify(
 
 export function renderVerdict(
   survey: SurveyResult,
-  // An options object, not positional facts — the shape `authoringBrief` already
-  // uses, and the one that stops a later field forcing every caller to restate an
-  // earlier default.
+
   facts: {
     claudeDir: ClaudeDirState;
     viteTs: ViteTsCoverage | null;
