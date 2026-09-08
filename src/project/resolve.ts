@@ -26,11 +26,6 @@ const defaultLoadConfig = (file: string): Promise<Blueprint> =>
   import(pathToFileURL(file).href).then((module) => module.default as Blueprint);
 /* v8 ignore stop */
 
-/**
- * Resolve the blueprint for a project: load an existing `blueprint.config.mjs`,
- * or fall back to a framework preset. `configSource` is the file body to write
- * when one was generated (null when an existing config was loaded).
- */
 export async function resolveBlueprint(
   root: string,
   state: ProjectState,
@@ -42,8 +37,6 @@ export async function resolveBlueprint(
 
   const agents = options.scaffoldAgents;
 
-  // Next.js with a detected route tree gets its own preset — the route dir
-  // is the top layer, and the source root follows --src-dir.
   if (state.hasNext && state.nextRouter) {
     return nextScaffold(
       { router: state.nextRouter, srcDir: state.nextSrcDir },
@@ -73,11 +66,6 @@ export async function resolveBlueprint(
   };
 }
 
-/**
- * A hand-written config can bypass defineBlueprint entirely — validate on load so a
- * structural mistake fails right here with a precise message, not as an
- * undefined-property crash deep inside a command.
- */
 async function loadAuthored(root: string, options: ResolveOptions): Promise<Blueprint> {
   /* v8 ignore next -- the default falls back to a real import; tests inject loadConfig */
   const load = options.loadConfig ?? defaultLoadConfig;
@@ -96,7 +84,6 @@ async function loadAuthored(root: string, options: ResolveOptions): Promise<Blue
   return blueprint;
 }
 
-/** The Next preset and the config source that reproduces it. */
 function nextScaffold(
   next: { router: NextRouter; srcDir: boolean },
   name: string | undefined,
@@ -112,14 +99,12 @@ function nextScaffold(
   };
 }
 
-/** `['claude']` → `emit: { agents: ['claude'] }`, as config-source text. */
 function emitField(agents?: AgentTarget[]): string[] {
   return agents?.length
     ? [`emit: { agents: [${agents.map((agent) => `'${agent}'`).join(', ')}] }`]
     : [];
 }
 
-/** Render the generated `blueprint.config.mjs` body for a fresh project. */
 export function buildConfigSource(
   framework: 'vue' | 'react',
   name?: string,
@@ -137,7 +122,6 @@ export function buildConfigSource(
   ].join('\n');
 }
 
-/** Render the generated config body for a fresh Next.js project. */
 export function buildNextConfigSource(
   next: { router: NextRouter; srcDir: boolean },
   name?: string,
