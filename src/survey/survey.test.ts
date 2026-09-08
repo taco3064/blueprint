@@ -459,7 +459,7 @@ describe('dependencyNames · what "no package.json" answers', () => {
 
   it('answers nothing for a missing or malformed package.json', () => {
     // The exact list, not its emptiness. Through `runSurvey` this arm is
-    // undecidable: the names exist to be matched against import specifiers, so a
+    // unobservable through runSurvey: the names exist to be matched against import specifiers, so a
     // wrong name matches nothing and reads exactly like no names at all.
     expect(dependencyNames(dir)).toEqual([]);
 
