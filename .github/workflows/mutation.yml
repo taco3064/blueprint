@@ -37,12 +37,10 @@ jobs:
   mutation:
     name: Mutation survey
     runs-on: ubuntu-latest
-    # Measured here rather than inferred from a laptop: ~8k mutants, 17m04s on this
-    # runner, against 5m34s on ten local cores. The cap is ~2.6x that, which leaves
-    # room for the tree to grow and still stops a hung run from burning the default
-    # six-hour budget. Re-measure it when the mutant count moves materially; a cap
-    # sized against a number nobody has re-taken is the thing this comment replaced.
-    timeout-minutes: 45
+    # The current full tree reaches ~5.8k tested mutants in roughly 48 minutes on
+    # this runner. Keep enough room to write the report and upload its artifact while
+    # still stopping a hung run far short of GitHub's default six-hour budget.
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -71,6 +69,8 @@ jobs:
         env:
           MUTATE: ${{ inputs.mutate }}
         run: |
+          STRYKER_STEP_SUMMARY="$RUNNER_TEMP/stryker-step-summary.md"
+          export GITHUB_STEP_SUMMARY="$STRYKER_STEP_SUMMARY"
           if [ -n "$MUTATE" ]; then
             npx stryker run --mutate "$MUTATE,!src/**/*.test.ts"
           else
