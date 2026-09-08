@@ -1,22 +1,5 @@
 import { printConfigCaveats } from './playbook';
 
-/**
- * Method step 9's lint-merge bullet, the playbook's largest passage. Its own
- * satellite because a later flat-config entry REPLACES an earlier one, so the
- * whole passage is one argument about what a clean-reading merge can delete —
- * and the paragraphs refer back to each other in order.
- */
-
-/**
- * The three chained paragraphs about building the combined `no-restricted-*` entry.
- * They stay together and in this order: each opens by referring to the last, and
- * this is the one place in the playbook where the order is load-bearing.
- *
- * Every clause of the recommendation is pinned by conformance, negatives included
- * — "combined one last, yours wherever it already sits" must survive and "has to
- * move up" must not come back, because reordering an existing entry silently
- * re-decides every other rule key it carries (field issue #163).
- */
 function renderCombinedEntry(): string {
   return [
     '     **"ONE entry" means one per COLLISION, '
@@ -92,13 +75,6 @@ function renderCombinedEntry(): string {
   ].join('\n');
 }
 
-/**
- * The `ignores` trap: a combined entry rebuilt from selector strings has no test
- * exemption unless it is written back. Separate from the merge mechanics because
- * dropping blueprint's `ignores` is silent unless a house rule collided there, and
- * doctor compares selectors rather than scope. One direction only — see
- * `renderCombinedEntry` for why the mirror case closed.
- */
 function renderTestExemptions(): string {
   return [
     '     **An entry is more than its selectors — '
@@ -133,13 +109,6 @@ function renderTestExemptions(): string {
   ].join('\n');
 }
 
-/**
- * Method step 9's lint-merge bullet, the playbook's largest passage: a later flat-
- * config entry REPLACES an earlier one, so a merge that reads clean can delete a
- * defense while lint stays green. Not split further on purpose — its paragraphs
- * refer back to each other, so five functions would make their order load-bearing
- * while stating it nowhere.
- */
 export function renderLintMerge(): string {
   return [
     '   - **Wire the lint.** If `eslint.config.blueprint.mjs` was written, '

@@ -1,18 +1,9 @@
 import type { PatchResult } from './alias';
 
-/**
- * Greenfield alias surgery — on a fresh scaffold init owns the setup moment, so it
- * wires the alias in directly. Both cuts are precondition-guarded text edits:
- * anything not matching the known template shapes falls back to the instruct path.
- */
-
 const DEFINE_CONFIG = /export default defineConfig\(\s*\{/;
 const NODE_URL_IMPORT = 'import { fileURLToPath, URL } from \'node:url\'';
 
-/** Insert `resolve.alias` into a create-vite-shaped config. */
 export function wireViteAlias(text: string, alias: string, sourceDir = './src'): PatchResult {
-  // Only the shape every create-vite template ships: an object-literal
-  // defineConfig with no resolve section yet. Anything else is hands-off.
   if (!DEFINE_CONFIG.test(text) || /\bresolve\s*:/.test(text)) {
     return { kind: 'unparseable' };
   }
@@ -31,11 +22,6 @@ export function wireViteAlias(text: string, alias: string, sourceDir = './src'):
   return { kind: 'patched', text: withImport };
 }
 
-/**
- * Insert a `paths` entry into a JSONC tsconfig (comments preserved). The
- * lossless JSON.parse patch stays the first choice — this is its greenfield
- * fallback for the commented configs create-vite and create-next-app ship.
- */
 export function wireTsconfigPaths(
   text: string,
   paths: Record<string, string[]>,
@@ -44,12 +30,6 @@ export function wireTsconfigPaths(
     return { kind: 'noop' };
   }
 
-  // The line ending is captured, not assumed: a bare `\n` fails on a CRLF tsconfig,
-  // and reusing the captured one keeps the file on a single convention.
-  //
-  // `exec`, not `String.match`: match answers `index: undefined` for a `g` pattern,
-  // which would make `insertAt` NaN and `slice(0, NaN)` '' — the "patched" config
-  // coming back as the inserted line alone.
   const opening = /"compilerOptions"\s*:\s*\{(\r?\n)(\s*)/.exec(text);
 
   if (!opening) {

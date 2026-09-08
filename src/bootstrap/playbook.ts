@@ -1,26 +1,8 @@
 import { COMMAND_FILE } from '../project';
 import type { ClaudeDirState } from '../project';
 
-/**
- * The playbook's frame — the title block, the prerequisites and the goal — plus
- * the two passages more than one section renders. `authoringBrief`'s call list is
- * the table of contents, and a passage used twice is one function: `verdict.ts`,
- * `method.ts`, `merge.ts` and `catalog.ts` quote these two rather than restate
- * them.
- */
-
-/** A repo counts as brownfield when src/ already holds this many source files. */
 export const BROWNFIELD_MIN_FILES = 10;
 
-/**
- * The four facts that make a *correct* resolved config look broken, for the two
- * paths reaching `--print-config`. Each caller opens the sentence itself, where
- * the framing genuinely differs; this carries the part that must not.
- *
- * `indent` is the caller's continuation indent. Lines are wrapped for the deeper
- * of the two and reused at the shallower; the first carries no indent, since it
- * continues the caller's own line.
- */
 export function printConfigCaveats(): string {
   return [
     ', or a correct config looks broken: resolved keys carry their plugin prefix '
@@ -37,19 +19,7 @@ export function printConfigCaveats(): string {
   ].join(' ');
 }
 
-/**
- * What authoring leaves behind — the two files AND the directories init created
- * for them, with `claudeDir` deciding whether `.claude/` is one. One passage, four
- * call sites including the banner: doctor's leftover check matches file families
- * and never looks at a directory, so nothing downstream catches a copy that drops
- * the directories (field runs #124, #145).
- */
 export function cleanupTargets(claudeDir: ClaudeDirState): string {
-  // The owner's own commands live here too, and "now-empty" was asserted about a
-  // directory the tool can read. Half of this sentence was already measured — the
-  // `.claude/` arm — so a field agent with `my-existing-command.md` beside blueprint's
-  // got the pre-existing `.claude/` right and `commands/` wrong in the same breath
-  // (field run #139). Nothing about `.claude/` needs deciding when its child stays.
   if (claudeDir.otherCommands > 0) {
     return `this playbook and \`${COMMAND_FILE}\`, and nothing else: `
       + `\`.claude/commands/\` holds ${claudeDir.otherCommands} other command file(s) that `
@@ -71,11 +41,6 @@ export function cleanupTargets(claudeDir: ClaudeDirState): string {
   ].join(' ');
 }
 
-/**
- * The Next.js addendum, appended to the H1 — the route tree is itself a layer,
- * and `src/pages` beside the App Router is a routing convention, not a layer to
- * scaffold. Empty on every other framework.
- */
 export function renderNextNote(next: boolean): string {
   if (!next) {
     return '';
@@ -94,11 +59,6 @@ export function renderNextNote(next: boolean): string {
   ].join('\n');
 }
 
-/**
- * Title, the provenance banner, and the two conditional blocks that ride with
- * them. The banner states the deletion up front because `doctor` treats this
- * file and the command file as leftovers while they remain.
- */
 export function renderHeader(
   nextNote: string,
   verdict: string,
@@ -113,11 +73,6 @@ export function renderHeader(
   ].join('\n');
 }
 
-/**
- * The one precondition: the package must be a devDependency, because the config
- * the agent writes imports it and every `npx blueprint` step resolves it from
- * the project.
- */
 export function renderPrerequisites(install: string): string {
   return [
     '',
@@ -133,12 +88,6 @@ export function renderPrerequisites(install: string): string {
   ].join('\n');
 }
 
-/**
- * What is being installed and where the job stops: the four deliverables, the
- * no-refactor boundary, and the three verdicts an agent must be licensed to
- * reach — the preset early exit, the honestly empty net, and drafting before
- * reading. Each one exists because a field run talked itself out of it.
- */
 export function renderGoal(): string {
   return [
     '',

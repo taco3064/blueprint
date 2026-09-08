@@ -4,20 +4,10 @@ import type { ProjectState } from '../project';
 import { wireTsconfigPaths, wireViteAlias } from './wire';
 import type { Action } from './types';
 
-/**
- * The alias concern of `init`. One rule governs every branch: a user file is only
- * edited when it rewrites losslessly (`JSON.parse` succeeds = no comments to
- * destroy). Bundler configs are JS, so the bundler side is always an instruct.
- */
-
-/** The primary alias's tsconfig target, e.g. `./src/*` (or `./*` at the project root). */
 function aliasTarget(architecture: ArchitectureDef): string {
-  // No special case for the project root: `normalizeDir('.')` already answers `.`,
-  // so the arm that used to sit here produced the same `./*` as the general one.
   return `${normalizeDir(architecture.sourceRoot ?? 'src')}/*`;
 }
 
-/** Alias → target map for tsconfig `paths`, e.g. `{ "~app/*": ["./src/*"] }`. */
 export function aliasPaths(architecture: ArchitectureDef): Record<string, string[]> {
   const entries: [string, string[]][] = [
     [`${architecture.alias}/*`, [aliasTarget(architecture)]],
@@ -34,11 +24,6 @@ export type PatchResult
     | { kind: 'noop' }
     | { kind: 'unparseable' };
 
-/**
- * Add missing `paths` entries to a tsconfig/jsconfig body. `unparseable`
- * covers comments (JSONC) and shapes that cannot be rewritten without
- * destroying user intent; `noop` means every alias is already declared.
- */
 export function patchTsconfigPaths(
   text: string,
   paths: Record<string, string[]>,
@@ -48,8 +33,6 @@ export function patchTsconfigPaths(
   try {
     config = JSON.parse(text);
   } catch {
-    // JSONC defeats the lossless rewrite, but the aliases may already be wired —
-    // re-instructing then reads as a regression.
     return jsoncAlreadyWired(text, paths) ? { kind: 'noop' } : { kind: 'unparseable' };
   }
 
@@ -76,7 +59,6 @@ export function patchTsconfigPaths(
   return { kind: 'patched', text: render(patched) };
 }
 
-/** Every alias already present in a JSONC config's `compilerOptions.paths`. */
 function jsoncAlreadyWired(text: string, paths: Record<string, string[]>): boolean {
   const result = parseJsonc(text);
 
@@ -96,12 +78,6 @@ function jsoncAlreadyWired(text: string, paths: Record<string, string[]>): boole
   return isRecord(existing) && Object.keys(paths).every((alias) => alias in existing);
 }
 
-/**
- * The `init` actions that wire the alias: tsconfig side + bundler side.
- * `greenfield` marks a fresh scaffold (init generated the blueprint config in
- * this very run) — there, the template's own vite/tsconfig files are part of
- * the setup moment and get precondition-guarded surgery instead of instructs.
- */
 export function aliasActions(
   state: ProjectState,
   architecture: ArchitectureDef,
@@ -123,8 +99,6 @@ export function aliasActions(
   } else {
     let result = patchTsconfigPaths(target.text, paths);
 
-    // Commented (JSONC) template configs defeat the lossless rewrite; on a
-    // fresh scaffold the comment-preserving insertion takes over.
     if (result.kind === 'unparseable' && greenfield) {
       result = wireTsconfigPaths(target.text, paths);
     }
@@ -134,14 +108,12 @@ export function aliasActions(
         kind: 'write',
         path: target.file,
         content: result.text,
-        // "write" alone reads as a rewrite — a field agent re-read the file
-        // to confirm its content survived. Say the edit's shape in place.
+
         note: `${target.file} (import alias added — existing content preserved)`,
       });
     } else if (result.kind === 'unparseable') {
       actions.push(tsconfigInstruct(target.file, paths));
     }
-    // noop — the alias is already wired; nothing to do.
   }
 
   actions.push(...bundlerActions(state, architecture, greenfield));
@@ -149,7 +121,6 @@ export function aliasActions(
   return actions;
 }
 
-/** Bundler side: greenfield surgery on a template-shaped vite config, else an instruct. */
 function bundlerActions(
   state: ProjectState,
   architecture: ArchitectureDef,
@@ -171,8 +142,6 @@ function bundlerActions(
     }
   }
 
-  // Already wired by doctor's own standard. Init must not re-instruct what its
-  // check accepts — the nag reads as a regression on every re-run.
   const vite = state.viteConfig;
   const names = [architecture.alias, ...Object.keys(architecture.additionalAliases ?? {})];
 
@@ -180,9 +149,6 @@ function bundlerActions(
     return [];
   }
 
-  // A tsconfig-paths bridge makes the tsconfig side authoritative for the bundler
-  // too, so instructing `resolve.alias` on top asks for a second wiring doctor
-  // never required (field issue #25).
   if (vite && vite.text.includes('tsconfig-paths')) {
     return [];
   }
@@ -195,10 +161,6 @@ type Target
     | { kind: 'patch'; file: string; text: string }
     | { kind: 'instruct'; file: string };
 
-/**
- * Which config file carries the alias. A pure `references` shell defers to
- * `tsconfig.app.json`; no tsconfig at all gets an instruct, never an invented file.
- */
 function resolveTarget(state: ProjectState): Target {
   const { tsconfigs, hasTypescript } = state;
   const root = tsconfigs['tsconfig.json'];
@@ -243,7 +205,6 @@ function tsconfigInstruct(file: string, paths: Record<string, string[]>): Action
   };
 }
 
-/** The bundler always needs the alias too; JS configs are never edited. */
 function bundlerInstruct(state: ProjectState, architecture: ArchitectureDef): Action {
   if (!state.hasViteConfig) {
     return {
@@ -265,7 +226,6 @@ function bundlerInstruct(state: ProjectState, architecture: ArchitectureDef): Ac
   };
 }
 
-/** `src/shared/` → `./src/shared` — the form both `paths` and vite snippets use. */
 function normalizeDir(dir: string): string {
   const trimmed = dir.replace(/\/+$/, '');
 

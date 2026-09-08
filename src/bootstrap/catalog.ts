@@ -4,18 +4,6 @@ import { renderSurvey } from '../survey';
 import type { SurveyResult } from '../survey';
 import { cleanupTargets } from './playbook';
 
-/**
- * The reference half of the playbook — what the agent looks things up in rather
- * than executes: the linter's semantics, the rule catalog generated from the gate
- * tables, the config sketch, the acceptance gates, the resume point, and the
- * survey evidence.
- */
-
-/**
- * Facts about the emitted rules that drive authoring decisions. Stated here for
- * one reason: an agent that cannot find them reverse-engineers them from the
- * package's `dist/` bundle, which the playbook forbids a few sections up.
- */
 export function renderSemantics(): string {
   return [
     '',
@@ -72,11 +60,6 @@ export function renderSemantics(): string {
   ].join('\n');
 }
 
-/**
- * The rule catalog, generated from the same exported gate tables `emitLint` and
- * `blueprint rules` read — so the playbook cannot drift from what is emitted.
- * The one section here whose body is computed rather than written.
- */
 export function renderRuleCatalog(): string {
   return [
     '',
@@ -131,11 +114,6 @@ export function renderRuleCatalog(): string {
   ].join('\n');
 }
 
-/**
- * A commented `defineBlueprint` sketch. Deliberately a sketch and not the field
- * list: the re-adoption step tells an agent to reproduce any field the sketch
- * does not show, so this staying incomplete is load-bearing, not an omission.
- */
 export function renderSchemaSketch(): string {
   return [
     '',
@@ -200,12 +178,6 @@ export function renderSchemaSketch(): string {
   ].join('\n');
 }
 
-/**
- * The six checkboxes that define done — `doctor` last, since it flags this file.
- * The cleanup box names the directories too: a checkbox is the definition an
- * agent verifies itself against, so a target missing here is a target left
- * behind by anyone who works from this list.
- */
 export function renderAcceptanceGates(claudeDir: ClaudeDirState): string {
   return [
     '',
@@ -223,11 +195,6 @@ export function renderAcceptanceGates(claudeDir: ClaudeDirState): string {
   ].join('\n');
 }
 
-/**
- * What survives an interrupted run. `inspect` is read-only, `init` idempotent,
- * and the baseline is written only at the final step, so stopping costs nothing
- * — worth saying, because an agent that fears a half-done state hands back.
- */
 export function renderResumePoint(): string {
   return [
     '',
@@ -240,10 +207,6 @@ export function renderResumePoint(): string {
   ].join('\n');
 }
 
-/**
- * The survey, fenced. Every number is deterministic fact about this repo, which
- * is why the Method tells the agent not to re-derive any of it by grepping.
- */
 export function renderSurveyEvidence(survey: SurveyResult): string {
   return [
     '',

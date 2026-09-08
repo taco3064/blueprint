@@ -4,11 +4,6 @@ import type { ImpactOptions } from '../impact';
 import type { DepsOptions, DoctorOptions, InspectOptions, RulesOptions } from '../inspect';
 import type { SurveyOptions } from '../survey';
 
-/**
- * argv in, one command's options out — the pure half of the CLI, and the flag
- * allowlist that decides an unknown one is an error rather than a no-op.
- */
-
 function parseFramework(value: string | undefined): 'vue' | 'react' | undefined {
   return value === 'vue' || value === 'react' ? value : undefined;
 }
@@ -19,14 +14,6 @@ function parseAgent(value: string | undefined): AgentKind | undefined {
     : undefined;
 }
 
-/**
- * Every flag parser below walks a copy of argv as a queue, taking a value flag's
- * value with a second `shift()`. Not an index loop with `args[++i]`: that leaves the
- * bound undecidable, since one past the end is `undefined` and the loop exits having
- * done nothing either way. A queue has no index to get wrong.
- */
-
-/** Parse `init` flags. Unknown flags are ignored. */
 export function parseInitArgs(args: string[]): InitOptions {
   const options: InitOptions = {};
   const rest = [...args];
@@ -58,7 +45,6 @@ export function parseInitArgs(args: string[]): InitOptions {
   return options;
 }
 
-/** Parse `survey` flags. Unknown flags are ignored. */
 export function parseSurveyArgs(args: string[]): SurveyOptions {
   const options: SurveyOptions = {};
   const rest = [...args];
@@ -76,7 +62,6 @@ export function parseSurveyArgs(args: string[]): SurveyOptions {
   return options;
 }
 
-/** Parse `inspect` flags. Unknown flags are ignored. */
 export function parseInspectArgs(args: string[]): InspectOptions {
   const options: InspectOptions = {};
   const rest = [...args];
@@ -98,12 +83,10 @@ export function parseInspectArgs(args: string[]): InspectOptions {
   return options;
 }
 
-/** Parse `impact` flags. Unknown flags are ignored. */
 export function parseImpactArgs(args: string[]): ImpactOptions {
   return args.includes('--json') ? { json: true } : {};
 }
 
-/** Parse `deps` flags; the first non-flag argument is the module to query. */
 export function parseDepsArgs(args: string[]): DepsOptions {
   const options: DepsOptions = {};
 
@@ -122,20 +105,14 @@ export function parseDepsArgs(args: string[]): DepsOptions {
   return options;
 }
 
-/** Parse `rules` flags. Unknown flags are ignored. */
 export function parseRulesArgs(args: string[]): RulesOptions {
   return args.includes('--json') ? { json: true } : {};
 }
 
-/** Parse `doctor` flags. Unknown flags are ignored. */
 export function parseDoctorArgs(args: string[]): DoctorOptions {
   return args.includes('--json') ? { json: true } : {};
 }
 
-/**
- * Every flag each command answers to. Unknown flags fail loud rather than being
- * ignored — silently accepted, `inspect --verbose` reads as a broken no-op.
- */
 export const KNOWN_FLAGS: Record<string, Set<string>> = {
   init: new Set(['--agent', '--preset', '--authoring', '--framework', '--no-install', '--dry-run']),
   survey: new Set(['--alias', '--json']),
@@ -146,7 +123,6 @@ export const KNOWN_FLAGS: Record<string, Set<string>> = {
   doctor: new Set(['--json']),
 };
 
-/** Flags that consume the next argument as their value. */
 const VALUED_FLAGS = new Set(['--agent', '--framework', '--alias']);
 
 export function rejectUnknownFlags(known: Set<string>, command: string, args: string[]): void {

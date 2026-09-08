@@ -3,39 +3,20 @@ import path from 'node:path';
 
 import { globToRegExp } from '../inspect';
 
-/**
- * Best-effort root-`.gitignore` matching — enough to warn when init's own artifacts
- * are invisible to version control. Nested ignore files and exotic patterns are out
- * of scope: a false negative costs one missing heads-up, never a wrong write.
- */
-
 interface IgnoreRule {
   negate: boolean;
-  /** The line verbatim, so a caller can name the rule that decided. */
+
   source: string;
   matches: (relPath: string) => boolean;
 }
 
-/** An artifact the root `.gitignore` hides, and the line that hides it. */
 export interface HiddenArtifact {
   file: string;
-  /** The `.gitignore` line, verbatim — the cause, not just the effect. */
+
   rule: string;
 }
 
-/**
- * Exported for its own tests, because the decision it makes is invisible from
- * outside. A blank line's glob is `**\/`, which compiles to `^(?:.*\/)?$` and
- * matches only the empty string; a comment's is the comment text taken literally.
- * So letting either through as a rule changes nothing an artifact list can see —
- * `ignoredArtifacts` answers the same either way, and every guard in here reads as
- * dead weight when measured only through it. The guards are real; the aggregate
- * was the wrong place to ask.
- */
 export function toRule(line: string): IgnoreRule | null {
-  // The trim is what makes a CRLF .gitignore work: the caller splits on `\n`, so
-  // every line arrives with a trailing `\r` and a pattern carrying one matches
-  // nothing. Removing this as redundant takes that with it, silently.
   let pattern = line.trim();
 
   if (!pattern || pattern.startsWith('#')) {
@@ -54,9 +35,6 @@ export function toRule(line: string): IgnoreRule | null {
     pattern = pattern.slice(0, -1);
   }
 
-  // A slash anywhere anchors the pattern to the repo root; otherwise it matches at
-  // any depth. undecidable as `startsWith('/') || includes('/')`: no pattern can
-  // start with a slash and not contain one, so the first half decides nothing.
   const anchored = pattern.includes('/');
   const body = pattern.startsWith('/') ? pattern.slice(1) : pattern;
   const glob = anchored ? body : `**/${body}`;
@@ -71,16 +49,6 @@ export function toRule(line: string): IgnoreRule | null {
   };
 }
 
-/**
- * The artifacts (among `candidates`) the root `.gitignore` hides — last match wins —
- * each with the line that hides it.
- *
- * The rule is reported, not just the path, because a reader cannot verify this claim
- * after the fact: init appends a `!` negation, and a `git check-ignore` run afterwards
- * then answers "not ignored" — which is the negation working, not proof it was never
- * needed. A field agent read it the second way and filed the fix as a no-op. Naming
- * the pattern gives them something to check that the fix has not already changed.
- */
 export function ignoredArtifacts(root: string, candidates: string[]): HiddenArtifact[] {
   let text: string;
 
