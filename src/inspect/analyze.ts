@@ -22,27 +22,12 @@ import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './ty
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
 
-/**
- * The display prefix for a directory finding, from the config's source root — the
- * address an agent will actually go to. Per-file findings do not need it; `scan`
- * puts the prefix on `file.path` already.
- *
- * `'.'` yields an empty prefix, not `'./'`, so a project-root layout spells its
- * paths the same way here as `scan` does.
- */
 function sourcePrefix(architecture: ArchitectureDef): string {
   const root = architecture.sourceRoot ?? 'src';
 
   return root === '.' ? '' : `${root}/`;
 }
 
-/**
- * Analyze a scan against a blueprint. Pure — the core of `inspect`.
- *
- * `dependencies` is the project's installed package names. Omitted means the
- * caller could not read them, which is not the same as none installed: the
- * `owns` check is skipped rather than reporting every declaration as absent.
- */
 export function analyze(
   scan: ScanResult,
   blueprint: Blueprint,
@@ -51,8 +36,6 @@ export function analyze(
   const { architecture } = blueprint;
   const layerNames = architecture.layers.map((layer) => layer.name);
 
-  // Symmetric with the lint side: test files are exempt from structure as far as the
-  // globs reach.
   scan = dropTestFiles(scan, architecture.testFiles);
   const lintScan = dropLayerFilesIgnored(scan, architecture.layerFilesIgnore);
 
@@ -63,11 +46,6 @@ export function analyze(
   ];
 
   for (const cycle of detectCycles(buildModuleGraph(scan, architecture).edges)) {
-    // The members, not the printed path: a cycle is a set of mutually dependent
-    // modules, and `a → b → a` and `b → a → b` are one knot printed from two
-    // starting points. Keyed on the path, the same knot read from a different entry
-    // node is a different baseline entry. The address is the first member for the
-    // same reason — content-determined, and always one of the modules in the message.
     const members = [...new Set(cycle)].sort(compareText);
 
     findings.push(
@@ -82,12 +60,6 @@ export function analyze(
   return findings.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }
 
-/**
- * `owns` entries naming a package that is not installed. `info`, the same tier and
- * doctrine as `missing-layer`: declaring ownership before the install is the
- * legitimate order, so the ban is correct and simply has nothing to reach yet. A
- * global has no dependency list to answer to and is skipped.
- */
 function ownsFindings(
   architecture: ArchitectureDef,
   dependencies: string[] | undefined,
@@ -101,8 +73,6 @@ function ownsFindings(
 
   for (const layer of architecture.layers) {
     for (const owned of layer.owns ?? []) {
-      // Both forms answer the same question here: whether the package resolves at
-      // all. A named import missing from an installed package is a different one.
       const pkg = typeof owned === 'string' ? owned : 'package' in owned ? owned.package : null;
 
       if (pkg === null || dependencies.includes(pkg)) {
@@ -125,7 +95,6 @@ function ownsFindings(
   return findings;
 }
 
-/** undeclared-folder, missing-layer, and no-entry findings. */
 function folderFindings(
   scan: ScanResult,
   architecture: ArchitectureDef,
@@ -140,10 +109,7 @@ function folderFindings(
         severity: 'error',
         rule: 'undeclared-folder',
         path: `${prefix}${dir}`,
-        // The four directory findings are one-per-directory by construction, so the
-        // rule and the path already identify them and there is nothing left to
-        // discriminate. Empty rather than a repeat of the path: a subject that
-        // restates its path says the finding has a second axis when it has not.
+
         subject: '',
         message: `"${dir}" is not a declared layer — declare it, or move its code into a module of an existing layer.`,
       });
@@ -157,9 +123,7 @@ function folderFindings(
         rule: 'missing-layer',
         path: `${prefix}${name}`,
         subject: '',
-        // Reads like a todo without the second clause — six of these sent
-        // a field agent toward "delete the unused layers", the opposite of
-        // the keep-is-default doctrine the playbook states (field run #13).
+
         message: `Declared layer "${name}" has no folder yet — runway, not a todo: `
           + 'the rules arm when code lands; keeping it is the default, '
           + 'slimming is the owner\'s call.',
@@ -167,14 +131,6 @@ function folderFindings(
     }
   }
 
-  // A selfOnly ban over a layer nobody inhabits is declaratory — info, because
-  // intent declared early is not a defect (field batch 12). The note states the
-  // collision as a CONDITION: it needs a second entry of that id, which inspect
-  // cannot see, and read as unconditional it sends the single-config adopter
-  // hunting a problem that requires a merge to exist (field batch 13).
-  //
-  // A guard, not an empty list to iterate: on a scaffold every layer is a blank and
-  // the coverage line already says so.
   if (scan.files.length > 0) {
     for (const layer of architecture.layers) {
       const selfOnlyImporters = normalizeAllowedImporters(layer.allowedImporters)
@@ -242,20 +198,18 @@ function noEntryFindings(
   return findings;
 }
 
-/** Everything a layer's imports are judged against, resolved once per file. */
 interface ImportContext {
   architecture: ArchitectureDef;
   layerNames: string[];
   aliases: (AliasRoot | string)[];
-  /** Layers this file's layer may not import. */
+
   forbidden: string[];
-  /** Layers this file's layer may depend on but must not re-export. */
+
   selfOnly: string[];
   layoutOf: LayoutOf;
   entryOf: EntryOf;
 }
 
-/** Per-file import findings: deep-import, flow-violation, relative-escape, ownership, selfOnly. */
 function importFindings(
   file: ScannedFile,
   architecture: ArchitectureDef,
@@ -280,7 +234,6 @@ function importFindings(
   return file.imports.flatMap((ref) => refFindings(file, ref, context));
 }
 
-/** One reference, routed by what it is: an alias path, a relative path, a package. */
 function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext): Finding[] {
   const parts = stripAlias(ref.specifier, context.aliases);
 
@@ -295,7 +248,6 @@ function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext):
   return packageFindings(file, ref, context);
 }
 
-/** An alias import into a declared layer: module depth, the flow ban, selfOnly re-export. */
 function aliasFindings(
   file: ScannedFile,
   ref: ImportRef,
@@ -311,8 +263,6 @@ function aliasFindings(
   const findings: Finding[] = [];
   const at = { path: file.path, subject: ref.specifier };
 
-  // Depth is judged against the *target* layer's layout — reaching inside
-  // a folder-module layer is a violation wherever the import comes from.
   if (layoutOf(target) === 'folder' && depth >= 3) {
     findings.push(finding('error', 'deep-import', { ...at, message: `"${ref.specifier}" reaches inside a module — import it through its entry.` }));
   }
@@ -330,7 +280,6 @@ function aliasFindings(
   return findings;
 }
 
-/** A bare package import the blueprint gave to some other layer. */
 function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportContext): Finding[] {
   const fileLayer = file.segments[0];
   const owners = ownersOf(context.architecture, ref.specifier, ref.names);
@@ -341,10 +290,6 @@ function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportConte
 
   const named = ref.names.length ? ` (${ref.names.join(', ')})` : '';
 
-  // The names are part of the subject, not just of the sentence: one file can
-  // import two different restricted names from the same package, and those are
-  // two debts with two fixes. Sorted, because `{ a, b }` and `{ b, a }` are the
-  // same import written twice.
   const subject = ref.names.length
     ? `${ref.specifier} ${[...ref.names].sort(compareText).join(',')}`
     : ref.specifier;
@@ -356,7 +301,6 @@ function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportConte
   })];
 }
 
-/** A relative import, judged by the same verdict the embedded lint rule reads. */
 function relativeEscape(
   file: ScannedFile,
   ref: ImportRef,
@@ -382,7 +326,6 @@ function relativeEscape(
   return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.` })];
 }
 
-/** Owner layers of a package import (given its named imports), or null if unrestricted. */
 function ownersOf(
   architecture: ArchitectureDef,
   specifier: string,
@@ -413,43 +356,14 @@ function ownersOf(
   return owners.length ? owners : null;
 }
 
-/**
- * Every independent cycle in the graph, one representative path each.
- *
- * `detectCycle` returns on the first cycle it meets, and `analyze` reported that
- * one. Enforcement was unaffected — one cycle is enough to fail the gate — but the
- * report is also the brownfield debt inventory, and a repo with three unrelated
- * cycles was told it had one. "How many" and "whether any" are different questions
- * for anyone sizing the work, and this is the answer the tool can compute rather
- * than hedge with "there may be others".
- *
- * Not every *elementary* cycle: a graph's cycles can outnumber its nodes
- * exponentially, and a list like that is not an inventory either. One per strongly
- * connected component is the useful count — an SCC is a knot of mutual dependency
- * that has to be broken as a unit, and separate SCCs are separate pieces of work.
- *
- * Composed rather than reimplemented: Tarjan finds the components, then each
- * component's own edges go to `detectCycle` unchanged. That keeps the walk with the
- * memoization proof on it as the single cycle-finder, and it settles the self-loop
- * case for free — a one-node component answers null unless it really has an edge to
- * itself, so nothing here has to classify components as trivial or not.
- */
 export function detectCycles(edges: Map<string, Set<string>>): string[][] {
   return stronglyConnected(edges)
     .map((component) => detectCycle(subgraph(edges, component)))
     .filter((cycle): cycle is string[] => cycle !== null)
-    // Content-ordered, not traversal-ordered — Tarjan's output depends on its
-    // starting key, and a report that reshuffles on an unrelated file is unreadable.
+
     .sort((a, b) => compareText(a[0], b[0]));
 }
 
-/**
- * One component's edges, dropping every target outside it, nodes in name order.
- *
- * The sort is what makes the representative path reproducible: `detectCycle` walks
- * from the first key it is given, so an unsorted subgraph would hand back whichever
- * cycle the insertion order happened to reach first.
- */
 function subgraph(edges: Map<string, Set<string>>, component: string[]): Map<string, Set<string>> {
   const members = new Set(component);
   const restricted = new Map<string, Set<string>>();
@@ -464,14 +378,6 @@ function subgraph(edges: Map<string, Set<string>>, component: string[]): Map<str
   return restricted;
 }
 
-/**
- * Tarjan's strongly connected components, in the order the walk closes them.
- *
- * `lowest` is returned rather than mapped: the value a parent needs from a child IS
- * the child's lowlink, so the propagation is the signature. The component splices
- * off at the root's index, because popping until the root reappears needs an exit
- * branch Tarjan's own guarantee makes unreachable.
- */
 function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
   const index = new Map<string, number>();
   const onStack = new Set<string>();
@@ -480,7 +386,6 @@ function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
   const components: string[][] = [];
   let next = 0;
 
-  /** `node` is a component root: everything above it on the stack is one knot. */
   const close = (node: string): void => {
     const component = stack.splice(stack.indexOf(node));
 
@@ -506,8 +411,6 @@ function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
       if (seen === undefined) {
         lowest = Math.min(lowest, visit(target));
       } else if (onStack.has(target)) {
-        // A target already indexed but off the stack belongs to a component that is
-        // already closed — following it would merge two separate knots into one.
         lowest = Math.min(lowest, seen);
       }
     }
@@ -531,14 +434,6 @@ function stronglyConnected(edges: Map<string, Set<string>>): string[][] {
   return components;
 }
 
-/**
- * Exported for its own tests. `visited` is memoization — `stack` is what detects
- * the cycle — so dropping it changes running time and never the answer, which makes
- * it invisible to any assertion about the RESULT. What it is not invisible to is a
- * graph whose paths outnumber its nodes: a 40-node mesh has ~102M distinct paths and
- * 40 memoized visits. Asked through `analyze`, that graph would be 40 fixture files;
- * asked here, it is a loop.
- */
 export function detectCycle(edges: Map<string, Set<string>>): string[] | null {
   const visited = new Set<string>();
   const stack = new Set<string>();
@@ -584,10 +479,6 @@ function stripExt(name: string): string {
   return name.replace(/\.[^.]+$/, '');
 }
 
-/**
- * `path` and `subject` are both strings and both addresses, so they go in named —
- * swapping them positionally produced a finding nothing could be traced back to.
- */
 function finding(
   severity: Severity,
   rule: string,

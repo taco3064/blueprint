@@ -17,11 +17,6 @@ const MIGRATION: Record<string, string> = {
   cycle: 'Break the import cycle — invert one dependency or extract the shared part downward.',
 };
 
-/**
- * The ESLint rule each finding resolves into — the bridge between inspect's
- * diagnostic names and what `--print-config` shows, since most structural bans fold
- * into ONE rule (field issue #48). `null` marks what inspect enforces by itself.
- */
 const ENFORCED_BY: Record<string, string | null> = {
   'undeclared-folder': null,
   'flow-violation': 'no-restricted-imports',
@@ -33,19 +28,10 @@ const ENFORCED_BY: Record<string, string | null> = {
   cycle: null,
 };
 
-/** True when any finding is an error (drives the CLI exit code). */
 export function hasErrors(findings: Finding[]): boolean {
   return findings.some((finding) => finding.severity === 'error');
 }
 
-/**
- * Render findings as a human-readable Architecture Report with migration steps.
- *
- * The derivation note closes every report, the clean one included — that is the one
- * this exists for. Six of the ten findings above are read out of an import graph
- * built from source text, so `✓ Architecture Success` is a verdict on what a text
- * scan could see, and it is the output most likely to be read as more than that.
- */
 export function report(findings: Finding[]): string {
   if (!findings.length) {
     return `✓ Architecture Success — no violations found.\n\n${importGraphDerivation()}`;
@@ -63,9 +49,6 @@ export function report(findings: Finding[]): string {
 
   const rules = [...new Set(findings.map((finding) => finding.rule))];
 
-  // Each step names its finding and where that finding is enforced — three
-  // channels called one violation three things, and the third (a resolved
-  // eslint config) had no name for it at all.
   const steps = rules.filter((rule) => rule in MIGRATION).map((rule) => {
     const lint = ENFORCED_BY[rule];
 

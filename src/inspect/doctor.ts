@@ -2,10 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
-// The patterns leaf, not the emit/lint index — the index also exports lint.ts, whose
-// plugin shares resolve logic with inspect, closing a module cycle. Reached DOWN for,
-// because the three clauses are also what `unreachedTestGlobs` prints, and `emit/lint`
-// sits below this module so it cannot reach up here to borrow them.
+
 import {
   divergentReadingClause,
   outOfScanReachClause,
@@ -38,9 +35,6 @@ import { outsideScanReach, scan } from './scan';
 import type { DoctorCheck, Finding } from './types';
 import { wiringCheck } from './wiring';
 
-// Deliberately NOT extending ResolveOptions: doctor fails loud without a
-// config, and `framework` only steers the no-config preset fallback — a
-// `--framework` here would be an inert flag that lies to whoever reads it.
 export interface DoctorOptions {
   /** Emit machine-readable JSON instead of the checklist. */
   json?: boolean;
@@ -54,19 +48,10 @@ export interface DoctorOptions {
 
 export type { DoctorCheck } from './types';
 
-/**
- * What the run established. `complete`: every check passed. `unverified`: none failed
- * and at least one could not run. `incomplete`: something failed.
- */
 export type DoctorVerdict = 'complete' | 'unverified' | 'incomplete';
 
 const SUPPRESSIONS_FILE = 'eslint-suppressions.json';
 
-/**
- * The lint side of the debt ledger. Doctor cannot re-run eslint, but it catches the
- * cheap drift: suppressed entries whose file is gone, or an unreadable ledger. An
- * absent file means the ledger is not in use, which is fine.
- */
 function suppressionsCheck(root: string): DoctorCheck {
   const label = 'lint suppressions ledger current';
   const file = path.join(root, SUPPRESSIONS_FILE);
@@ -97,9 +82,6 @@ function suppressionsCheck(root: string): DoctorCheck {
     };
   }
 
-  // Zero-debt doctrine, lint side: running --suppress-all on a clean lint
-  // writes an EMPTY ledger — ceremony, and asymmetric with the baseline
-  // (which writes no file on zero debt). Green, but say what to do.
   if (!Object.keys(entries).length) {
     return {
       label,
@@ -111,26 +93,13 @@ function suppressionsCheck(root: string): DoctorCheck {
   return { label, ok: true };
 }
 
-/**
- * Bundler configs the alias check scans beyond the vite config `detect` reads. A
- * check blind to where the alias is actually wired is a forever-red gate.
- */
 const BUNDLER_FILES = ['webpack.config', 'vue.config', 'next.config', 'rsbuild.config']
   .flatMap((name) => ['js', 'cjs', 'mjs', 'ts'].map((ext) => `${name}.${ext}`));
 
-/**
- * A declared-yet-unwired alias is the inverse trap to a wrong default: the contract
- * tells agents to import through a prefix no toolchain resolves. Wired = it appears
- * in tsconfig/jsconfig `paths`, or in a bundler config as a quoted token.
- */
 function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): DoctorCheck {
   const { alias, additionalAliases, sourceRoot } = blueprint.architecture;
   const declared = pathAliasKeys(state.tsconfigs);
 
-  // Built without holes rather than filtered afterwards: the filter was a compiler
-  // narrowing and undecidable at runtime. Both guards below decide something —
-  // `readFileSync` throws on a missing file, and dropping the vite arm makes an
-  // alias wired only in vite.config.ts read as wired nowhere.
   const bundlerTexts = BUNDLER_FILES.map((file) => path.join(root, file))
     .filter((full) => fs.existsSync(full))
     .map((full) => fs.readFileSync(full, 'utf-8'));
@@ -149,10 +118,6 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
 
   const dir = sourceRoot === '.' ? '.' : `./${sourceRoot ?? 'src'}`;
 
-  // A tsconfig that is present but unparseable makes every alias inside it
-  // invisible to the check above, so "resolves nowhere" would be the reader's
-  // second problem and not their first. Naming the file first stops the remedy
-  // from misdirecting: the alias may already be declared in there.
   const unreadable = unreadableTsconfigs(state.tsconfigs);
 
   return {
@@ -168,14 +133,6 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
   };
 }
 
-/**
- * Reference files are named `<name>.blueprint.<ext>` — never the config itself.
- *
- * The `.sort()` is undecidable: `readdirSync` already answers in name order on the
- * volumes a test can run on, so the guarantee it provides elsewhere is unobservable
- * here. `DoctorOptions` is public API, so an injected reader would be adopter-facing
- * surface for a test concern — this keeps the sort instead.
- */
 function referenceFiles(root: string): string[] {
   return fs
     .readdirSync(root)
@@ -183,11 +140,6 @@ function referenceFiles(root: string): string[] {
     .sort();
 }
 
-/**
- * Contract files outside the declared emit set. One carrying hand-written content
- * only gets an instruct, so without this check the orphan lives on with every gate
- * green (field issues #2/#3).
- */
 function staleContracts(root: string, blueprint: Blueprint): string[] {
   const emitted = new Set(emitAgentFiles(blueprint).map((file) => file.path));
 
@@ -200,8 +152,6 @@ function staleContracts(root: string, blueprint: Blueprint): string[] {
         return false;
       }
 
-      // Own-strategy rule files are wholly generated by construction; a
-      // merge file counts only when it carries the managed marker block.
       return (
         spec.strategy === 'own'
         || fs.readFileSync(full, 'utf-8').includes('<!-- BLUEPRINT:START -->')
@@ -241,7 +191,6 @@ export async function runDoctor(
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
 
-  // No config = nothing to check; every other check assumes one exists.
   if (!state.hasConfig) {
     return noConfigResult(log, options.json);
   }
@@ -249,8 +198,6 @@ export async function runDoctor(
   const { blueprint } = await resolveBlueprint(root, state, options);
   const scanResult = scan(root, blueprint.architecture.sourceRoot);
 
-  // Measured once and read twice: the gate count the architecture check prints and the
-  // sentence saying why it moved come from the same `Coverage`, so they cannot disagree.
   const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
 
   const { checks, probed } = await doctorChecks(
@@ -260,13 +207,9 @@ export async function runDoctor(
 
   const ok = checks.every((check) => check.ok);
 
-  // Ordered as the reader acts on them: the config facts as `architecture` declares
-  // them, then the closing step.
   const notes = [
     unreachedIgnoreNote(scanResult, blueprint, probed),
-    // `inspect`'s sentence, not a second one written here. A dead `testFiles` glob moves
-    // the source count above — the files it stopped exempting land in it — and this line
-    // is the only place in doctor's output that glob has an address.
+
     coverage.testExemption,
     uncommittedNote(root),
   ].filter((note) => note !== undefined);
@@ -276,10 +219,6 @@ export async function runDoctor(
   return { ok, verdict: verdictOf(checks), checks };
 }
 
-/**
- * Adoption has not started, so there is nothing else to check — and no committing
- * note either, because "commit what it wrote" is not the next step; running init is.
- */
 function noConfigResult(
   log: (message: string) => void,
   json?: boolean,
@@ -297,13 +236,6 @@ function noConfigResult(
   return { ok: false, verdict: verdictOf(checks), checks };
 }
 
-/**
- * Every check, in the order they are printed — and the one fact about the run that no
- * check carries: whether the survival check got as far as picking a probe. The note
- * under the banner says what that check did with a dead ignore entry, so it has to know
- * whether it ran, and `wiringCheck` reports it beside its verdict — derived where the
- * probes are, so there is no second computation here to drift from that one.
- */
 async function doctorChecks(
   root: string,
   ctx: {
@@ -317,10 +249,6 @@ async function doctorChecks(
   const { state, blueprint, scanResult, coverage, options } = ctx;
   const eslintWired = state.ownedEslintConfig !== undefined || state.wiredEslintConfig;
 
-  // Same state, same analysis: `analyze` returning different findings for one repo
-  // depending on which runtime asked would be its own defect. Nothing in doctor's
-  // output reads an info finding — the architecture check reports counts only when
-  // there are errors, and `ok` is errors-only — so this changes no verdict.
   const findings = analyze(scanResult, blueprint, state.dependencies);
 
   // Stryker disable next-line ArrayDeclaration: unmatched fabricated entries change no finding.
@@ -335,9 +263,7 @@ async function doctorChecks(
     blueprint,
     scanResult,
     wired: eslintWired,
-    // `ownedEslintConfig` is init's own generated file — nothing was merged into it,
-    // so the check must not call it a merge. `wiredEslintConfig` is the other arm of
-    // `eslintWired` above: a hand-maintained config its owner wired the package into.
+
     merged: state.ownedEslintConfig === undefined,
     hasTypescript: state.hasTypescript,
     load: options.loadModule ?? loadProjectModule,
@@ -357,10 +283,6 @@ async function doctorChecks(
   };
 }
 
-/**
- * A reference file, a live authoring playbook, or a contract the current
- * `emit.agents` no longer names — each one adoption left behind.
- */
 function leftoversCheck(root: string, blueprint: Blueprint): DoctorCheck {
   const references = referenceFiles(root);
 
@@ -377,9 +299,7 @@ function leftoversCheck(root: string, blueprint: Blueprint): DoctorCheck {
           ...(references.length
             ? [`merge and delete: ${references.join(', ')} — adoption is not done while a reference remains`]
             : []),
-          // The playbook defines "done" as including its own cleanup —
-          // doctor saying "complete" over a live playbook told a second,
-          // contradicting story (field issue #13).
+
           ...(authoring.length
             ? [`${authoring.join(', ')}: authoring artifacts still on disk — the playbook's final step deletes them; a doctor run mid-authoring is EXPECTED to fail here`]
             : []),
@@ -391,7 +311,6 @@ function leftoversCheck(root: string, blueprint: Blueprint): DoctorCheck {
   };
 }
 
-/** Whether anything actually spreads `emitLint` into the config eslint runs. */
 function eslintWiredCheck(state: ProjectState, eslintWired: boolean): DoctorCheck {
   return {
     label: 'eslint wired to emitLint',
@@ -405,12 +324,6 @@ function eslintWiredCheck(state: ProjectState, eslintWired: boolean): DoctorChec
   };
 }
 
-/**
- * The findings net of the baseline. The label only mentions the ledger while it is
- * actually covering something — inspect says "no baseline needed" on a truly clean
- * repo, and doctor claiming coverage by a ledger that does not exist told the
- * opposite story about the same state (field run #10).
- */
 function architectureCheck(
   baseline: { fresh: Finding[]; suppressed: number },
   coverage: Coverage,
@@ -423,8 +336,7 @@ function architectureCheck(
       ? 'architecture clean (findings covered by the baseline)'
       : 'architecture clean',
     ok: !hasErrors(fresh),
-    // The green states its reach — a clean report over an empty net is
-    // vacuous, and the reader deserves to see which one they got.
+
     detail: hasErrors(fresh)
       ? suppressed > 0
         ? `${fresh.length} finding(s) outside the baseline — fix, or \`blueprint inspect --update-baseline\``
@@ -436,14 +348,6 @@ function architectureCheck(
   };
 }
 
-/**
- * What "complete" leaves out on a repo with no version control: every check can
- * pass while nothing adoption wrote is committed, and doctor is the last thing on
- * screen. Three field agents closed on that gap in their own words.
- *
- * The no-VCS case only — a git repo's own working tree needs `git status`, and
- * doctor is read-only with zero dependencies.
- */
 function uncommittedNote(root: string): string | undefined {
   if (fs.existsSync(path.join(root, '.git'))) {
     return undefined;
@@ -456,41 +360,6 @@ function uncommittedNote(root: string): string | undefined {
     + 'an adopting agent\'s.';
 }
 
-/**
- * The other thing a green run leaves out. `layerFilesIgnore` is compiled in exactly one
- * place — `pickProbes` — and no check counts what it did there: doctor's output was
- * byte-identical for a healthy glob and a dead one, banner and exit code included. The
- * only surface that reads the field could not say the field was inert.
- *
- * Under the banner rather than as an eighth check, for `uncommittedNote`'s two reasons,
- * and both hold here: it cannot fail — this reports a declaration, it does not fail a
- * build that passes today — and a check that is always green would push the count every
- * conformance fixture states.
- *
- * Three states, and `outsideScanReach` separates one of them from the tree: an entry
- * outside `sourceRoot`, inside a directory the walk never descends into, or at a file
- * type it does not read, is unreached HERE by where it points, whatever the tree holds.
- * The other two it cannot separate and does not try: a mistyped glob and a convention
- * whose files have not landed measure identically, only intent differs, and intent has
- * no address — the position `unreachedTestGlobs` settled for `testFiles`. So that half
- * says what is true either way, names both resolutions and ends in the owner's call.
- * Not "runway", which `missing-layer` and `owns-not-installed` can promise because a
- * declaration ahead of the code arms itself when the code lands — a mistyped glob never
- * arms. Guessing which of those two it is would trade a hand-back for a fabrication;
- * handing back the FIRST one asserts that one of two things is true while a third is,
- * which is the same trade the other way round.
- *
- * Both clauses come from `emit/lint/patterns`, which is also where `unreachedTestGlobs`
- * reads them. One question — is this entry reachable here? — gets one text, on the field
- * that holds files out and on the field that exempts them; the consequence of being dead
- * still differs per field and stays above.
- *
- * `probed` gates the clause that speaks for the merge-survival check. Ungated, that
- * clause reports what a check that never ran did with the entry, in the same output
- * where its skip is on screen — and the skip is the case the measurement below cannot
- * reach on its own, since an entry weighed against a probe nobody picked was weighed
- * against nothing.
- */
 function unreachedIgnoreNote(
   scanResult: ReturnType<typeof scan>,
   blueprint: Blueprint,
@@ -505,14 +374,9 @@ function unreachedIgnoreNote(
   const { sourceRoot } = blueprint.architecture;
   const reach = dead.map((glob) => ({ glob, unreached: outsideScanReach(glob, sourceRoot) }));
 
-  // This field's own consequence, which the shared clause takes rather than states:
-  // `emit/lint` copies the entry into an `ignores` carrying no `files` beside it, so
-  // it governs the whole repo there whatever this scan could reach.
   const repoWideThere = 'it is unreached only here, and the config `emit/lint` emits '
     + 'still applies it wherever it does match';
 
-  // The shared clauses carry no closing period: `deps` appends to the sibling sentence,
-  // so they cannot end one. This note is a line of its own and closes here.
   const tail = outOfScanReachClause(reach, repoWideThere)
     + ownersCallClause(reach, {
       opening: 'Inside the scanned tree a mistyped glob and a convention',
@@ -520,16 +384,6 @@ function unreachedIgnoreNote(
     })
     + divergentReadingClause(reach);
 
-  // Narrower than `unreachedTestGlobs`' consequence clause, because the field is:
-  // `testFiles` scopes both the analysis and the emitted lint entries, while a healthy
-  // `layerFilesIgnore` changes exactly one thing inside this runtime — probe candidacy.
-  // Coverage counts these files either way, so "no scanned file is dropped from the
-  // analysis" would be true of the healthy glob too and name a cost that is not this one.
-  //
-  // So probe candidacy is the whole claim, and probe candidacy is therefore what
-  // `unreachedIgnoreGlobs` measures — both sets of it: an entry can match no file and
-  // still be the reason a layer went unprobed, which is a thing held out rather than an
-  // inert entry.
   return '`architecture.layerFilesIgnore` — no file here matches '
     + `${dead.map((glob) => `\`${glob}\``).join(', ')}, and neither does the stand-in `
     + 'path doctor uses to probe a layer that has none. So nothing this run read is held '
@@ -543,11 +397,6 @@ function unreachedIgnoreNote(
     + `${tail}.`;
 }
 
-/**
- * The banner's three states as one value — the field automation should gate on.
- * `ok` stays what it always meant (nothing FAILED, and the exit code follows it);
- * this says whether anything was left unproven.
- */
 function verdictOf(checks: DoctorCheck[]): DoctorVerdict {
   if (checks.some((check) => !check.ok)) {
     return 'incomplete';
@@ -556,15 +405,6 @@ function verdictOf(checks: DoctorCheck[]): DoctorVerdict {
   return checks.some((check) => check.skipped) ? 'unverified' : 'complete';
 }
 
-/**
- * The banner sentence and the counts behind it — one passage, both channels, so a
- * machine reading `ok` learns what a reader is told (field run #149).
- *
- * `ok` is not flipped for a skip: it means nothing FAILED, which is what the exit
- * code means, so a consumer following it would start failing on a state nobody can
- * appease. A skip is still not a pass, and folding it into "all N checks passed" is
- * what let an agent report the lint wiring as verified (#129).
- */
 function summarize(checks: DoctorCheck[]): {
   verdict: DoctorVerdict;
   passed: number;
@@ -582,9 +422,7 @@ function summarize(checks: DoctorCheck[]): {
       ? `⊘ Adoption unverified — ${passed} of ${checks.length} checks passed, `
       + `${skipped} could not run (⊘ above). Nothing failed, and nothing here `
       + 'proves what those checks cover.'
-      // A skip riding under a failure was invisible — the red arm counted only
-      // failures, so fixing them left the reader at a green never flagged as partly
-      // unproven (#129: an agent reads the banner and stops).
+
       : `✗ Adoption incomplete — ${failed} of ${checks.length} check(s) failed`
         + `${skipped ? `, and ${skipped} could not run (⊘ above) — fixing the ✗ leaves those still unproven` : ''}.`;
 
@@ -600,11 +438,6 @@ function emit(
   const { verdict, passed, failed, skipped, banner } = summarize(checks);
 
   if (json) {
-    // Both channels or they disagree about the same run, which is its own defect:
-    // automation reading JSON must not learn less than a reader. `verdict` sits
-    // beside `ok` because `ok` cannot carry three states and a skip rides on
-    // `ok: true`; `summary` and `counts` follow because an enum is a word where the
-    // text had a sentence and a ratio (field run #141).
     log(JSON.stringify(
       {
         ok: checks.every((check) => check.ok),
@@ -612,10 +445,7 @@ function emit(
         summary: banner,
         counts: { total: checks.length, passed, failed, skipped },
         checks,
-        // Still one `note`, joined: the key names what is printed under the banner,
-        // which is one thing that now has more than one sentence in it. Renaming it for
-        // the second sentence would break a consumer keyed on the first (field run #141
-        // is why this channel carries the note at all).
+
         note: notes.length ? notes.join('\n') : undefined,
       },
       null,
@@ -636,10 +466,7 @@ function emit(
       }),
       '',
       banner,
-      // Under the banner rather than as further checks: neither can fail — init never
-      // takes version control into its own hands, and a dead ignore glob is reported
-      // rather than failed — and a check that is always green would push the count
-      // every conformance fixture states.
+
       ...notes.map((note) => `  ${note}`),
     ].join('\n'),
   );

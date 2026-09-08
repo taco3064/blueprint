@@ -6,8 +6,7 @@ import { activeSetting,
   getModuleShape,
   getSelfOnlyTargets } from '../config';
 import type { Blueprint } from '../config';
-// The patterns leaf, not the emit/lint index: the index also exports lint.ts,
-// whose plugin shares resolve logic with inspect, closing a module cycle.
+
 import {
   buildStructuralPatterns,
   deriveGlobalRules,
@@ -20,40 +19,13 @@ import { unwrapModule } from '../project';
 import { dropTestFiles, globToRegExp } from './filter';
 import type { DoctorCheck, ScanResult } from './types';
 
-/**
- * Doctor's merge-survival check. Flat config never merges: a later entry
- * configuring the same rule silently REPLACES the earlier one, so lint stays green
- * while a structural ban disappears. This resolves the project's final config for
- * one real layer file and verifies the layer-boundary bans, selfOnly selectors,
- * globals and the embedded relative-escape rule. Package ownership is not verified.
- */
-
-/**
- * What this check calls the config it resolved, and it is two different words: on
- * the path where init writes the live `eslint.config.mjs` there is no merge at all,
- * and a hardcoded "merged" sent a reader checking the wrong file (field run #148).
- */
 const label = (merged: boolean): string =>
   `emitted rules survive the ${merged ? 'merged' : 'generated'} eslint config`;
 
-/**
- * What a green on this check does and does NOT prove — an unqualified ✓ over a
- * half-verified merge is the false green this module exists to prevent (#40).
- *
- * It resolves ONE path per layer, so an entry that replaces blueprint's on PART of
- * a layer passes. Since #163 that partial-layer entry is the arrangement the
- * playbook recommends, so the blind spot now covers the intended shape, and the
- * playbook's remedy moved with it: two probes in the affected layer, not one.
- */
 const SCOPE = 'structural bans + each active gate\'s carrier rule, one probe per layer; '
   + 'thresholds, package-ownership entries, and a merged entry scoped to only part of '
   + 'a layer are not compared';
 
-/**
- * Gates whose ESLint rule exists only if the caller handed `emitLint` the carrier
- * plugin — a dropped one emits NOTHING while lint stays green. One representative
- * rule per gate: the carrier takes them all together, so a single id detects it.
- */
 const CARRIER_GATES = [
   { gate: 'codeStyle', rule: '@stylistic/max-len', carrier: 'stylistic' },
   { gate: 'statementsPerLine', rule: '@stylistic/max-statements-per-line', carrier: 'stylistic' },
@@ -63,8 +35,7 @@ const CARRIER_GATES = [
     carrier: 'stylistic',
   },
   { gate: 'importBlock', rule: 'import-x/no-duplicates', carrier: 'imports' },
-  // TypeScript-only, exactly as emitLint has it: `any` is a TS construct, so
-  // a JS project legitimately resolves this gate to nothing.
+
   {
     gate: 'explicitAny',
     rule: '@typescript-eslint/no-explicit-any',
@@ -79,22 +50,12 @@ interface EslintApi {
   };
 }
 
-/** The tier check `emitLint` applies before emitting a rule. */
-
-/**
- * The structural artifacts emitLint emits for `layer`, in version-stable
- * form: pattern groups (glob arrays), selfOnly selectors, restricted global
- * names. Messages and severities are deliberately excluded — the installed
- * blueprint may be a different version than the one doctor runs from.
- */
 export function expectedStructural(
   blueprint: Blueprint,
   layer: string,
 ): { groups: Set<string>; selectors: Set<string>; globals: Set<string> } {
   const { architecture, rules } = blueprint;
 
-  // The same offset-aware bases emitLint composes from — the expectations
-  // and the emitted patterns cannot drift (field issue #29).
   const aliases = aliasLayerRoots(architecture)
     .map((root) => [root.alias, ...root.prefix].join('/'));
 
@@ -135,11 +96,6 @@ export function expectedStructural(
   };
 }
 
-/**
- * Derive a concrete path satisfying `glob` — the synthetic probe for a layer with
- * no files yet. Star and brace shapes synthesize by construction; anything carrying
- * `?` or a character class yields no probe, never a wrong one.
- */
 function syntheticPath(glob: string): string | null {
   if (/[?[\]]/.test(glob)) {
     return null;
@@ -151,22 +107,12 @@ function syntheticPath(glob: string): string | null {
     .replace(/\*+/g, '__blueprint_probe__');
 }
 
-/** The candidates one layer's globs can construct, in the order `pickProbes` weighs them. */
 function syntheticCandidates(globs: string[]): string[] {
   return globs
     .map(syntheticPath)
     .filter((candidate): candidate is string => candidate !== null);
 }
 
-/**
- * Each declared layer with its globs and the first non-ignored file that reaches it,
- * or `null` when none does — the fork `pickProbes` takes to a stand-in, held in one
- * place because the report on the ignores has to take the same fork or it speaks about
- * a probe this runtime never derives.
- *
- * `ignores` is a parameter rather than read off the blueprint because that other caller
- * asks the question with one entry lifted out; see `syntheticProbePaths`.
- */
 function layerProbeSites(
   blueprint: Blueprint,
   scanResult: ScanResult,
@@ -191,23 +137,6 @@ function layerProbeSites(
   });
 }
 
-/**
- * Every path this runtime would probe a layer with in place of a file it does not
- * have, in `scanResult` under `ignores` — the OTHER set `layerFilesIgnore` is compiled
- * against, and the reason a files-only reach measurement cannot speak for the field.
- *
- * `pickProbes` rejects a synthetic candidate the ignores match exactly as it rejects
- * a real file, so an entry matching one of these is not inert: it removed that
- * layer's probe, and in a tree whose layers hold no files at all it removed every one
- * and the check skipped. Anything reporting such an entry as reaching nothing weighs
- * it against this list too, or it denies what the run printing it just did.
- *
- * "In place of a file it does not have" is the other half, and it is a fact about a
- * tree, not about a declaration — hence the two parameters. A layer holding a file is
- * probed with that file, so an entry colliding with a stand-in for it collides with a
- * path nothing derives, holds nothing out, and is precisely the dead entry the report
- * exists to name.
- */
 export function syntheticProbePaths(
   blueprint: Blueprint,
   scanResult: ScanResult,
@@ -218,12 +147,6 @@ export function syntheticProbePaths(
     .flatMap((site) => syntheticCandidates(site.globs));
 }
 
-/**
- * One probe per layer — a single probe would green-light an entry that swallows
- * some OTHER layer's rules, the exact scoping this check exists to catch. An empty
- * layer gets a synthetic probe, since `calculateConfigForFile` resolves by pattern
- * and never touches disk. Still a sample: one path stands in for the layer.
- */
 function pickProbes(
   scanResult: ScanResult,
   blueprint: Blueprint,
@@ -238,9 +161,6 @@ function pickProbes(
       return [{ path: hit, layer }];
     }
 
-    // The synthetic candidate must sit exactly where a real file would:
-    // inside the net, outside the ignores, and never shaped like a test
-    // file (the emitted entries exempt those, so expectations would lie).
     const synthetic = syntheticCandidates(globs).find(
       (candidate) =>
         !ignores.some((ignore) => ignore.test(candidate))
@@ -251,18 +171,11 @@ function pickProbes(
   });
 }
 
-/**
- * A resolved rule's options WITHOUT its severity — [] when the rule is absent or
- * off. The severity lives at index 0 of an eslint rule entry and is never an
- * option, so every reader dropped it separately; doing it here means a reader
- * cannot forget, and cannot disagree about what "no options" looks like.
- */
 function optionsOf(value: unknown): unknown[] {
   // Stryker disable next-line ArrayDeclaration: readers ignore a fabricated unmatched option.
   return activeOptions(value)?.slice(1) ?? [];
 }
 
-/** A resolved rule's option list, or null when absent / severity off. */
 function activeOptions(value: unknown): unknown[] | null {
   if (value == null) {
     return null;
@@ -273,15 +186,6 @@ function activeOptions(value: unknown): unknown[] | null {
   return options[0] === 0 || options[0] === 'off' ? null : options;
 }
 
-/**
- * Version-stable artifacts present in the *resolved* rule values, plus a count of
- * the entries this reader could not make sense of.
- *
- * The comparison downstream is by containment, so an unrecognised entry is the
- * user's business and never a loss — which made a hand-folded entry with a typo
- * look exactly like a deliberate one. The count makes that silence audible without
- * turning someone's own rule into a failure.
- */
 function resolvedStructural(rules: Record<string, unknown>): {
   groups: Set<string>;
   selectors: Set<string>;
@@ -302,17 +206,11 @@ function resolvedStructural(rules: Record<string, unknown>): {
   };
 }
 
-/** What one restricted-* rule resolved to, and how much of it this check could not read. */
 interface ReadEntries {
   values: Set<string>;
   unreadable: number;
 }
 
-/**
- * `optionsOf` answers [] for a rule that is absent or off — the same shape a rule
- * with a severity and no options has — so each reader below takes a list rather than
- * a maybe-list, and the severity element is dropped there in one place.
- */
 function readPatternGroups(entry: unknown): ReadEntries {
   const values = new Set<string>();
   let unreadable = 0;
@@ -320,8 +218,6 @@ function readPatternGroups(entry: unknown): ReadEntries {
   for (const option of optionsOf(entry)) {
     const patterns = (option as { patterns?: unknown[] })?.patterns;
 
-    // A paths-only option carries no patterns at all — that is a shape, not a
-    // mistake, so it is not counted.
     if (!Array.isArray(patterns)) {
       continue;
     }
@@ -340,7 +236,6 @@ function readPatternGroups(entry: unknown): ReadEntries {
   return { values, unreadable };
 }
 
-/** `no-restricted-syntax` / `-globals`: each entry is a bare string or an object. */
 function readNamed(entry: unknown, key: 'selector' | 'name'): ReadEntries {
   const values = new Set<string>();
   let unreadable = 0;
@@ -358,10 +253,6 @@ function readNamed(entry: unknown, key: 'selector' | 'name'): ReadEntries {
   return { values, unreadable };
 }
 
-/**
- * The carrier-backed gates this blueprint actually expects to resolve — the
- * gate must be on, and its carrier must be one the stack can supply.
- */
 export function expectedCarriers(
   blueprint: Blueprint,
   hasTypescript: boolean,
@@ -377,48 +268,26 @@ export interface WiringParams {
   root: string;
   blueprint: Blueprint;
   scanResult: ScanResult;
-  /** detect's verdict — when eslint is not wired at all, this check skips. */
+
   wired: boolean;
-  /**
-   * True when the config it will resolve is a hand-maintained one the owner wired
-   * the package into. False when it is init's own generated config, where nothing
-   * was merged and the label must not say it was (field run #148).
-   */
+
   merged: boolean;
-  /** Gates the stack cannot carry are not expected — `explicitAny` on JS. */
+
   hasTypescript: boolean;
   load: (name: string, root: string) => Promise<unknown>;
 }
 
-/** The check's verdict, and whether it got as far as having one to reach. */
 export interface WiringResult {
   check: DoctorCheck;
-  /**
-   * Whether a probe was picked. Doctor's note on `layerFilesIgnore` says what this
-   * check did with the entry, so it has to take the same fork — and both arms that
-   * return before `probes` exists would leave that note speaking for a run that never
-   * happened. It rides with the verdict rather than being derived a second time beside
-   * it, which is the shape `layerProbeSites` already imposes on its two readers. Not
-   * readable back off `check`: the no-probe arm is deliberately not a `skipped`.
-   */
+
   probed: boolean;
 }
 
-/**
- * Run the merge-survival check. Every unreachable precondition skips with a
- * labeled reason instead of failing — a red nobody can appease is worse
- * than no check; the "eslint wired" check and the project's own lint run
- * cover those states already.
- */
 export async function wiringCheck(params: WiringParams): Promise<WiringResult> {
   const { blueprint, scanResult, wired, merged } = params;
   const LABEL = label(merged);
 
   if (!wired) {
-    // Neither word fits this arm: nothing was merged, and there is no generated config
-    // either — `merged` is `ownedEslintConfig === undefined`, which a repo with no eslint
-    // config at all satisfies. So the one label that stays true says only "the eslint
-    // config", or this path reproduces #148's confusion by the other route.
     return {
       check: {
         label: 'emitted rules survive the eslint config (skipped — eslint not wired)',
@@ -431,12 +300,6 @@ export async function wiringCheck(params: WiringParams): Promise<WiringResult> {
 
   const probes = pickProbes(scanResult, blueprint);
 
-  // No `skipped` on this one, deliberately, and the rule it follows is: mark a skip
-  // when it hides something the rest of doctor does not already report. Here there is
-  // no file in any layer, so there is nothing for the rules to protect and nothing to
-  // verify — a state doctor already states outright as vacuous, "a green gate proves
-  // nothing yet". Marking it too would relabel every greenfield scaffold as unverified
-  // on the strength of a fact already on screen.
   if (!probes.length) {
     return {
       check: { label: `${LABEL} (skipped — no probe derivable from the layer globs)`, ok: true },
@@ -447,11 +310,6 @@ export async function wiringCheck(params: WiringParams): Promise<WiringResult> {
   return { check: await comparedTo(params, probes, LABEL), probed: true };
 }
 
-/**
- * The three verdicts a picked probe can produce, once there is one to resolve — split
- * out so the arms above can return the pair without this tail growing a second copy of
- * it.
- */
 async function comparedTo(
   params: WiringParams,
   probes: ReturnType<typeof pickProbes>,
@@ -470,9 +328,6 @@ async function comparedTo(
     return surviving(LABEL, survey.unreadable);
   }
 
-  // The check compares exact emitted text, so a red has TWO possible causes
-  // — naming only the replace cause sent a field agent chasing a merge
-  // collision that did not exist (field issue #19).
   return {
     label: LABEL,
     ok: false,
@@ -487,7 +342,6 @@ async function comparedTo(
   };
 }
 
-/** Resolve the real config for each probe file and collect what it no longer carries. */
 async function surveyProbes(
   params: WiringParams,
   probes: ReturnType<typeof pickProbes>,
@@ -510,10 +364,6 @@ async function surveyProbes(
     lost.push(...losses(expectedStructural(blueprint, probe.layer), resolved)
       .map((loss) => `${probe.layer}: ${loss}`));
 
-    // A gate declared in blueprint.config.mjs whose rule is absent from the
-    // resolved config means the merge dropped its carrier — the silent
-    // failure the playbook spends the most words on, and the one this
-    // check used to walk straight past.
     lost.push(
       ...carriers
         .filter((entry) => activeOptions(rules[entry.rule]) === null)
@@ -528,12 +378,6 @@ async function surveyProbes(
   return { lost, unreadable };
 }
 
-/**
- * An unresolvable config is a skip, not a verdict — but a skip the banner counted as
- * a pass is how an agent concluded the wiring was verified (#129). The reason travels
- * with it: a bare "would not resolve" sent three runs to `npm run lint` to learn WHICH
- * package was missing (field runs #145, #148, #149).
- */
 function unresolvableConfig(label: string, merged: boolean, error: unknown): DoctorCheck {
   const reason = error instanceof Error ? error.message.split('\n')[0] : String(error);
 
@@ -547,12 +391,6 @@ function unresolvableConfig(label: string, merged: boolean, error: unknown): Doc
   };
 }
 
-/**
- * Say what the ✓ covers. Unqualified, it reads as "every emitted rule is alive",
- * which this check has never been able to promise (field #40) — and an entry in a
- * shape it cannot read is not a failure, yet a hand-folded one with a typo looked
- * identical to a deliberate one while the check said nothing either way.
- */
 function surviving(label: string, unreadable: number): DoctorCheck {
   const note = unreadable === 0
     ? undefined
@@ -564,7 +402,6 @@ function surviving(label: string, unreadable: number): DoctorCheck {
   return { label: `${label} (${SCOPE})`, ok: true, detail: note };
 }
 
-/** What the merge dropped, per artifact family. */
 function losses(
   expected: ReturnType<typeof expectedStructural>,
   resolved: ReturnType<typeof resolvedStructural>,

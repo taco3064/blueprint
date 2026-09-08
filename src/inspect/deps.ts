@@ -1,6 +1,3 @@
-// Import from the patterns leaf, not the emit/lint index — the index also
-// exports lint.ts, which loads the plugin, which shares resolve logic with
-// inspect; routing through the index would close a module cycle.
 import { emptyTestGlobs, unreachedTestGlobs } from '../emit/lint/patterns';
 import { stripSourceRoot } from '../config';
 import type { ArchitectureDef, Blueprint } from '../config';
@@ -65,9 +62,7 @@ export async function runDeps(
   log(
     options.json
       ? JSON.stringify(
-          // Absent, not null, and the same string the text prints: a key always
-          // present reads as "measured, nothing wrong" from a channel that cannot
-          // see the other one.
+
           { modules, skipped, ...exemptionKey(testExemption), derivation: importGraphDerivation() },
           null,
           2,
@@ -78,28 +73,6 @@ export async function runDeps(
   return { ok: true, modules };
 }
 
-/**
- * Why the counts it prints under are the counts they are, when a declared
- * `architecture.testFiles` entry reaches no file here. `inspect`'s sentence, printed
- * verbatim rather than paraphrased for this surface — two positions on one question is
- * the contradiction an adopter meets before we do — with one clause added for what it
- * costs HERE.
- *
- * The clause is needed because the shared sentence stops at what this run read — which
- * scanned files the net dropped from the analysis — rather than at what that costs on
- * this surface: a reader looking at a fan-in that moved would otherwise read the two
- * truths as unrelated.
- * It claims nothing about the tree, so it stays true of every state the sentence above
- * hands back: the entry that is runway rather than a typo and has no such file to count,
- * and the entry outside the scan, whose files this graph never read and whose imports
- * are therefore in no count at all.
- *
- * Not on the empty leaderboard and not on the unknown-target message, and on NEITHER
- * channel: a dead entry only ever ADDS files to this graph, so it can be the cause of a
- * count but never of a module that is missing. Decided here rather than in a renderer,
- * because the renderer only speaks for the text — a `--json` payload emitting a cause
- * the text suppressed is two answers about one run.
- */
 function exemptionNote(
   modules: ModuleDeps[],
   scanned: ScanResult,
@@ -107,16 +80,10 @@ function exemptionNote(
 ): string | null {
   const { testFiles, sourceRoot } = architecture;
 
-  // The one decision, and both renderings read it: the sentence closes on "the blast
-  // radius above", so a graph with no module in it has nothing for it to be about. The
-  // text renderer keeps an early return of its own, and it decides nothing here.
   if (!modules.length) {
     return null;
   }
 
-  // An empty net arrives here by the same route and for the same reason: the files it
-  // stops exempting are counted in the blast radius above, and the sentence that names
-  // dead entries has none to name. One cause, two shapes of the same field.
   const cause = unreachedTestGlobs(testFileReach(scanned, testFiles, sourceRoot))
     ?? emptyTestGlobs(testFiles);
 
@@ -126,12 +93,10 @@ function exemptionNote(
       + 'nothing in it was exempted through them';
 }
 
-/** The `--json` half of {@link exemptionNote} — the key exists only when there is one. */
 function exemptionKey(testExemption: string | null): { testExemption?: string } {
   return testExemption === null ? {} : { testExemption };
 }
 
-/** One module's own blast radius, or the not-found report naming what was skipped. */
 function reportTarget(
   target: string,
   ctx: {
@@ -157,9 +122,7 @@ function reportTarget(
 
   log(
     ctx.json
-      // `derivation` rides along in the JSON for the same reason it closes the text:
-      // the agent piping this into a decision has no other channel, and every key
-      // beside it is a graph-derived fact.
+
       ? JSON.stringify(
           { ...found, ...exemptionKey(testExemption), derivation: importGraphDerivation() },
           null,
@@ -171,7 +134,6 @@ function reportTarget(
   return { ok: true, modules: [found] };
 }
 
-/** Fold the raw graph into per-module fan-in / fan-out, sorted by blast radius. */
 function collect(moduleSet: Set<string>, edges: Map<string, Set<string>>): ModuleDeps[] {
   const importedBy = new Map<string, string[]>();
 
@@ -181,8 +143,6 @@ function collect(moduleSet: Set<string>, edges: Map<string, Set<string>>): Modul
     }
   }
 
-  // Edge targets can name modules with no scanned file of their own (e.g. a
-  // declared-layer entry that only re-exports) — keep them queryable too.
   const all = new Set([...moduleSet, ...importedBy.keys()]);
 
   return [...all]
@@ -196,26 +156,19 @@ function collect(moduleSet: Set<string>, edges: Map<string, Set<string>>): Modul
     );
 }
 
-/** Top-level sourceRoot folders outside the declared layers — invisible to deps. */
 function skippedFolders(scanned: ScanResult, layerNames: Set<string>): string[] {
   const folders = scanned.files
     .filter((file) => file.segments.length > 1 && !layerNames.has(file.segments[0]))
     .map((file) => file.segments[0]);
 
-  // No sort of its own: `scan` walks in name order, so first-encounter order IS
-  // name order, and a sort here would repair an order already settled upstream.
   return [...new Set(folders)];
 }
 
-/**
- * A single-segment module that IS a flat-layout layer answers at layer granularity.
- */
 function isFlatLayer(module: string, layerNames: Set<string>, layoutOf: LayoutOf): boolean {
   // Stryker disable next-line LogicalOperator: graph keys never include a non-layer single segment.
   return !module.includes('/') && layerNames.has(module) && layoutOf(module) === 'flat';
 }
 
-/** `src/hooks/useCart/useCart.ts` / `hooks/useCart` / `./src/hooks` → module key. */
 function normalizeTarget(
   input: string,
   architecture: ArchitectureDef,
@@ -224,7 +177,6 @@ function normalizeTarget(
   return moduleKey(stripSourceRoot(input, architecture), layoutOf);
 }
 
-/** The not-found message — pointing at the skipped folder when that is the cause. */
 function unknownTarget(key: string, skipped: string[]): string {
   const folder = key.split('/')[0];
 
@@ -233,11 +185,6 @@ function unknownTarget(key: string, skipped: string[]): string {
     : `✗ Unknown module "${key}" — run \`blueprint deps\` to list every module.`;
 }
 
-/**
- * Both `deps` renderings close on how the graph was read, and the per-module answer
- * needs it most: a fan-in of 3 that a dynamic import made 4 is a wrong decision,
- * not an incomplete list.
- */
 function renderModule(
   entry: ModuleDeps,
   flatLayer: boolean,
@@ -255,10 +202,6 @@ function renderModule(
   ].join('\n');
 }
 
-/**
- * `·`, the info marker `inspect` and `rules` already print this cause behind, and never
- * a ⚠: one of the two states it covers is a repo doing nothing wrong.
- */
 function exemptionLine(testExemption: string | null): string[] {
   return testExemption === null ? [] : [`  · ${testExemption}`];
 }
