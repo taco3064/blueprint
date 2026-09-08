@@ -31,9 +31,9 @@ export interface InspectOptions extends ResolveOptions {
 
 /**
  * Run `blueprint inspect` in `root`. Read-only (except `--update-baseline`):
- * scans `src/`, checks it against the resolved blueprint, and prints an
- * Architecture Report. Returns the actionable findings and `ok` — in baseline
- * mode, `findings` holds only the fresh (non-baselined) ones.
+ * scans the configured `architecture.sourceRoot`, checks it against the resolved
+ * blueprint, and prints an Architecture Report. Returns the actionable findings and
+ * `ok` — in baseline mode, `findings` holds only the fresh (non-baselined) ones.
  * @group Runtimes
  * @example
  * const { ok, findings } = await runInspect(process.cwd(), { baseline: true });

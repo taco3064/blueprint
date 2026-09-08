@@ -161,7 +161,11 @@ describe('emitLint · additionalAliases with an offset target (field #29)', () =
     framework: 'auto',
     architecture: {
       alias: '~app',
-      additionalAliases: { '~root': '.', '~shared': './src/shared' },
+      additionalAliases: {
+        '~root': '.',
+        '~shared': './src/shared',
+        '~services': './src/services',
+      },
       layers: [
         { name: 'views', does: 'pages' },
         {
@@ -171,6 +175,7 @@ describe('emitLint · additionalAliases with an offset target (field #29)', () =
         },
       ],
     },
+    rules: { fixtureImports: 'error' },
   });
 
   const rootedConfig = [
@@ -194,6 +199,14 @@ describe('emitLint · additionalAliases with an offset target (field #29)', () =
 
   it('a subfolder alias has no layer surface — no bans through it', () => {
     expect(hits('import { d } from "~shared/date";', 'src/views/Home.ts')).toEqual([]);
+  });
+
+  it('enforces an alias that points directly at a layer', () => {
+    expect(hits('import { api } from "~services/api";', 'src/services/other.ts'))
+      .toContain('no-restricted-imports');
+
+    expect(hits('export { api } from "~services/api";', 'src/views/Home.ts'))
+      .toContain('no-restricted-syntax');
   });
 });
 

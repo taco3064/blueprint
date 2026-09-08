@@ -11,7 +11,7 @@ import {
 } from './tsconfig';
 
 describe('detectAliases', () => {
-  it('keeps only src-targeting path entries, first declaration wins', () => {
+  it('keeps valid path entries for every source target, first declaration wins', () => {
     expect(
       detectAliases({
         'tsconfig.json': JSON.stringify({
@@ -27,7 +27,7 @@ describe('detectAliases', () => {
           compilerOptions: { paths: { '@/*': ['./other/*'] } },
         }),
       }),
-    ).toEqual({ '@': 'src', '~app': 'src' });
+    ).toEqual({ '@': 'src', '~app': 'src', '#shared': 'packages/shared' });
   });
 
   it('skips truly broken files and shapeless configs', () => {

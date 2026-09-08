@@ -17,6 +17,7 @@ import {
   pathAliasKeys,
   quotedIn,
   resolveBlueprint,
+  toolchainForProject,
   unreadableTsconfigs,
 } from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
@@ -98,14 +99,15 @@ const BUNDLER_FILES = ['webpack.config', 'vue.config', 'next.config', 'rsbuild.c
 
 function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): DoctorCheck {
   const { alias, additionalAliases, sourceRoot } = blueprint.architecture;
-  const declared = pathAliasKeys(state.tsconfigs);
+  const toolchain = toolchainForProject(state, sourceRoot);
+  const declared = pathAliasKeys(toolchain.tsconfigs);
 
-  const bundlerTexts = BUNDLER_FILES.map((file) => path.join(root, file))
+  const bundlerTexts = BUNDLER_FILES.map((file) => path.join(root, toolchain.root, file))
     .filter((full) => fs.existsSync(full))
     .map((full) => fs.readFileSync(full, 'utf-8'));
 
-  if (state.viteConfig) {
-    bundlerTexts.push(state.viteConfig.text);
+  if (toolchain.viteConfig) {
+    bundlerTexts.push(toolchain.viteConfig.text);
   }
 
   const unwired = [alias, ...Object.keys(additionalAliases ?? {})].filter(
@@ -118,7 +120,7 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
 
   const dir = sourceRoot === '.' ? '.' : `./${sourceRoot ?? 'src'}`;
 
-  const unreadable = unreadableTsconfigs(state.tsconfigs);
+  const unreadable = unreadableTsconfigs(toolchain.tsconfigs);
 
   return {
     label: 'import alias wired to the toolchain',

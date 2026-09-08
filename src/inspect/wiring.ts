@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import { activeSetting,
   aliasLayerRoots,
+  aliasSpecifier,
   getForbiddenLayers,
   getModuleShape,
   getSelfOnlyTargets } from '../config';
@@ -56,8 +57,7 @@ export function expectedStructural(
 ): { groups: Set<string>; selectors: Set<string>; globals: Set<string> } {
   const { architecture, rules } = blueprint;
 
-  const aliases = aliasLayerRoots(architecture)
-    .map((root) => [root.alias, ...root.prefix].join('/'));
+  const aliases = aliasLayerRoots(architecture);
 
   const layouts = Object.fromEntries(
     architecture.layers.map((entry) => [
@@ -77,7 +77,11 @@ export function expectedStructural(
       .map((entry) => entry.name)
       .filter((name) => layouts[name] === 'folder' && name !== layer && !forbidden.includes(name)),
     fixtures: activeSetting(rules?.fixtureImports)
-      ? aliases.flatMap((alias) => [`${alias}/fixtures`, `${alias}/fixtures/**`])
+      ? aliases.flatMap((root) => {
+          const alias = [root.alias, ...root.prefix].join('/');
+
+          return root.prepend?.length ? [] : [`${alias}/fixtures`, `${alias}/fixtures/**`];
+        })
       : [],
   });
 
@@ -85,7 +89,11 @@ export function expectedStructural(
     groups: new Set(structural.map((pattern) => JSON.stringify(pattern.group))),
     selectors: new Set(
       getSelfOnlyTargets(architecture, layer).flatMap((target) =>
-        aliases.map((alias) => selfOnlyReexportSelector(alias, target)),
+        aliases.flatMap((alias) => {
+          const specifier = aliasSpecifier(alias, target);
+
+          return specifier === null ? [] : selfOnlyReexportSelector(specifier);
+        }),
       ),
     ),
     globals: new Set(

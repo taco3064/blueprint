@@ -446,6 +446,101 @@ describe('runSurvey · which dependency claims a subpath', () => {
   });
 });
 
+describe('runSurvey · project scope and layer aliases', () => {
+  it('uses referenced TypeScript includes to survey root-level source folders', () => {
+    write('package.json', JSON.stringify({
+      dependencies: { react: '^19' },
+      devDependencies: { typescript: '^5' },
+    }));
+
+    write('tsconfig.json', JSON.stringify({
+      files: [],
+      references: [null, { path: 42 }, { path: './tsconfig.app.json' }],
+    }));
+
+    write('tsconfig.app.json', JSON.stringify({
+      include: ['app', 'features', 'config'],
+      compilerOptions: { paths: { '@/*': ['./*'] } },
+    }));
+
+    write('app/main.tsx', 'import x from "@/features/cart";');
+    write('features/cart.ts', 'export default 1;');
+    write('config/env.ts', 'export const env = {};');
+
+    const result = runSurvey(root, { log: silent });
+
+    expect(result.sourceRoot).toBe('.');
+    expect(result.totalFiles).toBe(3);
+
+    expect(result.folders.map((folder) => folder.folder).sort())
+      .toEqual(['app', 'config', 'features']);
+
+    expect(result.aliases).toEqual({ '@': '.' });
+  });
+
+  it('maps aliases targeting individual layers into the import matrix', () => {
+    write('package.json', JSON.stringify({ dependencies: { react: '^19' } }));
+
+    write('tsconfig.json', JSON.stringify({
+      compilerOptions: {
+        paths: {
+          '~app/*': ['./src/app/*'],
+          '~shared/*': ['./src/shared/*'],
+          '~pkg/*': ['./packages/shared/*'],
+        },
+      },
+    }));
+
+    write('src/app/index.ts', 'export const app = 1;');
+
+    write('src/shared/probe.ts', [
+      'import { app } from "~app/index";',
+      'import { packageValue } from "~pkg/index";',
+    ].join('\n'));
+
+    const result = runSurvey(root, { log: silent });
+
+    expect(result.aliases).toEqual({
+      '~app': 'src/app',
+      '~shared': 'src/shared',
+      '~pkg': 'packages/shared',
+    });
+
+    expect(result.edges).toEqual([{ from: 'shared', to: 'app', count: 1 }]);
+    expect(result.unresolved).toEqual([]);
+  });
+
+  it('does not silently select one application from a multi-app workspace', () => {
+    write('package.json', JSON.stringify({ dependencies: { vue: '^3' } }));
+
+    write('tsconfig.json', JSON.stringify({
+      files: [],
+      references: [{ path: './apps/a' }, { path: './apps/b' }],
+    }));
+
+    write('apps/a/tsconfig.json', JSON.stringify({ include: ['src'] }));
+    write('apps/b/tsconfig.json', JSON.stringify({ include: ['src'] }));
+    write('apps/a/src/main.ts', 'export {};');
+    write('apps/b/src/main.ts', 'export {};');
+
+    const result = runSurvey(root, { log: silent });
+
+    expect(result.totalFiles).toBe(0);
+    expect(result.scopeNote).toContain('choose one architecture.sourceRoot explicitly');
+  });
+
+  it('recognizes a root file include as a root-level application', () => {
+    write('package.json', JSON.stringify({ dependencies: { react: '^19' } }));
+    write('tsconfig.json', JSON.stringify({ include: ['*.ts'] }));
+    write('main.ts', 'export {};');
+
+    const result = runSurvey(root, { log: silent });
+
+    expect(result.sourceRoot).toBe('.');
+    expect(result.rootFiles).toContain('main.ts');
+  });
+});
+
 describe('dependencyNames · what "no package.json" answers', () => {
   let dir: string;
 

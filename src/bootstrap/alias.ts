@@ -1,18 +1,24 @@
+import path from 'node:path';
+
 import type { ArchitectureDef } from '../config';
-import { parseJsonc, quotedIn } from '../project';
-import type { ProjectState } from '../project';
+import { parseJsonc, quotedIn, toolchainForProject } from '../project';
+import type { ProjectToolchain, ProjectState } from '../project';
 import { wireTsconfigPaths, wireViteAlias } from './wire';
 import type { Action } from './types';
 
-function aliasTarget(architecture: ArchitectureDef): string {
-  return `${normalizeDir(architecture.sourceRoot ?? 'src')}/*`;
+function aliasTarget(target: string, toolRoot: string): string {
+  const relative = toolRoot && !path.isAbsolute(target)
+    ? path.posix.relative(toolRoot, target)
+    : target;
+
+  return `${normalizeDir(relative || '.')}/*`;
 }
 
-export function aliasPaths(architecture: ArchitectureDef): Record<string, string[]> {
+export function aliasPaths(architecture: ArchitectureDef, toolRoot = ''): Record<string, string[]> {
   const entries: [string, string[]][] = [
-    [`${architecture.alias}/*`, [aliasTarget(architecture)]],
+    [`${architecture.alias}/*`, [aliasTarget(architecture.sourceRoot ?? 'src', toolRoot)]],
     ...Object.entries(architecture.additionalAliases ?? {}).map(
-      ([alias, target]): [string, string[]] => [`${alias}/*`, [`${normalizeDir(target)}/*`]],
+      ([alias, target]): [string, string[]] => [`${alias}/*`, [aliasTarget(target, toolRoot)]],
     ),
   ];
 
@@ -83,14 +89,15 @@ export function aliasActions(
   architecture: ArchitectureDef,
   greenfield = false,
 ): Action[] {
-  const paths = aliasPaths(architecture);
+  const toolchain = toolchainForProject(state, architecture.sourceRoot);
+  const paths = aliasPaths(architecture, toolchain.root);
   const actions: Action[] = [];
-  const target = resolveTarget(state);
+  const target = resolveTarget(state, toolchain);
 
   if (target.kind === 'create') {
     actions.push({
       kind: 'write',
-      path: 'jsconfig.json',
+      path: toolchain.root ? `${toolchain.root}/jsconfig.json` : 'jsconfig.json',
       content: render({ compilerOptions: { paths } }),
       note: 'jsconfig.json (import alias)',
     });
@@ -116,7 +123,7 @@ export function aliasActions(
     }
   }
 
-  actions.push(...bundlerActions(state, architecture, greenfield));
+  actions.push(...bundlerActions(state, architecture, { greenfield, toolchain }));
 
   return actions;
 }
@@ -124,25 +131,27 @@ export function aliasActions(
 function bundlerActions(
   state: ProjectState,
   architecture: ArchitectureDef,
-  greenfield: boolean,
+  scope: { greenfield: boolean; toolchain: ProjectToolchain },
 ): Action[] {
-  if (greenfield && state.viteConfig && !architecture.additionalAliases) {
-    const root = architecture.sourceRoot ?? 'src';
-    const result = wireViteAlias(state.viteConfig.text, architecture.alias, root === '.' ? '.' : `./${root}`);
+  const { greenfield, toolchain } = scope;
+
+  if (greenfield && toolchain.viteConfig && !architecture.additionalAliases) {
+    const root = aliasTarget(architecture.sourceRoot ?? 'src', toolchain.root).replace(/\/\*$/, '');
+    const result = wireViteAlias(toolchain.viteConfig.text, architecture.alias, root);
 
     if (result.kind === 'patched') {
       return [
         {
           kind: 'write',
-          path: state.viteConfig.file,
+          path: toolchain.viteConfig.file,
           content: result.text,
-          note: `${state.viteConfig.file} (import alias added — existing content preserved)`,
+          note: `${toolchain.viteConfig.file} (import alias added — existing content preserved)`,
         },
       ];
     }
   }
 
-  const vite = state.viteConfig;
+  const vite = toolchain.viteConfig;
   const names = [architecture.alias, ...Object.keys(architecture.additionalAliases ?? {})];
 
   if (vite && names.every((name) => quotedIn(vite.text, name))) {
@@ -153,7 +162,7 @@ function bundlerActions(
     return [];
   }
 
-  return [bundlerInstruct(state, architecture)];
+  return [bundlerInstruct(architecture, toolchain, state.hasViteConfig)];
 }
 
 type Target
@@ -161,27 +170,31 @@ type Target
     | { kind: 'patch'; file: string; text: string }
     | { kind: 'instruct'; file: string };
 
-function resolveTarget(state: ProjectState): Target {
-  const { tsconfigs, hasTypescript } = state;
-  const root = tsconfigs['tsconfig.json'];
+function resolveTarget(state: ProjectState, toolchain: ProjectToolchain): Target {
+  const { hasTypescript } = state;
+  const at = (file: string) => toolchain.root ? `${toolchain.root}/${file}` : file;
+  const rootFile = at('tsconfig.json');
+  const root = toolchain.tsconfigs[rootFile];
 
   if (root != null) {
-    const app = tsconfigs['tsconfig.app.json'];
+    const appFile = at('tsconfig.app.json');
+    const app = toolchain.tsconfigs[appFile];
 
     if (app != null && isReferencesShell(root)) {
-      return { kind: 'patch', file: 'tsconfig.app.json', text: app };
+      return { kind: 'patch', file: appFile, text: app };
     }
 
-    return { kind: 'patch', file: 'tsconfig.json', text: root };
+    return { kind: 'patch', file: rootFile, text: root };
   }
 
-  const js = tsconfigs['jsconfig.json'];
+  const jsFile = at('jsconfig.json');
+  const js = toolchain.tsconfigs[jsFile];
 
   if (js != null) {
-    return { kind: 'patch', file: 'jsconfig.json', text: js };
+    return { kind: 'patch', file: jsFile, text: js };
   }
 
-  return hasTypescript ? { kind: 'instruct', file: 'tsconfig.json' } : { kind: 'create' };
+  return hasTypescript ? { kind: 'instruct', file: rootFile } : { kind: 'create' };
 }
 
 function isReferencesShell(text: string): boolean {
@@ -205,8 +218,12 @@ function tsconfigInstruct(file: string, paths: Record<string, string[]>): Action
   };
 }
 
-function bundlerInstruct(state: ProjectState, architecture: ArchitectureDef): Action {
-  if (!state.hasViteConfig) {
+function bundlerInstruct(
+  architecture: ArchitectureDef,
+  toolchain: ProjectToolchain,
+  hasViteConfig: boolean,
+): Action {
+  if (!toolchain.viteConfig && !hasViteConfig) {
     return {
       kind: 'instruct',
       note: `Set the import alias "${architecture.alias}" in your bundler — the lint rules resolve against it.`,
@@ -217,12 +234,12 @@ function bundlerInstruct(state: ProjectState, architecture: ArchitectureDef): Ac
     [architecture.alias, architecture.sourceRoot ?? 'src'] as const,
     ...Object.entries(architecture.additionalAliases ?? {}),
   ].map(
-    ([alias, dir]) => `'${alias}': fileURLToPath(new URL('${normalizeDir(dir)}', import.meta.url))`,
+    ([alias, dir]) => `'${alias}': fileURLToPath(new URL('${aliasTarget(dir, toolchain.root).replace(/\/\*$/, '')}', import.meta.url))`,
   );
 
   return {
     kind: 'instruct',
-    note: `Add the alias to vite.config under resolve.alias:\n    resolve: { alias: { ${lines.join(', ')} } }\n  (already bridging tsconfig paths into vite — e.g. vite-tsconfig-paths? Then the tsconfig side covers the bundler and this step is done.)`,
+    note: `Add the alias to ${toolchain.viteConfig?.file ?? 'vite.config'} under resolve.alias:\n    resolve: { alias: { ${lines.join(', ')} } }\n  (if this application config delegates to workspace Vite configuration, verify the alias there; already bridging tsconfig paths into Vite — e.g. vite-tsconfig-paths? Then the tsconfig side covers the bundler and this step is done.)`,
   };
 }
 

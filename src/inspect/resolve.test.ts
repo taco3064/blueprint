@@ -166,6 +166,12 @@ describe('stripAlias', () => {
     expect(stripAlias('~root/srcx/views/x', root)).toBeNull();
   });
 
+  it('places an alias targeting one layer back under that layer', () => {
+    const roots = [{ alias: '~shared', prefix: [], prepend: ['shared'] }];
+
+    expect(stripAlias('~shared/api/client', roots)).toEqual(['shared', 'api', 'client']);
+  });
+
   it('answers null for a specifier under no alias at all', () => {
     expect(stripAlias('axios', ['~app'])).toBeNull();
   });

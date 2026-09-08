@@ -383,71 +383,6 @@ export function deriveGlobalRules(layers: LayerDef[]): GlobalRule[] {
   return [...byName.values()];
 }
 
-export function buildStructuralPatterns(params: {
-  layer: string;
-  aliases: string[];
-  forbidden: string[];
-
-  moduleLayout: 'folder' | 'flat';
-
-  folderTargets?: string[];
-
-  fixtures?: string[];
-}): GroupPattern[] {
-  const { layer, aliases, forbidden, moduleLayout, folderTargets, fixtures } = params;
-
-  const patterns: GroupPattern[] = [
-    {
-      group: ['./../**', '././**'],
-      message:
-        '\n🚫 Redundant relative segments (././, ./../) bypass the structural import rules.',
-    },
-    ...aliases.map((a) => {
-      const head
-        = `\n🚫 Same-layer imports must be relative. "${a}/${layer}" and everything under it `
-          + `is banned. Replace "${a}/${layer}/X" with `;
-
-      return {
-        group: [`${a}/${layer}`, `${a}/${layer}/**`],
-        message:
-          moduleLayout === 'flat'
-            ? `${head}"./X".`
-
-            : `${head}"../X" — its entry only; what is behind the entry stays private.`,
-      };
-    }),
-  ];
-
-  if (forbidden.length) {
-    patterns.push({
-      group: forbidden.flatMap((banned) =>
-        aliases.flatMap((a) => [`${a}/${banned}`, `${a}/${banned}/**`])),
-      message:
-        '\n🚫 This import violates the dependency flow. Only import from allowed lower layers.',
-    });
-  }
-
-  if (fixtures?.length) {
-    patterns.push({
-      group: fixtures,
-      message:
-        '\n🚫 Production code must not import fixtures — missing data renders empty or error, '
-        + 'never fake.',
-    });
-  }
-
-  if (folderTargets?.length) {
-    patterns.push({
-      group: folderTargets.flatMap((target) => aliases.map((a) => `${a}/${target}/*/**`)),
-      message:
-        '\n🚫 Import a module through its entry, not its internals (e.g. "~app/hooks/useX", '
-        + 'not "~app/hooks/useX/impl").',
-    });
-  }
-
-  return patterns;
-}
-
 export function buildPackagePatterns(disabled: PackageRule[]): {
   paths: PathPattern[];
   patterns: GroupPattern[];
@@ -471,9 +406,12 @@ export function buildPackagePatterns(disabled: PackageRule[]): {
   };
 }
 
-export function selfOnlyReexportSelector(alias: string, target: string): string {
+export function selfOnlyReexportSelector(alias: string, target?: string): string {
   const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\//g, '\\u002F');
-  const attr = `[source.value=/^${esc(alias)}\\u002F${esc(target)}(?:\\u002F|$)/]`;
+  const specifier = target === undefined ? alias : `${alias}/${target}`;
+  const attr = `[source.value=/^${esc(specifier)}(?:\\u002F|$)/]`;
 
   return `ExportNamedDeclaration${attr}, ExportAllDeclaration${attr}`;
 }
+
+export { buildStructuralPatterns } from './structural';

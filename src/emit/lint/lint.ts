@@ -1,6 +1,7 @@
 import type { ESLint, Linter } from 'eslint';
 import { activeSetting,
   aliasLayerRoots,
+  aliasSpecifier,
   getForbiddenLayers,
   getModuleShape,
   getSelfOnlyTargets } from '../../config';
@@ -54,8 +55,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
 
   const severity: Severity = blueprint.emit?.lint?.severity ?? 'error';
 
-  const aliases = aliasLayerRoots(architecture)
-    .map((root) => [root.alias, ...root.prefix].join('/'));
+  const aliases = aliasLayerRoots(architecture);
 
   const testGlobs = resolveTestFiles(testFiles);
 
@@ -102,7 +102,7 @@ function layerImportEntries(
   shape: {
     severity: Severity;
     testGlobs: string[];
-    aliases: string[];
+    aliases: ReturnType<typeof aliasLayerRoots>;
     layouts: Record<string, ModuleLayout>;
   },
 ): LintConfigEntry[] {
@@ -117,7 +117,11 @@ function layerImportEntries(
     .filter((name) => layouts[name] === 'folder');
 
   const fixtures = activeSetting(blueprint.rules?.fixtureImports)
-    ? aliases.flatMap((a) => [`${a}/fixtures`, `${a}/fixtures/**`])
+    ? aliases.flatMap((root) => {
+        const alias = [root.alias, ...root.prefix].join('/');
+
+        return root.prepend?.length ? [] : [`${alias}/fixtures`, `${alias}/fixtures/**`];
+      })
     : [];
 
   return layers.flatMap((layer) => {
@@ -140,10 +144,16 @@ function layerImportEntries(
     });
 
     const syntaxRules = selfOnlyTargets.flatMap((target) =>
-      aliases.map((a) => ({
-        selector: selfOnlyReexportSelector(a, target),
-        message: `\n🚫 Cannot re-export from "${target}" — a selfOnly dependency must not be exposed to callers.`,
-      })),
+      aliases.flatMap((alias) => {
+        const specifier = aliasSpecifier(alias, target);
+
+        return specifier === null
+          ? []
+          : [{
+              selector: selfOnlyReexportSelector(specifier),
+              message: `\n🚫 Cannot re-export from "${target}" — a selfOnly dependency must not be exposed to callers.`,
+            }];
+      }),
     );
 
     const buildRules = (packages: PackageRule[]): Linter.RulesRecord => {

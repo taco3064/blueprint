@@ -1,9 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { aliasRoot } from '../config';
+import type { AliasRoot } from '../config';
 import { resolveSegments, scan, stripAlias } from '../inspect';
 import type { ImportRef, ScannedFile, ScanResult } from '../inspect';
-import { detect, detectAliases } from '../project';
+import { detect, detectAliases, surveyScope } from '../project';
 import type { PackageManager } from '../project';
 import { renderSurvey } from './render';
 
@@ -46,6 +48,10 @@ export interface SurveyResult {
   framework: string | null;
   typescript: boolean;
   packageManager: PackageManager;
+  /** Directory scanned for source evidence. */
+  sourceRoot?: string;
+  /** Scope boundary or inference the adopter must account for. */
+  scopeNote?: string;
   /** Detected (or overridden) import aliases that target `src/`. */
   aliases: Record<string, string>;
   /** Source files directly under `src/` (entry wiring, not layer code). */
@@ -155,19 +161,26 @@ function folderEvidence(scanResult: ScanResult): FolderEvidence[] {
 export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResult {
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
-  const scanResult = scan(root, options.sourceRoot);
+  const scope = surveyScope(root, options.sourceRoot);
+  const sourceRoot = scope.sourceRoot;
+  const scanResult = scan(root, sourceRoot);
 
   const aliases = options.alias
-    ? { [options.alias]: 'src' }
+    ? { [options.alias]: sourceRoot }
     : detectAliases(state.tsconfigs);
 
+  const structuralAliases = Object.entries(aliases)
+    .map(([alias, target]) => aliasRoot(alias, target, sourceRoot))
+    .filter((entry): entry is AliasRoot => entry !== null);
+
   const tally = tallyImports(scanResult, {
+    aliases: structuralAliases,
     aliasNames: Object.keys(aliases),
     folderSet: new Set(scanResult.topDirs),
     deps: dependencyNames(root).sort((a, b) => b.length - a.length),
   });
 
-  const result = surveyResult(state, scanResult, { aliases, tally });
+  const result = surveyResult(state, scanResult, { aliases, tally, scope });
 
   log(options.json ? JSON.stringify(result, null, 2) : renderSurvey(result));
 
@@ -183,9 +196,16 @@ interface ImportTally {
   unresolvedCounts: Map<string, number>;
 }
 
+interface SurveyEvidence {
+  aliases: Record<string, string>;
+  tally: ImportTally;
+  scope: ReturnType<typeof surveyScope>;
+}
+
 interface RefScope {
   file: ScannedFile;
   from: string;
+  aliases: AliasRoot[];
   aliasNames: string[];
   folderSet: Set<string>;
 
@@ -194,7 +214,7 @@ interface RefScope {
 
 function tallyImports(
   scanResult: ScanResult,
-  scope: { aliasNames: string[]; folderSet: Set<string>; deps: string[] },
+  scope: { aliases: AliasRoot[]; aliasNames: string[]; folderSet: Set<string>; deps: string[] },
 ): ImportTally {
   const tally: ImportTally = {
     edgeCounts: new Map(),
@@ -220,7 +240,7 @@ function bucket(segment: string, folderSet: Set<string>): string {
 }
 
 function tallyRef(ref: ImportRef, at: RefScope, tally: ImportTally): void {
-  const parts = stripAlias(ref.specifier, at.aliasNames);
+  const parts = stripAlias(ref.specifier, at.aliases);
 
   if (parts) {
     tallyAliasRef(bucket(parts[0], at.folderSet), at.from, tally);
@@ -235,6 +255,10 @@ function tallyRef(ref: ImportRef, at: RefScope, tally: ImportTally): void {
       addEdge(bucket(target[0], at.folderSet), at.from, tally);
     }
 
+    return;
+  }
+
+  if (at.aliasNames.some((alias) => ref.specifier === alias || ref.specifier.startsWith(`${alias}/`))) {
     return;
   }
 
@@ -292,9 +316,9 @@ function tallyPackageRef(ref: ImportRef, at: RefScope, tally: ImportTally): void
 function surveyResult(
   state: ReturnType<typeof detect>,
   scanResult: ScanResult,
-  evidence: { aliases: Record<string, string>; tally: ImportTally },
+  evidence: SurveyEvidence,
 ): SurveyResult {
-  const { aliases, tally } = evidence;
+  const { aliases, tally, scope } = evidence;
 
   const spread = new Set(
     [...tally.packageFolders].filter(([, folders]) => folders.size > 1).map(([name]) => name),
@@ -304,6 +328,8 @@ function surveyResult(
     framework: state.framework,
     typescript: state.hasTypescript,
     packageManager: state.packageManager,
+    sourceRoot: scope.sourceRoot,
+    ...(scope.note ? { scopeNote: scope.note } : {}),
     aliases,
 
     rootFiles: scanResult.files

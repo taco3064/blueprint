@@ -30,7 +30,9 @@ export function stripAlias(
         return null;
       }
 
-      return parts.slice(prefix.length);
+      const prepend = typeof root === 'string' ? [] : root.prepend ?? [];
+
+      return [...prepend, ...parts.slice(prefix.length)];
     }
   }
 

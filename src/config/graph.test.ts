@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   aliasLayerRoots,
+  aliasSpecifier,
   getDiagramEdges,
   getForbiddenLayers,
   getModuleShape,
@@ -37,7 +38,7 @@ describe('aliasLayerRoots', () => {
       additionalAliases: {
         '~root': '.', // repo root — layers reachable through src/
         '~src': './src', // the source root itself — no offset
-        '~shared': './src/shared', // subfolder — no layer surface
+        '~shared': './src/shared', // one layer below the source root
         '~vendor': '/vendor', // outside — no layer surface
         '~up': '../elsewhere', // .. never matches
       },
@@ -47,6 +48,7 @@ describe('aliasLayerRoots', () => {
       { alias: '~app', prefix: [] },
       { alias: '~root', prefix: ['src'] },
       { alias: '~src', prefix: [] },
+      { alias: '~shared', prefix: [], prepend: ['shared'] },
     ]);
   });
 
@@ -58,6 +60,21 @@ describe('aliasLayerRoots', () => {
       aliasLayerRoots({ ...arch(), sourceRoot: 'lib/app', additionalAliases: { '~lib': 'lib' } }),
     )
       .toEqual([{ alias: '~app', prefix: [] }, { alias: '~lib', prefix: ['app'] }]);
+  });
+});
+
+describe('aliasSpecifier', () => {
+  it('resolves legacy strings, ancestor aliases, and layer aliases', () => {
+    expect(aliasSpecifier('~app', 'shared')).toBe('~app/shared');
+
+    expect(aliasSpecifier({ alias: '~root', prefix: ['src'] }, 'shared'))
+      .toBe('~root/src/shared');
+
+    expect(aliasSpecifier({ alias: '~shared', prefix: [], prepend: ['shared'] }, 'shared'))
+      .toBe('~shared');
+
+    expect(aliasSpecifier({ alias: '~shared', prefix: [], prepend: ['shared'] }, 'app'))
+      .toBeNull();
   });
 });
 
