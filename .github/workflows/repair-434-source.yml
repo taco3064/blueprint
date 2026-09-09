@@ -20,10 +20,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Apply source migration
+      - name: Apply current-tree repairs
         run: |
-          python3 scripts/repair-434-source.py
-          python3 scripts/repair-434-structure.py
+          python3 scripts/repair-434-current.py
           npm run lint -- --fix || true
           npm run tsc || true
       - name: Commit source repairs
@@ -32,5 +31,5 @@ jobs:
           git config user.email '127829492+taco3064@users.noreply.github.com'
           git add src
           if git diff --cached --quiet; then exit 0; fi
-          HUSKY=0 git commit -m 'refactor: migrate topology consumers to unit model'
+          HUSKY=0 git commit -m 'refactor: finish topology consumer migration'
           HUSKY=0 git push origin HEAD:${{ github.head_ref }}
