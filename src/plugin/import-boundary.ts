@@ -70,6 +70,10 @@ export const importBoundary: Rule.RuleModule = {
 
       checkCanonical(node, specifier);
 
+      if (reference.kind === 'relative') {
+        return;
+      }
+
       if (isSameLayerAlias(reference, importer)) {
         context.report({ node, messageId: 'sameLayer', data: { specifier } });
       }
