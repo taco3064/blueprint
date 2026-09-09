@@ -77,8 +77,10 @@ describe('aliasSpecifier', () => {
 
   it('includes declared module identity for module-first aliases', () => {
     expect(aliasSpecifier('~app', 'hooks', 'auth')).toBe('~app/auth/hooks');
+
     expect(aliasSpecifier({ alias: '~auth', prefix: [], prepend: ['auth'] }, 'hooks', 'auth'))
       .toBe('~auth/hooks');
+
     expect(aliasSpecifier({ alias: '~auth', prefix: [], prepend: ['auth'] }, 'hooks', 'checkout'))
       .toBeNull();
   });

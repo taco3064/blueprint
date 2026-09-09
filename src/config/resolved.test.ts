@@ -66,15 +66,18 @@ describe('resolveArchitecture · layer-first compatibility', () => {
     const first = resolveArchitecture(architecture());
 
     expect(first.layerNames).toEqual(['pages', 'hooks', 'services']);
+
     expect(first.layers.map((layer) => layer.unit)).toEqual([
       { layout: 'file', entry: 'index' },
       { layout: 'folder', entry: 'public' },
       { layout: 'file', entry: 'index' },
     ]);
+
     expect(first.ownership.map((layer) => layer.name)).toEqual(['services']);
     expect(first.layerFiles('pages', 'react')).toEqual(['src/pages/**/*.{js,jsx,ts,tsx}']);
     expect(first.layerFiles('unknown', 'vue')).toEqual(['src/unknown/**/*.{js,ts,vue}']);
     expect(first.hasSelfOnly).toBe(true);
+
     expect(first.diagramEdges).toEqual([
       { from: 'pages', to: 'hooks', ordered: true },
       { from: 'pages', to: 'services', selfOnly: true, description: undefined },
@@ -109,20 +112,26 @@ describe('resolveArchitecture · layer-first compatibility', () => {
     const resolved = resolveArchitecture(architecture());
 
     expect(resolved.resolveImportTarget('pages', '~app/hooks/useCart')?.name).toBe('hooks');
+
     expect(resolved.resolveImportTarget('src/pages/Home.tsx', '~root/src/services')?.name)
       .toBe('services');
+
     expect(resolved.resolveImportTarget(['pages', 'Home.tsx'], '../hooks/useCart')?.name)
       .toBe('hooks');
+
     expect(resolved.resolveImportTarget('pages', '~hooks/useCart')?.name).toBe('hooks');
     expect(resolved.resolveImportTarget('pages', '~app')).toBeNull();
     expect(resolved.resolveImportTarget('pages', '~root/wrong/hooks')).toBeNull();
     expect(resolved.resolveImportTarget('pages', '~app/unknown')).toBeNull();
     expect(resolved.resolveImportTarget('pages', 'react')).toBeNull();
     expect(resolved.resolveImportTarget('unknown/file.ts', '~app/hooks')).toBeNull();
+
     expect(resolved.resolveImportTarget(['src', 'pages', 'Home.tsx'], './Home')?.name)
       .toBe('pages');
+
     expect(resolved.resolveImportTarget('src/pages/Home.tsx', '../hooks/useCart')?.name)
       .toBe('hooks');
+
     expect(resolved.resolveImportTarget(['pages', 'Home.tsx'], '././Home')?.name).toBe('pages');
     expect(resolved.resolveImportTarget(['pages', 'Home.tsx'], '../unknown/file')).toBeNull();
     expect(resolved.resolveImportTarget(['pages', 'Home.tsx'], '../../../outside')).toBeNull();
@@ -217,8 +226,10 @@ describe('resolveArchitecture · module-first topology', () => {
       'src/common/hooks/**/*.{js,jsx,ts,tsx}',
       'src/app/hooks/**/*.{js,jsx,ts,tsx}',
     ]);
+
     expect(resolved.moduleLayerFiles('auth', 'hooks', 'vue'))
       .toEqual(['src/auth/hooks/**/*.{js,ts,vue}']);
+
     expect(resolved.moduleLayerFiles('ghost', 'hooks', 'vue')).toEqual([]);
   });
 
@@ -236,6 +247,7 @@ describe('resolveArchitecture · module-first topology', () => {
       'src/common/hooks/**/*.ts',
       'src/app/hooks/**/*.ts',
     ]);
+
     expect(resolved.aliasSpecifiers('hooks', 'auth')).toEqual(['~app/auth/hooks', '~auth/hooks']);
   });
 
