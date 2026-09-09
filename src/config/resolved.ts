@@ -322,16 +322,16 @@ function baseResolved(
   classify: ResolvedArchitecture['classify'],
   canImport: ResolvedArchitecture['canImport'],
 ): Omit<ResolvedArchitecture,
-  | 'resolveModuleRoot'
-  | 'resolveLayerRoot'
-  | 'resolveModuleLayerRoot'
-  | 'layerFiles'
-  | 'moduleLayerFiles'
-  | 'resolveImportPosition'
-  | 'resolveImportTarget'
-  | 'forbiddenLayers'
-  | 'selfOnlyTargets'
-  | 'aliasSpecifiers'> {
+| 'resolveModuleRoot'
+| 'resolveLayerRoot'
+| 'resolveModuleLayerRoot'
+| 'layerFiles'
+| 'moduleLayerFiles'
+| 'resolveImportPosition'
+| 'resolveImportTarget'
+| 'forbiddenLayers'
+| 'selfOnlyTargets'
+| 'aliasSpecifiers'> {
   const { definition, sourceRoot, moduleFirst, modules, layers, aliases } = state;
 
   return {
