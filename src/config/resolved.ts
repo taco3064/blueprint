@@ -318,16 +318,16 @@ function baseResolved(
   classify: ResolvedArchitecture['classify'],
   canImport: ResolvedArchitecture['canImport'],
 ): Omit<ResolvedArchitecture,
-  | 'resolveModuleRoot'
-  | 'resolveLayerRoot'
-  | 'resolveModuleLayerRoot'
-  | 'layerFiles'
-  | 'moduleLayerFiles'
-  | 'resolveImportPosition'
-  | 'resolveImportTarget'
-  | 'forbiddenLayers'
-  | 'selfOnlyTargets'
-  | 'aliasSpecifiers'> {
+| 'resolveModuleRoot'
+| 'resolveLayerRoot'
+| 'resolveModuleLayerRoot'
+| 'layerFiles'
+| 'moduleLayerFiles'
+| 'resolveImportPosition'
+| 'resolveImportTarget'
+| 'forbiddenLayers'
+| 'selfOnlyTargets'
+| 'aliasSpecifiers'> {
   const { definition, sourceRoot, moduleFirst, modules, layers, aliases } = state;
 
   return {
@@ -364,16 +364,16 @@ function pathMethods(
   relativeParts: (file: string | string[]) => string[],
   classify: ResolvedArchitecture['classify'],
 ): Pick<ResolvedArchitecture,
-  | 'resolveModuleRoot'
-  | 'resolveLayerRoot'
-  | 'resolveModuleLayerRoot'
-  | 'layerFiles'
-  | 'moduleLayerFiles'
-  | 'resolveImportPosition'
-  | 'resolveImportTarget'
-  | 'forbiddenLayers'
-  | 'selfOnlyTargets'
-  | 'aliasSpecifiers'> {
+| 'resolveModuleRoot'
+| 'resolveLayerRoot'
+| 'resolveModuleLayerRoot'
+| 'layerFiles'
+| 'moduleLayerFiles'
+| 'resolveImportPosition'
+| 'resolveImportTarget'
+| 'forbiddenLayers'
+| 'selfOnlyTargets'
+| 'aliasSpecifiers'> {
   return {
     resolveModuleRoot: (module) => state.moduleByName.get(module)?.root ?? null,
     resolveLayerRoot: (layer) => state.moduleFirst
@@ -551,6 +551,7 @@ export function resolveLayerFilePatterns(
 ): string[] {
   const sourceRoot = scope.sourceRoot ?? 'src';
   const defaultRoot = scope.layerRoot ?? joinSource(sourceRoot, '{layer}');
+
   const declared = scope.layerFiles === undefined
     ? [`${defaultRoot}/**/*.{${FRAMEWORK_EXTS[framework]}}`]
     : toArray(scope.layerFiles);

@@ -58,6 +58,7 @@ export const relativeEscape: Rule.RuleModule = {
     }
 
     const dir = ownSegments.slice(0, -1);
+
     const check = (node: Rule.Node, specifier: string): void => {
       const problem = relativeProblem(resolved, own, dir, specifier);
 
@@ -135,6 +136,7 @@ function reachesPastEntry(
   const insideLayer = resolved.moduleFirst
     ? target.path.slice(2)
     : target.path.slice(1);
+
   const entry = target.layer.unit.entry;
 
   return insideLayer.length > 2

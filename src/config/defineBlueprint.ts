@@ -124,7 +124,10 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
   }
 
   if ('module' in (architecture as unknown as Record<string, unknown>)) {
-    throw new Error('architecture.module was removed in Blueprint 4.0 — move layout / entry onto each layer. module.private has no replacement.');
+    throw new Error(
+      'architecture.module was removed in Blueprint 4.0 — move layout / entry onto each layer. '
+      + 'module.private has no replacement.',
+    );
   }
 
   rejectUnknownKeys(architecture, ARCHITECTURE_KEYS, 'architecture');
@@ -186,42 +189,67 @@ function validateModules(modules: ModuleDef[] | undefined): void {
     return;
   }
 
-  if (!Array.isArray(modules) || modules.length === 0) {
-    throw new Error('architecture.modules must be a non-empty array when provided. Omit it for layer-first topology.');
-  }
+  validateModuleList(modules);
 
   const exact = new Set<string>();
   const folded = new Map<string, string>();
 
   for (const module of modules) {
-    if (!module || typeof module.name !== 'string' || !module.name.trim()) {
-      throw new Error('Each module must have a non-empty name.');
-    }
+    validateModule(module, exact, folded);
+  }
+}
 
-    rejectUnknownKeys(module, ['name', 'does'], `module "${module.name}"`);
+function validateModuleList(modules: ModuleDef[]): void {
+  if (!Array.isArray(modules) || modules.length === 0) {
+    throw new Error(
+      'architecture.modules must be a non-empty array when provided. '
+      + 'Omit it for layer-first topology.',
+    );
+  }
+}
 
-    if (!/^[A-Za-z0-9._-]+$/.test(module.name) || module.name === '.' || module.name === '..') {
-      throw new Error(
-        `Module "${module.name}" is not a safe one-segment source-root folder name — `
-        + 'stick to letters, digits, ".", "_", "-".',
-      );
-    }
+function validateModule(
+  module: ModuleDef,
+  exact: Set<string>,
+  folded: Map<string, string>,
+): void {
+  if (!module || typeof module.name !== 'string' || !module.name.trim()) {
+    throw new Error('Each module must have a non-empty name.');
+  }
 
-    if (exact.has(module.name)) {
-      throw new Error(`Duplicate module name: "${module.name}".`);
-    }
+  rejectUnknownKeys(module, ['name', 'does'], `module "${module.name}"`);
+  validateModuleFolderName(module.name);
+  rejectModuleCollisions(module.name, exact, folded);
+  exact.add(module.name);
+  folded.set(module.name.toLocaleLowerCase('en-US'), module.name);
+}
 
-    const key = module.name.toLocaleLowerCase('en-US');
-    const collision = folded.get(key);
+function validateModuleFolderName(name: string): void {
+  const unsafe = !/^[A-Za-z0-9._-]+$/.test(name) || name === '.' || name === '..';
 
-    if (collision !== undefined) {
-      throw new Error(
-        `Module names "${collision}" and "${module.name}" collide on case-insensitive filesystems.`,
-      );
-    }
+  if (unsafe) {
+    throw new Error(
+      `Module "${name}" is not a safe one-segment source-root folder name — `
+      + 'stick to letters, digits, ".", "_", "-".',
+    );
+  }
+}
 
-    exact.add(module.name);
-    folded.set(key, module.name);
+function rejectModuleCollisions(
+  name: string,
+  exact: Set<string>,
+  folded: Map<string, string>,
+): void {
+  if (exact.has(name)) {
+    throw new Error(`Duplicate module name: "${name}".`);
+  }
+
+  const collision = folded.get(name.toLocaleLowerCase('en-US'));
+
+  if (collision !== undefined) {
+    throw new Error(
+      `Module names "${collision}" and "${name}" collide on case-insensitive filesystems.`,
+    );
   }
 }
 

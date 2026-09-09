@@ -54,10 +54,6 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     resolved.layers.map((layer) => [layer.name, layer.unit.layout]),
   );
 
-  const entries = Object.fromEntries(
-    resolved.layers.map((layer) => [layer.name, layer.unit.entry]),
-  );
-
   const ignoreConfig: LintConfigEntry[] = layerFilesIgnore
     ? [{ ignores: toArray(layerFilesIgnore) }]
     : [];
@@ -103,6 +99,7 @@ function layerImportEntries(
   const { severity, testGlobs, aliases, layouts } = shape;
   const packageRules = derivePackageRules(layers);
   const globalRules = deriveGlobalRules(layers);
+
   const scopes: (string | undefined)[] = resolved.moduleFirst
     ? resolved.moduleNames
     : [undefined];
