@@ -1,8 +1,17 @@
 import path from 'node:path';
 import type { Rule } from 'eslint';
-import type { ArchitectureDef } from '../config';
+import type {
+  ArchitectureDef,
+  ResolvedArchitecture,
+  ResolvedPosition,
+} from '../config';
 import { resolveArchitecture } from '../config';
 import { resolveSegments } from './relative';
+
+interface RelativeProblem {
+  messageId: 'escapesSrc' | 'leavesLayer' | 'reachesInside';
+  data: Record<string, string>;
+}
 
 export const relativeEscape: Rule.RuleModule = {
   meta: {
@@ -42,68 +51,18 @@ export const relativeEscape: Rule.RuleModule = {
     const resolved = resolveArchitecture(architecture);
     const cwd = (context as Rule.RuleContext & { cwd: string }).cwd;
     const ownSegments = sourceSegments(context.filename, cwd, resolved.sourceRoot);
+    const own = ownSegments ? resolved.classify(ownSegments) : null;
 
-    if (!ownSegments) {
-      return {};
-    }
-
-    const own = resolved.classify(ownSegments);
-
-    if (!own.layer || own.inner !== 'layer') {
+    if (!ownSegments || !own?.layer || own.inner !== 'layer') {
       return {};
     }
 
     const dir = ownSegments.slice(0, -1);
-
     const check = (node: Rule.Node, specifier: string): void => {
-      if (!specifier.startsWith('.')) {
-        return;
-      }
+      const problem = relativeProblem(resolved, own, dir, specifier);
 
-      const targetSegments = resolveSegments(dir, specifier);
-
-      if (targetSegments === null) {
-        context.report({
-          node,
-          messageId: 'escapesSrc',
-          data: {
-            specifier,
-            sourceRoot: resolved.sourceRoot === '.' ? 'the project root' : `${resolved.sourceRoot}/`,
-          },
-        });
-
-        return;
-      }
-
-      const target = resolved.classify(targetSegments);
-      const ownModule = own.module?.name ?? null;
-      const targetModule = target.module?.name ?? null;
-
-      // #435 owns the cross-module relative-import policy. #434 preserves the
-      // existing inner layer/unit rule without inventing a new outer boundary.
-      if (resolved.moduleFirst && ownModule !== targetModule) {
-        return;
-      }
-
-      if (!target.layer || target.layer.name !== own.layer.name) {
-        context.report({ node, messageId: 'leavesLayer', data: { specifier } });
-
-        return;
-      }
-
-      if (own.layer.unit.layout === 'file' || target.unit === own.unit) {
-        return;
-      }
-
-      const insideLayer = resolved.moduleFirst
-        ? target.path.slice(2)
-        : target.path.slice(1);
-      const entry = own.layer.unit.entry;
-      const atEntry = insideLayer.length === 1
-        || (insideLayer.length === 2 && stripExtension(insideLayer[1]) === entry);
-
-      if (!atEntry) {
-        context.report({ node, messageId: 'reachesInside', data: { specifier, entry } });
+      if (problem) {
+        context.report({ node, ...problem });
       }
     };
 
@@ -123,6 +82,72 @@ export const relativeEscape: Rule.RuleModule = {
     };
   },
 };
+
+function relativeProblem(
+  resolved: ResolvedArchitecture,
+  own: ResolvedPosition,
+  dir: string[],
+  specifier: string,
+): RelativeProblem | null {
+  if (!specifier.startsWith('.')) {
+    return null;
+  }
+
+  const targetSegments = resolveSegments(dir, specifier);
+
+  if (targetSegments === null) {
+    return {
+      messageId: 'escapesSrc',
+      data: { specifier, sourceRoot: sourceRootLabel(resolved.sourceRoot) },
+    };
+  }
+
+  const target = resolved.classify(targetSegments);
+
+  if (resolved.moduleFirst && moduleName(own) !== moduleName(target)) {
+    return null;
+  }
+
+  if (!target.layer || target.layer.name !== own.layer?.name) {
+    return { messageId: 'leavesLayer', data: { specifier } };
+  }
+
+  if (target.layer.unit.layout === 'file' || target.unit === own.unit) {
+    return null;
+  }
+
+  return reachesPastEntry(resolved, target)
+    ? {
+        messageId: 'reachesInside',
+        data: { specifier, entry: target.layer.unit.entry },
+      }
+    : null;
+}
+
+function reachesPastEntry(
+  resolved: ResolvedArchitecture,
+  target: ResolvedPosition,
+): boolean {
+  if (!target.layer) {
+    return false;
+  }
+
+  const insideLayer = resolved.moduleFirst
+    ? target.path.slice(2)
+    : target.path.slice(1);
+  const entry = target.layer.unit.entry;
+
+  return insideLayer.length > 2
+    || (insideLayer.length === 2 && stripExtension(insideLayer[1]) !== entry);
+}
+
+function moduleName(position: ResolvedPosition): string | null {
+  return position.module?.name ?? null;
+}
+
+function sourceRootLabel(sourceRoot: string): string {
+  return sourceRoot === '.' ? 'the project root' : `${sourceRoot}/`;
+}
 
 export function sourceSegments(
   filename: string,
