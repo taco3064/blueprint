@@ -139,6 +139,7 @@ describe('inspect consumers · module-first topology', () => {
         '~app/auth/components/Login',
         '~app/auth/services/api/internal',
         'axios',
+        './components',
         './components/Login',
       ]),
     ]), blueprint);
@@ -151,6 +152,8 @@ describe('inspect consumers · module-first topology', () => {
 
     expect(findings.filter((finding) => finding.subject === '~app/auth/components/Login'))
       .toEqual([]);
+
+    expect(findings.some((finding) => finding.subject === './components')).toBe(true);
   });
 });
 

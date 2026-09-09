@@ -99,6 +99,25 @@ describe('relativeVerdict', () => {
     )).toBe('leaves-layer');
   });
 
+  it('distinguishes module-root container paths from declared layers', () => {
+    const moduleShape = {
+      ...shape,
+      isLayer: (name: string) => name === 'components',
+      moduleFirst: true,
+    };
+
+    expect(relativeVerdict(['auth', 'index.ts'], ['auth', 'shell'], moduleShape)).toBe('ok');
+
+    expect(relativeVerdict(['auth', 'index.ts'], ['auth', 'components'], moduleShape))
+      .toBe('leaves-layer');
+
+    expect(relativeVerdict(
+      ['auth', 'index.ts'],
+      ['auth'],
+      { ...shape, moduleFirst: true },
+    )).toBe('ok');
+  });
+
   it('still enforces layer and entry boundaries inside one outer module', () => {
     expect(relativeVerdict(
       ['auth', 'resources', 'matches', 'index.ts'],

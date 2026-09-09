@@ -63,6 +63,12 @@ describe('emitLint · module-first topology', () => {
 
     expect(restricted('import axios from "axios";', file)).toContain('no-restricted-imports');
 
+    expect(restricted('import shell from "./shell";', file))
+      .not.toContain('blueprint/relative-escape');
+
+    expect(restricted('import components from "./components";', file))
+      .toContain('blueprint/relative-escape');
+
     expect(restricted('import Login from "./components/Login";', file))
       .toContain('blueprint/relative-escape');
   });

@@ -6,7 +6,7 @@ export const relativeEscape: Rule.RuleModule = {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Relative imports must not leave their unit — use the project alias.',
+      description: 'Relative imports must not leave their architectural layer or position.',
     },
     schema: [
       {
@@ -59,6 +59,7 @@ export const relativeEscape: Rule.RuleModule = {
 
     const layoutOf = (layer: string): 'folder' | 'file' => layouts[layer] ?? 'file';
     const entryOf = (layer: string): string => entries[layer] ?? 'index';
+    const isLayer = (name: string): boolean => name in layouts;
     const dir = segments.slice(0, -1);
 
     const check = (node: Rule.Node, specifier: string): void => {
@@ -68,7 +69,12 @@ export const relativeEscape: Rule.RuleModule = {
 
       const target = resolveSegments(dir, specifier);
 
-      const verdict = relativeVerdict(segments, target, { layoutOf, entryOf, moduleFirst });
+      const verdict = relativeVerdict(segments, target, {
+        layoutOf,
+        entryOf,
+        isLayer,
+        moduleFirst,
+      });
 
       if (verdict === 'ok') {
         return;

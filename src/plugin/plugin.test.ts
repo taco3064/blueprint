@@ -23,7 +23,7 @@ const RULE_IDS = [
 const DESCRIPTIONS: [(typeof RULE_IDS)[number], string][] = [
   ['no-deep-watch', 'deep watches'],
   ['no-typedef-only-file', '@typedef'],
-  ['relative-escape', 'leave their unit'],
+  ['relative-escape', 'architectural layer or position'],
   ['test-filename-matches-source', 'co-located, same-named source sibling'],
   ['use-prefix', 'hook prefix'],
   ['use-prefix-needs-reactivity', 'reactive or lifecycle'],

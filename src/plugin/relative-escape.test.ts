@@ -132,6 +132,9 @@ describe('blueprint/relative-escape · module-root container', () => {
     expect(messageIds('import x from "../shop/index";', 'src/auth/index.ts', options))
       .toEqual(['leavesModule']);
 
+    expect(messageIds('import x from "./resources";', 'src/auth/index.ts', options))
+      .toEqual(['leavesModule']);
+
     expect(messageIds('import x from "./resources/matches";', 'src/auth/index.ts', options))
       .toEqual(['leavesModule']);
   });
