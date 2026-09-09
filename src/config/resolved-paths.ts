@@ -10,9 +10,9 @@ import type {
 
 interface PathContext {
   state: ResolverState;
-  resolved: ResolvedArchitecture;
   relativeParts: (file: string | string[]) => string[];
   classify: ResolvedArchitecture['classify'];
+  canImport: ResolvedArchitecture['canImport'];
 }
 
 export function createPathMethods(context: PathContext): Pick<ResolvedArchitecture,
@@ -26,7 +26,7 @@ export function createPathMethods(context: PathContext): Pick<ResolvedArchitectu
   | 'forbiddenLayers'
   | 'selfOnlyTargets'
   | 'aliasSpecifiers'> {
-  const { state, resolved, relativeParts, classify } = context;
+  const { state, relativeParts, classify, canImport } = context;
 
   return {
     resolveModuleRoot: (module) => state.moduleByName.get(module)?.root ?? null,
@@ -34,17 +34,20 @@ export function createPathMethods(context: PathContext): Pick<ResolvedArchitectu
       ? null
       : state.layerByName.get(layer)?.root ?? null,
     resolveModuleLayerRoot: (module, layer) => moduleLayerRoot(state, module, layer),
-    layerFiles: (layer, framework) => layerFiles({ state, resolved }, layer, framework),
+    layerFiles: (layer, framework) => layerFiles(state, layer, framework),
     moduleLayerFiles: (module, layer, framework) =>
       moduleLayerFiles(state, { module, layer, framework }),
     resolveImportPosition: (importer, specifier, router) => importPosition(
       { state, relativeParts, classify }, { importer, specifier, router },
     ),
     resolveImportTarget(importer, specifier) {
-      return resolved.resolveImportPosition(importer, specifier)?.layer ?? null;
+      return importPosition(
+        { state, relativeParts, classify },
+        { importer, specifier },
+      )?.layer ?? null;
     },
     forbiddenLayers: (layer) => state.layers
-      .filter((target) => target.name !== layer && !resolved.canImport(layer, target.name))
+      .filter((target) => target.name !== layer && !canImport(layer, target.name))
       .map((target) => target.name),
     selfOnlyTargets: (layer) => state.layers
       .filter((target) => target.allowedImporters.some((importer) =>
@@ -63,12 +66,10 @@ function moduleLayerRoot(state: ResolverState, module: string, layer: string): s
 }
 
 function layerFiles(
-  context: { state: ResolverState; resolved: ResolvedArchitecture },
+  state: ResolverState,
   layer: string,
   framework: Framework,
 ): string[] {
-  const { state, resolved } = context;
-
   if (!state.moduleFirst) {
     return resolveLayerFilePatterns(layer, framework, {
       layerFiles: state.definition.layerFiles,
@@ -77,7 +78,8 @@ function layerFiles(
     });
   }
 
-  return state.modules.flatMap((module) => resolved.moduleLayerFiles(module.name, layer, framework));
+  return state.modules.flatMap((module) =>
+    moduleLayerFiles(state, { module: module.name, layer, framework }));
 }
 
 function moduleLayerFiles(
