@@ -2,7 +2,13 @@ import {
   resolveArchitecture,
   sourceRootLabel,
 } from '../config';
-import type { AliasRoot, ArchitectureDef, Blueprint } from '../config';
+import type {
+  AliasRoot,
+  ArchitectureDef,
+  Blueprint,
+  ResolvedArchitecture,
+  ResolvedSourcePosition,
+} from '../config';
 import { dropLayerFilesIgnored, dropTestFiles } from './filter';
 import { folderFindings } from './folders';
 import { compareText } from './order';
@@ -17,6 +23,7 @@ import {
 } from './resolve';
 import type { EntryOf, LayoutOf, UnitShape } from './resolve';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
+import { aliasDependencyFindings } from './dependency';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
 
@@ -94,10 +101,10 @@ function ownsFindings(
 
 interface ImportContext {
   architecture: ArchitectureDef;
+  resolved: ResolvedArchitecture;
+  position: ResolvedSourcePosition;
   layerNames: string[];
   aliases: (AliasRoot | string)[];
-
-  forbidden: string[];
 
   selfOnly: string[];
   layoutOf: LayoutOf;
@@ -122,9 +129,10 @@ function importFindings(
 
   const context: ImportContext = {
     architecture,
+    resolved,
+    position,
     layerNames,
     aliases: aliasList(architecture),
-    forbidden: fileLayer === null ? [] : resolved.forbiddenLayers(fileLayer),
     selfOnly: fileLayer === null ? [] : resolved.selfOnlyTargets(fileLayer),
     layoutOf: layoutResolver(architecture),
     entryOf: entryResolver(architecture),
@@ -139,17 +147,25 @@ function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext):
   const parts = stripAlias(ref.specifier, context.aliases);
 
   if (parts) {
-    const target = resolveArchitecture(context.architecture)
-      .resolveImportTarget(file.segments, ref.specifier);
+    const target = context.resolved.resolveImportTarget(file.segments, ref.specifier);
 
     const targetLayer = target && 'layer' in target ? target.layer.name : null;
     const targetModule = target && 'module' in target ? target.module?.name ?? null : null;
 
-    return aliasFindings(file, ref, {
-      ...context,
+    return aliasDependencyFindings({
+      file,
+      ref,
+      resolved: context.resolved,
+      importer: context.position,
+      importerModule: context.module,
+      importerLayer: context.layer,
       target: targetLayer ?? parts[context.module === null ? 0 : 1],
       targetModule,
+      targetPosition: target,
       depth: parts.length,
+      layerNames: context.layerNames,
+      layoutOf: context.layoutOf,
+      selfOnly: context.selfOnly,
     });
   }
 
@@ -158,89 +174,6 @@ function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext):
   }
 
   return packageFindings(file, ref, context);
-}
-
-function aliasFindings(
-  file: ScannedFile,
-  ref: ImportRef,
-  context: ImportContext & { target: string; targetModule: string | null; depth: number },
-): Finding[] {
-  const { target, targetModule, depth, layerNames, layoutOf, forbidden, selfOnly } = context;
-  const fileLayer = context.layer;
-
-  if (!layerNames.includes(target)) {
-    return [];
-  }
-
-  const at = { path: file.path, subject: ref.specifier };
-  const sameModule = context.module === targetModule;
-  const deepAt = context.module === null ? 3 : 4;
-
-  const deep = sameModule && layoutOf(target) === 'folder' && depth >= deepAt
-    ? [finding('error', 'deep-import', {
-        ...at,
-        message: `"${ref.specifier}" reaches inside a unit — import it through its entry.`,
-      })]
-    : [];
-
-  if (!sameModule) {
-    return deep;
-  }
-
-  if (fileLayer === null) {
-    return deep;
-  }
-
-  return [
-    ...deep,
-    ...aliasFlowFindings({ target, fileLayer, forbidden, at }),
-    ...selfOnlyFindings({ ref, target, selfOnly, at }),
-  ];
-}
-
-interface AliasFindingScope {
-  target: string;
-  fileLayer: string;
-  forbidden: string[];
-  at: { path: string; subject: string };
-}
-
-function aliasFlowFindings(scope: AliasFindingScope): Finding[] {
-  const { target, fileLayer, forbidden, at } = scope;
-
-  if (target === fileLayer) {
-    return [finding('error', 'flow-violation', {
-      ...at,
-      message: `Same-layer import "${at.subject}" via the alias — use a relative path or `
-        + 'extract to a lower layer.',
-    })];
-  }
-
-  if (forbidden.includes(target)) {
-    return [finding('error', 'flow-violation', {
-      ...at,
-      message: `"${fileLayer}" may not import "${target}" ("${at.subject}").`,
-    })];
-  }
-
-  return [];
-}
-
-function selfOnlyFindings(scope: {
-  ref: ImportRef;
-  target: string;
-  selfOnly: string[];
-  at: { path: string; subject: string };
-}): Finding[] {
-  const { ref, target, selfOnly, at } = scope;
-
-  return ref.isExport && selfOnly.includes(target)
-    ? [finding('error', 'selfonly-reexport', {
-        ...at,
-        message: `Re-exports "${target}" ("${ref.specifier}"), which is selfOnly — `
-          + 'depend on it, do not re-export it.',
-      })]
-    : [];
 }
 
 function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportContext): Finding[] {

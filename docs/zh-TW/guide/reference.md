@@ -23,7 +23,7 @@
 掃到、而且沒有一條 glob 對得上的檔案，會被當成一般原始碼檢查。
 
 - **`undeclared-folder`** · error —— 原始碼資料夾落在宣告的拓撲之外：layer-first 模式是未宣告的頂層 layer；module-first 模式則是未宣告的外層 module 或 module 內層 layer
-- **`flow-violation`** · error —— 逆向匯入，或透過別名進行的同層匯入
+- **`flow-violation`** · error —— module 可達性或內層 flow 未通過，包括逆向匯入，或同一 module 內透過別名進行的同層匯入。可達 modules 之間的同 layer 匯入仍然合法
 - **`deep-import`** · error —— 別名匯入直接觸及資料夾 unit 的**內部**，未經公開入口
 - **`relative-escape`** · error —— 相對路徑匯入越出所屬分層、逃逸出原始碼根目錄，或伸進鄰居 unit 的入口之後。<br>在 `folder` 佈局下，鄰居 unit **是**碰得到的 —— `../Sibling` 就是同層 unit 互相使用的方式，而且是唯一的方式，因為別名寫法（`~app/{自己這層}/Sibling`）仍然被擋
 - **`package-ownership`** · error —— 從非擁有者分層匯入某分層專屬的套件（或受限的具名匯入）
@@ -203,7 +203,7 @@ export default [
 這些鍵比上面那份關卡目錄更早存在，也因此一直只在範例裡露臉 —— 定義該有個家。
 
 - **`architecture.alias`** —— 專案的匯入根，例如 `~app`。<br>必填、沒有預設值：猜錯的別名會讓非法匯入靜靜通過，因為每一條結構禁令的樣式都是拿這個字串組出來的
-- **`architecture.modules`** —— 可選的外層應用模組；每個名稱對應 `sourceRoot` 的直屬子目錄。設定後，完整的 `layers` 清單會在每個模組內重複，不支援再混用全域 layer 資料夾
+- **`architecture.modules`** —— 可選的外層應用模組；每個名稱對應 `sourceRoot` 的直屬子目錄。設定後，完整的 `layers` 清單會在每個模組內重複，不支援再混用全域 layer 資料夾。模組可用 `dependsOn` 列出直接依賴；權限依 DAG 的遞移可達性判定，與宣告順序無關。未知模組、自我依賴、重複邊與 cycle 都是無效設定
 - **`architecture.layers`** —— 有順序、由所有模組共用的分層清單。<br>**順序就是流向**：一個分層只能匯入排在它後面的分層。<br>因此宣告本身說不出回頭邊；unit 匯入 cycle 則只在 `blueprint inspect` 執行時診斷
 - **`layer.does`** —— 一句話說明這層的程式碼是幹嘛的。<br>寫進手冊與 Agent 守則；沒有規則會強制它
 - **`layer.mustNot`** —— 這層不該做的事，用白話寫。<br>去處相同、同樣不強制：規則判斷不了的時候，審查者與 Agent 讀的就是這幾句
@@ -218,7 +218,7 @@ export default [
 - **`architecture.sourceRoot`** —— 分層所在目錄（相對於專案根目錄）。預設 `src`；根目錄式佈局（如無 `src/` 的 Next.js）設為 `.`。Lint、inspect、init scaffold、deps target 與產生的 agent placement guidance 都會從此根目錄解析來源路徑。Config 尚未建立時，survey 可由 TypeScript includes 推導根目錄式佈局；若 workspace 有多個 application root，則會要求明確選擇此欄位。
 - **`architecture.additionalAliases`** —— `alias` 以外、同樣納入所有結構禁令的額外匯入根。Alias 可指向 source root、其上層，或 `src/shared` 之類的單一已宣告 layer。
 
-未設定 `architecture.modules` 時，blueprint 維持傳統 layer-first 軸；設定後則採純粹的 Module → Layer → Unit 拓撲，在每個已宣告模組內重複相同 layer 契約。
+未設定 `architecture.modules` 時，blueprint 維持傳統 layer-first 軸；設定後則採純粹的 Module → Layer → Unit 拓撲，在每個已宣告模組內重複相同 layer 契約。受治理的匯入必須同時通過 module DAG 與共用的內層 layer flow。可達模組之間的同 layer 匯入仍然合法；相對路徑則依舊不能跨 module 或 layer 邊界。
 - **`architecture.testFiles`** —— 豁免於結構規則與度量關卡的測試檔樣式（預設 `*.test.*` / `*.spec.*`）。<br>
   填 `[]` 代表不豁免任何檔 —— 測試檔跟著它那層的規則走 —— 同時也把 `testFilename` 這個關卡關掉：<br>
   那條規則的範圍就是這些測試檔樣式，空清單等於沒有檔可以讓它檢查。`blueprint rules` 會在該關卡旁邊講明。<br>

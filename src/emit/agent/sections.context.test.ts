@@ -44,16 +44,23 @@ describe('renderContext', () => {
 
     config.modules = [
       { name: 'auth', does: 'authentication' },
-      { name: 'shop', does: 'commerce' },
+      { name: 'shop', does: 'commerce', dependsOn: ['auth'] },
     ];
 
     const context = renderContext({ framework: 'vue', architecture: config });
     const placement = renderPlacement(config);
     const checklist = renderChecklist({ framework: 'vue', architecture: config });
 
-    expect(context).toContain('- Modules: `auth`, `shop`');
-    expect(placement).toContain('- `src/auth/` — module: authentication.');
-    expect(placement).toContain('- `src/shop/` — module: commerce.');
+    expect(context).toContain('- Modules: `auth` (depends on none); `shop` (depends on `auth`)');
+
+    expect(placement).toContain(
+      '- `src/auth/` — module: authentication. DIRECT DEPENDENCIES: none.',
+    );
+
+    expect(placement).toContain(
+      '- `src/shop/` — module: commerce. DIRECT DEPENDENCIES: `auth`.',
+    );
+
     expect(placement).toContain('- `src/auth/components/` — layer: UI.');
     expect(checklist).toContain('declared module and layer');
   });

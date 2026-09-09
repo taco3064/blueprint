@@ -189,11 +189,13 @@ function validateModules(modules: ArchitectureDef['modules']): void {
 
   for (const module of modules) {
     validateArchitectureName(module?.name, 'module');
-    rejectUnknownKeys(module, ['name', 'does'], `module "${module.name}"`);
+    rejectUnknownKeys(module, ['name', 'does', 'dependsOn'], `module "${module.name}"`);
 
     if (typeof module.does !== 'string' || !module.does.trim()) {
       throw new Error(`Module "${module.name}" must have a non-empty does.`);
     }
+
+    validateModuleDependencies(module);
 
     const collision = names.get(module.name.toLocaleLowerCase('en-US'));
 
@@ -205,6 +207,12 @@ function validateModules(modules: ArchitectureDef['modules']): void {
     }
 
     names.set(module.name.toLocaleLowerCase('en-US'), module.name);
+  }
+}
+
+function validateModuleDependencies(module: NonNullable<ArchitectureDef['modules']>[number]): void {
+  if (module.dependsOn !== undefined && !Array.isArray(module.dependsOn)) {
+    throw new Error(`Module "${module.name}" dependsOn must be an array of module names.`);
   }
 }
 

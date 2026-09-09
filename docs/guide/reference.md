@@ -30,7 +30,7 @@ without failing the gate. Test files (`architecture.testFiles`) are exempt throu
 as far as the globs reach: a scanned file no declared glob matches is inspected as ordinary source.
 
 - **`undeclared-folder`** · error — a source folder outside the declared topology: an undeclared top-level layer in layer-first mode, or an undeclared outer module / inner layer in module-first mode
-- **`flow-violation`** · error — an upstream import, or a same-layer import via the alias
+- **`flow-violation`** · error — a module-reachability or inner-flow failure, including an upstream import or a same-layer alias import inside one module. Same-layer imports across reachable modules remain valid
 - **`deep-import`** · error — an alias import reaching *inside* a folder unit instead of through its entry
 - **`relative-escape`** · error — a relative import that leaves its own layer, escapes the source root, or reaches past a sibling unit's entry. Under `folder` layout a sibling *is* reachable — `../Sibling` is how one unit uses another inside the same layer, and the only way, since the alias spelling (`~app/{ownLayer}/Sibling`) stays banned
 - **`package-ownership`** · error — importing a layer-owned package (or restricted named import) from a non-owner layer
@@ -236,7 +236,7 @@ catalog above, which is why most of them were only ever visible through
 examples — the definitions belong here.
 
 - **`architecture.alias`** — the project import root, e.g. `~app`. Required, with no default: a guessed alias silently passes illegal imports, because every structural ban pattern is built on this string
-- **`architecture.modules`** — optional outer application modules, each mapped to a direct child of `sourceRoot`. When present, the complete `layers` list repeats under every module; global layer folders are not a second supported topology
+- **`architecture.modules`** — optional outer application modules, each mapped to a direct child of `sourceRoot`. When present, the complete `layers` list repeats under every module; global layer folders are not a second supported topology. A module's optional `dependsOn` lists its direct dependencies. Permission follows transitive reachability through that DAG, never declaration order; unknown modules, self-dependencies, duplicate edges, and cycles are invalid
 - **`architecture.layers`** — the ordered shared layers. **Order is the flow**: a layer may import only layers declared after it. The declaration therefore cannot express a back edge. This makes the declared layer graph acyclic; it does not continuously prevent unit import cycles, which `blueprint inspect` diagnoses only when it runs
 - **`layer.does`** — one line on what code in this layer is for. Feeds the handbook and the agent contract; no rule enforces it
 - **`layer.mustNot`** — the things this layer may not do, in prose. Same destination, same lack of enforcement: it is what a reviewer and an agent read when a rule cannot decide
@@ -253,7 +253,9 @@ examples — the definitions belong here.
 
 Without `architecture.modules`, one blueprint models the traditional layer-first axis.
 With it, Blueprint models a pure Module → Layer → Unit topology and repeats the same layer
-contract inside every declared module.
+contract inside every declared module. A governed import must pass both the module DAG and
+the shared inner layer flow. Same-layer imports across reachable modules remain valid; relative
+imports still cannot cross a module or layer boundary.
 - **`architecture.testFiles`** — test glob(s) exempt from structural rules and metric gates (default `*.test.*` / `*.spec.*`). `[]` exempts nothing — tests inherit their layer's rules — and switches the `testFilename` gate off with it: that rule is scoped to the test globs, so an empty list leaves it no file to name. `blueprint rules` says so beside the gate. A declared glob that matches no file costs the exemption but not the gate: nothing the run read is exempt through it.
 - **`architecture.layerFiles`** — per-layer file globs when the framework defaults don't fit
 - **`architecture.layerFilesIgnore`** — global file globs excluded from emitted lint and lint-backed `inspect` findings. The files remain visible to inspect-only checks such as undeclared folders and cycles, and coverage names them as deliberately ignored rather than reached

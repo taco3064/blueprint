@@ -15,6 +15,18 @@ describe('buildStructuralPatterns · layer aliases', () => {
     expect(groups.some((group) => group.group.includes('~a'))).toBe(true);
     expect(groups.some((group) => group.group.includes('~a/b/**'))).toBe(false);
   });
+
+  it('defaults structural targets to the current module', () => {
+    const groups = buildStructuralPatterns({
+      layer: 'views',
+      module: 'auth',
+      aliases: ['~app'],
+      forbidden: ['services'],
+      unitLayout: 'folder',
+    });
+
+    expect(groups.some((group) => group.group.includes('~app/auth/services'))).toBe(true);
+  });
 });
 
 describe('buildContainerPatterns', () => {

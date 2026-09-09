@@ -16,6 +16,8 @@ export { resolveArchitecture, resolveLayerFilePatterns } from './resolved';
 export type {
   ResolveArchitectureContext,
   ResolvedArchitecture,
+  ResolvedDependencyEndpoint,
+  ResolvedDependencyVerdict,
   ResolvedLayer,
   ResolvedLayerPosition,
   ResolvedModule,
