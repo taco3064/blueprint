@@ -28,7 +28,7 @@ type UnitLayout = 'folder' | 'file';
 
 /**
  * Compile a Blueprint's `architecture` into an ESLint flat config that
- * enforces the one-way dependency flow, module-entry boundaries, and package
+ * enforces the one-way dependency flow, unit-entry boundaries, and package
  * / global ownership. Pure — returns the config array, writes nothing.
  * @group Emitters
  * @example
@@ -76,7 +76,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     plugins: { blueprint: plugin },
     rules: { 'blueprint/relative-escape': [
       severity,
-      { layouts, entries, sourceRoot: resolved.sourceRoot },
+      { architecture },
     ] },
   };
 
@@ -103,6 +103,9 @@ function layerImportEntries(
   const { severity, testGlobs, aliases, layouts } = shape;
   const packageRules = derivePackageRules(layers);
   const globalRules = deriveGlobalRules(layers);
+  const scopes: (string | undefined)[] = resolved.moduleFirst
+    ? resolved.moduleNames
+    : [undefined];
 
   const folderLayers = layers
     .map((layer) => layer.name)
@@ -116,29 +119,36 @@ function layerImportEntries(
       })
     : [];
 
-  return layers.flatMap((layer) => {
-    const files = resolved.layerFiles(layer.name, framework);
+  return scopes.flatMap((module) => layers.flatMap((layer) => {
+    const files = module === undefined
+      ? resolved.layerFiles(layer.name, framework)
+      : resolved.moduleLayerFiles(module, layer.name, framework);
 
     const forbidden = resolved.forbiddenLayers(layer.name);
     const disabledPackages = packageRules.filter((rule) => !rule.allowedIn.includes(layer.name));
     const disabledGlobals = globalRules.filter((rule) => !rule.allowedIn.includes(layer.name));
-
     const selfOnlyTargets = resolved.selfOnlyTargets(layer.name);
 
     const structural = buildStructuralPatterns({
       layer: layer.name,
+      module,
+      modules: resolved.moduleNames,
       aliases,
       forbidden,
-      moduleLayout: layouts[layer.name],
+      unitLayout: layouts[layer.name],
       folderTargets: folderLayers.filter(
         (name) => name !== layer.name && !forbidden.includes(name),
       ),
       fixtures,
     });
 
+    const syntaxModules: (string | undefined)[] = resolved.moduleFirst
+      ? resolved.moduleNames
+      : [undefined];
+
     const syntaxRules = selfOnlyTargets.flatMap((target) =>
-      aliases.flatMap((alias) => {
-        const specifier = aliasSpecifier(alias, target);
+      syntaxModules.flatMap((targetModule) => aliases.flatMap((alias) => {
+        const specifier = aliasSpecifier(alias, target, targetModule);
 
         return specifier === null
           ? []
@@ -146,14 +156,13 @@ function layerImportEntries(
               selector: selfOnlyReexportSelector(specifier),
               message: `\n🚫 Cannot re-export from "${target}" — a selfOnly dependency must not be exposed to callers.`,
             }];
-      }),
+      })),
     );
 
     const buildRules = (packages: PackageRule[]): Linter.RulesRecord => {
       const { paths, patterns } = buildPackagePatterns(packages);
 
       return {
-
         ...(layer.lintOverrides as Linter.RulesRecord),
         'no-restricted-imports': [
           severity,
@@ -175,12 +184,10 @@ function layerImportEntries(
     const nonExempt = disabledPackages.filter((rule) => !rule.exempt?.length);
 
     return [
-
       { files, ignores: testGlobs, rules: buildRules(nonExempt) },
-
       { files, ignores: [...exemptPatterns, ...testGlobs], rules: buildRules(disabledPackages) },
     ];
-  });
+  }));
 }
 
 function ruleGateEntries(

@@ -190,13 +190,11 @@ export function nextPreset(options: NextPresetOptions = {}): Blueprint {
         })),
         {
           name: 'components',
-          layout: 'folder',
           does: 'Reusable UI, shared across routes.',
           mustNot: ['own route-level data fetching'],
         },
         {
           name: 'hooks',
-          layout: 'folder',
           does: 'Client-side state adapters.',
           owns: [{ package: 'react', imports: ['useContext'] }],
         },
