@@ -270,10 +270,13 @@ function relativeEscape(
   shape: UnitShape & { architecture: ArchitectureDef },
 ): Finding[] {
   const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
+  const resolved = resolveArchitecture(shape.architecture);
+  const moduleFirst = resolved.topology === 'module-first';
 
   const verdict = relativeVerdict(file.segments, target, {
     ...shape,
-    moduleFirst: resolveArchitecture(shape.architecture).topology === 'module-first',
+    isLayer: (name) => resolved.layerNames.includes(name),
+    moduleFirst,
   });
 
   if (verdict === 'ok') {
@@ -287,7 +290,7 @@ function relativeEscape(
   }
 
   if (verdict === 'reaches-inside') {
-    const layerIndex = resolveArchitecture(shape.architecture).topology === 'module-first' ? 1 : 0;
+    const layerIndex = moduleFirst ? 1 : 0;
 
     return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${shape.entryOf(file.segments[layerIndex])}" instead; what lives behind it is that unit's own business.` })];
   }

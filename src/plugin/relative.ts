@@ -5,6 +5,7 @@ export type RelativeVerdict = 'ok' | 'escapes-src' | 'leaves-layer' | 'reaches-i
 export interface UnitShape {
   layoutOf: LayoutOf;
   entryOf: EntryOf;
+  isLayer?: (name: string) => boolean;
   moduleFirst?: boolean;
 }
 
@@ -35,14 +36,14 @@ export function relativeVerdict(
   target: string[] | null,
   shape: UnitShape,
 ): RelativeVerdict {
-  const { layoutOf, entryOf, moduleFirst = false } = shape;
+  const { layoutOf, entryOf, isLayer = () => false, moduleFirst = false } = shape;
 
   if (target === null) {
     return 'escapes-src';
   }
 
   if (moduleFirst && ownSegments.length === 2) {
-    return containerVerdict(ownSegments, target);
+    return containerVerdict(ownSegments, target, isLayer);
   }
 
   if (unitKey(target, layoutOf, moduleFirst) === unitKey(ownSegments, layoutOf, moduleFirst)) {
@@ -64,12 +65,16 @@ export function relativeVerdict(
   return atUnitEntry(target, unitIndex, entryOf(layer)) ? 'ok' : 'reaches-inside';
 }
 
-function containerVerdict(ownSegments: string[], target: string[]): RelativeVerdict {
+function containerVerdict(
+  ownSegments: string[],
+  target: string[],
+  isLayer: (name: string) => boolean,
+): RelativeVerdict {
   if (target[0] !== ownSegments[0]) {
     return 'leaves-layer';
   }
 
-  return target.length <= 2 ? 'ok' : 'leaves-layer';
+  return target.length <= 2 && !isLayer(target[1] ?? '') ? 'ok' : 'leaves-layer';
 }
 
 function atUnitEntry(target: string[], unitIndex: number, entry: string): boolean {
