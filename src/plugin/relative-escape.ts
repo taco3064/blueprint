@@ -19,6 +19,12 @@ interface RelativeProblemContext {
   dir: string[];
 }
 
+interface RelativeProblemContext {
+  resolved: ResolvedArchitecture;
+  own: ResolvedPosition;
+  dir: string[];
+}
+
 export const relativeEscape: Rule.RuleModule = {
   meta: {
     type: 'problem',

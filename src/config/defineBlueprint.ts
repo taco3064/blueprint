@@ -11,6 +11,7 @@ import type {
 import { normalizeAllowedImporters } from './graph';
 import { resolveArchitecture } from './resolved';
 import { activeSetting } from './settings';
+import { ARCHITECTURE_KEYS, BLUEPRINT_KEYS, LAYER_KEYS } from './validation-keys';
 
 const VALID_TIERS = ['error', 'warn', 'off'];
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/;
@@ -18,40 +19,6 @@ const MODULE_PLACEHOLDER = /\{\s*module\s*\}/;
 
 const AGENT_TARGETS = ['claude', 'agents', 'gemini', 'copilot', 'cursor', 'windsurf'];
 const DEFAULT_AGENT_TARGETS: AgentTarget[] = ['claude', 'agents'];
-
-const BLUEPRINT_KEYS = [
-  'name',
-  'framework',
-  'architecture',
-  'rules',
-  'principles',
-  'componentShape',
-  'playbook',
-  'emit',
-];
-
-const ARCHITECTURE_KEYS = [
-  'alias',
-  'additionalAliases',
-  'sourceRoot',
-  'modules',
-  'layers',
-  'layerFiles',
-  'layerFilesIgnore',
-  'testFiles',
-  'naming',
-];
-
-const LAYER_KEYS = [
-  'name',
-  'does',
-  'mustNot',
-  'owns',
-  'layout',
-  'entry',
-  'allowedImporters',
-  'lintOverrides',
-];
 
 const MISPLACED_KEYS: Record<string, string> = {
   selfOnly: 'selfOnly lives on an allowedImporters ENTRY, naming the importing layer: '

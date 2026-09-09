@@ -12,6 +12,7 @@ import {
   normalizeAllowedImporters,
 } from './graph';
 import type { AliasRoot, DiagramEdge } from './graph';
+import { createPathMethods, resolveLayerFilePatterns } from './resolved-paths';
 
 export interface ResolvedUnitShape {
   layout: 'folder' | 'file';
@@ -91,7 +92,7 @@ export interface ResolvedArchitecture {
   aliasSpecifiers(layer: string, module?: string): string[];
 }
 
-interface ResolverState {
+export interface ResolverState {
   definition: ArchitectureDef;
   sourceRoot: string;
   sourceSegments: string[];
@@ -116,7 +117,7 @@ export function resolveArchitecture(definition: ArchitectureDef): ResolvedArchit
   const classify = makeClassifier(state, relativeParts);
   const canImport = makeCanImport(state);
 
-  return assembleResolved(state, relativeParts, classify, canImport);
+  return assembleResolved({ state, relativeParts, classify, canImport });
 }
 
 function resolveState(definition: ArchitectureDef): ResolverState {
@@ -238,20 +239,21 @@ function classifyModuleFirst(
     return position('module', path, { module });
   }
 
-  return classifyInsideModule(state, module, path, context);
+  return classifyInsideModule({ state, module, path, context });
 }
 
-function classifyInsideModule(
-  state: ResolverState,
-  module: ResolvedModule,
-  path: string[],
-  context: ResolveArchitectureContext,
-): ResolvedPosition {
+function classifyInsideModule(input: {
+  state: ResolverState;
+  module: ResolvedModule;
+  path: string[];
+  context: ResolveArchitectureContext;
+}): ResolvedPosition {
+  const { state, module, path, context } = input;
   const inside = path.slice(1);
   const layer = state.layerByName.get(inside[0]) ?? null;
 
   if (layer) {
-    return classifyModuleLayer(module, layer, path, inside);
+    return classifyModuleLayer(module, layer, { path, inside });
   }
 
   if (isContainerSource(module, inside, context)) {
@@ -264,9 +266,10 @@ function classifyInsideModule(
 function classifyModuleLayer(
   module: ResolvedModule,
   layer: ResolvedLayer,
-  path: string[],
-  inside: string[],
+  location: { path: string[]; inside: string[] },
 ): ResolvedPosition {
+  const { path, inside } = location;
+
   if (inside.length === 1) {
     return position('layer', path, { module, layer, inner: 'layer' });
   }
@@ -299,17 +302,18 @@ function makeCanImport(state: ResolverState) {
   };
 }
 
-function assembleResolved(
-  state: ResolverState,
-  relativeParts: (file: string | string[]) => string[],
-  classify: ResolvedArchitecture['classify'],
-  canImport: ResolvedArchitecture['canImport'],
-): ResolvedArchitecture {
+function assembleResolved(context: {
+  state: ResolverState;
+  relativeParts: (file: string | string[]) => string[];
+  classify: ResolvedArchitecture['classify'];
+  canImport: ResolvedArchitecture['canImport'];
+}): ResolvedArchitecture {
+  const { state, relativeParts, classify, canImport } = context;
   const resolved = baseResolved(state, classify, canImport);
 
   return {
     ...resolved,
-    ...pathMethods(state, resolved, relativeParts, classify),
+    ...createPathMethods({ state, resolved, relativeParts, classify }),
   };
 }
 
@@ -358,137 +362,6 @@ function baseResolved(
   };
 }
 
-function pathMethods(
-  state: ResolverState,
-  resolved: ResolvedArchitecture,
-  relativeParts: (file: string | string[]) => string[],
-  classify: ResolvedArchitecture['classify'],
-): Pick<ResolvedArchitecture,
-| 'resolveModuleRoot'
-| 'resolveLayerRoot'
-| 'resolveModuleLayerRoot'
-| 'layerFiles'
-| 'moduleLayerFiles'
-| 'resolveImportPosition'
-| 'resolveImportTarget'
-| 'forbiddenLayers'
-| 'selfOnlyTargets'
-| 'aliasSpecifiers'> {
-  return {
-    resolveModuleRoot: (module) => state.moduleByName.get(module)?.root ?? null,
-    resolveLayerRoot: (layer) => state.moduleFirst
-      ? null
-      : state.layerByName.get(layer)?.root ?? null,
-    resolveModuleLayerRoot: (module, layer) => moduleLayerRoot(state, module, layer),
-    layerFiles: (layer, framework) => layerFiles(state, resolved, layer, framework),
-    moduleLayerFiles: (module, layer, framework) =>
-      moduleLayerFiles(state, module, layer, framework),
-    resolveImportPosition: (importer, specifier, context) =>
-      importPosition(state, relativeParts, classify, importer, specifier, context),
-    resolveImportTarget(importer, specifier) {
-      return resolved.resolveImportPosition(importer, specifier)?.layer ?? null;
-    },
-    forbiddenLayers: (layer) => state.layers
-      .filter((target) => target.name !== layer && !resolved.canImport(layer, target.name))
-      .map((target) => target.name),
-    selfOnlyTargets: (layer) => state.layers
-      .filter((target) => target.allowedImporters
-        .some((importer) => importer.layer === layer && importer.selfOnly))
-      .map((target) => target.name),
-    aliasSpecifiers: (layer, module) => aliasSpecifiers(state, layer, module),
-  };
-}
-
-function moduleLayerRoot(
-  state: ResolverState,
-  module: string,
-  layer: string,
-): string | null {
-  if (!state.moduleFirst || !state.moduleByName.has(module) || !state.layerByName.has(layer)) {
-    return null;
-  }
-
-  return joinSource(state.sourceRoot, module, layer);
-}
-
-function layerFiles(
-  state: ResolverState,
-  resolved: ResolvedArchitecture,
-  layer: string,
-  framework: Framework,
-): string[] {
-  if (!state.moduleFirst) {
-    return resolveLayerFilePatterns(layer, framework, {
-      layerFiles: state.definition.layerFiles,
-      layerRoot: state.layerByName.get(layer)?.root ?? joinSource(state.sourceRoot, layer),
-      sourceRoot: state.sourceRoot,
-    });
-  }
-
-  return state.modules.flatMap((module) =>
-    resolved.moduleLayerFiles(module.name, layer, framework));
-}
-
-function moduleLayerFiles(
-  state: ResolverState,
-  module: string,
-  layer: string,
-  framework: Framework,
-): string[] {
-  const root = moduleLayerRoot(state, module, layer);
-
-  if (root === null) {
-    return [];
-  }
-
-  return resolveLayerFilePatterns(layer, framework, {
-    layerFiles: state.definition.layerFiles,
-    layerRoot: root,
-    sourceRoot: state.sourceRoot,
-    module,
-  });
-}
-
-function importPosition(
-  state: ResolverState,
-  relativeParts: (file: string | string[]) => string[],
-  classify: ResolvedArchitecture['classify'],
-  importer: string | string[],
-  specifier: string,
-  context?: ResolveArchitectureContext,
-): ResolvedPosition | null {
-  const aliasTarget = resolveAliasPath(state.aliases, specifier);
-
-  if (aliasTarget !== undefined) {
-    return aliasTarget === null ? null : classify(aliasTarget, context);
-  }
-
-  if (!specifier.startsWith('.')) {
-    return null;
-  }
-
-  const importerParts = relativeParts(importer);
-  const target = resolveRelative(importerParts.slice(0, -1), specifier);
-
-  return target ? classify(target, context) : null;
-}
-
-function aliasSpecifiers(
-  state: ResolverState,
-  layer: string,
-  module?: string,
-): string[] {
-  if (state.moduleFirst && module === undefined) {
-    return state.modules.flatMap((candidate) =>
-      state.aliases.flatMap((root) =>
-        aliasPathSpecifier(root, [candidate.name, layer]) ?? []));
-  }
-
-  const path = module === undefined ? [layer] : [module, layer];
-
-  return state.aliases.flatMap((root) => aliasPathSpecifier(root, path) ?? []);
-}
-
 function resolveDiagramEdges(layers: ResolvedLayer[]): DiagramEdge[] {
   return layers.flatMap((layer, index): DiagramEdge[] => {
     if (layer.definition.allowedImporters !== undefined) {
@@ -533,59 +406,6 @@ function looksLikeFile(value: string): boolean {
   return /\.[A-Za-z0-9]+$/.test(value);
 }
 
-const FRAMEWORK_EXTS: Record<Framework, string> = {
-  vue: 'js,ts,vue',
-  react: 'js,jsx,ts,tsx',
-  auto: 'js,jsx,ts,tsx,vue',
-};
-
-export function resolveLayerFilePatterns(
-  layer: string,
-  framework: Framework,
-  scope: {
-    layerFiles?: string | string[];
-    layerRoot?: string;
-    sourceRoot?: string;
-    module?: string;
-  } = {},
-): string[] {
-  const sourceRoot = scope.sourceRoot ?? 'src';
-  const defaultRoot = scope.layerRoot ?? joinSource(sourceRoot, '{layer}');
-
-  const declared = scope.layerFiles === undefined
-    ? [`${defaultRoot}/**/*.{${FRAMEWORK_EXTS[framework]}}`]
-    : toArray(scope.layerFiles);
-
-  return declared.map((glob) => glob
-    .replace(/\{\s*module\s*\}/g, () => scope.module ?? '{module}')
-    .replace(/\{\s*layer\s*\}/g, () => layer));
-}
-
-function toArray(value: string | string[]): string[] {
-  return Array.isArray(value) ? value : [value];
-}
-
-function resolveAliasPath(
-  aliases: AliasRoot[],
-  specifier: string,
-): string[] | null | undefined {
-  const root = aliases.find(
-    (candidate) => specifier === candidate.alias || specifier.startsWith(`${candidate.alias}/`),
-  );
-
-  if (!root) {
-    return undefined;
-  }
-
-  const parts = specifier.slice(root.alias.length).split('/').filter(Boolean);
-
-  if (!startsWith(parts, root.prefix)) {
-    return null;
-  }
-
-  return [...(root.prepend ?? []), ...parts.slice(root.prefix.length)];
-}
-
 function joinSource(sourceRoot: string, ...parts: string[]): string {
   return [sourceRoot === '.' ? '' : sourceRoot, ...parts].filter(Boolean).join('/');
 }
@@ -596,24 +416,4 @@ function segments(value: string): string[] {
 
 function startsWith(parts: string[], prefix: string[]): boolean {
   return prefix.every((part, index) => parts[index] === part);
-}
-
-function resolveRelative(from: string[], specifier: string): string[] | null {
-  const result = [...from];
-
-  for (const part of specifier.split('/')) {
-    if (part === '' || part === '.') {
-      continue;
-    }
-
-    if (part === '..') {
-      if (result.pop() === undefined) {
-        return null;
-      }
-    } else {
-      result.push(part);
-    }
-  }
-
-  return result;
 }
