@@ -1,4 +1,8 @@
-import type { AliasRoot, ArchitectureDef } from '../config';
+import type {
+  AliasRoot,
+  ArchitectureDef,
+  ResolvedPosition,
+} from '../config';
 import { resolveArchitecture } from '../config';
 import { moduleKey, resolveSegments } from '../plugin';
 import type { EntryOf, LayoutOf } from '../plugin';
@@ -13,6 +17,13 @@ export function layoutResolver(architecture: ArchitectureDef): LayoutOf {
 
   return (layer) => resolved.layers.find((candidate) => candidate.name === layer)?.unit.layout
     ?? 'file';
+}
+
+export function entryResolver(architecture: ArchitectureDef): EntryOf {
+  const resolved = resolveArchitecture(architecture);
+  const perLayer = new Map(resolved.layers.map((layer) => [layer.name, layer.unit.entry]));
+
+  return (layer) => perLayer.get(layer) ?? 'index';
 }
 
 export function aliasList(architecture: ArchitectureDef): AliasRoot[] {
@@ -42,14 +53,84 @@ export function stripAlias(
   return null;
 }
 
-export function entryResolver(architecture: ArchitectureDef): EntryOf {
-  const resolved = resolveArchitecture(architecture);
-  const shared = 'index';
-  const perLayer = new Map(resolved.layers.map((layer) => [layer.name, layer.unit.entry]));
+/** Canonical graph key for an inner unit position. */
+export function unitKey(position: ResolvedPosition): string | null {
+  const layer = position.layer;
 
-  return (layer) => perLayer.get(layer) ?? shared;
+  if (!layer || position.inner !== 'layer') {
+    return null;
+  }
+
+  const prefix = position.module ? `${position.module.name}/` : '';
+
+  if (layer.unit.layout === 'file') {
+    return `${prefix}${layer.name}`;
+  }
+
+  return position.unit === null ? null : `${prefix}${layer.name}/${position.unit}`;
 }
 
+export function targetUnitKey(
+  ref: ImportRef,
+  file: ScannedFile,
+  architecture: ArchitectureDef,
+): string | null {
+  const resolved = resolveArchitecture(architecture);
+  const target = resolved.resolveImportPosition(file.segments, ref.specifier);
+
+  return target === null ? null : unitKey(target);
+}
+
+export interface UnitGraph {
+  units: Set<string>;
+  edges: Map<string, Set<string>>;
+}
+
+/** Build the concrete inner-unit graph using the canonical architecture resolver. */
+export function buildUnitGraph(scan: ScanResult, architecture: ArchitectureDef): UnitGraph {
+  scan = dropTestFiles(scan, architecture.testFiles);
+
+  const resolved = resolveArchitecture(architecture);
+  const graph: UnitGraph = { units: new Set(), edges: new Map() };
+
+  for (const file of scan.files) {
+    const from = unitKey(resolved.classify(file.segments));
+
+    if (from === null) {
+      continue;
+    }
+
+    graph.units.add(from);
+
+    for (const ref of file.imports) {
+      const to = targetUnitKey(ref, file, architecture);
+
+      if (to && to !== from) {
+        graph.edges.set(from, (graph.edges.get(from) ?? new Set()).add(to));
+      }
+    }
+  }
+
+  return graph;
+}
+
+/** @deprecated Internal 3.x name retained while callers migrate to unit vocabulary. */
+export interface ModuleGraph {
+  modules: Set<string>;
+  edges: Map<string, Set<string>>;
+}
+
+/** @deprecated Use buildUnitGraph. */
+export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef): ModuleGraph {
+  const graph = buildUnitGraph(scan, architecture);
+
+  return { modules: graph.units, edges: graph.edges };
+}
+
+/**
+ * @deprecated Legacy helper for direct tests. New architecture consumers must
+ * resolve imports through resolveArchitecture().resolveImportPosition().
+ */
 export function targetModuleKey(
   ref: ImportRef,
   file: ScannedFile,
@@ -69,40 +150,4 @@ export function targetModuleKey(
   }
 
   return null;
-}
-
-export interface ModuleGraph {
-
-  modules: Set<string>;
-
-  edges: Map<string, Set<string>>;
-}
-
-export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef): ModuleGraph {
-  scan = dropTestFiles(scan, architecture.testFiles);
-
-  const layerNames = resolveArchitecture(architecture).layerNames;
-  const aliases = aliasList(architecture);
-  const layoutOf = layoutResolver(architecture);
-  const graph: ModuleGraph = { modules: new Set(), edges: new Map() };
-
-  for (const file of scan.files) {
-    if (!layerNames.includes(file.segments[0])) {
-      continue;
-    }
-
-    const from = moduleKey(file.segments, layoutOf);
-
-    graph.modules.add(from);
-
-    for (const ref of file.imports) {
-      const to = targetModuleKey(ref, file, { aliases, layerNames, layoutOf });
-
-      if (to && to !== from) {
-        graph.edges.set(from, (graph.edges.get(from) ?? new Set()).add(to));
-      }
-    }
-  }
-
-  return graph;
 }
