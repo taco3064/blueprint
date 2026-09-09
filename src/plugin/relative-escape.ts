@@ -14,7 +14,7 @@ export const relativeEscape: Rule.RuleModule = {
         properties: {
           layouts: {
             type: 'object',
-            additionalProperties: { enum: ['folder', 'flat'] },
+            additionalProperties: { enum: ['folder', 'file'] },
           },
           entries: {
             type: 'object',
@@ -33,13 +33,13 @@ export const relativeEscape: Rule.RuleModule = {
         + 'or extract shared code to a lower layer.',
       reachesInside:
         '🚫 Relative import "{{specifier}}" reaches past a sibling\'s entry — '
-        + 'import "{{entry}}" instead; what lives behind it is that module\'s own business.',
+        + 'import "{{entry}}" instead; what lives behind it is that unit\'s own business.',
     },
   },
   create(context) {
     const { layouts = {}, entries = {}, sourceRoot = 'src' }
       = (context.options[0] as {
-        layouts?: Record<string, 'folder' | 'flat'>;
+        layouts?: Record<string, 'folder' | 'file'>;
         entries?: Record<string, string>;
         sourceRoot?: string;
       } | undefined) ?? {};
@@ -51,7 +51,7 @@ export const relativeEscape: Rule.RuleModule = {
       return {};
     }
 
-    const layoutOf = (layer: string): 'folder' | 'flat' => layouts[layer] ?? 'flat';
+    const layoutOf = (layer: string): 'folder' | 'file' => layouts[layer] ?? 'file';
     const entryOf = (layer: string): string => entries[layer] ?? 'index';
     const dir = segments.slice(0, -1);
 

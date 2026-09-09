@@ -24,7 +24,7 @@ import type {
 } from './types';
 
 type Severity = 'error' | 'warn';
-type ModuleLayout = 'folder' | 'flat';
+type UnitLayout = 'folder' | 'file';
 
 /**
  * Compile a Blueprint's `architecture` into an ESLint flat config that
@@ -51,11 +51,11 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
   const testGlobs = resolveTestFiles(testFiles);
 
   const layouts = Object.fromEntries(
-    resolved.layers.map((layer) => [layer.name, layer.module.layout]),
+    resolved.layers.map((layer) => [layer.name, layer.unit.layout]),
   );
 
   const entries = Object.fromEntries(
-    resolved.layers.map((layer) => [layer.name, layer.module.entry]),
+    resolved.layers.map((layer) => [layer.name, layer.unit.entry]),
   );
 
   const ignoreConfig: LintConfigEntry[] = layerFilesIgnore
@@ -94,7 +94,7 @@ function layerImportEntries(
     severity: Severity;
     testGlobs: string[];
     aliases: AliasRoot[];
-    layouts: Record<string, ModuleLayout>;
+    layouts: Record<string, UnitLayout>;
   },
 ): LintConfigEntry[] {
   const { framework, architecture } = blueprint;

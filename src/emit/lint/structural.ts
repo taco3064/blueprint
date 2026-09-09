@@ -6,7 +6,7 @@ export function buildStructuralPatterns(params: {
   layer: string;
   aliases: (AliasRoot | string)[];
   forbidden: string[];
-  moduleLayout: 'folder' | 'flat';
+  moduleLayout: 'folder' | 'file';
   folderTargets?: string[];
   fixtures?: string[];
 }): GroupPattern[] {
@@ -27,7 +27,7 @@ export function buildStructuralPatterns(params: {
 
     return [{
       group: [specifier, `${specifier}/**`],
-      message: moduleLayout === 'flat'
+      message: moduleLayout === 'file'
         ? `${head}"./X".`
         : `${head}"../X" — its entry only; what is behind the entry stays private.`,
     }];
@@ -61,7 +61,7 @@ export function buildStructuralPatterns(params: {
 
         return specifier === null ? [] : `${specifier}/*/**`;
       })),
-      message: '\n🚫 Import a module through its entry, not its internals (e.g. "~app/hooks/useX", '
+      message: '\n🚫 Import a unit through its entry, not its internals (e.g. "~app/hooks/useX", '
         + 'not "~app/hooks/useX/impl").',
     });
   }

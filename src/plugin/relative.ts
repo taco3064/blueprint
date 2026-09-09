@@ -1,4 +1,4 @@
-export type LayoutOf = (layer: string) => 'folder' | 'flat';
+export type LayoutOf = (layer: string) => 'folder' | 'file';
 export type EntryOf = (layer: string) => string;
 export type RelativeVerdict = 'ok' | 'escapes-src' | 'leaves-layer' | 'reaches-inside';
 
@@ -8,7 +8,7 @@ export interface ModuleShape {
 }
 
 export function moduleKey(segments: string[], layoutOf: LayoutOf): string {
-  if (segments.length < 2 || layoutOf(segments[0]) === 'flat') {
+  if (segments.length < 2 || layoutOf(segments[0]) === 'file') {
     return segments[0] ?? '';
   }
 

@@ -165,7 +165,7 @@ function noEntryFindings(
     if (
       file.segments.length >= 3
       && layerNames.includes(layer)
-      && resolveArchitecture(architecture).matchLayer(file.segments)?.module.layout === 'folder'
+      && resolveArchitecture(architecture).matchLayer(file.segments)?.unit.layout === 'folder'
     ) {
       const key = `${layer}/${file.segments[1]}`;
 
@@ -176,7 +176,7 @@ function noEntryFindings(
   const findings: Finding[] = [];
 
   for (const [key, files] of modules) {
-    const entry = resolveArchitecture(architecture).matchLayer(key)!.module.entry;
+    const entry = resolveArchitecture(architecture).matchLayer(key)!.unit.entry;
 
     const hasEntry = files.some(
       (file) => file.segments.length === 3 && stripExt(file.segments[2]) === entry,

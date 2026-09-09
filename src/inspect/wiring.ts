@@ -58,7 +58,7 @@ export function expectedStructural(
   const layouts = Object.fromEntries(
     resolved.layers.map((entry) => [
       entry.name,
-      entry.module.layout,
+      entry.unit.layout,
     ]),
   );
 

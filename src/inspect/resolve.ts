@@ -11,8 +11,8 @@ export { moduleKey, relativeVerdict, resolveSegments } from '../plugin';
 export function layoutResolver(architecture: ArchitectureDef): LayoutOf {
   const resolved = resolveArchitecture(architecture);
 
-  return (layer) => resolved.layers.find((candidate) => candidate.name === layer)?.module.layout
-    ?? resolved.folderShape.layout;
+  return (layer) => resolved.layers.find((candidate) => candidate.name === layer)?.unit.layout
+    ?? 'file';
 }
 
 export function aliasList(architecture: ArchitectureDef): AliasRoot[] {
@@ -44,8 +44,8 @@ export function stripAlias(
 
 export function entryResolver(architecture: ArchitectureDef): EntryOf {
   const resolved = resolveArchitecture(architecture);
-  const shared = resolved.folderShape.entry;
-  const perLayer = new Map(resolved.layers.map((layer) => [layer.name, layer.module.entry]));
+  const shared = 'index';
+  const perLayer = new Map(resolved.layers.map((layer) => [layer.name, layer.unit.entry]));
 
   return (layer) => perLayer.get(layer) ?? shared;
 }

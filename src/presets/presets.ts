@@ -40,27 +40,32 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
       layers: [
         {
           name: 'pages',
+          layout: 'folder',
           does: 'Route layout — assembles containers; owns routing and SEO concerns.',
           mustNot: ['hold business logic', 'stack components directly'],
         },
         {
           name: 'containers',
+          layout: 'folder',
           does: 'A feature: assembles components, owns local state, calls services, '
             + 'drives navigation.',
         },
         {
           name: 'components',
+          layout: 'folder',
           does: 'Reusable, presentational UI.',
           mustNot: ['call services', 'touch the router', 'own app state'],
         },
         {
           name: 'hooks',
+          layout: 'folder',
           does: 'Adapts server and shared state; the only layer that injects context or owns a '
             + 'store.',
           owns: owns.hooks,
         },
         {
           name: 'contexts',
+          layout: 'folder',
           does: 'Defines and provides Context / Provider only.',
           owns: owns.contexts,
           allowedImporters: [
@@ -70,6 +75,7 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
         },
         {
           name: 'services',
+          layout: 'folder',
           does: 'Network primitives — the only layer that talks to the HTTP client or sockets.',
           owns: ['axios', { global: 'fetch' }, { global: 'WebSocket' }],
           allowedImporters: ['containers', 'hooks', 'contexts'],
@@ -77,7 +83,7 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
       ],
       // Blueprint 4.0: unit shape lives on each layer.
       naming: {
-        component: 'PascalCase; the implementation file is named after the module',
+        component: 'PascalCase; the implementation file is named after the unit',
         hook: 'useX — only when it genuinely uses reactivity',
         service: 'snake_case',
         context: 'XxxProvider / XxxContext',
@@ -184,11 +190,13 @@ export function nextPreset(options: NextPresetOptions = {}): Blueprint {
         })),
         {
           name: 'components',
+          layout: 'folder',
           does: 'Reusable UI, shared across routes.',
           mustNot: ['own route-level data fetching'],
         },
         {
           name: 'hooks',
+          layout: 'folder',
           does: 'Client-side state adapters.',
           owns: [{ package: 'react', imports: ['useContext'] }],
         },
