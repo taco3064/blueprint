@@ -31,7 +31,7 @@ export function resolveImportReference(
   scope: ImportResolutionScope,
 ): ResolvedImportReference {
   const importerPosition = scope.classify(importer);
-  const alias = matchedAlias(scope.aliases, specifier);
+  const alias = matchedAlias(scope.aliases, specifier, scope.definition.alias);
   const aliasTarget = resolveAliasTarget(alias, specifier);
 
   const { target, canonicalSpecifier } = resolveTarget({
@@ -109,12 +109,24 @@ function crossesBoundary(
   return importer !== null && target !== null && boundaryKey(importer) !== boundaryKey(target);
 }
 
-function matchedAlias(aliases: AliasRoot[], specifier: string): AliasRoot | null {
+function matchedAlias(
+  aliases: AliasRoot[],
+  specifier: string,
+  canonicalAlias: string,
+): AliasRoot | null {
+  const canonical = aliases.find((candidate) => candidate.alias === canonicalAlias);
+
+  if (canonical && matchesAlias(canonical, specifier)) {
+    return canonical;
+  }
+
   return aliases
-    .filter(
-      (candidate) => specifier === candidate.alias || specifier.startsWith(`${candidate.alias}/`),
-    )
+    .filter((candidate) => matchesAlias(candidate, specifier))
     .sort((left, right) => right.alias.length - left.alias.length)[0] ?? null;
+}
+
+function matchesAlias(candidate: AliasRoot, specifier: string): boolean {
+  return specifier === candidate.alias || specifier.startsWith(`${candidate.alias}/`);
 }
 
 function boundaryKey(position: ResolvedSourcePosition): string | null {

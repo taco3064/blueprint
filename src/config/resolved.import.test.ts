@@ -122,6 +122,22 @@ describe('resolveArchitecture · import contract', () => {
     });
   });
 
+  it('keeps the canonical alias authoritative for its descendants', () => {
+    const definition = architecture();
+
+    definition.additionalAliases = { '~app/billing': 'src/billing' };
+
+    expect(resolveArchitecture(definition).resolveImport(
+      'src/account/components/Profile/index.tsx',
+      '~app/billing/hooks/useBill',
+    )).toMatchObject({
+      alias: '~app',
+      kind: 'canonical-alias',
+      targetSegments: ['billing', 'hooks', 'useBill'],
+      canonicalSpecifier: '~app/billing/hooks/useBill',
+    });
+  });
+
   it('keeps source-root wiring outside the dependency verdict', () => {
     const reference = resolveArchitecture(architecture()).resolveImport(
       'src/index.ts',

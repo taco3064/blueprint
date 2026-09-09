@@ -115,6 +115,29 @@ describe('emitLint · canonical cross-boundary alias', () => {
     )).not.toContain('blueprint/import-boundary');
   });
 
+  it('allows canonical descendants that also match a longer additional alias', () => {
+    const blueprint = moduleBlueprint();
+
+    blueprint.architecture.additionalAliases = {
+      '~app/b_module': 'src/b_module',
+    };
+
+    const messages = new Linter({ configType: 'flat' }).verify(
+      'import useB from "~app/b_module/hooks/useB";',
+      [{
+        files: ['**/*.tsx'],
+        languageOptions: { parser: tsParser },
+        plugins: { blueprint: { rules: { 'import-boundary': importBoundary } } },
+        rules: {
+          'blueprint/import-boundary': ['error', { architecture: blueprint.architecture }],
+        },
+      }],
+      { filename: 'src/a_module/components/Card/index.tsx' },
+    );
+
+    expect(messages).toEqual([]);
+  });
+
   it('applies the same canonical rule to layer-first flow', () => {
     const blueprint: Blueprint = {
       framework: 'react',
