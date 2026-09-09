@@ -30,10 +30,13 @@ export function createPathMethods(context: PathContext): Pick<ResolvedArchitectu
 
   return {
     resolveModuleRoot: (module) => state.moduleByName.get(module)?.root ?? null,
-    resolveLayerRoot: (layer) => state.moduleFirst ? null : state.layerByName.get(layer)?.root ?? null,
+    resolveLayerRoot: (layer) => state.moduleFirst
+      ? null
+      : state.layerByName.get(layer)?.root ?? null,
     resolveModuleLayerRoot: (module, layer) => moduleLayerRoot(state, module, layer),
     layerFiles: (layer, framework) => layerFiles({ state, resolved }, layer, framework),
-    moduleLayerFiles: (module, layer, framework) => moduleLayerFiles(state, { module, layer, framework }),
+    moduleLayerFiles: (module, layer, framework) =>
+      moduleLayerFiles(state, { module, layer, framework }),
     resolveImportPosition: (importer, specifier, router) => importPosition(
       { state, relativeParts, classify }, { importer, specifier, router },
     ),
@@ -52,7 +55,9 @@ export function createPathMethods(context: PathContext): Pick<ResolvedArchitectu
 }
 
 function moduleLayerRoot(state: ResolverState, module: string, layer: string): string | null {
-  if (!state.moduleFirst || !state.moduleByName.has(module) || !state.layerByName.has(layer)) { return null; }
+  if (!state.moduleFirst || !state.moduleByName.has(module) || !state.layerByName.has(layer)) {
+    return null;
+  }
 
   return joinSource(state.sourceRoot, module, layer);
 }
@@ -81,7 +86,9 @@ function moduleLayerFiles(
 ): string[] {
   const root = moduleLayerRoot(state, input.module, input.layer);
 
-  if (root === null) { return []; }
+  if (root === null) {
+    return [];
+  }
 
   return resolveLayerFilePatterns(input.layer, input.framework, {
     layerFiles: state.definition.layerFiles,
@@ -106,9 +113,13 @@ function importPosition(
   const { state, relativeParts, classify } = context;
   const aliasTarget = resolveAliasPath(state.aliases, input.specifier);
 
-  if (aliasTarget !== undefined) { return aliasTarget === null ? null : classify(aliasTarget, input.router); }
+  if (aliasTarget !== undefined) {
+    return aliasTarget === null ? null : classify(aliasTarget, input.router);
+  }
 
-  if (!input.specifier.startsWith('.')) { return null; }
+  if (!input.specifier.startsWith('.')) {
+    return null;
+  }
 
   const importerParts = relativeParts(input.importer);
   const target = resolveRelative(importerParts.slice(0, -1), input.specifier);
@@ -161,11 +172,15 @@ function resolveAliasPath(aliases: AliasRoot[], specifier: string): string[] | n
   const root = aliases.find((candidate) =>
     specifier === candidate.alias || specifier.startsWith(`${candidate.alias}/`));
 
-  if (!root) { return undefined; }
+  if (!root) {
+    return undefined;
+  }
 
   const parts = specifier.slice(root.alias.length).split('/').filter(Boolean);
 
-  if (!startsWith(parts, root.prefix)) { return null; }
+  if (!startsWith(parts, root.prefix)) {
+    return null;
+  }
 
   return [...(root.prepend ?? []), ...parts.slice(root.prefix.length)];
 }
@@ -174,11 +189,17 @@ function resolveRelative(from: string[], specifier: string): string[] | null {
   const result = [...from];
 
   for (const part of specifier.split('/')) {
-    if (part === '' || part === '.') { continue; }
+    if (part === '' || part === '.') {
+      continue;
+    }
 
     if (part === '..') {
-      if (result.pop() === undefined) { return null; }
-    } else { result.push(part); }
+      if (result.pop() === undefined) {
+        return null;
+      }
+    } else {
+      result.push(part);
+    }
   }
 
   return result;

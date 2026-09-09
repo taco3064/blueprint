@@ -7,12 +7,12 @@ import type {
 } from './types';
 import {
   aliasLayerRoots,
-  aliasPathSpecifier,
   getUnitShape,
   normalizeAllowedImporters,
 } from './graph';
 import type { AliasRoot, DiagramEdge } from './graph';
-import { createPathMethods, resolveLayerFilePatterns } from './resolved-paths';
+import { createPathMethods } from './resolved-paths';
+export { resolveLayerFilePatterns } from './resolved-paths';
 
 export interface ResolvedUnitShape {
   layout: 'folder' | 'file';

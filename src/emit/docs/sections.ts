@@ -71,7 +71,8 @@ export function renderModule(architecture: ArchitectureDef, exampleLayer: string
 
   const topology = resolved.moduleFirst
     ? [
-        'Modules are direct children of the source root. Each declared module reuses the same layer vocabulary below.',
+        'Modules are direct children of the source root. Each declared module reuses '
+        + 'the same layer vocabulary below.',
         '',
         ...resolved.modules.map((module) => `- \`${module.name}/\` — ${module.definition.does}`),
         '',
@@ -95,7 +96,8 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
 
   const bullets = [
     '- **One-way only** — a layer imports only from the layers below it; upstream imports are errors.',
-    '- **No same-layer imports via the alias** — use a relative path inside the current architectural scope.',
+    '- **No same-layer imports via the alias** — use a relative path inside the current '
+    + 'architectural scope.',
   ];
 
   const folderEntries = [...new Set(
@@ -106,20 +108,30 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   )];
 
   if (folderEntries.length) {
-    bullets.push(`- **Entry-only** — import a folder unit through its ${folderEntries.join(' / ')}, never its internals.`);
+    bullets.push(
+      `- **Entry-only** — import a folder unit through its ${folderEntries.join(' / ')}, `
+      + 'never its internals.',
+    );
   }
 
   bullets.push(
     '- **No redundant relative segments** (`./../`, `././`) that bypass the rules.',
-    '- **Ownership** — packages and globals are restricted to their owning layer (see the *Owns* column above).',
+    '- **Ownership** — packages and globals are restricted to their owning layer '
+    + '(see the *Owns* column above).',
   );
 
   if (resolved.moduleFirst) {
-    bullets.push('- **Module identity is declared** — source-root module folders come from `architecture.modules`; names such as `shared` and `app` have no special privilege.');
+    bullets.push(
+      '- **Module identity is declared** — source-root module folders come from '
+      + '`architecture.modules`; names such as `shared` and `app` have no special privilege.',
+    );
   }
 
   if (resolved.hasSelfOnly) {
-    bullets.push('- **selfOnly** — a permitted importer may depend on the target layer but must never re-export it onward.');
+    bullets.push(
+      '- **selfOnly** — a permitted importer may depend on the target layer but must never '
+      + 're-export it onward.',
+    );
   }
 
   return [

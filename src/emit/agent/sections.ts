@@ -10,7 +10,6 @@ import type {
 import {
   readSetting,
   resolveArchitecture,
-  sourcePath,
 } from '../../config';
 import { handbookPath } from '../docs';
 import { enforcedBy, resolveTestFiles, unavailableForEmit } from '../lint';
@@ -119,11 +118,15 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     const location = resolved.moduleFirst ? `<module>/${layer.name}` : root ?? layer.name;
     const parts = [`- \`${location}/\` — ${layer.does}.`];
 
-    if (layer.mustNot?.length) { parts.push(` MUST NOT: ${layer.mustNot.join('; ')}.`); }
+    if (layer.mustNot?.length) {
+      parts.push(` MUST NOT: ${layer.mustNot.join('; ')}.`);
+    }
 
     const owns = formatOwns(layer.owns);
 
-    if (owns) { parts.push(` OWNS: ${owns}.`); }
+    if (owns) {
+      parts.push(` OWNS: ${owns}.`);
+    }
 
     if (layer.allowedImporters) {
       const importers = allowedImporters
@@ -143,14 +146,20 @@ export function renderPlacement(architecture: ArchitectureDef): string {
   const moduleLines = resolved.moduleFirst
     ? [
         '- Modules are declared direct children of the source root:',
-        ...resolved.modules.map((module) => `  - \`${module.root}/\` — ${module.definition.does}.`),
+        ...resolved.modules.map(
+          (module) => `  - \`${module.root}/\` — ${module.definition.does}.`,
+        ),
       ]
     : [];
 
   const testGlobs = resolveTestFiles(architecture.testFiles);
 
   const exemptLine = testGlobs.length
-    ? [`- Test support is exempt from placement rules where these globs match: ${testGlobs.map((glob) => `\`${glob}\``).join(' / ')}.`]
+    ? [
+        '- Test support is exempt from placement rules where these globs match: '
+        + testGlobs.map((glob) => `\`${glob}\``).join(' / ')
+        + '.',
+      ]
     : [];
 
   return ['### Where code goes', '', ...moduleLines, ...lines, ...exemptLine].join('\n');
@@ -182,20 +191,29 @@ export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): s
       .map((unit) => `\`${unit.entry}\``),
   )];
 
-  if (folderEntries.length) { bullets.push(`- Import folder units via their ${folderEntries.join(' / ')}, never their internals.`); }
+  if (folderEntries.length) {
+    bullets.push(
+      `- Import folder units via their ${folderEntries.join(' / ')}, never their internals.`,
+    );
+  }
 
   bullets.push(
     '- Restricted packages / globals live only in their owning layer (see "Where code goes").',
-    '- Relative imports stay inside the current architectural scope; no redundant segments (`./../`, `././`).',
+    '- Relative imports stay inside the current architectural scope; no redundant segments '
+    + '(`./../`, `././`).',
   );
 
   for (const [id, setting] of emittableGates(blueprint, stack)) {
     const held = enforcedBy(id);
     const gate = gateLabel([id, setting]);
 
-    if (held === 'lint') { bullets.push(`- ${gate} is a hard gate.`); }
+    if (held === 'lint') {
+      bullets.push(`- ${gate} is a hard gate.`);
+    }
 
-    if (held === 'inspect') { bullets.push(`- ${inspectDiagnosisClause(gate)}.`); }
+    if (held === 'inspect') {
+      bullets.push(`- ${inspectDiagnosisClause(gate)}.`);
+    }
   }
 
   bullets.push('- When lint fails, fix the structure — never silence it with `eslint-disable`.');
@@ -291,13 +309,21 @@ export function renderChecklist(blueprint: Blueprint): string {
     '- [ ] Folder units expose only their configured public entry.',
   ];
 
-  if (architecture.naming && Object.keys(architecture.naming).length) { items.push('- [ ] Names follow the conventions above.'); }
+  if (architecture.naming && Object.keys(architecture.naming).length) {
+    items.push('- [ ] Names follow the conventions above.');
+  }
 
   items.push(`- [ ] No new undeclared architectural folders under \`${architecture.alias}/\`.`);
 
-  if (blueprint.componentShape?.length) { items.push('- [ ] Changed units hold against every component-shape axis, judged one by one.'); }
+  if (blueprint.componentShape?.length) {
+    items.push(
+      '- [ ] Changed units hold against every component-shape axis, judged one by one.',
+    );
+  }
 
-  if (claudePrinciples(principles).length) { items.push('- [ ] The behavioral principles above are upheld.'); }
+  if (claudePrinciples(principles).length) {
+    items.push('- [ ] The behavioral principles above are upheld.');
+  }
 
   return ['### Before you commit', '', ...items].join('\n');
 }
