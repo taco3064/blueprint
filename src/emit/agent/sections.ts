@@ -87,13 +87,13 @@ export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = 
     '',
     `- Framework: \`${blueprint.framework}\`. Import alias: \`${architecture.alias}\`.`,
     `- Layer flow: ${chain} — transitive: a layer may import **any** layer after it, unless the target narrows its importers.`,
-    `- **Before adding, moving, or renaming any file** — placement, module shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
+    `- **Before adding, moving, or renaming any file** — placement, unit shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
     '- **Operating discipline** — how to follow the flow, react to lint failures, '
     + `and the pre-commit checklist: read [${CONTRACT_DOC}](${CONTRACT_DOC}) `
     + '(ships inside the package — present once dependencies are installed, '
     + 'always matching the installed version).',
 
-    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectDiagnosisClause(inspectGates.join(', '))}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
+    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, unit entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectDiagnosisClause(inspectGates.join(', '))}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
 
     `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a module of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.`,
   ].join('\n');
@@ -115,62 +115,45 @@ export function renderContext(blueprint: Blueprint): string {
 export function renderPlacement(architecture: ArchitectureDef): string {
   const resolved = resolveArchitecture(architecture);
 
-  const lines = resolved.layers.map(({ definition: layer, root, allowedImporters }) => {
-    const parts = [`- \`${root}/\` — ${layer.does}.`];
+  const lines = resolved.layers.map(({ definition: layer, root, allowedImporters, unit }) => {
+    const location = resolved.moduleFirst ? `<module>/${layer.name}` : root ?? layer.name;
+    const parts = [`- \`${location}/\` — ${layer.does}.`];
 
-    if (layer.mustNot?.length) {
-      parts.push(` MUST NOT: ${layer.mustNot.join('; ')}.`);
-    }
+    if (layer.mustNot?.length) { parts.push(` MUST NOT: ${layer.mustNot.join('; ')}.`); }
 
     const owns = formatOwns(layer.owns);
 
-    if (owns) {
-      parts.push(` OWNS: ${owns}.`);
-    }
+    if (owns) { parts.push(` OWNS: ${owns}.`); }
 
     if (layer.allowedImporters) {
       const importers = allowedImporters
-        .map((importer) => (importer.selfOnly ? `${importer.layer} (selfOnly)` : importer.layer))
+        .map((importer) => importer.selfOnly ? `${importer.layer} (selfOnly)` : importer.layer)
         .join(', ');
 
       parts.push(` IMPORTABLE BY: ${importers}.`);
     }
 
+    parts.push(unit.layout === 'folder'
+      ? ` UNIT: folder, public entry \`${unit.entry}\`; internals stay private.`
+      : ' UNIT: one file.');
+
     return parts.join('');
   });
 
-  const module = resolved.folderShape;
-  const priv = module.private.map((part) => `\`${part}\``).join(' / ');
-
-  const moduleLine
-    = module.layout === 'folder'
-      ? `- Module shape: one folder per module. Only \`${module.entry}\` is importable from outside${priv ? `; keep ${priv} private and never import them across modules` : ''}.`
-      : '- Module shape: one file per module (flat). Extract shared logic to a lower layer.';
-
-  const overrideLines = resolved.layers
-    .filter((layer) => layer.definition.module !== undefined)
-    .map((layer) => {
-      const shape = layer.module;
-
-      return shape.layout === 'folder'
-        ? `- Exception — \`${sourcePath(architecture, layer.name)}/\`: one folder per module, entry \`${shape.entry}\`.`
-        : `- Exception — \`${sourcePath(architecture, layer.name)}/\`: one file per module (flat).`;
-    });
+  const moduleLines = resolved.moduleFirst
+    ? [
+        '- Modules are declared direct children of the source root:',
+        ...resolved.modules.map((module) => `  - \`${module.root}/\` — ${module.definition.does}.`),
+      ]
+    : [];
 
   const testGlobs = resolveTestFiles(architecture.testFiles);
 
   const exemptLine = testGlobs.length
-    ? [`- Test support is exempt from every placement rule above as far as those globs reach: files matching ${testGlobs.map((glob) => `\`${glob}\``).join(' / ')} sit outside them, and a file none of them matches is placed by the rules above like any other. If a placement rule stops you on files that exist only to serve tests, that is a question for the owner — say so and name them; never widen \`architecture.testFiles\` yourself, and never rename a file to match those globs.`]
+    ? [`- Test support is exempt from placement rules where these globs match: ${testGlobs.map((glob) => `\`${glob}\``).join(' / ')}.`]
     : [];
 
-  return [
-    '### Where code goes',
-    '',
-    ...lines,
-    moduleLine,
-    ...overrideLines,
-    ...exemptLine,
-  ].join('\n');
+  return ['### Where code goes', '', ...moduleLines, ...lines, ...exemptLine].join('\n');
 }
 
 export function renderNaming(naming: Record<string, string> | undefined): string {
@@ -189,43 +172,33 @@ export function renderNaming(naming: Record<string, string> | undefined): string
 
 export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): string {
   const { architecture } = blueprint;
-  const bullets = ['- Import only from downstream layers — never upstream, never the same layer.'];
+  const resolved = resolveArchitecture(architecture);
+  const bullets = ['- Import only from downstream layers — never upstream.'];
 
-  const folderEntries = [
-    ...new Set(
-      resolveArchitecture(architecture).layers
-        .map((layer) => layer.module)
-        .filter((shape) => shape.layout === 'folder')
-        .map((shape) => `\`${shape.entry}\``),
-    ),
-  ];
+  const folderEntries = [...new Set(
+    resolved.layers
+      .map((layer) => layer.unit)
+      .filter((unit) => unit.layout === 'folder')
+      .map((unit) => `\`${unit.entry}\``),
+  )];
 
-  if (folderEntries.length) {
-    bullets.push(`- Import a module via its ${folderEntries.join(' / ')}, never its internals.`);
-  }
+  if (folderEntries.length) { bullets.push(`- Import folder units via their ${folderEntries.join(' / ')}, never their internals.`); }
 
   bullets.push(
     '- Restricted packages / globals live only in their owning layer (see "Where code goes").',
-    '- Relative imports stay inside their module; no redundant segments (`./../`, `././`).',
+    '- Relative imports stay inside the current architectural scope; no redundant segments (`./../`, `././`).',
   );
 
   for (const [id, setting] of emittableGates(blueprint, stack)) {
     const held = enforcedBy(id);
     const gate = gateLabel([id, setting]);
 
-    if (held === 'lint') {
-      bullets.push(`- ${gate} is a hard gate.`);
-    }
+    if (held === 'lint') { bullets.push(`- ${gate} is a hard gate.`); }
 
-    if (held === 'inspect') {
-      bullets.push(`- ${inspectDiagnosisClause(gate)}.`);
-    }
+    if (held === 'inspect') { bullets.push(`- ${inspectDiagnosisClause(gate)}.`); }
   }
 
-  bullets.push(
-    '- When lint fails, fix the structure — move the code or extract a lower layer. '
-    + 'Never silence it with `eslint-disable`, and never relocate the violation to a sibling.',
-  );
+  bullets.push('- When lint fails, fix the structure — never silence it with `eslint-disable`.');
 
   return ['### Machine checks', '', ...bullets].join('\n');
 }
@@ -311,23 +284,20 @@ export function renderChecklist(blueprint: Blueprint): string {
   const resolved = resolveArchitecture(architecture);
 
   const items = [
-    '- [ ] Imports follow the one-way flow (no upstream / same-layer).',
-    `- [ ] New code sits in the right layer; modules expose only \`${resolved.folderShape.entry}\`.`,
+    '- [ ] Imports follow the declared one-way layer flow.',
+    resolved.moduleFirst
+      ? '- [ ] New code sits in the right declared module and shared inner layer.'
+      : '- [ ] New code sits in the right layer.',
+    '- [ ] Folder units expose only their configured public entry.',
   ];
 
-  if (architecture.naming && Object.keys(architecture.naming).length) {
-    items.push('- [ ] Names follow the conventions above.');
-  }
+  if (architecture.naming && Object.keys(architecture.naming).length) { items.push('- [ ] Names follow the conventions above.'); }
 
-  items.push(`- [ ] No new undeclared folders under \`${architecture.alias}/\`.`);
+  items.push(`- [ ] No new undeclared architectural folders under \`${architecture.alias}/\`.`);
 
-  if (blueprint.componentShape?.length) {
-    items.push('- [ ] Changed units hold against every component-shape axis, judged one by one.');
-  }
+  if (blueprint.componentShape?.length) { items.push('- [ ] Changed units hold against every component-shape axis, judged one by one.'); }
 
-  if (claudePrinciples(principles).length) {
-    items.push('- [ ] The behavioral principles above are upheld.');
-  }
+  if (claudePrinciples(principles).length) { items.push('- [ ] The behavioral principles above are upheld.'); }
 
   return ['### Before you commit', '', ...items].join('\n');
 }

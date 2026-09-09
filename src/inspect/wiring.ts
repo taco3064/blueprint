@@ -68,7 +68,7 @@ export function expectedStructural(
     layer,
     aliases,
     forbidden,
-    moduleLayout: layouts[layer],
+    unitLayout: layouts[layer],
     folderTargets: resolved.layers
       .map((entry) => entry.name)
       .filter((name) => layouts[name] === 'folder' && name !== layer && !forbidden.includes(name)),

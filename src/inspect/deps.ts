@@ -167,7 +167,7 @@ function skippedFolders(scanned: ScanResult, layerNames: Set<string>): string[] 
 
 function isFlatLayer(module: string, layerNames: Set<string>, layoutOf: LayoutOf): boolean {
   // Stryker disable next-line LogicalOperator: graph keys never include a non-layer single segment.
-  return !module.includes('/') && layerNames.has(module) && layoutOf(module) === 'flat';
+  return !module.includes('/') && layerNames.has(module) && layoutOf(module) === 'file';
 }
 
 function normalizeTarget(
@@ -192,7 +192,7 @@ function renderModule(
   testExemption: string | null,
 ): string {
   return [
-    entry.module + (flatLayer ? ' (flat layer — answers at layer granularity)' : ''),
+    entry.module + (flatLayer ? ' (file-layout layer — answers at layer granularity)' : ''),
     `  imported by (${entry.importedBy.length}):`,
     ...entry.importedBy.map((module) => `    ← ${module}`),
     `  imports (${entry.imports.length}):`,
@@ -229,7 +229,7 @@ function renderLeaderboard(
     ...modules.map(
       (entry) =>
         `  ${String(entry.importedBy.length).padStart(width)} ← ${entry.module}`
-        + (isFlatLayer(entry.module, layerNames, layoutOf) ? ' (flat layer)' : ''),
+        + (isFlatLayer(entry.module, layerNames, layoutOf) ? ' (file-layout layer)' : ''),
     ),
     ...note,
     ...exemptionLine(testExemption),

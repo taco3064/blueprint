@@ -13,6 +13,12 @@ interface RelativeProblem {
   data: Record<string, string>;
 }
 
+interface RelativeProblemContext {
+  resolved: ResolvedArchitecture;
+  own: ResolvedPosition;
+  dir: string[];
+}
+
 export const relativeEscape: Rule.RuleModule = {
   meta: {
     type: 'problem',
@@ -60,7 +66,7 @@ export const relativeEscape: Rule.RuleModule = {
     const dir = ownSegments.slice(0, -1);
 
     const check = (node: Rule.Node, specifier: string): void => {
-      const problem = relativeProblem(resolved, own, dir, specifier);
+      const problem = relativeProblem({ resolved, own, dir }, specifier);
 
       if (problem) {
         context.report({ node, ...problem });
@@ -85,11 +91,11 @@ export const relativeEscape: Rule.RuleModule = {
 };
 
 function relativeProblem(
-  resolved: ResolvedArchitecture,
-  own: ResolvedPosition,
-  dir: string[],
+  context: RelativeProblemContext,
   specifier: string,
 ): RelativeProblem | null {
+  const { resolved, own, dir } = context;
+
   if (!specifier.startsWith('.')) {
     return null;
   }

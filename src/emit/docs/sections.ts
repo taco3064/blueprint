@@ -60,97 +60,66 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
 
 export function renderModule(architecture: ArchitectureDef, exampleLayer: string): string {
   const resolved = resolveArchitecture(architecture);
-  const module = resolved.folderShape;
 
-  const exceptionLines = resolved.layers
-    .filter((layer) => layer.definition.module !== undefined)
-    .map((layer) => {
-      const shape = layer.module;
+  const shapes = resolved.layers.map((layer) => {
+    const detail = layer.unit.layout === 'folder'
+      ? `folder units; public entry \`${layer.unit.entry}\``
+      : 'one file per unit';
 
-      return shape.layout === 'folder'
-        ? `- \`${layer.name}/\` — one folder per module, entry \`${shape.entry}\`.`
-        : `- \`${layer.name}/\` — one file per module (flat).`;
-    });
-
-  const exceptions = exceptionLines.length
-    ? ['', 'Per-layer exceptions to the shared shape:', '', ...exceptionLines]
-    : [];
-
-  if (module.layout === 'flat') {
-    return [
-      '## Module shape',
-      '',
-      'One module = one file (flat layout). Shared logic moves down to a lower layer.',
-      ...exceptions,
-    ].join('\n');
-  }
-
-  const items: [string, string][] = [
-    [module.entry, 'public entry — the only importable file'],
-    ['Example', 'implementation (named after the module)'],
-    ...module.private.map((part): [string, string] => [part, 'private']),
-  ];
-
-  const tree = items.map(([part, note], i) => {
-    const connector = i === items.length - 1 ? '└─' : '├─';
-
-    return `   ${connector} ${part.padEnd(7)} # ${note}`;
+    return `- \`${layer.name}/\` — ${detail}.`;
   });
 
+  const topology = resolved.moduleFirst
+    ? [
+        'Modules are direct children of the source root. Each declared module reuses the same layer vocabulary below.',
+        '',
+        ...resolved.modules.map((module) => `- \`${module.name}/\` — ${module.definition.does}`),
+        '',
+      ]
+    : [];
+
   return [
-    '## Module shape',
+    '## Unit shape',
     '',
-    `One module = one folder. Only \`${module.entry}\` is public; everything else stays private to the module.`,
+    ...topology,
+    'A unit is the file or folder inside a layer. Unit layout is configured per layer:',
     '',
-    '```',
-    `${exampleLayer}/`,
-    '└─ Example/',
-    ...tree,
-    '```',
-    ...exceptions,
+    ...shapes,
+    '',
+    `Example layer: \`${exampleLayer}/\`.`,
   ].join('\n');
 }
 
 export function renderImportDiscipline(architecture: ArchitectureDef): string {
   const resolved = resolveArchitecture(architecture);
-  const module = resolved.folderShape;
-
-  const hasSelfOnly = resolved.hasSelfOnly;
 
   const bullets = [
-    '- **One-way only** — a layer imports only from the layers below it; '
-    + 'upstream imports are errors.',
-    module.layout === 'flat'
-      ? '- **No same-layer imports via the alias** — use a relative path instead.'
-      : '- **No same-layer imports** — extract shared logic down to a lower layer instead.',
+    '- **One-way only** — a layer imports only from the layers below it; upstream imports are errors.',
+    '- **No same-layer imports via the alias** — use a relative path inside the current architectural scope.',
   ];
 
-  const folderEntries = [
-    ...new Set(
-      resolved.layers
-        .map((layer) => layer.module)
-        .filter((shape) => shape.layout === 'folder')
-        .map((shape) => `\`${shape.entry}\``),
-    ),
-  ];
+  const folderEntries = [...new Set(
+    resolved.layers
+      .map((layer) => layer.unit)
+      .filter((unit) => unit.layout === 'folder')
+      .map((unit) => `\`${unit.entry}\``),
+  )];
 
   if (folderEntries.length) {
-    bullets.push(
-      `- **Entry-only** — import a module through its ${folderEntries.join(' / ')}, never its internals.`,
-    );
+    bullets.push(`- **Entry-only** — import a folder unit through its ${folderEntries.join(' / ')}, never its internals.`);
   }
 
   bullets.push(
     '- **No redundant relative segments** (`./../`, `././`) that bypass the rules.',
-    '- **Ownership** — packages and globals are restricted to their owning layer (see the *Owns* '
-    + 'column above).',
+    '- **Ownership** — packages and globals are restricted to their owning layer (see the *Owns* column above).',
   );
 
-  if (hasSelfOnly) {
-    bullets.push(
-      '- **selfOnly** — where a layer narrows its importers with `selfOnly`, that importer'
-      + ' may depend on it but must never re-export it onward.',
-    );
+  if (resolved.moduleFirst) {
+    bullets.push('- **Module identity is declared** — source-root module folders come from `architecture.modules`; names such as `shared` and `app` have no special privilege.');
+  }
+
+  if (resolved.hasSelfOnly) {
+    bullets.push('- **selfOnly** — a permitted importer may depend on the target layer but must never re-export it onward.');
   }
 
   return [
