@@ -21,7 +21,20 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/migrate-434-tests.mjs
-      - run: npx eslint src --fix
+      - name: Lint migrated tests
+        shell: bash
+        run: |
+          npx eslint src --fix && exit 0
+          for file in \
+            src/emit/agent/sections.test.ts \
+            src/emit/docs/sections.test.ts \
+            src/emit/lint/lint.gates.test.ts \
+            src/emit/lint/lint.plugins.test.ts \
+            src/emit/lint/lint.test.ts; do
+            echo "### $file"
+            nl -ba "$file" | sed -n '1,330p' | awk '$1 == 14 || $1 == 16 || $1 == 20 || $1 == 22 || $1 == 252 || $1 == 284 { print }'
+          done
+          exit 1
       - name: Commit migration
         shell: bash
         run: |
