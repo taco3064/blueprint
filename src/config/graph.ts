@@ -6,11 +6,7 @@ export interface DiagramEdge {
   to: string;
   selfOnly?: boolean;
   description?: string;
-  /**
-   * True when the edge only records declaration order (the adjacent spine),
-   * not a declared importer relation — consecutive leaf layers are often
-   * semantically unrelated, and drawing them alike misreads as dependency.
-   */
+  /** True when the edge records declaration order rather than an explicit importer relation. */
   ordered?: boolean;
 }
 
@@ -41,12 +37,12 @@ export function getForbiddenLayers(architecture: ArchitectureDef, layerName: str
     .map((layer) => layer.name);
 }
 
-/** An alias paired with the path segments between its target and the layer folders. */
+/** An alias paired with the path segments between its target and sourceRoot. */
 export interface AliasRoot {
   alias: string;
-  /** Segments to cross from the alias target to reach the layers, e.g. `['src']`. */
+  /** Segments to cross from the alias target to reach sourceRoot. */
   prefix: string[];
-  /** Segments the alias target contributes below the source root. */
+  /** Segments the alias target contributes below sourceRoot. */
   prepend?: string[];
 }
 
@@ -75,42 +71,45 @@ export function aliasRoot(alias: string, target: string, sourceRoot: string): Al
   return null;
 }
 
-export function aliasSpecifier(root: AliasRoot | string, layer: string): string | null {
+export function aliasPathSpecifier(root: AliasRoot | string, path: string[]): string | null {
   if (typeof root === 'string') {
-    return `${root}/${layer}`;
+    return [root, ...path].join('/');
   }
 
   if (root.prepend?.length) {
-    return root.prepend[0] === layer ? root.alias : null;
+    if (!root.prepend.every((segment, index) => path[index] === segment)) {
+      return null;
+    }
+
+    const rest = path.slice(root.prepend.length);
+
+    return rest.length ? [root.alias, ...rest].join('/') : root.alias;
   }
 
-  return [root.alias, ...root.prefix, layer].join('/');
+  return [root.alias, ...root.prefix, ...path].join('/');
+}
+
+export function aliasSpecifier(
+  root: AliasRoot | string,
+  layer: string,
+  module?: string,
+): string | null {
+  return aliasPathSpecifier(root, module === undefined ? [layer] : [module, layer]);
 }
 
 function dirSegments(dir: string): string[] {
   return dir.split('/').filter((segment) => segment !== '' && segment !== '.');
 }
 
-export function getSharedModule(
-  architecture: ArchitectureDef,
-): { layout: 'folder' | 'flat'; entry: string; private: string[] } {
-  return {
-    layout: architecture.module?.layout ?? 'flat',
-    entry: architecture.module?.entry ?? 'index',
-    private: architecture.module?.private ?? [],
-  };
-}
-
-export function getModuleShape(
+export function getUnitShape(
   architecture: ArchitectureDef,
   layerName: string,
-): { layout: 'folder' | 'flat'; entry: string } {
+): { layout: 'folder' | 'file'; entry: string } {
   const layer = architecture.layers.find((candidate) => candidate.name === layerName);
-  const shared = getSharedModule(architecture);
 
   return {
-    layout: layer?.module?.layout ?? shared.layout,
-    entry: layer?.module?.entry ?? shared.entry,
+    layout: layer?.layout ?? 'file',
+    entry: layer?.entry ?? 'index',
   };
 }
 

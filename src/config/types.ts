@@ -50,14 +50,6 @@ export interface AllowedImporter {
   description?: string;
 }
 
-/** Per-layer override of the shared module shape (see {@link ModuleDef}). */
-export interface LayerModuleDef {
-  /** Override the layout for this layer only. */
-  layout?: 'folder' | 'flat';
-  /** Override the public entry filename for this layer only. */
-  entry?: string;
-}
-
 /** One layer in the architecture — its responsibility and its boundaries. */
 export interface LayerDef {
   /** Folder / layer name, e.g. `components`. Unique within the blueprint. */
@@ -68,11 +60,10 @@ export interface LayerDef {
   mustNot?: string[];
   /** Primitives (packages / globals) this layer exclusively owns. */
   owns?: OwnedPrimitive[];
-  /**
-   * Override the shared `architecture.module` shape for this layer — e.g.
-   * folder modules in a feature layer while the rest of the project is flat.
-   */
-  module?: LayerModuleDef;
+  /** Unit shape inside this layer. Omit for the one-file default. */
+  layout?: 'folder' | 'file';
+  /** Public entry filename for folder units. Omit for `index`. */
+  entry?: string;
   /**
    * Restrict who may import this layer. Omit to keep the default — every
    * layer declared before it may import it. When set, only the listed layers
@@ -88,23 +79,12 @@ export interface LayerDef {
   lintOverrides?: Record<string, unknown>;
 }
 
-/** How a single module (feature folder) is shaped. */
+/** One declared module directly below sourceRoot in module-first topology. */
 export interface ModuleDef {
-  /**
-   * `folder` = one folder per module with an entry file; `flat` = single
-   * file. Optional — omitting it means `flat`.
-   */
-  layout?: 'folder' | 'flat';
-  /**
-   * The public entry filename. Everything else is private. Optional —
-   * omitting it means `index`.
-   */
-  entry?: string;
-  /**
-   * Private sub-parts kept behind the entry, e.g. `['hooks', 'styles',
-   * 'types']`. Optional — omitting it means none (`[]`).
-   */
-  private?: string[];
+  /** One-segment source-root folder name. */
+  name: string;
+  /** One-line responsibility for this module. */
+  does: string;
 }
 
 export interface ArchitectureDef {
@@ -124,21 +104,19 @@ export interface ArchitectureDef {
    */
   sourceRoot?: string;
   /**
-   * Ordered layers. Order defines the one-way flow: a layer may import only
-   * layers declared after it. Per-layer `allowedImporters` narrows who may
-   * import a given layer (see {@link LayerDef.allowedImporters}).
+   * Optional pure module-first topology. Each name maps to a direct child of
+   * sourceRoot. Omit this field to preserve layer-first topology.
+   */
+  modules?: ModuleDef[];
+  /**
+   * Ordered shared layer vocabulary. Order defines the one-way inner flow.
+   * In module-first topology the same layer definitions repeat inside each
+   * declared module; a module may omit any physical layer folder.
    */
   layers: LayerDef[];
-  /** Dependency direction. Only `one-way` for now (upstream imports banned). */
   /**
-   * Feature-folder shape shared across layers. Optional — omitting it (or
-   * any of its keys) means the flat default, `{ layout: 'flat', entry:
-   * 'index' }`; declare it to switch to folder layout or rename the entry.
-   */
-  module?: ModuleDef;
-  /**
-   * Layer → file glob(s), each carrying a `{layer}` placeholder. Defaults are
-   * derived from `framework` when omitted.
+   * Layer file glob(s). Layer-first custom patterns require `{layer}`;
+   * module-first custom patterns require both `{module}` and `{layer}`.
    */
   layerFiles?: string | string[];
   /** File globs excluded from linting. */
@@ -243,7 +221,7 @@ export interface Blueprint {
    */
   framework: Framework;
   /**
-   * The load-bearing block: layers, flow, alias, module shape — everything
+   * The load-bearing block: modules, layers, flow, alias, unit shape — everything
    * the structural lint rules and `inspect` findings compile from.
    */
   architecture: ArchitectureDef;

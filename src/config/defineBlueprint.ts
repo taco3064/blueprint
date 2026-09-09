@@ -14,6 +14,7 @@ import { activeSetting } from './settings';
 
 const VALID_TIERS = ['error', 'warn', 'off'];
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/;
+const MODULE_PLACEHOLDER = /\{\s*module\s*\}/;
 
 const AGENT_TARGETS = ['claude', 'agents', 'gemini', 'copilot', 'cursor', 'windsurf'];
 const DEFAULT_AGENT_TARGETS: AgentTarget[] = ['claude', 'agents'];
@@ -33,8 +34,8 @@ const ARCHITECTURE_KEYS = [
   'alias',
   'additionalAliases',
   'sourceRoot',
+  'modules',
   'layers',
-  'module',
   'layerFiles',
   'layerFilesIgnore',
   'testFiles',
@@ -46,7 +47,8 @@ const LAYER_KEYS = [
   'does',
   'mustNot',
   'owns',
-  'module',
+  'layout',
+  'entry',
   'allowedImporters',
   'lintOverrides',
 ];
@@ -80,7 +82,7 @@ const MANAGED_RULES = [
  *       { name: 'hooks', does: 'Adapts server and shared state' },
  *       { name: 'services', does: 'Network primitives', owns: ['axios', { global: 'fetch' }] },
  *     ],
- *     module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
+ *     // Optional module-first topology: modules: [{ name: 'auth', does: 'Authentication' }],
  *   },
  * });
  */
@@ -121,9 +123,13 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
     throw new Error('architecture.layers must be an array.');
   }
 
+  if ('module' in (architecture as unknown as Record<string, unknown>)) {
+    throw new Error('architecture.module was removed in Blueprint 4.0 — move layout / entry onto each layer. module.private has no replacement.');
+  }
+
   rejectUnknownKeys(architecture, ARCHITECTURE_KEYS, 'architecture');
 
-  const { alias, additionalAliases, layers, module, layerFiles } = architecture;
+  const { alias, additionalAliases, modules, layers, layerFiles } = architecture;
 
   if (typeof alias !== 'string' || !alias.trim()) {
     throw new Error('architecture.alias must be a non-empty string.');
@@ -133,10 +139,10 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
     throw new Error('architecture.layers must not be empty.');
   }
 
+  validateModules(modules);
   validateLayers(layers);
-  validateModule(module);
   validateAdditionalAliases(additionalAliases);
-  validateLayerFiles(layerFiles);
+  validateLayerFiles(layerFiles, modules !== undefined);
 }
 
 function validateLayers(layers: LayerDef[]): void {
@@ -174,30 +180,48 @@ function validateLayerName(layer: LayerDef, earlier: Set<string>): void {
   }
 }
 
-function validateModule(module: ModuleDef | undefined): void {
-  if (module === undefined) {
+function validateModules(modules: ModuleDef[] | undefined): void {
+  if (modules === undefined) {
     return;
   }
 
-  if (module.layout !== undefined && module.layout !== 'folder' && module.layout !== 'flat') {
-    throw new Error(
-      `architecture.module.layout is "${String(module.layout)}" — expected folder | flat, `
-      + 'or omit it for the default (flat).',
-    );
+  if (!Array.isArray(modules) || modules.length === 0) {
+    throw new Error('architecture.modules must be a non-empty array when provided. Omit it for layer-first topology.');
   }
 
-  if (module.entry !== undefined && (typeof module.entry !== 'string' || !module.entry.trim())) {
-    throw new Error(
-      'architecture.module.entry must be a non-empty string when set '
-      + '— omit it for the default ("index").',
-    );
-  }
+  const exact = new Set<string>();
+  const folded = new Map<string, string>();
 
-  if (module.private !== undefined && !Array.isArray(module.private)) {
-    throw new Error('architecture.module.private must be an array when set — omit it for none.');
-  }
+  for (const module of modules) {
+    if (!module || typeof module.name !== 'string' || !module.name.trim()) {
+      throw new Error('Each module must have a non-empty name.');
+    }
 
-  rejectUnknownKeys(module, ['layout', 'entry', 'private'], 'architecture.module');
+    rejectUnknownKeys(module, ['name', 'does'], `module "${module.name}"`);
+
+    if (!/^[A-Za-z0-9._-]+$/.test(module.name) || module.name === '.' || module.name === '..') {
+      throw new Error(
+        `Module "${module.name}" is not a safe one-segment source-root folder name — `
+        + 'stick to letters, digits, ".", "_", "-".',
+      );
+    }
+
+    if (exact.has(module.name)) {
+      throw new Error(`Duplicate module name: "${module.name}".`);
+    }
+
+    const key = module.name.toLocaleLowerCase('en-US');
+    const collision = folded.get(key);
+
+    if (collision !== undefined) {
+      throw new Error(
+        `Module names "${collision}" and "${module.name}" collide on case-insensitive filesystems.`,
+      );
+    }
+
+    exact.add(module.name);
+    folded.set(key, module.name);
+  }
 }
 
 function validateAdditionalAliases(aliases: Record<string, string> | undefined): void {
@@ -367,26 +391,29 @@ function validateOwns(layer: LayerDef): void {
   }
 }
 
-function validateLayerModule(layer: LayerDef): void {
-  const override = layer.module;
-
-  if (override === undefined) {
-    return;
-  }
-
-  rejectUnknownKeys(override, ['layout', 'entry'], `layer "${layer.name}" module override`);
-
-  if (override.layout !== undefined && !['folder', 'flat'].includes(override.layout)) {
+function rejectRetiredLayerShape(layer: LayerDef): void {
+  if (layer && 'module' in (layer as unknown as Record<string, unknown>)) {
     throw new Error(
-      `Layer "${layer.name}" has module.layout "${override.layout}" — expected folder | flat.`,
+      `Layer "${layer.name ?? '<unknown>'}" uses layers[].module, removed in Blueprint 4.0 — move layout / entry directly onto the layer.`,
+    );
+  }
+}
+
+function validateLayerUnit(layer: LayerDef): void {
+  if (layer.layout !== undefined && layer.layout !== 'folder' && layer.layout !== 'file') {
+    if ((layer.layout as unknown) === 'flat') {
+      throw new Error(
+        `Layer "${layer.name}" uses layout "flat", renamed to "file" in Blueprint 4.0.`,
+      );
+    }
+
+    throw new Error(
+      `Layer "${layer.name}" has layout "${String(layer.layout)}" — expected folder | file.`,
     );
   }
 
-  if (
-    override.entry !== undefined
-    && (typeof override.entry !== 'string' || !override.entry.trim())
-  ) {
-    throw new Error(`Layer "${layer.name}" has an empty module.entry override.`);
+  if (layer.entry !== undefined && (typeof layer.entry !== 'string' || !layer.entry.trim())) {
+    throw new Error(`Layer "${layer.name}" has an empty entry. Omit it for "index".`);
   }
 }
 

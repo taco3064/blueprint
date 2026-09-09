@@ -75,7 +75,7 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
           allowedImporters: ['containers', 'hooks', 'contexts'],
         },
       ],
-      module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
+      // Blueprint 4.0: unit shape lives on each layer.
       naming: {
         component: 'PascalCase; the implementation file is named after the module',
         hook: 'useX — only when it genuinely uses reactivity',
@@ -158,7 +158,7 @@ export function reactPreset(options: PresetOptions = {}): Blueprint {
 
 /**
  * Canonical Next.js blueprint. The route tree (`app/` and/or `pages/`) is the
- * top layer — flat module layout, since file-based routing owns its own file
+ * top layer — file unit layout, since file-based routing owns its own file
  * names and nesting. No `fetch` ownership: server components fetch everywhere
  * by design, so restricting it to one layer would be a lie. `srcDir` picks the
  * source root (`src` vs the project root, where `app/` sits without --src-dir).
@@ -197,7 +197,6 @@ export function nextPreset(options: NextPresetOptions = {}): Blueprint {
           does: 'Framework-free plumbing: data access, formatting, config.',
         },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
       naming: {
         hook: 'useX — only when it genuinely uses reactivity',
       },
