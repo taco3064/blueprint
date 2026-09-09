@@ -27,14 +27,35 @@ export function aliasDependencyFindings(scope: {
 
   const targetPosition = scope.targetPosition;
   const at = { path: scope.file.path, subject: scope.ref.specifier };
-  const verdict = scope.resolved.dependencyVerdict(scope.importer, targetPosition);
+  const reference = scope.resolved.resolveImport(scope.file.segments, scope.ref.specifier);
+  const verdict = reference.dependency;
 
   return [
+    ...canonicalAliasFindings(scope, reference, at),
     ...deepImportFindings(scope, targetPosition, at),
     ...(verdict?.allowed === false ? [dependencyFinding(verdict, at)] : []),
     ...sameLayerAliasFindings(scope, at),
     ...allowedSelfOnlyFindings(scope, { targetPosition, verdict, at }),
   ];
+}
+
+function canonicalAliasFindings(
+  scope: Parameters<typeof aliasDependencyFindings>[0],
+  reference: ReturnType<ResolvedArchitecture['resolveImport']>,
+  at: { path: string; subject: string },
+): Finding[] {
+  return scope.importer.kind !== 'source-root'
+    && reference.kind === 'additional-alias'
+    && reference.crossesBoundary
+    && reference.canonicalSpecifier !== null
+    ? [{
+        severity: 'error',
+        rule: 'canonical-alias',
+        ...at,
+        message: `"${at.subject}" crosses an architectural boundary through a secondary alias — `
+          + `use the canonical source-root spelling "${reference.canonicalSpecifier}".`,
+      }]
+    : [];
 }
 
 function isGovernedTarget(

@@ -599,10 +599,9 @@ describe('one violation, one name per channel (field issue #48)', () => {
     const inspect = await cli(dir, ['inspect']);
 
     expect(inspect.output).toContain('[deep-import]');
-    // The bridge: searching a resolved config for `blueprint/deep-import`
-    // finds nothing, because the ban folds into no-restricted-imports. The
-    // finding says so itself now.
-    expect(inspect.output).toContain('(lint: no-restricted-imports)');
+
+    expect(inspect.output)
+      .toContain('(lint: no-restricted-imports / blueprint/import-boundary)');
   });
 
   it('the playbook warns that finding names are not rule ids', async () => {
@@ -616,6 +615,6 @@ describe('one violation, one name per channel (field issue #48)', () => {
     const playbook = (read(dir, 'blueprint-authoring.md') ?? '').replace(/\s+/g, ' ');
 
     expect(playbook).toContain('inspect\'s finding names are not ESLint rule ids');
-    expect(playbook).toContain('finds nothing and proves nothing');
+    expect(playbook).toContain('canonical-alias findings are carried by');
   });
 });

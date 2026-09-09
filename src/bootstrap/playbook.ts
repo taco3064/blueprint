@@ -11,9 +11,10 @@ export function printConfigCaveats(): string {
     + '`declaratory-self-only` note, not a loss); '
     + 'selfOnly\'s re-export ban resolves on the IMPORTER layer inspect names, '
     + 'not on the layer being protected; and **inspect\'s finding names are not ESLint rule '
-    + 'ids** — `deep-import`, `flow-violation` and `package-ownership` all fold into the single '
-    + '`no-restricted-imports` entry, so searching for `blueprint/deep-import` finds nothing and '
-    + 'proves nothing.',
+    + 'ids** — package ownership folds into `no-restricted-imports`; flow and deep-import '
+    + 'findings are carried by `no-restricted-imports` for static syntax and '
+    + '`blueprint/import-boundary` for proven dynamic targets; canonical-alias findings are '
+    + 'carried by `blueprint/import-boundary`.',
     'Inspect\'s migration steps name the carrying rule for each finding, '
     + 'and mark the ones no lint run will ever show.',
   ].join(' ');

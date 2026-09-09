@@ -324,8 +324,10 @@ describe('renderChecklist', () => {
     expect(bare).toContain('No new undeclared folders under `~app/`');
 
     expect(bare).toContain(
-      '- [ ] Imports follow the one-way flow (no upstream layers or local same-layer aliases).',
+      '- [ ] Imports follow the one-way flow and use `~app` across layer or module boundaries',
     );
+
+    expect(bare).toContain('Statically resolvable dynamic imports pass the same boundary checks');
 
     expect(bare).toContain('folder units expose only their declared entry');
   });

@@ -91,6 +91,7 @@ describe('wiringCheck · carrier gates (field issue #40)', () => {
 
     return {
       'blueprint/relative-escape': 'error',
+      'blueprint/import-boundary': ['error', { architecture: gated.architecture }],
       'no-restricted-imports': [2, {
         patterns: [...new Set(expected.flatMap((e) => [...e.groups]))].map((group) => ({
           group: JSON.parse(group) as string[],
@@ -363,6 +364,7 @@ describe('wiringCheck · the shapes a surviving global ban comes back as', () =>
     const check = await run(scanOf('src/views/Home/index.vue'), {
       rules: {
         'blueprint/relative-escape': 'error',
+        'blueprint/import-boundary': ['error', { architecture: blueprint.architecture }],
         'no-restricted-imports': [2, {
           patterns: [...groups].map((group) => ({ group: JSON.parse(group) as string[] })),
         }],
@@ -397,6 +399,7 @@ describe('wiringCheck · entries the reader could not make sense of', () => {
     const check = await run(scanOf('src/views/Home/index.vue'), {
       rules: {
         'blueprint/relative-escape': 'error',
+        'blueprint/import-boundary': ['error', { architecture: blueprint.architecture }],
         'no-restricted-imports': [2, {
           patterns: [
             ...[...groups].map((group) => ({ group: JSON.parse(group) as string[] })),
@@ -442,6 +445,7 @@ describe('wiringCheck · entries the reader could not make sense of', () => {
     const survived = (extra: unknown[]) => ({
       rules: {
         'blueprint/relative-escape': 'error',
+        'blueprint/import-boundary': ['error', { architecture: blueprint.architecture }],
         'no-restricted-imports': [2, {
           patterns: [
             ...groups.map((group) => ({ group: JSON.parse(group) as string[] })),
@@ -474,6 +478,7 @@ describe('wiringCheck · entries the reader could not make sense of', () => {
     const check = await run(scanOf('src/views/Home/index.vue'), {
       rules: {
         'blueprint/relative-escape': 'error',
+        'blueprint/import-boundary': ['error', { architecture: blueprint.architecture }],
         'no-restricted-imports': [2, {
           patterns: new Set(expected.flatMap((e) => [...e.groups])).size === 0
             ? []

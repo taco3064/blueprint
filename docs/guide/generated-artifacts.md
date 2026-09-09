@@ -96,7 +96,7 @@ lint, so it cannot drift. An excerpt:
 ````md
 ## Architecture
 
-Code flows one way: each layer may import only from the layers below it. Upstream imports and same-layer imports through the alias are barred.
+Code flows one way: each layer may import only from the layers below it. Upstream imports and same-layer imports through the alias are barred. `architecture.alias` is the sole canonical cross-boundary spelling; statically resolvable dynamic imports receive the same verdicts.
 
 ```mermaid
 flowchart TD
@@ -146,11 +146,11 @@ outside the block across regenerations:
 > The strictness is the product — it keeps AI development inside the declared
 > architecture. Never soften or bypass; disagreements go to the maintainer.
 
-- Framework: `vue`. Import alias: `~app`.
+- Framework: `vue`. Canonical source-root alias: `~app`.
 - Layer flow: `pages` → `containers` → `components` → `hooks` → `contexts` → `services` — transitive: a layer may import **any** layer after it, unless the target narrows its importers.
 - **Before adding, moving, or renaming any file** — placement, unit shapes, ownership, naming, component-shape axes, behavioral principles, the working playbook: read [docs/architecture-handbook.md](docs/architecture-handbook.md) (generated from the same blueprint — always current).
 - **Operating discipline** — how to follow the flow, react to lint failures, and the pre-commit checklist: read [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md) (ships inside the package — present once dependencies are installed, always matching the installed version).
-- Hard gates (machine-enforced on the files the architecture globs match — a declared position holding no code has nothing failing yet, which is runway, not protection): one-way imports, unit entries, ownership, relative escapes, `maxLines` = 400, `unusedVars`, `codeStyle`, `statementsPerLine`, `statementPadding`, `importBlock`, `fixtureImports`, `usePrefix`, `testFilename`, `deepWatch` fail the project's lint run; `cycles` is diagnosed only when `npx blueprint inspect --baseline` runs; the baseline grandfathers recorded findings, so this is not continuous edit-time prevention and a green lint says nothing about it. When lint fails, fix the structure — never `eslint-disable`, never relocate the violation to a sibling.
+- Hard gates (machine-enforced on the files the architecture globs match — a declared position holding no code has nothing failing yet, which is runway, not protection): canonical cross-boundary imports, one-way imports, unit entries, ownership, relative escapes, `maxLines` = 400, `unusedVars`, `codeStyle`, `statementsPerLine`, `statementPadding`, `importBlock`, `fixtureImports`, `usePrefix`, `testFilename`, `deepWatch` fail the project's lint run; statically resolvable dynamic imports receive the same structural checks; `cycles` is diagnosed only when `npx blueprint inspect --baseline` runs; the baseline grandfathers recorded findings, so this is not continuous edit-time prevention and a green lint says nothing about it. Runtime-dependent dynamic targets remain an explicit analysis limitation. When lint fails, fix the structure — never `eslint-disable`, never relocate the violation to a sibling.
 - You are the gate for: no undeclared architectural folders under `~app/` (`blueprint inspect --baseline` verifies — red only on what you introduced). Move code into the declared Layer → Unit topology. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never expand it yourself.
 <!-- BLUEPRINT:END -->
 ```

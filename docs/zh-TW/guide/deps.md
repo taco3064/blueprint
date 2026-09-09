@@ -7,9 +7,8 @@
 `inspect` 負責**裁決**架構（違規、循環相依、exit code 1），<br>
 `deps` 只負責**描述** —— 逐 unit 列出被誰引用、引用了誰，不做任何判定。
 
-兩者讀的是同一張圖，而那張圖是**從原始碼文字掃出來的，不是解析 AST** —— 見 [import graph 是怎麼讀出來的](/zh-TW/guide/reference#import-graph-是怎麼讀出來的)。<br>
-算出來的 `import(path)` 不會出現在被引用次數裡，所以影響範圍要當成下限看，不是精確值。<br>
-`deps` 的每一種輸出都會以那段說明收尾。
+兩者讀的是同一張圖：靜態語法從文字掃描，可化約成確定字串的動態 `import()` 會經 AST 解析後納入 —— 見 [import graph 是怎麼讀出來的](/zh-TW/guide/reference#import-graph-是怎麼讀出來的)。<br>
+若輸出結尾的分析限制仍列出執行期目標，影響範圍就是下限而非精確值。
 
 ## 操作方式
 

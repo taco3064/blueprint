@@ -91,11 +91,14 @@ export interface LayerDef {
 
 export interface ArchitectureDef {
   /**
-   * Project import alias, e.g. `~app`. Every structural ban pattern is built
-   * on it. Required — a wrong default would silently pass illegal imports.
+   * Canonical source-root import alias, e.g. `~app`. Imports crossing a
+   * declared layer or module boundary must use this spelling.
    */
   alias: string;
-  /** Extra roots beyond `alias` that also participate in import bans. */
+  /**
+   * Extra roots resolved for dependency diagnosis and graph analysis. They do
+   * not replace {@link ArchitectureDef.alias} as the canonical boundary spelling.
+   */
   additionalAliases?: Record<string, string>;
   /**
    * The directory layers live under, relative to the project root. Defaults to

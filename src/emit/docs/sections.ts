@@ -112,6 +112,9 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   const bullets = [
     '- **One-way only** — a layer imports only from the layers below it; '
     + 'upstream imports are errors.',
+    `- **Canonical boundary spelling** — use \`${architecture.alias}\`, the source-root alias, `
+    + 'whenever an import crosses a declared layer or module boundary. Additional aliases are '
+    + 'resolved for diagnosis, but rejected as alternate boundary spellings.',
     `- **No ${resolved.topology === 'module-first' ? 'same-module ' : ''}`
     + 'same-layer imports via the alias** — use a relative path. File units may '
     + 'reach sibling files; folder units may reach a sibling only through its entry. '
@@ -141,6 +144,9 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   }
 
   bullets.push(
+    '- **Dynamic parity** — a dynamic import whose target reduces to a proven string follows the '
+    + 'same alias, flow, and unit-entry rules. Runtime-dependent targets remain explicitly '
+    + 'unverified; they are never invented as legal graph dependencies.',
     '- **No redundant relative segments** (`./../`, `././`) that bypass the rules.',
     '- **Ownership** — packages and globals are restricted to their owning layer (see the *Owns* '
     + 'column above).',

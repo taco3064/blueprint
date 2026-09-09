@@ -178,7 +178,8 @@ npx @kekkai/blueprint doctor
   lint stays green. Doctor resolves the final config for a real layer file and names
   what was lost. Its ✓ also states its own reach: it compares config *text* and never
   executes ESLint — structural bans plus each active gate's carrier rule, one probe
-  per layer, with thresholds, package-ownership entries and a merged entry covering
+  per layer, including a missing, disabled, or weakened `blueprint/import-boundary`
+  architecture option, with thresholds, package-ownership entries and a merged entry covering
   only part of a layer left uncompared. When the config will not resolve, this check
   **skips** instead of failing (below), quoting the loader so the missing package is
   on screen rather than one `npm run lint` away

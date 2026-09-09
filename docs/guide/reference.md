@@ -21,7 +21,8 @@ page is the map.
   `.eslintrc` is a [migration decision](/guide/field-tested#framework-notes), never a
   silent half-adoption
 
-Nothing else — the package itself has zero runtime dependencies.
+Blueprint includes declared parser dependencies for JavaScript, TypeScript, and Vue so
+dynamic import targets can be evaluated consistently after installation.
 
 ## What `inspect` reports
 
@@ -31,6 +32,7 @@ as far as the globs reach: a scanned file no declared glob matches is inspected 
 
 - **`undeclared-folder`** · error — a source folder outside the declared topology: an undeclared top-level layer in layer-first mode, or an undeclared outer module / inner layer in module-first mode
 - **`flow-violation`** · error — a module-reachability or inner-flow failure, including an upstream import or a same-layer alias import inside one module. Same-layer imports across reachable modules remain valid
+- **`canonical-alias`** · error — a cross-layer or cross-module import uses an `additionalAliases` spelling instead of `architecture.alias`
 - **`deep-import`** · error — an alias import reaching *inside* a folder unit instead of through its entry
 - **`relative-escape`** · error — a relative import that leaves its own layer, escapes the source root, or reaches past a sibling unit's entry. Under `folder` layout a sibling *is* reachable — `../Sibling` is how one unit uses another inside the same layer, and the only way, since the alias spelling (`~app/{ownLayer}/Sibling`) stays banned
 - **`package-ownership`** · error — importing a layer-owned package (or restricted named import) from a non-owner layer
@@ -52,25 +54,22 @@ rather than reinterpreted.
 
 ### How the import graph is read
 
-Every finding above that mentions an import is read out of a graph built from **source
-text, not a parsed AST**. A computed specifier (`import(path)`, `require(name)`), the
-individual names behind `import * as`, and import-like text inside a string are outside
-what it can see. `inspect` and `deps` both close on this note, because a clean report is
-where it matters most.
-
-The **hard gates do not share the limit**: they run in ESLint, on the AST. So `inspect`
-is the survey and your lint run is the authority on any single import — which is also
-why `blueprint inspect` alone is not the gate.
+Static imports and re-exports are read from source text. Dynamic `import()` calls are
+parsed, and literal targets plus immutable constants, concatenations, and templates
+that reduce to a proven string join the same graph. Reassigned or shadowed bindings and
+runtime-dependent expressions are deliberately omitted; `inspect` and `deps` disclose
+their exact count (and any parse failures) instead of calling them legal.
 
 ## The embedded ESLint plugin
 
 `emitLint` ships custom rules inside the generated config — nothing extra to
-install. One is structural and always on; the rest are gated by `blueprint.rules` ids.
+configure. Two are structural and always on; the rest are gated by `blueprint.rules` ids.
 The plugin object is also exported (`import { plugin } from '@kekkai/blueprint'`)
 as the escape hatch for wiring a `blueprint/*` rule by hand in a config that does
 not spread `emitLint` — everyone else never needs it:
 
 - **`blueprint/relative-escape`** · always (structural) — the depth-aware twin of inspect's finding: both call one `relativeVerdict`, so neither can reach a verdict the other would not
+- **`blueprint/import-boundary`** · always (structural) — requires `architecture.alias` across layer/module boundaries and applies the same module, layer, and folder-entry verdicts to statically resolvable dynamic imports
 - **`blueprint/no-deep-watch`** · `rules.deepWatch` — no `deep: true` watches; they traverse the whole source on every change (Vue preset: `error`)
 - **`blueprint/use-prefix`** · `rules.usePrefix` — exported functions in the hook layer must carry the `use` prefix (layer and prefix configurable)
 - **`blueprint/use-prefix-needs-reactivity`** · `rules.usePrefixReactivity` — a `use`-prefixed file must actually call a reactive or lifecycle API
@@ -154,8 +153,8 @@ numbers is told which row accounts for the gap instead of guessing at it.
 
 ### Five gates ride an injected plugin
 
-The library has **zero runtime dependencies**, so every id above that emits a
-third-party rule needs its plugin handed to `emitLint` — and a gate whose plugin is
+Every id above that emits a third-party ESLint rule still needs its plugin handed to
+`emitLint` — Blueprint's parser dependencies do not bundle those rules. A gate whose plugin is
 missing **emits nothing while lint still passes**, which reads exactly like a clean
 merge. The generated config wires all three plugins and `init` installs them; a
 hand-merged config has to carry the argument itself:
@@ -218,8 +217,8 @@ in the bundle is fixed; a repo that wants different braces turns the gate off an
 declares its own set.
 
 One scope note that bites in practice: **`emit.lint.severity` covers only the
-structural family** (`no-restricted-imports` / `-syntax` / `-globals` and
-`blueprint/relative-escape`). Every rule in the list above keeps its own
+structural family** (`no-restricted-imports` / `-syntax` / `-globals`,
+`blueprint/relative-escape`, and `blueprint/import-boundary`). Every rule in the list above keeps its own
 `blueprint.rules` tier — setting severity to `warn` does **not** quiet `maxLines` or
 `unusedVars`.
 
@@ -235,7 +234,7 @@ Everything the structural rules compile from. These keys predate the gate
 catalog above, which is why most of them were only ever visible through
 examples — the definitions belong here.
 
-- **`architecture.alias`** — the project import root, e.g. `~app`. Required, with no default: a guessed alias silently passes illegal imports, because every structural ban pattern is built on this string
+- **`architecture.alias`** — the sole canonical source-root spelling, e.g. `~app`. Required, with no default. Cross-layer and cross-module imports must use it
 - **`architecture.modules`** — optional outer application modules, each mapped to a direct child of `sourceRoot`. When present, the complete `layers` list repeats under every ordinary module; global layer folders are not a second supported topology. The optional reserved module name `app` instead represents router composition recursively at the existing container position, independent of routing framework, and does not repeat the shared layers. A module's optional `dependsOn` lists its direct dependencies. Permission follows transitive reachability through that DAG, never declaration order; unknown modules, self-dependencies, duplicate edges, and cycles are invalid
 - **`architecture.layers`** — the ordered shared layers. **Order is the flow**: a layer may import only layers declared after it. The declaration therefore cannot express a back edge. This makes the declared layer graph acyclic; it does not continuously prevent unit import cycles, which `blueprint inspect` diagnoses only when it runs
 - **`layer.does`** — one line on what code in this layer is for. Feeds the handbook and the agent contract; no rule enforces it
@@ -249,7 +248,7 @@ examples — the definitions belong here.
 
 
 - **`architecture.sourceRoot`** — where layers live, relative to the project root. Default `src`; `.` for root-level layouts (e.g. Next.js without `src/`). Lint, inspect, init scaffolding, deps targets, and generated agent placement guidance all resolve source paths from this root. Before a config exists, survey can infer a root-level layout from TypeScript includes; a workspace with several application roots asks you to choose this field explicitly.
-- **`architecture.additionalAliases`** — extra import roots beyond `alias` that participate in every structural ban. An alias may target the source root, an ancestor of it, or one declared layer such as `src/shared`.
+- **`architecture.additionalAliases`** — extra roots used to resolve existing imports for diagnosis and dependency graphs. They may target the source root, an ancestor, module, layer, or unit, but are illegal alternate spellings across a layer or module boundary; use `architecture.alias` there.
 
 Without `architecture.modules`, one blueprint models the traditional layer-first axis.
 With it, Blueprint models a Module → Layer → Unit topology and repeats the same layer

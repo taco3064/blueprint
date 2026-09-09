@@ -14,7 +14,7 @@
   CI 會拿整套測試在[兩個大版本上各跑一次](/zh-TW/guide/field-tested#這一頁背後有什麼)，所以你解析到的那一版是本專案實際執行過的，不只是宣告允許的。<br>
   舊制的 `.eslintrc` 是一次[遷移決策](/zh-TW/guide/field-tested#框架注意事項)，不會變成默默導入到一半的狀態。
 
-除此之外沒有別的 —— 套件本身零執行期依賴。
+Blueprint 會安裝已宣告的 JavaScript、TypeScript 與 Vue parser 依賴，確保安裝後也能一致地解析動態匯入目標。
 
 ## `inspect` 回報的檢測項目
 
@@ -24,6 +24,7 @@
 
 - **`undeclared-folder`** · error —— 原始碼資料夾落在宣告的拓撲之外：layer-first 模式是未宣告的頂層 layer；module-first 模式則是未宣告的外層 module 或 module 內層 layer
 - **`flow-violation`** · error —— module 可達性或內層 flow 未通過，包括逆向匯入，或同一 module 內透過別名進行的同層匯入。可達 modules 之間的同 layer 匯入仍然合法
+- **`canonical-alias`** · error —— 跨 layer 或 module 的匯入使用 `additionalAliases` 拼法，而不是 `architecture.alias`
 - **`deep-import`** · error —— 別名匯入直接觸及資料夾 unit 的**內部**，未經公開入口
 - **`relative-escape`** · error —— 相對路徑匯入越出所屬分層、逃逸出原始碼根目錄，或伸進鄰居 unit 的入口之後。<br>在 `folder` 佈局下，鄰居 unit **是**碰得到的 —— `../Sibling` 就是同層 unit 互相使用的方式，而且是唯一的方式，因為別名寫法（`~app/{自己這層}/Sibling`）仍然被擋
 - **`package-ownership`** · error —— 從非擁有者分層匯入某分層專屬的套件（或受限的具名匯入）
@@ -43,20 +44,17 @@ baseline 檔本身帶著這套識別方式的 `"version"`；<br>
 
 ### import graph 是怎麼讀出來的
 
-上面每一條跟 import 有關的檢測，都是從一張圖上讀出來的，而那張圖是**從原始碼文字掃出來的，不是解析 AST**。<br>
-算出來的 specifier（`import(path)`、`require(name)`）、`import * as` 背後的個別名稱、字串裡長得像 import 的文字，都在它看不到的範圍內。<br>
-`inspect` 跟 `deps` 的輸出都會以這段說明收尾 —— 因為報告乾淨的時候，才是它最要緊的時候。
-
-**硬性 gate 沒有這個限制**：它們跑在 ESLint 上、走 AST。<br>
-所以 `inspect` 是盤點，你的 lint 才是單一 import 的判決 —— 這也正是「`blueprint inspect` 本身不等於 gate」的原因。
+靜態 import 與 re-export 從原始碼文字讀取；動態 `import()` 則解析 AST。<br>
+字面值、不可變常數，以及可化約成確定字串的串接與 template 都會加入同一張圖。重新賦值、被遮蔽的 binding 與執行期才知道的表達式會刻意省略；`inspect` 與 `deps` 會明列其確切數量（以及 parse failure），不會把它們誤報成合法。
 
 ## 內嵌 ESLint 外掛
 
 `emitLint` 在生成的 config 裡內建自訂規則 —— 不用額外安裝。<br>
-其中一條是結構規則、永遠開著；其餘由 `blueprint.rules` 的規則識別碼控制。<br>
+其中兩條是結構規則、永遠開著；其餘由 `blueprint.rules` 的規則識別碼控制。<br>
 plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`）—— 這是給「不 spread `emitLint`、想手動掛某條 `blueprint/*` 規則」的逃生口，其他人永遠用不到它：
 
 - **`blueprint/relative-escape`** · 恆常啟用（結構規則）—— inspect 同名檢測的「看得懂深度」孿生版：<br>兩者呼叫同一個 `relativeVerdict`，所以任一方都不可能得出另一方不會同意的結論
+- **`blueprint/import-boundary`** · 恆常啟用（結構規則）—— 跨 layer/module 強制使用 `architecture.alias`，並對可靜態求值的 dynamic import 套用相同 module、layer 與 folder-entry 判定
 - **`blueprint/no-deep-watch`** · `rules.deepWatch` —— 禁用 `deep: true` 的監聽 —— 每次變更都會遍歷整個資料來源（Vue preset：`error`）
 - **`blueprint/use-prefix`** · `rules.usePrefix` —— hook 分層匯出的函式必須帶 `use` 前綴（分層與前綴皆可設定）
 - **`blueprint/use-prefix-needs-reactivity`** · `rules.usePrefixReactivity` —— 帶 `use` 前綴的檔案必須實際呼叫 reactive 或生命週期 API
@@ -189,7 +187,7 @@ export default [
 寫在 gate 上，例如 `codeStyle: { tier: 'error', indent: 4, maxLen: 120 }`。<br>
 其餘都是固定的 —— 想要不一樣的括號風格就把這個關卡關掉，自己宣告一套。
 
-一個實戰會咬人的範圍細節：**`emit.lint.severity` 只蓋結構家族**（`no-restricted-imports` / `-syntax` / `-globals` 與 `blueprint/relative-escape`）。<br>
+一個實戰會咬人的範圍細節：**`emit.lint.severity` 只蓋結構家族**（`no-restricted-imports` / `-syntax` / `-globals`、`blueprint/relative-escape` 與 `blueprint/import-boundary`）。<br>
 上面每條規則都吃自己的 `blueprint.rules` tier —— severity 設 `warn` **不會**讓 `maxLines` 或 `unusedVars` 變安靜。
 
 ## 快速上手範例以外的 config 欄位
@@ -202,7 +200,7 @@ export default [
 結構規則全部從這裡編出來。<br>
 這些鍵比上面那份關卡目錄更早存在，也因此一直只在範例裡露臉 —— 定義該有個家。
 
-- **`architecture.alias`** —— 專案的匯入根，例如 `~app`。<br>必填、沒有預設值：猜錯的別名會讓非法匯入靜靜通過，因為每一條結構禁令的樣式都是拿這個字串組出來的
+- **`architecture.alias`** —— 唯一 canonical 的原始碼根匯入拼法，例如 `~app`。<br>必填、沒有預設值；跨 layer/module 必須使用它
 - **`architecture.modules`** —— 可選的外層應用模組；每個名稱對應 `sourceRoot` 的直屬子目錄。設定後，完整的 `layers` 清單會在每個一般模組內重複，不支援再混用全域 layer 資料夾。可選且保留的模組名稱 `app` 則跨 routing framework 代表遞迴的 router composition，使用既有 container position，不會重複共用 layers。模組可用 `dependsOn` 列出直接依賴；權限依 DAG 的遞移可達性判定，與宣告順序無關。未知模組、自我依賴、重複邊與 cycle 都是無效設定
 - **`architecture.layers`** —— 有順序、由所有模組共用的分層清單。<br>**順序就是流向**：一個分層只能匯入排在它後面的分層。<br>因此宣告本身說不出回頭邊；unit 匯入 cycle 則只在 `blueprint inspect` 執行時診斷
 - **`layer.does`** —— 一句話說明這層的程式碼是幹嘛的。<br>寫進手冊與 Agent 守則；沒有規則會強制它
@@ -216,7 +214,7 @@ export default [
 
 
 - **`architecture.sourceRoot`** —— 分層所在目錄（相對於專案根目錄）。預設 `src`；根目錄式佈局（如無 `src/` 的 Next.js）設為 `.`。Lint、inspect、init scaffold、deps target 與產生的 agent placement guidance 都會從此根目錄解析來源路徑。Config 尚未建立時，survey 可由 TypeScript includes 推導根目錄式佈局；若 workspace 有多個 application root，則會要求明確選擇此欄位。
-- **`architecture.additionalAliases`** —— `alias` 以外、同樣納入所有結構禁令的額外匯入根。Alias 可指向 source root、其上層，或 `src/shared` 之類的單一已宣告 layer。
+- **`architecture.additionalAliases`** —— 用於解析既有匯入、診斷與 dependency graph 的額外根。可指向 source root、其上層、module、layer 或 unit；但跨 layer/module 時不能當成替代拼法，必須改用 `architecture.alias`。
 
 未設定 `architecture.modules` 時，blueprint 維持傳統 layer-first 軸；設定後則採 Module → Layer → Unit 拓撲，在每個已宣告的一般模組內重複相同 layer 契約。已宣告的 `app` 模組是可選且保留的 router composition module；其下所有受治理的原始碼都使用 container position，不會被解讀為內層 layer。受治理的匯入必須同時通過 module DAG 與共用的內層 layer flow。可達模組之間的同 layer 匯入仍然合法；相對路徑則依舊不能跨 module 或 layer 邊界。
 - **`architecture.testFiles`** —— 豁免於結構規則與度量關卡的測試檔樣式（預設 `*.test.*` / `*.spec.*`）。<br>

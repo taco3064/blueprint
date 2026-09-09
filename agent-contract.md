@@ -8,6 +8,8 @@
 
 ## The one-way flow
 
+- `architecture.alias` is the sole canonical source-root alias. Across a layer or
+  module boundary, never substitute an `additionalAliases` spelling.
 - A layer may import only layers declared **after** it in the blueprint —
   never upstream, never the same layer through the alias inside its current module.
 - In Module → Layer → Unit topology, a module may import only itself and modules
@@ -24,6 +26,9 @@
   the alias so the structural rules can see the dependency.
 - Folder-layout units are **entry-only**: import the unit path, never internals
   behind its declared entry.
+- Statically resolvable dynamic imports follow the same alias, flow, and unit-entry
+  rules. Runtime-dependent targets are an explicit analysis limitation, never proof
+  that the import is legal.
 
 ## When lint fails
 
@@ -64,7 +69,8 @@
 
 ## Before you commit
 
-- [ ] Imports pass the module DAG when configured and the one-way layer flow (no upstream layers, local same-layer aliases, or escaping relatives).
+- [ ] Imports use the canonical alias across boundaries and pass the module DAG when configured and the one-way layer flow (no upstream layers, local same-layer aliases, or escaping relatives).
+- [ ] Statically resolvable dynamic imports pass the same checks; runtime-dependent targets have been reviewed explicitly.
 - [ ] New code sits in the right layer and, when configured, module; folder units expose only their entry.
 - [ ] No new undeclared folders under the alias root.
 - [ ] Names follow the project's conventions (see the handbook).

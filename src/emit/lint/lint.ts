@@ -13,12 +13,7 @@ import {
   STATEMENT_PADDING,
   toArray,
 } from './patterns';
-import type {
-  EmitLintOptions,
-  LintConfig,
-  LintConfigEntry,
-  PackageRule,
-} from './types';
+import type { EmitLintOptions, LintConfig, LintConfigEntry, PackageRule } from './types';
 import { buildGlobalRule, containerImportEntries } from './container';
 import { aliasSubtreeSpecifier, buildModuleContainerRestrictions, moduleImportScope }
   from './structural';
@@ -88,7 +83,9 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
         sourceRoot: resolved.sourceRoot,
         moduleFirst: resolved.topology === 'module-first',
       },
-    ] },
+    ],
+    'blueprint/import-boundary': [severity, { architecture }],
+    },
   };
 
   return [

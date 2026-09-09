@@ -14,7 +14,7 @@ export { expectedContainerStructural, expectedStructural } from './wiring-expect
 const label = (merged: boolean): string =>
   `emitted rules survive the ${merged ? 'merged' : 'generated'} eslint config`;
 
-const SCOPE = 'structural bans + each active gate\'s carrier rule, '
+const SCOPE = 'structural bans + canonical/dynamic policy + each active gate\'s carrier rule, '
   + 'one probe per governed position; '
   + 'thresholds, package-ownership entries, and a merged entry scoped to only part of '
   + 'a governed position are not compared';
@@ -43,12 +43,7 @@ interface EslintApi {
   };
 }
 
-type ProbeSite = {
-  layer: string | null;
-  module?: string;
-  globs: string[];
-  hit: string | null;
-};
+type ProbeSite = { layer: string | null; module?: string; globs: string[]; hit: string | null };
 
 function syntheticPath(glob: string): string | null {
   if (/[?[\]]/.test(glob)) {
@@ -193,12 +188,14 @@ function resolvedStructural(rules: Record<string, unknown>): {
   selectors: Set<string>;
   globals: Set<string>;
   relativeEscape: boolean;
+  importBoundary: string | null;
   unreadable: number;
 } {
   const imports = readPatternGroups(rules['no-restricted-imports']);
   const paths = readRestrictedPaths(rules['no-restricted-imports']);
   const selectors = readNamed(rules['no-restricted-syntax'], 'selector');
   const globals = readNamed(rules['no-restricted-globals'], 'name');
+  const importBoundary = readImportBoundary(rules['blueprint/import-boundary']);
 
   return {
     groups: imports.values,
@@ -206,8 +203,18 @@ function resolvedStructural(rules: Record<string, unknown>): {
     selectors: selectors.values,
     globals: globals.values,
     relativeEscape: activeOptions(rules['blueprint/relative-escape']) !== null,
-    unreadable: imports.unreadable + paths.unreadable + selectors.unreadable + globals.unreadable,
+    importBoundary: importBoundary.value,
+    unreadable: imports.unreadable + paths.unreadable + selectors.unreadable + globals.unreadable
+      + importBoundary.unreadable,
   };
+}
+
+function readImportBoundary(entry: unknown): { value: string | null; unreadable: number } {
+  const option = activeOptions(entry)?.[1] as { architecture?: unknown } | undefined;
+
+  return option?.architecture && typeof option.architecture === 'object'
+    ? { value: JSON.stringify(option.architecture), unreadable: 0 }
+    : { value: null, unreadable: activeOptions(entry) === null ? 0 : 1 };
 }
 
 interface ReadEntries {
@@ -472,6 +479,10 @@ function losses(
 
   if (!resolved.relativeEscape) {
     lost.push('blueprint/relative-escape is missing or off');
+  }
+
+  if (resolved.importBoundary !== expected.importBoundary) {
+    lost.push('blueprint/import-boundary is missing, off, or its architecture policy was weakened');
   }
 
   return lost;

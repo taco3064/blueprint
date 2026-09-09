@@ -26,8 +26,9 @@ export function renderSemantics(): string {
     + 'bound on the errors the wiring will introduce, not the exact number — '
     + 'it is a textual count that includes test files (exempt in the emitted config '
     + 'as far as the globs reach) '
-    + 'and non-static references (dynamic imports, mock specifiers, doc comments) '
-    + 'the wired rules may never flag.',
+    + 'and textual lookalikes (mock specifiers and doc comments) the wired rules never flag.',
+    '  Dynamic imports whose target is a proven string receive the same boundary checks as '
+    + 'static imports; runtime-dependent expressions remain explicitly unverified.',
     '  Treat non-zero as "look here"; once the config exists, '
     + '`npx blueprint impact` reports the real per-rule count.',
     '  The fix for true hits is layout-dependent — file: rewrite them as relative imports; folder: '
@@ -77,9 +78,8 @@ export function renderRuleCatalog(): string {
     + 'package ownership at whole-package OR named-import granularity (`owns: [{ package: '
     + '\'vue\', imports: [\'inject\'] }]` bans that named import outside the owning layer; '
     + 'same-signature entries merge into one rule allowing every declaring layer), fixture bans.',
-    '  `additionalAliases` join every structural ban alongside the main alias — '
-    + 'with their target\'s offset baked in (`\'~root\': \'.\'` bans `~root/src/views/**`); '
-    + 'an alias into a subfolder has no layer surface, so it carries no layer bans.',
+    '  `additionalAliases` resolve to their declared targets for diagnosis and graph building, '
+    + 'but they are never an alternate spelling for a cross-layer or cross-module import.',
     '- `no-restricted-syntax` — re-export bans for `selfOnly` importers, '
     + 'emitted ONLY when an allowedImporters ENTRY declares it (`allowedImporters: [{ layer: '
     + '\'views\', selfOnly: true }]` — a layer-level `selfOnly` key is invalid and validation '
@@ -90,6 +90,9 @@ export function renderRuleCatalog(): string {
     '- `no-restricted-globals` — global ownership (e.g. `{ global: \'fetch\' }`)',
     '- `blueprint/relative-escape` — depth-aware `../` unit escapes (embedded plugin; '
     + 'ships inside the emitted config)',
+    '- `blueprint/import-boundary` — requires the canonical source-root alias across module '
+    + 'and layer boundaries and applies module, layer, and folder-entry checks to statically '
+    + 'resolvable dynamic imports',
     '',
     '**Optional gates — emitted only when declared** in `rules` with a tier other than `off`; '
     + 'none of these emits by default, and every gate scopes to the declared architecture '
@@ -132,10 +135,9 @@ export function renderSchemaSketch(): string {
     '    // scope stays visually distinct. Override only to match an existing',
     '    // team convention, not for taste.',
     '    alias: \'<alias>\',',
-    '    // Extra import roots beyond the alias. One whose target can contain',
-    '    // the layer folders (the source root, or above it — \'~root\': \'.\')',
-    '    // joins every structural ban with the offset baked in; a subfolder',
-    '    // alias like this one has no layer surface and carries no layer bans.',
+    '    // Extra import roots remain resolvable for diagnosis and graph building,',
+    '    // including roots at, above, or below sourceRoot. Across a layer or',
+    '    // module boundary, imports must still spell the canonical `alias`.',
     '    additionalAliases: { \'~shared\': \'./src/shared\' },',
     '    layers: [',
     '      // Order defines the one-way flow: a layer may import only layers',

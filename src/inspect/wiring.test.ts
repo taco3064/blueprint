@@ -101,7 +101,7 @@ describe('expectedStructural · the shape two prose sites describe', () => {
     // update `PACKAGES_NOT_COMPARED` and the `rules` block that prints it, then this
     // list. Removing one means it stopped. Either way both texts move with it.
     expect(Object.keys(expectedStructural(blueprint, 'views')))
-      .toEqual(['groups', 'paths', 'selectors', 'globals']);
+      .toEqual(['groups', 'paths', 'selectors', 'globals', 'importBoundary']);
   });
 });
 
@@ -128,6 +128,7 @@ describe('wiringCheck · a merge that kept every artifact', () => {
         rules: {
           // Bare-string severity — the non-array shape of an active rule.
           'blueprint/relative-escape': 'error',
+          'blueprint/import-boundary': ['error', { architecture: blueprint.architecture }],
           'no-restricted-imports': [2, {
             patterns: [...groups].map((group) => ({
               group: JSON.parse(group) as string[],
@@ -164,6 +165,7 @@ describe('wiringCheck · the losses it names', () => {
     const survived = {
       rules: {
         'blueprint/relative-escape': 'error',
+        'blueprint/import-boundary': ['error', { architecture: blueprint.architecture }],
         'no-restricted-imports': [2, {
           patterns: [...views.groups].map((group) => ({ group: JSON.parse(group) as string[] })),
         }],
@@ -344,6 +346,7 @@ describe('wiringCheck · layers with no file to probe', () => {
     const survived = await run(scanOf(), {
       rules: {
         'blueprint/relative-escape': 'error',
+        'blueprint/import-boundary': ['error', { architecture: blueprint.architecture }],
         'no-restricted-imports': [2, {
           patterns: expected
             .flatMap((e) => [...e.groups])

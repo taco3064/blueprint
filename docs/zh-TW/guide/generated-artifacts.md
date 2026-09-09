@@ -85,7 +85,7 @@ export default [
 ````md
 ## 架構
 
-Code 單向流動：每一層只能匯入排在它後面的層。反向匯入與同層匯入一律禁止。
+Code 單向流動：每一層只能匯入排在它後面的層。反向匯入與同層匯入一律禁止。`architecture.alias` 是跨邊界唯一 canonical 的拼法；可靜態求值的 dynamic import 接受同一套判定。
 
 ```mermaid
 flowchart TD
@@ -131,11 +131,11 @@ AI Agent 守則刻意保持精簡：分層流向與硬性關卡直接內嵌，�
 > 嚴格本身就是產品 —— 它讓 AI 開發待在宣告好的架構裡面。
 > 永遠不要放寬或繞過；有異議請找維護者。
 
-- 框架：`vue`。匯入別名：`~app`。
+- 框架：`vue`。Canonical 原始碼根別名：`~app`。
 - 分層流向：`pages` → `containers` → `components` → `hooks` → `contexts` → `services` —— 具遞移性：一層可以匯入排在它後面的**任何**一層，除非目標那層收窄了自己的匯入者。
 - **新增、搬移或重新命名任何檔案之前** —— 放在哪裡、unit 形狀、專屬持有、命名、元件設計軸線、行為準則、作業守則：讀 [docs/architecture-handbook.md](docs/architecture-handbook.md)（由同一份 blueprint 生成 —— 永遠是最新的）。
 - **作業紀律** —— 怎麼順著流向走、lint 失敗時怎麼反應、commit 前的檢查清單：讀 [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md)（隨套件一起出貨 —— 裝好依賴就會在，而且永遠對得上安裝的版本）。
-- 硬性關卡（由機器強制，作用範圍是架構 glob 打到的檔案 —— 已宣告的位置還沒有 code 就沒有東西會失敗，那是跑道，不是保護）：單向匯入、unit 入口、專屬持有、相對路徑逃逸、`maxLines` = 400、`unusedVars`、`codeStyle`、`statementsPerLine`、`statementPadding`、`importBlock`、`fixtureImports`、`usePrefix`、`testFilename`、`deepWatch` 會讓專案的 lint 失敗；`cycles` 只在執行 `npx blueprint inspect --baseline` 時診斷；baseline 會保留已記錄的 finding，因此這不是持續的編輯期預防，綠燈的 lint 對它什麼都沒說。lint 失敗時，去修結構 —— 永遠不要 `eslint-disable`，也不要把違規搬到隔壁檔案。
+- 硬性關卡（由機器強制，作用範圍是架構 glob 打到的檔案 —— 已宣告的位置還沒有 code 就沒有東西會失敗，那是跑道，不是保護）：canonical 跨邊界匯入、單向匯入、unit 入口、專屬持有、相對路徑逃逸、`maxLines` = 400、`unusedVars`、`codeStyle`、`statementsPerLine`、`statementPadding`、`importBlock`、`fixtureImports`、`usePrefix`、`testFilename`、`deepWatch` 會讓專案的 lint 失敗；可靜態求值的 dynamic import 套用同一套結構檢查；`cycles` 只在執行 `npx blueprint inspect --baseline` 時診斷。執行期才知道的 dynamic target 是明列的分析限制。lint 失敗時，去修結構 —— 永遠不要 `eslint-disable`，也不要把違規搬到隔壁檔案。
 - 由你把關的部分：`~app/` 底下不得有未宣告的架構資料夾（`blueprint inspect --baseline` 會驗 —— 只對你新引入的東西變紅）。把 code 搬進已宣告的 Layer → Unit 拓撲。如果架構真的長超過這份 config 了，那是擁有者的決定 —— 講出來然後停手；永遠不要自己擴張架構。
 <!-- BLUEPRINT:END -->
 ```

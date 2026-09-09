@@ -149,7 +149,7 @@ npx @kekkai/blueprint doctor
   失敗訊息直接附上 wiring 片段
 - **emitted rules 在合併後的 config 裡活著** ——<br>
   flat config 對同一條 rule 從不合併：後面的 entry 會「靜靜地」整包取代 blueprint 的結構禁令，lint 還是綠的。<br>
-  doctor 用一個真實 layer 檔解析最終 config，點名弄丟了什麼。<br>
+  doctor 用一個真實 layer 檔解析最終 config，點名弄丟了什麼，也會偵測 `blueprint/import-boundary` 缺少、關閉，或 architecture option 被削弱。<br>
   它的 ✓ 也會說出自己的作用範圍：比對的是 config **文字**，從不執行 ESLint —— 涵蓋結構禁令，加上每個有開的關卡的承載規則，每層一個探點；<br>
   門檻值、套件歸屬的條目，以及只蓋到某一層一部分的合併條目，都不在比對範圍內。<br>
   config 解析不開的時候，這條檢查是**跳過**而不是失敗（見下），並把 loader 的原話引出來 —— 讓缺的套件直接出現在螢幕上，而不是隔著一次 `npm run lint`
