@@ -1,91 +1,110 @@
 import path from 'node:path';
 import type { Rule } from 'eslint';
-import { relativeVerdict, resolveSegments } from './relative';
+import type { ArchitectureDef } from '../config';
+import { resolveArchitecture } from '../config';
+import { resolveSegments } from './relative';
 
 export const relativeEscape: Rule.RuleModule = {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Relative imports must not leave their module — use the project alias.',
+      description: 'Relative imports preserve the resolved module/layer/unit boundary.',
     },
     schema: [
       {
         type: 'object',
         properties: {
-          layouts: {
-            type: 'object',
-            additionalProperties: { enum: ['folder', 'file'] },
-          },
-          entries: {
-            type: 'object',
-            additionalProperties: { type: 'string' },
-          },
-          sourceRoot: { type: 'string' },
+          architecture: { type: 'object', additionalProperties: true },
         },
+        required: ['architecture'],
         additionalProperties: false,
       },
     ],
     messages: {
       escapesSrc: '🚫 Relative import "{{specifier}}" escapes {{sourceRoot}} — '
         + 'use the project alias.',
-      leavesModule:
+      leavesLayer:
         '🚫 Relative import "{{specifier}}" leaves this layer — use the alias, '
         + 'or extract shared code to a lower layer.',
       reachesInside:
-        '🚫 Relative import "{{specifier}}" reaches past a sibling\'s entry — '
-        + 'import "{{entry}}" instead; what lives behind it is that unit\'s own business.',
+        '🚫 Relative import "{{specifier}}" reaches past a sibling unit entry — '
+        + 'import "{{entry}}" instead.',
     },
   },
   create(context) {
-    const { layouts = {}, entries = {}, sourceRoot = 'src' }
-      = (context.options[0] as {
-        layouts?: Record<string, 'folder' | 'file'>;
-        entries?: Record<string, string>;
-        sourceRoot?: string;
-      } | undefined) ?? {};
+    const architecture = (context.options[0] as { architecture?: ArchitectureDef } | undefined)
+      ?.architecture;
 
-    const cwd = (context as Rule.RuleContext & { cwd: string }).cwd;
-    const segments = sourceSegments(context.filename, cwd, sourceRoot);
-
-    if (!segments || !(segments[0] in layouts)) {
+    if (!architecture) {
       return {};
     }
 
-    const layoutOf = (layer: string): 'folder' | 'file' => layouts[layer] ?? 'file';
-    const entryOf = (layer: string): string => entries[layer] ?? 'index';
-    const dir = segments.slice(0, -1);
+    const resolved = resolveArchitecture(architecture);
+    const cwd = (context as Rule.RuleContext & { cwd: string }).cwd;
+    const ownSegments = sourceSegments(context.filename, cwd, resolved.sourceRoot);
+
+    if (!ownSegments) {
+      return {};
+    }
+
+    const own = resolved.classify(ownSegments);
+
+    if (!own.layer || own.inner !== 'layer') {
+      return {};
+    }
+
+    const dir = ownSegments.slice(0, -1);
 
     const check = (node: Rule.Node, specifier: string): void => {
       if (!specifier.startsWith('.')) {
         return;
       }
 
-      const target = resolveSegments(dir, specifier);
+      const targetSegments = resolveSegments(dir, specifier);
 
-      const verdict = relativeVerdict(segments, target, { layoutOf, entryOf });
-
-      if (verdict === 'ok') {
-        return;
-      }
-
-      if (verdict === 'reaches-inside') {
+      if (targetSegments === null) {
         context.report({
           node,
-          messageId: 'reachesInside',
-          data: { specifier, entry: entryOf(segments[0]) },
+          messageId: 'escapesSrc',
+          data: {
+            specifier,
+            sourceRoot: resolved.sourceRoot === '.' ? 'the project root' : `${resolved.sourceRoot}/`,
+          },
         });
 
         return;
       }
 
-      context.report({
-        node,
-        messageId: verdict === 'escapes-src' ? 'escapesSrc' : 'leavesModule',
-        data: {
-          specifier,
-          sourceRoot: sourceRoot === '.' ? 'the project root' : `${sourceRoot}/`,
-        },
-      });
+      const target = resolved.classify(targetSegments);
+      const ownModule = own.module?.name ?? null;
+      const targetModule = target.module?.name ?? null;
+
+      // #435 owns the cross-module relative-import policy. #434 preserves the
+      // existing inner layer/unit rule without inventing a new outer boundary.
+      if (resolved.moduleFirst && ownModule !== targetModule) {
+        return;
+      }
+
+      if (!target.layer || target.layer.name !== own.layer.name) {
+        context.report({ node, messageId: 'leavesLayer', data: { specifier } });
+
+        return;
+      }
+
+      if (own.layer.unit.layout === 'file' || target.unit === own.unit) {
+        return;
+      }
+
+      const insideLayer = resolved.moduleFirst
+        ? target.path.slice(2)
+        : target.path.slice(1);
+      const entry = own.layer.unit.entry;
+      const atEntry = insideLayer.length === 1
+        || (insideLayer.length === 2 && stripExtension(insideLayer[1]) === entry);
+
+      if (!atEntry) {
+        context.report({ node, messageId: 'reachesInside', data: { specifier, entry } });
+      }
     };
 
     const fromSource = (node: Rule.Node): void => {
@@ -125,4 +144,8 @@ export function sourceSegments(
   }
 
   return null;
+}
+
+function stripExtension(value: string): string {
+  return value.replace(/\.[^.]+$/, '');
 }
