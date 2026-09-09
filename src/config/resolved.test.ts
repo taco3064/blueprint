@@ -111,6 +111,44 @@ describe('resolveArchitecture · layer-first compatibility', () => {
 });
 
 describe('resolveArchitecture · module-first identity', () => {
+  it('reserves app as a recursive container without shared layer positions', () => {
+    const architecture = moduleFirst();
+
+    architecture.modules = [
+      { name: 'app', does: 'router composition', dependsOn: ['auth'] },
+      { name: 'auth', does: 'authentication' },
+    ];
+
+    const resolved = resolveArchitecture(architecture);
+
+    for (const path of ['src/app/index.tsx', 'src/app/routes.tsx', 'src/app/dashboard/page.tsx']) {
+      expect(identity(resolved.classify(path)))
+        .toEqual({ kind: 'container', module: 'app' });
+    }
+
+    expect(resolved.layerPositions.map((position) => position.root)).not.toContain('src/app/hooks');
+    expect(resolved.resolveLayerRoots('hooks')).toEqual(['src/auth/hooks']);
+    expect(resolved.resolveLayerRoot('hooks', 'app')).toBeNull();
+    expect(resolved.layerFiles('hooks', 'react', 'app')).toEqual([]);
+
+    expect(resolved.containerFiles('react')).toEqual([
+      'src/app/**/*.{js,jsx,ts,tsx}',
+      'src/auth/*.{js,jsx,ts,tsx}',
+    ]);
+  });
+
+  it('does not require app and keeps layer-first app semantics unchanged', () => {
+    expect(resolveArchitecture(moduleFirst()).modules.map((module) => module.name))
+      .not.toContain('app');
+
+    const architecture = layerFirst();
+
+    architecture.layers[0] = { name: 'app', does: 'application' };
+
+    expect(identity(resolveArchitecture(architecture).classify('src/app/dashboard/page.tsx')))
+      .toEqual({ kind: 'unit', module: null, layer: 'app', unit: 'dashboard' });
+  });
+
   it('classifies module, container, repeated layer, and unit positions', () => {
     const resolved = resolveArchitecture(moduleFirst());
 
@@ -305,14 +343,15 @@ describe('resolveArchitecture · module-first path contexts', () => {
     expect(identity(resolved.classify(['src', 'hooks', 'x.ts']))).toEqual(expected);
   });
 
-  it('uses Next App Router context only when the caller explicitly establishes it', () => {
+  it('reserves app independently of explicit Next App Router context', () => {
     const architecture = moduleFirst();
 
     architecture.modules![0] = { name: 'app', does: 'routes' };
     const ordinary = resolveArchitecture(architecture);
     const next = resolveArchitecture(architecture, { nextAppRouter: { module: 'app' } });
 
-    expect(ordinary.classify('src/app/dashboard/page.tsx')).toBeNull();
+    expect(identity(ordinary.classify('src/app/dashboard/page.tsx')))
+      .toEqual({ kind: 'container', module: 'app' });
 
     expect(identity(next.classify('src/app/page.tsx')))
       .toEqual({ kind: 'container', module: 'app' });

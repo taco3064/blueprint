@@ -51,7 +51,7 @@ export const relativeEscape: Rule.RuleModule = {
 
     const layerIndex = moduleFirst ? 1 : 0;
 
-    const container = moduleFirst && segments?.length === 2;
+    const container = isModuleContainer(moduleFirst, segments);
 
     if (!segments || (!(segments[layerIndex] in layouts) && !container)) {
       return {};
@@ -74,6 +74,7 @@ export const relativeEscape: Rule.RuleModule = {
         entryOf,
         isLayer,
         moduleFirst,
+        container,
       });
 
       if (verdict === 'ok') {
@@ -116,6 +117,10 @@ export const relativeEscape: Rule.RuleModule = {
     };
   },
 };
+
+function isModuleContainer(moduleFirst: boolean, segments: string[] | null): boolean {
+  return moduleFirst && (segments?.length === 2 || segments?.[0] === 'app');
+}
 
 export function sourceSegments(
   filename: string,

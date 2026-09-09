@@ -105,7 +105,11 @@ export interface ArchitectureDef {
    * generated agent guidance.
    */
   sourceRoot?: string;
-  /** Optional pure module-first topology. Each module maps to a direct child of sourceRoot. */
+  /**
+   * Optional module-first topology. Each module maps to a direct child of
+   * sourceRoot. The reserved `app` module uses recursive router-composition
+   * container semantics instead of repeating the shared layers.
+   */
   modules?: ModuleDef[];
   /**
    * Ordered layers. Order defines the one-way flow: a layer may import only

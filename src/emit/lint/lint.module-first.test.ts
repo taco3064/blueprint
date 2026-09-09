@@ -114,8 +114,8 @@ describe('emitLint · module-first topology', () => {
       .toContain('no-restricted-globals');
   });
 
-  it('applies the same semantics to ordinary shared, common, and app module names', () => {
-    for (const module of ['shared', 'common', 'app', 'renamed']) {
+  it('applies the same semantics to ordinary shared, common, and renamed module names', () => {
+    for (const module of ['shared', 'common', 'renamed']) {
       const config = emitLint(blueprint([module]));
       const file = `src/${module}/hooks/useX.ts`;
 
@@ -126,7 +126,36 @@ describe('emitLint · module-first topology', () => {
         .not.toContain('no-restricted-imports');
     }
   });
+});
 
+describe('emitLint · reserved app router composition', () => {
+  it('governs nested source as a container with positive and negative controls', () => {
+    const configured = blueprint(['app', 'auth', 'checkout']);
+
+    configured.architecture.modules![0].dependsOn = ['auth'];
+    const config = emitLint(configured);
+    const file = 'src/app/dashboard/page.tsx';
+
+    expect(config.flatMap((entry) => entry.files ?? []))
+      .toContain('src/app/**/*.{js,jsx,ts,tsx}');
+
+    expect(config.flatMap((entry) => entry.files ?? []))
+      .not.toContain('src/app/hooks/**/*.{js,jsx,ts,tsx}');
+
+    expect(restricted('import auth from "~app/auth";', file, config)).toEqual([]);
+
+    expect(restricted('import checkout from "~app/checkout";', file, config))
+      .toContain('no-restricted-imports');
+
+    expect(restricted('import sibling from "../settings/routes";', file, config))
+      .not.toContain('blueprint/relative-escape');
+
+    expect(restricted('import auth from "../../../auth/index";', file, config))
+      .toContain('blueprint/relative-escape');
+  });
+});
+
+describe('emitLint · module-first unit boundaries', () => {
   it('enforces folder-unit entry boundaries within each module', () => {
     const file = 'src/auth/components/Login/index.tsx';
 

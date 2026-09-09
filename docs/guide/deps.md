@@ -88,7 +88,9 @@ styles (file-layout layer — answers at layer granularity)
 - **Declared architecture only.** In layer-first configs, folders outside
   `architecture.layers` are not scanned into the graph. In module-first configs,
   the same is true of folders outside `architecture.modules` and inner folders outside
-  the shared `architecture.layers`; the leaderboard lists them as skipped (see `legacy/`
+  the shared `architecture.layers`; the declared reserved `app` module is the exception,
+  because all nested router-composition source resolves to its container node. The leaderboard
+  lists other out-of-contract folders as skipped (see `legacy/`
   above) so a zero
   fan-in is never misread as "nobody imports this". Querying into one fails with the
   reason: `✗ "legacy/" is outside the declared architecture`.

@@ -11,6 +11,10 @@ export function emitFlowDiagram(architecture: ArchitectureDef): string {
   const layerIndex = new Map(resolved.layers.map((layer, index) => [layer.name, index]));
 
   const lines = resolved.modules.flatMap((module, moduleIndex) => {
+    if (module.name === 'app') {
+      return [`  m${moduleIndex}["app · router composition"]`];
+    }
+
     const node = (layer: string) => `m${moduleIndex}_l${layerIndex.get(layer)}`;
 
     return [

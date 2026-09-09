@@ -207,7 +207,7 @@ function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportConte
 function relativeEscape(
   file: ScannedFile,
   ref: ImportRef,
-  shape: UnitShape & { architecture: ArchitectureDef },
+  shape: UnitShape & { architecture: ArchitectureDef; position: ResolvedSourcePosition },
 ): Finding[] {
   const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
   const resolved = resolveArchitecture(shape.architecture);
@@ -217,6 +217,7 @@ function relativeEscape(
     ...shape,
     isLayer: (name) => resolved.layerNames.includes(name),
     moduleFirst,
+    container: shape.position.kind === 'container',
   });
 
   if (verdict === 'ok') {

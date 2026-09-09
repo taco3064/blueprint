@@ -141,7 +141,9 @@ export function renderPlacement(architecture: ArchitectureDef): string {
       ? module.dependsOn.map((dependency) => `\`${dependency}\``).join(', ')
       : 'none';
 
-    return `- \`${module.root}/\` — module: ${module.definition.does}. `
+    return `- \`${module.root}/\` — ${module.name === 'app'
+      ? 'reserved router-composition module; all nested source uses the container position.'
+      : `module: ${module.definition.does}.`} `
       + `DIRECT DEPENDENCIES: ${dependencies}.`;
   });
 
