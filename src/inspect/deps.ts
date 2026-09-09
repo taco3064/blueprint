@@ -5,7 +5,7 @@ import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
 import { testFileReach } from './coverage';
 import { buildUnitGraph, normalizedUnitKey } from './resolve';
-import { importGraphDerivation, scan } from './scan';
+import { importAnalysis, importGraphDerivation, scan } from './scan';
 import type { ScanResult } from './types';
 
 export interface DepsOptions extends ResolveOptions {
@@ -42,11 +42,11 @@ export async function runDeps(
 ): Promise<{ ok: boolean; units: UnitDeps[] }> {
   const log = options.log ?? ((message: string) => console.log(message));
   const context = await depsContext(root, options);
-  const { architecture, units, skipped, testExemption } = context;
+  const { architecture, units, skipped, testExemption, scanned } = context;
 
   if (options.target !== undefined) {
     return reportTarget(options.target, {
-      units, skipped, architecture, log, testExemption, json: options.json,
+      units, skipped, architecture, log, testExemption, scanned, json: options.json,
     });
   }
 
@@ -54,11 +54,17 @@ export async function runDeps(
     options.json
       ? JSON.stringify(
 
-          { units, skipped, ...exemptionKey(testExemption), derivation: importGraphDerivation() },
+          {
+            units,
+            skipped,
+            ...exemptionKey(testExemption),
+            importAnalysis: importAnalysis(scanned),
+            derivation: importGraphDerivation('', scanned),
+          },
           null,
           2,
         )
-      : renderLeaderboard(units, skipped, { architecture, testExemption }),
+      : renderLeaderboard(units, skipped, { architecture, testExemption, scanned }),
   );
 
   return { ok: true, units };
@@ -69,6 +75,7 @@ async function depsContext(root: string, options: DepsOptions): Promise<{
   units: UnitDeps[];
   skipped: string[];
   testExemption: string | null;
+  scanned: ScanResult;
 }> {
   const state = detect(root);
   const { blueprint } = await resolveBlueprint(root, state, options);
@@ -83,6 +90,7 @@ async function depsContext(root: string, options: DepsOptions): Promise<{
     units,
     skipped: skippedFolders(scanned, architecture),
     testExemption: exemptionNote(units, scanned, architecture),
+    scanned,
   };
 }
 
@@ -119,10 +127,11 @@ function reportTarget(
     architecture: ArchitectureDef;
     log: (message: string) => void;
     testExemption: string | null;
+    scanned: ScanResult;
     json?: boolean;
   },
 ): { ok: boolean; units: UnitDeps[] } {
-  const { units, skipped, architecture, log, testExemption } = ctx;
+  const { units, skipped, architecture, log, testExemption, scanned } = ctx;
   const key = normalizedUnitKey(target, architecture);
   const found = units.find((entry) => entry.unit === key);
 
@@ -136,11 +145,20 @@ function reportTarget(
     ctx.json
 
       ? JSON.stringify(
-          { ...found, ...exemptionKey(testExemption), derivation: importGraphDerivation() },
+          {
+            ...found,
+            ...exemptionKey(testExemption),
+            importAnalysis: importAnalysis(scanned),
+            derivation: importGraphDerivation('', scanned),
+          },
           null,
           2,
         )
-      : renderUnit(found, isFileLayer(found.unit, architecture), testExemption),
+      : renderUnit(found, {
+          fileLayer: isFileLayer(found.unit, architecture),
+          testExemption,
+          scanned,
+        }),
   );
 
   return { ok: true, units: [found] };
@@ -210,9 +228,10 @@ function unknownTarget(key: string, skipped: string[]): string {
 
 function renderUnit(
   entry: UnitDeps,
-  fileLayer: boolean,
-  testExemption: string | null,
+  shape: { fileLayer: boolean; testExemption: string | null; scanned: ScanResult },
 ): string {
+  const { fileLayer, testExemption, scanned } = shape;
+
   return [
     entry.unit + (fileLayer ? ' (file-layout layer — answers at layer granularity)' : ''),
     `  imported by (${entry.importedBy.length}):`,
@@ -221,7 +240,7 @@ function renderUnit(
     ...entry.imports.map((unit) => `    → ${unit}`),
     ...exemptionLine(testExemption),
     '',
-    importGraphDerivation('  '),
+    importGraphDerivation('  ', scanned),
   ].join('\n');
 }
 
@@ -235,9 +254,10 @@ function renderLeaderboard(
   shape: {
     architecture: ArchitectureDef;
     testExemption: string | null;
+    scanned: ScanResult;
   },
 ): string {
-  const { architecture, testExemption } = shape;
+  const { architecture, testExemption, scanned } = shape;
 
   if (!units.length) {
     return 'No units found inside the declared architecture.';
@@ -261,6 +281,6 @@ function renderLeaderboard(
     ...note,
     ...exemptionLine(testExemption),
     '',
-    importGraphDerivation('  '),
+    importGraphDerivation('  ', scanned),
   ].join('\n');
 }

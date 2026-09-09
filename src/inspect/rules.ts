@@ -136,6 +136,11 @@ export const STRUCTURAL_RULES: StructuralRule[] = [
     rule: 'blueprint/relative-escape',
     covers: '../ unit escapes at any depth (embedded plugin)',
   },
+  {
+    rule: 'blueprint/import-boundary',
+    covers: 'canonical cross-boundary alias spelling and statically resolved dynamic imports '
+      + '(embedded plugin)',
+  },
 ];
 
 export interface StructuralStatus extends StructuralRule {
@@ -155,6 +160,7 @@ function resolveStructural(blueprint: Blueprint | null): StructuralStatus[] {
   const active: Record<string, boolean> = {
     'no-restricted-imports': true,
     'blueprint/relative-escape': true,
+    'blueprint/import-boundary': true,
     'no-restricted-syntax': architecture.hasSelfOnly,
     'no-restricted-globals': architecture.topology === 'module-first'
       ? globalRules.length > 0

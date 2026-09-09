@@ -16,7 +16,7 @@ import {
 import { computeCoverage, renderCoverage } from './coverage';
 import type { Coverage } from './coverage';
 import { hasErrors, report } from './report';
-import { importGraphDerivation, scan } from './scan';
+import { importAnalysis, importGraphDerivation, scan } from './scan';
 import type { Finding } from './types';
 
 export interface InspectOptions extends ResolveOptions {
@@ -58,7 +58,9 @@ export async function runInspect(
   }
 
   if (options.baseline) {
-    return baselineGate(findings, baselineFile, { log, coverage, blueprint, json: options.json });
+    return baselineGate(findings, baselineFile, {
+      log, coverage, blueprint, scanResult, json: options.json,
+    });
   }
 
   const ok = !hasErrors(findings);
@@ -66,8 +68,14 @@ export async function runInspect(
   log(
     options.json
 
-      ? JSON.stringify({ ok, findings, coverage, derivation: importGraphDerivation() }, null, 2)
-      : `${report(findings, blueprint.architecture)}\n\n${renderCoverage(coverage, blueprint)}`,
+      ? JSON.stringify({
+          ok,
+          findings,
+          coverage,
+          importAnalysis: importAnalysis(scanResult),
+          derivation: importGraphDerivation('', scanResult),
+        }, null, 2)
+      : `${report(findings, blueprint.architecture, scanResult)}\n\n${renderCoverage(coverage, blueprint)}`,
   );
 
   return { findings, ok };
@@ -114,10 +122,11 @@ function baselineGate(
     log: (message: string) => void;
     coverage: Coverage;
     blueprint: Blueprint;
+    scanResult: ReturnType<typeof scan>;
     json?: boolean;
   },
 ): { findings: Finding[]; ok: boolean } {
-  const { log, coverage, blueprint } = ctx;
+  const { log, coverage, blueprint, scanResult } = ctx;
 
   const recorded = fs.existsSync(baselineFile)
     ? parseBaseline(fs.readFileSync(baselineFile, 'utf-8'))
@@ -135,12 +144,13 @@ function baselineGate(
             suppressed: split.suppressed,
             stale: split.stale,
             coverage,
-            derivation: importGraphDerivation(),
+            importAnalysis: importAnalysis(scanResult),
+            derivation: importGraphDerivation('', scanResult),
           },
           null,
           2,
         )
-      : `${report(split.fresh, blueprint.architecture)}\n\n${baselineSummary(split)}\n${renderCoverage(coverage, blueprint)}`,
+      : `${report(split.fresh, blueprint.architecture, scanResult)}\n\n${baselineSummary(split)}\n${renderCoverage(coverage, blueprint)}`,
   );
 
   return { findings: split.fresh, ok };

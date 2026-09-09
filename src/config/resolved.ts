@@ -8,6 +8,8 @@ import {
 import type { AliasRoot, DiagramEdge } from './graph';
 import { dependencyVerdict } from './dependency';
 import type { ResolvedDependencyVerdict } from './dependency';
+import { resolveImportReference } from './import-reference';
+import type { ResolvedImportReference } from './import-reference';
 import { resolveModules } from './modules';
 import type { ResolvedModule } from './modules';
 
@@ -68,6 +70,11 @@ export interface ResolvedArchitecture {
     importer: string | string[],
     specifier: string,
   ): ResolvedSourcePosition | null;
+  /** Resolve an import without treating a resolvable alias as permitted spelling. */
+  resolveImport(
+    importer: string | string[],
+    specifier: string,
+  ): ResolvedImportReference;
   canImportModule(from: string, to: string): boolean;
   dependencyVerdict(
     importer: ResolvedSourcePosition,
@@ -187,6 +194,15 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
     aliases, byModule, byLayer, classify, canImport, canImportModule,
   } = state;
 
+  const importScope = {
+    definition,
+    sourceSegments,
+    aliases,
+    classify,
+    canImport,
+    canImportModule,
+  };
+
   return {
     definition,
     sourceRoot,
@@ -246,29 +262,10 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
         : `${module.root}/*.{${FRAMEWORK_EXTS[framework]}}`);
     },
     resolveImportTarget(importer, specifier) {
-      if (!classify(importer)) {
-        return null;
-      }
-
-      const aliasTarget = resolveAliasTarget(aliases, specifier);
-
-      if (aliasTarget !== undefined) {
-        return aliasTarget === null || aliasTarget.length === 0 ? null : classify(aliasTarget);
-      }
-
-      if (!specifier.startsWith('.')) {
-        return null;
-      }
-
-      const importerParts = Array.isArray(importer) ? importer : segments(importer);
-
-      const relative = startsWith(importerParts, sourceSegments)
-        ? importerParts.slice(sourceSegments.length)
-        : importerParts;
-
-      const target = resolveRelative(relative.slice(0, -1), specifier);
-
-      return target ? classify(target) : null;
+      return resolveImportReference(importer, specifier, importScope).target;
+    },
+    resolveImport(importer, specifier) {
+      return resolveImportReference(importer, specifier, importScope);
     },
     canImportModule,
     dependencyVerdict: (importer, target) => dependencyVerdict(importer, target, {
@@ -401,24 +398,6 @@ function toArray(value: string | string[]): string[] {
   return Array.isArray(value) ? value : [value];
 }
 
-function resolveAliasTarget(aliases: AliasRoot[], specifier: string): string[] | null | undefined {
-  const root = aliases.find(
-    (candidate) => specifier === candidate.alias || specifier.startsWith(`${candidate.alias}/`),
-  );
-
-  if (!root) {
-    return undefined;
-  }
-
-  const parts = specifier.slice(root.alias.length).split('/').filter(Boolean);
-
-  if (!startsWith(parts, root.prefix)) {
-    return null;
-  }
-
-  return [...(root.prepend ?? []), ...parts.slice(root.prefix.length)];
-}
-
 function joinSource(sourceRoot: string, part: string): string {
   return sourceRoot === '.' ? part : `${sourceRoot}/${part}`;
 }
@@ -429,26 +408,6 @@ function segments(value: string): string[] {
 
 function startsWith(parts: string[], prefix: string[]): boolean {
   return prefix.every((part, index) => parts[index] === part);
-}
-
-function resolveRelative(from: string[], specifier: string): string[] | null {
-  const result = [...from];
-
-  for (const part of specifier.split('/')) {
-    if (part === '' || part === '.') {
-      continue;
-    }
-
-    if (part === '..') {
-      if (result.pop() === undefined) {
-        return null;
-      }
-    } else {
-      result.push(part);
-    }
-  }
-
-  return result;
 }
 
 function isSourceFile(value: string): boolean {

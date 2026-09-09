@@ -89,7 +89,7 @@ export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = 
   return [
     renderHeader(),
     '',
-    `- Framework: \`${blueprint.framework}\`. Import alias: \`${architecture.alias}\`.`,
+    `- Framework: \`${blueprint.framework}\`. Canonical source-root alias: \`${architecture.alias}\`.`,
     ...moduleFlowLine(resolved),
     `- Layer flow: ${chain} — transitive: a layer may import **any** layer after it, unless the target narrows its importers.`,
     `- **Before adding, moving, or renaming any file** — placement, ${resolved.topology === 'module-first' ? 'module boundaries, ' : ''}unit shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
@@ -107,7 +107,8 @@ export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = 
 function moduleFlowLine(resolved: ResolvedArchitecture): string[] {
   return resolved.modules.length
     ? ['- Module flow: each module may import itself and modules transitively reachable through '
-      + '`dependsOn`; declaration order grants no permission. The layer flow must also pass.']
+      + '`dependsOn`; declaration order grants no permission. The layer flow must also pass, and '
+      + 'cross-module imports use the canonical source-root alias.']
     : [];
 }
 
@@ -119,7 +120,7 @@ export function renderContext(blueprint: Blueprint): string {
   return [
     '### Context',
     '',
-    `- Framework: \`${framework}\`. Import alias: \`${architecture.alias}\`.`,
+    `- Framework: \`${framework}\`. Canonical source-root alias: \`${architecture.alias}\`.`,
     ...(resolved.modules.length
       ? [`- Modules: ${resolved.modules.map((module) => {
           const dependencies = module.dependsOn.length
@@ -211,6 +212,11 @@ export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): s
 
   const bullets = [
     '- Cross-layer imports go only downstream; local same-layer imports never use the alias.',
+    `- Every cross-layer or cross-module import uses the canonical source-root alias `
+    + `\`${architecture.alias}\`; additional aliases are for resolution, not alternate boundary `
+    + 'spellings.',
+    '- Statically resolvable dynamic imports follow the same alias, flow, and unit-entry rules. '
+    + 'A runtime-dependent target is unverified, never a proven legal dependency.',
   ];
 
   const folderEntries = [
@@ -338,7 +344,10 @@ export function renderChecklist(blueprint: Blueprint): string {
   const resolved = resolveArchitecture(architecture);
 
   const items = [
-    '- [ ] Imports follow the one-way flow (no upstream layers or local same-layer aliases).',
+    `- [ ] Imports follow the one-way flow and use \`${architecture.alias}\` across layer or module `
+    + 'boundaries (no upstream layers, alternate aliases, or local same-layer aliases).',
+    '- [ ] Statically resolvable dynamic imports pass the same boundary checks; runtime-dependent '
+    + 'targets are treated as unverified.',
     `- [ ] New code sits in the declared ${resolved.topology === 'module-first'
       ? 'module and layer'
       : 'layer'}; folder units expose only their declared entry.`,

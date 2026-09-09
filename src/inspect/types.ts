@@ -32,6 +32,10 @@ export interface ScannedFile {
 
   segments: string[];
   imports: ImportRef[];
+  importAnalysis?: {
+    unknownDynamicImports: number;
+    parseError?: string;
+  };
 }
 
 export interface ScanResult {

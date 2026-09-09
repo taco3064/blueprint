@@ -113,6 +113,7 @@ describe('wiringCheck · module-first topology', () => {
             return {
               rules: {
                 'blueprint/relative-escape': 'error',
+                'blueprint/import-boundary': ['error', { architecture: blueprint.architecture }],
                 'no-restricted-imports': [2, {
                   patterns: [...groups].map((group) => ({
                     group: JSON.parse(group) as string[],

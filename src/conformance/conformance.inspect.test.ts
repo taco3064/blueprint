@@ -468,8 +468,8 @@ describe('an output that reports the import graph says how the graph was read', 
 
     expect(passing.code).toBe(0);
     expect(passing.output).toContain('0 error(s)');
-    expect(flattenProse(passing.output)).toContain('source text, not a parsed AST');
-    expect(flattenProse(passing.output)).toContain('they run in ESLint, on the AST');
+    expect(flattenProse(passing.output)).toContain('dynamic import targets come from a parsed AST');
+    expect(flattenProse(passing.output)).toContain('Runtime-dependent expressions');
   });
 
   it('carries it into the JSON payload, the only channel a parsing agent has', async () => {
@@ -477,7 +477,8 @@ describe('an output that reports the import graph says how the graph was read', 
     const parsed = JSON.parse(json.output);
 
     expect(parsed.ok).toBe(true);
-    expect(parsed.derivation).toContain('source text, not a parsed AST');
+    expect(parsed.derivation).toContain('dynamic import targets come from a parsed AST');
+    expect(parsed.derivation).toContain('0 runtime-dependent dynamic import(s)');
   });
 
   it('closes both deps renderings with it too', async () => {
@@ -491,8 +492,10 @@ describe('an output that reports the import graph says how the graph was read', 
     const leaderboard = await cli(dir, ['deps']);
     const unit = await cli(dir, ['deps', 'services']);
 
-    expect(flattenProse(leaderboard.output)).toContain('source text, not a parsed AST');
-    expect(flattenProse(unit.output)).toContain('source text, not a parsed AST');
+    const dynamicDerivation = 'dynamic import targets come from a parsed AST';
+
+    expect(flattenProse(leaderboard.output)).toContain(dynamicDerivation);
+    expect(flattenProse(unit.output)).toContain(dynamicDerivation);
     // The blast-radius answer needs it most: a fan-in of 1 that a computed import
     // made 2 is a wrong decision, not just an incomplete list.
     expect(unit.output).toContain('imported by (1)');

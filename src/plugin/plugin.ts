@@ -1,5 +1,6 @@
 import type { ESLint } from 'eslint';
 import { noDeepWatch } from './no-deep-watch';
+import { importBoundary } from './import-boundary';
 import { noTypedefOnlyFile } from './no-typedef-only-file';
 import { relativeEscape } from './relative-escape';
 import { testFilenameMatchesSource } from './test-filename-matches-source';
@@ -17,6 +18,7 @@ import { usePrefixNeedsReactivity } from './use-prefix-needs-reactivity';
 export const plugin: ESLint.Plugin = {
   meta: { name: '@kekkai/blueprint' },
   rules: {
+    'import-boundary': importBoundary,
     'no-deep-watch': noDeepWatch,
     'no-typedef-only-file': noTypedefOnlyFile,
     'relative-escape': relativeEscape,

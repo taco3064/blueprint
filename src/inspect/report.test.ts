@@ -103,7 +103,7 @@ describe('report · findings name where they are enforced (field issue #48)', ()
     ]);
 
     expect(out).toContain('[deep-import]');
-    expect(out).toContain('(lint: no-restricted-imports)');
+    expect(out).toContain('(lint: no-restricted-imports / blueprint/import-boundary)');
   });
 
   it('folds the whole structural family into the one rule it really is', () => {
@@ -134,9 +134,11 @@ describe('report · findings name where they are enforced (field issue #48)', ()
 
     expect(out).toContain('[flow-violation] Rework imports');
     expect(out).toContain('[package-ownership] Move restricted package usage');
-    // Three different findings, one emitted entry — that is the fact that
-    // made searching a config by finding name useless.
-    expect(out.match(/\(lint: no-restricted-imports\)/g)).toHaveLength(2);
+
+    expect(out.match(/\(lint: no-restricted-imports \/ blueprint\/import-boundary\)/g))
+      .toHaveLength(1);
+
+    expect(out.match(/\(lint: no-restricted-imports\)/g)).toHaveLength(1);
     expect(out).toContain('(lint: no-restricted-syntax)');
     // The one structural ban that IS a standalone rule, because a `../`
     // escape cannot be written as a literal pattern.

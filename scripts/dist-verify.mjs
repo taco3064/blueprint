@@ -171,6 +171,91 @@ await check('`inspect` reddens on a real violation, through the bundle', () => {
   return 'code 1, names undeclared-folder';
 });
 
+await check('a packed install parses TS and Vue dynamic imports with its own dependencies', () => {
+  const packDir = tempDir('bp-dist-pack-');
+  const fixture = tempDir('bp-dist-installed-');
+  const packed = runCmd('npm', ['pack', '--json', '--pack-destination', packDir], { cwd: root });
+
+  expect(packed.code === 0, `npm pack exited ${packed.code}\n${packed.output}`);
+
+  const jsonStart = packed.output.indexOf('[');
+  const jsonEnd = packed.output.lastIndexOf(']') + 1;
+  const packResult = JSON.parse(packed.output.slice(jsonStart, jsonEnd));
+  const tarball = path.join(packDir, packResult[0].filename);
+
+  const manifest = {
+    name: 'installed-fixture',
+    private: true,
+    type: 'module',
+    dependencies: { '@kekkai/blueprint': `file:${tarball}` },
+  };
+
+  fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(manifest));
+
+  const installed = runCmd(
+    'npm',
+    ['install', '--ignore-scripts', '--no-audit', '--no-fund'],
+    { cwd: fixture },
+  );
+
+  expect(installed.code === 0, `npm install exited ${installed.code}\n${installed.output}`);
+
+  fs.writeFileSync(
+    path.join(fixture, 'blueprint.config.mjs'),
+    [
+      'import { defineBlueprint } from \'@kekkai/blueprint\';',
+      'export default defineBlueprint({',
+      '  framework: \'vue\',',
+      '  architecture: {',
+      '    alias: \'~app\',',
+      '    additionalAliases: { \'~root\': \'.\' },',
+      '    layers: [{ name: \'pages\', does: \'routes\' }, { name: \'services\', does: \'I/O\' }],',
+      '  },',
+      '});',
+      '',
+    ].join('\n'),
+  );
+
+  fs.mkdirSync(path.join(fixture, 'src', 'pages'), { recursive: true });
+  fs.mkdirSync(path.join(fixture, 'src', 'services'), { recursive: true });
+
+  fs.writeFileSync(
+    path.join(fixture, 'src', 'pages', 'page.ts'),
+    [
+      'const prefix = \'~root/src/\';',
+      'void import(prefix + \'services/api\');',
+      'void import(globalThis.runtimeTarget);',
+      '',
+    ].join('\n'),
+  );
+
+  fs.writeFileSync(
+    path.join(fixture, 'src', 'pages', 'view.vue'),
+    [
+      '<script setup lang="ts">',
+      'const unit = \'api\';',
+      'void import(`~app/services/${unit}`);',
+      '</script>',
+      '',
+    ].join('\n'),
+  );
+
+  fs.writeFileSync(path.join(fixture, 'src', 'services', 'api.ts'), 'export const api = 1;\n');
+
+  const installedBin = path.join(fixture, 'node_modules', '.bin', 'blueprint');
+  const result = runCmd(installedBin, ['inspect'], { cwd: fixture });
+
+  expect(result.code === 1, `installed inspect exited ${result.code}, expected 1\n${result.output}`);
+  expect(result.output.includes('canonical-alias'), 'installed inspect missed the alternate alias');
+
+  expect(
+    result.output.includes('1 runtime-dependent dynamic import(s)'),
+    'installed inspect did not disclose the runtime-dependent target',
+  );
+
+  return 'packed dependency tree, TS + Vue parsed';
+});
+
 await check('`init --dry-run` plans against a real fixture and writes nothing', () => {
   // The full runtime path — detect, resolve, plan — driven through the bundle
   // rather than through an import, on a repo it has never seen.

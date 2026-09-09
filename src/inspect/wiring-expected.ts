@@ -18,6 +18,7 @@ export type StructuralExpectation = {
   paths: Set<string>;
   selectors: Set<string>;
   globals: Set<string>;
+  importBoundary: string;
 };
 
 export function expectedStructural(
@@ -79,6 +80,7 @@ export function expectedStructural(
         .filter((rule) => !rule.allowedIn.includes(layer))
         .map((rule) => rule.global),
     ),
+    importBoundary: JSON.stringify(architecture),
   };
 }
 
@@ -110,6 +112,7 @@ export function expectedContainerStructural(
       deriveGlobalRules(resolved.layers.map((layer) => layer.definition))
         .map((rule) => rule.global),
     ),
+    importBoundary: JSON.stringify(blueprint.architecture),
   };
 }
 

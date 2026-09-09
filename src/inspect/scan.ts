@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { analyzeDynamicImports } from '../plugin';
 import { compareText } from './order';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
@@ -8,7 +9,8 @@ const SOURCE_EXT = /\.(?:js|jsx|ts|tsx|mjs|cjs|vue)$/;
 
 const FROM_RE = /\b(import|export)\b([^;'"]*?)\bfrom\b\s*['"]([^'"]+)['"]/g;
 const SIDE_EFFECT_RE = /\bimport\s*['"]([^'"]+)['"]/g;
-const DYNAMIC_RE = /\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+const REQUIRE_RE = /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+const LITERAL_DYNAMIC_RE = /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 
 function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
@@ -30,18 +32,37 @@ function extractNames(clause: string): string[] {
   return braced[1].split(',').map(importedName).filter(Boolean);
 }
 
-export function importGraphDerivation(indent = ''): string {
+export function importGraphDerivation(indent = '', scan?: ScanResult): string {
+  const analysis = scan ? importAnalysis(scan) : null;
+
+  const observed = analysis === null
+    ? []
+    : [
+        `${indent}This scan left ${analysis.unknownDynamicImports} runtime-dependent dynamic import(s)`,
+        `${indent}unresolved and encountered ${analysis.parseFailures.length} file parse failure(s); neither`,
+        `${indent}case becomes an edge or a verified legal dependency.`,
+      ];
+
   return [
-    `${indent}How this graph was read: source text, not a parsed AST. A computed specifier`,
-    `${indent}(\`import(path)\`, \`require(name)\` — anything but a quoted literal), the individual`,
-    `${indent}names behind \`import * as\`, and import-like text inside a string are outside what`,
-    `${indent}it can see — so read it as a survey, not as the last word on any one import. The`,
-    `${indent}hard gates do not share the limit: they run in ESLint, on the AST, which is what`,
-    `${indent}your CI enforces.`,
+    `${indent}How this graph was read: static import/export and quoted require targets come from`,
+    `${indent}source syntax; dynamic import targets come from a parsed AST and lexical scope when`,
+    `${indent}they reduce to a proven string (including immutable local strings, concatenation, and`,
+    `${indent}template substitution). Runtime-dependent expressions, individual names behind`,
+    `${indent}\`import * as\`, and import-like text inside a string remain outside the graph — read`,
+    `${indent}it as a survey, not as the last word on any one import. ESLint applies the same bounded`,
+    `${indent}dynamic evaluation while enforcing architectural boundaries.`,
+    ...observed,
   ].join('\n');
 }
 
-export function extractImports(source: string): ImportRef[] {
+export function extractImports(source: string, filePath = 'source.js'): ImportRef[] {
+  return extractImportAnalysis(source, filePath).imports;
+}
+
+export function extractImportAnalysis(
+  source: string,
+  filePath = 'source.js',
+): { imports: ImportRef[]; analysis: NonNullable<ScannedFile['importAnalysis']> } {
   const clean = stripComments(source);
   const refs: ImportRef[] = [];
 
@@ -53,11 +74,44 @@ export function extractImports(source: string): ImportRef[] {
     refs.push({ specifier, names: [], isExport: false });
   }
 
-  for (const [, specifier] of clean.matchAll(DYNAMIC_RE)) {
+  for (const [, specifier] of clean.matchAll(REQUIRE_RE)) {
     refs.push({ specifier, names: [], isExport: false });
   }
 
-  return refs;
+  const dynamic = analyzeDynamicImports(source, filePath);
+
+  for (const specifier of dynamic.specifiers) {
+    refs.push({ specifier, names: [], isExport: false });
+  }
+
+  if (dynamic.parseError) {
+    for (const [, specifier] of clean.matchAll(LITERAL_DYNAMIC_RE)) {
+      refs.push({ specifier, names: [], isExport: false });
+    }
+  }
+
+  return {
+    imports: refs,
+    analysis: {
+      unknownDynamicImports: dynamic.unknown,
+      ...(dynamic.parseError ? { parseError: dynamic.parseError } : {}),
+    },
+  };
+}
+
+export function importAnalysis(scan: ScanResult): {
+  unknownDynamicImports: number;
+  parseFailures: { path: string; message: string }[];
+} {
+  return {
+    unknownDynamicImports: scan.files.reduce(
+      (sum, file) => sum + (file.importAnalysis?.unknownDynamicImports ?? 0),
+      0,
+    ),
+    parseFailures: scan.files.flatMap((file) => file.importAnalysis?.parseError
+      ? [{ path: file.path, message: file.importAnalysis.parseError }]
+      : []),
+  };
 }
 
 const NON_SOURCE_DIRS = new Set([
@@ -116,10 +170,14 @@ function walk(dir: string, files: ScannedFile[], scope: WalkScope): void {
         .split(path.sep)
         .join('/');
 
+      const source = fs.readFileSync(path.join(dir, entry.name), 'utf-8');
+      const extracted = extractImportAnalysis(source, rel);
+
       files.push({
         path: prefix ? `${prefix}/${rel}` : rel,
         segments: rel.split('/'),
-        imports: extractImports(fs.readFileSync(path.join(dir, entry.name), 'utf-8')),
+        imports: extracted.imports,
+        importAnalysis: extracted.analysis,
       });
     }
   }

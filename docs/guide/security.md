@@ -31,10 +31,11 @@ agent CLI on the authoring playbook. The boundaries of that opt-in:
 Every command works on local files only. No telemetry, no update checks, no phoning
 home — the package contains no network code at all.
 
-## Zero runtime dependencies
+## Auditable runtime dependencies
 
-`npm install @kekkai/blueprint` installs exactly one package. What you audit is what
-runs.
+Blueprint installs its declared parsers and static-value evaluator so `inspect`, `deps`,
+and the embedded lint rule can give JavaScript, TypeScript, and Vue dynamic imports the
+same architecture verdict. They run locally and add no network behavior to Blueprint.
 
 ## Child processes are declared and skippable
 

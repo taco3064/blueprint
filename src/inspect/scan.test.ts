@@ -3,7 +3,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { extractImports, importGraphDerivation, outsideScanReach, scan } from './scan';
+import {
+  extractImports,
+  importAnalysis,
+  importGraphDerivation,
+  outsideScanReach,
+  scan,
+} from './scan';
 
 describe('extractImports', () => {
   it('extracts static, re-export, side-effect, and dynamic references', () => {
@@ -128,6 +134,13 @@ describe('scan', () => {
 
   it('returns empty when there is no src/', () => {
     expect(scan(root)).toEqual({ topDirs: [], files: [] });
+  });
+
+  it('treats files without dynamic-import metadata as fully analyzed', () => {
+    expect(importAnalysis({
+      topDirs: [],
+      files: [{ path: 'src/x.ts', segments: ['x.ts'], imports: [] }],
+    })).toEqual({ unknownDynamicImports: 0, parseFailures: [] });
   });
 
   it('walks src/ and records files with segments and imports', () => {
@@ -268,19 +281,19 @@ describe('scan · the order it promises, whatever the filesystem answers', () =>
 describe('importGraphDerivation · one text, wherever a graph-derived fact is reported', () => {
   const text = importGraphDerivation();
 
-  it('names the mechanism, the three things it cannot see, and where the gate really is', () => {
+  it('names the bounded AST mechanism, its limits, and the enforcing gate', () => {
     // Each clause is load-bearing and each was absent before. "Source text, not a
     // parsed AST" is the mechanism, so a reader knows what class of thing is missed
     // rather than being told to distrust the output generally. The three instances
     // are what a reader can check their own repo for. And the correction is what
     // stops "the graph is approximate" from being read as "the gates are
     // approximate" — false, and the more expensive belief of the two.
-    expect(text).toContain('source text, not a parsed AST');
-    expect(text).toContain('computed specifier');
+    expect(text).toContain('parsed AST and lexical scope');
+    expect(text).toContain('Runtime-dependent expressions');
     expect(text).toContain('import * as');
     expect(text).toContain('inside a string');
     expect(text).toContain('survey');
-    expect(text).toContain('ESLint, on the AST');
+    expect(text).toContain('ESLint applies the same bounded');
   });
 
   it('indents every line, so it can sit inside an indented block', () => {

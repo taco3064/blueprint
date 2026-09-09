@@ -86,10 +86,14 @@ export function wiredEslintConfig(blueprint: Blueprint, extraEntries = ''): stri
   return [
     '// wired from @kekkai/blueprint emitLint — inlined for the conformance fixture',
 
-    'const stub = { rules: { \'relative-escape\': {',
+    'const stubRule = {',
     '  meta: { schema: [{ type: \'object\', additionalProperties: true }] },',
     '  create: () => ({}),',
-    '} } };',
+    '};',
+    'const stub = { rules: {',
+    '  \'relative-escape\': stubRule,',
+    '  \'import-boundary\': stubRule,',
+    '} };',
     '',
     'export default [',
     ...entries.map((entry) => `  ${entry},`),

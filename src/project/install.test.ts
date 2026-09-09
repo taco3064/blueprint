@@ -68,12 +68,14 @@ describe('every carrier init installs can resolve on the adopter\'s stack', () =
     expect(SUPPORTED_ESLINT_MAJORS).toContain(9);
   });
 
-  it('every carrier is a devDependency here, so the manifests above are real', () => {
+  it('every carrier is installed here, so the manifests above are real', () => {
     const manifest = JSON.parse(fs.readFileSync('package.json', 'utf-8')) as {
       devDependencies: Record<string, string>;
+      dependencies: Record<string, string>;
     };
 
-    expect(carriers.filter((dep) => !manifest.devDependencies[dep])).toEqual([]);
+    expect(carriers.filter((dep) => !manifest.devDependencies[dep] && !manifest.dependencies[dep]))
+      .toEqual([]);
   });
 });
 

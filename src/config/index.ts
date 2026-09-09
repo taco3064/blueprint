@@ -13,6 +13,7 @@ export type { AliasRoot, DiagramEdge } from './graph';
 export { activeSetting, readSetting } from './settings';
 export type { ReadSetting } from './settings';
 export { resolveArchitecture, resolveLayerFilePatterns } from './resolved';
+export type { ResolvedImportReference } from './import-reference';
 export type {
   ResolveArchitectureContext,
   ResolvedArchitecture,

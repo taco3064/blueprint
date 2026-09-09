@@ -63,7 +63,7 @@ each acceptance step guards, greenfield scaffolding, and the full flow:
   the playbook under your own permissions. The same flag on the preset path
   (`init --preset --agent claude`) launches nothing — there it only narrows which contract
   file is written. `init --help` states both, and `--dry-run` shows either without acting.
-- **No network code, zero runtime dependencies** — nothing here opens a socket: no
+- **No network code** — nothing here opens a socket: no
   telemetry, no update checks, no phoning home. The one command that reaches a network
   is the dependency install `init` runs on your behalf (`npm install -D …`, printed
   before it starts, skipped by `--no-install`) — so on a machine that cannot reach the

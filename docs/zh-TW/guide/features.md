@@ -42,7 +42,7 @@
 
 ## 信任與相容性
 
-- [安全與信任](/zh-TW/guide/security) —— 無網路存取、零執行期依賴、兩個事先明列的子行程（`init` 的安裝、須明確啟用的 Agent 啟動）、唯讀檢測、寫入行為都事先宣告且限定在 repo 內、`--dry-run`、出處簽章發佈
+- [安全與信任](/zh-TW/guide/security) —— 無網路存取、可稽核的本機 parser 依賴、兩個事先明列的子行程（`init` 的安裝、須明確啟用的 Agent 啟動）、唯讀檢測、寫入行為都事先宣告且限定在 repo 內、`--dry-run`、出處簽章發佈
 - [實測相容性](/zh-TW/guide/field-tested) —— 實際驗證過的環境：正式產品專案、五種技術組合、monorepo 模式 —— 以及不支援的項目（Nuxt）與原因
 - [相近工具 —— 差異在哪](/zh-TW/guide/prior-art) —— blueprint 跟 import-boundary linter 重疊在哪，以及只有它能從同一份來源轉譯出的東西
 - [程式化 API](/zh-TW/api/) —— 所有生成器與執行器都可以直接 import —— 在自己的 ESLint config 用 `emitLint`，在自己的工具鏈用 `runInspect` / `runDeps`

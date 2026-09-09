@@ -8,10 +8,11 @@ It is the day-to-day companion to [`blueprint inspect`](/guide/getting-started#b
 `inspect` **judges** the architecture (violations, cycles, exit 1), `deps` only
 **describes** it — fan-in and fan-out per unit, no verdict attached.
 
-Both read the same graph, and that graph is built from **source text, not a parsed
-AST** — see [how the import graph is read](/guide/reference#how-the-import-graph-is-read).
-A computed `import(path)` does not appear in a fan-in count, so treat a blast radius as
-a floor rather than an exact number. Every `deps` output closes on that note.
+Both read the same graph. Static syntax is scanned from source text; dynamic `import()`
+targets that reduce to a proven string are parsed and included — see
+[how the import graph is read](/guide/reference#how-the-import-graph-is-read).
+Runtime-dependent targets do not appear in fan-in counts, so treat the radius as a
+floor when the closing analysis note reports any.
 
 ## How to run it
 

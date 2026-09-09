@@ -98,7 +98,7 @@ function renderTestExemptions(): string {
     '     Check whether the same rule appears on other layers you did NOT merge, '
     + 'because that is where an asymmetry you introduce here lands.',
     '',
-    `     \`blueprint doctor\` verifies both the emitted structural rules and each declared gate's carrier rule survived the merge — so a hand sweep of the emitted gates duplicates it.`,
+    `     \`blueprint doctor\` verifies both the emitted structural rules — including the exact canonical/dynamic import-boundary architecture option — and each declared gate's carrier rule survived the merge, so a hand sweep of the emitted gates duplicates it.`,
     `     What doctor does NOT compare is thresholds, package-ownership entries, and the survival of the rules YOU brought to the merge, and its ✓ says so.`,
     `     That remainder is what \`npx eslint --print-config <file>\` is for; a green lint run does not substitute, since it proves the config loads, not that a given rule reached a given file.`,
     `     Four things to know before reading that output${printConfigCaveats()} Run the project's own lint command; new findings introduced by the merge are fixed or explicitly judged, never left dangling — and when init wired the alias into \`tsconfig\`/\`vite\`, run the build once too (doctor's alias check reads wiring as text, never as a compile).`,

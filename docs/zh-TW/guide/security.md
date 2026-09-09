@@ -28,10 +28,10 @@ blueprint **為 AI Agent 準備素材，預設不代替使用者操作 Agent**�
 每個指令僅操作本機檔案。<br>
 無遙測、無版本更新檢查、不回傳任何資料 —— 套件內不含任何網路程式碼。
 
-## 零執行期依賴
+## 可稽核的執行期依賴
 
-`npm install @kekkai/blueprint` 僅安裝此一套件。<br>
-稽核所見即為實際執行的全部內容。
+Blueprint 會安裝已宣告的 parser 與靜態值求值工具，讓 `inspect`、`deps` 與內建 lint 規則能對 JavaScript、TypeScript、Vue 的動態匯入套用一致的架構判定。<br>
+這些套件只在本機運作，不會替 Blueprint 增加網路行為。
 
 ## 子行程：事先明列、可以跳過
 

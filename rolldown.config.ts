@@ -1,5 +1,12 @@
 import { defineConfig } from 'rolldown';
 
+const external = [
+  /^node:/,
+  '@eslint-community/eslint-utils',
+  '@typescript-eslint/parser',
+  'vue-eslint-parser',
+];
+
 export default defineConfig([
   {
     input: 'src/index.ts',
@@ -8,6 +15,7 @@ export default defineConfig([
       format: 'esm',
       entryFileNames: 'index.js',
     },
+    external,
   },
   {
     input: 'src/cli/cli.ts',
@@ -16,6 +24,6 @@ export default defineConfig([
       format: 'esm',
       entryFileNames: 'bin.js',
     },
-    external: ['node:fs', 'node:path', 'node:url', 'node:child_process'],
+    external,
   },
 ]);

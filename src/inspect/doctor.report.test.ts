@@ -308,10 +308,14 @@ function wiredEslintConfig(blueprint: Blueprint): string {
     '// wired from @kekkai/blueprint emitLint — inlined for the fixture',
     // Without a permissive schema, ESLint 9 defaults to "zero options" and
     // rejects the {layouts} option during config resolution.
-    'const stub = { rules: { \'relative-escape\': {',
+    'const stubRule = {',
     '  meta: { schema: [{ type: \'object\', additionalProperties: true }] },',
     '  create: () => ({}),',
-    '} } };',
+    '};',
+    'const stub = { rules: {',
+    '  \'relative-escape\': stubRule,',
+    '  \'import-boundary\': stubRule,',
+    '} };',
     '',
     'export default [',
     ...entries.map((entry) => `  ${entry},`),

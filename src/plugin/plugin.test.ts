@@ -12,6 +12,7 @@ import { plugin } from './plugin';
  */
 
 const RULE_IDS = [
+  'import-boundary',
   'no-deep-watch',
   'no-typedef-only-file',
   'relative-escape',
@@ -21,6 +22,7 @@ const RULE_IDS = [
 ] as const;
 
 const DESCRIPTIONS: [(typeof RULE_IDS)[number], string][] = [
+  ['import-boundary', 'canonical alias'],
   ['no-deep-watch', 'deep watches'],
   ['no-typedef-only-file', '@typedef'],
   ['relative-escape', 'architectural layer or position'],
@@ -55,6 +57,7 @@ describe('plugin', () => {
   // type is not one of the three eslint accepts, which is the sort of thing that
   // surfaces as an adopter's tooling quietly skipping the rule.
   it.each([
+    ['import-boundary', 'problem'],
     ['relative-escape', 'problem'],
     ['no-deep-watch', 'problem'],
     ['test-filename-matches-source', 'problem'],
@@ -83,6 +86,12 @@ describe('plugin', () => {
         },
         additionalProperties: false,
       },
+    ]);
+  });
+
+  it('accepts the resolved architecture option used by import-boundary', () => {
+    expect(plugin.rules?.['import-boundary']?.meta?.schema).toEqual([
+      { type: 'object', additionalProperties: true },
     ]);
   });
 

@@ -40,7 +40,8 @@ function messages(code: string, filename: string, configured = blueprint()): Lin
 function passes(code: string, filename: string, configured = blueprint()): boolean {
   return messages(code, filename, configured)
     .every((message) => message.ruleId !== 'no-restricted-imports'
-      && message.ruleId !== 'no-restricted-syntax');
+      && message.ruleId !== 'no-restricted-syntax'
+      && message.ruleId !== 'blueprint/import-boundary');
 }
 
 describe('emitLint · module dependency DAG', () => {
@@ -153,7 +154,7 @@ describe('emitLint · aliases rooted inside modules', () => {
       'import api from "~authServices/api";',
       'src/history/hooks/useHistory.ts',
       configured,
-    )).toBe(true);
+    )).toBe(false);
 
     expect(passes(
       'import internal from "~authServices/api/internal";',
@@ -165,7 +166,7 @@ describe('emitLint · aliases rooted inside modules', () => {
       'import api from "~authApi";',
       'src/history/hooks/useHistory.ts',
       configured,
-    )).toBe(true);
+    )).toBe(false);
 
     expect(passes(
       'import internal from "~authApi/internal";',

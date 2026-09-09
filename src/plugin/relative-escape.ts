@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { Rule } from 'eslint';
+import { staticImportSpecifier } from './import-reference';
 import { relativeVerdict, resolveSegments } from './relative';
 
 export const relativeEscape: Rule.RuleModule = {
@@ -102,10 +103,18 @@ export const relativeEscape: Rule.RuleModule = {
     };
 
     const fromSource = (node: Rule.Node): void => {
-      const { source } = node as { source?: { type?: string; value?: unknown } | null };
+      const { source } = node as { source?: Rule.Node & { type?: string; value?: unknown } | null };
 
-      if (source?.type === 'Literal' && typeof source.value === 'string') {
-        check(node, source.value);
+      if (!source) {
+        return;
+      }
+
+      const specifier = node.type === 'ImportExpression'
+        ? staticImportSpecifier(source as never, context.sourceCode.getScope(source))
+        : source.value as string;
+
+      if (specifier !== null) {
+        check(node, specifier);
       }
     };
 
