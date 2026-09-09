@@ -95,7 +95,8 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   const resolved = resolveArchitecture(architecture);
 
   const bullets = [
-    '- **One-way only** — a layer imports only from the layers below it; upstream imports are errors.',
+    '- **One-way only** — a layer imports only from the layers below it; '
+    + 'upstream imports are errors.',
     '- **No same-layer imports via the alias** — use a relative path inside the current '
     + 'architectural scope.',
   ];
