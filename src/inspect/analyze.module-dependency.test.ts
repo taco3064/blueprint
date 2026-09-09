@@ -20,6 +20,8 @@ const blueprint = defineBlueprint({
       {
         name: 'services',
         does: 'I/O',
+        layout: 'folder',
+        entry: 'index',
         allowedImporters: [{ layer: 'hooks', selfOnly: true }],
       },
     ],
@@ -119,5 +121,13 @@ describe('analyze · module dependency DAG', () => {
       .toContain('inner flow forbids "hooks" → "container"');
 
     expect(wiring.filter((finding) => finding.rule === 'flow-violation')).toEqual([]);
+  });
+
+  it('uses the canonical target topology for source-root folder entry depth', () => {
+    const entry = findings(file(['index.ts'], '~app/auth/services/api'));
+    const internal = findings(file(['index.ts'], '~app/auth/services/api/internal'));
+
+    expect(entry.filter((finding) => finding.rule === 'deep-import')).toEqual([]);
+    expect(internal.filter((finding) => finding.rule === 'deep-import')).toHaveLength(1);
   });
 });
