@@ -252,10 +252,15 @@ describe('emitLint · dynamic import parity', () => {
     expect(ruleIds(code, filename, blueprint)).toContain('blueprint/import-boundary');
   });
 
-  it('applies relative boundaries to statically resolved expressions', () => {
-    expect(ruleIds(
-      'const target = "../../components/Card"; import(target)',
+  it('keeps static and bounded dynamic relative imports on the same carrier', () => {
+    const staticIds = ruleIds('import "../components/Card";', importer);
+
+    const dynamicIds = ruleIds(
+      'const target = "../components/Card"; import(target)',
       importer,
-    )).toContain('blueprint/relative-escape');
+    );
+
+    expect(staticIds).toEqual(['blueprint/relative-escape']);
+    expect(dynamicIds).toEqual(staticIds);
   });
 });
