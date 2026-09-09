@@ -221,6 +221,7 @@ export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): s
   );
 
   appendMachineGateBullets(bullets, blueprint, stack);
+
   bullets.push('- When lint fails, fix the structure — never silence it with `eslint-disable`.');
 
   return ['### Machine checks', '', ...bullets].join('\n');
@@ -254,9 +255,15 @@ export function renderBehavioral(
   rules: Record<string, RuleSetting> | undefined,
 ): string {
   const resolved = resolveArchitecture(architecture);
+
   const placementRule = resolved.moduleFirst
-    ? `- Do not create undeclared module folders under \`${architecture.alias}/\`. Every governed source-root folder must be declared in \`architecture.modules\`. (lint can't see this — inspect will.)`
-    : `- Do not create undeclared folders under \`${architecture.alias}/\`. Every folder is a declared layer or a unit inside one. (lint can't see this — inspect will.)`;
+    ? `- Do not create undeclared module folders under \`${architecture.alias}/\`. `
+      + 'Every governed source-root folder must be declared in `architecture.modules`. '
+      + "(lint can't see this — inspect will.)"
+    : `- Do not create undeclared folders under \`${architecture.alias}/\`. `
+      + 'Every folder is a declared layer or a unit inside one. '
+      + "(lint can't see this — inspect will.)";
+
   const bullets = [
     placementRule,
     ...claudePrinciples(principles).map(
