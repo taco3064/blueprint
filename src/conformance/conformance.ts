@@ -112,7 +112,6 @@ export const reactBlueprint: Blueprint = {
       { name: 'components', does: 'render UI' },
       { name: 'services', does: 'data access' },
     ],
-    module: { layout: 'flat', entry: 'index', private: [] },
   },
   rules: { unusedVars: 'error' },
 };

@@ -3,21 +3,21 @@ import type { ArchitectureDef } from '../config';
 import {
   entryResolver,
   layoutResolver,
-  moduleKey,
+  normalizedUnitKey,
   relativeVerdict,
   resolveSegments,
   stripAlias,
-  targetModuleKey,
+  targetUnitKey,
+  unitKey,
 } from './resolve';
 import type { ImportRef, ScannedFile } from './types';
 
 const architecture: ArchitectureDef = {
   alias: '~app',
-  module: { layout: 'folder', entry: 'index' },
   layers: [
-    { name: 'resources', does: 'feature modules' },
-    { name: 'services', does: 'io', module: { entry: 'service' } },
-    { name: 'utils', does: 'leaf helpers', module: { layout: 'flat' } },
+    { name: 'resources', does: 'feature units', layout: 'folder', entry: 'index' },
+    { name: 'services', does: 'io', layout: 'folder', entry: 'service' },
+    { name: 'utils', does: 'leaf helpers', layout: 'file' },
   ],
 };
 
@@ -26,12 +26,12 @@ const entryOf = entryResolver(architecture);
 const shape = { layoutOf, entryOf };
 
 describe('entryResolver', () => {
-  it('takes the shared entry, and a layer override where declared', () => {
+  it('takes each layer entry where declared', () => {
     expect(entryOf('resources')).toBe('index');
     expect(entryOf('services')).toBe('service');
   });
 
-  it('falls back to the shared entry for a layer it does not know', () => {
+  it('falls back to the default entry for a layer it does not know', () => {
     // The rule receives its layer map as options, which can lag a config
     // edit; an unknown layer must still yield an answer rather than throw.
     expect(entryOf('not-a-layer')).toBe('index');
@@ -41,7 +41,7 @@ describe('entryResolver', () => {
 describe('relativeVerdict', () => {
   const own = ['resources', 'matches', 'Row.ts'];
 
-  it('allows anything inside the importer own module', () => {
+  it('allows anything inside the importer own unit', () => {
     expect(relativeVerdict(own, ['resources', 'matches', 'parts', 'Cell.ts'], shape))
       .toBe('ok');
   });
@@ -74,17 +74,12 @@ describe('relativeVerdict', () => {
     expect(relativeVerdict(own, null, shape)).toBe('escapes-src');
   });
 
-  it('leaves a flat layer alone — it has no module folders to be inside of', () => {
+  it('preserves flat-layout relative freedom inside a file-layout layer', () => {
     expect(relativeVerdict(['utils', 'date.ts'], ['utils', 'money.ts'], shape))
       .toBe('ok');
 
-    // The DEEP case, and the invariant this function's shape rests on: a flat
-    // layer has no inside, so a nested relative path within it is not reaching
-    // into anything. Only the sibling case was covered, and there `moduleKey`
-    // collapses both sides to the layer name whatever the layout says — so a
-    // `layoutOf` that answered nonsense produced the same verdict, and the check
-    // that used to catch that (`layoutOf(layer) !== 'folder'`, removed as
-    // unreachable) was the suite's only hold on it.
+    // File layout keeps the former flat-layout boundary: the whole layer is one
+    // relative-import scope.
     expect(relativeVerdict(['utils', 'date.ts'], ['utils', 'sub', 'helper.ts'], shape))
       .toBe('ok');
 
@@ -94,6 +89,34 @@ describe('relativeVerdict', () => {
       ['resources', 'players', 'parts', 'Row.ts'],
       shape,
     )).toBe('reaches-inside');
+  });
+
+  it('leaves cross-module relative policy to the module-policy follow-up', () => {
+    expect(relativeVerdict(
+      ['auth', 'resources', 'matches', 'index.ts'],
+      ['shop', 'resources', 'markets', 'parts', 'Row.ts'],
+      { ...shape, moduleFirst: true },
+    )).toBe('ok');
+  });
+
+  it('still enforces layer and entry boundaries inside one outer module', () => {
+    expect(relativeVerdict(
+      ['auth', 'resources', 'matches', 'index.ts'],
+      ['auth', 'services', 'api', 'index.ts'],
+      { ...shape, moduleFirst: true },
+    )).toBe('leaves-layer');
+
+    expect(relativeVerdict(
+      ['auth', 'resources', 'matches', 'index.ts'],
+      ['auth', 'resources', 'markets', 'parts', 'Row.ts'],
+      { ...shape, moduleFirst: true },
+    )).toBe('reaches-inside');
+  });
+});
+
+describe('normalizedUnitKey', () => {
+  it('normalizes the source root itself to the empty graph key', () => {
+    expect(normalizedUnitKey('src', architecture)).toBe('');
   });
 });
 
@@ -122,24 +145,23 @@ describe('resolveSegments', () => {
   });
 });
 
-describe('entryResolver · a shared entry that is not the default', () => {
-  it('keeps the declared shared entry instead of falling back to index', () => {
+describe('entryResolver · per-layer entries', () => {
+  it('keeps each declared entry and uses index only for an unknown layer', () => {
     // `index` is only what a blueprint gets when it declares nothing. A repo
     // that names its entry `main` has no `index` files at all, so resolving to
     // one makes every sibling import a reaches-inside violation and inspect
     // reddens a repo that is correctly shaped.
     const named = entryResolver({
       alias: '~app',
-      module: { layout: 'folder', entry: 'main' },
       layers: [
-        { name: 'features', does: 'x' },
-        { name: 'api', does: 'y', module: { entry: 'client' } },
+        { name: 'features', does: 'x', layout: 'folder', entry: 'main' },
+        { name: 'api', does: 'y', layout: 'folder', entry: 'client' },
       ],
     });
 
-    expect(named('features')).toBe('main'); // shared, no override
-    expect(named('api')).toBe('client'); // override still wins
-    expect(named('unknown')).toBe('main'); // and the fallback is the shared one
+    expect(named('features')).toBe('main');
+    expect(named('api')).toBe('client');
+    expect(named('unknown')).toBe('index');
   });
 });
 
@@ -177,17 +199,17 @@ describe('stripAlias', () => {
   });
 });
 
-describe('moduleKey · dropping the extension', () => {
+describe('unitKey · dropping the extension', () => {
   it('drops only the last extension, not the first dotted part', () => {
-    // `Row.stories.ts` belongs to the module `Row.stories` — the file IS the
-    // module under folder layout. Cutting at the first dot yields `Row.ts`,
-    // which is a different module and a file that does not exist.
-    expect(moduleKey(['resources', 'Row.stories.ts'], layoutOf)).toBe('resources/Row.stories');
-    expect(moduleKey(['resources', 'Row.ts'], layoutOf)).toBe('resources/Row');
+    // `Row.stories.ts` belongs to the folder unit `Row.stories` when used as a
+    // direct target key. Cutting at the first dot yields `Row.ts`,
+    // which is a different unit and a file that does not exist.
+    expect(unitKey(['resources', 'Row.stories.ts'], layoutOf)).toBe('resources/Row.stories');
+    expect(unitKey(['resources', 'Row.ts'], layoutOf)).toBe('resources/Row');
   });
 });
 
-describe('targetModuleKey · which specifiers name a module', () => {
+describe('targetUnitKey · which specifiers name a unit', () => {
   const file = (segments: string[]): ScannedFile => ({
     path: segments.join('/'),
     segments,
@@ -199,30 +221,30 @@ describe('targetModuleKey · which specifiers name a module', () => {
   it('answers null for a bare package specifier', () => {
     // A package name is neither aliased nor relative. Resolving it like a
     // relative path appends it to the importer's own folder, and `axios` becomes
-    // the module `resources/axios` — a graph edge to a module that is not there,
+    // the unit `resources/axios` — a graph edge to a unit that is not there,
     // counted in every blast radius and flow check.
     expect(
-      targetModuleKey(
+      targetUnitKey(
         ref('axios'),
         file(['resources', 'Row', 'Row.ts']),
-        { aliases: ['~app'], layerNames: ['resources'], layoutOf },
+        architecture,
       ),
     ).toBeNull();
 
     // The two shapes that DO name a module still do.
     expect(
-      targetModuleKey(
+      targetUnitKey(
         ref('./parts/Cell'),
         file(['resources', 'Row', 'Row.ts']),
-        { aliases: ['~app'], layerNames: ['resources'], layoutOf },
+        architecture,
       ),
     ).toBe('resources/Row');
 
     expect(
-      targetModuleKey(
+      targetUnitKey(
         ref('~app/services/api'),
         file(['resources', 'Row', 'Row.ts']),
-        { aliases: ['~app'], layerNames: ['services'], layoutOf },
+        architecture,
       ),
     ).toBe('services/api');
   });
@@ -248,8 +270,7 @@ describe('relativeVerdict · how deep the entry check looks', () => {
     // entry import is reported as reaching inside it.
     const typed: ArchitectureDef = {
       alias: '~app',
-      module: { layout: 'folder', entry: 'index' },
-      layers: [{ name: 'types', does: 'shared shapes', module: { entry: 'index.d' } }],
+      layers: [{ name: 'types', does: 'shared shapes', layout: 'folder', entry: 'index.d' }],
     };
 
     expect(relativeVerdict(

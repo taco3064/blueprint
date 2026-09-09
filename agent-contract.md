@@ -2,7 +2,7 @@
 
 > Shipped with `@kekkai/blueprint`. This is the **generic** half of the
 > architecture contract — the same for every project. The **project** half
-> (layers, flow order, module shapes, ownership, naming, playbook) is compiled
+> (modules, layers, flow order, unit shapes, ownership, naming, playbook) is compiled
 > from `blueprint.config.mjs` into the repo's generated handbook; the pointer
 > block in your agent context file links both.
 
@@ -10,13 +10,14 @@
 
 - A layer may import only layers declared **after** it in the blueprint —
   never upstream, never the same layer through the alias.
-- Same-layer code sharing means the shared part wants to live in a **lower**
-  layer — extract it downward; do not import a sibling through the alias.
-- Relative imports stay **inside their module**. Crossing a module (or layer)
-  boundary relatively hides the dependency from review — use the alias, which
-  the structural rules can see.
-- Folder-layout modules are **entry-only**: import `layer/module`, never
-  `layer/module/internals`.
+- Same-layer dependencies use relative paths, never the alias. In a folder-layout
+  layer, a sibling unit is reachable only through its declared entry; deeper paths
+  stay private. Shared code that does not belong to either unit moves downward.
+- Layer code never crosses its **layer** relatively. A module-root container may
+  reference another direct container file relatively, but reaches layer units through
+  the alias so the structural rules can see the dependency.
+- Folder-layout units are **entry-only**: import the unit path, never internals
+  behind its declared entry.
 
 ## When lint fails
 
@@ -31,10 +32,10 @@
 
 ## When another tool disagrees
 
-- Third-party lint advice sometimes collides with the blueprint's module
+- Third-party lint advice sometimes collides with the blueprint's unit
   shape — e.g. a fast-refresh rule asking you to split `XxxContext` and
-  `XxxProvider` into separate files, when the module shape says a context
-  module exports them together. **The blueprint is the source of truth for
+  `XxxProvider` into separate files, when the unit shape says a context
+  unit exports them together. **The blueprint is the source of truth for
   structure**; the other tool's rule is triage, not a verdict. Keep the
   blueprint shape and disable the conflicting rule locally, with a reason.
 - The reverse holds too: never use a third-party suggestion as cover to
@@ -42,12 +43,13 @@
 
 ## What no tool enforces (you are the gate)
 
-- Do not create undeclared folders under the project alias root. Every folder
-  is a declared layer or a module inside one — `blueprint inspect` catches
-  this after the fact; you prevent it. Its finding offers two ways out —
-  declare the folder as a layer, or move the code into an existing one — and
-  only the second is yours. If the architecture has genuinely outgrown the
-  config, that is the owner's decision: report it and stop. Editing the
+- Do not create undeclared architectural folders under the project alias root.
+  Every such folder belongs to the declared topology: Layer → Unit by default,
+  or Module → Layer → Unit when `architecture.modules` is declared. `blueprint inspect`
+  catches this after the fact; you prevent it. Its finding directs you to move the
+  code into an existing declared layer (and module when that topology applies), or to ask the owner whether
+  the architecture itself should change. Only the move is yours to perform.
+  If the architecture has genuinely outgrown the config, report it and stop. Editing the
   architecture to fit code you just wrote is how a contract stops describing
   anything.
 - Dead code: `npx knip` is the source of truth, not lint. Confirm removal
@@ -56,8 +58,8 @@
 
 ## Before you commit
 
-- [ ] Imports follow the one-way flow (no upstream / same-layer / escaping relatives).
-- [ ] New code sits in the right layer; folder modules expose only their entry.
+- [ ] Imports follow the one-way flow (no upstream layers, same-layer aliases, or escaping relatives).
+- [ ] New code sits in the right layer and, when configured, module; folder units expose only their entry.
 - [ ] No new undeclared folders under the alias root.
 - [ ] Names follow the project's conventions (see the handbook).
 - [ ] `npx blueprint inspect` (with `--baseline` on brownfield repos) is green.
@@ -65,7 +67,7 @@
 ## Where the project specifics live
 
 - `blueprint.config.mjs` — the single source of truth.
-- The generated handbook (default `docs/architecture-handbook.md`) — layers,
-  responsibilities, module shapes, ownership, naming, principles, playbook.
+- The generated handbook (default `docs/architecture-handbook.md`) — modules,
+  layers, responsibilities, unit shapes, ownership, naming, principles, playbook.
 - `.blueprint-baseline.json` — accepted debt on brownfield repos; the ratchet
   fails only on **new** findings.

@@ -59,7 +59,7 @@ describe('runInspect', () => {
     let output = '';
 
     await runInspect(root, { log: (message) => (output = message) });
-    expect(output).toContain('Coverage: 1/1 source files inside layer nets');
+    expect(output).toContain('Coverage: 1/1 source files inside architecture nets');
 
     // Root wiring only → same green report, but the vacuous net is named.
     fs.rmSync(path.join(root, 'src/components'), { recursive: true });

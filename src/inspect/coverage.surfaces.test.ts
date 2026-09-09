@@ -45,7 +45,6 @@ const base: Blueprint = {
       { name: 'pages', does: 'screens' },
       { name: 'services', does: 'net' },
     ],
-    module: { layout: 'flat', entry: 'index', private: [] },
   },
   rules: { testFilename: 'error' },
 };

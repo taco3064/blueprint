@@ -83,7 +83,7 @@ describe('authoringBrief · the rule catalog', () => {
 
     // Field issue #5: the one remaining bundle eval was key-collision
     // archaeology — the catalog states scope and key-level merge guidance.
-    expect(brief).toContain('root wiring sits outside all of them');
+    expect(brief).toContain('including module-first root containers');
     expect(brief).toContain('collisions are decided by rule KEY');
     expect(brief).toContain('flag and config end up saying the same thing');
 
@@ -100,15 +100,16 @@ describe('authoringBrief · the rule catalog', () => {
 describe('authoringBrief · the lint semantics it states', () => {
   it('states the lint semantics up front so nobody reverse-engineers the bundle', () => {
     expect(brief).toContain('## Semantics the linter holds you to');
-    expect(brief).toContain('same-layer *relative*');
+    expect(brief).toContain('same-layer sibling units may use relative imports');
     expect(brief).toContain('blueprint/relative-escape');
     expect(brief).toContain('Same-folder imports via the alias');
     expect(brief).toContain('argsIgnorePattern');
     expect(brief).toContain('eslint wired');
 
-    // Folder layout: siblings are banned outright — not "entry-only", which
-    // would send authors into a wiring explosion; the fix differs by layout.
-    expect(brief).toContain('must not import each other');
+    // Folder layout: sibling dependencies are relative and entry-only; the
+    // repair for an alias hit still differs by layout.
+    expect(brief).toContain('relative path to the sibling entry');
+    expect(brief).toContain('../Sibling/index');
     expect(brief).toContain('layout-dependent');
   });
 });

@@ -9,11 +9,16 @@ function base(): Blueprint {
     architecture: {
       alias: '~app',
       layers: [
-        { name: 'components', does: '可重用 UI', mustNot: ['import services'] },
-        { name: 'hooks', does: 'inject / 加工 state' },
-        { name: 'services', does: '網路原件', owns: ['axios', { global: 'fetch' }] },
+        {
+          name: 'components', does: '可重用 UI', layout: 'folder', entry: 'index',
+          mustNot: ['import services'],
+        },
+        { name: 'hooks', does: 'inject / 加工 state', layout: 'folder', entry: 'index' },
+        {
+          name: 'services', does: '網路原件', layout: 'folder', entry: 'index',
+          owns: ['axios', { global: 'fetch' }],
+        },
       ],
-      module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
     },
   };
 }
@@ -88,13 +93,13 @@ describe('validateBlueprint · the config envelope, and the keys nothing reads',
 
     stray((c) => ((c as unknown as Record<string, unknown>).flows = []), /Unknown key "flows" in the blueprint/);
     stray((c) => ((c.architecture as unknown as Record<string, unknown>).flow = 'one-way'), /Unknown key "flow" in architecture/);
-    stray((c) => ((c.architecture.module as unknown as Record<string, unknown>).privates = []), /architecture\.module/);
+    stray((c) => ((c.architecture.layers[0] as unknown as Record<string, unknown>).unknown = []), /layer "components"/);
     stray((c) => ((c as { emit?: Record<string, unknown> }).emit = { agent: ['claude'] }), /Unknown key "agent" in emit/);
     stray((c) => ((c as { emit?: object }).emit = { lint: { level: 'warn' } }), /emit\.lint/);
     stray((c) => ((c as { emit?: object }).emit = { agents: [{ target: 'claude', file: 'X.md' }] }), /emit\.agents entry/);
     stray((c) => (c.architecture.layers[0].owns = [{ package: 'axios', import: ['get'] } as never]), /owns entry "axios"/);
     stray((c) => (c.architecture.layers[0].owns = [{ global: 'fetch', scope: 'all' } as never]), /owns entry "fetch"/);
-    stray((c) => (c.architecture.layers[0].module = { layout: 'flat', entry: 'index', private: [] } as never), /module override/);
+    stray((c) => ((c.architecture.layers[0] as unknown as Record<string, unknown>).module = { layout: 'file' }), /layers\[\]\.module/);
 
     stray(
       (c) => (
@@ -195,63 +200,37 @@ describe('validateBlueprint · layers, and what a layer owns', () => {
   });
 });
 
-describe('validateBlueprint · module layout, at the root and per layer', () => {
-  it('rejects an empty module entry, accepts an absent module (field issue #23)', () => {
+describe('validateBlueprint · unit layout on each layer', () => {
+  it('rejects an empty entry and accepts an omitted file layout', () => {
     const config = base();
 
-    config.architecture.module!.entry = '';
+    config.architecture.layers[0].entry = '';
 
-    expect(() => validateBlueprint(config)).toThrow(/module\.entry/);
+    expect(() => validateBlueprint(config)).toThrow(/empty entry/);
 
-    // The playbook's "flat default" is real: a config that never mentions
-    // module — or writes only { layout: 'flat' } — is complete.
-    delete config.architecture.module;
-
-    expect(() => validateBlueprint(config)).not.toThrow();
-
-    config.architecture.module = { layout: 'flat' };
-
-    expect(() => validateBlueprint(config)).not.toThrow();
-
-    config.architecture.module = { layout: 'diagonal' as never };
-
-    expect(() => validateBlueprint(config)).toThrow(/folder \| flat/);
-  });
-
-  it('rejects a non-array module.private, accepts an omitted one', () => {
-    const config = base();
-
-    config.architecture.module!.private = 'nope' as never;
-
-    expect(() => validateBlueprint(config)).toThrow(/module\.private/);
-
-    // Optional with a default of none — a draft-first config that never
-    // mentions private parts is valid (field issue #11).
-    delete config.architecture.module!.private;
+    delete config.architecture.layers[0].layout;
+    delete config.architecture.layers[0].entry;
 
     expect(() => validateBlueprint(config)).not.toThrow();
   });
 
-  it('rejects a layer module override with an unknown layout', () => {
+  it('rejects an unknown layout and retired flat spelling', () => {
     const config = base();
 
-    config.architecture.layers[0].module = { layout: 'stacked' as never };
+    config.architecture.layers[0].layout = 'diagonal' as never;
 
-    expect(() => validateBlueprint(config)).toThrow(/expected folder \| flat/);
+    expect(() => validateBlueprint(config)).toThrow(/folder \| file/);
+
+    config.architecture.layers[0].layout = 'flat' as never;
+
+    expect(() => validateBlueprint(config)).toThrow(/retired layout "flat"/);
   });
 
-  it('rejects a layer module override with an empty entry', () => {
+  it('accepts a well-formed folder unit shape', () => {
     const config = base();
 
-    config.architecture.layers[0].module = { entry: '  ' };
-
-    expect(() => validateBlueprint(config)).toThrow(/empty module\.entry override/);
-  });
-
-  it('accepts a well-formed layer module override', () => {
-    const config = base();
-
-    config.architecture.layers[0].module = { layout: 'folder', entry: 'main' };
+    config.architecture.layers[0].layout = 'folder';
+    config.architecture.layers[0].entry = 'main';
 
     expect(() => validateBlueprint(config)).not.toThrow();
   });

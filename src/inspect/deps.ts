@@ -1,16 +1,15 @@
 import { emptyTestGlobs, unreachedTestGlobs } from '../emit/lint/patterns';
-import { resolveArchitecture, stripSourceRoot } from '../config';
+import { resolveArchitecture } from '../config';
 import type { ArchitectureDef, Blueprint } from '../config';
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
 import { testFileReach } from './coverage';
-import { buildModuleGraph, layoutResolver, moduleKey } from './resolve';
-import type { LayoutOf } from './resolve';
+import { buildUnitGraph, normalizedUnitKey } from './resolve';
 import { importGraphDerivation, scan } from './scan';
 import type { ScanResult } from './types';
 
 export interface DepsOptions extends ResolveOptions {
-  /** Module to query, e.g. `hooks/useCart` or `src/hooks/useCart/useCart.ts`. */
+  /** Unit to query, e.g. `hooks/useCart` or `src/auth/hooks/useCart.ts`. */
   target?: string;
   /** Emit machine-readable JSON instead of the text report. */
   json?: boolean;
@@ -18,9 +17,9 @@ export interface DepsOptions extends ResolveOptions {
   log?: (message: string) => void;
 }
 
-/** One module's fan-in / fan-out, the unit of every `deps` answer. */
-export interface ModuleDeps {
-  module: string;
+/** One unit's fan-in / fan-out, the unit of every `deps` answer. */
+export interface UnitDeps {
+  unit: string;
   /** Who imports it — the blast radius of changing it. */
   importedBy: string[];
   /** What it imports. */
@@ -29,33 +28,25 @@ export interface ModuleDeps {
 
 /**
  * Run `blueprint deps` in `root`. Read-only. With a target, answers "who
- * gets hit if I change this module" (reverse deps + own imports); without
- * one, prints the blast-radius leaderboard — every module sorted by fan-in.
+ * gets hit if I change this unit" (reverse deps + own imports); without
+ * one, prints the blast-radius leaderboard — every unit sorted by fan-in.
  * @group Runtimes
  * @example
- * const { modules } = await runDeps(process.cwd(), { target: 'hooks/useCart' });
+ * const { units } = await runDeps(process.cwd(), { target: 'hooks/useCart' });
  *
- * console.log(modules[0].importedBy); // who gets hit if I change it
+ * console.log(units[0].importedBy); // who gets hit if I change it
  */
 export async function runDeps(
   root: string,
   options: DepsOptions = {},
-): Promise<{ ok: boolean; modules: ModuleDeps[] }> {
+): Promise<{ ok: boolean; units: UnitDeps[] }> {
   const log = options.log ?? ((message: string) => console.log(message));
-  const state = detect(root);
-  const { blueprint } = await resolveBlueprint(root, state, options);
-  const { architecture } = blueprint;
-  const scanned = scan(root, resolveArchitecture(architecture).sourceRoot);
-  const graph = buildModuleGraph(scanned, architecture);
-  const modules = collect(graph.modules, graph.edges);
-  const layoutOf = layoutResolver(architecture);
-  const layerNames = new Set(resolveArchitecture(architecture).layerNames);
-  const skipped = skippedFolders(scanned, layerNames);
-  const testExemption = exemptionNote(modules, scanned, architecture);
+  const context = await depsContext(root, options);
+  const { architecture, units, skipped, testExemption } = context;
 
   if (options.target !== undefined) {
     return reportTarget(options.target, {
-      modules, skipped, layerNames, layoutOf, architecture, log, testExemption, json: options.json,
+      units, skipped, architecture, log, testExemption, json: options.json,
     });
   }
 
@@ -63,25 +54,47 @@ export async function runDeps(
     options.json
       ? JSON.stringify(
 
-          { modules, skipped, ...exemptionKey(testExemption), derivation: importGraphDerivation() },
+          { units, skipped, ...exemptionKey(testExemption), derivation: importGraphDerivation() },
           null,
           2,
         )
-      : renderLeaderboard(modules, skipped, { layerNames, layoutOf, testExemption }),
+      : renderLeaderboard(units, skipped, { architecture, testExemption }),
   );
 
-  return { ok: true, modules };
+  return { ok: true, units };
+}
+
+async function depsContext(root: string, options: DepsOptions): Promise<{
+  architecture: ArchitectureDef;
+  units: UnitDeps[];
+  skipped: string[];
+  testExemption: string | null;
+}> {
+  const state = detect(root);
+  const { blueprint } = await resolveBlueprint(root, state, options);
+  const { architecture } = blueprint;
+  const resolved = resolveArchitecture(architecture);
+  const scanned = scan(root, resolved.sourceRoot);
+  const graph = buildUnitGraph(scanned, architecture);
+  const units = collect(graph.units, graph.edges);
+
+  return {
+    architecture,
+    units,
+    skipped: skippedFolders(scanned, architecture),
+    testExemption: exemptionNote(units, scanned, architecture),
+  };
 }
 
 function exemptionNote(
-  modules: ModuleDeps[],
+  units: UnitDeps[],
   scanned: ScanResult,
   architecture: Blueprint['architecture'],
 ): string | null {
   const { testFiles } = architecture;
   const sourceRoot = resolveArchitecture(architecture).sourceRoot;
 
-  if (!modules.length) {
+  if (!units.length) {
     return null;
   }
 
@@ -101,24 +114,22 @@ function exemptionKey(testExemption: string | null): { testExemption?: string } 
 function reportTarget(
   target: string,
   ctx: {
-    modules: ModuleDeps[];
+    units: UnitDeps[];
     skipped: string[];
-    layerNames: Set<string>;
-    layoutOf: LayoutOf;
     architecture: ArchitectureDef;
     log: (message: string) => void;
     testExemption: string | null;
     json?: boolean;
   },
-): { ok: boolean; modules: ModuleDeps[] } {
-  const { modules, skipped, layerNames, layoutOf, architecture, log, testExemption } = ctx;
-  const key = normalizeTarget(target, architecture, layoutOf);
-  const found = modules.find((entry) => entry.module === key);
+): { ok: boolean; units: UnitDeps[] } {
+  const { units, skipped, architecture, log, testExemption } = ctx;
+  const key = normalizedUnitKey(target, architecture);
+  const found = units.find((entry) => entry.unit === key);
 
   if (!found) {
     log(unknownTarget(key, skipped));
 
-    return { ok: false, modules: [] };
+    return { ok: false, units: [] };
   }
 
   log(
@@ -129,13 +140,13 @@ function reportTarget(
           null,
           2,
         )
-      : renderModule(found, isFlatLayer(found.module, layerNames, layoutOf), testExemption),
+      : renderUnit(found, isFileLayer(found.unit, architecture), testExemption),
   );
 
-  return { ok: true, modules: [found] };
+  return { ok: true, units: [found] };
 }
 
-function collect(moduleSet: Set<string>, edges: Map<string, Set<string>>): ModuleDeps[] {
+function collect(unitSet: Set<string>, edges: Map<string, Set<string>>): UnitDeps[] {
   const importedBy = new Map<string, string[]>();
 
   for (const [from, targets] of edges) {
@@ -144,59 +155,70 @@ function collect(moduleSet: Set<string>, edges: Map<string, Set<string>>): Modul
     }
   }
 
-  const all = new Set([...moduleSet, ...importedBy.keys()]);
+  const all = new Set([...unitSet, ...importedBy.keys()]);
 
   return [...all]
-    .map((module) => ({
-      module,
-      importedBy: (importedBy.get(module) ?? []).sort(),
-      imports: [...(edges.get(module) ?? [])].sort(),
+    .map((unit) => ({
+      unit,
+      importedBy: (importedBy.get(unit) ?? []).sort(),
+      imports: [...(edges.get(unit) ?? [])].sort(),
     }))
     .sort(
-      (a, b) => b.importedBy.length - a.importedBy.length || a.module.localeCompare(b.module),
+      (a, b) => b.importedBy.length - a.importedBy.length || a.unit.localeCompare(b.unit),
     );
 }
 
-function skippedFolders(scanned: ScanResult, layerNames: Set<string>): string[] {
-  const folders = scanned.files
-    .filter((file) => file.segments.length > 1 && !layerNames.has(file.segments[0]))
-    .map((file) => file.segments[0]);
+function skippedFolders(scanned: ScanResult, architecture: ArchitectureDef): string[] {
+  const resolved = resolveArchitecture(architecture);
+  const modules = new Set(resolved.modules.map((module) => module.name));
+  const layers = new Set(resolved.layerNames);
+
+  const folders = scanned.files.flatMap((file) => {
+    const [outer, inner] = file.segments;
+
+    if (resolved.topology === 'layer-first') {
+      return file.segments.length > 1 && !layers.has(outer) ? [outer] : [];
+    }
+
+    if (!modules.has(outer)) {
+      return file.segments.length > 1 ? [outer] : [];
+    }
+
+    return file.segments.length > 2 && !layers.has(inner) ? [`${outer}/${inner}`] : [];
+  });
 
   return [...new Set(folders)];
 }
 
-function isFlatLayer(module: string, layerNames: Set<string>, layoutOf: LayoutOf): boolean {
-  // Stryker disable next-line LogicalOperator: graph keys never include a non-layer single segment.
-  return !module.includes('/') && layerNames.has(module) && layoutOf(module) === 'flat';
-}
-
-function normalizeTarget(
-  input: string,
+function isFileLayer(
+  unit: string,
   architecture: ArchitectureDef,
-  layoutOf: LayoutOf,
-): string {
-  return moduleKey(stripSourceRoot(input, architecture), layoutOf);
+): boolean {
+  const resolved = resolveArchitecture(architecture);
+  const position = resolved.classify(unit.split('/'));
+
+  return position?.kind === 'layer' && position.layer.unit.layout === 'file';
 }
 
 function unknownTarget(key: string, skipped: string[]): string {
-  const folder = key.split('/')[0];
+  const folder = skipped.find((candidate) => `${key}/`.startsWith(`${candidate}/`));
 
-  return skipped.includes(folder)
-    ? `✗ "${folder}/" is not a declared layer — deps only sees modules under declared layers.`
-    : `✗ Unknown module "${key}" — run \`blueprint deps\` to list every module.`;
+  return folder
+    ? `✗ "${folder}/" is outside the declared architecture — deps only sees governed units.`
+    : `✗ Unknown unit "${key}" — run \`blueprint deps\` to list every unit.`;
 }
 
-function renderModule(
-  entry: ModuleDeps,
-  flatLayer: boolean,
+function renderUnit(
+  entry: UnitDeps,
+  fileLayer: boolean,
   testExemption: string | null,
 ): string {
   return [
-    entry.module + (flatLayer ? ' (flat layer — answers at layer granularity)' : ''),
+    entry.unit + (fileLayer ? ' (file-layout layer — answers at layer granularity)' : ''),
     `  imported by (${entry.importedBy.length}):`,
-    ...entry.importedBy.map((module) => `    ← ${module}`),
+    ...entry.importedBy.map((unit) => `    ← ${unit}`),
     `  imports (${entry.imports.length}):`,
-    ...entry.imports.map((module) => `    → ${module}`),
+    ...entry.imports.map((unit) => `    → ${unit}`),
     ...exemptionLine(testExemption),
     '',
     importGraphDerivation('  '),
@@ -208,28 +230,33 @@ function exemptionLine(testExemption: string | null): string[] {
 }
 
 function renderLeaderboard(
-  modules: ModuleDeps[],
+  units: UnitDeps[],
   skipped: string[],
-  shape: { layerNames: Set<string>; layoutOf: LayoutOf; testExemption: string | null },
+  shape: {
+    architecture: ArchitectureDef;
+    testExemption: string | null;
+  },
 ): string {
-  const { layerNames, layoutOf, testExemption } = shape;
+  const { architecture, testExemption } = shape;
 
-  if (!modules.length) {
-    return 'No modules found under the declared layers.';
+  if (!units.length) {
+    return 'No units found inside the declared architecture.';
   }
 
-  const width = String(modules[0].importedBy.length).length;
+  const width = String(units[0].importedBy.length).length;
 
   const note = skipped.length
-    ? [`  (not under a declared layer, invisible to deps: ${skipped.join('/, ')}/)`]
+    ? [`  (outside the declared architecture, invisible to deps: ${skipped.join('/, ')}/)`]
     : [];
 
   return [
     'Blast radius (imported-by count):',
-    ...modules.map(
+    ...units.map(
       (entry) =>
-        `  ${String(entry.importedBy.length).padStart(width)} ← ${entry.module}`
-        + (isFlatLayer(entry.module, layerNames, layoutOf) ? ' (flat layer)' : ''),
+        `  ${String(entry.importedBy.length).padStart(width)} ← ${entry.unit}`
+        + (isFileLayer(entry.unit, architecture)
+          ? ' (file-layout layer)'
+          : ''),
     ),
     ...note,
     ...exemptionLine(testExemption),

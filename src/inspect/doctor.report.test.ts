@@ -67,7 +67,7 @@ const coverageDetail = (checks: DoctorCheck[]): string | undefined =>
 const expectIgnoreMovesCoverage = (ignored: DoctorCheck[], reached: DoctorCheck[]): void => {
   expect(coverageDetail(ignored)).toContain('source files reached by layer lint rules');
   expect(coverageDetail(ignored)).toContain('lint ignored:');
-  expect(coverageDetail(reached)).toContain('source files inside layer nets');
+  expect(coverageDetail(reached)).toContain('source files inside architecture nets');
   expect(coverageDetail(reached)).not.toContain('lint ignored:');
 };
 
@@ -99,7 +99,6 @@ const wiredBlueprint = (layerFilesIgnore: string[]): Blueprint => ({
       { name: 'components', does: 'render UI' },
       { name: 'services', does: 'data access' },
     ],
-    module: { layout: 'flat', entry: 'index', private: [] },
     layerFilesIgnore,
   },
   emit: { agents: [] },
@@ -502,7 +501,7 @@ describe('runDoctor · the notes under the banner', () => {
 
     // The contradiction this replaces, in one line each: the skip the entry caused, and
     // the check it left running — with no note calling the cause of either inert.
-    expect(swallowed).toContain('skipped — no probe derivable from the layer globs');
+    expect(swallowed).toContain('skipped — no probe derivable from the architecture globs');
     expect(swallowed).not.toContain('layerFilesIgnore');
 
     expect(partial).toContain('✓ emitted rules survive the merged eslint config (');
@@ -634,8 +633,8 @@ describe('runDoctor · the note behind the counts it prints', () => {
     const red = await runDoctor(root, { loadConfig: deadTests, log: (m) => (broken = m) });
     const green = await runDoctor(root, { loadConfig: liveTests, log: (m) => (intact = m) });
 
-    expect(coverageDetail(red.checks)).toContain('2/2 source files inside layer nets');
-    expect(coverageDetail(green.checks)).toContain('1/1 source files inside layer nets');
+    expect(coverageDetail(red.checks)).toContain('2/2 source files inside architecture nets');
+    expect(coverageDetail(green.checks)).toContain('1/1 source files inside architecture nets');
     expect(gateCount(red.checks)).toBe(gateCount(green.checks));
 
     expect(broken).toContain('`architecture.testFiles`');

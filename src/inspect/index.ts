@@ -1,5 +1,5 @@
 export { runDeps } from './deps';
-export type { DepsOptions, ModuleDeps } from './deps';
+export type { DepsOptions, UnitDeps } from './deps';
 export { runDoctor } from './doctor';
 export type { DoctorCheck, DoctorOptions, DoctorVerdict } from './doctor';
 export { runInspect } from './inspect';

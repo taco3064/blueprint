@@ -29,7 +29,7 @@ export type {
   GateStatus,
   InspectOptions,
   LayerBans,
-  ModuleDeps,
+  UnitDeps,
   RulesOptions,
   Severity,
 } from './inspect';

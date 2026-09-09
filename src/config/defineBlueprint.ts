@@ -5,7 +5,6 @@ import type {
   Blueprint,
   EmitDef,
   LayerDef,
-  ModuleDef,
   RuleSetting,
 } from './types';
 import { normalizeAllowedImporters } from './graph';
@@ -14,6 +13,7 @@ import { activeSetting } from './settings';
 
 const VALID_TIERS = ['error', 'warn', 'off'];
 const LAYER_PLACEHOLDER = /\{\s*layer\s*\}/;
+const MODULE_PLACEHOLDER = /\{\s*module\s*\}/;
 
 const AGENT_TARGETS = ['claude', 'agents', 'gemini', 'copilot', 'cursor', 'windsurf'];
 const DEFAULT_AGENT_TARGETS: AgentTarget[] = ['claude', 'agents'];
@@ -33,8 +33,8 @@ const ARCHITECTURE_KEYS = [
   'alias',
   'additionalAliases',
   'sourceRoot',
+  'modules',
   'layers',
-  'module',
   'layerFiles',
   'layerFilesIgnore',
   'testFiles',
@@ -46,7 +46,8 @@ const LAYER_KEYS = [
   'does',
   'mustNot',
   'owns',
-  'module',
+  'layout',
+  'entry',
   'allowedImporters',
   'lintOverrides',
 ];
@@ -76,11 +77,10 @@ const MANAGED_RULES = [
  *   architecture: {
  *     alias: '~app',
  *     layers: [
- *       { name: 'components', does: 'Reusable, presentational UI', mustNot: ['import services'] },
- *       { name: 'hooks', does: 'Adapts server and shared state' },
+ *       { name: 'components', does: 'Reusable UI', layout: 'folder', entry: 'index' },
+ *       { name: 'hooks', does: 'Adapts server and shared state', layout: 'file' },
  *       { name: 'services', does: 'Network primitives', owns: ['axios', { global: 'fetch' }] },
  *     ],
- *     module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
  *   },
  * });
  */
@@ -121,9 +121,10 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
     throw new Error('architecture.layers must be an array.');
   }
 
+  rejectRetiredArchitectureModule(architecture);
   rejectUnknownKeys(architecture, ARCHITECTURE_KEYS, 'architecture');
 
-  const { alias, additionalAliases, layers, module, layerFiles } = architecture;
+  const { alias, additionalAliases, modules, layers, layerFiles } = architecture;
 
   if (typeof alias !== 'string' || !alias.trim()) {
     throw new Error('architecture.alias must be a non-empty string.');
@@ -134,9 +135,9 @@ function validateArchitecture(architecture: ArchitectureDef | undefined): void {
   }
 
   validateLayers(layers);
-  validateModule(module);
+  validateModules(modules);
   validateAdditionalAliases(additionalAliases);
-  validateLayerFiles(layerFiles);
+  validateLayerFiles(layerFiles, modules !== undefined);
 }
 
 function validateLayers(layers: LayerDef[]): void {
@@ -144,9 +145,10 @@ function validateLayers(layers: LayerDef[]): void {
 
   for (const layer of layers) {
     validateLayerName(layer, names);
+    rejectRetiredLayerModule(layer);
     rejectUnknownKeys(layer, LAYER_KEYS, `layer "${layer.name}"`);
     validateOwns(layer);
-    validateLayerModule(layer);
+    validateUnitShape(layer);
     validateLintOverrides(layer);
 
     validateAllowedImporters(layer, names);
@@ -174,30 +176,36 @@ function validateLayerName(layer: LayerDef, earlier: Set<string>): void {
   }
 }
 
-function validateModule(module: ModuleDef | undefined): void {
-  if (module === undefined) {
+function validateModules(modules: ArchitectureDef['modules']): void {
+  if (modules === undefined) {
     return;
   }
 
-  if (module.layout !== undefined && module.layout !== 'folder' && module.layout !== 'flat') {
-    throw new Error(
-      `architecture.module.layout is "${String(module.layout)}" — expected folder | flat, `
-      + 'or omit it for the default (flat).',
-    );
+  if (!Array.isArray(modules) || modules.length === 0) {
+    throw new Error('architecture.modules must be a non-empty array when set.');
   }
 
-  if (module.entry !== undefined && (typeof module.entry !== 'string' || !module.entry.trim())) {
-    throw new Error(
-      'architecture.module.entry must be a non-empty string when set '
-      + '— omit it for the default ("index").',
-    );
-  }
+  const names = new Map<string, string>();
 
-  if (module.private !== undefined && !Array.isArray(module.private)) {
-    throw new Error('architecture.module.private must be an array when set — omit it for none.');
-  }
+  for (const module of modules) {
+    validateArchitectureName(module?.name, 'module');
+    rejectUnknownKeys(module, ['name', 'does'], `module "${module.name}"`);
 
-  rejectUnknownKeys(module, ['layout', 'entry', 'private'], 'architecture.module');
+    if (typeof module.does !== 'string' || !module.does.trim()) {
+      throw new Error(`Module "${module.name}" must have a non-empty does.`);
+    }
+
+    const collision = names.get(module.name.toLocaleLowerCase('en-US'));
+
+    if (collision !== undefined) {
+      throw new Error(
+        `Module names "${collision}" and "${module.name}" map to the same source-root folder `
+        + 'on case-insensitive filesystems.',
+      );
+    }
+
+    names.set(module.name.toLocaleLowerCase('en-US'), module.name);
+  }
 }
 
 function validateAdditionalAliases(aliases: Record<string, string> | undefined): void {
@@ -217,12 +225,29 @@ function validateAdditionalAliases(aliases: Record<string, string> | undefined):
   }
 }
 
-function validateLayerFiles(layerFiles: string | string[] | undefined): void {
+function validateLayerFiles(
+  layerFiles: string | string[] | undefined,
+  moduleFirst: boolean,
+): void {
   const globs = layerFiles === undefined ? [] : [layerFiles].flat();
 
   for (const glob of globs) {
     if (!LAYER_PLACEHOLDER.test(glob)) {
       throw new Error(`layerFiles entry "${glob}" must include the "{layer}" placeholder.`);
+    }
+
+    if (moduleFirst && !MODULE_PLACEHOLDER.test(glob)) {
+      throw new Error(
+        `Module-first layerFiles entry "${glob}" must include both "{module}" and "{layer}" `
+        + 'so repeated layers do not collapse into one global net.',
+      );
+    }
+
+    if (!moduleFirst && MODULE_PLACEHOLDER.test(glob)) {
+      throw new Error(
+        `Layer-first layerFiles entry "${glob}" must not include "{module}" — `
+        + 'declare architecture.modules to open the module dimension, or remove the placeholder.',
+      );
     }
   }
 }
@@ -367,26 +392,57 @@ function validateOwns(layer: LayerDef): void {
   }
 }
 
-function validateLayerModule(layer: LayerDef): void {
-  const override = layer.module;
-
-  if (override === undefined) {
-    return;
+function validateUnitShape(layer: LayerDef): void {
+  if ((layer as { layout?: unknown }).layout === 'flat') {
+    throw new Error(
+      `Layer "${layer.name}" uses retired layout "flat" — Blueprint 4.0 calls the one-file `
+      + 'unit layout "file". Use layout: "file" or omit it for that default.',
+    );
   }
 
-  rejectUnknownKeys(override, ['layout', 'entry'], `layer "${layer.name}" module override`);
-
-  if (override.layout !== undefined && !['folder', 'flat'].includes(override.layout)) {
+  if (layer.layout !== undefined && !['folder', 'file'].includes(layer.layout)) {
     throw new Error(
-      `Layer "${layer.name}" has module.layout "${override.layout}" — expected folder | flat.`,
+      `Layer "${layer.name}" has layout "${String(layer.layout)}" — expected folder | file.`,
     );
   }
 
   if (
-    override.entry !== undefined
-    && (typeof override.entry !== 'string' || !override.entry.trim())
+    layer.entry !== undefined
+    && (typeof layer.entry !== 'string' || !layer.entry.trim())
   ) {
-    throw new Error(`Layer "${layer.name}" has an empty module.entry override.`);
+    throw new Error(`Layer "${layer.name}" has an empty entry.`);
+  }
+}
+
+function rejectRetiredArchitectureModule(architecture: ArchitectureDef): void {
+  if ('module' in architecture) {
+    throw new Error(
+      'architecture.module is retired in Blueprint 4.0 — move layout and entry onto each '
+      + 'layer. module.private was removed without replacement; the inner concept is now a unit.',
+    );
+  }
+}
+
+function rejectRetiredLayerModule(layer: LayerDef): void {
+  if ('module' in layer) {
+    throw new Error(
+      `layers[].module is retired in Blueprint 4.0 (layer "${layer.name}") — move layout and `
+      + 'entry directly onto the layer; the inner concept is now a unit.',
+    );
+  }
+}
+
+function validateArchitectureName(name: unknown, kind: 'module' | 'layer'): void {
+  const title = `${kind[0].toUpperCase()}${kind.slice(1)}`;
+
+  if (typeof name !== 'string' || !name.trim()) {
+    throw new Error(`Each ${kind} must have a non-empty name.`);
+  } else if (name === '.' || name === '..' || /[*?{}[\]\\/]/.test(name)) {
+    throw new Error(`${title} "${name}" contains glob or path characters.`);
+  } else if (/[\s"'()<>|;%&]/.test(name)) {
+    throw new Error(
+      `${title} "${name}" contains characters that corrupt paths or generated artifacts.`,
+    );
   }
 }
 

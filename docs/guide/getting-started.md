@@ -71,10 +71,10 @@ finding and stamps the file `"version": 2`.
 
 ```bash
 npx @kekkai/blueprint deps hooks/useCart   # who imports it, what it imports
-npx @kekkai/blueprint deps                 # leaderboard: every module by fan-in
+npx @kekkai/blueprint deps                 # leaderboard: every unit by fan-in
 ```
 
-Read-only fan-in / fan-out per module — "who gets hit if I change this". Output
+Read-only fan-in / fan-out per unit — "who gets hit if I change this". Output
 samples, granularity, and graph boundaries: [Blast Radius — deps](/guide/deps).
 
 ## The Blueprint
@@ -88,16 +88,17 @@ export default defineBlueprint({
   architecture: {
     alias: '~app',
     layers: [
-      { name: 'components', does: 'Reusable, presentational UI', mustNot: ['call services'] },
-      { name: 'hooks', does: 'Adapts server and shared state' },
+      { name: 'components', does: 'Reusable, presentational UI', layout: 'folder', entry: 'index', mustNot: ['call services'] },
+      { name: 'hooks', does: 'Adapts server and shared state', layout: 'folder', entry: 'index' },
       {
         name: 'services',
         does: 'Network primitives',
+        layout: 'folder',
+        entry: 'index',
         owns: ['axios', { global: 'fetch' }],
         allowedImporters: ['hooks'],
       },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
   },
 });
 ```

@@ -36,17 +36,80 @@ function scaffold(): void {
   writeSrc('pages/Home/Home.ts', 'import { useCart } from \'~app/hooks/useCart\';');
 }
 
+const moduleConfig = {
+  framework: 'react' as const,
+  architecture: {
+    alias: '~app',
+    modules: [{ name: 'auth', does: 'authentication' }],
+    layers: [
+      { name: 'components', does: 'UI', layout: 'folder' as const },
+      { name: 'services', does: 'I/O', layout: 'folder' as const },
+    ],
+  },
+};
+
 describe('runDeps · target', () => {
-  it('answers blast radius for a module key, file path, or src-prefixed path', async () => {
+  it('answers a module-first unit target with its full identity', async () => {
+    writeSrc('auth/services/api/index.ts', 'export const api = 1;');
+    writeSrc('auth/components/Login/index.ts', 'import { api } from "~app/auth/services/api";');
+
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// test config');
+
+    const result = await runDeps(root, {
+      target: 'auth/services/api',
+      log: silent,
+      loadConfig: async () => moduleConfig,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.units[0].unit).toBe('auth/services/api');
+    expect(result.units[0].importedBy).toEqual(['auth/components/Login']);
+  });
+
+  it('names undeclared module and inner-layer folders as outside the graph', async () => {
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// test config');
+
+    writeSrc('auth/random/x.ts', 'export const x = 1;');
+    writeSrc('legacy/x.ts', 'export const x = 1;');
+    writeSrc('root.ts', 'export const root = 1;');
+    let output = '';
+
+    await runDeps(root, {
+      json: true,
+      log: (message) => (output = message),
+      loadConfig: async () => moduleConfig,
+    });
+
+    expect(JSON.parse(output).skipped).toEqual(['auth/random', 'legacy']);
+
+    const outside = await runDeps(root, {
+      target: 'auth/random/x',
+      log: (message) => (output = message),
+      loadConfig: async () => moduleConfig,
+    });
+
+    expect(outside.ok).toBe(false);
+    expect(output).toContain('"auth/random/" is outside the declared architecture');
+
+    await runDeps(root, {
+      target: 'auth/random',
+      log: (message) => (output = message),
+      loadConfig: async () => moduleConfig,
+    });
+
+    expect(output).toContain('"auth/random/" is outside the declared architecture');
+  });
+
+  it('answers blast radius for a unit key, file path, or src-prefixed path', async () => {
     scaffold();
 
     for (const target of ['hooks/useCart', 'src/hooks/useCart/useCart.ts', './src/hooks/useCart']) {
-      const { ok, modules } = await runDeps(root, { target, log: silent });
+      const { ok, units } = await runDeps(root, { target, log: silent });
 
       expect(ok).toBe(true);
-      expect(modules[0].module).toBe('hooks/useCart');
-      expect(modules[0].importedBy).toEqual(['containers/Cart', 'pages/Home']);
-      expect(modules[0].imports).toEqual(['services/api']);
+      expect(units[0].unit).toBe('hooks/useCart');
+      expect(units[0].importedBy).toEqual(['containers/Cart', 'pages/Home']);
+      expect(units[0].imports).toEqual(['services/api']);
     }
   });
 
@@ -60,10 +123,9 @@ describe('runDeps · target', () => {
         alias: '~app',
         sourceRoot,
         layers: [
-          { name: 'hooks', does: 'state' },
-          { name: 'services', does: 'network' },
+          { name: 'hooks', does: 'state', layout: 'folder' as const },
+          { name: 'services', does: 'network', layout: 'folder' as const },
         ],
-        module: { layout: 'folder' as const },
       },
     };
 
@@ -85,7 +147,7 @@ describe('runDeps · target', () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(result.modules[0].module).toBe('hooks/useCart');
+    expect(result.units[0].unit).toBe('hooks/useCart');
   });
 
   it('renders arrows in the text report and raw JSON with --json', async () => {
@@ -97,31 +159,31 @@ describe('runDeps · target', () => {
     expect(output).toContain('→ services/api');
 
     await runDeps(root, { target: 'hooks/useCart', json: true, log: (m) => (output = m) });
-    expect(JSON.parse(output).module).toBe('hooks/useCart');
+    expect(JSON.parse(output).unit).toBe('hooks/useCart');
   });
 
-  it('fails on an unknown module', async () => {
+  it('fails on an unknown unit', async () => {
     scaffold();
     let output = '';
 
     const { ok } = await runDeps(root, { target: 'hooks/useGhost', log: (m) => (output = m) });
 
     expect(ok).toBe(false);
-    expect(output).toContain('Unknown module "hooks/useGhost"');
+    expect(output).toContain('Unknown unit "hooks/useGhost"');
   });
 });
 
 describe('runDeps · leaderboard', () => {
-  it('sorts every module by fan-in, name-breaking ties', async () => {
+  it('sorts every unit by fan-in, name-breaking ties', async () => {
     scaffold();
     let output = '';
 
-    const { ok, modules } = await runDeps(root, { log: (m) => (output = m) });
+    const { ok, units } = await runDeps(root, { log: (m) => (output = m) });
 
     expect(ok).toBe(true);
-    expect(modules[0].module).toBe('hooks/useCart'); // fan-in 2
-    expect(modules[1].module).toBe('services/api'); // fan-in 1
-    expect(modules.at(-1)?.importedBy).toEqual([]);
+    expect(units[0].unit).toBe('hooks/useCart'); // fan-in 2
+    expect(units[1].unit).toBe('services/api'); // fan-in 1
+    expect(units.at(-1)?.importedBy).toEqual([]);
     expect(output).toContain('Blast radius');
     expect(output).toContain('2 ← hooks/useCart');
   });
@@ -131,12 +193,12 @@ describe('runDeps · leaderboard', () => {
 
     const empty = await runDeps(root, { log: (m) => (output = m) });
 
-    expect(empty.modules).toEqual([]);
-    expect(output).toContain('No modules found');
+    expect(empty.units).toEqual([]);
+    expect(output).toContain('No units found');
 
     scaffold();
     await runDeps(root, { json: true, log: (m) => (output = m) });
-    expect(Array.isArray(JSON.parse(output).modules)).toBe(true);
+    expect(Array.isArray(JSON.parse(output).units)).toBe(true);
   });
 });
 
@@ -145,10 +207,10 @@ describe('runDeps · test files are excluded from the graph', () => {
     scaffold();
     writeSrc('pages/Home/Home.test.ts', 'import { useCart } from \'~app/hooks/useCart\';');
 
-    const { modules } = await runDeps(root, { target: 'hooks/useCart', log: silent });
+    const { units } = await runDeps(root, { target: 'hooks/useCart', log: silent });
 
     // Still the two production importers — the test adds nothing.
-    expect(modules[0].importedBy).toEqual(['containers/Cart', 'pages/Home']);
+    expect(units[0].importedBy).toEqual(['containers/Cart', 'pages/Home']);
   });
 });
 
@@ -159,7 +221,7 @@ describe('runDeps · folders outside the declared layers', () => {
     let output = '';
 
     await runDeps(root, { log: (m) => (output = m) });
-    expect(output).toContain('(not under a declared layer, invisible to deps: legacy/)');
+    expect(output).toContain('(outside the declared architecture, invisible to deps: legacy/)');
 
     await runDeps(root, { json: true, log: (m) => (output = m) });
     expect(JSON.parse(output).skipped).toEqual(['legacy']);
@@ -173,22 +235,21 @@ describe('runDeps · folders outside the declared layers', () => {
     const { ok } = await runDeps(root, { target: 'legacy/old', log: (m) => (output = m) });
 
     expect(ok).toBe(false);
-    expect(output).toContain('"legacy/" is not a declared layer');
+    expect(output).toContain('"legacy/" is outside the declared architecture');
   });
 });
 
-describe('runDeps · flat-layout layers answer at layer granularity', () => {
-  const flatConfig = async () => ({
+describe('runDeps · file-layout layers preserve layer granularity', () => {
+  const fileConfig = async () => ({
     framework: 'vue' as const,
     architecture: {
       alias: '~app',
-      module: { layout: 'folder' as const, entry: 'index', private: [] },
       layers: [
-        { name: 'pages', does: 'routes', allowedImporters: [] },
+        { name: 'pages', does: 'routes', layout: 'folder' as const, allowedImporters: [] },
         {
           name: 'features',
-          does: 'feature modules',
-          module: { layout: 'flat' as const },
+          does: 'feature units',
+          layout: 'file' as const,
           allowedImporters: ['pages'],
         },
       ],
@@ -201,32 +262,32 @@ describe('runDeps · flat-layout layers answer at layer granularity', () => {
     writeSrc('pages/Home/Home.ts', 'import { feed } from \'~app/features/feed\';');
   });
 
-  it('collapses a deep target to the layer node and says so', async () => {
+  it('collapses a direct file target to the layer node and says so', async () => {
     let output = '';
 
-    const { ok, modules } = await runDeps(root, {
+    const { ok, units } = await runDeps(root, {
       target: 'features/feed',
-      loadConfig: flatConfig,
+      loadConfig: fileConfig,
       log: (m) => (output = m),
     });
 
     expect(ok).toBe(true);
-    expect(modules[0].module).toBe('features');
-    expect(output).toContain('features (flat layer — answers at layer granularity)');
+    expect(units[0].unit).toBe('features');
+    expect(output).toContain('features (file-layout layer — answers at layer granularity)');
   });
 
-  it('marks the flat layer on the leaderboard', async () => {
+  it('marks the file-layout layer on the leaderboard', async () => {
     let output = '';
 
-    await runDeps(root, { loadConfig: flatConfig, log: (m) => (output = m) });
+    await runDeps(root, { loadConfig: fileConfig, log: (m) => (output = m) });
 
-    expect(output).toContain('← features (flat layer)');
+    expect(output).toContain('← features (file-layout layer)');
     expect(output).toContain('← pages/Home');
 
-    // pages is folder-shaped, so its modules answer at module granularity.
+    // pages is folder-shaped, so its units answer at unit granularity.
     // Claiming the layer-granularity caveat here would tell the reader the
     // blast radius is wider than it is.
-    expect(output).not.toContain('pages/Home (flat layer)');
+    expect(output).not.toContain('pages/Home (file-layout layer)');
   });
 });
 
@@ -258,8 +319,8 @@ describe('runDeps · a hand-written config is validated on load', () => {
   });
 });
 
-describe('runDeps · file modules drop their extension from the key', () => {
-  it('resolves a bare-file module without its extension', async () => {
+describe('runDeps · file units drop their extension from the key', () => {
+  it('resolves a bare-file unit without its extension', async () => {
     fs.writeFileSync(
       path.join(root, 'package.json'),
       JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
@@ -268,29 +329,44 @@ describe('runDeps · file modules drop their extension from the key', () => {
     writeSrc('components/HelloWorld.vue', '');
     writeSrc('pages/Home/Home.ts', 'import x from \'~app/components/HelloWorld.vue\';');
 
-    const { ok, modules } = await runDeps(root, { target: 'components/HelloWorld', log: silent });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
+
+    const config = async () => ({
+      framework: 'vue' as const,
+      architecture: {
+        alias: '~app',
+        layers: [
+          { name: 'components', does: 'ui', layout: 'file' as const },
+          { name: 'pages', does: 'routes', layout: 'folder' as const },
+        ],
+      },
+    });
+
+    const { ok, units } = await runDeps(root, {
+      target: 'components/HelloWorld', loadConfig: config, log: silent,
+    });
 
     expect(ok).toBe(true);
-    expect(modules[0].module).toBe('components/HelloWorld');
-    expect(modules[0].importedBy).toEqual(['pages/Home']);
+    expect(units[0].unit).toBe('components');
+    expect(units[0].importedBy).toEqual(['pages/Home']);
   });
 });
 
 describe('runDeps · the order and shape of what it reports', () => {
-  it('returns no modules at all for an unknown target', async () => {
+  it('returns no units at all for an unknown target', async () => {
     writeSrc('services/api/api.ts', 'export const api = 1;');
 
-    const { ok, modules } = await runDeps(root, { target: 'hooks/useGhost', log: silent });
+    const { ok, units } = await runDeps(root, { target: 'hooks/useGhost', log: silent });
 
-    // The caller reads `modules` whatever `ok` says. A placeholder row there is
-    // a module that does not exist, presented as blast radius.
+    // The caller reads `units` whatever `ok` says. A placeholder row there is
+    // a unit that does not exist, presented as blast radius.
     expect(ok).toBe(false);
-    expect(modules).toEqual([]);
+    expect(units).toEqual([]);
   });
 
   it('sorts both edge lists, and reports an empty one as empty', async () => {
     // Written deliberately out of alphabetical order: `zed` first, and it
-    // imports nothing. Two importers reaching one module is what makes the
+    // imports nothing. Two importers reaching one unit is what makes the
     // importer sort observable at all.
     writeSrc('services/zed/index.ts', 'export const z = 1;');
     writeSrc('services/beta/index.ts', 'export const b = 1;');
@@ -302,9 +378,9 @@ describe('runDeps · the order and shape of what it reports', () => {
 
     writeSrc('hooks/useA/index.ts', 'import { z } from \'~app/services/zed\';');
 
-    const { modules } = await runDeps(root, { log: silent });
-    const zed = modules.find((entry) => entry.module === 'services/zed');
-    const useX = modules.find((entry) => entry.module === 'hooks/useX');
+    const { units } = await runDeps(root, { log: silent });
+    const zed = units.find((entry) => entry.unit === 'services/zed');
+    const useX = units.find((entry) => entry.unit === 'hooks/useX');
 
     // zed is imported by both hooks, alphabetically whatever order they landed in.
     expect(zed?.importedBy).toEqual(['hooks/useA', 'hooks/useX']);
@@ -339,34 +415,27 @@ describe('runDeps · normalizing the target the user typed', () => {
     scaffold();
 
     // A doubled slash survives a copy-paste, and an empty segment becomes part
-    // of the module key — the answer is then "unknown module" for a module that
+    // of the unit key — the answer is then "unknown unit" for a unit that
     // is sitting right there.
-    const { ok, modules } = await runDeps(root, { target: 'hooks//useCart', log: silent });
+    const { ok, units } = await runDeps(root, { target: 'hooks//useCart', log: silent });
 
     expect(ok).toBe(true);
-    expect(modules[0].module).toBe('hooks/useCart');
+    expect(units[0].unit).toBe('hooks/useCart');
   });
 
-  it('does not call a multi-segment key a flat layer, even when every layer is flat', async () => {
-    // With `layout: 'flat'` as the SHARED shape, `layoutOf` answers flat for any
-    // name — including one that is not a layer at all. The single-segment and
-    // is-a-layer checks are what stop `pages/Home` from claiming the
-    // layer-granularity caveat.
-    const sharedFlat = async () => ({
+  it('does not call a multi-segment folder-unit key a file-layout layer', async () => {
+    const mixedLayout = async () => ({
       framework: 'vue' as const,
       architecture: {
         alias: '~app',
-        // SHARED shape is flat, so `layoutOf` answers "flat" for any name it does
-        // not recognise as a layer — including a `layer/Module` key.
-        module: { layout: 'flat' as const, entry: 'index', private: [] },
         layers: [
           {
             name: 'pages',
             does: 'routes',
-            module: { layout: 'folder' as const },
+            layout: 'folder' as const,
             allowedImporters: [],
           },
-          { name: 'services', does: 'io', allowedImporters: ['pages'] },
+          { name: 'services', does: 'io', layout: 'file' as const, allowedImporters: ['pages'] },
         ],
       },
     });
@@ -377,24 +446,21 @@ describe('runDeps · normalizing the target the user typed', () => {
 
     let output = '';
 
-    await runDeps(root, { loadConfig: sharedFlat, log: (m) => (output = m) });
+    await runDeps(root, { loadConfig: mixedLayout, log: (m) => (output = m) });
 
-    // services is flat and collapses to the layer node. pages is folder-shaped,
-    // so its key is `pages/Home` — and `layoutOf` answers "flat" for that key too,
-    // since it is not a layer name. Only the single-segment and is-a-layer checks
-    // keep the caveat off it.
-    expect(output).toContain('services (flat layer)');
-    expect(output).not.toContain('pages/Home (flat layer)');
+    // services is file-shaped and collapses to the layer node; pages/Home does not.
+    expect(output).toContain('services (file-layout layer)');
+    expect(output).not.toContain('pages/Home (file-layout layer)');
   });
 });
 
-describe('runDeps · a layer node is not automatically a flat layer', () => {
-  it('withholds the flat-layer caveat from a folder-shaped layer', async () => {
-    // Importing the layer itself (`~app/services`, not a module inside it) makes
+describe('runDeps · a layer node is not automatically a file-layout layer', () => {
+  it('withholds the file-layout caveat from a folder-shaped layer', async () => {
+    // Importing the layer itself (`~app/services`, not a unit inside it) makes
     // a single-segment node carrying the layer's own name. Both remaining guards
     // on the caveat matter right there: the name IS a layer, so only the layout
     // decides. Claiming layer granularity for a folder-shaped layer tells the
-    // reader the blast radius covers the whole layer when it covers one module.
+    // reader the blast radius covers the whole layer when it covers one unit.
     writeSrc('services/api/api.ts', 'export const api = 1;');
     writeSrc('hooks/useCart/useCart.ts', 'import all from \'~app/services\';');
 
@@ -403,13 +469,13 @@ describe('runDeps · a layer node is not automatically a flat layer', () => {
     await runDeps(root, { log: (m) => (output = m) });
 
     expect(output).toMatch(/← services$/m);
-    expect(output).not.toContain('(flat layer)');
+    expect(output).not.toContain('(file-layout layer)');
   });
 });
 
 describe('runDeps · the leaderboard closes on its last row', () => {
   it('puts nothing that could read as a row between the table and its footer', async () => {
-    // Anything landing directly under the table reads as one more module — one with
+    // Anything landing directly under the table reads as one more unit — one with
     // no imported-by count in front of it, so the reader cannot tell a row from a
     // footnote. Two things may follow it and both are set off: the skipped-folder
     // note (absent here) and the derivation, after a blank line. Asserted by
@@ -432,7 +498,7 @@ describe('runDeps · the leaderboard closes on its last row', () => {
 
 describe('runDeps · the blast-radius list is ordered by key, not by scan order', () => {
   it('sorts importers whose key order differs from the directory listing', async () => {
-    // A file module drops its extension from the key, so `use.ts` becomes
+    // A file unit drops its extension from the key, so `use.ts` becomes
     // `hooks/use` — which sorts BEFORE `hooks/use-x`, while the directory
     // listing puts `use-x/` first (`-` precedes `.`). Reporting scan order there
     // hands the blast radius over to however the filesystem enumerates, and the
@@ -441,9 +507,9 @@ describe('runDeps · the blast-radius list is ordered by key, not by scan order'
     writeSrc('hooks/use-x/use-x.ts', 'import { api } from \'~app/services/api\';');
     writeSrc('hooks/use.ts', 'import { api } from \'~app/services/api\';');
 
-    const { modules } = await runDeps(root, { log: silent });
+    const { units } = await runDeps(root, { log: silent });
 
-    expect(modules.find((entry) => entry.module === 'services/api')?.importedBy)
+    expect(units.find((entry) => entry.unit === 'services/api')?.importedBy)
       .toEqual(['hooks/use', 'hooks/use-x']);
   });
 });
@@ -452,7 +518,7 @@ describe('runDeps · the logger it uses when the caller supplies none', () => {
   it('writes the report to the console instead of dropping it', async () => {
     // deps carries no writer of its own — the CLI relies on this default. A
     // no-op in its place makes the command print nothing at all while still
-    // returning ok, which reads as "this repo has no modules".
+    // returning ok, which reads as "this repo has no units".
     scaffold();
 
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {});

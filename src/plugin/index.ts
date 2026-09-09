@@ -1,3 +1,3 @@
 export { plugin } from './plugin';
-export { moduleKey, relativeVerdict, resolveSegments } from './relative';
-export type { EntryOf, LayoutOf, ModuleShape, RelativeVerdict } from './relative';
+export { relativeVerdict, resolveSegments, unitKey } from './relative';
+export type { EntryOf, LayoutOf, RelativeVerdict, UnitShape } from './relative';

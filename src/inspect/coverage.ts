@@ -80,7 +80,10 @@ export function computeCoverage(
 
   const nets = [
     ...new Set(
-      resolved.layers.flatMap((layer) => resolved.layerFiles(layer.name, framework)),
+      [
+        ...resolved.containerFiles(framework),
+        ...resolved.layers.flatMap((layer) => resolved.layerFiles(layer.name, framework)),
+      ],
     ),
   ].map(globToRegExp);
 
@@ -120,7 +123,7 @@ export function coverageSummary(coverage: Coverage): string {
     ? ''
     : outside.length > OUTSIDE_NAMED_MAX
       ? ` (${outside.length} outside — too many to name; expected while layers are still empty)`
-      : ` (outside: ${outside.join(', ')} — root wiring belongs here; a layer file does not)`;
+      : ` (outside: ${outside.join(', ')} — outside the declared architecture lint nets)`;
 
   const ignored = coverage.ignoredFiles === undefined || coverage.ignoredFiles.length === 0
     ? ''
@@ -129,7 +132,7 @@ export function coverageSummary(coverage: Coverage): string {
       : ` (lint ignored: ${coverage.ignoredFiles.join(', ')})`;
 
   const reach = coverage.ignoredFiles === undefined
-    ? 'source files inside layer nets'
+    ? 'source files inside architecture nets'
     : 'source files reached by layer lint rules';
 
   return `${coverage.layerFiles}/${coverage.sourceFiles} ${reach}${ignored}${named} · `
@@ -139,9 +142,13 @@ export function coverageSummary(coverage: Coverage): string {
 
 export function vacuousNextStep(blueprint: Blueprint): string {
   const architecture = resolveArchitecture(blueprint.architecture);
-  const dir = `${architecture.layers[0].root}/`;
+  const dir = `${architecture.layerPositions[0].root}/`;
 
-  return `next: move code into a declared layer (e.g. ${dir}) and the net arms itself`;
+  const destination = architecture.topology === 'module-first'
+    ? 'a declared module and layer'
+    : 'a declared layer';
+
+  return `next: move code into ${destination} (e.g. ${dir}) and the net arms itself`;
 }
 
 export function renderCoverage(coverage: Coverage, blueprint: Blueprint): string {
@@ -149,7 +156,7 @@ export function renderCoverage(coverage: Coverage, blueprint: Blueprint): string
 
   if (coverage.sourceFiles > 0 && coverage.layerFiles === 0
     && (coverage.ignoredFiles?.length ?? 0) === 0) {
-    return `⚠ Enforcement is vacuous — layer globs match 0 of ${coverage.sourceFiles} source `
+    return `⚠ Enforcement is vacuous — architecture globs match 0 of ${coverage.sourceFiles} source `
       + `file(s); a green gate proves nothing yet — ${vacuousNextStep(blueprint)}.${exemption}`;
   }
 

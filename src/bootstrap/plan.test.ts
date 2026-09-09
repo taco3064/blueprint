@@ -216,6 +216,21 @@ describe('plan', () => {
 });
 
 describe('plan · sourceRoot scaffolding', () => {
+  it('keeps an empty module-first tree as runway instead of inventing global layers', () => {
+    const moduleFirst: Blueprint = {
+      ...bp,
+      architecture: {
+        ...bp.architecture,
+        modules: [{ name: 'auth', does: 'identity application' }],
+      },
+    };
+
+    const actions = plan(state(), moduleFirst);
+
+    expect(actions.filter((action) => action.kind === 'mkdir')).toEqual([]);
+    expect(write(actions, 'docs/architecture-handbook.md')).toBeDefined();
+  });
+
   it.each([
     ['lib/app', 'lib/app/pages', 'lib/app/services'],
     ['.', 'pages', 'services'],

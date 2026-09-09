@@ -66,13 +66,12 @@ describe('analyze · folders', () => {
   });
 });
 
-describe('analyze · flat layout', () => {
+describe('analyze · file layout', () => {
   const flat = defineBlueprint({
     framework: 'react',
     architecture: {
       alias: '~app',
       layers: [{ name: 'a', does: '' }, { name: 'b', does: '' }],
-      module: { layout: 'flat', entry: 'index', private: [] },
     },
   });
 
@@ -88,17 +87,16 @@ describe('analyze · flat layout', () => {
   });
 });
 
-describe('analyze · per-layer module layout', () => {
+describe('analyze · per-layer unit layout', () => {
   const mixed = defineBlueprint({
     framework: 'react',
     architecture: {
       alias: '~app',
       layers: [
         { name: 'pages', does: '' },
-        { name: 'resources', does: '', module: { layout: 'folder', entry: 'main' } },
+        { name: 'resources', does: '', layout: 'folder', entry: 'main' },
         { name: 'services', does: '' },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
     },
   });
 
@@ -122,13 +120,13 @@ describe('analyze · per-layer module layout', () => {
     expect(rules([file(['services', 'api', 'client.ts'])])).not.toContain('no-entry');
   });
 
-  it('judges relative escapes per layer: module-bound in folder, layer-bound in flat', () => {
+  it('preserves the former flat boundary for file-layout layers', () => {
     // Folder layer: leaving the module (even to a sibling module) escapes.
     expect(
       rules([file(['resources', 'matches', 'main.ts'], [{ specifier: '../markets/board' }])]),
     ).toContain('relative-escape');
 
-    // Flat layer: relatives roam the whole layer freely.
+    // File layout remains layer-bound for relative imports.
     expect(
       rules([file(['services', 'api', 'client.ts'], [{ specifier: '../ws/socket' }])]),
     ).not.toContain('relative-escape');
@@ -175,11 +173,8 @@ describe('analyze · the depth that makes a module', () => {
       .map((finding) => finding.rule)
       .filter((rule) => rule !== 'declaratory-self-only');
 
-  it('does not read a file sitting directly in a layer as a module', () => {
-    // `components/Button.ts` is a file IN the layer, not a module folder. It has
-    // no entry to be missing, and demanding one sends the reader to write an
-    // index for a single file.
-    expect(rulesFor([file(['components', 'Button.ts'])])).not.toContain('no-entry');
+  it('reports a direct file where a folder unit is required', () => {
+    expect(rulesFor([file(['components', 'Button.ts'])])).toContain('no-entry');
   });
 
   it('needs a third segment before an import reaches inside a module', () => {
@@ -231,7 +226,11 @@ describe('analyze · an entry name that holds a dot', () => {
       ...bp,
       architecture: {
         ...bp.architecture,
-        module: { layout: 'folder', entry: 'index.d', private: [] },
+        layers: bp.architecture.layers.map((layer) => ({
+          ...layer,
+          layout: 'folder' as const,
+          entry: 'index.d',
+        })),
       },
     });
 

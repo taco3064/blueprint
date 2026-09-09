@@ -102,7 +102,13 @@ function configWrite(configSource: string): Action {
 }
 
 function scaffoldDirs(architecture: ArchitectureDef, existing: string[]): Action[] {
-  return resolveArchitecture(architecture).layers
+  const resolved = resolveArchitecture(architecture);
+
+  if (resolved.topology === 'module-first') {
+    return [];
+  }
+
+  return resolved.layers
     .filter((layer) => !existing.includes(layer.name))
     .map((layer) => ({
       kind: 'mkdir',

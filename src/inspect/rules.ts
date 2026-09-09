@@ -15,7 +15,6 @@ import {
 } from '../emit/lint/patterns';
 import type { GateSpec } from '../emit/lint/patterns';
 import {
-  aliasSpecifier,
   readSetting,
   resolveArchitecture,
 } from '../config';
@@ -44,8 +43,8 @@ export interface StructuralRule {
 }
 
 /**
- * One layer's resolved bans — what the structural rules actually enforce
- * there. Field agents answered "is the rule really wired?" by parsing
+ * One declared source position's resolved bans — what the structural rules
+ * actually enforce there. Field agents answered "is the rule really wired?" by parsing
  * `eslint --print-config` output by hand (issue #7); this is that view,
  * derived from the same primitives emitLint compiles from.
  */
@@ -135,7 +134,7 @@ export const STRUCTURAL_RULES: StructuralRule[] = [
   },
   {
     rule: 'blueprint/relative-escape',
-    covers: '../ module escapes at any depth (embedded plugin)',
+    covers: '../ unit escapes at any depth (embedded plugin)',
   },
 ];
 
@@ -157,8 +156,10 @@ function resolveStructural(blueprint: Blueprint | null): StructuralStatus[] {
     'no-restricted-imports': true,
     'blueprint/relative-escape': true,
     'no-restricted-syntax': architecture.hasSelfOnly,
-    'no-restricted-globals': layers.some((layer) =>
-      globalRules.some((rule) => !rule.allowedIn.includes(layer.name))),
+    'no-restricted-globals': architecture.topology === 'module-first'
+      ? globalRules.length > 0
+      : layers.some((layer) =>
+          globalRules.some((rule) => !rule.allowedIn.includes(layer.name))),
   };
 
   return STRUCTURAL_RULES.map((rule) => ({ ...rule, active: active[rule.rule] }));
@@ -180,34 +181,33 @@ function gateSpecs(): GateSpec[] {
 function layerBans(blueprint: Blueprint): LayerBans[] {
   const { architecture } = blueprint;
   const resolved = resolveArchitecture(architecture);
-  const aliases = resolved.aliases;
-
   const definitions = resolved.layers.map((layer) => layer.definition);
   const packageRules = derivePackageRules(definitions);
   const globalRules = deriveGlobalRules(definitions);
 
-  return definitions.map((layer) => {
+  const positioned = resolved.layerPositions.map((position) => {
+    const layer = position.layer.definition;
+    const module = position.module?.name;
+    const qualify = (target: string) => module ? `${module}/${target}` : target;
+
     const packages = packageRules
       .filter((rule) => !rule.allowedIn.includes(layer.name))
       .map((rule) => (rule.imports?.length ? `${rule.package} (${rule.imports.join(', ')})` : rule.package));
 
     return {
-      layer: layer.name,
-      forbidden: resolved.forbiddenLayers(layer.name),
+      layer: qualify(layer.name),
+      forbidden: resolved.forbiddenLayers(layer.name).map(qualify),
       packages,
       ...(packages.length ? { packagesNote: PACKAGES_NOT_COMPARED.join(' ') } : {}),
       globals: globalRules
         .filter((rule) => !rule.allowedIn.includes(layer.name))
         .map((rule) => rule.global),
       selfOnly: resolved.selfOnlyTargets(layer.name).map((target) => {
-        const selectors = aliases.flatMap((alias) => {
-          const specifier = aliasSpecifier(alias, target);
-
-          return specifier === null ? [] : selfOnlyReexportSelector(specifier);
-        });
+        const selectors = resolved.aliasSpecifiers(target, module)
+          .flatMap((specifier) => selfOnlyReexportSelector(specifier));
 
         return {
-          target,
+          target: qualify(target),
           selectors,
 
           jsLiteral: selectors.map((selector) => JSON.stringify(selector)),
@@ -217,6 +217,26 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
       testExemptions: resolveTestFiles(architecture.testFiles),
     };
   });
+
+  if (resolved.topology !== 'module-first') {
+    return positioned;
+  }
+
+  const containerPackages = packageRules.map((rule) => rule.imports?.length
+    ? `${rule.package} (${rule.imports.join(', ')})`
+    : rule.package);
+
+  const containers = resolved.modules.map((module): LayerBans => ({
+    layer: `${module.name} (container)`,
+    forbidden: [],
+    packages: containerPackages,
+    ...(containerPackages.length ? { packagesNote: PACKAGES_NOT_COMPARED.join(' ') } : {}),
+    globals: globalRules.map((rule) => rule.global),
+    selfOnly: [],
+    testExemptions: resolveTestFiles(architecture.testFiles),
+  }));
+
+  return [...positioned, ...containers];
 }
 
 function unavailableNote(gates: GateStatus[]): string {
@@ -371,7 +391,8 @@ export function renderRules(
         : `  ${(rule.active ? '✓ emits' : '· not emitted').padEnd(16)} ${rule.rule.padEnd(28)} ${rule.covers}`),
     '',
     'Optional gates — emitted only when declared in `rules` with a tier other than off.',
-    'Every gate scopes to the layer file globs — root wiring sits outside all of them.',
+    'Every gate scopes to the declared architecture file globs; module-first root containers '
+    + 'are included.',
 
     `${gates.length} listed${unavailableNote(gates)}`,
     ...unavailableCauses(gates),

@@ -6,7 +6,7 @@ export const relativeEscape: Rule.RuleModule = {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Relative imports must not leave their module — use the project alias.',
+      description: 'Relative imports must not leave their unit — use the project alias.',
     },
     schema: [
       {
@@ -14,13 +14,14 @@ export const relativeEscape: Rule.RuleModule = {
         properties: {
           layouts: {
             type: 'object',
-            additionalProperties: { enum: ['folder', 'flat'] },
+            additionalProperties: { enum: ['folder', 'file'] },
           },
           entries: {
             type: 'object',
             additionalProperties: { type: 'string' },
           },
           sourceRoot: { type: 'string' },
+          moduleFirst: { type: 'boolean' },
         },
         additionalProperties: false,
       },
@@ -33,25 +34,30 @@ export const relativeEscape: Rule.RuleModule = {
         + 'or extract shared code to a lower layer.',
       reachesInside:
         '🚫 Relative import "{{specifier}}" reaches past a sibling\'s entry — '
-        + 'import "{{entry}}" instead; what lives behind it is that module\'s own business.',
+        + 'import "{{entry}}" instead; what lives behind it is that unit\'s own business.',
     },
   },
   create(context) {
-    const { layouts = {}, entries = {}, sourceRoot = 'src' }
+    const { layouts = {}, entries = {}, sourceRoot = 'src', moduleFirst = false }
       = (context.options[0] as {
-        layouts?: Record<string, 'folder' | 'flat'>;
+        layouts?: Record<string, 'folder' | 'file'>;
         entries?: Record<string, string>;
         sourceRoot?: string;
+        moduleFirst?: boolean;
       } | undefined) ?? {};
 
     const cwd = (context as Rule.RuleContext & { cwd: string }).cwd;
     const segments = sourceSegments(context.filename, cwd, sourceRoot);
 
-    if (!segments || !(segments[0] in layouts)) {
+    const layerIndex = moduleFirst ? 1 : 0;
+
+    const container = moduleFirst && segments?.length === 2;
+
+    if (!segments || (!(segments[layerIndex] in layouts) && !container)) {
       return {};
     }
 
-    const layoutOf = (layer: string): 'folder' | 'flat' => layouts[layer] ?? 'flat';
+    const layoutOf = (layer: string): 'folder' | 'file' => layouts[layer] ?? 'file';
     const entryOf = (layer: string): string => entries[layer] ?? 'index';
     const dir = segments.slice(0, -1);
 
@@ -62,7 +68,7 @@ export const relativeEscape: Rule.RuleModule = {
 
       const target = resolveSegments(dir, specifier);
 
-      const verdict = relativeVerdict(segments, target, { layoutOf, entryOf });
+      const verdict = relativeVerdict(segments, target, { layoutOf, entryOf, moduleFirst });
 
       if (verdict === 'ok') {
         return;
@@ -72,7 +78,7 @@ export const relativeEscape: Rule.RuleModule = {
         context.report({
           node,
           messageId: 'reachesInside',
-          data: { specifier, entry: entryOf(segments[0]) },
+          data: { specifier, entry: entryOf(segments[layerIndex]) },
         });
 
         return;

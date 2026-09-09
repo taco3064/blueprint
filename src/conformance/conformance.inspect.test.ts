@@ -261,7 +261,7 @@ describe('survey counts never promise what impact must measure (field issue #11)
     expect(survey.output).toContain('Same-folder imports via the alias (textual upper bound');
   });
 
-  it('a draft config that never mentions module.private validates and runs', async () => {
+  it('a draft config using direct layer unit fields validates and runs', async () => {
     const dir = repo({
       packageJson: react(),
       files: {
@@ -273,8 +273,7 @@ describe('survey counts never promise what impact must measure (field issue #11)
           '  framework: \'react\',',
           '  architecture: {',
           '    alias: \'~app\',',
-          '    layers: [{ name: \'components\', does: \'render UI\' }],',
-          '    module: { layout: \'flat\', entry: \'index\' },',
+          '    layers: [{ name: \'components\', does: \'render UI\', layout: \'file\' }],',
           '  },',
           '  rules: {},',
           '};',
@@ -286,7 +285,7 @@ describe('survey counts never promise what impact must measure (field issue #11)
     const inspect = await cli(dir, ['inspect']);
 
     expect(inspect.code).toBe(0);
-    expect(inspect.output).not.toContain('module.private');
+    expect(inspect.output).not.toContain('architecture.module');
   });
 });
 
@@ -482,8 +481,7 @@ describe('an output that reports the import graph says how the graph was read', 
   });
 
   it('closes both deps renderings with it too', async () => {
-    // Both layers are declared and flat in this fixture, so the keys are the layer
-    // names and there is one real edge between them.
+    // Both layers use file layout, whose dependency key remains the layer name.
     const dir = adopted({
       'src/services/api.js': 'export const api = 1;',
       'src/components/Cart.js': 'import { api } from \'~app/services/api\';\nexport const Cart = '
@@ -491,13 +489,12 @@ describe('an output that reports the import graph says how the graph was read', 
     });
 
     const leaderboard = await cli(dir, ['deps']);
-    // `services` is a flat layer in this preset, so the answer is at layer granularity.
-    const module = await cli(dir, ['deps', 'services']);
+    const unit = await cli(dir, ['deps', 'services']);
 
     expect(flattenProse(leaderboard.output)).toContain('source text, not a parsed AST');
-    expect(flattenProse(module.output)).toContain('source text, not a parsed AST');
+    expect(flattenProse(unit.output)).toContain('source text, not a parsed AST');
     // The blast-radius answer needs it most: a fan-in of 1 that a computed import
     // made 2 is a wrong decision, not just an incomplete list.
-    expect(module.output).toContain('imported by (1)');
+    expect(unit.output).toContain('imported by (1)');
   });
 });

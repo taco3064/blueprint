@@ -36,11 +36,28 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
     formatOwns(layer.owns) || '—',
   ]);
 
+  const modules = resolved.modules.length
+    ? [
+        '### Modules',
+        '',
+        table(
+          ['Module', 'Responsibility'],
+          resolved.modules.map((module) => [
+            `\`${module.name}\``,
+            escapeCell(module.definition.does),
+          ]),
+        ),
+        '',
+        'Every module reuses the shared layer contract below; an absent layer folder is runway.',
+        '',
+      ]
+    : [];
+
   return [
     '## Architecture',
     '',
     'Code flows one way: each layer may import only from the layers below it. '
-    + 'Upstream and same-layer imports are barred.',
+    + 'Upstream imports and same-layer imports through the alias are barred.',
     '',
     emitFlowDiagram(architecture),
     '',
@@ -52,83 +69,48 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
     + ' whether or not an edge is drawn, unless the target narrows its'
     + ' importers (`allowedImporters`).',
     '',
+    ...modules,
     '### Layers',
     '',
     table(['Layer', 'Responsibility', 'Must not', 'Owns'], rows),
   ].join('\n');
 }
 
-export function renderModule(architecture: ArchitectureDef, exampleLayer: string): string {
+export function renderUnit(architecture: ArchitectureDef): string {
   const resolved = resolveArchitecture(architecture);
-  const module = resolved.folderShape;
 
-  const exceptionLines = resolved.layers
-    .filter((layer) => layer.definition.module !== undefined)
-    .map((layer) => {
-      const shape = layer.module;
-
-      return shape.layout === 'folder'
-        ? `- \`${layer.name}/\` — one folder per module, entry \`${shape.entry}\`.`
-        : `- \`${layer.name}/\` — one file per module (flat).`;
-    });
-
-  const exceptions = exceptionLines.length
-    ? ['', 'Per-layer exceptions to the shared shape:', '', ...exceptionLines]
-    : [];
-
-  if (module.layout === 'flat') {
-    return [
-      '## Module shape',
-      '',
-      'One module = one file (flat layout). Shared logic moves down to a lower layer.',
-      ...exceptions,
-    ].join('\n');
-  }
-
-  const items: [string, string][] = [
-    [module.entry, 'public entry — the only importable file'],
-    ['Example', 'implementation (named after the module)'],
-    ...module.private.map((part): [string, string] => [part, 'private']),
-  ];
-
-  const tree = items.map(([part, note], i) => {
-    const connector = i === items.length - 1 ? '└─' : '├─';
-
-    return `   ${connector} ${part.padEnd(7)} # ${note}`;
-  });
+  const rows = resolved.layers.map((layer) => [
+    `\`${layer.name}\``,
+    `\`${layer.unit.layout}\``,
+    layer.unit.layout === 'folder' ? `\`${layer.unit.entry}\`` : '—',
+  ]);
 
   return [
-    '## Module shape',
+    '## Unit shape',
     '',
-    `One module = one folder. Only \`${module.entry}\` is public; everything else stays private to the module.`,
+    'A unit is the code item inside a layer. Folder units expose only their entry; '
+    + 'file units are one file each.',
     '',
-    '```',
-    `${exampleLayer}/`,
-    '└─ Example/',
-    ...tree,
-    '```',
-    ...exceptions,
+    table(['Layer', 'Unit layout', 'Entry'], rows),
   ].join('\n');
 }
 
 export function renderImportDiscipline(architecture: ArchitectureDef): string {
   const resolved = resolveArchitecture(architecture);
-  const module = resolved.folderShape;
-
   const hasSelfOnly = resolved.hasSelfOnly;
 
   const bullets = [
     '- **One-way only** — a layer imports only from the layers below it; '
     + 'upstream imports are errors.',
-    module.layout === 'flat'
-      ? '- **No same-layer imports via the alias** — use a relative path instead.'
-      : '- **No same-layer imports** — extract shared logic down to a lower layer instead.',
+    '- **No same-layer imports via the alias** — use a relative path. File units may '
+    + 'reach sibling files; folder units may reach a sibling only through its entry. '
+    + 'Extract shared logic down to a lower layer when neither unit owns it.',
   ];
 
   const folderEntries = [
     ...new Set(
       resolved.layers
-        .map((layer) => layer.module)
+        .map((layer) => layer.unit)
         .filter((shape) => shape.layout === 'folder')
         .map((shape) => `\`${shape.entry}\``),
     ),
@@ -136,7 +118,7 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
 
   if (folderEntries.length) {
     bullets.push(
-      `- **Entry-only** — import a module through its ${folderEntries.join(' / ')}, never its internals.`,
+      `- **Entry-only** — import a folder unit through its ${folderEntries.join(' / ')}, never its internals.`,
     );
   }
 
@@ -286,8 +268,8 @@ export function renderRules(
     + 'never appear in a lint run, documentation-only rows are recorded intent with '
     + 'no gate behind them at any tier, and a row reading `nothing` is lint-gated in '
     + 'general but cannot emit on THIS blueprint — the cell says which fact rules it '
-    + 'out. Every row reaches only the files a layer glob matches: a '
-    + 'declared layer holding no code has nothing that can fail, which is runway rather '
+    + 'out. Every row reaches only the files the architecture globs match: a '
+    + 'declared position holding no code has nothing that can fail, which is runway rather '
     + 'than protection — `blueprint doctor` reports which of the two this repo has today.',
   ].join('\n');
 }

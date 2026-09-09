@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { hasErrors, report } from './report';
+import type { ArchitectureDef } from '../config';
 import type { Finding } from './types';
+
+const architecture: ArchitectureDef = {
+  alias: '~app',
+  layers: [{ name: 'components', does: 'UI' }],
+};
 
 const findings: Finding[] = [
   { severity: 'error', rule: 'undeclared-folder', path: 'src/utils', subject: '', message: 'nope' },
@@ -28,13 +34,23 @@ describe('report', () => {
   });
 
   it('lists findings, a summary line, and migration steps', () => {
-    const out = report(findings);
+    const out = report(findings, architecture);
 
     expect(out).toContain('[undeclared-folder] src/utils');
     expect(out).toContain('[no-entry] src/components/Btn');
     expect(out).toContain('1 error(s), 1 warning(s), 0 note(s)');
     expect(out).toContain('Recommended migration steps:');
-    expect(out).toContain('declare them as layers');
+    expect(out).toContain('declared Layer → Unit topology');
+    expect(out).not.toContain('Module → Layer → Unit');
+  });
+
+  it('uses the module-first topology only when modules are declared', () => {
+    const out = report(findings, {
+      ...architecture,
+      modules: [{ name: 'auth', does: 'identity application' }],
+    });
+
+    expect(out).toContain('declared Module → Layer → Unit topology');
   });
 
   it('omits the migration section when no rule has a step', () => {
@@ -59,12 +75,12 @@ describe('report', () => {
         rule: 'deep-import',
         path: 'src/pages/Home/Home.tsx',
         subject: '~app/hooks/useX/impl',
-        message: '"~app/hooks/useX/impl" reaches inside a module — import it through its entry.',
+        message: '"~app/hooks/useX/impl" reaches inside a unit — import it through its entry.',
       },
     ]);
 
     expect(out).toContain('[deep-import] src/pages/Home/Home.tsx');
-    expect(out).toContain('reaches inside a module');
+    expect(out).toContain('reaches inside a unit');
     expect(out.match(/~app\/hooks\/useX\/impl/g)).toHaveLength(1);
   });
 });

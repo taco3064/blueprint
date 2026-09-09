@@ -38,7 +38,6 @@ const base: Blueprint = {
       { name: 'pages', does: 'screens' },
       { name: 'services', does: 'net' },
     ],
-    module: { layout: 'flat', entry: 'index', private: [] },
   },
   rules: { testFilename: 'error' },
 };
@@ -330,7 +329,7 @@ describe('one dead entry inside a net that still reaches files', () => {
     // And the count printed beside it agrees: three files scanned, one dropped by the
     // live entry, two analysed. Both come off one run, so they answer for the same tree.
     expect(coverage.sourceFiles).toBe(2);
-    expect(text).toContain('2/2 source files inside layer nets');
+    expect(text).toContain('2/2 source files inside architecture nets');
   });
 
   it('leaves the wording alone where the whole net is dead and nothing was dropped', async () => {
@@ -344,7 +343,7 @@ describe('one dead entry inside a net that still reaches files', () => {
     }
 
     expect(coverage.sourceFiles).toBe(3);
-    expect(text).toContain('3/3 source files inside layer nets');
+    expect(text).toContain('3/3 source files inside architecture nets');
   });
 
   it('names the dead entry while leaving the working gate open', async () => {

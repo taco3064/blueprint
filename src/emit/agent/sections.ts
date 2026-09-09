@@ -10,7 +10,6 @@ import type {
 import {
   readSetting,
   resolveArchitecture,
-  sourcePath,
 } from '../../config';
 import { handbookPath } from '../docs';
 import { enforcedBy, resolveTestFiles, unavailableForEmit } from '../lint';
@@ -72,6 +71,10 @@ export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = 
   const chain = resolved.layers.map((layer) => `\`${layer.name}\``).join(' → ');
   const handbook = handbookPath(blueprint);
 
+  const topology = resolved.topology === 'module-first'
+    ? 'Module → Layer → Unit'
+    : 'Layer → Unit';
+
   const declared = emittableGates(blueprint, stack);
   const lintGates = declared.filter(([id]) => enforcedBy(id) === 'lint').map(gateLabel);
   const inspectGates = declared.filter(([id]) => enforcedBy(id) === 'inspect').map(gateLabel);
@@ -87,15 +90,15 @@ export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = 
     '',
     `- Framework: \`${blueprint.framework}\`. Import alias: \`${architecture.alias}\`.`,
     `- Layer flow: ${chain} — transitive: a layer may import **any** layer after it, unless the target narrows its importers.`,
-    `- **Before adding, moving, or renaming any file** — placement, module shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
+    `- **Before adding, moving, or renaming any file** — placement, ${resolved.topology === 'module-first' ? 'module boundaries, ' : ''}unit shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
     '- **Operating discipline** — how to follow the flow, react to lint failures, '
     + `and the pre-commit checklist: read [${CONTRACT_DOC}](${CONTRACT_DOC}) `
     + '(ships inside the package — present once dependencies are installed, '
     + 'always matching the installed version).',
 
-    `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectDiagnosisClause(inspectGates.join(', '))}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
+    `- Hard gates (machine-enforced on the files the architecture globs match — a declared position holding no code has nothing failing yet, which is runway, not protection): one-way imports, unit entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectDiagnosisClause(inspectGates.join(', '))}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
 
-    `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a module of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.`,
+    `- You are the gate for: no undeclared architectural folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Move code into the declared ${topology} topology. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never expand it yourself.`,
   ].join('\n');
 }
 
@@ -108,6 +111,9 @@ export function renderContext(blueprint: Blueprint): string {
     '### Context',
     '',
     `- Framework: \`${framework}\`. Import alias: \`${architecture.alias}\`.`,
+    ...(resolved.modules.length
+      ? [`- Modules: ${resolved.modules.map((module) => `\`${module.name}\``).join(', ')}`]
+      : []),
     `- Layer flow: ${chain}`,
   ].join('\n');
 }
@@ -115,8 +121,12 @@ export function renderContext(blueprint: Blueprint): string {
 export function renderPlacement(architecture: ArchitectureDef): string {
   const resolved = resolveArchitecture(architecture);
 
-  const lines = resolved.layers.map(({ definition: layer, root, allowedImporters }) => {
-    const parts = [`- \`${root}/\` — ${layer.does}.`];
+  const moduleLines = resolved.modules.map((module) =>
+    `- \`${module.root}/\` — module: ${module.definition.does}.`);
+
+  const lines = resolved.layerPositions.map((position) => {
+    const { definition: layer, allowedImporters } = position.layer;
+    const parts = [`- \`${position.root}/\` — layer: ${layer.does}.`];
 
     if (layer.mustNot?.length) {
       parts.push(` MUST NOT: ${layer.mustNot.join('; ')}.`);
@@ -139,23 +149,9 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     return parts.join('');
   });
 
-  const module = resolved.folderShape;
-  const priv = module.private.map((part) => `\`${part}\``).join(' / ');
-
-  const moduleLine
-    = module.layout === 'folder'
-      ? `- Module shape: one folder per module. Only \`${module.entry}\` is importable from outside${priv ? `; keep ${priv} private and never import them across modules` : ''}.`
-      : '- Module shape: one file per module (flat). Extract shared logic to a lower layer.';
-
-  const overrideLines = resolved.layers
-    .filter((layer) => layer.definition.module !== undefined)
-    .map((layer) => {
-      const shape = layer.module;
-
-      return shape.layout === 'folder'
-        ? `- Exception — \`${sourcePath(architecture, layer.name)}/\`: one folder per module, entry \`${shape.entry}\`.`
-        : `- Exception — \`${sourcePath(architecture, layer.name)}/\`: one file per module (flat).`;
-    });
+  const unitLines = resolved.layers.map((layer) => layer.unit.layout === 'folder'
+    ? `- \`${layer.name}\` units: one folder per unit; only \`${layer.unit.entry}\` is importable from outside.`
+    : `- \`${layer.name}\` units: one file per unit.`);
 
   const testGlobs = resolveTestFiles(architecture.testFiles);
 
@@ -166,9 +162,9 @@ export function renderPlacement(architecture: ArchitectureDef): string {
   return [
     '### Where code goes',
     '',
+    ...moduleLines,
     ...lines,
-    moduleLine,
-    ...overrideLines,
+    ...unitLines,
     ...exemptLine,
   ].join('\n');
 }
@@ -189,24 +185,28 @@ export function renderNaming(naming: Record<string, string> | undefined): string
 
 export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): string {
   const { architecture } = blueprint;
-  const bullets = ['- Import only from downstream layers — never upstream, never the same layer.'];
+
+  const bullets = [
+    '- Cross-layer imports go only downstream; same-layer imports never use the alias.',
+  ];
 
   const folderEntries = [
     ...new Set(
       resolveArchitecture(architecture).layers
-        .map((layer) => layer.module)
+        .map((layer) => layer.unit)
         .filter((shape) => shape.layout === 'folder')
         .map((shape) => `\`${shape.entry}\``),
     ),
   ];
 
   if (folderEntries.length) {
-    bullets.push(`- Import a module via its ${folderEntries.join(' / ')}, never its internals.`);
+    bullets.push(`- Import a folder unit via its ${folderEntries.join(' / ')}, never its internals.`);
   }
 
   bullets.push(
     '- Restricted packages / globals live only in their owning layer (see "Where code goes").',
-    '- Relative imports stay inside their module; no redundant segments (`./../`, `././`).',
+    '- Relative imports stay inside their layer. Folder units reach siblings only through '
+    + 'their entries; no redundant segments (`./../`, `././`).',
   );
 
   for (const [id, setting] of emittableGates(blueprint, stack)) {
@@ -257,8 +257,12 @@ export function renderBehavioral(
   principles: PrincipleDef[] | undefined,
   rules: Record<string, RuleSetting> | undefined,
 ): string {
+  const topology = resolveArchitecture(architecture).topology === 'module-first'
+    ? 'Module → Layer → Unit'
+    : 'Layer → Unit';
+
   const bullets = [
-    `- Do not create undeclared folders under \`${architecture.alias}/\`. Every folder is a declared layer or a module inside one. (lint can't see this — inspect will.) Inspect offers to declare the folder instead; that one is not yours. Outgrowing the config is the owner's call to make — report it, do not edit the architecture to fit what you just wrote.`,
+    `- Do not create undeclared architectural folders under \`${architecture.alias}/\`. Follow the declared ${topology} topology. (lint can't see every folder — inspect will.) Outgrowing the config is the owner's call to make — report it, do not edit the architecture to fit what you just wrote.`,
     ...claudePrinciples(principles).map(
       (principle) => `- **${principle.say}** — ${principle.why}`,
     ),
@@ -311,8 +315,10 @@ export function renderChecklist(blueprint: Blueprint): string {
   const resolved = resolveArchitecture(architecture);
 
   const items = [
-    '- [ ] Imports follow the one-way flow (no upstream / same-layer).',
-    `- [ ] New code sits in the right layer; modules expose only \`${resolved.folderShape.entry}\`.`,
+    '- [ ] Imports follow the one-way flow (no upstream layers or same-layer aliases).',
+    `- [ ] New code sits in the declared ${resolved.topology === 'module-first'
+      ? 'module and layer'
+      : 'layer'}; folder units expose only their declared entry.`,
   ];
 
   if (architecture.naming && Object.keys(architecture.naming).length) {

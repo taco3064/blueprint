@@ -132,7 +132,7 @@ describe('naming the cause, so a claim can be checked (field runs #79–#81)', (
     const contract = read(dir, 'CLAUDE.md') ?? '';
 
     expect(contract).toContain('Hard gates (machine-enforced');
-    expect(contract).toContain('on the files the layer globs match');
+    expect(contract).toContain('on the files the architecture globs match');
     expect(contract).toContain('runway, not protection');
   });
 
@@ -298,7 +298,6 @@ describe('what a second output knows about the first (field runs #75–#77)', ()
             allowedImporters: [{ layer: 'components', selfOnly: true }],
           },
         ],
-        module: { layout: 'flat', entry: 'index', private: [] },
       },
     }));
 
@@ -528,7 +527,7 @@ describe('one output, one story — no snippet contradicts its own prose (field 
     const impact = await cli(dir, ['impact']);
 
     expect(impact.code).toBe(0);
-    expect(impact.output).toContain('0 hits — vacuous: the layer globs match no files');
+    expect(impact.output).toContain('0 hits — vacuous: the architecture globs match no files');
     // "No red" is an emitLint claim — the anti-bypass guard is outside
     // impact's scope, and a field agent nearly shipped on the headline
     // alone (field issue #17): the zero line states its own reach.
@@ -581,7 +580,11 @@ describe('one violation, one name per channel (field issue #48)', () => {
           ...reactBlueprint,
           architecture: {
             ...reactBlueprint.architecture,
-            module: { layout: 'folder', entry: 'index', private: [] },
+            layers: reactBlueprint.architecture.layers.map((layer) => ({
+              ...layer,
+              layout: 'folder' as const,
+              entry: 'index',
+            })),
           },
         }),
         'src/components/Card/index.js': 'export const Card = 1;\n',

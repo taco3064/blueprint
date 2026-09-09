@@ -67,7 +67,7 @@ export async function runInspect(
     options.json
 
       ? JSON.stringify({ ok, findings, coverage, derivation: importGraphDerivation() }, null, 2)
-      : `${report(findings)}\n\n${renderCoverage(coverage, blueprint)}`,
+      : `${report(findings, blueprint.architecture)}\n\n${renderCoverage(coverage, blueprint)}`,
   );
 
   return { findings, ok };
@@ -140,7 +140,7 @@ function baselineGate(
           null,
           2,
         )
-      : `${report(split.fresh)}\n\n${baselineSummary(split)}\n${renderCoverage(coverage, blueprint)}`,
+      : `${report(split.fresh, blueprint.architecture)}\n\n${baselineSummary(split)}\n${renderCoverage(coverage, blueprint)}`,
   );
 
   return { findings: split.fresh, ok };

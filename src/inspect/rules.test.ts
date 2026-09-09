@@ -50,7 +50,6 @@ const blueprint: Blueprint = {
       { name: 'hooks', does: 'state', owns: [{ package: 'react', imports: ['useContext'] }] },
       { name: 'services', does: 'net', owns: ['axios', { global: 'fetch' }] },
     ],
-    module: { layout: 'flat', entry: 'index', private: [] },
   },
   rules: {
     maxLines: { tier: 'error', value: 300 },

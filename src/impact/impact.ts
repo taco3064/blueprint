@@ -207,12 +207,14 @@ function lintLayers(
   run: { ESLint: EslintApi['ESLint']; config: LintConfigEntry[] },
 ): Promise<{ filePath: string; messages: { ruleId: string | null; fatal?: boolean }[] }[]> {
   const { architecture, framework } = blueprint;
+  const resolved = resolveArchitecture(architecture);
 
   const globs = [
     ...new Set(
-      resolveArchitecture(architecture).layers.flatMap((layer) =>
-        resolveArchitecture(architecture).layerFiles(layer.name, framework),
-      ),
+      [
+        ...resolved.containerFiles(framework),
+        ...resolved.layers.flatMap((layer) => resolved.layerFiles(layer.name, framework)),
+      ],
     ),
   ];
 
@@ -314,7 +316,7 @@ export function renderImpact(impacts: RuleImpact[], total: number, linted: numbe
     return [
 
       linted === 0
-        ? '✓ Rule impact: 0 hits — vacuous: the layer globs match no files, so no '
+        ? '✓ Rule impact: 0 hits — vacuous: the architecture globs match no files, so no '
         + 'rule ever ran. Wiring emitLint introduces no red today, and proves '
         + 'nothing until code lands in a layer.'
         : '✓ Rule impact: 0 hits — wiring emitLint introduces no red today.',

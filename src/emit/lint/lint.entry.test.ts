@@ -11,7 +11,7 @@ const blueprint = defineBlueprint({
     additionalAliases: { '~root': '.' },
     layers: [
       { name: 'pages', does: 'routes' },
-      { name: 'hooks', does: 'state', module: { layout: 'folder' } },
+      { name: 'hooks', does: 'state', layout: 'folder' },
       { name: 'services', does: 'net' },
     ],
   },
@@ -30,7 +30,7 @@ const SERVICE = 'src/services/api.ts';
 
 const FLOW = 'violates the dependency flow';
 const SAME_LAYER = 'Same-layer imports must be relative';
-const DEEP = 'Import a module through its entry';
+const DEEP = 'Import a unit through its entry';
 
 function bans(specifier: string, filename: string): string[] {
   const messages = linter.verify(`import x from "${specifier}";`, config, { filename });

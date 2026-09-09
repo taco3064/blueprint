@@ -303,7 +303,7 @@ describe('runDoctor · the architecture gate and its baseline', () => {
     let check = checks.find((c) => c.label.includes('architecture'));
 
     expect(check?.ok).toBe(true);
-    expect(check?.detail).toContain('1/1 source files inside layer nets');
+    expect(check?.detail).toContain('1/1 source files inside architecture nets');
 
     // Only root wiring exists → the net catches nothing, and the green says so.
     fs.rmSync(path.join(root, 'src/components/Button.vue'));

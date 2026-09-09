@@ -29,15 +29,16 @@ Any `error`-level finding exits `1`; `warn` and `info` inform
 without failing the gate. Test files (`architecture.testFiles`) are exempt throughout —
 as far as the globs reach: a scanned file no declared glob matches is inspected as ordinary source.
 
-- **`undeclared-folder`** · error — a top-level source folder that is not a declared layer
+- **`undeclared-folder`** · error — a source folder outside the declared topology: an undeclared top-level layer in layer-first mode, or an undeclared outer module / inner layer in module-first mode
 - **`flow-violation`** · error — an upstream import, or a same-layer import via the alias
-- **`deep-import`** · error — an alias import reaching *inside* a folder module instead of through its entry
-- **`relative-escape`** · error — a relative import that leaves its own layer, escapes the source root, or reaches past a sibling module's entry. Under `folder` layout a sibling *is* reachable — `../Sibling` is how one module uses another inside the same layer, and the only way, since the alias spelling (`~app/{ownLayer}/Sibling`) stays banned
+- **`deep-import`** · error — an alias import reaching *inside* a folder unit instead of through its entry
+- **`relative-escape`** · error — a relative import that leaves its own layer, escapes the source root, or reaches past a sibling unit's entry. Under `folder` layout a sibling *is* reachable — `../Sibling` is how one unit uses another inside the same layer, and the only way, since the alias spelling (`~app/{ownLayer}/Sibling`) stays banned
 - **`package-ownership`** · error — importing a layer-owned package (or restricted named import) from a non-owner layer
 - **`selfonly-reexport`** · error — re-exporting a dependency marked `selfOnly` — depend on it, never pass it on
-- **`cycle`** · error — a module-level import cycle, with the full path listed. Every independent cycle is reported, one per knot of mutually dependent modules — so the count is the size of the work, not the first thing found
-- **`no-entry`** · warn — a folder module without its public entry file — nothing is importable from outside
-- **`missing-layer`** · info — a declared layer that has no folder on disk yet
+- **`cycle`** · error — a unit-level import cycle, with the full path listed. Every independent cycle is reported, one per knot of mutually dependent units — so the count is the size of the work, not the first thing found
+- **`no-entry`** · warn — a folder unit without its public entry file — nothing is importable from outside
+- **`missing-module`** · info — a declared module that has no folder on disk yet (module-first only)
+- **`missing-layer`** · info — a declared layer that has no folder on disk yet (layer-first only). Module-first does not require every shared layer position to be scaffolded; an absent position remains runway until code lands
 - **`owns-not-installed`** · info — a layer `owns` a package that is not in `package.json` — the ban is emitted and correct, it simply has nothing to reach yet. Installing the package and dropping the declaration are both resolutions
 - **`declaratory-self-only`** · info — a `selfOnly` ban protecting a layer that holds no files — the re-export ban cannot fire until code lands
 
@@ -81,8 +82,8 @@ owned by the emitter: `no-restricted-imports`, `no-restricted-syntax`,
 `no-restricted-globals`. They cannot be set through `lintOverrides`; change the
 blueprint instead. Dependency-flow bans, same-layer bans, and `selfOnly` re-export
 selectors cover both the bare layer entry and its descendants through every declared
-alias. This does not widen a folder module's public surface: an allowed importer may
-still use a module entry, but not anything behind that entry.
+alias. This does not widen a folder unit's public surface: an allowed importer may
+still use a unit entry, but not anything behind that entry.
 
 ### Folding a managed entry into a house rule
 
@@ -135,7 +136,7 @@ The gated set:
 - **`statementPadding`** → `@stylistic/padding-line-between-statements` with a fixed 17-entry option list · error
 - **`importBlock`** → `import-x/first` + `import-x/no-duplicates` · error
 - **`fixtureImports`** → restricted fixture imports in production code · error (vue preset)
-- **`cycles`** → inspect's `cycle` finding (module-level, diagnosed only when inspect runs; a baseline grandfathers recorded findings). The generated config leaves continuous prevention off by default; [opt into `import-x/no-cycle`](/guide/generated-artifacts#claude-md-agents-md-—-collaborate) when its per-file graph cost is acceptable · error
+- **`cycles`** → inspect's `cycle` finding (unit-level, diagnosed only when inspect runs; a baseline grandfathers recorded findings). The generated config leaves continuous prevention off by default; [opt into `import-x/no-cycle`](/guide/generated-artifacts#claude-md-agents-md-—-collaborate) when its per-file graph cost is acceptable · error
 - **`deepWatch` / `usePrefix` / `usePrefixReactivity` / `testFilename` / `typedefOnlyFile`** → the plugin rules above (see that section)
 
 Any **other** id (e.g. `deadCode`) is documentation: it lands in the handbook and the
@@ -235,12 +236,14 @@ catalog above, which is why most of them were only ever visible through
 examples — the definitions belong here.
 
 - **`architecture.alias`** — the project import root, e.g. `~app`. Required, with no default: a guessed alias silently passes illegal imports, because every structural ban pattern is built on this string
-- **`architecture.layers`** — the ordered layers. **Order is the flow**: a layer may import only layers declared after it. The declaration therefore cannot express a back edge. This makes the declared layer graph acyclic; it does not continuously prevent module import cycles, which `blueprint inspect` diagnoses only when it runs
+- **`architecture.modules`** — optional outer application modules, each mapped to a direct child of `sourceRoot`. When present, the complete `layers` list repeats under every module; global layer folders are not a second supported topology
+- **`architecture.layers`** — the ordered shared layers. **Order is the flow**: a layer may import only layers declared after it. The declaration therefore cannot express a back edge. This makes the declared layer graph acyclic; it does not continuously prevent unit import cycles, which `blueprint inspect` diagnoses only when it runs
 - **`layer.does`** — one line on what code in this layer is for. Feeds the handbook and the agent contract; no rule enforces it
 - **`layer.mustNot`** — the things this layer may not do, in prose. Same destination, same lack of enforcement: it is what a reviewer and an agent read when a rule cannot decide
 - **`layer.allowedImporters`** — narrows who may import this layer. Omit it and every earlier layer may; set it and only the listed ones may, each of which must be declared earlier — so narrowing can never introduce a back edge. Entries take `selfOnly` (may depend on this layer but never re-export it onward) and `description` (the edge label in the handbook diagram)
 - **`layer.owns`** — primitives this layer exclusively owns; every other layer is barred from them. A bare string is a whole package (`'axios'`); the object form takes `imports` (specific named imports, e.g. `['createContext']`), `pattern` (treat the name as a glob group), and `exempt` (file globs excused). `{ global: 'fetch' }` owns a global instead of a package
-- **`architecture.module`** — the shared module shape: `layout` (`folder` = one folder per module behind a public entry, `flat` = one file), `entry` (the entry filename, default `index`), and `private` (sub-parts kept behind the entry). Under `folder`, a sibling module is reachable by its entry (`../Sibling`) and by nothing else — not past the entry, and not through the alias
+- **`layer.layout`** — unit layout for this layer: `folder` keeps each unit behind its public entry; `file` preserves flat layer-granularity dependency and relative-import semantics
+- **`layer.entry`** — public entry filename for folder units (default `index`). A sibling folder unit is reachable by its entry (`../Sibling`) and by nothing else — not past the entry, and not through the alias
 
 ### Tuning
 
@@ -248,20 +251,20 @@ examples — the definitions belong here.
 - **`architecture.sourceRoot`** — where layers live, relative to the project root. Default `src`; `.` for root-level layouts (e.g. Next.js without `src/`). Lint, inspect, init scaffolding, deps targets, and generated agent placement guidance all resolve source paths from this root. Before a config exists, survey can infer a root-level layout from TypeScript includes; a workspace with several application roots asks you to choose this field explicitly.
 - **`architecture.additionalAliases`** — extra import roots beyond `alias` that participate in every structural ban. An alias may target the source root, an ancestor of it, or one declared layer such as `src/shared`.
 
-One blueprint models one ordered layer axis. It can govern the outer relationship between
-root-level folders such as `app → features`, but it does not independently model a second
-`ui/application/infrastructure/domain` axis repeated inside every feature.
+Without `architecture.modules`, one blueprint models the traditional layer-first axis.
+With it, Blueprint models a pure Module → Layer → Unit topology and repeats the same layer
+contract inside every declared module.
 - **`architecture.testFiles`** — test glob(s) exempt from structural rules and metric gates (default `*.test.*` / `*.spec.*`). `[]` exempts nothing — tests inherit their layer's rules — and switches the `testFilename` gate off with it: that rule is scoped to the test globs, so an empty list leaves it no file to name. `blueprint rules` says so beside the gate. A declared glob that matches no file costs the exemption but not the gate: nothing the run read is exempt through it.
 - **`architecture.layerFiles`** — per-layer file globs when the framework defaults don't fit
 - **`architecture.layerFilesIgnore`** — global file globs excluded from emitted lint and lint-backed `inspect` findings. The files remain visible to inspect-only checks such as undeclared folders and cycles, and coverage names them as deliberately ignored rather than reached
 
 The portable glob dialect across lint and inspect is `/`-separated paths with `**`,
 `*`, `?`, and flat brace alternatives such as `*.{ts,tsx}`; `layerFiles` additionally
-replaces `{layer}` with each declared layer name. Negation, character classes, extglobs,
+replaces `{layer}` with each declared layer name. Module-first custom patterns must also
+contain `{module}`; Blueprint expands the module × layer product. Negation, character classes, extglobs,
 and nested braces are outside that shared dialect. Keep to the portable subset so lint
 and inspect select the same files.
 - **`architecture.naming`** — naming conventions by concept (e.g. `{ hook: 'useX + reactivity' }`) — rendered into handbook + contract
-- **`layer.module`** — per-layer override of the shared module shape — e.g. folder modules in one layer, flat everywhere else
 - **`layer.lintOverrides`** — per-layer ESLint tweaks (the three managed rules excluded)
 - **`emit.agents`** — contract distribution targets: `claude`, `agents`, `gemini`, `copilot`, `cursor`, `windsurf` (+ per-target `path`). Default `['claude', 'agents']`; `[]` emits none. Narrowing it makes the next init remove a stale contract that is wholly its own output (hand-edited files only get told)
 - **`emit.handbook` / `emit.lint`** — output path for the handbook · severity of the **structural** rules only (metric rules keep their `rules` tiers)
@@ -272,7 +275,7 @@ and inspect select the same files.
 - **`survey`** — `--alias <name>` (when tsconfig-paths detection finds none) · `--source-root <path>` (select one application in a workspace) · `--json`
 - **`inspect`** — `--baseline` · `--update-baseline` · `--framework vue|react` · `--json`
 - **`impact`** — `--json`
-- **`deps [module]`** — `--framework vue|react` · `--json`
+- **`deps [unit]`** — `--framework vue|react` · `--json`
 - **`rules`** — `--json`
 - **`doctor`** — `--json`
 

@@ -22,15 +22,16 @@
 測試檔案（`architecture.testFiles`）在這些項目上都豁免，但只豁免到 glob 掃得到的範圍 ——<br>
 掃到、而且沒有一條 glob 對得上的檔案，會被當成一般原始碼檢查。
 
-- **`undeclared-folder`** · error —— 原始碼根目錄下存在未宣告為分層的資料夾
+- **`undeclared-folder`** · error —— 原始碼資料夾落在宣告的拓撲之外：layer-first 模式是未宣告的頂層 layer；module-first 模式則是未宣告的外層 module 或 module 內層 layer
 - **`flow-violation`** · error —— 逆向匯入，或透過別名進行的同層匯入
-- **`deep-import`** · error —— 別名匯入直接觸及資料夾模組的**內部**，未經公開入口
-- **`relative-escape`** · error —— 相對路徑匯入越出所屬分層、逃逸出原始碼根目錄，或伸進鄰居模組的入口之後。<br>在 `folder` 佈局下，鄰居模組**是**碰得到的 —— `../Sibling` 就是同層之間互相使用的方式，而且是唯一的方式，因為別名寫法（`~app/{自己這層}/Sibling`）仍然被擋
+- **`deep-import`** · error —— 別名匯入直接觸及資料夾 unit 的**內部**，未經公開入口
+- **`relative-escape`** · error —— 相對路徑匯入越出所屬分層、逃逸出原始碼根目錄，或伸進鄰居 unit 的入口之後。<br>在 `folder` 佈局下，鄰居 unit **是**碰得到的 —— `../Sibling` 就是同層 unit 互相使用的方式，而且是唯一的方式，因為別名寫法（`~app/{自己這層}/Sibling`）仍然被擋
 - **`package-ownership`** · error —— 從非擁有者分層匯入某分層專屬的套件（或受限的具名匯入）
 - **`selfonly-reexport`** · error —— 再匯出標記為 `selfOnly` 的依賴 —— 僅可依賴，不可轉手輸出
-- **`cycle`** · error —— 模組層級的循環匯入，並列出完整路徑。<br>每一組獨立的循環都會回報，一組互相依賴的模組算一筆 —— 所以數量就是工作量，不是「先找到的那一個」
-- **`no-entry`** · warn —— 資料夾模組缺少公開入口檔 —— 外部無從匯入
-- **`missing-layer`** · info —— 已宣告的分層尚無對應資料夾
+- **`cycle`** · error —— unit 層級的循環匯入，並列出完整路徑。<br>每一組獨立的循環都會回報，一組互相依賴的 unit 算一筆 —— 所以數量就是工作量，不是「先找到的那一個」
+- **`no-entry`** · warn —— 資料夾 unit 缺少公開入口檔 —— 外部無從匯入
+- **`missing-module`** · info —— 已宣告的 module 尚無對應資料夾（僅 module-first）
+- **`missing-layer`** · info —— 已宣告的 layer 尚無對應資料夾（僅 layer-first）。module-first 不要求先建立每個共享 layer 位置；位置在程式碼落地前都只是 runway
 - **`owns-not-installed`** · info —— 某分層 `owns` 的套件不在 `package.json` 裡。<br>禁令已經產生、內容也正確，只是暫時還碰不到任何東西。<br>把套件裝起來，或是把這筆宣告拿掉，兩種都算解法
 - **`declaratory-self-only`** · info —— `selfOnly` 保護的分層還沒有任何檔案 —— 再匯出禁令是宣告性的，要等 code 進來才會真正生效
 
@@ -65,7 +66,7 @@ plugin 物件本身也有匯出（`import { plugin } from '@kekkai/blueprint'`�
 另有三條**受管規則** —— 由 `layers` / `owns` / `alias` 轉譯而成、歸生成器管：`no-restricted-imports`、`no-restricted-syntax`、`no-restricted-globals`。<br>
 這三條沒辦法透過 `lintOverrides` 設定；要調整就改 blueprint config 本身。<br>
 dependency-flow 禁令、同層禁令與 `selfOnly` 再匯出 selector 都會透過每個已宣告別名，同時涵蓋裸的分層入口與其下所有路徑。<br>
-這不會放寬資料夾模組的公開面：獲准的匯入者仍可使用模組入口，但不能伸進入口後方。
+這不會放寬資料夾 unit 的公開面：獲准的匯入者仍可使用 unit 入口，但不能伸進入口後方。
 
 ### 把受管規則併進自己的規則設定
 
@@ -112,7 +113,7 @@ flat config 是**取代**不是合併 —— 但只發生在「兩筆都命中�
 - **`statementPadding`** → `@stylistic/padding-line-between-statements`，帶固定的 17 條設定 · error
 - **`importBlock`** → `import-x/first` + `import-x/no-duplicates` · error
 - **`fixtureImports`** → 禁止產品程式碼匯入 fixture 目錄 · error（Vue preset）
-- **`cycles`** → inspect 的 `cycle` 檢測（模組層級，只在 inspect 執行時診斷；baseline 會保留已記錄的 finding）。生成 config 預設不做持續預防；能接受逐檔重查圖的成本時，可[選擇啟用 `import-x/no-cycle`](/zh-TW/guide/generated-artifacts#claude-md-agents-md-——-協作) · error
+- **`cycles`** → inspect 的 `cycle` 檢測（unit 層級，只在 inspect 執行時診斷；baseline 會保留已記錄的 finding）。生成 config 預設不做持續預防；能接受逐檔重查圖的成本時，可[選擇啟用 `import-x/no-cycle`](/zh-TW/guide/generated-artifacts#claude-md-agents-md-——-協作) · error
 - **`deepWatch` / `usePrefix` / `usePrefixReactivity` / `testFilename` / `typedefOnlyFile`** → 上面外掛那節的規則（見上）
 
 其餘任何識別碼（例如 `deadCode`）都屬於文件性質：會寫進手冊與 AI Agent 守則，作為 Agent 必須持守的判斷，但不會被說成硬性關卡。<br>
@@ -202,12 +203,14 @@ export default [
 這些鍵比上面那份關卡目錄更早存在，也因此一直只在範例裡露臉 —— 定義該有個家。
 
 - **`architecture.alias`** —— 專案的匯入根，例如 `~app`。<br>必填、沒有預設值：猜錯的別名會讓非法匯入靜靜通過，因為每一條結構禁令的樣式都是拿這個字串組出來的
-- **`architecture.layers`** —— 有順序的分層清單。<br>**順序就是流向**：一個分層只能匯入排在它後面的分層。<br>因此宣告本身說不出回頭邊，無環的是「宣告的分層圖」；這不會持續阻止模組匯入 cycle，後者只在 `blueprint inspect` 執行時診斷
+- **`architecture.modules`** —— 可選的外層應用模組；每個名稱對應 `sourceRoot` 的直屬子目錄。設定後，完整的 `layers` 清單會在每個模組內重複，不支援再混用全域 layer 資料夾
+- **`architecture.layers`** —— 有順序、由所有模組共用的分層清單。<br>**順序就是流向**：一個分層只能匯入排在它後面的分層。<br>因此宣告本身說不出回頭邊；unit 匯入 cycle 則只在 `blueprint inspect` 執行時診斷
 - **`layer.does`** —— 一句話說明這層的程式碼是幹嘛的。<br>寫進手冊與 Agent 守則；沒有規則會強制它
 - **`layer.mustNot`** —— 這層不該做的事，用白話寫。<br>去處相同、同樣不強制：規則判斷不了的時候，審查者與 Agent 讀的就是這幾句
 - **`layer.allowedImporters`** —— 收窄「誰可以匯入這一層」。<br>不寫的話，排在前面的分層都可以；寫了就只有清單上的可以，而且每一個都必須是更早宣告的分層 —— 所以收窄永遠不可能生出一條回頭的邊。<br>條目可帶 `selfOnly`（可以依賴這層，但不得再往外轉出）與 `description`（手冊關係圖上那條邊的標籤）
 - **`layer.owns`** —— 這層獨佔的基元，其他分層一律被擋。<br>直接給字串代表整個套件（`'axios'`）；物件形式可帶 `imports`（只鎖特定具名匯入，如 `['createContext']`）、`pattern`（把名稱當成 glob 群組）、`exempt`（豁免的檔案樣式）。<br>`{ global: 'fetch' }` 則是獨佔一個全域變數而不是套件
-- **`architecture.module`** —— 共用的模組形狀：`layout`（`folder` ＝ 一個模組一個資料夾、外面只看得到公開入口；`flat` ＝ 單檔）、`entry`（入口檔名，預設 `index`）、`private`（藏在入口後面的子部分）。<br>`folder` 之下，鄰居模組只能透過它的入口碰到（`../Sibling`），其餘皆不可 —— 伸進入口後面不行，走別名也不行
+- **`layer.layout`** —— 此 layer 的 unit 佈局：`folder` 讓每個 unit 藏在公開入口後；`file` 保留原 flat 佈局以整層為依賴與相對匯入邊界的相容語意
+- **`layer.entry`** —— folder unit 的公開入口檔名（預設 `index`）。鄰居 folder unit 只能透過入口（`../Sibling`）碰到
 
 ### 調校
 
@@ -215,7 +218,7 @@ export default [
 - **`architecture.sourceRoot`** —— 分層所在目錄（相對於專案根目錄）。預設 `src`；根目錄式佈局（如無 `src/` 的 Next.js）設為 `.`。Lint、inspect、init scaffold、deps target 與產生的 agent placement guidance 都會從此根目錄解析來源路徑。Config 尚未建立時，survey 可由 TypeScript includes 推導根目錄式佈局；若 workspace 有多個 application root，則會要求明確選擇此欄位。
 - **`architecture.additionalAliases`** —— `alias` 以外、同樣納入所有結構禁令的額外匯入根。Alias 可指向 source root、其上層，或 `src/shared` 之類的單一已宣告 layer。
 
-一份 blueprint 只描述一條有序的 layer 軸。它可以治理 `app → features` 這類根目錄資料夾的外層關係，但不會同時將每個 feature 內重複的 `ui/application/infrastructure/domain` 視為第二條獨立分層軸。
+未設定 `architecture.modules` 時，blueprint 維持傳統 layer-first 軸；設定後則採純粹的 Module → Layer → Unit 拓撲，在每個已宣告模組內重複相同 layer 契約。
 - **`architecture.testFiles`** —— 豁免於結構規則與度量關卡的測試檔樣式（預設 `*.test.*` / `*.spec.*`）。<br>
   填 `[]` 代表不豁免任何檔 —— 測試檔跟著它那層的規則走 —— 同時也把 `testFilename` 這個關卡關掉：<br>
   那條規則的範圍就是這些測試檔樣式，空清單等於沒有檔可以讓它檢查。`blueprint rules` 會在該關卡旁邊講明。<br>
@@ -226,10 +229,10 @@ export default [
 
 lint 與 inspect 共通的可攜 glob 語法，是以 `/` 分隔的路徑搭配 `**`、`*`、`?`，
 以及 `*.{ts,tsx}` 這類單層 brace alternatives；`layerFiles` 另會把 `{layer}`
-替換成每個已宣告的分層名稱。Negation、character classes、extglobs 與巢狀 braces
+替換成每個已宣告的分層名稱。Module-first 自訂樣式還必須包含 `{module}`，
+並展開 module × layer 的完整組合。Negation、character classes、extglobs 與巢狀 braces
 不在共通語法內。維持在這個可攜子集合，lint 與 inspect 才會選到同一批檔案。
 - **`architecture.naming`** —— 依概念設定的命名慣例（如 `{ hook: 'useX + reactivity' }`）—— 寫入手冊與守則
-- **`layer.module`** —— 逐層覆寫共用的模組形狀 —— 例如某一分層採資料夾模組、其餘維持單檔
 - **`layer.lintOverrides`** —— 逐層的 ESLint 調整（三條受管規則除外）
 - **`emit.agents`** —— Agent 守則的發佈目標：`claude`、`agents`、`gemini`、`copilot`、`cursor`、`windsurf`（可逐目標指定 `path`）。預設 `['claude', 'agents']`；空陣列就不產出。縮窄清單後，下一次 init 會自動移除「整份都是自己產出」的過期守則檔（被人手改過的只提醒、不動手）
 - **`emit.handbook` / `emit.lint`** —— 手冊輸出路徑 · **結構規則**的等級（度量規則吃自己的 `rules` tier）
@@ -240,7 +243,7 @@ lint 與 inspect 共通的可攜 glob 語法，是以 `/` 分隔的路徑搭配 
 - **`survey`** —— `--alias <name>`（tsconfig paths 偵測不到別名時指定）· `--source-root <path>`（在 workspace 中選擇一個 application）· `--json`
 - **`inspect`** —— `--baseline` · `--update-baseline` · `--framework vue|react` · `--json`
 - **`impact`** —— `--json`
-- **`deps [module]`** —— `--framework vue|react` · `--json`
+- **`deps [unit]`** —— `--framework vue|react` · `--json`
 - **`rules`** —— `--json`
 - **`doctor`** —— `--json`
 

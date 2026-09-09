@@ -11,7 +11,6 @@ function arch(): ArchitectureDef {
       { name: 'hooks', does: '' },
       { name: 'services', does: '' },
     ],
-    module: { layout: 'folder', entry: 'index', private: [] },
   };
 }
 
@@ -58,6 +57,24 @@ describe('emitFlowDiagram', () => {
     const diagram = emitFlowDiagram(servicesImportedBy(['components']));
 
     expect(diagram).toContain('  components --> services');
+  });
+
+  it('draws shared layers inside every module in module-first topology', () => {
+    const architecture = arch();
+
+    architecture.modules = [
+      { name: 'auth', does: 'authentication' },
+      { name: 'shop', does: 'commerce' },
+    ];
+
+    const diagram = emitFlowDiagram(architecture);
+
+    expect(diagram).toContain('subgraph m0["auth"]');
+    expect(diagram).toContain('subgraph m1["shop"]');
+    expect(diagram).toContain('m0_l0["components"]');
+    expect(diagram).toContain('m1_l0["components"]');
+    expect(diagram).toContain('m0_l0 -.-> m0_l1');
+    expect(diagram).toContain('m1_l0 -.-> m1_l1');
   });
 
   it('keeps a pipe-bearing description from corrupting the label syntax', () => {

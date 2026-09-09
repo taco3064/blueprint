@@ -23,7 +23,7 @@ const RULE_IDS = [
 const DESCRIPTIONS: [(typeof RULE_IDS)[number], string][] = [
   ['no-deep-watch', 'deep watches'],
   ['no-typedef-only-file', '@typedef'],
-  ['relative-escape', 'leave their module'],
+  ['relative-escape', 'leave their unit'],
   ['test-filename-matches-source', 'co-located, same-named source sibling'],
   ['use-prefix', 'hook prefix'],
   ['use-prefix-needs-reactivity', 'reactive or lifecycle'],
@@ -76,8 +76,9 @@ describe('plugin', () => {
       {
         type: 'object',
         properties: {
-          layouts: { type: 'object', additionalProperties: { enum: ['folder', 'flat'] } },
+          layouts: { type: 'object', additionalProperties: { enum: ['folder', 'file'] } },
           entries: { type: 'object', additionalProperties: { type: 'string' } },
+          moduleFirst: { type: 'boolean' },
           sourceRoot: { type: 'string' },
         },
         additionalProperties: false,

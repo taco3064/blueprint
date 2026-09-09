@@ -84,22 +84,22 @@ flowchart TD
 - 套件所有權有兩道防線：<br>
   lint（`no-restricted-imports`）跟 inspect 的 [`package-ownership` 檢測](/zh-TW/guide/reference#inspect-回報的檢測項目)
 
-## 功能資料夾 —— 模組的組成方式
+## 功能資料夾 —— 一個 unit 一個資料夾
 
 ```
 components/
 └─ Dropdown/
    ├─ index        ← 對外唯一入口（公開）
-   ├─ Dropdown     ← 實作本體，檔名即模組名（不命名為 Component）
+   ├─ Dropdown     ← 實作本體，檔名即 unit 名（不命名為 Component）
    ├─ hooks        ← 私有
    ├─ styles       ← 私有
    └─ types        ← 私有
 ```
 
-- `index` 是模組對外的**門面**，外面只認得這個入口
+- `index` 是 unit 對外的**門面**，外面只認得這個入口
 - 私有子元件就放在模組裡（例如 container 底下的 `ProfileTab`）——<br>
   「先私有，真的需要共享再上提」是自然的成長路徑，不用一開始就預測
-- 實作檔用「模組名」命名：<br>
+- 實作檔用「unit 名」命名：<br>
   要是全都叫 `Component.tsx`，編輯器的分頁跟快速開啟根本認不出誰是誰
 
 `components` 跟 `containers` 怎麼分，一句話：**「換一個功能場景，它還能用嗎？」**<br>

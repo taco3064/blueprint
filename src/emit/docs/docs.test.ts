@@ -11,15 +11,16 @@ function full(): Blueprint {
     architecture: {
       alias: '~app',
       layers: [
-        { name: 'components', does: 'UI', owns: ['clsx'] },
+        { name: 'components', does: 'UI', layout: 'folder', entry: 'index', owns: ['clsx'] },
         {
           name: 'services',
           does: 'net',
+          layout: 'folder',
+          entry: 'index',
           owns: ['axios', { global: 'fetch' }],
           allowedImporters: [{ layer: 'components', selfOnly: true, description: 'net only' }],
         },
       ],
-      module: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
       naming: { hook: 'useX + reactivity' },
     },
     principles: [{ id: 'p', say: 'split by responsibility', why: 'not by size', land: 'claude' }],
@@ -34,7 +35,7 @@ describe('emitHandbook', () => {
     for (const heading of [
       '# Acme — Architecture Handbook',
       '## Architecture',
-      '## Module shape',
+      '## Unit shape',
       '## Import discipline',
       '## Principles',
       '## Rules',
@@ -49,8 +50,7 @@ describe('emitHandbook', () => {
       framework: 'auto',
       architecture: {
         alias: '~app',
-        layers: [{ name: 'components', does: 'UI' }],
-        module: { layout: 'folder', entry: 'index', private: [] },
+        layers: [{ name: 'components', does: 'UI', layout: 'folder', entry: 'index' }],
       },
     });
 
@@ -73,12 +73,11 @@ describe('emitHandbook', () => {
   // contain, in the document that outlives the adoption (field run #150). One assertion
   // per fact, because the arms are independent and any one could be dropped alone.
   it('hands the rules table every fact that decides whether a gate can emit', () => {
-    const layer = { name: 'components', does: 'UI' };
-    const module = { layout: 'folder' as const, entry: 'index', private: [] };
+    const layer = { name: 'components', does: 'UI', layout: 'folder' as const, entry: 'index' };
 
     const onReact = emitHandbook(defineBlueprint({
       framework: 'react',
-      architecture: { alias: '~app', layers: [layer], module },
+      architecture: { alias: '~app', layers: [layer] },
       rules: { deepWatch: 'error' },
     }));
 
@@ -86,7 +85,7 @@ describe('emitHandbook', () => {
 
     const exemptingNothing = emitHandbook(defineBlueprint({
       framework: 'vue',
-      architecture: { alias: '~app', layers: [layer], module, testFiles: [] },
+      architecture: { alias: '~app', layers: [layer], testFiles: [] },
       rules: { testFilename: 'error' },
     }));
 
@@ -94,7 +93,7 @@ describe('emitHandbook', () => {
 
     const noTypescript = defineBlueprint({
       framework: 'vue',
-      architecture: { alias: '~app', layers: [layer], module },
+      architecture: { alias: '~app', layers: [layer] },
       rules: { explicitAny: 'error' },
     });
 
@@ -144,8 +143,7 @@ describe('emitHandbook · joining the sections', () => {
       framework: 'vue',
       architecture: {
         alias: '~app',
-        layers: [{ name: 'components', does: 'UI' }],
-        module: { layout: 'folder', entry: 'index', private: [] },
+        layers: [{ name: 'components', does: 'UI', layout: 'folder', entry: 'index' }],
       },
     });
 

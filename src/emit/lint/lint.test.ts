@@ -12,16 +12,20 @@ const blueprint = defineBlueprint({
   architecture: {
     alias: '~app',
     layers: [
-      { name: 'components', does: 'UI' },
-      { name: 'hooks', does: 'state', owns: [{ package: 'react', imports: ['useContext'] }] },
+      { name: 'components', does: 'UI', layout: 'folder', entry: 'index' },
+      {
+        name: 'hooks', does: 'state', layout: 'folder', entry: 'index',
+        owns: [{ package: 'react', imports: ['useContext'] }],
+      },
       {
         name: 'services',
         does: 'net',
+        layout: 'folder',
+        entry: 'index',
         owns: ['axios', { global: 'fetch' }],
         allowedImporters: [{ layer: 'components', selfOnly: true }, 'hooks'],
       },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
   },
 });
 
@@ -225,6 +229,7 @@ describe('emitLint · shape', () => {
         layouts: { components: 'folder', hooks: 'folder', services: 'folder' },
         entries: { components: 'index', hooks: 'index', services: 'index' },
         sourceRoot: 'src',
+        moduleFirst: false,
       },
     ]);
 
@@ -248,11 +253,13 @@ describe('emitLint · shape', () => {
       architecture: {
         alias: '~app',
         layers: [
-          { name: 'components', does: '' },
-          { name: 'services', does: '', owns: [{ package: 'axios', exempt: ['**/*.gen.ts'] }] },
+          { name: 'components', does: '', layout: 'folder', entry: 'index' },
+          {
+            name: 'services', does: '', layout: 'folder', entry: 'index',
+            owns: [{ package: 'axios', exempt: ['**/*.gen.ts'] }],
+          },
         ],
         layerFilesIgnore: ['**/*.d.ts'],
-        module: { layout: 'folder', entry: 'index', private: [] },
       },
     });
 
@@ -282,10 +289,12 @@ describe('emitLint · shape', () => {
       framework: 'auto',
       architecture: {
         alias: '~app',
-        layers: [{ name: 'components', does: '' }, { name: 'hooks', does: '' }],
+        layers: [
+          { name: 'components', does: '', layout: 'folder', entry: 'index' },
+          { name: 'hooks', does: '', layout: 'folder', entry: 'index' },
+        ],
         testFiles: [spec],
         layerFilesIgnore: ['**/*.d.ts'],
-        module: { layout: 'folder', entry: 'index', private: [] },
       },
       // One per site that writes the globs into an `ignores`: the shared scope, the JS
       // entry, the prefixed layer — the escape entry and the per-layer entries are
@@ -315,17 +324,16 @@ describe('emitLint · shape', () => {
   });
 });
 
-describe('emitLint · per-layer module layout', () => {
+describe('emitLint · per-layer unit layout', () => {
   const mixed = defineBlueprint({
     framework: 'auto',
     architecture: {
       alias: '~app',
       layers: [
         { name: 'pages', does: 'routes' },
-        { name: 'resources', does: 'features', module: { layout: 'folder' } },
+        { name: 'resources', does: 'features', layout: 'folder' },
         { name: 'services', does: 'net' },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
     },
   });
 
@@ -351,7 +359,7 @@ describe('emitLint · per-layer module layout', () => {
   });
 
   it('mirrors inspect: intra-module relatives pass, cross-module relatives fail', () => {
-    // Inside a folder module, `../` stays within the module.
+    // Inside a folder unit, `../` stays within the unit.
     expect(ids('import x from "../MatchesList";', 'src/resources/matches/components/Row.ts'))
       .not.toContain('blueprint/relative-escape');
 
@@ -375,16 +383,17 @@ describe('emitLint · what an exempted package splits into', () => {
     architecture: {
       alias: '~app',
       layers: [
-        { name: 'components', does: '' },
+        { name: 'components', does: '', layout: 'folder', entry: 'index' },
         {
           name: 'services',
           does: '',
+          layout: 'folder',
+          entry: 'index',
           // One owned package excuses some files, the other excuses none — the
           // pair is what makes the split observable at all.
           owns: [{ package: 'axios', exempt: ['**/*.gen.ts', ''] }, { package: 'lodash' }],
         },
       ],
-      module: { layout: 'folder', entry: 'index', private: [] },
     },
   });
 

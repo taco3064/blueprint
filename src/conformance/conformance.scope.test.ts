@@ -37,7 +37,6 @@ describe('brownfield project scope conformance (#422)', () => {
           { name: 'app', does: 'compose the application' },
           { name: 'features', does: 'implement features' },
         ],
-        module: { layout: 'flat', entry: 'index', private: [] },
       },
       rules: { unusedVars: 'error' },
     };

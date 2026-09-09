@@ -102,7 +102,6 @@ describe('a misplaced key fails loud instead of dying silently (field issue #14)
           '      { name: \'contexts\', does: \'seam\', selfOnly: true, allowedImporters: '
           + '[\'views\'] },',
           '    ],',
-          '    module: { layout: \'flat\', entry: \'index\' },',
           '  },',
           '  rules: {},',
           '};',
@@ -173,20 +172,6 @@ describe('the flat default is real — module is optional (batch 15)', () => {
 
     expect(inspect.code).toBe(0);
     expect(inspect.output).not.toContain('module.entry');
-
-    // Partial declaration — the exact second repro from the field.
-    const layoutOnly = repo({
-      packageJson: react(),
-      files: {
-        'blueprint.config.mjs': configSource({
-          ...noModule,
-          architecture: { ...noModule.architecture, module: { layout: 'flat' } },
-        }),
-        'src/components/Button.jsx': 'export const Button = 1;',
-      },
-    });
-
-    expect((await cli(layoutOnly, ['inspect'])).code).toBe(0);
   });
 
   it('an empty entry still fails loud, now naming the default as the way out', async () => {
@@ -197,8 +182,7 @@ describe('the flat default is real — module is optional (batch 15)', () => {
           framework: 'react',
           architecture: {
             alias: '~app',
-            layers: [{ name: 'components', does: 'render UI' }],
-            module: { layout: 'flat', entry: '' },
+            layers: [{ name: 'components', does: 'render UI', entry: '' }],
           },
         }),
       },
@@ -207,10 +191,10 @@ describe('the flat default is real — module is optional (batch 15)', () => {
     const inspect = await cli(dir, ['inspect']);
 
     expect(inspect.code).toBe(1);
-    expect(inspect.output).toContain('omit it for the');
+    expect(inspect.output).toContain('Layer "components" has an empty entry');
   });
 
-  it('the playbook sketch says the module block is optional', async () => {
+  it('the playbook sketch puts layout and entry directly on layers', async () => {
     const dir = repo({
       packageJson: react(),
       files: { 'src/App.jsx': 'export const App = () => null;' },
@@ -220,8 +204,9 @@ describe('the flat default is real — module is optional (batch 15)', () => {
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
-    expect(playbook).toContain('omit `module` entirely');
-    expect(playbook).toContain('Optional — omitting module');
+    expect(playbook).toContain('layout: \'folder\'');
+    expect(playbook).toContain('entry: \'index\'');
+    expect(playbook).not.toContain('module: { layout');
   });
 });
 
@@ -376,10 +361,9 @@ describe('a folder layer shares by the sibling entry, not by sinking (cards)', (
     architecture: {
       alias: '~app',
       layers: [
-        { name: 'components', does: 'ui' },
-        { name: 'hooks', does: 'stateful units' },
+        { name: 'components', does: 'ui', layout: 'folder', entry: 'index' },
+        { name: 'hooks', does: 'stateful units', layout: 'folder', entry: 'index' },
       ],
-      module: { layout: 'folder', entry: 'index', private: [] },
     },
   };
 

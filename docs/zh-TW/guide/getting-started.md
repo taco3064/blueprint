@@ -63,11 +63,11 @@ npx @kekkai/blueprint inspect --update-baseline
 ## 影響範圍 —— `blueprint deps`
 
 ```bash
-npx @kekkai/blueprint deps hooks/useCart   # 查詢該模組被誰匯入、又匯入了誰
-npx @kekkai/blueprint deps                 # 全模組排行：依被引用數排序
+npx @kekkai/blueprint deps hooks/useCart   # 查詢該 unit 被誰匯入、又匯入了誰
+npx @kekkai/blueprint deps                 # 所有 unit 排行：依被引用數排序
 ```
 
-唯讀指令，逐模組回答「改動它會波及誰」。<br>
+唯讀指令，逐 unit 回答「改動它會波及誰」。<br>
 輸出長怎樣、查詢粒度、相依圖的邊界，見[影響範圍 —— deps](/zh-TW/guide/deps)。
 
 ## Blueprint config
@@ -81,16 +81,17 @@ export default defineBlueprint({
   architecture: {
     alias: '~app',
     layers: [
-      { name: 'components', does: '可重用的使用者介面元件', mustNot: ['呼叫 services'] },
-      { name: 'hooks', does: '加工伺服器資料與共享狀態' },
+      { name: 'components', does: '可重用的使用者介面元件', layout: 'folder', entry: 'index', mustNot: ['呼叫 services'] },
+      { name: 'hooks', does: '加工伺服器資料與共享狀態', layout: 'folder', entry: 'index' },
       {
         name: 'services',
         does: '網路存取原語',
+        layout: 'folder',
+        entry: 'index',
         owns: ['axios', { global: 'fetch' }],
         allowedImporters: ['hooks'],
       },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
   },
 });
 ```

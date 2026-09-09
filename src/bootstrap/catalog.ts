@@ -12,14 +12,15 @@ export function renderSemantics(): string {
     'Facts about the emitted rules that drive authoring decisions — '
     + 'stated here so you never have to reverse-engineer them from the bundle:',
     '',
-    '- **Flat layout:** the module is the whole layer, '
-    + 'so same-layer *relative* imports are always legal.',
+    '- **File layout:** each direct file is a unit; same-layer sibling units may use '
+    + 'relative imports.',
     '  The alias is for crossing layers — a same-layer import through the alias becomes an error '
     + 'the moment the lint is wired.',
-    '- **Folder layout:** a module is one child folder with private internals.',
-    '  *Same-layer* sibling modules must not import each other at all — '
-    + 'via the alias or `../` alike; the shared part wants to live in a lower layer.',
-    '  Only *lower-layer* folder modules are importable, and entry-only; '
+    '- **Folder layout:** a unit is one child folder behind its declared entry.',
+    '  *Same-layer* sibling units may import each other only by a relative path to '
+    + 'the sibling entry (`../Sibling` or `../Sibling/index`); the same import through '
+    + 'the alias, or a relative path beyond that entry, is rejected.',
+    '  Only *lower-layer* folder units are importable, and entry-only; '
     + '`../` escapes are caught at any depth by `blueprint/relative-escape`.',
     '- **Pre-wiring check:** the survey\'s "Same-folder imports via the alias" count is an upper '
     + 'bound on the errors the wiring will introduce, not the exact number — '
@@ -29,9 +30,9 @@ export function renderSemantics(): string {
     + 'the wired rules may never flag.',
     '  Treat non-zero as "look here"; once the config exists, '
     + '`npx blueprint impact` reports the real per-rule count.',
-    '  The fix for true hits is layout-dependent — flat: rewrite them as relative imports; folder: '
-    + 'extract the shared code downward (a relative rewrite just trades the error for '
-    + '`relative-escape`).',
+    '  The fix for true hits is layout-dependent — file: rewrite them as relative imports; folder: '
+    + 'rewrite them as relative imports to the sibling entry, or extract shared implementation '
+    + 'downward when an entry-level dependency is not appropriate.',
     '  Whatever stays unresolved lands in the suppressions ledger.',
     '- **`unusedVars`** emits with `argsIgnorePattern: \'^_\'` and nothing else: '
     + '`_`-prefixed *arguments* are exempt; unused variables and catch parameters are not.',
@@ -87,12 +88,12 @@ export function renderRuleCatalog(): string {
     '  `blueprint rules` annotates whether THIS config emits it — '
     + 'never probe emitLint to find out.',
     '- `no-restricted-globals` — global ownership (e.g. `{ global: \'fetch\' }`)',
-    '- `blueprint/relative-escape` — depth-aware `../` module escapes (embedded plugin; '
+    '- `blueprint/relative-escape` — depth-aware `../` unit escapes (embedded plugin; '
     + 'ships inside the emitted config)',
     '',
     '**Optional gates — emitted only when declared** in `rules` with a tier other than `off`; '
-    + 'none of these emits by default, and every gate scopes to the layer file globs — '
-    + 'root wiring sits outside all of them.',
+    + 'none of these emits by default, and every gate scopes to the declared architecture '
+    + 'file globs (including module-first root containers).',
     'When merging, collisions are decided by rule KEY, not by hit count — '
     + '`blueprint rules --json` names every key the emitted config sets, '
     + 'and carries the exact selfOnly selector strings a fold needs.',
@@ -140,11 +141,12 @@ export function renderSchemaSketch(): string {
     '      // Order defines the one-way flow: a layer may import only layers',
     '      // declared AFTER it. allowedImporters (optional) narrows who may',
     '      // import a layer; selfOnly = depend on it but never re-export it.',
-    '      { name: \'pages\', does: \'<one-line responsibility>\' },',
+    '      { name: \'pages\', does: \'<one-line responsibility>\', layout: \'file\' },',
     '      {',
     '        name: \'features\',',
     '        does: \'…\',',
-    '        module: { layout: \'folder\', entry: \'index\' }, // per-layer override',
+    '        layout: \'folder\',',
+    '        entry: \'index\',',
     '      },',
     '      // owns entries — the full shape (nothing else lives only in dist).',
     '      // A package several layers may use: declare the SAME entry in each of',
@@ -156,13 +158,14 @@ export function renderSchemaSketch(): string {
     '      //     specifiers — npm scopes and alias paths (\'~app/services/http*\') alike',
     '      //   { package: \'x\', exempt: [\'**/*.stories.*\'] }  files exempt from the ban',
     '      //   { global: \'fetch\' }                        global identifier',
-    '      { name: \'services\', does: \'…\', owns: [\'axios\', { global: \'fetch\' }] },',
+    '      { name: \'services\', does: \'…\', layout: \'file\',',
+    '        owns: [\'axios\', { global: \'fetch\' }] },',
     '    ],',
-    '    // Optional — omitting module (or any of its keys) IS the flat default',
-    '    // ({ layout: \'flat\', entry: \'index\' }); private: [\'hooks\', …] keeps',
-    '    // parts behind the entry.',
-    '    module: { layout: \'flat\', entry: \'index\' },',
-    '    layerFiles: \'src/{layer}/**/*.<ext glob>\',',
+    '    // Optional pure module-first topology. Each name is a direct child of sourceRoot;',
+    '    // the complete layers list above repeats under every declared module.',
+    '    modules: [{ name: \'shop\', does: \'commerce application\' }],',
+    '    // Module-first custom globs must include both {module} and {layer}.',
+    '    layerFiles: \'src/{module}/{layer}/**/*.<ext glob>\',',
     '    testFiles: [\'**/*.test.*\', \'**/__tests__/**\'],',
     '  },',
     '  // A bare tier takes the gate\'s default threshold. To carry an existing',

@@ -82,22 +82,22 @@ declares the primitives it exclusively owns, and every other layer is barred fro
 - package ownership lands twice: lint (`no-restricted-imports`) and inspect's
   [`package-ownership` finding](/guide/reference#what-inspect-reports)
 
-## Feature folder — one module, one folder
+## Feature folder — one unit, one folder
 
 ```
 components/
 └─ Dropdown/
    ├─ index        ← the only public entry
-   ├─ Dropdown     ← implementation, named after the module (never "Component")
+   ├─ Dropdown     ← implementation, named after the unit (never "Component")
    ├─ hooks        ← private
    ├─ styles       ← private
    └─ types        ← private
 ```
 
-- `index` is the module's _face_ — the outside world knows nothing else
+- `index` is the unit's _face_ — the outside world knows nothing else
 - Private sub-components live inside (a container's `ProfileTab`); promotion to
   `components/` happens **when sharing actually arrives**, not speculatively
-- The implementation file carries the module's name — a tab bar of ten `Component.tsx`
+- The implementation file carries the unit's name — a tab bar of ten `Component.tsx`
   is unnavigable
 
 `components` vs `containers` in one question: **"would it survive a feature swap?"**
