@@ -251,8 +251,7 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
 
   fs.writeFileSync(path.join(fixture, 'src', 'services', 'api.ts'), 'export const api = 1;\n');
 
-  const installedBin = path.join(fixture, 'node_modules', '.bin', 'blueprint');
-  const result = runCmd(installedBin, ['inspect'], { cwd: fixture });
+  const result = runNpm(['exec', '--', 'blueprint', 'inspect'], { cwd: fixture });
 
   expect(result.code === 1, `installed inspect exited ${result.code}, expected 1\n${result.output}`);
   expect(result.output.includes('canonical-alias'), 'installed inspect missed the alternate alias');
