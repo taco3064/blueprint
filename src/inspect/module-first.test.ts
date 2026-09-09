@@ -64,12 +64,24 @@ describe('inspect consumers · module-first topology', () => {
         '../settings/routes',
         '../../../auth/index',
       ]),
+      file(['app', 'settings', 'account', 'page.tsx']),
+      file(['auth', 'random', 'x.ts']),
     ], ['app']), routerBlueprint);
 
     expect(findings.some((finding) => finding.subject === '~app/auth/services/api')).toBe(false);
     expect(findings.some((finding) => finding.subject === '~app/shop/services/api')).toBe(true);
     expect(findings.some((finding) => finding.subject === '../settings/routes')).toBe(false);
     expect(findings.some((finding) => finding.subject === '../../../auth/index')).toBe(true);
+
+    expect(findings).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ rule: 'undeclared-folder', path: 'src/app/dashboard' }),
+      expect.objectContaining({ rule: 'undeclared-folder', path: 'src/app/settings' }),
+      expect.objectContaining({ rule: 'no-entry', path: expect.stringMatching(/^src\/app\//) }),
+    ]));
+
+    expect(findings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ rule: 'undeclared-folder', path: 'src/auth/random' }),
+    ]));
   });
 
   it('reports undeclared outer modules and missing folder-unit entries at full identity', () => {

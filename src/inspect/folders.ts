@@ -57,12 +57,12 @@ function undeclaredInnerLayerFindings(
   }
 
   const modules = new Set(resolved.modules.map((module) => module.name));
-  const layers = new Set(resolved.layerNames);
 
   const positions = scan.files.flatMap((file) => {
     const [module, layer] = file.segments;
+    const position = resolved.classify(file.segments);
 
-    return file.segments.length > 2 && modules.has(module) && !layers.has(layer)
+    return file.segments.length > 2 && modules.has(module) && position === null
       ? [`${module}/${layer}`]
       : [];
   });
