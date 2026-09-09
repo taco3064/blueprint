@@ -81,7 +81,7 @@ export interface ResolvedArchitecture {
 
 export function resolveArchitecture(
   definition: ArchitectureDef,
-  context: ResolveArchitectureContext = {},
+  _context: ResolveArchitectureContext = {},
 ): ResolvedArchitecture {
   const sourceRoot = definition.sourceRoot ?? 'src';
   const sourceSegments = segments(sourceRoot);
@@ -102,8 +102,12 @@ export function resolveArchitecture(
   const byLayer = new Map(layers.map((layer) => [layer.name, layer]));
   const topology = modules.length ? 'module-first' : 'layer-first';
 
+  const ordinaryModules = topology === 'module-first'
+    ? modules.filter((module) => module.name !== 'app')
+    : modules;
+
   const layerPositions = topology === 'module-first'
-    ? modules.flatMap((module) => layers.map((layer) => ({
+    ? ordinaryModules.flatMap((module) => layers.map((layer) => ({
         kind: 'layer' as const,
         module,
         layer,
@@ -122,7 +126,7 @@ export function resolveArchitecture(
       : stripSourceRoot(segments(file), sourceSegments);
 
     return topology === 'module-first'
-      ? classifyModuleFirst(relative, { byModule, byLayer, context })
+      ? classifyModuleFirst(relative, { byModule, byLayer })
       : classifyLayerFirst(relative, byLayer);
   };
 
@@ -143,6 +147,7 @@ export function resolveArchitecture(
     sourceSegments,
     topology,
     modules,
+    ordinaryModules,
     layers,
     layerPositions,
     aliases,
@@ -164,6 +169,7 @@ interface ResolutionState {
   sourceSegments: string[];
   topology: 'layer-first' | 'module-first';
   modules: ResolvedModule[];
+  ordinaryModules: ResolvedModule[];
   layers: ResolvedLayer[];
   layerPositions: ResolvedLayerPosition[];
   aliases: AliasRoot[];
@@ -176,7 +182,8 @@ interface ResolutionState {
 
 function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture {
   const {
-    definition, sourceRoot, sourceSegments, topology, modules, layers, layerPositions,
+    definition, sourceRoot, sourceSegments, topology, modules, ordinaryModules, layers,
+    layerPositions,
     aliases, byModule, byLayer, classify, canImport, canImportModule,
   } = state;
 
@@ -207,7 +214,7 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
         return byLayer.has(layer) ? joinSource(sourceRoot, layer) : null;
       }
 
-      return module && byModule.has(module) && byLayer.has(layer)
+      return module && module !== 'app' && byModule.has(module) && byLayer.has(layer)
         ? joinSource(joinSource(sourceRoot, module), layer)
         : null;
     },
@@ -218,11 +225,13 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
 
       return topology === 'layer-first'
         ? [joinSource(sourceRoot, layer)]
-        : modules.map((module) => joinSource(module.root, layer));
+        : ordinaryModules.map((module) => joinSource(module.root, layer));
     },
     layerFiles(layer, framework, module) {
       const moduleNames = topology === 'module-first'
-        ? module ? [module] : modules.map((entry) => entry.name)
+        ? module
+          ? module === 'app' ? [] : [module]
+          : ordinaryModules.map((entry) => entry.name)
         : [undefined];
 
       return moduleNames.flatMap((moduleName) => resolveLayerFilePatterns(layer, framework, {
@@ -232,7 +241,9 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
       }));
     },
     containerFiles(framework) {
-      return modules.map((module) => `${module.root}/*.{${FRAMEWORK_EXTS[framework]}}`);
+      return modules.map((module) => module.name === 'app'
+        ? `${module.root}/**/*.{${FRAMEWORK_EXTS[framework]}}`
+        : `${module.root}/*.{${FRAMEWORK_EXTS[framework]}}`);
     },
     resolveImportTarget(importer, specifier) {
       if (!classify(importer)) {
@@ -323,7 +334,6 @@ function classifyModuleFirst(
   scope: {
     byModule: Map<string, ResolvedModule>;
     byLayer: Map<string, ResolvedLayer>;
-    context: ResolveArchitectureContext;
   },
 ): ResolvedSourcePosition | null {
   if (relative.length === 0 || (relative.length === 1 && isSourceFile(relative[0]))) {
@@ -340,7 +350,7 @@ function classifyModuleFirst(
     return { kind: 'module', module };
   }
 
-  if (scope.context.nextAppRouter?.module === module.name) {
+  if (module.name === 'app') {
     return { kind: 'container', module };
   }
 

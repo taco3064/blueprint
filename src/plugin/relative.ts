@@ -7,6 +7,7 @@ export interface UnitShape {
   entryOf: EntryOf;
   isLayer?: (name: string) => boolean;
   moduleFirst?: boolean;
+  container?: boolean;
 }
 
 export function unitKey(
@@ -42,7 +43,7 @@ export function relativeVerdict(
     return 'escapes-src';
   }
 
-  if (moduleFirst && ownSegments.length === 2) {
+  if (isContainerPosition(ownSegments, shape)) {
     return containerVerdict(ownSegments, target, isLayer);
   }
 
@@ -65,6 +66,10 @@ export function relativeVerdict(
   return atUnitEntry(target, unitIndex, entryOf(layer)) ? 'ok' : 'reaches-inside';
 }
 
+function isContainerPosition(segments: string[], shape: UnitShape): boolean {
+  return shape.moduleFirst === true && (segments.length === 2 || shape.container === true);
+}
+
 function containerVerdict(
   ownSegments: string[],
   target: string[],
@@ -72,6 +77,10 @@ function containerVerdict(
 ): RelativeVerdict {
   if (target[0] !== ownSegments[0]) {
     return 'leaves-layer';
+  }
+
+  if (ownSegments[0] === 'app') {
+    return 'ok';
   }
 
   return target.length <= 2 && !isLayer(target[1] ?? '') ? 'ok' : 'leaves-layer';

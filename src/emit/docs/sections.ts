@@ -51,7 +51,11 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
           ]),
         ),
         '',
-        'Every module reuses the shared layer contract below. Module dependencies are transitive: '
+        ...(resolved.modules.some((module) => module.name === 'app')
+          ? ['The optional reserved `app` module owns router composition recursively and uses the '
+            + 'container position; it does not repeat the shared layers below.', '']
+          : []),
+        `${resolved.modules.some((module) => module.name === 'app') ? 'Every other' : 'Every'} module reuses the shared layer contract below. Module dependencies are transitive: `
         + 'a module may import itself and every downstream module reachable through `dependsOn`; '
         + 'declaration order grants no permission. An absent layer folder is runway.',
         '',

@@ -64,6 +64,21 @@ describe('renderContext', () => {
     expect(placement).toContain('- `src/auth/components/` — layer: UI.');
     expect(checklist).toContain('declared module and layer');
   });
+
+  it('states reserved app placement without synthetic shared layers', () => {
+    const config = architecture();
+
+    config.modules = [
+      { name: 'app', does: 'routing' },
+      { name: 'auth', does: 'authentication' },
+    ];
+
+    const placement = renderPlacement(config);
+
+    expect(placement).toContain('`src/app/` — reserved router-composition module');
+    expect(placement).toContain('`src/auth/` — module: authentication');
+    expect(placement).not.toContain('`src/app/components/`');
+  });
 });
 
 describe('topology-aware agent instructions', () => {

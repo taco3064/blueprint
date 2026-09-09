@@ -236,7 +236,7 @@ catalog above, which is why most of them were only ever visible through
 examples — the definitions belong here.
 
 - **`architecture.alias`** — the project import root, e.g. `~app`. Required, with no default: a guessed alias silently passes illegal imports, because every structural ban pattern is built on this string
-- **`architecture.modules`** — optional outer application modules, each mapped to a direct child of `sourceRoot`. When present, the complete `layers` list repeats under every module; global layer folders are not a second supported topology. A module's optional `dependsOn` lists its direct dependencies. Permission follows transitive reachability through that DAG, never declaration order; unknown modules, self-dependencies, duplicate edges, and cycles are invalid
+- **`architecture.modules`** — optional outer application modules, each mapped to a direct child of `sourceRoot`. When present, the complete `layers` list repeats under every ordinary module; global layer folders are not a second supported topology. The optional reserved module name `app` instead represents router composition recursively at the existing container position, independent of routing framework, and does not repeat the shared layers. A module's optional `dependsOn` lists its direct dependencies. Permission follows transitive reachability through that DAG, never declaration order; unknown modules, self-dependencies, duplicate edges, and cycles are invalid
 - **`architecture.layers`** — the ordered shared layers. **Order is the flow**: a layer may import only layers declared after it. The declaration therefore cannot express a back edge. This makes the declared layer graph acyclic; it does not continuously prevent unit import cycles, which `blueprint inspect` diagnoses only when it runs
 - **`layer.does`** — one line on what code in this layer is for. Feeds the handbook and the agent contract; no rule enforces it
 - **`layer.mustNot`** — the things this layer may not do, in prose. Same destination, same lack of enforcement: it is what a reviewer and an agent read when a rule cannot decide
@@ -252,8 +252,10 @@ examples — the definitions belong here.
 - **`architecture.additionalAliases`** — extra import roots beyond `alias` that participate in every structural ban. An alias may target the source root, an ancestor of it, or one declared layer such as `src/shared`.
 
 Without `architecture.modules`, one blueprint models the traditional layer-first axis.
-With it, Blueprint models a pure Module → Layer → Unit topology and repeats the same layer
-contract inside every declared module. A governed import must pass both the module DAG and
+With it, Blueprint models a Module → Layer → Unit topology and repeats the same layer
+contract inside every ordinary declared module. A declared `app` module is optional and reserved
+for router composition; every governed source file below it uses the container position instead of
+an inner layer. A governed import must pass both the module DAG and
 the shared inner layer flow. Same-layer imports across reachable modules remain valid; relative
 imports still cannot cross a module or layer boundary.
 - **`architecture.testFiles`** — test glob(s) exempt from structural rules and metric gates (default `*.test.*` / `*.spec.*`). `[]` exempts nothing — tests inherit their layer's rules — and switches the `testFilename` gate off with it: that rule is scoped to the test globs, so an empty list leaves it no file to name. `blueprint rules` says so beside the gate. A declared glob that matches no file costs the exemption but not the gate: nothing the run read is exempt through it.

@@ -83,7 +83,7 @@ styles (file-layout layer — answers at layer granularity)
 
 - **僅涵蓋已宣告的分層。**<br>
   layer-first 設定中，`architecture.layers` 以外的資料夾不會納入相依圖；排行榜會將其列為略過項目（如上例的 `legacy/`），避免把「未被掃描」誤讀為「沒有任何 unit 引用」。<br>
-  module-first 設定則以 `architecture.modules` 為外層邊界，且每個 module 的內層資料夾必須位於共用的 `architecture.layers` 清單中。外層或內層不在契約裡的資料夾都會列為略過；查詢時會直接說明原因：`✗ "legacy/" is outside the declared architecture`。
+  module-first 設定則以 `architecture.modules` 為外層邊界；一般 module 的內層資料夾必須位於共用的 `architecture.layers` 清單中。已宣告且保留的 `app` module 是例外，其下所有 router-composition 原始碼都會解析至 container node。其他不在契約裡的外層或內層資料夾會列為略過；查詢時會直接說明原因：`✗ "legacy/" is outside the declared architecture`。
 - **測試檔案排除在外**（`architecture.testFiles`）——<br>
   測試對 unit 的匯入不算進影響範圍，跟 lint 側的行為一致。<br>
   這件事只成立到 glob 掃得到的範圍 ——<br>

@@ -77,6 +77,21 @@ describe('emitFlowDiagram', () => {
     expect(diagram).toContain('m1_l0 -.-> m1_l1');
   });
 
+  it('draws reserved app as router composition instead of repeated layers', () => {
+    const architecture = arch();
+
+    architecture.modules = [
+      { name: 'app', does: 'routing' },
+      { name: 'auth', does: 'authentication' },
+    ];
+
+    const diagram = emitFlowDiagram(architecture);
+
+    expect(diagram).toContain('m0["app · router composition"]');
+    expect(diagram).not.toContain('m0_l0["components"]');
+    expect(diagram).toContain('m1_l0["components"]');
+  });
+
   it('keeps a pipe-bearing description from corrupting the label syntax', () => {
     const diagram = emitFlowDiagram(
       servicesImportedBy([{ layer: 'components', description: 'read | write split' }]),

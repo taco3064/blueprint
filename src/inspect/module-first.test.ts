@@ -36,6 +36,42 @@ function scan(files: ScannedFile[], topDirs = ['auth', 'shop']): ScanResult {
 }
 
 describe('inspect consumers · module-first topology', () => {
+  it('classifies nested app router source consistently and preserves module reachability', () => {
+    const routerBlueprint = defineBlueprint({
+      ...blueprint,
+      architecture: {
+        ...blueprint.architecture,
+        modules: [
+          { name: 'app', does: 'router composition', dependsOn: ['auth'] },
+          { name: 'auth', does: 'identity application' },
+          { name: 'shop', does: 'commerce application' },
+        ],
+      },
+    });
+
+    const graph = buildUnitGraph(scan([
+      file(['app', 'dashboard', 'page.tsx'], ['~app/auth/services/api']),
+      file(['auth', 'services', 'api', 'index.ts']),
+    ], ['app', 'auth']), routerBlueprint.architecture);
+
+    expect(graph.units).toContain('app');
+    expect(graph.edges.get('app')).toEqual(new Set(['auth/services/api']));
+
+    const findings = analyze(scan([
+      file(['app', 'dashboard', 'page.tsx'], [
+        '~app/auth/services/api',
+        '~app/shop/services/api',
+        '../settings/routes',
+        '../../../auth/index',
+      ]),
+    ], ['app']), routerBlueprint);
+
+    expect(findings.some((finding) => finding.subject === '~app/auth/services/api')).toBe(false);
+    expect(findings.some((finding) => finding.subject === '~app/shop/services/api')).toBe(true);
+    expect(findings.some((finding) => finding.subject === '../settings/routes')).toBe(false);
+    expect(findings.some((finding) => finding.subject === '../../../auth/index')).toBe(true);
+  });
+
   it('reports undeclared outer modules and missing folder-unit entries at full identity', () => {
     const findings = analyze(scan([
       file(['auth', 'components', 'Login', 'Login.tsx']),

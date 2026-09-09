@@ -81,6 +81,18 @@ describe('renderUnit', () => {
     expect(out).toContain('Every module reuses the shared layer contract');
     expect(out).toContain('declaration order grants no permission');
   });
+
+  it('documents a declared app module as reserved router composition', () => {
+    const out = renderArchitecture(arch({
+      modules: [
+        { name: 'app', does: 'routing' },
+        { name: 'auth', does: 'authentication' },
+      ],
+    }));
+
+    expect(out).toContain('optional reserved `app` module owns router composition recursively');
+    expect(out).toContain('Every other module reuses the shared layer contract');
+  });
 });
 
 describe('renderImportDiscipline', () => {
