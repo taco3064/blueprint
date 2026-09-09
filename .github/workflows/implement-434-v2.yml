@@ -1,0 +1,39 @@
+name: implement-434-v2
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/implement-434-v2.mjs'
+      - '.github/workflows/implement-434-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    if: github.head_ref == 'feat/434-module-first-topology-v2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: node scripts/implement-434-v2.mjs
+      - name: Commit generated implementation
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No generated changes.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          HUSKY=0 git commit -m 'feat: establish #434 module-first core model'
+          HUSKY=0 git push origin HEAD:${{ github.head_ref }}
