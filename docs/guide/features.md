@@ -29,7 +29,7 @@ to see how to use it.
 - [`defineBlueprint`](/guide/getting-started#the-blueprint) — the single source of truth, validated at definition *and* on every load, so a structural mistake fails with a precise message
 - [Layers & one-way flow](/philosophy/layers) — ordered layers where each imports only downward; `allowedImporters` narrows who may import, `selfOnly` bars re-exporting
 - [Ownership — `owns`](/philosophy/layers#ownership-—-owns) — a layer exclusively owns packages, named imports, or globals — every other layer is barred from them
-- [Unit shape](/philosophy/layers#feature-folder-—-one-unit-one-folder) — `folder` = one unit per folder behind a public entry; `file` = the whole layer is one dependency unit (e.g. a Next route tree) — overridable per layer
+- [Unit shape](/philosophy/layers#feature-folder-—-one-unit-one-folder) — `folder` = one unit per folder behind a public entry; `file` = the whole layer is one dependency unit (e.g. styles organized in nested folders) — overridable per layer
 - [`blueprint.rules`](/guide/reference#blueprint-rules-—-which-ids-actually-gate) — rule ids with tiers: the machine-checkable ones become lint gates, the rest land in the handbook and agent contract as judgment
 - [Every other config field](/guide/reference#config-fields-beyond-the-quick-start-example) — `sourceRoot`, `additionalAliases`, `naming`, `lintOverrides`, `emit.*` — one line each, typed in full in the API reference
 - [Presets](/guide/field-tested#framework-notes) — `vuePreset` / `reactPreset` encode the full governance handbook; `nextPreset` adapts to the App or Pages router, with or without `src/`

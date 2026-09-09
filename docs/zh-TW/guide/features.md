@@ -29,7 +29,7 @@
 - [`defineBlueprint`](/zh-TW/guide/getting-started#blueprint-config) —— 唯一真實來源，定義時**與**每次載入時都會驗證，結構性錯誤以精確訊息即時回報
 - [分層與單向流](/zh-TW/philosophy/layers) —— 有序分層，每層僅可向下匯入；`allowedImporters` 收窄可匯入者，`selfOnly` 禁止再匯出
 - [所有權 —— `owns`](/zh-TW/philosophy/layers#所有權-——-owns) —— 分層專屬持有套件、具名匯入或全域物件 —— 其餘分層一律禁止使用
-- [Unit 形狀](/zh-TW/philosophy/layers#功能資料夾-——-一個-unit-一個資料夾) —— `folder` 為一個 unit 一個資料夾、以公開入口對外；`file` 為整層單一依賴 unit（如 Next 路由樹）—— 可逐層覆寫
+- [Unit 形狀](/zh-TW/philosophy/layers#功能資料夾-——-一個-unit-一個資料夾) —— `folder` 為一個 unit 一個資料夾、以公開入口對外；`file` 為整層單一依賴 unit（例如以巢狀資料夾整理的 styles）—— 可逐層覆寫
 - [`blueprint.rules`](/zh-TW/guide/reference#blueprint-rules-——-哪些識別碼會成為檢核關卡) —— 帶等級的規則識別碼：機器查得動的轉譯成 lint 關卡，其餘寫進手冊與 Agent 守則作為判斷準則
 - [其餘 config 欄位](/zh-TW/guide/reference#快速上手範例以外的-config-欄位) —— `sourceRoot`、`additionalAliases`、`naming`、`lintOverrides`、`emit.*` —— 每項一句話，完整型別見 API 文件
 - [preset](/zh-TW/guide/field-tested#框架注意事項) —— `vuePreset` / `reactPreset` 完整編碼治理手冊；`nextPreset` 相容 App 與 Pages 路由、有無 `src/` 皆可
