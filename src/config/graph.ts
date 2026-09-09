@@ -81,7 +81,13 @@ export function aliasSpecifier(root: AliasRoot | string, layer: string): string 
   }
 
   if (root.prepend?.length) {
-    return root.prepend[0] === layer ? root.alias : null;
+    const target = dirSegments(layer);
+
+    if (!root.prepend.every((segment, index) => target[index] === segment)) {
+      return null;
+    }
+
+    return [root.alias, ...target.slice(root.prepend.length)].join('/');
   }
 
   return [root.alias, ...root.prefix, layer].join('/');
@@ -91,26 +97,15 @@ function dirSegments(dir: string): string[] {
   return dir.split('/').filter((segment) => segment !== '' && segment !== '.');
 }
 
-export function getSharedModule(
-  architecture: ArchitectureDef,
-): { layout: 'folder' | 'flat'; entry: string; private: string[] } {
-  return {
-    layout: architecture.module?.layout ?? 'flat',
-    entry: architecture.module?.entry ?? 'index',
-    private: architecture.module?.private ?? [],
-  };
-}
-
-export function getModuleShape(
+export function getUnitShape(
   architecture: ArchitectureDef,
   layerName: string,
-): { layout: 'folder' | 'flat'; entry: string } {
+): { layout: 'folder' | 'file'; entry: string } {
   const layer = architecture.layers.find((candidate) => candidate.name === layerName);
-  const shared = getSharedModule(architecture);
 
   return {
-    layout: layer?.module?.layout ?? shared.layout,
-    entry: layer?.module?.entry ?? shared.entry,
+    layout: layer?.layout ?? 'file',
+    entry: layer?.entry ?? 'index',
   };
 }
 

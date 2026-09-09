@@ -5,7 +5,7 @@ layers already exist, and someone has to *read* them before rules can encode the
 Blueprint splits that work into three parts — and only the middle one needs
 intelligence:
 
-**Evidence** — folders, import matrix, module shapes, package concentration
+**Evidence** — folders, import matrix, folder shapes, package concentration
 - Who — deterministic
 - Tool — `blueprint survey`
 
@@ -34,8 +34,8 @@ classifying the workspace root as a starter. Re-run it for the application you a
 npx @kekkai/blueprint survey --source-root apps/web/src
 ```
 
-- top-level folders with **module-shape evidence** (index coverage, nesting depth —
-  the folder-vs-flat call)
+- top-level folders with **folder-shape evidence** (index coverage, nesting depth —
+  measured without assigning a topology)
 - **repeated direct-child folders among sibling instances**, with the measured parent,
   participating siblings and explicit counts — evidence only, not a feature/module
   classification or an architecture recommendation
@@ -183,7 +183,7 @@ npx @kekkai/blueprint doctor
   **skips** instead of failing (below), quoting the loader so the missing package is
   on screen rather than one `npm run lint` away
 - **architecture clean** — no findings outside the baseline; the detail line states
-  the coverage — source files inside layer nets, and the ones outside are *named*
+  the coverage — source files inside architecture nets, and the ones outside are *named*
   (up to a cap), because "12 of 40" is a number its reader cannot check; plus active
   optional gates, the structural boundary rules being always on. So a vacuously green
   gate is visible instead of quietly reassuring — and the vacuous callout names the

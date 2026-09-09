@@ -43,15 +43,11 @@ describe('presets · the architecture they declare', () => {
     ]);
   });
 
-  it('shape vue and react around the folder module', () => {
+  it('shape vue and react around folder units', () => {
     for (const bp of [vuePreset(), reactPreset()]) {
-      // The private list is what makes `hooks/` inside a module unreachable
-      // from outside it; emptied, every module's internals become fair game.
-      expect(bp.architecture.module).toEqual({
-        layout: 'folder',
-        entry: 'index',
-        private: ['hooks', 'styles', 'types'],
-      });
+      expect(bp.architecture.layers.every(
+        (entry) => entry.layout === 'folder' && entry.entry === 'index',
+      )).toBe(true);
 
       // Naming conventions reach the handbook and the agent contract verbatim.
       expect(bp.architecture.naming).toMatchObject({
@@ -67,8 +63,8 @@ describe('presets · the architecture they declare', () => {
     const next = nextPreset();
 
     // The shape assertions above walk vue and react only, which left the third
-    // preset's module shape, naming and primitives free to empty out.
-    expect(next.architecture.module).toEqual({ layout: 'flat', entry: 'index', private: [] });
+    // preset's unit shape, naming and primitives free to empty out.
+    expect(next.architecture.layers.every((entry) => entry.layout === undefined)).toBe(true);
     expect(next.architecture.naming?.hook).toContain('useX');
     expect(layer(next, 'hooks').owns).toEqual([{ package: 'react', imports: ['useContext'] }]);
   });
@@ -286,7 +282,7 @@ describe('nextPreset', () => {
       bp.architecture.layers.map((l) => l.name),
     ).toEqual(['app', 'components', 'hooks', 'lib']);
 
-    expect(bp.architecture.module?.layout).toBe('flat');
+    expect(bp.architecture.layers.every((entry) => entry.layout === undefined)).toBe(true);
 
     // Server components fetch everywhere — fetch must not be owned by a layer.
     const owners = bp.architecture.layers.flatMap((l) => l.owns ?? []);

@@ -43,7 +43,6 @@ const blueprint: Blueprint = {
       { name: 'hooks', does: 'state', owns: [{ package: 'react', imports: ['useContext'] }] },
       { name: 'services', does: 'net', owns: ['axios', { global: 'fetch' }] },
     ],
-    module: { layout: 'flat', entry: 'index', private: [] },
   },
   rules: {
     maxLines: { tier: 'error', value: 300 },
@@ -175,6 +174,54 @@ describe('runRules · the per-layer ban rows', () => {
   });
 });
 
+describe('runRules · module-first source positions', () => {
+  it('qualifies repeated layer positions and includes module containers', async () => {
+    const moduleFirst: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        modules: [
+          { name: 'auth', does: 'identity application' },
+          { name: 'shop', does: 'commerce application' },
+        ],
+        layers: [
+          { name: 'views', does: 'pages' },
+          {
+            name: 'services',
+            does: 'I/O',
+            owns: [
+              'axios',
+              { package: 'react', imports: ['useContext'] },
+              { global: 'fetch' },
+            ],
+            allowedImporters: [{ layer: 'views', selfOnly: true }],
+          },
+        ],
+      },
+      rules: {},
+    };
+
+    const { bans } = await runRules(repo(moduleFirst), { log: () => {} });
+    const auth = bans.find((entry) => entry.layer === 'auth/views');
+
+    expect(auth?.selfOnly[0]).toMatchObject({ target: 'auth/services' });
+    expect(auth?.selfOnly[0].selectors.every((selector) => selector.includes('auth'))).toBe(true);
+
+    expect(bans.find((entry) => entry.layer === 'shop/views')?.selfOnly[0])
+      .toMatchObject({ target: 'shop/services' });
+
+    expect(bans.find((entry) => entry.layer === 'auth (container)')).toMatchObject({
+      packages: ['axios', 'react (useContext)'],
+      globals: ['fetch'],
+    });
+
+    expect(bans.find((entry) => entry.layer === 'shop (container)')).toMatchObject({
+      packages: ['axios', 'react (useContext)'],
+      globals: ['fetch'],
+    });
+  });
+});
+
 describe('runRules · the selfOnly selectors a merge fold copies', () => {
   it('carries the exact selfOnly selectors a merge fold needs (field #20)', async () => {
     // '~root' targets the repo root, so its selectors carry the src offset
@@ -192,7 +239,6 @@ describe('runRules · the selfOnly selectors a merge fold copies', () => {
             allowedImporters: [{ layer: 'views', selfOnly: true }],
           },
         ],
-        module: { layout: 'flat', entry: 'index' },
       },
       rules: {},
     };
@@ -257,7 +303,6 @@ describe('runRules · the selfOnly selectors a merge fold copies', () => {
             allowedImporters: [{ layer: 'views', selfOnly: true }],
           },
         ],
-        module: { layout: 'flat', entry: 'index' },
       },
       rules: {},
     };
@@ -294,7 +339,6 @@ describe('runRules · the selfOnly selectors a merge fold copies', () => {
             allowedImporters: [{ layer: 'views', selfOnly: true }],
           },
         ],
-        module: { layout: 'flat', entry: 'index' },
       },
       rules: {},
     };
@@ -316,6 +360,30 @@ describe('runRules · the selfOnly selectors a merge fold copies', () => {
   });
 });
 
+describe('runRules · module-first structural rules', () => {
+  it('reports container global enforcement with only one shared layer', async () => {
+    const moduleFirst: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        modules: [{ name: 'auth', does: 'identity application' }],
+        layers: [{ name: 'services', does: 'I/O', owns: [{ global: 'fetch' }] }],
+      },
+      rules: {},
+    };
+
+    const lines: string[] = [];
+
+    await runRules(repo(moduleFirst), { json: true, log: (line) => void lines.push(line) });
+
+    const { structural } = JSON.parse(lines.join('')) as {
+      structural: { rule: string; active: boolean }[];
+    };
+
+    expect(structural.find((rule) => rule.rule === 'no-restricted-globals')?.active).toBe(true);
+  });
+});
+
 describe('runRules · which structural rules the config emits', () => {
   it('reads a narrowed importer list as no reason to emit the syntax ban', async () => {
     // `allowedImporters` narrows WHO may import; `selfOnly` additionally bars
@@ -330,7 +398,6 @@ describe('runRules · which structural rules the config emits', () => {
           { name: 'views', does: 'pages' },
           { name: 'contexts', does: 'state seam', allowedImporters: ['views'] },
         ],
-        module: { layout: 'flat', entry: 'index' },
       },
       rules: {},
     };
@@ -359,7 +426,6 @@ describe('runRules · which structural rules the config emits', () => {
           { name: 'views', does: 'pages', owns: [{ global: 'fetch' }] },
           { name: 'lib', does: 'plumbing', owns: [{ global: 'fetch' }] },
         ],
-        module: { layout: 'flat', entry: 'index' },
       },
       rules: {},
     };
@@ -414,7 +480,6 @@ describe('runRules · which structural rules the config emits', () => {
             allowedImporters: [{ layer: 'views', selfOnly: true }],
           },
         ],
-        module: { layout: 'flat', entry: 'index' },
       },
       rules: {},
     };

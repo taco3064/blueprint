@@ -1,18 +1,18 @@
-import type { AliasRoot, ArchitectureDef } from '../config';
-import { resolveArchitecture } from '../config';
-import { moduleKey, resolveSegments } from '../plugin';
+import type { AliasRoot, ArchitectureDef, ResolvedSourcePosition } from '../config';
+import { resolveArchitecture, stripSourceRoot } from '../config';
+import { unitKey } from '../plugin';
 import type { EntryOf, LayoutOf } from '../plugin';
 import { dropTestFiles } from './filter';
 import type { ImportRef, ScanResult, ScannedFile } from './types';
 
-export type { EntryOf, LayoutOf, ModuleShape, RelativeVerdict } from '../plugin';
-export { moduleKey, relativeVerdict, resolveSegments } from '../plugin';
+export type { EntryOf, LayoutOf, RelativeVerdict, UnitShape } from '../plugin';
+export { relativeVerdict, resolveSegments, unitKey } from '../plugin';
 
 export function layoutResolver(architecture: ArchitectureDef): LayoutOf {
   const resolved = resolveArchitecture(architecture);
+  const perLayer = new Map(resolved.layers.map((layer) => [layer.name, layer.unit.layout]));
 
-  return (layer) => resolved.layers.find((candidate) => candidate.name === layer)?.module.layout
-    ?? resolved.folderShape.layout;
+  return (layer) => perLayer.get(layer) ?? 'file';
 }
 
 export function aliasList(architecture: ArchitectureDef): AliasRoot[] {
@@ -29,7 +29,7 @@ export function stripAlias(
     if (specifier === alias || specifier.startsWith(`${alias}/`)) {
       const parts = specifier.slice(alias.length).split('/').filter(Boolean);
 
-      if (!prefix.every((segment, i) => parts[i] === segment)) {
+      if (!prefix.every((segment, index) => parts[index] === segment)) {
         return null;
       }
 
@@ -44,59 +44,65 @@ export function stripAlias(
 
 export function entryResolver(architecture: ArchitectureDef): EntryOf {
   const resolved = resolveArchitecture(architecture);
-  const shared = resolved.folderShape.entry;
-  const perLayer = new Map(resolved.layers.map((layer) => [layer.name, layer.module.entry]));
+  const perLayer = new Map(resolved.layers.map((layer) => [layer.name, layer.unit.entry]));
 
-  return (layer) => perLayer.get(layer) ?? shared;
+  return (layer) => perLayer.get(layer) ?? 'index';
 }
 
-export function targetModuleKey(
+export function positionKey(position: ResolvedSourcePosition): string | null {
+  if (position.kind === 'source-root') {
+    return null;
+  }
+
+  if (position.kind === 'module' || position.kind === 'container') {
+    return position.module.name;
+  }
+
+  if (position.kind === 'layer') {
+    return [position.module?.name, position.layer.name].filter(Boolean).join('/');
+  }
+
+  if (position.layer.unit.layout === 'file') {
+    return [position.module?.name, position.layer.name].filter(Boolean).join('/');
+  }
+
+  return [position.module?.name, position.layer.name, position.unit].filter(Boolean).join('/');
+}
+
+export function targetUnitKey(
   ref: ImportRef,
   file: ScannedFile,
-  scope: { aliases: (AliasRoot | string)[]; layerNames: string[]; layoutOf: LayoutOf },
+  architecture: ArchitectureDef,
 ): string | null {
-  const { aliases, layerNames, layoutOf } = scope;
-  const parts = stripAlias(ref.specifier, aliases);
+  const resolved = resolveArchitecture(architecture);
+  const position = resolved.resolveImportTarget(file.segments, ref.specifier);
 
-  if (parts) {
-    return layerNames.includes(parts[0]) ? moduleKey(parts, layoutOf) : null;
-  }
-
-  if (ref.specifier.startsWith('.')) {
-    const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
-
-    return target ? moduleKey(target, layoutOf) : null;
-  }
-
-  return null;
+  return position ? positionKey(position) : null;
 }
 
-export interface ModuleGraph {
-
-  modules: Set<string>;
-
+export interface UnitGraph {
+  units: Set<string>;
   edges: Map<string, Set<string>>;
 }
 
-export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef): ModuleGraph {
+export function buildUnitGraph(scan: ScanResult, architecture: ArchitectureDef): UnitGraph {
   scan = dropTestFiles(scan, architecture.testFiles);
 
-  const layerNames = resolveArchitecture(architecture).layerNames;
-  const aliases = aliasList(architecture);
-  const layoutOf = layoutResolver(architecture);
-  const graph: ModuleGraph = { modules: new Set(), edges: new Map() };
+  const resolved = resolveArchitecture(architecture);
+  const graph: UnitGraph = { units: new Set(), edges: new Map() };
 
   for (const file of scan.files) {
-    if (!layerNames.includes(file.segments[0])) {
+    const position = resolved.classify(file.segments);
+    const from = position ? positionKey(position) : null;
+
+    if (!from) {
       continue;
     }
 
-    const from = moduleKey(file.segments, layoutOf);
-
-    graph.modules.add(from);
+    graph.units.add(from);
 
     for (const ref of file.imports) {
-      const to = targetModuleKey(ref, file, { aliases, layerNames, layoutOf });
+      const to = targetUnitKey(ref, file, architecture);
 
       if (to && to !== from) {
         graph.edges.set(from, (graph.edges.get(from) ?? new Set()).add(to));
@@ -105,4 +111,18 @@ export function buildModuleGraph(scan: ScanResult, architecture: ArchitectureDef
   }
 
   return graph;
+}
+
+export function normalizedUnitKey(input: string, architecture: ArchitectureDef): string {
+  const resolved = resolveArchitecture(architecture);
+  const relative = stripSourceRoot(input, architecture);
+  const position = resolved.classify(relative);
+
+  if (position) {
+    return positionKey(position) ?? '';
+  }
+
+  const layoutOf = layoutResolver(architecture);
+
+  return unitKey(relative, layoutOf, resolved.topology === 'module-first');
 }

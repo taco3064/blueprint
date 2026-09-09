@@ -83,7 +83,8 @@ describe('brownfield playbook — semantics stated, nothing reverse-engineered (
     const playbook = read(dir, 'blueprint-authoring.md');
 
     expect(playbook).toContain('## Semantics the linter holds you to');
-    expect(playbook).toContain('must not import each other'); // folder ≠ entry-only (batch 6 fix)
+    // Folder siblings are entry-only.
+    expect(playbook).toContain('relative path to the sibling entry');
     expect(playbook).toContain('is a complete outcome'); // zero debt is legitimate (batch 4)
     expect(playbook).toContain('into ONE entry'); // flat-config merge trap (batches 5–6)
     expect(playbook).toContain('includes test files'); // survey/inspect count gap (batch 2)
@@ -273,7 +274,7 @@ describe('the same gap, one artifact further along (swept, not field-reported)',
 
     const handbook = read(dir, 'docs/architecture-handbook.md') ?? '';
 
-    expect(handbook).toContain('Every row reaches only the files a layer glob matches');
+    expect(handbook).toContain('Every row reaches only the files the architecture globs match');
     expect(handbook).toContain('runway rather than protection');
     expect(handbook).toContain('`blueprint doctor` reports which of the two');
   });
@@ -440,7 +441,6 @@ describe('the merge recipe hands over the whole entry, not just its selectors (#
           allowedImporters: [{ layer: 'views', selfOnly: true }],
         },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
     },
   };
 

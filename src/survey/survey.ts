@@ -23,7 +23,7 @@ export interface SurveyOptions {
   log?: (message: string) => void;
 }
 
-/** Module-shape evidence for one top-level folder under `src/`. */
+/** Neutral folder-shape evidence for one top-level folder under `src/`. */
 export interface FolderEvidence {
   folder: string;
   /** Source files anywhere under the folder. */
@@ -32,7 +32,7 @@ export interface FolderEvidence {
   directFiles: number;
   /** Distinct direct child folders. */
   childFolders: number;
-  /** Child folders exposing a direct `index.*` — folder-module evidence. */
+  /** Child folders exposing a direct `index.*` — folder-unit evidence. */
   indexedChildren: number;
   /** Deepest nesting below the folder. */
   maxDepth: number;

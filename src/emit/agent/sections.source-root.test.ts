@@ -8,10 +8,9 @@ function architecture(sourceRoot: string): ArchitectureDef {
     alias: '~app',
     sourceRoot,
     layers: [
-      { name: 'components', does: 'UI' },
-      { name: 'services', does: 'network' },
+      { name: 'components', does: 'UI', layout: 'folder', entry: 'index' },
+      { name: 'services', does: 'network', layout: 'folder', entry: 'index' },
     ],
-    module: { layout: 'folder', entry: 'index' },
   };
 }
 

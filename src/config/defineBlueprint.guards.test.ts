@@ -9,11 +9,16 @@ function base(): Blueprint {
     architecture: {
       alias: '~app',
       layers: [
-        { name: 'components', does: '可重用 UI', mustNot: ['import services'] },
-        { name: 'hooks', does: 'inject / 加工 state' },
-        { name: 'services', does: '網路原件', owns: ['axios', { global: 'fetch' }] },
+        {
+          name: 'components', does: '可重用 UI', layout: 'folder', entry: 'index',
+          mustNot: ['import services'],
+        },
+        { name: 'hooks', does: 'inject / 加工 state', layout: 'folder', entry: 'index' },
+        {
+          name: 'services', does: '網路原件', layout: 'folder', entry: 'index',
+          owns: ['axios', { global: 'fetch' }],
+        },
       ],
-      module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
     },
   };
 }
@@ -45,14 +50,14 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
     // calling `.trim()` on a number says "module.entry.trim is not a function",
     // which matches a bare /module\.entry/ just as well.
     [
-      'module.entry',
-      (bp: Blueprint) => { bp.architecture.module!.entry = 1 as never; },
-      /must be a non-empty string when set/,
+      'layer entry',
+      (bp: Blueprint) => { bp.architecture.layers[0].entry = 1 as never; },
+      /empty entry/,
     ],
     [
-      'a module override entry',
-      (bp: Blueprint) => { bp.architecture.layers[0].module = { entry: 3 as never }; },
-      /empty module\.entry override/,
+      'another layer entry',
+      (bp: Blueprint) => { bp.architecture.layers[1].entry = 3 as never; },
+      /empty entry/,
     ],
     [
       'an owned global name',
@@ -89,9 +94,9 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
   // restricted-import entry.
   it.each([
     [
-      'module.entry',
-      (bp: Blueprint) => { bp.architecture.module!.entry = '   '; },
-      /must be a non-empty string when set/,
+      'layer entry',
+      (bp: Blueprint) => { bp.architecture.layers[0].entry = '   '; },
+      /empty entry/,
     ],
     [
       'an owned package string',
@@ -128,13 +133,11 @@ describe('validateBlueprint · a wrong type is not the same as a blank string', 
 });
 
 describe('validateBlueprint · the guards that must NOT fire', () => {
-  it('accepts a module block that declares only an entry', () => {
-    // The flat default is real (field issue #23): a module with no `layout` is
-    // complete. Validating the absent layout against the enum rejects a config
-    // the playbook tells the author to write.
+  it('accepts a layer that declares only an entry', () => {
     const config = base();
 
-    config.architecture.module = { entry: 'index' };
+    delete config.architecture.layers[0].layout;
+    config.architecture.layers[0].entry = 'index';
 
     expect(() => validateBlueprint(config)).not.toThrow();
   });

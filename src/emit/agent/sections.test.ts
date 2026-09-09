@@ -6,9 +6,7 @@ import {
   renderChecklist,
   renderComponentShape,
   renderPlaybook,
-  renderContext,
   renderHardRules,
-  renderHeader,
   renderNaming,
   renderPlacement,
 } from './sections';
@@ -19,10 +17,12 @@ function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
   return {
     alias: '~app',
     layers: [
-      { name: 'components', does: 'UI', mustNot: ['import services'], owns: ['clsx'] },
-      { name: 'services', does: 'net' },
+      {
+        name: 'components', does: 'UI', layout: 'folder', entry: 'index',
+        mustNot: ['import services'], owns: ['clsx'],
+      },
+      { name: 'services', does: 'net', layout: 'folder', entry: 'index' },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
     ...over,
   };
 }
@@ -31,77 +31,64 @@ function blueprint(over: Partial<Blueprint> = {}): Blueprint {
   return { framework: 'vue', architecture: arch(), ...over };
 }
 
-describe('renderHeader', () => {
-  it('uses a level-2 heading and no marker so it can nest in CLAUDE.md', () => {
-    const out = renderHeader();
-
-    expect(out.startsWith('## ')).toBe(true);
-    expect(out).not.toContain('<!--');
-  });
-});
-
-describe('renderContext', () => {
-  it('states framework, alias, and the layer flow', () => {
-    const out = renderContext(blueprint());
-
-    expect(out).toContain('`vue`');
-    expect(out).toContain('`~app`');
-    expect(out).toContain('`components` → `services`');
-  });
-});
-
 describe('renderPlacement', () => {
   it('emits per-layer directives with MUST NOT and OWNS when present', () => {
     const out = renderPlacement(arch());
 
-    expect(out).toContain('- `src/components/` — UI. MUST NOT: import services. OWNS: `clsx`.');
-    expect(out).toContain('- `src/services/` — net.');
-
-    // services declares neither, and `toContain` cannot see a clause appended
-    // after what it matched. A guard that let services through would print an
-    // empty ` OWNS: .` or reach into an absent importer list.
-    expect(out.match(/OWNS:/g)).toHaveLength(1);
-    expect(out).not.toContain('IMPORTABLE BY:');
-    expect(out).toContain('Only `index` is importable');
-    expect(out).toContain('keep `hooks` / `types` private');
-  });
-
-  it('drops the private clause when a folder module has none', () => {
-    const out = renderPlacement(
-      arch({ module: { layout: 'folder', entry: 'index', private: [] } }),
+    expect(out).toContain(
+      '- `src/components/` — layer: UI. MUST NOT: import services. OWNS: `clsx`.',
     );
 
-    expect(out).toContain('Only `index` is importable from outside.');
+    expect(out).toContain('- `src/services/` — layer: net.');
+
+    expect(out.match(/OWNS:/g)).toHaveLength(1);
+    expect(out).not.toContain('IMPORTABLE BY:');
+    expect(out).toContain('only `index` is importable');
+    expect(out).not.toContain('private');
+  });
+
+  it('does not invent a retired private clause for folder units', () => {
+    const out = renderPlacement(
+      arch(),
+    );
+
+    expect(out).toContain('only `index` is importable from outside.');
     expect(out).not.toContain('keep');
 
-    // Omitted entirely reads the same as an explicit empty list.
-    const omitted = renderPlacement(arch({ module: { layout: 'folder', entry: 'index' } }));
+    const omitted = renderPlacement(arch());
 
-    expect(omitted).toContain('Only `index` is importable from outside.');
+    expect(omitted).toContain('only `index` is importable from outside.');
     expect(omitted).not.toContain('keep');
   });
 
-  it('describes a flat module', () => {
-    const out = renderPlacement(arch({ module: { layout: 'flat', entry: 'index', private: [] } }));
+  it('describes file units', () => {
+    const out = renderPlacement(arch({
+      layers: [
+        { name: 'components', does: 'UI', layout: 'file' },
+        { name: 'services', does: 'net', layout: 'file' },
+      ],
+    }));
 
-    expect(out).toContain('one file per module (flat)');
+    expect(out).toContain('one file per unit');
   });
 
-  it('lists per-layer module exceptions after the shared shape', () => {
+  it('lists each layer unit shape', () => {
     const out = renderPlacement(
       arch({
-        module: { layout: 'flat', entry: 'index', private: [] },
         layers: [
-          { name: 'resources', does: 'features', module: { layout: 'folder', entry: 'main' } },
-          { name: 'components', does: 'UI', module: { layout: 'flat' } },
-          { name: 'services', does: 'net' },
+          { name: 'resources', does: 'features', layout: 'folder', entry: 'main' },
+          { name: 'components', does: 'UI', layout: 'file' },
+          { name: 'services', does: 'net', layout: 'file' },
         ],
       }),
     );
 
-    expect(out).toContain('- Exception — `src/resources/`: one folder per module, entry `main`.');
-    expect(out).toContain('- Exception — `src/components/`: one file per module (flat).');
-    expect(out).not.toContain('Exception — `src/services/`');
+    expect(out).toContain(
+      '- `resources` units: one folder per unit; only `main` is importable from outside.',
+    );
+
+    expect(out).toContain('- `components` units: one file per unit.');
+    expect(out).toContain('- `services` units: one file per unit.');
   });
 
   it('names the project\'s own test globs, never a hard-coded pair', () => {
@@ -157,7 +144,6 @@ describe('renderPlacement', () => {
           allowedImporters: ['components', { layer: 'hooks', selfOnly: true }],
         },
       ],
-      module: { layout: 'folder', entry: 'index', private: [] },
     };
 
     expect(renderPlacement(architecture)).toContain('IMPORTABLE BY: components, hooks (selfOnly).');
@@ -179,9 +165,6 @@ describe('renderHardRules', () => {
     const out = renderHardRules(blueprint({
       rules: {
         maxLines: { tier: 'error', value: 400 },
-        // Bare tiers, one per arm — a bare tier must not grow a number.
-        // "`unusedVars` = undefined is a hard gate" reads as a real threshold,
-        // and the agent has no way to know it is not one.
         unusedVars: 'error',
         cycles: 'error',
         noUtils: 'error',
@@ -189,17 +172,14 @@ describe('renderHardRules', () => {
       },
     }));
 
-    // The flow rule leads the list unconditionally — it is the one rule that
-    // holds whatever the blueprint declares, so nothing gates it.
     expect(out).toContain(
-      '- Import only from downstream layers — never upstream, never the same layer.',
+      '- Cross-layer imports go only downstream; same-layer imports never use the alias.',
     );
 
-    expect(out).toContain('Import a module via its `index`');
+    expect(out).toContain('Import a folder unit via its `index`');
     expect(out).toContain('`maxLines` = 400 is a hard gate.');
     expect(out).toContain('- `unusedVars` is a hard gate.');
     expect(out).not.toContain('undefined');
-    // Unknown ids are documentation — the contract must not call them gates.
     expect(out).not.toContain('`noUtils` is a hard gate.');
     expect(out).not.toContain('`deadCode` is a hard gate.');
 
@@ -207,9 +187,14 @@ describe('renderHardRules', () => {
     expect(out).toContain('Never silence it with `eslint-disable`');
   });
 
-  it('omits entry-only for flat layout', () => {
+  it('omits entry-only for file layout', () => {
     const out = renderHardRules(blueprint({
-      architecture: arch({ module: { layout: 'flat', entry: 'index', private: [] } }),
+      architecture: arch({
+        layers: [
+          { name: 'components', does: 'UI', layout: 'file' },
+          { name: 'services', does: 'net', layout: 'file' },
+        ],
+      }),
     }));
 
     // The entry names are interpolated, so an unguarded push renders the rule
@@ -306,7 +291,7 @@ describe('renderBehavioral', () => {
   it('always leads with the undeclared-folder rule and includes claude principles', () => {
     const out = renderBehavioral(arch(), principles, undefined);
 
-    expect(out).toContain('Do not create undeclared folders under `~app/`');
+    expect(out).toContain('Do not create undeclared architectural folders under `~app/`');
     expect(out).toContain('**no utils** — no cohesion');
     expect(out).not.toContain('lint one'); // land: lint excluded
   });
@@ -335,15 +320,14 @@ describe('renderChecklist', () => {
 
     expect(bare).not.toContain('Names follow the conventions');
     expect(bare).not.toContain('behavioral principles above');
-    // No axes declared → nothing to hold the unit against. Asking for a check
-    // the blueprint never defined leaves the agent judging against nothing.
     expect(bare).not.toContain('component-shape axis');
     expect(bare).toContain('No new undeclared folders under `~app/`');
 
-    // The two unconditional items — a checklist that grows with the blueprint
-    // still has to carry the parts that hold for every blueprint.
-    expect(bare).toContain('- [ ] Imports follow the one-way flow (no upstream / same-layer).');
-    expect(bare).toContain('modules expose only `index`');
+    expect(bare).toContain(
+      '- [ ] Imports follow the one-way flow (no upstream layers or same-layer aliases).',
+    );
+
+    expect(bare).toContain('folder units expose only their declared entry');
   });
 });
 

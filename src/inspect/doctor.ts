@@ -348,7 +348,7 @@ function architectureCheck(
         : `${fresh.length} finding(s) — fix, or lock as accepted debt: \`blueprint inspect --update-baseline\``
       : coverage.sourceFiles > 0 && coverage.layerFiles === 0
         && (coverage.ignoredFiles?.length ?? 0) === 0
-        ? `clean, but vacuous — layer globs match 0 of ${coverage.sourceFiles} source file(s); the wiring is done — ${vacuousNextStep(blueprint)}`
+        ? `clean, but vacuous — architecture globs match 0 of ${coverage.sourceFiles} source file(s); the wiring is done — ${vacuousNextStep(blueprint)}`
         : coverageSummary(coverage),
   };
 }

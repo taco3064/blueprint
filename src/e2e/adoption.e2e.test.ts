@@ -217,7 +217,6 @@ export default {
       { name: 'services', does: 'network', owns: ['axios'] },
       { name: 'utils', does: 'pure helpers' },
     ],
-    module: { layout: 'flat', entry: 'index', private: [] },
     layerFiles: 'src/{layer}/**/*.{ts,tsx}',
   },
   rules: { cycles: 'error' },
@@ -383,11 +382,11 @@ describe('e2e · survey and deps on a real repo (Tier 2)', () => {
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), BROWNFIELD_CONFIG);
 
     const { runDeps } = await import('../inspect');
-    const { modules } = await runDeps(root, { target: 'services', log: silent });
+    const { units } = await runDeps(root, { target: 'services', log: silent });
 
-    // Flat layout → module keys are layer names. services is imported by
-    // features (feed) and utils (fmt, the cycle) — blast radius sees both.
-    expect(modules[0].importedBy).toEqual(expect.arrayContaining(['features', 'utils']));
+    // File layout preserves layer-granularity dependency keys. services is imported by
+    // features and utils (the cycle) — blast radius sees both.
+    expect(units[0].importedBy).toEqual(expect.arrayContaining(['features', 'utils']));
   });
 });
 

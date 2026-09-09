@@ -77,7 +77,7 @@ function folderLines(result: SurveyResult): string[] {
   );
 
   return [
-    'Folders (module-shape evidence):',
+    'Folders (folder-shape evidence):',
     ...rows,
     ...sourcelessNote(result),
     ...(rows.length ? [] : ['  — none —']),

@@ -83,7 +83,7 @@ describe('an instruction states its own reach too (field runs #91–#93)', () =>
 });
 
 describe('a number and a rule the reader can act on (field run #89)', () => {
-  it('names the files outside the layer nets, not just how many', async () => {
+  it('names the files outside the architecture nets, not just how many', async () => {
     // `272/275` reads identically whether the three are root wiring (outside by design)
     // or a layer file a mistyped glob dropped out. A field agent confirmed its globs by
     // other means and said the number itself was not what told it.
@@ -101,7 +101,7 @@ describe('a number and a rule the reader can act on (field run #89)', () => {
     const inspect = await cli(dir, ['inspect']);
 
     expect(inspect.output).toContain('outside: src/main.jsx');
-    expect(inspect.output).toContain('root wiring belongs here; a layer file does not');
+    expect(inspect.output).toContain('outside the declared architecture lint nets');
   });
 
   it('tells the contract reader which remedy is theirs', async () => {
@@ -116,8 +116,8 @@ describe('a number and a rule the reader can act on (field run #89)', () => {
 
     const contract = read(dir, 'CLAUDE.md') ?? '';
 
-    expect(contract).toContain('Its finding names two remedies and only one is yours');
-    expect(contract).toContain('never declare the layer yourself');
+    expect(contract).toContain('that is the owner\'s decision');
+    expect(contract).toContain('say so and stop; never expand it yourself');
   });
 });
 
@@ -206,7 +206,6 @@ describe('a claim states the condition it needs (field runs #95–#97)', () => {
             allowedImporters: [{ layer: 'components', selfOnly: true }],
           },
         ],
-        module: { layout: 'flat', entry: 'index', private: [] },
       },
     }));
 
@@ -381,9 +380,9 @@ describe('a check is asked for, not answered in advance (field runs #99-#100)', 
     const fields = [
       'name', 'framework', 'architecture', 'rules', 'principles', 'componentShape',
       'playbook', 'emit',
-      'alias', 'additionalAliases', 'sourceRoot', 'layers', 'module', 'layerFiles',
+      'alias', 'additionalAliases', 'sourceRoot', 'modules', 'layers', 'layerFiles',
       'layerFilesIgnore', 'testFiles', 'naming',
-      'does', 'mustNot', 'owns', 'allowedImporters', 'lintOverrides',
+      'does', 'mustNot', 'owns', 'layout', 'entry', 'allowedImporters', 'lintOverrides',
     ];
 
     const playbook = await playbookOf(brownfield());
@@ -459,7 +458,6 @@ describe('a fact reaches the reader before the red, not after (field run #101)',
                 allowedImporters: [{ layer: 'views', selfOnly: true }],
               },
             ],
-            module: { layout: 'flat', entry: 'index', private: [] },
           },
         }),
       },

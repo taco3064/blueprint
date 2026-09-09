@@ -48,7 +48,6 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
           allowedImporters: [{ layer: 'views', selfOnly: true }],
         },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
     },
   };
 
@@ -236,7 +235,6 @@ describe('selfOnly survives every esquery, and the fold gets its selectors (batc
           allowedImporters: [{ layer: 'views', selfOnly: true }],
         },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
     },
   };
 
@@ -415,8 +413,8 @@ describe('a merge that drops a carrier cannot pass doctor (field issue #40)', ()
     // an entry that replaces blueprint's on PART of a layer passes — the probe lands on
     // a sibling that still carries the selectors. `pickProbes` said "sample, not a
     // proof" in a source comment; the adopter reading the ✓ never saw it.
-    expect(doctor.output).toContain('one probe per layer');
-    expect(doctor.output).toContain('scoped to only part of a layer are not compared');
+    expect(doctor.output).toContain('one probe per governed position');
+    expect(doctor.output).toContain('scoped to only part of a governed position are not compared');
   });
 
   it('the playbook names --print-config, the step both field runs invented', async () => {

@@ -10,16 +10,20 @@ const blueprint = defineBlueprint({
   architecture: {
     alias: '~app',
     layers: [
-      { name: 'components', does: 'UI' },
-      { name: 'hooks', does: 'state', owns: [{ package: 'react', imports: ['useContext'] }] },
+      { name: 'components', does: 'UI', layout: 'folder', entry: 'index' },
+      {
+        name: 'hooks', does: 'state', layout: 'folder', entry: 'index',
+        owns: [{ package: 'react', imports: ['useContext'] }],
+      },
       {
         name: 'services',
         does: 'net',
+        layout: 'folder',
+        entry: 'index',
         owns: ['axios', { global: 'fetch' }],
         allowedImporters: [{ layer: 'components', selfOnly: true }, 'hooks'],
       },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
   },
 });
 

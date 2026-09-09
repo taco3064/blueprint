@@ -17,18 +17,18 @@ import {
 } from './patterns';
 import type {
   EmitLintOptions,
-  GlobalRule,
   LintConfig,
   LintConfigEntry,
   PackageRule,
 } from './types';
+import { buildGlobalRule, containerImportEntries } from './container';
 
 type Severity = 'error' | 'warn';
-type ModuleLayout = 'folder' | 'flat';
+type UnitLayout = 'folder' | 'file';
 
 /**
  * Compile a Blueprint's `architecture` into an ESLint flat config that
- * enforces the one-way dependency flow, module-entry boundaries, and package
+ * enforces the one-way dependency flow, unit-entry boundaries, and package
  * / global ownership. Pure — returns the config array, writes nothing.
  * @group Emitters
  * @example
@@ -51,11 +51,11 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
   const testGlobs = resolveTestFiles(testFiles);
 
   const layouts = Object.fromEntries(
-    resolved.layers.map((layer) => [layer.name, layer.module.layout]),
+    resolved.layers.map((layer) => [layer.name, layer.unit.layout]),
   );
 
   const entries = Object.fromEntries(
-    resolved.layers.map((layer) => [layer.name, layer.module.entry]),
+    resolved.layers.map((layer) => [layer.name, layer.unit.entry]),
   );
 
   const ignoreConfig: LintConfigEntry[] = layerFilesIgnore
@@ -64,24 +64,37 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
 
   const layerConfigs = layerImportEntries(blueprint, { severity, testGlobs, aliases, layouts });
 
+  const containerConfigs = containerImportEntries(
+    blueprint,
+    { severity, testGlobs, aliases, layouts },
+  );
+
   const allLayerFiles = [
     ...new Set(
       resolved.layers.flatMap((layer) => resolved.layerFiles(layer.name, framework)),
     ),
   ];
 
+  const governedFiles = [...resolved.containerFiles(framework), ...allLayerFiles];
+
   const escapeEntry: LintConfigEntry = {
-    files: allLayerFiles,
+    files: governedFiles,
     ignores: testGlobs,
     plugins: { blueprint: plugin },
     rules: { 'blueprint/relative-escape': [
       severity,
-      { layouts, entries, sourceRoot: resolved.sourceRoot },
+      {
+        layouts,
+        entries,
+        sourceRoot: resolved.sourceRoot,
+        moduleFirst: resolved.topology === 'module-first',
+      },
     ] },
   };
 
   return [
     ...ignoreConfig,
+    ...containerConfigs,
     ...layerConfigs,
     escapeEntry,
     ...ruleGateEntries(blueprint, testGlobs, options),
@@ -94,7 +107,7 @@ function layerImportEntries(
     severity: Severity;
     testGlobs: string[];
     aliases: AliasRoot[];
-    layouts: Record<string, ModuleLayout>;
+    layouts: Record<string, UnitLayout>;
   },
 ): LintConfigEntry[] {
   const { framework, architecture } = blueprint;
@@ -116,8 +129,10 @@ function layerImportEntries(
       })
     : [];
 
-  return layers.flatMap((layer) => {
-    const files = resolved.layerFiles(layer.name, framework);
+  return resolved.layerPositions.flatMap((position) => {
+    const layer = position.layer.definition;
+    const module = position.module?.name;
+    const files = resolved.layerFiles(layer.name, framework, module);
 
     const forbidden = resolved.forbiddenLayers(layer.name);
     const disabledPackages = packageRules.filter((rule) => !rule.allowedIn.includes(layer.name));
@@ -127,9 +142,10 @@ function layerImportEntries(
 
     const structural = buildStructuralPatterns({
       layer: layer.name,
+      module,
       aliases,
       forbidden,
-      moduleLayout: layouts[layer.name],
+      unitLayout: layouts[layer.name],
       folderTargets: folderLayers.filter(
         (name) => name !== layer.name && !forbidden.includes(name),
       ),
@@ -138,7 +154,7 @@ function layerImportEntries(
 
     const syntaxRules = selfOnlyTargets.flatMap((target) =>
       aliases.flatMap((alias) => {
-        const specifier = aliasSpecifier(alias, target);
+        const specifier = aliasSpecifier(alias, module ? `${module}/${target}` : target);
 
         return specifier === null
           ? []
@@ -193,7 +209,10 @@ function ruleGateEntries(
 
   const sharedFiles = [
     ...new Set(
-      resolved.layers.flatMap((layer) => resolved.layerFiles(layer.name, framework)),
+      [
+        ...resolved.containerFiles(framework),
+        ...resolved.layers.flatMap((layer) => resolved.layerFiles(layer.name, framework)),
+      ],
     ),
   ];
 
@@ -444,7 +463,6 @@ function codeStyleRules(gate: ReadSetting, stylistic: ESLint.Plugin): Linter.Rul
     indent: num('indent', 2),
     quotes: opts.quotes === 'double' ? 'double' : 'single',
     semi: opts.semi !== false,
-
     arrowParens: true,
     braceStyle: '1tbs',
     commaDangle: 'always-multiline',
@@ -460,28 +478,11 @@ function codeStyleRules(gate: ReadSetting, stylistic: ESLint.Plugin): Linter.Rul
       ignoreUrls: true,
       ignoreTemplateLiterals: true,
       ignoreRegExpLiterals: true,
-
       ignoreStrings: false,
     }],
 
     '@stylistic/linebreak-style': [gate.tier, 'unix'],
 
     curly: [gate.tier, 'all'],
-  };
-}
-
-function buildGlobalRule(disabled: GlobalRule[], severity: Severity): Linter.RulesRecord {
-  if (!disabled.length) {
-    return {};
-  }
-
-  return {
-    'no-restricted-globals': [
-      severity,
-      ...disabled.map((rule) => ({
-        name: rule.global,
-        message: `\n🚫 Use of "${rule.global}" is restricted to its owning layer.`,
-      })),
-    ],
   };
 }

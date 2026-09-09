@@ -4,7 +4,7 @@
 分層結構早就存在，必須先有人「讀懂」它，規則才有辦法把它編碼下來。<br>
 blueprint 把這件事切成三個階段，只有中間那段需要智慧判斷：
 
-**蒐證** —— 資料夾結構、匯入關係矩陣、模組形狀、套件集中度
+**蒐證** —— 資料夾結構、匯入關係矩陣、資料夾形狀、套件集中度
 - 執行者 — 決定性程序
 - 工具 — `blueprint survey`
 
@@ -33,7 +33,7 @@ npx @kekkai/blueprint survey --json   # 供工具或 Agent 讀取
 npx @kekkai/blueprint survey --source-root apps/web/src
 ```
 
-- 頂層資料夾清單與**模組形狀證據**（`index` 檔覆蓋率、巢狀深度 —— 作為判斷資料夾式或扁平式模組的依據）
+- 頂層資料夾清單與 **資料夾形狀證據**（`index` 檔覆蓋率、巢狀深度 —— 只呈現量測結果，不預先判定 topology）
 - **同層資料夾實例中重複出現的直接子資料夾**，列出量測的父路徑、參與的同層實例與明確比例<br>
   —— 這只是證據，不會把專案分類為 feature/module 架構，也不提出架構建議
 - **資料夾之間的匯入關係矩陣**，依匯入次數由高至低排列 ——<br>
@@ -55,7 +55,7 @@ npx @kekkai/blueprint init
 init 不會硬套 preset，而是掃描程式碼後產出：
 
 - **`blueprint-authoring.md`** —— 可執行的導入作業手冊：<br>
-  蒐證數據、推導方法、規則語意（扁平／資料夾式模組的判定、接線後會咬到什麼）、config 結構速覽與驗收條件
+  蒐證數據、推導方法、規則語意（file／folder unit 的判定、接線後會咬到什麼）、config 結構速覽與驗收條件
 - **`.claude/commands/blueprint-author.md`** —— Claude Code 使用者可直接輸入 `/blueprint-author` 啟動
 
 接著交給 AI Agent 執行：

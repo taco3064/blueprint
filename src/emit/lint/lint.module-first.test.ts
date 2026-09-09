@@ -1,0 +1,129 @@
+import { Linter } from 'eslint';
+import { describe, expect, it } from 'vitest';
+
+import type { Blueprint } from '../../config';
+import { emitLint } from './lint';
+
+function blueprint(modules = ['auth', 'checkout']): Blueprint {
+  return {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      modules: modules.map((name) => ({ name, does: name })),
+      layers: [
+        { name: 'components', does: 'UI', layout: 'folder', entry: 'index' },
+        { name: 'hooks', does: 'state' },
+        {
+          name: 'services', does: 'I/O', layout: 'folder', entry: 'index', owns: ['axios'],
+        },
+      ],
+    },
+  };
+}
+
+function restricted(code: string, filename: string, config = emitLint(blueprint())): string[] {
+  const linter = new Linter({ configType: 'flat' });
+
+  return linter.verify(code, config, { filename })
+    .map((message) => message.ruleId)
+    .filter((rule): rule is string => rule !== null);
+}
+
+describe('emitLint · module-first topology', () => {
+  it('emits one scoped file net for every declared module and shared layer', () => {
+    const files = emitLint(blueprint())
+      .flatMap((entry) => entry.files ?? [])
+      .filter((file) => file.includes('/hooks/'));
+
+    expect(files).toEqual([
+      'src/auth/hooks/**/*.{js,jsx,ts,tsx}',
+      'src/checkout/hooks/**/*.{js,jsx,ts,tsx}',
+      'src/auth/hooks/**/*.{js,jsx,ts,tsx}',
+      'src/checkout/hooks/**/*.{js,jsx,ts,tsx}',
+    ]);
+  });
+
+  it('fires an existing layer-flow rule inside a module and keeps its legal control green', () => {
+    const file = 'src/auth/hooks/useAuth.ts';
+
+    expect(restricted('import Login from "~app/auth/components/Login";', file))
+      .toContain('no-restricted-imports');
+
+    expect(restricted('import api from "~app/auth/services/api";', file))
+      .not.toContain('no-restricted-imports');
+  });
+
+  it('governs module-root container imports with paired legal and illegal controls', () => {
+    const file = 'src/auth/index.tsx';
+
+    expect(restricted('import Login from "~app/auth/components/Login";', file)).toEqual([]);
+
+    expect(restricted('import api from "~app/auth/services/api/internal";', file))
+      .toContain('no-restricted-imports');
+
+    expect(restricted('import axios from "axios";', file)).toContain('no-restricted-imports');
+
+    expect(restricted('import Login from "./components/Login";', file))
+      .toContain('blueprint/relative-escape');
+  });
+
+  it('carries fixture, ownership exemption, and global bans into module containers', () => {
+    const configured = blueprint();
+
+    configured.rules = { fixtureImports: 'error' };
+    configured.architecture.additionalAliases = { '~auth': 'src/auth' };
+
+    configured.architecture.layers[2].owns = [
+      { package: 'axios', exempt: ['src/auth/index.tsx'] },
+      { global: 'fetch' },
+    ];
+
+    const config = emitLint(configured);
+
+    expect(restricted('import axios from "axios";', 'src/auth/index.tsx', config)).toEqual([]);
+
+    expect(restricted('import axios from "axios";', 'src/auth/shell.tsx', config))
+      .toContain('no-restricted-imports');
+
+    expect(restricted('import data from "~app/fixtures/data";', 'src/auth/index.tsx', config))
+      .toContain('no-restricted-imports');
+
+    expect(restricted('fetch("/");', 'src/auth/index.tsx', config))
+      .toContain('no-restricted-globals');
+  });
+
+  it('applies the same semantics to ordinary shared, common, and app module names', () => {
+    for (const module of ['shared', 'common', 'app', 'renamed']) {
+      const config = emitLint(blueprint([module]));
+      const file = `src/${module}/hooks/useX.ts`;
+
+      expect(restricted(`import X from "~app/${module}/components/X";`, file, config))
+        .toContain('no-restricted-imports');
+
+      expect(restricted(`import api from "~app/${module}/services/api";`, file, config))
+        .not.toContain('no-restricted-imports');
+    }
+  });
+
+  it('enforces folder-unit entry boundaries within each module', () => {
+    const file = 'src/auth/components/Login/index.tsx';
+
+    expect(restricted('import api from "~app/auth/services/api/internal";', file))
+      .toContain('no-restricted-imports');
+
+    expect(restricted('import api from "~app/auth/services/api";', file))
+      .not.toContain('no-restricted-imports');
+  });
+
+  it('ignores module-scoped aliases that cannot address the current module', () => {
+    const configBlueprint = blueprint();
+
+    configBlueprint.architecture.additionalAliases = { '~checkout': 'src/checkout' };
+
+    configBlueprint.architecture.layers[2].allowedImporters = [
+      { layer: 'components', selfOnly: true },
+    ];
+
+    expect(() => emitLint(configBlueprint)).not.toThrow();
+  });
+});

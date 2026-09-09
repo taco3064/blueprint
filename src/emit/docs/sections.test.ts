@@ -6,21 +6,23 @@ import {
   renderPlaybook,
   renderHeader,
   renderImportDiscipline,
-  renderModule,
+  renderUnit,
   renderNaming,
   renderPrinciples,
   renderRules,
 } from './sections';
-import type { ArchitectureDef, AxisDef, ModuleDef, PrincipleDef } from '../../config';
+import type { ArchitectureDef, AxisDef, PrincipleDef } from '../../config';
 
 function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
   return {
     alias: '~app',
     layers: [
-      { name: 'components', does: 'UI', mustNot: ['import services'], owns: ['clsx'] },
-      { name: 'services', does: 'net', owns: ['axios'] },
+      {
+        name: 'components', does: 'UI', layout: 'folder', entry: 'index',
+        mustNot: ['import services'], owns: ['clsx'],
+      },
+      { name: 'services', does: 'net', layout: 'folder', entry: 'index', owns: ['axios'] },
     ],
-    module: { layout: 'folder', entry: 'index', private: ['hooks', 'types'] },
     ...over,
   };
 }
@@ -50,71 +52,28 @@ describe('renderArchitecture', () => {
   });
 });
 
-describe('renderModule', () => {
-  it('renders a folder tree with entry, impl, and private parts', () => {
-    const out = renderModule(arch(), 'components');
-
-    expect(out).toContain('components/');
-    expect(out).toContain('├─ index');
-    expect(out).toContain('└─ types'); // last private part closes the tree
-    // No layer overrides the shared shape, so the section closes on the fence.
-    // Anything appended after it lands outside the code block, where a reader
-    // takes it for prose about the shape rather than part of the tree.
-    expect(out.endsWith('```')).toBe(true);
-  });
-
-  it('renders a folder tree without private parts when the field is omitted', () => {
-    const out = renderModule(
-      arch({ module: { layout: 'folder', entry: 'index' } }),
-      'components',
-    );
-
-    expect(out).toContain('├─ index');
-    expect(out).toContain('└─ Example'); // impl row closes the tree — nothing private after it
-  });
-
-  it('renders a one-line note for flat layout', () => {
-    const out = renderModule(
-      arch({ module: { layout: 'flat', entry: 'index', private: [] } }),
-      'components',
-    );
-
-    expect(out).toContain('flat layout');
-    expect(out).not.toContain('```');
-    // Same close, the other layout — one sentence and nothing after it.
-    expect(out.endsWith('Shared logic moves down to a lower layer.')).toBe(true);
-  });
-
-  it('lists per-layer exceptions to the shared shape', () => {
-    const architecture = arch({
-      module: { layout: 'flat', entry: 'index', private: [] },
+describe('renderUnit', () => {
+  it('renders the layer-level folder and file unit contracts', () => {
+    const out = renderUnit(arch({
       layers: [
-        { name: 'resources', does: 'features', module: { layout: 'folder', entry: 'index' } },
-        { name: 'components', does: 'UI', module: { layout: 'flat' } },
-        { name: 'services', does: 'net' },
+        { name: 'resources', does: 'features', layout: 'folder', entry: 'main' },
+        { name: 'services', does: 'net', layout: 'file' },
       ],
-    });
+    }));
 
-    const out = renderModule(architecture, 'resources');
-
-    expect(out).toContain('Per-layer exceptions');
-    expect(out).toContain('`resources/` — one folder per module, entry `index`.');
-    expect(out).toContain('`components/` — one file per module (flat).');
-    expect(out).not.toContain('`services/` —');
+    expect(out).toContain('## Unit shape');
+    expect(out).toContain('| `resources` | `folder` | `main` |');
+    expect(out).toContain('| `services` | `file` | — |');
   });
 
-  it('renders exceptions under a folder default too', () => {
-    const architecture = arch({
-      layers: [
-        { name: 'components', does: 'UI', module: { layout: 'flat' } },
-        { name: 'services', does: 'net' },
-      ],
-    });
+  it('renders module-first topology without changing the shared layer shapes', () => {
+    const out = renderArchitecture(arch({
+      modules: [{ name: 'auth', does: 'authentication' }],
+    }));
 
-    const out = renderModule(architecture, 'components');
-
-    expect(out).toContain('One module = one folder');
-    expect(out).toContain('`components/` — one file per module (flat).');
+    expect(out).toContain('### Modules');
+    expect(out).toContain('| `auth` | authentication |');
+    expect(out).toContain('Every module reuses the shared layer contract');
   });
 });
 
@@ -126,29 +85,31 @@ describe('renderImportDiscipline', () => {
     // Both layouts ban the same-layer import; only the remedy differs. A folder
     // layer's siblings are reachable relatively, so "use a relative path" would
     // describe a legal import as the fix for an illegal one.
-    expect(out).toContain('**No same-layer imports** — extract shared logic down to a lower layer');
-    expect(out).not.toContain('use a relative path');
+    expect(out).toContain('folder units may reach a sibling only through its entry');
 
     // No layer narrows its importers, so there is no selfOnly rule to state.
     // Stating one anyway describes a constraint this config does not carry.
     expect(out).not.toContain('selfOnly');
   });
 
-  it('swaps in the relative-path rule and drops entry-only for flat layout', () => {
-    const flat: ModuleDef = { layout: 'flat', entry: 'index', private: [] };
-    const out = renderImportDiscipline(arch({ module: flat }));
+  it('drops entry-only when every layer uses file units', () => {
+    const out = renderImportDiscipline(arch({
+      layers: [
+        { name: 'components', does: 'UI', layout: 'file' },
+        { name: 'services', does: 'net', layout: 'file' },
+      ],
+    }));
 
     expect(out).toContain('use a relative path');
     expect(out).not.toContain('Entry-only');
   });
 
-  it('keeps entry-only when any layer overrides to folder layout', () => {
+  it('keeps entry-only when any layer uses folder layout', () => {
     const out = renderImportDiscipline(
       arch({
-        module: { layout: 'flat', entry: 'index', private: [] },
         layers: [
-          { name: 'resources', does: 'features', module: { layout: 'folder', entry: 'main' } },
-          { name: 'services', does: 'net' },
+          { name: 'resources', does: 'features', layout: 'folder', entry: 'main' },
+          { name: 'services', does: 'net', layout: 'file' },
         ],
       }),
     );

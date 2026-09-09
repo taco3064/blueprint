@@ -79,7 +79,7 @@ export default [
 
 `stylistic` and `imports` are **arguments**, not library dependencies: blueprint has
 none, so a gate whose plugin is missing emits nothing while lint stays green. Which
-plugin each gate rides, and what `emitLint` expands to — layer flow, ownership, module
+plugin each gate rides, and what `emitLint` expands to — layer flow, ownership, unit
 entries, the [embedded plugin rules](/guide/reference#the-embedded-eslint-plugin) — is
 enumerated on the reference page.
 
@@ -89,14 +89,14 @@ with `sourceRoot: '.'`, the generated scopes start at the project root.
 
 ## `docs/architecture-handbook.md` — Explain
 
-The human handbook: the layer diagram (mermaid), a responsibility table, the module
+The human handbook: the layer diagram (mermaid), a responsibility table, the unit
 shape, and the import discipline — all rendered from the same config that drives
 lint, so it cannot drift. An excerpt:
 
 ````md
 ## Architecture
 
-Code flows one way: each layer may import only from the layers below it. Upstream and same-layer imports are barred.
+Code flows one way: each layer may import only from the layers below it. Upstream imports and same-layer imports through the alias are barred.
 
 ```mermaid
 flowchart TD
@@ -148,10 +148,10 @@ outside the block across regenerations:
 
 - Framework: `vue`. Import alias: `~app`.
 - Layer flow: `pages` → `containers` → `components` → `hooks` → `contexts` → `services` — transitive: a layer may import **any** layer after it, unless the target narrows its importers.
-- **Before adding, moving, or renaming any file** — placement, module shapes, ownership, naming, component-shape axes, behavioral principles, the working playbook: read [docs/architecture-handbook.md](docs/architecture-handbook.md) (generated from the same blueprint — always current).
+- **Before adding, moving, or renaming any file** — placement, unit shapes, ownership, naming, component-shape axes, behavioral principles, the working playbook: read [docs/architecture-handbook.md](docs/architecture-handbook.md) (generated from the same blueprint — always current).
 - **Operating discipline** — how to follow the flow, react to lint failures, and the pre-commit checklist: read [node_modules/@kekkai/blueprint/agent-contract.md](node_modules/@kekkai/blueprint/agent-contract.md) (ships inside the package — present once dependencies are installed, always matching the installed version).
-- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, module entries, ownership, relative escapes, `maxLines` = 400, `unusedVars`, `codeStyle`, `statementsPerLine`, `statementPadding`, `importBlock`, `fixtureImports`, `usePrefix`, `testFilename`, `deepWatch` fail the project's lint run; `cycles` is diagnosed only when `npx blueprint inspect --baseline` runs; the baseline grandfathers recorded findings, so this is not continuous edit-time prevention and a green lint says nothing about it. When lint fails, fix the structure — never `eslint-disable`, never relocate the violation to a sibling.
-- You are the gate for: no undeclared folders under `~app/` (`blueprint inspect --baseline` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a module of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.
+- Hard gates (machine-enforced on the files the architecture globs match — a declared position holding no code has nothing failing yet, which is runway, not protection): one-way imports, unit entries, ownership, relative escapes, `maxLines` = 400, `unusedVars`, `codeStyle`, `statementsPerLine`, `statementPadding`, `importBlock`, `fixtureImports`, `usePrefix`, `testFilename`, `deepWatch` fail the project's lint run; `cycles` is diagnosed only when `npx blueprint inspect --baseline` runs; the baseline grandfathers recorded findings, so this is not continuous edit-time prevention and a green lint says nothing about it. When lint fails, fix the structure — never `eslint-disable`, never relocate the violation to a sibling.
+- You are the gate for: no undeclared architectural folders under `~app/` (`blueprint inspect --baseline` verifies — red only on what you introduced). Move code into the declared Layer → Unit topology. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never expand it yourself.
 <!-- BLUEPRINT:END -->
 ```
 
@@ -161,8 +161,8 @@ repo uses npm or pnpm. **`cycles` is an on-demand or CI diagnosis from
 `blueprint inspect`**, not a continuous lint check. `--baseline` grandfathers recorded
 cycle findings and fails only on new ones, so a green lint is not read as covering it.
 **Each hard gate states how far it
-reaches** — only the files a layer glob matches, which is why a freshly scaffolded repo
-with empty layers has nothing that can fail yet. And **which gates appear depends on the
+reaches** — only the files the architecture globs match, which is why a freshly scaffolded repo
+with empty declared positions has nothing that can fail yet. And **which gates appear depends on the
 stack** — the sample above is a JS project, so `explicitAny` is absent from its list, and
 a TypeScript project's contract names it; a gate is listed hard only where the tooling
 can actually enforce it.

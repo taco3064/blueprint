@@ -26,7 +26,7 @@ export default {
     // layer — and both structural rules then report 0. Neither zero measures this
     // code: this shape does not satisfy those rules, it disables them.
     //
-    // `blueprint/relative-escape` is handed `layouts: { src: 'flat' }`, keyed by
+    // `blueprint/relative-escape` is handed `layouts: { src: 'file' }`, keyed by
     // the layer name, while the rule reads the segment under `src/` — `cli`,
     // `emit`, … — so its own guard turns every file away before it looks at an
     // import. Measured: a file that both escapes `src/` and leaves its folder

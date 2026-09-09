@@ -95,7 +95,7 @@ describe('renderSurvey · the sections, and what each says when it is empty', ()
     // so every empty section says so out loud — and the sections that have
     // nothing to say stay out entirely rather than heading an empty list.
     expect(output).toContain('Alias: none detected in tsconfig paths');
-    expect(output).toContain('Folders (module-shape evidence):\n  — none —');
+    expect(output).toContain('Folders (folder-shape evidence):\n  — none —');
     expect(output).toContain('its counts run lower):\n  — none —');
     expect(output).not.toContain('src/ root files');
     expect(output).not.toContain('Test conventions:');

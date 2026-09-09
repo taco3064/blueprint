@@ -423,7 +423,7 @@ describe('renderImpact', () => {
   it('names a vacuous zero — no file matched, no rule ever ran (field issue #12)', () => {
     const out = renderImpact([], 0, 0);
 
-    expect(out).toContain('0 hits — vacuous: the layer globs match no files');
+    expect(out).toContain('0 hits — vacuous: the architecture globs match no files');
     expect(out).toContain('proves nothing until code lands in a layer');
   });
 

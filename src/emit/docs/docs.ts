@@ -1,4 +1,3 @@
-import { resolveArchitecture } from '../../config';
 import type { Blueprint } from '../../config';
 import type { StackFacts } from '../lint';
 import {
@@ -6,7 +5,7 @@ import {
   renderComponentShape,
   renderHeader,
   renderImportDiscipline,
-  renderModule,
+  renderUnit,
   renderNaming,
   renderPlaybook,
   renderPrinciples,
@@ -32,12 +31,10 @@ export function handbookPath(blueprint: Blueprint): string {
 export function emitHandbook(blueprint: Blueprint, stack: StackFacts = {}): string {
   const { name, architecture, principles, rules } = blueprint;
 
-  const exampleLayer = resolveArchitecture(architecture).layers[0].name;
-
   const sections = [
     renderHeader(name),
     renderArchitecture(architecture),
-    renderModule(architecture, exampleLayer),
+    renderUnit(architecture),
     renderImportDiscipline(architecture),
     renderComponentShape(blueprint.componentShape),
     renderPrinciples(principles),

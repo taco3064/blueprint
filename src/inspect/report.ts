@@ -1,19 +1,19 @@
 import { importGraphDerivation } from './scan';
+import { resolveArchitecture } from '../config';
+import type { ArchitectureDef } from '../config';
 import type { Finding, Severity } from './types';
 
 const ICON: Record<Severity, string> = { error: '✗', warn: '⚠', info: '·' };
 
 const MIGRATION: Record<string, string> = {
-  'undeclared-folder': 'Move undeclared folders into a module of an existing layer, '
-    + 'or declare them as layers.',
   'flow-violation': 'Rework imports to follow the one-way flow; '
     + 'extract shared code down to a lower layer.',
-  'deep-import': 'Import modules through their entry file, never their internals.',
-  'relative-escape': 'Replace cross-module relative imports with the project alias.',
+  'deep-import': 'Import folder units through their entry file, never their internals.',
+  'relative-escape': 'Replace cross-unit relative imports with the project alias.',
   'package-ownership': 'Move restricted package usage into its owning layer '
     + '(expose it via a hook or service).',
   'selfonly-reexport': 'Depend on selfOnly layers without re-exporting them.',
-  'no-entry': 'Add an entry (index) file to each module so it has a single public surface.',
+  'no-entry': 'Add the declared entry file to each folder unit so it has one public surface.',
   cycle: 'Break the import cycle — invert one dependency or extract the shared part downward.',
 };
 
@@ -32,7 +32,7 @@ export function hasErrors(findings: Finding[]): boolean {
   return findings.some((finding) => finding.severity === 'error');
 }
 
-export function report(findings: Finding[]): string {
+export function report(findings: Finding[], architecture?: ArchitectureDef): string {
   if (!findings.length) {
     return `✓ Architecture Success — no violations found.\n\n${importGraphDerivation()}`;
   }
@@ -49,11 +49,17 @@ export function report(findings: Finding[]): string {
 
   const rules = [...new Set(findings.map((finding) => finding.rule))];
 
-  const steps = rules.filter((rule) => rule in MIGRATION).map((rule) => {
+  const steps = rules.flatMap((rule) => {
+    const migration = migrationStep(rule, architecture);
+
+    if (migration === undefined) {
+      return [];
+    }
+
     const lint = ENFORCED_BY[rule];
 
-    return `  - [${rule}] ${MIGRATION[rule]} `
-      + (lint ? `(lint: ${lint})` : '(inspect only — never appears in a lint run)');
+    return [`  - [${rule}] ${migration} `
+      + (lint ? `(lint: ${lint})` : '(inspect only — never appears in a lint run)')];
   });
 
   return [
@@ -66,4 +72,22 @@ export function report(findings: Finding[]): string {
     '',
     importGraphDerivation(),
   ].join('\n');
+}
+
+function migrationStep(rule: string, architecture?: ArchitectureDef): string | undefined {
+  if (rule !== 'undeclared-folder') {
+    return MIGRATION[rule];
+  }
+
+  if (architecture === undefined) {
+    return 'Move undeclared folders into the declared architecture topology, '
+      + 'or ask the owner to update the architecture config.';
+  }
+
+  const topology = resolveArchitecture(architecture).topology === 'module-first'
+    ? 'Module → Layer → Unit'
+    : 'Layer → Unit';
+
+  return `Move undeclared folders into the declared ${topology} topology, `
+    + 'or ask the owner to update the architecture config.';
 }

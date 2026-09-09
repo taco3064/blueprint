@@ -24,7 +24,7 @@ function write(rel: string): void {
   fs.writeFileSync(full, '');
 }
 
-function writeModuleShapeFixture(): void {
+function writeFolderShapeFixture(): void {
   for (const file of [
     'src/auth/components/Button.tsx',
     'src/auth/hooks/useAuth.ts',
@@ -43,7 +43,7 @@ function writeModuleShapeFixture(): void {
 describe('runSurvey · repeated sibling-folder evidence', () => {
   it('reports irregular repeated children directly below the source root in JSON and text', () => {
     write('package.json');
-    writeModuleShapeFixture();
+    writeFolderShapeFixture();
 
     const messages: string[] = [];
     const result = runSurvey(root, { log: (message) => messages.push(message) });

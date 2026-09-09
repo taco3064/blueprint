@@ -194,7 +194,7 @@ function renderIntentDocuments(): string {
     '   Never hand-revert generated text toward what git happens to hold.',
     '   Documents also go stale: cross-check every translated clause against the survey below.',
     '   Where they disagree, the document governs *intent* (layer order, ownership) '
-    + 'and the code governs *shape* (module layout) — '
+    + 'and the code governs *shape* (unit layout) — '
     + 'downgrade the stale clause and record the conflict in your report.',
     '   Flow documents often draw a DAG; blueprint\'s order is linear (a layer may import *any* '
     + 'later layer).',
@@ -227,11 +227,11 @@ export function renderMethod(claudeDir: ClaudeDirState): string {
     + 'points downward.',
     '   Counter-edges are debt to surface, not intent to encode — '
     + 'never contort the order to make findings zero.',
-    '5. **Choose module shape per layer.** High `index`-coverage child folders → `module: '
-    + '{ layout: \'folder\', entry: \'index\' }` on that layer; '
-    + 'plain files → the flat default (omit `module` entirely — '
-    + 'it validates and resolves to `{ layout: \'flat\', entry: \'index\' }`).',
-    '   Mixed repos usually need per-layer overrides.',
+    '5. **Choose unit shape per layer.** High `index`-coverage child folders → '
+    + '`layout: \'folder\', entry: \'index\'` directly on that layer; '
+    + 'plain files → `layout: \'file\'`.',
+    '   If the same layers repeat inside top-level application areas, declare those areas in '
+    + '`architecture.modules`; never mix that topology with global layer folders.',
     '6. **Assign ownership.** A package imported by exactly one folder (see the concentration '
     + 'list) is an `owns` candidate for that layer.',
     '   A candidate the intent documents never mention is a proposal, not intent — '
@@ -241,7 +241,7 @@ export function renderMethod(claudeDir: ClaudeDirState): string {
     '8. **Validate — the loop that keeps you honest.** Run `npx blueprint inspect`.',
     '   A findings explosion (roughly more findings than source files, '
     + 'or one dominant rule everywhere) means you mistranslated intent — '
-    + 'revisit the order or the module shapes.',
+    + 'revisit the order or the unit shapes.',
     '   Converged means: every finding is explainable as real, nameable debt.',
     renderFinishStep(claudeDir),
   ].join('\n');

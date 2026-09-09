@@ -41,27 +41,37 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
         {
           name: 'pages',
           does: 'Route layout — assembles containers; owns routing and SEO concerns.',
+          layout: 'folder',
+          entry: 'index',
           mustNot: ['hold business logic', 'stack components directly'],
         },
         {
           name: 'containers',
           does: 'A feature: assembles components, owns local state, calls services, '
             + 'drives navigation.',
+          layout: 'folder',
+          entry: 'index',
         },
         {
           name: 'components',
           does: 'Reusable, presentational UI.',
+          layout: 'folder',
+          entry: 'index',
           mustNot: ['call services', 'touch the router', 'own app state'],
         },
         {
           name: 'hooks',
           does: 'Adapts server and shared state; the only layer that injects context or owns a '
             + 'store.',
+          layout: 'folder',
+          entry: 'index',
           owns: owns.hooks,
         },
         {
           name: 'contexts',
           does: 'Defines and provides Context / Provider only.',
+          layout: 'folder',
+          entry: 'index',
           owns: owns.contexts,
           allowedImporters: [
             { layer: 'containers', description: 'Provider only' },
@@ -71,13 +81,14 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
         {
           name: 'services',
           does: 'Network primitives — the only layer that talks to the HTTP client or sockets.',
+          layout: 'folder',
+          entry: 'index',
           owns: ['axios', { global: 'fetch' }, { global: 'WebSocket' }],
           allowedImporters: ['containers', 'hooks', 'contexts'],
         },
       ],
-      module: { layout: 'folder', entry: 'index', private: ['hooks', 'styles', 'types'] },
       naming: {
-        component: 'PascalCase; the implementation file is named after the module',
+        component: 'PascalCase; the implementation file is named after the unit',
         hook: 'useX — only when it genuinely uses reactivity',
         service: 'snake_case',
         context: 'XxxProvider / XxxContext',
@@ -158,7 +169,7 @@ export function reactPreset(options: PresetOptions = {}): Blueprint {
 
 /**
  * Canonical Next.js blueprint. The route tree (`app/` and/or `pages/`) is the
- * top layer — flat module layout, since file-based routing owns its own file
+ * top layer — file unit layout, since file-based routing owns its own file
  * names and nesting. No `fetch` ownership: server components fetch everywhere
  * by design, so restricting it to one layer would be a lie. `srcDir` picks the
  * source root (`src` vs the project root, where `app/` sits without --src-dir).
@@ -197,7 +208,6 @@ export function nextPreset(options: NextPresetOptions = {}): Blueprint {
           does: 'Framework-free plumbing: data access, formatting, config.',
         },
       ],
-      module: { layout: 'flat', entry: 'index', private: [] },
       naming: {
         hook: 'useX — only when it genuinely uses reactivity',
       },

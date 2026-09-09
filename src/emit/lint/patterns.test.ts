@@ -224,7 +224,7 @@ describe('buildStructuralPatterns', () => {
       layer: 'a',
       aliases: ['~app'],
       forbidden: ['b'],
-      moduleLayout: 'folder',
+      unitLayout: 'folder',
       folderTargets: ['c'],
     });
 
@@ -241,12 +241,12 @@ describe('buildStructuralPatterns', () => {
     expect(groups.some((g) => g.group.includes('~app/**'))).toBe(false);
   });
 
-  it('drops forbidden and deep-import groups for flat layout with none forbidden', () => {
+  it('drops forbidden and deep-import groups for file layout with none forbidden', () => {
     const groups = buildStructuralPatterns({
       layer: 'a',
       aliases: ['~app'],
       forbidden: [],
-      moduleLayout: 'flat',
+      unitLayout: 'file',
     });
 
     // redundant-segments + same-layer
@@ -262,11 +262,11 @@ describe('buildStructuralPatterns', () => {
     // The message is the whole fix, so handing a folder layer `./X` sends the
     // author to a path that does not exist, and handing a flat layer `../X`
     // sends them out of the layer.
-    const sameLayer = (moduleLayout: 'folder' | 'flat') =>
-      buildStructuralPatterns({ layer: 'a', aliases: ['~app'], forbidden: [], moduleLayout })
+    const sameLayer = (unitLayout: 'folder' | 'file') =>
+      buildStructuralPatterns({ layer: 'a', aliases: ['~app'], forbidden: [], unitLayout })
         .find((group) => group.group.includes('~app/a/**'))?.message;
 
-    expect(sameLayer('flat')).toContain('Replace "~app/a/X" with "./X".');
+    expect(sameLayer('file')).toContain('Replace "~app/a/X" with "./X".');
 
     expect(sameLayer('folder')).toContain('Replace "~app/a/X" with "../X"');
     expect(sameLayer('folder')).toContain('what is behind the entry stays private');

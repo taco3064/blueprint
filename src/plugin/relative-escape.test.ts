@@ -8,20 +8,25 @@ const linter = new Linter({ configType: 'flat' });
 
 const LAYOUTS = {
   resources: 'folder',
-  components: 'flat',
+  components: 'file',
 } as const;
 
 function messageIds(
   code: string,
   filename: string,
   options: {
-    layouts?: Record<string, 'folder' | 'flat'>;
+    layouts?: Record<string, 'folder' | 'file'>;
     sourceRoot?: string;
+    moduleFirst?: boolean;
   } | null = {},
 ): string[] {
   const ruleOptions = options === null
     ? null
-    : { layouts: options.layouts ?? LAYOUTS, sourceRoot: options.sourceRoot ?? 'src' };
+    : {
+        layouts: options.layouts ?? LAYOUTS,
+        sourceRoot: options.sourceRoot ?? 'src',
+        moduleFirst: options.moduleFirst ?? false,
+      };
 
   return linter
     .verify(
@@ -39,19 +44,16 @@ function messageIds(
     .map((message) => message.messageId ?? '');
 }
 
-describe('blueprint/relative-escape · flat layer', () => {
-  it('allows relatives that stay inside the layer', () => {
+describe('blueprint/relative-escape · file-layout layer', () => {
+  it('preserves flat-layout relative freedom inside the layer', () => {
     expect(messageIds('import x from "./Card";', 'src/components/Button.ts')).toEqual([]);
 
     expect(
       messageIds('import x from "../IdleGuard";', 'src/components/layout/Bar.ts'),
     ).toEqual([]);
 
-    // Downward, into a nested folder of a FLAT layer. Both cases above stay at the
-    // same depth, where the module key collapses to the layer name whatever the
-    // layout says — so a `layoutOf` answering nonsense produced the same verdict.
-    // This one does not: read as folder-shaped, `layout/Bar` becomes a module and
-    // reaching into it is a violation. A flat layer has no inside.
+    // File layout preserves the former flat-layout boundary: the whole layer is
+    // one relative-import scope, including nested implementation folders.
     expect(messageIds('import x from "./layout/Bar";', 'src/components/Button.ts'))
       .toEqual([]);
   });
@@ -118,6 +120,18 @@ describe('blueprint/relative-escape · folder layer', () => {
     expect(
       messageIds('import x from "../../services/api";', 'src/resources/matches/Row.ts'),
     ).toEqual(['leavesModule']);
+  });
+});
+
+describe('blueprint/relative-escape · module-root container', () => {
+  it('allows container-local files and cross-module policy, but rejects entering a layer', () => {
+    const options = { moduleFirst: true };
+
+    expect(messageIds('import x from "./shell";', 'src/auth/index.ts', options)).toEqual([]);
+    expect(messageIds('import x from "../shop/index";', 'src/auth/index.ts', options)).toEqual([]);
+
+    expect(messageIds('import x from "./resources/matches";', 'src/auth/index.ts', options))
+      .toEqual(['leavesModule']);
   });
 });
 
@@ -216,9 +230,9 @@ describe('blueprint/relative-escape · what the rule declines to judge', () => {
 
   it('leaves a bare specifier alone even where the resolver would call it a reach', () => {
     // Resolved as a path, a package specifier lands under the importer's own
-    // directory and deep enough that the folder-module verdict reads it as
+    // directory and deep enough that the folder-unit verdict reads it as
     // reaching past an entry. The relative guard is the only thing keeping
-    // every package import in a folder-module layer from being reported.
+    // every package import in a folder-unit layer from being reported.
     expect(messageIds('import x from "lodash/fp/curry";', 'src/resources/index.ts')).toEqual([]);
   });
 

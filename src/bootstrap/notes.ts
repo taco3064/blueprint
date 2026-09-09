@@ -58,7 +58,7 @@ function codeStyleNote(configSource: string | null): Action[] {
       + '--fix` once and land that pass as its own commit — '
       + 'the formatting churn never mixes with a real change. '
       + 'While the layers are still empty that pass is a no-op: '
-      + 'the gate reaches only files a layer glob matches, '
+      + 'the gate reaches only files an architecture glob matches, '
       + 'and a starter\'s root files sit outside every one of them. '
       + 'It exempts nothing by style either: a starter written without semicolons is silent '
       + 'today and fails the day its first file moves into a layer, '

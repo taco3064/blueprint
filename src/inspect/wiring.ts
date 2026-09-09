@@ -1,27 +1,23 @@
 import path from 'node:path';
 
-import { activeSetting,
-  aliasSpecifier,
-  resolveArchitecture } from '../config';
+import { activeSetting, resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
 
-import {
-  buildStructuralPatterns,
-  deriveGlobalRules,
-  resolveTestFiles,
-  selfOnlyReexportSelector,
-  toArray,
-} from '../emit/lint/patterns';
+import { resolveTestFiles, toArray } from '../emit/lint/patterns';
 import { unwrapModule } from '../project';
 import { dropTestFiles, globToRegExp } from './filter';
 import type { DoctorCheck, ScanResult } from './types';
+import { expectedContainerStructural, expectedStructural } from './wiring-expected';
+
+export { expectedContainerStructural, expectedStructural } from './wiring-expected';
 
 const label = (merged: boolean): string =>
   `emitted rules survive the ${merged ? 'merged' : 'generated'} eslint config`;
 
-const SCOPE = 'structural bans + each active gate\'s carrier rule, one probe per layer; '
+const SCOPE = 'structural bans + each active gate\'s carrier rule, '
+  + 'one probe per governed position; '
   + 'thresholds, package-ownership entries, and a merged entry scoped to only part of '
-  + 'a layer are not compared';
+  + 'a governed position are not compared';
 
 const CARRIER_GATES = [
   { gate: 'codeStyle', rule: '@stylistic/max-len', carrier: 'stylistic' },
@@ -47,58 +43,12 @@ interface EslintApi {
   };
 }
 
-export function expectedStructural(
-  blueprint: Blueprint,
-  layer: string,
-): { groups: Set<string>; selectors: Set<string>; globals: Set<string> } {
-  const { architecture, rules } = blueprint;
-  const resolved = resolveArchitecture(architecture);
-  const aliases = resolved.aliases;
-
-  const layouts = Object.fromEntries(
-    resolved.layers.map((entry) => [
-      entry.name,
-      entry.module.layout,
-    ]),
-  );
-
-  const forbidden = resolved.forbiddenLayers(layer);
-
-  const structural = buildStructuralPatterns({
-    layer,
-    aliases,
-    forbidden,
-    moduleLayout: layouts[layer],
-    folderTargets: resolved.layers
-      .map((entry) => entry.name)
-      .filter((name) => layouts[name] === 'folder' && name !== layer && !forbidden.includes(name)),
-    fixtures: activeSetting(rules?.fixtureImports)
-      ? aliases.flatMap((root) => {
-          const alias = [root.alias, ...root.prefix].join('/');
-
-          return root.prepend?.length ? [] : [`${alias}/fixtures`, `${alias}/fixtures/**`];
-        })
-      : [],
-  });
-
-  return {
-    groups: new Set(structural.map((pattern) => JSON.stringify(pattern.group))),
-    selectors: new Set(
-      resolved.selfOnlyTargets(layer).flatMap((target) =>
-        aliases.flatMap((alias) => {
-          const specifier = aliasSpecifier(alias, target);
-
-          return specifier === null ? [] : selfOnlyReexportSelector(specifier);
-        }),
-      ),
-    ),
-    globals: new Set(
-      deriveGlobalRules(resolved.layers.map((entry) => entry.definition))
-        .filter((rule) => !rule.allowedIn.includes(layer))
-        .map((rule) => rule.global),
-    ),
-  };
-}
+type ProbeSite = {
+  layer: string | null;
+  module?: string;
+  globs: string[];
+  hit: string | null;
+};
 
 function syntheticPath(glob: string): string | null {
   if (/[?[\]]/.test(glob)) {
@@ -121,7 +71,7 @@ function layerProbeSites(
   blueprint: Blueprint,
   scanResult: ScanResult,
   ignores: string[],
-): { layer: string; globs: string[]; hit: string | null }[] {
+): ProbeSite[] {
   const { architecture, framework } = blueprint;
   const held = ignores.map(globToRegExp);
 
@@ -129,16 +79,61 @@ function layerProbeSites(
     (file) => !held.some((ignore) => ignore.test(file.path)),
   );
 
-  return resolveArchitecture(architecture).layers.map(({ definition: layer }) => {
-    const globs = resolveArchitecture(architecture).layerFiles(layer.name, framework);
+  return resolveArchitecture(architecture).layerPositions.map((position) => {
+    const layer = position.layer.definition;
+    const module = position.module?.name;
+    const globs = resolveArchitecture(architecture).layerFiles(layer.name, framework, module);
     const nets = globs.map(globToRegExp);
 
     return {
       layer: layer.name,
+      ...(module ? { module } : {}),
       globs,
       hit: source.find((file) => nets.some((net) => net.test(file.path)))?.path ?? null,
     };
   });
+}
+
+function containerProbeSites(
+  blueprint: Blueprint,
+  scanResult: ScanResult,
+  ignores: string[],
+): ProbeSite[] {
+  const { architecture, framework } = blueprint;
+  const resolved = resolveArchitecture(architecture);
+
+  if (resolved.topology !== 'module-first') {
+    return [];
+  }
+
+  const held = ignores.map(globToRegExp);
+
+  const source = dropTestFiles(scanResult, architecture.testFiles).files.filter(
+    (file) => !held.some((ignore) => ignore.test(file.path)),
+  );
+
+  return resolved.modules.map((module, index) => {
+    const globs = [resolved.containerFiles(framework)[index]];
+    const nets = globs.map(globToRegExp);
+
+    return {
+      layer: null,
+      module: module.name,
+      globs,
+      hit: source.find((file) => nets.some((net) => net.test(file.path)))?.path ?? null,
+    };
+  });
+}
+
+function probeSites(
+  blueprint: Blueprint,
+  scanResult: ScanResult,
+  ignores: string[],
+): ProbeSite[] {
+  return [
+    ...containerProbeSites(blueprint, scanResult, ignores),
+    ...layerProbeSites(blueprint, scanResult, ignores),
+  ];
 }
 
 export function syntheticProbePaths(
@@ -146,7 +141,7 @@ export function syntheticProbePaths(
   scanResult: ScanResult,
   ignores: string[],
 ): string[] {
-  return layerProbeSites(blueprint, scanResult, ignores)
+  return probeSites(blueprint, scanResult, ignores)
     .filter((site) => site.hit === null)
     .flatMap((site) => syntheticCandidates(site.globs));
 }
@@ -154,15 +149,17 @@ export function syntheticProbePaths(
 function pickProbes(
   scanResult: ScanResult,
   blueprint: Blueprint,
-): { path: string; layer: string }[] {
+): { path: string; layer: string | null; module?: string }[] {
   const { architecture } = blueprint;
   const declared = toArray(architecture.layerFilesIgnore);
   const ignores = declared.map(globToRegExp);
   const tests = resolveTestFiles(architecture.testFiles).map(globToRegExp);
 
-  return layerProbeSites(blueprint, scanResult, declared).flatMap(({ layer, globs, hit }) => {
+  return probeSites(blueprint, scanResult, declared).flatMap(({
+    layer, module, globs, hit,
+  }) => {
     if (hit !== null) {
-      return [{ path: hit, layer }];
+      return [{ path: hit, layer, ...(module ? { module } : {}) }];
     }
 
     const synthetic = syntheticCandidates(globs).find(
@@ -171,7 +168,7 @@ function pickProbes(
         && !tests.some((test) => test.test(candidate)),
     );
 
-    return synthetic ? [{ path: synthetic, layer }] : [];
+    return synthetic ? [{ path: synthetic, layer, ...(module ? { module } : {}) }] : [];
   });
 }
 
@@ -306,7 +303,10 @@ export async function wiringCheck(params: WiringParams): Promise<WiringResult> {
 
   if (!probes.length) {
     return {
-      check: { label: `${LABEL} (skipped — no probe derivable from the layer globs)`, ok: true },
+      check: {
+        label: `${LABEL} (skipped — no probe derivable from the architecture globs)`,
+        ok: true,
+      },
       probed: false,
     };
   }
@@ -365,15 +365,22 @@ async function surveyProbes(
 
     unreadable += resolved.unreadable;
 
-    lost.push(...losses(expectedStructural(blueprint, probe.layer), resolved)
-      .map((loss) => `${probe.layer}: ${loss}`));
+    const label = [probe.module, probe.layer].filter(Boolean).join('/');
+
+    lost.push(...losses(
+      probe.layer === null
+        ? expectedContainerStructural(blueprint, probe.module as string)
+        : expectedStructural(blueprint, probe.layer, probe.module),
+      resolved,
+    )
+      .map((loss) => `${label}: ${loss}`));
 
     lost.push(
       ...carriers
         .filter((entry) => activeOptions(rules[entry.rule]) === null)
         .map(
           (entry) =>
-            `${probe.layer}: rules.${entry.gate} is on but ${entry.rule} resolved to nothing `
+            `${label}: rules.${entry.gate} is on but ${entry.rule} resolved to nothing `
             + `— emitLint's \`${entry.carrier}\` argument is missing from the merged entry`,
         ),
     );

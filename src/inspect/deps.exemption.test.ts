@@ -33,7 +33,6 @@ const base: Blueprint = {
       { name: 'components', does: 'ui' },
       { name: 'services', does: 'net' },
     ],
-    module: { layout: 'flat', entry: 'index', private: [] },
   },
 };
 
@@ -108,7 +107,7 @@ async function run(dir: string): Promise<Run> {
   const out: string[] = [];
   const log = (message: string) => void out.push(message);
 
-  const { modules } = await runDeps(dir, { log });
+  const { units } = await runDeps(dir, { log });
 
   await runDeps(dir, { json: true, log });
   await runDeps(dir, { target: 'components', log });
@@ -119,7 +118,7 @@ async function run(dir: string): Promise<Run> {
     boardJson: JSON.parse(out[1]) as Record<string, unknown>,
     module: out[2],
     moduleJson: JSON.parse(out[3]) as Record<string, unknown>,
-    fanIn: modules.find((entry) => entry.module === 'components')?.importedBy.length ?? -1,
+    fanIn: units.find((entry) => entry.unit === 'components')?.importedBy.length ?? -1,
   };
 }
 
@@ -289,8 +288,8 @@ describe('deps · the states with no count for a cause to be about', () => {
   it.each(EMPTY_GRAPH)('stays silent on both channels for %s', async (glob) => {
     const empty = await board(repo([glob], NO_LAYERS));
 
-    expect(empty.json.modules).toEqual([]);
-    expect(empty.text).toBe('No modules found under the declared layers.');
+    expect(empty.json.units).toEqual([]);
+    expect(empty.text).toBe('No units found inside the declared architecture.');
     expect(empty.json).not.toHaveProperty('testExemption');
   });
 
@@ -348,7 +347,7 @@ describe('deps · the states with no count for a cause to be about', () => {
     await runDeps(dir, { target: 'ghost', json: true, log });
 
     expect(ok).toBe(false);
-    expect(out[0]).toContain('Unknown module "ghost"');
+    expect(out[0]).toContain('Unknown unit "ghost"');
     expect(out.join('\n')).not.toContain('no file here matches');
     expect(out.join('\n')).not.toContain('testExemption');
   });

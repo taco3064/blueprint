@@ -16,10 +16,9 @@ const blueprint: Blueprint = {
   architecture: {
     alias: '~app',
     layers: [
-      { name: 'components', does: 'render UI' },
-      { name: 'services', does: 'talk to the backend' },
+      { name: 'components', does: 'render UI', layout: 'folder', entry: 'index' },
+      { name: 'services', does: 'talk to the backend', layout: 'folder', entry: 'index' },
     ],
-    module: { layout: 'folder', entry: 'index', private: [] },
   },
   // `cycles` is off and `deadCode` is docs-only — neither counts as active.
   rules: { maxLines: 'error', unusedVars: { tier: 'warn' }, cycles: 'off', deadCode: 'error' },
@@ -92,6 +91,45 @@ describe('vacuousNextStep', () => {
 
     expect(vacuousNextStep(rooted)).toContain('(e.g. components/)');
   });
+
+  it('names both declared dimensions for module-first topology', () => {
+    const moduleFirst: Blueprint = {
+      ...blueprint,
+      architecture: {
+        ...blueprint.architecture,
+        modules: [{ name: 'auth', does: 'authentication' }],
+      },
+    };
+
+    expect(vacuousNextStep(moduleFirst)).toContain(
+      'move code into a declared module and layer (e.g. src/auth/components/)',
+    );
+  });
+});
+
+describe('computeCoverage · module-first containers', () => {
+  it('counts root container source but leaves undeclared module trees outside', () => {
+    const moduleFirst: Blueprint = {
+      ...blueprint,
+      architecture: {
+        ...blueprint.architecture,
+        modules: [{ name: 'auth', does: 'authentication' }],
+      },
+    };
+
+    const coverage = computeCoverage(
+      scanOf('src/auth/index.ts', 'src/auth/components/Login/index.ts', 'src/rogue/hooks/x.ts'),
+      moduleFirst,
+      true,
+    );
+
+    expect(coverage.layerFiles).toBe(2);
+    expect(coverage.outsideNets).toEqual(['src/rogue/hooks/x.ts']);
+
+    expect(renderCoverage(coverage, moduleFirst)).toContain(
+      'src/rogue/hooks/x.ts — outside the declared architecture lint nets',
+    );
+  });
 });
 
 describe('renderCoverage', () => {
@@ -107,12 +145,12 @@ describe('renderCoverage', () => {
       blueprint,
     );
 
-    expect(line).toContain('Coverage: 1/2 source files inside layer nets');
+    expect(line).toContain('Coverage: 1/2 source files inside architecture nets');
     // NAMED, not just counted: 1/2 reads the same whether the odd file is root wiring
     // or a layer file a mistyped glob dropped. A field agent had to confirm the glob by
     // other means because the number could not tell it.
     expect(line).toContain('outside: src/main.tsx');
-    expect(line).toContain('root wiring belongs here; a layer file does not');
+    expect(line).toContain('outside the declared architecture lint nets');
     // "0 active" must not read as "nothing enforced" — structural rules always emit.
     expect(line).toContain('0/13 optional gates active');
     expect(line).toContain('structural boundary rules are always on');

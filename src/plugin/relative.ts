@@ -1,47 +1,81 @@
-export type LayoutOf = (layer: string) => 'folder' | 'flat';
+export type LayoutOf = (layer: string) => 'folder' | 'file';
 export type EntryOf = (layer: string) => string;
 export type RelativeVerdict = 'ok' | 'escapes-src' | 'leaves-layer' | 'reaches-inside';
 
-export interface ModuleShape {
+export interface UnitShape {
   layoutOf: LayoutOf;
   entryOf: EntryOf;
+  moduleFirst?: boolean;
 }
 
-export function moduleKey(segments: string[], layoutOf: LayoutOf): string {
-  if (segments.length < 2 || layoutOf(segments[0]) === 'flat') {
+export function unitKey(
+  segments: string[],
+  layoutOf: LayoutOf,
+  moduleFirst = false,
+): string {
+  const layerIndex = moduleFirst ? 1 : 0;
+  const unitIndex = layerIndex + 1;
+  const layer = segments[layerIndex];
+
+  if (!layer) {
     return segments[0] ?? '';
   }
 
-  return `${segments[0]}/${segments[1].replace(/\.[^.]+$/, '')}`;
+  const prefix = segments.slice(0, unitIndex);
+
+  if (segments.length <= unitIndex || layoutOf(layer) === 'file') {
+    return prefix.join('/');
+  }
+
+  return [...prefix, segments[unitIndex].replace(/\.[^.]+$/, '')].join('/');
 }
 
 export function relativeVerdict(
   ownSegments: string[],
   target: string[] | null,
-  shape: ModuleShape,
+  shape: UnitShape,
 ): RelativeVerdict {
-  const { layoutOf, entryOf } = shape;
+  const { layoutOf, entryOf, moduleFirst = false } = shape;
 
   if (target === null) {
     return 'escapes-src';
   }
 
-  if (moduleKey(target, layoutOf) === moduleKey(ownSegments, layoutOf)) {
+  if (moduleFirst && ownSegments.length === 2) {
+    return containerVerdict(ownSegments, target);
+  }
+
+  if (unitKey(target, layoutOf, moduleFirst) === unitKey(ownSegments, layoutOf, moduleFirst)) {
     return 'ok';
   }
 
-  const layer = ownSegments[0];
+  if (moduleFirst && target[0] !== ownSegments[0]) {
+    return 'ok';
+  }
 
-  if (target[0] !== layer) {
+  const layerIndex = moduleFirst ? 1 : 0;
+  const unitIndex = layerIndex + 1;
+  const layer = ownSegments[layerIndex];
+
+  if (target[layerIndex] !== layer) {
     return 'leaves-layer';
   }
 
-  const entry = entryOf(layer);
+  return atUnitEntry(target, unitIndex, entryOf(layer)) ? 'ok' : 'reaches-inside';
+}
 
-  const atEntry = target.length === 2
-    || (target.length === 3 && target[2].replace(/\.[^.]+$/, '') === entry);
+function containerVerdict(ownSegments: string[], target: string[]): RelativeVerdict {
+  if (target[0] !== ownSegments[0]) {
+    return 'ok';
+  }
 
-  return atEntry ? 'ok' : 'reaches-inside';
+  return target.length <= 2 ? 'ok' : 'leaves-layer';
+}
+
+function atUnitEntry(target: string[], unitIndex: number, entry: string): boolean {
+  return target.length === unitIndex + 1
+    || (target.length === unitIndex + 2
+      && target[unitIndex + 1].replace(/\.[^.]+$/, '') === entry);
 }
 
 export function resolveSegments(dir: string[], specifier: string): string[] | null {

@@ -22,16 +22,23 @@ const blueprint: Blueprint = {
       '~views': 'src/views',
     },
     layers: [
-      { name: 'views', does: 'pages' },
+      { name: 'views', does: 'pages', layout: 'folder', entry: 'index' },
       {
         name: 'contexts',
         does: 'shared state',
+        layout: 'folder',
+        entry: 'index',
         allowedImporters: [{ layer: 'views', selfOnly: true }],
       },
-      { name: 'stores', does: 'state', allowedImporters: ['contexts'] },
-      { name: 'services', does: 'io', owns: [{ global: 'fetch' }] },
+      {
+        name: 'stores', does: 'state', layout: 'folder', entry: 'index',
+        allowedImporters: ['contexts'],
+      },
+      {
+        name: 'services', does: 'io', layout: 'folder', entry: 'index',
+        owns: [{ global: 'fetch' }],
+      },
     ],
-    module: { layout: 'folder', entry: 'index', private: [] },
     layerFilesIgnore: 'src/**/*.gen.ts',
   },
   rules: { fixtureImports: 'error' },
@@ -145,8 +152,8 @@ describe('wiringCheck · a merge that kept every artifact', () => {
     // …including its reach. One probe per layer, so a merged entry covering part of a
     // layer passes on a sibling path — stated where the ✓ is read, not only in the
     // comment on `pickProbes`.
-    expect(check.label).toContain('one probe per layer');
-    expect(check.label).toContain('scoped to only part of a layer are not compared');
+    expect(check.label).toContain('one probe per governed position');
+    expect(check.label).toContain('scoped to only part of a governed position are not compared');
   });
 });
 
@@ -449,18 +456,18 @@ describe('expectedStructural · deep-import targets', () => {
       architecture: {
         ...blueprint.architecture,
         layers: [
-          { name: 'views', does: 'pages' },
-          { name: 'utils', does: 'leaf helpers', module: { layout: 'flat' } },
-          { name: 'services', does: 'io' },
+          { name: 'views', does: 'pages', layout: 'folder' },
+          { name: 'utils', does: 'leaf helpers', layout: 'file' },
+          { name: 'services', does: 'io', layout: 'folder' },
         ],
       },
     };
 
     const globs = deepImportGlobs(mixed, 'views');
 
-    // A flat layer has no module folders to reach inside of, so banning deep
+    // A file-layout layer has no unit folders to reach inside of, so banning deep
     // imports into it would ban ordinary file imports. And the importing layer
-    // is not a target of its own — reaching into a sibling module of the same
+    // is not a target of its own — reaching into a sibling unit of the same
     // layer is what `blueprint/relative-escape` covers.
     expect(globs).toContain('~app/services/*/**');
     expect(globs?.some((glob) => glob.includes('utils'))).toBe(false);

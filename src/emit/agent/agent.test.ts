@@ -11,10 +11,15 @@ function full(): Blueprint {
     architecture: {
       alias: '~app',
       layers: [
-        { name: 'components', does: 'UI', mustNot: ['import services'] },
-        { name: 'services', does: 'net', owns: ['axios', { global: 'fetch' }] },
+        {
+          name: 'components', does: 'UI', layout: 'folder', entry: 'index',
+          mustNot: ['import services'],
+        },
+        {
+          name: 'services', does: 'net', layout: 'folder', entry: 'index',
+          owns: ['axios', { global: 'fetch' }],
+        },
       ],
-      module: { layout: 'folder', entry: 'index', private: ['hooks'] },
       naming: { hook: 'useX' },
     },
     principles: [{ id: 'p', say: 'no utils', why: 'no cohesion', land: 'claude' }],
@@ -54,8 +59,7 @@ describe('emitAgentContract', () => {
       framework: 'vue',
       architecture: {
         alias: '~app',
-        layers: [{ name: 'components', does: 'UI' }],
-        module: { layout: 'folder', entry: 'index', private: [] },
+        layers: [{ name: 'components', does: 'UI', layout: 'folder', entry: 'index' }],
       },
     });
 
@@ -72,8 +76,7 @@ describe('emitAgentContract', () => {
       framework: 'vue',
       architecture: {
         alias: '~app',
-        layers: [{ name: 'components', does: 'UI' }],
-        module: { layout: 'folder', entry: 'index', private: [] },
+        layers: [{ name: 'components', does: 'UI', layout: 'folder', entry: 'index' }],
       },
       rules: { explicitAny: 'error', maxLines: { tier: 'error', value: 400 } },
     });
@@ -112,8 +115,7 @@ describe('emitAgentContract · joining the sections', () => {
       framework: 'vue',
       architecture: {
         alias: '~app',
-        layers: [{ name: 'components', does: 'UI' }],
-        module: { layout: 'folder', entry: 'index', private: [] },
+        layers: [{ name: 'components', does: 'UI', layout: 'folder', entry: 'index' }],
       },
     });
 

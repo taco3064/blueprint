@@ -4,26 +4,21 @@ import {
 } from '../config';
 import type { AliasRoot, ArchitectureDef, Blueprint } from '../config';
 import { dropLayerFilesIgnored, dropTestFiles } from './filter';
+import { folderFindings } from './folders';
 import { compareText } from './order';
 import {
   aliasList,
-  buildModuleGraph,
+  buildUnitGraph,
   entryResolver,
   layoutResolver,
   relativeVerdict,
   resolveSegments,
   stripAlias,
 } from './resolve';
-import type { EntryOf, LayoutOf, ModuleShape } from './resolve';
+import type { EntryOf, LayoutOf, UnitShape } from './resolve';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
-
-function sourcePrefix(architecture: ArchitectureDef): string {
-  const root = resolveArchitecture(architecture).sourceRoot;
-
-  return root === '.' ? '' : `${root}/`;
-}
 
 export function analyze(
   scan: ScanResult,
@@ -38,19 +33,19 @@ export function analyze(
   const lintScan = dropLayerFilesIgnored(scan, architecture.layerFilesIgnore);
 
   const findings = [
-    ...folderFindings(scan, architecture, layerNames),
+    ...folderFindings(scan, architecture),
     ...ownsFindings(architecture, dependencies),
     ...lintScan.files.flatMap((file) => importFindings(file, architecture, layerNames)),
   ];
 
-  for (const cycle of detectCycles(buildModuleGraph(scan, architecture).edges)) {
+  for (const cycle of detectCycles(buildUnitGraph(scan, architecture).edges)) {
     const members = [...new Set(cycle)].sort(compareText);
 
     findings.push(
       finding('error', 'cycle', {
         path: members[0],
         subject: members.join(' '),
-        message: `Import cycle between modules: ${cycle.join(' → ')}.`,
+        message: `Import cycle between units: ${cycle.join(' → ')}.`,
       }),
     );
   }
@@ -67,9 +62,13 @@ function ownsFindings(
   }
 
   const findings: Finding[] = [];
-  const prefix = sourcePrefix(architecture);
+  const resolved = resolveArchitecture(architecture);
 
-  for (const { definition: layer } of resolveArchitecture(architecture).ownership) {
+  for (const position of resolved.layerPositions.filter(
+    (entry) => entry.layer.definition.owns?.length,
+  )) {
+    const layer = position.layer.definition;
+
     for (const owned of layer.owns!) {
       const pkg = typeof owned === 'string' ? owned : 'package' in owned ? owned.package : null;
 
@@ -80,115 +79,12 @@ function ownsFindings(
       findings.push({
         severity: 'info',
         rule: 'owns-not-installed',
-        path: `${prefix}${layer.name}`,
+        path: position.root,
         subject: pkg,
         message: `Layer "${layer.name}" owns "${pkg}", which is not in package.json — `
           + 'runway, not a todo: the ban is emitted and correct, it just has nothing to '
           + 'reach yet. Installing the package and dropping the declaration are both '
           + 'resolutions, and which one applies is the owner\'s call.',
-      });
-    }
-  }
-
-  return findings;
-}
-
-function folderFindings(
-  scan: ScanResult,
-  architecture: ArchitectureDef,
-  layerNames: string[],
-): Finding[] {
-  const findings: Finding[] = [];
-  const prefix = sourcePrefix(architecture);
-
-  for (const dir of scan.topDirs) {
-    if (!layerNames.includes(dir) && scan.files.some((file) => file.segments[0] === dir)) {
-      findings.push({
-        severity: 'error',
-        rule: 'undeclared-folder',
-        path: `${prefix}${dir}`,
-
-        subject: '',
-        message: `"${dir}" is not a declared layer — declare it, or move its code into a module of an existing layer.`,
-      });
-    }
-  }
-
-  for (const name of layerNames) {
-    if (!scan.topDirs.includes(name)) {
-      findings.push({
-        severity: 'info',
-        rule: 'missing-layer',
-        path: `${prefix}${name}`,
-        subject: '',
-
-        message: `Declared layer "${name}" has no folder yet — runway, not a todo: `
-          + 'the rules arm when code lands; keeping it is the default, '
-          + 'slimming is the owner\'s call.',
-      });
-    }
-  }
-
-  if (scan.files.length > 0) {
-    for (const layer of resolveArchitecture(architecture).layers) {
-      const selfOnlyImporters = layer.allowedImporters
-        .filter((importer) => importer.selfOnly)
-        .map((importer) => importer.layer);
-
-      if (selfOnlyImporters.length && !scan.files.some((file) => file.segments[0] === layer.name)) {
-        findings.push({
-          severity: 'info',
-          rule: 'declaratory-self-only',
-          path: `${prefix}${layer.name}`,
-          subject: '',
-          message: `selfOnly on "${layer.name}" (importer(s): ${selfOnlyImporters.join(', ')}) is declaratory — the layer holds no files, so the re-export ban cannot fire yet; it arms once code lands. The no-restricted-syntax ENTRY is emitted today, on the importer layer(s) named above, so it is already exposed to a merge: IF a second no-restricted-syntax scoped to one of those layers exists, flat config merges neither into the other — the later entry replaces the earlier, silently, with lint still green. That condition is the whole note. Adopting into a single generated config, there is no second entry, so there is nothing here to act on. "Cannot fire" is about the ban, not about the entry. Check \`blueprint rules --json\` for the emit points before merging.`,
-        });
-      }
-    }
-  }
-
-  findings.push(...noEntryFindings(scan, architecture, layerNames));
-
-  return findings;
-}
-
-function noEntryFindings(
-  scan: ScanResult,
-  architecture: ArchitectureDef,
-  layerNames: string[],
-): Finding[] {
-  const modules = new Map<string, ScannedFile[]>();
-
-  for (const file of scan.files) {
-    const layer = file.segments[0];
-
-    if (
-      file.segments.length >= 3
-      && layerNames.includes(layer)
-      && resolveArchitecture(architecture).matchLayer(file.segments)?.module.layout === 'folder'
-    ) {
-      const key = `${layer}/${file.segments[1]}`;
-
-      modules.set(key, [...(modules.get(key) ?? []), file]);
-    }
-  }
-
-  const findings: Finding[] = [];
-
-  for (const [key, files] of modules) {
-    const entry = resolveArchitecture(architecture).matchLayer(key)!.module.entry;
-
-    const hasEntry = files.some(
-      (file) => file.segments.length === 3 && stripExt(file.segments[2]) === entry,
-    );
-
-    if (!hasEntry) {
-      findings.push({
-        severity: 'warn',
-        rule: 'no-entry',
-        path: `${sourcePrefix(architecture)}${key}`,
-        subject: '',
-        message: `Module "${key}" has no "${entry}" entry — nothing is importable from outside.`,
       });
     }
   }
@@ -206,6 +102,8 @@ interface ImportContext {
   selfOnly: string[];
   layoutOf: LayoutOf;
   entryOf: EntryOf;
+  module: string | null;
+  layer: string | null;
 }
 
 function importFindings(
@@ -213,20 +111,25 @@ function importFindings(
   architecture: ArchitectureDef,
   layerNames: string[],
 ): Finding[] {
-  const fileLayer = file.segments[0];
+  const resolved = resolveArchitecture(architecture);
+  const position = resolved.classify(file.segments);
 
-  if (!layerNames.includes(fileLayer)) {
+  if (!position || (position.kind !== 'container' && !('layer' in position))) {
     return [];
   }
+
+  const fileLayer = 'layer' in position ? position.layer.name : null;
 
   const context: ImportContext = {
     architecture,
     layerNames,
     aliases: aliasList(architecture),
-    forbidden: resolveArchitecture(architecture).forbiddenLayers(fileLayer),
-    selfOnly: resolveArchitecture(architecture).selfOnlyTargets(fileLayer),
+    forbidden: fileLayer === null ? [] : resolved.forbiddenLayers(fileLayer),
+    selfOnly: fileLayer === null ? [] : resolved.selfOnlyTargets(fileLayer),
     layoutOf: layoutResolver(architecture),
     entryOf: entryResolver(architecture),
+    module: position.module?.name ?? null,
+    layer: fileLayer,
   };
 
   return file.imports.flatMap((ref) => refFindings(file, ref, context));
@@ -239,9 +142,13 @@ function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext):
     const target = resolveArchitecture(context.architecture)
       .resolveImportTarget(file.segments, ref.specifier);
 
+    const targetLayer = target && 'layer' in target ? target.layer.name : null;
+    const targetModule = target && 'module' in target ? target.module?.name ?? null : null;
+
     return aliasFindings(file, ref, {
       ...context,
-      target: target?.name ?? parts[0],
+      target: targetLayer ?? parts[context.module === null ? 0 : 1],
+      targetModule,
       depth: parts.length,
     });
   }
@@ -256,40 +163,91 @@ function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext):
 function aliasFindings(
   file: ScannedFile,
   ref: ImportRef,
-  context: ImportContext & { target: string; depth: number },
+  context: ImportContext & { target: string; targetModule: string | null; depth: number },
 ): Finding[] {
-  const { target, depth, layerNames, layoutOf, forbidden, selfOnly } = context;
-  const fileLayer = file.segments[0];
+  const { target, targetModule, depth, layerNames, layoutOf, forbidden, selfOnly } = context;
+  const fileLayer = context.layer;
 
   if (!layerNames.includes(target)) {
     return [];
   }
 
-  const findings: Finding[] = [];
   const at = { path: file.path, subject: ref.specifier };
+  const sameModule = context.module === targetModule;
+  const deepAt = context.module === null ? 3 : 4;
 
-  if (layoutOf(target) === 'folder' && depth >= 3) {
-    findings.push(finding('error', 'deep-import', { ...at, message: `"${ref.specifier}" reaches inside a module — import it through its entry.` }));
+  const deep = sameModule && layoutOf(target) === 'folder' && depth >= deepAt
+    ? [finding('error', 'deep-import', {
+        ...at,
+        message: `"${ref.specifier}" reaches inside a unit — import it through its entry.`,
+      })]
+    : [];
+
+  if (!sameModule) {
+    return deep;
   }
+
+  if (fileLayer === null) {
+    return deep;
+  }
+
+  return [
+    ...deep,
+    ...aliasFlowFindings({ target, fileLayer, forbidden, at }),
+    ...selfOnlyFindings({ ref, target, selfOnly, at }),
+  ];
+}
+
+interface AliasFindingScope {
+  target: string;
+  fileLayer: string;
+  forbidden: string[];
+  at: { path: string; subject: string };
+}
+
+function aliasFlowFindings(scope: AliasFindingScope): Finding[] {
+  const { target, fileLayer, forbidden, at } = scope;
 
   if (target === fileLayer) {
-    findings.push(finding('error', 'flow-violation', { ...at, message: `Same-layer import "${ref.specifier}" via the alias — use a relative path or extract to a lower layer.` }));
-  } else if (forbidden.includes(target)) {
-    findings.push(finding('error', 'flow-violation', { ...at, message: `"${fileLayer}" may not import "${target}" ("${ref.specifier}").` }));
+    return [finding('error', 'flow-violation', {
+      ...at,
+      message: `Same-layer import "${at.subject}" via the alias — use a relative path or `
+        + 'extract to a lower layer.',
+    })];
   }
 
-  if (ref.isExport && selfOnly.includes(target)) {
-    findings.push(finding('error', 'selfonly-reexport', { ...at, message: `Re-exports "${target}" ("${ref.specifier}"), which is selfOnly — depend on it, do not re-export it.` }));
+  if (forbidden.includes(target)) {
+    return [finding('error', 'flow-violation', {
+      ...at,
+      message: `"${fileLayer}" may not import "${target}" ("${at.subject}").`,
+    })];
   }
 
-  return findings;
+  return [];
+}
+
+function selfOnlyFindings(scope: {
+  ref: ImportRef;
+  target: string;
+  selfOnly: string[];
+  at: { path: string; subject: string };
+}): Finding[] {
+  const { ref, target, selfOnly, at } = scope;
+
+  return ref.isExport && selfOnly.includes(target)
+    ? [finding('error', 'selfonly-reexport', {
+        ...at,
+        message: `Re-exports "${target}" ("${ref.specifier}"), which is selfOnly — `
+          + 'depend on it, do not re-export it.',
+      })]
+    : [];
 }
 
 function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportContext): Finding[] {
-  const fileLayer = file.segments[0];
+  const fileLayer = context.layer;
   const owners = ownersOf(context.architecture, ref.specifier, ref.names);
 
-  if (!owners || owners.includes(fileLayer)) {
+  if (!owners || (fileLayer !== null && owners.includes(fileLayer))) {
     return [];
   }
 
@@ -302,17 +260,21 @@ function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportConte
   return [finding('error', 'package-ownership', {
     path: file.path,
     subject,
-    message: `"${ref.specifier}"${named} is owned by ${owners.join(', ')} — not importable from "${fileLayer}".`,
+    message: `"${ref.specifier}"${named} is owned by ${owners.join(', ')} — not importable from "${fileLayer ?? 'container'}".`,
   })];
 }
 
 function relativeEscape(
   file: ScannedFile,
   ref: ImportRef,
-  shape: ModuleShape & { architecture: ArchitectureDef },
+  shape: UnitShape & { architecture: ArchitectureDef },
 ): Finding[] {
   const target = resolveSegments(file.segments.slice(0, -1), ref.specifier);
-  const verdict = relativeVerdict(file.segments, target, shape);
+
+  const verdict = relativeVerdict(file.segments, target, {
+    ...shape,
+    moduleFirst: resolveArchitecture(shape.architecture).topology === 'module-first',
+  });
 
   if (verdict === 'ok') {
     return [];
@@ -325,7 +287,9 @@ function relativeEscape(
   }
 
   if (verdict === 'reaches-inside') {
-    return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${shape.entryOf(file.segments[0])}" instead; what lives behind it is that module's own business.` })];
+    const layerIndex = resolveArchitecture(shape.architecture).topology === 'module-first' ? 1 : 0;
+
+    return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${shape.entryOf(file.segments[layerIndex])}" instead; what lives behind it is that unit's own business.` })];
   }
 
   return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.` })];
@@ -474,10 +438,6 @@ export function detectCycle(edges: Map<string, Set<string>>): string[] | null {
   }
 
   return null;
-}
-
-function stripExt(name: string): string {
-  return name.replace(/\.[^.]+$/, '');
 }
 
 function finding(
