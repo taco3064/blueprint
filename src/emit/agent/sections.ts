@@ -258,11 +258,11 @@ export function renderBehavioral(
 
   const placementRule = resolved.moduleFirst
     ? `- Do not create undeclared module folders under \`${architecture.alias}/\`. `
-      + 'Every governed source-root folder must be declared in `architecture.modules`. '
-      + "(lint can't see this — inspect will.)"
+    + 'Every governed source-root folder must be declared in `architecture.modules`. '
+    + '(lint can\'t see this — inspect will.)'
     : `- Do not create undeclared folders under \`${architecture.alias}/\`. `
-      + 'Every folder is a declared layer or a unit inside one. '
-      + "(lint can't see this — inspect will.)";
+    + 'Every folder is a declared layer or a unit inside one. '
+    + '(lint can\'t see this — inspect will.)';
 
   const bullets = [
     placementRule,
