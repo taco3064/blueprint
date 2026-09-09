@@ -50,7 +50,7 @@ export function relativeVerdict(
   }
 
   if (moduleFirst && target[0] !== ownSegments[0]) {
-    return 'ok';
+    return 'leaves-layer';
   }
 
   const layerIndex = moduleFirst ? 1 : 0;
@@ -66,7 +66,7 @@ export function relativeVerdict(
 
 function containerVerdict(ownSegments: string[], target: string[]): RelativeVerdict {
   if (target[0] !== ownSegments[0]) {
-    return 'ok';
+    return 'leaves-layer';
   }
 
   return target.length <= 2 ? 'ok' : 'leaves-layer';

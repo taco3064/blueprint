@@ -13,8 +13,9 @@
 - Same-layer dependencies use relative paths, never the alias. In a folder-layout
   layer, a sibling unit is reachable only through its declared entry; deeper paths
   stay private. Shared code that does not belong to either unit moves downward.
-- Layer code never crosses its **layer** relatively. A module-root container may
-  reference another direct container file relatively, but reaches layer units through
+- Relative imports stay inside the importer's declared **module and layer/position**.
+  They never cross a module boundary. A module-root container may reference another
+  direct container file only inside its own module, but reaches layer units through
   the alias so the structural rules can see the dependency.
 - Folder-layout units are **entry-only**: import the unit path, never internals
   behind its declared entry.

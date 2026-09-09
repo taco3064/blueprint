@@ -78,7 +78,7 @@ describe('inspect consumers · module-first topology', () => {
     ]));
   });
 
-  it('applies layer flow within a module and leaves cross-module policy to #435', () => {
+  it('applies layer flow within a module and leaves cross-module alias policy to #435', () => {
     const within = analyze(scan([
       file(['auth', 'hooks', 'useAuth.ts'], ['~app/auth/components/Login']),
     ]), blueprint);

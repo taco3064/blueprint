@@ -75,12 +75,12 @@ The unit of every answer follows each layer's `layout`:
   (`hooks/useCart`, `components/HelloWorld`). Direct files drop their extension, so
   `deps components/HelloWorld` and `components/HelloWorld.vue` name the same unit.
 - **`file` layout** — preserving the former flat-layout behavior, the whole layer
-  collapses to **one node**. This fits layers whose nested folders are not units — a Next.js route tree, for example, where
-  `app/(marketing)/pricing/page.tsx` is a route, not a feature folder. Deps says so
-  explicitly rather than silently switching granularity:
+  collapses to **one node**. This fits layers whose nested folders only organize files,
+  rather than declaring units — for example, `styles/themes/dark.ts` can remain part of
+  one styles node. Deps says so explicitly rather than silently switching granularity:
 
 ```
-app (file-layout layer — answers at layer granularity)
+styles (file-layout layer — answers at layer granularity)
 ```
 
 ## What is in the graph — and what is not

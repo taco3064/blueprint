@@ -72,11 +72,11 @@ hooks/useCart
 - **`folder` 佈局** —— 分層之下的每個直屬子項各自成為一個 unit（`hooks/useCart`、`components/HelloWorld`）。<br>
   直屬檔案的 unit key 不含副檔名，因此 `deps components/HelloWorld` 與 `components/HelloWorld.vue` 指向同一個 unit。
 - **`file` 佈局** —— 保留原 flat 佈局行為，整個分層收斂為**單一節點**。<br>
-  此佈局適用於「巢狀資料夾並非 unit」的分層 —— 例如 Next.js 的路由樹，`app/(marketing)/pricing/page.tsx` 是一條路由，而非功能資料夾。<br>
+  此佈局適用於「巢狀資料夾只用來整理檔案，而非宣告 unit」的分層 —— 例如 `styles/themes/dark.ts` 仍可歸入同一個 styles 節點。<br>
   粒度切換時，deps 會明確標示，不會無聲改變回答的層級：
 
 ```
-app (file-layout layer — answers at layer granularity)
+styles (file-layout layer — answers at layer granularity)
 ```
 
 ## 相依圖的涵蓋範圍與邊界

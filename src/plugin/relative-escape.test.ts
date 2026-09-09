@@ -124,14 +124,43 @@ describe('blueprint/relative-escape · folder layer', () => {
 });
 
 describe('blueprint/relative-escape · module-root container', () => {
-  it('allows container-local files and cross-module policy, but rejects entering a layer', () => {
+  it('allows container-local files but rejects layer and module boundaries', () => {
     const options = { moduleFirst: true };
 
     expect(messageIds('import x from "./shell";', 'src/auth/index.ts', options)).toEqual([]);
-    expect(messageIds('import x from "../shop/index";', 'src/auth/index.ts', options)).toEqual([]);
+
+    expect(messageIds('import x from "../shop/index";', 'src/auth/index.ts', options))
+      .toEqual(['leavesModule']);
 
     expect(messageIds('import x from "./resources/matches";', 'src/auth/index.ts', options))
       .toEqual(['leavesModule']);
+  });
+});
+
+describe('blueprint/relative-escape · module-first boundaries', () => {
+  const options = {
+    moduleFirst: true,
+    layouts: { components: 'folder', hooks: 'file' } as const,
+  };
+
+  const file = 'src/auth/components/Login/index.ts';
+
+  it('rejects relatives into another layer in the same module', () => {
+    expect(messageIds('import x from "../../hooks/useAuth";', file, options))
+      .toEqual(['leavesModule']);
+  });
+
+  it('rejects relatives into the same layer in another module', () => {
+    expect(messageIds('import x from "../../../shop/components/Cart";', file, options))
+      .toEqual(['leavesModule']);
+  });
+
+  it('preserves same-layer folder-unit entry rules', () => {
+    expect(messageIds('import x from "./helper";', file, options)).toEqual([]);
+    expect(messageIds('import x from "../Signup";', file, options)).toEqual([]);
+
+    expect(messageIds('import x from "../Signup/internal";', file, options))
+      .toEqual(['reachesInside']);
   });
 });
 
