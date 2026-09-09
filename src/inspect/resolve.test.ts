@@ -91,12 +91,12 @@ describe('relativeVerdict', () => {
     )).toBe('reaches-inside');
   });
 
-  it('leaves cross-module relative policy to the module-policy follow-up', () => {
+  it('rejects cross-module relatives even when the layer name matches', () => {
     expect(relativeVerdict(
       ['auth', 'resources', 'matches', 'index.ts'],
       ['shop', 'resources', 'markets', 'parts', 'Row.ts'],
       { ...shape, moduleFirst: true },
-    )).toBe('ok');
+    )).toBe('leaves-layer');
   });
 
   it('still enforces layer and entry boundaries inside one outer module', () => {

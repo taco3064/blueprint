@@ -67,6 +67,22 @@ describe('emitLint · module-first topology', () => {
       .toContain('blueprint/relative-escape');
   });
 
+  it('preserves relative boundaries across module-first positions', () => {
+    const unit = 'src/auth/components/Login/index.ts';
+
+    expect(restricted('import useAuth from "../../hooks/useAuth";', unit))
+      .toContain('blueprint/relative-escape');
+
+    expect(restricted('import Cart from "../../../checkout/components/Cart";', unit))
+      .toContain('blueprint/relative-escape');
+
+    expect(restricted('import checkout from "../checkout/index";', 'src/auth/index.ts'))
+      .toContain('blueprint/relative-escape');
+
+    expect(restricted('import Signup from "../Signup";', unit))
+      .not.toContain('blueprint/relative-escape');
+  });
+
   it('carries fixture, ownership exemption, and global bans into module containers', () => {
     const configured = blueprint();
 
