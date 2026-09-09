@@ -68,12 +68,18 @@ describe('renderUnit', () => {
 
   it('renders module-first topology without changing the shared layer shapes', () => {
     const out = renderArchitecture(arch({
-      modules: [{ name: 'auth', does: 'authentication' }],
+      modules: [
+        { name: 'auth', does: 'authentication' },
+        { name: 'shop', does: 'commerce', dependsOn: ['auth'] },
+      ],
     }));
 
     expect(out).toContain('### Modules');
-    expect(out).toContain('| `auth` | authentication |');
+    expect(out).toContain('| Module | Responsibility | Direct dependencies |');
+    expect(out).toContain('| `auth` | authentication | — |');
+    expect(out).toContain('| `shop` | commerce | `auth` |');
     expect(out).toContain('Every module reuses the shared layer contract');
+    expect(out).toContain('declaration order grants no permission');
   });
 });
 

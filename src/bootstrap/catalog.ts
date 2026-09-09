@@ -14,7 +14,7 @@ export function renderSemantics(): string {
     '',
     '- **File layout:** each direct file is a unit; same-layer sibling units may use '
     + 'relative imports.',
-    '  The alias is for crossing layers — a same-layer import through the alias becomes an error '
+    '  The alias is for crossing layers — a local same-layer import through it becomes an error '
     + 'the moment the lint is wired.',
     '- **Folder layout:** a unit is one child folder behind its declared entry.',
     '  *Same-layer* sibling units may import each other only by a relative path to '
@@ -162,8 +162,12 @@ export function renderSchemaSketch(): string {
     '        owns: [\'axios\', { global: \'fetch\' }] },',
     '    ],',
     '    // Optional pure module-first topology. Each name is a direct child of sourceRoot;',
-    '    // the complete layers list above repeats under every declared module.',
-    '    modules: [{ name: \'shop\', does: \'commerce application\' }],',
+    '    // the complete layers list above repeats under every declared module. dependsOn',
+    '    // declares direct module edges; transitive downstream modules are also importable.',
+    '    modules: [',
+    '      { name: \'auth\', does: \'authentication\' },',
+    '      { name: \'shop\', does: \'commerce application\', dependsOn: [\'auth\'] },',
+    '    ],',
     '    // Module-first custom globs must include both {module} and {layer}.',
     '    layerFiles: \'src/{module}/{layer}/**/*.<ext glob>\',',
     '    testFiles: [\'**/*.test.*\', \'**/__tests__/**\'],',

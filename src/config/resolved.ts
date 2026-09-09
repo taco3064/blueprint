@@ -1,4 +1,4 @@
-import type { AllowedImporter, ArchitectureDef, Framework, LayerDef, ModuleDef } from './types';
+import type { AllowedImporter, ArchitectureDef, Framework, LayerDef } from './types';
 import {
   aliasLayerRoots,
   aliasSpecifier,
@@ -6,18 +6,19 @@ import {
   normalizeAllowedImporters,
 } from './graph';
 import type { AliasRoot, DiagramEdge } from './graph';
+import { dependencyVerdict } from './dependency';
+import type { ResolvedDependencyVerdict } from './dependency';
+import { resolveModules } from './modules';
+import type { ResolvedModule } from './modules';
+
+export type { ResolvedDependencyEndpoint, ResolvedDependencyVerdict } from './dependency';
+export type { ResolvedModule } from './modules';
 
 export interface ResolvedLayer {
   definition: LayerDef;
   name: string;
   unit: { layout: 'folder' | 'file'; entry: string };
   allowedImporters: AllowedImporter[];
-}
-
-export interface ResolvedModule {
-  definition: ModuleDef;
-  name: string;
-  root: string;
 }
 
 export interface ResolvedLayerPosition {
@@ -67,6 +68,11 @@ export interface ResolvedArchitecture {
     importer: string | string[],
     specifier: string,
   ): ResolvedSourcePosition | null;
+  canImportModule(from: string, to: string): boolean;
+  dependencyVerdict(
+    importer: ResolvedSourcePosition,
+    target: ResolvedSourcePosition,
+  ): ResolvedDependencyVerdict | null;
   canImport(from: string, to: string): boolean;
   forbiddenLayers(layer: string): string[];
   selfOnlyTargets(layer: string): string[];
@@ -81,11 +87,7 @@ export function resolveArchitecture(
   const sourceSegments = segments(sourceRoot);
   const aliases = aliasLayerRoots(definition);
 
-  const modules = (definition.modules ?? []).map((module) => ({
-    definition: module,
-    name: module.name,
-    root: joinSource(sourceRoot, module.name),
-  }));
+  const modules = resolveModules(definition.modules ?? [], sourceRoot);
 
   const layers: ResolvedLayer[] = definition.layers.map((layer, index) => ({
     definition: layer,
@@ -132,6 +134,9 @@ export function resolveArchitecture(
     return byLayer.get(to)?.allowedImporters.some((entry) => entry.layer === from) ?? false;
   };
 
+  const canImportModule = (from: string, to: string): boolean =>
+    from === to || byModule.get(from)?.reachable.includes(to) === true;
+
   return buildResolvedArchitecture({
     definition,
     sourceRoot,
@@ -145,6 +150,7 @@ export function resolveArchitecture(
     byLayer,
     classify,
     canImport,
+    canImportModule,
   });
 }
 
@@ -165,12 +171,13 @@ interface ResolutionState {
   byLayer: Map<string, ResolvedLayer>;
   classify: ResolvedArchitecture['classify'];
   canImport: ResolvedArchitecture['canImport'];
+  canImportModule: ResolvedArchitecture['canImportModule'];
 }
 
 function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture {
   const {
     definition, sourceRoot, sourceSegments, topology, modules, layers, layerPositions,
-    aliases, byModule, byLayer, classify, canImport,
+    aliases, byModule, byLayer, classify, canImport, canImportModule,
   } = state;
 
   return {
@@ -187,18 +194,7 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
       ...Object.entries(definition.additionalAliases ?? {}),
     ],
     ownership: layers.filter((layer) => layer.definition.owns?.length),
-    diagramEdges: layers.flatMap((layer, index): DiagramEdge[] => {
-      if (layer.definition.allowedImporters !== undefined) {
-        return layer.allowedImporters.map((importer) => ({
-          from: importer.layer,
-          to: layer.name,
-          selfOnly: importer.selfOnly,
-          description: importer.description,
-        }));
-      }
-
-      return index === 0 ? [] : [{ from: layers[index - 1].name, to: layer.name, ordered: true }];
-    }),
+    diagramEdges: resolveDiagramEdges(layers),
     hasSelfOnly: layers.some((layer) => layer.allowedImporters.some((entry) => entry.selfOnly)),
     classify,
     matchLayer(file) {
@@ -263,6 +259,11 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
 
       return target ? classify(target) : null;
     },
+    canImportModule,
+    dependencyVerdict: (importer, target) => dependencyVerdict(importer, target, {
+      canImport,
+      canImportModule,
+    }),
     canImport,
     forbiddenLayers(layer) {
       return layers.filter((target) => target.name !== layer && !canImport(layer, target.name))
@@ -279,6 +280,21 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
       return aliases.flatMap((root) => aliasSpecifier(root, target) ?? []);
     },
   };
+}
+
+function resolveDiagramEdges(layers: ResolvedLayer[]): DiagramEdge[] {
+  return layers.flatMap((layer, index): DiagramEdge[] => {
+    if (layer.definition.allowedImporters !== undefined) {
+      return layer.allowedImporters.map((importer) => ({
+        from: importer.layer,
+        to: layer.name,
+        selfOnly: importer.selfOnly,
+        description: importer.description,
+      }));
+    }
+
+    return index === 0 ? [] : [{ from: layers[index - 1].name, to: layer.name, ordered: true }];
+  });
 }
 
 function classifyLayerFirst(

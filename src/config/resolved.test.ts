@@ -195,6 +195,96 @@ describe('resolveArchitecture · module-first identity', () => {
   });
 });
 
+describe('resolveArchitecture · module dependency graph', () => {
+  it('resolves direct edges and transitive module reachability without using array order', () => {
+    const architecture = moduleFirst();
+
+    architecture.modules = [
+      { name: 'history', does: 'history', dependsOn: ['order'] },
+      { name: 'auth', does: 'authentication' },
+      { name: 'order', does: 'orders', dependsOn: ['checkout'] },
+      { name: 'checkout', does: 'checkout', dependsOn: ['auth'] },
+    ];
+
+    const resolved = resolveArchitecture(architecture);
+    const history = resolved.modules.find((module) => module.name === 'history');
+
+    expect(history?.dependsOn).toEqual(['order']);
+    expect(history?.reachable).toEqual(['order', 'checkout', 'auth']);
+    expect(resolved.canImportModule('history', 'auth')).toBe(true);
+    expect(resolved.canImportModule('auth', 'checkout')).toBe(false);
+  });
+
+  it('resolves converging paths once and supports a project-root source', () => {
+    const architecture = moduleFirst();
+
+    architecture.sourceRoot = '.';
+
+    architecture.modules = [
+      { name: 'leaf', does: 'leaf' },
+      { name: 'left', does: 'left', dependsOn: ['leaf'] },
+      { name: 'right', does: 'right', dependsOn: ['leaf'] },
+      { name: 'root', does: 'root', dependsOn: ['left', 'right'] },
+    ];
+
+    const resolved = resolveArchitecture(architecture);
+
+    expect(resolved.modules.find((module) => module.name === 'root')?.reachable)
+      .toEqual(['left', 'leaf', 'right']);
+
+    expect(resolved.modules[0].root).toBe('leaf');
+  });
+
+  it('composes module reachability with container and layer positions', () => {
+    const architecture = moduleFirst();
+
+    architecture.modules = [
+      { name: 'auth', does: 'authentication' },
+      { name: 'checkout', does: 'checkout', dependsOn: ['auth'] },
+      { name: 'profile', does: 'profile' },
+    ];
+
+    architecture.layers[2].allowedImporters = ['hooks'];
+    const resolved = resolveArchitecture(architecture);
+
+    const verdict = (from: string, to: string) => resolved.dependencyVerdict(
+      resolved.classify(from)!,
+      resolved.classify(to)!,
+    );
+
+    expect(verdict('src/checkout/hooks/useCart.ts', 'src/auth/services/api.ts'))
+      .toMatchObject({ allowed: true, module: true, inner: true });
+
+    expect(verdict('src/auth/hooks/useAuth.ts', 'src/checkout/services/api.ts'))
+      .toMatchObject({ allowed: false, module: false, inner: true });
+
+    expect(verdict('src/checkout/components/Cart.tsx', 'src/auth/services/api.ts'))
+      .toMatchObject({ allowed: false, module: true, inner: false });
+
+    expect(verdict('src/checkout/components/Cart.tsx', 'src/auth/components/Login.tsx'))
+      .toMatchObject({ allowed: true, module: true, inner: true });
+
+    expect(verdict('src/checkout/index.tsx', 'src/auth/index.tsx'))
+      .toMatchObject({ allowed: true, module: true, inner: true });
+
+    expect(verdict('src/checkout/hooks/useCart.ts', 'src/auth/index.tsx'))
+      .toMatchObject({ allowed: false, module: true, inner: false });
+  });
+
+  it('leaves source-root wiring outside the verdict and supports resolved layer identities', () => {
+    const resolved = resolveArchitecture(moduleFirst());
+    const sourceRoot = resolved.classify('src/index.ts')!;
+    const moduleLayer = resolved.classify('src/auth/hooks/useAuth.ts')!;
+    const layerFirstPosition = resolveArchitecture(layerFirst()).classify('src/hooks/useX.ts')!;
+
+    expect(resolved.dependencyVerdict(sourceRoot, moduleLayer)).toBeNull();
+    expect(resolved.dependencyVerdict(moduleLayer, sourceRoot)).toBeNull();
+
+    expect(resolved.dependencyVerdict(moduleLayer, layerFirstPosition))
+      .toMatchObject({ module: true });
+  });
+});
+
 describe('resolveArchitecture · module-first path contexts', () => {
   it.each([
     'src/auth/hooks/x.ts',

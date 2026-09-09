@@ -4,6 +4,7 @@ import type {
   Blueprint,
   PlaybookSection,
   PrincipleDef,
+  ResolvedArchitecture,
   RuleSetting,
   Tier,
 } from '../../config';
@@ -89,6 +90,7 @@ export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = 
     renderHeader(),
     '',
     `- Framework: \`${blueprint.framework}\`. Import alias: \`${architecture.alias}\`.`,
+    ...moduleFlowLine(resolved),
     `- Layer flow: ${chain} — transitive: a layer may import **any** layer after it, unless the target narrows its importers.`,
     `- **Before adding, moving, or renaming any file** — placement, ${resolved.topology === 'module-first' ? 'module boundaries, ' : ''}unit shapes, ownership, naming${extras.length ? `, ${extras.join(', ')}` : ''}: read [${handbook}](${handbook}) (generated from the same blueprint — always current).`,
     '- **Operating discipline** — how to follow the flow, react to lint failures, '
@@ -102,6 +104,13 @@ export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = 
   ].join('\n');
 }
 
+function moduleFlowLine(resolved: ResolvedArchitecture): string[] {
+  return resolved.modules.length
+    ? ['- Module flow: each module may import itself and modules transitively reachable through '
+      + '`dependsOn`; declaration order grants no permission. The layer flow must also pass.']
+    : [];
+}
+
 export function renderContext(blueprint: Blueprint): string {
   const { framework, architecture } = blueprint;
   const resolved = resolveArchitecture(architecture);
@@ -112,7 +121,13 @@ export function renderContext(blueprint: Blueprint): string {
     '',
     `- Framework: \`${framework}\`. Import alias: \`${architecture.alias}\`.`,
     ...(resolved.modules.length
-      ? [`- Modules: ${resolved.modules.map((module) => `\`${module.name}\``).join(', ')}`]
+      ? [`- Modules: ${resolved.modules.map((module) => {
+          const dependencies = module.dependsOn.length
+            ? module.dependsOn.map((dependency) => `\`${dependency}\``).join(', ')
+            : 'none';
+
+          return `\`${module.name}\` (depends on ${dependencies})`;
+        }).join('; ')}`]
       : []),
     `- Layer flow: ${chain}`,
   ].join('\n');
@@ -121,8 +136,14 @@ export function renderContext(blueprint: Blueprint): string {
 export function renderPlacement(architecture: ArchitectureDef): string {
   const resolved = resolveArchitecture(architecture);
 
-  const moduleLines = resolved.modules.map((module) =>
-    `- \`${module.root}/\` — module: ${module.definition.does}.`);
+  const moduleLines = resolved.modules.map((module) => {
+    const dependencies = module.dependsOn.length
+      ? module.dependsOn.map((dependency) => `\`${dependency}\``).join(', ')
+      : 'none';
+
+    return `- \`${module.root}/\` — module: ${module.definition.does}. `
+      + `DIRECT DEPENDENCIES: ${dependencies}.`;
+  });
 
   const lines = resolved.layerPositions.map((position) => {
     const { definition: layer, allowedImporters } = position.layer;
@@ -187,7 +208,7 @@ export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): s
   const { architecture } = blueprint;
 
   const bullets = [
-    '- Cross-layer imports go only downstream; same-layer imports never use the alias.',
+    '- Cross-layer imports go only downstream; local same-layer imports never use the alias.',
   ];
 
   const folderEntries = [
@@ -315,7 +336,7 @@ export function renderChecklist(blueprint: Blueprint): string {
   const resolved = resolveArchitecture(architecture);
 
   const items = [
-    '- [ ] Imports follow the one-way flow (no upstream layers or same-layer aliases).',
+    '- [ ] Imports follow the one-way flow (no upstream layers or local same-layer aliases).',
     `- [ ] New code sits in the declared ${resolved.topology === 'module-first'
       ? 'module and layer'
       : 'layer'}; folder units expose only their declared entry.`,

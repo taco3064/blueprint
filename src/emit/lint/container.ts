@@ -37,6 +37,10 @@ export function containerImportEntries(
 
   return resolved.modules.flatMap((module, index) => containerEntriesForModule({
     module: module.name,
+    targetModules: [module.name, ...module.reachable],
+    forbiddenModules: resolved.modules
+      .map((entry) => entry.name)
+      .filter((name) => name !== module.name && !module.reachable.includes(name)),
     files: [files[index]],
     aliases: scope.aliases,
     folderTargets,
@@ -50,6 +54,8 @@ export function containerImportEntries(
 
 function containerEntriesForModule(scope: {
   module: string;
+  targetModules: string[];
+  forbiddenModules: string[];
   files: string[];
   aliases: AliasRoot[];
   folderTargets: string[];

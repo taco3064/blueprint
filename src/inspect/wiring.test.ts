@@ -101,7 +101,7 @@ describe('expectedStructural · the shape two prose sites describe', () => {
     // update `PACKAGES_NOT_COMPARED` and the `rules` block that prints it, then this
     // list. Removing one means it stopped. Either way both texts move with it.
     expect(Object.keys(expectedStructural(blueprint, 'views')))
-      .toEqual(['groups', 'selectors', 'globals']);
+      .toEqual(['groups', 'paths', 'selectors', 'globals']);
   });
 });
 

@@ -1,14 +1,21 @@
-import { activeSetting, aliasSpecifier, resolveArchitecture } from '../config';
+import { activeSetting, resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
 import {
   buildStructuralPatterns,
   deriveGlobalRules,
   selfOnlyReexportSelector,
 } from '../emit/lint/patterns';
-import { buildContainerPatterns } from '../emit/lint/structural';
+import {
+  buildContainerPatterns,
+  buildModuleContainerPaths,
+  buildModuleContainerPatterns,
+  moduleImportScope,
+  aliasSubtreeSpecifier,
+} from '../emit/lint/structural';
 
 export type StructuralExpectation = {
   groups: Set<string>;
+  paths: Set<string>;
   selectors: Set<string>;
   globals: Set<string>;
 };
@@ -27,28 +34,44 @@ export function expectedStructural(
   );
 
   const forbidden = resolved.forbiddenLayers(layer);
+  const { targetModules, forbiddenModules } = moduleImportScope(resolved, module);
 
   const structural = buildStructuralPatterns({
     layer,
     module,
+    targetModules,
+    forbiddenModules,
     aliases,
     forbidden,
     unitLayout: layouts[layer],
     folderTargets: resolved.layers
       .map((entry) => entry.name)
-      .filter((name) => layouts[name] === 'folder' && name !== layer && !forbidden.includes(name)),
+      .filter((name) => layouts[name] === 'folder'
+        && (name === layer ? module !== undefined : !forbidden.includes(name))),
     fixtures: fixturePatterns(blueprint),
   });
 
+  const containerPatterns = buildModuleContainerPatterns(
+    aliases,
+    targetModules,
+    resolved.layerNames,
+  );
+
   return {
-    groups: new Set(structural.map((pattern) => JSON.stringify(pattern.group))),
+    groups: new Set(
+      [...structural, ...containerPatterns].map((pattern) => JSON.stringify(pattern.group)),
+    ),
+    paths: new Set(buildModuleContainerPaths(aliases, targetModules).map((path) => path.name)),
     selectors: new Set(
       resolved.selfOnlyTargets(layer).flatMap((target) =>
-        aliases.flatMap((alias) => {
-          const specifier = aliasSpecifier(alias, module ? `${module}/${target}` : target);
+        (targetModules ?? [undefined]).flatMap((targetModule) => aliases.flatMap((alias) => {
+          const specifier = aliasSubtreeSpecifier(
+            alias,
+            targetModule ? `${targetModule}/${target}` : target,
+          );
 
           return specifier === null ? [] : selfOnlyReexportSelector(specifier);
-        }),
+        })),
       ),
     ),
     globals: new Set(
@@ -64,6 +87,7 @@ export function expectedContainerStructural(
   module: string,
 ): StructuralExpectation {
   const resolved = resolveArchitecture(blueprint.architecture);
+  const { targetModules, forbiddenModules } = moduleImportScope(resolved, module);
 
   const layouts = Object.fromEntries(
     resolved.layers.map((layer) => [layer.name, layer.unit.layout]),
@@ -71,6 +95,8 @@ export function expectedContainerStructural(
 
   const patterns = buildContainerPatterns({
     module,
+    targetModules,
+    forbiddenModules,
     aliases: resolved.aliases,
     folderTargets: resolved.layerNames.filter((layer) => layouts[layer] === 'folder'),
     fixtures: fixturePatterns(blueprint),
@@ -78,6 +104,7 @@ export function expectedContainerStructural(
 
   return {
     groups: new Set(patterns.map((pattern) => JSON.stringify(pattern.group))),
+    paths: new Set(),
     selectors: new Set(),
     globals: new Set(
       deriveGlobalRules(resolved.layers.map((layer) => layer.definition))

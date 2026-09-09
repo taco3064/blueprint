@@ -189,21 +189,24 @@ function activeOptions(value: unknown): unknown[] | null {
 
 function resolvedStructural(rules: Record<string, unknown>): {
   groups: Set<string>;
+  paths: Set<string>;
   selectors: Set<string>;
   globals: Set<string>;
   relativeEscape: boolean;
   unreadable: number;
 } {
   const imports = readPatternGroups(rules['no-restricted-imports']);
+  const paths = readRestrictedPaths(rules['no-restricted-imports']);
   const selectors = readNamed(rules['no-restricted-syntax'], 'selector');
   const globals = readNamed(rules['no-restricted-globals'], 'name');
 
   return {
     groups: imports.values,
+    paths: paths.values,
     selectors: selectors.values,
     globals: globals.values,
     relativeEscape: activeOptions(rules['blueprint/relative-escape']) !== null,
-    unreadable: imports.unreadable + selectors.unreadable + globals.unreadable,
+    unreadable: imports.unreadable + paths.unreadable + selectors.unreadable + globals.unreadable,
   };
 }
 
@@ -228,6 +231,31 @@ function readPatternGroups(entry: unknown): ReadEntries {
 
       if (Array.isArray(group)) {
         values.add(JSON.stringify(group));
+      } else {
+        unreadable++;
+      }
+    }
+  }
+
+  return { values, unreadable };
+}
+
+function readRestrictedPaths(entry: unknown): ReadEntries {
+  const values = new Set<string>();
+  let unreadable = 0;
+
+  for (const option of optionsOf(entry)) {
+    const paths = (option as { paths?: unknown[] })?.paths;
+
+    if (!Array.isArray(paths)) {
+      continue;
+    }
+
+    for (const item of paths) {
+      const name = (item as { name?: unknown })?.name;
+
+      if (typeof name === 'string' && name) {
+        values.add(name);
       } else {
         unreadable++;
       }
@@ -419,12 +447,19 @@ function losses(
 ): string[] {
   const lost: string[] = [];
 
-  const groups = [...expected.groups].filter((group) => !resolved.groups.has(group));
-  const selectors = [...expected.selectors].filter((s) => !resolved.selectors.has(s));
-  const globals = [...expected.globals].filter((name) => !resolved.globals.has(name));
+  const [groups, paths, selectors, globals] = [
+    [...expected.groups].filter((group) => !resolved.groups.has(group)),
+    [...expected.paths].filter((path) => !resolved.paths.has(path)),
+    [...expected.selectors].filter((s) => !resolved.selectors.has(s)),
+    [...expected.globals].filter((name) => !resolved.globals.has(name)),
+  ];
 
   if (groups.length) {
     lost.push(`no-restricted-imports lost ${groups.length} structural pattern group(s)`);
+  }
+
+  if (paths.length) {
+    lost.push(`no-restricted-imports lost ${paths.length} structural path(s)`);
   }
 
   if (selectors.length) {

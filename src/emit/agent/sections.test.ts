@@ -173,7 +173,7 @@ describe('renderHardRules', () => {
     }));
 
     expect(out).toContain(
-      '- Cross-layer imports go only downstream; same-layer imports never use the alias.',
+      '- Cross-layer imports go only downstream; local same-layer imports never use the alias.',
     );
 
     expect(out).toContain('Import a folder unit via its `index`');
@@ -324,7 +324,7 @@ describe('renderChecklist', () => {
     expect(bare).toContain('No new undeclared folders under `~app/`');
 
     expect(bare).toContain(
-      '- [ ] Imports follow the one-way flow (no upstream layers or same-layer aliases).',
+      '- [ ] Imports follow the one-way flow (no upstream layers or local same-layer aliases).',
     );
 
     expect(bare).toContain('folder units expose only their declared entry');

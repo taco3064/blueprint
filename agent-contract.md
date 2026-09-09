@@ -9,10 +9,15 @@
 ## The one-way flow
 
 - A layer may import only layers declared **after** it in the blueprint —
-  never upstream, never the same layer through the alias.
-- Same-layer dependencies use relative paths, never the alias. In a folder-layout
-  layer, a sibling unit is reachable only through its declared entry; deeper paths
-  stay private. Shared code that does not belong to either unit moves downward.
+  never upstream, never the same layer through the alias inside its current module.
+- In Module → Layer → Unit topology, a module may import only itself and modules
+  transitively reachable through its `dependsOn` edges. Declaration order grants
+  no permission, and the inner layer flow must independently allow the import.
+- Same-layer dependencies inside the current module use relative paths, never the alias.
+  Across modules, a reachable same-layer dependency uses the alias so its module and
+  layer identity remain explicit. In a folder-layout layer, a sibling unit is reachable
+  only through its declared entry; deeper paths stay private. Shared code that does not
+  belong to either unit moves downward.
 - Relative imports stay inside the importer's declared **module and layer/position**.
   They never cross a module boundary. A module-root container may reference another
   direct container file only inside its own module, but reaches layer units through
@@ -59,7 +64,7 @@
 
 ## Before you commit
 
-- [ ] Imports follow the one-way flow (no upstream layers, same-layer aliases, or escaping relatives).
+- [ ] Imports pass the module DAG when configured and the one-way layer flow (no upstream layers, local same-layer aliases, or escaping relatives).
 - [ ] New code sits in the right layer and, when configured, module; folder units expose only their entry.
 - [ ] No new undeclared folders under the alias root.
 - [ ] Names follow the project's conventions (see the handbook).

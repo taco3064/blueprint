@@ -1,7 +1,5 @@
 import type { ESLint, Linter } from 'eslint';
-import { activeSetting,
-  aliasSpecifier,
-  resolveArchitecture } from '../../config';
+import { activeSetting, resolveArchitecture } from '../../config';
 import type { AliasRoot, Blueprint, ReadSetting } from '../../config';
 import { plugin } from '../../plugin';
 import {
@@ -22,9 +20,10 @@ import type {
   PackageRule,
 } from './types';
 import { buildGlobalRule, containerImportEntries } from './container';
+import { aliasSubtreeSpecifier, buildModuleContainerRestrictions, moduleImportScope }
+  from './structural';
 
 type Severity = 'error' | 'warn';
-type UnitLayout = 'folder' | 'file';
 
 /**
  * Compile a Blueprint's `architecture` into an ESLint flat config that
@@ -107,7 +106,7 @@ function layerImportEntries(
     severity: Severity;
     testGlobs: string[];
     aliases: AliasRoot[];
-    layouts: Record<string, UnitLayout>;
+    layouts: Record<string, 'folder' | 'file'>;
   },
 ): LintConfigEntry[] {
   const { framework, architecture } = blueprint;
@@ -130,31 +129,39 @@ function layerImportEntries(
     : [];
 
   return resolved.layerPositions.flatMap((position) => {
-    const layer = position.layer.definition;
-    const module = position.module?.name;
-    const files = resolved.layerFiles(layer.name, framework, module);
-
-    const forbidden = resolved.forbiddenLayers(layer.name);
-    const disabledPackages = packageRules.filter((rule) => !rule.allowedIn.includes(layer.name));
-    const disabledGlobals = globalRules.filter((rule) => !rule.allowedIn.includes(layer.name));
-
-    const selfOnlyTargets = resolved.selfOnlyTargets(layer.name);
+    const layer = position.layer.definition,
+      module = position.module?.name,
+      files = resolved.layerFiles(layer.name, framework, module),
+      forbidden = resolved.forbiddenLayers(layer.name),
+      disabledPackages = packageRules.filter((rule) => !rule.allowedIn.includes(layer.name)),
+      disabledGlobals = globalRules.filter((rule) => !rule.allowedIn.includes(layer.name)),
+      selfOnlyTargets = resolved.selfOnlyTargets(layer.name),
+      { targetModules, forbiddenModules } = moduleImportScope(resolved, module);
 
     const structural = buildStructuralPatterns({
       layer: layer.name,
       module,
+      targetModules,
+      forbiddenModules,
       aliases,
       forbidden,
       unitLayout: layouts[layer.name],
       folderTargets: folderLayers.filter(
-        (name) => name !== layer.name && !forbidden.includes(name),
+        (name) => name === layer.name ? module !== undefined : !forbidden.includes(name),
       ),
       fixtures,
     });
 
+    const containers = buildModuleContainerRestrictions(
+      aliases, targetModules, resolved.layerNames,
+    );
+
     const syntaxRules = selfOnlyTargets.flatMap((target) =>
-      aliases.flatMap((alias) => {
-        const specifier = aliasSpecifier(alias, module ? `${module}/${target}` : target);
+      (targetModules ?? [undefined]).flatMap((targetModule) => aliases.flatMap((alias) => {
+        const specifier = aliasSubtreeSpecifier(
+          alias,
+          targetModule ? `${targetModule}/${target}` : target,
+        );
 
         return specifier === null
           ? []
@@ -162,7 +169,7 @@ function layerImportEntries(
               selector: selfOnlyReexportSelector(specifier),
               message: `\n🚫 Cannot re-export from "${target}" — a selfOnly dependency must not be exposed to callers.`,
             }];
-      }),
+      })),
     );
 
     const buildRules = (packages: PackageRule[]): Linter.RulesRecord => {
@@ -173,7 +180,12 @@ function layerImportEntries(
         ...(layer.lintOverrides as Linter.RulesRecord),
         'no-restricted-imports': [
           severity,
-          { patterns: [...structural, ...patterns], ...(paths.length ? { paths } : {}) },
+          {
+            patterns: [...structural, ...containers.patterns, ...patterns],
+            ...([...containers.paths, ...paths].length
+              ? { paths: [...containers.paths, ...paths] }
+              : {}),
+          },
         ],
         ...(syntaxRules.length ? { 'no-restricted-syntax': [severity, ...syntaxRules] } : {}),
         ...buildGlobalRule(disabledGlobals, severity),

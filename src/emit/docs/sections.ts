@@ -41,14 +41,19 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
         '### Modules',
         '',
         table(
-          ['Module', 'Responsibility'],
+          ['Module', 'Responsibility', 'Direct dependencies'],
           resolved.modules.map((module) => [
             `\`${module.name}\``,
             escapeCell(module.definition.does),
+            module.dependsOn.length
+              ? module.dependsOn.map((dependency) => `\`${dependency}\``).join(', ')
+              : '—',
           ]),
         ),
         '',
-        'Every module reuses the shared layer contract below; an absent layer folder is runway.',
+        'Every module reuses the shared layer contract below. Module dependencies are transitive: '
+        + 'a module may import itself and every downstream module reachable through `dependsOn`; '
+        + 'declaration order grants no permission. An absent layer folder is runway.',
         '',
       ]
     : [];
@@ -57,7 +62,8 @@ export function renderArchitecture(architecture: ArchitectureDef): string {
     '## Architecture',
     '',
     'Code flows one way: each layer may import only from the layers below it. '
-    + 'Upstream imports and same-layer imports through the alias are barred.',
+    + `Upstream imports and ${resolved.topology === 'module-first' ? 'same-module ' : ''}`
+    + 'same-layer imports through the alias are barred.',
     '',
     emitFlowDiagram(architecture),
     '',
@@ -102,10 +108,18 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   const bullets = [
     '- **One-way only** — a layer imports only from the layers below it; '
     + 'upstream imports are errors.',
-    '- **No same-layer imports via the alias** — use a relative path. File units may '
+    `- **No ${resolved.topology === 'module-first' ? 'same-module ' : ''}`
+    + 'same-layer imports via the alias** — use a relative path. File units may '
     + 'reach sibling files; folder units may reach a sibling only through its entry. '
     + 'Extract shared logic down to a lower layer when neither unit owns it.',
   ];
+
+  if (resolved.topology === 'module-first') {
+    bullets.unshift(
+      '- **Module reachability** — a module may import only itself and modules reachable through '
+      + 'its declared `dependsOn` edges. The inner layer flow must also allow the import.',
+    );
+  }
 
   const folderEntries = [
     ...new Set(

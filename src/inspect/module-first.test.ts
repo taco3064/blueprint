@@ -10,7 +10,7 @@ const blueprint = defineBlueprint({
   architecture: {
     alias: '~app',
     modules: [
-      { name: 'auth', does: 'identity application' },
+      { name: 'auth', does: 'identity application', dependsOn: ['shop'] },
       { name: 'shop', does: 'commerce application' },
     ],
     layers: [
@@ -78,7 +78,7 @@ describe('inspect consumers · module-first topology', () => {
     ]));
   });
 
-  it('applies layer flow within a module and leaves cross-module alias policy to #435', () => {
+  it('applies layer flow within and across reachable modules', () => {
     const within = analyze(scan([
       file(['auth', 'hooks', 'useAuth.ts'], ['~app/auth/components/Login']),
     ]), blueprint);
@@ -88,7 +88,10 @@ describe('inspect consumers · module-first topology', () => {
     ]), blueprint);
 
     expect(within.map((finding) => finding.rule)).toContain('flow-violation');
-    expect(across.map((finding) => finding.rule)).not.toContain('flow-violation');
+    expect(across.map((finding) => finding.rule)).toContain('flow-violation');
+
+    expect(across.find((finding) => finding.rule === 'flow-violation')?.message)
+      .toContain('inner flow forbids "hooks" → "components"');
   });
 
   it('handles an alias root and catches same-module deep and relative reaches', () => {
@@ -103,7 +106,9 @@ describe('inspect consumers · module-first topology', () => {
     expect(findings.filter((finding) => finding.rule === 'deep-import')).toHaveLength(1);
     expect(findings.filter((finding) => finding.rule === 'relative-escape')).toHaveLength(1);
   });
+});
 
+describe('inspect graph consumers · module-first topology', () => {
   it('keeps repeated layer units distinct in the dependency graph', () => {
     const graph = buildUnitGraph(scan([
       file(['auth', 'components', 'Panel', 'index.tsx'], ['~app/auth/services/api']),

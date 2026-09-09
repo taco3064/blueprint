@@ -11,7 +11,7 @@ const blueprint: Blueprint = {
     layerFilesIgnore: 'src/**/*.gen.ts',
     modules: [
       { name: 'auth', does: 'authentication' },
-      { name: 'shop', does: 'commerce' },
+      { name: 'shop', does: 'commerce', dependsOn: ['auth'] },
     ],
     layers: [
       { name: 'views', does: 'pages', layout: 'folder', entry: 'index' },
@@ -72,5 +72,62 @@ describe('wiringCheck · module-first topology', () => {
 
     expect(expected.selectors).toEqual(new Set());
     expect(expected.globals).toEqual(new Set(['fetch']));
+  });
+
+  it('models module reachability in layer and container wiring expectations', () => {
+    const layer = expectedStructural(blueprint, 'views', 'shop');
+    const container = expectedContainerStructural(blueprint, 'auth');
+
+    expect([...layer.groups].some((group) => group.includes('~app/auth/contexts'))).toBe(true);
+
+    expect(layer.paths).toEqual(new Set(['~app/shop', '~shop', '~app/auth']));
+
+    expect([...layer.selectors].some((selector) => selector.includes('auth')))
+      .toBe(true);
+
+    expect([...container.groups].some((group) => group.includes('~app/shop/**'))).toBe(true);
+  });
+
+  it('recognizes surviving module graph paths in the resolved config', async () => {
+    const expected = blueprint.architecture.modules!.flatMap((module) => [
+      expectedContainerStructural(blueprint, module.name),
+      ...blueprint.architecture.layers.map((layer) =>
+        expectedStructural(blueprint, layer.name, module.name)),
+    ]);
+
+    const groups = new Set(expected.flatMap((entry) => [...entry.groups]));
+    const paths = new Set(expected.flatMap((entry) => [...entry.paths]));
+    const selectors = new Set(expected.flatMap((entry) => [...entry.selectors]));
+    const globals = new Set(expected.flatMap((entry) => [...entry.globals]));
+
+    const result = await wiringCheck({
+      root: '/repo',
+      blueprint,
+      scanResult: { topDirs: [], files: [] },
+      wired: true,
+      merged: true,
+      hasTypescript: true,
+      load: async () => ({
+        ESLint: class {
+          calculateConfigForFile(): unknown {
+            return {
+              rules: {
+                'blueprint/relative-escape': 'error',
+                'no-restricted-imports': [2, {
+                  patterns: [...groups].map((group) => ({
+                    group: JSON.parse(group) as string[],
+                  })),
+                  paths: [...paths].map((name) => ({ name })),
+                }],
+                'no-restricted-syntax': [2, ...selectors],
+                'no-restricted-globals': [2, ...globals],
+              },
+            };
+          }
+        },
+      }),
+    });
+
+    expect(result.check.ok).toBe(true);
   });
 });

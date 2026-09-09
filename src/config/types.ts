@@ -56,6 +56,8 @@ export interface ModuleDef {
   name: string;
   /** One-line responsibility — what the module owns. */
   does: string;
+  /** Direct module dependencies. Transitive downstream modules are also importable. */
+  dependsOn?: string[];
 }
 
 /** One layer in the architecture — its responsibility and its boundaries. */

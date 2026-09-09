@@ -32,6 +32,8 @@ describe('Blueprint 4.0 architecture validation', () => {
 
     expect(contract).toContain('Module → Layer → Unit');
     expect(contract).toContain('Folder-layout units');
+    expect(contract).toContain('Same-layer dependencies inside the current module use relative');
+    expect(contract).toContain('Across modules, a reachable same-layer dependency uses the alias');
     expect(contract).not.toMatch(/Folder-layout modules|layer\/module|module inside one|module shapes/);
   });
 
@@ -150,5 +152,52 @@ describe('Blueprint 4.0 architecture validation', () => {
 
     config.architecture.modules![1].name = 'AUTH';
     expect(() => validateBlueprint(config)).toThrow(/same source-root folder/);
+  });
+});
+
+describe('Blueprint 4.0 module dependency validation', () => {
+  it('accepts omitted and declared module dependencies regardless of declaration order', () => {
+    const config = blueprint();
+
+    config.architecture.modules = [
+      { name: 'checkout', does: 'checkout', dependsOn: ['auth'] },
+      { name: 'auth', does: 'authentication' },
+    ];
+
+    expect(validateBlueprint(config)).toBe(config);
+  });
+
+  it.each([
+    ['unknown target', ['missing'], /depends on unknown module "missing"/],
+    ['self dependency', ['auth'], /cannot depend on itself/],
+    ['duplicate edge', ['checkout', 'checkout'], /direct dependency "checkout" more than once/],
+    ['blank target', [' '], /dependsOn entry with no module name/],
+    ['non-string target', [4], /dependsOn entry with no module name/],
+  ])('rejects a module dependency with %s', (_label, dependsOn, expected) => {
+    const config = blueprint();
+
+    config.architecture.modules![0].dependsOn = dependsOn as string[];
+
+    expect(() => validateBlueprint(config)).toThrow(expected);
+  });
+
+  it('rejects a non-array module dependency declaration', () => {
+    const config = blueprint();
+
+    config.architecture.modules![0].dependsOn = 'checkout' as never;
+
+    expect(() => validateBlueprint(config)).toThrow(/dependsOn must be an array/);
+  });
+
+  it('rejects dependency cycles and names the complete path', () => {
+    const config = blueprint();
+
+    config.architecture.modules = [
+      { name: 'a', does: 'a', dependsOn: ['b'] },
+      { name: 'b', does: 'b', dependsOn: ['c'] },
+      { name: 'c', does: 'c', dependsOn: ['a'] },
+    ];
+
+    expect(() => validateBlueprint(config)).toThrow(/a → b → c → a/);
   });
 });
