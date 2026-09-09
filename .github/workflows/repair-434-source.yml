@@ -22,17 +22,7 @@ jobs:
       - run: npm ci
       - name: Apply source migration
         run: |
-          node - <<'NODE'
-          const fs = require('node:fs');
-          const p = 'scripts/repair-434-source.mjs';
-          let s = fs.readFileSync(p, 'utf8');
-          s = s.replace(
-            'const to = source.indexOf(next, from + start.length);',
-            'const to = next ? source.indexOf(next, from + start.length) : source.length;',
-          );
-          fs.writeFileSync(p, s);
-          NODE
-          node scripts/repair-434-source.mjs
+          python3 scripts/repair-434-source.py
           npm run lint -- --fix || true
           npm run tsc || true
       - name: Commit source repairs
