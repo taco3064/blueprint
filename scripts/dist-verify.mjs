@@ -30,7 +30,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const failures = [];
 const temps = [];
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 async function check(what, fn) {
   try {
@@ -61,6 +60,16 @@ function runCmd(command, args, options = {}) {
     code: result.status,
     output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
   };
+}
+
+function runNpm(args, options = {}) {
+  if (process.env.npm_execpath) {
+    return runCmd(process.execPath, [process.env.npm_execpath, ...args], options);
+  }
+
+  return process.platform === 'win32'
+    ? runCmd(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', 'npm', ...args], options)
+    : runCmd('npm', args, options);
 }
 
 function tempDir(prefix) {
@@ -175,7 +184,7 @@ await check('`inspect` reddens on a real violation, through the bundle', () => {
 await check('a packed install parses TS and Vue dynamic imports with its own dependencies', () => {
   const packDir = tempDir('bp-dist-pack-');
   const fixture = tempDir('bp-dist-installed-');
-  const packed = runCmd(npmCommand, ['pack', '--json', '--pack-destination', packDir], { cwd: root });
+  const packed = runNpm(['pack', '--json', '--pack-destination', packDir], { cwd: root });
 
   expect(packed.code === 0, `npm pack exited ${packed.code}\n${packed.output}`);
 
@@ -193,8 +202,7 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
 
   fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(manifest));
 
-  const installed = runCmd(
-    npmCommand,
+  const installed = runNpm(
     ['install', '--ignore-scripts', '--no-audit', '--no-fund'],
     { cwd: fixture },
   );
