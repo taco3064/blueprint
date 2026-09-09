@@ -1,91 +1,63 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, expect } from 'vitest';
 import type { Blueprint } from '../config';
-import { emitLint } from '../emit/lint';
-import { run } from '../cli';
 
-export interface CliResult {
-  code: number;
-  output: string;
-}
+const ROOT = fileURLToPath(new URL('../../', import.meta.url));
+const FIXTURES = path.join(ROOT, 'src', 'conformance', 'fixtures');
+const TEST_ROOT = path.join(os.tmpdir(), 'blueprint-conformance');
 
-export async function cli(dir: string, argv: string[]): Promise<CliResult> {
-  const lines: string[] = [];
-  const log = console.log;
-  const error = console.error;
+let cwd = '';
 
-  console.log = (message?: unknown) => void lines.push(String(message));
-  console.error = (message?: unknown) => void lines.push(String(message));
+beforeEach(() => {
+  cwd = fs.mkdtempSync(`${TEST_ROOT}-`);
+});
 
-  try {
-    return { code: await run(argv, dir), output: lines.join('\n') };
-  } finally {
-    console.log = log;
-    console.error = error;
+afterEach(() => {
+  if (cwd) {
+    fs.rmSync(cwd, { recursive: true, force: true });
   }
+});
+
+export function fixture(name: string): string {
+  return path.join(FIXTURES, name);
 }
 
-export interface RepoSpec {
-  packageJson?: Record<string, unknown>;
-  files?: Record<string, string>;
+export function tempRoot(): string {
+  return cwd;
 }
 
-export function makeRepo(spec: RepoSpec = {}): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-conformance-'));
+export function write(relative: string, content: string): void {
+  const target = path.join(cwd, relative);
 
-  fs.writeFileSync(
-    path.join(dir, 'package.json'),
-    JSON.stringify(spec.packageJson ?? { name: 'fixture' }),
-  );
-
-  for (const [rel, content] of Object.entries(spec.files ?? {})) {
-    write(dir, rel, content);
-  }
-
-  return dir;
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, content);
 }
 
-export function write(dir: string, rel: string, content: string): void {
-  const full = path.join(dir, rel);
-
-  fs.mkdirSync(path.dirname(full), { recursive: true });
-  fs.writeFileSync(full, content);
+export function read(relative: string): string {
+  return fs.readFileSync(path.join(cwd, relative), 'utf8');
 }
 
-export function read(dir: string, rel: string): string | null {
-  try {
-    return fs.readFileSync(path.join(dir, rel), 'utf-8');
-  } catch {
-    return null;
-  }
+export function exists(relative: string): boolean {
+  return fs.existsSync(path.join(cwd, relative));
 }
 
-export function flattenProse(text: string): string {
-  return text.replace(/\s+/g, ' ');
+export function copyFixture(name: string): void {
+  fs.cpSync(fixture(name), cwd, { recursive: true });
 }
 
-export function rm(dir: string): void {
-  fs.rmSync(dir, { recursive: true, force: true });
+export function expectFile(relative: string): void {
+  expect(exists(relative), `${relative} should exist`).toBe(true);
 }
 
-export function configSource(blueprint: Blueprint): string {
-  return `export default ${JSON.stringify(blueprint)};\n`;
+export function expectNoFile(relative: string): void {
+  expect(exists(relative), `${relative} should not exist`).toBe(false);
 }
 
-export function wiredEslintConfig(blueprint: Blueprint, extraEntries = ''): string {
-  const entries = emitLint(blueprint).map((entry) => {
-    const { plugins, ...rest } = entry;
-
-    return plugins
-      ? `{ ...${JSON.stringify(rest)}, plugins: { blueprint: stub } }`
-      : JSON.stringify(rest);
-  });
-
+export function eslintConfig(entries: string[], extraEntries = ''): string {
   return [
-    '// wired from @kekkai/blueprint emitLint — inlined for the conformance fixture',
-
     'const stub = { rules: { \'relative-escape\': {',
     '  meta: { schema: [{ type: \'object\', additionalProperties: true }] },',
     '  create: () => ({}),',
@@ -112,7 +84,6 @@ export const reactBlueprint: Blueprint = {
       { name: 'components', does: 'render UI' },
       { name: 'services', does: 'data access' },
     ],
-    module: { layout: 'flat', entry: 'index', private: [] },
   },
   rules: { unusedVars: 'error' },
 };
