@@ -23,6 +23,7 @@ jobs:
       - name: Apply source migration
         run: |
           python3 scripts/repair-434-source.py
+          python3 scripts/repair-434-structure.py
           npm run lint -- --fix || true
           npm run tsc || true
       - name: Commit source repairs
