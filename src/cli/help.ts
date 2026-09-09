@@ -182,7 +182,7 @@ const DEPS_HELP = [
   '  · Only units in the declared topology are in the graph — folders',
   '    outside them are listed as skipped, never silently ignored.',
   '  · A `folder`-layout layer answers per unit; a `file`-layout layer',
-  '    (e.g. a Next route tree) collapses to one node — layer granularity.',
+  '    (e.g. styles in organizational folders) collapses to one node — layer granularity.',
   '  · Test files are excluded; only alias + relative imports form edges.',
   '    The exclusion holds as far as the globs reach: a scanned test no declared',
   '    glob matches is ordinary source on both sides, so its import counts.',
