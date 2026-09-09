@@ -152,7 +152,8 @@ function validateLayers(layers: LayerDef[]): void {
     validateLayerName(layer, names);
     rejectUnknownKeys(layer, LAYER_KEYS, `layer "${layer.name}"`);
     validateOwns(layer);
-    validateLayerModule(layer);
+    rejectRetiredLayerShape(layer);
+    validateLayerUnit(layer);
     validateLintOverrides(layer);
 
     validateAllowedImporters(layer, names);
@@ -241,12 +242,27 @@ function validateAdditionalAliases(aliases: Record<string, string> | undefined):
   }
 }
 
-function validateLayerFiles(layerFiles: string | string[] | undefined): void {
+function validateLayerFiles(
+  layerFiles: string | string[] | undefined,
+  moduleFirst: boolean,
+): void {
   const globs = layerFiles === undefined ? [] : [layerFiles].flat();
 
   for (const glob of globs) {
     if (!LAYER_PLACEHOLDER.test(glob)) {
       throw new Error(`layerFiles entry "${glob}" must include the "{layer}" placeholder.`);
+    }
+
+    if (moduleFirst && !MODULE_PLACEHOLDER.test(glob)) {
+      throw new Error(
+        `module-first layerFiles entry "${glob}" must include both "{module}" and "{layer}" placeholders.`,
+      );
+    }
+
+    if (!moduleFirst && MODULE_PLACEHOLDER.test(glob)) {
+      throw new Error(
+        `layer-first layerFiles entry "${glob}" must not include "{module}" — omit architecture.modules or remove that placeholder.`,
+      );
     }
   }
 }
