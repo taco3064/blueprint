@@ -31,7 +31,7 @@ function migrateFile(file) {
     next = next.slice(0, edit.start) + edit.text + next.slice(edit.end);
   }
 
-  fs.writeFileSync(file, next);
+  fs.writeFileSync(file, wrapLongLayerLiterals(next));
 
   function visit(node) {
     if (ts.isObjectLiteralExpression(node)) {
@@ -171,6 +171,26 @@ function migrateFile(file) {
       source,
     );
   }
+}
+
+function wrapLongLayerLiterals(content) {
+  return content
+    .replace(
+      /^(\s*)\{ name: 'components', does: 'UI', mustNot: \['import services'\], owns: \['clsx'\], layout: 'folder' \},$/gm,
+      (_, indent) => `${indent}{\n${indent}  name: 'components',\n${indent}  does: 'UI',\n${indent}  mustNot: ['import services'],\n${indent}  owns: ['clsx'],\n${indent}  layout: 'folder',\n${indent}},`,
+    )
+    .replace(
+      /^(\s*)\{ name: 'hooks', does: 'state', owns: \[\{ package: 'react', imports: \['useContext'\] \}\], layout: 'folder' \},$/gm,
+      (_, indent) => `${indent}{\n${indent}  name: 'hooks',\n${indent}  does: 'state',\n${indent}  owns: [{ package: 'react', imports: ['useContext'] }],\n${indent}  layout: 'folder',\n${indent}},`,
+    )
+    .replace(
+      /^(\s*)\{ name: 'services', does: '', owns: \[\{ package: 'axios', exempt: \['\*\*\/\*\.gen\.ts'\] \}\], layout: 'folder' \},$/gm,
+      (_, indent) => `${indent}{\n${indent}  name: 'services',\n${indent}  does: '',\n${indent}  owns: [{ package: 'axios', exempt: ['**/*.gen.ts'] }],\n${indent}  layout: 'folder',\n${indent}},`,
+    )
+    .replace(
+      /^(\s*)layers: \[\{ name: 'components', does: '', layout: 'folder' \}, \{ name: 'hooks', does: '', layout: 'folder' \}\],$/gm,
+      (_, indent) => `${indent}layers: [\n${indent}  { name: 'components', does: '', layout: 'folder' },\n${indent}  { name: 'hooks', does: '', layout: 'folder' },\n${indent}],`,
+    );
 }
 
 function property(node, name) {
