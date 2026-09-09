@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'scripts/implement-434-v2-fix3.mjs'
+      - 'scripts/implement-434-v2-fix3b.mjs'
       - '.github/workflows/implement-434-v2.yml'
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: node scripts/implement-434-v2-fix3.mjs
+      - run: node scripts/implement-434-v2-fix3b.mjs
       - name: Commit generated implementation
         shell: bash
         run: |
