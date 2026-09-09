@@ -121,7 +121,10 @@ function importFindings(
   const resolved = resolveArchitecture(architecture);
   const position = resolved.classify(file.segments);
 
-  if (!position || (position.kind !== 'container' && !('layer' in position))) {
+  if (!position
+    || (position.kind !== 'source-root'
+      && position.kind !== 'container'
+      && !('layer' in position))) {
     return [];
   }
 
@@ -136,7 +139,7 @@ function importFindings(
     selfOnly: fileLayer === null ? [] : resolved.selfOnlyTargets(fileLayer),
     layoutOf: layoutResolver(architecture),
     entryOf: entryResolver(architecture),
-    module: position.module?.name ?? null,
+    module: 'module' in position ? position.module?.name ?? null : null,
     layer: fileLayer,
   };
 
@@ -167,6 +170,10 @@ function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext):
       layoutOf: context.layoutOf,
       selfOnly: context.selfOnly,
     });
+  }
+
+  if (context.position.kind === 'source-root') {
+    return [];
   }
 
   if (ref.specifier.startsWith('.')) {

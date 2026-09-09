@@ -53,7 +53,7 @@ function deepImportFindings(
   targetPosition: ResolvedSourcePosition,
   at: { path: string; subject: string },
 ): Finding[] {
-  const deepAt = scope.importerModule === null ? 3 : 4;
+  const deepAt = scope.targetModule === null ? 3 : 4;
 
   return 'layer' in targetPosition
     && scope.layoutOf(scope.target) === 'folder'
