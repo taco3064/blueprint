@@ -52,6 +52,25 @@ function inspectDiagnosisClause(gates: string): string {
     + 'edit-time prevention and a green lint says nothing about it';
 }
 
+function appendMachineGateBullets(
+  bullets: string[],
+  blueprint: Blueprint,
+  stack: StackFacts,
+): void {
+  for (const [id, setting] of emittableGates(blueprint, stack)) {
+    const held = enforcedBy(id);
+    const gate = gateLabel([id, setting]);
+
+    if (held === 'lint') {
+      bullets.push(`- ${gate} is a hard gate.`);
+    }
+
+    if (held === 'inspect') {
+      bullets.push(`- ${inspectDiagnosisClause(gate)}.`);
+    }
+  }
+}
+
 export function renderHeader(): string {
   return [
     '## Architecture contract (generated from blueprint)',
@@ -91,10 +110,8 @@ export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = 
     + `and the pre-commit checklist: read [${CONTRACT_DOC}](${CONTRACT_DOC}) `
     + '(ships inside the package — present once dependencies are installed, '
     + 'always matching the installed version).',
-
     `- Hard gates (machine-enforced on the files the layer globs match — a layer holding no code has nothing failing yet, which is runway, not protection): one-way imports, unit entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectDiagnosisClause(inspectGates.join(', '))}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
-
-    `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a module of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.`,
+    `- You are the gate for: no undeclared folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Its finding names two remedies and only one is yours: move the code into a unit of an existing layer. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never declare the layer yourself.`,
   ].join('\n');
 }
 
@@ -203,19 +220,7 @@ export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): s
     + '(`./../`, `././`).',
   );
 
-  for (const [id, setting] of emittableGates(blueprint, stack)) {
-    const held = enforcedBy(id);
-    const gate = gateLabel([id, setting]);
-
-    if (held === 'lint') {
-      bullets.push(`- ${gate} is a hard gate.`);
-    }
-
-    if (held === 'inspect') {
-      bullets.push(`- ${inspectDiagnosisClause(gate)}.`);
-    }
-  }
-
+  appendMachineGateBullets(bullets, blueprint, stack);
   bullets.push('- When lint fails, fix the structure — never silence it with `eslint-disable`.');
 
   return ['### Machine checks', '', ...bullets].join('\n');
@@ -248,8 +253,12 @@ export function renderBehavioral(
   principles: PrincipleDef[] | undefined,
   rules: Record<string, RuleSetting> | undefined,
 ): string {
+  const resolved = resolveArchitecture(architecture);
+  const placementRule = resolved.moduleFirst
+    ? `- Do not create undeclared module folders under \`${architecture.alias}/\`. Every governed source-root folder must be declared in \`architecture.modules\`. (lint can't see this — inspect will.)`
+    : `- Do not create undeclared folders under \`${architecture.alias}/\`. Every folder is a declared layer or a unit inside one. (lint can't see this — inspect will.)`;
   const bullets = [
-    `- Do not create undeclared folders under \`${architecture.alias}/\`. Every folder is a declared layer or a module inside one. (lint can't see this — inspect will.) Inspect offers to declare the folder instead; that one is not yours. Outgrowing the config is the owner's call to make — report it, do not edit the architecture to fit what you just wrote.`,
+    placementRule,
     ...claudePrinciples(principles).map(
       (principle) => `- **${principle.say}** — ${principle.why}`,
     ),
