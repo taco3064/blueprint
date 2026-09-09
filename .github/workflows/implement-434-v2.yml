@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'scripts/implement-434-v2-fix1.mjs'
+      - 'scripts/implement-434-v2-fix2.mjs'
       - '.github/workflows/implement-434-v2.yml'
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: node scripts/implement-434-v2-fix1.mjs
+      - run: node scripts/implement-434-v2-fix2.mjs
       - name: Commit generated implementation
         shell: bash
         run: |
@@ -35,5 +35,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          HUSKY=0 git commit -m 'fix: complete #434 validator migration'
+          HUSKY=0 git commit -m 'refactor: migrate #434 enforcement to unit shape'
           HUSKY=0 git push origin HEAD:${{ github.head_ref }}
