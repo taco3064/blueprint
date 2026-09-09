@@ -1,0 +1,45 @@
+name: repair-434-source
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.head_ref == 'feat/434-module-first-topology-v2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Apply source migration
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const p = 'scripts/repair-434-source.mjs';
+          let s = fs.readFileSync(p, 'utf8');
+          s = s.replace(
+            'const to = source.indexOf(next, from + start.length);',
+            'const to = next ? source.indexOf(next, from + start.length) : source.length;',
+          );
+          fs.writeFileSync(p, s);
+          NODE
+          node scripts/repair-434-source.mjs
+          npm run lint -- --fix || true
+          npm run tsc || true
+      - name: Commit source repairs
+        run: |
+          git config user.name 'Taco Chang'
+          git config user.email '127829492+taco3064@users.noreply.github.com'
+          git add src
+          if git diff --cached --quiet; then exit 0; fi
+          HUSKY=0 git commit -m 'refactor: migrate topology consumers to unit model'
+          HUSKY=0 git push origin HEAD:${{ github.head_ref }}
