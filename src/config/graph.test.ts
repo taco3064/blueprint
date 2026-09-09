@@ -5,9 +5,8 @@ import {
   aliasSpecifier,
   getDiagramEdges,
   getForbiddenLayers,
-  getModuleShape,
   getSelfOnlyTargets,
-  getSharedModule,
+  getUnitShape,
   normalizeAllowedImporters,
 } from './graph';
 import type { ArchitectureDef } from './types';
@@ -16,7 +15,7 @@ function arch(): ArchitectureDef {
   return {
     alias: '~app',
     layers: [
-      { name: 'pages', does: '' },
+      { name: 'pages', does: '', layout: 'folder', entry: 'index' },
       { name: 'components', does: '' },
       { name: 'hooks', does: '' },
       {
@@ -26,7 +25,6 @@ function arch(): ArchitectureDef {
       },
       { name: 'services', does: '', allowedImporters: ['hooks', 'contexts'] },
     ],
-    module: { layout: 'folder', entry: 'index', private: [] },
   };
 }
 
@@ -36,11 +34,11 @@ describe('aliasLayerRoots', () => {
     const roots = aliasLayerRoots({
       ...arch(),
       additionalAliases: {
-        '~root': '.', // repo root — layers reachable through src/
-        '~src': './src', // the source root itself — no offset
-        '~shared': './src/shared', // one layer below the source root
-        '~vendor': '/vendor', // outside — no layer surface
-        '~up': '../elsewhere', // .. never matches
+        '~root': '.',
+        '~src': './src',
+        '~shared': './src/shared',
+        '~vendor': '/vendor',
+        '~up': '../elsewhere',
       },
     });
 
@@ -64,7 +62,7 @@ describe('aliasLayerRoots', () => {
 });
 
 describe('aliasSpecifier', () => {
-  it('resolves legacy strings, ancestor aliases, and layer aliases', () => {
+  it('resolves legacy strings, ancestor aliases, and aliases below sourceRoot', () => {
     expect(aliasSpecifier('~app', 'shared')).toBe('~app/shared');
 
     expect(aliasSpecifier({ alias: '~root', prefix: ['src'] }, 'shared'))
@@ -76,23 +74,28 @@ describe('aliasSpecifier', () => {
     expect(aliasSpecifier({ alias: '~shared', prefix: [], prepend: ['shared'] }, 'app'))
       .toBeNull();
   });
+
+  it('includes declared module identity for module-first aliases', () => {
+    expect(aliasSpecifier('~app', 'hooks', 'auth')).toBe('~app/auth/hooks');
+    expect(aliasSpecifier({ alias: '~auth', prefix: [], prepend: ['auth'] }, 'hooks', 'auth'))
+      .toBe('~auth/hooks');
+    expect(aliasSpecifier({ alias: '~auth', prefix: [], prepend: ['auth'] }, 'hooks', 'checkout'))
+      .toBeNull();
+  });
 });
 
-describe('getSharedModule', () => {
-  it('applies the flat defaults when module (or any key) is absent (field #23)', () => {
-    const bare: ArchitectureDef = arch();
+describe('getUnitShape', () => {
+  it('defaults every layer to file units with an index entry', () => {
+    expect(getUnitShape(arch(), 'components')).toEqual({ layout: 'file', entry: 'index' });
+  });
 
-    delete bare.module;
+  it('resolves per-layer folder and entry configuration', () => {
+    expect(getUnitShape(arch(), 'pages')).toEqual({ layout: 'folder', entry: 'index' });
 
-    expect(getSharedModule(bare)).toEqual({ layout: 'flat', entry: 'index', private: [] });
-    expect(getModuleShape(bare, 'pages')).toEqual({ layout: 'flat', entry: 'index' });
+    const custom = arch();
 
-    // A partial declaration keeps the untouched keys at their defaults.
-    expect(getSharedModule({ ...bare, module: { layout: 'folder' } }))
-      .toEqual({ layout: 'folder', entry: 'index', private: [] });
-
-    // A full declaration passes through unchanged.
-    expect(getSharedModule(arch())).toEqual({ layout: 'folder', entry: 'index', private: [] });
+    custom.layers[2] = { ...custom.layers[2], layout: 'folder', entry: 'public' };
+    expect(getUnitShape(custom, 'hooks')).toEqual({ layout: 'folder', entry: 'public' });
   });
 });
 
@@ -109,7 +112,6 @@ describe('normalizeAllowedImporters', () => {
 
 describe('getForbiddenLayers', () => {
   it('forbids upstream layers and restricted layers that exclude the importer', () => {
-    // components may reach hooks (default) but not contexts/services (restricted, exclude it)
     expect(getForbiddenLayers(arch(), 'components').sort()).toEqual([
       'contexts',
       'pages',
@@ -118,7 +120,6 @@ describe('getForbiddenLayers', () => {
   });
 
   it('allows a listed importer through to a restricted layer', () => {
-    // hooks is listed on both contexts and services → only upstream is forbidden
     expect(getForbiddenLayers(arch(), 'hooks').sort()).toEqual(['components', 'pages']);
   });
 
@@ -137,7 +138,6 @@ describe('getSelfOnlyTargets', () => {
 describe('getDiagramEdges', () => {
   it('draws the adjacent spine for default layers and explicit edges for restricted ones', () => {
     expect(getDiagramEdges(arch())).toEqual([
-      // Spine edges carry `ordered` — adjacency, not a declared relation.
       { from: 'pages', to: 'components', ordered: true },
       { from: 'components', to: 'hooks', ordered: true },
       { from: 'hooks', to: 'contexts', selfOnly: true, description: 'Context only' },
@@ -149,10 +149,6 @@ describe('getDiagramEdges', () => {
 
 describe('aliasLayerRoots · an alias target with a trailing slash', () => {
   it('ignores the empty segment a trailing slash leaves behind', () => {
-    // A trailing slash is invisible in a config and survives a copy-paste. Kept
-    // as a segment, it becomes part of the layer offset — and an offset with an
-    // empty component matches no path that exists, so the alias goes blind to
-    // every layer behind it.
     const roots = aliasLayerRoots({ ...arch(), additionalAliases: { '~trail': './src/' } });
 
     expect(roots.find((root) => root.alias === '~trail')).toEqual({ alias: '~trail', prefix: [] });
