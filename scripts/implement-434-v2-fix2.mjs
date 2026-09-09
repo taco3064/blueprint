@@ -26,7 +26,7 @@ replaceAll('src/plugin/relative-escape.ts', [
   ["additionalProperties: { enum: ['folder', 'flat'] }", "additionalProperties: { enum: ['folder', 'file'] }"],
   ["layouts?: Record<string, 'folder' | 'flat'>;", "layouts?: Record<string, 'folder' | 'file'>;"],
   ["const layoutOf = (layer: string): 'folder' | 'flat' => layouts[layer] ?? 'flat';", "const layoutOf = (layer: string): 'folder' | 'file' => layouts[layer] ?? 'file';"],
-  ["what lives behind it is that module's own business.", "what lives behind it is that unit's own business."],
+  ["what lives behind it is that module\\'s own business.", "what lives behind it is that unit\\'s own business."],
 ]);
 
 replaceAll('src/plugin/relative.ts', [
