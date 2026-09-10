@@ -255,10 +255,11 @@ describe('runTransformationPreflight · real Git controls', () => {
     expect(plain.head.ok).toBe(false);
 
     initRepository();
+    const repositoryRoot = git(root, 'rev-parse', '--show-toplevel');
 
     const unborn = await runTransformationPreflight(root, ['.'], { inspect: inspected });
 
-    expect(unborn.repository).toEqual({ ok: true, root });
+    expect(unborn.repository).toEqual({ ok: true, root: repositoryRoot });
     expect(unborn.worktree).toEqual({ ok: true, changes: [] });
     expect(unborn.head.ok).toBe(false);
   });
@@ -283,11 +284,12 @@ describe('runTransformationPreflight · real Git controls', () => {
       write('src/undeclared/value.ts', 'export const value = 1;\n');
       initRepository();
       const head = commitAll();
+      const repositoryRoot = git(root, 'rev-parse', '--show-toplevel');
 
       const result = await runTransformationPreflight(root, ['.']);
 
       expect(result.ok).toBe(true);
-      expect(result.repository).toEqual({ ok: true, root });
+      expect(result.repository).toEqual({ ok: true, root: repositoryRoot });
       expect(result.worktree).toEqual({ ok: true, changes: [] });
       expect(result.head).toEqual({ ok: true, commit: head });
       expect(result.inspection.ok).toBe(true);
