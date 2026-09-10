@@ -63,7 +63,12 @@ describe('module-first to layer-first mapping evidence', () => {
     const survey = runSurvey(root, { sourceRoot: 'src', log: () => {} });
 
     const result = collectModuleToLayerEvidence({
-      root, survey, architecture: architecture(), nextAppRouter: false,
+      root,
+      survey,
+      architecture: architecture({
+        additionalAliases: { '@domain': 'src/auth', '@shared': 'src/shared' },
+      }),
+      nextAppRouter: false,
     });
 
     expect(result.rootWiring).toEqual(['main.ts']);
@@ -111,6 +116,26 @@ describe('module-first to layer-first mapping evidence', () => {
       { name: 'hooks', layout: 'file', entry: 'index' },
       { name: 'services', layout: 'folder', entry: 'index' },
     ]);
+
+    expect(result.aliasCutovers).toEqual([{
+      alias: '@domain',
+      target: 'src/auth',
+      disposition: 'rewrite-or-remove',
+      mappedDestinations: [
+        'src/components/Form/index.ts',
+        'src/containers/auth/AuthRoot.ts',
+        'src/hooks/useSession.ts',
+      ],
+    }, {
+      alias: '@shared',
+      target: 'src/shared',
+      disposition: 'preserve',
+      mappedDestinations: [],
+    }]);
+
+    expect(result.architectureBasis).toEqual(expect.objectContaining({
+      additionalAliases: { '@shared': 'src/shared' },
+    }));
 
     expect(result.architectureBasis).not.toHaveProperty('modules');
   });
@@ -181,7 +206,9 @@ describe('module-first to layer-first destination safety', () => {
       sources: ['src/auth/services/session.ts', 'src/checkout/services/session.ts'],
     }]);
   });
+});
 
+describe('module-first to layer-first router mapping', () => {
   it('preserves a physical Next.js App Router tree and root-layout paths', () => {
     const root = fixture({
       'app/login/page.tsx': 'import \'~app/auth/components/LoginPanel\';\n',
@@ -189,7 +216,7 @@ describe('module-first to layer-first destination safety', () => {
       'auth/components/LoginPanel/index.ts': 'export const panel = 1;\n',
     });
 
-    const config = architecture({ sourceRoot: '.' });
+    const config = architecture({ sourceRoot: '.', additionalAliases: { '@routes': 'app' } });
     const survey = runSurvey(root, { sourceRoot: '.', log: () => {} });
 
     const result = collectModuleToLayerEvidence({
@@ -212,6 +239,13 @@ describe('module-first to layer-first destination safety', () => {
       source: 'auth/components/LoginPanel/index.ts',
       destination: 'components/LoginPanel/index.ts',
     }));
+
+    expect(result.aliasCutovers).toEqual([{
+      alias: '@routes',
+      target: 'app',
+      disposition: 'preserve',
+      mappedDestinations: ['app/login/loading.tsx', 'app/login/page.tsx'],
+    }]);
   });
 
   it('rejects evidence collection for a layer-first config', () => {

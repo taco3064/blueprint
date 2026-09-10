@@ -58,7 +58,8 @@ function snapshot(facts: ModuleToLayerBriefFacts): string {
     `- Selected source root/application scope: \`${evidence.sourceRoot}\``,
     `- Recoverable starting commit: \`${preflight.head.commit}\``,
     `- Git worktree at preflight: clean (${preflight.worktree.changes?.length ?? 0} changes)`,
-    `- Canonical aliases: ${entries(evidence.aliases)}`,
+    `- Canonical source-root alias: \`${evidence.architectureBasis.alias}\` → \`${evidence.sourceRoot}\``,
+    `- Pre-transform additional aliases: ${additionalAliases(evidence)}`,
     `- Source-root bootstrap/wiring: ${list(evidence.rootWiring)}`,
     `- Module DAG before movement: ${moduleList(evidence.modules)}`,
     `- Canonical governed unit edges: ${edgeList(evidence.edges)}`,
@@ -84,6 +85,21 @@ function mapping(evidence: ModuleToLayerEvidence): string {
     'Folder-layout units retain their unit directories and file-layout units retain file-level',
     'identity. Ordinary module-root/container-position source maps below `containers/<module>`.',
     'A listed destination is never permission to overwrite an existing or incoming file.',
+    '',
+    '### Additional-alias cutover',
+    '',
+    ...(evidence.aliasCutovers.length
+      ? evidence.aliasCutovers.map((entry) => [
+          `- \`${entry.alias}\` → \`${entry.target}\` · ${entry.disposition}`,
+          `  mapped files → ${list(entry.mappedDestinations)}`,
+        ].join('\n'))
+      : ['- (none configured)']),
+    '',
+    'A `rewrite-or-remove` alias is deliberately absent from the proposed architecture basis.',
+    'Map it to one verified final target only when that target still represents every use;',
+    'otherwise rewrite every import to the canonical source-root alias, then remove the alias',
+    'from config and toolchain wiring.',
+    'Never preserve an alias that points at an obsolete module path.',
     '',
     '### Destination collisions',
     '',
@@ -138,8 +154,9 @@ function movement(): string {
     '1. Record the approved source → destination table and collision decisions in the handoff.',
     '2. Use `git mv` for every tracked move. Flatten declared inner layers into their global',
     '   layer surfaces and map ordinary module roots below `containers/<module>`.',
-    '3. Rewrite static imports and every statically determinable dynamic import through the',
-    '   canonical source-root alias. Preserve source-root wiring and framework route locations.',
+    '3. Rewrite static imports, statically determinable dynamic imports, and every affected',
+    '   additional-alias use through the canonical source-root alias. Preserve source-root wiring',
+    '   and framework route locations.',
     '4. Account for every source file before removing obsolete empty module directories.',
   ].join('\n');
 }
@@ -159,8 +176,11 @@ function cutover(evidence: ModuleToLayerEvidence): string {
     '- The CLI does not auto-sort layers merely to make a graph acyclic. Keep the existing',
     '  order as the starting authority; the Agent places the route surface and `containers`',
     '  according to existing product contracts and resulting imports.',
-    `- Preserve source root \`${evidence.sourceRoot}\`, aliases ${entries(evidence.aliases)},`,
-    '  code-style rules, ownership clauses, unit layouts, emit targets, and project contracts.',
+    `- Preserve source root \`${evidence.sourceRoot}\` and its canonical alias`,
+    `  \`${evidence.architectureBasis.alias}\`. Preserve only additional aliases marked`,
+    '  `preserve`; retarget or remove every `rewrite-or-remove` alias after its imports move.',
+    '- Preserve code-style rules, ownership clauses, unit layouts, emit targets, and project',
+    '  contracts.',
     '- Remove `architecture.modules` and every `dependsOn` only when all governed source has a',
     '  valid layer-first identity. Do not translate module edges into an ad hoc dependency system.',
     '- Restore or author the correct global layer order, including the framework route surface.',
@@ -219,10 +239,13 @@ function verification(install: string, cleanup: string): string {
     'Add a legal higher→lower import as a positive control and a forbidden lower→higher import',
     'as a temporary negative control. The negative probe must fail through inspect and emitted',
     'ESLint; remove it and rerun. Confirm static and supported dynamic imports still resolve.',
+    'Confirm every configured alias target exists and no import or toolchain path still names an',
+    'obsolete module directory.',
     '',
     `Delete ${cleanup} Cleanup must happen before the final doctor run. Report the before/after`,
     'tree, tracked-move evidence, collision/router decisions, removed module DAG, layer direction,',
-    'classification, inspect/deps/ESLint agreement, adopter gates, and unverified imports.',
+    'baseline classification, inspect/deps/ESLint agreement, adopter gates, and unverified',
+    'imports.',
   ].join('\n');
 }
 
@@ -237,6 +260,13 @@ function relativeImports(evidence: ModuleToLayerEvidence): string {
 function edgeList(edges: ModuleToLayerEvidence['edges']): string {
   return edges.length
     ? edges.map((edge) => `${edge.from} → ${edge.to} (${edge.count})`).join('; ')
+    : '(none)';
+}
+
+function additionalAliases(evidence: ModuleToLayerEvidence): string {
+  return evidence.aliasCutovers.length
+    ? evidence.aliasCutovers.map((entry) =>
+        `\`${entry.alias}\` → \`${entry.target}\``).join(', ')
     : '(none)';
 }
 
@@ -256,12 +286,4 @@ function layerList(layers: ModuleToLayerEvidence['layers']): string {
 
 function list(values: string[]): string {
   return values.length ? values.map((value) => `\`${value}\``).join(', ') : '(none)';
-}
-
-function entries(values: Record<string, string>): string {
-  const pairs = Object.entries(values);
-
-  return pairs.length
-    ? pairs.map(([alias, target]) => `\`${alias}\` → \`${target}\``).join(', ')
-    : '(none detected)';
 }

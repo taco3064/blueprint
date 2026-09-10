@@ -19,6 +19,13 @@ export interface LayerMappingCandidate {
   disposition: 'move' | 'agent-router-decision' | 'preserve-next-route';
 }
 
+export interface AliasCutoverEvidence {
+  alias: string;
+  target: string;
+  disposition: 'preserve' | 'rewrite-or-remove';
+  mappedDestinations: string[];
+}
+
 export interface ModuleToLayerEvidence {
   sourceRoot: string;
   aliases: Record<string, string>;
@@ -26,6 +33,7 @@ export interface ModuleToLayerEvidence {
   modules: { name: string; dependsOn: string[] }[];
   layers: { name: string; layout: 'folder' | 'file'; entry: string }[];
   architectureBasis: Omit<ArchitectureDef, 'modules'>;
+  aliasCutovers: AliasCutoverEvidence[];
   mappings: LayerMappingCandidate[];
   collisions: { destination: string; sources: string[] }[];
   orphans: string[];
@@ -93,6 +101,13 @@ export function collectModuleToLayerEvidence(
     }];
   }).sort(compareMappings);
 
+  const aliasCutovers = collectAliasCutovers(
+    architecture.additionalAliases ?? {},
+    resolved.modules.map((module) =>
+      normalizedPath(sourcePath(resolved.sourceRoot, module.name))),
+    mappings,
+  );
+
   return {
     sourceRoot: resolved.sourceRoot,
     aliases: Object.fromEntries(resolved.aliasMappings),
@@ -106,7 +121,8 @@ export function collectModuleToLayerEvidence(
       layout: layer.unit.layout,
       entry: layer.unit.entry,
     })),
-    architectureBasis: withoutModules(architecture),
+    architectureBasis: withoutModules(architecture, aliasCutovers),
+    aliasCutovers,
     mappings,
     collisions: destinationCollisions(mappings, scanned.files.map((file) => file.path)),
     orphans: scanned.files
@@ -140,12 +156,64 @@ function routerMapping(
   };
 }
 
-function withoutModules(architecture: ArchitectureDef): Omit<ArchitectureDef, 'modules'> {
+function withoutModules(
+  architecture: ArchitectureDef,
+  aliasCutovers: AliasCutoverEvidence[],
+): Omit<ArchitectureDef, 'modules'> {
   const result = { ...architecture };
+
+  const affected = new Set(aliasCutovers
+    .filter((entry) => entry.disposition === 'rewrite-or-remove')
+    .map((entry) => entry.alias));
 
   delete result.modules;
 
+  const additionalAliases = Object.fromEntries(
+    Object.entries(architecture.additionalAliases ?? {})
+      .filter(([alias]) => !affected.has(alias)),
+  );
+
+  if (Object.keys(additionalAliases).length) {
+    result.additionalAliases = additionalAliases;
+  } else {
+    delete result.additionalAliases;
+  }
+
   return result;
+}
+
+function collectAliasCutovers(
+  additionalAliases: Record<string, string>,
+  moduleRoots: string[],
+  mappings: LayerMappingCandidate[],
+): AliasCutoverEvidence[] {
+  return Object.entries(additionalAliases).map(([alias, target]) => {
+    const normalizedTarget = normalizedPath(target);
+
+    const moduleScoped = moduleRoots.some((root) =>
+      normalizedTarget === root || normalizedTarget.startsWith(`${root}/`));
+
+    const affectedMappings = mappings.filter((mapping) =>
+      isAtOrBelow(normalizedPath(mapping.source), normalizedTarget));
+
+    const remainsAtTarget = affectedMappings.length > 0 && affectedMappings.every((mapping) =>
+      isAtOrBelow(normalizedPath(mapping.destination), normalizedTarget));
+
+    const disposition: AliasCutoverEvidence['disposition'] = moduleScoped && !remainsAtTarget
+      ? 'rewrite-or-remove'
+      : 'preserve';
+
+    return {
+      alias,
+      target,
+      disposition,
+      mappedDestinations: affectedMappings.map((mapping) => mapping.destination).sort(),
+    };
+  }).sort((left, right) => left.alias.localeCompare(right.alias));
+}
+
+function isAtOrBelow(candidate: string, root: string): boolean {
+  return candidate === root || candidate.startsWith(`${root}/`);
 }
 
 export function destinationCollisions(

@@ -67,7 +67,15 @@ function packageJson(scenario) {
   }, null, 2);
 }
 
-function tsconfig() {
+function tsconfig(additionalAliases = {}) {
+  const paths = Object.fromEntries([
+    ['~app/*', ['./src/*']],
+    ...Object.entries(additionalAliases).map(([alias, target]) => [
+      `${alias}/*`,
+      [`./${target.replace(/^\.\//, '')}/*`],
+    ]),
+  ]);
+
   return JSON.stringify({
     compilerOptions: {
       target: 'ES2022',
@@ -75,7 +83,7 @@ function tsconfig() {
       moduleResolution: 'Bundler',
       strict: true,
       baseUrl: '.',
-      paths: { '~app/*': ['./src/*'] },
+      paths,
       outDir: 'build',
     },
     include: ['src/**/*.ts', 'src/**/*.tsx'],
@@ -108,9 +116,10 @@ function initialize(scenario) {
 
   fs.mkdirSync(application, { recursive: true });
   write(application, 'package.json', packageJson(scenario));
-  write(application, 'tsconfig.json', tsconfig());
+  write(application, 'tsconfig.json', tsconfig(scenario.additionalAliases));
 
   write(application, 'blueprint.config.mjs', config(scenario.framework, {
+    additionalAliases: scenario.additionalAliases,
     modules: scenario.modules,
     layers: scenario.layers,
   }));
@@ -217,11 +226,33 @@ function applyDecisions(context, scenario) {
   }
 
   write(context.application, 'blueprint.config.mjs', config(scenario.framework, {
+    additionalAliases: scenario.finalAdditionalAliases,
     layers: scenario.expectedLayers,
   }));
 
+  write(context.application, 'tsconfig.json', tsconfig(scenario.finalAdditionalAliases));
+
   fs.rmSync(path.join(context.application, 'blueprint-authoring.md'));
   fs.rmSync(path.join(context.application, '.claude'), { recursive: true });
+}
+
+function aliasState(application, scenario) {
+  const affected = scenario.affectedAliases ?? [];
+  const configText = readOptional(application, 'blueprint.config.mjs') ?? '';
+  const tsconfigText = readOptional(application, 'tsconfig.json') ?? '';
+
+  const sourceText = sourceFiles(application)
+    .map((file) => fs.readFileSync(path.join(application, file), 'utf-8'))
+    .join('\n');
+
+  return {
+    affected,
+    imports: Object.fromEntries(affected.map((alias) => [alias, sourceText.includes(`${alias}/`)])),
+    configTargets: Object.fromEntries(affected.map((alias) => [
+      alias,
+      configText.includes(`"${alias}"`) || tsconfigText.includes(`"${alias}/*"`),
+    ])),
+  };
 }
 
 function assertPlaybook(application, scenario) {
@@ -310,6 +341,7 @@ function runScenario(scenario) {
   const context = initialize(scenario);
   const initial = prepareBaseline(context, scenario);
   const before = sourceManifest(context.application, scenario);
+  const aliasesBefore = aliasState(context.application, scenario);
 
   cli(context.application, ['init', '--topology', 'layer-first', '--no-install']);
   assertPlaybook(context.application, scenario);
@@ -342,6 +374,7 @@ function runScenario(scenario) {
   cli(context.application, ['init', '--topology', 'layer-first', '--no-install']);
 
   const after = sourceManifest(context.application, scenario);
+  const aliasesAfter = aliasState(context.application, scenario);
   const deps = cli(context.application, ['deps', '--json']);
   const negative = negativeControl(context.application, scenario);
 
@@ -365,6 +398,12 @@ function runScenario(scenario) {
   const routerPreserved = scenario.preservedRoute === null
     || fs.existsSync(path.join(context.application, scenario.preservedRoute));
 
+  const aliasCutoverComplete = aliasesBefore.affected.every((alias) =>
+    aliasesBefore.imports[alias]
+    && aliasesBefore.configTargets[alias]
+    && !aliasesAfter.imports[alias]
+    && !aliasesAfter.configTargets[alias]);
+
   if (
     !baselineBefore.matches
     || !baselineAfter.matches
@@ -374,6 +413,8 @@ function runScenario(scenario) {
     || !manifestComplete
     || !routerPreserved
     || !hasEdge(deps.output, scenario.positiveEdge)
+    || (scenario.aliasEdge && !hasEdge(deps.output, scenario.aliasEdge))
+    || !aliasCutoverComplete
     || !negative.caught
     || !generatedLayerFirst
     || !allGatesGreen
@@ -395,6 +436,7 @@ function runScenario(scenario) {
     negativeControl: negative,
     generatedLayerFirst,
     routerPreserved,
+    aliasCutover: { before: aliasesBefore, after: aliasesAfter, complete: aliasCutoverComplete },
     gates: gateResults,
   };
 }

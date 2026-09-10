@@ -47,6 +47,7 @@ function evidence(overrides: Partial<ModuleToLayerEvidence> = {}): ModuleToLayer
       alias: '~app',
       layers: [{ name: 'components', does: 'UI', layout: 'folder', entry: 'index' }],
     },
+    aliasCutovers: [],
     mappings: [],
     collisions: [],
     orphans: [],
@@ -87,6 +88,23 @@ describe('module-first to layer-first playbook risks', () => {
   it('renders mappings, collision/import risks, baseline debt, and React routing', () => {
     const result = moduleToLayerBrief({
       evidence: evidence({
+        aliases: { '~app': 'src', '@domain': 'src/auth', '@shared': 'src/shared' },
+        architectureBasis: {
+          alias: '~app',
+          additionalAliases: { '@shared': 'src/shared' },
+          layers: [{ name: 'components', does: 'UI', layout: 'folder', entry: 'index' }],
+        },
+        aliasCutovers: [{
+          alias: '@domain',
+          target: 'src/auth',
+          disposition: 'rewrite-or-remove',
+          mappedDestinations: ['src/containers/auth/Auth.ts', 'src/hooks/useSession.ts'],
+        }, {
+          alias: '@shared',
+          target: 'src/shared',
+          disposition: 'preserve',
+          mappedDestinations: [],
+        }],
         modules: [
           { name: 'app', dependsOn: ['auth'] },
           { name: 'auth', dependsOn: [] },
@@ -148,11 +166,17 @@ describe('module-first to layer-first playbook risks', () => {
     expect(result).toContain('app → auth (1)');
     expect(result).toContain('src/legacy/orphan.ts');
     expect(result).toContain('~missing/session');
+    expect(result).toContain('`@domain` → `src/auth` · rewrite-or-remove');
+    expect(result).toContain('`@shared` → `src/shared` · preserve');
+    expect(result).toContain('Never preserve an alias that points at an obsolete module path');
+    expect(result).not.toContain('"@domain": "src/auth"');
     expect(result).toContain('Parse failure: src/auth/Broken.ts — Unexpected token');
     expect(result).toContain('For React/Vue, classify each reserved `app/**` file');
     expect(result).toContain('module-dependency · src/checkout/hooks/useCheckout.ts');
   });
+});
 
+describe('module-first to layer-first Next.js playbook', () => {
   it('states the Next.js physical route preservation contract', () => {
     const result = moduleToLayerBrief({
       evidence: evidence({
