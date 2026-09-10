@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { ArchitectureDef } from '../config';
 import { buildUnitGraph, scan } from '../inspect';
-import { collectTransformationEvidence } from './candidates';
+import { collectTransformationEvidence, collisionsOf } from './candidates';
 import { runSurvey } from './survey';
 
 const dirs: string[] = [];
@@ -57,10 +57,6 @@ function complexEvidence() {
     ].join('\n'),
     'src/services/auth.ts': 'import \'~app/contexts/session\';\nexport const auth = 1;\n',
     'src/contexts/session.ts': 'import \'~app/services/auth\';\nexport const session = 1;\n',
-    'src/components/button.ts': 'export const lower = 1;\n',
-    'src/Components/Button.ts': 'export const upper = 1;\n',
-    'src/hooks/session.ts': 'export const lowerHook = 1;\n',
-    'src/Hooks/Session.ts': 'export const upperHook = 1;\n',
     'src/icons/Logo.ts': 'export const Logo = 1;\n',
     'src/pages/Home.ts': [
       'import \'~app/containers/Login\';',
@@ -121,17 +117,24 @@ describe('layer-first transformation candidates', () => {
     expect(result.orphans).toEqual(expect.arrayContaining(['icons/Logo']));
     expect(result.orphans).not.toContain('pages/Home');
 
-    expect(result.collisionRisks).toEqual([
-      { identity: 'components/button', units: ['Components/Button', 'components/button'] },
-      { identity: 'hooks/session', units: ['Hooks/Session', 'hooks/session'] },
-    ]);
-
     expect(result.unresolvedAliasLikeImports).toEqual([
       { unit: 'hooks/useSession', specifier: '~missing/session' },
       { unit: 'hooks/useSession', specifier: '~missing/token' },
     ]);
 
     expect(result.unknownDynamicImports).toBe(1);
+  });
+
+  it('detects case-folded collision risks without relying on filesystem case sensitivity', () => {
+    expect(collisionsOf(new Set([
+      'components/button',
+      'Components/Button',
+      'hooks/session',
+      'Hooks/Session',
+    ]))).toEqual([
+      { identity: 'components/button', units: ['Components/Button', 'components/button'] },
+      { identity: 'hooks/session', units: ['Hooks/Session', 'hooks/session'] },
+    ]);
   });
 });
 

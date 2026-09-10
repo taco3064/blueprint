@@ -405,7 +405,7 @@ function sourceLayersOf(units: Set<string>): TransformationEvidence['sourceLayer
     .sort((a, b) => a.layer.localeCompare(b.layer));
 }
 
-function collisionsOf(units: Set<string>): TransformationEvidence['collisionRisks'] {
+export function collisionsOf(units: Set<string>): TransformationEvidence['collisionRisks'] {
   const identities = new Map<string, string[]>();
 
   for (const unit of units) {
