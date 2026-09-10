@@ -15,7 +15,7 @@ export interface TopologyObservation {
 export interface TopologyDecision extends TopologyObservation {
   target: ArchitectureTopology | null;
   operation: 'initialize' | 'adopt' | 'repair' | 'transformation-required' | 'abort';
-  path: 'scaffold' | 'authoring' | null;
+  path: 'scaffold' | 'authoring' | 'transformation' | null;
   reason?: string;
 }
 
@@ -215,14 +215,19 @@ function transformation(
   target: ArchitectureTopology,
 ): TopologyDecision {
   const current = observation.current ?? 'an unclassified existing tree';
+  const delivered = observation.current === 'layer-first' && target === 'module-first';
 
   return {
     ...observation,
     target,
     operation: 'transformation-required',
-    path: null,
-    reason: `Changing ${current} to ${target} requires a topology transformation, but that `
-      + 'direction is not delivered yet. No files were changed.',
+    path: delivered ? 'transformation' : null,
+    ...(delivered
+      ? {}
+      : {
+          reason: `Changing ${current} to ${target} requires a topology transformation, but that `
+            + 'direction is not delivered yet. No files were changed.',
+        }),
   };
 }
 

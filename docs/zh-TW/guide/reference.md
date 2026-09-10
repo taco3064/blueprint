@@ -237,7 +237,9 @@ lint 與 inspect 共通的可攜 glob 語法，是以 `/` 分隔的路徑搭配 
 
 ## 命令列旗標
 
-- **`init`** —— `--agent claude|codex`（啟動編寫用的 Agent CLI）· `--topology layer-first|module-first`（拓樸無法可靠判定時明確選擇；module-first 會進入 authoring，且不可搭配 `--preset`）· `--preset`（強制建立 layer-first preset）· `--authoring`（即使小 repo 也強制產 playbook；與 `--preset` 相反）· `--framework vue|react` · `--no-install` · `--dry-run`
+- **`init`** —— `--agent claude|codex`（啟動編寫／轉換用的 Agent CLI）· `--topology layer-first|module-first`（拓樸無法可靠判定時明確選擇；新目錄的 module-first target 會進入 authoring，既有 layer-first application 則進入受 Git preflight 保護的 Agent transformation；不可搭配 `--preset`，也不會自動判定 domain ownership 或搬移 source）· `--preset`（強制建立 layer-first preset）· `--authoring`（即使小 repo 也強制產 playbook；與 `--preset` 相反）· `--framework vue|react` · `--no-install` · `--dry-run`
+
+layer-first → module-first 轉換要求：只選定一個 application、Git worktree 乾淨、存在可復原的 committed `HEAD`，且轉換前 inspection 能提供可靠證據。產出的 playbook 會帶入 container／page 候選 closure、重疊、未解析 edge、Git 搬移規則、cutover gate 與 baseline review；domain 命名、ownership、merge／split、中立模組抽取、cycle 與 collision 則由 Agent 判斷，再以 `git mv` 搬移並改寫 import。Next.js App Router 保留原本的實體 `app/**`；Pages Router 因為需要框架 router migration，會在寫入前拒絕。module-first → layer-first 尚未提供，也會繼續在 mutation 前終止。
 - **`survey`** —— `--alias <name>`（tsconfig paths 偵測不到別名時指定）· `--source-root <path>`（在 workspace 中選擇一個 application）· `--json`
 - **`inspect`** —— `--baseline` · `--update-baseline` · `--framework vue|react` · `--json`
 - **`impact`** —— `--json`

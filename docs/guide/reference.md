@@ -274,7 +274,15 @@ and inspect select the same files.
 
 ## CLI flags
 
-- **`init`** — `--agent claude|codex` (launch the authoring agent) · `--topology layer-first|module-first` (select an unprovable topology; module-first enters authoring and cannot use `--preset`) · `--preset` (force the layer-first preset scaffold) · `--authoring` (force the playbook even on a small repo; opposite of `--preset`) · `--framework vue|react` · `--no-install` · `--dry-run`
+- **`init`** — `--agent claude|codex` (launch the authoring/transformation agent) · `--topology layer-first|module-first` (select an unprovable topology; a module-first target enters authoring on a new tree, or a Git-preflight-guarded Agent transformation on an existing layer-first application; it cannot use `--preset` and never automatically assigns domain ownership or moves source) · `--preset` (force the layer-first preset scaffold) · `--authoring` (force the playbook even on a small repo; opposite of `--preset`) · `--framework vue|react` · `--no-install` · `--dry-run`
+
+Layer-first → module-first transformation requires one selected application, a clean Git worktree,
+a recoverable committed `HEAD`, and usable pre-transform inspection evidence. Its playbook carries
+container/page candidate closures, overlaps, unresolved edges, Git movement rules, cutover gates,
+and baseline review. The Agent decides domain names, ownership, merge/split, neutral extraction,
+cycles, and collisions, then uses `git mv` and rewrites imports. Next.js App Router keeps its
+physical `app/**`; Pages Router is rejected because that direction requires a framework router
+migration. Module-first → layer-first is not delivered yet and still aborts before mutation.
 - **`survey`** — `--alias <name>` (when tsconfig-paths detection finds none) · `--source-root <path>` (select one application in a workspace) · `--json`
 - **`inspect`** — `--baseline` · `--update-baseline` · `--framework vue|react` · `--json`
 - **`impact`** — `--json`

@@ -88,6 +88,28 @@ To skip the authoring flow entirely and scaffold the framework preset even on a
 brownfield repo, pass `init --preset --topology layer-first` — the escape hatch when you know the
 preset fits: `init --topology layer-first --preset`.
 
+## Transform an existing layer-first application
+
+Run this from one application root in a clean Git worktree with a committed `HEAD`:
+
+```bash
+npx @kekkai/blueprint init --topology module-first --agent claude
+# or: --agent codex
+```
+
+Init verifies the topology decision, Git recovery boundary, single application scope, and usable
+pre-transform inspection before it writes anything. It then measures `containers/*` candidates
+(or `pages/*` islands as fallback), dependency closures, overlaps, cycles, orphans, unresolved
+imports, and collision risks. The generated transformation playbook gives those facts to the
+Agent without naming domains for it.
+
+The Agent chooses ownership, module names, merge/split, and any specifically named neutral
+module; uses `git mv` for tracked source; rewrites resolvable imports; derives final `dependsOn`
+from the resulting graph; and reviews findings before regenerating the baseline. React and Vue
+route composition moves into reserved module `app`. A Next.js App Router tree stays physically
+under `app/**`; a Pages Router tree is rejected because converting its router is outside a folder
+topology transformation. Module-first → layer-first remains unavailable.
+
 ## A prompt that works
 
 The method doesn't belong in the prompt — the evidence, derivation steps, and gates

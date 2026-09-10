@@ -6,10 +6,10 @@ export { runInspect } from './inspect';
 export type { InspectOptions } from './inspect';
 export { runRules } from './rules';
 
-export { analyze } from './analyze';
+export { analyze, detectCycles } from './analyze';
 export { globToRegExp } from './filter';
 export { resolveSegments, stripAlias } from './resolve';
-export { scan } from './scan';
+export { importAnalysis, scan } from './scan';
 
 export { expectedCarriers } from './wiring';
 export type { GateStatus, LayerBans, RulesOptions } from './rules';

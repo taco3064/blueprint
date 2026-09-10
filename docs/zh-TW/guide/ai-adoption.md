@@ -81,6 +81,19 @@ Agent 依蒐證數據推導 config，反覆對照 `blueprint inspect` 直到每�
 可改用 `init --preset --topology layer-first` ——<br>
 這是已確認 preset 適用時的快捷途徑：`init --topology layer-first --preset`。
 
+## 轉換既有的 layer-first application
+
+請從單一 application root 執行，且 Git worktree 必須乾淨並已有 committed `HEAD`：
+
+```bash
+npx @kekkai/blueprint init --topology module-first --agent claude
+# 或使用：--agent codex
+```
+
+init 會先驗證 topology decision、Git 復原邊界、單一 application scope，以及轉換前 inspection 是否能提供可靠證據；全部通過後才會寫入。接著量測 `containers/*` 候選（沒有 container 時改以 `pages/*` islands 作 fallback）、dependency closure、重疊、cycle、orphan、未解析 import 與 collision risk。產出的 transformation playbook 只把事實交給 Agent，不替它命名 domain。
+
+Agent 負責決定 ownership、module 名稱、merge／split，以及是否抽出有明確名稱的中立 module；tracked source 一律使用 `git mv`，改寫可解析的 import，再從結果 graph 推導最終 `dependsOn`，並在重建 baseline 前逐項判讀 findings。React 與 Vue 的 route composition 會移入保留的 `app` module。Next.js App Router 仍維持實體 `app/**`；Pages Router 因為轉換 router 超出 folder topology transformation 範圍，會直接拒絕。module-first → layer-first 仍未提供。
+
 ## 建議的提示詞
 
 方法不用寫進 prompt —— 蒐證、推導、驗收都在 `blueprint-authoring.md` 裡。<br>
