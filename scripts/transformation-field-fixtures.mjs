@@ -83,6 +83,15 @@ export const scenarios = [
       { name: 'ui', does: 'neutral visual primitives' },
     ],
     baselineDebt: true,
+    expectedInitialDebt: [
+      {
+        rule: 'flow-violation',
+        path: 'src/components/AuthForm/index.ts',
+        subject: '~app/components/Button',
+      },
+      { rule: 'undeclared-folder', path: 'src/legacy', subject: '' },
+    ],
+    expectedPostTransformFindings: [],
     negativeModule: 'ui',
     positiveEdge: ['app', 'auth/components'],
     playbookClaims: ['Primary seed source: `containers`', '#### pages/Login (page seed)'],
@@ -126,6 +135,8 @@ export const scenarios = [
       { name: 'shop', does: 'catalog browsing' },
     ],
     baselineDebt: false,
+    expectedInitialDebt: [],
+    expectedPostTransformFindings: [],
     negativeModule: 'auth',
     positiveEdge: ['app', 'auth/components'],
     playbookClaims: ['Primary seed source: `pages`', '#### pages/Login (page seed)'],
@@ -167,6 +178,8 @@ export const scenarios = [
       { name: 'auth', does: 'authentication' },
     ],
     baselineDebt: false,
+    expectedInitialDebt: [],
+    expectedPostTransformFindings: [],
     negativeModule: 'auth',
     positiveEdge: ['app', 'auth/components'],
     playbookClaims: [
@@ -176,6 +189,21 @@ export const scenarios = [
     ],
   },
 ];
+
+export const baselineRegressionScenario = {
+  ...scenarios[1],
+  id: 'baseline-regression-rejection',
+  regression: {
+    file: 'src/auth/services/forbidden.ts',
+    content: 'import \'~app/app/Login\';\n',
+    finding: {
+      severity: 'error',
+      rule: 'flow-violation',
+      path: 'src/auth/services/forbidden.ts',
+      subject: '~app/app/Login',
+    },
+  },
+};
 
 export const rejectionScenarios = [
   {

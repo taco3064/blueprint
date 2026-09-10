@@ -13,7 +13,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { rejectionScenarios, scenarios } from './transformation-field-fixtures.mjs';
+import { reviewBaseline, reviewInspection } from './transformation-field-baseline.mjs';
+import {
+  baselineRegressionScenario,
+  rejectionScenarios,
+  scenarios,
+} from './transformation-field-fixtures.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = path.join(ROOT, 'dist/bin.js');
@@ -217,12 +222,48 @@ function removeAuthoring(application) {
   fs.rmSync(path.join(application, '.claude'), { recursive: true });
 }
 
-function verify(context, scenario, before) {
+function verify(context, scenario, before, initialBaselineReview) {
   const { application, repository } = context;
-  const beforeBaselineReview = cli(application, ['inspect', '--json'], [0, 1]);
+  const inspection = cli(application, ['inspect', '--json'], [0, 1]);
+  const baselineReview = reviewInspection(inspection, scenario.expectedPostTransformFindings);
+
+  if (!baselineReview.approved) {
+    throw new Error(`${scenario.id} has an unclassified post-transform finding`);
+  }
+
   const positiveDeps = cli(application, ['deps', '--json']);
   const negative = negativeControl(application, scenario.negativeModule);
+
+  const baselineBeforeUpdate = reviewBaseline(
+    readOptional(application, '.blueprint-baseline.json'),
+    scenario.expectedInitialDebt,
+  );
+
   const baselineUpdate = cli(application, ['inspect', '--update-baseline']);
+
+  const expectedUpdatedBaseline = scenario.expectedPostTransformFindings.filter(
+    (finding) => finding.severity !== 'info',
+  );
+
+  const baselineAfterUpdate = reviewBaseline(
+    readOptional(application, '.blueprint-baseline.json'),
+    expectedUpdatedBaseline,
+  );
+
+  const baselineLifecycle = {
+    approved: baselineUpdate.code === 0
+      && baselineBeforeUpdate.matches
+      && baselineAfterUpdate.matches,
+    updateCode: baselineUpdate.code,
+    updateOutput: baselineUpdate.output,
+    beforeUpdate: baselineBeforeUpdate,
+    afterUpdate: baselineAfterUpdate,
+  };
+
+  if (!baselineLifecycle.approved) {
+    throw new Error(`${scenario.id} baseline update did not match the reviewed ledger`);
+  }
+
   const gates = gateResults(application);
 
   return {
@@ -239,11 +280,12 @@ function verify(context, scenario, before) {
       stagedDiffStat: git(repository, 'diff', '--cached', '--stat'),
       stagedDiffSummary: git(repository, 'diff', '--cached', '--summary'),
     },
-    baselineClassification: scenario.baselineDebt
-      ? 'Pre-existing undeclared legacy was moved into named ui; stale baseline retired.'
-      : 'No pre-existing baseline debt; no migration regression was baselined.',
-    beforeBaselineReview: beforeBaselineReview.code,
-    baselineUpdate: baselineUpdate.code,
+    baselineClassification: initialBaselineReview.actualFindings.length > 0
+      ? 'Every declared pre-existing finding was paid off; the stale baseline was removed.'
+      : 'Plain inspect proved the transformed tree clean; no baseline was created.',
+    initialBaselineReview,
+    baselineReview,
+    baselineLifecycle,
     positiveControl: hasDependencyEdge(positiveDeps.output, scenario.positiveEdge),
     negativeControl: negative,
     gates,
@@ -328,13 +370,54 @@ function runScenario(scenario) {
 
   prepareBaseline(context, scenario);
   const before = captureStart(context.repository, context.application);
+  const initialBaselineReview = reviewBaseline(before.baseline, scenario.expectedInitialDebt);
+
+  if (!initialBaselineReview.matches) {
+    throw new Error(`${scenario.id} initial baseline did not match its reviewed debt ledger`);
+  }
 
   cli(context.application, ['init', '--topology', 'module-first', '--no-install']);
   assertPlaybook(context.application, scenario.playbookClaims);
   applyDecisions(context, scenario);
   cli(context.application, ['init', '--topology', 'module-first', '--no-install']);
 
-  return verify(context, scenario, before);
+  return verify(context, scenario, before, initialBaselineReview);
+}
+
+function runBaselineRegressionRejection(scenario) {
+  const context = initialize(scenario.id, scenario.application, scenario);
+
+  cli(context.application, ['init', '--topology', 'module-first', '--no-install']);
+  assertPlaybook(context.application, scenario.playbookClaims);
+  applyDecisions(context, scenario);
+  cli(context.application, ['init', '--topology', 'module-first', '--no-install']);
+  write(context.application, scenario.regression.file, scenario.regression.content);
+
+  const baselineBefore = readOptional(context.application, '.blueprint-baseline.json');
+  const commandStart = commandLog.length;
+  const inspection = cli(context.application, ['inspect', '--json'], [0, 1]);
+  const baselineReview = reviewInspection(inspection, scenario.expectedPostTransformFindings);
+  const commandsAfterReview = commandLog.slice(commandStart);
+
+  const updateAttempted = commandsAfterReview.some(
+    (record) => record.command.includes('inspect --update-baseline'),
+  );
+
+  const injectedFindingObserved = baselineReview.actualFindings.some((finding) =>
+    finding.severity === scenario.regression.finding.severity
+    && finding.rule === scenario.regression.finding.rule
+    && finding.path === scenario.regression.finding.path
+    && finding.subject === scenario.regression.finding.subject);
+
+  return {
+    id: scenario.id,
+    rejectedBeforeBaselineUpdate: !baselineReview.approved,
+    injectedFindingObserved,
+    updateAttempted,
+    baselineUnchanged: readOptional(context.application, '.blueprint-baseline.json')
+      === baselineBefore,
+    baselineReview,
+  };
 }
 
 function snapshot(application) {
@@ -377,9 +460,26 @@ function assertReport(report) {
   for (const scenario of report.transformations) {
     const gatesGreen = Object.values(scenario.gates).every((code) => code === 0);
 
-    if (!gatesGreen || !scenario.positiveControl || !scenario.negativeControl.caught) {
+    if (
+      !gatesGreen
+      || !scenario.positiveControl
+      || !scenario.negativeControl.caught
+      || !scenario.baselineReview.approved
+      || !scenario.baselineLifecycle.approved
+    ) {
       throw new Error(`${scenario.id} did not satisfy every field gate`);
     }
+  }
+
+  const regression = report.baselineRegressionRejection;
+
+  if (
+    !regression.rejectedBeforeBaselineUpdate
+    || !regression.injectedFindingObserved
+    || regression.updateAttempted
+    || !regression.baselineUnchanged
+  ) {
+    throw new Error(`${regression.id} did not fail closed before baseline update`);
   }
 
   for (const rejection of report.rejections) {
@@ -397,6 +497,7 @@ const report = {
   purpose: 'Durable #445 semantic transformation replay; not production automation.',
   workRoot,
   transformations: scenarios.map(runScenario),
+  baselineRegressionRejection: runBaselineRegressionRejection(baselineRegressionScenario),
   rejections: rejectionScenarios.map(runRejection),
   commands: commandLog,
 };
