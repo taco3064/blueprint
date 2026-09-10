@@ -129,12 +129,14 @@ describe('emitLint · module-first topology', () => {
 });
 
 describe('emitLint · reserved app router composition', () => {
-  it('governs nested source as a container with positive and negative controls', () => {
+  it.each([
+    'src/app/dashboard/page.tsx',
+    'src/app/settings/account/page.tsx',
+  ])('governs nested source as a container with positive and negative controls: %s', (file) => {
     const configured = blueprint(['app', 'auth', 'checkout']);
 
     configured.architecture.modules![0].dependsOn = ['auth'];
     const config = emitLint(configured);
-    const file = 'src/app/dashboard/page.tsx';
 
     expect(config.flatMap((entry) => entry.files ?? []))
       .toContain('src/app/**/*.{js,jsx,ts,tsx}');

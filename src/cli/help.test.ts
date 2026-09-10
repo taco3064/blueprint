@@ -38,6 +38,9 @@ describe('per-command help', () => {
     expect(await run(['init', '--help'])).toBe(0);
     expect(log.mock.calls[0][0]).toContain('blueprint init — scaffold');
     expect(log.mock.calls[0][0]).toContain('never overwritten');
+    expect(log.mock.calls[0][0]).toContain('--topology layer-first|module-first');
+    expect(log.mock.calls[0][0]).toContain('module-first implies authoring');
+    expect(log.mock.calls[0][0]).toContain('--preset (which itself means layer-first)');
 
     expect(await run(['inspect', '-h'])).toBe(0);
     expect(log.mock.calls[1][0]).toContain('read-only architecture report');

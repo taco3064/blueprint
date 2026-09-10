@@ -189,20 +189,17 @@ function collect(unitSet: Set<string>, edges: Map<string, Set<string>>): UnitDep
 function skippedFolders(scanned: ScanResult, architecture: ArchitectureDef): string[] {
   const resolved = resolveArchitecture(architecture);
   const modules = new Set(resolved.modules.map((module) => module.name));
-  const layers = new Set(resolved.layerNames);
 
   const folders = scanned.files.flatMap((file) => {
-    const [outer, inner] = file.segments;
+    const [outer] = file.segments;
 
-    if (resolved.topology === 'layer-first') {
-      return file.segments.length > 1 && !layers.has(outer) ? [outer] : [];
+    if (resolved.classify(file.segments) !== null) {
+      return [];
     }
 
-    if (!modules.has(outer)) {
-      return file.segments.length > 1 ? [outer] : [];
-    }
+    const depth = resolved.topology === 'module-first' && modules.has(outer) ? 2 : 1;
 
-    return file.segments.length > 2 && !layers.has(inner) ? [`${outer}/${inner}`] : [];
+    return [file.segments.slice(0, depth).join('/')];
   });
 
   return [...new Set(folders)];

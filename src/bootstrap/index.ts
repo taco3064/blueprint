@@ -10,3 +10,19 @@ export {
 } from './authoring';
 export { runInit } from './bootstrap';
 export type { InitOptions } from './bootstrap';
+export { decideTopology, observeTopology } from './topology';
+export type {
+  ArchitectureTopology,
+  TopologyDecision,
+  TopologyObservation,
+  TopologySelection,
+} from './topology';
+export { runTransformationPreflight } from './preflight';
+export type {
+  GitReader,
+  GitReadResult,
+  PreflightCheck,
+  PreflightInspector,
+  TransformationPreflight,
+  TransformationPreflightEffects,
+} from './preflight';

@@ -80,6 +80,29 @@ function tempDir(prefix) {
   return dir;
 }
 
+function snapshotTree(dir, current = dir) {
+  const snapshot = {};
+
+  for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+    const target = path.join(current, entry.name);
+
+    if (entry.isDirectory()) {
+      Object.assign(snapshot, snapshotTree(dir, target));
+    } else {
+      snapshot[path.relative(dir, target)] = fs.readFileSync(target).toString('base64');
+    }
+  }
+
+  return JSON.stringify(snapshot);
+}
+
+function writeReactFixture(dir) {
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    JSON.stringify({ name: 'fixture', dependencies: { react: '^19' } }),
+  );
+}
+
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8'));
 
 console.log('dist/ — the artifact as a consumer meets it\n');
@@ -130,9 +153,12 @@ await check('`--version` prints the package version and exits 0', () => {
 
 await check('`--help` prints the usage banner and exits 0', () => {
   const { code, output } = runCmd(process.execPath, [binPath, '--help']);
+  const init = runCmd(process.execPath, [binPath, 'init', '--help']);
 
   expect(code === 0, `exited ${code}`);
   expect(output.includes('Architecture as Code'), 'usage banner missing from the output');
+  expect(init.code === 0, `init --help exited ${init.code}`);
+  expect(init.output.includes('--topology layer-first|module-first'), 'topology selector is missing');
 
   return `${output.split('\n').length} lines`;
 });
@@ -276,9 +302,11 @@ await check('`init --dry-run` plans against a real fixture and writes nothing', 
 
   const before = fs.readdirSync(dir).sort();
 
-  const { code, output } = runCmd(process.execPath, [binPath, 'init', '--dry-run', '--no-install'], {
-    cwd: dir,
-  });
+  const { code, output } = runCmd(
+    process.execPath,
+    [binPath, 'init', '--topology', 'layer-first', '--dry-run', '--no-install'],
+    { cwd: dir },
+  );
 
   expect(code === 0, `exited ${code}\n${output}`);
   expect(output.includes('blueprint.config.mjs'), 'the plan never mentions the config it would write');
@@ -289,6 +317,182 @@ await check('`init --dry-run` plans against a real fixture and writes nothing', 
   );
 
   return 'code 0, tree unchanged';
+});
+
+await check('built init accepts both explicit topologies on empty fixtures', () => {
+  const layerFirst = tempDir('bp-dist-topology-layer-');
+  const moduleFirst = tempDir('bp-dist-topology-module-');
+
+  writeReactFixture(layerFirst);
+  writeReactFixture(moduleFirst);
+
+  const layer = runCmd(
+    process.execPath,
+    [binPath, 'init', '--topology', 'layer-first', '--no-install'],
+    { cwd: layerFirst },
+  );
+
+  const module = runCmd(
+    process.execPath,
+    [binPath, 'init', '--topology', 'module-first', '--no-install'],
+    { cwd: moduleFirst },
+  );
+
+  expect(layer.code === 0, `layer-first exited ${layer.code}\n${layer.output}`);
+  expect(module.code === 0, `module-first exited ${module.code}\n${module.output}`);
+  expect(!module.output.includes('brownfield without a config'), 'module path called itself brownfield');
+  expect(!module.output.includes('Prefer a preset scaffold'), 'module path recommends a preset');
+  expect(!module.output.includes('init --preset --topology layer-first'), 'module path recommends LF');
+  expect(fs.existsSync(path.join(layerFirst, 'blueprint.config.mjs')), 'layer config missing');
+  expect(fs.existsSync(path.join(moduleFirst, 'blueprint-authoring.md')), 'module playbook missing');
+  expect(!fs.existsSync(path.join(moduleFirst, 'blueprint.config.mjs')), 'module path guessed a config');
+
+  const playbook = fs.readFileSync(path.join(moduleFirst, 'blueprint-authoring.md'), 'utf-8');
+
+  expect(playbook.includes('module-first was selected'), 'module target was lost in authoring');
+  expect(!playbook.includes('early-exit checklist'), 'module authoring recommends layer-first exit');
+
+  return 'layer scaffold + module authoring';
+});
+
+await check('built init rejects malformed topology flags before every write', () => {
+  const cases = [
+    ['--topology'],
+    ['--topology', 'sideways'],
+    ['--topology', 'layer-first', '--topology', 'module-first'],
+  ];
+
+  for (const args of cases) {
+    const dir = tempDir('bp-dist-topology-invalid-');
+
+    writeReactFixture(dir);
+    const before = snapshotTree(dir);
+    const result = runCmd(process.execPath, [binPath, 'init', ...args], { cwd: dir });
+
+    expect(result.code === 1, `${args.join(' ')} exited ${result.code}`);
+    expect(snapshotTree(dir) === before, `${args.join(' ')} changed the fixture`);
+  }
+
+  return `${cases.length} invalid forms, byte-identical trees`;
+});
+
+await check('built init accepts an explicit configured topology', () => {
+  const dir = tempDir('bp-dist-topology-same-');
+
+  writeReactFixture(dir);
+
+  fs.writeFileSync(
+    path.join(dir, 'blueprint.config.mjs'),
+    'export default { framework: \'react\', architecture: { alias: \'~app\', '
+    + 'layers: [{ name: \'pages\', does: \'routes\' }] } };\n',
+  );
+
+  const result = runCmd(
+    process.execPath,
+    [binPath, 'init', '--topology', 'layer-first', '--dry-run', '--no-install'],
+    { cwd: dir },
+  );
+
+  expect(result.code === 0, `same topology exited ${result.code}\n${result.output}`);
+
+  return 'configured layer-first repaired';
+});
+
+await check('built init refuses an unavailable topology transformation without writes', () => {
+  const dir = tempDir('bp-dist-topology-change-');
+
+  writeReactFixture(dir);
+
+  fs.writeFileSync(
+    path.join(dir, 'blueprint.config.mjs'),
+    'export default { framework: \'react\', architecture: { alias: \'~app\', '
+    + 'modules: [{ name: \'auth\', does: \'authentication\' }], '
+    + 'layers: [{ name: \'hooks\', does: \'state\' }] } };\n',
+  );
+
+  const before = snapshotTree(dir);
+
+  const result = runCmd(
+    process.execPath,
+    [binPath, 'init', '--topology', 'layer-first', '--no-install'],
+    { cwd: dir },
+  );
+
+  expect(result.code === 1, `topology change exited ${result.code}\n${result.output}`);
+  expect(result.output.includes('transformation'), 'failure does not explain the unavailable path');
+  expect(snapshotTree(dir) === before, 'unavailable transformation changed the fixture');
+
+  return 'code 1, byte-identical tree';
+});
+
+await check('built preset treats inferred module-first as a layer-first transformation', () => {
+  const dir = tempDir('bp-dist-topology-inferred-module-');
+
+  writeReactFixture(dir);
+  fs.mkdirSync(path.join(dir, 'src', 'auth', 'hooks'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'src', 'checkout', 'hooks'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src', 'auth', 'hooks', 'auth.ts'), 'export const auth = 1;\n');
+
+  fs.writeFileSync(
+    path.join(dir, 'src', 'checkout', 'hooks', 'checkout.ts'),
+    'export const checkout = 1;\n',
+  );
+
+  const before = snapshotTree(dir);
+
+  const result = runCmd(
+    process.execPath,
+    [binPath, 'init', '--preset', '--no-install'],
+    { cwd: dir },
+  );
+
+  expect(result.code === 1, `inferred module-first exited ${result.code}\n${result.output}`);
+  expect(result.output.includes('module-first to layer-first'), 'failure does not name direction');
+  expect(snapshotTree(dir) === before, 'preset wrote over inferred module-first');
+
+  return 'code 1, byte-identical tree';
+});
+
+await check('built preset covers inferred LF, explicit LF, and invalid explicit MF', () => {
+  const inferred = tempDir('bp-dist-preset-inferred-layer-');
+  const explicit = tempDir('bp-dist-preset-explicit-layer-');
+  const conflict = tempDir('bp-dist-preset-explicit-module-');
+
+  for (const dir of [inferred, explicit, conflict]) writeReactFixture(dir);
+
+  fs.mkdirSync(path.join(inferred, 'src', 'pages'), { recursive: true });
+  fs.mkdirSync(path.join(inferred, 'src', 'components'), { recursive: true });
+  fs.writeFileSync(path.join(inferred, 'src', 'pages', 'Home.tsx'), 'export const Home = 1;\n');
+
+  fs.writeFileSync(
+    path.join(inferred, 'src', 'components', 'Button.tsx'),
+    'export const Button = 1;\n',
+  );
+
+  const inferredResult = runCmd(
+    process.execPath, [binPath, 'init', '--preset', '--no-install'], { cwd: inferred },
+  );
+
+  const explicitResult = runCmd(
+    process.execPath,
+    [binPath, 'init', '--topology', 'layer-first', '--preset', '--no-install'],
+    { cwd: explicit },
+  );
+
+  const beforeConflict = snapshotTree(conflict);
+
+  const conflictResult = runCmd(
+    process.execPath,
+    [binPath, 'init', '--topology', 'module-first', '--preset', '--no-install'],
+    { cwd: conflict },
+  );
+
+  expect(inferredResult.code === 0, `inferred LF exited ${inferredResult.code}`);
+  expect(explicitResult.code === 0, `explicit LF exited ${explicitResult.code}`);
+  expect(conflictResult.code === 1, `explicit MF exited ${conflictResult.code}`);
+  expect(snapshotTree(conflict) === beforeConflict, 'explicit MF preset conflict changed the tree');
+
+  return 'inferred LF + explicit LF pass; explicit MF aborts unchanged';
 });
 
 // -------------------------------------------- the bin through an npm-style link

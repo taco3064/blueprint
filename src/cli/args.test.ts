@@ -12,10 +12,13 @@ import {
 
 describe('parseInitArgs', () => {
   it('parses known flags', () => {
-    expect(parseInitArgs(['--no-install', '--dry-run', '--framework', 'react'])).toEqual({
+    expect(parseInitArgs([
+      '--no-install', '--dry-run', '--framework', 'react', '--topology', 'layer-first',
+    ])).toEqual({
       install: false,
       dryRun: true,
       framework: 'react',
+      topology: 'layer-first',
     });
   });
 
@@ -89,6 +92,33 @@ describe('parseInitArgs · authoring flags', () => {
   it('rejects an unknown agent', () => {
     expect(() => parseInitArgs(['--agent', 'skynet'])).toThrow(/claude \| codex/);
     expect(() => parseInitArgs(['--agent'])).toThrow(/claude \| codex/);
+  });
+});
+
+describe('parseInitArgs · topology', () => {
+  it('accepts both values and an identical repeat', () => {
+    expect(parseInitArgs(['--topology', 'layer-first'])).toEqual({ topology: 'layer-first' });
+
+    expect(parseInitArgs(['--topology', 'module-first', '--authoring'])).toEqual({
+      topology: 'module-first',
+      authoring: true,
+    });
+
+    expect(parseInitArgs([
+      '--topology', 'module-first', '--topology', 'module-first', '--no-install',
+    ])).toEqual({ topology: 'module-first', install: false });
+  });
+
+  it('rejects missing, invalid, and conflicting values', () => {
+    expect(() => parseInitArgs(['--topology'])).toThrow(/layer-first \| module-first/);
+
+    expect(() => parseInitArgs(['--topology', 'sideways'])).toThrow(
+      /layer-first \| module-first/,
+    );
+
+    expect(() => parseInitArgs([
+      '--topology', 'layer-first', '--topology', 'module-first',
+    ])).toThrow(/conflicting/);
   });
 });
 

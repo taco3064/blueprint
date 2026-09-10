@@ -30,7 +30,8 @@ hero:
 ## 快速上手 {#quick-start}
 
 既有專案導入，兩種方式。<br>
-你幾乎不用貼什麼 —— `init --authoring` 會寫出 playbook，其餘的（跑到底、什麼叫做完）它自己交代給 agent。
+你幾乎不用貼什麼 —— `init --topology layer-first --authoring` 會寫出 playbook，
+其餘的（跑到底、什麼叫做完）它自己交代給 agent。
 
 <QuickStart />
 

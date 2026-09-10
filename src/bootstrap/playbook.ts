@@ -120,7 +120,7 @@ export function renderGoal(): string {
     'Existing violations are recorded in the baseline and paid down later — '
     + 'do not refactor application code in this pass.',
     '',
-    `**Early exit is a legitimate verdict.** On a repo below the brownfield threshold (${BROWNFIELD_MIN_FILES} source files) whose shape a framework preset already fits, the correct conclusion is to run \`npx blueprint init --preset\`, wire its outputs, delete this playbook and the command file, and stop.`,
+    `**Early exit is a legitimate layer-first verdict.** On a repo below the brownfield threshold (${BROWNFIELD_MIN_FILES} source files) whose shape a framework preset already fits, the correct conclusion is to run \`npx blueprint init --preset --topology layer-first\`, wire its outputs, delete this playbook and the command file, and stop. An explicitly selected module-first topology has no generic preset: continue the method and author its modules.`,
     `Walking the full method on a starter is ceremony, not judgment; this playbook earns its cost on repos whose layer boundaries have grown fuzzy.`,
     '',
     '**An empty net is equally legitimate.** On a root-only app the layer rules reach nothing — '

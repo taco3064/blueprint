@@ -1,5 +1,5 @@
 import { AGENT_KINDS } from '../bootstrap';
-import type { AgentKind, InitOptions } from '../bootstrap';
+import type { AgentKind, ArchitectureTopology, InitOptions } from '../bootstrap';
 import type { ImpactOptions } from '../impact';
 import type { DepsOptions, DoctorOptions, InspectOptions, RulesOptions } from '../inspect';
 import type { SurveyOptions } from '../survey';
@@ -12,6 +12,14 @@ function parseAgent(value: string | undefined): AgentKind | undefined {
   return (AGENT_KINDS as readonly string[]).includes(value ?? '')
     ? (value as AgentKind)
     : undefined;
+}
+
+function parseTopology(value: string | undefined): ArchitectureTopology {
+  if (value !== 'layer-first' && value !== 'module-first') {
+    throw new Error('--topology expects one of: layer-first | module-first.');
+  }
+
+  return value;
 }
 
 export function parseInitArgs(args: string[]): InitOptions {
@@ -29,20 +37,38 @@ export function parseInitArgs(args: string[]): InitOptions {
       options.preset = true;
     } else if (arg === '--authoring') {
       options.authoring = true;
-    } else if (arg === '--agent') {
-      const agent = parseAgent(rest.shift());
-
-      if (!agent) {
-        throw new Error(`--agent expects one of: ${AGENT_KINDS.join(' | ')}.`);
-      }
-
-      options.agent = agent;
-    } else if (arg === '--framework') {
-      options.framework = parseFramework(rest.shift()) ?? options.framework;
+    } else {
+      parseInitValue(arg, rest, options);
     }
   }
 
   return options;
+}
+
+function parseInitValue(
+  arg: string | undefined,
+  rest: string[],
+  options: InitOptions,
+): void {
+  if (arg === '--topology') {
+    const topology = parseTopology(rest.shift());
+
+    if (options.topology && options.topology !== topology) {
+      throw new Error('--topology was repeated with conflicting values.');
+    }
+
+    options.topology = topology;
+  } else if (arg === '--agent') {
+    const agent = parseAgent(rest.shift());
+
+    if (!agent) {
+      throw new Error(`--agent expects one of: ${AGENT_KINDS.join(' | ')}.`);
+    }
+
+    options.agent = agent;
+  } else if (arg === '--framework') {
+    options.framework = parseFramework(rest.shift()) ?? options.framework;
+  }
 }
 
 export function parseSurveyArgs(args: string[]): SurveyOptions {
@@ -116,7 +142,9 @@ export function parseDoctorArgs(args: string[]): DoctorOptions {
 }
 
 export const KNOWN_FLAGS: Record<string, Set<string>> = {
-  init: new Set(['--agent', '--preset', '--authoring', '--framework', '--no-install', '--dry-run']),
+  init: new Set([
+    '--agent', '--preset', '--authoring', '--topology', '--framework', '--no-install', '--dry-run',
+  ]),
   survey: new Set(['--alias', '--source-root', '--json']),
   inspect: new Set(['--json', '--framework', '--baseline', '--update-baseline']),
   impact: new Set(['--json']),
@@ -125,7 +153,9 @@ export const KNOWN_FLAGS: Record<string, Set<string>> = {
   doctor: new Set(['--json']),
 };
 
-const VALUED_FLAGS = new Set(['--agent', '--framework', '--alias', '--source-root']);
+const VALUED_FLAGS = new Set([
+  '--agent', '--topology', '--framework', '--alias', '--source-root',
+]);
 
 export function rejectUnknownFlags(known: Set<string>, command: string, args: string[]): void {
   for (let i = 0; i < args.length; i++) {

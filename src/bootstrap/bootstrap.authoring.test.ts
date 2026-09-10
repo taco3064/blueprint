@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { BROWNFIELD_MIN_FILES } from './authoring';
 import { runInit } from './bootstrap';
-import { vuePreset } from '../presets';
+import { nextPreset, vuePreset } from '../presets';
+
+const runLayerFirstInit: typeof runInit = (root, options = {}) =>
+  runInit(root, { topology: 'layer-first', ...options });
 
 let root: string;
 
@@ -37,6 +40,21 @@ const exists = (file: string) => fs.existsSync(path.join(root, file));
 const silent = () => {};
 
 describe('runInit · brownfield authoring flow', () => {
+  it('retains the selected src application on a pristine Next scaffold', async () => {
+    writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
+    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'src/app/page.tsx'), 'export default () => null;');
+
+    await runLayerFirstInit(root, { install: false, log: silent });
+
+    await runLayerFirstInit(root, {
+      install: false,
+      dryRun: true,
+      log: silent,
+      loadConfig: async () => nextPreset({ router: 'app', srcDir: true }),
+    });
+  });
+
   it('takes the authoring path at exactly the threshold, not the scaffold one', async () => {
     writePkg({ name: 'legacy', dependencies: { react: '^18' } });
     fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
@@ -45,7 +63,7 @@ describe('runInit · brownfield authoring flow', () => {
       fs.writeFileSync(path.join(root, `src/app/file${i}.ts`), 'export const x = 1;');
     }
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     // The two sides of this boundary are the biggest fork init makes — one
     // writes a playbook and scaffolds nothing, the other the reverse. The
@@ -58,13 +76,13 @@ describe('runInit · brownfield authoring flow', () => {
 
     const dry: string[] = [];
 
-    await runInit(root, { dryRun: true, install: false, log: (m) => dry.push(m) });
+    await runLayerFirstInit(root, { dryRun: true, install: false, log: (m) => dry.push(m) });
 
     expect(dry.join('\n')).toContain('would write');
 
     const applied: string[] = [];
 
-    await runInit(root, { install: false, log: (m) => applied.push(m) });
+    await runLayerFirstInit(root, { install: false, log: (m) => applied.push(m) });
 
     // The authoring flow has its own dry-run report. Outside it the applied
     // lines are the record, and a "would" among them describes disk state that
@@ -75,7 +93,7 @@ describe('runInit · brownfield authoring flow', () => {
   it('emits the playbook instead of scaffolding when code exists without a config', async () => {
     brownfield();
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, log: silent });
 
     // install downgraded to an instruct because the test passes install:false.
     expect(actions.map((action) => action.kind)).toEqual([
@@ -102,7 +120,7 @@ describe('runInit · brownfield authoring flow', () => {
   it('keeps the preset path for a near-empty repo', async () => {
     writePkg({ name: 'fresh', dependencies: { react: '^18' } });
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     expect(read('blueprint.config.mjs')).toContain('reactPreset');
     expect(exists('blueprint-authoring.md')).toBe(false);
@@ -113,7 +131,7 @@ describe('runInit · brownfield authoring flow', () => {
 
     const commands: string[] = [];
 
-    await runInit(root, {
+    await runLayerFirstInit(root, {
       exec: (command) => {
         commands.push(command);
       },
@@ -132,7 +150,7 @@ describe('runInit · the flags that override the fork', () => {
 
     const forced: string[] = [];
 
-    await runInit(root, { install: false, authoring: true, log: (m) => forced.push(m) });
+    await runLayerFirstInit(root, { install: false, authoring: true, log: (m) => forced.push(m) });
 
     // Unsaid, --authoring on a small repo looks like it produced a
     // self-refuting document: a playbook whose own verdict is the early exit
@@ -146,7 +164,7 @@ describe('runInit · the flags that override the fork', () => {
 
     const plain: string[] = [];
 
-    await runInit(root, { install: false, authoring: true, log: (m) => plain.push(m) });
+    await runLayerFirstInit(root, { install: false, authoring: true, log: (m) => plain.push(m) });
 
     expect(plain.join('\n')).not.toContain('below the brownfield threshold');
   });
@@ -154,7 +172,7 @@ describe('runInit · the flags that override the fork', () => {
   it('honors --preset as the escape hatch back to the scaffold', async () => {
     brownfield();
 
-    await runInit(root, { install: false, preset: true, log: silent });
+    await runLayerFirstInit(root, { install: false, preset: true, log: silent });
 
     expect(read('blueprint.config.mjs')).toContain('reactPreset');
     expect(exists('blueprint-authoring.md')).toBe(false);
@@ -163,7 +181,7 @@ describe('runInit · the flags that override the fork', () => {
   it('--authoring forces the playbook on a near-empty repo', async () => {
     writePkg({ name: 'fresh', dependencies: { react: '^18' } });
 
-    await runInit(root, { install: false, authoring: true, log: silent });
+    await runLayerFirstInit(root, { install: false, authoring: true, log: silent });
 
     expect(exists('blueprint-authoring.md')).toBe(true);
     expect(exists('blueprint.config.mjs')).toBe(false);
@@ -173,7 +191,7 @@ describe('runInit · the flags that override the fork', () => {
     writePkg({ name: 'fresh', dependencies: { react: '^18' } });
 
     await expect(
-      runInit(root, { install: false, preset: true, authoring: true, log: silent }),
+      runLayerFirstInit(root, { install: false, preset: true, authoring: true, log: silent }),
     ).rejects.toThrow('mutually exclusive');
   });
 
@@ -181,10 +199,10 @@ describe('runInit · the flags that override the fork', () => {
     writePkg({ name: 'fresh', dependencies: { react: '^18' } });
     const lines: string[] = [];
 
-    await runInit(root, { install: false, log: (message) => lines.push(message) });
+    await runLayerFirstInit(root, { install: false, log: (message) => lines.push(message) });
 
     expect(lines.join('\n')).toContain('no blueprint-authoring.md is written');
-    expect(lines.join('\n')).toContain('init --authoring');
+    expect(lines.join('\n')).toContain('init --topology layer-first --authoring');
   });
 });
 
@@ -194,12 +212,12 @@ describe('runInit · which config --authoring is allowed to take over', () => {
 
     // The poison sequence from the field report: plain init scaffolds a
     // preset config, then --authoring used to be a silent no-op.
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
     expect(read('blueprint.config.mjs')).toContain('reactPreset');
 
     const lines: string[] = [];
 
-    const actions = await runInit(root, {
+    const actions = await runLayerFirstInit(root, {
       install: false,
       authoring: true,
       log: (message) => lines.push(message),
@@ -222,10 +240,10 @@ describe('runInit · which config --authoring is allowed to take over', () => {
     fs.writeFileSync(path.join(root, 'src/app/page.tsx'), 'export default () => null;');
 
     // Plain init on a fresh Next repo scaffolds the next preset config.
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
     expect(read('blueprint.config.mjs')).toContain('nextPreset');
 
-    await runInit(root, { install: false, authoring: true, log: silent });
+    await runLayerFirstInit(root, { install: false, authoring: true, log: silent });
 
     expect(exists('blueprint.config.mjs')).toBe(false);
     expect(exists('blueprint-authoring.md')).toBe(true);
@@ -239,7 +257,7 @@ describe('runInit · which config --authoring is allowed to take over', () => {
       '// hand-tuned\nexport default { framework: \'react\' };',
     );
 
-    const refusal = runInit(root, { install: false, authoring: true, log: silent });
+    const refusal = runLayerFirstInit(root, { install: false, authoring: true, log: silent });
 
     // Not "has been edited" — all init knows is that the file differs from what it
     // would scaffold, and a config a previous agent authored differs without anyone
@@ -268,11 +286,11 @@ describe('runInit · which config --authoring is allowed to take over', () => {
     // over, and re-forking surveys the repo and re-narrates the greenfield
     // decision — on a repo that now has a config.
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     const lines: string[] = [];
 
-    await runInit(root, {
+    await runLayerFirstInit(root, {
       install: false,
       log: (m) => lines.push(m),
       loadConfig: async () => vuePreset(),
@@ -287,11 +305,13 @@ describe('runInit · which config --authoring is allowed to take over', () => {
     // init's own byte-identical output. Missing the variant makes --authoring
     // refuse to take over a config init wrote thirty seconds earlier.
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
-    await runInit(root, { install: false, log: silent, agent: 'codex' });
+    await runLayerFirstInit(root, { install: false, log: silent, agent: 'codex' });
 
     expect(read('blueprint.config.mjs')).toContain('emit: { agents: [\'agents\'] }');
 
-    const takeover = await runInit(root, { install: false, log: silent, authoring: true });
+    const takeover = await runLayerFirstInit(root, {
+      install: false, log: silent, authoring: true,
+    });
 
     expect(takeover.some((action) => action.kind === 'rm')).toBe(true);
     expect(exists('blueprint-authoring.md')).toBe(true);
@@ -313,7 +333,7 @@ describe('runInit · the template-cleanup instruct', () => {
       ].join('\n'),
     );
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, log: silent });
 
     const cleanup = actions.find(
       (action) => action.kind === 'instruct' && action.note.includes('Template cleanup'),
@@ -336,7 +356,7 @@ describe('runInit · the template-cleanup instruct', () => {
       ].join('\n'),
     );
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, log: silent });
 
     const cleanup = actions.find(
       (action) => action.kind === 'instruct' && action.note.includes('Template cleanup'),
@@ -353,7 +373,7 @@ describe('runInit · the template-cleanup instruct', () => {
   it('emits no cleanup instruct when the scaffold is clean', async () => {
     writePkg({ name: 'fresh', dependencies: { vue: '^3' } });
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, log: silent });
 
     expect(actions.some(
       (action) => action.kind === 'instruct' && action.note.includes('Template cleanup'),
@@ -367,7 +387,7 @@ describe('runInit · --agent on the authoring path', () => {
 
     const calls: string[] = [];
 
-    await runInit(root, {
+    await runLayerFirstInit(root, {
       install: false,
       agent: 'claude',
       spawn: (bin, args, cwd) => {
@@ -386,7 +406,7 @@ describe('runInit · --agent on the authoring path', () => {
   it('never launches on --dry-run, and writes nothing', async () => {
     brownfield();
 
-    const actions = await runInit(root, {
+    const actions = await runLayerFirstInit(root, {
       install: false,
       dryRun: true,
       agent: 'claude',
@@ -410,7 +430,7 @@ describe('runInit · --agent on the authoring path', () => {
 
     const logs: string[] = [];
 
-    await runInit(root, {
+    await runLayerFirstInit(root, {
       install: false,
       agent: 'codex',
       spawn: () => {

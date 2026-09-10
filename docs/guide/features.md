@@ -7,7 +7,7 @@ to see how to use it.
 
 - [`init` — greenfield scaffold](/guide/getting-started#greenfield-—-blueprint-init) — one command scaffolds the whole operating contract: layer folders, config, lint, handbook, agent contracts, import alias
 - [`init` — brownfield authoring](/guide/ai-adoption#the-flow) — on a repo with code but no config, writes an executable authoring playbook instead of guessing a preset
-- [`init --agent claude|codex`](/guide/ai-adoption) — launches your own agent CLI on that playbook; it derives the config from evidence and iterates until every finding is explainable
+- [`init --topology layer-first --agent claude|codex`](/guide/ai-adoption) — launches your own agent CLI on that playbook; it derives the config from evidence and iterates until every finding is explainable
 - [`survey`](/guide/ai-adoption#why-the-survey-matters) — deterministic repo evidence: folder shapes, the import matrix, package concentration — the raw material for authoring a config
 - [`inspect`](/guide/getting-started#brownfield-—-blueprint-inspect) — scans the configured `architecture.sourceRoot` (`src/` by default) against the blueprint and lists every violation; any error-level finding exits 1 — gate on it anywhere (a git hook, CI, whatever you run)
 - [`inspect --baseline`](/guide/getting-started#brownfield-—-blueprint-inspect) — the brownfield ratchet: lock today's debt, fail only on *new* findings, tighten as debt is paid down
@@ -16,7 +16,7 @@ to see how to use it.
 - [`rules`](/guide/reference#blueprint-rules-—-which-ids-actually-gate) — the emitted-rule catalog, queryable: what always emits, what needs declaring, metric defaults — annotated with the config's declared tiers
 - [`doctor`](/guide/ai-adoption#verify-it-s-finished-—-blueprint-doctor) — is adoption finished? A read-only checklist: config, no leftover references or authoring artifacts, eslint wired, alias wired, emitted rules alive in the merged config, architecture clean (with its coverage stated), suppressions ledger current
 - [`doctor` — three outcomes](/guide/ai-adoption#three-outcomes-not-two) — complete / unverified / incomplete: a check that *could not run* is not one that passed, and since a skip still exits 0, a CI gate reads `verdict` out of `--json`
-- [All CLI flags](/guide/reference#cli-flags) — the full flag matrix for every command, including `init --preset` and `--dry-run`
+- [All CLI flags](/guide/reference#cli-flags) — the full flag matrix, including init topology selection, `--preset`, and `--dry-run`
 
 ## Artifacts — what one config compiles into
 

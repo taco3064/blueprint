@@ -8,6 +8,9 @@ import { runInit } from '../bootstrap';
 import { runInspect } from '../inspect';
 import { reactPreset } from '../presets';
 
+const runLayerFirstInit: typeof runInit = (root, options = {}) =>
+  runInit(root, { topology: 'layer-first', ...options });
+
 /**
  * Adoption end-to-end: real template shapes (committed under
  * fixtures/adoption/) copied to a tmpdir, then driven through the same
@@ -42,7 +45,7 @@ describe('e2e · vite-react-ts (greenfield preset + alias surgery)', () => {
     + 'and stays idempotent', async () => {
     useFixture('vite-react-ts');
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     // Vite surgery: resolve.alias + the node:url import, template shape intact.
     const vite = read('vite.config.ts');
@@ -65,7 +68,7 @@ describe('e2e · vite-react-ts (greenfield preset + alias surgery)', () => {
     expect(ok).toBe(true);
 
     // Second run: config exists → no greenfield surgery, files unchanged.
-    await runInit(root, {
+    await runLayerFirstInit(root, {
       install: false,
       log: silent,
       loadConfig: async () => reactPreset(),
@@ -80,7 +83,7 @@ describe('e2e · vite-vue-ts (template cleanup)', () => {
   it('names the starter violations, then converges once imports move to the alias', async () => {
     useFixture('vite-vue-ts');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, log: silent });
 
     const cleanup = actions.find(
       (action) => action.kind === 'instruct' && action.note.includes('Template cleanup'),
@@ -109,7 +112,7 @@ describe('e2e · next-app (App Router preset, hands off on owned files)', () => 
     + 'leaves hand-written agent files alone', async () => {
     useFixture('next-app');
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     const config = read('blueprint.config.mjs');
 
@@ -142,7 +145,7 @@ describe('e2e · next-app-no-srcdir (root-level App Router)', () => {
   it('detects the root app/ tree and scans it via sourceRoot "."', async () => {
     useFixture('next-app-no-srcdir');
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     const config = read('blueprint.config.mjs');
 
@@ -166,7 +169,7 @@ describe('e2e · next-pages-router', () => {
   it('places the pages/ tree as the top layer under src/', async () => {
     useFixture('next-pages-router');
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     expect(read('blueprint.config.mjs')).toContain('router: \'pages\'');
 
@@ -188,7 +191,7 @@ describe('e2e · turbo-pnpm (workspace package)', () => {
     const pkg = path.join(root, 'apps', 'web');
     const commands: string[] = [];
 
-    await runInit(pkg, {
+    await runLayerFirstInit(pkg, {
       log: silent,
       exec: (command) => {
         commands.push(command);
@@ -228,7 +231,7 @@ describe('e2e · brownfield (the full adoption arc)', () => {
   it('walks 1 — no config: the authoring flow, hand-written files untouched', async () => {
     useFixture('brownfield');
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     expect(exists('blueprint-authoring.md')).toBe(true);
     expect(read('CLAUDE.md')).toContain('Do not clobber');
@@ -265,7 +268,7 @@ describe('e2e · brownfield (the full adoption arc)', () => {
     useFixture('brownfield');
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), BROWNFIELD_CONFIG);
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     expect(exists('CLAUDE.blueprint.md')).toBe(true);
     expect(exists('eslint.config.blueprint.mjs')).toBe(true);
@@ -276,7 +279,7 @@ describe('e2e · brownfield (the full adoption arc)', () => {
     useFixture('brownfield');
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), BROWNFIELD_CONFIG);
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     fs.appendFileSync(
       path.join(root, 'CLAUDE.md'),
@@ -292,7 +295,7 @@ describe('e2e · brownfield (the full adoption arc)', () => {
     fs.rmSync(path.join(root, 'CLAUDE.blueprint.md'));
     fs.rmSync(path.join(root, 'eslint.config.blueprint.mjs'));
 
-    const quiet = await runInit(root, { install: false, log: silent });
+    const quiet = await runLayerFirstInit(root, { install: false, log: silent });
 
     expect(exists('CLAUDE.blueprint.md')).toBe(false);
     expect(exists('eslint.config.blueprint.mjs')).toBe(false);
@@ -337,7 +340,7 @@ describe('e2e · JS project gets a jsconfig (Tier 1)', () => {
   it('creates jsconfig.json with the alias and runs the vite surgery', async () => {
     useFixture('vite-react-js');
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     // No tsconfig anywhere → init creates jsconfig.json with the alias paths.
     expect(JSON.parse(read('jsconfig.json'))).toEqual({
@@ -355,7 +358,7 @@ describe('e2e · --dry-run writes nothing (Tier 1)', () => {
     useFixture('vite-react-ts');
     const before = fs.readFileSync(path.join(root, 'vite.config.ts'), 'utf-8');
 
-    const actions = await runInit(root, { install: false, dryRun: true, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, dryRun: true, log: silent });
 
     expect(actions.length).toBeGreaterThan(0);
     expect(exists('blueprint.config.mjs')).toBe(false);
@@ -395,7 +398,7 @@ describe('e2e · --agent launches after the playbook lands (Tier 2)', () => {
     useFixture('brownfield');
     const calls: { bin: string; cwd: string; playbookExisted: boolean }[] = [];
 
-    await runInit(root, {
+    await runLayerFirstInit(root, {
       install: false,
       agent: 'claude',
       spawn: (bin, _args, cwd) => {
@@ -420,7 +423,7 @@ describe('e2e · yarn workspace package (Tier 3)', () => {
     useFixture('yarn-workspace');
     const commands: string[] = [];
 
-    await runInit(path.join(root, 'packages', 'ui'), {
+    await runLayerFirstInit(path.join(root, 'packages', 'ui'), {
       log: silent,
       exec: (command) => {
         commands.push(command);
@@ -435,7 +438,7 @@ describe('e2e · --no-install surfaces the exact command (Tier 3)', () => {
   it('downgrades the brownfield install to an instruct with the command', async () => {
     useFixture('brownfield');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, log: silent });
 
     const skipped = actions.find(
       (action) => action.kind === 'instruct' && action.note.includes('Install skipped'),

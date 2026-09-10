@@ -54,10 +54,12 @@ npx @kekkai/blueprint survey --source-root apps/web/src
 Run `init` on a repo that has source code but no `blueprint.config.mjs`:
 
 ```bash
-npx @kekkai/blueprint init
+npx @kekkai/blueprint init --topology layer-first
 ```
 
-Instead of guessing a preset, init surveys the code and writes:
+The explicit target does not claim the observed tree already matches it. Init first surveys
+the code; if the tree is mixed or proves the opposite topology it stops without writing.
+Otherwise the existing layer-first authoring flow writes:
 
 - **`blueprint-authoring.md`** — an executable playbook: the survey evidence, the
   authoring method, the emitted-rule semantics (flat vs folder layout, what the
@@ -71,7 +73,7 @@ Then hand it to your agent:
 claude "Read blueprint-authoring.md at the repository root and execute it end to end."
 # or: codex "…same prompt…"
 # or, in one step:
-npx @kekkai/blueprint init --agent claude
+npx @kekkai/blueprint init --topology layer-first --agent claude
 ```
 
 The agent derives the config from the evidence, iterates against
@@ -83,8 +85,8 @@ foreground, interactive, under your own agent CLI's permissions — see
 [Security & Trust](/guide/security) for the exact boundaries.
 
 To skip the authoring flow entirely and scaffold the framework preset even on a
-brownfield repo, pass `init --preset` — the escape hatch when you already know the
-preset fits.
+brownfield repo, pass `init --preset --topology layer-first` — the escape hatch when you know the
+preset fits: `init --topology layer-first --preset`.
 
 ## A prompt that works
 
@@ -93,7 +95,7 @@ all live in `blueprint-authoring.md`. The prompt only pins what "done" means:
 
 ```text
 Help adopt @kekkai/blueprint in this repo, autonomously:
-run `npx @kekkai/blueprint init --authoring`,
+run `npx @kekkai/blueprint init --topology layer-first --authoring`,
 then execute the blueprint-authoring.md it writes, fully and to the end
 (an early exit the playbook itself prescribes counts as full execution).
 
@@ -107,16 +109,16 @@ Acceptance — `blueprint doctor` passes, plus:
   don't manufacture debt to have something to lock
 ```
 
-`--authoring` guarantees the playbook is written even on a small repo (plain `init`
-below the file-count threshold scaffolds a preset instead — no playbook). A zero-file
-multi-app workspace is not a starter verdict: choose an application with `survey
---source-root` before applying the threshold. Each
+`--authoring` guarantees the playbook is written even on a small repo after topology and
+scope are safe (plain layer-first `init` below the file-count threshold scaffolds a preset
+instead — no playbook). A zero-file multi-app workspace is not a starter verdict: inspect
+one application with `survey --source-root`, then run init from that application root. Each
 acceptance clause maps to an incomplete state seen in field testing: half-done
 integration, gates never run, debt payments mixed into adoption. Two clauses
 resolve vacuously and that is fine: a repo with no tests passes the tests
 clause without adding a runner, and zero debt means the lock commands are
 skipped, not performed for ceremony. Greenfield repos
-skip all of this — `init` alone completes; and once `init` has run, typing
+skip all of this — explicit layer-first `init` completes; and once `init` has run, typing
 `/blueprint-author` in Claude Code does the same job.
 
 ## Decide conflicts on numbers — `blueprint impact`

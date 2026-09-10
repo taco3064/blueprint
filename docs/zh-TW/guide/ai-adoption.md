@@ -49,10 +49,12 @@ npx @kekkai/blueprint survey --source-root apps/web/src
 於「已有程式碼、尚無 `blueprint.config.mjs`」的專案執行 init：
 
 ```bash
-npx @kekkai/blueprint init
+npx @kekkai/blueprint init --topology layer-first
 ```
 
-init 不會硬套 preset，而是掃描程式碼後產出：
+明確指定 target 不代表 Blueprint 宣稱既有目錄已經符合該拓樸。init 會先掃描程式碼；
+若目錄混合兩種拓樸，或證據明確指向另一種拓樸，會在寫入前停止。
+其餘情況才由既有 layer-first authoring 流程產出：
 
 - **`blueprint-authoring.md`** —— 可執行的導入作業手冊：<br>
   蒐證數據、推導方法、規則語意（file／folder unit 的判定、接線後會咬到什麼）、config 結構速覽與驗收條件
@@ -64,7 +66,7 @@ init 不會硬套 preset，而是掃描程式碼後產出：
 claude "Read blueprint-authoring.md at the repository root and execute it end to end."
 # codex 亦使用相同的提示語
 # 或以單一指令完成：
-npx @kekkai/blueprint init --agent claude
+npx @kekkai/blueprint init --topology layer-first --agent claude
 ```
 
 Agent 依蒐證數據推導 config，反覆對照 `blueprint inspect` 直到每項違規都能解釋為真實債務，<br>
@@ -75,8 +77,9 @@ Agent 依蒐證數據推導 config，反覆對照 `blueprint inspect` 直到每�
 它在前景以互動模式執行**畫面上已印出的那行指令**，且跑在你自己 Agent CLI 的權限之下。<br>
 確切的安全邊界見[安全與信任](/zh-TW/guide/security)。
 
-若欲完全跳過編寫流程、即使在既有專案上也直接以框架 preset 建置，可改用 `init --preset` ——<br>
-這是已確認 preset 適用時的快捷途徑。
+若欲完全跳過編寫流程、即使在既有專案上也直接以框架 preset 建置，
+可改用 `init --preset --topology layer-first` ——<br>
+這是已確認 preset 適用時的快捷途徑：`init --topology layer-first --preset`。
 
 ## 建議的提示詞
 
@@ -85,7 +88,7 @@ prompt 只要釘住「怎樣算完成」：
 
 ```text
 請協助導入 @kekkai/blueprint，並自主完成：
-執行 `npx @kekkai/blueprint init --authoring`，
+執行 `npx @kekkai/blueprint init --topology layer-first --authoring`，
 將其產出的 blueprint-authoring.md 全數完整執行完畢
 （playbook 自己給的結論就是完整執行 —— 它叫你早退，早退就是做完）。
 
@@ -97,13 +100,15 @@ prompt 只要釘住「怎樣算完成」：
   零違規就代表完成、帳本留空 —— 那就是成功，不要為了有東西可鎖去製造債
 ```
 
-`--authoring` 保證即使在小 repo 上也會產出 playbook（純 `init` 在檔數低於門檻時會改建 preset、不產 playbook）。<br>
-多 application workspace 的零檔案結果不是 starter 判定；套用門檻前，必須先以 `survey --source-root` 選定 application。<br>
+拓樸與 scope 已確認安全後，`--authoring` 保證即使在小 repo 上也會產出 playbook
+（layer-first 的純 `init` 在檔數低於門檻時會改建 preset、不產 playbook）。<br>
+多 application workspace 的零檔案結果不是 starter 判定；必須先以 `survey --source-root`
+檢查單一 application，再從該 application root 執行 init。<br>
 三條驗收各自對應實測中出現過的未完成狀態：整合只做一半、檢核沒跑完、把還債混進導入。<br>
 有兩條在特定 repo 上會「空泛地成立」而且這樣就對了：<br>
 沒有測試的 repo，「原有測試都過」直接成立、不用去補 test runner；<br>
 零債的 repo，鎖帳指令直接跳過、不用為了儀式跑一遍。<br>
-全新專案不需要這段 —— `init` 一個指令就完成；`init` 跑過之後也可以在 Claude Code 直接輸入 `/blueprint-author`。
+全新專案不需要這段 —— 明確指定 layer-first 的 `init` 一個指令就完成；`init` 跑過之後也可以在 Claude Code 直接輸入 `/blueprint-author`。
 
 ## 用數字決定規則衝突 —— `blueprint impact`
 

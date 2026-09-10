@@ -5,6 +5,7 @@ import type {
   ViteTsCoverage,
 } from '../project';
 import type { SurveyResult } from '../survey';
+import type { ArchitectureTopology } from './topology';
 import { scriptCommand } from './plan';
 import { BROWNFIELD_MIN_FILES, cleanupTargets, printConfigCaveats } from './playbook';
 
@@ -173,9 +174,10 @@ export function renderVerdict(
     viteTs: ViteTsCoverage | null;
     tscOut: TscArtifactLocation | null;
     pm: PackageManager;
+    topology: ArchitectureTopology;
   },
 ): string {
-  const { claudeDir, viteTs, tscOut, pm } = facts;
+  const { claudeDir, viteTs, tscOut, pm, topology } = facts;
 
   if (survey.scopeRequired) {
     return [
@@ -188,6 +190,20 @@ export function renderVerdict(
       'Run `npx blueprint survey --source-root <application>/src`, then set the same path as '
       + '`architecture.sourceRoot` in the config you author.',
       'Do not take the preset early exit until one application scope has been measured.',
+    ].join('\n');
+  }
+
+  if (topology === 'module-first') {
+    return [
+      '',
+      '',
+      '## Read this first — module-first was selected',
+      '',
+      'The selected topology has no generic preset because its domain modules are an owner '
+      + 'decision.',
+      'Do not take the layer-first preset early exit, even when this source tree is empty or '
+      + 'small.',
+      'Continue the method below and author the module names, responsibilities, and dependencies.',
     ].join('\n');
   }
 
@@ -206,11 +222,13 @@ export function renderVerdict(
     '',
     'The complete early-exit checklist — nothing else in this file applies:',
     '',
-    '1. `npx blueprint init --preset --agent claude` (or `--agent codex`) — '
+    '1. `npx blueprint init --preset --topology layer-first --agent claude` '
+    + '(or `--agent codex`) — '
     + 'scaffolds config + artifacts with YOUR contract declared: '
     + 'the flag persists into `emit.agents`, so one run emits one contract file.',
     '   Running as neither tool?',
-    '   Plain `--preset`, then declare `emit.agents` in the config and re-run init.',
+    '   Plain `--preset --topology layer-first`, then declare `emit.agents` in the config and '
+    + 're-run init.',
     '2. `npx blueprint impact` (0 hits → skip `--suppress-all` entirely; '
     + 'an empty suppressions ledger is ceremony) and `npx blueprint inspect --baseline` — '
     + 'both exit 0. (`--update-baseline` is deliberately not on this list: '

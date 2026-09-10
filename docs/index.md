@@ -31,7 +31,9 @@ because they are all translations of the same source. See them verbatim in
 
 ## Quick start {#quick-start}
 
-Two ways to adopt on an existing repo. You paste almost nothing — `init --authoring` writes the playbook that tells the agent the rest: run it to the end, and what "done" means.
+Two ways to adopt on an existing repo. You paste almost nothing —
+`init --topology layer-first --authoring` writes the playbook that tells the agent the rest:
+run it to the end, and what "done" means.
 
 <QuickStart />
 

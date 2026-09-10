@@ -237,7 +237,7 @@ lint 與 inspect 共通的可攜 glob 語法，是以 `/` 分隔的路徑搭配 
 
 ## 命令列旗標
 
-- **`init`** —— `--agent claude|codex`（啟動編寫用的 Agent CLI）· `--preset`（強制建 preset）· `--authoring`（即使小 repo 也強制產 playbook；與 `--preset` 相反）· `--framework vue|react` · `--no-install` · `--dry-run`
+- **`init`** —— `--agent claude|codex`（啟動編寫用的 Agent CLI）· `--topology layer-first|module-first`（拓樸無法可靠判定時明確選擇；module-first 會進入 authoring，且不可搭配 `--preset`）· `--preset`（強制建立 layer-first preset）· `--authoring`（即使小 repo 也強制產 playbook；與 `--preset` 相反）· `--framework vue|react` · `--no-install` · `--dry-run`
 - **`survey`** —— `--alias <name>`（tsconfig paths 偵測不到別名時指定）· `--source-root <path>`（在 workspace 中選擇一個 application）· `--json`
 - **`inspect`** —— `--baseline` · `--update-baseline` · `--framework vue|react` · `--json`
 - **`impact`** —— `--json`

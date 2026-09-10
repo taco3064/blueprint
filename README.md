@@ -40,7 +40,8 @@ Two ways to adopt on an existing repo.
 **Hands-off** — paste this to your agent; it runs start to finish on its own:
 
 ```text
-Run npx @kekkai/blueprint init --authoring to adopt @kekkai/blueprint in this repo,
+Run npx @kekkai/blueprint init --topology layer-first --authoring to adopt
+@kekkai/blueprint in this repo,
 then execute the blueprint-authoring.md it writes, fully and to the end.
 ```
 
@@ -48,7 +49,7 @@ then execute the blueprint-authoring.md it writes, fully and to the end.
 agent to walk it with you:
 
 ```bash
-npx @kekkai/blueprint init --agent claude
+npx @kekkai/blueprint init --topology layer-first --agent claude
 ```
 
 Framework auto-detected, existing configs never overwritten, re-runs idempotent. What
@@ -61,7 +62,8 @@ each acceptance step guards, greenfield scaffolding, and the full flow:
   off; there is no credential or network surface. `init --agent claude|codex` is the one
   explicit opt-in, and only on the authoring path, where it starts your own agent CLI on
   the playbook under your own permissions. The same flag on the preset path
-  (`init --preset --agent claude`) launches nothing — there it only narrows which contract
+  (`init --preset --topology layer-first --agent claude`) launches nothing — there it only
+  narrows which contract
   file is written. `init --help` states both, and `--dry-run` shows either without acting.
 - **No network code** — nothing here opens a socket: no
   telemetry, no update checks, no phoning home. The one command that reaches a network
