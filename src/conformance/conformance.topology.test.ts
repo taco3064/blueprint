@@ -177,9 +177,25 @@ describe('init topology · initialization and conservative adoption', () => {
     expect(moduleResult.output).not.toContain('Prefer a preset scaffold');
     expect(moduleResult.output).not.toContain('init --preset --topology layer-first');
 
-    expect(read(moduleFirst, 'blueprint-authoring.md')).toContain('authoring playbook');
-    expect(read(moduleFirst, 'blueprint-authoring.md')).toContain('module-first was selected');
-    expect(read(moduleFirst, 'blueprint-authoring.md')).not.toContain('early-exit checklist');
+    const playbook = read(moduleFirst, 'blueprint-authoring.md') ?? '';
+
+    expect({
+      hasFullMethod: [
+        'authoring playbook',
+        'module-first was selected',
+        'ordinary top-level folders below `sourceRoot` as module',
+        'technical layers that repeat inside ordinary modules',
+        'Infer direct `dependsOn` edges',
+        'module + inner-layer structure',
+      ].every((claim) => playbook.includes(claim)),
+      contradictions: [
+        'early-exit checklist',
+        'Top-level folders under `src/` are candidates for layers',
+        'preset\'s declared-but-empty layers',
+        'Optional module-first topology',
+      ].filter((claim) => playbook.includes(claim)),
+    }).toEqual({ hasFullMethod: true, contradictions: [] });
+
     expect(read(moduleFirst, 'blueprint.config.mjs')).toBeNull();
   });
 

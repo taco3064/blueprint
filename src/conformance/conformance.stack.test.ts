@@ -68,7 +68,7 @@ describe('one stack, three documents agreeing about `explicitAny` (#389)', () =>
       files: { 'blueprint.config.mjs': configSource(declaring) },
     });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(init.code).toBe(0);
 
@@ -103,7 +103,7 @@ describe('one stack, three documents agreeing about `explicitAny` (#389)', () =>
       files: { 'blueprint.config.mjs': configSource(declaring) },
     });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(init.code).toBe(0);
 

@@ -247,7 +247,10 @@ describe('survey counts never promise what impact must measure (field issue #11)
       },
     });
 
-    const init = await cli(dir, ['init', '--authoring', '--no-install']);
+    const init = await cli(
+      dir,
+      ['init', '--topology', 'layer-first', '--authoring', '--no-install'],
+    );
 
     expect(init.code).toBe(0);
 
@@ -297,8 +300,8 @@ describe('doctor and the playbook define "done" identically (field issue #13)', 
     });
 
     // The early-exit route: playbook written, preset scaffolded over it.
-    await cli(dir, ['init', '--authoring', '--no-install']);
-    await cli(dir, ['init', '--preset', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--preset', '--no-install']);
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
     // Wiring is complete but the playbook still sits on disk — the state
@@ -340,7 +343,7 @@ describe('locked debt stays green under the baseline ratchet (field issue #10)',
   it('inspect --baseline suppresses locked debt — the live-verified repro', async () => {
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
     // The field repro: create debt, lock it, then run the gate line.

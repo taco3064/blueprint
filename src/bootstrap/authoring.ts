@@ -17,6 +17,13 @@ import {
   renderSurveyEvidence,
 } from './catalog';
 import { renderMethod } from './method';
+import {
+  renderModuleFirstGoal,
+  renderModuleFirstMethod,
+  renderModuleFirstNextNote,
+  renderModuleFirstSchemaSketch,
+  renderModuleFirstSemantics,
+} from './module-first-playbook';
 import { renderGoal, renderHeader, renderNextNote, renderPrerequisites } from './playbook';
 import { renderVerdict } from './verdict';
 import type { Action } from './types';
@@ -146,18 +153,30 @@ export function authoringBrief(
     topology = 'layer-first',
   } = facts;
 
+  const playbook = topology === 'module-first'
+    ? [
+        renderModuleFirstGoal(),
+        renderModuleFirstMethod(claudeDir),
+        renderModuleFirstSemantics(),
+        renderRuleCatalog(),
+        renderModuleFirstSchemaSketch(),
+      ]
+    : [
+        renderGoal(),
+        renderMethod(claudeDir),
+        renderSemantics(),
+        renderRuleCatalog(),
+        renderSchemaSketch(),
+      ];
+
   return [
     renderHeader(
-      renderNextNote(next),
+      topology === 'module-first' ? renderModuleFirstNextNote(next) : renderNextNote(next),
       renderVerdict(survey, { claudeDir, viteTs, tscOut, pm: packageManager, topology }),
       claudeDir,
     ),
     renderPrerequisites(install),
-    renderGoal(),
-    renderMethod(claudeDir),
-    renderSemantics(),
-    renderRuleCatalog(),
-    renderSchemaSketch(),
+    ...playbook,
     renderAcceptanceGates(claudeDir),
     renderResumePoint(),
     renderSurveyEvidence(survey),

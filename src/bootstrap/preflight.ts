@@ -64,13 +64,14 @@ export async function runTransformationPreflight(
   const git = effects.git ?? defaultGitReader;
   const applicationRoot = path.resolve(root);
   const repository = repositoryCheck(git, applicationRoot);
+  const repositoryRoot = repository.root ?? applicationRoot;
 
   const worktree = repository.ok
-    ? worktreeCheck(git, applicationRoot)
+    ? worktreeCheck(git, repositoryRoot)
     : unavailable('Worktree cleanliness cannot be checked outside a Git worktree.');
 
   const head = repository.ok
-    ? headCheck(git, applicationRoot)
+    ? headCheck(git, repositoryRoot)
     : unavailable('A recoverable HEAD cannot be checked outside a Git worktree.');
 
   const inspection = await inspectionCheck(effects.inspect ?? defaultInspector, applicationRoot);
@@ -124,7 +125,7 @@ function repositoryCheck(
 
 function worktreeCheck(
   git: GitReader,
-  applicationRoot: string,
+  repositoryRoot: string,
 ): TransformationPreflight['worktree'] {
   const result = git([
     'status',
@@ -133,7 +134,7 @@ function worktreeCheck(
     '--ignore-submodules=none',
     '--',
     '.',
-  ], applicationRoot);
+  ], repositoryRoot);
 
   if (!succeeded(result)) {
     return unavailable(gitFailure(result, 'Git worktree status could not be read.'));
@@ -142,15 +143,15 @@ function worktreeCheck(
   const changes = result.stdout.split('\n').filter(Boolean);
 
   return changes.length
-    ? { ok: false, changes, reason: 'The selected application has uncommitted changes.' }
+    ? { ok: false, changes, reason: 'The Git worktree has uncommitted changes.' }
     : { ok: true, changes: [] };
 }
 
 function headCheck(
   git: GitReader,
-  applicationRoot: string,
+  repositoryRoot: string,
 ): TransformationPreflight['head'] {
-  const result = git(['rev-parse', '--verify', 'HEAD^{commit}'], applicationRoot);
+  const result = git(['rev-parse', '--verify', 'HEAD^{commit}'], repositoryRoot);
   const commit = result.stdout.trim();
 
   return succeeded(result) && commit

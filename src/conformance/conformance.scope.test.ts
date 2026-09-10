@@ -67,7 +67,7 @@ describe('brownfield project scope conformance (#422)', () => {
     expect(result.aliases['@']).toBe('.');
     expect(result.unresolved).toEqual([]);
 
-    const init = await cli(dir, ['init', '--dry-run', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--dry-run', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(init.output).not.toContain('tsconfig.json (import alias added)');
@@ -111,7 +111,7 @@ describe('brownfield project scope conformance (#422)', () => {
     expect(result.scopeRequired).toBe(true);
     expect(result.totalFiles).toBe(0);
 
-    const init = await cli(dir, ['init', '--dry-run', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--dry-run', '--no-install']);
 
     expect(init.code).toBe(1);
     expect(init.output).toContain('blueprint survey');
@@ -123,12 +123,15 @@ describe('brownfield project scope conformance (#422)', () => {
   it('qualifies the threshold claim in forced authoring output and help', async () => {
     const dir = multiAppRepo();
 
-    const forced = await cli(dir, ['init', '--authoring', '--dry-run', '--no-install']);
+    const forced = await cli(
+      dir,
+      ['init', '--topology', 'layer-first', '--authoring', '--dry-run', '--no-install'],
+    );
 
     expect(forced.code).toBe(1);
     expect(forced.output).not.toContain('playbook\'s own verdict will be the early exit');
 
-    const help = await cli(dir, ['init', '--help']);
+    const help = await cli(dir, ['init', '--topology', 'layer-first', '--help']);
 
     expect(help.output).toContain('unresolved multi-app');
     expect(help.output).toContain('stops before every write');

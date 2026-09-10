@@ -44,7 +44,7 @@ describe('one config, artifacts that agree about it (field runs #83–#84)', () 
     // generated from one config cannot contradict each other.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     const contract = read(dir, 'CLAUDE.md') ?? '';
 
@@ -75,7 +75,7 @@ describe('one config, artifacts that agree about it (field runs #83–#84)', () 
     // first file moves into a layer.
     const dir = repo({ packageJson: react() });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(init.output).toContain('`codeStyle` on at error tier');
@@ -94,7 +94,7 @@ describe('one config, artifacts that agree about it (field runs #83–#84)', () 
 
     write(dir, 'blueprint.config.mjs', configSource(reactBlueprint));
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(init.output).not.toContain('codeStyle` on at error tier');
@@ -113,7 +113,7 @@ describe('naming the cause, so a claim can be checked (field runs #79–#81)', (
       files: { '.gitignore': 'node_modules\ndocs/*\n!docs/keep.md\n' },
     });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(init.output).toContain('hidden by `docs/*`');
@@ -127,7 +127,7 @@ describe('naming the cause, so a claim can be checked (field runs #79–#81)', (
     // so it cannot go stale once code lands.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     const contract = read(dir, 'CLAUDE.md') ?? '';
 
@@ -148,7 +148,7 @@ describe('naming the cause, so a claim can be checked (field runs #79–#81)', (
       ),
     });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -168,7 +168,7 @@ describe('naming the cause, so a claim can be checked (field runs #79–#81)', (
       ),
     });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -316,7 +316,7 @@ describe('what the playbook checks before it claims it (field runs #75–#77)', 
     // assert init created it — a fact init knows and had not checked.
     const dir = repo({ packageJson: react(), files: { '.claude/settings.json': '{}\n' } });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -343,7 +343,7 @@ describe('what the playbook checks before it claims it (field runs #75–#77)', 
       },
     });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const prose = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
 
@@ -365,7 +365,7 @@ describe('what the playbook checks before it claims it (field runs #75–#77)', 
       files: { 'pnpm-lock.yaml': '\n', 'src/main.tsx': 'export const a = 1;\n' },
     });
 
-    await cli(pnpmRepo, ['init', '--authoring', '--no-install']);
+    await cli(pnpmRepo, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const prose = flattenProse(read(pnpmRepo, 'blueprint-authoring.md') ?? '');
 
@@ -381,12 +381,12 @@ describe('what the playbook checks before it claims it (field runs #75–#77)', 
       files: { 'package-lock.json': '{}\n', 'src/main.tsx': 'export const a = 1;\n' },
     });
 
-    await cli(npmRepo, ['init', '--authoring', '--no-install']);
+    await cli(npmRepo, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     expect(flattenProse(read(npmRepo, 'blueprint-authoring.md') ?? '')).toContain('`npm run lint`');
 
     // And the two config-only emitters name no runner on either repo.
-    await cli(pnpmRepo, ['init', '--preset', '--no-install']);
+    await cli(pnpmRepo, ['init', '--topology', 'layer-first', '--preset', '--no-install']);
 
     for (const file of ['CLAUDE.md', 'docs/architecture-handbook.md']) {
       const text = read(pnpmRepo, file) ?? '';
@@ -399,7 +399,7 @@ describe('what the playbook checks before it claims it (field runs #75–#77)', 
   it('claims it only where it is true', async () => {
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -428,8 +428,8 @@ describe('what the playbook checks before it claims it (field runs #75–#77)', 
       ),
     });
 
-    await cli(early, ['init', '--authoring', '--no-install']);
-    await cli(method, ['init', '--authoring', '--no-install']);
+    await cli(early, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
+    await cli(method, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const phrase = '`.claude/commands/` directory';
     const count = (text: string) => text.split(phrase).length - 1;
@@ -466,7 +466,7 @@ describe('what the playbook checks before it claims it (field runs #75–#77)', 
       ),
     });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -480,7 +480,7 @@ describe('one story per state — the tools do not contradict each other (field 
   it('doctor never claims a baseline on a truly clean repo', async () => {
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
     const doctor = await cli(dir, ['doctor']);
@@ -503,7 +503,10 @@ describe('one story per state — the tools do not contradict each other (field 
       files: { 'src/App.jsx': 'export const App = () => null;' },
     });
 
-    const init = await cli(dir, ['init', '--authoring', '--no-install']);
+    const init = await cli(
+      dir,
+      ['init', '--topology', 'layer-first', '--authoring', '--no-install'],
+    );
 
     expect(init.code).toBe(0);
     expect(init.output).toContain('below the brownfield threshold (10 source files)');
@@ -547,7 +550,7 @@ describe('one output, one story — no snippet contradicts its own prose (field 
       },
     });
 
-    const init = await cli(dir, ['init', '--preset', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--preset', '--no-install']);
 
     expect(init.code).toBe(0);
 
@@ -563,7 +566,10 @@ describe('one output, one story — no snippet contradicts its own prose (field 
       files: { 'src/App.jsx': 'export const App = () => null;' },
     });
 
-    const init = await cli(dir, ['init', '--authoring', '--no-install']);
+    const init = await cli(
+      dir,
+      ['init', '--topology', 'layer-first', '--authoring', '--no-install'],
+    );
 
     expect(init.code).toBe(0);
     expect(init.output).toContain('locking a baseline only when debt exists');
@@ -610,7 +616,7 @@ describe('one violation, one name per channel (field issue #48)', () => {
       files: { 'src/App.jsx': 'export const App = () => null;' },
     });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = (read(dir, 'blueprint-authoring.md') ?? '').replace(/\s+/g, ' ');
 
