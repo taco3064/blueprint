@@ -107,7 +107,7 @@ describe('greenfield scaffold — init alone completes (batches 1 & 4)', () => {
   it('init → inspect green → doctor passes all 7 checks', async () => {
     const dir = repo({ packageJson: react() });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(read(dir, 'blueprint.config.mjs')).toContain('reactPreset');
@@ -143,7 +143,7 @@ describe('"complete" says what it leaves out (field runs #71–#73)', () => {
     // said only "Adoption complete", so the two truths never met where a reader is.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
     const doctor = await cli(dir, ['doctor']);
@@ -161,7 +161,7 @@ describe('"complete" says what it leaves out (field runs #71–#73)', () => {
   it('drops the note once the repo is version-controlled', async () => {
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
     fs.mkdirSync(path.join(dir, '.git'));
 
@@ -179,7 +179,7 @@ describe('"complete" says what it leaves out (field runs #71–#73)', () => {
     // Two channels reporting the same run must not know different things.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
     const doctor = await cli(dir, ['doctor', '--json']);
@@ -200,7 +200,7 @@ describe('a step that creates files owns them (field runs #71–#73)', () => {
     // path all three field agents were on.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -218,7 +218,10 @@ describe('init UX honesty — re-runs and starters tell the truth (batch 10)', (
       files: { 'src/App.jsx': 'export const App = () => null;' },
     });
 
-    const init = await cli(dir, ['init', '--authoring', '--no-install']);
+    const init = await cli(
+      dir,
+      ['init', '--topology', 'layer-first', '--authoring', '--no-install'],
+    );
 
     expect(init.code).toBe(0);
 
@@ -243,7 +246,7 @@ describe('init UX honesty — re-runs and starters tell the truth (batch 10)', (
       },
     });
 
-    const first = await cli(dir, ['init', '--no-install']);
+    const first = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(first.code).toBe(0);
     expect(read(dir, 'tsconfig.json')).toContain('"~app/*"');
@@ -255,7 +258,7 @@ describe('init UX honesty — re-runs and starters tell the truth (batch 10)', (
     // The scaffolded config imports the package; offline fixtures swap it for data.
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
-    const second = await cli(dir, ['init', '--no-install']);
+    const second = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(second.code).toBe(0);
     // The field complaint: init #2 printed "Add the import alias to
@@ -271,7 +274,10 @@ describe('--agent persists into the scaffold — no chicken-and-egg (field issue
     + 'config', async () => {
     const dir = repo({ packageJson: react() });
 
-    const init = await cli(dir, ['init', '--agent', 'claude', '--no-install']);
+    const init = await cli(
+      dir,
+      ['init', '--topology', 'layer-first', '--agent', 'claude', '--no-install'],
+    );
 
     expect(init.code).toBe(0);
     expect(read(dir, 'blueprint.config.mjs')).toContain('emit: { agents: [\'claude\'] }');
@@ -313,7 +319,7 @@ describe('scaffold matches the doctrine — no invented structure (batch 11)', (
       files: { 'src/App.jsx': 'export const App = () => null;' },
     });
 
-    const init = await cli(rooted, ['init', '--no-install']);
+    const init = await cli(rooted, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(init.code).toBe(0);
     // Code already lives here — an unbuilt layer's absence is its true
@@ -323,7 +329,7 @@ describe('scaffold matches the doctrine — no invented structure (batch 11)', (
 
     const empty = repo({ packageJson: react() });
 
-    await cli(empty, ['init', '--no-install']);
+    await cli(empty, ['init', '--topology', 'layer-first', '--no-install']);
 
     // A truly empty tree still gets the guidance scaffold.
     expect(read(empty, 'src/components/.gitkeep')).toBe('');
@@ -332,7 +338,7 @@ describe('scaffold matches the doctrine — no invented structure (batch 11)', (
   it('re-init removes the stale generated contract when emit.agents narrows', async () => {
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(read(dir, 'AGENTS.md')).toContain('<!-- BLUEPRINT:START -->');
 
@@ -343,7 +349,7 @@ describe('scaffold matches the doctrine — no invented structure (batch 11)', (
       emit: { agents: ['claude'] },
     }));
 
-    const second = await cli(dir, ['init', '--no-install']);
+    const second = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(second.code).toBe(0);
     expect(second.output).toContain('stale agent contract');
@@ -361,9 +367,12 @@ describe('init output reads correctly when skimmed (field issues #34, #36)', () 
 
     // A plain init leaves a pristine preset scaffold; --authoring reclaims it
     // so the playbook can author the real one.
-    expect((await cli(dir, ['init', '--no-install'])).code).toBe(0);
+    expect((await cli(dir, ['init', '--topology', 'layer-first', '--no-install'])).code).toBe(0);
 
-    const authoring = await cli(dir, ['init', '--authoring', '--no-install']);
+    const authoring = await cli(
+      dir,
+      ['init', '--topology', 'layer-first', '--authoring', '--no-install'],
+    );
 
     expect(authoring.code).toBe(0);
     // The field agent filtered init's output for `write` and missed its own
@@ -378,7 +387,7 @@ describe('init output reads correctly when skimmed (field issues #34, #36)', () 
   it('the install line does not stutter its own kind', async () => {
     const dir = repo({ packageJson: react() });
 
-    const plan = await cli(dir, ['init', '--dry-run']);
+    const plan = await cli(dir, ['init', '--topology', 'layer-first', '--dry-run']);
 
     expect(plan.code).toBe(0);
     expect(plan.output).toContain('would install: eslint,');
@@ -486,7 +495,9 @@ describe('init writes only inside the repo it runs in', () => {
       configSource(escaping({ handbook: '../escaped-handbook.md' })),
     );
 
-    assertRefused(await cli(dir, ['init', '--no-install']), dir, '../escaped-handbook.md');
+    const result = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
+
+    assertRefused(result, dir, '../escaped-handbook.md');
   });
 
   it('refuses an absolute emit.agents path, however ordinary the directory', async () => {
@@ -501,7 +512,9 @@ describe('init writes only inside the repo it runs in', () => {
       configSource(escaping({ agents: [{ target: 'claude', path: target }] })),
     );
 
-    assertRefused(await cli(dir, ['init', '--no-install']), dir, target);
+    const result = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
+
+    assertRefused(result, dir, target);
   });
 });
 

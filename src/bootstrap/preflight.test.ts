@@ -96,7 +96,7 @@ describe('runTransformationPreflight · injected effects', () => {
   );
 
   it(
-    'reads Git with argv, scopes status to the application, and keeps findings usable',
+    'reads Git with argv, checks the worktree, and keeps findings usable',
     async () => {
       const calls: { args: string[]; cwd: string }[] = [];
 
@@ -138,7 +138,7 @@ describe('runTransformationPreflight · injected effects', () => {
       expect(result.worktree).toEqual({
         ok: false,
         changes: [' M src/pages/Home.ts', '?? src/pages/New.ts'],
-        reason: 'The selected application has uncommitted changes.',
+        reason: 'The Git worktree has uncommitted changes.',
       });
 
       expect(result.head).toEqual({ ok: true, commit: 'abc123' });
@@ -300,7 +300,7 @@ describe('runTransformationPreflight · real Git controls', () => {
   );
 
   it(
-    'limits dirtiness to the selected nested application and includes untracked files',
+    'rejects dirtiness anywhere in a nested application worktree, including untracked files',
     async () => {
       write('apps/web/package.json', '{}');
       write('apps/web/src/main.ts', 'export const value = 1;\n');
@@ -310,11 +310,17 @@ describe('runTransformationPreflight · real Git controls', () => {
       write('apps/admin/outside.ts', 'export {};\n');
       const applicationRoot = path.join(root, 'apps/web');
 
-      const clean = await runTransformationPreflight(applicationRoot, ['src'], {
+      const dirtySibling = await runTransformationPreflight(applicationRoot, ['src'], {
         inspect: inspected,
       });
 
-      expect(clean.worktree).toEqual({ ok: true, changes: [] });
+      expect(dirtySibling.worktree).toEqual({
+        ok: false,
+        changes: ['?? apps/admin/outside.ts'],
+        reason: 'The Git worktree has uncommitted changes.',
+      });
+
+      commitAll();
 
       write('apps/web/src/main.ts', 'export const value = 2;\n');
       write('apps/web/src/new.ts', 'export const added = true;\n');

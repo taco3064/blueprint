@@ -20,11 +20,7 @@ export async function cli(dir: string, argv: string[]): Promise<CliResult> {
   console.error = (message?: unknown) => void lines.push(String(message));
 
   try {
-    const explicit = argv[0] === 'init' && !argv.includes('--topology')
-      ? [...argv, '--topology', 'layer-first']
-      : argv;
-
-    return { code: await run(explicit, dir), output: lines.join('\n') };
+    return { code: await run(argv, dir), output: lines.join('\n') };
   } finally {
     console.log = log;
     console.error = error;

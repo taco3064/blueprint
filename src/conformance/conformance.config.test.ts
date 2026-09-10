@@ -200,7 +200,7 @@ describe('the flat default is real — module is optional (batch 15)', () => {
       files: { 'src/App.jsx': 'export const App = () => null;' },
     });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -229,7 +229,7 @@ describe('init and doctor tell one alias story; integrated contracts stay fresh 
       },
     });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(init.output).not.toContain('resolve.alias');
@@ -254,7 +254,7 @@ describe('init and doctor tell one alias story; integrated contracts stay fresh 
       },
     });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(init.output).toContain('KEEP the');
@@ -279,7 +279,7 @@ describe('init and doctor tell one alias story; integrated contracts stay fresh 
       },
     }));
 
-    const second = await cli(dir, ['init', '--no-install']);
+    const second = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(second.code).toBe(0);
 

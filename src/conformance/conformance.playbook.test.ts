@@ -43,7 +43,7 @@ describe('brownfield playbook — semantics stated, nothing reverse-engineered (
     // list, so one fixture reaches all three places doctor is invoked.
     const dir = repo({ packageJson: react(), files: { 'src/main.jsx': 'export const a = 1;\n' } });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const prose = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
 
@@ -76,7 +76,7 @@ describe('brownfield playbook — semantics stated, nothing reverse-engineered (
     ]);
 
     const dir = repo({ packageJson: react(), files });
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(init.code).toBe(0);
 
@@ -114,7 +114,7 @@ describe('a proof step states its own reach (field run #85)', () => {
     // build, and the only path these three agents were on.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -152,7 +152,7 @@ describe('a proof step states its own reach (field run #85)', () => {
     // qualifier that makes it true, which the unqualified version is what #163 was.
     const dir = repo(brownfield());
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -175,7 +175,7 @@ describe('a proof step states its own reach (field run #85)', () => {
     // `rules` is that address.
     const dir = repo(brownfield());
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const prose = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
 
@@ -193,7 +193,7 @@ describe('a proof step states its own reach (field run #85)', () => {
     // two sanctioned sources disagreeing and went to the dump for the text.
     const dir = repo(brownfield());
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const prose = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
 
@@ -212,7 +212,7 @@ describe('a proof step states its own reach (field run #85)', () => {
     // nothing to enforce it. The branch had no cell for that.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -237,7 +237,7 @@ describe('a proof step states its own reach (field run #85)', () => {
       },
     });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const prose = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
 
@@ -252,7 +252,7 @@ describe('a proof step states its own reach (field run #85)', () => {
     // it is right: a repo with no such redirect does get artifacts in its tree.
     const plain = repo({ packageJson: react() });
 
-    await cli(plain, ['init', '--authoring', '--no-install']);
+    await cli(plain, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const plainProse = flattenProse(read(plain, 'blueprint-authoring.md') ?? '');
 
@@ -270,7 +270,7 @@ describe('the same gap, one artifact further along (swept, not field-reported)',
     // waiting for a run to land on it.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     const handbook = read(dir, 'docs/architecture-handbook.md') ?? '';
 
@@ -292,7 +292,7 @@ describe('the same gap, one artifact further along (swept, not field-reported)',
       },
     });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(init.code).toBe(0);
     // The reference is written, so a merge is genuinely ahead of the reader.
@@ -330,7 +330,7 @@ describe('merge caveats meet the agent at the point of need (batch 14)', () => {
       },
     });
 
-    const init = await cli(dir, ['init', '--preset', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--preset', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(init.output).toContain('TS7016');
@@ -348,7 +348,7 @@ describe('merge caveats meet the agent at the point of need (batch 14)', () => {
       files: { 'src/App.jsx': 'export const App = () => null;' },
     });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -365,7 +365,12 @@ describe('the playbook only invites tools that run yet (field issue #35)', () =>
       files: { 'src/App.jsx': 'export const App = () => null;' },
     });
 
-    expect((await cli(dir, ['init', '--authoring', '--no-install'])).code).toBe(0);
+    const init = await cli(
+      dir,
+      ['init', '--topology', 'layer-first', '--authoring', '--no-install'],
+    );
+
+    expect(init.code).toBe(0);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -397,7 +402,7 @@ describe('"ONE entry" is per collision, not per rule key (field issue #51)', () 
       files: { 'src/App.jsx': 'export const App = () => null;' },
     });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = (read(dir, 'blueprint-authoring.md') ?? '').replace(/\s+/g, ' ');
 
@@ -484,7 +489,7 @@ describe('the build clause is measured, not argued (field runs #104-#111)', () =
   const playbookOf = async (spec: RepoSpec): Promise<string> => {
     const dir = repo(spec);
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     return read(dir, 'blueprint-authoring.md') ?? '';
   };

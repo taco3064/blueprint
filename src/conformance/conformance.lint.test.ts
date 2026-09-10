@@ -155,7 +155,7 @@ describe('an injected-plugin gate cannot go silently vacuous', () => {
       packageJson: { ...react(), devDependencies: { typescript: '^5.0.0' } },
     });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
     const config = read(dir, 'eslint.config.mjs') ?? '';
 
     expect(init.code).toBe(0);
@@ -172,7 +172,7 @@ describe('an injected-plugin gate cannot go silently vacuous', () => {
   it('a JS project still gets stylistic — only the TS argument drops', async () => {
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     const config = read(dir, 'eslint.config.mjs') ?? '';
 
@@ -204,7 +204,7 @@ describe('an injected-plugin gate cannot go silently vacuous', () => {
       files: { 'src/App.jsx': 'export const App = () => null;' },
     });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     // Prose in the playbook is hard-wrapped, so assert against a single-line
     // form — otherwise a reflow breaks the test without changing the meaning.
@@ -336,7 +336,7 @@ describe('the required deps install on the stack the project is on (field issues
   it('importBlock rides import-x — config, install set and catalog agree', async () => {
     const dir = repo({ packageJson: react({ typescript: '^5.0.0' }) });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(init.code).toBe(0);
     // npm resolves the required-deps list as a unit, so one carrier the
@@ -423,7 +423,7 @@ describe('a merge that drops a carrier cannot pass doctor (field issue #40)', ()
       files: { 'src/App.jsx': 'export const App = () => null;' },
     });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = (read(dir, 'blueprint-authoring.md') ?? '').replace(/\s+/g, ' ');
 
@@ -441,7 +441,7 @@ describe('a merge that drops a carrier cannot pass doctor (field issue #40)', ()
       files: { 'src/App.jsx': 'export const App = () => null;' },
     });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = (read(dir, 'blueprint-authoring.md') ?? '').replace(/\s+/g, ' ');
 
@@ -467,7 +467,7 @@ describe('a merge that drops a carrier cannot pass doctor (field issue #40)', ()
       ),
     });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     const playbook = (read(dir, 'blueprint-authoring.md') ?? '').replace(/\s+/g, ' ');
 
@@ -482,7 +482,7 @@ describe('the handbook does not promise a gate that does not exist (field issue 
   it('a generated handbook marks which machine holds each declared rule', async () => {
     const dir = repo({ packageJson: react() });
 
-    expect((await cli(dir, ['init', '--no-install'])).code).toBe(0);
+    expect((await cli(dir, ['init', '--topology', 'layer-first', '--no-install'])).code).toBe(0);
 
     const handbook = read(dir, 'docs/architecture-handbook.md') ?? '';
 

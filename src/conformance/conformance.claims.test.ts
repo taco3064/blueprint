@@ -40,7 +40,7 @@ describe('an instruction states its own reach too (field runs #91–#93)', () =>
     // places; this instruct did not — the same class, in my own new sentence.
     const dir = repo({ packageJson: react() });
 
-    const init = await cli(dir, ['init', '--no-install']);
+    const init = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     expect(init.code).toBe(0);
     expect(init.output).toContain('when there IS code inside a layer');
@@ -64,7 +64,7 @@ describe('an instruction states its own reach too (field runs #91–#93)', () =>
       ),
     });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
     const prose = flattenProse(playbook);
@@ -95,7 +95,7 @@ describe('a number and a rule the reader can act on (field run #89)', () => {
       },
     });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
     write(dir, 'blueprint.config.mjs', configSource(reactPreset({ name: 'fixture' })));
 
     const inspect = await cli(dir, ['inspect']);
@@ -112,7 +112,7 @@ describe('a number and a rule the reader can act on (field run #89)', () => {
     // call the playbook keeps away from an adopting agent.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
     const contract = read(dir, 'CLAUDE.md') ?? '';
 
@@ -129,7 +129,7 @@ describe('a flag states its outcome, not only its mechanism (field run #88)', ()
     // help described the mechanism and left the outcome to be discovered.
     const dir = repo({ packageJson: react() });
 
-    const help = await cli(dir, ['init', '--help']);
+    const help = await cli(dir, ['init', '--topology', 'layer-first', '--help']);
 
     expect(help.code).toBe(0);
     expect(help.output).toContain('Force the authoring playbook even on a small repo');
@@ -151,7 +151,10 @@ describe('a flag states its outcome, not only its mechanism (field run #88)', ()
       '// why 400: largest file is 117 lines\nexport default {};\n',
     );
 
-    const init = await cli(dir, ['init', '--authoring', '--no-install']);
+    const init = await cli(
+      dir,
+      ['init', '--topology', 'layer-first', '--authoring', '--no-install'],
+    );
 
     expect(init.code).toBe(1);
     expect(init.output).toContain('differs from what init would scaffold');
@@ -177,7 +180,7 @@ describe('a claim states the condition it needs (field runs #95–#97)', () => {
   const playbookOf = async (spec: RepoSpec): Promise<string> => {
     const dir = repo(spec);
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     return read(dir, 'blueprint-authoring.md') ?? '';
   };
@@ -305,7 +308,7 @@ describe('a check is asked for, not answered in advance (field runs #99-#100)', 
   const playbookOf = async (spec: RepoSpec): Promise<string> => {
     const dir = repo(spec);
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     return read(dir, 'blueprint-authoring.md') ?? '';
   };
@@ -410,7 +413,7 @@ describe('a fact reaches the reader before the red, not after (field run #101)',
     // with no finding behind it — so the playbook has to say two, not one.
     const dir = repo(brownfield());
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -428,7 +431,7 @@ describe('a fact reaches the reader before the red, not after (field run #101)',
     // may be wired nowhere yet. Same-layer twins are a pure duplicate; this is not.
     const dir = repo(brownfield());
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -482,7 +485,7 @@ describe('a principle names its own boundary (field runs #104, #106)', () => {
     // out that build mode's book-keeping is not emit. Two truths, no bridge.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
@@ -501,7 +504,7 @@ describe('a principle names its own boundary (field runs #104, #106)', () => {
     // both said reading the prose alone was a tightrope.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const flat = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
 
@@ -523,7 +526,7 @@ describe('a principle names its own boundary (field runs #104, #106)', () => {
     // said it had extended it. The playbook states the split now.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
     const flat = flattenProse(playbook);
@@ -547,7 +550,7 @@ describe('a principle names its own boundary (field runs #104, #106)', () => {
     // The test that reconciles them is declared, not enforced.
     const dir = repo({ packageJson: react() });
 
-    await cli(dir, ['init', '--authoring', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--authoring', '--no-install']);
 
     const flat = flattenProse(read(dir, 'blueprint-authoring.md') ?? '');
 
@@ -572,7 +575,7 @@ describe('a principle names its own boundary (field runs #104, #106)', () => {
       },
     });
 
-    await cli(dir, ['init', '--preset', '--no-install']);
+    await cli(dir, ['init', '--topology', 'layer-first', '--preset', '--no-install']);
 
     const reference = read(dir, 'eslint.config.blueprint.mjs') ?? '';
 

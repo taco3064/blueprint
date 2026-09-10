@@ -350,7 +350,32 @@ await check('built init accepts both explicit topologies on empty fixtures', () 
   const playbook = fs.readFileSync(path.join(moduleFirst, 'blueprint-authoring.md'), 'utf-8');
 
   expect(playbook.includes('module-first was selected'), 'module target was lost in authoring');
+
+  expect(
+    playbook.includes('ordinary top-level folders below `sourceRoot` as module'),
+    'module method does not classify top-level folders as module candidates',
+  );
+
+  expect(
+    playbook.includes('technical layers that repeat inside ordinary modules'),
+    'module method does not derive repeated inner layers',
+  );
+
+  expect(playbook.includes('Infer direct `dependsOn` edges'), 'module dependencies are omitted');
+  expect(playbook.includes('module + inner-layer structure'), 'module report contract is omitted');
   expect(!playbook.includes('early-exit checklist'), 'module authoring recommends layer-first exit');
+
+  expect(
+    !playbook.includes('Top-level folders under `src/` are candidates for layers'),
+    'module authoring retained layer-first classification',
+  );
+
+  expect(
+    !playbook.includes('preset\'s declared-but-empty layers'),
+    'module authoring retained the preset runway',
+  );
+
+  expect(!playbook.includes('Optional module-first topology'), 'module schema calls itself optional');
 
   return 'layer scaffold + module authoring';
 });
