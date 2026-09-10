@@ -111,7 +111,38 @@ module; uses `git mv` for tracked source; rewrites resolvable imports; derives f
 from the resulting graph; and reviews findings before regenerating the baseline. React and Vue
 route composition moves into reserved module `app`. A Next.js App Router tree stays physically
 under `app/**`; a Pages Router tree is rejected because converting its router is outside a folder
-topology transformation. Module-first → layer-first remains unavailable.
+topology transformation.
+
+## Transform an existing module-first application
+
+Run the reverse path from one application root with its current module-first config committed:
+
+```bash
+npx @kekkai/blueprint init --topology layer-first --agent claude
+# or: --agent codex
+```
+
+The same Git, scope, and inspection preflight runs before any write. The config is required as the
+authority for modules, `dependsOn`, inner-layer order, folder/file unit layouts, aliases, and
+project contracts; an inferred module-first tree without that config stops unchanged. The generated
+recovery path is explicit: run `init --topology module-first`, have the Agent author and verify that
+config, commit the clean state, and only then run `init --topology layer-first`. The generated
+playbook lists every file-level structural destination: ordinary module-root source maps below
+`containers/<module>`, while declared inner-layer units flatten into their global layer surfaces
+without changing unit layout. Exact and case-insensitive destination collisions, orphans, cycles,
+unmatched alias-like imports, relative structural evidence, and dynamic-import limits are all shown
+before movement.
+
+The Agent resolves collision names and ambiguous placement, uses `git mv`, rewrites supported
+imports, and cuts source, config, emitted ESLint, handbook, and Agent contracts over together. The
+final config removes `modules` and `dependsOn`; the old module DAG remains migration evidence, not a
+replacement layer-first mechanism. React/Vue `app/**` content is classified into route composition,
+wiring, or domain code rather than moved blindly. Next.js App Router stays physically under
+`app/**`; unresolved, hybrid, or Pages-only Next router evidence stops unchanged.
+
+For both directions, inspect the transformed tree before regenerating the baseline. Compare debt by
+meaning, fix new transformation regressions, then update the baseline and rerun inspect, deps,
+emitted ESLint, doctor, and the application’s lint/typecheck/test/build gates.
 
 ## A prompt that works
 

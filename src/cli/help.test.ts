@@ -41,6 +41,8 @@ describe('per-command help', () => {
     expect(log.mock.calls[0][0]).toContain('--topology layer-first|module-first');
     expect(log.mock.calls[0][0]).toContain('module-first implies authoring');
     expect(log.mock.calls[0][0]).toContain('--preset (which itself means layer-first)');
+    expect(log.mock.calls[0][0]).toContain('measures every structural destination and collision');
+    expect(log.mock.calls[0][0]).toContain('configured modules');
 
     expect(await run(['inspect', '-h'])).toBe(0);
     expect(log.mock.calls[1][0]).toContain('read-only architecture report');

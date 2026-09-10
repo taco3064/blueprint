@@ -8,6 +8,7 @@ to see how to use it.
 - [`init` — greenfield scaffold](/guide/getting-started#greenfield-—-blueprint-init) — one command scaffolds the whole operating contract: layer folders, config, lint, handbook, agent contracts, import alias
 - [`init` — brownfield authoring](/guide/ai-adoption#the-flow) — on a repo with code but no config, writes an executable authoring playbook instead of guessing a preset
 - [`init --topology layer-first --agent claude|codex`](/guide/ai-adoption) — launches your own agent CLI on that playbook; it derives the config from evidence and iterates until every finding is explainable
+- [`init` — topology transformation](/guide/ai-adoption#transform-an-existing-layer-first-application) — Git-guarded Agent playbooks transform either direction without automatic semantic naming or source movement
 - [`survey`](/guide/ai-adoption#why-the-survey-matters) — deterministic repo evidence: folder shapes, the import matrix, package concentration — the raw material for authoring a config
 - [`inspect`](/guide/getting-started#brownfield-—-blueprint-inspect) — scans the configured `architecture.sourceRoot` (`src/` by default) against the blueprint and lists every violation; any error-level finding exits 1 — gate on it anywhere (a git hook, CI, whatever you run)
 - [`inspect --baseline`](/guide/getting-started#brownfield-—-blueprint-inspect) — the brownfield ratchet: lock today's debt, fail only on *new* findings, tighten as debt is paid down

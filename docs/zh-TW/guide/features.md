@@ -8,6 +8,7 @@
 - [`init` —— 全新專案建置](/zh-TW/guide/getting-started#全新專案-——-blueprint-init) —— 單一指令完成設計理念的護欄導入：分層資料夾、config、lint、手冊、AI Agent 守則與匯入別名
 - [`init` —— 既有專案編寫流程](/zh-TW/guide/ai-adoption#導入流程) —— 對有程式碼但沒有 config 的專案，不硬猜 preset，改為產出一份可執行的編寫作業手冊
 - [`init --topology layer-first --agent claude|codex`](/zh-TW/guide/ai-adoption) —— 啟動你自己的 Agent CLI 執行該作業手冊：由證據推導 config，反覆檢核到每項違規都能解釋為止
+- [`init` —— 拓樸轉換](/zh-TW/guide/ai-adoption#轉換既有的-layer-first-application) —— 由 Git 保護的 Agent playbook 支援雙向轉換，不自動決定語意命名或搬移 source
 - [`survey`](/zh-TW/guide/ai-adoption#蒐證步驟的必要性) —— 決定性的專案蒐證：資料夾形狀、匯入矩陣、套件使用集中度 —— 編寫 config 的原料
 - [`inspect`](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect) —— 掃描設定的 `architecture.sourceRoot`（預設為 `src/`）並對照 blueprint config 列出所有違規；只要有 error 等級的違規就以 exit code 1 結束，可接到任何 gate（git hook、CI 隨你）
 - [`inspect --baseline`](/zh-TW/guide/getting-started#既有專案-——-blueprint-inspect) —— 既有專案的 baseline 棘輪：先把今日的債務記錄下來，之後只攔「新增」的違規，隨著債務清償逐步收緊

@@ -92,7 +92,22 @@ npx @kekkai/blueprint init --topology module-first --agent claude
 
 init 會先驗證 topology decision、Git 復原邊界、單一 application scope，以及轉換前 inspection 是否能提供可靠證據；全部通過後才會寫入。接著分別量測 `containers/*` 候選（沒有 container 時改以 `pages/*` islands 作 fallback）與 page／App Router composition closure。受治理 edge 會使用與 inspect／deps 相同的 Blueprint config alias 與 unit identity，也涵蓋可靜態判定的 dynamic import；playbook 另外列出重疊、cycle、orphan、無法匹配的 alias-like import、relative structural target 與 collision risk。relative evidence 不宣稱已驗證精確檔案、extension 或 index resolution，runtime-dependent import 也會明確保留為未驗證。產出的 transformation playbook 只把事實交給 Agent，不替它命名 domain。
 
-Agent 負責決定 ownership、module 名稱、merge／split，以及是否抽出有明確名稱的中立 module；tracked source 一律使用 `git mv`，改寫可解析的 import，再從結果 graph 推導最終 `dependsOn`，並在重建 baseline 前逐項判讀 findings。React 與 Vue 的 route composition 會移入保留的 `app` module。Next.js App Router 仍維持實體 `app/**`；Pages Router 因為轉換 router 超出 folder topology transformation 範圍，會直接拒絕。module-first → layer-first 仍未提供。
+Agent 負責決定 ownership、module 名稱、merge／split，以及是否抽出有明確名稱的中立 module；tracked source 一律使用 `git mv`，改寫可解析的 import，再從結果 graph 推導最終 `dependsOn`，並在重建 baseline 前逐項判讀 findings。React 與 Vue 的 route composition 會移入保留的 `app` module。Next.js App Router 仍維持實體 `app/**`；Pages Router 因為轉換 router 超出 folder topology transformation 範圍，會直接拒絕。
+
+## 將既有 module-first application 轉回 layer-first
+
+請從單一 application root 執行，並確保現行 module-first config 已 commit：
+
+```bash
+npx @kekkai/blueprint init --topology layer-first --agent claude
+# 或使用：--agent codex
+```
+
+任何寫入前都會先執行相同的 Git、scope 與 inspection preflight。現行 config 是 modules、`dependsOn`、內層 layer 順序、folder/file unit layout、alias 與專案契約的權威來源；只有 survey 推斷為 module-first、卻沒有 config 的 tree 會維持零寫入。恢復路徑是先執行 `init --topology module-first`，讓 Agent 建立並驗證 config，commit 乾淨狀態後，才執行 `init --topology layer-first`。產出的 playbook 會列出每個檔案的結構目的地：一般 module 根層 source 進入 `containers/<module>`，已宣告的內層 unit 則依原有 layout 攤回全域 layer。所有精確與大小寫不敏感的 destination collision、orphan、cycle、未匹配 alias-like import、relative 結構證據與 dynamic import 限制，都會在搬移前完整列出。
+
+Agent 負責決定 collision 命名與模糊語意位置，使用 `git mv`、改寫支援的 import，並同步切換 source、config、emitted ESLint、handbook 與 Agent contract。最終 config 移除 `modules` 與 `dependsOn`；舊 module DAG 只作為遷移證據，不會被換成另一套 layer-first 機制。React/Vue 的 `app/**` 會依 route composition、wiring 或 domain code 個別判斷，不會盲目搬移。Next.js App Router 的實體 `app/**` 保持原位；無法解析、混用或只有 Pages Router 的 Next 證據會維持零寫入。
+
+兩個方向都必須先對轉換後的 tree 執行 inspect，再重建 baseline。依語意比對既有債、先修掉新 regression，之後才更新 baseline，並重跑 inspect、deps、emitted ESLint、doctor 與 application 自己的 lint/typecheck/test/build。
 
 ## 建議的提示詞
 

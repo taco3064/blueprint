@@ -67,6 +67,21 @@
 - 專案形態 —— 以套件為單位導入
 - 結果 —— 支援模式：於各套件目錄內執行 `blueprint init`（`pnpm --filter <pkg> exec …`）。套件管理工具自**工作區根目錄**偵測（向上層目錄尋找 lockfile 與 `pnpm-workspace.yaml`）。Blueprint 必須為該套件自身的開發依賴，守則中的 `node_modules` 連結方能解析。建議以 turbo 任務逐套件接入 `blueprint inspect --baseline`（`"inspect": "blueprint inspect --baseline"`），再照你原本 gate monorepo 的方式接上即可。
 
+**拓樸轉換 replay：React、Vue 與 Next.js App Router**
+- 專案形態 —— 在全新暫存 Git repository 中實際執行量測 playbook、明確的 Agent 核准
+  `git mv` 決策、import/config cutover、baseline review、generated artifacts 與 application
+  gates。反向 React case 位於 monorepo；Vue 涵蓋 route composition；Next 保留實體
+  `src/app/**` tree。
+- 結果 —— 兩個方向都通過 inspect/deps/emitted ESLint 與
+  lint/typecheck/test/build/doctor。module-first → layer-first cases 逐一核對所有 source marker
+  與檔案、保留 root wiring、明確解決大小寫不敏感的 hook collision，且植入的新 migration
+  regression 會在 baseline update 前被拒絕。layer-first → module-first → layer-first 語意
+  round trip 保留 governed coverage、支援的 dynamic-import edges、中間狀態的 module DAG
+  語意、source accounting 與最終 layer flow；不要求 path 或 byte 完全相同。
+- 邊界 —— `npm run field:transformation` 是明確語意決策的 deterministic replay，不是
+  automatic transformer，也不等同 live field harness。collision 命名、router 分類與 layer
+  placement 仍由 Agent 判斷。
+
 ## 框架注意事項
 
 - **Next.js**：`init` 會偵測路由樹（`app/` 與／或 `pages/`，位於 `src/` 或專案根），產出 `nextPreset` ——<br>
