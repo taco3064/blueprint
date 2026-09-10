@@ -439,7 +439,7 @@ await check('built init refuses an unavailable topology transformation without w
 
   const result = runCmd(
     process.execPath,
-    [binPath, 'init', '--topology', 'layer-first', '--no-install'],
+    [binPath, 'init', '--topology', 'layer-first', '--authoring', '--no-install'],
     { cwd: dir },
   );
 

@@ -67,13 +67,20 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   const pristine = state.hasConfig && isPristineScaffold(root, state);
 
   assertInitOptions(state, options);
-  assertAuthoredConfigNotRewritten(state, options, pristine);
+
+  if (options.topology === undefined) {
+    assertAuthoredConfigNotRewritten(state, options, pristine);
+  }
 
   const { resolved, survey, topology } = await prepareTopology({
     root, state, options, pristine,
   });
 
   assertTopologySupported(topology);
+
+  if (options.topology !== undefined) {
+    assertAuthoredConfigNotRewritten(state, options, pristine);
+  }
 
   if (survey && takesAuthoringPath({ state, options, survey, topology })) {
     return runAuthoring(root, state, {
@@ -116,9 +123,17 @@ async function prepareTopology(input: InitTopologyInput) {
 async function resolveConfigured(
   input: InitTopologyInput,
 ): Promise<Awaited<ReturnType<typeof resolveBlueprint>> | null> {
-  return input.state.hasConfig && !input.pristine
-    ? resolveBlueprint(input.root, input.state, input.options)
-    : null;
+  if (!input.state.hasConfig || input.pristine) {
+    return null;
+  }
+
+  try {
+    return await resolveBlueprint(input.root, input.state, input.options);
+  } catch (error) {
+    assertAuthoredConfigNotRewritten(input.state, input.options, input.pristine);
+
+    throw error;
+  }
 }
 
 function surveyForTopology(input: InitTopologyInput): SurveyResult | null {
