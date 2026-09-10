@@ -7,6 +7,9 @@ import { runInit } from './bootstrap';
 import type { Action } from './types';
 import { nextPreset, vuePreset } from '../presets';
 
+const runLayerFirstInit: typeof runInit = (root, options = {}) =>
+  runInit(root, { topology: 'layer-first', ...options });
+
 let root: string;
 
 beforeEach(() => {
@@ -51,7 +54,7 @@ describe('runInit · sourceRoot scaffolding', () => {
 
     const preset = vuePreset();
 
-    const actions = await runInit(root, {
+    const actions = await runLayerFirstInit(root, {
       dryRun: true,
       install: false,
       log: silent,
@@ -73,7 +76,7 @@ describe('runInit · sourceRoot scaffolding', () => {
     writePkg({ name: 'demo', dependencies: { next: '^15' } });
     fs.mkdirSync(path.join(root, 'app'), { recursive: true });
 
-    const actions = await runInit(root, {
+    const actions = await runLayerFirstInit(root, {
       dryRun: true,
       install: false,
       log: silent,
@@ -93,7 +96,7 @@ describe('runInit · lint-script wiring', () => {
   it('patches a fresh scaffold whose lint script misses eslint', async () => {
     prettyPkg('oxlint');
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint && eslint src');
   });
@@ -102,7 +105,7 @@ describe('runInit · lint-script wiring', () => {
     // Compact JSON — the `"lint": "…"` needle (pretty formatting) misses.
     writePkg({ name: 'demo', dependencies: { vue: '^3' }, scripts: { lint: 'oxlint' } });
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, log: silent });
 
     expect(JSON.parse(read('package.json')).scripts.lint).toBe('oxlint');
 
@@ -117,7 +120,7 @@ describe('runInit · lint-script wiring', () => {
     writePkg({ name: 'demo', dependencies: { next: '^15' }, scripts: { lint: 'oxlint' } });
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
 
-    const actions = await runInit(root, {
+    const actions = await runLayerFirstInit(root, {
       install: false,
       log: silent,
       loadConfig: async () => nextPreset({ router: 'app' }),
@@ -135,7 +138,7 @@ describe('runInit · lint-script wiring', () => {
   it('leaves a lint script that already runs eslint alone', async () => {
     prettyPkg('eslint .');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, log: silent });
 
     expect(JSON.parse(read('package.json')).scripts.lint).toBe('eslint .');
     expect(actions.some((action) => action.note.includes('&& eslint'))).toBe(false);
@@ -146,7 +149,7 @@ describe('runInit · lint-script wiring', () => {
     // shipped none — the field agent had to invent one; init owns it now.
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     expect(JSON.parse(read('package.json')).scripts.lint).toBe('eslint src');
   });
@@ -155,7 +158,7 @@ describe('runInit · lint-script wiring', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
 
-    const actions = await runInit(root, {
+    const actions = await runLayerFirstInit(root, {
       install: false,
       log: silent,
       loadConfig: async () => vuePreset(),
@@ -175,7 +178,7 @@ describe('runInit · where the lint-script action lands in the plan', () => {
   it('lands the package.json patch before the install action', async () => {
     prettyPkg('oxlint');
 
-    const actions = await runInit(root, { log: silent, exec: () => {} });
+    const actions = await runLayerFirstInit(root, { log: silent, exec: () => {} });
 
     const writeAt = actions.findIndex(
       (action) => action.kind === 'write' && action.path === 'package.json',
@@ -191,7 +194,7 @@ describe('runInit · where the lint-script action lands in the plan', () => {
   it('lands the lint-script patch before the install that would clobber it', async () => {
     prettyPkg('oxlint');
 
-    const actions = await runInit(root, { install: true, exec: () => {}, log: silent });
+    const actions = await runLayerFirstInit(root, { install: true, exec: () => {}, log: silent });
 
     const patchAt = actions.findIndex(
       (action) => action.kind === 'write' && action.path === 'package.json',
@@ -215,7 +218,7 @@ describe('runInit · where the lint-script action lands in the plan', () => {
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// user config');
     prettyPkg('oxlint');
 
-    const actions = await runInit(root, {
+    const actions = await runLayerFirstInit(root, {
       install: true,
       exec: () => {},
       log: silent,
@@ -236,7 +239,7 @@ describe('runInit · where the lint-script action lands in the plan', () => {
   it('appends the patch when there is no install for it to precede', async () => {
     prettyPkg('oxlint');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, log: silent });
 
     const patchAt = actions.findIndex(
       (action) => action.kind === 'write' && action.path === 'package.json',
@@ -259,7 +262,7 @@ describe('runInit · an introduced alias is named as a decision', () => {
     + 'and stays quiet when one existed', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
-    const introduced = await runInit(root, { install: false, log: silent });
+    const introduced = await runLayerFirstInit(root, { install: false, log: silent });
 
     expect(
       introduced.some(
@@ -275,7 +278,7 @@ describe('runInit · an introduced alias is named as a decision', () => {
       JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }),
     );
 
-    const detected = await runInit(root, { install: false, log: silent });
+    const detected = await runLayerFirstInit(root, { install: false, log: silent });
 
     expect(
       detected.some(
@@ -297,7 +300,7 @@ describe('runInit · an introduced alias is named as a decision', () => {
       '{ "compilerOptions": { "paths": { "~app: ["./src/x"] } } }',
     );
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, log: silent });
 
     const note = actions.find(
       (action) => action.kind === 'instruct' && action.note.includes('first import alias'),
@@ -316,7 +319,7 @@ describe('runInit · an introduced alias is named as a decision', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, 'tsconfig.json'), '{ "compilerOptions": {} }');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, log: silent });
 
     const note = actions.find(
       (action) => action.kind === 'instruct' && action.note.includes('first import alias'),
@@ -334,7 +337,7 @@ describe('runInit · the gitignore heads-up counts what it re-included', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, '.gitignore'), '*.md\nCLAUDE.md\nAGENTS.md\n');
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, log: silent });
 
     const note = actions.find(
       (action) => action.kind === 'write' && action.path === '.gitignore',
@@ -356,7 +359,7 @@ describe('runInit · reading the contract files at their declared paths', () => 
     // catalog knows nothing about.
     fs.writeFileSync(path.join(root, 'docs/CLAUDE.md'), '# our own notes\n');
 
-    return runInit(root, {
+    return runLayerFirstInit(root, {
       install: false,
       log: silent,
       ...over,
@@ -402,7 +405,7 @@ describe('runInit · reading the contract files at their declared paths', () => 
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// hand-written\n');
     fs.writeFileSync(path.join(root, '.gitignore'), 'docs/\n');
 
-    const actions = await runInit(root, {
+    const actions = await runLayerFirstInit(root, {
       install: false,
       log: silent,
       loadConfig: async () => ({
@@ -427,7 +430,7 @@ describe('runInit · where the package.json patch lands', () => {
     // patch before the work it is meant to follow.
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
-    const actions = await runInit(root, { install: false, log: silent });
+    const actions = await runLayerFirstInit(root, { install: false, log: silent });
 
     const patchAt = actions.findIndex(
       (action) => action.kind === 'write' && action.path === 'package.json',
@@ -463,7 +466,7 @@ describe('runInit · the ignore check sees the narrowed contract', () => {
     fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), '// hand-written\n');
     fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\n');
 
-    const actions = await runInit(root, {
+    const actions = await runLayerFirstInit(root, {
       install: false,
       log: silent,
       agent: 'claude',
@@ -489,7 +492,7 @@ describe('runInit · a .gitignore that arrived with CRLF', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\r\ndocs\r\n');
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     const gitignore = read('.gitignore');
 
@@ -509,7 +512,7 @@ describe('runInit · a .gitignore that arrived with CRLF', () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
     fs.writeFileSync(path.join(root, '.gitignore'), 'CLAUDE.md\ndocs\n');
 
-    await runInit(root, { install: false, log: silent });
+    await runLayerFirstInit(root, { install: false, log: silent });
 
     expect(read('.gitignore')).not.toContain('\r');
   });

@@ -232,7 +232,7 @@ function noConfigResult(
     {
       label: 'blueprint.config.mjs present',
       ok: false,
-      detail: 'run `blueprint init` (or `init --authoring` on an existing repo) first',
+      detail: 'run `blueprint init` (or `init --topology layer-first --authoring`) first',
     },
   ];
 

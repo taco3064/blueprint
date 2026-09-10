@@ -64,6 +64,26 @@ const small = authoringBrief(
 );
 
 describe('authoringActions', () => {
+  it('keeps module-first narration aligned with its selected authoring path', () => {
+    const actions = authoringActions(
+      { ...survey, totalFiles: 0 },
+      {
+        packageManager: 'npm',
+        needsInstall: false,
+        claudeDir: { hadDir: false, otherCommands: 0 },
+        viteTs: null,
+        tscOut: null,
+        topology: 'module-first',
+      },
+    );
+
+    const note = actions.at(-1)?.note ?? '';
+
+    expect(note).toContain('Module-first is selected and has no generic preset');
+    expect(note).not.toContain('Prefer a preset scaffold');
+    expect(note).not.toContain('already has code');
+  });
+
   it('writes the playbook, the command file, installs the package, then instructs', () => {
     const actions = authoringActions(
       survey,
@@ -155,6 +175,20 @@ describe('authoringActions', () => {
 });
 
 describe('authoringBrief', () => {
+  it('keeps an explicit module-first path out of the layer-first preset exit', () => {
+    const moduleFirst = authoringBrief(
+      { ...survey, totalFiles: 0 },
+      'npm install -D @kekkai/blueprint',
+      {
+        claudeDir: { hadDir: false, otherCommands: 0 },
+        topology: 'module-first',
+      },
+    );
+
+    expect(moduleFirst).toContain('module-first was selected');
+    expect(moduleFirst).not.toContain('The complete early-exit checklist');
+  });
+
   it('opens with the install prerequisite', () => {
     expect(brief).toContain('## Prerequisites');
     expect(brief).toContain('pnpm add -D @kekkai/blueprint');
@@ -228,7 +262,7 @@ describe('authoringBrief', () => {
   });
 
   it('sanctions the preset early exit — a starter deserves no ceremony', () => {
-    expect(brief).toContain('Early exit is a legitimate verdict');
+    expect(brief).toContain('Early exit is a legitimate layer-first verdict');
     expect(brief).toContain('(10 source files)'); // the real threshold, interpolated
     expect(brief).toContain('npx blueprint init --preset');
   });
@@ -270,7 +304,7 @@ describe('authoringBrief', () => {
     // Final field round: the checklist claimed completeness while omitting
     // the tool declaration Method step 9 mandates — a literal walk emitted
     // two contracts with doctor green. Step 1 carries the declaration now.
-    expect(small).toContain('--preset --agent claude');
+    expect(small).toContain('--preset --topology layer-first --agent claude');
     expect(small).toContain('one run emits one contract');
   });
 

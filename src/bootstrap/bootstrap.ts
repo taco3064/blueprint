@@ -30,6 +30,8 @@ import {
 import { plan } from './plan';
 import { apply, defaultExec } from './apply';
 import type { Exec } from './apply';
+import { decideTopology, observeTopology } from './topology';
+import type { ArchitectureTopology, TopologyDecision } from './topology';
 import type { Action } from './types';
 
 export interface InitOptions extends ResolveOptions {
@@ -41,6 +43,8 @@ export interface InitOptions extends ResolveOptions {
   preset?: boolean;
 
   authoring?: boolean;
+
+  topology?: ArchitectureTopology;
 
   agent?: AgentKind;
 
@@ -62,18 +66,86 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
   const pristine = state.hasConfig && isPristineScaffold(root, state);
 
-  assertInitSupported(state, options, pristine);
+  assertInitOptions(state, options);
+  assertAuthoredConfigNotRewritten(state, options, pristine);
 
-  const survey = configIsInitsToWrite(state, options, pristine) ? surveySource(root, state) : null;
+  const { resolved, survey, topology } = await prepareTopology({
+    root, state, options, pristine,
+  });
 
-  if (survey && takesAuthoringPath(state, options, survey)) {
-    return runAuthoring(root, state, { options, log, survey, removeScaffold: pristine });
+  assertTopologySupported(topology);
+
+  if (survey && takesAuthoringPath({ state, options, survey, topology })) {
+    return runAuthoring(root, state, {
+      options,
+      log,
+      survey,
+      removeScaffold: pristine,
+      topology: topology.target!,
+    });
   }
 
-  return runScaffold(root, state, { options, log, forkNote: survey && freshScaffoldNote(survey) });
+  return runScaffold(root, state, {
+    options,
+    log,
+    forkNote: survey ? freshScaffoldNote(survey) : null,
+    resolved,
+  });
 }
 
-function assertInitSupported(state: ProjectState, options: InitOptions, pristine: boolean): void {
+interface InitTopologyInput {
+  root: string;
+  state: ProjectState;
+  options: InitOptions;
+  pristine: boolean;
+}
+
+async function prepareTopology(input: InitTopologyInput) {
+  const resolved = await resolveConfigured(input);
+  const survey = surveyForTopology(input);
+  const observation = observeForInit({ input, resolved, survey });
+
+  const topology = decideTopology(observation, {
+    topology: input.options.topology,
+    preset: input.options.preset,
+  });
+
+  return { resolved, survey, topology };
+}
+
+async function resolveConfigured(
+  input: InitTopologyInput,
+): Promise<Awaited<ReturnType<typeof resolveBlueprint>> | null> {
+  return input.state.hasConfig && !input.pristine
+    ? resolveBlueprint(input.root, input.state, input.options)
+    : null;
+}
+
+function surveyForTopology(input: InitTopologyInput): SurveyResult | null {
+  return !input.state.hasConfig || Boolean(input.options.authoring && input.pristine)
+    ? surveySource(input.root, input.state)
+    : null;
+}
+
+function observeForInit(ctx: {
+  input: InitTopologyInput;
+  resolved: Awaited<ReturnType<typeof resolveBlueprint>> | null;
+  survey: SurveyResult | null;
+}) {
+  const { input, resolved, survey } = ctx;
+
+  if (!input.pristine) {
+    return observeTopology(resolved?.blueprint.architecture ?? null, survey);
+  }
+
+  return {
+    current: 'layer-first' as const,
+    source: 'configured' as const,
+    selectedApplication: survey?.sourceRoot ?? (input.state.nextSrcDir ? 'src' : '.'),
+  };
+}
+
+function assertInitOptions(state: ProjectState, options: InitOptions): void {
   if (state.hasNuxt) {
     throw new Error(
       'Nuxt is not supported. Blueprint enforces the dependency flow through '
@@ -86,27 +158,39 @@ function assertInitSupported(state: ProjectState, options: InitOptions, pristine
   if (options.preset && options.authoring) {
     throw new Error('--preset and --authoring are mutually exclusive — pick one.');
   }
+}
 
-  if (options.authoring && state.hasConfig && !pristine) {
-    throw new Error(
-
-      'blueprint.config.mjs differs from what init would scaffold — so it is yours, not '
-      + 'init\'s output, and re-authoring rewrites it from scratch rather than merging. '
-      + 'The structure is reproducible; the comments explaining WHY each threshold and '
-      + 'ownership was chosen are not. Copy anything you want to keep, then delete the '
-      + 'file yourself if you really want the playbook. Put those comments back into the '
-      + 'rewritten config, each beside the clause it explains — not only into the report, '
-      + 'which is read once while the config is what the next re-authoring will read.',
-    );
+function assertTopologySupported(topology: TopologyDecision): void {
+  if (topology.path === null) {
+    throw new Error(topology.reason);
   }
 }
 
-function configIsInitsToWrite(
+function assertAuthoredConfigNotRewritten(
   state: ProjectState,
   options: InitOptions,
   pristine: boolean,
-): boolean {
-  return (!state.hasConfig || Boolean(options.authoring && pristine)) && options.preset !== true;
+): void {
+  if (
+    options.authoring
+    && state.hasConfig
+    && !pristine
+    && options.topology !== 'module-first'
+  ) {
+    throwAuthoredConfigRefusal();
+  }
+}
+
+function throwAuthoredConfigRefusal(): never {
+  throw new Error(
+    'blueprint.config.mjs differs from what init would scaffold — so it is yours, not '
+    + 'init\'s output, and re-authoring rewrites it from scratch rather than merging. '
+    + 'The structure is reproducible; the comments explaining WHY each threshold and '
+    + 'ownership was chosen are not. Copy anything you want to keep, then delete the '
+    + 'file yourself if you really want the playbook. Put those comments back into the '
+    + 'rewritten config, each beside the clause it explains — not only into the report, '
+    + 'which is read once while the config is what the next re-authoring will read.',
+  );
 }
 
 function surveySource(root: string, state: ProjectState): SurveyResult {
@@ -116,12 +200,20 @@ function surveySource(root: string, state: ProjectState): SurveyResult {
   });
 }
 
-function takesAuthoringPath(
-  state: ProjectState,
-  options: InitOptions,
-  survey: SurveyResult,
-): boolean {
-  return Boolean(options.authoring)
+function takesAuthoringPath(ctx: {
+  state: ProjectState;
+  options: InitOptions;
+  survey: SurveyResult;
+  topology: TopologyDecision;
+}): boolean {
+  const { state, options, survey, topology } = ctx;
+
+  if (options.preset) {
+    return false;
+  }
+
+  return (topology.source !== 'configured' && topology.path === 'authoring')
+    || Boolean(options.authoring)
     || survey.scopeRequired === true
     || survey.totalFiles >= BROWNFIELD_MIN_FILES
     || (state.hasNext && !state.nextRouter);
@@ -130,19 +222,23 @@ function takesAuthoringPath(
 function freshScaffoldNote(survey: SurveyResult): string {
   return `Fresh scaffold (${survey.totalFiles} source files < ${BROWNFIELD_MIN_FILES}) — `
     + 'scaffolding the framework preset directly; no blueprint-authoring.md is written '
-    + 'on this path. Force the authoring playbook instead with: blueprint init --authoring.';
+    + 'on this path. Force the authoring playbook instead with: '
+    + 'blueprint init --topology layer-first --authoring.';
 }
 
 async function runScaffold(
   root: string,
   state: ProjectState,
-  ctx: RunContext & { forkNote: string | null },
+  ctx: RunContext & {
+    forkNote: string | null;
+    resolved: Awaited<ReturnType<typeof resolveBlueprint>> | null;
+  },
 ): Promise<Action[]> {
   const { options } = ctx;
 
   const agentTarget = options.agent ? agentTargetOf(options.agent) : undefined;
 
-  const { blueprint, configSource } = await resolveBlueprint(root, state, {
+  const { blueprint, configSource } = ctx.resolved ?? await resolveBlueprint(root, state, {
     ...options,
     ...(agentTarget ? { scaffoldAgents: [agentTarget] } : {}),
   });
@@ -180,9 +276,13 @@ async function runScaffold(
 function runAuthoring(
   root: string,
   state: ProjectState,
-  ctx: RunContext & { survey: SurveyResult; removeScaffold: boolean },
+  ctx: RunContext & {
+    survey: SurveyResult;
+    removeScaffold: boolean;
+    topology: ArchitectureTopology;
+  },
 ): Action[] {
-  const { options, log, survey, removeScaffold } = ctx;
+  const { options, log, survey, removeScaffold, topology } = ctx;
 
   const actions = authoringActions(survey, {
 
@@ -195,6 +295,7 @@ function runAuthoring(
     needsInstall: state.missingDeps.includes('@kekkai/blueprint'),
     install: options.install,
     next: state.hasNext,
+    topology,
   });
 
   if (removeScaffold) {
@@ -206,9 +307,12 @@ function runAuthoring(
   }
 
   log(
-    `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · brownfield without a config → authoring flow (${survey.totalFiles} source files surveyed)${
+    `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · without a config → authoring flow (${survey.totalFiles} source files surveyed)${
 
-      options.authoring && survey.totalFiles < BROWNFIELD_MIN_FILES && !survey.scopeRequired
+      topology === 'layer-first'
+      && options.authoring
+      && survey.totalFiles < BROWNFIELD_MIN_FILES
+      && !survey.scopeRequired
         ? ` — below the brownfield threshold (${BROWNFIELD_MIN_FILES} source files), forced by --authoring; the playbook's own verdict will be the early exit`
         : ''
     }`,

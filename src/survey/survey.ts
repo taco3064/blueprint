@@ -32,6 +32,8 @@ export interface FolderEvidence {
   directFiles: number;
   /** Distinct direct child folders. */
   childFolders: number;
+  /** Sorted direct child folder names. */
+  children?: string[];
   /** Child folders exposing a direct `index.*` — folder-unit evidence. */
   indexedChildren: number;
   /** Deepest nesting below the folder. */
@@ -122,7 +124,7 @@ export function dependencyNames(root: string): string[] {
   }
 }
 
-type FolderTally = FolderEvidence & { indexed: Set<string>; children: Set<string> };
+type FolderTally = FolderEvidence & { indexed: Set<string>; childSet: Set<string> };
 
 function folderEvidence(scanResult: ScanResult): FolderEvidence[] {
   const byFolder = new Map<string, FolderTally>();
@@ -133,10 +135,11 @@ function folderEvidence(scanResult: ScanResult): FolderEvidence[] {
       files: 0,
       directFiles: 0,
       childFolders: 0,
+      children: [],
       indexedChildren: 0,
       maxDepth: 0,
       indexed: new Set(),
-      children: new Set(),
+      childSet: new Set(),
     });
   }
 
@@ -153,7 +156,7 @@ function folderEvidence(scanResult: ScanResult): FolderEvidence[] {
     if (file.segments.length === 2) {
       evidence.directFiles += 1;
     } else {
-      evidence.children.add(file.segments[1]);
+      evidence.childSet.add(file.segments[1]);
 
       if (file.segments.length === 3 && /^index\.[^.]+$/.test(file.segments[2])) {
         evidence.indexed.add(file.segments[1]);
@@ -162,9 +165,10 @@ function folderEvidence(scanResult: ScanResult): FolderEvidence[] {
   }
 
   return [...byFolder.values()]
-    .map(({ indexed, children, ...evidence }) => ({
+    .map(({ indexed, childSet, ...evidence }) => ({
       ...evidence,
-      childFolders: children.size,
+      childFolders: childSet.size,
+      children: [...childSet].sort((a, b) => a.localeCompare(b)),
       indexedChildren: indexed.size,
     }))
     .sort((a, b) => b.files - a.files);

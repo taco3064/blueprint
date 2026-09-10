@@ -45,7 +45,9 @@ describe('run', () => {
       JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
     );
 
-    expect(await run(['init', '--framework', 'vue', '--no-install', '--dry-run'], root)).toBe(0);
+    expect(await run([
+      'init', '--framework', 'vue', '--topology', 'layer-first', '--no-install', '--dry-run',
+    ], root)).toBe(0);
   });
 
   it('runs init in the given cwd and returns 0', async () => {
@@ -54,7 +56,7 @@ describe('run', () => {
       JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
     );
 
-    expect(await run(['init', '--no-install'], root)).toBe(0);
+    expect(await run(['init', '--topology', 'layer-first', '--no-install'], root)).toBe(0);
     expect(fs.existsSync(path.join(root, 'blueprint.config.mjs'))).toBe(true);
   });
 

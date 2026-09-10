@@ -3,7 +3,7 @@
 ## 全新專案 —— `blueprint init`
 
 ```bash
-npx @kekkai/blueprint init
+npx @kekkai/blueprint init --topology layer-first
 ```
 
 單一指令即可完成設計理念的開發護欄導入：
@@ -15,6 +15,8 @@ npx @kekkai/blueprint init
 - `docs/architecture-handbook.md` 與 AI Agent 守則（`CLAUDE.md`、`AGENTS.md`）
 - 將匯入別名寫入 `tsconfig.json` / `jsconfig.json` 的 `compilerOptions.paths`
 
+空白 source tree 沒有足夠證據可安全判定拓樸，因此需明確指定；若要採用 module-first，
+改用 `--topology module-first` 進入 module 編寫流程。<br>
 框架種類由 `package.json` **自動偵測**（`--framework vue|react` 只在判不出來時才需要）；<br>
 既有的 ESLint config **一律不覆蓋**（init 會改為提供合併指引；只有 init 自己生成、帶第一行 banner 的那份會就地重生成）；<br>
 重複執行 init 的結果具冪等性。

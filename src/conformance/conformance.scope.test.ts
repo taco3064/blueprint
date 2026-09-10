@@ -113,11 +113,11 @@ describe('brownfield project scope conformance (#422)', () => {
 
     const init = await cli(dir, ['init', '--dry-run', '--no-install']);
 
-    expect(init.code).toBe(0);
+    expect(init.code).toBe(1);
     expect(init.output).toContain('blueprint survey');
     expect(init.output).toContain('--source-root <application>/src');
-    expect(init.output).toContain('not a starter verdict');
-    expect(init.output).not.toContain('early exit the playbook prescribes IS completion');
+    expect(init.output).toContain('run init from that application root');
+    expect(init.output).not.toContain('would write:');
   });
 
   it('qualifies the threshold claim in forced authoring output and help', async () => {
@@ -125,12 +125,12 @@ describe('brownfield project scope conformance (#422)', () => {
 
     const forced = await cli(dir, ['init', '--authoring', '--dry-run', '--no-install']);
 
-    expect(forced.code).toBe(0);
+    expect(forced.code).toBe(1);
     expect(forced.output).not.toContain('playbook\'s own verdict will be the early exit');
 
     const help = await cli(dir, ['init', '--help']);
 
-    expect(help.output).toContain('zero-file workspace survey is not a starter verdict');
-    expect(help.output).toContain('multi-app workspace must choose --source-root first');
+    expect(help.output).toContain('unresolved multi-app');
+    expect(help.output).toContain('stops before every write');
   });
 });

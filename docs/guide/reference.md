@@ -274,7 +274,7 @@ and inspect select the same files.
 
 ## CLI flags
 
-- **`init`** — `--agent claude|codex` (launch the authoring agent) · `--preset` (force the preset scaffold) · `--authoring` (force the playbook even on a small repo; opposite of `--preset`) · `--framework vue|react` · `--no-install` · `--dry-run`
+- **`init`** — `--agent claude|codex` (launch the authoring agent) · `--topology layer-first|module-first` (select an unprovable topology; module-first enters authoring and cannot use `--preset`) · `--preset` (force the layer-first preset scaffold) · `--authoring` (force the playbook even on a small repo; opposite of `--preset`) · `--framework vue|react` · `--no-install` · `--dry-run`
 - **`survey`** — `--alias <name>` (when tsconfig-paths detection finds none) · `--source-root <path>` (select one application in a workspace) · `--json`
 - **`inspect`** — `--baseline` · `--update-baseline` · `--framework vue|react` · `--json`
 - **`impact`** — `--json`

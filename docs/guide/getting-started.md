@@ -3,7 +3,7 @@
 ## Greenfield — `blueprint init`
 
 ```bash
-npx @kekkai/blueprint init
+npx @kekkai/blueprint init --topology layer-first
 ```
 
 One command, and your design philosophy has guardrails in place:
@@ -16,7 +16,9 @@ One command, and your design philosophy has guardrails in place:
 - `docs/architecture-handbook.md` and agent contracts (`CLAUDE.md`, `AGENTS.md`)
 - `compilerOptions.paths` wired into `tsconfig.json` / `jsconfig.json`
 
-The framework is auto-detected from `package.json` (`--framework vue|react` only breaks
+The topology is explicit because an empty tree provides no safe evidence for choosing one.
+Use `--topology module-first` to enter the module authoring flow instead. The framework
+is auto-detected from `package.json` (`--framework vue|react` only breaks
 ties). An existing eslint config is **never overwritten** — init prints a merge snippet
 instead (only the config init generated itself, marked by its first-line banner, is
 regenerated in place). Re-running init is idempotent.
