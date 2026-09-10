@@ -1,5 +1,6 @@
 import { AUTHORING_FILE, claudeDirState, COMMAND_FILE } from '../project';
 import type { ClaudeDirState, ProjectState } from '../project';
+import type { ArchitectureDef } from '../config';
 import { collectTransformationEvidence, runSurvey } from '../survey';
 import type { SurveyResult, TransformationEvidence } from '../survey';
 import { AGENT_PROMPT } from './authoring';
@@ -83,6 +84,7 @@ export interface LayerToModuleInput {
   log: (message: string) => void;
   survey: SurveyResult | null;
   topology: TopologyDecision;
+  architecture: ArchitectureDef | null;
 }
 
 export async function runLayerToModuleTransformation(
@@ -91,7 +93,7 @@ export async function runLayerToModuleTransformation(
   assertRouter(input.state);
   const preflight = await preflightFor(input);
   const survey = surveyFor(input);
-  const evidence = collectTransformationEvidence(input.root, survey);
+  const evidence = collectTransformationEvidence(input.root, survey, input.architecture);
 
   const actions = transformationActions({
     state: input.state,

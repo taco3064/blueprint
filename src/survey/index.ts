@@ -2,6 +2,7 @@ export { renderSurvey } from './render';
 export { collectTransformationEvidence } from './candidates';
 export type {
   CandidateEdge,
+  RelativeImportEvidence,
   TransformationCandidate,
   TransformationEvidence,
 } from './candidates';

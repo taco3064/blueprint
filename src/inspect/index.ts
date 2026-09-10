@@ -7,8 +7,8 @@ export type { InspectOptions } from './inspect';
 export { runRules } from './rules';
 
 export { analyze, detectCycles } from './analyze';
-export { globToRegExp } from './filter';
-export { resolveSegments, stripAlias } from './resolve';
+export { dropTestFiles, globToRegExp } from './filter';
+export { buildUnitGraph, positionKey, resolveSegments, stripAlias } from './resolve';
 export { importAnalysis, scan } from './scan';
 
 export { expectedCarriers } from './wiring';

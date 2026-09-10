@@ -1,8 +1,16 @@
 import path from 'node:path';
 
-import { aliasRoot } from '../config';
-import { detectCycles, importAnalysis, resolveSegments, scan, stripAlias } from '../inspect';
-import type { ImportRef, ScanResult, ScannedFile } from '../inspect';
+import { resolveArchitecture } from '../config';
+import type { ArchitectureDef, ResolvedArchitecture } from '../config';
+import {
+  buildUnitGraph,
+  detectCycles,
+  dropTestFiles,
+  importAnalysis,
+  positionKey,
+  scan,
+} from '../inspect';
+import type { ScanResult, ScannedFile } from '../inspect';
 import type { SurveyResult } from './survey';
 import { dependencyNames } from './survey';
 
@@ -12,118 +20,222 @@ export interface CandidateEdge {
   count: number;
 }
 
+export interface RelativeImportEvidence {
+  importer: string;
+  specifier: string;
+  structuralTarget: string | null;
+  targetUnitMeasured: boolean;
+}
+
 export interface TransformationCandidate {
   seed: string;
-  source: 'container' | 'page';
+  source: 'container' | 'page' | 'app';
   reachableUnits: string[];
-  incoming: CandidateEdge[];
-  outgoing: CandidateEdge[];
-  unresolved: string[];
+  directImports: CandidateEdge[];
+  closureEdges: CandidateEdge[];
+  closureConsumers: CandidateEdge[];
+  unresolvedAliasLikeImports: string[];
 }
 
 export interface TransformationEvidence {
   sourceRoot: string;
   aliases: Record<string, string>;
+  resolutionBasis: 'blueprint-config' | 'survey-detected';
   rootWiring: string[];
   sourceLayers: { layer: string; units: string[] }[];
   seedSource: 'containers' | 'pages' | 'none';
   candidates: TransformationCandidate[];
-  routerSeeds: string[];
+  routerCandidates: TransformationCandidate[];
   overlaps: { unit: string; seeds: string[] }[];
   orphans: string[];
   edges: CandidateEdge[];
   cycles: string[][];
   collisionRisks: { identity: string; units: string[] }[];
-  unresolvedImports: { unit: string; specifier: string }[];
+  unresolvedAliasLikeImports: { unit: string; specifier: string }[];
+  relativeImports: RelativeImportEvidence[];
   unknownDynamicImports: number;
   parseFailures: { path: string; message: string }[];
 }
 
 interface CandidateBasis {
   scanned: ScanResult;
-  units: Set<string>;
+  physicalUnits: Set<string>;
+  governedUnits: Set<string>;
   graph: Map<string, Set<string>>;
   edges: CandidateEdge[];
-  unresolvedImports: TransformationEvidence['unresolvedImports'];
+  resolved: ResolvedArchitecture;
+  unresolvedAliasLikeImports: TransformationEvidence['unresolvedAliasLikeImports'];
+  relativeImports: RelativeImportEvidence[];
 }
 
-interface MeasuredUnitGraph {
+interface CandidateContext {
   graph: Map<string, Set<string>>;
-  counts: Map<string, number>;
+  edges: CandidateEdge[];
+  basis: CandidateBasis;
 }
 
 export function collectTransformationEvidence(
   root: string,
   survey: SurveyResult,
+  architecture: ArchitectureDef | null = null,
 ): TransformationEvidence {
-  const sourceRoot = survey.sourceRoot ?? 'src';
-  const basis = candidateBasis(root, survey, sourceRoot);
-  const { scanned, units, graph, edges, unresolvedImports } = basis;
-  const containerSeeds = seedUnits(units, 'containers');
-  const pageSeeds = seedUnits(units, 'pages');
-  const routerSeeds = [...pageSeeds, ...seedUnits(units, 'app')].sort();
+  const basis = candidateBasis(root, survey, architecture);
+  const routeEdges = routeEdgeList(basis);
+
+  const evidenceEdges = mergeEdges([
+    ...basis.edges.filter((edge) => edge.from !== 'pages' && edge.from !== 'app'),
+    ...routeEdges,
+  ]);
+
+  const evidenceGraph = graphFrom(evidenceEdges, basis.governedUnits);
+  const containerSeeds = seedUnits(basis.governedUnits, 'containers');
+  const routerSeeds = routeSeedsOf(basis.scanned);
+  const pageSeeds = routerSeeds.filter((seed) => seed.startsWith('pages/'));
   const seeds = containerSeeds.length ? containerSeeds : pageSeeds;
   const seedSource = containerSeeds.length ? 'containers' : pageSeeds.length ? 'pages' : 'none';
-  const closures = new Map(seeds.map((seed) => [seed, closureOf(seed, graph)]));
+  const context = { graph: evidenceGraph, edges: evidenceEdges, basis };
+  const candidates = seeds.map((seed) => candidateOf(seed, context));
 
-  const candidates = seeds.map((seed): TransformationCandidate => {
-    const reachable = closures.get(seed) as Set<string>;
+  const routerCandidates = routerSeeds.map(
+    (seed) => candidateOf(seed, context),
+  );
 
-    return {
-      seed,
-      source: seed.startsWith('containers/') ? 'container' : 'page',
-      reachableUnits: [...reachable].sort(),
-      incoming: edges.filter((edge) => !reachable.has(edge.from) && reachable.has(edge.to)),
-      outgoing: edges.filter((edge) => reachable.has(edge.from) && !reachable.has(edge.to)),
-      unresolved: unresolvedImports
-        .filter((entry) => reachable.has(entry.unit))
-        .map((entry) => `${entry.unit}: ${entry.specifier}`),
-    };
-  });
+  const domainClosures = new Map(candidates.map(
+    (candidate) => [candidate.seed, new Set(candidate.reachableUnits)],
+  ));
 
-  const claimed = new Set([...closures.values()].flatMap((closure) => [...closure]));
-  const analysis = importAnalysis(scanned);
+  const claimed = new Set(
+    [...candidates, ...routerCandidates].flatMap((candidate) => candidate.reachableUnits),
+  );
 
   return {
-    sourceRoot,
-    aliases: survey.aliases,
+    sourceRoot: basis.resolved.sourceRoot,
+    aliases: Object.fromEntries(basis.resolved.aliasMappings),
+    resolutionBasis: architecture ? 'blueprint-config' : 'survey-detected',
     rootWiring: survey.rootFiles,
-    sourceLayers: sourceLayersOf(units),
+    sourceLayers: sourceLayersOf(basis.physicalUnits),
     seedSource,
     candidates,
-    routerSeeds,
-    overlaps: overlapsOf(closures),
-    orphans: [...units].filter((unit) => !claimed.has(unit)).sort(),
-    edges,
-    cycles: detectCycles(graph),
-    collisionRisks: collisionsOf(units),
-    unresolvedImports,
-    unknownDynamicImports: analysis.unknownDynamicImports,
-    parseFailures: analysis.parseFailures,
+    routerCandidates,
+    overlaps: overlapsOf(domainClosures),
+    orphans: [...basis.governedUnits]
+      .filter((unit) => !claimed.has(unit) && unit !== 'pages' && unit !== 'app')
+      .sort(),
+    edges: basis.edges,
+    cycles: detectCycles(basis.graph),
+    collisionRisks: collisionsOf(basis.physicalUnits),
+    unresolvedAliasLikeImports: basis.unresolvedAliasLikeImports,
+    relativeImports: basis.relativeImports,
+    ...importAnalysis(basis.scanned),
   };
 }
 
-function candidateBasis(root: string, survey: SurveyResult, sourceRoot: string): CandidateBasis {
-  const scanned = scan(root, sourceRoot);
-
-  const aliases = Object.entries(survey.aliases)
-    .map(([alias, target]) => aliasRoot(alias, target, sourceRoot))
-    .filter((entry): entry is NonNullable<ReturnType<typeof aliasRoot>> => entry !== null);
-
-  const units = unitsOf(scanned);
-  const measured = graphOf(scanned, units, aliases);
+function candidateBasis(
+  root: string,
+  survey: SurveyResult,
+  architecture: ArchitectureDef | null,
+): CandidateBasis {
+  const definition = architecture ?? surveyedArchitecture(survey);
+  const resolved = resolveArchitecture(definition);
+  const scanned = dropTestFiles(scan(root, resolved.sourceRoot), definition.testFiles);
+  const measured = buildUnitGraph(scanned, definition);
+  const dependencies = dependencyNames(root).sort((a, b) => b.length - a.length);
 
   return {
     scanned,
-    units,
-    graph: measured.graph,
+    physicalUnits: unitsOf(scanned),
+    governedUnits: measured.units,
+    graph: measured.edges,
     edges: edgeList(measured.counts),
-    unresolvedImports: unresolvedOf(scanned, {
-      units,
-      aliases,
-      dependencies: dependencyNames(root).sort((a, b) => b.length - a.length),
-    }),
+    resolved,
+    unresolvedAliasLikeImports: unresolvedAliasLikeOf(scanned, resolved, dependencies),
+    relativeImports: relativeImportsOf(scanned, resolved, measured.units),
   };
+}
+
+function surveyedArchitecture(survey: SurveyResult): ArchitectureDef {
+  const sourceRoot = survey.sourceRoot ?? 'src';
+  const entries = Object.entries(survey.aliases);
+  const canonical = entries.find(([, target]) => normalized(target) === normalized(sourceRoot));
+  const alias = canonical?.[0] ?? '~app';
+
+  return {
+    alias,
+    sourceRoot,
+    additionalAliases: Object.fromEntries(entries.filter(([candidate]) => candidate !== alias)),
+    layers: survey.folders.map((entry) => ({
+      name: entry.folder,
+      does: 'survey-detected layer used only for transformation evidence',
+      layout: 'folder',
+    })),
+  };
+}
+
+function routeEdgeList(basis: CandidateBasis): CandidateEdge[] {
+  const counts = new Map<string, number>();
+
+  for (const file of basis.scanned.files) {
+    const seed = routeSeedOf(file);
+
+    if (!seed) {
+      continue;
+    }
+
+    const importer = basis.resolved.classify(file.segments);
+
+    if (importer && positionKey(importer) === seed) {
+      continue;
+    }
+
+    for (const ref of file.imports) {
+      const target = basis.resolved.resolveImport(file.segments, ref.specifier).target;
+      const to = target ? positionKey(target) : null;
+
+      if (to && to !== seed) {
+        const key = `${seed}\0${to}`;
+
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+    }
+  }
+
+  return edgeList(counts);
+}
+
+function candidateOf(
+  seed: string,
+  context: CandidateContext,
+): TransformationCandidate {
+  const reachable = closureOf(seed, context.graph);
+  const { edges, basis } = context;
+
+  return {
+    seed,
+    source: seed.startsWith('containers/')
+      ? 'container'
+      : seed === 'containers'
+        ? 'container'
+        : seed.startsWith('app/') ? 'app' : 'page',
+    reachableUnits: [...reachable].sort(),
+    directImports: edges.filter((edge) => edge.from === seed),
+    closureEdges: edges.filter((edge) => reachable.has(edge.from) && reachable.has(edge.to)),
+    closureConsumers: edges.filter(
+      (edge) => !reachable.has(edge.from) && reachable.has(edge.to),
+    ),
+    unresolvedAliasLikeImports: basis.unresolvedAliasLikeImports
+      .filter((entry) => reachable.has(entry.unit))
+      .map((entry) => `${entry.unit}: ${entry.specifier}`),
+  };
+}
+
+function routeSeedsOf(scanned: ScanResult): string[] {
+  return [...new Set(scanned.files.map(routeSeedOf).filter(isString))].sort();
+}
+
+function routeSeedOf(file: ScannedFile): string | null {
+  return file.segments[0] === 'pages' || file.segments[0] === 'app'
+    ? unitOf(file.segments)
+    : null;
 }
 
 function unitsOf(scanned: ScanResult): Set<string> {
@@ -141,51 +253,14 @@ function unitOf(segments: string[]): string | null {
   return `${segments[0]}/${name}`;
 }
 
-function graphOf(
-  scanned: ScanResult,
-  units: Set<string>,
-  aliases: NonNullable<ReturnType<typeof aliasRoot>>[],
-): MeasuredUnitGraph {
+function graphFrom(edges: CandidateEdge[], units: Set<string>): Map<string, Set<string>> {
   const graph = new Map([...units].map((unit) => [unit, new Set<string>()]));
-  const counts = new Map<string, number>();
 
-  for (const file of scanned.files) {
-    const from = unitOf(file.segments);
-
-    if (!from) {
-      continue;
-    }
-
-    for (const ref of file.imports) {
-      const targetSegments = targetSegmentsOf(file, ref, aliases);
-      const to = targetSegments ? unitOf(targetSegments) : null;
-
-      if (to && to !== from && units.has(to)) {
-        graph.get(from)?.add(to);
-        const key = `${from}\0${to}`;
-
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      }
-    }
+  for (const edge of edges) {
+    graph.set(edge.from, (graph.get(edge.from) ?? new Set()).add(edge.to));
   }
 
-  return { graph, counts };
-}
-
-function targetSegmentsOf(
-  file: ScannedFile,
-  ref: ImportRef,
-  aliases: NonNullable<ReturnType<typeof aliasRoot>>[],
-): string[] | null {
-  const absolute = stripAlias(ref.specifier, aliases);
-
-  if (absolute) {
-    return absolute;
-  }
-
-  return ref.specifier.startsWith('.')
-    ? resolveSegments(file.segments.slice(0, -1), ref.specifier)
-    : null;
+  return graph;
 }
 
 function edgeList(counts: Map<string, number>): CandidateEdge[] {
@@ -193,12 +268,29 @@ function edgeList(counts: Map<string, number>): CandidateEdge[] {
     const [from, to] = key.split('\0');
 
     return { from, to, count };
-  })
-    .sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
+  }).sort(compareEdges);
+}
+
+function mergeEdges(edges: CandidateEdge[]): CandidateEdge[] {
+  const counts = new Map<string, number>();
+
+  for (const edge of edges) {
+    const key = `${edge.from}\0${edge.to}`;
+
+    counts.set(key, (counts.get(key) ?? 0) + edge.count);
+  }
+
+  return edgeList(counts);
+}
+
+function compareEdges(left: CandidateEdge, right: CandidateEdge): number {
+  return left.from.localeCompare(right.from) || left.to.localeCompare(right.to);
 }
 
 function seedUnits(units: Set<string>, layer: string): string[] {
-  return [...units].filter((unit) => unit.startsWith(`${layer}/`)).sort();
+  return [...units]
+    .filter((unit) => unit === layer || unit.startsWith(`${layer}/`))
+    .sort();
 }
 
 function closureOf(seed: string, graph: Map<string, Set<string>>): Set<string> {
@@ -213,10 +305,76 @@ function closureOf(seed: string, graph: Map<string, Set<string>>): Set<string> {
     }
 
     reached.add(unit);
-    pending.push(...(graph.get(unit) as Set<string>));
+    pending.push(...(graph.get(unit) ?? []));
   }
 
   return reached;
+}
+
+function unresolvedAliasLikeOf(
+  scanned: ScanResult,
+  resolved: ResolvedArchitecture,
+  dependencies: string[],
+): TransformationEvidence['unresolvedAliasLikeImports'] {
+  const configured = resolved.aliasMappings.map(([alias]) => alias);
+
+  const entries = scanned.files.flatMap((file) => {
+    const unit = evidenceUnitOf(file, resolved);
+
+    return file.imports.flatMap((ref) => {
+      const external = dependencies.some(
+        (name) => ref.specifier === name || ref.specifier.startsWith(`${name}/`),
+      );
+
+      const declared = configured.some(
+        (alias) => ref.specifier === alias || ref.specifier.startsWith(`${alias}/`),
+      );
+
+      return unit && /^[~@#]/.test(ref.specifier) && !external && !declared
+        ? [{ unit, specifier: ref.specifier }]
+        : [];
+    });
+  });
+
+  return entries.sort((a, b) => a.unit.localeCompare(b.unit)
+    || a.specifier.localeCompare(b.specifier));
+}
+
+function relativeImportsOf(
+  scanned: ScanResult,
+  resolved: ResolvedArchitecture,
+  units: Set<string>,
+): RelativeImportEvidence[] {
+  const entries = scanned.files.flatMap((file) => file.imports.flatMap((ref) => {
+    if (!ref.specifier.startsWith('.')) {
+      return [];
+    }
+
+    const target = resolved.resolveImport(file.segments, ref.specifier).target;
+    const structuralTarget = target ? positionKey(target) : null;
+
+    return [{
+      importer: evidenceUnitOf(file, resolved) ?? file.path,
+      specifier: ref.specifier,
+      structuralTarget,
+      targetUnitMeasured: structuralTarget !== null && units.has(structuralTarget),
+    }];
+  }));
+
+  return entries.sort((a, b) => a.importer.localeCompare(b.importer)
+    || a.specifier.localeCompare(b.specifier));
+}
+
+function evidenceUnitOf(file: ScannedFile, resolved: ResolvedArchitecture): string | null {
+  const route = routeSeedOf(file);
+
+  if (route) {
+    return route;
+  }
+
+  const position = resolved.classify(file.segments);
+
+  return position ? positionKey(position) : null;
 }
 
 function overlapsOf(closures: Map<string, Set<string>>): TransformationEvidence['overlaps'] {
@@ -247,42 +405,6 @@ function sourceLayersOf(units: Set<string>): TransformationEvidence['sourceLayer
     .sort((a, b) => a.layer.localeCompare(b.layer));
 }
 
-function unresolvedOf(
-  scanned: ScanResult,
-  context: {
-    units: Set<string>;
-    aliases: NonNullable<ReturnType<typeof aliasRoot>>[];
-    dependencies: string[];
-  },
-): TransformationEvidence['unresolvedImports'] {
-  const result: TransformationEvidence['unresolvedImports'] = [];
-
-  for (const file of scanned.files) {
-    const unit = unitOf(file.segments);
-
-    if (!unit || !context.units.has(unit)) {
-      continue;
-    }
-
-    for (const ref of file.imports) {
-      const external = context.dependencies.some(
-        (name) => ref.specifier === name || ref.specifier.startsWith(`${name}/`),
-      );
-
-      if (
-        /^[~@#]/.test(ref.specifier)
-        && !external
-        && !stripAlias(ref.specifier, context.aliases)
-      ) {
-        result.push({ unit, specifier: ref.specifier });
-      }
-    }
-  }
-
-  return result.sort((a, b) => a.unit.localeCompare(b.unit)
-    || a.specifier.localeCompare(b.specifier));
-}
-
 function collisionsOf(units: Set<string>): TransformationEvidence['collisionRisks'] {
   const identities = new Map<string, string[]>();
 
@@ -296,6 +418,10 @@ function collisionsOf(units: Set<string>): TransformationEvidence['collisionRisk
     .filter(([, entries]) => entries.length > 1)
     .map(([identity, entries]) => ({ identity, units: entries.sort() }))
     .sort((a, b) => a.identity.localeCompare(b.identity));
+}
+
+function normalized(value: string): string {
+  return value.replace(/^\.\//, '').replace(/\/$/, '') || '.';
 }
 
 function isString(value: string | null): value is string {

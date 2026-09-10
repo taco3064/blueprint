@@ -80,7 +80,9 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   assertTopologySupported(topology);
 
   if (topology.path === 'transformation') {
-    return runLayerToModuleTransformation({ root, state, options, log, survey, topology });
+    return runLayerToModuleTransformation({ root, state, options, log, survey, topology,
+      architecture: resolved?.blueprint.architecture ?? null,
+    });
   }
 
   if (options.topology !== undefined) {
