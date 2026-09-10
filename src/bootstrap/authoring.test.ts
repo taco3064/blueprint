@@ -63,6 +63,16 @@ const small = authoringBrief(
   { claudeDir: { hadDir: false, otherCommands: 0 } },
 );
 
+function expectModuleFirstRouterSchema(playbook: string): void {
+  expect({
+    declaresApp: playbook.includes('{ name: \'app\', does: \'router composition\', dependsOn:'),
+    explainsContainer: playbook.includes(
+      'governed recursively without repeating the shared inner layers',
+    ),
+    omitsApp: playbook.includes('intentionally absent from `modules`'),
+  }).toEqual({ declaresApp: true, explainsContainer: true, omitsApp: false });
+}
+
 describe('authoringActions', () => {
   it('keeps module-first narration aligned with its selected authoring path', () => {
     const actions = authoringActions(
@@ -190,6 +200,7 @@ describe('authoringBrief', () => {
     expect(moduleFirst).toContain('ordinary top-level folders below `sourceRoot` as module');
     expect(moduleFirst).toContain('technical layers that repeat inside ordinary modules');
     expect(moduleFirst).toContain('reserved router composition at the container position');
+    expectModuleFirstRouterSchema(moduleFirst);
     expect(moduleFirst).toContain('precise `does` responsibility');
     expect(moduleFirst).toContain('Infer direct `dependsOn` edges');
     expect(moduleFirst).toContain('module + inner-layer structure');

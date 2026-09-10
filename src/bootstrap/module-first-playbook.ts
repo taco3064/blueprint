@@ -54,8 +54,9 @@ export function renderModuleFirstMethod(claudeDir: ClaudeDirState): string {
     + 'the modules; do not create parallel global layer folders.',
     '5. Give every module a precise `does` responsibility. Infer direct `dependsOn` edges from '
     + 'cross-module imports and intent; report cycles and counter-direction edges as debt.',
-    '6. In Next.js, reserve `app/**` for recursive router composition at the container position.',
-    '   Do not treat `app` as an ordinary domain module or as a global layer.',
+    '6. In Next.js, declare the reserved `app` module for recursive router composition at the '
+    + 'container position. Give it a `does` responsibility and direct `dependsOn` edges, but do '
+    + 'not treat it as an ordinary module that repeats inner layers or as a global layer.',
     '7. Choose file/folder unit layouts and the inner-layer order from actual import direction.',
     '   A layer may import only inner layers declared after it; cross-boundary imports use the '
     + 'canonical alias.',
@@ -102,6 +103,8 @@ export function renderModuleFirstSchemaSketch(): string {
     '  architecture: {',
     '    alias: \'~app\',',
     '    modules: [',
+    '      // Reserved router container: governed recursively; does not repeat inner layers.',
+    '      { name: \'app\', does: \'router composition\', dependsOn: [\'auth\', \'shop\'] },',
     '      { name: \'auth\', does: \'authentication and session ownership\' },',
     '      { name: \'shop\', does: \'commerce workflows\', dependsOn: [\'auth\'] },',
     '    ],',
@@ -118,7 +121,7 @@ export function renderModuleFirstSchemaSketch(): string {
     '});',
     '```',
     '',
-    '`app/**` is intentionally absent from `modules`: in Next.js it occupies the reserved '
-    + 'router-composition container position.',
+    'When `app/**` exists, its declared `app` module selects the reserved router-composition '
+    + 'container position. It is governed recursively without repeating the shared inner layers.',
   ].join('\n');
 }
