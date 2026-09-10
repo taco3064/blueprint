@@ -219,16 +219,40 @@ describe('init topology · initialization and conservative adoption', () => {
         'technical layers that repeat inside ordinary modules',
         'Infer direct `dependsOn` edges',
         'module + inner-layer structure',
+        '{ name: \'app\', does: \'router composition\', dependsOn:',
+        'governed recursively without repeating the shared inner layers',
       ].every((claim) => playbook.includes(claim)),
       contradictions: [
         'early-exit checklist',
         'Top-level folders under `src/` are candidates for layers',
         'preset\'s declared-but-empty layers',
         'Optional module-first topology',
+        'intentionally absent from `modules`',
       ].filter((claim) => playbook.includes(claim)),
     }).toEqual({ hasFullMethod: true, contradictions: [] });
 
     expect(read(moduleFirst, 'blueprint.config.mjs')).toBeNull();
+  });
+
+  it('governs a Next router tree with the generated schema\'s declared app module', async () => {
+    const dir = repo({
+      'blueprint.config.mjs': [
+        'export default { framework: \'react\', architecture: { alias: \'~app\',',
+        'modules: [',
+        '  { name: \'app\', does: \'router composition\', dependsOn: [\'auth\'] },',
+        '  { name: \'auth\', does: \'authentication\' },',
+        '],',
+        'layers: [{ name: \'services\', does: \'domain data access\' }],',
+        '} };',
+      ].join('\n'),
+      'src/app/page.tsx': 'export default function Page() { return null; }\n',
+    });
+
+    const inspect = await rawCli(dir, ['inspect', '--json']);
+
+    expect(inspect.code).toBe(0);
+    expect(inspect.output).not.toContain('undeclared-folder');
+    expect(inspect.output).not.toContain('src/app/page.tsx');
   });
 
   it('adopts clear layer-first and module-first trees without a flag', async () => {

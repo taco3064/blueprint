@@ -363,6 +363,17 @@ await check('built init accepts both explicit topologies on empty fixtures', () 
 
   expect(playbook.includes('Infer direct `dependsOn` edges'), 'module dependencies are omitted');
   expect(playbook.includes('module + inner-layer structure'), 'module report contract is omitted');
+
+  expect(
+    playbook.includes('{ name: \'app\', does: \'router composition\', dependsOn:'),
+    'module schema does not declare the reserved app container',
+  );
+
+  expect(
+    playbook.includes('governed recursively without repeating the shared inner layers'),
+    'module schema does not explain app container semantics',
+  );
+
   expect(!playbook.includes('early-exit checklist'), 'module authoring recommends layer-first exit');
 
   expect(
@@ -376,6 +387,11 @@ await check('built init accepts both explicit topologies on empty fixtures', () 
   );
 
   expect(!playbook.includes('Optional module-first topology'), 'module schema calls itself optional');
+
+  expect(
+    !playbook.includes('intentionally absent from `modules`'),
+    'module schema leaves app outside the governed module set',
+  );
 
   return 'layer scaffold + module authoring';
 });
