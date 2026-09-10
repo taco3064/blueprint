@@ -18,6 +18,9 @@ export const scenarios = [
       { name: 'auth', does: 'authentication' },
       { name: 'checkout', does: 'checkout', dependsOn: ['auth'] },
     ],
+    additionalAliases: { '@domain': 'src/auth' },
+    affectedAliases: ['@domain'],
+    aliasEdge: ['components/Cart', 'hooks'],
     files: {
       'src/main.ts': 'import \'~app/app/Login\';\nexport const wiring = \'wiring\';\n',
       'src/app/Login.ts': 'import \'~app/auth/AuthRoot\';\nexport const route = \'route\';\n',
@@ -30,7 +33,7 @@ export const scenarios = [
       'src/auth/hooks/useSession.ts': 'export const authSession = \'authSession\';\n',
       'src/auth/services/session/index.ts': 'export const service = \'service\';\n',
       'src/checkout/components/Cart/index.ts': [
-        'import \'~app/auth/hooks/useSession\';',
+        'import \'@domain/hooks/useSession\';',
         'export const cart = \'cart\';',
       ].join('\n'),
       'src/checkout/hooks/useSession.ts': 'export const checkoutSession = \'checkoutSession\';\n',
@@ -75,12 +78,18 @@ export const scenarios = [
       rule: 'undeclared-folder',
       path: 'src/legacy',
       subject: '',
+    }, {
+      severity: 'error',
+      rule: 'canonical-alias',
+      path: 'src/checkout/components/Cart/index.ts',
+      subject: '@domain/hooks/useSession',
     }],
     expectedPostTransformFindings: [],
     playbookClaims: [
       'src/auth/AuthRoot.ts` → `src/containers/auth/AuthRoot.ts',
       'src/hooks/usesession.ts',
       'src/legacy/Logo.ts',
+      '`@domain` → `src/auth` · rewrite-or-remove',
     ],
   },
   {

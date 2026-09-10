@@ -42,6 +42,7 @@ const evidence: ModuleToLayerEvidence = {
   modules: [],
   layers: [],
   architectureBasis: { alias: '~app', layers: [] },
+  aliasCutovers: [],
   mappings: [],
   collisions: [],
   orphans: [],

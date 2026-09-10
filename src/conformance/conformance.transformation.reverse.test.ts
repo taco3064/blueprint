@@ -85,6 +85,22 @@ function config(framework: 'react' | 'vue', sourceRoot = 'src'): string {
   })};\n`;
 }
 
+function expectMappingPlaybook(playbook: string, head: string): void {
+  expect(playbook).toContain(`Recoverable starting commit: \`${head}\``);
+  expect(playbook).toContain('src/auth/AuthRoot.ts` → `src/containers/auth/AuthRoot.ts');
+
+  expect(playbook).toContain(
+    'src/auth/components/Form/index.ts` → `src/components/Form/index.ts',
+  );
+
+  expect(playbook).toContain('src/auth/hooks/useSession.ts` → `src/hooks/useSession.ts');
+  expect(playbook).toContain('~app` → `src`');
+  expect(playbook).toContain('@domain` → `src/auth`');
+  expect(playbook).toContain('`@domain` → `src/auth` · rewrite-or-remove');
+  expect(playbook).toContain('rewrite every import to the canonical source-root alias');
+  expect(playbook).not.toContain('"@domain": "src/auth"');
+}
+
 const source = {
   'src/main.ts': 'import \'~app/app/Login\';\n',
   'src/app/Login.ts': 'import \'~app/auth/AuthRoot\';\n',
@@ -162,16 +178,7 @@ describe('module-first to layer-first transformation authoring', () => {
 
     expect(result.code).toBe(0);
     expect(result.output).toContain('module-first → layer-first transformation authoring');
-    expect(playbook).toContain(`Recoverable starting commit: \`${head}\``);
-    expect(playbook).toContain('src/auth/AuthRoot.ts` → `src/containers/auth/AuthRoot.ts');
-
-    expect(playbook).toContain(
-      'src/auth/components/Form/index.ts` → `src/components/Form/index.ts',
-    );
-
-    expect(playbook).toContain('src/auth/hooks/useSession.ts` → `src/hooks/useSession.ts');
-    expect(playbook).toContain('~app` → `src`');
-    expect(playbook).toContain('@domain` → `src/auth`');
+    expectMappingPlaybook(playbook, head);
 
     for (const claim of scenario.claims) {
       expect(playbook).toContain(claim);
