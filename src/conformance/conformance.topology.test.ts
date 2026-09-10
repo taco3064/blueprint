@@ -119,6 +119,38 @@ describe('init topology · public syntax and zero-write failures', () => {
     await expectZeroWriteFailure(repo(), ['init', '--no-install'], /Cannot determine/);
   });
 
+  it.each([
+    {
+      name: 'mixed evidence',
+      files: {
+        'src/pages/Home.tsx': 'export const Home = 1;\n',
+        'src/components/Button.tsx': 'export const Button = 1;\n',
+        'src/auth/hooks/useAuth.ts': 'export const useAuth = 1;\n',
+        'src/checkout/hooks/useCheckout.ts': 'export const useCheckout = 1;\n',
+      },
+      message: /Cannot determine/,
+    },
+    {
+      name: 'insufficient evidence',
+      files: { 'src/app/file.ts': 'export const value = 1;\n' },
+      message: /Cannot determine/,
+    },
+    {
+      name: 'unresolved application scope',
+      files: {
+        'apps/admin/package.json': '{}',
+        'apps/admin/src/main.ts': 'export const admin = 1;\n',
+        'apps/web/package.json': '{}',
+        'apps/web/src/main.ts': 'export const web = 1;\n',
+      },
+      message: /multiple application scopes.*run init from that application root/s,
+    },
+  ] as { name: string; files: Record<string, string>; message: RegExp }[])(
+    'rejects topology-less $name without writing', async ({ files, message }) => {
+      await expectZeroWriteFailure(repo(files), ['init', '--no-install'], message);
+    },
+  );
+
   it('rejects mixed evidence and both unavailable transformation directions', async () => {
     const mixed = repo({
       'src/pages/Home.tsx': 'export const Home = 1;\n',
@@ -275,8 +307,21 @@ describe('init topology · configured authority and option matrix', () => {
 
     await expectZeroWriteFailure(
       dir,
-      ['init', '--topology', 'module-first', '--no-install'],
+      ['init', '--topology', 'module-first', '--authoring', '--no-install'],
       /layer-first to module-first/,
+    );
+  });
+
+  it('routes configured module-first authoring mismatch through topology decision', async () => {
+    const dir = repo({
+      'blueprint.config.mjs': moduleConfig,
+      'src/auth/hooks/useAuth.ts': 'export const useAuth = 1;\n',
+    });
+
+    await expectZeroWriteFailure(
+      dir,
+      ['init', '--topology', 'layer-first', '--authoring', '--no-install'],
+      /module-first to layer-first.*No files were changed/s,
     );
   });
 
