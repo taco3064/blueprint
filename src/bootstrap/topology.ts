@@ -215,7 +215,7 @@ function transformation(
   target: ArchitectureTopology,
 ): TopologyDecision {
   const current = observation.current ?? 'an unclassified existing tree';
-  const delivered = observation.current === 'layer-first' && target === 'module-first';
+  const delivered = observation.current !== null && observation.current !== target;
 
   return {
     ...observation,

@@ -32,7 +32,7 @@ import { apply, defaultExec } from './apply';
 import type { Exec } from './apply';
 import { decideTopology, observeTopology } from './topology';
 import type { ArchitectureTopology, TopologyDecision } from './topology';
-import { runLayerToModuleTransformation } from './transformation';
+import { runTopologyTransformation } from './transformation-dispatch';
 import type { Action } from './types';
 
 export interface InitOptions extends ResolveOptions {
@@ -80,7 +80,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   assertTopologySupported(topology);
 
   if (topology.path === 'transformation') {
-    return runLayerToModuleTransformation({ root, state, options, log, survey, topology,
+    return runTopologyTransformation({ root, state, options, log, survey, topology,
       architecture: resolved?.blueprint.architecture ?? null,
     });
   }

@@ -484,7 +484,7 @@ await check('built init opens the guarded layer-first to module-first playbook',
   return 'clean committed Git → measured Agent transformation playbook';
 });
 
-await check('built init refuses an unavailable topology transformation without writes', () => {
+await check('built init opens the guarded module-first to layer-first playbook', () => {
   const dir = tempDir('bp-dist-topology-change-');
 
   writeReactFixture(dir);
@@ -496,7 +496,23 @@ await check('built init refuses an unavailable topology transformation without w
     + 'layers: [{ name: \'hooks\', does: \'state\' }] } };\n',
   );
 
-  const before = snapshotTree(dir);
+  fs.mkdirSync(path.join(dir, 'src', 'auth', 'hooks'), { recursive: true });
+
+  fs.writeFileSync(
+    path.join(dir, 'src', 'auth', 'hooks', 'useAuth.ts'),
+    'export const useAuth = 1;\n',
+  );
+
+  for (const args of [
+    ['init', '--quiet'],
+    ['add', '.'],
+    ['-c', 'user.name=Blueprint Dist', '-c', 'user.email=dist@example.invalid',
+      'commit', '--quiet', '-m', 'baseline'],
+  ]) {
+    const git = runCmd('git', args, { cwd: dir });
+
+    expect(git.code === 0, `git ${args.join(' ')} failed\n${git.output}`);
+  }
 
   const result = runCmd(
     process.execPath,
@@ -504,11 +520,17 @@ await check('built init refuses an unavailable topology transformation without w
     { cwd: dir },
   );
 
-  expect(result.code === 1, `topology change exited ${result.code}\n${result.output}`);
-  expect(result.output.includes('transformation'), 'failure does not explain the unavailable path');
-  expect(snapshotTree(dir) === before, 'unavailable transformation changed the fixture');
+  const playbook = fs.readFileSync(path.join(dir, 'blueprint-authoring.md'), 'utf-8');
 
-  return 'code 1, byte-identical tree';
+  expect(result.code === 0, `topology change exited ${result.code}\n${result.output}`);
+  expect(result.output.includes('Git preflight passed'), 'reverse path skipped preflight');
+  expect(playbook.includes('Current topology: `module-first`'), 'playbook lost current topology');
+  expect(playbook.includes('Target topology: `layer-first`'), 'playbook lost target topology');
+
+  expect(playbook.includes('src/auth/hooks/useAuth.ts` → `src/hooks/useAuth.ts'),
+    'playbook lost structural destination');
+
+  return 'clean committed Git → measured reverse Agent transformation playbook';
 });
 
 await check('built preset treats inferred module-first as a layer-first transformation', () => {
@@ -533,7 +555,10 @@ await check('built preset treats inferred module-first as a layer-first transfor
   );
 
   expect(result.code === 1, `inferred module-first exited ${result.code}\n${result.output}`);
-  expect(result.output.includes('module-first to layer-first'), 'failure does not name direction');
+
+  expect(result.output.includes('current module-first blueprint.config.mjs'),
+    'failure does not name missing authority');
+
   expect(snapshotTree(dir) === before, 'preset wrote over inferred module-first');
 
   return 'code 1, byte-identical tree';

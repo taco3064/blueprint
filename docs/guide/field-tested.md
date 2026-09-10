@@ -97,6 +97,21 @@ project's stance is against a red nobody can appease.
 - Shape — per-package adoption
 - Outcome — supported model: run `blueprint init` inside each package (`pnpm --filter <pkg> exec …`). The package manager is detected from the **workspace root** (lockfile / `pnpm-workspace.yaml` looked up through parent directories). Blueprint must be a devDependency of the package itself, so the contract's `node_modules` link resolves. Wire `blueprint inspect --baseline` as a turbo task per package (`"inspect": "blueprint inspect --baseline"`) and gate it however you already gate the monorepo.
 
+**Topology transformation replay: React, Vue, and Next.js App Router**
+- Shape — fresh temporary Git repositories execute the measured playbook path, explicit
+  Agent-approved `git mv` decisions, import/config cutover, baseline review, generated artifacts,
+  and application gates. The reverse React case is nested in a monorepo; Vue covers route
+  composition; Next preserves its physical `src/app/**` tree.
+- Outcome — both directions pass inspect/deps/emitted ESLint and lint/typecheck/test/build/doctor.
+  The module-first → layer-first cases account for every source marker and file, preserve root
+  wiring, resolve a case-insensitive hook collision explicitly, and reject an injected migration
+  regression before baseline update. The semantic layer-first → module-first → layer-first round
+  trip preserves governed coverage, supported dynamic-import edges, module-DAG meaning at the
+  middle state, source accounting, and final layer flow; paths are intentionally not byte-identical.
+- Boundary — `npm run field:transformation` is a deterministic replay of explicit semantic
+  decisions, not an automatic transformer and not the live field harness. Collision naming,
+  router classification, and layer placement remain Agent decisions.
+
 ## Framework notes
 
 - **Next.js**: `init` detects the route tree (`app/` and/or `pages/`, under

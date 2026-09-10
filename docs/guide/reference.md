@@ -274,7 +274,7 @@ and inspect select the same files.
 
 ## CLI flags
 
-- **`init`** — `--agent claude|codex` (launch the authoring/transformation agent) · `--topology layer-first|module-first` (select an unprovable topology; a module-first target enters authoring on a new tree, or a Git-preflight-guarded Agent transformation on an existing layer-first application; it cannot use `--preset` and never automatically assigns domain ownership or moves source) · `--preset` (force the layer-first preset scaffold) · `--authoring` (force the playbook even on a small repo; opposite of `--preset`) · `--framework vue|react` · `--no-install` · `--dry-run`
+- **`init`** — `--agent claude|codex` (launch the authoring/transformation agent) · `--topology layer-first|module-first` (select an unprovable topology; a module-first target enters authoring on a new tree, while either requested topology change enters a Git-preflight-guarded Agent transformation; module-first cannot use `--preset`, reverse transformation requires its current config, and neither direction automatically names or moves source) · `--preset` (force the layer-first preset scaffold) · `--authoring` (force the playbook even on a small repo; opposite of `--preset`) · `--framework vue|react` · `--no-install` · `--dry-run`
 
 Layer-first → module-first transformation requires one selected application, a clean Git worktree,
 a recoverable committed `HEAD`, and usable pre-transform inspection evidence. Its playbook carries
@@ -284,7 +284,17 @@ rules, cutover gates, and baseline review. Exact relative file resolution and ru
 imports remain disclosed limits. The Agent decides domain names, ownership, merge/split, neutral
 extraction, cycles, and collisions, then uses `git mv` and rewrites imports. Next.js App Router keeps its
 physical `app/**`; Pages Router is rejected because that direction requires a framework router
-migration. Module-first → layer-first is not delivered yet and still aborts before mutation.
+migration.
+
+Module-first → layer-first uses the current config as authority and reports a complete file-level
+mapping before movement. Ordinary module-root/container source maps to `containers/<module>`;
+declared inner-layer units flatten into global layers while retaining folder/file unit layout.
+Every destination collision, orphan, cycle, unmatched alias-like import, bounded relative-path
+target, and import-analysis limit is included. The Agent decides collision naming, ambiguous
+placement, and React/Vue router semantics, then uses `git mv` and performs a synchronized source,
+config, emitted-rule, and generated-guidance cutover. The final config removes modules and
+`dependsOn`; Next.js App Router preserves physical `app/**`, while unresolved, hybrid, or
+Pages-only Next router evidence aborts before mutation.
 - **`survey`** — `--alias <name>` (when tsconfig-paths detection finds none) · `--source-root <path>` (select one application in a workspace) · `--json`
 - **`inspect`** — `--baseline` · `--update-baseline` · `--framework vue|react` · `--json`
 - **`impact`** — `--json`

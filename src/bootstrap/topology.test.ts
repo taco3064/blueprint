@@ -233,7 +233,7 @@ describe('decideTopology', () => {
       selectedApplication: 'src' };
 
     expect(decideTopology(inferredModule, { preset: true })).toMatchObject({
-      target: 'layer-first', operation: 'transformation-required', path: null,
+      target: 'layer-first', operation: 'transformation-required', path: 'transformation',
     });
 
     expect(decideTopology(inferredLayer, { preset: true })).toMatchObject({

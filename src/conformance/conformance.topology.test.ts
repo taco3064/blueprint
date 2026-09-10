@@ -151,7 +151,7 @@ describe('init topology · public syntax and zero-write failures', () => {
     },
   );
 
-  it('rejects mixed evidence and the unavailable module-first to layer-first direction',
+  it('rejects mixed evidence and inferred module-first without config authority',
     async () => {
       const mixed = repo({
         'src/pages/Home.tsx': 'export const Home = 1;\n',
@@ -174,7 +174,7 @@ describe('init topology · public syntax and zero-write failures', () => {
       await expectZeroWriteFailure(
         moduleFirst,
         ['init', '--topology', 'layer-first', '--no-install'],
-        /module-first to layer-first.*No files were changed/s,
+        /requires the current module-first blueprint\.config\.mjs.*No files were changed/s,
       );
     });
 });
@@ -334,19 +334,6 @@ describe('init topology · configured authority and option matrix', () => {
     );
   });
 
-  it('routes configured module-first authoring mismatch through topology decision', async () => {
-    const dir = repo({
-      'blueprint.config.mjs': moduleConfig,
-      'src/auth/hooks/useAuth.ts': 'export const useAuth = 1;\n',
-    });
-
-    await expectZeroWriteFailure(
-      dir,
-      ['init', '--topology', 'layer-first', '--authoring', '--no-install'],
-      /module-first to layer-first.*No files were changed/s,
-    );
-  });
-
   it.each([
     ['layer-first', '--authoring'],
     ['module-first', '--authoring'],
@@ -400,7 +387,7 @@ describe('init topology · configured authority and option matrix', () => {
     await expectZeroWriteFailure(
       dir,
       ['init', '--preset', '--no-install'],
-      /module-first to layer-first requires a topology transformation/,
+      /requires the current module-first blueprint\.config\.mjs/,
     );
   });
 });

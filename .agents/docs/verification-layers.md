@@ -13,6 +13,15 @@ this repo's devDeps). When field testing finds a new adoption failure, its
 fixture lands here with the fix; field runs should only ever discover *new*
 scenarios. Test-only: never exported from the package entry.
 
+## `npm run field:transformation` — deterministic topology execution
+
+This replay creates fresh temporary Git repositories and executes both topology
+playbooks using explicit, reviewed semantic decisions. It proves tracked moves,
+import/config cutover, source manifests, baseline fail-closed behavior, generated
+artifacts, adopter gates, and the semantic layer-first → module-first → layer-first
+round trip. It is not a production transformer and does not replace the live harness:
+collision naming, router classification, and layer placement remain Agent judgments.
+
 ## `npm run dist:verify` — the layer in-process tests cannot reach
 
 Checks the bundle, the shebang, the `bin` and `exports` fields, and the

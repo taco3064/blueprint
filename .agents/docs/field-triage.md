@@ -4,6 +4,11 @@
 rewording any prose an adopting agent reads (playbook, CLI output, contract);
 cutting a release.
 
+`npm run field:transformation` is the separate deterministic topology replay. It
+executes explicit Agent-approved decisions in temporary Git repositories and guards
+known transformation invariants; it neither launches an agent CLI nor replaces the
+live harness below, whose job is to discover new decisions and failures.
+
 ## The harness
 
 **`npm run field:run` is the live adoption harness** (`scripts/field-run.mjs`):
