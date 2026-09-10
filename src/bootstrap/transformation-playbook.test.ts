@@ -40,17 +40,19 @@ function evidence(overrides: Partial<TransformationEvidence> = {}): Transformati
   return {
     sourceRoot: 'src',
     aliases: {},
+    resolutionBasis: 'blueprint-config',
     rootWiring: [],
     sourceLayers: [],
     seedSource: 'none',
     candidates: [],
-    routerSeeds: [],
+    routerCandidates: [],
     overlaps: [],
     orphans: [],
     edges: [],
     cycles: [],
     collisionRisks: [],
-    unresolvedImports: [],
+    unresolvedAliasLikeImports: [],
+    relativeImports: [],
     unknownDynamicImports: 0,
     parseFailures: [],
     ...overrides,
@@ -68,10 +70,14 @@ describe('layer-first to module-first playbook', () => {
       cleanup: 'the playbook.',
     });
 
-    expect(result).toContain('No `containers/*` or `pages/*` seed was measured');
+    expect(result).toContain('No container, page, or App Router seed was measured');
     expect(result).toContain('Canonical source wiring: (none detected)');
     expect(result).toContain('Framework/router: `unknown` / Next.js unresolved Router');
-    expect(result).toContain('All unit edges: (none)');
+
+    expect(result).toContain(
+      'Canonical governed unit edges (same identities as inspect/deps): (none)',
+    );
+
     expect(result).toContain('Pre-transform inspection recorded 0 finding(s)');
   });
 
@@ -86,11 +92,20 @@ describe('layer-first to module-first playbook', () => {
           seed: 'containers/Auth',
           source: 'container',
           reachableUnits: ['containers/Auth', 'hooks/useAuth'],
-          incoming: [{ from: 'pages/Login', to: 'containers/Auth', count: 2 }],
-          outgoing: [{ from: 'containers/Auth', to: 'hooks/useAuth', count: 1 }],
-          unresolved: ['hooks/useAuth: ~missing/auth'],
+          directImports: [{ from: 'containers/Auth', to: 'hooks/useAuth', count: 1 }],
+          closureEdges: [{ from: 'containers/Auth', to: 'hooks/useAuth', count: 1 }],
+          closureConsumers: [{ from: 'pages/Login', to: 'containers/Auth', count: 2 }],
+          unresolvedAliasLikeImports: ['hooks/useAuth: ~missing/auth'],
         }],
-        routerSeeds: ['pages/Login'],
+        routerCandidates: [{
+          seed: 'pages/Login',
+          source: 'page',
+          reachableUnits: ['containers/Auth', 'hooks/useAuth', 'pages/Login'],
+          directImports: [{ from: 'pages/Login', to: 'containers/Auth', count: 2 }],
+          closureEdges: [{ from: 'pages/Login', to: 'containers/Auth', count: 2 }],
+          closureConsumers: [],
+          unresolvedAliasLikeImports: [],
+        }],
         overlaps: [{ unit: 'hooks/useAuth', seeds: ['containers/Auth', 'containers/Profile'] }],
         orphans: ['icons/Logo'],
         edges: [{ from: 'containers/Auth', to: 'hooks/useAuth', count: 1 }],
@@ -98,7 +113,18 @@ describe('layer-first to module-first playbook', () => {
         collisionRisks: [{ identity: 'components/button', units: [
           'components/Button', 'Components/button',
         ] }],
-        unresolvedImports: [{ unit: 'hooks/useAuth', specifier: '~missing/auth' }],
+        unresolvedAliasLikeImports: [{ unit: 'hooks/useAuth', specifier: '~missing/auth' }],
+        relativeImports: [{
+          importer: 'containers/Auth',
+          specifier: '../../components/Form',
+          structuralTarget: 'components/Form',
+          targetUnitMeasured: true,
+        }, {
+          importer: 'containers/Auth',
+          specifier: '../../missing/Form',
+          structuralTarget: null,
+          targetUnitMeasured: false,
+        }],
         parseFailures: [{ path: 'src/pages/Broken.ts', message: 'Unexpected token' }],
       }),
       preflight,

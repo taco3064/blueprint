@@ -83,13 +83,15 @@ export function targetUnitKey(
 export interface UnitGraph {
   units: Set<string>;
   edges: Map<string, Set<string>>;
+  /** Static import-reference counts for the same canonical unit identities as `edges`. */
+  counts: Map<string, number>;
 }
 
 export function buildUnitGraph(scan: ScanResult, architecture: ArchitectureDef): UnitGraph {
   scan = dropTestFiles(scan, architecture.testFiles);
 
   const resolved = resolveArchitecture(architecture);
-  const graph: UnitGraph = { units: new Set(), edges: new Map() };
+  const graph: UnitGraph = { units: new Set(), edges: new Map(), counts: new Map() };
 
   for (const file of scan.files) {
     const position = resolved.classify(file.segments);
@@ -106,11 +108,18 @@ export function buildUnitGraph(scan: ScanResult, architecture: ArchitectureDef):
 
       if (to && to !== from) {
         graph.edges.set(from, (graph.edges.get(from) ?? new Set()).add(to));
+        incrementCount(graph.counts, from, to);
       }
     }
   }
 
   return graph;
+}
+
+function incrementCount(counts: Map<string, number>, from: string, to: string): void {
+  const key = `${from}\0${to}`;
+
+  counts.set(key, (counts.get(key) ?? 0) + 1);
 }
 
 export function normalizedUnitKey(input: string, architecture: ArchitectureDef): string {

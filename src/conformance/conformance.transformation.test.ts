@@ -69,7 +69,12 @@ function layerConfig(framework: 'react' | 'vue', layers: string[]): string {
     framework,
     architecture: {
       alias: '~app',
-      layers: layers.map((name) => ({ name, does: `${name} responsibility` })),
+      layers: layers.map((name) => ({
+        name,
+        does: `${name} responsibility`,
+        layout: 'folder',
+        entry: 'index',
+      })),
     },
   })};\n`;
 }
@@ -90,9 +95,8 @@ function expectPlaybook(
   expect(playbook).toContain('temporary negative control');
 
   if (facts.framework === 'Next.js App Router') {
-    expect(playbook).toContain(
-      'Router/page seeds (composition evidence even when containers are primary): `app/login`',
-    );
+    expect(playbook).toContain('#### app/login (app seed)');
+    expect(playbook).toContain('app/login → hooks/useAuth (1)');
   }
 }
 
@@ -177,6 +181,26 @@ describe('layer-first to module-first transformation authoring', () => {
       expect(read(dir, 'blueprint.config.mjs')).toBe(scenario.config);
     },
   );
+
+  it('uses an explicitly disclosed survey model when no authored config exists', async () => {
+    const dir = repo({
+      packageJson: { dependencies: { react: '^18.0.0' } },
+      files: {
+        'tsconfig.json': JSON.stringify({
+          compilerOptions: { paths: { '~app/*': ['./src/*'] } },
+        }),
+        'src/pages/Login/index.ts': 'import \'~app/hooks/useAuth\';\n',
+        'src/hooks/useAuth/index.ts': 'export const auth = 1;\n',
+      },
+    });
+
+    commit(dir);
+    const result = await cli(dir, ['init', '--topology', 'module-first', '--no-install']);
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(result.code).toBe(0);
+    expect(playbook).toContain('Import-resolution basis: `survey-detected`');
+  });
 });
 
 describe('layer-first to module-first transformation safety', () => {

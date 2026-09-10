@@ -278,9 +278,11 @@ and inspect select the same files.
 
 Layer-first → module-first transformation requires one selected application, a clean Git worktree,
 a recoverable committed `HEAD`, and usable pre-transform inspection evidence. Its playbook carries
-container/page candidate closures, overlaps, unresolved edges, Git movement rules, cutover gates,
-and baseline review. The Agent decides domain names, ownership, merge/split, neutral extraction,
-cycles, and collisions, then uses `git mv` and rewrites imports. Next.js App Router keeps its
+container/page candidate closures separately from page/App Router composition closures, canonical
+inspect/deps unit edges, unmatched alias-like imports, bounded relative-path evidence, Git movement
+rules, cutover gates, and baseline review. Exact relative file resolution and runtime-dependent
+imports remain disclosed limits. The Agent decides domain names, ownership, merge/split, neutral
+extraction, cycles, and collisions, then uses `git mv` and rewrites imports. Next.js App Router keeps its
 physical `app/**`; Pages Router is rejected because that direction requires a framework router
 migration. Module-first → layer-first is not delivered yet and still aborts before mutation.
 - **`survey`** — `--alias <name>` (when tsconfig-paths detection finds none) · `--source-root <path>` (select one application in a workspace) · `--json`

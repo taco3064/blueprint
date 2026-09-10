@@ -99,9 +99,12 @@ npx @kekkai/blueprint init --topology module-first --agent claude
 
 Init verifies the topology decision, Git recovery boundary, single application scope, and usable
 pre-transform inspection before it writes anything. It then measures `containers/*` candidates
-(or `pages/*` islands as fallback), dependency closures, overlaps, cycles, orphans, unresolved
-imports, and collision risks. The generated transformation playbook gives those facts to the
-Agent without naming domains for it.
+(or `pages/*` islands as fallback) separately from page/App Router composition closures. Governed
+edges use the same canonical config aliases and unit identities as inspect/deps, including static
+dynamic imports; the playbook also reports overlaps, cycles, orphans, unmatched alias-like imports,
+relative structural targets, and collision risks. Relative evidence does not claim exact
+file/extension/index existence, and runtime-dependent imports remain explicitly unverified. The
+generated transformation playbook gives those facts to the Agent without naming domains for it.
 
 The Agent chooses ownership, module names, merge/split, and any specifically named neutral
 module; uses `git mv` for tracked source; rewrites resolvable imports; derives final `dependsOn`

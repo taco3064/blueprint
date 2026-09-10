@@ -90,7 +90,7 @@ npx @kekkai/blueprint init --topology module-first --agent claude
 # 或使用：--agent codex
 ```
 
-init 會先驗證 topology decision、Git 復原邊界、單一 application scope，以及轉換前 inspection 是否能提供可靠證據；全部通過後才會寫入。接著量測 `containers/*` 候選（沒有 container 時改以 `pages/*` islands 作 fallback）、dependency closure、重疊、cycle、orphan、未解析 import 與 collision risk。產出的 transformation playbook 只把事實交給 Agent，不替它命名 domain。
+init 會先驗證 topology decision、Git 復原邊界、單一 application scope，以及轉換前 inspection 是否能提供可靠證據；全部通過後才會寫入。接著分別量測 `containers/*` 候選（沒有 container 時改以 `pages/*` islands 作 fallback）與 page／App Router composition closure。受治理 edge 會使用與 inspect／deps 相同的 Blueprint config alias 與 unit identity，也涵蓋可靜態判定的 dynamic import；playbook 另外列出重疊、cycle、orphan、無法匹配的 alias-like import、relative structural target 與 collision risk。relative evidence 不宣稱已驗證精確檔案、extension 或 index resolution，runtime-dependent import 也會明確保留為未驗證。產出的 transformation playbook 只把事實交給 Agent，不替它命名 domain。
 
 Agent 負責決定 ownership、module 名稱、merge／split，以及是否抽出有明確名稱的中立 module；tracked source 一律使用 `git mv`，改寫可解析的 import，再從結果 graph 推導最終 `dependsOn`，並在重建 baseline 前逐項判讀 findings。React 與 Vue 的 route composition 會移入保留的 `app` module。Next.js App Router 仍維持實體 `app/**`；Pages Router 因為轉換 router 超出 folder topology transformation 範圍，會直接拒絕。module-first → layer-first 仍未提供。
 

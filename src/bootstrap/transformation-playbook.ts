@@ -60,6 +60,7 @@ function renderSnapshot(facts: TransformationBriefFacts): string {
     `- Selected source root/application scope: \`${evidence.sourceRoot}\``,
     `- Recoverable starting commit: \`${preflight.head.commit}\``,
     `- Git worktree at preflight: clean (${preflight.worktree.changes?.length ?? 0} changes)`,
+    `- Import-resolution basis: \`${evidence.resolutionBasis}\``,
     `- Canonical source wiring: ${entries(evidence.aliases)}`,
     `- Source-root bootstrap/wiring: ${list(evidence.rootWiring)}`,
     `- Import-analysis limits: ${evidence.unknownDynamicImports} runtime-dependent dynamic import(s), ${evidence.parseFailures.length} parse failure(s)`,
@@ -91,18 +92,17 @@ function renderPhaseOne(install: string): string {
 }
 
 function renderCandidates(evidence: TransformationEvidence): string {
-  const candidates = evidence.candidates.length
-    ? evidence.candidates.flatMap((candidate) => [
-        `### ${candidate.seed} (${candidate.source} seed)`,
+  const noDomainCandidates = evidence.routerCandidates.length
+    ? [
+        'No container or page-fallback domain candidate was measured. Continue from the route',
+        'composition closures below; route segment names are evidence, never automatic modules.',
         '',
-        `- Reachable units: ${list(candidate.reachableUnits)}`,
-        `- Incoming boundary edges: ${edgeList(candidate.incoming)}`,
-        `- Outgoing boundary edges: ${edgeList(candidate.outgoing)}`,
-        `- Unresolved ownership evidence: ${list(candidate.unresolved)}`,
+      ]
+    : [
+        'No container, page, or App Router seed was measured. Stop and define why the repository',
+        'is still provably layer-first before inventing domain candidates.',
         '',
-      ])
-    : ['No `containers/*` or `pages/*` seed was measured. Stop and define why the repository is',
-        'still provably layer-first before inventing domain candidates.', ''];
+      ];
 
   return [
     '',
@@ -110,19 +110,52 @@ function renderCandidates(evidence: TransformationEvidence): string {
     '',
     `Primary seed source: \`${evidence.seedSource}\`. Containers win when present; pages are the fallback.`,
     `Current layer units: ${evidence.sourceLayers.map((entry) => `${entry.layer}=[${entry.units.join(', ')}]`).join('; ') || '(none)'}`,
-    `Router/page seeds (composition evidence even when containers are primary): ${list(evidence.routerSeeds)}`,
-    `All unit edges: ${edgeList(evidence.edges)}`,
+    `Canonical governed unit edges (same identities as inspect/deps): ${edgeList(evidence.edges)}`,
     `Overlaps: ${evidence.overlaps.map((entry) => `${entry.unit} ← ${entry.seeds.join(', ')}`).join('; ') || '(none)'}`,
     `Orphans: ${list(evidence.orphans)}`,
     `Cycles: ${evidence.cycles.map((cycle) => cycle.join(' → ')).join('; ') || '(none)'}`,
     `Case-insensitive collision risks: ${evidence.collisionRisks.map((entry) => `${entry.identity} ← ${entry.units.join(', ')}`).join('; ') || '(none measured before destinations exist)'}`,
-    `Unresolved imports: ${evidence.unresolvedImports.map((entry) => `${entry.unit}: ${entry.specifier}`).join('; ') || '(none)'}`,
+    `Unresolved alias-like imports: ${evidence.unresolvedAliasLikeImports.map((entry) => `${entry.unit}: ${entry.specifier}`).join('; ') || '(none)'}`,
+    `Relative import structural evidence: ${relativeImports(evidence)}`,
+    'Relative evidence uses the canonical architecture resolver and reports whether its governed',
+    'target unit was measured. It does not verify exact files, extensions, index resolution, or',
+    'runtime-dependent specifiers; do not call an unmeasured target a proven missing file.',
     ...evidence.parseFailures.map((failure) => `Parse failure: ${failure.path} — ${failure.message}`),
     '',
-    ...candidates,
+    '### Domain candidate closures',
+    '',
+    ...(evidence.candidates.length
+      ? evidence.candidates.flatMap(renderCandidate)
+      : noDomainCandidates),
+    '### Router composition closures',
+    '',
+    ...(evidence.routerCandidates.length
+      ? evidence.routerCandidates.flatMap(renderCandidate)
+      : ['(none)', '']),
     'A closure is evidence, not ownership. Fan-in greater than one is not proof of neutrality,',
     'and a seed name is not a promised module name.',
   ].join('\n');
+}
+
+function renderCandidate(candidate: TransformationEvidence['candidates'][number]): string[] {
+  return [
+    `#### ${candidate.seed} (${candidate.source} seed)`,
+    '',
+    `- Reachable units: ${list(candidate.reachableUnits)}`,
+    `- Direct seed imports: ${edgeList(candidate.directImports)}`,
+    `- Edges inside closure: ${edgeList(candidate.closureEdges)}`,
+    `- Consumers entering closure: ${edgeList(candidate.closureConsumers)}`,
+    `- Unresolved alias-like evidence: ${list(candidate.unresolvedAliasLikeImports)}`,
+    '',
+  ];
+}
+
+function relativeImports(evidence: TransformationEvidence): string {
+  return evidence.relativeImports.map((entry) => [
+    `${entry.importer}: ${entry.specifier}`,
+    `→ ${entry.structuralTarget ?? '(outside governed structure)'}`,
+    `(${entry.targetUnitMeasured ? 'target unit measured' : 'target unit not measured'})`,
+  ].join(' ')).join('; ') || '(none)';
 }
 
 function renderOwnershipBoundary(): string {
