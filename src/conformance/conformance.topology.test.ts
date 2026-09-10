@@ -151,42 +151,32 @@ describe('init topology · public syntax and zero-write failures', () => {
     },
   );
 
-  it('rejects mixed evidence and both unavailable transformation directions', async () => {
-    const mixed = repo({
-      'src/pages/Home.tsx': 'export const Home = 1;\n',
-      'src/components/Button.tsx': 'export const Button = 1;\n',
-      'src/auth/hooks/useAuth.ts': 'export const useAuth = 1;\n',
-      'src/checkout/hooks/useCheckout.ts': 'export const useCheckout = 1;\n',
+  it('rejects mixed evidence and the unavailable module-first to layer-first direction',
+    async () => {
+      const mixed = repo({
+        'src/pages/Home.tsx': 'export const Home = 1;\n',
+        'src/components/Button.tsx': 'export const Button = 1;\n',
+        'src/auth/hooks/useAuth.ts': 'export const useAuth = 1;\n',
+        'src/checkout/hooks/useCheckout.ts': 'export const useCheckout = 1;\n',
+      });
+
+      const moduleFirst = repo({
+        'src/auth/hooks/useAuth.ts': 'export const useAuth = 1;\n',
+        'src/checkout/hooks/useCheckout.ts': 'export const useCheckout = 1;\n',
+      });
+
+      await expectZeroWriteFailure(
+        mixed,
+        ['init', '--topology', 'layer-first', '--no-install'],
+        /topology transformation.*not delivered/s,
+      );
+
+      await expectZeroWriteFailure(
+        moduleFirst,
+        ['init', '--topology', 'layer-first', '--no-install'],
+        /module-first to layer-first.*No files were changed/s,
+      );
     });
-
-    const layerFirst = repo({
-      'src/pages/Home.tsx': 'export const Home = 1;\n',
-      'src/components/Button.tsx': 'export const Button = 1;\n',
-    });
-
-    const moduleFirst = repo({
-      'src/auth/hooks/useAuth.ts': 'export const useAuth = 1;\n',
-      'src/checkout/hooks/useCheckout.ts': 'export const useCheckout = 1;\n',
-    });
-
-    await expectZeroWriteFailure(
-      mixed,
-      ['init', '--topology', 'layer-first', '--no-install'],
-      /topology transformation.*not delivered/s,
-    );
-
-    await expectZeroWriteFailure(
-      layerFirst,
-      ['init', '--topology', 'module-first', '--no-install'],
-      /layer-first to module-first.*No files were changed/s,
-    );
-
-    await expectZeroWriteFailure(
-      moduleFirst,
-      ['init', '--topology', 'layer-first', '--no-install'],
-      /module-first to layer-first.*No files were changed/s,
-    );
-  });
 });
 
 describe('init topology · initialization and conservative adoption', () => {
@@ -322,17 +312,25 @@ describe('init topology · configured authority and option matrix', () => {
     expect(read(moduleFirst, 'blueprint-authoring.md')).toBeNull();
   });
 
-  it('refuses to let folder heuristics override a configured topology', async () => {
+  it('uses configured layer-first authority to enter the delivered transformation', async () => {
     const dir = repo({
       'blueprint.config.mjs': layerConfig,
       'src/auth/hooks/useAuth.ts': 'export const useAuth = 1;\n',
       'src/checkout/hooks/useCheckout.ts': 'export const useCheckout = 1;\n',
     });
 
-    await expectZeroWriteFailure(
+    commit(dir);
+
+    const result = await rawCli(
       dir,
       ['init', '--topology', 'module-first', '--authoring', '--no-install'],
-      /layer-first to module-first/,
+    );
+
+    expect(result.code).toBe(0);
+    expect(result.output).toContain('transformation preflight passed');
+
+    expect(read(dir, 'blueprint-authoring.md')).toContain(
+      'layer-first → module-first transformation playbook',
     );
   });
 

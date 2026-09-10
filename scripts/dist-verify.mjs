@@ -439,6 +439,51 @@ await check('built init accepts an explicit configured topology', () => {
   return 'configured layer-first repaired';
 });
 
+await check('built init opens the guarded layer-first to module-first playbook', () => {
+  const dir = tempDir('bp-dist-topology-transform-');
+
+  writeReactFixture(dir);
+
+  fs.writeFileSync(
+    path.join(dir, 'blueprint.config.mjs'),
+    'export default { framework: \'react\', architecture: { alias: \'~app\', '
+    + 'layers: [{ name: \'pages\', does: \'routes\' }, '
+    + '{ name: \'components\', does: \'UI\' }] } };\n',
+  );
+
+  fs.mkdirSync(path.join(dir, 'src', 'pages'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'src', 'components'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src', 'pages', 'Home.ts'), 'export const Home = 1;\n');
+  fs.writeFileSync(path.join(dir, 'src', 'components', 'Button.ts'), 'export const Button = 1;\n');
+
+  for (const args of [
+    ['init', '--quiet'],
+    ['add', '.'],
+    ['-c', 'user.name=Blueprint Dist', '-c', 'user.email=dist@example.invalid',
+      'commit', '--quiet', '-m', 'baseline'],
+  ]) {
+    const git = runCmd('git', args, { cwd: dir });
+
+    expect(git.code === 0, `git ${args.join(' ')} failed\n${git.output}`);
+  }
+
+  const result = runCmd(
+    process.execPath,
+    [binPath, 'init', '--topology', 'module-first', '--no-install'],
+    { cwd: dir },
+  );
+
+  const playbook = fs.readFileSync(path.join(dir, 'blueprint-authoring.md'), 'utf-8');
+
+  expect(result.code === 0, `transformation exited ${result.code}\n${result.output}`);
+  expect(result.output.includes('Git preflight passed'), 'built path skipped transformation preflight');
+  expect(playbook.includes('Current topology: `layer-first`'), 'playbook lost current topology');
+  expect(playbook.includes('Target topology: `module-first`'), 'playbook lost target topology');
+  expect(playbook.includes('git mv'), 'playbook omitted tracked movement responsibility');
+
+  return 'clean committed Git → measured Agent transformation playbook';
+});
+
 await check('built init refuses an unavailable topology transformation without writes', () => {
   const dir = tempDir('bp-dist-topology-change-');
 

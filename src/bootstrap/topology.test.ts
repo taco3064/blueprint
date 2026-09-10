@@ -208,7 +208,7 @@ describe('decideTopology', () => {
       selectedApplication: 'src', uncertainty: 'insufficient' as const };
 
     expect(decideTopology(layerFirst, { topology: 'module-first' })).toMatchObject({
-      operation: 'transformation-required', path: null,
+      operation: 'transformation-required', path: 'transformation',
     });
 
     expect(decideTopology(unknown, { topology: 'layer-first' })).toMatchObject({
