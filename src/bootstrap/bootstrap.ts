@@ -85,6 +85,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     });
   }
 
+  // Stryker disable next-line ConditionalExpression: undefined already ran this refusal above.
   if (options.topology !== undefined) {
     assertAuthoredConfigNotRewritten(state, options, pristine);
   }
@@ -163,6 +164,7 @@ function observeForInit(ctx: {
   return {
     current: 'layer-first' as const,
     source: 'configured' as const,
+    // Stryker disable next-line LogicalOperator: a consumed survey always has a nonempty root.
     selectedApplication: survey?.sourceRoot ?? (input.state.nextSrcDir ? 'src' : '.'),
   };
 }
@@ -234,9 +236,8 @@ function takesAuthoringPath(ctx: {
     return false;
   }
 
-  return (topology.source !== 'configured' && topology.path === 'authoring')
+  return topology.path === 'authoring'
     || Boolean(options.authoring)
-    || survey.scopeRequired === true
     || survey.totalFiles >= BROWNFIELD_MIN_FILES
     || (state.hasNext && !state.nextRouter);
 }

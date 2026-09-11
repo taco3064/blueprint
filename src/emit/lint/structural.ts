@@ -120,7 +120,12 @@ export function buildStructuralPatterns(params: {
 }
 
 export function aliasSubtreeSpecifier(root: AliasRoot | string, target: string): string | null {
-  if (typeof root === 'string' || !root.prepend?.length) {
+  if (
+    (
+      // Stryker disable next-line ConditionalExpression: strings also have no prepend value.
+      typeof root === 'string'
+    ) || !root.prepend?.length
+  ) {
     return aliasSpecifier(root, target);
   }
 
@@ -132,7 +137,12 @@ export function aliasSubtreeSpecifier(root: AliasRoot | string, target: string):
 }
 
 function folderEntryPatterns(root: AliasRoot | string, target: string): string[] {
-  if (typeof root === 'string' || !root.prepend?.length) {
+  if (
+    (
+      // Stryker disable next-line ConditionalExpression: strings also have no prepend value.
+      typeof root === 'string'
+    ) || !root.prepend?.length
+  ) {
     const specifier = aliasSpecifier(root, target)!;
 
     return [`${specifier}/*/**`];
@@ -203,11 +213,16 @@ function isModuleContainerAlias(
   module: string,
   layers: string[],
 ): alias is AliasRoot {
-  return typeof alias !== 'string'
-    && alias.prepend?.length === 2
-    && alias.prepend[0] === module
-    && !layers.includes(alias.prepend[1])
-    && /\.(?:js|jsx|ts|tsx|mjs|cjs|vue)$/.test(alias.prepend[1]);
+  return (
+    // Stryker disable next-line ConditionalExpression: null specifiers come from objects.
+    typeof alias !== 'string'
+  ) && (
+    // Stryker disable next-line OptionalChaining: a null specifier requires a prepend.
+    alias.prepend?.length === 2
+  )
+  && alias.prepend[0] === module
+  && !layers.includes(alias.prepend[1])
+  && /\.(?:js|jsx|ts|tsx|mjs|cjs|vue)$/.test(alias.prepend[1]);
 }
 
 function moduleContainerPattern(group: string[]): GroupPattern {

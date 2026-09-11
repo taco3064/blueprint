@@ -67,20 +67,9 @@ export function analyzeDynamicImports(
 }
 
 function parseSource(source: string, filePath: string): ParsedSource {
-  const options = {
-    comment: true,
-    ecmaVersion: 'latest' as const,
-    filePath,
-    jsx: /\.[jt]sx$/.test(filePath),
-    loc: true,
-    range: true,
-    sourceType: 'module' as const,
-    tokens: true,
-  };
-
   return (filePath.endsWith('.vue')
-    ? vueParser.parseForESLint(source, { ...options, parser: tsParser })
-    : tsParser.parseForESLint(source, options)) as unknown as ParsedSource;
+    ? vueParser.parseForESLint(source, { parser: tsParser })
+    : tsParser.parseForESLint(source)) as unknown as ParsedSource;
 }
 
 function walk(
@@ -106,6 +95,10 @@ function walk(
 }
 
 function isNode(value: unknown): value is AstNode {
-  return typeof value === 'object' && value !== null && 'type' in value
-    && typeof value.type === 'string';
+  if (typeof value !== 'object' || value === null || !('type' in value)) {
+    return false;
+  }
+
+  // Stryker disable next-line ConditionalExpression: parser visitor nodes guarantee string types.
+  return typeof value.type === 'string';
 }

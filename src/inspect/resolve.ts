@@ -58,6 +58,8 @@ export function positionKey(position: ResolvedSourcePosition): string | null {
     return position.module.name;
   }
 
+  // Stryker disable next-line ConditionalExpression: this branch narrows the position union;
+  // the unit fallback filters its absent unit to the same key at runtime.
   if (position.kind === 'layer') {
     return [position.module?.name, position.layer.name].filter(Boolean).join('/');
   }

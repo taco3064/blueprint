@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { ArchitectureDef } from '../config';
 import { runSurvey } from './survey';
 import { collectModuleToLayerEvidence, destinationCollisions } from './module-mapping';
+import type { AliasCutoverEvidence } from './module-mapping';
 
 const dirs: string[] = [];
 
@@ -41,6 +42,73 @@ function architecture(overrides: Partial<ArchitectureDef> = {}): ArchitectureDef
   };
 }
 
+const mappingFiles = {
+  'src/main.ts': 'import \'~app/app/Login\';\n',
+  'src/app/Login.ts': 'import \'~app/auth/AuthRoot\';\n',
+  'src/app/components/RouteShell.ts': 'export const routeShell = 1;\n',
+  'src/auth/AuthRoot.ts': 'import \'~app/auth/hooks/useSession\';\n',
+  'src/auth/components/Form/index.ts': 'export const form = 1;\n',
+  'src/auth/hooks/useSession.ts': 'export const session = 1;\n',
+  'src/checkout/hooks/useSession.ts': 'export const checkout = 1;\n',
+  'src/hooks/components/Panel/index.ts': 'export const panel = 1;\n',
+  'src/hooks/hooks/useHook.ts': 'export const hook = 1;\n',
+  'src/legacy/orphan.ts': 'export const orphan = 1;\n',
+};
+
+const expectedAliasCutovers: AliasCutoverEvidence[] = [{
+  alias: '@domain',
+  target: 'src/auth',
+  disposition: 'rewrite-or-remove',
+  mappedDestinations: [
+    'src/components/Form/index.ts',
+    'src/containers/auth/AuthRoot.ts',
+    'src/hooks/useSession.ts',
+  ],
+}, {
+  alias: '@domain-components',
+  target: 'src/auth/components',
+  disposition: 'rewrite-or-remove',
+  mappedDestinations: ['src/components/Form/index.ts'],
+}, {
+  alias: '@hooks-module',
+  target: 'src/hooks',
+  disposition: 'rewrite-or-remove',
+  mappedDestinations: ['src/components/Panel/index.ts', 'src/hooks/useHook.ts'],
+}, {
+  alias: '@profile',
+  target: 'src/profile',
+  disposition: 'rewrite-or-remove',
+  mappedDestinations: [],
+}, {
+  alias: '@session',
+  target: 'src/auth/hooks/useSession.ts',
+  disposition: 'rewrite-or-remove',
+  mappedDestinations: ['src/hooks/useSession.ts'],
+}, {
+  alias: '@shared',
+  target: 'src/shared',
+  disposition: 'preserve',
+  mappedDestinations: [],
+}];
+
+function mappingArchitecture(): ArchitectureDef {
+  return architecture({
+    modules: [
+      ...(architecture().modules ?? []),
+      { name: 'hooks', does: 'mixed destination evidence' },
+      { name: 'profile', does: 'empty module evidence' },
+    ],
+    additionalAliases: {
+      '@shared': 'src/shared',
+      '@session': 'src/auth/hooks/useSession.ts',
+      '@profile': 'src/profile',
+      '@hooks-module': 'src/hooks',
+      '@domain-components': 'src/auth/components',
+      '@domain': 'src/auth',
+    },
+  });
+}
+
 afterEach(() => {
   while (dirs.length) {
     fs.rmSync(dirs.pop() as string, { recursive: true, force: true });
@@ -49,29 +117,23 @@ afterEach(() => {
 
 describe('module-first to layer-first mapping evidence', () => {
   it('maps container roots and both unit layouts while reporting collisions', () => {
-    const root = fixture({
-      'src/main.ts': 'import \'~app/app/Login\';\n',
-      'src/app/Login.ts': 'import \'~app/auth/AuthRoot\';\n',
-      'src/app/components/RouteShell.ts': 'export const routeShell = 1;\n',
-      'src/auth/AuthRoot.ts': 'import \'~app/auth/hooks/useSession\';\n',
-      'src/auth/components/Form/index.ts': 'export const form = 1;\n',
-      'src/auth/hooks/useSession.ts': 'export const session = 1;\n',
-      'src/checkout/hooks/useSession.ts': 'export const checkout = 1;\n',
-      'src/legacy/orphan.ts': 'export const orphan = 1;\n',
-    });
+    const root = fixture(mappingFiles);
 
     const survey = runSurvey(root, { sourceRoot: 'src', log: () => {} });
 
     const result = collectModuleToLayerEvidence({
       root,
       survey,
-      architecture: architecture({
-        additionalAliases: { '@domain': 'src/auth', '@shared': 'src/shared' },
-      }),
+      architecture: mappingArchitecture(),
       nextAppRouter: false,
     });
 
     expect(result.rootWiring).toEqual(['main.ts']);
+
+    expect(result.mappings.map((mapping) => mapping.destination)).toEqual(
+      result.mappings.map((mapping) => mapping.destination)
+        .sort((left, right) => left.localeCompare(right)),
+    );
 
     expect(result.mappings).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -117,27 +179,30 @@ describe('module-first to layer-first mapping evidence', () => {
       { name: 'services', layout: 'folder', entry: 'index' },
     ]);
 
-    expect(result.aliasCutovers).toEqual([{
-      alias: '@domain',
-      target: 'src/auth',
-      disposition: 'rewrite-or-remove',
-      mappedDestinations: [
-        'src/components/Form/index.ts',
-        'src/containers/auth/AuthRoot.ts',
-        'src/hooks/useSession.ts',
-      ],
-    }, {
-      alias: '@shared',
-      target: 'src/shared',
-      disposition: 'preserve',
-      mappedDestinations: [],
-    }]);
+    expect(result.aliasCutovers).toEqual(expectedAliasCutovers);
 
     expect(result.architectureBasis).toEqual(expect.objectContaining({
       additionalAliases: { '@shared': 'src/shared' },
     }));
 
     expect(result.architectureBasis).not.toHaveProperty('modules');
+  });
+
+  it('removes additionalAliases when every alias target moves away', () => {
+    const root = fixture({
+      'src/auth/hooks/useSession.ts': 'export const session = 1;\n',
+    });
+
+    const survey = runSurvey(root, { sourceRoot: 'src', log: () => {} });
+
+    const result = collectModuleToLayerEvidence({
+      root,
+      survey,
+      architecture: architecture({ additionalAliases: { '@auth': 'src/auth' } }),
+      nextAppRouter: false,
+    });
+
+    expect(result.architectureBasis).not.toHaveProperty('additionalAliases');
   });
 });
 

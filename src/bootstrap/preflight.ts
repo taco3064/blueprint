@@ -57,7 +57,7 @@ export async function runTransformationPreflight(
 ): Promise<TransformationPreflight> {
   const scope = selectApplication(selectedScopes);
 
-  if (!scope.ok || scope.selected === undefined) {
+  if (!scope.ok) {
     return unavailablePreflight(scope);
   }
 

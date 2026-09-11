@@ -1,5 +1,7 @@
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
+import { resolveImportReference } from './import-reference';
 import type { ArchitectureDef } from './types';
 import { resolveArchitecture } from './resolved';
 
@@ -27,6 +29,7 @@ function architecture(): ArchitectureDef {
   };
 }
 
+// eslint-disable-next-line max-lines-per-function
 describe('resolveArchitecture · import contract', () => {
   it.each([
     ['~root/src/billing/hooks/useBill', '~app/billing/hooks/useBill', '~root'],
@@ -145,5 +148,68 @@ describe('resolveArchitecture · import contract', () => {
     );
 
     expect(reference).toMatchObject({ crossesBoundary: true, dependency: null });
+  });
+
+  it('rejects an alias target that does not reach the configured source offset', () => {
+    const reference = resolveArchitecture(architecture()).resolveImport(
+      'src/account/hooks/useAccount.ts',
+      '~root/package.json',
+    );
+
+    expect(reference).toMatchObject({
+      alias: '~root',
+      target: null,
+      targetSegments: null,
+      canonicalSpecifier: null,
+    });
+  });
+
+  it('selects the canonical alias by identity rather than alias-array order', () => {
+    const definition = architecture();
+    const resolved = resolveArchitecture(definition);
+    const canonical = resolved.aliases.find((root) => root.alias === definition.alias)!;
+    const overlapping = { alias: '~app/billing', prefix: [], prepend: ['billing'] };
+
+    const reference = resolveImportReference(
+      'src/account/hooks/useAccount.ts',
+      '~app/billing/hooks/useBill',
+      {
+        definition,
+        sourceSegments: ['src'],
+        aliases: [overlapping, canonical],
+        classify: resolved.classify,
+        canImport: resolved.canImport,
+        canImportModule: resolved.canImportModule,
+      },
+    );
+
+    expect(reference).toMatchObject({ alias: '~app', kind: 'canonical-alias' });
+  });
+
+  it('preserves import semantics when path separators contain inert segments', () => {
+    const resolved = resolveArchitecture(architecture());
+
+    const clean = resolved.resolveImport(
+      'src/account/hooks/useAccount.ts',
+      './useOther',
+    );
+
+    fc.assert(fc.property(
+      fc.integer({ min: 2, max: 5 }),
+      fc.constantFrom('/', '\\'),
+      (separatorCount, separator) => {
+        const repeated = separator.repeat(separatorCount);
+
+        const importer = `src${repeated}account${separator}.${separator}hooks`
+          + `${separator}useAccount.ts`;
+
+        const specifier = `.//./useOther`;
+        const noisy = resolved.resolveImport(importer, specifier);
+
+        expect(noisy.target).toEqual(clean.target);
+        expect(noisy.crossesBoundary).toBe(clean.crossesBoundary);
+        expect(noisy.dependency).toEqual(clean.dependency);
+      },
+    ), { numRuns: 20 });
   });
 });

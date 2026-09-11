@@ -35,6 +35,7 @@ function scan(files: ScannedFile[], topDirs = ['auth', 'shop']): ScanResult {
   return { files, topDirs };
 }
 
+// eslint-disable-next-line max-lines-per-function
 describe('inspect consumers · module-first topology', () => {
   it('classifies nested app router source consistently and preserves module reachability', () => {
     const routerBlueprint = defineBlueprint({
@@ -92,7 +93,11 @@ describe('inspect consumers · module-first topology', () => {
     ], ['auth', 'shop', 'rogue']), blueprint);
 
     expect(findings).toEqual(expect.arrayContaining([
-      expect.objectContaining({ rule: 'undeclared-folder', path: 'src/rogue' }),
+      expect.objectContaining({
+        rule: 'undeclared-folder',
+        path: 'src/rogue',
+        message: expect.stringContaining('not a declared module'),
+      }),
       expect.objectContaining({ rule: 'no-entry', path: 'src/auth/components/Login' }),
     ]));
 
@@ -105,14 +110,22 @@ describe('inspect consumers · module-first topology', () => {
     const findings = analyze(scan([
       file(['auth', 'random', 'x.ts']),
       file(['auth', 'shell.tsx']),
+      file(['auth', 'components', 'Login', 'index.tsx']),
+      file(['rogue', 'random', 'x.ts']),
     ]), blueprint);
 
     expect(findings).toEqual(expect.arrayContaining([
-      expect.objectContaining({ rule: 'undeclared-folder', path: 'src/auth/random' }),
+      expect.objectContaining({
+        rule: 'undeclared-folder',
+        path: 'src/auth/random',
+        message: expect.stringContaining('not a declared layer inside module "auth"'),
+      }),
     ]));
 
     expect(findings).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ rule: 'undeclared-folder', path: 'src/auth/shell.tsx' }),
+      expect.objectContaining({ rule: 'undeclared-folder', path: 'src/auth/components' }),
+      expect.objectContaining({ rule: 'undeclared-folder', path: 'src/rogue/random' }),
     ]));
   });
 

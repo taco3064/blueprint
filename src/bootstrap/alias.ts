@@ -154,7 +154,7 @@ function bundlerActions(
     const root = aliasTarget(
       resolveArchitecture(architecture).sourceRoot,
       toolchain.root,
-    ).replace(/\/\*$/, '');
+    ).slice(0, -2);
 
     const result = wireViteAlias(toolchain.viteConfig.text, architecture.alias, root);
 

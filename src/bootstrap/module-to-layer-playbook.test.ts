@@ -61,6 +61,88 @@ function evidence(overrides: Partial<ModuleToLayerEvidence> = {}): ModuleToLayer
   };
 }
 
+function expectFragments(result: string, fragments: string[]): void {
+  for (const fragment of fragments) {
+    expect(result).toContain(fragment);
+  }
+}
+
+function riskResult(): string {
+  return moduleToLayerBrief({
+    evidence: evidence({
+      aliases: { '~app': 'src', '@domain': 'src/auth', '@shared': 'src/shared' },
+      architectureBasis: {
+        alias: '~app',
+        additionalAliases: { '@shared': 'src/shared' },
+        layers: [{ name: 'components', does: 'UI', layout: 'folder', entry: 'index' }],
+      },
+      aliasCutovers: [{
+        alias: '@domain',
+        target: 'src/auth',
+        disposition: 'rewrite-or-remove',
+        mappedDestinations: ['src/containers/auth/Auth.ts', 'src/hooks/useSession.ts'],
+      }, {
+        alias: '@shared',
+        target: 'src/shared',
+        disposition: 'preserve',
+        mappedDestinations: [],
+      }],
+      modules: [
+        { name: 'app', dependsOn: ['auth'] },
+        { name: 'auth', dependsOn: [] },
+        { name: 'checkout', dependsOn: ['auth'] },
+      ],
+      mappings: [{
+        source: 'src/auth/Auth.ts',
+        destination: 'src/containers/auth/Auth.ts',
+        module: 'auth',
+        layer: 'containers',
+        layout: 'container',
+        disposition: 'move',
+      }, {
+        source: 'src/app/Login.ts',
+        destination: 'src/pages/Login.ts',
+        module: 'app',
+        layer: 'pages',
+        layout: 'router',
+        disposition: 'move',
+      }],
+      collisions: [{
+        destination: 'src/hooks/usesession.ts',
+        sources: ['src/auth/hooks/useSession.ts', 'src/checkout/hooks/useSession.ts'],
+      }],
+      orphans: ['src/legacy/orphan.ts'],
+      edges: [{ from: 'app', to: 'auth', count: 1 }],
+      cycles: [['auth/hooks', 'checkout/hooks', 'auth/hooks']],
+      unresolvedAliasLikeImports: [{ unit: 'auth/hooks', specifier: '~missing/session' }],
+      relativeImports: [{
+        importer: 'auth/hooks',
+        specifier: '../../checkout/hooks/useSession',
+        structuralTarget: 'checkout/hooks',
+        targetUnitMeasured: true,
+      }, {
+        importer: 'auth/services',
+        specifier: '../../../outside/runtime',
+        structuralTarget: null,
+        targetUnitMeasured: false,
+      }],
+      unknownDynamicImports: 1,
+      parseFailures: [{ path: 'src/auth/Broken.ts', message: 'Unexpected token' }],
+    }),
+    preflight,
+    findings: [{
+      severity: 'error',
+      rule: 'module-dependency',
+      path: 'src/checkout/hooks/useCheckout.ts',
+      subject: '~app/auth/hooks/useSession',
+      message: 'undeclared edge',
+    }],
+    state: state({ framework: 'vue' }),
+    install: 'pnpm add -D @kekkai/blueprint',
+    cleanup: 'the generated files.',
+  });
+}
+
 describe('module-first to layer-first playbook', () => {
   it('renders empty evidence without claiming a migration can proceed', () => {
     const result = moduleToLayerBrief({
@@ -81,84 +163,26 @@ describe('module-first to layer-first playbook', () => {
     expect(result).toContain('components (folder; entry index)');
     expect(result).toContain('does not auto-sort layers');
     expect(result).toContain('Proposed layer-first architecture basis');
+
+    expectFragments(result, [
+      'Git worktree at preflight: clean (0 changes)',
+      'Additional-alias cutover\n\n- (none configured)',
+      'Destination collisions\n\n- (none measured)',
+      'Cycles in pre-transform governed graph: (none)',
+      'Relative import structural evidence: (none)',
+      'Pre-transform inspection recorded 0 finding(s):\n- (none)',
+      '## Filesystem movement and import rewrite',
+      '## Verification and handoff',
+      'npm install',
+      'git diff --summary',
+      'npx blueprint doctor --json',
+    ]);
   });
 });
 
 describe('module-first to layer-first playbook risks', () => {
   it('renders mappings, collision/import risks, baseline debt, and React routing', () => {
-    const result = moduleToLayerBrief({
-      evidence: evidence({
-        aliases: { '~app': 'src', '@domain': 'src/auth', '@shared': 'src/shared' },
-        architectureBasis: {
-          alias: '~app',
-          additionalAliases: { '@shared': 'src/shared' },
-          layers: [{ name: 'components', does: 'UI', layout: 'folder', entry: 'index' }],
-        },
-        aliasCutovers: [{
-          alias: '@domain',
-          target: 'src/auth',
-          disposition: 'rewrite-or-remove',
-          mappedDestinations: ['src/containers/auth/Auth.ts', 'src/hooks/useSession.ts'],
-        }, {
-          alias: '@shared',
-          target: 'src/shared',
-          disposition: 'preserve',
-          mappedDestinations: [],
-        }],
-        modules: [
-          { name: 'app', dependsOn: ['auth'] },
-          { name: 'auth', dependsOn: [] },
-          { name: 'checkout', dependsOn: ['auth'] },
-        ],
-        mappings: [{
-          source: 'src/auth/Auth.ts',
-          destination: 'src/containers/auth/Auth.ts',
-          module: 'auth',
-          layer: 'containers',
-          layout: 'container',
-          disposition: 'move',
-        }, {
-          source: 'src/app/Login.ts',
-          destination: 'src/pages/Login.ts',
-          module: 'app',
-          layer: 'pages',
-          layout: 'router',
-          disposition: 'move',
-        }],
-        collisions: [{
-          destination: 'src/hooks/usesession.ts',
-          sources: ['src/auth/hooks/useSession.ts', 'src/checkout/hooks/useSession.ts'],
-        }],
-        orphans: ['src/legacy/orphan.ts'],
-        edges: [{ from: 'app', to: 'auth', count: 1 }],
-        cycles: [['auth/hooks', 'checkout/hooks', 'auth/hooks']],
-        unresolvedAliasLikeImports: [{ unit: 'auth/hooks', specifier: '~missing/session' }],
-        relativeImports: [{
-          importer: 'auth/hooks',
-          specifier: '../../checkout/hooks/useSession',
-          structuralTarget: 'checkout/hooks',
-          targetUnitMeasured: true,
-        }, {
-          importer: 'auth/services',
-          specifier: '../../../outside/runtime',
-          structuralTarget: null,
-          targetUnitMeasured: false,
-        }],
-        unknownDynamicImports: 1,
-        parseFailures: [{ path: 'src/auth/Broken.ts', message: 'Unexpected token' }],
-      }),
-      preflight,
-      findings: [{
-        severity: 'error',
-        rule: 'module-dependency',
-        path: 'src/checkout/hooks/useCheckout.ts',
-        subject: '~app/auth/hooks/useSession',
-        message: 'undeclared edge',
-      }],
-      state: state({ framework: 'vue' }),
-      install: 'pnpm add -D @kekkai/blueprint',
-      cleanup: 'the generated files.',
-    });
+    const result = riskResult();
 
     expect(result).toContain('src/auth/Auth.ts` → `src/containers/auth/Auth.ts');
     expect(result).toContain('src/hooks/usesession.ts');
@@ -173,6 +197,39 @@ describe('module-first to layer-first playbook risks', () => {
     expect(result).toContain('Parse failure: src/auth/Broken.ts — Unexpected token');
     expect(result).toContain('For React/Vue, classify each reserved `app/**` file');
     expect(result).toContain('module-dependency · src/checkout/hooks/useCheckout.ts');
+
+    expectFragments(result, [
+      'Pre-transform additional aliases: `@domain` → `src/auth`, `@shared` → `src/shared`',
+      'mapped files → `src/containers/auth/Auth.ts`, `src/hooks/useSession.ts`',
+      'mapped files → (none)',
+      'src/auth/hooks/useSession.ts`, `src/checkout/hooks/useSession.ts`',
+      'auth/hooks → checkout/hooks → auth/hooks',
+      'Unresolved alias-like imports: auth/hooks: ~missing/session',
+      'auth/hooks: ../../checkout/hooks/useSession → checkout/hooks (target unit measured)',
+      'auth/services: ../../../outside/runtime → (outside governed structure) '
+      + '(target unit not measured)',
+      'pnpm add -D @kekkai/blueprint',
+      'Delete the generated files. Cleanup must happen before the final doctor run',
+    ]);
+  });
+
+  it('renders a finding without a subject explicitly', () => {
+    const result = moduleToLayerBrief({
+      evidence: evidence(),
+      preflight,
+      findings: [{
+        severity: 'warn',
+        rule: 'unclassified',
+        path: 'src/legacy.ts',
+        subject: '',
+        message: 'unclassified',
+      }],
+      state: state(),
+      install: 'npm install',
+      cleanup: 'the playbook.',
+    });
+
+    expect(result).toContain('- unclassified · src/legacy.ts · (no subject)');
   });
 });
 

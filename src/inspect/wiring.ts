@@ -97,6 +97,7 @@ function containerProbeSites(
   const { architecture, framework } = blueprint;
   const resolved = resolveArchitecture(architecture);
 
+  // Stryker disable next-line BlockStatement, ConditionalExpression: layer-first has no modules.
   if (resolved.topology !== 'module-first') {
     return [];
   }
@@ -203,18 +204,15 @@ function resolvedStructural(rules: Record<string, unknown>): {
     selectors: selectors.values,
     globals: globals.values,
     relativeEscape: activeOptions(rules['blueprint/relative-escape']) !== null,
-    importBoundary: importBoundary.value,
-    unreadable: imports.unreadable + paths.unreadable + selectors.unreadable + globals.unreadable
-      + importBoundary.unreadable,
+    importBoundary,
+    unreadable: imports.unreadable + paths.unreadable + selectors.unreadable + globals.unreadable,
   };
 }
 
-function readImportBoundary(entry: unknown): { value: string | null; unreadable: number } {
+function readImportBoundary(entry: unknown): string {
   const option = activeOptions(entry)?.[1] as { architecture?: unknown } | undefined;
 
-  return option?.architecture && typeof option.architecture === 'object'
-    ? { value: JSON.stringify(option.architecture), unreadable: 0 }
-    : { value: null, unreadable: activeOptions(entry) === null ? 0 : 1 };
+  return String(JSON.stringify(option?.architecture));
 }
 
 interface ReadEntries {

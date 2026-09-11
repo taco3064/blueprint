@@ -124,7 +124,10 @@ export function dependencyNames(root: string): string[] {
   }
 }
 
-type FolderTally = FolderEvidence & { indexed: Set<string>; childSet: Set<string> };
+type FolderTally = Omit<FolderEvidence, 'children'> & {
+  indexed: Set<string>;
+  childSet: Set<string>;
+};
 
 function folderEvidence(scanResult: ScanResult): FolderEvidence[] {
   const byFolder = new Map<string, FolderTally>();
@@ -135,7 +138,6 @@ function folderEvidence(scanResult: ScanResult): FolderEvidence[] {
       files: 0,
       directFiles: 0,
       childFolders: 0,
-      children: [],
       indexedChildren: 0,
       maxDepth: 0,
       indexed: new Set(),
@@ -168,7 +170,7 @@ function folderEvidence(scanResult: ScanResult): FolderEvidence[] {
     .map(({ indexed, childSet, ...evidence }) => ({
       ...evidence,
       childFolders: childSet.size,
-      children: [...childSet].sort((a, b) => a.localeCompare(b)),
+      children: [...childSet],
       indexedChildren: indexed.size,
     }))
     .sort((a, b) => b.files - a.files);

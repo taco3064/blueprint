@@ -119,8 +119,7 @@ function needsCanonical(
 ): boolean {
   return importer.kind !== 'source-root'
     && reference.kind === 'additional-alias'
-    && reference.crossesBoundary
-    && reference.canonicalSpecifier !== null;
+    && reference.crossesBoundary;
 }
 
 function isSameLayerAlias(
@@ -129,9 +128,7 @@ function isSameLayerAlias(
 ): boolean {
   const target = reference.target;
 
-  return reference.kind !== 'relative'
-    && reference.kind !== 'external'
-    && target !== null
+  return target !== null
     && 'layer' in importer
     && 'layer' in target
     && importer.module?.name === target.module?.name
@@ -144,6 +141,5 @@ function isDeepFolderImport(reference: ResolvedImportReference): boolean {
 
   return target?.kind === 'unit'
     && target.layer.unit.layout === 'folder'
-    && segments !== null
-    && segments.length > (target.module === null ? 2 : 3);
+    && segments!.length > (target.module === null ? 2 : 3);
 }

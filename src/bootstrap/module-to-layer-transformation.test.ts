@@ -109,11 +109,22 @@ describe('module-first to layer-first transformation actions', () => {
       claudeDir: { hadDir: false, otherCommands: 0 },
     });
 
-    expect(actions.some((action) => action.kind === 'install')).toBe(false);
+    expect(actions.map((action) => action.kind)).toEqual(['write', 'write', 'instruct']);
+
+    const playbook = actions.find((action) => action.kind === 'write'
+      && action.path === 'blueprint-authoring.md');
+
+    expect(playbook).toMatchObject({ kind: 'write' });
+
+    if (playbook?.kind === 'write') {
+      expect(playbook.content).not.toContain('Stryker was here');
+      expect(playbook.content).not.toContain('undefined');
+    }
   });
 });
 
 describe('module-first to layer-first Agent launch', () => {
+  // eslint-disable-next-line max-statements
   it('launches the requested Agent only after applying the reverse playbook', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blueprint-reverse-agent-'));
 
@@ -141,20 +152,22 @@ describe('module-first to layer-first Agent launch', () => {
       ], { cwd: root }).status).toBe(0);
 
       const launches: string[] = [];
+      const commands: string[] = [];
+      const logs: string[] = [];
 
       await runModuleToLayerTransformation({
         root,
-        state: state({ root, missingDeps: [] }),
+        state: state({ root }),
         options: {
-          install: false,
           agent: 'codex',
+          exec: (command) => commands.push(command),
           spawn: (bin, _args, cwd) => {
             launches.push(`${bin}:${cwd}:${fs.existsSync(path.join(cwd, 'blueprint-authoring.md'))}`);
 
             return { status: 0 };
           },
         },
-        log: () => {},
+        log: (message) => logs.push(message),
         survey: null,
         topology: {
           current: 'module-first',
@@ -168,12 +181,16 @@ describe('module-first to layer-first Agent launch', () => {
       });
 
       expect(launches).toEqual([`codex:${root}:true`]);
+      expect(commands).toEqual(['npm install -D @kekkai/blueprint']);
+      expect(logs.some((message) => message.includes('  ✓ install:'))).toBe(true);
+      expect(logs.some((message) => message.includes('would'))).toBe(false);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
 });
 
+// eslint-disable-next-line max-lines-per-function
 describe('module-first to layer-first transformation safety', () => {
   it('requires configured module-first authority before preflight writes', async () => {
     await expect(runModuleToLayerTransformation({
@@ -194,6 +211,25 @@ describe('module-first to layer-first transformation safety', () => {
     })).rejects.toThrow(
       /init --topology module-first.*Agent author and verify.*commit the clean state.*init --topology layer-first/s,
     );
+  });
+
+  it('reports missing module authority without dereferencing an absent module list', async () => {
+    await expect(runModuleToLayerTransformation({
+      root: '/missing',
+      state: state(),
+      options: { install: false },
+      log: () => {},
+      survey: null,
+      topology: {
+        current: 'module-first',
+        target: 'layer-first',
+        source: 'configured',
+        selectedApplication: 'src',
+        operation: 'transformation-required',
+        path: 'transformation',
+      },
+      architecture: { alias: '~app', layers: [] },
+    })).rejects.toThrow('requires the current module-first blueprint.config.mjs');
   });
 
   it.each(['pages', 'both', null] as const)(
@@ -260,5 +296,33 @@ describe('module-first to layer-first transformation safety', () => {
       },
       architecture,
     })).rejects.toThrow('application scope: Exactly one application scope must be selected');
+  });
+
+  it('omits successful scope checks from a failed preflight report', async () => {
+    const result = runModuleToLayerTransformation({
+      root: '/missing',
+      state: state(),
+      options: { install: false },
+      log: () => {},
+      survey: null,
+      topology: {
+        current: 'module-first',
+        target: 'layer-first',
+        source: 'configured',
+        selectedApplication: 'src',
+        operation: 'transformation-required',
+        path: 'transformation',
+      },
+      architecture,
+    });
+
+    try {
+      await result;
+      expect.unreachable('Expected preflight to reject a missing Git repository');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain('Git repository');
+      expect((error as Error).message).not.toContain('application scope: undefined');
+    }
   });
 });

@@ -116,6 +116,12 @@ describe('relativeVerdict', () => {
       ['auth'],
       { ...shape, moduleFirst: true },
     )).toBe('ok');
+
+    expect(relativeVerdict(
+      ['auth', 'index.ts'],
+      ['auth', 'shell', 'internal'],
+      { ...shape, moduleFirst: true },
+    )).toBe('leaves-layer');
   });
 
   it('still enforces layer and entry boundaries inside one outer module', () => {
@@ -136,6 +142,10 @@ describe('relativeVerdict', () => {
 describe('normalizedUnitKey', () => {
   it('normalizes the source root itself to the empty graph key', () => {
     expect(normalizedUnitKey('src', architecture)).toBe('');
+  });
+
+  it('keeps an unclassified deep path in layer-first coordinates', () => {
+    expect(normalizedUnitKey('src/unknown/nested/file.ts', architecture)).toBe('unknown');
   });
 });
 
@@ -225,6 +235,11 @@ describe('unitKey · dropping the extension', () => {
     // which is a different unit and a file that does not exist.
     expect(unitKey(['resources', 'Row.stories.ts'], layoutOf)).toBe('resources/Row.stories');
     expect(unitKey(['resources', 'Row.ts'], layoutOf)).toBe('resources/Row');
+  });
+
+  it('keeps an exact layer boundary without reading a missing unit segment', () => {
+    expect(unitKey(['resources'], layoutOf)).toBe('resources');
+    expect(unitKey([], layoutOf)).toBe('');
   });
 });
 

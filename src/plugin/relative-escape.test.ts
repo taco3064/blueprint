@@ -88,6 +88,14 @@ describe('blueprint/relative-escape · file-layout layer', () => {
   it('does not classify a project-root file outside the lint working directory', () => {
     expect(sourceSegments('/repo-sibling/components/Button.ts', '/repo', '.')).toBeNull();
   });
+
+  it('does not throw for a module-first file outside the configured source root', () => {
+    expect(messageIds(
+      'import x from "./Button";',
+      'components/Card.ts',
+      { sourceRoot: 'lib/app', moduleFirst: true },
+    )).toEqual([]);
+  });
 });
 
 describe('blueprint/relative-escape · folder layer', () => {

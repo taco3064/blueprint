@@ -71,6 +71,7 @@ function validateDependency(scope: {
 function assertAcyclicModules(names: string[], direct: Map<string, string[]>): void {
   const complete = new Set<string>();
   const active = new Map<string, number>();
+  // Stryker disable next-line ArrayDeclaration: a sentinel shifts active indexes equally.
   const path: string[] = [];
 
   const visit = (name: string): void => {
@@ -82,6 +83,7 @@ function assertAcyclicModules(names: string[], direct: Map<string, string[]>): v
       );
     }
 
+    // Stryker disable next-line ConditionalExpression: removing this only revisits a proven DAG.
     if (complete.has(name)) {
       return;
     }

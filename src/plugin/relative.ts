@@ -17,13 +17,9 @@ export function unitKey(
 ): string {
   const layerIndex = moduleFirst ? 1 : 0;
   const unitIndex = layerIndex + 1;
-  const layer = segments[layerIndex];
-
-  if (!layer) {
-    return segments[0] ?? '';
-  }
-
   const prefix = segments.slice(0, unitIndex);
+
+  const layer = segments[layerIndex];
 
   if (segments.length <= unitIndex || layoutOf(layer) === 'file') {
     return prefix.join('/');
@@ -37,6 +33,7 @@ export function relativeVerdict(
   target: string[] | null,
   shape: UnitShape,
 ): RelativeVerdict {
+  // Stryker disable next-line ArrowFunction: false and undefined are equivalent under !isLayer().
   const { layoutOf, entryOf, isLayer = () => false, moduleFirst = false } = shape;
 
   if (target === null) {

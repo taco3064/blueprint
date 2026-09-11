@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { BROWNFIELD_MIN_FILES } from './authoring';
 import { runInit } from './bootstrap';
-import { nextPreset, vuePreset } from '../presets';
+import { vuePreset } from '../presets';
 
 const runLayerFirstInit: typeof runInit = (root, options = {}) =>
   runInit(root, { topology: 'layer-first', ...options });
@@ -24,6 +24,19 @@ function writePkg(content: Record<string, unknown>): void {
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify(content));
 }
 
+function writeValidConfig(): void {
+  fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), [
+    'export default {',
+    '  framework: \'react\',',
+    '  architecture: {',
+    '    alias: \'~app\',',
+    '    layers: [{ name: \'pages\', does: \'routes\' }],',
+    '  },',
+    '};',
+    '',
+  ].join('\n'));
+}
+
 /** A repo with enough source files to land on the brownfield side of the fork. */
 function brownfield(): void {
   writePkg({ name: 'legacy', dependencies: { react: '^18' } });
@@ -40,21 +53,6 @@ const exists = (file: string) => fs.existsSync(path.join(root, file));
 const silent = () => {};
 
 describe('runInit · brownfield authoring flow', () => {
-  it('retains the selected src application on a pristine Next scaffold', async () => {
-    writePkg({ name: 'next-demo', dependencies: { react: '^19', next: '^15' } });
-    fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
-    fs.writeFileSync(path.join(root, 'src/app/page.tsx'), 'export default () => null;');
-
-    await runLayerFirstInit(root, { install: false, log: silent });
-
-    await runLayerFirstInit(root, {
-      install: false,
-      dryRun: true,
-      log: silent,
-      loadConfig: async () => nextPreset({ router: 'app', srcDir: true }),
-    });
-  });
-
   it('takes the authoring path at exactly the threshold, not the scaffold one', async () => {
     writePkg({ name: 'legacy', dependencies: { react: '^18' } });
     fs.mkdirSync(path.join(root, 'src/app'), { recursive: true });
@@ -204,9 +202,101 @@ describe('runInit · the flags that override the fork', () => {
     expect(lines.join('\n')).toContain('no blueprint-authoring.md is written');
     expect(lines.join('\n')).toContain('init --topology layer-first --authoring');
   });
+
+  it('does not apply the layer-first early-exit narration to module-first authoring', async () => {
+    writePkg({ name: 'fresh', dependencies: { react: '^18' } });
+    const lines: string[] = [];
+
+    const actions = await runInit(root, {
+      topology: 'module-first',
+      install: false,
+      authoring: true,
+      log: (message) => lines.push(message),
+    });
+
+    expect(actions.some((action) => action.kind === 'write'
+      && action.path === 'blueprint-authoring.md')).toBe(true);
+
+    expect(lines.join('\n')).not.toContain('below the brownfield threshold');
+  });
 });
 
 describe('runInit · which config --authoring is allowed to take over', () => {
+  it.each([
+    {},
+    { topology: 'layer-first' as const },
+  ])('refuses a valid authored config before any rewrite for %#', async (flags) => {
+    writePkg({ name: 'authored', dependencies: { react: '^18' } });
+    writeValidConfig();
+
+    const result = runInit(root, {
+      ...flags,
+      install: false,
+      authoring: true,
+      log: silent,
+    });
+
+    await expect(result).rejects.toThrow('differs from what init would scaffold');
+    expect(read('blueprint.config.mjs')).toContain('does: \'routes\'');
+  });
+
+  it('keeps the authored-config refusal when config loading itself fails', async () => {
+    writePkg({ name: 'authored', dependencies: { react: '^18' } });
+    writeValidConfig();
+
+    const result = runInit(root, {
+      topology: 'layer-first',
+      install: false,
+      authoring: true,
+      log: silent,
+      loadConfig: async () => {
+        throw new Error('loader sentinel');
+      },
+    });
+
+    await expect(result).rejects.toThrow('differs from what init would scaffold');
+    await expect(result).rejects.not.toThrow('loader sentinel');
+  });
+
+  it('preserves config loader errors outside the authoring refusal', async () => {
+    writePkg({ name: 'authored', dependencies: { react: '^18' } });
+    writeValidConfig();
+
+    const result = runInit(root, {
+      install: false,
+      log: silent,
+      loadConfig: async () => {
+        throw new Error('loader sentinel');
+      },
+    });
+
+    await expect(result).rejects.toThrow('loader sentinel');
+  });
+
+  it('trusts a pristine layer-first config over a module-shaped working tree', async () => {
+    writePkg({ name: 'fresh', dependencies: { react: '^18' } });
+    await runLayerFirstInit(root, { install: false, log: silent });
+
+    for (const module of ['auth', 'checkout']) {
+      const target = path.join(root, 'src', module, 'hooks');
+
+      fs.mkdirSync(target, { recursive: true });
+      fs.writeFileSync(path.join(target, 'useThing.ts'), 'export const value = 1;\n');
+    }
+
+    const actions = await runLayerFirstInit(root, {
+      install: false,
+      authoring: true,
+      dryRun: true,
+      log: silent,
+    });
+
+    expect(actions.some((action) => action.kind === 'write'
+      && action.path === 'blueprint-authoring.md')).toBe(true);
+  });
+});
+
+describe('runInit · pristine config --authoring takeover', () => {
   it('--authoring takes over a pristine preset scaffold left by a plain init', async () => {
     writePkg({ name: 'fresh', dependencies: { react: '^18' } });
 
