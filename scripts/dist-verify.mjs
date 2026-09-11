@@ -533,7 +533,7 @@ await check('built init opens the guarded module-first to layer-first playbook',
   return 'clean committed Git → measured reverse Agent transformation playbook';
 });
 
-await check('built preset treats inferred module-first as a layer-first transformation', () => {
+await check('built preset never infers topology from a module-shaped tree', () => {
   const dir = tempDir('bp-dist-topology-inferred-module-');
 
   writeReactFixture(dir);
@@ -554,34 +554,36 @@ await check('built preset treats inferred module-first as a layer-first transfor
     { cwd: dir },
   );
 
-  expect(result.code === 1, `inferred module-first exited ${result.code}\n${result.output}`);
+  expect(result.code === 1, `unmanaged module-shaped tree exited ${result.code}\n${result.output}`);
 
-  expect(result.output.includes('current module-first blueprint.config.mjs'),
-    'failure does not name missing authority');
+  expect(result.output.includes('no authoritative Blueprint topology'),
+    'failure does not name the missing authority');
 
-  expect(snapshotTree(dir) === before, 'preset wrote over inferred module-first');
+  expect(snapshotTree(dir) === before, 'preset wrote over the unmanaged module-shaped tree');
 
   return 'code 1, byte-identical tree';
 });
 
-await check('built preset covers inferred LF, explicit LF, and invalid explicit MF', () => {
-  const inferred = tempDir('bp-dist-preset-inferred-layer-');
+await check('built preset requires explicit LF on first adoption and rejects explicit MF', () => {
+  const unmanaged = tempDir('bp-dist-preset-unmanaged-layer-');
   const explicit = tempDir('bp-dist-preset-explicit-layer-');
   const conflict = tempDir('bp-dist-preset-explicit-module-');
 
-  for (const dir of [inferred, explicit, conflict]) writeReactFixture(dir);
+  for (const dir of [unmanaged, explicit, conflict]) writeReactFixture(dir);
 
-  fs.mkdirSync(path.join(inferred, 'src', 'pages'), { recursive: true });
-  fs.mkdirSync(path.join(inferred, 'src', 'components'), { recursive: true });
-  fs.writeFileSync(path.join(inferred, 'src', 'pages', 'Home.tsx'), 'export const Home = 1;\n');
+  fs.mkdirSync(path.join(unmanaged, 'src', 'pages'), { recursive: true });
+  fs.mkdirSync(path.join(unmanaged, 'src', 'components'), { recursive: true });
+  fs.writeFileSync(path.join(unmanaged, 'src', 'pages', 'Home.tsx'), 'export const Home = 1;\n');
 
   fs.writeFileSync(
-    path.join(inferred, 'src', 'components', 'Button.tsx'),
+    path.join(unmanaged, 'src', 'components', 'Button.tsx'),
     'export const Button = 1;\n',
   );
 
-  const inferredResult = runCmd(
-    process.execPath, [binPath, 'init', '--preset', '--no-install'], { cwd: inferred },
+  const beforeUnmanaged = snapshotTree(unmanaged);
+
+  const unmanagedResult = runCmd(
+    process.execPath, [binPath, 'init', '--preset', '--no-install'], { cwd: unmanaged },
   );
 
   const explicitResult = runCmd(
@@ -598,12 +600,13 @@ await check('built preset covers inferred LF, explicit LF, and invalid explicit 
     { cwd: conflict },
   );
 
-  expect(inferredResult.code === 0, `inferred LF exited ${inferredResult.code}`);
+  expect(unmanagedResult.code === 1, `unmanaged LF exited ${unmanagedResult.code}`);
+  expect(snapshotTree(unmanaged) === beforeUnmanaged, 'unmanaged preset changed the tree');
   expect(explicitResult.code === 0, `explicit LF exited ${explicitResult.code}`);
   expect(conflictResult.code === 1, `explicit MF exited ${conflictResult.code}`);
   expect(snapshotTree(conflict) === beforeConflict, 'explicit MF preset conflict changed the tree');
 
-  return 'inferred LF + explicit LF pass; explicit MF aborts unchanged';
+  return 'unmanaged preset aborts; explicit LF passes; explicit MF aborts unchanged';
 });
 
 // -------------------------------------------- the bin through an npm-style link

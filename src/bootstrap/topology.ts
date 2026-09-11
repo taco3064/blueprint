@@ -1,15 +1,15 @@
 import { resolveArchitecture } from '../config';
 import type { ArchitectureDef } from '../config';
-import { nextPreset, reactPreset } from '../presets';
 import type { SurveyResult } from '../survey';
 
 export type ArchitectureTopology = 'layer-first' | 'module-first';
 
 export interface TopologyObservation {
   current: ArchitectureTopology | null;
-  source: 'configured' | 'classified' | 'not-provable';
+  repository: ArchitectureTopology | null;
+  source: 'configured' | 'repository' | 'none';
   selectedApplication: string | null;
-  uncertainty?: 'empty' | 'insufficient' | 'mixed' | 'scope';
+  uncertainty?: 'empty' | 'unmanaged' | 'scope';
 }
 
 export interface TopologyDecision extends TopologyObservation {
@@ -24,113 +24,35 @@ export interface TopologySelection {
   preset?: boolean;
 }
 
-const RECOGNIZED_LAYERS = new Set([
-  ...reactPreset().architecture.layers.map((layer) => layer.name),
-  ...nextPreset(
-    // Stryker disable next-line ObjectLiteral: the default app router is already in both.
-    { router: 'both' },
-  ).architecture.layers.map((layer) => layer.name),
-]);
-
-const STRONG_LAYER_ROOTS = new Set(['pages', 'containers']);
-
 export function observeTopology(
   configured: ArchitectureDef | null,
   survey: SurveyResult | null,
+  repository: ArchitectureTopology | null = null,
 ): TopologyObservation {
   if (configured) {
     const resolved = resolveArchitecture(configured);
 
     return {
       current: resolved.topology,
+      repository: repository ?? resolved.topology,
       source: 'configured',
       selectedApplication: resolved.sourceRoot,
     };
   }
 
   if (!survey) {
-    return notProvable(null, 'insufficient');
+    return unconfigured(null, repository, 'unmanaged');
   }
 
   if (survey.scopeRequired) {
-    return notProvable(null, 'scope');
+    return unconfigured(null, repository, 'scope');
   }
 
   if (survey.totalFiles === 0) {
-    return notProvable(survey.sourceRoot ?? 'src', 'empty');
+    return unconfigured(survey.sourceRoot ?? 'src', repository, 'empty');
   }
 
-  return classifySurvey(survey);
-}
-
-function classifySurvey(survey: SurveyResult): TopologyObservation {
-  const directLayerAxis = hasDirectLayerAxis(survey);
-  const moduleCandidates = moduleCandidatesOf(survey);
-
-  const moduleAxis = hasRepeatedModuleAxis(survey, moduleCandidates)
-    || hasImportModuleAxis(survey, moduleCandidates);
-
-  if (directLayerAxis === moduleAxis) {
-    return notProvable(
-      survey.sourceRoot ?? 'src',
-      directLayerAxis ? 'mixed' : 'insufficient',
-    );
-  }
-
-  return {
-    current: directLayerAxis ? 'layer-first' : 'module-first',
-    source: 'classified',
-    selectedApplication: survey.sourceRoot ?? 'src',
-  };
-}
-
-function hasDirectLayerAxis(survey: SurveyResult): boolean {
-  const directLayers = survey.folders.filter((folder) =>
-    folder.files > 0 && RECOGNIZED_LAYERS.has(folder.folder));
-
-  return directLayers.length >= 2
-    && directLayers.some((folder) => STRONG_LAYER_ROOTS.has(folder.folder));
-}
-
-function moduleCandidatesOf(survey: SurveyResult) {
-  return new Map(
-    survey.folders
-      .filter((folder) => folder.files > 0
-        && (
-          // Stryker disable next-line ConditionalExpression: app is already recognized.
-          folder.folder !== 'app'
-        )
-        && !RECOGNIZED_LAYERS.has(folder.folder)
-        && (folder.children ?? (
-          // Stryker disable next-line ArrayDeclaration: the fabricated child is unrecognized.
-          []
-        )).some((child) => RECOGNIZED_LAYERS.has(child)))
-      .map((folder) => [folder.folder, folder]),
-  );
-}
-
-function hasRepeatedModuleAxis(
-  survey: SurveyResult,
-  candidates: ReturnType<typeof moduleCandidatesOf>,
-): boolean {
-  return (survey.repeatedFolderShapes ?? (
-    // Stryker disable next-line ArrayDeclaration: the fabricated shape matches no parent.
-    []
-  )).some((shape) =>
-    shape.parent === (survey.sourceRoot ?? 'src')
-    && shape.instances.filter((instance) => candidates.has(instance)).length >= 2
-    && shape.repeatedChildren.some((child) => RECOGNIZED_LAYERS.has(child.folder)));
-}
-
-function hasImportModuleAxis(
-  survey: SurveyResult,
-  candidates: ReturnType<typeof moduleCandidatesOf>,
-): boolean {
-  return (
-    // Stryker disable next-line ConditionalExpression: a distinct candidate edge implies two.
-    candidates.size >= 2
-  ) && survey.edges.some((edge) =>
-    edge.from !== edge.to && candidates.has(edge.from) && candidates.has(edge.to));
+  return unconfigured(survey.sourceRoot ?? 'src', repository, 'unmanaged');
 }
 
 export function decideTopology(
@@ -141,44 +63,64 @@ export function decideTopology(
     return incompatiblePreset(observation);
   }
 
-  const requested = selection.preset ? 'layer-first' : selection.topology;
+  const requested = selection.topology;
 
-  return decideSelectedTopology(observation, requested);
+  return decideSelectedTopology(observation, requested, Boolean(selection.preset));
 }
 
 function decideSelectedTopology(
   observation: TopologyObservation,
   requested: ArchitectureTopology | undefined,
+  preset: boolean,
 ): TopologyDecision {
-  const target = requested ?? observation.current;
-
   if (observation.uncertainty === 'scope') {
     return unknown(observation);
   }
 
   if (observation.source === 'configured') {
-    return decideConfigured(observation, requested, target);
+    if (preset) {
+      return configuredPresetRefusal(observation);
+    }
+
+    return decideConfigured(observation, requested, requested ?? observation.current);
   }
 
-  if (isRequestedChange(observation, requested)) {
-    return transformation(observation, requested);
+  if (observation.source === 'repository') {
+    return decideInherited(observation, requested, preset);
   }
 
-  if (!observation.current && observation.uncertainty === 'mixed') {
-    return requested === undefined
-      ? unknown(observation)
-      : transformation(observation, requested);
-  }
-
-  if (!target) {
+  if (!requested) {
     return unknown(observation);
   }
 
   return {
     ...observation,
-    target,
+    target: requested,
     operation: operationFor(observation),
-    path: target === 'module-first' ? 'authoring' : 'scaffold',
+    path: requested === 'module-first' ? 'authoring' : 'scaffold',
+  };
+}
+
+function decideInherited(
+  observation: TopologyObservation,
+  requested: ArchitectureTopology | undefined,
+  preset: boolean,
+): TopologyDecision {
+  const inherited = observation.repository!;
+
+  if (requested !== undefined && requested !== inherited) {
+    return repositoryMismatch(observation, requested);
+  }
+
+  if (preset && inherited === 'module-first') {
+    return repositoryPresetRefusal(observation);
+  }
+
+  return {
+    ...observation,
+    target: inherited,
+    operation: 'adopt',
+    path: inherited === 'module-first' ? 'authoring' : 'scaffold',
   };
 }
 
@@ -190,6 +132,46 @@ function incompatiblePreset(observation: TopologyObservation): TopologyDecision 
     path: null,
     reason: '--topology module-first cannot be combined with --preset — generic layer presets '
       + 'cannot choose domain modules. Use the module-first authoring flow instead.',
+  };
+}
+
+function configuredPresetRefusal(observation: TopologyObservation): TopologyDecision {
+  return {
+    ...observation,
+    target: observation.current,
+    operation: 'abort',
+    path: null,
+    reason: '--preset cannot be applied to an application with an existing authored '
+      + 'blueprint.config.mjs. Use plain init to repair it, or request an explicit opposite '
+      + '--topology without --preset to transform it. No files were changed.',
+  };
+}
+
+function repositoryPresetRefusal(observation: TopologyObservation): TopologyDecision {
+  return {
+    ...observation,
+    target: observation.repository,
+    operation: 'abort',
+    path: null,
+    reason: '--preset is layer-first adoption only, but this repository is authoritatively '
+      + 'module-first. Adopt this application with the inherited module-first topology and '
+      + 'author its modules instead. No files were changed.',
+  };
+}
+
+function repositoryMismatch(
+  observation: TopologyObservation,
+  requested: ArchitectureTopology,
+): TopologyDecision {
+  return {
+    ...observation,
+    target: requested,
+    operation: 'abort',
+    path: null,
+    reason: `This application has no local config, but the repository is already ${observation.repository}. `
+      + `The requested ${requested} target would create unsupported mixed topology. Adopt the `
+      + `application as ${observation.repository}, or run the opposite topology command from an `
+      + 'already adopted application to transform the whole repository. No files were changed.',
   };
 }
 
@@ -213,40 +195,32 @@ function isRequestedChange(
 }
 
 function operationFor(observation: TopologyObservation): 'adopt' | 'initialize' {
-  return observation.current || observation.uncertainty === 'insufficient'
-    ? 'adopt'
-    : 'initialize';
+  return observation.uncertainty === 'empty' ? 'initialize' : 'adopt';
 }
 
-function notProvable(
+function unconfigured(
   selectedApplication: string | null,
+  repository: ArchitectureTopology | null,
   uncertainty: NonNullable<TopologyObservation['uncertainty']>,
 ): TopologyObservation {
-  return { current: null, source: 'not-provable', selectedApplication, uncertainty };
+  return {
+    current: null,
+    repository,
+    source: repository ? 'repository' : 'none',
+    selectedApplication,
+    uncertainty,
+  };
 }
 
 function transformation(
   observation: TopologyObservation,
   target: ArchitectureTopology,
 ): TopologyDecision {
-  const current = observation.current ?? 'an unclassified existing tree';
-
-  const delivered = observation.current !== null && (
-    // Stryker disable next-line ConditionalExpression: this helper receives only a changed target.
-    observation.current !== target
-  );
-
   return {
     ...observation,
     target,
     operation: 'transformation-required',
-    path: delivered ? 'transformation' : null,
-    ...(delivered
-      ? {}
-      : {
-          reason: `Changing ${current} to ${target} requires a topology transformation, but that `
-            + 'direction is not delivered yet. No files were changed.',
-        }),
+    path: 'transformation',
   };
 }
 
@@ -255,8 +229,8 @@ function unknown(observation: TopologyObservation): TopologyDecision {
     ? 'Cannot determine the current architecture topology while multiple application scopes '
     + 'remain unresolved. Select one application, run `blueprint survey --source-root '
     + '<application>/src`, then run init from that application root.'
-    : 'Cannot determine the current architecture topology safely.\n'
-      + 'Re-run with:\n'
+    : 'This repository has no authoritative Blueprint topology. Source-tree shape is survey '
+      + 'evidence, not a topology declaration. Re-run with one explicit target:\n'
       + '  blueprint init --topology layer-first\n'
       + 'or\n'
       + '  blueprint init --topology module-first';

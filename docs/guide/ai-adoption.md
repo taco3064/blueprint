@@ -57,9 +57,10 @@ Run `init` on a repo that has source code but no `blueprint.config.mjs`:
 npx @kekkai/blueprint init --topology layer-first
 ```
 
-The explicit target does not claim the observed tree already matches it. Init first surveys
-the code; if the tree is mixed or proves the opposite topology it stops without writing.
-Otherwise the existing layer-first authoring flow writes:
+The explicit target does not claim the observed tree already matches it. An unmanaged application
+has no current Blueprint topology: survey measures its folders and imports, while `--topology`
+declares the target. Source-tree shape never turns adoption into LF↔MF transformation. The
+layer-first authoring flow then writes:
 
 - **`blueprint-authoring.md`** — an executable playbook: the survey evidence, the
   authoring method, the emitted-rule semantics (flat vs folder layout, what the
@@ -84,21 +85,29 @@ for the artifacts, and locks the baseline. You review the result.
 foreground, interactive, under your own agent CLI's permissions — see
 [Security & Trust](/guide/security) for the exact boundaries.
 
-To skip the authoring flow entirely and scaffold the framework preset even on a
-brownfield repo, pass `init --preset --topology layer-first` — the escape hatch when you know the
-preset fits: `init --topology layer-first --preset`.
+To skip the authoring flow entirely and scaffold the framework preset even on a brownfield repo,
+use `init --topology layer-first --preset`. Preset is an LF adoption method, not topology
+authority: it cannot replace `--topology` on first adoption, choose module-first, transform an
+authored config, or run inside a repository whose valid configs establish MF.
+
+The first valid application config establishes one topology for its containing repository. A new
+sibling application inherits that target without restating it; the opposite explicit target aborts
+before writes. Every application still authors its own architecture details. Existing source that
+does not yet conform is visible debt under that shared topology, never permission for mixed configs.
 
 ## Transform an existing layer-first application
 
-Run this from one application root in a clean Git worktree with a committed `HEAD`:
+Run this from an adopted application root in a clean Git worktree with a committed `HEAD`:
 
 ```bash
 npx @kekkai/blueprint init --topology module-first --agent claude
 # or: --agent codex
 ```
 
-Init verifies the topology decision, Git recovery boundary, single application scope, and usable
-pre-transform inspection before it writes anything. It then measures `containers/*` candidates
+Init discovers every valid application config in the containing repository and requires them all
+to resolve to LF. It verifies the Git recovery boundary and usable pre-transform inspection for
+every adopted application before writing one repository-root playbook. Each application then
+measures `containers/*` candidates
 (or `pages/*` islands as fallback) separately from page/App Router composition closures. Governed
 edges use the same canonical config aliases and unit identities as inspect/deps, including static
 dynamic imports; the playbook also reports overlaps, cycles, orphans, unmatched alias-like imports,
@@ -115,19 +124,18 @@ topology transformation.
 
 ## Transform an existing module-first application
 
-Run the reverse path from one application root with its current module-first config committed:
+Run the reverse path from an adopted application root with its current module-first config committed:
 
 ```bash
 npx @kekkai/blueprint init --topology layer-first --agent claude
 # or: --agent codex
 ```
 
-The same Git, scope, and inspection preflight runs before any write. The config is required as the
-authority for modules, `dependsOn`, inner-layer order, folder/file unit layouts, aliases, and
-project contracts; an inferred module-first tree without that config stops unchanged. The generated
-recovery path is explicit: run `init --topology module-first`, have the Agent author and verify that
-config, commit the clean state, and only then run `init --topology layer-first`. The generated
-playbook lists every file-level structural destination: ordinary module-root source maps below
+The same Git and per-application inspection preflight runs before any write. Every config is required
+as authority for modules, `dependsOn`, inner-layer order, folder/file unit layouts, aliases, and
+project contracts. An unmanaged module-shaped tree has no source topology and an explicit LF target
+is adoption, not reverse transformation. For a configured MF repository, the generated playbook
+lists every file-level structural destination: ordinary module-root source maps below
 `containers/<module>`, while declared inner-layer units flatten into their global layer surfaces
 without changing unit layout. Exact and case-insensitive destination collisions, orphans, cycles,
 unmatched alias-like imports, relative structural evidence, and dynamic-import limits are all shown
@@ -140,7 +148,10 @@ replacement layer-first mechanism. React/Vue `app/**` content is classified into
 wiring, or domain code rather than moved blindly. Next.js App Router stays physically under
 `app/**`; unresolved, hybrid, or Pages-only Next router evidence stops unchanged.
 
-For both directions, inspect the transformed tree before regenerating the baseline. Compare debt by
+For both directions, all adopted applications participate in one repository transformation. Their
+measurement, movement, and verification remain separate work units, but success is withheld until
+every valid config resolves to the target; a mixed intermediate state is unsupported. Inspect each
+transformed tree before regenerating the baseline. Compare debt by
 meaning, fix new transformation regressions, then update the baseline and rerun inspect, deps,
 emitted ESLint, doctor, and the application’s lint/typecheck/test/build gates.
 

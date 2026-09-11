@@ -32,3 +32,5 @@ export { assessLintEntrypoint } from './lint';
 export type { LintEntrypointAssessment } from './lint';
 export { defaultGitReader, resolveRepositoryContext } from './repository';
 export type { GitReader, GitReadResult, RepositoryContext } from './repository';
+export { resolveRepositoryBlueprints } from './blueprints';
+export type { RepositoryBlueprint, RepositoryBlueprintOptions } from './blueprints';

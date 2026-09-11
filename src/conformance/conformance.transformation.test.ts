@@ -182,7 +182,9 @@ describe('layer-first to module-first transformation authoring', () => {
     },
   );
 
-  it('uses an explicitly disclosed survey model when no authored config exists', async () => {
+  it('uses survey evidence for unmanaged module-first authoring without inventing a source '
+    + 'topology',
+  async () => {
     const dir = repo({
       packageJson: { dependencies: { react: '^18.0.0' } },
       files: {
@@ -199,7 +201,9 @@ describe('layer-first to module-first transformation authoring', () => {
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
     expect(result.code).toBe(0);
-    expect(playbook).toContain('Import-resolution basis: `survey-detected`');
+    expect(playbook).toContain('module-first was selected');
+    expect(playbook).toContain('## Survey evidence');
+    expect(result.output).not.toContain('transformation');
   });
 });
 

@@ -92,6 +92,17 @@ function expectWorkflow(result: string): void {
   expect(result).toContain('npx blueprint doctor --json');
 }
 
+it('keeps the standalone transformation boundary when no repository scope is supplied', () => {
+  const result = layerToModuleBrief({
+    evidence: evidence(), preflight, findings: [], state: state(),
+    install: 'npm install', cleanup: 'nothing',
+  });
+
+  expect(result).toContain(
+    'Transform this one selected application from layer-first to module-first',
+  );
+});
+
 function richResult(): string {
   return layerToModuleBrief({
     evidence: evidence({
