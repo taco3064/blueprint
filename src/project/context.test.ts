@@ -127,14 +127,15 @@ describe('resolveProjectContext', () => {
   });
 
   it('compares canonical filesystem paths using platform-appropriate casing', () => {
+    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
+
     const realpath = vi.spyOn(fs.realpathSync, 'native').mockImplementation((value) =>
       String(value).replace('alias', 'real'));
 
     expect(sameFilesystemPath('/alias/project', '/real/project')).toBe(true);
     expect(sameFilesystemPath('/alias/project', '/other/project')).toBe(false);
 
-    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
-
+    platform.mockReturnValue('win32');
     realpath.mockImplementation((value) => String(value).toUpperCase());
     expect(sameFilesystemPath('/Project', '/project')).toBe(true);
 
