@@ -67,7 +67,13 @@ export async function resolveRepositoryTopology(input: {
 
   if (topologies.length > 1) {
     const applications = blueprints
-      .map((entry) => `${entry.applicationRoot}: ${entry.topology}`)
+      .map((entry) => {
+        const application = path.relative(input.repositoryRoot, entry.applicationRoot)
+          .split(path.sep)
+          .join('/') || '.';
+
+        return `${application}: ${entry.topology}`;
+      })
       .join('\n  ');
 
     throw new Error(

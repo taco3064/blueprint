@@ -66,11 +66,13 @@ export async function runRepositoryTopologyTransformation(
       [sourceRoot],
     );
 
-    assertPreflight(preflight, path.relative(repositoryRoot, blueprint.applicationRoot) || '.');
+    const relativeRoot = repositoryRelative(repositoryRoot, blueprint.applicationRoot);
+
+    assertPreflight(preflight, relativeRoot);
 
     return {
       blueprint,
-      relativeRoot: path.relative(repositoryRoot, blueprint.applicationRoot) || '.',
+      relativeRoot,
       state,
       preflight,
     };
@@ -145,6 +147,10 @@ export async function runRepositoryTopologyTransformation(
   }
 
   return actions;
+}
+
+function repositoryRelative(repositoryRoot: string, applicationRoot: string): string {
+  return path.relative(repositoryRoot, applicationRoot).split(path.sep).join('/') || '.';
 }
 
 function renderApplication(
