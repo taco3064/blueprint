@@ -99,12 +99,39 @@ function packageManagerAt(root: string): PackageManager | null {
   return fs.existsSync(path.join(root, 'package-lock.json')) ? 'npm' : null;
 }
 
-function directoriesToBoundary(start: string, boundary: string): string[] {
-  const relative = path.relative(boundary, start);
-  const depth = relative === '' ? 0 : relative.split(path.sep).length;
+export function directoriesToBoundary(start: string, boundary: string): string[] {
+  const directories: string[] = [];
+  let current = path.resolve(start);
 
-  return Array.from({ length: depth + 1 }, (_, index) =>
-    path.resolve(start, ...Array.from({ length: index }, () => '..')));
+  for (;;) {
+    directories.push(current);
+
+    if (sameFilesystemPath(current, boundary)) {
+      return directories;
+    }
+
+    const parent = path.dirname(current);
+
+    if (parent === current) {
+      return directories;
+    }
+
+    current = parent;
+  }
+}
+
+export function sameFilesystemPath(left: string, right: string): boolean {
+  return canonicalPath(left) === canonicalPath(right);
+}
+
+function canonicalPath(value: string): string {
+  try {
+    const real = path.normalize(fs.realpathSync.native(value));
+
+    return process.platform === 'win32' ? real.toLowerCase() : real;
+  } catch {
+    return path.resolve(value);
+  }
 }
 
 function hasProjectTypescript(context: {

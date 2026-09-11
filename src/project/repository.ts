@@ -1,6 +1,4 @@
 import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
-import path from 'node:path';
 
 export interface GitReadResult {
   status: number | null;
@@ -44,39 +42,8 @@ export function resolveRepositoryContext(
   const top = git(['rev-parse', '--show-toplevel'], applicationRoot);
 
   return succeeded(top) && top.stdout.trim()
-    ? { ok: true, root: matchingAncestor(applicationRoot, top.stdout.trim()) }
+    ? { ok: true, root: top.stdout.trim() }
     : unavailable(gitFailure(top, 'The Git worktree root could not be resolved.'));
-}
-
-function matchingAncestor(applicationRoot: string, gitRoot: string): string {
-  const canonicalGitRoot = canonicalPath(gitRoot);
-  let current = path.resolve(applicationRoot);
-
-  while (canonicalPath(current) !== canonicalGitRoot) {
-    const parent = path.dirname(current);
-
-    if (parent === current) {
-      return path.resolve(gitRoot);
-    }
-
-    current = parent;
-  }
-
-  return current;
-}
-
-function canonicalPath(value: string): string {
-  let resolved: string;
-
-  try {
-    resolved = fs.realpathSync.native(value);
-  } catch {
-    resolved = path.resolve(value);
-  }
-
-  const normalized = path.normalize(resolved);
-
-  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
 }
 
 function succeeded(result: GitReadResult): boolean {
