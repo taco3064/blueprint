@@ -4,7 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { resolveProjectContext } from './context';
+import {
+  directoriesToBoundary,
+  resolveProjectContext,
+  sameFilesystemPath,
+} from './context';
 import { detect } from './detect';
 import { toolchainForSource } from './scope';
 
@@ -49,9 +53,10 @@ describe('resolveProjectContext', () => {
 
     writeJson(path.join(app, 'tsconfig.json'), { extends: '../../tsconfig.json' });
 
-    expect(resolveProjectContext(app)).toMatchObject({
+    const context = resolveProjectContext(app);
+
+    expect(context).toMatchObject({
       applicationRoot: app,
-      repositoryRoot: workspace,
       toolchainRoot: workspace,
       packageManager: 'pnpm',
       hasTypescript: true,
@@ -61,6 +66,8 @@ describe('resolveProjectContext', () => {
         dependencies: ['typescript', 'typescript-eslint'],
       },
     });
+
+    expect(sameFilesystemPath(context.repositoryRoot as string, workspace)).toBe(true);
   });
 
   it('does not inherit TypeScript into a standalone JavaScript application', () => {
@@ -108,12 +115,47 @@ describe('resolveProjectContext', () => {
     spawnSync('git', ['init'], { cwd: repository });
     writeJson(path.join(repository, 'package.json'), { name: 'application' });
 
-    expect(resolveProjectContext(repository)).toMatchObject({
+    const context = resolveProjectContext(repository);
+
+    expect(context).toMatchObject({
       applicationRoot: repository,
-      repositoryRoot: repository,
       toolchainRoot: repository,
       packageManager: 'npm',
     });
+
+    expect(sameFilesystemPath(context.repositoryRoot as string, repository)).toBe(true);
+  });
+
+  it('compares canonical filesystem paths using platform-appropriate casing', () => {
+    const realpath = vi.spyOn(fs.realpathSync, 'native').mockImplementation((value) =>
+      String(value).replace('alias', 'real'));
+
+    expect(sameFilesystemPath('/alias/project', '/real/project')).toBe(true);
+    expect(sameFilesystemPath('/alias/project', '/other/project')).toBe(false);
+
+    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+
+    realpath.mockImplementation((value) => String(value).toUpperCase());
+    expect(sameFilesystemPath('/Project', '/project')).toBe(true);
+
+    platform.mockRestore();
+    realpath.mockRestore();
+  });
+
+  it('falls back to resolved paths when canonicalization is unavailable', () => {
+    const realpath = vi.spyOn(fs.realpathSync, 'native').mockImplementation(() => {
+      throw new Error('unavailable');
+    });
+
+    expect(sameFilesystemPath('.', process.cwd())).toBe(true);
+
+    realpath.mockRestore();
+  });
+
+  it('stops at the filesystem root when a boundary is unrelated', () => {
+    const directories = directoriesToBoundary(process.cwd(), path.join(temp(), 'unrelated'));
+
+    expect(directories.at(-1)).toBe(path.parse(process.cwd()).root);
   });
 });
 

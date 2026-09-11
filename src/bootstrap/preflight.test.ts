@@ -404,7 +404,11 @@ describe('runTransformationPreflight · real Git controls', () => {
       inspect: inspected,
     });
 
-    expect(result.repository).toEqual({ ok: true, root });
+    expect(result.repository).toEqual({
+      ok: true,
+      root: git(root, 'rev-parse', '--show-toplevel'),
+    });
+
     expect(result.worktree).toEqual({ ok: true, changes: [] });
     expect(result.head.ok).toBe(true);
   });
