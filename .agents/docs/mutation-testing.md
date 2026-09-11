@@ -1,115 +1,111 @@
-# Mutation testing (`npx stryker run`)
+# Test-strength gate
 
-**Trigger:** running or reading a mutation sweep; judging a survivor; adding a
-test because a sweep said something was untested.
+**Trigger:** production code changed; a mutation smoke report needs reading; a
+survivor needs judging; or a property/metamorphic contract is being added.
 
-`npx stryker run` audits the suite itself — 100% line coverage says every line
-ran, not that a wrong one would be caught. Internal only: no docs page, no
-handbook section, nothing emitted. It runs **on** CI without being a CI **gate**
-— `.github/workflows/mutation.yml` is `workflow_dispatch` and nothing else.
-The score changes whenever the source tree changes, so a fixed threshold would
-become an unappeasable red rather than an actionable gate.
+Coverage proves that code ran. This gate asks the complementary question:
+would the tests reject a representative semantic fault in the code that just
+changed? It has three layers:
 
-**Dispatch it rather than running it locally.** Per file while working, full
-sweep before you believe the number:
+1. examples pin known cases;
+2. property and metamorphic tests exercise invariants over generated inputs;
+3. changed-code mutation smoke verifies that those assertions reject wrong logic.
 
-```
-gh workflow run mutation.yml --ref <branch>                          # whole tree
-gh workflow run mutation.yml --ref <branch> -f mutate='src/x/y.ts'   # one file
-```
+## Changed-code mutation smoke
 
-A local sweep copies the whole project into `.stryker-tmp` once per core, and
-watching those copies exhausted the editor's file-descriptor budget — the
-workspace now excludes the path, but a clean runner is where a number filed as
-authoritative belongs anyway. The `--ref` is typed rather than inferred and there
-is no `npm run` shortcut on purpose: `gh` is not on this repo's script surface,
-and the one argument a shortcut would guess is the one that decides which tree
-you measured. Read the result in the run's step summary — survivors grouped by
-file, with the scope named; the html artifact carries the diffs.
+Do not run a whole-repository Stryker sweep during normal delivery. On the
+current tree that means 13,732 generated mutants, including 3,114 static mutants
+that repeatedly execute the full suite. The monolithic run is too slow to be a
+reliable delivery primitive and its completion time discourages use.
 
-**A survivor is proven equivalent with Stryker's own directive**, at the site:
+Run the smoke against the PR base instead:
 
-```
-// Stryker disable next-line <Mutator>: <why this mutant changes nothing observable>
+```sh
+npm run mutation:smoke -- --base origin/main
 ```
 
-Where two guards shield each other, the proof names which one keeps the other
-honest — removing either alone still passes. At the site, because that is where
-the next sweep meets it: a proof in a commit message serves the review and then
-has to be excavated with `git log -S`, and re-litigating one is expensive (two of
-these were wrong the first time).
+The runner computes the merge base, reads zero-context Git hunks, and passes
+only added or modified production TypeScript line ranges to Stryker. Test files,
+deleted lines, docs, and unchanged source are not mutation targets. It keeps
+Stryker's configured operators rather than implementing a second mutation
+engine.
 
-**Name the mutator, never `all`.** `all` suppresses every mutant on that line,
-including ones nobody has read, and a proof that covers more than it argues is
-the dishonest count this is written to avoid. The mutator's name comes from the
-sweep report, which is why a proof is written after a sweep rather than guessed
-at while editing.
+The default budget is 200 changed production lines and 15 minutes. Exceeding
+either is a refusal, not a partial pass. A broad change must be split or receive
+an explicit reviewed override:
 
-**The directive is the ledger, and the tool keeps it.** The reason travels into
-the report beside the mutant it is about, a disabled mutant stays visible there
-with an `ignored` status, and nothing has to be matched by hand.
+```sh
+npm run mutation:smoke -- --base origin/main --max-changed-lines 350 --timeout-ms 1200000
+```
 
-**An ignored mutant leaves the score, so the score moves.** Ticket #399 measured
-the same 9,401-mutant tree before and after converting the accepted proofs. The
-baseline reported 3,546 ignored and 70 survived; the directive-backed sweep
-reported 3,594 ignored and 38 survived. Compare status counts across the two
-reports rather than treating the older score as a floor for the new convention.
+The manual `Mutation smoke` workflow offers the same command on a stable
+executor, but is never triggered automatically. Do not dispatch it when the
+ticket requires remote-only execution.
 
-Not chased to 100% — but "equivalent" is a claim someone has read the mutant and
-written down why, not a bucket for whatever is left. The first sweep on this suite
-reported 87 survivors and the second 59; of those 59, **43 turned out to be
-untested rather than equivalent**, and three were product defects. Reach the
-verdict last.
+## File-backed evidence
 
-**The answered ones are already answered, so read what is left rather than the
-whole report.** The third sweep — the first dispatched, ~8k mutants in 17m04s on
-a runner against 5m34s on ten local cores — reported **35 survivors, of which 24
-already carried a proof**. Reading the report top to bottom would have
-re-litigated two thirds of a list that was settled. With the directive those 24
-arrive as `ignored` rather than as survivors, so the report separates them
-itself; the survivors it still lists are the work.
+Terminal scrollback is not evidence. Every run writes under
+`reports/mutation-smoke/` (ignored by Git):
 
-Converging those 11 took the fourth sweep to **24 survivors, every one of them
-proven at the site** (99.35% total / 99.51% covered). **Those numbers were
-measured while a proof left the mutant counted as survived**, so they are the
-floor for that convention and not for this one — see the score note above. None
-of the 11 turned out to be equivalent, so the convergence touched test files
-only.
+| File | Meaning |
+| --- | --- |
+| `scope.json` | base, merge base, changed lines, exact Stryker ranges |
+| `mutation.json` | Stryker's machine-readable mutant report |
+| `summary.json` | pass, fail, refusal, or skip verdict and status counts |
+| `run.log` | complete Stryker output |
 
-- **The full sweep is the authority; a per-file run flatters.** Same suite, same
-  config, and two mutants that read as killed under `--mutate <one file>` read as
-  survived in a whole run. Measure one file to work on it, measure the tree to
-  believe it.
-- **Read both scores.** `total` counts every mutant, `covered` only the reachable
-  ones, and the gap is `# no cov` — the `/* v8 ignore */` real-I/O defaults, the
-  same boundary vitest's coverage config draws (`agent.ts` alone: 78.57%
-  against 100.00%). `# timeout` counts as killed; `# errors` is a mutant that
-  crashed the runner, neither killed nor survived.
-- **Read a mutant as the parser groups it, not as the diff prints it.**
-  `a && b && c` is `(a && b) && c`, so the survivor whose diff shows the first
-  `&&` flipped is `(a || b) && c`. Two "Stryker is wrong here" calls came from
-  reading the rendered line instead of the precedence, and both were wrong.
-- **A decision that only shows up as an absence has to be asked of the unit that
-  makes it.** A blank `.gitignore` line, `toArray(undefined)`, an unreadable
-  `package.json`, a comparator's equal case, a memoized walk: through the pipeline
-  each answers "nothing", and nothing is what a broken one answers too. Export the
-  unit and ask it directly (`toRule`, `compareText`, `toArray`, `detectCycle`,
-  `dependencyNames` are all this) — or, where the shape itself is the problem, fix
-  the shape: a function returning four fields of which two are garbage on failure
-  makes every bound inside it unanswerable, however many tests are written.
-- **A local run leaves processes behind — a dispatched one cannot.** A stale
-  sandbox makes vitest collect `.stryker-tmp` as test files and the score comes
-  back absurd (0.00%, 5.31%). `rm -rf .stryker-tmp` failing with "Directory not
-  empty" is the tell: `pkill -9 -f "@stryker-mutator"; rm -rf .stryker-tmp`. Kept
-  here for the sandbox left over from before this moved to CI, and for reading an
-  absurd score correctly if one ever appears — the runner starts clean every time,
-  so a dispatched sweep cannot produce this.
+Read `summary.json` and `scope.json` after the process returns. A run passes only
+when every reported mutant is `Killed` or explicitly `Ignored`. `Survived`,
+`NoCoverage`, `Timeout`, compile/runtime errors, a missing report, or termination
+all fail the smoke. No changed production lines is an explicit skip rather than
+a fabricated score. Changed lines that generate zero runtime mutants (for
+example, type-only syntax) are also reported as `skipped: no-mutants-generated`,
+never as a 0/0 pass.
 
-## What the sweep cannot see
+## Property and metamorphic contracts
 
-`StringLiteral` is excluded, on measured evidence recorded in
-`stryker.config.json`'s own comment. That exclusion draws a boundary around
-*prose* — and explicitly not around **a discrete contract per literal**. An
-allowlist member, a rule id, a per-site indent: those are contracts, and they are
-owed ordinary assertions that hold whether or not this mutator runs. A clean sweep
-on a file full of string literals is not evidence they are tested.
+Use `fast-check` when a rule should hold over a domain rather than for one hand
+selected fixture. Keep generators bounded, valid for the domain, deterministic
+under fast-check's reported seed, and small enough for the ordinary test suite.
+
+A metamorphic test applies a meaning-preserving transformation and compares the
+observable result. High-value Blueprint relations include:
+
+- ordering input evidence must not change a sorted plan;
+- repeating the same observation must not create a new collision or action;
+- adding unrelated input must not alter existing findings;
+- a second init must be byte-identical;
+- dry-run and every rejected preflight must leave the filesystem byte-identical;
+- topology round trips must preserve the semantic graph, even when paths move.
+
+Do not add random examples that merely restate implementation details. State the
+invariant in the test name and compare public evidence or filesystem state.
+
+## Judging survivors
+
+A survivor is a question, not automatically a defect. Read its operator,
+location, replacement, and the assertions that should observe it.
+
+- If behavior changed observably, strengthen the narrowest relevant test.
+- If the mutant is truly equivalent, record the proof at the source site:
+
+```ts
+// Stryker disable next-line EqualityOperator: both branches return the same public value
+```
+
+Name the exact mutator, never `all`. A broad directive hides mutations nobody
+has judged. The directive is part of the source-level ledger and will appear as
+`Ignored` in later reports.
+
+`StringLiteral` remains excluded repo-wide for the measured reason documented
+in `stryker.config.json`: most survivors are prose, while discrete literal
+contracts are asserted directly. Re-enable it deliberately when that boundary
+needs re-audit.
+
+## Scope and authority
+
+The smoke is authoritative only for changed production lines on the recorded
+merge base. It intentionally makes no claim about unchanged legacy code. A
+full-tree Stryker survey may still be commissioned as a separate, long-running
+audit, but it is not a PR gate, not a routine release prerequisite, and cannot
+be substituted silently for the smoke's recorded scope.

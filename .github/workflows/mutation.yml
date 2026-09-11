@@ -1,50 +1,33 @@
-name: Mutation
+name: Mutation smoke
 
-# Manual only, on purpose. A mutation score cannot be a gate here: every `src/`
-# edit changes its denominator, so a threshold would be a hard-coded number that
-# drifts away from the tree — and this repo argues against a red nobody can appease
-# (see the wiring check's own skip reasons). Coverage thresholds already
-# fail a PR that adds untested code; this answers the different question of
-# whether the assertions would catch a WRONG line, and that answer is worth
-# reading rather than enforcing.
-#
-# Same division of labour as `npm run field:run`: conformance guards the known
-# scenarios in CI, the manual harness hunts for new ones.
-#
-# How to run it — the ref is the whole point, so it is typed rather than inferred:
-#
-#   gh workflow run mutation.yml --ref <branch>                          # whole tree
-#   gh workflow run mutation.yml --ref <branch> -f mutate='src/x/y.ts'   # one file
-#
-# There is deliberately no `npm run` shortcut. `gh` is not on this repo's script
-# surface (every entry in `scripts` is node or a devDependency binary), and the
-# one argument a shortcut would guess is `--ref` — which, in a repo whose work
-# happens in worktrees, is how you measure a tree you did not mean to and then
-# file the number as authoritative.
+# Deliberately manual. Deliver agents run this against the PR base before opening
+# the PR and archive the file-backed report. The workflow is a stable-executor
+# fallback, not an automatic consumer of Actions minutes.
 on:
   workflow_dispatch:
     inputs:
-      # `.agents/docs/mutation-testing.md` prescribes two different runs: one file
-      # while you work on it, the whole tree before you believe the number. Without
-      # this input, checking a single file costs a full sweep — the wrong price for
-      # the loop that runs most often.
-      mutate:
-        description: 'Globs to narrow the sweep, comma-separated. Blank sweeps the whole tree.'
-        required: false
+      base:
+        description: 'Git ref to compare with the selected branch.'
+        required: true
+        default: main
+        type: string
+      max_changed_lines:
+        description: 'Refuse an unexpectedly broad mutation surface.'
+        required: true
+        default: '200'
         type: string
 
 jobs:
-  mutation:
-    name: Mutation survey
+  mutation-smoke:
+    name: Changed-code mutation smoke
     runs-on: ubuntu-latest
-    # The prior 45-minute cap cancelled a full 5,855-mutant run at 95%. This cap
-    # leaves measured headroom while still stopping a hung run far short of the
-    # default six-hour budget. Re-measure it when the mutant count moves materially.
-    timeout-minutes: 75
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -55,99 +38,35 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # `--mutate` REPLACES the config's `mutate` array rather than intersecting
-      # with it, so narrowing to `src/inspect/*.ts` would also hand Stryker the
-      # `.test.ts` files sitting beside them. The config calls that exclusion the
-      # one that is not a judgement call — mutating an assertion and then asking
-      # the same assertion whether it noticed is circular — so the negation is
-      # re-appended here instead of being left to whoever fills in the box.
-      #
-      # The glob travels as an env var, not interpolated into the command line, so
-      # a `!` or a `*` in it reaches Stryker as an argument rather than something
-      # the shell expands first.
-      - name: Run Stryker
+      - name: Run mutation smoke
         env:
-          MUTATE: ${{ inputs.mutate }}
+          BASE: ${{ inputs.base }}
+          MAX_CHANGED_LINES: ${{ inputs.max_changed_lines }}
         run: |
-          STRYKER_STEP_SUMMARY="$RUNNER_TEMP/stryker-step-summary.md"
-          export GITHUB_STEP_SUMMARY="$STRYKER_STEP_SUMMARY"
-          if [ -n "$MUTATE" ]; then
-            npx stryker run --mutate "$MUTATE,!src/**/*.test.ts"
+          npm run mutation:smoke -- \
+            --base "$BASE" \
+            --max-changed-lines "$MAX_CHANGED_LINES"
+
+      - name: Publish file-backed summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -s reports/mutation-smoke/summary.json ]; then
+            {
+              echo '## Changed-code mutation smoke'
+              echo '```json'
+              cat reports/mutation-smoke/summary.json
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
           else
-            npx stryker run
+            echo 'Mutation smoke stopped before writing a summary.' >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # The log carries the score and the artifact carries the detail, but neither
-      # answers "which mutants survived" in the place you are already looking. This
-      # does — and it names the scope, because a narrowed run flatters: the same
-      # mutant reads killed under one file and survived in a whole tree, and a
-      # partial sweep must not be filed as the authority.
-      #
-      # Single-quoted for the shell on purpose: a double-quoted `node -e` body
-      # hands its backticks and `${}` to the shell instead of to node.
-      - name: Summarise the survivors
-        if: always()
-        env:
-          MUTATE: ${{ inputs.mutate }}
-        run: |
-          node -e '
-            const { existsSync, readFileSync, appendFileSync } = require("node:fs");
-            const summary = process.env.GITHUB_STEP_SUMMARY;
-            const report = "reports/mutation/mutation.json";
-
-            if (!existsSync(report)) {
-              appendFileSync(summary, "No report: the run did not get far enough to write one.\n");
-              process.exit(0);
-            }
-
-            const { files } = JSON.parse(readFileSync(report, "utf8"));
-            const survivors = (f) => f.mutants.filter((m) => m.status === "Survived");
-            const groups = Object.entries(files)
-              .map(([file, f]) => [file, survivors(f)])
-              .filter(([, mutants]) => mutants.length > 0)
-              .sort((a, b) => b[1].length - a[1].length);
-
-            const total = groups.reduce((n, [, mutants]) => n + mutants.length, 0);
-            const nocov = Object.values(files)
-              .reduce((n, f) => n + f.mutants.filter((m) => m.status === "NoCoverage").length, 0);
-            const count = (n, word) => n + " " + word + (n === 1 ? "" : "s");
-
-            const out = [
-              "## " + count(total, "survivor") + " — scope: " + (process.env.MUTATE || "the whole tree"),
-              "",
-              // Only when there are any: "0 further mutants had no coverage" spends four
-              // lines explaining a category the run did not produce.
-              ...(nocov > 0 ? [
-                count(nocov, "further mutant") + " had no coverage. Those sit in the `/* v8 ignore */`",
-                "real-I/O defaults the tests inject instead of running — the same boundary",
-                "vitest draws, and nothing to chase.",
-                "",
-              ] : []),
-              "A survivor is a question, not a defect: the line ran, and nothing asserted",
-              "its result. Judge each one before writing a test. A mutant proven equivalent",
-              "belongs in the narrowest `// Stryker disable next-line <Mutator>: <reason>`,",
-              "which reports as ignored and never reaches this list. See",
-              "`.agents/docs/mutation-testing.md`.",
-              "",
-            ];
-
-            for (const [file, mutants] of groups) {
-              out.push("### " + file + " — " + mutants.length);
-              for (const m of mutants) out.push("- L" + m.location.start.line + " " + m.mutatorName);
-              out.push("");
-            }
-
-            appendFileSync(summary, out.join("\n") + "\n");
-          '
-
-      # The score is in the log above; the report is how you read WHICH mutants
-      # survived — the only part that is actionable. Uploaded even on failure,
-      # because a run that dies partway still names what it got through.
-      - name: Upload the mutation report
+      - name: Upload mutation evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: mutation-report
-          path: reports/mutation/
-          retention-days: 30
+          name: mutation-smoke-report
+          path: reports/mutation-smoke/
+          retention-days: 14
           if-no-files-found: warn
