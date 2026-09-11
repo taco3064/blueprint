@@ -1,17 +1,11 @@
-import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 import { runInspect } from '../inspect';
 import type { Finding } from '../inspect';
+import { defaultGitReader, resolveRepositoryContext } from '../project';
+import type { GitReader, GitReadResult } from '../project';
 
-export interface GitReadResult {
-  status: number | null;
-  stdout: string;
-  stderr: string;
-  error?: Error;
-}
-
-export type GitReader = (args: string[], cwd: string) => GitReadResult;
+export type { GitReader, GitReadResult } from '../project';
 
 export type PreflightInspector = (
   applicationRoot: string,
@@ -35,17 +29,6 @@ export interface TransformationPreflight {
   scope: PreflightCheck & { selected?: string };
   inspection: PreflightCheck & { findings?: Finding[] };
 }
-
-const defaultGitReader: GitReader = (args, cwd) => {
-  const result = spawnSync('git', args, { cwd, encoding: 'utf-8' });
-
-  return {
-    status: result.status,
-    stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
-    ...(result.error ? { error: result.error } : {}),
-  };
-};
 
 const defaultInspector: PreflightInspector = async (applicationRoot) =>
   runInspect(applicationRoot, { log: () => {} });
@@ -107,20 +90,7 @@ function repositoryCheck(
   git: GitReader,
   applicationRoot: string,
 ): TransformationPreflight['repository'] {
-  const inside = git(['rev-parse', '--is-inside-work-tree'], applicationRoot);
-
-  if (!succeeded(inside) || inside.stdout.trim() !== 'true') {
-    return unavailable(gitFailure(
-      inside,
-      'The selected application is not inside a Git worktree.',
-    ));
-  }
-
-  const top = git(['rev-parse', '--show-toplevel'], applicationRoot);
-
-  return succeeded(top) && top.stdout.trim()
-    ? { ok: true, root: top.stdout.trim() }
-    : unavailable(gitFailure(top, 'The Git worktree root could not be resolved.'));
+  return resolveRepositoryContext(applicationRoot, git);
 }
 
 function worktreeCheck(

@@ -11,6 +11,7 @@ import {
   buildModuleContainerPatterns,
   moduleImportScope,
   aliasSubtreeSpecifier,
+  normalizeGroupPatterns,
 } from '../emit/lint/structural';
 
 export type StructuralExpectation = {
@@ -58,9 +59,11 @@ export function expectedStructural(
     resolved.layerNames,
   );
 
+  const canonicalPatterns = normalizeGroupPatterns([...structural, ...containerPatterns]);
+
   return {
     groups: new Set(
-      [...structural, ...containerPatterns].map((pattern) => JSON.stringify(pattern.group)),
+      canonicalPatterns.map((pattern) => JSON.stringify(pattern.group)),
     ),
     paths: new Set(buildModuleContainerPaths(aliases, targetModules).map((path) => path.name)),
     selectors: new Set(
@@ -95,14 +98,14 @@ export function expectedContainerStructural(
     resolved.layers.map((layer) => [layer.name, layer.unit.layout]),
   );
 
-  const patterns = buildContainerPatterns({
+  const patterns = normalizeGroupPatterns(buildContainerPatterns({
     module,
     targetModules,
     forbiddenModules,
     aliases: resolved.aliases,
     folderTargets: resolved.layerNames.filter((layer) => layouts[layer] === 'folder'),
     fixtures: fixturePatterns(blueprint),
-  });
+  }));
 
   return {
     groups: new Set(patterns.map((pattern) => JSON.stringify(pattern.group))),

@@ -2,8 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import type { Framework } from '../config';
+import { resolveProjectContext } from './context';
 import { REQUIRED_DEPS, STACK_DEPS } from './install';
-import type { PackageManager, ProjectState } from './types';
+import type { ProjectState } from './types';
 
 export const CONFIG_FILE = 'blueprint.config.mjs';
 
@@ -38,18 +39,6 @@ export const VITE_FILES = [
   'vite.config.mts',
 ];
 
-function readJson(file: string): Record<string, unknown> | null {
-  try {
-    return JSON.parse(fs.readFileSync(file, 'utf-8'));
-  } catch (
-    // Stryker disable next-line BlockStatement: nullish fallback is coalesced to an empty object.
-    error) {
-    void error;
-
-    return null;
-  }
-}
-
 function readViteConfig(
   root: string,
   file: string | undefined,
@@ -75,44 +64,15 @@ export function readTexts(root: string, paths: string[]): Record<string, string 
   return Object.fromEntries(paths.map((file) => [file, readText(path.join(root, file))]));
 }
 
-function detectFramework(deps: Record<string, unknown>): Framework | null {
-  const hasVue = 'vue' in deps;
-  const hasReact = 'react' in deps;
+function detectFramework(deps: string[]): Framework | null {
+  const hasVue = deps.includes('vue');
+  const hasReact = deps.includes('react');
 
   if (hasVue === hasReact) {
     return null;
   }
 
   return hasVue ? 'vue' : 'react';
-}
-
-function detectPackageManager(root: string): PackageManager {
-  let dir = path.resolve(root);
-
-  for (;;) {
-    if (
-      fs.existsSync(path.join(dir, 'pnpm-lock.yaml'))
-      || fs.existsSync(path.join(dir, 'pnpm-workspace.yaml'))
-    ) {
-      return 'pnpm';
-    }
-
-    if (fs.existsSync(path.join(dir, 'yarn.lock'))) {
-      return 'yarn';
-    }
-
-    if (fs.existsSync(path.join(dir, 'package-lock.json'))) {
-      return 'npm';
-    }
-
-    const parent = path.dirname(dir);
-
-    if (parent === dir) {
-      return 'npm';
-    }
-
-    dir = parent;
-  }
 }
 
 function detectNext(
@@ -177,17 +137,13 @@ function detectEslint(root: string): {
 }
 
 export function detect(root: string): ProjectState {
-  const pkg = readJson(path.join(root, 'package.json')) ?? {};
-
-  const deps = {
-    ...((pkg.dependencies as Record<string, unknown>) ?? {}),
-    ...((pkg.devDependencies as Record<string, unknown>) ?? {}),
-  };
+  const context = resolveProjectContext(root);
+  const deps = context.localPackage.dependencies;
 
   const framework = detectFramework(deps);
-  const hasTypescript = 'typescript' in deps;
-  const hasNext = 'next' in deps;
-  const hasNuxt = 'nuxt' in deps;
+  const hasTypescript = context.hasTypescript;
+  const hasNext = deps.includes('next');
+  const hasNuxt = deps.includes('nuxt');
   const { nextRouter, nextSrcDir } = detectNext(root, hasNext);
 
   const required = [
@@ -200,11 +156,21 @@ export function detect(root: string): ProjectState {
   const viteFile = VITE_FILES.find((file) => fs.existsSync(path.join(root, file)));
   const viteConfig = readViteConfig(root, viteFile);
 
+  const availableDependencies = new Set([
+    ...deps,
+    ...context.toolchainPackage.dependencies,
+  ]);
+
   return {
     root,
+    applicationRoot: context.applicationRoot,
+    repositoryRoot: context.repositoryRoot,
+    toolchainRoot: context.toolchainRoot,
+    localPackage: context.localPackage,
+    toolchainPackage: context.toolchainPackage,
     framework,
-    packageManager: detectPackageManager(root),
-    projectName: typeof pkg.name === 'string' ? pkg.name : undefined,
+    packageManager: context.packageManager,
+    projectName: context.localPackage.name,
     hasConfig: fs.existsSync(path.join(root, CONFIG_FILE)),
     hasEslintConfig: eslint.file !== undefined,
     eslintConfigFile: eslint.file,
@@ -222,8 +188,8 @@ export function detect(root: string): ProjectState {
     hasTypescript,
     tsconfigs: readTexts(root, TSCONFIG_FILES),
     existingSrcDirs: listSourceDirs(root),
-    missingDeps: required.filter((dep) => !(dep in deps)),
-    dependencies: Object.keys(deps),
+    missingDeps: required.filter((dep) => !availableDependencies.has(dep)),
+    dependencies: deps,
   };
 }
 

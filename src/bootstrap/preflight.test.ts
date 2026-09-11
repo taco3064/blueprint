@@ -392,6 +392,23 @@ describe('runTransformationPreflight · real Git controls', () => {
     },
   );
 
+  it('uses the containing repository for a selected nested application', async () => {
+    const application = path.join(root, 'apps', 'web');
+
+    fs.mkdirSync(application, { recursive: true });
+    initRepository();
+    fs.writeFileSync(path.join(application, 'package.json'), '{}');
+    commitAll();
+
+    const result = await runTransformationPreflight(application, ['src'], {
+      inspect: inspected,
+    });
+
+    expect(result.repository).toEqual({ ok: true, root });
+    expect(result.worktree).toEqual({ ok: true, changes: [] });
+    expect(result.head.ok).toBe(true);
+  });
+
   it(
     'rejects dirtiness anywhere in a nested application worktree, including untracked files',
     async () => {

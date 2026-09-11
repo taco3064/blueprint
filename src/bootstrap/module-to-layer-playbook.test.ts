@@ -17,6 +17,10 @@ const preflight: TransformationPreflight = {
 function state(overrides: Partial<ProjectState> = {}): ProjectState {
   return {
     root: '/repo',
+    applicationRoot: '/repo',
+    toolchainRoot: '/repo',
+    localPackage: { root: '/repo', scripts: {}, dependencies: [] },
+    toolchainPackage: { root: '/repo', scripts: {}, dependencies: [] },
     framework: 'react',
     packageManager: 'npm',
     hasConfig: true,

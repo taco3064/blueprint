@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { resolveProjectContext } from './context';
 import { readText, VITE_FILES } from './detect';
 import { parseJsonc } from './jsonc';
 import type { ProjectState } from './types';
@@ -21,8 +22,15 @@ export interface SurveyScope {
 }
 
 export function toolchainForSource(root: string, sourceRoot = 'src'): ProjectToolchain {
+  const context = resolveProjectContext(root);
   const relativeRoot = sourceRoot === '.' ? '' : sourceRoot;
-  const toolRoot = nearestToolRoot(root, path.resolve(root, relativeRoot));
+
+  const toolRoot = nearestToolRoot(
+    context.applicationRoot,
+    path.resolve(context.applicationRoot, relativeRoot),
+    context.toolchainRoot,
+  );
+
   const relativeToolRoot = normalizeRelative(root, toolRoot);
   const qualify = (file: string) => relativeToolRoot ? `${relativeToolRoot}/${file}` : file;
 
@@ -64,7 +72,7 @@ export function surveyScope(root: string, requested?: string): SurveyScope {
   return inferSourceRoot(root) ?? { sourceRoot: 'src' };
 }
 
-function nearestToolRoot(root: string, start: string): string {
+function nearestToolRoot(root: string, start: string, toolchainRoot: string): string {
   const boundary = path.resolve(root);
   let current = start;
 
@@ -83,7 +91,7 @@ function nearestToolRoot(root: string, start: string): string {
     current = path.dirname(current);
   }
 
-  return boundary;
+  return toolchainRoot;
 }
 
 function inferSourceRoot(root: string): SurveyScope | null {

@@ -111,6 +111,11 @@ describe('run · --help belongs to the command that has one', () => {
     // (field run #129 — the skip that was counted as a pass).
     expect(logged('Exit stays')).toBe(true);
     expect(logged('look for `skipped` on a check')).toBe(true);
+
+    expect(logged(
+      'the normal package.json lint entrypoint reaches eslint, directly or through\n'
+      + '    a provable npm/pnpm/yarn script chain — a different linter alone is incomplete',
+    )).toBe(true);
   });
 });
 

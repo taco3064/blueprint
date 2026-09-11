@@ -177,6 +177,9 @@ npx @kekkai/blueprint doctor
   帶著 BLUEPRINT 標記、卻不在 `emit.agents` 宣告範圍內的 contract 檔，是沒人維護的孤兒，不准躲在綠燈後面
 - **eslint 真的接上 emitLint** ——<br>
   legacy `.eslintrc` 會被標記為「先遷移」，不會無聲留半套
+- **正常的 lint 入口確實會跑到 eslint** ——<br>
+  `package.json` 的 `lint` 可以直接執行 eslint，或透過一般 npm/pnpm/yarn script 串接到它；<br>
+  只有其他 linter、委派目標不存在，或根本沒有 lint 入口，都表示導入尚未完成
 - **宣告的 alias 接得上 toolchain** ——<br>
   alias 宣告了卻沒有任何工具（tsconfig `paths`，或 vite / webpack / vue-cli / next / rsbuild 的 bundler config）解析得到，agent contract 就會把 agent 指向解析不了的匯入；<br>
   失敗訊息直接附上 wiring 片段
@@ -197,12 +200,12 @@ npx @kekkai/blueprint doctor
 
 **跑不起來的檢查，不等於通過的檢查。**<br>
 合併存活那條檢查在 config 解析不開時是跳過、不是失敗 —— 一個你怎麼弄都消不掉的紅，比沒有這條檢查更糟。<br>
-但那個「跳過」以前還是算在通過數裡面，於是輸出會變成 `✓ …（skipped）` 疊在 `✓ Adoption complete — all 7 checks passed` 上面。<br>
+但那個「跳過」以前還是算在通過數裡面，於是輸出會變成 `✓ …（skipped）` 疊在 `✓ Adoption complete — all 8 checks passed` 上面。<br>
 現在你看到的是：
 
 ```
 ⊘ emitted rules survive the merged eslint config (skipped — could not resolve …)
-⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run (⊘ above). Nothing failed, and nothing here proves what those checks cover.
+⊘ Adoption unverified — 7 of 8 checks passed, 1 could not run (⊘ above). Nothing failed, and nothing here proves what those checks cover.
 ```
 
 （banner 是單一行字串，上面看到的換行是終端機折的。）
@@ -212,8 +215,8 @@ npx @kekkai/blueprint doctor
 
 ```json
 { "ok": true, "verdict": "unverified",
-  "summary": "⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run …",
-  "counts": { "total": 7, "passed": 6, "failed": 0, "skipped": 1 },
+  "summary": "⊘ Adoption unverified — 7 of 8 checks passed, 1 could not run …",
+  "counts": { "total": 8, "passed": 7, "failed": 0, "skipped": 1 },
   "checks": [ { "label": "…", "ok": true, "skipped": "why it could not run" } ] }
 ```
 
@@ -221,7 +224,7 @@ npx @kekkai/blueprint doctor
 `verdict` 是 `complete` / `unverified` / `incomplete` 三選一，也掛在 [`runDoctor`](/zh-TW/api/functions/runDoctor) 的回傳值上，<br>
 所以 CI 的 gate 該看的是 `verdict` 或 `counts.skipped`。
 
-還有一件事，綠燈會直接講出來 —— 放在 banner 底下而不是當成第八條檢查（它不可能失敗，列進去只會灌大分母）：<br>
+還有一件事，綠燈會直接講出來 —— 放在 banner 底下而不是當成第九條檢查（它不可能失敗，列進去只會灌大分母）：<br>
 **在沒有版本控制的 repo 上**，每一條檢查都可以過，而導入寫下的東西一個都沒被 commit ——<br>
 一副只活在未 commit 工作目錄裡的棘輪等於沒裝，因為下一次 clone 從零開始。<br>
 要不要起版控是擁有者的決定，永遠不是導入中的 Agent 的。

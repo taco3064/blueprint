@@ -10,6 +10,7 @@ import {
 } from '../emit/lint/patterns';
 import {
   AUTHORING_FILE,
+  assessLintEntrypoint,
   COMMAND_FILE,
   describeUnreadable,
   detect,
@@ -170,7 +171,8 @@ function staleContracts(root: string, blueprint: Blueprint): string[] {
  * Run `blueprint doctor` in `root`. Read-only. Answers the one question the
  * adoption prompt's acceptance clause asks — "is adoption actually finished?"
  * — as a checklist: config present, no leftover reference files, eslint wired
- * to emitLint, the declared alias wired to the toolchain, the emitted rules
+ * to emitLint, the normal lint entrypoint reaches eslint, the declared alias wired
+ * to the toolchain, the emitted rules
  * still alive in the merged eslint config, and the architecture clean under
  * the baseline (its detail states the coverage, so a vacuous green is
  * visible). Exit 0 iff every check passes, so you can gate on it — a git
@@ -216,7 +218,7 @@ export async function runDoctor(
     unreachedIgnoreNote(scanResult, blueprint, probed),
 
     coverage.testExemption,
-    uncommittedNote(root),
+    uncommittedNote(state),
   ].filter((note) => note !== undefined);
 
   emit(log, checks, { notes, json: options.json });
@@ -279,6 +281,7 @@ async function doctorChecks(
       { label: 'blueprint.config.mjs present', ok: true },
       leftoversCheck(root, blueprint),
       eslintWiredCheck(state, eslintWired),
+      lintEntrypointCheck(state),
       aliasCheck(root, blueprint, state),
       wiring.check,
       architectureCheck(splitByBaseline(findings, recorded), coverage, blueprint),
@@ -329,6 +332,23 @@ function eslintWiredCheck(state: ProjectState, eslintWired: boolean): DoctorChec
   };
 }
 
+function lintEntrypointCheck(state: ProjectState): DoctorCheck {
+  const assessment = assessLintEntrypoint(state.localPackage);
+
+  return {
+    label: 'normal lint entrypoint reaches eslint',
+    ok: assessment.reachable,
+    detail: assessment.reachable
+      ? undefined
+      : assessment.reason === 'missing-lint'
+        ? 'package.json has no `lint` script — add one that runs eslint so the generated '
+        + 'architecture rules execute on the normal lint path'
+        : `package.json lint runs \`${assessment.entrypoint}\`, but no reachable delegated `
+          + 'script runs eslint — wire eslint into lint or an ordinary npm/pnpm/yarn '
+          + 'script it calls',
+  };
+}
+
 function architectureCheck(
   baseline: { fresh: Finding[]; suppressed: number },
   coverage: Coverage,
@@ -353,8 +373,8 @@ function architectureCheck(
   };
 }
 
-function uncommittedNote(root: string): string | undefined {
-  if (fs.existsSync(path.join(root, '.git'))) {
+function uncommittedNote(state: ProjectState): string | undefined {
+  if (state.repositoryRoot !== undefined) {
     return undefined;
   }
 

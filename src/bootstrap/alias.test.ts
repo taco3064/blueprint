@@ -15,6 +15,10 @@ const PATHS = { '~app/*': ['./src/*'] };
 function state(over: Partial<ProjectState> = {}): ProjectState {
   return {
     root: '/x',
+    applicationRoot: '/x',
+    toolchainRoot: '/x',
+    localPackage: { root: '/x', scripts: {}, dependencies: [] },
+    toolchainPackage: { root: '/x', scripts: {}, dependencies: [] },
     framework: 'vue',
     packageManager: 'npm',
     hasConfig: false,

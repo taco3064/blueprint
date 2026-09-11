@@ -227,6 +227,9 @@ npx @kekkai/blueprint doctor
   is an orphan nothing maintains
 - **eslint wired to emitLint** — and a legacy `.eslintrc` is flagged to migrate first,
   never silently left half-adopted
+- **the normal lint entrypoint reaches eslint** — `package.json`'s `lint` script may
+  run eslint directly or delegate through ordinary npm/pnpm/yarn scripts. A different
+  linter alone, a missing target script, or no lint entrypoint keeps adoption incomplete
 - **import alias wired to the toolchain** — a declared alias that neither tsconfig
   `paths` nor a bundler config (vite / webpack / vue-cli / next / rsbuild) resolves
   would send agents into unresolvable imports; the failure carries the exact wiring
@@ -255,11 +258,11 @@ npx @kekkai/blueprint doctor
 **A check that could not run is not a check that passed.** The merge-survival check
 skips rather than fails when the config will not resolve — a red you cannot appease is
 worse than no check — and while that skip rode in the pass count, the output read
-`✓ … (skipped)` above `✓ Adoption complete — all 7 checks passed`. What you see now:
+`✓ … (skipped)` above `✓ Adoption complete — all 8 checks passed`. What you see now:
 
 ```
 ⊘ emitted rules survive the merged eslint config (skipped — could not resolve …)
-⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run (⊘ above). Nothing failed, and nothing here proves what those checks cover.
+⊘ Adoption unverified — 7 of 8 checks passed, 1 could not run (⊘ above). Nothing failed, and nothing here proves what those checks cover.
 ```
 
 (The banner is one line — wrapped here only by your terminal.)
@@ -269,8 +272,8 @@ Which is the reason to gate on `--json` rather than the exit code:
 
 ```json
 { "ok": true, "verdict": "unverified",
-  "summary": "⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run …",
-  "counts": { "total": 7, "passed": 6, "failed": 0, "skipped": 1 },
+  "summary": "⊘ Adoption unverified — 7 of 8 checks passed, 1 could not run …",
+  "counts": { "total": 8, "passed": 7, "failed": 0, "skipped": 1 },
   "checks": [ { "label": "…", "ok": true, "skipped": "why it could not run" } ] }
 ```
 
@@ -279,7 +282,7 @@ Which is the reason to gate on `--json` rather than the exit code:
 [`runDoctor`](/api/functions/runDoctor)'s return value too, so `verdict` or
 `counts.skipped` is what a CI gate should branch on.
 
-One more thing a green says out loud, under the banner rather than as an eighth check
+One more thing a green says out loud, under the banner rather than as a ninth check
 (it cannot fail, so it would push the count): **on a repo with no version control**,
 every check can pass while nothing adoption wrote is committed — and a ratchet living
 only in an uncommitted working tree is not installed, because the next clone starts
