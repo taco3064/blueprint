@@ -76,13 +76,22 @@ describe('assessLintEntrypoint', () => {
       reason: 'eslint-unreachable',
     });
   });
+});
 
+describe('assessLintEntrypoint · command positions', () => {
   it.each([
     'fooeslint',
     'npxeslint src',
     'npx-eslint src',
     'eslintx src',
     'echo (fooeslint)',
+    'echo eslint',
+    'node scripts/check.js eslint',
+    'echo "prepared; eslint src"',
+    'echo escaped\\; eslint src',
+    'eslint\\ src',
+    'eslint"-plugin" src',
+    ';;&|\n',
   ])('does not mistake `%s` for an eslint executable', (lint) => {
     expect(assessLintEntrypoint(pkg({ lint })).reachable).toBe(false);
   });
@@ -92,6 +101,10 @@ describe('assessLintEntrypoint', () => {
     'npmrun lint:code',
     'pnpmrun lint:code',
     'yarnrun lint:code',
+    'echo npm run lint:code',
+    'node scripts/check.js pnpm lint:code',
+    'echo "prepared && npm run lint:code"',
+    'npm run lint:code$invalid',
   ])('does not mistake `%s` for ordinary script delegation', (lint) => {
     expect(assessLintEntrypoint(pkg({ lint, 'lint:code': 'eslint .' })).reachable).toBe(false);
   });
@@ -114,6 +127,29 @@ describe('assessLintEntrypoint', () => {
     expect(direct.reachable).toBe(true);
     expect(extended.reachable).toBe(true);
     expect(extended.scriptPath).toEqual(['lint', 'lint:code']);
+  });
+
+  it('recognizes executables at the start of compound command segments', () => {
+    expect(assessLintEntrypoint(pkg({ lint: 'echo prepare && eslint src' })).reachable)
+      .toBe(true);
+
+    expect(assessLintEntrypoint(pkg({ lint: 'echo escaped\\; value && eslint src' })).reachable)
+      .toBe(true);
+
+    expect(assessLintEntrypoint(pkg({ lint: 'echo "prepared; safely" && eslint src' })).reachable)
+      .toBe(true);
+
+    expect(assessLintEntrypoint(pkg({
+      lint: 'echo prepare; npm run lint:code',
+      'lint:code': 'eslint src',
+    })).scriptPath).toEqual(['lint', 'lint:code']);
+  });
+
+  it.each([
+    'echo \'prepared; eslint src\'',
+    'echo `prepared; eslint src`',
+  ])('keeps separators inside the quoted argument in `%s` inert', (lint) => {
+    expect(assessLintEntrypoint(pkg({ lint })).reachable).toBe(false);
   });
 });
 

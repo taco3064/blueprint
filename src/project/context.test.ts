@@ -2,10 +2,11 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveProjectContext } from './context';
 import { detect } from './detect';
+import { toolchainForSource } from './scope';
 
 const roots: string[] = [];
 
@@ -117,6 +118,39 @@ describe('resolveProjectContext', () => {
 });
 
 describe('resolveProjectContext · inheritance boundaries', () => {
+  it('inherits a workspace toolchain through a package-only application boundary', () => {
+    const workspace = temp();
+
+    writeJson(path.join(workspace, 'package.json'), {
+      workspaces: ['apps/*'],
+      devDependencies: { typescript: '5' },
+    });
+
+    writeJson(path.join(workspace, 'tsconfig.json'), { include: ['apps/*/src'] });
+    fs.writeFileSync(path.join(workspace, 'vite.config.ts'), 'export default {}\n');
+
+    const app = path.join(workspace, 'apps', 'web');
+
+    writeJson(path.join(app, 'package.json'), { dependencies: { react: '19' } });
+    fs.mkdirSync(path.join(app, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(app, 'src', 'main.tsx'), 'export const App = () => null;\n');
+
+    expect(resolveProjectContext(app)).toMatchObject({
+      toolchainRoot: workspace,
+      hasTypescript: true,
+    });
+
+    expect(toolchainForSource(app)).toMatchObject({
+      root: '../..',
+      tsconfigs: { '../../tsconfig.json': expect.any(String) },
+      viteConfig: { file: '../../vite.config.ts' },
+    });
+
+    expect(toolchainForSource(workspace, 'apps/web')).toMatchObject({
+      root: 'apps/web',
+    });
+  });
+
   it('requires local TypeScript evidence before inheriting the workspace dependency', () => {
     const workspace = temp();
 
@@ -128,11 +162,40 @@ describe('resolveProjectContext · inheritance boundaries', () => {
     const app = path.join(workspace, 'apps', 'plain-js');
 
     writeJson(path.join(app, 'package.json'), { dependencies: { react: '19' } });
+    writeJson(path.join(workspace, 'tsconfig.json'), { include: ['apps/*/src'] });
+    fs.mkdirSync(path.join(app, 'src'));
+    fs.writeFileSync(path.join(app, 'src', 'main.js'), 'export {};\n');
+    fs.writeFileSync(path.join(app, 'src', 'main.ts.map'), '{}\n');
+
+    for (const ignored of ['.git', 'node_modules', 'dist', 'build', 'coverage']) {
+      fs.mkdirSync(path.join(app, 'src', ignored), { recursive: true });
+      fs.writeFileSync(path.join(app, 'src', ignored, 'generated.ts'), 'export {};\n');
+    }
 
     expect(resolveProjectContext(app)).toMatchObject({
       toolchainRoot: workspace,
       hasTypescript: false,
     });
+  });
+
+  it('treats an unreadable application tree as having no TypeScript source evidence', () => {
+    const workspace = temp();
+
+    writeJson(path.join(workspace, 'package.json'), {
+      workspaces: ['apps/*'],
+      devDependencies: { typescript: '5' },
+    });
+
+    const app = path.join(workspace, 'apps', 'unreadable');
+
+    writeJson(path.join(app, 'package.json'), {});
+
+    const readDir = vi.spyOn(fs, 'readdirSync').mockImplementationOnce(() => {
+      throw new Error('unreadable');
+    });
+
+    expect(resolveProjectContext(app).hasTypescript).toBe(false);
+    readDir.mockRestore();
   });
 
   it('keeps canonical identities stable when unrelated workspace files are added', () => {
