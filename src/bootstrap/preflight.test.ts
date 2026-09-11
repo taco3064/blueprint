@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runTransformationPreflight } from './preflight';
 import type { GitReader, GitReadResult } from './preflight';
@@ -57,6 +57,30 @@ function commitAll(): string {
   );
 
   return git(root, 'rev-parse', 'HEAD');
+}
+
+function initInspectableProject(): { head: string; repositoryRoot: string } {
+  write('package.json', JSON.stringify({ dependencies: { vue: '^3' } }));
+
+  write('blueprint.config.mjs', [
+    'export default {',
+    '  framework: \'vue\',',
+    '  architecture: { alias: \'~app\', layers: [',
+    '    { name: \'pages\', does: \'Routes.\' },',
+    '    { name: \'services\', does: \'External access.\' },',
+    '  ] },',
+    '};',
+    '',
+  ].join('\n'));
+
+  write('src/pages/Home.vue', '<template />\n');
+  write('src/undeclared/value.ts', 'export const value = 1;\n');
+  initRepository();
+
+  return {
+    head: commitAll(),
+    repositoryRoot: git(root, 'rev-parse', '--show-toplevel'),
+  };
 }
 
 describe('runTransformationPreflight · injected effects', () => {
@@ -206,6 +230,86 @@ describe('runTransformationPreflight · injected failures', () => {
     expect(result.worktree).toEqual({ ok: false, reason: 'status failed' });
     expect(result.head).toEqual({ ok: false, reason: 'unknown revision' });
   });
+});
+
+describe('runTransformationPreflight · injected boundary failures', () => {
+  it.each([
+    [{ status: 1, stdout: 'true', stderr: '' }, 'repository'],
+    [{ status: 0, stdout: 'true', stderr: '', error: new Error('spawn failed') }, 'repository'],
+  ] satisfies [GitReadResult, string][])('requires a successful inside probe for %#', async (
+    inside,
+    _label,
+  ) => {
+    const result = await runTransformationPreflight(root, ['.'], {
+      git: () => inside,
+      inspect: inspected,
+    });
+
+    expect(result.repository.ok).toBe(false);
+  });
+
+  it('rejects a successful inside probe whose answer is not true', async () => {
+    const result = await runTransformationPreflight(root, ['.'], {
+      git: () => ok('false'),
+      inspect: inspected,
+    });
+
+    expect(result.repository.ok).toBe(false);
+  });
+
+  it('rejects whitespace-only roots and HEAD output from failed commands', async () => {
+    const topWhitespace: GitReader = (args) => args.includes('--is-inside-work-tree')
+      ? ok('true')
+      : ok('   ');
+
+    const rootResult = await runTransformationPreflight(root, ['.'], {
+      git: topWhitespace,
+      inspect: inspected,
+    });
+
+    expect(rootResult.repository).toEqual({
+      ok: false,
+      reason: 'The Git worktree root could not be resolved.',
+    });
+
+    const failedHead: GitReader = (args) => {
+      if (args.includes('--is-inside-work-tree')) {
+        return ok('true');
+      }
+
+      if (args.includes('--show-toplevel')) {
+        return ok(root);
+      }
+
+      if (args[0] === 'status') {
+        return ok();
+      }
+
+      return { status: 1, stdout: 'abc123', stderr: '' };
+    };
+
+    const headResult = await runTransformationPreflight(root, ['.'], {
+      git: failedHead,
+      inspect: inspected,
+    });
+
+    expect(headResult.head).toEqual({
+      ok: false,
+      reason: 'No committed, recoverable HEAD exists.',
+    });
+  });
+
+  it('falls back when Git only returns whitespace on stderr', async () => {
+    const result = await runTransformationPreflight(root, ['.'], {
+      git: () => ({ status: 1, stdout: '', stderr: '   ' }),
+      inspect: inspected,
+    });
+
+    expect(result.repository).toEqual({
+      ok: false,
+      reason: 'The selected application is not inside a Git worktree.',
+    });
+  });
 
   it.each([
     [failed('root failed'), 'root failed'],
@@ -252,6 +356,7 @@ describe('runTransformationPreflight · real Git controls', () => {
     const plain = await runTransformationPreflight(root, ['.'], { inspect: inspected });
 
     expect(plain.repository.ok).toBe(false);
+    expect(plain.repository.reason).toContain('not a git repository');
     expect(plain.head.ok).toBe(false);
 
     initRepository();
@@ -267,25 +372,9 @@ describe('runTransformationPreflight · real Git controls', () => {
   it(
     'accepts a clean committed application and runs real inspection despite findings',
     async () => {
-      write('package.json', JSON.stringify({ dependencies: { vue: '^3' } }));
+      const { head, repositoryRoot } = initInspectableProject();
 
-      write('blueprint.config.mjs', [
-        'export default {',
-        '  framework: \'vue\',',
-        '  architecture: { alias: \'~app\', layers: [',
-        '    { name: \'pages\', does: \'Routes.\' },',
-        '    { name: \'services\', does: \'External access.\' },',
-        '  ] },',
-        '};',
-        '',
-      ].join('\n'));
-
-      write('src/pages/Home.vue', '<template />\n');
-      write('src/undeclared/value.ts', 'export const value = 1;\n');
-      initRepository();
-      const head = commitAll();
-      const repositoryRoot = git(root, 'rev-parse', '--show-toplevel');
-
+      const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
       const result = await runTransformationPreflight(root, ['.']);
 
       expect(result.ok).toBe(true);
@@ -296,6 +385,10 @@ describe('runTransformationPreflight · real Git controls', () => {
 
       expect(result.inspection.findings?.some((finding) => finding.rule === 'undeclared-folder'))
         .toBe(true);
+
+      expect(consoleLog).not.toHaveBeenCalled();
+
+      consoleLog.mockRestore();
     },
   );
 

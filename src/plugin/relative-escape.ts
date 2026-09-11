@@ -109,9 +109,7 @@ export const relativeEscape: Rule.RuleModule = {
         return;
       }
 
-      const specifier = node.type === 'ImportExpression'
-        ? staticImportSpecifier(source as never, context.sourceCode.getScope(source))
-        : source.value as string;
+      const specifier = staticImportSpecifier(source as never, context.sourceCode.getScope(source));
 
       if (specifier !== null) {
         check(node, specifier);
@@ -128,7 +126,8 @@ export const relativeEscape: Rule.RuleModule = {
 };
 
 function isModuleContainer(moduleFirst: boolean, segments: string[] | null): boolean {
-  return moduleFirst && (segments?.length === 2 || segments?.[0] === 'app');
+  return moduleFirst && segments !== null
+    && (segments.length === 2 || segments[0] === 'app');
 }
 
 export function sourceSegments(

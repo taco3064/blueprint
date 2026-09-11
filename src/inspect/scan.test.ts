@@ -119,6 +119,17 @@ describe('extractImports', () => {
       expect(extractImports(source)[0]?.specifier).toBe('lazy');
     }
   });
+
+  it('rejects call-like text with non-whitespace around the literal', () => {
+    expect(extractImports([
+      'requireJunk("before")',
+      'require(junk"inside")',
+      'require("after"junk)',
+      'importJunk("before")',
+      'import(junk"inside")',
+      'import("after"junk)',
+    ].join(';'))).toEqual([]);
+  });
 });
 
 describe('scan', () => {

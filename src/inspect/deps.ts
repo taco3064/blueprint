@@ -197,7 +197,7 @@ function skippedFolders(scanned: ScanResult, architecture: ArchitectureDef): str
       return [];
     }
 
-    const depth = resolved.topology === 'module-first' && modules.has(outer) ? 2 : 1;
+    const depth = modules.has(outer) ? 2 : 1;
 
     return [file.segments.slice(0, depth).join('/')];
   });
@@ -212,10 +212,11 @@ function isFileLayer(
   const resolved = resolveArchitecture(architecture);
   const position = resolved.classify(unit.split('/'));
 
-  return position?.kind === 'layer' && position.layer.unit.layout === 'file';
+  return position !== null && position.kind === 'layer' && position.layer.unit.layout === 'file';
 }
 
 function unknownTarget(key: string, skipped: string[]): string {
+  // Stryker disable next-line MethodExpression: skipped keys are normalized folder prefixes.
   const folder = skipped.find((candidate) => `${key}/`.startsWith(`${candidate}/`));
 
   return folder

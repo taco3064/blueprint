@@ -106,7 +106,7 @@ function crossesBoundary(
   importer: ResolvedSourcePosition | null,
   target: ResolvedSourcePosition | null,
 ): boolean {
-  return importer !== null && target !== null && boundaryKey(importer) !== boundaryKey(target);
+  return target !== null && boundaryKey(importer!) !== boundaryKey(target);
 }
 
 function matchedAlias(
@@ -171,11 +171,7 @@ function resolveAliasTarget(
 function resolveRelative(from: string[], specifier: string): string[] | null {
   const result = [...from];
 
-  for (const part of specifier.split('/')) {
-    if (part === '' || part === '.') {
-      continue;
-    }
-
+  for (const part of segments(specifier)) {
     if (part === '..') {
       if (result.pop() === undefined) {
         return null;

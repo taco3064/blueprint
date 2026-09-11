@@ -98,6 +98,7 @@ describe('renderSurvey · the sections, and what each says when it is empty', ()
     expect(output).toContain('Folders (folder-shape evidence):\n  — none —');
     expect(output).toContain('its counts run lower):\n  — none —');
     expect(output).not.toContain('src/ root files');
+    expect(output).not.toContain('Repeated sibling-folder evidence');
     expect(output).not.toContain('Test conventions:');
     expect(output).not.toContain('Package usage');
   });

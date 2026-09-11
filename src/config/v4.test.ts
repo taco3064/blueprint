@@ -23,6 +23,7 @@ function blueprint(): Blueprint {
   };
 }
 
+// eslint-disable-next-line max-lines-per-function
 describe('Blueprint 4.0 architecture validation', () => {
   it('ships the generic agent contract with Module → Layer → Unit vocabulary', () => {
     const contract = readFileSync(
@@ -91,6 +92,13 @@ describe('Blueprint 4.0 architecture validation', () => {
 
     expect(() => validateBlueprint(moduleConfig)).toThrow(/both "{module}" and "{layer}"/);
 
+    for (const malformed of ['{xmodule}', '{modulex}']) {
+      moduleConfig.architecture.layerFiles = `src/${malformed}/{layer}/**/*.ts`;
+
+      expect(() => validateBlueprint(moduleConfig))
+        .toThrow(/both "{module}" and "{layer}"/);
+    }
+
     moduleConfig.architecture.layerFiles = 'src/{module}/{layer}/**/*.ts';
     expect(validateBlueprint(moduleConfig)).toBe(moduleConfig);
 
@@ -113,6 +121,7 @@ describe('Blueprint 4.0 architecture validation', () => {
     expect(() => validateBlueprint(empty)).toThrow(/modules must be a non-empty array/);
   });
 
+  // eslint-disable-next-line max-statements
   it('rejects invalid module names', () => {
     const path = blueprint();
 
@@ -134,16 +143,40 @@ describe('Blueprint 4.0 architecture validation', () => {
     unnamed.architecture.modules![0].name = '';
     expect(() => validateBlueprint(unnamed)).toThrow(/non-empty name/);
 
+    const whitespace = blueprint();
+
+    whitespace.architecture.modules![0].name = ' ';
+    expect(() => validateBlueprint(whitespace)).toThrow(/non-empty name/);
+
+    const nonString = blueprint();
+
+    nonString.architecture.modules![0].name = 1 as never;
+    expect(() => validateBlueprint(nonString)).toThrow('Each module must have a non-empty name.');
+
     const corrupt = blueprint();
 
     corrupt.architecture.modules![0].name = 'auth team';
     expect(() => validateBlueprint(corrupt)).toThrow(/corrupt paths or generated artifacts/);
+
+    expect(() => validateBlueprint(path))
+      .toThrow('Module "feature/auth" contains glob or path characters.');
+  });
+
+  it('rejects a null module entry with the module-name contract', () => {
+    const config = blueprint();
+
+    config.architecture.modules![0] = null as never;
+
+    expect(() => validateBlueprint(config)).toThrow('Each module must have a non-empty name.');
   });
 
   it('requires a module responsibility', () => {
     const config = blueprint();
 
     config.architecture.modules![0].does = ' ';
+    expect(() => validateBlueprint(config)).toThrow(/non-empty does/);
+
+    config.architecture.modules![0].does = 1 as never;
     expect(() => validateBlueprint(config)).toThrow(/non-empty does/);
   });
 
@@ -199,5 +232,18 @@ describe('Blueprint 4.0 module dependency validation', () => {
     ];
 
     expect(() => validateBlueprint(config)).toThrow(/a → b → c → a/);
+  });
+
+  it('names a dependency cycle from the cycle entry rather than an acyclic prefix', () => {
+    const config = blueprint();
+
+    config.architecture.modules = [
+      { name: 'a', does: 'a', dependsOn: ['b'] },
+      { name: 'b', does: 'b', dependsOn: ['c'] },
+      { name: 'c', does: 'c', dependsOn: ['b'] },
+    ];
+
+    expect(() => validateBlueprint(config)).toThrow(/b → c → b/);
+    expect(() => validateBlueprint(config)).not.toThrow(/a → b → c → b/);
   });
 });

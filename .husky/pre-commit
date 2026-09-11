@@ -1,3 +1,9 @@
 npx lint-staged
 npm run tsc
+
+# Git exports repository-local variables to hooks. The test suite creates
+# disposable repositories, so those variables must not leak into child Git
+# processes or fixture commits can target the caller's worktree.
+unset $(git rev-parse --local-env-vars)
+
 npm run test

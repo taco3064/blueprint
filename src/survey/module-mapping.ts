@@ -77,6 +77,7 @@ export function collectModuleToLayerEvidence(
       return [];
     }
 
+    // Stryker disable next-line ConditionalExpression: scanned files cannot be module directories.
     if (position.kind === 'container' || position.kind === 'module') {
       return [{
         source: sourcePath(resolved.sourceRoot, relative),
@@ -207,7 +208,7 @@ function collectAliasCutovers(
       alias,
       target,
       disposition,
-      mappedDestinations: affectedMappings.map((mapping) => mapping.destination).sort(),
+      mappedDestinations: affectedMappings.map((mapping) => mapping.destination),
     };
   }).sort((left, right) => left.alias.localeCompare(right.alias));
 }

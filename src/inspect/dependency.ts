@@ -47,13 +47,12 @@ function canonicalAliasFindings(
   return scope.importer.kind !== 'source-root'
     && reference.kind === 'additional-alias'
     && reference.crossesBoundary
-    && reference.canonicalSpecifier !== null
     ? [{
         severity: 'error',
         rule: 'canonical-alias',
         ...at,
         message: `"${at.subject}" crosses an architectural boundary through a secondary alias — `
-          + `use the canonical source-root spelling "${reference.canonicalSpecifier}".`,
+          + `use the canonical source-root spelling "${reference.canonicalSpecifier!}".`,
       }]
     : [];
 }
@@ -112,7 +111,6 @@ function allowedSelfOnlyFindings(
   },
 ): Finding[] {
   return result.verdict?.allowed
-    && scope.importerLayer !== null
     && 'layer' in result.targetPosition
     && scope.ref.isExport
     && scope.selfOnly.includes(scope.target)

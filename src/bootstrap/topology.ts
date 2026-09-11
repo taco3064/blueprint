@@ -26,7 +26,10 @@ export interface TopologySelection {
 
 const RECOGNIZED_LAYERS = new Set([
   ...reactPreset().architecture.layers.map((layer) => layer.name),
-  ...nextPreset({ router: 'both' }).architecture.layers.map((layer) => layer.name),
+  ...nextPreset(
+    // Stryker disable next-line ObjectLiteral: the default app router is already in both.
+    { router: 'both' },
+  ).architecture.layers.map((layer) => layer.name),
 ]);
 
 const STRONG_LAYER_ROOTS = new Set(['pages', 'containers']);
@@ -93,9 +96,15 @@ function moduleCandidatesOf(survey: SurveyResult) {
   return new Map(
     survey.folders
       .filter((folder) => folder.files > 0
-        && folder.folder !== 'app'
+        && (
+          // Stryker disable next-line ConditionalExpression: app is already recognized.
+          folder.folder !== 'app'
+        )
         && !RECOGNIZED_LAYERS.has(folder.folder)
-        && (folder.children ?? []).some((child) => RECOGNIZED_LAYERS.has(child)))
+        && (folder.children ?? (
+          // Stryker disable next-line ArrayDeclaration: the fabricated child is unrecognized.
+          []
+        )).some((child) => RECOGNIZED_LAYERS.has(child)))
       .map((folder) => [folder.folder, folder]),
   );
 }
@@ -104,7 +113,10 @@ function hasRepeatedModuleAxis(
   survey: SurveyResult,
   candidates: ReturnType<typeof moduleCandidatesOf>,
 ): boolean {
-  return (survey.repeatedFolderShapes ?? []).some((shape) =>
+  return (survey.repeatedFolderShapes ?? (
+    // Stryker disable next-line ArrayDeclaration: the fabricated shape matches no parent.
+    []
+  )).some((shape) =>
     shape.parent === (survey.sourceRoot ?? 'src')
     && shape.instances.filter((instance) => candidates.has(instance)).length >= 2
     && shape.repeatedChildren.some((child) => RECOGNIZED_LAYERS.has(child.folder)));
@@ -114,7 +126,10 @@ function hasImportModuleAxis(
   survey: SurveyResult,
   candidates: ReturnType<typeof moduleCandidatesOf>,
 ): boolean {
-  return candidates.size >= 2 && survey.edges.some((edge) =>
+  return (
+    // Stryker disable next-line ConditionalExpression: a distinct candidate edge implies two.
+    candidates.size >= 2
+  ) && survey.edges.some((edge) =>
     edge.from !== edge.to && candidates.has(edge.from) && candidates.has(edge.to));
 }
 
@@ -215,7 +230,11 @@ function transformation(
   target: ArchitectureTopology,
 ): TopologyDecision {
   const current = observation.current ?? 'an unclassified existing tree';
-  const delivered = observation.current !== null && observation.current !== target;
+
+  const delivered = observation.current !== null && (
+    // Stryker disable next-line ConditionalExpression: this helper receives only a changed target.
+    observation.current !== target
+  );
 
   return {
     ...observation,

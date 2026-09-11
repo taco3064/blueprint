@@ -113,6 +113,7 @@ describe('wiringCheck · a merge that kept every artifact', () => {
       expectedStructural(blueprint, layer.name));
 
     const groups = new Set(expected.flatMap((e) => [...e.groups]));
+    const paths = new Set(expected.flatMap((e) => [...e.paths]));
     const selectors = new Set(expected.flatMap((e) => [...e.selectors]));
     const globals = new Set(expected.flatMap((e) => [...e.globals]));
 
@@ -130,16 +131,25 @@ describe('wiringCheck · a merge that kept every artifact', () => {
           'blueprint/relative-escape': 'error',
           'blueprint/import-boundary': ['error', { architecture: blueprint.architecture }],
           'no-restricted-imports': [2, {
-            patterns: [...groups].map((group) => ({
-              group: JSON.parse(group) as string[],
-              message: 'restated by the user, message drift is fine',
-            })),
+            patterns: [
+              ...[...groups].map((group) => ({
+                group: JSON.parse(group) as string[],
+                message: 'restated by the user, message drift is fine',
+              })),
+              {},
+            ],
+            paths: [...[...paths].map((name) => ({ name })), {}, null, { name: 7 }],
           }],
           // User keeps their own selector next to blueprint's — containment,
           // not equality: extra entries are the user's business.
-          'no-restricted-syntax': [2, ...selectors, 'CallExpression[callee.name=Date]'],
+          'no-restricted-syntax': [
+            2,
+            ...selectors,
+            'CallExpression[callee.name=Date]',
+            {},
+          ],
           // Bare-string globals — the other shape the resolver must read.
-          'no-restricted-globals': [2, ...globals],
+          'no-restricted-globals': [2, ...globals, {}],
         },
       },
     );
@@ -155,6 +165,7 @@ describe('wiringCheck · a merge that kept every artifact', () => {
     // comment on `pickProbes`.
     expect(check.label).toContain('one probe per governed position');
     expect(check.label).toContain('scoped to only part of a governed position are not compared');
+    expect(check.detail).toContain('24 restricted-import/syntax/globals entries');
   });
 });
 
@@ -236,6 +247,16 @@ describe('wiringCheck · the losses it names', () => {
     const check = await run(scanOf('src/views/Home/index.vue'), undefined);
 
     expect(check.ok).toBe(false);
+  });
+
+  it('treats a missing import-boundary option as a loss, not a resolution failure', async () => {
+    const check = await run(scanOf('src/views/Home/index.vue'), {
+      rules: { 'blueprint/import-boundary': ['error'] },
+    });
+
+    expect(check.ok).toBe(false);
+    expect(check.label).not.toContain('could not resolve');
+    expect(check.detail).toContain('blueprint/import-boundary is missing');
   });
 
   it('tolerates foreign option shapes without counting them as survivors', async () => {

@@ -81,6 +81,7 @@ describe('getUnitShape', () => {
     const bare = arch();
 
     expect(getUnitShape(bare, 'pages')).toEqual({ layout: 'file', entry: 'index' });
+    expect(getUnitShape(bare, 'missing')).toEqual({ layout: 'file', entry: 'index' });
 
     bare.layers[0].layout = 'folder';
     bare.layers[0].entry = 'main';

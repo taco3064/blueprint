@@ -52,10 +52,6 @@ function undeclaredInnerLayerFindings(
 ): Finding[] {
   const resolved = resolveArchitecture(architecture);
 
-  if (resolved.topology !== 'module-first') {
-    return [];
-  }
-
   const modules = new Set(resolved.modules.map((module) => module.name));
 
   const positions = scan.files.flatMap((file) => {

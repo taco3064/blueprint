@@ -325,9 +325,37 @@ describe('resolveArchitecture · module dependency graph', () => {
 });
 
 describe('resolveArchitecture · module-first path contexts', () => {
+  it('handles empty, invalid, and source-looking path boundaries exactly', () => {
+    const resolved = resolveArchitecture(moduleFirst());
+
+    expect(identity(resolved.classify('src'))).toEqual({ kind: 'source-root' });
+    expect(resolved.classify(['index.ts', 'nested'])).toBeNull();
+    expect(resolved.classify('src/index.ts.backup')).toBeNull();
+    expect(resolved.canImportModule('unknown', 'auth')).toBe(false);
+  });
+
+  it('requires every segment of a multi-part source root to match', () => {
+    const architecture = layerFirst('apps/web/src');
+    const resolved = resolveArchitecture(architecture);
+
+    expect(identity(resolved.classify('apps/web/src/pages/Home.tsx')))
+      .toEqual({ kind: 'unit', module: null, layer: 'pages', unit: 'Home' });
+
+    expect(resolved.classify('apps/other/src/pages/Home.tsx')).toBeNull();
+  });
+
+  it('normalizes explicit dot segments for a project-root source', () => {
+    const resolved = resolveArchitecture(layerFirst('.'));
+
+    expect(identity(resolved.classify('./hooks/useThing.ts')))
+      .toEqual({ kind: 'unit', module: null, layer: 'hooks', unit: 'useThing' });
+  });
+
   it.each([
     'src/auth/hooks/x.ts',
     'src\\auth\\hooks\\x.ts',
+    'src//auth/hooks/x.ts',
+    'src/./auth/hooks/x.ts',
   ])('classifies POSIX and Windows separators: %s', (file) => {
     expect(identity(resolveArchitecture(moduleFirst()).classify(file)))
       .toEqual({ kind: 'unit', module: 'auth', layer: 'hooks', unit: 'x' });

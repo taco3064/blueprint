@@ -32,6 +32,10 @@ describe('analyzeDynamicImports', () => {
   it.each([
     ['ordinary script', '<script lang="ts">const p = "~app/hooks"; import(`${p}/x`)</script>'],
     ['script setup', '<script setup lang="ts">const p = "~app/hooks"; import(p + "/x")</script>'],
+    [
+      'typed script setup',
+      '<script setup lang="ts">const p: string = "~app/hooks"; import(p + "/x")</script>',
+    ],
   ])('resolves Vue %s imports', (_label, source) => {
     expect(analyzeDynamicImports(source, 'Component.vue'))
       .toEqual({ specifiers: ['~app/hooks/x'], unknown: 0 });

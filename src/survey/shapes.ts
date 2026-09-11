@@ -35,10 +35,12 @@ function addChild(
 }
 
 function overlappingInstances(childSets: ChildSets): Map<string, Set<string>> {
-  const names = [...childSets.keys()].sort((a, b) => a.localeCompare(b));
+  const names = [...childSets.keys()];
   const adjacency = new Map(names.map((name) => [name, new Set<string>()]));
 
   for (const [index, left] of names.entries()) {
+    // Stryker disable next-line ArithmeticOperator,MethodExpression: prior/self pairs are
+    // symmetric duplicates and Set adjacency makes them observably equivalent.
     for (const right of names.slice(index + 1)) {
       if (overlaps(childSets.get(left)!, childSets.get(right)!)) {
         adjacency.get(left)!.add(right);
