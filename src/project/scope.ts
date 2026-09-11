@@ -77,8 +77,9 @@ function nearestToolRoot(root: string, start: string, toolchainRoot: string): st
   let current = start;
 
   while (current.startsWith(boundary)) {
-    const hasTool = [...TSCONFIG_FILES, ...VITE_FILES, 'package.json']
-      .some((file) => fs.existsSync(path.join(current, file)));
+    const hasTool = [...TSCONFIG_FILES, ...VITE_FILES]
+      .some((file) => fs.existsSync(path.join(current, file)))
+      || (current !== boundary && fs.existsSync(path.join(current, 'package.json')));
 
     if (hasTool) {
       return current;

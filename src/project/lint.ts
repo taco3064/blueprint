@@ -32,7 +32,8 @@ function pathToEslint(scripts: Record<string, string>): string[] | null {
     for (const [name, scriptPath] of reached) {
       const command = scripts[name];
 
-      if (command && /(?:^|[\s;&|()])eslint(?:\s|$)/.test(command)) {
+      if (command && shellCommands(command).some((part) =>
+        /^(?:npx\s+)?eslint(?:\s|$)/.test(part))) {
         found = scriptPath;
 
         break;
@@ -53,11 +54,22 @@ function pathToEslint(scripts: Record<string, string>): string[] | null {
 
 function delegatedScripts(command: string): string[] {
   const names = new Set<string>();
-  const pattern = /(?:^|[;&|()]|\s)(?:npm\s+run|pnpm(?:\s+run)?|yarn(?:\s+run)?)\s+([\w:.-]+)/g;
+  const pattern = /^(?:npm\s+run|pnpm(?:\s+run)?|yarn(?:\s+run)?)\s+([\w:.-]+)(?:\s|$)/;
 
-  for (const match of command.matchAll(pattern)) {
-    names.add(match[1]);
+  for (const part of shellCommands(command)) {
+    const match = part.match(pattern);
+
+    if (match) {
+      names.add(match[1]);
+    }
   }
 
   return [...names];
+}
+
+function shellCommands(command: string): string[] {
+  const parts = `${command} `
+    .match(/(?:\\.|"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|`(?:\\.|[^`])*`|[^;&|\n])+/g) as string[];
+
+  return parts.map((part) => part.trim());
 }

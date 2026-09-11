@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { GitReadResult } from './repository';
@@ -25,6 +26,52 @@ describe('resolveRepositoryContext', () => {
       [['rev-parse', '--is-inside-work-tree'], '/repo/root/apps/web'],
       [['rev-parse', '--show-toplevel'], '/repo/root/apps/web'],
     ]);
+  });
+
+  it('returns the matching caller-side ancestor when Git uses another path spelling', () => {
+    const git = vi.fn()
+      .mockReturnValueOnce(result({ stdout: 'true\n' }))
+      .mockReturnValueOnce(result({ stdout: '/long/repo\n' }));
+
+    const realpath = vi.spyOn(fs.realpathSync, 'native').mockImplementation((value) =>
+      String(value).replace(/^\/short/, '/real').replace(/^\/long/, '/real'));
+
+    expect(resolveRepositoryContext('/short/repo/apps/web', git)).toEqual({
+      ok: true,
+      root: '/short/repo',
+    });
+
+    realpath.mockRestore();
+  });
+
+  it('falls back to the resolved Git root when it is not a caller-side ancestor', () => {
+    const git = vi.fn()
+      .mockReturnValueOnce(result({ stdout: 'true\n' }))
+      .mockReturnValueOnce(result({ stdout: '/other/repo\n' }));
+
+    expect(resolveRepositoryContext('/application', git)).toEqual({
+      ok: true,
+      root: '/other/repo',
+    });
+  });
+
+  it('matches canonical Windows paths without case sensitivity', () => {
+    const git = vi.fn()
+      .mockReturnValueOnce(result({ stdout: 'true\n' }))
+      .mockReturnValueOnce(result({ stdout: '/LONG/REPO\n' }));
+
+    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+
+    const realpath = vi.spyOn(fs.realpathSync, 'native').mockImplementation((value) =>
+      String(value).replace(/^\/short/, '/long'));
+
+    expect(resolveRepositoryContext('/short/repo/apps/web', git)).toEqual({
+      ok: true,
+      root: '/short/repo',
+    });
+
+    realpath.mockRestore();
+    platform.mockRestore();
   });
 
   it('explains an application outside Git without asking for the top level', () => {

@@ -120,10 +120,29 @@ function hasProjectTypescript(context: {
 
   const inherited = toolchainPackage.dependencies.includes('typescript');
 
-  const projectEvidence = ['tsconfig.json', 'tsconfig.app.json'].some((file) =>
-    fs.existsSync(path.join(root, file)));
+  if (!inherited) {
+    return false;
+  }
 
-  return inherited && projectEvidence;
+  const projectEvidence = ['tsconfig.json', 'tsconfig.app.json'].some((file) =>
+    fs.existsSync(path.join(root, file))) || hasTypescriptSource(root);
+
+  return projectEvidence;
+}
+
+function hasTypescriptSource(root: string): boolean {
+  const ignored = new Set(['.git', 'node_modules', 'dist', 'build', 'coverage']);
+  let entries: fs.Dirent[];
+
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return false;
+  }
+
+  return entries.some((entry) => entry.isDirectory()
+    ? !ignored.has(entry.name) && hasTypescriptSource(path.join(root, entry.name))
+    : entry.isFile() && /\.(?:ts|tsx|mts|cts)$/.test(entry.name));
 }
 
 function readPackageMetadata(root: string): PackageMetadata {
