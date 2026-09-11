@@ -68,13 +68,18 @@ export function analyzeDynamicImports(
 
 function parseSource(source: string, filePath: string): ParsedSource {
   const options = {
+    // Stryker disable next-line BooleanLiteral: dependency discovery ignores parser comments.
     comment: true,
     ecmaVersion: 'latest' as const,
     filePath,
+    // Stryker disable next-line Regex: filePath selects JSX/TSX; this mirrors that context.
     jsx: /\.[jt]sx$/.test(filePath),
+    // Stryker disable next-line BooleanLiteral: dependency discovery never consumes node locations.
     loc: true,
+    // Stryker disable next-line BooleanLiteral: dependency discovery never consumes node ranges.
     range: true,
     sourceType: 'module' as const,
+    // Stryker disable next-line BooleanLiteral: dependency discovery never consumes parser tokens.
     tokens: true,
   };
 
