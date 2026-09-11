@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 
 import { resolveArchitecture } from '../config';
@@ -150,7 +151,10 @@ export async function runRepositoryTopologyTransformation(
 }
 
 function repositoryRelative(repositoryRoot: string, applicationRoot: string): string {
-  return path.relative(repositoryRoot, applicationRoot).split(path.sep).join('/') || '.';
+  return path.relative(
+    fs.realpathSync(repositoryRoot),
+    fs.realpathSync(applicationRoot),
+  ).split(path.sep).join('/') || '.';
 }
 
 function renderApplication(
