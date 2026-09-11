@@ -2,6 +2,35 @@ import { aliasSpecifier } from '../../config';
 import type { AliasRoot, ResolvedArchitecture } from '../../config';
 import type { GroupPattern, PathPattern } from './types';
 
+export function normalizeGroupPatterns(patterns: GroupPattern[]): GroupPattern[] {
+  const seen = new Set<string>();
+
+  return patterns.flatMap((pattern) => {
+    const normalized = {
+      ...pattern,
+      group: [...new Set(pattern.group.map(escapeLeadingHash))],
+    };
+
+    const key = JSON.stringify(normalized);
+
+    if (seen.has(key)) {
+      return [];
+    }
+
+    seen.add(key);
+
+    return [normalized];
+  });
+}
+
+function escapeLeadingHash(pattern: string): string {
+  if (pattern.startsWith('#')) {
+    return `\\${pattern}`;
+  }
+
+  return pattern.startsWith('!#') ? `!\\${pattern.slice(1)}` : pattern;
+}
+
 export function buildStructuralPatterns(params: {
   layer: string;
   module?: string;

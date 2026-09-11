@@ -71,7 +71,7 @@ describe('plan · the eslint config it writes', () => {
     // vue stack: no jsx/tsx exts, the Vue-template scope caveat applies.
     const vueGuard = config();
 
-    expect(vueGuard).toContain('files: [\'src/**/*.{js,ts,vue}\']');
+    expect(vueGuard).toContain('files: [\'src/**/*.{js,jsx,ts,tsx,vue}\']');
     expect(vueGuard).toContain('Vue template');
 
     // react stack: `.vue` gone — four field agents used to trim it by hand —

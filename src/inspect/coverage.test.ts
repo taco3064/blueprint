@@ -172,7 +172,7 @@ describe('renderCoverage', () => {
     );
 
     expect(line).toContain('6 outside — too many to name');
-    expect(line).toContain('expected while layers are still empty');
+    expect(line).toContain('outside the declared architecture lint nets');
     // The names themselves must be gone, or the cap did nothing.
     expect(line).not.toContain('a.ts');
 

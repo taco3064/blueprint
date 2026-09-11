@@ -66,7 +66,7 @@ describe('toArray', () => {
 describe('resolveLayerFiles', () => {
   it('defaults the glob from the framework', () => {
     expect(resolveLayerFiles('hooks', 'vue')).toEqual([
-      'src/hooks/**/*.{js,ts,vue}',
+      'src/hooks/**/*.{js,jsx,ts,tsx,vue}',
     ]);
 
     expect(resolveLayerFiles('hooks', 'react')).toEqual([

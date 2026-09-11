@@ -85,6 +85,7 @@ describe('resolveArchitecture · layer-first compatibility', () => {
     ]);
 
     expect(resolved.layerFiles('pages', 'react')).toEqual(['src/pages/**/*.{js,jsx,ts,tsx}']);
+    expect(resolved.layerFiles('pages', 'vue')).toEqual(['src/pages/**/*.{js,jsx,ts,tsx,vue}']);
     expect(resolved.canImport('pages', 'hooks')).toBe(true);
     expect(resolved.canImport('pages', 'pages')).toBe(false);
     expect(resolved.canImport('pages', 'unknown')).toBe(false);
