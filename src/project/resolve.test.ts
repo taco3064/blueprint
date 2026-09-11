@@ -6,6 +6,10 @@ import type { ProjectState } from './types';
 function state(over: Partial<ProjectState> = {}): ProjectState {
   return {
     root: '/repo',
+    applicationRoot: '/repo',
+    toolchainRoot: '/repo',
+    localPackage: { root: '/repo', scripts: {}, dependencies: [] },
+    toolchainPackage: { root: '/repo', scripts: {}, dependencies: [] },
     framework: 'vue',
     packageManager: 'npm',
     hasConfig: false,

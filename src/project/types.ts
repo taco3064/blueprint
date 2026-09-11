@@ -1,9 +1,20 @@
 import type { Framework } from '../config';
+import type { PackageMetadata } from './context';
 
 export type PackageManager = 'pnpm' | 'yarn' | 'npm';
 
 export interface ProjectState {
   root: string;
+
+  applicationRoot: string;
+
+  repositoryRoot?: string;
+
+  toolchainRoot: string;
+
+  localPackage: PackageMetadata;
+
+  toolchainPackage: PackageMetadata;
 
   framework: Framework | null;
   packageManager: PackageManager;

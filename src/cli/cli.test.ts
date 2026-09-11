@@ -42,7 +42,11 @@ describe('run', () => {
     // Valued flags still consume their value without tripping the check.
     fs.writeFileSync(
       path.join(root, 'package.json'),
-      JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+      JSON.stringify({
+        name: 'x',
+        scripts: { lint: 'eslint .' },
+        dependencies: { vue: '^3' },
+      }),
     );
 
     expect(await run([
@@ -126,7 +130,11 @@ describe('deps command dispatch', () => {
 
     fs.writeFileSync(
       path.join(dir, 'package.json'),
-      JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+      JSON.stringify({
+        name: 'x',
+        scripts: { lint: 'eslint .' },
+        dependencies: { vue: '^3' },
+      }),
     );
 
     fs.mkdirSync(path.join(dir, 'src', 'hooks', 'useX'), { recursive: true });
@@ -238,7 +246,11 @@ describe('run · doctor', () => {
 
     fs.writeFileSync(
       path.join(dir, 'package.json'),
-      JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+      JSON.stringify({
+        name: 'x',
+        scripts: { lint: 'eslint .' },
+        dependencies: { vue: '^3' },
+      }),
     );
 
     // A self-contained config (no bare imports) so the real dynamic import in

@@ -52,7 +52,7 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
   };
 
   const spec = (eslintConfig: string): RepoSpec => ({
-    packageJson: react(),
+    packageJson: { ...react(), scripts: { lint: 'eslint .' } },
     files: {
       'blueprint.config.mjs': configSource(selfOnly),
       'jsconfig.json': JSON.stringify({

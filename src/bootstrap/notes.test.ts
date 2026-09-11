@@ -66,3 +66,16 @@ describe('lintScriptAction · adopter data, not a replacement pattern', () => {
     expect(content).toBe(manifest(`${lint} && eslint src`));
   });
 });
+
+describe('lintScriptAction · delegated entrypoint reachability', () => {
+  it.each(['npm run lint:code', 'pnpm lint:code', 'yarn run lint:code'])(
+    'leaves %s unchanged when its delegated script reaches eslint',
+    (lint) => {
+      fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({
+        scripts: { lint, 'lint:code': 'eslint src' },
+      }));
+
+      expect(lintScriptAction(root, vuePreset(), false)).toBeNull();
+    },
+  );
+});

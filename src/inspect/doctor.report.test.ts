@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -119,8 +120,10 @@ beforeEach(() => {
 
   fs.writeFileSync(
     path.join(root, 'package.json'),
-    JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+    JSON.stringify({ name: 'x', scripts: { lint: 'eslint .' }, dependencies: { vue: '^3' } }),
   );
+
+  spawnSync('git', ['init'], { cwd: root });
 });
 
 afterEach(() => {
@@ -175,11 +178,11 @@ describe('runDoctor · what the run reports', () => {
     await runDoctor(root, { loadConfig: load, log: (m) => (output = m) });
     await runDoctor(root, { loadConfig: load, json: true, log: (m) => (json = m) });
 
-    expect(JSON.parse(json).counts).toEqual({ total: 7, passed: 5, failed: 1, skipped: 1 });
+    expect(JSON.parse(json).counts).toEqual({ total: 8, passed: 6, failed: 1, skipped: 1 });
     // A failure outranks a skip in the verdict: rewrites of `verdictOf`'s failure test
     // all fall through to `unverified` on exactly this shape.
     expect(JSON.parse(json).verdict).toBe('incomplete');
-    expect(output).toContain('1 of 7 check(s) failed');
+    expect(output).toContain('1 of 8 check(s) failed');
 
     // The two arms this fixture is NOT in, so a rewrite that picks one of them is red.
     expect(output).not.toContain('Adoption complete');
@@ -208,8 +211,8 @@ describe('runDoctor · what the run reports', () => {
     await runDoctor(root, { loadConfig: noProbe, json: true, log: (m) => (json = m) });
 
     expect(green.verdict).toBe('complete');
-    expect(complete).toContain('✓ Adoption complete — all 7 checks passed.');
-    expect(JSON.parse(json).counts).toEqual({ total: 7, passed: 7, failed: 0, skipped: 0 });
+    expect(complete).toContain('✓ Adoption complete — all 8 checks passed.');
+    expect(JSON.parse(json).counts).toEqual({ total: 8, passed: 8, failed: 0, skipped: 0 });
 
     // And one failure with still nothing skipped: the third arm, and the clause about
     // skips must NOT appear — there are none to leave unproven.
@@ -220,14 +223,14 @@ describe('runDoctor · what the run reports', () => {
     const failing = await runDoctor(root, { loadConfig: noProbe, log: (m) => (red = m) });
 
     expect(failing.verdict).toBe('incomplete');
-    expect(red).toContain('✗ Adoption incomplete — 1 of 7 check(s) failed.');
+    expect(red).toContain('✗ Adoption incomplete — 1 of 8 check(s) failed.');
     expect(red).not.toContain('could not run');
   });
 
   it('gives the JSON the same banner and ratio the screen gets', async () => {
     // This fixture ends `⊘ unverified` (no eslint resolvable), and the JSON used to
     // carry `ok: true` and the bare word — so a machine that read `ok` and stopped saw
-    // a plain green, while a reader saw "6 of 7 passed, 1 could not run". #141 added
+    // a plain green, while a reader saw "7 of 8 passed, 1 could not run". #141 added
     // `verdict`; the sentence and the ratio behind it stayed on one channel (#149).
     adopted();
     let text = '';
@@ -239,7 +242,7 @@ describe('runDoctor · what the run reports', () => {
     const parsed = JSON.parse(json);
 
     expect(parsed.verdict).toBe('unverified');
-    expect(parsed.counts).toEqual({ total: 7, passed: 6, failed: 0, skipped: 1 });
+    expect(parsed.counts).toEqual({ total: 8, passed: 7, failed: 0, skipped: 1 });
     // Byte-for-byte the line the reader gets, because two channels wording the same
     // verdict differently is how the reader and the automation start disagreeing.
     expect(text).toContain(parsed.summary);
@@ -334,7 +337,13 @@ function wiredRepo(blueprint: Blueprint, sources = WIRED_SOURCES): string {
     fs.writeFileSync(path.join(dir, rel), content);
   };
 
-  put('package.json', JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }));
+  put('package.json', JSON.stringify({
+    name: 'x',
+    scripts: { lint: 'eslint .' },
+    dependencies: { vue: '^3' },
+  }));
+
+  spawnSync('git', ['init'], { cwd: dir });
   put('blueprint.config.mjs', '// user config');
   put('eslint.config.mjs', wiredEslintConfig(blueprint));
 
@@ -424,6 +433,7 @@ describe('runDoctor · the notes under the banner', () => {
     // each; the JSON keeps the single `note` key it has carried since #141, because
     // renaming it for a second sentence breaks a consumer keyed on the first.
     adopted();
+    fs.rmSync(path.join(root, '.git'), { recursive: true, force: true });
 
     let output = '';
     let json = '';
@@ -516,8 +526,6 @@ describe('runDoctor · the notes under the banner', () => {
     // The empty arm. `notes.join('\n')` on an empty list is `''`, which serializes as
     // a key holding an empty string — a machine reading `note` would see a note.
     adopted();
-    fs.mkdirSync(path.join(root, '.git'));
-
     let json = '';
 
     await runDoctor(root, { loadConfig: load, json: true, log: (m) => (json = m) });

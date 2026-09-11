@@ -90,6 +90,7 @@ function packageJson(scenario) {
     name: scenario.id,
     private: true,
     type: 'module',
+    scripts: { lint: 'eslint .' },
     dependencies: scenario.dependencies,
   }, null, 2);
 }

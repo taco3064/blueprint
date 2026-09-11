@@ -257,6 +257,8 @@ const DOCTOR_HELP = [
   '    step deletes them), or stale agent contracts — a marker-bearing',
   '    CLAUDE.md/AGENTS.md/… outside the emitted set cannot hide behind green',
   '  · eslint wired to emitLint (a legacy .eslintrc is flagged to migrate first)',
+  '  · the normal package.json lint entrypoint reaches eslint, directly or through',
+  '    a provable npm/pnpm/yarn script chain — a different linter alone is incomplete',
   '  · import alias wired to the toolchain — a declared alias that neither',
   '    tsconfig paths nor a bundler config (vite / webpack / vue-cli / next /',
   '    rsbuild) resolves would send agents into unresolvable imports',

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -18,8 +19,10 @@ beforeEach(() => {
 
   fs.writeFileSync(
     path.join(root, 'package.json'),
-    JSON.stringify({ name: 'x', dependencies: { vue: '^3' } }),
+    JSON.stringify({ name: 'x', scripts: { lint: 'eslint .' }, dependencies: { vue: '^3' } }),
   );
+
+  spawnSync('git', ['init'], { cwd: root });
 });
 
 afterEach(() => {
@@ -64,13 +67,13 @@ describe('runDoctor · the verdict and the banner it prints', () => {
 
     expect(ok).toBe(true);
     expect(checks.every((check) => check.ok)).toBe(true);
-    // Not "all 7 passed", and this fixture is why the claim was worth checking: with no
+    // Not "all 8 passed", and this fixture is why the claim was worth checking: with no
     // eslint resolvable here the survival check cannot run, and the banner used to fold
     // that skip into the pass count — so this suite asserted a verdict resting on a check
     // that never ran, exactly as a field agent found in the wild (#129).
-    expect(output).toContain('⊘ Adoption unverified — 6 of 7 checks passed, 1 could not run');
+    expect(output).toContain('⊘ Adoption unverified — 7 of 8 checks passed, 1 could not run');
     expect(output).toContain('nothing here proves the emitted rules are alive in it');
-    expect(output).not.toContain('all 7 checks passed');
+    expect(output).not.toContain('all 8 checks passed');
     // Truly clean, no baseline — the label stays plain instead of claiming
     // coverage by a ledger that does not exist (field run #10).
     expect(checks.map((c) => c.label)).toContain('architecture clean');
@@ -147,7 +150,7 @@ describe('runDoctor · files the adoption should have removed', () => {
     expect(output).toContain('Adoption incomplete');
 
     // This fixture also SKIPS the survival check (no eslint resolvable here), and the
-    // red arm used to count only failures — so the banner said "1 of 7 failed" while
+    // red arm used to count only failures — so the banner said "1 of 8 failed" while
     // the JSON said `skipped: 1`. An agent reads the banner and stops (#129): fixing
     // the ✗ would have handed it a green it was never told was partly unproven.
     expect(output).toContain('could not run (⊘ above)');

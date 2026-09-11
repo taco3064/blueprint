@@ -133,6 +133,7 @@ write('package.json', JSON.stringify({
   name: 'semantic-round-trip',
   private: true,
   type: 'module',
+  scripts: { lint: 'eslint .' },
   dependencies: {
     react: '^18',
     typescript: '^5',

@@ -15,7 +15,7 @@ to see how to use it.
 - [`impact`](/guide/ai-adoption#decide-conflicts-on-numbers-—-blueprint-impact) — dry-run the emitted lint rules through the project's own ESLint: hits per rule, heaviest files named — rule conflicts decided on numbers, before wiring
 - [`deps`](/guide/deps) — blast radius per unit: who gets hit if I change this, plus the fan-in leaderboard
 - [`rules`](/guide/reference#blueprint-rules-—-which-ids-actually-gate) — the emitted-rule catalog, queryable: what always emits, what needs declaring, metric defaults — annotated with the config's declared tiers
-- [`doctor`](/guide/ai-adoption#verify-it-s-finished-—-blueprint-doctor) — is adoption finished? A read-only checklist: config, no leftover references or authoring artifacts, eslint wired, alias wired, emitted rules alive in the merged config, architecture clean (with its coverage stated), suppressions ledger current
+- [`doctor`](/guide/ai-adoption#verify-it-s-finished-—-blueprint-doctor) — is adoption finished? A read-only checklist: config, no leftover references or authoring artifacts, eslint wired, normal lint reaches eslint, alias wired, emitted rules alive in the merged config, architecture clean (with its coverage stated), suppressions ledger current
 - [`doctor` — three outcomes](/guide/ai-adoption#three-outcomes-not-two) — complete / unverified / incomplete: a check that *could not run* is not one that passed, and since a skip still exits 0, a CI gate reads `verdict` out of `--json`
 - [All CLI flags](/guide/reference#cli-flags) — the full flag matrix, including init topology selection, `--preset`, and `--dry-run`
 

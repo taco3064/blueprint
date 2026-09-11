@@ -8,7 +8,12 @@ import type { scan } from '../inspect';
 import { resolveArchitecture } from '../config';
 import type { AgentTarget, Blueprint } from '../config';
 import { ignoredArtifacts } from './ignored';
-import { describeUnreadable, pathAliasKeys, unreadableTsconfigs } from '../project';
+import {
+  assessLintEntrypoint,
+  describeUnreadable,
+  pathAliasKeys,
+  unreadableTsconfigs,
+} from '../project';
 import type { ProjectState } from '../project';
 import type { Action } from './types';
 
@@ -161,13 +166,17 @@ export function lintScriptAction(
   const parsed = JSON.parse(text) as { scripts?: Record<string, string> };
   const lint = parsed.scripts?.lint;
 
+  const assessment = assessLintEntrypoint({
+    scripts: parsed.scripts ?? {},
+  });
+
   const target = resolveArchitecture(blueprint.architecture).sourceRoot;
 
   if (lint === undefined) {
     return noLintScript(parsed, target, greenfield);
   }
 
-  if (lint.includes('eslint')) {
+  if (assessment.reachable) {
     return null;
   }
 
