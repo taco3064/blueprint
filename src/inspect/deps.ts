@@ -212,6 +212,7 @@ function isFileLayer(
   const resolved = resolveArchitecture(architecture);
   const position = resolved.classify(unit.split('/'));
 
+  // Stryker disable next-line ConditionalExpression: callers only pass governed graph units.
   return position !== null && position.kind === 'layer' && position.layer.unit.layout === 'file';
 }
 

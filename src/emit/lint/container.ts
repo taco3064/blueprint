@@ -23,10 +23,6 @@ export function containerImportEntries(
   const { architecture, framework } = blueprint;
   const resolved = resolveArchitecture(architecture);
 
-  if (resolved.topology !== 'module-first') {
-    return [];
-  }
-
   const packageRules = derivePackageRules(architecture.layers);
   const globalRules = deriveGlobalRules(architecture.layers);
   const folderTargets = resolved.layerNames.filter((layer) => scope.layouts[layer] === 'folder');

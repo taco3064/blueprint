@@ -37,6 +37,13 @@ describe('renderContext', () => {
     expect(out).toContain('`vue`');
     expect(out).toContain('`~app`');
     expect(out).toContain('`components` → `services`');
+
+    expect(out.split('\n')).toEqual([
+      '### Context',
+      '',
+      '- Framework: `vue`. Canonical source-root alias: `~app`.',
+      '- Layer flow: `components` → `services`',
+    ]);
   });
 
   it('states module-first context and placement explicitly', () => {
@@ -86,11 +93,14 @@ describe('topology-aware agent instructions', () => {
     const config: Blueprint = { framework: 'vue', architecture: architecture() };
     const compact = renderCompactContract(config);
     const behavioral = renderBehavioral(config.architecture, undefined, undefined);
+    const checklist = renderChecklist(config);
 
     expect(compact).toContain('declared Layer → Unit topology');
     expect(compact).not.toContain('module boundaries');
     expect(behavioral).toContain('declared Layer → Unit topology');
     expect(behavioral).not.toContain('Module → Layer → Unit');
+    expect(checklist).toContain('declared layer; folder units');
+    expect(checklist).not.toContain('declared module and layer');
   });
 
   it('names module placement only for module-first topology', () => {

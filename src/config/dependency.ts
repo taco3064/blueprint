@@ -28,12 +28,16 @@ export function dependencyVerdict(
     return null;
   }
 
+  // Stryker disable next-line ConditionalExpression: layer-first makes both modules null.
   const moduleAllowed = from.module === null
     || to.module === null
     || rules.canImportModule(from.module, to.module);
 
+  // Stryker disable next-line ConditionalExpression: containers cannot match an inner layer.
+  const targetIsInner = to.position !== 'container';
+
   const innerAllowed = from.position === 'container'
-    || (to.position !== 'container'
+    || (targetIsInner
       && (from.position === to.position || rules.canImport(from.position, to.position)));
 
   return {

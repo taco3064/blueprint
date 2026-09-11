@@ -298,18 +298,12 @@ function seedUnits(units: Set<string>, layer: string): string[] {
 }
 
 function closureOf(seed: string, graph: Map<string, Set<string>>): Set<string> {
-  const reached = new Set<string>();
-  const pending = [seed];
+  const reached = new Set<string>([seed]);
 
-  while (pending.length) {
-    const unit = pending.pop() as string;
-
-    if (reached.has(unit)) {
-      continue;
+  for (const unit of reached) {
+    for (const dependency of graph.get(unit) ?? []) {
+      reached.add(dependency);
     }
-
-    reached.add(unit);
-    pending.push(...(graph.get(unit) ?? []));
   }
 
   return reached;

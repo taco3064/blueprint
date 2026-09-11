@@ -136,6 +136,8 @@ function importFindings(
     position,
     layerNames,
     aliases: aliasList(architecture),
+    // Stryker disable next-line ConditionalExpression, ArrayDeclaration: containers have no
+    // importer-layer identity, and schema-valid target layers cannot match a synthetic entry.
     selfOnly: fileLayer === null ? [] : resolved.selfOnlyTargets(fileLayer),
     layoutOf: layoutResolver(architecture),
     entryOf: entryResolver(architecture),
@@ -162,7 +164,7 @@ function refFindings(file: ScannedFile, ref: ImportRef, context: ImportContext):
       importer: context.position,
       importerModule: context.module,
       importerLayer: context.layer,
-      target: targetLayer ?? parts[context.module === null ? 0 : 1],
+      target: targetLayer ?? '',
       targetModule,
       targetPosition: target,
       depth: parts.length,
@@ -187,7 +189,7 @@ function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportConte
   const fileLayer = context.layer;
   const owners = ownersOf(context.architecture, ref.specifier, ref.names);
 
-  if (!owners || (fileLayer !== null && owners.includes(fileLayer))) {
+  if (!owners || owners.includes(fileLayer ?? '')) {
     return [];
   }
 

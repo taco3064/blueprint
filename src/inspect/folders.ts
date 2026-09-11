@@ -58,7 +58,7 @@ function undeclaredInnerLayerFindings(
     const [module, layer] = file.segments;
     const position = resolved.classify(file.segments);
 
-    return file.segments.length > 2 && modules.has(module) && position === null
+    return modules.has(module) && position === null
       ? [`${module}/${layer}`]
       : [];
   });

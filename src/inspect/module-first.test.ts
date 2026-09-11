@@ -165,7 +165,12 @@ describe('inspect consumers · module-first topology', () => {
     ]), blueprint);
 
     expect(findings.filter((finding) => finding.rule === 'deep-import')).toHaveLength(1);
-    expect(findings.filter((finding) => finding.rule === 'relative-escape')).toHaveLength(1);
+
+    expect(findings.filter((finding) => finding.rule === 'relative-escape')).toEqual([
+      expect.objectContaining({
+        message: expect.stringContaining('reaches past a sibling\'s entry'),
+      }),
+    ]);
   });
 });
 

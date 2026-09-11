@@ -288,6 +288,19 @@ describe('analyze · layerFilesIgnore', () => {
 });
 
 describe('analyze · what an ownership entry covers', () => {
+  it('allows the owning layer and names the non-owning layer in package evidence', () => {
+    const owner = analyze(scanOf([
+      file(['services', 'api', 'index.ts'], [{ specifier: 'axios' }]),
+    ]), bp).filter((finding) => finding.rule === 'package-ownership');
+
+    const rejected = analyze(scanOf([
+      file(['components', 'Btn', 'index.ts'], [{ specifier: 'axios' }]),
+    ]), bp).find((finding) => finding.rule === 'package-ownership');
+
+    expect(owner).toEqual([]);
+    expect(rejected?.message).toContain('not importable from "components"');
+  });
+
   it('owns the package when ANY of the imported names is restricted', () => {
     // `inject` is owned, `ref` is not. Importing both is still reaching for the
     // owned one — requiring every name to be restricted lets a single free name

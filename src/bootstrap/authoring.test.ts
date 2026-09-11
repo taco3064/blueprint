@@ -90,6 +90,12 @@ describe('authoringActions', () => {
     const note = actions.at(-1)?.note ?? '';
 
     expect(note).toContain('Module-first is selected and has no generic preset');
+
+    expect(note).toContain(
+      '…or follow the playbook yourself. Keep the selected module-first topology; '
+      + 'there is no generic preset for its domain modules.',
+    );
+
     expect(note).not.toContain('Prefer a preset scaffold');
     expect(note).not.toContain('already has code');
   });
