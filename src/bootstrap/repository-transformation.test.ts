@@ -179,7 +179,11 @@ describe('repository-wide topology transformation', () => {
       options: { ...fixture.request.options, agent: 'codex', spawn },
     });
 
-    expect(spawn).toHaveBeenCalledWith('codex', expect.any(Array), fixture.root);
+    expect(spawn).toHaveBeenCalledWith(
+      'codex',
+      expect.any(Array),
+      fixture.request.state.repositoryRoot,
+    );
 
     expect(fs.readFileSync(path.join(fixture.root, 'blueprint-authoring.md'), 'utf8')).toContain(
       'Flatten `apps/admin/source` as one work unit',

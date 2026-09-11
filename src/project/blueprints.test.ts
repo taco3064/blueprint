@@ -52,8 +52,8 @@ describe('resolveRepositoryBlueprints', () => {
       expect(result.map(({ applicationRoot, topology }) => ({
         applicationRoot: path.relative(root, applicationRoot), topology,
       }))).toEqual([
-        { applicationRoot: 'apps/admin', topology: 'module-first' },
-        { applicationRoot: 'apps/web', topology: 'layer-first' },
+        { applicationRoot: path.join('apps', 'admin'), topology: 'module-first' },
+        { applicationRoot: path.join('apps', 'web'), topology: 'layer-first' },
       ]);
 
       expect(loadConfig).toHaveBeenCalledTimes(2);
@@ -101,7 +101,7 @@ describe('resolveRepositoryBlueprints', () => {
       });
 
       expect(result.map((entry) => path.relative(root, entry.applicationRoot))).toEqual([
-        `apps/${directory}/admin`,
+        path.join('apps', directory, 'admin'),
       ]);
     },
   );
@@ -123,7 +123,7 @@ describe('resolveRepositoryBlueprints', () => {
       const result = await resolveRepositoryBlueprints(root, { loadConfig });
 
       expect(result.map((entry) => path.relative(root, entry.applicationRoot))).toEqual([
-        'apps/outer',
+        path.join('apps', 'outer'),
       ]);
 
       expect(loadConfig).toHaveBeenCalledTimes(1);

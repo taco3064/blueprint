@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { Blueprint } from '../config';
 import type { ProjectState } from '../project';
 import type { SurveyResult } from '../survey';
-import { observeRepositoryTopology } from './repository-topology';
+import { observeRepositoryTopology, resolveRepositoryTopology } from './repository-topology';
 
 const roots: string[] = [];
 
@@ -65,5 +65,27 @@ describe('observeRepositoryTopology', () => {
     });
 
     expect(result.blueprints).toHaveLength(1);
+  });
+
+  it('renders repository-relative POSIX paths when mixed topology includes the root', async () => {
+    const target = fixture(false);
+    const application = path.join(target.root, 'apps', 'web');
+
+    fs.mkdirSync(application, { recursive: true });
+    fs.writeFileSync(path.join(application, 'blueprint.config.mjs'), 'export default {};\n');
+
+    await expect(resolveRepositoryTopology({
+      repositoryRoot: target.root,
+      applicationRoot: target.root,
+      loadConfig: async (file) => path.dirname(file) === target.root
+        ? blueprint
+        : {
+            ...blueprint,
+            architecture: {
+              ...blueprint.architecture,
+              modules: [{ name: 'auth', does: 'authentication' }],
+            },
+          },
+    })).rejects.toThrow(/found:\n {2}apps\/web: module-first\n {2}\.: layer-first/);
   });
 });
