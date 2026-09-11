@@ -274,10 +274,11 @@ and inspect select the same files.
 
 ## CLI flags
 
-- **`init`** — `--agent claude|codex` (launch the authoring/transformation agent) · `--topology layer-first|module-first` (select an unprovable topology; a module-first target enters authoring on a new tree, while either requested topology change enters a Git-preflight-guarded Agent transformation; module-first cannot use `--preset`, reverse transformation requires its current config, and neither direction automatically names or moves source) · `--preset` (force the layer-first preset scaffold) · `--authoring` (force the playbook even on a small repo; opposite of `--preset`) · `--framework vue|react` · `--no-install` · `--dry-run`
+- **`init`** — `--agent claude|codex` (launch the authoring/transformation agent) · `--topology layer-first|module-first` (required for first repository adoption; source shape is evidence only, while valid configs establish one repository topology; the opposite configured target starts a repository-wide Git-preflight-guarded transformation) · `--preset` (layer-first adoption method; first adoption requires explicit LF, inherited repository LF is accepted for a new sibling, repository MF and existing authored local configs are rejected) · `--authoring` (force the playbook even on a small repo; opposite of `--preset`) · `--framework vue|react` · `--no-install` · `--dry-run`
 
-Layer-first → module-first transformation requires one selected application, a clean Git worktree,
-a recoverable committed `HEAD`, and usable pre-transform inspection evidence. Its playbook carries
+Layer-first → module-first transformation requires a clean Git worktree, a recoverable committed
+`HEAD`, and usable pre-transform inspection evidence for every adopted application. One
+repository-root playbook carries each application's
 container/page candidate closures separately from page/App Router composition closures, canonical
 inspect/deps unit edges, unmatched alias-like imports, bounded relative-path evidence, Git movement
 rules, cutover gates, and baseline review. Exact relative file resolution and runtime-dependent

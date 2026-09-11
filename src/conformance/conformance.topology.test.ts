@@ -116,7 +116,7 @@ describe('init topology · public syntax and zero-write failures', () => {
   });
 
   it('requires a topology for an empty repository', async () => {
-    await expectZeroWriteFailure(repo(), ['init', '--no-install'], /Cannot determine/);
+    await expectZeroWriteFailure(repo(), ['init', '--no-install'], /no authoritative Blueprint topology/);
   });
 
   it.each([
@@ -128,12 +128,12 @@ describe('init topology · public syntax and zero-write failures', () => {
         'src/auth/hooks/useAuth.ts': 'export const useAuth = 1;\n',
         'src/checkout/hooks/useCheckout.ts': 'export const useCheckout = 1;\n',
       },
-      message: /Cannot determine/,
+      message: /no authoritative Blueprint topology/,
     },
     {
       name: 'insufficient evidence',
       files: { 'src/app/file.ts': 'export const value = 1;\n' },
-      message: /Cannot determine/,
+      message: /no authoritative Blueprint topology/,
     },
     {
       name: 'unresolved application scope',
@@ -151,7 +151,7 @@ describe('init topology · public syntax and zero-write failures', () => {
     },
   );
 
-  it('rejects mixed evidence and inferred module-first without config authority',
+  it('treats explicit unmanaged targets as adoption regardless of source-tree shape',
     async () => {
       const mixed = repo({
         'src/pages/Home.tsx': 'export const Home = 1;\n',
@@ -165,17 +165,31 @@ describe('init topology · public syntax and zero-write failures', () => {
         'src/checkout/hooks/useCheckout.ts': 'export const useCheckout = 1;\n',
       });
 
-      await expectZeroWriteFailure(
+      const moduleSource = {
+        auth: read(moduleFirst, 'src/auth/hooks/useAuth.ts'),
+        checkout: read(moduleFirst, 'src/checkout/hooks/useCheckout.ts'),
+      };
+
+      const mixedResult = await rawCli(
         mixed,
         ['init', '--topology', 'layer-first', '--no-install'],
-        /topology transformation.*not delivered/s,
       );
 
-      await expectZeroWriteFailure(
+      const moduleResult = await rawCli(
         moduleFirst,
         ['init', '--topology', 'layer-first', '--no-install'],
-        /requires the current module-first blueprint\.config\.mjs.*No files were changed/s,
       );
+
+      expect(mixedResult.code).toBe(0);
+      expect(moduleResult.code).toBe(0);
+      expect(mixedResult.output).not.toContain('transformation');
+      expect(moduleResult.output).not.toContain('transformation');
+      expect(moduleResult.output).not.toContain('Adoption complete');
+
+      expect({
+        auth: read(moduleFirst, 'src/auth/hooks/useAuth.ts'),
+        checkout: read(moduleFirst, 'src/checkout/hooks/useCheckout.ts'),
+      }).toEqual(moduleSource);
     });
 });
 
@@ -245,7 +259,7 @@ describe('init topology · initialization and conservative adoption', () => {
     expect(inspect.output).not.toContain('src/app/page.tsx');
   });
 
-  it('adopts clear layer-first and module-first trees without a flag', async () => {
+  it('requires a flag for every unmanaged source-tree shape', async () => {
     const layerFirst = repo({
       'src/pages/Home.tsx': 'export const Home = 1;\n',
       'src/components/Button.tsx': 'export const Button = 1;\n',
@@ -256,12 +270,17 @@ describe('init topology · initialization and conservative adoption', () => {
       'src/checkout/hooks/useCheckout.ts': 'export const useCheckout = 1;\n',
     });
 
-    expect((await rawCli(layerFirst, ['init', '--no-install'])).code).toBe(0);
-    expect(read(layerFirst, 'blueprint.config.mjs')).toContain('reactPreset');
+    await expectZeroWriteFailure(
+      layerFirst,
+      ['init', '--no-install'],
+      /no authoritative Blueprint topology/,
+    );
 
-    expect((await rawCli(moduleFirst, ['init', '--no-install'])).code).toBe(0);
-    expect(read(moduleFirst, 'blueprint-authoring.md')).toContain('authoring playbook');
-    expect(read(moduleFirst, 'blueprint.config.mjs')).toBeNull();
+    await expectZeroWriteFailure(
+      moduleFirst,
+      ['init', '--no-install'],
+      /no authoritative Blueprint topology/,
+    );
   });
 
   it('accepts an explicit topology for insufficient evidence without claiming classification',
@@ -326,7 +345,7 @@ describe('init topology · configured authority and option matrix', () => {
       ['init', '--topology', 'module-first', '--authoring', '--no-install'],
     );
 
-    expect(result.code).toBe(0);
+    expect(result.code, result.output).toBe(0);
     expect(result.output).toContain('transformation preflight passed');
 
     expect(read(dir, 'blueprint-authoring.md')).toContain(
@@ -344,7 +363,7 @@ describe('init topology · configured authority and option matrix', () => {
       'init', '--topology', topology, method, '--no-install',
     ]);
 
-    expect(result.code).toBe(0);
+    expect(result.code, result.output).toBe(0);
   });
 
   it('rejects explicit module-first with a layer-first preset before writing', async () => {
@@ -366,19 +385,20 @@ describe('init topology · configured authority and option matrix', () => {
     expect(read(dir, 'blueprint.config.mjs')).toContain('reactPreset');
   });
 
-  it('runs preset when the observed tree is layer-first', async () => {
+  it('requires explicit layer-first for unmanaged preset adoption', async () => {
     const dir = repo({
       'src/pages/Home.tsx': 'export const Home = 1;\n',
       'src/components/Button.tsx': 'export const Button = 1;\n',
     });
 
-    const result = await rawCli(dir, ['init', '--preset', '--no-install']);
-
-    expect(result.code).toBe(0);
-    expect(read(dir, 'blueprint.config.mjs')).toContain('reactPreset');
+    await expectZeroWriteFailure(
+      dir,
+      ['init', '--preset', '--no-install'],
+      /no authoritative Blueprint topology/,
+    );
   });
 
-  it('treats preset as a layer-first transformation from inferred module-first', async () => {
+  it('does not let preset classify an unmanaged module-shaped tree', async () => {
     const dir = repo({
       'src/auth/hooks/useAuth.ts': 'export const useAuth = 1;\n',
       'src/checkout/hooks/useCheckout.ts': 'export const useCheckout = 1;\n',
@@ -387,7 +407,7 @@ describe('init topology · configured authority and option matrix', () => {
     await expectZeroWriteFailure(
       dir,
       ['init', '--preset', '--no-install'],
-      /requires the current module-first blueprint\.config\.mjs/,
+      /no authoritative Blueprint topology/,
     );
   });
 });

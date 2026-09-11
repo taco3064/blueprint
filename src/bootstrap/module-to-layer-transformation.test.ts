@@ -175,6 +175,7 @@ describe('module-first to layer-first Agent launch', () => {
         survey: null,
         topology: {
           current: 'module-first',
+          repository: 'module-first',
           target: 'layer-first',
           source: 'configured',
           selectedApplication: 'src',
@@ -205,8 +206,9 @@ describe('module-first to layer-first transformation safety', () => {
       survey: null,
       topology: {
         current: 'module-first',
+        repository: 'module-first',
         target: 'layer-first',
-        source: 'classified',
+        source: 'configured',
         selectedApplication: 'src',
         operation: 'transformation-required',
         path: 'transformation',
@@ -226,6 +228,7 @@ describe('module-first to layer-first transformation safety', () => {
       survey: null,
       topology: {
         current: 'module-first',
+        repository: 'module-first',
         target: 'layer-first',
         source: 'configured',
         selectedApplication: 'src',
@@ -247,8 +250,9 @@ describe('module-first to layer-first transformation safety', () => {
         survey: null,
         topology: {
           current: 'module-first',
+          repository: 'module-first',
           target: 'layer-first',
-          source: 'classified',
+          source: 'configured',
           selectedApplication: 'src',
           operation: 'transformation-required',
           path: 'transformation',
@@ -273,6 +277,7 @@ describe('module-first to layer-first transformation safety', () => {
       survey: null,
       topology: {
         current: 'module-first',
+        repository: 'module-first',
         target: 'layer-first',
         source: 'configured',
         selectedApplication: 'src',
@@ -292,6 +297,7 @@ describe('module-first to layer-first transformation safety', () => {
       survey: null,
       topology: {
         current: 'module-first',
+        repository: 'module-first',
         target: 'layer-first',
         source: 'configured',
         selectedApplication: null,
@@ -311,6 +317,7 @@ describe('module-first to layer-first transformation safety', () => {
       survey: null,
       topology: {
         current: 'module-first',
+        repository: 'module-first',
         target: 'layer-first',
         source: 'configured',
         selectedApplication: 'src',

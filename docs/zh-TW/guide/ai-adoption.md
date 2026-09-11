@@ -52,9 +52,10 @@ npx @kekkai/blueprint survey --source-root apps/web/src
 npx @kekkai/blueprint init --topology layer-first
 ```
 
-明確指定 target 不代表 Blueprint 宣稱既有目錄已經符合該拓樸。init 會先掃描程式碼；
-若目錄混合兩種拓樸，或證據明確指向另一種拓樸，會在寫入前停止。
-其餘情況才由既有 layer-first authoring 流程產出：
+明確指定 target 不代表 Blueprint 宣稱既有目錄已經符合該拓樸。未管理的 application
+沒有現行 Blueprint topology：survey 只量測 folder 與 import，`--topology` 才宣告 target。
+source tree 形狀不會把 adoption 重新解讀為 LF↔MF transformation。layer-first authoring
+流程接著產出：
 
 - **`blueprint-authoring.md`** —— 可執行的導入作業手冊：<br>
   蒐證數據、推導方法、規則語意（file／folder unit 的判定、接線後會咬到什麼）、config 結構速覽與驗收條件
@@ -77,37 +78,51 @@ Agent 依蒐證數據推導 config，反覆對照 `blueprint inspect` 直到每�
 它在前景以互動模式執行**畫面上已印出的那行指令**，且跑在你自己 Agent CLI 的權限之下。<br>
 確切的安全邊界見[安全與信任](/zh-TW/guide/security)。
 
-若欲完全跳過編寫流程、即使在既有專案上也直接以框架 preset 建置，
-可改用 `init --preset --topology layer-first` ——<br>
-這是已確認 preset 適用時的快捷途徑：`init --topology layer-first --preset`。
+若欲完全跳過編寫流程、即使在既有專案上也直接以框架 preset 建置，請使用
+`init --topology layer-first --preset`。preset 是 LF adoption 方法，不是 topology
+權威；首次導入不能省略 `--topology`，也不能選擇 module-first、轉換 authored config，
+或套用於有效 config 已建立 MF 的 repository。
+
+第一份有效 application config 會為 containing repository 建立唯一 topology。新的 sibling
+application 不必重述即可繼承；相反的 explicit target 會在寫入前拒絕。每個 application
+仍各自宣告架構細節。不符合共享 topology 的既有 source 是可見債務，不是混用 config 的許可。
 
 ## 轉換既有的 layer-first application
 
-請從單一 application root 執行，且 Git worktree 必須乾淨並已有 committed `HEAD`：
+請從已導入的 application root 執行，且 Git worktree 必須乾淨並已有 committed `HEAD`：
 
 ```bash
 npx @kekkai/blueprint init --topology module-first --agent claude
 # 或使用：--agent codex
 ```
 
-init 會先驗證 topology decision、Git 復原邊界、單一 application scope，以及轉換前 inspection 是否能提供可靠證據；全部通過後才會寫入。接著分別量測 `containers/*` 候選（沒有 container 時改以 `pages/*` islands 作 fallback）與 page／App Router composition closure。受治理 edge 會使用與 inspect／deps 相同的 Blueprint config alias 與 unit identity，也涵蓋可靜態判定的 dynamic import；playbook 另外列出重疊、cycle、orphan、無法匹配的 alias-like import、relative structural target 與 collision risk。relative evidence 不宣稱已驗證精確檔案、extension 或 index resolution，runtime-dependent import 也會明確保留為未驗證。產出的 transformation playbook 只把事實交給 Agent，不替它命名 domain。
+init 會找出 containing repository 內每份有效 application config，並要求全部解析為 LF。
+每個已導入 application 的 Git 復原邊界與轉換前 inspection 都通過後，才會在 repository
+root 寫出一份 playbook。各 application 再分別量測 `containers/*` 候選（沒有 container 時改以 `pages/*` islands 作 fallback）與 page／App Router composition closure。受治理 edge 會使用與 inspect／deps 相同的 Blueprint config alias 與 unit identity，也涵蓋可靜態判定的 dynamic import；playbook 另外列出重疊、cycle、orphan、無法匹配的 alias-like import、relative structural target 與 collision risk。relative evidence 不宣稱已驗證精確檔案、extension 或 index resolution，runtime-dependent import 也會明確保留為未驗證。產出的 transformation playbook 只把事實交給 Agent，不替它命名 domain。
 
 Agent 負責決定 ownership、module 名稱、merge／split，以及是否抽出有明確名稱的中立 module；tracked source 一律使用 `git mv`，改寫可解析的 import，再從結果 graph 推導最終 `dependsOn`，並在重建 baseline 前逐項判讀 findings。React 與 Vue 的 route composition 會移入保留的 `app` module。Next.js App Router 仍維持實體 `app/**`；Pages Router 因為轉換 router 超出 folder topology transformation 範圍，會直接拒絕。
 
 ## 將既有 module-first application 轉回 layer-first
 
-請從單一 application root 執行，並確保現行 module-first config 已 commit：
+請從已導入的 application root 執行，並確保現行 module-first config 已 commit：
 
 ```bash
 npx @kekkai/blueprint init --topology layer-first --agent claude
 # 或使用：--agent codex
 ```
 
-任何寫入前都會先執行相同的 Git、scope 與 inspection preflight。現行 config 是 modules、`dependsOn`、內層 layer 順序、folder/file unit layout、alias 與專案契約的權威來源；只有 survey 推斷為 module-first、卻沒有 config 的 tree 會維持零寫入。恢復路徑是先執行 `init --topology module-first`，讓 Agent 建立並驗證 config，commit 乾淨狀態後，才執行 `init --topology layer-first`。產出的 playbook 會列出每個檔案的結構目的地：一般 module 根層 source 進入 `containers/<module>`，已宣告的內層 unit 則依原有 layout 攤回全域 layer。所有精確與大小寫不敏感的 destination collision、orphan、cycle、未匹配 alias-like import、relative 結構證據與 dynamic import 限制，都會在搬移前完整列出。
+任何寫入前都會對每個 application 執行相同的 Git 與 inspection preflight。每份現行
+config 都是 modules、`dependsOn`、內層 layer 順序、folder/file unit layout、alias 與
+專案契約的權威來源。沒有 config 的 module-shaped tree 不具 source topology；明確 LF
+target 是 adoption，不是反向轉換。對 configured MF repository，產出的 playbook 會列出
+每個檔案的結構目的地：一般 module 根層 source 進入 `containers/<module>`，已宣告的內層 unit 則依原有 layout 攤回全域 layer。所有精確與大小寫不敏感的 destination collision、orphan、cycle、未匹配 alias-like import、relative 結構證據與 dynamic import 限制，都會在搬移前完整列出。
 
 Agent 負責決定 collision 命名與模糊語意位置，使用 `git mv`、改寫支援的 import，並同步切換 source、config、emitted ESLint、handbook 與 Agent contract。最終 config 移除 `modules` 與 `dependsOn`；舊 module DAG 只作為遷移證據，不會被換成另一套 layer-first 機制。React/Vue 的 `app/**` 會依 route composition、wiring 或 domain code 個別判斷，不會盲目搬移。Next.js App Router 的實體 `app/**` 保持原位；無法解析、混用或只有 Pages Router 的 Next 證據會維持零寫入。
 
-兩個方向都必須先對轉換後的 tree 執行 inspect，再重建 baseline。依語意比對既有債、先修掉新 regression，之後才更新 baseline，並重跑 inspect、deps、emitted ESLint、doctor 與 application 自己的 lint/typecheck/test/build。
+兩個方向都讓所有已導入 application 參與同一次 repository transformation。各自的量測、
+搬移與驗證仍是獨立 work unit，但在每份有效 config 都解析為同一 target 前不得宣告成功；
+混合 topology 的中間狀態不受支援。每個轉換後的 tree 都必須先執行 inspect，再重建
+baseline。依語意比對既有債、先修掉新 regression，之後才更新 baseline，並重跑 inspect、deps、emitted ESLint、doctor 與 application 自己的 lint/typecheck/test/build。
 
 ## 建議的提示詞
 

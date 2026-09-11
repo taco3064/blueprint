@@ -30,9 +30,10 @@ import {
 import { plan } from './plan';
 import { apply, defaultExec } from './apply';
 import type { Exec } from './apply';
-import { decideTopology, observeTopology } from './topology';
+import { decideTopology } from './topology';
 import type { ArchitectureTopology, TopologyDecision } from './topology';
 import { runTopologyTransformation } from './transformation-dispatch';
+import { observeRepositoryTopology } from './repository-topology';
 import type { Action } from './types';
 
 export interface InitOptions extends ResolveOptions {
@@ -73,7 +74,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
     assertAuthoredConfigNotRewritten(state, options, pristine);
   }
 
-  const { resolved, survey, topology } = await prepareTopology({
+  const { resolved, survey, topology, repositoryBlueprints } = await prepareTopology({
     root, state, options, pristine,
   });
 
@@ -81,7 +82,8 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
   if (topology.path === 'transformation') {
     return runTopologyTransformation({ root, state, options, log, survey, topology,
-      architecture: resolved?.blueprint.architecture ?? null,
+      architecture: resolved!.blueprint.architecture,
+      repositoryBlueprints,
     });
   }
 
@@ -118,14 +120,26 @@ interface InitTopologyInput {
 async function prepareTopology(input: InitTopologyInput) {
   const resolved = await resolveConfigured(input);
   const survey = surveyForTopology(input);
-  const observation = observeForInit({ input, resolved, survey });
 
-  const topology = decideTopology(observation, {
+  const localAuthority = resolved ?? (input.pristine
+    ? await resolveBlueprint(input.root, { ...input.state, hasConfig: false }, input.options)
+    : null);
+
+  const repository = await observeRepositoryTopology({
+    state: input.state,
+    pristine: input.pristine,
+    survey,
+    loadConfig: input.options.loadConfig,
+    resolvedBlueprint: resolved?.blueprint,
+    pristineBlueprint: input.pristine ? localAuthority!.blueprint : undefined,
+  });
+
+  const topology = decideTopology(repository.observation, {
     topology: input.options.topology,
     preset: input.options.preset,
   });
 
-  return { resolved, survey, topology };
+  return { resolved, survey, topology, repositoryBlueprints: repository.blueprints };
 }
 
 async function resolveConfigured(
@@ -148,25 +162,6 @@ function surveyForTopology(input: InitTopologyInput): SurveyResult | null {
   return !input.state.hasConfig || Boolean(input.options.authoring && input.pristine)
     ? surveySource(input.root, input.state)
     : null;
-}
-
-function observeForInit(ctx: {
-  input: InitTopologyInput;
-  resolved: Awaited<ReturnType<typeof resolveBlueprint>> | null;
-  survey: SurveyResult | null;
-}) {
-  const { input, resolved, survey } = ctx;
-
-  if (!input.pristine) {
-    return observeTopology(resolved?.blueprint.architecture ?? null, survey);
-  }
-
-  return {
-    current: 'layer-first' as const,
-    source: 'configured' as const,
-    // Stryker disable next-line LogicalOperator: a consumed survey always has a nonempty root.
-    selectedApplication: survey?.sourceRoot ?? (input.state.nextSrcDir ? 'src' : '.'),
-  };
 }
 
 function assertInitOptions(state: ProjectState, options: InitOptions): void {

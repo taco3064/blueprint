@@ -56,6 +56,11 @@ Framework auto-detected, existing configs never overwritten, re-runs idempotent.
 each acceptance step guards, greenfield scaffolding, and the full flow:
 [AI-Assisted Adoption](https://taco3064.github.io/blueprint/guide/ai-adoption).
 
+First adoption always names `--topology layer-first|module-first`; folder shape is survey
+evidence, never a topology declaration. In a monorepo, the first valid application config
+establishes one repository topology that every later sibling inherits. `--preset` is only a
+layer-first adoption method (`--topology layer-first --preset`), not inference or transformation.
+
 ## 🔒 Security & trust
 
 - **Never launches an agent by default** — it writes plain-markdown contracts and hands

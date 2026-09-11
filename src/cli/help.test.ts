@@ -40,7 +40,9 @@ describe('per-command help', () => {
     expect(log.mock.calls[0][0]).toContain('never overwritten');
     expect(log.mock.calls[0][0]).toContain('--topology layer-first|module-first');
     expect(log.mock.calls[0][0]).toContain('module-first implies authoring');
-    expect(log.mock.calls[0][0]).toContain('--preset (which itself means layer-first)');
+    expect(log.mock.calls[0][0]).toContain('--preset is only an LF adoption');
+    expect(log.mock.calls[0][0]).toContain('they never classify an');
+    expect(log.mock.calls[0][0]).toContain('one repository-wide transformation');
     expect(log.mock.calls[0][0]).toContain('measures every structural destination and collision');
     expect(log.mock.calls[0][0]).toContain('configured modules');
 

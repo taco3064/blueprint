@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { reactPreset } from '../presets';
 import type { SurveyResult } from '../survey';
 import { decideTopology, observeTopology } from './topology';
+import type { ArchitectureTopology, TopologyObservation } from './topology';
 
 function survey(overrides: Partial<SurveyResult> = {}): SurveyResult {
   return {
@@ -25,227 +26,172 @@ function survey(overrides: Partial<SurveyResult> = {}): SurveyResult {
   };
 }
 
-function folder(folder: string, children: string[] = []) {
+function unconfigured(
+  repository: ArchitectureTopology | null = null,
+  uncertainty: TopologyObservation['uncertainty'] = 'unmanaged',
+): TopologyObservation {
   return {
-    folder,
-    files: 2,
-    directFiles: children.length ? 0 : 2,
-    childFolders: children.length,
-    children,
-    indexedChildren: 0,
-    maxDepth: children.length ? 2 : 1,
+    current: null,
+    repository,
+    source: repository ? 'repository' : 'none',
+    selectedApplication: uncertainty === 'scope' ? null : 'src',
+    uncertainty,
   };
 }
 
 describe('observeTopology', () => {
-  it('reports missing configuration and survey evidence as not provable', () => {
+  it('treats a missing config and missing survey as unmanaged', () => {
     expect(observeTopology(null, null)).toEqual({
       current: null,
-      source: 'not-provable',
+      repository: null,
+      source: 'none',
       selectedApplication: null,
-      uncertainty: 'insufficient',
+      uncertainty: 'unmanaged',
     });
   });
 
-  it('takes configured topology as authoritative over contradictory survey evidence', () => {
+  it('uses a local configured topology when no repository authority is supplied', () => {
     const layerFirst = reactPreset().architecture;
 
-    const moduleFirst = {
-      ...reactPreset().architecture,
-      modules: [{ name: 'auth', does: 'authentication' }],
-    };
-
-    const moduleShaped = survey({
-      folders: [folder('auth', ['hooks']), folder('checkout', ['hooks'])],
-      repeatedFolderShapes: [{
-        parent: 'src',
-        instances: ['auth', 'checkout'],
-        repeatedChildren: [{ folder: 'hooks', presentIn: 2, instanceCount: 2 }],
-      }],
+    expect(observeTopology(layerFirst, survey())).toMatchObject({
+      current: 'layer-first',
+      repository: 'layer-first',
+      source: 'configured',
     });
-
-    expect(observeTopology(layerFirst, moduleShaped)).toMatchObject({
-      current: 'layer-first', source: 'configured', selectedApplication: 'src',
-    });
-
-    expect(observeTopology(moduleFirst, survey({
-      folders: [folder('pages'), folder('containers')],
-    }))).toMatchObject({ current: 'module-first', source: 'configured' });
   });
 
-  it('classifies a direct technical layer axis only with a strong root and no module axis', () => {
-    expect(observeTopology(null, survey({
-      folders: [folder('pages'), folder('components')],
-    }))).toMatchObject({ current: 'layer-first', source: 'classified' });
+  it('defaults an unmanaged survey without a source root to src', () => {
+    expect(observeTopology(null, survey({ sourceRoot: undefined }))).toMatchObject({
+      selectedApplication: 'src',
+      uncertainty: 'unmanaged',
+    });
+  });
 
-    for (const folders of [
-      [folder('app')],
-      [folder('components')],
-      [folder('auth'), folder('checkout')],
-    ]) {
-      expect(observeTopology(null, survey({ folders }))).toMatchObject({
-        current: null, source: 'not-provable',
+  it('uses a local config as authority over repository and source evidence', () => {
+    const layerFirst = reactPreset().architecture;
+
+    expect(observeTopology(layerFirst, survey(), 'layer-first')).toEqual({
+      current: 'layer-first',
+      repository: 'layer-first',
+      source: 'configured',
+      selectedApplication: 'src',
+    });
+  });
+
+  it('never promotes unmanaged source-tree shapes into current topology', () => {
+    const shapes: Partial<SurveyResult>[] = [
+      { folders: [{ folder: 'pages', files: 2, directFiles: 2, childFolders: 0,
+        children: [], indexedChildren: 0, maxDepth: 1 }] },
+      { folders: [{ folder: 'auth', files: 2, directFiles: 0, childFolders: 1,
+        children: ['hooks'], indexedChildren: 0, maxDepth: 2 }] },
+      { edges: [{ from: 'auth', to: 'checkout', count: 1 }] },
+      { repeatedFolderShapes: [{ parent: 'src', instances: ['auth', 'checkout'],
+        repeatedChildren: [{ folder: 'hooks', presentIn: 2, instanceCount: 2 }] }] },
+    ];
+
+    for (const shape of shapes) {
+      expect(observeTopology(null, survey(shape))).toMatchObject({
+        current: null,
+        repository: null,
+        source: 'none',
+        uncertainty: 'unmanaged',
       });
     }
-
-    expect(observeTopology(null, survey({
-      sourceRoot: undefined,
-      folders: [folder('pages'), folder('components')],
-    })).selectedApplication).toBe('src');
   });
 
-  it('classifies repeated and import-supported module axes with recognized inner layers', () => {
-    const folders = [folder('auth', ['hooks']), folder('checkout', ['services'])];
-
-    expect(observeTopology(null, survey({
-      folders: [folder('auth', ['hooks']), folder('checkout', ['hooks'])],
-      repeatedFolderShapes: [{
-        parent: 'src',
-        instances: ['auth', 'checkout'],
-        repeatedChildren: [{ folder: 'hooks', presentIn: 2, instanceCount: 2 }],
-      }],
-    }))).toMatchObject({ current: 'module-first', source: 'classified' });
-
-    expect(observeTopology(null, survey({
-      folders,
-      repeatedFolderShapes: undefined,
-      edges: [{ from: 'auth', to: 'checkout', count: 1 }],
-    }))).toMatchObject({ current: 'module-first', source: 'classified' });
-
-    expect(observeTopology(null, survey({
-      folders: [{ ...folder('auth'), children: undefined }],
-    })).current).toBeNull();
-  });
-});
-
-describe('observeTopology edge cases', () => {
-  it('leaves mixed, empty, unresolved, nested-only, and generic shapes unknown', () => {
-    const mixed = survey({
-      folders: [
-        folder('pages'),
-        folder('components'),
-        folder('auth', ['hooks']),
-        folder('checkout', ['hooks']),
-      ],
-      repeatedFolderShapes: [{
-        parent: 'src',
-        instances: ['auth', 'checkout'],
-        repeatedChildren: [{ folder: 'hooks', presentIn: 2, instanceCount: 2 }],
-      }],
+  it('preserves application scope and empty-tree evidence without assigning topology', () => {
+    expect(observeTopology(null, survey({ scopeRequired: true }), 'layer-first')).toEqual({
+      current: null,
+      repository: 'layer-first',
+      source: 'repository',
+      selectedApplication: null,
+      uncertainty: 'scope',
     });
 
-    const nested = survey({
-      folders: [folder('features', ['auth', 'checkout'])],
-      repeatedFolderShapes: [{
-        parent: 'src/features',
-        instances: ['auth', 'checkout'],
-        repeatedChildren: [{ folder: 'hooks', presentIn: 2, instanceCount: 2 }],
-      }],
+    expect(observeTopology(null, survey({ totalFiles: 0, sourceRoot: undefined }))).toEqual({
+      current: null,
+      repository: null,
+      source: 'none',
+      selectedApplication: 'src',
+      uncertainty: 'empty',
     });
-
-    const generic = survey({
-      folders: [folder('auth', ['internal']), folder('checkout', ['internal'])],
-      repeatedFolderShapes: [{
-        parent: 'src',
-        instances: ['auth', 'checkout'],
-        repeatedChildren: [{ folder: 'internal', presentIn: 2, instanceCount: 2 }],
-      }],
-    });
-
-    for (const evidence of [
-      mixed,
-      nested,
-      generic,
-      survey({ totalFiles: 0 }),
-      survey({ sourceRoot: undefined, totalFiles: 0 }),
-      survey({ sourceRoot: undefined, folders: [folder('app')] }),
-      survey({ totalFiles: 0, scopeRequired: true }),
-    ]) {
-      expect(observeTopology(null, evidence).current).toBeNull();
-    }
   });
 });
 
 describe('decideTopology', () => {
-  it('repairs configured topology and routes unconfigured module-first through authoring', () => {
-    const configured = { current: 'layer-first' as const, source: 'configured' as const,
-      selectedApplication: 'src' };
+  it('requires an explicit target when no repository authority exists', () => {
+    expect(decideTopology(unconfigured())).toMatchObject({ operation: 'abort', path: null });
 
-    const classified = { current: 'module-first' as const, source: 'classified' as const,
-      selectedApplication: 'src' };
+    expect(decideTopology(unconfigured(), { preset: true }))
+      .toMatchObject({ operation: 'abort', path: null });
+
+    expect(decideTopology(unconfigured(), { topology: 'layer-first' }))
+      .toMatchObject({ operation: 'adopt', target: 'layer-first', path: 'scaffold' });
+
+    expect(decideTopology(unconfigured(), { topology: 'module-first' }))
+      .toMatchObject({ operation: 'adopt', target: 'module-first', path: 'authoring' });
+
+    expect(decideTopology(unconfigured(null, 'empty'), { topology: 'layer-first' }))
+      .toMatchObject({ operation: 'initialize' });
+  });
+
+  it('inherits the repository target for an unconfigured sibling', () => {
+    expect(decideTopology(unconfigured('layer-first'))).toMatchObject({
+      operation: 'adopt', target: 'layer-first', path: 'scaffold',
+    });
+
+    expect(decideTopology(unconfigured('module-first'))).toMatchObject({
+      operation: 'adopt', target: 'module-first', path: 'authoring',
+    });
+
+    expect(decideTopology(unconfigured('layer-first'), { preset: true })).toMatchObject({
+      operation: 'adopt', target: 'layer-first', path: 'scaffold',
+    });
+  });
+
+  it('rejects an opposite sibling target and repository module-first preset', () => {
+    expect(decideTopology(unconfigured('layer-first'), { topology: 'module-first' }))
+      .toMatchObject({ operation: 'abort', path: null, target: 'module-first' });
+
+    expect(decideTopology(unconfigured('module-first'), { preset: true }))
+      .toMatchObject({ operation: 'abort', path: null, target: 'module-first' });
+  });
+
+  it('repairs configured topology and transforms only an authoritative opposite topology', () => {
+    const configured: TopologyObservation = {
+      current: 'layer-first',
+      repository: 'layer-first',
+      source: 'configured',
+      selectedApplication: 'src',
+    };
 
     expect(decideTopology(configured)).toMatchObject({
       operation: 'repair', target: 'layer-first', path: 'scaffold',
     });
 
-    expect(decideTopology(classified)).toMatchObject({
-      operation: 'adopt', target: 'module-first', path: 'authoring',
+    expect(decideTopology(configured, { topology: 'module-first' })).toMatchObject({
+      operation: 'transformation-required', target: 'module-first', path: 'transformation',
     });
   });
 
-  it('initializes an empty tree only when the topology is explicit', () => {
-    const unknown = { current: null, source: 'not-provable' as const,
-      selectedApplication: null };
+  it('rejects preset for every configured application and module-first selection', () => {
+    for (const current of ['layer-first', 'module-first'] as const) {
+      expect(decideTopology({
+        current,
+        repository: current,
+        source: 'configured',
+        selectedApplication: 'src',
+      }, { preset: true })).toMatchObject({ operation: 'abort', path: null });
+    }
 
-    expect(decideTopology(unknown)).toMatchObject({
-      operation: 'abort', path: null,
-    });
-
-    expect(decideTopology(unknown, { topology: 'layer-first' })).toMatchObject({
-      operation: 'initialize', path: 'scaffold',
-    });
-
-    expect(decideTopology(unknown, { topology: 'module-first' })).toMatchObject({
-      operation: 'initialize', path: 'authoring',
-    });
-  });
-
-  it('requires transformation for mismatches and ambiguous non-empty trees', () => {
-    const layerFirst = { current: 'layer-first' as const, source: 'classified' as const,
-      selectedApplication: 'src' };
-
-    const unknown = { current: null, source: 'not-provable' as const,
-      selectedApplication: 'src', uncertainty: 'insufficient' as const };
-
-    expect(decideTopology(layerFirst, { topology: 'module-first' })).toMatchObject({
-      operation: 'transformation-required', path: 'transformation',
-    });
-
-    expect(decideTopology(unknown, { topology: 'layer-first' })).toMatchObject({
-      operation: 'adopt', path: 'scaffold',
-    });
-
-    expect(decideTopology({ ...unknown, uncertainty: 'scope' }, { topology: 'module-first' }))
-      .toMatchObject({ operation: 'abort', path: null });
-
-    expect(decideTopology({ ...unknown, uncertainty: 'mixed' }, { topology: 'layer-first' }))
-      .toMatchObject({ operation: 'transformation-required', path: null });
-
-    expect(decideTopology({ ...unknown, uncertainty: 'mixed' }))
-      .toMatchObject({ operation: 'abort', path: null });
-  });
-
-  it('treats preset as a layer-first target in every current and explicit combination', () => {
-    const inferredLayer = { current: 'layer-first' as const, source: 'classified' as const,
-      selectedApplication: 'src' };
-
-    const inferredModule = { current: 'module-first' as const, source: 'classified' as const,
-      selectedApplication: 'src' };
-
-    expect(decideTopology(inferredModule, { preset: true })).toMatchObject({
-      target: 'layer-first', operation: 'transformation-required', path: 'transformation',
-    });
-
-    expect(decideTopology(inferredLayer, { preset: true })).toMatchObject({
-      target: 'layer-first', operation: 'adopt', path: 'scaffold',
-    });
-
-    expect(decideTopology(inferredLayer, {
-      topology: 'layer-first', preset: true,
-    })).toMatchObject({ target: 'layer-first', operation: 'adopt', path: 'scaffold' });
-
-    expect(decideTopology(inferredLayer, {
+    expect(decideTopology(unconfigured(), {
       topology: 'module-first', preset: true,
-    })).toMatchObject({ target: 'module-first', operation: 'abort', path: null });
+    })).toMatchObject({ operation: 'abort', path: null });
+  });
+
+  it('keeps unresolved application selection ahead of topology choice', () => {
+    expect(decideTopology(unconfigured('layer-first', 'scope'), {
+      topology: 'layer-first',
+    })).toMatchObject({ operation: 'abort', path: null });
   });
 });

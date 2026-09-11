@@ -71,6 +71,17 @@ function expectFragments(result: string, fragments: string[]): void {
   }
 }
 
+it('keeps the standalone transformation boundary when no repository scope is supplied', () => {
+  const result = moduleToLayerBrief({
+    evidence: evidence(), preflight, findings: [], state: state(),
+    install: 'npm install', cleanup: 'nothing',
+  });
+
+  expect(result).toContain(
+    'Flatten one selected module-first application back to its global layer axis',
+  );
+});
+
 function riskResult(): string {
   return moduleToLayerBrief({
     evidence: evidence({

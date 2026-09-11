@@ -207,7 +207,7 @@ describe('module-first to layer-first transformation authoring', () => {
 });
 
 describe('module-first to layer-first transformation safety', () => {
-  it('gives an unconfigured inferred module-first Next.js tree the full recovery chain',
+  it('treats explicit layer-first on an unmanaged module-shaped tree as adoption',
     async () => {
       const dir = repo({
         packageJson: { dependencies: { react: '^18.0.0', next: '^15.0.0' } },
@@ -219,16 +219,11 @@ describe('module-first to layer-first transformation safety', () => {
       });
 
       commit(dir);
-      const before = tree(dir);
       const result = await cli(dir, ['init', '--topology', 'layer-first', '--no-install']);
 
-      expect(result.code).toBe(1);
-
-      expect(result.output).toMatch(
-        /init --topology module-first.*Agent author and verify.*commit the clean state.*init --topology layer-first/s,
-      );
-
-      expect(tree(dir)).toEqual(before);
+      expect(result.code).toBe(0);
+      expect(result.output).not.toContain('transformation');
+      expect(read(dir, 'blueprint.config.mjs')).not.toBeNull();
     });
 
   it('rejects a dirty worktree byte-identically', async () => {

@@ -126,8 +126,9 @@ describe('transformation actions', () => {
       architecture: null,
       topology: {
         current: 'layer-first',
+        repository: 'layer-first',
         target: 'module-first',
-        source: 'classified',
+        source: 'configured',
         selectedApplication: null,
         operation: 'transformation-required',
         path: 'transformation',
@@ -145,8 +146,9 @@ describe('transformation actions', () => {
       architecture: null,
       topology: {
         current: 'layer-first',
+        repository: 'layer-first',
         target: 'module-first',
-        source: 'classified',
+        source: 'configured',
         selectedApplication: 'src',
         operation: 'transformation-required',
         path: 'transformation',
@@ -200,8 +202,9 @@ describe('transformation actions', () => {
         architecture: null,
         topology: {
           current: 'layer-first',
+          repository: 'layer-first',
           target: 'module-first',
-          source: 'classified',
+          source: 'configured',
           selectedApplication: 'src',
           operation: 'transformation-required',
           path: 'transformation',
