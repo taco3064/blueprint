@@ -8,6 +8,7 @@ import {
   derivePackageRules,
   deriveGlobalRules,
   METRIC_GATES,
+  normalizeGroupPatterns,
   resolveTestFiles,
   selfOnlyReexportSelector,
   STATEMENT_PADDING,
@@ -178,7 +179,7 @@ function layerImportEntries(
         'no-restricted-imports': [
           severity,
           {
-            patterns: [...structural, ...containers.patterns, ...patterns],
+            patterns: normalizeGroupPatterns([...structural, ...containers.patterns, ...patterns]),
             ...([...containers.paths, ...paths].length
               ? { paths: [...containers.paths, ...paths] }
               : {}),

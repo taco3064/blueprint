@@ -3,7 +3,12 @@ import type { Linter } from 'eslint';
 import { activeSetting, resolveArchitecture } from '../../config';
 import type { AliasRoot, Blueprint } from '../../config';
 import { buildContainerPatterns } from './structural';
-import { buildPackagePatterns, deriveGlobalRules, derivePackageRules } from './patterns';
+import {
+  buildPackagePatterns,
+  deriveGlobalRules,
+  derivePackageRules,
+  normalizeGroupPatterns,
+} from './patterns';
 import type { GlobalRule, LintConfigEntry, PackageRule } from './types';
 
 export function containerImportEntries(
@@ -74,7 +79,10 @@ function containerEntriesForModule(scope: {
     return {
       'no-restricted-imports': [
         scope.severity,
-        { patterns: [...structural, ...patterns], ...(paths.length ? { paths } : {}) },
+        {
+          patterns: normalizeGroupPatterns([...structural, ...patterns]),
+          ...(paths.length ? { paths } : {}),
+        },
       ],
       ...buildGlobalRule(scope.globalRules, scope.severity),
     };

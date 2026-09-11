@@ -369,7 +369,7 @@ function unitName(relative: string[], index: number): string {
 }
 
 const FRAMEWORK_EXTS: Record<Framework, string> = {
-  vue: 'js,ts,vue',
+  vue: 'js,jsx,ts,tsx,vue',
   react: 'js,jsx,ts,tsx',
   auto: 'js,jsx,ts,tsx,vue',
 };

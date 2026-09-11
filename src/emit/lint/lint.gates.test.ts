@@ -67,9 +67,9 @@ describe('emitLint · rules gates', () => {
     ]);
 
     expect(gatesEntry?.files).toEqual([
-      'src/components/**/*.{js,ts,vue}',
-      'src/hooks/**/*.{js,ts,vue}',
-      'src/services/**/*.{js,ts,vue}',
+      'src/components/**/*.{js,jsx,ts,tsx,vue}',
+      'src/hooks/**/*.{js,jsx,ts,tsx,vue}',
+      'src/services/**/*.{js,jsx,ts,tsx,vue}',
     ]);
   });
 
@@ -83,7 +83,7 @@ describe('emitLint · rules gates', () => {
   it('attaches use-prefix to the hooks layer only, with the default prefix', () => {
     const entry = emittedGates.find((item) => item.rules?.['blueprint/use-prefix']);
 
-    expect(entry?.files).toEqual(['src/hooks/**/*.{js,ts,vue}']);
+    expect(entry?.files).toEqual(['src/hooks/**/*.{js,jsx,ts,tsx,vue}']);
     expect(entry?.rules?.['blueprint/use-prefix']).toEqual(['error', { prefix: 'use' }]);
     expect(entry?.plugins?.blueprint).toBeDefined();
   });

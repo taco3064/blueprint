@@ -122,7 +122,7 @@ export function coverageSummary(coverage: Coverage): string {
   const named = outside.length === 0
     ? ''
     : outside.length > OUTSIDE_NAMED_MAX
-      ? ` (${outside.length} outside — too many to name; expected while layers are still empty)`
+      ? ` (${outside.length} outside — too many to name; outside the declared architecture lint nets)`
       : ` (outside: ${outside.join(', ')} — outside the declared architecture lint nets)`;
 
   const ignored = coverage.ignoredFiles === undefined || coverage.ignoredFiles.length === 0

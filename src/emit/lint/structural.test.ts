@@ -1,6 +1,31 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildContainerPatterns, buildStructuralPatterns } from './structural';
+import {
+  buildContainerPatterns,
+  buildStructuralPatterns,
+  normalizeGroupPatterns,
+} from './structural';
+
+describe('normalizeGroupPatterns', () => {
+  it('deduplicates equivalent groups after normalizing their members', () => {
+    expect(
+      normalizeGroupPatterns([
+        { group: ['@/components/**', '@/components/**'], message: 'blocked' },
+        { group: ['@/components/**'], message: 'blocked' },
+      ]),
+    ).toEqual([{ group: ['@/components/**'], message: 'blocked' }]);
+  });
+
+  it('escapes positive and negated leading-hash patterns only', () => {
+    expect(
+      normalizeGroupPatterns([
+        { group: ['#/router/**', '!#/router/public/**', '@/router/**'], message: 'blocked' },
+      ]),
+    ).toEqual([
+      { group: ['\\#/router/**', '!\\#/router/public/**', '@/router/**'], message: 'blocked' },
+    ]);
+  });
+});
 
 describe('buildStructuralPatterns · layer aliases', () => {
   it('uses a layer alias only for the layer it targets', () => {

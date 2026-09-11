@@ -9,7 +9,7 @@ import type {
 } from './types';
 
 export const FRAMEWORK_EXTS: Record<Framework, string> = {
-  vue: 'js,ts,vue',
+  vue: 'js,jsx,ts,tsx,vue',
   react: 'js,jsx,ts,tsx',
   auto: 'js,jsx,ts,tsx,vue',
 };
@@ -402,4 +402,4 @@ export function selfOnlyReexportSelector(alias: string, target?: string): string
   return `ExportNamedDeclaration${attr}, ExportAllDeclaration${attr}`;
 }
 
-export { buildStructuralPatterns } from './structural';
+export { buildStructuralPatterns, normalizeGroupPatterns } from './structural';
