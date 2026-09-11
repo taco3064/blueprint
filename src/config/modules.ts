@@ -75,29 +75,31 @@ function assertAcyclicModules(names: string[], direct: Map<string, string[]>): v
   const path: string[] = [];
 
   const visit = (name: string): void => {
-    const cycleStart = active.get(name);
-
-    if (cycleStart !== undefined) {
-      throw new Error(
-        `architecture.modules dependency cycle: ${[...path.slice(cycleStart), name].join(' → ')}.`,
-      );
-    }
-
-    // Stryker disable next-line ConditionalExpression: removing this only revisits a proven DAG.
+    // Stryker disable next-line ConditionalExpression, BlockStatement: revisits a proven DAG.
     if (complete.has(name)) {
       return;
     }
 
+    complete.add(name);
     active.set(name, path.length);
     path.push(name);
 
     for (const dependency of direct.get(name)!) {
+      const cycleStart = active.get(dependency);
+
+      if (cycleStart !== undefined) {
+        throw new Error(
+          `architecture.modules dependency cycle: ${[
+            ...path.slice(cycleStart), dependency,
+          ].join(' → ')}.`,
+        );
+      }
+
       visit(dependency);
     }
 
     path.pop();
     active.delete(name);
-    complete.add(name);
   };
 
   for (const name of names) {

@@ -29,9 +29,23 @@ function restricted(code: string, filename: string, config = emitLint(blueprint(
     .filter((rule): rule is string => rule !== null);
 }
 
+function containerPatterns(config: ReturnType<typeof emitLint>, module = 'auth') {
+  const file = `src/${module}/*.{js,jsx,ts,tsx}`;
+
+  const entry = config.find((candidate) => candidate.files?.includes(file)
+    && candidate.rules?.['no-restricted-imports'] !== undefined);
+
+  const rule = entry?.rules?.['no-restricted-imports'] as
+    ['error' | 'warn', { patterns: { group: string[]; message?: string }[] }] | undefined;
+
+  return rule?.[1].patterns ?? [];
+}
+
 describe('emitLint · module-first topology', () => {
   it('emits one scoped file net for every declared module and shared layer', () => {
-    const files = emitLint(blueprint())
+    const config = emitLint(blueprint());
+
+    const files = config
       .flatMap((entry) => entry.files ?? [])
       .filter((file) => file.includes('/hooks/'));
 
@@ -41,6 +55,21 @@ describe('emitLint · module-first topology', () => {
       'src/auth/hooks/**/*.{js,jsx,ts,tsx}',
       'src/checkout/hooks/**/*.{js,jsx,ts,tsx}',
     ]);
+
+    expect(config.filter((entry) =>
+      entry.files?.includes('src/auth/*.{js,jsx,ts,tsx}')
+      && entry.rules?.['no-restricted-imports'] !== undefined)).toHaveLength(1);
+
+    const entryOnly = containerPatterns(config).find((pattern) =>
+      pattern.message?.includes('through its entry'));
+
+    expect(entryOnly?.group).toEqual([
+      '~app/auth/components/*/**',
+      '~app/auth/services/*/**',
+    ]);
+
+    expect(containerPatterns(config).some((pattern) =>
+      pattern.message?.includes('must not import fixtures'))).toBe(false);
   });
 
   it('fires an existing layer-flow rule inside a module and keeps its legal control green', () => {
@@ -97,6 +126,7 @@ describe('emitLint · module-first topology', () => {
 
     configured.architecture.layers[2].owns = [
       { package: 'axios', exempt: ['src/auth/index.tsx'] },
+      { package: 'lodash' },
       { global: 'fetch' },
     ];
 
@@ -104,11 +134,22 @@ describe('emitLint · module-first topology', () => {
 
     expect(restricted('import axios from "axios";', 'src/auth/index.tsx', config)).toEqual([]);
 
+    expect(restricted('import lodash from "lodash";', 'src/auth/index.tsx', config))
+      .toContain('no-restricted-imports');
+
     expect(restricted('import axios from "axios";', 'src/auth/shell.tsx', config))
       .toContain('no-restricted-imports');
 
     expect(restricted('import data from "~app/fixtures/data";', 'src/auth/index.tsx', config))
       .toContain('no-restricted-imports');
+
+    const fixtures = containerPatterns(config).find((pattern) =>
+      pattern.message?.includes('must not import fixtures'));
+
+    expect(fixtures?.group).toEqual([
+      '~app/fixtures',
+      '~app/fixtures/**',
+    ]);
 
     expect(restricted('fetch("/");', 'src/auth/index.tsx', config))
       .toContain('no-restricted-globals');

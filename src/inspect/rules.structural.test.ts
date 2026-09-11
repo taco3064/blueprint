@@ -210,10 +210,15 @@ describe('runRules · module-first source positions', () => {
     expect(bans.find((entry) => entry.layer === 'shop/views')?.selfOnly[0])
       .toMatchObject({ target: 'shop/services' });
 
-    expect(bans.find((entry) => entry.layer === 'auth (container)')).toMatchObject({
+    const authContainer = bans.find((entry) => entry.layer === 'auth (container)');
+
+    expect(authContainer).toMatchObject({
+      forbidden: [],
       packages: ['axios', 'react (useContext)'],
       globals: ['fetch'],
     });
+
+    expect(authContainer?.packagesNote).toContain('`packages` is not compared');
 
     expect(bans.find((entry) => entry.layer === 'shop (container)')).toMatchObject({
       packages: ['axios', 'react (useContext)'],
@@ -381,6 +386,28 @@ describe('runRules · module-first structural rules', () => {
     };
 
     expect(structural.find((rule) => rule.rule === 'no-restricted-globals')?.active).toBe(true);
+  });
+
+  it('withholds global enforcement when module-first declares no owned globals', async () => {
+    const moduleFirst: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        modules: [{ name: 'auth', does: 'identity application' }],
+        layers: [{ name: 'services', does: 'I/O' }],
+      },
+      rules: {},
+    };
+
+    const lines: string[] = [];
+
+    await runRules(repo(moduleFirst), { json: true, log: (line) => void lines.push(line) });
+
+    const { structural } = JSON.parse(lines.join('')) as {
+      structural: { rule: string; active: boolean }[];
+    };
+
+    expect(structural.find((rule) => rule.rule === 'no-restricted-globals')?.active).toBe(false);
   });
 });
 

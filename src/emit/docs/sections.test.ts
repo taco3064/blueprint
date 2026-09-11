@@ -49,6 +49,12 @@ describe('renderArchitecture', () => {
     expect(out).toContain('| `components` | UI | import services | `clsx` |');
     // services has no mustNot → em dash
     expect(out).toContain('| `services` | net | — | `axios` |');
+    expect(out).not.toContain('same-module');
+
+    const lines = out.split('\n');
+    const layers = lines.indexOf('### Layers');
+
+    expect(lines[layers - 1]).toBe('');
   });
 });
 
@@ -62,6 +68,7 @@ describe('renderUnit', () => {
     }));
 
     expect(out).toContain('## Unit shape');
+    expect(out).toContain('| Layer | Unit layout | Entry |');
     expect(out).toContain('| `resources` | `folder` | `main` |');
     expect(out).toContain('| `services` | `file` | — |');
   });
@@ -80,6 +87,15 @@ describe('renderUnit', () => {
     expect(out).toContain('| `shop` | commerce | `auth` |');
     expect(out).toContain('Every module reuses the shared layer contract');
     expect(out).toContain('declaration order grants no permission');
+    expect(out).toContain('same-module same-layer imports');
+    expect(out).not.toContain('optional reserved `app` module');
+
+    const lines = out.split('\n');
+
+    const sharedContract = lines.findIndex((line) =>
+      line.startsWith('Every module reuses the shared layer contract'));
+
+    expect(lines[sharedContract - 1]).toBe('');
   });
 
   it('documents a declared app module as reserved router composition', () => {
@@ -104,6 +120,8 @@ describe('renderImportDiscipline', () => {
     // layer's siblings are reachable relatively, so "use a relative path" would
     // describe a legal import as the fix for an illegal one.
     expect(out).toContain('folder units may reach a sibling only through its entry');
+    expect(out).not.toContain('Module reachability');
+    expect(out).not.toContain('same-module same-layer imports');
 
     // No layer narrows its importers, so there is no selfOnly rule to state.
     // Stating one anyway describes a constraint this config does not carry.
@@ -142,6 +160,19 @@ describe('renderImportDiscipline', () => {
     architecture.layers[1].allowedImporters = [{ layer: 'components', selfOnly: true }];
 
     expect(renderImportDiscipline(architecture)).toContain('selfOnly');
+  });
+
+  it('states module reachability and the nested same-layer boundary', () => {
+    const out = renderImportDiscipline(arch({
+      modules: [
+        { name: 'auth', does: 'authentication' },
+        { name: 'shop', does: 'commerce', dependsOn: ['auth'] },
+      ],
+    }));
+
+    expect(out).toContain('Module reachability');
+    expect(out).toContain('declared `dependsOn` edges');
+    expect(out).toContain('No same-module same-layer imports via the alias');
   });
 
   it('states the rule when only one importer of a layer is selfOnly', () => {

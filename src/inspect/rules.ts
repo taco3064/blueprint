@@ -224,10 +224,6 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
     };
   });
 
-  if (resolved.topology !== 'module-first') {
-    return positioned;
-  }
-
   const containerPackages = packageRules.map((rule) => rule.imports?.length
     ? `${rule.package} (${rule.imports.join(', ')})`
     : rule.package);
