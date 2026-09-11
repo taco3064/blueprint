@@ -24,6 +24,18 @@ const moduleArchitecture: ArchitectureDef = {
   layers: [{ name: 'hooks', does: 'state' }],
 };
 
+function canonicalizeBlueprintRoots(blueprints: RepositoryBlueprint[], root: string): void {
+  const repositoryRoot = detect(blueprints[1].applicationRoot).repositoryRoot ?? root;
+
+  for (const blueprint of blueprints) {
+    const relativeRoot = path.relative(root, blueprint.applicationRoot);
+
+    blueprint.applicationRoot = relativeRoot
+      ? path.join(repositoryRoot, relativeRoot)
+      : repositoryRoot;
+  }
+}
+
 // The fixture writes two complete applications and commits their shared repository.
 // eslint-disable-next-line max-statements
 function workspace(
@@ -101,6 +113,8 @@ function workspace(
     '-c', 'user.email=blueprint@example.invalid',
     'commit', '--quiet', '-m', 'baseline',
   ], { cwd: root }).status).toBe(0);
+
+  canonicalizeBlueprintRoots(blueprints, root);
 
   return { root, architecture, blueprints };
 }
