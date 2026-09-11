@@ -67,9 +67,20 @@ export function analyzeDynamicImports(
 }
 
 function parseSource(source: string, filePath: string): ParsedSource {
+  const options = {
+    comment: true,
+    ecmaVersion: 'latest' as const,
+    filePath,
+    jsx: /\.[jt]sx$/.test(filePath),
+    loc: true,
+    range: true,
+    sourceType: 'module' as const,
+    tokens: true,
+  };
+
   return (filePath.endsWith('.vue')
-    ? vueParser.parseForESLint(source, { parser: tsParser })
-    : tsParser.parseForESLint(source)) as unknown as ParsedSource;
+    ? vueParser.parseForESLint(source, { ...options, parser: tsParser })
+    : tsParser.parseForESLint(source, options)) as unknown as ParsedSource;
 }
 
 function walk(
