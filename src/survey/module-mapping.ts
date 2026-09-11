@@ -239,7 +239,7 @@ export function destinationCollisions(
     const identity = normalizedPath(existing);
 
     if (destinations.has(identity) && !movingSources.has(identity)) {
-      destinations.get(identity)?.add(existing);
+      destinations.get(identity)!.add(existing);
     }
   }
 
