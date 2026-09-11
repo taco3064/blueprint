@@ -30,6 +30,22 @@ describe('analyzeDynamicImports', () => {
   });
 
   it.each([
+    [
+      'JSX',
+      'Component.jsx',
+      'const View = ({ value }) => <div>{value}</div>; import("~app/hooks/useView")',
+    ],
+    [
+      'TSX',
+      'Component.tsx',
+      'const View = (value: string) => <div>{value}</div>; import("~app/hooks/useView")',
+    ],
+  ])('resolves a dynamic import beside actual %s syntax', (_label, filePath, source) => {
+    expect(analyzeDynamicImports(source, filePath))
+      .toEqual({ specifiers: ['~app/hooks/useView'], unknown: 0 });
+  });
+
+  it.each([
     ['ordinary script', '<script lang="ts">const p = "~app/hooks"; import(`${p}/x`)</script>'],
     ['script setup', '<script setup lang="ts">const p = "~app/hooks"; import(p + "/x")</script>'],
     [
