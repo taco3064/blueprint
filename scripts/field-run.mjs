@@ -32,7 +32,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { verifyCandidate } from './field-candidate.mjs';
+import { resolveCandidate } from './field-candidate.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const AGENT_TIMEOUT_MS = 45 * 60 * 1000;
@@ -426,12 +426,12 @@ async function main() {
   let candidateSource;
 
   if (args.candidate) {
-    const candidate = verifyCandidate(args.candidate);
+    const candidate = resolveCandidate(args.candidate);
 
     tarball = candidate.tarball;
     tree = candidate.manifest.headSha;
     packedVersion = candidate.manifest.version;
-    candidateSource = candidate.manifest.workflowUrl ?? args.candidate;
+    candidateSource = candidate.artifactUrl;
     console.log(`▸ using exact main candidate ${tree} from ${candidateSource}`);
   } else {
     console.log('▸ diagnostic mode: building and packing the local tree (not release evidence)');

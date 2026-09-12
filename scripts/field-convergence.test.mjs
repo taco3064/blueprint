@@ -7,9 +7,9 @@ import {
   parseEvidenceMarker,
   releaseBlockerCount,
   renderEvidence,
-  validateCandidateRun,
   validateReportUrl,
 } from './field-convergence.mjs';
+import { validateCandidateRun } from './field-candidate.mjs';
 import { validateReleaseEvidence } from './release-field-gate.mjs';
 
 const sha = 'a'.repeat(40);
@@ -25,7 +25,12 @@ const evidence = {
   reportUrl: 'https://example.test/report',
 };
 
-const candidate = { version: '4.0.0', sha256: 'b'.repeat(64), workflowUrl: 'https://github.com/taco3064/blueprint/actions/runs/1' };
+const candidate = {
+  version: '4.0.0',
+  sha256: 'b'.repeat(64),
+  workflowUrl: 'https://github.com/taco3064/blueprint/actions/runs/1',
+  artifactUrl: 'https://github.com/taco3064/blueprint/actions/runs/1/artifacts/7',
+};
 
 describe('field convergence authority', () => {
   it('allows only a complete blocker-free full run to succeed', () => {
@@ -73,6 +78,7 @@ describe('field convergence authority', () => {
     const body = renderEvidence(evidence, candidate);
 
     expect(body).toContain(`candidate SHA: \`${sha}\``);
+    expect(body).toContain(`candidate artifact: ${candidate.artifactUrl}`);
     expect(body).toContain('repair PRs: #464');
 
     expect(parseEvidenceMarker(body)).toEqual({
