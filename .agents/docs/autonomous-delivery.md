@@ -16,6 +16,16 @@ A discovered existing problem belongs in the current ticket when it shares the r
 
 Otherwise leave it unchanged and record it once as an observation. Do not create follow-up tickets unless the owner asks. A nearby file or interesting defect is not scope by itself.
 
+## Write authority
+
+Default to read-only. Discussion, investigation, audit, review, shape, and acceptance do not authorize repository mutation unless the current request explicitly names a matching write.
+
+Match every mutation to that request. Permission to create or update an issue or comment permits only that issue/comment mutation. Permission to post a review permits only the review mutation. Neither permits branches, repository files, blobs, trees, commits, or deletions.
+
+Repository-content writes require explicit implementation or delivery authority. Every such write must target a resolved non-default branch and flow through a pull request. Never omit the branch, target `main`, or let a repository API choose its default. This applies equally to file, blob, tree, commit, ref, and branch-writing tools.
+
+When the requested write surface and the selected operation differ, stop before the call. Incidental convenience is not authority.
+
 ## Evidence
 
 Prefer current implementation, tests, generated output, project guidance, and history over summaries or names. Distinguish observed facts from inference. An empty search proves only that the search found nothing.
@@ -30,6 +40,8 @@ Git branches, commits, tests, and pull requests are the delivery record. Reuse e
 
 Do not create a parallel protocol state machine in issue comments. Fingerprints, hashes of requirement prose, per-stage audit comments, retry counters, movement counters, and recovery ledgers require an explicit external consumer and owner approval.
 
+A release-convergence ticket is a human-readable ledger of candidate SHAs, scenarios, findings, repair PRs, and replays. The dedicated exact-commit field status is the machine state consumed by release; the linked ticket comment is its evidence, not a second release gate.
+
 ## Long-running external work
 
 Treat a remote build, survey, deployment, or other durable job as asynchronous work rather than a reason to keep an interactive turn open. Record its provider, run identifier, target ref and commit, expected artifact, and authoritative timeout. A later session must be able to recover from those remote facts without the original process or local workspace.
@@ -40,7 +52,7 @@ On resume, verify that the job measured the intended commit and scope before usi
 
 ## Progress and verification
 
-Use focused checks while iterating and the full relevant repository gates before acceptance. Inspect generated or user-visible artifacts directly when changed. Add regression coverage for behavior, not wording or implementation trivia.
+Use focused checks while iterating. Husky is the minimum outgoing floor; the pull request's clean-environment CI is authoritative for full deterministic and changed-code mutation verification of the exact current candidate. Before acceptance, prove that preflight, CI, and mutation evidence all bind the current PR head and base lineage. Inspect generated or user-visible artifacts directly when changed. Add regression coverage for behavior, not wording or implementation trivia.
 
 Continue after ordinary progress without waiting for confirmation. If the same failure survives two meaningfully different fixes, stop patching the symptom: reduce the case, revisit the model, inspect history, or request the one missing decision.
 

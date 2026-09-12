@@ -1,0 +1,60 @@
+name: PR conflict preflight
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  mergeability:
+    name: Mergeability (trusted preflight)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout trusted base implementation
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+
+      - name: Fetch untrusted head as data only
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: git fetch --no-tags origin "refs/pull/$PR_NUMBER/head"
+
+      - name: Check clean integration before any install
+        id: inspect
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node scripts/ci-preflight.mjs \
+            --event pull_request \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --output preflight.json
+
+      - name: Publish preflight evidence
+        if: always()
+        run: |
+          echo '## PR mergeability preflight' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat preflight.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: trusted-pr-preflight-${{ github.run_id }}
+          path: preflight.json
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Stop conflicted candidate
+        if: steps.inspect.outcome != 'success'
+        run: exit 1

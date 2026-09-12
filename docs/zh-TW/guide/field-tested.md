@@ -14,6 +14,7 @@
 - **一致性測試套件** —— 每一則實地回饋的情境都被固化成一個 fixture repo，用 DSL 現搭、走 CLI 自己的分派流程，**而且用的是本 repo 開發依賴裡那份真正的 ESLint**。<br>
   這正是上面那個 e2e 套件當不了的一層：`impact` 與合併存活檢查，只有在真的 ESLint 解析真的 config 時才有意義，所以它們是在這裡被驗的。<br>
   真實導入測試找到的新情境，會連同修正一起變成這裡的 fixture。
+- **由候選版本驅動的 PR CI** —— 在安裝任何依賴之前，純 Git preflight 先記錄精確的 head、base head、merge-base 與整合 tree；無法乾淨整合就停在這裡。通過後，Linux／Windows、相容性、決定性拓樸 replay 與 changed-code mutation 會針對同一個凍結候選版本分流執行。
 - **Linux 與 Windows，兩邊都要回報** —— CI 在 `ubuntu-latest` 與 `windows-latest` 上各跑一次完整檢核，任一邊失敗都不准被另一邊蓋掉。<br>
   這個工具會去讀寫別人的 repo，為此帶了好幾條專門處理 Windows 的分支；在 posix 上那些分支等同空操作，所以它們的行為以前從來沒被實際觀察過。<br>
   另有一條獨立的流程：用當前版本的 Node 建置，再把建置產物拿到 `18.18.0` 上執行 —— `engines` 宣告的下限是被跑出來的，不是宣稱的。
@@ -25,13 +26,13 @@
   CI 建置後跑一次，實際發佈的那個 job 再跑一次，因為 npm 收到的產物是那個 job 產出來的。
 - **每週的地形檢查** —— 用最新的上游 `create-vite` 與 `create-next-app` 範本實際建專案跑導入，範本長相漂移時自動開 issue。<br>
   刻意排除在 PR 檢核之外：它依賴網路，而且變數在上游。
-- **真實導入測試** —— 讓真正的 agent CLI 帶著真實 repo 走過 `init` → `inspect` → `impact` → `doctor`，全程無人介入，最後用真的 doctor 驗收。<br>
+- **真實導入測試** —— main CI 全綠後會產生一份綁定精確完整 commit SHA、可下載的 `npm pack` 候選套件。真正的 agent CLI 使用這份套件，帶著真實 repo 走過 `init` → `inspect` → `impact` → `doctor`，最後仍以真的 doctor 驗收。<br>
   它負責找**新的**情境 —— 已知的那些由上面那些套件顧著。<br>
-  逐項的來龍去脈是公開的，就在本 repo 已關閉的 [`field-run` issues](https://github.com/taco3064/blueprint/issues?q=is%3Aissue+label%3Afield-run)。
+  修復輪次與 affected replay 都留在同一張 release-convergence ticket；只有同一精確候選版本完整跑完一次必要矩陣，才可建立發佈要求的 commit status。
 
-**突變測試是 3.0.0 之後才有的**，它稽核的是測試套件本身 —— 問的不是「這行有沒有被測到」，而是「這行如果被改錯，斷言接不接得住」。<br>
+**Changed-code 突變測試是 3.0.0 之後才有的**，它稽核的是測試套件本身 —— 問的不是「這行有沒有被測到」，而是「這行如果被改錯，斷言接不接得住」。<br>
 測試套件因此大約翻倍，而其中大部分找出來的，都是「原始碼改錯了也會帶著全綠的測試出貨」的地方。<br>
-它是需要時手動跑，刻意不當成 gate：分數門檻會是一個每次改 code 就失效的數字，而這個專案的立場是不要一種沒人能安撫的紅燈。
+PR CI 會自動推導精確的 production 變更範圍、切分大型範圍，並且只接受已 killed 或有狹義等價證明的 mutant。聚合結果會提供可直接修復的位置，並保留完整 scope、report 與 log artifact；它是語意結果契約，不是分數競賽。
 
 ## 已驗證且通過
 

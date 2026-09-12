@@ -80,3 +80,5 @@ argv 有歧義、需要 shell 展開、有多個 ESLint legs，或帶 fix/cache/
 最後這一層存在的理由是：發佈的那個 job 會自己建一份 `dist/`，而 npm 收到的就是那一份；<br>
 它同時也是唯一看得到「缺陷躲在打包邊界之後」的一層，而那種狀態在每一項行程內測試裡都是通過的。<br>
 細節見[實測相容性](/zh-TW/guide/field-tested#這一頁背後有什麼)。
+
+發佈也要求精確 tag commit 上的 `blueprint/field-convergence` 成功證據。該 status 會連到同一張 release-convergence ticket 的 comment，證明相同完整 SHA、完整 live Agent 矩陣與零發佈 blocker；前一個 commit 或 affected repair replay 都不能授權後來的 tag。

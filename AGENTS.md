@@ -15,12 +15,14 @@ substitute first-principles reasoning for what it says.
 |---|---|
 | [`.agents/docs/autonomous-delivery.md`](./.agents/docs/autonomous-delivery.md) | **Trigger:** shaping, delivering, resuming, or accepting a GitHub ticket. The shared rules for autonomy, scope, evidence, durable state, progress, and final acceptance. |
 | [`.agents/docs/verification-layers.md`](./.agents/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring code that emits a document. What `src/conformance/` is for, the layer `npm run dist:verify` covers (the 0.1.1 symlink bug), and the byte baseline that belongs with an emitted-prose refactor. |
-| [`.agents/docs/mutation-testing.md`](./.agents/docs/mutation-testing.md) | **Trigger:** running or reading `npx stryker run`; judging a survivor; adding a test because a sweep called something untested. Survivor proofs as `// Stryker disable next-line` directives, why the full sweep is the authority, how to read both scores, and where the `StringLiteral` exclusion draws its boundary. |
-| [`.agents/docs/field-triage.md`](./.agents/docs/field-triage.md) | **Trigger:** running `npm run field:run`; triaging a `field-run` issue; writing or rewording any prose an adopting agent reads (playbook / CLI output / contract); cutting a release. Harness flags, the triage flow, the two questions before the wording — can the tool compute this, and how many other instances are there — and the release sequence, including the one step no workflow gate covers. |
+| [`.agents/docs/mutation-testing.md`](./.agents/docs/mutation-testing.md) | **Trigger:** reading automatic PR mutation evidence, judging a survivor, or adding a test because CI found weak coverage. Status adjudication and narrow equivalent-mutant proofs. |
+| [`.agents/docs/field-triage.md`](./.agents/docs/field-triage.md) | **Trigger:** running live field validation, triaging a field finding, changing Agent-facing prose, or cutting a release. Exact packed candidates, affected replay, full convergence, and exact-SHA release authority. |
 
 Repository workflows live under [`.agents/skills/`](./.agents/skills/). Use
 `audit-docs` when checking whether published guides, CLI help, the public API,
 translations, generated examples, and runtime output still describe the same product.
+The shared [write-authority interlock](./.agents/docs/autonomous-delivery.md#write-authority)
+applies before every GitHub or repository mutation.
 
 ## Module shape (enforced by convention, checked in review)
 
@@ -130,10 +132,13 @@ contradiction, and an adopter meets it before we do.
 - **Formatting is ESLint-driven** (`@stylistic/*`); there is no Prettier. Run
   `npm run lint` / `eslint . --fix`. Enforcement rules mirror the handbook
   stance: never `eslint-disable` to dodge a rule; fix the structure.
-- Verify a change with `lint` + `tsc` + `test` + `build`, and drive the CLI
-  end-to-end (`node dist/bin.js init|inspect`) for runtime changes.
-- Three layers sit past the unit tests, each because the one below it passes on a
-  real defect: the conformance suite, `npm run dist:verify`, and the live field
+- Use focused local checks while iterating and let Husky enforce the outgoing floor.
+  The PR's clean exact-candidate CI owns full lint, typecheck, test, build,
+  distribution, compatibility, deterministic transformation, and changed-code
+  mutation verification. Drive the CLI end-to-end for runtime changes.
+- Four layers sit past ordinary unit examples: conformance, relevant
+  `npm run field:transformation` replay in CI, `npm run dist:verify`, and live
+  Agent validation of the exact main candidate artifact. Each exists because the one below passes on a
   harness. See [`verification-layers.md`](./.agents/docs/verification-layers.md)
   and [`field-triage.md`](./.agents/docs/field-triage.md);
   [`mutation-testing.md`](./.agents/docs/mutation-testing.md) audits the suite

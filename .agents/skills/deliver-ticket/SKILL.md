@@ -13,8 +13,9 @@ The issue defines the outcome. The repository defines technical reality. Preserv
 
 1. Fetch the remote; read the issue, repository guidance, related history, branches, worktrees, and pull requests.
 2. Reuse an existing ticket branch or pull request. Otherwise branch from current `origin/main` with the ticket number in the branch name.
-3. Inspect `git status`; preserve unrelated work.
-4. Compare the issue with current code. Missing implementation detail is not a blocker. Apply the shared decide/ask rule if an essential product decision is missing.
+3. In every fresh or untrusted remote checkout, run `npm ci` before relying on repository-local tools or Husky.
+4. Confirm the checked-out base and inspect `git status`; preserve unrelated work.
+5. Compare the issue with current code. Missing implementation detail is not a blocker. Apply the shared decide/ask rule if an essential product decision is missing.
 
 ## Plan and execute
 
@@ -35,12 +36,14 @@ Do not wait for confirmation after ordinary progress. Do not post one issue comm
 
 When a remote job will outlive the useful interactive work, follow the shared long-running-work policy. Continue independent steps first; when its result becomes the next dependency, leave a self-contained resume prompt and end the turn. Do not poll merely to keep the turn alive.
 
-## Verify
+## Verify and open the candidate
 
-Use the shared verification and no-progress rules. Before acceptance:
+Use the shared verification and no-progress rules. Run focused checks locally, commit, push, and open or update the ticket's pull request so authoritative CI can inspect the exact candidate. Do not launch Stryker; mutation planning, execution, and aggregation belong to PR CI.
+
+Read preflight, deterministic CI, and mutation summaries and artifacts. Repair confirmed failures, run focused regression checks, push, and let CI verify the new exact candidate. Before acceptance:
 
 - every acceptance criterion maps to concrete code, output, or a passing test;
-- relevant lint, typecheck, test, build, generation, and conformance gates pass;
+- exact-current-head preflight, deterministic CI, and mutation aggregate pass;
 - changed user-visible or generated artifacts were inspected;
 - the complete diff contains no accidental scope expansion or unrelated edits.
 
@@ -54,10 +57,10 @@ For `CHANGES_REQUIRED`, reproduce each blocker, fix confirmed in-scope defects, 
 
 After `ACCEPTED`:
 
-1. commit and push without rewriting published history;
-2. open or update one pull request linked to the issue;
-3. summarize the outcome, important design choices, verification commands/results, and outside-scope observations;
-4. leave one concise issue update linking the pull request when useful;
+1. push any acceptance repair without rewriting published history and wait for exact-head CI;
+2. mark the single pull request review-ready;
+3. summarize the outcome, important design choices, verification evidence, and outside-scope observations;
+4. mutate an issue or comment only when the current request explicitly authorized that surface;
 5. report completion.
 
 Do not merge unless the owner explicitly requested autonomous merging and repository policy permits it. Do not close the issue before the requested merge or handoff boundary.

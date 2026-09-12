@@ -21,6 +21,7 @@ import/config cutover, source manifests, baseline fail-closed behavior, generate
 artifacts, adopter gates, and the semantic layer-first → module-first → layer-first
 round trip. It is not a production transformer and does not replace the live harness:
 collision naming, router classification, and layer placement remain Agent judgments.
+PR CI runs this replay alongside other deterministic jobs when the candidate can affect topology behavior. It verifies the frozen integration candidate and is not live field evidence.
 
 ## `npm run dist:verify` — the layer in-process tests cannot reach
 
@@ -32,6 +33,12 @@ The guard is why it exists: npm installs the bin as a symlink, and comparing
 `argv[1]` to the entry module without `realpathSync` makes the published CLI
 exit 0 having done nothing (the 0.1.1 bug) — **a state every in-process test
 passes.** Any change that could only fail after publishing belongs here.
+
+## Live field convergence — the Agent boundary
+
+After deterministic main CI passes, CI builds and retains one `npm pack` artifact bound to the full main SHA. Live Codex and Claude validation consumes that artifact; it does not rebuild an arbitrary checkout. Doctor and Inspect still run after the Agent as independent cross-checks.
+
+Affected replay may prove a repair, but only one complete required matrix against one exact candidate can write successful `blueprint/field-convergence` evidence. A later commit has no inherited authority.
 
 ## A byte baseline, when refactoring emitted prose
 

@@ -135,6 +135,42 @@ export function summarizeMutationReport(report) {
   };
 }
 
+export function unacceptableMutants(report) {
+  return Object.entries(report.files ?? {}).flatMap(([file, entry]) =>
+    (entry.mutants ?? [])
+      .filter((mutant) => !['Killed', 'Ignored'].includes(mutant.status))
+      .map((mutant) => ({
+        file,
+        line: mutant.location?.start?.line ?? null,
+        column: mutant.location?.start?.column ?? null,
+        mutator: mutant.mutatorName ?? 'unknown',
+        status: mutant.status,
+        original: sourceAt(entry.source ?? '', mutant.location),
+        replacement: mutant.replacement ?? null,
+        reason: mutant.statusReason ?? null,
+      })));
+}
+
+export function sourceAt(source, location) {
+  if (!location?.start || !location?.end) return null;
+
+  const lines = source.split('\n');
+  const startLine = location.start.line - 1;
+  const endLine = location.end.line - 1;
+
+  if (startLine < 0 || endLine >= lines.length) return null;
+
+  if (startLine === endLine) {
+    return lines[startLine].slice(location.start.column, location.end.column);
+  }
+
+  return [
+    lines[startLine].slice(location.start.column),
+    ...lines.slice(startLine + 1, endLine),
+    lines[endLine].slice(0, location.end.column),
+  ].join('\n');
+}
+
 function git(root, args) {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
 
