@@ -83,6 +83,35 @@ function eslintRoot(): string {
   return path.dirname(createRequire(import.meta.url).resolve('eslint/package.json'));
 }
 
+function npmCli(): string {
+  const executableDirectory = path.dirname(process.execPath);
+
+  const candidates = [
+    process.env.npm_execpath,
+    path.join(executableDirectory, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    path.join(executableDirectory, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  ];
+
+  const cli = candidates.find((candidate) => candidate && fs.existsSync(candidate));
+
+  if (!cli) {
+    throw new Error('Unable to locate the npm CLI for conformance testing.');
+  }
+
+  return cli;
+}
+
+function npmEnvironment(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  const key = Object.keys(process.env).find((name) => name.toLowerCase() === 'path') ?? 'PATH';
+  const bin = path.join(path.dirname(eslintRoot()), '.bin');
+
+  return {
+    ...process.env,
+    ...extra,
+    [key]: `${bin}${path.delimiter}${process.env[key] ?? ''}`,
+  };
+}
+
 function snapshot(root: string, relative = ''): Record<string, string> {
   const entries: Record<string, string> = {};
 
@@ -128,13 +157,12 @@ describe('doctor · architecture baseline × native eslint ledger', () => {
       devDependencies: { eslint: '^9' },
     }));
 
-    const npmCli = process.env.npm_execpath;
+    const npmExecutable = npmCli();
 
-    expect(npmCli).toBeTruthy();
-
-    const native = spawnSync(process.execPath, [npmCli as string, 'run', 'lint'], {
+    const native = spawnSync(process.execPath, [npmExecutable, 'run', 'lint'], {
       cwd: root,
       encoding: 'utf-8',
+      env: npmEnvironment(),
     });
 
     const doctor = await cli(root, ['doctor']);
@@ -162,14 +190,12 @@ describe('doctor · architecture baseline × native eslint ledger', () => {
       devDependencies: { eslint: '^9' },
     }));
 
-    const npmCli = process.env.npm_execpath;
+    const npmExecutable = npmCli();
 
-    expect(npmCli).toBeTruthy();
-
-    const native = spawnSync(process.execPath, [npmCli as string, 'run', 'lint'], {
+    const native = spawnSync(process.execPath, [npmExecutable, 'run', 'lint'], {
       cwd: root,
       encoding: 'utf-8',
-      env: { ...process.env, BP_LINT_TARGET: 'src' },
+      env: npmEnvironment({ BP_LINT_TARGET: 'src' }),
     });
 
     const doctor = await cli(root, ['doctor']);
@@ -200,13 +226,12 @@ describe('doctor · architecture baseline × native eslint ledger', () => {
       devDependencies: { eslint: '^9' },
     }));
 
-    const npmCli = process.env.npm_execpath;
+    const npmExecutable = npmCli();
 
-    expect(npmCli).toBeTruthy();
-
-    const native = spawnSync(process.execPath, [npmCli as string, 'run', 'lint'], {
+    const native = spawnSync(process.execPath, [npmExecutable, 'run', 'lint'], {
       cwd: root,
       encoding: 'utf-8',
+      env: npmEnvironment(),
     });
 
     const doctor = await cli(root, ['doctor']);
