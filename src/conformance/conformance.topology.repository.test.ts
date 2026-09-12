@@ -444,7 +444,8 @@ describe('init topology · 3.2 explicit MF checkpoint writes', () => {
     expect(phaseOne.output).toContain('all 2 Blueprint configs in the repository');
 
     expect(phaseOne.output).toContain(
-      '✓ write: apps/admin/blueprint.config.mjs (Blueprint 3.2 → 4.0 layer-first checkpoint)',
+      `✓ write: ${path.join('apps/admin/blueprint.config.mjs')} `
+      + '(Blueprint 3.2 → 4.0 layer-first checkpoint)',
     );
 
     expect(read(transform.web, 'blueprint-authoring.md')).toBeNull();
