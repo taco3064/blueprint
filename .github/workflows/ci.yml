@@ -2,42 +2,84 @@ name: CI
 
 on:
   pull_request:
-    branches:
-      - main
-  # main takes commits directly, so PR-only CI left it unverified on Linux
-  # until release time — where a macOS-only case-insensitive filename match
-  # failed the publish job instead of a test run.
+    branches: [main]
   push:
-    branches:
-      - main
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  preflight:
+    name: Mergeability preflight
+    runs-on: ubuntu-latest
+    outputs:
+      head_sha: ${{ steps.inspect.outputs.head_sha }}
+      base_head_sha: ${{ steps.inspect.outputs.base_head_sha }}
+      merge_base_sha: ${{ steps.inspect.outputs.merge_base_sha }}
+      integration_tree_sha: ${{ steps.inspect.outputs.integration_tree_sha }}
+      candidate_sha: ${{ steps.inspect.outputs.candidate_sha }}
+    steps:
+      - name: Checkout exact event candidate
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Establish integration candidate
+        id: inspect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: |
+          node scripts/ci-preflight.mjs \
+            --event "$EVENT_NAME" \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --candidate "$CANDIDATE_SHA" \
+            --output reports/ci/preflight.json
+
+      - name: Upload preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-preflight-${{ github.run_id }}
+          path: reports/ci/preflight.json
+          retention-days: 30
+          if-no-files-found: error
+
   ci:
     name: ${{ matrix.os }}
+    needs: preflight
     runs-on: ${{ matrix.os }}
-
     strategy:
-      # Both legs report, so one platform's failure does not hide the other's.
       fail-fast: false
       matrix:
-        # This tool reads and writes other people's repositories, and it carries
-        # explicit Windows branches to do it: `scan`, `ignored` and `impact` all
-        # normalise with `.split(path.sep).join('/')`, and the relative-escape rule
-        # splits on `[\\/]`. On posix `path.sep` IS `/`, so those branches are
-        # no-ops here and their Windows behaviour had never been observed. The
-        # note above about a macOS-only filename match is the same lesson from the
-        # other direction.
         os: [ubuntu-latest, windows-latest]
-
     steps:
-      - name: Checkout repository
+      - name: Checkout exact integration candidate
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.candidate_sha }}
+
+      - name: Verify candidate identity
+        shell: bash
+        env:
+          EXPECTED_TREE: ${{ needs.preflight.outputs.integration_tree_sha }}
+        run: test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
 
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
-          cache: 'npm'
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -49,121 +91,251 @@ jobs:
         run: npm run tsc
 
       - name: Run tests
-        run: npm run test
+        run: npm test
 
-      # The package entry is `dist/`, and nothing before this step touches it:
-      # lint and tsc read `src/`, and the tests import from `src/` too. So a
-      # broken rolldown config or a `.d.ts` that will not emit used to surface in
-      # release.yml — after the tag, on the job that publishes.
       - name: Build the package
         run: npm run build
 
-      # The suite drives the CLI in-process (`import { run } from '../cli'`), so
-      # the bundle, the shebang, the package entry points and the argv[1] guard
-      # were checked only by `field:run` and by hand. That guard is the 0.1.1
-      # bug: npm installs the bin as a symlink, and comparing argv[1] to the
-      # entry module without realpathSync makes the published CLI exit 0 having
-      # done nothing.
       - name: Verify the built artifact
         run: npm run dist:verify
 
-  # `engines` declares ^18.18.0 as the oldest Node an adopter may be on. The
-  # matrix above runs the .nvmrc version, so that floor was a claim read off the
-  # source — every Node API in `src/` predates 18 — rather than something a run
-  # had ever executed. Same "documented but never measured" shape this repo has
-  # been closing elsewhere, so it gets measured.
-  #
-  # The devDependencies cannot install on 18 (vitest needs ^20 || >=22), and they
-  # do not need to: what `engines` constrains is the ADOPTER's runtime. So the
-  # check is the built artifact on the floor — build on the current Node, then
-  # execute `dist/bin.js` and import the package entry on 18.18.0 exactly, not
-  # 18.x, because the floor is the version being claimed.
   engines-floor:
     name: node 18 (declared engines floor)
+    needs: preflight
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Setup Node for the build
-        uses: actions/setup-node@v7
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.candidate_sha }}
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build the package
-        run: npm run build
-
-      - name: Switch to the declared floor
-        uses: actions/setup-node@v7
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/setup-node@v7
         with:
           node-version: '18.18.0'
+      - run: node scripts/dist-verify.mjs
 
-      # Called directly rather than through `npm run`, so what runs the artifact
-      # is the floor's own node and nothing else is in the way.
-      - name: Run the artifact on it
-        run: node scripts/dist-verify.mjs
-
-  # `init` installs `eslint` unpinned, so an adopter resolves the newest major in
-  # `SUPPORTED_ESLINT_MAJORS` — a field run measured `^10.8.0` landing in the
-  # project's `package.json`. This repo's own devDependency is `^9.39.2`, so
-  # before this leg every suite and every job above ran 9, and the one version
-  # the tool actually hands people was the one version never executed. Same
-  # "declared but never measured" shape as the engines floor above, which is why
-  # it sits beside it.
-  #
-  # `npm run lint` is deliberately absent, and the reason is SCOPE — not that it
-  # would fail. What this leg promises is that the config blueprint EMITS loads
-  # under 10 and its rules survive there, and that is `npm test`: the conformance
-  # suite and `impact` both resolve a real config with a real ESLint. Whether THIS
-  # repo's own config is clean on a new major is a different question, and asking
-  # it here would tie the leg to the `@eslint/js` (`^9`) and
-  # `@stylistic/eslint-plugin` (`^5`) majors — a bump in either would then redden
-  # a job that says nothing about them. `build` and `dist:verify` never read
-  # eslint at all, so the legs above already cover them for 10.
-  #
-  # An earlier draft of this comment said that run was already red. It is not:
-  # `eslint .` under 10.8.0 passes this tree today. The claim came from the issue
-  # text and was never measured — which is precisely the failure class this leg
-  # exists to end, reproduced in the file adding it. Scope is the reason; a red
-  # that nobody had observed was never one.
   eslint-10:
     name: eslint 10 (the major init resolves to)
+    needs: preflight
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.candidate_sha }}
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
-          cache: 'npm'
+          cache: npm
+      - run: npm ci
+      - run: npm i -D eslint@10 --no-save
+      - run: node -e 'const v = require("eslint/package.json").version; if (!v.startsWith("10.")) process.exit(1)'
+      - run: npm test
 
-      - name: Install dependencies
-        run: npm ci
+  transformation:
+    name: Deterministic topology replay
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.candidate_sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: npm ci
+      - name: Run deterministic topology replay
+        run: npm run field:transformation > transformation.log 2>&1
+      - name: Upload replay log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: transformation-${{ github.run_id }}
+          path: transformation.log
+          retention-days: 30
+          if-no-files-found: error
 
-      # `--no-save` because what this leg swaps is the resolved tree, not the
-      # declared dependency: development stays on 9, and `package.json` staying
-      # put is what keeps the `npm ci` above reproducible. No `--legacy-peer-deps`
-      # is needed — every carrier's peer range admits 10, which `detect.test.ts`
-      # asserts off the installed manifests rather than from a list written here.
-      - name: Swap in the major an adopter gets
-        run: npm i -D eslint@10 --no-save
-
-      # A leg that silently ran 9 would be worse than no leg: it would report as
-      # coverage of a version nothing had executed, which is the failure this job
-      # exists to end. So the swap is asserted rather than assumed.
-      # Single-quoted for the shell on purpose: a double-quoted `node -e` body
-      # hands its backticks and `${}` to the shell instead of to node.
-      - name: Confirm the swap took
+  mutation-plan:
+    name: Mutation scope plan
+    if: github.event_name == 'pull_request'
+    needs: preflight
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.candidate_sha }}
+          fetch-depth: 0
+      - name: Fetch formal review checkpoints
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
-          node -e 'const v = require("eslint/package.json").version; if (!v.startsWith("10.")) { console.error("expected eslint 10, resolved " + v); process.exit(1); } console.log("eslint " + v);'
+          gh api --paginate --slurp "repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews" > reviews.json
+          REVIEWED="$(node --input-type=module -e "import { latestReviewedSha } from './scripts/mutation-ci.mjs'; import fs from 'node:fs'; process.stdout.write(latestReviewedSha(JSON.parse(fs.readFileSync('reviews.json', 'utf8')), process.env.PR_AUTHOR) ?? '')")"
+          if [ -n "$REVIEWED" ]; then
+            gh api "repos/${{ github.repository }}/commits/$REVIEWED/check-runs" > checkpoints.json
+          else
+            echo '{"check_runs":[]}' > checkpoints.json
+          fi
+      - name: Plan complete changed-production scope
+        id: plan
+        env:
+          BASE_SHA: ${{ needs.preflight.outputs.base_head_sha }}
+          HEAD_SHA: ${{ needs.preflight.outputs.head_sha }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          MATRIX="$(node scripts/mutation-ci.mjs plan \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --reviews reviews.json \
+            --checkpoints checkpoints.json \
+            --author "$PR_AUTHOR" \
+            --target-lines 100 \
+            --output reports/mutation-ci/manifest.json)"
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mutation-plan-${{ github.run_id }}
+          path: reports/mutation-ci/manifest.json
+          retention-days: 30
+          if-no-files-found: error
 
-      - name: Run tests
-        run: npm run test
+  mutation-shard:
+    name: Mutation shard ${{ matrix.shard }}
+    if: github.event_name == 'pull_request'
+    needs: [preflight, mutation-plan]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.mutation-plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.candidate_sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: mutation-plan-${{ github.run_id }}
+          path: reports/mutation-ci
+      - name: Run shard
+        run: |
+          node scripts/mutation-ci.mjs run-shard \
+            --manifest reports/mutation-ci/manifest.json \
+            --shard "${{ matrix.shard }}" \
+            --output "reports/mutation-ci/shard-${{ matrix.shard }}"
+      - name: Upload shard evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-shard-${{ matrix.shard }}-${{ github.run_id }}
+          path: reports/mutation-ci/shard-${{ matrix.shard }}
+          retention-days: 30
+          if-no-files-found: error
+
+  mutation-aggregate:
+    name: Mutation aggregate
+    if: always() && github.event_name == 'pull_request' && needs.mutation-plan.result == 'success'
+    needs: [preflight, mutation-plan, mutation-shard]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.candidate_sha }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: mutation-plan-${{ github.run_id }}
+          path: reports/mutation-ci
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: mutation-shard-*-${{ github.run_id }}
+          path: reports/mutation-ci/downloaded
+      - name: Aggregate exact scope
+        id: aggregate
+        continue-on-error: true
+        run: |
+          node scripts/mutation-ci.mjs aggregate \
+            --manifest reports/mutation-ci/manifest.json \
+            --shards reports/mutation-ci/downloaded \
+            --output reports/mutation-ci/aggregate.json \
+            --markdown reports/mutation-ci/summary.md
+      - name: Publish actionable summary
+        if: always()
+        run: cat reports/mutation-ci/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload aggregate evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-aggregate-${{ github.run_id }}
+          path: reports/mutation-ci
+          retention-days: 30
+          if-no-files-found: error
+      - name: Enforce mutation result
+        if: steps.aggregate.outcome != 'success'
+        run: exit 1
+
+  pr-gate:
+    name: PR verification
+    if: always() && github.event_name == 'pull_request'
+    needs: [preflight, ci, engines-floor, eslint-10, transformation, mutation-aggregate]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every verification branch
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node -e '
+            const needs = JSON.parse(process.env.RESULTS);
+            const failed = Object.entries(needs).filter(([, value]) => value.result !== "success");
+            if (failed.length) {
+              console.error(failed.map(([name, value]) => `${name}: ${value.result}`).join("\n"));
+              process.exit(1);
+            }
+          '
+
+  candidate:
+    name: Pack exact main candidate
+    if: always() && github.event_name == 'push'
+    needs: [preflight, ci, engines-floor, eslint-10, transformation]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require deterministic main gates
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node -e '
+            const needs = JSON.parse(process.env.RESULTS);
+            if (Object.values(needs).some((value) => value.result !== "success")) process.exit(1);
+          '
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.head_sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: npm ci
+      - run: npm run build && npm run dist:verify
+      - name: Pack candidate and manifest
+        env:
+          HEAD_SHA: ${{ needs.preflight.outputs.head_sha }}
+        run: node scripts/field-candidate.mjs pack --output candidate --head "$HEAD_SHA"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: blueprint-candidate-${{ needs.preflight.outputs.head_sha }}
+          path: candidate
+          retention-days: 30
+          if-no-files-found: error

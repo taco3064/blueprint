@@ -6,7 +6,9 @@ import {
   mergeRanges,
   mutationScopes,
   parseChangedRanges,
+  sourceAt,
   summarizeMutationReport,
+  unacceptableMutants,
 } from './mutation-smoke.mjs';
 
 describe('changed-code mutation scope', () => {
@@ -48,6 +50,55 @@ describe('changed-code mutation scope', () => {
         expect(mergeRanges(reversedWithDuplicates)).toEqual(mergeRanges(ranges));
       },
     ));
+  });
+});
+
+describe('mutation diagnostics', () => {
+  it('extracts original single-line and multiline forms from Stryker locations', () => {
+    const source = 'const value = one +\n  two;\n';
+
+    expect(sourceAt(source, {
+      start: { line: 1, column: 14 },
+      end: { line: 2, column: 5 },
+    })).toBe('one +\n  two');
+
+    expect(sourceAt(source, {
+      start: { line: 1, column: 6 },
+      end: { line: 1, column: 11 },
+    })).toBe('value');
+
+    expect(sourceAt(source, null)).toBeNull();
+  });
+
+  it('names each unacceptable mutant with source and runner details', () => {
+    const report = {
+      files: {
+        'src/a.ts': {
+          source: 'const answer = true;\n',
+          mutants: [{
+            status: 'Survived',
+            mutatorName: 'BooleanLiteral',
+            replacement: 'false',
+            statusReason: 'no rejecting assertion',
+            location: {
+              start: { line: 1, column: 15 },
+              end: { line: 1, column: 19 },
+            },
+          }],
+        },
+      },
+    };
+
+    expect(unacceptableMutants(report)).toEqual([{
+      file: 'src/a.ts',
+      line: 1,
+      column: 15,
+      mutator: 'BooleanLiteral',
+      status: 'Survived',
+      original: 'true',
+      replacement: 'false',
+      reason: 'no rejecting assertion',
+    }]);
   });
 });
 

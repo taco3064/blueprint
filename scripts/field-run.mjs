@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 /**
- * The field harness — automates the publish → adopt → collect-feedback loop
- * that used to be run by hand, four times per release.
+ * The field harness — runs live Agent adoption against a CI candidate or a
+ * clearly non-authoritative local diagnostic pack.
  *
  *   node scripts/field-run.mjs                      # new-project scenario, every available agent
  *   node scripts/field-run.mjs --repo ../miniapp    # + existing-repo scenario (cloned, untouched)
  *   node scripts/field-run.mjs --agents claude      # limit the agent matrix
  *   node scripts/field-run.mjs --dry                # prep repos + print commands, spawn nothing
  *   node scripts/field-run.mjs --no-issue           # keep the report local, file nothing
+ *   node scripts/field-run.mjs --candidate candidate/candidate.json
  *
- * What it does: builds and packs the LOCAL tree (no publish needed), stages
- * each scenario in a throwaway temp dir, installs the tarball, runs the
+ * What it does: verifies the supplied exact-main candidate, or builds a local
+ * diagnostic pack when none is supplied; stages each scenario in a throwaway
+ * temp dir, installs the tarball, runs the
  * adoption prompt through each agent CLI headlessly, then verifies with the
  * real doctor/inspect and collects the structured feedback file the prompt
  * asks the agent to write.
@@ -29,6 +31,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { verifyCandidate } from './field-candidate.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const AGENT_TIMEOUT_MS = 45 * 60 * 1000;
@@ -166,11 +170,12 @@ createRoot(document.getElementById('root')!).render(<App />)
 };
 
 function parseArgs(argv) {
-  const args = { agents: null, repo: null, dry: false, issue: true };
+  const args = { agents: null, repo: null, candidate: null, dry: false, issue: true };
 
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--agents') args.agents = argv[++i].split(',');
     else if (argv[i] === '--repo') args.repo = path.resolve(argv[++i]);
+    else if (argv[i] === '--candidate') args.candidate = path.resolve(argv[++i]);
     else if (argv[i] === '--dry') args.dry = true;
     else if (argv[i] === '--no-issue') args.issue = false;
     else throw new Error(`unknown flag: ${argv[i]}`);
@@ -414,34 +419,37 @@ async function main() {
 
   const scenarios = ['new', ...(args.repo ? ['repo'] : [])];
 
-  console.log('▸ building and packing the local tree (no publish involved)');
-  sh('npm run build', ROOT);
-
   const workRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-field-'));
+  let tarball;
+  let tree;
+  let packedVersion;
+  let candidateSource;
 
-  const packOut = execSync(`npm pack --pack-destination "${workRoot}"`, {
-    cwd: ROOT,
-    encoding: 'utf-8',
-  }).trim().split('\n').pop();
+  if (args.candidate) {
+    const candidate = verifyCandidate(args.candidate);
 
-  const tarball = path.join(workRoot, packOut);
+    tarball = candidate.tarball;
+    tree = candidate.manifest.headSha;
+    packedVersion = candidate.manifest.version;
+    candidateSource = candidate.manifest.workflowUrl ?? args.candidate;
+    console.log(`▸ using exact main candidate ${tree} from ${candidateSource}`);
+  } else {
+    console.log('▸ diagnostic mode: building and packing the local tree (not release evidence)');
+    sh('npm run build', ROOT);
 
-  // The honest identifier of what was tested: the commit, never the package
-  // version (that stays at the LAST release until changesets bump it) — and
-  // read HERE, at pack time. Agents run for half an hour; a fix committed
-  // mid-run must not be credited with this tarball (run #11 measured
-  // fc3b5b0's tarball but was titled f79d7cb — the report-time read).
-  const sha = execSync('git rev-parse --short HEAD', { cwd: ROOT, encoding: 'utf-8' }).trim();
-  const dirty = execSync('git status --porcelain', { cwd: ROOT, encoding: 'utf-8' }).trim() ? '*' : '';
-  const tree = `${sha}${dirty}`;
+    const packOut = execSync(`npm pack --pack-destination "${workRoot}"`, {
+      cwd: ROOT,
+      encoding: 'utf-8',
+    }).trim().split('\n').pop();
 
-  // Version read at pack time too — and never labeled "last published":
-  // between `changeset version` and the actual publish, package.json holds
-  // a version that is bumped but NOT released (run #16's header claimed
-  // "last published v2.0.0" while 2.0.0 existed only as a commit).
-  const packedVersion = JSON.parse(
-    fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'),
-  ).version;
+    const sha = execSync('git rev-parse HEAD', { cwd: ROOT, encoding: 'utf-8' }).trim();
+    const dirty = execSync('git status --porcelain', { cwd: ROOT, encoding: 'utf-8' }).trim() ? '*' : '';
+
+    tarball = path.join(workRoot, packOut);
+    tree = `${sha}${dirty}`;
+    packedVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8')).version;
+    candidateSource = 'local diagnostic pack';
+  }
 
   const runs = [];
 
@@ -527,7 +535,8 @@ async function main() {
   const report = [
     `# blueprint field run — ${new Date().toISOString()}`,
     '',
-    `tree: ${tree} (unreleased tree; tarball packed as v${packedVersion})`,
+    `tree: ${tree} (tarball packed as v${packedVersion})`,
+    `candidate source: ${candidateSource}`,
     `tarball: ${tarball}`,
     // The matrix a reader can see is the one that ran. Without this line, an agent the
     // default matrix dropped leaves no trace at all, and the report reads as though it

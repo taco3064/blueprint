@@ -101,3 +101,8 @@ because the publishing job produces its own `dist/`, and the artifact npm receiv
 that one; it is also the only layer that can see a defect living past the bundle
 boundary, which every in-process test passes. Details in
 [Field-Tested Setups](/guide/field-tested#what-backs-this-page).
+
+Publication also requires successful `blueprint/field-convergence` evidence on the
+exact tag commit. That status links to one release-convergence ticket comment proving
+the same full SHA, complete live Agent matrix, and zero release blockers. A previous
+commit or affected repair replay cannot authorize a later tag.

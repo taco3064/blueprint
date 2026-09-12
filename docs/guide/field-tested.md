@@ -26,6 +26,11 @@ went green on a defect it could not see:
   `impact` and the merge-survival check only mean anything when a real ESLint resolves a
   real config, so those are proven here. A scenario the field harness finds lands here
   as a fixture with its fix
+- **Candidate-driven PR CI** — a Git-only preflight records the exact head,
+  base head, merge-base, and integration tree before any install begins. A candidate
+  that cannot integrate stops there. After it succeeds, Linux/Windows, compatibility,
+  deterministic topology replay, and changed-code mutation run independently against
+  that frozen integration candidate
 - **Linux and Windows, both reporting** — CI runs the whole gate on
   `ubuntu-latest` *and* `windows-latest`, neither leg allowed to hide the other's
   failure. This tool reads and writes other people's repositories and carries explicit
@@ -50,18 +55,20 @@ went green on a defect it could not see:
 - **A weekly terrain run** — scaffolds the *latest* upstream `create-vite` and
   `create-next-app` templates and opens an issue when their shapes drift. Deliberately
   outside the PR gate: it is network-dependent and upstream-driven
-- **The live field harness** — a real agent CLI taking a real repo through `init` →
+- **The live field harness** — after successful main CI, one downloadable `npm pack`
+  candidate is bound to the exact full commit SHA. A real agent CLI takes real repos through `init` →
   `inspect` → `impact` → `doctor`, headlessly, verified with the real doctor. It hunts
-  *new* scenarios — the suites above guard the ones already known. The per-item
-  paper trail is public: this repo's
-  closed [`field-run` issues](https://github.com/taco3064/blueprint/issues?q=is%3Aissue+label%3Afield-run)
+  *new* scenarios — the suites above guard the ones already known. Repair rounds and
+  affected replays remain on one release-convergence ticket. Only one complete matrix
+  against one exact candidate can establish the commit status required for release
 
-**Mutation testing arrived after 3.0.0** and audits the suite itself — whether the
+**Changed-code mutation testing arrived after 3.0.0** and audits the suite itself — whether the
 assertions would catch a *wrong* line, not just an untested one. The suite roughly
 doubled under it, and most of that found places where a wrong edit to the source would
-have shipped with every test green. It is run on demand rather than as a gate, on
-purpose: a score threshold would be a number every source edit invalidates, and this
-project's stance is against a red nobody can appease.
+have shipped with every test green. PR CI automatically derives the exact changed
+production ranges, partitions large scopes, and accepts only killed or narrowly proven
+equivalent mutants. The aggregate publishes actionable locations and retains complete
+scope, report, and log artifacts; it is a semantic result contract, not a score target.
 
 ## Tested and green
 
