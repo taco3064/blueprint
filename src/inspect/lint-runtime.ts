@@ -100,15 +100,47 @@ function resolveLocalEslint(root: string): string | null {
   try {
     const require = createRequire(path.join(root, 'package.json'));
     const packageFile = require.resolve('eslint/package.json');
+    const packageRoot = fs.realpathSync(path.dirname(packageFile));
+    const declared = declaredEslintBin(packageFile);
+    const candidate = path.resolve(packageRoot, declared);
+    const executable = fs.realpathSync(candidate);
 
-    const manifest = JSON.parse(fs.readFileSync(packageFile, 'utf-8')) as {
-      bin: { eslint: string };
-    };
-
-    return path.resolve(path.dirname(packageFile), manifest.bin.eslint);
+    return inside(packageRoot, executable) && fs.statSync(executable).isFile()
+      ? executable
+      : null;
   } catch {
     return null;
   }
+}
+
+function declaredEslintBin(packageFile: string): string {
+  const manifest = JSON.parse(fs.readFileSync(packageFile, 'utf-8')) as {
+    name?: unknown;
+    bin?: unknown;
+  };
+
+  const bin = Object(manifest.bin) as Record<string, unknown>;
+  const declared = bin.eslint;
+
+  if (manifest.name !== 'eslint') {
+    throw new Error('resolved package is not eslint');
+  }
+
+  // Invalid values fail identically in path.resolve or the directory check below.
+  // Stryker disable next-line BlockStatement,ConditionalExpression,LogicalOperator
+  if (typeof declared !== 'string' || !declared) {
+    throw new Error('eslint package has no executable');
+  }
+
+  return declared;
+}
+
+function inside(root: string, target: string): boolean {
+  const relative = path.relative(root, target);
+
+  // Cross-volume path.relative output can only be exercised on Windows, not POSIX.
+  // Stryker disable next-line ConditionalExpression
+  return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
 }
 
 function safeArgs(args: string[]): { args: string[] } | { reason: string } {

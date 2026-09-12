@@ -183,4 +183,22 @@ describe('runLiveLint · resolution fallbacks', () => {
 
     expect(runLiveLint(root, ['eslint'], assessment).status).toBe('unverified');
   });
+
+  it.each([
+    { name: 'not-eslint', bin: { eslint: 'bin/eslint.js' } },
+    { name: 'eslint', bin: { eslint: '/tmp/eslint.js' } },
+  ])('rejects an untrusted project-local eslint manifest: %j', (manifest) => {
+    fs.unlinkSync(path.join(root, 'node_modules/eslint'));
+    fs.mkdirSync(path.join(root, 'node_modules/eslint/bin'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(root, 'node_modules/eslint/package.json'),
+      JSON.stringify(manifest),
+    );
+
+    fs.writeFileSync(path.join(root, 'node_modules/eslint/bin/eslint.js'), 'console.log("[]")');
+
+    expect(runLiveLint(root, ['eslint'], assessment).status).toBe('unverified');
+    expect(spawnSync).not.toHaveBeenCalled();
+  });
 });
