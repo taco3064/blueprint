@@ -19,8 +19,11 @@ substitute first-principles reasoning for what it says.
 | [`.agents/docs/field-triage.md`](./.agents/docs/field-triage.md) | **Trigger:** running live field validation, triaging a field finding, changing Agent-facing prose, or cutting a release. Exact packed candidates, affected replay, full convergence, and exact-SHA release authority. |
 
 Repository workflows live under [`.agents/skills/`](./.agents/skills/). Use
-`audit-docs` when checking whether published guides, CLI help, the public API,
-translations, generated examples, and runtime output still describe the same product.
+`shape-ticket` to shape and later review decision fidelity, `deliver-ticket` to
+produce the candidate, `accept-ticket` for independent exact-head acceptance,
+`field-validation` to choose affected replay or full convergence, and `audit-docs`
+when checking whether published guides, CLI help, the public API, translations,
+generated examples, and runtime output still describe the same product.
 The shared [write-authority interlock](./.agents/docs/autonomous-delivery.md#write-authority)
 applies before every GitHub or repository mutation.
 

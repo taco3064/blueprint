@@ -2,11 +2,7 @@
 
 **Trigger:** automatic PR mutation CI reports an unacceptable mutant, or an existing equivalent-mutant directive needs review.
 
-Changed-code mutation planning, lineage checks, sharding, execution, aggregation, logs, and durable artifacts belong to PR CI. Delivery and acceptance Agents do not launch Stryker. Read the aggregate summary first, then the referenced shard report and log when the failure is not already explained.
-
-The aggregate is authoritative only for the exact base, merge-base or reviewed checkpoint, head SHA, changed production ranges, and shard inventory it records. Changed-range post-image coordinates and Stryker execution both use the exact PR head; the frozen integration candidate belongs to deterministic compatibility CI. A shard refuses any checkout other than the manifest head, because a clean merge can shift a changed line without creating a conflict. Missing shards, range gaps or overlap, lineage uncertainty that did not fall back to the full PR scope, and evidence for an older head make the gate untrustworthy.
-
-A formal OWNER, MEMBER, or COLLABORATOR review may establish the reviewed checkpoint even when the connected repository workflow uses the PR author's GitHub identity. Identity separation is not the safety boundary: the reviewed commit must already have its own successful mutation aggregate, remain an ancestor of the new head, and retain the same PR merge-base lineage. If any proof is absent, CI measures the complete PR scope.
+Changed-code mutation planning, base and scope selection, budgeting, sharding, execution, retry, aggregation, logs, and durable artifacts belong to PR CI. Delivery and acceptance Agents do not launch or orchestrate Stryker. Consume the required exact-head mutation result; inspect its diagnostic artifact only when a reported finding needs interpretation or concrete contradictory evidence makes the result untrustworthy.
 
 ## Status meanings
 

@@ -1,6 +1,12 @@
 # Autonomous delivery policy
 
-This policy is shared by `shape-ticket`, `deliver-ticket`, and `accept-ticket`. It owns the decisions below; individual skills must link here rather than restate them.
+This policy is shared by `shape-ticket`, `deliver-ticket`, `accept-ticket`, and `field-validation`. It owns the decisions below; individual skills must link here rather than restate them.
+
+## Candidate lifecycle
+
+Shape reconstructs repository truth and keeps the complete decision model behind the concise ticket. Delivery iterates with focused checks, commits and pushes through repository hooks, and opens a draft pull request. Required PR CI is the deterministic authority for that exact head. Independent Acceptance then reviews the same candidate and evidence. Finally, Shape reviews the candidate against the original intent, decisions, tradeoffs, and scope boundaries before merge.
+
+An acceptance or Shaper review belongs only to the recorded PR head. Any later head makes both approvals stale; a repair returns the new candidate through required CI, Acceptance, and Shaper review. A draft pull request carries verification evidence. It is not a claim that delivery is complete.
 
 ## Decide, ask, or stop
 
@@ -40,6 +46,8 @@ Git branches, commits, tests, and pull requests are the delivery record. Reuse e
 
 Do not create a parallel protocol state machine in issue comments. Fingerprints, hashes of requirement prose, per-stage audit comments, retry counters, movement counters, and recovery ledgers require an explicit external consumer and owner approval.
 
+When material shaping decisions are intentionally omitted from a concise ticket, one owner-approved Shaper-context comment on that issue is the durable input for the later Shaper review. It records only context needed to distinguish intended tradeoffs and boundaries from delivery drift, and links existing durable discussion instead of copying it when possible. It is not a stage ledger or approval state.
+
 A release-convergence ticket is a human-readable ledger of candidate SHAs, scenarios, findings, repair PRs, and replays. The dedicated exact-commit field status is the machine state consumed by release; the linked ticket comment is its evidence, not a second release gate.
 
 ## Long-running external work
@@ -56,4 +64,4 @@ Use focused checks while iterating. Husky is the minimum outgoing floor; the pul
 
 Continue after ordinary progress without waiting for confirmation. If the same failure survives two meaningfully different fixes, stop patching the symptom: reduce the case, revisit the model, inspect history, or request the one missing decision.
 
-Independent acceptance happens once on the assembled change, not once per stage. A failed acceptance may receive at most two repair rounds before escalation.
+Independent acceptance happens once on each assembled exact-head candidate, not once per implementation stage. Consume green exact-head CI instead of rerunning it; add only focused probes that answer a concrete unresolved risk. After Acceptance, Shape performs the separate requirement-fidelity review. A failed acceptance may receive at most two repair rounds before escalation.

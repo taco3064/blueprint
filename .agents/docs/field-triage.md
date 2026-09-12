@@ -27,7 +27,7 @@ One release cycle uses one field-convergence ticket. Every round records:
 
 The ticket is linked evidence. The machine authority is the dedicated `blueprint/field-convergence` commit status on the exact candidate SHA.
 
-Use an affected replay only when the repaired blast radius is explicitly reviewable. Shared Agent-facing guidance, adoption workflow, and other changes whose effect cannot be narrowed require broader replay. A successful affected replay writes `pending`, never `success`; a failed replay writes `failure`. It proves a repair only and still owes the final matrix.
+Use the [`field-validation`](../skills/field-validation/SKILL.md) skill to select an affected replay or full convergence and the target roles. A successful affected replay writes `pending`, never `success`; a failed replay writes `failure`. It proves a repair only and still owes the final matrix.
 
 After all blocking findings are repaired, run the complete required matrix against one exact candidate. Only that full matrix may write success. Missing scenarios, skipped Agents, missing feedback, red mechanical gates, or an incomplete matrix fail convergence. A later Blueprint commit retains the old historical status but has no field authority of its own.
 
