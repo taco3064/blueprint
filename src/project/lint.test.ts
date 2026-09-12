@@ -229,6 +229,7 @@ describe('assessLintEntrypoint · live execution plan', () => {
     'eslint $FILES',
     'eslint src\\file.js',
     'eslint "unterminated',
+    'eslint # --no-error-on-unmatched-pattern src/components/clean.js',
   ])('does not manufacture argv for shell-dependent `%s`', (lint) => {
     const assessment = assessLintEntrypoint(pkg({ lint }));
 
@@ -239,6 +240,9 @@ describe('assessLintEntrypoint · live execution plan', () => {
   it('joins adjacent quoted and unquoted fragments without shell expansion', () => {
     expect(assessLintEntrypoint(pkg({ lint: 'eslint "src"/file.js' })).eslint?.args)
       .toEqual(['src/file.js']);
+
+    expect(assessLintEntrypoint(pkg({ lint: 'eslint "src/#fixture.js"' })).eslint?.args)
+      .toEqual(['src/#fixture.js']);
   });
 
   it('keeps unparseable delegated forwarding unverified', () => {

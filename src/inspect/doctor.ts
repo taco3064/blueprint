@@ -175,12 +175,12 @@ function staleContracts(root: string, blueprint: Blueprint): string[] {
  * Run `blueprint doctor` in `root`. Read-only. Answers the one question the
  * adoption prompt's acceptance clause asks — "is adoption actually finished?"
  * — as a checklist: config present, no leftover reference files, eslint wired
- * to emitLint, the normal lint entrypoint reaches eslint, the declared alias wired
- * to the toolchain, the emitted rules
- * still alive in the merged eslint config, and the architecture clean under
- * the baseline (its detail states the coverage, so a vacuous green is
- * visible). Exit 0 iff every check passes, so you can gate on it — a git
- * hook, CI, an agent's verify loop.
+ * to emitLint, the normal lint entrypoint reaches eslint, its safely replayable
+ * project-local ESLint leg passes live, the declared alias is wired to the
+ * toolchain, the emitted rules remain alive in the merged eslint config, the
+ * architecture is clean under the baseline (with visible coverage), and the
+ * lint suppressions ledger is current. Exit 0 iff no check fails, so you can
+ * gate on it — a git hook, CI, or an agent's verify loop.
  *
  * `ok` is "nothing failed", which the exit code follows. It is NOT "everything was
  * verified": a check that could not run rides on `ok: true` deliberately, so read
