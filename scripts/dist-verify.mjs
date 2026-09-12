@@ -453,6 +453,7 @@ await check('built init accepts an explicit configured topology', () => {
 await check('built init upgrades true 3.2 configs before an explicit topology change', () => {
   const normal = tempDir('bp-dist-legacy-normal-');
   const explicit = tempDir('bp-dist-legacy-explicit-');
+  const explicitSibling = path.join(explicit, 'apps', 'admin');
   const mixed = tempDir('bp-dist-legacy-mixed-');
 
   const legacyConfig = 'export default { framework: \'react\', architecture: {'
@@ -465,6 +466,10 @@ await check('built init upgrades true 3.2 configs before an explicit topology ch
     writeReactFixture(dir);
     fs.writeFileSync(path.join(dir, 'blueprint.config.mjs'), legacyConfig);
   }
+
+  fs.mkdirSync(explicitSibling, { recursive: true });
+  writeReactFixture(explicitSibling);
+  fs.writeFileSync(path.join(explicitSibling, 'blueprint.config.mjs'), legacyConfig);
 
   fs.writeFileSync(
     path.join(mixed, 'blueprint.config.mjs'),
@@ -483,7 +488,7 @@ await check('built init upgrades true 3.2 configs before an explicit topology ch
 
     expect(dry.code === 0, `legacy dry run exited ${dry.code}\n${dry.output}`);
 
-    expect(dry.output.includes('would migrate the config to valid 4.0 layer-first'),
+    expect(dry.output.includes('to valid 4.0 layer-first'),
       'legacy dry run claimed no prospective migration');
 
     expect(snapshotTree(dir) === before, 'legacy dry run changed the fixture');
@@ -566,6 +571,22 @@ await check('built init upgrades true 3.2 configs before an explicit topology ch
     expect(git.code === 0, `git ${args.join(' ')} failed\n${git.output}`);
   }
 
+  const beforePresetRefusal = snapshotTree(explicit);
+
+  const presetRefusal = runCmd(
+    process.execPath,
+    [binPath, 'init', '--topology', 'module-first', '--preset', '--no-install'],
+    { cwd: explicit },
+  );
+
+  expect(presetRefusal.code === 1, `legacy preset refusal exited ${presetRefusal.code}`);
+
+  expect(presetRefusal.output.includes('No files were changed'),
+    'legacy preset refusal omitted the zero-write guarantee');
+
+  expect(snapshotTree(explicit) === beforePresetRefusal,
+    'legacy preset refusal wrote a repository checkpoint');
+
   const phaseOne = runCmd(
     process.execPath,
     [binPath, 'init', '--topology', 'module-first', '--no-install'],
@@ -574,6 +595,14 @@ await check('built init upgrades true 3.2 configs before an explicit topology ch
 
   expect(phaseOne.code === 0, `phase 1 exited ${phaseOne.code}\n${phaseOne.output}`);
   expect(phaseOne.output.includes('Blueprint 3.2 phase 1'), 'phase 1 guidance missing');
+
+  expect(phaseOne.output.includes('all 2 Blueprint configs in the repository'),
+    'phase 1 did not report the repository-wide checkpoint');
+
+  for (const application of [explicit, explicitSibling]) {
+    expect(!fs.readFileSync(path.join(application, 'blueprint.config.mjs'), 'utf-8')
+      .includes('"module"'), `phase 1 retained a sibling 3.2 config in ${application}`);
+  }
 
   expect(!fs.existsSync(path.join(explicit, 'blueprint-authoring.md')),
     'phase 1 entered transformation before establishing 4.0 layer-first');

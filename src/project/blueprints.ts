@@ -1,7 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { migrateLegacyBlueprint, resolveArchitecture, validateBlueprint } from '../config';
+import {
+  isLegacyBlueprintMigration,
+  migrateLegacyBlueprint,
+  migratedConfigSource,
+  resolveArchitecture,
+  validateBlueprint,
+} from '../config';
 import type { ArchitectureDef, Blueprint } from '../config';
 import { CONFIG_FILE } from './detect';
 import { versionedModuleUrl } from './load';
@@ -10,6 +16,8 @@ export interface RepositoryBlueprint {
   applicationRoot: string;
   architecture: ArchitectureDef;
   blueprint: Blueprint;
+  legacyConfig?: boolean;
+  migratedConfigSource?: string | null;
   topology: 'layer-first' | 'module-first';
 }
 
@@ -28,13 +36,15 @@ export async function resolveRepositoryBlueprints(
   const files = findConfigFiles(repositoryRoot);
 
   return Promise.all(files.map(async (file) => {
-    const blueprint = await loadBlueprint(file, options);
+    const { blueprint, legacyConfig } = await loadBlueprint(file, options);
     const architecture = blueprint.architecture;
 
     return {
       applicationRoot: path.dirname(file),
       architecture,
       blueprint,
+      legacyConfig,
+      migratedConfigSource: legacyConfig ? migratedConfigSource(blueprint) : null,
       topology: resolveArchitecture(architecture).topology,
     };
   }));
@@ -79,7 +89,7 @@ function visit(root: string, files: string[], repositoryRoot: string): void {
 async function loadBlueprint(
   file: string,
   options: RepositoryBlueprintOptions,
-): Promise<Blueprint> {
+): Promise<{ blueprint: Blueprint; legacyConfig: boolean }> {
   try {
     const known = options.known?.find((entry) => path.resolve(entry.file) === path.resolve(file));
 
@@ -91,13 +101,18 @@ async function loadBlueprint(
       throw new Error('missing default export.');
     }
 
-    const blueprint = options.migrateLegacyConfig
-      ? migrateLegacyBlueprint(loaded).blueprint
-      : loaded;
+    const migration = options.migrateLegacyConfig
+      ? migrateLegacyBlueprint(loaded)
+      : null;
+
+    const blueprint = migration?.blueprint ?? loaded;
+
+    const legacyConfig = migration !== null
+      && (migration.migrated || isLegacyBlueprintMigration(loaded));
 
     validateBlueprint(blueprint);
 
-    return blueprint;
+    return { blueprint, legacyConfig };
   } catch (error) {
     throw new Error(`${path.relative(path.dirname(file), file)} at ${file}: ${(error as Error).message}`);
   }
