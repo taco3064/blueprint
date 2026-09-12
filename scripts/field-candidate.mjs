@@ -18,6 +18,22 @@ function packageJson(tarball) {
   return JSON.parse(execFileSync('tar', ['-xOf', tarball, 'package/package.json'], { encoding: 'utf8' }));
 }
 
+function npmCli() {
+  const executableDirectory = path.dirname(process.execPath);
+
+  const candidates = [
+    process.env.npm_execpath,
+    path.join(executableDirectory, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    path.join(executableDirectory, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  ];
+
+  const cli = candidates.find((candidate) => candidate && fs.existsSync(candidate));
+
+  if (!cli) throw new Error('Unable to locate the npm CLI for candidate packaging.');
+
+  return cli;
+}
+
 export function verifyCandidate(manifestFile) {
   const file = path.resolve(manifestFile);
   const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -56,7 +72,7 @@ export function packCandidate(root, output, expectedHead, environment = process.
 
   fs.mkdirSync(directory, { recursive: true });
 
-  const packed = JSON.parse(execFileSync('npm', ['pack', '--json', '--pack-destination', directory], {
+  const packed = JSON.parse(execFileSync(process.execPath, [npmCli(), 'pack', '--json', '--pack-destination', directory], {
     cwd: root,
     encoding: 'utf8',
   }))[0];
