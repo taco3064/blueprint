@@ -352,7 +352,8 @@ describe('merge caveats meet the agent at the point of need (batch 14)', () => {
 
     const playbook = read(dir, 'blueprint-authoring.md') ?? '';
 
-    expect(playbook).toContain('only a real run proves the config loads');
+    expect(playbook).toContain('doctor now runs a safely replayable terminal ESLint leg');
+    expect(playbook).toContain('the full command is still their proof');
     expect(playbook).toContain('build once too');
     expect(playbook).toContain('never as a compile');
   });

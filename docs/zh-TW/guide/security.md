@@ -35,10 +35,11 @@ Blueprint 會安裝已宣告的 parser 與靜態值求值工具，讓 `inspect`�
 
 ## 子行程：事先明列、可以跳過
 
-Blueprint 僅執行兩種外部指令，且執行前均事先明列：<br>
+Blueprint 僅執行三種有明確邊界的外部指令：<br>
 其一為 `init` 的依賴安裝（`npm install -D …`，列印於執行計畫中，可以 `--no-install` 跳過）；<br>
-其二為前述須明確啟用的 Agent 啟動。<br>
-除此之外不執行任何外部指令。
+其二為前述須明確啟用的 Agent；其三是 Doctor 對靜態可達 ESLint 最後一腿取得 live 證據。<br>
+Doctor 只解析專案宣告的本地 ESLint binary，透過 Node、且不用 shell 執行；不會執行 package script、`npx`、套件管理器，或前後其他 script segment。<br>
+argv 有歧義、需要 shell 展開、有多個 ESLint legs，或帶 fix/cache/output/suppression mutation 旗標時，該檢查會標為 unverified，不會執行。
 
 安裝這一步也是**刻意排在最後**：所有檔案寫入都排在它之前，<br>
 所以一次被中斷的執行留下的是「一棵完整的樹，只少了 `node_modules`」，而不是一套接到一半的工具鏈。<br>

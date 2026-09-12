@@ -1,4 +1,6 @@
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
@@ -23,6 +25,14 @@ const dirs: string[] = [];
 
 const repo = (spec: RepoSpec = {}): string => {
   const dir = makeRepo(spec);
+
+  fs.mkdirSync(path.join(dir, 'node_modules'));
+
+  fs.symlinkSync(
+    path.dirname(createRequire(import.meta.url).resolve('eslint/package.json')),
+    path.join(dir, 'node_modules/eslint'),
+    'junction',
+  );
 
   dirs.push(dir);
 
@@ -52,7 +62,11 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
   };
 
   const spec = (eslintConfig: string): RepoSpec => ({
-    packageJson: { ...react(), scripts: { lint: 'eslint .' } },
+    packageJson: {
+      ...react(),
+      scripts: { lint: 'eslint .' },
+      devDependencies: { eslint: '^9' },
+    },
     files: {
       'blueprint.config.mjs': configSource(selfOnly),
       'jsconfig.json': JSON.stringify({
@@ -77,7 +91,11 @@ describe('merge survival — wired means still alive (batch 6, real eslint)', ()
 
   it('verifies an EMPTY repo through synthetic probes — no skip, no blind spot', async () => {
     const bare = (eslintConfig: string): RepoSpec => ({
-      packageJson: react(),
+      packageJson: {
+        ...react(),
+        scripts: { lint: 'eslint .' },
+        devDependencies: { eslint: '^9' },
+      },
       files: {
         'blueprint.config.mjs': configSource(selfOnly),
         'jsconfig.json': JSON.stringify({

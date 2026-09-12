@@ -39,10 +39,14 @@ same architecture verdict. They run locally and add no network behavior to Bluep
 
 ## Child processes are declared and skippable
 
-Blueprint runs exactly two kinds of external command, both declared before they run:
-the dependency install (`npm install -D …`) during `init` — printed in the plan,
-skipped by `--no-install` — and the opt-in agent launch described above. Nothing else
-is executed.
+Blueprint runs three bounded kinds of external command: the dependency install
+(`npm install -D …`) during `init` — printed in the plan and skipped by
+`--no-install` — the opt-in agent launch described above, and Doctor's live evidence
+for a statically reachable ESLint leg. Doctor resolves only the project's declared
+local ESLint binary and invokes it through Node without a shell; it never runs the
+package script, `npx`, a package manager, or any preceding/following segment. Ambiguous
+argv, shell expansion, multiple ESLint legs, and fix/cache/output/suppression-mutation
+flags make that check unverified instead of executing them.
 
 The install is also **the last step, deliberately** — every filesystem effect lands
 above it, so what an interrupted run leaves behind is a complete tree minus

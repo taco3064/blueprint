@@ -36,6 +36,8 @@ import type { Coverage } from './coverage';
 import { hasErrors } from './report';
 import { outsideScanReach, scan } from './scan';
 import type { DoctorCheck, Finding } from './types';
+import { liveLintCheck } from './doctor-lint';
+import { runLiveLint } from './lint-runtime';
 import { wiringCheck } from './wiring';
 
 export interface DoctorOptions {
@@ -47,6 +49,8 @@ export interface DoctorOptions {
   loadModule?: (name: string, root: string) => Promise<unknown>;
   /** Load an existing blueprint.config (default dynamic import). */
   loadConfig?: ResolveOptions['loadConfig'];
+  /** @internal Execute the proven ESLint leg without a shell. */
+  runLint?: typeof runLiveLint;
 }
 
 export type { DoctorCheck } from './types';
@@ -276,12 +280,22 @@ async function doctorChecks(
     load: options.loadModule ?? loadProjectModule,
   });
 
+  const lintAssessment = assessLintEntrypoint(state.localPackage);
+
+  const lintDependencies = [...new Set(state.localPackage.dependencies
+    .concat(state.toolchainPackage.dependencies))];
+
+  const lintEvidence = lintAssessment.reachable
+    ? (options.runLint ?? runLiveLint)(root, lintDependencies, lintAssessment)
+    : runLiveLint(root, lintDependencies, lintAssessment);
+
   return {
     checks: [
       { label: 'blueprint.config.mjs present', ok: true },
       leftoversCheck(root, blueprint),
       eslintWiredCheck(state, eslintWired),
-      lintEntrypointCheck(state),
+      lintEntrypointCheck(lintAssessment),
+      liveLintCheck(lintEvidence, lintAssessment),
       aliasCheck(root, blueprint, state),
       wiring.check,
       architectureCheck(splitByBaseline(findings, recorded), coverage, blueprint),
@@ -332,9 +346,9 @@ function eslintWiredCheck(state: ProjectState, eslintWired: boolean): DoctorChec
   };
 }
 
-function lintEntrypointCheck(state: ProjectState): DoctorCheck {
-  const assessment = assessLintEntrypoint(state.localPackage);
-
+function lintEntrypointCheck(
+  assessment: ReturnType<typeof assessLintEntrypoint>,
+): DoctorCheck {
   return {
     label: 'normal lint entrypoint reaches eslint',
     ok: assessment.reachable,
