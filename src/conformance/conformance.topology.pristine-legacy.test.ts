@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 
 import { run } from '../cli';
+import { reactPreset } from '../presets';
 import { buildConfigSource } from '../project';
 import { makeRepo, read, rm } from './conformance';
 
@@ -64,10 +65,19 @@ function fixture(): { repository: string; web: string; admin: string } {
   root = repository;
   commit(repository);
 
-  const packageLink = path.join(repository, 'node_modules/@kekkai/blueprint');
+  const packageRoot = path.join(repository, 'node_modules/@kekkai/blueprint');
 
-  fs.mkdirSync(path.dirname(packageLink), { recursive: true });
-  fs.symlinkSync(process.cwd(), packageLink, 'dir');
+  fs.mkdirSync(packageRoot, { recursive: true });
+
+  fs.writeFileSync(
+    path.join(packageRoot, 'package.json'),
+    JSON.stringify({ type: 'module', exports: './index.mjs' }),
+  );
+
+  fs.writeFileSync(
+    path.join(packageRoot, 'index.mjs'),
+    `export const reactPreset = () => (${JSON.stringify(reactPreset({ name: 'web' }))});\n`,
+  );
 
   return {
     repository,
