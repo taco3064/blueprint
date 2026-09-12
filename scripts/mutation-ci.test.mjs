@@ -196,7 +196,7 @@ describe('mutation CI planning', () => {
     git('switch', '-q', 'main');
     git('merge', '--no-ff', '-qm', 'integration candidate', 'candidate');
 
-    expect(fs.readFileSync(path.join(root, 'src', 'rule.ts'), 'utf8').split('\n')[2])
+    expect(fs.readFileSync(path.join(root, 'src', 'rule.ts'), 'utf8').split(/\r?\n/)[2])
       .toBe('export const target = 2');
 
     expect(() => verifyMutationCheckout(root, manifest)).toThrow(/does not match plan head/);
