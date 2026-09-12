@@ -230,6 +230,9 @@ describe('assessLintEntrypoint · live execution plan', () => {
     'eslint src\\file.js',
     'eslint "unterminated',
     'eslint # --no-error-on-unmatched-pattern src/components/clean.js',
+    'eslint %BP_LINT_TARGET% --no-error-on-unmatched-pattern',
+    'eslint "%BP_LINT_TARGET%" --no-error-on-unmatched-pattern',
+    'eslint ^--fix src',
   ])('does not manufacture argv for shell-dependent `%s`', (lint) => {
     const assessment = assessLintEntrypoint(pkg({ lint }));
 
