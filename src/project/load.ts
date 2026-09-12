@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -19,3 +20,11 @@ export function unwrapModule<T>(module: unknown): T {
 
   return (wrapped.default ?? module) as T;
 }
+
+/* v8 ignore start -- real module resolution; tests exercise it through init conformance */
+export function versionedModuleUrl(file: string): string {
+  const modified = fs.statSync(file, { bigint: true }).mtimeNs;
+
+  return `${pathToFileURL(file).href}?modified=${modified}`;
+}
+/* v8 ignore stop */

@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 
-import { resolveArchitecture, validateBlueprint } from '../config';
+import { migrateLegacyBlueprint, resolveArchitecture, validateBlueprint } from '../config';
 import type { ArchitectureDef, Blueprint } from '../config';
 import { CONFIG_FILE } from './detect';
+import { versionedModuleUrl } from './load';
 
 export interface RepositoryBlueprint {
   applicationRoot: string;
@@ -16,6 +16,7 @@ export interface RepositoryBlueprint {
 export interface RepositoryBlueprintOptions {
   loadConfig?: (file: string) => Promise<Blueprint>;
   known?: { file: string; blueprint: Blueprint }[];
+  migrateLegacyConfig?: boolean;
 }
 
 const EXCLUDED_DIRECTORIES = new Set(['.git', 'node_modules']);
@@ -90,9 +91,13 @@ async function loadBlueprint(
       throw new Error('missing default export.');
     }
 
-    validateBlueprint(loaded);
+    const blueprint = options.migrateLegacyConfig
+      ? migrateLegacyBlueprint(loaded).blueprint
+      : loaded;
 
-    return loaded;
+    validateBlueprint(blueprint);
+
+    return blueprint;
   } catch (error) {
     throw new Error(`${path.relative(path.dirname(file), file)} at ${file}: ${(error as Error).message}`);
   }
@@ -100,5 +105,5 @@ async function loadBlueprint(
 
 /* v8 ignore start -- real dynamic import, tests inject a loader */
 const defaultLoadConfig = (file: string): Promise<Blueprint> =>
-  import(pathToFileURL(file).href).then((module) => module.default as Blueprint);
+  import(versionedModuleUrl(file)).then((module) => module.default as Blueprint);
 /* v8 ignore stop */

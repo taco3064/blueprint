@@ -1,11 +1,16 @@
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 import { nextPreset, reactPreset, vuePreset } from '../presets';
 import type { NextRouter } from '../presets';
-import { validateBlueprint } from '../config';
+import {
+  isLegacyBlueprintMigration,
+  migrateLegacyBlueprint,
+  migratedConfigSource,
+  validateBlueprint,
+} from '../config';
 import type { AgentTarget, Blueprint } from '../config';
 import { CONFIG_FILE } from './detect';
+import { versionedModuleUrl } from './load';
 import type { ProjectState } from './types';
 
 export interface ResolveOptions {
@@ -13,6 +18,7 @@ export interface ResolveOptions {
   framework?: 'vue' | 'react';
   /** Load an existing blueprint.config (default dynamic import). */
   loadConfig?: (file: string) => Promise<Blueprint>;
+  migrateLegacyConfig?: boolean;
   /**
    * Persist these contract targets into a scaffolded config (`init --agent`), or
    * the next plain init grows the dropped contract back. An existing config is
@@ -23,16 +29,16 @@ export interface ResolveOptions {
 
 /* v8 ignore start -- real dynamic import, not run in unit tests (loadConfig is injected) */
 const defaultLoadConfig = (file: string): Promise<Blueprint> =>
-  import(pathToFileURL(file).href).then((module) => module.default as Blueprint);
+  import(versionedModuleUrl(file)).then((module) => module.default as Blueprint);
 /* v8 ignore stop */
 
 export async function resolveBlueprint(
   root: string,
   state: ProjectState,
   options: ResolveOptions,
-): Promise<{ blueprint: Blueprint; configSource: string | null }> {
+): Promise<{ blueprint: Blueprint; configSource: string | null; legacyConfig: boolean }> {
   if (state.hasConfig) {
-    return { blueprint: await loadAuthored(root, options), configSource: null };
+    return loadAuthored(root, options);
   }
 
   const agents = options.scaffoldAgents;
@@ -63,32 +69,49 @@ export async function resolveBlueprint(
   return {
     blueprint,
     configSource: buildConfigSource(framework, state.projectName, agents),
+    legacyConfig: false,
   };
 }
 
-async function loadAuthored(root: string, options: ResolveOptions): Promise<Blueprint> {
+async function loadAuthored(
+  root: string,
+  options: ResolveOptions,
+): Promise<{ blueprint: Blueprint; configSource: string | null; legacyConfig: boolean }> {
   /* v8 ignore next -- the default falls back to a real import; tests inject loadConfig */
   const load = options.loadConfig ?? defaultLoadConfig;
-  const blueprint = await load(path.resolve(root, CONFIG_FILE));
+  const loaded = await load(path.resolve(root, CONFIG_FILE));
 
   try {
-    if (!blueprint) {
+    if (!loaded) {
       throw new Error('missing default export.');
     }
 
+    const migration = options.migrateLegacyConfig
+      ? migrateLegacyBlueprint(loaded)
+      : null;
+
+    const blueprint = migration?.blueprint ?? loaded;
+
+    const migrated = migration !== null
+      && (migration.migrated || isLegacyBlueprintMigration(loaded));
+
     validateBlueprint(blueprint);
+
+    return {
+      blueprint,
+      configSource: migrated ? migratedConfigSource(blueprint) : null,
+      legacyConfig: migrated,
+    };
   } catch (error) {
     throw new Error(`${CONFIG_FILE}: ${(error as Error).message}`);
   }
-
-  return blueprint;
 }
 
 function nextScaffold(
   next: { router: NextRouter; srcDir: boolean },
   name: string | undefined,
   agents: AgentTarget[] | undefined,
-): { blueprint: Blueprint; configSource: string } {
+): { blueprint: Blueprint; configSource: string; legacyConfig: false } {
   return {
     blueprint: nextPreset({
       ...(name ? { name } : {}),
@@ -96,6 +119,7 @@ function nextScaffold(
       ...(agents ? { emit: { agents } } : {}),
     }),
     configSource: buildNextConfigSource(next, name, agents),
+    legacyConfig: false,
   };
 }
 

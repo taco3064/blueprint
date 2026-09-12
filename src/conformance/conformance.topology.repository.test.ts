@@ -15,6 +15,17 @@ const moduleConfig = 'export default { framework: \'react\', architecture: {'
   + ' alias: \'~app\', modules: [{ name: \'auth\', does: \'auth\' }],'
   + ' layers: [{ name: \'hooks\', does: \'state\' }] } };\n';
 
+const legacyLayerConfig = 'export default { framework: \'react\', architecture: {'
+  + ' alias: \'~app\', module: { layout: \'folder\', entry: \'index\','
+  + ' private: [\'hooks\'] }, layers: [{ name: \'pages\', does: \'routes\' },'
+  + ' { name: \'components\', does: \'UI\', module: { layout: \'flat\','
+  + ' entry: \'component\' } }] } };\n';
+
+const mixedModuleConfig = 'export default { framework: \'react\', architecture: {'
+  + ' alias: \'~app\', modules: [{ name: \'auth\', does: \'authentication\' }],'
+  + ' module: { layout: \'folder\' }, layers: [{ name: \'hooks\', does: \'state\','
+  + ' module: { layout: \'flat\' } }] } };\n';
+
 interface Workspace {
   root: string;
   web: string;
@@ -310,19 +321,90 @@ describe('init topology · repository transformation and preset safety', () => {
 });
 
 describe('init topology · 3.2 compatibility', () => {
-  it('keeps a 3.2 layer config LF unless MF is explicitly requested', async () => {
-    const repair = workspace({ 'apps/web/blueprint.config.mjs': layerConfig });
+  it('rejects mixed 4.0 MF and retired fields instead of treating them as 3.2', async () => {
+    const mixed = workspace({ 'apps/web/blueprint.config.mjs': mixedModuleConfig });
+    const before = tree(mixed.root);
+    const result = await cli(mixed.web, ['init', '--no-install']);
+
+    expect(result.code).toBe(1);
+    expect(result.output).toContain('architecture.module is retired in Blueprint 4.0');
+    expect(result.output).not.toContain('transformation preflight');
+    expect(tree(mixed.root)).toEqual(before);
+  });
+
+  it.each([
+    ['normal', [], 'Blueprint 3.2 dry run'],
+    ['explicit MF', ['--topology', 'module-first'], 'Blueprint 3.2 phase 1 dry run'],
+  ])('keeps a %s legacy dry run prospective and byte-identical', async (
+    _label, target, heading,
+  ) => {
+    const dry = workspace({ 'apps/web/blueprint.config.mjs': legacyLayerConfig });
+    const before = tree(dry.root);
+    const result = await cli(dry.web, ['init', ...target, '--dry-run', '--no-install']);
+
+    expect(result.code, result.output).toBe(0);
+    expect(result.output).toContain(heading);
+    expect(result.output).toContain('would migrate the config to valid 4.0 layer-first');
+    expect(result.output).toContain('No files were changed');
+    expect(result.output).not.toContain('migrated the config');
+    expect(tree(dry.root)).toEqual(before);
+  });
+
+  it('recognizes sibling 3.2 configs as repository-wide LF during sequential upgrades',
+    async () => {
+      const monorepo = workspace({
+        'apps/web/blueprint.config.mjs': legacyLayerConfig,
+        'apps/admin/blueprint.config.mjs': legacyLayerConfig,
+      });
+
+      commit(monorepo.root);
+
+      const web = await cli(monorepo.web, ['init', '--no-install']);
+      const admin = await cli(monorepo.admin, ['init', '--no-install']);
+      const control = await cli(monorepo.web, ['init', '--no-install']);
+
+      expect(web.code, web.output).toBe(0);
+      expect(admin.code, admin.output).toBe(0);
+      expect(control.code, control.output).toBe(0);
+    });
+
+  it('migrates a true 3.2 config to valid 4.0 LF without topology movement', async () => {
+    const repair = workspace({ 'apps/web/blueprint.config.mjs': legacyLayerConfig });
 
     commit(repair.root);
 
     const repairResult = await cli(repair.web, ['init', '--no-install']);
+    const migrated = read(repair.web, 'blueprint.config.mjs') ?? '';
 
     expect(repairResult.code, repairResult.output).toBe(0);
     expect(repairResult.output).not.toContain('transformation');
-    expect(read(repair.web, 'blueprint.config.mjs')).toBe(layerConfig);
+    expect(repairResult.output).toContain('migrated to valid 4.0 layer-first');
+    expect(migrated).not.toContain('"module"');
+    expect(migrated).toContain('"layout": "folder"');
+    expect(migrated).toContain('"layout": "file"');
+    expect(migrated).toContain('"entry": "component"');
 
-    const transform = workspace({ 'apps/web/blueprint.config.mjs': layerConfig });
+    const positiveControl = await cli(repair.web, ['init', '--no-install']);
 
+    expect(positiveControl.code, positiveControl.output).toBe(0);
+  });
+
+  it('establishes and verifies 4.0 LF before a 3.2 explicit MF transformation', async () => {
+    const transform = workspace({ 'apps/web/blueprint.config.mjs': legacyLayerConfig });
+
+    commit(transform.root);
+
+    const phaseOne = await cli(transform.web, [
+      'init', '--topology', 'module-first', '--no-install',
+    ]);
+
+    expect(phaseOne.code, phaseOne.output).toBe(0);
+    expect(phaseOne.output).toContain('Blueprint 3.2 phase 1');
+    expect(read(transform.web, 'blueprint-authoring.md')).toBeNull();
+
+    const validLayerFirst = await cli(transform.web, ['init', '--no-install']);
+
+    expect(validLayerFirst.code, validLayerFirst.output).toBe(0);
     commit(transform.root);
 
     const transformResult = await cli(transform.web, [
@@ -331,7 +413,7 @@ describe('init topology · 3.2 compatibility', () => {
 
     expect(transformResult.code, transformResult.output).toBe(0);
 
-    expect(read(transform.web, 'blueprint-authoring.md')).toContain(
+    expect(read(transform.web, 'blueprint-authoring.md'), transformResult.output).toContain(
       'Phase 1 — prove the 4.0 layer-first state before movement',
     );
   });

@@ -47,10 +47,11 @@ describe('resolveBlueprint · scaffolding from a preset', () => {
   });
 
   it('leaves both out when the project offers neither', async () => {
-    const { blueprint } = await resolveBlueprint('/repo', state(), {});
+    const { blueprint, legacyConfig } = await resolveBlueprint('/repo', state(), {});
 
     expect(blueprint.name).toBeUndefined();
     expect(blueprint.emit?.agents).toBeUndefined();
+    expect(legacyConfig).toBe(false);
   });
 
   it('picks the preset the framework names, not whichever comes first', async () => {
@@ -102,10 +103,11 @@ describe('resolveBlueprint · the Next.js route tree', () => {
   });
 
   it('roots the layers at the repo root when the routes are not under src/', async () => {
-    const { blueprint } = await resolveBlueprint('/repo', state({ ...next }), {});
+    const { blueprint, legacyConfig } = await resolveBlueprint('/repo', state({ ...next }), {});
 
     expect(blueprint.architecture.sourceRoot).toBe('.');
     expect(blueprint.emit?.agents).toBeUndefined();
+    expect(legacyConfig).toBe(false);
   });
 });
 

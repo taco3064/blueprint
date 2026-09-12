@@ -244,7 +244,9 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
       '  architecture: {',
       '    alias: \'~app\',',
       '    additionalAliases: { \'~root\': \'.\' },',
-      '    layers: [{ name: \'pages\', does: \'routes\' }, { name: \'services\', does: \'I/O\' }],',
+      '    module: { layout: \'flat\', entry: \'index\', private: [\'hooks\'] },',
+      '    layers: [{ name: \'pages\', does: \'routes\', module: { layout: \'folder\' } },',
+      '      { name: \'services\', does: \'I/O\' }],',
       '  },',
       '});',
       '',
@@ -277,7 +279,16 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
 
   fs.writeFileSync(path.join(fixture, 'src', 'services', 'api.ts'), 'export const api = 1;\n');
 
+  const upgrade = runNpm(
+    ['exec', '--', 'blueprint', 'init', '--no-install'], { cwd: fixture },
+  );
+
   const result = runNpm(['exec', '--', 'blueprint', 'inspect'], { cwd: fixture });
+
+  expect(upgrade.code === 0, `installed legacy init exited ${upgrade.code}\n${upgrade.output}`);
+
+  expect(upgrade.output.includes('migrated to valid 4.0 layer-first'),
+    'installed defineBlueprint config did not enter legacy migration');
 
   expect(result.code === 1, `installed inspect exited ${result.code}, expected 1\n${result.output}`);
   expect(result.output.includes('canonical-alias'), 'installed inspect missed the alternate alias');
@@ -437,6 +448,162 @@ await check('built init accepts an explicit configured topology', () => {
   expect(result.code === 0, `same topology exited ${result.code}\n${result.output}`);
 
   return 'configured layer-first repaired';
+});
+
+await check('built init upgrades true 3.2 configs before an explicit topology change', () => {
+  const normal = tempDir('bp-dist-legacy-normal-');
+  const explicit = tempDir('bp-dist-legacy-explicit-');
+  const mixed = tempDir('bp-dist-legacy-mixed-');
+
+  const legacyConfig = 'export default { framework: \'react\', architecture: {'
+    + ' alias: \'~app\', module: { layout: \'folder\', entry: \'index\','
+    + ' private: [\'hooks\'] }, layers: [{ name: \'pages\', does: \'routes\' },'
+    + ' { name: \'components\', does: \'UI\', module: { layout: \'flat\','
+    + ' entry: \'component\' } }] } };\n';
+
+  for (const dir of [normal, explicit, mixed]) {
+    writeReactFixture(dir);
+    fs.writeFileSync(path.join(dir, 'blueprint.config.mjs'), legacyConfig);
+  }
+
+  fs.writeFileSync(
+    path.join(mixed, 'blueprint.config.mjs'),
+    legacyConfig.replace('alias: \'~app\',', 'alias: \'~app\', modules: [{ name: \'auth\', does: \'auth\' }],'),
+  );
+
+  for (const [dir, target] of [
+    [normal, []],
+    [explicit, ['--topology', 'module-first']],
+  ]) {
+    const before = snapshotTree(dir);
+
+    const dry = runCmd(
+      process.execPath, [binPath, 'init', ...target, '--dry-run', '--no-install'], { cwd: dir },
+    );
+
+    expect(dry.code === 0, `legacy dry run exited ${dry.code}\n${dry.output}`);
+
+    expect(dry.output.includes('would migrate the config to valid 4.0 layer-first'),
+      'legacy dry run claimed no prospective migration');
+
+    expect(snapshotTree(dir) === before, 'legacy dry run changed the fixture');
+  }
+
+  const mixedResult = runCmd(
+    process.execPath, [binPath, 'init', '--no-install'], { cwd: mixed },
+  );
+
+  expect(mixedResult.code === 1, `mixed config exited ${mixedResult.code}`);
+
+  expect(mixedResult.output.includes('architecture.module is retired in Blueprint 4.0'),
+    'mixed config bypassed strict 4.0 validation');
+
+  expect(!mixedResult.output.includes('transformation preflight'),
+    'mixed config was misrouted into a topology transformation');
+
+  const normalUpgrade = runCmd(
+    process.execPath, [binPath, 'init', '--no-install'], { cwd: normal },
+  );
+
+  const normalControl = runCmd(
+    process.execPath, [binPath, 'init', '--no-install'], { cwd: normal },
+  );
+
+  expect(normalUpgrade.code === 0, `normal upgrade exited ${normalUpgrade.code}\n${normalUpgrade.output}`);
+  expect(normalControl.code === 0, `normal control exited ${normalControl.code}\n${normalControl.output}`);
+
+  expect(!fs.readFileSync(path.join(normal, 'blueprint.config.mjs'), 'utf-8').includes('"module"'),
+    'normal upgrade retained the retired module field');
+
+  const repository = tempDir('bp-dist-legacy-repository-');
+  const web = path.join(repository, 'apps', 'web');
+  const admin = path.join(repository, 'apps', 'admin');
+
+  fs.mkdirSync(web, { recursive: true });
+  fs.mkdirSync(admin, { recursive: true });
+
+  fs.writeFileSync(path.join(repository, 'package.json'),
+    JSON.stringify({ name: 'repository', private: true, workspaces: ['apps/*'] }));
+
+  fs.writeFileSync(path.join(repository, 'package-lock.json'), '{}');
+
+  for (const application of [web, admin]) {
+    writeReactFixture(application);
+    fs.writeFileSync(path.join(application, 'package-lock.json'), '{}');
+    fs.writeFileSync(path.join(application, 'blueprint.config.mjs'), legacyConfig);
+  }
+
+  for (const args of [
+    ['init', '--quiet'],
+    ['add', '.'],
+    ['-c', 'user.name=Blueprint Dist', '-c', 'user.email=dist@example.invalid',
+      'commit', '--quiet', '-m', 'legacy repository'],
+  ]) {
+    const git = runCmd('git', args, { cwd: repository });
+
+    expect(git.code === 0, `git ${args.join(' ')} failed\n${git.output}`);
+  }
+
+  const webUpgrade = runCmd(
+    process.execPath, [binPath, 'init', '--no-install'], { cwd: web },
+  );
+
+  const adminUpgrade = runCmd(
+    process.execPath, [binPath, 'init', '--no-install'], { cwd: admin },
+  );
+
+  expect(webUpgrade.code === 0, `sibling scan blocked web upgrade\n${webUpgrade.output}`);
+  expect(adminUpgrade.code === 0, `sibling scan blocked admin upgrade\n${adminUpgrade.output}`);
+
+  for (const args of [
+    ['init', '--quiet'],
+    ['add', '.'],
+    ['-c', 'user.name=Blueprint Dist', '-c', 'user.email=dist@example.invalid',
+      'commit', '--quiet', '-m', '3.2 baseline'],
+  ]) {
+    const git = runCmd('git', args, { cwd: explicit });
+
+    expect(git.code === 0, `git ${args.join(' ')} failed\n${git.output}`);
+  }
+
+  const phaseOne = runCmd(
+    process.execPath,
+    [binPath, 'init', '--topology', 'module-first', '--no-install'],
+    { cwd: explicit },
+  );
+
+  expect(phaseOne.code === 0, `phase 1 exited ${phaseOne.code}\n${phaseOne.output}`);
+  expect(phaseOne.output.includes('Blueprint 3.2 phase 1'), 'phase 1 guidance missing');
+
+  expect(!fs.existsSync(path.join(explicit, 'blueprint-authoring.md')),
+    'phase 1 entered transformation before establishing 4.0 layer-first');
+
+  const add = runCmd('git', ['add', '.'], { cwd: explicit });
+
+  const commit = runCmd(
+    'git',
+    ['-c', 'user.name=Blueprint Dist', '-c', 'user.email=dist@example.invalid',
+      'commit', '--quiet', '-m', '4.0 layer-first'],
+    { cwd: explicit },
+  );
+
+  expect(add.code === 0, `git add failed\n${add.output}`);
+  expect(commit.code === 0, `phase 1 commit failed\n${commit.output}`);
+
+  const transformation = runCmd(
+    process.execPath,
+    [binPath, 'init', '--topology', 'module-first', '--no-install'],
+    { cwd: explicit },
+  );
+
+  expect(transformation.code === 0,
+    `phase 2 exited ${transformation.code}\n${transformation.output}`);
+
+  expect(fs.readFileSync(path.join(explicit, 'blueprint-authoring.md'), 'utf-8')
+    .includes('Phase 1 — prove the 4.0 layer-first state before movement'),
+  'phase 2 did not open the guarded transformation playbook');
+
+  return 'normal LF positive control + explicit MF two-phase positive control';
 });
 
 await check('built init opens the guarded layer-first to module-first playbook', () => {

@@ -60,6 +60,8 @@ First adoption always names `--topology layer-first|module-first`; folder shape 
 evidence, never a topology declaration. In a monorepo, the first valid application config
 establishes one repository topology that every later sibling inherits. `--preset` is only a
 layer-first adoption method (`--topology layer-first --preset`), not inference or transformation.
+Blueprint 3.2 configs upgrade deterministically to 4.0 layer-first; an explicit module-first
+target checkpoints that valid LF state before the guarded transformation begins.
 
 ## 🔒 Security & trust
 

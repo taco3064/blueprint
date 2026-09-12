@@ -20,7 +20,7 @@ export {
   viteTsCoverage,
 } from './tsconfig';
 export type { TscArtifactLocation, ViteTsCoverage } from './tsconfig';
-export { loadProjectModule, unwrapModule } from './load';
+export { loadProjectModule, unwrapModule, versionedModuleUrl } from './load';
 export { buildConfigSource, buildNextConfigSource, resolveBlueprint } from './resolve';
 export type { ResolveOptions } from './resolve';
 export type { PackageManager, ProjectState } from './types';

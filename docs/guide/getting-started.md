@@ -24,6 +24,20 @@ ties). An existing eslint config is **never overwritten** — init prints a merg
 instead (only the config init generated itself, marked by its first-line banner, is
 regenerated in place). Re-running init is idempotent.
 
+### Upgrading a Blueprint 3.2 config
+
+Plain `blueprint init` rewrites the retired shared `architecture.module` and any
+`layers[].module` overrides as equivalent 4.0 layer fields. The repository remains
+layer-first and source files do not move.
+
+An explicit module-first target is two phases: the first run establishes the valid 4.0
+layer-first config and tells you to verify and commit it. Re-run the same command after
+that checkpoint to open the guarded layer-first → module-first transformation:
+
+```bash
+npx @kekkai/blueprint init --topology module-first
+```
+
 ## Brownfield — `blueprint inspect`
 
 ```bash

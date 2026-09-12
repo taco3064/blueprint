@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { reactPreset } from '../presets';
+import type { Blueprint } from '../config';
 import { resolveRepositoryBlueprints } from './blueprints';
 
 let root: string;
@@ -24,6 +25,20 @@ function config(relative: string): string {
   fs.writeFileSync(file, 'export default {};\n');
 
   return file;
+}
+
+function legacyBlueprint(): Blueprint {
+  return {
+    framework: 'react',
+    architecture: {
+      alias: '~app',
+      module: { layout: 'folder', entry: 'index' },
+      layers: [
+        { name: 'pages', does: 'routes' },
+        { name: 'components', does: 'UI', module: { layout: 'flat' } },
+      ],
+    },
+  } as Blueprint;
 }
 
 describe('resolveRepositoryBlueprints', () => {
@@ -144,5 +159,23 @@ describe('resolveRepositoryBlueprints', () => {
     await expect(resolveRepositoryBlueprints(root, {
       loadConfig: async () => undefined as never,
     })).rejects.toThrow('missing default export');
+  });
+});
+
+describe('resolveRepositoryBlueprints · legacy topology authority', () => {
+  it('normalizes pure 3.2 siblings only when init requests migration', async () => {
+    config('apps/web');
+
+    await expect(resolveRepositoryBlueprints(root, {
+      loadConfig: async () => legacyBlueprint(),
+    })).rejects.toThrow(/architecture\.module is retired/);
+
+    const [legacy] = await resolveRepositoryBlueprints(root, {
+      loadConfig: async () => legacyBlueprint(),
+      migrateLegacyConfig: true,
+    });
+
+    expect(legacy.topology).toBe('layer-first');
+    expect(legacy.architecture).not.toHaveProperty('module');
   });
 });
