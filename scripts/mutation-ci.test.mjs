@@ -14,6 +14,7 @@ import {
   renderSummary,
   selectMutationBase,
   verifyManifest,
+  verifyMutationCheckout,
 } from './mutation-ci.mjs';
 
 function repository() {
@@ -146,6 +147,59 @@ describe('mutation CI planning', () => {
         user: { login: 'reviewer', type: 'User' },
       }],
     })).toMatchObject({ authority: 'full-pr-fallback', mutationBaseSha: base });
+  });
+
+  it('executes head-coordinate ranges only on the exact PR head', () => {
+    const { root, git } = repository();
+
+    fs.writeFileSync(path.join(root, 'src', 'rule.ts'), [
+      'export const before = 1',
+      'export const target = 1',
+      'export const after = 1',
+      '',
+    ].join('\n'));
+
+    git('commit', '-qam', 'shared lines');
+
+    git('switch', '-qc', 'candidate');
+
+    fs.writeFileSync(path.join(root, 'src', 'rule.ts'), [
+      'export const before = 1',
+      'export const target = 2',
+      'export const after = 1',
+      '',
+    ].join('\n'));
+
+    git('commit', '-qam', 'change target');
+    const head = git('rev-parse', 'HEAD');
+
+    git('switch', '-q', 'main');
+
+    fs.writeFileSync(path.join(root, 'src', 'rule.ts'), [
+      'export const inserted = 0',
+      'export const before = 1',
+      'export const target = 1',
+      'export const after = 1',
+      '',
+    ].join('\n'));
+
+    git('commit', '-qam', 'insert above target');
+    const currentBase = git('rev-parse', 'HEAD');
+
+    const manifest = planMutation(root, { base: currentBase, head });
+
+    expect(manifest.ranges).toEqual({ 'src/rule.ts': [[2, 2]] });
+
+    git('switch', '-q', 'candidate');
+    expect(verifyMutationCheckout(root, manifest)).toBe(true);
+
+    git('switch', '-q', 'main');
+    git('merge', '--no-ff', '-qm', 'integration candidate', 'candidate');
+
+    expect(fs.readFileSync(path.join(root, 'src', 'rule.ts'), 'utf8').split('\n')[2])
+      .toBe('export const target = 2');
+
+    expect(() => verifyMutationCheckout(root, manifest)).toThrow(/does not match plan head/);
   });
 
   it('partitions every authoritative range exactly once', () => {

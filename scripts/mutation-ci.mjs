@@ -215,7 +215,19 @@ export function classifyShardResult(runnerExit, mutation) {
     : { status: 'failed', exitCode: 1 };
 }
 
+export function verifyMutationCheckout(root, manifest) {
+  const checkoutSha = resolveCommit(root, 'HEAD');
+
+  if (checkoutSha !== manifest.headSha) {
+    throw new Error(`Mutation checkout ${checkoutSha} does not match plan head ${manifest.headSha}.`);
+  }
+
+  return true;
+}
+
 function runShard(root, manifest, shardId, output) {
+  verifyMutationCheckout(root, manifest);
+
   const shard = manifest.shards.find((candidate) => candidate.id === shardId);
 
   if (!shard) throw new Error(`Unknown mutation shard: ${shardId}`);
