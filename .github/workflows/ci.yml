@@ -135,6 +135,23 @@ jobs:
       - run: node -e 'const v = require("eslint/package.json").version; if (!v.startsWith("10.")) process.exit(1)'
       - run: npm test
 
+  publication:
+    name: Editorial publication proof
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.candidate_sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: npm ci
+      - run: npm run editorial:check
+      - run: npm run docs:build
+      - run: npm run docs:check
+
   transformation:
     name: Deterministic topology replay
     needs: preflight
@@ -287,7 +304,7 @@ jobs:
   pr-gate:
     name: PR verification
     if: always() && github.event_name == 'pull_request'
-    needs: [preflight, ci, engines-floor, eslint-10, transformation, mutation-aggregate]
+    needs: [preflight, ci, engines-floor, eslint-10, publication, transformation, mutation-aggregate]
     runs-on: ubuntu-latest
     steps:
       - name: Require every verification branch
@@ -306,7 +323,7 @@ jobs:
   candidate:
     name: Pack exact main candidate
     if: always() && github.event_name == 'push'
-    needs: [preflight, ci, engines-floor, eslint-10, transformation]
+    needs: [preflight, ci, engines-floor, eslint-10, publication, transformation]
     runs-on: ubuntu-latest
     steps:
       - name: Require deterministic main gates

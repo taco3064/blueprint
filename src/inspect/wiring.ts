@@ -1,9 +1,9 @@
 import path from 'node:path';
 
-import { activeSetting, resolveArchitecture } from '../config';
+import { activeSetting, resolveArchitecture, resolveTestFiles } from '../config';
 import type { Blueprint } from '../config';
 
-import { resolveTestFiles, toArray } from '../emit/lint/patterns';
+import { toArray } from '../emit/lint/patterns';
 import { unwrapModule } from '../project';
 import { dropTestFiles, globToRegExp } from './filter';
 import type { DoctorCheck, ScanResult } from './types';
@@ -149,7 +149,7 @@ function pickProbes(
   const { architecture } = blueprint;
   const declared = toArray(architecture.layerFilesIgnore);
   const ignores = declared.map(globToRegExp);
-  const tests = resolveTestFiles(architecture.testFiles).map(globToRegExp);
+  const tests = resolveTestFiles(architecture.testFiles).architectureExemptions.map(globToRegExp);
 
   return probeSites(blueprint, scanResult, declared).flatMap(({
     layer, module, globs, hit,

@@ -26,4 +26,13 @@ export default defineConfig([
     },
     external,
   },
+  {
+    input: 'src/editorial/index.ts',
+    output: {
+      dir: 'dist',
+      format: 'esm',
+      entryFileNames: 'editorial.js',
+    },
+    external,
+  },
 ]);

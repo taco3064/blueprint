@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { run, version } from './cli';
+import { renderTestFilesEditorial } from '../editorial';
 
 describe('help & version flags', () => {
   it('prints usage and exits 0 on --help / -h', async () => {
@@ -127,16 +128,10 @@ describe('run · --help belongs to the command that has one', () => {
 });
 
 describe('per-command help · the exemption carries its condition', () => {
-  // `--help` is read before any run measures anything, so these two sentences are
-  // the whole of what an adopter knows about the exemption at that moment. The
-  // published pages carry the limit; a help text that drops it is the same promise
-  // on the channel `CLAUDE.md` calls the only guaranteed one.
   it.each([
-    ['inspect', 'are exempt, matching\nthe lint side — as far as the globs reach'],
-    ['inspect', 'a scanned file no declared glob\nmatches is inspected as ordinary source'],
-    ['deps', 'The exclusion holds as far as the globs reach'],
-    ['deps', 'glob matches is ordinary source on both sides, so its import counts'],
-  ])('%s --help states the limit: %s', async (command, fragment) => {
+    ['inspect', renderTestFilesEditorial('core', 'en')],
+    ['deps', renderTestFilesEditorial('deps', 'en')],
+  ])('%s --help publishes the shared semantic edition', async (command, fragment) => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     expect(await run([command, '--help'])).toBe(0);

@@ -1,5 +1,6 @@
 import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
+import { renderTestFilesEditorial } from '../editorial';
 
 import {
   DOC_ONLY_RULES,
@@ -11,7 +12,6 @@ import {
   unavailableGate,
   unreachedTestGlobs,
   selfOnlyReexportSelector,
-  resolveTestFiles,
 } from '../emit/lint/patterns';
 import type { GateSpec } from '../emit/lint/patterns';
 import {
@@ -74,12 +74,7 @@ export interface LayerBans {
    * here for selectors to copy, and a caveat has to be where the copy happens.
    */
   selfOnly: { target: string; selectors: string[]; jsLiteral: string[]; note: string }[];
-  /**
-   * The test-exemption globs the emitted entry carries alongside these bans. A
-   * combined entry rebuilt from `selectors` alone drops them silently and starts
-   * reaching the test files those globs reach (field issue #60) — carry them wherever
-   * the selectors land.
-   */
+  /** Test-file scope carried by the architecture test-file policy. */
   testExemptions: string[];
 }
 
@@ -220,7 +215,7 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
           note: SELF_ONLY_MESSAGE_NOTE,
         };
       }),
-      testExemptions: resolveTestFiles(architecture.testFiles),
+      testExemptions: resolved.testFiles.architectureExemptions,
     };
   });
 
@@ -235,7 +230,7 @@ function layerBans(blueprint: Blueprint): LayerBans[] {
     ...(containerPackages.length ? { packagesNote: PACKAGES_NOT_COMPARED.join(' ') } : {}),
     globals: globalRules.map((rule) => rule.global),
     selfOnly: [],
-    testExemptions: resolveTestFiles(architecture.testFiles),
+    testExemptions: resolved.testFiles.architectureExemptions,
   }));
 
   return [...positioned, ...containers];
@@ -433,9 +428,9 @@ export function renderRules(
 
               ...ban.jsLiteral.map((literal) => `      ${literal}`),
 
-              `      …and carry the exemption the emitted block has for the test files those globs reach: ignores: [${
+              `      …and carry its scope: ignores: [${
                 entry.testExemptions.map((glob) => `'${glob}'`).join(', ')
-              }] — without it your combined entry lints the test files those globs reach, which this ban never covered`,
+              }] — ${renderTestFilesEditorial('merge-scope', 'en', entry.testExemptions)}`,
             ]),
           ]),
         ]

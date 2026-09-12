@@ -37,7 +37,9 @@ npx @kekkai/blueprint survey --source-root apps/web/src
 - **同層資料夾實例中重複出現的直接子資料夾**，列出量測的父路徑、參與的同層實例與明確比例<br>
   —— 這只是證據，不會把專案分類為 feature/module 架構，也不提出架構建議
 - **資料夾之間的匯入關係矩陣**，依匯入次數由高至低排列 ——<br>
-  呈現設計意圖中的依賴方向，以及屬於債務的逆向依賴（矩陣含測試檔；`inspect` 會把 glob 掃得到的那些排除掉，所以 inspect 的數字會少掉這一段）
+  呈現設計意圖中的依賴方向，以及屬於債務的逆向依賴
+
+<!-- @include: @/publication/semantic/test-files/survey.zh-TW.md -->
 - **套件集中度** —— 作為 `owns`（套件歸屬）宣告的候選依據
 - **只出現在一個資料夾的具名匯入**，而它所屬的套件散在好幾個資料夾<br>
   —— 這是「單一具名匯入歸屬」（`owns: [{ package, imports: […] }]`）唯一能對照的證據。<br>

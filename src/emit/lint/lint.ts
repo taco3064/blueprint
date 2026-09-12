@@ -1,6 +1,6 @@
 import type { ESLint, Linter } from 'eslint';
 import { activeSetting, resolveArchitecture } from '../../config';
-import type { AliasRoot, Blueprint, ReadSetting } from '../../config';
+import type { AliasRoot, Blueprint, ReadSetting, ResolvedTestFiles } from '../../config';
 import { plugin } from '../../plugin';
 import {
   buildPackagePatterns,
@@ -9,7 +9,6 @@ import {
   deriveGlobalRules,
   METRIC_GATES,
   normalizeGroupPatterns,
-  resolveTestFiles,
   selfOnlyReexportSelector,
   STATEMENT_PADDING,
   toArray,
@@ -37,13 +36,13 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
   const { framework, architecture } = blueprint;
   const resolved = resolveArchitecture(architecture);
 
-  const { layerFilesIgnore, testFiles } = architecture;
+  const { layerFilesIgnore } = architecture;
 
   const severity: Severity = blueprint.emit?.lint?.severity ?? 'error';
 
   const aliases = resolved.aliases;
 
-  const testGlobs = resolveTestFiles(testFiles);
+  const { architectureExemptions: testGlobs } = resolved.testFiles;
 
   const layouts = Object.fromEntries(
     resolved.layers.map((layer) => [layer.name, layer.unit.layout]),
@@ -94,7 +93,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     ...containerConfigs,
     ...layerConfigs,
     escapeEntry,
-    ...ruleGateEntries(blueprint, testGlobs, options),
+    ...ruleGateEntries(blueprint, resolved.testFiles, options),
   ];
 }
 
@@ -211,7 +210,7 @@ function layerImportEntries(
 
 function ruleGateEntries(
   blueprint: Blueprint,
-  testGlobs: string[],
+  testPolicy: ResolvedTestFiles,
   options: EmitLintOptions,
 ): LintConfigEntry[] {
   const { framework, architecture, rules } = blueprint;
@@ -227,11 +226,14 @@ function ruleGateEntries(
   ];
 
   return [
-    ...sharedEntry(sharedRules(blueprint, options), { files: sharedFiles, testGlobs }, options),
+    ...sharedEntry(sharedRules(blueprint, options), {
+      files: sharedFiles,
+      testGlobs: testPolicy.architectureExemptions,
+    }, options),
     ...shapeEntry(blueprint, sharedFiles, options),
-    ...testFilenameEntry(rules, testGlobs),
-    ...typedefOnlyEntry(architecture, rules, testGlobs),
-    ...usePrefixEntry(blueprint, testGlobs),
+    ...testFilenameEntry(rules, testPolicy.testRuleFiles),
+    ...typedefOnlyEntry(architecture, rules, testPolicy.architectureExemptions),
+    ...usePrefixEntry(blueprint, testPolicy.architectureExemptions),
   ];
 }
 

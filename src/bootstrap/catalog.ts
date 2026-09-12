@@ -1,4 +1,5 @@
 import { DOC_ONLY_RULES, METRIC_GATES, PLUGIN_GATES } from '../emit/lint';
+import { renderTestFilesEditorial } from '../editorial';
 import type { ClaudeDirState } from '../project';
 import { renderSurvey } from '../survey';
 import type { SurveyResult } from '../survey';
@@ -24,8 +25,7 @@ export function renderSemantics(): string {
     + '`../` escapes are caught at any depth by `blueprint/relative-escape`.',
     '- **Pre-wiring check:** the survey\'s "Same-folder imports via the alias" count is an upper '
     + 'bound on the errors the wiring will introduce, not the exact number — '
-    + 'it is a textual count that includes test files (exempt in the emitted config '
-    + 'as far as the globs reach) '
+    + 'it is a textual count that includes test files '
     + 'and textual lookalikes (mock specifiers and doc comments) the wired rules never flag.',
     '  Dynamic imports whose target is a proven string receive the same boundary checks as '
     + 'static imports; runtime-dependent expressions remain explicitly unverified.',
@@ -55,12 +55,9 @@ export function renderSemantics(): string {
     '  The live-eslint check also skips when the proven leg cannot be replayed safely: '
     + 'doctor never runs package scripts, shell segments, global/npx resolution, or mutation '
     + 'flags merely to turn an unknown into green.',
-    '- **Test files are EXEMPT as far as the globs reach** — `architecture.testFiles` '
-    + '(default `*.test.* / *.spec.*`) sit outside the structural rules and `inspect` alike, '
-    + 'and a scanned file no declared glob matches is ordinary source on both sides.',
-    '  If the tool you are replacing policed tests too, '
-    + 'switching to blueprint deliberately RELAXES that enforcement '
-    + 'over the test files those globs reach — '
+    `- **Test-file policy:** ${renderTestFilesEditorial('core', 'en')}`,
+    '  If the tool you are replacing policed files this policy exempts, '
+    + 'switching to blueprint deliberately RELAXES that enforcement — '
     + 'say so in the report instead of letting the difference pass silently.',
   ].join('\n');
 }

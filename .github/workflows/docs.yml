@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify editorial publication
+        run: npm run editorial:check
+
       - name: Build docs (typedoc + vitepress)
         run: npm run docs:build
 

@@ -1,0 +1,1 @@
+Every generated structural entry carries `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}` as per-entry `ignores`; a rebuilt entry without those ignores starts governing the matched test files.

@@ -35,6 +35,7 @@ export default withMermaid(defineConfig({
   description:
     'Architecture as Code — one Blueprint compiles into lint, docs, and agent contracts.',
   base: '/blueprint/',
+  srcExclude: ['publication/**'],
   appearance: 'force-dark',
   head: [
     ['link', { rel: 'icon', type: 'image/png', href: '/blueprint/favicon.png' }],

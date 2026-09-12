@@ -13,7 +13,8 @@ import {
   resolveArchitecture,
 } from '../../config';
 import { handbookPath } from '../docs';
-import { enforcedBy, resolveTestFiles, unavailableForEmit } from '../lint';
+import { enforcedBy, unavailableForEmit } from '../lint';
+import { renderResolvedTestFilesEditorial } from '../../editorial';
 import type { StackFacts } from '../lint';
 import { formatOwns } from '../../markdown';
 
@@ -177,10 +178,10 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     ? `- \`${layer.name}\` units: one folder per unit; only \`${layer.unit.entry}\` is importable from outside.`
     : `- \`${layer.name}\` units: one file per unit.`);
 
-  const testGlobs = resolveTestFiles(architecture.testFiles);
+  const testPolicy = resolveArchitecture(architecture).testFiles;
 
-  const exemptLine = testGlobs.length
-    ? [`- Test support is exempt from every placement rule above as far as those globs reach: files matching ${testGlobs.map((glob) => `\`${glob}\``).join(' / ')} sit outside them, and a file none of them matches is placed by the rules above like any other. If a placement rule stops you on files that exist only to serve tests, that is a question for the owner — say so and name them; never widen \`architecture.testFiles\` yourself, and never rename a file to match those globs.`]
+  const exemptLine = testPolicy.architectureExemptions.length
+    ? [`- ${renderResolvedTestFilesEditorial('agent-placement', 'en', testPolicy)}`]
     : [];
 
   return [

@@ -65,6 +65,8 @@
     "docs:dev": "npm run docs:api && vitepress dev docs",
     "docs:build": "node scripts/check-changelog-markup.mjs && npm run docs:api && vitepress build docs",
     "docs:check": "node scripts/check-doc-links.mjs",
+    "editorial:compose": "npm run build && node scripts/editorial-publish.mjs --write",
+    "editorial:check": "npm run build && node scripts/editorial-publish.mjs --check",
     "field:run": "node scripts/field-run.mjs",
     "field:converge": "node scripts/field-convergence.mjs",
     "field:transformation": "npm run build && node scripts/transformation-field.mjs && node scripts/reverse-transformation-field.mjs && node scripts/transformation-round-trip.mjs",

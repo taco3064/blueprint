@@ -1,4 +1,5 @@
 import type { SurveyResult } from './survey';
+import { renderTestFilesEditorial } from '../editorial';
 
 function wrapList(items: string[], width: number, indent: string): string[] {
   const lines: string[] = [];
@@ -108,8 +109,8 @@ function importMatrixLines(result: SurveyResult): string[] {
 
   return [
     '',
-    'Import matrix (cross-folder, heaviest first — includes test files;',
-    'inspect excludes the ones its globs reach, so its counts run lower):',
+    'Import matrix (cross-folder, heaviest first):',
+    renderTestFilesEditorial('survey', 'en'),
     ...rows,
     ...(rows.length ? [] : ['  — none —']),
   ];
