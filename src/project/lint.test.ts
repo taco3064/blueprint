@@ -233,6 +233,7 @@ describe('assessLintEntrypoint · live execution plan', () => {
     'eslint %BP_LINT_TARGET% --no-error-on-unmatched-pattern',
     'eslint "%BP_LINT_TARGET%" --no-error-on-unmatched-pattern',
     'eslint ^--fix src',
+    'eslint (src) --no-error-on-unmatched-pattern',
   ])('does not manufacture argv for shell-dependent `%s`', (lint) => {
     const assessment = assessLintEntrypoint(pkg({ lint }));
 
