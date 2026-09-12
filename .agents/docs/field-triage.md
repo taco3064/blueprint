@@ -10,7 +10,7 @@ After a successful push to `main`, CI installs cleanly, builds, verifies the dis
 
 Do not manually repeat lint, typecheck, unit, build, distribution, mutation, or deterministic transformation gates already proven by that exact successful candidate workflow. Live validation adds the Agent boundary and keeps post-Agent Doctor and Inspect because those examine the adopter result, not the Blueprint checkout CI already verified.
 
-`npm run field:run -- --candidate <downloaded-candidate>/candidate.json` uses the exact artifact and still runs Doctor and Inspect after the Agent. Omitting `--candidate` is local diagnostic mode: the harness may build and pack the checkout for investigation, but that result cannot establish release convergence.
+`npm run field:run -- --candidate <downloaded-candidate>/candidate.json` treats the supplied manifest only as a locator. It verifies the successful main run, resolves its unique unexpired `blueprint-candidate-<SHA>` artifact, downloads it again, and rejects any manifest or tarball digest mismatch before an Agent runs. It still runs Doctor and Inspect after the Agent. Omitting `--candidate` is local diagnostic mode: the harness may build and pack the checkout for investigation, but that result cannot establish release convergence.
 
 The cross-Agent release matrix may use the harness or an explicitly defined manual matrix such as #452. Each Agent receives an independent disposable target checkout with the same candidate pre-installed. Preserve the required target pins, roles, positive and negative controls, native gates, adoption diff, and result classification.
 
@@ -40,7 +40,7 @@ npm run field:converge -- record \
   --issue <convergence-ticket-number>
 ```
 
-The evidence names `candidateSha`, `scope` (`full` or `affected`), `result`, the ticket-authorized `requiredScenarios`, executed `scenarios`, classified `findings` with a reviewed `releaseBlocking` disposition, `repairPrs`, `reportUrl`, and an affected-replay `reason`. The recorder computes matrix completeness from exact non-duplicated set equality and derives the blocker count from findings; callers cannot assert either with a boolean or total. It re-verifies the tarball and the successful completed main-push workflow before posting the ticket comment and exact-commit status. If either GitHub write fails, the command fails.
+The evidence names `candidateSha`, `scope` (`full` or `affected`), `result`, the ticket-authorized `requiredScenarios`, executed `scenarios`, classified `findings` with a reviewed `releaseBlocking` disposition, `repairPrs`, `reportUrl`, and an affected-replay `reason`. The recorder computes matrix completeness from exact non-duplicated set equality and derives the blocker count from findings; callers cannot assert either with a boolean or total. It independently downloads the run's unique exact-SHA artifact and rejects a caller-supplied rebuild before posting the ticket comment and exact-commit status. If either GitHub write fails, the command fails.
 
 ## Triage findings
 

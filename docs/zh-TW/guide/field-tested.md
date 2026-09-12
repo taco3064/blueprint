@@ -26,7 +26,7 @@
   CI 建置後跑一次，實際發佈的那個 job 再跑一次，因為 npm 收到的產物是那個 job 產出來的。
 - **每週的地形檢查** —— 用最新的上游 `create-vite` 與 `create-next-app` 範本實際建專案跑導入，範本長相漂移時自動開 issue。<br>
   刻意排除在 PR 檢核之外：它依賴網路，而且變數在上游。
-- **真實導入測試** —— main CI 全綠後會產生一份綁定精確完整 commit SHA、可下載的 `npm pack` 候選套件。真正的 agent CLI 使用這份套件，帶著真實 repo 走過 `init` → `inspect` → `impact` → `doctor`，最後仍以真的 doctor 驗收。<br>
+- **真實導入測試** —— main CI 全綠後會產生一份綁定精確完整 commit SHA、可下載的 `npm pack` 候選套件。Harness 會自行解析該 run 唯一的 artifact、重新下載，並在 agent 執行前拒絕任何本機替換的 pack。真正的 agent CLI 使用這份套件，帶著真實 repo 走過 `init` → `inspect` → `impact` → `doctor`，最後仍以真的 doctor 驗收。<br>
   它負責找**新的**情境 —— 已知的那些由上面那些套件顧著。<br>
   修復輪次與 affected replay 都留在同一張 release-convergence ticket；只有同一精確候選版本完整跑完一次必要矩陣，才可建立發佈要求的 commit status。
 

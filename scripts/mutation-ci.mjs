@@ -29,13 +29,12 @@ function isAncestor(root, ancestor, descendant) {
   return git(root, ['merge-base', '--is-ancestor', ancestor, descendant], true).status === 0;
 }
 
-export function latestReviewedSha(reviews, author = null) {
+export function latestReviewedSha(reviews) {
   return reviews
     .flat(Infinity)
     .filter((review) => review?.commit_id
       && review.state !== 'DISMISSED'
       && review.user?.type !== 'Bot'
-      && (!author || review.user?.login !== author)
       && ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(review.author_association))
     .sort((left, right) => {
       const time = String(left.submitted_at ?? '').localeCompare(String(right.submitted_at ?? ''));
@@ -50,10 +49,9 @@ export function selectMutationBase(root, {
   headSha,
   reviews,
   checkpoints = [],
-  author = null,
 }) {
   const mergeBaseSha = git(root, ['merge-base', baseHeadSha, headSha]).stdout.trim();
-  const reviewedSha = latestReviewedSha(reviews, author);
+  const reviewedSha = latestReviewedSha(reviews);
 
   if (!reviewedSha) {
     return { mutationBaseSha: mergeBaseSha, mergeBaseSha, reviewedSha: null, authority: 'full-pr' };
@@ -157,7 +155,6 @@ export function planMutation(root, {
   head = 'HEAD',
   reviews = [],
   checkpoints = [],
-  author = null,
   targetLines = 100,
 }) {
   const baseHeadSha = resolveCommit(root, base);
@@ -168,7 +165,6 @@ export function planMutation(root, {
     headSha,
     reviews,
     checkpoints,
-    author,
   });
 
   const diff = git(root, [
@@ -489,7 +485,6 @@ function main() {
       head: options.head,
       reviews: readJson(options.reviews, []),
       checkpoints: readJson(options.checkpoints, { check_runs: [] }).check_runs ?? [],
-      author: options.author,
       targetLines: Number(options['target-lines'] ?? 100),
     });
 

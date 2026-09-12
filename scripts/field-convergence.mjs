@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { verifyCandidate } from './field-candidate.mjs';
+import { resolveCandidate } from './field-candidate.mjs';
 
 export const FIELD_CONTEXT = 'blueprint/field-convergence';
 
@@ -85,19 +85,6 @@ export function parseEvidenceMarker(body) {
   return match ? JSON.parse(match[1]) : null;
 }
 
-export function validateCandidateRun(manifest, run) {
-  if (String(run.id) !== String(manifest.workflowRunId)
-    || run.event !== 'push'
-    || run.head_branch !== 'main'
-    || run.head_sha !== manifest.headSha
-    || run.status !== 'completed'
-    || run.conclusion !== 'success') {
-    throw new Error('Candidate workflow is not a successful completed main push for the manifest SHA.');
-  }
-
-  return true;
-}
-
 export function renderEvidence(evidence, candidate) {
   const status = convergenceStatus(evidence);
 
@@ -108,6 +95,7 @@ export function renderEvidence(evidence, candidate) {
     `- package: \`@kekkai/blueprint@${candidate.version}\``,
     `- tarball SHA-256: \`${candidate.sha256}\``,
     `- candidate workflow: ${candidate.workflowUrl ?? 'unavailable'}`,
+    `- candidate artifact: ${candidate.artifactUrl}`,
     `- scope: ${evidence.scope}`,
     `- matrix complete: ${matrixComplete(evidence)}`,
     `- required scenarios: ${evidence.requiredScenarios.join(', ')}`,
@@ -134,7 +122,8 @@ function gh(args, input) {
 }
 
 function record(options) {
-  const { manifest } = verifyCandidate(options.candidate);
+  const candidate = resolveCandidate(options.candidate);
+  const { manifest } = candidate;
   const evidence = JSON.parse(fs.readFileSync(options.evidence, 'utf8'));
 
   if (evidence.candidateSha !== manifest.headSha) throw new Error('Field evidence SHA does not match the candidate manifest.');
@@ -149,9 +138,7 @@ function record(options) {
   if (evidence.scope === 'affected' && !evidence.reason) throw new Error('Affected replay requires an explicit scope justification.');
 
   const repository = manifest.repository;
-  if (!manifest.workflowRunId) throw new Error('Candidate manifest has no GitHub workflow run identity.');
-  validateCandidateRun(manifest, gh([`repos/${repository}/actions/runs/${manifest.workflowRunId}`]));
-  const body = renderEvidence(evidence, manifest);
+  const body = renderEvidence(evidence, { ...manifest, artifactUrl: candidate.artifactUrl });
 
   const comment = gh([
     '--method', 'POST', `repos/${repository}/issues/${options.issue}/comments`,

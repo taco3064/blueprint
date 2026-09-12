@@ -176,10 +176,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           gh api --paginate --slurp "repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews" > reviews.json
-          REVIEWED="$(node --input-type=module -e "import { latestReviewedSha } from './scripts/mutation-ci.mjs'; import fs from 'node:fs'; process.stdout.write(latestReviewedSha(JSON.parse(fs.readFileSync('reviews.json', 'utf8')), process.env.PR_AUTHOR) ?? '')")"
+          REVIEWED="$(node --input-type=module -e "import { latestReviewedSha } from './scripts/mutation-ci.mjs'; import fs from 'node:fs'; process.stdout.write(latestReviewedSha(JSON.parse(fs.readFileSync('reviews.json', 'utf8'))) ?? '')")"
           if [ -n "$REVIEWED" ]; then
             gh api "repos/${{ github.repository }}/commits/$REVIEWED/check-runs" > checkpoints.json
           else
@@ -190,14 +189,12 @@ jobs:
         env:
           BASE_SHA: ${{ needs.preflight.outputs.base_head_sha }}
           HEAD_SHA: ${{ needs.preflight.outputs.head_sha }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           MATRIX="$(node scripts/mutation-ci.mjs plan \
             --base "$BASE_SHA" \
             --head "$HEAD_SHA" \
             --reviews reviews.json \
             --checkpoints checkpoints.json \
-            --author "$PR_AUTHOR" \
             --target-lines 100 \
             --output reports/mutation-ci/manifest.json)"
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"

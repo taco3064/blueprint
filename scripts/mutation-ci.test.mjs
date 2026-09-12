@@ -48,7 +48,7 @@ describe('mutation CI planning', () => {
     });
   });
 
-  it('accumulates repairs since the latest reviewed ancestor', () => {
+  it('accumulates repairs after a same-identity owner review with prior mutation authority', () => {
     const { root, git } = repository();
     const base = git('rev-parse', 'HEAD');
 
@@ -68,9 +68,10 @@ describe('mutation CI planning', () => {
         commit_id: reviewed,
         submitted_at: '2026-01-01',
         author_association: 'COLLABORATOR',
-        user: { login: 'reviewer', type: 'User' },
+        user: { login: 'owner', type: 'User' },
       }],
       checkpoints: [{ head_sha: reviewed, name: 'Mutation aggregate', conclusion: 'success' }],
+      author: 'owner',
     })).toMatchObject({ authority: 'reviewed-repair', mutationBaseSha: reviewed, reviewedSha: reviewed });
   });
 
@@ -101,8 +102,9 @@ describe('mutation CI planning', () => {
         commit_id: reviewed,
         submitted_at: '2026-01-01',
         author_association: 'OWNER',
-        user: { login: 'reviewer', type: 'User' },
+        user: { login: 'owner', type: 'User' },
       }],
+      author: 'owner',
       checkpoints: [{ head_sha: reviewed, name: 'Mutation aggregate', conclusion: 'success' }],
     })).toMatchObject({ authority: 'full-pr-fallback', mutationBaseSha: newBase, reviewedSha: reviewed });
 

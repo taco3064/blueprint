@@ -6,6 +6,8 @@ Changed-code mutation planning, lineage checks, sharding, execution, aggregation
 
 The aggregate is authoritative only for the exact base, merge-base or reviewed checkpoint, head SHA, changed production ranges, and shard inventory it records. Missing shards, range gaps or overlap, lineage uncertainty that did not fall back to the full PR scope, and evidence for an older head make the gate untrustworthy.
 
+A formal OWNER, MEMBER, or COLLABORATOR review may establish the reviewed checkpoint even when the connected repository workflow uses the PR author's GitHub identity. Identity separation is not the safety boundary: the reviewed commit must already have its own successful mutation aggregate, remain an ancestor of the new head, and retain the same PR merge-base lineage. If any proof is absent, CI measures the complete PR scope.
+
 ## Status meanings
 
 - `Killed`: a test rejected the mutation.

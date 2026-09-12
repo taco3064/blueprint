@@ -56,7 +56,8 @@ went green on a defect it could not see:
   `create-next-app` templates and opens an issue when their shapes drift. Deliberately
   outside the PR gate: it is network-dependent and upstream-driven
 - **The live field harness** — after successful main CI, one downloadable `npm pack`
-  candidate is bound to the exact full commit SHA. A real agent CLI takes real repos through `init` →
+  candidate is bound to the exact full commit SHA. The harness resolves the run's unique artifact,
+  downloads it independently, and rejects a substituted local pack before a real agent CLI takes real repos through `init` →
   `inspect` → `impact` → `doctor`, headlessly, verified with the real doctor. It hunts
   *new* scenarios — the suites above guard the ones already known. Repair rounds and
   affected replays remain on one release-convergence ticket. Only one complete matrix

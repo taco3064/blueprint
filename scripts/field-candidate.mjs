@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -57,6 +58,110 @@ export function verifyCandidate(manifestFile) {
   }
 
   return { manifest, tarball };
+}
+
+export function validateCandidateRun(manifest, run) {
+  if (String(run.id) !== String(manifest.workflowRunId)
+    || run.event !== 'push'
+    || run.head_branch !== 'main'
+    || run.head_sha !== manifest.headSha
+    || run.status !== 'completed'
+    || run.conclusion !== 'success') {
+    throw new Error('Candidate workflow is not a successful completed main push for the manifest SHA.');
+  }
+
+  return true;
+}
+
+export function selectCandidateArtifact(manifest, response) {
+  const expected = `blueprint-candidate-${manifest.headSha}`;
+
+  if (!Number.isSafeInteger(response.total_count)
+    || response.total_count !== response.artifacts?.length) {
+    throw new Error('Candidate artifact inventory is incomplete.');
+  }
+
+  const matches = (response.artifacts ?? []).filter((artifact) => artifact.name === expected);
+
+  if (matches.length !== 1) throw new Error(`Candidate workflow must publish exactly one ${expected} artifact.`);
+
+  const [artifact] = matches;
+
+  if (artifact.expired || !Number.isSafeInteger(artifact.id)) {
+    throw new Error(`Candidate artifact ${expected} is expired or has no stable identity.`);
+  }
+
+  return artifact;
+}
+
+export function verifyCandidateMatch(claimedFile, trustedFile) {
+  const claimed = verifyCandidate(claimedFile);
+  const trusted = verifyCandidate(trustedFile);
+
+  const fields = [
+    'schemaVersion',
+    'repository',
+    'headSha',
+    'ref',
+    'event',
+    'version',
+    'tarball',
+    'sha256',
+    'workflowRunId',
+    'workflowUrl',
+  ];
+
+  if (fields.some((field) => claimed.manifest[field] !== trusted.manifest[field])) {
+    throw new Error('Candidate does not match the exact artifact published by its workflow run.');
+  }
+
+  return trusted;
+}
+
+function githubJson(endpoint) {
+  return JSON.parse(execFileSync('gh', ['api', endpoint], { encoding: 'utf8' }));
+}
+
+function downloadArtifact({ repository, runId, artifact, directory }) {
+  execFileSync('gh', [
+    'run', 'download', String(runId),
+    '--repo', repository,
+    '--name', artifact.name,
+    '--dir', directory,
+  ], { stdio: 'inherit' });
+}
+
+export function resolveCandidate(manifestFile, adapters = {}) {
+  const claimed = verifyCandidate(manifestFile);
+  const { manifest } = claimed;
+
+  if (!manifest.workflowRunId) throw new Error('Candidate manifest has no GitHub workflow run identity.');
+
+  const fetchJson = adapters.fetchJson ?? githubJson;
+  const run = fetchJson(`repos/${manifest.repository}/actions/runs/${manifest.workflowRunId}`);
+
+  validateCandidateRun(manifest, run);
+
+  const artifacts = fetchJson(`repos/${manifest.repository}/actions/runs/${manifest.workflowRunId}/artifacts?per_page=100`);
+  const artifact = selectCandidateArtifact(manifest, artifacts);
+  const directory = adapters.directory ?? fs.mkdtempSync(path.join(os.tmpdir(), 'blueprint-trusted-candidate-'));
+
+  fs.mkdirSync(directory, { recursive: true });
+
+  (adapters.downloadArtifact ?? downloadArtifact)({
+    repository: manifest.repository,
+    runId: manifest.workflowRunId,
+    artifact,
+    directory,
+  });
+
+  const trusted = verifyCandidateMatch(manifestFile, path.join(directory, 'candidate.json'));
+
+  return {
+    ...trusted,
+    artifact,
+    artifactUrl: `https://github.com/${manifest.repository}/actions/runs/${manifest.workflowRunId}/artifacts/${artifact.id}`,
+  };
 }
 
 export function packCandidate(root, output, expectedHead, environment = process.env) {
