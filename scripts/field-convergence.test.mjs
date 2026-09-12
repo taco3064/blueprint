@@ -8,6 +8,7 @@ import {
   releaseBlockerCount,
   renderEvidence,
   validateCandidateRun,
+  validateReportUrl,
 } from './field-convergence.mjs';
 import { validateReleaseEvidence } from './release-field-gate.mjs';
 
@@ -81,9 +82,18 @@ describe('field convergence authority', () => {
       result: 'success',
       matrixComplete: true,
       releaseBlockers: 0,
+      reportUrl: 'https://example.test/report',
     });
 
     expect(evidenceMarker(evidence)).toContain('blueprint-field-convergence');
+  });
+
+  it('rejects missing, local, or credential-bearing report links', () => {
+    expect(validateReportUrl(evidence.reportUrl)).toBe('https://example.test/report');
+
+    for (const reportUrl of [undefined, 'field-report.json', 'file:///tmp/report.json', 'http://example.test/report', 'https://user:secret@example.test/report']) {
+      expect(() => convergenceStatus({ ...evidence, reportUrl })).toThrow(/durable HTTPS report URL/);
+    }
   });
 
   it('binds convergence to a completed successful main candidate workflow', () => {
@@ -136,6 +146,7 @@ describe('release field gate', () => {
     ['foreign URL', status('success', 'https://example.test/report'), comment],
     ['wrong SHA', status(), { body: renderEvidence({ ...evidence, candidateSha: 'c'.repeat(40) }, candidate) }],
     ['partial', status(), { body: renderEvidence({ ...evidence, scope: 'affected' }, candidate) }],
+    ['missing report URL', status(), { body: evidenceMarker(evidence).replace(/,"reportUrl":"[^"]+"/, '') }],
   ])('rejects %s evidence', (_name, combinedStatus, evidenceComment) => {
     expect(() => validateReleaseEvidence({
       repository: 'taco3064/blueprint',

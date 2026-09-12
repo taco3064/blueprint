@@ -2,7 +2,11 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { FIELD_CONTEXT, parseEvidenceMarker } from './field-convergence.mjs';
+import {
+  FIELD_CONTEXT,
+  parseEvidenceMarker,
+  validateReportUrl,
+} from './field-convergence.mjs';
 
 export function validateReleaseEvidence({ repository, sha, combinedStatus, comment }) {
   const status = (combinedStatus.statuses ?? []).find((entry) => entry.context === FIELD_CONTEXT);
@@ -24,6 +28,8 @@ export function validateReleaseEvidence({ repository, sha, combinedStatus, comme
     || evidence.matrixComplete !== true || evidence.releaseBlockers !== 0) {
     throw new Error('Field convergence comment does not prove a successful complete full matrix.');
   }
+
+  validateReportUrl(evidence.reportUrl);
 
   return { issue: Number(target[1]), comment: Number(target[2]), evidence };
 }

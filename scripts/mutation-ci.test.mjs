@@ -7,6 +7,7 @@ import fc from 'fast-check';
 
 import {
   aggregateMutation,
+  classifyShardResult,
   latestReviewedSha,
   partitionRanges,
   planMutation,
@@ -206,8 +207,8 @@ describe('mutation CI aggregation', () => {
 
   it('passes only when every shard exists and no unacceptable result remains', () => {
     const summary = aggregateMutation(manifest, [
-      result({ shard: '000', status: 'passed', total: 2, statuses: { Killed: 2 }, unacceptableMutants: [] }),
-      result({ shard: '001', status: 'passed', total: 1, statuses: { Ignored: 1 }, unacceptableMutants: [] }),
+      result({ shard: '000', status: 'passed', runnerExit: 0, total: 2, statuses: { Killed: 2 }, unacceptableMutants: [] }),
+      result({ shard: '001', status: 'passed', runnerExit: 0, total: 1, statuses: { Ignored: 1 }, unacceptableMutants: [] }),
     ]);
 
     expect(summary).toMatchObject({ status: 'passed', passed: true, total: 3, statuses: { Killed: 2, Ignored: 1 } });
@@ -218,7 +219,7 @@ describe('mutation CI aggregation', () => {
     const mutant = { file: 'src/a.ts', line: 2, status: 'Survived', mutator: 'ConditionalExpression', replacement: 'false' };
 
     const summary = aggregateMutation(manifest, [
-      result({ shard: '000', status: 'failed', total: 1, statuses: { Survived: 1 }, unacceptableMutants: [mutant] }),
+      result({ shard: '000', status: 'failed', runnerExit: 1, total: 1, statuses: { Survived: 1 }, unacceptableMutants: [mutant] }),
     ]);
 
     expect(summary).toMatchObject({ passed: false, missingShards: ['001'], unacceptableMutants: [{ shard: '000', ...mutant }] });
@@ -229,6 +230,7 @@ describe('mutation CI aggregation', () => {
     const first = result({
       shard: '000',
       status: 'passed',
+      runnerExit: 0,
       total: 1,
       statuses: { Killed: 1 },
       unacceptableMutants: [],
@@ -241,6 +243,28 @@ describe('mutation CI aggregation', () => {
       duplicateShards: ['000'],
       invalidShards: ['000'],
       missingShards: ['001'],
+    });
+  });
+
+  it('fails closed when a runner exits nonzero despite a usable report', () => {
+    const outcome = classifyShardResult(2, {
+      total: 1,
+      passed: true,
+      statuses: { Killed: 1 },
+    });
+
+    expect(outcome).toEqual({ status: 'error', reason: 'exit-2', exitCode: 2 });
+
+    const summary = aggregateMutation(manifest, [
+      result({ shard: '000', status: 'passed', runnerExit: 2, total: 1, statuses: { Killed: 1 }, unacceptableMutants: [] }),
+      result({ shard: '001', status: 'passed', runnerExit: 0, total: 1, statuses: { Killed: 1 }, unacceptableMutants: [] }),
+    ]);
+
+    expect(summary).toMatchObject({
+      status: 'failed',
+      passed: false,
+      invalidShards: ['000'],
+      failedShards: [{ shard: '000', status: 'error', reason: 'exit-2' }],
     });
   });
 });
