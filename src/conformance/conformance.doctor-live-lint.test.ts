@@ -111,7 +111,38 @@ describe('doctor · architecture baseline × native eslint ledger', () => {
     await expectBothLedgersCurrent(root);
     await expectNewLintOnlyDebtCrossesLedgers(root);
   });
+
+  it('does not replay argv hidden behind a shell comment as a narrower green lint', async () => {
+    const root = fixture();
+
+    fs.rmSync(path.join(root, 'src/legacy'), { recursive: true, force: true });
+    write(root, 'src/components/clean.js', 'export const clean = true;\n');
+    write(root, 'src/components/hidden.js', 'debugger;\n');
+
+    write(root, 'package.json', JSON.stringify({
+      name: 'live-lint-fixture',
+      scripts: {
+        lint: 'eslint # --no-error-on-unmatched-pattern src/components/clean.js',
+      },
+      dependencies: { react: '^19' },
+      devDependencies: { eslint: '^9' },
+    }));
+
+    const native = spawnSync(npmCommand(), ['run', 'lint'], { cwd: root, encoding: 'utf-8' });
+    const doctor = await cli(root, ['doctor']);
+
+    expect(native.status).toBe(1);
+    expect(native.stdout).toContain('hidden.js');
+    expect(doctor.code).toBe(0);
+    expect(doctor.output).toContain('⊘ reachable eslint leg passes live');
+    expect(doctor.output).toContain('⊘ Adoption unverified');
+    expect(doctor.output).not.toContain('Adoption complete');
+  });
 });
+
+function npmCommand(): string {
+  return process.platform === 'win32' ? 'npm.cmd' : 'npm';
+}
 
 async function expectArchitectureBaselineCannotHideLint(root: string): Promise<void> {
   expect((await cli(root, ['inspect', '--update-baseline'])).code).toBe(0);
