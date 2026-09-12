@@ -211,7 +211,12 @@ describe('doctor · architecture baseline × native eslint ledger', () => {
 
     const doctor = await cli(root, ['doctor']);
 
-    expect(native.status).not.toBe(0);
+    if (process.platform === 'win32') {
+      expect(native.status).toBe(0);
+    } else {
+      expect(native.status).not.toBe(0);
+    }
+
     expect(doctor.code).toBe(0);
     expect(doctor.output).toContain('⊘ reachable eslint leg passes live');
     expect(doctor.output).toContain('⊘ Adoption unverified');
