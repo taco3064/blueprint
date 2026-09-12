@@ -31,7 +31,25 @@ export function releaseBlockerCount(evidence) {
   return evidence.findings.filter((finding) => finding.releaseBlocking).length;
 }
 
+export function validateReportUrl(reportUrl) {
+  let url;
+
+  try {
+    url = new URL(reportUrl);
+  } catch {
+    throw new Error('Field evidence requires a valid durable HTTPS report URL.');
+  }
+
+  if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) {
+    throw new Error('Field evidence requires a valid durable HTTPS report URL.');
+  }
+
+  return url.href;
+}
+
 export function convergenceStatus(evidence) {
+  validateReportUrl(evidence.reportUrl);
+
   if (evidence.scope === 'affected') {
     return evidence.result === 'failure'
       ? { state: 'failure', description: 'Affected field replay failed; full convergence is still required.' }
@@ -57,6 +75,7 @@ export function evidenceMarker(evidence) {
     result: evidence.result,
     matrixComplete: matrixComplete(evidence),
     releaseBlockers: releaseBlockerCount(evidence),
+    reportUrl: validateReportUrl(evidence.reportUrl),
   })} -->`;
 }
 

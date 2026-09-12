@@ -205,6 +205,20 @@ function writeJson(file, value) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+export function classifyShardResult(runnerExit, mutation) {
+  if (runnerExit !== 0) {
+    return { status: 'error', reason: `exit-${runnerExit}`, exitCode: 2 };
+  }
+
+  if (mutation.total === 0) {
+    return { status: 'skipped', reason: 'no-mutants-generated', exitCode: 0 };
+  }
+
+  return mutation.passed
+    ? { status: 'passed', exitCode: 0 }
+    : { status: 'failed', exitCode: 1 };
+}
+
 function runShard(root, manifest, shardId, output) {
   const shard = manifest.shards.find((candidate) => candidate.id === shardId);
 
@@ -287,10 +301,11 @@ function runShard(root, manifest, shardId, output) {
   const report = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
   const mutation = summarizeMutationReport(report);
   const details = unacceptableMutants(report);
+  const outcome = classifyShardResult(result.status, mutation);
 
   const summary = {
-    status: mutation.total === 0 ? 'skipped' : mutation.passed ? 'passed' : 'failed',
-    ...(mutation.total === 0 ? { reason: 'no-mutants-generated' } : {}),
+    status: outcome.status,
+    ...(outcome.reason ? { reason: outcome.reason } : {}),
     shard: shard.id,
     changedLines: shard.changedLines,
     ...mutation,
@@ -304,7 +319,7 @@ function runShard(root, manifest, shardId, output) {
 
   writeJson(path.join(output, 'summary.json'), summary);
 
-  return { exitCode: mutation.total === 0 || mutation.passed ? 0 : 1, summary };
+  return { exitCode: outcome.exitCode, summary };
 }
 
 export function aggregateMutation(manifest, summaries) {
@@ -318,11 +333,16 @@ export function aggregateMutation(manifest, summaries) {
   const invalidShards = summaries.flatMap((summary) => {
     const shard = manifest.shards.find((candidate) => candidate.id === summary.shard);
 
+    const runnerExitValid = shard?.scopes.length === 0
+      ? summary.runnerExit === undefined || summary.runnerExit === 0
+      : summary.runnerExit === 0;
+
     const valid = shard
       && summary.planHash === manifest.planHash
       && summary.head === manifest.headSha
       && summary.base === manifest.mutationBaseSha
-      && JSON.stringify(summary.scopes) === JSON.stringify(shard.scopes);
+      && JSON.stringify(summary.scopes) === JSON.stringify(shard.scopes)
+      && runnerExitValid;
 
     return valid ? [] : [summary.shard ?? 'unknown'];
   });
@@ -344,12 +364,17 @@ export function aggregateMutation(manifest, summaries) {
     })));
   }
 
+  const runnerFailed = (summary) => summary.runnerExit !== undefined && summary.runnerExit !== 0;
+
   const failedShards = summaries
-    .filter((summary) => ['failed', 'error', 'refused'].includes(summary.status))
+    .filter((summary) => runnerFailed(summary)
+      || ['failed', 'error', 'refused'].includes(summary.status))
     .map((summary) => ({
       shard: summary.shard,
-      status: summary.status,
-      reason: summary.reason ?? null,
+      status: runnerFailed(summary) ? 'error' : summary.status,
+      reason: summary.reason ?? (runnerFailed(summary)
+        ? `exit-${summary.runnerExit}`
+        : null),
     }));
 
   const passed = missingShards.length === 0
