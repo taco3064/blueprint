@@ -195,6 +195,10 @@ npx @kekkai/blueprint doctor
 - **正常的 lint 入口確實會跑到 eslint** ——<br>
   `package.json` 的 `lint` 可以直接執行 eslint，或透過一般 npm/pnpm/yarn script 串接到它；<br>
   只有其他 linter、委派目標不存在，或根本沒有 lint 入口，都表示導入尚未完成
+- **可達的 eslint 最後一腿真的通過** ——<br>
+  Doctor 只解析專案宣告的本地 ESLint binary，不透過 shell，重播能安全解析的最後一腿。<br>
+  原生 lint 錯誤、warning budget、config failure 與目前的 suppressions ledger 都會讓導入 incomplete；<br>
+  複合或有歧義的 script、多個 ESLint legs、本地 ESLint 不存在，以及 mutation／presentation 旗標則標成 unverified，不會改跑另一個指令
 - **宣告的 alias 接得上 toolchain** ——<br>
   alias 宣告了卻沒有任何工具（tsconfig `paths`，或 vite / webpack / vue-cli / next / rsbuild 的 bundler config）解析得到，agent contract 就會把 agent 指向解析不了的匯入；<br>
   失敗訊息直接附上 wiring 片段
@@ -214,13 +218,14 @@ npx @kekkai/blueprint doctor
 ### 三種結果，不是兩種
 
 **跑不起來的檢查，不等於通過的檢查。**<br>
-合併存活那條檢查在 config 解析不開時是跳過、不是失敗 —— 一個你怎麼弄都消不掉的紅，比沒有這條檢查更糟。<br>
+合併存活檢查在 config 解析不開時會跳過；live-eslint 檢查無法證明原指令可以安全且等價地執行時也會跳過。<br>
+它們都不是失敗 —— 一個你怎麼弄都消不掉的紅，比沒有這條檢查更糟。<br>
 但那個「跳過」以前還是算在通過數裡面，於是輸出會變成 `✓ …（skipped）` 疊在 `✓ Adoption complete — all 8 checks passed` 上面。<br>
 現在你看到的是：
 
 ```
 ⊘ emitted rules survive the merged eslint config (skipped — could not resolve …)
-⊘ Adoption unverified — 7 of 8 checks passed, 1 could not run (⊘ above). Nothing failed, and nothing here proves what those checks cover.
+⊘ Adoption unverified — 8 of 9 checks passed, 1 could not run (⊘ above). Nothing failed, and nothing here proves what those checks cover.
 ```
 
 （banner 是單一行字串，上面看到的換行是終端機折的。）
@@ -230,8 +235,8 @@ npx @kekkai/blueprint doctor
 
 ```json
 { "ok": true, "verdict": "unverified",
-  "summary": "⊘ Adoption unverified — 7 of 8 checks passed, 1 could not run …",
-  "counts": { "total": 8, "passed": 7, "failed": 0, "skipped": 1 },
+  "summary": "⊘ Adoption unverified — 8 of 9 checks passed, 1 could not run …",
+  "counts": { "total": 9, "passed": 8, "failed": 0, "skipped": 1 },
   "checks": [ { "label": "…", "ok": true, "skipped": "why it could not run" } ] }
 ```
 
@@ -239,7 +244,7 @@ npx @kekkai/blueprint doctor
 `verdict` 是 `complete` / `unverified` / `incomplete` 三選一，也掛在 [`runDoctor`](/zh-TW/api/functions/runDoctor) 的回傳值上，<br>
 所以 CI 的 gate 該看的是 `verdict` 或 `counts.skipped`。
 
-還有一件事，綠燈會直接講出來 —— 放在 banner 底下而不是當成第九條檢查（它不可能失敗，列進去只會灌大分母）：<br>
+還有一件事，綠燈會直接講出來 —— 放在 banner 底下而不是當成第十條檢查（它不可能失敗，列進去只會灌大分母）：<br>
 **在沒有版本控制的 repo 上**，每一條檢查都可以過，而導入寫下的東西一個都沒被 commit ——<br>
 一副只活在未 commit 工作目錄裡的棘輪等於沒裝，因為下一次 clone 從零開始。<br>
 要不要起版控是擁有者的決定，永遠不是導入中的 Agent 的。
@@ -253,6 +258,7 @@ npx @kekkai/blueprint doctor
 - **lint 債**（maxLines、unusedVars⋯）→ `npx eslint . --suppress-all`（ESLint ≥ 9.24 原生 bulk suppressions —— 按「檔 × 規則 × 數量」記帳，**新增**違規照樣紅）
 
 你的 gate 兩個都跑 —— `eslint` 跟 `blueprint inspect --baseline` —— 各自只擋「新」債。<br>
+Doctor 的 live ESLint leg 也會驗這兩本帳的交叉情境：architecture baseline 不會藏住 lint 債，current lint ledger 也不會藏住新增的 lint-only 違規。<br>
 兩份檔案、一套紀律：`blueprint doctor` 會驗兩本帳都沒過期。
 
 還在 ESLint 8 或 legacy `.eslintrc`？<br>

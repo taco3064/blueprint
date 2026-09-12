@@ -71,9 +71,9 @@ describe('runDoctor · the verdict and the banner it prints', () => {
     // eslint resolvable here the survival check cannot run, and the banner used to fold
     // that skip into the pass count — so this suite asserted a verdict resting on a check
     // that never ran, exactly as a field agent found in the wild (#129).
-    expect(output).toContain('⊘ Adoption unverified — 7 of 8 checks passed, 1 could not run');
+    expect(output).toContain('⊘ Adoption unverified — 7 of 9 checks passed, 2 could not run');
     expect(output).toContain('nothing here proves the emitted rules are alive in it');
-    expect(output).not.toContain('all 8 checks passed');
+    expect(output).not.toContain('all 9 checks passed');
     // Truly clean, no baseline — the label stays plain instead of claiming
     // coverage by a ledger that does not exist (field run #10).
     expect(checks.map((c) => c.label)).toContain('architecture clean');

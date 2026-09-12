@@ -48,10 +48,13 @@ export function renderSemantics(): string {
     + 'the banner reads "Adoption unverified — N of M checks passed, K could not run".',
     '  Exit stays 0, because a skip is not a failure — so an exit-code gate cannot see one, '
     + 'and `--json` carries `skipped` with the reason.',
-    '  The check that skips is `emitted rules survive the merged eslint config`, in two states: '
+    '  The `emitted rules survive the merged eslint config` check skips in two states: '
     + 'eslint is not wired (the wiring check above is the red for that), '
     + 'or the merged config would not resolve, leaving nothing to compare the emitted rules '
     + 'against.',
+    '  The live-eslint check also skips when the proven leg cannot be replayed safely: '
+    + 'doctor never runs package scripts, shell segments, global/npx resolution, or mutation '
+    + 'flags merely to turn an unknown into green.',
     '- **Test files are EXEMPT as far as the globs reach** — `architecture.testFiles` '
     + '(default `*.test.* / *.spec.*`) sit outside the structural rules and `inspect` alike, '
     + 'and a scanned file no declared glob matches is ordinary source on both sides.',

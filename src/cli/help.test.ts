@@ -118,6 +118,11 @@ describe('run · --help belongs to the command that has one', () => {
       'the normal package.json lint entrypoint reaches eslint, directly or through\n'
       + '    a provable npm/pnpm/yarn script chain — a different linter alone is incomplete',
     )).toBe(true);
+
+    expect(logged('reachable eslint leg passes live with the declared project-local ESLint'))
+      .toBe(true);
+
+    expect(logged('unsafe or ambiguous argv skips instead of running a shell')).toBe(true);
   });
 });
 

@@ -241,6 +241,12 @@ npx @kekkai/blueprint doctor
 - **the normal lint entrypoint reaches eslint** — `package.json`'s `lint` script may
   run eslint directly or delegate through ordinary npm/pnpm/yarn scripts. A different
   linter alone, a missing target script, or no lint entrypoint keeps adoption incomplete
+- **the reachable eslint leg passes live** — Doctor resolves the declared project-local
+  ESLint binary and replays only a safely parsed terminal leg, without a shell. Native
+  lint errors, warning budgets, config failures, and the active suppressions ledger make
+  adoption incomplete. Compound or ambiguous scripts, multiple ESLint legs, missing
+  local ESLint, and mutation/presentation flags skip as unverified instead of executing
+  something different from the command proved above
 - **import alias wired to the toolchain** — a declared alias that neither tsconfig
   `paths` nor a bundler config (vite / webpack / vue-cli / next / rsbuild) resolves
   would send agents into unresolvable imports; the failure carries the exact wiring
@@ -267,13 +273,14 @@ npx @kekkai/blueprint doctor
 ### Three outcomes, not two
 
 **A check that could not run is not a check that passed.** The merge-survival check
-skips rather than fails when the config will not resolve — a red you cannot appease is
-worse than no check — and while that skip rode in the pass count, the output read
+skips when the config will not resolve, and the live-eslint check skips when its exact
+safe execution cannot be proved. A red you cannot appease is worse than no check —
+and while a skip rode in the pass count, the output read
 `✓ … (skipped)` above `✓ Adoption complete — all 8 checks passed`. What you see now:
 
 ```
 ⊘ emitted rules survive the merged eslint config (skipped — could not resolve …)
-⊘ Adoption unverified — 7 of 8 checks passed, 1 could not run (⊘ above). Nothing failed, and nothing here proves what those checks cover.
+⊘ Adoption unverified — 8 of 9 checks passed, 1 could not run (⊘ above). Nothing failed, and nothing here proves what those checks cover.
 ```
 
 (The banner is one line — wrapped here only by your terminal.)
@@ -283,8 +290,8 @@ Which is the reason to gate on `--json` rather than the exit code:
 
 ```json
 { "ok": true, "verdict": "unverified",
-  "summary": "⊘ Adoption unverified — 7 of 8 checks passed, 1 could not run …",
-  "counts": { "total": 8, "passed": 7, "failed": 0, "skipped": 1 },
+  "summary": "⊘ Adoption unverified — 8 of 9 checks passed, 1 could not run …",
+  "counts": { "total": 9, "passed": 8, "failed": 0, "skipped": 1 },
   "checks": [ { "label": "…", "ok": true, "skipped": "why it could not run" } ] }
 ```
 
@@ -293,7 +300,7 @@ Which is the reason to gate on `--json` rather than the exit code:
 [`runDoctor`](/api/functions/runDoctor)'s return value too, so `verdict` or
 `counts.skipped` is what a CI gate should branch on.
 
-One more thing a green says out loud, under the banner rather than as a ninth check
+One more thing a green says out loud, under the banner rather than as a tenth check
 (it cannot fail, so it would push the count): **on a repo with no version control**,
 every check can pass while nothing adoption wrote is committed — and a ratchet living
 only in an uncommitted working tree is not installed, because the next clone starts
@@ -313,6 +320,9 @@ its **native ledger**:
   still fail)
 
 Your gate then runs both — `eslint` and `blueprint inspect --baseline` — and each blocks
+new debt independently. Doctor's live ESLint leg checks their cross-product too: an
+architecture baseline never hides lint debt, and a current lint ledger never hides a
+new lint-only violation.
 only *new* debt. Two files, one discipline: `blueprint doctor` verifies neither ledger
 has gone stale.
 

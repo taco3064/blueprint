@@ -96,6 +96,24 @@ function snapshotTree(dir, current = dir) {
   return JSON.stringify(snapshot);
 }
 
+function snapshotProductTree(dir, current = dir) {
+  const snapshot = {};
+
+  for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+    if (entry.name === 'node_modules') continue;
+
+    const target = path.join(current, entry.name);
+
+    if (entry.isDirectory()) {
+      Object.assign(snapshot, snapshotProductTree(dir, target));
+    } else {
+      snapshot[path.relative(dir, target)] = fs.readFileSync(target).toString('base64');
+    }
+  }
+
+  return JSON.stringify(snapshot);
+}
+
 function writeReactFixture(dir) {
   fs.writeFileSync(
     path.join(dir, 'package.json'),
@@ -223,7 +241,7 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
     name: 'installed-fixture',
     private: true,
     type: 'module',
-    dependencies: { '@kekkai/blueprint': `file:${tarball}` },
+    dependencies: { '@kekkai/blueprint': `file:${tarball}`, eslint: '^9.39.2' },
   };
 
   fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(manifest));
@@ -298,7 +316,62 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
     'installed inspect did not disclose the runtime-dependent target',
   );
 
-  return 'packed dependency tree, TS + Vue parsed';
+  fs.rmSync(path.join(fixture, 'src'), { recursive: true, force: true });
+  fs.mkdirSync(path.join(fixture, 'src', 'components'), { recursive: true });
+
+  fs.writeFileSync(
+    path.join(fixture, 'blueprint.config.mjs'),
+    'export default { framework: \'react\', architecture: { alias: \'~app\', '
+    + 'layers: [{ name: \'components\', does: \'UI\' }] }, rules: {} };\n',
+  );
+
+  fs.writeFileSync(
+    path.join(fixture, 'eslint.config.mjs'),
+    [
+      'import { emitLint } from \'@kekkai/blueprint\';',
+      'import blueprint from \'./blueprint.config.mjs\';',
+      'export default [{ files: [\'**/*.js\'], rules: { \'no-debugger\': \'error\' } },',
+      '  ...emitLint(blueprint)];',
+      '',
+    ].join('\n'),
+  );
+
+  fs.writeFileSync(
+    path.join(fixture, 'jsconfig.json'),
+    JSON.stringify({ compilerOptions: { paths: { '~app/*': ['./src/*'] } } }),
+  );
+
+  const fixturePackage = JSON.parse(fs.readFileSync(path.join(fixture, 'package.json')));
+
+  fixturePackage.scripts = { lint: 'eslint src --max-warnings=0' };
+  fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(fixturePackage));
+
+  const source = path.join(fixture, 'src', 'components', 'x.js');
+
+  fs.writeFileSync(source, 'export const x = 1;\n');
+  const greenDoctor = runNpm(['exec', '--', 'blueprint', 'doctor'], { cwd: fixture });
+
+  expect(greenDoctor.code === 0, `installed doctor green exited ${greenDoctor.code}\n${greenDoctor.output}`);
+  expect(greenDoctor.output.includes('all 9 checks passed'), 'installed doctor did not complete');
+
+  fs.writeFileSync(source, 'debugger;\n');
+  const beforeDoctor = snapshotProductTree(fixture);
+  const redDoctor = runNpm(['exec', '--', 'blueprint', 'doctor'], { cwd: fixture });
+  const jsonDoctor = runNpm(['exec', '--', 'blueprint', 'doctor', '--json'], { cwd: fixture });
+
+  expect(redDoctor.code === 1, `installed doctor red exited ${redDoctor.code}\n${redDoctor.output}`);
+
+  expect(redDoctor.output.includes('✗ reachable eslint leg passes live'),
+    'installed doctor missed real eslint debt');
+
+  expect(jsonDoctor.code === 1, `installed JSON doctor exited ${jsonDoctor.code}`);
+
+  expect(jsonDoctor.output.includes('"verdict": "incomplete"'),
+    'installed JSON doctor disagreed with text/exit');
+
+  expect(snapshotProductTree(fixture) === beforeDoctor, 'installed doctor changed project bytes');
+
+  return 'packed dependency tree, TS + Vue parsed, doctor live lint verified';
 });
 
 await check('`init --dry-run` plans against a real fixture and writes nothing', () => {

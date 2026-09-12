@@ -19,6 +19,13 @@ let root: string;
 
 const load = async () => vuePreset();
 
+const passesLint = () => ({
+  status: 'passed' as const,
+  command: 'eslint .',
+  errors: 0,
+  warnings: 0,
+});
+
 /** The same preset with one `layerFilesIgnore` entry — the only axis under test. */
 const withIgnore = (layerFilesIgnore: string[]): Blueprint => ({
   ...vuePreset(),
@@ -178,11 +185,11 @@ describe('runDoctor · what the run reports', () => {
     await runDoctor(root, { loadConfig: load, log: (m) => (output = m) });
     await runDoctor(root, { loadConfig: load, json: true, log: (m) => (json = m) });
 
-    expect(JSON.parse(json).counts).toEqual({ total: 8, passed: 6, failed: 1, skipped: 1 });
+    expect(JSON.parse(json).counts).toEqual({ total: 9, passed: 6, failed: 1, skipped: 2 });
     // A failure outranks a skip in the verdict: rewrites of `verdictOf`'s failure test
     // all fall through to `unverified` on exactly this shape.
     expect(JSON.parse(json).verdict).toBe('incomplete');
-    expect(output).toContain('1 of 8 check(s) failed');
+    expect(output).toContain('1 of 9 check(s) failed');
 
     // The two arms this fixture is NOT in, so a rewrite that picks one of them is red.
     expect(output).not.toContain('Adoption complete');
@@ -206,13 +213,22 @@ describe('runDoctor · what the run reports', () => {
     let complete = '';
     let json = '';
 
-    const green = await runDoctor(root, { loadConfig: noProbe, log: (m) => (complete = m) });
+    const green = await runDoctor(root, {
+      loadConfig: noProbe,
+      runLint: passesLint,
+      log: (m) => (complete = m),
+    });
 
-    await runDoctor(root, { loadConfig: noProbe, json: true, log: (m) => (json = m) });
+    await runDoctor(root, {
+      loadConfig: noProbe,
+      runLint: passesLint,
+      json: true,
+      log: (m) => (json = m),
+    });
 
     expect(green.verdict).toBe('complete');
-    expect(complete).toContain('✓ Adoption complete — all 8 checks passed.');
-    expect(JSON.parse(json).counts).toEqual({ total: 8, passed: 8, failed: 0, skipped: 0 });
+    expect(complete).toContain('✓ Adoption complete — all 9 checks passed.');
+    expect(JSON.parse(json).counts).toEqual({ total: 9, passed: 9, failed: 0, skipped: 0 });
 
     // And one failure with still nothing skipped: the third arm, and the clause about
     // skips must NOT appear — there are none to leave unproven.
@@ -220,10 +236,14 @@ describe('runDoctor · what the run reports', () => {
 
     let red = '';
 
-    const failing = await runDoctor(root, { loadConfig: noProbe, log: (m) => (red = m) });
+    const failing = await runDoctor(root, {
+      loadConfig: noProbe,
+      runLint: passesLint,
+      log: (m) => (red = m),
+    });
 
     expect(failing.verdict).toBe('incomplete');
-    expect(red).toContain('✗ Adoption incomplete — 1 of 8 check(s) failed.');
+    expect(red).toContain('✗ Adoption incomplete — 1 of 9 check(s) failed.');
     expect(red).not.toContain('could not run');
   });
 
@@ -242,7 +262,7 @@ describe('runDoctor · what the run reports', () => {
     const parsed = JSON.parse(json);
 
     expect(parsed.verdict).toBe('unverified');
-    expect(parsed.counts).toEqual({ total: 8, passed: 7, failed: 0, skipped: 1 });
+    expect(parsed.counts).toEqual({ total: 9, passed: 7, failed: 0, skipped: 2 });
     // Byte-for-byte the line the reader gets, because two channels wording the same
     // verdict differently is how the reader and the automation start disagreeing.
     expect(text).toContain(parsed.summary);
@@ -466,12 +486,12 @@ describe('runDoctor · the notes under the banner', () => {
 
     const red = await runDoctor(
       wiredRepo(wiredDead),
-      { loadConfig: loads(wiredDead), log: (m) => (broken = m) },
+      { loadConfig: loads(wiredDead), runLint: passesLint, log: (m) => (broken = m) },
     );
 
     const green = await runDoctor(
       wiredRepo(wiredHealthy),
-      { loadConfig: loads(wiredHealthy), log: (m) => (intact = m) },
+      { loadConfig: loads(wiredHealthy), runLint: passesLint, log: (m) => (intact = m) },
     );
 
     // Ran, rather than skipped. The skip label shares the check's prefix, so demand the
