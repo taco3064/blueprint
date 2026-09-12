@@ -1,0 +1,1 @@
+`architecture.testFiles` exempts only files matched by `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}` from structural rules, metric gates, inspect analysis, and dependency graphs; test-only rules still target those same globs. A scanned file no configured glob matches remains ordinary source.

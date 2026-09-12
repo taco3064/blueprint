@@ -1,4 +1,5 @@
 import { BROWNFIELD_MIN_FILES } from '../bootstrap';
+import { renderTestFilesEditorial } from '../editorial';
 
 export const USAGE = [
   'blueprint — Architecture as Code. One blueprint compiles into ESLint rules,',
@@ -140,9 +141,9 @@ const INSPECT_HELP = [
   'escapes, missing unit entries, selfOnly re-exports, import cycles,',
   'and declared layers with no folder yet (info).',
   'Any error-level finding exits 1, so you can gate on it — a git hook, CI,',
-  'whatever you run. Test files (architecture.testFiles) are exempt, matching',
-  'the lint side — as far as the globs reach: a scanned file no declared glob',
-  'matches is inspected as ordinary source. The report ends',
+  'whatever you run.',
+  renderTestFilesEditorial('core', 'en'),
+  'The report ends',
   'with a coverage line — how many source files the architecture nets actually reach',
   'and how many optional gates are active (structural rules are always on) —',
   'so an empty net cannot pass as green.',
@@ -204,9 +205,8 @@ const DEPS_HELP = [
   '    outside them are listed as skipped, never silently ignored.',
   '  · A `folder`-layout layer answers per unit; a `file`-layout layer',
   '    (e.g. styles in organizational folders) collapses to one node — layer granularity.',
-  '  · Test files are excluded; only alias + relative imports form edges.',
-  '    The exclusion holds as far as the globs reach: a scanned test no declared',
-  '    glob matches is ordinary source on both sides, so its import counts.',
+  `  · ${renderTestFilesEditorial('deps', 'en')}`,
+  '  · Only alias + relative imports form edges.',
   '',
   'Flags:',
   '  --framework vue|react   Force the preset when detection is ambiguous.',

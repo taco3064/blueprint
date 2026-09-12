@@ -1,4 +1,5 @@
 import type { ClaudeDirState } from '../project';
+import { renderTestFilesEditorial } from '../editorial';
 import { cleanupTargets } from './playbook';
 
 export function renderModuleFirstNextNote(next: boolean): string {
@@ -84,8 +85,8 @@ export function renderModuleFirstSemantics(): string {
     + 'tree; its recursive route segments are not ordinary domain modules.',
     '- Relative imports stay within a unit. Imports crossing a module or inner-layer boundary '
     + 'must use the canonical source-root alias.',
-    '- Test-file exemptions and inspection coverage follow the declared file globs; never add '
-    + 'fake modules or layers merely to make coverage non-zero.',
+    `- ${renderTestFilesEditorial('core', 'en')} Never add fake modules or layers merely to `
+    + 'make coverage non-zero.',
   ].join('\n');
 }
 

@@ -40,8 +40,9 @@ npx @kekkai/blueprint survey --source-root apps/web/src
   participating siblings and explicit counts — evidence only, not a feature/module
   classification or an architecture recommendation
 - the **folder-to-folder import matrix**, heaviest edges first — the intended flow
-  direction, and the counter-edges that are debt (the matrix counts test files;
-  `inspect` excludes the ones its globs reach, so its numbers run lower by that much)
+  direction, and the counter-edges that are debt
+
+<!-- @include: @/publication/semantic/test-files/survey.en.md -->
 - **package-usage concentration** — `owns` candidates
 - **named imports concentrated in one folder**, from a package spread across several
   — the only evidence a specifier-level `owns: [{ package, imports: […] }]` can be

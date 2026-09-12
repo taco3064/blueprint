@@ -26,9 +26,9 @@ dynamic import targets can be evaluated consistently after installation.
 
 ## What `inspect` reports
 
-Any `error`-level finding exits `1`; `warn` and `info` inform
-without failing the gate. Test files (`architecture.testFiles`) are exempt throughout —
-as far as the globs reach: a scanned file no declared glob matches is inspected as ordinary source.
+Any `error`-level finding exits `1`; `warn` and `info` inform without failing the gate.
+
+<!-- @include: @/publication/semantic/test-files/core.en.md -->
 
 - **`undeclared-folder`** · error — a source folder outside the declared topology: an undeclared top-level layer in layer-first mode, or an undeclared outer module / inner layer in module-first mode
 - **`flow-violation`** · error — a module-reachability or inner-flow failure, including an upstream import or a same-layer alias import inside one module. Same-layer imports across reachable modules remain valid
@@ -105,9 +105,9 @@ needs, per layer, in two spellings — and only one of them survives a paste:
   `/` would end esquery's regex early), and JavaScript resolves that same escape when it
   parses a string literal — so the pasted selector ends at the bare `/`. No parse error,
   lint still green, and the ban silently matching nothing
-- **`testExemptions` rides along and has to come with them.** Rebuilding an entry from
-  the selectors alone drops it quietly in the worst way: the merged entry goes on
-  linting, so the ban starts reaching the test files those globs reach
+- **`testExemptions` rides along and has to come with them.**
+
+<!-- @include: @/publication/semantic/test-files/merge-scope.en.md -->
 
 The ban's *message* text is yours to write — `doctor` verifies selectors, never
 messages.
@@ -145,8 +145,11 @@ gate. That split is the [three-tier landing](/philosophy/#the-three-tier-landing
 This whole mapping is queryable in place: `npx blueprint rules` prints the catalog,
 annotated with the declared tiers once a config exists. **A gate that cannot be opened
 here keeps its row, marked `unavailable here`, and its cause is printed on a line of its
-own above the rows** — `explicitAny` on a JS project, `testFilename` beside
-`testFiles: []` — rather than being dropped without one. That is also why the
+own above the rows** — rather than being dropped without one.
+
+<!-- @include: @/publication/semantic/test-files/gate-availability.en.md -->
+
+That is also why the
 catalog has more rows than the `N/M optional gates` denominator `inspect` and `doctor`
 print: those count the gates something could open, and a reader comparing the two
 numbers is told which row accounts for the gap instead of guessing at it.
@@ -257,7 +260,7 @@ for router composition; every governed source file below it uses the container p
 an inner layer. A governed import must pass both the module DAG and
 the shared inner layer flow. Same-layer imports across reachable modules remain valid; relative
 imports still cannot cross a module or layer boundary.
-- **`architecture.testFiles`** — test glob(s) exempt from structural rules and metric gates (default `*.test.*` / `*.spec.*`). `[]` exempts nothing — tests inherit their layer's rules — and switches the `testFilename` gate off with it: that rule is scoped to the test globs, so an empty list leaves it no file to name. `blueprint rules` says so beside the gate. A declared glob that matches no file costs the exemption but not the gate: nothing the run read is exempt through it.
+<!-- @include: @/publication/semantic/test-files/reference.en.md -->
 - **`architecture.layerFiles`** — per-layer file globs when the framework defaults don't fit
 - **`architecture.layerFilesIgnore`** — global file globs excluded from emitted lint and lint-backed `inspect` findings. The files remain visible to inspect-only checks such as undeclared folders and cycles, and coverage names them as deliberately ignored rather than reached
 

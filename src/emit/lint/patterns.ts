@@ -1,4 +1,4 @@
-import { resolveLayerFilePatterns } from '../../config';
+import { resolveLayerFilePatterns, resolveTestFiles as resolveTestFilePolicy } from '../../config';
 import type { Framework, LayerDef, OwnedPackage } from '../../config';
 import type {
   EmitFacts,
@@ -14,13 +14,8 @@ export const FRAMEWORK_EXTS: Record<Framework, string> = {
   auto: 'js,jsx,ts,tsx,vue',
 };
 
-const DEFAULT_TEST_FILES = [
-  '**/*.test.{js,jsx,ts,tsx,vue}',
-  '**/*.spec.{js,jsx,ts,tsx,vue}',
-];
-
 export function resolveTestFiles(testFiles: string | string[] | undefined): string[] {
-  return testFiles === undefined ? DEFAULT_TEST_FILES : toArray(testFiles);
+  return resolveTestFilePolicy(testFiles).architectureExemptions;
 }
 
 export function toArray(value: string | string[] | undefined): string[] {
@@ -198,7 +193,9 @@ export function unreachedTestGlobs(reach: TestGlobReach[] | undefined): string |
 }
 
 export function emptyTestGlobs(testFiles: string | string[] | undefined): string | null {
-  if (Array.isArray(testFiles) && testFiles.length === 0) {
+  const policy = resolveTestFilePolicy(testFiles);
+
+  if (policy.testRuleFiles.length === 0) {
     return '`architecture.testFiles: []` exempts nothing, '
       + 'so there is no test file for this to name — declare test globs, or drop this gate';
   }

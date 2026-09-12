@@ -1,0 +1,1 @@
+**`architecture.testFiles`** —— 匹配到的檔案會豁免於結構規則、度量關卡、inspect 分析與相依圖，測試專用規則仍會套用；預設值為 `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}`。空清單不豁免任何檔案，也讓 `testFilename` 沒有檔案範圍。已宣告、但沒有匹配任何掃描檔案的 glob 在該處不產生豁免，關卡仍會 emit，而且可能在其他位置匹配到檔案。

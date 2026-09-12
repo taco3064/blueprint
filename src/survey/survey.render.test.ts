@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { renderSurvey } from './render';
+import { renderTestFilesEditorial } from '../editorial';
 
 /**
  * The folder names the sourceless note lists, read off the rendered output. A test that
@@ -96,7 +97,7 @@ describe('renderSurvey · the sections, and what each says when it is empty', ()
     // nothing to say stay out entirely rather than heading an empty list.
     expect(output).toContain('Alias: none detected in tsconfig paths');
     expect(output).toContain('Folders (folder-shape evidence):\n  — none —');
-    expect(output).toContain('its counts run lower):\n  — none —');
+    expect(output).toContain(`${renderTestFilesEditorial('survey', 'en')}\n  — none —`);
     expect(output).not.toContain('src/ root files');
     expect(output).not.toContain('Repeated sibling-folder evidence');
     expect(output).not.toContain('Test conventions:');

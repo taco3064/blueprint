@@ -11,6 +11,7 @@ import {
   renderPlacement,
 } from './sections';
 import type { ArchitectureDef, AxisDef, Blueprint, PrincipleDef } from '../../config';
+import { renderTestFilesEditorial } from '../../editorial';
 import { enforcedBy, LINT_GATED_RULE_IDS } from '../lint';
 
 function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
@@ -94,7 +95,12 @@ describe('renderPlacement', () => {
   it('names the project\'s own test globs, never a hard-coded pair', () => {
     const out = renderPlacement(arch({ testFiles: ['**/*.spec.ts', '**/*.fixtures.ts'] }));
 
-    expect(out).toContain('files matching `**/*.spec.ts` / `**/*.fixtures.ts` sit outside them');
+    expect(out).toContain(renderTestFilesEditorial(
+      'agent-placement',
+      'en',
+      ['**/*.spec.ts', '**/*.fixtures.ts'],
+    ));
+
     expect(out).not.toContain('*.test.');
 
     // Omitted means the default pair, which the contract must state rather
@@ -111,25 +117,13 @@ describe('renderPlacement', () => {
   it('bounds the exemption by what the globs reach, in the line an agent places by', () => {
     const out = renderPlacement(arch());
 
-    // The contract is read with no CLI output beside it, so this line is the whole
-    // of what the agent knows. Unqualified it says test support is outside placement
-    // full stop — and a declared glob that matches no file exempts nothing, which
-    // sends the agent to put a file where the rules above forbid it.
-    const bound = 'a file none of them matches is placed by the rules above like any other';
-
-    expect(out).toContain('exempt from every placement rule above as far as those globs reach');
-    expect(out).toContain(bound);
+    expect(out).toContain(renderTestFilesEditorial('agent-placement', 'en'));
   });
 
   it('closes the rename-to-escape route the exemption opens', () => {
     const out = renderPlacement(arch());
 
-    expect(out).toContain('never rename a file to match those globs');
-    expect(out).toContain('never widen `architecture.testFiles` yourself');
-
-    // The third door is a question to raise, not a remedy to take: an agent
-    // told it may widen the globs edits the architecture to clear its own gate.
-    expect(out).toContain('that is a question for the owner');
+    expect(out).toContain(renderTestFilesEditorial('agent-placement', 'en'));
   });
 
   it('states the allowed importers, marking selfOnly ones', () => {

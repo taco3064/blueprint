@@ -1,4 +1,4 @@
-import { resolveTestFiles } from '../emit/lint/patterns';
+import { resolveTestFiles } from '../config';
 import type { ScanResult } from './types';
 
 export function globToRegExp(glob: string): RegExp {
@@ -42,7 +42,7 @@ export function dropTestFiles(
   scan: ScanResult,
   testFiles: string | string[] | undefined,
 ): ScanResult {
-  const patterns = resolveTestFiles(testFiles).map(globToRegExp);
+  const patterns = resolveTestFiles(testFiles).architectureExemptions.map(globToRegExp);
 
   return { ...scan, files: scan.files.filter((file) => !isTestFile(file.path, patterns)) };
 }

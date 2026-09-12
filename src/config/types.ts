@@ -127,11 +127,7 @@ export interface ArchitectureDef {
   layerFiles?: string | string[];
   /** File globs excluded from linting. */
   layerFilesIgnore?: string | string[];
-  /**
-   * Test-file glob(s). Structural rules and metric gates skip these
-   * (per-entry, not globally — test-only rules still reach them). Defaults
-   * to the `*.test.*` / `*.spec.*` patterns.
-   */
+  /** Test-file glob(s), resolved through the architecture test-file policy. */
   testFiles?: string | string[];
   /** Naming conventions, keyed by concept, e.g. `{ hook: 'useX + reactivity' }`. */
   naming?: Record<string, string>;

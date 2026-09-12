@@ -1,0 +1,1 @@
+The survey's import matrix includes test files; inspect excludes only files matched by `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}`, so the two counts differ by exactly that measured reach.

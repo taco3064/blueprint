@@ -1,4 +1,5 @@
 import type { ClaudeDirState } from '../project';
+import { renderTestFilesEditorial } from '../editorial';
 import { renderLintMerge } from './merge';
 import { cleanupTargets } from './playbook';
 
@@ -20,9 +21,8 @@ function renderRatchet(): string {
     + 'so `eslint --fix` resolves them outright and suppressing them would ledger a reformat '
     + 'nobody needs to review.',
     '     Run that fix as its OWN commit, touching nothing else, and say so in the report — '
-    + 'it rewrites whitespace across every layer file *including tests* (the shape rules are the '
-    + 'one gate family tests are NOT exempt from; the rest exempt only the test files '
-    + 'those globs reach), '
+    + 'it rewrites whitespace across every layer file *including tests*. '
+    + `${renderTestFilesEditorial('core', 'en')} `
     + 'and a diff that size folded into an architecture commit is unreviewable.',
     '     It cannot make another gate worse: `maxLines` skips blank lines, '
     + 'so the added lines are free.',
