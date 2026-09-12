@@ -34,7 +34,8 @@ import { decideTopology } from './topology';
 import type { ArchitectureTopology, TopologyDecision } from './topology';
 import { runTopologyTransformation } from './transformation-dispatch';
 import { observeRepositoryTopology } from './repository-topology';
-import { legacyUpgradeNote } from './legacy-upgrade';
+import * as legacyUpgrade from './legacy-upgrade';
+import { assertAuthoredConfigNotRewritten, assertInitOptions } from './init-options';
 import type { Action } from './types';
 
 export interface InitOptions extends ResolveOptions {
@@ -58,10 +59,7 @@ export interface InitOptions extends ResolveOptions {
   log?: (message: string) => void;
 }
 
-interface RunContext {
-  options: InitOptions;
-  log: (message: string) => void;
-}
+type RunContext = { options: InitOptions; log: (message: string) => void };
 
 export async function runInit(root: string, options: InitOptions = {}): Promise<Action[]> {
   const log = options.log ?? ((message: string) => console.log(message));
@@ -71,16 +69,18 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
   assertInitOptions(state, options, pristine);
 
-  const { resolved, survey, topology, repositoryBlueprints } = await prepareTopology({
-    root, state, options, pristine,
+  const {
+    resolved, survey, topology, blueprints, legacyCount, architecture,
+  } = await prepareTopology({
+    root, state, options, pristine, log,
   });
 
   assertTopologySupported(topology);
 
   if (topology.path === 'transformation') {
     return runTopologyTransformation({ root, state, options, log, survey, topology,
-      architecture: resolved!.blueprint.architecture,
-      repositoryBlueprints,
+      architecture: architecture!,
+      repositoryBlueprints: blueprints,
     });
   }
 
@@ -102,19 +102,15 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   return runScaffold(root, state, {
     options,
     log,
-    forkNote: resolved?.legacyConfig
-      ? legacyUpgradeNote(options)
+    forkNote: legacyCount
+      ? legacyUpgrade.legacyUpgradeNote(options, legacyCount)
       : survey ? freshScaffoldNote(survey) : null,
     resolved,
   });
 }
 
-interface InitTopologyInput {
-  root: string;
-  state: ProjectState;
-  options: InitOptions;
-  pristine: boolean;
-}
+type InitTopologyInput = RunContext
+  & { root: string; state: ProjectState; pristine: boolean };
 
 async function prepareTopology(input: InitTopologyInput) {
   const resolved = await resolveConfigured(input);
@@ -133,12 +129,27 @@ async function prepareTopology(input: InitTopologyInput) {
     pristineBlueprint: input.pristine ? localAuthority!.blueprint : undefined,
   });
 
+  const checkpoint = legacyUpgrade.migrateLegacyRepositoryCheckpoint(
+    input.state,
+    repository.blueprints,
+    { selectedConfig: input.state.hasConfig, options: input.options, log: input.log },
+  );
+
   const topology = decideTopology(repository.observation, {
-    topology: resolved?.legacyConfig ? 'layer-first' : input.options.topology,
+    topology: checkpoint.length || resolved?.legacyConfig ? 'layer-first' : input.options.topology,
     preset: input.options.preset,
   });
 
-  return { resolved, survey, topology, repositoryBlueprints: repository.blueprints };
+  const legacyCount = checkpoint.length || Number(resolved?.legacyConfig);
+
+  return {
+    resolved,
+    survey,
+    topology,
+    blueprints: repository.blueprints,
+    legacyCount,
+    architecture: localAuthority?.blueprint.architecture,
+  };
 }
 
 async function resolveConfigured(
@@ -164,56 +175,10 @@ function surveyForTopology(input: InitTopologyInput): SurveyResult | null {
     : null;
 }
 
-function assertInitOptions(state: ProjectState, options: InitOptions, pristine: boolean): void {
-  if (state.hasNuxt) {
-    throw new Error(
-      'Nuxt is not supported. Blueprint enforces the dependency flow through '
-      + 'static import analysis, and Nuxt\'s auto-imports leave no import '
-      + 'statements to analyze — the result would be a hollow, false "clean". '
-      + 'See https://taco3064.github.io/blueprint/guide/field-tested.',
-    );
-  }
-
-  if (options.preset && options.authoring) {
-    throw new Error('--preset and --authoring are mutually exclusive — pick one.');
-  }
-
-  if (options.topology === undefined) {
-    assertAuthoredConfigNotRewritten(state, options, pristine);
-  }
-}
-
 function assertTopologySupported(topology: TopologyDecision): void {
   if (topology.path === null) {
     throw new Error(topology.reason);
   }
-}
-
-function assertAuthoredConfigNotRewritten(
-  state: ProjectState,
-  options: InitOptions,
-  pristine: boolean,
-): void {
-  if (
-    options.authoring
-    && state.hasConfig
-    && !pristine
-    && options.topology !== 'module-first'
-  ) {
-    throwAuthoredConfigRefusal();
-  }
-}
-
-function throwAuthoredConfigRefusal(): never {
-  throw new Error(
-    'blueprint.config.mjs differs from what init would scaffold — so it is yours, not '
-    + 'init\'s output, and re-authoring rewrites it from scratch rather than merging. '
-    + 'The structure is reproducible; the comments explaining WHY each threshold and '
-    + 'ownership was chosen are not. Copy anything you want to keep, then delete the '
-    + 'file yourself if you really want the playbook. Put those comments back into the '
-    + 'rewritten config, each beside the clause it explains — not only into the report, '
-    + 'which is read once while the config is what the next re-authoring will read.',
-  );
 }
 
 function surveySource(root: string, state: ProjectState): SurveyResult {

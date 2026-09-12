@@ -71,6 +71,9 @@ describe('resolveRepositoryBlueprints', () => {
         { applicationRoot: path.join('apps', 'web'), topology: 'layer-first' },
       ]);
 
+      expect(result.every((entry) => entry.legacyConfig === false)).toBe(true);
+      expect(result.every((entry) => entry.migratedConfigSource === null)).toBe(true);
+
       expect(loadConfig).toHaveBeenCalledTimes(2);
     });
 
@@ -176,6 +179,8 @@ describe('resolveRepositoryBlueprints · legacy topology authority', () => {
     });
 
     expect(legacy.topology).toBe('layer-first');
+    expect(legacy.legacyConfig).toBe(true);
+    expect(legacy.migratedConfigSource).toContain('"layout": "folder"');
     expect(legacy.architecture).not.toHaveProperty('module');
   });
 });
