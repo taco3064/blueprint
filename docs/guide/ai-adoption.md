@@ -322,9 +322,8 @@ its **native ledger**:
 Your gate then runs both — `eslint` and `blueprint inspect --baseline` — and each blocks
 new debt independently. Doctor's live ESLint leg checks their cross-product too: an
 architecture baseline never hides lint debt, and a current lint ledger never hides a
-new lint-only violation.
-only *new* debt. Two files, one discipline: `blueprint doctor` verifies neither ledger
-has gone stale.
+new lint-only violation. Two files, one discipline: `blueprint doctor` verifies neither
+ledger has gone stale.
 
 Still on ESLint 8, or a legacy `.eslintrc`? Suppressions need ESLint ≥ 9.24 + flat
 config, and that migration is your call, never the playbook's. The **transitional**

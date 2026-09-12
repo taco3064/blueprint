@@ -126,6 +126,33 @@ describe('runLiveLint', () => {
     expect(files()).toEqual(before);
   });
 
+  it('does not follow an eslint bin path or symlink outside its package', () => {
+    fs.rmSync(path.join(root, 'node_modules/eslint'), { recursive: true, force: true });
+    fs.mkdirSync(path.join(root, 'node_modules/eslint/bin'), { recursive: true });
+
+    const unrelated = path.join(root, 'unrelated.mjs');
+
+    write('unrelated.mjs', [
+      'import fs from "node:fs";',
+      'fs.writeFileSync(new URL("./touched", import.meta.url), "written");',
+      'console.log("[]");',
+    ].join('\n'));
+
+    for (const bin of ['../../unrelated.mjs', 'bin/eslint.js']) {
+      write('node_modules/eslint/package.json', JSON.stringify({
+        name: 'eslint',
+        bin: { eslint: bin },
+      }));
+
+      if (bin.startsWith('bin/')) {
+        fs.symlinkSync(unrelated, path.join(root, 'node_modules/eslint/bin/eslint.js'));
+      }
+
+      expect(run('clean.js')).toMatchObject({ status: 'unverified' });
+      expect(fs.existsSync(path.join(root, 'touched'))).toBe(false);
+    }
+  });
+
   it('keeps option-like targets after the sentinel in the lint argv', () => {
     write('--target.js', 'debugger;\n');
 
