@@ -64,13 +64,15 @@ describe('legacy repository checkpoint', () => {
     ], { selectedConfig: true, options: { topology: 'module-first', dryRun: true }, log });
 
     expect(actions.map((action) => action.kind === 'write' ? action.path : action.kind)).toEqual([
-      'apps/web/blueprint.config.mjs',
-      'apps/admin/blueprint.config.mjs',
+      path.join('apps/web/blueprint.config.mjs'),
+      path.join('apps/admin/blueprint.config.mjs'),
     ]);
 
     expect(log.mock.calls.map(([message]) => message)).toEqual([
-      '  would write: apps/web/blueprint.config.mjs (Blueprint 3.2 → 4.0 layer-first checkpoint)',
-      '  would write: apps/admin/blueprint.config.mjs (Blueprint 3.2 → 4.0 layer-first checkpoint)',
+      `  would write: ${path.join('apps/web/blueprint.config.mjs')} `
+      + '(Blueprint 3.2 → 4.0 layer-first checkpoint)',
+      `  would write: ${path.join('apps/admin/blueprint.config.mjs')} `
+      + '(Blueprint 3.2 → 4.0 layer-first checkpoint)',
     ]);
   });
 
