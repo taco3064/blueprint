@@ -128,7 +128,15 @@ describe('doctor · architecture baseline × native eslint ledger', () => {
       devDependencies: { eslint: '^9' },
     }));
 
-    const native = spawnSync(npmCommand(), ['run', 'lint'], { cwd: root, encoding: 'utf-8' });
+    const npmCli = process.env.npm_execpath;
+
+    expect(npmCli).toBeTruthy();
+
+    const native = spawnSync(process.execPath, [npmCli as string, 'run', 'lint'], {
+      cwd: root,
+      encoding: 'utf-8',
+    });
+
     const doctor = await cli(root, ['doctor']);
 
     expect(native.status).toBe(1);
@@ -139,10 +147,6 @@ describe('doctor · architecture baseline × native eslint ledger', () => {
     expect(doctor.output).not.toContain('Adoption complete');
   });
 });
-
-function npmCommand(): string {
-  return process.platform === 'win32' ? 'npm.cmd' : 'npm';
-}
 
 async function expectArchitectureBaselineCannotHideLint(root: string): Promise<void> {
   expect((await cli(root, ['inspect', '--update-baseline'])).code).toBe(0);
