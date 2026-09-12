@@ -19,6 +19,12 @@ describe('inspect import analysis · dynamic imports', () => {
       'source.vue',
       '<script setup lang="ts">const p = "~app/hooks" as const; import(`${p}/useX`)</script>',
     ],
+    [
+      'Vue TSX script setup',
+      'source.vue',
+      '<script setup lang="tsx">const View = () => <div />; '
+      + 'const p = "~app/hooks" as const; import(`${p}/useX`)</script>',
+    ],
   ])('extracts a statically known %s target', (_label, filename, source) => {
     expect(extractImportAnalysis(source, filename)).toEqual({
       imports: [{ specifier: '~app/hooks/useX', names: [], isExport: false }],
@@ -38,6 +44,22 @@ describe('inspect import analysis · dynamic imports', () => {
 
   it('keeps a quoted target visible when another syntax error prevents parsing', () => {
     const result = extractImportAnalysis('import("~app/hooks/useX"); const =', 'broken.ts');
+
+    expect(result.imports).toEqual([
+      { specifier: '~app/hooks/useX', names: [], isExport: false },
+    ]);
+
+    expect(result.analysis).toMatchObject({
+      unknownDynamicImports: 0,
+      parseError: expect.any(String),
+    });
+  });
+
+  it('keeps the quoted fallback visible for malformed Vue TSX', () => {
+    const result = extractImportAnalysis(
+      '<script setup lang="tsx">import("~app/hooks/useX"); const View = <div></script>',
+      'broken.vue',
+    );
 
     expect(result.imports).toEqual([
       { specifier: '~app/hooks/useX', names: [], isExport: false },

@@ -46,18 +46,6 @@ describe('analyzeDynamicImports', () => {
   });
 
   it.each([
-    ['ordinary script', '<script lang="ts">const p = "~app/hooks"; import(`${p}/x`)</script>'],
-    ['script setup', '<script setup lang="ts">const p = "~app/hooks"; import(p + "/x")</script>'],
-    [
-      'typed script setup',
-      '<script setup lang="ts">const p: string = "~app/hooks"; import(p + "/x")</script>',
-    ],
-  ])('resolves Vue %s imports', (_label, source) => {
-    expect(analyzeDynamicImports(source, 'Component.vue'))
-      .toEqual({ specifiers: ['~app/hooks/x'], unknown: 0 });
-  });
-
-  it.each([
     ['reassigned binding', 'let p = "~app/hooks/x"; p = runtime; import(p)'],
     ['shadowed parameter', 'const p = "~app/hooks/x"; function load(p) { return import(p) }'],
     ['runtime substitution', 'import(`~app/hooks/${window.name}`)'],
@@ -77,5 +65,52 @@ describe('analyzeDynamicImports', () => {
   it('walks nullable items in parser visitor arrays safely', () => {
     expect(analyzeDynamicImports('const [first,,last] = values; import("~app/hooks/x")'))
       .toEqual({ specifiers: ['~app/hooks/x'], unknown: 0 });
+  });
+});
+
+describe('Vue SFC dynamic imports', () => {
+  it.each([
+    ['JavaScript', '<script>const p = "~app/hooks"; import(`${p}/x`)</script>'],
+    ['TypeScript', '<script lang="ts">const p = "~app/hooks"; import(`${p}/x`)</script>'],
+    ['script setup', '<script setup lang="ts">const p = "~app/hooks"; import(p + "/x")</script>'],
+    [
+      'typed script setup',
+      '<script setup lang="ts">const p: string = "~app/hooks"; import(p + "/x")</script>',
+    ],
+    [
+      'typed template expression',
+      '<script setup lang="ts">const value = "x"; const p = "~app/hooks"; '
+      + 'import(p + "/x")</script><template>{{ value as string }}</template>',
+    ],
+  ])('resolves Vue %s imports', (_label, source) => {
+    expect(analyzeDynamicImports(source, 'Component.vue'))
+      .toEqual({ specifiers: ['~app/hooks/x'], unknown: 0 });
+  });
+
+  it.each([
+    [
+      'JSX',
+      '<script lang="jsx">const View = ({ value }) => <div>{value}</div>; '
+      + 'const p = "~app/hooks"; import(p + "/useView")</script>',
+    ],
+    [
+      'TSX',
+      '<script setup lang="tsx">const View = (value: string) => <div>{value}</div>; '
+      + 'const p = "~app/hooks" as const; import(`${p}/useView`)</script>',
+    ],
+  ])('resolves a Vue %s dynamic import beside actual JSX syntax', (_label, source) => {
+    expect(analyzeDynamicImports(source, 'Component.vue'))
+      .toEqual({ specifiers: ['~app/hooks/useView'], unknown: 0 });
+  });
+
+  it('reports malformed Vue TSX without manufacturing a target', () => {
+    expect(analyzeDynamicImports(
+      '<script setup lang="tsx">const View = <div>; import(target)</script>',
+      'broken.vue',
+    )).toMatchObject({
+      specifiers: [],
+      unknown: 0,
+      parseError: expect.any(String),
+    });
   });
 });

@@ -22,6 +22,23 @@ export interface DynamicImportAnalysis {
   parseError?: string;
 }
 
+const vueJsxParser = {
+  parseForESLint(
+    source: string,
+    options: Parameters<typeof tsParser.parseForESLint>[1],
+  ): ReturnType<typeof tsParser.parseForESLint> {
+    return tsParser.parseForESLint(source, { ...options, jsx: true });
+  },
+};
+
+const vueScriptParsers = {
+  js: tsParser,
+  jsx: vueJsxParser,
+  ts: tsParser,
+  tsx: vueJsxParser,
+  '<template>': tsParser,
+};
+
 export function staticImportSpecifier(node: AstNode, scope: Scope.Scope | null): string | null {
   const found = getStaticValue(node as never, scope);
 
@@ -84,7 +101,7 @@ function parseSource(source: string, filePath: string): ParsedSource {
   };
 
   return (filePath.endsWith('.vue')
-    ? vueParser.parseForESLint(source, { ...options, parser: tsParser })
+    ? vueParser.parseForESLint(source, { ...options, parser: vueScriptParsers })
     : tsParser.parseForESLint(source, options)) as unknown as ParsedSource;
 }
 

@@ -231,6 +231,39 @@ describe('impact tells the truth in isolation (batch 5, real eslint)', () => {
   });
 });
 
+describe('Vue SFC import analysis', () => {
+  it('scans a Vue TSX script through the real inspect path', async () => {
+    const dir = repo({
+      packageJson: { name: 'fixture', dependencies: { vue: '^3.0.0' } },
+      files: {
+        'blueprint.config.mjs': configSource({
+          ...reactBlueprint,
+          framework: 'vue',
+        }),
+        'src/services/Loader.vue': '<script setup lang="tsx">'
+          + 'const View = (value: string) => <div>{value}</div>; '
+          + 'const target = "~app/components/View" as const; import(target)'
+          + '</script>',
+        'src/components/View.ts': 'export const View = 1;',
+      },
+    });
+
+    const inspect = await cli(dir, ['inspect', '--json']);
+    const report = JSON.parse(inspect.output);
+
+    expect(inspect.code).toBe(1);
+    expect(report.importAnalysis).toEqual({ unknownDynamicImports: 0, parseFailures: [] });
+
+    expect(report.findings).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        rule: 'flow-violation',
+        path: 'src/services/Loader.vue',
+        subject: '~app/components/View',
+      }),
+    ]));
+  });
+});
+
 describe('survey counts never promise what impact must measure (field issue #11)', () => {
   it('playbook and survey call the same-folder count an upper bound, not exact', async () => {
     const dir = repo({
