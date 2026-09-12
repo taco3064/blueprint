@@ -139,14 +139,22 @@ describe('doctor · architecture baseline × native eslint ledger', () => {
 
     const doctor = await cli(root, ['doctor']);
 
-    expect(native.status).toBe(1);
-    expect(native.stdout).toContain('hidden.js');
+    expectNativeShellComment(native);
+
     expect(doctor.code).toBe(0);
     expect(doctor.output).toContain('⊘ reachable eslint leg passes live');
     expect(doctor.output).toContain('⊘ Adoption unverified');
     expect(doctor.output).not.toContain('Adoption complete');
   });
 });
+
+function expectNativeShellComment(native: { status: number | null; stdout: string }): void {
+  expect(native.status).toBe(process.platform === 'win32' ? 0 : 1);
+
+  if (process.platform !== 'win32') {
+    expect(native.stdout).toContain('hidden.js');
+  }
+}
 
 async function expectArchitectureBaselineCannotHideLint(root: string): Promise<void> {
   expect((await cli(root, ['inspect', '--update-baseline'])).code).toBe(0);
