@@ -8,6 +8,7 @@ import type {
   RuleSetting,
 } from './types';
 import { normalizeAllowedImporters } from './graph';
+import { migrateLegacyBlueprint } from './legacy';
 import { resolveArchitecture } from './resolved';
 import { activeSetting } from './settings';
 
@@ -67,8 +68,9 @@ const MANAGED_RULES = [
 ];
 
 /**
- * Author a Blueprint. Validates referential integrity up front, then returns
- * the config unchanged — the single source every emitter compiles from.
+ * Author a Blueprint. Validates referential integrity up front and returns a
+ * current config unchanged. A supported 3.2 layer shape is normalized to its
+ * equivalent 4.0 layer fields for the upgrade path.
  *
  * @group Author
  * @example
@@ -85,7 +87,9 @@ const MANAGED_RULES = [
  * });
  */
 export function defineBlueprint(config: Blueprint): Blueprint {
-  return validateBlueprint(config);
+  const migration = migrateLegacyBlueprint(config);
+
+  return validateBlueprint(migration.blueprint);
 }
 
 /**

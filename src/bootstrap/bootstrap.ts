@@ -34,6 +34,7 @@ import { decideTopology } from './topology';
 import type { ArchitectureTopology, TopologyDecision } from './topology';
 import { runTopologyTransformation } from './transformation-dispatch';
 import { observeRepositoryTopology } from './repository-topology';
+import { legacyUpgradeNote } from './legacy-upgrade';
 import type { Action } from './types';
 
 export interface InitOptions extends ResolveOptions {
@@ -68,11 +69,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
   const pristine = state.hasConfig && isPristineScaffold(root, state);
 
-  assertInitOptions(state, options);
-
-  if (options.topology === undefined) {
-    assertAuthoredConfigNotRewritten(state, options, pristine);
-  }
+  assertInitOptions(state, options, pristine);
 
   const { resolved, survey, topology, repositoryBlueprints } = await prepareTopology({
     root, state, options, pristine,
@@ -105,7 +102,9 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   return runScaffold(root, state, {
     options,
     log,
-    forkNote: survey ? freshScaffoldNote(survey) : null,
+    forkNote: resolved?.legacyConfig
+      ? legacyUpgradeNote(options)
+      : survey ? freshScaffoldNote(survey) : null,
     resolved,
   });
 }
@@ -135,7 +134,7 @@ async function prepareTopology(input: InitTopologyInput) {
   });
 
   const topology = decideTopology(repository.observation, {
-    topology: input.options.topology,
+    topology: resolved?.legacyConfig ? 'layer-first' : input.options.topology,
     preset: input.options.preset,
   });
 
@@ -150,7 +149,8 @@ async function resolveConfigured(
   }
 
   try {
-    return await resolveBlueprint(input.root, input.state, input.options);
+    return await resolveBlueprint(input.root, input.state,
+      { ...input.options, migrateLegacyConfig: true });
   } catch (error) {
     assertAuthoredConfigNotRewritten(input.state, input.options, input.pristine);
 
@@ -164,7 +164,7 @@ function surveyForTopology(input: InitTopologyInput): SurveyResult | null {
     : null;
 }
 
-function assertInitOptions(state: ProjectState, options: InitOptions): void {
+function assertInitOptions(state: ProjectState, options: InitOptions, pristine: boolean): void {
   if (state.hasNuxt) {
     throw new Error(
       'Nuxt is not supported. Blueprint enforces the dependency flow through '
@@ -176,6 +176,10 @@ function assertInitOptions(state: ProjectState, options: InitOptions): void {
 
   if (options.preset && options.authoring) {
     throw new Error('--preset and --authoring are mutually exclusive — pick one.');
+  }
+
+  if (options.topology === undefined) {
+    assertAuthoredConfigNotRewritten(state, options, pristine);
   }
 }
 

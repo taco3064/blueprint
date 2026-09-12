@@ -22,6 +22,20 @@ npx @kekkai/blueprint init --topology layer-first
 既有的 ESLint config **一律不覆蓋**（init 會改為提供合併指引；只有 init 自己生成、帶第一行 banner 的那份會就地重生成）；<br>
 重複執行 init 的結果具冪等性。
 
+### 升級 Blueprint 3.2 config
+
+直接執行 `blueprint init`，會把已退役的共用 `architecture.module` 與各層的
+`layers[].module` override 改寫成語意等價的 4.0 layer 欄位。Repository 仍維持
+layer-first，source file 不會移動。
+
+若明確選擇 module-first，流程分成兩階段：第一次先建立有效的 4.0 layer-first
+config，並要求驗證、提交這個 checkpoint；完成後再次執行相同指令，才會開啟受
+guard 保護的 layer-first → module-first transformation：
+
+```bash
+npx @kekkai/blueprint init --topology module-first
+```
+
 ## 既有專案 —— `blueprint inspect`
 
 ```bash

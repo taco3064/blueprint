@@ -30,6 +30,17 @@ describe('defineBlueprint', () => {
     expect(defineBlueprint(config)).toBe(config);
   });
 
+  it.each([
+    ['missing architecture', { framework: 'react' }, /architecture\.layers must be an array/],
+    ['missing layers', { framework: 'react', architecture: { alias: '~app' } }, /architecture\.layers must be an array/],
+    ['null layers', { framework: 'react', architecture: { alias: '~app', layers: null } }, /architecture\.layers must be an array/],
+    ['null layer', { framework: 'react', architecture: { alias: '~app', layers: [null] } }, /Each layer must have a non-empty name/],
+    ['mixed null layer', { framework: 'react', architecture: { alias: '~app', layers: [null, { name: 'pages' }] } }, /Each layer must have a non-empty name/],
+    ['primitive layer', { framework: 'react', architecture: { alias: '~app', layers: [1] } }, /Each layer must have a non-empty name/],
+  ])('keeps the actionable validation for %s', (_label, config, message) => {
+    expect(() => defineBlueprint(config as Blueprint)).toThrow(message as RegExp);
+  });
+
   it('accepts allowedImporters as strings and objects referencing earlier layers', () => {
     const config = base();
 

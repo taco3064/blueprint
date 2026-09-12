@@ -55,6 +55,7 @@ export async function resolveRepositoryTopology(input: {
 }> {
   const blueprints = await resolveRepositoryBlueprints(input.repositoryRoot, {
     loadConfig: input.loadConfig,
+    migrateLegacyConfig: true,
     known: input.localBlueprint
       ? [{
           file: path.join(input.applicationRoot, CONFIG_FILE),

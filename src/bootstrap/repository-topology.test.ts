@@ -88,4 +88,32 @@ describe('observeRepositoryTopology', () => {
           },
     })).rejects.toThrow(/found:\n {2}apps\/web: module-first\n {2}\.: layer-first/);
   });
+
+  it('normalizes a raw 3.2 sibling as repository layer-first authority', async () => {
+    const target = fixture(false);
+    const sibling = path.join(target.root, 'apps', 'admin');
+
+    fs.mkdirSync(sibling, { recursive: true });
+    fs.writeFileSync(path.join(sibling, 'blueprint.config.mjs'), 'export default {};\n');
+
+    const legacy = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        module: { layout: 'folder' },
+        layers: [{ name: 'pages', does: 'routes' }],
+      },
+    } as Blueprint;
+
+    const result = await resolveRepositoryTopology({
+      repositoryRoot: target.root,
+      applicationRoot: target.root,
+      localBlueprint: blueprint,
+      loadConfig: async () => legacy,
+    });
+
+    expect(result.topology).toBe('layer-first');
+    expect(result.blueprints).toHaveLength(2);
+    expect(result.blueprints[0].architecture).not.toHaveProperty('module');
+  });
 });
