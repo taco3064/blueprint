@@ -177,7 +177,7 @@ function appendShellFragment(words: string[], fragment: string, separated: boole
 function requiresShellExpansion(fragment: string): boolean {
   return /%/.test(fragment)
     || (fragment[0] !== '"'
-      && (fragment[0] === '#' || fragment.includes('^') || /[*?[\]{}~]/.test(fragment)));
+      && (fragment[0] === '#' || fragment.includes('^') || /[()*?[\]{}~]/.test(fragment)));
 }
 
 function shellFragment(value: string): string {

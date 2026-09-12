@@ -185,6 +185,38 @@ describe('doctor · architecture baseline × native eslint ledger', () => {
     expect(doctor.output).toContain('⊘ Adoption unverified');
     expect(doctor.output).not.toContain('Adoption complete');
   });
+
+  it('does not replay shell grouping syntax as a literal green target', async () => {
+    const root = fixture();
+
+    fs.rmSync(path.join(root, 'src/legacy'), { recursive: true, force: true });
+
+    write(root, 'package.json', JSON.stringify({
+      name: 'live-lint-fixture',
+      scripts: {
+        lint: 'eslint (src) --no-error-on-unmatched-pattern',
+      },
+      dependencies: { react: '^19' },
+      devDependencies: { eslint: '^9' },
+    }));
+
+    const npmCli = process.env.npm_execpath;
+
+    expect(npmCli).toBeTruthy();
+
+    const native = spawnSync(process.execPath, [npmCli as string, 'run', 'lint'], {
+      cwd: root,
+      encoding: 'utf-8',
+    });
+
+    const doctor = await cli(root, ['doctor']);
+
+    expect(native.status).not.toBe(0);
+    expect(doctor.code).toBe(0);
+    expect(doctor.output).toContain('⊘ reachable eslint leg passes live');
+    expect(doctor.output).toContain('⊘ Adoption unverified');
+    expect(doctor.output).not.toContain('Adoption complete');
+  });
 });
 
 function expectNativeShellComment(native: { status: number | null; stdout: string }): void {
