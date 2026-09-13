@@ -232,12 +232,28 @@ describe('runTransformationPreflight · injected failures', () => {
   });
 
   it('normalizes surrounding whitespace in Git failure details', async () => {
+    const readGit: GitReader = (args) => {
+      if (args.includes('--is-inside-work-tree')) {
+        return ok('true');
+      }
+
+      if (args.includes('--show-toplevel')) {
+        return ok(root);
+      }
+
+      if (args[0] === 'status') {
+        return failed('  status failed\n');
+      }
+
+      return ok('abc123');
+    };
+
     const result = await runTransformationPreflight(root, ['.'], {
-      git: () => ({ status: 1, stdout: '', stderr: '  status failed\n' }),
+      git: readGit,
       inspect: inspected,
     });
 
-    expect(result.repository).toEqual({ ok: false, reason: 'status failed' });
+    expect(result.worktree).toEqual({ ok: false, reason: 'status failed' });
   });
 });
 
