@@ -33,6 +33,7 @@ describe('help & version flags', () => {
 });
 
 describe('per-command help', () => {
+  // eslint-disable-next-line max-statements
   it('prints command help and exits 0 for init/inspect --help', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
 
@@ -46,6 +47,7 @@ describe('per-command help', () => {
     expect(log.mock.calls[0][0]).toContain('one repository-wide transformation');
     expect(log.mock.calls[0][0]).toContain('measures every structural destination and collision');
     expect(log.mock.calls[0][0]).toContain('configured modules');
+    expect(log.mock.calls[0][0]).toContain('threshold, 10 source files');
 
     expect(await run(['inspect', '-h'])).toBe(0);
     expect(log.mock.calls[1][0]).toContain('read-only architecture report');

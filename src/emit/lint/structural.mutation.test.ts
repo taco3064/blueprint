@@ -215,4 +215,26 @@ describe('structural pattern composition', () => {
       ['~app/auth/hooks/*/**'],
     ]);
   });
+
+  it('uses context-specific entry-only guidance for layers and modules', () => {
+    const layer = buildStructuralPatterns({
+      layer: 'components',
+      aliases: ['~app'],
+      forbidden: [],
+      unitLayout: 'folder',
+      folderTargets: ['hooks'],
+    });
+
+    const module = buildContainerPatterns({
+      module: 'auth',
+      aliases: ['~app'],
+      folderTargets: ['components'],
+    });
+
+    expect(layer.find(({ group }) => group.includes('~app/hooks/*/**'))?.message)
+      .toContain('(e.g. "~app/hooks/useX"');
+
+    expect(module.find(({ group }) => group.includes('~app/auth/components/*/**'))?.message)
+      .toBe('\n🚫 Import a unit through its entry, not its internals.');
+  });
 });

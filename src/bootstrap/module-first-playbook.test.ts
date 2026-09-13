@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  renderModuleFirstMethod,
   renderModuleFirstNextNote,
   renderModuleFirstSemantics,
 } from './module-first-playbook';
@@ -21,5 +22,10 @@ describe('module-first Next.js playbook note', () => {
     expect(semantics).toContain('Their order defines the one-way inner-layer flow');
     expect(semantics).toContain('reserved router-composition container position');
     expect(semantics).toContain('must use the canonical source-root alias');
+  });
+
+  it('passes the canonical Claude command path to the operational method renderer', () => {
+    expect(renderModuleFirstMethod({ hadDir: true, otherCommands: 2 }, true))
+      .toContain('.claude/commands/blueprint-author.md');
   });
 });

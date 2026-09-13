@@ -230,6 +230,15 @@ describe('runTransformationPreflight · injected failures', () => {
     expect(result.worktree).toEqual({ ok: false, reason: 'status failed' });
     expect(result.head).toEqual({ ok: false, reason: 'unknown revision' });
   });
+
+  it('normalizes surrounding whitespace in Git failure details', async () => {
+    const result = await runTransformationPreflight(root, ['.'], {
+      git: () => ({ status: 1, stdout: '', stderr: '  status failed\n' }),
+      inspect: inspected,
+    });
+
+    expect(result.repository).toEqual({ ok: false, reason: 'status failed' });
+  });
 });
 
 describe('runTransformationPreflight · injected boundary failures', () => {

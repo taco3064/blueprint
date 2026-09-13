@@ -169,6 +169,13 @@ describe('repository-wide topology transformation', () => {
       && action.path === 'blueprint-authoring.md');
 
     expect(actions).toHaveLength(3);
+
+    expect(fixture.request.log).toHaveBeenNthCalledWith(
+      1,
+      'blueprint init --dry-run · layer-first → module-first repository transformation '
+      + 'authoring (2 applications; Git preflight passed)',
+    );
+
     expect(fixture.request.log).toHaveBeenCalledWith(expect.stringContaining('would write'));
     expect(playbook).toMatchObject({ kind: 'write' });
 
@@ -192,6 +199,14 @@ describe('repository-wide topology transformation', () => {
       ...fixture.request,
       options: { ...fixture.request.options, agent: 'codex', spawn },
     });
+
+    expect(fixture.request.log).toHaveBeenNthCalledWith(
+      1,
+      'blueprint init · module-first → layer-first repository transformation '
+      + 'authoring (2 applications; Git preflight passed)',
+    );
+
+    expect(fixture.request.log).toHaveBeenCalledWith(expect.stringContaining('  ✓ write:'));
 
     expect(spawn).toHaveBeenCalledWith(
       'codex',

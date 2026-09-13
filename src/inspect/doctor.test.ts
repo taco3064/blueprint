@@ -188,6 +188,14 @@ describe('runDoctor · the eslint wiring check', () => {
       checks.find((c) => c.label.includes('eslint'))?.detail,
     ).toContain('migrate to flat config');
   });
+
+  it('does not prefer a leftover legacy config over an active flat config', async () => {
+    adopted();
+    write('.eslintrc.cjs', 'module.exports = {};');
+    const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
+
+    expect(checks.find((c) => c.label === 'eslint wired to emitLint')?.detail).toBeUndefined();
+  });
 });
 
 describe('runDoctor · alias resolution', () => {
