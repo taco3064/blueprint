@@ -54,8 +54,14 @@ describe('architecture.testFiles editorial policy', () => {
       expect(renderTestFilesEditorial(edition, 'en'))
         .not.toBe(renderTestFilesEditorial(edition, 'zh-TW'));
 
+      expect(renderTestFilesEditorial(edition, 'en')).not.toMatch(/\p{Script=Han}/u);
+      expect(renderTestFilesEditorial(edition, 'zh-TW')).toMatch(/\p{Script=Han}/u);
+
       expect(renderTestFilesEditorial(edition, 'en', []))
         .not.toBe(renderTestFilesEditorial(edition, 'zh-TW', []));
+
+      expect(renderTestFilesEditorial(edition, 'en', [])).not.toMatch(/\p{Script=Han}/u);
+      expect(renderTestFilesEditorial(edition, 'zh-TW', [])).toMatch(/\p{Script=Han}/u);
     }
   });
 
