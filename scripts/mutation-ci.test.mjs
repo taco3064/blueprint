@@ -12,6 +12,7 @@ import {
   partitionRanges,
   planMutation,
   renderSummary,
+  reusableMutationEvidence,
   selectMutationBase,
   verifyManifest,
   verifyMutationCheckout,
@@ -25,12 +26,53 @@ function repository() {
   git('config', 'user.name', 'Blueprint Test');
   git('config', 'user.email', 'blueprint@example.test');
   fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'scripts'), { recursive: true });
+  for (const file of [
+    'package.json', 'package-lock.json', 'stryker.config.json', 'vitest.config.ts',
+    'tsconfig.json', 'tsconfig.lib.json', 'tsconfig.test.json', 'tsconfig.types.json',
+    'scripts/mutation-smoke.mjs',
+  ]) fs.writeFileSync(path.join(root, file), '{}\n');
   fs.writeFileSync(path.join(root, 'src', 'rule.ts'), 'export const rule = 1\n');
   git('add', '.');
   git('commit', '-qm', 'base');
   git('branch', '-M', 'main');
 
   return { root, git };
+}
+
+function writePreviousEvidence(root, manifest, evidence) {
+  const previous = path.join(root, 'previous');
+
+  fs.mkdirSync(previous);
+  fs.writeFileSync(path.join(previous, 'manifest.json'), `${JSON.stringify(manifest)}\n`);
+
+  for (const { shard, status = 'passed', testFile = 'src/rule.test.ts' } of evidence) {
+    const dir = path.join(previous, `shard-${shard.id}`);
+
+    fs.mkdirSync(dir);
+
+    fs.writeFileSync(path.join(dir, 'summary.json'), `${JSON.stringify({
+      shard: shard.id,
+      status,
+      runnerExit: status === 'passed' ? 0 : 1,
+      planHash: manifest.planHash,
+      head: manifest.headSha,
+      base: manifest.mutationBaseSha,
+      scopes: shard.scopes,
+      total: 1,
+      statuses: { [status === 'passed' ? 'Killed' : 'Survived']: 1 },
+      unacceptableMutants: status === 'passed' ? [] : [{ status: 'Survived' }],
+    })}\n`);
+
+    fs.writeFileSync(path.join(dir, 'mutation.json'), `${JSON.stringify({
+      files: Object.fromEntries(Object.keys(shard.ranges).map((file) => [file, {
+        mutants: [{ status: 'Killed', coveredBy: ['test-1'], killedBy: ['test-1'] }],
+      }])),
+      testFiles: { [testFile]: { tests: [{ id: 'test-1', name: 'kills it' }] } },
+    })}\n`);
+  }
+
+  return previous;
 }
 
 describe('mutation CI planning', () => {
@@ -212,6 +254,71 @@ describe('mutation CI planning', () => {
     expect(proof.represented).toHaveLength(210);
   });
 
+  it('reuses valid passed shards from a failed aggregate and reruns unresolved scope', () => {
+    const { root, git } = repository();
+    const base = git('rev-parse', 'HEAD');
+
+    fs.writeFileSync(path.join(root, 'src', 'rule.test.ts'), 'export const test = 1\n');
+    fs.appendFileSync(path.join(root, 'src', 'rule.ts'), 'export const first = 2\nexport const second = 3\n');
+    git('add', '.');
+    git('commit', '-qm', 'previous head');
+
+    const previousManifest = planMutation(root, { base, targetLines: 1 });
+
+    const previous = writePreviousEvidence(root, previousManifest, [
+      { shard: previousManifest.shards[0] },
+      { shard: previousManifest.shards[1], status: 'failed' },
+    ]);
+
+    const evidence = {
+      manifest: previousManifest,
+      evidence: new Map([[previousManifest.shards[0].id, {
+        summary: JSON.parse(fs.readFileSync(path.join(previous, 'shard-000', 'summary.json'))),
+        report: JSON.parse(fs.readFileSync(path.join(previous, 'shard-000', 'mutation.json'))),
+      }]]),
+    };
+
+    expect(reusableMutationEvidence(root, evidence, git('rev-parse', 'HEAD'))).toHaveLength(1);
+
+    const plan = planMutation(root, { base, previous, targetLines: 1 });
+
+    expect(plan).toMatchObject({ authority: 'partial-reuse' });
+    expect(plan.reusedShards).toHaveLength(1);
+    expect(plan.shards.flatMap((shard) => shard.scopes)).toEqual(previousManifest.shards[1].scopes);
+    expect(verifyManifest(plan)).toMatchObject({ complete: true, duplicates: [] });
+
+    expect(reusableMutationEvidence(root, {
+      manifest: plan,
+      evidence: new Map(),
+    }, git('rev-parse', 'HEAD'))).toEqual(plan.reusedShards);
+  });
+
+  it('reruns a passed shard when one of its covering tests changes', () => {
+    const { root, git } = repository();
+    const base = git('rev-parse', 'HEAD');
+
+    fs.writeFileSync(path.join(root, 'src', 'rule.test.ts'), 'export const test = 1\n');
+    fs.appendFileSync(path.join(root, 'src', 'rule.ts'), 'export const first = 2\n');
+    git('add', '.');
+    git('commit', '-qm', 'previous head');
+
+    const previousManifest = planMutation(root, { base, targetLines: 1 });
+
+    const previous = writePreviousEvidence(
+      root,
+      previousManifest,
+      [{ shard: previousManifest.shards[0] }],
+    );
+
+    fs.writeFileSync(path.join(root, 'src', 'rule.test.ts'), 'export const test = 2\n');
+    git('commit', '-qam', 'change covering test');
+
+    const plan = planMutation(root, { base, previous, targetLines: 1 });
+
+    expect(plan.reusedShards).toEqual([]);
+    expect(plan.shards.flatMap((shard) => shard.scopes)).toEqual(previousManifest.shards[0].scopes);
+  });
+
   it('keeps partition coverage complete, bounded, and deterministic', () => {
     fc.assert(fc.property(
       fc.array(fc.integer({ min: 1, max: 100 }), { minLength: 1, maxLength: 20 }),
@@ -268,7 +375,48 @@ describe('mutation CI aggregation', () => {
     ]);
 
     expect(summary).toMatchObject({ status: 'passed', passed: true, total: 3, statuses: { Killed: 2, Ignored: 1 } });
-    expect(renderSummary(summary)).toContain('scope: 2 production line(s), 2 shard(s)');
+    expect(renderSummary(summary)).toContain('scope: 2 production line(s), 2 executed shard(s), 0 reused shard(s)');
+  });
+
+  it('includes sealed reused evidence without requiring a current shard result', () => {
+    const current = {
+      ...manifest,
+      ranges: { 'src/a.ts': [[1, 3]] },
+      changedLines: 3,
+      reusedShards: [{
+        id: 'old-000',
+        sourceHeadSha: '9'.repeat(40),
+        ranges: { 'src/a.ts': [[1, 1]] },
+        scopes: ['src/a.ts:1-1'],
+        total: 2,
+        statuses: { Killed: 2 },
+      }],
+      shards: [
+        { id: '000', scopes: ['src/a.ts:2-2'] },
+        { id: '001', scopes: ['src/a.ts:3-3'] },
+      ],
+    };
+
+    const resultFor = (summary) => ({
+      planHash: current.planHash,
+      head: current.headSha,
+      base: current.mutationBaseSha,
+      scopes: current.shards.find((shard) => shard.id === summary.shard).scopes,
+      ...summary,
+    });
+
+    const summary = aggregateMutation(current, [
+      resultFor({ shard: '000', status: 'passed', runnerExit: 0, total: 1, statuses: { Killed: 1 } }),
+      resultFor({ shard: '001', status: 'passed', runnerExit: 0, total: 1, statuses: { Ignored: 1 } }),
+    ]);
+
+    expect(summary).toMatchObject({
+      passed: true,
+      total: 4,
+      statuses: { Killed: 3, Ignored: 1 },
+      shardCount: 2,
+      reusedShardCount: 1,
+    });
   });
 
   it('fails with actionable source and shard evidence', () => {

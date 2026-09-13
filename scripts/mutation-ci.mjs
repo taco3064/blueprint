@@ -29,6 +29,166 @@ function isAncestor(root, ancestor, descendant) {
   return git(root, ['merge-base', '--is-ancestor', ancestor, descendant], true).status === 0;
 }
 
+const MUTATION_EVIDENCE_VERSION = 1;
+
+const MUTATION_AUTHORITY_FILES = [
+  'package.json',
+  'package-lock.json',
+  'stryker.config.json',
+  'vitest.config.ts',
+  'tsconfig.json',
+  'tsconfig.lib.json',
+  'tsconfig.test.json',
+  'tsconfig.types.json',
+  'scripts/mutation-smoke.mjs',
+];
+
+function sameGitBlob(root, left, right, file) {
+  const blob = (commit) => git(root, ['rev-parse', '--verify', `${commit}:${file}`], true);
+  const leftBlob = blob(left);
+  const rightBlob = blob(right);
+
+  return leftBlob.status === 0 && rightBlob.status === 0
+    && leftBlob.stdout.trim() === rightBlob.stdout.trim();
+}
+
+function subtractRanges(ranges, excluded) {
+  const result = {};
+
+  for (const [file, fileRanges] of Object.entries(ranges)) {
+    const cuts = (excluded[file] ?? []).toSorted((left, right) => left[0] - right[0]);
+    const remaining = [];
+
+    for (const [start, end] of fileRanges) {
+      let cursor = start;
+
+      for (const [cutStart, cutEnd] of cuts) {
+        if (cutEnd < cursor || cutStart > end) continue;
+        if (cutStart > cursor) remaining.push([cursor, Math.min(end, cutStart - 1)]);
+        cursor = Math.max(cursor, cutEnd + 1);
+        if (cursor > end) break;
+      }
+
+      if (cursor <= end) remaining.push([cursor, end]);
+    }
+
+    if (remaining.length) result[file] = remaining;
+  }
+
+  return result;
+}
+
+function coveredTestFiles(report) {
+  const byId = new Map(Object.entries(report.testFiles ?? {}).flatMap(([file, entry]) =>
+    (entry.tests ?? []).map((test) => [String(test.id), file])));
+
+  const ids = new Set(Object.values(report.files ?? {}).flatMap((entry) =>
+    (entry.mutants ?? []).flatMap((mutant) => [
+      ...(mutant.coveredBy ?? []),
+      ...(mutant.killedBy ?? []),
+    ].map(String))));
+
+  if ([...ids].some((id) => !byId.has(id))) return null;
+
+  return [...new Set([...ids].map((id) => byId.get(id)))].sort();
+}
+
+function readPreviousEvidence(root) {
+  if (!root || !fs.existsSync(root)) return null;
+
+  const manifestFile = path.join(root, 'manifest.json');
+  if (!fs.existsSync(manifestFile)) return null;
+
+  const manifest = readJson(manifestFile);
+  const evidence = new Map();
+
+  const visit = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const file = path.join(dir, entry.name);
+
+      if (entry.isDirectory()) visit(file);
+      else if (entry.name === 'summary.json') {
+        const summary = readJson(file);
+        const reportFile = path.join(dir, 'mutation.json');
+
+        if (summary?.shard && fs.existsSync(reportFile)) {
+          evidence.set(summary.shard, { summary, report: readJson(reportFile) });
+        }
+      }
+    }
+  };
+
+  visit(root);
+
+  return { manifest, evidence };
+}
+
+export function reusableMutationEvidence(root, previous, headSha) {
+  if (!previous?.manifest || !previous?.evidence) return [];
+
+  const manifest = previous.manifest;
+  if ((manifest.evidenceVersion ?? 1) !== MUTATION_EVIDENCE_VERSION) return [];
+
+  const exists = git(root, ['cat-file', '-e', `${manifest.headSha}^{commit}`], true).status === 0;
+  if (!exists || !isAncestor(root, manifest.headSha, headSha)) return [];
+
+  const authorityChanged = MUTATION_AUTHORITY_FILES
+    .some((file) => !sameGitBlob(root, manifest.headSha, headSha, file));
+
+  if (authorityChanged) {
+    return [];
+  }
+
+  const inherited = (manifest.reusedShards ?? []).filter((shard) => {
+    const sourceExists = git(
+      root,
+      ['cat-file', '-e', `${shard.sourceHeadSha}^{commit}`],
+      true,
+    ).status === 0;
+
+    const files = [...Object.keys(shard.ranges ?? {}), ...(shard.testFiles ?? [])];
+
+    return sourceExists
+      && isAncestor(root, shard.sourceHeadSha, headSha)
+      && MUTATION_AUTHORITY_FILES.every((file) =>
+        sameGitBlob(root, shard.sourceHeadSha, headSha, file))
+      && files.every((file) => sameGitBlob(root, shard.sourceHeadSha, headSha, file));
+  });
+
+  const direct = manifest.shards.flatMap((shard) => {
+    const { summary, report } = previous.evidence.get(shard.id) ?? {};
+    const testFiles = report ? coveredTestFiles(report) : null;
+
+    const validSummary = summary?.status === 'passed'
+      && summary.runnerExit === 0
+      && summary.planHash === manifest.planHash
+      && summary.head === manifest.headSha
+      && summary.base === manifest.mutationBaseSha
+      && JSON.stringify(summary.scopes) === JSON.stringify(shard.scopes)
+      && (summary.unacceptableMutants ?? []).length === 0;
+
+    const unchanged = validSummary && testFiles
+      && [...Object.keys(shard.ranges ?? {}), ...testFiles]
+        .every((file) => sameGitBlob(root, manifest.headSha, headSha, file));
+
+    return unchanged
+      ? [{
+          id: shard.id,
+          sourceHeadSha: manifest.headSha,
+          sourcePlanHash: manifest.planHash,
+          ranges: shard.ranges,
+          scopes: shard.scopes,
+          changedLines: shard.changedLines,
+          total: summary.total ?? 0,
+          statuses: summary.statuses ?? {},
+          testFiles,
+        }]
+      : [];
+  });
+
+  return [...inherited, ...direct];
+}
+
 export function latestReviewedSha(reviews) {
   return reviews
     .flat(Infinity)
@@ -139,7 +299,12 @@ export function verifyManifest(manifest) {
     )));
 
   const authoritative = lines(manifest.ranges).sort();
-  const represented = manifest.shards.flatMap((shard) => lines(shard.ranges)).sort();
+
+  const represented = [
+    ...manifest.shards.flatMap((shard) => lines(shard.ranges)),
+    ...(manifest.reusedShards ?? []).flatMap((shard) => lines(shard.ranges)),
+  ].sort();
+
   const duplicates = represented.filter((line, index) => line === represented[index - 1]);
 
   return {
@@ -155,6 +320,7 @@ export function planMutation(root, {
   head = 'HEAD',
   reviews = [],
   checkpoints = [],
+  previous,
   targetLines = 100,
 }) {
   const baseHeadSha = resolveCommit(root, base);
@@ -167,21 +333,43 @@ export function planMutation(root, {
     checkpoints,
   });
 
+  const prior = readPreviousEvidence(previous);
+  const reusable = reusableMutationEvidence(root, prior, headSha);
+
+  const canReuse = reusable.length > 0
+    && prior.manifest.mergeBaseSha === selected.mergeBaseSha
+    && isAncestor(root, prior.manifest.mutationBaseSha, headSha);
+
+  const mutationBaseSha = canReuse ? prior.manifest.mutationBaseSha : selected.mutationBaseSha;
+
   const diff = git(root, [
     'diff', '--unified=0', '--no-color', '--diff-filter=ACMR',
-    selected.mutationBaseSha, headSha, '--', 'src',
+    mutationBaseSha, headSha, '--', 'src',
   ]).stdout;
 
   const ranges = parseChangedRanges(diff);
-  const shards = partitionRanges(ranges, targetLines);
+  const reusedShards = canReuse ? reusable : [];
+
+  const reusedRanges = Object.fromEntries(Object.keys(ranges).map((file) => [
+    file,
+    reusedShards.flatMap((shard) => shard.ranges[file] ?? []),
+  ]));
+
+  const executionRanges = subtractRanges(ranges, reusedRanges);
+  const shards = partitionRanges(executionRanges, targetLines);
 
   const manifest = {
+    evidenceVersion: MUTATION_EVIDENCE_VERSION,
     baseHeadSha,
     headSha,
     ...selected,
+    mutationBaseSha,
+    authority: canReuse ? 'partial-reuse' : selected.authority,
     changedLines: changedLineCount(ranges),
     files: Object.keys(ranges),
     ranges,
+    executionRanges,
+    reusedShards,
     shards,
   };
 
@@ -359,6 +547,14 @@ export function aggregateMutation(manifest, summaries) {
   const unacceptableMutants = [];
   let total = 0;
 
+  for (const reused of manifest.reusedShards ?? []) {
+    total += reused.total ?? 0;
+
+    for (const [status, count] of Object.entries(reused.statuses ?? {})) {
+      statuses[status] = (statuses[status] ?? 0) + count;
+    }
+  }
+
   for (const summary of summaries) {
     total += summary.total ?? 0;
 
@@ -403,6 +599,7 @@ export function aggregateMutation(manifest, summaries) {
     files: manifest.files,
     ranges: manifest.ranges,
     shardCount: manifest.shards.length,
+    reusedShardCount: manifest.reusedShards?.length ?? 0,
     total,
     statuses,
     missingShards,
@@ -422,7 +619,7 @@ export function renderSummary(summary) {
     `- merge-base: \`${summary.mergeBase}\``,
     `- reviewed SHA: ${summary.reviewedSha ? `\`${summary.reviewedSha}\`` : 'none'}`,
     `- head: \`${summary.head}\``,
-    `- scope: ${summary.changedLines} production line(s), ${summary.shardCount} shard(s)`,
+    `- scope: ${summary.changedLines} production line(s), ${summary.shardCount} executed shard(s), ${summary.reusedShardCount} reused shard(s)`,
     `- result: **${summary.status}**`,
     `- totals: ${JSON.stringify(summary.statuses)}`,
   ];
@@ -497,6 +694,7 @@ function main() {
       head: options.head,
       reviews: readJson(options.reviews, []),
       checkpoints: readJson(options.checkpoints, { check_runs: [] }).check_runs ?? [],
+      previous: options.previous,
       targetLines: Number(options['target-lines'] ?? 100),
     });
 

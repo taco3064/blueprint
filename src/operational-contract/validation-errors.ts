@@ -132,6 +132,18 @@ export function renderValidationErrorCause(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+export function withValidationErrorRendering<Result>(operation: () => Result): Result {
+  try {
+    return operation();
+  } catch (error) {
+    if (error instanceof ConfigValidationError || error instanceof MarkdownValidationError) {
+      throw new Error(renderValidationError(error.fact));
+    }
+
+    throw error;
+  }
+}
+
 /**
  * Author a Blueprint. Validates referential integrity up front and returns a
  * current config unchanged. A supported 3.2 layer shape is normalized to its
