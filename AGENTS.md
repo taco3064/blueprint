@@ -53,10 +53,12 @@ applies before every GitHub or repository mutation.
 
 ## Layering (one-way, low → high)
 
-`config` → `markdown` → `plugin` → `emit/*` → `presets` → `project` →
+`config` → `markdown` / `editorial` → `plugin` → `emit/*` → `presets` → `project` →
 `inspect` → `survey` / `impact` → `bootstrap` → `cli`. A module imports only
 from lower ones (survey reads inspect's scan; bootstrap embeds the survey in
 its authoring playbook).
+`editorial` renders domain-owned config facts for higher emit/runtime surfaces;
+it may import `config`, but does not own or re-decide domain policy.
 `project` is the shared reader (`detect` + `resolveBlueprint`) for both
 runtimes; `plugin` is the embedded ESLint plugin (plain rule objects, no
 internal deps) that `emit/lint` ships inside its output.
