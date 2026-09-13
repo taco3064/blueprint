@@ -68,6 +68,28 @@ function wrapWidthProbe(): string[] {
 }
 
 describe('renderSurvey · the sections, and what each says when it is empty', () => {
+  it('labels repository-root wiring without inventing a dot directory', () => {
+    const output = renderSurvey({
+      framework: 'react',
+      typescript: true,
+      packageManager: 'npm',
+      sourceRoot: '.',
+      aliases: {},
+      rootFiles: ['main.ts'],
+      folders: [],
+      edges: [],
+      selfAliasImports: {},
+      testEvidence: [],
+      packageUsage: [],
+      ownableImports: [],
+      unresolved: [],
+      totalFiles: 1,
+    });
+
+    expect(output).toContain('Project root files (wiring, not layers): main.ts');
+    expect(output).not.toContain('./ root files');
+  });
+
   it('renders the unknown-framework header without folders', () => {
     const output = renderSurvey({
       framework: null,
@@ -85,6 +107,7 @@ describe('renderSurvey · the sections, and what each says when it is empty', ()
       totalFiles: 0,
     });
 
+    expect(output).not.toContain('Stryker was here');
     expect(output).toContain('unknown framework');
     // The same-folder section always prints — the playbook cites it, so an
     // absent row read as a gap two field agents had to puzzle out (#25, #28).
@@ -103,7 +126,9 @@ describe('renderSurvey · the sections, and what each says when it is empty', ()
     expect(output).not.toContain('Test conventions:');
     expect(output).not.toContain('Package usage');
   });
+});
 
+describe('renderSurvey · populated sections', () => {
   it('renders the alias list, the folder row, and same-folder counts heaviest first', () => {
     const output = renderSurvey({
       framework: 'vue',
@@ -130,6 +155,7 @@ describe('renderSurvey · the sections, and what each says when it is empty', ()
       totalFiles: 12,
     });
 
+    expect(output).not.toContain('Stryker was here');
     // Every alias, joined — a render that stops at the first one hides half
     // the wiring the agent has to reproduce.
     expect(output).toContain('Alias: ~app → src, ~lib → src/lib');

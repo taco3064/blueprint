@@ -8,11 +8,25 @@ describe('authoring schema source-root facts', () => {
     const defaults = renderSchemaSketch('src');
     const custom = renderSchemaSketch('apps/web/source');
 
-    expect(repository).toContain('sourceRoot: \'.\'');
-    expect(repository).toContain('\'~shared\': \'./shared\'');
-    expect(defaults).not.toContain('sourceRoot: \'src\'');
-    expect(defaults).toContain('\'~shared\': \'./src/shared\'');
-    expect(custom).toContain('sourceRoot: \'apps/web/source\'');
+    expect(repository.split('\n')).toContain('    sourceRoot: \'.\',');
+
+    expect(repository.split('\n')).toContain(
+      '    additionalAliases: { \'~shared\': \'./shared\' },',
+    );
+
+    expect(defaults.split('\n')).not.toContain('    sourceRoot: \'src\',');
+
+    expect(defaults).not.toContain('Stryker was here');
+
+    expect(defaults.split('\n')).toContain(
+      '    additionalAliases: { \'~shared\': \'./src/shared\' },',
+    );
+
+    expect(custom.split('\n')).toContain('    sourceRoot: \'apps/web/source\',');
+
+    expect(custom.split('\n')).toContain(
+      '    additionalAliases: { \'~shared\': \'./apps/web/source/shared\' },',
+    );
   });
 
   it('omits only the default module-first source root', () => {

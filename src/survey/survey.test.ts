@@ -544,6 +544,7 @@ describe('runSurvey · project scope and layer aliases', () => {
 
     expect(result.sourceRoot).toBe('.');
     expect(result.rootFiles).toContain('main.ts');
+    expect(result.scopeNote).toContain('repository root');
   });
 });
 

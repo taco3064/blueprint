@@ -30,13 +30,16 @@ export interface SurveyReportFact {
   totalFiles: number;
 }
 
+const SURVEY_SCOPE_NOTES = {
+  'root-typescript-includes': 'TypeScript includes identify source folders at the repository root.',
+  'workspace-applications': 'Workspace projects span multiple application roots; '
+    + 'choose one with --source-root before authoring architecture.',
+} as const;
+
 export function renderSurveyScopeNote(
-  fact: { kind: 'root-typescript-includes' | 'workspace-applications' },
+  fact: { kind: keyof typeof SURVEY_SCOPE_NOTES },
 ): string {
-  return fact.kind === 'root-typescript-includes'
-    ? 'TypeScript includes identify source folders at the repository root.'
-    : 'Workspace projects span multiple application roots; '
-      + 'choose one with --source-root before authoring architecture.';
+  return SURVEY_SCOPE_NOTES[fact.kind];
 }
 
 function wrapList(items: string[], width: number, indent: string): string[] {
