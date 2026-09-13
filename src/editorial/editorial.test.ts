@@ -50,6 +50,12 @@ describe('architecture.testFiles editorial policy', () => {
         expect(renderTestFilesEditorial(edition, locale)).toBeTruthy();
         expect(renderTestFilesEditorial(edition, locale, [])).toBeTruthy();
       }
+
+      expect(renderTestFilesEditorial(edition, 'en'))
+        .not.toBe(renderTestFilesEditorial(edition, 'zh-TW'));
+
+      expect(renderTestFilesEditorial(edition, 'en', []))
+        .not.toBe(renderTestFilesEditorial(edition, 'zh-TW', []));
     }
   });
 
