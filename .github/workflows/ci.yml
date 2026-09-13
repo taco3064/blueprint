@@ -249,15 +249,15 @@ jobs:
             [ -n "$PLAN_ID" ] || continue
             gh api "repos/${{ github.repository }}/actions/artifacts/$PLAN_ID/zip" > mutation-plan.zip
             unzip -q mutation-plan.zip -d reports/mutation-previous
-            RUN_ID="$RUN_ID" node --input-type=module <<'NODE' > mutation-shard-artifacts.txt
-            import fs from 'node:fs';
-            const pages = JSON.parse(fs.readFileSync('mutation-artifacts.json', 'utf8'));
-            const suffix = `-${process.env.RUN_ID}`;
-            const artifacts = pages.flatMap((page) => page.artifacts ?? [])
-              .filter((item) => item.name.startsWith('mutation-shard-') && item.name.endsWith(suffix))
-              .filter((item) => !item.expired);
-            process.stdout.write(artifacts.map((item) => `${item.id} ${item.name}`).join('\n'));
-            NODE
+            RUN_ID="$RUN_ID" node --input-type=module -e '
+              import fs from "node:fs";
+              const pages = JSON.parse(fs.readFileSync("mutation-artifacts.json", "utf8"));
+              const suffix = "-" + process.env.RUN_ID;
+              const artifacts = pages.flatMap((page) => page.artifacts ?? [])
+                .filter((item) => item.name.startsWith("mutation-shard-") && item.name.endsWith(suffix))
+                .filter((item) => !item.expired);
+              process.stdout.write(artifacts.map((item) => item.id + " " + item.name).join("\n"));
+            ' > mutation-shard-artifacts.txt
             while read -r SHARD_ARTIFACT_ID SHARD_ARTIFACT_NAME; do
               mkdir -p "reports/mutation-previous/downloaded/$SHARD_ARTIFACT_NAME"
               gh api "repos/${{ github.repository }}/actions/artifacts/$SHARD_ARTIFACT_ID/zip" > mutation-shard.zip
