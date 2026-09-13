@@ -53,6 +53,8 @@ export {
 } from './cli-errors';
 export type { OperationalCommand } from './cli-help';
 export type { OperationalText } from './operational-contract';
+export { renderValidationError } from './validation-errors';
+export type { ValidationErrorFact } from './validation-errors';
 export {
   renderDependencyLeaderboard,
   renderDependencyTestExemption,

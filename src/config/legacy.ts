@@ -1,4 +1,5 @@
 import type { ArchitectureDef, Blueprint, LayerDef } from './types';
+import { renderValidationError } from '../operational-contract/validation-errors';
 
 interface LegacyUnitShape {
   layout?: 'folder' | 'flat';
@@ -100,18 +101,18 @@ function validateLegacyUnitShape(
   where: string,
 ): void {
   if (typeof shape !== 'object' || shape === null || Array.isArray(shape)) {
-    throw new Error(`${where} must be an object when set.`);
+    throw new Error(renderValidationError({ kind: 'legacy-shape', where }));
   }
 
   for (const key of Object.keys(shape)) {
     if (!allowed.includes(key)) {
-      throw new Error(`Unknown key "${key}" in ${where}. Expected keys: ${allowed.join(', ')}.`);
+      throw new Error(renderValidationError({ kind: 'legacy-key', key, where, allowed }));
     }
   }
 
   const unit = shape as LegacyUnitShape;
 
   if (unit.private !== undefined && !Array.isArray(unit.private)) {
-    throw new Error('architecture.module.private must be an array when set — omit it for none.');
+    throw new Error(renderValidationError({ kind: 'legacy-private' }));
   }
 }

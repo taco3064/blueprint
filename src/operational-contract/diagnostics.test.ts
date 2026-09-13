@@ -7,6 +7,7 @@ import {
   renderDivergentReadingClause,
   renderDoctorCheck,
   renderDoctorReport,
+  renderEslintRuntimeFailure,
   renderFindingMessage,
   renderImportGraphDerivation,
   renderMetricGateNote,
@@ -150,6 +151,14 @@ describe('operational coverage prose', () => {
 });
 
 describe('operational diagnostic boundary prose', () => {
+  it('keeps ESLint package identity distinct from a missing executable', () => {
+    expect(renderEslintRuntimeFailure('wrong-package'))
+      .toBe('resolved package is not eslint');
+
+    expect(renderEslintRuntimeFailure('missing-executable'))
+      .toBe('eslint package has no executable');
+  });
+
   it('keeps gate and survey scope facts explicit', () => {
     expect(renderMetricGateNote(true)).toContain('code lines only');
     expect(renderMetricGateNote(false)).toBe('plain threshold');
