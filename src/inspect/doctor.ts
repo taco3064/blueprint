@@ -297,9 +297,7 @@ function eslintWiredCheck(state: ProjectState, eslintWired: boolean): DoctorChec
   return renderDoctorCheck({
     kind: 'eslint-wired',
     wired: eslintWired,
-    ...(state.eslintConfigShape === 'legacy' && state.legacyEslintConfig
-      ? { legacyConfig: state.legacyEslintConfig }
-      : {}),
+    legacyConfig: state.legacyEslintConfig,
   });
 }
 
