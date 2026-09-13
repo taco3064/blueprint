@@ -1,11 +1,16 @@
 # 分層架構
 
 > **與 blueprint 的關係**：這一頁講的分層，就是 blueprint config 裡的 `architecture` 區塊 ——<br>
-> 也是整套工程理念裡，唯一會被編成**硬性護欄**的部分：[生成的 ESLint config](/zh-TW/guide/generated-artifacts#eslint-config-mjs-——-強制) 與 [inspect 檢測](/zh-TW/guide/reference#inspect-回報的檢測項目)。<br>
-> 你只要在 [`blueprint.config.mjs`](/zh-TW/guide/getting-started#blueprint-config) 把自己的分層宣告出來，這套機制就照著幫你把關。
+> 也是整套工程理念裡，唯一會被編成**硬性護欄**的部分：[產生的 ESLint 設定](/zh-TW/generated-files#eslint-設定)與 [`inspect` 檢測](/zh-TW/commands#inspect)。<br>
+> 只要在 [`blueprint.config.mjs`](/zh-TW/configuration#架構) 宣告自己的分層，同一套機制就會開始把關。
 
-**核心只有一句：程式碼只能往下流。**<br>
-把專案切成有順序的幾層，每一層只能 import 它下面的層、不能反過來 —— 而且每層只做一件事。
+**核心只有一句：程式碼只能往下流。** 兩種支援的拓樸都共享這套內部分層紀律：
+
+- layer-first：`Layer → Unit`；
+- module-first：一般模組採用 `Module → Layer → Unit`。
+
+標準 Vue 與 React 預設設定仍是 layer-first 範例。Module-first 只是增加外層領域相依圖，
+不會取代每個一般模組內的分層理念。
 
 這套規則跟你用什麼框架無關，Vue、React 都通 —— 同一個單元，兩邊只是名字不同。
 
@@ -28,6 +33,14 @@ flowchart TD
 2. 資料歸屬一眼就看得出來，不用搜遍整個專案
 3. 重構起來安全：跨層搬檔案時，lint 會一次把所有非法呼叫點列出來
 4. 多加一條依賴邊，就等於改了 blueprint config —— 逼你在 review 時正面回答「這一層真的該依賴那一層嗎」
+
+## 外層模組邊界
+
+Module-first 會在每個一般模組內重複使用下方的分層契約。模組 `dependsOn` 決定可以接觸
+哪些其他模組，包含遞移相依；一次匯入必須同時符合外層模組圖與內部單向分層流。
+
+選用的保留 `app` 模組不同：它代表 container 位置上的遞迴路由組合，不是一般領域模組，
+也不重複內部分層。這項例外讓路由所有權保持明確，不會削弱其他功能模組的模組／分層模型。
 
 ## 各層職責
 
@@ -82,7 +95,7 @@ flowchart TD
 - `{ global }` 代表持有**全域物件**（`fetch`、`WebSocket`）——<br>
   全域物件沒有 import 敘述，所以這半邊是 lint（`no-restricted-globals`）在管、不是 `inspect`
 - 套件所有權有兩道防線：<br>
-  lint（`no-restricted-imports`）跟 inspect 的 [`package-ownership` 檢測](/zh-TW/guide/reference#inspect-回報的檢測項目)
+  lint（`no-restricted-imports`）跟 inspect 的 [`package-ownership` 檢測](/zh-TW/commands#inspect)
 
 ## 功能資料夾 —— 一個 unit 一個資料夾
 

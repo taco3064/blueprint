@@ -2,13 +2,20 @@
 
 > **In blueprint**: this page documents the presets' `architecture` block — the one part
 > of the philosophy that compiles into **hard gates**, not just prose: the
-> [generated ESLint config](/guide/generated-artifacts#eslint-config-mjs-—-enforce) and
-> [inspect's findings](/guide/reference#what-inspect-reports). Declare your own layers in
-> [`blueprint.config.mjs`](/guide/getting-started#the-blueprint) and the same machinery
+> [generated ESLint config](/generated-files#eslint-configuration) and
+> [`inspect` findings](/commands#inspect). Declare your own layers in
+> [`blueprint.config.mjs`](/configuration#architecture) and the same machinery
 > enforces them.
 
-**One-way dependency flow + single responsibility per layer.** The principles are
-framework-neutral — Vue and React hold the same shapes; a unit just goes by two names.
+**One-way dependency flow + single responsibility per layer.** That inner discipline is
+shared by both supported topologies:
+
+- layer-first: `Layer → Unit`;
+- module-first: `Module → Layer → Unit` for ordinary modules.
+
+The canonical Vue and React presets remain layer-first examples. Module-first adds an
+outer domain dependency graph; it does not replace the layer doctrine inside each ordinary
+module.
 
 ```mermaid
 flowchart TD
@@ -29,6 +36,18 @@ flowchart TD
 3. Refactors are safe: moving a file across layers makes lint flag every illegal call site
 4. Adding a dependency edge means editing the blueprint — "should this layer really
    depend on that one?" surfaces in review
+
+## The outer module boundary
+
+In module-first, every ordinary module repeats the shared layer contract below. A module's
+`dependsOn` edges determine which other modules it can reach, including transitive
+dependencies. An import must satisfy both that outer graph and the inner one-way layer
+flow.
+
+The optional reserved `app` module is different: it represents recursive router
+composition at the container position. It is not an ordinary domain module and does not
+repeat the shared layers. This exception keeps router ownership explicit without weakening
+the module/layer model for application features.
 
 ## The layers
 
@@ -80,7 +99,7 @@ declares the primitives it exclusively owns, and every other layer is barred fro
 - `{ global }` owns a **global** (`fetch`, `WebSocket`) — no import statement exists,
   so this half is enforced by lint (`no-restricted-globals`), not `inspect`
 - package ownership lands twice: lint (`no-restricted-imports`) and inspect's
-  [`package-ownership` finding](/guide/reference#what-inspect-reports)
+  [`package-ownership` finding](/commands#inspect)
 
 ## Feature folder — one unit, one folder
 

@@ -1,84 +1,11 @@
-# 安全與信任
+---
+head:
+  - - meta
+    - http-equiv: refresh
+      content: "0; url=https://github.com/taco3064/blueprint/security/policy"
+---
 
-由於此套件的部分功能會在使用者機器上操作 AI Agent 來協助導入，<br>
-希望以下聲明可以釐清使用者在安全性上的疑慮 —— 每項聲明均可於原始碼中查證。
+# 安全政策已搬移
 
-## 預設不啟動任何 AI Agent —— 除非使用者明確要求
-
-blueprint **為 AI Agent 準備素材，預設不代替使用者操作 Agent**。<br>
-它產出的是純 markdown 格式的守則檔（`CLAUDE.md`、`AGENTS.md`、Cursor 與 Windsurf 規則檔），在既有專案上另產出一份導入作業手冊，完成後即交棒。<br>
-它**不會**設定 `claude`、`codex` 或任何 Agent CLI，亦不會向其進行身分驗證。<br>
-此套件不存在憑證、權杖或授權介面：`init`、`survey`、`inspect` 所執行的分析均為決定性的檔案操作，而非 Agent 呼叫。
-
-唯一的例外必須由使用者明確啟用：<br>
-`init --agent claude|codex` 會以導入作業手冊為輸入，啟動**使用者自己的** Agent CLI。<br>
-此選項的安全邊界如下：
-
-- **執行前先印出完整指令** ——<br>
-  與使用者親自貼上執行的指令完全相同；`--agent` 除了代為執行之外，不做任何額外的事
-- **前景互動模式** ——<br>
-  工作階段執行於使用者 Agent CLI 自身的權限確認機制之下。<br>
-  Blueprint 不代為授權、不傳遞任何權杖、亦不讀取工作階段的內容
-- **所有產出結果在子行程啟動之前均已寫入磁碟** ——<br>
-  啟動失敗或 Agent 中途停止時，即回歸手動路徑；手動路徑與 Agent 路徑是同一條路徑
-- **`--dry-run` 一律不啟動任何 Agent**
-
-## 零網路存取
-
-每個指令僅操作本機檔案。<br>
-無遙測、無版本更新檢查、不回傳任何資料 —— 套件內不含任何網路程式碼。
-
-## 可稽核的執行期依賴
-
-Blueprint 會安裝已宣告的 parser 與靜態值求值工具，讓 `inspect`、`deps` 與內建 lint 規則能對 JavaScript、TypeScript、Vue 的動態匯入套用一致的架構判定。<br>
-這些套件只在本機運作，不會替 Blueprint 增加網路行為。
-
-## 子行程：事先明列、可以跳過
-
-Blueprint 僅執行三種有明確邊界的外部指令：<br>
-其一為 `init` 的依賴安裝（`npm install -D …`，列印於執行計畫中，可以 `--no-install` 跳過）；<br>
-其二為前述須明確啟用的 Agent；其三是 Doctor 對靜態可達 ESLint 最後一腿取得 live 證據。<br>
-Doctor 只解析專案宣告的本地 ESLint binary，透過 Node、且不用 shell 執行；不會執行 package script、`npx`、套件管理器，或前後其他 script segment。<br>
-argv 有歧義、需要 shell 展開、有多個 ESLint legs，或帶 fix/cache/output/suppression mutation 旗標時，該檢查會標為 unverified，不會執行。
-
-安裝這一步也是**刻意排在最後**：所有檔案寫入都排在它之前，<br>
-所以一次被中斷的執行留下的是「一棵完整的樹，只少了 `node_modules`」，而不是一套接到一半的工具鏈。<br>
-它是唯一一個可能卡上好幾分鐘的步驟（套件管理工具連不到 registry 時會安靜地重試），<br>
-所以它上面那行會把接下來要跑的指令印出來，說明安靜是正常的、安靜好幾分鐘代表它連不上 —— 這時把它停掉、自己跑那行，或加 `--no-install` 重跑就好，<br>
-並且說清楚停掉會少什麼：`package.json` 裡的這幾個套件。<br>
-在那行跑完之前，任何指名其中一個套件的失敗都是這個缺口，不是導入壞掉。
-
-## 寫入行為均有宣告與邊界
-
-- **不會寫到 repo 外面。**<br>
-  `emit.handbook` 與 `emit.agents[].path` 是來自使用者 config、會一路走到檔案系統的字串；<br>
-  路徑一旦解析到專案根目錄之外（開頭的 `../`、絕對路徑、磁碟機代號），**在寫入第一個檔案之前**就會被拒絕，<br>
-  並且指名是哪個路徑、什麼都沒寫、以及會設出這種路徑的那兩個 config 欄位。<br>
-  真實情境不是攻擊，而是 monorepo 裡少算一層的相對路徑，通常還是 blueprint 請去撰寫 config 的那個 Agent 寫的；<br>
-  config 本身是可執行的 JavaScript，所以這不是權限邊界，而是「這種路徑會大聲失敗」的承諾。<br>
-  拒絕發生在計畫階段，也正是這件事讓 `--dry-run` 不可能印出一份真正執行時會被拒絕的計畫
-- `init --dry-run` 列印全部效果，不寫入任何檔案
-- `inspect` 與 `deps` 為唯讀（`inspect --update-baseline` 僅寫入一個明列的檔案：`.blueprint-baseline.json`；檢測項目為零時不產生任何檔案）
-- 使用者持有的檔案**僅在可無損重寫時**才會修改（即無註解的 `tsconfig.json` / `jsconfig.json`）；<br>
-  其餘情況 —— 包括任何既有的 ESLint config 與手寫的 Agent 守則檔 —— 一律提供可直接使用的合併指引，絕不覆蓋。<br>
-  承載該指引的參考檔，後綴是加在**副檔名之前**（`context.mdc` → `context.blueprint.mdc`），dotfile 則保留原名（`.gitignore` → `.gitignore.blueprint`），<br>
-  所以自訂的 `emit.agents[].path` 不可能讓產生的區塊落到「它本來只是要待在旁邊」的那份文件上
-- 唯一的範圍例外：於**全新初始化的專案**（blueprint config 於同一次執行中產生），<br>
-  init 會將匯入別名一併寫入範本的 `vite.config.*` 與含註解的 tsconfig，並在 `lint` script 沒跑 eslint 時幫它接上（讓 lint 跑得到產生的規則）——<br>
-  這些是前置條件保護的文字修改，僅處理已知的範本形態，於 `--dry-run` 中完整可見，形態不符時退回指引。<br>
-  既有專案一律不走此路徑
-- 重複執行 `init` 具冪等性；<br>
-  共用守則檔中的手寫內容受標記區塊保護，不會被更動
-
-## 發佈附來源簽章
-
-每個版本均由 GitHub Actions 發佈，並附 [npm provenance](https://docs.npmjs.com/generating-provenance-statements) 來源證明 ——<br>
-建置來源可於 Sigstore 公開查驗。
-
-發佈流程的關卡依序是：程式碼檢查、型別檢查、完整測試套件（涵蓋率 100%）、建置，<br>
-**最後再驗建置產物本身** —— 實際執行 `dist/bin.js`、解析 `bin` 欄位、匯入套件進入點。<br>
-最後這一層存在的理由是：發佈的那個 job 會自己建一份 `dist/`，而 npm 收到的就是那一份；<br>
-它同時也是唯一看得到「缺陷躲在打包邊界之後」的一層，而那種狀態在每一項行程內測試裡都是通過的。<br>
-細節見[實測相容性](/zh-TW/guide/field-tested#這一頁背後有什麼)。
-
-發佈也要求精確 tag commit 上的 `blueprint/field-convergence` 成功證據。該 status 會連到同一張 release-convergence ticket 的 comment，證明相同完整 SHA、完整 live Agent 矩陣與零發佈 blocker；前一個 commit 或 affected repair replay 都不能授權後來的 tag。
+支援版本與弱點回報方式以專案的
+[Security policy](https://github.com/taco3064/blueprint/security/policy) 為準。

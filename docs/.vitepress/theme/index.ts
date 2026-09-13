@@ -1,10 +1,6 @@
 import { h } from 'vue';
 import DefaultTheme from 'vitepress/theme';
 import VersionBadge from './VersionBadge.vue';
-import ProblemCards from './ProblemCards.vue';
-import CompileFlow from './CompileFlow.vue';
-import QuickStart from './QuickStart.vue';
-import PhilosophyFacets from './PhilosophyFacets.vue';
 import './custom.css';
 
 export default {
@@ -16,12 +12,4 @@ export default {
       // release the docs describe.
       'nav-bar-title-after': () => h(VersionBadge),
     }),
-  // The homepage problem cards are authored in markdown as <ProblemCards />;
-  // register the component globally so both locales' index.md can mount it.
-  enhanceApp({ app }) {
-    app.component('ProblemCards', ProblemCards);
-    app.component('CompileFlow', CompileFlow);
-    app.component('QuickStart', QuickStart);
-    app.component('PhilosophyFacets', PhilosophyFacets);
-  },
 };

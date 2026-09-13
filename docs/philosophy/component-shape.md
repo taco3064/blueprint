@@ -2,7 +2,7 @@
 
 > **In blueprint**: these are the presets' [`componentShape`](/api/interfaces/AxisDef)
 > axes. The named triage rules (`max-params`, `max-statements`, `max-lines`) land in the
-> [generated lint config](/guide/reference#blueprint-rules-—-which-ids-actually-gate) as
+> [generated lint config](/configuration#rules) as
 > entry points; the verdicts compile into your handbook and agent contract.
 
 How a component / composable should be shaped, across a set of orthogonal axes. **A set, not a pipeline**:

@@ -7,48 +7,61 @@ hero:
   image:
     src: /logo.png
     alt: blueprint
-  tagline: Translates your frontend architecture into ESLint rules and an AI agent contract.
+  tagline: One architecture definition for executable checks, human guidance, and coding Agents.
   actions:
     - theme: brand
-      text: Get Started
-      link: "#quick-start"
+      text: Start with init
+      link: "/commands#init"
     - theme: alt
-      text: Philosophy
-      link: "#philosophy"
+      text: Define the architecture
+      link: "/configuration"
 ---
 
-## Why you need it
+## Keep architecture executable
 
-<ProblemCards />
+Architecture rules usually live in diagrams, review comments, and memory. They drift because the
+code, the documentation, and the instructions given to coding Agents evolve separately.
 
-## Write Once. Generate Everything
+Blueprint puts the durable architecture model in `blueprint.config.mjs`. From that definition it
+can produce structural ESLint checks, a human-readable handbook, and guidance for the coding Agents
+that work in the project. `inspect`, `doctor`, `deps`, and the other commands then measure the real
+repository against that model.
 
-<CompileFlow />
+## Choose the topology that matches the project
 
-Edit the config, regenerate, and every artifact moves together — they cannot drift,
-because they are all translations of the same source. See them verbatim in
-[What init Generates](/guide/generated-artifacts).
+- **Layer-first** uses `Layer → Unit`: application-wide layers such as `pages`, `components`, and
+  `services` own the source tree.
+- **Module-first** uses `Module → Layer → Unit`: ordinary domain modules repeat one shared inner
+  layer contract, while module `dependsOn` edges form an outer dependency boundary.
 
-## Quick start {#quick-start}
+Blueprint does not infer topology from folder names. A valid config is the authority, and guarded
+transformation flows handle deliberate changes between the two models.
 
-Two ways to adopt on an existing repo. You paste almost nothing —
-`init --topology layer-first --authoring` writes the playbook that tells the agent the rest:
-run it to the end, and what "done" means.
+## First adoption
 
-<QuickStart />
+Preview a layer-first adoption without writing:
 
-What each acceptance step guards, and the full flow:
-[AI-Assisted Adoption](/guide/ai-adoption).
+```bash
+npx @kekkai/blueprint init --topology layer-first --dry-run
+```
 
-## Philosophy {#philosophy}
+Start module-first authoring:
 
-Blueprint's engineering philosophy has these facets — all compiling into your repo as lint rules and an agent contract:
+```bash
+npx @kekkai/blueprint init --topology module-first
+```
 
-<PhilosophyFacets />
+Existing code is surveyed before Blueprint asks a coding Agent to author or transform the
+architecture. Small new projects may instead use the Vue, React, or Next preset path.
 
-Blueprint doesn't cover your framework's best practices — so pair it with the resource for your stack:
+## Go deeper
 
-- **React & Next.js** — [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills): installable best-practice skills from Vercel Engineering, alongside the blueprint contract, so the agent gets your structure rules _and_ the framework's idioms.
-- **Vue** — [vuejs/docs](https://github.com/vuejs/docs): the official documentation source; point your agent at it for **API ground truth**, pairs with the Vue preset.
+- [Commands](/commands) — every public command, flag, output, and refusal boundary.
+- [Configuration](/configuration) — the complete `blueprint.config.mjs` model.
+- [Generated Files](/generated-files) — what `init` creates or changes, who owns it, and for how long.
+- [Philosophy](/philosophy/) — the engineering principles behind the contract.
+- [API reference](/api/) — generated package signatures for library consumers.
 
-Blueprint governs _where code goes_; your framework's resource covers _how it's written_ — together they narrow the gap between "it compiles" and "it's good". See the full reasoning in [the philosophy](/philosophy/).
+Security reports and supported-version policy live in the repository
+[Security policy](https://github.com/taco3064/blueprint/security/policy). Release history lives in
+the repository [Changelog](https://github.com/taco3064/blueprint/blob/main/CHANGELOG.md).

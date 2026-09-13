@@ -1,7 +1,7 @@
 # 元件設計
 
 > **與 blueprint 的關係**：這些軸線就是 blueprint config 裡的 [`componentShape`](/zh-TW/api/interfaces/AxisDef) 區塊。<br>
-> 每條軸線標的初篩規則（`max-params`、`max-statements`、`max-lines`）會進 [lint config](/zh-TW/guide/reference#blueprint-rules-——-哪些識別碼會成為檢核關卡)，當「該檢查哪裡」的入口；<br>
+> 每條軸線標的初篩規則（`max-params`、`max-statements`、`max-lines`）會進 [lint 設定](/zh-TW/configuration#rules)，當「該檢查哪裡」的入口；<br>
 > 至於結論，轉譯進手冊與 AI agent 守則。
 
 **核心只有一句：blueprint 不管你元件「怎麼寫」，只管它還好不好懂、好不好改、好不好重用。**<br>

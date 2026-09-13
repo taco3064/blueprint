@@ -2,7 +2,7 @@
 
 > **In blueprint**: this is the presets' [`playbook`](/api/interfaces/PlaybookSection) —
 > the judgment rules no tool can enforce. `init` compiles them into your repo's handbook
-> and [agent contract](/guide/generated-artifacts#claude-md-agents-md-—-collaborate), so
+> and [Agent contract](/generated-files#agent-contracts), so
 > they sit *in context* on every change.
 
 The themes:
