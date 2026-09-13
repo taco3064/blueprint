@@ -30,7 +30,7 @@ function repository() {
   for (const file of [
     'package.json', 'package-lock.json', 'stryker.config.json', 'vitest.config.ts',
     'tsconfig.json', 'tsconfig.lib.json', 'tsconfig.test.json', 'tsconfig.types.json',
-    'scripts/mutation-smoke.mjs',
+    'scripts/mutation-ci.mjs', 'scripts/mutation-smoke.mjs',
   ]) fs.writeFileSync(path.join(root, file), '{}\n');
   fs.writeFileSync(path.join(root, 'src', 'rule.ts'), 'export const rule = 1\n');
   git('add', '.');
@@ -280,6 +280,11 @@ describe('mutation CI planning', () => {
 
     expect(reusableMutationEvidence(root, evidence, git('rev-parse', 'HEAD'))).toHaveLength(1);
 
+    expect(reusableMutationEvidence(root, {
+      ...evidence,
+      manifest: { ...previousManifest, evidenceVersion: undefined },
+    }, git('rev-parse', 'HEAD'))).toEqual([]);
+
     const plan = planMutation(root, { base, previous, targetLines: 1 });
 
     expect(plan).toMatchObject({ authority: 'partial-reuse' });
@@ -291,6 +296,11 @@ describe('mutation CI planning', () => {
       manifest: plan,
       evidence: new Map(),
     }, git('rev-parse', 'HEAD'))).toEqual(plan.reusedShards);
+
+    fs.writeFileSync(path.join(root, 'scripts', 'mutation-ci.mjs'), 'changed harness\n');
+    git('commit', '-qam', 'change mutation harness');
+
+    expect(planMutation(root, { base, previous, targetLines: 1 }).reusedShards).toEqual([]);
   });
 
   it('reruns a passed shard when one of its covering tests changes', () => {
@@ -317,6 +327,58 @@ describe('mutation CI planning', () => {
 
     expect(plan.reusedShards).toEqual([]);
     expect(plan.shards.flatMap((shard) => shard.scopes)).toEqual(previousManifest.shards[0].scopes);
+  });
+
+  it.each([
+    ['a production dependency', 'src/dependency.ts'],
+    ['a shared test helper', 'tests/helper.ts'],
+  ])('reruns a passed shard when %s changes', (_label, changedFile) => {
+    const { root, git } = repository();
+
+    fs.mkdirSync(path.join(root, 'tests'));
+    fs.writeFileSync(path.join(root, 'src', 'dependency.ts'), 'export const dependency = 1\n');
+    fs.writeFileSync(path.join(root, 'tests', 'helper.ts'), 'export const helper = 1\n');
+
+    fs.writeFileSync(path.join(root, 'src', 'rule.ts'), [
+      'import { dependency } from \'./dependency\';',
+      'export const rule = dependency;',
+      '',
+    ].join('\n'));
+
+    fs.writeFileSync(path.join(root, 'src', 'rule.test.ts'), [
+      'import { helper } from \'../tests/helper\';',
+      'export const test = helper;',
+      '',
+    ].join('\n'));
+
+    git('add', '.');
+    git('commit', '-qm', 'dependency baseline');
+    const base = git('rev-parse', 'HEAD');
+
+    fs.writeFileSync(path.join(root, 'src', 'rule.ts'), [
+      'import { dependency } from \'./dependency\';',
+      'export const rule = dependency + 1;',
+      '',
+    ].join('\n'));
+
+    git('commit', '-qam', 'previous head');
+    const previousManifest = planMutation(root, { base, targetLines: 1 });
+
+    const previous = writePreviousEvidence(
+      root,
+      previousManifest,
+      [{ shard: previousManifest.shards[0] }],
+    );
+
+    fs.writeFileSync(path.join(root, changedFile), 'export const changed = 2\n');
+    git('commit', '-qam', 'change transitive input');
+
+    const plan = planMutation(root, { base, previous, targetLines: 1 });
+
+    expect(plan.reusedShards).toEqual([]);
+
+    expect(plan.shards.flatMap((shard) => shard.scopes))
+      .toContain(previousManifest.shards[0].scopes[0]);
   });
 
   it('keeps partition coverage complete, bounded, and deterministic', () => {
