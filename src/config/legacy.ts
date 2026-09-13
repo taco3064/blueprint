@@ -1,5 +1,5 @@
 import type { ArchitectureDef, Blueprint, LayerDef } from './types';
-import { renderValidationError } from '../operational-contract/validation-errors';
+import { configValidationError } from './validation';
 
 interface LegacyUnitShape {
   layout?: 'folder' | 'flat';
@@ -101,18 +101,18 @@ function validateLegacyUnitShape(
   where: string,
 ): void {
   if (typeof shape !== 'object' || shape === null || Array.isArray(shape)) {
-    throw new Error(renderValidationError({ kind: 'legacy-shape', where }));
+    throw configValidationError({ kind: 'legacy-shape', where });
   }
 
   for (const key of Object.keys(shape)) {
     if (!allowed.includes(key)) {
-      throw new Error(renderValidationError({ kind: 'legacy-key', key, where, allowed }));
+      throw configValidationError({ kind: 'legacy-key', key, where, allowed });
     }
   }
 
   const unit = shape as LegacyUnitShape;
 
   if (unit.private !== undefined && !Array.isArray(unit.private)) {
-    throw new Error(renderValidationError({ kind: 'legacy-private' }));
+    throw configValidationError({ kind: 'legacy-private' });
   }
 }

@@ -155,6 +155,16 @@ describe('plan · the agent contract files it stops emitting', () => {
 });
 
 describe('plan · the agent contract files it writes, and the marker block inside them', () => {
+  it('renders a malformed merge boundary through the operational contract', () => {
+    expect(() => plan(state(), bp, {
+      existingAgentFiles: {
+        'CLAUDE.md': '<!-- BLUEPRINT:START -->\nmissing end',
+        'AGENTS.md': null,
+      },
+    })).toThrow('Markers "<!-- BLUEPRINT:START -->" / "<!-- BLUEPRINT:END -->" not found '
+      + '(or out of order) in source.');
+  });
+
   it('refreshes an existing marker block in place, per agent file', () => {
     const existing = 'top\n<!-- BLUEPRINT:START -->\nSTALE_CONTRACT\n'
       + '<!-- BLUEPRINT:END -->\nbottom';

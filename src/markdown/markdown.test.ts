@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { escapeCell, formatOwns, injectBetweenMarkers, table } from './markdown';
+import { MarkdownValidationError } from './validation';
 
 describe('escapeCell', () => {
   it('escapes pipes and collapses newlines', () => {
@@ -73,7 +74,22 @@ describe('injectBetweenMarkers', () => {
   });
 
   it('throws when a marker is missing', () => {
-    expect(() => injectBetweenMarkers('no markers here', 'X', 'c')).toThrow(/not found/);
+    let thrown: unknown;
+
+    try {
+      injectBetweenMarkers('no markers here', 'X', 'c');
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(MarkdownValidationError);
+    expect((thrown as MarkdownValidationError).message).toBe('');
+
+    expect((thrown as MarkdownValidationError).fact).toEqual({
+      kind: 'markdown-markers',
+      start: '<!-- X:START -->',
+      end: '<!-- X:END -->',
+    });
   });
 
   it('throws when only one of the two markers is there', () => {
@@ -81,8 +97,11 @@ describe('injectBetweenMarkers', () => {
     // cover for each other. One-sided sources separate them — and a present
     // END with an absent START otherwise slices from a negative index and
     // returns a mangled document instead of failing.
-    expect(() => injectBetweenMarkers('a\n<!-- X:START -->\nb', 'X', 'c')).toThrow(/not found/);
-    expect(() => injectBetweenMarkers('a\n<!-- X:END -->\nb', 'X', 'c')).toThrow(/not found/);
+    expect(() => injectBetweenMarkers('a\n<!-- X:START -->\nb', 'X', 'c'))
+      .toThrow(MarkdownValidationError);
+
+    expect(() => injectBetweenMarkers('a\n<!-- X:END -->\nb', 'X', 'c'))
+      .toThrow(MarkdownValidationError);
   });
 
   it('accepts a marker that begins one character in', () => {
@@ -95,8 +114,7 @@ describe('injectBetweenMarkers', () => {
   });
 
   it('throws when the markers are out of order', () => {
-    expect(() => injectBetweenMarkers('<!-- X:END -->\n<!-- X:START -->', 'X', 'c')).toThrow(
-      /out of order/,
-    );
+    expect(() => injectBetweenMarkers('<!-- X:END -->\n<!-- X:START -->', 'X', 'c'))
+      .toThrow(MarkdownValidationError);
   });
 });

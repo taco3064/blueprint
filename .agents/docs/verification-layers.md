@@ -1,7 +1,8 @@
 # Verification layers beyond the unit tests
 
 **Trigger:** adding a test for an adoption scenario; touching `bin`, `exports`,
-the shebang, the bundle, or anything about how a consumer installs the package.
+the shebang, the bundle, anything about how a consumer installs the package,
+or refactoring emitted documents or Blueprint-owned operational prose.
 
 Each layer exists because the one below it passes on a real defect.
 
@@ -40,11 +41,24 @@ After deterministic main CI passes, CI builds and retains one `npm pack` artifac
 
 Affected replay may prove a repair, but only one complete required matrix against one exact candidate can write successful `blueprint/field-convergence` evidence. A later commit has no inherited authority.
 
+## `npm run operational:check` — operational ownership and composition
+
+The operational registry, branded type boundary, static bypass guards, and
+deterministic compose check are the standing proof that Blueprint-authored
+operational prose has a registered owner and that checked-in composed artifacts
+match it. Change the owning fact source or renderer, run focused tests for the
+affected surface, and run `npm run operational:check`.
+
+Use `npm run operational:compose` only when an intentional owner change must
+refresh checked-in outputs. A passing check does not make those outputs source
+authorities; it proves they are fresh copies of their registered owners.
+
 ## A byte baseline, when refactoring emitted prose
 
-Not a standing suite — a throwaway process check, because this repo has no
-snapshot tests by design. Before restructuring code that emits a document,
-render every conditional combination to files, refactor, render again, and diff.
+Supplementary refactor evidence, not the operational-prose governance mechanism.
+Use a throwaway byte baseline only when restructuring an emitter or renderer
+whose required behavior is byte-identical preservation: render every conditional
+combination to files, refactor, render again, and diff.
 Earned in one sitting: splitting `authoringBrief` into per-section renderers
 silently dropped the template's final newline, so every emitted playbook lost
 its trailing blank line, and 1154 green tests did not notice. Only the byte diff

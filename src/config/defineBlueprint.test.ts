@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { defineBlueprint, validateBlueprint } from './defineBlueprint';
+import { defineBlueprint, validateBlueprint } from '../operational-contract';
 import type { Blueprint } from './types';
 
 function base(): Blueprint {

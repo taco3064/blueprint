@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  defineBlueprint,
   isLegacyBlueprintMigration,
   migrateLegacyBlueprint,
   migratedConfigSource,
-  validateBlueprint,
 } from '../config';
 import type { Blueprint } from '../config';
+import { defineBlueprint, validateBlueprint } from '../operational-contract';
 
 function legacyBlueprint(): Blueprint {
   return {

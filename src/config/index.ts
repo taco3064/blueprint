@@ -32,4 +32,6 @@ export type {
   ResolvedSourcePosition,
 } from './resolved';
 export { sourcePath, sourceRoot, sourceRootLabel, stripSourceRoot } from './source';
+export { ConfigValidationError } from './validation';
+export type { ConfigValidationFact } from './validation';
 export type * from './types';

@@ -358,6 +358,17 @@ describe('operational surface registry', () => {
     }
   });
 
+  it('keeps domain validation fact providers below the operational contract', () => {
+    const providers = ['config', 'markdown'].flatMap((area) =>
+      productionFiles(path.join(repository, 'src', area)),
+    );
+
+    for (const file of providers) {
+      expect(fs.readFileSync(file, 'utf8'), path.relative(repository, file))
+        .not.toMatch(/from ['"](?:\.\.\/)+operational-contract(?:\/|['"])/);
+    }
+  });
+
   it('closes every production output sink regardless of imports or prose length', () => {
     const program = compilerProgram();
     const checker = program.getTypeChecker();

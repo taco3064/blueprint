@@ -1,5 +1,5 @@
 import type { OwnedPrimitive } from '../config';
-import { renderValidationError } from '../operational-contract/validation-errors';
+import { MarkdownValidationError } from './validation';
 
 export function escapeCell(text: string): string {
   return text.replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ').trim();
@@ -43,7 +43,7 @@ export function injectBetweenMarkers(source: string, tag: string, content: strin
   const endIdx = source.indexOf(end, startIdx);
 
   if (startIdx === -1 || endIdx === -1) {
-    throw new Error(renderValidationError({ kind: 'markdown-markers', start, end }));
+    throw new MarkdownValidationError({ kind: 'markdown-markers', start, end });
   }
 
   return [

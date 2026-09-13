@@ -1,5 +1,5 @@
-import { defineBlueprint } from '../config';
 import type { Blueprint, EmitDef, Framework, OwnedPrimitive } from '../config';
+import { defineBlueprint } from '../operational-contract';
 import { componentShape, playbook, principles } from './doctrine';
 
 /** Options for a preset factory. */

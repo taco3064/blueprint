@@ -28,6 +28,7 @@ import {
   renderStaleContractInstruction,
   renderStaleContractNote,
   renderStaleContractCause,
+  renderValidationErrorCause,
 } from '../operational-contract';
 import type { StaleContractCause } from '../operational-contract';
 
@@ -313,7 +314,11 @@ function mergeContract(existing: string | null, contract: string): string {
     return [`<!-- ${MARKER}:START -->`, body, `<!-- ${MARKER}:END -->`, ''].join('\n');
   }
 
-  return injectBetweenMarkers(existing, MARKER, body);
+  try {
+    return injectBetweenMarkers(existing, MARKER, body);
+  } catch (error) {
+    throw new Error(renderValidationErrorCause(error));
+  }
 }
 
 export function scriptCommand(pm: PackageManager, script: string): string {
