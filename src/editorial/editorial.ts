@@ -35,15 +35,31 @@ export function renderResolvedTestFilesEditorial(
   locale: EditorialLocale,
   policy: ResolvedTestFiles,
 ): string {
-  switch (edition) {
-    case 'agent-placement': return renderAgentPlacement(policy, locale);
-    case 'core': return renderCore(policy, locale);
-    case 'deps': return renderDeps(policy, locale);
-    case 'gate-availability': return renderGateAvailability(locale);
-    case 'merge-scope': return renderMergeScope(policy, locale);
-    case 'reference': return renderReference(policy, locale);
-    case 'survey': return renderSurvey(policy, locale);
+  if (edition === 'agent-placement') {
+    return renderAgentPlacement(policy, locale);
   }
+
+  if (edition === 'core') {
+    return renderCore(policy, locale);
+  }
+
+  if (edition === 'deps') {
+    return renderDeps(policy, locale);
+  }
+
+  if (edition === 'gate-availability') {
+    return renderGateAvailability(locale);
+  }
+
+  if (edition === 'merge-scope') {
+    return renderMergeScope(policy, locale);
+  }
+
+  if (edition === 'reference') {
+    return renderReference(policy, locale);
+  }
+
+  return renderSurvey(policy, locale);
 }
 
 function renderCore(policy: ResolvedTestFiles, locale: EditorialLocale): string {
