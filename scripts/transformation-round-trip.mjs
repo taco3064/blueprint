@@ -87,8 +87,13 @@ function move(from, to) {
 }
 
 function removeAuthoring() {
+  const command = path.join(repository, '.claude', 'commands', 'blueprint-author.md');
+
+  if (fs.existsSync(command)) {
+    throw new Error('agents-only round trip emitted the Claude authoring launcher');
+  }
+
   fs.rmSync(path.join(repository, 'blueprint-authoring.md'));
-  fs.rmSync(path.join(repository, '.claude'), { recursive: true });
 }
 
 function manifest() {

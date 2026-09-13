@@ -219,8 +219,13 @@ function applyDecisions(context, scenario) {
 }
 
 function removeAuthoring(application) {
+  const command = path.join(application, '.claude', 'commands', 'blueprint-author.md');
+
+  if (fs.existsSync(command)) {
+    throw new Error('agents-only forward transformation emitted the Claude authoring launcher');
+  }
+
   fs.rmSync(path.join(application, 'blueprint-authoring.md'));
-  fs.rmSync(path.join(application, '.claude'), { recursive: true });
 }
 
 function verify(context, scenario, before, initialBaselineReview) {
