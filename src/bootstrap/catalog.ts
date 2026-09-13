@@ -5,7 +5,7 @@ import { renderSurvey } from '../survey';
 import type { SurveyResult } from '../survey';
 import { cleanupTargets } from './playbook';
 
-export function renderSemantics(claudeLauncher = true): string {
+export function renderSemantics(claudeLauncher: boolean): string {
   return [
     '',
     '## Semantics the linter holds you to',
@@ -190,7 +190,7 @@ export function renderSchemaSketch(): string {
 
 export function renderAcceptanceGates(
   claudeDir: ClaudeDirState,
-  claudeLauncher = true,
+  claudeLauncher: boolean,
 ): string {
   return [
     '',

@@ -20,7 +20,11 @@ export function emitsClaudeAuthoringLauncher(agents: AuthoringAgents): boolean {
 }
 
 export function authoringLauncherActions(agents: AuthoringAgents): Action[] {
-  return emitsClaudeAuthoringLauncher(agents)
+  return claudeAuthoringLauncherActions(emitsClaudeAuthoringLauncher(agents));
+}
+
+export function claudeAuthoringLauncherActions(enabled: boolean): Action[] {
+  return enabled
     ? [{
         kind: 'write',
         path: COMMAND_FILE,

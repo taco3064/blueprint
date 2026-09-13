@@ -210,7 +210,7 @@ function renderIntentDocuments(): string {
   ].join('\n');
 }
 
-export function renderMethod(claudeDir: ClaudeDirState, claudeLauncher = true): string {
+export function renderMethod(claudeDir: ClaudeDirState, claudeLauncher: boolean): string {
   return [
     '',
     '## Method',

@@ -13,7 +13,10 @@ import {
   runSurvey,
 } from '../survey';
 import { launchAgent } from './agent';
-import { authoringLauncherActions, emitsClaudeAuthoringLauncher } from './authoring-launcher';
+import {
+  claudeAuthoringLauncherActions,
+  emitsClaudeAuthoringLauncher,
+} from './authoring-launcher';
 import { apply, defaultExec } from './apply';
 import { moduleToLayerBrief } from './module-to-layer-playbook';
 import { installCommand } from './plan';
@@ -166,7 +169,7 @@ function repositoryLauncher(
 
   return {
     cleanup: cleanupTargets(claudeDirState(repositoryRoot), claude),
-    actions: authoringLauncherActions(claude ? ['claude'] : []),
+    actions: claudeAuthoringLauncherActions(claude),
   };
 }
 
