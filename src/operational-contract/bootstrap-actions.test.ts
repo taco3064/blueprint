@@ -7,11 +7,22 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { Action } from '../bootstrap/types';
 import { renderAuthoringHandoff } from './authoring';
 import {
+  renderAuthoringLauncherNote,
   renderAuthoringInstallSkipped,
+  renderEslintConfigNote,
+  renderInstallNote,
   renderInstallSkipped,
+  renderLintScriptNote,
+  renderOptionalToolingNote,
+  renderTemplateCleanupNote,
 } from './bootstrap-actions';
 import type { OperationalText } from './operational-contract';
-import { renderGitProbeFallback } from './runtime-messages';
+import { renderGitProbeFallback, renderInitBanner } from './runtime-messages';
+import {
+  renderTransformationInstallNote,
+  renderTransformationReady,
+  renderTransformationWriteNote,
+} from './transformation';
 
 describe('bootstrap operational text construction', () => {
   it('keeps arbitrary strings outside Action.note', () => {
@@ -69,12 +80,69 @@ describe('bootstrap operational text follows supplied facts', () => {
     expect(renderGitProbeFallback('recoverable-head')).toContain('recoverable HEAD');
   });
 
+  it('renders applied and dry-run init banners exactly', () => {
+    expect(renderInitBanner(false, 'vue', 'pnpm')).toBe('blueprint init · vue · pnpm');
+
+    expect(renderInitBanner(true, 'react', 'npm'))
+      .toBe('blueprint init --dry-run · react · npm');
+  });
+
   it('renders package-manager-specific install commands without deciding the manager', () => {
     expect(renderAuthoringInstallSkipped('npm install -D @kekkai/blueprint'))
       .toContain('npm install -D @kekkai/blueprint');
 
     expect(renderInstallSkipped('pnpm add -D @kekkai/blueprint'))
       .toContain('pnpm add -D @kekkai/blueprint');
+  });
+
+  it('keeps action-note variants distinct at the operational boundary', () => {
+    expect(renderInstallNote()).toBe('@kekkai/blueprint (the config imports it)');
+
+    expect(renderAuthoringLauncherNote('.claude/commands/blueprint-author.md'))
+      .toBe('.claude/commands/blueprint-author.md (/blueprint-author)');
+
+    expect(renderOptionalToolingNote('dead-code')).toContain('Dead code (optional)');
+
+    expect(renderOptionalToolingNote('css-tokens')).toContain('CSS token governance (optional)');
+
+    expect(renderEslintConfigNote('owned', 'eslint.config.mjs'))
+      .toBe('eslint.config.mjs (blueprint-owned — regenerated)');
+
+    expect(renderEslintConfigNote('reference', 'eslint.config.blueprint.mjs'))
+      .toBe('eslint.config.blueprint.mjs (reference — not wired in)');
+
+    expect(renderEslintConfigNote('new', 'eslint.config.mjs')).toBe('eslint.config.mjs');
+  });
+
+  it('renders cleanup totals and both lint-script mutations from supplied facts', () => {
+    expect(renderTemplateCleanupNote(['  first', '  second'], 3))
+      .toContain('(5 finding(s))');
+
+    expect(renderLintScriptNote('patched'))
+      .toBe('package.json (lint script now also runs eslint — so lint runs the generated rules)');
+
+    expect(renderLintScriptNote('added', 'src'))
+      .toBe('package.json (added "lint": "eslint src" — so lint runs the generated rules)');
+  });
+
+  it('keeps transformation action notes and directions distinct', () => {
+    expect(renderTransformationInstallNote())
+      .toBe('@kekkai/blueprint (the config imports it)');
+
+    expect(renderTransformationWriteNote('layer-to-module', 'blueprint-authoring.md'))
+      .toContain('layer-first → module-first transformation evidence + playbook');
+
+    expect(renderTransformationWriteNote('module-to-layer', 'blueprint-authoring.md'))
+      .toContain('module-first → layer-first mapping evidence + playbook');
+
+    expect(renderTransformationWriteNote('repository', 'blueprint-authoring.md'))
+      .toContain('repository-wide topology transformation playbook');
+
+    expect(renderTransformationReady('layer-to-module'))
+      .toContain('Layer-first → module-first transformation preflight passed.');
+
+    expect(renderTransformationReady('module-to-layer'))
+      .toContain('Module-first → layer-first transformation preflight passed.');
   });
 
   it('contrasts topology and Claude launcher facts', () => {

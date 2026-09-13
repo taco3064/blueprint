@@ -1,12 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  renderArchitectureReport,
   renderCoverageReport,
+  renderCoverageSummary,
+  renderDivergentReadingClause,
   renderDoctorCheck,
   renderDoctorReport,
   renderFindingMessage,
   renderMetricGateNote,
+  renderModuleContainerImport,
+  renderModuleFlowViolation,
+  renderRedundantRelativeSegments,
+  renderRestrictedGlobal,
+  renderRulesReport,
   renderSurveyScopeNote,
+  renderUnreachedIgnoreNote,
 } from './index';
 
 describe('operational diagnostic prose', () => {
@@ -22,7 +31,10 @@ describe('operational diagnostic prose', () => {
     expect(skipped).toMatchObject({ ok: true, skipped: expect.stringContaining('red') });
     expect(passed).toEqual({ label: 'blueprint.config.mjs present', ok: true });
 
-    expect(renderDoctorReport([passed], {})).toContain('Adoption complete');
+    const complete = renderDoctorReport([passed], {});
+
+    expect(complete).toContain('Adoption complete');
+    expect(complete).not.toContain('Stryker was here');
     expect(renderDoctorReport([skipped], {})).toContain('Adoption unverified');
     expect(renderDoctorReport([failed], {})).toContain('Adoption incomplete');
   });
@@ -43,8 +55,15 @@ describe('operational diagnostic prose', () => {
     expect(renderFindingMessage({
       kind: 'relative-escape-entry', specifier: '../Card/impl', entry: 'index',
     })).toContain('what lives behind it is that unit\'s own business');
-  });
 
+    expect(renderFindingMessage({
+      kind: 'same-layer-alias', subject: '~app/components/Card',
+    })).toBe('Same-layer import "~app/components/Card" via the alias — use a relative path or '
+      + 'extract to a lower layer.');
+  });
+});
+
+describe('operational coverage prose', () => {
   it('keeps vacuous coverage distinct from a reached architecture net', () => {
     const base = {
       sourceFiles: 2,
@@ -60,6 +79,47 @@ describe('operational diagnostic prose', () => {
       .toContain('Coverage: 2/2');
   });
 
+  it('keeps empty, capped, and overflowing ignored-file summaries distinct', () => {
+    const base = {
+      sourceFiles: 5,
+      layerFiles: 0,
+      outsideNets: [],
+      activeRules: 0,
+      gatedRules: 1,
+    };
+
+    expect(renderCoverageSummary({ ...base, ignoredFiles: [] }))
+      .not.toContain('lint ignored');
+
+    expect(renderCoverageSummary({
+      ...base,
+      ignoredFiles: ['a', 'b', 'c', 'd', 'e'],
+    })).toContain('(lint ignored: a, b, c, d, e)');
+
+    expect(renderCoverageSummary({
+      ...base,
+      ignoredFiles: ['a', 'b', 'c', 'd', 'e', 'f'],
+    })).toContain('(6 lint ignored — too many to name)');
+  });
+
+  it('keeps an empty architecture report distinct from a finding report', () => {
+    const fact = { derivation: 'Measured from src.' };
+    const empty = renderArchitectureReport([], fact);
+
+    const finding = renderArchitectureReport([{
+      severity: 'error',
+      rule: 'same-layer-alias',
+      path: 'src/a.ts',
+      message: 'use a relative path',
+    }], fact);
+
+    expect(empty).toBe('✓ Architecture Success — no violations found.\n\nMeasured from src.');
+    expect(finding).toContain('[same-layer-alias] src/a.ts');
+    expect(finding).not.toContain('Architecture Success');
+  });
+});
+
+describe('operational diagnostic boundary prose', () => {
   it('keeps gate and survey scope facts explicit', () => {
     expect(renderMetricGateNote(true)).toContain('code lines only');
     expect(renderMetricGateNote(false)).toBe('plain threshold');
@@ -69,5 +129,69 @@ describe('operational diagnostic prose', () => {
 
     expect(renderSurveyScopeNote({ kind: 'workspace-applications' }))
       .toContain('--source-root');
+  });
+
+  it('keeps the owner decision in unreached ignore guidance', () => {
+    expect(renderUnreachedIgnoreNote({
+      globs: ['**/*.gen.ts'],
+      reach: [{ glob: '**/*.gen.ts' }],
+      probed: false,
+    })).toContain('fix the glob, or leave it and the exclusion arms itself when a file matches; '
+      + 'which one applies is the owner\'s call');
+  });
+
+  it('names only negated globs as divergent between scanners', () => {
+    expect(renderDivergentReadingClause([{ glob: '**/*.ts' }])).toBe('');
+
+    const divergent = renderDivergentReadingClause([
+      { glob: '**/*.ts' },
+      { glob: '!**/*.test.ts' },
+    ]);
+
+    expect(divergent).toContain('back: `!**/*.test.ts`');
+    expect(divergent).not.toContain('back: `**/*.ts`');
+  });
+
+  it('renders each structural lint violation owned by the operational contract', () => {
+    expect(renderRedundantRelativeSegments()).toContain('Redundant relative segments');
+    expect(renderModuleFlowViolation()).toContain('module dependency graph');
+    expect(renderModuleContainerImport()).toContain('module-root container');
+    expect(renderRestrictedGlobal('window')).toContain('Use of "window" is restricted');
+  });
+
+  it('quotes every test exemption in selfOnly merge scope', () => {
+    const output = renderRulesReport({
+      severity: 'error',
+      structural: [],
+      gates: [],
+      docsOnly: [],
+      bans: [{
+        layer: 'components',
+        forbidden: [],
+        packages: [],
+        globals: [],
+        testExemptions: ['**/*.test.ts'],
+        selfOnly: [{
+          target: 'services',
+          selectors: [],
+          jsLiteral: ['"selector"'],
+          note: 'copy it',
+        }],
+      }],
+    }, true);
+
+    expect(output).toContain('ignores: [\'**/*.test.ts\']');
+  });
+
+  it('does not invent a test exemption when the catalog has none', () => {
+    const output = renderRulesReport({
+      severity: 'error',
+      structural: [],
+      gates: [],
+      bans: [],
+      docsOnly: [],
+    }, false);
+
+    expect(output).not.toContain('Stryker was here');
   });
 });
