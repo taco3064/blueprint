@@ -194,4 +194,33 @@ describe('operational diagnostic boundary prose', () => {
 
     expect(output).not.toContain('Stryker was here');
   });
+
+  it('lists causes only for gates unavailable in the measured project', () => {
+    const output = renderRulesReport({
+      severity: 'error',
+      structural: [],
+      gates: [
+        {
+          id: 'available',
+          emits: 'available/rule',
+          note: 'runs here',
+          declared: null,
+          active: false,
+        },
+        {
+          id: 'unavailable',
+          emits: 'unavailable/rule',
+          note: 'cannot run here',
+          unavailable: 'requires TypeScript',
+          declared: null,
+          active: false,
+        },
+      ],
+      bans: [],
+      docsOnly: [],
+    }, true);
+
+    expect(output).toContain('· unavailable: requires TypeScript');
+    expect(output).not.toContain('· available: undefined');
+  });
 });

@@ -79,6 +79,6 @@
   "clearTextReporter": {
     "maxTestsToLog": 2
   },
-  "timeoutMS": 15000,
+  "timeoutMS": 30000,
   "tempDirName": ".stryker-tmp"
 }
