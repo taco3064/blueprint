@@ -148,3 +148,17 @@ describe('architecture.testFiles editorial policy', () => {
       .toContain('不會讓任何檔案豁免');
   });
 });
+
+it('keeps agent placement locale direction observable', () => {
+  expect(renderTestFilesEditorial('agent-placement', 'en'))
+    .toContain('Test support matching');
+
+  expect(renderTestFilesEditorial('agent-placement', 'zh-TW'))
+    .toContain('測試支援檔');
+
+  expect(renderTestFilesEditorial('agent-placement', 'en', []))
+    .toContain('exempts no test support');
+
+  expect(renderTestFilesEditorial('agent-placement', 'zh-TW', []))
+    .toContain('不會讓任何測試支援檔豁免');
+});
