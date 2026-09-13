@@ -7,6 +7,12 @@ import { testFileReach } from './coverage';
 import { buildUnitGraph, normalizedUnitKey } from './resolve';
 import { importAnalysis, importGraphDerivation, scan } from './scan';
 import type { ScanResult } from './types';
+import {
+  renderDependencyLeaderboard,
+  renderDependencyTestExemption,
+  renderDependencyUnit,
+  renderUnknownDependencyTarget,
+} from '../operational-contract';
 
 export interface DepsOptions extends ResolveOptions {
   /** Unit to query, e.g. `hooks/useCart` or `src/auth/hooks/useCart.ts`. */
@@ -64,7 +70,17 @@ export async function runDeps(
           null,
           2,
         )
-      : renderLeaderboard(units, skipped, { architecture, testExemption, scanned }),
+      : renderDependencyLeaderboard(
+          units.map((unit) => ({
+            ...unit,
+            fileLayer: isFileLayer(unit.unit, architecture),
+          })),
+          {
+            skipped,
+            testExemption,
+            derivation: importGraphDerivation('  ', scanned),
+          },
+        ),
   );
 
   return { ok: true, units };
@@ -111,8 +127,7 @@ function exemptionNote(
 
   return cause === null
     ? null
-    : `${cause} — and the blast radius above is counted under the net as written, so `
-      + 'nothing in it was exempted through them';
+    : renderDependencyTestExemption(cause);
 }
 
 function exemptionKey(testExemption: string | null): { testExemption?: string } {
@@ -136,7 +151,9 @@ function reportTarget(
   const found = units.find((entry) => entry.unit === key);
 
   if (!found) {
-    log(unknownTarget(key, skipped));
+    const folder = skipped.find((candidate) => `${key}/`.startsWith(`${candidate}/`));
+
+    log(renderUnknownDependencyTarget({ key, ...(folder ? { outsideFolder: folder } : {}) }));
 
     return { ok: false, units: [] };
   }
@@ -154,10 +171,12 @@ function reportTarget(
           null,
           2,
         )
-      : renderUnit(found, {
+      : renderDependencyUnit({
+          ...found,
           fileLayer: isFileLayer(found.unit, architecture),
+        }, {
           testExemption,
-          scanned,
+          derivation: importGraphDerivation('  ', scanned),
         }),
   );
 
@@ -214,72 +233,4 @@ function isFileLayer(
 
   // Stryker disable next-line ConditionalExpression: callers only pass governed graph units.
   return position !== null && position.kind === 'layer' && position.layer.unit.layout === 'file';
-}
-
-function unknownTarget(key: string, skipped: string[]): string {
-  // Stryker disable next-line MethodExpression: skipped keys are normalized folder prefixes.
-  const folder = skipped.find((candidate) => `${key}/`.startsWith(`${candidate}/`));
-
-  return folder
-    ? `✗ "${folder}/" is outside the declared architecture — deps only sees governed units.`
-    : `✗ Unknown unit "${key}" — run \`blueprint deps\` to list every unit.`;
-}
-
-function renderUnit(
-  entry: UnitDeps,
-  shape: { fileLayer: boolean; testExemption: string | null; scanned: ScanResult },
-): string {
-  const { fileLayer, testExemption, scanned } = shape;
-
-  return [
-    entry.unit + (fileLayer ? ' (file-layout layer — answers at layer granularity)' : ''),
-    `  imported by (${entry.importedBy.length}):`,
-    ...entry.importedBy.map((unit) => `    ← ${unit}`),
-    `  imports (${entry.imports.length}):`,
-    ...entry.imports.map((unit) => `    → ${unit}`),
-    ...exemptionLine(testExemption),
-    '',
-    importGraphDerivation('  ', scanned),
-  ].join('\n');
-}
-
-function exemptionLine(testExemption: string | null): string[] {
-  return testExemption === null ? [] : [`  · ${testExemption}`];
-}
-
-function renderLeaderboard(
-  units: UnitDeps[],
-  skipped: string[],
-  shape: {
-    architecture: ArchitectureDef;
-    testExemption: string | null;
-    scanned: ScanResult;
-  },
-): string {
-  const { architecture, testExemption, scanned } = shape;
-
-  if (!units.length) {
-    return 'No units found inside the declared architecture.';
-  }
-
-  const width = String(units[0].importedBy.length).length;
-
-  const note = skipped.length
-    ? [`  (outside the declared architecture, invisible to deps: ${skipped.join('/, ')}/)`]
-    : [];
-
-  return [
-    'Blast radius (imported-by count):',
-    ...units.map(
-      (entry) =>
-        `  ${String(entry.importedBy.length).padStart(width)} ← ${entry.unit}`
-        + (isFileLayer(entry.unit, architecture)
-          ? ' (file-layout layer)'
-          : ''),
-    ),
-    ...note,
-    ...exemptionLine(testExemption),
-    '',
-    importGraphDerivation('  ', scanned),
-  ].join('\n');
 }

@@ -148,6 +148,13 @@ export const OPERATIONAL_SURFACES = [
     targets: ['doctor text and JSON'], verification: ['doctor contrast tests'],
   },
   {
+    id: 'dependency-diagnostics', owner: 'deps.ts', channel: 'cli',
+    delivery: 'runtime', audiences: ['CLI users', 'adoption agents'],
+    factProviders: ['dependency graph', 'resolved architecture', 'test-file reach'],
+    consumers: ['src/inspect/deps.ts'], targets: ['deps text output'],
+    verification: ['dependency report contrast tests', 'operational sink guard'],
+  },
+  {
     id: 'finding-diagnostics', owner: 'findings.ts', channel: 'cli',
     delivery: 'runtime', audiences: ['CLI users'], factProviders: ['inspection findings'],
     consumers: ['src/inspect/analyze.ts', 'src/inspect/dependency.ts', 'src/inspect/folders.ts'],

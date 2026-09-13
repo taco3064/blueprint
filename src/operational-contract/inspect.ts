@@ -1,3 +1,6 @@
+import { operationalText } from './operational-contract';
+import type { OperationalText } from './operational-contract';
+
 export interface FindingView {
   severity: 'error' | 'warn' | 'info';
   rule: string;
@@ -202,4 +205,23 @@ export function renderVacuousNextStep(fact: {
     : 'a declared layer';
 
   return `next: move code into ${destination} (e.g. ${fact.directory}) and the net arms itself`;
+}
+
+export function renderInspectOutput(fact: {
+  architecture: string;
+  coverage: string;
+}): OperationalText {
+  return operationalText(`${fact.architecture}\n\n${fact.coverage}`);
+}
+
+export function renderBaselineGateOutput(fact: {
+  architecture: string;
+  baseline: string;
+  coverage: string;
+}): OperationalText {
+  return operationalText(`${fact.architecture}\n\n${fact.baseline}\n${fact.coverage}`);
+}
+
+export function renderTestExemptionOutput(exemption: string): OperationalText {
+  return operationalText(`· ${exemption}`);
 }

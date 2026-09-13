@@ -49,6 +49,7 @@ import {
   renderInstallStarting,
   renderScaffoldRemovalNote,
 } from '../operational-contract';
+import type { OperationalText } from '../operational-contract';
 
 export interface InitOptions extends ResolveOptions {
 
@@ -337,7 +338,7 @@ interface NarrateContext extends RunContext {
   forkNote: string | null;
   framework: string;
   packageManager: string;
-  agentNote: string | null;
+  agentNote: OperationalText | null;
 }
 
 function narrate(actions: Action[], root: string, ctx: NarrateContext): void {
@@ -367,7 +368,7 @@ function narrate(actions: Action[], root: string, ctx: NarrateContext): void {
 function agentSessionNote(
   agent: AgentKind | undefined,
   configSource: string | null,
-): string | null {
+): OperationalText | null {
   if (!agent) {
     return null;
   }
@@ -434,6 +435,6 @@ function applyAndNarrate(
   }
 }
 
-function formatAction(action: Action, dryRun: boolean): string {
+function formatAction(action: Action, dryRun: boolean): OperationalText {
   return renderActionLine(action.kind, action.note, dryRun ? 'dry-run' : 'applied');
 }

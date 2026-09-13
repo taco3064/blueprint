@@ -1,4 +1,6 @@
 import { renderTestFilesOperational } from './test-files';
+import { operationalText } from './operational-contract';
+import type { OperationalText } from './operational-contract';
 
 export interface RuleGateFact {
   id: string;
@@ -79,7 +81,7 @@ export function renderRulesReport(
     testExemption?: string | null;
   },
   hasConfig: boolean,
-): string {
+): OperationalText {
   const { severity, structural, gates, bans, docsOnly, testExemption } = catalog;
 
   const status = (gate: GateStatus) => {
@@ -98,7 +100,7 @@ export function renderRulesReport(
     return `✓ ${gate.declared.tier}${gate.declared.value !== undefined ? `(${gate.declared.value})` : ''}`;
   };
 
-  return [
+  return operationalText([
     'blueprint rules — the emitted-rule catalog',
     '',
 
@@ -159,7 +161,7 @@ export function renderRulesReport(
     ...(hasConfig
       ? []
       : ['', '(no blueprint.config.mjs — static catalog; tiers annotate once a config exists)']),
-  ].join('\n');
+  ]);
 }
 
 function unavailableNote(gates: GateStatus[]): string {
