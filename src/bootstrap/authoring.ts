@@ -1,4 +1,4 @@
-import { AUTHORING_FILE, COMMAND_FILE } from '../project';
+import { AUTHORING_FILE } from '../project';
 import type {
   ClaudeDirState,
   PackageManager,
@@ -27,13 +27,18 @@ import {
 import { renderGoal, renderHeader, renderNextNote, renderPrerequisites } from './playbook';
 import { renderVerdict } from './verdict';
 import type { Action } from './types';
+import {
+  AGENT_PROMPT,
+  authoringLauncherActions,
+  emitsClaudeAuthoringLauncher,
+} from './authoring-launcher';
+import type { AuthoringAgents } from './authoring-launcher';
 
 export { AUTHORING_FILE, COMMAND_FILE } from '../project';
 
 export { BROWNFIELD_MIN_FILES } from './playbook';
 
-export const AGENT_PROMPT
-  = `Read ${AUTHORING_FILE} at the repository root and execute it end to end.`;
+export { AGENT_PROMPT } from './authoring-launcher';
 
 export interface AuthoringOptions {
   packageManager: PackageManager;
@@ -51,11 +56,14 @@ export interface AuthoringOptions {
   next?: boolean;
 
   topology?: ArchitectureTopology;
+
+  agents?: AuthoringAgents;
 }
 
 export function authoringActions(survey: SurveyResult, options: AuthoringOptions): Action[] {
   const command = installCommand(options.packageManager, ['@kekkai/blueprint']);
   const topology = options.topology ?? 'layer-first';
+  const claudeLauncher = emitsClaudeAuthoringLauncher(options.agents);
 
   const install: Action[] = !options.needsInstall
     ? []
@@ -67,15 +75,10 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
     {
       kind: 'write',
       path: AUTHORING_FILE,
-      content: authoringBrief(survey, command, options),
+      content: authoringBrief(survey, command, { ...options, claudeLauncher }),
       note: `${AUTHORING_FILE} (authoring playbook + survey evidence)`,
     },
-    {
-      kind: 'write',
-      path: COMMAND_FILE,
-      content: `${AGENT_PROMPT}\n`,
-      note: `${COMMAND_FILE} (/blueprint-author)`,
-    },
+    ...authoringLauncherActions(options.agents),
     ...install,
     {
       kind: 'instruct',
@@ -87,7 +90,9 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
         '  blueprint-authoring.md and execute it to the end yourself, autonomously.',
         ...authoringRoute(survey, topology),
         '  Driving this by hand instead? Launch a fresh agent on the playbook:',
-        `    claude "${AGENT_PROMPT}"     # or: /blueprint-author inside Claude Code`,
+        `    claude "${AGENT_PROMPT}"${claudeLauncher
+          ? '     # or: /blueprint-author inside Claude Code'
+          : ''}`,
         `    codex "${AGENT_PROMPT}"`,
         ...authoringAlternative(topology),
       ].join('\n'),
@@ -142,6 +147,8 @@ export function authoringBrief(
     packageManager?: PackageManager;
 
     topology?: ArchitectureTopology;
+
+    claudeLauncher?: boolean;
   },
 ): string {
   const {
@@ -151,20 +158,21 @@ export function authoringBrief(
     tscOut = null,
     packageManager = 'npm',
     topology = 'layer-first',
+    claudeLauncher = true,
   } = facts;
 
   const playbook = topology === 'module-first'
     ? [
         renderModuleFirstGoal(),
-        renderModuleFirstMethod(claudeDir),
+        renderModuleFirstMethod(claudeDir, claudeLauncher),
         renderModuleFirstSemantics(),
         renderRuleCatalog(),
         renderModuleFirstSchemaSketch(),
       ]
     : [
-        renderGoal(),
-        renderMethod(claudeDir),
-        renderSemantics(),
+        renderGoal(claudeLauncher),
+        renderMethod(claudeDir, claudeLauncher),
+        renderSemantics(claudeLauncher),
         renderRuleCatalog(),
         renderSchemaSketch(),
       ];
@@ -172,12 +180,19 @@ export function authoringBrief(
   return [
     renderHeader(
       topology === 'module-first' ? renderModuleFirstNextNote(next) : renderNextNote(next),
-      renderVerdict(survey, { claudeDir, viteTs, tscOut, pm: packageManager, topology }),
-      claudeDir,
+      renderVerdict(survey, {
+        claudeDir,
+        viteTs,
+        tscOut,
+        pm: packageManager,
+        topology,
+        claudeLauncher,
+      }),
+      { claudeDir, claudeLauncher },
     ),
     renderPrerequisites(install),
     ...playbook,
-    renderAcceptanceGates(claudeDir),
+    renderAcceptanceGates(claudeDir, claudeLauncher),
     renderResumePoint(),
     renderSurveyEvidence(survey),
   ].join('\n');

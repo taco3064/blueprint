@@ -96,6 +96,24 @@ describe('brownfield playbook — semantics stated, nothing reverse-engineered (
 
     expect(read(dir, '.claude/commands/blueprint-author.md')).toContain('blueprint-authoring.md');
   });
+
+  it('keeps an explicit Codex-only authoring run agent-neutral', async () => {
+    const files = Object.fromEntries(
+      Array.from({ length: 12 }, (_, i) => [`src/legacy/mod${i}.js`, 'export const x = 1;\n']),
+    );
+
+    const dir = repo({ packageJson: react(), files });
+
+    const result = await cli(dir, [
+      'init', '--topology', 'layer-first', '--authoring', '--agent', 'codex', '--no-install',
+      '--dry-run',
+    ]);
+
+    expect(result.code).toBe(0);
+    expect(result.output).not.toContain('.claude/commands/blueprint-author.md');
+    expect(read(dir, '.claude/commands/blueprint-author.md')).toBeNull();
+    expect(read(dir, 'blueprint-authoring.md')).toBeNull();
+  });
 });
 
 describe('a proof step states its own reach (field run #85)', () => {

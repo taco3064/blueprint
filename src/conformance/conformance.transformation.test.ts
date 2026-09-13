@@ -64,7 +64,11 @@ function tree(dir: string, current = dir): Record<string, string> {
   return files;
 }
 
-function layerConfig(framework: 'react' | 'vue', layers: string[]): string {
+function layerConfig(
+  framework: 'react' | 'vue',
+  layers: string[],
+  agents?: ('claude' | 'agents')[],
+): string {
   return `export default ${JSON.stringify({
     framework,
     architecture: {
@@ -76,6 +80,7 @@ function layerConfig(framework: 'react' | 'vue', layers: string[]): string {
         entry: 'index',
       })),
     },
+    ...(agents ? { emit: { agents } } : {}),
   })};\n`;
 }
 
@@ -181,6 +186,26 @@ describe('layer-first to module-first transformation authoring', () => {
       expect(read(dir, 'blueprint.config.mjs')).toBe(scenario.config);
     },
   );
+
+  it('does not leak a Claude launcher from an agents-only configured transformation', async () => {
+    const config = layerConfig('react', ['pages', 'components'], ['agents']);
+
+    const dir = repo({
+      packageJson: { dependencies: { react: '^18.0.0' } },
+      files: {
+        'blueprint.config.mjs': config,
+        'src/pages/Home.ts': 'export const Home = 1;\n',
+      },
+    });
+
+    commit(dir);
+    const result = await cli(dir, ['init', '--topology', 'module-first', '--no-install']);
+    const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+
+    expect(result.code).toBe(0);
+    expect(read(dir, '.claude/commands/blueprint-author.md')).toBeNull();
+    expect(playbook).not.toContain('.claude/commands/blueprint-author.md');
+  });
 
   it('uses survey evidence for unmanaged module-first authoring without inventing a source '
     + 'topology',

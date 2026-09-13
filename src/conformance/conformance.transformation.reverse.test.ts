@@ -139,6 +139,12 @@ describe('module-first to layer-first transformation authoring', () => {
     expect(read(dir, 'blueprint-authoring.md')).toContain(
       'module-first → layer-first transformation playbook',
     );
+
+    expect(read(dir, '.claude/commands/blueprint-author.md')).toBeNull();
+
+    expect(read(dir, 'blueprint-authoring.md')).not.toContain(
+      '.claude/commands/blueprint-author.md',
+    );
   });
 
   it.each([

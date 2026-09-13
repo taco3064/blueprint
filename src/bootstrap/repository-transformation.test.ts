@@ -208,7 +208,67 @@ describe('repository-wide topology transformation', () => {
       'utf8',
     )).toContain('Read blueprint-authoring.md at the repository root');
   });
+});
 
+describe('repository-wide launcher authority', () => {
+  it('uses the shared agents-only authority in dry-run and applied actions', async () => {
+    const dryFixture = input('layer-first');
+
+    for (const blueprint of dryFixture.blueprints) {
+      blueprint.blueprint.emit = { agents: ['agents'] };
+    }
+
+    const dry = await runRepositoryTopologyTransformation({
+      ...dryFixture.request,
+      options: { ...dryFixture.request.options, dryRun: true },
+    });
+
+    expect(dry).toHaveLength(2);
+
+    expect(dry).not.toContainEqual(expect.objectContaining({
+      path: '.claude/commands/blueprint-author.md',
+    }));
+
+    const appliedFixture = input('module-first');
+
+    for (const blueprint of appliedFixture.blueprints) {
+      blueprint.blueprint.emit = { agents: ['agents'] };
+    }
+
+    const applied = await runRepositoryTopologyTransformation(appliedFixture.request);
+
+    const playbook = fs.readFileSync(
+      path.join(appliedFixture.root, 'blueprint-authoring.md'),
+      'utf8',
+    );
+
+    expect(applied).toHaveLength(2);
+
+    expect(fs.existsSync(path.join(
+      appliedFixture.root,
+      '.claude',
+      'commands',
+      'blueprint-author.md',
+    ))).toBe(false);
+
+    expect(playbook).not.toContain('.claude/commands/blueprint-author.md');
+  });
+
+  it('rejects conflicting repository launcher authorities before writing', async () => {
+    const fixture = input('layer-first');
+
+    fixture.blueprints[0].blueprint.emit = { agents: ['agents'] };
+    fixture.blueprints[1].blueprint.emit = { agents: ['claude'] };
+
+    await expect(runRepositoryTopologyTransformation(fixture.request)).rejects.toThrow(
+      /disagree on Claude authoring launcher emission.*Align emit\.agents.*no files were changed/s,
+    );
+
+    expect(fs.existsSync(path.join(fixture.root, 'blueprint-authoring.md'))).toBe(false);
+  });
+});
+
+describe('repository-wide topology transformation safety', () => {
   it('rejects all applications before writing when one preflight is dirty', async () => {
     const fixture = input('layer-first');
 

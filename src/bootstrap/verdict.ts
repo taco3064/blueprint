@@ -175,9 +175,10 @@ export function renderVerdict(
     tscOut: TscArtifactLocation | null;
     pm: PackageManager;
     topology: ArchitectureTopology;
+    claudeLauncher?: boolean;
   },
 ): string {
-  const { claudeDir, viteTs, tscOut, pm, topology } = facts;
+  const { claudeDir, viteTs, tscOut, pm, topology, claudeLauncher = true } = facts;
 
   if (survey.scopeRequired) {
     return [
@@ -236,7 +237,7 @@ export function renderVerdict(
     + 'the full method runs it because brownfield repos have debt to lock; '
     + 'a clean early exit has none.)',
     renderEarlyExitVerify(viteTs, tscOut, pm),
-    `4. Delete ${cleanupTargets(claudeDir)} Cleanup comes BEFORE the final gate: doctor treats these authoring files as leftovers.`,
+    `4. Delete ${cleanupTargets(claudeDir, claudeLauncher)} Cleanup comes BEFORE the final gate: doctor treats ${claudeLauncher ? 'these authoring files as leftovers' : 'this authoring file as a leftover'}.`,
     `5. \`npx blueprint doctor\` — all checks green, and a \`⊘\` is not green: a skipped check keeps exit 0 while what it verifies stays unverified, so fix what that line names and re-run before you report done.`,
     `   Then commit what adoption wrote, if you can: a ratchet that lives only in an uncommitted working tree is not installed.`,
     `   Not a VCS repo, or no commit rights?`,

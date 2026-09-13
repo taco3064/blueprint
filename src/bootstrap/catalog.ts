@@ -5,7 +5,7 @@ import { renderSurvey } from '../survey';
 import type { SurveyResult } from '../survey';
 import { cleanupTargets } from './playbook';
 
-export function renderSemantics(): string {
+export function renderSemantics(claudeLauncher = true): string {
   return [
     '',
     '## Semantics the linter holds you to',
@@ -40,7 +40,7 @@ export function renderSemantics(): string {
     '- **`doctor`\'s "eslint wired" check** passes when the eslint config\'s text references '
     + '`@kekkai/blueprint` (or the config is the generated file itself).',
     '- **`doctor`\'s leftover check matches exact file families** — this playbook, '
-    + 'the command file, `*.blueprint.*` references, '
+    + `${claudeLauncher ? 'the command file, ' : ''}\`*.blueprint.*\` references, `
     + 'and marker-bearing contracts outside `emit.agents` — never other files, '
     + 'whatever their names.',
     '  A report or feedback file you were asked to write is safe without a verification re-run.',
@@ -188,7 +188,10 @@ export function renderSchemaSketch(): string {
   ].join('\n');
 }
 
-export function renderAcceptanceGates(claudeDir: ClaudeDirState): string {
+export function renderAcceptanceGates(
+  claudeDir: ClaudeDirState,
+  claudeLauncher = true,
+): string {
   return [
     '',
     '## Acceptance gates',
@@ -201,7 +204,7 @@ export function renderAcceptanceGates(claudeDir: ClaudeDirState): string {
     + 'report',
     '- [ ] No `*.blueprint.*` reference file remains in the repo',
     '- [ ] The report names every import cycle and every upward dependency found',
-    `- [ ] Deleted: ${cleanupTargets(claudeDir)} THEN \`npx blueprint doctor\` passes with no \`⊘\` — a skip is not a pass and keeps exit 0 — doctor flags them as leftovers, so it is the last thing you run, not a mid-flow smoke test`,
+    `- [ ] Deleted: ${cleanupTargets(claudeDir, claudeLauncher)} THEN \`npx blueprint doctor\` passes with no \`⊘\` — a skip is not a pass and keeps exit 0 — doctor flags ${claudeLauncher ? 'them as leftovers' : 'it as a leftover'}, so it is the last thing you run, not a mid-flow smoke test`,
   ].join('\n');
 }
 

@@ -115,6 +115,37 @@ describe('runInit · brownfield authoring flow', () => {
     expect(exists('CLAUDE.md')).toBe(false);
   });
 
+  it('keeps Codex-only dry-run and applied authoring free of Claude artifacts', async () => {
+    brownfield();
+
+    const dry = await runLayerFirstInit(root, {
+      agent: 'codex',
+      dryRun: true,
+      install: false,
+      log: silent,
+    });
+
+    expect(dry).not.toContainEqual(expect.objectContaining({
+      path: '.claude/commands/blueprint-author.md',
+    }));
+
+    expect(exists('.claude/commands/blueprint-author.md')).toBe(false);
+
+    const applied = await runLayerFirstInit(root, {
+      agent: 'codex',
+      install: false,
+      log: silent,
+      spawn: () => ({ status: 0 }),
+    });
+
+    expect(applied).not.toContainEqual(expect.objectContaining({
+      path: '.claude/commands/blueprint-author.md',
+    }));
+
+    expect(exists('.claude/commands/blueprint-author.md')).toBe(false);
+    expect(read('blueprint-authoring.md')).not.toContain('.claude/commands/blueprint-author.md');
+  });
+
   it('keeps the preset path for a near-empty repo', async () => {
     writePkg({ name: 'fresh', dependencies: { react: '^18' } });
 
