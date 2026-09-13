@@ -175,10 +175,10 @@ export function renderVerdict(
     tscOut: TscArtifactLocation | null;
     pm: PackageManager;
     topology: ArchitectureTopology;
-    claudeLauncher?: boolean;
+    claudeLauncher: boolean;
   },
 ): string {
-  const { claudeDir, viteTs, tscOut, pm, topology, claudeLauncher = true } = facts;
+  const { claudeDir, viteTs, tscOut, pm, topology, claudeLauncher } = facts;
 
   if (survey.scopeRequired) {
     return [

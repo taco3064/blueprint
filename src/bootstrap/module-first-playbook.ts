@@ -41,7 +41,7 @@ export function renderModuleFirstGoal(): string {
 
 export function renderModuleFirstMethod(
   claudeDir: ClaudeDirState,
-  claudeLauncher = true,
+  claudeLauncher: boolean,
 ): string {
   return [
     '',

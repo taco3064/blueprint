@@ -20,7 +20,7 @@ export function printConfigCaveats(): string {
   ].join(' ');
 }
 
-export function cleanupTargets(claudeDir: ClaudeDirState, claudeLauncher = true): string {
+export function cleanupTargets(claudeDir: ClaudeDirState, claudeLauncher: boolean): string {
   if (!claudeLauncher) {
     return 'this playbook.';
   }
@@ -97,7 +97,7 @@ export function renderPrerequisites(install: string): string {
   ].join('\n');
 }
 
-export function renderGoal(claudeLauncher = true): string {
+export function renderGoal(claudeLauncher: boolean): string {
   return [
     '',
     '## Goal and boundary',
