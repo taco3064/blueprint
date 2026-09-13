@@ -28,7 +28,7 @@ function repository() {
   fs.mkdirSync(path.join(root, 'src'), { recursive: true });
   fs.mkdirSync(path.join(root, 'scripts'), { recursive: true });
   for (const file of [
-    'package.json', 'package-lock.json', 'stryker.config.json', 'vitest.config.ts',
+    '.nvmrc', 'package.json', 'package-lock.json', 'stryker.config.json', 'vitest.config.ts',
     'tsconfig.json', 'tsconfig.lib.json', 'tsconfig.test.json', 'tsconfig.types.json',
     'scripts/mutation-ci.mjs', 'scripts/mutation-smoke.mjs',
   ]) fs.writeFileSync(path.join(root, file), '{}\n');
@@ -299,6 +299,29 @@ describe('mutation CI planning', () => {
 
     fs.writeFileSync(path.join(root, 'scripts', 'mutation-ci.mjs'), 'changed harness\n');
     git('commit', '-qam', 'change mutation harness');
+
+    expect(planMutation(root, { base, previous, targetLines: 1 }).reusedShards).toEqual([]);
+  });
+
+  it('reruns passed evidence when the declared Node runtime changes', () => {
+    const { root, git } = repository();
+    const base = git('rev-parse', 'HEAD');
+
+    fs.writeFileSync(path.join(root, 'src', 'rule.test.ts'), 'export const test = 1\n');
+    fs.appendFileSync(path.join(root, 'src', 'rule.ts'), 'export const first = 2\n');
+    git('add', '.');
+    git('commit', '-qm', 'previous head');
+
+    const previousManifest = planMutation(root, { base, targetLines: 1 });
+
+    const previous = writePreviousEvidence(
+      root,
+      previousManifest,
+      [{ shard: previousManifest.shards[0] }],
+    );
+
+    fs.writeFileSync(path.join(root, '.nvmrc'), '27\n');
+    git('commit', '-qam', 'change Node runtime');
 
     expect(planMutation(root, { base, previous, targetLines: 1 }).reusedShards).toEqual([]);
   });

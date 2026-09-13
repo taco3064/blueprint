@@ -1,9 +1,9 @@
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import ts from 'typescript';
 
 import {
   changedLineCount,
@@ -33,6 +33,7 @@ function isAncestor(root, ancestor, descendant) {
 const MUTATION_EVIDENCE_VERSION = 1;
 
 const MUTATION_AUTHORITY_FILES = [
+  '.nvmrc',
   'package.json',
   'package-lock.json',
   'stryker.config.json',
@@ -44,6 +45,15 @@ const MUTATION_AUTHORITY_FILES = [
   'scripts/mutation-ci.mjs',
   'scripts/mutation-smoke.mjs',
 ];
+
+const require = createRequire(import.meta.url);
+let typescript = null;
+
+function loadTypeScript() {
+  typescript ??= require('typescript');
+
+  return typescript;
+}
 
 const LOCAL_MODULE_SUFFIXES = [
   '', '.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs', '.json',
@@ -102,6 +112,7 @@ function localDependencies(snapshot, file) {
   const source = snapshot.source(file);
   if (source === null) return null;
 
+  const ts = loadTypeScript();
   const dependencies = [];
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, false);
 
