@@ -17,7 +17,7 @@ import { handbookPath } from '../docs';
 import { enforcedBy, unavailableForEmit } from '../lint';
 import type { StackFacts } from '../lint';
 
-function gateFacts(blueprint: Blueprint, stack: StackFacts): AgentGateFact[] {
+export function gateFacts(blueprint: Blueprint, stack: StackFacts = {}): AgentGateFact[] {
   const { architecture, framework, rules } = blueprint;
 
   return Object.entries(rules ?? {}).flatMap(([id, setting]) => {

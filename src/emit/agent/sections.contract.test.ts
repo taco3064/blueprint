@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../../config';
-import { renderHardRules, renderPlacement } from './sections';
+import { gateFacts, renderHardRules, renderPlacement } from './sections';
 
 function blueprint(rules: Blueprint['rules']): Blueprint {
   return {
@@ -22,10 +22,14 @@ describe('agent section contract boundaries', () => {
   });
 
   it('omits warning-tier and documentation-only rules from machine gates', () => {
-    const out = renderHardRules(blueprint({
+    const input = blueprint({
       maxLines: { tier: 'warn', value: 400 },
       deadCode: 'error',
-    }));
+    });
+
+    const out = renderHardRules(input);
+
+    expect(gateFacts(input)).toEqual([]);
 
     expect(out).not.toContain('`maxLines`');
     expect(out).not.toContain('`deadCode`');
