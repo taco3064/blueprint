@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { outOfScanReachClause } from '../emit/lint/patterns';
+import { outOfScanReachClause, ownersCallClause } from '../emit/lint/patterns';
 import { outsideScanReach, scan } from './scan';
 
 /**
@@ -115,5 +115,29 @@ describe('outOfScanReachClause · the sentence against the walk it describes', (
     for (const claim of CLAIMS) {
       expect(printed(CLAIMS[0]).split(claim.clause)).toHaveLength(2);
     }
+  });
+});
+
+describe('ownersCallClause · one undecided class', () => {
+  it('does not repeat the entry names when every entry is handed to the owner', () => {
+    const said = ownersCallClause(
+      [{ glob: 'src/generated/**' }],
+      { opening: 'An ignored path', noun: 'exclusion' },
+    );
+
+    expect(said).toContain('An ignored path whose files have not landed');
+    expect(said).not.toContain('which leaves');
+  });
+
+  it('names the undecided entries when measured entries share the input', () => {
+    const said = ownersCallClause(
+      [
+        { glob: 'src/generated/**' },
+        { glob: 'dist/**', unreached: 'a directory this scan never descends into' },
+      ],
+      { opening: 'An ignored path', noun: 'exclusion' },
+    );
+
+    expect(said).toContain('which leaves `src/generated/**` undecided');
   });
 });

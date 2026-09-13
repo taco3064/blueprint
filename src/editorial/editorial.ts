@@ -16,6 +16,14 @@ export type TestFilesEdition
 
 type Renderer = (policy: ResolvedTestFiles) => string;
 
+export interface TestFilesReachFact {
+  deadGlobs: string[];
+  allGlobsDead: boolean;
+  outsideScan: { glob: string; reason: string }[];
+  undecidedGlobs: string[];
+  divergentGlobs: string[];
+}
+
 const RENDERERS: Record<TestFilesEdition, Record<EditorialLocale, Renderer>> = {
   core: {
     en: (policy) => policy.architectureExemptions.length
@@ -105,6 +113,107 @@ export function renderResolvedTestFilesEditorial(
   policy: ResolvedTestFiles,
 ): string {
   return RENDERERS[edition][locale](policy);
+}
+
+export function renderEmptyTestFilesEditorial(locale: EditorialLocale): string {
+  return {
+    en: '`architecture.testFiles: []` exempts nothing, so there is no test file for '
+      + 'this to name — declare test globs, or drop this gate',
+    'zh-TW': '`architecture.testFiles: []` 不會豁免任何檔案，因此這裡沒有測試檔可命名；'
+      + '請宣告測試 glob，或移除這個關卡',
+  }[locale];
+}
+
+export function renderUnreachedTestFilesEditorial(
+  locale: EditorialLocale,
+  fact: TestFilesReachFact,
+): string {
+  return locale === 'en'
+    ? renderUnreachedEnglish(fact)
+    : renderUnreachedTraditionalChinese(fact);
+}
+
+function renderUnreachedEnglish(fact: TestFilesReachFact): string {
+  const droppedHere = fact.allGlobsDead
+    ? 'no scanned file is dropped from the analysis'
+    : 'the scanned files dropped from the analysis are the ones the rest of the net matched';
+
+  return '`architecture.testFiles` — no file here matches '
+    + `${fact.deadGlobs.map((glob) => `\`${glob}\``).join(', ')}, so nothing this run read `
+    + `is exempt through that part of the net: ${droppedHere}`
+    + '. That is this scan\'s reach, not a verdict on the entry — `emit/lint` writes these '
+    + 'globs into the `testFilename` entry\'s own `files` too, so where that gate is on it '
+    + 'is emitted all the same and governs whatever they do match'
+    + outsideScanEnglish(fact)
+    + ownerDecisionEnglish(fact)
+    + divergentEnglish(fact);
+}
+
+function outsideScanEnglish(fact: TestFilesReachFact): string {
+  if (!fact.outsideScan.length) {
+    return '';
+  }
+
+  const named = fact.outsideScan.map(({ glob, reason }) => `\`${glob}\` — ${reason}`);
+
+  return `. Measured: ${named.join('; ')}. This scan reads the source root and nothing `
+    + 'above it, never descends into the directories a build writes, and reads only source '
+    + 'extensions, so an entry outside all three could not have matched here however the '
+    + 'tree grew: what `emit/lint` emits for it is scoped rather than repo-wide — every '
+    + '`ignores` it writes these globs into sits beside a `files`, so it subtracts only from '
+    + 'the set that `files` names';
+}
+
+function ownerDecisionEnglish(fact: TestFilesReachFact): string {
+  if (!fact.undecidedGlobs.length) {
+    return '';
+  }
+
+  const split = fact.undecidedGlobs.length !== fact.deadGlobs.length;
+  const names = fact.undecidedGlobs.map((glob) => `\`${glob}\``).join(', ');
+
+  return '. A mistyped glob and a test convention whose files have not landed look '
+    + `identical from here${split ? `, which leaves ${names} undecided` : ''} — fix the `
+    + 'glob, or leave it and the exemption arms itself when a file matches; which one '
+    + 'applies is the owner\'s call';
+}
+
+function divergentEnglish(fact: TestFilesReachFact): string {
+  if (!fact.divergentGlobs.length) {
+    return '';
+  }
+
+  return '. An entry beginning `!` is not read the same way on both sides — an ordinary '
+    + 'path character to this scan, a negation to ESLint in a config glob — so blueprint '
+    + 'cannot say what it holds out, and neither classifies it nor hands it back: '
+    + fact.divergentGlobs.map((glob) => `\`${glob}\``).join(', ');
+}
+
+function renderUnreachedTraditionalChinese(fact: TestFilesReachFact): string {
+  const droppedHere = fact.allGlobsDead
+    ? '分析不會排除任何掃描到的檔案'
+    : '分析排除的是其餘 glob 匹配到的掃描檔案';
+
+  const outside = fact.outsideScan.length
+    ? `；超出掃描範圍：${fact.outsideScan.map(({ glob, reason }) => `\`${glob}\` — ${reason}`).join('；')}`
+    : '';
+
+  const undecided = fact.undecidedGlobs.length
+    ? `；${fact.undecidedGlobs.map((glob) => `\`${glob}\``).join('、')} 可能是拼錯的 glob，`
+    + '也可能只是測試檔尚未加入，應由 owner 決定'
+    : '';
+
+  const divergent = fact.divergentGlobs.length
+    ? `；以 \`!\` 開頭的 ${fact.divergentGlobs.map((glob) => `\`${glob}\``).join('、')} `
+    + '在掃描器與 ESLint 中的解讀不同，因此 blueprint 不會替它分類'
+    : '';
+
+  return `\`architecture.testFiles\` —— 此處沒有檔案匹配 ${
+    fact.deadGlobs.map((glob) => `\`${glob}\``).join('、')
+  }，所以這次執行讀到的內容不會透過這部分取得豁免；${droppedHere}。`
+  + '這只是本次掃描的可達範圍，不是對 entry 的判定；`emit/lint` 仍會把這些 '
+  + 'glob 寫入 `testFilename` entry 的 `files`，關卡開啟時仍會治理它們在其他位置'
+  + `匹配到的檔案${outside}${undecided}${divergent}。`;
 }
 
 function globs(policy: ResolvedTestFiles): string {
