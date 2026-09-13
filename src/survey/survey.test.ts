@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { dependencyNames, ROOT_BUCKET, runSurvey } from './survey';
-import { renderTestFilesEditorial } from '../editorial';
+import { renderTestFilesOperational } from '../operational-contract';
 
 let root: string;
 
@@ -346,7 +346,7 @@ describe('runSurvey · the report it renders', () => {
     // The matrix counts test files while inspect skips the ones its globs reach — say
     // so in place, condition included, or the gap between the two numbers is unexplained
     // for exactly the config that made it wider.
-    expect(output).toContain(renderTestFilesEditorial('survey', 'en'));
+    expect(output).toContain(renderTestFilesOperational('survey', 'en'));
     expect(output).toContain('pages → components');
     expect(output).toContain('Same-folder imports via the alias');
     expect(output).toContain('ownership candidates');

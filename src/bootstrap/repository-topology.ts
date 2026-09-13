@@ -6,6 +6,7 @@ import type { ProjectState, RepositoryBlueprint } from '../project';
 import type { SurveyResult } from '../survey';
 import { observeTopology } from './topology';
 import type { ArchitectureTopology, TopologyObservation } from './topology';
+import { renderMixedRepositoryTopology } from '../operational-contract';
 
 export async function observeRepositoryTopology(input: {
   state: ProjectState;
@@ -77,10 +78,7 @@ export async function resolveRepositoryTopology(input: {
       })
       .join('\n  ');
 
-    throw new Error(
-      'Blueprint configs in one repository must share one topology, but mixed topology was '
-      + `found:\n  ${applications}\nAlign every config before init; no files were changed.`,
-    );
+    throw new Error(renderMixedRepositoryTopology(applications));
   }
 
   return { topology: topologies[0] ?? null, blueprints };

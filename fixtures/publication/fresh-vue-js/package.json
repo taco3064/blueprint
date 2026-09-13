@@ -1,8 +1,0 @@
-{
-  "name": "my-app",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "vue": "^3.5.0"
-  }
-}

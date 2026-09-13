@@ -5,6 +5,7 @@ import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
 import { resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
+import { renderBaselineUpdate } from '../operational-contract';
 import { analyze } from './analyze';
 import {
   BASELINE_FILE,
@@ -96,20 +97,27 @@ function lockBaseline(
 
   if (debt.length) {
     fs.writeFileSync(baselineFile, renderBaseline(debt));
-    log(`Baseline updated — ${debt.length} finding(s) recorded in ${BASELINE_FILE}.`);
+
+    log(renderBaselineUpdate({
+      debt: debt.length,
+      informational: findings.length - debt.length,
+      existed: fs.existsSync(baselineFile),
+      file: BASELINE_FILE,
+    }));
 
     return { findings, ok: true };
   }
 
-  const note = findings.length
-    ? ` (${findings.length} informational note(s) are not debt)`
-    : '';
-
   if (fs.existsSync(baselineFile)) {
     fs.rmSync(baselineFile);
-    log(`No debt to lock${note} — ${BASELINE_FILE} removed; \`inspect --baseline\` (the gate line) now suppresses nothing.`);
+
+    log(renderBaselineUpdate({
+      debt: 0, informational: findings.length, existed: true, file: BASELINE_FILE,
+    }));
   } else {
-    log(`No debt to lock${note} — no baseline needed; \`inspect --baseline\` (the gate line) treats a missing ledger as empty.`);
+    log(renderBaselineUpdate({
+      debt: 0, informational: findings.length, existed: false, file: BASELINE_FILE,
+    }));
   }
 
   return { findings, ok: true };

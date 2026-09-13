@@ -6,6 +6,7 @@
  *   node scripts/field-run.mjs                      # new-project scenario, every available agent
  *   node scripts/field-run.mjs --repo ../miniapp    # + existing-repo scenario (cloned, untouched)
  *   node scripts/field-run.mjs --agents claude      # limit the agent matrix
+ *   node scripts/field-run.mjs --topology module-first
  *   node scripts/field-run.mjs --dry                # prep repos + print commands, spawn nothing
  *   node scripts/field-run.mjs --no-issue           # keep the report local, file nothing
  *   node scripts/field-run.mjs --candidate candidate/candidate.json
@@ -30,7 +31,7 @@ import { execSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { resolveCandidate } from './field-candidate.mjs';
 
@@ -91,8 +92,6 @@ const AGENT_BLOCKERS = {
     : null),
 };
 
-// Must match the filename the prompt file names — the prompt is the single
-// source (scripts/field-prompt.md), shared verbatim with manual field runs.
 const FEEDBACK_FILE = 'blueprint-field-feedback.md';
 
 // Mirrors the package's own CONFIG_FILE. Hardcoded rather than imported: this
@@ -100,20 +99,23 @@ const FEEDBACK_FILE = 'blueprint-field-feedback.md';
 // dist/ existing.
 const CONFIG_FILE = 'blueprint.config.mjs';
 
-const PROMPT = [
+async function adoptionPrompt(dir, topology) {
+  const operational = path.join(
+    dir,
+    'node_modules/@kekkai/blueprint/dist/operational-contract.js',
+  );
+
+  const { renderFieldPrompt } = await import(pathToFileURL(operational).href);
+
+  return [
   // Harness-specific context on top of the shared prompt: the tarball is
   // pre-installed, so the agent must never reach for the registry.
-  'Context: @kekkai/blueprint is ALREADY installed in this repo (from a local',
-  'tarball) — do not install it from the registry. This repo is disposable.',
-  '',
-  // field-prompt.md is deliberately the homepage's one-line paste plus the
-  // feedback ask — nothing more. The acceptance gates, the "execute to the
-  // end, autonomously, early exit = completion" framing all come from the
-  // tool's OWN output now (init's instruct note + blueprint-authoring.md).
-  // Re-adding them here would prop up the playbook and stop this harness from
-  // testing what a real adopter actually pastes — leave the instruction thin.
-  fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'field-prompt.md'), 'utf-8').trim(),
-].join('\n');
+    'Context: @kekkai/blueprint is ALREADY installed in this repo (from a local',
+    'tarball) — do not install it from the registry. This repo is disposable.',
+    '',
+    renderFieldPrompt({ topology }).trim(),
+  ].join('\n');
+}
 
 /** The starter fixture — the vite + TS shape every field batch adopted on. */
 const STARTER_FILES = {
@@ -169,14 +171,29 @@ createRoot(document.getElementById('root')!).render(<App />)
 `,
 };
 
-function parseArgs(argv) {
-  const args = { agents: null, repo: null, candidate: null, dry: false, issue: true };
+export function parseArgs(argv) {
+  const args = {
+    agents: null,
+    repo: null,
+    candidate: null,
+    topology: 'layer-first',
+    dry: false,
+    issue: true,
+  };
 
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--agents') args.agents = argv[++i].split(',');
     else if (argv[i] === '--repo') args.repo = path.resolve(argv[++i]);
     else if (argv[i] === '--candidate') args.candidate = path.resolve(argv[++i]);
-    else if (argv[i] === '--dry') args.dry = true;
+    else if (argv[i] === '--topology') {
+      const topology = argv[++i];
+
+      if (!['layer-first', 'module-first'].includes(topology)) {
+        throw new Error('--topology expects layer-first or module-first');
+      }
+
+      args.topology = topology;
+    } else if (argv[i] === '--dry') args.dry = true;
     else if (argv[i] === '--no-issue') args.issue = false;
     else throw new Error(`unknown flag: ${argv[i]}`);
   }
@@ -482,10 +499,11 @@ async function main() {
       // starting state, or the verdict has no owner.
       const preAdopted = fs.existsSync(path.join(dir, CONFIG_FILE));
 
-      const argv = AGENT_COMMANDS[agent](PROMPT);
+      const prompt = await adoptionPrompt(dir, args.topology);
+      const argv = AGENT_COMMANDS[agent](prompt);
 
       if (args.dry) {
-        const preview = argv.map((part) => (part === PROMPT ? '\'<prompt>\'' : part)).join(' ');
+        const preview = argv.map((part) => (part === prompt ? '\'<prompt>\'' : part)).join(' ');
 
         console.log(`  (dry) would run: ${preview}`);
         runs.push({ scenario, agent, dir, dry: true });

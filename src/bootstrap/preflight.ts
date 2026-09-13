@@ -4,6 +4,13 @@ import { runInspect } from '../inspect';
 import type { Finding } from '../inspect';
 import { defaultGitReader, resolveRepositoryContext } from '../project';
 import type { GitReader, GitReadResult } from '../project';
+import {
+  renderDirtyWorktreeReason,
+  renderGitProbeFallback,
+  renderInspectionFailure,
+  renderPreflightUnavailable,
+  renderScopeCountReason,
+} from '../operational-contract';
 
 export type { GitReader, GitReadResult } from '../project';
 
@@ -51,11 +58,11 @@ export async function runTransformationPreflight(
 
   const worktree = repository.ok
     ? worktreeCheck(git, repositoryRoot)
-    : unavailable('Worktree cleanliness cannot be checked outside a Git worktree.');
+    : unavailable(renderPreflightUnavailable('outside-worktree'));
 
   const head = repository.ok
     ? headCheck(git, repositoryRoot)
-    : unavailable('A recoverable HEAD cannot be checked outside a Git worktree.');
+    : unavailable(renderPreflightUnavailable('outside-recoverable-head'));
 
   const inspection = await inspectionCheck(effects.inspect ?? defaultInspector, applicationRoot);
   const checks = [repository, worktree, head, scope, inspection];
@@ -66,7 +73,7 @@ export async function runTransformationPreflight(
 function selectApplication(selectedScopes: string[]): TransformationPreflight['scope'] {
   if (selectedScopes.length !== 1) {
     return unavailable(
-      `Exactly one application scope must be selected; received ${selectedScopes.length}.`,
+      renderScopeCountReason(selectedScopes.length),
     );
   }
 
@@ -78,11 +85,11 @@ function unavailablePreflight(
 ): TransformationPreflight {
   return {
     ok: false,
-    repository: unavailable('Git repository membership requires one selected application.'),
-    worktree: unavailable('Worktree cleanliness requires one selected application.'),
-    head: unavailable('A recoverable HEAD requires one selected application.'),
+    repository: unavailable(renderPreflightUnavailable('repository-needs-scope')),
+    worktree: unavailable(renderPreflightUnavailable('worktree-needs-scope')),
+    head: unavailable(renderPreflightUnavailable('head-needs-scope')),
     scope,
-    inspection: unavailable('Inspection requires one selected application.'),
+    inspection: unavailable(renderPreflightUnavailable('inspection-needs-scope')),
   };
 }
 
@@ -107,13 +114,13 @@ function worktreeCheck(
   ], repositoryRoot);
 
   if (!succeeded(result)) {
-    return unavailable(gitFailure(result, 'Git worktree status could not be read.'));
+    return unavailable(gitFailure(result, 'worktree-status'));
   }
 
   const changes = result.stdout.split('\n').filter(Boolean);
 
   return changes.length
-    ? { ok: false, changes, reason: 'The Git worktree has uncommitted changes.' }
+    ? { ok: false, changes, reason: renderDirtyWorktreeReason() }
     : { ok: true, changes: [] };
 }
 
@@ -126,7 +133,7 @@ function headCheck(
 
   return succeeded(result) && commit
     ? { ok: true, commit }
-    : unavailable(gitFailure(result, 'No committed, recoverable HEAD exists.'));
+    : unavailable(gitFailure(result, 'recoverable-head'));
 }
 
 async function inspectionCheck(
@@ -138,7 +145,7 @@ async function inspectionCheck(
 
     return { ok: true, findings: result.findings };
   } catch (error) {
-    return unavailable(`Pre-transform inspection could not produce usable evidence: ${message(error)}`);
+    return unavailable(renderInspectionFailure(errorMessage(error)));
   }
 }
 
@@ -146,11 +153,14 @@ function succeeded(result: GitReadResult): boolean {
   return result.status === 0 && result.error === undefined;
 }
 
-function gitFailure(result: GitReadResult, fallback: string): string {
-  return result.error?.message || result.stderr.trim() || fallback;
+function gitFailure(
+  result: GitReadResult,
+  fallback: 'worktree-status' | 'recoverable-head',
+): string {
+  return result.error?.message || result.stderr.trim() || renderGitProbeFallback(fallback);
 }
 
-function message(error: unknown): string {
+function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 

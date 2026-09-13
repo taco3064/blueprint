@@ -1,1 +1,0 @@
-**Test files are excluded only when they match `architecture.testFiles`.** Imports from files matched by `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}` add nothing to a unit's blast radius. A scanned file no configured glob matches remains ordinary source, so its imports count.

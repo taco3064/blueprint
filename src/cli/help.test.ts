@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { run, version } from './cli';
-import { renderTestFilesEditorial } from '../editorial';
+import { renderTestFilesOperational } from '../operational-contract';
 
 describe('help & version flags', () => {
   it('prints usage and exits 0 on --help / -h', async () => {
@@ -129,8 +129,8 @@ describe('run · --help belongs to the command that has one', () => {
 
 describe('per-command help · the exemption carries its condition', () => {
   it.each([
-    ['inspect', renderTestFilesEditorial('core', 'en')],
-    ['deps', renderTestFilesEditorial('deps', 'en')],
+    ['inspect', renderTestFilesOperational('core', 'en')],
+    ['deps', renderTestFilesOperational('deps', 'en')],
   ])('%s --help publishes the shared semantic edition', async (command, fragment) => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
 

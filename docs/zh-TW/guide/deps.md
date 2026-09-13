@@ -83,7 +83,7 @@ styles (file-layout layer — answers at layer granularity)
 - **僅涵蓋已宣告的分層。**<br>
   layer-first 設定中，`architecture.layers` 以外的資料夾不會納入相依圖；排行榜會將其列為略過項目（如上例的 `legacy/`），避免把「未被掃描」誤讀為「沒有任何 unit 引用」。<br>
   module-first 設定則以 `architecture.modules` 為外層邊界；一般 module 的內層資料夾必須位於共用的 `architecture.layers` 清單中。已宣告且保留的 `app` module 是例外，其下所有 router-composition 原始碼都會解析至 container node。其他不在契約裡的外層或內層資料夾會列為略過；查詢時會直接說明原因：`✗ "legacy/" is outside the declared architecture`。
-<!-- @include: @/publication/semantic/test-files/deps.zh-TW.md -->
+**只有匹配 `architecture.testFiles` 的測試檔才會被排除。** `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}` 匹配到的檔案，其匯入不會增加 unit 的影響範圍。掃描到、但沒有任何設定 glob 匹配的檔案仍是一般原始碼，因此其匯入會被計入。
 - **僅有別名匯入與相對路徑匯入會構成相依邊。**<br>
   套件匯入（`axios`、`vue`）不屬於 unit 相依圖 —— 套件的**所有權**檢核屬於 `inspect` 的職責。
 - **循環相依僅如實列出，不作裁決。**<br>

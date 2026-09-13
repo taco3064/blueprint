@@ -11,7 +11,7 @@ import {
   renderPlacement,
 } from './sections';
 import type { ArchitectureDef, AxisDef, Blueprint, PrincipleDef } from '../../config';
-import { renderTestFilesEditorial } from '../../editorial';
+import { renderTestFilesOperational } from '../../operational-contract';
 import { enforcedBy, LINT_GATED_RULE_IDS } from '../lint';
 
 function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
@@ -95,7 +95,7 @@ describe('renderPlacement', () => {
   it('names the project\'s own test globs, never a hard-coded pair', () => {
     const out = renderPlacement(arch({ testFiles: ['**/*.spec.ts', '**/*.fixtures.ts'] }));
 
-    expect(out).toContain(renderTestFilesEditorial(
+    expect(out).toContain(renderTestFilesOperational(
       'agent-placement',
       'en',
       ['**/*.spec.ts', '**/*.fixtures.ts'],
@@ -117,13 +117,13 @@ describe('renderPlacement', () => {
   it('bounds the exemption by what the globs reach, in the line an agent places by', () => {
     const out = renderPlacement(arch());
 
-    expect(out).toContain(renderTestFilesEditorial('agent-placement', 'en'));
+    expect(out).toContain(renderTestFilesOperational('agent-placement', 'en'));
   });
 
   it('closes the rename-to-escape route the exemption opens', () => {
     const out = renderPlacement(arch());
 
-    expect(out).toContain(renderTestFilesEditorial('agent-placement', 'en'));
+    expect(out).toContain(renderTestFilesOperational('agent-placement', 'en'));
   });
 
   it('states the allowed importers, marking selfOnly ones', () => {

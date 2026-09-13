@@ -27,11 +27,11 @@ export default defineConfig([
     external,
   },
   {
-    input: 'src/editorial/index.ts',
+    input: 'src/operational-contract/index.ts',
     output: {
       dir: 'dist',
       format: 'esm',
-      entryFileNames: 'editorial.js',
+      entryFileNames: 'operational-contract.js',
     },
     external,
   },

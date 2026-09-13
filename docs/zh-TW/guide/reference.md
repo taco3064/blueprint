@@ -20,7 +20,7 @@ Blueprint 會安裝已宣告的 JavaScript、TypeScript 與 Vue parser 依賴，
 
 只要有 `error` 等級的違規，就以 exit code 1 結束；`warn` 與 `info` 只提示、不影響檢核結果。<br>
 
-<!-- @include: @/publication/semantic/test-files/core.zh-TW.md -->
+`architecture.testFiles` 只會讓 `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}` 實際匹配到的檔案豁免於結構規則、度量關卡、inspect 分析與相依圖；測試專用規則仍會套用到相同 glob。掃描到、但沒有任何設定 glob 匹配的檔案，仍是一般原始碼。
 
 - **`undeclared-folder`** · error —— 原始碼資料夾落在宣告的拓撲之外：layer-first 模式是未宣告的頂層 layer；module-first 模式則是未宣告的外層 module 或 module 內層 layer
 - **`flow-violation`** · error —— module 可達性或內層 flow 未通過，包括逆向匯入，或同一 module 內透過別名進行的同層匯入。可達 modules 之間的同 layer 匯入仍然合法
@@ -86,7 +86,7 @@ flat config 是**取代**不是合併 —— 但只發生在「兩筆都命中�
   不會有語法錯誤、lint 照樣是綠的，禁令則靜靜地什麼都沒擋到。
 - **`testExemptions` 是一起附著的，得跟著搬過去。**<br>
 
-<!-- @include: @/publication/semantic/test-files/merge-scope.zh-TW.md -->
+每筆生成的結構 entry 都把 `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}` 帶在各自的 `ignores`；重組 entry 時若漏掉這些 ignores，就會開始管到匹配的測試檔。
 
 禁令的**訊息文字**是你自己寫的 —— `doctor` 驗的是 selector，從來不驗訊息。
 
@@ -122,7 +122,7 @@ flat config 是**取代**不是合併 —— 但只發生在「兩筆都命中�
 `npx blueprint rules` 會印出 catalog，有 config 時還會標註實際宣告的 tier。<br>
 **在這裡開不起來的關卡，那一列會留著、標記 `unavailable here`，原因則單獨列在關卡列表上方**，而不是連個交代都沒有就被拿掉。<br>
 
-<!-- @include: @/publication/semantic/test-files/gate-availability.zh-TW.md -->
+只有 `architecture.testFiles: []` 會讓 `testFilename` 無法啟用：這條規則沒有可命名的檔案。宣告後沒有匹配任何掃描檔案的 glob 仍會成為關卡的檔案範圍，而且可能在其他位置匹配到檔案。
 
 這也是為什麼這份 catalog 的列數會比 `inspect` 與 `doctor` 印的 `N/M 個選用關卡` 分母來得多：<br>
 那個分母數的是「有東西開得起來」的關卡，而拿兩個數字對照的人會被告知差額落在哪一列，不用自己猜。
@@ -221,7 +221,7 @@ export default [
 - **`architecture.additionalAliases`** —— 用於解析既有匯入、診斷與 dependency graph 的額外根。可指向 source root、其上層、module、layer 或 unit；但跨 layer/module 時不能當成替代拼法，必須改用 `architecture.alias`。
 
 未設定 `architecture.modules` 時，blueprint 維持傳統 layer-first 軸；設定後則採 Module → Layer → Unit 拓撲，在每個已宣告的一般模組內重複相同 layer 契約。已宣告的 `app` 模組是可選且保留的 router composition module；其下所有受治理的原始碼都使用 container position，不會被解讀為內層 layer。受治理的匯入必須同時通過 module DAG 與共用的內層 layer flow。可達模組之間的同 layer 匯入仍然合法；相對路徑則依舊不能跨 module 或 layer 邊界。
-<!-- @include: @/publication/semantic/test-files/reference.zh-TW.md -->
+**`architecture.testFiles`** —— 匹配到的檔案會豁免於結構規則、度量關卡、inspect 分析與相依圖，測試專用規則仍會套用；預設值為 `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}`。空清單不豁免任何檔案，也讓 `testFilename` 沒有檔案範圍。已宣告、但沒有匹配任何掃描檔案的 glob 在該處不產生豁免，關卡仍會 emit，而且可能在其他位置匹配到檔案。
 - **`architecture.layerFiles`** —— 框架預設樣式不適用時，逐層指定檔案樣式
 - **`architecture.layerFilesIgnore`** —— 從產出的 lint 與由 lint 執行的 `inspect` findings 中全域排除的檔案樣式。這些檔案仍會接受 undeclared folder、cycle 等只由 `inspect` 執行的檢查；coverage 會將它們列為刻意忽略，而不會宣稱 lint 已涵蓋
 

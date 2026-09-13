@@ -167,7 +167,7 @@ describe('authoringActions', () => {
     const instruction = actions.find((action) => action.kind === 'instruct')?.note ?? '';
 
     expect(instruction).toContain('blueprint survey');
-    expect(instruction).toContain('--source-root <application>/src');
+    expect(instruction).toContain('--source-root <application-source-root>');
     expect(instruction).toContain('does not permit early exit');
     expect(instruction).not.toContain('early exit the playbook prescribes IS completion');
   });

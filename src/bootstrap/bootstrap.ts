@@ -38,6 +38,17 @@ import * as legacyUpgrade from './legacy-upgrade';
 import { assertAuthoredConfigNotRewritten, assertInitOptions } from './init-options';
 import type { Action } from './types';
 import { freshAuthoringAgents } from './authoring-launcher';
+import {
+  renderActionLine,
+  renderAgentSessionNote,
+  renderAuthoringFlowBanner,
+  renderForkNote,
+  renderFreshScaffoldNote,
+  renderInitBanner,
+  renderInitStopped,
+  renderInstallStarting,
+  renderScaffoldRemovalNote,
+} from '../operational-contract';
 
 export interface InitOptions extends ResolveOptions {
 
@@ -209,10 +220,7 @@ function takesAuthoringPath(ctx: {
 }
 
 function freshScaffoldNote(survey: SurveyResult): string {
-  return `Fresh scaffold (${survey.totalFiles} source files < ${BROWNFIELD_MIN_FILES}) — `
-    + 'scaffolding the framework preset directly; no blueprint-authoring.md is written '
-    + 'on this path. Force the authoring playbook instead with: '
-    + 'blueprint init --topology layer-first --authoring.';
+  return renderFreshScaffoldNote(survey.totalFiles, BROWNFIELD_MIN_FILES);
 }
 
 async function runScaffold(
@@ -292,21 +300,21 @@ function runAuthoring(
     actions.unshift({
       kind: 'rm',
       path: CONFIG_FILE,
-      note: `${CONFIG_FILE} (pristine preset scaffold — removed; the playbook authors the real one)`,
+      note: renderScaffoldRemovalNote(CONFIG_FILE),
     });
   }
 
-  log(
-    `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · without a config → authoring flow (${survey.totalFiles} source files surveyed)${
-
+  log(renderAuthoringFlowBanner({
+    dryRun: Boolean(options.dryRun),
+    files: survey.totalFiles,
+    forcedBelowThreshold: Boolean(
       topology === 'layer-first'
       && options.authoring
       && survey.totalFiles < BROWNFIELD_MIN_FILES
-      && !survey.scopeRequired
-        ? ` — below the brownfield threshold (${BROWNFIELD_MIN_FILES} source files), forced by --authoring; the playbook's own verdict will be the early exit`
-        : ''
-    }`,
-  );
+      && !survey.scopeRequired,
+    ),
+    threshold: BROWNFIELD_MIN_FILES,
+  }));
 
   if (options.dryRun) {
     for (const action of actions) {
@@ -335,12 +343,10 @@ interface NarrateContext extends RunContext {
 function narrate(actions: Action[], root: string, ctx: NarrateContext): void {
   const { options, log } = ctx;
 
-  log(
-    `blueprint ${options.dryRun ? 'init --dry-run' : 'init'} · ${ctx.framework} · ${ctx.packageManager}`,
-  );
+  log(renderInitBanner(Boolean(options.dryRun), ctx.framework, ctx.packageManager));
 
   if (ctx.forkNote) {
-    log(`· ${ctx.forkNote}`);
+    log(renderForkNote(ctx.forkNote));
   }
 
   if (options.dryRun) {
@@ -366,9 +372,7 @@ function agentSessionNote(
     return null;
   }
 
-  return configSource === null
-    ? `\n--agent ${agent}: nothing to author (blueprint.config.mjs exists) — no session launched; contract emitted for ${agent} only.`
-    : `\n--agent ${agent}: fresh scaffold, nothing to author — no session launched; contract emitted for ${agent} only.`;
+  return renderAgentSessionNote(agent, configSource === null);
 }
 
 function isPristineScaffold(root: string, state: ProjectState): boolean {
@@ -414,46 +418,22 @@ function applyAndNarrate(
         log(formatAction(action, false));
       },
 
-      onInstallStarting: (action) => log(
-        `  → install: ${action.note}\n`
-
-        + `      ${action.command}\n`
-        + '      This is the one step that needs the registry. Silence while it works is'
-        + ' normal; minutes of silence means it cannot get there — stop it and run the line'
-        + ' above yourself, or re-run init with `--no-install`. No version list to find'
-        + ' first: these are your project\'s dependencies, installed unpinned so eslint'
-        + ' resolves to the newest supported major.\n'
-
-        + '      Stopping is safe: this is the last step, so every file above is already on'
-        + ' disk. What stopping omits is these packages in `package.json` — this line is the'
-        + ' only thing that records them there, so until it runs, a failure naming one of'
-        + ' them is that gap and not a broken adoption.',
-      ),
+      onInstallStarting: (action) => log(renderInstallStarting(action.note, action.command)),
     });
   } catch (error) {
     const skipped = actions.slice(landed + 1).filter((action) => action.kind !== 'instruct');
     const failed = actions[landed];
 
-    log(`  ✗ ${failed.kind}: ${failed.note}`);
+    log(renderActionLine(failed.kind, failed.note, 'failed'));
 
-    throw new Error(
-      `${(error as Error).message}\n\n`
-      + `  init stopped at the ${failed.kind} step above. Everything printed before it is on disk`
-      + `${skipped.length ? `, and ${skipped.length} planned effect(s) did NOT happen:\n${skipped.map((action) => `    · ${action.kind}: ${action.note}`).join('\n')}` : ' — nothing else was planned below it'}\n\n`
-      + '  Re-running `blueprint init` is idempotent: fix the cause and the missing effects land, '
-      + 'the applied ones stay. To finish the file plan without this step, run '
-      + '`blueprint init --no-install` — the dependency list is then printed for you to install '
-      + 'yourself.',
-    );
+    throw new Error(renderInitStopped({
+      cause: (error as Error).message,
+      failedKind: failed.kind,
+      skipped,
+    }));
   }
 }
 
 function formatAction(action: Action, dryRun: boolean): string {
-  if (action.kind === 'instruct') {
-    return `  · ${action.note}`;
-  }
-
-  const mark = dryRun ? 'would' : action.kind === 'rm' ? '−' : '✓';
-
-  return `  ${mark} ${action.kind}: ${action.note}`;
+  return renderActionLine(action.kind, action.note, dryRun ? 'dry-run' : 'applied');
 }

@@ -1,5 +1,14 @@
 import { aliasSpecifier } from '../../config';
 import type { AliasRoot, ResolvedArchitecture } from '../../config';
+import {
+  renderEntryOnly,
+  renderFixtureImport,
+  renderLayerFlowViolation,
+  renderModuleContainerImport,
+  renderModuleFlowViolation,
+  renderRedundantRelativeSegments,
+  renderSameLayerImport,
+} from '../../operational-contract';
 import type { GroupPattern, PathPattern } from './types';
 
 export function normalizeGroupPatterns(patterns: GroupPattern[]): GroupPattern[] {
@@ -54,7 +63,7 @@ export function buildStructuralPatterns(params: {
       : [target],
     patterns: GroupPattern[] = [{
       group: ['./../**', '././**'],
-      message: '\n🚫 Redundant relative segments (././, ./../) bypass the structural import rules.',
+      message: renderRedundantRelativeSegments(),
     }, ...aliases.flatMap((alias) => {
       const specifier = aliasSubtreeSpecifier(alias, inModule(layer));
 
@@ -62,14 +71,9 @@ export function buildStructuralPatterns(params: {
         return [];
       }
 
-      const head = `\n🚫 Same-layer imports must be relative. "${specifier}" and everything under it `
-        + `is banned. Replace "${specifier}/X" with `;
-
       return [{
         group: [specifier, `${specifier}/**`],
-        message: unitLayout === 'file'
-          ? `${head}"./X".`
-          : `${head}"../X" — its entry only; what is behind the entry stays private.`,
+        message: renderSameLayerImport(specifier, unitLayout),
       }];
     })];
 
@@ -81,8 +85,7 @@ export function buildStructuralPatterns(params: {
 
           return specifier === null ? [] : [specifier, `${specifier}/**`];
         }))),
-      message: '\n🚫 This import violates the dependency flow. '
-        + 'Only import from allowed lower layers.',
+      message: renderLayerFlowViolation(),
     });
   }
 
@@ -93,17 +96,14 @@ export function buildStructuralPatterns(params: {
 
         return specifier === null ? [] : [specifier, `${specifier}/**`];
       })),
-      message: '\n🚫 This import violates the module dependency graph. '
-        + 'Declare a direct dependency only when the architecture genuinely requires it.',
+      message: renderModuleFlowViolation(),
     });
   }
 
   if (fixtures?.length) {
     patterns.push({
       group: fixtures,
-      message: '\n🚫 Production code must not import fixtures — '
-        + 'missing data renders empty or error, '
-        + 'never fake.',
+      message: renderFixtureImport(),
     });
   }
 
@@ -111,8 +111,7 @@ export function buildStructuralPatterns(params: {
     patterns.push({
       group: folderTargets.flatMap((target) => atPosition(target).flatMap((position) =>
         aliases.flatMap((alias) => folderEntryPatterns(alias, position)))),
-      message: '\n🚫 Import a unit through its entry, not its internals (e.g. "~app/hooks/useX", '
-        + 'not "~app/hooks/useX/impl").',
+      message: renderEntryOnly(true),
     });
   }
 
@@ -178,8 +177,7 @@ export function buildModuleContainerPaths(
       ? []
       : [{
           name,
-          message: '\n🚫 A layer cannot import a module-root container. '
-            + 'Import an allowed inner layer instead.',
+          message: renderModuleContainerImport(),
         }];
   }));
 }
@@ -228,8 +226,7 @@ function isModuleContainerAlias(
 function moduleContainerPattern(group: string[]): GroupPattern {
   return {
     group,
-    message: '\n🚫 A layer cannot import a module-root container. '
-      + 'Import an allowed inner layer instead.',
+    message: renderModuleContainerImport(),
   };
 }
 
@@ -257,14 +254,13 @@ export function buildContainerPatterns(params: {
 
   const patterns: GroupPattern[] = [{
     group: ['./../**', '././**'],
-    message: '\n🚫 Redundant relative segments (././, ./../) bypass the structural import rules.',
+    message: renderRedundantRelativeSegments(),
   }];
 
   if (fixtures?.length) {
     patterns.push({
       group: fixtures,
-      message: '\n🚫 Production code must not import fixtures — missing data renders empty or '
-        + 'error, never fake.',
+      message: renderFixtureImport(),
     });
   }
 
@@ -272,7 +268,7 @@ export function buildContainerPatterns(params: {
     patterns.push({
       group: targetModules.flatMap((targetModule) => folderTargets.flatMap((target) =>
         aliases.flatMap((alias) => folderEntryPatterns(alias, `${targetModule}/${target}`)))),
-      message: '\n🚫 Import a unit through its entry, not its internals.',
+      message: renderEntryOnly(false),
     });
   }
 
@@ -283,8 +279,7 @@ export function buildContainerPatterns(params: {
 
         return specifier === null ? [] : [specifier, `${specifier}/**`];
       })),
-      message: '\n🚫 This import violates the module dependency graph. '
-        + 'Declare a direct dependency only when the architecture genuinely requires it.',
+      message: renderModuleFlowViolation(),
     });
   }
 

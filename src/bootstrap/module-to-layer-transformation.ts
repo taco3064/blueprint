@@ -1,4 +1,16 @@
 import type { ArchitectureDef } from '../config';
+import {
+  moduleToLayerBrief,
+  renderModuleToLayerAuthorityError,
+  renderModuleToLayerRouterError,
+  renderTransformationAction,
+  renderTransformationInstallHandoff,
+  renderTransformationInstallNote,
+  renderTransformationNarration,
+  renderTransformationPreflightError,
+  renderTransformationReady,
+  renderTransformationWriteNote,
+} from '../operational-contract';
 import { AUTHORING_FILE, claudeDirState } from '../project';
 import type { ClaudeDirState, ProjectState } from '../project';
 import { collectModuleToLayerEvidence, runSurvey } from '../survey';
@@ -9,7 +21,6 @@ import { apply, defaultExec } from './apply';
 import type { Exec } from './apply';
 import { authoringLauncherActions, emitsClaudeAuthoringLauncher } from './authoring-launcher';
 import type { AuthoringAgents } from './authoring-launcher';
-import { moduleToLayerBrief } from './module-to-layer-playbook';
 import { installCommand } from './plan';
 import { cleanupTargets } from './playbook';
 import { runTransformationPreflight } from './preflight';
@@ -34,10 +45,10 @@ export function moduleToLayerActions(input: ModuleToLayerActionInput): Action[] 
   const install: Action[] = !state.missingDeps.includes('@kekkai/blueprint')
     ? []
     : input.install !== false
-      ? [{ kind: 'install', command, note: '@kekkai/blueprint (the config imports it)' }]
+      ? [{ kind: 'install', command, note: renderTransformationInstallNote() }]
       : [{
           kind: 'instruct',
-          note: `Install skipped — verification requires @kekkai/blueprint, so run:\n    ${command}`,
+          note: renderTransformationInstallHandoff(command),
         }];
 
   return [
@@ -52,17 +63,13 @@ export function moduleToLayerActions(input: ModuleToLayerActionInput): Action[] 
         install: command,
         cleanup: cleanupTargets(input.claudeDir, claudeLauncher),
       }),
-      note: `${AUTHORING_FILE} (module-first → layer-first mapping evidence + playbook)`,
+      note: renderTransformationWriteNote('module-to-layer', AUTHORING_FILE),
     },
     ...authoringLauncherActions(input.agents),
     ...install,
     {
       kind: 'instruct',
-      note: [
-        'Module-first → layer-first transformation preflight passed.',
-        '  The CLI measured destinations, collisions, and graph evidence; semantic placement',
-        '  remains an Agent decision. Read blueprint-authoring.md and execute it with git mv.',
-      ].join('\n'),
+      note: renderTransformationReady('module-to-layer'),
     },
   ];
 }
@@ -113,14 +120,15 @@ export async function runModuleToLayerTransformation(
     agents: input.agents,
   });
 
-  input.log(
-    `blueprint ${input.options.dryRun ? 'init --dry-run' : 'init'} · module-first → layer-first `
-    + `transformation authoring (${survey.totalFiles} source files surveyed; Git preflight passed)`,
-  );
+  input.log(renderTransformationNarration({
+    dryRun: input.options.dryRun === true,
+    direction: 'module-first → layer-first',
+    totalFiles: survey.totalFiles,
+  }));
 
   if (input.options.dryRun) {
     for (const action of actions) {
-      input.log(`  would ${action.kind}: ${action.note}`);
+      input.log(renderTransformationAction(action, false));
     }
 
     return actions;
@@ -128,7 +136,7 @@ export async function runModuleToLayerTransformation(
 
   apply(input.root, actions, {
     exec: input.options.exec ?? defaultExec,
-    onApplied: (action) => input.log(`  ✓ ${action.kind}: ${action.note}`),
+    onApplied: (action) => input.log(renderTransformationAction(action, true)),
   });
 
   if (input.options.agent) {
@@ -146,14 +154,7 @@ function requireArchitecture(architecture: ArchitectureDef | null): Architecture
     return architecture;
   }
 
-  throw new Error(
-    'Module-first → layer-first transformation requires the current module-first '
-    + 'blueprint.config.mjs as authority for modules, inner layers, unit layouts, aliases, and '
-    + 'the module DAG. Run `blueprint init --topology module-first`, have the Agent author and '
-    + 'verify the module-first config, commit the clean state, then run '
-    + '`blueprint init --topology layer-first`. '
-    + 'No files were changed.',
-  );
+  throw new Error(renderModuleToLayerAuthorityError());
 }
 
 async function preflightFor(input: ModuleToLayerInput): Promise<TransformationPreflight> {
@@ -161,21 +162,10 @@ async function preflightFor(input: ModuleToLayerInput): Promise<TransformationPr
   const preflight = await runTransformationPreflight(input.root, selected ? [selected] : []);
 
   if (!preflight.ok) {
-    const checks: [string, { ok: boolean; reason?: string }][] = [
-      ['Git repository', preflight.repository],
-      ['clean worktree', preflight.worktree],
-      ['recoverable HEAD', preflight.head],
-      ['application scope', preflight.scope],
-      ['pre-transform inspection', preflight.inspection],
-    ];
-
-    const failures = checks.filter(([, check]) => !check.ok)
-      .map(([label, check]) => `- ${label}: ${check.reason}`);
-
-    throw new Error(
-      'Module-first → layer-first transformation preflight failed before mutation:\n'
-      + `${failures.join('\n')}\nResolve every item and re-run; no files were changed.`,
-    );
+    throw new Error(renderTransformationPreflightError(
+      'Module-first → layer-first',
+      preflight,
+    ));
   }
 
   return preflight;
@@ -186,15 +176,5 @@ function assertRouter(state: ProjectState): void {
     return;
   }
 
-  const observed = state.nextRouter === 'both'
-    ? 'both App Router and Pages Router trees'
-    : state.nextRouter === 'pages'
-      ? 'only a Pages Router tree'
-      : 'no physical router tree';
-
-  throw new Error(
-    `Cannot safely interpret this Next.js module-first → layer-first transformation: found ${observed}. `
-    + 'This path preserves one physical App Router `app/**` tree and does not choose or migrate '
-    + 'router modes. Resolve the router identity first, then re-run; no files were changed.',
-  );
+  throw new Error(renderModuleToLayerRouterError(state.nextRouter));
 }

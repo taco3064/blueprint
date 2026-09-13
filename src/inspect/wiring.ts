@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import { activeSetting, resolveArchitecture, resolveTestFiles } from '../config';
 import type { Blueprint } from '../config';
+import { renderDoctorCheck } from '../operational-contract';
 
 import { toArray } from '../emit/lint/patterns';
 import { unwrapModule } from '../project';
@@ -323,11 +324,7 @@ export async function wiringCheck(params: WiringParams): Promise<WiringResult> {
 
   if (!wired) {
     return {
-      check: {
-        label: 'emitted rules survive the eslint config (skipped — eslint not wired)',
-        ok: true,
-        skipped: 'eslint not wired — the wiring check above is the red for that',
-      },
+      check: renderDoctorCheck({ kind: 'wiring-unwired' }),
       probed: false,
     };
   }
@@ -336,10 +333,7 @@ export async function wiringCheck(params: WiringParams): Promise<WiringResult> {
 
   if (!probes.length) {
     return {
-      check: {
-        label: `${LABEL} (skipped — no probe derivable from the architecture globs)`,
-        ok: true,
-      },
+      check: renderDoctorCheck({ kind: 'wiring-no-probe', label: LABEL }),
       probed: false,
     };
   }
@@ -365,18 +359,7 @@ async function comparedTo(
     return surviving(LABEL, survey.unreadable);
   }
 
-  return {
-    label: LABEL,
-    ok: false,
-    detail: `${survey.lost.join('; ')} — the resolved config no longer carries the exact text this `
-      + 'version emits. Either a later flat-config entry replaced the rule (flat config '
-      + 'never merges: combine both option sets into ONE entry — `blueprint rules --json` '
-      + 'carries the exact selfOnly selectors), or a hand-folded copy drifted from this '
-      + 'version\'s output. The comparison is textual, not semantic: a selector or glob '
-      + 'rewritten to an equivalent spelling (`\\/` for `/`, a reordered group) reads as '
-      + 'missing here even though eslint would enforce it — copy the emitted text rather '
-      + 'than retyping it. Fix that entry, then re-run doctor',
-  };
+  return renderDoctorCheck({ kind: 'wiring-lost', label: LABEL, lost: survey.lost });
 }
 
 async function surveyProbes(
@@ -425,25 +408,11 @@ async function surveyProbes(
 function unresolvableConfig(label: string, merged: boolean, error: unknown): DoctorCheck {
   const reason = error instanceof Error ? error.message.split('\n')[0] : String(error);
 
-  return {
-    label: `${label} (skipped — could not resolve the ${merged ? 'merged' : 'generated'} config)`,
-    ok: true,
-    skipped: `it would not resolve — "${reason}" — so nothing here proves the emitted rules are `
-      + 'alive in it. A package named there that is missing from `package.json` too means '
-      + 'init\'s install step never completed; re-run it, or the project\'s own lint, which '
-      + 'fails for this same reason. This check runs once that passes',
-  };
+  return renderDoctorCheck({ kind: 'wiring-unresolvable', label, merged, reason });
 }
 
 function surviving(label: string, unreadable: number): DoctorCheck {
-  const note = unreadable === 0
-    ? undefined
-    : `${unreadable} restricted-import/syntax/globals entr${unreadable === 1 ? 'y' : 'ies'} `
-      + 'in the resolved config could not be read by this check (not a blueprint entry, or '
-      + 'a hand-folded one that drifted) — they are not compared, so a typo in one would '
-      + 'not surface here';
-
-  return { label: `${label} (${SCOPE})`, ok: true, detail: note };
+  return renderDoctorCheck({ kind: 'wiring-survives', label, scope: SCOPE, unreadable });
 }
 
 function losses(

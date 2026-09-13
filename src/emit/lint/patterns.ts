@@ -1,9 +1,15 @@
 import { resolveLayerFilePatterns, resolveTestFiles as resolveTestFilePolicy } from '../../config';
 import type { Framework, LayerDef, OwnedPackage } from '../../config';
 import {
-  renderEmptyTestFilesEditorial,
-  renderUnreachedTestFilesEditorial,
-} from '../../editorial';
+  renderEmptyTestFilesOperational,
+  renderLintGateNote,
+  renderOutOfScanReachClause,
+  renderOwnersCallClause,
+  renderRestrictedPackage,
+  renderTypeScriptOnlyUnavailable,
+  renderUnreachedTestFilesOperational,
+  renderVueOnlyUnavailable,
+} from '../../operational-contract';
 import type {
   EmitFacts,
   GlobalRule,
@@ -73,79 +79,70 @@ export const PLUGIN_GATES: GateSpec[] = [
   {
     id: 'unusedVars',
     emits: 'no-unused-vars',
-    note: 'TWO keys on TypeScript — no-unused-vars: off plus @typescript-eslint/no-unused-vars — '
-      + 'so check both when merging; argsIgnorePattern \'^_\' and nothing else (no '
-      + 'varsIgnorePattern: renaming a dead binding to _x is not deleting it, '
-      + 'and the dead-code principle asks for deletion)',
+    note: renderLintGateNote('unusedVars'),
   },
   {
     id: 'explicitAny',
     emits: '@typescript-eslint/no-explicit-any',
-    note: 'needs the injected TS plugin and emits NOTHING without it — '
-      + '`any` is a TS-only construct, so unlike unusedVars there is no core rule to fall back to',
+    note: renderLintGateNote('explicitAny'),
   },
   {
     id: 'codeStyle',
     emits: '@stylistic customize() + @stylistic/max-len + @stylistic/linebreak-style + curly '
       + '(core)',
-    note: 'needs the injected @stylistic plugin AND its configs.customize() '
-      + 'factory (throws on a stand-in, rather than governing nothing); ~68 rules, '
-      + 'all but 5 auto-fixable, so `eslint --fix` clears most of a first run — '
-      + 'land that pass as its own commit. Knobs: indent (2), quotes (single), semi (true), '
-      + 'maxLen (90). max-len has NO fixer and does not exempt plain strings — '
-      + 'a long line cannot escape the cap by containing one. linebreak-style is unix: '
-      + 'a red here usually means git autocrlf / .gitattributes, NOT the file',
+    note: renderLintGateNote('codeStyle'),
   },
   {
     id: 'statementsPerLine',
     emits: '@stylistic/max-statements-per-line',
-    note: 'needs the injected @stylistic plugin, else emits nothing; hard-wired { max: '
-      + '1 } because it defines what a line IS for the maxLines family — '
-      + 'a line budget with no cap on line content is met by collapsing statements, '
-      + 'not by splitting the file. codeStyle\'s bundle carries this rule too; '
-      + 'this gate is written after it and wins, so setting it off really turns it off',
+    note: renderLintGateNote('statementsPerLine'),
   },
   {
     id: 'statementPadding',
     emits: '@stylistic/padding-line-between-statements',
-    note: 'needs the injected @stylistic plugin, else emits nothing; auto-fixable whitespace, '
-      + 'and it cannot push a file over maxLines: that gate skips blank lines',
+    note: renderLintGateNote('statementPadding'),
   },
   {
     id: 'importBlock',
     emits: 'import-x/first + import-x/no-duplicates',
-    note: 'needs the injected eslint-plugin-import-x, else emits nothing; '
-      + 'catches the two import mistakes an incrementally-editing agent makes — '
-      + 'a second import of a module already imported, and an import appended below code. '
-      + 'No formatter merges duplicate imports',
+    note: renderLintGateNote('importBlock'),
   },
   {
     id: 'fixtureImports',
     emits: 'no-restricted-imports',
-    note: 'fixture globs folded into the structural import bans',
+    note: renderLintGateNote('fixtureImports'),
   },
-  { id: 'deepWatch', emits: 'blueprint/no-deep-watch', note: 'Vue only — never emits on React' },
-  { id: 'usePrefix', emits: 'blueprint/use-prefix', note: 'on its target layer (default hooks)' },
+  {
+    id: 'deepWatch',
+    emits: 'blueprint/no-deep-watch',
+    note: renderLintGateNote('deepWatch'),
+  },
+  { id: 'usePrefix', emits: 'blueprint/use-prefix', note: renderLintGateNote('usePrefix') },
   {
     id: 'usePrefixReactivity',
     emits: 'blueprint/use-prefix-needs-reactivity',
-    note: 'composing-only hooks are a known false positive',
+    note: renderLintGateNote('usePrefixReactivity'),
   },
-  { id: 'testFilename', emits: 'blueprint/test-filename-matches-source', note: 'test files only' },
-  { id: 'typedefOnlyFile', emits: 'blueprint/no-typedef-only-file', note: '.js files only' },
+  {
+    id: 'testFilename',
+    emits: 'blueprint/test-filename-matches-source',
+    note: renderLintGateNote('testFilename'),
+  },
+  {
+    id: 'typedefOnlyFile',
+    emits: 'blueprint/no-typedef-only-file',
+    note: renderLintGateNote('typedefOnlyFile'),
+  },
   {
     id: 'cycles',
     emits: 'inspect (cycle finding)',
     runtime: 'inspect',
-    note: 'on-demand/CI diagnosis only — a baseline grandfathers recorded findings; '
-      + 'no ESLint line by default. Opt into import-x/no-cycle for continuous '
-      + 'prevention, at the cost of re-checking the graph per file '
-      + '(measured 92s on 850 files)',
+    note: renderLintGateNote('cycles'),
   },
 ];
 
 export const DOC_ONLY_RULES: Omit<GateSpec, 'emits'>[] = [
-  { id: 'deadCode', note: 'knip\'s job — import/no-unused-modules cannot run under flat config' },
+  { id: 'deadCode', note: renderLintGateNote('deadCode') },
 ];
 
 export const LINT_GATED_RULE_IDS = [
@@ -171,7 +168,7 @@ export function unreachedTestGlobs(reach: TestGlobReach[] | undefined): string |
     return null;
   }
 
-  return renderUnreachedTestFilesEditorial('en', {
+  return renderUnreachedTestFilesOperational('en', {
     deadGlobs: dead.map((entry) => entry.glob),
     allGlobsDead: dead.length === measured.length,
     outsideScan: dead
@@ -188,7 +185,7 @@ export function emptyTestGlobs(testFiles: string | string[] | undefined): string
   const policy = resolveTestFilePolicy(testFiles);
 
   if (policy.testRuleFiles.length === 0) {
-    return renderEmptyTestFilesEditorial('en');
+    return renderEmptyTestFilesOperational('en');
   }
 
   return null;
@@ -204,62 +201,25 @@ function readDifferently(entry: GlobReach): boolean {
 }
 
 export function outOfScanReachClause(entries: GlobReach[], consequence: string): string {
-  const named = entries
-    .filter((entry) => entry.unreached && !readDifferently(entry))
-    .map((entry) => `\`${entry.glob}\` — ${entry.unreached}`);
-
-  if (!named.length) {
-    return '';
-  }
-
-  return `. Measured: ${named.join('; ')}. `
-    + 'This scan reads the source root and nothing above it, never descends into the '
-    + 'directories a build writes, and reads only source extensions, so an entry outside '
-    + `all three could not have matched here however the tree grew: ${consequence}`;
+  return renderOutOfScanReachClause(entries, consequence);
 }
 
 export function ownersCallClause(
   entries: GlobReach[],
   wording: { opening: string; noun: 'exemption' | 'exclusion' },
 ): string {
-  const left = entries.filter((entry) => !entry.unreached && !readDifferently(entry));
-
-  if (!left.length) {
-    return '';
-  }
-
-  const split = left.length !== entries.length;
-  const names = left.map((entry) => `\`${entry.glob}\``).join(', ');
-
-  return `. ${wording.opening} whose files have not landed look identical from here`
-    + (split ? `, which leaves ${names} undecided` : '')
-    + ` — fix the glob, or leave it and the ${wording.noun} arms itself when a file `
-    + 'matches; which one applies is the owner\'s call';
-}
-
-export function divergentReadingClause(entries: GlobReach[]): string {
-  const named = entries.filter(readDifferently).map((entry) => `\`${entry.glob}\``);
-
-  if (!named.length) {
-    return '';
-  }
-
-  return '. An entry beginning `!` is not read the same way on both sides — an ordinary '
-    + 'path character to this scan, a negation to ESLint in a config glob — so blueprint '
-    + 'cannot say what it holds out, and neither classifies it nor hands it back: '
-    + named.join(', ');
+  return renderOwnersCallClause(entries, wording);
 }
 
 export function unavailableGate(id: string, stack: GateStack): string | null {
   const { framework, hasTypescript, testFiles } = stack;
 
   if (id === 'deepWatch' && framework === 'react') {
-    return 'Vue only — never emits on React, whatever it declares';
+    return renderVueOnlyUnavailable();
   }
 
   if (id === 'explicitAny' && !hasTypescript) {
-    return '`any` is a TypeScript construct — nothing to catch on a JS project, '
-      + 'and no core rule to fall back to';
+    return renderTypeScriptOnlyUnavailable();
   }
 
   if (id === 'testFilename') {
@@ -363,21 +323,20 @@ export function buildPackagePatterns(disabled: PackageRule[]): {
   paths: PathPattern[];
   patterns: GroupPattern[];
 } {
-  const message = (pkg: PackageRule) =>
-    pkg.imports?.length
-      ? `\n🚫 Do not import ${pkg.imports.join(', ')} from "${pkg.package}" in this layer.`
-      : `\n🚫 Do not import "${pkg.package}" in this layer.`;
-
   return {
     paths: disabled
       .filter((rule) => !rule.pattern)
-      .map((rule) => ({ name: rule.package, importNames: rule.imports, message: message(rule) })),
+      .map((rule) => ({
+        name: rule.package,
+        importNames: rule.imports,
+        message: renderRestrictedPackage(rule),
+      })),
     patterns: disabled
       .filter((rule) => rule.pattern)
       .map((rule) => ({
         group: [rule.package],
         importNames: rule.imports,
-        message: message(rule),
+        message: renderRestrictedPackage(rule),
       })),
   };
 }

@@ -2,6 +2,13 @@ import { AGENT_KINDS } from '../bootstrap';
 import type { AgentKind, ArchitectureTopology, InitOptions } from '../bootstrap';
 import type { ImpactOptions } from '../impact';
 import type { DepsOptions, DoctorOptions, InspectOptions, RulesOptions } from '../inspect';
+import {
+  renderConflictingTopology,
+  renderInvalidAgent,
+  renderInvalidTopology,
+  renderUnknownFlag,
+} from '../operational-contract';
+import type { OperationalCommand } from '../operational-contract';
 import type { SurveyOptions } from '../survey';
 
 function parseFramework(value: string | undefined): 'vue' | 'react' | undefined {
@@ -16,7 +23,7 @@ function parseAgent(value: string | undefined): AgentKind | undefined {
 
 function parseTopology(value: string | undefined): ArchitectureTopology {
   if (value !== 'layer-first' && value !== 'module-first') {
-    throw new Error('--topology expects one of: layer-first | module-first.');
+    throw new Error(renderInvalidTopology());
   }
 
   return value;
@@ -54,7 +61,7 @@ function parseInitValue(
     const topology = parseTopology(rest.shift());
 
     if (options.topology && options.topology !== topology) {
-      throw new Error('--topology was repeated with conflicting values.');
+      throw new Error(renderConflictingTopology());
     }
 
     options.topology = topology;
@@ -62,7 +69,7 @@ function parseInitValue(
     const agent = parseAgent(rest.shift());
 
     if (!agent) {
-      throw new Error(`--agent expects one of: ${AGENT_KINDS.join(' | ')}.`);
+      throw new Error(renderInvalidAgent(AGENT_KINDS));
     }
 
     options.agent = agent;
@@ -141,7 +148,7 @@ export function parseDoctorArgs(args: string[]): DoctorOptions {
   return args.includes('--json') ? { json: true } : {};
 }
 
-export const KNOWN_FLAGS: Record<string, Set<string>> = {
+export const KNOWN_FLAGS = {
   init: new Set([
     '--agent', '--preset', '--authoring', '--topology', '--framework', '--no-install', '--dry-run',
   ]),
@@ -151,7 +158,7 @@ export const KNOWN_FLAGS: Record<string, Set<string>> = {
   deps: new Set(['--json', '--framework']),
   rules: new Set(['--json']),
   doctor: new Set(['--json']),
-};
+} satisfies Record<OperationalCommand, Set<string>>;
 
 const VALUED_FLAGS = new Set([
   '--agent', '--topology', '--framework', '--alias', '--source-root',
@@ -166,7 +173,7 @@ export function rejectUnknownFlags(known: Set<string>, command: string, args: st
     }
 
     if (!known.has(arg)) {
-      throw new Error(`unknown flag for ${command}: ${arg} — see: blueprint ${command} --help`);
+      throw new Error(renderUnknownFlag(command, arg));
     }
 
     if (VALUED_FLAGS.has(arg)) {

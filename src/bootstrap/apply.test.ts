@@ -5,10 +5,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { apply } from './apply';
 import type { Action } from './types';
+import type { OperationalText } from '../operational-contract';
 
 let root: string;
 
 const noExec = (): void => {};
+
+const note = (value: string): OperationalText => value as OperationalText;
 
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-apply-'));
@@ -25,8 +28,17 @@ describe('apply · removing init\'s own output', () => {
     // aborts the run at that point, and every action planned below it never
     // lands — after the plan already announced all of them (field issue #37).
     const actions: Action[] = [
-      { kind: 'rm', path: 'src/components/Placeholder.vue', note: 'drop the pristine scaffold' },
-      { kind: 'write', path: 'blueprint.config.mjs', content: '// authored', note: 'the contract' },
+      {
+        kind: 'rm',
+        path: 'src/components/Placeholder.vue',
+        note: note('drop the pristine scaffold'),
+      },
+      {
+        kind: 'write',
+        path: 'blueprint.config.mjs',
+        content: '// authored',
+        note: note('the contract'),
+      },
     ];
 
     const applied: string[] = [];
@@ -55,11 +67,11 @@ describe('apply · removing init\'s own output', () => {
     fs.mkdirSync(project);
 
     const actions: Action[] = [
-      { kind: 'write', path: 'blueprint.config.mjs', content: '// authored', note: 'config' },
-      { kind: 'write', path: '../escaped.md', content: 'outside', note: 'escaped' },
+      { kind: 'write', path: 'blueprint.config.mjs', content: '// authored', note: note('config') },
+      { kind: 'write', path: '../escaped.md', content: 'outside', note: note('escaped') },
       // Absolute, and still inside the fixture — containment is judged against the
       // project root, not against how exotic the path looks.
-      { kind: 'write', path: outside, content: 'outside', note: 'absolute' },
+      { kind: 'write', path: outside, content: 'outside', note: note('absolute') },
     ];
 
     const applied: string[] = [];
@@ -80,7 +92,7 @@ describe('apply · removing init\'s own output', () => {
 
     apply(
       root,
-      [{ kind: 'rm', path: 'src/components/Placeholder.vue', note: 'x' }],
+      [{ kind: 'rm', path: 'src/components/Placeholder.vue', note: note('x') }],
       { exec: noExec, onApplied: noExec },
     );
 
@@ -89,7 +101,9 @@ describe('apply · removing init\'s own output', () => {
 });
 
 describe('apply · announcing the install', () => {
-  const install: Action[] = [{ kind: 'install', command: 'npm i -D eslint', note: 'the carrier' }];
+  const install: Action[] = [{
+    kind: 'install', command: 'npm i -D eslint', note: note('the carrier'),
+  }];
 
   // The announcer is optional, and nothing in the tree asserted that. Every caller
   // passes one, so making the call unconditional left the suite green while `apply`

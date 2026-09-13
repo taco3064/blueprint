@@ -12,6 +12,10 @@ import type { AgentTarget, Blueprint } from '../config';
 import { CONFIG_FILE } from './detect';
 import { versionedModuleUrl } from './load';
 import type { ProjectState } from './types';
+import {
+  renderFrameworkDetectionFailure,
+  renderMissingBlueprintExport,
+} from '../operational-contract';
 
 export interface ResolveOptions {
   /** Force the framework when detection is ambiguous. */
@@ -54,9 +58,7 @@ export async function resolveBlueprint(
   const framework = options.framework ?? state.framework;
 
   if (framework !== 'vue' && framework !== 'react') {
-    throw new Error(
-      'Could not detect a framework (vue or react). Re-run with --framework vue|react.',
-    );
+    throw new Error(renderFrameworkDetectionFailure());
   }
 
   const preset = framework === 'vue' ? vuePreset : reactPreset;
@@ -83,7 +85,7 @@ async function loadAuthored(
 
   try {
     if (!loaded) {
-      throw new Error('missing default export.');
+      throw new Error(renderMissingBlueprintExport());
     }
 
     const migration = options.migrateLegacyConfig

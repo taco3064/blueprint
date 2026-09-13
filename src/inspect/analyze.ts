@@ -24,6 +24,7 @@ import {
 import type { EntryOf, LayoutOf, UnitShape } from './resolve';
 import type { Finding, ImportRef, ScanResult, ScannedFile, Severity } from './types';
 import { aliasDependencyFindings } from './dependency';
+import { renderFindingMessage } from '../operational-contract';
 
 const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 };
 
@@ -52,7 +53,7 @@ export function analyze(
       finding('error', 'cycle', {
         path: members[0],
         subject: members.join(' '),
-        message: `Import cycle between units: ${cycle.join(' → ')}.`,
+        message: renderFindingMessage({ kind: 'cycle', cycle }),
       }),
     );
   }
@@ -88,10 +89,9 @@ function ownsFindings(
         rule: 'owns-not-installed',
         path: position.root,
         subject: pkg,
-        message: `Layer "${layer.name}" owns "${pkg}", which is not in package.json — `
-          + 'runway, not a todo: the ban is emitted and correct, it just has nothing to '
-          + 'reach yet. Installing the package and dropping the declaration are both '
-          + 'resolutions, and which one applies is the owner\'s call.',
+        message: renderFindingMessage({
+          kind: 'owns-not-installed', layer: layer.name, package: pkg,
+        }),
       });
     }
   }
@@ -193,8 +193,6 @@ function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportConte
     return [];
   }
 
-  const named = ref.names.length ? ` (${ref.names.join(', ')})` : '';
-
   const subject = ref.names.length
     ? `${ref.specifier} ${[...ref.names].sort(compareText).join(',')}`
     : ref.specifier;
@@ -202,7 +200,13 @@ function packageFindings(file: ScannedFile, ref: ImportRef, context: ImportConte
   return [finding('error', 'package-ownership', {
     path: file.path,
     subject,
-    message: `"${ref.specifier}"${named} is owned by ${owners.join(', ')} — not importable from "${fileLayer ?? 'container'}".`,
+    message: renderFindingMessage({
+      kind: 'package-ownership',
+      specifier: ref.specifier,
+      names: ref.names,
+      owners,
+      importer: fileLayer ?? 'container',
+    }),
   })];
 }
 
@@ -229,16 +233,33 @@ function relativeEscape(
   const at = { path: file.path, subject: ref.specifier };
 
   if (verdict === 'escapes-src') {
-    return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" escapes ${sourceRootLabel(shape.architecture)} — use the project alias.` })];
+    return [finding('error', 'relative-escape', {
+      ...at,
+      message: renderFindingMessage({
+        kind: 'relative-escape-source',
+        specifier: ref.specifier,
+        sourceRoot: sourceRootLabel(shape.architecture),
+      }),
+    })];
   }
 
   if (verdict === 'reaches-inside') {
     const layerIndex = moduleFirst ? 1 : 0;
 
-    return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" reaches past a sibling's entry — import "${shape.entryOf(file.segments[layerIndex])}" instead; what lives behind it is that unit's own business.` })];
+    return [finding('error', 'relative-escape', {
+      ...at,
+      message: renderFindingMessage({
+        kind: 'relative-escape-entry',
+        specifier: ref.specifier,
+        entry: shape.entryOf(file.segments[layerIndex]),
+      }),
+    })];
   }
 
-  return [finding('error', 'relative-escape', { ...at, message: `Relative import "${ref.specifier}" leaves this layer — use the alias, or extract shared code to a lower layer.` })];
+  return [finding('error', 'relative-escape', {
+    ...at,
+    message: renderFindingMessage({ kind: 'relative-escape-layer', specifier: ref.specifier }),
+  })];
 }
 
 function ownersOf(

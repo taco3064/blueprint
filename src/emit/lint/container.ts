@@ -1,4 +1,5 @@
 import type { Linter } from 'eslint';
+import { renderRestrictedGlobal } from '../../operational-contract';
 
 import { activeSetting, resolveArchitecture } from '../../config';
 import type { AliasRoot, Blueprint } from '../../config';
@@ -112,7 +113,7 @@ export function buildGlobalRule(
     ? {
         'no-restricted-globals': [severity, ...rules.map((rule) => ({
           name: rule.global,
-          message: `\n🚫 Use of "${rule.global}" is restricted to its owning layer.`,
+          message: renderRestrictedGlobal(rule.global),
         }))],
       }
     : {};

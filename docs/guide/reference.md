@@ -28,7 +28,7 @@ dynamic import targets can be evaluated consistently after installation.
 
 Any `error`-level finding exits `1`; `warn` and `info` inform without failing the gate.
 
-<!-- @include: @/publication/semantic/test-files/core.en.md -->
+`architecture.testFiles` exempts only files matched by `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}` from structural rules, metric gates, inspect analysis, and dependency graphs; test-only rules still target those same globs. A scanned file no configured glob matches remains ordinary source.
 
 - **`undeclared-folder`** · error — a source folder outside the declared topology: an undeclared top-level layer in layer-first mode, or an undeclared outer module / inner layer in module-first mode
 - **`flow-violation`** · error — a module-reachability or inner-flow failure, including an upstream import or a same-layer alias import inside one module. Same-layer imports across reachable modules remain valid
@@ -107,7 +107,7 @@ needs, per layer, in two spellings — and only one of them survives a paste:
   lint still green, and the ban silently matching nothing
 - **`testExemptions` rides along and has to come with them.**
 
-<!-- @include: @/publication/semantic/test-files/merge-scope.en.md -->
+Every generated structural entry carries `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}` as per-entry `ignores`; a rebuilt entry without those ignores starts governing the matched test files.
 
 The ban's *message* text is yours to write — `doctor` verifies selectors, never
 messages.
@@ -147,7 +147,7 @@ annotated with the declared tiers once a config exists. **A gate that cannot be 
 here keeps its row, marked `unavailable here`, and its cause is printed on a line of its
 own above the rows** — rather than being dropped without one.
 
-<!-- @include: @/publication/semantic/test-files/gate-availability.en.md -->
+Only `architecture.testFiles: []` makes `testFilename` unavailable: the rule has no files to name. A declared glob that matches no scanned file still emits as the gate's file scope and may match elsewhere.
 
 That is also why the
 catalog has more rows than the `N/M optional gates` denominator `inspect` and `doctor`
@@ -260,7 +260,7 @@ for router composition; every governed source file below it uses the container p
 an inner layer. A governed import must pass both the module DAG and
 the shared inner layer flow. Same-layer imports across reachable modules remain valid; relative
 imports still cannot cross a module or layer boundary.
-<!-- @include: @/publication/semantic/test-files/reference.en.md -->
+**`architecture.testFiles`** — test globs whose matches are exempt from structural rules, metric gates, inspect analysis, and dependency graphs; test-only rules still target them. The defaults are `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}`. An empty list exempts nothing and leaves `testFilename` with no file scope. A declared glob that reaches no scanned file loses the exemption there, but the gate still emits and may match elsewhere.
 - **`architecture.layerFiles`** — per-layer file globs when the framework defaults don't fit
 - **`architecture.layerFilesIgnore`** — global file globs excluded from emitted lint and lint-backed `inspect` findings. The files remain visible to inspect-only checks such as undeclared folders and cycles, and coverage names them as deliberately ignored rather than reached
 

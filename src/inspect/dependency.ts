@@ -5,6 +5,7 @@ import type {
 } from '../config';
 import type { LayoutOf } from './resolve';
 import type { Finding, ImportRef, ScannedFile } from './types';
+import { renderFindingMessage } from '../operational-contract';
 
 export function aliasDependencyFindings(scope: {
   file: ScannedFile;
@@ -51,8 +52,11 @@ function canonicalAliasFindings(
         severity: 'error',
         rule: 'canonical-alias',
         ...at,
-        message: `"${at.subject}" crosses an architectural boundary through a secondary alias — `
-          + `use the canonical source-root spelling "${reference.canonicalSpecifier!}".`,
+        message: renderFindingMessage({
+          kind: 'canonical-alias',
+          subject: at.subject,
+          canonicalSpecifier: reference.canonicalSpecifier!,
+        }),
       }]
     : [];
 }
@@ -82,7 +86,7 @@ function deepImportFindings(
         severity: 'error',
         rule: 'deep-import',
         ...at,
-        message: `"${at.subject}" reaches inside a unit — import it through its entry.`,
+        message: renderFindingMessage({ kind: 'deep-import', subject: at.subject }),
       }]
     : [];
 }
@@ -96,8 +100,7 @@ function sameLayerAliasFindings(
         severity: 'error',
         rule: 'flow-violation',
         ...at,
-        message: `Same-layer import "${at.subject}" via the alias — use a relative path or `
-          + 'extract to a lower layer.',
+        message: renderFindingMessage({ kind: 'same-layer-alias', subject: at.subject }),
       }]
     : [];
 }
@@ -118,8 +121,9 @@ function allowedSelfOnlyFindings(
         severity: 'error',
         rule: 'selfonly-reexport',
         ...result.at,
-        message: `Re-exports "${scope.target}" ("${scope.ref.specifier}"), which is selfOnly — `
-          + 'depend on it, do not re-export it.',
+        message: renderFindingMessage({
+          kind: 'selfonly-reexport', target: scope.target, specifier: scope.ref.specifier,
+        }),
       }]
     : [];
 }
@@ -137,8 +141,13 @@ function dependencyFinding(
     severity: 'error',
     rule: 'flow-violation',
     ...at,
-    message: `"${dependencyName(verdict.importer)}" may not import `
-      + `"${dependencyName(verdict.target)}" ("${at.subject}") — ${failed.join('; ')}.`,
+    message: renderFindingMessage({
+      kind: 'dependency-flow',
+      importer: dependencyName(verdict.importer),
+      target: dependencyName(verdict.target),
+      subject: at.subject,
+      failed,
+    }),
   };
 }
 

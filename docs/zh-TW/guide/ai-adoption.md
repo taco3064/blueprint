@@ -39,7 +39,7 @@ npx @kekkai/blueprint survey --source-root apps/web/src
 - **資料夾之間的匯入關係矩陣**，依匯入次數由高至低排列 ——<br>
   呈現設計意圖中的依賴方向，以及屬於債務的逆向依賴
 
-<!-- @include: @/publication/semantic/test-files/survey.zh-TW.md -->
+survey 的匯入矩陣包含測試檔；inspect 只排除 `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}` 實際匹配到的檔案，因此兩邊的數字只會差在這段已量測的範圍。
 - **套件集中度** —— 作為 `owns`（套件歸屬）宣告的候選依據
 - **只出現在一個資料夾的具名匯入**，而它所屬的套件散在好幾個資料夾<br>
   —— 這是「單一具名匯入歸屬」（`owns: [{ package, imports: […] }]`）唯一能對照的證據。<br>

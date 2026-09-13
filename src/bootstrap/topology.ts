@@ -1,6 +1,7 @@
 import { resolveArchitecture } from '../config';
 import type { ArchitectureDef } from '../config';
 import type { SurveyResult } from '../survey';
+import { renderTopologyReason } from '../operational-contract';
 
 export type ArchitectureTopology = 'layer-first' | 'module-first';
 
@@ -130,8 +131,7 @@ function incompatiblePreset(observation: TopologyObservation): TopologyDecision 
     target: 'module-first',
     operation: 'abort',
     path: null,
-    reason: '--topology module-first cannot be combined with --preset — generic layer presets '
-      + 'cannot choose domain modules. Use the module-first authoring flow instead.',
+    reason: renderTopologyReason({ kind: 'module-first-preset' }),
   };
 }
 
@@ -141,9 +141,7 @@ function configuredPresetRefusal(observation: TopologyObservation): TopologyDeci
     target: observation.current,
     operation: 'abort',
     path: null,
-    reason: '--preset cannot be applied to an application with an existing authored '
-      + 'blueprint.config.mjs. Use plain init to repair it, or request an explicit opposite '
-      + '--topology without --preset to transform it. No files were changed.',
+    reason: renderTopologyReason({ kind: 'configured-preset' }),
   };
 }
 
@@ -153,9 +151,7 @@ function repositoryPresetRefusal(observation: TopologyObservation): TopologyDeci
     target: observation.repository,
     operation: 'abort',
     path: null,
-    reason: '--preset is layer-first adoption only, but this repository is authoritatively '
-      + 'module-first. Adopt this application with the inherited module-first topology and '
-      + 'author its modules instead. No files were changed.',
+    reason: renderTopologyReason({ kind: 'repository-preset' }),
   };
 }
 
@@ -168,10 +164,11 @@ function repositoryMismatch(
     target: requested,
     operation: 'abort',
     path: null,
-    reason: `This application has no local config, but the repository is already ${observation.repository}. `
-      + `The requested ${requested} target would create unsupported mixed topology. Adopt the `
-      + `application as ${observation.repository}, or run the opposite topology command from an `
-      + 'already adopted application to transform the whole repository. No files were changed.',
+    reason: renderTopologyReason({
+      kind: 'repository-mismatch',
+      repository: observation.repository,
+      requested,
+    }),
   };
 }
 
@@ -225,15 +222,9 @@ function transformation(
 }
 
 function unknown(observation: TopologyObservation): TopologyDecision {
-  const reason = observation.uncertainty === 'scope'
-    ? 'Cannot determine the current architecture topology while multiple application scopes '
-    + 'remain unresolved. Select one application, run `blueprint survey --source-root '
-    + '<application>/src`, then run init from that application root.'
-    : 'This repository has no authoritative Blueprint topology. Source-tree shape is survey '
-      + 'evidence, not a topology declaration. Re-run with one explicit target:\n'
-      + '  blueprint init --topology layer-first\n'
-      + 'or\n'
-      + '  blueprint init --topology module-first';
+  const reason = renderTopologyReason({
+    kind: observation.uncertainty === 'scope' ? 'scope-unresolved' : 'topology-unset',
+  });
 
   return {
     ...observation,

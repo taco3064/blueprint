@@ -1,233 +1,37 @@
 import { DOC_ONLY_RULES, METRIC_GATES, PLUGIN_GATES } from '../emit/lint';
-import { renderTestFilesEditorial } from '../editorial';
+import { COMMAND_FILE } from '../project';
 import type { ClaudeDirState } from '../project';
 import { renderSurvey } from '../survey';
 import type { SurveyResult } from '../survey';
-import { cleanupTargets } from './playbook';
+import {
+  renderAcceptanceGates as renderOperationalAcceptanceGates,
+  renderResumePoint,
+  renderRuleCatalog as renderOperationalRuleCatalog,
+  renderSchemaSketch,
+  renderSemantics,
+  renderSurveyEvidence as renderOperationalSurveyEvidence,
+} from '../operational-contract';
 
-export function renderSemantics(claudeLauncher: boolean): string {
-  return [
-    '',
-    '## Semantics the linter holds you to',
-    '',
-    'Facts about the emitted rules that drive authoring decisions — '
-    + 'stated here so you never have to reverse-engineer them from the bundle:',
-    '',
-    '- **File layout:** each direct file is a unit; same-layer sibling units may use '
-    + 'relative imports.',
-    '  The alias is for crossing layers — a local same-layer import through it becomes an error '
-    + 'the moment the lint is wired.',
-    '- **Folder layout:** a unit is one child folder behind its declared entry.',
-    '  *Same-layer* sibling units may import each other only by a relative path to '
-    + 'the sibling entry (`../Sibling` or `../Sibling/index`); the same import through '
-    + 'the alias, or a relative path beyond that entry, is rejected.',
-    '  Only *lower-layer* folder units are importable, and entry-only; '
-    + '`../` escapes are caught at any depth by `blueprint/relative-escape`.',
-    '- **Pre-wiring check:** the survey\'s "Same-folder imports via the alias" count is an upper '
-    + 'bound on the errors the wiring will introduce, not the exact number — '
-    + 'it is a textual count that includes test files '
-    + 'and textual lookalikes (mock specifiers and doc comments) the wired rules never flag.',
-    '  Dynamic imports whose target is a proven string receive the same boundary checks as '
-    + 'static imports; runtime-dependent expressions remain explicitly unverified.',
-    '  Treat non-zero as "look here"; once the config exists, '
-    + '`npx blueprint impact` reports the real per-rule count.',
-    '  The fix for true hits is layout-dependent — file: rewrite them as relative imports; folder: '
-    + 'rewrite them as relative imports to the sibling entry, or extract shared implementation '
-    + 'downward when an entry-level dependency is not appropriate.',
-    '  Whatever stays unresolved lands in the suppressions ledger.',
-    '- **`unusedVars`** emits with `argsIgnorePattern: \'^_\'` and nothing else: '
-    + '`_`-prefixed *arguments* are exempt; unused variables and catch parameters are not.',
-    '- **`doctor`\'s "eslint wired" check** passes when the eslint config\'s text references '
-    + '`@kekkai/blueprint` (or the config is the generated file itself).',
-    '- **`doctor`\'s leftover check matches exact file families** — this playbook, '
-    + `${claudeLauncher ? 'the command file, ' : ''}\`*.blueprint.*\` references, `
-    + 'and marker-bearing contracts outside `emit.agents` — never other files, '
-    + 'whatever their names.',
-    '  A report or feedback file you were asked to write is safe without a verification re-run.',
-    '- **`doctor` prints `⊘` for a check it could not run** and never counts it as a pass: '
-    + 'the banner reads "Adoption unverified — N of M checks passed, K could not run".',
-    '  Exit stays 0, because a skip is not a failure — so an exit-code gate cannot see one, '
-    + 'and `--json` carries `skipped` with the reason.',
-    '  The `emitted rules survive the merged eslint config` check skips in two states: '
-    + 'eslint is not wired (the wiring check above is the red for that), '
-    + 'or the merged config would not resolve, leaving nothing to compare the emitted rules '
-    + 'against.',
-    '  The live-eslint check also skips when the proven leg cannot be replayed safely: '
-    + 'doctor never runs package scripts, shell segments, global/npx resolution, or mutation '
-    + 'flags merely to turn an unknown into green.',
-    `- **Test-file policy:** ${renderTestFilesEditorial('core', 'en')}`,
-    '  If the tool you are replacing policed files this policy exempts, '
-    + 'switching to blueprint deliberately RELAXES that enforcement — '
-    + 'say so in the report instead of letting the difference pass silently.',
-  ].join('\n');
-}
+export { renderResumePoint, renderSchemaSketch, renderSemantics };
 
 export function renderRuleCatalog(): string {
-  return [
-    '',
-    '## Rule catalog — ask this file, not the bundle',
-    '',
-    '(The same catalog is queryable anytime: `npx blueprint rules` — '
-    + 'annotated with the config\'s declared tiers once one exists.)',
-    '',
-    '**Structural rules — always emitted**, whatever the `rules` block says.',
-    'Their shared severity is `emit.lint.severity` (default `error`), '
-    + 'and that knob covers ONLY these:',
-    '',
-    '- `no-restricted-imports` per layer — dependency flow, same-layer bans, '
-    + 'package ownership at whole-package OR named-import granularity (`owns: [{ package: '
-    + '\'vue\', imports: [\'inject\'] }]` bans that named import outside the owning layer; '
-    + 'same-signature entries merge into one rule allowing every declaring layer), fixture bans.',
-    '  `additionalAliases` resolve to their declared targets for diagnosis and graph building, '
-    + 'but they are never an alternate spelling for a cross-layer or cross-module import.',
-    '- `no-restricted-syntax` — re-export bans for `selfOnly` importers, '
-    + 'emitted ONLY when an allowedImporters ENTRY declares it (`allowedImporters: [{ layer: '
-    + '\'views\', selfOnly: true }]` — a layer-level `selfOnly` key is invalid and validation '
-    + 'rejects it) — no selfOnly, no syntax rule to collide with your own '
-    + '`no-restricted-syntax`.',
-    '  `blueprint rules` annotates whether THIS config emits it — '
-    + 'never probe emitLint to find out.',
-    '- `no-restricted-globals` — global ownership (e.g. `{ global: \'fetch\' }`)',
-    '- `blueprint/relative-escape` — depth-aware `../` unit escapes (embedded plugin; '
-    + 'ships inside the emitted config)',
-    '- `blueprint/import-boundary` — requires the canonical source-root alias across module '
-    + 'and layer boundaries and applies module, layer, and folder-entry checks to statically '
-    + 'resolvable dynamic imports',
-    '',
-    '**Optional gates — emitted only when declared** in `rules` with a tier other than `off`; '
-    + 'none of these emits by default, and every gate scopes to the declared architecture '
-    + 'file globs (including module-first root containers).',
-    'When merging, collisions are decided by rule KEY, not by hit count — '
-    + '`blueprint rules --json` names every key the emitted config sets, '
-    + 'and carries the exact selfOnly selector strings a fold needs.',
-    'Adoption stance for these gates: declare one only to translate an existing house threshold '
-    + '(carry its value); switching NEW gates on is the owner\'s later tuning, '
-    + 'not the adopting agent\'s call.',
-    'Carrying a value is the OBJECT form of a rule setting — `maxLines: { tier: \'error\', value: '
-    + '1200 }`, never a tier/value array; `tier` is required in that form, '
-    + 'so the object without it is rejected by name at config load rather than emitting a '
-    + 'tierless rule.',
-    'The metric family falls back to these thresholds when no `value` is given:',
-    '',
-    `${METRIC_GATES.map((gate) => `- \`${gate.id}\` → \`${gate.rule}\` (default ${gate.fallback})`).join('\n')}`,
-    `${PLUGIN_GATES.map((gate) => `- \`${gate.id}\` → \`${gate.emits}\` — ${gate.note}`).join('\n')}`,
-    '',
-    '**Documentation-only ids — never an ESLint line:**',
-    '',
-    `${DOC_ONLY_RULES.map((entry) => `- \`${entry.id}\` — ${entry.note}`).join('\n')}`,
-  ].join('\n');
-}
-
-export function renderSchemaSketch(): string {
-  return [
-    '',
-    '## Config schema sketch',
-    '',
-    '```js',
-    'import { defineBlueprint } from \'@kekkai/blueprint\';',
-    '',
-    'export default defineBlueprint({',
-    '  name: \'<project>\',',
-    '  framework: \'<vue|react>\',',
-    '  architecture: {',
-    '    // Preset default is \'~app\' ON PURPOSE: \'@\' is npm\'s scope sigil',
-    '    // (@vue/*, @types/*) — an app alias that does not look like a package',
-    '    // scope stays visually distinct. Override only to match an existing',
-    '    // team convention, not for taste.',
-    '    alias: \'<alias>\',',
-    '    // Extra import roots remain resolvable for diagnosis and graph building,',
-    '    // including roots at, above, or below sourceRoot. Across a layer or',
-    '    // module boundary, imports must still spell the canonical `alias`.',
-    '    additionalAliases: { \'~shared\': \'./src/shared\' },',
-    '    layers: [',
-    '      // Order defines the one-way flow: a layer may import only layers',
-    '      // declared AFTER it. allowedImporters (optional) narrows who may',
-    '      // import a layer; selfOnly = depend on it but never re-export it.',
-    '      { name: \'pages\', does: \'<one-line responsibility>\', layout: \'file\' },',
-    '      {',
-    '        name: \'features\',',
-    '        does: \'…\',',
-    '        layout: \'folder\',',
-    '        entry: \'index\',',
-    '      },',
-    '      // owns entries — the full shape (nothing else lives only in dist).',
-    '      // A package several layers may use: declare the SAME entry in each of',
-    '      // them — same-signature owns merge into one rule allowing every',
-    '      // declaring layer; the repetition IS the shared-allowance syntax.',
-    '      //   \'axios\'                                    whole package',
-    '      //   { package: \'vue\', imports: [\'inject\'] }    named imports only',
-    '      //   { package: \'@scope/*\', pattern: true }     glob over import',
-    '      //     specifiers — npm scopes and alias paths (\'~app/services/http*\') alike',
-    '      //   { package: \'x\', exempt: [\'**/*.stories.*\'] }  files exempt from the ban',
-    '      //   { global: \'fetch\' }                        global identifier',
-    '      { name: \'services\', does: \'…\', layout: \'file\',',
-    '        owns: [\'axios\', { global: \'fetch\' }] },',
-    '    ],',
-    '    // Optional module-first topology. Each name is a direct child of sourceRoot;',
-    '    // layers repeat under ordinary modules. A declared app module is reserved for',
-    '    // recursive router composition and uses the container position instead. dependsOn',
-    '    // declares direct module edges; transitive downstream modules are also importable.',
-    '    modules: [',
-    '      { name: \'auth\', does: \'authentication\' },',
-    '      { name: \'shop\', does: \'commerce application\', dependsOn: [\'auth\'] },',
-    '    ],',
-    '    // Module-first custom globs must include both {module} and {layer}.',
-    '    layerFiles: \'src/{module}/{layer}/**/*.<ext glob>\',',
-    '    testFiles: [\'**/*.test.*\', \'**/__tests__/**\'],',
-    '  },',
-    '  // A bare tier takes the gate\'s default threshold. To carry an existing',
-    '  // house threshold instead, use the object form — `tier` required, `value`',
-    '  // optional: `maxLines: { tier: \'error\', value: 1200 }`. Shown here as a',
-    '  // comment ON PURPOSE: declaring a gate you are not translating is the',
-    '  // owner\'s tuning, so this line stays two gates that a preset sets too —',
-    '  // NOT the set a preset sets, which is nearly the whole catalog.',
-    '  // `npx blueprint rules` prints that set, and which of them are active.',
-    '  rules: { cycles: \'error\', unusedVars: \'error\' },',
-    '});',
-    '```',
-  ].join('\n');
+  return renderOperationalRuleCatalog({
+    metricGates: METRIC_GATES.map(({ id, rule, fallback }) => ({ id, rule, fallback })),
+    pluginGates: PLUGIN_GATES.map(({ id, emits, note }) => ({ id, emits, note })),
+    documentationOnlyRules: DOC_ONLY_RULES.map(({ id, note }) => ({ id, note })),
+  });
 }
 
 export function renderAcceptanceGates(
   claudeDir: ClaudeDirState,
   claudeLauncher: boolean,
 ): string {
-  return [
-    '',
-    '## Acceptance gates',
-    '',
-    '- [ ] `npx blueprint inspect` findings are all explainable as real debt',
-    '- [ ] `npx blueprint inspect --baseline` exits 0 — ledger locked when debt exists, '
-    + 'correctly absent when it does not',
-    '- [ ] The blueprint lint rules run inside the project\'s own lint command (merged, '
-    + 'conflicts resolved) — or the legacy-config migration is a named decision item in the '
-    + 'report',
-    '- [ ] No `*.blueprint.*` reference file remains in the repo',
-    '- [ ] The report names every import cycle and every upward dependency found',
-    `- [ ] Deleted: ${cleanupTargets(claudeDir, claudeLauncher)} THEN \`npx blueprint doctor\` passes with no \`⊘\` — a skip is not a pass and keeps exit 0 — doctor flags ${claudeLauncher ? 'them as leftovers' : 'it as a leftover'}, so it is the last thing you run, not a mid-flow smoke test`,
-  ].join('\n');
-}
-
-export function renderResumePoint(): string {
-  return [
-    '',
-    '## If you stop midway',
-    '',
-    'Nothing is lost.',
-    'This playbook and the survey stay on disk; `inspect` is read-only, `init` is idempotent, '
-    + 'and the baseline is only written at the final step.',
-    'A human (or another agent) resumes from the same loop.',
-  ].join('\n');
+  return renderOperationalAcceptanceGates(
+    { ...claudeDir, commandFile: COMMAND_FILE },
+    claudeLauncher,
+  );
 }
 
 export function renderSurveyEvidence(survey: SurveyResult): string {
-  return [
-    '',
-    '## Survey evidence',
-    '',
-    '```',
-    `${renderSurvey(survey)}`,
-    '```',
-    '',
-  ].join('\n');
+  return renderOperationalSurveyEvidence(renderSurvey(survey));
 }

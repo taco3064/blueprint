@@ -7,6 +7,7 @@ import { runInit } from '../bootstrap';
 import { runImpact } from '../impact';
 import { runDeps, runDoctor, runInspect, runRules } from '../inspect';
 import { runSurvey } from '../survey';
+import type { OperationalCommand } from '../operational-contract';
 import {
   KNOWN_FLAGS,
   parseDepsArgs,
@@ -32,33 +33,39 @@ export function version(dir: string = path.dirname(fileURLToPath(import.meta.url
   return 'unknown';
 }
 
-const COMMANDS = new Map<string, (cwd: string, rest: string[]) => Promise<number>>([
-  ['init', async (cwd, rest) => {
+const COMMANDS = {
+  init: async (cwd: string, rest: string[]) => {
     await runInit(cwd, parseInitArgs(rest));
 
     return 0;
-  }],
-  ['survey', async (cwd, rest) => {
+  },
+  survey: async (cwd: string, rest: string[]) => {
     runSurvey(cwd, parseSurveyArgs(rest));
 
     return 0;
-  }],
-  ['inspect', async (cwd, rest) => ((await runInspect(cwd, parseInspectArgs(rest))).ok ? 0 : 1)],
+  },
+  inspect: async (cwd: string, rest: string[]) => (
+    (await runInspect(cwd, parseInspectArgs(rest))).ok ? 0 : 1
+  ),
 
-  ['impact', async (cwd, rest) => {
+  impact: async (cwd: string, rest: string[]) => {
     await runImpact(cwd, parseImpactArgs(rest));
 
     return 0;
-  }],
-  ['deps', async (cwd, rest) => ((await runDeps(cwd, parseDepsArgs(rest))).ok ? 0 : 1)],
+  },
+  deps: async (cwd: string, rest: string[]) => (
+    (await runDeps(cwd, parseDepsArgs(rest))).ok ? 0 : 1
+  ),
 
-  ['rules', async (cwd, rest) => {
+  rules: async (cwd: string, rest: string[]) => {
     await runRules(cwd, parseRulesArgs(rest));
 
     return 0;
-  }],
-  ['doctor', async (cwd, rest) => ((await runDoctor(cwd, parseDoctorArgs(rest))).ok ? 0 : 1)],
-]);
+  },
+  doctor: async (cwd: string, rest: string[]) => (
+    (await runDoctor(cwd, parseDoctorArgs(rest))).ok ? 0 : 1
+  ),
+} satisfies Record<OperationalCommand, (cwd: string, rest: string[]) => Promise<number>>;
 
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
   const [command, ...rest] = argv;
@@ -73,7 +80,9 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
   try {
     assertFlagsKnown(command ?? '', rest);
 
-    const handler = COMMANDS.get(command ?? '');
+    const handler = Object.hasOwn(COMMANDS, command ?? '')
+      ? COMMANDS[command as OperationalCommand]
+      : undefined;
 
     if (handler === undefined) {
       console.log(USAGE);
@@ -99,14 +108,16 @@ function helpText(command: string | undefined, rest: string[]): string | null {
   }
 
   const help = Object.hasOwn(COMMAND_HELP, command ?? '')
-    ? COMMAND_HELP[command as string]
+    ? COMMAND_HELP[command as keyof typeof COMMAND_HELP]
     : undefined;
 
   return help !== undefined && (rest.includes('--help') || rest.includes('-h')) ? help : null;
 }
 
 function assertFlagsKnown(command: string, rest: string[]): void {
-  const known = Object.hasOwn(KNOWN_FLAGS, command) ? KNOWN_FLAGS[command] : undefined;
+  const known = Object.hasOwn(KNOWN_FLAGS, command)
+    ? KNOWN_FLAGS[command as keyof typeof KNOWN_FLAGS]
+    : undefined;
 
   if (known !== undefined) {
     rejectUnknownFlags(known, command, rest);

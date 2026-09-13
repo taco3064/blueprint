@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { renderMissingBlueprintExport } from '../operational-contract';
+
 import {
   isLegacyBlueprintMigration,
   migrateLegacyBlueprint,
@@ -98,7 +100,7 @@ async function loadBlueprint(
       : await defaultLoadConfig(file));
 
     if (!loaded) {
-      throw new Error('missing default export.');
+      throw new Error(renderMissingBlueprintExport());
     }
 
     const migration = options.migrateLegacyConfig

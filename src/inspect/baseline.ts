@@ -1,5 +1,6 @@
 import { compareText } from './order';
 import type { Finding } from './types';
+import { renderBaselineError, renderBaselineSummary } from '../operational-contract';
 
 export const BASELINE_FILE = '.blueprint-baseline.json';
 
@@ -63,7 +64,7 @@ export function parseBaseline(text: string): BaselineEntry[] {
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error('Baseline file is not valid JSON — regenerate it with --update-baseline.');
+    throw new Error(renderBaselineError({ kind: 'invalid-json' }));
   }
 
   // Stryker disable next-line ConditionalExpression: primitives expose no findings either.
@@ -74,14 +75,9 @@ export function parseBaseline(text: string): BaselineEntry[] {
   const entries = document !== null && 'findings' in document ? document.findings : null;
 
   if (document !== null && document.version !== BASELINE_VERSION) {
-    throw new Error(
-      `Baseline file is version ${JSON.stringify(document.version)}, and this blueprint writes `
-      + `version ${BASELINE_VERSION} — regenerate it with --update-baseline. Older baselines `
-      + 'identified a finding by its message text, so rewording one retired its entry and the '
-      + 'same debt came back as new; entries are now keyed on the rule, the path and the '
-      + 'subject, which a wording change does not touch. Re-keying records the same debt: '
-      + 'nothing is suppressed that was not suppressed before.',
-    );
+    throw new Error(renderBaselineError({
+      kind: 'version', found: document.version, expected: BASELINE_VERSION,
+    }));
   }
 
   if (
@@ -96,22 +92,12 @@ export function parseBaseline(text: string): BaselineEntry[] {
         || typeof (entry as BaselineEntry).message !== 'string',
     )
   ) {
-    throw new Error(
-      'Baseline file has an unexpected shape — regenerate it with --update-baseline.',
-    );
+    throw new Error(renderBaselineError({ kind: 'unexpected-shape' }));
   }
 
   return entries as BaselineEntry[];
 }
 
 export function baselineSummary(split: BaselineSplit): string {
-  const lines = [`${split.suppressed} baselined finding(s) suppressed.`];
-
-  if (split.stale > 0) {
-    lines.push(
-      `${split.stale} baseline entr${split.stale === 1 ? 'y' : 'ies'} no longer occur — run --update-baseline to tighten the ratchet.`,
-    );
-  }
-
-  return lines.join('\n');
+  return renderBaselineSummary(split);
 }

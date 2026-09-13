@@ -4,11 +4,6 @@ import path from 'node:path';
 import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
 
 import {
-  divergentReadingClause,
-  outOfScanReachClause,
-  ownersCallClause,
-} from '../emit/lint/patterns';
-import {
   AUTHORING_FILE,
   assessLintEntrypoint,
   COMMAND_FILE,
@@ -24,6 +19,12 @@ import {
 import type { ProjectState, ResolveOptions } from '../project';
 import { resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
+import {
+  renderDoctorCheck,
+  renderDoctorReport,
+  renderUncommittedDoctorNote,
+  renderUnreachedIgnoreNote as renderOperationalUnreachedIgnoreNote,
+} from '../operational-contract';
 import { analyze } from './analyze';
 import { BASELINE_FILE, parseBaseline, splitByBaseline } from './baseline';
 import {
@@ -60,11 +61,10 @@ export type DoctorVerdict = 'complete' | 'unverified' | 'incomplete';
 const SUPPRESSIONS_FILE = 'eslint-suppressions.json';
 
 function suppressionsCheck(root: string): DoctorCheck {
-  const label = 'lint suppressions ledger current';
   const file = path.join(root, SUPPRESSIONS_FILE);
 
   if (!fs.existsSync(file)) {
-    return { label: `${label} (not in use)`, ok: true };
+    return renderDoctorCheck({ kind: 'suppressions', status: 'unused' });
   }
 
   let entries: Record<string, unknown>;
@@ -72,32 +72,20 @@ function suppressionsCheck(root: string): DoctorCheck {
   try {
     entries = JSON.parse(fs.readFileSync(file, 'utf-8')) as Record<string, unknown>;
   } catch {
-    return {
-      label,
-      ok: false,
-      detail: `${SUPPRESSIONS_FILE} is not valid JSON — regenerate with: npx eslint . --suppress-all`,
-    };
+    return renderDoctorCheck({ kind: 'suppressions', status: 'invalid-json' });
   }
 
   const stale = Object.keys(entries).filter((entry) => !fs.existsSync(path.join(root, entry)));
 
   if (stale.length) {
-    return {
-      label,
-      ok: false,
-      detail: `suppressed files no longer exist (${stale.join(', ')}) — run: npx eslint . --prune-suppressions`,
-    };
+    return renderDoctorCheck({ kind: 'suppressions', status: 'stale', files: stale });
   }
 
   if (!Object.keys(entries).length) {
-    return {
-      label,
-      ok: true,
-      detail: `${SUPPRESSIONS_FILE} is empty — nothing is suppressed, so the file is ceremony; delete it (zero lint debt needs no ledger)`,
-    };
+    return renderDoctorCheck({ kind: 'suppressions', status: 'empty' });
   }
 
-  return { label, ok: true };
+  return renderDoctorCheck({ kind: 'suppressions', status: 'valid' });
 }
 
 const BUNDLER_FILES = ['webpack.config', 'vue.config', 'next.config', 'rsbuild.config']
@@ -122,24 +110,17 @@ function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): Do
   );
 
   if (!unwired.length) {
-    return { label: 'import alias wired to the toolchain', ok: true };
+    return renderDoctorCheck({ kind: 'alias', aliases: [] });
   }
-
-  const dir = sourceRoot === '.' ? '.' : `./${sourceRoot}`;
 
   const unreadable = unreadableTsconfigs(toolchain.tsconfigs);
 
-  return {
-    label: 'import alias wired to the toolchain',
-    ok: false,
-    detail: `${unwired.map((name) => `"${name}"`).join(', ')} resolves nowhere — declare it in `
-      + `tsconfig compilerOptions.paths ("${unwired[0]}/*": ["${dir}/*"]) or your bundler's `
-      + 'alias config, or the agent contract points at unresolvable imports'
-      + (unreadable.length
-        ? ` — but fix ${describeUnreadable(unreadable)} first: this check could not read `
-        + 'it, so an alias already declared in there would not have been seen'
-        : ''),
-  };
+  return renderDoctorCheck({
+    kind: 'alias',
+    aliases: unwired,
+    sourceRoot,
+    ...(unreadable.length ? { unreadable: describeUnreadable(unreadable) } : {}),
+  });
 }
 
 function referenceFiles(root: string): string[] {
@@ -235,11 +216,7 @@ function noConfigResult(
   json?: boolean,
 ): { ok: boolean; verdict: DoctorVerdict; checks: DoctorCheck[] } {
   const checks: DoctorCheck[] = [
-    {
-      label: 'blueprint.config.mjs present',
-      ok: false,
-      detail: 'run `blueprint init` (or `init --topology layer-first --authoring`) first',
-    },
+    renderDoctorCheck({ kind: 'config', present: false }),
   ];
 
   emit(log, checks, { json });
@@ -291,7 +268,7 @@ async function doctorChecks(
 
   return {
     checks: [
-      { label: 'blueprint.config.mjs present', ok: true },
+      renderDoctorCheck({ kind: 'config', present: true }),
       leftoversCheck(root, blueprint),
       eslintWiredCheck(state, eslintWired),
       lintEntrypointCheck(lintAssessment),
@@ -313,54 +290,30 @@ function leftoversCheck(root: string, blueprint: Blueprint): DoctorCheck {
 
   const stale = staleContracts(root, blueprint);
 
-  return {
-    label: 'no leftover reference, authoring, or stale contract files',
-    ok: references.length === 0 && stale.length === 0 && authoring.length === 0,
-    detail: references.length || stale.length || authoring.length
-      ? [
-          ...(references.length
-            ? [`merge and delete: ${references.join(', ')} — adoption is not done while a reference remains`]
-            : []),
-
-          ...(authoring.length
-            ? [`${authoring.join(', ')}: authoring artifacts still on disk — the playbook's final step deletes them; a doctor run mid-authoring is EXPECTED to fail here`]
-            : []),
-          ...(stale.length
-            ? [`${stale.join(', ')}: carries the BLUEPRINT block but is not among the emitted targets — a wholly-generated file is removed by the next init; one with hand-written content needs its block removed by hand`]
-            : []),
-        ].join('; ')
-      : undefined,
-  };
+  return renderDoctorCheck({ kind: 'leftovers', references, authoring, stale });
 }
 
 function eslintWiredCheck(state: ProjectState, eslintWired: boolean): DoctorCheck {
-  return {
-    label: 'eslint wired to emitLint',
-    ok: eslintWired,
-    detail: eslintWired
-      ? undefined
-      : state.eslintConfigShape === 'legacy'
-        ? `${state.legacyEslintConfig} is legacy — migrate to flat config, then spread ...emitLint(blueprint)`
-        : 'spread ...emitLint(blueprint) into your eslint config (see '
-          + 'eslint.config.blueprint.mjs)',
-  };
+  return renderDoctorCheck({
+    kind: 'eslint-wired',
+    wired: eslintWired,
+    ...(state.eslintConfigShape === 'legacy' && state.legacyEslintConfig
+      ? { legacyConfig: state.legacyEslintConfig }
+      : {}),
+  });
 }
 
 function lintEntrypointCheck(
   assessment: ReturnType<typeof assessLintEntrypoint>,
 ): DoctorCheck {
-  return {
-    label: 'normal lint entrypoint reaches eslint',
-    ok: assessment.reachable,
-    detail: assessment.reachable
-      ? undefined
-      : assessment.reason === 'missing-lint'
-        ? 'package.json has no `lint` script — add one that runs eslint so the generated '
-        + 'architecture rules execute on the normal lint path'
-        : `package.json lint runs \`${assessment.entrypoint}\`, but no reachable delegated `
-          + 'script runs eslint — wire eslint into lint or an ordinary npm/pnpm/yarn '
-          + 'script it calls',
-  };
+  return assessment.reachable
+    ? renderDoctorCheck({ kind: 'lint-entrypoint', reachable: true })
+    : renderDoctorCheck({
+        kind: 'lint-entrypoint',
+        reachable: false,
+        reason: assessment.reason === 'missing-lint' ? 'missing-lint' : 'unreachable',
+        ...(assessment.entrypoint ? { entrypoint: assessment.entrypoint } : {}),
+      });
 }
 
 function architectureCheck(
@@ -370,21 +323,19 @@ function architectureCheck(
 ): DoctorCheck {
   const { fresh, suppressed } = baseline;
 
-  return {
-    label: suppressed > 0
-      ? 'architecture clean (findings covered by the baseline)'
-      : 'architecture clean',
-    ok: !hasErrors(fresh),
+  const vacuous = coverage.sourceFiles > 0 && coverage.layerFiles === 0
+    && (coverage.ignoredFiles?.length ?? 0) === 0;
 
-    detail: hasErrors(fresh)
-      ? suppressed > 0
-        ? `${fresh.length} finding(s) outside the baseline — fix, or \`blueprint inspect --update-baseline\``
-        : `${fresh.length} finding(s) — fix, or lock as accepted debt: \`blueprint inspect --update-baseline\``
-      : coverage.sourceFiles > 0 && coverage.layerFiles === 0
-        && (coverage.ignoredFiles?.length ?? 0) === 0
-        ? `clean, but vacuous — architecture globs match 0 of ${coverage.sourceFiles} source file(s); the wiring is done — ${vacuousNextStep(blueprint)}`
-        : coverageSummary(coverage),
-  };
+  return renderDoctorCheck({
+    kind: 'architecture',
+    fresh: fresh.length,
+    hasErrors: hasErrors(fresh),
+    suppressed,
+    coverage: coverageSummary(coverage),
+    ...(vacuous
+      ? { vacuous: { sourceFiles: coverage.sourceFiles, nextStep: vacuousNextStep(blueprint) } }
+      : {}),
+  });
 }
 
 function uncommittedNote(state: ProjectState): string | undefined {
@@ -392,11 +343,7 @@ function uncommittedNote(state: ProjectState): string | undefined {
     return undefined;
   }
 
-  return 'Not a version-controlled repo, so nothing adoption wrote is committed — '
-    + 'and a ratchet that lives only in an uncommitted working tree is not installed: '
-    + 'the next clone starts without it and CI has nothing to run. Initialise version '
-    + 'control and commit these files to finish. Doing that is the owner\'s call, never '
-    + 'an adopting agent\'s.';
+  return renderUncommittedDoctorNote();
 }
 
 function unreachedIgnoreNote(
@@ -413,27 +360,7 @@ function unreachedIgnoreNote(
   const sourceRoot = resolveArchitecture(blueprint.architecture).sourceRoot;
   const reach = dead.map((glob) => ({ glob, unreached: outsideScanReach(glob, sourceRoot) }));
 
-  const repoWideThere = 'it is unreached only here, and the config `emit/lint` emits '
-    + 'still applies it wherever it does match';
-
-  const tail = outOfScanReachClause(reach, repoWideThere)
-    + ownersCallClause(reach, {
-      opening: 'Inside the scanned tree a mistyped glob and a convention',
-      noun: 'exclusion',
-    })
-    + divergentReadingClause(reach);
-
-  return '`architecture.layerFilesIgnore` — no file here matches '
-    + `${dead.map((glob) => `\`${glob}\``).join(', ')}, and neither does the stand-in `
-    + 'path doctor uses to probe a layer that has none. So nothing this run read is held '
-    + 'out through it: no scanned file is dropped from the layers'
-    + (probed
-      ? ', and doctor\'s merge-survival check picks its probe as if the entry were absent'
-      : '')
-    + '. That is this scan\'s reach, not a verdict on the entry — `emit/lint` copies it '
-    + 'into ESLint\'s `ignores` verbatim, and an entry carrying no `files` beside it is a '
-    + 'repo-wide ignore there'
-    + `${tail}.`;
+  return renderOperationalUnreachedIgnoreNote({ globs: dead, reach, probed });
 }
 
 function verdictOf(checks: DoctorCheck[]): DoctorVerdict {
@@ -444,69 +371,10 @@ function verdictOf(checks: DoctorCheck[]): DoctorVerdict {
   return checks.some((check) => check.skipped) ? 'unverified' : 'complete';
 }
 
-function summarize(checks: DoctorCheck[]): {
-  verdict: DoctorVerdict;
-  passed: number;
-  failed: number;
-  skipped: number;
-  banner: string;
-} {
-  const failed = checks.filter((check) => !check.ok).length;
-  const skipped = checks.filter((check) => check.skipped).length;
-  const passed = checks.length - failed - skipped;
-
-  const banner = failed === 0 && !skipped
-    ? `✓ Adoption complete — all ${checks.length} checks passed.`
-    : failed === 0
-      ? `⊘ Adoption unverified — ${passed} of ${checks.length} checks passed, `
-      + `${skipped} could not run (⊘ above). Nothing failed, and nothing here `
-      + 'proves what those checks cover.'
-
-      : `✗ Adoption incomplete — ${failed} of ${checks.length} check(s) failed`
-        + `${skipped ? `, and ${skipped} could not run (⊘ above) — fixing the ✗ leaves those still unproven` : ''}.`;
-
-  return { verdict: verdictOf(checks), passed, failed, skipped, banner };
-}
-
 function emit(
   log: (m: string) => void,
   checks: DoctorCheck[],
   report: { notes?: string[]; json?: boolean },
 ): void {
-  const { notes = [], json } = report;
-  const { verdict, passed, failed, skipped, banner } = summarize(checks);
-
-  if (json) {
-    log(JSON.stringify(
-      {
-        ok: checks.every((check) => check.ok),
-        verdict,
-        summary: banner,
-        counts: { total: checks.length, passed, failed, skipped },
-        checks,
-
-        note: notes.length ? notes.join('\n') : undefined,
-      },
-      null,
-      2,
-    ));
-
-    return;
-  }
-
-  log(
-    [
-      'blueprint doctor',
-      ...checks.map((check) => {
-        const mark = check.ok ? (check.skipped ? '⊘' : '✓') : '✗';
-        const under = check.skipped ?? check.detail;
-
-        return `  ${mark} ${check.label}${under ? `\n      ${under}` : ''}`;
-      }),
-      '',
-      banner,
-
-      ...notes.map((note) => `  ${note}`),
-    ].join('\n'),
-  );
+  log(renderDoctorReport(checks, report));
 }
