@@ -51,17 +51,33 @@ describe('architecture.testFiles editorial policy', () => {
         expect(renderTestFilesEditorial(edition, locale, [])).toBeTruthy();
       }
     }
+  });
+
+  it('renders measured reach and all of its localized fact fields', () => {
+    const locales: EditorialLocale[] = ['en', 'zh-TW'];
 
     for (const locale of locales) {
       expect(renderEmptyTestFilesEditorial(locale)).toBeTruthy();
 
-      expect(renderUnreachedTestFilesEditorial(locale, {
-        deadGlobs: ['**/*.check.ts', '!**/*.gen.ts'],
+      const complete = renderUnreachedTestFilesEditorial(locale, {
+        deadGlobs: ['tests/**', '**/*.check.ts', '!**/*.gen.ts'],
         allGlobsDead: true,
         outsideScan: [{ glob: 'tests/**', reason: 'outside source root' }],
         undecidedGlobs: ['**/*.check.ts'],
         divergentGlobs: ['!**/*.gen.ts'],
-      })).toContain('architecture.testFiles');
+      });
+
+      expect(complete).toContain('architecture.testFiles');
+
+      if (locale === 'zh-TW') {
+        expect(complete).toContain(
+          '此處沒有檔案匹配 `tests/**`、`**/*.check.ts`、`!**/*.gen.ts`',
+        );
+
+        expect(complete).toContain('超出掃描範圍：`tests/**` — outside source root');
+        expect(complete).toContain('`**/*.check.ts` 可能是拼錯的 glob');
+        expect(complete).toContain('`!**/*.gen.ts` 在掃描器與 ESLint 中的解讀不同');
+      }
 
       expect(renderUnreachedTestFilesEditorial(locale, {
         deadGlobs: ['**/*.check.ts'],
