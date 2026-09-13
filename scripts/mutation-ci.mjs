@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 import {
   changedLineCount,
@@ -40,7 +41,13 @@ const MUTATION_AUTHORITY_FILES = [
   'tsconfig.lib.json',
   'tsconfig.test.json',
   'tsconfig.types.json',
+  'scripts/mutation-ci.mjs',
   'scripts/mutation-smoke.mjs',
+];
+
+const LOCAL_MODULE_SUFFIXES = [
+  '', '.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs', '.json',
+  '/index.ts', '/index.tsx', '/index.mts', '/index.cts', '/index.js', '/index.mjs',
 ];
 
 function sameGitBlob(root, left, right, file) {
@@ -50,6 +57,108 @@ function sameGitBlob(root, left, right, file) {
 
   return leftBlob.status === 0 && rightBlob.status === 0
     && leftBlob.stdout.trim() === rightBlob.stdout.trim();
+}
+
+function repositorySnapshot(root, commit) {
+  const files = new Set(git(root, ['ls-tree', '-r', '--name-only', commit]).stdout
+    .split('\n').filter(Boolean));
+
+  const blobs = new Map();
+  const dependencies = new Map();
+  const sources = new Map();
+
+  const blob = (file) => {
+    if (!files.has(file)) return null;
+
+    if (!blobs.has(file)) {
+      blobs.set(file, git(root, ['rev-parse', '--verify', `${commit}:${file}`]).stdout.trim());
+    }
+
+    return blobs.get(file);
+  };
+
+  const source = (file) => {
+    if (!files.has(file)) return null;
+    if (!sources.has(file)) sources.set(file, git(root, ['show', `${commit}:${file}`]).stdout);
+
+    return sources.get(file);
+  };
+
+  const resolveLocal = (importer, specifier) => {
+    if (!specifier.startsWith('.')) return null;
+
+    const base = path.posix.normalize(path.posix.join(path.posix.dirname(importer), specifier));
+
+    return LOCAL_MODULE_SUFFIXES.map((suffix) => `${base}${suffix}`)
+      .find((candidate) => files.has(candidate)) ?? undefined;
+  };
+
+  return { blob, dependencies, files, resolveLocal, source };
+}
+
+function localDependencies(snapshot, file) {
+  if (snapshot.dependencies.has(file)) return snapshot.dependencies.get(file);
+
+  const source = snapshot.source(file);
+  if (source === null) return null;
+
+  const dependencies = [];
+  const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, false);
+
+  const visit = (node) => {
+    let specifier = null;
+
+    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node))
+      && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+      specifier = node.moduleSpecifier.text;
+    } else if (ts.isCallExpression(node) && node.arguments.length === 1
+      && ts.isStringLiteral(node.arguments[0])
+      && (node.expression.kind === ts.SyntaxKind.ImportKeyword
+        || (ts.isIdentifier(node.expression) && node.expression.text === 'require'))) {
+      specifier = node.arguments[0].text;
+    }
+
+    if (specifier?.startsWith('.')) dependencies.push(snapshot.resolveLocal(file, specifier));
+    ts.forEachChild(node, visit);
+  };
+
+  visit(ast);
+
+  const result = dependencies.includes(undefined) ? null : dependencies;
+
+  snapshot.dependencies.set(file, result);
+
+  return result;
+}
+
+function dependencyFingerprint(root, commit, seeds, snapshots) {
+  if (!snapshots.has(commit)) snapshots.set(commit, repositorySnapshot(root, commit));
+
+  const snapshot = snapshots.get(commit);
+  const pending = [...new Set(seeds)].sort();
+  const visited = new Set();
+
+  while (pending.length) {
+    const file = pending.pop();
+    if (visited.has(file)) continue;
+    if (!snapshot.files.has(file)) return null;
+    visited.add(file);
+
+    const dependencies = localDependencies(snapshot, file);
+    if (dependencies === null) return null;
+    pending.push(...dependencies);
+  }
+
+  return crypto.createHash('sha256').update([...visited].sort()
+    .map((file) => `${file}\0${snapshot.blob(file)}`)
+    .join('\0')).digest('hex');
+}
+
+function sameDependencyClosure(root, left, right, seeds, snapshots) {
+  const leftFingerprint = dependencyFingerprint(root, left, seeds, snapshots);
+  const rightFingerprint = dependencyFingerprint(root, right, seeds, snapshots);
+
+  return leftFingerprint !== null && leftFingerprint === rightFingerprint;
 }
 
 function subtractRanges(ranges, excluded) {
@@ -127,7 +236,7 @@ export function reusableMutationEvidence(root, previous, headSha) {
   if (!previous?.manifest || !previous?.evidence) return [];
 
   const manifest = previous.manifest;
-  if ((manifest.evidenceVersion ?? 1) !== MUTATION_EVIDENCE_VERSION) return [];
+  if (manifest.evidenceVersion !== MUTATION_EVIDENCE_VERSION) return [];
 
   const exists = git(root, ['cat-file', '-e', `${manifest.headSha}^{commit}`], true).status === 0;
   if (!exists || !isAncestor(root, manifest.headSha, headSha)) return [];
@@ -138,6 +247,8 @@ export function reusableMutationEvidence(root, previous, headSha) {
   if (authorityChanged) {
     return [];
   }
+
+  const snapshots = new Map();
 
   const inherited = (manifest.reusedShards ?? []).filter((shard) => {
     const sourceExists = git(
@@ -152,7 +263,7 @@ export function reusableMutationEvidence(root, previous, headSha) {
       && isAncestor(root, shard.sourceHeadSha, headSha)
       && MUTATION_AUTHORITY_FILES.every((file) =>
         sameGitBlob(root, shard.sourceHeadSha, headSha, file))
-      && files.every((file) => sameGitBlob(root, shard.sourceHeadSha, headSha, file));
+      && sameDependencyClosure(root, shard.sourceHeadSha, headSha, files, snapshots);
   });
 
   const direct = manifest.shards.flatMap((shard) => {
@@ -168,8 +279,13 @@ export function reusableMutationEvidence(root, previous, headSha) {
       && (summary.unacceptableMutants ?? []).length === 0;
 
     const unchanged = validSummary && testFiles
-      && [...Object.keys(shard.ranges ?? {}), ...testFiles]
-        .every((file) => sameGitBlob(root, manifest.headSha, headSha, file));
+      && sameDependencyClosure(
+        root,
+        manifest.headSha,
+        headSha,
+        [...Object.keys(shard.ranges ?? {}), ...testFiles],
+        snapshots,
+      );
 
     return unchanged
       ? [{
