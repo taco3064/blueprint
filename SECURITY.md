@@ -6,78 +6,88 @@
 
 **→ https://github.com/taco3064/blueprint/issues/new**
 
-Private reporting is deliberately switched off here — that is a decision, not an
-oversight, so please do not go looking for a form that is not there. The reasoning:
-blueprint is a development-time tool with no network code and no runtime footprint
-in your shipped app, so there is no live service that an embargo would protect. The
-exposure between a report and its fix is a devDependency you can pin, drop, or stop
-running — which is a fair trade for every user seeing the warning the same day the
-maintainer does. This repository's entire triage record is public for the same
-reason.
+Private reporting is deliberately switched off here. Blueprint is a
+development-time tool rather than a hosted service, and this repository keeps its
+triage record public so every adopter can see a warning and its resolution. Do not
+include credentials, private source, or other sensitive material in a report.
 
-Prefix the title with `security:` — the issue stream is mostly machine-filed
-`field-run` reports, and that prefix is what lifts yours out of it.
+Prefix the title with `security:`. The issue stream also receives automated field
+reports, so that prefix makes a security report immediately visible.
 
-What helps most, in rough order:
+The most useful report includes:
 
-- the command you ran, with its flags, and the blueprint config it ran against
-- what it did versus what it printed it would do — for a tool whose safety story
-  is "every effect is declared before it lands", a gap between those two *is*
-  the vulnerability
-- the version (`npx @kekkai/blueprint --version`) and how it was installed
+- the command and flags you ran, plus the relevant Blueprint config;
+- what Blueprint did compared with what its plan said it would do;
+- the version (`npx @kekkai/blueprint --version`) and installation method; and
+- a minimal reproduction that contains no confidential material.
 
 Expect an acknowledgement within **7 days**. A confirmed report is fixed in the
-next release and published as a GitHub Security Advisory against the affected
-versions, so `npm audit` reaches the people who never read the issue.
+next release and published as a GitHub Security Advisory against affected versions.
 
 ## Supported versions
 
-Only the **latest published version** receives fixes. Nothing is backported —
-this is a development-time tool with no runtime footprint in your shipped app,
-so upgrading is a devDependency bump, not a migration.
+Only the **latest published version** receives fixes. Nothing is backported.
+Upgrading may involve a Blueprint config migration or an explicit architecture
+decision, so follow the release notes for the target version rather than treating
+every upgrade as only a dependency bump.
 
-## What counts as a vulnerability here
+## Security boundary
 
-Blueprint has no network code, no credentials, and zero runtime dependencies, so
-the usual web threat model does not apply. What it *does* have is write access to
-your repo and one opt-in path that starts a process. Those are the surfaces:
+Blueprint is a development-time package. It has its own runtime dependencies, but
+it does not add a runtime footprint to the application it governs. Blueprint does
+not implement telemetry, update checks, or its own network client.
 
-**In scope**
+Blueprint can still cross important local boundaries:
 
-- A command writing, editing, or deleting a path it never declared — including
-  anything `--dry-run` did not print, and anything outside the project root
-- Any divergence between the printed plan and what `apply` actually does
-- The emitted ESLint config silently not enforcing a gate the config asks for —
-  a gate that reports green while enforcing nothing is a false assurance, and
-  the whole point of the tool is that the assurance is true
-- `init --agent` executing anything other than the exact command it printed, or
-  passing any credential or repo content to it
-- A published artifact that does not match this repository — failed provenance
-  verification, or files in the tarball that are not in `files`
+- `init` can create, merge, regenerate, or remove declared project files;
+- guarded topology transformations run local, read-only Git preflight commands;
+- `doctor` can invoke the project-local ESLint entrypoint to verify live wiring;
+- dependency installation delegates to the detected package manager, whose network
+  and registry behavior is governed by that tool and the adopter's configuration;
+  and
+- eligible authoring or transformation flows may launch an explicitly selected
+  Agent CLI, which then operates under that tool's permissions and security model.
 
-**Out of scope**
+These delegated processes are not Blueprint network clients. Their commands and
+planned repository effects must still be represented accurately by Blueprint.
 
-- The agent CLI you launch with `--agent`: blueprint prints a command and hands
-  over; what your own `claude` / `codex` install then does is that project's
-  security model, under your own permission prompts
-- Vulnerabilities in *your* repository that blueprint's rules did not catch — the
-  gates are architecture rules, not a security scanner
-- Disagreements about what a rule should flag. Everything here lands in the same
-  issue tracker, so the difference is only the `security:` prefix — leave it off
-  and it is an ordinary report, which is just as welcome
+### In scope
+
+- A command writes, edits, or deletes a path it did not declare, including an
+  effect missing from `--dry-run` or an effect outside the intended project root.
+- The printed plan and the applied result diverge.
+- A Blueprint-owned output, merge-managed section, or supported legacy-config
+  migration crosses its declared ownership boundary or loses adopter-owned content.
+- An emitted ESLint config silently fails to enforce a gate requested by the config.
+- Blueprint launches an Agent without the explicit Agent selection required for
+  that workflow, executes a different Agent command from the one declared, or
+  passes credentials or repository content itself.
+- A package-manager install, Git preflight, or project-local ESLint check runs
+  outside its documented workflow boundary or executes a different command from
+  the one Blueprint declared.
+- A published artifact does not match this repository, fails provenance
+  verification, or contains files outside the declared package file set.
+
+### Out of scope
+
+- Vulnerabilities in the Agent CLI, package manager, registry, Git executable, or
+  other delegated tool. Report those to the owning project unless Blueprint invoked
+  the tool outside its declared contract.
+- Vulnerabilities in an adopter's application that Blueprint's architecture rules
+  do not detect. Blueprint is not a security scanner.
+- Disagreements about what an architecture rule should flag. Those remain welcome
+  as ordinary issues without the `security:` prefix.
 
 ## Verifying what you installed
 
 Every release is published from GitHub Actions with
-[npm provenance](https://docs.npmjs.com/generating-provenance-statements), so the
-build origin is publicly verifiable rather than taken on trust:
+[npm provenance](https://docs.npmjs.com/generating-provenance-statements), so its
+build origin is publicly verifiable:
 
 ```bash
 npm audit signatures
 ```
 
-A mismatch is itself reportable — see above.
-
-The behavioral guarantees this policy is scoped around are spelled out, with the
-reasoning, at
-[Security & Trust](https://taco3064.github.io/blueprint/guide/security).
+A mismatch is reportable through the process above. Product behavior and upgrade
+boundaries are documented at <https://taco3064.github.io/blueprint/> and in the
+[changelog](./CHANGELOG.md).
