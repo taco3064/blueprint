@@ -29,6 +29,24 @@ const blueprint = defineBlueprint({
   rules: { maxLines: 'error', testFilename: 'error' },
 });
 
+it('keeps every editorial edition dispatch distinct', () => {
+  const editions: TestFilesEdition[] = [
+    'agent-placement',
+    'core',
+    'deps',
+    'gate-availability',
+    'merge-scope',
+    'reference',
+    'survey',
+  ];
+
+  for (const locale of ['en', 'zh-TW'] as const) {
+    const rendered = editions.map((edition) => renderTestFilesEditorial(edition, locale));
+
+    expect(new Set(rendered)).toHaveLength(editions.length);
+  }
+});
+
 describe('architecture.testFiles editorial policy', () => {
   it('renders every edition and locale for both matching and empty policies', () => {
     const editions: TestFilesEdition[] = [
@@ -167,22 +185,4 @@ it('keeps agent placement locale direction observable', () => {
 
   expect(renderTestFilesEditorial('agent-placement', 'zh-TW', []))
     .toContain('不會讓任何測試支援檔豁免');
-});
-
-it('keeps every editorial edition dispatch distinct', () => {
-  const editions: TestFilesEdition[] = [
-    'agent-placement',
-    'core',
-    'deps',
-    'gate-availability',
-    'merge-scope',
-    'reference',
-    'survey',
-  ];
-
-  for (const locale of ['en', 'zh-TW'] as const) {
-    const rendered = editions.map((edition) => renderTestFilesEditorial(edition, locale));
-
-    expect(new Set(rendered)).toHaveLength(editions.length);
-  }
 });
