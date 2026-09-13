@@ -22,6 +22,21 @@ export interface TestFilesReachFact {
   divergentGlobs: string[];
 }
 
+type EditorialRenderer = (
+  policy: ResolvedTestFiles,
+  locale: EditorialLocale,
+) => string;
+
+const EDITION_RENDERERS: Record<TestFilesEdition, EditorialRenderer> = {
+  'agent-placement': renderAgentPlacement,
+  core: renderCore,
+  deps: renderDeps,
+  'gate-availability': renderGateAvailability,
+  'merge-scope': renderMergeScope,
+  reference: renderReference,
+  survey: renderSurvey,
+};
+
 export function renderTestFilesEditorial(
   edition: TestFilesEdition,
   locale: EditorialLocale,
@@ -35,31 +50,7 @@ export function renderResolvedTestFilesEditorial(
   locale: EditorialLocale,
   policy: ResolvedTestFiles,
 ): string {
-  if (edition === 'agent-placement') {
-    return renderAgentPlacement(policy, locale);
-  }
-
-  if (edition === 'core') {
-    return renderCore(policy, locale);
-  }
-
-  if (edition === 'deps') {
-    return renderDeps(policy, locale);
-  }
-
-  if (edition === 'gate-availability') {
-    return renderGateAvailability(locale);
-  }
-
-  if (edition === 'merge-scope') {
-    return renderMergeScope(policy, locale);
-  }
-
-  if (edition === 'reference') {
-    return renderReference(policy, locale);
-  }
-
-  return renderSurvey(policy, locale);
+  return EDITION_RENDERERS[edition](policy, locale);
 }
 
 function renderCore(policy: ResolvedTestFiles, locale: EditorialLocale): string {
@@ -95,7 +86,10 @@ function renderDeps(policy: ResolvedTestFiles, locale: EditorialLocale): string 
       + 'file in the dependency graph, so all of their imports count.';
 }
 
-function renderGateAvailability(locale: EditorialLocale): string {
+function renderGateAvailability(
+  _policy: ResolvedTestFiles,
+  locale: EditorialLocale,
+): string {
   return locale === 'zh-TW'
     ? '只有 `architecture.testFiles: []` 會讓 `testFilename` 無法啟用：'
     + '這條規則沒有可命名的檔案。宣告後沒有匹配任何掃描檔案的 glob 仍會成為關卡的檔案範圍，'
