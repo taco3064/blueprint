@@ -16,7 +16,8 @@ can consume them without parsing prose.
 `init` adopts Blueprint, repairs generated integration, or starts a guarded topology
 transformation. It chooses one of three paths from repository evidence and the explicit target:
 
-1. **Preset scaffold** for a small or fresh layer-first project.
+1. **Scaffold or repair** to create a small/fresh layer-first preset or refresh generated
+   integration from an existing valid config.
 2. **Authoring playbook** for an existing project without a valid config, or for any first
    module-first adoption.
 3. **Transformation playbook** when existing valid configs establish the opposite repository

@@ -24,7 +24,7 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 理念及產出政策。詳見[設定](/zh-TW/configuration)。
 
 **管理權責：** 架構決策屬於導入方。Blueprint 可建立已知預設設定，但不會根據資料夾形狀
-暗中以 preset 或推測結果覆蓋自訂設定檔。
+暗中以預設設定或推測結果覆蓋自訂設定檔。
 
 **生命週期：** 預設設定流程會建立此檔；架構編寫指南則要求 Agent 建立。後續 `init` 會先
 載入並驗證，再更新其他產出。Blueprint 3.2 設定會先正規化成受支援的 4.0 layer-first

@@ -237,7 +237,7 @@ playbook: [{
 - principle 需要不重複的 `id`、`say`、`why` 與 `land`（`lint` 或 `claude`）。
 - component axis 需要不重複的 `id`、`name`、`say` 與 `why`；`triage` 可指定用來找出候選
   問題的規則。
-- 每個 playbook section 都要有非空 `title`；rule id 必須在所有 section 間保持唯一，並
+- 每個執行指南區段都要有非空 `title`；規則 id 必須在所有區段間保持唯一，並
   提供 `say` 與選填 `why`。
 
 Vue 與 React 預設設定會帶入 Blueprint 的標準理念；自訂設定可保留、替換或省略。概念本身

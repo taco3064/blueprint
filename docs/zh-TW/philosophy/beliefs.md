@@ -1,6 +1,6 @@
 # 核心信念
 
-> **在 blueprint 裡**：這些就是各 preset 的 [`principles`](/zh-TW/api/interfaces/PrincipleDef)。<br>
+> **在 blueprint 裡**：這些就是各預設設定的 [`principles`](/zh-TW/api/interfaces/PrincipleDef)。<br>
 > `init` 會把它們原封不動地編譯進你 repo 的手冊與 agent 守則。<br>
 > 它們全部落在守則裡、不進 lint，<br>
 > 因為這些要的是判斷，不是機器查得動的東西，<br>
