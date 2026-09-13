@@ -6,8 +6,10 @@ import { emptyTestGlobs } from '../emit/lint/patterns';
 import { dropTestFiles } from '../inspect/filter';
 import type { ScanResult } from '../inspect/types';
 import {
+  renderEmptyTestFilesEditorial,
   renderResolvedTestFilesEditorial,
   renderTestFilesEditorial,
+  renderUnreachedTestFilesEditorial,
   TEST_FILES_SEMANTIC_NODE,
 } from './editorial';
 import type { EditorialLocale, TestFilesEdition } from './editorial';
@@ -48,6 +50,26 @@ describe('architecture.testFiles editorial policy', () => {
         expect(renderTestFilesEditorial(edition, locale)).toBeTruthy();
         expect(renderTestFilesEditorial(edition, locale, [])).toBeTruthy();
       }
+    }
+
+    for (const locale of locales) {
+      expect(renderEmptyTestFilesEditorial(locale)).toBeTruthy();
+
+      expect(renderUnreachedTestFilesEditorial(locale, {
+        deadGlobs: ['**/*.check.ts', '!**/*.gen.ts'],
+        allGlobsDead: true,
+        outsideScan: [{ glob: 'tests/**', reason: 'outside source root' }],
+        undecidedGlobs: ['**/*.check.ts'],
+        divergentGlobs: ['!**/*.gen.ts'],
+      })).toContain('architecture.testFiles');
+
+      expect(renderUnreachedTestFilesEditorial(locale, {
+        deadGlobs: ['**/*.check.ts'],
+        allGlobsDead: false,
+        outsideScan: [],
+        undecidedGlobs: [],
+        divergentGlobs: [],
+      })).toContain('architecture.testFiles');
     }
   });
 

@@ -1,5 +1,9 @@
 import { resolveLayerFilePatterns, resolveTestFiles as resolveTestFilePolicy } from '../../config';
 import type { Framework, LayerDef, OwnedPackage } from '../../config';
+import {
+  renderEmptyTestFilesEditorial,
+  renderUnreachedTestFilesEditorial,
+} from '../../editorial';
 import type {
   EmitFacts,
   GlobalRule,
@@ -167,37 +171,24 @@ export function unreachedTestGlobs(reach: TestGlobReach[] | undefined): string |
     return null;
   }
 
-  const scopedThere = 'what `emit/lint` emits for it is scoped rather than repo-wide — '
-    + 'every `ignores` it writes these globs into sits beside a `files`, so it subtracts '
-    + 'only from the set that `files` names';
-
-  const armedThere = '. That is this scan\'s reach, not a verdict on the entry — '
-    + '`emit/lint` writes these globs into the `testFilename` entry\'s own `files` too, '
-    + 'so where that gate is on it is emitted all the same and governs whatever they '
-    + 'do match';
-
-  const droppedHere = dead.length === measured.length
-    ? 'no scanned file is dropped from the analysis'
-    : 'the scanned files dropped from the analysis are the ones the rest of the net matched';
-
-  return '`architecture.testFiles` — no file here matches '
-    + `${dead.map((entry) => `\`${entry.glob}\``).join(', ')}, so nothing this run read `
-    + `is exempt through that part of the net: ${droppedHere}`
-    + armedThere
-    + outOfScanReachClause(dead, scopedThere)
-    + ownersCallClause(dead, {
-      opening: 'A mistyped glob and a test convention',
-      noun: 'exemption',
-    })
-    + divergentReadingClause(dead);
+  return renderUnreachedTestFilesEditorial('en', {
+    deadGlobs: dead.map((entry) => entry.glob),
+    allGlobsDead: dead.length === measured.length,
+    outsideScan: dead
+      .filter((entry) => entry.unreached && !readDifferently(entry))
+      .map((entry) => ({ glob: entry.glob, reason: entry.unreached as string })),
+    undecidedGlobs: dead
+      .filter((entry) => !entry.unreached && !readDifferently(entry))
+      .map((entry) => entry.glob),
+    divergentGlobs: dead.filter(readDifferently).map((entry) => entry.glob),
+  });
 }
 
 export function emptyTestGlobs(testFiles: string | string[] | undefined): string | null {
   const policy = resolveTestFilePolicy(testFiles);
 
   if (policy.testRuleFiles.length === 0) {
-    return '`architecture.testFiles: []` exempts nothing, '
-      + 'so there is no test file for this to name — declare test globs, or drop this gate';
+    return renderEmptyTestFilesEditorial('en');
   }
 
   return null;
