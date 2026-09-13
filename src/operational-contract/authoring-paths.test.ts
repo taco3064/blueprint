@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { renderModuleFirstSchemaSketch, renderSchemaSketch } from '.';
+import { renderSchemaSketch } from './authoring-catalog';
+import { renderModuleFirstSchemaSketch } from './authoring-module-first';
 
 describe('authoring schema source-root facts', () => {
   it('renders repository-root, default, and custom layer-first roots distinctly', () => {

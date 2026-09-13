@@ -58,7 +58,12 @@
     "1 is covered by tests that do not depend on this setting, and group 2 is not",
     "a unit-test question. Re-measure with `mutator.excludedMutations: []` if that",
     "reasoning needs re-testing; the numbers above are from the commit that wrote",
-    "this comment."
+    "this comment.",
+    "",
+    "Mutant selection can legitimately include the cold type-aware conformance",
+    "chain (27.7s measured) plus the other tests covering a central renderer.",
+    "The 60s deviation matches Vitest's measured cold-run budget; it is extra",
+    "time on top of Stryker's dry-run timing, not a substitute for killing survivors."
   ],
   "testRunner": "vitest",
   "coverageAnalysis": "perTest",
@@ -79,6 +84,6 @@
   "clearTextReporter": {
     "maxTestsToLog": 2
   },
-  "timeoutMS": 30000,
+  "timeoutMS": 60000,
   "tempDirName": ".stryker-tmp"
 }

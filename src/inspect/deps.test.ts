@@ -237,6 +237,18 @@ describe('runDeps · folders outside the declared layers', () => {
     expect(ok).toBe(false);
     expect(output).toContain('"legacy/" is outside the declared architecture');
   });
+
+  it('does not confuse a matching suffix with a target inside the skipped folder', async () => {
+    scaffold();
+    writeSrc('legacy/old.ts', 'export const old = 1;');
+    let output = '';
+
+    const { ok } = await runDeps(root, { target: 'not-legacy', log: (m) => (output = m) });
+
+    expect(ok).toBe(false);
+    expect(output).toContain('Unknown unit "not-legacy"');
+    expect(output).not.toContain('"legacy/" is outside the declared architecture');
+  });
 });
 
 describe('runDeps · file-layout layers preserve layer granularity', () => {
