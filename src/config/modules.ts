@@ -1,5 +1,5 @@
 import type { ModuleDef } from './types';
-import { renderValidationError } from '../operational-contract/validation-errors';
+import { configValidationError } from './validation';
 
 export interface ResolvedModule {
   definition: ModuleDef;
@@ -50,23 +50,23 @@ function validateDependency(scope: {
   const { module, dependency, names, seen } = scope;
 
   if (typeof dependency !== 'string' || !dependency.trim()) {
-    throw new Error(renderValidationError({ kind: 'module-dependency-empty', module }));
+    throw configValidationError({ kind: 'module-dependency-empty', module });
   }
 
   if (dependency === module) {
-    throw new Error(renderValidationError({ kind: 'module-self-dependency', module }));
+    throw configValidationError({ kind: 'module-self-dependency', module });
   }
 
   if (seen.has(dependency)) {
-    throw new Error(renderValidationError({
+    throw configValidationError({
       kind: 'module-duplicate-dependency', module, dependency,
-    }));
+    });
   }
 
   if (!names.has(dependency)) {
-    throw new Error(renderValidationError({
+    throw configValidationError({
       kind: 'module-unknown-dependency', module, dependency,
-    }));
+    });
   }
 }
 
@@ -90,9 +90,9 @@ function assertAcyclicModules(names: string[], direct: Map<string, string[]>): v
       const cycleStart = active.get(dependency);
 
       if (cycleStart !== undefined) {
-        throw new Error(renderValidationError({
+        throw configValidationError({
           kind: 'module-cycle', path: [...path.slice(cycleStart), dependency],
-        }));
+        });
       }
 
       visit(dependency);

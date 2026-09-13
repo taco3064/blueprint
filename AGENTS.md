@@ -14,7 +14,7 @@ substitute first-principles reasoning for what it says.
 | Doc | What it covers |
 |---|---|
 | [`.agents/docs/autonomous-delivery.md`](./.agents/docs/autonomous-delivery.md) | **Trigger:** shaping, delivering, resuming, or accepting a GitHub ticket. The shared rules for autonomy, scope, evidence, durable state, progress, and final acceptance. |
-| [`.agents/docs/verification-layers.md`](./.agents/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring code that emits a document. What `src/conformance/` is for, the layer `npm run dist:verify` covers (the 0.1.1 symlink bug), and the byte baseline that belongs with an emitted-prose refactor. |
+| [`.agents/docs/verification-layers.md`](./.agents/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring emitted documents or operational prose. What `src/conformance/` is for, the layers `npm run dist:verify` and `npm run operational:check` cover, and when a supplementary byte baseline belongs with a refactor. |
 | [`.agents/docs/mutation-testing.md`](./.agents/docs/mutation-testing.md) | **Trigger:** reading automatic PR mutation evidence, judging a survivor, or adding a test because CI found weak coverage. Status adjudication and narrow equivalent-mutant proofs. |
 | [`.agents/docs/field-triage.md`](./.agents/docs/field-triage.md) | **Trigger:** running live field validation, triaging a field finding, changing Agent-facing prose, or cutting a release. Exact packed candidates, affected replay, full convergence, and exact-SHA release authority. |
 
@@ -66,6 +66,38 @@ declared in its surface registry.
 runtimes; `plugin` is the embedded ESLint plugin (plain rule objects, no
 internal deps) that `emit/lint` ships inside its output.
 
+## Authority map
+
+Locate the owner before changing a representation of its truth:
+
+- **Product behavior and state** belong to the runtime, config, resolver, or
+  other domain module that computes them.
+- **Blueprint-authored operational prose** starts at
+  `src/operational-contract/registry.ts`. Follow the registered surface to its
+  renderer owner and fact providers; consumer output proves delivery but is not
+  another policy owner.
+- **Checked-in composed operational artifacts**, including `agent-contract.md`
+  and `scripts/field-prompt.md`, are outputs of the compose/check pipeline.
+  Change their registered owner and intentionally recompose them; never treat a
+  generated copy as the source fix.
+- **Public product documentation** is authored separately and audited against
+  runtime, schema, and generated output. English is the semantic source: verify
+  it first, then rewrite the Traditional Chinese counterpart by meaning with
+  natural Taiwan technical terminology. Preserve literal identifiers,
+  commands, filenames, product/library names, and established terms; avoid
+  unnecessary English in ordinary Chinese prose. Parity is semantic, not a
+  heading or sentence count.
+- **Repository AI collaboration rules** belong here, under `.agents/docs/`,
+  and under `.agents/skills/`. They teach maintainers how to find authority;
+  they do not copy product state machines or transient release status.
+
+The root `AGENTS.md` is maintainer guidance for Agents working on Blueprint.
+An adopter-facing generated `AGENTS.md` is an Agent-contract target owned by
+Blueprint's emitter and operational contract. The shared filename does not make
+this repository file a registered or composed operational artifact. It must
+never be added to `OPERATIONAL_SURFACES` or generated from the adopter contract,
+and a registry target named `AGENTS.md` never authorizes regenerating this file.
+
 ## Self-explaining output (every CLI / runtime message)
 
 An adopting agent's only guaranteed in-context channel is the output of the
@@ -78,25 +110,43 @@ contradiction ("Adoption complete" beside "vacuous"); an effect without a
 stated cause reads as breakage (a deletion blamed on a config field that
 is not in the config). Field batches 10–12 are the case law.
 
-## Looking up a stance this project already took
+Self-explaining does not authorize consumer-local prose. Runtime and domain
+modules supply measured facts; registered `operational-contract` renderers own
+Blueprint-authored explanation and prescription; consumers retain only their
+target-specific transport, path, merge, and adapter mechanics.
 
-New work raises questions its ticket does not answer — what this defaults to,
-what the tool refuses to decide, what it says when the code is not there yet.
-**Most of them are already answered, and the answer is usually not on a docs
-page: it is the line some existing surface prints.** `missing-layer` says
-"runway, not a todo: the rules arm when code lands", and that one line is the
-whole position on declaring ahead of the code. `renderCoverage` says enforcement
-is vacuous rather than reporting it green. `unavailableGate` says a gate you
-cannot open is not a gate. **None of those three appears anywhere under
-`docs/`** — a grep there finds the fourth (`utils/` is a junk drawer that grows
-until everything imports it) and misses the rest.
+## Looking up and changing an existing stance
 
-Which is the section above read from the other end: messages carry their cause,
-so the messages are where the causes are kept. So **look a position up by
-reading what the tool already says out loud** — `src/inspect/`, `src/emit/`,
-the CLI help and the published pages together — and extend that answer instead
-of writing a second one beside it. Two positions on one question is a
-contradiction, and an adopter meets it before we do.
+New work raises questions its ticket does not answer: what defaults, what the
+tool refuses to decide, and what happens before code exists. Before inventing
+an answer, find its authority in this order:
+
+1. Identify the runtime, config, resolver, or other domain owner of the fact.
+2. For operational wording, find the surface in `OPERATIONAL_SURFACES`, then
+   read its renderer owner and fact providers.
+3. Inspect consumer code, tests, and observed output to verify delivery rather
+   than treating their local wording as policy.
+4. Extend the existing fact or renderer authority instead of adding prose
+   beside it.
+
+`missing-layer`, vacuous coverage, and unavailable gates remain useful case
+law, but their consumer output is evidence of a registered decision, not an
+independent source of truth.
+
+For every Blueprint-owned operational-text change:
+
+1. locate the surface in `OPERATIONAL_SURFACES`;
+2. identify its renderer owner and fact providers;
+3. change the authoritative fact source or renderer, never consumer-local prose;
+4. keep target-specific adapter, path, and merge mechanics outside semantic ownership;
+5. never hand-edit composed copies such as `agent-contract.md` or
+   `scripts/field-prompt.md` as the source fix;
+6. run focused tests for the affected surface and `npm run operational:check`;
+7. use `npm run operational:compose` only when intentionally refreshing those
+   checked-in outputs.
+
+This protocol does not add a manual full-suite requirement when Husky or
+exact-head CI already owns the same deterministic gate.
 
 ## Tests & tooling
 

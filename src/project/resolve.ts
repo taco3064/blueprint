@@ -16,6 +16,7 @@ import {
   renderConfigReadFailure,
   renderFrameworkDetectionFailure,
   renderMissingBlueprintExport,
+  renderValidationErrorCause,
 } from '../operational-contract';
 
 export interface ResolveOptions {
@@ -106,7 +107,7 @@ async function loadAuthored(
       legacyConfig: migrated,
     };
   } catch (error) {
-    throw new Error(renderConfigReadFailure(CONFIG_FILE, (error as Error).message));
+    throw new Error(renderConfigReadFailure(CONFIG_FILE, renderValidationErrorCause(error)));
   }
 }
 

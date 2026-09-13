@@ -1,4 +1,4 @@
-export { defineBlueprint, validateBlueprint } from './config';
+export { defineBlueprint, validateBlueprint } from './operational-contract';
 export { emitLint } from './emit/lint';
 export { emitHandbook } from './emit/docs';
 export { emitAgentFiles } from './emit/agent';

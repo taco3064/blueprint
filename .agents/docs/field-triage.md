@@ -51,7 +51,13 @@ The release-blocking count is a reviewed disposition. Mechanical failure, false 
 Before changing Agent-facing wording, ask:
 
 1. Can Blueprint compute the fact? If it can, measure it rather than asking prose to predict the repository.
-2. How many other instances exist? Fix the class and align every generated, CLI, and published surface instead of patching one paragraph.
+2. Is the wording a registered operational surface? If so, locate it in
+   `OPERATIONAL_SURFACES`, change the owning fact source or renderer, and fix
+   the complete registered surface class rather than one consumer.
+3. Did product semantics also change? Audit the separately authored public-doc
+   category against the new behavior when needed. Do not couple website prose,
+   philosophy, marketing, or release narrative into the operational contract
+   merely to make wording identical.
 
 Graduate reproducible product regressions into `src/conformance/` with the fix. Do not add a product exception solely to make a field control pass.
 

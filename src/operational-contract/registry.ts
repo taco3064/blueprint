@@ -139,8 +139,8 @@ export const OPERATIONAL_SURFACES = [
     delivery: 'runtime', audiences: ['CLI users', 'configuration authors'],
     factProviders: ['config validation', 'module graph validation', 'markdown composition'],
     consumers: [
-      'src/config/defineBlueprint.ts', 'src/config/legacy.ts', 'src/config/modules.ts',
-      'src/markdown/markdown.ts',
+      'src/presets/presets.ts', 'src/project/blueprints.ts', 'src/project/resolve.ts',
+      'src/bootstrap/plan.ts',
     ],
     targets: ['config-load errors', 'init errors', 'composition errors'],
     verification: ['validation message tests', 'OperationalText type gate', 'AST bypass guard'],

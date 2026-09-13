@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { validateBlueprint } from './defineBlueprint';
+import { validateBlueprint } from '../operational-contract';
 import type { Blueprint } from './types';
 
 function blueprint(): Blueprint {
