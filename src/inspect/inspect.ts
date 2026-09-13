@@ -8,6 +8,7 @@ import type { Blueprint } from '../config';
 import {
   renderBaselineGateOutput,
   renderBaselineUpdate,
+  renderImportGraphDerivation,
   renderInspectOutput,
   renderTestExemptionOutput,
 } from '../operational-contract';
@@ -22,7 +23,7 @@ import {
 import { computeCoverage, renderCoverage } from './coverage';
 import type { Coverage } from './coverage';
 import { hasErrors, report } from './report';
-import { importAnalysis, importGraphDerivation, scan } from './scan';
+import { importAnalysis, scan } from './scan';
 import type { Finding } from './types';
 
 export interface InspectOptions extends ResolveOptions {
@@ -79,7 +80,7 @@ export async function runInspect(
           findings,
           coverage,
           importAnalysis: importAnalysis(scanResult),
-          derivation: importGraphDerivation('', scanResult),
+          derivation: renderImportGraphDerivation(importAnalysis(scanResult)),
         }, null, 2)
       : renderInspectOutput({
           architecture: report(findings, blueprint.architecture, scanResult),
@@ -162,7 +163,7 @@ function baselineGate(
             stale: split.stale,
             coverage,
             importAnalysis: importAnalysis(scanResult),
-            derivation: importGraphDerivation('', scanResult),
+            derivation: renderImportGraphDerivation(importAnalysis(scanResult)),
           },
           null,
           2,

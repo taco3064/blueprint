@@ -1,7 +1,7 @@
 import { resolveArchitecture } from '../config';
 import type { ArchitectureDef } from '../config';
 import { renderArchitectureReport } from '../operational-contract';
-import { importGraphDerivation } from './scan';
+import { importAnalysis } from './scan';
 import type { Finding, ScanResult } from './types';
 
 export function hasErrors(findings: Finding[]): boolean {
@@ -21,6 +21,6 @@ export function report(
 
   return renderArchitectureReport(findings, {
     ...(topology ? { topology } : {}),
-    derivation: importGraphDerivation('', scan),
+    importGraph: scan === undefined ? null : importAnalysis(scan),
   });
 }

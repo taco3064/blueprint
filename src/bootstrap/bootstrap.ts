@@ -191,7 +191,7 @@ function surveyForTopology(input: InitTopologyInput): SurveyResult | null {
 
 function assertTopologySupported(topology: TopologyDecision): void {
   if (topology.path === null) {
-    throw new Error(topology.reason);
+    throw new Error(topology.reason!);
   }
 }
 

@@ -8,6 +8,7 @@ import {
   renderDoctorCheck,
   renderDoctorReport,
   renderFindingMessage,
+  renderImportGraphDerivation,
   renderMetricGateNote,
   renderModuleContainerImport,
   renderModuleFlowViolation,
@@ -103,7 +104,7 @@ describe('operational coverage prose', () => {
   });
 
   it('keeps an empty architecture report distinct from a finding report', () => {
-    const fact = { derivation: 'Measured from src.' };
+    const fact = { importGraph: null };
     const empty = renderArchitectureReport([], fact);
 
     const finding = renderArchitectureReport([{
@@ -113,9 +114,38 @@ describe('operational coverage prose', () => {
       message: 'use a relative path',
     }], fact);
 
-    expect(empty).toBe('✓ Architecture Success — no violations found.\n\nMeasured from src.');
+    expect(empty).toContain('✓ Architecture Success — no violations found.');
     expect(finding).toContain('[same-layer-alias] src/a.ts');
     expect(finding).not.toContain('Architecture Success');
+  });
+
+  it('renders import-graph limits from measured facts', () => {
+    const fact = {
+      unknownDynamicImports: 3,
+      parseFailures: [{ path: 'src/hooks/b.vue', message: 'broken' }],
+    };
+
+    const text = renderImportGraphDerivation(null);
+    const observed = renderImportGraphDerivation(fact);
+
+    expect(text).toContain('parsed AST and lexical scope');
+    expect(text).toContain('Runtime-dependent expressions');
+    expect(text).toContain('import * as');
+    expect(text).toContain('inside a string');
+    expect(text).toContain('survey');
+    expect(text).toContain('ESLint applies the same bounded');
+    expect(observed).toContain('3 runtime-dependent dynamic import(s)');
+    expect(observed).toContain('1 file parse failure(s)');
+    expect(observed).toContain('neither');
+    expect(observed).toContain('verified legal dependency');
+  });
+
+  it('renders import-graph guidance at the supplied indentation', () => {
+    const text = renderImportGraphDerivation(null);
+    const indented = renderImportGraphDerivation(null, '  ').split('\n');
+
+    expect(indented.every((line) => line.startsWith('  '))).toBe(true);
+    expect(indented.map((line) => line.slice(2))).toEqual(text.split('\n'));
   });
 });
 

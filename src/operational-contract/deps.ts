@@ -1,3 +1,5 @@
+import { renderImportGraphDerivation } from './inspect';
+import type { ImportGraphFact } from './inspect';
 import { operationalText } from './operational-contract';
 import type { OperationalText } from './operational-contract';
 
@@ -24,7 +26,7 @@ export function renderUnknownDependencyTarget(fact: {
 
 export function renderDependencyUnit(
   entry: DependencyUnitFact,
-  fact: { testExemption: string | null; derivation: string },
+  fact: { testExemption: string | null; importGraph: ImportGraphFact },
 ): OperationalText {
   return operationalText([
     entry.unit + (entry.fileLayer ? ' (file-layout layer — answers at layer granularity)' : ''),
@@ -34,13 +36,13 @@ export function renderDependencyUnit(
     ...entry.imports.map((unit) => `    → ${unit}`),
     ...exemptionLine(fact.testExemption),
     '',
-    fact.derivation,
+    renderImportGraphDerivation(fact.importGraph, '  '),
   ]);
 }
 
 export function renderDependencyLeaderboard(
   units: DependencyUnitFact[],
-  fact: { skipped: string[]; testExemption: string | null; derivation: string },
+  fact: { skipped: string[]; testExemption: string | null; importGraph: ImportGraphFact },
 ): OperationalText {
   if (!units.length) {
     return operationalText('No units found inside the declared architecture.');
@@ -62,7 +64,7 @@ export function renderDependencyLeaderboard(
     ...note,
     ...exemptionLine(fact.testExemption),
     '',
-    fact.derivation,
+    renderImportGraphDerivation(fact.importGraph, '  '),
   ]);
 }
 

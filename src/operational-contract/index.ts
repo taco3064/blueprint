@@ -190,10 +190,11 @@ export {
   renderCoverageReport,
   renderCoverageSummary,
   renderInspectOutput,
+  renderImportGraphDerivation,
   renderTestExemptionOutput,
   renderVacuousNextStep,
 } from './inspect';
-export type { BaselineErrorFact, CoverageView, FindingView } from './inspect';
+export type { BaselineErrorFact, CoverageView, FindingView, ImportGraphFact } from './inspect';
 export { renderSurveyReport, renderSurveyScopeNote } from './survey';
 export type { SurveyReportFact } from './survey';
 export {
@@ -245,9 +246,11 @@ export {
   renderAuthoringAgentPrompt,
   renderAuthoringFlowBanner,
   renderContainmentRefusal,
+  renderConfigReadFailure,
   renderDirtyWorktreeReason,
   renderForkNote,
   renderFrameworkDetectionFailure,
+  renderEslintRuntimeFailure,
   renderFreshScaffoldNote,
   renderGitProbeFallback,
   renderGitignoreArtifactComment,
@@ -259,6 +262,7 @@ export {
   renderLegacyUpgradeMessage,
   renderMissingBlueprintExport,
   renderMixedRepositoryTopology,
+  renderModuleToLayerEvidenceTopologyError,
   renderPreflightUnavailable,
   renderScopeCountReason,
   renderStaleContractCause,

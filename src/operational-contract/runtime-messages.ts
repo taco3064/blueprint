@@ -293,3 +293,19 @@ export function renderInitStopped(facts: {
     + '`blueprint init --no-install` — the dependency list is then printed for you to install '
     + 'yourself.');
 }
+
+export function renderConfigReadFailure(location: string, cause: string): OperationalText {
+  return message(`${location}: ${cause}`);
+}
+
+export function renderEslintRuntimeFailure(
+  kind: 'wrong-package' | 'missing-executable',
+): OperationalText {
+  return message(kind === 'wrong-package'
+    ? 'resolved package is not eslint'
+    : 'eslint package has no executable');
+}
+
+export function renderModuleToLayerEvidenceTopologyError(): OperationalText {
+  return message('Module-first → layer-first evidence requires a module-first architecture.');
+}

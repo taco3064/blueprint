@@ -69,20 +69,22 @@ export function renderRepositoryRouterError(facts: {
   applicationRoot: string;
   current: ArchitectureTopologyFact;
   router: 'app' | 'both' | 'pages' | null;
-}): string | null {
+}): OperationalText | null {
   if (facts.router === 'app') {
     return null;
   }
 
   if (facts.current === 'layer-first' && facts.router === null) {
-    return 'Cannot verify a Next.js App Router surface for the repository-wide layer-first → '
+    return operationalText(
+      'Cannot verify a Next.js App Router surface for the repository-wide layer-first → '
       + 'module-first transformation. Establish the application router identity, then re-run. '
-      + 'No files were changed.';
+      + 'No files were changed.',
+    );
   }
 
-  return `Cannot safely transform repository application ${facts.applicationRoot}: its Next.js `
+  return operationalText(`Cannot safely transform repository application ${facts.applicationRoot}: its Next.js `
     + `router state is ${facts.router ?? 'unresolved'}. Resolve the router identity first, `
-    + 'then re-run; no files were changed.';
+    + 'then re-run; no files were changed.');
 }
 
 export function renderRepositoryPreflightError(

@@ -56,7 +56,7 @@ function centralBindings(source: ts.SourceFile): Set<string> {
   return new Set(source.statements.flatMap((node) => {
     if (!ts.isImportDeclaration(node)
       || !ts.isStringLiteral(node.moduleSpecifier)
-      || !/(?:^|\/)operational-contract$/.test(node.moduleSpecifier.text)) {
+      || path.resolve(path.dirname(source.fileName), node.moduleSpecifier.text) !== directory) {
       return [];
     }
 
@@ -122,6 +122,7 @@ interface SinkContext {
   bindings: Set<string>;
   checker?: ts.TypeChecker;
   operational?: ts.Type;
+  ownsDomainErrors?: boolean;
 }
 
 function isCentralRendererCall(node: ts.Expression, context: SinkContext): boolean {
@@ -133,22 +134,17 @@ function isCentralRendererCall(node: ts.Expression, context: SinkContext): boole
     return true;
   }
 
-  if (context.checker === undefined) {
-    return false;
-  }
-
-  const symbol = context.checker.getSymbolAtLocation(node.expression);
-
-  const target = symbol && (symbol.flags & ts.SymbolFlags.Alias)
-    ? context.checker.getAliasedSymbol(symbol)
-    : symbol;
-
-  return Boolean(target?.declarations?.some((declaration) =>
-    path.resolve(declaration.getSourceFile().fileName).startsWith(directory)));
+  return context.checker !== undefined
+    && context.operational !== undefined
+    && context.checker.isTypeAssignableTo(
+      context.checker.getTypeAtLocation(node),
+      context.operational,
+    );
 }
 
 function isGovernedExpression(node: ts.Expression, context: SinkContext): boolean {
-  if (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node)) {
+  if (ts.isAsExpression(node)
+    || ts.isTypeAssertionExpression(node)) {
     return isGovernedExpression(node.expression, context);
   }
 
@@ -169,35 +165,111 @@ function isGovernedExpression(node: ts.Expression, context: SinkContext): boolea
     );
 }
 
+function violationAt(source: ts.SourceFile, node: ts.Node): string {
+  const line = source.getLineAndCharacterOfPosition(node.getStart()).line + 1;
+
+  return `${source.fileName}:${line}`;
+}
+
+function deepImportViolation(node: ts.Node, source: ts.SourceFile): string | null {
+  if (!ts.isImportDeclaration(node) || !ts.isStringLiteral(node.moduleSpecifier)) {
+    return null;
+  }
+
+  const target = path.resolve(path.dirname(source.fileName), node.moduleSpecifier.text);
+
+  return target.startsWith(`${directory}${path.sep}`)
+    ? violationAt(source, node)
+    : null;
+}
+
+function brandAssertionViolation(node: ts.Node, source: ts.SourceFile): string | null {
+  if (!ts.isAsExpression(node) && !ts.isTypeAssertionExpression(node)) {
+    return null;
+  }
+
+  return node.type.getText() === 'OperationalText'
+    ? violationAt(source, node)
+    : null;
+}
+
+function outputSinkViolation(
+  node: ts.Node,
+  source: ts.SourceFile,
+  context: SinkContext,
+): string | null {
+  if (!ts.isCallExpression(node) || !isOutputSink(node)) {
+    return null;
+  }
+
+  const argument = node.arguments[0];
+
+  return argument !== undefined
+    && !isGovernedExpression(argument, context)
+    && !isForwardedConsoleParameter(node)
+    ? violationAt(source, argument)
+    : null;
+}
+
+function noteViolation(
+  node: ts.Node,
+  source: ts.SourceFile,
+  context: SinkContext,
+): string | null {
+  if (!ts.isPropertyAssignment(node)) {
+    return null;
+  }
+
+  const note = (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name))
+    && node.name.text === 'note';
+
+  return note && !isGovernedExpression(node.initializer, context)
+    ? violationAt(source, node.initializer)
+    : null;
+}
+
+function errorViolation(
+  node: ts.Node,
+  source: ts.SourceFile,
+  context: SinkContext,
+): string | null {
+  if (context.ownsDomainErrors
+    || !ts.isNewExpression(node)
+    || !ts.isIdentifier(node.expression)
+    || node.expression.text !== 'Error') {
+    return null;
+  }
+
+  const argument = node.arguments?.[0];
+
+  return argument !== undefined && !isGovernedExpression(argument, context)
+    ? violationAt(source, argument)
+    : null;
+}
+
 function sinkViolations(
   source: ts.SourceFile,
   checker?: ts.TypeChecker,
   operational?: ts.Type,
 ): string[] {
   const violations: string[] = [];
-  const context = { bindings: centralBindings(source), checker, operational };
+  const relative = path.relative(repository, source.fileName).split(path.sep).join('/');
+
+  const ownsDomainErrors = relative.startsWith('src/config/')
+    || relative.startsWith('src/markdown/');
+
+  const context = { bindings: centralBindings(source), checker, operational, ownsDomainErrors };
 
   const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && isOutputSink(node)) {
-      const argument = node.arguments[0];
+    const found = [
+      deepImportViolation(node, source),
+      brandAssertionViolation(node, source),
+      outputSinkViolation(node, source, context),
+      noteViolation(node, source, context),
+      errorViolation(node, source, context),
+    ].filter((violation): violation is string => violation !== null);
 
-      if (argument !== undefined
-        && !isGovernedExpression(argument, context)
-        && !isForwardedConsoleParameter(node)) {
-        const line = source.getLineAndCharacterOfPosition(argument.getStart()).line + 1;
-
-        violations.push(`${source.fileName}:${line}`);
-      }
-    }
-
-    if (ts.isPropertyAssignment(node)
-      && ((ts.isIdentifier(node.name) && node.name.text === 'note')
-        || (ts.isStringLiteral(node.name) && node.name.text === 'note'))
-      && !isGovernedExpression(node.initializer, context)) {
-      const line = source.getLineAndCharacterOfPosition(node.initializer.getStart()).line + 1;
-
-      violations.push(`${source.fileName}:${line}`);
-    }
+    violations.push(...found);
 
     ts.forEachChild(node, visit);
   };
@@ -269,7 +341,9 @@ describe('operational surface registry', () => {
 
     expect(violations).toEqual([]);
   });
+});
 
+describe('operational sink bypass guard', () => {
   it('rejects short, split, and indirect prose at an unregistered sink', () => {
     const source = ts.createSourceFile(
       'unregistered.ts',
@@ -280,6 +354,7 @@ describe('operational surface registry', () => {
         'log(indirect);',
         'const action = { note: "fourth" };',
         'log(JSON.stringify("fifth"));',
+        'throw new Error("sixth");',
       ].join('\n'),
       ts.ScriptTarget.Latest,
       true,
@@ -291,6 +366,42 @@ describe('operational surface registry', () => {
       'unregistered.ts:4',
       'unregistered.ts:5',
       'unregistered.ts:6',
+      'unregistered.ts:7',
+    ]);
+  });
+
+  it('rejects deep-import access to the operational text brand', () => {
+    const source = ts.createSourceFile(
+      path.join(repository, 'src/unregistered.ts'),
+      [
+        'import { operationalText } from \'./operational-contract/operational-contract\';',
+        'log(operationalText(\'local prose\'));',
+      ].join('\n'),
+      ts.ScriptTarget.Latest,
+      true,
+    );
+
+    expect(sinkViolations(source)).toEqual([
+      `${source.fileName}:1`,
+      `${source.fileName}:2`,
+    ]);
+  });
+
+  it('rejects forging the operational text brand with a type assertion', () => {
+    const source = ts.createSourceFile(
+      path.join(repository, 'src/unregistered.ts'),
+      [
+        'import type { OperationalText } from \'./operational-contract\';',
+        'const forged = \'local prose\' as OperationalText;',
+        'log(forged);',
+      ].join('\n'),
+      ts.ScriptTarget.Latest,
+      true,
+    );
+
+    expect(sinkViolations(source)).toEqual([
+      `${source.fileName}:2`,
+      `${source.fileName}:3`,
     ]);
   });
 });

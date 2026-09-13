@@ -5,12 +5,13 @@ import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
 import { testFileReach } from './coverage';
 import { buildUnitGraph, normalizedUnitKey } from './resolve';
-import { importAnalysis, importGraphDerivation, scan } from './scan';
+import { importAnalysis, scan } from './scan';
 import type { ScanResult } from './types';
 import {
   renderDependencyLeaderboard,
   renderDependencyTestExemption,
   renderDependencyUnit,
+  renderImportGraphDerivation,
   renderUnknownDependencyTarget,
 } from '../operational-contract';
 
@@ -65,7 +66,7 @@ export async function runDeps(
             skipped,
             ...exemptionKey(testExemption),
             importAnalysis: importAnalysis(scanned),
-            derivation: importGraphDerivation('', scanned),
+            derivation: renderImportGraphDerivation(importAnalysis(scanned)),
           },
           null,
           2,
@@ -78,7 +79,7 @@ export async function runDeps(
           {
             skipped,
             testExemption,
-            derivation: importGraphDerivation('  ', scanned),
+            importGraph: importAnalysis(scanned),
           },
         ),
   );
@@ -166,7 +167,7 @@ function reportTarget(
             ...found,
             ...exemptionKey(testExemption),
             importAnalysis: importAnalysis(scanned),
-            derivation: importGraphDerivation('', scanned),
+            derivation: renderImportGraphDerivation(importAnalysis(scanned)),
           },
           null,
           2,
@@ -176,7 +177,7 @@ function reportTarget(
           fileLayer: isFileLayer(found.unit, architecture),
         }, {
           testExemption,
-          derivation: importGraphDerivation('  ', scanned),
+          importGraph: importAnalysis(scanned),
         }),
   );
 

@@ -167,20 +167,24 @@ export function renderTransformationAction(
 
 export function renderLayerToModuleRouterError(
   router: ProjectTransformationFact['nextRouter'],
-): string | null {
+): OperationalText | null {
   if (router === 'app') {
     return null;
   }
 
   if (router === null) {
-    return 'Cannot verify a Next.js App Router surface for this layer-first → module-first '
+    return operationalText(
+      'Cannot verify a Next.js App Router surface for this layer-first → module-first '
       + 'transformation. Establish one application scope with a physical `app/**` tree, then '
-      + 're-run `blueprint init --topology module-first`. No files were changed.';
+      + 're-run `blueprint init --topology module-first`. No files were changed.',
+    );
   }
 
-  return 'Next.js Pages Router → module-first requires a framework router migration, not a '
+  return operationalText(
+    'Next.js Pages Router → module-first requires a framework router migration, not a '
     + 'folder-only topology transformation. Migrate to App Router separately, then re-run '
-    + '`blueprint init --topology module-first`. No files were changed.';
+    + '`blueprint init --topology module-first`. No files were changed.',
+  );
 }
 
 export function renderModuleToLayerAuthorityError(): string {

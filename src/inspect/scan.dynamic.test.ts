@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   extractImportAnalysis,
   importAnalysis,
-  importGraphDerivation,
 } from './scan';
 
 describe('inspect import analysis · dynamic imports', () => {
@@ -94,12 +93,5 @@ describe('inspect import analysis · dynamic imports', () => {
       unknownDynamicImports: 3,
       parseFailures: [{ path: 'src/hooks/b.vue', message: 'broken' }],
     });
-
-    const prose = importGraphDerivation('', scan);
-
-    expect(prose).toContain('3 runtime-dependent dynamic import(s)');
-    expect(prose).toContain('1 file parse failure(s)');
-    expect(prose).toContain('neither');
-    expect(prose).toContain('verified legal dependency');
   });
 });
