@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { renderMissingBlueprintExport } from '../operational-contract';
+import { renderConfigReadFailure, renderMissingBlueprintExport } from '../operational-contract';
 
 import {
   isLegacyBlueprintMigration,
@@ -116,7 +116,10 @@ async function loadBlueprint(
 
     return { blueprint, legacyConfig };
   } catch (error) {
-    throw new Error(`${path.relative(path.dirname(file), file)} at ${file}: ${(error as Error).message}`);
+    throw new Error(renderConfigReadFailure(
+      `${path.relative(path.dirname(file), file)} at ${file}`,
+      (error as Error).message,
+    ));
   }
 }
 

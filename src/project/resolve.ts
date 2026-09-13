@@ -13,6 +13,7 @@ import { CONFIG_FILE } from './detect';
 import { versionedModuleUrl } from './load';
 import type { ProjectState } from './types';
 import {
+  renderConfigReadFailure,
   renderFrameworkDetectionFailure,
   renderMissingBlueprintExport,
 } from '../operational-contract';
@@ -105,7 +106,7 @@ async function loadAuthored(
       legacyConfig: migrated,
     };
   } catch (error) {
-    throw new Error(`${CONFIG_FILE}: ${(error as Error).message}`);
+    throw new Error(renderConfigReadFailure(CONFIG_FILE, (error as Error).message));
   }
 }
 

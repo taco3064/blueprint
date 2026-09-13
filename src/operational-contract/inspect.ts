@@ -18,6 +18,11 @@ export interface CoverageView {
   testExemption?: string;
 }
 
+export interface ImportGraphFact {
+  unknownDynamicImports: number;
+  parseFailures: { path: string; message: string }[];
+}
+
 export type BaselineErrorFact
   = | { kind: 'invalid-json' }
     | { kind: 'unexpected-shape' }
@@ -98,10 +103,15 @@ export function renderBaselineUpdate(fact: {
 
 export function renderArchitectureReport(
   findings: FindingView[],
-  fact: { topology?: 'Layer → Unit' | 'Module → Layer → Unit'; derivation: string },
+  fact: {
+    topology?: 'Layer → Unit' | 'Module → Layer → Unit';
+    importGraph: ImportGraphFact | null;
+  },
 ): string {
+  const derivation = renderImportGraphDerivation(fact.importGraph);
+
   if (!findings.length) {
-    return `✓ Architecture Success — no violations found.\n\n${fact.derivation}`;
+    return `✓ Architecture Success — no violations found.\n\n${derivation}`;
   }
 
   const counts = { error: 0, warn: 0, info: 0 };
@@ -134,8 +144,32 @@ export function renderArchitectureReport(
     `${counts.error} error(s), ${counts.warn} warning(s), ${counts.info} note(s)`,
     ...(steps.length ? ['', 'Recommended migration steps:', ...steps] : []),
     '',
-    fact.derivation,
+    derivation,
   ].join('\n');
+}
+
+export function renderImportGraphDerivation(
+  analysis: ImportGraphFact | null,
+  indent = '',
+): OperationalText {
+  const observed = analysis === null
+    ? []
+    : [
+        `${indent}This scan left ${analysis.unknownDynamicImports} runtime-dependent dynamic import(s)`,
+        `${indent}unresolved and encountered ${analysis.parseFailures.length} file parse failure(s); neither`,
+        `${indent}case becomes an edge or a verified legal dependency.`,
+      ];
+
+  return operationalText([
+    `${indent}How this graph was read: static import/export and quoted require targets come from`,
+    `${indent}source syntax; dynamic import targets come from a parsed AST and lexical scope when`,
+    `${indent}they reduce to a proven string (including immutable local strings, concatenation, and`,
+    `${indent}template substitution). Runtime-dependent expressions, individual names behind`,
+    `${indent}\`import * as\`, and import-like text inside a string remain outside the graph — read`,
+    `${indent}it as a survey, not as the last word on any one import. ESLint applies the same bounded`,
+    `${indent}dynamic evaluation while enforcing architectural boundaries.`,
+    ...observed,
+  ]);
 }
 
 function migrationStep(

@@ -32,29 +32,6 @@ function extractNames(clause: string): string[] {
   return braced[1].split(',').map(importedName).filter(Boolean);
 }
 
-export function importGraphDerivation(indent = '', scan?: ScanResult): string {
-  const analysis = scan ? importAnalysis(scan) : null;
-
-  const observed = analysis === null
-    ? []
-    : [
-        `${indent}This scan left ${analysis.unknownDynamicImports} runtime-dependent dynamic import(s)`,
-        `${indent}unresolved and encountered ${analysis.parseFailures.length} file parse failure(s); neither`,
-        `${indent}case becomes an edge or a verified legal dependency.`,
-      ];
-
-  return [
-    `${indent}How this graph was read: static import/export and quoted require targets come from`,
-    `${indent}source syntax; dynamic import targets come from a parsed AST and lexical scope when`,
-    `${indent}they reduce to a proven string (including immutable local strings, concatenation, and`,
-    `${indent}template substitution). Runtime-dependent expressions, individual names behind`,
-    `${indent}\`import * as\`, and import-like text inside a string remain outside the graph — read`,
-    `${indent}it as a survey, not as the last word on any one import. ESLint applies the same bounded`,
-    `${indent}dynamic evaluation while enforcing architectural boundaries.`,
-    ...observed,
-  ].join('\n');
-}
-
 export function extractImports(source: string, filePath = 'source.js'): ImportRef[] {
   return extractImportAnalysis(source, filePath).imports;
 }

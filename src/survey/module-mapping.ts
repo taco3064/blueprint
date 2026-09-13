@@ -3,6 +3,7 @@ import path from 'node:path';
 import { resolveArchitecture } from '../config';
 import type { ArchitectureDef } from '../config';
 import { dropTestFiles, importAnalysis, scan } from '../inspect';
+import { renderModuleToLayerEvidenceTopologyError } from '../operational-contract';
 import type { SurveyResult } from './survey';
 import { collectTransformationEvidence } from './candidates';
 import type {
@@ -59,7 +60,7 @@ export function collectModuleToLayerEvidence(
   const resolved = resolveArchitecture(architecture);
 
   if (resolved.topology !== 'module-first') {
-    throw new Error('Module-first → layer-first evidence requires a module-first architecture.');
+    throw new Error(renderModuleToLayerEvidenceTopologyError());
   }
 
   const scanned = dropTestFiles(scan(root, resolved.sourceRoot), architecture.testFiles);

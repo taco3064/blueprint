@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 
 import type { LintEntrypointAssessment } from '../project';
+import { renderEslintRuntimeFailure } from '../operational-contract';
 
 export interface LiveLintEvidence {
   status: 'passed' | 'failed' | 'unverified';
@@ -123,13 +124,13 @@ function declaredEslintBin(packageFile: string): string {
   const declared = bin.eslint;
 
   if (manifest.name !== 'eslint') {
-    throw new Error('resolved package is not eslint');
+    throw new Error(renderEslintRuntimeFailure('wrong-package'));
   }
 
   // Invalid values fail identically in path.resolve or the directory check below.
   // Stryker disable next-line BlockStatement,ConditionalExpression,LogicalOperator
   if (typeof declared !== 'string' || !declared) {
-    throw new Error('eslint package has no executable');
+    throw new Error(renderEslintRuntimeFailure('missing-executable'));
   }
 
   return declared;

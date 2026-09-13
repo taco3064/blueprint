@@ -2,6 +2,7 @@ import { resolveArchitecture } from '../config';
 import type { ArchitectureDef } from '../config';
 import type { SurveyResult } from '../survey';
 import { renderTopologyReason } from '../operational-contract';
+import type { OperationalText } from '../operational-contract';
 
 export type ArchitectureTopology = 'layer-first' | 'module-first';
 
@@ -17,7 +18,7 @@ export interface TopologyDecision extends TopologyObservation {
   target: ArchitectureTopology | null;
   operation: 'initialize' | 'adopt' | 'repair' | 'transformation-required' | 'abort';
   path: 'scaffold' | 'authoring' | 'transformation' | null;
-  reason?: string;
+  reason?: OperationalText;
 }
 
 export interface TopologySelection {
