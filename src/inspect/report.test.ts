@@ -53,6 +53,21 @@ describe('report', () => {
     expect(out).toContain('declared Module → Layer → Unit topology');
   });
 
+  it('carries supplied scan limitations into the rendered derivation', () => {
+    const out = report(findings, architecture, {
+      topDirs: [],
+      files: [{
+        path: 'src/broken.ts',
+        segments: ['broken.ts'],
+        imports: [],
+        importAnalysis: { unknownDynamicImports: 2, parseError: 'broken syntax' },
+      }],
+    });
+
+    expect(out).toContain('2 runtime-dependent dynamic import(s)');
+    expect(out).toContain('1 file parse failure(s)');
+  });
+
   it('omits the migration section when no rule has a step', () => {
     const out = report([{
       severity: 'info',

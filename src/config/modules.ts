@@ -1,4 +1,5 @@
 import type { ModuleDef } from './types';
+import { renderValidationError } from '../operational-contract/validation-errors';
 
 export interface ResolvedModule {
   definition: ModuleDef;
@@ -49,22 +50,23 @@ function validateDependency(scope: {
   const { module, dependency, names, seen } = scope;
 
   if (typeof dependency !== 'string' || !dependency.trim()) {
-    throw new Error(`Module "${module}" has a dependsOn entry with no module name.`);
+    throw new Error(renderValidationError({ kind: 'module-dependency-empty', module }));
   }
 
   if (dependency === module) {
-    throw new Error(`Module "${module}" cannot depend on itself.`);
+    throw new Error(renderValidationError({ kind: 'module-self-dependency', module }));
   }
 
   if (seen.has(dependency)) {
-    throw new Error(`Module "${module}" lists direct dependency "${dependency}" more than once.`);
+    throw new Error(renderValidationError({
+      kind: 'module-duplicate-dependency', module, dependency,
+    }));
   }
 
   if (!names.has(dependency)) {
-    throw new Error(
-      `Module "${module}" depends on unknown module "${dependency}" — `
-      + 'declare that module in architecture.modules or remove the edge.',
-    );
+    throw new Error(renderValidationError({
+      kind: 'module-unknown-dependency', module, dependency,
+    }));
   }
 }
 
@@ -88,11 +90,9 @@ function assertAcyclicModules(names: string[], direct: Map<string, string[]>): v
       const cycleStart = active.get(dependency);
 
       if (cycleStart !== undefined) {
-        throw new Error(
-          `architecture.modules dependency cycle: ${[
-            ...path.slice(cycleStart), dependency,
-          ].join(' → ')}.`,
-        );
+        throw new Error(renderValidationError({
+          kind: 'module-cycle', path: [...path.slice(cycleStart), dependency],
+        }));
       }
 
       visit(dependency);

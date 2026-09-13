@@ -135,6 +135,17 @@ export const OPERATIONAL_SURFACES = [
     verification: ['command coverage tests'],
   },
   {
+    id: 'validation-errors', owner: 'validation-errors.ts', channel: 'cli',
+    delivery: 'runtime', audiences: ['CLI users', 'configuration authors'],
+    factProviders: ['config validation', 'module graph validation', 'markdown composition'],
+    consumers: [
+      'src/config/defineBlueprint.ts', 'src/config/legacy.ts', 'src/config/modules.ts',
+      'src/markdown/markdown.ts',
+    ],
+    targets: ['config-load errors', 'init errors', 'composition errors'],
+    verification: ['validation message tests', 'OperationalText type gate', 'AST bypass guard'],
+  },
+  {
     id: 'field-prompt', owner: 'field-prompt.ts', channel: 'field',
     delivery: 'checked-in', audiences: ['field agents'], factProviders: ['selected topology'],
     consumers: ['scripts/operational-compose.mjs'], targets: ['scripts/field-prompt.md'],

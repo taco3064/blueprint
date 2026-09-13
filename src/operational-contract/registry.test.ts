@@ -41,6 +41,28 @@ function compilerProgram(): ts.Program {
   return ts.createProgram(config.fileNames, config.options);
 }
 
+function compilerProgramWithSource(file: string, text: string): ts.Program {
+  const configFile = ts.readConfigFile(
+    path.join(repository, 'tsconfig.test.json'),
+    ts.sys.readFile,
+  );
+
+  const config = ts.parseJsonConfigFileContent(configFile.config, ts.sys, repository);
+  const host = ts.createCompilerHost(config.options);
+  const absolute = path.resolve(file);
+  const originalFileExists = host.fileExists.bind(host);
+  const originalReadFile = host.readFile.bind(host);
+
+  host.fileExists = (candidate) => path.resolve(candidate) === absolute
+    || originalFileExists(candidate);
+
+  host.readFile = (candidate) => path.resolve(candidate) === absolute
+    ? text
+    : originalReadFile(candidate);
+
+  return ts.createProgram([...config.fileNames, absolute], config.options, host);
+}
+
 function operationalTextType(program: ts.Program): ts.Type {
   const source = program.getSourceFile(path.join(directory, 'operational-contract.ts'))!;
 
@@ -122,7 +144,6 @@ interface SinkContext {
   bindings: Set<string>;
   checker?: ts.TypeChecker;
   operational?: ts.Type;
-  ownsDomainErrors?: boolean;
 }
 
 function isCentralRendererCall(node: ts.Expression, context: SinkContext): boolean {
@@ -178,17 +199,30 @@ function deepImportViolation(node: ts.Node, source: ts.SourceFile): string | nul
 
   const target = path.resolve(path.dirname(source.fileName), node.moduleSpecifier.text);
 
-  return target.startsWith(`${directory}${path.sep}`)
+  return target === path.join(directory, 'operational-contract')
     ? violationAt(source, node)
     : null;
 }
 
-function brandAssertionViolation(node: ts.Node, source: ts.SourceFile): string | null {
+function brandAssertionViolation(
+  node: ts.Node,
+  source: ts.SourceFile,
+  context: SinkContext,
+): string | null {
   if (!ts.isAsExpression(node) && !ts.isTypeAssertionExpression(node)) {
     return null;
   }
 
-  return node.type.getText() === 'OperationalText'
+  const asserted = context.checker?.getTypeAtLocation(node.type);
+
+  const resolvesToOperational = asserted !== undefined
+    && context.checker !== undefined
+    && context.operational !== undefined
+    && context.checker.isTypeAssignableTo(asserted, context.operational)
+    && context.checker.isTypeAssignableTo(context.operational, asserted);
+
+  return resolvesToOperational
+    || (context.checker === undefined && node.type.getText() === 'OperationalText')
     ? violationAt(source, node)
     : null;
 }
@@ -233,8 +267,7 @@ function errorViolation(
   source: ts.SourceFile,
   context: SinkContext,
 ): string | null {
-  if (context.ownsDomainErrors
-    || !ts.isNewExpression(node)
+  if (!ts.isNewExpression(node)
     || !ts.isIdentifier(node.expression)
     || node.expression.text !== 'Error') {
     return null;
@@ -253,17 +286,12 @@ function sinkViolations(
   operational?: ts.Type,
 ): string[] {
   const violations: string[] = [];
-  const relative = path.relative(repository, source.fileName).split(path.sep).join('/');
-
-  const ownsDomainErrors = relative.startsWith('src/config/')
-    || relative.startsWith('src/markdown/');
-
-  const context = { bindings: centralBindings(source), checker, operational, ownsDomainErrors };
+  const context = { bindings: centralBindings(source), checker, operational };
 
   const visit = (node: ts.Node): void => {
     const found = [
       deepImportViolation(node, source),
-      brandAssertionViolation(node, source),
+      brandAssertionViolation(node, source, context),
       outputSinkViolation(node, source, context),
       noteViolation(node, source, context),
       errorViolation(node, source, context),
@@ -387,21 +415,34 @@ describe('operational sink bypass guard', () => {
     ]);
   });
 
-  it('rejects forging the operational text brand with a type assertion', () => {
-    const source = ts.createSourceFile(
-      path.join(repository, 'src/unregistered.ts'),
-      [
-        'import type { OperationalText } from \'./operational-contract\';',
-        'const forged = \'local prose\' as OperationalText;',
-        'log(forged);',
-      ].join('\n'),
-      ts.ScriptTarget.Latest,
-      true,
-    );
+  it('does not exempt config or markdown domain errors from central ownership', () => {
+    for (const area of ['config', 'markdown']) {
+      const source = ts.createSourceFile(
+        path.join(repository, `src/${area}/rogue.ts`),
+        'throw new Error("local prose");',
+        ts.ScriptTarget.Latest,
+        true,
+      );
 
-    expect(sinkViolations(source)).toEqual([
+      expect(sinkViolations(source)).toEqual([`${source.fileName}:1`]);
+    }
+  });
+
+  it('rejects forging the operational text brand through an aliased type', () => {
+    const file = path.join(repository, 'src/unregistered.ts');
+
+    const text = [
+      'import type { OperationalText as OT } from \'./operational-contract\';',
+      'const forged = \'local prose\' as OT;',
+      'log(forged);',
+    ].join('\n');
+
+    const program = compilerProgramWithSource(file, text);
+    const source = program.getSourceFile(file)!;
+    const checker = program.getTypeChecker();
+
+    expect(sinkViolations(source, checker, operationalTextType(program))).toEqual([
       `${source.fileName}:2`,
-      `${source.fileName}:3`,
     ]);
   });
 });
