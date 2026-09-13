@@ -115,7 +115,7 @@ architecture: {
 | `name` | 必填非空 `string` | 資料夾／分層識別碼。不得重複，也不能是路徑或保留的產出檔名。 |
 | `does` | 必填 `string` | 一行責任說明，會寫入產出守則。 |
 | `mustNot` | `string[]`，預設 `[]` | 不該承擔的責任，由人與 Agent 判斷。 |
-| `layout` | `'folder' \| 'file'`，預設 `'folder'` | Folder layout 的單元具有公開入口；file layout 採分層粒度的相依關係。 |
+| `layout` | `'folder' \| 'file'`，預設 `'file'` | Folder layout 的單元具有公開入口；file layout 採分層粒度的相依關係。 |
 | `entry` | `string`，預設 `'index'` | Folder layout 單元的公開入口檔名。 |
 | `allowedImporters` | 選填 `(string \| AllowedImporter)[]` | 縮小哪些上游層可以匯入本層；省略時允許所有較早宣告的層。 |
 | `owns` | `OwnedPrimitive[]`，預設 `[]` | 只允許本層使用的套件、具名匯入或全域物件。 |

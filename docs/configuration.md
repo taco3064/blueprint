@@ -119,7 +119,7 @@ position; it is not an ordinary domain module and does not repeat the shared lay
 | `name` | non-empty `string`, required | Folder/layer identity. Names must be unique and cannot be paths or reserved generated-artifact names. |
 | `does` | `string`, required | One-line responsibility rendered into generated guidance. |
 | `mustNot` | `string[]`, default `[]` | Prohibited responsibilities in prose; reviewed by people and Agents. |
-| `layout` | `'folder' \| 'file'`, default `'folder'` | Folder units have public entries; file layout uses layer-level dependency granularity. |
+| `layout` | `'folder' \| 'file'`, default `'file'` | Folder units have public entries; file layout uses layer-level dependency granularity. |
 | `entry` | `string`, default `'index'` | Public entry filename for folder-layout units. |
 | `allowedImporters` | `(string \| AllowedImporter)[]`, optional | Narrows which earlier layers may import this layer. Omission allows every earlier layer. |
 | `owns` | `OwnedPrimitive[]`, default `[]` | Packages, named imports, or globals that only this layer may use. |
