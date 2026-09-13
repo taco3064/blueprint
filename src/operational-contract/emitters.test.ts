@@ -4,6 +4,7 @@ import type { ArchitectureDef, Blueprint } from '../config';
 import {
   renderArchitecture,
   renderCompactContract,
+  renderHardRules,
   renderPlacement,
 } from '.';
 
@@ -42,13 +43,17 @@ describe('operational contract emitters', () => {
       rules: { maxLines: { tier: 'error', value: 250 }, cycles: 'error' },
     };
 
+    const gates = [
+      { id: 'maxLines', setting: blueprint.rules!.maxLines, holder: 'lint' as const },
+      { id: 'cycles', setting: blueprint.rules!.cycles, holder: 'inspect' as const },
+    ];
+
     const output = renderCompactContract(blueprint, {
       handbook: 'architecture/team-contract.md',
-      gates: [
-        { id: 'maxLines', setting: blueprint.rules!.maxLines, holder: 'lint' },
-        { id: 'cycles', setting: blueprint.rules!.cycles, holder: 'inspect' },
-      ],
+      gates,
     });
+
+    const hardRules = renderHardRules(blueprint, gates);
 
     expect(output).toContain(
       '[architecture/team-contract.md](architecture/team-contract.md)',
@@ -56,6 +61,10 @@ describe('operational contract emitters', () => {
 
     expect(output).toContain('`maxLines` = 250 fail the project\'s lint run');
     expect(output).toContain('`cycles` is diagnosed only when');
+
+    expect(hardRules).toContain('`maxLines` = 250 is a hard gate');
+    expect(hardRules).not.toContain('`maxLines` = 250 is diagnosed only when');
+    expect(hardRules).toContain('`cycles` is diagnosed only when');
   });
 
   it('distinguishes layer-first and module-first compact topology facts', () => {
