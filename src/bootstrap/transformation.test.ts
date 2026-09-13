@@ -192,6 +192,7 @@ describe('transformation actions', () => {
     }
   });
 
+  // eslint-disable-next-line max-statements
   it('applies the playbook with the injected installer and applied-action narration', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blueprint-forward-apply-'));
 
@@ -220,23 +221,45 @@ describe('transformation actions', () => {
       const commands: string[] = [];
       const logs: string[] = [];
 
-      await runLayerToModuleTransformation({
+      const common = {
         root,
         state: { ...state(), root },
-        options: { exec: (command) => commands.push(command) },
-        log: (message) => logs.push(message),
         survey: null,
         architecture: null,
         topology: {
-          current: 'layer-first',
-          repository: 'layer-first',
-          target: 'module-first',
-          source: 'configured',
+          current: 'layer-first' as const,
+          repository: 'layer-first' as const,
+          target: 'module-first' as const,
+          source: 'configured' as const,
           selectedApplication: 'src',
-          operation: 'transformation-required',
-          path: 'transformation',
+          operation: 'transformation-required' as const,
+          path: 'transformation' as const,
         },
+      };
+
+      const dryLogs: string[] = [];
+
+      await runLayerToModuleTransformation({
+        ...common,
+        options: { dryRun: true, install: false },
+        log: (message) => dryLogs.push(message),
       });
+
+      await runLayerToModuleTransformation({
+        ...common,
+        options: { exec: (command) => commands.push(command) },
+        log: (message) => logs.push(message),
+      });
+
+      expect(dryLogs[0]).toBe(
+        'blueprint init --dry-run · layer-first → module-first transformation authoring '
+        + '(1 source files surveyed; Git preflight passed)',
+      );
+
+      expect(logs[0]).toBe(
+        'blueprint init · layer-first → module-first transformation authoring '
+        + '(1 source files surveyed; Git preflight passed)',
+      );
 
       expect(commands).toEqual(['npm install -D @kekkai/blueprint']);
       expect(logs.some((message) => message.includes('  ✓ install:'))).toBe(true);

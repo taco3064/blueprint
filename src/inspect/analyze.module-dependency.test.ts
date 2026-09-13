@@ -138,6 +138,9 @@ describe('analyze · module dependency DAG', () => {
 
     expect(entry.filter((finding) => finding.rule === 'deep-import')).toEqual([]);
     expect(internal.filter((finding) => finding.rule === 'deep-import')).toHaveLength(1);
+
+    expect(internal.find((finding) => finding.rule === 'deep-import')?.message)
+      .toContain('"~app/auth/services/api/internal" reaches inside a unit');
   });
 });
 

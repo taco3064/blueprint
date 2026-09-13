@@ -163,6 +163,14 @@ describe('runDoctor · live eslint evidence', () => {
     }, assessment).detail).toContain('the native ESLint gate failed');
 
     expect(liveLintCheck({
+      status: 'failed',
+      command: 'eslint .',
+      errors: 1,
+      warnings: 0,
+      reason: 'configuration rejected',
+    }, assessment).detail).toContain('configuration rejected');
+
+    expect(liveLintCheck({
       status: 'unverified',
       command: null,
       errors: 0,

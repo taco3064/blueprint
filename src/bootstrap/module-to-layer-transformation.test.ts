@@ -186,9 +186,32 @@ describe('module-first to layer-first Agent launch', () => {
       const commands: string[] = [];
       const logs: string[] = [];
 
-      await runModuleToLayerTransformation({
+      const common = {
         root,
         state: state({ root }),
+        survey: null,
+        topology: {
+          current: 'module-first' as const,
+          repository: 'module-first' as const,
+          target: 'layer-first' as const,
+          source: 'configured' as const,
+          selectedApplication: 'src',
+          operation: 'transformation-required' as const,
+          path: 'transformation' as const,
+        },
+        architecture,
+      };
+
+      const dryLogs: string[] = [];
+
+      await runModuleToLayerTransformation({
+        ...common,
+        options: { dryRun: true, install: false },
+        log: (message) => dryLogs.push(message),
+      });
+
+      await runModuleToLayerTransformation({
+        ...common,
         options: {
           agent: 'codex',
           exec: (command) => commands.push(command),
@@ -199,18 +222,17 @@ describe('module-first to layer-first Agent launch', () => {
           },
         },
         log: (message) => logs.push(message),
-        survey: null,
-        topology: {
-          current: 'module-first',
-          repository: 'module-first',
-          target: 'layer-first',
-          source: 'configured',
-          selectedApplication: 'src',
-          operation: 'transformation-required',
-          path: 'transformation',
-        },
-        architecture,
       });
+
+      expect(dryLogs[0]).toBe(
+        'blueprint init --dry-run · module-first → layer-first transformation authoring '
+        + '(1 source files surveyed; Git preflight passed)',
+      );
+
+      expect(logs[0]).toBe(
+        'blueprint init · module-first → layer-first transformation authoring '
+        + '(1 source files surveyed; Git preflight passed)',
+      );
 
       expect(launches).toEqual([`codex:${root}:true`]);
       expect(commands).toEqual(['npm install -D @kekkai/blueprint']);

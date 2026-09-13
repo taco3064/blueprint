@@ -39,7 +39,10 @@ describe('analyze · folders', () => {
   });
 
   it('warns when a module has no entry file, but not when it does', () => {
-    expect(rulesFor([file(['components', 'Button', 'Button.ts'])])).toContain('no-entry');
+    const missing = analyze(scanOf([file(['components', 'Button', 'Button.ts'])]), bp)
+      .find((finding) => finding.rule === 'no-entry');
+
+    expect(missing?.message).toContain('Unit "components/Button" has no "index" entry');
     expect(rulesFor([file(['components', 'Card', 'index.ts'])])).not.toContain('no-entry');
   });
 

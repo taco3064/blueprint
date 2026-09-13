@@ -154,7 +154,14 @@ describe('decideTopology', () => {
       .toMatchObject({ operation: 'abort', path: null, target: 'module-first' });
 
     expect(decideTopology(unconfigured('module-first'), { preset: true }))
-      .toMatchObject({ operation: 'abort', path: null, target: 'module-first' });
+      .toMatchObject({
+        operation: 'abort',
+        path: null,
+        target: 'module-first',
+        reason: '--preset is layer-first adoption only, but this repository is authoritatively '
+          + 'module-first. Adopt this application with the inherited module-first topology and '
+          + 'author its modules instead. No files were changed.',
+      });
   });
 
   it('repairs configured topology and transforms only an authoritative opposite topology', () => {
@@ -186,7 +193,12 @@ describe('decideTopology', () => {
 
     expect(decideTopology(unconfigured(), {
       topology: 'module-first', preset: true,
-    })).toMatchObject({ operation: 'abort', path: null });
+    })).toMatchObject({
+      operation: 'abort',
+      path: null,
+      reason: '--topology module-first cannot be combined with --preset — generic layer '
+        + 'presets cannot choose domain modules. Use the module-first authoring flow instead.',
+    });
   });
 
   it('keeps unresolved application selection ahead of topology choice', () => {

@@ -62,7 +62,7 @@ describe('operational surface registry', () => {
       .filter((file) => !file.startsWith(directory))
       .filter((file) => /from ['"](?:\.\.\/)+operational-contract(?:\/|['"])/
         .test(fs.readFileSync(file, 'utf8')))
-      .map((file) => path.relative(repository, file))
+      .map((file) => path.relative(repository, file).split(path.sep).join('/'))
       .sort();
 
     const registeredConsumers = [...new Set(

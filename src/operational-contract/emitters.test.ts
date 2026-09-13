@@ -58,6 +58,24 @@ describe('operational contract emitters', () => {
     expect(output).toContain('`cycles` is diagnosed only when');
   });
 
+  it('distinguishes layer-first and module-first compact topology facts', () => {
+    const layer = renderCompactContract({
+      framework: 'react', architecture: architecture(),
+    }, { handbook: 'handbook.md', gates: [] });
+
+    const module = renderCompactContract({
+      framework: 'react',
+      architecture: architecture({ modules: [{ name: 'auth', does: 'authentication' }] }),
+    }, { handbook: 'handbook.md', gates: [] });
+
+    expect(layer).toContain('declared Layer → Unit topology');
+    expect(layer).not.toContain('Module flow:');
+    expect(layer).not.toContain('module boundaries');
+    expect(module).toContain('declared Module → Layer → Unit topology');
+    expect(module).toContain('Module flow: each module may import itself');
+    expect(module).toContain('module boundaries');
+  });
+
   it('places the consumer-rendered diagram inside handbook semantics unchanged', () => {
     const diagram = '```mermaid\nflowchart LR\n  features --> shared\n```';
     const output = renderArchitecture(architecture(), diagram);

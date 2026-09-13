@@ -100,6 +100,7 @@ function lockBaseline(
 
     log(renderBaselineUpdate({
       debt: debt.length,
+      // Stryker disable next-line ArithmeticOperator: renderer ignores it when debt is non-zero.
       informational: findings.length - debt.length,
       existed: fs.existsSync(baselineFile),
       file: BASELINE_FILE,
