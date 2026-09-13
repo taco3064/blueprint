@@ -8,87 +8,52 @@
 
 # @kekkai/blueprint
 
-## Architecture as Code for AI-assisted Development Governance
+## Architecture as Code for AI-assisted development
 
-**Frontend Architecture** · **Engineering Productivity** · **AI Agent Governance** · **Executable Architecture Rules**
+Blueprint turns one architecture definition into executable ESLint rules, a human
+handbook, and coding-Agent guidance. It gives React and Vue projects one durable
+place to describe boundaries that people, automation, and Agents can all use.
 
-> One Blueprint compiles into ESLint rules, a human handbook, and an AI agent
-> contract — one source, so what the linter enforces, what the docs say, and what
-> the agent is told can never disagree.
-
-Created by **[Taco Chang](https://github.com/taco3064)** — [Resume](https://taco-resume.deep-pin-7619.chatgpt.site/) · [LinkedIn](https://www.linkedin.com/in/tabacotaco/)
-
-## When an AI writes your code, the architecture is the first thing it quietly erodes
-
-What it costs — and what blueprint does about each:
-
-- **Placement** — new files land wherever's convenient; a few sessions later, nothing lives where it should.<br>→ Layers become import-boundary rules the agent reads up front and lint blocks — `✗ services/ may not import from pages/`
-- **Single responsibility** — one file quietly grows to do five jobs and own none.<br>→ Written into the agent contract, backed by the mechanical caps lint can prove.
-- **File size** — every edit grows the file; months in, a module hits 6,000 lines and every agent loads all of it to touch one function.<br>→ `maxLines` caps it before it taxes your token budget — `✗ order.service.ts 6,000 / 300`
-- **Readability** — optimized for *done*, not the next reader — who's another agent that now can't navigate it.<br>→ Handbook + contract set one bar — naming, shape, ownership — for every session.
-- **Consistency** — each session re-derives your architecture from scratch, and guesses differently.<br>→ `survey` emits deterministic facts; the contract fixes the rules once.
-- **Adoption** — point it at a 3-year repo, expect 4,000 errors, team disables it day one.<br>→ Baseline locks today's debt and gates only what's new — `.blueprint-baseline.json`
-
-blueprint pins all of this down in **one config** — one source the rules, the docs, and the
-contract all compile from, so they can never disagree. Edit the config, regenerate,
-everything moves together. **The packaging is the product.**
+Blueprint supports both layer-first and module-first architectures. It enforces
+dependency direction, ownership, import boundaries, and selected code-shape rules;
+it also provides inspection, dependency, impact, and baseline tools for adopting
+those rules in existing projects.
 
 ## Quick start
 
-Two ways to adopt on an existing repo.
-
-**Hands-off** — paste this to your agent; it runs start to finish on its own:
-
-```text
-Run npx @kekkai/blueprint init --topology layer-first --authoring to adopt
-@kekkai/blueprint in this repo,
-then execute the blueprint-authoring.md it writes, fully and to the end.
-```
-
-**You judge, the agent assists** — blueprint writes the playbook, then launches your
-agent to walk it with you:
+Choose the topology for first adoption:
 
 ```bash
-npx @kekkai/blueprint init --topology layer-first --agent claude
+npx @kekkai/blueprint init --topology layer-first
 ```
 
-Framework auto-detected, existing configs never overwritten, re-runs idempotent. What
-each acceptance step guards, greenfield scaffolding, and the full flow:
-[AI-Assisted Adoption](https://taco3064.github.io/blueprint/guide/ai-adoption).
+```bash
+npx @kekkai/blueprint init --topology module-first
+```
 
-First adoption always names `--topology layer-first|module-first`; folder shape is survey
-evidence, never a topology declaration. In a monorepo, the first valid application config
-establishes one repository topology that every later sibling inherits. `--preset` is only a
-layer-first adoption method (`--topology layer-first --preset`), not inference or transformation.
-Blueprint 3.2 configs upgrade deterministically to 4.0 layer-first; an explicit module-first
-target checkpoints that valid LF state before the guarded transformation begins.
+The resulting valid Blueprint config becomes the repository topology authority.
+Existing Blueprint 3.2 projects and later topology changes use guarded migration
+or transformation flows; see the documentation before applying them.
 
-## 🔒 Security & trust
+`init --dry-run` previews planned effects. Depending on the project and workflow,
+Blueprint may regenerate its own outputs, merge managed sections into shared files,
+or intentionally migrate a supported legacy config. Dependency installation uses
+the detected package manager. An explicitly selected Agent may participate in
+authoring or transformation; scaffold-only paths may use the selection only to
+choose emitted Agent contracts.
 
-- **Never launches an agent by default** — it writes plain-markdown contracts and hands
-  off; there is no credential or network surface. `init --agent claude|codex` is the one
-  explicit opt-in, and only on the authoring path, where it starts your own agent CLI on
-  the playbook under your own permissions. The same flag on the preset path
-  (`init --preset --topology layer-first --agent claude`) launches nothing — there it only
-  narrows which contract
-  file is written. `init --help` states both, and `--dry-run` shows either without acting.
-- **No network code** — nothing here opens a socket: no
-  telemetry, no update checks, no phoning home. The one command that reaches a network
-  is the dependency install `init` runs on your behalf (`npm install -D …`, printed
-  before it starts, skipped by `--no-install`) — so on a machine that cannot reach the
-  registry, that is the step to skip, not a hang to wait out.
-- **Writes are declared and bounded** — `--dry-run` prints every effect; `inspect` /
-  `deps` are read-only; files are only edited when losslessly rewritable, never overwritten.
-- **Provenance-signed releases** — published from GitHub Actions with npm provenance.
+## Documentation
 
-Details: [Security & Trust](https://taco3064.github.io/blueprint/guide/security)
+- [Documentation](https://taco3064.github.io/blueprint/)
+- [API reference](https://taco3064.github.io/blueprint/api/)
+- [Changelog](./CHANGELOG.md)
+- [Security policy](https://github.com/taco3064/blueprint/security/policy)
+- [npm package](https://www.npmjs.com/package/@kekkai/blueprint)
+- [GitHub repository](https://github.com/taco3064/blueprint)
 
-## 📖 Documentation
-
-Full guide, API reference, and the engineering philosophy behind it
-(**English / 繁體中文**):
-
-**→ https://taco3064.github.io/blueprint/**
+Created by **[Taco Chang](https://github.com/taco3064)** —
+[Resume](https://taco-resume.deep-pin-7619.chatgpt.site/) ·
+[LinkedIn](https://www.linkedin.com/in/tabacotaco/)
 
 ## License
 
