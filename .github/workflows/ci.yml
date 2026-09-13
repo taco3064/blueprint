@@ -7,6 +7,7 @@ on:
     branches: [main]
 
 permissions:
+  actions: read
   contents: read
   pull-requests: read
   checks: read
@@ -215,6 +216,55 @@ jobs:
           else
             echo '{"check_runs":[]}' > checkpoints.json
           fi
+      - name: Fetch newest reusable mutation evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          HEAD_SHA: ${{ needs.preflight.outputs.head_sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api --paginate --slurp "repos/${{ github.repository }}/actions/runs?event=pull_request&per_page=100" > mutation-runs.json
+          node --input-type=module <<'NODE' > mutation-run-ids.txt
+          import fs from 'node:fs';
+          const payloads = JSON.parse(fs.readFileSync('mutation-runs.json', 'utf8'));
+          const runs = (Array.isArray(payloads) ? payloads : [payloads]).flatMap((page) => page.workflow_runs ?? []);
+          const candidates = runs
+            .filter((run) => String(run.id) !== process.env.CURRENT_RUN_ID)
+            .filter((run) => run.pull_requests?.some((pull) => String(pull.number) === process.env.PR_NUMBER))
+            .sort((left, right) => String(right.created_at).localeCompare(String(left.created_at)));
+          process.stdout.write(candidates.map((run) => `${run.id} ${run.head_sha}`).join('\n'));
+          NODE
+          mkdir -p reports/mutation-previous
+          while read -r RUN_ID RUN_HEAD; do
+            git cat-file -e "$RUN_HEAD^{commit}" 2>/dev/null || continue
+            git merge-base --is-ancestor "$RUN_HEAD" "$HEAD_SHA" || continue
+            gh api --paginate --slurp "repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts?per_page=100" > mutation-artifacts.json
+            AGGREGATE_ID="$(node --input-type=module -e "import fs from 'node:fs'; const pages=JSON.parse(fs.readFileSync('mutation-artifacts.json','utf8')); const artifacts=pages.flatMap((page)=>page.artifacts??[]); process.stdout.write(String(artifacts.find((item)=>item.name==='mutation-aggregate-$RUN_ID'&&!item.expired)?.id??''))")"
+            if [ -n "$AGGREGATE_ID" ]; then
+              gh api "repos/${{ github.repository }}/actions/artifacts/$AGGREGATE_ID/zip" > mutation-evidence.zip
+              unzip -q mutation-evidence.zip -d reports/mutation-previous
+              break
+            fi
+            PLAN_ID="$(node --input-type=module -e "import fs from 'node:fs'; const pages=JSON.parse(fs.readFileSync('mutation-artifacts.json','utf8')); const artifacts=pages.flatMap((page)=>page.artifacts??[]); process.stdout.write(String(artifacts.find((item)=>item.name==='mutation-plan-$RUN_ID'&&!item.expired)?.id??''))")"
+            [ -n "$PLAN_ID" ] || continue
+            gh api "repos/${{ github.repository }}/actions/artifacts/$PLAN_ID/zip" > mutation-plan.zip
+            unzip -q mutation-plan.zip -d reports/mutation-previous
+            RUN_ID="$RUN_ID" node --input-type=module <<'NODE' > mutation-shard-artifacts.txt
+            import fs from 'node:fs';
+            const pages = JSON.parse(fs.readFileSync('mutation-artifacts.json', 'utf8'));
+            const suffix = `-${process.env.RUN_ID}`;
+            const artifacts = pages.flatMap((page) => page.artifacts ?? [])
+              .filter((item) => item.name.startsWith('mutation-shard-') && item.name.endsWith(suffix))
+              .filter((item) => !item.expired);
+            process.stdout.write(artifacts.map((item) => `${item.id} ${item.name}`).join('\n'));
+            NODE
+            while read -r SHARD_ARTIFACT_ID SHARD_ARTIFACT_NAME; do
+              mkdir -p "reports/mutation-previous/downloaded/$SHARD_ARTIFACT_NAME"
+              gh api "repos/${{ github.repository }}/actions/artifacts/$SHARD_ARTIFACT_ID/zip" > mutation-shard.zip
+              unzip -q mutation-shard.zip -d "reports/mutation-previous/downloaded/$SHARD_ARTIFACT_NAME"
+            done < mutation-shard-artifacts.txt
+            break
+          done < mutation-run-ids.txt
       - name: Plan complete changed-production scope
         id: plan
         env:
@@ -226,6 +276,7 @@ jobs:
             --head "$HEAD_SHA" \
             --reviews reviews.json \
             --checkpoints checkpoints.json \
+            --previous reports/mutation-previous \
             --target-lines 100 \
             --output reports/mutation-ci/manifest.json)"
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"

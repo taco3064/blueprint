@@ -1,5 +1,6 @@
 import type { AgentTarget, Blueprint } from '../../config';
 import { normalizeAgentEmit } from '../../config';
+import { withValidationErrorRendering } from '../../operational-contract';
 import { emitAgentContract } from './agent';
 import type { StackFacts } from '../lint';
 
@@ -73,6 +74,18 @@ export function emitAgentFiles(
   blueprint: Blueprint,
   defaultTargets?: AgentTarget[],
   stack: StackFacts = {},
+): AgentFile[] {
+  return withValidationErrorRendering(() => emitAgentFilesUnchecked(
+    blueprint,
+    defaultTargets,
+    stack,
+  ));
+}
+
+function emitAgentFilesUnchecked(
+  blueprint: Blueprint,
+  defaultTargets: AgentTarget[] | undefined,
+  stack: StackFacts,
 ): AgentFile[] {
   const entries = normalizeAgentEmit(blueprint.emit?.agents, defaultTargets);
 

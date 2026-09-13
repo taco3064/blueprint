@@ -2,6 +2,7 @@ import type { ESLint, Linter } from 'eslint';
 import {
   renderCodeStylePluginError,
   renderSelfOnlyReexport,
+  withValidationErrorRendering,
 } from '../../operational-contract';
 import { activeSetting, resolveArchitecture } from '../../config';
 import type { AliasRoot, Blueprint, ReadSetting, ResolvedTestFiles } from '../../config';
@@ -38,7 +39,7 @@ type Severity = 'error' | 'warn';
  */
 export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): LintConfig {
   const { framework, architecture } = blueprint;
-  const resolved = resolveArchitecture(architecture);
+  const resolved = withValidationErrorRendering(() => resolveArchitecture(architecture));
 
   const { layerFilesIgnore } = architecture;
 

@@ -1,4 +1,5 @@
 import type { Blueprint } from '../../config';
+import { withValidationErrorRendering } from '../../operational-contract';
 import type { StackFacts } from '../lint';
 import {
   renderBehavioral,
@@ -21,6 +22,13 @@ export interface AgentContractOptions extends StackFacts {
 export function emitAgentContract(
   blueprint: Blueprint,
   options: AgentContractOptions = {},
+): string {
+  return withValidationErrorRendering(() => emitAgentContractUnchecked(blueprint, options));
+}
+
+function emitAgentContractUnchecked(
+  blueprint: Blueprint,
+  options: AgentContractOptions,
 ): string {
   const { compact, ...stack } = options;
 

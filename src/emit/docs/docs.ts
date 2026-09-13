@@ -1,5 +1,6 @@
 import type { Blueprint } from '../../config';
 import type { StackFacts } from '../lint';
+import { withValidationErrorRendering } from '../../operational-contract';
 import {
   renderArchitecture,
   renderComponentShape,
@@ -29,6 +30,10 @@ export function handbookPath(blueprint: Blueprint): string {
  * writeFileSync('docs/architecture-handbook.md', emitHandbook(blueprint));
  */
 export function emitHandbook(blueprint: Blueprint, stack: StackFacts = {}): string {
+  return withValidationErrorRendering(() => emitHandbookUnchecked(blueprint, stack));
+}
+
+function emitHandbookUnchecked(blueprint: Blueprint, stack: StackFacts): string {
   const { name, architecture, principles, rules } = blueprint;
 
   const sections = [

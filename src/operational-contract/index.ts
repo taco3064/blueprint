@@ -58,6 +58,7 @@ export {
   renderValidationError,
   renderValidationErrorCause,
   validateBlueprint,
+  withValidationErrorRendering,
 } from './validation-errors';
 export type { ValidationErrorFact } from './validation-errors';
 export {
