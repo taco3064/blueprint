@@ -5,7 +5,12 @@ import { detect, resolveBlueprint } from '../project';
 import type { ResolveOptions } from '../project';
 import { resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
-import { renderBaselineUpdate } from '../operational-contract';
+import {
+  renderBaselineGateOutput,
+  renderBaselineUpdate,
+  renderInspectOutput,
+  renderTestExemptionOutput,
+} from '../operational-contract';
 import { analyze } from './analyze';
 import {
   BASELINE_FILE,
@@ -76,7 +81,10 @@ export async function runInspect(
           importAnalysis: importAnalysis(scanResult),
           derivation: importGraphDerivation('', scanResult),
         }, null, 2)
-      : `${report(findings, blueprint.architecture, scanResult)}\n\n${renderCoverage(coverage, blueprint)}`,
+      : renderInspectOutput({
+          architecture: report(findings, blueprint.architecture, scanResult),
+          coverage: renderCoverage(coverage, blueprint),
+        }),
   );
 
   return { findings, ok };
@@ -90,7 +98,7 @@ function lockBaseline(
   const { log, coverage } = ctx;
 
   if (coverage.testExemption !== undefined) {
-    log(`· ${coverage.testExemption}`);
+    log(renderTestExemptionOutput(coverage.testExemption));
   }
 
   const debt = findings.filter((finding) => finding.severity !== 'info');
@@ -159,7 +167,11 @@ function baselineGate(
           null,
           2,
         )
-      : `${report(split.fresh, blueprint.architecture, scanResult)}\n\n${baselineSummary(split)}\n${renderCoverage(coverage, blueprint)}`,
+      : renderBaselineGateOutput({
+          architecture: report(split.fresh, blueprint.architecture, scanResult),
+          baseline: baselineSummary(split),
+          coverage: renderCoverage(coverage, blueprint),
+        }),
   );
 
   return { findings: split.fresh, ok };

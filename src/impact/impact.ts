@@ -13,6 +13,7 @@ import {
   renderImpactMissingDependency,
   renderImpactReport,
 } from '../operational-contract';
+import type { OperationalText } from '../operational-contract';
 
 /**
  * `blueprint impact` — the rule-impact dry-run: build the emitted config, run the
@@ -272,7 +273,9 @@ function tallyImpacts(
 
 const SPECIAL_ROWS = new Set(['parse-error', 'unused-disable-directive']);
 
-export function renderImpact(impacts: RuleImpact[], total: number, linted: number): string {
+export function renderImpact(
+  impacts: RuleImpact[], total: number, linted: number,
+): OperationalText {
   return renderImpactReport(
     impacts.map((impact) => ({
       ...impact,

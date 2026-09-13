@@ -44,6 +44,8 @@ export type {
 
 export { CLI_USAGE, renderCliCommandHelp } from './cli-help';
 export {
+  renderCliFailure,
+  renderCliVersion,
   renderConflictingTopology,
   renderInvalidAgent,
   renderInvalidTopology,
@@ -51,6 +53,13 @@ export {
 } from './cli-errors';
 export type { OperationalCommand } from './cli-help';
 export type { OperationalText } from './operational-contract';
+export {
+  renderDependencyLeaderboard,
+  renderDependencyTestExemption,
+  renderDependencyUnit,
+  renderUnknownDependencyTarget,
+} from './deps';
+export type { DependencyUnitFact } from './deps';
 export { OPERATIONAL_SURFACES } from './registry';
 export type {
   OperationalChannel,
@@ -174,11 +183,14 @@ export {
 export type { DoctorCheckFact, DoctorCheckView } from './doctor';
 export {
   renderArchitectureReport,
+  renderBaselineGateOutput,
   renderBaselineError,
   renderBaselineSummary,
   renderBaselineUpdate,
   renderCoverageReport,
   renderCoverageSummary,
+  renderInspectOutput,
+  renderTestExemptionOutput,
   renderVacuousNextStep,
 } from './inspect';
 export type { BaselineErrorFact, CoverageView, FindingView } from './inspect';

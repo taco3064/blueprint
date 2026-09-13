@@ -1,4 +1,6 @@
 import { renderTestFilesOperational } from './test-files';
+import { operationalText } from './operational-contract';
+import type { OperationalText } from './operational-contract';
 
 export interface SurveyReportFact {
   framework: string | null;
@@ -59,8 +61,8 @@ function wrapList(items: string[], width: number, indent: string): string[] {
   return lines.map((line, index) => (index === lines.length - 1 ? line.replace(/,$/, '') : line));
 }
 
-export function renderSurveyReport(result: SurveyReportFact): string {
-  return [
+export function renderSurveyReport(result: SurveyReportFact): OperationalText {
+  return operationalText([
     ...headerLines(result),
     ...folderLines(result),
     ...repeatedFolderShapeLines(result),
@@ -70,7 +72,7 @@ export function renderSurveyReport(result: SurveyReportFact): string {
     ...packageUsageLines(result),
     ...ownableImportLines(result),
     ...unresolvedLines(result),
-  ].join('\n');
+  ]);
 }
 
 function repeatedFolderShapeLines(result: SurveyReportFact): string[] {

@@ -16,3 +16,11 @@ export function renderInvalidAgent(agentKinds: readonly string[]): OperationalTe
 export function renderUnknownFlag(command: string, flag: string): OperationalText {
   return operationalText(`unknown flag for ${command}: ${flag} — see: blueprint ${command} --help`);
 }
+
+export function renderCliFailure(message: string): OperationalText {
+  return operationalText(`✗ ${message}`);
+}
+
+export function renderCliVersion(version: string): OperationalText {
+  return operationalText(version);
+}

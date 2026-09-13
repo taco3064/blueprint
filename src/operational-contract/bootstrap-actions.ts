@@ -50,9 +50,9 @@ export function renderOptionalToolingNote(
   kind: 'dead-code' | 'css-tokens',
 ): OperationalText {
   return operationalText(kind === 'dead-code'
-    ? 'Dead code (optional): `blueprint inspect` reports dead files; for dead *exports*, '
-    + 'install knip and configure its entry points — that is the source of truth, '
-    + 'not the warn-tier `import/no-unused-modules`.'
+    ? 'Dead code (optional): install knip and configure its entry points — it is the '
+    + 'source of truth for dead files and exports, not `blueprint inspect` or the '
+    + 'warn-tier `import/no-unused-modules`.'
     : 'CSS token governance (optional): install stylelint + '
       + '@csstools/stylelint-value-no-unknown-custom-properties, '
       + 'pointing importFrom at your token source file.');

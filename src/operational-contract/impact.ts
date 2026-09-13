@@ -1,3 +1,6 @@
+import { operationalText } from './operational-contract';
+import type { OperationalText } from './operational-contract';
+
 export interface ImpactReportFact {
   rule: string;
   count: number;
@@ -23,7 +26,7 @@ export function renderImpactReport(
   impacts: ImpactReportFact[],
   total: number,
   linted: number,
-): string {
+): OperationalText {
   const own = impacts.filter((impact) => impact.kind === 'own');
   const caveats = impacts.filter((impact) => impact.kind === 'caveat');
   const foreign = impacts.filter((impact) => impact.kind === 'foreign');
@@ -66,7 +69,7 @@ export function renderImpactReport(
       ];
 
   if (!own.length) {
-    return [
+    return operationalText([
       linted === 0
         ? '✓ Rule impact: 0 hits — vacuous: the architecture globs match no files, so no '
         + 'rule ever ran. Wiring emitLint introduces no red today, and proves '
@@ -76,10 +79,10 @@ export function renderImpactReport(
       + 'project\'s own lint judges its findings)',
       ...caveatBlock,
       ...foreignBlock,
-    ].join('\n');
+    ]);
   }
 
-  return [
+  return operationalText([
     'Rule impact — what wiring emitLint would flag today',
     '',
     ...rows(own),
@@ -91,5 +94,5 @@ export function renderImpactReport(
     + ' what remains with `npx eslint . --suppress-all` — new violations still fail.',
     ...caveatBlock,
     ...foreignBlock,
-  ].join('\n');
+  ]);
 }

@@ -7,6 +7,7 @@ import {
   renderSelfOnlyMessageNote,
   STRUCTURAL_RULE_DESCRIPTIONS,
 } from '../operational-contract';
+import type { OperationalText } from '../operational-contract';
 
 import {
   DOC_ONLY_RULES,
@@ -311,6 +312,6 @@ export function renderRules(
     testExemption?: string | null;
   },
   hasConfig: boolean,
-): string {
+): OperationalText {
   return renderRulesReport({ ...catalog, docsOnly: DOC_ONLY_RULES }, hasConfig);
 }

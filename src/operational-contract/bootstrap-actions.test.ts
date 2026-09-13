@@ -101,7 +101,11 @@ describe('bootstrap operational text follows supplied facts', () => {
     expect(renderAuthoringLauncherNote('.claude/commands/blueprint-author.md'))
       .toBe('.claude/commands/blueprint-author.md (/blueprint-author)');
 
-    expect(renderOptionalToolingNote('dead-code')).toContain('Dead code (optional)');
+    const deadCode = renderOptionalToolingNote('dead-code');
+
+    expect(deadCode).toContain('knip');
+    expect(deadCode).toContain('source of truth for dead files and exports');
+    expect(deadCode).not.toContain('`blueprint inspect` reports dead files');
 
     expect(renderOptionalToolingNote('css-tokens')).toContain('CSS token governance (optional)');
 

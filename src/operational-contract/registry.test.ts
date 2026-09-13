@@ -30,6 +30,183 @@ function productionFiles(directoryPath: string): string[] {
   });
 }
 
+function compilerProgram(): ts.Program {
+  const configFile = ts.readConfigFile(
+    path.join(repository, 'tsconfig.test.json'),
+    ts.sys.readFile,
+  );
+
+  const config = ts.parseJsonConfigFileContent(configFile.config, ts.sys, repository);
+
+  return ts.createProgram(config.fileNames, config.options);
+}
+
+function operationalTextType(program: ts.Program): ts.Type {
+  const source = program.getSourceFile(path.join(directory, 'operational-contract.ts'))!;
+
+  const declaration = source.statements.find(
+    (node): node is ts.TypeAliasDeclaration =>
+      ts.isTypeAliasDeclaration(node) && node.name.text === 'OperationalText',
+  )!;
+
+  return program.getTypeChecker().getTypeAtLocation(declaration.name);
+}
+
+function centralBindings(source: ts.SourceFile): Set<string> {
+  return new Set(source.statements.flatMap((node) => {
+    if (!ts.isImportDeclaration(node)
+      || !ts.isStringLiteral(node.moduleSpecifier)
+      || !/(?:^|\/)operational-contract$/.test(node.moduleSpecifier.text)) {
+      return [];
+    }
+
+    const bindings = node.importClause?.namedBindings;
+
+    return bindings && ts.isNamedImports(bindings)
+      ? bindings.elements.map((element) => element.name.text)
+      : [];
+  }));
+}
+
+function isOutputSink(node: ts.CallExpression): boolean {
+  if (ts.isIdentifier(node.expression)) {
+    return node.expression.text === 'log';
+  }
+
+  if (!ts.isPropertyAccessExpression(node.expression)) {
+    return false;
+  }
+
+  return node.expression.name.text === 'log'
+    || (ts.isIdentifier(node.expression.expression)
+      && node.expression.expression.text === 'console'
+      && ['error', 'warn'].includes(node.expression.name.text));
+}
+
+function isMachineOutput(node: ts.Expression, checker?: ts.TypeChecker): boolean {
+  if (!ts.isCallExpression(node)
+    || !ts.isPropertyAccessExpression(node.expression)
+    || !ts.isIdentifier(node.expression.expression)
+    || node.expression.expression.text !== 'JSON'
+    || node.expression.name.text !== 'stringify') {
+    return false;
+  }
+
+  const value = node.arguments[0];
+
+  if (value === undefined || ts.isStringLiteralLike(value)) {
+    return false;
+  }
+
+  return checker === undefined
+    || (checker.getTypeAtLocation(value).flags & ts.TypeFlags.StringLike) === 0;
+}
+
+function isForwardedConsoleParameter(node: ts.CallExpression): boolean {
+  const argument = node.arguments[0];
+
+  if (!ts.isIdentifier(argument)) {
+    return false;
+  }
+
+  const arrow = node.parent;
+
+  return ts.isArrowFunction(arrow)
+    && arrow.body === node
+    && arrow.parameters.length === 1
+    && ts.isIdentifier(arrow.parameters[0].name)
+    && arrow.parameters[0].name.text === argument.text;
+}
+
+interface SinkContext {
+  bindings: Set<string>;
+  checker?: ts.TypeChecker;
+  operational?: ts.Type;
+}
+
+function isCentralRendererCall(node: ts.Expression, context: SinkContext): boolean {
+  if (!ts.isCallExpression(node)) {
+    return false;
+  }
+
+  if (ts.isIdentifier(node.expression) && context.bindings.has(node.expression.text)) {
+    return true;
+  }
+
+  if (context.checker === undefined) {
+    return false;
+  }
+
+  const symbol = context.checker.getSymbolAtLocation(node.expression);
+
+  const target = symbol && (symbol.flags & ts.SymbolFlags.Alias)
+    ? context.checker.getAliasedSymbol(symbol)
+    : symbol;
+
+  return Boolean(target?.declarations?.some((declaration) =>
+    path.resolve(declaration.getSourceFile().fileName).startsWith(directory)));
+}
+
+function isGovernedExpression(node: ts.Expression, context: SinkContext): boolean {
+  if (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node)) {
+    return isGovernedExpression(node.expression, context);
+  }
+
+  if (ts.isConditionalExpression(node)) {
+    return isGovernedExpression(node.whenTrue, context)
+      && isGovernedExpression(node.whenFalse, context);
+  }
+
+  if (isMachineOutput(node, context.checker) || isCentralRendererCall(node, context)) {
+    return true;
+  }
+
+  return context.checker !== undefined
+    && context.operational !== undefined
+    && context.checker.isTypeAssignableTo(
+      context.checker.getTypeAtLocation(node),
+      context.operational,
+    );
+}
+
+function sinkViolations(
+  source: ts.SourceFile,
+  checker?: ts.TypeChecker,
+  operational?: ts.Type,
+): string[] {
+  const violations: string[] = [];
+  const context = { bindings: centralBindings(source), checker, operational };
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && isOutputSink(node)) {
+      const argument = node.arguments[0];
+
+      if (argument !== undefined
+        && !isGovernedExpression(argument, context)
+        && !isForwardedConsoleParameter(node)) {
+        const line = source.getLineAndCharacterOfPosition(argument.getStart()).line + 1;
+
+        violations.push(`${source.fileName}:${line}`);
+      }
+    }
+
+    if (ts.isPropertyAssignment(node)
+      && ((ts.isIdentifier(node.name) && node.name.text === 'note')
+        || (ts.isStringLiteral(node.name) && node.name.text === 'note'))
+      && !isGovernedExpression(node.initializer, context)) {
+      const line = source.getLineAndCharacterOfPosition(node.initializer.getStart()).line + 1;
+
+      violations.push(`${source.fileName}:${line}`);
+    }
+
+    ts.forEachChild(node, visit);
+  };
+
+  ts.forEachChild(source, visit);
+
+  return violations;
+}
+
 describe('operational surface registry', () => {
   it('registers every production renderer owner exactly once', () => {
     const productionOwners = fs.readdirSync(directory)
@@ -81,37 +258,39 @@ describe('operational surface registry', () => {
     }
   });
 
-  it('keeps authored paragraphs out of registered production consumers', () => {
-    const violations: string[] = [];
+  it('closes every production output sink regardless of imports or prose length', () => {
+    const program = compilerProgram();
+    const checker = program.getTypeChecker();
+    const operational = operationalTextType(program);
 
-    const consumers = [...new Set(OPERATIONAL_SURFACES.flatMap(({ consumers }) => consumers))]
-      .filter((file) => file.startsWith('src/'));
-
-    for (const consumer of consumers) {
-      const source = ts.createSourceFile(
-        consumer,
-        fs.readFileSync(path.join(repository, consumer), 'utf8'),
-        ts.ScriptTarget.Latest,
-        true,
-      );
-
-      const visit = (node: ts.Node): void => {
-        if (
-          (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
-          && node.text.length >= 80
-          && /[.!?—]/.test(node.text)
-        ) {
-          const line = source.getLineAndCharacterOfPosition(node.getStart()).line + 1;
-
-          violations.push(`${consumer}:${line}`);
-        }
-
-        ts.forEachChild(node, visit);
-      };
-
-      ts.forEachChild(source, visit);
-    }
+    const violations = productionFiles(path.join(repository, 'src'))
+      .filter((file) => !file.startsWith(directory))
+      .flatMap((file) => sinkViolations(program.getSourceFile(file)!, checker, operational));
 
     expect(violations).toEqual([]);
+  });
+
+  it('rejects short, split, and indirect prose at an unregistered sink', () => {
+    const source = ts.createSourceFile(
+      'unregistered.ts',
+      [
+        'const indirect = "third";',
+        'log("short");',
+        'log("first" + "second");',
+        'log(indirect);',
+        'const action = { note: "fourth" };',
+        'log(JSON.stringify("fifth"));',
+      ].join('\n'),
+      ts.ScriptTarget.Latest,
+      true,
+    );
+
+    expect(sinkViolations(source)).toEqual([
+      'unregistered.ts:2',
+      'unregistered.ts:3',
+      'unregistered.ts:4',
+      'unregistered.ts:5',
+      'unregistered.ts:6',
+    ]);
   });
 });

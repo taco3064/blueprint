@@ -7,7 +7,8 @@ import { runInit } from '../bootstrap';
 import { runImpact } from '../impact';
 import { runDeps, runDoctor, runInspect, runRules } from '../inspect';
 import { runSurvey } from '../survey';
-import type { OperationalCommand } from '../operational-contract';
+import { renderCliFailure, renderCliVersion } from '../operational-contract';
+import type { OperationalCommand, OperationalText } from '../operational-contract';
 import {
   KNOWN_FLAGS,
   parseDepsArgs,
@@ -69,12 +70,15 @@ const COMMANDS = {
 
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {
   const [command, ...rest] = argv;
+
+  if (command === '--version' || command === '-v') {
+    return printVersion();
+  }
+
   const help = helpText(command, rest);
 
   if (help !== null) {
-    console.log(help);
-
-    return 0;
+    return printHelp(help);
   }
 
   try {
@@ -92,19 +96,27 @@ export async function run(argv: string[], cwd: string = process.cwd()): Promise<
 
     return await handler(cwd, rest);
   } catch (error) {
-    console.error(`✗ ${(error as Error).message}`);
+    console.error(renderCliFailure((error as Error).message));
 
     return 1;
   }
 }
 
-function helpText(command: string | undefined, rest: string[]): string | null {
+function printVersion(): number {
+  console.log(renderCliVersion(version()));
+
+  return 0;
+}
+
+function printHelp(help: OperationalText): number {
+  console.log(help);
+
+  return 0;
+}
+
+function helpText(command: string | undefined, rest: string[]): OperationalText | null {
   if (command === '--help' || command === '-h') {
     return USAGE;
-  }
-
-  if (command === '--version' || command === '-v') {
-    return version();
   }
 
   const help = Object.hasOwn(COMMAND_HELP, command ?? '')
