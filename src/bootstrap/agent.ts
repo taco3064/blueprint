@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 
-import { AGENT_PROMPT } from './authoring';
+import { AGENT_PROMPT } from './authoring-launcher';
 
 export const AGENT_KINDS = ['claude', 'codex'] as const;
 

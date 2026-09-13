@@ -39,7 +39,10 @@ export function renderModuleFirstGoal(): string {
   ].join('\n');
 }
 
-export function renderModuleFirstMethod(claudeDir: ClaudeDirState): string {
+export function renderModuleFirstMethod(
+  claudeDir: ClaudeDirState,
+  claudeLauncher = true,
+): string {
   return [
     '',
     '## Method — draft, inspect, correct',
@@ -67,7 +70,7 @@ export function renderModuleFirstMethod(claudeDir: ClaudeDirState): string {
     '9. Run `npx blueprint init`, merge its lint export into the project lint command, then use '
     + '`npx blueprint impact` to measure the emitted rules.',
     '10. Run `npx blueprint inspect --update-baseline`, commit only intended generated outputs, '
-    + `Delete ${cleanupTargets(claudeDir)} Then finish with \`npx blueprint doctor\`.`,
+    + `Delete ${cleanupTargets(claudeDir, claudeLauncher)} Then finish with \`npx blueprint doctor\`.`,
   ].join('\n');
 }
 

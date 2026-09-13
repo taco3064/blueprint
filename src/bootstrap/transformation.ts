@@ -1,9 +1,10 @@
-import { AUTHORING_FILE, claudeDirState, COMMAND_FILE } from '../project';
+import { AUTHORING_FILE, claudeDirState } from '../project';
 import type { ClaudeDirState, ProjectState } from '../project';
 import type { ArchitectureDef } from '../config';
 import { collectTransformationEvidence, runSurvey } from '../survey';
 import type { SurveyResult, TransformationEvidence } from '../survey';
-import { AGENT_PROMPT } from './authoring';
+import { authoringLauncherActions, emitsClaudeAuthoringLauncher } from './authoring-launcher';
+import type { AuthoringAgents } from './authoring-launcher';
 import { launchAgent } from './agent';
 import type { Spawner } from './agent';
 import { apply, defaultExec } from './apply';
@@ -22,6 +23,7 @@ interface TransformationActionInput {
   preflight: TransformationPreflight;
   install?: boolean;
   claudeDir: ClaudeDirState;
+  agents?: AuthoringAgents;
 }
 
 export function transformationActions(
@@ -29,6 +31,7 @@ export function transformationActions(
 ): Action[] {
   const { state, evidence, preflight } = input;
   const command = installCommand(state.packageManager, ['@kekkai/blueprint']);
+  const claudeLauncher = emitsClaudeAuthoringLauncher(input.agents);
 
   const install: Action[] = !state.missingDeps.includes('@kekkai/blueprint')
     ? []
@@ -49,16 +52,11 @@ export function transformationActions(
         findings: preflight.inspection.findings ?? [],
         state,
         install: command,
-        cleanup: cleanupTargets(input.claudeDir),
+        cleanup: cleanupTargets(input.claudeDir, claudeLauncher),
       }),
       note: `${AUTHORING_FILE} (layer-first → module-first transformation evidence + playbook)`,
     },
-    {
-      kind: 'write',
-      path: COMMAND_FILE,
-      content: `${AGENT_PROMPT}\n`,
-      note: `${COMMAND_FILE} (/blueprint-author)`,
-    },
+    ...authoringLauncherActions(input.agents),
     ...install,
     {
       kind: 'instruct',
@@ -85,6 +83,7 @@ export interface LayerToModuleInput {
   survey: SurveyResult | null;
   topology: TopologyDecision;
   architecture: ArchitectureDef | null;
+  agents?: AuthoringAgents;
 }
 
 export async function runLayerToModuleTransformation(
@@ -101,6 +100,7 @@ export async function runLayerToModuleTransformation(
     preflight,
     install: input.options.install,
     claudeDir: claudeDirState(input.root),
+    agents: input.agents,
   });
 
   narratePlan(input, survey, actions);

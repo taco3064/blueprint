@@ -37,6 +37,7 @@ import { observeRepositoryTopology } from './repository-topology';
 import * as legacyUpgrade from './legacy-upgrade';
 import { assertAuthoredConfigNotRewritten, assertInitOptions } from './init-options';
 import type { Action } from './types';
+import { freshAuthoringAgents } from './authoring-launcher';
 
 export interface InitOptions extends ResolveOptions {
 
@@ -80,6 +81,7 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   if (topology.path === 'transformation') {
     return runTopologyTransformation({ root, state, options, log, survey, topology,
       architecture: architecture!,
+      agents: resolved?.blueprint.emit?.agents,
       repositoryBlueprints: blueprints,
     });
   }
@@ -283,6 +285,7 @@ function runAuthoring(
     install: options.install,
     next: state.hasNext,
     topology,
+    agents: freshAuthoringAgents(options.agent),
   });
 
   if (removeScaffold) {

@@ -116,6 +116,33 @@ describe('transformation actions', () => {
     }
   });
 
+  it.each([
+    [['agents'] as const, false],
+    [['claude', 'agents'] as const, true],
+    [undefined, true],
+  ] as const)(
+    'applies the configured launcher policy to forward action planning',
+    (agents, expected) => {
+      const actions = transformationActions({
+        state: state(),
+        evidence,
+        preflight,
+        claudeDir: { hadDir: false, otherCommands: 0 },
+        agents,
+      });
+
+      expect(actions.some((action) => action.kind === 'write'
+        && action.path === '.claude/commands/blueprint-author.md')).toBe(expected);
+
+      const playbook = actions.find((action) => action.kind === 'write'
+        && action.path === 'blueprint-authoring.md');
+
+      expect(playbook?.kind === 'write' && playbook.content.includes(
+        '.claude/commands/blueprint-author.md',
+      )).toBe(expected);
+    },
+  );
+
   it('rejects a transformation that has no selected application scope', async () => {
     await expect(runLayerToModuleTransformation({
       root: '/missing-repository',

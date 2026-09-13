@@ -4,7 +4,6 @@ import { resolveArchitecture } from '../config';
 import {
   AUTHORING_FILE,
   claudeDirState,
-  COMMAND_FILE,
   detect,
 } from '../project';
 import type { RepositoryBlueprint } from '../project';
@@ -14,7 +13,7 @@ import {
   runSurvey,
 } from '../survey';
 import { launchAgent } from './agent';
-import { AGENT_PROMPT } from './authoring';
+import { authoringLauncherActions, emitsClaudeAuthoringLauncher } from './authoring-launcher';
 import { apply, defaultExec } from './apply';
 import { moduleToLayerBrief } from './module-to-layer-playbook';
 import { installCommand } from './plan';
@@ -78,11 +77,11 @@ export async function runRepositoryTopologyTransformation(
     };
   }));
 
-  const cleanup = cleanupTargets(claudeDirState(repositoryRoot));
+  const launcher = repositoryLauncher(repositoryRoot, input.repositoryBlueprints);
 
   const renderContext: RenderContext = {
     count: applications.length,
-    cleanup,
+    cleanup: launcher.cleanup,
     current: input.topology.current!,
   };
 
@@ -98,16 +97,11 @@ export async function runRepositoryTopologyTransformation(
         target: input.topology.target!,
         applications: applications.map((application) => application.relativeRoot),
         sections,
-        cleanup,
+        cleanup: launcher.cleanup,
       }),
       note: `${AUTHORING_FILE} (repository-wide topology transformation playbook)`,
     },
-    {
-      kind: 'write',
-      path: COMMAND_FILE,
-      content: `${AGENT_PROMPT}\n`,
-      note: `${COMMAND_FILE} (/blueprint-author)`,
-    },
+    ...launcher.actions,
     {
       kind: 'instruct',
       note: [
@@ -147,6 +141,33 @@ export async function runRepositoryTopologyTransformation(
   }
 
   return actions;
+}
+
+function repositoryClaudeLauncher(blueprints: RepositoryBlueprint[]): boolean {
+  const policies = [...new Set(blueprints.map((entry) =>
+    emitsClaudeAuthoringLauncher(entry.blueprint.emit?.agents)))];
+
+  if (policies.length > 1) {
+    throw new Error(
+      'Blueprint configs in one repository disagree on Claude authoring launcher emission. '
+      + 'Align emit.agents across every adopted application before transforming topology; '
+      + 'no files were changed.',
+    );
+  }
+
+  return policies[0];
+}
+
+function repositoryLauncher(
+  repositoryRoot: string,
+  blueprints: RepositoryBlueprint[],
+): { cleanup: string; actions: Action[] } {
+  const claude = repositoryClaudeLauncher(blueprints);
+
+  return {
+    cleanup: cleanupTargets(claudeDirState(repositoryRoot), claude),
+    actions: authoringLauncherActions(claude ? ['claude'] : []),
+  };
 }
 
 function repositoryRelative(repositoryRoot: string, applicationRoot: string): string {

@@ -92,9 +92,9 @@ function renderOverlappingTool(): string {
   ].join('\n');
 }
 
-function renderFinishStep(claudeDir: ClaudeDirState): string {
+function renderFinishStep(claudeDir: ClaudeDirState, claudeLauncher: boolean): string {
   return [
-    `9. **Finish — and finish means integrated, not parked.** Run \`npx blueprint init\`, then \`npx blueprint inspect --update-baseline\`, write the report, and delete ${cleanupTargets(claudeDir)} The tool never touches files you own, so it leaves \`*.blueprint.*\` references next to them — **those references are your input, not the deliverable.`,
+    `9. **Finish — and finish means integrated, not parked.** Run \`npx blueprint init\`, then \`npx blueprint inspect --update-baseline\`, write the report, and delete ${cleanupTargets(claudeDir, claudeLauncher)} The tool never touches files you own, so it leaves \`*.blueprint.*\` references next to them — **those references are your input, not the deliverable.`,
     `   Adoption is not done while any reference file remains:**`,
     '   - **Declare your own tool** in the config — `emit: { agents: [\'claude\'] }` (Claude Code) '
     + 'or `[\'agents\']` (codex & friends) — so init generates one contract file, '
@@ -210,7 +210,7 @@ function renderIntentDocuments(): string {
   ].join('\n');
 }
 
-export function renderMethod(claudeDir: ClaudeDirState): string {
+export function renderMethod(claudeDir: ClaudeDirState, claudeLauncher = true): string {
   return [
     '',
     '## Method',
@@ -243,6 +243,6 @@ export function renderMethod(claudeDir: ClaudeDirState): string {
     + 'or one dominant rule everywhere) means you mistranslated intent — '
     + 'revisit the order or the unit shapes.',
     '   Converged means: every finding is explainable as real, nameable debt.',
-    renderFinishStep(claudeDir),
+    renderFinishStep(claudeDir, claudeLauncher),
   ].join('\n');
 }

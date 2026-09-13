@@ -125,6 +125,33 @@ describe('module-first to layer-first transformation actions', () => {
       expect(playbook.content).not.toContain('undefined');
     }
   });
+
+  it.each([
+    [['agents'] as const, false],
+    [['claude'] as const, true],
+    [undefined, true],
+  ] as const)(
+    'applies the configured launcher policy to reverse action planning',
+    (agents, expected) => {
+      const actions = moduleToLayerActions({
+        state: state(),
+        evidence,
+        preflight,
+        claudeDir: { hadDir: false, otherCommands: 0 },
+        agents,
+      });
+
+      expect(actions.some((action) => action.kind === 'write'
+        && action.path === '.claude/commands/blueprint-author.md')).toBe(expected);
+
+      const playbook = actions.find((action) => action.kind === 'write'
+        && action.path === 'blueprint-authoring.md');
+
+      expect(playbook?.kind === 'write' && playbook.content.includes(
+        '.claude/commands/blueprint-author.md',
+      )).toBe(expected);
+    },
+  );
 });
 
 describe('module-first to layer-first Agent launch', () => {
