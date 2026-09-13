@@ -1,4 +1,4 @@
-Run npx @kekkai/blueprint init --authoring to adopt @kekkai/blueprint in this repo.
+Run npx @kekkai/blueprint init --topology <layer-first|module-first> --authoring to adopt @kekkai/blueprint in this repo.
 
 最後一步（必做）：把你對 @kekkai/blueprint 這次導入體驗的 feedback 寫進
 repo 根目錄的 blueprint-field-feedback.md（繁體中文）。用這個大綱，**標題一字

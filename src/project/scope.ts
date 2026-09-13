@@ -5,6 +5,7 @@ import { resolveProjectContext } from './context';
 import { readText, VITE_FILES } from './detect';
 import { parseJsonc } from './jsonc';
 import type { ProjectState } from './types';
+import { renderSurveyScopeNote } from '../operational-contract';
 
 const TSCONFIG_FILES = ['tsconfig.json', 'tsconfig.app.json', 'jsconfig.json'];
 const WORKSPACE_DIRS = new Set(['apps', 'packages']);
@@ -113,7 +114,7 @@ function inferSourceRoot(root: string): SurveyScope | null {
   if (evidence.rootFile || isRootLayout(evidence.roots)) {
     return {
       sourceRoot: '.',
-      note: 'TypeScript includes identify source folders at the repository root.',
+      note: renderSurveyScopeNote({ kind: 'root-typescript-includes' }),
     };
   }
 
@@ -123,8 +124,7 @@ function inferSourceRoot(root: string): SurveyScope | null {
 function workspaceScope(): SurveyScope {
   return {
     sourceRoot: 'src',
-    note: 'Workspace projects span multiple application roots; '
-      + 'choose one with --source-root before authoring architecture.',
+    note: renderSurveyScopeNote({ kind: 'workspace-applications' }),
     required: true,
   };
 }

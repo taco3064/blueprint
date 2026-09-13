@@ -6,6 +6,13 @@ import { parseJsonc, pathAliasKeys, quotedIn, toolchainForProject } from '../pro
 import type { ProjectToolchain, ProjectState } from '../project';
 import { wireTsconfigPaths, wireViteAlias } from './wire';
 import type { Action } from './types';
+import {
+  renderAliasAddedNote,
+  renderBundlerAliasInstruction,
+  renderTsconfigAliasInstruction,
+  renderViteAliasInstruction,
+  renderJsconfigAliasNote,
+} from '../operational-contract';
 
 function aliasTarget(target: string, toolRoot: string): string {
   const relative = toolRoot && !path.isAbsolute(target)
@@ -117,7 +124,7 @@ function tsconfigActions(
       kind: 'write',
       path: toolchain.root ? `${toolchain.root}/jsconfig.json` : 'jsconfig.json',
       content: render({ compilerOptions: { paths } }),
-      note: 'jsconfig.json (import alias)',
+      note: renderJsconfigAliasNote(),
     }];
   }
 
@@ -136,7 +143,7 @@ function tsconfigActions(
       kind: 'write',
       path: target.file,
       content: result.text,
-      note: `${target.file} (import alias added — existing content preserved)`,
+      note: renderAliasAddedNote(target.file),
     }];
   }
 
@@ -164,7 +171,7 @@ function bundlerActions(
           kind: 'write',
           path: toolchain.viteConfig.file,
           content: result.text,
-          note: `${toolchain.viteConfig.file} (import alias added — existing content preserved)`,
+          note: renderAliasAddedNote(toolchain.viteConfig.file),
         },
       ];
     }
@@ -255,7 +262,7 @@ function isReferencesShell(text: string): boolean {
 function tsconfigInstruct(file: string, paths: Record<string, string[]>): Action {
   return {
     kind: 'instruct',
-    note: `Add the import alias to ${file} under compilerOptions:\n    "paths": ${JSON.stringify(paths)}\n  (no "baseUrl" needed — modern TypeScript resolves paths without it, and it is deprecated in 7.0)`,
+    note: renderTsconfigAliasInstruction(file, JSON.stringify(paths)),
   };
 }
 
@@ -267,7 +274,7 @@ function bundlerInstruct(
   if (!toolchain.viteConfig && !hasViteConfig) {
     return {
       kind: 'instruct',
-      note: `Set the import alias "${architecture.alias}" in your bundler — the lint rules resolve against it.`,
+      note: renderBundlerAliasInstruction(architecture.alias),
     };
   }
 
@@ -277,7 +284,10 @@ function bundlerInstruct(
 
   return {
     kind: 'instruct',
-    note: `Add the alias to ${toolchain.viteConfig?.file ?? 'vite.config'} under resolve.alias:\n    resolve: { alias: { ${lines.join(', ')} } }\n  (if this application config delegates to workspace Vite configuration, verify the alias there; already bridging tsconfig paths into Vite — e.g. vite-tsconfig-paths? Then the tsconfig side covers the bundler and this step is done.)`,
+    note: renderViteAliasInstruction(
+      toolchain.viteConfig?.file ?? 'vite.config',
+      lines.join(', '),
+    ),
   };
 }
 

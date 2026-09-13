@@ -1,1 +1,0 @@
-Only `architecture.testFiles: []` makes `testFilename` unavailable: the rule has no files to name. A declared glob that matches no scanned file still emits as the gate's file scope and may match elsewhere.

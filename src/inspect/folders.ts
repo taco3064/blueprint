@@ -1,6 +1,7 @@
 import { resolveArchitecture } from '../config';
 import type { ArchitectureDef } from '../config';
 import type { Finding, ScanResult, ScannedFile } from './types';
+import { renderFindingMessage } from '../operational-contract';
 
 export function folderFindings(scan: ScanResult, architecture: ArchitectureDef): Finding[] {
   const resolved = resolveArchitecture(architecture);
@@ -40,8 +41,7 @@ function undeclaredFindings(scan: ScanResult, scope: FolderScope): Finding[] {
       rule: 'undeclared-folder',
       path: `${prefix}${dir}`,
       subject: '',
-      message: `"${dir}" is not a declared ${subject} — move its code into an existing ${subject}, `
-        + 'or ask the owner to update the architecture contract.',
+      message: renderFindingMessage({ kind: 'undeclared-folder', name: dir, subject }),
     }));
 }
 
@@ -71,8 +71,7 @@ function undeclaredInnerLayerFindings(
       rule: 'undeclared-folder',
       path: `${prefix}${position}`,
       subject: '',
-      message: `"${layer}" is not a declared layer inside module "${module}" — move its code `
-        + 'into an existing layer, or ask the owner to update the shared layer contract.',
+      message: renderFindingMessage({ kind: 'undeclared-inner-layer', layer, module }),
     };
   });
 }
@@ -87,9 +86,7 @@ function missingFindings(scan: ScanResult, scope: FolderScope & {
     rule: topology === 'module-first' ? 'missing-module' : 'missing-layer',
     path: `${prefix}${name}`,
     subject: '',
-    message: `Declared ${subject} "${name}" has no folder yet — runway, not a todo: `
-      + 'the rules arm when code lands; keeping it is the default, '
-      + 'slimming is the owner\'s call.',
+    message: renderFindingMessage({ kind: 'missing-position', name, subject }),
   }));
 }
 
@@ -122,23 +119,12 @@ function selfOnlyFindings(
           rule: 'declaratory-self-only',
           path: position.root,
           subject: '',
-          message: selfOnlyMessage(position.layer.name, importers),
+          message: renderFindingMessage({
+            kind: 'declaratory-self-only', layer: position.layer.name, importers,
+          }),
         }]
       : [];
   });
-}
-
-function selfOnlyMessage(layer: string, importers: string[]): string {
-  return `selfOnly on "${layer}" (importer(s): ${importers.join(', ')}) is declaratory — `
-    + 'the layer holds no files, so the re-export ban cannot fire yet; it arms once code '
-    + 'lands. The no-restricted-syntax ENTRY is emitted today, on the importer layer(s) '
-    + 'named above, so it is already exposed to a merge: IF a second '
-    + 'no-restricted-syntax scoped to one of those layers exists, flat config merges '
-    + 'neither into the other — the later entry replaces the earlier, silently, with lint '
-    + 'still green. That condition is the whole note. Adopting into a single generated '
-    + 'config, there is no second entry, so there is nothing here to act on. "Cannot fire" '
-    + 'is about the ban, not about the entry. Check `blueprint rules --json` for the emit '
-    + 'points before merging.';
 }
 
 function noEntryFindings(
@@ -161,7 +147,7 @@ function noEntryFindings(
           rule: 'no-entry',
           path: `${prefix}${key}`,
           subject: '',
-          message: `Unit "${key}" has no "${entry}" entry — nothing is importable from outside.`,
+          message: renderFindingMessage({ kind: 'no-entry', unit: key, entry }),
         }];
   });
 }

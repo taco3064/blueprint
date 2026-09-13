@@ -95,7 +95,7 @@ styles (file-layout layer — answers at layer granularity)
   above) so a zero
   fan-in is never misread as "nobody imports this". Querying into one fails with the
   reason: `✗ "legacy/" is outside the declared architecture`.
-<!-- @include: @/publication/semantic/test-files/deps.en.md -->
+**Test files are excluded only when they match `architecture.testFiles`.** Imports from files matched by `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}` add nothing to a unit's blast radius. A scanned file no configured glob matches remains ordinary source, so its imports count.
 - **Only alias and relative imports form edges.** Package imports (`axios`, `vue`)
   are not part of the unit graph — package *ownership* is `inspect`'s job.
 - **Cycles are listed, not judged.** Two units importing each other simply show up

@@ -2,6 +2,18 @@ import path from 'node:path';
 
 import { resolveArchitecture } from '../config';
 import {
+  layerToModuleBrief,
+  moduleToLayerBrief,
+  renderRepositoryAction,
+  renderRepositoryLauncherConflictError,
+  renderRepositoryNarration,
+  renderRepositoryPlaybook,
+  renderRepositoryPreflightError,
+  renderRepositoryReady,
+  renderRepositoryRouterError,
+  renderTransformationWriteNote,
+} from '../operational-contract';
+import {
   AUTHORING_FILE,
   claudeDirState,
   detect,
@@ -18,12 +30,10 @@ import {
   emitsClaudeAuthoringLauncher,
 } from './authoring-launcher';
 import { apply, defaultExec } from './apply';
-import { moduleToLayerBrief } from './module-to-layer-playbook';
 import { installCommand } from './plan';
 import { cleanupTargets } from './playbook';
 import { runTransformationPreflight } from './preflight';
 import type { TransformationPreflight } from './preflight';
-import { layerToModuleBrief } from './transformation-playbook';
 import type { LayerToModuleInput } from './transformation';
 import type { Action } from './types';
 
@@ -42,14 +52,6 @@ interface RenderContext {
   count: number;
   cleanup: string;
   current: 'layer-first' | 'module-first';
-}
-
-interface RepositoryPlaybookFacts {
-  current: string;
-  target: string;
-  applications: string[];
-  sections: string[];
-  cleanup: string;
 }
 
 export async function runRepositoryTopologyTransformation(
@@ -95,36 +97,36 @@ export async function runRepositoryTopologyTransformation(
     {
       kind: 'write',
       path: AUTHORING_FILE,
-      content: repositoryPlaybook({
+      content: renderRepositoryPlaybook({
         current: input.topology.current!,
         target: input.topology.target!,
         applications: applications.map((application) => application.relativeRoot),
         sections,
         cleanup: launcher.cleanup,
       }),
-      note: `${AUTHORING_FILE} (repository-wide topology transformation playbook)`,
+      note: renderTransformationWriteNote('repository', AUTHORING_FILE),
     },
     ...launcher.actions,
     {
       kind: 'instruct',
-      note: [
-        `${input.topology.current} → ${input.topology.target} repository transformation preflight passed.`,
-        `  ${applications.length} adopted applications are one atomic topology change.`,
-        '  Read blueprint-authoring.md from the repository root and complete every application',
-        '  before reporting success; a mixed intermediate tree is never a supported result.',
-      ].join('\n'),
+      note: renderRepositoryReady({
+        current: input.topology.current!,
+        target: input.topology.target!,
+        applications: applications.length,
+      }),
     },
   ];
 
-  input.log(
-    `blueprint ${input.options.dryRun ? 'init --dry-run' : 'init'} · `
-    + `${input.topology.current} → ${input.topology.target} repository transformation `
-    + `authoring (${applications.length} applications; Git preflight passed)`,
-  );
+  input.log(renderRepositoryNarration({
+    dryRun: input.options.dryRun === true,
+    current: input.topology.current!,
+    target: input.topology.target!,
+    applications: applications.length,
+  }));
 
   if (input.options.dryRun) {
     for (const action of actions) {
-      input.log(`  would ${action.kind}: ${action.note}`);
+      input.log(renderRepositoryAction(action, false));
     }
 
     return actions;
@@ -133,7 +135,7 @@ export async function runRepositoryTopologyTransformation(
   apply(repositoryRoot, actions, {
     // Stryker disable next-line LogicalOperator: no install action means exec is inert.
     exec: input.options.exec ?? defaultExec,
-    onApplied: (action) => input.log(`  ✓ ${action.kind}: ${action.note}`),
+    onApplied: (action) => input.log(renderRepositoryAction(action, true)),
   });
 
   if (input.options.agent) {
@@ -151,11 +153,7 @@ function repositoryClaudeLauncher(blueprints: RepositoryBlueprint[]): boolean {
     emitsClaudeAuthoringLauncher(entry.blueprint.emit?.agents)))];
 
   if (policies.length > 1) {
-    throw new Error(
-      'Blueprint configs in one repository disagree on Claude authoring launcher emission. '
-      + 'Align emit.agents across every adopted application before transforming topology; '
-      + 'no files were changed.',
-    );
+    throw new Error(renderRepositoryLauncherConflictError());
   }
 
   return policies[0];
@@ -224,47 +222,23 @@ function renderApplication(
   });
 }
 
-function repositoryPlaybook(facts: RepositoryPlaybookFacts): string {
-  return [
-    '# Blueprint repository-wide topology transformation',
-    '',
-    `Current repository topology: \`${facts.current}\``,
-    `Target repository topology: \`${facts.target}\``,
-    `Adopted applications: ${facts.applications.map((application) => `\`${application}\``).join(', ')}`,
-    '',
-    'This is one atomic repository transformation. Complete every application work unit before',
-    'claiming success. Do not commit or report a supported state while valid configs disagree.',
-    'After all movements and config cutovers, run inspect, deps, emitted ESLint, lint, typecheck,',
-    'test, and build for every application. Then scan every valid blueprint.config.mjs again and',
-    `prove that all resolve to \`${facts.target}\`.`,
-    '',
-    `Delete ${facts.cleanup} only after every application passes and the repository has one topology.`,
-    '',
-    ...facts.sections,
-  ].join('\n\n');
-}
-
 function assertRouter(
   state: ReturnType<typeof detect>,
   current: 'layer-first' | 'module-first',
 ): void {
-  if (!state.hasNext || state.nextRouter === 'app') {
+  if (!state.hasNext) {
     return;
   }
 
-  if (current === 'layer-first' && state.nextRouter === null) {
-    throw new Error(
-      'Cannot verify a Next.js App Router surface for the repository-wide layer-first → '
-      + 'module-first transformation. Establish the application router identity, then re-run. '
-      + 'No files were changed.',
-    );
-  }
+  const error = renderRepositoryRouterError({
+    applicationRoot: state.applicationRoot,
+    current,
+    router: state.nextRouter,
+  });
 
-  throw new Error(
-    `Cannot safely transform repository application ${state.applicationRoot}: its Next.js `
-    + `router state is ${state.nextRouter ?? 'unresolved'}. Resolve the router identity first, `
-    + 'then re-run; no files were changed.',
-  );
+  if (error) {
+    throw new Error(error);
+  }
 }
 
 function assertPreflight(preflight: TransformationPreflight, application: string): void {
@@ -272,20 +246,5 @@ function assertPreflight(preflight: TransformationPreflight, application: string
     return;
   }
 
-  const checks: [string, { ok: boolean; reason?: string }][] = [
-    ['Git repository', preflight.repository],
-    ['clean worktree', preflight.worktree],
-    ['recoverable HEAD', preflight.head],
-    ['application scope', preflight.scope],
-    ['pre-transform inspection', preflight.inspection],
-  ];
-
-  const failures = checks
-    .filter(([, check]) => !check.ok)
-    .map(([label, check]) => `- ${application} · ${label}: ${check.reason}`);
-
-  throw new Error(
-    'Repository topology transformation preflight failed before mutation:\n'
-    + `${failures.join('\n')}\nResolve every item and re-run; no files were changed.`,
-  );
+  throw new Error(renderRepositoryPreflightError(preflight, application));
 }

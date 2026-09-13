@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { assertContained, escapesRoot } from './contain';
 import type { Action } from './types';
+import type { OperationalText } from '../operational-contract';
+
+const note = (value: string): OperationalText => value as OperationalText;
 
 describe('escapesRoot', () => {
   // Each row is a shape a config can literally produce, and the verdict is the
@@ -39,11 +42,11 @@ describe('escapesRoot', () => {
 
 describe('assertContained', () => {
   const contained: Action[] = [
-    { kind: 'write', path: 'blueprint.config.mjs', content: '// x', note: 'config' },
-    { kind: 'mkdir', path: 'src/pages', note: 'src/pages/' },
-    { kind: 'rm', path: 'CLAUDE.md', note: 'stale' },
-    { kind: 'install', command: 'npm i -D eslint', note: 'eslint' },
-    { kind: 'instruct', note: 'set the alias' },
+    { kind: 'write', path: 'blueprint.config.mjs', content: '// x', note: note('config') },
+    { kind: 'mkdir', path: 'src/pages', note: note('src/pages/') },
+    { kind: 'rm', path: 'CLAUDE.md', note: note('stale') },
+    { kind: 'install', command: 'npm i -D eslint', note: note('eslint') },
+    { kind: 'instruct', note: note('set the alias') },
   ];
 
   it('passes a list that stays inside the root', () => {
@@ -53,9 +56,9 @@ describe('assertContained', () => {
   // Every path-carrying kind, because membership is `'path' in action`: a kind
   // left out of the check writes outside while the other two are guarded.
   it.each([
-    ['write', { kind: 'write', path: '../outside.md', content: 'x', note: 'n' }],
-    ['mkdir', { kind: 'mkdir', path: '../outside', note: 'n' }],
-    ['rm', { kind: 'rm', path: '/etc/passwd', note: 'n' }],
+    ['write', { kind: 'write', path: '../outside.md', content: 'x', note: note('n') }],
+    ['mkdir', { kind: 'mkdir', path: '../outside', note: note('n') }],
+    ['rm', { kind: 'rm', path: '/etc/passwd', note: note('n') }],
   ] as [string, Action][])('refuses an escaping %s action', (kind, action) => {
     expect(() => assertContained([action])).toThrow(new RegExp(`\\(${kind}\\)`));
     expect(() => assertContained([action])).toThrow(/outside the project root/);
@@ -64,7 +67,9 @@ describe('assertContained', () => {
   it('names the cause, the guarantee and the config fields that set the path', () => {
     // The adopting agent's only guaranteed channel is this line. "Refused" alone
     // reads as a tool bug; the fields are what turn it into an edit.
-    const escaping: Action = { kind: 'write', path: '../CLAUDE.md', content: 'x', note: 'n' };
+    const escaping: Action = {
+      kind: 'write', path: '../CLAUDE.md', content: 'x', note: note('n'),
+    };
 
     expect(() => assertContained([escaping])).toThrow(/nothing was written/);
     expect(() => assertContained([escaping])).toThrow(/emit\.handbook/);
@@ -77,7 +82,7 @@ describe('assertContained', () => {
     // reached on the fifth action has already applied four.
     const actions: Action[] = [
       ...contained,
-      { kind: 'write', path: '../outside.md', content: 'x', note: 'n' },
+      { kind: 'write', path: '../outside.md', content: 'x', note: note('n') },
     ];
 
     expect(() => assertContained(actions)).toThrow(/outside the project root/);

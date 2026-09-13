@@ -1,6 +1,12 @@
 import { spawnSync } from 'node:child_process';
 
 import { AGENT_PROMPT } from './authoring-launcher';
+import {
+  renderAgentCommand,
+  renderAgentCommandOutput,
+  renderAgentLaunchFailure,
+  renderAgentLaunchHeader,
+} from '../operational-contract';
 
 export const AGENT_KINDS = ['claude', 'codex'] as const;
 
@@ -11,7 +17,7 @@ export function agentTargetOf(agent: AgentKind): 'claude' | 'agents' {
 }
 
 export function launchCommandLine(agent: AgentKind): string {
-  return `${agent} "${AGENT_PROMPT}"`;
+  return renderAgentCommand(agent, AGENT_PROMPT);
 }
 
 export type Spawner = (
@@ -35,16 +41,17 @@ export function launchAgent(
 ): number {
   const { log, spawner = defaultSpawner } = effects;
 
-  log(`\nLaunching ${agent} (interactive — your agent CLI, your permissions):`);
-  log(`  ${launchCommandLine(agent)}`);
+  log(renderAgentLaunchHeader(agent));
+  log(renderAgentCommandOutput(launchCommandLine(agent)));
 
   const result = spawner(agent, [AGENT_PROMPT], root);
 
   if (result.error) {
-    throw new Error(
-      `could not launch "${agent}" (${result.error.message}). `
-      + `Everything is already on disk — run it yourself:\n    ${launchCommandLine(agent)}`,
-    );
+    throw new Error(renderAgentLaunchFailure(
+      agent,
+      result.error.message,
+      launchCommandLine(agent),
+    ));
   }
 
   return result.status ?? 0;

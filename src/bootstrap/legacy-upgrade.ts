@@ -5,28 +5,18 @@ import type { ProjectState, RepositoryBlueprint } from '../project';
 import { apply, defaultExec } from './apply';
 import type { InitOptions } from './bootstrap';
 import type { Action } from './types';
+import {
+  renderActionLine,
+  renderLegacyCheckpointNote,
+  renderLegacyUpgradeMessage,
+} from '../operational-contract';
 
 export function legacyUpgradeNote(options: InitOptions, repositoryConfigCount = 1): string {
-  const scope = repositoryConfigCount > 1
-    ? `all ${repositoryConfigCount} Blueprint configs in the repository`
-    : 'the config';
-
-  if (options.dryRun) {
-    return options.topology === 'module-first'
-      ? `Blueprint 3.2 phase 1 dry run: would migrate ${scope} to valid 4.0 layer-first. `
-      + 'No files were changed; re-run without --dry-run to create the checkpoint before the '
-      + 'guarded topology transformation.'
-      : 'Blueprint 3.2 dry run: would migrate the config to valid 4.0 layer-first without '
-        + 'topology movement. No files were changed; re-run without --dry-run to apply it.';
-  }
-
-  if (options.topology === 'module-first') {
-    return `Blueprint 3.2 phase 1: migrated ${scope} to valid 4.0 layer-first. Verify and `
-      + 'commit this state, then re-run `blueprint init --topology module-first` to start the '
-      + 'guarded topology transformation.';
-  }
-
-  return 'Blueprint 3.2 config migrated to valid 4.0 layer-first without topology movement.';
+  return renderLegacyUpgradeMessage({
+    dryRun: Boolean(options.dryRun),
+    topology: options.topology,
+    repositoryConfigCount,
+  });
 }
 
 export function migrateLegacyRepositoryCheckpoint(
@@ -54,18 +44,18 @@ export function migrateLegacyRepositoryCheckpoint(
         kind: 'write',
         path: configPath,
         content: entry.migratedConfigSource!,
-        note: `${configPath} (Blueprint 3.2 → 4.0 layer-first checkpoint)`,
+        note: renderLegacyCheckpointNote(configPath),
       };
     });
 
   if (options.dryRun) {
     for (const action of actions) {
-      log(`  would ${action.kind}: ${action.note}`);
+      log(renderActionLine(action.kind, action.note, 'dry-run'));
     }
   } else {
     apply(repositoryRoot, actions, {
       exec: defaultExec,
-      onApplied: (action) => log(`  ✓ ${action.kind}: ${action.note}`),
+      onApplied: (action) => log(renderActionLine(action.kind, action.note, 'applied')),
     });
   }
 

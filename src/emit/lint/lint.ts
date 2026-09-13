@@ -1,4 +1,8 @@
 import type { ESLint, Linter } from 'eslint';
+import {
+  renderCodeStylePluginError,
+  renderSelfOnlyReexport,
+} from '../../operational-contract';
 import { activeSetting, resolveArchitecture } from '../../config';
 import type { AliasRoot, Blueprint, ReadSetting, ResolvedTestFiles } from '../../config';
 import { plugin } from '../../plugin';
@@ -164,7 +168,7 @@ function layerImportEntries(
           ? []
           : [{
               selector: selfOnlyReexportSelector(specifier),
-              message: `\n🚫 Cannot re-export from "${target}" — a selfOnly dependency must not be exposed to callers.`,
+              message: renderSelfOnlyReexport(target),
             }];
       })),
     );
@@ -458,12 +462,7 @@ function codeStyleRules(gate: ReadSetting, stylistic: ESLint.Plugin): Linter.Rul
   const customize = (stylistic as StylisticPlugin).configs?.customize;
 
   if (typeof customize !== 'function') {
-    throw new Error(
-      'blueprint: rules.codeStyle needs @stylistic/eslint-plugin\'s configs.customize() '
-      + 'factory, and the plugin passed as emitLint\'s `stylistic` option does not expose '
-      + 'it. Pass the real plugin (import stylistic from \'@stylistic/eslint-plugin\'), or '
-      + 'set rules.codeStyle to \'off\'.',
-    );
+    throw new Error(renderCodeStylePluginError());
   }
 
   const opts = gate.opts;

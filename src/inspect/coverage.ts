@@ -1,5 +1,10 @@
 import { activeSetting, resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
+import {
+  renderCoverageReport,
+  renderCoverageSummary,
+  renderVacuousNextStep,
+} from '../operational-contract';
 
 import {
   emptyTestGlobs,
@@ -66,8 +71,6 @@ export function unreachedIgnoreGlobs(scanResult: ScanResult, blueprint: Blueprin
   });
 }
 
-const OUTSIDE_NAMED_MAX = 5;
-
 export function computeCoverage(
   scanResult: ScanResult,
   blueprint: Blueprint,
@@ -117,48 +120,16 @@ export function computeCoverage(
 }
 
 export function coverageSummary(coverage: Coverage): string {
-  const outside = coverage.outsideNets;
-
-  const named = outside.length === 0
-    ? ''
-    : outside.length > OUTSIDE_NAMED_MAX
-      ? ` (${outside.length} outside — too many to name; outside the declared architecture lint nets)`
-      : ` (outside: ${outside.join(', ')} — outside the declared architecture lint nets)`;
-
-  const ignored = coverage.ignoredFiles === undefined || coverage.ignoredFiles.length === 0
-    ? ''
-    : coverage.ignoredFiles.length > OUTSIDE_NAMED_MAX
-      ? ` (${coverage.ignoredFiles.length} lint ignored — too many to name)`
-      : ` (lint ignored: ${coverage.ignoredFiles.join(', ')})`;
-
-  const reach = coverage.ignoredFiles === undefined
-    ? 'source files inside architecture nets'
-    : 'source files reached by layer lint rules';
-
-  return `${coverage.layerFiles}/${coverage.sourceFiles} ${reach}${ignored}${named} · `
-    + `${coverage.activeRules}/${coverage.gatedRules} optional gates active `
-    + '(structural boundary rules are always on)';
+  return renderCoverageSummary(coverage);
 }
 
 export function vacuousNextStep(blueprint: Blueprint): string {
   const architecture = resolveArchitecture(blueprint.architecture);
   const dir = `${architecture.layerPositions[0].root}/`;
 
-  const destination = architecture.topology === 'module-first'
-    ? 'a declared module and layer'
-    : 'a declared layer';
-
-  return `next: move code into ${destination} (e.g. ${dir}) and the net arms itself`;
+  return renderVacuousNextStep({ topology: architecture.topology, directory: dir });
 }
 
 export function renderCoverage(coverage: Coverage, blueprint: Blueprint): string {
-  const exemption = coverage.testExemption === undefined ? '' : `\n· ${coverage.testExemption}`;
-
-  if (coverage.sourceFiles > 0 && coverage.layerFiles === 0
-    && (coverage.ignoredFiles?.length ?? 0) === 0) {
-    return `⚠ Enforcement is vacuous — architecture globs match 0 of ${coverage.sourceFiles} source `
-      + `file(s); a green gate proves nothing yet — ${vacuousNextStep(blueprint)}.${exemption}`;
-  }
-
-  return `Coverage: ${coverageSummary(coverage)}${exemption}`;
+  return renderCoverageReport(coverage, vacuousNextStep(blueprint));
 }

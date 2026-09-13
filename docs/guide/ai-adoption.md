@@ -42,7 +42,7 @@ npx @kekkai/blueprint survey --source-root apps/web/src
 - the **folder-to-folder import matrix**, heaviest edges first — the intended flow
   direction, and the counter-edges that are debt
 
-<!-- @include: @/publication/semantic/test-files/survey.en.md -->
+The survey's import matrix includes test files; inspect excludes only files matched by `**/*.test.{js,jsx,ts,tsx,vue}` / `**/*.spec.{js,jsx,ts,tsx,vue}`, so the two counts differ by exactly that measured reach.
 - **package-usage concentration** — `owns` candidates
 - **named imports concentrated in one folder**, from a package spread across several
   — the only evidence a specifier-level `owns: [{ package, imports: […] }]` can be

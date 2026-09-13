@@ -5,13 +5,31 @@ import { assertContained } from './contain';
 import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
 import type { AgentFile } from '../emit/agent';
 import { emitHandbook, handbookPath } from '../emit/docs';
-import { eslintConfigSource, eslintWiringNote } from './eslint';
+import { eslintConfigSource } from './eslint';
 import { injectBetweenMarkers } from '../markdown';
 import { resolveArchitecture, sourcePath } from '../config';
 import type { AgentTarget, ArchitectureDef, Blueprint, EmitDef } from '../config';
 import { SUPPORTED_ESLINT_MAJORS } from '../project';
 import type { PackageManager, ProjectState } from '../project';
 import type { Action } from './types';
+import {
+  renderAgentContractNote,
+  renderBlueprintConfigNote,
+  renderDependencyInstallNote,
+  renderEslintConfigNote,
+  renderEslintWiringNote,
+  renderHandbookWriteNote,
+  renderInstallSkippedForPlan,
+  renderIntegratedContractInstruction,
+  renderLayerDirectoryNote,
+  renderOptionalToolingNote,
+  renderReferenceContractInstruction,
+  renderReferenceContractNote,
+  renderStaleContractInstruction,
+  renderStaleContractNote,
+  renderStaleContractCause,
+} from '../operational-contract';
+import type { StaleContractCause } from '../operational-contract';
 
 const MARKER = 'BLUEPRINT';
 
@@ -32,15 +50,11 @@ export interface PlanOptions {
 const TOOLING_NOTES: Action[] = [
   {
     kind: 'instruct',
-    note: 'Dead code (optional): `blueprint inspect` reports dead files; for dead *exports*, '
-      + 'install knip and configure its entry points — that is the source of truth, '
-      + 'not the warn-tier `import/no-unused-modules`.',
+    note: renderOptionalToolingNote('dead-code'),
   },
   {
     kind: 'instruct',
-    note: 'CSS token governance (optional): install stylelint + '
-      + '@csstools/stylelint-value-no-unknown-custom-properties, '
-      + 'pointing importFrom at your token source file.',
+    note: renderOptionalToolingNote('css-tokens'),
   },
 ];
 
@@ -76,7 +90,7 @@ export function plan(
       kind: 'write',
       path: handbook,
       content: emitHandbook(blueprint, stack),
-      note: handbook,
+      note: renderHandbookWriteNote(handbook),
     },
     ...agentContractActions(agentFiles, options.existingAgentFiles),
     ...staleContractActions(agentFiles, emit, options),
@@ -97,7 +111,7 @@ function configWrite(configSource: string): Action {
     kind: 'write',
     path: 'blueprint.config.mjs',
     content: configSource,
-    note: 'blueprint.config.mjs',
+    note: renderBlueprintConfigNote(),
   };
 }
 
@@ -113,7 +127,7 @@ function scaffoldDirs(architecture: ArchitectureDef, existing: string[]): Action
     .map((layer) => ({
       kind: 'mkdir',
       path: sourcePath(architecture, layer.name),
-      note: `${sourcePath(architecture, layer.name)}/`,
+      note: renderLayerDirectoryNote(sourcePath(architecture, layer.name)),
     }));
 }
 
@@ -132,18 +146,14 @@ function contractActions(file: AgentFile, existing: string | null): Action[] {
       kind: 'write',
       path: file.path,
       content: file.content,
-      note: `${file.path} (agent contract)`,
+      note: renderAgentContractNote(file.path),
     }];
   }
 
   if (existing !== null && !hasMarker(existing) && existing.includes('@kekkai/blueprint')) {
     return [{
       kind: 'instruct',
-      note: `${file.path} already integrates the blueprint contract without markers — left as is, `
-        + 'and init can never refresh it: after config changes, update it by hand — '
-        + 'or wrap the '
-        + `generated block in <!-- ${MARKER}:START --> / <!-- ${MARKER}:END --> once, and every `
-        + 'later init rewrites just that block.',
+      note: renderIntegratedContractInstruction(file.path, MARKER),
     }];
   }
 
@@ -155,7 +165,7 @@ function contractActions(file: AgentFile, existing: string | null): Action[] {
     kind: 'write',
     path: file.path,
     content: mergeContract(existing, file.content),
-    note: `${file.path} (agent contract)`,
+    note: renderAgentContractNote(file.path),
   }];
 }
 
@@ -171,18 +181,11 @@ function referenceActions(file: AgentFile): Action[] {
       kind: 'write',
       path: reference,
       content: mergeContract(null, file.content),
-      note: `${reference} (reference — hand-written ${file.path} left untouched)`,
+      note: renderReferenceContractNote(reference, file.path),
     },
     {
       kind: 'instruct',
-      note: `${file.path} is hand-written, so it was not touched. Integrate ${reference} into it — `
-        + 'follow the document\'s own structure, link rather than duplicate, and KEEP the '
-        + `<!-- ${MARKER}:START/END --> marker comments around the generated block: they are what `
-        + 'lets a later init refresh the block after config changes (integrating without '
-        + 'them '
-        + 'means updating it by hand, forever) — then delete the reference. '
-        + '(An agent running '
-        + 'the authoring playbook does this as its final step.)',
+      note: renderReferenceContractInstruction(file.path, reference, MARKER),
     },
   ];
 }
@@ -194,12 +197,14 @@ function staleContractActions(
 ): Action[] {
   const emitted = new Set(files.map((file) => file.path));
 
-  const cause
+  const cause: StaleContractCause
     = emit?.agents !== undefined
-      ? 'no longer in emit.agents'
+      ? 'configured-policy'
       : options.agentTarget !== undefined
-        ? 'narrowed by --agent; declare emit.agents in blueprint.config.mjs to make this permanent'
-        : 'not among the emitted targets';
+        ? 'agent-flag'
+        : 'default-targets';
+
+  const causeText = renderStaleContractCause(cause);
 
   const actions: Action[] = [];
 
@@ -214,12 +219,12 @@ function staleContractActions(
       actions.push({
         kind: 'rm',
         path: spec.path,
-        note: `${spec.path} (stale agent contract — ${cause})`,
+        note: renderStaleContractNote(spec.path, causeText),
       });
     } else if (hasMarker(existing)) {
       actions.push({
         kind: 'instruct',
-        note: `${spec.path} is no longer among the emitted agent contracts (${cause}) but carries hand-written content around its BLUEPRINT block — remove the block (or the file) yourself if it is unwanted.`,
+        note: renderStaleContractInstruction(spec.path, causeText),
       });
     }
   }
@@ -233,14 +238,14 @@ function eslintConfigActions(blueprint: Blueprint, state: ProjectState): Action[
       kind: 'write',
       path: state.ownedEslintConfig,
       content: eslintConfigSource(blueprint, state),
-      note: `${state.ownedEslintConfig} (blueprint-owned — regenerated)`,
+      note: renderEslintConfigNote('owned', state.ownedEslintConfig),
     }];
   }
 
   if (state.wiredEslintConfig) {
     return [{
       kind: 'instruct',
-      note: 'eslint config already wires @kekkai/blueprint — nothing to merge.',
+      note: renderEslintConfigNote('wired', ''),
     }];
   }
 
@@ -250,9 +255,14 @@ function eslintConfigActions(blueprint: Blueprint, state: ProjectState): Action[
         kind: 'write',
         path: 'eslint.config.blueprint.mjs',
         content: eslintConfigSource(blueprint, state),
-        note: 'eslint.config.blueprint.mjs (reference — not wired in)',
+        note: renderEslintConfigNote('reference', 'eslint.config.blueprint.mjs'),
       },
-      { kind: 'instruct', note: eslintWiringNote(state) },
+      { kind: 'instruct', note: renderEslintWiringNote({
+        shape: state.eslintConfigShape ?? null,
+        legacyFile: state.legacyEslintConfig,
+        configFile: state.eslintConfigFile,
+        hasTypescript: state.hasTypescript,
+      }) },
     ];
   }
 
@@ -260,7 +270,7 @@ function eslintConfigActions(blueprint: Blueprint, state: ProjectState): Action[
     kind: 'write',
     path: 'eslint.config.mjs',
     content: eslintConfigSource(blueprint, state),
-    note: 'eslint.config.mjs',
+    note: renderEslintConfigNote('new', 'eslint.config.mjs'),
   }];
 }
 
@@ -274,7 +284,7 @@ function installActions(state: ProjectState, options: PlanOptions): Action[] {
   if (options.install === false) {
     return [{
       kind: 'instruct',
-      note: `Install skipped — run it yourself:\n    ${installCommand(state.packageManager, deps)}`,
+      note: renderInstallSkippedForPlan(installCommand(state.packageManager, deps)),
     }];
   }
 
@@ -282,9 +292,7 @@ function installActions(state: ProjectState, options: PlanOptions): Action[] {
     kind: 'install',
     command: installCommand(state.packageManager, deps),
 
-    note: deps.includes('eslint')
-      ? `${deps.join(', ')} — eslint unpinned, resolving to the newest supported major (${SUPPORTED_ESLINT_MAJORS.join(' and ')} are both admitted by every carrier's peer range, and @kekkai/blueprint's CI runs its own suite on each)`
-      : deps.join(', '),
+    note: renderDependencyInstallNote(deps, SUPPORTED_ESLINT_MAJORS),
   }];
 }
 

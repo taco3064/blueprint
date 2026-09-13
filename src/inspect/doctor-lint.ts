@@ -1,4 +1,5 @@
 import type { LintEntrypointAssessment } from '../project';
+import { renderDoctorCheck } from '../operational-contract';
 import type { LiveLintEvidence } from './lint-runtime';
 import type { DoctorCheck } from './types';
 
@@ -6,32 +7,25 @@ export function liveLintCheck(
   evidence: LiveLintEvidence,
   assessment: LintEntrypointAssessment,
 ): DoctorCheck {
-  const label = 'reachable eslint leg passes live';
-
   if (!assessment.reachable) {
-    return {
-      label: `${label} (skipped — no reachable eslint leg)`,
-      ok: true,
-      skipped: 'the normal lint entrypoint check above is the red for that',
-    };
+    return renderDoctorCheck({ kind: 'live-lint', status: 'unreachable' });
   }
 
   if (evidence.status === 'unverified') {
-    return {
-      label: `${label} (skipped — safe execution unavailable)`,
-      ok: true,
-      skipped: `${evidence.command ? `\`${evidence.command}\` — ` : ''}${evidence.reason}`,
-    };
+    return renderDoctorCheck({
+      kind: 'live-lint',
+      status: 'unverified',
+      ...(evidence.command ? { command: evidence.command } : {}),
+      reason: String(evidence.reason),
+    });
   }
 
-  const totals = `${evidence.errors} error(s), ${evidence.warnings} warning(s)`;
-  const detail = `\`${evidence.command}\` — ${totals}`;
-
-  return evidence.status === 'passed'
-    ? { label, ok: true, detail }
-    : {
-        label,
-        ok: false,
-        detail: `${detail}; ${evidence.reason ?? 'the native ESLint gate failed'}`,
-      };
+  return renderDoctorCheck({
+    kind: 'live-lint',
+    status: evidence.status,
+    command: String(evidence.command),
+    errors: evidence.errors,
+    warnings: evidence.warnings,
+    ...(evidence.reason ? { reason: evidence.reason } : {}),
+  });
 }

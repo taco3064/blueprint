@@ -1,6 +1,17 @@
 import { AUTHORING_FILE, claudeDirState } from '../project';
 import type { ClaudeDirState, ProjectState } from '../project';
 import type { ArchitectureDef } from '../config';
+import {
+  layerToModuleBrief,
+  renderLayerToModuleRouterError,
+  renderTransformationAction,
+  renderTransformationInstallHandoff,
+  renderTransformationInstallNote,
+  renderTransformationNarration,
+  renderTransformationPreflightError,
+  renderTransformationReady,
+  renderTransformationWriteNote,
+} from '../operational-contract';
 import { collectTransformationEvidence, runSurvey } from '../survey';
 import type { SurveyResult, TransformationEvidence } from '../survey';
 import { authoringLauncherActions, emitsClaudeAuthoringLauncher } from './authoring-launcher';
@@ -14,7 +25,6 @@ import { runTransformationPreflight } from './preflight';
 import type { TransformationPreflight } from './preflight';
 import { cleanupTargets } from './playbook';
 import type { TopologyDecision } from './topology';
-import { layerToModuleBrief } from './transformation-playbook';
 import type { Action } from './types';
 
 interface TransformationActionInput {
@@ -36,10 +46,10 @@ export function transformationActions(
   const install: Action[] = !state.missingDeps.includes('@kekkai/blueprint')
     ? []
     : input.install !== false
-      ? [{ kind: 'install', command, note: '@kekkai/blueprint (the config imports it)' }]
+      ? [{ kind: 'install', command, note: renderTransformationInstallNote() }]
       : [{
           kind: 'instruct',
-          note: `Install skipped — verification requires @kekkai/blueprint, so run:\n    ${command}`,
+          note: renderTransformationInstallHandoff(command),
         }];
 
   return [
@@ -54,17 +64,13 @@ export function transformationActions(
         install: command,
         cleanup: cleanupTargets(input.claudeDir, claudeLauncher),
       }),
-      note: `${AUTHORING_FILE} (layer-first → module-first transformation evidence + playbook)`,
+      note: renderTransformationWriteNote('layer-to-module', AUTHORING_FILE),
     },
     ...authoringLauncherActions(input.agents),
     ...install,
     {
       kind: 'instruct',
-      note: [
-        'Layer-first → module-first transformation preflight passed.',
-        '  The CLI measured candidates and graph evidence; domain ownership remains an Agent',
-        '  decision. Read blueprint-authoring.md and execute it end to end with git mv.',
-      ].join('\n'),
+      note: renderTransformationReady('layer-to-module'),
     },
   ];
 }
@@ -108,7 +114,7 @@ export async function runLayerToModuleTransformation(
   if (!input.options.dryRun) {
     apply(input.root, actions, {
       exec: input.options.exec ?? defaultExec,
-      onApplied: (action) => input.log(`  ✓ ${action.kind}: ${action.note}`),
+      onApplied: (action) => input.log(renderTransformationAction(action, true)),
     });
 
     launchRequestedAgent(input);
@@ -134,14 +140,15 @@ function surveyFor(input: LayerToModuleInput): SurveyResult {
 }
 
 function narratePlan(input: LayerToModuleInput, survey: SurveyResult, actions: Action[]): void {
-  input.log(
-    `blueprint ${input.options.dryRun ? 'init --dry-run' : 'init'} · layer-first → module-first `
-    + `transformation authoring (${survey.totalFiles} source files surveyed; Git preflight passed)`,
-  );
+  input.log(renderTransformationNarration({
+    dryRun: input.options.dryRun === true,
+    direction: 'layer-first → module-first',
+    totalFiles: survey.totalFiles,
+  }));
 
   if (input.options.dryRun) {
     for (const action of actions) {
-      input.log(`  would ${action.kind}: ${action.note}`);
+      input.log(renderTransformationAction(action, false));
     }
   }
 }
@@ -156,23 +163,15 @@ function launchRequestedAgent(input: LayerToModuleInput): void {
 }
 
 function assertRouter(state: ProjectState): void {
-  if (!state.hasNext || state.nextRouter === 'app') {
+  if (!state.hasNext) {
     return;
   }
 
-  if (state.nextRouter === null) {
-    throw new Error(
-      'Cannot verify a Next.js App Router surface for this layer-first → module-first '
-      + 'transformation. Establish one application scope with a physical `app/**` tree, then '
-      + 're-run `blueprint init --topology module-first`. No files were changed.',
-    );
-  }
+  const error = renderLayerToModuleRouterError(state.nextRouter);
 
-  throw new Error(
-    'Next.js Pages Router → module-first requires a framework router migration, not a '
-    + 'folder-only topology transformation. Migrate to App Router separately, then re-run '
-    + '`blueprint init --topology module-first`. No files were changed.',
-  );
+  if (error) {
+    throw new Error(error);
+  }
 }
 
 function assertPreflight(preflight: TransformationPreflight): void {
@@ -180,23 +179,5 @@ function assertPreflight(preflight: TransformationPreflight): void {
     return;
   }
 
-  const failures = preflightFailures(preflight);
-
-  throw new Error(
-    'Layer-first → module-first transformation preflight failed before mutation:\n'
-    + `${failures.join('\n')}\nResolve every item and re-run; no files were changed.`,
-  );
-}
-
-function preflightFailures(preflight: TransformationPreflight): string[] {
-  const checks: [string, { ok: boolean; reason?: string }][] = [
-    ['Git repository', preflight.repository],
-    ['clean worktree', preflight.worktree],
-    ['recoverable HEAD', preflight.head],
-    ['application scope', preflight.scope],
-    ['pre-transform inspection', preflight.inspection],
-  ];
-
-  return checks.filter(([, check]) => !check.ok)
-    .map(([label, check]) => `- ${label}: ${check.reason}`);
+  throw new Error(renderTransformationPreflightError('Layer-first → module-first', preflight));
 }

@@ -16,6 +16,16 @@ import {
 } from '../project';
 import type { ProjectState } from '../project';
 import type { Action } from './types';
+import {
+  renderCodeStyleNote,
+  renderDefaultAgentContractsNote,
+  renderFirstAliasNote,
+  renderGitignoreNote,
+  renderGitignoreArtifactComment,
+  renderLintScriptInstruction,
+  renderLintScriptNote,
+  renderTemplateCleanupNote,
+} from '../operational-contract';
 
 export function scaffoldNotes(
   state: ProjectState,
@@ -42,11 +52,10 @@ function firstAliasNote(
 
   return [{
     kind: 'instruct',
-    note: `The preset introduced "${blueprint.architecture.alias}" as this repo's first import alias. The tilde is deliberate — '@' is npm's scope sigil (@vue/*, @types/*), and an app alias that does not look like a package scope stays visually distinct. Keep it unless the team already has its own alias convention (then set the preset's alias option and re-run init).${
-      unreadable.length
-        ? ` Note that ${describeUnreadable(unreadable)}, so "first" is read from the configs that could be: if an alias is declared in there, fix that file and re-run init before keeping this one.`
-        : ''
-    }`,
+    note: renderFirstAliasNote({
+      alias: blueprint.architecture.alias,
+      ...(unreadable.length ? { unreadable: describeUnreadable(unreadable) } : {}),
+    }),
   }];
 }
 
@@ -57,19 +66,7 @@ function codeStyleNote(configSource: string | null): Action[] {
 
   return [{
     kind: 'instruct',
-    note: 'The preset turned `codeStyle` on at error tier: it pins indent (2), quotes (single), '
-      + 'semicolons (required) and line width (90) across ~68 rules. '
-      + 'Nearly all are auto-fixable, so when there IS code inside a layer, run `npx eslint . '
-      + '--fix` once and land that pass as its own commit — '
-      + 'the formatting churn never mixes with a real change. '
-      + 'While the layers are still empty that pass is a no-op: '
-      + 'the gate reaches only files an architecture glob matches, '
-      + 'and a starter\'s root files sit outside every one of them. '
-      + 'It exempts nothing by style either: a starter written without semicolons is silent '
-      + 'today and fails the day its first file moves into a layer, '
-      + 'which is when the --fix pass earns its commit. Already have a formatter you trust? '
-      + 'Set `codeStyle: \'off\'` in the config and keep yours — '
-      + 'blueprint does not need it to enforce structure.',
+    note: renderCodeStyleNote(),
   }];
 }
 
@@ -80,9 +77,7 @@ function bothContractsNote(blueprint: Blueprint, agentTarget: AgentTarget | unde
 
   return [{
     kind: 'instruct',
-    note: 'Wrote both CLAUDE.md and AGENTS.md (the default set) — '
-      + 'declare emit.agents in blueprint.config.mjs, or re-run init with --agent claude|codex, '
-      + 'to emit only the tool you actually use.',
+    note: renderDefaultAgentContractsNote(),
   }];
 }
 
@@ -113,14 +108,15 @@ export function gitignoreActions(
 
       gitignore.replace(/[\r\n]*$/, ''),
       '',
-      '# @kekkai/blueprint artifacts — the agent contract links to these; keep them tracked',
+      renderGitignoreArtifactComment(),
       ...hidden.map(({ file }) => `!${file}`),
       '',
     ].join(eol),
 
-    note: `.gitignore (re-included ${hidden
-      .map(({ file, rule }) => `${file} — hidden by \`${rule}\``)
-      .join('; ')} — via !; delete the appended lines to keep ${hidden.length === 1 ? 'it' : 'them'} hidden; if a parent directory is wholly excluded, git needs that directory re-included too)`,
+    note: renderGitignoreNote(
+      hidden.map(({ file, rule }) => `${file} — hidden by \`${rule}\``).join('; '),
+      hidden.length,
+    ),
   }];
 }
 
@@ -146,13 +142,7 @@ export function templateCleanupActions(
 
   return [{
     kind: 'instruct',
-    note: [
-      `Template cleanup: the starter code violates the blueprint out of the box (${findings.length} finding(s)):`,
-      ...shown,
-      ...(more > 0 ? [`    … and ${more} more`] : []),
-      '  The alias is wired above when the template shape allowed it — replace',
-      '  cross-layer relative imports with it, then verify with: npx blueprint inspect',
-    ].join('\n'),
+    note: renderTemplateCleanupNote(shown, more),
   }];
 }
 
@@ -189,13 +179,13 @@ export function lintScriptAction(
       kind: 'write',
       path: 'package.json',
       content: text.replace(needle, () => patched),
-      note: 'package.json (lint script now also runs eslint — so lint runs the generated rules)',
+      note: renderLintScriptNote('patched'),
     };
   }
 
   return {
     kind: 'instruct',
-    note: `Your \`lint\` script runs \`${lint}\` — the structural rules live in the generated eslint config, so lint would stay green while the architecture goes unchecked. Wire it up, e.g. "lint": "${lint} && eslint ${target}".`,
+    note: renderLintScriptInstruction(lint, target),
   };
 }
 
@@ -207,7 +197,7 @@ function noLintScript(
   if (!greenfield) {
     return {
       kind: 'instruct',
-      note: `Your package.json has no \`lint\` script — add one so lint runs the generated rules: "lint": "eslint ${target}".`,
+      note: renderLintScriptInstruction(null, target),
     };
   }
 
@@ -217,7 +207,7 @@ function noLintScript(
     kind: 'write',
     path: 'package.json',
     content: `${JSON.stringify(patched, null, 2)}\n`,
-    note: `package.json (added "lint": "eslint ${target}" — so lint runs the generated rules)`,
+    note: renderLintScriptNote('added', target),
   };
 }
 

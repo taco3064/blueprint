@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { composeIssue, parseVerdict, problemSections } from './field-run.mjs';
+import { composeIssue, parseArgs, parseVerdict, problemSections } from './field-run.mjs';
 
 /**
  * The harness's reporting path, which is where three of its four self-inflicted
@@ -58,6 +58,20 @@ const compose = (runs) => composeIssue({
   skipped: [],
   tree: 'abc1234',
   packedVersion: '3.0.0',
+});
+
+describe('field prompt topology arguments', () => {
+  it('defaults first adoption to an explicit layer-first target', () => {
+    expect(parseArgs([]).topology).toBe('layer-first');
+  });
+
+  it('accepts module-first and rejects an unknown target', () => {
+    expect(parseArgs(['--topology', 'module-first']).topology).toBe('module-first');
+
+    expect(() => parseArgs(['--topology', 'hybrid'])).toThrow(
+      '--topology expects layer-first or module-first',
+    );
+  });
 });
 
 describe('parseVerdict', () => {

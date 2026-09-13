@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { Blueprint } from '../config';
-import { renderTestFilesEditorial } from '../editorial';
+import { renderTestFilesOperational } from '../operational-contract';
 // Test-only import of the full emit module — src keeps the patterns-leaf
 // boundary; the fixture needs emitLint's real selectors, not a paraphrase.
 import {
@@ -322,7 +322,7 @@ describe('the same gap, one artifact further along (swept, not field-reported)',
 
     const note = flattenProse(init.output);
 
-    expect(note).toContain(renderTestFilesEditorial('merge-scope', 'en'));
+    expect(note).toContain(renderTestFilesOperational('merge-scope', 'en'));
   });
 });
 
@@ -488,7 +488,7 @@ describe('the merge recipe hands over the whole entry, not just its selectors (#
     expect(out.output).toContain('ignores: [');
     expect(out.output).toContain('*.test.');
 
-    expect(out.output).toContain(renderTestFilesEditorial('merge-scope', 'en'));
+    expect(out.output).toContain(renderTestFilesOperational('merge-scope', 'en'));
   });
 });
 

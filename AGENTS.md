@@ -53,12 +53,15 @@ applies before every GitHub or repository mutation.
 
 ## Layering (one-way, low → high)
 
-`config` → `markdown` / `editorial` → `plugin` → `emit/*` → `presets` → `project` →
-`inspect` → `survey` / `impact` → `bootstrap` → `cli`. A module imports only
+`config` → `markdown` → `operational-contract` → `plugin` → `emit/*` → `presets` →
+`project` → `inspect` → `survey` / `impact` → `bootstrap` → `cli`. A module imports only
 from lower ones (survey reads inspect's scan; bootstrap embeds the survey in
 its authoring playbook).
-`editorial` renders domain-owned config facts for higher emit/runtime surfaces;
-it may import `config`, but does not own or re-decide domain policy.
+`operational-contract` owns Blueprint-authored CLI, generated, runtime, field,
+and checked-in operational text. It renders supplied facts for higher surfaces;
+it may import `config` and `markdown`, but never imports `project`, `inspect`, or
+`bootstrap` and does not own or re-decide domain policy. Every renderer owner is
+declared in its surface registry.
 `project` is the shared reader (`detect` + `resolveBlueprint`) for both
 runtimes; `plugin` is the embedded ESLint plugin (plain rule objects, no
 internal deps) that `emit/lint` ships inside its output.

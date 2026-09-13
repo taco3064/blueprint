@@ -6,7 +6,7 @@ import { authoringBrief } from './authoring';
 // justifies at length; this file takes the same edge for the same reason.
 import { flattenProse } from '../conformance';
 import { LINT_GATED_RULE_IDS, METRIC_GATES } from '../emit/lint';
-import { renderTestFilesEditorial } from '../editorial';
+import { renderTestFilesOperational } from '../operational-contract';
 import type { SurveyResult } from '../survey';
 
 const survey: SurveyResult = {
@@ -94,7 +94,7 @@ describe('authoringBrief · the rule catalog', () => {
     // a deliberate relaxation, and impact gates the suppress-all run.
     expect(brief).toContain('nothing else lives only in dist');
     expect(brief).toContain('additionalAliases');
-    expect(brief).toContain(renderTestFilesEditorial('core', 'en'));
+    expect(brief).toContain(renderTestFilesOperational('core', 'en'));
     expect(brief).toContain('zero hits means SKIP this command');
   });
 });
@@ -217,9 +217,9 @@ describe('authoringBrief · merging with an eslint config already there', () => 
 
 describe('authoringBrief · every statement of the exemption carries its condition', () => {
   it.each([
-    ['core', renderTestFilesEditorial('core', 'en')],
-    ['merge scope', renderTestFilesEditorial('merge-scope', 'en')],
-    ['survey contrast', renderTestFilesEditorial('survey', 'en')],
+    ['core', renderTestFilesOperational('core', 'en')],
+    ['merge scope', renderTestFilesOperational('merge-scope', 'en')],
+    ['survey contrast', renderTestFilesOperational('survey', 'en')],
   ])('publishes the shared %s edition', (_where, text) => {
     expect(brief).toContain(text);
   });
