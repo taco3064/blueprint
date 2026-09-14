@@ -131,6 +131,9 @@ npx @kekkai/blueprint impact --json
 
 這是資訊指令：即使有 lint 命中也維持成功狀態。解析錯誤、未使用的停用註解與非
 Blueprint 規則會另外列出，不會灌進 Blueprint 總數；這些仍須回到專案平常的 lint 驗證。
+支援 Vue JSX／TSX script 區塊。若有檔案無法解析，JSON 會回報 `status: "partial"`，
+文字報告也會說明命中數只是已觀察到的下限，並非完整總數。請先修正來源或解析器設定，
+重新執行 Impact，再決定規則層級或記錄 suppressions。
 
 ## `deps`
 

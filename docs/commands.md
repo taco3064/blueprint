@@ -145,7 +145,10 @@ expose the flat-config API error or report an unmeasured zero-hit result.
 
 This command is informational: lint hits do not make it exit non-zero. Parse errors, unused disable
 directives, and non-Blueprint rules are separated from the Blueprint total because they need to be
-checked against the project's normal lint run.
+checked against the project's normal lint run. Vue JSX/TSX script blocks are supported. If any file
+cannot be parsed, JSON reports `status: "partial"` and the text report marks the count as a lower
+bound, not a complete total. Fix the source or parser configuration and rerun Impact before
+judging rule tiers or recording suppressions.
 
 ## `deps`
 

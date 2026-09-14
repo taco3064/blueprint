@@ -68,7 +68,7 @@ interface EslintApi {
 }
 
 export type ImpactResult
-  = { status: 'available'; impacts: RuleImpact[]; total: number }
+  = { status: 'available' | 'partial'; impacts: RuleImpact[]; total: number }
     | {
       status: 'unavailable';
       impacts: [];
@@ -162,19 +162,31 @@ async function measureImpact(input: {
     return unavailableImpact(eslintMajor, options, log);
   }
 
-  const impacts = tallyImpacts(results, root, emittedRuleIds(config));
+  return reportImpact(
+    tallyImpacts(results, root, emittedRuleIds(config)), results.length, { options, log },
+  );
+}
+
+function reportImpact(
+  impacts: RuleImpact[],
+  linted: number,
+  context: { options: ImpactOptions; log: (message: string) => void },
+): ImpactResult {
+  const { options, log } = context;
 
   const total = impacts
     .filter((impact) => !impact.foreign && !SPECIAL_ROWS.has(impact.rule))
     .reduce((sum, impact) => sum + impact.count, 0);
 
+  const status = impacts.some((impact) => impact.rule === 'parse-error') ? 'partial' : 'available';
+
   log(
     options.json
-      ? JSON.stringify({ status: 'available', total, linted: results.length, impacts }, null, 2)
-      : renderImpact(impacts, total, results.length),
+      ? JSON.stringify({ status, total, linted, impacts }, null, 2)
+      : renderImpact(impacts, total, linted),
   );
 
-  return { status: 'available', impacts, total };
+  return { status, impacts, total };
 }
 
 function unavailableImpact(
@@ -260,7 +272,10 @@ function impactConfig(
           files: ['**/*.vue'],
           languageOptions: {
             parser: vueParser,
-            ...(tseslint ? { parserOptions: { parser: tseslint.parser } } : {}),
+            parserOptions: {
+              ...(tseslint ? { parser: tseslint.parser } : {}),
+              ecmaFeatures: { jsx: true },
+            },
           },
         }]
       : []),

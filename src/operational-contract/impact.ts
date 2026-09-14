@@ -88,6 +88,18 @@ export function renderImpactReport(
         ...rows(foreign),
       ];
 
+  if (caveats.some((impact) => impact.rule === 'parse-error')) {
+    return operationalText([
+      '⊘ Rule impact partial — source files could not be parsed.',
+      `${total} observed hit(s); this is a lower bound, not a complete total.`,
+      'Resolve the parse-error files with the project parser configuration or source fixes,',
+      'then rerun `blueprint impact` before judging rule tiers or recording suppressions.',
+      ...rows(own),
+      ...caveatBlock,
+      ...foreignBlock,
+    ]);
+  }
+
   if (!own.length) {
     return operationalText([
       linted === 0
