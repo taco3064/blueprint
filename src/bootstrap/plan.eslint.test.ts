@@ -104,13 +104,13 @@ describe('plan · the eslint config it writes', () => {
     const vueJs = config();
 
     expect(vueJs).toContain('import vueParser from \'vue-eslint-parser\';');
-    expect(vueJs).toContain('languageOptions: { parser: vueParser },');
+    expect(vueJs).toContain('parserOptions: { ecmaFeatures: { jsx: true } }');
     expect(vueJs).not.toContain('tseslint');
 
     // vue + typescript: ts parser inside the SFC parser.
     const vueTs = config(bp, { hasTypescript: true });
 
-    expect(vueTs).toContain('parserOptions: { parser: tseslint.parser }');
+    expect(vueTs).toContain('parser: tseslint.parser, ecmaFeatures: { jsx: true }');
     expect(vueTs).toContain('files: [\'**/*.{ts,tsx,mts,cts}\'],');
   });
 

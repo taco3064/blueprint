@@ -138,7 +138,7 @@ describe('runImpact · the parser the stack asks for', () => {
     const vueEntry = entries.find((e) => e.files?.[0] === '**/*.vue');
 
     expect(vueEntry?.languageOptions?.parser).toBe(vueParser);
-    expect(vueEntry?.languageOptions?.parserOptions).toBeUndefined();
+    expect(vueEntry?.languageOptions?.parserOptions).toEqual({ ecmaFeatures: { jsx: true } });
   });
 
   it('resolves framework `auto` from the detected project', async () => {

@@ -87,8 +87,9 @@ function parserEntries(
           '    files: [\'**/*.vue\'],',
           ts
             ? '    languageOptions: { parser: vueParser, parserOptions: { parser: '
-            + 'tseslint.parser } },'
-            : '    languageOptions: { parser: vueParser },',
+            + 'tseslint.parser, ecmaFeatures: { jsx: true } } },'
+            : '    languageOptions: { parser: vueParser, '
+              + 'parserOptions: { ecmaFeatures: { jsx: true } } },',
           '  },',
         ]
       : []),

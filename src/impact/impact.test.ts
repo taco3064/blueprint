@@ -213,7 +213,7 @@ describe('runImpact · the tally it reports', () => {
 
     let output = '';
 
-    const { impacts, total } = await runImpact(root, {
+    const { status, impacts, total } = await runImpact(root, {
       loadConfig: async () => reactPreset(),
       loadModule,
       log: (message) => (output = message),
@@ -228,8 +228,9 @@ describe('runImpact · the tally it reports', () => {
 
     // Neither special row is red the wiring introduces — counting them under
     // "would flag today" contradicted the caveat beneath them (batch 8).
+    expect(status).toBe('partial');
     expect(total).toBe(1);
-    expect(output).toContain('1 hit(s)');
+    expect(output).toContain('1 observed hit(s)');
     expect(output).toContain('Isolation caveats — not wiring-introduced red');
     expect(output).toContain('vanishes after the merge');
   });
