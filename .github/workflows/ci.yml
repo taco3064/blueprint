@@ -132,7 +132,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: npm
       - run: npm ci
-      - run: npm i -D eslint@10 --no-save
+      - run: npm i -D eslint@10 eslint-scope@9 --no-save
       - run: node -e 'const v = require("eslint/package.json").version; if (!v.startsWith("10.")) process.exit(1)'
       - run: npm test
 

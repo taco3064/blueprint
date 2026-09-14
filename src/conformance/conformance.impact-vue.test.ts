@@ -37,7 +37,7 @@ describe('Impact Vue JSX/TSX field regression', () => {
 
     const clean = await cli(dir, ['impact', '--json']);
 
-    expect(clean.code).toBe(0);
+    expect(clean.code, clean.output).toBe(0);
     expect(JSON.parse(clean.output)).toMatchObject({ status: 'available', total: 0, impacts: [] });
 
     write(dir, file, sfc('import "~app/components/Target.vue";'));
@@ -45,7 +45,7 @@ describe('Impact Vue JSX/TSX field regression', () => {
     const illegal = await cli(dir, ['impact', '--json']);
     const report = JSON.parse(illegal.output);
 
-    expect(illegal.code).toBe(0);
+    expect(illegal.code, illegal.output).toBe(0);
     expect(report.status).toBe('available');
     expect(report.total).toBeGreaterThan(0);
 
