@@ -10,7 +10,7 @@ import {
   validateReportUrl,
 } from './field-convergence.mjs';
 import { validateCandidateRun } from './field-candidate.mjs';
-import { validateReleaseEvidence } from './release-field-gate.mjs';
+import { validateChangesetsRelease } from './release-field-gate.mjs';
 
 const sha = 'a'.repeat(40);
 
@@ -134,31 +134,40 @@ describe('field convergence authority', () => {
   });
 });
 
-describe('release field gate', () => {
-  const status = (state = 'success', target = 'https://github.com/taco3064/blueprint/issues/452#issuecomment-123') => ({
-    statuses: [{ context: 'blueprint/field-convergence', state, target_url: target }],
-  });
+describe('release Changesets SHA gate', () => {
+  const valid = {
+    version: '4.0.0',
+    releaseFiles: [
+      '.changeset/a.md',
+      'CHANGELOG.md',
+      'package-lock.json',
+      'package.json',
+    ],
+    consumedChangesets: ['.changeset/a.md'],
+    changelog: '# @kekkai/blueprint\n\n## 4.0.0\n\nRelease notes.\n',
+    pendingChangesets: [],
+    filesAfterRelease: [
+      '.github/workflows/release.yml',
+      '.agents/docs/field-triage.md',
+      'AGENTS.md',
+      'CHANGELOG.md',
+      'scripts/release-field-gate.mjs',
+      'scripts/field-convergence.test.mjs',
+    ],
+  };
 
-  const comment = { body: renderEvidence(evidence, candidate) };
-
-  it('accepts exact-SHA full convergence linked to the ticket comment', () => {
-    expect(validateReleaseEvidence({ repository: 'taco3064/blueprint', sha, combinedStatus: status(), comment }))
-      .toMatchObject({ issue: 452, comment: 123 });
+  it('accepts a consumed Changesets release with only non-package follow-up changes', () => {
+    expect(validateChangesetsRelease(valid)).toBe(true);
   });
 
   it.each([
-    ['missing', { statuses: [] }, comment],
-    ['pending', status('pending'), comment],
-    ['foreign URL', status('success', 'https://example.test/report'), comment],
-    ['wrong SHA', status(), { body: renderEvidence({ ...evidence, candidateSha: 'c'.repeat(40) }, candidate) }],
-    ['partial', status(), { body: renderEvidence({ ...evidence, scope: 'affected' }, candidate) }],
-    ['missing report URL', status(), { body: evidenceMarker(evidence).replace(/,"reportUrl":"[^"]+"/, '') }],
-  ])('rejects %s evidence', (_name, combinedStatus, evidenceComment) => {
-    expect(() => validateReleaseEvidence({
-      repository: 'taco3064/blueprint',
-      sha,
-      combinedStatus,
-      comment: evidenceComment,
-    })).toThrow();
+    ['missing package version file', { releaseFiles: ['package-lock.json', 'CHANGELOG.md'] }],
+    ['no consumed changeset', { consumedChangesets: [] }],
+    ['missing changelog section', { changelog: '# @kekkai/blueprint\n\n## 3.2.0\n' }],
+    ['pending changeset', { pendingChangesets: ['late-fix.md'] }],
+    ['product changed after release prep', { filesAfterRelease: ['src/cli/bin.ts'] }],
+    ['packaged README changed after release prep', { filesAfterRelease: ['README.md'] }],
+  ])('rejects %s', (_name, patch) => {
+    expect(() => validateChangesetsRelease({ ...valid, ...patch })).toThrow();
   });
 });
