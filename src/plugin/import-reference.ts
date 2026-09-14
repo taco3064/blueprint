@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { getInnermostScope, getStaticValue } from '@eslint-community/eslint-utils';
+import { findVariable, getInnermostScope, getStaticValue } from '@eslint-community/eslint-utils';
 import tsParser from '@typescript-eslint/parser';
 import type { Scope } from 'eslint';
 
@@ -152,13 +152,7 @@ export function transformationMemberIdentity(source: string, filePath: string): 
   const ranges: [number, number][] = [];
 
   walk(parsed.ast, parsed.visitorKeys, (node) => {
-    if (![
-      'ImportDeclaration', 'ExportNamedDeclaration', 'ExportAllDeclaration', 'ImportExpression',
-    ].includes(node.type)) {
-      return;
-    }
-
-    const specifier = node.source as AstNode | null;
+    const specifier = memberModuleSpecifier(node, parsed.scopeManager.globalScope!);
 
     if (specifier?.type === 'Literal' && typeof specifier.value === 'string') {
       ranges.push(specifier.range as [number, number]);
@@ -169,4 +163,32 @@ export function transformationMemberIdentity(source: string, filePath: string): 
     (value, [start, end]) => `${value.slice(0, start)}'__module__'${value.slice(end)}`,
     normalized,
   );
+}
+
+function memberModuleSpecifier(node: AstNode, globalScope: Scope.Scope): AstNode | null {
+  if ([
+    'ImportDeclaration', 'ExportNamedDeclaration', 'ExportAllDeclaration', 'ImportExpression',
+  ].includes(node.type)) {
+    return node.source as AstNode;
+  }
+
+  if (node.type === 'TSExternalModuleReference') {
+    return node.expression as AstNode;
+  }
+
+  if (node.type !== 'CallExpression') {
+    return null;
+  }
+
+  const callee = node.callee as AstNode;
+  const args = node.arguments as AstNode[];
+
+  if (callee.type !== 'Identifier' || callee.name !== 'require' || args.length !== 1
+    || node.optional) {
+    return null;
+  }
+
+  const scope = getInnermostScope(globalScope, callee as never);
+
+  return findVariable(scope, callee as never) === null ? args[0] : null;
 }

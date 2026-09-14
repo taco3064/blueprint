@@ -37,6 +37,7 @@ import { observeRepositoryTopology } from './repository-topology';
 import * as legacyUpgrade from './legacy-upgrade';
 import { assertAuthoredConfigNotRewritten, assertInitOptions } from './init-options';
 import type { Action } from './types';
+import { runTransformationRecovery } from './transformation-recovery';
 import { freshAuthoringAgents } from './authoring-launcher';
 import {
   completeTransformationRetirement, transformationRetirement,
@@ -64,6 +65,8 @@ export interface InitOptions extends ResolveOptions {
 
   authoring?: boolean;
 
+  recoverTransformation?: boolean;
+
   topology?: ArchitectureTopology;
 
   agent?: AgentKind;
@@ -78,6 +81,10 @@ export interface InitOptions extends ResolveOptions {
 type RunContext = { options: InitOptions; log: (message: string) => void };
 
 export async function runInit(root: string, options: InitOptions = {}): Promise<Action[]> {
+  if (options.recoverTransformation) {
+    return runTransformationRecovery(root, options);
+  }
+
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
 

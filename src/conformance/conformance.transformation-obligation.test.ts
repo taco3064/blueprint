@@ -220,7 +220,68 @@ describe('LF→MF transformation obligation', () => {
   });
 });
 
+function commonjsOrigin(extension: string) {
+  const dir = started();
+  const origin = `src/containers/Login.${extension}`;
+  const destination = `src/auth/components/Login.${extension}`;
+
+  const source = extension === 'ts'
+    ? 'import service = require(\'../services/foo\');\nexport = service;\n'
+    : 'const service = require(\'../services/foo\');\nmodule.exports = service;\n';
+
+  rm(path.join(dir, 'src/containers/Login.ts'));
+  write(dir, origin, source);
+  write(dir, `src/services/foo.${extension}`, 'module.exports = 1;\n');
+  write(dir, 'blueprint.config.mjs', config(['pages', 'containers', 'components', 'services']));
+  expect(spawnSync('git', ['add', '.'], { cwd: dir }).status).toBe(0);
+
+  expect(spawnSync('git', [
+    '-c', 'user.name=Blueprint', '-c', 'user.email=blueprint@example.invalid',
+    'commit', '--quiet', '-m', 'CommonJS origin',
+  ], { cwd: dir }).status).toBe(0);
+
+  return { dir, origin, destination, source };
+}
+
+async function moveCommonjs(extension: string): Promise<string> {
+  const { dir, origin, destination, source } = commonjsOrigin(extension);
+
+  const obligation = await begin(dir);
+
+  obligation.target.decisions = obligation.origin.sources.map(({ unit, role, members }) => {
+    const target = role === 'route-composition' ? 'src/app/Login.ts' : destination;
+
+    return { source: unit, destinations: [target],
+      members: members.map((member) => ({ source: member, destination: target })) };
+  });
+
+  write(dir, destination, source.replace('../services/foo', '~app/auth/services/foo'));
+  write(dir, `src/auth/services/foo.${extension}`, 'module.exports = 1;\n');
+  write(dir, 'src/app/Login.ts', 'export const route = 1;\n');
+  rm(path.join(dir, origin));
+  rm(path.join(dir, `src/services/foo.${extension}`));
+  rm(path.join(dir, 'src/pages/Login.ts'));
+  write(dir, 'blueprint.config.mjs', config(['components', 'services'], ['app', 'auth']));
+  write(dir, 'blueprint-transformation.json', JSON.stringify(obligation));
+
+  return dir;
+}
+
 describe('LF→MF consumed member identity', () => {
+  it.each(['cjs', 'ts'])(
+    'retires moved %s members after require path changes', async (extension) => {
+      const dir = await moveCommonjs(extension);
+      const inspection = await cli(dir, ['inspect', '--json']);
+
+      expect(inspection.code, inspection.output).toBe(0);
+
+      const result = await cli(dir, ['init', '--topology', 'module-first', '--no-install']);
+
+      expect(result.code, result.output).toBe(0);
+      expect(read(dir, 'blueprint-transformation.json')).toBeNull();
+    },
+  );
+
   it.each([
     [true, false, 'destination src/app/Login.ts is reused'],
     [false, true, 'transfer identity is unproven for src/pages/Login.ts'],

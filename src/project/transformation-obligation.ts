@@ -53,7 +53,7 @@ export function readTransformationObligation(root: string): LayerToModuleObligat
     }));
   }
 
-  if (!isObligation(value)) {
+  if (!isTransformationObligation(value)) {
     throw new Error(renderTransformationObligationError({
       kind: 'invalid-schema', file: TRANSFORMATION_OBLIGATION_FILE,
     }));
@@ -68,7 +68,7 @@ export function transformationObligationSource(
   return `${JSON.stringify(obligation, null, 2)}\n`;
 }
 
-function isObligation(value: unknown): value is LayerToModuleObligation {
+export function isTransformationObligation(value: unknown): value is LayerToModuleObligation {
   if (!record(value) || value.version !== 1 || value.direction !== 'layer-first-to-module-first') {
     return false;
   }

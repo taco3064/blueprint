@@ -16,7 +16,7 @@ import {
 } from '../operational-contract';
 import {
   AUTHORING_FILE,
-  writeTransformationAuthority,
+  writeTransformationAuthorities,
   claudeDirState,
   detect,
   TRANSFORMATION_OBLIGATION_FILE,
@@ -137,7 +137,7 @@ export async function runRepositoryTopologyTransformation(
     return actions;
   }
 
-  registerAuthorities(applications, input.topology.current!);
+  registerAuthorities(repositoryRoot, applications, input.topology.current!);
 
   apply(repositoryRoot, actions, {
     // Stryker disable next-line LogicalOperator: no install action means exec is inert.
@@ -156,16 +156,17 @@ export async function runRepositoryTopologyTransformation(
 }
 
 function registerAuthorities(
+  repositoryRoot: string,
   applications: ApplicationEvidence[],
   current: 'layer-first' | 'module-first',
 ): void {
   if (current === 'layer-first') {
-    for (const application of applications) {
-      const action = repositoryObligationAction(application);
-
-      writeTransformationAuthority(application.blueprint.applicationRoot,
-        JSON.parse(action.content) as LayerToModuleObligation, { status: 'pending' });
-    }
+    writeTransformationAuthorities(repositoryRoot, applications.map((application) => ({
+      root: application.blueprint.applicationRoot,
+      obligation: JSON.parse(
+        repositoryObligationAction(application).content,
+      ) as LayerToModuleObligation,
+    })));
   }
 }
 

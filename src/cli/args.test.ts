@@ -179,3 +179,8 @@ describe('parseRulesArgs', () => {
     expect(parseRulesArgs([])).toEqual({});
   });
 });
+
+it('parses recovery without converting it to authoring or adoption', () => {
+  expect(parseInitArgs(['--recover-transformation', '--dry-run']))
+    .toEqual({ recoverTransformation: true, dryRun: true });
+});

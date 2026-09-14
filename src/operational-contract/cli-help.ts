@@ -73,6 +73,8 @@ function renderInitHelp(brownfieldMinFiles: number): OperationalText {
     '                          requires --topology layer-first; repository LF may be',
     '                          inherited by a new sibling. Rejected for repository MF',
     '                          and every application with an existing authored config.',
+    '  --recover-transformation Restore missing pending evidence from Git; preserve decisions.',
+    '                          Recovery only, never adoption or completion. Accepts --dry-run.',
     '  --authoring             Force the authoring playbook even on a small repo',
     `                          (below the brownfield threshold, ${brownfieldMinFiles} source files).`,
     '                          Forces the PLAYBOOK, not a hand-authored config: below the',

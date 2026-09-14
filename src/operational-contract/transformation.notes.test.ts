@@ -17,7 +17,7 @@ describe('transformation evidence lifecycle notes', () => {
 
   it.each([
     ['authority-unavailable', 'restore repository access'],
-    ['authority-missing', 'restore blueprint-transformation.json'],
+    ['authority-missing', 'blueprint init --recover-transformation'],
     ['authority-origin-changed', 'restore the recorded origin'],
     ['authority-write-failed', 'restore repository write access'],
     ['topology-request-conflict', 'before requesting another topology'],
