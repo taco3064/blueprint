@@ -41,13 +41,21 @@ third-party plugin adapters.
 
 **Ownership and lifecycle depend on the project:**
 
-| State | Result | Ownership |
-|---|---|---|
-| No ESLint config | `eslint.config.mjs` is created. | Blueprint-owned while its generated first-line banner remains. A later `init` may regenerate it. |
-| Blueprint generated the existing config | That same file is refreshed. | Blueprint-owned. |
-| A hand-authored flat config already exists | `eslint.config.blueprint.mjs` is created and Blueprint prints merge instructions. | Reference only; the adopter decides how to combine it with house rules, then removes the reference. |
-| The existing flat config already wires `emitLint` | No config file is replaced. | Adopter-owned. |
-| Legacy `.eslintrc` exists | A flat reference config and migration instructions are produced. | The adopter owns the migration. |
+- **No ESLint config**
+  - Result: `eslint.config.mjs` is created.
+  - Ownership: Blueprint-owned while its generated first-line banner remains. A later `init` may regenerate it.
+- **Blueprint generated the existing config**
+  - Result: That same file is refreshed.
+  - Ownership: Blueprint-owned.
+- **A hand-authored flat config already exists**
+  - Result: `eslint.config.blueprint.mjs` is created and Blueprint prints merge instructions.
+  - Ownership: Reference only; the adopter decides how to combine it with house rules, then removes the reference.
+- **The existing flat config already wires `emitLint`**
+  - Result: No config file is replaced.
+  - Ownership: Adopter-owned.
+- **Legacy `.eslintrc` exists**
+  - Result: A flat reference config and migration instructions are produced.
+  - Ownership: The adopter owns the migration.
 
 Flat-config entries replace matching rule keys rather than merging their options. After manual
 integration, use `blueprint doctor` to check that the structural restrictions survive the final
@@ -72,14 +80,12 @@ the config authority, not the generated handbook.
 `emit.agents` selects targets and may override each project-relative path. Omission defaults to
 Claude and AGENTS; an empty array emits none.
 
-| Target | Default path | Strategy |
-|---|---|---|
-| `claude` | `CLAUDE.md` | merge-managed shared document |
-| `agents` | `AGENTS.md` | merge-managed shared document |
-| `gemini` | `GEMINI.md` | merge-managed shared document |
-| `copilot` | `.github/copilot-instructions.md` | merge-managed shared document |
-| `cursor` | `.cursor/rules/blueprint.mdc` | Blueprint-owned rule file |
-| `windsurf` | `.windsurf/rules/blueprint.md` | Blueprint-owned rule file |
+- **`claude`** — Default path: `CLAUDE.md`; merge-managed shared document.
+- **`agents`** — Default path: `AGENTS.md`; merge-managed shared document.
+- **`gemini`** — Default path: `GEMINI.md`; merge-managed shared document.
+- **`copilot`** — Default path: `.github/copilot-instructions.md`; merge-managed shared document.
+- **`cursor`** — Default path: `.cursor/rules/blueprint.mdc`; Blueprint-owned rule file.
+- **`windsurf`** — Default path: `.windsurf/rules/blueprint.md`; Blueprint-owned rule file.
 
 **Why they exist:** they put architecture facts and non-mechanical project rules in the coding
 Agent's normal context.

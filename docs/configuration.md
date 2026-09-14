@@ -27,16 +27,30 @@ reference; this page explains how the fields work together.
 
 ## Root fields
 
-| Field | Shape and default | Purpose |
-|---|---|---|
-| `name` | `string`, optional | Project name used in the handbook and Agent contract. |
-| `framework` | `'vue' \| 'react' \| 'auto'`, required | Selects source globs and framework-specific rules. `auto` asks the runtime to detect the project. |
-| `architecture` | `ArchitectureDef`, required | Source root, topology, dependency direction, unit layout, aliases, and ownership. |
-| `rules` | `Record<string, RuleSetting>`, default `{}` | Optional lint/runtime gates and documented judgments. No optional gate is enabled merely because an id has a fallback value. |
-| `principles` | `PrincipleDef[]`, default `[]` | Core engineering claims rendered into human and Agent guidance. |
-| `componentShape` | `AxisDef[]`, default `[]` | Independent component-design axes rendered as review guidance. |
-| `playbook` | `PlaybookSection[]`, default `[]` | Behavioral operating rules grouped by theme. |
-| `emit` | `EmitDef`, optional | Handbook, Agent-contract, and structural-lint output policy. |
+- **`name`**
+  - Shape and default: optional `string`.
+  - Purpose: Project name used in the handbook and Agent contract.
+- **`framework`**
+  - Shape and default: required `'vue' | 'react' | 'auto'`.
+  - Purpose: Selects source globs and framework-specific rules. `auto` asks the runtime to detect the project.
+- **`architecture`**
+  - Shape and default: required `ArchitectureDef`.
+  - Purpose: Source root, topology, dependency direction, unit layout, aliases, and ownership.
+- **`rules`**
+  - Shape and default: `Record<string, RuleSetting>`, default `{}`.
+  - Purpose: Optional lint/runtime gates and documented judgments. No optional gate is enabled merely because an id has a fallback value.
+- **`principles`**
+  - Shape and default: `PrincipleDef[]`, default `[]`.
+  - Purpose: Core engineering claims rendered into human and Agent guidance.
+- **`componentShape`**
+  - Shape and default: `AxisDef[]`, default `[]`.
+  - Purpose: Independent component-design axes rendered as review guidance.
+- **`playbook`**
+  - Shape and default: `PlaybookSection[]`, default `[]`.
+  - Purpose: Behavioral operating rules grouped by theme.
+- **`emit`**
+  - Shape and default: optional `EmitDef`.
+  - Purpose: Handbook, Agent-contract, and structural-lint output policy.
 
 ## Architecture
 
@@ -114,16 +128,30 @@ position; it is not an ordinary domain module and does not repeat the shared lay
 
 ### Layer fields
 
-| Field | Shape and default | Meaning |
-|---|---|---|
-| `name` | non-empty `string`, required | Folder/layer identity. Names must be unique and cannot be paths or reserved generated-artifact names. |
-| `does` | `string`, required | One-line responsibility rendered into generated guidance. |
-| `mustNot` | `string[]`, default `[]` | Prohibited responsibilities in prose; reviewed by people and Agents. |
-| `layout` | `'folder' \| 'file'`, default `'file'` | Folder units have public entries; file layout uses layer-level dependency granularity. |
-| `entry` | `string`, default `'index'` | Public entry filename for folder-layout units. |
-| `allowedImporters` | `(string \| AllowedImporter)[]`, optional | Narrows which earlier layers may import this layer. Omission allows every earlier layer. |
-| `owns` | `OwnedPrimitive[]`, default `[]` | Packages, named imports, or globals that only this layer may use. |
-| `lintOverrides` | `Record<string, unknown>`, default `{}` | ESLint overrides for this layer. Blueprint-managed restriction rules cannot be overridden here. |
+- **`name`**
+  - Shape and default: required non-empty `string`.
+  - Meaning: Folder/layer identity. Names must be unique and cannot be paths or reserved generated-artifact names.
+- **`does`**
+  - Shape and default: required `string`.
+  - Meaning: One-line responsibility rendered into generated guidance.
+- **`mustNot`**
+  - Shape and default: `string[]`, default `[]`.
+  - Meaning: Prohibited responsibilities in prose; reviewed by people and Agents.
+- **`layout`**
+  - Shape and default: `'folder' | 'file'`, default `'file'`.
+  - Meaning: Folder units have public entries; file layout uses layer-level dependency granularity.
+- **`entry`**
+  - Shape and default: `string`, default `'index'`.
+  - Meaning: Public entry filename for folder-layout units.
+- **`allowedImporters`**
+  - Shape and default: optional `(string | AllowedImporter)[]`.
+  - Meaning: Narrows which earlier layers may import this layer. Omission allows every earlier layer.
+- **`owns`**
+  - Shape and default: `OwnedPrimitive[]`, default `[]`.
+  - Meaning: Packages, named imports, or globals that only this layer may use.
+- **`lintOverrides`**
+  - Shape and default: `Record<string, unknown>`, default `{}`.
+  - Meaning: ESLint overrides for this layer. Blueprint-managed restriction rules cannot be overridden here.
 
 An object-form importer adds `selfOnly` and `description`:
 
@@ -159,12 +187,18 @@ owns: [
 
 ### File selection and naming
 
-| Field | Default | Meaning |
-|---|---|---|
-| `layerFiles` | Framework-derived source globs | One glob or an array. Layer-first patterns contain `{layer}`; module-first patterns contain both `{module}` and `{layer}`. |
-| `layerFilesIgnore` | none | Globs excluded from emitted lint and lint-backed findings. Other inspect analysis can still see them. |
-| `testFiles` | `**/*.test.{js,jsx,ts,tsx,vue}` and `**/*.spec.{js,jsx,ts,tsx,vue}` | Test files exempted from structural/metric analysis and dependency graphs, and targeted by test-only rules. `[]` disables both the exemption and `testFilename` scope. |
-| `naming` | `{}` | Human-readable conventions keyed by concept, rendered into the handbook and Agent contract. |
+- **`layerFiles`**
+  - Default: Framework-derived source globs.
+  - Meaning: One glob or an array. Layer-first patterns contain `{layer}`; module-first patterns contain both `{module}` and `{layer}`.
+- **`layerFilesIgnore`**
+  - Default: none.
+  - Meaning: Globs excluded from emitted lint and lint-backed findings. Other inspect analysis can still see them.
+- **`testFiles`**
+  - Default: `**/*.test.{js,jsx,ts,tsx,vue}` and `**/*.spec.{js,jsx,ts,tsx,vue}`.
+  - Meaning: Test files exempted from structural/metric analysis and dependency graphs, and targeted by test-only rules. `[]` disables both the exemption and `testFilename` scope.
+- **`naming`**
+  - Default: `{}`.
+  - Meaning: Human-readable conventions keyed by concept, rendered into the handbook and Agent contract.
 
 Portable globs use `/`, `**`, `*`, `?`, and flat brace alternatives such as `*.{ts,tsx}`. Negation,
 character classes, extglobs, and nested braces are outside the dialect shared by lint and inspect.
@@ -185,27 +219,25 @@ rules: {
 The valid tiers are `error`, `warn`, and `off`. A missing optional rule does not emit. For metric
 rules, the fallback is used only when the rule is declared without `value`.
 
-| Config id | Enforcement | Fallback / constraint |
-|---|---|---|
-| `maxLines` | `max-lines` | `400`, code lines only |
-| `maxLinesPerFunction` | `max-lines-per-function` | `100`, code lines only |
-| `maxParams` | `max-params` | `3` |
-| `maxStatements` | `max-statements` | `15` |
-| `complexity` | `complexity` | `12` |
-| `unusedVars` | core or TypeScript-aware `no-unused-vars` | underscore arguments ignored; underscore variables are not an exemption |
-| `explicitAny` | `@typescript-eslint/no-explicit-any` | emits only with the TypeScript plugin |
-| `codeStyle` | `@stylistic` bundle plus `curly` | defaults: indent `2`, single quotes, semicolons, max length `90` |
-| `statementsPerLine` | `@stylistic/max-statements-per-line` | fixed maximum `1` |
-| `statementPadding` | `@stylistic/padding-line-between-statements` | fixed padding policy |
-| `importBlock` | `import-x/first` and `import-x/no-duplicates` | requires the import-x plugin |
-| `fixtureImports` | structural restricted imports | bans governed production imports from alias `fixtures` paths |
-| `deepWatch` | `blueprint/no-deep-watch` | Vue only |
-| `usePrefix` | `blueprint/use-prefix` | defaults to layer `hooks`, prefix `use` |
-| `usePrefixReactivity` | `blueprint/use-prefix-needs-reactivity` | checks `use`-named units for reactive/lifecycle calls |
-| `testFilename` | `blueprint/test-filename-matches-source` | uses `architecture.testFiles`; unavailable when that list is empty |
-| `typedefOnlyFile` | `blueprint/no-typedef-only-file` | JavaScript files only |
-| `cycles` | `inspect` cycle finding | on-demand/CI graph diagnosis, not an ESLint rule by default |
-| `deadCode` and unknown ids | generated guidance only | no machine gate; use an appropriate external tool such as knip |
+- **`maxLines`** — Enforced by `max-lines`; fallback `400`, code lines only.
+- **`maxLinesPerFunction`** — Enforced by `max-lines-per-function`; fallback `100`, code lines only.
+- **`maxParams`** — Enforced by `max-params`; fallback `3`.
+- **`maxStatements`** — Enforced by `max-statements`; fallback `15`.
+- **`complexity`** — Enforced by `complexity`; fallback `12`.
+- **`unusedVars`** — Enforced by core or TypeScript-aware `no-unused-vars`; underscore arguments are ignored, but underscore variables are not an exemption.
+- **`explicitAny`** — Enforced by `@typescript-eslint/no-explicit-any`; emitted only with the TypeScript plugin.
+- **`codeStyle`** — Enforced by the `@stylistic` bundle plus `curly`; defaults to indent `2`, single quotes, semicolons, and maximum line length `90`.
+- **`statementsPerLine`** — Enforced by `@stylistic/max-statements-per-line`; fixed maximum `1`.
+- **`statementPadding`** — Enforced by `@stylistic/padding-line-between-statements`; fixed padding policy.
+- **`importBlock`** — Enforced by `import-x/first` and `import-x/no-duplicates`; requires the import-x plugin.
+- **`fixtureImports`** — Enforced by structural restricted imports; bans governed production imports from alias `fixtures` paths.
+- **`deepWatch`** — Enforced by `blueprint/no-deep-watch`; Vue only.
+- **`usePrefix`** — Enforced by `blueprint/use-prefix`; defaults to layer `hooks`, prefix `use`.
+- **`usePrefixReactivity`** — Enforced by `blueprint/use-prefix-needs-reactivity`; checks `use`-named units for reactive/lifecycle calls.
+- **`testFilename`** — Enforced by `blueprint/test-filename-matches-source`; uses `architecture.testFiles` and is unavailable when that list is empty.
+- **`typedefOnlyFile`** — Enforced by `blueprint/no-typedef-only-file`; JavaScript files only.
+- **`cycles`** — Enforced by the `inspect` cycle finding for on-demand/CI graph diagnosis, not as an ESLint rule by default.
+- **`deadCode` and unknown ids** — Generated guidance only; no machine gate. Use an appropriate external tool such as knip.
 
 Structural rules are separate from this optional catalog. Dependency flow, module reachability,
 canonical aliases, folder entries, relative escapes, ownership, and `selfOnly` restrictions compile
@@ -262,11 +294,15 @@ emit: {
 }
 ```
 
-| Field | Default | Meaning |
-|---|---|---|
-| `emit.handbook` | `docs/architecture-handbook.md` | Project-relative handbook output path. |
-| `emit.agents` | `['claude', 'agents']` | Contract targets. Valid targets: `claude`, `agents`, `gemini`, `copilot`, `cursor`, `windsurf`. Object entries may override the path. `[]` emits none. |
-| `emit.lint.severity` | `'error'` | Severity for structural rules only. Optional `rules` retain their own tiers. |
+- **`emit.handbook`**
+  - Default: `docs/architecture-handbook.md`.
+  - Meaning: Project-relative handbook output path.
+- **`emit.agents`**
+  - Default: `['claude', 'agents']`.
+  - Meaning: Contract targets. Valid targets: `claude`, `agents`, `gemini`, `copilot`, `cursor`, `windsurf`. Object entries may override the path. `[]` emits none.
+- **`emit.lint.severity`**
+  - Default: `'error'`.
+  - Meaning: Severity for structural rules only. Optional `rules` retain their own tiers.
 
 Agent targets must be unique and path overrides must be non-empty. Their default paths, merge/own
 strategies, and lifecycle are listed in [Generated Files](/generated-files#agent-contracts).

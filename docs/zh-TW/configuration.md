@@ -26,16 +26,30 @@ export default defineBlueprint({
 
 ## 根欄位
 
-| 欄位 | 型別與預設值 | 用途 |
-|---|---|---|
-| `name` | 選填 `string` | 顯示於架構手冊與 Agent 守則的專案名稱。 |
-| `framework` | 必填 `'vue' \| 'react' \| 'auto'` | 決定原始碼 glob 與框架限定規則；`auto` 交由執行期偵測。 |
-| `architecture` | 必填 `ArchitectureDef` | 定義原始碼根目錄、拓樸、依賴方向、單元配置、別名與所有權。 |
-| `rules` | `Record<string, RuleSetting>`，預設 `{}` | 選用的 lint／執行期關卡與文件判斷準則。規則有備用數值，不代表未宣告時會自動啟用。 |
-| `principles` | `PrincipleDef[]`，預設 `[]` | 產生給人與 Agent 閱讀的核心工程信念。 |
-| `componentShape` | `AxisDef[]`，預設 `[]` | 各自獨立的元件設計判斷軸線。 |
-| `playbook` | `PlaybookSection[]`，預設 `[]` | 依主題分組的工作規則。 |
-| `emit` | 選填 `EmitDef` | 架構手冊、Agent 守則與結構性 lint 的產出政策。 |
+- **`name`**
+  - 型別與預設值：選填 `string`。
+  - 用途：顯示於架構手冊與 Agent 守則的專案名稱。
+- **`framework`**
+  - 型別與預設值：必填 `'vue' | 'react' | 'auto'`。
+  - 用途：決定原始碼 glob 與框架限定規則；`auto` 交由執行期偵測。
+- **`architecture`**
+  - 型別與預設值：必填 `ArchitectureDef`。
+  - 用途：定義原始碼根目錄、拓樸、依賴方向、單元配置、別名與所有權。
+- **`rules`**
+  - 型別與預設值：`Record<string, RuleSetting>`，預設 `{}`。
+  - 用途：選用的 lint／執行期關卡與文件判斷準則。規則有備用數值，不代表未宣告時會自動啟用。
+- **`principles`**
+  - 型別與預設值：`PrincipleDef[]`，預設 `[]`。
+  - 用途：產生給人與 Agent 閱讀的核心工程信念。
+- **`componentShape`**
+  - 型別與預設值：`AxisDef[]`，預設 `[]`。
+  - 用途：各自獨立的元件設計判斷軸線。
+- **`playbook`**
+  - 型別與預設值：`PlaybookSection[]`，預設 `[]`。
+  - 用途：依主題分組的工作規則。
+- **`emit`**
+  - 型別與預設值：選填 `EmitDef`。
+  - 用途：架構手冊、Agent 守則與結構性 lint 的產出政策。
 
 ## 架構
 
@@ -110,16 +124,30 @@ architecture: {
 
 ### 分層欄位
 
-| 欄位 | 型別與預設值 | 意義 |
-|---|---|---|
-| `name` | 必填非空 `string` | 資料夾／分層識別碼。不得重複，也不能是路徑或保留的產出檔名。 |
-| `does` | 必填 `string` | 一行責任說明，會寫入產出守則。 |
-| `mustNot` | `string[]`，預設 `[]` | 不該承擔的責任，由人與 Agent 判斷。 |
-| `layout` | `'folder' \| 'file'`，預設 `'file'` | Folder layout 的單元具有公開入口；file layout 採分層粒度的相依關係。 |
-| `entry` | `string`，預設 `'index'` | Folder layout 單元的公開入口檔名。 |
-| `allowedImporters` | 選填 `(string \| AllowedImporter)[]` | 縮小哪些上游層可以匯入本層；省略時允許所有較早宣告的層。 |
-| `owns` | `OwnedPrimitive[]`，預設 `[]` | 只允許本層使用的套件、具名匯入或全域物件。 |
-| `lintOverrides` | `Record<string, unknown>`，預設 `{}` | 本層的 ESLint 覆寫；Blueprint 管理的限制規則不能在這裡取代。 |
+- **`name`**
+  - 型別與預設值：必填非空 `string`。
+  - 意義：資料夾／分層識別碼。不得重複，也不能是路徑或保留的產出檔名。
+- **`does`**
+  - 型別與預設值：必填 `string`。
+  - 意義：一行責任說明，會寫入產出守則。
+- **`mustNot`**
+  - 型別與預設值：`string[]`，預設 `[]`。
+  - 意義：不該承擔的責任，由人與 Agent 判斷。
+- **`layout`**
+  - 型別與預設值：`'folder' | 'file'`，預設 `'file'`。
+  - 意義：Folder layout 的單元具有公開入口；file layout 採分層粒度的相依關係。
+- **`entry`**
+  - 型別與預設值：`string`，預設 `'index'`。
+  - 意義：Folder layout 單元的公開入口檔名。
+- **`allowedImporters`**
+  - 型別與預設值：選填 `(string | AllowedImporter)[]`。
+  - 意義：縮小哪些上游層可以匯入本層；省略時允許所有較早宣告的層。
+- **`owns`**
+  - 型別與預設值：`OwnedPrimitive[]`，預設 `[]`。
+  - 意義：只允許本層使用的套件、具名匯入或全域物件。
+- **`lintOverrides`**
+  - 型別與預設值：`Record<string, unknown>`，預設 `{}`。
+  - 意義：本層的 ESLint 覆寫；Blueprint 管理的限制規則不能在這裡取代。
 
 物件形式的 importer 可加入 `selfOnly` 與 `description`：
 
@@ -155,12 +183,18 @@ owns: [
 
 ### 檔案範圍與命名
 
-| 欄位 | 預設值 | 意義 |
-|---|---|---|
-| `layerFiles` | 依框架產生原始碼 glob | 可填一個或多個 glob。Layer-first 必須包含 `{layer}`；module-first 必須同時包含 `{module}` 與 `{layer}`。 |
-| `layerFilesIgnore` | 無 | 從產生的 lint 與 lint 型 finding 排除；其他 inspect 分析仍可能看見。 |
-| `testFiles` | `**/*.test.{js,jsx,ts,tsx,vue}` 與 `**/*.spec.{js,jsx,ts,tsx,vue}` | 從結構／度量分析與相依圖排除，同時作為測試限定規則範圍。`[]` 會關閉兩者，也讓 `testFilename` 沒有作用範圍。 |
-| `naming` | `{}` | 依概念命名的文字慣例，會寫入架構手冊與 Agent 守則。 |
+- **`layerFiles`**
+  - 預設值：依框架產生原始碼 glob。
+  - 意義：可填一個或多個 glob。Layer-first 必須包含 `{layer}`；module-first 必須同時包含 `{module}` 與 `{layer}`。
+- **`layerFilesIgnore`**
+  - 預設值：無。
+  - 意義：從產生的 lint 與 lint 型 finding 排除；其他 inspect 分析仍可能看見。
+- **`testFiles`**
+  - 預設值：`**/*.test.{js,jsx,ts,tsx,vue}` 與 `**/*.spec.{js,jsx,ts,tsx,vue}`。
+  - 意義：從結構／度量分析與相依圖排除，同時作為測試限定規則範圍。`[]` 會關閉兩者，也讓 `testFilename` 沒有作用範圍。
+- **`naming`**
+  - 預設值：`{}`。
+  - 意義：依概念命名的文字慣例，會寫入架構手冊與 Agent 守則。
 
 可攜式 glob 使用 `/`、`**`、`*`、`?` 與 `*.{ts,tsx}` 這類單層大括號選項。Lint 與
 inspect 共用的語法不包含反向條件、字元集合、extglob 或巢狀大括號。
@@ -181,27 +215,25 @@ rules: {
 有效 tier 為 `error`、`warn`、`off`。未宣告的選用規則不會產生。度量規則只有在已宣告但
 省略 `value` 時，才會採用備用數值。
 
-| 設定識別碼 | 執行方式 | 省略數值時採用／限制 |
-|---|---|---|
-| `maxLines` | `max-lines` | `400`，只計算程式行 |
-| `maxLinesPerFunction` | `max-lines-per-function` | `100`，只計算程式行 |
-| `maxParams` | `max-params` | `3` |
-| `maxStatements` | `max-statements` | `15` |
-| `complexity` | `complexity` | `12` |
-| `unusedVars` | core 或 TypeScript 版 `no-unused-vars` | 底線開頭的參數可忽略；變數改成底線開頭不算刪除 |
-| `explicitAny` | `@typescript-eslint/no-explicit-any` | 只有提供 TypeScript 外掛時產生 |
-| `codeStyle` | `@stylistic` 規則組與 `curly` | 預設縮排 `2`、單引號、分號、最大行長 `90` |
-| `statementsPerLine` | `@stylistic/max-statements-per-line` | 固定最多 `1` 個 statement |
-| `statementPadding` | `@stylistic/padding-line-between-statements` | 固定的留白政策 |
-| `importBlock` | `import-x/first` 與 `import-x/no-duplicates` | 需要 import-x 外掛 |
-| `fixtureImports` | 結構性 restricted imports | 禁止正式程式碼從別名下的 `fixtures` 路徑匯入 |
-| `deepWatch` | `blueprint/no-deep-watch` | 只適用 Vue |
-| `usePrefix` | `blueprint/use-prefix` | 預設分層 `hooks`、前綴 `use` |
-| `usePrefixReactivity` | `blueprint/use-prefix-needs-reactivity` | 檢查 `use` 命名單元是否真的使用響應式／生命週期 API |
-| `testFilename` | `blueprint/test-filename-matches-source` | 使用 `architecture.testFiles`；空陣列時無法啟用 |
-| `typedefOnlyFile` | `blueprint/no-typedef-only-file` | 只適用 JavaScript 檔案 |
-| `cycles` | `inspect` 的循環 finding | 執行指令或 CI 時分析，預設不是 ESLint 規則 |
-| `deadCode` 與其他識別碼 | 只寫入產出守則 | 沒有機器關卡；可另用 knip 等合適工具 |
+- **`maxLines`** — 由 `max-lines` 執行；備用值為 `400`，只計算程式行。
+- **`maxLinesPerFunction`** — 由 `max-lines-per-function` 執行；備用值為 `100`，只計算程式行。
+- **`maxParams`** — 由 `max-params` 執行；備用值為 `3`。
+- **`maxStatements`** — 由 `max-statements` 執行；備用值為 `15`。
+- **`complexity`** — 由 `complexity` 執行；備用值為 `12`。
+- **`unusedVars`** — 由 core 或 TypeScript 版 `no-unused-vars` 執行；底線開頭的參數可忽略，變數改成底線開頭不算刪除。
+- **`explicitAny`** — 由 `@typescript-eslint/no-explicit-any` 執行；只有提供 TypeScript 外掛時產生。
+- **`codeStyle`** — 由 `@stylistic` 規則組與 `curly` 執行；預設縮排 `2`、單引號、分號、最大行長 `90`。
+- **`statementsPerLine`** — 由 `@stylistic/max-statements-per-line` 執行；固定最多 `1` 個 statement。
+- **`statementPadding`** — 由 `@stylistic/padding-line-between-statements` 執行；採固定留白政策。
+- **`importBlock`** — 由 `import-x/first` 與 `import-x/no-duplicates` 執行；需要 import-x 外掛。
+- **`fixtureImports`** — 由結構性 restricted imports 執行；禁止正式程式碼從別名下的 `fixtures` 路徑匯入。
+- **`deepWatch`** — 由 `blueprint/no-deep-watch` 執行；只適用 Vue。
+- **`usePrefix`** — 由 `blueprint/use-prefix` 執行；預設分層為 `hooks`、前綴為 `use`。
+- **`usePrefixReactivity`** — 由 `blueprint/use-prefix-needs-reactivity` 執行；檢查 `use` 命名單元是否真的使用響應式／生命週期 API。
+- **`testFilename`** — 由 `blueprint/test-filename-matches-source` 執行；使用 `architecture.testFiles`，空陣列時無法啟用。
+- **`typedefOnlyFile`** — 由 `blueprint/no-typedef-only-file` 執行；只適用 JavaScript 檔案。
+- **`cycles`** — 由 `inspect` 的循環 finding 執行；執行指令或 CI 時分析，預設不是 ESLint 規則。
+- **`deadCode` 與其他識別碼** — 只寫入產出守則，沒有機器關卡；可另用 knip 等合適工具。
 
 結構性規則不屬於這份選用清單。只要執行 `emitLint`，模組可達性、分層流、標準別名、單元
 入口、相對路徑逃逸、所有權與 `selfOnly` 就會由 `architecture` 產生。
@@ -256,11 +288,15 @@ emit: {
 }
 ```
 
-| 欄位 | 預設值 | 意義 |
-|---|---|---|
-| `emit.handbook` | `docs/architecture-handbook.md` | 相對於專案根目錄的架構手冊路徑。 |
-| `emit.agents` | `['claude', 'agents']` | 守則目標。可用值為 `claude`、`agents`、`gemini`、`copilot`、`cursor`、`windsurf`；物件形式可改路徑，`[]` 代表完全不產生。 |
-| `emit.lint.severity` | `'error'` | 只控制結構性規則；選用 `rules` 仍使用各自 tier。 |
+- **`emit.handbook`**
+  - 預設值：`docs/architecture-handbook.md`。
+  - 意義：相對於專案根目錄的架構手冊路徑。
+- **`emit.agents`**
+  - 預設值：`['claude', 'agents']`。
+  - 意義：守則目標。可用值為 `claude`、`agents`、`gemini`、`copilot`、`cursor`、`windsurf`；物件形式可改路徑，`[]` 代表完全不產生。
+- **`emit.lint.severity`**
+  - 預設值：`'error'`。
+  - 意義：只控制結構性規則；選用 `rules` 仍使用各自 tier。
 
 Agent 目標不能重複，自訂路徑也不能是空字串。預設路徑、合併／完整管理策略與生命週期見
 [產出檔案](/zh-TW/generated-files#agent-contracts)。

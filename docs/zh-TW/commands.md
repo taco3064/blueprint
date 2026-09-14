@@ -35,15 +35,13 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 
 ### 旗標
 
-| 旗標 | 用途 |
-|---|---|
-| `--topology layer-first\|module-first` | 第一次導入專案時必填。已導入的專案若指定相同目標，會修復現有拓樸；指定相反目標，則啟動全專案轉換。 |
-| `--preset` | 跳過架構編寫，使用偵測到的 Vue、React 或 Next 預設設定。這只適用 layer-first；module-first 專案與已有自訂設定檔的應用程式會拒絕執行。 |
-| `--authoring` | 即使少於 10 個原始碼檔案，也強制產生架構編寫指南。不能與 `--preset` 並用。 |
-| `--agent claude\|codex` | 編寫或轉換流程會在指南安全寫入後啟動指定的本機 Agent CLI；預設設定流程不啟動 Agent，只縮小要產生的 Agent 守則目標。 |
-| `--framework vue\|react` | 框架證據不明確時指定。一般 Vue、React 會自動偵測；Next.js 會使用能辨識路由器的預設設定。 |
-| `--no-install` | 不執行偵測到的套件管理工具，並在計畫裡列出待安裝內容。 |
-| `--dry-run` | 只顯示計畫，不修改檔案，也不啟動 Agent。 |
+- **`--topology layer-first|module-first`** — 第一次導入專案時必填。已導入的專案若指定相同目標，會修復現有拓樸；指定相反目標，則啟動全專案轉換。
+- **`--preset`** — 跳過架構編寫，使用偵測到的 Vue、React 或 Next 預設設定。這只適用 layer-first；module-first 專案與已有自訂設定檔的應用程式會拒絕執行。
+- **`--authoring`** — 即使少於 10 個原始碼檔案，也強制產生架構編寫指南。不能與 `--preset` 並用。
+- **`--agent claude|codex`** — 編寫或轉換流程會在指南安全寫入後啟動指定的本機 Agent CLI；預設設定流程不啟動 Agent，只縮小要產生的 Agent 守則目標。
+- **`--framework vue|react`** — 框架證據不明確時指定。一般 Vue、React 會自動偵測；Next.js 會使用能辨識路由器的預設設定。
+- **`--no-install`** — 不執行偵測到的套件管理工具，並在計畫裡列出待安裝內容。
+- **`--dry-run`** — 只顯示計畫，不修改檔案，也不啟動 Agent。
 
 ### 可能修改的內容
 
@@ -80,11 +78,9 @@ npx @kekkai/blueprint survey
 npx @kekkai/blueprint survey --source-root apps/web/src --json
 ```
 
-| 旗標 | 用途 |
-|---|---|
-| `--alias <name>` | TypeScript／JavaScript 設定找不到別名時，由使用者提供。 |
-| `--source-root <path>` | 在多應用程式工作區中選擇一個原始碼根目錄。 |
-| `--json` | 輸出機器可讀的證據。 |
+- **`--alias <name>`** — TypeScript／JavaScript 設定找不到別名時，由使用者提供。
+- **`--source-root <path>`** — 在多應用程式工作區中選擇一個原始碼根目錄。
+- **`--json`** — 輸出機器可讀的證據。
 
 這是唯讀指令，只回報事實，不替你決定分層、模組、所有權或依賴方向。
 
@@ -100,12 +96,10 @@ npx @kekkai/blueprint inspect --update-baseline
 npx @kekkai/blueprint inspect --baseline --json
 ```
 
-| 旗標 | 用途 |
-|---|---|
-| `--framework vue\|react` | 框架證據不明確時指定。 |
-| `--json` | 輸出結構化報告。 |
-| `--update-baseline` | 將目前 error／warn 記錄進 `.blueprint-baseline.json`；info 不會列入，沒有債務時不建立檔案。更新後以 `0` 結束。 |
-| `--baseline` | 只讓基準線以外的新問題造成失敗，形成既有專案的棘輪。 |
+- **`--framework vue|react`** — 框架證據不明確時指定。
+- **`--json`** — 輸出結構化報告。
+- **`--update-baseline`** — 將目前 error／warn 記錄進 `.blueprint-baseline.json`；info 不會列入，沒有債務時不建立檔案。更新後以 `0` 結束。
+- **`--baseline`** — 只讓基準線以外的新問題造成失敗，形成既有專案的棘輪。
 
 任何未列入基準線的 error 都會讓指令以 `1` 結束；warn 與 info 不會。報告也會列出架構
 規則實際涵蓋的原始碼檔案數，以及已啟用的選用關卡數，避免空集合被誤認為驗證成功。
@@ -140,10 +134,8 @@ npx @kekkai/blueprint deps src/orders/components/OrderRow.tsx --json
 npx @kekkai/blueprint deps
 ```
 
-| 旗標 | 用途 |
-|---|---|
-| `--framework vue\|react` | 框架證據不明確時指定。 |
-| `--json` | 輸出結構化相依圖結果。 |
+- **`--framework vue|react`** — 框架證據不明確時指定。
+- **`--json`** — 輸出結構化相依圖結果。
 
 只有架構涵蓋的單元會進圖；被略過的資料夾與匯入分析限制都會明列。Folder layout 以單元
 為粒度，file layout 則收斂成分層粒度。設定為測試檔的匯入不會增加影響範圍，且只有別名

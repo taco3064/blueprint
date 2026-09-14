@@ -39,13 +39,21 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 
 **管理權責與生命週期依專案現況而定：**
 
-| 現況 | 結果 | 管理權責 |
-|---|---|---|
-| 尚無 ESLint 設定 | 建立 `eslint.config.mjs`。 | 只要保留 Blueprint 的首行產生標記，就由 Blueprint 完整管理，之後可重新產生。 |
-| 現有設定是 Blueprint 產生 | 更新同一個檔案。 | Blueprint 完整管理。 |
-| 已有手寫 flat config | 建立 `eslint.config.blueprint.mjs` 並顯示合併指示。 | 只供參考；導入方決定如何與既有規則整合，完成後刪除。 |
-| 現有 flat config 已接上 `emitLint` | 不取代任何設定檔。 | 導入方管理。 |
-| 存在舊式 `.eslintrc` | 產生 flat config 參考檔與遷移指示。 | 遷移決策由導入方負責。 |
+- **尚無 ESLint 設定**
+  - 結果：建立 `eslint.config.mjs`。
+  - 管理權責：只要保留 Blueprint 的首行產生標記，就由 Blueprint 完整管理，之後可重新產生。
+- **現有設定是 Blueprint 產生**
+  - 結果：更新同一個檔案。
+  - 管理權責：Blueprint 完整管理。
+- **已有手寫 flat config**
+  - 結果：建立 `eslint.config.blueprint.mjs` 並顯示合併指示。
+  - 管理權責：只供參考；導入方決定如何與既有規則整合，完成後刪除。
+- **現有 flat config 已接上 `emitLint`**
+  - 結果：不取代任何設定檔。
+  - 管理權責：導入方管理。
+- **存在舊式 `.eslintrc`**
+  - 結果：產生 flat config 參考檔與遷移指示。
+  - 管理權責：遷移決策由導入方負責。
 
 Flat config 在相同作用範圍遇到同一規則時，後者會取代前者，不會合併選項。手動整合後，
 可用 `blueprint doctor` 確認結構限制在最後的設定順序裡仍然有效。
@@ -68,14 +76,12 @@ Flat config 在相同作用範圍遇到同一規則時，後者會取代前者�
 `emit.agents` 決定產出目標，每個目標都可改成自訂的專案相對路徑。省略時預設產生 Claude
 與 AGENTS；空陣列代表不產生任何 Agent 守則。
 
-| 目標 | 預設路徑 | 管理策略 |
-|---|---|---|
-| `claude` | `CLAUDE.md` | 與導入方共用，採標記區塊合併 |
-| `agents` | `AGENTS.md` | 與導入方共用，採標記區塊合併 |
-| `gemini` | `GEMINI.md` | 與導入方共用，採標記區塊合併 |
-| `copilot` | `.github/copilot-instructions.md` | 與導入方共用，採標記區塊合併 |
-| `cursor` | `.cursor/rules/blueprint.mdc` | Blueprint 完整管理 |
-| `windsurf` | `.windsurf/rules/blueprint.md` | Blueprint 完整管理 |
+- **`claude`** — 預設路徑：`CLAUDE.md`；與導入方共用，採標記區塊合併。
+- **`agents`** — 預設路徑：`AGENTS.md`；與導入方共用，採標記區塊合併。
+- **`gemini`** — 預設路徑：`GEMINI.md`；與導入方共用，採標記區塊合併。
+- **`copilot`** — 預設路徑：`.github/copilot-instructions.md`；與導入方共用，採標記區塊合併。
+- **`cursor`** — 預設路徑：`.cursor/rules/blueprint.mdc`；Blueprint 完整管理。
+- **`windsurf`** — 預設路徑：`.windsurf/rules/blueprint.md`；Blueprint 完整管理。
 
 **存在目的：** 讓架構事實與無法機械判斷的專案規則，出現在程式撰寫 Agent 平常會讀取的
 上下文裡。
