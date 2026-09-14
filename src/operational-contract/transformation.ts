@@ -326,7 +326,20 @@ export function renderTransformationPreflightError(
     .map(({ label, reason }) => `- ${label}: ${reason}`);
 
   return `${direction} transformation preflight failed before mutation:\n`
-    + `${failures.join('\n')}\nResolve every item and re-run; no files were changed.`;
+    + `${failures.join('\n')}\n${renderTransformationBlockedNextSteps()}`;
+}
+
+export function renderTransformationBlockedNextSteps(): string {
+  return 'Resolve every item and re-run; no files were changed.\n'
+    + 'Transformation is blocked, not complete. Do not bypass this refusal by manually changing '
+    + 'the topology config and running ordinary init/adoption.\n'
+    + 'If creating the required Git checkpoint is not authorized, stop and report that blocker; '
+    + 'do not commit, stash, or discard user changes without authorization.\n'
+    + 'After resolving the blockers, re-run the requested topology command. A successful '
+    + '--dry-run is only a preview; run without --dry-run to start the guarded transformation '
+    + 'and follow its playbook through verification.\n'
+    + 'Current-config Inspect/Doctor, lint, build, and tests do not prove historical topology '
+    + 'transformation completion.';
 }
 
 export function transformationPreflightFailures(
