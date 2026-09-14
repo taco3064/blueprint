@@ -87,7 +87,16 @@ it('keeps real rule loss red when another probe is ignored', async () => {
     (file: string) => file.includes('views') ? undefined : { rules: {} });
 
   expect(check.ok).toBe(false);
-  expect(check.skipped).toContain('src/views/Home/index.vue');
+  expect(check.skipped).toBeUndefined();
+  expect(check.detail).toContain('src/views/Home/index.vue');
   expect(check.detail).toContain('lost');
   expect(check.detail).not.toContain('views:');
+});
+
+it('treats a null config as missing rules, not an unavailable comparison', async () => {
+  const check = await run(scanOf('src/views/Home/index.vue'), null);
+
+  expect(check.ok).toBe(false);
+  expect(check.skipped).toBeUndefined();
+  expect(check.detail).toContain('views: no-restricted-imports lost');
 });

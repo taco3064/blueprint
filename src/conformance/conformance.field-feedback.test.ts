@@ -11,37 +11,38 @@ afterEach(() => {
   }
 });
 
-it('preserves the original legacy config before replacing declarations or comments', async () => {
-  const original = '// Owner policy must remain recoverable.\r\n'
-    + 'export default { framework: "react", '
-    + 'architecture: { alias: "~app", module: { layout: "folder", private: ["hooks"] }, '
-    + 'layers: [{ name: "components", does: "UI" }] } };\r\n';
+it.each([{ topology: [] }, { topology: ['--topology', 'module-first'] }])(
+  'preserves exactly one legacy backup: %j', async ({ topology }) => {
+    const original = '// Owner policy must remain recoverable.\r\n'
+      + 'export default { framework: "react", '
+      + 'architecture: { alias: "~app", module: { layout: "folder", private: ["hooks"] }, '
+      + 'layers: [{ name: "components", does: "UI" }] } };\r\n';
 
-  const root = makeRepo({
-    packageJson: { name: 'legacy', dependencies: { react: '^18' } },
-    files: { 'blueprint.config.mjs': original },
+    const root = makeRepo({
+      packageJson: { name: 'legacy', dependencies: { react: '^18' } },
+      files: { 'blueprint.config.mjs': original },
+    });
+
+    roots.push(root);
+    const dry = await cli(root, ['init', '--no-install', '--dry-run', ...topology]);
+
+    expect(dry.code, dry.output).toBe(0);
+    expect(read(root, 'blueprint.config.mjs')).toBe(original);
+    expect(fs.readdirSync(root).filter((name) => name.includes('.pre-v4-'))).toEqual([]);
+    expect(dry.output).toContain('module.private has no 4.0 replacement');
+    const applied = await cli(root, ['init', '--no-install', ...topology]);
+
+    expect(applied.code, applied.output).toBe(0);
+    const backups = fs.readdirSync(root).filter((name) => name.includes('.pre-v4-'));
+
+    expect(backups).toHaveLength(1);
+    expect(read(root, backups[0]!)).toBe(original);
+    expect(read(root, 'blueprint.config.mjs')).not.toContain('"private"');
+
+    expect(applied.output.indexOf('original config preserved')).toBeLessThan(
+      applied.output.indexOf('✓ write: blueprint.config.mjs\n'),
+    );
   });
-
-  roots.push(root);
-  const dry = await cli(root, ['init', '--no-install', '--dry-run']);
-
-  expect(dry.code, dry.output).toBe(0);
-  expect(read(root, 'blueprint.config.mjs')).toBe(original);
-  expect(fs.readdirSync(root).filter((name) => name.includes('.pre-v4-'))).toEqual([]);
-  expect(dry.output).toContain('module.private has no 4.0 replacement');
-  const applied = await cli(root, ['init', '--no-install']);
-
-  expect(applied.code, applied.output).toBe(0);
-  const backups = fs.readdirSync(root).filter((name) => name.includes('.pre-v4-'));
-
-  expect(backups).toHaveLength(1);
-  expect(read(root, backups[0]!)).toBe(original);
-  expect(read(root, 'blueprint.config.mjs')).not.toContain('"private"');
-
-  expect(applied.output.indexOf('original config preserved')).toBeLessThan(
-    applied.output.indexOf('✓ write: blueprint.config.mjs\n'),
-  );
-});
 
 it.each([{}, { eslint: 'eslint src' }])('keeps legacy lint unchanged: %j', async (scripts) => {
   const root = makeRepo({

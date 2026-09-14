@@ -256,20 +256,7 @@ function renderWiringCheck(fact: WiringCheckFact): DoctorCheckView {
           + 'fails for this same reason. This check runs once that passes',
       };
     case 'wiring-ignored':
-      return {
-        label: fact.label,
-        ok: fact.lost.length === 0,
-        skipped: `ESLint returned no config for probe paths: ${fact.ignored.join(', ')}. `
-          + 'Check global ignores and file matching, '
-          + 'including synthetic paths for empty positions. '
-          + 'Those positions are unverified; this does not prove rule replacement. '
-          + 'Keep architecture intent and review lint coverage before changing declarations.',
-        ...(fact.lost.length
-          ? { detail: renderWiringCheck({
-              kind: 'wiring-lost', label: fact.label, lost: fact.lost,
-            }).detail }
-          : {}),
-      };
+      return renderIgnoredWiring(fact);
     case 'wiring-lost':
       return {
         label: fact.label,
@@ -295,6 +282,23 @@ function renderWiringCheck(fact: WiringCheckFact): DoctorCheckView {
       return { label: `${fact.label} (${fact.scope})`, ok: true, detail };
     }
   }
+}
+
+function renderIgnoredWiring(
+  fact: Extract<DoctorCheckFact, { kind: 'wiring-ignored' }>,
+): DoctorCheckView {
+  const unknown = `ESLint returned no config for probe paths: ${fact.ignored.join(', ')}. `
+    + 'Check global ignores and file matching, including synthetic paths for empty positions. '
+    + 'Those positions are unverified; this does not prove rule replacement. '
+    + 'Keep architecture intent and review lint coverage before changing declarations.';
+
+  if (fact.lost.length) {
+    const failed = renderWiringCheck({ kind: 'wiring-lost', label: fact.label, lost: fact.lost });
+
+    return { ...failed, detail: `${failed.detail} ${unknown}` };
+  }
+
+  return { label: fact.label, ok: true, skipped: unknown };
 }
 
 function renderSuppressions(

@@ -85,3 +85,20 @@ function ledgerFixture(stale: boolean): { application: string; entry: string } {
 
   return { application, entry };
 }
+
+it.each([false, true])('requires reference cleanup outside legacy; wired=%s', async (wired) => {
+  write('blueprint.config.mjs', 'export default {};');
+  write('eslint.config.blueprint.mjs', 'export default [];');
+
+  if (wired) {
+    write('.eslintrc.cjs', 'module.exports = {};');
+    write('eslint.config.mjs', 'import{emitLint}from\'@kekkai/blueprint\'; export default [];');
+  }
+
+  const result = await runDoctor(root, { loadConfig: load, log: silent });
+  const check = result.checks.find((entry) => entry.label.includes('leftover'))!;
+
+  expect(check.ok).toBe(false);
+  expect(check.detail).toContain('merge and delete: eslint.config.blueprint.mjs');
+  expect(check.detail).not.toContain('retained as');
+});
