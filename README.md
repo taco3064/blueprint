@@ -3,7 +3,7 @@
 [![license](https://img.shields.io/npm/l/@kekkai/blueprint)](./LICENSE)
 
 <p align="center">
-  <img src="https://taco3064.github.io/blueprint/logo.png" width="160" alt="blueprint logo" />
+  <img src="https://taco3064.github.io/blueprint/logo.png" width="480" alt="Blueprint" />
 </p>
 
 # @kekkai/blueprint

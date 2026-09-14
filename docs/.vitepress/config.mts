@@ -120,7 +120,7 @@ export default withMermaid(defineConfig({
   },
 
   themeConfig: {
-    logo: '/logo.png',
+    logo: '/mark.png',
     socialLinks: [{ icon: 'github', link: 'https://github.com/taco3064/blueprint' }],
     search: { provider: 'local' },
   },
