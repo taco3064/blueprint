@@ -35,11 +35,12 @@ The guard is why it exists: npm installs the bin as a symlink, and comparing
 exit 0 having done nothing (the 0.1.1 bug) — **a state every in-process test
 passes.** Any change that could only fail after publishing belongs here.
 
-## Live field convergence — the Agent boundary
+## Live field validation — the Agent boundary
 
-After deterministic main CI passes, CI builds and retains one `npm pack` artifact bound to the full main SHA. Live Codex and Claude validation consumes that artifact; it does not rebuild an arbitrary checkout. Doctor and Inspect still run after the Agent as independent cross-checks.
-
-Affected replay may prove a repair, but only one complete required matrix against one exact candidate can write successful `blueprint/field-convergence` evidence. A later commit has no inherited authority.
+Live Field execution is owner-operated outside GitHub Actions. Use the existing
+Field harness when you want real Agent evidence, and keep Doctor / Inspect visible
+as independent checks over the adopter result. Field does not create release
+statuses and is not queried by the release workflow.
 
 ## `npm run operational:check` — operational ownership and composition
 
