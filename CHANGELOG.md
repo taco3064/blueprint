@@ -38,6 +38,7 @@ Resolved architecture facts, mechanical enforcement, human guidance, and Agent o
 
 ### Patch Changes
 
+- 53945b5: Isolate release-time consumer verification from npm publisher authentication so packed Yarn 1 checks run without inheriting the publishing npmrc.
 - 76bbc3a: Refresh Blueprint's public documentation with its new cyan-to-blue brand system and replace documentation tables with mobile-readable lists.
 - 076decc: Keep Codex-only authoring and topology transformations free of Claude-specific command files. The neutral authoring playbook now follows the selected agent or configured `emit.agents` policy across fresh, single-application, and repository-wide flows.
 - 35963d9: Make `blueprint doctor` verify the safely reachable project-local ESLint leg live before reporting adoption complete.
