@@ -1,5 +1,56 @@
 # @kekkai/blueprint
 
+## 4.0.0
+
+Blueprint 4.0 promotes architecture topology from an implicit folder convention to an explicit repository architecture contract. Layer-first and module-first are both supported models, and module-first preserves the same layer discipline inside ordinary modules while keeping the reserved `app` surface focused on router composition.
+
+Adoption, supported legacy migration, and topology transformation now start from repository facts Blueprint can prove. When semantic ownership or a safe transformation cannot be inferred, Blueprint fails closed and hands the judgment to a person or coding Agent instead of guessing.
+
+Resolved architecture facts, mechanical enforcement, human guidance, and Agent operational guidance now have distinct authorities. They share the same resolved architecture without claiming that every product or public-information surface is unconditionally compiled from one config.
+
+### Major Changes
+
+- 04a40ea: Require `architecture.alias` for cross-layer and cross-module imports, and apply the same architecture checks to statically resolvable dynamic imports. Inspect and deps now disclose runtime-dependent targets they cannot prove.
+- 9e7af73: Add optional module-first topology through `architecture.modules`, repeating the declared layers beneath every module while preserving layer-first projects.
+
+  Move unit layout and entry configuration directly onto each layer, rename the `flat` layout to `file`, and retire `architecture.module`, `layers[].module`, and `module.private` with targeted migration errors.
+
+  Update lint, inspect, dependency reports, generated docs, and agent contracts to use Module → Layer → Unit identities consistently.
+
+  Declare direct module dependencies with optional `architecture.modules[].dependsOn`. Blueprint rejects invalid module graphs, resolves transitive reachability, and requires governed imports to pass both the module DAG and the existing inner layer flow.
+
+- 0f29981: Require an explicit topology for first adoption, inherit one topology across repository applications, and coordinate configured topology changes repository-wide. Source-tree survey evidence no longer classifies unmanaged projects, and presets are limited to layer-first adoption.
+- dd085ce: Add `init --topology layer-first|module-first` and require an explicit choice for first repository adoption. Existing configurations remain authoritative, module-first initialization enters authoring, and unsupported or unsafe topology paths abort before writing.
+
+  Align dependency reports with the canonical architecture resolver so governed recursive `app/**` routes are never also reported as outside the architecture.
+
+- 22c3987: Let `init --topology module-first` guide a configured layer-first React, Vue, or Next.js App Router application through a Git-preflight-guarded Agent transformation. The generated playbook carries neutral container/page dependency evidence, requires semantic ownership decisions and tracked `git mv` operations, derives the final module DAG after movement, and reviews architecture debt before baseline regeneration. Next.js Pages Router continues to abort before mutation.
+- c4d7c74: Reserve an optional module-first `app` module for framework-independent router composition. Nested `app` source now uses container semantics instead of repeating the shared layer contract.
+
+### Minor Changes
+
+- 3c40eef: Centralize Blueprint's CLI, authoring, transformation, Agent, handbook, diagnostics, and field
+  guidance under one runtime-backed operational contract. Add checked-in artifact verification and
+  require field adoption to select an explicit topology.
+- 0fb37ff: Let `init --topology layer-first` guide a configured module-first React, Vue, or Next.js App Router application back to layer-first. The Git-guarded playbook reports complete structural destinations, collisions, module/import evidence, router constraints, and baseline review steps while leaving semantic placement, tracked moves, import rewrites, and the synchronized cutover to the Agent.
+- 78d2b9e: Resolve nested application, workspace toolchain, and containing Git repository context consistently, require the normal lint entrypoint to reach ESLint before doctor reports complete adoption, and share structural pattern normalization between emission and doctor verification.
+- b962241: Let `blueprint survey` expose repeated direct-child folder names across sibling folder instances in text and JSON, including the measured parent and participation counts, without classifying or recommending an architecture.
+
+### Patch Changes
+
+- 76bbc3a: Refresh Blueprint's public documentation with its new cyan-to-blue brand system and replace documentation tables with mobile-readable lists.
+- 076decc: Keep Codex-only authoring and topology transformations free of Claude-specific command files. The neutral authoring playbook now follows the selected agent or configured `emit.agents` policy across fresh, single-application, and repository-wide flows.
+- 35963d9: Make `blueprint doctor` verify the safely reachable project-local ESLint leg live before reporting adoption complete.
+- dcbed49: Keep `architecture.testFiles` behavior and guidance aligned across lint, inspect, dependency reports, CLI help, generated Agent contracts, and authoring playbooks.
+- 1c1d53c: Make adoption evidence fail closed: preserve ancestor ESLint policies for nested applications, scope emitted rules to the application, reject nested folder-unit relative escapes and conflicting alias identities, and report lint wiring and alias consumers independently. Impact reports unsupported ESLint versions as `unavailable` and import parse failures as `partial`, instead of implying complete verification.
+
+  Retain layer-first to module-first transformation origins in application-scoped Git authority independently of source, configuration, and decision-file edits. Completion requires reserved app routing, consumed container seeds, one-to-one member mappings with Git content identity, matching requested topology, and final architecture errors resolved without baseline suppression; ordinary hand-authored module-first adoption remains separate.
+
+  Repair packed public declarations and verify external npm and Yarn 1 consumers, including pinned internal Vue and TypeScript parsers with Node 18-compatible dependency trees. Normalize Git inventory line endings and filesystem aliases across platforms.
+
+- 947647c: Cover Vue JSX and TSX files in architecture nets, escape leading-hash aliases in emitted ESLint import patterns, and deduplicate overlapping alias restrictions. Clarify coverage output when files sit outside declared architecture nets.
+- eb51c2d: Parse JSX and TSX syntax inside Vue SFC script blocks when analyzing statically resolvable dynamic imports.
+
 ## 3.2.0
 
 This release improves adoption of existing projects with root-level or nested application
