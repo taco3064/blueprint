@@ -1,56 +1,128 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  FIELD_CONTEXT,
-  parseEvidenceMarker,
-  validateReportUrl,
-} from './field-convergence.mjs';
+const ALLOWED_AFTER_RELEASE = [
+  /^CHANGELOG\.md$/,
+  /^\.github\//,
+  /^\.agents\//,
+  /^AGENTS\.md$/,
+  /^scripts\/release-field-gate\.mjs$/,
+  /^scripts\/field-convergence\.test\.mjs$/,
+];
 
-export function validateReleaseEvidence({ repository, sha, combinedStatus, comment }) {
-  const status = (combinedStatus.statuses ?? []).find((entry) => entry.context === FIELD_CONTEXT);
-
-  if (!status) throw new Error(`No ${FIELD_CONTEXT} status exists for exact tag commit ${sha}.`);
-  if (status.state !== 'success') throw new Error(`${FIELD_CONTEXT} for exact tag commit ${sha} is ${status.state}, not success.`);
-
-  const target = new RegExp(`^https://github\\.com/${repository.replace('/', '\\/')}/issues/(\\d+)#issuecomment-(\\d+)$`)
-    .exec(status.target_url ?? '');
-
-  if (!target) throw new Error('Field convergence status does not link to a durable convergence-ticket comment.');
-
-  const evidence = parseEvidenceMarker(comment.body);
-
-  if (!evidence) throw new Error('Field convergence comment has no machine-readable evidence marker.');
-  if (evidence.candidateSha !== sha) throw new Error('Field convergence comment belongs to a different candidate SHA.');
-
-  if (evidence.scope !== 'full' || evidence.result !== 'success'
-    || evidence.matrixComplete !== true || evidence.releaseBlockers !== 0) {
-    throw new Error('Field convergence comment does not prove a successful complete full matrix.');
-  }
-
-  validateReportUrl(evidence.reportUrl);
-
-  return { issue: Number(target[1]), comment: Number(target[2]), evidence };
+function git(args) {
+  return execFileSync('git', args, { encoding: 'utf8' }).trim();
 }
 
-function gh(args) {
-  return JSON.parse(execFileSync('gh', ['api', ...args], { encoding: 'utf8' }));
+function versionAt(sha) {
+  return JSON.parse(git(['show', `${sha}:package.json`])).version;
+}
+
+export function validateChangesetsRelease({
+  version,
+  releaseFiles,
+  consumedChangesets,
+  changelog,
+  pendingChangesets,
+  filesAfterRelease,
+}) {
+  for (const required of ['package.json', 'package-lock.json', 'CHANGELOG.md']) {
+    if (!releaseFiles.includes(required)) {
+      throw new Error(`Changesets release SHA did not change ${required}.`);
+    }
+  }
+
+  if (consumedChangesets.length === 0) {
+    throw new Error('Changesets release SHA consumed no .changeset/*.md entries.');
+  }
+
+  if (!new RegExp(`^## ${version.replaceAll('.', '\\.')}\\s*$`, 'm').test(changelog)) {
+    throw new Error(`CHANGELOG.md has no section for ${version}.`);
+  }
+
+  if (pendingChangesets.length > 0) {
+    throw new Error(`Unreleased changesets remain: ${pendingChangesets.join(', ')}`);
+  }
+
+  const disallowed = filesAfterRelease.filter(
+    (file) => !ALLOWED_AFTER_RELEASE.some((pattern) => pattern.test(file)),
+  );
+
+  if (disallowed.length > 0) {
+    throw new Error(
+      `Publishable inputs changed after the Changesets release SHA: ${disallowed.join(', ')}`,
+    );
+  }
+
+  return true;
+}
+
+export function findChangesetsReleaseSha({ head, version }) {
+  const commits = git(['rev-list', head, '--', 'package.json'])
+    .split('\n')
+    .filter(Boolean);
+
+  for (const sha of commits) {
+    let parent;
+    try {
+      parent = git(['rev-parse', `${sha}^`]);
+    } catch {
+      continue;
+    }
+
+    if (versionAt(sha) === version && versionAt(parent) !== version) return sha;
+  }
+
+  throw new Error(`No Changesets version commit found for ${version}.`);
+}
+
+function ensureHistory() {
+  if (git(['rev-parse', '--is-shallow-repository']) !== 'true') return;
+  execFileSync('git', ['fetch', '--unshallow', 'origin'], { stdio: 'inherit' });
 }
 
 function main() {
-  const repository = process.env.GITHUB_REPOSITORY;
-  const sha = execFileSync('git', ['rev-parse', 'HEAD^{commit}'], { encoding: 'utf8' }).trim();
-  const combinedStatus = gh([`repos/${repository}/commits/${sha}/status`]);
-  const status = (combinedStatus.statuses ?? []).find((entry) => entry.context === FIELD_CONTEXT);
-  const target = /#issuecomment-(\d+)$/.exec(status?.target_url ?? '');
+  ensureHistory();
 
-  if (!target) validateReleaseEvidence({ repository, sha, combinedStatus, comment: { body: '' } });
+  const head = git(['rev-parse', 'HEAD^{commit}']);
+  const version = JSON.parse(readFileSync('package.json', 'utf8')).version;
+  const releaseSha = findChangesetsReleaseSha({ head, version });
 
-  const comment = gh([`repos/${repository}/issues/comments/${target[1]}`]);
-  const result = validateReleaseEvidence({ repository, sha, combinedStatus, comment });
+  execFileSync('git', ['merge-base', '--is-ancestor', releaseSha, head]);
 
-  process.stdout.write(`Field convergence verified for ${sha} at issue #${result.issue}, comment ${result.comment}.\n`);
+  const releaseFiles = git(['diff', '--name-only', `${releaseSha}^`, releaseSha])
+    .split('\n')
+    .filter(Boolean);
+  const consumedChangesets = git([
+    'diff',
+    '--diff-filter=D',
+    '--name-only',
+    `${releaseSha}^`,
+    releaseSha,
+  ])
+    .split('\n')
+    .filter((file) => /^\.changeset\/.*\.md$/.test(file));
+  const filesAfterRelease = git(['diff', '--name-only', `${releaseSha}..${head}`])
+    .split('\n')
+    .filter(Boolean);
+  const pendingChangesets = existsSync('.changeset')
+    ? readdirSync('.changeset').filter((file) => file.endsWith('.md') && file !== 'README.md')
+    : [];
+
+  validateChangesetsRelease({
+    version,
+    releaseFiles,
+    consumedChangesets,
+    changelog: readFileSync('CHANGELOG.md', 'utf8'),
+    pendingChangesets,
+    filesAfterRelease,
+  });
+
+  process.stdout.write(`Changesets release SHA verified: ${releaseSha}\n`);
+  process.stdout.write(`Tagged SHA: ${head}\n`);
+  process.stdout.write(`Version: ${version}\n`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
