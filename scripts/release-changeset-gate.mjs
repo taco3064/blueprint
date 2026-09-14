@@ -10,8 +10,6 @@ const ALLOWED_AFTER_RELEASE = [
   /^AGENTS\.md$/,
   /^scripts\/release-changeset-gate\.mjs$/,
   /^scripts\/release-changeset-gate\.test\.mjs$/,
-  /^scripts\/release-field-gate\.mjs$/,
-  /^scripts\/field-convergence\.test\.mjs$/,
 ];
 
 function git(args) {
@@ -68,6 +66,7 @@ export function findChangesetsReleaseSha({ head, version }) {
 
   for (const sha of commits) {
     let parent;
+
     try {
       parent = git(['rev-parse', `${sha}^`]);
     } catch {
@@ -82,6 +81,7 @@ export function findChangesetsReleaseSha({ head, version }) {
 
 function ensureHistory() {
   if (git(['rev-parse', '--is-shallow-repository']) !== 'true') return;
+
   execFileSync('git', ['fetch', '--unshallow', 'origin'], { stdio: 'inherit' });
 }
 
