@@ -38,15 +38,13 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 
 ### Options
 
-| Option | Meaning |
-|---|---|
-| `--topology layer-first\|module-first` | Required for first repository adoption. On an adopted repository, the same target repairs the current topology; the opposite target starts a repository-wide transformation. |
-| `--preset` | Skip authoring and use the detected Vue, React, or Next preset. This is a layer-first adoption method and is rejected for module-first repositories and applications that already have an authored config. |
-| `--authoring` | Force the authoring playbook even below the 10-source-file brownfield threshold. It cannot be combined with `--preset`. |
-| `--agent claude\|codex` | On authoring or transformation paths, launch that local Agent CLI after the playbook is safely written. On a preset path, launch nothing and select only the matching emitted Agent contract. |
-| `--framework vue\|react` | Resolve an ambiguous framework. Vue and React are otherwise detected; Next.js uses its router-aware preset. |
-| `--no-install` | Do not run the detected package manager. The plan tells you which install remains. |
-| `--dry-run` | Print the plan and perform no mutation or Agent launch. |
+- **`--topology layer-first|module-first`** — Required for first repository adoption. On an adopted repository, the same target repairs the current topology; the opposite target starts a repository-wide transformation.
+- **`--preset`** — Skip authoring and use the detected Vue, React, or Next preset. This is a layer-first adoption method and is rejected for module-first repositories and applications that already have an authored config.
+- **`--authoring`** — Force the authoring playbook even below the 10-source-file brownfield threshold. It cannot be combined with `--preset`.
+- **`--agent claude|codex`** — On authoring or transformation paths, launch that local Agent CLI after the playbook is safely written. On a preset path, launch nothing and select only the matching emitted Agent contract.
+- **`--framework vue|react`** — Resolve an ambiguous framework. Vue and React are otherwise detected; Next.js uses its router-aware preset.
+- **`--no-install`** — Do not run the detected package manager. The plan tells you which install remains.
+- **`--dry-run`** — Print the plan and perform no mutation or Agent launch.
 
 ### What it changes
 
@@ -89,11 +87,9 @@ npx @kekkai/blueprint survey
 npx @kekkai/blueprint survey --source-root apps/web/src --json
 ```
 
-| Option | Meaning |
-|---|---|
-| `--alias <name>` | Supply the import alias when TypeScript/JavaScript config does not reveal one. |
-| `--source-root <path>` | Select one application source root in a multi-application workspace. |
-| `--json` | Emit machine-readable evidence. |
+- **`--alias <name>`** — Supply the import alias when TypeScript/JavaScript config does not reveal one.
+- **`--source-root <path>`** — Select one application source root in a multi-application workspace.
+- **`--json`** — Emit machine-readable evidence.
 
 The command is read-only and reports facts without choosing layers, modules, ownership, or flow.
 Those remain authoring decisions.
@@ -111,12 +107,10 @@ npx @kekkai/blueprint inspect --update-baseline
 npx @kekkai/blueprint inspect --baseline --json
 ```
 
-| Option | Meaning |
-|---|---|
-| `--framework vue\|react` | Resolve an ambiguous framework. |
-| `--json` | Emit the report as structured data. |
-| `--update-baseline` | Record current error/warn findings in `.blueprint-baseline.json`; info findings are excluded and zero debt writes no file. Exits `0` after the update. |
-| `--baseline` | Fail only for findings not present in the baseline, creating a brownfield ratchet. |
+- **`--framework vue|react`** — Resolve an ambiguous framework.
+- **`--json`** — Emit the report as structured data.
+- **`--update-baseline`** — Record current error/warn findings in `.blueprint-baseline.json`; info findings are excluded and zero debt writes no file. Exits `0` after the update.
+- **`--baseline`** — Fail only for findings not present in the baseline, creating a brownfield ratchet.
 
 Any unbaselined error-level finding exits `1`; warn and info findings do not. The report also states
 how many source files the architecture nets reach and how many optional gates are active, so an
@@ -155,10 +149,8 @@ npx @kekkai/blueprint deps src/orders/components/OrderRow.tsx --json
 npx @kekkai/blueprint deps
 ```
 
-| Option | Meaning |
-|---|---|
-| `--framework vue\|react` | Resolve an ambiguous framework. |
-| `--json` | Emit graph results as structured data. |
+- **`--framework vue|react`** — Resolve an ambiguous framework.
+- **`--json`** — Emit graph results as structured data.
 
 Only governed units participate. Skipped folders and import-analysis limits are reported. Folder
 layout resolves per unit; file layout collapses to layer granularity. Imports from configured test
