@@ -114,3 +114,39 @@ describe('detect · ancestor eslint ownership', () => {
     });
   });
 });
+
+describe('detect · incomplete eslint evidence', () => {
+  it('keeps unreadable local configs unowned even with an ancestor', () => {
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-eslint-unreadable-'));
+    const app = path.join(workspace, 'apps/web');
+
+    roots.push(workspace);
+    spawnSync('git', ['init'], { cwd: workspace });
+    fs.mkdirSync(path.join(app, 'eslint.config.js'), { recursive: true });
+    fs.writeFileSync(path.join(workspace, 'package.json'), '{}');
+    fs.writeFileSync(path.join(app, 'package.json'), '{}');
+    fs.writeFileSync(path.join(workspace, 'eslint.config.js'), 'export default [];');
+
+    expect(detect(app)).toMatchObject({
+      ownedEslintConfig: undefined, shadowedEslintConfig: undefined, wiredEslintConfig: false,
+    });
+  });
+
+  it.each([
+    'import \'@kekkai/blueprint\'; const root = \'./apps/web/\';',
+    'import \'@kekkai/blueprint\'; const root = new URL(\'./apps/web/\', import.meta.url);',
+    'import \'@kekkai/blueprint\'; const root = \'./apps/web/\'; '
+    + 'const x = {basePath: applicationRoot};',
+  ])('requires the complete ancestor basePath expression: %s', (text) => {
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'bp-eslint-incomplete-'));
+    const app = path.join(workspace, 'apps/web');
+
+    roots.push(workspace);
+    spawnSync('git', ['init'], { cwd: workspace });
+    fs.mkdirSync(app, { recursive: true });
+    fs.writeFileSync(path.join(workspace, 'package.json'), '{}');
+    fs.writeFileSync(path.join(app, 'package.json'), '{}');
+    fs.writeFileSync(path.join(workspace, 'eslint.config.js'), text);
+    expect(detect(app).wiredEslintConfig).toBe(false);
+  });
+});

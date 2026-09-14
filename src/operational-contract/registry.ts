@@ -254,6 +254,7 @@ export const OPERATIONAL_SURFACES = [
       'src/bootstrap/transformation.ts',
       'src/bootstrap/transformation-resume.ts',
       'src/project/transformation-obligation.ts',
+      'src/project/transformation-authority.ts',
     ],
     targets: ['terminal actions'],
     verification: ['transformation tests'],

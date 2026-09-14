@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { vuePreset } from '../presets';
-import { readTransformationObligation } from '../project';
+import { readTransformationObligation, writeTransformationAuthority } from '../project';
 import type { LayerToModuleObligation } from '../project';
 import { runDoctor } from './doctor';
 import { verifyTransformationObligation } from './transformation-obligation';
@@ -65,7 +65,7 @@ function obligation(): LayerToModuleObligation {
     },
     target: {
       topology: 'module-first',
-      decisions: [{ source: 'account', destinations: ['src/modules/account'] }],
+      decisions: [{ source: 'account', members: [], destinations: ['src/modules/account'] }],
     },
   };
 }
@@ -75,6 +75,18 @@ async function doctor(): Promise<Awaited<ReturnType<typeof runDoctor>>> {
 }
 
 describe('runDoctor transformation obligation', () => {
+  it('keeps deleted obligation evidence red while its Git authority is pending', async () => {
+    writeTransformationAuthority(root, obligation(), { status: 'pending' });
+
+    const result = await doctor();
+    const check = result.checks.find((item) => item.label.includes('transformation'));
+
+    expect(check).toMatchObject({ ok: false });
+    expect(check?.detail).toContain('authority');
+    expect(result.ok).toBe(false);
+    expect(verify).not.toHaveBeenCalled();
+  });
+
   it('reports malformed obligation JSON as an invalid red check', async () => {
     write('blueprint-transformation.json', '{');
 
@@ -100,6 +112,7 @@ describe('runDoctor transformation obligation', () => {
 
   it('reports an invalid pending mapping as incomplete with its verification facts', async () => {
     write('blueprint-transformation.json', JSON.stringify(obligation()));
+    writeTransformationAuthority(root, obligation(), { status: 'pending' });
 
     verify.mockReturnValue({
       ok: false,
@@ -118,6 +131,7 @@ describe('runDoctor transformation obligation', () => {
 
   it('keeps a verified artifact red until init retires it', async () => {
     write('blueprint-transformation.json', JSON.stringify(obligation()));
+    writeTransformationAuthority(root, obligation(), { status: 'pending' });
     verify.mockReturnValue({ ok: true, failures: [] });
 
     const result = await doctor();
@@ -125,6 +139,11 @@ describe('runDoctor transformation obligation', () => {
 
     expect(result.ok).toBe(false);
     expect(check).toMatchObject({ ok: false });
+
+    expect(verify).toHaveBeenCalledExactlyOnceWith({
+      root, obligation: obligation(), blueprint: vuePreset(),
+      state: expect.objectContaining({ applicationRoot: root, framework: 'vue' }),
+    });
 
     expect(check?.detail).toContain('final state verifies');
     expect(check?.detail).toContain('blueprint init --topology module-first');

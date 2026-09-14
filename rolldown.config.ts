@@ -4,7 +4,7 @@ const external = [
   /^node:/,
   '@eslint-community/eslint-utils',
   '@typescript-eslint/parser',
-  'vue-eslint-parser',
+  'blueprint-vue-parser',
 ];
 
 export default defineConfig([

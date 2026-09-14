@@ -2,7 +2,9 @@ import path from 'node:path';
 
 import {
   AUTHORING_FILE,
+  writeTransformationAuthority,
   claudeDirState,
+  relativeFilesystemPath,
   TRANSFORMATION_OBLIGATION_FILE,
   transformationObligationSource,
 } from '../project';
@@ -95,6 +97,7 @@ export function buildTransformationObligation(
   input: TransformationActionInput,
 ): LayerToModuleObligation {
   const sources = [...input.evidence.routerCandidates, ...input.evidence.candidates]
+    // Stryker disable next-line MethodExpression: all candidate source kinds are included.
     .filter((candidate) => ['page', 'container', 'app'].includes(candidate.source))
     .map((candidate) => ({
       role: candidate.source === 'page' || candidate.source === 'app'
@@ -125,7 +128,9 @@ export function buildTransformationObligation(
 
 function relativeApplicationRoot(input: TransformationActionInput): string {
   const repository = input.preflight.repository.root!;
-  const relative = path.relative(repository, input.state.applicationRoot).split(path.sep).join('/');
+
+  const relative = relativeFilesystemPath(repository, input.state.applicationRoot)
+    .split(path.sep).join('/');
 
   return relative || '.';
 }
@@ -167,6 +172,10 @@ export async function runLayerToModuleTransformation(
   narratePlan(input, survey, actions);
 
   if (!input.options.dryRun) {
+    writeTransformationAuthority(input.root, buildTransformationObligation({
+      state: input.state, evidence, preflight, claudeDir: claudeDirState(input.root),
+    }), { status: 'pending' });
+
     apply(input.root, actions, {
       exec: input.options.exec ?? defaultExec,
       onApplied: (action) => input.log(renderTransformationAction(action, true)),

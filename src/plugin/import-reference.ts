@@ -1,7 +1,11 @@
+import { createRequire } from 'node:module';
 import { getInnermostScope, getStaticValue } from '@eslint-community/eslint-utils';
 import tsParser from '@typescript-eslint/parser';
 import type { Scope } from 'eslint';
-import vueParser from 'vue-eslint-parser';
+
+const vueParser = createRequire(import.meta.url)('blueprint-vue-parser') as {
+  parseForESLint: (source: string, options: object) => unknown;
+};
 
 interface AstNode {
   type: string;
@@ -93,7 +97,6 @@ function parseSource(source: string, filePath: string): ParsedSource {
     jsx: /\.[jt]sx$/.test(filePath),
     // Stryker disable next-line BooleanLiteral: dependency discovery never consumes node locations.
     loc: true,
-    // Stryker disable next-line BooleanLiteral: dependency discovery never consumes node ranges.
     range: true,
     sourceType: 'module' as const,
     // Stryker disable next-line BooleanLiteral: dependency discovery never consumes parser tokens.
@@ -134,4 +137,36 @@ function isNode(value: unknown): value is AstNode {
 
   // Stryker disable next-line ConditionalExpression: parser visitor nodes guarantee string types.
   return typeof value.type === 'string';
+}
+
+export function transformationMemberIdentity(source: string, filePath: string): string | null {
+  const normalized = source.replace(/\r\n/g, '\n');
+  let parsed: ParsedSource;
+
+  try {
+    parsed = parseSource(normalized, filePath);
+  } catch {
+    return null;
+  }
+
+  const ranges: [number, number][] = [];
+
+  walk(parsed.ast, parsed.visitorKeys, (node) => {
+    if (![
+      'ImportDeclaration', 'ExportNamedDeclaration', 'ExportAllDeclaration', 'ImportExpression',
+    ].includes(node.type)) {
+      return;
+    }
+
+    const specifier = node.source as AstNode | null;
+
+    if (specifier?.type === 'Literal' && typeof specifier.value === 'string') {
+      ranges.push(specifier.range as [number, number]);
+    }
+  });
+
+  return ranges.sort((left, right) => right[0] - left[0]).reduce(
+    (value, [start, end]) => `${value.slice(0, start)}'__module__'${value.slice(end)}`,
+    normalized,
+  );
 }

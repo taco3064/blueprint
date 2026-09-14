@@ -309,3 +309,19 @@ describe('layer-first transformation canonical resolution', () => {
     ]);
   });
 });
+
+describe('transformation candidate member ordering', () => {
+  it('sorts full source paths across sibling files and directories', () => {
+    const root = repo({
+      'src/pages/Home/component/nested.ts': 'export const nested = 1;\n',
+      'src/pages/Home/component.ts': 'export const sibling = 1;\n',
+    });
+
+    const evidence = collectTransformationEvidence(root, runSurvey(root, { log: () => {} }));
+
+    const candidate = evidence.routerCandidates.find((entry) => entry.seed === 'pages/Home');
+
+    expect(candidate?.memberPaths)
+      .toEqual(['src/pages/Home/component.ts', 'src/pages/Home/component/nested.ts']);
+  });
+});

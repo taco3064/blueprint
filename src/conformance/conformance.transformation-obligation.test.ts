@@ -19,7 +19,7 @@ function config(layers: string[], modules?: string[]): string {
   })};\n`;
 }
 
-function started(next = false): string {
+function started(next = false, extraPage = false): string {
   const dir = makeRepo({
     packageJson: { dependencies: { react: '^18', ...(next ? { next: '^15' } : {}) } },
     files: next
@@ -30,6 +30,7 @@ function started(next = false): string {
       : {
           'blueprint.config.mjs': config(['pages', 'containers', 'components']),
           'src/pages/Login.ts': 'export const route = 1;\n',
+          ...(extraPage ? { 'src/pages/Register.ts': 'export const route = 1;\n' } : {}),
           'src/containers/Login.ts': 'export const login = 1;\n',
         },
   });
@@ -46,12 +47,49 @@ function started(next = false): string {
   return dir;
 }
 
+function aliasedStarted(alias: boolean): string {
+  const actual = started();
+
+  if (!alias) {
+    return actual;
+  }
+
+  const dir = `${actual}-alias`;
+
+  fs.symlinkSync(actual, dir, 'junction');
+  dirs.push(dir);
+
+  return dir;
+}
+
 async function begin(dir: string): Promise<LayerToModuleObligation> {
   expect((await cli(dir, ['init', '--topology', 'module-first', '--no-install'])).code).toBe(0);
 
   return JSON.parse(
     read(dir, 'blueprint-transformation.json') ?? '{}',
   ) as LayerToModuleObligation;
+}
+
+async function consumeMembers(dir: string, altered: boolean): Promise<void> {
+  const obligation = await begin(dir);
+
+  obligation.target.decisions = obligation.origin.sources.map(({ unit, role, members }) => {
+    const destination = role === 'route-composition'
+      ? 'src/app/Login.ts'
+      : 'src/auth/components/Login.ts';
+
+    return { source: unit, destinations: [destination],
+      members: members.map((source) => ({ source, destination })) };
+  });
+
+  for (const source of obligation.origin.sources.flatMap((source) => source.members)) {
+    rm(path.join(dir, source));
+  }
+
+  write(dir, 'src/app/Login.ts', `export const route = ${altered ? 2 : 1};\n`);
+  write(dir, 'src/auth/components/Login.ts', 'export const login = 1;\n');
+  write(dir, 'blueprint.config.mjs', config(['components'], ['app', 'auth']));
+  write(dir, 'blueprint-transformation.json', `${JSON.stringify(obligation)}\n`);
 }
 
 afterEach(() => {
@@ -78,13 +116,18 @@ describe('LF→MF transformation obligation', () => {
     expect(read(dir, 'blueprint-transformation.json')).not.toBeNull();
   });
 
-  it('verifies app/module consumption and retires its evidence', async () => {
-    const dir = started();
+  it.each([false, true])('retires consumed obligations with path alias: %s', async (alias) => {
+    const dir = aliasedStarted(alias);
     const obligation = await begin(dir);
 
+    expect(obligation.origin.applicationRoot).toBe('.');
+
     obligation.target.decisions = [
-      { source: 'pages/Login', destinations: ['src/app/Login.ts'] },
-      { source: 'containers', destinations: ['src/auth/components/Login.ts'] },
+      { source: 'pages/Login', destinations: ['src/app/Login.ts'],
+        members: [{ source: 'src/pages/Login.ts', destination: 'src/app/Login.ts' }] },
+      { source: 'containers', destinations: ['src/auth/components/Login.ts'],
+        members: [{ source: 'src/containers/Login.ts',
+          destination: 'src/auth/components/Login.ts' }] },
     ];
 
     write(dir, 'blueprint-transformation.json', `${JSON.stringify(obligation, null, 2)}\n`);
@@ -94,7 +137,9 @@ describe('LF→MF transformation obligation', () => {
     rm(path.join(dir, 'src/pages/Login.ts'));
     rm(path.join(dir, 'src/containers/Login.ts'));
 
-    expect((await cli(dir, ['init', '--topology', 'module-first', '--no-install'])).code).toBe(0);
+    const result = await cli(dir, ['init', '--topology', 'module-first', '--no-install']);
+
+    expect(result.code, result.output).toBe(0);
     expect(read(dir, 'blueprint-transformation.json')).toBeNull();
     expect(read(dir, 'blueprint-authoring.md')).toBeNull();
   });
@@ -118,12 +163,15 @@ describe('LF→MF transformation obligation', () => {
 
     obligation.target.decisions = [{
       source: 'app/login', destinations: ['src/app/login/page.tsx'],
+      members: [{ source: 'src/app/login/page.tsx', destination: 'src/app/login/page.tsx' }],
     }];
 
     write(dir, 'blueprint-transformation.json', `${JSON.stringify(obligation, null, 2)}\n`);
     write(dir, 'blueprint.config.mjs', config(['components'], ['app', 'auth']));
 
-    expect((await cli(dir, ['init', '--topology', 'module-first', '--no-install'])).code).toBe(0);
+    const result = await cli(dir, ['init', '--topology', 'module-first', '--no-install']);
+
+    expect(result.code, result.output).toBe(0);
     expect(read(dir, 'src/app/login/page.tsx')).not.toBeNull();
   });
 
@@ -139,7 +187,9 @@ describe('LF→MF transformation obligation', () => {
     const result = await cli(dir, ['init', '--topology', 'module-first', '--no-install']);
 
     expect(result.code).toBe(1);
-    expect(result.output).toContain('origin source does not match Git');
+
+    expect(result.output)
+      .toContain('origin differs from the retained Git transformation authority');
   });
 
   it('rejects a destination symlink that escapes the application root', async () => {
@@ -151,8 +201,11 @@ describe('LF→MF transformation obligation', () => {
     fs.mkdirSync(path.join(dir, 'src/app'), { recursive: true });
     fs.symlinkSync(outside, path.join(dir, 'src/app/Login.ts'));
 
-    obligation.target.decisions = obligation.origin.sources.map(({ unit, role }) => ({
+    obligation.target.decisions = obligation.origin.sources.map(({ unit, role, members }) => ({
       source: unit,
+      members: members.map((source) => ({ source, destination: role === 'route-composition'
+        ? 'src/app/Login.ts'
+        : 'src/auth/components/Login.ts' })),
       destinations: [role === 'route-composition'
         ? 'src/app/Login.ts'
         : 'src/auth/components/Login.ts'],
@@ -164,5 +217,46 @@ describe('LF→MF transformation obligation', () => {
 
     expect((await cli(dir, ['init', '--topology', 'module-first', '--no-install'])).code).toBe(1);
     fs.rmSync(outside);
+  });
+});
+
+describe('LF→MF consumed member identity', () => {
+  it.each([
+    [true, false, 'destination src/app/Login.ts is reused'],
+    [false, true, 'transfer identity is unproven for src/pages/Login.ts'],
+  ] as const)('rejects reused=%s or altered=%s targets', async (reused, altered, diagnostic) => {
+    const dir = started(false, reused);
+
+    await consumeMembers(dir, altered);
+    const result = await cli(dir, ['init', '--topology', 'module-first', '--no-install']);
+
+    expect(result.code, result.output).toBe(1);
+    expect(result.output).toContain(diagnostic);
+    expect(read(dir, 'src/pages/Login.ts')).toBeNull();
+    expect(read(dir, 'blueprint-transformation.json')).not.toBeNull();
+    expect(read(dir, 'blueprint-authoring.md')).not.toBeNull();
+  });
+
+  it('rejects hiding a consumed source in an unscanned text destination', async () => {
+    const dir = started();
+
+    await consumeMembers(dir, false);
+
+    const obligation = JSON.parse(
+      read(dir, 'blueprint-transformation.json')!,
+    ) as LayerToModuleObligation;
+
+    const route = obligation.target.decisions
+      .find((decision) => decision.source === 'pages/Login')!;
+
+    fs.renameSync(path.join(dir, 'src/app/Login.ts'), path.join(dir, 'src/app/Login.txt'));
+    route.destinations = ['src/app/Login.txt'];
+    route.members[0].destination = 'src/app/Login.txt';
+    write(dir, 'blueprint-transformation.json', JSON.stringify(obligation));
+    const result = await cli(dir, ['init', '--topology', 'module-first', '--no-install']);
+
+    expect(result.code, result.output).toBe(1);
+    expect(result.output).toContain('transfer identity is unproven for src/pages/Login.ts');
+    expect(read(dir, 'blueprint-transformation.json')).not.toBeNull();
   });
 });

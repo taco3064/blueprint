@@ -143,6 +143,14 @@ describe('runInspect', () => {
 });
 
 describe('runInspect · baseline ratchet', () => {
+  it('rejects parser failures even when the baseline has no fresh error findings', async () => {
+    writeSrc('components/Broken.ts', 'const broken: = 1;');
+    const result = await runInspect(root, { baseline: true, log: silent });
+
+    expect(result.findings.filter((finding) => finding.severity === 'error')).toEqual([]);
+    expect(result.ok).toBe(false);
+  });
+
   it('locks existing debt, then fails only on new findings', async () => {
     writeSrc('utils/helper.ts', 'export const x = 1;');
 

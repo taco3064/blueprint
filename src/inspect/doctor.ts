@@ -6,6 +6,7 @@ import { defaultAgentPaths, emitAgentFiles } from '../emit/agent';
 import {
   AUTHORING_FILE,
   assessLintEntrypoint,
+  assertTransformationAuthority,
   COMMAND_FILE,
   aliasConsumerEvidence,
   detect,
@@ -269,6 +270,7 @@ function transformationChecks(
 
   try {
     obligation = readTransformationObligation(root);
+    assertTransformationAuthority(root, obligation);
   } catch (error) {
     return [renderDoctorCheck({
       kind: 'transformation',

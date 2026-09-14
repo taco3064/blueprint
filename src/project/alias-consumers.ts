@@ -118,6 +118,7 @@ function textConfigEvidence(scope: {
   const readings = entries.flatMap((entry) => aliases.map((alias) => {
     const reading = readStaticAlias(entry.text as string, alias, targets[alias]);
 
+    // Stryker disable next-line ConditionalExpression: empty runner aliases reject bridges
     const bridged = consumer === 'bundler-runtime'
       && hasTsconfigPathsBridge(entry.text as string)
       && typescriptAliases[alias] === targets[alias];
@@ -212,7 +213,9 @@ function packageSubpathEvidence(scope: {
   const unknown = applicable.some((alias) => {
     const value = imports[`${alias}/*`] ?? imports[alias];
 
-    return value !== undefined && typeof value !== 'string';
+    // Stryker disable next-line ConditionalExpression: missing already outranks unknown
+    return value !== undefined
+      && typeof value !== 'string';
   });
 
   return {
@@ -242,12 +245,16 @@ function packageRecord(text: string | null): Record<string, unknown> | null {
 
   const parsed = parseJsonc(text);
 
+  // Stryker disable next-line ConditionalExpression, LogicalOperator: nonrecords expose no fields
   return parsed.ok && isRecord(parsed.value) ? parsed.value : null;
 }
 
 function packageDependencies(pkg: Record<string, unknown> | null): Set<string> {
   const keys = ['dependencies', 'devDependencies'].flatMap((field) =>
-    isRecord(pkg?.[field]) ? Object.keys(pkg[field]) : []);
+    isRecord(pkg?.[field])
+      ? Object.keys(pkg[field])
+      // Stryker disable next-line ArrayDeclaration: the sentinel is not a recognized package
+      : []);
 
   return new Set(keys);
 }
@@ -304,7 +311,7 @@ function hasTsconfigPathsBridge(text: string): boolean {
 }
 
 function withoutComments(text: string): string {
-  return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '');
 }
 
 function expectedTargets(

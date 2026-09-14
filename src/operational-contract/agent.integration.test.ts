@@ -13,9 +13,10 @@ const blueprint: Blueprint = {
 
 describe('measured lint integration contracts', () => {
   it.each([
-    ['verified', 'verified alive', 'verified alive'],
-    ['reference-only', 'not enforced', 'not a project-lint gate yet'],
-    ['unverified', 'unverified', 'not yet verified alive'],
+    ['verified', 'verified alive', 'is verified alive in the project lint run.'],
+    ['reference-only', 'not enforced',
+      'is present only in the reference config and is not a project-lint gate yet.'],
+    ['unverified', 'unverified', 'is emitted but not yet verified alive in the project lint run.'],
   ] as const)('bounds every durable surface to %s', (lintIntegration, statement, hardStatement) => {
     expect(renderCompactContract(blueprint, {
       gates: [], handbook: 'HANDBOOK.md', lintIntegration,

@@ -169,6 +169,7 @@ function findEslintConfigs(directories: string[], files: string[]): EslintConfig
 function generatedLocalShadow(root: string, configs: EslintConfig[]): string | undefined {
   const [local, ancestor] = configs;
 
+  // Stryker disable next-line ConditionalExpression: an ancestor requires a first array entry
   return local !== undefined
     && ancestor !== undefined
     && sameFilesystemPath(local.root, root)
@@ -192,6 +193,7 @@ function ownedConfig(root: string, config?: EslintConfig): string | undefined {
 }
 
 function wiredConfig(text: string | null | undefined, basePath?: string): boolean {
+  // Stryker disable next-line ConditionalExpression: absent owners cannot be wired by text
   const nestedWiring = basePath === undefined
     || basePath === '.'
     || (text?.includes('basePath: applicationRoot') === true

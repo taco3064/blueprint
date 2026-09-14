@@ -69,8 +69,16 @@ function obligation(overrides: Partial<LayerToModuleObligation> = {}): LayerToMo
     target: {
       topology: 'module-first',
       decisions: [
-        { source: 'pages/Login', destinations: ['src/app/Login.ts'] },
-        { source: 'containers', destinations: ['src/auth/components/Login.ts'] },
+        {
+          source: 'pages/Login', destinations: ['src/app/Login.ts'],
+          members: [{ source: 'src/pages/Login.ts', destination: 'src/app/Login.ts' }],
+        },
+        {
+          source: 'containers', destinations: ['src/auth/components/Login.ts'],
+          members: [{
+            source: 'src/containers/Login.ts', destination: 'src/auth/components/Login.ts',
+          }],
+        },
       ],
     },
     ...overrides,
@@ -121,6 +129,22 @@ function git(rootPath: string, overrides: {
       return { ...repository, stderr: '' };
     }
 
+    if (args[0] === 'show') {
+      return {
+        status: 0,
+        stdout: args[1]!.includes('src/app/')
+          ? 'export default 1;\n'
+          : args[1]!.includes('pages/')
+            ? 'export const route = 1;\n'
+            : 'export const login = 1;\n',
+        stderr: '',
+      };
+    }
+
+    if (args[0] === 'ls-tree' && !args.includes('-r')) {
+      return { status: 0, stdout: '', stderr: '' };
+    }
+
     if (args.includes('ls-tree')) {
       return { ...tree, stderr: '' };
     }
@@ -152,6 +176,17 @@ afterEach(() => {
 });
 
 describe('verifyTransformationObligation authority', () => {
+  it('matches Git inventory with CRLF output', () => {
+    const dir = root();
+
+    expect(codes({
+      root: dir,
+      git: git(dir, {
+        tree: { status: 0, stdout: 'src/containers/Login.ts\r\nsrc/pages/Login.ts\r\n' },
+      }),
+    })).toEqual([]);
+  });
+
   it('accepts a complete obligation', () => {
     const dir = root();
 
@@ -266,6 +301,13 @@ describe('verifyTransformationObligation origin inventory', () => {
     };
 
     changed.target.decisions[1].source = 'containers/Login';
+    write(dir, 'src/auth/components/View.ts', 'export const login = 1;\n');
+    changed.target.decisions[1].destinations.push('src/auth/components/View.ts');
+
+    changed.target.decisions[1].members = [
+      { source: 'src/containers/Login/index.ts', destination: 'src/auth/components/Login.ts' },
+      { source: 'src/containers/Login/view.ts', destination: 'src/auth/components/View.ts' },
+    ];
 
     const tree = [
       'src/components/Ignore.ts',
@@ -283,14 +325,23 @@ describe('verifyTransformationObligation origin inventory', () => {
     })).toEqual([]);
   });
 
-  it('fails closed when committed inventory cannot be read', () => {
-    const dir = root();
+  it.each(['', 'src/pages/Login.ts\n'])(
+    'rejects failed Git inventory for seedless obligations with stdout %j', (stdout) => {
+      const dir = root();
+      const seedless = obligation();
 
-    expect(codes({
-      root: dir,
-      git: git(dir, { tree: { status: 1, stdout: '' } }),
-    })).toContain('unrecorded-origin-source');
-  });
+      seedless.origin.sources = [];
+      seedless.target.decisions = [];
+
+      expect(verifyTransformationObligation({
+        root: dir, state: state(dir), blueprint: blueprint(), obligation: seedless,
+        git: git(dir, { tree: { status: 1, stdout } }),
+      })).toEqual({
+        ok: false,
+        failures: [{ code: 'origin-inventory-unavailable', expected: 'origin-head' }],
+      });
+    },
+  );
 });
 
 describe('verifyTransformationObligation decisions', () => {
@@ -301,8 +352,8 @@ describe('verifyTransformationObligation decisions', () => {
     changed.target.decisions = [
       changed.target.decisions[0],
       { ...changed.target.decisions[0] },
-      { source: 'unknown', destinations: ['src/auth/components/Login.ts'] },
-      { source: 'containers', destinations: [] },
+      { source: 'unknown', members: [], destinations: ['src/auth/components/Login.ts'] },
+      { source: 'containers', members: [], destinations: [] },
     ];
 
     expect(codes({ root: dir, obligation: changed })).toEqual(expect.arrayContaining([
@@ -319,9 +370,10 @@ describe('verifyTransformationObligation decisions', () => {
     changed.target.decisions = [
       {
         source: 'pages/Login',
+        members: [],
         destinations: ['../outside', 'src/app/Missing.ts', 'src/auth/components/Login.ts'],
       },
-      { source: 'containers', destinations: ['src/app/Login.ts'] },
+      { source: 'containers', members: [], destinations: ['src/app/Login.ts'] },
     ];
 
     expect(codes({ root: dir, obligation: changed })).toEqual(expect.arrayContaining([
@@ -394,33 +446,6 @@ describe('verifyTransformationObligation final state', () => {
 
     write(architectureDir, 'src/rogue/file.ts', 'export const rogue = 1;\n');
     expect(codes({ root: architectureDir })).toContain('final-architecture-errors');
-  });
-
-  it('allows an original app route member to remain for Next App Router', () => {
-    const dir = root();
-    const next = obligation();
-
-    next.origin.router = 'app';
-
-    next.origin.sources = [{
-      role: 'route-composition',
-      unit: 'app/login',
-      members: ['src/app/login/page.tsx'],
-    }];
-
-    next.target.decisions = [{
-      source: 'app/login',
-      destinations: ['src/app/login/page.tsx'],
-    }];
-
-    write(dir, 'src/app/login/page.tsx', 'export default 1;\n');
-
-    expect(codes({
-      root: dir,
-      obligation: next,
-      state: state(dir, { nextRouter: 'app' }),
-      git: git(dir, { tree: { status: 0, stdout: 'src/app/login/page.tsx\n' } }),
-    })).toEqual([]);
   });
 
   it('accepts an obligation containing only a container seed', () => {

@@ -200,7 +200,9 @@ describe('assessLintIntegration', () => {
       { scanResult, load: loader(), lint: runLint },
     )).resolves.toBe('verified');
 
-    expect(runLint).toHaveBeenCalledOnce();
+    expect(runLint).toHaveBeenCalledExactlyOnceWith(
+      process.cwd(), ['eslint'], expect.objectContaining({ reachable: true }),
+    );
   });
 });
 
@@ -236,5 +238,28 @@ describe('assessLintIntegration defaults', () => {
     const result = await assessLintIntegration(currentState, blueprint, { scanResult });
 
     expect(result).toBe('verified');
+  });
+});
+
+describe('assessLintIntegration dependency evidence', () => {
+  it('supplies both dependency inventories without duplicates to live lint', async () => {
+    const root = process.cwd();
+    const runLint = lint('passed');
+
+    const current = state({
+      localPackage: {
+        root, scripts: { lint: 'eslint .' }, dependencies: ['eslint', 'application-only'],
+      },
+      toolchainPackage: { root, scripts: {}, dependencies: ['eslint', 'toolchain-only'] },
+    });
+
+    expect(await assessLintIntegration(current, blueprint, {
+      scanResult, load: loader(), lint: runLint,
+    })).toBe('verified');
+
+    expect(runLint).toHaveBeenCalledExactlyOnceWith(
+      root, ['eslint', 'application-only', 'toolchain-only'],
+      expect.objectContaining({ reachable: true }),
+    );
   });
 });
