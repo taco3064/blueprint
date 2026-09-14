@@ -1,37 +1,36 @@
-/**
- * Brand palette lifted from the logo: gold gears on a near-black disc with
- * an amber glow. The site is force-dark, so everything lives under :root.
- */
 :root {
-  /* gold accents (links, active nav, sidebar marker) */
-  --vp-c-brand-1: #f0b33c;
-  --vp-c-brand-2: #dda02e;
-  --vp-c-brand-3: #c8901f;
-  --vp-c-brand-soft: rgba(240, 179, 60, 0.16);
+  --vp-c-brand-1: #20dfea;
+  --vp-c-brand-2: #1598ef;
+  --vp-c-brand-3: #0756c9;
+  --vp-c-brand-soft: rgba(32, 223, 234, 0.16);
 
-  /* deepen the background toward the logo's charcoal disc */
-  --vp-c-bg: #0f1114;
-  --vp-c-bg-alt: #14161a;
-  --vp-c-bg-soft: #1a1d22;
-  --vp-c-bg-elv: #16181d;
+  --vp-c-bg: #070b14;
+  --vp-c-bg-alt: #0b1220;
+  --vp-c-bg-soft: #101a2b;
+  --vp-c-bg-elv: #0d1726;
 
-  /* hero: gold gradient name + amber glow behind the logo */
   --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(120deg, #f6d06a 30%, #e09a20);
+  --vp-home-hero-name-background: linear-gradient(120deg, #20dfea 20%, #1598ef 58%, #0756c9);
   --vp-home-hero-image-background-image: radial-gradient(
     circle,
-    rgba(240, 179, 60, 0.32) 0%,
-    rgba(240, 179, 60, 0) 62%
+    rgba(32, 223, 234, 0.3) 0%,
+    rgba(21, 152, 239, 0.18) 38%,
+    rgba(7, 86, 201, 0) 68%
   );
   --vp-home-hero-image-filter: blur(64px);
 
-  /* gold buttons need dark text for contrast */
-  --vp-button-brand-bg: #c8901f;
-  --vp-button-brand-text: #191100;
-  --vp-button-brand-hover-bg: #dda02e;
-  --vp-button-brand-hover-text: #191100;
-  --vp-button-brand-active-bg: #b57f16;
-  --vp-button-brand-active-text: #191100;
+  --vp-button-brand-bg: #0878df;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-hover-bg: #1598ef;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-active-bg: #0756c9;
+  --vp-button-brand-active-text: #ffffff;
+}
+
+@media (min-width: 960px) {
+  .VPHero .image-src {
+    max-width: 480px;
+  }
 }
 
 /* Nav title: stack the version under the package name — logo spans both
