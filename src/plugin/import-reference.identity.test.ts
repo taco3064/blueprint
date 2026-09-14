@@ -19,6 +19,11 @@ describe('transformation member identity', () => {
     ['export const value = 1;', 'export const value = 2;'],
     ['const path = "old"; import(path);', 'const path = "new"; import(path);'],
     ['export default "old";', 'export default "new";'],
+    ['type Value = import(\'./old\').Value;', 'type Value = import(\'./new\').Value;'],
+    ['void import(42);', 'void import(43);'],
+    ['void import(true);', 'void import(false);'],
+    ['void import(null);', 'void import(0);'],
+    ['void import(/old/);', 'void import(/new/);'],
     ['<template><p>old</p></template>', '<template><p>new</p></template>'],
   ])('preserves non-module content identity in %s', (before, after) => {
     const file = before.startsWith('<') ? 'source.vue' : 'source.ts';
