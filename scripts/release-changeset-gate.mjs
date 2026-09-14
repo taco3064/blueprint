@@ -10,6 +10,8 @@ const ALLOWED_AFTER_RELEASE = [
   /^AGENTS\.md$/,
   /^scripts\/release-changeset-gate\.mjs$/,
   /^scripts\/release-changeset-gate\.test\.mjs$/,
+  /^scripts\/release-field-gate\.mjs$/,
+  /^scripts\/field-convergence\.test\.mjs$/,
 ];
 
 function git(args) {
@@ -97,6 +99,7 @@ function main() {
   const releaseFiles = git(['diff', '--name-only', `${releaseSha}^`, releaseSha])
     .split('\n')
     .filter(Boolean);
+
   const consumedChangesets = git([
     'diff',
     '--diff-filter=D',
@@ -106,9 +109,11 @@ function main() {
   ])
     .split('\n')
     .filter((file) => /^\.changeset\/.*\.md$/.test(file));
+
   const filesAfterRelease = git(['diff', '--name-only', `${releaseSha}..${head}`])
     .split('\n')
     .filter(Boolean);
+
   const pendingChangesets = existsSync('.changeset')
     ? readdirSync('.changeset').filter((file) => file.endsWith('.md') && file !== 'README.md')
     : [];
