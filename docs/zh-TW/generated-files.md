@@ -147,11 +147,21 @@ layer-first → module-first 工作也會在各應用程式建立這份供機器
 僅把設定檔換成有效的 module-first 設定，不能消除這項義務。Blueprint 在寫入指南之前，會先把
 不可任意修改的起始資料保存在各應用程式專屬的 `refs/blueprint/transformations/` Git ref。
 刪除 JSON 或修改其起始資料後，一般 init 會拒絕繼續，直到原始證據恢復。這些 ref 屬於目前
-的 Git repository，一般 clone 不會自動傳送。
+的 Git repository，一般 clone 不會自動傳送。整個 repository 的登錄使用單一 Git 原子交易，
+一次建立所有應用程式的 ref；若登錄失敗，不會留下部分應用程式已登錄的狀態，修正 Git 存取問題後可重試。
+
+初次寫入工作檔失敗，或 JSON 後來被刪除時，請在受影響的應用程式執行
+`blueprint init --recover-transformation`。復原會驗證保留資料的格式、起始 HEAD 與應用程式範圍，
+補回缺少的 JSON 與精簡復原指南，並完整保留現有有效 JSON 及決策的原始內容。它不會產生一般採用檔案、
+修改原始碼、啟動 Agent 或退役義務。補回的 JSON 只有初始決策；因刪檔遺失的編輯必須重新確認。
+`--dry-run` 僅預覽而不寫入，復原不能搭配其他 init 選項。HEAD 已改變或保留範圍不安全時會拒絕復原。
+整個 repository 的工作檔寫入失敗後，各應用程式可分別復原自己的證據。
 
 每項決策包含 `source`、`destinations` 與 `members: [{ source, destination }]`。每個來源成員
 都必須恰好對應一個目的地，且不同成員不能共用同一目的地。Blueprint 會比對 Git 起始內容與
-目的地內容，要求保留相同副檔名，且只允許 CRLF 正規化及 import/export 模組路徑改寫。其他內容修改須等這次可驗證
+目的地內容，要求保留相同副檔名，且只允許 CRLF 正規化，以及 ESM import/export、字串常值動態 import、未被區域宣告遮蔽的
+CommonJS `require()` 與 TypeScript import-equals 的模組路徑改寫。被區域宣告遮蔽的 `require`
+呼叫與執行期運算式必須保持不變。其他內容修改須等這次可驗證
 的搬移完成後再進行；僅有檔案存在或指向無關的既有模組，不能證明完成轉移。
 
 下一次執行 `init --topology module-first` 會核對 Git 來源清單、保留的 `app` 路由組裝、

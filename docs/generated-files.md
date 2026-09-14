@@ -163,12 +163,24 @@ config does not erase that obligation. Before writing the playbook, Blueprint re
 origin in an application-scoped Git ref under `refs/blueprint/transformations/`. Deleting the JSON
 file or changing its origin blocks ordinary init until the recorded evidence is restored. These
 refs belong to this Git repository; ordinary clones do not transfer them automatically.
+Repository-wide registration commits all application refs in one atomic Git transaction; a failed
+registration leaves every application unregistered and can be retried after resolving Git access.
+
+If initial artifact writing fails, or the editable JSON is later deleted, run
+`blueprint init --recover-transformation` in the affected application. Recovery validates the retained
+schema, original HEAD and application scope, restores missing JSON and a minimal recovery guide,
+and preserves existing valid JSON and decisions byte-for-byte. It does not scaffold, change source,
+launch an Agent or retire the obligation. Restored JSON contains the initial decisions: edits lost
+through deletion must be reviewed again. `--dry-run` previews without writing; other init options
+cannot be combined with recovery. A changed HEAD or unsafe retained scope blocks recovery. Each
+application can recover its own evidence after a repository-wide artifact-write failure.
 
 Each decision includes `source`, `destinations`, and `members: [{ source, destination }]`. Every
 origin member must map exactly once to a globally unique destination. Blueprint compares its Git
 origin content with the destination, requiring the same source extension and permitting CRLF
-normalization and import/export module
-specifier rewrites only. Other content edits require completing this verifiable move first;
+normalization and module-specifier rewrites in ESM imports/exports, literal dynamic imports,
+unshadowed CommonJS `require()` and TypeScript import-equals only. Locally shadowed `require`
+calls and runtime expressions must remain unchanged. Other content edits require completing this verifiable move first;
 file existence or an unrelated existing module is not transfer evidence.
 
 The next `init --topology module-first` verifies the recorded Git inventory, reserved `app` route

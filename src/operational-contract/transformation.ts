@@ -184,10 +184,17 @@ export function renderObligationFailure(fact: TransformationObligationFailure): 
   const actual = fact.actual || '0';
 
   const labels: Record<string, string> = {
+    'authority-recovery-unavailable': 'No pending Git transformation authority can be recovered.',
+    'authority-recovery-head':
+      'Recovery requires the recorded origin HEAD and readable Git repository.',
+    'authority-recovery-scope':
+      'Recovery refused unsafe or mismatched recorded application/source scope.',
+    'authority-recovery-options': 'Use --recover-transformation alone or with --dry-run; '
+      + 'recovery cannot be combined with adoption, topology, installation or agent options.',
     'authority-unavailable': 'Git transformation authority is unavailable; restore repository '
       + 'access before retrying',
     'authority-missing': 'the pending Git transformation authority requires its decision file; '
-      + 'restore blueprint-transformation.json and complete verification',
+      + 'run `blueprint init --recover-transformation`, then complete verification',
     'authority-origin-changed': 'the decision file origin differs from the retained Git '
       + 'transformation authority; restore the recorded origin before retrying',
     'authority-write-failed': 'Git transformation authority could not be saved; restore '
@@ -335,4 +342,23 @@ export function transformationPreflightFailures(
 
   return checks.filter(([, check]) => !check.ok)
     .map(([label, check]) => ({ label, reason: check.reason }));
+}
+
+export function renderTransformationRecoveryNote(
+  kind: 'obligation' | 'guide' | 'pending',
+): OperationalText {
+  if (kind === 'obligation') {
+    return operationalText('blueprint-transformation.json (restored retained origin evidence; '
+      + 'review and record member decisions before verification)');
+  }
+
+  if (kind === 'guide') {
+    return operationalText('blueprint-authoring.md (recovery guidance from retained origin; '
+      + 'resume the recorded member mapping)');
+  }
+
+  return operationalText('Recovery only: LF→MF transformation remains pending. Existing decisions '
+    + 'were preserved; missing JSON restores only the initial recorded decisions. Follow '
+    + 'blueprint-authoring.md, then run `blueprint init --topology module-first` '
+    + 'to verify completion.');
 }

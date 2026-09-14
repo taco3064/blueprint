@@ -162,6 +162,7 @@ export {
   renderTransformationPreflightError,
   renderTransformationReady,
   renderTransformationRetireNote,
+  renderTransformationRecoveryNote,
   renderTransformationWriteNote,
 } from './transformation';
 export type {
@@ -288,3 +289,5 @@ export type {
   StaleContractCause,
   TopologyReason,
 } from './runtime-messages';
+
+export { renderTransformationRecoveryGuide } from './transformation-recovery';

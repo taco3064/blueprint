@@ -40,6 +40,8 @@ export function parseInitArgs(args: string[]): InitOptions {
       options.install = false;
     } else if (arg === '--dry-run') {
       options.dryRun = true;
+    } else if (arg === '--recover-transformation') {
+      options.recoverTransformation = true;
     } else if (arg === '--preset') {
       options.preset = true;
     } else if (arg === '--authoring') {
@@ -151,6 +153,7 @@ export function parseDoctorArgs(args: string[]): DoctorOptions {
 export const KNOWN_FLAGS = {
   init: new Set([
     '--agent', '--preset', '--authoring', '--topology', '--framework', '--no-install', '--dry-run',
+    '--recover-transformation',
   ]),
   survey: new Set(['--alias', '--source-root', '--json']),
   inspect: new Set(['--json', '--framework', '--baseline', '--update-baseline']),

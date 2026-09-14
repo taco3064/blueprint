@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LayerToModuleObligation } from '../project';
 import { memberFailures } from './transformation-members';
 
@@ -230,16 +230,24 @@ describe('member proof fail-closed controls', () => {
     }]);
   });
 
-  it('accepts non-leading colons without interpreting them as drive roots', () => {
+  it('accepts a destination containing a non-leading colon without treating it as a drive', () => {
     const context = fixture();
+    const destination = 'nested/name:variant.ts';
+    const target = path.resolve(context.root, destination);
+    const decision = context.obligation.target.decisions[0];
 
-    context.obligation.origin.applicationRoot = 'apps/name:variant';
+    decision.destinations = [destination];
+    decision.members[0].destination = destination;
 
-    expect(memberFailures({ ...context, git: (args) => ({
-      status: 0,
-      stdout: args[0] === 'show' ? 'import \'./original\';\nexport const value = 1;\n' : '',
-      stderr: '',
-    }) })).toEqual([]);
+    const reader = vi.spyOn(fs, 'readFileSync')
+      .mockReturnValue('import \'./moved\';\nexport const value = 1;\n');
+
+    try {
+      expect(memberFailures(context)).toEqual([]);
+      expect(reader).toHaveBeenCalledWith(target, 'utf8');
+    } finally {
+      reader.mockRestore();
+    }
   });
 
   it('normalizes whitespace-only empty Git inventory output', () => {

@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { renderTransformationObligationError } from '../operational-contract';
 import { relativeFilesystemPath } from './context';
+import { isTransformationObligation } from './transformation-obligation';
 import type { LayerToModuleObligation } from './transformation-obligation';
 
 interface Authority {
@@ -33,7 +35,9 @@ function reference(root: string, exec: AuthorityGit): string | null {
     return null;
   }
 
-  const application = relativeFilesystemPath(repository.stdout.trim(), root);
+  const application = relativeFilesystemPath(repository.stdout.trim(), root)
+    .split(path.sep).join('/');
+
   const key = createHash('sha256').update(application).digest('hex');
 
   return `refs/blueprint/transformations/${key}`;
@@ -64,7 +68,8 @@ function read(root: string, ref: string, exec: AuthorityGit): Authority | null {
     return fail('authority-unavailable', ref);
   }
 
-  if (!value || !['pending', 'completed'].includes(value.status) || !value.obligation) {
+  if (!value || !['pending', 'completed'].includes(value.status)
+    || !isTransformationObligation(value.obligation)) {
     return fail('authority-unavailable', ref);
   }
 
@@ -138,5 +143,80 @@ export function writeTransformationAuthority(
 
   if (exec(['update-ref', ref, blob.stdout.trim()], root).status !== 0) {
     fail('authority-write-failed', ref);
+  }
+}
+
+export function recoverTransformationObligation(
+  root: string,
+  exec: AuthorityGit = git,
+): LayerToModuleObligation {
+  const ref = reference(root, exec);
+
+  if (!ref) {
+    fail('authority-unavailable');
+  }
+
+  const authority = read(root, ref, exec);
+
+  if (authority?.status !== 'pending') {
+    fail('authority-recovery-unavailable', ref);
+  }
+
+  const origin = authority.obligation.origin;
+  const repository = exec(['rev-parse', '--show-toplevel'], root);
+  const head = exec(['rev-parse', 'HEAD'], root);
+
+  if (repository.status !== 0 || head.status !== 0 || head.stdout.trim() !== origin.head) {
+    fail('authority-recovery-head', ref);
+  }
+
+  const application = relativeFilesystemPath(repository.stdout.trim(), root)
+    .split(path.sep).join('/') || '.';
+
+  if (origin.applicationRoot !== application
+    || !safeRecoveryPaths([origin.sourceRoot, origin.selectedScope,
+      ...origin.sources.flatMap((source) => source.members)])) {
+    fail('authority-recovery-scope', ref);
+  }
+
+  return authority.obligation;
+}
+
+function safeRecoveryPaths(paths: string[]): boolean {
+  return paths.every((value) => value !== '' && !value.includes('\\')
+    && !path.posix.isAbsolute(value) && !path.win32.parse(value).root
+    && !value.split('/').includes('..'));
+}
+
+export function writeTransformationAuthorities(
+  repositoryRoot: string,
+  applications: { root: string; obligation: LayerToModuleObligation }[],
+  exec: AuthorityGit = git,
+): void {
+  const updates = applications.map(({ root, obligation }) => {
+    const ref = reference(root, exec);
+
+    if (!ref) {
+      fail('authority-unavailable');
+    }
+
+    if (read(root, ref, exec)?.status === 'pending') {
+      fail('authority-origin-changed', ref);
+    }
+
+    const blob = exec(['hash-object', '-w', '--stdin'], root,
+      JSON.stringify({ status: 'pending', obligation }));
+
+    if (blob.status !== 0 || !blob.stdout.trim()) {
+      fail('authority-write-failed', ref);
+    }
+
+    return `update ${ref} ${blob.stdout.trim()}`;
+  });
+
+  const transaction = ['start', ...updates, 'prepare', 'commit', ''].join('\n');
+
+  if (exec(['update-ref', '--stdin'], repositoryRoot, transaction).status !== 0) {
+    fail('authority-write-failed');
   }
 }
