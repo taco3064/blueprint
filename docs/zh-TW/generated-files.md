@@ -182,8 +182,7 @@ container seeds 是否已被模組吸收、目的地位置、目前的 import an
 ### 參考與遷移交接檔
 
 `*.blueprint.*`，特別是 `eslint.config.blueprint.mjs` 與 Agent 合併參考檔，只用來協助手動
-整合。內容納入正式檔案後就應刪除；它們不是可反覆產生的產品權威，存在期間 `doctor` 會
-持續回報導入尚未完成。
+整合。內容納入正式檔案後就應刪除；它們不是可反覆產生的產品權威，未完成整合時 `doctor` 會回報；legacy ESLint 遷移參考檔的保留條件見下方補充。
 
 ## `init` 可能更新的既有檔案
 
@@ -246,3 +245,18 @@ npx @kekkai/blueprint doctor --json
 
 若自動化流程不能接受 Doctor 跳過檢查，請判讀 JSON，而不是只看 exit code。專案平常的 lint
 與 build 也要各自執行，才能證明合併後的 ESLint 與別名設定真的能在現有工具鏈運作。
+
+### 舊設定與驗證範圍補充
+
+3.2 設定改寫前，`init` 會將包含註解的完整原文保存在旁邊的
+`blueprint.config.mjs.pre-v4-<sha256>`。寫入訊息會提示 `architecture.module.private`
+沒有 4.0 替代宣告；宣告治理語意等價前，必須檢視原始政策。備份是專案證據，不會被當作設定載入。
+
+`target.decisions.destinations` 必須恰好列出每個 `members` 的目的**檔案**路徑，
+例如 `["src/app/Game.tsx"]`，不能填 `["src/app"]` 等模組或單元目錄。
+
+使用 legacy ESLint 時，應保留 `eslint.config.blueprint.mjs`，直到專案負責人決定並完成
+flat config 遷移。Doctor 不再要求提前刪除此參考檔；ESLint 尚未接線的獨立檢查仍會顯示未完成。
+
+Doctor 會檢查應用程式目錄與實際 ESLint 設定目錄內的 suppressions ledger；
+每筆檔案路徑都以該 ledger 所在目錄解析。

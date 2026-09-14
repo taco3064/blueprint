@@ -186,16 +186,25 @@ async function prepareTopology(input: InitTopologyInput) {
     preset: input.options.preset,
   });
 
-  const legacyCount = checkpoint.length || Number(resolved?.legacyConfig);
+  const legacyCount = checkpoint.length
+    ? repository.blueprints.filter((entry) => entry.legacyConfig).length
+    : Number(resolved?.legacyConfig);
 
   return {
-    resolved,
+    resolved: afterLegacyCheckpoint(resolved, checkpoint.length > 0),
     survey,
     topology,
     blueprints: repository.blueprints,
     legacyCount,
     architecture: localAuthority?.blueprint.architecture,
   };
+}
+
+function afterLegacyCheckpoint(
+  resolved: Awaited<ReturnType<typeof resolveBlueprint>> | null,
+  written: boolean,
+): typeof resolved {
+  return written && resolved ? { ...resolved, legacyConfig: false } : resolved;
 }
 
 async function resolveConfigured(
@@ -269,10 +278,11 @@ async function runScaffold(
 
   const agentTarget = options.agent ? agentTargetOf(options.agent) : undefined;
 
-  const { blueprint, configSource } = ctx.resolved ?? await resolveBlueprint(root, state, {
-    ...options,
-    ...(agentTarget ? { scaffoldAgents: [agentTarget] } : {}),
-  });
+  const { blueprint, configSource, legacyConfig } = ctx.resolved
+    ?? await resolveBlueprint(root, state, {
+      ...options,
+      ...(agentTarget ? { scaffoldAgents: [agentTarget] } : {}),
+    });
 
   const sourceRoot = resolveArchitecture(blueprint.architecture).sourceRoot;
   const scanResult = scan(root, sourceRoot);
@@ -287,12 +297,19 @@ async function runScaffold(
     existingAgentFiles: readTexts(root, contractPaths(blueprint, agentTarget)),
   });
 
+  if (legacyConfig) {
+    actions.unshift(legacyUpgrade.legacyConfigBackup(root, 'blueprint.config.mjs'));
+  }
+
   actions.push(
     ...templateCleanupActions(scanResult, blueprint, configSource),
     ...gitignoreActions(root, blueprint, agentTarget),
   );
 
-  applyLintWiring(actions, lintScriptAction(root, blueprint, configSource !== null));
+  if (!state.legacyEslintConfig) {
+    applyLintWiring(actions, lintScriptAction(root, blueprint, configSource !== null));
+  }
+
   actions.push(...scaffoldNotes(state, blueprint, { configSource, agentTarget }));
   actions.push(...(ctx.trailingActions ?? []));
 

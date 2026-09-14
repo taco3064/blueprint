@@ -57,7 +57,9 @@ describe('brownfield playbook — semantics stated, nothing reverse-engineered (
     // unresolvable-config one would be the same defect one state narrower.
     expect(prose).toContain('emitted rules survive the merged eslint config');
     expect(prose).toContain('eslint is not wired');
-    expect(prose).toContain('the merged config would not resolve');
+    expect(prose).toContain('the merged config cannot resolve');
+    expect(prose).toContain('ESLint returns no config for a probe');
+    expect(prose).toContain('real rule loss in other positions still fails');
 
     // The old green-or-red-only wording, so reverting any of the above turns this
     // red rather than only dropping an assertion nobody reads.

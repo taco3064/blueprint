@@ -44,7 +44,8 @@ const MIGRATION: Record<string, string> = {
   'package-ownership': 'Move restricted package usage into its owning layer '
     + '(expose it via a hook or service).',
   'selfonly-reexport': 'Depend on selfOnly layers without re-exporting them.',
-  'no-entry': 'Add the declared entry file to each folder unit so it has one public surface.',
+  'no-entry': 'For folder units, add the declared entry file. For direct layer files, '
+    + 'review the layer layout or unit placement; do not invent a nested entry for a layer barrel.',
   cycle: 'Break the import cycle — invert one dependency or extract the shared part downward.',
 };
 

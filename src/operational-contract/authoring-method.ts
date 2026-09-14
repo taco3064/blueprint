@@ -95,7 +95,7 @@ function renderOverlappingTool(): string {
 function renderFinishStep(claudeDir: AuthoringClaudeDirFact, claudeLauncher: boolean): string {
   return [
     `9. **Finish — and finish means integrated, not parked.** Run \`npx blueprint init\`, then \`npx blueprint inspect --update-baseline\`, write the report, and delete ${cleanupTargets(claudeDir, claudeLauncher)} The tool never touches files you own, so it leaves \`*.blueprint.*\` references next to them — **those references are your input, not the deliverable.`,
-    `   Adoption is not done while any reference file remains:**`,
+    `   Merge and remove references after wiring; retain the ESLint migration reference while legacy ESLint remains a named unresolved decision:**`,
     '   - **Declare your own tool** in the config — `emit: { agents: [\'claude\'] }` (Claude Code) '
     + 'or `[\'agents\']` (codex & friends) — so init generates one contract file, '
     + 'not one per tool nobody uses.',
@@ -243,8 +243,11 @@ export function renderMethod(
     '7. **Write the config** with `defineBlueprint` (schema sketch below).',
     '8. **Validate — the loop that keeps you honest.** Run `npx blueprint inspect`.',
     '   A findings explosion (roughly more findings than source files, '
-    + 'or one dominant rule everywhere) means you mistranslated intent — '
-    + 'revisit the order or the unit shapes.',
+    + 'or one dominant rule everywhere) needs diagnosis by rule before changing the model. '
+    + 'For canonical-alias findings, check source-root alias wiring and boundary spellings; '
+    + 'changing layer order or unit shape cannot fix those imports. '
+    + 'For flow or layout findings, compare the order and unit shapes with recorded intent. '
+    + 'Do not change declarations merely to reduce the count.',
     '   Converged means: every finding is explainable as real, nameable debt.',
     renderFinishStep(claudeDir, claudeLauncher),
   ].join('\n');

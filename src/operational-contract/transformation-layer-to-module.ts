@@ -283,7 +283,10 @@ function renderVerification(cleanup: string): string {
     '',
     'Before running the commands, fill `target.decisions` in `blueprint-transformation.json`.',
     'Give every recorded source unit one decision with `destinations` '
-    + 'and `members: [{ source, destination }]`.',
+    + 'and `members: [{ source, destination }]`. `destinations` is the exact list of '
+    + 'member destination FILE paths, one per member, not module or unit directories. '
+    + 'For example: `destinations: ["src/app/Game.tsx"]`, '
+    + '`members: [{ source: "src/pages/Game/Game.tsx", destination: "src/app/Game.tsx" }]`.',
     'Map each origin member exactly once; keep its source extension and use unique destinations.',
     'Preserve member contents except import/export module paths and CRLF normalization; '
     + 'perform other refactors after verified retirement.',

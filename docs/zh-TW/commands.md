@@ -166,6 +166,10 @@ npx @kekkai/blueprint rules --json
 
 ## `doctor`
 
+若 ESLint 無法為規則存續檢查的探測路徑提供設定，Doctor 會列出路徑並標為未驗證。
+應檢查全域忽略規則與檔案匹配，不能據此斷言規則遭到覆蓋；其他位置若確實遺失規則，
+仍會判定失敗。Suppressions ledger 會同時檢查應用程式與實際 ESLint 設定所在目錄。
+
 `doctor` 檢查導入是否真的完成，包括設定檔、殘留的暫存／Agent 檔案、ESLint 接線、
 `package.json` 一般 lint 入口能否安全到達並實際跑完 ESLint、別名接線、結構性規則在合併後
 的 flat config 是否仍存在、架構狀態，以及停用規則帳本。

@@ -26,6 +26,7 @@ describe('transformation obligation diagnostics', () => {
     ['member-identity-unproven', 'transfer identity is unproven for unit → start'],
     ['unsafe-destination', 'unsafe destination: unit'],
     ['destination-missing', 'destination does not exist: unit'],
+    ['destination-not-file', 'destination must be a member file, not a directory: unit'],
     ['route-destination-not-app', 'route destination is not under reserved app: unit'],
     ['container-destination-not-module',
       'container destination is not in an ordinary module: unit'],

@@ -38,8 +38,10 @@ export function renderAuthoringLauncherNote(file: string): OperationalText {
   return operationalText(`${file} (/blueprint-author)`);
 }
 
-export function renderLegacyCheckpointNote(path: string): OperationalText {
-  return operationalText(`${path} (Blueprint 3.2 → 4.0 layer-first checkpoint)`);
+export function renderLegacyCheckpointNote(path: string, backup = false): OperationalText {
+  return operationalText(backup
+    ? `${path} (original config preserved byte-for-byte before rewriting; includes comments and retired declarations. architecture.module.private has no 4.0 replacement: review the original policy before claiming equivalent governance)`
+    : `${path} (Blueprint 3.2 → 4.0 layer-first checkpoint)`);
 }
 
 export function renderScaffoldRemovalNote(file: string): OperationalText {

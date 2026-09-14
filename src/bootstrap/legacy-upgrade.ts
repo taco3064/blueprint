@@ -1,4 +1,6 @@
 import path from 'node:path';
+import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 
 import { CONFIG_FILE } from '../project';
 import type { ProjectState, RepositoryBlueprint } from '../project';
@@ -34,18 +36,17 @@ export function migrateLegacyRepositoryCheckpoint(
 
   const actions = blueprints
     .filter((entry) => entry.legacyConfig)
-    .map((entry): Action => {
+    .flatMap((entry): Action[] => {
       const configPath = path.relative(
         repositoryRoot,
         path.join(entry.applicationRoot, CONFIG_FILE),
       );
 
-      return {
-        kind: 'write',
-        path: configPath,
-        content: entry.migratedConfigSource!,
-        note: renderLegacyCheckpointNote(configPath),
-      };
+      return [
+        legacyConfigBackup(repositoryRoot, configPath),
+        { kind: 'write', path: configPath, content: entry.migratedConfigSource!,
+          note: renderLegacyCheckpointNote(configPath) },
+      ];
     });
 
   if (options.dryRun) {
@@ -60,4 +61,14 @@ export function migrateLegacyRepositoryCheckpoint(
   }
 
   return actions;
+}
+
+export function legacyConfigBackup(root: string, configPath: string): Action {
+  const content = fs.readFileSync(path.join(root, configPath), 'utf-8');
+  const digest = createHash('sha256').update(content).digest('hex');
+  const backup = `${configPath}.pre-v4-${digest}`;
+
+  return {
+    kind: 'write', path: backup, content, note: renderLegacyCheckpointNote(backup, true),
+  };
 }

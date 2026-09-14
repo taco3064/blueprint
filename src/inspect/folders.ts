@@ -140,14 +140,16 @@ function noEntryFindings(
     const hasEntry = files.some((file) => file.segments.length === depth + 1
       && stripExt(file.segments[file.segments.length - 1]) === entry);
 
+    const directFile = files.find((file) => file.segments.length === depth)?.path;
+
     return hasEntry
       ? []
       : [{
           severity: 'warn',
           rule: 'no-entry',
-          path: `${prefix}${key}`,
+          path: directFile ?? `${prefix}${key}`,
           subject: '',
-          message: renderFindingMessage({ kind: 'no-entry', unit: key, entry }),
+          message: renderFindingMessage({ kind: 'no-entry', unit: key, entry, directFile }),
         }];
   });
 }
