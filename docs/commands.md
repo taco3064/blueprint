@@ -45,6 +45,7 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 - **`--framework vue|react`** — Resolve an ambiguous framework. Vue and React are otherwise detected; Next.js uses its router-aware preset.
 - **`--no-install`** — Do not run the detected package manager. The plan tells you which install remains.
 - **`--dry-run`** — Print the plan and perform no mutation or Agent launch.
+- **`--recover-transformation`** — Restore missing pending LF→MF evidence and recovery guidance from the retained Git authority. Preserve existing decisions and guidance; do not adopt, scaffold, or complete the transformation. Use alone or with `--dry-run`. Recovery requires the recorded origin `HEAD` and safe application/source scope. If the decision file was deleted, review and record its lost decisions again before completion. See [Generated Files](./generated-files.md).
 
 ### What it changes
 

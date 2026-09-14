@@ -143,3 +143,57 @@ it('preserves decisions and refuses completion after cutover and JSON deletion',
   expect(JSON.parse(read(root, 'blueprint-transformation.json')!).target.decisions).toEqual([]);
   expect((await cli(root, ['init', '--no-install'])).code).toBe(1);
 });
+
+it('rejects an edited origin before recovery can write any artifact', async () => {
+  const root = fixture();
+
+  expect((await cli(root, ['init', '--topology', 'module-first', '--no-install'])).code).toBe(0);
+  const current = JSON.parse(read(root, 'blueprint-transformation.json')!);
+
+  current.origin.head = '0'.repeat(40);
+  const edited = JSON.stringify(current);
+
+  write(root, 'blueprint-transformation.json', edited);
+  rm(path.join(root, 'blueprint-authoring.md'));
+  const result = await cli(root, ['init', '--recover-transformation']);
+
+  expect(result.code, result.output).toBe(1);
+  expect(result.output).toContain('decision file origin differs');
+  expect(read(root, 'blueprint-transformation.json')).toBe(edited);
+  expect(read(root, 'blueprint-authoring.md')).toBeNull();
+});
+
+it('prints the complete dry-run recovery plan without writing artifacts', async () => {
+  const root = fixture();
+
+  expect((await cli(root, ['init', '--topology', 'module-first', '--no-install'])).code).toBe(0);
+  rm(path.join(root, 'blueprint-transformation.json'));
+  rm(path.join(root, 'blueprint-authoring.md'));
+  const result = await cli(root, ['init', '--recover-transformation', '--dry-run']);
+
+  expect(result.code, result.output).toBe(0);
+
+  expect(result.output).toContain(
+    'blueprint-transformation.json (restored retained origin evidence',
+  );
+
+  expect(result.output).toContain('blueprint-authoring.md (recovery guidance from retained origin');
+  expect(result.output).toContain('Recovery only: LF→MF transformation remains pending');
+  expect(read(root, 'blueprint-transformation.json')).toBeNull();
+  expect(read(root, 'blueprint-authoring.md')).toBeNull();
+});
+
+it('preserves authored guide bytes when restoring missing JSON', async () => {
+  const root = fixture();
+
+  expect((await cli(root, ['init', '--topology', 'module-first', '--no-install'])).code).toBe(0);
+  const authored = '# Reviewed transformation\n\nKeep the reviewed member mapping and notes.\n';
+
+  write(root, 'blueprint-authoring.md', authored);
+  rm(path.join(root, 'blueprint-transformation.json'));
+  const result = await cli(root, ['init', '--recover-transformation']);
+
+  expect(result.code, result.output).toBe(0);
+  expect(read(root, 'blueprint-authoring.md')).toBe(authored);
+  expect(read(root, 'blueprint-transformation.json')).toContain('src/pages/Home.ts');
+});
