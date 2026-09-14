@@ -236,7 +236,7 @@ rules: {
 - **`fixtureImports`** — 由結構性 restricted imports 執行；禁止正式程式碼從別名下的 `fixtures` 路徑匯入。
 - **`deepWatch`** — 由 `blueprint/no-deep-watch` 執行；只適用 Vue。
 - **`usePrefix`** — 由 `blueprint/use-prefix` 執行；預設分層為 `hooks`、前綴為 `use`。
-- **`usePrefixReactivity`** — 由 `blueprint/use-prefix-needs-reactivity` 執行；檢查 `use` 命名單元是否真的使用響應式／生命週期 API。
+- **`usePrefixReactivity`** — 由 `blueprint/use-prefix-needs-reactivity` 執行；檢查 `use` 命名單元是否在同一檔案直接呼叫可辨識的響應式／生命週期 API。它不會追查被呼叫的其他 hooks，因此警告不能證明函式是純函式；重新命名或搬移前，應先檢查組合的 hooks。
 - **`testFilename`** — 由 `blueprint/test-filename-matches-source` 執行；使用 `architecture.testFiles`，空陣列時無法啟用。
 - **`typedefOnlyFile`** — 由 `blueprint/no-typedef-only-file` 執行；只適用 JavaScript 檔案。
 - **`cycles`** — 由 `inspect` 的循環 finding 執行；執行指令或 CI 時分析，預設不是 ESLint 規則。

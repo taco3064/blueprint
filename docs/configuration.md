@@ -242,7 +242,7 @@ rules, the fallback is used only when the rule is declared without `value`.
 - **`fixtureImports`** — Enforced by structural restricted imports; bans governed production imports from alias `fixtures` paths.
 - **`deepWatch`** — Enforced by `blueprint/no-deep-watch`; Vue only.
 - **`usePrefix`** — Enforced by `blueprint/use-prefix`; defaults to layer `hooks`, prefix `use`.
-- **`usePrefixReactivity`** — Enforced by `blueprint/use-prefix-needs-reactivity`; checks `use`-named units for reactive/lifecycle calls.
+- **`usePrefixReactivity`** — Enforced by `blueprint/use-prefix-needs-reactivity`; checks `use`-named units for directly recognised reactive/lifecycle calls in the same file. It does not follow delegated hooks; a diagnostic is not proof of purity. Inspect composed hooks before renaming or moving code.
 - **`testFilename`** — Enforced by `blueprint/test-filename-matches-source`; uses `architecture.testFiles` and is unavailable when that list is empty.
 - **`typedefOnlyFile`** — Enforced by `blueprint/no-typedef-only-file`; JavaScript files only.
 - **`cycles`** — Enforced by the `inspect` cycle finding for on-demand/CI graph diagnosis, not as an ESLint rule by default.

@@ -62,7 +62,7 @@ describe('blueprint/use-prefix-needs-reactivity', () => {
 
     expect(out).toHaveLength(1);
     expect(out[0]).toContain('"useCart"');
-    expect(out[0]).toContain('pure function');
+    expect(out[0]).toContain('does not prove the function is pure');
     // The message is cause AND remedy. The reader can act on the second half
     // only — "this is a pure function" leaves them with a verdict and no move,
     // so both halves are pinned, not just the one that names the problem.
@@ -117,4 +117,17 @@ describe('blueprint/use-prefix-needs-reactivity', () => {
     expect(messages('export const t = 1;', 'useCart.vue.ts')[0])
       .toContain('"useCart.vue"');
   });
+});
+
+it('does not declare a composition of imported hooks pure', () => {
+  const out = messages(
+    'import { useKeyboard } from \'./useKeyboard\'; '
+    + 'export function usePlayerInput() { return useKeyboard(); }',
+    'src/hooks/usePlayerInput.ts',
+  );
+
+  expect(out).toHaveLength(1);
+  expect(out[0]).toContain('does not follow delegated hooks');
+  expect(out[0]).toContain('Inspect the called hooks before changing behavior');
+  expect(out[0]).not.toContain('it is a pure function');
 });
