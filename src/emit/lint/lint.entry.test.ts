@@ -1,26 +1,31 @@
 import { Linter } from 'eslint';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { defineBlueprint } from '../../config';
 import { emitLint } from './lint';
 
-const blueprint = defineBlueprint({
-  framework: 'auto',
-  architecture: {
-    alias: '~app',
-    additionalAliases: { '~root': '.' },
-    layers: [
-      { name: 'pages', does: 'routes' },
-      { name: 'hooks', does: 'state', layout: 'folder' },
-      { name: 'services', does: 'net' },
-    ],
-  },
-});
+let blueprint: ReturnType<typeof defineBlueprint>;
+let config: Linter.Config[];
 
-const config = [
-  { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
-  ...emitLint(blueprint),
-];
+beforeEach(() => {
+  blueprint = defineBlueprint({
+    framework: 'auto',
+    architecture: {
+      alias: '~app',
+      additionalAliases: { '~root': '.' },
+      layers: [
+        { name: 'pages', does: 'routes' },
+        { name: 'hooks', does: 'state', layout: 'folder' },
+        { name: 'services', does: 'net' },
+      ],
+    },
+  });
+
+  config = [
+    { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+    ...emitLint(blueprint),
+  ];
+});
 
 const linter = new Linter({ configType: 'flat' });
 
@@ -143,23 +148,28 @@ describe('emitLint · the groups the widened bans are composed of (#382)', () =>
   });
 });
 
-const selfOnly = defineBlueprint({
-  framework: 'auto',
-  architecture: {
-    alias: '~app',
-    additionalAliases: { '~root': '.' },
-    layers: [
-      { name: 'pages', does: 'routes' },
-      { name: 'contexts', does: 'state', allowedImporters: [{ layer: 'pages', selfOnly: true }] },
-      { name: 'services', does: 'net' },
-    ],
-  },
-});
+let selfOnly: ReturnType<typeof defineBlueprint>;
+let selfOnlyConfig: Linter.Config[];
 
-const selfOnlyConfig = [
-  { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
-  ...emitLint(selfOnly),
-];
+beforeEach(() => {
+  selfOnly = defineBlueprint({
+    framework: 'auto',
+    architecture: {
+      alias: '~app',
+      additionalAliases: { '~root': '.' },
+      layers: [
+        { name: 'pages', does: 'routes' },
+        { name: 'contexts', does: 'state', allowedImporters: [{ layer: 'pages', selfOnly: true }] },
+        { name: 'services', does: 'net' },
+      ],
+    },
+  });
+
+  selfOnlyConfig = [
+    { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+    ...emitLint(selfOnly),
+  ];
+});
 
 function reexportBans(code: string): string[] {
   const messages = linter.verify(code, selfOnlyConfig, { filename: PAGE });

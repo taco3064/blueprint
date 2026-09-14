@@ -183,8 +183,8 @@ function memberModuleSpecifier(node: AstNode, globalScope: Scope.Scope): AstNode
   const callee = node.callee as AstNode;
   const args = node.arguments as AstNode[];
 
-  if (callee.type !== 'Identifier' || callee.name !== 'require' || args.length !== 1
-    || node.optional) {
+  // Only Identifier callees carry a name; other expressions fail this comparison.
+  if (callee.name !== 'require' || args.length !== 1 || node.optional) {
     return null;
   }
 

@@ -1,7 +1,7 @@
 import stylisticPlugin from '@stylistic/eslint-plugin';
 import { Linter } from 'eslint';
 import importsPlugin from 'eslint-plugin-import-x';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { defineBlueprint } from '../../config';
 import { emitLint } from './lint';
@@ -161,31 +161,35 @@ describe('emitLint · additionalAliases with an offset target (field #29)', () =
   // alias points at the repo root. Patterns composed as `~root/<layer>`
   // banned paths no real import ever used, so the whole ~root leg was a
   // silent no-op while the playbook claimed it joined every ban.
-  const rooted = defineBlueprint({
-    framework: 'auto',
-    architecture: {
-      alias: '~app',
-      additionalAliases: {
-        '~root': '.',
-        '~shared': './src/shared',
-        '~services': './src/services',
-      },
-      layers: [
-        { name: 'views', does: 'pages' },
-        {
-          name: 'services',
-          does: 'net',
-          allowedImporters: [{ layer: 'views', selfOnly: true }],
-        },
-      ],
-    },
-    rules: { fixtureImports: 'error' },
-  });
+  let rootedConfig: Linter.Config[];
 
-  const rootedConfig = [
-    { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
-    ...emitLint(rooted),
-  ];
+  beforeEach(() => {
+    const rooted = defineBlueprint({
+      framework: 'auto',
+      architecture: {
+        alias: '~app',
+        additionalAliases: {
+          '~root': '.',
+          '~shared': './src/shared',
+          '~services': './src/services',
+        },
+        layers: [
+          { name: 'views', does: 'pages' },
+          {
+            name: 'services',
+            does: 'net',
+            allowedImporters: [{ layer: 'views', selfOnly: true }],
+          },
+        ],
+      },
+      rules: { fixtureImports: 'error' },
+    });
+
+    rootedConfig = [
+      { languageOptions: { ecmaVersion: 2022 as const, sourceType: 'module' as const } },
+      ...emitLint(rooted),
+    ];
+  });
 
   const hits = (code: string, filename: string) =>
     linter
