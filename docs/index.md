@@ -10,8 +10,8 @@ hero:
   tagline: One architecture definition for executable checks, human guidance, and coding Agents.
   actions:
     - theme: brand
-      text: Start with init
-      link: "/commands#init"
+      text: Adopt with AI
+      link: "#adopt-with-ai"
     - theme: alt
       text: Define the architecture
       link: "/configuration"
@@ -27,32 +27,14 @@ can produce structural ESLint checks, a human-readable handbook, and guidance fo
 that work in the project. `inspect`, `doctor`, `deps`, and the other commands then measure the real
 repository against that model.
 
-## Choose the topology that matches the project
+## Adopt with AI
 
-- **Layer-first** uses `Layer → Unit`: application-wide layers such as `pages`, `components`, and
-  `services` own the source tree.
-- **Module-first** uses `Module → Layer → Unit`: ordinary domain modules repeat one shared inner
-  layer contract, while module `dependsOn` edges form an outer dependency boundary.
+Choose the architecture contract you want this repository to follow. Blueprint will not infer this
+decision from the current folder shape.
 
-Blueprint does not infer topology from folder names. A valid config is the authority, and guarded
-transformation flows handle deliberate changes between the two models.
+<AdoptWithAI />
 
-## First adoption
-
-Preview a layer-first adoption without writing:
-
-```bash
-npx @kekkai/blueprint init --topology layer-first --dry-run
-```
-
-Start module-first authoring:
-
-```bash
-npx @kekkai/blueprint init --topology module-first
-```
-
-Existing code is surveyed before Blueprint asks a coding Agent to author or transform the
-architecture. Small new projects may instead use the Vue, React, or Next preset path.
+Want to understand the decision or run the CLI manually? See [`init` in Commands](/commands#init).
 
 ## Go deeper
 

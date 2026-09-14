@@ -1,5 +1,6 @@
 import { h } from 'vue';
 import DefaultTheme from 'vitepress/theme';
+import AdoptWithAI from './AdoptWithAI.vue';
 import VersionBadge from './VersionBadge.vue';
 import './custom.css';
 
@@ -12,4 +13,7 @@ export default {
       // release the docs describe.
       'nav-bar-title-after': () => h(VersionBadge),
     }),
+  enhanceApp({ app }) {
+    app.component('AdoptWithAI', AdoptWithAI);
+  },
 };
