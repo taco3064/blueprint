@@ -157,8 +157,11 @@ export {
   renderTransformationInstallHandoff,
   renderTransformationInstallNote,
   renderTransformationNarration,
+  renderTransformationObligationWriteNote,
+  renderTransformationObligationError,
   renderTransformationPreflightError,
   renderTransformationReady,
+  renderTransformationRetireNote,
   renderTransformationWriteNote,
 } from './transformation';
 export type {
@@ -168,6 +171,7 @@ export type {
   ModuleToLayerEvidenceFact,
   ProjectTransformationFact,
   TransformationActionFact,
+  TransformationObligationFailure,
   TransformationPreflightFact,
 } from './transformation';
 export {
@@ -190,6 +194,7 @@ export {
 } from './doctor';
 export type { DoctorCheckFact, DoctorCheckView } from './doctor';
 export {
+  CURRENT_CONFIG_ADOPTION_SCOPE,
   renderArchitectureReport,
   renderBaselineGateOutput,
   renderBaselineError,
@@ -199,6 +204,7 @@ export {
   renderCoverageSummary,
   renderInspectOutput,
   renderImportGraphDerivation,
+  renderImportAnalysisUnavailable,
   renderTestExemptionOutput,
   renderVacuousNextStep,
 } from './inspect';
@@ -221,6 +227,7 @@ export type {
 export {
   renderImpactMissingConfig,
   renderImpactMissingDependency,
+  renderImpactUnavailable,
   renderImpactReport,
 } from './impact';
 export type { ImpactReportFact } from './impact';

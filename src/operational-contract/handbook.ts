@@ -108,7 +108,10 @@ export function renderUnit(architecture: ArchitectureDef): string {
   ].join('\n');
 }
 
-export function renderImportDiscipline(architecture: ArchitectureDef): string {
+export function renderImportDiscipline(
+  architecture: ArchitectureDef,
+  lintIntegration: 'verified' | 'unverified' | 'reference-only' = 'unverified',
+): string {
   const resolved = resolveArchitecture(architecture);
   const hasSelfOnly = resolved.hasSelfOnly;
 
@@ -165,7 +168,13 @@ export function renderImportDiscipline(architecture: ArchitectureDef): string {
   return [
     '## Import discipline',
     '',
-    'These boundaries are enforced by the generated ESLint config — one blueprint drives both:',
+    lintIntegration === 'verified'
+      ? 'These boundaries are verified alive in the project ESLint run — one blueprint drives both:'
+      : lintIntegration === 'reference-only'
+        ? 'These boundaries are emitted in a reference ESLint config but are not enforced '
+        + 'by the project lint run until that export is merged:'
+        : 'These boundaries are emitted for ESLint, but their effective project-lint wiring '
+          + 'remains unverified until `blueprint doctor` proves it:',
     '',
     ...bullets,
   ].join('\n');

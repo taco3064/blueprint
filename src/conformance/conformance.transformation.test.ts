@@ -179,10 +179,19 @@ describe('layer-first to module-first transformation authoring', () => {
       ]);
 
       const playbook = read(dir, 'blueprint-authoring.md') ?? '';
+      const obligation = JSON.parse(read(dir, 'blueprint-transformation.json') ?? '{}');
 
       expect(result.code).toBe(0);
       expect(result.output).toContain('transformation preflight passed');
       expectPlaybook(playbook, { head, ...scenario });
+
+      expect(obligation).toMatchObject({
+        version: 1,
+        direction: 'layer-first-to-module-first',
+        origin: { head, topology: 'layer-first', sourceRoot: 'src' },
+        target: { topology: 'module-first', decisions: [] },
+      });
+
       expect(read(dir, 'blueprint.config.mjs')).toBe(scenario.config);
     },
   );

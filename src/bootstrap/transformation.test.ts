@@ -7,7 +7,9 @@ import { describe, expect, it } from 'vitest';
 import type { ProjectState } from '../project';
 import type { TransformationEvidence } from '../survey';
 import type { TransformationPreflight } from './preflight';
-import { runLayerToModuleTransformation, transformationActions } from './transformation';
+import {
+  buildTransformationObligation, runLayerToModuleTransformation, transformationActions,
+} from './transformation';
 
 function state(): ProjectState {
   return {
@@ -63,6 +65,20 @@ const preflight: TransformationPreflight = {
   inspection: { ok: true, findings: [] },
 };
 
+describe('transformation origin facts', () => {
+  it('records an unknown framework without inventing one', () => {
+    const obligation = buildTransformationObligation({
+      state: { ...state(), framework: null },
+      evidence,
+      preflight,
+      claudeDir: { hadDir: false, otherCommands: 0 },
+    });
+
+    expect(obligation.origin.framework).toBe('unknown');
+    expect(obligation.origin.sources).toEqual([]);
+  });
+});
+
 // eslint-disable-next-line max-lines-per-function
 describe('transformation actions', () => {
   it('plans installation when the package is absent', () => {
@@ -103,7 +119,9 @@ describe('transformation actions', () => {
       claudeDir: { hadDir: false, otherCommands: 0 },
     });
 
-    expect(actions.map((action) => action.kind)).toEqual(['write', 'write', 'instruct']);
+    expect(actions.map((action) => action.kind)).toEqual([
+      'write', 'write', 'write', 'instruct',
+    ]);
 
     const playbook = actions.find((action) => action.kind === 'write'
       && action.path === 'blueprint-authoring.md');

@@ -34,3 +34,20 @@ export { defaultGitReader, resolveRepositoryContext } from './repository';
 export type { GitReader, GitReadResult, RepositoryContext } from './repository';
 export { resolveRepositoryBlueprints } from './blueprints';
 export type { RepositoryBlueprint, RepositoryBlueprintOptions } from './blueprints';
+export {
+  readTransformationObligation,
+  TRANSFORMATION_OBLIGATION_FILE,
+  transformationObligationSource,
+} from './transformation-obligation';
+export type {
+  LayerToModuleObligation,
+  TransformationDecision,
+  TransformationObligationFailure,
+  TransformationSource,
+} from './transformation-obligation';
+export { aliasConsumerEvidence } from './alias-consumers';
+export type {
+  AliasConsumer,
+  AliasConsumerEvidence,
+  AliasConsumerStatus,
+} from './alias-consumers';

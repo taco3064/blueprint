@@ -49,7 +49,7 @@ describe('alias wiring honesty (batches 1 & 4 + self-review)', () => {
 
     const doctor = await cli(dir, ['doctor']);
 
-    expect(doctor.output).toContain('✓ import alias wired to the toolchain');
+    expect(doctor.output).toContain('✓ import alias · typescript');
   });
 
   it('rejects the vacuous "@" substring match, accepts a quoted token', async () => {
@@ -68,8 +68,8 @@ describe('alias wiring honesty (batches 1 & 4 + self-review)', () => {
     const red = await cli(dir, ['doctor']);
 
     expect(red.code).toBe(1);
-    expect(red.output).toContain('✗ import alias wired to the toolchain');
-    expect(red.output).toContain('"@/*": ["./src/*"]');
+    expect(red.output).toContain('✗ import alias · bundler-runtime');
+    expect(red.output).toContain('declare "@" in the recognised bundler-runtime configuration');
 
     write(
       dir,
@@ -80,7 +80,7 @@ describe('alias wiring honesty (batches 1 & 4 + self-review)', () => {
 
     const green = await cli(dir, ['doctor']);
 
-    expect(green.output).toContain('✓ import alias wired to the toolchain');
+    expect(green.output).toContain('✓ import alias · bundler-runtime');
   });
 });
 
@@ -236,7 +236,7 @@ describe('init and doctor tell one alias story; integrated contracts stay fresh 
 
     const doctor = await cli(dir, ['doctor']);
 
-    expect(doctor.output).toContain('✓ import alias wired to the toolchain');
+    expect(doctor.output).toContain('✓ import alias · bundler-runtime');
   });
 
   it('a marker-integrated CLAUDE.md is refreshed by the next init (field #26)', async () => {

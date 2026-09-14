@@ -1,3 +1,5 @@
+import type { AliasConsumer, AliasConsumerStatus } from '../project';
+
 export type Severity = 'error' | 'warn' | 'info';
 
 /** One architecture violation (or note) found in a project. */
@@ -48,6 +50,14 @@ export interface ScanResult {
 export interface DoctorCheck {
   label: string;
   ok: boolean;
+  /** The independently measured alias consumer, when this is an alias check. */
+  consumer?: AliasConsumer;
+  /** Evidence status for this alias consumer. */
+  status?: AliasConsumerStatus;
+  /** Aliases measured by this check. */
+  aliases?: string[];
+  /** Configuration files used as evidence. */
+  files?: string[];
   /** What to do about it, when the check failed. */
   detail?: string;
   /**

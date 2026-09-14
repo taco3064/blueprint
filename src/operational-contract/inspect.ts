@@ -1,6 +1,8 @@
 import { operationalText } from './operational-contract';
 import type { OperationalText } from './operational-contract';
 
+export const CURRENT_CONFIG_ADOPTION_SCOPE = 'current-config-adoption' as const;
+
 export interface FindingView {
   severity: 'error' | 'warn' | 'info';
   rule: string;
@@ -19,6 +21,9 @@ export interface CoverageView {
 }
 
 export interface ImportGraphFact {
+  status: 'healthy' | 'degraded' | 'failed';
+  scannedFiles: number;
+  parsedFiles: number;
   unknownDynamicImports: number;
   parseFailures: { path: string; message: string }[];
 }
@@ -111,7 +116,9 @@ export function renderArchitectureReport(
   const derivation = renderImportGraphDerivation(fact.importGraph);
 
   if (!findings.length) {
-    return `✓ Architecture Success — no violations found.\n\n${derivation}`;
+    return fact.importGraph !== null && fact.importGraph.status !== 'healthy'
+      ? `⚠ Architecture nets found no violations, but import analysis is ${fact.importGraph.status}.\n\n${derivation}`
+      : `✓ Architecture Success — no violations found.\n\n${derivation}`;
   }
 
   const counts = { error: 0, warn: 0, info: 0 };
@@ -155,6 +162,8 @@ export function renderImportGraphDerivation(
   const observed = analysis === null
     ? []
     : [
+        `${indent}Import analysis: ${analysis.status} — parsed ${analysis.parsedFiles} of `
+        + `${analysis.scannedFiles} scanned source file(s).`,
         `${indent}This scan left ${analysis.unknownDynamicImports} runtime-dependent dynamic import(s)`,
         `${indent}unresolved and encountered ${analysis.parseFailures.length} file parse failure(s); neither`,
         `${indent}case becomes an edge or a verified legal dependency.`,
@@ -170,6 +179,15 @@ export function renderImportGraphDerivation(
     `${indent}dynamic evaluation while enforcing architectural boundaries.`,
     ...observed,
   ]);
+}
+
+export function renderImportAnalysisUnavailable(analysis: ImportGraphFact): OperationalText {
+  return operationalText(
+    `Import analysis is ${analysis.status}: ${analysis.parseFailures.length} scanned source file(s) `
+    + 'could not be parsed, so the dependency graph is incomplete. Fix the parse failures before '
+    + 'recording or accepting an architecture baseline.\n'
+    + renderImportGraphDerivation(analysis),
+  );
 }
 
 function migrationStep(
@@ -245,7 +263,7 @@ export function renderInspectOutput(fact: {
   architecture: string;
   coverage: string;
 }): OperationalText {
-  return operationalText(`${fact.architecture}\n\n${fact.coverage}`);
+  return operationalText(`${renderInspectScope()}\n\n${fact.architecture}\n\n${fact.coverage}`);
 }
 
 export function renderBaselineGateOutput(fact: {
@@ -253,7 +271,14 @@ export function renderBaselineGateOutput(fact: {
   baseline: string;
   coverage: string;
 }): OperationalText {
-  return operationalText(`${fact.architecture}\n\n${fact.baseline}\n${fact.coverage}`);
+  return operationalText(
+    `${renderInspectScope()}\n\n${fact.architecture}\n\n${fact.baseline}\n${fact.coverage}`,
+  );
+}
+
+function renderInspectScope(): string {
+  return 'Scope: current-config adoption; this is not proof of a historical topology '
+    + 'transformation.';
 }
 
 export function renderTestExemptionOutput(exemption: string): OperationalText {

@@ -41,6 +41,9 @@ const renderers = {
     `Module "${fact.module}" dependsOn must be an array of module names.`,
   'additional-aliases': () =>
     'architecture.additionalAliases must map non-empty strings to non-empty strings.',
+  'canonical-alias-collision': (fact) =>
+    `Canonical alias "${fact.alias}" targets "${fact.canonical}" but additionalAliases maps the `
+    + `same identity to "${fact.additional}". Remove the duplicate or use the same normalised target.`,
   'layer-files-layer': (fact) =>
     `layerFiles entry "${fact.glob}" must include the "{layer}" placeholder.`,
   'module-layer-files': (fact) =>

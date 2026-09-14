@@ -26,13 +26,19 @@ describe('dependency operational prose', () => {
 
     const unit = renderDependencyUnit(units[0], {
       testExemption: 'tests excluded',
-      importGraph: { unknownDynamicImports: 0, parseFailures: [] },
+      importGraph: {
+        status: 'healthy', scannedFiles: 1, parsedFiles: 1,
+        unknownDynamicImports: 0, parseFailures: [],
+      },
     });
 
     const leaderboard = renderDependencyLeaderboard(units, {
       skipped: ['legacy'],
       testExemption: null,
-      importGraph: { unknownDynamicImports: 0, parseFailures: [] },
+      importGraph: {
+        status: 'healthy', scannedFiles: 1, parsedFiles: 1,
+        unknownDynamicImports: 0, parseFailures: [],
+      },
     });
 
     expect(unit).toContain('features (file-layout layer — answers at layer granularity)');
@@ -44,7 +50,10 @@ describe('dependency operational prose', () => {
   it('renders the empty and test-exemption paths explicitly', () => {
     expect(renderDependencyLeaderboard([], {
       skipped: [], testExemption: null,
-      importGraph: { unknownDynamicImports: 0, parseFailures: [] },
+      importGraph: {
+        status: 'healthy', scannedFiles: 0, parsedFiles: 0,
+        unknownDynamicImports: 0, parseFailures: [],
+      },
     })).toBe('No units found inside the declared architecture.');
 
     expect(renderDependencyTestExemption('the test glob matched nothing'))

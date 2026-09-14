@@ -98,14 +98,17 @@ npx @kekkai/blueprint inspect --baseline --json
 
 - **`--framework vue|react`** — 框架證據不明確時指定。
 - **`--json`** — 輸出結構化報告。
-- **`--update-baseline`** — 將目前 error／warn 記錄進 `.blueprint-baseline.json`；info 不會列入，沒有債務時不建立檔案。更新後以 `0` 結束。
+- **`--update-baseline`** — 將目前 error／warn 記錄進 `.blueprint-baseline.json`；info 不會列入，沒有債務時不建立檔案。匯入分析若為降級或失敗，會拒絕更新並以 `1` 結束，避免把不完整的相依圖寫成基準線。
 - **`--baseline`** — 只讓基準線以外的新問題造成失敗，形成既有專案的棘輪。
 
-任何未列入基準線的 error 都會讓指令以 `1` 結束；warn 與 info 不會。報告也會列出架構
-規則實際涵蓋的原始碼檔案數，以及已啟用的選用關卡數，避免空集合被誤認為驗證成功。
+任何未列入基準線的 error 都會讓指令以 `1` 結束；warn 與 info 不會。解析失敗也會以 `1`
+結束：只要有一個檔案解析失敗，匯入分析就是降級；若所有掃描檔案都解析失敗，則是失敗。
+報告會把解析狀態與架構規則涵蓋的原始碼檔案數、已啟用的選用關卡數分開呈現，避免把結構
+涵蓋率誤當成相依圖完整性的證明。
 
 `architecture.testFiles` 是唯一的結構性測試檔豁免來源。靜態匯入與再匯出會進入相依圖；
-動態匯入只有在目標可化約成確定字串時才會納入。解析失敗與無法判定的動態目標都會揭露。
+動態匯入只有在目標可化約成確定字串時才會納入。無法判定的動態目標會揭露但不造成失敗；
+解析失敗則會 fail closed，因為它可能隱藏相依邊。
 
 ## `impact`
 
@@ -117,8 +120,10 @@ npx @kekkai/blueprint impact
 npx @kekkai/blueprint impact --json
 ```
 
-唯一旗標是 `--json`。執行時需要已編寫的 `blueprint.config.mjs`、ESLint 9 以上，以及專案
-技術組合需要的解析器與外掛；`init` 會安裝支援的相依套件。
+唯一旗標是 `--json`。執行時需要已編寫的 `blueprint.config.mjs`、ESLint 9 或 10，以及專案
+技術組合需要的解析器與外掛；`init` 會安裝支援的相依套件。若專案仍使用 ESLint 8，
+`impact` 會明確回報不可用並指向 ESLint 9／10 遷移，不會曝露 flat config API 原始錯誤，
+也不會把未量測結果寫成零命中。
 
 這是資訊指令：即使有 lint 命中也維持成功狀態。解析錯誤、未使用的停用註解與非
 Blueprint 規則會另外列出，不會灌進 Blueprint 總數；這些仍須回到專案平常的 lint 驗證。
@@ -160,6 +165,10 @@ npx @kekkai/blueprint rules --json
 `doctor` 檢查導入是否真的完成，包括設定檔、殘留的暫存／Agent 檔案、ESLint 接線、
 `package.json` 一般 lint 入口能否安全到達並實際跑完 ESLint、別名接線、結構性規則在合併後
 的 flat config 是否仍存在、架構狀態，以及停用規則帳本。
+
+別名證據會依可辨識的 TypeScript、bundler／runtime、套件 `imports` 子路徑與 test runner
+分開回報。單一 consumer 的證據不會產生涵蓋整個工具鏈的綠燈：缺少對應會讓該項失敗；
+應適用但無法讀取時會標示為尚未驗證；不存在或不適用的 consumer 也會明確標示。
 
 ```bash
 npx @kekkai/blueprint doctor

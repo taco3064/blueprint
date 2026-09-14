@@ -377,6 +377,29 @@ describe('emitLint · per-layer unit layout', () => {
   });
 });
 
+describe('emitLint · application base path', () => {
+  it('scopes every emitted entry to the selected application', () => {
+    const emitted = emitLint(blueprint, { basePath: 'apps/web' });
+
+    expect(emitted.length).toBeGreaterThan(0);
+    expect(emitted.every((entry) => entry.basePath === 'apps/web')).toBe(true);
+
+    const structural = emitted.find(
+      (entry) => entry.rules?.['blueprint/relative-escape'] !== undefined,
+    );
+
+    expect(structural?.rules?.['blueprint/relative-escape']).toEqual(expect.arrayContaining([
+      'error',
+      expect.objectContaining({ basePath: 'apps/web' }),
+    ]));
+
+    expect(structural?.rules?.['blueprint/import-boundary']).toEqual(expect.arrayContaining([
+      'error',
+      expect.objectContaining({ basePath: 'apps/web' }),
+    ]));
+  });
+});
+
 describe('emitLint · what an exempted package splits into', () => {
   const mixed = defineBlueprint({
     framework: 'auto',

@@ -2,6 +2,7 @@ import type { ESLint, Linter } from 'eslint';
 
 /** One entry of an ESLint flat config — a drop-in for `eslint.config.js`. */
 export interface LintConfigEntry {
+  basePath?: string;
   files?: string[];
   ignores?: string[];
   /** Parser wiring — emitted rules never set this; `impact` builds parser entries with it. */
@@ -30,6 +31,7 @@ export type LintConfig = LintConfigEntry[];
  */
 export interface StackFacts {
   hasTypescript?: boolean;
+  lintIntegration?: 'verified' | 'unverified' | 'reference-only';
 }
 
 export interface EmitFacts extends StackFacts {
@@ -39,6 +41,11 @@ export interface EmitFacts extends StackFacts {
 
 /** Caller-supplied wiring for `emitLint` — kept injectable so the library stays zero-dependency. */
 export interface EmitLintOptions {
+  /**
+   * Scope every emitted flat-config entry to this application root. Pass an
+   * absolute path when the config can run from more than one working directory.
+   */
+  basePath?: string;
   /**
    * The `@typescript-eslint` plugin (e.g. `tseslint.plugin`). When provided,
    * the `unusedVars` gate emits `@typescript-eslint/no-unused-vars` instead of

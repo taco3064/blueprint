@@ -17,6 +17,7 @@ function messageIds(
   options: {
     layouts?: Record<string, 'folder' | 'file'>;
     sourceRoot?: string;
+    basePath?: string;
     moduleFirst?: boolean;
   } | null = {},
 ): string[] {
@@ -25,6 +26,7 @@ function messageIds(
     : {
         layouts: options.layouts ?? LAYOUTS,
         sourceRoot: options.sourceRoot ?? 'src',
+        ...(options.basePath === undefined ? {} : { basePath: options.basePath }),
         moduleFirst: options.moduleFirst ?? false,
       };
 
@@ -86,7 +88,11 @@ describe('blueprint/relative-escape · file-layout layer', () => {
   });
 
   it('does not classify a project-root file outside the lint working directory', () => {
-    expect(sourceSegments('/repo-sibling/components/Button.ts', '/repo', '.')).toBeNull();
+    expect(sourceSegments(
+      '/repo-sibling/components/Button.ts',
+      '/repo',
+      { sourceRoot: '.' },
+    )).toBeNull();
   });
 
   it('does not throw for a module-first file outside the configured source root', () => {
@@ -249,13 +255,35 @@ describe('blueprint/relative-escape · what the rule declines to judge', () => {
       .toEqual([]);
   });
 
-  it('anchors on src wherever it sits, not at a fixed depth', () => {
-    // `src` as the second segment is the ordinary monorepo shape, and the
-    // segments after it must still be read as layers.
-    expect(messageIds('import x from "../resources/matches";', 'repo/src/components/Button.ts'))
+  it('anchors sourceRoot below an explicit application base', () => {
+    expect(messageIds(
+      'import x from "../resources/matches";',
+      'repo/src/components/Button.ts',
+      { basePath: 'repo' },
+    ))
       .toEqual(['leavesModule']);
 
-    expect(messageIds('import x from "./Card";', 'repo/src/components/Button.ts')).toEqual([]);
+    expect(messageIds(
+      'import x from "./Card";',
+      'repo/src/components/Button.ts',
+      { basePath: 'repo' },
+    )).toEqual([]);
+
+    expect(messageIds('import x from "../resources/matches";', 'repo/src/components/Button.ts'))
+      .toEqual([]);
+  });
+
+  it('does not mistake a folder-unit internal src for the architecture source root', () => {
+    const filename = 'src/resources/matches/src/components/Row.ts';
+
+    expect(messageIds('import x from "../../../../services/api";', filename))
+      .toEqual(['leavesModule']);
+
+    expect(messageIds('import x from "../Cell";', filename)).toEqual([]);
+    expect(messageIds('import x from "../../../markets";', filename)).toEqual([]);
+
+    expect(messageIds('import x from "../../../markets/src/Board";', filename))
+      .toEqual(['reachesInside']);
   });
 
   it('leaves every non-relative specifier alone', () => {

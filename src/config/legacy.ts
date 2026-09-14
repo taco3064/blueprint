@@ -15,7 +15,6 @@ type LegacyArchitecture = ArchitectureDef & {
 
 const legacyMigration = Symbol.for('@kekkai/blueprint/legacy-migration');
 
-/** @internal */
 export function migrateLegacyBlueprint(
   blueprint: Blueprint,
 ): { blueprint: Blueprint; migrated: boolean } {
@@ -44,12 +43,10 @@ export function migrateLegacyBlueprint(
   return { blueprint: migrated, migrated: true };
 }
 
-/** @internal */
 export function isLegacyBlueprintMigration(blueprint: Blueprint): boolean {
   return (blueprint as Blueprint & { [legacyMigration]?: boolean })[legacyMigration] === true;
 }
 
-/** @internal */
 export function migratedConfigSource(blueprint: Blueprint): string {
   return [
     `export default ${JSON.stringify(blueprint, null, 2)};`,

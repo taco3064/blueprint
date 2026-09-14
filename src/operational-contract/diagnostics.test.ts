@@ -21,6 +21,18 @@ import {
 } from './index';
 
 describe('operational diagnostic prose', () => {
+  it('describes an unreadable alias consumer without a named configuration file', () => {
+    const check = renderDoctorCheck({
+      kind: 'alias-consumer',
+      evidence: {
+        consumer: 'test-runner', status: 'unverified', aliases: ['~app'], files: [],
+      },
+      sourceRoot: 'src',
+    });
+
+    expect(check.skipped).toBe('the configuration could not be read statically');
+  });
+
   it('keeps failed, skipped, and passing doctor facts distinct', () => {
     const failed = renderDoctorCheck({
       kind: 'lint-entrypoint', reachable: false, reason: 'missing-lint',
@@ -120,8 +132,29 @@ describe('operational coverage prose', () => {
     expect(finding).not.toContain('Architecture Success');
   });
 
+  it.each(['degraded', 'failed'] as const)(
+    'withholds architecture success when import analysis is %s',
+    (status) => {
+      const report = renderArchitectureReport([], {
+        importGraph: {
+          status,
+          scannedFiles: 1,
+          parsedFiles: status === 'degraded' ? 1 : 0,
+          unknownDynamicImports: 0,
+          parseFailures: [{ path: 'src/broken.ts', message: 'broken' }],
+        },
+      });
+
+      expect(report).toContain(`import analysis is ${status}`);
+      expect(report).not.toContain('Architecture Success');
+    },
+  );
+
   it('renders import-graph limits from measured facts', () => {
     const fact = {
+      status: 'degraded' as const,
+      scannedFiles: 2,
+      parsedFiles: 1,
       unknownDynamicImports: 3,
       parseFailures: [{ path: 'src/hooks/b.vue', message: 'broken' }],
     };

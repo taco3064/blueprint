@@ -53,9 +53,14 @@ export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = 
   return renderOperationalCompactContract(blueprint, {
     gates: gateFacts(blueprint, stack),
     handbook: handbookPath(blueprint),
+    lintIntegration: stack.lintIntegration,
   });
 }
 
 export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): string {
-  return renderOperationalHardRules(blueprint, gateFacts(blueprint, stack));
+  return renderOperationalHardRules(
+    blueprint,
+    gateFacts(blueprint, stack),
+    stack.lintIntegration,
+  );
 }

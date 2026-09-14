@@ -22,6 +22,7 @@ export const relativeEscape: Rule.RuleModule = {
             additionalProperties: { type: 'string' },
           },
           sourceRoot: { type: 'string' },
+          basePath: { type: 'string' },
           moduleFirst: { type: 'boolean' },
         },
         additionalProperties: false,
@@ -39,16 +40,17 @@ export const relativeEscape: Rule.RuleModule = {
     },
   },
   create(context) {
-    const { layouts = {}, entries = {}, sourceRoot = 'src', moduleFirst = false }
+    const { layouts = {}, entries = {}, sourceRoot = 'src', basePath, moduleFirst = false }
       = (context.options[0] as {
         layouts?: Record<string, 'folder' | 'file'>;
         entries?: Record<string, string>;
         sourceRoot?: string;
+        basePath?: string;
         moduleFirst?: boolean;
       } | undefined) ?? {};
 
     const cwd = (context as Rule.RuleContext & { cwd: string }).cwd;
-    const segments = sourceSegments(context.filename, cwd, sourceRoot);
+    const segments = sourceSegments(context.filename, cwd, { sourceRoot, basePath });
 
     const layerIndex = moduleFirst ? 1 : 0;
 
@@ -133,21 +135,13 @@ function isModuleContainer(moduleFirst: boolean, segments: string[] | null): boo
 export function sourceSegments(
   filename: string,
   cwd: string,
-  sourceRoot: string,
+  options: { sourceRoot: string; basePath?: string },
 ): string[] | null {
-  const relative = path.isAbsolute(filename) ? path.relative(cwd, filename) : filename;
+  const { sourceRoot, basePath = '.' } = options;
+  const absolute = path.isAbsolute(filename) ? filename : path.resolve(cwd, filename);
+  const source = path.resolve(cwd, basePath, sourceRoot);
+  const relative = path.relative(source, absolute);
   const parts = relative.split(/[\\/]/).filter((part) => part !== '' && part !== '.');
-  const root = sourceRoot.split(/[\\/]/).filter((part) => part !== '' && part !== '.');
 
-  if (!root.length) {
-    return parts[0] === '..' ? null : parts;
-  }
-
-  for (let at = parts.length - root.length; at >= 0; at -= 1) {
-    if (root.every((part, index) => parts[at + index] === part)) {
-      return parts.slice(at + root.length);
-    }
-  }
-
-  return null;
+  return parts[0] === '..' || path.isAbsolute(relative) ? null : parts;
 }

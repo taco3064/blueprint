@@ -1,4 +1,5 @@
 import type { AllowedImporter, ArchitectureDef, Framework, LayerDef } from './types';
+import { validateAliasIdentity } from './alias-identity';
 import {
   aliasLayerRoots,
   aliasSpecifier,
@@ -92,6 +93,8 @@ export function resolveArchitecture(
   definition: ArchitectureDef,
   _context: ResolveArchitectureContext = {},
 ): ResolvedArchitecture {
+  validateAliasIdentity(definition);
+
   const sourceRoot = definition.sourceRoot ?? 'src';
   const sourceSegments = segments(sourceRoot);
   const aliases = aliasLayerRoots(definition);
@@ -216,7 +219,8 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
     aliases,
     aliasMappings: [
       [definition.alias, sourceRoot],
-      ...Object.entries(definition.additionalAliases ?? {}),
+      ...Object.entries(definition.additionalAliases ?? {})
+        .filter(([alias]) => alias !== definition.alias),
     ],
     ownership: layers.filter((layer) => layer.definition.owns?.length),
     diagramEdges: resolveDiagramEdges(layers),

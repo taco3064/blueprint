@@ -11,12 +11,15 @@ import {
   renderRepositoryPreflightError,
   renderRepositoryReady,
   renderRepositoryRouterError,
+  renderTransformationObligationWriteNote,
   renderTransformationWriteNote,
 } from '../operational-contract';
 import {
   AUTHORING_FILE,
   claudeDirState,
   detect,
+  TRANSFORMATION_OBLIGATION_FILE,
+  transformationObligationSource,
 } from '../project';
 import type { RepositoryBlueprint } from '../project';
 import {
@@ -34,6 +37,7 @@ import { installCommand } from './plan';
 import { cleanupTargets } from './playbook';
 import { runTransformationPreflight } from './preflight';
 import type { TransformationPreflight } from './preflight';
+import { buildTransformationObligation } from './transformation';
 import type { LayerToModuleInput } from './transformation';
 import type { Action } from './types';
 
@@ -106,6 +110,9 @@ export async function runRepositoryTopologyTransformation(
       }),
       note: renderTransformationWriteNote('repository', AUTHORING_FILE),
     },
+    ...(input.topology.current === 'layer-first'
+      ? applications.map(repositoryObligationAction)
+      : []),
     ...launcher.actions,
     {
       kind: 'instruct',
@@ -146,6 +153,29 @@ export async function runRepositoryTopologyTransformation(
   }
 
   return actions;
+}
+
+function repositoryObligationAction(application: ApplicationEvidence): Action {
+  const { blueprint, state, preflight, relativeRoot } = application;
+  const sourceRoot = resolveArchitecture(blueprint.architecture).sourceRoot;
+  const survey = runSurvey(blueprint.applicationRoot, { log: () => {}, sourceRoot });
+
+  const evidence = collectTransformationEvidence(
+    blueprint.applicationRoot, survey, blueprint.architecture,
+  );
+
+  const file = relativeRoot === '.'
+    ? TRANSFORMATION_OBLIGATION_FILE
+    : `${relativeRoot}/${TRANSFORMATION_OBLIGATION_FILE}`;
+
+  return {
+    kind: 'write',
+    path: file,
+    content: transformationObligationSource(buildTransformationObligation({
+      state, evidence, preflight, claudeDir: claudeDirState(blueprint.applicationRoot),
+    })),
+    note: renderTransformationObligationWriteNote(file),
+  };
 }
 
 function repositoryClaudeLauncher(blueprints: RepositoryBlueprint[]): boolean {

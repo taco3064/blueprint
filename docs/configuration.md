@@ -25,6 +25,12 @@ when it loads the file. Unknown structural keys and incoherent graphs fail with 
 instead of being silently ignored. The generated [API reference](/api/) remains the signature-level
 reference; this page explains how the fields work together.
 
+The package has two declaration-backed public entry points. Use `@kekkai/blueprint` for authoring,
+presets, emitters, and runtimes. `@kekkai/blueprint/operational-contract` exposes the typed
+`OperationalText` renderers used by integration tooling that must compose Blueprint-owned runtime
+or generated wording. It is not required for ordinary adoption; import the subpath instead of a
+file below `dist/` when that integration surface is needed.
+
 ## Root fields
 
 - **`name`**
@@ -72,6 +78,9 @@ architecture: {
   that cross a governed module or layer boundary.
 - **`additionalAliases`** maps existing alias names to project-relative roots for resolution and
   dependency diagnosis. They do not become alternate canonical spellings across boundaries.
+  Repeating the canonical `alias` here is accepted only when its normalized target is the same
+  source root. A different target is rejected during config validation, before lint emission,
+  inspection, or migration advice can use the contradictory identity.
 - **`sourceRoot`** defaults to `src`. Use `.` for a root-level source layout such as Next.js without
   `src/`. Lint, `inspect`, `deps`, generated guidance, and scaffold paths all resolve from it.
 

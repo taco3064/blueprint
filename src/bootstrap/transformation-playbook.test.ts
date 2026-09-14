@@ -113,6 +113,7 @@ function richResult(): string {
       candidates: [{
         seed: 'containers/Auth',
         source: 'container',
+        memberPaths: ['src/containers/Auth/index.ts'],
         reachableUnits: ['containers/Auth', 'hooks/useAuth'],
         directImports: [{ from: 'containers/Auth', to: 'hooks/useAuth', count: 1 }],
         closureEdges: [{ from: 'containers/Auth', to: 'hooks/useAuth', count: 1 }],
@@ -122,6 +123,7 @@ function richResult(): string {
       routerCandidates: [{
         seed: 'pages/Login',
         source: 'page',
+        memberPaths: ['src/pages/Login/index.ts'],
         reachableUnits: ['containers/Auth', 'hooks/useAuth', 'pages/Login'],
         directImports: [{ from: 'pages/Login', to: 'containers/Auth', count: 2 }],
         closureEdges: [{ from: 'pages/Login', to: 'containers/Auth', count: 2 }],
@@ -207,7 +209,10 @@ describe('layer-first to module-first playbook', () => {
 
     expectRichEvidence(result);
     expect(result).toContain('pnpm add -D @kekkai/blueprint');
-    expect(result).toContain('Delete the generated files. before the final doctor run');
+
+    expect(result).toContain(
+      'The successful init retires the generated files. before the final doctor run',
+    );
   });
 
   it('uses router closures when no domain candidate was measured', () => {
@@ -216,6 +221,7 @@ describe('layer-first to module-first playbook', () => {
         routerCandidates: [{
           seed: 'app/dashboard',
           source: 'app',
+          memberPaths: ['src/app/dashboard/page.tsx'],
           reachableUnits: ['app/dashboard'],
           directImports: [],
           closureEdges: [],

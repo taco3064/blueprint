@@ -40,7 +40,7 @@ function emitHandbookUnchecked(blueprint: Blueprint, stack: StackFacts): string 
     renderHeader(name),
     renderArchitecture(architecture),
     renderUnit(architecture),
-    renderImportDiscipline(architecture),
+    renderImportDiscipline(architecture, stack.lintIntegration),
     renderComponentShape(blueprint.componentShape),
     renderPrinciples(principles),
     renderPlaybook(blueprint.playbook),

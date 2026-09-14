@@ -55,8 +55,21 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
   - 結果：產生 flat config 參考檔與遷移指示。
   - 管理權責：遷移決策由導入方負責。
 
+若選定的應用程式位於 repository-level flat config 下方，該上層設定仍是實際生效的政策；
+`init` 不會在應用程式內建立會遮蔽它的 live config。若先前的 Blueprint 執行留下這類產生
+檔，`init` 會移除該產生檔並改寫一份可直接合併至 repository root 的參考設定；手寫的下層
+設定絕不會被移除。參考設定會從 repository 路徑匯入應用程式 blueprint，並為
+`emitLint(..., { basePath: applicationRoot })` 計算絕對 `applicationRoot`。解析器與防繞過規則
+也使用相同的原生 flat config `basePath`，因此無論從 repository 或應用程式目錄執行 ESLint，
+Blueprint 規則與既有 repository 規則都會涵蓋選定的應用程式。
+
 Flat config 在相同作用範圍遇到同一規則時，後者會取代前者，不會合併選項。手動整合後，
 可用 `blueprint doctor` 確認結構限制在最後的設定順序裡仍然有效。
+
+產生的架構手冊與 Agent 守則會區分「僅供參考的 lint 設定」與「已驗證的專案 lint 整合」。
+設定檔提到 Blueprint，不代表規則真的會執行。合併後請重新執行 `init`；它會檢查有效規則
+是否保留，並安全重跑專案 lint 指令，取得證據後才更新文件中的執行保證。證據不足時，
+文件會明確保留「尚未驗證」或「僅供參考」的說明。
 
 ### 架構手冊
 
@@ -125,6 +138,19 @@ Blueprint 只在進行中的流程期間管理它。這不是架構權威，完�
 
 全專案轉換只會在專案根目錄建立一份指南，並為每個已導入的應用程式保留各自的量測區段。
 Blueprint 不會自動搬移應用程式原始碼；Agent 依指南使用能保留 Git 歷史的方式執行。
+
+### `blueprint-transformation.json`
+
+layer-first → module-first 工作也會在各應用程式建立這份供機器讀取的轉換義務。內容記錄可復原
+的 Git 起始 commit、應用程式與原始碼範圍、框架／路由位置，以及量測到的 `pages`、`app`、
+`containers` 來源成員。Agent 必須在 `target.decisions` 記錄每一項經確認的來源 → 目的地決策；
+僅把設定檔換成有效的 module-first 設定，不能消除這項義務。
+
+下一次執行 `init --topology module-first` 會核對 Git 來源清單、保留的 `app` 路由組裝、
+container seeds 是否已被模組吸收、目的地位置、目前的 import analysis 與架構 findings。只有
+驗證成功才能退役這份檔案與轉換指南。`--authoring` 明確代表重新編寫架構，不能當作歷史轉換
+證明。沒有這份檔案的手寫 module-first 專案仍可刻意使用 `pages`、`containers` 等自訂 layer
+名稱；Doctor 與 Inspect 證明的是目前設定，而不是過去曾完成轉換。
 
 ### `.claude/commands/blueprint-author.md`
 

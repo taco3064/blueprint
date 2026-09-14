@@ -15,6 +15,19 @@ const invalidBlueprint: Blueprint = {
 };
 
 describe('public emitter validation boundary', () => {
+  it.each([emitLint, emitHandbook, emitAgentFiles])('rejects conflicting aliases', (emit) => {
+    const blueprint: Blueprint = {
+      framework: 'react',
+      architecture: {
+        alias: '~app',
+        additionalAliases: { '~app': 'src/other' },
+        layers: [{ name: 'components', does: 'UI' }],
+      },
+    };
+
+    expect(() => emit(blueprint)).toThrow(/Canonical alias "~app"/);
+  });
+
   it.each([
     ['emitLint', () => emitLint(invalidBlueprint)],
     ['emitHandbook', () => emitHandbook(invalidBlueprint)],

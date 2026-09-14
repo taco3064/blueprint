@@ -113,6 +113,11 @@ describe('emitLint · canonical cross-boundary alias', () => {
       'import useB from "~app/b_module/hooks/useB"; import React from "react";',
       'src/a_module/components/Card/index.tsx',
     )).not.toContain('blueprint/import-boundary');
+
+    expect(ruleIds(
+      'export const value = 1;',
+      'src/a_module/components/Card/index.tsx',
+    )).not.toContain('blueprint/import-boundary');
   });
 
   it('allows canonical descendants that also match a longer additional alias', () => {

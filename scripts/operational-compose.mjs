@@ -8,7 +8,7 @@ export async function composeOperationalArtifacts() {
   const {
     renderManualFieldPrompt,
     renderPackagedAgentContract,
-  } = await import('../dist/operational-contract.js');
+  } = await import('../dist/operational-contract/index.js');
 
   return new Map([
     ['agent-contract.md', renderPackagedAgentContract()],

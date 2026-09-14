@@ -77,17 +77,31 @@ export function extractImportAnalysis(
 }
 
 export function importAnalysis(scan: ScanResult): {
+  status: 'healthy' | 'degraded' | 'failed';
+  scannedFiles: number;
+  parsedFiles: number;
   unknownDynamicImports: number;
   parseFailures: { path: string; message: string }[];
 } {
+  const parseFailures = scan.files.flatMap((file) => file.importAnalysis?.parseError
+    ? [{ path: file.path, message: file.importAnalysis.parseError }]
+    : []);
+
+  const parsedFiles = scan.files.length - parseFailures.length;
+
   return {
+    status: parseFailures.length === 0
+      ? 'healthy'
+      : parsedFiles === 0
+        ? 'failed'
+        : 'degraded',
+    scannedFiles: scan.files.length,
+    parsedFiles,
     unknownDynamicImports: scan.files.reduce(
       (sum, file) => sum + (file.importAnalysis?.unknownDynamicImports ?? 0),
       0,
     ),
-    parseFailures: scan.files.flatMap((file) => file.importAnalysis?.parseError
-      ? [{ path: file.path, message: file.importAnalysis.parseError }]
-      : []),
+    parseFailures,
   };
 }
 

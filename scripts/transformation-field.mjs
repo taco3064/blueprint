@@ -196,6 +196,9 @@ function assertPlaybook(application, claims) {
 }
 
 function applyDecisions(context, scenario) {
+  const obligationFile = path.join(context.application, 'blueprint-transformation.json');
+  const obligation = JSON.parse(fs.readFileSync(obligationFile, 'utf8'));
+
   for (const [from, to] of scenario.moves) {
     fs.mkdirSync(path.dirname(path.join(context.application, to)), { recursive: true });
     git(context.application, 'mv', from, to);
@@ -215,17 +218,17 @@ function applyDecisions(context, scenario) {
     finalConfig(scenario.framework, scenario.modules),
   );
 
-  removeAuthoring(context.application);
-}
+  obligation.target.decisions = obligation.origin.sources.map((source) => ({
+    source: source.unit,
+    destinations: source.unit.startsWith('app/')
+      ? source.members
+      : scenario.moves
+          .filter(([from]) => source.members.includes(from))
+          .map(([, to]) => to),
+  }));
 
-function removeAuthoring(application) {
-  const command = path.join(application, '.claude', 'commands', 'blueprint-author.md');
-
-  if (fs.existsSync(command)) {
-    throw new Error('agents-only forward transformation emitted the Claude authoring launcher');
-  }
-
-  fs.rmSync(path.join(application, 'blueprint-authoring.md'));
+  write(context.application, 'blueprint-transformation.json',
+    `${JSON.stringify(obligation, null, 2)}\n`);
 }
 
 function verify(context, scenario, before, initialBaselineReview) {

@@ -131,8 +131,8 @@ describe('greenfield scaffold — init alone completes (batches 1 & 4)', () => {
     expect(doctor.code).toBe(0);
     // A `--no-install` fixture has no resolvable eslint, so the survival check cannot
     // run — and the banner no longer counts that skip as a pass (field run #129).
-    expect(doctor.output).toContain('⊘ Adoption unverified — 7 of 9 checks passed');
-    expect(doctor.output).not.toContain('all 9 checks passed');
+    expect(doctor.output).toContain('⊘ Adoption unverified — 10 of 12 checks passed');
+    expect(doctor.output).not.toContain('all 12 checks passed');
   });
 });
 
@@ -150,7 +150,7 @@ describe('"complete" says what it leaves out (field runs #71–#73)', () => {
     const doctor = await cli(dir, ['doctor']);
 
     expect(doctor.code).toBe(0);
-    expect(doctor.output).toContain('7 of 9 checks passed');
+    expect(doctor.output).toContain('10 of 12 checks passed');
     expect(doctor.output).toContain('nothing adoption wrote is committed');
     expect(doctor.output).toContain('not installed');
     // The remedy, and whose call it is — a note that only states the problem sends an

@@ -37,4 +37,5 @@ export interface EslintConfigSourceFact {
   guardExtensions: string;
   sourceRoot: string;
   generatedBanner: string;
+  basePath?: string;
 }

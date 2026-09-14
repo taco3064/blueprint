@@ -55,8 +55,9 @@ export function aliasLayerRoots(architecture: ArchitectureDef): AliasRoot[] {
 
   return [
     { alias: architecture.alias, prefix: [] },
-    ...Object.entries(architecture.additionalAliases ?? {}).flatMap(([alias, target]) =>
-      aliasRoot(alias, target, sourceRoot) ?? []),
+    ...Object.entries(architecture.additionalAliases ?? {})
+      .filter(([alias]) => alias !== architecture.alias)
+      .flatMap(([alias, target]) => aliasRoot(alias, target, sourceRoot) ?? []),
   ];
 }
 

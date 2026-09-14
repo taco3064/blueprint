@@ -31,6 +31,17 @@ function architecture(): ArchitectureDef {
 
 // eslint-disable-next-line max-lines-per-function
 describe('resolveArchitecture · import contract', () => {
+  it('keeps one canonical mapping when an equivalent additional alias repeats its identity', () => {
+    const definition = architecture();
+
+    definition.additionalAliases = { '~app': '.\\src\\' };
+
+    const resolved = resolveArchitecture(definition);
+
+    expect(resolved.aliasMappings).toEqual([['~app', 'src']]);
+    expect(resolved.aliases).toEqual([{ alias: '~app', prefix: [] }]);
+  });
+
   it.each([
     ['~root/src/billing/hooks/useBill', '~app/billing/hooks/useBill', '~root'],
     ['~source/billing/hooks/useBill', '~app/billing/hooks/useBill', '~source'],

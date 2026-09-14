@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { plan } from './plan';
+import { plan, scriptCommand } from './plan';
 import { reactPreset, vuePreset } from '../presets';
 import type { Action } from './types';
 import type { ProjectState } from '../project';
@@ -42,6 +42,11 @@ const write = (actions: Action[], path: string): WriteAction | undefined =>
   );
 
 describe('plan · the eslint config it writes', () => {
+  it('keeps non-npm script invocation package-manager native', () => {
+    expect(scriptCommand('npm', 'lint')).toBe('npm run lint');
+    expect(scriptCommand('yarn', 'lint')).toBe('yarn lint');
+  });
+
   it('generates the third-party CORE in eslint.config.mjs, tier-driven', () => {
     const content = write(plan(state(), bp), 'eslint.config.mjs')?.content;
 
@@ -217,6 +222,75 @@ describe('plan · the eslint config it writes', () => {
 });
 
 describe('plan · the note that says how to wire an eslint config already there', () => {
+  it('targets an ancestor config with application-relative imports and emitted scope', () => {
+    const actions = plan(state({
+      hasEslintConfig: true,
+      eslintConfigFile: '../../eslint.config.mjs',
+      eslintConfigRoot: '/x',
+      eslintBasePath: 'apps/web',
+      applicationRoot: '/x/apps/web',
+      root: '/x/apps/web',
+      hasTypescript: true,
+    }), bp);
+
+    expect(write(actions, 'eslint.config.mjs')).toBeUndefined();
+    expect(write(actions, 'eslint.config.blueprint.mjs')).toBeDefined();
+
+    const note = actions.find(
+      (action) => action.kind === 'instruct' && action.note.includes('blueprint never edits it'),
+    );
+
+    expect(note?.note).toContain('import blueprint from \'./apps/web/blueprint.config.mjs\';');
+
+    expect(note?.note).toContain(
+      'const applicationRoot = fileURLToPath(new URL(\'./apps/web/\', import.meta.url));',
+    );
+
+    expect(note?.note).toContain('basePath: applicationRoot');
+
+    const reference = write(actions, 'eslint.config.blueprint.mjs')?.content;
+
+    expect(reference).toContain('basePath: applicationRoot');
+    expect(reference).toContain('typescript: tseslint.plugin');
+    expect(reference).toContain('    basePath: applicationRoot,');
+  });
+});
+
+describe('plan · eslint shadow cleanup', () => {
+  it('removes only a detected generated shadow before handing off to its ancestor', () => {
+    const actions = plan(state({
+      hasEslintConfig: true,
+      eslintConfigFile: '../../eslint.config.mjs',
+      eslintConfigRoot: '/x',
+      eslintBasePath: 'apps/web',
+      applicationRoot: '/x/apps/web',
+      root: '/x/apps/web',
+      shadowedEslintConfig: 'eslint.config.mjs',
+    }), bp);
+
+    expect(actions).toContainEqual(expect.objectContaining({
+      kind: 'rm',
+      path: 'eslint.config.mjs',
+    }));
+
+    expect(write(actions, 'eslint.config.mjs')).toBeUndefined();
+    expect(write(actions, 'eslint.config.blueprint.mjs')).toBeDefined();
+  });
+
+  it('orders shadow cleanup before regeneration if ownership facts overlap', () => {
+    const actions = plan(state({
+      hasEslintConfig: true,
+      ownedEslintConfig: 'eslint.config.mjs',
+      shadowedEslintConfig: 'eslint.config.mjs',
+    }), bp);
+
+    expect(actions.findIndex((action) => action.kind === 'rm')).toBeLessThan(
+      actions.findIndex((action) => action.kind === 'write' && action.path === 'eslint.config.mjs'),
+    );
+  });
+});
+
+describe('plan · the remaining existing-eslint handoff variants', () => {
   it('writes a diffable reference config instead of touching an existing one', () => {
     const actions = plan(state({ hasEslintConfig: true }), bp);
 

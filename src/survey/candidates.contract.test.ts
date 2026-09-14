@@ -103,6 +103,7 @@ function expectCandidates(result: TransformationEvidence): void {
     {
       seed: 'containers/Login',
       source: 'container',
+      memberPaths: ['src/containers/Login/index.ts'],
       reachableUnits: [
         'components/Form',
         'containers/Login',
@@ -135,6 +136,7 @@ function expectCandidates(result: TransformationEvidence): void {
     {
       seed: 'containers/Register',
       source: 'container',
+      memberPaths: ['src/containers/Register/index.ts'],
       reachableUnits: ['components/Form', 'containers/Register', 'hooks/useSession'],
       directImports: [
         { from: 'containers/Register', to: 'components/Form', count: 1 },
@@ -161,6 +163,7 @@ function expectRouter(result: TransformationEvidence): void {
     {
       seed: 'pages/Home',
       source: 'page',
+      memberPaths: ['src/pages/Home.ts'],
       reachableUnits: [
         'components/Form',
         'containers/Login',

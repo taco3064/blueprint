@@ -102,7 +102,7 @@ const CONFIG_FILE = 'blueprint.config.mjs';
 async function adoptionPrompt(dir, topology) {
   const operational = path.join(
     dir,
-    'node_modules/@kekkai/blueprint/dist/operational-contract.js',
+    'node_modules/@kekkai/blueprint/dist/operational-contract/index.js',
   );
 
   const { renderFieldPrompt } = await import(pathToFileURL(operational).href);

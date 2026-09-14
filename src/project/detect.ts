@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import type { Framework } from '../config';
-import { resolveProjectContext } from './context';
+import { directoriesToBoundary, resolveProjectContext, sameFilesystemPath } from './context';
 import { REQUIRED_DEPS, STACK_DEPS } from './install';
 import type { ProjectState } from './types';
 
@@ -104,36 +104,117 @@ export function listSourceDirs(root: string, sourceRoot = 'src'): string[] {
   }
 }
 
-function detectEslint(root: string): {
+function detectEslint(root: string, boundary: string): {
   file: string | undefined;
+  configRoot: string | undefined;
+  basePath: string | undefined;
+  shadowed: string | undefined;
   owned: string | undefined;
   wired: boolean;
   legacy: string | undefined;
   shape: ProjectState['eslintConfigShape'];
 } {
-  const file = ESLINT_FILES.find((candidate) => fs.existsSync(path.join(root, candidate)));
-  const text = file === undefined ? null : readText(path.join(root, file));
-  const owned = text?.startsWith(GENERATED_ESLINT_BANNER) ? file : undefined;
+  const directories = directoriesToBoundary(root, boundary);
+  const flatConfigs = findEslintConfigs(directories, ESLINT_FILES);
+  const shadowed = generatedLocalShadow(root, flatConfigs);
+  const flat = shadowed === undefined ? flatConfigs[0] : flatConfigs[1];
 
-  const legacy = file === undefined
-    ? LEGACY_ESLINT_FILES.find((candidate) => fs.existsSync(path.join(root, candidate)))
+  const legacyConfig = flat === undefined
+    ? findEslintConfig(directories, LEGACY_ESLINT_FILES)
     : undefined;
+
+  const owner = flat ?? legacyConfig;
+  const file = relativeConfigPath(root, flat);
+  const legacy = relativeConfigPath(root, legacyConfig);
+  const ownerRoot = owner?.root;
+  const basePath = ownerRoot === undefined ? undefined : relativeProjectPath(ownerRoot, root);
+  const owned = ownedConfig(root, flat);
 
   return {
     file,
+    configRoot: ownerRoot,
+    basePath: basePath === '.' ? undefined : basePath,
+    shadowed,
     owned,
-
-    wired: owned === undefined && (text?.includes('@kekkai/blueprint') ?? false),
+    wired: owned === undefined && wiredConfig(flat?.text, basePath),
     legacy,
-
-    shape: legacy
-      ? 'legacy'
-      : text?.includes('tseslint.config(')
-        ? 'tseslint'
-        : file !== undefined
-          ? 'flat-array'
-          : undefined,
+    shape: configShape(flat?.text, flat !== undefined, legacyConfig !== undefined),
   };
+}
+
+interface EslintConfig {
+  root: string;
+  file: string;
+  text: string | null;
+}
+
+function findEslintConfig(directories: string[], files: string[]): EslintConfig | undefined {
+  return findEslintConfigs(directories, files)[0];
+}
+
+function findEslintConfigs(directories: string[], files: string[]): EslintConfig[] {
+  const configs: EslintConfig[] = [];
+
+  for (const root of directories) {
+    const file = files.find((candidate) => fs.existsSync(path.join(root, candidate)));
+
+    if (file !== undefined) {
+      configs.push({ root, file, text: readText(path.join(root, file)) });
+    }
+  }
+
+  return configs;
+}
+
+function generatedLocalShadow(root: string, configs: EslintConfig[]): string | undefined {
+  const [local, ancestor] = configs;
+
+  return local !== undefined
+    && ancestor !== undefined
+    && sameFilesystemPath(local.root, root)
+    && local.text?.startsWith(GENERATED_ESLINT_BANNER)
+    ? local.file
+    : undefined;
+}
+
+function relativeConfigPath(root: string, config?: EslintConfig): string | undefined {
+  return config === undefined
+    ? undefined
+    : relativeProjectPath(root, path.join(config.root, config.file));
+}
+
+function ownedConfig(root: string, config?: EslintConfig): string | undefined {
+  return config !== undefined
+    && sameFilesystemPath(config.root, root)
+    && config.text?.startsWith(GENERATED_ESLINT_BANNER)
+    ? config.file
+    : undefined;
+}
+
+function wiredConfig(text: string | null | undefined, basePath?: string): boolean {
+  const nestedWiring = basePath === undefined
+    || basePath === '.'
+    || (text?.includes('basePath: applicationRoot') === true
+      && text.includes('new URL(')
+      && quotedIn(text, `./${basePath}/`));
+
+  return text?.includes('@kekkai/blueprint') === true && nestedWiring;
+}
+
+function configShape(
+  text: string | null | undefined,
+  flat: boolean,
+  legacy: boolean,
+): ProjectState['eslintConfigShape'] {
+  return legacy
+    ? 'legacy'
+    : text?.includes('tseslint.config(')
+      ? 'tseslint'
+      : flat ? 'flat-array' : undefined;
+}
+
+function relativeProjectPath(from: string, to: string): string {
+  return path.relative(from, to).split(path.sep).join('/') || '.';
 }
 
 export function detect(root: string): ProjectState {
@@ -152,7 +233,7 @@ export function detect(root: string): ProjectState {
     ...(hasTypescript ? [STACK_DEPS.typescript] : []),
   ];
 
-  const eslint = detectEslint(root);
+  const eslint = detectEslint(root, context.repositoryRoot ?? context.toolchainRoot);
   const viteFile = VITE_FILES.find((file) => fs.existsSync(path.join(root, file)));
   const viteConfig = readViteConfig(root, viteFile);
 
@@ -174,6 +255,9 @@ export function detect(root: string): ProjectState {
     hasConfig: fs.existsSync(path.join(root, CONFIG_FILE)),
     hasEslintConfig: eslint.file !== undefined,
     eslintConfigFile: eslint.file,
+    eslintConfigRoot: eslint.configRoot,
+    eslintBasePath: eslint.basePath,
+    shadowedEslintConfig: eslint.shadowed,
     hasNext,
     hasNuxt,
     nextRouter,

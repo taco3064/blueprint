@@ -38,6 +38,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./operational-contract": {
+      "types": "./dist/operational-contract/index.d.ts",
+      "import": "./dist/operational-contract/index.js"
     }
   },
   "files": [

@@ -6,11 +6,18 @@ import type { LintConfigEntry } from '../emit/lint';
 import { expectedCarriers } from '../inspect';
 import { resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
-import { detect, loadProjectModule, resolveBlueprint, unwrapModule } from '../project';
+import {
+  detect,
+  loadProjectModule,
+  resolveBlueprint,
+  SUPPORTED_ESLINT_MAJORS,
+  unwrapModule,
+} from '../project';
 import type { ResolveOptions } from '../project';
 import {
   renderImpactMissingConfig,
   renderImpactMissingDependency,
+  renderImpactUnavailable,
   renderImpactReport,
 } from '../operational-contract';
 import type { OperationalText } from '../operational-contract';
@@ -50,12 +57,25 @@ export interface RuleImpact {
 }
 
 interface EslintApi {
-  ESLint: new (options: object) => {
-    lintFiles: (patterns: string[]) => Promise<
-      { filePath: string; messages: { ruleId: string | null; fatal?: boolean }[] }[]
-    >;
+  ESLint: {
+    version?: string;
+    new (options: object): {
+      lintFiles: (patterns: string[]) => Promise<
+        { filePath: string; messages: { ruleId: string | null; fatal?: boolean }[] }[]
+      >;
+    };
   };
 }
+
+export type ImpactResult
+  = { status: 'available'; impacts: RuleImpact[]; total: number }
+    | {
+      status: 'unavailable';
+      impacts: [];
+      total: 0;
+      reason: 'eslint-flat-api-unsupported';
+      eslintMajor: number | null;
+    };
 
 interface TsEslintApi {
   parser: Linter.Parser;
@@ -91,7 +111,7 @@ async function loadStack(
 export async function runImpact(
   root: string,
   options: ImpactOptions = {},
-): Promise<{ impacts: RuleImpact[]; total: number }> {
+): Promise<ImpactResult> {
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
 
@@ -104,14 +124,44 @@ export async function runImpact(
   const framework
     = blueprint.framework !== 'auto' ? blueprint.framework : state.framework ?? 'auto';
 
+  /* v8 ignore next -- the real project loader; tests inject the same boundary */
   const stack = await loadImpactStack(root, blueprint, {
     load: options.loadModule ?? loadProjectModule,
     framework,
     hasTypescript: state.hasTypescript,
   });
 
+  return measureImpact({ root, blueprint, framework, stack, options, log });
+}
+
+async function measureImpact(input: {
+  root: string;
+  blueprint: Blueprint;
+  framework: string;
+  stack: ImpactStack;
+  options: ImpactOptions;
+  log: (message: string) => void;
+}): Promise<ImpactResult> {
+  const { root, blueprint, framework, stack, options, log } = input;
+  const eslintMajor = majorVersion(stack.ESLint.version);
+
+  if (eslintMajor !== null && !SUPPORTED_ESLINT_MAJORS.includes(eslintMajor)) {
+    return unavailableImpact(eslintMajor, options, log);
+  }
+
   const config = impactConfig(blueprint, framework, stack);
-  const results = await lintLayers(root, blueprint, { ESLint: stack.ESLint, config });
+  let results: Awaited<ReturnType<typeof lintLayers>>;
+
+  try {
+    results = await lintLayers(root, blueprint, { ESLint: stack.ESLint, config });
+  } catch (error) {
+    if (!flatApiFailure(error)) {
+      throw error;
+    }
+
+    return unavailableImpact(eslintMajor, options, log);
+  }
+
   const impacts = tallyImpacts(results, root, emittedRuleIds(config));
 
   const total = impacts
@@ -120,11 +170,43 @@ export async function runImpact(
 
   log(
     options.json
-      ? JSON.stringify({ total, linted: results.length, impacts }, null, 2)
+      ? JSON.stringify({ status: 'available', total, linted: results.length, impacts }, null, 2)
       : renderImpact(impacts, total, results.length),
   );
 
-  return { impacts, total };
+  return { status: 'available', impacts, total };
+}
+
+function unavailableImpact(
+  eslintMajor: number | null,
+  options: ImpactOptions,
+  log: (message: string) => void,
+): Extract<ImpactResult, { status: 'unavailable' }> {
+  const result = {
+    status: 'unavailable' as const,
+    impacts: [] as [],
+    total: 0 as const,
+    reason: 'eslint-flat-api-unsupported' as const,
+    eslintMajor,
+  };
+
+  log(options.json
+    ? JSON.stringify(result, null, 2)
+    : renderImpactUnavailable({ eslintMajor, supportedMajors: SUPPORTED_ESLINT_MAJORS }));
+
+  return result;
+}
+
+function majorVersion(version: string | undefined): number | null {
+  const major = version?.match(/^(\d+)\./)?.[1];
+
+  return major === undefined ? null : Number(major);
+}
+
+function flatApiFailure(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return /overrideConfigFile|useFlatConfig|FlatESLint/i.test(message);
 }
 
 interface ImpactStack {

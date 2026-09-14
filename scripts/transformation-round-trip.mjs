@@ -96,6 +96,23 @@ function removeAuthoring() {
   fs.rmSync(path.join(repository, 'blueprint-authoring.md'));
 }
 
+function completeForwardObligation() {
+  const file = path.join(repository, 'blueprint-transformation.json');
+  const obligation = JSON.parse(fs.readFileSync(file, 'utf8'));
+
+  const destinations = {
+    'pages/Login': ['src/app/Login.ts'],
+    'containers/Auth': ['src/auth/components/Auth.ts'],
+  };
+
+  obligation.target.decisions = obligation.origin.sources.map(({ unit }) => ({
+    source: unit,
+    destinations: destinations[unit],
+  }));
+
+  fs.writeFileSync(file, `${JSON.stringify(obligation, null, 2)}\n`);
+}
+
 function manifest() {
   const files = [];
 
@@ -231,7 +248,7 @@ write('blueprint.config.mjs', config({
   ],
 }));
 
-removeAuthoring();
+completeForwardObligation();
 cli(['init', '--topology', 'module-first', '--no-install']);
 
 const middleInspect = report(['inspect', '--json']);
