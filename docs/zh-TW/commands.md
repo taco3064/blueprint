@@ -42,6 +42,7 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 - **`--framework vue|react`** — 框架證據不明確時指定。一般 Vue、React 會自動偵測；Next.js 會使用能辨識路由器的預設設定。
 - **`--no-install`** — 不執行偵測到的套件管理工具，並在計畫裡列出待安裝內容。
 - **`--dry-run`** — 只顯示計畫，不修改檔案，也不啟動 Agent。
+- **`--recover-transformation`** — 從 Git 保留的權威記錄還原遺失的 LF→MF 待完成證據與復原指南，保留既有決策與指南；不執行導入、產生架構檔案或完成轉換。請單獨使用，或搭配 `--dry-run`。復原要求目前 `HEAD` 與原始記錄一致，且應用程式與來源範圍安全。若決策檔曾遭刪除，必須重新審查並記錄遺失的決策，才能驗證完成。詳見[產出檔案](./generated-files.md)。
 
 ### 可能修改的內容
 
