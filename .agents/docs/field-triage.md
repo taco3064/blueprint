@@ -1,43 +1,70 @@
-# Private field validation and release handoff
+# Candidate field validation and release convergence
 
-**Trigger:** running live Agent field validation, triaging a field finding, or preparing a release.
+**Trigger:** running live Agent validation, triaging a field finding, changing prose an adopting Agent reads, recording convergence, or cutting a release.
 
-## Field boundary
+## Verification boundary
 
-Live Field validation is owner-operated and private. It is not a GitHub Actions gate, does not write a commit status, and is not queried by the release workflow.
+Conformance tests preserve known adoption regressions. `npm run field:transformation` deterministically replays explicit topology decisions in CI. Neither replaces live Codex and Claude execution, where naming, ownership, placement, and interpretation remain Agent decisions.
 
-Use Field before release preparation, while product changes are still allowed:
+After a successful push to `main`, CI installs cleanly, builds, verifies the distribution, and retains one `npm pack` artifact with `candidate.json`. The manifest binds the tarball digest, package version, full main SHA, workflow run, event, and ref. Release field validation consumes that artifact. It never credits a locally rebuilt or dirty working tree as release evidence.
 
-```text
-product candidate
-→ owner-run Field / live Agent validation
-→ repair product findings as needed
-→ owner accepts the release candidate
-→ Changesets release preparation
+Do not manually repeat lint, typecheck, unit, build, distribution, mutation, or deterministic transformation gates already proven by that exact successful candidate workflow. Live validation adds the Agent boundary and keeps post-Agent Doctor and Inspect because those examine the adopter result, not the Blueprint checkout CI already verified.
+
+`npm run field:run -- --candidate <downloaded-candidate>/candidate.json` treats the supplied manifest only as a locator. It verifies the successful main run, resolves its unique unexpired `blueprint-candidate-<SHA>` artifact, downloads it again, and rejects any manifest or tarball digest mismatch before an Agent runs. It still runs Doctor and Inspect after the Agent. Omitting `--candidate` is local diagnostic mode: the harness may build and pack the checkout for investigation, but that result cannot establish release convergence.
+
+The cross-Agent release matrix may use the harness or an explicitly defined manual matrix such as #452. Each Agent receives an independent disposable target checkout with the same candidate pre-installed. Preserve the required target pins, roles, positive and negative controls, native gates, adoption diff, and result classification.
+
+## One convergence ledger
+
+One release cycle uses one field-convergence ticket. Every round records:
+
+- candidate full SHA, version, digest, and candidate workflow;
+- scenarios and Agents executed;
+- findings and their release-blocking disposition;
+- repair pull requests;
+- whether the run is an affected replay or the complete matrix;
+- a durable report link.
+
+The ticket is linked evidence. The machine authority is the dedicated `blueprint/field-convergence` commit status on the exact candidate SHA.
+
+Use the [`field-validation`](../skills/field-validation/SKILL.md) skill to select an affected replay or full convergence and the target roles. A successful affected replay writes `pending`, never `success`; a failed replay writes `failure`. It proves a repair only and still owes the final matrix.
+
+After all blocking findings are repaired, run the complete required matrix against one exact candidate. Only that full matrix may write success. Missing scenarios, skipped Agents, missing feedback, red mechanical gates, or an incomplete matrix fail convergence. A later Blueprint commit retains the old historical status but has no field authority of its own.
+
+Prepare a reviewed evidence JSON and record it with:
+
+```sh
+npm run field:converge -- record \
+  --candidate <downloaded-candidate>/candidate.json \
+  --evidence <round-evidence.json> \
+  --issue <convergence-ticket-number>
 ```
 
-Affected replay and full-matrix choices remain owner judgment. GitHub Actions does not decide whether Field is complete and does not require a Field report.
+The evidence names `candidateSha`, `scope` (`full` or `affected`), `result`, the ticket-authorized `requiredScenarios`, executed `scenarios`, classified `findings` with a reviewed `releaseBlocking` disposition, `repairPrs`, `reportUrl`, and an affected-replay `reason`. The recorder computes matrix completeness from exact non-duplicated set equality and derives the blocker count from findings; callers cannot assert either with a boolean or total. It independently downloads the run's unique exact-SHA artifact and rejects a caller-supplied rebuild before posting the ticket comment and exact-commit status. If either GitHub write fails, the command fails.
 
-After the owner accepts Field, product behavior is frozen for that release. If product/source behavior changes afterwards, whether to repeat Field is an owner decision rather than an automated release condition.
+## Triage findings
 
-## Release preparation
+Do not flatten every observation into a release blocker. Agent feedback separates useful behavior, withdrawn suspicions, uncertainty, and actual friction. Existing adopter debt, supported model boundaries, and environment limitations are evidence, not automatically Blueprint defects.
 
-The pending `.changeset/*.md` files are the **single source of truth for the next version bump**. Change their `major` / `minor` / `patch` intent when the next version needs to change. Do not maintain a second version source or manually choose a version in release automation.
+The release-blocking count is a reviewed disposition. Mechanical failure, false green, unsafe mutation, contradictory guidance, or a Blueprint defect that prevents completion blocks. A correctness exception without real adoption cost still deserves repair and evidence but does not silently become a release blocker. Doctor and Inspect must remain visible independent cross-checks; do not hide an unverified subcheck or treat missing matrix evidence as green.
 
-`npx changeset version` consumes that intent and generates the release outputs: `package.json`, `package-lock.json`, and `CHANGELOG.md`.
+Before changing Agent-facing wording, ask:
 
-After pre-release validation is complete:
+1. Can Blueprint compute the fact? If it can, measure it rather than asking prose to predict the repository.
+2. Is the wording a registered operational surface? If so, locate it in
+   `OPERATIONAL_SURFACES`, change the owning fact source or renderer, and fix
+   the complete registered surface class rather than one consumer.
+3. Did product semantics also change? Audit the separately authored public-doc
+   category against the new behavior when needed. Do not couple website prose,
+   philosophy, marketing, or release narrative into the operational contract
+   merely to make wording identical.
 
-1. Review and, when necessary, adjust the pending `.changeset/*.md` bump intent.
-2. Run `npx changeset version`.
-3. Review the generated version and `CHANGELOG.md`; hoist release framing when needed.
-4. Commit and merge the release metadata.
-5. Create the release tag from the generated package version.
+Graduate reproducible product regressions into `src/conformance/` with the fix. Do not add a product exception solely to make a field control pass.
 
-The release workflow validates the Changesets release SHA mechanically. It finds the ancestor commit that changed `package.json` from the previous generated version to the tagged version, then requires that commit to include `package.json`, `package-lock.json`, `CHANGELOG.md`, and consumed `.changeset/*.md` entries.
+## Release
 
-The tagged tree may be newer than that Changesets SHA only for non-package release plumbing or maintainer guidance. Product/package inputs must not change after the Changesets SHA. This permits release-workflow repairs without manufacturing another Field cycle while still preventing unversioned product changes from slipping into the published package.
+Run `npx changeset version`, hoist the release-framing entry above the generated change headings, commit, and merge the version change to `main`. That new commit receives its own packed candidate and must pass the final complete field matrix. Only then create and push the tag.
 
-The tag workflow then installs dependencies, builds, runs `dist:verify`, validates the tag against the Changesets-generated package version and release SHA, publishes with npm provenance, and creates the GitHub Release from the matching changelog section.
+The tag workflow re-runs lint, typecheck, tests, build, and distribution verification. Before `npm publish`, it queries `blueprint/field-convergence` on the exact tag target and follows its convergence-ticket link. It requires a machine-readable comment proving the same SHA, full scope, complete matrix, success, and zero release blockers. A closed ticket, prior SHA, affected replay, missing status, or stale report cannot publish.
 
-There is no `blueprint/field-convergence` requirement in release automation.
+The workflow preserves npm provenance and generates the GitHub Release from the matching changelog section without overwriting an existing hand-written release.
