@@ -61,7 +61,7 @@ jobs:
           echo "✅ Tag version matches Changesets-generated package version: $TAG_VERSION"
 
       - name: Validate Changesets release SHA
-        run: node scripts/release-field-gate.mjs
+        run: node scripts/release-changeset-gate.mjs
 
       # -------------------------
       # 🚀 Publish
