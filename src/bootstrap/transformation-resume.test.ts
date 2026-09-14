@@ -101,6 +101,7 @@ it('completes only after a successful non-dry-run scaffold', async () => {
   }, apply)).toEqual([]);
 
   expect(() => assertTransformationAuthority(root, obligation)).not.toThrow();
+  expect(() => assertTransformationAuthority(root, null)).toThrow();
   const failure = new Error('scaffold failed');
 
   await expect(completeTransformationRetirement(root, { retirement: [], log: () => {} },
@@ -113,6 +114,39 @@ it('completes only after a successful non-dry-run scaffold', async () => {
     retirement: [], log: () => {},
   }, apply)).toEqual([]);
 
+  expect(() => assertTransformationAuthority(root, null)).not.toThrow();
+  expect(() => assertTransformationAuthority(root, obligation)).not.toThrow();
+});
+
+it('cleans playbooks before completing authority and removes the obligation last', async () => {
+  const content = record();
+  const obligation = readTransformationObligation(root)!;
+
+  const retirement = [TRANSFORMATION_OBLIGATION_FILE, project.AUTHORING_FILE].map((file) => ({
+    kind: 'rm' as const, path: file, note: renderTransformationRetireNote(file),
+  }));
+
+  fs.writeFileSync(path.join(root, project.AUTHORING_FILE), 'playbook');
+
+  const scaffold = vi.fn(async (trailing) => {
+    expect(trailing).toEqual([retirement[1]]);
+
+    expect(fs.readFileSync(path.join(root, TRANSFORMATION_OBLIGATION_FILE), 'utf8'))
+      .toBe(content);
+
+    expect(() => assertTransformationAuthority(root, null)).toThrow();
+    fs.rmSync(path.join(root, project.AUTHORING_FILE));
+
+    return trailing;
+  });
+
+  expect(await completeTransformationRetirement(root, {
+    retirement, log: () => {},
+  }, scaffold)).toEqual([retirement[1], retirement[0]]);
+
+  expect(scaffold).toHaveBeenCalledOnce();
+  expect(fs.existsSync(path.join(root, TRANSFORMATION_OBLIGATION_FILE))).toBe(false);
+  expect(fs.existsSync(path.join(root, project.AUTHORING_FILE))).toBe(false);
   expect(() => assertTransformationAuthority(root, null)).not.toThrow();
   expect(() => assertTransformationAuthority(root, obligation)).not.toThrow();
 });

@@ -279,11 +279,13 @@ describe('verifyTransformationObligation origin inventory', () => {
       },
     ];
 
-    expect(codes({ root: dir, obligation: changed })).toEqual(expect.arrayContaining([
-      'duplicate-origin-unit',
-      'origin-source-mismatch',
-      'unrecorded-origin-source',
-      'origin-role-mismatch',
+    expect(verifyTransformationObligation({
+      root: dir, obligation: changed, blueprint: blueprint(), state: state(dir), git: git(dir),
+    }).failures).toEqual(expect.arrayContaining([
+      { code: 'duplicate-origin-unit' },
+      { code: 'origin-source-mismatch', subject: 'containers' },
+      { code: 'unrecorded-origin-source', subject: 'containers/Added' },
+      { code: 'origin-role-mismatch', subject: 'containers' },
     ]));
   });
 
@@ -391,9 +393,11 @@ describe('verifyTransformationObligation decisions', () => {
     changed.origin.sources[1].members = ['../outside', 'src/containers/Login.ts'];
     write(dir, 'src/containers/Login.ts', 'export const old = 1;\n');
 
-    expect(codes({ root: dir, obligation: changed })).toEqual(expect.arrayContaining([
-      'unsafe-source-member',
-      'source-member-remains',
+    expect(verifyTransformationObligation({
+      root: dir, obligation: changed, blueprint: blueprint(), state: state(dir), git: git(dir),
+    }).failures).toEqual(expect.arrayContaining([
+      { code: 'unsafe-source-member', subject: '../outside' },
+      { code: 'source-member-remains', subject: 'src/containers/Login.ts' },
     ]));
   });
 

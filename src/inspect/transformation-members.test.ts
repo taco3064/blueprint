@@ -204,3 +204,111 @@ describe('member authority boundaries', () => {
     },
   );
 });
+
+describe('member proof fail-closed controls', () => {
+  it('rejects failed Git reads even when stdout matches the destination', () => {
+    const context = fixture();
+
+    expect(memberFailures({ ...context, git: (args) => ({
+      status: args[0] === 'show' ? 1 : 0,
+      stdout: args[0] === 'show' ? 'import \'./original\';\nexport const value = 1;\n' : '',
+      stderr: '',
+    }) })).toEqual([{
+      code: 'member-identity-unproven', subject: 'src/containers/A.ts', expected: 'destination.ts',
+    }]);
+  });
+
+  it('never treats two unparsable source bodies as matching identities', () => {
+    const context = fixture();
+
+    fs.writeFileSync(path.join(context.root, 'destination.ts'), 'export const = ;');
+
+    expect(memberFailures({ ...context, git: (args) => ({
+      status: 0, stdout: args[0] === 'show' ? 'export const = ;' : '', stderr: '',
+    }) })).toEqual([{
+      code: 'member-identity-unproven', subject: 'src/containers/A.ts', expected: 'destination.ts',
+    }]);
+  });
+
+  it('accepts non-leading colons without interpreting them as drive roots', () => {
+    const context = fixture();
+
+    context.obligation.origin.applicationRoot = 'apps/name:variant';
+
+    expect(memberFailures({ ...context, git: (args) => ({
+      status: 0,
+      stdout: args[0] === 'show' ? 'import \'./original\';\nexport const value = 1;\n' : '',
+      stderr: '',
+    }) })).toEqual([]);
+  });
+
+  it('normalizes whitespace-only empty Git inventory output', () => {
+    const context = fixture();
+    const reader = context.git;
+
+    expect(memberFailures({ ...context, git: (args, cwd) => args[0] === 'ls-tree'
+      ? { status: 0, stdout: ' \r\n\t', stderr: '' }
+      : reader(args, cwd) })).toEqual([]);
+  });
+});
+
+describe('member mapping collection controls', () => {
+  it('does not emit member findings or read Git outside a safe origin scope', () => {
+    const context = fixture();
+
+    context.obligation.origin.applicationRoot = '..';
+
+    expect(memberFailures({ ...context, git: () => {
+      throw new Error('must not read');
+    } })).toEqual([]);
+  });
+
+  it('leaves an empty unknown-unit decision to the separate unit authority check', () => {
+    const context = fixture();
+
+    context.obligation.target.decisions = [{ source: 'unknown', members: [], destinations: [] }];
+    expect(memberFailures(context)).toEqual([]);
+  });
+
+  it('rejects surplus destinations without member evidence', () => {
+    const context = fixture();
+
+    context.obligation.target.decisions[0].destinations.push('extra.ts');
+
+    expect(memberFailures(context))
+      .toEqual([{ code: 'member-mapping-incomplete', subject: 'containers' }]);
+  });
+
+  it.each(['mixed-duplicates', 'mixed-destinations'])(
+    'rejects partial mapping coverage with %s', (variant) => {
+      const context = fixture();
+      const decision = context.obligation.target.decisions[0];
+
+      context.obligation.origin.sources[0].members = ['src/containers/A.ts', 'src/containers/B.ts'];
+      decision.members.push({ source: 'src/containers/B.ts', destination: 'second.ts' });
+      decision.destinations.push('second.ts');
+
+      fs.copyFileSync(
+        path.join(context.root, 'destination.ts'), path.join(context.root, 'second.ts'),
+      );
+
+      if (variant === 'mixed-duplicates') {
+        context.obligation.origin.sources[0].members.push('src/containers/C.ts');
+        decision.members.push({ source: 'src/containers/B.ts', destination: 'third.ts' });
+        decision.destinations.push('third.ts');
+
+        fs.copyFileSync(
+          path.join(context.root, 'destination.ts'), path.join(context.root, 'third.ts'),
+        );
+      } else {
+        decision.destinations[1] = 'third.ts';
+      }
+
+      expect(memberFailures({ ...context, git: (args) => ({
+        status: 0,
+        stdout: args[0] === 'show' ? 'import \'./original\';\nexport const value = 1;\n' : '',
+        stderr: '',
+      }) })).toEqual([{ code: 'member-mapping-incomplete', subject: 'containers' }]);
+    },
+  );
+});
