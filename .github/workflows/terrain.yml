@@ -53,7 +53,7 @@ jobs:
       - name: Run the adoption
         run: |
           cd ${{ runner.temp }}/app
-          node $GITHUB_WORKSPACE/dist/bin.js init --no-install 2>&1 | tee init.log
+          node $GITHUB_WORKSPACE/dist/bin.js init --topology layer-first --no-install 2>&1 | tee init.log
 
       - name: Assert the terrain
         run: |
