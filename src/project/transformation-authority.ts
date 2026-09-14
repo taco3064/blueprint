@@ -60,7 +60,7 @@ function read(root: string, ref: string, exec: AuthorityGit): Authority | null {
 
   try {
     value = JSON.parse(result.stdout) as Authority;
-  } catch {
+  } catch /* Stryker disable next-line BlockStatement: fallthrough rejects undefined equally. */ {
     return fail('authority-unavailable', ref);
   }
 

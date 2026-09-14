@@ -36,6 +36,7 @@ describe('alias consumer static syntax', () => {
 
   it.each([
     ['src/<rootDir>/', 'src', 'missing'],
+    ['prefix/<rootDir>/src/$1', 'prefix/src', 'missing'],
     ['src/$1/extra', 'src/extra', 'missing'],
     ['<rootDir>/src/$1', 'src', 'verified'],
   ])('recognizes only anchored Jest substitutions %s', (target, sourceRoot, expected) => {

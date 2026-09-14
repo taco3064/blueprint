@@ -250,11 +250,13 @@ function packageRecord(text: string | null): Record<string, unknown> | null {
 }
 
 function packageDependencies(pkg: Record<string, unknown> | null): Set<string> {
+  // Stryker disable next-line ArrayDeclaration: the sentinel is not a recognized package
+  const absent: string[] = [];
+
   const keys = ['dependencies', 'devDependencies'].flatMap((field) =>
     isRecord(pkg?.[field])
       ? Object.keys(pkg[field])
-      // Stryker disable next-line ArrayDeclaration: the sentinel is not a recognized package
-      : []);
+      : absent);
 
   return new Set(keys);
 }

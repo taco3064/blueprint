@@ -117,7 +117,7 @@ it.each(['for-each-ref', 'cat-file'])('fails closed when %s cannot read authorit
   const h = harness();
 
   const exec: AuthorityGit = (args, cwd, input) => args[0] === command
-    ? { status: 1, stdout: '' }
+    ? { status: 1, stdout: JSON.stringify({ status: 'pending', obligation }) }
     : h.exec(args, cwd, input);
 
   expect(() => assertTransformationAuthority(root, obligation, exec)).toThrow('unavailable');
@@ -197,4 +197,31 @@ it('refuses completion of changed origin before writing either a Git object or r
 
   expect(h.calls.filter(({ args }) => ['hash-object', 'update-ref'].includes(args[0])))
     .toEqual([]);
+});
+
+it('stops immediately when the repository ref identity cannot be resolved', () => {
+  const exec = vi.fn<AuthorityGit>(() => ({ status: 1, stdout: '' }));
+
+  expect(() => writeTransformationAuthority(root, obligation, { status: 'pending', git: exec }))
+    .toThrow('Git transformation authority is unavailable');
+
+  expect(exec.mock.calls).toEqual([[['rev-parse', '--show-toplevel'], root]]);
+});
+
+it('refuses whitespace-only Git object identity before updating the authority ref', () => {
+  const h = harness(null);
+
+  const exec = vi.fn<AuthorityGit>((args, cwd, input) => {
+    if (args[0] === 'hash-object') {
+      return { status: 0, stdout: ' \r\n\t' };
+    }
+
+    return h.exec(args, cwd, input);
+  });
+
+  expect(() => writeTransformationAuthority(root, obligation, { status: 'pending', git: exec }))
+    .toThrow('Git transformation authority could not be saved');
+
+  expect(exec.mock.calls.some(([args]) => args[0] === 'update-ref')).toBe(false);
+  expect(h.current()).toBeNull();
 });
