@@ -123,7 +123,13 @@ function textConfigEvidence(scope: {
       && hasTsconfigPathsBridge(entry.text as string)
       && typescriptAliases[alias] === targets[alias];
 
-    return bridged && reading === 'absent' ? 'verified' : reading;
+    if (bridged && reading === 'absent') {
+      return 'verified';
+    }
+
+    return reading === 'absent' && packageRecord(entry.text as string) === null
+      ? 'unknown'
+      : reading;
   }));
 
   const unknown = readings.some((reading) => reading === 'unknown');

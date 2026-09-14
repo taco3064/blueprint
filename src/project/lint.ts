@@ -15,7 +15,8 @@ export interface LintEntrypointAssessment {
 export function assessLintEntrypoint(
   pkg: { scripts: Record<string, string> },
 ): LintEntrypointAssessment {
-  const entrypoint = pkg.scripts.lint ?? null;
+  const name = pkg.scripts.lint === undefined ? 'eslint' : 'lint';
+  const entrypoint = pkg.scripts[name] ?? null;
 
   if (entrypoint === null) {
     return {
@@ -27,12 +28,12 @@ export function assessLintEntrypoint(
     };
   }
 
-  const result = pathToEslint(pkg.scripts);
+  const result = pathToEslint(pkg.scripts, name);
 
   return {
     reachable: result !== null,
     entrypoint,
-    scriptPath: result?.path ?? ['lint'],
+    scriptPath: result?.path ?? [name],
     eslint: result?.eslint ?? null,
     reason: result === null ? 'eslint-unreachable' : 'eslint-reachable',
   };
@@ -40,9 +41,10 @@ export function assessLintEntrypoint(
 
 function pathToEslint(
   scripts: Record<string, string>,
+  name: string,
 ): { path: string[]; eslint: EslintInvocation } | null {
-  const queue: ScriptVisit[] = [{ name: 'lint', path: ['lint'], args: [], isolated: true }];
-  const visited = new Set<string>(['lint']);
+  const queue: ScriptVisit[] = [{ name, path: [name], args: [], isolated: true }];
+  const visited = new Set<string>([name]);
   const found: { path: string[]; eslint: EslintInvocation }[] = [];
   const search = { queue, visited, found };
 

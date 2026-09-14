@@ -124,6 +124,6 @@ function renderFolderFinding(fact: FolderFindingFact): string {
         + 'is about the ban, not about the entry. Check `blueprint rules --json` for the emit '
         + 'points before merging.';
     case 'no-entry':
-      return `Unit "${fact.unit}" has no "${fact.entry}" entry — nothing is importable from outside.`;
+      return `Unit "${fact.unit}" has no "${fact.entry}" entry — the declared folder-unit public entry is missing.`;
   }
 }

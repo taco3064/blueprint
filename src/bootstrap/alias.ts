@@ -5,6 +5,7 @@ import type { ArchitectureDef } from '../config';
 import { parseJsonc, pathAliasKeys, quotedIn, toolchainForProject } from '../project';
 import type { ProjectToolchain, ProjectState } from '../project';
 import { wireTsconfigPaths, wireViteAlias } from './wire';
+import { insertJsonMembers } from './alias-json';
 import type { Action } from './types';
 import {
   renderAliasAddedNote,
@@ -58,15 +59,29 @@ export function patchTsconfigPaths(
     return { kind: 'noop' };
   }
 
-  const patched = {
-    ...config,
-    compilerOptions: {
-      ...options,
-      paths: { ...existing, ...Object.fromEntries(missing) },
-    },
-  };
+  if ('paths' in options && !isRecord(options.paths)) {
+    return { kind: 'unparseable' };
+  }
 
-  return { kind: 'patched', text: render(patched) };
+  const patched = insertAliasPaths(text, { config, options }, Object.fromEntries(missing));
+
+  return patched === null ? { kind: 'unparseable' } : { kind: 'patched', text: patched };
+}
+
+function insertAliasPaths(
+  text: string,
+  context: { config: Record<string, unknown>; options: Record<string, unknown> },
+  additions: Record<string, string[]>,
+): string | null {
+  const { config, options } = context;
+
+  if (isRecord(options.paths)) {
+    return insertJsonMembers(text, ['compilerOptions', 'paths'], additions);
+  }
+
+  return isRecord(config.compilerOptions)
+    ? insertJsonMembers(text, ['compilerOptions'], { paths: additions })
+    : insertJsonMembers(text, [], { compilerOptions: { paths: additions } });
 }
 
 function jsoncAlreadyWired(text: string, paths: Record<string, string[]>): boolean {

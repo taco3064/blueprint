@@ -7,6 +7,7 @@ import {
   renderInvalidAgent,
   renderInvalidTopology,
   renderUnknownFlag,
+  renderUnexpectedInspectPath,
 } from '../operational-contract';
 import type { OperationalCommand } from '../operational-contract';
 import type { SurveyOptions } from '../survey';
@@ -104,7 +105,7 @@ export function parseInspectArgs(args: string[]): InspectOptions {
   const rest = [...args];
 
   while (rest.length) {
-    const arg = rest.shift();
+    const arg = rest.shift()!;
 
     if (arg === '--json') {
       options.json = true;
@@ -114,6 +115,8 @@ export function parseInspectArgs(args: string[]): InspectOptions {
       options.updateBaseline = true;
     } else if (arg === '--framework') {
       options.framework = parseFramework(rest.shift()) ?? options.framework;
+    } else if (!arg.startsWith('-')) {
+      throw new Error(renderUnexpectedInspectPath(arg));
     }
   }
 

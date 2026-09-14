@@ -155,19 +155,28 @@ function renderAdoptionCheck(fact: AdoptionCheckFact): DoctorCheckView {
               + 'eslint.config.blueprint.mjs)',
       };
     case 'lint-entrypoint':
-      return {
-        label: 'normal lint entrypoint reaches eslint',
-        ok: fact.reachable,
-        detail: fact.reachable
-          ? undefined
-          : fact.reason === 'missing-lint'
-            ? 'package.json has no `lint` script — add one that runs eslint so the generated '
-            + 'architecture rules execute on the normal lint path'
-            : `package.json lint runs \`${fact.entrypoint}\`, but no reachable delegated `
-              + 'script runs eslint — wire eslint into lint or an ordinary npm/pnpm/yarn '
-              + 'script it calls',
-      };
+      return renderLintEntrypoint(fact);
   }
+}
+
+function renderLintEntrypoint(
+  fact: Extract<DoctorCheckFact, { kind: 'lint-entrypoint' }>,
+): DoctorCheckView {
+  const label = 'normal lint entrypoint reaches eslint';
+
+  if (fact.reachable) {
+    return { label, ok: true, detail: undefined };
+  }
+
+  if (fact.reason === 'missing-lint') {
+    return { label, ok: true,
+      skipped: 'No recognised lint or eslint script; the normal lint entrypoint '
+        + 'could not be determined. Expose it through a lint script to verify this check.' };
+  }
+
+  return { label, ok: false,
+    detail: `package.json lint entrypoint runs \`${fact.entrypoint}\`, but no reachable delegated `
+      + 'script runs eslint — wire eslint into lint or an ordinary npm/pnpm/yarn script it calls' };
 }
 
 function renderTransformation(fact: TransformationCheckFact): DoctorCheckView {
@@ -374,7 +383,7 @@ function renderLiveLint(
     return {
       label: `${label} (skipped — no reachable eslint leg)`,
       ok: true,
-      skipped: 'the normal lint entrypoint check above is the red for that',
+      skipped: 'see the normal lint entrypoint check above for the missing or unverified path',
     };
   }
 

@@ -354,3 +354,20 @@ describe('analyze · a finding\'s subject is content, not the order it was walke
     expect(finding?.message).toContain('provide, inject');
   });
 });
+
+it('does not describe an imported file barrel as physically unimportable', () => {
+  const blueprint = defineBlueprint({ framework: 'vue', architecture: {
+    alias: '~app', layers: [{ name: 'directives', does: 'Directives', layout: 'folder' }],
+  } });
+
+  const findings = analyze(scanOf([
+    file(['directives', 'index.ts']),
+    file(['main.ts'], [{ specifier: '~app/directives/index' }]),
+  ], ['directives']), blueprint);
+
+  const finding = findings.find((item) => item.rule === 'no-entry');
+
+  expect(finding).toMatchObject({ severity: 'warn', path: 'src/directives/index' });
+  expect(finding?.message).toContain('declared folder-unit public entry is missing');
+  expect(finding?.message).not.toContain('nothing is importable');
+});
