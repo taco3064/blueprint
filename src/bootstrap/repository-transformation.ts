@@ -16,12 +16,13 @@ import {
 } from '../operational-contract';
 import {
   AUTHORING_FILE,
+  writeTransformationAuthority,
   claudeDirState,
   detect,
   TRANSFORMATION_OBLIGATION_FILE,
   transformationObligationSource,
 } from '../project';
-import type { RepositoryBlueprint } from '../project';
+import type { LayerToModuleObligation, RepositoryBlueprint } from '../project';
 import {
   collectModuleToLayerEvidence,
   collectTransformationEvidence,
@@ -94,9 +95,6 @@ export async function runRepositoryTopologyTransformation(
     current: input.topology.current!,
   };
 
-  const sections = applications.map((application) =>
-    renderApplication(application, renderContext));
-
   const actions: Action[] = [
     {
       kind: 'write',
@@ -105,7 +103,7 @@ export async function runRepositoryTopologyTransformation(
         current: input.topology.current!,
         target: input.topology.target!,
         applications: applications.map((application) => application.relativeRoot),
-        sections,
+        sections: applications.map((application) => renderApplication(application, renderContext)),
         cleanup: launcher.cleanup,
       }),
       note: renderTransformationWriteNote('repository', AUTHORING_FILE),
@@ -139,6 +137,8 @@ export async function runRepositoryTopologyTransformation(
     return actions;
   }
 
+  registerAuthorities(applications, input.topology.current!);
+
   apply(repositoryRoot, actions, {
     // Stryker disable next-line LogicalOperator: no install action means exec is inert.
     exec: input.options.exec ?? defaultExec,
@@ -155,7 +155,23 @@ export async function runRepositoryTopologyTransformation(
   return actions;
 }
 
-function repositoryObligationAction(application: ApplicationEvidence): Action {
+function registerAuthorities(
+  applications: ApplicationEvidence[],
+  current: 'layer-first' | 'module-first',
+): void {
+  if (current === 'layer-first') {
+    for (const application of applications) {
+      const action = repositoryObligationAction(application);
+
+      writeTransformationAuthority(application.blueprint.applicationRoot,
+        JSON.parse(action.content) as LayerToModuleObligation, { status: 'pending' });
+    }
+  }
+}
+
+function repositoryObligationAction(
+  application: ApplicationEvidence,
+): Extract<Action, { kind: 'write' }> {
   const { blueprint, state, preflight, relativeRoot } = application;
   const sourceRoot = resolveArchitecture(blueprint.architecture).sourceRoot;
   const survey = runSurvey(blueprint.applicationRoot, { log: () => {}, sourceRoot });

@@ -48,6 +48,7 @@ export const scenarios = [
       ['src/pages/Admin/index.ts', 'src/app/Admin.ts'],
       ['src/containers/Login/index.ts', 'src/auth/components/Login.ts'],
       ['src/containers/Register/index.ts', 'src/auth/components/Register.ts'],
+      ['src/containers/Admin/index.ts', 'src/users/components/Admin.ts'],
       ['src/containers/Admin/Users.ts', 'src/users/components/Users.ts'],
       ['src/containers/Admin/Billing.ts', 'src/billing/components/Billing.ts'],
       ['src/components/AuthForm/index.ts', 'src/auth/components/AuthForm.ts'],
@@ -55,21 +56,17 @@ export const scenarios = [
       ['src/services/session/index.ts', 'src/auth/services/session.ts'],
       ['src/legacy/Logo.ts', 'src/ui/components/Logo.ts'],
     ],
-    deletes: ['src/containers/Admin/index.ts'],
+    deletes: [],
     rewrites: {
       'src/app/Login.ts': 'import \'~app/auth/components/Login\';\nexport const page = 1;\n',
       'src/app/Register.ts': 'import \'~app/auth/components/Register\';\nexport const page = 1;\n',
-      'src/app/Admin.ts': [
-        'import \'~app/users/components/Users\';',
-        'import \'~app/billing/components/Billing\';',
-        'export const page = 1;',
-      ].join('\n'),
+      'src/app/Admin.ts': 'import \'~app/users/components/Admin\';\nexport const page = 1;\n',
       'src/auth/components/Login.ts': [
         'import \'./AuthForm\';',
         'void import(\'~app/auth/services/session\');',
         'export const Login = 1;',
       ].join('\n'),
-      'src/auth/components/Register.ts': 'import \'./AuthForm\';\nexport const Register = 1;\n',
+      'src/auth/components/Register.ts': 'import \'./AuthForm\';\nexport const Register = 1;',
       'src/auth/components/AuthForm.ts': [
         'import \'~app/ui/components/Button\';',
         'export const AuthForm = 1;',

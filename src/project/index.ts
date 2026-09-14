@@ -26,7 +26,7 @@ export type { ResolveOptions } from './resolve';
 export type { PackageManager, ProjectState } from './types';
 export { surveyScope, toolchainForProject, toolchainForSource } from './scope';
 export type { ProjectToolchain, SurveyScope } from './scope';
-export { resolveProjectContext } from './context';
+export { relativeFilesystemPath, resolveProjectContext } from './context';
 export type { PackageMetadata, ProjectContext } from './context';
 export { assessLintEntrypoint } from './lint';
 export type { LintEntrypointAssessment } from './lint';
@@ -51,3 +51,8 @@ export type {
   AliasConsumerEvidence,
   AliasConsumerStatus,
 } from './alias-consumers';
+
+export {
+  assertTransformationAuthority, writeTransformationAuthority,
+} from './transformation-authority';
+export type { AuthorityGit } from './transformation-authority';

@@ -3,13 +3,13 @@ import path from 'node:path';
 
 import { resolveArchitecture } from '../config';
 import type { Blueprint, ResolvedArchitecture } from '../config';
-import { defaultGitReader } from '../project';
+import { defaultGitReader, relativeFilesystemPath } from '../project';
 import type {
   GitReader, LayerToModuleObligation, ProjectState, TransformationObligationFailure,
   TransformationSource,
 } from '../project';
 import { analyze } from './analyze';
-import { BASELINE_FILE, parseBaseline, splitByBaseline } from './baseline';
+import { memberFailures } from './transformation-members';
 import { importAnalysis, scan } from './scan';
 
 export interface TransformationObligationResult {
@@ -40,7 +40,7 @@ export function verifyTransformationObligation(input: {
 
   const failures = [
     ...authorityFailures(context), ...inventoryFailures(context),
-    ...decisionFailures(context), ...finalFailures(context),
+    ...decisionFailures(context), ...memberFailures(context), ...finalFailures(context),
   ];
 
   return { ok: failures.length === 0, failures };
@@ -52,7 +52,7 @@ function authorityFailures(context: Context): TransformationObligationFailure[] 
   const head = git(['rev-parse', 'HEAD'], root);
 
   const relativeRoot = repositoryRoot
-    ? path.relative(repositoryRoot, root).split(path.sep).join('/') || '.'
+    ? relativeFilesystemPath(repositoryRoot, root).split(path.sep).join('/') || '.'
     : '';
 
   failures.push(...originPositionFailures(context, relativeRoot));
@@ -79,11 +79,11 @@ function authorityFailures(context: Context): TransformationObligationFailure[] 
 function originPositionFailures(
   context: Context, relativeRoot: string,
 ): TransformationObligationFailure[] {
-  const { root, repositoryRoot, obligation, resolved } = context;
+  const { obligation, resolved } = context;
   const failures: TransformationObligationFailure[] = [];
 
-  if (!safePath(repositoryRoot || root, obligation.origin.applicationRoot)
-    || !safePath(root, obligation.origin.sourceRoot)) {
+  if (!safePath(obligation.origin.applicationRoot)
+    || !safePath(obligation.origin.sourceRoot)) {
     failures.push(failure('unsafe-origin-scope'));
   }
 
@@ -101,6 +101,11 @@ function originPositionFailures(
 
 function inventoryFailures(context: Context): TransformationObligationFailure[] {
   const expected = committedSources(context);
+
+  if (expected === null) {
+    return [failure('origin-inventory-unavailable', { expected: context.obligation.origin.head })];
+  }
+
   const listed = context.obligation.origin.sources;
   const recorded = new Map(listed.map((source) => [source.unit, source]));
   const failures: TransformationObligationFailure[] = [];
@@ -139,26 +144,28 @@ function sourceIdentityFailures(
   return [...changed, ...added];
 }
 
-function committedSources(context: Context): Map<string, TransformationSource> {
-  const { git, root, obligation } = context;
+function committedSources(context: Context): Map<string, TransformationSource> | null {
+  const { git, obligation } = context;
 
-  if (!safePath(context.repositoryRoot || root, obligation.origin.applicationRoot)
-    || !safePath(root, obligation.origin.sourceRoot)) {
+  if (!safePath(obligation.origin.applicationRoot)
+    || !safePath(obligation.origin.sourceRoot)) {
     return new Map();
   }
 
   const result = git(['ls-tree', '-r', '--name-only', obligation.origin.head, '--',
     repositoryPath(context, obligation.origin.sourceRoot)], context.repositoryRoot);
 
+  if (result.status !== 0) {
+    return null;
+  }
+
   const applicationPrefix = obligation.origin.applicationRoot === '.'
     ? ''
     : `${obligation.origin.applicationRoot}/`;
 
-  const files = result.status === 0
-    ? result.stdout.split('\n')
-        .filter((file) => /\.(?:js|jsx|ts|tsx|mjs|cjs|vue)$/.test(file))
-        .map((file) => file.slice(applicationPrefix.length))
-    : [];
+  const files = result.stdout.split(/\r?\n/)
+    .filter((file) => /\.(?:js|jsx|ts|tsx|mjs|cjs|vue)$/.test(file))
+    .map((file) => file.slice(applicationPrefix.length));
 
   const sources = new Map<string, TransformationSource>();
 
@@ -224,7 +231,7 @@ function sourceFailures(
   }
 
   return [
-    ...source.members.flatMap((member) => !safePath(context.root, member)
+    ...source.members.flatMap((member) => !safePath(member)
       ? [failure('unsafe-source-member', { subject: member })]
       : fs.existsSync(path.join(context.root, member)) && !source.unit.startsWith('app/')
         ? [failure('source-member-remains', { subject: member })]
@@ -236,7 +243,7 @@ function sourceFailures(
 function destinationFailures(
   context: Context, source: TransformationSource, value: string,
 ): TransformationObligationFailure[] {
-  if (!safePath(context.root, value) || !safeExistingPath(context.root, value)) {
+  if (!safePath(value) || !safeExistingPath(context.root, value)) {
     return [failure('unsafe-destination', { subject: value })];
   }
 
@@ -252,7 +259,8 @@ function destinationFailures(
       : [failure('route-destination-not-app', { subject: value })];
   }
 
-  return position !== null && 'module' in position && position.module?.name !== 'app'
+  return position !== null && 'module' in position
+    && position.module !== null && position.module.name !== 'app'
     ? []
     : [failure('container-destination-not-module', { subject: value })];
 }
@@ -263,7 +271,8 @@ function safeExistingPath(root: string, value: string): boolean {
     const realValue = fs.realpathSync(path.join(root, value));
     const relative = path.relative(realRoot, realValue);
 
-    return relative !== '..' && !relative.startsWith(`..${path.sep}`);
+    return !path.isAbsolute(relative)
+      && relative !== '..' && !relative.startsWith(`..${path.sep}`);
   } catch {
     return true;
   }
@@ -302,16 +311,10 @@ function currentArchitectureFailures(
   const { root, resolved, blueprint, state } = context;
   const currentScan = scan(root, resolved.sourceRoot);
   const findings = analyze(currentScan, blueprint, state.dependencies);
-  const baselineFile = path.join(root, BASELINE_FILE);
-
-  const baseline = fs.existsSync(baselineFile)
-    ? parseBaseline(fs.readFileSync(baselineFile, 'utf8'))
-    : [];
 
   return {
     parseFailures: importAnalysis(currentScan).parseFailures.length,
-    errors: splitByBaseline(findings, baseline).fresh
-      .filter((finding) => finding.severity === 'error').length,
+    errors: findings.filter((finding) => finding.severity === 'error').length,
   };
 }
 
@@ -335,12 +338,12 @@ function repositoryPath(context: Context, value: string): string {
     : `${context.obligation.origin.applicationRoot}/${value}`;
 }
 
-function safePath(root: string, value: string): boolean {
-  if (!value || path.isAbsolute(value)) {
+function safePath(value: string): boolean {
+  if (!value || path.win32.parse(value).root) {
     return false;
   }
 
-  const relative = path.relative(root, path.resolve(root, value));
+  const relative = path.posix.normalize(value.replaceAll('\\', '/'));
 
-  return relative !== '..' && !relative.startsWith(`..${path.sep}`);
+  return relative !== '..' && !relative.startsWith('../');
 }

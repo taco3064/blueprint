@@ -170,7 +170,7 @@ export function renderTransformationObligationError(fact:
   if (fact.kind === 'reauthoring') {
     return operationalText(
       'Explicit re-authoring does not complete the recorded LF→MF transformation. '
-      + `Resolve or intentionally remove ${fact.file} before starting a new authoring flow.`,
+      + `Complete the recorded member transfers in ${fact.file} and retire the obligation before starting a new authoring flow. Deleting that file does not retire the Git authority.`,
     );
   }
 
@@ -184,8 +184,21 @@ export function renderObligationFailure(fact: TransformationObligationFailure): 
   const actual = fact.actual || '0';
 
   const labels: Record<string, string> = {
+    'authority-unavailable': 'Git transformation authority is unavailable; restore repository '
+      + 'access before retrying',
+    'authority-missing': 'the pending Git transformation authority requires its decision file; '
+      + 'restore blueprint-transformation.json and complete verification',
+    'authority-origin-changed': 'the decision file origin differs from the retained Git '
+      + 'transformation authority; restore the recorded origin before retrying',
+    'authority-write-failed': 'Git transformation authority could not be saved; restore '
+      + 'repository write access before retrying',
+    'topology-request-conflict': 'the requested topology conflicts with the pending '
+      + 'module-first transformation; complete and retire it with module-first '
+      + 'before requesting another topology',
     'repository-root-unavailable': 'repository root is unavailable',
     'origin-head-changed': `HEAD must remain at the recorded origin ${expected}`,
+    'origin-inventory-unavailable': `Git source inventory is unavailable at ${expected}; `
+      + 'restore access to the recorded commit before retrying',
     'framework-changed': 'framework changed',
     'router-changed': 'framework router position changed',
     'unsafe-origin-scope': 'recorded application or source scope is unsafe',
@@ -198,6 +211,13 @@ export function renderObligationFailure(fact: TransformationObligationFailure): 
     'duplicate-decision': `duplicate decision for ${subject}`,
     'unknown-decision-source': `unrecorded decision source ${subject}`,
     'missing-destination-decision': `recorded source ${subject} has no destination decision`,
+    'member-mapping-incomplete': `member mapping is incomplete for ${subject}; `
+      + 'map every origin member exactly once',
+    'member-destination-reused': `destination ${subject} is reused; `
+      + 'assign each member a distinct destination',
+    'member-identity-unproven': `transfer identity is unproven for ${subject} → ${expected}; `
+      + 'preserve the Git origin content in a new destination, '
+      + 'allowing only import/export path rewrites',
     'unsafe-source-member': `unsafe source member: ${subject}`,
     'source-member-remains': `source member still exists: ${subject}`,
     'unsafe-destination': `unsafe destination: ${subject}`,

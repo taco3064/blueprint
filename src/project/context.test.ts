@@ -8,6 +8,7 @@ import {
   directoriesToBoundary,
   resolveProjectContext,
   sameFilesystemPath,
+  relativeFilesystemPath,
 } from './context';
 import { detect } from './detect';
 import { toolchainForSource } from './scope';
@@ -149,6 +150,7 @@ describe('resolveProjectContext', () => {
     });
 
     expect(sameFilesystemPath('.', process.cwd())).toBe(true);
+    expect(relativeFilesystemPath('.', path.join(process.cwd(), 'Apps'))).toBe('Apps');
 
     realpath.mockRestore();
   });
@@ -360,5 +362,16 @@ describe('resolveProjectContext · package metadata', () => {
       toolchainRoot: workspace,
       hasTypescript: true,
     });
+  });
+});
+
+describe('relativeFilesystemPath', () => {
+  it('resolves filesystem aliases while preserving relative directory casing', () => {
+    const realpath = vi.spyOn(fs.realpathSync, 'native').mockImplementation((value) =>
+      String(value).replace('alias', 'real'));
+
+    expect(relativeFilesystemPath('/real', '/alias/Apps/Web')).toBe(path.join('Apps', 'Web'));
+    expect(relativeFilesystemPath('/real', '/alias')).toBe('');
+    realpath.mockRestore();
   });
 });

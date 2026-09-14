@@ -121,14 +121,21 @@ export function directoriesToBoundary(start: string, boundary: string): string[]
 }
 
 export function sameFilesystemPath(left: string, right: string): boolean {
-  return canonicalPath(left) === canonicalPath(right);
+  const canonicalLeft = canonicalPath(left);
+  const canonicalRight = canonicalPath(right);
+
+  return process.platform === 'win32'
+    ? canonicalLeft.toLowerCase() === canonicalRight.toLowerCase()
+    : canonicalLeft === canonicalRight;
+}
+
+export function relativeFilesystemPath(from: string, to: string): string {
+  return path.relative(canonicalPath(from), canonicalPath(to));
 }
 
 function canonicalPath(value: string): string {
   try {
-    const real = path.normalize(fs.realpathSync.native(value));
-
-    return process.platform === 'win32' ? real.toLowerCase() : real;
+    return path.normalize(fs.realpathSync.native(value));
   } catch {
     return path.resolve(value);
   }

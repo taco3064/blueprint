@@ -14,6 +14,7 @@ export interface TransformationSource {
 export interface TransformationDecision {
   source: string;
   destinations: string[];
+  members: { source: string; destination: string }[];
 }
 
 export interface LayerToModuleObligation {
@@ -97,7 +98,10 @@ function validTarget(target: unknown): boolean {
     && Array.isArray(target.decisions)
     && target.decisions.every((decision) => record(decision)
       && typeof decision.source === 'string'
-      && stringArray(decision.destinations));
+      && stringArray(decision.destinations)
+      && Array.isArray(decision.members)
+      && decision.members.every((member) => record(member)
+        && strings(member, ['source', 'destination'])));
 }
 
 function record(value: unknown): value is Record<string, unknown> {

@@ -34,6 +34,7 @@ export async function assessLintIntegration(
     blueprint,
     scanResult,
     wired,
+    // Stryker disable next-line ConditionalExpression, EqualityOperator: only unused text changes.
     merged: state.ownedEslintConfig === undefined,
     hasTypescript: state.hasTypescript,
     load: load ?? loadProjectModule,

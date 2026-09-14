@@ -56,8 +56,12 @@ describe('plan · measured lint integration', () => {
       .toContain('not enforced by the project lint run');
   });
 
-  it('does not infer verification from a wiring marker', () => {
-    const actions = plan(state({ wiredEslintConfig: true }), bp);
+  it.each<Partial<ProjectState>>([
+    {},
+    { hasEslintConfig: true, wiredEslintConfig: true },
+    { hasEslintConfig: true, ownedEslintConfig: 'eslint.config.mjs' },
+  ])('does not infer verification from available wiring: %j', (existing) => {
+    const actions = plan(state(existing), bp);
 
     expect(write(actions, 'AGENTS.md')?.content)
       .toContain('effective project-lint wiring is unverified');

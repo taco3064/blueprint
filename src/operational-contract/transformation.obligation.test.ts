@@ -6,6 +6,7 @@ describe('transformation obligation diagnostics', () => {
   it.each([
     ['repository-root-unavailable', 'repository root is unavailable'],
     ['origin-head-changed', 'HEAD must remain at the recorded origin start'],
+    ['origin-inventory-unavailable', 'Git source inventory is unavailable at start'],
     ['framework-changed', 'framework changed'],
     ['router-changed', 'framework router position changed'],
     ['unsafe-origin-scope', 'recorded application or source scope is unsafe'],
@@ -20,6 +21,9 @@ describe('transformation obligation diagnostics', () => {
     ['missing-destination-decision', 'recorded source unit has no destination decision'],
     ['unsafe-source-member', 'unsafe source member: unit'],
     ['source-member-remains', 'source member still exists: unit'],
+    ['member-mapping-incomplete', 'member mapping is incomplete for unit'],
+    ['member-destination-reused', 'destination unit is reused'],
+    ['member-identity-unproven', 'transfer identity is unproven for unit → start'],
     ['unsafe-destination', 'unsafe destination: unit'],
     ['destination-missing', 'destination does not exist: unit'],
     ['route-destination-not-app', 'route destination is not under reserved app: unit'],

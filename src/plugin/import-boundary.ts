@@ -43,6 +43,7 @@ export const importBoundary: Rule.RuleModule = {
     const importerSegments = sourceSegments(
       context.filename,
       cwd,
+      // Stryker disable next-line OptionalChaining: undefined options already returned
       { sourceRoot: resolved.sourceRoot, basePath: options?.basePath },
     );
 

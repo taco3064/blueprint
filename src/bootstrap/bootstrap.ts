@@ -38,7 +38,9 @@ import * as legacyUpgrade from './legacy-upgrade';
 import { assertAuthoredConfigNotRewritten, assertInitOptions } from './init-options';
 import type { Action } from './types';
 import { freshAuthoringAgents } from './authoring-launcher';
-import { transformationRetirement } from './transformation-resume';
+import {
+  completeTransformationRetirement, transformationRetirement,
+} from './transformation-resume';
 import {
   renderActionLine,
   renderAgentSessionNote,
@@ -97,16 +99,18 @@ async function runPreparedTopology(
 
   const retirement = transformationRetirement({
     root, state, blueprint: resolved?.blueprint ?? null, authoring: options.authoring,
+    requestedTopology: options.topology,
   });
 
   if (retirement) {
-    return runScaffold(root, state, {
-      options,
-      log,
-      forkNote: null,
-      resolved,
-      trailingActions: retirement,
-    });
+    return completeTransformationRetirement(root, { retirement, dryRun: options.dryRun, log },
+      (trailingActions) => runScaffold(root, state, {
+        options,
+        log,
+        forkNote: null,
+        resolved,
+        trailingActions,
+      }));
   }
 
   assertTopologySupported(topology);

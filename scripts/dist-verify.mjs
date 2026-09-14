@@ -23,6 +23,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -85,6 +86,29 @@ function tempDir(prefix) {
   temps.push(dir);
 
   return dir;
+}
+
+function installedManifests(directory) {
+  if (!fs.existsSync(directory)) return [];
+
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    if (!entry.isDirectory() || entry.name.startsWith('.')) return [];
+
+    const location = path.join(directory, entry.name);
+
+    const packages = entry.name.startsWith('@')
+      ? fs.readdirSync(location).map((name) => path.join(location, name))
+      : [location];
+
+    return packages.flatMap((packageRoot) => {
+      const manifest = path.join(packageRoot, 'package.json');
+
+      return [
+        ...(fs.existsSync(manifest) ? [manifest] : []),
+        ...installedManifests(path.join(packageRoot, 'node_modules')),
+      ];
+    });
+  });
 }
 
 let packedTarballPath;
@@ -487,6 +511,18 @@ await check('a Yarn 1 packed consumer resolves the parser dependency tree', () =
 
   expect(installed.code === 0, `Yarn install exited ${installed.code}\n${installed.output}`);
   expect(installed.output.includes('yarn install v1.'), `expected Yarn 1\n${installed.output}`);
+
+  const packageRequire = createRequire(path.join(fixture, 'node_modules', pkg.name, 'package.json'));
+  const parserRequire = createRequire(packageRequire.resolve('blueprint-vue-parser/package.json'));
+  const { satisfies } = parserRequire('semver');
+
+  for (const manifest of installedManifests(path.join(fixture, 'node_modules'))) {
+    const dependency = JSON.parse(fs.readFileSync(manifest, 'utf-8'));
+
+    expect(!dependency.engines?.node || satisfies('18.18.0', dependency.engines.node),
+      `${dependency.name}@${dependency.version} requires ${dependency.engines?.node}, `
+      + 'excluding Node 18.18.0');
+  }
 
   fs.writeFileSync(
     path.join(fixture, 'blueprint.config.mjs'),

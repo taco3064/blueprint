@@ -13,12 +13,44 @@ describe('renderDoctorCheck · alias consumers', () => {
         aliases: ['~app'],
         files: ['tsconfig.json'],
       },
-    })).toMatchObject({
+    })).toEqual({
+      label: 'import alias · typescript',
       ok: true,
       consumer: 'typescript',
       status: 'verified',
       aliases: ['~app'],
       files: ['tsconfig.json'],
+    });
+  });
+
+  it.each([
+    ['.', './*'],
+    ['src', './src/*'],
+  ])('renders the missing TypeScript alias relative to %s', (sourceRoot, target) => {
+    const result = renderDoctorCheck({
+      kind: 'alias-consumer',
+      sourceRoot,
+      evidence: {
+        consumer: 'typescript', status: 'missing', aliases: ['~app'], files: ['tsconfig.json'],
+      },
+    });
+
+    expect(result.detail).toBe(`"~app" is missing — declare compilerOptions.paths ("~app/*": ["${target}"])`);
+    expect(result.ok).toBe(false);
+  });
+
+  it('explains non-applicability without implying unreadable configuration', () => {
+    expect(renderDoctorCheck({
+      kind: 'alias-consumer',
+      sourceRoot: 'src',
+      evidence: {
+        consumer: 'package-subpath', status: 'not-applicable', aliases: ['~app'], files: [],
+      },
+    })).toEqual({
+      label: 'import alias · package-subpath',
+      ok: true,
+      detail: 'the configured aliases are not package # subpaths',
+      consumer: 'package-subpath', status: 'not-applicable', aliases: ['~app'], files: [],
     });
   });
 

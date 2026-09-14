@@ -159,13 +159,24 @@ Layer-first → module-first work also creates this application-local, machine-c
 It records the recoverable Git head, application and source scope, framework/router position, and
 the measured `pages`, `app`, and `containers` source members. The Agent records every reviewed
 source → destination decision in `target.decisions`; replacing the config with a valid module-first
-config does not erase that obligation.
+config does not erase that obligation. Before writing the playbook, Blueprint retains the immutable
+origin in an application-scoped Git ref under `refs/blueprint/transformations/`. Deleting the JSON
+file or changing its origin blocks ordinary init until the recorded evidence is restored. These
+refs belong to this Git repository; ordinary clones do not transfer them automatically.
+
+Each decision includes `source`, `destinations`, and `members: [{ source, destination }]`. Every
+origin member must map exactly once to a globally unique destination. Blueprint compares its Git
+origin content with the destination, requiring the same source extension and permitting CRLF
+normalization and import/export module
+specifier rewrites only. Other content edits require completing this verifiable move first;
+file existence or an unrelated existing module is not transfer evidence.
 
 The next `init --topology module-first` verifies the recorded Git inventory, reserved `app` route
 composition, consumption of container seeds, destination positions, current import analysis, and
-architecture findings. Only a successful verification retires this file and the transformation
+all architecture error findings without baseline suppression. A conflicting requested topology is
+rejected until retirement. Only a successful verification retires this file and the transformation
 playbook. `--authoring` is explicitly re-authoring and never historical transformation proof.
-Hand-authored module-first projects without this artifact may intentionally use custom layer names
+Hand-authored module-first projects without a pending Git transformation authority may intentionally use custom layer names
 such as `pages` or `containers`; Doctor and Inspect prove their current config, not a past migration.
 
 ### `.claude/commands/blueprint-author.md`

@@ -29,12 +29,14 @@ function arch(): ArchitectureDef {
 }
 
 describe('aliasLayerRoots', () => {
-  it('keeps one canonical root when an equivalent additional alias repeats its identity', () => {
-    expect(aliasLayerRoots({
-      ...arch(),
-      additionalAliases: { '~app': '.\\src\\' },
-    })).toEqual([{ alias: '~app', prefix: [] }]);
-  });
+  it.each(['src', './src', 'src/', '.\\src\\'])(
+    'keeps one canonical root when an additional alias repeats its identity: %s', (target) => {
+      expect(aliasLayerRoots({
+        ...arch(),
+        additionalAliases: { '~app': target },
+      })).toEqual([{ alias: '~app', prefix: [] }]);
+    },
+  );
 
   it('bakes each alias target offset in, excluding targets with no layer surface (field '
     + '#29)', () => {

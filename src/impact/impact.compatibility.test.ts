@@ -112,6 +112,20 @@ describe('runImpact ESLint compatibility', () => {
     expect((await runImpact(root, options(ESLint))).status).toBe('unavailable');
   });
 
+  it.each(['release9.0.0', 'invalid', ''])('rejects malformed version %s', async (version) => {
+    class ESLint {
+      static version = version;
+
+      constructor() {
+        throw new Error('FlatESLint unavailable');
+      }
+    }
+
+    const result = await runImpact(root, options(ESLint));
+
+    expect(result).toMatchObject({ status: 'unavailable', eslintMajor: null });
+  });
+
   it('does not claim compatibility beyond the supported ESLint majors', async () => {
     const captured: { options?: object } = {};
     const ESLint = versioned('11.0.0', captured);

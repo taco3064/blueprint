@@ -116,6 +116,10 @@ describe('bootstrap operational text follows supplied facts', () => {
       .toBe('eslint.config.blueprint.mjs (reference — not wired in)');
 
     expect(renderEslintConfigNote('new', 'eslint.config.mjs')).toBe('eslint.config.mjs');
+
+    expect(renderEslintConfigNote('shadow', 'apps/web/eslint.config.mjs'))
+      .toBe('apps/web/eslint.config.mjs '
+        + '(removed — generated nested config shadowed the ancestor eslint policy)');
   });
 
   it('renders cleanup totals and both lint-script mutations from supplied facts', () => {

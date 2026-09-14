@@ -105,9 +105,10 @@ function completeForwardObligation() {
     'containers/Auth': ['src/auth/components/Auth.ts'],
   };
 
-  obligation.target.decisions = obligation.origin.sources.map(({ unit }) => ({
+  obligation.target.decisions = obligation.origin.sources.map(({ unit, members }) => ({
     source: unit,
     destinations: destinations[unit],
+    members: members.map((source, index) => ({ source, destination: destinations[unit][index] })),
   }));
 
   fs.writeFileSync(file, `${JSON.stringify(obligation, null, 2)}\n`);

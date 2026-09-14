@@ -220,6 +220,10 @@ function applyDecisions(context, scenario) {
 
   obligation.target.decisions = obligation.origin.sources.map((source) => ({
     source: source.unit,
+    members: source.members.map((member) => ({
+      source: member,
+      destination: source.unit.startsWith('app/') ? member : scenario.moves.find(([from]) => from === member)?.[1],
+    })),
     destinations: source.unit.startsWith('app/')
       ? source.members
       : scenario.moves

@@ -297,6 +297,7 @@ describe('validateBlueprint · aliases and the layer glob', () => {
   });
 
   it.each([
+    ['a null alias map', null],
     ['an empty alias key', { '': 'src' }],
     ['a blank alias key', { '  ': 'src' }],
     ['a non-string target', { '~x': 1 }],

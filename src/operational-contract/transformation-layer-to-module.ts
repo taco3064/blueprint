@@ -217,8 +217,10 @@ function renderMovement(state: ProjectTransformationFact): string {
     '   exact and case-insensitive collisions. Do not let one move overwrite another.',
     '2. Use `git mv` for every tracked move. Move owned components, hooks, contexts, services, and',
     '   other units below their final modules while retaining meaningful inner technical layers.',
-    '3. Rewrite static imports and every statically determinable dynamic import to the canonical',
-    '   source-root alias. Runtime-dependent dynamic imports remain explicitly unverified.',
+    '3. Rewrite literal import/export module paths to the canonical source-root alias.',
+    '   If a move needs dynamic binding or other source-body changes, stop: this verifier cannot',
+    '   prove that refactor. Preserve the origin and resolve it before claiming completion.',
+    '   Runtime-dependent dynamic imports remain explicitly unverified.',
     '4. Remove obsolete empty layer-first directories only after every contained file is accounted',
     '   for. Do not introduce an AST printer, formatter migration, or repository-wide codemod.',
     ...router,
@@ -255,7 +257,8 @@ function renderBaseline(findings: FindingFact[]): string {
     '',
     'After cutover, run plain `npx blueprint inspect --json` before touching the baseline.',
     'Classify every result as pre-existing debt under a new identity, understood migration',
-    'residue, or a new transformation regression. Fix every new regression. Only then run',
+    'residue, or a new transformation regression. Resolve every architecture error, including',
+    'pre-existing errors: retirement does not apply baseline suppressions. Only then run',
     '`npx blueprint inspect --update-baseline`, followed by `npx blueprint inspect --baseline`.',
     'The handoff must state the classification result; "findings existed" is not enough.',
   ].join('\n');
@@ -269,7 +272,14 @@ function renderVerification(cleanup: string): string {
     'Run and inspect:',
     '',
     'Before running the commands, fill `target.decisions` in `blueprint-transformation.json`.',
-    'Give every recorded source unit one decision and one or more existing destination paths.',
+    'Give every recorded source unit one decision with `destinations` '
+    + 'and `members: [{ source, destination }]`.',
+    'Map each origin member exactly once; keep its source extension and use unique destinations.',
+    'Preserve member contents except import/export module paths and CRLF normalization; '
+    + 'perform other refactors after verified retirement.',
+    'Git retains the application-scoped origin independently of this file; deleting it blocks '
+    + 'init rather than cancelling the obligation.',
+    'Final architecture errors must be resolved without adding baseline suppressions.',
     'Do not edit the recorded origin facts and do not delete the obligation or this playbook;',
     '`init --topology module-first` verifies and retires them only after the final state agrees.',
     '',

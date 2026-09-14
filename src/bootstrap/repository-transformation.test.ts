@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ArchitectureDef, Blueprint } from '../config';
 import { detect } from '../project';
-import type { RepositoryBlueprint } from '../project';
+import type { LayerToModuleObligation, RepositoryBlueprint } from '../project';
 import { runRepositoryTopologyTransformation } from './repository-transformation';
 
 const roots: string[] = [];
@@ -328,5 +328,45 @@ describe('repository-wide topology transformation safety', () => {
     await expect(runRepositoryTopologyTransformation(fixture.request)).rejects.toThrow(
       /router state is unresolved/,
     );
+  });
+});
+
+describe('repository obligation evidence actions', () => {
+  it('writes scoped obligations for repository-root and nested applications', async () => {
+    const fixture = input('layer-first', 'none', true);
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const actions = await runRepositoryTopologyTransformation({
+        ...fixture.request,
+        options: { ...fixture.request.options, dryRun: true },
+      });
+
+      expect(consoleLog).not.toHaveBeenCalled();
+
+      for (const applicationRoot of ['.', 'apps/web']) {
+        const file = applicationRoot === '.'
+          ? 'blueprint-transformation.json'
+          : 'apps/web/blueprint-transformation.json';
+
+        const action = actions.filter((candidate) => candidate.kind === 'write')
+          .find((candidate) => candidate.path === file);
+
+        expect(action).toMatchObject({
+          kind: 'write', path: file, note: expect.stringContaining(file),
+        });
+
+        const obligation = JSON.parse(action!.content!) as LayerToModuleObligation;
+
+        expect(obligation.origin).toMatchObject({
+          applicationRoot, sourceRoot: 'source', selectedScope: 'source',
+          sources: [{
+            role: 'route-composition', unit: 'pages/Home', members: ['source/pages/Home.ts'],
+          }],
+        });
+      }
+    } finally {
+      consoleLog.mockRestore();
+    }
   });
 });
