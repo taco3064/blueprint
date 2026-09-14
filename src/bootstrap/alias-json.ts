@@ -10,7 +10,7 @@ export function insertJsonMembers(
   keys: string[],
   members: Record<string, unknown>,
 ): string | null {
-  const ast = parse(`(${text})`, { range: true });
+  const ast = parse(`(${text})`);
   let node = (ast.body[0] as unknown as { expression: JsonObject }).expression;
 
   for (const key of keys) {
@@ -24,8 +24,8 @@ export function insertJsonMembers(
   }
 
   const opening = node.range[0];
-  const body = text.slice(opening, node.range[1] - 2);
-  const whitespace = /^\s*/.exec(body)![0];
+  const body = text.slice(opening);
+  const whitespace = /\s*/.exec(body)![0];
   const separator = whitespace.includes('\n') ? whitespace : ' ';
 
   const entries = Object.entries(members)
