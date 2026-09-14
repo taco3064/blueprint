@@ -16,6 +16,8 @@ import { toolchainForSource } from './scope';
 const roots: string[] = [];
 
 afterEach(() => {
+  vi.restoreAllMocks();
+
   for (const root of roots.splice(0)) {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -135,10 +137,12 @@ describe('resolveProjectContext', () => {
 
     expect(sameFilesystemPath('/alias/project', '/real/project')).toBe(true);
     expect(sameFilesystemPath('/alias/project', '/other/project')).toBe(false);
+    expect(sameFilesystemPath('/Project', '/project')).toBe(false);
 
     platform.mockReturnValue('win32');
-    realpath.mockImplementation((value) => String(value).toUpperCase());
+    realpath.mockImplementation((value) => String(value));
     expect(sameFilesystemPath('/Project', '/project')).toBe(true);
+    expect(sameFilesystemPath('/Project', '/different')).toBe(false);
 
     platform.mockRestore();
     realpath.mockRestore();
