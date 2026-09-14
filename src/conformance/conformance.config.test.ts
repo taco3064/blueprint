@@ -68,8 +68,8 @@ describe('alias wiring honesty (batches 1 & 4 + self-review)', () => {
     const red = await cli(dir, ['doctor']);
 
     expect(red.code).toBe(1);
-    expect(red.output).toContain('✗ import alias · bundler-runtime');
-    expect(red.output).toContain('declare "@" in the recognised bundler-runtime configuration');
+    expect(red.output).toContain('⊘ import alias · bundler-runtime');
+    expect(red.output).toContain('could not be read statically');
 
     write(
       dir,

@@ -199,6 +199,8 @@ Blueprint 會確保標準 `architecture.alias` 與所有 `additionalAliases` 在
 
 這些檔案仍由導入方管理；Blueprint 只加入缺少的別名，不改寫既有對應。
 
+對支援的 JSON 編輯，除了插入別名屬性，其餘原始內容皆保持不變，包括單行陣列、縮排與換行格式。
+
 ### Bundler 別名設定
 
 全新的 Vite 建置若能安全修改，Blueprint 可加入標準別名。若現有設定已直接引用別名，或

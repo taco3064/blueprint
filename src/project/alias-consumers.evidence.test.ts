@@ -91,7 +91,8 @@ describe('alias consumer mixed configurations', () => {
       } }) },
       viteConfig: { file: 'vite.config.ts', text },
     })[1]).toEqual({
-      consumer: 'bundler-runtime', status: 'missing', aliases: ['#app'], files: ['vite.config.ts'],
+      consumer: 'bundler-runtime', status: 'unverified',
+      aliases: ['#app'], files: ['vite.config.ts'],
     });
   });
 
@@ -163,5 +164,32 @@ describe('alias consumer mixed configurations', () => {
       consumer: 'package-subpath', status: 'unverified', aliases: ['#app'],
       files: ['package.json'], unreadable: ['package.json'],
     });
+  });
+});
+
+describe('delegated JavaScript alias configurations', () => {
+  it.each([
+    'import { alias } from \'./build/utils\'; export default { resolve: { alias } };',
+    'module.exports = { resolve: { alias: { \'#app\': path.resolve(__dirname, \'src\') } } };',
+    'module.exports = { moduleNameMapper: { \'^#app/(.*)$\': \'<rootDir>/src/$1\' } };',
+  ])('keeps unsupported expressions unverified: %s', (text) => {
+    write('jest.config.js', text);
+
+    expect(evidence(architecture, { ...toolchain,
+      viteConfig: { file: 'vite.config.ts', text },
+    }).filter((item) => ['bundler-runtime', 'test-runner'].includes(item.consumer)))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ consumer: 'bundler-runtime', status: 'unverified' }),
+        expect.objectContaining({ consumer: 'test-runner', status: 'unverified' }),
+      ]));
+  });
+
+  it('names only the proven missing alias in a readable mapper', () => {
+    write('package.json', JSON.stringify({ jest: { moduleNameMapper: {
+      '^#app/(.*)$': '<rootDir>/src/$1',
+    } } }));
+
+    expect(evidence({ ...architecture, additionalAliases: { '#other': 'other' } })[3])
+      .toMatchObject({ status: 'missing', aliases: ['#other'] });
   });
 });

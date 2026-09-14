@@ -168,7 +168,7 @@ describe('parse*Args · a bare word is never a flag\'s value', () => {
     // single positional leaves it undefined, and `toEqual({})` cannot see a key
     // whose value is undefined.
     expect(parseInitArgs(['junk', 'vue'])).toEqual({});
-    expect(parseInspectArgs(['junk', 'vue'])).toEqual({});
+    expect(() => parseInspectArgs(['junk', 'vue'])).toThrow(/positional path/);
     expect(parseSurveyArgs(['junk', '~app'])).toEqual({});
   });
 });

@@ -52,6 +52,18 @@ describe('assessLintEntrypoint', () => {
     expect(assessLintEntrypoint(pkg({ lint: 'npx  eslint' })).reachable).toBe(true);
   });
 
+  it('recognises eslint as an entrypoint without overriding an explicit lint script', () => {
+    expect(assessLintEntrypoint(pkg({ eslint: 'eslint src' }))).toMatchObject({
+      reachable: true, entrypoint: 'eslint src', scriptPath: ['eslint'],
+    });
+
+    expect(assessLintEntrypoint(pkg({ lint: 'oxlint', eslint: 'eslint src' })))
+      .toMatchObject({ reachable: false, scriptPath: ['lint'] });
+
+    expect(assessLintEntrypoint(pkg({ eslint: 'npm run code', code: 'eslint src' })))
+      .toMatchObject({ reachable: true, scriptPath: ['eslint', 'code'] });
+  });
+
   it('keeps absent, non-eslint, missing, and cyclic delegations incomplete', () => {
     const cases: Record<string, string>[] = [
       {},

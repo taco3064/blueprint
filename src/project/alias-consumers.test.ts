@@ -70,7 +70,7 @@ describe('aliasConsumerEvidence', () => {
     });
 
     expect(evidence.map(({ status }) => status)).toEqual([
-      'verified', 'missing', 'missing', 'missing',
+      'verified', 'unverified', 'missing', 'unverified',
     ]);
   });
 
@@ -105,7 +105,7 @@ describe('aliasConsumerEvidence', () => {
     });
 
     expect(evidence.map(({ status }) => status)).toEqual([
-      'missing', 'missing', 'missing', 'missing',
+      'missing', 'unverified', 'missing', 'unverified',
     ]);
   });
 });
@@ -278,7 +278,7 @@ describe('aliasConsumerEvidence · tsconfig paths bridge', () => {
       });
 
       expect(evidence.find(({ consumer }) => consumer === 'bundler-runtime')?.status)
-        .toBe('missing');
+        .toBe('unverified');
     }
   });
 

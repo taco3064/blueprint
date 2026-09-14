@@ -24,3 +24,8 @@ export function renderCliFailure(message: string): OperationalText {
 export function renderCliVersion(version: string): OperationalText {
   return operationalText(version);
 }
+
+export function renderUnexpectedInspectPath(value: string): OperationalText {
+  return operationalText(`inspect does not accept a positional path: ${value}. `
+    + 'Run blueprint inspect from the application root; it scans the configured sourceRoot.');
+}

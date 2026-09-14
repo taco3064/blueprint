@@ -31,7 +31,7 @@ describe('alias consumer static syntax', () => {
       .toBe('verified');
 
     expect(runtime('export default {\'#axpp\': \'/src\'};', { ...architecture, alias: '#a.pp' }))
-      .toBe('missing');
+      .toBe('unverified');
   });
 
   it.each([
@@ -66,7 +66,7 @@ describe('alias consumer static syntax', () => {
   it('requires a bridge call after the imported binding', () => {
     expect(runtime('const prefix = \'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\'; '
       + 'paths(); import paths from \'vite-tsconfig-paths\'; export default {}'))
-      .toBe('missing');
+      .toBe('unverified');
   });
 
   it('retains a bridge call following a long import prefix', () => {
@@ -77,7 +77,7 @@ describe('alias consumer static syntax', () => {
 
   it('ignores alias declarations in multiline block comments', () => {
     expect(runtime('/* export default {\n \'#app\': \'/src\' }; */ export default {}'))
-      .toBe('missing');
+      .toBe('unverified');
   });
 
   it('preserves absolute architecture targets in nested tool roots', () => {

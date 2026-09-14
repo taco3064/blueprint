@@ -35,14 +35,18 @@ describe('operational diagnostic prose', () => {
 
   it('keeps failed, skipped, and passing doctor facts distinct', () => {
     const failed = renderDoctorCheck({
-      kind: 'lint-entrypoint', reachable: false, reason: 'missing-lint',
+      kind: 'lint-entrypoint', reachable: false, reason: 'unreachable', entrypoint: 'oxlint',
     });
 
     const skipped = renderDoctorCheck({ kind: 'live-lint', status: 'unreachable' });
     const passed = renderDoctorCheck({ kind: 'config', present: true });
 
-    expect(failed).toMatchObject({ ok: false, detail: expect.stringContaining('add one') });
-    expect(skipped).toMatchObject({ ok: true, skipped: expect.stringContaining('red') });
+    expect(failed).toMatchObject({ ok: false, detail: expect.stringContaining('no reachable') });
+
+    expect(skipped).toMatchObject({
+      ok: true, skipped: expect.stringContaining('unverified path'),
+    });
+
     expect(passed).toEqual({ label: 'blueprint.config.mjs present', ok: true });
 
     const complete = renderDoctorReport([passed], {});

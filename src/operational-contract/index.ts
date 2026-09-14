@@ -50,6 +50,7 @@ export {
   renderInvalidAgent,
   renderInvalidTopology,
   renderUnknownFlag,
+  renderUnexpectedInspectPath,
 } from './cli-errors';
 export type { OperationalCommand } from './cli-help';
 export type { OperationalText } from './operational-contract';

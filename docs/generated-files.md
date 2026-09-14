@@ -222,7 +222,8 @@ Blueprint ensures the canonical `architecture.alias` and any `additionalAliases`
 - If a TypeScript config cannot be patched safely, Blueprint prints the exact manual wiring instead
   of inventing a new TypeScript configuration.
 
-These files remain adopter-owned. Blueprint only adds missing alias entries and leaves existing
+These files remain adopter-owned. For supported JSON edits, existing bytes outside the inserted
+alias properties are preserved, including compact arrays, indentation, and line endings. Blueprint only adds missing alias entries and leaves existing
 entries intact.
 
 ### Bundler alias configuration

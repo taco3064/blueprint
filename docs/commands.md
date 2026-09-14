@@ -124,6 +124,9 @@ join the dependency graph; dynamic imports join only when their target can be re
 string. Unresolved dynamic targets are disclosed without failing the command; parse failures fail
 closed because they can hide dependency edges.
 
+`inspect` does not accept a positional path. Run it from the application root; the configured
+`architecture.sourceRoot` determines its scan scope. An extra path is rejected rather than ignored.
+
 ## `impact`
 
 `impact` previews only the lint findings that Blueprint's emitted rules would introduce before
@@ -204,3 +207,9 @@ The only option is `--json`. Results have three meanings:
 Because a skipped check is not visible in the exit code, automation that requires proof must inspect
 the JSON checks/verdict and reject `skipped` results. Unsafe or ambiguous lint command lines are
 skipped rather than executed through a shell.
+
+Doctor recognises `lint`, or `eslint` when `lint` is absent, as the normal lint script. If neither
+entrypoint can be identified, that check is unverified rather than a proven wiring failure.
+For executable JavaScript alias configurations, an unrecognised expression or imported alias map
+is also unverified. Missing aliases are reported only where the static evidence establishes the
+missing or mismatched mapping; passing a build does not independently verify every alias.

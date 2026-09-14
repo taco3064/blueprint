@@ -66,14 +66,15 @@ describe('runDoctor · normal lint reachability', () => {
     expect(check).toEqual({
       label: 'normal lint entrypoint reaches eslint',
       ok: false,
-      detail: 'package.json lint runs `oxlint`, but no reachable delegated script runs eslint — '
+      detail: 'package.json lint entrypoint runs `oxlint`, but no reachable delegated '
+        + 'script runs eslint — '
         + 'wire eslint into lint or an ordinary npm/pnpm/yarn script it calls',
     });
 
     expect(live).toEqual({
       label: 'reachable eslint leg passes live (skipped — no reachable eslint leg)',
       ok: true,
-      skipped: 'the normal lint entrypoint check above is the red for that',
+      skipped: 'see the normal lint entrypoint check above for the missing or unverified path',
     });
   });
 
@@ -89,16 +90,15 @@ describe('runDoctor · normal lint reachability', () => {
     expect(calls).toBe(0);
   });
 
-  it('keeps adoption incomplete when package.json has no lint entrypoint', async () => {
+  it('keeps adoption unverified when the normal lint entrypoint is unknown', async () => {
     const { result, check } = await lintCheck();
 
-    expect(result.verdict).toBe('incomplete');
+    expect(result.verdict).toBe('unverified');
 
-    expect(check).toEqual({
+    expect(check).toMatchObject({
       label: 'normal lint entrypoint reaches eslint',
-      ok: false,
-      detail: 'package.json has no `lint` script — add one that runs eslint so the generated '
-        + 'architecture rules execute on the normal lint path',
+      ok: true,
+      skipped: expect.stringContaining('could not be determined'),
     });
   });
 

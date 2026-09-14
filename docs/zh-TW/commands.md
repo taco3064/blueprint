@@ -111,6 +111,9 @@ npx @kekkai/blueprint inspect --baseline --json
 動態匯入只有在目標可化約成確定字串時才會納入。無法判定的動態目標會揭露但不造成失敗；
 解析失敗則會 fail closed，因為它可能隱藏相依邊。
 
+`inspect` 不接受位置參數路徑。請在應用程式根目錄執行，掃描範圍由
+`architecture.sourceRoot` 決定；額外傳入路徑會被拒絕，不會默默忽略。
+
 ## `impact`
 
 `impact` 會在正式接線前，只預覽 Blueprint 產生的規則將新增哪些 lint 問題。它使用專案
@@ -184,3 +187,8 @@ npx @kekkai/blueprint doctor --json
 
 若自動化流程要求完整證據，就不能只看 exit code；必須檢查 JSON 的 checks／verdict，並拒絕
 `skipped`。不安全或語意不明的 lint 指令列只會標成跳過，Doctor 不會把它丟進 shell 執行。
+
+Doctor 會辨識 `lint` 指令；未宣告 `lint` 時，則辨識 `eslint` 指令。兩者都無法辨識時，
+這項檢查會標成未驗證，而不是斷言接線錯誤。對可執行的 JavaScript 別名設定，無法判讀的
+運算式或匯入的別名表也會標成未驗證。只有靜態證據足以確認缺少或目標不符時，才會回報
+對應的別名有問題；建置成功本身也不能證明每個別名都正確。

@@ -293,7 +293,7 @@ describe('runDoctor · alias resolution', () => {
     let { checks } = await runDoctor(root, { loadConfig: at, log: silent });
 
     expect(checks.find((c) => c.consumer === 'bundler-runtime')).toMatchObject({
-      status: 'missing', ok: false,
+      status: 'unverified', ok: true, skipped: expect.any(String),
     });
 
     // The real wiring is a quoted token — that one counts.
