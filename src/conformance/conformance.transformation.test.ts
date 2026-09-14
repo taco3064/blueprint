@@ -84,6 +84,13 @@ function layerConfig(
   })};\n`;
 }
 
+function expectContainerPlacement(playbook: string): void {
+  expect(playbook).toContain('Containers are module seeds, not repeated inner technical layers');
+  expect(playbook).toContain('loadout/LoadoutScreen.tsx');
+  expect(playbook).toContain('Remove the old pages and containers layer declarations');
+  expect(playbook).toContain('Review allowedImporters and other layer-name');
+}
+
 function expectPlaybook(
   playbook: string,
   facts: { head: string; seedSource: string; routerClaim: string; framework?: string },
@@ -94,6 +101,7 @@ function expectPlaybook(
   expect(playbook).toContain(`Primary seed source: \`${facts.seedSource}\``);
   expect(playbook).toContain('Agent decisions');
   expect(playbook).toContain('git mv');
+  expectContainerPlacement(playbook);
   expect(playbook).toContain('never rewrite paths mechanically');
   expect(playbook).toContain(facts.routerClaim);
   expect(playbook).toContain('npx blueprint deps --json');
@@ -242,8 +250,8 @@ describe('layer-first to module-first transformation authoring', () => {
 });
 
 describe('layer-first to module-first transformation safety', () => {
-  it('rejects dirty Git with byte-identical source, config, baseline, and generated files',
-    async () => {
+  it.each([{ flags: [] }, { flags: ['--dry-run'] }])('rejects dirty Git without mutation ($flags)',
+    async ({ flags }) => {
       const dir = repo({
         packageJson: { dependencies: { react: '^18.0.0' } },
         files: {
@@ -256,10 +264,23 @@ describe('layer-first to module-first transformation safety', () => {
       commit(dir);
       write(dir, 'src/components/untracked.ts', 'export const dirty = 1;\n');
       const before = { tree: tree(dir), status: git(dir, 'status', '--porcelain=v1') };
-      const result = await cli(dir, ['init', '--topology', 'module-first', '--no-install']);
+
+      const result = await cli(dir, [
+        'init', '--topology', 'module-first', '--no-install', ...flags,
+      ]);
 
       expect(result.code).toBe(1);
       expect(result.output).toContain('clean worktree: The Git worktree has uncommitted changes');
+      expect(result.output).toContain('Transformation is blocked, not complete');
+      expect(result.output).toContain('Do not bypass this refusal');
+
+      expect(result.output).toContain(
+        'If creating the required Git checkpoint is not authorized, stop',
+      );
+
+      expect(result.output).toContain('--dry-run is only a preview');
+      expect(result.output).toContain('do not prove historical topology');
+      expect(git(dir, 'for-each-ref', 'refs/blueprint/transformations/')).toBe('');
       expect({ tree: tree(dir), status: git(dir, 'status', '--porcelain=v1') }).toEqual(before);
     });
 

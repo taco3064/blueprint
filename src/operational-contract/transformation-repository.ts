@@ -5,7 +5,10 @@ import type {
 } from './transformation';
 import { operationalText } from './operational-contract';
 import type { OperationalText } from './operational-contract';
-import { transformationPreflightFailures } from './transformation';
+import {
+  renderTransformationBlockedNextSteps,
+  transformationPreflightFailures,
+} from './transformation';
 
 export interface RepositoryPlaybookFacts {
   current: string;
@@ -95,7 +98,7 @@ export function renderRepositoryPreflightError(
     .map(({ label, reason }) => `- ${application} · ${label}: ${reason}`);
 
   return 'Repository topology transformation preflight failed before mutation:\n'
-    + `${failures.join('\n')}\nResolve every item and re-run; no files were changed.`;
+    + `${failures.join('\n')}\n${renderTransformationBlockedNextSteps()}`;
 }
 
 export function renderRepositoryAction(
