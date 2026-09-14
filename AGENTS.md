@@ -16,12 +16,12 @@ substitute first-principles reasoning for what it says.
 | [`.agents/docs/autonomous-delivery.md`](./.agents/docs/autonomous-delivery.md) | **Trigger:** shaping, delivering, resuming, or accepting a GitHub ticket. The shared rules for autonomy, scope, evidence, durable state, progress, and final acceptance. |
 | [`.agents/docs/verification-layers.md`](./.agents/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring emitted documents or operational prose. What `src/conformance/` is for, the layers `npm run dist:verify` and `npm run operational:check` cover, and when a supplementary byte baseline belongs with a refactor. |
 | [`.agents/docs/mutation-testing.md`](./.agents/docs/mutation-testing.md) | **Trigger:** reading automatic PR mutation evidence, judging a survivor, or adding a test because CI found weak coverage. Status adjudication and narrow equivalent-mutant proofs. |
-| [`.agents/docs/field-triage.md`](./.agents/docs/field-triage.md) | **Trigger:** running live field validation, triaging a field finding, changing Agent-facing prose, or cutting a release. Exact packed candidates, affected replay, full convergence, and exact-SHA release authority. |
+| [`.agents/docs/field-triage.md`](./.agents/docs/field-triage.md) | **Trigger:** running live field validation, triaging a field finding, changing Agent-facing prose, or cutting a release. Private owner-run Field validation before release preparation, with Changesets as the version SSOT. |
 
 Repository workflows live under [`.agents/skills/`](./.agents/skills/). Use
 `shape-ticket` to shape and later review decision fidelity, `deliver-ticket` to
 produce the candidate, `accept-ticket` for independent exact-head acceptance,
-`field-validation` to choose affected replay or full convergence, and `audit-docs`
+`field-validation` to choose private affected replay or full-matrix scope, and `audit-docs`
 when checking whether published guides, CLI help, the public API, translations,
 generated examples, and runtime output still describe the same product.
 The shared [write-authority interlock](./.agents/docs/autonomous-delivery.md#write-authority)
@@ -195,8 +195,8 @@ exact-head CI already owns the same deterministic gate.
   distribution, compatibility, deterministic transformation, and changed-code
   mutation verification. Drive the CLI end-to-end for runtime changes.
 - Four layers sit past ordinary unit examples: conformance, relevant
-  `npm run field:transformation` replay in CI, `npm run dist:verify`, and live
-  Agent validation of the exact main candidate artifact. Each exists because the one below passes on a
+  `npm run field:transformation` replay in CI, `npm run dist:verify`, and private
+  owner-run Field validation before release preparation. Each exists because the one below passes on a
   harness. See [`verification-layers.md`](./.agents/docs/verification-layers.md)
   and [`field-triage.md`](./.agents/docs/field-triage.md);
   [`mutation-testing.md`](./.agents/docs/mutation-testing.md) audits the suite
