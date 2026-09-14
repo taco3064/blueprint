@@ -149,6 +149,16 @@ function input(
   };
 }
 
+function authorityRefs(root: string): string[] {
+  const result = spawnSync('git', [
+    'for-each-ref', '--format=%(refname)', 'refs/blueprint/transformations/',
+  ], { cwd: root, encoding: 'utf8' });
+
+  expect(result.status).toBe(0);
+
+  return result.stdout.split(/\r?\n/).filter(Boolean);
+}
+
 afterEach(() => {
   while (roots.length) {
     fs.rmSync(roots.pop() as string, { recursive: true, force: true });
@@ -188,7 +198,10 @@ describe('repository-wide topology transformation', () => {
       expect(playbook.content).toContain('npm install -D @kekkai/blueprint');
     }
 
-    expect(fs.existsSync(path.join(fixture.root, 'blueprint-authoring.md'))).toBe(false);
+    expect({
+      playbook: fs.existsSync(path.join(fixture.root, 'blueprint-authoring.md')),
+      refs: authorityRefs(fixture.root),
+    }).toEqual({ playbook: false, refs: [] });
   });
 
   it('launches an explicitly selected agent from the repository root', async () => {
@@ -207,6 +220,7 @@ describe('repository-wide topology transformation', () => {
     );
 
     expect(fixture.request.log).toHaveBeenCalledWith(expect.stringContaining('  ✓ write:'));
+    expect(authorityRefs(fixture.root)).toEqual([]);
 
     expect(spawn).toHaveBeenCalledWith(
       'codex',
@@ -369,4 +383,36 @@ describe('repository obligation evidence actions', () => {
       consoleLog.mockRestore();
     }
   });
+});
+
+it('persists distinct pending authority matching each applied application obligation', async () => {
+  const fixture = input('layer-first', 'none', true);
+
+  expect(authorityRefs(fixture.root)).toEqual([]);
+  await runRepositoryTopologyTransformation(fixture.request);
+  const refs = authorityRefs(fixture.root);
+
+  expect(refs).toHaveLength(2);
+
+  const authorities = refs.map((ref) => {
+    const result = spawnSync('git', ['cat-file', 'blob', ref], {
+      cwd: fixture.root, encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(0);
+
+    return JSON.parse(result.stdout) as { status: string; obligation: LayerToModuleObligation };
+  });
+
+  const expected = fixture.blueprints.map(({ applicationRoot }) => ({
+    status: 'pending',
+    obligation: JSON.parse(fs.readFileSync(
+      path.join(applicationRoot, 'blueprint-transformation.json'), 'utf8',
+    )) as LayerToModuleObligation,
+  }));
+
+  expect(authorities).toEqual(expect.arrayContaining(expected));
+
+  expect(authorities.map(({ obligation }) => obligation.origin.applicationRoot).sort())
+    .toEqual(['.', 'apps/web']);
 });

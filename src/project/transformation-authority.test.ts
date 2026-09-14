@@ -1,4 +1,5 @@
-import { expect, it } from 'vitest';
+import path from 'node:path';
+import { expect, it, vi } from 'vitest';
 import {
   assertTransformationAuthority, writeTransformationAuthority,
 } from './transformation-authority';
@@ -144,4 +145,56 @@ it.each([
 
   expect(() => writeTransformationAuthority(root, obligation, { status: 'pending', git: exec }))
     .toThrow('authority');
+});
+
+it.each([
+  ['', 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'],
+  ['src', '25a6634263c1b1f6fc4697a04e2b9904ea4b042a89af59dc93ec1f5d44848a26'],
+  ['src/project', '358db4160c5e18609188d3ece66a4b4c067169ebc2cf9659808bb5b5d998d3b2'],
+])('uses repository-relative application identity for %s', (application, digest) => {
+  const applicationRoot = path.join(root, application);
+
+  const exec = vi.fn<AuthorityGit>((args) => ({
+    status: 0, stdout: args[0] === 'rev-parse' ? `${root}\r\n` : '',
+  }));
+
+  assertTransformationAuthority(applicationRoot, null, exec);
+
+  expect(exec.mock.calls).toEqual([
+    [['rev-parse', '--show-toplevel'], applicationRoot],
+    [['for-each-ref', '--format=%(refname)', `refs/blueprint/transformations/${digest}`],
+      applicationRoot],
+  ]);
+});
+
+it('does not confuse child or prefix-matching refs with the exact application authority', () => {
+  const h = harness();
+
+  const exec = vi.fn<AuthorityGit>((args, cwd, input) => args[0] === 'for-each-ref'
+    ? { status: 0, stdout: `${args[2]}/child\r\n${args[2]}-other\r\n` }
+    : h.exec(args, cwd, input));
+
+  expect(() => assertTransformationAuthority(root, null, exec)).not.toThrow();
+  expect(() => assertTransformationAuthority(root, obligation, exec)).toThrow('authority');
+  expect(exec.mock.calls.some(([args]) => args[0] === 'cat-file')).toBe(false);
+});
+
+it('rejects an invalid authority status even when its obligation is intact', () => {
+  const h = harness({ status: 'other', obligation });
+
+  expect(() => assertTransformationAuthority(root, obligation, h.exec)).toThrow('unavailable');
+  expect(() => assertTransformationAuthority(root, null, h.exec)).toThrow('unavailable');
+});
+
+it('refuses completion of changed origin before writing either a Git object or ref', () => {
+  const h = harness();
+  const changed = { ...obligation, origin: { ...obligation.origin, head: 'changed' } };
+
+  expect(() => writeTransformationAuthority(root, changed, { status: 'completed', git: h.exec }))
+    .toThrow('origin');
+
+  expect(h.current()).toEqual({ status: 'pending', obligation });
+
+  expect(h.calls.filter(({ args }) => ['hash-object', 'update-ref'].includes(args[0])))
+    .toEqual([]);
 });

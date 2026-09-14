@@ -96,8 +96,8 @@ export function transformationActions(
 export function buildTransformationObligation(
   input: TransformationActionInput,
 ): LayerToModuleObligation {
+  // Stryker disable next-line MethodExpression: all candidate source kinds are included.
   const sources = [...input.evidence.routerCandidates, ...input.evidence.candidates]
-    // Stryker disable next-line MethodExpression: all candidate source kinds are included.
     .filter((candidate) => ['page', 'container', 'app'].includes(candidate.source))
     .map((candidate) => ({
       role: candidate.source === 'page' || candidate.source === 'app'

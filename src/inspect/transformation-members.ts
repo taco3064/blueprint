@@ -81,7 +81,7 @@ function proveMember(
     : null;
 
   if (preexistingDestination(context, member) || originalIdentity === null
-    || destination === null || originalIdentity !== destination) {
+    || originalIdentity !== destination) {
     failures.push({
       code: 'member-identity-unproven', subject: member.source,
       expected: member.destination,
@@ -102,7 +102,7 @@ function realIdentity(target: string): string {
 function destinationIdentity(target: string, destination: string): string | null {
   try {
     return transformationMemberIdentity(fs.readFileSync(target, 'utf8'), destination);
-  } catch {
+  } catch /* Stryker disable next-line BlockStatement: null/undefined both reject. */ {
     return null;
   }
 }
