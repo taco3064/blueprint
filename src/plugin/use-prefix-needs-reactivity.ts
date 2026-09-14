@@ -17,13 +17,15 @@ export const usePrefixNeedsReactivity: Rule.RuleModule = {
   meta: {
     type: 'suggestion',
     docs: {
-      description: 'A use-prefixed file must call a reactive or lifecycle API.',
+      description: 'Check use-prefixed files for direct reactive or lifecycle API calls.',
     },
     schema: [],
     messages: {
       pure:
-        '🚫 "{{base}}" carries the use prefix but calls no reactive/lifecycle API — '
-        + 'it is a pure function; drop the prefix and move it where pure helpers live.',
+        '⚠ "{{base}}" has no directly recognised reactive/lifecycle API call in this file. '
+        + 'This check does not follow delegated hooks and does not prove the function is pure. '
+        + 'Inspect the called hooks before changing behavior; only if it is a pure helper, '
+        + 'drop the prefix and move it where pure helpers live.',
     },
   },
   create(context) {

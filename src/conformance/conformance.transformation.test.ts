@@ -113,6 +113,21 @@ function expectPlaybook(
   }
 }
 
+async function verifyPendingEvidenceSteps(dir: string, playbook: string): Promise<void> {
+  const phase = playbook.split('## Phase 1')[1].split('## Neutral')[0];
+  const commands = [...phase.matchAll(/`npx blueprint ([^`]+)`/g)].map((match) => match[1]);
+  const before = tree(dir);
+
+  expect(commands).toEqual(['inspect --json', 'deps --json']);
+  expect(phase).toContain('do not request the opposite topology');
+
+  for (const command of commands) {
+    expect((await cli(dir, command.split(' '))).code).toBe(0);
+  }
+
+  expect(tree(dir)).toEqual(before);
+}
+
 const scenarios: {
   framework: string;
   packageJson: Record<string, unknown>;
@@ -192,6 +207,7 @@ describe('layer-first to module-first transformation authoring', () => {
       expect(result.code).toBe(0);
       expect(result.output).toContain('transformation preflight passed');
       expectPlaybook(playbook, { head, ...scenario });
+      await verifyPendingEvidenceSteps(dir, playbook);
 
       expect(obligation).toMatchObject({
         version: 1,
