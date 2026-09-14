@@ -1,0 +1,42 @@
+name: Finalize 4.0.0 helper
+
+on:
+  push:
+    branches:
+      - chore/finalize-4.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: chore/finalize-4.0.0
+
+      - name: Finalize changelog and remove helper
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('CHANGELOG.md')
+          text = path.read_text()
+          entry = '- 53945b5: Isolate release-time consumer verification from npm publisher authentication so packed Yarn 1 checks run without inheriting the publishing npmrc.\n'
+          marker = '### Patch Changes\n\n'
+
+          if entry not in text:
+              if marker not in text:
+                  raise SystemExit('4.0.0 Patch Changes marker not found')
+              text = text.replace(marker, marker + entry, 1)
+              path.write_text(text)
+          PY
+
+          rm .github/workflows/finalize-4.0.0-helper.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md .github/workflows/finalize-4.0.0-helper.yml
+          git commit -m "chore(release): finalize 4.0.0"
+          git push origin HEAD:chore/finalize-4.0.0
