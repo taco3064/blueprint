@@ -10,8 +10,8 @@ hero:
   tagline: 一份架構定義，同時供可執行檢查、人類文件與程式撰寫 Agent 使用。
   actions:
     - theme: brand
-      text: 從 init 開始
-      link: "/zh-TW/commands#init"
+      text: 用 AI 導入
+      link: "#用-ai-導入"
     - theme: alt
       text: 定義架構
       link: "/zh-TW/configuration"
@@ -26,32 +26,14 @@ Blueprint 把長期有效的架構模型放進 `blueprint.config.mjs`。同一�
 ESLint 檢查、給人閱讀的架構手冊，以及程式撰寫 Agent 的工作守則；`inspect`、`doctor`、
 `deps` 等指令則會拿真實專案回頭驗證這份模型。
 
-## 選擇符合專案的拓樸
+## 用 AI 導入
 
-- **Layer-first** 採用 `Layer → Unit`：`pages`、`components`、`services` 等全專案共用層
-  直接組成原始碼樹。
-- **Module-first** 採用 `Module → Layer → Unit`：一般領域模組重複使用同一套內部分層，
-  模組間再由 `dependsOn` 建立外層相依邊界。
+先選擇這個專案要遵循的架構規則。Blueprint 不會根據目前的資料夾結構替你推斷
+這項決定。
 
-Blueprint 不會從資料夾名稱猜拓樸。有效設定檔才是權威；需要改變模型時，則交由有保護
-機制的轉換流程處理。
+<AdoptWithAI />
 
-## 第一次導入
-
-先預覽 layer-first 導入，不寫入任何檔案：
-
-```bash
-npx @kekkai/blueprint init --topology layer-first --dry-run
-```
-
-開始編寫 module-first 架構：
-
-```bash
-npx @kekkai/blueprint init --topology module-first
-```
-
-既有專案會先經過客觀盤點，再由程式撰寫 Agent 編寫或轉換架構；規模小的新專案則可走
-Vue、React 或 Next 預設設定流程。
+想先理解差異或自行操作 CLI，可閱讀[指令中的 `init`](/zh-TW/commands#init)。
 
 ## 深入了解
 
