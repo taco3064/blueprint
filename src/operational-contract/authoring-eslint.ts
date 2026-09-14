@@ -10,10 +10,12 @@ export function eslintConfigSource(facts: EslintConfigSourceFact): string {
     guardExtensions: guardExts,
     hasTypescript: ts,
     sourceRoot,
+    basePath,
   } = facts;
 
   const guardRoot = sourceRoot === '.' ? '' : `${sourceRoot}/`;
-  const parserBlocks = parserEntries(framework, ts);
+  const parserBlocks = parserEntries(framework, ts, basePath);
+  const blueprintConfig = basePath ? `./${basePath}/blueprint.config.mjs` : './blueprint.config.mjs';
 
   return [
     generatedBanner,
@@ -22,21 +24,25 @@ export function eslintConfigSource(facts: EslintConfigSourceFact): string {
     '// Keep custom entries in your own config and spread ...emitLint(blueprint)',
     '// there instead of editing this file.',
     'import { emitLint } from \'@kekkai/blueprint\';',
+    ...(basePath ? ['import { fileURLToPath } from \'node:url\';'] : []),
     'import comments from \'@eslint-community/eslint-plugin-eslint-comments\';',
     'import stylistic from \'@stylistic/eslint-plugin\';',
     'import imports from \'eslint-plugin-import-x\';',
     ...(framework === 'vue' ? ['import vueParser from \'vue-eslint-parser\';'] : []),
     ...(ts ? ['import tseslint from \'typescript-eslint\';'] : []),
-    'import blueprint from \'./blueprint.config.mjs\';',
+    `import blueprint from '${blueprintConfig}';`,
+    ...(basePath
+      ? ['', `const applicationRoot = fileURLToPath(new URL('./${basePath}/', import.meta.url));`]
+      : []),
     '',
     'export default [',
     ...(parserBlocks.length ? parserHeader(ts) : []),
     ...parserBlocks,
 
     ts
-      ? '  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports }),'
-      : '  ...emitLint(blueprint, { stylistic, imports }),',
-    ...antiBypassGuard(guardExts, guardRoot),
+      ? `  ...emitLint(blueprint, { typescript: tseslint.plugin, stylistic, imports${basePath ? ', basePath: applicationRoot' : ''} }),`
+      : `  ...emitLint(blueprint, { stylistic, imports${basePath ? ', basePath: applicationRoot' : ''} }),`,
+    ...antiBypassGuard(guardExts, guardRoot, basePath),
     '];',
     '',
   ].join('\n');
@@ -66,11 +72,18 @@ function parserHeader(ts: boolean): string[] {
   ];
 }
 
-function parserEntries(framework: FrameworkFact | null, ts: boolean): string[] {
+function parserEntries(
+  framework: FrameworkFact | null,
+  ts: boolean,
+  basePath?: string,
+): string[] {
+  const scope = basePath ? ['    basePath: applicationRoot,'] : [];
+
   return [
     ...(framework === 'vue'
       ? [
           '  {',
+          ...scope,
           '    files: [\'**/*.vue\'],',
           ts
             ? '    languageOptions: { parser: vueParser, parserOptions: { parser: '
@@ -82,6 +95,7 @@ function parserEntries(framework: FrameworkFact | null, ts: boolean): string[] {
     ...(ts
       ? [
           '  {',
+          ...scope,
           '    files: [\'**/*.{ts,tsx,mts,cts}\'],',
           '    languageOptions: { parser: tseslint.parser },',
           '  },',
@@ -93,6 +107,7 @@ function parserEntries(framework: FrameworkFact | null, ts: boolean): string[] {
           '  // This jsx block matters only while .js/.jsx source exists — on a',
           '  // TS-only repo it is dormant, and skipping it in a merge loses nothing.',
           '  {',
+          ...scope,
           '    files: [\'**/*.{js,jsx}\'],',
           '    languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } },',
           '  },',
@@ -101,7 +116,7 @@ function parserEntries(framework: FrameworkFact | null, ts: boolean): string[] {
   ];
 }
 
-function antiBypassGuard(guardExts: string, guardRoot: string): string[] {
+function antiBypassGuard(guardExts: string, guardRoot: string, basePath?: string): string[] {
   return [
     '  // The anti-bypass guard — NOT part of emitLint. A silent, unexplained',
     '  // eslint-disable is exactly how an agent routes around every rule',
@@ -121,6 +136,7 @@ function antiBypassGuard(guardExts: string, guardRoot: string): string[] {
         ]
       : []),
     '  {',
+    ...(basePath ? ['    basePath: applicationRoot,'] : []),
     `    files: ['${guardRoot}**/*.{${guardExts}}'],`,
     '    plugins: {',
     '      \'@eslint-community/eslint-comments\': comments,',

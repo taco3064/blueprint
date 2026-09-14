@@ -114,7 +114,7 @@ describe('one stack, three documents agreeing about `explicitAny` (#389)', () =>
     expect(document(dir, 'CLAUDE.md')).toContain('`explicitAny`');
 
     expect(document(dir, '.cursor/rules/blueprint.mdc'))
-      .toContain('- `explicitAny` is a hard gate.');
+      .toContain('- `explicitAny` is emitted but not yet verified alive in the project lint run.');
 
     expect(document(dir, HANDBOOK)).toContain('| `explicitAny` | `error` | — | lint |');
   });

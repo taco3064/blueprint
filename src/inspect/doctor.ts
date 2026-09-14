@@ -7,14 +7,12 @@ import {
   AUTHORING_FILE,
   assessLintEntrypoint,
   COMMAND_FILE,
-  describeUnreadable,
+  aliasConsumerEvidence,
   detect,
   loadProjectModule,
-  pathAliasKeys,
-  quotedIn,
+  readTransformationObligation,
   resolveBlueprint,
   toolchainForProject,
-  unreadableTsconfigs,
 } from '../project';
 import type { ProjectState, ResolveOptions } from '../project';
 import { resolveArchitecture } from '../config';
@@ -35,9 +33,10 @@ import {
 } from './coverage';
 import type { Coverage } from './coverage';
 import { hasErrors } from './report';
-import { outsideScanReach, scan } from './scan';
+import { importAnalysis, outsideScanReach, scan } from './scan';
 import type { DoctorCheck, Finding } from './types';
 import { liveLintCheck } from './doctor-lint';
+import { verifyTransformationObligation } from './transformation-obligation';
 import { runLiveLint } from './lint-runtime';
 import { wiringCheck } from './wiring';
 
@@ -88,39 +87,12 @@ function suppressionsCheck(root: string): DoctorCheck {
   return renderDoctorCheck({ kind: 'suppressions', status: 'valid' });
 }
 
-const BUNDLER_FILES = ['webpack.config', 'vue.config', 'next.config', 'rsbuild.config']
-  .flatMap((name) => ['js', 'cjs', 'mjs', 'ts'].map((ext) => `${name}.${ext}`));
-
-function aliasCheck(root: string, blueprint: Blueprint, state: ProjectState): DoctorCheck {
+function aliasChecks(root: string, blueprint: Blueprint, state: ProjectState): DoctorCheck[] {
   const architecture = resolveArchitecture(blueprint.architecture);
-  const { sourceRoot } = architecture;
-  const toolchain = toolchainForProject(state, sourceRoot);
-  const declared = pathAliasKeys(toolchain.tsconfigs);
+  const toolchain = toolchainForProject(state, architecture.sourceRoot);
 
-  const bundlerTexts = BUNDLER_FILES.map((file) => path.join(root, toolchain.root, file))
-    .filter((full) => fs.existsSync(full))
-    .map((full) => fs.readFileSync(full, 'utf-8'));
-
-  if (toolchain.viteConfig) {
-    bundlerTexts.push(toolchain.viteConfig.text);
-  }
-
-  const unwired = architecture.aliasMappings.map(([alias]) => alias).filter(
-    (name) => !declared.has(name) && !bundlerTexts.some((text) => quotedIn(text, name)),
-  );
-
-  if (!unwired.length) {
-    return renderDoctorCheck({ kind: 'alias', aliases: [] });
-  }
-
-  const unreadable = unreadableTsconfigs(toolchain.tsconfigs);
-
-  return renderDoctorCheck({
-    kind: 'alias',
-    aliases: unwired,
-    sourceRoot,
-    ...(unreadable.length ? { unreadable: describeUnreadable(unreadable) } : {}),
-  });
+  return aliasConsumerEvidence(root, blueprint.architecture, toolchain).map((evidence) =>
+    renderDoctorCheck({ kind: 'alias-consumer', evidence, sourceRoot: architecture.sourceRoot }));
 }
 
 function referenceFiles(root: string): string[] {
@@ -269,17 +241,54 @@ async function doctorChecks(
   return {
     checks: [
       renderDoctorCheck({ kind: 'config', present: true }),
+      ...transformationChecks(root, blueprint, state),
       leftoversCheck(root, blueprint),
       eslintWiredCheck(state, eslintWired),
       lintEntrypointCheck(lintAssessment),
       liveLintCheck(lintEvidence, lintAssessment),
-      aliasCheck(root, blueprint, state),
+      ...aliasChecks(root, blueprint, state),
       wiring.check,
-      architectureCheck(splitByBaseline(findings, recorded), coverage, blueprint),
+      architectureCheck({
+        baseline: splitByBaseline(findings, recorded),
+        coverage,
+        blueprint,
+        analysis: importAnalysis(scanResult),
+      }),
       suppressionsCheck(root),
     ],
     probed: wiring.probed,
   };
+}
+
+function transformationChecks(
+  root: string,
+  blueprint: Blueprint,
+  state: ProjectState,
+): DoctorCheck[] {
+  let obligation;
+
+  try {
+    obligation = readTransformationObligation(root);
+  } catch (error) {
+    return [renderDoctorCheck({
+      kind: 'transformation',
+      status: 'invalid',
+      detail: error instanceof Error ? error.message : String(error),
+    })];
+  }
+
+  if (!obligation) {
+    return [];
+  }
+
+  const verification = verifyTransformationObligation({ root, obligation, blueprint, state });
+
+  return [renderDoctorCheck({
+    kind: 'transformation',
+    status: 'pending',
+    verified: verification.ok,
+    failures: verification.failures,
+  })];
 }
 
 function leftoversCheck(root: string, blueprint: Blueprint): DoctorCheck {
@@ -315,10 +324,14 @@ function lintEntrypointCheck(
 }
 
 function architectureCheck(
-  baseline: { fresh: Finding[]; suppressed: number },
-  coverage: Coverage,
-  blueprint: Blueprint,
+  input: {
+    baseline: { fresh: Finding[]; suppressed: number };
+    coverage: Coverage;
+    blueprint: Blueprint;
+    analysis: ReturnType<typeof importAnalysis>;
+  },
 ): DoctorCheck {
+  const { baseline, coverage, blueprint, analysis } = input;
   const { fresh, suppressed } = baseline;
 
   const vacuous = coverage.sourceFiles > 0 && coverage.layerFiles === 0
@@ -330,6 +343,7 @@ function architectureCheck(
     hasErrors: hasErrors(fresh),
     suppressed,
     coverage: coverageSummary(coverage),
+    importAnalysis: analysis,
     ...(vacuous
       ? { vacuous: { sourceFiles: coverage.sourceFiles, nextStep: vacuousNextStep(blueprint) } }
       : {}),

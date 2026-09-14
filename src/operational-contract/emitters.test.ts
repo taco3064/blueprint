@@ -59,10 +59,11 @@ describe('operational contract emitters', () => {
       '[architecture/team-contract.md](architecture/team-contract.md)',
     );
 
-    expect(output).toContain('`maxLines` = 250 fail the project\'s lint run');
+    expect(output).toContain('`maxLines` = 250');
+    expect(output).toContain('effective project-lint wiring is unverified');
     expect(output).toContain('`cycles` is diagnosed only when');
 
-    expect(hardRules).toContain('`maxLines` = 250 is a hard gate');
+    expect(hardRules).toContain('`maxLines` = 250 is emitted but not yet verified alive');
     expect(hardRules).not.toContain('`maxLines` = 250 is diagnosed only when');
     expect(hardRules).toContain('`cycles` is diagnosed only when');
   });

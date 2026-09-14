@@ -12,6 +12,7 @@ export type ConfigValidationFact
     | { kind: 'module-case-collision'; first: string; second: string }
     | { kind: 'module-depends-array'; module: string }
     | { kind: 'additional-aliases' }
+    | { kind: 'canonical-alias-collision'; alias: string; canonical: string; additional: string }
     | { kind: 'layer-files-layer'; glob: string }
     | { kind: 'module-layer-files'; glob: string }
     | { kind: 'layer-layer-files'; glob: string }

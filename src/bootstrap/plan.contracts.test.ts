@@ -42,6 +42,40 @@ const write = (actions: Action[], path: string): WriteAction | undefined =>
     (action): action is WriteAction => action.kind === 'write' && action.path === path,
   );
 
+describe('plan · measured lint integration', () => {
+  it.each([
+    { hasEslintConfig: true },
+    { legacyEslintConfig: '.eslintrc.cjs' },
+  ])('keeps reference-only output honest for %j', (existing) => {
+    const actions = plan(state(existing), bp);
+
+    expect(write(actions, 'AGENTS.md')?.content)
+      .toContain('not enforced by the project\'s lint run yet');
+
+    expect(write(actions, 'docs/architecture-handbook.md')?.content)
+      .toContain('not enforced by the project lint run');
+  });
+
+  it('does not infer verification from a wiring marker', () => {
+    const actions = plan(state({ wiredEslintConfig: true }), bp);
+
+    expect(write(actions, 'AGENTS.md')?.content)
+      .toContain('effective project-lint wiring is unverified');
+  });
+
+  it('upgrades regenerated contracts only with measured verification', () => {
+    const actions = plan(state({ wiredEslintConfig: true }), bp, {
+      lintIntegration: 'verified',
+    });
+
+    expect(write(actions, 'AGENTS.md')?.content)
+      .toContain('verified alive in the project\'s lint run');
+
+    expect(write(actions, 'docs/architecture-handbook.md')?.content)
+      .toContain('verified alive in the project ESLint run');
+  });
+});
+
 describe('plan · the agent contract files it stops emitting', () => {
   it('removes a stale wholly-generated contract when emit.agents narrows (batch 10)', () => {
     const narrowed = { ...bp, emit: { agents: ['claude' as const] } };

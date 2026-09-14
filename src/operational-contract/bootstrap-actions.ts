@@ -90,7 +90,7 @@ export function renderStaleContractInstruction(path: string, cause: string): Ope
 }
 
 export function renderEslintConfigNote(
-  kind: 'owned' | 'wired' | 'reference' | 'new',
+  kind: 'owned' | 'wired' | 'reference' | 'new' | 'shadow',
   path: string,
 ): OperationalText {
   if (kind === 'owned') {
@@ -103,6 +103,10 @@ export function renderEslintConfigNote(
 
   if (kind === 'reference') {
     return operationalText(`${path} (reference — not wired in)`);
+  }
+
+  if (kind === 'shadow') {
+    return operationalText(`${path} (removed — generated nested config shadowed the ancestor eslint policy)`);
   }
 
   return operationalText(path);
@@ -206,9 +210,19 @@ interface EslintWiringFacts {
   legacyFile?: string;
   configFile?: string;
   hasTypescript: boolean;
+  basePath?: string;
 }
 
 export function renderEslintWiringNote(facts: EslintWiringFacts): OperationalText {
+  const blueprintImport = facts.basePath
+    ? `./${facts.basePath}/blueprint.config.mjs`
+    : './blueprint.config.mjs';
+
+  const applicationRoot = facts.basePath
+    ? '    import { fileURLToPath } from \'node:url\';\n'
+    + `    const applicationRoot = fileURLToPath(new URL('./${facts.basePath}/', import.meta.url));\n`
+    : '';
+
   if (facts.shape === 'legacy') {
     return operationalText(`${facts.legacyFile} is a legacy (non-flat) eslint config. Wiring the `
       + 'blueprint rules needs a flat-config / ESLint-9 migration first — that can break your '
@@ -222,13 +236,14 @@ export function renderEslintWiringNote(facts: EslintWiringFacts): OperationalTex
     return operationalText(
       'Your eslint config uses `tseslint.config()`. Wire blueprint in by wrapping the '
       + '(eslint.config.blueprint.mjs is your merge source):\n'
-      + '    import blueprint from \'./blueprint.config.mjs\';\n'
+      + applicationRoot
+      + `    import blueprint from '${blueprintImport}';\n`
       + '    import { emitLint } from \'@kekkai/blueprint\';\n'
       + '    import stylistic from \'@stylistic/eslint-plugin\';\n'
       + '    import imports from \'eslint-plugin-import-x\';\n'
       + '    export default tseslint.config(\n'
       + '      /* …your existing configs */\n'
-      + `      ...emitLint(blueprint, ${lintOptions(true)}),\n`
+      + `      ...emitLint(blueprint, ${lintOptions(true, facts.basePath)}),\n`
       + '    );\n'
       + '  emitLint goes LAST of the configs you already have — later entries win in flat\n'
       + '  config, so this keeps the blueprint\'s per-layer tuning alive over broad presets.\n'
@@ -243,12 +258,13 @@ export function renderEslintWiringNote(facts: EslintWiringFacts): OperationalTex
     + '    import stylistic from \'@stylistic/eslint-plugin\';\n'
     + '    import imports from \'eslint-plugin-import-x\';\n'
     + '    export default [ /* …your existing entries */ '
-    + `...emitLint(blueprint, ${lintOptions(facts.hasTypescript)}) ];\n`;
+    + `...emitLint(blueprint, ${lintOptions(facts.hasTypescript, facts.basePath)}) ];\n`;
 
   return operationalText('eslint.config already exists — blueprint never edits it, so '
     + 'eslint.config.blueprint.mjs is your merge source, not a keepsake. Diff it, then spread '
     + 'the rules into your flat config:\n'
-    + '    import blueprint from \'./blueprint.config.mjs\';\n'
+    + applicationRoot
+    + `    import blueprint from '${blueprintImport}';\n`
     + '    import { emitLint } from \'@kekkai/blueprint\';\n'
     + spread
     + '  emitLint goes LAST of the configs you already have — later entries win in\n'
@@ -263,8 +279,15 @@ export function renderEslintWiringNote(facts: EslintWiringFacts): OperationalTex
       + eslintWiringTail(facts));
 }
 
-function lintOptions(ts: boolean): string {
-  return ts ? '{ typescript: tseslint.plugin, stylistic, imports }' : '{ stylistic, imports }';
+function lintOptions(ts: boolean, basePath?: string): string {
+  const entries = [
+    ...(ts ? ['typescript: tseslint.plugin'] : []),
+    'stylistic',
+    'imports',
+    ...(basePath ? ['basePath: applicationRoot'] : []),
+  ];
+
+  return `{ ${entries.join(', ')} }`;
 }
 
 const INJECT_NOTE = '  Carry that options object over WHOLE. Three plugins are injected, never\n'

@@ -23,7 +23,8 @@ export interface OperationalSurface {
 export const OPERATIONAL_SURFACES = [
   {
     id: 'agent-contract-sections', owner: 'agent.ts', channel: 'agent-contract',
-    delivery: 'generated', audiences: ['coding agents'], factProviders: ['resolved Blueprint'],
+    delivery: 'generated', audiences: ['coding agents'],
+    factProviders: ['resolved Blueprint', 'measured lint integration'],
     consumers: ['src/emit/agent/sections.ts'], targets: ['AGENTS.md', 'CLAUDE.md'],
     verification: ['byte snapshots', 'emitter parity'],
   },
@@ -50,9 +51,11 @@ export const OPERATIONAL_SURFACES = [
   {
     id: 'authoring-eslint', owner: 'authoring-eslint.ts', channel: 'authoring',
     delivery: 'generated', audiences: ['adoption agents'],
-    factProviders: ['project state', 'Blueprint'],
+    factProviders: [
+      'project state', 'Blueprint', 'effective eslint owner', 'application base path',
+    ],
     consumers: ['src/bootstrap/eslint.ts'], targets: ['eslint.config.blueprint.mjs'],
-    verification: ['eslint config tests'],
+    verification: ['eslint config tests', 'nested-application conformance'],
   },
   {
     id: 'authoring-merge', owner: 'authoring-merge.ts', channel: 'authoring',
@@ -155,11 +158,23 @@ export const OPERATIONAL_SURFACES = [
   {
     id: 'doctor-diagnostics', owner: 'doctor.ts', channel: 'cli',
     delivery: 'runtime', audiences: ['CLI users', 'adoption agents'],
-    factProviders: ['doctor checks', 'repository state'],
-    consumers: [
-      'src/inspect/doctor-lint.ts', 'src/inspect/doctor.ts', 'src/inspect/wiring.ts',
+    factProviders: [
+      'doctor checks', 'repository state', 'effective lint integration', 'alias consumer evidence',
     ],
-    targets: ['doctor text and JSON'], verification: ['doctor contrast tests'],
+    consumers: [
+      'src/inspect/doctor-lint.ts', 'src/inspect/doctor.ts',
+      'src/inspect/wiring.ts',
+    ],
+    targets: ['doctor text and JSON'],
+    verification: ['doctor contrast tests', 'alias consumer contrast tests'],
+  },
+  {
+    id: 'doctor-report', owner: 'doctor-report.ts', channel: 'cli',
+    delivery: 'runtime', audiences: ['CLI users', 'adoption agents'],
+    factProviders: ['doctor checks', 'current-config adoption scope'],
+    consumers: ['src/inspect/doctor.ts'],
+    targets: ['doctor report text and JSON'],
+    verification: ['doctor report contrast tests'],
   },
   {
     id: 'dependency-diagnostics', owner: 'deps.ts', channel: 'cli',
@@ -200,7 +215,7 @@ export const OPERATIONAL_SURFACES = [
   {
     id: 'architecture-handbook', owner: 'handbook.ts', channel: 'handbook',
     delivery: 'generated', audiences: ['repository maintainers'],
-    factProviders: ['resolved Blueprint'],
+    factProviders: ['resolved Blueprint', 'measured lint integration'],
     consumers: ['src/emit/docs/sections.ts'], targets: ['docs/architecture-handbook.md'],
     verification: ['byte snapshots', 'emitter parity'],
   },
@@ -237,6 +252,8 @@ export const OPERATIONAL_SURFACES = [
     consumers: [
       'src/bootstrap/module-to-layer-transformation.ts',
       'src/bootstrap/transformation.ts',
+      'src/bootstrap/transformation-resume.ts',
+      'src/project/transformation-obligation.ts',
     ],
     targets: ['terminal actions'],
     verification: ['transformation tests'],

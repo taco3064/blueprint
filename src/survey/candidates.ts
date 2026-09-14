@@ -30,6 +30,7 @@ export interface RelativeImportEvidence {
 export interface TransformationCandidate {
   seed: string;
   source: 'container' | 'page' | 'app';
+  memberPaths: string[];
   reachableUnits: string[];
   directImports: CandidateEdge[];
   closureEdges: CandidateEdge[];
@@ -218,6 +219,15 @@ function candidateOf(
       : seed === 'containers'
         ? 'container'
         : seed.startsWith('app/') ? 'app' : 'page',
+    memberPaths: basis.scanned.files
+      .filter((file) => {
+        const position = basis.resolved.classify(file.segments);
+
+        return unitOf(file.segments) === seed
+          || (position !== null && positionKey(position) === seed);
+      })
+      .map((file) => file.path)
+      .sort(),
     reachableUnits: [...reachable].sort(),
     directImports: edges.filter((edge) => edge.from === seed),
     closureEdges: edges.filter((edge) => reachable.has(edge.from) && reachable.has(edge.to)),

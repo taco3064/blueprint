@@ -4,12 +4,27 @@ import {
   renderOwnersCallClause,
 } from './lint';
 import type { GlobReachFact } from './lint';
+import { CURRENT_CONFIG_ADOPTION_SCOPE } from './inspect';
+import { renderObligationFailure } from './transformation';
+import type { TransformationObligationFailure } from './transformation';
+
+type AliasConsumerEvidence = {
+  consumer: 'typescript' | 'bundler-runtime' | 'package-subpath' | 'test-runner';
+  status: 'verified' | 'missing' | 'absent' | 'not-applicable' | 'unverified';
+  aliases: string[];
+  files: string[];
+  unreadable?: string[];
+};
 
 export interface DoctorCheckView {
   label: string;
   ok: boolean;
   detail?: string;
   skipped?: string;
+  consumer?: AliasConsumerEvidence['consumer'];
+  status?: AliasConsumerEvidence['status'];
+  aliases?: string[];
+  files?: string[];
 }
 
 export type DoctorCheckFact
@@ -18,8 +33,15 @@ export type DoctorCheckFact
     | { kind: 'suppressions'; status: 'invalid-json' }
     | { kind: 'suppressions'; status: 'stale'; files: string[] }
     | { kind: 'suppressions'; status: 'empty' }
-    | { kind: 'alias'; aliases: string[]; sourceRoot?: string; unreadable?: string }
+    | { kind: 'alias-consumer'; evidence: AliasConsumerEvidence; sourceRoot: string }
     | { kind: 'leftovers'; references: string[]; authoring: string[]; stale: string[] }
+    | { kind: 'transformation'; status: 'invalid'; detail: string }
+    | {
+      kind: 'transformation';
+      status: 'pending';
+      verified: boolean;
+      failures: TransformationObligationFailure[];
+    }
     | { kind: 'eslint-wired'; wired: boolean; legacyConfig?: string }
     | { kind: 'lint-entrypoint'; reachable: true }
     | {
@@ -44,6 +66,7 @@ export type DoctorCheckFact
       hasErrors: boolean;
       suppressed: number;
       coverage: string;
+      importAnalysis: import('./inspect').ImportGraphFact;
       vacuous?: { sourceFiles: number; nextStep: string };
     }
     | { kind: 'wiring-unwired' }
@@ -80,15 +103,21 @@ export function renderUnreachedIgnoreNote(fact: {
 }
 
 type AdoptionCheckFact = Extract<DoctorCheckFact, {
-  kind: 'config' | 'suppressions' | 'alias' | 'leftovers' | 'eslint-wired' | 'lint-entrypoint';
+  kind: 'config' | 'suppressions' | 'leftovers' | 'transformation' | 'eslint-wired'
+    | 'lint-entrypoint';
 }>;
 type RuntimeCheckFact = Extract<DoctorCheckFact, { kind: 'live-lint' | 'architecture' }>;
 type WiringCheckFact = Extract<DoctorCheckFact, { kind: `wiring-${string}` }>;
+type TransformationCheckFact = Extract<DoctorCheckFact, { kind: 'transformation' }>;
 
 const SUPPRESSIONS_FILE = 'eslint-suppressions.json';
 
 export function renderDoctorCheck(fact: DoctorCheckFact): DoctorCheckView {
-  if (['config', 'suppressions', 'alias', 'leftovers', 'eslint-wired', 'lint-entrypoint']
+  if (fact.kind === 'alias-consumer') {
+    return renderAliasConsumer(fact);
+  }
+
+  if (['config', 'suppressions', 'leftovers', 'transformation', 'eslint-wired', 'lint-entrypoint']
     .includes(fact.kind)) {
     return renderAdoptionCheck(fact as AdoptionCheckFact);
   }
@@ -110,10 +139,10 @@ function renderAdoptionCheck(fact: AdoptionCheckFact): DoctorCheckView {
           };
     case 'suppressions':
       return renderSuppressions(fact);
-    case 'alias':
-      return renderAlias(fact);
     case 'leftovers':
       return renderLeftovers(fact);
+    case 'transformation':
+      return renderTransformation(fact);
     case 'eslint-wired':
       return {
         label: 'eslint wired to emitLint',
@@ -141,6 +170,22 @@ function renderAdoptionCheck(fact: AdoptionCheckFact): DoctorCheckView {
   }
 }
 
+function renderTransformation(fact: TransformationCheckFact): DoctorCheckView {
+  let detail: string;
+
+  if (fact.status === 'invalid') {
+    detail = fact.detail;
+  } else if (fact.verified) {
+    detail = 'the final state verifies; run `blueprint init --topology module-first` to retire '
+      + 'the obligation';
+  } else {
+    detail = `LF→MF transformation incomplete: ${fact.failures
+      .map(renderObligationFailure).join('; ')}`;
+  }
+
+  return { label: 'topology transformation verified and retired', ok: false, detail };
+}
+
 function renderRuntimeCheck(fact: RuntimeCheckFact): DoctorCheckView {
   switch (fact.kind) {
     case 'live-lint':
@@ -153,7 +198,8 @@ function renderRuntimeCheck(fact: RuntimeCheckFact): DoctorCheckView {
 function renderArchitectureCheck(
   fact: Extract<DoctorCheckFact, { kind: 'architecture' }>,
 ): DoctorCheckView {
-  let detail = fact.coverage;
+  let detail = `${fact.coverage}; import analysis ${fact.importAnalysis.status} `
+    + `(${fact.importAnalysis.parsedFiles}/${fact.importAnalysis.scannedFiles} scanned files parsed)`;
 
   if (fact.hasErrors) {
     detail = fact.suppressed > 0
@@ -163,11 +209,15 @@ function renderArchitectureCheck(
     detail = `clean, but vacuous — architecture globs match 0 of ${fact.vacuous.sourceFiles} source file(s); the wiring is done — ${fact.vacuous.nextStep}`;
   }
 
+  const importHealthy = fact.importAnalysis.status === 'healthy';
+
   return {
-    label: fact.suppressed > 0
-      ? 'architecture clean (findings covered by the baseline)'
-      : 'architecture clean',
-    ok: !fact.hasErrors,
+    label: importHealthy
+      ? fact.suppressed > 0
+        ? 'architecture clean (findings covered by the baseline)'
+        : 'architecture clean'
+      : `architecture nets clean; import analysis ${fact.importAnalysis.status}`,
+    ok: !fact.hasErrors && importHealthy,
     detail,
   };
 }
@@ -252,26 +302,43 @@ function renderSuppressions(
   }
 }
 
-function renderAlias(fact: Extract<DoctorCheckFact, { kind: 'alias' }>): DoctorCheckView {
-  const label = 'import alias wired to the toolchain';
+function renderAliasConsumer(
+  fact: Extract<DoctorCheckFact, { kind: 'alias-consumer' }>,
+): DoctorCheckView {
+  const { evidence } = fact;
+  const names = evidence.aliases.map((name) => `"${name}"`).join(', ');
+  const label = `import alias · ${evidence.consumer}`;
 
-  if (!fact.aliases.length) {
-    return { label, ok: true };
+  const structural = {
+    consumer: evidence.consumer,
+    status: evidence.status,
+    aliases: evidence.aliases,
+    files: evidence.files,
+  };
+
+  if (evidence.status === 'verified') {
+    return { label, ok: true, ...structural };
   }
 
-  const dir = fact.sourceRoot === '.' ? '.' : `./${fact.sourceRoot}`;
+  if (evidence.status === 'missing') {
+    const dir = fact.sourceRoot === '.' ? '.' : `./${fact.sourceRoot}`;
 
-  return {
-    label,
-    ok: false,
-    detail: `${fact.aliases.map((name) => `"${name}"`).join(', ')} resolves nowhere — declare it in `
-      + `tsconfig compilerOptions.paths ("${fact.aliases[0]}/*": ["${dir}/*"]) or your bundler's `
-      + 'alias config, or the agent contract points at unresolvable imports'
-      + (fact.unreadable
-        ? ` — but fix ${fact.unreadable} first: this check could not read `
-        + 'it, so an alias already declared in there would not have been seen'
-        : ''),
-  };
+    const remedy = evidence.consumer === 'typescript'
+      ? `declare compilerOptions.paths ("${evidence.aliases[0]}/*": ["${dir}/*"])`
+      : `declare ${names} in the recognised ${evidence.consumer} configuration`;
+
+    return { label, ok: false, detail: `${names} is missing — ${remedy}`, ...structural };
+  }
+
+  const reason = evidence.status === 'not-applicable'
+    ? 'the configured aliases are not package # subpaths'
+    : evidence.status === 'absent'
+      ? `no recognised ${evidence.consumer} configuration is present`
+      : `${evidence.unreadable?.join(', ') ?? 'the configuration'} could not be read statically`;
+
+  return evidence.status === 'unverified'
+    ? { label, ok: true, skipped: reason, ...structural }
+    : { label, ok: true, detail: reason, ...structural };
 }
 
 function renderLeftovers(
@@ -338,46 +405,5 @@ export function renderUncommittedDoctorNote(): string {
     + 'an adopting agent\'s.';
 }
 
-export function renderDoctorReport(
-  checks: DoctorCheckView[],
-  report: { notes?: string[]; json?: boolean },
-): string {
-  const notes = report.notes ?? [];
-  const failed = checks.filter((check) => !check.ok).length;
-  const skipped = checks.filter((check) => check.skipped).length;
-  const passed = checks.length - failed - skipped;
-  const verdict = failed ? 'incomplete' : skipped ? 'unverified' : 'complete';
-
-  const banner = failed === 0 && !skipped
-    ? `✓ Adoption complete — all ${checks.length} checks passed.`
-    : failed === 0
-      ? `⊘ Adoption unverified — ${passed} of ${checks.length} checks passed, `
-      + `${skipped} could not run (⊘ above). Nothing failed, and nothing here `
-      + 'proves what those checks cover.'
-      : `✗ Adoption incomplete — ${failed} of ${checks.length} check(s) failed`
-        + `${skipped ? `, and ${skipped} could not run (⊘ above) — fixing the ✗ leaves those still unproven` : ''}.`;
-
-  if (report.json) {
-    return JSON.stringify({
-      ok: checks.every((check) => check.ok),
-      verdict,
-      summary: banner,
-      counts: { total: checks.length, passed, failed, skipped },
-      checks,
-      note: notes.length ? notes.join('\n') : undefined,
-    }, null, 2);
-  }
-
-  return [
-    'blueprint doctor',
-    ...checks.map((check) => {
-      const mark = check.ok ? (check.skipped ? '⊘' : '✓') : '✗';
-      const under = check.skipped ?? check.detail;
-
-      return `  ${mark} ${check.label}${under ? `\n      ${under}` : ''}`;
-    }),
-    '',
-    banner,
-    ...notes.map((note) => `  ${note}`),
-  ].join('\n');
-}
+export { renderDoctorReport } from './doctor-report';
+export { CURRENT_CONFIG_ADOPTION_SCOPE };

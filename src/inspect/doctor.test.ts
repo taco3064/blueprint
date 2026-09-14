@@ -71,9 +71,9 @@ describe('runDoctor · the verdict and the banner it prints', () => {
     // eslint resolvable here the survival check cannot run, and the banner used to fold
     // that skip into the pass count — so this suite asserted a verdict resting on a check
     // that never ran, exactly as a field agent found in the wild (#129).
-    expect(output).toContain('⊘ Adoption unverified — 7 of 9 checks passed, 2 could not run');
+    expect(output).toContain('⊘ Adoption unverified — 10 of 12 checks passed, 2 could not run');
     expect(output).toContain('nothing here proves the emitted rules are alive in it');
-    expect(output).not.toContain('all 9 checks passed');
+    expect(output).not.toContain('all 12 checks passed');
     // Truly clean, no baseline — the label stays plain instead of claiming
     // coverage by a ledger that does not exist (field run #10).
     expect(checks.map((c) => c.label)).toContain('architecture clean');
@@ -199,24 +199,20 @@ describe('runDoctor · the eslint wiring check', () => {
 });
 
 describe('runDoctor · alias resolution', () => {
-  it('flags a declared alias no toolchain resolves, with the wiring snippet', async () => {
+  it('reports absent consumers without claiming whole-toolchain resolution', async () => {
     adopted();
     fs.rmSync(path.join(root, 'tsconfig.json'));
     const { ok, checks } = await runDoctor(root, { loadConfig: load, log: silent });
 
     const check = checks.find((c) => c.label.includes('alias'));
 
-    expect(ok).toBe(false);
-    expect(check?.ok).toBe(false);
-    // The detail opens by naming which aliases resolve nowhere. Without the
-    // names, the reader is told something is unwired and left to work out
-    // which of the declared aliases it is.
-    expect(check?.detail?.startsWith('"~app" resolves nowhere')).toBe(true);
-    expect(check?.detail).toContain('"~app/*": ["./src/*"]');
-    expect(check?.detail).toContain('unresolvable imports');
-    // No unreadable tsconfig here, so the remedy stands alone — the clause below
-    // must not appear on a repo whose configs all parse.
-    expect(check?.detail).not.toContain('could not read');
+    expect(ok).toBe(true);
+
+    expect(check).toMatchObject({
+      consumer: 'typescript', status: 'absent', ok: true,
+    });
+
+    expect(check?.detail).toContain('no recognised typescript configuration');
   });
 
   it('blames an unreadable tsconfig before it blames the alias', async () => {
@@ -228,15 +224,16 @@ describe('runDoctor · alias resolution', () => {
     write('tsconfig.json', '{ "compilerOptions": { "paths": { "~app: ["./src/x"] } } }');
     const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
 
-    const detail = checks.find((c) => c.label.includes('alias'))?.detail;
+    const check = checks.find((c) => c.consumer === 'typescript');
 
-    expect(detail).toContain('tsconfig.json could not be read (a string literal never closes');
-    expect(detail).toContain('an alias already declared in there would not have been seen');
+    expect(check).toMatchObject({ status: 'unverified', ok: true });
+    expect(check?.skipped).toContain('tsconfig.json');
+    expect(check?.skipped).toContain('could not be read statically');
   });
 
   it('targets the project root in the wiring snippet when sourceRoot is "."', async () => {
     adopted();
-    fs.rmSync(path.join(root, 'tsconfig.json'));
+    write('tsconfig.json', '{}');
 
     const flat = async () => {
       const preset = vuePreset();
@@ -246,7 +243,8 @@ describe('runDoctor · alias resolution', () => {
 
     const { checks } = await runDoctor(root, { loadConfig: flat, log: silent });
 
-    expect(checks.find((c) => c.label.includes('alias'))?.detail).toContain('"~app/*": ["./*"]');
+    expect(checks.find((c) => c.consumer === 'typescript')?.detail)
+      .toContain('"~app/*": ["./*"]');
   });
 
   it('accepts an alias wired through the vite config text', async () => {
@@ -256,7 +254,9 @@ describe('runDoctor · alias resolution', () => {
 
     const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
 
-    expect(checks.find((c) => c.label.includes('alias'))?.ok).toBe(true);
+    expect(checks.find((c) => c.consumer === 'bundler-runtime')).toMatchObject({
+      status: 'verified', ok: true,
+    });
   });
 
   it('accepts an alias wired through a webpack-era bundler config', async () => {
@@ -271,7 +271,9 @@ describe('runDoctor · alias resolution', () => {
 
     const { checks } = await runDoctor(root, { loadConfig: load, log: silent });
 
-    expect(checks.find((c) => c.label.includes('alias'))?.ok).toBe(true);
+    expect(checks.find((c) => c.consumer === 'bundler-runtime')).toMatchObject({
+      status: 'verified', ok: true,
+    });
   });
 
   it('demands the vite alias as a quoted token — '
@@ -290,7 +292,9 @@ describe('runDoctor · alias resolution', () => {
 
     let { checks } = await runDoctor(root, { loadConfig: at, log: silent });
 
-    expect(checks.find((c) => c.label.includes('alias'))?.ok).toBe(false);
+    expect(checks.find((c) => c.consumer === 'bundler-runtime')).toMatchObject({
+      status: 'missing', ok: false,
+    });
 
     // The real wiring is a quoted token — that one counts.
     write(
@@ -301,7 +305,9 @@ describe('runDoctor · alias resolution', () => {
 
     ({ checks } = await runDoctor(root, { loadConfig: at, log: silent }));
 
-    expect(checks.find((c) => c.label.includes('alias'))?.ok).toBe(true);
+    expect(checks.find((c) => c.consumer === 'bundler-runtime')).toMatchObject({
+      status: 'verified', ok: true,
+    });
   });
 });
 

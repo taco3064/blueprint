@@ -150,7 +150,13 @@ describe('scan', () => {
     expect(importAnalysis({
       topDirs: [],
       files: [{ path: 'src/x.ts', segments: ['x.ts'], imports: [] }],
-    })).toEqual({ unknownDynamicImports: 0, parseFailures: [] });
+    })).toEqual({
+      status: 'healthy',
+      scannedFiles: 1,
+      parsedFiles: 1,
+      unknownDynamicImports: 0,
+      parseFailures: [],
+    });
   });
 
   it('walks src/ and records files with segments and imports', () => {

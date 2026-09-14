@@ -57,9 +57,24 @@ third-party plugin adapters.
   - Result: A flat reference config and migration instructions are produced.
   - Ownership: The adopter owns the migration.
 
+For a selected application below a repository-level flat config, that ancestor remains the live
+policy. `init` never writes a nested live config that would shadow it. If an earlier Blueprint run
+left such a generated shadow, `init` removes that generated file and emits a repository-root-ready
+reference instead; a hand-authored nested config is never removed. The reference imports the
+application blueprint by its repository path and computes an absolute `applicationRoot` for
+`emitLint(..., { basePath: applicationRoot })`. Its parser and anti-bypass entries use the same
+native flat-config `basePath`, so both Blueprint rules and existing repository rules reach the
+selected application whether ESLint is invoked from the repository or application directory.
+
 Flat-config entries replace matching rule keys rather than merging their options. After manual
 integration, use `blueprint doctor` to check that the structural restrictions survive the final
 ordering.
+
+Generated handbooks and Agent contracts distinguish a reference-only lint export from verified
+project-lint integration. A config mentioning Blueprint is not proof that its rules execute.
+After merging the export, rerun `init`: it checks effective rule survival and the safely replayable
+project lint command before upgrading the generated enforcement statement. Without that evidence,
+the documents explicitly retain an unverified or reference-only statement.
 
 ### Architecture handbook
 
@@ -137,6 +152,21 @@ incomplete adoption.
 For repository-wide transformations, one playbook is written at the repository root and carries a
 separate measured section for every adopted application. Blueprint never moves application source
 automatically; the Agent follows the playbook and uses Git-aware moves.
+
+### `blueprint-transformation.json`
+
+Layer-first → module-first work also creates this application-local, machine-consumed obligation.
+It records the recoverable Git head, application and source scope, framework/router position, and
+the measured `pages`, `app`, and `containers` source members. The Agent records every reviewed
+source → destination decision in `target.decisions`; replacing the config with a valid module-first
+config does not erase that obligation.
+
+The next `init --topology module-first` verifies the recorded Git inventory, reserved `app` route
+composition, consumption of container seeds, destination positions, current import analysis, and
+architecture findings. Only a successful verification retires this file and the transformation
+playbook. `--authoring` is explicitly re-authoring and never historical transformation proof.
+Hand-authored module-first projects without this artifact may intentionally use custom layer names
+such as `pages` or `containers`; Doctor and Inspect prove their current config, not a past migration.
 
 ### `.claude/commands/blueprint-author.md`
 

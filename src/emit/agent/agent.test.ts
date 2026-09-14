@@ -84,8 +84,8 @@ describe('emitAgentContract', () => {
     // The full contract gives each hard gate a bullet; the compact block lists them in
     // one clause. Both forms are pinned, so a drop cannot be mistaken for a re-wording.
     const forms = [
-      [false, '- `explicitAny` is a hard gate.'],
-      [true, '`explicitAny`, `maxLines` = 400 fail the project\'s lint run'],
+      [false, '- `explicitAny` is emitted but not yet verified alive in the project lint run.'],
+      [true, '`explicitAny`, `maxLines` = 400'],
     ] as const;
 
     for (const [compact, named] of forms) {

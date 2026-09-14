@@ -1,5 +1,11 @@
 import { operationalText } from './operational-contract';
 import type { OperationalText } from './operational-contract';
+export interface TransformationObligationFailure {
+  code: string;
+  subject?: string;
+  expected?: string;
+  actual?: string;
+}
 
 export type ArchitectureTopologyFact = 'layer-first' | 'module-first';
 
@@ -47,6 +53,7 @@ export interface RelativeImportFact {
 export interface LayerToModuleCandidateFact {
   seed: string;
   source: 'container' | 'page' | 'app';
+  memberPaths: string[];
   reachableUnits: string[];
   directImports: TransformationEdgeFact[];
   closureEdges: TransformationEdgeFact[];
@@ -131,6 +138,80 @@ export function renderTransformationWriteNote(
       : 'repository-wide topology transformation playbook';
 
   return operationalText(`${authoringFile} (${description})`);
+}
+
+export function renderTransformationObligationWriteNote(file: string): OperationalText {
+  return operationalText(`${file} (machine-verifiable layer-first → module-first obligation)`);
+}
+
+export function renderTransformationRetireNote(file: string): OperationalText {
+  return operationalText(`${file} (verified transformation obligation retired)`);
+}
+
+export function renderTransformationObligationError(fact:
+  | { kind: 'invalid-json'; file: string }
+  | { kind: 'invalid-schema'; file: string }
+  | { kind: 'missing-config'; file: string }
+  | { kind: 'reauthoring'; file: string }
+  | { kind: 'incomplete'; failures: TransformationObligationFailure[] },
+): OperationalText {
+  if (fact.kind === 'invalid-json') {
+    return operationalText(`${fact.file} is not valid JSON`);
+  }
+
+  if (fact.kind === 'invalid-schema') {
+    return operationalText(`${fact.file} is not a supported transformation obligation`);
+  }
+
+  if (fact.kind === 'missing-config') {
+    return operationalText('The recorded LF→MF transformation has no current config to verify.');
+  }
+
+  if (fact.kind === 'reauthoring') {
+    return operationalText(
+      'Explicit re-authoring does not complete the recorded LF→MF transformation. '
+      + `Resolve or intentionally remove ${fact.file} before starting a new authoring flow.`,
+    );
+  }
+
+  return operationalText(`LF→MF transformation incomplete:\n- ${fact.failures
+    .map(renderObligationFailure).join('\n- ')}`);
+}
+
+export function renderObligationFailure(fact: TransformationObligationFailure): string {
+  const subject = fact.subject || '';
+  const expected = fact.expected || '';
+  const actual = fact.actual || '0';
+
+  const labels: Record<string, string> = {
+    'repository-root-unavailable': 'repository root is unavailable',
+    'origin-head-changed': `HEAD must remain at the recorded origin ${expected}`,
+    'framework-changed': 'framework changed',
+    'router-changed': 'framework router position changed',
+    'unsafe-origin-scope': 'recorded application or source scope is unsafe',
+    'application-root-changed': 'application root changed',
+    'source-scope-changed': 'source scope changed',
+    'duplicate-origin-unit': 'origin contains duplicate source units',
+    'origin-source-mismatch': `origin source does not match Git: ${subject}`,
+    'unrecorded-origin-source': `unrecorded origin source: ${subject}`,
+    'origin-role-mismatch': `origin role does not match members: ${subject}`,
+    'duplicate-decision': `duplicate decision for ${subject}`,
+    'unknown-decision-source': `unrecorded decision source ${subject}`,
+    'missing-destination-decision': `recorded source ${subject} has no destination decision`,
+    'unsafe-source-member': `unsafe source member: ${subject}`,
+    'source-member-remains': `source member still exists: ${subject}`,
+    'unsafe-destination': `unsafe destination: ${subject}`,
+    'destination-missing': `destination does not exist: ${subject}`,
+    'route-destination-not-app': `route destination is not under reserved app: ${subject}`,
+    'container-destination-not-module': `container destination is not in an ordinary module: ${subject}`,
+    'target-not-module-first': 'current config is not module-first',
+    'reserved-app-absent': 'reserved app is absent',
+    'final-import-analysis-failed': 'final import analysis failed',
+    'final-architecture-errors': `final architecture has ${actual} error finding(s)`,
+    'recorded-role-repeated': `recorded LF ${subject} role is a target layer`,
+  };
+
+  return labels[fact.code] ?? `transformation verification failed (${fact.code})`;
 }
 
 export function renderTransformationReady(

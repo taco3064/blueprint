@@ -1,4 +1,4 @@
-import { scan } from '../inspect';
+import { assessLintIntegration, scan } from '../inspect';
 import { resolveArchitecture } from '../config';
 import type { AgentTarget } from '../config';
 import {
@@ -38,6 +38,7 @@ import * as legacyUpgrade from './legacy-upgrade';
 import { assertAuthoredConfigNotRewritten, assertInitOptions } from './init-options';
 import type { Action } from './types';
 import { freshAuthoringAgents } from './authoring-launcher';
+import { transformationRetirement } from './transformation-resume';
 import {
   renderActionLine,
   renderAgentSessionNote,
@@ -82,11 +83,31 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
   assertInitOptions(state, options, pristine);
 
-  const {
-    resolved, survey, topology, blueprints, legacyCount, architecture,
-  } = await prepareTopology({
-    root, state, options, pristine, log,
+  const input = { root, state, options, pristine, log };
+
+  return runPreparedTopology(input, await prepareTopology(input));
+}
+
+async function runPreparedTopology(
+  input: InitTopologyInput,
+  prepared: Awaited<ReturnType<typeof prepareTopology>>,
+): Promise<Action[]> {
+  const { root, state, options, pristine, log } = input;
+  const { resolved, survey, topology, blueprints, legacyCount, architecture } = prepared;
+
+  const retirement = transformationRetirement({
+    root, state, blueprint: resolved?.blueprint ?? null, authoring: options.authoring,
   });
+
+  if (retirement) {
+    return runScaffold(root, state, {
+      options,
+      log,
+      forkNote: null,
+      resolved,
+      trailingActions: retirement,
+    });
+  }
 
   assertTopologySupported(topology);
 
@@ -230,6 +251,7 @@ async function runScaffold(
   ctx: RunContext & {
     forkNote: string | null;
     resolved: Awaited<ReturnType<typeof resolveBlueprint>> | null;
+    trailingActions?: Action[];
   },
 ): Promise<Action[]> {
   const { options } = ctx;
@@ -246,6 +268,7 @@ async function runScaffold(
 
   const actions = plan(state, blueprint, {
     ...options,
+    lintIntegration: await assessLintIntegration(state, blueprint, { scanResult }),
     configSource,
     agentTarget,
     hasSourceFiles: scanResult.files.length > 0,
@@ -260,6 +283,7 @@ async function runScaffold(
 
   applyLintWiring(actions, lintScriptAction(root, blueprint, configSource !== null));
   actions.push(...scaffoldNotes(state, blueprint, { configSource, agentTarget }));
+  actions.push(...(ctx.trailingActions ?? []));
 
   narrate(actions, root, {
     ...ctx,

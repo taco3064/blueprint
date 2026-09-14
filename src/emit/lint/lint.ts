@@ -19,6 +19,7 @@ import {
   toArray,
 } from './patterns';
 import type { EmitLintOptions, LintConfig, LintConfigEntry, PackageRule } from './types';
+import { scopeLintEntries, scopeLintOptions } from './scope';
 import { buildGlobalRule, containerImportEntries } from './container';
 import { aliasSubtreeSpecifier, buildModuleContainerRestrictions, moduleImportScope }
   from './structural';
@@ -53,7 +54,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     resolved.layers.map((layer) => [layer.name, layer.unit.layout]),
   );
 
-  const entries = Object.fromEntries(
+  const entriesByLayer = Object.fromEntries(
     resolved.layers.map((layer) => [layer.name, layer.unit.entry]),
   );
 
@@ -63,16 +64,13 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
 
   const layerConfigs = layerImportEntries(blueprint, { severity, testGlobs, aliases, layouts });
 
-  const containerConfigs = containerImportEntries(
-    blueprint,
-    { severity, testGlobs, aliases, layouts },
-  );
+  const containerConfigs = containerImportEntries(blueprint, {
+    severity, testGlobs, aliases, layouts,
+  });
 
-  const allLayerFiles = [
-    ...new Set(
-      resolved.layers.flatMap((layer) => resolved.layerFiles(layer.name, framework)),
-    ),
-  ];
+  const allLayerFiles = [...new Set(resolved.layers.flatMap(
+    (layer) => resolved.layerFiles(layer.name, framework),
+  ))];
 
   const governedFiles = [...resolved.containerFiles(framework), ...allLayerFiles];
 
@@ -82,24 +80,24 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     plugins: { blueprint: plugin },
     rules: { 'blueprint/relative-escape': [
       severity,
-      {
+      scopeLintOptions({
         layouts,
-        entries,
+        entries: entriesByLayer,
         sourceRoot: resolved.sourceRoot,
         moduleFirst: resolved.topology === 'module-first',
-      },
+      }, options.basePath),
     ],
-    'blueprint/import-boundary': [severity, { architecture }],
+    'blueprint/import-boundary': [severity, scopeLintOptions({ architecture }, options.basePath)],
     },
   };
 
-  return [
+  return scopeLintEntries([
     ...ignoreConfig,
     ...containerConfigs,
     ...layerConfigs,
     escapeEntry,
     ...ruleGateEntries(blueprint, resolved.testFiles, options),
-  ];
+  ], options.basePath);
 }
 
 function layerImportEntries(

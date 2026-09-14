@@ -46,6 +46,7 @@ export interface PlanOptions {
 
   hasSourceFiles?: boolean;
   existingSourceDirs?: string[];
+  lintIntegration?: 'verified' | 'unverified' | 'reference-only';
 }
 
 const TOOLING_NOTES: Action[] = [
@@ -68,7 +69,10 @@ export function plan(
   const { configSource = null } = options;
   const handbook = handbookPath(blueprint);
 
-  const stack = { hasTypescript: state.hasTypescript };
+  const stack = {
+    hasTypescript: state.hasTypescript,
+    lintIntegration: options.lintIntegration ?? lintIntegrationOf(state),
+  };
 
   const agentFiles = emitAgentFiles(
     blueprint,
@@ -105,6 +109,15 @@ export function plan(
   assertContained(actions);
 
   return actions;
+}
+
+function lintIntegrationOf(
+  state: ProjectState,
+): 'unverified' | 'reference-only' {
+  return state.ownedEslintConfig !== undefined || state.wiredEslintConfig
+    || (!state.hasEslintConfig && state.legacyEslintConfig === undefined)
+    ? 'unverified'
+    : 'reference-only';
 }
 
 function configWrite(configSource: string): Action {
@@ -234,8 +247,16 @@ function staleContractActions(
 }
 
 function eslintConfigActions(blueprint: Blueprint, state: ProjectState): Action[] {
+  const removeShadow: Action[] = state.shadowedEslintConfig === undefined
+    ? []
+    : [{
+        kind: 'rm',
+        path: state.shadowedEslintConfig,
+        note: renderEslintConfigNote('shadow', state.shadowedEslintConfig),
+      }];
+
   if (state.ownedEslintConfig !== undefined) {
-    return [{
+    return [...removeShadow, {
       kind: 'write',
       path: state.ownedEslintConfig,
       content: eslintConfigSource(blueprint, state),
@@ -244,7 +265,7 @@ function eslintConfigActions(blueprint: Blueprint, state: ProjectState): Action[
   }
 
   if (state.wiredEslintConfig) {
-    return [{
+    return [...removeShadow, {
       kind: 'instruct',
       note: renderEslintConfigNote('wired', ''),
     }];
@@ -252,6 +273,7 @@ function eslintConfigActions(blueprint: Blueprint, state: ProjectState): Action[
 
   if (state.hasEslintConfig || state.legacyEslintConfig !== undefined) {
     return [
+      ...removeShadow,
       {
         kind: 'write',
         path: 'eslint.config.blueprint.mjs',
@@ -263,11 +285,12 @@ function eslintConfigActions(blueprint: Blueprint, state: ProjectState): Action[
         legacyFile: state.legacyEslintConfig,
         configFile: state.eslintConfigFile,
         hasTypescript: state.hasTypescript,
+        basePath: state.eslintBasePath,
       }) },
     ];
   }
 
-  return [{
+  return [...removeShadow, {
     kind: 'write',
     path: 'eslint.config.mjs',
     content: eslintConfigSource(blueprint, state),

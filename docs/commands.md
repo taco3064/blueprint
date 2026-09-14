@@ -109,16 +109,19 @@ npx @kekkai/blueprint inspect --baseline --json
 
 - **`--framework vue|react`** — Resolve an ambiguous framework.
 - **`--json`** — Emit the report as structured data.
-- **`--update-baseline`** — Record current error/warn findings in `.blueprint-baseline.json`; info findings are excluded and zero debt writes no file. Exits `0` after the update.
+- **`--update-baseline`** — Record current error/warn findings in `.blueprint-baseline.json`; info findings are excluded and zero debt writes no file. A degraded or failed import analysis refuses the update and exits `1` so an incomplete graph cannot become the baseline.
 - **`--baseline`** — Fail only for findings not present in the baseline, creating a brownfield ratchet.
 
-Any unbaselined error-level finding exits `1`; warn and info findings do not. The report also states
-how many source files the architecture nets reach and how many optional gates are active, so an
-empty selection is visible rather than treated as proof.
+Any unbaselined error-level finding exits `1`; warn and info findings do not. A parse failure also
+exits `1`: one failed file makes import analysis degraded, and a scan in which every file fails to
+parse makes it failed. The report keeps that parser status separate from how many source files the
+architecture nets reach and how many optional gates are active, so structural coverage is never
+presented as proof that the dependency graph was complete.
 
 `architecture.testFiles` defines the only structural test exemption. Static imports and re-exports
 join the dependency graph; dynamic imports join only when their target can be reduced to a proven
-string. Parse failures and unresolved dynamic targets are disclosed.
+string. Unresolved dynamic targets are disclosed without failing the command; parse failures fail
+closed because they can hide dependency edges.
 
 ## `impact`
 
@@ -131,8 +134,10 @@ npx @kekkai/blueprint impact
 npx @kekkai/blueprint impact --json
 ```
 
-The only option is `--json`. An authored `blueprint.config.mjs`, ESLint 9 or newer, and the relevant
-project parsers/plugins are required. `init` installs the supported dependencies.
+The only option is `--json`. An authored `blueprint.config.mjs`, ESLint 9 or 10, and the relevant
+project parsers/plugins are required. `init` installs the supported dependencies. On ESLint 8,
+`impact` returns an explicit unavailable result and points to the ESLint 9/10 migration; it does not
+expose the flat-config API error or report an unmeasured zero-hit result.
 
 This command is informational: lint hits do not make it exit non-zero. Parse errors, unused disable
 directives, and non-Blueprint rules are separated from the Blueprint total because they need to be
@@ -178,6 +183,11 @@ reverse-engineering the generated flat config; the configuration catalog is in
 Agent files, ESLint wiring, the reachable `package.json` lint entrypoint and its live ESLint leg,
 alias wiring, survival of emitted structural rules in the merged flat config, architecture status,
 and the suppressions ledger.
+
+Alias evidence is reported separately for recognized TypeScript, bundler/runtime, package `imports`
+subpaths, and test-runner consumers. Evidence from one consumer never produces a whole-toolchain
+green: a missing mapping fails its own check, an applicable consumer that cannot be read is
+unverified, and a consumer that is absent or not applicable is labelled as such.
 
 ```bash
 npx @kekkai/blueprint doctor

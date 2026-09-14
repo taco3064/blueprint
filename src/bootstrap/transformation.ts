@@ -1,5 +1,12 @@
-import { AUTHORING_FILE, claudeDirState } from '../project';
-import type { ClaudeDirState, ProjectState } from '../project';
+import path from 'node:path';
+
+import {
+  AUTHORING_FILE,
+  claudeDirState,
+  TRANSFORMATION_OBLIGATION_FILE,
+  transformationObligationSource,
+} from '../project';
+import type { ClaudeDirState, LayerToModuleObligation, ProjectState } from '../project';
 import type { ArchitectureDef } from '../config';
 import {
   layerToModuleBrief,
@@ -8,6 +15,7 @@ import {
   renderTransformationInstallHandoff,
   renderTransformationInstallNote,
   renderTransformationNarration,
+  renderTransformationObligationWriteNote,
   renderTransformationPreflightError,
   renderTransformationReady,
   renderTransformationWriteNote,
@@ -52,6 +60,8 @@ export function transformationActions(
           note: renderTransformationInstallHandoff(command),
         }];
 
+  const obligation = buildTransformationObligation(input);
+
   return [
     {
       kind: 'write',
@@ -66,6 +76,12 @@ export function transformationActions(
       }),
       note: renderTransformationWriteNote('layer-to-module', AUTHORING_FILE),
     },
+    {
+      kind: 'write',
+      path: TRANSFORMATION_OBLIGATION_FILE,
+      content: transformationObligationSource(obligation),
+      note: renderTransformationObligationWriteNote(TRANSFORMATION_OBLIGATION_FILE),
+    },
     ...authoringLauncherActions(input.agents),
     ...install,
     {
@@ -73,6 +89,45 @@ export function transformationActions(
       note: renderTransformationReady('layer-to-module'),
     },
   ];
+}
+
+export function buildTransformationObligation(
+  input: TransformationActionInput,
+): LayerToModuleObligation {
+  const sources = [...input.evidence.routerCandidates, ...input.evidence.candidates]
+    .filter((candidate) => ['page', 'container', 'app'].includes(candidate.source))
+    .map((candidate) => ({
+      role: candidate.source === 'page' || candidate.source === 'app'
+        ? 'route-composition' as const
+        : 'container-seed' as const,
+      unit: candidate.seed,
+      members: candidate.memberPaths,
+    }));
+
+  const unique = [...new Map(sources.map((source) => [source.unit, source])).values()];
+
+  return {
+    version: 1,
+    direction: 'layer-first-to-module-first',
+    origin: {
+      head: input.preflight.head.commit!,
+      topology: 'layer-first',
+      applicationRoot: relativeApplicationRoot(input),
+      selectedScope: input.preflight.scope.selected!,
+      sourceRoot: input.evidence.sourceRoot,
+      framework: input.state.framework ?? 'unknown',
+      router: input.state.nextRouter,
+      sources: unique,
+    },
+    target: { topology: 'module-first', decisions: [] },
+  };
+}
+
+function relativeApplicationRoot(input: TransformationActionInput): string {
+  const repository = input.preflight.repository.root!;
+  const relative = path.relative(repository, input.state.applicationRoot).split(path.sep).join('/');
+
+  return relative || '.';
 }
 
 export interface LayerToModuleInput {

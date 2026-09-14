@@ -24,6 +24,11 @@ export default defineBlueprint({
 不成立的相依圖會回報明確錯誤，不會默默忽略。[API 參考](/zh-TW/api/)保留完整型別簽章；
 本頁則說明這些欄位如何組成同一個模型。
 
+套件提供兩個具有完整宣告檔的公開入口。架構編寫、預設設定、emitters 與 runtimes 使用
+`@kekkai/blueprint`；需要組合 Blueprint 管理的執行期或產生文字時，整合工具可從
+`@kekkai/blueprint/operational-contract` 使用具型別的 `OperationalText` renderers。一般導入
+不需要使用此子路徑；確有整合需求時應匯入這個公開入口，不要直接引用 `dist/` 內部檔案。
+
 ## 根欄位
 
 - **`name`**
@@ -70,6 +75,8 @@ architecture: {
 - **`alias`** 必填且沒有預設值，是跨越受管理模組或分層邊界時唯一標準的原始碼根別名。
 - **`additionalAliases`** 將既有別名對應至專案相對路徑，供解析與相依診斷使用；它們不會
   變成跨邊界時的另一套標準寫法。
+  若在此重複標準 `alias`，只有正規化後仍指向相同原始碼根目錄才會接受；指向不同位置時，
+  會在設定驗證階段直接拒絕，不讓互相矛盾的別名身分進入 lint 產出、檢查或遷移建議。
 - **`sourceRoot`** 預設為 `src`。Next.js 未使用 `src/` 等根目錄配置可設為 `.`。Lint、
   `inspect`、`deps`、產生後的守則與建置路徑都以它為基準。
 

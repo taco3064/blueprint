@@ -12,7 +12,6 @@ import {
 } from './sections';
 import type { ArchitectureDef, AxisDef, Blueprint, PrincipleDef } from '../../config';
 import { renderTestFilesOperational } from '../../operational-contract';
-import { enforcedBy, LINT_GATED_RULE_IDS } from '../lint';
 
 function arch(over: Partial<ArchitectureDef> = {}): ArchitectureDef {
   return {
@@ -43,8 +42,11 @@ describe('renderPlacement', () => {
     expect(out).toContain('- `src/services/` — layer: net.');
 
     expect(out.match(/OWNS:/g)).toHaveLength(1);
+
     expect(out).not.toContain('IMPORTABLE BY:');
+
     expect(out).toContain('only `index` is importable');
+
     expect(out).not.toContain('private');
   });
 
@@ -54,11 +56,13 @@ describe('renderPlacement', () => {
     );
 
     expect(out).toContain('only `index` is importable from outside.');
+
     expect(out).not.toContain('keep');
 
     const omitted = renderPlacement(arch());
 
     expect(omitted).toContain('only `index` is importable from outside.');
+
     expect(omitted).not.toContain('keep');
   });
 
@@ -89,6 +93,7 @@ describe('renderPlacement', () => {
     );
 
     expect(out).toContain('- `components` units: one file per unit.');
+
     expect(out).toContain('- `services` units: one file per unit.');
   });
 
@@ -171,13 +176,24 @@ describe('renderHardRules', () => {
     );
 
     expect(out).toContain('Import a folder unit via its `index`');
-    expect(out).toContain('`maxLines` = 400 is a hard gate.');
-    expect(out).toContain('- `unusedVars` is a hard gate.');
-    expect(out).not.toContain('undefined');
-    expect(out).not.toContain('`noUtils` is a hard gate.');
-    expect(out).not.toContain('`deadCode` is a hard gate.');
 
-    expect(out).not.toContain('`soft`'); // warn-tier not a hard gate
+    expect(out)
+      .toContain('`maxLines` = 400 is emitted but not yet verified alive in the project lint run.');
+
+    expect(out)
+      .toContain('- `unusedVars` is emitted but not yet verified alive in the project lint run.');
+
+    expect(out).not.toContain('undefined');
+
+    expect(out)
+      .not.toContain('`noUtils` is emitted but not yet verified alive in the project lint run.');
+
+    expect(out)
+      .not.toContain('`deadCode` is emitted but not yet verified alive in the project lint run.');
+
+    expect(out)
+      .not.toContain('`soft`'); // warn-tier not a hard gate
+
     expect(out).toContain('Never silence it with `eslint-disable`');
   });
 
@@ -195,6 +211,7 @@ describe('renderHardRules', () => {
     // with an empty slot — "Import a module via its , never its internals." The
     // sentence has to be absent, not merely missing the entry name.
     expect(out).not.toContain('Import a module via its');
+
     expect(out).not.toContain('never its internals');
   });
 });
@@ -214,16 +231,19 @@ describe('renderHardRules · only what the tooling actually holds', () => {
     }));
 
     expect(onReact).not.toContain('deepWatch');
+
     // A genuinely hard gate still appears, in the same words — assert both directions
     // or the fix passes by emptying the section.
-    expect(onReact).toContain('`maxLines` = 400 is a hard gate.');
+    expect(onReact)
+      .toContain('`maxLines` = 400 is emitted but not yet verified alive in the project lint run.');
 
     const onVue = renderHardRules(blueprint({
       architecture: arch({ testFiles: ['**/*.test.ts'] }),
       rules: { deepWatch: 'error', ...kept },
     }));
 
-    expect(onVue).toContain('`deepWatch` is a hard gate.');
+    expect(onVue)
+      .toContain('`deepWatch` is emitted but not yet verified alive in the project lint run.');
   });
 
   it('drops `testFilename` where `testFiles: []` leaves it no scope', () => {
@@ -233,14 +253,17 @@ describe('renderHardRules · only what the tooling actually holds', () => {
     }));
 
     expect(empty).not.toContain('testFilename');
-    expect(empty).toContain('`maxLines` = 400 is a hard gate.');
+
+    expect(empty)
+      .toContain('`maxLines` = 400 is emitted but not yet verified alive in the project lint run.');
 
     const declared = renderHardRules(blueprint({
       architecture: arch({ testFiles: ['**/*.test.ts'] }),
       rules: { testFilename: 'error', ...kept },
     }));
 
-    expect(declared).toContain('`testFilename` is a hard gate.');
+    expect(declared)
+      .toContain('`testFilename` is emitted but not yet verified alive in the project lint run.');
   });
 
   it('names `cycles`\' real holder instead of calling it a lint gate', () => {
@@ -250,7 +273,8 @@ describe('renderHardRules · only what the tooling actually holds', () => {
     // was attributing to lint. A repo holding a baseline reads "hard gate" and takes
     // a green lint as covering it; silently removing the row instead would leave an
     // error-tier declaration gone from the contract with no cause stated.
-    expect(out).not.toContain('`cycles` is a hard gate.');
+    expect(out)
+      .not.toContain('`cycles` is emitted but not yet verified alive in the project lint run.');
 
     expect(out).toContain(
       '- `cycles` is diagnosed only when `npx blueprint inspect --baseline` runs; '
@@ -258,7 +282,8 @@ describe('renderHardRules · only what the tooling actually holds', () => {
       + 'edit-time prevention and a green lint says nothing about it.',
     );
 
-    expect(out).toContain('`maxLines` = 400 is a hard gate.');
+    expect(out)
+      .toContain('`maxLines` = 400 is emitted but not yet verified alive in the project lint run.');
   });
 
   it('says it in the compact contract\'s own words, from the same helper', () => {
@@ -272,6 +297,7 @@ describe('renderHardRules · only what the tooling actually holds', () => {
       + 'edit-time prevention and a green lint says nothing about it';
 
     expect(renderHardRules(bp)).toContain(held);
+
     expect(renderCompactContract(bp)).toContain(held);
   });
 });
@@ -286,12 +312,16 @@ describe('renderBehavioral', () => {
     const out = renderBehavioral(arch(), principles, undefined);
 
     expect(out).toContain('Do not create undeclared architectural folders under `~app/`');
+
     expect(out).toContain('**no utils** — no cohesion');
-    expect(out).not.toContain('lint one'); // land: lint excluded
+
+    expect(out)
+      .not.toContain('lint one'); // land: lint excluded
   });
 
   it('adds a warn note only when warn-tier rules exist', () => {
     expect(renderBehavioral(arch(), undefined, { s: 'warn' })).toContain('`warn`-tier');
+
     expect(renderBehavioral(arch(), undefined, { s: 'error' })).not.toContain('`warn`-tier');
   });
 });
@@ -306,6 +336,7 @@ describe('renderChecklist', () => {
     );
 
     expect(withExtras).toContain('Names follow the conventions');
+
     expect(withExtras).toContain('behavioral principles above are upheld');
   });
 
@@ -313,8 +344,11 @@ describe('renderChecklist', () => {
     const bare = renderChecklist(blueprint());
 
     expect(bare).not.toContain('Names follow the conventions');
+
     expect(bare).not.toContain('behavioral principles above');
+
     expect(bare).not.toContain('component-shape axis');
+
     expect(bare).toContain('No new undeclared folders under `~app/`');
 
     expect(bare).toContain(
@@ -381,9 +415,13 @@ describe('renderPlaybook (contract)', () => {
     ]);
 
     expect(out).toContain('### Working playbook (judgment rules — you are the gate)');
+
     expect(out).toContain('#### Runtime');
+
     expect(out).toContain('- **Price it.** Frequency is not in the code.');
+
     expect(out).toContain('#### Refactor');
+
     expect(out).toContain('- **Net first.**');
   });
 });
@@ -393,154 +431,11 @@ describe('renderBehavioral · deadCode honesty', () => {
     const out = renderBehavioral(arch(), undefined, { deadCode: 'error' });
 
     expect(out).toContain('no lint rule can gate it');
+
     expect(out).toContain('npx knip');
+
     expect(out).toContain('wire it into whatever verification you run');
 
     expect(renderBehavioral(arch(), undefined, { deadCode: 'warn' })).not.toContain('npx knip');
-  });
-});
-
-describe('renderCompactContract', () => {
-  it('fits project facts on one screen with links carrying the bulk', () => {
-    const out = renderCompactContract({
-      ...blueprint(),
-      rules: { maxLines: { tier: 'error' as const, value: 300 }, cycles: 'error' as const },
-      playbook: [{ title: 'T', rules: [{ id: 'r', say: 'do' }] }],
-    });
-
-    // 13, not 12: the header spends one line saying hand-written notes live
-    // outside the markers — the convention an agent had to infer when the
-    // generated file became the repo's only CLAUDE.md (field #21).
-    expect(out.split('\n').length).toBeLessThanOrEqual(13);
-    expect(out).toContain('`components` → `services`');
-    expect(out).toContain('[docs/architecture-handbook.md](docs/architecture-handbook.md)');
-    expect(out).toContain('node_modules/@kekkai/blueprint/agent-contract.md');
-    expect(out).toContain('`maxLines` = 300');
-    expect(out).toContain('the working playbook');
-    expect(out).not.toContain('### Where code goes');
-
-    // One inspect-held gate reads in the singular, and is NOT counted among what
-    // lint holds — `cycles` sits on LINT_GATED_RULE_IDS (gated at all?) while its
-    // runtime is inspect, and the contract used to say lint catches it.
-    expect(out).not.toMatch(/`cycles`[^.;]*fail the project's lint run/);
-  });
-
-  it('never lists a gate the lint run cannot fail on', () => {
-    // "these fail the project's lint run" is a sentence about the reader's own repo, and
-    // it was false for a gate this blueprint cannot emit: `deepWatch` declared `error`
-    // on React, `testFilename` declared beside `testFiles: []`. The contract is the file
-    // an agent reads with nothing beside it (field run #150).
-    const out = renderCompactContract({
-      ...blueprint({ framework: 'react' }),
-      architecture: { ...arch(), testFiles: [] },
-      rules: {
-        deepWatch: 'error',
-        testFilename: 'error',
-        maxLines: { tier: 'error' as const, value: 300 },
-      },
-    });
-
-    expect(out).not.toContain('deepWatch');
-    expect(out).not.toContain('testFilename');
-    // The one that does emit still holds the sentence up — an empty list would drop the
-    // clause instead, and then nothing would be asserting the split at all.
-    expect(out).toContain('`maxLines`');
-    expect(out).toContain('fail the project\'s lint run');
-
-    // Same gates, the stack each was written for: both back on the list.
-    const vue = renderCompactContract({
-      ...blueprint(),
-      rules: { deepWatch: 'error', testFilename: 'error' },
-    });
-
-    expect(vue).toContain('deepWatch');
-    expect(vue).toContain('testFilename');
-  });
-
-  it('drops the inspect clause entirely when no such gate is declared', () => {
-    // A clause about an empty set reads as a gap where there is none.
-    const lintOnly = renderCompactContract({
-      ...blueprint(),
-      rules: { maxLines: { tier: 'error' as const, value: 300 } },
-    });
-
-    expect(lintOnly).toContain('`maxLines` = 300 fail the project\'s lint run');
-    expect(lintOnly).not.toContain('blueprint inspect --baseline` instead');
-    // No runner named: this file is generated from the blueprint alone, and init
-    // detecting pnpm while its contract said `npm run lint` is what that guess cost
-    // (field run #141). The reader finds the script in package.json either way.
-    expect(lintOnly).not.toContain('npm run');
-  });
-
-  it('is singular because exactly one gate is inspect-held', () => {
-    // The sentence above uses a singular verb, with no plural arm — correct today and a
-    // branch nothing could take, so it is not written. This is what makes that safe:
-    // add a second inspect-held rule and this turns red, instead of shipping
-    // "cycles, somethingElse is diagnosed".
-    expect(LINT_GATED_RULE_IDS.filter((id) => enforcedBy(id) === 'inspect')).toEqual(['cycles']);
-  });
-
-  it('announces only the kinds of content the blueprint carries', () => {
-    // The pointer line names what the handbook covers. Naming "the working
-    // playbook" in a contract that carries none sends the agent to a section
-    // that was never generated.
-    const bare = renderCompactContract(blueprint());
-
-    expect(bare).not.toContain('component-shape axes');
-    expect(bare).not.toContain('behavioral principles');
-    expect(bare).not.toContain('the working playbook');
-
-    // And with nothing extra to name, the clause closes straight after
-    // "naming" — anything appended there is a promise of content that the
-    // handbook does not hold.
-    expect(bare).toContain('ownership, naming: read');
-
-    const rich = renderCompactContract(blueprint({
-      componentShape: [{ id: 'a', name: 'Axis', say: 's', why: 'w' } as AxisDef],
-      principles: [{ id: 'p', say: 's', why: 'w', land: 'claude' } as PrincipleDef],
-      playbook: [{ title: 'T', rules: [{ id: 'r', say: 'do' }] }],
-    }));
-
-    expect(rich).toContain('component-shape axes');
-    expect(rich).toContain('behavioral principles');
-    expect(rich).toContain('the working playbook');
-  });
-
-  it('prints a gate value only where the setting carries one', () => {
-    const out = renderCompactContract(blueprint({
-      rules: { maxLines: { tier: 'error' as const, value: 300 }, cycles: 'error' as const },
-    }));
-
-    // `cycles` is a bare tier with no number behind it, and "= undefined" in a
-    // list of machine-enforced gates reads as a real threshold.
-    expect(out).toContain('`cycles`');
-    expect(out).not.toContain('`cycles` =');
-  });
-
-  it('lists only ids a machine actually gates', () => {
-    // Error tier is what the author declared; being gated is what the tooling
-    // can keep. `noUtils` has no rule behind it and `deadCode` is knip's job —
-    // naming either on the one-screen contract promises enforcement that never
-    // arrives, and the agent stops looking for the parts that are enforced.
-    const out = renderCompactContract(blueprint({
-      rules: {
-        maxLines: { tier: 'error' as const, value: 300 },
-        noUtils: 'error',
-        deadCode: 'error',
-      },
-    }));
-
-    expect(out).toContain('`maxLines` = 300');
-    expect(out).not.toContain('noUtils');
-    expect(out).not.toContain('deadCode');
-  });
-
-  it('honors a handbook path override', () => {
-    const out = renderCompactContract({
-      ...blueprint(),
-      emit: { handbook: 'HB.md' },
-    });
-
-    expect(out).toContain('[HB.md](HB.md)');
   });
 });

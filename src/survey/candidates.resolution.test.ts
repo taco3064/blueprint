@@ -189,6 +189,7 @@ describe('collectTransformationEvidence physical route edges', () => {
     expect(result.candidates).toEqual([{
       seed: 'containers',
       source: 'container',
+      memberPaths: ['src/containers/Login.ts'],
       reachableUnits: ['containers', 'hooks'],
       directImports: [{ from: 'containers', to: 'hooks', count: 1 }],
       closureEdges: [{ from: 'containers', to: 'hooks', count: 1 }],
@@ -203,6 +204,7 @@ describe('collectTransformationEvidence physical route edges', () => {
       {
         seed: 'app/Shell',
         source: 'app',
+        memberPaths: ['src/app/Shell.ts'],
         reachableUnits: ['app/Shell', 'containers', 'hooks'],
         directImports: [{ from: 'app/Shell', to: 'containers', count: 1 }],
         closureEdges: [
@@ -215,6 +217,7 @@ describe('collectTransformationEvidence physical route edges', () => {
       {
         seed: 'pages/Home',
         source: 'page',
+        memberPaths: ['src/pages/Home/index.ts'],
         reachableUnits: ['containers', 'hooks', 'pages/Home'],
         directImports: [{ from: 'pages/Home', to: 'containers', count: 1 }],
         closureEdges: [

@@ -90,8 +90,31 @@ describe('inspect import analysis · dynamic imports', () => {
     };
 
     expect(importAnalysis(scan)).toEqual({
+      status: 'degraded',
+      scannedFiles: 2,
+      parsedFiles: 1,
       unknownDynamicImports: 3,
       parseFailures: [{ path: 'src/hooks/b.vue', message: 'broken' }],
+    });
+  });
+});
+
+describe('import-analysis status', () => {
+  it('is failed when every scanned file has a parse error', () => {
+    expect(importAnalysis({
+      topDirs: ['hooks'],
+      files: [{
+        path: 'src/hooks/broken.ts',
+        segments: ['hooks', 'broken.ts'],
+        imports: [],
+        importAnalysis: { unknownDynamicImports: 0, parseError: 'broken' },
+      }],
+    })).toEqual({
+      status: 'failed',
+      scannedFiles: 1,
+      parsedFiles: 0,
+      unknownDynamicImports: 0,
+      parseFailures: [{ path: 'src/hooks/broken.ts', message: 'broken' }],
     });
   });
 });

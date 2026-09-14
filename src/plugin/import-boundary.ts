@@ -26,8 +26,12 @@ export const importBoundary: Rule.RuleModule = {
     },
   },
   create(context) {
-    const architecture = (context.options[0] as { architecture?: ArchitectureDef } | undefined)
-      ?.architecture;
+    const options = context.options[0] as {
+      architecture?: ArchitectureDef;
+      basePath?: string;
+    } | undefined;
+
+    const architecture = options?.architecture;
 
     if (!architecture) {
       return {};
@@ -35,7 +39,13 @@ export const importBoundary: Rule.RuleModule = {
 
     const resolved = resolveArchitecture(architecture);
     const cwd = (context as Rule.RuleContext & { cwd: string }).cwd;
-    const importerSegments = sourceSegments(context.filename, cwd, resolved.sourceRoot);
+
+    const importerSegments = sourceSegments(
+      context.filename,
+      cwd,
+      { sourceRoot: resolved.sourceRoot, basePath: options?.basePath },
+    );
+
     const importer = importerSegments ? resolved.classify(importerSegments) : null;
 
     if (!importerSegments || !importer) {

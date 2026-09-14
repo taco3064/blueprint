@@ -131,8 +131,8 @@ describe('naming the cause, so a claim can be checked (field runs #79–#81)', (
 
     const contract = read(dir, 'CLAUDE.md') ?? '';
 
-    expect(contract).toContain('Hard gates (machine-enforced');
-    expect(contract).toContain('on the files the architecture globs match');
+    expect(contract).toContain('effective project-lint wiring is unverified');
+    expect(contract).toContain('on files the architecture globs match');
     expect(contract).toContain('runway, not protection');
   });
 
@@ -391,7 +391,7 @@ describe('what the playbook checks before it claims it (field runs #75–#77)', 
     for (const file of ['CLAUDE.md', 'docs/architecture-handbook.md']) {
       const text = read(pnpmRepo, file) ?? '';
 
-      expect(text, file).toContain('the project\'s lint run');
+      expect(text, file).toContain('project-lint wiring');
       expect(text, file).not.toContain('npm run');
     }
   });

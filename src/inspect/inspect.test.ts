@@ -53,6 +53,37 @@ describe('runInspect', () => {
     expect(ok).toBe(true);
   });
 
+  it('fails closed when a parser failure leaves an otherwise clean graph incomplete', async () => {
+    writeSrc('components/Broken.ts', 'const broken: = 1;');
+    let output = '';
+
+    const result = await runInspect(root, { log: (message) => (output = message) });
+
+    expect(result.ok).toBe(false);
+    expect(result.findings.filter((finding) => finding.severity === 'error')).toEqual([]);
+    expect(output).toContain('Import analysis: failed');
+    expect(output).not.toContain('Architecture Success');
+    expect(output).toContain('Coverage: 1/1 source files inside architecture nets');
+    expect(output).toContain('Scope: current-config adoption');
+    expect(output).toContain('not proof of a historical topology transformation');
+  });
+
+  it('does not write a baseline from degraded import analysis', async () => {
+    writeSrc('components/Good.ts', 'export const good = 1;');
+    writeSrc('services/Broken.ts', 'const broken: = 1;');
+    let output = '';
+
+    const result = await runInspect(root, {
+      updateBaseline: true,
+      log: (message) => (output = message),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(fs.existsSync(path.join(root, '.blueprint-baseline.json'))).toBe(false);
+    expect(output).toContain('Import analysis is degraded');
+    expect(output).toContain('Fix the parse failures before recording');
+  });
+
   it('ends the report with the coverage line, loud when the net is empty', async () => {
     writeSrc('components/Btn/Btn.vue', 'export default {};');
 
@@ -76,6 +107,7 @@ describe('runInspect', () => {
     await runInspect(root, { json: true, log: (message) => (output = message) });
     const parsed = JSON.parse(output);
 
+    expect(parsed.scope).toBe('current-config-adoption');
     expect(parsed.ok).toBe(false);
     expect(Array.isArray(parsed.findings)).toBe(true);
     expect(parsed.coverage.sourceFiles).toBe(1);
@@ -171,6 +203,7 @@ describe('runInspect · baseline ratchet', () => {
     await runInspect(root, { baseline: true, json: true, log: (m) => (output = m) });
     const parsed = JSON.parse(output);
 
+    expect(parsed.scope).toBe('current-config-adoption');
     expect(parsed.ok).toBe(true);
     expect(parsed.suppressed).toBeGreaterThan(0);
     expect(parsed.stale).toBe(0);

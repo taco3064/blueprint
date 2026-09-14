@@ -6,9 +6,11 @@ import type { ResolveOptions } from '../project';
 import { resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
 import {
+  CURRENT_CONFIG_ADOPTION_SCOPE,
   renderBaselineGateOutput,
   renderBaselineUpdate,
   renderImportGraphDerivation,
+  renderImportAnalysisUnavailable,
   renderInspectOutput,
   renderTestExemptionOutput,
 } from '../operational-contract';
@@ -55,12 +57,16 @@ export async function runInspect(
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
   const { blueprint } = await resolveBlueprint(root, state, options);
-  const scanResult = scan(root, resolveArchitecture(blueprint.architecture).sourceRoot);
-  const findings = analyze(scanResult, blueprint, state.dependencies);
-  const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
+  const { scanResult, findings, coverage, analysis } = inspectFacts(root, blueprint, state);
   const baselineFile = path.join(root, BASELINE_FILE);
 
   if (options.updateBaseline) {
+    if (analysis.status !== 'healthy') {
+      log(renderImportAnalysisUnavailable(analysis));
+
+      return { findings, ok: false };
+    }
+
     return lockBaseline(findings, baselineFile, { log, coverage });
   }
 
@@ -70,17 +76,18 @@ export async function runInspect(
     });
   }
 
-  const ok = !hasErrors(findings);
+  const ok = !hasErrors(findings) && analysis.status === 'healthy';
 
   log(
     options.json
 
       ? JSON.stringify({
           ok,
+          scope: CURRENT_CONFIG_ADOPTION_SCOPE,
           findings,
           coverage,
-          importAnalysis: importAnalysis(scanResult),
-          derivation: renderImportGraphDerivation(importAnalysis(scanResult)),
+          importAnalysis: analysis,
+          derivation: renderImportGraphDerivation(analysis),
         }, null, 2)
       : renderInspectOutput({
           architecture: report(findings, blueprint.architecture, scanResult),
@@ -89,6 +96,18 @@ export async function runInspect(
   );
 
   return { findings, ok };
+}
+
+function inspectFacts(
+  root: string,
+  blueprint: Blueprint,
+  state: ReturnType<typeof detect>,
+) {
+  const scanResult = scan(root, resolveArchitecture(blueprint.architecture).sourceRoot);
+  const findings = analyze(scanResult, blueprint, state.dependencies);
+  const coverage = computeCoverage(scanResult, blueprint, state.hasTypescript);
+
+  return { scanResult, findings, coverage, analysis: importAnalysis(scanResult) };
 }
 
 function lockBaseline(
@@ -151,19 +170,21 @@ function baselineGate(
     : [];
 
   const split = splitByBaseline(findings, recorded);
-  const ok = !hasErrors(split.fresh);
+  const analysis = importAnalysis(scanResult);
+  const ok = !hasErrors(split.fresh) && analysis.status === 'healthy';
 
   log(
     ctx.json
       ? JSON.stringify(
           {
             ok,
+            scope: CURRENT_CONFIG_ADOPTION_SCOPE,
             findings: split.fresh,
             suppressed: split.suppressed,
             stale: split.stale,
             coverage,
-            importAnalysis: importAnalysis(scanResult),
-            derivation: renderImportGraphDerivation(importAnalysis(scanResult)),
+            importAnalysis: analysis,
+            derivation: renderImportGraphDerivation(analysis),
           },
           null,
           2,

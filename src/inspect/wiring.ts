@@ -314,6 +314,7 @@ export interface WiringParams {
 
 export interface WiringResult {
   check: DoctorCheck;
+  status: 'unwired' | 'unverified' | 'unavailable' | 'partial' | 'verified-alive';
 
   probed: boolean;
 }
@@ -325,6 +326,7 @@ export async function wiringCheck(params: WiringParams): Promise<WiringResult> {
   if (!wired) {
     return {
       check: renderDoctorCheck({ kind: 'wiring-unwired' }),
+      status: 'unwired',
       probed: false,
     };
   }
@@ -334,32 +336,39 @@ export async function wiringCheck(params: WiringParams): Promise<WiringResult> {
   if (!probes.length) {
     return {
       check: renderDoctorCheck({ kind: 'wiring-no-probe', label: LABEL }),
+      status: 'unverified',
       probed: false,
     };
   }
 
-  return { check: await comparedTo(params, probes, LABEL), probed: true };
+  return { ...await comparedTo(params, probes, LABEL), probed: true };
 }
 
 async function comparedTo(
   params: WiringParams,
   probes: ReturnType<typeof pickProbes>,
   LABEL: string,
-): Promise<DoctorCheck> {
+): Promise<Pick<WiringResult, 'check' | 'status'>> {
   const { merged } = params;
   let survey: { lost: string[]; unreadable: number };
 
   try {
     survey = await surveyProbes(params, probes);
   } catch (error) {
-    return unresolvableConfig(LABEL, merged, error);
+    return { check: unresolvableConfig(LABEL, merged, error), status: 'unavailable' };
   }
 
   if (!survey.lost.length) {
-    return surviving(LABEL, survey.unreadable);
+    return {
+      check: surviving(LABEL, survey.unreadable),
+      status: survey.unreadable ? 'partial' : 'verified-alive',
+    };
   }
 
-  return renderDoctorCheck({ kind: 'wiring-lost', label: LABEL, lost: survey.lost });
+  return {
+    check: renderDoctorCheck({ kind: 'wiring-lost', label: LABEL, lost: survey.lost }),
+    status: 'partial',
+  };
 }
 
 async function surveyProbes(

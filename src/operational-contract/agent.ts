@@ -24,6 +24,7 @@ export interface AgentGateFact {
 export interface CompactContractFacts {
   gates: AgentGateFact[];
   handbook: string;
+  lintIntegration?: 'verified' | 'unverified' | 'reference-only';
 }
 
 function rulesOfTier(rules: Record<string, RuleSetting> | undefined, tier: Tier) {
@@ -70,7 +71,7 @@ export function renderCompactContract(
   const { architecture } = blueprint;
   const resolved = resolveArchitecture(architecture);
   const chain = resolved.layers.map((layer) => `\`${layer.name}\``).join(' → ');
-  const { gates, handbook } = facts;
+  const { gates, handbook, lintIntegration = 'unverified' } = facts;
 
   const topology = resolved.topology === 'module-first'
     ? 'Module → Layer → Unit'
@@ -97,10 +98,27 @@ export function renderCompactContract(
     + '(ships inside the package — present once dependencies are installed, '
     + 'always matching the installed version).',
 
-    `- Hard gates (machine-enforced on the files the architecture globs match — a declared position holding no code has nothing failing yet, which is runway, not protection): one-way imports, unit entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''} fail the project's lint run${inspectGates.length ? `; ${inspectDiagnosisClause(inspectGates.join(', '))}` : ''}. When lint fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
+    `- Hard gates (${lintIntegrationClause(lintIntegration)}): one-way imports, unit entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''}${inspectGates.length ? `; ${inspectDiagnosisClause(inspectGates.join(', '))}` : ''}. When a gate fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
 
     `- You are the gate for: no undeclared architectural folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Move code into the declared ${topology} topology. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never expand it yourself.`,
   ].join('\n');
+}
+
+function lintIntegrationClause(
+  status: 'verified' | 'unverified' | 'reference-only',
+): string {
+  const scope = 'on files the architecture globs match; '
+    + 'an empty declared position is runway, not protection';
+
+  if (status === 'verified') {
+    return `verified alive in the project's lint run ${scope}`;
+  }
+
+  if (status === 'reference-only') {
+    return `emitted only as a reference and not enforced by the project's lint run yet ${scope}`;
+  }
+
+  return `emitted, but effective project-lint wiring is unverified until \`blueprint doctor\` proves it ${scope}`;
 }
 
 function moduleFlowLine(resolved: ResolvedArchitecture): string[] {
@@ -206,7 +224,11 @@ export function renderNaming(naming: Record<string, string> | undefined): string
   ].join('\n');
 }
 
-export function renderHardRules(blueprint: Blueprint, gates: AgentGateFact[]): string {
+export function renderHardRules(
+  blueprint: Blueprint,
+  gates: AgentGateFact[],
+  lintIntegration: 'verified' | 'unverified' | 'reference-only' = 'unverified',
+): string {
   const { architecture } = blueprint;
 
   const bullets = [
@@ -242,7 +264,11 @@ export function renderHardRules(blueprint: Blueprint, gates: AgentGateFact[]): s
     const gate = gateLabel(fact);
 
     if (held === 'lint') {
-      bullets.push(`- ${gate} is a hard gate.`);
+      bullets.push(`- ${gate} is ${lintIntegration === 'verified'
+        ? 'verified alive in the project lint run'
+        : lintIntegration === 'reference-only'
+          ? 'present only in the reference config and is not a project-lint gate yet'
+          : 'emitted but not yet verified alive in the project lint run'}.`);
     }
 
     if (held === 'inspect') {

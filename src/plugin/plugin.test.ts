@@ -81,6 +81,7 @@ describe('plugin', () => {
         properties: {
           layouts: { type: 'object', additionalProperties: { enum: ['folder', 'file'] } },
           entries: { type: 'object', additionalProperties: { type: 'string' } },
+          basePath: { type: 'string' },
           moduleFirst: { type: 'boolean' },
           sourceRoot: { type: 'string' },
         },

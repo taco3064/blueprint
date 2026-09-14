@@ -182,16 +182,17 @@ function validateModuleDependencies(module: NonNullable<ArchitectureDef['modules
   }
 }
 
-function validateAdditionalAliases(aliases: Record<string, string> | undefined): void {
+function validateAdditionalAliases(
+  aliases: Record<string, string> | undefined,
+): void {
   if (aliases === undefined) {
     return;
   }
 
-  const entries = Object.entries(aliases);
-
   if (
-    typeof aliases !== 'object'
-    || entries.some(([k, v]) => !k.trim() || typeof v !== 'string' || !v.trim())
+    aliases === null
+    || typeof aliases !== 'object'
+    || Object.entries(aliases).some(([k, v]) => !k.trim() || typeof v !== 'string' || !v.trim())
   ) {
     throw configValidationError({ kind: 'additional-aliases' });
   }

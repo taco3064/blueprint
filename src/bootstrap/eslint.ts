@@ -17,5 +17,6 @@ export function eslintConfigSource(blueprint: Blueprint, state: ProjectState): s
     guardExtensions: framework ? FRAMEWORK_EXTS[framework] : FRAMEWORK_EXTS.auto,
     hasTypescript: state.hasTypescript,
     sourceRoot,
+    basePath: state.eslintBasePath,
   });
 }

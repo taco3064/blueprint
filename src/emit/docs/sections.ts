@@ -6,7 +6,7 @@ import {
   renderArchitecture as renderOperationalArchitecture,
   renderHandbookComponentShape as renderComponentShape,
   renderHandbookHeader as renderHeader,
-  renderImportDiscipline,
+  renderImportDiscipline as renderOperationalImportDiscipline,
   renderHandbookNaming as renderNaming,
   renderHandbookPlaybook as renderPlaybook,
   renderPrinciples,
@@ -38,12 +38,18 @@ function ruleFacts(
 export {
   renderComponentShape,
   renderHeader,
-  renderImportDiscipline,
   renderNaming,
   renderPlaybook,
   renderPrinciples,
   renderUnit,
 };
+
+export function renderImportDiscipline(
+  architecture: ArchitectureDef,
+  lintIntegration?: 'verified' | 'unverified' | 'reference-only',
+): string {
+  return renderOperationalImportDiscipline(architecture, lintIntegration);
+}
 
 export function renderArchitecture(architecture: ArchitectureDef): string {
   return renderOperationalArchitecture(architecture, emitFlowDiagram(architecture));

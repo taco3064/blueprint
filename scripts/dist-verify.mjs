@@ -72,12 +72,40 @@ function runNpm(args, options = {}) {
     : runCmd('npm', args, options);
 }
 
+function runYarn(args, options = {}) {
+  return runNpm(
+    ['exec', '--yes', '--package=yarn@1.22.22', '--', 'yarn', ...args],
+    options,
+  );
+}
+
 function tempDir(prefix) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 
   temps.push(dir);
 
   return dir;
+}
+
+let packedTarballPath;
+
+function packedTarball() {
+  if (packedTarballPath !== undefined) {
+    return packedTarballPath;
+  }
+
+  const packDir = tempDir('bp-dist-pack-');
+  const packed = runNpm(['pack', '--json', '--pack-destination', packDir], { cwd: root });
+
+  expect(packed.code === 0, `npm pack exited ${packed.code}\n${packed.output}`);
+
+  const jsonStart = packed.output.indexOf('[');
+  const jsonEnd = packed.output.lastIndexOf(']') + 1;
+  const packResult = JSON.parse(packed.output.slice(jsonStart, jsonEnd));
+
+  packedTarballPath = path.join(packDir, packResult[0].filename);
+
+  return packedTarballPath;
 }
 
 function snapshotTree(dir, current = dir) {
@@ -158,6 +186,25 @@ await check('every path in `files` exists', () => {
   return (pkg.files ?? []).join(', ');
 });
 
+await check('every public entry points to shipped JavaScript and declarations', () => {
+  const expected = ['.', './operational-contract'];
+  const entries = Object.entries(pkg.exports ?? {});
+
+  expect(
+    JSON.stringify(entries.map(([entry]) => entry)) === JSON.stringify(expected),
+    `public entries are ${entries.map(([entry]) => entry).join(', ')}, expected ${expected.join(', ')}`,
+  );
+
+  for (const [entry, target] of entries) {
+    expect(typeof target?.import === 'string', `${entry} has no import target`);
+    expect(typeof target?.types === 'string', `${entry} has no types target`);
+    expect(fs.existsSync(path.join(root, target.import)), `${entry} import target is absent`);
+    expect(fs.existsSync(path.join(root, target.types)), `${entry} types target is absent`);
+  }
+
+  return expected.join(', ');
+});
+
 // ------------------------------------------------------------- running the bin
 
 await check('`--version` prints the package version and exits 0', () => {
@@ -226,22 +273,18 @@ await check('`inspect` reddens on a real violation, through the bundle', () => {
 });
 
 await check('a packed install parses TS and Vue dynamic imports with its own dependencies', () => {
-  const packDir = tempDir('bp-dist-pack-');
   const fixture = tempDir('bp-dist-installed-');
-  const packed = runNpm(['pack', '--json', '--pack-destination', packDir], { cwd: root });
-
-  expect(packed.code === 0, `npm pack exited ${packed.code}\n${packed.output}`);
-
-  const jsonStart = packed.output.indexOf('[');
-  const jsonEnd = packed.output.lastIndexOf(']') + 1;
-  const packResult = JSON.parse(packed.output.slice(jsonStart, jsonEnd));
-  const tarball = path.join(packDir, packResult[0].filename);
+  const tarball = packedTarball();
 
   const manifest = {
     name: 'installed-fixture',
     private: true,
     type: 'module',
-    dependencies: { '@kekkai/blueprint': `file:${tarball}`, eslint: '^9.39.2' },
+    dependencies: {
+      '@kekkai/blueprint': `file:${tarball}`,
+      eslint: '^9.39.2',
+      typescript: '^5.9.3',
+    },
   };
 
   fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(manifest));
@@ -252,6 +295,51 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
   );
 
   expect(installed.code === 0, `npm install exited ${installed.code}\n${installed.output}`);
+
+  fs.writeFileSync(
+    path.join(fixture, 'public-entries.ts'),
+    [
+      'import { defineBlueprint } from \'@kekkai/blueprint\';',
+      'import type { Blueprint } from \'@kekkai/blueprint\';',
+      'import { renderCliVersion } from \'@kekkai/blueprint/operational-contract\';',
+      'import type { OperationalText } from \'@kekkai/blueprint/operational-contract\';',
+      'const config: Blueprint = defineBlueprint({',
+      '  framework: \'react\',',
+      '  architecture: { alias: \'~app\', layers: [{ name: \'components\', does: \'UI\' }] },',
+      '});',
+      'const rendered: OperationalText = renderCliVersion(\'4.0.0\');',
+      'void config;',
+      'void rendered;',
+      '',
+    ].join('\n'),
+  );
+
+  fs.writeFileSync(
+    path.join(fixture, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        target: 'ES2023',
+        module: 'ESNext',
+        moduleResolution: 'Bundler',
+        strict: true,
+        skipLibCheck: false,
+        noEmit: true,
+      },
+      include: ['public-entries.ts'],
+    }),
+  );
+
+  const typed = runNpm(['exec', '--', 'tsc', '-p', 'tsconfig.json'], { cwd: fixture });
+
+  expect(typed.code === 0, `packed public entries do not type-check\n${typed.output}`);
+
+  for (const entry of ['@kekkai/blueprint', '@kekkai/blueprint/operational-contract']) {
+    const loaded = runCmd(process.execPath, ['--input-type=module', '--eval', `import(${JSON.stringify(entry)})`], {
+      cwd: fixture,
+    });
+
+    expect(loaded.code === 0, `${entry} cannot be imported\n${loaded.output}`);
+  }
 
   fs.writeFileSync(
     path.join(fixture, 'blueprint.config.mjs'),
@@ -352,7 +440,10 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
   const greenDoctor = runNpm(['exec', '--', 'blueprint', 'doctor'], { cwd: fixture });
 
   expect(greenDoctor.code === 0, `installed doctor green exited ${greenDoctor.code}\n${greenDoctor.output}`);
-  expect(greenDoctor.output.includes('all 9 checks passed'), 'installed doctor did not complete');
+  expect(greenDoctor.output.includes('all 12 checks passed'), 'installed doctor did not complete');
+
+  expect(greenDoctor.output.includes('import alias · typescript'),
+    'installed doctor did not report the TypeScript alias consumer');
 
   fs.writeFileSync(source, 'debugger;\n');
   const beforeDoctor = snapshotProductTree(fixture);
@@ -372,6 +463,115 @@ await check('a packed install parses TS and Vue dynamic imports with its own dep
   expect(snapshotProductTree(fixture) === beforeDoctor, 'installed doctor changed project bytes');
 
   return 'packed dependency tree, TS + Vue parsed, doctor live lint verified';
+});
+
+await check('a Yarn 1 packed consumer resolves the parser dependency tree', () => {
+  const fixture = tempDir('bp-dist-yarn-installed-');
+  const tarball = packedTarball();
+
+  fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify({
+    name: 'yarn-one-consumer',
+    private: true,
+    type: 'module',
+    dependencies: {
+      '@kekkai/blueprint': `file:${tarball}`,
+      eslint: '^9.39.2',
+      typescript: '^5.9.3',
+    },
+  }));
+
+  const installed = runYarn(
+    ['install', '--ignore-scripts', '--non-interactive', '--network-timeout', '30000'],
+    { cwd: fixture },
+  );
+
+  expect(installed.code === 0, `Yarn install exited ${installed.code}\n${installed.output}`);
+  expect(installed.output.includes('yarn install v1.'), `expected Yarn 1\n${installed.output}`);
+
+  fs.writeFileSync(
+    path.join(fixture, 'blueprint.config.mjs'),
+    'export default { framework: \'vue\', architecture: { alias: \'~app\', '
+    + 'layers: [{ name: \'pages\', does: \'routes\' }, '
+    + '{ name: \'services\', does: \'I/O\' }] }, rules: {} };\n',
+  );
+
+  fs.mkdirSync(path.join(fixture, 'src', 'pages'), { recursive: true });
+  fs.mkdirSync(path.join(fixture, 'src', 'services'), { recursive: true });
+
+  fs.writeFileSync(
+    path.join(fixture, 'src', 'pages', 'view.vue'),
+    '<script setup lang="ts">\nconst name = \'api\';\n'
+    + 'void import(`~app/services/${name}`);\n</script>\n',
+  );
+
+  fs.writeFileSync(
+    path.join(fixture, 'src', 'services', 'api.ts'),
+    'export const api = 1;\n',
+  );
+
+  const result = runYarn(['blueprint', 'inspect'], { cwd: fixture });
+
+  expect(result.code === 0, `Yarn packed inspect exited ${result.code}\n${result.output}`);
+
+  expect(result.output.includes('Import analysis: healthy'),
+    `Yarn packed parser did not report healthy analysis\n${result.output}`);
+
+  expect(!result.output.includes('ts-api-utils'),
+    `Yarn packed parser leaked a ts-api-utils resolution failure\n${result.output}`);
+
+  return 'Yarn 1, external packed tree, TS + Vue parser healthy';
+});
+
+await check('a nested packed install owns every parser runtime dependency', () => {
+  const fixture = tempDir('bp-dist-nested-installed-');
+  const tarball = packedTarball();
+
+  fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify({
+    name: 'nested-consumer',
+    private: true,
+    type: 'module',
+    dependencies: { '@kekkai/blueprint': `file:${tarball}` },
+  }));
+
+  const installed = runNpm(
+    ['install', '--install-strategy=nested', '--ignore-scripts', '--no-audit', '--no-fund'],
+    { cwd: fixture },
+  );
+
+  expect(installed.code === 0, `nested npm install exited ${installed.code}\n${installed.output}`);
+
+  fs.writeFileSync(
+    path.join(fixture, 'blueprint.config.mjs'),
+    'export default { framework: \'react\', architecture: { alias: \'~app\', '
+    + 'layers: [{ name: \'pages\', does: \'routes\' }, '
+    + '{ name: \'services\', does: \'I/O\' }] }, rules: {} };\n',
+  );
+
+  fs.mkdirSync(path.join(fixture, 'src', 'pages'), { recursive: true });
+  fs.mkdirSync(path.join(fixture, 'src', 'services'), { recursive: true });
+
+  fs.writeFileSync(
+    path.join(fixture, 'src', 'pages', 'page.ts'),
+    'const name = \'api\';\nvoid import(`~app/services/${name}`);\n',
+  );
+
+  fs.writeFileSync(path.join(fixture, 'src', 'services', 'api.ts'), 'export const api = 1;\n');
+
+  const result = runCmd(
+    process.execPath,
+    [path.join(fixture, 'node_modules', '@kekkai', 'blueprint', 'dist', 'bin.js'), 'inspect'],
+    { cwd: fixture },
+  );
+
+  expect(result.code === 0, `nested packed inspect exited ${result.code}\n${result.output}`);
+
+  expect(result.output.includes('Import analysis: healthy'),
+    `nested packed parser did not report healthy analysis\n${result.output}`);
+
+  expect(!result.output.includes('ts-api-utils'),
+    `nested packed parser leaked a ts-api-utils resolution failure\n${result.output}`);
+
+  return 'nested dependency tree, TS parser healthy without consumer parser deps';
 });
 
 await check('`init --dry-run` plans against a real fixture and writes nothing', () => {

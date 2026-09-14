@@ -60,6 +60,46 @@ describe('defineBlueprint', () => {
 
     expect(() => defineBlueprint(config)).not.toThrow();
   });
+
+  it('rejects a canonical alias duplicated with a different normalised target', () => {
+    const config = base();
+
+    config.architecture.additionalAliases = { '~app': 'src/application' };
+
+    expect(() => validateBlueprint(config)).toThrow(
+      /Canonical alias "~app" targets "src".*same identity.*"src\/application"/,
+    );
+  });
+
+  it.each(['../src', '../../src', '/src']) (
+    'rejects a canonical alias duplicate whose target only looks related: %s',
+    (target) => {
+      const config = base();
+
+      config.architecture.additionalAliases = { '~app': target };
+
+      expect(() => validateBlueprint(config)).toThrow(/Canonical alias "~app"/);
+    },
+  );
+
+  it.each(['src', './src/', '.\\src\\']) (
+    'accepts a canonical alias duplicated with equivalent target %s',
+    (target) => {
+      const config = base();
+
+      config.architecture.additionalAliases = { '~app': target };
+
+      expect(validateBlueprint(config)).toBe(config);
+    },
+  );
+
+  it('keeps distinct aliases valid when their targets differ', () => {
+    const config = base();
+
+    config.architecture.additionalAliases = { '~shared': 'src/shared' };
+
+    expect(validateBlueprint(config)).toBe(config);
+  });
 });
 
 describe('validateBlueprint · the config envelope, and the keys nothing reads', () => {

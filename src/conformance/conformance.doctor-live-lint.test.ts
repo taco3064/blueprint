@@ -275,7 +275,7 @@ async function expectBothLedgersCurrent(root: string): Promise<void> {
   const result = await cli(root, ['doctor']);
 
   expect(result.code).toBe(0);
-  expect(result.output).toContain('✓ Adoption complete — all 9 checks passed');
+  expect(result.output).toContain('✓ Adoption complete — all 12 checks passed');
 }
 
 async function expectNewLintOnlyDebtCrossesLedgers(root: string): Promise<void> {
@@ -294,7 +294,7 @@ async function expectNewLintOnlyDebtCrossesLedgers(root: string): Promise<void> 
   expect(JSON.parse(json.output)).toMatchObject({
     ok: false,
     verdict: 'incomplete',
-    counts: { total: 9, failed: 1, skipped: 0 },
+    counts: { total: 12, failed: 1, skipped: 0 },
   });
 
   expect(snapshot(root)).toEqual(before);

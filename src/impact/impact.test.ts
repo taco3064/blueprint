@@ -37,10 +37,12 @@ interface LintResult {
 }
 
 /** A fake eslint module capturing what impact hands the real one. */
-function fakeEslint(results: LintResult[]) {
+function fakeEslint(results: LintResult[], version?: string) {
   const captured: { options?: Record<string, unknown>; patterns?: string[] } = {};
 
   class ESLint {
+    static version = version;
+
     constructor(options: Record<string, unknown>) {
       captured.options = options;
     }
@@ -252,7 +254,9 @@ describe('runImpact · the tally it reports', () => {
       log: (message) => (output = message),
     });
 
-    expect(JSON.parse(output)).toEqual({ total: 0, linted: 0, impacts: [] });
+    expect(JSON.parse(output)).toEqual({
+      status: 'available', total: 0, linted: 0, impacts: [],
+    });
   });
 
   it('caps the worst-file list at five', async () => {

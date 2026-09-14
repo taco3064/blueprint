@@ -31,7 +31,7 @@ export default defineConfig([
     output: {
       dir: 'dist',
       format: 'esm',
-      entryFileNames: 'operational-contract.js',
+      entryFileNames: 'operational-contract/index.js',
     },
     external,
   },

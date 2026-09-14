@@ -22,6 +22,26 @@ export function renderImpactMissingConfig(): string {
     + '(`blueprint init`, or the authoring playbook on a brownfield repo).';
 }
 
+export function renderImpactUnavailable(fact: {
+  eslintMajor: number | null;
+  supportedMajors: number[];
+}): string {
+  const version = fact.eslintMajor === null
+    ? 'this project-local ESLint API'
+    : `ESLint ${fact.eslintMajor}`;
+
+  const supported = fact.supportedMajors.join(' or ');
+
+  const next = fact.eslintMajor !== null && fact.eslintMajor < Math.min(...fact.supportedMajors)
+    ? `Migrate the project to ESLint ${supported}`
+    : `Use a supported ESLint ${supported} release`;
+
+  return `⊘ Rule impact unavailable — ${version} cannot run Blueprint's isolated flat-config `
+    + `analysis. ${next}, then rerun \`blueprint impact\`. Until `
+    + 'then no impact count was measured; this result does not mean the emitted rules have zero '
+    + 'hits.';
+}
+
 export function renderImpactReport(
   impacts: ImpactReportFact[],
   total: number,

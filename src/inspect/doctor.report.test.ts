@@ -185,11 +185,14 @@ describe('runDoctor · what the run reports', () => {
     await runDoctor(root, { loadConfig: load, log: (m) => (output = m) });
     await runDoctor(root, { loadConfig: load, json: true, log: (m) => (json = m) });
 
-    expect(JSON.parse(json).counts).toEqual({ total: 9, passed: 6, failed: 1, skipped: 2 });
+    expect(JSON.parse(json).counts).toEqual({ total: 12, passed: 9, failed: 1, skipped: 2 });
+    expect(JSON.parse(json).scope).toBe('current-config-adoption');
+    expect(output).toContain('Scope: current-config adoption');
+    expect(output).toContain('not proof of a historical topology transformation');
     // A failure outranks a skip in the verdict: rewrites of `verdictOf`'s failure test
     // all fall through to `unverified` on exactly this shape.
     expect(JSON.parse(json).verdict).toBe('incomplete');
-    expect(output).toContain('1 of 9 check(s) failed');
+    expect(output).toContain('1 of 12 check(s) failed');
 
     // The two arms this fixture is NOT in, so a rewrite that picks one of them is red.
     expect(output).not.toContain('Adoption complete');
@@ -227,8 +230,8 @@ describe('runDoctor · what the run reports', () => {
     });
 
     expect(green.verdict).toBe('complete');
-    expect(complete).toContain('✓ Adoption complete — all 9 checks passed.');
-    expect(JSON.parse(json).counts).toEqual({ total: 9, passed: 9, failed: 0, skipped: 0 });
+    expect(complete).toContain('✓ Adoption complete — all 12 checks passed.');
+    expect(JSON.parse(json).counts).toEqual({ total: 12, passed: 12, failed: 0, skipped: 0 });
 
     // And one failure with still nothing skipped: the third arm, and the clause about
     // skips must NOT appear — there are none to leave unproven.
@@ -243,7 +246,7 @@ describe('runDoctor · what the run reports', () => {
     });
 
     expect(failing.verdict).toBe('incomplete');
-    expect(red).toContain('✗ Adoption incomplete — 1 of 9 check(s) failed.');
+    expect(red).toContain('✗ Adoption incomplete — 1 of 12 check(s) failed.');
     expect(red).not.toContain('could not run');
   });
 
@@ -262,7 +265,7 @@ describe('runDoctor · what the run reports', () => {
     const parsed = JSON.parse(json);
 
     expect(parsed.verdict).toBe('unverified');
-    expect(parsed.counts).toEqual({ total: 9, passed: 7, failed: 0, skipped: 2 });
+    expect(parsed.counts).toEqual({ total: 12, passed: 10, failed: 0, skipped: 2 });
     // Byte-for-byte the line the reader gets, because two channels wording the same
     // verdict differently is how the reader and the automation start disagreeing.
     expect(text).toContain(parsed.summary);

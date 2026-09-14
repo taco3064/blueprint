@@ -26,6 +26,12 @@ export interface ProjectState {
 
   eslintConfigFile?: string;
 
+  eslintConfigRoot?: string;
+
+  eslintBasePath?: string;
+
+  shadowedEslintConfig?: string;
+
   hasNext: boolean;
 
   hasNuxt: boolean;

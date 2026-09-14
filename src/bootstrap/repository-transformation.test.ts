@@ -168,7 +168,7 @@ describe('repository-wide topology transformation', () => {
     const playbook = actions.find((action) => action.kind === 'write'
       && action.path === 'blueprint-authoring.md');
 
-    expect(actions).toHaveLength(3);
+    expect(actions).toHaveLength(5);
 
     expect(fixture.request.log).toHaveBeenNthCalledWith(
       1,
@@ -238,7 +238,7 @@ describe('repository-wide launcher authority', () => {
       options: { ...dryFixture.request.options, dryRun: true },
     });
 
-    expect(dry).toHaveLength(2);
+    expect(dry).toHaveLength(4);
 
     expect(dry).not.toContainEqual(expect.objectContaining({
       path: '.claude/commands/blueprint-author.md',
