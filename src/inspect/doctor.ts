@@ -60,11 +60,11 @@ export type DoctorVerdict = 'complete' | 'unverified' | 'incomplete';
 
 const SUPPRESSIONS_FILE = 'eslint-suppressions.json';
 
-function suppressionsCheck(root: string): DoctorCheck {
+function suppressionsCheck(root: string, ledger: string): DoctorCheck {
   const file = path.join(root, SUPPRESSIONS_FILE);
 
   if (!fs.existsSync(file)) {
-    return renderDoctorCheck({ kind: 'suppressions', status: 'unused' });
+    return renderDoctorCheck({ kind: 'suppressions', ledger, status: 'unused' });
   }
 
   let entries: Record<string, unknown>;
@@ -72,20 +72,20 @@ function suppressionsCheck(root: string): DoctorCheck {
   try {
     entries = JSON.parse(fs.readFileSync(file, 'utf-8')) as Record<string, unknown>;
   } catch {
-    return renderDoctorCheck({ kind: 'suppressions', status: 'invalid-json' });
+    return renderDoctorCheck({ kind: 'suppressions', ledger, status: 'invalid-json' });
   }
 
   const stale = Object.keys(entries).filter((entry) => !fs.existsSync(path.join(root, entry)));
 
   if (stale.length) {
-    return renderDoctorCheck({ kind: 'suppressions', status: 'stale', files: stale });
+    return renderDoctorCheck({ kind: 'suppressions', ledger, status: 'stale', files: stale });
   }
 
   if (!Object.keys(entries).length) {
-    return renderDoctorCheck({ kind: 'suppressions', status: 'empty' });
+    return renderDoctorCheck({ kind: 'suppressions', ledger, status: 'empty' });
   }
 
-  return renderDoctorCheck({ kind: 'suppressions', status: 'valid' });
+  return renderDoctorCheck({ kind: 'suppressions', ledger, status: 'valid' });
 }
 
 function aliasChecks(root: string, blueprint: Blueprint, state: ProjectState): DoctorCheck[] {
@@ -243,7 +243,7 @@ async function doctorChecks(
     checks: [
       renderDoctorCheck({ kind: 'config', present: true }),
       ...transformationChecks(root, blueprint, state),
-      leftoversCheck(root, blueprint),
+      leftoversCheck(root, blueprint, !eslintWired && state.legacyEslintConfig !== undefined),
       eslintWiredCheck(state, eslintWired),
       lintEntrypointCheck(lintAssessment),
       liveLintCheck(lintEvidence, lintAssessment),
@@ -255,7 +255,9 @@ async function doctorChecks(
         blueprint,
         analysis: importAnalysis(scanResult),
       }),
-      suppressionsCheck(root),
+      ...[...new Set([root, state.eslintConfigRoot ?? root])]
+        .map((ledgerRoot) => suppressionsCheck(ledgerRoot,
+          path.relative(root, path.join(ledgerRoot, SUPPRESSIONS_FILE)).split(path.sep).join('/'))),
     ],
     probed: wiring.probed,
   };
@@ -293,15 +295,21 @@ function transformationChecks(
   })];
 }
 
-function leftoversCheck(root: string, blueprint: Blueprint): DoctorCheck {
-  const references = referenceFiles(root);
+function leftoversCheck(root: string, blueprint: Blueprint, legacy: boolean): DoctorCheck {
+  const files = referenceFiles(root);
+
+  const retained: string[] = legacy
+    ? files.filter((file) => file === 'eslint.config.blueprint.mjs')
+    : [];
+
+  const references = files.filter((file) => !retained.includes(file));
 
   const authoring = [AUTHORING_FILE, COMMAND_FILE].filter((file) =>
     fs.existsSync(path.join(root, file)));
 
   const stale = staleContracts(root, blueprint);
 
-  return renderDoctorCheck({ kind: 'leftovers', references, authoring, stale });
+  return renderDoctorCheck({ kind: 'leftovers', references, authoring, stale, retained });
 }
 
 function eslintWiredCheck(state: ProjectState, eslintWired: boolean): DoctorCheck {

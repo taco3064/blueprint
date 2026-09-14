@@ -367,7 +367,8 @@ it('does not describe an imported file barrel as physically unimportable', () =>
 
   const finding = findings.find((item) => item.rule === 'no-entry');
 
-  expect(finding).toMatchObject({ severity: 'warn', path: 'src/directives/index' });
-  expect(finding?.message).toContain('declared folder-unit public entry is missing');
+  expect(finding).toMatchObject({ severity: 'warn', path: 'src/directives/index.ts' });
+  expect(finding?.message).toContain('not a folder unit missing an entry');
+  expect(finding?.message).toContain('do not create a nested entry for a layer barrel');
   expect(finding?.message).not.toContain('nothing is importable');
 });

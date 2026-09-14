@@ -26,7 +26,7 @@ export type FindingMessageFact
     | { kind: 'undeclared-inner-layer'; layer: string; module: string }
     | { kind: 'missing-position'; name: string; subject: 'module' | 'layer' }
     | { kind: 'declaratory-self-only'; layer: string; importers: string[] }
-    | { kind: 'no-entry'; unit: string; entry: string };
+    | { kind: 'no-entry'; unit: string; entry: string; directFile?: string };
 
 type GeneralFindingFact = Extract<FindingMessageFact, {
   kind: 'cycle' | 'owns-not-installed' | 'package-ownership'
@@ -124,6 +124,8 @@ function renderFolderFinding(fact: FolderFindingFact): string {
         + 'is about the ban, not about the entry. Check `blueprint rules --json` for the emit '
         + 'points before merging.';
     case 'no-entry':
-      return `Unit "${fact.unit}" has no "${fact.entry}" entry — the declared folder-unit public entry is missing.`;
+      return fact.directFile
+        ? `File "${fact.directFile}" sits directly in a folder-layout layer; it is not a folder unit missing an entry. Review the layer layout or place unit implementation inside its folder; do not create a nested entry for a layer barrel.`
+        : `Unit "${fact.unit}" has no "${fact.entry}" entry — the declared folder-unit public entry is missing.`;
   }
 }

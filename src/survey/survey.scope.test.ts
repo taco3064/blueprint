@@ -57,3 +57,25 @@ describe('runSurvey · conventional source scope', () => {
     expect(result.scopeNote).toContain('--source-root');
   });
 });
+
+it('reads scoped app packages without treating their whole scope as declared', () => {
+  write('package.json', JSON.stringify({ dependencies: { '@root/tool': '*' } }));
+
+  write('apps/web/package.json', JSON.stringify({ dependencies: {
+    '@vben/access': 'workspace:*', '@vueuse/core': '*',
+  } }));
+
+  write('apps/web/src/views/Home.ts', [
+    'import \'@vben/access\';', 'import \'@vben/access/subpath\';', 'import \'@vueuse/core\';',
+    'import \'@vben/undeclared\';', 'import \'@root/tool\';', 'import \'~unknown/file\';',
+  ].join('\n'));
+
+  const result = runSurvey(root, { sourceRoot: 'apps/web/src', log: () => {} });
+
+  expect(result.packageUsage.map((entry) => entry.package).sort())
+    .toEqual(['@root/tool', '@vben/access', '@vueuse/core']);
+
+  expect(result.unresolved).toEqual([
+    { prefix: '@vben', count: 1 }, { prefix: '~unknown', count: 1 },
+  ]);
+});

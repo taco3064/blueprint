@@ -48,10 +48,11 @@ export function renderSemantics(claudeLauncher: boolean): string {
     + 'the banner reads "Adoption unverified — N of M checks passed, K could not run".',
     '  Exit stays 0, because a skip is not a failure — so an exit-code gate cannot see one, '
     + 'and `--json` carries `skipped` with the reason.',
-    '  The `emitted rules survive the merged eslint config` check skips in two states: '
-    + 'eslint is not wired (the wiring check above is the red for that), '
-    + 'or the merged config would not resolve, leaving nothing to compare the emitted rules '
-    + 'against.',
+    '  The `emitted rules survive the merged eslint config` check cannot prove positions '
+    + 'when eslint is not wired, the merged config cannot resolve, or ESLint returns no '
+    + 'config for a probe (global ignores or file matching). Those positions are unverified; '
+    + 'real rule loss in other positions still fails. Do not remove architecture declarations '
+    + 'merely to hide an ignored probe.',
     '  The live-eslint check also skips when the proven leg cannot be replayed safely: '
     + 'doctor never runs package scripts, shell segments, global/npx resolution, or mutation '
     + 'flags merely to turn an unknown into green.',
@@ -208,7 +209,8 @@ export function renderAcceptanceGates(
     '- [ ] The blueprint lint rules run inside the project\'s own lint command (merged, '
     + 'conflicts resolved) — or the legacy-config migration is a named decision item in the '
     + 'report',
-    '- [ ] No `*.blueprint.*` reference file remains in the repo',
+    '- [ ] No `*.blueprint.*` reference file remains, except the retained ESLint migration '
+    + 'reference when legacy ESLint is a named unresolved decision; lint adoption stays incomplete',
     '- [ ] The report names every import cycle and every upward dependency found',
     `- [ ] Deleted: ${cleanupTargets(claudeDir, claudeLauncher)} THEN \`npx blueprint doctor\` passes with no \`⊘\` — a skip is not a pass and keeps exit 0 — doctor flags ${claudeLauncher ? 'them as leftovers' : 'it as a leftover'}, so it is the last thing you run, not a mid-flow smoke test`,
   ].join('\n');

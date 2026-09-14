@@ -183,6 +183,11 @@ reverse-engineering the generated flat config; the configuration catalog is in
 
 ## `doctor`
 
+If ESLint returns no config for a merge-survival probe, Doctor reports that position as
+unverified and names the probe path. Check global ignores and file matching; this is not proof
+of overwritten rules. Real rule losses at other probes still fail. Suppressions ledgers in both
+the application and effective ESLint config directories are checked.
+
 `doctor` checks whether adoption is complete. It verifies config presence, stale temporary or
 Agent files, ESLint wiring, the reachable `package.json` lint entrypoint and its live ESLint leg,
 alias wiring, survival of emitted structural rules in the merged flat config, architecture status,

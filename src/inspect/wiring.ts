@@ -350,12 +350,20 @@ async function comparedTo(
   LABEL: string,
 ): Promise<Pick<WiringResult, 'check' | 'status'>> {
   const { merged } = params;
-  let survey: { lost: string[]; unreadable: number };
+  let survey: { lost: string[]; unreadable: number; ignored: string[] };
 
   try {
     survey = await surveyProbes(params, probes);
   } catch (error) {
     return { check: unresolvableConfig(LABEL, merged, error), status: 'unavailable' };
+  }
+
+  if (survey.ignored.length) {
+    return {
+      check: renderDoctorCheck({ kind: 'wiring-ignored', label: LABEL,
+        ignored: survey.ignored, lost: survey.lost }),
+      status: survey.lost.length ? 'partial' : 'unverified',
+    };
   }
 
   if (!survey.lost.length) {
@@ -374,44 +382,63 @@ async function comparedTo(
 async function surveyProbes(
   params: WiringParams,
   probes: ReturnType<typeof pickProbes>,
-): Promise<{ lost: string[]; unreadable: number }> {
+): Promise<{ lost: string[]; unreadable: number; ignored: string[] }> {
   const { root, blueprint, hasTypescript, load } = params;
   const carriers = expectedCarriers(blueprint, hasTypescript);
-  const lost: string[] = [];
-  let unreadable = 0;
+  const survey = { lost: [] as string[], unreadable: 0, ignored: [] as string[] };
 
   const { ESLint } = unwrapModule<EslintApi>(await load('eslint', root));
   const eslint = new ESLint({ cwd: root });
 
   for (const probe of probes) {
     const config = await eslint.calculateConfigForFile(path.join(root, probe.path));
-    const rules = (config as { rules?: Record<string, unknown> })?.rules ?? {};
-    const resolved = resolvedStructural(rules);
 
-    unreadable += resolved.unreadable;
+    if (config === undefined) {
+      survey.ignored.push(probe.path);
 
-    const label = [probe.module, probe.layer].filter(Boolean).join('/');
+      continue;
+    }
 
-    lost.push(...losses(
-      probe.layer === null
-        ? expectedContainerStructural(blueprint, probe.module as string)
-        : expectedStructural(blueprint, probe.layer, probe.module),
-      resolved,
-    )
-      .map((loss) => `${label}: ${loss}`));
+    const evidence = compareProbe(config, probe, { blueprint, carriers });
 
-    lost.push(
-      ...carriers
-        .filter((entry) => activeOptions(rules[entry.rule]) === null)
-        .map(
-          (entry) =>
-            `${label}: rules.${entry.gate} is on but ${entry.rule} resolved to nothing `
-            + `— emitLint's \`${entry.carrier}\` argument is missing from the merged entry`,
-        ),
-    );
+    survey.unreadable += evidence.unreadable;
+    survey.lost.push(...evidence.lost);
   }
 
-  return { lost, unreadable };
+  return survey;
+}
+
+function compareProbe(
+  config: unknown,
+  probe: ReturnType<typeof pickProbes>[number],
+  policy: { blueprint: Blueprint; carriers: ReturnType<typeof expectedCarriers> },
+): { lost: string[]; unreadable: number } {
+  const { blueprint, carriers } = policy;
+  const lost: string[] = [];
+  const rules = (config as { rules?: Record<string, unknown> })?.rules ?? {};
+  const resolved = resolvedStructural(rules);
+
+  const label = [probe.module, probe.layer].filter(Boolean).join('/');
+
+  lost.push(...losses(
+    probe.layer === null
+      ? expectedContainerStructural(blueprint, probe.module as string)
+      : expectedStructural(blueprint, probe.layer, probe.module),
+    resolved,
+  )
+    .map((loss) => `${label}: ${loss}`));
+
+  lost.push(
+    ...carriers
+      .filter((entry) => activeOptions(rules[entry.rule]) === null)
+      .map(
+        (entry) =>
+          `${label}: rules.${entry.gate} is on but ${entry.rule} resolved to nothing `
+          + `— emitLint's \`${entry.carrier}\` argument is missing from the merged entry`,
+      ),
+  );
+
+  return { lost, unreadable: resolved.unreadable };
 }
 
 function unresolvableConfig(label: string, merged: boolean, error: unknown): DoctorCheck {

@@ -246,7 +246,10 @@ describe('wiringCheck · the losses it names', () => {
   it('handles a config resolution that returns nothing', async () => {
     const check = await run(scanOf('src/views/Home/index.vue'), undefined);
 
-    expect(check.ok).toBe(false);
+    expect(check.ok).toBe(true);
+    expect(check.skipped).toContain('src/views/Home/index.vue');
+    expect(check.skipped).toContain('global ignores');
+    expect(check.detail).toBeUndefined();
   });
 
   it('treats a missing import-boundary option as a loss, not a resolution failure', async () => {

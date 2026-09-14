@@ -229,6 +229,7 @@ export function renderObligationFailure(fact: TransformationObligationFailure): 
     'source-member-remains': `source member still exists: ${subject}`,
     'unsafe-destination': `unsafe destination: ${subject}`,
     'destination-missing': `destination does not exist: ${subject}`,
+    'destination-not-file': `destination must be a member file, not a directory: ${subject}; list each member.destination file in destinations`,
     'route-destination-not-app': `route destination is not under reserved app: ${subject}`,
     'container-destination-not-module': `container destination is not in an ordinary module: ${subject}`,
     'target-not-module-first': 'current config is not module-first',

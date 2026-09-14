@@ -189,9 +189,11 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
   const sourceRoot = scope.sourceRoot;
   const scanResult = scan(root, sourceRoot);
 
+  const toolchain = toolchainForSource(root, sourceRoot);
+
   const aliases = options.alias
     ? { [options.alias]: sourceRoot }
-    : detectAliases(toolchainForSource(root, sourceRoot).tsconfigs);
+    : detectAliases(toolchain.tsconfigs);
 
   const structuralAliases = Object.entries(aliases)
     .map(([alias, target]) => aliasRoot(alias, target, sourceRoot))
@@ -201,7 +203,10 @@ export function runSurvey(root: string, options: SurveyOptions = {}): SurveyResu
     aliases: structuralAliases,
     aliasNames: Object.keys(aliases),
     folderSet: new Set(scanResult.topDirs),
-    deps: dependencyNames(root).sort((a, b) => b.length - a.length),
+    deps: [...new Set([
+      ...dependencyNames(root), ...dependencyNames(path.resolve(root, toolchain.root)),
+    ])]
+      .sort((a, b) => b.length - a.length),
   });
 
   const result = surveyResult(state, scanResult, { aliases, tally, scope });

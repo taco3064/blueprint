@@ -251,6 +251,16 @@ function destinationFailures(
     return [failure('destination-missing', { subject: value })];
   }
 
+  if (!fs.statSync(path.join(context.root, value)).isFile()) {
+    return [failure('destination-not-file', { subject: value })];
+  }
+
+  return destinationPositionFailures(context, source, value);
+}
+
+function destinationPositionFailures(
+  context: Context, source: TransformationSource, value: string,
+): TransformationObligationFailure[] {
   const position = context.resolved.classify(value);
 
   if (source.role === 'route-composition') {

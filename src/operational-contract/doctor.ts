@@ -29,51 +29,53 @@ export interface DoctorCheckView {
 
 export type DoctorCheckFact
   = | { kind: 'config'; present: boolean }
-    | { kind: 'suppressions'; status: 'unused' | 'valid' }
-    | { kind: 'suppressions'; status: 'invalid-json' }
-    | { kind: 'suppressions'; status: 'stale'; files: string[] }
-    | { kind: 'suppressions'; status: 'empty' }
+    | { kind: 'suppressions'; ledger?: string; status: 'unused' | 'valid' }
+    | { kind: 'suppressions'; ledger?: string; status: 'invalid-json' }
+    | { kind: 'suppressions'; ledger?: string; status: 'stale'; files: string[] }
+    | { kind: 'suppressions'; ledger?: string; status: 'empty' }
     | { kind: 'alias-consumer'; evidence: AliasConsumerEvidence; sourceRoot: string }
-    | { kind: 'leftovers'; references: string[]; authoring: string[]; stale: string[] }
-    | { kind: 'transformation'; status: 'invalid'; detail: string }
-    | {
-      kind: 'transformation';
-      status: 'pending';
-      verified: boolean;
-      failures: TransformationObligationFailure[];
-    }
-    | { kind: 'eslint-wired'; wired: boolean; legacyConfig?: string }
-    | { kind: 'lint-entrypoint'; reachable: true }
-    | {
-      kind: 'lint-entrypoint';
-      reachable: false;
-      reason: 'missing-lint' | 'unreachable';
-      entrypoint?: string;
-    }
-    | { kind: 'live-lint'; status: 'unreachable' }
-    | { kind: 'live-lint'; status: 'unverified'; command?: string; reason: string }
-    | {
-      kind: 'live-lint';
-      status: 'passed' | 'failed';
-      command: string;
-      errors: number;
-      warnings: number;
-      reason?: string;
-    }
-    | {
-      kind: 'architecture';
-      fresh: number;
-      hasErrors: boolean;
-      suppressed: number;
-      coverage: string;
-      importAnalysis: import('./inspect').ImportGraphFact;
-      vacuous?: { sourceFiles: number; nextStep: string };
-    }
-    | { kind: 'wiring-unwired' }
-    | { kind: 'wiring-no-probe'; label: string }
-    | { kind: 'wiring-unresolvable'; label: string; merged: boolean; reason: string }
-    | { kind: 'wiring-lost'; label: string; lost: string[] }
-    | { kind: 'wiring-survives'; label: string; scope: string; unreadable: number };
+    | { kind: 'leftovers'; references: string[]; authoring: string[];
+      stale: string[]; retained?: string[]; }
+      | { kind: 'transformation'; status: 'invalid'; detail: string }
+      | {
+        kind: 'transformation';
+        status: 'pending';
+        verified: boolean;
+        failures: TransformationObligationFailure[];
+      }
+      | { kind: 'eslint-wired'; wired: boolean; legacyConfig?: string }
+      | { kind: 'lint-entrypoint'; reachable: true }
+      | {
+        kind: 'lint-entrypoint';
+        reachable: false;
+        reason: 'missing-lint' | 'unreachable';
+        entrypoint?: string;
+      }
+      | { kind: 'live-lint'; status: 'unreachable' }
+      | { kind: 'live-lint'; status: 'unverified'; command?: string; reason: string }
+      | {
+        kind: 'live-lint';
+        status: 'passed' | 'failed';
+        command: string;
+        errors: number;
+        warnings: number;
+        reason?: string;
+      }
+      | {
+        kind: 'architecture';
+        fresh: number;
+        hasErrors: boolean;
+        suppressed: number;
+        coverage: string;
+        importAnalysis: import('./inspect').ImportGraphFact;
+        vacuous?: { sourceFiles: number; nextStep: string };
+      }
+      | { kind: 'wiring-unwired' }
+      | { kind: 'wiring-no-probe'; label: string }
+      | { kind: 'wiring-unresolvable'; label: string; merged: boolean; reason: string }
+      | { kind: 'wiring-ignored'; label: string; ignored: string[]; lost: string[] }
+      | { kind: 'wiring-lost'; label: string; lost: string[] }
+      | { kind: 'wiring-survives'; label: string; scope: string; unreadable: number };
 
 export function renderUnreachedIgnoreNote(fact: {
   globs: string[];
@@ -253,6 +255,21 @@ function renderWiringCheck(fact: WiringCheckFact): DoctorCheckView {
           + 'init\'s install step never completed; re-run it, or the project\'s own lint, which '
           + 'fails for this same reason. This check runs once that passes',
       };
+    case 'wiring-ignored':
+      return {
+        label: fact.label,
+        ok: fact.lost.length === 0,
+        skipped: `ESLint returned no config for probe paths: ${fact.ignored.join(', ')}. `
+          + 'Check global ignores and file matching, '
+          + 'including synthetic paths for empty positions. '
+          + 'Those positions are unverified; this does not prove rule replacement. '
+          + 'Keep architecture intent and review lint coverage before changing declarations.',
+        ...(fact.lost.length
+          ? { detail: renderWiringCheck({
+              kind: 'wiring-lost', label: fact.label, lost: fact.lost,
+            }).detail }
+          : {}),
+      };
     case 'wiring-lost':
       return {
         label: fact.label,
@@ -283,7 +300,8 @@ function renderWiringCheck(fact: WiringCheckFact): DoctorCheckView {
 function renderSuppressions(
   fact: Extract<DoctorCheckFact, { kind: 'suppressions' }>,
 ): DoctorCheckView {
-  const label = 'lint suppressions ledger current';
+  const label = 'lint suppressions ledger current'
+    + (fact.ledger && fact.ledger !== SUPPRESSIONS_FILE ? ` (${fact.ledger})` : '');
 
   switch (fact.status) {
     case 'unused':
@@ -358,9 +376,12 @@ function renderLeftovers(
   return {
     label: 'no leftover reference, authoring, or stale contract files',
     ok,
-    detail: ok
+    detail: ok && !fact.retained?.length
       ? undefined
       : [
+          ...(fact.retained?.length
+            ? [`${fact.retained.join(', ')} retained as the legacy migration reference; keep it until the owner migrates ESLint to flat config. This does not prove lint adoption; the wiring check remains incomplete.`]
+            : []),
           ...(fact.references.length
             ? [`merge and delete: ${fact.references.join(', ')} — adoption is not done while a reference remains`]
             : []),

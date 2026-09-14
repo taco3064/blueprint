@@ -162,12 +162,12 @@ export function lintScriptAction(
 
   const target = resolveArchitecture(blueprint.architecture).sourceRoot;
 
-  if (lint === undefined) {
-    return noLintScript(parsed, target, greenfield);
-  }
-
   if (assessment.reachable) {
     return null;
+  }
+
+  if (lint === undefined) {
+    return noLintScript(parsed, target, greenfield);
   }
 
   const needle = `"lint": ${JSON.stringify(lint)}`;
