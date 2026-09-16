@@ -23,12 +23,21 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 **內容：** 框架、原始碼根目錄、layer-first 或 module-first 結構、依賴與所有權規則、專案
 理念及產出政策。詳見[設定](/zh-TW/configuration)。
 
-**管理權責：** 架構決策屬於導入方。Blueprint 可建立已知預設設定，但不會根據資料夾形狀
-暗中以預設設定或推測結果覆蓋自訂設定檔。
+Module-first 的 presence 語意是明確的：省略 `architecture.modules` 代表 layer-first；
+`modules: []` 代表已有 module-first topology、但尚未實例化任何 domain；非空陣列則代表
+已 materialize 的 module-first domain graph。
 
-**生命週期：** 預設設定流程會建立此檔；架構編寫指南則要求 Agent 建立。後續 `init` 會先
-載入並驗證，再更新其他產出。Blueprint 3.2 設定會先正規化成受支援的 4.0 layer-first
-格式，作為可復原檢查點；若要改成相反拓樸，必須在後續另一次執行啟動受保護轉換。
+**管理權責：** 架構決策屬於導入方。Blueprint 可以建立已知的正規框架治理，但不會根據
+資料夾形狀暗中以預設設定或推測結果覆蓋自訂設定檔。對已證明為空的 React／Vue
+module-first 專案，建置流程會重用同一套正規框架治理並寫入 `modules: []`，不會先發明
+placeholder domain。
+
+**生命週期：** 建置流程會建立此檔；brownfield 架構編寫指南則要求 Agent 建立。後續
+`init` 會先載入並驗證，再更新其他產出。Blueprint 3.2 設定會先正規化成受支援的 4.0
+layer-first 格式，作為可復原檢查點；若要改成相反拓樸，必須在後續另一次執行啟動受保護
+轉換。改寫前，init 會將包含註解的完整原文保存在旁邊的
+`blueprint.config.mjs.pre-v4-<sha256>`。寫入訊息會提示 `architecture.module.private` 沒有 4.0
+替代宣告；宣告治理語意等價前，必須檢視原始政策。備份是專案證據，不會被當作設定載入。
 
 ### ESLint 設定
 
@@ -78,6 +87,9 @@ Flat config 在相同作用範圍遇到同一規則時，後者會取代前者�
 
 **存在目的：** 向人說明拓樸、相依圖、分層責任、命名、核心信念、元件軸線、規則與工作指南。
 
+Module-first runway 的手冊會明確說明 `architecture.modules: []` 是刻意狀態，並畫出空 runway，
+而不是誤畫成 layer-first flow；它也會帶入與 Agent 守則相同的 semantic module growth method。
+
 **管理權責：** Blueprint 完整管理解析後的目標檔案，每次更新都會覆寫。請修改設定權威，
 不要直接編輯產生後的手冊。
 
@@ -99,8 +111,13 @@ Flat config 在相同作用範圍遇到同一規則時，後者會取代前者�
 **存在目的：** 讓架構事實與無法機械判斷的專案規則，出現在程式撰寫 Agent 平常會讀取的
 上下文裡。
 
-**內容：** 解析後的原始碼配置、相依與所有權邊界、命名、專案理念及驗證指令。Cursor 與
-Windsurf 另有各自工具需要的 frontmatter。
+**內容：** 解析後的原始碼配置、相依與所有權邊界、命名、專案理念及驗證指令。Module-first
+還會說明未來 domain boundary 的推導方式：screen／hook／service／entity 本身都不是 module；
+暫時 LF projection 只用於推理；container／use-case responsibilities 是 seeds；相關 seeds
+可以合併、只有獨立 domain 證據足夠才拆分；domain-owned code 即使有多個 consumer 也留在
+該 domain；只有真正 neutral 的 code 才能進入具體命名的 neutral module；materialize
+boundary 之後，才從真實 cross-module import 推導 `dependsOn`。Cursor 與 Windsurf 另有各自
+工具需要的 frontmatter。
 
 **標記區塊合併：** Blueprint 只管理 `<!-- BLUEPRINT:START -->` 與
 `<!-- BLUEPRINT:END -->` 之間的內容，標記外仍由導入方管理。既有共用檔案沒有標記時，
@@ -122,16 +139,19 @@ Blueprint 不會覆寫：
 全新的 **layer-first 預設設定**可在 `sourceRoot` 下建立缺少的分層資料夾，並放入
 `.gitkeep`，讓空專案具有選定的預設結構。
 
-既有原始碼樹不會為尚不存在的分層塞入空殼；module-first 也不會自行發明模組資料夾，
-因為模組命名與所有權需要明確判斷。
+既有原始碼樹不會為尚不存在的分層塞入空殼。已證明為空的 module-first runway 會寫入
+正規治理與產出，但不會建立任何 domain 或重複 inner-layer 資料夾；`modules: []` 就是刻意
+表示「目前沒有 domain」。Brownfield module-first 則透過 semantic authoring 推導並
+materialize domain，不靠資料夾名稱猜測。
 
 ## 暫存流程檔案
 
 ### `blueprint-authoring.md`
 
-這份根目錄執行指南用於既有專案架構編寫、首次 module-first 導入，以及 layer-first ↔
-module-first 轉換。內容包含實測專案證據、決策邊界、操作步驟、拒絕條件與驗收關卡，供人或
-Agent 完成工作。
+這份根目錄執行指南用於 brownfield 架構編寫、brownfield module-first 導入，以及
+layer-first ↔ module-first 轉換。已證明為空的 React／Vue module-first scaffold 不需要它：
+正規治理可以先寫入空 domain runway。內容包含實測專案證據、決策邊界、操作步驟、拒絕條件
+與驗收關卡，供人或 Agent 完成工作。
 
 Blueprint 只在進行中的流程期間管理它。這不是架構權威，完成指南最後的清理步驟後必須
 刪除；`doctor` 發現殘留檔案時會判定導入尚未完成。
