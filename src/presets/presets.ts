@@ -1,8 +1,14 @@
-import type { Blueprint, EmitDef, Framework, OwnedPrimitive } from '../config';
+import type {
+  Blueprint,
+  EmitDef,
+  Framework,
+  LayerDef,
+  OwnedPrimitive,
+} from '../config';
 import { defineBlueprint } from '../operational-contract';
 import { componentShape, playbook, principles } from './doctrine';
 
-/** Options for a preset factory. */
+/** Options shared by all preset factories. */
 export interface PresetOptions {
   /** Project name (Handbook title / agent contract). */
   name?: string;
@@ -13,6 +19,15 @@ export interface PresetOptions {
    * nearly every adoption makes. Passed straight through.
    */
   emit?: EmitDef;
+}
+
+/** React/Vue application preset options. */
+export interface ApplicationPresetOptions extends PresetOptions {
+  /**
+   * Physical topology. Omit for canonical Layer → Unit. `module-first` keeps the same
+   * governance baseline but opens an empty Module → Layer → Unit runway with no invented domains.
+   */
+  topology?: 'layer-first' | 'module-first';
 }
 
 /** Which Next.js router directory the route tree lives in. */
@@ -31,62 +46,71 @@ interface FrameworkOwns {
   contexts: OwnedPrimitive[];
 }
 
-function preset(framework: Framework, owns: FrameworkOwns, options: PresetOptions): Blueprint {
+function preset(
+  framework: Framework,
+  owns: FrameworkOwns,
+  options: ApplicationPresetOptions,
+): Blueprint {
+  const layers: LayerDef[] = [
+    {
+      name: 'pages',
+      does: 'Route layout — assembles containers; owns routing and SEO concerns.',
+      layout: 'folder',
+      entry: 'index',
+      mustNot: ['hold business logic', 'stack components directly'],
+    },
+    {
+      name: 'containers',
+      does: 'A feature: assembles components, owns local state, calls services, '
+        + 'drives navigation.',
+      layout: 'folder',
+      entry: 'index',
+    },
+    {
+      name: 'components',
+      does: 'Reusable, presentational UI.',
+      layout: 'folder',
+      entry: 'index',
+      mustNot: ['call services', 'touch the router', 'own app state'],
+    },
+    {
+      name: 'hooks',
+      does: 'Adapts server and shared state; the only layer that injects context or owns a '
+        + 'store.',
+      layout: 'folder',
+      entry: 'index',
+      owns: owns.hooks,
+    },
+    {
+      name: 'contexts',
+      does: 'Defines and provides Context / Provider only.',
+      layout: 'folder',
+      entry: 'index',
+      owns: owns.contexts,
+      allowedImporters: [
+        { layer: 'containers', description: 'Provider only' },
+        { layer: 'hooks', selfOnly: true, description: 'Context only' },
+      ],
+    },
+    {
+      name: 'services',
+      does: 'Network primitives — the only layer that talks to the HTTP client or sockets.',
+      layout: 'folder',
+      entry: 'index',
+      owns: ['axios', { global: 'fetch' }, { global: 'WebSocket' }],
+      allowedImporters: ['containers', 'hooks', 'contexts'],
+    },
+  ];
+
+  const moduleFirst = options.topology === 'module-first';
+
   return defineBlueprint({
     name: options.name,
     framework,
     architecture: {
       alias: options.alias ?? '~app',
-      layers: [
-        {
-          name: 'pages',
-          does: 'Route layout — assembles containers; owns routing and SEO concerns.',
-          layout: 'folder',
-          entry: 'index',
-          mustNot: ['hold business logic', 'stack components directly'],
-        },
-        {
-          name: 'containers',
-          does: 'A feature: assembles components, owns local state, calls services, '
-            + 'drives navigation.',
-          layout: 'folder',
-          entry: 'index',
-        },
-        {
-          name: 'components',
-          does: 'Reusable, presentational UI.',
-          layout: 'folder',
-          entry: 'index',
-          mustNot: ['call services', 'touch the router', 'own app state'],
-        },
-        {
-          name: 'hooks',
-          does: 'Adapts server and shared state; the only layer that injects context or owns a '
-            + 'store.',
-          layout: 'folder',
-          entry: 'index',
-          owns: owns.hooks,
-        },
-        {
-          name: 'contexts',
-          does: 'Defines and provides Context / Provider only.',
-          layout: 'folder',
-          entry: 'index',
-          owns: owns.contexts,
-          allowedImporters: [
-            { layer: 'containers', description: 'Provider only' },
-            { layer: 'hooks', selfOnly: true, description: 'Context only' },
-          ],
-        },
-        {
-          name: 'services',
-          does: 'Network primitives — the only layer that talks to the HTTP client or sockets.',
-          layout: 'folder',
-          entry: 'index',
-          owns: ['axios', { global: 'fetch' }, { global: 'WebSocket' }],
-          allowedImporters: ['containers', 'hooks', 'contexts'],
-        },
-      ],
+      ...(moduleFirst ? { modules: [] } : {}),
+      layers: moduleFirst ? projectModuleFirstLayers(layers) : layers,
       naming: {
         component: 'PascalCase; the implementation file is named after the unit',
         hook: 'useX — only when it genuinely uses reactivity',
@@ -130,6 +154,25 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
   });
 }
 
+function projectModuleFirstLayers(layers: LayerDef[]): LayerDef[] {
+  const projected = layers.filter((layer) => layer.name !== 'pages' && layer.name !== 'containers');
+
+  return projected.map((layer) => {
+    if (layer.allowedImporters === undefined) {
+      return layer;
+    }
+
+    return {
+      ...layer,
+      allowedImporters: layer.allowedImporters.filter((entry) => {
+        const importer = typeof entry === 'string' ? entry : entry.layer;
+
+        return importer !== 'pages' && importer !== 'containers';
+      }),
+    };
+  });
+}
+
 /**
  * Canonical Vue blueprint: provide/inject in their layers, Pinia owned by hooks.
  * @group Author
@@ -139,7 +182,7 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
  *
  * export default vuePreset({ name: 'my-app' });
  */
-export function vuePreset(options: PresetOptions = {}): Blueprint {
+export function vuePreset(options: ApplicationPresetOptions = {}): Blueprint {
   return preset(
     'vue',
     {
@@ -156,7 +199,7 @@ export function vuePreset(options: PresetOptions = {}): Blueprint {
  * @example
  * export default reactPreset({ name: 'my-app' });
  */
-export function reactPreset(options: PresetOptions = {}): Blueprint {
+export function reactPreset(options: ApplicationPresetOptions = {}): Blueprint {
   return preset(
     'react',
     {
