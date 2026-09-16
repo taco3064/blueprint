@@ -212,30 +212,17 @@ describe('init topology · initialization and conservative adoption', () => {
     expect(moduleResult.output).not.toContain('brownfield without a config');
     expect(moduleResult.output).not.toContain('Prefer a preset scaffold');
     expect(moduleResult.output).not.toContain('init --preset --topology layer-first');
+    expect(read(moduleFirst, 'blueprint-authoring.md')).toBeNull();
 
-    const playbook = read(moduleFirst, 'blueprint-authoring.md') ?? '';
+    const config = read(moduleFirst, 'blueprint.config.mjs') ?? '';
+    const agents = read(moduleFirst, 'AGENTS.md') ?? '';
+    const handbook = read(moduleFirst, 'docs/architecture-handbook.md') ?? '';
 
-    expect({
-      hasFullMethod: [
-        'authoring playbook',
-        'module-first was selected',
-        'ordinary top-level folders below `sourceRoot` as module',
-        'technical layers that repeat inside ordinary modules',
-        'Infer direct `dependsOn` edges',
-        'module + inner-layer structure',
-        '{ name: \'app\', does: \'router composition\', dependsOn:',
-        'governed recursively without repeating the shared inner layers',
-      ].every((claim) => playbook.includes(claim)),
-      contradictions: [
-        'early-exit checklist',
-        'Top-level folders under `src/` are candidates for layers',
-        'preset\'s declared-but-empty layers',
-        'Optional module-first topology',
-        'intentionally absent from `modules`',
-      ].filter((claim) => playbook.includes(claim)),
-    }).toEqual({ hasFullMethod: true, contradictions: [] });
-
-    expect(read(moduleFirst, 'blueprint.config.mjs')).toBeNull();
+    expect(config).toContain('reactPreset');
+    expect(config).toContain("topology: 'module-first'");
+    expect(agents).toContain('architecture.modules: []');
+    expect(agents).toContain('container/use-case responsibilities');
+    expect(handbook).toContain('Module-first runway · no domain modules declared');
   });
 
   it('governs a Next router tree with the generated schema\'s declared app module', async () => {
@@ -370,7 +357,7 @@ describe('init topology · configured authority and option matrix', () => {
     await expectZeroWriteFailure(
       repo(),
       ['init', '--topology', 'module-first', '--preset', '--no-install'],
-      /generic layer presets cannot choose domain modules/,
+      /proven-empty React\/Vue project reuses the canonical governance baseline/,
     );
   });
 
@@ -378,7 +365,7 @@ describe('init topology · configured authority and option matrix', () => {
     const dir = repo();
 
     const result = await rawCli(dir, [
-      'init', '--topology', 'layer-first', '--preset', '--no-install',
+      'init', '--topology', 'layer-first', '--preset', '--no-install'],
     ]);
 
     expect(result.code).toBe(0);
