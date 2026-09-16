@@ -95,11 +95,13 @@ function decideSelectedTopology(
     return unknown(observation);
   }
 
+  const emptyModuleFirst = requested === 'module-first' && observation.uncertainty === 'empty';
+
   return {
     ...observation,
     target: requested,
     operation: operationFor(observation),
-    path: requested === 'module-first' ? 'authoring' : 'scaffold',
+    path: requested === 'module-first' && !emptyModuleFirst ? 'authoring' : 'scaffold',
   };
 }
 
