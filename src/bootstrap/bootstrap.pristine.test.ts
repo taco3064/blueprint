@@ -103,6 +103,7 @@ describe('runInit · pristine scaffold observations', () => {
     });
 
     expect(hasAuthoringPlaybook(actions)).toBe(true);
+
     expect(actions).toContainEqual(expect.objectContaining({
       kind: 'rm',
       path: 'blueprint.config.mjs',
