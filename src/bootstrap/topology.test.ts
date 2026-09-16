@@ -132,7 +132,10 @@ describe('decideTopology', () => {
       .toMatchObject({ operation: 'adopt', target: 'module-first', path: 'authoring' });
 
     expect(decideTopology(unconfigured(null, 'empty'), { topology: 'layer-first' }))
-      .toMatchObject({ operation: 'initialize' });
+      .toMatchObject({ operation: 'initialize', path: 'scaffold' });
+
+    expect(decideTopology(unconfigured(null, 'empty'), { topology: 'module-first' }))
+      .toMatchObject({ operation: 'initialize', target: 'module-first', path: 'scaffold' });
   });
 
   it('inherits the repository target for an unconfigured sibling', () => {
