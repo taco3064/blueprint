@@ -13,6 +13,9 @@ import {
   renderAgentPlaybook as renderPlaybook,
 } from '../../operational-contract';
 import type { AgentGateFact } from '../../operational-contract';
+import {
+  renderModuleFirstGrowthGuidance as renderOperationalModuleFirstGrowthGuidance,
+} from '../../operational-contract/module-first-guidance';
 import { handbookPath } from '../docs';
 import { enforcedBy, unavailableForEmit } from '../lint';
 import type { StackFacts } from '../lint';
@@ -49,12 +52,19 @@ export {
   renderPlaybook,
 };
 
+export function renderModuleFirstGrowthGuidance(blueprint: Blueprint): string {
+  return renderOperationalModuleFirstGrowthGuidance(blueprint.architecture);
+}
+
 export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = {}): string {
-  return renderOperationalCompactContract(blueprint, {
+  const compact = renderOperationalCompactContract(blueprint, {
     gates: gateFacts(blueprint, stack),
     handbook: handbookPath(blueprint),
     lintIntegration: stack.lintIntegration,
   });
+  const growth = renderModuleFirstGrowthGuidance(blueprint);
+
+  return [compact, growth].filter(Boolean).join('\n\n');
 }
 
 export function renderHardRules(blueprint: Blueprint, stack: StackFacts = {}): string {
