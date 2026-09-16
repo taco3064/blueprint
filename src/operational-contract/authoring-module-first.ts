@@ -36,7 +36,8 @@ export function renderModuleFirstGoal(): string {
     '4. A closing report with the module + inner-layer structure, dependency debt, and cycles',
     '',
     'Out of scope: fixing application debt or changing the selected topology.',
-    'There is no generic module-first domain preset: author the domain model from semantic evidence.',
+    'There is no generic module-first domain preset: author the domain model from semantic '
+    + 'evidence.',
   ].join('\n');
 }
 

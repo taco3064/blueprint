@@ -101,12 +101,14 @@ describe('Blueprint 4.0 architecture validation', () => {
     }
 
     moduleConfig.architecture.layerFiles = 'src/{module}/{layer}/**/*.ts';
+
     expect(validateBlueprint(moduleConfig)).toBe(moduleConfig);
 
     const layerConfig = blueprint();
 
     delete layerConfig.architecture.modules;
     layerConfig.architecture.layerFiles = 'src/{layer}/**/*.ts';
+
     expect(validateBlueprint(layerConfig)).toBe(layerConfig);
 
     layerConfig.architecture.layerFiles = 'src/{module}/{layer}/**/*.ts';

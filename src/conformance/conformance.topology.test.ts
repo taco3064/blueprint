@@ -357,7 +357,7 @@ describe('init topology · configured authority and option matrix', () => {
     await expectZeroWriteFailure(
       repo(),
       ['init', '--topology', 'module-first', '--preset', '--no-install'],
-      /proven-empty React\/Vue project reuses the canonical governance baseline/,
+      /proven-empty React.Vue project reuses the canonical governance baseline/,
     );
   });
 

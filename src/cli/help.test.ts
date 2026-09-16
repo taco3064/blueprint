@@ -45,8 +45,10 @@ describe('per-command help', () => {
 
     expect(log.mock.calls[0][0]).toContain('--topology layer-first|module-first');
 
-    expect(log.mock.calls[0][0])
-      .toContain('module-first\n                          scaffolds canonical governance with modules: []');
+    expect(log.mock.calls[0][0]).toContain(
+      'module-first\n'
+      + '                          scaffolds canonical governance with modules: []',
+    );
 
     expect(log.mock.calls[0][0]).toContain('--preset remains an LF-only adoption');
 
