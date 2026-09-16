@@ -109,9 +109,11 @@ export interface ArchitectureDef {
    */
   sourceRoot?: string;
   /**
-   * Optional module-first topology. Each module maps to a direct child of
-   * sourceRoot. The reserved `app` module uses recursive router-composition
-   * container semantics instead of repeating the shared layers.
+   * Module topology authority by presence: omit for layer-first; `[]` selects
+   * a module-first runway with zero instantiated domains; a non-empty array is
+   * module-first with materialized domains. Each ordinary module maps to a
+   * direct child of sourceRoot. The reserved `app` module uses recursive
+   * router-composition container semantics instead of repeating shared layers.
    */
   modules?: ModuleDef[];
   /**
