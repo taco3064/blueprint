@@ -59,8 +59,9 @@ export function renderInitOptionError(
   }
 
   if (kind === 'module-first-preset') {
-    return message('--topology module-first cannot be combined with --preset — generic layer '
-      + 'presets cannot choose domain modules. Use the module-first authoring flow instead. '
+    return message('--topology module-first cannot be combined with --preset. Omit --preset: a '
+      + 'proven-empty React/Vue project reuses the canonical governance baseline with '
+      + 'architecture.modules: []; brownfield module-first still uses semantic authoring. '
       + 'No files were changed.');
   }
 
@@ -132,8 +133,9 @@ export function renderTopologyReason(facts: {
   requested?: 'layer-first' | 'module-first';
 }): OperationalText {
   if (facts.kind === 'module-first-preset') {
-    return message('--topology module-first cannot be combined with --preset — generic layer '
-      + 'presets cannot choose domain modules. Use the module-first authoring flow instead.');
+    return message('--topology module-first cannot be combined with --preset. Omit --preset: a '
+      + 'proven-empty React/Vue project reuses the canonical governance baseline with '
+      + 'architecture.modules: []; brownfield module-first still uses semantic authoring.');
   }
 
   if (facts.kind === 'configured-preset') {
