@@ -8,14 +8,12 @@ export function renderModuleFirstGrowthGuidance(architecture: ArchitectureDef): 
     return '';
   }
 
-  const runway = resolved.modules.length === 0
-    ? '`architecture.modules: []` is an intentional runway: no domain module exists yet.'
-    : 'Existing module declarations are authority; add or change a boundary only from semantic evidence.';
-
   return [
     '### Growing module boundaries',
     '',
-    runway,
+    resolved.modules.length === 0
+      ? '`architecture.modules: []` is an intentional runway: no domain module exists yet.'
+      : 'Existing module declarations are authority; add or change a boundary only from semantic evidence.',
     '',
     '- **Reason before materializing.** Do not create a module from a requirement noun, screen, '
       + 'hook, service, entity, route segment, or top-level folder by itself.',
