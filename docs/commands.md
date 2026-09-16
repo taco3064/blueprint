@@ -16,10 +16,11 @@ can consume them without parsing prose.
 `init` adopts Blueprint, repairs generated integration, or starts a guarded topology
 transformation. It chooses one of three paths from repository evidence and the explicit target:
 
-1. **Scaffold or repair** to create a small/fresh layer-first preset or refresh generated
-   integration from an existing valid config.
-2. **Authoring playbook** for an existing project without a valid config, or for any first
-   module-first adoption.
+1. **Scaffold or repair** to create a proven-empty React/Vue project from canonical governance,
+   including an empty module-first runway, or refresh generated integration from an existing valid
+   config.
+2. **Authoring playbook** for an existing project without a valid config, including brownfield
+   module-first adoption where domain boundaries must be derived from repository semantics.
 3. **Transformation playbook** when existing valid configs establish the opposite repository
    topology.
 
@@ -30,6 +31,11 @@ npx @kekkai/blueprint init --topology layer-first
 npx @kekkai/blueprint init --topology module-first
 ```
 
+A proven-empty React/Vue project selected as module-first reuses the same canonical framework
+baseline as layer-first, but writes `architecture.modules: []`. That array is an explicit
+module-first runway with zero instantiated domains. Blueprint does not create fake domain folders;
+future modules are materialized only after semantic container/use-case boundaries are understood.
+
 Preview the complete action plan without writes, installs, or Agent launch:
 
 ```bash
@@ -38,10 +44,10 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 
 ### Options
 
-- **`--topology layer-first|module-first`** — Required for first repository adoption. On an adopted repository, the same target repairs the current topology; the opposite target starts a repository-wide transformation.
-- **`--preset`** — Skip authoring and use the detected Vue, React, or Next preset. This is a layer-first adoption method and is rejected for module-first repositories and applications that already have an authored config.
+- **`--topology layer-first|module-first`** — Required for first repository adoption. On a proven-empty React/Vue project, `module-first` scaffolds the canonical governance baseline with `modules: []`. On an adopted repository, the same target repairs the current topology; the opposite target starts a repository-wide transformation.
+- **`--preset`** — Skip authoring and use the detected Vue, React, or Next preset. This flag remains a layer-first adoption method. Do not combine it with `--topology module-first`; a proven-empty React/Vue MF project already projects the canonical framework governance automatically, while brownfield MF still requires semantic authoring.
 - **`--authoring`** — Force the authoring playbook even below the 10-source-file brownfield threshold. It cannot be combined with `--preset`.
-- **`--agent claude|codex`** — On authoring or transformation paths, launch that local Agent CLI after the playbook is safely written. On a preset path, launch nothing and select only the matching emitted Agent contract.
+- **`--agent claude|codex`** — On authoring or transformation paths, launch that local Agent CLI after the playbook is safely written. On a scaffold path, launch nothing and select only the matching emitted Agent contract.
 - **`--framework vue|react`** — Resolve an ambiguous framework. Vue and React are otherwise detected; Next.js uses its router-aware preset.
 - **`--no-install`** — Do not run the detected package manager. The plan tells you which install remains.
 - **`--dry-run`** — Print the plan and perform no mutation or Agent launch.
@@ -51,13 +57,45 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 
 A completed scaffold can create `blueprint.config.mjs`, a Blueprint-owned ESLint config or a
 reference config, the configured handbook, selected Agent contracts, and missing layer folders for
-a fresh layer-first preset. It may also update alias wiring, the normal `lint` script, `.gitignore`,
-and dependency manifests through the detected package manager. The exact inventory and ownership
-rules are in [Generated Files](/generated-files).
+a fresh layer-first preset. A fresh module-first runway writes governance and generated artifacts
+without inventing domain or repeated inner-layer folders. Init may also update alias wiring, the
+normal `lint` script, `.gitignore`, and dependency manifests through the detected package manager.
+The exact inventory and ownership rules are in [Generated Files](/generated-files).
 
 Existing ESLint configuration is never overwritten. Blueprint writes
 `eslint.config.blueprint.mjs` for you to merge unless it recognizes a config that it generated and
 owns. Re-running `init` is designed to be idempotent.
+
+### Greenfield versus brownfield
+
+**Proven-empty greenfield** means the selected application has no source files from which existing
+architecture debt or domain boundaries need to be preserved. React/Vue initialization may therefore
+start from the complete applicable canonical governance baseline. In module-first, the topology is
+selected immediately with `architecture.modules: []`, while domain modules stay intentionally
+uninstantiated.
+
+**Brownfield** means there is existing source behavior to preserve. Blueprint treats the current
+repository as evidence, not permission to weaken the destination. Measure before changing anything,
+understand each existing violation, grandfather only the pre-existing debt you intend to carry, and
+then ratchet toward the canonical React/Vue governance baseline. Do not lower a target tier or remove
+a target rule merely to make the first adoption green.
+
+A useful Agent handoff is intentionally copyable as-is:
+
+```text
+Review this project's Blueprint configuration against the canonical React/Vue governance baseline and help tighten it progressively. Measure impact first, preserve current behavior, grandfather only pre-existing debt, and do not weaken the target rules merely to reach green.
+```
+
+The tightening loop is:
+
+1. Run `blueprint rules`, `blueprint impact`, and `blueprint inspect` to measure the current gap.
+2. Explain which findings are existing debt and which are caused by the proposed governance change.
+3. Apply one justified tightening step while preserving runtime behavior.
+4. If existing debt must remain temporarily, record only that understood debt with
+   `blueprint inspect --update-baseline`; never baseline parser degradation or unknown evidence.
+5. Run the project's normal lint/tests plus `blueprint inspect --baseline` and `blueprint doctor`.
+6. Repeat by removing debt or raising governance toward the canonical baseline. Never relax the
+   target merely to obtain green output.
 
 ### Important boundaries
 
@@ -65,7 +103,11 @@ owns. Re-running `init` is designed to be idempotent.
   to one topology.
 - An unresolved multi-application scope stops before writes. Select an application source root
   during authoring instead of letting Blueprint guess.
-- Layer-first presets may be scaffolded; module-first always requires an authored module map.
+- A proven-empty React/Vue module-first project may scaffold canonical governance with
+  `architecture.modules: []`; brownfield module-first still requires semantic authoring of actual
+  domain boundaries.
+- `--preset` remains layer-first-only. Do not add a separate module-first preset family or invent
+  placeholder domains to make module-first scaffoldable.
 - Transformations require a Git repository, a clean worktree, and a recoverable committed `HEAD`.
   The playbook records measured moves, but the Agent decides domain names, placement, collisions,
   and import rewrites and performs them with `git mv`.
