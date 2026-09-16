@@ -41,8 +41,9 @@ describe('per-command help', () => {
     expect(log.mock.calls[0][0]).toContain('blueprint init — scaffold');
     expect(log.mock.calls[0][0]).toContain('never overwritten');
     expect(log.mock.calls[0][0]).toContain('--topology layer-first|module-first');
-    expect(log.mock.calls[0][0]).toContain('module-first implies authoring');
-    expect(log.mock.calls[0][0]).toContain('--preset is only an LF adoption');
+    expect(log.mock.calls[0][0])
+      .toContain('module-first\n                          scaffolds canonical governance with modules: []');
+    expect(log.mock.calls[0][0]).toContain('--preset remains an LF-only adoption');
     expect(log.mock.calls[0][0]).toContain('they never classify an');
     expect(log.mock.calls[0][0]).toContain('one repository-wide transformation');
     expect(log.mock.calls[0][0]).toContain('measures every structural destination and collision');
