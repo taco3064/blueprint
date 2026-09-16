@@ -100,33 +100,64 @@ architecture: {
 
 ### Module-first
 
-加入 `architecture.modules` 後，一般模組的實體結構改為 `Module → Layer → Unit`：
+`architecture.modules` **是否存在**就是拓樸權威，不看陣列長度：
+
+- `architecture.modules === undefined` → layer-first。
+- `architecture.modules: []` → module-first runway，目前有零個已實例化 domain。
+- 非空的 `architecture.modules` → module-first，且已存在明確 domain。
+
+因此 greenfield runway 可以合法保持空白，不需要先發明 placeholder domain：
+
+```js
+architecture: {
+  alias: '~app',
+  modules: [],
+  layers: [
+    { name: 'components', does: '領域 UI。' },
+    { name: 'hooks', does: '領域狀態轉接。' },
+    { name: 'services', does: '領域資料存取。' },
+  ],
+}
+```
+
+當語意領域邊界真的出現後，再明確 materialize：
 
 ```js
 architecture: {
   alias: '~app',
   modules: [
-    { name: 'checkout', does: '結帳流程。', dependsOn: ['catalog'] },
+    { name: 'checkout', does: '結帳 use cases。', dependsOn: ['catalog'] },
     { name: 'catalog', does: '商品探索。' },
     { name: 'app', does: '路由組合。' },
   ],
   layers: [
-    { name: 'containers', does: '功能協調。' },
-    { name: 'components', does: '模組介面。' },
-    { name: 'hooks', does: '狀態轉接。' },
-    { name: 'services', does: '資料存取。' },
+    { name: 'components', does: '領域 UI。' },
+    { name: 'hooks', does: '領域狀態轉接。' },
+    { name: 'services', does: '領域資料存取。' },
   ],
   layerFiles: '{module}/{layer}/**/*.{ts,tsx}',
 }
 ```
 
-每個一般模組都重複使用同一份分層定義。`dependsOn` 列出直接依賴；實際權限依相依圖的
-遞移可達性決定，與宣告順序無關。一次受管理的匯入必須同時通過外層模組圖與內部分層流。
+每個一般 module 都重複使用同一份 inner-layer 定義。Module root 本身就是
+container／use-case 位置，因此 layer-first 的 `containers` 責任**不會**再複製成 inner
+`containers` layer。存在 route/page composition 時，則映射到保留的 `app` module。
 
-模組名稱即使只有大小寫不同也不能重複。相依目標必須已宣告，且不得為空、重複、指向
+`dependsOn` 列出直接 module dependency；實際權限依相依圖的遞移可達性決定，與宣告順序
+無關。這些 edge 應在語意邊界 materialize 之後，依真實 cross-module import 推導。一次受
+管理的匯入必須同時通過外層 module graph 與內部 layer flow。
+
+需求裡出現一個名詞、畫面、hook、service、entity、route segment 或 top-level folder，
+都不足以單獨證明它該成為 module。產生的 Agent 守則只會暫時把 LF 當成**推理投影**：
+沿 route/page composition → container/use-case responsibilities → 技術 layers 與 import closure
+理解責任，再合併相關 seeds、只在獨立 domain 證據足夠時拆分，最後才 materialize
+`Module → Layer → Unit`。這個 LF projection 不是目前 topology；不能為了推理去寫暫時 LF
+config，也不能因此啟動 topology transformation。
+
+Module 名稱即使只有大小寫不同也不能重複。相依目標必須已宣告，且不得為空、重複、指向
 自己或形成循環。
 
-`app` 是選用的保留名稱。它代表 container 位置上的遞迴路由組合，不是一般領域模組，
+`app` 是選用的保留名稱。它代表 container 位置上的遞迴路由組合，不是一般領域 module，
 也不重複內部分層。
 
 ### 分層欄位
@@ -314,12 +345,20 @@ Agent 目標不能重複，自訂路徑也不能是空字串。預設路徑、�
 import { nextPreset, reactPreset, vuePreset } from '@kekkai/blueprint';
 
 export default vuePreset({ name: 'admin', alias: '~app' });
+// 空 MF runway，仍是同一套正規 Vue 治理：
+// export default vuePreset({ name: 'admin', topology: 'module-first' });
 // export default reactPreset({ name: 'web', emit: { agents: ['agents'] } });
 // export default nextPreset({ router: 'app', srcDir: true });
 ```
 
-`vuePreset()` 與 `reactPreset()` 提供標準單向應用程式分層、所有權、規則、核心信念、元件
-軸線與工作指南。選項為 `name`、`alias`（預設 `~app`）與 `emit`。
+`vuePreset()` 與 `reactPreset()` 是應用程式治理的單一正規來源：rules／tiers、principles、
+component axes、playbook、naming、ownership 與 technical-layer 語意都從這裡來。選項為
+`name`、`alias`（預設 `~app`）、`emit` 與 `topology`。
+
+省略 `topology`（或使用 `layer-first`）會得到正規 layer-first 結構。設成
+`topology: 'module-first'` 時只投影 topology，仍重用同一套 governance：`modules: []` 選擇
+runway；LF `containers` 責任映射到未來 module root，不重複成 inner layer；存在 route/page
+composition 時則保留給 `app`。這不是第二套 module-first preset，也不會預先發明 domain。
 
 `nextPreset()` 使用 React 語意，並依 `app`、`pages` 或 `both` 調整 layer-first 路由樹；
 `router` 預設為 `app`。`srcDir: true` 會選擇 `src`，否則原始碼根目錄為 `.`；別名預設為
