@@ -23,16 +23,23 @@ This page separates three kinds of effects:
 **What it contains:** framework, source root, layer-first or module-first structure, dependency and
 ownership rules, project doctrine, and output policy. See [Configuration](/configuration).
 
-**Ownership:** the adopter owns the architecture decisions. Blueprint may scaffold a known preset,
-but an authored config is never silently replaced by a preset or by folder inference.
+For module-first, presence has exact meaning: omitted `architecture.modules` is layer-first,
+`modules: []` is a module-first runway with zero instantiated domains, and a non-empty array is a
+materialized module-first domain graph.
 
-**Lifecycle:** a preset path creates it. An authoring playbook instructs the Agent to create it.
-Later `init` runs load and validate it before refreshing outputs. A Blueprint 3.2 config is first
-normalized to the supported 4.0 layer-first shape as a recoverable checkpoint; an opposite-topology
-request requires a later guarded transformation run from that checkpoint. Before rewriting, init
-saves the complete original beside it as `blueprint.config.mjs.pre-v4-<sha256>` (including comments).
-The write notice warns that `architecture.module.private` has no 4.0 replacement: review the
-original policy before claiming equivalent governance. The backup is owner evidence, not a loaded config.
+**Ownership:** the adopter owns the architecture decisions. Blueprint may scaffold known canonical
+framework governance, but an authored config is never silently replaced by a preset or by folder
+inference. On a proven-empty React/Vue module-first project, the scaffold reuses the same canonical
+framework governance and records `modules: []`; it never invents placeholder domains.
+
+**Lifecycle:** a scaffold path creates it. An authoring playbook instructs the Agent to create it for
+brownfield adoption. Later `init` runs load and validate it before refreshing outputs. A Blueprint
+3.2 config is first normalized to the supported 4.0 layer-first shape as a recoverable checkpoint;
+an opposite-topology request requires a later guarded transformation run from that checkpoint.
+Before rewriting, init saves the complete original beside it as
+`blueprint.config.mjs.pre-v4-<sha256>` (including comments). The write notice warns that
+`architecture.module.private` has no 4.0 replacement: review the original policy before claiming
+equivalent governance. The backup is owner evidence, not a loaded config.
 
 ### ESLint configuration
 
@@ -87,6 +94,10 @@ the documents explicitly retain an unverified or reference-only statement.
 **Why it exists:** it explains the architecture to people: topology, dependency diagram, layer
 responsibilities, naming, principles, component axes, rules, and playbook.
 
+For a module-first runway, the handbook states that `architecture.modules: []` is intentional,
+renders an explicit empty-runway diagram rather than a layer-first flow, and carries the same
+semantic module-growth method as the Agent contracts.
+
 **Ownership:** Blueprint owns the whole file at the resolved path and overwrites it on refresh. Edit
 the config authority, not the generated handbook.
 
@@ -109,7 +120,12 @@ Claude and AGENTS; an empty array emits none.
 Agent's normal context.
 
 **What they contain:** the resolved source layout, dependency and ownership boundaries, naming,
-configured doctrine, and verification commands. Cursor and Windsurf add the frontmatter their tools
+configured doctrine, and verification commands. In module-first they also explain how future domain
+boundaries are derived semantically: screens/hooks/services/entities are not modules by themselves;
+a temporary LF projection is reasoning only; container/use-case responsibilities are seeds; related
+seeds may merge, independent domains may split; domain-owned code stays with its domain; only truly
+neutral code may use a specifically named neutral module; materialization happens before deriving
+`dependsOn` from real cross-module imports. Cursor and Windsurf add the frontmatter their tools
 require.
 
 **Merge-managed files:** Blueprint owns only the text between `<!-- BLUEPRINT:START -->` and
@@ -136,17 +152,20 @@ otherwise be hidden.
 A fresh **layer-first preset** may create missing layer directories under the resolved `sourceRoot`
 and place `.gitkeep` inside them. This gives an empty project the selected preset shape.
 
-Existing source trees are never padded with absent layers, and module-first never invents module
-folders: its module names and ownership require authoring judgment.
+Existing source trees are never padded with absent layers. A proven-empty module-first runway writes
+canonical governance and generated artifacts but creates no domain or repeated inner-layer folders;
+`modules: []` deliberately means that no domain exists yet. Brownfield module-first derives and
+materializes domains through semantic authoring rather than folder guessing.
 
 ## Temporary workflow artifacts
 
 ### `blueprint-authoring.md`
 
-This root-level playbook is created for brownfield authoring, first module-first adoption, and
-layer-first ↔ module-first transformation. It contains measured repository evidence, decision
-boundaries, steps, refusal conditions, and acceptance gates for the human or Agent completing the
-work.
+This root-level playbook is created for brownfield authoring, brownfield module-first adoption, and
+layer-first ↔ module-first transformation. A proven-empty React/Vue module-first scaffold does not
+need it: the canonical governance can be written with an empty domain runway. The playbook contains
+measured repository evidence, decision boundaries, steps, refusal conditions, and acceptance gates
+for the human or Agent completing the work.
 
 Blueprint owns it only for the active workflow. It is not the architecture authority and must be
 removed after the playbook reaches its final cleanup step. `doctor` treats a leftover copy as
