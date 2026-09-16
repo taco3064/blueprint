@@ -14,6 +14,9 @@ import {
   renderUnit,
 } from '../../operational-contract';
 import type { HandbookRuleFact } from '../../operational-contract';
+import {
+  renderModuleFirstGrowthGuidance,
+} from '../../operational-contract/module-first-guidance';
 import { enforcedBy, unavailableForEmit } from '../lint';
 import type { EmitFacts } from '../lint';
 import { emitFlowDiagram } from './diagram';
@@ -52,7 +55,10 @@ export function renderImportDiscipline(
 }
 
 export function renderArchitecture(architecture: ArchitectureDef): string {
-  return renderOperationalArchitecture(architecture, emitFlowDiagram(architecture));
+  return [
+    renderOperationalArchitecture(architecture, emitFlowDiagram(architecture)),
+    renderModuleFirstGrowthGuidance(architecture),
+  ].filter(Boolean).join('\n\n');
 }
 
 export function renderRules(
