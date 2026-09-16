@@ -199,8 +199,9 @@ describe('decideTopology', () => {
     })).toMatchObject({
       operation: 'abort',
       path: null,
-      reason: '--topology module-first cannot be combined with --preset — generic layer '
-        + 'presets cannot choose domain modules. Use the module-first authoring flow instead.',
+      reason: '--topology module-first cannot be combined with --preset. Omit --preset: a '
+        + 'proven-empty React/Vue project reuses the canonical governance baseline with '
+        + 'architecture.modules: []; brownfield module-first still uses semantic authoring.',
     });
   });
 
