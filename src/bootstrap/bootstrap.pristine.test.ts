@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runInit } from './bootstrap';
-import { nextPreset } from '../presets';
+import { nextPreset, reactPreset } from '../presets';
 
 let root: string;
 
@@ -31,8 +31,8 @@ function hasAuthoringPlaybook(actions: Awaited<ReturnType<typeof runInit>>): boo
     && action.path === 'blueprint-authoring.md');
 }
 
-describe('runInit · pristine Next scaffold observations', () => {
-  it('reuses a root-based scaffold without surveying it again', async () => {
+describe('runInit · pristine scaffold observations', () => {
+  it('reuses a root-based Next scaffold without surveying it again', async () => {
     fs.mkdirSync(path.join(root, 'app'), { recursive: true });
     fs.writeFileSync(path.join(root, 'app/page.tsx'), 'export default () => null;');
 
@@ -79,5 +79,33 @@ describe('runInit · pristine Next scaffold observations', () => {
     if (playbook?.kind === 'write') {
       expect(playbook.content).toContain('Source root: src');
     }
+  });
+
+  it('recognizes a generated module-first runway as its own pristine scaffold', async () => {
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({ name: 'react-demo', dependencies: { react: '^19' } }),
+    );
+
+    await runInit(root, {
+      topology: 'module-first',
+      install: false,
+      log: silent,
+    });
+
+    const actions = await runInit(root, {
+      topology: 'module-first',
+      authoring: true,
+      install: false,
+      dryRun: true,
+      log: silent,
+      loadConfig: async () => reactPreset({ topology: 'module-first' }),
+    });
+
+    expect(hasAuthoringPlaybook(actions)).toBe(true);
+    expect(actions).toContainEqual(expect.objectContaining({
+      kind: 'rm',
+      path: 'blueprint.config.mjs',
+    }));
   });
 });
