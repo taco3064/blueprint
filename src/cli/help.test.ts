@@ -38,20 +38,32 @@ describe('per-command help', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     expect(await run(['init', '--help'])).toBe(0);
+
     expect(log.mock.calls[0][0]).toContain('blueprint init — scaffold');
+
     expect(log.mock.calls[0][0]).toContain('never overwritten');
+
     expect(log.mock.calls[0][0]).toContain('--topology layer-first|module-first');
+
     expect(log.mock.calls[0][0])
       .toContain('module-first\n                          scaffolds canonical governance with modules: []');
+
     expect(log.mock.calls[0][0]).toContain('--preset remains an LF-only adoption');
+
     expect(log.mock.calls[0][0]).toContain('they never classify an');
+
     expect(log.mock.calls[0][0]).toContain('one repository-wide transformation');
+
     expect(log.mock.calls[0][0]).toContain('measures every structural destination and collision');
+
     expect(log.mock.calls[0][0]).toContain('configured modules');
+
     expect(log.mock.calls[0][0]).toContain('threshold, 10 source files');
 
     expect(await run(['inspect', '-h'])).toBe(0);
+
     expect(log.mock.calls[1][0]).toContain('read-only architecture report');
+
     expect(log.mock.calls[1][0]).toContain('architecture.sourceRoot (src/ by default)');
     log.mockRestore();
   });
