@@ -96,13 +96,15 @@ export function renderModuleFirstSemantics(): string {
     + 'permission. Screens, hooks, services, entities, and folder names do not become modules '
     + 'merely because they exist.',
     '- `dependsOn` declares direct module edges and comes from real cross-module imports. '
-    + 'Transitive downstream modules are importable; cycles and undeclared counter-edges remain debt.',
+    + 'Transitive downstream modules are importable; cycles and undeclared counter-edges remain '
+    + 'debt.',
     '- `layers` are repeated technical positions inside ordinary modules, not repository-wide '
     + 'top-level folders. Their order defines the one-way inner-layer flow.',
     '- A module root is the container/use-case position. Do not repeat LF `containers` as an '
     + 'inner technical layer.',
     '- `app/**` is the reserved router-composition container position in a module-first tree when '
-    + 'route/page composition exists; its recursive route segments are not ordinary domain modules.',
+    + 'route/page composition exists; its recursive route segments are not ordinary domain '
+    + 'modules.',
     '- Relative imports stay within a unit. Imports crossing a module or inner-layer boundary '
     + 'must use the canonical source-root alias.',
     `- ${renderTestFilesOperational('core', 'en')} Never add fake modules or layers merely to `
@@ -127,7 +129,8 @@ export function renderModuleFirstSchemaSketch(sourceRoot: string): string {
     '    modules: [],',
     '    // Inner technical layers repeat below each future ordinary module.',
     '    layers: [',
-    '      { name: \'components\', does: \'domain UI\', layout: \'folder\', entry: \'index\' },',
+    '      { name: \'components\', does: \'domain UI\', layout: \'folder\', '
+    + 'entry: \'index\' },',
     '      { name: \'hooks\', does: \'domain orchestration\', layout: \'file\' },',
     '      { name: \'services\', does: \'domain data access\', layout: \'file\' },',
     '    ],',
