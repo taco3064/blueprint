@@ -123,6 +123,7 @@ describe('Blueprint 4.0 architecture validation', () => {
     empty.architecture.modules = [];
 
     expect(validateBlueprint(empty)).toBe(empty);
+
     expect(resolveArchitecture(empty.architecture)).toMatchObject({
       topology: 'module-first',
       modules: [],

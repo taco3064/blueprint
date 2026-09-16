@@ -38,9 +38,11 @@ describe('CLI operational contract', () => {
   it('describes init from resolved topology, source root, and output policy', () => {
     const init = renderCliCommandHelp({ brownfieldMinFiles: 10 }).init;
 
-    expect(init).toContain('fresh layer-first preset only');
+    expect(init).toContain('fresh layer-first scaffold');
     expect(init).toContain('under the resolved\n    sourceRoot');
-    expect(init).toContain('module-first authors its module map first');
+    expect(init).toContain('fresh module-first scaffold');
+    expect(init).toContain('architecture.modules: []');
+    expect(init).toContain('no domain or repeated inner-layer folders are invented');
     expect(init).toContain('handbook at emit.handbook');
     expect(init).toContain('only the Agent contracts selected by resolved emit.agents');
     expect(init).not.toContain('src/<layer>/');

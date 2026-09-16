@@ -17,6 +17,7 @@ describe('canonical module-first runway projection', () => {
 
       expect(resolveArchitecture(moduleFirst.architecture).topology).toBe('module-first');
       expect(moduleFirst.architecture.modules).toEqual([]);
+
       expect(moduleFirst.architecture.layers.map(({ name }) => name)).toEqual([
         'components',
         'hooks',

@@ -15,6 +15,9 @@ export function renderModuleFirstNextNote(next: boolean): string {
     '> Derive domain modules from container/use-case responsibilities, then associate the '
     + 'technical layers and import closure owned by each domain. Never make route segments '
     + 'or top-level folders domain boundaries by themselves.',
+    '> Reserved router composition may be declared as `{ name: \'app\', does: \'router '
+    + 'composition\', dependsOn: [...] }`; `app/**` is governed recursively without repeating '
+    + 'the shared inner layers.',
   ].join('\n');
 }
 
@@ -60,7 +63,8 @@ export function renderModuleFirstMethod(
     '4. Treat containers/use-case responsibilities as the first domain seeds. Merge related seeds '
     + 'that express one business responsibility; split a broad seed only when the evidence shows '
     + 'independent domains. A requirement noun, screen, hook, service, entity, or top-level folder '
-    + 'is never sufficient evidence for a module by itself.',
+    + 'is never sufficient evidence for a module by itself. Never treat ordinary top-level '
+    + 'folders below `sourceRoot` as module boundaries.',
     '5. Keep domain-owned code with its domain even when multiple consumers use it. Move only '
     + 'truly neutral code into a specifically named neutral module; never create a generic '
     + '`shared` catch-all.',
@@ -69,7 +73,8 @@ export function renderModuleFirstMethod(
     + 'composition maps to the reserved `app` module when that composition exists.',
     '7. Derive the technical layers that repeat inside ordinary modules (for example '
     + '`components`, `hooks`, `services`, and `lib`) from actual code. Declare one inner-layer '
-    + 'flow shared by the modules; do not create parallel global layer folders.',
+    + 'flow shared by the modules; do not create parallel global layer folders. Never mix that '
+    + 'model with global layers.',
     '8. Give every module a precise `does` responsibility. Infer direct `dependsOn` edges from '
     + 'real cross-module imports after the module move; report cycles and counter-direction edges '
     + 'as debt rather than inventing edges from declaration order.',

@@ -365,7 +365,7 @@ describe('init topology · configured authority and option matrix', () => {
     const dir = repo();
 
     const result = await rawCli(dir, [
-      'init', '--topology', 'layer-first', '--preset', '--no-install'],
+      'init', '--topology', 'layer-first', '--preset', '--no-install',
     ]);
 
     expect(result.code).toBe(0);

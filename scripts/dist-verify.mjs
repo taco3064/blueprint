@@ -664,56 +664,34 @@ await check('built init accepts both explicit topologies on empty fixtures', () 
   expect(!module.output.includes('Prefer a preset scaffold'), 'module path recommends a preset');
   expect(!module.output.includes('init --preset --topology layer-first'), 'module path recommends LF');
   expect(fs.existsSync(path.join(layerFirst, 'blueprint.config.mjs')), 'layer config missing');
-  expect(fs.existsSync(path.join(moduleFirst, 'blueprint-authoring.md')), 'module playbook missing');
-  expect(!fs.existsSync(path.join(moduleFirst, 'blueprint.config.mjs')), 'module path guessed a config');
+  expect(fs.existsSync(path.join(moduleFirst, 'blueprint.config.mjs')), 'module runway config missing');
+  expect(!fs.existsSync(path.join(moduleFirst, 'blueprint-authoring.md')),
+    'empty module-first runway entered brownfield authoring');
 
-  const playbook = fs.readFileSync(path.join(moduleFirst, 'blueprint-authoring.md'), 'utf-8');
-
-  expect(playbook.includes('module-first was selected'), 'module target was lost in authoring');
-
-  expect(
-    playbook.includes('ordinary top-level folders below `sourceRoot` as module'),
-    'module method does not classify top-level folders as module candidates',
+  const config = fs.readFileSync(path.join(moduleFirst, 'blueprint.config.mjs'), 'utf-8');
+  const agents = fs.readFileSync(path.join(moduleFirst, 'AGENTS.md'), 'utf-8');
+  const handbook = fs.readFileSync(
+    path.join(moduleFirst, 'docs', 'architecture-handbook.md'),
+    'utf-8',
   );
 
-  expect(
-    playbook.includes('technical layers that repeat inside ordinary modules'),
-    'module method does not derive repeated inner layers',
-  );
+  expect(config.includes('reactPreset'), 'module runway lost the canonical React preset');
+  expect(config.includes("topology: 'module-first'"), 'module runway lost the explicit topology');
 
-  expect(playbook.includes('Infer direct `dependsOn` edges'), 'module dependencies are omitted');
-  expect(playbook.includes('module + inner-layer structure'), 'module report contract is omitted');
+  for (const folder of ['components', 'hooks', 'contexts', 'services']) {
+    expect(!fs.existsSync(path.join(moduleFirst, 'src', folder)),
+      `module runway invented src/${folder}`);
+  }
 
-  expect(
-    playbook.includes('{ name: \'app\', does: \'router composition\', dependsOn:'),
-    'module schema does not declare the reserved app container',
-  );
+  expect(agents.includes('architecture.modules: []'), 'Agent contract does not name the runway');
+  expect(agents.includes('container/use-case responsibilities'),
+    'Agent contract omits semantic module seeds');
+  expect(agents.includes('never create a generic `shared` catch-all'),
+    'Agent contract permits catch-all shared extraction');
+  expect(handbook.includes('Module-first runway · no domain modules declared'),
+    'handbook does not expose the runway state');
 
-  expect(
-    playbook.includes('governed recursively without repeating the shared inner layers'),
-    'module schema does not explain app container semantics',
-  );
-
-  expect(!playbook.includes('early-exit checklist'), 'module authoring recommends layer-first exit');
-
-  expect(
-    !playbook.includes('Top-level folders under `src/` are candidates for layers'),
-    'module authoring retained layer-first classification',
-  );
-
-  expect(
-    !playbook.includes('preset\'s declared-but-empty layers'),
-    'module authoring retained the preset runway',
-  );
-
-  expect(!playbook.includes('Optional module-first topology'), 'module schema calls itself optional');
-
-  expect(
-    !playbook.includes('intentionally absent from `modules`'),
-    'module schema leaves app outside the governed module set',
-  );
-
-  return 'layer scaffold + module authoring';
+  return 'layer scaffold + module-first runway';
 });
 
 await check('built init rejects malformed topology flags before every write', () => {

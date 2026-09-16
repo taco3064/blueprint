@@ -37,6 +37,7 @@ function expectGrowthGuidance(outputs: Array<string | null>): void {
 
 async function expectGreenfieldRunway(framework: 'react' | 'vue'): Promise<void> {
   const dir = repo(framework);
+
   const actions = await runInit(dir, {
     topology: 'module-first',
     install: false,
