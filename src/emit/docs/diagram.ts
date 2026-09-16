@@ -4,8 +4,12 @@ import type { ArchitectureDef } from '../../config';
 export function emitFlowDiagram(architecture: ArchitectureDef): string {
   const resolved = resolveArchitecture(architecture);
 
-  if (!resolved.modules.length) {
+  if (resolved.topology === 'layer-first') {
     return wrap(resolved.diagramEdges.map((edge) => renderEdge(edge.from, edge.to, edge)));
+  }
+
+  if (!resolved.modules.length) {
+    return wrap(['  runway["Module-first runway · no domain modules declared"]']);
   }
 
   const layerIndex = new Map(resolved.layers.map((layer, index) => [layer.name, index]));
