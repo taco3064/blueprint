@@ -31,6 +31,18 @@ npx @kekkai/blueprint init --topology layer-first
 npx @kekkai/blueprint init --topology module-first
 ```
 
+On a proven-empty React or Vue project, module-first reuses the same canonical
+framework governance as layer-first but starts with `architecture.modules: []`.
+That empty array is intentional runway: the topology is module-first while zero
+domain modules have been invented yet. Future modules are derived from semantic
+container/use-case boundaries, then their real cross-module imports determine
+`dependsOn`.
+
+Brownfield adoption stays conservative. Measure current impact first, preserve
+behavior, baseline only understood pre-existing debt, and tighten toward the
+canonical framework baseline without weakening the target rules just to reach
+green.
+
 The resulting valid Blueprint config becomes the repository topology authority.
 Existing Blueprint 3.2 projects and later topology changes use guarded migration
 or transformation flows; see the documentation before applying them.
