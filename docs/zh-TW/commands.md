@@ -15,9 +15,10 @@ npx @kekkai/blueprint <command>
 `init` 用來導入 Blueprint、修復既有整合，或啟動受保護的拓樸轉換。它會根據專案證據與
 明確指定的目標，選擇三種流程之一：
 
-1. **建置或修復**：替規模小或全新的 layer-first 專案建立預設設定，或依既有有效設定檔
-   更新產生的整合內容。
-2. **架構編寫指南**：適用於尚無有效設定檔的既有專案，以及所有首次 module-first 導入。
+1. **建置或修復**：全新且已證明為空的 React／Vue 專案可直接套用正規治理基底，包括
+   空的 module-first runway；既有有效設定檔則依其權威更新產生的整合內容。
+2. **架構編寫指南**：適用於尚無有效設定檔的既有專案，包括必須從現有程式語意推導領域
+   邊界的 brownfield module-first 導入。
 3. **拓樸轉換指南**：既有有效設定檔已確立另一種專案拓樸時使用。
 
 第一次導入一定要明確選擇拓樸：
@@ -27,6 +28,11 @@ npx @kekkai/blueprint init --topology layer-first
 npx @kekkai/blueprint init --topology module-first
 ```
 
+已證明為空的 React／Vue 專案若選擇 module-first，會沿用與 layer-first 相同的正規框架
+治理基底，但寫入 `architecture.modules: []`。這個空陣列不是缺漏，而是明確的
+module-first runway，表示目前尚未實例化任何領域模組。Blueprint 不會先創造假的 domain
+資料夾；之後只有在 container／use-case 的語意邊界被理解後，才真正建立 module。
+
 先預覽完整動作，不寫檔、不安裝、不啟動 Agent：
 
 ```bash
@@ -35,10 +41,10 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 
 ### 旗標
 
-- **`--topology layer-first|module-first`** — 第一次導入專案時必填。已導入的專案若指定相同目標，會修復現有拓樸；指定相反目標，則啟動全專案轉換。
-- **`--preset`** — 跳過架構編寫，使用偵測到的 Vue、React 或 Next 預設設定。這只適用 layer-first；module-first 專案與已有自訂設定檔的應用程式會拒絕執行。
+- **`--topology layer-first|module-first`** — 第一次導入專案時必填。已證明為空的 React／Vue 專案選擇 `module-first` 時，會以 `modules: []` 建立正規治理基底。已導入的專案若指定相同目標，會修復現有拓樸；指定相反目標，則啟動全專案轉換。
+- **`--preset`** — 跳過架構編寫，使用偵測到的 Vue、React 或 Next 預設設定。這個旗標仍只用於 layer-first，不能與 `--topology module-first` 並用。已證明為空的 React／Vue MF 專案本來就會自動投影正規框架治理；brownfield MF 則仍須進行語意編寫。
 - **`--authoring`** — 即使少於 10 個原始碼檔案，也強制產生架構編寫指南。不能與 `--preset` 並用。
-- **`--agent claude|codex`** — 編寫或轉換流程會在指南安全寫入後啟動指定的本機 Agent CLI；預設設定流程不啟動 Agent，只縮小要產生的 Agent 守則目標。
+- **`--agent claude|codex`** — 編寫或轉換流程會在指南安全寫入後啟動指定的本機 Agent CLI；建置流程不啟動 Agent，只縮小要產生的 Agent 守則目標。
 - **`--framework vue|react`** — 框架證據不明確時指定。一般 Vue、React 會自動偵測；Next.js 會使用能辨識路由器的預設設定。
 - **`--no-install`** — 不執行偵測到的套件管理工具，並在計畫裡列出待安裝內容。
 - **`--dry-run`** — 只顯示計畫，不修改檔案，也不啟動 Agent。
@@ -48,17 +54,48 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 
 完成建置時，可能建立 `blueprint.config.mjs`、Blueprint 管理的 ESLint 設定或參考設定、
 指定路徑的架構手冊、所選 Agent 守則，以及全新 layer-first 預設設定缺少的分層資料夾。
-它也可能更新別名接線、一般 `lint` 指令、`.gitignore`，並透過偵測到的套件管理工具更新
-相依套件。完整清單與管理權責見[產出檔案](/zh-TW/generated-files)。
+全新的 module-first runway 只會寫入治理與產生物，不會憑空建立領域或重複的 inner-layer
+資料夾。它也可能更新別名接線、一般 `lint` 指令、`.gitignore`，並透過偵測到的套件管理
+工具更新相依套件。完整清單與管理權責見[產出檔案](/zh-TW/generated-files)。
 
 既有 ESLint 設定絕不會被覆寫。除非 Blueprint 能辨識出自己產生並管理的設定檔，否則
 只會建立 `eslint.config.blueprint.mjs` 供你整合。重複執行 `init` 應得到相同結果。
+
+### Greenfield 與 brownfield
+
+**已證明為空的 greenfield**，是指所選應用程式沒有需要保留架構債務或領域邊界的既有
+原始碼。React／Vue 因此可以直接從完整、適用的正規治理基底開始。若選 module-first，
+會先用 `architecture.modules: []` 明確宣告拓樸，但刻意不實例化任何 domain module。
+
+**Brownfield** 有既有執行行為需要保留。Blueprint 會把目前 repository 視為證據，而不是
+降低目標規範的理由。先量測再修改，理解每一個既有違規，只 grandfather 你確定要暫時承擔
+的既有 debt，接著以棘輪方式逐步靠近 React／Vue 的正規治理基底。不能只為了讓第一次導入
+變綠，就把目標 tier 降低或拿掉目標規則。
+
+以下 Agent handoff 可直接複製，不要改寫語意：
+
+```text
+Review this project's Blueprint configuration against the canonical React/Vue governance baseline and help tighten it progressively. Measure impact first, preserve current behavior, grandfather only pre-existing debt, and do not weaken the target rules merely to reach green.
+```
+
+建議的收緊循環：
+
+1. 先跑 `blueprint rules`、`blueprint impact`、`blueprint inspect`，量出目前與正規基底的差距。
+2. 分清楚哪些是原有 debt，哪些是新治理修改造成的 finding。
+3. 一次做一個有依據的 tightening，保持 runtime behavior 不變。
+4. 若既有 debt 暫時必須留下，只用 `blueprint inspect --update-baseline` 記錄已理解的部分；
+   parser 降級或未知證據不能寫進 baseline。
+5. 執行專案原本的 lint／tests，再跑 `blueprint inspect --baseline` 與 `blueprint doctor`。
+6. 持續清 debt 或提高治理，逐步逼近正規基底。不能為了得到綠燈反向放寬目標。
 
 ### 重要邊界
 
 - 原始碼形狀只是證據，不是拓樸權威。同一個專案內的有效設定檔必須解析成同一種拓樸。
 - 多應用程式範圍未確定時，任何寫入前就會停止；編寫階段必須明確選擇應用程式的原始碼根目錄。
-- Layer-first 可使用預設設定建置；module-first 一定要先由人或 Agent 決定模組圖。
+- 已證明為空的 React／Vue module-first 專案可以用 `architecture.modules: []` 建立正規治理；
+  brownfield module-first 仍必須從真實程式語意推導領域邊界。
+- `--preset` 仍只屬於 layer-first。不要另外發明一套 module-first preset，也不要建立假的
+  placeholder domain 只為了讓 MF 能 scaffold。
 - 拓樸轉換要求 Git 專案、乾淨工作目錄與可復原的已提交 `HEAD`。Blueprint 會記錄量測到的
   搬移證據，但領域命名、擺放位置、衝突處理與匯入改寫仍由 Agent 判斷，並以 `git mv` 執行。
 - Next.js App Router 會保留。遇到不支援的 Pages Router 或不明確路由器轉換時，流程會停止，
