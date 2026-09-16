@@ -62,6 +62,7 @@ export function renderCompactContract(blueprint: Blueprint, stack: StackFacts = 
     handbook: handbookPath(blueprint),
     lintIntegration: stack.lintIntegration,
   });
+
   const growth = renderModuleFirstGrowthGuidance(blueprint);
 
   return [compact, growth].filter(Boolean).join('\n\n');
