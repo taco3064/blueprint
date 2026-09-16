@@ -213,9 +213,10 @@ export function renderAgentLaunchFailure(
 
 export function renderFreshScaffoldNote(files: number, threshold: number): OperationalText {
   return message(`Fresh scaffold (${files} source files < ${threshold}) — scaffolding canonical `
-    + 'framework governance directly; no blueprint-authoring.md is written on this path. To '
-    + 'force authoring on layer-first, run blueprint init --topology layer-first --authoring; '
-    + 'for module-first, keep module-first as the explicit target and add --authoring.');
+    + 'framework governance directly; no blueprint-authoring.md is written on this path, so the '
+    + 'authoring playbook is skipped. To force authoring on layer-first, run blueprint init '
+    + '--topology layer-first --authoring; for module-first, keep module-first as the explicit '
+    + 'target and add --authoring.');
 }
 
 export function renderAuthoringFlowBanner(facts: {
