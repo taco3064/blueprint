@@ -22,6 +22,8 @@ import {
 export interface ResolveOptions {
   /** Force the framework when detection is ambiguous. */
   framework?: 'vue' | 'react';
+  /** Select the physical topology for a fresh canonical React/Vue scaffold. */
+  topology?: 'layer-first' | 'module-first';
   /** Load an existing blueprint.config (default dynamic import). */
   loadConfig?: (file: string) => Promise<Blueprint>;
   migrateLegacyConfig?: boolean;
@@ -64,15 +66,17 @@ export async function resolveBlueprint(
   }
 
   const preset = framework === 'vue' ? vuePreset : reactPreset;
+  const topology = options.topology === 'module-first' ? 'module-first' : undefined;
 
   const blueprint = preset({
     ...(state.projectName ? { name: state.projectName } : {}),
+    ...(topology ? { topology } : {}),
     ...(agents ? { emit: { agents } } : {}),
   });
 
   return {
     blueprint,
-    configSource: buildConfigSource(framework, state.projectName, agents),
+    configSource: buildConfigSource(framework, state.projectName, agents, topology),
     legacyConfig: false,
   };
 }
@@ -137,9 +141,14 @@ export function buildConfigSource(
   framework: 'vue' | 'react',
   name?: string,
   agents?: AgentTarget[],
+  topology?: 'module-first',
 ): string {
   const factory = framework === 'vue' ? 'vuePreset' : 'reactPreset';
-  const fields = [...(name ? [`name: '${name}'`] : []), ...emitField(agents)];
+  const fields = [
+    ...(name ? [`name: '${name}'`] : []),
+    ...(topology ? [`topology: '${topology}'`] : []),
+    ...emitField(agents),
+  ];
   const arg = fields.length ? `{ ${fields.join(', ')} }` : '';
 
   return [
