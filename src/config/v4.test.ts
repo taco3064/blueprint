@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { validateBlueprint } from '../operational-contract';
+import { resolveArchitecture } from './resolved';
 import type { Blueprint } from './types';
 
 function blueprint(): Blueprint {
@@ -114,11 +115,17 @@ describe('Blueprint 4.0 architecture validation', () => {
       .toThrow(/Layer-first layerFiles entry.*must not include "\{module\}"/);
   });
 
-  it('rejects an empty module collection', () => {
+  it('treats an empty module collection as a module-first runway', () => {
     const empty = blueprint();
 
     empty.architecture.modules = [];
-    expect(() => validateBlueprint(empty)).toThrow(/modules must be a non-empty array/);
+
+    expect(validateBlueprint(empty)).toBe(empty);
+    expect(resolveArchitecture(empty.architecture)).toMatchObject({
+      topology: 'module-first',
+      modules: [],
+      layerPositions: [],
+    });
   });
 
   // eslint-disable-next-line max-statements
