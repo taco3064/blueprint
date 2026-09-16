@@ -51,6 +51,7 @@ async function expectGreenfieldRunway(framework: 'react' | 'vue'): Promise<void>
 
   expect(config).toContain(`${framework}Preset`);
   expect(config).toContain('topology: \'module-first\'');
+
   expect(actions.some((action) => action.kind === 'write'
     && action.path === 'blueprint-authoring.md')).toBe(false);
 
