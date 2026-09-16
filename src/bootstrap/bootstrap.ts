@@ -432,12 +432,13 @@ function isPristineScaffold(root: string, state: ProjectState): boolean {
   const text = readTexts(root, [CONFIG_FILE])[CONFIG_FILE];
 
   const agentVariants: (AgentTarget[] | undefined)[] = [undefined, ['claude'], ['agents']];
+  const topologyVariants: ('module-first' | undefined)[] = [undefined, 'module-first'];
 
   const candidates = (['vue', 'react'] as const).flatMap((framework) =>
-    agentVariants.flatMap((agents) => [
-      buildConfigSource(framework, state.projectName, agents),
-      buildConfigSource(framework, undefined, agents),
-    ]),
+    agentVariants.flatMap((agents) => topologyVariants.flatMap((topology) => [
+      buildConfigSource(framework, state.projectName, agents, topology),
+      buildConfigSource(framework, undefined, agents, topology),
+    ])),
   );
 
   // Stryker disable next-line ConditionalExpression: null router cannot match a scaffold.
