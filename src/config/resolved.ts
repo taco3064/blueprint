@@ -112,7 +112,7 @@ export function resolveArchitecture(
 
   const byModule = new Map(modules.map((module) => [module.name, module]));
   const byLayer = new Map(layers.map((layer) => [layer.name, layer]));
-  const topology = modules.length ? 'module-first' : 'layer-first';
+  const topology = definition.modules === undefined ? 'layer-first' : 'module-first';
 
   const ordinaryModules = topology === 'module-first'
     ? modules.filter((module) => module.name !== 'app')
