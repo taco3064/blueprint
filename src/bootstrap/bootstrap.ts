@@ -1,9 +1,6 @@
 import { assessLintIntegration, scan } from '../inspect';
 import { resolveArchitecture } from '../config';
-import type { AgentTarget } from '../config';
 import {
-  buildConfigSource,
-  buildNextConfigSource,
   CONFIG_FILE,
   detect,
   listSourceDirs,
@@ -39,6 +36,7 @@ import { assertAuthoredConfigNotRewritten, assertInitOptions } from './init-opti
 import type { Action } from './types';
 import { runTransformationRecovery } from './transformation-recovery';
 import { freshAuthoringAgents } from './authoring-launcher';
+import { observePristineScaffold } from './pristine';
 import {
   completeTransformationRetirement, transformationRetirement,
 } from './transformation-resume';
@@ -87,12 +85,19 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
 
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
-
-  const pristine = state.hasConfig && isPristineScaffold(root, state);
+  const pristineObservation = state.hasConfig ? observePristineScaffold(root, state) : null;
+  const pristine = pristineObservation !== null;
 
   assertInitOptions(state, options, pristine);
 
-  const input = { root, state, options, pristine, log };
+  const input = {
+    root,
+    state,
+    options,
+    pristine,
+    pristineTopology: pristineObservation?.topology ?? null,
+    log,
+  };
 
   return runPreparedTopology(input, await prepareTopology(input));
 }
@@ -155,15 +160,23 @@ async function runPreparedTopology(
   });
 }
 
-type InitTopologyInput = RunContext
-  & { root: string; state: ProjectState; pristine: boolean };
+type InitTopologyInput = RunContext & {
+  root: string;
+  state: ProjectState;
+  pristine: boolean;
+  pristineTopology: ArchitectureTopology | null;
+};
 
 async function prepareTopology(input: InitTopologyInput) {
   const resolved = await resolveConfigured(input);
   const survey = surveyForTopology(input);
 
   const localAuthority = resolved ?? (input.pristine
-    ? await resolveBlueprint(input.root, { ...input.state, hasConfig: false }, input.options)
+    ? await resolveBlueprint(
+        input.root,
+        { ...input.state, hasConfig: false },
+        { ...input.options, topology: input.pristineTopology! },
+      )
     : null);
 
   const repository = await observeRepositoryTopology({
@@ -426,34 +439,6 @@ function agentSessionNote(
   }
 
   return renderAgentSessionNote(agent, configSource === null);
-}
-
-function isPristineScaffold(root: string, state: ProjectState): boolean {
-  const text = readTexts(root, [CONFIG_FILE])[CONFIG_FILE];
-
-  const agentVariants: (AgentTarget[] | undefined)[] = [undefined, ['claude'], ['agents']];
-  const topologyVariants: ('module-first' | undefined)[] = [undefined, 'module-first'];
-
-  const candidates = (['vue', 'react'] as const).flatMap((framework) =>
-    agentVariants.flatMap((agents) => topologyVariants.flatMap((topology) => [
-      buildConfigSource(framework, state.projectName, agents, topology),
-      buildConfigSource(framework, undefined, agents, topology),
-    ])),
-  );
-
-  // Stryker disable next-line ConditionalExpression: null router cannot match a scaffold.
-  if (state.nextRouter) {
-    for (const agents of agentVariants) {
-      const next = { router: state.nextRouter, srcDir: state.nextSrcDir };
-
-      candidates.push(
-        buildNextConfigSource(next, state.projectName, agents),
-        buildNextConfigSource(next, undefined, agents),
-      );
-    }
-  }
-
-  return candidates.some((candidate) => candidate === text);
 }
 
 function applyAndNarrate(

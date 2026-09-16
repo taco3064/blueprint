@@ -30,7 +30,7 @@ export async function observeRepositoryTopology(input: {
 
   const observation = input.pristine
     ? {
-        current: 'layer-first' as const,
+        current: repository.topology!,
         repository: repository.topology!,
         source: 'configured' as const,
         selectedApplication: input.survey?.sourceRoot

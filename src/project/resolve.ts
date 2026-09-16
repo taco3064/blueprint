@@ -139,16 +139,20 @@ function emitField(agents?: AgentTarget[]): string[] {
 
 export function buildConfigSource(
   framework: 'vue' | 'react',
-  name?: string,
-  agents?: AgentTarget[],
-  topology?: 'module-first',
+  ...[name, agents, topology]: [
+    name?: string,
+    agents?: AgentTarget[],
+    topology?: 'module-first',
+  ]
 ): string {
   const factory = framework === 'vue' ? 'vuePreset' : 'reactPreset';
+
   const fields = [
     ...(name ? [`name: '${name}'`] : []),
     ...(topology ? [`topology: '${topology}'`] : []),
     ...emitField(agents),
   ];
+
   const arg = fields.length ? `{ ${fields.join(', ')} }` : '';
 
   return [
