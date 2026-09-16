@@ -56,6 +56,7 @@ async function expectGreenfieldRunway(framework: 'react' | 'vue'): Promise<void>
 
   expectNoInventedFolders(dir);
   expectGrowthGuidance([handbook, agents, claude]);
+
   expect(handbook).toContain('Module-first runway · no domain modules declared');
 }
 

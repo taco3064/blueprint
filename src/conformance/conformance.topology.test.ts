@@ -194,6 +194,8 @@ describe('init topology · public syntax and zero-write failures', () => {
 });
 
 describe('init topology · initialization and conservative adoption', () => {
+  // This assertion intentionally walks both products of the topology fork in one scenario.
+  // eslint-disable-next-line max-statements
   it('initializes both explicit empty-project targets through their correct flows', async () => {
     const layerFirst = repo();
     const moduleFirst = repo();
@@ -219,7 +221,7 @@ describe('init topology · initialization and conservative adoption', () => {
     const handbook = read(moduleFirst, 'docs/architecture-handbook.md') ?? '';
 
     expect(config).toContain('reactPreset');
-    expect(config).toContain("topology: 'module-first'");
+    expect(config).toContain('topology: \'module-first\'');
     expect(agents).toContain('architecture.modules: []');
     expect(agents).toContain('container/use-case responsibilities');
     expect(handbook).toContain('Module-first runway · no domain modules declared');
@@ -365,7 +367,7 @@ describe('init topology · configured authority and option matrix', () => {
     const dir = repo();
 
     const result = await rawCli(dir, [
-      'init', '--topology', 'layer-first', '--preset', '--no-install',
+      'init', '--topology', 'layer-first', '--preset', '--no-install'],
     ]);
 
     expect(result.code).toBe(0);

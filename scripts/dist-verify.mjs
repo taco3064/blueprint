@@ -660,23 +660,26 @@ await check('built init accepts both explicit topologies on empty fixtures', () 
 
   expect(layer.code === 0, `layer-first exited ${layer.code}\n${layer.output}`);
   expect(module.code === 0, `module-first exited ${module.code}\n${module.output}`);
+
   expect(!module.output.includes('brownfield without a config'), 'module path called itself brownfield');
   expect(!module.output.includes('Prefer a preset scaffold'), 'module path recommends a preset');
   expect(!module.output.includes('init --preset --topology layer-first'), 'module path recommends LF');
   expect(fs.existsSync(path.join(layerFirst, 'blueprint.config.mjs')), 'layer config missing');
   expect(fs.existsSync(path.join(moduleFirst, 'blueprint.config.mjs')), 'module runway config missing');
+
   expect(!fs.existsSync(path.join(moduleFirst, 'blueprint-authoring.md')),
     'empty module-first runway entered brownfield authoring');
 
   const config = fs.readFileSync(path.join(moduleFirst, 'blueprint.config.mjs'), 'utf-8');
   const agents = fs.readFileSync(path.join(moduleFirst, 'AGENTS.md'), 'utf-8');
+
   const handbook = fs.readFileSync(
     path.join(moduleFirst, 'docs', 'architecture-handbook.md'),
     'utf-8',
   );
 
   expect(config.includes('reactPreset'), 'module runway lost the canonical React preset');
-  expect(config.includes("topology: 'module-first'"), 'module runway lost the explicit topology');
+  expect(config.includes('topology: \'module-first\''), 'module runway lost the explicit topology');
 
   for (const folder of ['components', 'hooks', 'contexts', 'services']) {
     expect(!fs.existsSync(path.join(moduleFirst, 'src', folder)),
@@ -684,10 +687,13 @@ await check('built init accepts both explicit topologies on empty fixtures', () 
   }
 
   expect(agents.includes('architecture.modules: []'), 'Agent contract does not name the runway');
+
   expect(agents.includes('container/use-case responsibilities'),
     'Agent contract omits semantic module seeds');
+
   expect(agents.includes('never create a generic `shared` catch-all'),
     'Agent contract permits catch-all shared extraction');
+
   expect(handbook.includes('Module-first runway · no domain modules declared'),
     'handbook does not expose the runway state');
 
