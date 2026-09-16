@@ -105,29 +105,62 @@ while `services` may not import either upstream layer.
 
 ### Module-first
 
-With `architecture.modules`, the physical model is `Module → Layer → Unit` for ordinary modules:
+The presence of `architecture.modules` selects `Module → Layer → Unit`. Presence, not array length,
+is the topology authority:
+
+- `architecture.modules === undefined` → layer-first.
+- `architecture.modules: []` → module-first runway with zero instantiated domains.
+- a non-empty `architecture.modules` array → module-first with instantiated domains.
+
+A greenfield runway is therefore valid without inventing placeholder domains:
+
+```js
+architecture: {
+  alias: '~app',
+  modules: [],
+  layers: [
+    { name: 'components', does: 'Domain UI.' },
+    { name: 'hooks', does: 'Domain state adapters.' },
+    { name: 'services', does: 'Domain data access.' },
+  ],
+}
+```
+
+Once semantic domain boundaries exist, materialize them explicitly:
 
 ```js
 architecture: {
   alias: '~app',
   modules: [
-    { name: 'checkout', does: 'Checkout flow.', dependsOn: ['catalog'] },
+    { name: 'checkout', does: 'Checkout use cases.', dependsOn: ['catalog'] },
     { name: 'catalog', does: 'Product discovery.' },
     { name: 'app', does: 'Router composition.' },
   ],
   layers: [
-    { name: 'containers', does: 'Feature orchestration.' },
-    { name: 'components', does: 'Module UI.' },
-    { name: 'hooks', does: 'State adapters.' },
-    { name: 'services', does: 'Data access.' },
+    { name: 'components', does: 'Domain UI.' },
+    { name: 'hooks', does: 'Domain state adapters.' },
+    { name: 'services', does: 'Domain data access.' },
   ],
   layerFiles: '{module}/{layer}/**/*.{ts,tsx}',
 }
 ```
 
-Each ordinary module repeats the same shared layer definition. `dependsOn` lists direct module
-dependencies; permission follows transitive reachability through that graph, not declaration
-order. A governed import must satisfy both the outer module graph and the inner layer flow.
+Each ordinary module repeats the same shared inner-layer definition. The module root itself is the
+container/use-case position, so a layer-first `containers` responsibility does **not** become an
+inner `containers` layer. Route/page composition maps to the reserved `app` module when that
+composition exists.
+
+`dependsOn` lists direct module dependencies; permission follows transitive reachability through
+that graph, not declaration order. Derive those edges from real cross-module imports after the
+semantic boundary is materialized. A governed import must satisfy both the outer module graph and
+the inner layer flow.
+
+Do not create a module merely because a requirement names a noun, screen, hook, service, entity,
+route segment, or top-level folder. Generated Agent guidance uses a temporary layer-first semantic
+projection only for reasoning: trace route/page composition to container/use-case responsibilities,
+associate their technical layers and import closure, merge related seeds, split only independently
+owned domains, then materialize `Module → Layer → Unit`. That projection is not the active topology;
+do not write a temporary LF config or invoke a topology transformation to perform the reasoning.
 
 Module names are unique even across case variants. Dependencies must name declared modules and may
 not be empty, duplicated, self-referential, or cyclic.
@@ -322,13 +355,21 @@ strategies, and lifecycle are listed in [Generated Files](/generated-files#agent
 import { nextPreset, reactPreset, vuePreset } from '@kekkai/blueprint';
 
 export default vuePreset({ name: 'admin', alias: '~app' });
+// Empty MF runway, same canonical Vue governance:
+// export default vuePreset({ name: 'admin', topology: 'module-first' });
 // export default reactPreset({ name: 'web', emit: { agents: ['agents'] } });
 // export default nextPreset({ router: 'app', srcDir: true });
 ```
 
-`vuePreset()` and `reactPreset()` provide the canonical one-way application layers, ownership,
-rules, principles, component axes, and playbook. Their options are `name`, `alias` (default
-`~app`), and `emit`.
+`vuePreset()` and `reactPreset()` provide one canonical source for application governance: rules and
+tiers, principles, component axes, playbook, naming, ownership, and technical-layer semantics. Their
+options are `name`, `alias` (default `~app`), `emit`, and `topology`.
+
+Omitting `topology` (or using `layer-first`) produces the canonical layer-first shape. Setting
+`topology: 'module-first'` reuses the same governance while projecting topology only: `modules: []`
+selects the runway, LF `containers` responsibility moves to the future module root rather than
+becoming an inner layer, and route/page composition is reserved for `app` when applicable. This is
+not a second module-first preset family and it never invents domains.
 
 `nextPreset()` uses React semantics while adapting the layer-first route tree to `app`, `pages`, or
 `both`; `router` defaults to `app`. `srcDir: true` selects `src`, otherwise the source root is `.`.
