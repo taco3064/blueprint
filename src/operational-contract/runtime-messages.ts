@@ -278,3 +278,37 @@ export function renderInstallStarting(note: OperationalText, command: string): O
     + 'records them there, so until it runs, a failure naming one of them is that gap and not a '
     + 'broken adoption.');
 }
+
+export function renderInitStopped(facts: {
+  cause: string;
+  failedKind: string;
+  skipped: { kind: string; note: OperationalText }[];
+}): OperationalText {
+  const skipped = facts.skipped.length
+    ? `, and ${facts.skipped.length} planned effect(s) did NOT happen:\n${facts.skipped
+      .map((action) => `    · ${action.kind}: ${action.note}`).join('\n')}`
+    : ' — nothing else was planned below it';
+
+  return message(`${facts.cause}\n\n  init stopped at the ${facts.failedKind} step above. `
+    + `Everything printed before it is on disk${skipped}\n\n`
+    + '  Re-running `blueprint init` is idempotent: fix the cause and the missing effects land, '
+    + 'the applied ones stay. To finish the file plan without this step, run '
+    + '`blueprint init --no-install` — the dependency list is then printed for you to install '
+    + 'yourself.');
+}
+
+export function renderConfigReadFailure(location: string, cause: string): OperationalText {
+  return message(`${location}: ${cause}`);
+}
+
+export function renderEslintRuntimeFailure(
+  kind: 'wrong-package' | 'missing-executable',
+): OperationalText {
+  return message(kind === 'wrong-package'
+    ? 'resolved package is not eslint'
+    : 'eslint package has no executable');
+}
+
+export function renderModuleToLayerEvidenceTopologyError(): OperationalText {
+  return message('Module-first → layer-first evidence requires a module-first architecture.');
+}
