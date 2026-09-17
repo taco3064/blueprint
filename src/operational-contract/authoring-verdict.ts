@@ -168,6 +168,32 @@ function renderEarlyExitVerify(
   ].join('\n');
 }
 
+function renderModuleRunwayExit(
+  claudeDir: AuthoringClaudeDirFact,
+  claudeLauncher: boolean,
+): string {
+  return [
+    '',
+    '',
+    '## Read this first — this application is proven-empty',
+    '',
+    'The survey counted 0 source files and module-first was selected, so no domain module can be '
+    + 'evidenced yet. Blueprint\'s answer is the canonical module-first runway, not an authored '
+    + 'config; this playbook was reached only because `--authoring` forced it.',
+    '**Following this verdict IS executing the playbook fully** — nothing below applies:',
+    '',
+    `1. Delete ${cleanupTargets(claudeDir, claudeLauncher)}`,
+    '2. `npx blueprint init --topology module-first` without `--authoring` (add '
+    + '`--agent claude` or `--agent codex` to emit only your tool\'s contract). It scaffolds '
+    + '`reactPreset` / `vuePreset` with `modules: []`: the preset\'s complete governance and no '
+    + 'invented domain module.',
+    '3. `npx blueprint doctor` — fix what it names; a `⊘` is not green.',
+    '',
+    'When product requirements arrive, grow modules through the module growth protocol in the '
+    + 'generated handbook.',
+  ].join('\n');
+}
+
 export function renderVerdict(
   survey: AuthoringVerdictFact,
 
@@ -178,6 +204,7 @@ export function renderVerdict(
     commands: { build: string; lint: string };
     topology: AuthoringTopology;
     claudeLauncher: boolean;
+    next: boolean;
   },
 ): string {
   const { claudeDir, viteTs, tscOut, commands, topology, claudeLauncher } = facts;
@@ -198,17 +225,19 @@ export function renderVerdict(
   }
 
   if (topology === 'module-first') {
-    return [
-      '',
-      '',
-      '## Read this first — module-first was selected',
-      '',
-      'The selected topology has no generic preset because its domain modules are an owner '
-      + 'decision.',
-      'Do not take the layer-first preset early exit, even when this source tree is empty or '
-      + 'small.',
-      'Continue the method below and author the module names, responsibilities, and dependencies.',
-    ].join('\n');
+    return survey.totalFiles === 0 && !facts.next
+      ? renderModuleRunwayExit(claudeDir, claudeLauncher)
+      : [
+          '',
+          '',
+          '## Read this first — module-first was selected',
+          '',
+          'Blueprint never invents domain modules, so there is no preset early exit here: derive '
+          + 'them from this application\'s evidence with the method below.',
+          'Do not take the layer-first preset early exit, even when this source tree is small.',
+          'Continue the method below and author the module names, responsibilities, and '
+          + 'dependencies.',
+        ].join('\n');
   }
 
   if (survey.totalFiles >= BROWNFIELD_MIN_FILES) {

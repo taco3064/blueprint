@@ -1,9 +1,6 @@
 import { assessLintIntegration, scan } from '../inspect';
 import { resolveArchitecture } from '../config';
-import type { AgentTarget } from '../config';
 import {
-  buildConfigSource,
-  buildNextConfigSource,
   CONFIG_FILE,
   detect,
   listSourceDirs,
@@ -16,7 +13,7 @@ import {
 import type { ProjectState, ResolveOptions } from '../project';
 import { runSurvey } from '../survey';
 import type { SurveyResult } from '../survey';
-import { authoringActions, BROWNFIELD_MIN_FILES } from './authoring';
+import { authoringActions, BROWNFIELD_MIN_FILES, forcedAuthoringExit } from './authoring';
 import { agentTargetOf, launchAgent } from './agent';
 import type { AgentKind, Spawner } from './agent';
 import {
@@ -34,6 +31,7 @@ import { decideTopology } from './topology';
 import type { ArchitectureTopology, TopologyDecision } from './topology';
 import { runTopologyTransformation } from './transformation-dispatch';
 import { observeRepositoryTopology } from './repository-topology';
+import { observePristineScaffold } from './pristine';
 import * as legacyUpgrade from './legacy-upgrade';
 import { assertAuthoredConfigNotRewritten, assertInitOptions } from './init-options';
 import type { Action } from './types';
@@ -88,11 +86,12 @@ export async function runInit(root: string, options: InitOptions = {}): Promise<
   const log = options.log ?? ((message: string) => console.log(message));
   const state = detect(root);
 
-  const pristine = state.hasConfig && isPristineScaffold(root, state);
+  const pristineTopology = state.hasConfig ? observePristineScaffold(root, state) : null;
+  const pristine = pristineTopology !== null;
 
   assertInitOptions(state, options, pristine);
 
-  const input = { root, state, options, pristine, log };
+  const input = { root, state, options, pristine, pristineTopology, log };
 
   return runPreparedTopology(input, await prepareTopology(input));
 }
@@ -150,20 +149,29 @@ async function runPreparedTopology(
     log,
     forkNote: legacyCount
       ? legacyUpgrade.legacyUpgradeNote(options, legacyCount)
-      : survey ? freshScaffoldNote(survey) : null,
+      : survey ? freshScaffoldNote(survey, topology.target!) : null,
     resolved,
+    topology: topology.target!,
   });
 }
 
-type InitTopologyInput = RunContext
-  & { root: string; state: ProjectState; pristine: boolean };
+type InitTopologyInput = RunContext & {
+  root: string;
+  state: ProjectState;
+  pristine: boolean;
+  pristineTopology: ArchitectureTopology | null;
+};
 
 async function prepareTopology(input: InitTopologyInput) {
   const resolved = await resolveConfigured(input);
   const survey = surveyForTopology(input);
 
-  const localAuthority = resolved ?? (input.pristine
-    ? await resolveBlueprint(input.root, { ...input.state, hasConfig: false }, input.options)
+  const localAuthority = resolved ?? (input.pristineTopology
+    ? await resolveBlueprint(
+        input.root,
+        { ...input.state, hasConfig: false },
+        { ...input.options, topology: input.pristineTopology },
+      )
     : null);
 
   const repository = await observeRepositoryTopology({
@@ -184,6 +192,7 @@ async function prepareTopology(input: InitTopologyInput) {
   const topology = decideTopology(repository.observation, {
     topology: checkpoint.length || resolved?.legacyConfig ? 'layer-first' : input.options.topology,
     preset: input.options.preset,
+    moduleRunway: !input.state.hasNext,
   });
 
   const legacyCount = checkpoint.length
@@ -261,8 +270,12 @@ function takesAuthoringPath(ctx: {
     || (state.hasNext && !state.nextRouter);
 }
 
-function freshScaffoldNote(survey: SurveyResult): string {
-  return renderFreshScaffoldNote(survey.totalFiles, BROWNFIELD_MIN_FILES);
+function freshScaffoldNote(survey: SurveyResult, topology: ArchitectureTopology): string {
+  return renderFreshScaffoldNote({
+    files: survey.totalFiles,
+    threshold: BROWNFIELD_MIN_FILES,
+    topology,
+  });
 }
 
 async function runScaffold(
@@ -271,6 +284,7 @@ async function runScaffold(
   ctx: RunContext & {
     forkNote: string | null;
     resolved: Awaited<ReturnType<typeof resolveBlueprint>> | null;
+    topology?: ArchitectureTopology;
     trailingActions?: Action[];
   },
 ): Promise<Action[]> {
@@ -281,6 +295,7 @@ async function runScaffold(
   const { blueprint, configSource, legacyConfig } = ctx.resolved
     ?? await resolveBlueprint(root, state, {
       ...options,
+      topology: ctx.topology,
       ...(agentTarget ? { scaffoldAgents: [agentTarget] } : {}),
     });
 
@@ -360,12 +375,9 @@ function runAuthoring(
   log(renderAuthoringFlowBanner({
     dryRun: Boolean(options.dryRun),
     files: survey.totalFiles,
-    forcedBelowThreshold: Boolean(
-      topology === 'layer-first'
-      && options.authoring
-      && survey.totalFiles < BROWNFIELD_MIN_FILES
-      && !survey.scopeRequired,
-    ),
+    forcedExit: forcedAuthoringExit(survey, {
+      authoring: options.authoring, topology, next: state.hasNext,
+    }),
     threshold: BROWNFIELD_MIN_FILES,
   }));
 
@@ -426,33 +438,6 @@ function agentSessionNote(
   }
 
   return renderAgentSessionNote(agent, configSource === null);
-}
-
-function isPristineScaffold(root: string, state: ProjectState): boolean {
-  const text = readTexts(root, [CONFIG_FILE])[CONFIG_FILE];
-
-  const agentVariants: (AgentTarget[] | undefined)[] = [undefined, ['claude'], ['agents']];
-
-  const candidates = (['vue', 'react'] as const).flatMap((framework) =>
-    agentVariants.flatMap((agents) => [
-      buildConfigSource(framework, state.projectName, agents),
-      buildConfigSource(framework, undefined, agents),
-    ]),
-  );
-
-  // Stryker disable next-line ConditionalExpression: null router cannot match a scaffold.
-  if (state.nextRouter) {
-    for (const agents of agentVariants) {
-      const next = { router: state.nextRouter, srcDir: state.nextSrcDir };
-
-      candidates.push(
-        buildNextConfigSource(next, state.projectName, agents),
-        buildNextConfigSource(next, undefined, agents),
-      );
-    }
-  }
-
-  return candidates.some((candidate) => candidate === text);
 }
 
 function applyAndNarrate(

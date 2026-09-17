@@ -24,6 +24,7 @@ export type {
   AliasConsumerStatus,
   AliasRoot,
   AllowedImporter,
+  ApplicationPresetOptions,
   ArchitectureDef,
   AxisDef,
   Blueprint,

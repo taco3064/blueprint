@@ -13,9 +13,9 @@ shared by both supported topologies:
 - layer-first: `Layer → Unit`;
 - module-first: `Module → Layer → Unit` for ordinary modules.
 
-The canonical Vue and React presets remain layer-first examples. Module-first adds an
-outer domain dependency graph; it does not replace the layer doctrine inside each ordinary
-module.
+The canonical Vue and React presets are layer-first by default; given `modules`, the same
+presets project this doctrine onto module-first. Module-first adds an outer domain
+dependency graph; it does not replace the layer doctrine inside each ordinary module.
 
 ```mermaid
 flowchart TD
@@ -48,6 +48,10 @@ The optional reserved `app` module is different: it represents recursive router
 composition at the container position. It is not an ordinary domain module and does not
 repeat the shared layers. This exception keeps router ownership explicit without weakening
 the module/layer model for application features.
+
+In a module-first preset, `pages` and `containers` below are positions rather than repeated
+layers: route composition belongs to the reserved `app` module, and each module's root files
+take the container position. The remaining layers repeat inside every ordinary module.
 
 ## The layers
 

@@ -15,9 +15,10 @@ npx @kekkai/blueprint <command>
 `init` 用來導入 Blueprint、修復既有整合，或啟動受保護的拓樸轉換。它會根據專案證據與
 明確指定的目標，選擇三種流程之一：
 
-1. **建置或修復**：替規模小或全新的 layer-first 專案建立預設設定，或依既有有效設定檔
-   更新產生的整合內容。
-2. **架構編寫指南**：適用於尚無有效設定檔的既有專案，以及所有首次 module-first 導入。
+1. **建置或修復**：替經量測確認沒有原始碼的應用程式建立框架預設設定（layer-first，<br>
+   或沒有任何模組的 module-first 起點）、替規模小的 layer-first 專案建立預設設定，<br>
+   或依既有有效設定檔更新產生的整合內容。
+2. **架構編寫指南**：適用於尚無有效設定檔的既有原始碼，包含以 module-first 導入既有原始碼。
 3. **拓樸轉換指南**：既有有效設定檔已確立另一種專案拓樸時使用。
 
 第一次導入一定要明確選擇拓樸：
@@ -35,9 +36,9 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 
 ### 旗標
 
-- **`--topology layer-first|module-first`** — 第一次導入專案時必填。已導入的專案若指定相同目標，會修復現有拓樸；指定相反目標，則啟動全專案轉換。
-- **`--preset`** — 跳過架構編寫，使用偵測到的 Vue、React 或 Next 預設設定。這只適用 layer-first；module-first 專案與已有自訂設定檔的應用程式會拒絕執行。
-- **`--authoring`** — 即使少於 10 個原始碼檔案，也強制產生架構編寫指南。不能與 `--preset` 並用。
+- **`--topology layer-first|module-first`** — 第一次導入專案時必填。<br>在沒有原始碼的 React 或 Vue 應用程式上，`module-first` 會以預設設定建立空的模組起點；已有原始碼時則產生架構編寫指南。<br>已導入的專案若指定相同目標，會修復現有拓樸；指定相反目標，則啟動全專案轉換。
+- **`--preset`** — 跳過架構編寫，使用偵測到的 Vue、React 或 Next 預設設定。<br>這只是 layer-first 的導入方式；指定 module-first、已是 module-first 的專案，以及已有自訂設定檔的應用程式都會拒絕執行。<br>沒有原始碼的 module-first 應用程式不需要這個旗標，只下 `--topology module-first` 就會建立起點。
+- **`--authoring`** — 即使少於 10 個原始碼檔案，或是沒有原始碼的 module-first 應用程式，也強制產生架構編寫指南；後者的指南結論會帶你回到模組起點。不能與 `--preset` 並用。
 - **`--agent claude|codex`** — 編寫或轉換流程會在指南安全寫入後啟動指定的本機 Agent CLI；預設設定流程不啟動 Agent，只縮小要產生的 Agent 守則目標。
 - **`--framework vue|react`** — 框架證據不明確時指定。一般 Vue、React 會自動偵測；Next.js 會使用能辨識路由器的預設設定。
 - **`--no-install`** — 不執行偵測到的套件管理工具，並在計畫裡列出待安裝內容。
@@ -47,7 +48,8 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 ### 可能修改的內容
 
 完成建置時，可能建立 `blueprint.config.mjs`、Blueprint 管理的 ESLint 設定或參考設定、
-指定路徑的架構手冊、所選 Agent 守則，以及全新 layer-first 預設設定缺少的分層資料夾。
+指定路徑的架構手冊、所選 Agent 守則，以及全新 layer-first 預設設定缺少的分層資料夾；<br>
+module-first 起點不會建立任何模組資料夾。
 它也可能更新別名接線、一般 `lint` 指令、`.gitignore`，並透過偵測到的套件管理工具更新
 相依套件。完整清單與管理權責見[產出檔案](/zh-TW/generated-files)。
 
@@ -58,7 +60,8 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 
 - 原始碼形狀只是證據，不是拓樸權威。同一個專案內的有效設定檔必須解析成同一種拓樸。
 - 多應用程式範圍未確定時，任何寫入前就會停止；編寫階段必須明確選擇應用程式的原始碼根目錄。
-- Layer-first 可使用預設設定建置；module-first 一定要先由人或 Agent 決定模組圖。
+- Blueprint 絕不自行發明領域模組。沒有原始碼的 React 或 Vue 應用程式，<br>
+  可以從預設設定的空模組起點開始 module-first；已有原始碼時，模組圖一定要先由人或 Agent 編寫。
 - 拓樸轉換要求 Git 專案、乾淨工作目錄與可復原的已提交 `HEAD`。Blueprint 會記錄量測到的
   搬移證據，但領域命名、擺放位置、衝突處理與匯入改寫仍由 Agent 判斷，並以 `git mv` 執行。
 - Next.js App Router 會保留。遇到不支援的 Pages Router 或不明確路由器轉換時，流程會停止，
@@ -67,6 +70,68 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 
 遭拒或執行失敗時會以非零狀態結束。若明確要求的 Agent 啟動失敗，先前產生的指南與檔案
 仍已保存在磁碟上，可改走手動流程。
+
+### 全新專案與既有專案的導入姿態
+
+第一次導入時，空的應用程式跟已有原始碼的應用程式走不同路線。<br>
+決定路線的是量測到的原始碼，不是旗標。
+
+- **全新專案（經量測確認為空）** — survey 在 React 或 Vue 應用程式裡數到 0 個原始碼檔案。<br>
+  `init` 會直接建立框架預設設定的完整標準治理：分層職責、框架所有權、命名、核心信念、<br>
+  元件形狀軸線、工作指南，以及各規則的等級。
+  - `--topology layer-first` 寫出 `reactPreset()` 或 `vuePreset()`。
+  - `--topology module-first` 寫出同一份預設設定，再加上 `modules: []`。<br>
+    這個起點已經宣告了拓樸、套用同一套治理，<br>
+    但不建立任何模組資料夾，也不發明任何領域模組 —— 沒有 `shared`、`core`、`app`，什麼都沒有。<br>
+    模組根目錄佔 container 的位置，重複的內部分層保留各自的框架職責，<br>
+    路由組合等實際出現路由後，再交給保留的 `app` 模組。
+- **既有專案（已有原始碼）** — `init` 產生架構編寫指南。<br>
+  Agent 會轉譯專案原有的意圖與門檻、先量測影響，再把已理解的既有債務記進基準線。<br>
+  它不會替專案打開原本沒有的選用檢查。
+
+Layer-first 在原始碼少於 10 個檔案時，也會直接建立預設設定。<br>
+既有專案產出的設定檔是真實、安全的導入結果 —— 是下限，不是 Blueprint 建議的上限。
+
+### 讓 module-first 起點長出模組
+
+Module-first 設定產出的架構手冊與 Agent 守則，都帶有一份**模組成長流程**。<br>
+當 owner 要求的產品功能需要一個現有模組都不擁有的邊界時，Agent 會先用暫時的 layer-first 投影來推理：<br>
+先看路由／頁面怎麼組合，再找出它組合的 container／use case 職責，最後找出每項職責需要的單元。<br>
+這些職責就是模組的種子：相關的種子合併、只有真正獨立的才拆開，<br>
+有明確領域擁有者的程式碼就留在擁有者身上。<br>
+決定好擁有權之後，才建立 `Module → Layer → Unit`，並依實際匯入推出 `dependsOn`。<br>
+它絕不會一個畫面、hook、service、entity 或需求名詞就開一個模組，也絕不會開一個什麼都塞的 `shared`。
+
+這個投影只是分析。<br>
+它不會把專案說成 layer-first、不會寫出 layer-first 設定檔，也不會啟動拓樸轉換。
+
+### 收緊既有專案的設定檔
+
+要不要把既有專案的設定往標準預設設定收緊，是 owner 在導入之後的決定。<br>
+動手之前先量測，一次只恢復一項更嚴格的守則，<br>
+每一步只把「在那一步之前就存在」的債務記進基準線。<br>
+絕不為了變綠而降低目標。
+
+決定收緊時，把下面這段 prompt 交給你的程式撰寫 Agent：
+
+```text
+請把這個專案的 Blueprint 治理，往標準 <React|Vue> 預設設定收緊。
+
+1. 比對 blueprint.config.mjs 與標準預設設定：執行 `npx blueprint rules --json`
+   看設定檔宣告了哪些檢查，並對照 Blueprint 設定文件裡預設設定的分層、所有權、命名、
+   核心信念與規則等級，列出每一項差異。
+2. 動手之前先量測：執行 `npx blueprint inspect --json` 與 `npx blueprint impact --json`，
+   把兩份輸出留作起始證據。
+3. 一次只恢復一項更嚴格的守則：一項分層職責、一條所有權規則，或一個規則等級。
+   每一步之後執行 `npx blueprint init`、`npx blueprint impact --json` 與
+   `npx blueprint inspect --json`，並把每個新結果分類為「這一步揭露的既有債務」或「退步」。
+4. 先修好退步，再用 `npx blueprint inspect --update-baseline` 記錄已理解的既有債務。
+5. 絕不為了變綠而降低目標規則、門檻或邊界。某一步的代價若大於價值，
+   停下來把量測到的影響回報給 owner，而不是把它放寬。
+6. 最後執行 `npx blueprint inspect --baseline`、`npx blueprint doctor`，以及專案自己的
+   lint、typecheck、test、build 指令。回報每一項恢復的守則、每一步記錄的債務，
+   以及所有留給 owner 決定的事項。
+```
 
 ## `survey`
 

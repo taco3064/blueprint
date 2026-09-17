@@ -53,6 +53,8 @@ export interface ResolvedArchitecture {
   definition: ArchitectureDef;
   sourceRoot: string;
   topology: 'layer-first' | 'module-first';
+  /** Module-first with no domain module declared yet (the reserved `app` module is not one). */
+  moduleRunway: boolean;
   modules: ResolvedModule[];
   layers: ResolvedLayer[];
   layerPositions: ResolvedLayerPosition[];
@@ -112,7 +114,7 @@ export function resolveArchitecture(
 
   const byModule = new Map(modules.map((module) => [module.name, module]));
   const byLayer = new Map(layers.map((layer) => [layer.name, layer]));
-  const topology = modules.length ? 'module-first' : 'layer-first';
+  const topology = definition.modules === undefined ? 'layer-first' : 'module-first';
 
   const ordinaryModules = topology === 'module-first'
     ? modules.filter((module) => module.name !== 'app')
@@ -212,6 +214,7 @@ function buildResolvedArchitecture(state: ResolutionState): ResolvedArchitecture
     definition,
     sourceRoot,
     topology,
+    moduleRunway: topology === 'module-first' && ordinaryModules.length === 0,
     modules,
     layers,
     layerPositions,

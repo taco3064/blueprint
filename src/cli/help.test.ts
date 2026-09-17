@@ -41,7 +41,8 @@ describe('per-command help', () => {
     expect(log.mock.calls[0][0]).toContain('blueprint init — scaffold');
     expect(log.mock.calls[0][0]).toContain('never overwritten');
     expect(log.mock.calls[0][0]).toContain('--topology layer-first|module-first');
-    expect(log.mock.calls[0][0]).toContain('module-first implies authoring');
+    expect(log.mock.calls[0][0]).toContain('module-first authors modules from existing source');
+    expect(log.mock.calls[0][0]).toContain('Greenfield and brownfield adopt differently');
     expect(log.mock.calls[0][0]).toContain('--preset is only an LF adoption');
     expect(log.mock.calls[0][0]).toContain('they never classify an');
     expect(log.mock.calls[0][0]).toContain('one repository-wide transformation');

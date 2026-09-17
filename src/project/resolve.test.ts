@@ -68,6 +68,34 @@ describe('resolveBlueprint · scaffolding from a preset', () => {
   });
 });
 
+describe('resolveBlueprint · the scaffold topology', () => {
+  it.each(['vue', 'react'] as const)('writes the %s runway source it resolves', async (
+    framework,
+  ) => {
+    const { blueprint, configSource } = await resolveBlueprint(
+      '/repo',
+      state({ framework, projectName: 'shop' }),
+      { topology: 'module-first', scaffoldAgents: ['claude'] },
+    );
+
+    expect(blueprint.architecture.modules).toEqual([]);
+    expect(blueprint.architecture.layers.map((layer) => layer.name)).not.toContain('containers');
+
+    expect(configSource).toBe(buildConfigSource(framework, {
+      name: 'shop', agents: ['claude'], topology: 'module-first',
+    }));
+  });
+
+  it('keeps layer-first when the scaffold topology is layer-first or unset', async () => {
+    for (const topology of ['layer-first', undefined] as const) {
+      const { blueprint, configSource } = await resolveBlueprint('/repo', state(), { topology });
+
+      expect('modules' in blueprint.architecture).toBe(false);
+      expect(configSource).not.toContain('modules');
+    }
+  });
+});
+
 describe('resolveBlueprint · the Next.js route tree', () => {
   const next = { hasNext: true, nextRouter: 'app' as const, framework: 'react' as const };
 
@@ -117,8 +145,16 @@ describe('buildConfigSource', () => {
     expect(buildConfigSource('vue')).toContain('export default vuePreset();');
     expect(buildConfigSource('react')).toContain('export default reactPreset();');
 
-    expect(buildConfigSource('vue', 'acme', ['claude']))
+    expect(buildConfigSource('vue', { name: 'acme', agents: ['claude'] }))
       .toContain('export default vuePreset({ name: \'acme\', emit: { agents: [\'claude\'] } });');
+  });
+
+  it('declares the empty module runway only for module-first', () => {
+    expect(buildConfigSource('react', { name: 'acme', topology: 'module-first' }))
+      .toContain('export default reactPreset({ name: \'acme\', modules: [] });');
+
+    expect(buildConfigSource('react', { topology: 'layer-first' }))
+      .toContain('export default reactPreset();');
   });
 });
 

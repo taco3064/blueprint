@@ -1,4 +1,11 @@
-import type { Blueprint, EmitDef, Framework, OwnedPrimitive } from '../config';
+import type {
+  Blueprint,
+  EmitDef,
+  Framework,
+  LayerDef,
+  ModuleDef,
+  OwnedPrimitive,
+} from '../config';
 import { defineBlueprint } from '../operational-contract';
 import { componentShape, playbook, principles } from './doctrine';
 
@@ -13,6 +20,16 @@ export interface PresetOptions {
    * nearly every adoption makes. Passed straight through.
    */
   emit?: EmitDef;
+}
+
+/** Options for the React and Vue presets. */
+export interface ApplicationPresetOptions extends PresetOptions {
+  /**
+   * Topology by presence, exactly as `architecture.modules`: omit for layer-first;
+   * `[]` opens the module-first runway with no domain module; declared modules repeat the
+   * canonical inner layers, with each module root at the container position.
+   */
+  modules?: ModuleDef[];
 }
 
 /** Which Next.js router directory the route tree lives in. */
@@ -31,13 +48,36 @@ interface FrameworkOwns {
   contexts: OwnedPrimitive[];
 }
 
-function preset(framework: Framework, owns: FrameworkOwns, options: PresetOptions): Blueprint {
+const MODULE_POSITIONS = ['pages', 'containers'];
+
+function topologyLayers(modules: ModuleDef[] | undefined, layers: LayerDef[]): LayerDef[] {
+  if (modules === undefined) {
+    return layers;
+  }
+
+  return layers
+    .filter((layer) => !MODULE_POSITIONS.includes(layer.name))
+    .map((layer) => layer.allowedImporters === undefined
+      ? layer
+      : {
+          ...layer,
+          allowedImporters: layer.allowedImporters.filter((importer) =>
+            !MODULE_POSITIONS.includes(typeof importer === 'string' ? importer : importer.layer)),
+        });
+}
+
+function preset(
+  framework: Framework,
+  owns: FrameworkOwns,
+  options: ApplicationPresetOptions,
+): Blueprint {
   return defineBlueprint({
     name: options.name,
     framework,
     architecture: {
       alias: options.alias ?? '~app',
-      layers: [
+      ...(options.modules === undefined ? {} : { modules: options.modules }),
+      layers: topologyLayers(options.modules, [
         {
           name: 'pages',
           does: 'Route layout — assembles containers; owns routing and SEO concerns.',
@@ -86,7 +126,7 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
           owns: ['axios', { global: 'fetch' }, { global: 'WebSocket' }],
           allowedImporters: ['containers', 'hooks', 'contexts'],
         },
-      ],
+      ]),
       naming: {
         component: 'PascalCase; the implementation file is named after the unit',
         hook: 'useX — only when it genuinely uses reactivity',
@@ -139,7 +179,7 @@ function preset(framework: Framework, owns: FrameworkOwns, options: PresetOption
  *
  * export default vuePreset({ name: 'my-app' });
  */
-export function vuePreset(options: PresetOptions = {}): Blueprint {
+export function vuePreset(options: ApplicationPresetOptions = {}): Blueprint {
   return preset(
     'vue',
     {
@@ -156,7 +196,7 @@ export function vuePreset(options: PresetOptions = {}): Blueprint {
  * @example
  * export default reactPreset({ name: 'my-app' });
  */
-export function reactPreset(options: PresetOptions = {}): Blueprint {
+export function reactPreset(options: ApplicationPresetOptions = {}): Blueprint {
   return preset(
     'react',
     {

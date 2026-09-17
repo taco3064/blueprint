@@ -125,9 +125,12 @@ export function coverageSummary(coverage: Coverage): string {
 
 export function vacuousNextStep(blueprint: Blueprint): string {
   const architecture = resolveArchitecture(blueprint.architecture);
-  const dir = `${architecture.layerPositions[0].root}/`;
+  const position = architecture.layerPositions[0];
 
-  return renderVacuousNextStep({ topology: architecture.topology, directory: dir });
+  return renderVacuousNextStep({
+    topology: architecture.topology,
+    directory: position ? `${position.root}/` : null,
+  });
 }
 
 export function renderCoverage(coverage: Coverage, blueprint: Blueprint): string {

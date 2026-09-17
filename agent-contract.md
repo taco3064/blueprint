@@ -56,13 +56,16 @@
 
 - Do not create undeclared architectural folders under the project alias root.
   Every such folder belongs to the declared topology: Layer → Unit by default,
-  or Module → Layer → Unit when `architecture.modules` is declared. `blueprint inspect`
-  catches this after the fact; you prevent it. Its finding directs you to move the
-  code into an existing declared layer (and module when that topology applies), or to ask the owner whether
-  the architecture itself should change. Only the move is yours to perform.
-  If the architecture has genuinely outgrown the config, report it and stop. Editing the
-  architecture to fit code you just wrote is how a contract stops describing
-  anything.
+  or Module → Layer → Unit when `architecture.modules` is declared — even as `[]`,
+  a module-first runway with no domain module yet. `blueprint inspect` catches this
+  after the fact; you prevent it. Its finding directs you to move the code into the
+  declared layer (and module) that owns it. When none owns it, a layer-first finding
+  asks the owner whether the architecture should change; a module-first finding sends
+  owner-requested product work that needs a new domain boundary to the module growth
+  protocol in the generated handbook.
+  If the architecture has otherwise outgrown the config — layers, rules, thresholds —
+  report it and stop. Editing the architecture to fit code you just wrote is how a
+  contract stops describing anything.
 - Dead code: `npx knip` is the source of truth, not lint. Confirm removal
   candidates before deleting; leave nothing "temporarily kept" without a
   marker the team agreed on.

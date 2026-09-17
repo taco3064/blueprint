@@ -22,7 +22,7 @@ export type FindingMessageFact
       subject: string;
       failed: string[];
     }
-    | { kind: 'undeclared-folder'; name: string; subject: 'module' | 'layer' }
+    | { kind: 'undeclared-folder'; name: string; subject: 'module' | 'layer'; runway?: boolean }
     | { kind: 'undeclared-inner-layer'; layer: string; module: string }
     | { kind: 'missing-position'; name: string; subject: 'module' | 'layer' }
     | { kind: 'declaratory-self-only'; layer: string; importers: string[] }
@@ -99,11 +99,23 @@ function renderDependencyFinding(fact: DependencyFindingFact): string {
   }
 }
 
+function renderUndeclaredModule(name: string, runway: boolean): string {
+  const lead = runway
+    ? ', and this module-first runway declares no domain module yet — '
+    : ' — move its code into the module that owns it, or ';
+
+  return `"${name}" is not a declared module${lead}when owner-requested product work needs a `
+    + 'boundary no declared module owns, materialize it through the module growth protocol in the '
+    + 'handbook; never declare a module only to silence this finding.';
+}
+
 function renderFolderFinding(fact: FolderFindingFact): string {
   switch (fact.kind) {
     case 'undeclared-folder':
-      return `"${fact.name}" is not a declared ${fact.subject} — move its code into an `
-        + `existing ${fact.subject}, or ask the owner to update the architecture contract.`;
+      return fact.subject === 'layer'
+        ? `"${fact.name}" is not a declared layer — move its code into an existing layer, or ask `
+        + 'the owner to update the architecture contract.'
+        : renderUndeclaredModule(fact.name, fact.runway === true);
     case 'undeclared-inner-layer':
       return `"${fact.layer}" is not a declared layer inside module "${fact.module}" — `
         + 'move its code into an existing layer, or ask the owner to update the shared '

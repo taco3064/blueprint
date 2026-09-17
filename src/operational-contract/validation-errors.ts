@@ -32,7 +32,8 @@ const renderers = {
     `Layer "${fact.name}" contains characters that corrupt emitted artifacts `
     + '— a layer name becomes a folder, a file glob, and a diagram node. '
     + 'Stick to letters, digits, ".", "_", "-".',
-  'modules-empty': () => 'architecture.modules must be a non-empty array when set.',
+  'modules-empty': () => 'architecture.modules must be an array when set — omit it for '
+    + 'layer-first, or use [] for a module-first runway with no domain module yet.',
   'module-does': (fact) => `Module "${fact.module}" must have a non-empty does.`,
   'module-case-collision': (fact) =>
     `Module names "${fact.first}" and "${fact.second}" map to the same source-root folder `

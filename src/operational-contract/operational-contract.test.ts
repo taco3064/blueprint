@@ -40,7 +40,7 @@ describe('CLI operational contract', () => {
 
     expect(init).toContain('fresh layer-first preset only');
     expect(init).toContain('under the resolved\n    sourceRoot');
-    expect(init).toContain('module-first authors its module map first');
+    expect(init).toContain('a module-first runway creates no module folder');
     expect(init).toContain('handbook at emit.handbook');
     expect(init).toContain('only the Agent contracts selected by resolved emit.agents');
     expect(init).not.toContain('src/<layer>/');

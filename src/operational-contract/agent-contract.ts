@@ -171,29 +171,38 @@ const PACKAGED_AGENT_CONTRACT = [
   ),
   joinLine(
     '  or Module → Layer → Unit when `architecture.modules` is ',
-    'declared. `blueprint inspect`',
+    'declared — even as `[]`,',
   ),
   joinLine(
-    '  catches this after the fact; you prevent it. Its finding ',
-    'directs you to move the',
+    '  a module-first runway with no domain module yet. ',
+    '`blueprint inspect` catches this',
   ),
   joinLine(
-    '  code into an existing declared layer (and module when ',
-    'that topology applies), or to ask the owner whether',
+    '  after the fact; you prevent it. Its finding directs you ',
+    'to move the code into the',
   ),
   joinLine(
-    '  the architecture itself should change. Only the move is ',
-    'yours to perform.',
+    '  declared layer (and module) that owns it. When none owns ',
+    'it, a layer-first finding',
   ),
   joinLine(
-    '  If the architecture has genuinely outgrown the config, ',
-    'report it and stop. Editing the',
+    '  asks the owner whether the architecture should change; ',
+    'a module-first finding sends',
   ),
   joinLine(
-    '  architecture to fit code you just wrote is how a ',
-    'contract stops describing',
+    '  owner-requested product work that needs a new domain ',
+    'boundary to the module growth',
   ),
-  '  anything.',
+  '  protocol in the generated handbook.',
+  joinLine(
+    '  If the architecture has otherwise outgrown the config — ',
+    'layers, rules, thresholds —',
+  ),
+  joinLine(
+    '  report it and stop. Editing the architecture to fit code ',
+    'you just wrote is how a',
+  ),
+  '  contract stops describing anything.',
   joinLine(
     '- Dead code: `npx knip` is the source of truth, not lint. ',
     'Confirm removal',

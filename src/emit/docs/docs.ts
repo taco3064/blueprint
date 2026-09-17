@@ -6,6 +6,7 @@ import {
   renderComponentShape,
   renderHeader,
   renderImportDiscipline,
+  renderModuleGrowth,
   renderUnit,
   renderNaming,
   renderPlaybook,
@@ -39,6 +40,7 @@ function emitHandbookUnchecked(blueprint: Blueprint, stack: StackFacts): string 
   const sections = [
     renderHeader(name),
     renderArchitecture(architecture),
+    renderModuleGrowth(architecture),
     renderUnit(architecture),
     renderImportDiscipline(architecture, stack.lintIntegration),
     renderComponentShape(blueprint.componentShape),

@@ -9,8 +9,9 @@
 - layer-first：`Layer → Unit`；
 - module-first：一般模組採用 `Module → Layer → Unit`。
 
-標準 Vue 與 React 預設設定仍是 layer-first 範例。Module-first 只是增加外層領域相依圖，
-不會取代每個一般模組內的分層理念。
+標準 Vue 與 React 預設設定預設是 layer-first；給了 `modules` 之後，<br>
+同一份預設設定會把這套理念投影成 module-first。<br>
+Module-first 只是增加外層領域相依圖，不會取代每個一般模組內的分層理念。
 
 這套規則跟你用什麼框架無關，Vue、React 都通 —— 同一個單元，兩邊只是名字不同。
 
@@ -41,6 +42,10 @@ Module-first 會在每個一般模組內重複使用下方的分層契約。模�
 
 選用的保留 `app` 模組不同：它代表 container 位置上的遞迴路由組合，不是一般領域模組，
 也不重複內部分層。這項例外讓路由所有權保持明確，不會削弱其他功能模組的模組／分層模型。
+
+在 module-first 預設設定裡，下方的 `pages` 與 `containers` 是位置，不是重複的分層：<br>
+路由組合交給保留的 `app` 模組，每個模組根目錄的檔案佔 container 的位置；<br>
+其餘分層則在每個一般模組內重複出現。
 
 ## 各層職責
 

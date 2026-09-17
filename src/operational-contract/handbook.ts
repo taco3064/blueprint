@@ -11,6 +11,7 @@ import {
   resolveArchitecture,
 } from '../config';
 import { escapeCell, formatOwns, table } from '../markdown';
+import { renderModuleGrowthProtocol, renderModuleRunwayFact } from './module-growth';
 
 export interface HandbookRuleFact {
   id: string;
@@ -39,10 +40,21 @@ export function renderArchitecture(architecture: ArchitectureDef, diagram: strin
     formatOwns(layer.owns) || '—',
   ]);
 
+  const runway = resolved.moduleRunway
+    ? [
+        renderModuleRunwayFact(),
+        '',
+        'Every module declared through the module growth protocol below reuses the shared layer '
+        + 'contract; its root files take the container position. An absent module is runway.',
+        '',
+      ]
+    : [];
+
   const modules = resolved.modules.length
     ? [
         '### Modules',
         '',
+        ...runway,
         table(
           ['Module', 'Responsibility', 'Direct dependencies'],
           resolved.modules.map((module) => [
@@ -63,7 +75,7 @@ export function renderArchitecture(architecture: ArchitectureDef, diagram: strin
         + 'declaration order grants no permission. An absent layer folder is runway.',
         '',
       ]
-    : [];
+    : resolved.moduleRunway ? ['### Modules', '', ...runway] : [];
 
   return [
     '## Architecture',
@@ -87,6 +99,14 @@ export function renderArchitecture(architecture: ArchitectureDef, diagram: strin
     '',
     table(['Layer', 'Responsibility', 'Must not', 'Owns'], rows),
   ].join('\n');
+}
+
+export function renderModuleGrowth(architecture: ArchitectureDef): string {
+  const resolved = resolveArchitecture(architecture);
+
+  return resolved.topology === 'module-first'
+    ? renderModuleGrowthProtocol({ runway: resolved.moduleRunway }, '##')
+    : '';
 }
 
 export function renderUnit(architecture: ArchitectureDef): string {

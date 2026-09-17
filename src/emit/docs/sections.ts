@@ -7,6 +7,7 @@ import {
   renderHandbookComponentShape as renderComponentShape,
   renderHandbookHeader as renderHeader,
   renderImportDiscipline as renderOperationalImportDiscipline,
+  renderHandbookModuleGrowth as renderModuleGrowth,
   renderHandbookNaming as renderNaming,
   renderHandbookPlaybook as renderPlaybook,
   renderPrinciples,
@@ -38,6 +39,7 @@ function ruleFacts(
 export {
   renderComponentShape,
   renderHeader,
+  renderModuleGrowth,
   renderNaming,
   renderPlaybook,
   renderPrinciples,

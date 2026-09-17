@@ -48,6 +48,12 @@ export function renderGitignoreArtifactComment(): OperationalText {
     + 'keep them tracked');
 }
 
+const MODULE_FIRST_PRESET_REFUSAL = '--topology module-first cannot be combined with --preset — '
+  + '--preset is the layer-first adoption method and cannot choose domain modules. Run init '
+  + '--topology module-first without --preset: a proven-empty React/Vue application opens the '
+  + 'canonical module-first runway with no domain module, and existing source enters module-first '
+  + 'authoring.';
+
 export function renderInitOptionError(
   kind: 'nuxt' | 'module-first-preset' | 'preset-authoring' | 'authored-config',
 ): OperationalText {
@@ -59,9 +65,7 @@ export function renderInitOptionError(
   }
 
   if (kind === 'module-first-preset') {
-    return message('--topology module-first cannot be combined with --preset — generic layer '
-      + 'presets cannot choose domain modules. Use the module-first authoring flow instead. '
-      + 'No files were changed.');
+    return message(`${MODULE_FIRST_PRESET_REFUSAL} No files were changed.`);
   }
 
   if (kind === 'preset-authoring') {
@@ -132,8 +136,7 @@ export function renderTopologyReason(facts: {
   requested?: 'layer-first' | 'module-first';
 }): OperationalText {
   if (facts.kind === 'module-first-preset') {
-    return message('--topology module-first cannot be combined with --preset — generic layer '
-      + 'presets cannot choose domain modules. Use the module-first authoring flow instead.');
+    return message(MODULE_FIRST_PRESET_REFUSAL);
   }
 
   if (facts.kind === 'configured-preset') {
@@ -144,8 +147,9 @@ export function renderTopologyReason(facts: {
 
   if (facts.kind === 'repository-preset') {
     return message('--preset is layer-first adoption only, but this repository is authoritatively '
-      + 'module-first. Adopt this application with the inherited module-first topology and '
-      + 'author its modules instead. No files were changed.');
+      + 'module-first. Run init without --preset to adopt the inherited topology: a proven-empty '
+      + 'React/Vue application opens the module-first runway, and existing source enters '
+      + 'module-first authoring. No files were changed.');
   }
 
   if (facts.kind === 'repository-mismatch') {
@@ -209,22 +213,42 @@ export function renderAgentLaunchFailure(
     + `yourself:\n    ${command}`);
 }
 
-export function renderFreshScaffoldNote(files: number, threshold: number): OperationalText {
-  return message(`Fresh scaffold (${files} source files < ${threshold}) — scaffolding the framework `
-    + 'preset directly; no blueprint-authoring.md is written on this path. Force the authoring '
-    + 'playbook instead with: blueprint init --topology layer-first --authoring.');
+export function renderFreshScaffoldNote(facts: {
+  files: number;
+  threshold: number;
+  topology: 'layer-first' | 'module-first';
+}): OperationalText {
+  const force = `Force the authoring playbook instead with: blueprint init --topology ${facts.topology} `
+    + '--authoring.';
+
+  if (facts.topology === 'module-first') {
+    return message('Proven-empty application (0 source files) — scaffolding the framework '
+      + 'preset\'s canonical governance as a module-first runway with `modules: []`: no domain '
+      + 'module is invented, and product requirements grow modules through the module growth '
+      + `protocol in the generated handbook. No blueprint-authoring.md is written on this path. ${force}`);
+  }
+
+  return message(`Fresh scaffold (${facts.files} source files < ${facts.threshold}) — scaffolding `
+    + 'the framework preset directly; no blueprint-authoring.md is written on this path. '
+    + force);
 }
 
 export function renderAuthoringFlowBanner(facts: {
   dryRun: boolean;
   files: number;
-  forcedBelowThreshold: boolean;
+  forcedExit: 'threshold' | 'runway' | null;
   threshold: number;
 }): OperationalText {
+  const forced = {
+    threshold: ` — below the brownfield threshold (${facts.threshold} source files), forced by `
+      + '--authoring; the playbook\'s own verdict will be the early exit',
+    runway: ' — a proven-empty module-first application, forced by --authoring; the playbook\'s '
+      + 'own verdict will be the canonical module-first runway',
+  };
+
   return message(`blueprint ${facts.dryRun ? 'init --dry-run' : 'init'} · without a config → `
-    + `authoring flow (${facts.files} source files surveyed)${facts.forcedBelowThreshold
-      ? ` — below the brownfield threshold (${facts.threshold} source files), forced by `
-      + '--authoring; the playbook\'s own verdict will be the early exit'
+    + `authoring flow (${facts.files} source files surveyed)${facts.forcedExit
+      ? forced[facts.forcedExit]
       : ''}`);
 }
 

@@ -4,11 +4,17 @@ import type { ArchitectureDef } from '../../config';
 export function emitFlowDiagram(architecture: ArchitectureDef): string {
   const resolved = resolveArchitecture(architecture);
 
-  if (!resolved.modules.length) {
-    return wrap(resolved.diagramEdges.map((edge) => renderEdge(edge.from, edge.to, edge)));
+  const edges = resolved.diagramEdges.map((edge) => renderEdge(edge.from, edge.to, edge));
+
+  if (resolved.topology === 'layer-first') {
+    return wrap(edges);
   }
 
   const layerIndex = new Map(resolved.layers.map((layer, index) => [layer.name, index]));
+
+  const runway = resolved.moduleRunway
+    ? ['  subgraph runway["every future module · none declared yet"]', ...edges, '  end']
+    : [];
 
   const lines = resolved.modules.flatMap((module, moduleIndex) => {
     if (module.name === 'app') {
@@ -25,7 +31,7 @@ export function emitFlowDiagram(architecture: ArchitectureDef): string {
     ];
   });
 
-  return wrap(lines);
+  return wrap([...lines, ...runway]);
 }
 
 function renderEdge(

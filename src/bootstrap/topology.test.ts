@@ -158,9 +158,8 @@ describe('decideTopology', () => {
         operation: 'abort',
         path: null,
         target: 'module-first',
-        reason: '--preset is layer-first adoption only, but this repository is authoritatively '
-          + 'module-first. Adopt this application with the inherited module-first topology and '
-          + 'author its modules instead. No files were changed.',
+        reason: expect.stringContaining('Run init without --preset to adopt the inherited '
+          + 'topology'),
       });
   });
 
@@ -196,9 +195,39 @@ describe('decideTopology', () => {
     })).toMatchObject({
       operation: 'abort',
       path: null,
-      reason: '--topology module-first cannot be combined with --preset — generic layer '
-        + 'presets cannot choose domain modules. Use the module-first authoring flow instead.',
+      reason: expect.stringContaining('--preset is the layer-first adoption method and cannot '
+        + 'choose domain modules'),
     });
+  });
+
+  it('opens the module-first runway only for a proven-empty eligible application', () => {
+    const empty = unconfigured(null, 'empty');
+
+    expect(decideTopology(empty, { topology: 'module-first', moduleRunway: true }))
+      .toMatchObject({ operation: 'initialize', target: 'module-first', path: 'scaffold' });
+
+    expect(decideTopology(empty, { topology: 'module-first', moduleRunway: false }))
+      .toMatchObject({ target: 'module-first', path: 'authoring' });
+
+    expect(decideTopology(empty, { topology: 'module-first' }))
+      .toMatchObject({ target: 'module-first', path: 'authoring' });
+
+    expect(decideTopology(unconfigured(), { topology: 'module-first', moduleRunway: true }))
+      .toMatchObject({ target: 'module-first', path: 'authoring' });
+
+    expect(decideTopology(empty, { topology: 'layer-first', moduleRunway: false }))
+      .toMatchObject({ target: 'layer-first', path: 'scaffold' });
+  });
+
+  it('opens the inherited module-first runway only for a proven-empty sibling', () => {
+    expect(decideTopology(unconfigured('module-first', 'empty'), { moduleRunway: true }))
+      .toMatchObject({ operation: 'adopt', target: 'module-first', path: 'scaffold' });
+
+    expect(decideTopology(unconfigured('module-first', 'empty'), { moduleRunway: false }))
+      .toMatchObject({ target: 'module-first', path: 'authoring' });
+
+    expect(decideTopology(unconfigured('module-first'), { moduleRunway: true }))
+      .toMatchObject({ target: 'module-first', path: 'authoring' });
   });
 
   it('keeps unresolved application selection ahead of topology choice', () => {

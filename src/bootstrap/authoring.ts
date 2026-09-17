@@ -30,7 +30,13 @@ import {
   renderModuleFirstSchemaSketch,
   renderModuleFirstSemantics,
 } from './module-first-playbook';
-import { renderGoal, renderHeader, renderNextNote, renderPrerequisites } from './playbook';
+import {
+  BROWNFIELD_MIN_FILES,
+  renderGoal,
+  renderHeader,
+  renderNextNote,
+  renderPrerequisites,
+} from './playbook';
 import { renderVerdict } from './verdict';
 import type { Action } from './types';
 import {
@@ -100,6 +106,21 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
   ];
 }
 
+export function forcedAuthoringExit(
+  survey: SurveyResult,
+  facts: { authoring?: boolean; topology: ArchitectureTopology; next: boolean },
+): 'threshold' | 'runway' | null {
+  if (!facts.authoring || survey.scopeRequired) {
+    return null;
+  }
+
+  if (facts.topology === 'layer-first') {
+    return survey.totalFiles < BROWNFIELD_MIN_FILES ? 'threshold' : null;
+  }
+
+  return survey.totalFiles === 0 && !facts.next ? 'runway' : null;
+}
+
 export function authoringBrief(
   survey: SurveyResult,
   install: string,
@@ -155,6 +176,7 @@ export function authoringBrief(
         pm: packageManager,
         topology,
         claudeLauncher,
+        next,
       }),
       { claudeDir, claudeLauncher },
     ),

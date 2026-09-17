@@ -148,7 +148,7 @@ function validateModules(modules: ArchitectureDef['modules']): void {
     return;
   }
 
-  if (!Array.isArray(modules) || modules.length === 0) {
+  if (!Array.isArray(modules)) {
     throw configValidationError({ kind: 'modules-empty' });
   }
 

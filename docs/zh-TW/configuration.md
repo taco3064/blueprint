@@ -100,7 +100,16 @@ architecture: {
 
 ### Module-first
 
-加入 `architecture.modules` 後，一般模組的實體結構改為 `Module → Layer → Unit`：
+`architecture.modules` 以「有沒有宣告」決定拓樸：
+
+- **省略** — layer-first。
+- **`[]`** — module-first 起點：拓樸已宣告，但還沒有任何領域模組。<br>
+  所有內部分層、規則與理念都已生效；lint、`inspect`、`deps`、`doctor`、`impact`、<br>
+  架構手冊與 Agent 守則都會把這個應用程式當成 module-first。<br>
+  空的起點是刻意的狀態，不是導入沒做完。
+- **一個以上的模組** — 已建立領域模組的 module-first。
+
+宣告模組後，一般模組的實體結構改為 `Module → Layer → Unit`：
 
 ```js
 architecture: {
@@ -111,7 +120,6 @@ architecture: {
     { name: 'app', does: '路由組合。' },
   ],
   layers: [
-    { name: 'containers', does: '功能協調。' },
     { name: 'components', does: '模組介面。' },
     { name: 'hooks', does: '狀態轉接。' },
     { name: 'services', does: '資料存取。' },
@@ -120,7 +128,9 @@ architecture: {
 }
 ```
 
-每個一般模組都重複使用同一份分層定義。`dependsOn` 列出直接依賴；實際權限依相依圖的
+每個一般模組都重複使用同一份分層定義，模組根目錄的檔案則佔 container 的位置：<br>
+它們負責組合自己與可達模組的內部分層，所以 layer-first 的 `containers` 層不會在模組裡重複出現。<br>
+`dependsOn` 列出直接依賴；實際權限依相依圖的
 遞移可達性決定，與宣告順序無關。一次受管理的匯入必須同時通過外層模組圖與內部分層流。
 
 模組名稱即使只有大小寫不同也不能重複。相依目標必須已宣告，且不得為空、重複、指向
@@ -319,7 +329,18 @@ export default vuePreset({ name: 'admin', alias: '~app' });
 ```
 
 `vuePreset()` 與 `reactPreset()` 提供標準單向應用程式分層、所有權、規則、核心信念、元件
-軸線與工作指南。選項為 `name`、`alias`（預設 `~app`）與 `emit`。
+軸線與工作指南。選項為 `name`、`alias`（預設 `~app`）、`emit` 與 `modules`。
+
+`modules` 跟 `architecture.modules` 用同一條「有沒有宣告」規則。<br>
+省略時，預設設定維持 layer-first 分層。<br>
+給 `[]` 或宣告模組時，預設設定會投影成 module-first：`pages` 與 `containers` 離開內部分層 ——<br>
+路由組合交給保留的 `app` 模組，模組根目錄佔 container 的位置 ——<br>
+其餘分層守則、規則、核心信念、元件軸線與工作指南全部不變：
+
+```js
+// 以 --topology module-first 導入、經量測確認沒有原始碼的應用程式：
+export default reactPreset({ name: 'web', modules: [] });
+```
 
 `nextPreset()` 使用 React 語意，並依 `app`、`pages` 或 `both` 調整 layer-first 路由樹；
 `router` 預設為 `app`。`srcDir: true` 會選擇 `src`，否則原始碼根目錄為 `.`；別名預設為

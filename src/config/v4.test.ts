@@ -114,13 +114,6 @@ describe('Blueprint 4.0 architecture validation', () => {
       .toThrow(/Layer-first layerFiles entry.*must not include "\{module\}"/);
   });
 
-  it('rejects an empty module collection', () => {
-    const empty = blueprint();
-
-    empty.architecture.modules = [];
-    expect(() => validateBlueprint(empty)).toThrow(/modules must be a non-empty array/);
-  });
-
   // eslint-disable-next-line max-statements
   it('rejects invalid module names', () => {
     const path = blueprint();

@@ -13,6 +13,11 @@ import {
   resolveArchitecture,
 } from '../config';
 import { renderResolvedTestFilesOperational } from './test-files';
+import {
+  renderModuleGrowthAuthority,
+  renderModuleGrowthProtocol,
+  renderModuleRunwayFact,
+} from './module-growth';
 import { formatOwns } from '../markdown';
 
 export interface AgentGateFact {
@@ -100,8 +105,15 @@ export function renderCompactContract(
 
     `- Hard gates (${lintIntegrationClause(lintIntegration)}): one-way imports, unit entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''}${inspectGates.length ? `; ${inspectDiagnosisClause(inspectGates.join(', '))}` : ''}. When a gate fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
 
-    `- You are the gate for: no undeclared architectural folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Move code into the declared ${topology} topology. If the architecture has genuinely outgrown this config, that is the owner's decision — say so and stop; never expand it yourself.`,
+    `- You are the gate for: no undeclared architectural folders under \`${architecture.alias}/\` (\`blueprint inspect --baseline\` verifies — red only on what you introduced). Move code into the declared ${topology} topology. ${growthAuthority(resolved, handbook)}`,
   ].join('\n');
+}
+
+function growthAuthority(resolved: ResolvedArchitecture, handbook: string): string {
+  return resolved.topology === 'module-first'
+    ? renderModuleGrowthAuthority(handbook)
+    : 'If the architecture has genuinely outgrown this config, that is the owner\'s decision — '
+      + 'say so and stop; never expand it yourself.';
 }
 
 function lintIntegrationClause(
@@ -122,10 +134,13 @@ function lintIntegrationClause(
 }
 
 function moduleFlowLine(resolved: ResolvedArchitecture): string[] {
-  return resolved.modules.length
-    ? ['- Module flow: each module may import itself and modules transitively reachable through '
-      + '`dependsOn`; declaration order grants no permission. The layer flow must also pass, and '
-      + 'cross-module imports use the canonical source-root alias.']
+  return resolved.topology === 'module-first'
+    ? [
+        ...(resolved.moduleRunway ? [`- Module runway: ${renderModuleRunwayFact()}`] : []),
+        '- Module flow: each module may import itself and modules transitively reachable through '
+        + '`dependsOn`; declaration order grants no permission. The layer flow must also pass, and '
+        + 'cross-module imports use the canonical source-root alias.',
+      ]
     : [];
 }
 
@@ -147,6 +162,7 @@ export function renderContext(blueprint: Blueprint): string {
           return `\`${module.name}\` (depends on ${dependencies})`;
         }).join('; ')}`]
       : []),
+    ...(resolved.moduleRunway ? [`- Module runway: ${renderModuleRunwayFact()}`] : []),
     `- Layer flow: ${chain}`,
   ].join('\n');
 }
@@ -165,7 +181,13 @@ export function renderPlacement(architecture: ArchitectureDef): string {
       + `DIRECT DEPENDENCIES: ${dependencies}.`;
   });
 
-  const lines = resolved.layerPositions.map((position) => {
+  const runwayRoot = resolved.sourceRoot === '.' ? '<module>' : `${resolved.sourceRoot}/<module>`;
+
+  const positions = resolved.moduleRunway
+    ? resolved.layers.map((layer) => ({ layer, root: `${runwayRoot}/${layer.name}` }))
+    : resolved.layerPositions;
+
+  const lines = positions.map((position) => {
     const { definition: layer, allowedImporters } = position.layer;
     const parts = [`- \`${position.root}/\` — layer: ${layer.does}.`];
 
@@ -200,14 +222,29 @@ export function renderPlacement(architecture: ArchitectureDef): string {
     ? [`- ${renderResolvedTestFilesOperational('agent-placement', 'en', testPolicy)}`]
     : [];
 
+  const runwayLines = resolved.moduleRunway
+    ? [`- \`${runwayRoot}/\` — no domain module is declared yet. Each module declared through `
+      + 'the module growth protocol below repeats these inner layers, and its root files take the '
+      + 'container position.']
+    : [];
+
   return [
     '### Where code goes',
     '',
     ...moduleLines,
+    ...runwayLines,
     ...lines,
     ...unitLines,
     ...exemptLine,
   ].join('\n');
+}
+
+export function renderModuleGrowth(architecture: ArchitectureDef): string {
+  const resolved = resolveArchitecture(architecture);
+
+  return resolved.topology === 'module-first'
+    ? renderModuleGrowthProtocol({ runway: resolved.moduleRunway }, '###')
+    : '';
 }
 
 export function renderNaming(naming: Record<string, string> | undefined): string {
@@ -315,8 +352,15 @@ export function renderBehavioral(
     ? 'Module → Layer → Unit'
     : 'Layer → Unit';
 
+  const growth = resolveArchitecture(architecture).topology === 'module-first'
+    ? 'Grow modules only through the module growth protocol above; outgrowing the inner layers '
+    + 'or rules is the owner\'s call to make — report it, do not edit the architecture to fit '
+    + 'what you just wrote.'
+    : 'Outgrowing the config is the owner\'s call to make — report it, do not edit the '
+      + 'architecture to fit what you just wrote.';
+
   const bullets = [
-    `- Do not create undeclared architectural folders under \`${architecture.alias}/\`. Follow the declared ${topology} topology. (lint can't see every folder — inspect will.) Outgrowing the config is the owner's call to make — report it, do not edit the architecture to fit what you just wrote.`,
+    `- Do not create undeclared architectural folders under \`${architecture.alias}/\`. Follow the declared ${topology} topology. (lint can't see every folder — inspect will.) ${growth}`,
     ...claudePrinciples(principles).map(
       (principle) => `- **${principle.say}** — ${principle.why}`,
     ),
