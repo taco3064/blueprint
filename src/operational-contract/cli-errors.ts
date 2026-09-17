@@ -17,6 +17,11 @@ export function renderUnknownFlag(command: string, flag: string): OperationalTex
   return operationalText(`unknown flag for ${command}: ${flag} — see: blueprint ${command} --help`);
 }
 
+export function renderMissingOperationId(): OperationalText {
+  return operationalText('--complete expects the id of a pending upgrade operation, for example '
+    + '`blueprint upgrade --complete review-retired-module-private`.');
+}
+
 export function renderCliFailure(message: string): OperationalText {
   return operationalText(`✗ ${message}`);
 }

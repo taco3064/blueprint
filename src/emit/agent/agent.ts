@@ -1,5 +1,5 @@
 import type { Blueprint } from '../../config';
-import { withValidationErrorRendering } from '../../operational-contract';
+import { renderAgentLifecycle, withValidationErrorRendering } from '../../operational-contract';
 import type { StackFacts } from '../lint';
 import {
   renderBehavioral,
@@ -50,6 +50,7 @@ function emitAgentContractUnchecked(
     renderBehavioral(architecture, principles, rules),
     renderPlaybook(blueprint.playbook),
     renderChecklist(blueprint),
+    renderAgentLifecycle('###'),
   ].filter(Boolean);
 
   return `${sections.join('\n\n')}\n`;

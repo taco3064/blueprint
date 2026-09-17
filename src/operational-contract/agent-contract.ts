@@ -1,3 +1,5 @@
+import { renderLifecycle } from './agent';
+
 function joinLine(...parts: string[]): string {
   return parts.join('');
 }
@@ -256,6 +258,13 @@ const PACKAGED_AGENT_CONTRACT = [
     'repos; the ratchet',
   ),
   '  fails only on **new** findings.',
+  joinLine(
+    '- `.blueprint-lifecycle.json` — the lifecycle checkpoint and ',
+    'Blueprint ownership records',
+  ),
+  '  `blueprint upgrade` and `blueprint remove` read; never edit it by hand.',
+  '',
+  renderLifecycle('##'),
 ].join('\n') + '\n';
 
 export function renderPackagedAgentContract(): string {

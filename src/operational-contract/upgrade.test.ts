@@ -1,0 +1,143 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  renderUpgradeOperationCompleted,
+  renderUpgradePlan,
+  renderUpgradeVerificationResult,
+} from './upgrade';
+import type { UpgradePlanFact } from './upgrade';
+import {
+  renderUpgradeInstruction,
+  renderUpgradeVerification,
+  UPGRADE_INSTRUCTION_IDS,
+} from './upgrade-instructions';
+import { renderUpgradePlaybook } from './upgrade-playbook';
+import { renderUpgradeRefusal } from './upgrade-refusals';
+import type { UpgradeRefusalFact } from './upgrade-refusals';
+
+const plan: UpgradePlanFact = {
+  dryRun: false,
+  mode: 'start',
+  source: '3.2.0',
+  evidence: 'state',
+  target: '4.1.0',
+  applications: [{ key: '.', installed: '3.2.0' }],
+  installs: [],
+  migrations: [{ id: 'legacy-unit-shape', applications: [] }],
+  operations: [],
+  suppressed: [],
+  inapplicable: [],
+  safety: { repository: true, changes: [], required: false },
+};
+
+describe('upgrade plan report', () => {
+  it('states each resolved fact in the order an Agent needs it', () => {
+    const text = renderUpgradePlan(plan);
+
+    expect(text.split('\n')).toEqual([
+      'Blueprint upgrade — plan',
+      '  Source: 3.2.0 (recorded in .blueprint-lifecycle.json)',
+      '  Target: 4.1.0 (the running @kekkai/blueprint package is the only target authority)',
+      '  Applications: `.` (installed 3.2.0)',
+      '  Dependency: every adopted application already has @kekkai/blueprint 4.1.0',
+      '  Deterministic migrations (run in code through `blueprint init`): legacy-unit-shape',
+      '  Semantic operations for the coding Agent: none — every change in this interval is '
+      + 'deterministic',
+      '  Safety: resuming the recorded pending upgrade; uncommitted upgrade work is expected',
+    ]);
+  });
+
+  it('names the resume heading, completed work, and the absence of migrations', () => {
+    const text = renderUpgradePlan({
+      ...plan,
+      mode: 'resume',
+      migrations: [],
+      operations: [{
+        id: 'a', introducedIn: '4.0.0', applications: ['.', 'apps/web'], completed: true,
+      }],
+    });
+
+    expect(text).toContain('Blueprint upgrade — resuming the pending upgrade');
+    expect(text).toContain('Deterministic migrations: none beyond regenerating Blueprint outputs');
+    expect(text).toContain('1. a (4.0.0) → `.`, `apps/web` — already completed; not repeated');
+  });
+});
+
+describe('upgrade progress messages', () => {
+  it('counts what remains after recording an operation', () => {
+    expect(renderUpgradeOperationCompleted('a', 2))
+      .toBe('  ✓ operation a recorded as complete — 2 semantic operation(s) remain');
+  });
+
+  it('reports passing verification and a doctor failure without skipped checks', () => {
+    expect(renderUpgradeVerificationResult({
+      application: '.',
+      inspect: { ok: true, findings: 0 },
+      doctor: { verdict: 'complete', failed: [], skipped: [] },
+    })).toBe('  ✓ inspect --baseline passed in `.`\n  ✓ doctor complete in `.`');
+
+    expect(renderUpgradeVerificationResult({
+      application: '.',
+      inspect: { ok: true, findings: 0 },
+      doctor: { verdict: 'incomplete', failed: ['config'], skipped: [] },
+    })).toContain('✗ doctor incomplete in `.` — failed: config — run `npx blueprint doctor` there');
+  });
+});
+
+describe('upgrade instructions and playbook', () => {
+  it('ships instructions only for catalog operations', () => {
+    expect(UPGRADE_INSTRUCTION_IDS).toEqual(['review-retired-module-private']);
+
+    expect(renderUpgradeInstruction('review-retired-module-private'))
+      .toContain('`allowedImporters`');
+
+    expect(renderUpgradeInstruction('unknown')).toBeNull();
+    expect(renderUpgradeInstruction('toString')).toBeNull();
+  });
+
+  it('describes machine and confirmation verification', () => {
+    expect(renderUpgradeVerification({ kind: 'no-files', pattern: 'x*' }))
+      .toBe('Blueprint verifies that no `x*` file remains in the listed applications.');
+
+    expect(renderUpgradeVerification({ kind: 'confirm' })).toContain('explicit confirmation');
+  });
+
+  it('marks completed history it converges from and applications without evidence', () => {
+    const playbook = renderUpgradePlaybook({
+      source: '4.0.0',
+      target: '4.1.0',
+      migrations: [],
+      operations: [{
+        id: 'final',
+        introducedIn: '4.1.0',
+        applications: ['.', 'apps/web'],
+        evidence: { '.': [] },
+        supersedes: [{ id: 'seed', completed: true }],
+        completed: false,
+        instruction: 'Do it.' as never,
+        verification: { kind: 'confirm' },
+      }],
+    });
+
+    expect(playbook).toContain('Deterministic migrations: none beyond regenerated outputs.');
+    expect(playbook).toContain('Applications: `.`, `apps/web`');
+
+    expect(playbook).toContain('Replaces `seed`, which already ran in this repository: '
+      + 'converge from its result');
+  });
+});
+
+describe('upgrade refusals', () => {
+  it.each<[UpgradeRefusalFact, string]>([
+    [
+      { kind: 'unsupported-source', source: '3.1.0', checkpoint: '3.2.0' },
+      'install @kekkai/blueprint@3.2.0',
+    ],
+    [{ kind: 'no-manifest', application: 'apps/web' }, 'no package.json above apps/web declares'],
+    [{ kind: 'no-pending', id: 'x' }, '`npx blueprint upgrade --dry-run`'],
+    [{ kind: 'unknown-operation', id: 'x', pending: ['a', 'b'] }, 'Pending: a, b.'],
+    [{ kind: 'git-required' }, 'Initialize or enter the repository first. Nothing was changed.'],
+  ])('explains %j', (fact, fragment) => {
+    expect(renderUpgradeRefusal(fact)).toContain(fragment);
+  });
+});

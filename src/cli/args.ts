@@ -6,11 +6,14 @@ import {
   renderConflictingTopology,
   renderInvalidAgent,
   renderInvalidTopology,
+  renderMissingOperationId,
   renderUnknownFlag,
   renderUnexpectedInspectPath,
 } from '../operational-contract';
 import type { OperationalCommand } from '../operational-contract';
 import type { SurveyOptions } from '../survey';
+import type { UpgradeOptions } from '../upgrade';
+import type { RemoveOptions } from '../remove';
 
 function parseFramework(value: string | undefined): 'vue' | 'react' | undefined {
   return value === 'vue' || value === 'react' ? value : undefined;
@@ -153,6 +156,30 @@ export function parseDoctorArgs(args: string[]): DoctorOptions {
   return args.includes('--json') ? { json: true } : {};
 }
 
+export function parseRemoveArgs(args: string[]): RemoveOptions {
+  return args.includes('--dry-run') ? { dryRun: true } : {};
+}
+
+export function parseUpgradeArgs(args: string[]): UpgradeOptions {
+  const options: UpgradeOptions = {};
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--dry-run') {
+      options.dryRun = true;
+    } else if (args[i] === '--complete') {
+      const id = args[++i];
+
+      if (id === undefined || id.startsWith('-')) {
+        throw new Error(renderMissingOperationId());
+      }
+
+      options.complete = id;
+    }
+  }
+
+  return options;
+}
+
 export const KNOWN_FLAGS = {
   init: new Set([
     '--agent', '--preset', '--authoring', '--topology', '--framework', '--no-install', '--dry-run',
@@ -164,10 +191,12 @@ export const KNOWN_FLAGS = {
   deps: new Set(['--json', '--framework']),
   rules: new Set(['--json']),
   doctor: new Set(['--json']),
+  upgrade: new Set(['--dry-run', '--complete']),
+  remove: new Set(['--dry-run']),
 } satisfies Record<OperationalCommand, Set<string>>;
 
 const VALUED_FLAGS = new Set([
-  '--agent', '--topology', '--framework', '--alias', '--source-root',
+  '--agent', '--topology', '--framework', '--alias', '--source-root', '--complete',
 ]);
 
 export function rejectUnknownFlags(known: Set<string>, command: string, args: string[]): void {

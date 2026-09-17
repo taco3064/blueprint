@@ -28,6 +28,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { verifyLifecycle } from './dist-verify-lifecycle.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const failures = [];
 const temps = [];
@@ -1184,6 +1186,13 @@ if (process.platform === 'win32') {
     return `via ${path.relative(dir, link)}`;
   });
 }
+
+// ------------------------------------------------------------- lifecycle commands
+
+await verifyLifecycle({
+  check, expect, runCmd, runNpm, tempDir, packedTarball, binPath, pkg, root,
+  snapshotTree, snapshotProductTree,
+});
 
 // ------------------------------------------------------------- the package entry
 

@@ -86,3 +86,10 @@
   layers, responsibilities, unit shapes, ownership, naming, principles, playbook.
 - `.blueprint-baseline.json` — accepted debt on brownfield repos; the ratchet
   fails only on **new** findings.
+- `.blueprint-lifecycle.json` — the lifecycle checkpoint and Blueprint ownership records
+  `blueprint upgrade` and `blueprint remove` read; never edit it by hand.
+
+## Upgrading or removing Blueprint
+
+- **"Upgrade Blueprint to the latest version"** — run `npx @kekkai/blueprint@latest upgrade --dry-run`, then `npx @kekkai/blueprint@latest upgrade`. The running release is the only target. When it writes `blueprint-upgrade.md`, do exactly those operations, record each with `npx blueprint upgrade --complete <operation-id>`, and re-run `npx blueprint upgrade` until it reports the upgrade complete. A bare `npm update` skips migrations and verification; never apply release notes or a hand-made migration.
+- **"Remove Blueprint from this project"** — run `npx blueprint remove --dry-run`, resolve every conflict it lists, then run `npx blueprint remove`. It reverses only what it can prove Blueprint owns and uninstalls `@kekkai/blueprint` last; never uninstall the package first or delete shared files by hand, and review everything it reports as kept.

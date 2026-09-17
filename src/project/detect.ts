@@ -14,7 +14,7 @@ export const GENERATED_ESLINT_BANNER
 export const AUTHORING_FILE = 'blueprint-authoring.md';
 export const COMMAND_FILE = '.claude/commands/blueprint-author.md';
 
-const ESLINT_FILES = [
+export const ESLINT_FILES = [
   'eslint.config.js',
   'eslint.config.mjs',
   'eslint.config.cjs',

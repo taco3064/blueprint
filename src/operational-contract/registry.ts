@@ -6,6 +6,7 @@ export type OperationalChannel
     | 'cli'
     | 'field'
     | 'handbook'
+    | 'lifecycle'
     | 'transformation';
 
 export interface OperationalSurface {
@@ -25,7 +26,8 @@ export const OPERATIONAL_SURFACES = [
     id: 'agent-contract-sections', owner: 'agent.ts', channel: 'agent-contract',
     delivery: 'generated', audiences: ['coding agents'],
     factProviders: ['resolved Blueprint', 'measured lint integration'],
-    consumers: ['src/emit/agent/sections.ts'], targets: ['AGENTS.md', 'CLAUDE.md'],
+    consumers: ['src/emit/agent/sections.ts', 'src/remove/signatures.ts'],
+    targets: ['AGENTS.md', 'CLAUDE.md'],
     verification: ['byte snapshots', 'emitter parity'],
   },
   {
@@ -121,6 +123,7 @@ export const OPERATIONAL_SURFACES = [
       'src/inspect/lint-runtime.ts',
       'src/project/blueprints.ts',
       'src/project/resolve.ts',
+      'src/remove/proven.ts',
       'src/survey/module-mapping.ts',
     ],
     targets: ['init output', 'generated launcher and gitignore comments'],
@@ -216,7 +219,8 @@ export const OPERATIONAL_SURFACES = [
     id: 'architecture-handbook', owner: 'handbook.ts', channel: 'handbook',
     delivery: 'generated', audiences: ['repository maintainers'],
     factProviders: ['resolved Blueprint', 'measured lint integration'],
-    consumers: ['src/emit/docs/sections.ts'], targets: ['docs/architecture-handbook.md'],
+    consumers: ['src/emit/docs/sections.ts', 'src/remove/signatures.ts'],
+    targets: ['docs/architecture-handbook.md'],
     verification: ['byte snapshots', 'emitter parity'],
   },
   {
@@ -299,5 +303,68 @@ export const OPERATIONAL_SURFACES = [
     factProviders: ['repository router facts'],
     consumers: ['src/bootstrap/repository-transformation.ts'],
     targets: ['repository transformation playbook'], verification: ['transformation snapshots'],
+  },
+  {
+    id: 'lifecycle-state', owner: 'lifecycle.ts', channel: 'lifecycle',
+    delivery: 'runtime', audiences: ['CLI users', 'adoption agents'],
+    factProviders: ['lifecycle state read', 'adoption provenance outcome'],
+    consumers: ['src/bootstrap/lifecycle.ts', 'src/remove/remove.ts'],
+    targets: ['init output', 'lifecycle refusals'],
+    verification: ['lifecycle recording tests', 'OperationalText type gate'],
+  },
+  {
+    id: 'lifecycle-help', owner: 'lifecycle-help.ts', channel: 'cli',
+    delivery: 'runtime', audiences: ['CLI users', 'coding agents'],
+    factProviders: ['lifecycle command registry'],
+    consumers: ['src/cli/help.ts'], targets: ['stdout'],
+    verification: ['command coverage tests'],
+  },
+  {
+    id: 'upgrade-runtime', owner: 'upgrade.ts', channel: 'lifecycle',
+    delivery: 'runtime', audiences: ['CLI users', 'coding agents'],
+    factProviders: ['upgrade facts', 'resolved upgrade plan', 'verification results'],
+    consumers: ['src/upgrade/upgrade.ts', 'src/upgrade/decide.ts', 'src/upgrade/effects.ts'],
+    targets: ['upgrade output'],
+    verification: ['upgrade runtime tests', 'OperationalText type gate'],
+  },
+  {
+    id: 'upgrade-refusals', owner: 'upgrade-refusals.ts', channel: 'lifecycle',
+    delivery: 'runtime', audiences: ['CLI users', 'coding agents'],
+    factProviders: ['upgrade decision', 'lifecycle checkpoint'],
+    consumers: ['src/upgrade/upgrade.ts', 'src/upgrade/decide.ts', 'src/upgrade/semantic.ts'],
+    targets: ['stderr'],
+    verification: ['upgrade refusal tests'],
+  },
+  {
+    id: 'upgrade-instructions', owner: 'upgrade-instructions.ts', channel: 'lifecycle',
+    delivery: 'generated', audiences: ['coding agents'],
+    factProviders: ['upgrade catalog operations'],
+    consumers: ['src/upgrade/upgrade.ts', 'src/upgrade/semantic.ts'],
+    targets: ['blueprint-upgrade.md'],
+    verification: ['catalog instruction parity tests'],
+  },
+  {
+    id: 'upgrade-playbook', owner: 'upgrade-playbook.ts', channel: 'lifecycle',
+    delivery: 'generated', audiences: ['coding agents'],
+    factProviders: ['pending upgrade', 'upgrade catalog operations'],
+    consumers: ['src/upgrade/semantic.ts'],
+    targets: ['blueprint-upgrade.md'],
+    verification: ['upgrade playbook tests'],
+  },
+  {
+    id: 'remove-runtime', owner: 'remove.ts', channel: 'lifecycle',
+    delivery: 'runtime', audiences: ['CLI users', 'coding agents'],
+    factProviders: ['removal plan', 'ownership evidence', 'post-removal footprint'],
+    consumers: ['src/remove/apply.ts', 'src/remove/remove.ts'],
+    targets: ['remove output'],
+    verification: ['remove runtime tests', 'init to remove round-trip fixtures'],
+  },
+  {
+    id: 'remove-conflicts', owner: 'remove-conflicts.ts', channel: 'lifecycle',
+    delivery: 'runtime', audiences: ['CLI users', 'coding agents'],
+    factProviders: ['removal preflight conflicts', 'removal scope'],
+    consumers: ['src/remove/remove.ts'],
+    targets: ['stderr'],
+    verification: ['remove conflict tests'],
   },
 ] as const satisfies readonly OperationalSurface[];

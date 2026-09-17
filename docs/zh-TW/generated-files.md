@@ -11,8 +11,11 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 本頁將副作用分成三類：
 
 1. 長期保留的 Blueprint 設定與產出；
-2. 編寫／轉換期間使用的暫存交接檔案；
+2. 編寫、轉換或升級期間使用的暫存交接檔案；
 3. `init` 可能更新的既有專案檔案。
+
+解除 Blueprint 導入時，[`remove`](/zh-TW/commands#remove) 要刪除、移除區塊、還原或保留哪些內容，<br>
+也由同一套所有權規則決定。
 
 ## 長期設定與產出
 
@@ -30,6 +33,26 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 架構編寫指南則要求 Agent 建立。後續 `init` 會先
 載入並驗證，再更新其他產出。Blueprint 3.2 設定會先正規化成受支援的 4.0 layer-first
 格式，作為可復原檢查點；若要改成相反拓樸，必須在後續另一次執行啟動受保護轉換。
+
+### `.blueprint-lifecycle.json`
+
+**存在目的：** 記錄 Blueprint 的生命週期檢查點，<br>
+以及 [`upgrade`](/zh-TW/commands#upgrade) 與 [`remove`](/zh-TW/commands#remove) 所依據的所有權事實。
+
+**內容：** 檔案格式版本；專案已走完生命週期的 Blueprint 版本；已完成的升級操作 id；<br>
+進行中的待完成升級（若有）；<br>
+以及每個已導入應用程式的所有權紀錄：Blueprint 產生或建立的檔案、它擁有的標記區塊、<br>
+它對共用檔案做過的確切修改、它建立的資料夾，以及它安裝的相依套件。
+
+**管理權責：** Blueprint 完整管理。請提交進版本控制，絕不要手動編輯。<br>
+它是運作狀態，不是架構：`blueprint.config.mjs` 仍是唯一的架構權威。
+
+**生命週期：** `init` 在第一次導入時建立它，之後每次執行都會補上所有權紀錄。<br>
+`upgrade` 在修改任何內容之前，會先記錄待完成的升級，驗證通過後才推進檢查點。<br>
+`remove` 移除最後一個已導入的應用程式時，會一併刪除它。<br>
+生命週期狀態出現之前就導入的專案，只依可證明的事實建立檢查點；<br>
+Blueprint 在那之前做的修改，`remove` 只會回報，不會還原。<br>
+檔案若變得無法讀取，依賴它的 Blueprint 指令會停止，直到從版本控制還原為止。
 
 ### ESLint 設定
 
@@ -183,6 +206,17 @@ container seeds 是否已被模組吸收、目的地位置、目前的 import an
 全專案轉換若遇到各應用程式政策互相衝突，會拒絕執行，不會任意挑一種啟動方式。
 
 啟動器與架構編寫指南一樣，完成後要刪除；殘留時 `doctor` 會判定導入未完成。
+
+### `blueprint-upgrade.md`
+
+解析後的計畫若仍有需要人或程式撰寫 Agent 處理的語意操作，`upgrade` 就會在根目錄寫出這份執行指南。<br>
+它只依序列出整個「起始版本 → 目標版本」區間內實際生效的操作，<br>
+並標明每項操作適用的應用程式、Blueprint 量測到的內容、操作指示、Blueprint 的驗證方式，以及是否已經完成。<br>
+被取消或被取代的操作永遠不會出現。
+
+每次執行都會依待完成的升級重新產生，升級完成後就刪除。<br>
+它不是生命週期紀錄：完成狀態只記錄在 `.blueprint-lifecycle.json`，<br>
+而且要用 `blueprint upgrade --complete <operation-id>` 一次記錄一項操作。
 
 ### 參考與遷移交接檔
 

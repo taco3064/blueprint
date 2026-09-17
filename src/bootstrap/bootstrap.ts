@@ -36,6 +36,7 @@ import * as legacyUpgrade from './legacy-upgrade';
 import { assertAuthoredConfigNotRewritten, assertInitOptions } from './init-options';
 import type { Action } from './types';
 import { runTransformationRecovery } from './transformation-recovery';
+import { adoptionRecorder, logPlannedAdoption } from './lifecycle';
 import { freshAuthoringAgents } from './authoring-launcher';
 import {
   completeTransformationRetirement, transformationRetirement,
@@ -330,6 +331,7 @@ async function runScaffold(
 
   narrate(actions, root, {
     ...ctx,
+    state,
     framework: blueprint.framework,
     packageManager: state.packageManager,
     agentNote: agentSessionNote(options.agent, configSource),
@@ -382,14 +384,12 @@ function runAuthoring(
   }));
 
   if (options.dryRun) {
-    for (const action of actions) {
-      log(formatAction(action, true));
-    }
+    logPlannedAdoption(actions, log);
 
     return actions;
   }
 
-  applyAndNarrate(root, actions, { exec: options.exec ?? defaultExec, log });
+  applyAndNarrate(root, actions, { exec: options.exec ?? defaultExec, log, state });
 
   if (options.agent) {
     launchAgent(options.agent, root, { log, spawner: options.spawn });
@@ -399,6 +399,7 @@ function runAuthoring(
 }
 
 interface NarrateContext extends RunContext {
+  state: ProjectState;
   forkNote: string | null;
   framework: string;
   packageManager: string;
@@ -415,14 +416,12 @@ function narrate(actions: Action[], root: string, ctx: NarrateContext): void {
   }
 
   if (options.dryRun) {
-    for (const action of actions) {
-      log(formatAction(action, true));
-    }
+    logPlannedAdoption(actions, log);
 
     return;
   }
 
-  applyAndNarrate(root, actions, { exec: options.exec ?? defaultExec, log });
+  applyAndNarrate(root, actions, { exec: options.exec ?? defaultExec, log, state: ctx.state });
 
   if (ctx.agentNote) {
     log(ctx.agentNote);
@@ -443,9 +442,10 @@ function agentSessionNote(
 function applyAndNarrate(
   root: string,
   actions: Action[],
-  effects: { exec: Exec; log: (line: string) => void },
+  effects: { exec: Exec; log: (line: string) => void; state: ProjectState },
 ): void {
   const { exec, log } = effects;
+  const recorder = adoptionRecorder(root, effects.state, actions);
   let landed = 0;
 
   try {
@@ -453,7 +453,8 @@ function applyAndNarrate(
       exec,
       onApplied: (action) => {
         landed += 1;
-        log(formatAction(action, false));
+        recorder.landed(action);
+        log(formatAction(action));
       },
 
       onInstallStarting: (action) => log(renderInstallStarting(action.note, action.command)),
@@ -469,9 +470,11 @@ function applyAndNarrate(
       failedKind: failed.kind,
       skipped,
     }));
+  } finally {
+    recorder.finish(log);
   }
 }
 
-function formatAction(action: Action, dryRun: boolean): OperationalText {
-  return renderActionLine(action.kind, action.note, dryRun ? 'dry-run' : 'applied');
+function formatAction(action: Action): OperationalText {
+  return renderActionLine(action.kind, action.note, 'applied');
 }

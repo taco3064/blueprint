@@ -1,6 +1,7 @@
 import { renderTestFilesOperational } from './test-files';
 import { operationalText } from './operational-contract';
 import type { OperationalText } from './operational-contract';
+import { REMOVE_HELP, UPGRADE_HELP } from './lifecycle-help';
 
 export const CLI_USAGE = operationalText([
   'blueprint — Architecture as Code. One blueprint compiles into ESLint rules,',
@@ -19,6 +20,10 @@ export const CLI_USAGE = operationalText([
   '  blueprint rules     The emitted-rule catalog: what always emits, what needs',
   '                      declaring, defaults — annotated with your config\'s tiers.',
   '  blueprint doctor    Is adoption finished? A read-only completeness check.',
+  '  blueprint upgrade   Move the repository to the running Blueprint release:',
+  '                      plan, migrate, hand semantic work to the Agent, verify.',
+  '  blueprint remove    De-adopt Blueprint: remove what it provably owns, then the',
+  '                      package last. Stops before any change on ambiguity.',
   '  blueprint --help | --version',
   '',
   'Run `blueprint <command> --help` for flags and details.',
@@ -313,7 +318,9 @@ export type OperationalCommand
     | 'impact'
     | 'deps'
     | 'rules'
-    | 'doctor';
+    | 'doctor'
+    | 'upgrade'
+    | 'remove';
 
 export function renderCliCommandHelp(facts: {
   brownfieldMinFiles: number;
@@ -326,5 +333,7 @@ export function renderCliCommandHelp(facts: {
     deps: DEPS_HELP,
     rules: RULES_HELP,
     doctor: DOCTOR_HELP,
+    upgrade: UPGRADE_HELP,
+    remove: REMOVE_HELP,
   };
 }

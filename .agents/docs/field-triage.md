@@ -63,6 +63,23 @@ Graduate reproducible product regressions into `src/conformance/` with the fix. 
 
 ## Release
 
+### Adopter upgrade assessment
+
+Every release preparation answers one question before the version change merges:
+
+> Does this release require adopter-side semantic work after deterministic upgrade code has done everything Blueprint can safely prove?
+
+- **No** — record nothing. No empty catalog entry, file, or instruction is required.
+- **Yes** — first move everything provable into code: a deterministic migration run through `blueprint init`, an existing owner, or `blueprint upgrade` itself. Only the judgment that remains becomes a structured operation in `UPGRADE_CATALOG` (`src/lifecycle/catalog.ts`) with a stable id, `introducedIn` set to the release version, applicability measured from repository facts, verification, and `requires` / `cancels` / `supersedes` relations when an earlier operation changes meaning. Its Agent instruction belongs to the registered `upgrade-instructions` surface.
+
+Published operations are immutable history. Change a shipped instruction by cancelling or superseding it from the new release; a superseding operation must converge both a repository that already ran the older operation and one that never did. Cancellation is not rollback: if the target no longer wants effects an older operation produced, a new active operation owns that cleanup.
+
+Raising `supportedFrom` drops support for older sources and is a release decision, not cleanup. Every deterministic migration must still cover the declared window. `catalogProblems` rejects duplicate, malformed, unknown, future, cyclic, unresolvable, and window-incomplete catalogs in the unit suite, and `npm run dist:verify` proves the packed release plans upgrades from its supported checkpoint.
+
+CHANGELOG entries and GitHub releases remain human-facing history. They are never an executable upgrade authority.
+
+### Version, candidate, and tag
+
 Run `npx changeset version`, hoist the release-framing entry above the generated change headings, commit, and merge the version change to `main`. That new commit receives its own packed candidate and must pass the final complete field matrix. Only then create and push the tag.
 
 The tag workflow re-runs lint, typecheck, tests, build, and distribution verification. Before `npm publish`, it queries `blueprint/field-convergence` on the exact tag target and follows its convergence-ticket link. It requires a machine-readable comment proving the same SHA, full scope, complete matrix, success, and zero release blockers. A closed ticket, prior SHA, affected replay, missing status, or stale report cannot publish.

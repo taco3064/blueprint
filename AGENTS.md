@@ -16,7 +16,7 @@ substitute first-principles reasoning for what it says.
 | [`.agents/docs/autonomous-delivery.md`](./.agents/docs/autonomous-delivery.md) | **Trigger:** shaping, delivering, resuming, or accepting a GitHub ticket. The shared rules for autonomy, scope, evidence, durable state, progress, and final acceptance. |
 | [`.agents/docs/verification-layers.md`](./.agents/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring emitted documents or operational prose. What `src/conformance/` is for, the layers `npm run dist:verify` and `npm run operational:check` cover, and when a supplementary byte baseline belongs with a refactor. |
 | [`.agents/docs/mutation-testing.md`](./.agents/docs/mutation-testing.md) | **Trigger:** reading automatic PR mutation evidence, judging a survivor, or adding a test because CI found weak coverage. Status adjudication and narrow equivalent-mutant proofs. |
-| [`.agents/docs/field-triage.md`](./.agents/docs/field-triage.md) | **Trigger:** running live field validation, triaging a field finding, changing Agent-facing prose, or cutting a release. Exact packed candidates, affected replay, full convergence, and exact-SHA release authority. |
+| [`.agents/docs/field-triage.md`](./.agents/docs/field-triage.md) | **Trigger:** running live field validation, triaging a field finding, changing Agent-facing prose, or cutting a release. Exact packed candidates, affected replay, full convergence, exact-SHA release authority, and the adopter upgrade assessment every release must answer. |
 
 Repository workflows live under [`.agents/skills/`](./.agents/skills/). Use
 `shape-ticket` to shape and later review decision fidelity, `deliver-ticket` to
@@ -54,9 +54,14 @@ applies before every GitHub or repository mutation.
 ## Layering (one-way, low → high)
 
 `config` → `markdown` → `operational-contract` → `plugin` → `emit/*` → `presets` →
-`project` → `inspect` → `survey` / `impact` → `bootstrap` → `cli`. A module imports only
-from lower ones (survey reads inspect's scan; bootstrap embeds the survey in
-its authoring playbook).
+`project` → `lifecycle` → `inspect` → `survey` / `impact` → `bootstrap` →
+`upgrade` / `remove` → `cli`. A module imports only from lower ones (survey reads
+inspect's scan; bootstrap embeds the survey in its authoring playbook and records
+lifecycle provenance; upgrade reconciles through bootstrap and verifies through
+inspect).
+`lifecycle` owns the versioned lifecycle state, provenance records, and the upgrade
+catalog and resolver. It is operational state only: `blueprint.config.mjs` stays the
+architecture authority.
 `operational-contract` owns Blueprint-authored CLI, generated, runtime, field,
 and checked-in operational text. It renders supplied facts for higher surfaces;
 it may import `config` and `markdown`, but never imports `project`, `inspect`, or

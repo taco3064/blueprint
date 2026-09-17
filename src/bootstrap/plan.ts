@@ -96,6 +96,7 @@ export function plan(
       path: handbook,
       content: emitHandbook(blueprint, stack),
       note: renderHandbookWriteNote(handbook),
+      ownership: 'generated',
     },
     ...agentContractActions(agentFiles, options.existingAgentFiles),
     ...staleContractActions(agentFiles, emit, options),
@@ -161,6 +162,7 @@ function contractActions(file: AgentFile, existing: string | null): Action[] {
       path: file.path,
       content: file.content,
       note: renderAgentContractNote(file.path),
+      ownership: 'generated',
     }];
   }
 
@@ -180,6 +182,7 @@ function contractActions(file: AgentFile, existing: string | null): Action[] {
     path: file.path,
     content: mergeContract(existing, file.content),
     note: renderAgentContractNote(file.path),
+    ownership: 'section',
   }];
 }
 
@@ -196,6 +199,7 @@ function referenceActions(file: AgentFile): Action[] {
       path: reference,
       content: mergeContract(null, file.content),
       note: renderReferenceContractNote(reference, file.path),
+      ownership: 'generated',
     },
     {
       kind: 'instruct',
@@ -261,6 +265,7 @@ function eslintConfigActions(blueprint: Blueprint, state: ProjectState): Action[
       path: state.ownedEslintConfig,
       content: eslintConfigSource(blueprint, state),
       note: renderEslintConfigNote('owned', state.ownedEslintConfig),
+      ownership: 'generated',
     }];
   }
 
@@ -279,6 +284,7 @@ function eslintConfigActions(blueprint: Blueprint, state: ProjectState): Action[
         path: 'eslint.config.blueprint.mjs',
         content: eslintConfigSource(blueprint, state),
         note: renderEslintConfigNote('reference', 'eslint.config.blueprint.mjs'),
+        ownership: 'generated',
       },
       { kind: 'instruct', note: renderEslintWiringNote({
         shape: state.eslintConfigShape ?? null,
@@ -295,6 +301,7 @@ function eslintConfigActions(blueprint: Blueprint, state: ProjectState): Action[
     path: 'eslint.config.mjs',
     content: eslintConfigSource(blueprint, state),
     note: renderEslintConfigNote('new', 'eslint.config.mjs'),
+    ownership: 'generated',
   }];
 }
 
@@ -315,8 +322,8 @@ function installActions(state: ProjectState, options: PlanOptions): Action[] {
   return [{
     kind: 'install',
     command: installCommand(state.packageManager, deps),
-
     note: renderDependencyInstallNote(deps, SUPPORTED_ESLINT_MAJORS),
+    dependencies: deps,
   }];
 }
 

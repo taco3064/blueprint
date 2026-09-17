@@ -1,0 +1,11 @@
+---
+'@kekkai/blueprint': minor
+---
+
+Add a first-class post-adoption lifecycle: `blueprint upgrade` and `blueprint remove`.
+
+`npx @kekkai/blueprint@latest upgrade` uses the running package as the only target authority. It reads the repository's lifecycle checkpoint from the new `.blueprint-lifecycle.json`, or proves it from the installed package and config shape on a repository adopted before lifecycle state existed, and resolves the structured upgrade operations of every release across the whole source → target interval before anything runs: canceled and superseded operations are removed, the rest are ordered by their requirements. It then records the pending upgrade, moves `@kekkai/blueprint` to the target through the detected package manager, continues with that installed copy, runs deterministic migrations by reconciling every adopted application through `blueprint init`, writes one resolved `blueprint-upgrade.md` playbook when semantic work remains, and records the new lifecycle only after `blueprint inspect --baseline` and `blueprint doctor` pass in every adopted application. `--dry-run` shows the complete plan without mutation, `--complete <operation-id>` records verified semantic work, and a pending upgrade resumes without repeating completed operations. Downgrades and sources before 3.2.0 are refused.
+
+`npx blueprint remove` plans the complete de-adoption before changing anything. `init` now records which files Blueprint generated or created, which managed sections it owns, and the exact shared-file edits it made, so removal deletes only proven Blueprint artifacts, strips only managed sections, reverses only recorded edits that are still intact, keeps alias wiring that application source still imports, and uninstalls `@kekkai/blueprint` last. Diverged or ambiguous edits and remaining Blueprint wiring stop the removal before any change; a shared package stays installed while sibling applications remain adopted; repositories adopted before lifecycle records exist lose only provable artifacts and get a report of what could not be proven.
+
+Generated Agent contracts, the packaged agent contract, CLI help, and the English and Traditional Chinese documentation now route "upgrade Blueprint" and "remove Blueprint" requests to these commands.

@@ -56,7 +56,7 @@ export async function resolveRepositoryBlueprints(
   }));
 }
 
-function findConfigFiles(root: string): string[] {
+export function findConfigFiles(root: string): string[] {
   const files: string[] = [];
 
   visit(root, files, root);

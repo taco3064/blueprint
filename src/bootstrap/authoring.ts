@@ -80,7 +80,9 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
   const install: Action[] = !options.needsInstall
     ? []
     : options.install !== false
-      ? [{ kind: 'install', command, note: renderInstallNote() }]
+      ? [{
+          kind: 'install', command, note: renderInstallNote(), dependencies: ['@kekkai/blueprint'],
+        }]
       : [{ kind: 'instruct', note: renderAuthoringInstallSkipped(command) }];
 
   return [
@@ -89,6 +91,7 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
       path: AUTHORING_FILE,
       content: authoringBrief(survey, command, { ...options, claudeLauncher }),
       note: renderAuthoringPlaybookNote(AUTHORING_FILE),
+      ownership: 'generated',
     },
     ...authoringLauncherActions(options.agents),
     ...install,
