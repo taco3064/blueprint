@@ -7,6 +7,8 @@ import { runInit } from '../bootstrap';
 import { runImpact } from '../impact';
 import { runDeps, runDoctor, runInspect, runRules } from '../inspect';
 import { runSurvey } from '../survey';
+import { runRemove } from '../remove';
+import { runUpgrade } from '../upgrade';
 import { renderCliFailure, renderCliVersion } from '../operational-contract';
 import type { OperationalCommand, OperationalText } from '../operational-contract';
 import {
@@ -17,7 +19,9 @@ import {
   parseInitArgs,
   parseInspectArgs,
   parseRulesArgs,
+  parseRemoveArgs,
   parseSurveyArgs,
+  parseUpgradeArgs,
   rejectUnknownFlags,
 } from './args';
 import { COMMAND_HELP, USAGE } from './help';
@@ -66,6 +70,8 @@ const COMMANDS = {
   doctor: async (cwd: string, rest: string[]) => (
     (await runDoctor(cwd, parseDoctorArgs(rest))).ok ? 0 : 1
   ),
+  upgrade: (cwd: string, rest: string[]) => runUpgrade(cwd, parseUpgradeArgs(rest)),
+  remove: (cwd: string, rest: string[]) => runRemove(cwd, parseRemoveArgs(rest)),
 } satisfies Record<OperationalCommand, (cwd: string, rest: string[]) => Promise<number>>;
 
 export async function run(argv: string[], cwd: string = process.cwd()): Promise<number> {

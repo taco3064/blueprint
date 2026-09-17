@@ -1,6 +1,7 @@
 import type { ProjectState } from '../project';
 import type { InitOptions } from './bootstrap';
 import { renderInitOptionError } from '../operational-contract';
+import { assertLifecycleState } from './lifecycle';
 
 export function assertInitOptions(
   state: ProjectState,
@@ -10,6 +11,8 @@ export function assertInitOptions(
   if (state.hasNuxt) {
     throw new Error(renderInitOptionError('nuxt'));
   }
+
+  assertLifecycleState(state);
 
   if (options.preset && options.topology === 'module-first') {
     throw new Error(renderInitOptionError('module-first-preset'));

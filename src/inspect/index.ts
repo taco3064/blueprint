@@ -1,3 +1,4 @@
+export { BASELINE_FILE } from './baseline';
 export { runDeps } from './deps';
 export { assessLintIntegration } from './adoption';
 export type { DepsOptions, UnitDeps } from './deps';

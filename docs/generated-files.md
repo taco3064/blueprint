@@ -11,8 +11,11 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 This page separates three kinds of effects:
 
 1. durable Blueprint configuration and outputs;
-2. temporary authoring or transformation handoffs;
+2. temporary authoring, transformation, or upgrade handoffs;
 3. existing project files that `init` may update.
+
+The same ownership rules decide what [`remove`](/commands#remove) deletes, strips, reverses, or
+keeps when Blueprint is de-adopted.
 
 ## Durable configuration and outputs
 
@@ -34,6 +37,26 @@ request requires a later guarded transformation run from that checkpoint. Before
 saves the complete original beside it as `blueprint.config.mjs.pre-v4-<sha256>` (including comments).
 The write notice warns that `architecture.module.private` has no 4.0 replacement: review the
 original policy before claiming equivalent governance. The backup is owner evidence, not a loaded config.
+
+### `.blueprint-lifecycle.json`
+
+**Why it exists:** it records the Blueprint lifecycle checkpoint and the ownership facts that
+[`upgrade`](/commands#upgrade) and [`remove`](/commands#remove) rely on.
+
+**What it contains:** the schema version; the Blueprint release whose lifecycle the repository has
+completed; completed upgrade operation ids; a pending upgrade, when one is in progress; and, per
+adopted application, the files Blueprint generated or created, the managed sections it owns, the
+exact shared-file edits it made, the folders it created, and the dependencies it installed.
+
+**Ownership:** Blueprint owns it. Commit it and never edit it by hand. It is operational state, not
+architecture: `blueprint.config.mjs` stays the only architecture authority.
+
+**Lifecycle:** `init` creates it on first adoption and adds ownership facts on every run.
+`upgrade` records a pending upgrade before changing anything and moves the checkpoint only after
+verification. `remove` deletes it with the last adopted application. A repository adopted before
+lifecycle state existed gets a checkpoint from provable facts only; edits Blueprint made before that
+are reported by `remove` rather than reversed. If the file becomes unreadable, Blueprint commands
+that depend on it stop until it is restored from version control.
 
 ### ESLint configuration
 
@@ -210,6 +233,18 @@ policies rather than choosing one launcher behavior.
 
 The launcher is temporary and is removed with the authoring playbook after completion. `doctor`
 also treats a leftover launcher as incomplete adoption.
+
+### `blueprint-upgrade.md`
+
+`upgrade` writes this root-level playbook when the resolved plan still contains semantic
+operations for a person or coding Agent. It lists only the effective operations for the whole
+source → target interval, in order, with the applications each applies to, what Blueprint measured,
+the instruction, how Blueprint verifies it, and whether it is already done. Canceled and superseded
+operations never appear.
+
+It is regenerated from the pending upgrade on every run and deleted when the upgrade completes. It
+is not the lifecycle record: completion is recorded only in `.blueprint-lifecycle.json`, one
+operation at a time with `blueprint upgrade --complete <operation-id>`.
 
 ### Reference and migration handoffs
 

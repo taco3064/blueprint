@@ -1,0 +1,75 @@
+import { describe, expect, it } from 'vitest';
+
+import { LIFECYCLE_SINCE, UPGRADE_CATALOG } from './catalog';
+import { sourceCheckpoint } from './checkpoint';
+import type { SourceCheckpointInput } from './checkpoint';
+import type { LifecycleState } from './types';
+
+const state: LifecycleState = {
+  schema: 1,
+  blueprint: '4.1.0',
+  provenance: 'complete',
+  operations: [],
+  pending: null,
+  applications: {},
+};
+
+function checkpoint(input: Partial<SourceCheckpointInput>) {
+  return sourceCheckpoint({
+    state: { status: 'missing' },
+    installed: ['4.0.0'],
+    legacyShape: false,
+    catalog: UPGRADE_CATALOG,
+    ...input,
+  });
+}
+
+describe('sourceCheckpoint', () => {
+  it('pins the lifecycle introduction release', () => {
+    expect(LIFECYCLE_SINCE).toBe('4.1.0');
+  });
+
+  it('trusts recorded lifecycle state over whatever version is installed', () => {
+    expect(checkpoint({ state: { status: 'present', state }, installed: ['4.2.0'] }))
+      .toEqual({ kind: 'state', version: '4.1.0', state });
+  });
+
+  it('fails closed on unreadable state', () => {
+    expect(checkpoint({ state: { status: 'invalid', reason: 'json' } }))
+      .toEqual({ kind: 'invalid-state', reason: 'json' });
+  });
+
+  it('refuses to bootstrap without an installed package to prove the source', () => {
+    expect(checkpoint({ installed: [] })).toEqual({ kind: 'not-installed' });
+    expect(checkpoint({ installed: ['4.0.0', null] })).toEqual({ kind: 'not-installed' });
+  });
+
+  it('refuses mixed installed versions inside one repository', () => {
+    expect(checkpoint({ installed: ['4.0.0', '3.2.0', '4.0.0'] }))
+      .toEqual({ kind: 'mixed-installed', versions: ['3.2.0', '4.0.0'] });
+  });
+
+  it('bootstraps a pre-lifecycle repository from its installed package', () => {
+    expect(checkpoint({ installed: ['4.0.0', '4.0.0'] }))
+      .toEqual({ kind: 'bootstrap', version: '4.0.0', evidence: 'installed-package' });
+  });
+
+  it('reports missing state when a lifecycle-aware release is installed', () => {
+    expect(checkpoint({ installed: ['4.1.0'] }))
+      .toEqual({ kind: 'missing-state', installed: '4.1.0' });
+
+    expect(checkpoint({ installed: ['4.2.0'] }))
+      .toEqual({ kind: 'missing-state', installed: '4.2.0' });
+  });
+
+  it('lets a legacy config shape prove an older source than the installed package', () => {
+    expect(checkpoint({ installed: ['4.1.0'], legacyShape: true }))
+      .toEqual({ kind: 'bootstrap', version: '3.2.0', evidence: 'legacy-config' });
+
+    expect(checkpoint({ installed: ['3.2.0'], legacyShape: true }))
+      .toEqual({ kind: 'bootstrap', version: '3.2.0', evidence: 'legacy-config' });
+
+    expect(checkpoint({ installed: ['3.1.0'], legacyShape: true }))
+      .toEqual({ kind: 'bootstrap', version: '3.1.0', evidence: 'legacy-config' });
+  });
+});

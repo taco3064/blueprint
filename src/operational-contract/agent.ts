@@ -101,7 +101,9 @@ export function renderCompactContract(
     '- **Operating discipline** — how to follow the flow, react to lint failures, '
     + `and the pre-commit checklist: read [${CONTRACT_DOC}](${CONTRACT_DOC}) `
     + '(ships inside the package — present once dependencies are installed, '
-    + 'always matching the installed version).',
+    + 'always matching the installed version). Upgrade Blueprint only with '
+    + '`npx @kekkai/blueprint@latest upgrade` and remove it only with `npx blueprint remove` '
+    + 'before uninstalling the package; `--dry-run` previews either.',
 
     `- Hard gates (${lintIntegrationClause(lintIntegration)}): one-way imports, unit entries, ownership, relative escapes${lintGates.length ? `, ${lintGates.join(', ')}` : ''}${inspectGates.length ? `; ${inspectDiagnosisClause(inspectGates.join(', '))}` : ''}. When a gate fails, fix the structure — never \`eslint-disable\`, never relocate the violation to a sibling.`,
 
@@ -405,6 +407,24 @@ export function renderPlaybook(playbook: PlaybookSection[] | undefined): string 
     '### Working playbook (judgment rules — you are the gate)',
     '',
     ...blocks.join('\n\n').split('\n'),
+  ].join('\n');
+}
+
+export function renderLifecycle(heading: '##' | '###'): string {
+  return [
+    `${heading} Upgrading or removing Blueprint`,
+    '',
+    '- **"Upgrade Blueprint to the latest version"** — run '
+    + '`npx @kekkai/blueprint@latest upgrade --dry-run`, then '
+    + '`npx @kekkai/blueprint@latest upgrade`. '
+    + 'The running release is the only target. When it writes `blueprint-upgrade.md`, do exactly '
+    + 'those operations, record each with `npx blueprint upgrade --complete <operation-id>`, and '
+    + 're-run `npx blueprint upgrade` until it reports the upgrade complete. A bare `npm update` '
+    + 'skips migrations and verification; never apply release notes or a hand-made migration.',
+    '- **"Remove Blueprint from this project"** — run `npx blueprint remove --dry-run`, resolve '
+    + 'every conflict it lists, then run `npx blueprint remove`. It reverses only what it can '
+    + 'prove Blueprint owns and uninstalls `@kekkai/blueprint` last; never uninstall the package '
+    + 'first or delete shared files by hand, and review everything it reports as kept.',
   ].join('\n');
 }
 

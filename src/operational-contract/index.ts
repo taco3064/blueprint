@@ -49,6 +49,7 @@ export {
   renderConflictingTopology,
   renderInvalidAgent,
   renderInvalidTopology,
+  renderMissingOperationId,
   renderUnknownFlag,
   renderUnexpectedInspectPath,
 } from './cli-errors';
@@ -91,6 +92,7 @@ export {
   renderContext,
   renderHardRules,
   renderHeader as renderAgentHeader,
+  renderLifecycle as renderAgentLifecycle,
   renderModuleGrowth as renderAgentModuleGrowth,
   renderNaming as renderAgentNaming,
   renderPlacement,
@@ -294,3 +296,52 @@ export type {
 } from './runtime-messages';
 
 export { renderTransformationRecoveryGuide } from './transformation-recovery';
+export {
+  renderLifecycleRecordNote,
+  renderLifecycleRecordSkipped,
+  renderLifecycleStateInvalid,
+} from './lifecycle';
+export type { LifecycleEstablishment, LifecycleRecordSkip } from './lifecycle';
+export {
+  renderUpgradeComplete,
+  renderUpgradeCurrent,
+  renderUpgradeHandoff,
+  renderUpgradeInstallStarting,
+  renderUpgradeOperationCompleted,
+  renderUpgradePlan,
+  renderUpgradePlaybookWritten,
+  renderUpgradeReconcile,
+  renderUpgradeStateRecorded,
+  renderUpgradeVerificationPending,
+  renderUpgradeVerificationResult,
+} from './upgrade';
+export type {
+  UpgradeInstallFact,
+  UpgradePlanFact,
+  UpgradeSourceEvidence,
+  UpgradeVerificationFact,
+} from './upgrade';
+export {
+  renderUpgradeInstruction,
+  renderUpgradeVerification,
+  UPGRADE_INSTRUCTION_IDS,
+} from './upgrade-instructions';
+export { renderUpgradePlaybook } from './upgrade-playbook';
+export type { UpgradePlaybookFact, UpgradePlaybookOperationFact } from './upgrade-playbook';
+export { renderUpgradeRefusal } from './upgrade-refusals';
+export type { UpgradeRefusalFact } from './upgrade-refusals';
+export {
+  renderRemoveAction,
+  renderRemoveComplete,
+  renderRemoveEmptyDirectory,
+  renderRemovePlan,
+  renderRemoveUninstall,
+} from './remove';
+export type {
+  RemoveActionFact,
+  RemovePlanFact,
+  RemoveReasonFact,
+  RemoveResidueFact,
+} from './remove';
+export { renderRemoveConflicts, renderRemoveRefusal } from './remove-conflicts';
+export type { RemoveConflictFact, RemoveRefusalFact } from './remove-conflicts';

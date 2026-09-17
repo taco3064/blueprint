@@ -4,13 +4,15 @@ export {
   COMMAND_FILE,
   CONFIG_FILE,
   detect,
+  ESLINT_FILES,
   GENERATED_ESLINT_BANNER,
   listSourceDirs,
   quotedIn,
   readTexts,
+  VITE_FILES,
 } from './detect';
 export type { ClaudeDirState } from './detect';
-export { SUPPORTED_ESLINT_MAJORS } from './install';
+export { REQUIRED_DEPS, STACK_DEPS, SUPPORTED_ESLINT_MAJORS } from './install';
 export { describeUnreadable, parseJsonc, unreadableTsconfigs } from './jsonc';
 export type { JsoncFailure, JsoncResult, UnreadableConfig } from './jsonc';
 export {
@@ -32,7 +34,7 @@ export { assessLintEntrypoint } from './lint';
 export type { LintEntrypointAssessment } from './lint';
 export { defaultGitReader, resolveRepositoryContext } from './repository';
 export type { GitReader, GitReadResult, RepositoryContext } from './repository';
-export { resolveRepositoryBlueprints } from './blueprints';
+export { findConfigFiles, resolveRepositoryBlueprints } from './blueprints';
 export type { RepositoryBlueprint, RepositoryBlueprintOptions } from './blueprints';
 export {
   readTransformationObligation,

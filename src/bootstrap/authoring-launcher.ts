@@ -31,6 +31,7 @@ export function claudeAuthoringLauncherActions(enabled: boolean): Action[] {
         path: COMMAND_FILE,
         content: `${AGENT_PROMPT}\n`,
         note: renderAuthoringLauncherNote(COMMAND_FILE),
+        ownership: 'generated',
       }]
     : [];
 }

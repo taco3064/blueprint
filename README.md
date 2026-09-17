@@ -37,8 +37,30 @@ source gets an authoring playbook that adopts its current intent safely and ratc
 debt: a floor you can tighten later, not the recommended ceiling.
 
 The resulting valid Blueprint config becomes the repository topology authority.
-Existing Blueprint 3.2 projects and later topology changes use guarded migration
-or transformation flows; see the documentation before applying them.
+Later topology changes use guarded transformation flows; see the documentation
+before applying them.
+
+## Upgrade or remove
+
+```bash
+npx @kekkai/blueprint@latest upgrade --dry-run
+npx @kekkai/blueprint@latest upgrade
+```
+
+The running release is the upgrade target. `upgrade` resolves every release's
+upgrade operations up front, runs deterministic migrations in code, hands any
+remaining semantic work to your coding Agent as one playbook, and records the new
+lifecycle only after `inspect` and `doctor` pass. A bare `npm update` is not a
+Blueprint upgrade. Supported sources start at 3.2.
+
+```bash
+npx blueprint remove --dry-run
+npx blueprint remove
+```
+
+`remove` deletes only what Blueprint can prove it owns, reverses recorded shared-file
+edits, stops before any change when ownership is ambiguous, and uninstalls
+`@kekkai/blueprint` last. Run it before uninstalling the package.
 
 `init --dry-run` previews planned effects. Depending on the project and workflow,
 Blueprint may regenerate its own outputs, merge managed sections into shared files,

@@ -295,3 +295,139 @@ entrypoint can be identified, that check is unverified rather than a proven wiri
 For executable JavaScript alias configurations, an unrecognised expression or imported alias map
 is also unverified. Missing aliases are reported only where the static evidence establishes the
 missing or mismatched mapping; passing a build does not independently verify every alias.
+
+## `upgrade`
+
+`upgrade` moves an adopted repository to a newer Blueprint release. Run it through the release
+you want; the running package is the only target authority:
+
+```bash
+npx @kekkai/blueprint@latest upgrade --dry-run
+npx @kekkai/blueprint@latest upgrade
+npx @kekkai/blueprint@4.1.0 upgrade
+```
+
+There is no `--to` flag, and `upgrade` never downgrades. Running it with the release a repository
+already records reports that the lifecycle is current; `init` repairs generated integration and
+`doctor` verifies it.
+
+### Why `npm update` is not an upgrade
+
+Updating the dependency alone skips the parts of a Blueprint release that live in your repository:
+config migrations, regenerated outputs, semantic work that needs a person or coding Agent, and the
+final verification. `upgrade` owns the whole sequence:
+
+1. **Plan.** Read the lifecycle checkpoint in `.blueprint-lifecycle.json`. A repository adopted
+   before lifecycle state existed gets its checkpoint from provable facts only: the installed
+   `@kekkai/blueprint` version, or 3.2.0 when a Blueprint 3.2 config shape proves the adoption
+   predates 4.0. Then resolve every structured upgrade operation of every release in
+   `(source, target]` before anything runs.
+2. **Record the pending upgrade** in the lifecycle state, so an interrupted run can resume.
+3. **Move `@kekkai/blueprint`** to the running target through the detected npm, pnpm, or Yarn
+   manifest and lockfile, then continue with that installed copy so configs load the new release.
+4. **Run deterministic migrations in code** by reconciling every adopted application through
+   `blueprint init`, including the supported 3.2 → 4.0 config migration.
+5. **Hand semantic work to the coding Agent** as one resolved `blueprint-upgrade.md`, when any
+   remains. Complete each operation, then record it with
+   `npx blueprint upgrade --complete <operation-id>`. Blueprint verifies what it can measure
+   before accepting it.
+6. **Verify and record.** Re-run `npx blueprint upgrade`. It reconciles again, runs
+   `blueprint inspect --baseline` and `blueprint doctor` in every adopted application, and moves
+   the lifecycle checkpoint only when all of them pass. Run the project's own lint, typecheck,
+   test, and build as well.
+
+### Cumulative operations across releases
+
+A release may add zero or more upgrade operations. Each has a stable id, the release that
+introduced it, repository facts that decide whether it applies, a verification, and optional
+relations to earlier operations:
+
+- **Requires** orders an operation after another one.
+- **Cancels** removes an older operation that has not run in this repository from a direct jump.
+  Cancellation is not rollback: an operation that already ran stays recorded, and any cleanup of
+  its effects is a separate operation.
+- **Supersedes** replaces an older operation. The superseding operation owns the final state and
+  converges a repository that already ran the older operation as well as one that never did.
+
+A direct jump such as 3.2 → 4.1 and a sequence of smaller upgrades therefore reach the same
+supported target. The Agent never receives raw release notes or CHANGELOG entries, only the
+resolved plan.
+
+### Options
+
+- **`--dry-run`** — Print the source version and why Blueprint trusts it, the target, the adopted
+  applications and their installed versions, the install command, deterministic migrations, the
+  resolved semantic plan including removed and inapplicable operations, and the safety
+  requirement. Changes nothing.
+- **`--complete <operation-id>`** — Record one pending semantic operation after its verification
+  passes. Cannot be combined with `--dry-run`.
+
+### Boundaries
+
+- Supported sources start at 3.2.0. An older adoption must first reach 3.2.0 with that release's
+  own tooling.
+- Starting an upgrade requires a Git worktree with no uncommitted changes, so the whole upgrade can
+  be reviewed and reverted. A pending upgrade resumes regardless.
+- The lifecycle is repository-wide. Every adopted application must share one installed Blueprint
+  version, and the upgrade completes only when every adopted application verifies.
+- An unfinished authoring playbook or topology transformation must finish first.
+- If `.blueprint-lifecycle.json` is unreadable, or missing where the installed release always
+  records it, `upgrade` stops. Restore it from version control; if it was never committed, run
+  `npx blueprint init` to re-establish the checkpoint from the installed package.
+
+## `remove`
+
+`remove` de-adopts Blueprint. Run it before uninstalling the package:
+
+```bash
+npx blueprint remove --dry-run
+npx blueprint remove
+```
+
+It plans the complete cleanup first and classifies every action by the evidence that Blueprint
+owns it:
+
+- **Blueprint files** — `blueprint.config.mjs`, `.blueprint-lifecycle.json`,
+  `.blueprint-baseline.json`, config backups, unfinished authoring, transformation, and upgrade
+  artifacts, and `*.blueprint.*` merge references are deleted.
+- **Generated outputs** — the handbook, Blueprint-owned Agent rule files, and a generated ESLint
+  config are deleted while they still carry Blueprint's generated marker. Once someone removed
+  that marker, the file belongs to the project.
+- **Managed sections** — shared Agent documents such as `CLAUDE.md` and `AGENTS.md` lose only the
+  text between `<!-- BLUEPRINT:START -->` and `<!-- BLUEPRINT:END -->`. A file that held nothing
+  else is deleted.
+- **Shared-file edits** — `.gitignore` exceptions, package scripts, TypeScript or JavaScript
+  `paths`, and Vite aliases are reversed only when the lifecycle records the exact edit and the
+  current file still contains it. Alias wiring that application source still imports is kept.
+- **Folders** — layer folders Blueprint created are removed only while they hold nothing but
+  `.gitkeep`, and folders left empty by the removal are cleaned up.
+- **Dependencies** — `@kekkai/blueprint` is uninstalled last through the detected package manager.
+  ESLint packages that Blueprint recorded installing are uninstalled too unless remaining project
+  files still use them.
+
+### Conflicts stop before any change
+
+`remove` refuses the whole removal, and changes nothing, when:
+
+- a recorded shared-file edit diverged or now appears more than once;
+- managed-section markers are broken;
+- a file that stays, such as a hand-written ESLint config or a package script, still imports
+  `@kekkai/blueprint`, runs the Blueprint CLI, or loads a `blueprint.config.mjs` being deleted.
+
+Each conflict names the file and the fix. Resolve them and re-run `--dry-run`.
+
+### Scope and older adoptions
+
+Run from the repository root to remove every adopted application. Run from one application in a
+multi-application repository to de-adopt only that application: the lifecycle state keeps its
+siblings, and a package declared where siblings still resolve it is not uninstalled.
+
+Repositories adopted before lifecycle records existed have no proof of shared-file edits. `remove`
+deletes only name- or content-proven Blueprint artifacts and reports what it could not prove, such
+as alias wiring, an ESLint leg in the lint script, or ESLint packages, for you to review. When a
+lifecycle checkpoint was established only after adoption, edits made before it are handled the
+same way.
+
+The result is a repository with no proven Blueprint config, lifecycle, generated, managed, or
+dependency footprint. `remove` does not rewrite application source to make it byte-identical to
+the day before adoption.

@@ -36,9 +36,35 @@ decision from the current folder shape.
 
 Want to understand the decision or run the CLI manually? See [`init` in Commands](/commands#init).
 
+## Upgrade or remove with AI
+
+After adoption, ask your coding Agent in plain words. The Agent contract Blueprint generates routes
+both requests to Blueprint's own lifecycle commands, so the Agent does not reconstruct migrations
+from release notes or uninstall the package first.
+
+```text
+Upgrade Blueprint to the latest version.
+```
+
+The Agent runs `npx @kekkai/blueprint@latest upgrade`, completes any operations in the resolved
+`blueprint-upgrade.md` playbook, and finishes only when Blueprint verifies the upgrade. A
+repository adopted with a release older than the lifecycle commands has no such guidance in its
+Agent contract yet, so name the command the first time:
+`Upgrade Blueprint to the latest version with npx @kekkai/blueprint@latest upgrade.`
+
+```text
+Remove Blueprint from this project.
+```
+
+The Agent runs `npx blueprint remove --dry-run`, resolves any ownership conflicts it reports, then
+runs `npx blueprint remove`, which removes the package last. See
+[`upgrade`](/commands#upgrade) and [`remove`](/commands#remove) for what each command proves before
+it changes anything.
+
 ## Go deeper
 
-- [Commands](/commands) — every public command, flag, output, and refusal boundary.
+- [Commands](/commands) — every public command, flag, output, and refusal boundary, including
+  upgrade and removal.
 - [Configuration](/configuration) — the complete `blueprint.config.mjs` model.
 - [Generated Files](/generated-files) — what `init` creates or changes, who owns it, and for how long.
 - [Philosophy](/philosophy/) — the engineering principles behind the contract.
