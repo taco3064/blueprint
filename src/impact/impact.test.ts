@@ -283,6 +283,32 @@ describe('runImpact · the tally it reports', () => {
   });
 });
 
+describe('runImpact · a module-first runway', () => {
+  it('lints nothing while no glob governs a file', async () => {
+    project({ react: '^18' });
+
+    const { module, captured } = fakeEslint([
+      { filePath: at('e2e/checkout.test.js'), messages: [{ ruleId: 'import-x/no-cycle' }] },
+    ]);
+
+    const { loadModule } = loader(module);
+    let output = '';
+
+    await runImpact(root, {
+      loadConfig: async () => reactPreset({ modules: [] }),
+      loadModule,
+      json: true,
+      log: (message) => (output = message),
+    });
+
+    expect(captured.patterns).toBeUndefined();
+
+    expect(JSON.parse(output)).toEqual({
+      status: 'available', total: 0, linted: 0, impacts: [],
+    });
+  });
+});
+
 describe('runImpact · rules that are not blueprint\'s own', () => {
   it('quarantines rules that are not blueprint\'s own — isolation artifacts', async () => {
     project({ react: '^18' });
