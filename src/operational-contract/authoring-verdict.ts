@@ -204,7 +204,11 @@ export function renderVerdict(
     commands: { build: string; lint: string };
     topology: AuthoringTopology;
     claudeLauncher: boolean;
-    next: boolean;
+    /**
+     * Whether the application is Next.js. Only an explicit `false` lets a proven-empty
+     * module-first survey return the module-first runway verdict.
+     */
+    next?: boolean;
   },
 ): string {
   const { claudeDir, viteTs, tscOut, commands, topology, claudeLauncher } = facts;
@@ -225,7 +229,7 @@ export function renderVerdict(
   }
 
   if (topology === 'module-first') {
-    return survey.totalFiles === 0 && !facts.next
+    return survey.totalFiles === 0 && facts.next === false
       ? renderModuleRunwayExit(claudeDir, claudeLauncher)
       : [
           '',
