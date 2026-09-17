@@ -45,11 +45,11 @@ export function logPlannedAdoption(actions: readonly Action[], log: (line: strin
 }
 
 function readText(root: string, file: string): string | null {
-  try {
-    return fs.readFileSync(path.join(root, file), 'utf-8');
-  } catch {
-    return null;
-  }
+  const target = path.join(root, file);
+
+  return fs.statSync(target, { throwIfNoEntry: false })?.isFile()
+    ? fs.readFileSync(target, 'utf-8')
+    : null;
 }
 
 function appliedAction(action: Action, before: Map<string, string | null>): AppliedAction | null {
@@ -92,8 +92,8 @@ export function adoptionRecorder(
         applied.push(entry);
       }
 
-      if (action.kind === 'write') {
-        before.set(action.path, action.content);
+      if (entry?.kind === 'write') {
+        before.set(entry.path, entry.content);
       }
     },
     finish: (log) => {

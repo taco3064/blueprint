@@ -162,6 +162,50 @@ describe('init lifecycle recording', () => {
     expect(fs.existsSync(path.join(root, '.blueprint-lifecycle.json'))).toBe(false);
     expectLogged('Lifecycle state not recorded — the installed @kekkai/blueprint version');
   });
+});
+
+describe('adoption recorder', () => {
+  it.each([
+    [`blueprint.config.mjs.pre-v4-${'a'.repeat(64)}`, '3.2.0'],
+    [`old.blueprint.config.mjs.pre-v4-${'a'.repeat(64)}`, '4.1.0'],
+    [`blueprint.config.mjs.pre-v4-${'a'.repeat(64)}.bak`, '4.1.0'],
+  ])('dates an unrecorded adoption beside %s from %s', (backup, version) => {
+    writePkg({ name: 'demo' });
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), ADOPTED_CONFIG);
+    fs.writeFileSync(path.join(root, backup), ADOPTED_CONFIG);
+    fs.mkdirSync(path.join(root, 'node_modules/@kekkai/blueprint'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(root, 'node_modules/@kekkai/blueprint/package.json'),
+      JSON.stringify({ name: '@kekkai/blueprint', version: '4.1.0' }),
+    );
+
+    const recorder = adoptionRecorder(root, detect(root), []);
+
+    recorder.landed({ kind: 'mkdir', path: 'src/pages', note: 'x' as never });
+    recorder.finish(log);
+
+    expect(lifecycle()).toMatchObject({ blueprint: version, provenance: 'partial' });
+  });
+
+  it('diffs a later write to the same file against the earlier write', () => {
+    writePkg({ name: 'demo' });
+
+    const actions = [
+      { kind: 'write', path: 'notes.txt', content: 'one\n', note: 'x' as never },
+      { kind: 'write', path: 'notes.txt', content: 'one\ntwo\n', note: 'x' as never },
+    ] as const;
+
+    const recorder = adoptionRecorder(root, detect(root), actions);
+
+    actions.forEach((action) => recorder.landed(action));
+    recorder.finish(log);
+
+    expect(lifecycle().applications['.'].provenance).toEqual([
+      { kind: 'created', path: 'notes.txt', sha256: digest('one\n') },
+      { kind: 'edit', path: 'notes.txt', before: '', after: 'two\n' },
+    ]);
+  });
 
   it('records nothing when no action landed and ignores instructions', () => {
     writePkg({ name: 'demo' });

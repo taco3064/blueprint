@@ -22,7 +22,11 @@ function parse(value: string): ParsedVersion {
   };
 }
 
-function compareIdentifiers(left: string, right: string): number {
+function compareIdentifiers(left: string | undefined, right: string | undefined): number {
+  if (left === undefined || right === undefined) {
+    return Number(left !== undefined) - Number(right !== undefined);
+  }
+
   const leftNumeric = /^\d+$/.test(left);
   const rightNumeric = /^\d+$/.test(right);
 
@@ -34,7 +38,7 @@ function compareIdentifiers(left: string, right: string): number {
     return leftNumeric ? -1 : 1;
   }
 
-  return left < right ? -1 : left > right ? 1 : 0;
+  return Number(left > right) - Number(left < right);
 }
 
 function comparePrerelease(left: string[], right: string[]): number {
@@ -42,30 +46,21 @@ function comparePrerelease(left: string[], right: string[]): number {
     return Math.sign(right.length - left.length);
   }
 
-  for (let index = 0; index < Math.max(left.length, right.length); index++) {
-    if (left[index] === undefined || right[index] === undefined) {
-      return left[index] === undefined ? -1 : 1;
-    }
+  const length = Math.max(left.length, right.length);
 
-    const order = compareIdentifiers(left[index], right[index]);
+  const orders = Array.from({ length }, (_, position) =>
+    compareIdentifiers(left[position], right[position]));
 
-    if (order !== 0) {
-      return order;
-    }
-  }
-
-  return 0;
+  return orders.find((order) => order !== 0) ?? 0;
 }
 
 export function compareVersions(left: string, right: string): number {
   const a = parse(left);
   const b = parse(right);
 
-  for (let index = 0; index < a.core.length; index++) {
-    if (a.core[index] !== b.core[index]) {
-      return Math.sign(a.core[index] - b.core[index]);
-    }
-  }
+  const index = a.core.findIndex((part, position) => part !== b.core[position]);
 
-  return comparePrerelease(a.prerelease, b.prerelease);
+  return index === -1
+    ? comparePrerelease(a.prerelease, b.prerelease)
+    : Math.sign(a.core[index] - b.core[index]);
 }

@@ -1,5 +1,7 @@
 export { AGENT_KINDS, launchAgent, launchCommandLine } from './agent';
 export type { AgentKind, Spawner } from './agent';
+export { defaultExec } from './apply';
+export type { Exec } from './apply';
 export {
   AGENT_PROMPT,
   AUTHORING_FILE,

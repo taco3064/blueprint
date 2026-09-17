@@ -69,7 +69,7 @@ export function lifecycleRoot(cwd: string, git: GitReader = defaultGitReader): s
 
 function legacyFacts(key: string, loaded: unknown): ApplicationFacts {
   const blueprint = loaded as Blueprint & { architecture?: { module?: { private?: unknown } } };
-  const privateLayers = blueprint?.architecture?.module?.private;
+  const privateLayers = blueprint.architecture?.module?.private;
 
   return {
     root: key,
@@ -102,7 +102,7 @@ async function application(
 function gitFacts(root: string, git: GitReader): UpgradeFacts['git'] {
   const status = git(['status', '--porcelain'], root);
 
-  if (status.status !== 0 || status.error !== undefined) {
+  if (status.status !== 0) {
     return { repository: false, changes: [] };
   }
 

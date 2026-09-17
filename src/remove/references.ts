@@ -1,35 +1,29 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { parseManifest } from './documents';
 import type { RemovalFacts } from './facts';
-import type { RemovalAction, RemovalConflict } from './types';
+import type { FileAction, RemovalConflict } from './types';
 
-const CONFIG_NAME = /^(?:\.eslintrc(?:\.(?:c?js|json|ya?ml))?|[\w.-]+\.config\.[cm]?[jt]s)$/;
-const BLUEPRINT_COMMAND = /(?:^|[\s;&|(])(?:npx\s+)?(?:@kekkai\/)?blueprint(?:\s|$)/;
+export const TOOL_CONFIG = /^(?:\.eslintrc(?:\.(?:c?js|json|ya?ml))?|[\w.-]+\.config\.[cm]?[jt]s)$/;
 
-export interface PlannedFiles {
-  deleted: Set<string>;
-  written: Map<string, string>;
+const BLUEPRINT_COMMAND = /(?:^|[\s;&|(])blueprint(?:\s|$)/;
+
+export type PlannedFiles = ReadonlyMap<string, string | null>;
+
+export function plannedFiles(actions: readonly FileAction[]): PlannedFiles {
+  return new Map(actions.map((action) =>
+    [action.path, action.kind === 'write' ? action.content : null]));
 }
 
-export function plannedFiles(actions: readonly RemovalAction[]): PlannedFiles {
-  return {
-    deleted: new Set(actions.flatMap((action) => action.kind === 'delete' ? [action.path] : [])),
-    written: new Map(actions.flatMap((action) =>
-      action.kind === 'write' ? [[action.path, action.content] as const] : [])),
-  };
+export function readText(file: string): string | null {
+  return fs.statSync(file, { throwIfNoEntry: false })?.isFile()
+    ? fs.readFileSync(file, 'utf-8')
+    : null;
 }
 
 export function remainingText(root: string, file: string, planned: PlannedFiles): string | null {
-  if (planned.deleted.has(file)) {
-    return null;
-  }
-
-  try {
-    return planned.written.get(file) ?? fs.readFileSync(path.join(root, file), 'utf-8');
-  } catch {
-    return null;
-  }
+  return planned.has(file) ? planned.get(file)! : readText(path.join(root, file));
 }
 
 export function relativeDirectory(root: string, directory: string): string {
@@ -42,16 +36,9 @@ function scriptConflicts(
   planned: PlannedFiles,
 ): RemovalConflict[] {
   const file = path.posix.join(relativeDirectory(root, directory), 'package.json');
-  const text = remainingText(root, file, planned);
-  let scripts: Record<string, unknown> = {};
+  const manifest = parseManifest(remainingText(root, file, planned));
 
-  try {
-    scripts = (JSON.parse(text ?? '{}') as { scripts?: Record<string, unknown> }).scripts ?? {};
-  } catch {
-    return [];
-  }
-
-  return Object.entries(scripts)
+  return Object.entries<unknown>(manifest.scripts ?? {})
     .filter(([, command]) => typeof command === 'string'
       && (BLUEPRINT_COMMAND.test(command) || command.includes('@kekkai/blueprint')))
     .map(([name]) => ({ kind: 'reference', path: file, detail: 'script', name }));
@@ -65,7 +52,7 @@ function importConflicts(
   const { root, directory, planned } = context;
   const prefix = relativeDirectory(root, directory);
 
-  return fs.readdirSync(directory).filter((name) => CONFIG_NAME.test(name))
+  return fs.readdirSync(directory).filter((name) => TOOL_CONFIG.test(name))
     .flatMap((name): RemovalConflict[] => {
       const file = path.posix.join(prefix, name);
       const text = remainingText(root, file, planned);

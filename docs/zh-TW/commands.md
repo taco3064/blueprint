@@ -398,7 +398,8 @@ npx blueprint remove
 
 在生命週期紀錄出現之前導入的專案，沒有共用檔案修改的證明。<br>
 `remove` 只會刪除能以名稱或內容證明屬於 Blueprint 的檔案，<br>
-並把無法證明的部分回報給你檢查，例如別名接線、lint script 裡串接的 ESLint 指令，或 ESLint 套件。<br>
+並把無法證明的部分回報給你檢查，例如別名接線、lint script 裡串接的 ESLint 指令、<br>
+只剩 `.gitkeep` 的分層資料夾，或 ESLint 套件。<br>
 之後才補建生命週期檢查點的專案，在檢查點建立之前做的修改也一樣處理。
 
 移除後的專案，不再留有任何可證明屬於 Blueprint 的設定、生命週期、產出、標記區塊或相依套件痕跡。<br>

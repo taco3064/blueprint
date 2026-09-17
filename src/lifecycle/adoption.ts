@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import { textHunks } from './hunks';
-import { digest } from './provenance';
+import { digest, isRecord } from './provenance';
 import type { ProvenanceRecord } from './types';
 
 export type AppliedAction
@@ -25,11 +25,11 @@ function scripts(text: string): Record<string, string> | null {
   try {
     const parsed: unknown = JSON.parse(text);
 
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (!isRecord(parsed)) {
       return null;
     }
 
-    const value = (parsed as { scripts?: unknown }).scripts ?? {};
+    const value = parsed.scripts ?? {};
 
     return typeof value === 'object'
       ? Object.fromEntries(Object.entries(value).filter(([, entry]) => typeof entry === 'string'))

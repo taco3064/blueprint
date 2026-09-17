@@ -163,19 +163,17 @@ export function parseRemoveArgs(args: string[]): RemoveOptions {
 export function parseUpgradeArgs(args: string[]): UpgradeOptions {
   const options: UpgradeOptions = {};
 
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--dry-run') {
+  args.forEach((arg, index) => {
+    const id = args[index + 1];
+
+    if (arg === '--dry-run') {
       options.dryRun = true;
-    } else if (args[i] === '--complete') {
-      const id = args[++i];
-
-      if (id === undefined || id.startsWith('-')) {
-        throw new Error(renderMissingOperationId());
-      }
-
+    } else if (arg === '--complete' && (id === undefined || id.startsWith('-'))) {
+      throw new Error(renderMissingOperationId());
+    } else if (arg === '--complete') {
       options.complete = id;
     }
-  }
+  });
 
   return options;
 }

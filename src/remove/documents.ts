@@ -99,18 +99,14 @@ export function restoreScript(
 
 export function removeIgnoreGroup(text: string, comment: string): string | null {
   const lines = text.split(/(?<=\n)/);
-  const at = lines.findIndex((line) => line.replace(/\r?\n$/, '') === comment);
+  const at = lines.findIndex((line) => line.trimEnd() === comment);
 
   if (at === -1) {
     return null;
   }
 
-  let end = at + 1;
-
-  while (end < lines.length && lines[end].startsWith('!')) {
-    end++;
-  }
-
+  const after = lines.slice(at + 1).findIndex((line) => !line.startsWith('!'));
+  const end = after === -1 ? lines.length : at + 1 + after;
   const start = at > 0 && !lines[at - 1].trim() ? at - 1 : at;
 
   return [...lines.slice(0, start), ...lines.slice(end)].join('');

@@ -12,6 +12,7 @@ import { applicationRemoval } from './application';
 import type { RemovalFacts } from './facts';
 import { plannedFiles, referenceConflicts } from './references';
 import type {
+  FileAction,
   RemovalAction,
   RemovalConflict,
   RemovalResidue,
@@ -27,22 +28,18 @@ export interface RemovalPlan {
 }
 
 function transformationRefs(facts: RemovalFacts, git: GitReader): RemovalAction[] {
-  if (!facts.repository) {
-    return [];
-  }
-
   return facts.scope.flatMap((application) => {
     const key = application.key === '.' ? '' : application.key;
     const ref = `refs/blueprint/transformations/${createHash('sha256').update(key).digest('hex')}`;
     const listed = git(['for-each-ref', '--format=%(refname)', ref], facts.root);
 
-    return listed.status === 0 && listed.stdout.split(/\r?\n/).includes(ref)
+    return listed.stdout.split(/\r?\n/).includes(ref)
       ? [{ kind: 'ref' as const, ref, application: application.key }]
       : [];
   });
 }
 
-function lifecycleActions(facts: RemovalFacts): RemovalAction[] {
+function lifecycleActions(facts: RemovalFacts): FileAction[] {
   const playbook = fs.existsSync(path.join(facts.root, UPGRADE_PLAYBOOK_FILE))
     && !facts.remaining.length
     ? [{ kind: 'delete' as const, path: UPGRADE_PLAYBOOK_FILE, reason: 'workflow' as const }]

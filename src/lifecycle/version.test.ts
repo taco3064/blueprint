@@ -10,8 +10,8 @@ describe('lifecycle versions', () => {
   });
 
   it.each([
-    '4.1', '04.1.0', '4.1.0-', 'v4.1.0', '4.1.0+build', '', 4, null,
-  ])('rejects %s', (value) => {
+    '4.1', '04.1.0', '4.1.0-', 'v4.1.0', '4.1.0+build', '', 4, null, ['4.1.0'],
+  ])('rejects %j', (value) => {
     expect(isVersion(value)).toBe(false);
   });
 
@@ -33,6 +33,14 @@ describe('lifecycle versions', () => {
     ['4.1.0-alpha', '4.1.0-alpha.1', -1],
     ['4.1.0-alpha.1', '4.1.0-alpha', 1],
     ['4.1.0-alpha.1', '4.1.0-alpha.1', 0],
+    ['4.1.0-a1', '4.1.0-2', 1],
+    ['4.1.0-2', '4.1.0-a1', -1],
+    ['4.1.0-1a', '4.1.0-2', 1],
+    ['4.1.0-2', '4.1.0-1a', -1],
+    ['4.1.0-10', '4.1.0-11', -1],
+    ['4.1.0-11', '4.1.0-10', 1],
+    ['4.1.0-1', '4.1.0--a', -1],
+    ['4.1.0--a', '4.1.0-1', 1],
   ] as const)('compares %s with %s as %i', (left, right, order) => {
     expect(compareVersions(left, right)).toBe(order);
   });

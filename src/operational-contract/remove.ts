@@ -24,6 +24,7 @@ export type RemoveResidueFact
   = | { kind: 'required-by-source'; path: string; alias: string }
     | { kind: 'modified' | 'irreversible' | 'directory-in-use'; path: string }
     | { kind: 'unrecorded'; path: string; detail: 'alias' | 'lint-script' }
+    | { kind: 'unrecorded-folder'; path: string }
     | {
       kind: 'dependency-kept';
       name: string;
@@ -64,15 +65,10 @@ const MODES = {
   legacy: 'no lifecycle records, so only name- or content-proven Blueprint artifacts are removed',
 };
 
-export function renderRemoveAction(
-  action: RemoveActionFact,
-  mode: 'dry-run' | 'applied',
-): OperationalText {
-  const mark = mode === 'dry-run' ? 'would' : '✓';
-
+function actionLine(action: RemoveActionFact, mark: string): string {
   if (action.kind === 'ref') {
-    return operationalText(`  ${mark} delete Git ref ${action.ref} (retained transformation origin `
-      + `for \`${action.application}\`)`);
+    return `${mark} delete Git ref ${action.ref} (retained transformation origin `
+      + `for \`${action.application}\`)`;
   }
 
   const verb = action.kind === 'write'
@@ -81,7 +77,14 @@ export function renderRemoveAction(
       ? 'remove folder'
       : 'delete';
 
-  return operationalText(`  ${mark} ${verb} ${action.path} (${REASONS[action.reason]})`);
+  return `${mark} ${verb} ${action.path} (${REASONS[action.reason]})`;
+}
+
+export function renderRemoveAction(
+  action: RemoveActionFact,
+  mode: 'dry-run' | 'applied',
+): OperationalText {
+  return operationalText(actionLine(action, mode === 'dry-run' ? '  would' : '  ✓'));
 }
 
 function residueLine(residue: RemoveResidueFact): string {
@@ -95,6 +98,9 @@ function residueLine(residue: RemoveResidueFact): string {
       return `${residue.path}: a recorded Blueprint edit cannot be located for reversal`;
     case 'directory-in-use':
       return `${residue.path}: Blueprint created this folder, but it now holds project files`;
+    case 'unrecorded-folder':
+      return `${residue.path}: holds only .gitkeep, as Blueprint's layer scaffold leaves it; it `
+        + 'predates lifecycle records';
     case 'unrecorded':
       return `${residue.path}: may still carry Blueprint's ${residue.detail === 'alias'
         ? 'import-alias wiring'
@@ -118,7 +124,7 @@ export function renderRemovePlan(fact: RemovePlanFact): OperationalText {
       : ' — the whole repository'}`,
     `  Ownership evidence: ${MODES[fact.mode]}`,
     ...(fact.actions.length ? ['  Remove:'] : ['  Remove: nothing Blueprint-owned remains']),
-    ...fact.actions.map((action) => renderRemoveAction(action, 'dry-run').replace(/^ {2}would/, '    −')),
+    ...fact.actions.map((action) => actionLine(action, '    −')),
     ...(fact.residues.length ? ['  Kept for you to review:'] : []),
     ...fact.residues.map((residue) => `    · ${residueLine(residue)}`),
     ...(fact.uninstall.length

@@ -6,7 +6,7 @@ export function digest(text: string): string {
   return createHash('sha256').update(text).digest('hex');
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -35,31 +35,23 @@ export function parseProvenance(value: unknown): ProvenanceRecord[] | null {
   return valid ? value as ProvenanceRecord[] : null;
 }
 
-function sameTarget(left: ProvenanceRecord, right: ProvenanceRecord): boolean {
-  if (left.kind !== right.kind) {
-    return false;
-  }
+function target(record: ProvenanceRecord): string {
+  const { path, name } = record as { path?: string; name?: string };
 
-  if (left.kind === 'dependency') {
-    return left.name === (right as typeof left).name;
-  }
-
-  if (left.kind === 'script') {
-    const other = right as typeof left;
-
-    return left.path === other.path && left.name === other.name;
-  }
-
-  return left.path === (right as { path: string }).path;
+  return JSON.stringify([record.kind, path, name]);
 }
 
 function merged(existing: ProvenanceRecord, incoming: ProvenanceRecord): ProvenanceRecord {
-  if (existing.kind === 'section' && incoming.kind === 'section') {
-    return { ...incoming, created: existing.created || incoming.created };
+  if (existing.kind === 'section') {
+    const next = incoming as typeof existing;
+
+    return { ...next, created: existing.created || next.created };
   }
 
-  if (existing.kind === 'script' && incoming.kind === 'script') {
-    return incoming.before === existing.after ? { ...incoming, before: existing.before } : incoming;
+  if (existing.kind === 'script') {
+    const next = incoming as typeof existing;
+
+    return next.before === existing.after ? { ...next, before: existing.before } : next;
   }
 
   return existing;
@@ -84,7 +76,7 @@ export function mergeProvenance(
       continue;
     }
 
-    const index = records.findIndex((entry) => sameTarget(entry, record));
+    const index = records.findIndex((entry) => target(entry) === target(record));
 
     if (index === -1) {
       records.push(record);

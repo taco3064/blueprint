@@ -1,10 +1,27 @@
 import { describe, expect, it } from 'vitest';
 
+import { renderLifecycle } from './agent';
 import {
   renderLifecycleRecordNote,
   renderLifecycleRecordSkipped,
   renderLifecycleStateInvalid,
 } from './lifecycle';
+
+describe('agent lifecycle guidance', () => {
+  it.each(['##', '###'] as const)('maps both golden prompts to commands under %s', (heading) => {
+    const lines = renderLifecycle(heading).split('\n');
+
+    expect(lines[0]).toBe(`${heading} Upgrading or removing Blueprint`);
+
+    expect(lines[2]).toContain(
+      '- **"Upgrade Blueprint to the latest version"** — run `npx @kekkai/blueprint@latest',
+    );
+
+    expect(lines[3]).toContain(
+      '- **"Remove Blueprint from this project"** — run `npx blueprint remove --dry-run`',
+    );
+  });
+});
 
 describe('lifecycle state messages', () => {
   it('names why the lifecycle file was written for each establishment', () => {

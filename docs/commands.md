@@ -424,7 +424,8 @@ siblings, and a package declared where siblings still resolve it is not uninstal
 
 Repositories adopted before lifecycle records existed have no proof of shared-file edits. `remove`
 deletes only name- or content-proven Blueprint artifacts and reports what it could not prove, such
-as alias wiring, an ESLint leg in the lint script, or ESLint packages, for you to review. When a
+as alias wiring, an ESLint leg in the lint script, layer folders holding only `.gitkeep`, or ESLint
+packages, for you to review. When a
 lifecycle checkpoint was established only after adoption, edits made before it are handled the
 same way.
 

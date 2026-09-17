@@ -16,34 +16,28 @@ export interface ManifestOwner {
   section: 'dependencies' | 'devDependencies';
 }
 
-function readJson(file: string): Record<string, unknown> | null {
+function readJson(file: string): Record<string, unknown> {
   try {
-    const value: unknown = JSON.parse(fs.readFileSync(file, 'utf-8'));
-
-    return typeof value === 'object' && value !== null && !Array.isArray(value)
-      ? value as Record<string, unknown>
-      : null;
+    return JSON.parse(fs.readFileSync(file, 'utf-8')) ?? {};
   } catch {
-    return null;
+    return {};
   }
 }
 
-function ancestors(start: string): string[] {
-  const directories: string[] = [];
+export function ancestors(start: string): string[] {
+  const directories = [path.resolve(start)];
 
-  for (let current = path.resolve(start); ; current = path.dirname(current)) {
-    directories.push(current);
+  directories[0].split(path.sep).forEach(() => {
+    directories.push(path.dirname(directories[directories.length - 1]));
+  });
 
-    if (path.dirname(current) === current) {
-      return directories;
-    }
-  }
+  return [...new Set(directories)];
 }
 
 function packageAt(root: string): PackageLocation | null {
   const manifest = readJson(path.join(root, 'package.json'));
 
-  return manifest?.name === PACKAGE_NAME && isVersion(manifest.version)
+  return manifest.name === PACKAGE_NAME && isVersion(manifest.version)
     ? { root, version: manifest.version }
     : null;
 }
@@ -81,7 +75,7 @@ export function manifestOwner(applicationRoot: string, boundary: string): Manife
     const manifest = readJson(path.join(directory, 'package.json'));
 
     for (const section of ['devDependencies', 'dependencies'] as const) {
-      const entries = manifest?.[section];
+      const entries = manifest[section];
 
       if (typeof entries === 'object' && entries !== null && Object.hasOwn(entries, PACKAGE_NAME)) {
         return { root: directory, section };
@@ -99,7 +93,7 @@ export function manifestOwner(applicationRoot: string, boundary: string): Manife
 export function runningInstallSpec(running: PackageLocation): string {
   const modules = path.dirname(path.dirname(running.root));
   const lock = readJson(path.join(path.dirname(modules), 'package-lock.json'));
-  const packages = lock?.packages as Record<string, { resolved?: unknown }> | undefined;
+  const packages = lock.packages as Record<string, { resolved?: unknown }> | undefined;
   const resolved = packages?.[`node_modules/${PACKAGE_NAME}`]?.resolved;
 
   if (path.basename(modules) === 'node_modules'

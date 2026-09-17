@@ -17,6 +17,7 @@ describe('adoptionProvenance', () => {
       { kind: 'write', path: 'AGENTS.md', content: 'x', before: '# mine\n', ownership: 'section' },
       { kind: 'write', path: 'jsconfig.json', content: '{}\n', before: null },
       { kind: 'write', path: '.gitignore', content: 'dist\n!docs\n', before: 'dist\n' },
+      { kind: 'write', path: 'tsconfig.json', content: '{"a":2}', before: '{"a":1}' },
     ])).toEqual({
       records: [
         { kind: 'generated', path: 'docs/architecture-handbook.md' },
@@ -24,6 +25,7 @@ describe('adoptionProvenance', () => {
         { kind: 'section', path: 'AGENTS.md', created: false },
         { kind: 'created', path: 'jsconfig.json', sha256: digest('{}\n') },
         { kind: 'edit', path: '.gitignore', before: '', after: '!docs\n' },
+        { kind: 'edit', path: 'tsconfig.json', before: '1', after: '2' },
       ],
       removed: [],
     });
@@ -43,6 +45,12 @@ describe('adoptionProvenance', () => {
       },
       { kind: 'write', path: 'package.json', content: '{"name":"x"}', before: '{"name":"x"}' },
       { kind: 'write', path: 'package.json', content: '{"scripts":null}', before: '{}' },
+      {
+        kind: 'write',
+        path: 'tools/package.json',
+        content: '{"scripts":{"count":4}}',
+        before: '{"scripts":{"count":3}}',
+      },
     ]).records).toEqual([
       {
         kind: 'script',
@@ -65,10 +73,12 @@ describe('adoptionProvenance', () => {
       },
       { kind: 'write', path: 'package.json', content: '"text"', before: '{"scripts":{}}' },
       { kind: 'write', path: 'package.json', content: '{"scripts":"x"}', before: '{}' },
+      { kind: 'write', path: 'package.json', content: '{"scripts":{"a":"b"}}', before: '"text"' },
     ]).records).toEqual([
       { kind: 'edit', path: 'package.json', before: '', after: ', "lint": 1' },
       { kind: 'edit', path: 'package.json', before: '{"scripts":{}}', after: '"text"' },
       { kind: 'edit', path: 'package.json', before: '', after: '"scripts":"x"' },
+      { kind: 'edit', path: 'package.json', before: '"text"', after: '{"scripts":{"a":"b"}}' },
     ]);
   });
 

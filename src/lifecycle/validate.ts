@@ -25,7 +25,6 @@ export type CatalogProblem
     | { kind: 'conflicting-relations'; id: string; target: string }
     | { kind: 'malformed-applicability'; id: string }
     | { kind: 'malformed-verification'; id: string }
-    | { kind: 'dependency-cycle'; ids: string[] }
     | { kind: 'unresolvable-source'; source: string; problem: ResolutionProblem };
 
 const ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -44,18 +43,16 @@ export function catalogProblems(catalog: UpgradeCatalog, packageVersion: string)
     return context.problems;
   }
 
-  const entries = [...catalog.migrations, ...catalog.operations];
+  const identified = entryIdentities([...catalog.migrations, ...catalog.operations], context);
 
-  entryIdentities(entries, context);
-  entries.filter((entry) => ID.test(entry.id)).forEach((entry) => entryVersions(entry, context));
-  catalog.operations.forEach((operation) => operationShape(operation, context));
+  identified.forEach((entry) => entryVersions(entry, context));
 
-  if (!context.problems.length) {
-    requirementCycles(catalog.operations, context);
-  }
+  catalog.operations
+    .filter((operation) => identified.includes(operation))
+    .forEach((operation) => operationShape(operation, context));
 
   if (!context.problems.length) {
-    sourceResolutions(context);
+    sourceResolution(context);
   }
 
   return context.problems;
@@ -82,18 +79,22 @@ function windowValid(context: Context): boolean {
 function entryIdentities(
   entries: (DeterministicMigration | UpgradeOperation)[],
   context: Context,
-): void {
+): (DeterministicMigration | UpgradeOperation)[] {
   const seen = new Set<string>();
 
-  for (const { id } of entries) {
-    if (typeof id !== 'string' || !ID.test(id)) {
+  return entries.filter(({ id }) => {
+    const valid = typeof id === 'string' && ID.test(id);
+
+    if (!valid) {
       context.problems.push({ kind: 'invalid-id', id });
     } else if (seen.has(id)) {
       context.problems.push({ kind: 'duplicate-id', id });
     }
 
     seen.add(id);
-  }
+
+    return valid;
+  });
 }
 
 function entryVersions(entry: DeterministicMigration | UpgradeOperation, context: Context): void {
@@ -144,26 +145,21 @@ function applicabilityValid(
   applicability: UpgradeApplicability | undefined,
   scope: { introducedIn: string; context: Context },
 ): boolean {
-  switch (applicability?.kind) {
-    case 'always':
-    case 'legacy-config-shape':
-      return true;
-    case 'legacy-config-key':
-      return (LEGACY_CONFIG_KEYS as readonly string[]).includes(applicability.key);
-    case 'source-below':
-      return isVersion(applicability.version)
-        && compareVersions(applicability.version, scope.context.catalog.supportedFrom) > 0
-        && compareVersions(applicability.version, scope.introducedIn) <= 0;
-    default:
-      return false;
+  if (applicability?.kind === 'always' || applicability?.kind === 'legacy-config-shape') {
+    return true;
   }
+
+  if (applicability?.kind === 'legacy-config-key') {
+    return (LEGACY_CONFIG_KEYS as readonly string[]).includes(applicability.key);
+  }
+
+  return applicability?.kind === 'source-below'
+    && isVersion(applicability.version)
+    && compareVersions(applicability.version, scope.context.catalog.supportedFrom) > 0
+    && compareVersions(applicability.version, scope.introducedIn) <= 0;
 }
 
 function operationShape(operation: UpgradeOperation, context: Context): void {
-  if (typeof operation.id !== 'string' || !ID.test(operation.id)) {
-    return;
-  }
-
   RELATIONS.forEach((relation) => relationTargets(operation, relation, context));
   conflictingRelations(operation, context);
 
@@ -236,57 +232,24 @@ function conflictingRelations(operation: UpgradeOperation, context: Context): vo
   }
 }
 
-function requirementCycles(operations: readonly UpgradeOperation[], context: Context): void {
-  const byId = new Map(operations.map((operation) => [operation.id, operation]));
-  const state = new Map<string, 'visiting' | 'done'>();
+function sourceResolution(context: Context): void {
+  const { catalog, packageVersion } = context;
+  const source = catalog.supportedFrom;
 
-  const visit = (id: string, path: string[]): void => {
-    if (state.get(id) === 'done') {
-      return;
-    }
-
-    if (state.get(id) === 'visiting') {
-      context.problems.push({ kind: 'dependency-cycle', ids: path.slice(path.indexOf(id)) });
-
-      return;
-    }
-
-    state.set(id, 'visiting');
-    byId.get(id)!.requires.forEach((target) => visit(target, [...path, id]));
-    state.set(id, 'done');
-  };
-
-  operations.forEach((operation) => visit(operation.id, []));
-}
-
-function allApplicable(catalog: UpgradeCatalog): ApplicationFacts[] {
-  const keys = catalog.operations.flatMap((operation) =>
-    operation.applicability.kind === 'legacy-config-key' ? [operation.applicability.key] : []);
-
-  return [{
+  const facts: ApplicationFacts[] = [{
     root: '.',
     legacyShape: true,
-    legacyKeys: Object.fromEntries(keys.map((key) => [key, []])),
+    // Stryker disable next-line ArrayDeclaration: evidence lists never change a resolution.
+    legacyKeys: Object.fromEntries(LEGACY_CONFIG_KEYS.map((key) => [key, []])),
   }];
-}
 
-function sourceResolutions(context: Context): void {
-  const { catalog, packageVersion } = context;
+  const resolution = resolveUpgrade({
+    catalog, source, target: packageVersion, completed: [], facts,
+  });
 
-  const sources = [...new Set([
-    catalog.supportedFrom,
-    ...[...catalog.migrations, ...catalog.operations].map((entry) => entry.introducedIn),
-  ])].filter((source) => compareVersions(source, packageVersion) < 0);
-
-  for (const source of sources) {
-    const resolution = resolveUpgrade({
-      catalog, source, target: packageVersion, completed: [], facts: allApplicable(catalog),
-    });
-
-    if (resolution.status === 'invalid') {
-      context.problems.push(...resolution.problems.map((problem) => ({
-        kind: 'unresolvable-source' as const, source, problem,
-      })));
-    }
+  if (resolution.status === 'invalid') {
+    context.problems.push(...resolution.problems.map((problem) => ({
+      kind: 'unresolvable-source' as const, source, problem,
+    })));
   }
 }

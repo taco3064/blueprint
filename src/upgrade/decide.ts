@@ -79,24 +79,25 @@ function readinessRefusal(input: DecisionInput): UpgradeDecision | null {
 function checkpointRefusal(facts: UpgradeFacts): UpgradeDecision | null {
   const { checkpoint } = facts;
 
-  switch (checkpoint.kind) {
-    case 'invalid-state':
-      return refuse({ kind: 'invalid-state', file: LIFECYCLE_FILE, reason: checkpoint.reason });
-    case 'missing-state':
-      return refuse({
-        kind: 'missing-state', file: LIFECYCLE_FILE, installed: checkpoint.installed,
-      });
-    case 'not-installed':
-      return refuse({
-        kind: 'not-installed',
-        applications: facts.applications.filter((entry) => entry.installed === null)
-          .map((entry) => entry.key),
-      });
-    case 'mixed-installed':
-      return refuse({ kind: 'mixed-installed', versions: checkpoint.versions });
-    default:
-      return null;
+  if (checkpoint.kind === 'invalid-state') {
+    return refuse({ kind: 'invalid-state', file: LIFECYCLE_FILE, reason: checkpoint.reason });
   }
+
+  if (checkpoint.kind === 'missing-state') {
+    return refuse({ kind: 'missing-state', file: LIFECYCLE_FILE, installed: checkpoint.installed });
+  }
+
+  if (checkpoint.kind === 'not-installed') {
+    return refuse({
+      kind: 'not-installed',
+      applications: facts.applications.filter((entry) => entry.installed === null)
+        .map((entry) => entry.key),
+    });
+  }
+
+  return checkpoint.kind === 'mixed-installed'
+    ? refuse({ kind: 'mixed-installed', versions: checkpoint.versions })
+    : null;
 }
 
 export function decideUpgrade(input: DecisionInput): UpgradeDecision {
@@ -137,7 +138,10 @@ function plannedUpgrade(input: DecisionInput, target: string): UpgradeDecision {
   }
 
   const source = pending?.from ?? checkpoint.version;
-  const completed = [...state.operations, ...pending?.completed ?? []];
+
+  const completed = pending === null
+    ? state.operations
+    : [...state.operations, ...pending.completed];
 
   const resolution = resolveUpgrade({
     catalog: input.catalog,

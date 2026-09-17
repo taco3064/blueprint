@@ -65,15 +65,23 @@ describe('catalogProblems · window and identity', () => {
       .toEqual([
         { kind: 'window-beyond-package', supportedFrom: '2.0.1', packageVersion: '2.0.0' },
       ]);
+
+    expect(problems([], { supportedFrom: '2.0.0' })).toEqual([]);
   });
 
   it('rejects malformed and duplicate ids across migrations and operations', () => {
-    expect(problems([op('Bad_Id', '1.1.0'), op('shared', '1.1.0')], {
+    expect(problems([op('Bad_Id', '1.1.0'), op('shared', '1.1.0'), op('bad_id', '1.1.0')], {
       migrations: [migration('shared')],
     })).toEqual([
       { kind: 'invalid-id', id: 'Bad_Id' },
       { kind: 'duplicate-id', id: 'shared' },
+      { kind: 'invalid-id', id: 'bad_id' },
     ]);
+  });
+
+  it('checks nothing else about an entry whose id is not a string', () => {
+    expect(problems([op(42 as never, '9.9.9', { requires: ['missing'] })]))
+      .toEqual([{ kind: 'invalid-id', id: 42 }]);
   });
 
   it('rejects an entry whose release is malformed, future, or outside the window', () => {
@@ -111,6 +119,7 @@ describe('catalogProblems · applicability and verification', () => {
   it.each([
     undefined,
     { kind: 'unknown' },
+    { kind: 'unknown', version: '1.0.5' },
     { kind: 'legacy-config-key', key: 'architecture.alias' },
     { kind: 'source-below', version: 'soon' },
     { kind: 'source-below', version: '1.0.0' },
@@ -148,12 +157,17 @@ describe('catalogProblems · applicability and verification', () => {
 describe('catalogProblems · relations', () => {
   it('rejects unknown, self, and non-list references', () => {
     expect(problems([
-      op('a', '1.1.0', { requires: ['missing'], cancels: ['a'], supersedes: 'b' }),
+      op('a', '1.1.0', { requires: ['missing'], cancels: ['a'], supersedes: 'bb' }),
     ], { migrations: [migration('migration')] })).toEqual([
       { kind: 'unknown-reference', id: 'a', relation: 'requires', target: 'missing' },
       { kind: 'unknown-reference', id: 'a', relation: 'cancels', target: 'a' },
-      { kind: 'unknown-reference', id: 'a', relation: 'supersedes', target: 'b' },
+      { kind: 'unknown-reference', id: 'a', relation: 'supersedes', target: 'bb' },
     ]);
+  });
+
+  it('does not count a non-list relation as naming its target twice', () => {
+    expect(problems([op('a', '1.1.0'), op('b', '1.2.0', { requires: ['a'], supersedes: 'a' })]))
+      .toEqual([{ kind: 'unknown-reference', id: 'b', relation: 'supersedes', target: 'a' }]);
   });
 
   it('rejects a migration used as an operation reference', () => {
@@ -192,17 +206,21 @@ describe('catalogProblems · relations', () => {
   });
 
   it('skips relation checks for an operation whose id is already invalid', () => {
-    expect(problems([op('Bad', '1.1.0', { requires: ['missing'] })]))
+    expect(problems([op('Bad', '9.9.9', { requires: ['missing'] })]))
       .toEqual([{ kind: 'invalid-id', id: 'Bad' }]);
   });
 
-  it('rejects a requirement cycle', () => {
+  it('rejects a requirement cycle as a source the catalog cannot order', () => {
     expect(problems([
       op('a', '1.1.0', { requires: ['b'] }),
       op('b', '1.1.0', { requires: ['c'] }),
       op('c', '1.1.0', { requires: ['a'] }),
       op('d', '1.1.0', { requires: ['a'] }),
-    ])).toEqual([{ kind: 'dependency-cycle', ids: ['a', 'b', 'c'] }]);
+    ])).toEqual([{
+      kind: 'unresolvable-source',
+      source: '1.0.0',
+      problem: { kind: 'dependency-cycle', ids: ['a', 'b', 'c', 'd'] },
+    }]);
   });
 
   it('rejects a catalog that cannot resolve from a supported source', () => {

@@ -45,6 +45,7 @@ export type RemovalResidue
     | { kind: 'irreversible'; path: string }
     | { kind: 'directory-in-use'; path: string }
     | { kind: 'unrecorded'; path: string; detail: 'alias' | 'lint-script' }
+    | { kind: 'unrecorded-folder'; path: string }
     | {
       kind: 'dependency-kept';
       name: string;
@@ -62,8 +63,10 @@ export interface UninstallStep {
 
 export type FileAction = Exclude<RemovalAction, { kind: 'ref' }>;
 
+export type FileResidue = Exclude<RemovalResidue, { kind: 'dependency-kept' }>;
+
 export interface ApplicationRemoval {
   actions: FileAction[];
   conflicts: RemovalConflict[];
-  residues: RemovalResidue[];
+  residues: FileResidue[];
 }

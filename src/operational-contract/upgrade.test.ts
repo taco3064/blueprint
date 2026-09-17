@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  renderUpgradeHandoff,
+  renderUpgradeInstallStarting,
   renderUpgradeOperationCompleted,
   renderUpgradePlan,
+  renderUpgradeReconcile,
+  renderUpgradeStateRecorded,
+  renderUpgradeVerificationPending,
   renderUpgradeVerificationResult,
 } from './upgrade';
 import type { UpgradePlanFact } from './upgrade';
@@ -61,9 +66,47 @@ describe('upgrade plan report', () => {
     expect(text).toContain('Deterministic migrations: none beyond regenerating Blueprint outputs');
     expect(text).toContain('1. a (4.0.0) → `.`, `apps/web` — already completed; not repeated');
   });
+
+  it('numbers operations and ends a dry run with the next step', () => {
+    expect(renderUpgradePlan({
+      ...plan,
+      dryRun: true,
+      operations: [
+        { id: 'a', introducedIn: '4.0.0', applications: ['.'], completed: false },
+        { id: 'b', introducedIn: '4.1.0', applications: ['.'], completed: false },
+      ],
+    }).split('\n').slice(-5)).toEqual([
+      '  Semantic operations for the coding Agent, resolved across (3.2.0, 4.1.0]:',
+      '    1. a (4.0.0) → `.`',
+      '    2. b (4.1.0) → `.`',
+      '  Safety: resuming the recorded pending upgrade; uncommitted upgrade work is expected',
+      '  Next: re-run without --dry-run to apply this plan.',
+    ]);
+  });
 });
 
 describe('upgrade progress messages', () => {
+  it('narrates each step of an upgrade run', () => {
+    expect([
+      renderUpgradeStateRecorded('.blueprint-lifecycle.json', '3.2.0', '4.1.0'),
+      renderUpgradeInstallStarting('npm install -D x', '.'),
+      renderUpgradeHandoff('4.1.0'),
+      renderUpgradeReconcile('apps/web'),
+      renderUpgradeVerificationPending(),
+    ]).toEqual([
+      '  ✓ write: .blueprint-lifecycle.json (pending upgrade 3.2.0 → 4.1.0 recorded before any '
+      + 'other change; if this run is interrupted, re-run `blueprint upgrade` to resume)',
+      '  → install: `npm install -D x` in `.` — moving the project dependency to the running '
+      + 'target',
+      '  → continuing with the project-installed @kekkai/blueprint 4.1.0, so every config load and '
+      + 'generated output uses the upgraded package',
+      'Reconciling `apps/web` through `blueprint init` (deterministic migrations and generated '
+      + 'outputs):',
+      'Upgrade pending — verification did not pass. Fix what is listed above, then re-run '
+      + '`npx blueprint upgrade`; the lifecycle checkpoint stays where it was.',
+    ]);
+  });
+
   it('counts what remains after recording an operation', () => {
     expect(renderUpgradeOperationCompleted('a', 2))
       .toBe('  ✓ operation a recorded as complete — 2 semantic operation(s) remain');
@@ -124,6 +167,29 @@ describe('upgrade instructions and playbook', () => {
 
     expect(playbook).toContain('Replaces `seed`, which already ran in this repository: '
       + 'converge from its result');
+  });
+
+  it('numbers every operation section and names each deterministic migration', () => {
+    const operation = {
+      introducedIn: '4.0.0',
+      applications: ['.'],
+      evidence: {},
+      supersedes: [],
+      completed: true,
+      instruction: 'Do it.' as never,
+      verification: { kind: 'confirm' as const },
+    };
+
+    const playbook = renderUpgradePlaybook({
+      source: '3.2.0',
+      target: '4.1.0',
+      migrations: ['one', 'two'],
+      operations: [{ ...operation, id: 'first' }, { ...operation, id: 'second' }],
+    });
+
+    expect(playbook).toContain('- Deterministic migrations: `one`, `two`.');
+    expect(playbook).toContain('### 1. `first` — introduced in 4.0.0 — done — do not repeat');
+    expect(playbook).toContain('### 2. `second` — introduced in 4.0.0 — done — do not repeat');
   });
 });
 

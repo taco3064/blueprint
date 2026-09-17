@@ -8,6 +8,7 @@ export type { SourceCheckpoint, SourceCheckpointInput } from './checkpoint';
 export { occurrences, textHunks } from './hunks';
 export type { TextHunk } from './hunks';
 export {
+  ancestors,
   installedPackage,
   manifestOwner,
   PACKAGE_NAME,

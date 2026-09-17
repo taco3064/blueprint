@@ -1,3 +1,5 @@
+import { defaultExec } from '../bootstrap';
+import type { Exec } from '../bootstrap';
 import {
   installedPackage,
   LIFECYCLE_FILE,
@@ -31,11 +33,10 @@ import type { UpgradeProceed } from './decide';
 import {
   defaultHandoff,
   defaultReconciler,
-  defaultRunner,
   verificationPassed,
   verifyApplication,
 } from './effects';
-import type { ApplicationVerifier, CommandRunner, Handoff, Reconciler } from './effects';
+import type { ApplicationVerifier, Handoff, Reconciler } from './effects';
 import { gatherUpgradeFacts } from './facts';
 import type { ConfigLoader, UpgradeFacts } from './facts';
 import {
@@ -55,7 +56,7 @@ export interface UpgradeOptions {
   running?: PackageLocation | null;
   catalog?: UpgradeCatalog;
   instruction?: InstructionLookup;
-  exec?: CommandRunner;
+  exec?: Exec;
   handoff?: Handoff;
   reconcile?: Reconciler;
   verify?: ApplicationVerifier;
@@ -66,7 +67,7 @@ interface Context {
   log: (line: string) => void;
   catalog: UpgradeCatalog;
   instruction: InstructionLookup;
-  exec: CommandRunner;
+  exec: Exec;
   handoff: Handoff;
   reconcile: Reconciler;
   verify: ApplicationVerifier;
@@ -86,7 +87,7 @@ export async function runUpgrade(cwd: string, options: UpgradeOptions = {}): Pro
     log: options.log ?? ((line) => console.log(line)),
     catalog: options.catalog ?? UPGRADE_CATALOG,
     instruction: options.instruction ?? renderUpgradeInstruction,
-    exec: options.exec ?? defaultRunner,
+    exec: options.exec ?? defaultExec,
     handoff: options.handoff ?? defaultHandoff,
     reconcile: options.reconcile ?? defaultReconciler,
     verify: options.verify ?? verifyApplication,
@@ -269,12 +270,14 @@ function recordCompletion(root: string, decision: UpgradeProceed): void {
 }
 
 function completeOperation(facts: UpgradeFacts, context: Context, id: string): number {
-  if (facts.state.status === 'invalid') {
-    throw refusal({ kind: 'invalid-state', file: LIFECYCLE_FILE, reason: facts.state.reason });
+  if (facts.state.status !== 'present') {
+    throw refusal(facts.state.status === 'invalid'
+      ? { kind: 'invalid-state', file: LIFECYCLE_FILE, reason: facts.state.reason }
+      : { kind: 'no-pending', id });
   }
 
-  const state = facts.state.status === 'present' ? facts.state.state : null;
-  const pending = state?.pending ?? null;
+  const { state } = facts.state;
+  const { pending } = state;
   const problem = completionRefusal({ root: facts.root, catalog: context.catalog, pending }, id);
 
   if (problem !== null) {
@@ -283,7 +286,7 @@ function completeOperation(facts: UpgradeFacts, context: Context, id: string): n
 
   const next = { ...pending!, completed: [...pending!.completed, id] };
 
-  writeLifecycleState(facts.root, { ...state!, pending: next });
+  writeLifecycleState(facts.root, { ...state, pending: next });
   writePlaybook(facts.root, { ...context, pending: next });
   context.log(renderUpgradeOperationCompleted(id, remainingOperations(next).length));
 

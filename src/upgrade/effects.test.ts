@@ -1,9 +1,15 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { defaultReconciler, verificationPassed, verifyApplication } from './effects';
+import { runInspect } from '../inspect';
+import {
+  defaultHandoff,
+  defaultReconciler,
+  verificationPassed,
+  verifyApplication,
+} from './effects';
 
 let root: string;
 
@@ -12,6 +18,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   fs.rmSync(root, { recursive: true, force: true });
 });
 
@@ -56,6 +63,61 @@ describe('upgrade effects', () => {
     expect(result.doctor.verdict).toBe('incomplete');
     expect(result.doctor.failed).toEqual(['eslint wired to emitLint']);
     expect(verificationPassed(result)).toBe(false);
+  });
+
+  it('gates inspect on the recorded baseline, lists doctor skips, and prints nothing', async () => {
+    adopt();
+    fs.mkdirSync(path.join(root, 'src/components'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(root, 'src/components/Button.ts'),
+      'import { x } from \'../../outside\';\nexport const y = x;\n',
+    );
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const before = await verifyApplication(root, '.');
+
+    await runInspect(root, { updateBaseline: true, log: () => {} });
+
+    const after = await verifyApplication(root, '.');
+
+    expect(log).not.toHaveBeenCalled();
+    expect(before.inspect).toEqual({ ok: false, findings: 1 });
+
+    expect(after).toEqual({
+      application: '.',
+      inspect: { ok: true, findings: 0 },
+      doctor: {
+        verdict: 'incomplete',
+        failed: ['eslint wired to emitLint'],
+        skipped: [
+          'normal lint entrypoint reaches eslint',
+          'reachable eslint leg passes live (skipped — no reachable eslint leg)',
+          'emitted rules survive the eslint config (skipped — eslint not wired)',
+        ],
+      },
+    });
+  });
+
+  it('hands off to the installed bin with the upgrade command in the project', () => {
+    const installed = path.join(root, 'node_modules/@kekkai/blueprint');
+    const cwd = JSON.stringify(fs.realpathSync(root));
+    const script = `process.exit(process.argv[2] === 'upgrade' && process.cwd() === ${cwd} ? 0 : 3);\n`;
+
+    fs.mkdirSync(path.join(installed, 'dist'), { recursive: true });
+    fs.writeFileSync(path.join(installed, 'dist/bin.js'), script);
+    fs.writeFileSync(path.join(installed, 'dist/fail.js'), 'process.exit(5);\n');
+
+    for (const bin of ['dist/bin.js', { blueprint: 'dist/bin.js' }]) {
+      fs.writeFileSync(path.join(installed, 'package.json'), JSON.stringify({ bin }));
+
+      expect(defaultHandoff({ root: installed, version: '4.1.0' }, root)).toBe(0);
+    }
+
+    fs.writeFileSync(path.join(installed, 'package.json'), JSON.stringify({ bin: 'dist/fail.js' }));
+
+    expect(defaultHandoff({ root: installed, version: '4.1.0' }, root)).toBe(1);
   });
 
   it('passes only when inspect passes and doctor is complete', () => {

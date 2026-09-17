@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { digest } from '../lifecycle';
 import type { ProvenanceRecord } from '../lifecycle';
+import { renderAgentHeader } from '../operational-contract';
+import { GENERATED_ESLINT_BANNER } from '../project';
 import { recordedRemoval } from './recorded';
+import { carriesBlueprintSignature, HANDBOOK_MARK } from './signatures';
 
 let root: string;
 
@@ -27,6 +30,16 @@ type AliasProbe = (file: string) => string | null;
 function removal(records: ProvenanceRecord[], aliasInUse: AliasProbe = () => null) {
   return recordedRemoval({ root, prefix: 'apps/web', records, aliasInUse });
 }
+
+describe('carriesBlueprintSignature', () => {
+  it('recognizes each generated signature only where Blueprint writes it', () => {
+    expect(carriesBlueprintSignature(`${GENERATED_ESLINT_BANNER}\nexport default [];\n`)).toBe(true);
+    expect(carriesBlueprintSignature(`# Handbook\n\n${HANDBOOK_MARK}\n`)).toBe(true);
+    expect(carriesBlueprintSignature(`---\n---\n${renderAgentHeader()}\n`)).toBe(true);
+    expect(carriesBlueprintSignature(`export default [];\n${GENERATED_ESLINT_BANNER}`)).toBe(false);
+    expect(carriesBlueprintSignature('# Written by hand\n')).toBe(false);
+  });
+});
 
 describe('recordedRemoval', () => {
   it('ignores records whose files are already gone', () => {
@@ -70,6 +83,76 @@ describe('recordedRemoval', () => {
       conflicts: [],
       residues: [{ kind: 'irreversible', path: 'apps/web/.gitignore' }],
     });
+  });
+
+  it('deletes unchanged or signed files and reports changed or unsigned ones', () => {
+    write('eslint.config.mjs', `${GENERATED_ESLINT_BANNER}\nexport default [];\n`);
+    write('docs/handbook.md', '# Rewritten by the team\n');
+    write('jsconfig.json', '{}\n');
+    write('vite.config.ts', 'export default { changed: true };\n');
+
+    expect(removal([
+      { kind: 'generated', path: 'eslint.config.mjs' },
+      { kind: 'generated', path: 'docs/handbook.md' },
+      { kind: 'created', path: 'jsconfig.json', sha256: digest('{}\n') },
+      { kind: 'created', path: 'vite.config.ts', sha256: digest('export default {};\n') },
+    ])).toEqual({
+      actions: [
+        { kind: 'delete', path: 'apps/web/eslint.config.mjs', reason: 'generated' },
+        { kind: 'delete', path: 'apps/web/jsconfig.json', reason: 'created' },
+      ],
+      conflicts: [],
+      residues: [
+        { kind: 'modified', path: 'apps/web/docs/handbook.md' },
+        { kind: 'modified', path: 'apps/web/vite.config.ts' },
+      ],
+    });
+  });
+});
+
+describe('recordedRemoval · shared-file reversal', () => {
+  it('reverses later edits first so an edit of Blueprint\'s own insertion unwinds fully', () => {
+    write('.gitignore', 'dist\n!docs/b.md\n');
+
+    expect(removal([
+      { kind: 'edit', path: '.gitignore', before: '', after: '!docs/a.md\n' },
+      { kind: 'edit', path: '.gitignore', before: 'a', after: 'b' },
+    ]).actions).toEqual([
+      { kind: 'write', path: 'apps/web/.gitignore', content: 'dist\n', reason: 'edit' },
+    ]);
+  });
+
+  it('restores every recorded script in a manifest and reports ones it cannot restore', () => {
+    write('package.json', JSON.stringify({
+      scripts: { lint: 'eslint src', test: 'vitest', build: 'tsc && vite' },
+    }));
+
+    expect(removal([
+      { kind: 'script', path: 'package.json', name: 'lint', before: null, after: 'eslint src' },
+      { kind: 'script', path: 'package.json', name: 'test', before: 'jest', after: 'jest --ci' },
+      { kind: 'script', path: 'package.json', name: 'build', before: 'vite', after: 'tsc && vite' },
+    ])).toEqual({
+      actions: [{
+        kind: 'write',
+        path: 'apps/web/package.json',
+        content: '{\n  "scripts": {\n    "test": "vitest",\n    "build": "vite"\n  }\n}\n',
+        reason: 'script',
+      }],
+      conflicts: [{
+        kind: 'diverged-script',
+        path: 'apps/web/package.json',
+        name: 'test',
+        expected: 'jest --ci',
+        current: 'vitest',
+      }],
+      residues: [],
+    });
+
+    write('package.json', '{ broken');
+
+    expect(removal([
+      { kind: 'script', path: 'package.json', name: 'lint', before: null, after: 'eslint src' },
+    ]).conflicts).toEqual([{ kind: 'unreadable-manifest', path: 'apps/web/package.json' }]);
   });
 
   it('writes nothing when every recorded edit was already reversed by hand', () => {
