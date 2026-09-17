@@ -43,14 +43,17 @@ describe('observePristineScaffold', () => {
     }
   });
 
-  it('recognizes a pristine Next scaffold as layer-first', () => {
+  it('recognizes a pristine Next scaffold as layer-first with and without a name', () => {
     const next = { router: 'app' as const, srcDir: false };
-    const root = project(buildNextConfigSource(next, 'shop'), { react: '^19', next: '^15' });
 
-    fs.mkdirSync(path.join(root, 'app'));
-    fs.writeFileSync(path.join(root, 'app/page.tsx'), 'export default () => null;\n');
+    for (const name of ['shop', undefined]) {
+      const root = project(buildNextConfigSource(next, name), { react: '^19', next: '^15' });
 
-    expect(observePristineScaffold(root, detect(root))).toBe('layer-first');
+      fs.mkdirSync(path.join(root, 'app'));
+      fs.writeFileSync(path.join(root, 'app/page.tsx'), 'export default () => null;\n');
+
+      expect(observePristineScaffold(root, detect(root))).toBe('layer-first');
+    }
   });
 
   it('treats any edited config as authored', () => {

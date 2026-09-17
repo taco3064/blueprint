@@ -664,6 +664,37 @@ await check('built init accepts both explicit topologies on empty fixtures', () 
   expect(!module.output.includes('Prefer a preset scaffold'), 'module path recommends a preset');
   expect(!module.output.includes('init --preset --topology layer-first'), 'module path recommends LF');
   expect(fs.existsSync(path.join(layerFirst, 'blueprint.config.mjs')), 'layer config missing');
+  expect(!fs.existsSync(path.join(moduleFirst, 'blueprint-authoring.md')), 'module runway wrote a playbook');
+  expect(!fs.existsSync(path.join(moduleFirst, 'src')), 'module runway invented a module folder');
+
+  const config = fs.readFileSync(path.join(moduleFirst, 'blueprint.config.mjs'), 'utf-8');
+
+  expect(
+    config.includes('reactPreset({ name: \'fixture\', modules: [] })'),
+    `module runway is not the canonical preset with no module\n${config}`,
+  );
+
+  const handbook = fs.readFileSync(path.join(moduleFirst, 'docs/architecture-handbook.md'), 'utf-8');
+
+  expect(handbook.includes('## Module growth protocol'), 'module runway handbook omits the growth protocol');
+
+  return 'layer scaffold + module runway';
+});
+
+await check('built init authors module-first over existing source', () => {
+  const moduleFirst = tempDir('bp-dist-topology-brownfield-');
+
+  writeReactFixture(moduleFirst);
+  fs.mkdirSync(path.join(moduleFirst, 'src/checkout/hooks'), { recursive: true });
+  fs.writeFileSync(path.join(moduleFirst, 'src/checkout/hooks/cart.ts'), 'export const cart = 1;\n');
+
+  const module = runCmd(
+    process.execPath,
+    [binPath, 'init', '--topology', 'module-first', '--no-install'],
+    { cwd: moduleFirst },
+  );
+
+  expect(module.code === 0, `module-first exited ${module.code}\n${module.output}`);
   expect(fs.existsSync(path.join(moduleFirst, 'blueprint-authoring.md')), 'module playbook missing');
   expect(!fs.existsSync(path.join(moduleFirst, 'blueprint.config.mjs')), 'module path guessed a config');
 
@@ -672,8 +703,8 @@ await check('built init accepts both explicit topologies on empty fixtures', () 
   expect(playbook.includes('module-first was selected'), 'module target was lost in authoring');
 
   expect(
-    playbook.includes('ordinary top-level folders below `sourceRoot` as module'),
-    'module method does not classify top-level folders as module candidates',
+    !playbook.includes('ordinary top-level folders below `sourceRoot` as module'),
+    'module method still classifies top-level folders as module candidates',
   );
 
   expect(
@@ -681,7 +712,7 @@ await check('built init accepts both explicit topologies on empty fixtures', () 
     'module method does not derive repeated inner layers',
   );
 
-  expect(playbook.includes('Infer direct `dependsOn` edges'), 'module dependencies are omitted');
+  expect(playbook.includes('Derive direct `dependsOn` edges'), 'module dependencies are omitted');
   expect(playbook.includes('module + inner-layer structure'), 'module report contract is omitted');
 
   expect(
@@ -713,7 +744,7 @@ await check('built init accepts both explicit topologies on empty fixtures', () 
     'module schema leaves app outside the governed module set',
   );
 
-  return 'layer scaffold + module authoring';
+  return 'module authoring playbook';
 });
 
 await check('built init rejects malformed topology flags before every write', () => {
