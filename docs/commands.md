@@ -16,10 +16,11 @@ can consume them without parsing prose.
 `init` adopts Blueprint, repairs generated integration, or starts a guarded topology
 transformation. It chooses one of three paths from repository evidence and the explicit target:
 
-1. **Scaffold or repair** to create a small/fresh layer-first preset or refresh generated
-   integration from an existing valid config.
-2. **Authoring playbook** for an existing project without a valid config, or for any first
-   module-first adoption.
+1. **Scaffold or repair** to create the framework preset for a proven-empty application (as
+   layer-first, or as an empty module-first runway), a small layer-first preset, or to refresh
+   generated integration from an existing valid config.
+2. **Authoring playbook** for existing source without a valid config, including module-first
+   adoption of existing source.
 3. **Transformation playbook** when existing valid configs establish the opposite repository
    topology.
 
@@ -38,9 +39,9 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 
 ### Options
 
-- **`--topology layer-first|module-first`** — Required for first repository adoption. On an adopted repository, the same target repairs the current topology; the opposite target starts a repository-wide transformation.
-- **`--preset`** — Skip authoring and use the detected Vue, React, or Next preset. This is a layer-first adoption method and is rejected for module-first repositories and applications that already have an authored config.
-- **`--authoring`** — Force the authoring playbook even below the 10-source-file brownfield threshold. It cannot be combined with `--preset`.
+- **`--topology layer-first|module-first`** — Required for first repository adoption. On a proven-empty React or Vue application, `module-first` scaffolds the preset as an empty runway; with existing source it writes the authoring playbook. On an adopted repository, the same target repairs the current topology; the opposite target starts a repository-wide transformation.
+- **`--preset`** — Skip authoring and use the detected Vue, React, or Next preset. This is a layer-first adoption method and is rejected for module-first targets and repositories, and for applications that already have an authored config. A proven-empty module-first application needs no flag: `--topology module-first` alone opens the runway.
+- **`--authoring`** — Force the authoring playbook even below the 10-source-file brownfield threshold, or on a proven-empty module-first application, where the playbook's verdict points back to the runway. It cannot be combined with `--preset`.
 - **`--agent claude|codex`** — On authoring or transformation paths, launch that local Agent CLI after the playbook is safely written. On a preset path, launch nothing and select only the matching emitted Agent contract.
 - **`--framework vue|react`** — Resolve an ambiguous framework. Vue and React are otherwise detected; Next.js uses its router-aware preset.
 - **`--no-install`** — Do not run the detected package manager. The plan tells you which install remains.
@@ -51,7 +52,7 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 
 A completed scaffold can create `blueprint.config.mjs`, a Blueprint-owned ESLint config or a
 reference config, the configured handbook, selected Agent contracts, and missing layer folders for
-a fresh layer-first preset. It may also update alias wiring, the normal `lint` script, `.gitignore`,
+a fresh layer-first preset; a module-first runway creates no module folder. It may also update alias wiring, the normal `lint` script, `.gitignore`,
 and dependency manifests through the detected package manager. The exact inventory and ownership
 rules are in [Generated Files](/generated-files).
 
@@ -65,7 +66,8 @@ owns. Re-running `init` is designed to be idempotent.
   to one topology.
 - An unresolved multi-application scope stops before writes. Select an application source root
   during authoring instead of letting Blueprint guess.
-- Layer-first presets may be scaffolded; module-first always requires an authored module map.
+- Blueprint never invents domain modules. A proven-empty React or Vue application can start
+  module-first from the preset's empty runway; existing source requires an authored module map.
 - Transformations require a Git repository, a clean worktree, and a recoverable committed `HEAD`.
   The playbook records measured moves, but the Agent decides domain names, placement, collisions,
   and import rewrites and performs them with `git mv`.
@@ -76,6 +78,70 @@ owns. Re-running `init` is designed to be idempotent.
 
 A refused or failed operation exits non-zero. If an explicitly requested Agent launch fails, the
 playbook and prior artifacts are already on disk so the manual path remains recoverable.
+
+### Greenfield and brownfield posture
+
+First adoption treats an empty application differently from an existing one. The measured source
+decides, not a flag.
+
+- **Greenfield (proven-empty)** — the survey counts 0 source files in a React or Vue application.
+  `init` scaffolds the framework preset's complete canonical governance: layer responsibilities,
+  framework ownership, naming, principles, component-shape axes, playbook, and rule tiers.
+  - `--topology layer-first` writes `reactPreset()` or `vuePreset()`.
+  - `--topology module-first` writes the same preset with `modules: []`. The runway declares the
+    topology and applies the same governance, but creates no module folder and invents no domain
+    module — no `shared`, `core`, `app`, or anything else. A module root takes the container
+    position, the repeated inner layers keep their framework responsibilities, and route
+    composition belongs to the reserved `app` module once routes exist.
+- **Brownfield (existing source)** — `init` writes the authoring playbook. The Agent translates the
+  repository's own intent and thresholds, measures impact, and records understood pre-existing
+  debt in a baseline. It does not switch on optional gates the repository never held.
+
+Layer-first also scaffolds the preset below the 10-source-file brownfield threshold. A brownfield
+config is truthful, safe adoption: a floor, not Blueprint's recommended ceiling.
+
+### Growing a module-first runway
+
+Generated handbooks and Agent contracts for a module-first config carry a **module growth
+protocol**. When owner-requested product work needs a boundary no declared module owns, the Agent
+first reasons through a temporary layer-first projection: route/page composition, then the
+container/use-case responsibilities it composes, then the units each responsibility needs. It
+treats those responsibilities as module seeds, merges related seeds, splits only independent ones,
+and keeps domain-owned code with its owner. Only then does it materialize `Module → Layer → Unit`
+and derive `dependsOn` from the real imports. It never creates one module per screen, hook,
+service, entity, or request noun, and never a catch-all `shared` module.
+
+The projection is analysis only. It never describes the repository as layer-first, never writes a
+layer-first config, and never starts a topology transformation.
+
+### Tightening a brownfield config
+
+Raising a brownfield config toward the canonical preset is the owner's decision, made after
+adoption. Measure before changing anything, restore stronger contracts one step at a time, and
+record only debt that existed before each step. Never lower the target to reach green.
+
+When you decide to tighten, give this prompt to your coding Agent:
+
+```text
+Tighten this repository's Blueprint governance toward the canonical <React|Vue> preset.
+
+1. Compare blueprint.config.mjs with the canonical preset. Run `npx blueprint rules --json`
+   for the gates the config declares, read the preset's layers, ownership, naming, principles,
+   and rule tiers in the Blueprint configuration docs, and list every difference.
+2. Measure before changing anything: run `npx blueprint inspect --json` and
+   `npx blueprint impact --json`, and keep both outputs as the starting evidence.
+3. Restore one stronger contract at a time: a layer responsibility, an ownership rule, or a rule
+   tier. After each step, run `npx blueprint init`, `npx blueprint impact --json`, and
+   `npx blueprint inspect --json`, and classify every new result as pre-existing debt the step
+   exposed or a regression.
+4. Fix regressions. Only then record the understood pre-existing debt with
+   `npx blueprint inspect --update-baseline`.
+5. Never lower a target rule, threshold, or boundary merely to reach green. If a step costs more
+   than it is worth, stop and report its measured impact to the owner instead of weakening it.
+6. Finish with `npx blueprint inspect --baseline`, `npx blueprint doctor`, and the project's own
+   lint, typecheck, test, and build commands. Report every restored contract, the debt recorded
+   for each step, and every decision left for the owner.
+```
 
 ## `survey`
 

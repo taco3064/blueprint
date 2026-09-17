@@ -19,6 +19,7 @@ export function renderVerdict(
     pm: PackageManager;
     topology: ArchitectureTopology;
     claudeLauncher: boolean;
+    next: boolean;
   },
 ): string {
   return renderOperationalVerdict({
@@ -34,5 +35,6 @@ export function renderVerdict(
     },
     topology: facts.topology,
     claudeLauncher: facts.claudeLauncher,
+    next: facts.next,
   });
 }

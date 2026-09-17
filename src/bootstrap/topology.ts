@@ -24,6 +24,7 @@ export interface TopologyDecision extends TopologyObservation {
 export interface TopologySelection {
   topology?: ArchitectureTopology;
   preset?: boolean;
+  moduleRunway?: boolean;
 }
 
 export function observeTopology(
@@ -65,16 +66,16 @@ export function decideTopology(
     return incompatiblePreset(observation);
   }
 
-  const requested = selection.topology;
-
-  return decideSelectedTopology(observation, requested, Boolean(selection.preset));
+  return decideSelectedTopology(observation, selection);
 }
 
 function decideSelectedTopology(
   observation: TopologyObservation,
-  requested: ArchitectureTopology | undefined,
-  preset: boolean,
+  selection: TopologySelection,
 ): TopologyDecision {
+  const requested = selection.topology;
+  const preset = Boolean(selection.preset);
+
   if (observation.uncertainty === 'scope') {
     return unknown(observation);
   }
@@ -88,7 +89,7 @@ function decideSelectedTopology(
   }
 
   if (observation.source === 'repository') {
-    return decideInherited(observation, requested, preset);
+    return decideInherited(observation, selection);
   }
 
   if (!requested) {
@@ -99,15 +100,27 @@ function decideSelectedTopology(
     ...observation,
     target: requested,
     operation: operationFor(observation),
-    path: requested === 'module-first' ? 'authoring' : 'scaffold',
+    path: unconfiguredPath(observation, requested, selection),
   };
+}
+
+function unconfiguredPath(
+  observation: TopologyObservation,
+  target: ArchitectureTopology,
+  selection: TopologySelection,
+): 'scaffold' | 'authoring' {
+  return target === 'layer-first'
+    || (selection.moduleRunway === true && observation.uncertainty === 'empty')
+    ? 'scaffold'
+    : 'authoring';
 }
 
 function decideInherited(
   observation: TopologyObservation,
-  requested: ArchitectureTopology | undefined,
-  preset: boolean,
+  selection: TopologySelection,
 ): TopologyDecision {
+  const requested = selection.topology;
+  const preset = Boolean(selection.preset);
   const inherited = observation.repository!;
 
   if (requested !== undefined && requested !== inherited) {
@@ -122,7 +135,7 @@ function decideInherited(
     ...observation,
     target: inherited,
     operation: 'adopt',
-    path: inherited === 'module-first' ? 'authoring' : 'scaffold',
+    path: unconfiguredPath(observation, inherited, selection),
   };
 }
 

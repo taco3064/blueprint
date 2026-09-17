@@ -52,7 +52,7 @@ function fixture(): { repository: string; web: string; admin: string } {
       'apps/web/package.json': '{"name":"web","dependencies":{"react":"^18"}}',
       'apps/web/package-lock.json': '{}',
       'apps/web/src/main.ts': 'export const web = 1;\n',
-      'apps/web/blueprint.config.mjs': buildConfigSource('react', 'web'),
+      'apps/web/blueprint.config.mjs': buildConfigSource('react', { name: 'web' }),
       'apps/admin/package.json': '{"name":"admin","dependencies":{"react":"^18"}}',
       'apps/admin/package-lock.json': '{}',
       'apps/admin/src/main.ts': 'export const admin = 1;\n',

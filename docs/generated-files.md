@@ -26,7 +26,8 @@ ownership rules, project doctrine, and output policy. See [Configuration](/confi
 **Ownership:** the adopter owns the architecture decisions. Blueprint may scaffold a known preset,
 but an authored config is never silently replaced by a preset or by folder inference.
 
-**Lifecycle:** a preset path creates it. An authoring playbook instructs the Agent to create it.
+**Lifecycle:** a preset path creates it, including the empty module-first runway for a proven-empty
+application. An authoring playbook instructs the Agent to create it.
 Later `init` runs load and validate it before refreshing outputs. A Blueprint 3.2 config is first
 normalized to the supported 4.0 layer-first shape as a recoverable checkpoint; an opposite-topology
 request requires a later guarded transformation run from that checkpoint. Before rewriting, init
@@ -85,7 +86,9 @@ the documents explicitly retain an unverified or reference-only statement.
 **Configured by:** `emit.handbook`
 
 **Why it exists:** it explains the architecture to people: topology, dependency diagram, layer
-responsibilities, naming, principles, component axes, rules, and playbook.
+responsibilities, naming, principles, component axes, rules, and playbook. A module-first handbook
+also states whether the application is still an empty runway and carries the module growth
+protocol for future product requirements.
 
 **Ownership:** Blueprint owns the whole file at the resolved path and overwrites it on refresh. Edit
 the config authority, not the generated handbook.
@@ -109,7 +112,9 @@ Claude and AGENTS; an empty array emits none.
 Agent's normal context.
 
 **What they contain:** the resolved source layout, dependency and ownership boundaries, naming,
-configured doctrine, and verification commands. Cursor and Windsurf add the frontmatter their tools
+configured doctrine, and verification commands. For module-first, they point new product boundaries
+at the module growth protocol instead of forbidding growth; inner layers, rules, and thresholds
+remain the owner's decision. Cursor and Windsurf add the frontmatter their tools
 require.
 
 **Merge-managed files:** Blueprint owns only the text between `<!-- BLUEPRINT:START -->` and
@@ -137,14 +142,15 @@ A fresh **layer-first preset** may create missing layer directories under the re
 and place `.gitkeep` inside them. This gives an empty project the selected preset shape.
 
 Existing source trees are never padded with absent layers, and module-first never invents module
-folders: its module names and ownership require authoring judgment.
+folders. A module-first runway starts with none; modules are materialized later through the module
+growth protocol when product work evidences them, and existing source requires authoring judgment.
 
 ## Temporary workflow artifacts
 
 ### `blueprint-authoring.md`
 
-This root-level playbook is created for brownfield authoring, first module-first adoption, and
-layer-first ↔ module-first transformation. It contains measured repository evidence, decision
+This root-level playbook is created for brownfield authoring (including module-first adoption of
+existing source), a forced `--authoring` run, and layer-first ↔ module-first transformation. It contains measured repository evidence, decision
 boundaries, steps, refusal conditions, and acceptance gates for the human or Agent completing the
 work.
 

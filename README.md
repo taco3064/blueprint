@@ -31,6 +31,11 @@ npx @kekkai/blueprint init --topology layer-first
 npx @kekkai/blueprint init --topology module-first
 ```
 
+A proven-empty React or Vue application starts from the framework preset's complete canonical
+governance; module-first opens it as an empty runway with no invented domain module. Existing
+source gets an authoring playbook that adopts its current intent safely and ratchets pre-existing
+debt: a floor you can tighten later, not the recommended ceiling.
+
 The resulting valid Blueprint config becomes the repository topology authority.
 Existing Blueprint 3.2 projects and later topology changes use guarded migration
 or transformation flows; see the documentation before applying them.

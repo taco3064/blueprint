@@ -251,8 +251,14 @@ export function renderCoverageReport(
 
 export function renderVacuousNextStep(fact: {
   topology: 'layer-first' | 'module-first';
-  directory: string;
+  directory: string | null;
 }): string {
+  if (fact.directory === null) {
+    return 'next: no domain module is declared yet (module-first runway) — when owner-requested '
+      + 'product work arrives, materialize its owning module through the module growth protocol '
+      + 'in the handbook and the net arms itself';
+  }
+
   const destination = fact.topology === 'module-first'
     ? 'a declared module and layer'
     : 'a declared layer';

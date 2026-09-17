@@ -109,9 +109,11 @@ export interface ArchitectureDef {
    */
   sourceRoot?: string;
   /**
-   * Optional module-first topology. Each module maps to a direct child of
-   * sourceRoot. The reserved `app` module uses recursive router-composition
-   * container semantics instead of repeating the shared layers.
+   * Topology by presence. Omit for layer-first. `[]` selects the module-first
+   * runway: the topology is declared and no domain module exists yet. Declared
+   * modules each map to a direct child of sourceRoot, whose root files take the
+   * container position. The reserved `app` module uses recursive
+   * router-composition container semantics instead of repeating the shared layers.
    */
   modules?: ModuleDef[];
   /**

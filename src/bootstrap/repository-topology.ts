@@ -1,5 +1,6 @@
 import path from 'node:path';
 
+import { resolveArchitecture } from '../config';
 import type { Blueprint } from '../config';
 import { CONFIG_FILE, resolveRepositoryBlueprints } from '../project';
 import type { ProjectState, RepositoryBlueprint } from '../project';
@@ -30,7 +31,7 @@ export async function observeRepositoryTopology(input: {
 
   const observation = input.pristine
     ? {
-        current: 'layer-first' as const,
+        current: resolveArchitecture(input.pristineBlueprint!.architecture).topology,
         repository: repository.topology!,
         source: 'configured' as const,
         selectedApplication: input.survey?.sourceRoot

@@ -220,6 +220,18 @@ export const OPERATIONAL_SURFACES = [
     verification: ['byte snapshots', 'emitter parity'],
   },
   {
+    id: 'module-growth', owner: 'module-growth.ts', channel: 'agent-contract',
+    delivery: 'generated',
+    audiences: ['coding agents', 'repository maintainers', 'adoption agents'],
+    factProviders: ['resolved module-first runway'],
+    consumers: [
+      'src/bootstrap/module-first-playbook.ts', 'src/emit/agent/sections.ts',
+      'src/emit/docs/sections.ts',
+    ],
+    targets: ['AGENTS.md', 'CLAUDE.md', 'docs/architecture-handbook.md', 'blueprint-authoring.md'],
+    verification: ['module growth claim tests', 'emitter parity'],
+  },
+  {
     id: 'impact-guidance', owner: 'impact.ts', channel: 'cli',
     delivery: 'runtime', audiences: ['CLI users', 'adoption agents'],
     factProviders: ['impact measurements', 'dependency resolution'],

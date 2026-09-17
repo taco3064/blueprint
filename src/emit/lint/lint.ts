@@ -97,7 +97,7 @@ export function emitLint(blueprint: Blueprint, options: EmitLintOptions = {}): L
     ...layerConfigs,
     escapeEntry,
     ...ruleGateEntries(blueprint, resolved.testFiles, options),
-  ], options.basePath);
+  ].filter((entry) => entry.files === undefined || entry.files.length > 0), options.basePath);
 }
 
 function layerImportEntries(

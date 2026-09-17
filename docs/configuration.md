@@ -105,7 +105,16 @@ while `services` may not import either upstream layer.
 
 ### Module-first
 
-With `architecture.modules`, the physical model is `Module → Layer → Unit` for ordinary modules:
+`architecture.modules` selects the topology by presence:
+
+- **Omitted** — layer-first.
+- **`[]`** — a module-first runway: the topology is declared and no domain module exists yet.
+  Every inner layer, rule, and doctrine already applies, and lint, `inspect`, `deps`, `doctor`,
+  `impact`, the handbook, and Agent contracts all treat the application as module-first. An empty
+  runway is intended, not incomplete adoption.
+- **One or more modules** — module-first with instantiated domain modules.
+
+With declared modules, the physical model is `Module → Layer → Unit` for ordinary modules:
 
 ```js
 architecture: {
@@ -116,7 +125,6 @@ architecture: {
     { name: 'app', does: 'Router composition.' },
   ],
   layers: [
-    { name: 'containers', does: 'Feature orchestration.' },
     { name: 'components', does: 'Module UI.' },
     { name: 'hooks', does: 'State adapters.' },
     { name: 'services', does: 'Data access.' },
@@ -125,7 +133,9 @@ architecture: {
 }
 ```
 
-Each ordinary module repeats the same shared layer definition. `dependsOn` lists direct module
+Each ordinary module repeats the same shared layer definition, and its root files take the
+container position: they compose the module's inner layers and those of reachable modules, so a
+layer-first `containers` layer is not repeated inside a module. `dependsOn` lists direct module
 dependencies; permission follows transitive reachability through that graph, not declaration
 order. A governed import must satisfy both the outer module graph and the inner layer flow.
 
@@ -328,7 +338,18 @@ export default vuePreset({ name: 'admin', alias: '~app' });
 
 `vuePreset()` and `reactPreset()` provide the canonical one-way application layers, ownership,
 rules, principles, component axes, and playbook. Their options are `name`, `alias` (default
-`~app`), and `emit`.
+`~app`), `emit`, and `modules`.
+
+`modules` follows the same presence rule as `architecture.modules`. Omitted, the preset keeps its
+layer-first layers. Given `[]` or declared modules, the preset projects onto module-first: `pages`
+and `containers` leave the inner layers — route composition belongs to the reserved `app` module
+and each module root takes the container position — while every other layer contract, rule,
+principle, component axis, and playbook entry stays the same:
+
+```js
+// A proven-empty application adopted with --topology module-first:
+export default reactPreset({ name: 'web', modules: [] });
+```
 
 `nextPreset()` uses React semantics while adapting the layer-first route tree to `app`, `pages`, or
 `both`; `router` defaults to `app`. `srcDir: true` selects `src`, otherwise the source root is `.`.

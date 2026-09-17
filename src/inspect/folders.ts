@@ -12,13 +12,12 @@ export function folderFindings(scan: ScanResult, architecture: ArchitectureDef):
     : resolved.layerNames;
 
   const subject = resolved.topology === 'module-first' ? 'module' : 'layer';
+  const scope: FolderScope = { topNames, prefix, subject, runway: resolved.moduleRunway };
 
   return [
-    ...undeclaredFindings(scan, { topNames, prefix, subject }),
+    ...undeclaredFindings(scan, scope),
     ...undeclaredInnerLayerFindings(scan, architecture, prefix),
-    ...missingFindings(scan, {
-      topNames, prefix, subject, topology: resolved.topology,
-    }),
+    ...missingFindings(scan, { ...scope, topology: resolved.topology }),
     ...selfOnlyFindings(scan, architecture),
     ...noEntryFindings(scan, architecture, prefix),
   ];
@@ -28,10 +27,11 @@ interface FolderScope {
   topNames: string[];
   prefix: string;
   subject: 'module' | 'layer';
+  runway: boolean;
 }
 
 function undeclaredFindings(scan: ScanResult, scope: FolderScope): Finding[] {
-  const { topNames, prefix, subject } = scope;
+  const { topNames, prefix, subject, runway } = scope;
 
   return scan.topDirs
     .filter((dir) => !topNames.includes(dir)
@@ -41,7 +41,7 @@ function undeclaredFindings(scan: ScanResult, scope: FolderScope): Finding[] {
       rule: 'undeclared-folder',
       path: `${prefix}${dir}`,
       subject: '',
-      message: renderFindingMessage({ kind: 'undeclared-folder', name: dir, subject }),
+      message: renderFindingMessage({ kind: 'undeclared-folder', name: dir, subject, runway }),
     }));
 }
 

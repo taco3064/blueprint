@@ -210,32 +210,17 @@ describe('init topology · initialization and conservative adoption', () => {
 
     expect(moduleResult.code).toBe(0);
     expect(moduleResult.output).not.toContain('brownfield without a config');
-    expect(moduleResult.output).not.toContain('Prefer a preset scaffold');
     expect(moduleResult.output).not.toContain('init --preset --topology layer-first');
-
-    const playbook = read(moduleFirst, 'blueprint-authoring.md') ?? '';
+    expect(moduleResult.output).not.toContain('transformation');
 
     expect({
-      hasFullMethod: [
-        'authoring playbook',
-        'module-first was selected',
-        'ordinary top-level folders below `sourceRoot` as module',
-        'technical layers that repeat inside ordinary modules',
-        'Infer direct `dependsOn` edges',
-        'module + inner-layer structure',
-        '{ name: \'app\', does: \'router composition\', dependsOn:',
-        'governed recursively without repeating the shared inner layers',
-      ].every((claim) => playbook.includes(claim)),
-      contradictions: [
-        'early-exit checklist',
-        'Top-level folders under `src/` are candidates for layers',
-        'preset\'s declared-but-empty layers',
-        'Optional module-first topology',
-        'intentionally absent from `modules`',
-      ].filter((claim) => playbook.includes(claim)),
-    }).toEqual({ hasFullMethod: true, contradictions: [] });
-
-    expect(read(moduleFirst, 'blueprint.config.mjs')).toBeNull();
+      config: read(moduleFirst, 'blueprint.config.mjs'),
+      playbook: read(moduleFirst, 'blueprint-authoring.md'),
+    }).toEqual({
+      config: 'import { reactPreset } from \'@kekkai/blueprint\';\n\n'
+        + 'export default reactPreset({ name: \'topology\', modules: [] });\n',
+      playbook: null,
+    });
   });
 
   it('governs a Next router tree with the generated schema\'s declared app module', async () => {
@@ -370,7 +355,7 @@ describe('init topology · configured authority and option matrix', () => {
     await expectZeroWriteFailure(
       repo(),
       ['init', '--topology', 'module-first', '--preset', '--no-install'],
-      /generic layer presets cannot choose domain modules/,
+      /--preset is the layer-first adoption method and cannot choose domain modules/,
     );
   });
 

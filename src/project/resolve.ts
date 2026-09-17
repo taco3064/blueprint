@@ -25,6 +25,8 @@ export interface ResolveOptions {
   /** Load an existing blueprint.config (default dynamic import). */
   loadConfig?: (file: string) => Promise<Blueprint>;
   migrateLegacyConfig?: boolean;
+  /** Fresh React/Vue scaffold topology; `module-first` opens the preset's empty module runway. */
+  topology?: 'layer-first' | 'module-first';
   /**
    * Persist these contract targets into a scaffolded config (`init --agent`), or
    * the next plain init grows the dropped contract back. An existing config is
@@ -67,12 +69,17 @@ export async function resolveBlueprint(
 
   const blueprint = preset({
     ...(state.projectName ? { name: state.projectName } : {}),
+    ...(options.topology === 'module-first' ? { modules: [] } : {}),
     ...(agents ? { emit: { agents } } : {}),
   });
 
   return {
     blueprint,
-    configSource: buildConfigSource(framework, state.projectName, agents),
+    configSource: buildConfigSource(framework, {
+      name: state.projectName,
+      agents,
+      topology: options.topology,
+    }),
     legacyConfig: false,
   };
 }
@@ -133,13 +140,24 @@ function emitField(agents?: AgentTarget[]): string[] {
     : [];
 }
 
+export interface ScaffoldConfigFields {
+  name?: string;
+  agents?: AgentTarget[];
+  topology?: 'layer-first' | 'module-first';
+}
+
 export function buildConfigSource(
   framework: 'vue' | 'react',
-  name?: string,
-  agents?: AgentTarget[],
+  scaffold: ScaffoldConfigFields = {},
 ): string {
   const factory = framework === 'vue' ? 'vuePreset' : 'reactPreset';
-  const fields = [...(name ? [`name: '${name}'`] : []), ...emitField(agents)];
+
+  const fields = [
+    ...(scaffold.name ? [`name: '${scaffold.name}'`] : []),
+    ...(scaffold.topology === 'module-first' ? ['modules: []'] : []),
+    ...emitField(scaffold.agents),
+  ];
+
   const arg = fields.length ? `{ ${fields.join(', ')} }` : '';
 
   return [

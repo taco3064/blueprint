@@ -150,7 +150,7 @@ export async function runModuleToLayerTransformation(
 }
 
 function requireArchitecture(architecture: ArchitectureDef | null): ArchitectureDef {
-  if (architecture && architecture.modules?.length) {
+  if (architecture?.modules !== undefined) {
     return architecture;
   }
 
