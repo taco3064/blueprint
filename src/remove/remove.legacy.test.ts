@@ -115,6 +115,7 @@ describe('runRemove · pre-lifecycle adoption', () => {
       '· tsconfig.json: may still carry Blueprint\'s import-alias wiring; it predates lifecycle '
       + 'records',
       '· package.json: may still carry Blueprint\'s eslint leg in the lint script',
+      '· src/pages: holds only .gitkeep, as Blueprint\'s layer scaffold leaves it',
       '· eslint in .: Blueprint may have installed it, but no record proves that',
       '− rewrite .gitignore (removes Blueprint\'s marked ignore exceptions)',
       '− delete .blueprint-baseline.json (Blueprint inspect baseline)',

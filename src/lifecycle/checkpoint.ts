@@ -48,7 +48,7 @@ function bootstrapCheckpoint(installed: string, input: SourceCheckpointInput): S
   if (input.legacyShape) {
     return {
       kind: 'bootstrap',
-      version: compareVersions(installed, legacy) < 0 ? installed : legacy,
+      version: [installed, legacy].sort(compareVersions)[0],
       evidence: 'legacy-config',
     };
   }

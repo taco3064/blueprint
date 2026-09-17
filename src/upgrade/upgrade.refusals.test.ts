@@ -231,6 +231,11 @@ describe('runUpgrade · --complete refusals', () => {
     write('.blueprint-lifecycle.json', '[');
     await expect(upgrade({ complete: 'x' })).rejects.toThrow('is unreadable');
 
+    lifecycle({});
+
+    await expect(upgrade({ complete: 'x' }))
+      .rejects.toThrow('--complete x needs a pending upgrade');
+
     lifecycle({
       pending: { from: '4.0.0', to: '4.1.0', migrations: [], operations: [], completed: [] },
     });

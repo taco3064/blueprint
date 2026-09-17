@@ -85,6 +85,13 @@ describe('running package', () => {
       runningPackage(path.join(root, 'bare/node_modules/@kekkai/blueprint'))!,
     )).toBe('@kekkai/blueprint@4.1.0');
 
+    writePackage('other/node_modules/@kekkai/blueprint', '4.1.0');
+    writeJson('other/package-lock.json', { packages: { 'node_modules/react': {} } });
+
+    expect(runningInstallSpec(
+      runningPackage(path.join(root, 'other/node_modules/@kekkai/blueprint'))!,
+    )).toBe('@kekkai/blueprint@4.1.0');
+
     const outside = { root: path.join(root, 'vendor/@kekkai/blueprint'), version: '4.1.0' };
 
     writeJson('package-lock.json', {

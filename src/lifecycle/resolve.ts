@@ -54,11 +54,11 @@ export function resolveUpgrade(input: ResolveUpgradeInput): UpgradeResolution {
 
   const order = compareVersions(source, target);
 
-  if (order !== 0) {
-    return order > 0 ? { status: 'downgrade' } : planInterval(input);
+  if (order > 0) {
+    return { status: 'downgrade' };
   }
 
-  return { status: 'current' };
+  return order < 0 ? planInterval(input) : { status: 'current' };
 }
 
 function inInterval(input: ResolveUpgradeInput, version: string): boolean {
@@ -67,11 +67,7 @@ function inInterval(input: ResolveUpgradeInput, version: string): boolean {
 }
 
 function releaseOrder<T extends { introducedIn: string }>(entries: readonly T[]): T[] {
-  return entries
-    .map((entry, index) => ({ entry, index }))
-    .sort((left, right) => compareVersions(left.entry.introducedIn, right.entry.introducedIn)
-      || left.index - right.index)
-    .map(({ entry }) => entry);
+  return [...entries].sort((left, right) => compareVersions(left.introducedIn, right.introducedIn));
 }
 
 function suppressions(
@@ -109,7 +105,7 @@ function planInterval(input: ResolveUpgradeInput): UpgradeResolution {
     .map((operation): Candidate => ({ operation, scope: scopeOf(input, operation, completed) }));
 
   const effective = candidates.filter((candidate) => candidate.scope.applications.length);
-  const ordered = orderByRequirements(effective, { completed, suppressed });
+  const ordered = orderByRequirements(effective, suppressed);
 
   if (!Array.isArray(ordered)) {
     return { status: 'invalid', problems: ordered.problems };
@@ -148,37 +144,34 @@ function scopeOf(
   };
 }
 
-interface RequirementContext {
-  completed: ReadonlySet<string>;
-  suppressed: ReadonlyMap<string, SuppressedOperation>;
-}
+type Suppressions = ReadonlyMap<string, SuppressedOperation>;
 
 function requirementOwner(
   target: string,
-  context: RequirementContext,
+  suppressed: Suppressions,
 ): { owner: string } | { canceledBy: string } {
-  let owner = target;
-  let suppression = context.suppressed.get(owner);
+  const owner = [target, ...suppressed.keys()].reduce((current) => {
+    const hop = suppressed.get(current);
 
-  while (suppression?.relation === 'supersede') {
-    owner = suppression.by;
-    suppression = context.suppressed.get(owner);
-  }
+    return hop?.relation === 'supersede' ? hop.by : current;
+  }, target);
+
+  const suppression = suppressed.get(owner);
 
   return suppression ? { canceledBy: suppression.by } : { owner };
 }
 
 function orderByRequirements(
   effective: Candidate[],
-  context: RequirementContext,
+  suppressed: Suppressions,
 ): Candidate[] | { problems: ResolutionProblem[] } {
   const ids = new Set(effective.map((candidate) => candidate.operation.id));
   const problems: ResolutionProblem[] = [];
   const edges = new Map(effective.map((candidate) => [candidate.operation.id, new Set<string>()]));
 
   for (const { operation } of effective) {
-    for (const target of operation.requires.filter((id) => !context.completed.has(id))) {
-      const resolved = requirementOwner(target, context);
+    for (const target of operation.requires) {
+      const resolved = requirementOwner(target, suppressed);
 
       if ('canceledBy' in resolved) {
         problems.push({
@@ -198,26 +191,21 @@ function topological(
   edges: Map<string, Set<string>>,
 ): Candidate[] | { problems: ResolutionProblem[] } {
   const ordered: Candidate[] = [];
-  const placed = new Set<string>();
-  let remaining = effective;
+  let cycle: string[] = [];
 
-  while (remaining.length) {
+  effective.forEach(() => {
+    const remaining = effective.filter((candidate) => !ordered.includes(candidate));
+
     const next = remaining.find((candidate) =>
-      [...edges.get(candidate.operation.id)!].every((id) => placed.has(id)));
+      [...edges.get(candidate.operation.id)!].every((id) =>
+        ordered.some((placed) => placed.operation.id === id)));
 
     if (next === undefined) {
-      return {
-        problems: [{
-          kind: 'dependency-cycle',
-          ids: remaining.map((candidate) => candidate.operation.id),
-        }],
-      };
+      cycle = remaining.map((candidate) => candidate.operation.id);
+    } else {
+      ordered.push(next);
     }
+  });
 
-    ordered.push(next);
-    placed.add(next.operation.id);
-    remaining = remaining.filter((candidate) => candidate !== next);
-  }
-
-  return ordered;
+  return cycle.length ? { problems: [{ kind: 'dependency-cycle', ids: cycle }] } : ordered;
 }

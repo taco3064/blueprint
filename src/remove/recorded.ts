@@ -4,8 +4,9 @@ import path from 'node:path';
 import { digest } from '../lifecycle';
 import type { ProvenanceRecord } from '../lifecycle';
 import { restoreScript, reverseEdit } from './documents';
+import { readText } from './references';
 import { carriesBlueprintSignature } from './signatures';
-import type { ApplicationRemoval, RemovalResidue } from './types';
+import type { ApplicationRemoval, FileResidue } from './types';
 
 export interface RecordedContext {
   root: string;
@@ -16,14 +17,6 @@ export interface RecordedContext {
 
 type Edit = Extract<ProvenanceRecord, { kind: 'edit' }>;
 type Script = Extract<ProvenanceRecord, { kind: 'script' }>;
-
-function read(file: string): string | null {
-  try {
-    return fs.readFileSync(file, 'utf-8');
-  } catch {
-    return null;
-  }
-}
 
 function recordsOf<K extends ProvenanceRecord['kind']>(
   context: RecordedContext,
@@ -43,7 +36,7 @@ function byPath<T extends { path: string }>(records: T[]): Map<string, T[]> {
   return grouped;
 }
 
-function residueFor(context: RecordedContext, file: string): RemovalResidue | null {
+function residueFor(context: RecordedContext, file: string): FileResidue | null {
   const alias = context.aliasInUse(file);
 
   return alias === null ? null : { kind: 'required-by-source', path: at(context, file), alias };
@@ -53,7 +46,7 @@ const at = (context: RecordedContext, file: string) => path.posix.join(context.p
 
 function wholeFiles(context: RecordedContext, removal: ApplicationRemoval): void {
   for (const record of recordsOf(context, 'generated')) {
-    const text = read(path.join(context.root, record.path));
+    const text = readText(path.join(context.root, record.path));
 
     if (text !== null && carriesBlueprintSignature(text)) {
       removal.actions.push({ kind: 'delete', path: at(context, record.path), reason: 'generated' });
@@ -63,7 +56,7 @@ function wholeFiles(context: RecordedContext, removal: ApplicationRemoval): void
   }
 
   for (const record of recordsOf(context, 'created')) {
-    const text = read(path.join(context.root, record.path));
+    const text = readText(path.join(context.root, record.path));
     const kept = residueFor(context, record.path);
 
     if (text !== null && (digest(text) !== record.sha256 || kept !== null)) {
@@ -76,7 +69,7 @@ function wholeFiles(context: RecordedContext, removal: ApplicationRemoval): void
 
 function reverseFile(context: RecordedContext, file: string, edits: Edit[]): ApplicationRemoval {
   const removal: ApplicationRemoval = { actions: [], conflicts: [], residues: [] };
-  const original = read(path.join(context.root, file));
+  const original = readText(path.join(context.root, file));
   const kept = residueFor(context, file);
 
   if (original === null || kept !== null) {
@@ -112,11 +105,16 @@ function restoreFile(
   scripts: Script[],
 ): ApplicationRemoval {
   const removal: ApplicationRemoval = { actions: [], conflicts: [], residues: [] };
-  const original = read(path.join(context.root, file));
+  const original = readText(path.join(context.root, file));
+
+  if (original === null) {
+    return removal;
+  }
+
   let text = original;
 
-  for (const script of [...scripts].reverse()) {
-    const result = text === null ? { status: 'absent' as const } : restoreScript(text, script);
+  for (const script of scripts) {
+    const result = restoreScript(text, script);
 
     if (result.status === 'restored') {
       text = result.text;
@@ -130,7 +128,7 @@ function restoreFile(
     }
   }
 
-  if (text !== original && text !== null) {
+  if (text !== original) {
     removal.actions.push({
       kind: 'write', path: at(context, file), content: text, reason: 'script',
     });

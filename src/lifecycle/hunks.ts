@@ -4,30 +4,21 @@ export interface TextHunk {
 }
 
 function lines(value: string): string[] {
-  return value.match(/[^\n]*\n|[^\n]+$/g) ?? [];
+  return value.match(/[^\n]*\n|[^\n]+/g) ?? [];
+}
+
+function indices(length: number): number[] {
+  return Array.from({ length }, (_, index) => index);
 }
 
 function commonPrefix(left: string, right: string): number {
-  let length = 0;
-
-  while (length < left.length && length < right.length && left[length] === right[length]) {
-    length++;
-  }
-
-  return length;
+  return indices(left.length).find((index) => left[index] !== right[index]) ?? left.length;
 }
 
 function refine(before: string, after: string): TextHunk {
   const prefix = commonPrefix(before, after);
-  const limit = Math.min(before.length, after.length) - prefix;
-  let suffix = 0;
-
-  while (
-    suffix < limit
-    && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]
-  ) {
-    suffix++;
-  }
+  const tail = (text: string) => text.slice(prefix).split('').reverse().join('');
+  const suffix = commonPrefix(tail(before), tail(after));
 
   return {
     before: before.slice(prefix, before.length - suffix),
@@ -35,11 +26,11 @@ function refine(before: string, after: string): TextHunk {
   };
 }
 
-function lcsTable(left: string[], right: string[]): Uint32Array[] {
-  const table = Array.from({ length: left.length + 1 }, () => new Uint32Array(right.length + 1));
+function lcsTable(left: string[], right: string[]): number[][] {
+  const table = indices(left.length + 1).map(() => indices(right.length + 1).map(() => 0));
 
-  for (let i = left.length - 1; i >= 0; i--) {
-    for (let j = right.length - 1; j >= 0; j--) {
+  for (const i of indices(left.length).reverse()) {
+    for (const j of indices(right.length).reverse()) {
       table[i][j] = left[i] === right[j]
         ? table[i + 1][j + 1] + 1
         : Math.max(table[i + 1][j], table[i][j + 1]);
@@ -52,22 +43,24 @@ function lcsTable(left: string[], right: string[]): Uint32Array[] {
 function changeRuns(left: string[], right: string[]): TextHunk[] {
   const table = lcsTable(left, right);
   const runs: TextHunk[] = [{ before: '', after: '' }];
-  let i = 0;
-  let j = 0;
+  const cursor = { i: 0, j: 0 };
 
-  while (i < left.length || j < right.length) {
+  indices(left.length + right.length).forEach(() => {
+    const { i, j } = cursor;
     const pending = runs[runs.length - 1];
 
-    if (i < left.length && j < right.length && left[i] === right[j]) {
+    if (left[i] === right[j]) {
       runs.push({ before: '', after: '' });
-      i++;
-      j++;
+      cursor.i = i + 1;
+      cursor.j = j + 1;
     } else if (j >= right.length || (i < left.length && table[i + 1][j] >= table[i][j + 1])) {
-      pending.before += left[i++];
+      pending.before += left[i];
+      cursor.i = i + 1;
     } else {
-      pending.after += right[j++];
+      pending.after += right[j];
+      cursor.j = j + 1;
     }
-  }
+  });
 
   return runs;
 }
@@ -83,11 +76,7 @@ export function occurrences(text: string, fragment: string): number {
     return 0;
   }
 
-  let count = 0;
+  const escaped = fragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  for (let at = text.indexOf(fragment); at !== -1; at = text.indexOf(fragment, at + 1)) {
-    count++;
-  }
-
-  return count;
+  return [...text.matchAll(new RegExp(`(?=${escaped})`, 'g'))].length;
 }

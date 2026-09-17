@@ -37,7 +37,6 @@ export type RemovalMode = 'provenance' | 'partial' | 'legacy';
 
 export interface RemovalFacts {
   root: string;
-  repository: boolean;
   state: LifecycleStateRead;
   scope: RemovalApplication[];
   remaining: string[];
@@ -49,7 +48,7 @@ export interface RemovalFactEffects {
   loadConfig?: ResolveOptions['loadConfig'];
 }
 
-function contains(parent: string, child: string): boolean {
+export function contains(parent: string, child: string): boolean {
   const relative = path.relative(parent, child);
 
   return !relative.startsWith('..') && !path.isAbsolute(relative);
@@ -132,7 +131,6 @@ export async function gatherRemovalFacts(
 
   return {
     root,
-    repository: repository.ok,
     state,
     scope,
     remaining: roots.filter((entry) => !inScope(entry)).map((entry) => applicationKey(root, entry)),

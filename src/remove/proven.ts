@@ -16,6 +16,7 @@ import {
 } from '../project';
 import { renderGitignoreArtifactComment } from '../operational-contract';
 import { removeIgnoreGroup, stripManagedSection } from './documents';
+import { readText } from './references';
 import { HANDBOOK_MARK } from './signatures';
 import type { ApplicationRemoval, FileAction, RemovalReason } from './types';
 
@@ -28,13 +29,7 @@ export interface ProvenContext {
   recordedIgnoreEdit: boolean;
 }
 
-function read(file: string): string | null {
-  try {
-    return fs.readFileSync(file, 'utf-8');
-  } catch {
-    return null;
-  }
-}
+export type ProvenRemoval = Omit<ApplicationRemoval, 'residues'>;
 
 function at(context: ProvenContext, file: string): string {
   return path.posix.join(context.prefix, file);
@@ -85,17 +80,22 @@ function generatedFiles(context: ProvenContext): string[] {
   const handbook = handbookPath(context.blueprint ?? {} as Blueprint);
 
   const eslint = ESLINT_FILES.filter((file) =>
-    read(path.join(context.root, file))?.startsWith(GENERATED_ESLINT_BANNER));
+    readText(path.join(context.root, file))?.startsWith(GENERATED_ESLINT_BANNER));
 
-  return read(path.join(context.root, handbook))?.includes(HANDBOOK_MARK)
+  return readText(path.join(context.root, handbook))?.includes(HANDBOOK_MARK)
     ? [handbook, ...eslint]
     : eslint;
 }
 
-function sectionActions(context: ProvenContext, removal: ApplicationRemoval): void {
+function sectionActions(context: ProvenContext, removal: ProvenRemoval): void {
   for (const file of mergeTargets(context.blueprint)) {
-    const text = read(path.join(context.root, file));
-    const strip = text === null ? { status: 'absent' as const } : stripManagedSection(text);
+    const text = readText(path.join(context.root, file));
+
+    if (text === null) {
+      continue;
+    }
+
+    const strip = stripManagedSection(text);
 
     if (strip.status === 'malformed') {
       removal.conflicts.push({ kind: 'malformed-section', path: at(context, file) });
@@ -108,7 +108,7 @@ function sectionActions(context: ProvenContext, removal: ApplicationRemoval): vo
 }
 
 function ignoreGroup(context: ProvenContext): FileAction[] {
-  const text = read(path.join(context.root, '.gitignore'));
+  const text = readText(path.join(context.root, '.gitignore'));
 
   const content = text === null || context.recordedIgnoreEdit
     ? null
@@ -119,8 +119,8 @@ function ignoreGroup(context: ProvenContext): FileAction[] {
     : [{ kind: 'write', path: at(context, '.gitignore'), content, reason: 'gitignore' }];
 }
 
-export function provenRemoval(context: ProvenContext): ApplicationRemoval {
-  const removal: ApplicationRemoval = { actions: [], conflicts: [], residues: [] };
+export function provenRemoval(context: ProvenContext): ProvenRemoval {
+  const removal: ProvenRemoval = { actions: [], conflicts: [] };
 
   const deletions: [string, RemovalReason][] = [
     ...namedFiles(context),

@@ -162,6 +162,10 @@ describe('resolveUpgrade · cumulative relations', () => {
     ];
 
     expect(planIds({ catalog: catalog(operations) })).toEqual(['setup-v2', 'dependent', 'after']);
+
+    expect(planIds({
+      catalog: catalog([...operations, op('setup-v3', '1.4.0', { supersedes: ['setup-v2'] })]),
+    })).toEqual(['setup-v3', 'dependent', 'after']);
   });
 
   it('treats a requirement as met when it is completed, inapplicable, or outside the plan', () => {

@@ -41,6 +41,11 @@ describe('provenance records', () => {
   ])('rejects %j', (value) => {
     expect(parseProvenance(value)).toBeNull();
   });
+
+  it('rejects a record that is not a plain object even when it carries a valid shape', () => {
+    expect(parseProvenance([Object.assign(() => undefined, { kind: 'generated', path: 'x' })]))
+      .toBeNull();
+  });
 });
 
 describe('mergeProvenance', () => {
@@ -76,8 +81,31 @@ describe('mergeProvenance', () => {
       [{ kind: 'section', path: 'AGENTS.md', created: false }],
       [{ kind: 'section', path: 'AGENTS.md', created: false }],
     )).toEqual([{ kind: 'section', path: 'AGENTS.md', created: false }]);
+
+    expect(mergeProvenance(
+      [{ kind: 'section', path: 'GEMINI.md', created: false }],
+      [{ kind: 'section', path: 'GEMINI.md', created: true }],
+    )).toEqual([{ kind: 'section', path: 'GEMINI.md', created: true }]);
   });
 
+  it('keeps records of different kinds or script names for one path apart', () => {
+    const existing: ProvenanceRecord[] = [
+      { kind: 'generated', path: 'CLAUDE.md' },
+      { kind: 'script', path: 'package.json', name: 'lint', before: null, after: 'eslint src' },
+    ];
+
+    expect(mergeProvenance(existing, [
+      { kind: 'section', path: 'CLAUDE.md', created: false },
+      { kind: 'script', path: 'package.json', name: 'test', before: 'eslint src', after: 'x' },
+    ])).toEqual([
+      ...existing,
+      { kind: 'section', path: 'CLAUDE.md', created: false },
+      { kind: 'script', path: 'package.json', name: 'test', before: 'eslint src', after: 'x' },
+    ]);
+  });
+});
+
+describe('mergeProvenance · scripts and edits', () => {
   it('chains consecutive script edits back to the original value', () => {
     expect(mergeProvenance(
       [{ kind: 'script', path: 'package.json', name: 'lint', before: null, after: 'eslint src' }],
@@ -107,24 +135,40 @@ describe('mergeProvenance', () => {
         before: 'tsc',
         after: 'tsc && eslint src',
       }],
-    )[0]).toEqual({
-      kind: 'script', path: 'package.json', name: 'lint', before: 'tsc', after: 'tsc && eslint src',
-    });
+    )).toEqual([
+      {
+        kind: 'script',
+        path: 'package.json',
+        name: 'lint',
+        before: 'tsc',
+        after: 'tsc && eslint src',
+      },
+      { kind: 'script', path: 'apps/package.json', name: 'lint', before: null, after: 'x' },
+      { kind: 'script', path: 'package.json', name: 'test', before: null, after: 'x' },
+    ]);
   });
 
   it('appends distinct text edits and drops exact duplicates', () => {
     const edit: ProvenanceRecord = { kind: 'edit', path: '.gitignore', before: '', after: '!a\n' };
 
-    expect(mergeProvenance([edit], [
+    const script: ProvenanceRecord = {
+      kind: 'script', path: 'package.json', name: 'lint', before: 'a', after: 'b',
+    };
+
+    expect(mergeProvenance([script, edit], [
       edit,
       { kind: 'edit', path: '.gitignore', before: '', after: '!b\n' },
       { kind: 'edit', path: '.gitignore', before: 'x', after: '!a\n' },
       { kind: 'edit', path: 'other', before: '', after: '!a\n' },
+      { kind: 'edit', path: 'package.json', before: 'a', after: 'b' },
+      edit,
     ])).toEqual([
+      script,
       edit,
       { kind: 'edit', path: '.gitignore', before: '', after: '!b\n' },
       { kind: 'edit', path: '.gitignore', before: 'x', after: '!a\n' },
       { kind: 'edit', path: 'other', before: '', after: '!a\n' },
+      { kind: 'edit', path: 'package.json', before: 'a', after: 'b' },
     ]);
   });
 

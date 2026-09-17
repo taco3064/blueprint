@@ -53,12 +53,12 @@ export function completionRefusal(
   }
 
   const remaining = remainingOperations(pending);
-  const entry = pending.operations.find((operation) => operation.id === id);
 
-  if (entry === undefined || !remaining.includes(id)) {
+  if (!remaining.includes(id)) {
     return { kind: 'unknown-operation', id, pending: remaining };
   }
 
+  const entry = pending.operations.find((operation) => operation.id === id)!;
   const files = unfinishedFiles(context.root, operationOf(context.catalog, id), entry.applications);
 
   return files.length ? { kind: 'verification-failed', id, files } : null;

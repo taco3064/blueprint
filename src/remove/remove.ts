@@ -1,7 +1,8 @@
-import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { defaultExec } from '../bootstrap';
+import type { Exec } from '../bootstrap';
 import { LIFECYCLE_FILE, PACKAGE_NAME } from '../lifecycle';
 import { defaultGitReader } from '../project';
 import type { GitReader, ResolveOptions } from '../project';
@@ -19,22 +20,15 @@ import { gatherRemovalFacts, missingStateInstall } from './facts';
 import type { RemovalFacts } from './facts';
 import { planRemoval } from './plan';
 import type { RemovalPlan } from './plan';
-
-export type RemoveCommandRunner = (command: string, cwd: string) => void;
+import { declared } from './uninstall';
 
 export interface RemoveOptions {
   dryRun?: boolean;
   log?: (line: string) => void;
   git?: GitReader;
   loadConfig?: ResolveOptions['loadConfig'];
-  exec?: RemoveCommandRunner;
+  exec?: Exec;
 }
-
-/* v8 ignore start -- real package manager; tests inject exec */
-const defaultRunner: RemoveCommandRunner = (command, cwd) => {
-  execSync(command, { cwd, stdio: 'inherit' });
-};
-/* v8 ignore stop */
 
 function refuseUnsafeFacts(facts: RemovalFacts): void {
   if (facts.state.status === 'invalid') {
@@ -54,16 +48,6 @@ function refuseUnsafeFacts(facts: RemovalFacts): void {
   }
 }
 
-function declares(root: string): boolean {
-  try {
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8'));
-
-    return Object.hasOwn({ ...manifest.dependencies, ...manifest.devDependencies }, PACKAGE_NAME);
-  } catch {
-    return false;
-  }
-}
-
 function leftovers(facts: RemovalFacts, plan: RemovalPlan): string[] {
   const proven = facts.scope.flatMap((application) =>
     applicationRemoval({ ...application, provenance: [] }, 'legacy').actions)
@@ -73,7 +57,7 @@ function leftovers(facts: RemovalFacts, plan: RemovalPlan): string[] {
     ? [LIFECYCLE_FILE]
     : [];
 
-  const packages = plan.uninstall.filter((step) => declares(step.root))
+  const packages = plan.uninstall.filter((step) => declared(step.root).includes(PACKAGE_NAME))
     .map((step) => `${step.manifest}/package.json → ${PACKAGE_NAME}`);
 
   return [...proven, ...state, ...packages];
@@ -82,7 +66,7 @@ function leftovers(facts: RemovalFacts, plan: RemovalPlan): string[] {
 function runUninstall(
   steps: RemovalPlan['uninstall'],
   log: (line: string) => void,
-  exec: RemoveCommandRunner,
+  exec: Exec,
 ): void {
   for (const step of steps) {
     log(renderRemoveUninstall(step.command, step.manifest));
@@ -124,7 +108,7 @@ export async function runRemove(cwd: string, options: RemoveOptions = {}): Promi
     log,
   });
 
-  runUninstall(plan.uninstall, log, options.exec ?? defaultRunner);
+  runUninstall(plan.uninstall, log, options.exec ?? defaultExec);
 
   const remaining = leftovers(facts, plan);
 

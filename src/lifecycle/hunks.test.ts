@@ -43,11 +43,31 @@ describe('textHunks', () => {
       .toEqual([{ before: '', after: ' && eslint src' }]);
 
     expect(textHunks('{"a":1}\n', '{"b":2}\n')).toEqual([{ before: 'a":1', after: 'b":2' }]);
+    expect(textHunks('docs', 'dist')).toEqual([{ before: 'ocs', after: 'ist' }]);
+    expect(textHunks('a\n', 'aa\n')).toEqual([{ before: '', after: 'a' }]);
   });
 
   it('records a replacement whose lines both changed', () => {
     expect(textHunks('one\ntwo\n', 'uno\ndos\n'))
       .toEqual([{ before: 'one\ntwo', after: 'uno\ndos' }]);
+  });
+
+  it('records deletions, including the first of two equal lines and the final line', () => {
+    expect(textHunks('keep\ndrop\n', 'keep\n')).toEqual([{ before: 'drop\n', after: '' }]);
+    expect(textHunks('same\nsame', 'same')).toEqual([{ before: 'same\n', after: '' }]);
+
+    expect(textHunks('x\ny', 'z\nx\n'))
+      .toEqual([{ before: '', after: 'z\n' }, { before: 'y', after: '' }]);
+  });
+
+  it('prefers deleting before inserting when both keep the longest common lines', () => {
+    expect(textHunks('a\nb\nc\n', 'b\na\nc\n'))
+      .toEqual([{ before: 'a\n', after: '' }, { before: '', after: 'a\n' }]);
+
+    expect(textHunks('dist\n\n', '\ndocs'))
+      .toEqual([{ before: 'dist\n', after: '' }, { before: '', after: 'docs' }]);
+
+    expect(textHunks('\n\n', 'src\n\n')).toEqual([{ before: '', after: 'src' }]);
   });
 
   it('reverses to the original whenever every inserted fragment is still unique', () => {

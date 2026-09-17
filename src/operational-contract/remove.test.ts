@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { renderRemoveAction, renderRemoveComplete, renderRemovePlan } from './remove';
+import {
+  renderRemoveAction,
+  renderRemoveComplete,
+  renderRemoveEmptyDirectory,
+  renderRemovePlan,
+} from './remove';
 import type { RemovePlanFact, RemoveReasonFact, RemoveResidueFact } from './remove';
 import { renderRemoveConflicts, renderRemoveRefusal } from './remove-conflicts';
 import type { RemoveConflictFact } from './remove-conflicts';
@@ -44,6 +49,27 @@ describe('remove plan report', () => {
   ])('explains the %s reason', (reason, text) => {
     expect(renderRemoveAction({ kind: 'delete', path: 'x', reason }, 'applied'))
       .toBe(`  ✓ delete x (${text})`);
+  });
+
+  it('lists planned actions and kept residues under their own headings', () => {
+    expect(renderRemovePlan({
+      ...plan,
+      actions: [
+        { kind: 'delete', path: 'CLAUDE.md', reason: 'generated' },
+        { kind: 'ref', ref: 'refs/x', application: '.' },
+      ],
+      residues: [{ kind: 'modified', path: 'jsconfig.json' }],
+    }).split('\n').slice(3)).toEqual([
+      '  Remove:',
+      '    − delete CLAUDE.md (Blueprint-generated output)',
+      '    − delete Git ref refs/x (retained transformation origin for `.`)',
+      '  Kept for you to review:',
+      '    · jsconfig.json: Blueprint created it, but it changed since',
+      '  Dependency: nothing to uninstall here',
+    ]);
+
+    expect(renderRemoveEmptyDirectory('src/pages'))
+      .toBe('  ✓ remove folder src/pages (left empty by removing Blueprint files)');
   });
 
   it('names each action verb and the Git ref it deletes', () => {

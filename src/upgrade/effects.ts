@@ -1,4 +1,4 @@
-import { execSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -6,8 +6,6 @@ import { runInit } from '../bootstrap';
 import { runDoctor, runInspect } from '../inspect';
 import type { PackageLocation } from '../lifecycle';
 import type { UpgradeVerificationFact } from '../operational-contract';
-
-export type CommandRunner = (command: string, cwd: string) => void;
 
 export type Handoff = (installed: PackageLocation, cwd: string) => number;
 
@@ -18,21 +16,17 @@ export type ApplicationVerifier = (
   application: string,
 ) => Promise<UpgradeVerificationFact>;
 
-/* v8 ignore start -- real package manager and child process; tests inject both effects */
-export const defaultRunner: CommandRunner = (command, cwd) => {
-  execSync(command, { cwd, stdio: 'inherit' });
-};
-
 export const defaultHandoff: Handoff = (installed, cwd) => {
   const manifest = JSON.parse(fs.readFileSync(path.join(installed.root, 'package.json'), 'utf-8'));
   const bin = typeof manifest.bin === 'string' ? manifest.bin : manifest.bin.blueprint;
 
-  return spawnSync(process.execPath, [path.join(installed.root, bin), 'upgrade'], {
+  const result = spawnSync(process.execPath, [path.join(installed.root, bin), 'upgrade'], {
     cwd,
     stdio: 'inherit',
-  }).status ?? 1;
+  });
+
+  return result.status === 0 ? 0 : 1;
 };
-/* v8 ignore stop */
 
 export const defaultReconciler: Reconciler = (root, log) => runInit(root, { log });
 
