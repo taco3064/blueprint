@@ -213,11 +213,23 @@ export function renderAgentLaunchFailure(
     + `yourself:\n    ${command}`);
 }
 
+/** @deprecated Pass `{ files, threshold, topology }`; this form renders the layer-first note. */
+export function renderFreshScaffoldNote(files: number, threshold: number): OperationalText;
 export function renderFreshScaffoldNote(facts: {
   files: number;
   threshold: number;
   topology: 'layer-first' | 'module-first';
-}): OperationalText {
+}): OperationalText;
+
+export function renderFreshScaffoldNote(
+  ...input:
+    | [files: number, threshold: number]
+    | [facts: { files: number; threshold: number; topology: 'layer-first' | 'module-first' }]
+): OperationalText {
+  const facts = input.length === 2
+    ? { files: input[0], threshold: input[1], topology: 'layer-first' as const }
+    : input[0];
+
   const force = `Force the authoring playbook instead with: blueprint init --topology ${facts.topology} `
     + '--authoring.';
 
@@ -233,12 +245,30 @@ export function renderFreshScaffoldNote(facts: {
     + force);
 }
 
+/** @deprecated Pass `forcedExit` (`'threshold'` or `null`) instead of `forcedBelowThreshold`. */
+export function renderAuthoringFlowBanner(facts: {
+  dryRun: boolean;
+  files: number;
+  forcedBelowThreshold: boolean;
+  threshold: number;
+}): OperationalText;
 export function renderAuthoringFlowBanner(facts: {
   dryRun: boolean;
   files: number;
   forcedExit: 'threshold' | 'runway' | null;
   threshold: number;
-}): OperationalText {
+}): OperationalText;
+
+export function renderAuthoringFlowBanner(facts: {
+  dryRun: boolean;
+  files: number;
+  threshold: number;
+} & (
+  | { forcedBelowThreshold: boolean }
+  | { forcedExit: 'threshold' | 'runway' | null }
+)): OperationalText {
+  const forcedExit = forcedExitOf(facts);
+
   const forced = {
     threshold: ` — below the brownfield threshold (${facts.threshold} source files), forced by `
       + '--authoring; the playbook\'s own verdict will be the early exit',
@@ -247,9 +277,19 @@ export function renderAuthoringFlowBanner(facts: {
   };
 
   return message(`blueprint ${facts.dryRun ? 'init --dry-run' : 'init'} · without a config → `
-    + `authoring flow (${facts.files} source files surveyed)${facts.forcedExit
-      ? forced[facts.forcedExit]
+    + `authoring flow (${facts.files} source files surveyed)${forcedExit
+      ? forced[forcedExit]
       : ''}`);
+}
+
+function forcedExitOf(
+  facts: { forcedBelowThreshold: boolean } | { forcedExit: 'threshold' | 'runway' | null },
+): 'threshold' | 'runway' | null {
+  if ('forcedExit' in facts) {
+    return facts.forcedExit;
+  }
+
+  return facts.forcedBelowThreshold ? 'threshold' : null;
 }
 
 export function renderInitBanner(
