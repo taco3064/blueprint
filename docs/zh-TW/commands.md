@@ -85,8 +85,11 @@ module-first 起點不會建立任何模組資料夾。
     但不建立任何模組資料夾，也不發明任何領域模組 —— 沒有 `shared`、`core`、`app`，什麼都沒有。<br>
     模組根目錄佔 container 的位置，重複的內部分層保留各自的框架職責，<br>
     路由組合等實際出現路由後，再交給保留的 `app` 模組。
+  - Next.js 應用程式不走 module-first 起點：<br>
+    即使專案是空的，`--topology module-first` 也會進入架構編寫指南。
 - **既有專案（已有原始碼）** — `init` 產生架構編寫指南。<br>
-  Agent 會轉譯專案原有的意圖與門檻、先量測影響，再把已理解的既有債務記進基準線。<br>
+  Agent 會轉譯專案原有的意圖與門檻、先量測影響，<br>
+  再把已理解的既有債務記進各自的帳本：架構問題記進 Blueprint 基準線，lint 命中記進 ESLint suppressions。<br>
   它不會替專案打開原本沒有的選用檢查。
 
 Layer-first 在原始碼少於 10 個檔案時，也會直接建立預設設定。<br>
@@ -100,7 +103,7 @@ Module-first 設定產出的架構手冊與 Agent 守則，都帶有一份**模�
 這些職責就是模組的種子：相關的種子合併、只有真正獨立的才拆開，<br>
 有明確領域擁有者的程式碼就留在擁有者身上。<br>
 決定好擁有權之後，才建立 `Module → Layer → Unit`，並依實際匯入推出 `dependsOn`。<br>
-它絕不會一個畫面、hook、service、entity 或需求名詞就開一個模組，也絕不會開一個什麼都塞的 `shared`。
+它絕不會一個畫面、hook／composable、service、entity 或需求名詞就開一個模組，也絕不會開一個什麼都塞的 `shared`。
 
 這個投影只是分析。<br>
 它不會把專案說成 layer-first、不會寫出 layer-first 設定檔，也不會啟動拓樸轉換。
@@ -109,7 +112,7 @@ Module-first 設定產出的架構手冊與 Agent 守則，都帶有一份**模�
 
 要不要把既有專案的設定往標準預設設定收緊，是 owner 在導入之後的決定。<br>
 動手之前先量測，一次只恢復一項更嚴格的守則，<br>
-每一步只把「在那一步之前就存在」的債務記進基準線。<br>
+每一步只記錄「在那一步之前就存在」的債務。<br>
 絕不為了變綠而降低目標。
 
 決定收緊時，把下面這段 prompt 交給你的程式撰寫 Agent：
@@ -117,15 +120,20 @@ Module-first 設定產出的架構手冊與 Agent 守則，都帶有一份**模�
 ```text
 請把這個專案的 Blueprint 治理，往標準 <React|Vue> 預設設定收緊。
 
-1. 比對 blueprint.config.mjs 與標準預設設定：執行 `npx blueprint rules --json`
-   看設定檔宣告了哪些檢查，並對照 Blueprint 設定文件裡預設設定的分層、所有權、命名、
-   核心信念與規則等級，列出每一項差異。
+1. 比對 blueprint.config.mjs 與標準預設設定。用下面這行印出標準預設設定：
+   `node --input-type=module -e "import { reactPreset } from '@kekkai/blueprint'; console.log(JSON.stringify(reactPreset(), null, 2))"`
+   （Vue 專案改用 `vuePreset`；設定檔是 module-first 時傳入 `{ modules: [] }`）。
+   執行 `npx blueprint rules --json` 看設定檔宣告了哪些檢查，
+   再列出分層、所有權、命名、核心信念與規則等級的每一項差異。
 2. 動手之前先量測：執行 `npx blueprint inspect --json` 與 `npx blueprint impact --json`，
    把兩份輸出留作起始證據。
 3. 一次只恢復一項更嚴格的守則：一項分層職責、一條所有權規則，或一個規則等級。
    每一步之後執行 `npx blueprint init`、`npx blueprint impact --json` 與
    `npx blueprint inspect --json`，並把每個新結果分類為「這一步揭露的既有債務」或「退步」。
-4. 先修好退步，再用 `npx blueprint inspect --update-baseline` 記錄已理解的既有債務。
+4. 先修好退步，再把已理解的既有債務記進各自的帳本：
+   架構問題用 `npx blueprint inspect --update-baseline`，lint 命中用 `npx eslint . --suppress-all`
+   （ESLint 的 suppressions 檔；只有專案自己的 lint 指令已經通過時才跳過這一步，
+   因為 `impact` 只計算架構 glob 涵蓋到的檔案，範圍外的測試檔和其他檢查的檔案都不會算進去）。
 5. 絕不為了變綠而降低目標規則、門檻或邊界。某一步的代價若大於價值，
    停下來把量測到的影響回報給 owner，而不是把它放寬。
 6. 最後執行 `npx blueprint inspect --baseline`、`npx blueprint doctor`，以及專案自己的

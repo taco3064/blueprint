@@ -148,11 +148,17 @@ describe('adoption claims state the runway and posture where they are described'
       'Measure before changing anything',
       'Fix regressions. Only then record the understood pre-existing debt',
       'Never lower a target rule, threshold, or boundary merely to reach green.',
+      'architecture findings with `npx blueprint inspect --update-baseline`',
+      'lint hits with `npx eslint . --suppress-all`',
+      'skip it only when the project\'s own lint command already passes',
     ]],
     ['zh-TW commands', 'text', [
       '動手之前先量測',
-      '先修好退步，再用 `npx blueprint inspect --update-baseline` 記錄已理解的既有債務',
+      '先修好退步，再把已理解的既有債務記進各自的帳本',
       '絕不為了變綠而降低目標規則、門檻或邊界',
+      '架構問題用 `npx blueprint inspect --update-baseline`',
+      'lint 命中用 `npx eslint . --suppress-all`',
+      '只有專案自己的 lint 指令已經通過時才跳過這一步',
     ]],
   ] as const)('ships a measurement-first tightening prompt in %s', async (
     surface, fence, claims,

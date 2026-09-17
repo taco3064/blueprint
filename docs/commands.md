@@ -93,9 +93,12 @@ decides, not a flag.
     module — no `shared`, `core`, `app`, or anything else. A module root takes the container
     position, the repeated inner layers keep their framework responsibilities, and route
     composition belongs to the reserved `app` module once routes exist.
+  - A Next.js application is not part of the module-first runway: `--topology module-first`
+    enters the authoring playbook even when it is empty.
 - **Brownfield (existing source)** — `init` writes the authoring playbook. The Agent translates the
   repository's own intent and thresholds, measures impact, and records understood pre-existing
-  debt in a baseline. It does not switch on optional gates the repository never held.
+  debt in its native ledgers: the Blueprint baseline for architecture findings and ESLint
+  suppressions for lint hits. It does not switch on optional gates the repository never held.
 
 Layer-first also scaffolds the preset below the 10-source-file brownfield threshold. A brownfield
 config is truthful, safe adoption: a floor, not Blueprint's recommended ceiling.
@@ -108,7 +111,7 @@ first reasons through a temporary layer-first projection: route/page composition
 container/use-case responsibilities it composes, then the units each responsibility needs. It
 treats those responsibilities as module seeds, merges related seeds, splits only independent ones,
 and keeps domain-owned code with its owner. Only then does it materialize `Module → Layer → Unit`
-and derive `dependsOn` from the real imports. It never creates one module per screen, hook,
+and derive `dependsOn` from the real imports. It never creates one module per screen, hook/composable,
 service, entity, or request noun, and never a catch-all `shared` module.
 
 The projection is analysis only. It never describes the repository as layer-first, never writes a
@@ -125,17 +128,22 @@ When you decide to tighten, give this prompt to your coding Agent:
 ```text
 Tighten this repository's Blueprint governance toward the canonical <React|Vue> preset.
 
-1. Compare blueprint.config.mjs with the canonical preset. Run `npx blueprint rules --json`
-   for the gates the config declares, read the preset's layers, ownership, naming, principles,
-   and rule tiers in the Blueprint configuration docs, and list every difference.
+1. Compare blueprint.config.mjs with the canonical preset. Print the preset with
+   `node --input-type=module -e "import { reactPreset } from '@kekkai/blueprint'; console.log(JSON.stringify(reactPreset(), null, 2))"`
+   (use `vuePreset` for Vue, and pass `{ modules: [] }` when the config is module-first). Run
+   `npx blueprint rules --json` for the gates the config declares. List every difference in
+   layers, ownership, naming, principles, and rule tiers.
 2. Measure before changing anything: run `npx blueprint inspect --json` and
    `npx blueprint impact --json`, and keep both outputs as the starting evidence.
 3. Restore one stronger contract at a time: a layer responsibility, an ownership rule, or a rule
    tier. After each step, run `npx blueprint init`, `npx blueprint impact --json`, and
    `npx blueprint inspect --json`, and classify every new result as pre-existing debt the step
    exposed or a regression.
-4. Fix regressions. Only then record the understood pre-existing debt with
-   `npx blueprint inspect --update-baseline`.
+4. Fix regressions. Only then record the understood pre-existing debt, each kind in its own
+   ledger: architecture findings with `npx blueprint inspect --update-baseline`, lint hits with
+   `npx eslint . --suppress-all` (ESLint's suppressions file; skip it only when the project's own
+   lint command already passes, because `impact` counts only files inside the declared architecture
+   globs, not test files or other gate files outside them).
 5. Never lower a target rule, threshold, or boundary merely to reach green. If a step costs more
    than it is worth, stop and report its measured impact to the owner instead of weakening it.
 6. Finish with `npx blueprint inspect --baseline`, `npx blueprint doctor`, and the project's own
