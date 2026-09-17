@@ -17,6 +17,11 @@ describe('emitHandbook · module-first runway', () => {
 
     expect(handbook.indexOf('## Module growth protocol'))
       .toBeGreaterThan(handbook.indexOf('## Architecture'));
+
+    const growth = handbook.slice(handbook.indexOf('## Module growth protocol'));
+
+    expect(growth).toContain('declares no domain module yet — a module-first runway');
+    expect(growth).not.toContain('The declared modules are the current domain authority');
   });
 
   it('keeps the module table and growth protocol for declared modules', () => {
@@ -27,6 +32,7 @@ describe('emitHandbook · module-first runway', () => {
       ],
     }));
 
+    expect(handbook).toContain('### Modules\n\n| Module | Responsibility | Direct dependencies |');
     expect(handbook).toContain('| `checkout` | Checkout flow. | — |');
     expect(handbook).toContain('The declared modules are the current domain authority');
     expect(handbook).not.toContain('declares no domain module yet');
@@ -56,6 +62,15 @@ describe('emitFlowDiagram · module-first runway', () => {
     expect(diagram).toContain('subgraph runway["every future module · none declared yet"]');
     expect(diagram).toContain('hooks -->|Context only · selfOnly| contexts');
     expect(diagram).not.toContain('containers');
+  });
+
+  it('closes a declared-module diagram without a runway frame', () => {
+    const diagram = emitFlowDiagram(reactPreset({
+      modules: [{ name: 'checkout', does: 'Checkout flow.' }],
+    }).architecture);
+
+    expect(diagram).not.toContain('runway');
+    expect(diagram.endsWith('  end\n```')).toBe(true);
   });
 
   it('keeps the flat layer-first diagram unframed', () => {

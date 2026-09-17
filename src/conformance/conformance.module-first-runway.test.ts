@@ -113,6 +113,21 @@ describe.each(['react', 'vue'] as const)('%s greenfield adoption', (framework) =
     expect(read(dir, 'blueprint.config.mjs')).toContain('modules: []');
   });
 
+  it('repairs an untouched runway when module-first is requested again', async () => {
+    const dir = repo(framework);
+
+    await cli(dir, ['init', '--topology', 'module-first', '--no-install']);
+    stubPackage(dir, preset({ name: 'shop', modules: [] }));
+
+    const repeat = await cli(dir, ['init', '--topology', 'module-first', '--no-install']);
+
+    expect(repeat.code, repeat.output).toBe(0);
+    expect(repeat.output).not.toContain('transformation');
+
+    expect(read(dir, 'blueprint.config.mjs'))
+      .toContain(`${framework}Preset({ name: 'shop', modules: [] })`);
+  });
+
   it('forces a proven-empty authoring brief back to the canonical runway', async () => {
     const dir = repo(framework);
 

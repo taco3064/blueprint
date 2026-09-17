@@ -5,6 +5,15 @@ import { emitAgentContract } from './agent';
 
 const flat = (text: string) => text.replace(/\s+/g, ' ');
 
+const section = (text: string, heading: string) =>
+  text.slice(text.indexOf(`${heading}\n`)).split(/\n(?=#{2,3} )/)[0];
+
+const lineBefore = (text: string, prefix: string) => {
+  const lines = text.split('\n');
+
+  return lines[lines.findIndex((line) => line.startsWith(prefix)) - 1];
+};
+
 describe('emitAgentContract · module-first guidance', () => {
   const runway = vuePreset({ name: 'shop', modules: [] });
   const grown = vuePreset({ name: 'shop', modules: [{ name: 'checkout', does: 'Checkout.' }] });
@@ -31,6 +40,24 @@ describe('emitAgentContract · module-first guidance', () => {
   it('states the runway only while no domain module exists', () => {
     expect(emitAgentContract(runway, { compact: true })).toContain('- Module runway: ');
     expect(emitAgentContract(grown, { compact: true })).not.toContain('- Module runway: ');
+
+    expect(lineBefore(emitAgentContract(runway, { compact: true }), '- Module flow:'))
+      .toMatch(/^- Module runway: /);
+
+    expect(lineBefore(emitAgentContract(grown, { compact: true }), '- Module flow:'))
+      .toMatch(/^- Framework: /);
+
+    expect(section(emitAgentContract(runway), '### Context')).toContain('- Module runway: ');
+    expect(section(emitAgentContract(grown), '### Context')).not.toContain('- Module runway: ');
+  });
+
+  it('opens the full growth protocol from the runway only while no domain module exists', () => {
+    const runwayGrowth = section(emitAgentContract(runway), '### Module growth protocol');
+    const grownGrowth = section(emitAgentContract(grown), '### Module growth protocol');
+
+    expect(runwayGrowth).toContain('declares no domain module yet — a module-first runway');
+    expect(runwayGrowth).not.toContain('The declared modules are the current domain authority');
+    expect(grownGrowth).toContain('The declared modules are the current domain authority');
   });
 
   it('keeps canonical layer placement in the full contract on an empty runway', () => {
@@ -56,6 +83,8 @@ describe('emitAgentContract · module-first guidance', () => {
     const full = emitAgentContract(layerFirst);
 
     expect(full).not.toContain('Module growth protocol');
+    expect(full).not.toContain('module growth protocol');
     expect(full).not.toContain('<module>');
+    expect(flat(full)).toContain('Outgrowing the config is the owner\'s call to make');
   });
 });
