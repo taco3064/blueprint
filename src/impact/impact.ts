@@ -317,6 +317,10 @@ function lintLayers(
     ),
   ];
 
+  if (!globs.length) {
+    return Promise.resolve([]);
+  }
+
   const eslint = new run.ESLint({
     cwd: root,
     overrideConfigFile: true,
