@@ -3,6 +3,6 @@
   "compilerOptions": {
     "composite": false
   },
-  "include": ["scripts/typedoc-entry.ts", "src"],
+  "include": ["scripts/typedoc-entry.ts", "scripts/typedoc-operational-contract.ts", "src"],
   "exclude": ["dist", "node_modules", "src/**/*.test.ts"]
 }
