@@ -79,6 +79,25 @@ owns. Re-running `init` is designed to be idempotent.
 A refused or failed operation exits non-zero. If an explicitly requested Agent launch fails, the
 playbook and prior artifacts are already on disk so the manual path remains recoverable.
 
+### When adoption counts as complete
+
+Blueprint records what it provably wrote separately from whether the adoption finished. If `init`
+fails part-way, the files that landed keep their ownership records, but no completed lifecycle
+checkpoint is established.
+
+These runs do not complete adoption either:
+
+- `--no-install` skipped Blueprint or tooling dependencies the adoption still needs;
+- a brownfield run only wrote `blueprint-authoring.md` and the Agent handoff, and no final
+  `blueprint.config.mjs` has been produced and adopted yet.
+
+Finish the missing work, then run `init` again. Blueprint keeps the ownership facts it already
+recorded and establishes the lifecycle checkpoint on the run that completes adoption.
+
+In brownfield authoring, the `init` run that adopts the config the Agent wrote completes adoption
+and establishes the checkpoint. `blueprint-authoring.md` may remain until the Agent's final cleanup;
+while such an unfinished workflow file exists, `upgrade` still refuses to start.
+
 ### Greenfield and brownfield posture
 
 First adoption treats an empty application differently from an existing one. The measured source
@@ -324,9 +343,7 @@ final verification. `upgrade` owns the whole sequence:
    `@kekkai/blueprint` version, or 3.2.0 when a Blueprint 3.2 config shape proves the adoption
    predates 4.0. Then resolve every structured upgrade operation of every release in
    `(source, target]` before anything runs.
-2. **Record the pending upgrade** in the lifecycle state, so an interrupted run can resume. That
-   includes an install that stopped part-way: applications already on the target are skipped, and
-   only the rest are installed.
+2. **Record the pending upgrade** in the lifecycle state, so an interrupted run can resume.
 3. **Move `@kekkai/blueprint`** to the running target through the detected npm, pnpm, or Yarn
    manifest and lockfile, then continue with that installed copy so configs load the new release.
 4. **Run deterministic migrations in code** by reconciling every adopted application through
@@ -339,6 +356,20 @@ final verification. `upgrade` owns the whole sequence:
    `blueprint inspect --baseline` and `blueprint doctor` in every adopted application, and moves
    the lifecycle checkpoint only when all of them pass. Run the project's own lint, typecheck,
    test, and build as well.
+
+### An install that stops part-way
+
+Before it moves any package, `upgrade` records the pending upgrade. When a repository declares
+`@kekkai/blueprint` in several manifests and only some applications reach the target before the
+install stops, the next `upgrade` resumes the recorded upgrade:
+
+- applications already on the target are not installed again;
+- applications still on the upgrade's source continue to the target;
+- any version that is neither the source nor the target of the recorded upgrade stops the run,
+  because Blueprint does not guess how to repair that state.
+
+A partial package move that Blueprint itself caused is a resumable intermediate state, not a mixed
+install you have to repair by hand.
 
 ### Cumulative operations across releases
 
@@ -370,6 +401,12 @@ resolved plan.
 
 - Supported sources start at 3.2.0. An older adoption must first reach 3.2.0 with that release's
   own tooling.
+- The running release owns only its declared window, from `supportedFrom` to itself. An operation
+  that completed and later left that window keeps only the record needed to recognize it as
+  history: it never re-enters a pending upgrade, and its instruction, applicability, and
+  verification need not ship forever. A completed checkpoint closes the executable obligations
+  before it, so the resolver only handles the supported interval from that checkpoint to the
+  target.
 - Starting an upgrade requires a Git worktree with no uncommitted changes, so the whole upgrade can
   be reviewed and reverted. A pending upgrade resumes regardless.
 - The lifecycle is repository-wide. Every adopted application must share one installed Blueprint
