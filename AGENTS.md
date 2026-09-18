@@ -13,14 +13,14 @@ substitute first-principles reasoning for what it says.
 
 | Doc | What it covers |
 |---|---|
-| [`.agents/docs/autonomous-delivery.md`](./.agents/docs/autonomous-delivery.md) | **Trigger:** shaping, delivering, resuming, or accepting a GitHub ticket. The shared rules for autonomy, scope, evidence, durable state, progress, and final acceptance. |
+| [`.agents/docs/autonomous-delivery.md`](./.agents/docs/autonomous-delivery.md) | **Trigger:** shaping, delivering, resuming, or accepting a GitHub ticket. The shared rules for autonomy, scope, evidence, durable state, progress, and independent acceptance. |
 | [`.agents/docs/verification-layers.md`](./.agents/docs/verification-layers.md) | **Trigger:** adding a test for an adoption scenario; touching `bin` / `exports` / the shebang / the bundle; refactoring emitted documents or operational prose. What `src/conformance/` is for, the layers `npm run dist:verify` and `npm run operational:check` cover, and when a supplementary byte baseline belongs with a refactor. |
 | [`.agents/docs/mutation-testing.md`](./.agents/docs/mutation-testing.md) | **Trigger:** reading automatic PR mutation evidence, judging a survivor, or adding a test because CI found weak coverage. Status adjudication and narrow equivalent-mutant proofs. |
 | [`.agents/docs/field-triage.md`](./.agents/docs/field-triage.md) | **Trigger:** running live field validation, triaging a field finding, changing Agent-facing prose, or cutting a release. Exact packed candidates, affected replay, full convergence, exact-SHA release authority, and the adopter upgrade assessment every release must answer. |
 
 Repository workflows live under [`.agents/skills/`](./.agents/skills/). Use
 `shape-ticket` to shape and later review decision fidelity, `deliver-ticket` to
-produce the candidate, `accept-ticket` for independent exact-head acceptance,
+produce the candidate, `accept-ticket` for independent acceptance before commit,
 `field-validation` to choose affected replay or full convergence, and `audit-docs`
 when checking whether published guides, CLI help, the public API, translations,
 generated examples, and runtime output still describe the same product.
