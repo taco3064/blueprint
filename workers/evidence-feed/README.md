@@ -68,6 +68,10 @@ Every response carries `X-Worker-Version`, the ID of the deployed Worker version
   from that exact version, then requires `/discussions` to answer `200` from it with a Discussion
   feed and the docs-origin CORS grant. The run summary lists the Discussions served; any failed
   check fails the run. The Cloudflare secrets reach only the credential check and the deploy step.
+- **A pull request labeled `deploy-evidence-feed`** deploys that pull request's exact head to
+  production and verifies it the same way. Adding the label is the owner's approval to put an
+  unmerged candidate live, which is how a change is proven before it merges; no other pull-request
+  event deploys. To deploy a newer head, remove the label and add it again.
 - **Run workflow** on `main` (or `gh workflow run evidence-feed.yml --ref main`) redeploys and
   re-verifies without a commit.
 
@@ -129,21 +133,27 @@ gh secret set CLOUDFLARE_ACCOUNT_ID
 Each command prompts for its value (or use **Settings → Secrets and variables → Actions**). Only the
 deploy job reads them.
 
-### 4. Configuration and the private key
+### 4. Activate before merging
+
+The feature is activated and proven on the pull request's exact head, before it merges.
 
 1. Commit the App ID and installation ID under `vars` in `wrangler.jsonc`, and the Worker URL
    (`https://blueprint-evidence-feed.<subdomain>.workers.dev/discussions`) as `EVIDENCE_FEED_URL`
-   in `docs/.vitepress/theme/evidence-feed.ts`. Merging that deploys the Worker and publishes the
-   homepage.
-2. The first deployment creates the Worker without its key, so its **Verify the live feed** step
+   in `docs/.vitepress/theme/evidence-feed.ts`.
+2. Add the `deploy-evidence-feed` label to the pull request. That deploys its exact head.
+3. The first deployment creates the Worker without its key, so its **Verify the live feed** step
    fails with a `502` that names `GITHUB_PRIVATE_KEY`. Add the key in the Cloudflare dashboard:
    **Workers & Pages → blueprint-evidence-feed → Settings → Variables and Secrets → Add**, type
    **Secret**, name `GITHUB_PRIVATE_KEY`, value the whole `.pem` file. The key GitHub downloads
    (`BEGIN RSA PRIVATE KEY`) is accepted as is; a PKCS#8 key (`BEGIN PRIVATE KEY`) works too.
    Deployments never touch Worker secrets, so the key stays through every later deploy.
-3. Re-run the failed workflow. It passes once the feed serves the real Discussions, and from then
-   on a Discussion created, edited, or deleted on GitHub reaches the homepage within five minutes.
-4. Delete the local `.pem`, or keep it offline.
+4. Re-run the failed job (**Re-run failed jobs**, or `gh run rerun <run-id> --failed`). It passes
+   once the feed serves the real Discussions.
+5. Prove the live feature on that head: `npm run docs:dev` (an allowed origin) renders the live
+   feed on both homepages, and a test Discussion created, edited, and deleted on GitHub shows each
+   change within five minutes with no commit.
+6. Merge. The push to `main` redeploys the merged tree and the docs workflow publishes the homepage.
+7. Delete the local `.pem`, or keep it offline.
 
 ### Rotating the key
 

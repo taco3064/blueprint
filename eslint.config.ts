@@ -67,6 +67,7 @@ export default defineConfig([
     'reports',
     '.claude/worktrees',
     '.tmp',
+    'workers/*/.wrangler',
   ]),
   // The parser and the recommended sets stay on every `.ts` file — the emitted
   // config declares rules, never a language. Narrowing this entry to the house

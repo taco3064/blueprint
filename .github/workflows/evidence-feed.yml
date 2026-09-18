@@ -3,6 +3,7 @@ name: Evidence feed
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - 'workers/evidence-feed/**'
       - '.github/workflows/evidence-feed.yml'
@@ -16,10 +17,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: evidence-feed-${{ github.event.pull_request.number || 'deploy' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 defaults:
   run:
     shell: bash
@@ -28,8 +25,11 @@ defaults:
 jobs:
   bundle:
     name: Worker bundle
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.action != 'labeled'
     runs-on: ubuntu-latest
+    concurrency:
+      group: evidence-feed-bundle-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -43,9 +43,16 @@ jobs:
 
   deploy:
     name: Deploy and verify
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: >-
+      (github.event_name != 'pull_request' && github.ref == 'refs/heads/main')
+      || (github.event.action == 'labeled'
+        && github.event.label.name == 'deploy-evidence-feed'
+        && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    concurrency:
+      group: evidence-feed-production
+      cancel-in-progress: false
     environment:
       name: evidence-feed
       url: ${{ steps.deploy.outputs.url && format('{0}/discussions', steps.deploy.outputs.url) || '' }}
@@ -61,6 +68,8 @@ jobs:
             exit 1
           fi
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
