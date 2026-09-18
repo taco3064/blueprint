@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { ATTEMPTS, ORIGIN, RETRY_MS, render, smoke } from './smoke';
+import { VERSION_HEADER as WORKER_VERSION_HEADER } from '../src/evidence-feed';
+import { ATTEMPTS, ORIGIN, RETRY_MS, VERSION_HEADER, render, smoke } from './smoke';
 
 const BASE = 'https://blueprint-evidence-feed.example.workers.dev';
 
@@ -75,11 +76,60 @@ describe('smoke', () => {
     const result = await smoke(BASE, { fetch, wait, attempts: 3 });
 
     expect(result.problems).toEqual([
-      `${BASE}/discussions never refused a query string with 400, so the deployed version is not serving there.`,
+      `${BASE}/discussions never answered its query-string probe with 400 from any version, so the deployment is not serving there.`,
     ]);
 
     expect(calls).toHaveLength(3);
     expect(wait).toHaveBeenCalledTimes(2);
+  });
+
+  describe('with the deployed version', () => {
+    const VERSION = 'aaaaaaaa-0000-0000-0000-000000000002';
+    const from = (version: string) => ({ [VERSION_HEADER]: version });
+
+    it('reads the Worker\x27s own version header', () => {
+      expect(VERSION_HEADER).toBe(WORKER_VERSION_HEADER);
+    });
+
+    it('waits while the previous version still answers', async () => {
+      const answers = [
+        async () => json({}, 400, from('aaaaaaaa-0000-0000-0000-000000000001')),
+        async () => json({}, 400),
+        async () => json({}, 400, from(VERSION)),
+      ];
+
+      const { fetch, wait } = worker({
+        probe: () => answers.shift()!(),
+        feed: async () => json(
+          { discussions: [discussion(1)] }, 200, { ...granted, ...from(VERSION) },
+        ),
+      });
+
+      expect(await smoke(BASE, { fetch, wait, version: VERSION })).toEqual({ served: ['#1 Case 1'], problems: [] });
+      expect(wait).toHaveBeenCalledTimes(2);
+    });
+
+    it('fails when only the previous version ever answers', async () => {
+      const { fetch, calls, wait } = worker({
+        probe: async () => json({}, 400, from('aaaaaaaa-0000-0000-0000-000000000001')),
+      });
+
+      expect((await smoke(BASE, { fetch, wait, attempts: 2, version: VERSION })).problems).toEqual([
+        `${BASE}/discussions never answered its query-string probe with 400 from version ${VERSION}, so the deployment is not serving there.`,
+      ]);
+
+      expect(calls).toHaveLength(2);
+    });
+
+    it('fails a feed answered by another version', async () => {
+      const { fetch, wait } = worker({
+        probe: async () => json({}, 400, from(VERSION)),
+        feed: async () => json({ discussions: [discussion(1)] }, 200, { ...granted, ...from('old') }),
+      });
+
+      expect((await smoke(BASE, { fetch, wait, version: VERSION })).problems)
+        .toEqual([`GET /discussions answered from old, not ${VERSION}.`]);
+    });
   });
 
   it('allows a minute for a first deployment to become reachable', () => {

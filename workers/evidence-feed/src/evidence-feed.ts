@@ -7,6 +7,7 @@ export interface Env {
   GITHUB_PRIVATE_KEY: string;
   GITHUB_OWNER: string;
   GITHUB_REPO: string;
+  CF_VERSION_METADATA?: { id: string };
 }
 
 export const FEED_PATH = '/discussions';
@@ -15,6 +16,7 @@ export const FRESH_CACHE = 'public, max-age=300';
 export const FAILURE_CACHE = 'public, max-age=60';
 export const BROWSER_CACHE = 'no-cache';
 export const UNAVAILABLE = 'Live evidence is unavailable.';
+export const VERSION_HEADER = 'X-Worker-Version';
 
 export const CACHE_KEY_HEADERS = [
   'x-http-method-override',
@@ -84,13 +86,7 @@ function gate(request: Request): Response | null {
   return null;
 }
 
-export async function handleRequest(
-  request: Request, env: Env, effects: Effects,
-): Promise<Response> {
-  const refused = gate(request);
-
-  if (refused) return refused;
-
+async function feed(request: Request, env: Env, effects: Effects): Promise<Response> {
   const headers = {
     'Cache-Control': BROWSER_CACHE,
     Vary: 'Origin',
@@ -108,4 +104,14 @@ export async function handleRequest(
       'Cloudflare-CDN-Cache-Control': FAILURE_CACHE, ...headers,
     });
   }
+}
+
+export async function handleRequest(
+  request: Request, env: Env, effects: Effects,
+): Promise<Response> {
+  const response = gate(request) ?? await feed(request, env, effects);
+
+  if (env.CF_VERSION_METADATA) response.headers.set(VERSION_HEADER, env.CF_VERSION_METADATA.id);
+
+  return response;
 }

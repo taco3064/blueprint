@@ -54,6 +54,8 @@ A GitHub or configuration failure returns `502` with `{"error": "Live evidence i
 cached at the edge for one minute so a broken App is not retried on every request. Failure details
 go only to the Worker log.
 
+Every response carries `X-Worker-Version`, the ID of the deployed Worker version that answered it.
+
 ## Deployment
 
 `.github/workflows/evidence-feed.yml` owns the Worker's lifecycle; nothing is deployed by hand.
@@ -62,9 +64,10 @@ go only to the Worker log.
   without deploying it.
 - **Every push to `main`** that touches this directory runs `wrangler deploy`, requires the
   homepage's `EVIDENCE_FEED_URL` to be the URL it just deployed, then runs `scripts/smoke.ts`
-  against that URL. The check waits until the new version refuses a query string, then requires
-  `/discussions` to answer `200` with a Discussion feed and the docs-origin CORS grant. The run
-  summary lists the Discussions served; any failed check fails the run.
+  against that URL with the version ID wrangler reported. The check waits until the URL answers
+  from that exact version, then requires `/discussions` to answer `200` from it with a Discussion
+  feed and the docs-origin CORS grant. The run summary lists the Discussions served; any failed
+  check fails the run. The Cloudflare secrets reach only the credential check and the deploy step.
 - **Run workflow** on `main` (or `gh workflow run evidence-feed.yml --ref main`) redeploys and
   re-verifies without a commit.
 

@@ -49,12 +49,12 @@ jobs:
     environment:
       name: evidence-feed
       url: ${{ steps.deploy.outputs.url && format('{0}/discussions', steps.deploy.outputs.url) || '' }}
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Require Cloudflare credentials
         working-directory: .
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "::error::Set the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets (workers/evidence-feed/README.md, Activation), then re-run this workflow."
@@ -69,14 +69,19 @@ jobs:
       - run: npm ci
       - name: Deploy
         id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx wrangler deploy 2>&1 | tee deploy.log
           url="$(grep -m 1 -oE 'https://blueprint-evidence-feed\.[a-z0-9-]+\.workers\.dev' deploy.log || true)"
-          if [ -z "$url" ]; then
-            echo "::error::wrangler deploy printed no workers.dev URL for blueprint-evidence-feed."
+          version="$(awk '/Current Version ID:/ { print $NF; exit }' deploy.log)"
+          if [ -z "$url" ] || [ -z "$version" ]; then
+            echo "::error::wrangler deploy printed no workers.dev URL or no Current Version ID for blueprint-evidence-feed."
             exit 1
           fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Match the homepage to the deployed URL
         env:
           WORKER_URL: ${{ steps.deploy.outputs.url }}
@@ -88,4 +93,5 @@ jobs:
       - name: Verify the live feed
         env:
           WORKER_URL: ${{ steps.deploy.outputs.url }}
-        run: node scripts/smoke.ts "$WORKER_URL" | tee -a "$GITHUB_STEP_SUMMARY"
+          WORKER_VERSION: ${{ steps.deploy.outputs.version }}
+        run: node scripts/smoke.ts "$WORKER_URL" "$WORKER_VERSION" | tee -a "$GITHUB_STEP_SUMMARY"
