@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   ALLOWED_ORIGINS,
+  BROWSER_CACHE,
   CACHE_KEY_HEADERS,
   FAILURE_CACHE,
   FEED_PATH,
@@ -97,14 +98,21 @@ describe('the feed', () => {
     });
   });
 
-  it('caches a fresh feed for five minutes, per requesting origin', async () => {
+  it('caches a fresh feed at the edge for five minutes, per requesting origin', async () => {
     const response = await handleRequest(
       request({ headers: { Origin: PRODUCTION } }), env, github().effects,
     );
 
     expect(FRESH_CACHE).toBe('public, max-age=300');
-    expect(response.headers.get('Cache-Control')).toBe(FRESH_CACHE);
+    expect(response.headers.get('Cloudflare-CDN-Cache-Control')).toBe(FRESH_CACHE);
     expect(response.headers.get('Vary')).toBe('Origin');
+  });
+
+  it('makes browsers revalidate, so the edge window is the whole freshness window', async () => {
+    const response = await handleRequest(request(), env, github().effects);
+
+    expect(BROWSER_CACHE).toBe('no-cache');
+    expect(response.headers.get('Cache-Control')).toBe(BROWSER_CACHE);
   });
 
   it.each(ALLOWED_ORIGINS)('lets %s read the feed', async (origin) => {
@@ -283,7 +291,8 @@ describe('failures', () => {
     expect(JSON.parse(body)).toEqual({ error: UNAVAILABLE });
     expect(UNAVAILABLE).toBe('Live evidence is unavailable.');
     expect(FAILURE_CACHE).toBe('public, max-age=60');
-    expect(response.headers.get('Cache-Control')).toBe(FAILURE_CACHE);
+    expect(response.headers.get('Cloudflare-CDN-Cache-Control')).toBe(FAILURE_CACHE);
+    expect(response.headers.get('Cache-Control')).toBe(BROWSER_CACHE);
     expect(response.headers.get('Access-Control-Allow-Origin')).toBe(PRODUCTION);
     expect(response.headers.get('Vary')).toBe('Origin');
     expect(log).toHaveBeenCalledOnce();

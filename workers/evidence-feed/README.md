@@ -47,10 +47,12 @@ Browser access (CORS) is granted to `https://taco3064.github.io` (the published 
 `http://localhost:5173` (`npm run docs:dev`). A request with no `Origin`, such as `curl`, is served
 without a CORS grant.
 
-A successful feed is cached for five minutes (`Cache-Control: public, max-age=300`, `Vary:
-Origin`). A GitHub or configuration failure returns `502` with `{"error": "Live evidence is
-unavailable."}`, cached for one minute so a broken App is not retried on every request. Failure
-details go only to the Worker log.
+A successful feed is cached at the Cloudflare edge for five minutes
+(`Cloudflare-CDN-Cache-Control: public, max-age=300`, `Vary: Origin`). Browsers get
+`Cache-Control: no-cache`, so they always ask the edge again and never hold a copy past that window.
+A GitHub or configuration failure returns `502` with `{"error": "Live evidence is unavailable."}`,
+cached at the edge for one minute so a broken App is not retried on every request. Failure details
+go only to the Worker log.
 
 ## Activation
 
@@ -132,7 +134,8 @@ From this directory:
    ```
 
    The first returns the repository's Discussions. The second also carries
-   `Access-Control-Allow-Origin: https://taco3064.github.io`.
+   `Access-Control-Allow-Origin: https://taco3064.github.io`. Repeating the first within five minutes
+   answers with `Cf-Cache-Status: HIT`, which shows Workers Caching is serving the feed.
 
 5. Set `EVIDENCE_FEED_URL` in `docs/.vitepress/theme/evidence-feed.ts` to
    `https://blueprint-evidence-feed.<subdomain>.workers.dev/discussions` and merge it. From then on,
