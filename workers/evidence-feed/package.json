@@ -1,0 +1,15 @@
+{
+  "name": "blueprint-evidence-feed",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.134.0"
+  }
+}

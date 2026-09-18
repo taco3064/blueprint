@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "blueprint-evidence-feed",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-18",
+  "workers_dev": true,
+  "preview_urls": false,
+  "cache": {
+    "enabled": true
+  },
+  "vars": {
+    "GITHUB_APP_ID": "",
+    "GITHUB_INSTALLATION_ID": "",
+    "GITHUB_OWNER": "taco3064",
+    "GITHUB_REPO": "blueprint"
+  }
+}
