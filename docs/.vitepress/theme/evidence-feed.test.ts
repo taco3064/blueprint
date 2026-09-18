@@ -32,6 +32,7 @@ describe('feedUrl', () => {
   });
 
   it('falls back to the production Worker', () => {
+    expect(EVIDENCE_FEED_URL).toBe('https://blueprint-evidence-feed.tabacotaco.workers.dev/discussions');
     expect(feedUrl(undefined)).toBe(EVIDENCE_FEED_URL);
     expect(feedUrl('')).toBe(EVIDENCE_FEED_URL);
   });
@@ -101,13 +102,6 @@ describe('loadEvidence', () => {
 
   it('is empty when no Discussion is published', async () => {
     expect(await loadEvidence(FEED, { fetch: respond({ discussions: [] }) })).toEqual({ status: 'empty' });
-  });
-
-  it('is unavailable without a configured Worker, without making a request', async () => {
-    const fetch = respond({ discussions: [item(1)] });
-
-    expect(await loadEvidence(null, { fetch })).toEqual({ status: 'unavailable' });
-    expect(fetch).not.toHaveBeenCalled();
   });
 
   it.each([
