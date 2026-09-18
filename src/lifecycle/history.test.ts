@@ -14,6 +14,7 @@ function op(id: string, introducedIn: string): UpgradeOperation {
 const CATALOG: UpgradeCatalog = {
   supportedFrom: '3.2.0',
   legacyConfigCheckpoint: '3.2.0',
+  retired: [],
   migrations: [
     {
       id: 'reshape',
@@ -99,5 +100,36 @@ describe('lifecycleHistoryProblem', () => {
   it('refuses a pending plan that does not start at the recorded checkpoint', () => {
     expect(lifecycleHistoryProblem(state({ blueprint: '4.0.0', pending: PENDING }), CATALOG))
       .toBe('pending');
+  });
+});
+
+describe('lifecycleHistoryProblem · after the supported window moves', () => {
+  const MOVED: UpgradeCatalog = {
+    ...CATALOG,
+    supportedFrom: '4.0.0',
+    migrations: [],
+    operations: [op('tidy', '4.1.0')],
+    retired: [{ id: 'review', introducedIn: '4.0.0' }],
+  };
+
+  it('keeps completed history readable once its operation retires', () => {
+    const upgraded = state({ blueprint: '4.1.0', operations: ['review', 'tidy'] });
+
+    expect(lifecycleHistoryProblem(upgraded, MOVED)).toBeNull();
+    expect(lifecycleHistoryProblem(upgraded, { ...MOVED, retired: [] })).toBe('operations');
+  });
+
+  it('still dates a retired operation against the recorded checkpoint', () => {
+    expect(lifecycleHistoryProblem(state({ blueprint: '3.2.0', operations: ['review'] }), MOVED))
+      .toBe('operations');
+  });
+
+  it('never lets a pending plan hold an operation the running release no longer executes', () => {
+    const pending = withPlanIdentity({
+      from: '3.2.0', to: '4.1.0', migrations: [], completed: [],
+      operations: [PENDING.operations[0]],
+    });
+
+    expect(lifecycleHistoryProblem(state({ pending }), MOVED)).toBe('pending');
   });
 });

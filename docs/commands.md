@@ -324,7 +324,9 @@ final verification. `upgrade` owns the whole sequence:
    `@kekkai/blueprint` version, or 3.2.0 when a Blueprint 3.2 config shape proves the adoption
    predates 4.0. Then resolve every structured upgrade operation of every release in
    `(source, target]` before anything runs.
-2. **Record the pending upgrade** in the lifecycle state, so an interrupted run can resume.
+2. **Record the pending upgrade** in the lifecycle state, so an interrupted run can resume. That
+   includes an install that stopped part-way: applications already on the target are skipped, and
+   only the rest are installed.
 3. **Move `@kekkai/blueprint`** to the running target through the detected npm, pnpm, or Yarn
    manifest and lockfile, then continue with that installed copy so configs load the new release.
 4. **Run deterministic migrations in code** by reconciling every adopted application through
@@ -371,13 +373,16 @@ resolved plan.
 - Starting an upgrade requires a Git worktree with no uncommitted changes, so the whole upgrade can
   be reviewed and reverted. A pending upgrade resumes regardless.
 - The lifecycle is repository-wide. Every adopted application must share one installed Blueprint
-  version, and the upgrade completes only when every adopted application verifies.
+  version, and the upgrade completes only when every adopted application verifies. The one
+  exception is an install the recorded upgrade interrupted, which leaves each application on its
+  source or its target; any other mix is refused.
 - An unfinished authoring playbook or topology transformation must finish first.
 - If `.blueprint-lifecycle.json` is unreadable, records upgrade history the running release could
   not have produced, or is missing where any adopted application's installed release always records
   it, every command that needs it stops. Restore it from version control; Blueprint never rebuilds
   lifecycle history from the installed package, and no command re-establishes it.
-- Records without a completed lifecycle — written by an adoption that failed part-way — are not a
+- Records without a completed lifecycle — written by an adoption that failed part-way, deferred a
+  required install with `--no-install`, or is still in its authoring handoff — are not a
   checkpoint. Finish the adoption with `npx blueprint init` first.
 - If the lifecycle state changes under a running upgrade, finalization stops and the checkpoint
   stays where it was.

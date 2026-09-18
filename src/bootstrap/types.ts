@@ -1,4 +1,4 @@
-import type { OperationalText } from '../operational-contract';
+import type { AdoptionGap, OperationalText } from '../operational-contract';
 
 export type Action
   = | {
@@ -11,4 +11,4 @@ export type Action
   | { kind: 'mkdir'; path: string; note: OperationalText }
   | { kind: 'install'; command: string; note: OperationalText; dependencies?: readonly string[] }
   | { kind: 'rm'; path: string; note: OperationalText }
-  | { kind: 'instruct'; note: OperationalText };
+  | { kind: 'instruct'; note: OperationalText; defers?: AdoptionGap };

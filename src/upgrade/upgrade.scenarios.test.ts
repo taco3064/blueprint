@@ -126,6 +126,44 @@ describe('runUpgrade · repository scope', () => {
     expect(state().pending).not.toBeNull();
   });
 
+  it('resumes a package move that stopped part-way without repeating what landed', async () => {
+    for (const app of ['apps/admin', 'apps/web']) {
+      write(`${app}/package.json`,
+        JSON.stringify({ devDependencies: { '@kekkai/blueprint': '^4.0.0' } }));
+
+      write(`${app}/blueprint.config.mjs`, 'export default {};\n');
+      install('4.0.0', app);
+    }
+
+    const moved = (cwd: string) =>
+      install('4.1.0', path.relative(root, cwd).split(path.sep).join('/'));
+
+    const failing = vi.fn((_command: string, cwd: string) => {
+      if (cwd.endsWith('web')) {
+        throw new Error('registry unavailable');
+      }
+
+      moved(cwd);
+    });
+
+    await expect(upgrade({ exec: failing })).rejects.toThrow('registry unavailable');
+    expect(state()).toMatchObject({ blueprint: '4.0.0', pending: { from: '4.0.0', to: '4.1.0' } });
+
+    const exec = vi.fn((_command: string, cwd: string) => moved(cwd));
+    const handoff = vi.fn(() => 0);
+
+    expect(await upgrade({ exec, handoff })).toBe(0);
+
+    expect([failing.mock.calls.length, exec.mock.calls, handoff.mock.calls.length]).toEqual([
+      2, [['npm install -D @kekkai/blueprint@4.1.0', path.join(root, 'apps/web')]], 1,
+    ]);
+
+    expect(output()).toContain('Blueprint upgrade — resuming the pending upgrade');
+
+    expect(output()).toContain('Applications: `apps/admin` (installed 4.1.0), '
+      + '`apps/web` (installed 4.0.0)');
+  });
+
   it('uses yarn and keeps a production dependency section', async () => {
     write('package.json', JSON.stringify({ dependencies: { '@kekkai/blueprint': '4.0.0' } }));
     write('yarn.lock', '');
@@ -201,6 +239,7 @@ describe('runUpgrade · lifecycle checkpoints', () => {
 
     const catalog: UpgradeCatalog = {
       supportedFrom: '3.2.0', legacyConfigCheckpoint: '3.2.0', migrations: [],
+      retired: [],
       operations: [op('first-step', '4.1.0')],
     };
 
@@ -240,16 +279,6 @@ describe('runUpgrade · lifecycle checkpoints', () => {
     expect(state().pending).not.toBeNull();
   });
 
-  it('names catalog problems that do not belong to one operation', async () => {
-    adopt('4.0.0');
-
-    await expect(upgrade({
-      catalog: {
-        supportedFrom: '9.0.0', legacyConfigCheckpoint: '3.2.0', migrations: [], operations: [],
-      },
-    })).rejects.toThrow('(window-beyond-package)');
-  });
-
   it('re-plans a pending upgrade for a newer running release without losing completed '
     + 'work', async () => {
     adopt('4.1.0', '4.2.0');
@@ -257,6 +286,7 @@ describe('runUpgrade · lifecycle checkpoints', () => {
     const catalog: UpgradeCatalog = {
       supportedFrom: '3.2.0',
       legacyConfigCheckpoint: '3.2.0',
+      retired: [],
       migrations: [],
       operations: [op('first-step', '4.1.0'), op('second-step', '4.2.0')],
     };
@@ -285,6 +315,39 @@ describe('runUpgrade · lifecycle checkpoints', () => {
   });
 });
 
+describe('runUpgrade · the supported window', () => {
+  it('names catalog problems that do not belong to one operation', async () => {
+    adopt('4.0.0');
+
+    await expect(upgrade({
+      catalog: {
+        supportedFrom: '9.0.0', legacyConfigCheckpoint: '3.2.0', migrations: [], operations: [],
+        retired: [],
+      },
+    })).rejects.toThrow('(window-beyond-package)');
+  });
+
+  it('keeps an upgraded repository current after its completed operation retires', async () => {
+    adopt('4.1.0');
+
+    write('.blueprint-lifecycle.json', JSON.stringify({
+      schema: 1, blueprint: '4.1.0', provenance: 'complete',
+      operations: ['review-retired-module-private'], pending: null, applications: {},
+    }));
+
+    const catalog: UpgradeCatalog = {
+      supportedFrom: '4.0.0', legacyConfigCheckpoint: '3.2.0', migrations: [], operations: [],
+      retired: [{ id: 'review-retired-module-private', introducedIn: '4.0.0' }],
+    };
+
+    expect(await upgrade({ catalog })).toBe(0);
+    expect(output()).toContain('Blueprint lifecycle 4.1.0 is current — nothing to upgrade.');
+
+    await expect(upgrade({ catalog: { ...catalog, retired: [] } })).rejects
+      .toThrow('.blueprint-lifecycle.json is unreadable: its `operations` field is invalid');
+  });
+});
+
 describe('runUpgrade · one composed playbook for a multi-release jump', () => {
   it('removes canceled and superseded history before the Agent sees anything', async () => {
     adopt('4.1.0');
@@ -292,6 +355,7 @@ describe('runUpgrade · one composed playbook for a multi-release jump', () => {
     const catalog: UpgradeCatalog = {
       supportedFrom: '3.2.0',
       legacyConfigCheckpoint: '3.2.0',
+      retired: [],
       migrations: [],
       operations: [
         op('rename-hooks', '3.3.0'),

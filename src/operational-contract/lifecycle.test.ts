@@ -38,6 +38,25 @@ describe('lifecycle state messages', () => {
     );
   });
 
+  it.each([
+    [null, 'adoption did not finish — re-run `blueprint init` to finish it'],
+    [
+      'install',
+      'the dependencies adoption requires are not installed yet — install them as shown above, '
+      + 'then re-run `blueprint init`',
+    ],
+    [
+      'authoring',
+      'authoring is still in progress — the `blueprint init` run that finishes authoring '
+      + 'establishes it',
+    ],
+  ] as const)('names what adoption still needs when the gap is %s', (gap, reason) => {
+    expect(renderLifecycleRecordNote('.blueprint-lifecycle.json', 'records-only', gap)).toBe(
+      '.blueprint-lifecycle.json (Blueprint ownership records for what this run wrote; the '
+      + `lifecycle checkpoint stays unestablished because ${reason})`,
+    );
+  });
+
   it('gives the recovery step for each skipped recording', () => {
     expect(renderLifecycleRecordSkipped('pending-upgrade'))
       .toContain('Restore .blueprint-lifecycle.json from version control, then re-run');

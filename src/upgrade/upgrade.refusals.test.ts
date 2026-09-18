@@ -133,6 +133,29 @@ describe('runUpgrade · refusals before any change', () => {
       + '(3.2.0, 4.0.0)');
   });
 
+  it.each([
+    ['3.9.0', '4.1.0'],
+    ['4.0.0', '4.2.0'],
+  ])('refuses installs %s and %s that a pending 4.0.0 → 4.1.0 cannot have left', async (
+    web,
+    admin,
+  ) => {
+    adopt('apps/web', web);
+    adopt('apps/admin', admin);
+
+    lifecycle({
+      blueprint: '4.0.0',
+      pending: withPlanIdentity({
+        from: '4.0.0', to: '4.1.0', migrations: [], operations: [], completed: [],
+      }),
+    });
+
+    await expect(upgrade()).rejects.toThrow('different installed @kekkai/blueprint versions '
+      + `(${web}, ${admin}). The recorded upgrade 4.0.0 → 4.1.0 resumes only an install it `
+      + 'interrupted, which leaves every application on 4.0.0 or 4.1.0, so it did not leave '
+      + 'this mix.');
+  });
+
   it('names the supported checkpoint for a source below the window', async () => {
     adopt('.', '3.1.0');
 
@@ -178,6 +201,7 @@ describe('runUpgrade · refusals of the plan and its safety', () => {
     await expect(upgrade({
       catalog: {
         supportedFrom: '3.2.0', legacyConfigCheckpoint: '3.2.0', migrations: [],
+        retired: [],
         operations: [orphan, { ...orphan, introducedIn: '9.0.0', id: 'future' }],
       },
     })).rejects.toThrow('ships an invalid upgrade catalog (future-entry:future; '

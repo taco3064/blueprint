@@ -8,7 +8,7 @@ import { LIFECYCLE_SINCE, UPGRADE_CATALOG } from './catalog';
 import { sourceCheckpoint } from './checkpoint';
 import { installedPackage, runningPackage } from './package';
 import { forgetPaths, mergeProvenance } from './provenance';
-import { LIFECYCLE_FILE, readLifecycleState, serializeLifecycleState } from './state';
+import { readLifecycleState, serializeLifecycleState } from './state';
 import type { LifecycleStateRead } from './state';
 import type { LifecycleState } from './types';
 import { compareVersions } from './version';
@@ -28,7 +28,7 @@ export interface RecordAdoptionInput {
 }
 
 export type RecordAdoptionOutcome
-  = | { status: 'write'; file: string; content: string; established: LifecycleEstablishment }
+  = | { status: 'write'; content: string; established: LifecycleEstablishment }
     | { status: 'skipped'; reason: 'unproven-checkpoint' | 'pending-upgrade' | 'missing-state' };
 
 export function applicationKey(lifecycleRoot: string, applicationRoot: string): string {
@@ -108,9 +108,13 @@ function recordedState(
 ): { state: LifecycleState; established: LifecycleEstablishment } {
   const running = runningVersion(input);
 
-  return state.blueprint === null && input.finished && running !== null
+  if (state.blueprint !== null) {
+    return { state, established: null };
+  }
+
+  return input.finished && running !== null
     ? { state: { ...state, blueprint: running }, established: 'first' }
-    : { state, established: null };
+    : { state, established: 'records-only' };
 }
 
 export function recordAdoption(input: RecordAdoptionInput): RecordAdoptionOutcome {
@@ -134,7 +138,6 @@ export function recordAdoption(input: RecordAdoptionInput): RecordAdoptionOutcom
 
   return {
     status: 'write',
-    file: path.join(input.lifecycleRoot, LIFECYCLE_FILE),
     content: serializeLifecycleState({ ...state, applications }),
     established,
   };

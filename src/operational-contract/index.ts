@@ -302,7 +302,7 @@ export {
   renderLifecycleStateInvalid,
   renderLifecycleStateMissing,
 } from './lifecycle';
-export type { LifecycleEstablishment, LifecycleRecordSkip } from './lifecycle';
+export type { AdoptionGap, LifecycleEstablishment, LifecycleRecordSkip } from './lifecycle';
 export {
   renderUpgradeComplete,
   renderUpgradeCurrent,

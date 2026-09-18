@@ -4,6 +4,7 @@ import type { ResolutionProblem } from './resolve';
 import type {
   ApplicationFacts,
   DeterministicMigration,
+  RetiredOperation,
   UpgradeApplicability,
   UpgradeCatalog,
   UpgradeOperation,
@@ -19,6 +20,7 @@ export type CatalogProblem
     | { kind: 'duplicate-id'; id: string }
     | { kind: 'future-entry'; id: string; introducedIn: string; packageVersion: string }
     | { kind: 'outside-window'; id: string; introducedIn: string; supportedFrom: string }
+    | { kind: 'retired-in-window'; id: string; introducedIn: string; supportedFrom: string }
     | { kind: 'incomplete-window'; id: string; supportsFrom: string; supportedFrom: string }
     | { kind: 'unknown-reference'; id: string; relation: CatalogRelation; target: unknown }
     | { kind: 'impossible-reference'; id: string; relation: CatalogRelation; target: string }
@@ -43,9 +45,13 @@ export function catalogProblems(catalog: UpgradeCatalog, packageVersion: string)
     return context.problems;
   }
 
-  const identified = entryIdentities([...catalog.migrations, ...catalog.operations], context);
+  const seen = new Set<string>();
+  const identified = entryIdentities([...catalog.migrations, ...catalog.operations], context, seen);
 
   identified.forEach((entry) => entryVersions(entry, context));
+
+  entryIdentities(catalog.retired, context, seen)
+    .forEach((entry) => retiredVersion(entry, context));
 
   catalog.operations
     .filter((operation) => identified.includes(operation))
@@ -76,12 +82,11 @@ function windowValid(context: Context): boolean {
   return !problems.length;
 }
 
-function entryIdentities(
-  entries: (DeterministicMigration | UpgradeOperation)[],
+function entryIdentities<T extends { id: string }>(
+  entries: readonly T[],
   context: Context,
-): (DeterministicMigration | UpgradeOperation)[] {
-  const seen = new Set<string>();
-
+  seen: Set<string>,
+): T[] {
   return entries.filter(({ id }) => {
     const valid = typeof id === 'string' && ID.test(id);
 
@@ -123,6 +128,19 @@ function entryVersions(entry: DeterministicMigration | UpgradeOperation, context
 
   if (!applicabilityValid(entry.applicability, { introducedIn, context })) {
     problems.push({ kind: 'malformed-applicability', id });
+  }
+}
+
+function retiredVersion(entry: RetiredOperation, context: Context): void {
+  const { supportedFrom } = context.catalog;
+  const { id, introducedIn } = entry;
+
+  if (!isVersion(introducedIn)) {
+    context.problems.push({
+      kind: 'invalid-version', where: `${id}.introducedIn`, value: introducedIn,
+    });
+  } else if (compareVersions(introducedIn, supportedFrom) > 0) {
+    context.problems.push({ kind: 'retired-in-window', id, introducedIn, supportedFrom });
   }
 }
 

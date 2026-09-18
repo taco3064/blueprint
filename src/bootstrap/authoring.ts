@@ -83,7 +83,7 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
       ? [{
           kind: 'install', command, note: renderInstallNote(), dependencies: ['@kekkai/blueprint'],
         }]
-      : [{ kind: 'instruct', note: renderAuthoringInstallSkipped(command) }];
+      : [{ kind: 'instruct', note: renderAuthoringInstallSkipped(command), defers: 'install' }];
 
   return [
     {
@@ -105,6 +105,7 @@ export function authoringActions(survey: SurveyResult, options: AuthoringOptions
         scopeRequired: survey.scopeRequired ?? false,
         topology,
       }),
+      defers: 'authoring',
     },
   ];
 }

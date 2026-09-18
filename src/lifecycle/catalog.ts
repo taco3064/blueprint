@@ -22,6 +22,7 @@ export const UPGRADE_CATALOG: UpgradeCatalog = {
       verification: { kind: 'no-files', pattern: 'blueprint.config.mjs.pre-v4-*' },
     },
   ],
+  retired: [],
 };
 
 export const LEGACY_CONFIG_KEYS = ['module.private'] as const;

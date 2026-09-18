@@ -316,6 +316,7 @@ function installActions(state: ProjectState, options: PlanOptions): Action[] {
     return [{
       kind: 'instruct',
       note: renderInstallSkippedForPlan(installCommand(state.packageManager, deps)),
+      defers: 'install',
     }];
   }
 

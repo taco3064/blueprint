@@ -85,13 +85,14 @@ describe('init lifecycle recording', () => {
   it('merges a repair run without duplicating or forgetting creation', async () => {
     writePkg({ name: 'demo', dependencies: { vue: '^3' } });
 
-    await runInit(root, { topology: 'layer-first', install: false, log });
+    await runInit(root, { topology: 'layer-first', exec: () => {}, log });
     const first = lifecycle();
     const loadConfig = async () => vuePreset({ name: 'demo' });
 
     await runInit(root, { install: false, log, loadConfig });
     const second = lifecycle();
 
+    expect(first.blueprint).toBe(runningPackage()!.version);
     expect(second.blueprint).toBe(first.blueprint);
     expect(second.applications['.'].provenance).toEqual(first.applications['.'].provenance);
     expectLogged('Blueprint ownership records — upgrade and remove');
@@ -160,9 +161,12 @@ describe('init lifecycle recording · failures', () => {
 
     const loadConfig = async () => vuePreset({ name: 'demo' });
 
-    await runInit(root, { install: false, log, loadConfig });
+    await runInit(root, { exec: () => {}, log, loadConfig });
 
     expect(lifecycle().blueprint).toBe(runningPackage()!.version);
+
+    expect(lifecycle().applications['.'].provenance)
+      .toContainEqual(created('blueprint.config.mjs'));
   });
 
   it('refuses a pre-lifecycle application when a sibling proves lost state', async () => {
@@ -222,6 +226,51 @@ describe('init lifecycle recording · failures', () => {
   });
 });
 
+describe('init lifecycle recording · unfinished adoption', () => {
+  const loadConfig = async () => vuePreset({ name: 'demo' });
+
+  it('keeps a deferred install from claiming a completed adoption', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+
+    await runInit(root, { topology: 'layer-first', install: false, log });
+
+    expect(lifecycle()).toMatchObject({ blueprint: null, provenance: 'complete' });
+    expectLogged('unestablished because the dependencies adoption requires are not installed yet');
+
+    await runInit(root, { install: false, log, loadConfig });
+
+    expect(lifecycle().blueprint).toBeNull();
+
+    await runInit(root, { exec: () => {}, log, loadConfig });
+
+    expect(lifecycle().blueprint).toBe(runningPackage()!.version);
+
+    expect(lifecycle().applications['.'].provenance)
+      .toContainEqual(created('blueprint.config.mjs'));
+  });
+
+  it('establishes nothing for an authoring handoff until init adopts the authored '
+    + 'config', async () => {
+    writePkg({ name: 'demo', dependencies: { vue: '^3' } });
+    writeSources();
+
+    await runInit(root, { topology: 'layer-first', install: false, log });
+
+    expect(lifecycle().blueprint).toBeNull();
+    expectLogged('unestablished because authoring is still in progress');
+
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), ADOPTED_CONFIG);
+    await runInit(root, { exec: () => {}, log, loadConfig });
+
+    expect(lifecycle().blueprint).toBe(runningPackage()!.version);
+
+    expect(lifecycle().applications['.'].provenance).toEqual(expect.arrayContaining([
+      { kind: 'generated', path: 'blueprint-authoring.md' },
+      { kind: 'generated', path: 'docs/architecture-handbook.md' },
+    ]));
+  });
+});
+
 describe('adoption recorder', () => {
   function adoptedBeside(backup: string): void {
     writePkg({ name: 'demo' });
@@ -273,6 +322,25 @@ describe('adoption recorder', () => {
       { kind: 'created', path: 'notes.txt', sha256: digest('one\n') },
       { kind: 'edit', path: 'notes.txt', before: '', after: 'two\n' },
     ]);
+  });
+
+  it('names the unfinished work that keeps the checkpoint unestablished', () => {
+    writePkg({ name: 'demo' });
+
+    const actions = [{ kind: 'instruct', note: 'x' as never, defers: 'install' }] as const;
+    const recorder = adoptionRecorder(root, detect(root), actions);
+
+    recorder.landed({ kind: 'mkdir', path: 'src/pages', note: 'x' as never });
+    recorder.finish(log, false);
+
+    expect(lines.at(-1)).toContain('unestablished because adoption did not finish');
+
+    recorder.finish(log, true);
+
+    expect(lines.at(-1))
+      .toContain('unestablished because the dependencies adoption requires are not installed');
+
+    expect(lifecycle().blueprint).toBeNull();
   });
 
   it('records nothing when no action landed and ignores instructions', () => {

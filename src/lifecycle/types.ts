@@ -25,11 +25,17 @@ export interface DeterministicMigration {
   applicability: UpgradeApplicability;
 }
 
+export interface RetiredOperation {
+  id: string;
+  introducedIn: string;
+}
+
 export interface UpgradeCatalog {
   supportedFrom: string;
   legacyConfigCheckpoint: string;
   migrations: readonly DeterministicMigration[];
   operations: readonly UpgradeOperation[];
+  retired: readonly RetiredOperation[];
 }
 
 export interface ApplicationFacts {

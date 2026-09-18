@@ -35,6 +35,7 @@ describe('decideUpgrade · defense against a resolution the catalog check did no
       running: { root: '/runner', version: '4.1.0' },
       catalog: {
         supportedFrom: '3.2.0', legacyConfigCheckpoint: '3.2.0', migrations: [], operations: [],
+        retired: [],
       },
       installSpec: '@kekkai/blueprint@4.1.0',
       hasInstruction: () => true,

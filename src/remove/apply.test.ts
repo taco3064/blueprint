@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { GitReader } from '../project';
 import { applyRemoval } from './apply';
@@ -97,6 +97,25 @@ describe('applyRemoval', () => {
       '  ✓ remove folder src (left empty by removing Blueprint files)',
       '  ✓ remove folder src/absent (empty layer folder Blueprint created)',
     ]);
+  });
+
+  it('replaces the lifecycle state through its draft instead of rewriting it in place', () => {
+    write('.blueprint-lifecycle.json', 'old');
+
+    const rename = vi.spyOn(fs, 'renameSync');
+
+    apply([{
+      kind: 'write', path: '.blueprint-lifecycle.json', content: 'kept', reason: 'lifecycle-state',
+    }]);
+
+    expect(rename).toHaveBeenCalledWith(
+      path.join(root, '.blueprint-lifecycle.json.tmp'),
+      path.join(root, '.blueprint-lifecycle.json'),
+    );
+
+    expect(fs.readFileSync(path.join(root, '.blueprint-lifecycle.json'), 'utf-8')).toBe('kept');
+    expect(exists('.blueprint-lifecycle.json.tmp')).toBe(false);
+    rename.mockRestore();
   });
 
   it('never removes an adopted application root that became empty', () => {
