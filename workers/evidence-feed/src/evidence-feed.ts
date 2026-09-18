@@ -13,6 +13,7 @@ export const FEED_PATH = '/discussions';
 export const ALLOWED_ORIGINS = ['https://taco3064.github.io', 'http://localhost:5173'];
 export const FRESH_CACHE = 'public, max-age=300';
 export const FAILURE_CACHE = 'public, max-age=60';
+export const BROWSER_CACHE = 'no-cache';
 export const UNAVAILABLE = 'Live evidence is unavailable.';
 
 export const CACHE_KEY_HEADERS = [
@@ -90,15 +91,21 @@ export async function handleRequest(
 
   if (refused) return refused;
 
-  const headers = { Vary: 'Origin', ...cors(request.headers.get('Origin')) };
+  const headers = {
+    'Cache-Control': BROWSER_CACHE,
+    Vary: 'Origin',
+    ...cors(request.headers.get('Origin')),
+  };
 
   try {
     const discussions = project(await fetchDiscussions(gitHubApp(env), effects));
 
-    return json(200, { discussions }, { 'Cache-Control': FRESH_CACHE, ...headers });
+    return json(200, { discussions }, { 'Cloudflare-CDN-Cache-Control': FRESH_CACHE, ...headers });
   } catch (error) {
     console.error(`Evidence feed unavailable: ${error instanceof Error ? error.message : String(error)}`);
 
-    return json(502, { error: UNAVAILABLE }, { 'Cache-Control': FAILURE_CACHE, ...headers });
+    return json(502, { error: UNAVAILABLE }, {
+      'Cloudflare-CDN-Cache-Control': FAILURE_CACHE, ...headers,
+    });
   }
 }
