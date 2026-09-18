@@ -50,6 +50,10 @@ npx @kekkai/blueprint init --topology layer-first --dry-run
 
 如果生命週期狀態本來應該存在，卻遺失、損壞或包含無法驗證的資料，Blueprint 會停止需要這份狀態的操作，不會自行重建或猜測歷史。請先從版本控制或其他可信來源還原，再重新執行原本的指令。
 
+**寫入安全性：** Blueprint 更新生命週期狀態時，不會直接覆寫正式檔案。新狀態會先完整寫入同目錄的 `.blueprint-lifecycle.json.tmp`，確認寫入完成後，再以檔案替換方式更新 `.blueprint-lifecycle.json`。如果暫存檔寫入失敗，原本的生命週期狀態會保持不變。
+
+`.blueprint-lifecycle.json.tmp` 只是寫入過程中的暫存檔，永遠不會被當成生命週期權威讀取。若先前的中斷留下暫存檔，後續安全移除 Blueprint 時也會一併清理。
+
 ### ESLint 設定
 
 **存在目的：** 承載模組／分層流、標準別名、單元入口、相對路徑逃逸、套件／全域物件

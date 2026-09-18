@@ -71,6 +71,21 @@ module-first 起點不會建立任何模組資料夾。
 遭拒或執行失敗時會以非零狀態結束。若明確要求的 Agent 啟動失敗，先前產生的指南與檔案
 仍已保存在磁碟上，可改走手動流程。
 
+### `init` 何時算完成導入
+
+Blueprint 會把「已經寫入專案、可以證明由 Blueprint 擁有的內容」和「這次導入是否真的完成」分開記錄。
+
+如果 `init` 執行到一半失敗，已經落地的 Blueprint 內容仍會保留所有權紀錄，但不會因此建立已完成的生命週期檢查點。
+
+以下情況也還不算完成導入：
+
+- 使用 `--no-install` 跳過了目前仍需要安裝的 Blueprint 或相關工具相依套件；
+- brownfield authoring 目前只建立了 `blueprint-authoring.md` 與 Agent 交接內容，還沒產生並採用最後的 `blueprint.config.mjs`。
+
+等缺少的工作補完後，再次執行 `init`。Blueprint 會保留前一次已記錄的所有權事實，並在這次導入真正完成時建立生命週期檢查點。
+
+brownfield authoring 中，當 Agent 已經完成設定檔，而後續的 `init` 成功採用這份設定時，就代表 Blueprint 的導入已完成，可以建立檢查點。`blueprint-authoring.md` 可能仍會暫時保留到 Agent 執行最後的清理步驟；只要這類尚未完成的 workflow 檔案仍存在，`upgrade` 仍會拒絕開始新的升級。
+
 ### 全新專案與既有專案的導入姿態
 
 第一次導入時，空的應用程式跟已有原始碼的應用程式走不同路線。<br>
@@ -346,6 +361,18 @@ Blueprint 的版本升級不只包含 npm 套件本身。
 
    最後仍應執行專案自己的 lint、typecheck、test 與 build 指令。
 
+### 套件更新途中中斷
+
+升級開始前，Blueprint 會先記錄這次 pending upgrade，再更新各個已導入應用程式實際使用的 Blueprint 套件。
+
+如果 repository 有多個套件宣告位置，而更新途中只有部分應用程式成功到達目標版本，下一次執行 `upgrade` 會從已記錄的 pending upgrade 接續：
+
+- 已經位於目標版本的應用程式不會重複安裝；
+- 還停在這次升級起始版本的應用程式會繼續更新到目標版本；
+- 如果出現不屬於這次升級起始版本或目標版本的其他版本，Blueprint 會停止，不會猜測如何修正這個狀態。
+
+因此，由 Blueprint 自己造成的「部分套件已更新」狀態是可接續的升級中間態，而不是要求使用者自行修復的混合版本錯誤。
+
 ### 跨版本的累積升級計畫
 
 一個 Blueprint 版本可以新增零到多項結構化升級操作。
@@ -380,6 +407,12 @@ Agent 不會自行重播每一版的 CHANGELOG 或 release note，只會收到 B
 ### 升級邊界
 
 支援的升級起點目前從 3.2.0 開始。更早的 Blueprint 導入，必須先依該版本原本支援的方式到達 3.2.0，再進入目前的 upgrade lifecycle。
+
+目前執行的目的版本只負責自己宣告的升級支援範圍，也就是 `supportedFrom` 到目前版本。
+
+已經完成、而且隨著支援範圍前移而退出可執行範圍的舊升級操作，可以只保留辨識歷史所需的最小紀錄；它們不會重新進入新的 pending upgrade，也不需要永久保留舊版的執行指示、適用條件或驗證方式。
+
+換句話說，最新版 Blueprint 不需要理解所有歷史版本彼此之間的升級路徑。已完成的生命週期檢查點會結束它之前的可執行升級義務，之後的 resolver 只處理目前檢查點到目的版本之間仍受支援的區間。
 
 開始新的升級之前，必須位於 Git repository，而且工作目錄不能有未提交的變更，讓整次升級可以完整檢視與還原。已經有 pending upgrade 時，則依既有紀錄接續，不要求把升級本身造成的修改先清掉。
 
@@ -458,6 +491,10 @@ npx blueprint remove --dry-run
 這種情況下，`remove` 只會自動刪除能從檔名、Blueprint marker 或其他可靠內容證據證明屬於 Blueprint 的項目。
 
 無法證明的內容會保留並明確列出，例如可能由 Blueprint 加入的 alias wiring、lint script、只剩 `.gitkeep` 的舊分層資料夾，或無法證明由 Blueprint 安裝的工具套件。
+
+對於生命週期紀錄出現之前就已經導入 Blueprint 的共用 Agent 文件，Blueprint 可能可以從 `BLUEPRINT:START` / `BLUEPRINT:END` marker 證明其中一個區塊屬於 Blueprint，但沒有足夠證據證明整份檔案都是由 Blueprint 建立。
+
+這種情況下，`remove` 只會移除可證明由 Blueprint 管理的區塊。即使移除後整份檔案變成空檔，也會保留該檔案，並列在需要使用者確認的保留項目中；是否刪除整份檔案由使用者自行決定。
 
 Blueprint 不會因為某個值「看起來很像預設值」就把它當成自己的修改。
 
