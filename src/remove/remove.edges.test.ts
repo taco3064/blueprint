@@ -175,8 +175,12 @@ describe('runRemove · evidence edges', () => {
     };
 
     expect(await remove(root, { loadConfig: async () => configured })).toBe(0);
-    expect(exists('docs')).toBe(false);
+    expect(fs.readFileSync(path.join(root, 'docs/AGENT_NOTES'), 'utf-8')).toBe('');
+    expect(exists('docs/AGENT_NOTES.blueprint')).toBe(false);
     expect(exists('.cursor/custom.mdc')).toBe(true);
+
+    expect(output())
+      .toContain('· docs/AGENT_NOTES: held only Blueprint\'s managed section and is now empty');
 
     write('blueprint.config.mjs', 'export default {};\n');
     write('docs/architecture-handbook.md', 'hand-written\n');

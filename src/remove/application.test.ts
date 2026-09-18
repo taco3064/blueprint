@@ -194,11 +194,29 @@ describe('applicationRemoval · combining recorded and proven evidence', () => {
     });
   });
 
-  it('lists only folder and lint residues when the config cannot be read', () => {
+  it('keeps an unproven shared document it emptied and lists what the config cannot prove', () => {
     adopt();
     write('package.json', '{"name":"x"}');
 
-    expect(applicationRemoval(application([], null), 'legacy').residues)
-      .toEqual([{ kind: 'unrecorded-folder', path: 'src/pages' }]);
+    expect(applicationRemoval(application([], null), 'legacy').residues).toEqual([
+      { kind: 'emptied', path: 'CLAUDE.md' },
+      { kind: 'unrecorded-folder', path: 'src/pages' },
+    ]);
+  });
+});
+
+describe('applicationRemoval · shared documents named twice', () => {
+  it('reports a recorded section once where the config also names its document', () => {
+    write('CLAUDE.md', '<!-- BLUEPRINT:START -->\npointer\n<!-- BLUEPRINT:END -->\n');
+    write('AGENTS.md', '<!-- BLUEPRINT:START -->\nbroken\n');
+
+    expect(applicationRemoval(application([
+      { kind: 'section', path: 'CLAUDE.md', created: false },
+      { kind: 'section', path: 'AGENTS.md', created: false },
+    ]), 'provenance')).toEqual({
+      actions: [{ kind: 'write', path: 'CLAUDE.md', content: '', reason: 'section' }],
+      conflicts: [{ kind: 'malformed-section', path: 'AGENTS.md' }],
+      residues: [{ kind: 'emptied', path: 'CLAUDE.md' }],
+    });
   });
 });

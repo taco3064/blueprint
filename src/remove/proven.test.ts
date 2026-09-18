@@ -82,12 +82,13 @@ describe('provenRemoval', () => {
         { kind: 'delete', path: 'apps/web/docs/handbook.md', reason: 'generated' },
         { kind: 'delete', path: 'apps/web/eslint.config.mjs', reason: 'generated' },
         { kind: 'write', path: 'apps/web/CLAUDE.md', content: '# Mine\n', reason: 'section' },
-        { kind: 'delete', path: 'apps/web/docs/NOTES.md', reason: 'section' },
+        { kind: 'write', path: 'apps/web/docs/NOTES.md', content: '', reason: 'section' },
         {
           kind: 'write', path: 'apps/web/.gitignore', content: 'dist\n', reason: 'gitignore',
         },
       ],
       conflicts: [{ kind: 'malformed-section', path: 'apps/web/GEMINI.md' }],
+      residues: [{ kind: 'emptied', path: 'apps/web/docs/NOTES.md' }],
     });
   });
 
@@ -96,6 +97,6 @@ describe('provenRemoval', () => {
     write('docs/architecture-handbook.md', '# Written by hand\n');
 
     expect(provenRemoval({ root, prefix: '', blueprint: null, recordedIgnoreEdit: true }))
-      .toEqual({ actions: [], conflicts: [] });
+      .toEqual({ actions: [], conflicts: [], residues: [] });
   });
 });

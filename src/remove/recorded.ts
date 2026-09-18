@@ -3,7 +3,12 @@ import path from 'node:path';
 
 import { digest } from '../lifecycle';
 import type { ProvenanceRecord } from '../lifecycle';
-import { restoreScript, reverseEdit, stripManagedSection } from './documents';
+import {
+  restoreScript,
+  reverseEdit,
+  strippedSection,
+  stripManagedSection,
+} from './documents';
 import { readText } from './references';
 import { carriesBlueprintSignature } from './signatures';
 import type { ApplicationRemoval, FileResidue } from './types';
@@ -138,11 +143,10 @@ function sections(context: RecordedContext, removal: ApplicationRemoval): void {
     if (strip.status === 'malformed') {
       removal.conflicts.push({ kind: 'malformed-section', path: at(context, record.path) });
     } else if (strip.status === 'stripped') {
-      removal.actions.push(strip.empty && record.created
-        ? { kind: 'delete', path: at(context, record.path), reason: 'section' }
-        : {
-            kind: 'write', path: at(context, record.path), content: strip.text, reason: 'section',
-          });
+      const outcome = strippedSection(at(context, record.path), strip, record.created);
+
+      removal.actions.push(outcome.action);
+      removal.residues.push(...outcome.residues);
     }
   }
 }

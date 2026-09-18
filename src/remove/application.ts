@@ -132,15 +132,21 @@ export function applicationRemoval(
   const deleted = new Set(actions.filter((action) => action.kind === 'delete')
     .map((action) => action.path));
 
+  const claimed = new Set([...recorded.actions, ...recorded.conflicts].map((entry) => entry.path));
+
   const recordedPaths = new Set(application.provenance
     .filter((record) => 'path' in record)
     .map((record) => path.posix.join(prefix, (record as { path: string }).path)));
 
   return {
     actions,
-    conflicts: [...recorded.conflicts, ...proven.conflicts],
+    conflicts: [
+      ...recorded.conflicts,
+      ...proven.conflicts.filter((conflict) => !claimed.has(conflict.path)),
+    ],
     residues: [
-      ...recorded.residues.filter((residue) => !deleted.has(residue.path)),
+      ...[...recorded.residues, ...proven.residues.filter((residue) => !claimed.has(residue.path))]
+        .filter((residue) => !deleted.has(residue.path)),
       ...(mode === 'provenance'
         ? []
         : unrecordedResidues(application, prefix)

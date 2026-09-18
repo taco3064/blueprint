@@ -403,8 +403,9 @@ owns it:
 - **Managed sections** — shared Agent documents such as `CLAUDE.md` and `AGENTS.md` lose only the
   text between `<!-- BLUEPRINT:START -->` and `<!-- BLUEPRINT:END -->`, including documents the
   current config no longer names but the lifecycle still records. A file left empty is deleted only
-  where Blueprint owns the whole file: the records say Blueprint created it, or the file holds
-  nothing but that section. A document that existed before Blueprint is kept, empty or not.
+  when the lifecycle records say Blueprint created it: owning the section does not prove Blueprint
+  owns the whole file. Any other document is kept, even at zero bytes, and a document the removal
+  emptied is listed for you to review.
 - **Shared-file edits** — `.gitignore` exceptions, package scripts, TypeScript or JavaScript
   `paths`, and Vite aliases are reversed only when the lifecycle records the exact edit and the
   current file still contains it. Alias wiring that application source still imports is kept.
@@ -441,10 +442,10 @@ project still needs it.
 
 Repositories adopted before lifecycle records existed have no proof of shared-file edits. `remove`
 deletes only name- or content-proven Blueprint artifacts and reports what it could not prove, such
-as alias wiring, an ESLint leg in the lint script, layer folders holding only `.gitkeep`, or ESLint
-packages, for you to review. When a
-lifecycle checkpoint was established only after adoption, edits made before it are handled the
-same way.
+as alias wiring, an ESLint leg in the lint script, layer folders holding only `.gitkeep`, ESLint
+packages, or a shared Agent document that held nothing but Blueprint's section, for you to review.
+When a lifecycle checkpoint was established only after adoption, edits made before it are handled
+the same way.
 
 The result is a repository with no proven Blueprint config, lifecycle, generated, managed, or
 dependency footprint. `remove` does not rewrite application source to make it byte-identical to

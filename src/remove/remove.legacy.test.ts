@@ -95,11 +95,12 @@ describe('runRemove · pre-lifecycle adoption', () => {
 
     for (const file of [
       'blueprint.config.mjs', BACKUP, '.blueprint-baseline.json', 'eslint.config.mjs',
-      'docs/architecture-handbook.md', 'CLAUDE.md', 'AGENTS.blueprint.md', '.cursor',
+      'docs/architecture-handbook.md', 'AGENTS.blueprint.md', '.cursor',
     ]) {
       expect(exists(file), file).toBe(false);
     }
 
+    expect(read('CLAUDE.md')).toBe('');
     expect(read('AGENTS.md')).toBe('# House rules\n\nBe kind.\n');
     expect(read('docs/decisions.md')).toBe('# Ours\n');
     expect(read('.gitignore')).toBe('node_modules\n');
@@ -117,6 +118,9 @@ describe('runRemove · pre-lifecycle adoption', () => {
       '· package.json: may still carry Blueprint\'s eslint leg in the lint script',
       '· src/pages: holds only .gitkeep, as Blueprint\'s layer scaffold leaves it',
       '· eslint in .: Blueprint may have installed it, but no record proves that',
+      '− rewrite CLAUDE.md (Blueprint-managed section; content outside the markers is kept)',
+      '· CLAUDE.md: held only Blueprint\'s managed section and is now empty; kept because nothing '
+      + 'proves Blueprint created the file — delete it if the project does not need it',
       '− rewrite .gitignore (removes Blueprint\'s marked ignore exceptions)',
       '− delete .blueprint-baseline.json (Blueprint inspect baseline)',
       '− delete ' + BACKUP + ' (Blueprint 3.2 config backup)',

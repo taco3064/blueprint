@@ -15,7 +15,7 @@ import {
   TRANSFORMATION_OBLIGATION_FILE,
 } from '../project';
 import { renderGitignoreArtifactComment } from '../operational-contract';
-import { removeIgnoreGroup, stripManagedSection } from './documents';
+import { removeIgnoreGroup, strippedSection, stripManagedSection } from './documents';
 import { readText } from './references';
 import { HANDBOOK_MARK } from './signatures';
 import type { ApplicationRemoval, FileAction, RemovalReason } from './types';
@@ -28,8 +28,6 @@ export interface ProvenContext {
   blueprint: Blueprint | null;
   recordedIgnoreEdit: boolean;
 }
-
-export type ProvenRemoval = Omit<ApplicationRemoval, 'residues'>;
 
 function at(context: ProvenContext, file: string): string {
   return path.posix.join(context.prefix, file);
@@ -87,7 +85,7 @@ function generatedFiles(context: ProvenContext): string[] {
     : eslint;
 }
 
-function sectionActions(context: ProvenContext, removal: ProvenRemoval): void {
+function sectionActions(context: ProvenContext, removal: ApplicationRemoval): void {
   for (const file of mergeTargets(context.blueprint)) {
     const text = readText(path.join(context.root, file));
 
@@ -100,9 +98,10 @@ function sectionActions(context: ProvenContext, removal: ProvenRemoval): void {
     if (strip.status === 'malformed') {
       removal.conflicts.push({ kind: 'malformed-section', path: at(context, file) });
     } else if (strip.status === 'stripped') {
-      removal.actions.push(strip.empty
-        ? { kind: 'delete', path: at(context, file), reason: 'section' }
-        : { kind: 'write', path: at(context, file), content: strip.text, reason: 'section' });
+      const outcome = strippedSection(at(context, file), strip, false);
+
+      removal.actions.push(outcome.action);
+      removal.residues.push(...outcome.residues);
     }
   }
 }
@@ -119,8 +118,8 @@ function ignoreGroup(context: ProvenContext): FileAction[] {
     : [{ kind: 'write', path: at(context, '.gitignore'), content, reason: 'gitignore' }];
 }
 
-export function provenRemoval(context: ProvenContext): ProvenRemoval {
-  const removal: ProvenRemoval = { actions: [], conflicts: [] };
+export function provenRemoval(context: ProvenContext): ApplicationRemoval {
+  const removal: ApplicationRemoval = { actions: [], conflicts: [], residues: [] };
 
   const deletions: [string, RemovalReason][] = [
     ...namedFiles(context),

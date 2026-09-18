@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { removeIgnoreGroup, restoreScript, reverseEdit, stripManagedSection } from './documents';
+import {
+  removeIgnoreGroup,
+  restoreScript,
+  reverseEdit,
+  strippedSection,
+  stripManagedSection,
+} from './documents';
 
 const START = '<!-- BLUEPRINT:START -->';
 const END = '<!-- BLUEPRINT:END -->';
@@ -38,6 +44,35 @@ describe('stripManagedSection', () => {
     expect(stripManagedSection(`${END}\n`)).toEqual({ status: 'malformed' });
     expect(stripManagedSection(`${START}\n`)).toEqual({ status: 'malformed' });
     expect(stripManagedSection(`${START}\n${END}\n${START}\n${END}\n`)).toEqual({ status: 'malformed' });
+  });
+});
+
+describe('strippedSection', () => {
+  const EMPTIED = { status: 'stripped', text: '\n', empty: true } as const;
+
+  it('deletes an emptied document only when Blueprint is proven to have created it', () => {
+    expect(strippedSection('CLAUDE.md', EMPTIED, true)).toEqual({
+      action: { kind: 'delete', path: 'CLAUDE.md', reason: 'section' },
+      residues: [],
+    });
+  });
+
+  it('keeps an emptied document without creation evidence and reports it', () => {
+    expect(strippedSection('CLAUDE.md', EMPTIED, false)).toEqual({
+      action: { kind: 'write', path: 'CLAUDE.md', content: '\n', reason: 'section' },
+      residues: [{ kind: 'emptied', path: 'CLAUDE.md' }],
+    });
+  });
+
+  it('rewrites a document that keeps its own content whoever created it', () => {
+    const strip = { status: 'stripped', text: '# Mine\n', empty: false } as const;
+
+    for (const created of [true, false]) {
+      expect(strippedSection('AGENTS.md', strip, created)).toEqual({
+        action: { kind: 'write', path: 'AGENTS.md', content: '# Mine\n', reason: 'section' },
+        residues: [],
+      });
+    }
   });
 });
 
