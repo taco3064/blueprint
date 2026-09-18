@@ -185,6 +185,17 @@ describe('runUpgrade · refusals of the plan and its safety', () => {
     await expect(upgrade()).rejects.toThrow('lifecycle 4.2.0. upgrade never downgrades');
   });
 
+  it('never moves an installed package back to an older running release', async () => {
+    adopt('apps/web', '4.2.0');
+    lifecycle({ blueprint: '4.1.0' });
+
+    await expect(upgrade()).rejects.toThrow('apps/web resolves @kekkai/blueprint 4.2.0, which is '
+      + 'newer than the running 4.1.0. upgrade never downgrades the package; run '
+      + '`npx @kekkai/blueprint@latest upgrade` instead. Nothing was changed.');
+
+    expect(fs.existsSync(path.join(root, 'blueprint-upgrade.md'))).toBe(false);
+  });
+
   it('reports a config that cannot be loaded for planning', async () => {
     adopt();
 
