@@ -3,8 +3,6 @@ import { defineConfig } from 'vitepress';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 import typedocSidebar from '../api/typedoc-sidebar.json';
 
-// The nav-bar version badge states which release these docs were built
-// against — read once at build time, injected as a compile-time constant.
 const { version } = JSON.parse(
   readFileSync(new URL('../../package.json', import.meta.url), 'utf-8'),
 ) as { version: string };
