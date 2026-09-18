@@ -70,8 +70,10 @@ Every response carries `X-Worker-Version`, the ID of the deployed Worker version
   check fails the run. The Cloudflare secrets reach only the credential check and the deploy step.
 - **A pull request labeled `deploy-evidence-feed`** deploys that pull request's exact head to
   production and verifies it the same way. Adding the label is the owner's approval to put an
-  unmerged candidate live, which is how a change is proven before it merges; no other pull-request
-  event deploys. To deploy a newer head, remove the label and add it again.
+  unmerged candidate live, which is how a change is proven before it merges, so the job runs only
+  when the repository owner applied the label and only the owner started any re-run; a label from
+  anyone else deploys nothing, and no other pull-request event deploys. To deploy a newer head,
+  remove the label and add it again.
 - **Run workflow** on `main` (or `gh workflow run evidence-feed.yml --ref main`) redeploys and
   re-verifies without a commit.
 
