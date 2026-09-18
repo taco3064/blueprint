@@ -11,6 +11,7 @@ import {
 import type {
   LifecycleState,
   PackageLocation,
+  PendingOperation,
   PendingUpgrade,
   SuppressedOperation,
   UpgradeCatalog,
@@ -185,6 +186,12 @@ function baseState(facts: UpgradeFacts, version: string): LifecycleState {
       };
 }
 
+function completedOperations(pending: PendingUpgrade | null): PendingOperation[] {
+  return pending === null
+    ? []
+    : pending.operations.filter((operation) => pending.completed.includes(operation.id));
+}
+
 function plannedUpgrade(input: DecisionInput, target: string): UpgradeDecision {
   const { facts } = input;
   const checkpoint = facts.checkpoint as Extract<typeof facts.checkpoint, { version: string }>;
@@ -224,7 +231,7 @@ function plannedUpgrade(input: DecisionInput, target: string): UpgradeDecision {
       from: source,
       to: target,
       migrations: resolution.migrations.map((migration) => migration.id),
-      operations: resolution.operations,
+      operations: [...completedOperations(pending), ...resolution.operations],
       completed: pending?.completed ?? [],
     }),
     resolution,

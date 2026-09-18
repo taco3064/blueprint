@@ -278,41 +278,6 @@ describe('runUpgrade · lifecycle checkpoints', () => {
     expect(state()).toMatchObject({ blueprint: '4.0.0', operations: ['first-step'] });
     expect(state().pending).not.toBeNull();
   });
-
-  it('re-plans a pending upgrade for a newer running release without losing completed '
-    + 'work', async () => {
-    adopt('4.1.0', '4.2.0');
-
-    const catalog: UpgradeCatalog = {
-      supportedFrom: '3.2.0',
-      legacyConfigCheckpoint: '3.2.0',
-      retired: [],
-      migrations: [],
-      operations: [op('first-step', '4.1.0'), op('second-step', '4.2.0')],
-    };
-
-    write('.blueprint-lifecycle.json', JSON.stringify({
-      schema: 1, blueprint: '4.0.0', provenance: 'complete', operations: [],
-      pending: withPlanIdentity({
-        from: '4.0.0', to: '4.1.0', migrations: [], completed: ['first-step'],
-        operations: [{ id: 'first-step', applications: ['.'], evidence: {}, supersedes: [] }],
-      }),
-      applications: {},
-    }));
-
-    const instruction = (id: string) => `Do ${id}.` as OperationalText;
-
-    expect(await upgrade({ catalog, instruction, running: { root: '/runner', version: '4.2.0' } }))
-      .toBe(1);
-
-    expect(output()).toContain('Blueprint upgrade — plan');
-
-    expect(state().pending)
-      .toMatchObject({ from: '4.0.0', to: '4.2.0', completed: ['first-step'] });
-
-    expect(state().pending.operations.map((entry: { id: string }) => entry.id))
-      .toEqual(['second-step']);
-  });
 });
 
 describe('runUpgrade · the supported window', () => {

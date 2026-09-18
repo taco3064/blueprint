@@ -169,9 +169,22 @@ describe('decideUpgrade · plans', () => {
         from: '3.2.0',
         to: '4.1.0',
         completed: ['first'],
-        operations: [{ id: 'second', applications: ['.'], evidence: {}, supersedes: [] }],
+        operations: [
+          { id: 'first', applications: ['.'], evidence: {}, supersedes: [] },
+          { id: 'second', applications: ['.'], evidence: {}, supersedes: [] },
+        ],
       },
       installs: [],
+    });
+
+    const unfinished = {
+      ...state, pending: withPlanIdentity({ ...state.pending!, completed: [] }),
+    };
+
+    expect(decide({
+      state: { status: 'present', state: unfinished }, checkpoint: stateCheckpoint(unfinished),
+    })).toMatchObject({
+      pending: { completed: [], operations: [{ id: 'first' }, { id: 'second' }] },
     });
   });
 

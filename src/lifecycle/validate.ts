@@ -208,8 +208,12 @@ function relationTargets(
     return;
   }
 
+  const known = relation === 'supersedes'
+    ? [...context.catalog.operations, ...context.catalog.retired]
+    : context.catalog.operations;
+
   for (const target of targets) {
-    const found = context.catalog.operations.find((candidate) => candidate.id === target);
+    const found = known.find((candidate) => candidate.id === target);
 
     if (found === undefined || target === id) {
       context.problems.push({ kind: 'unknown-reference', id, relation, target });
@@ -221,7 +225,7 @@ function relationTargets(
 
 function impossible(
   operation: UpgradeOperation,
-  target: UpgradeOperation,
+  target: RetiredOperation,
   relation: CatalogRelation,
 ): boolean {
   if (!isVersion(operation.introducedIn) || !isVersion(target.introducedIn)) {

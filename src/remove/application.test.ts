@@ -206,16 +206,20 @@ describe('applicationRemoval · combining recorded and proven evidence', () => {
 });
 
 describe('applicationRemoval · shared documents named twice', () => {
-  it('reports a recorded section once where the config also names its document', () => {
+  it('reports each broken or emptied document once, whether records or the config name it', () => {
     write('CLAUDE.md', '<!-- BLUEPRINT:START -->\npointer\n<!-- BLUEPRINT:END -->\n');
     write('AGENTS.md', '<!-- BLUEPRINT:START -->\nbroken\n');
+    write('GEMINI.md', '<!-- BLUEPRINT:START -->\nbroken\n');
 
     expect(applicationRemoval(application([
       { kind: 'section', path: 'CLAUDE.md', created: false },
       { kind: 'section', path: 'AGENTS.md', created: false },
     ]), 'provenance')).toEqual({
       actions: [{ kind: 'write', path: 'CLAUDE.md', content: '', reason: 'section' }],
-      conflicts: [{ kind: 'malformed-section', path: 'AGENTS.md' }],
+      conflicts: [
+        { kind: 'malformed-section', path: 'AGENTS.md' },
+        { kind: 'malformed-section', path: 'GEMINI.md' },
+      ],
       residues: [{ kind: 'emptied', path: 'CLAUDE.md' }],
     });
   });

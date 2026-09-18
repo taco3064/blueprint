@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { GitReader } from '../project';
 import { runRemove } from './remove';
@@ -145,6 +145,40 @@ describe('runRemove · repository scope', () => {
 
   it('refuses to guess when nothing is adopted under the working directory', async () => {
     await expect(remove(root)).rejects.toThrow(`no adopted application was found at or below ${root}`);
+  });
+});
+
+describe('runRemove · the lifecycle authority during a scoped removal', () => {
+  it('replaces the state only with the complete narrowed state, through its draft', async () => {
+    adoptWorkspace();
+
+    const authority = path.join(root, '.blueprint-lifecycle.json');
+    const before = fs.readFileSync(authority, 'utf-8');
+    const rename = fs.renameSync;
+    const seen: { authority: string; draft: string }[] = [];
+
+    const replace = vi.spyOn(fs, 'renameSync').mockImplementation((from, to) => {
+      seen.push({
+        authority: fs.readFileSync(to, 'utf-8'), draft: fs.readFileSync(from, 'utf-8'),
+      });
+
+      rename(from, to);
+    });
+
+    expect(await remove(path.join(root, 'apps/web'))).toBe(0);
+
+    const calls = [...replace.mock.calls];
+
+    replace.mockRestore();
+
+    expect(calls).toEqual([[`${authority}.tmp`, authority]]);
+    expect(seen[0].authority).toBe(before);
+
+    expect(JSON.parse(seen[0].draft).applications)
+      .toEqual({ 'apps/admin': { provenance: [{ kind: 'dependency', name: 'eslint' }] } });
+
+    expect(fs.readFileSync(authority, 'utf-8')).toBe(seen[0].draft);
+    expect(exists('.blueprint-lifecycle.json.tmp')).toBe(false);
   });
 });
 

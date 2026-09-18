@@ -191,6 +191,22 @@ describe('catalogProblems · relations', () => {
       .toEqual([{ kind: 'unknown-reference', id: 'b', relation: 'supersedes', target: 'a' }]);
   });
 
+  it('lets only supersession name a retired operation', () => {
+    const retired = [
+      { id: 'ancient', introducedIn: '0.9.0' },
+      { id: 'older', introducedIn: '0.8.0' },
+    ];
+
+    expect(problems([op('b', '1.1.0', { supersedes: ['ancient'] })], { retired })).toEqual([]);
+
+    expect(problems([op('c', '1.1.0', { requires: ['ancient'], cancels: ['older'] })], {
+      retired,
+    })).toEqual([
+      { kind: 'unknown-reference', id: 'c', relation: 'requires', target: 'ancient' },
+      { kind: 'unknown-reference', id: 'c', relation: 'cancels', target: 'older' },
+    ]);
+  });
+
   it('rejects a migration used as an operation reference', () => {
     expect(problems([op('a', '1.1.0', { requires: ['migration'] })], {
       migrations: [migration('migration')],
