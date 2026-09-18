@@ -1,12 +1,14 @@
 <script setup>
-// Injected at build time from package.json (see vite.define in config.mts) —
-// the badge always states the version these docs were built against. It
-// renders as a second line under the site title (grid layout in custom.css).
-const version = __BP_VERSION__;
+import { computed } from 'vue';
+import { useData } from 'vitepress';
+import { versionIdentity } from './version-identity';
+
+const { lang } = useData();
+const identity = computed(() => versionIdentity(__BP_VERSION__, lang.value));
 </script>
 
 <template>
-  <span class="bp-version-badge">v{{ version }}</span>
+  <span class="bp-version-badge" :title="identity.title">{{ identity.label }}</span>
 </template>
 
 <style scoped>
