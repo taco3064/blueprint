@@ -36,12 +36,14 @@ export default defineConfig({
       include: [
         'src/**/*.ts',
         'workers/evidence-feed/src/**/*.ts',
+        'workers/evidence-feed/scripts/**/*.ts',
         'docs/.vitepress/theme/**/*.ts',
       ],
       exclude: [
         'src/**/*.test.ts',
         'src/**/index.ts',
         'workers/evidence-feed/src/**/*.test.ts',
+        'workers/evidence-feed/scripts/**/*.test.ts',
         'docs/.vitepress/theme/**/*.test.ts',
         'docs/.vitepress/theme/index.ts',
       ],

@@ -4,6 +4,6 @@
     "tsBuildInfoFile": "../../node_modules/.tmp/tsconfig.evidence-feed.test.tsbuildinfo",
     "types": ["node"]
   },
-  "include": ["src"],
+  "include": ["src", "scripts"],
   "exclude": []
 }
