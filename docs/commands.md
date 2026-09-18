@@ -373,9 +373,10 @@ resolved plan.
 - The lifecycle is repository-wide. Every adopted application must share one installed Blueprint
   version, and the upgrade completes only when every adopted application verifies.
 - An unfinished authoring playbook or topology transformation must finish first.
-- If `.blueprint-lifecycle.json` is unreadable, or missing where the installed release always
-  records it, every command that needs it stops. Restore it from version control; Blueprint never
-  rebuilds lifecycle history from the installed package, and no command re-establishes it.
+- If `.blueprint-lifecycle.json` is unreadable, records upgrade history the running release could
+  not have produced, or is missing where any adopted application's installed release always records
+  it, every command that needs it stops. Restore it from version control; Blueprint never rebuilds
+  lifecycle history from the installed package, and no command re-establishes it.
 - Records without a completed lifecycle — written by an adoption that failed part-way — are not a
   checkpoint. Finish the adoption with `npx blueprint init` first.
 - If the lifecycle state changes under a running upgrade, finalization stops and the checkpoint

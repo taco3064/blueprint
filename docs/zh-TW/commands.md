@@ -409,7 +409,7 @@ Blueprint 會先算出完整的 repository-wide 移除計畫，確認每一項�
 
 - **Blueprint 產生的輸出**
   例如架構手冊、Blueprint 完整管理的 Agent 規則檔與 Blueprint 產生的 ESLint 設定。
-  Whole-file deletion 必須有足夠的 Blueprint ownership evidence；如果檔案後來已經改成由專案自行管理，就會保留並回報。
+  要刪除整個檔案，必須有足夠證據證明整份檔案都由 Blueprint 擁有；如果檔案後來已改由專案自行管理，就會保留並回報。
 
 - **共用 Agent 文件中的 Blueprint 區塊**
   `CLAUDE.md`、`AGENTS.md` 等共用文件只會移除 `<!-- BLUEPRINT:START -->` 到 `<!-- BLUEPRINT:END -->` 之間的 Blueprint-managed section。

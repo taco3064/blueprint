@@ -38,7 +38,7 @@ export function assertLifecycleState(state: ProjectState): void {
     throw new Error(renderLifecycleStateInvalid(LIFECYCLE_FILE, reason));
   }
 
-  const lost = lostLifecycleState(root, state.applicationRoot);
+  const lost = lostLifecycleState(root);
 
   if (lost !== null) {
     throw new Error(renderLifecycleStateMissing(LIFECYCLE_FILE, lost));

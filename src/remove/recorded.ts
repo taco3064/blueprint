@@ -74,7 +74,7 @@ function createdFiles(
       ? readText(path.join(context.root, record.path))
       : reversal.text;
 
-    const kept = reversal === undefined ? residueFor(context, record.path) : null;
+    const kept = residueFor(context, record.path);
 
     if (text === null) {
       continue;

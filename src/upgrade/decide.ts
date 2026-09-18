@@ -1,6 +1,12 @@
 import path from 'node:path';
 
-import { catalogProblems, compareVersions, LIFECYCLE_FILE, resolveUpgrade } from '../lifecycle';
+import {
+  catalogProblems,
+  compareVersions,
+  LIFECYCLE_FILE,
+  lifecycleHistoryProblem,
+  resolveUpgrade,
+} from '../lifecycle';
 import type {
   LifecycleState,
   PackageLocation,
@@ -99,6 +105,16 @@ function installedRefusal(facts: UpgradeFacts, target: string): UpgradeDecision 
       });
 }
 
+function historyRefusal(facts: UpgradeFacts, catalog: UpgradeCatalog): UpgradeDecision | null {
+  const { checkpoint } = facts;
+
+  const reason = checkpoint.kind === 'state'
+    ? lifecycleHistoryProblem(checkpoint.state, catalog)
+    : null;
+
+  return reason === null ? null : refuse({ kind: 'invalid-state', file: LIFECYCLE_FILE, reason });
+}
+
 function checkpointRefusal(facts: UpgradeFacts): UpgradeDecision | null {
   const { checkpoint } = facts;
 
@@ -136,7 +152,8 @@ export function decideUpgrade(input: DecisionInput): UpgradeDecision {
 
   const refusal = catalogRefusal(input, running.version)
     ?? readinessRefusal(input)
-    ?? checkpointRefusal(facts);
+    ?? checkpointRefusal(facts)
+    ?? historyRefusal(facts, input.catalog);
 
   const decision = refusal ?? plannedUpgrade(input, running.version);
 

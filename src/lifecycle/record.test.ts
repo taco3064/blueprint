@@ -7,6 +7,7 @@ import { runningPackage } from './package';
 import {
   applicationKey,
   lifecycleStateProblem,
+  lostLifecycleState,
   recordAdoption,
   UPGRADE_PLAYBOOK_FILE,
 } from './record';
@@ -132,8 +133,56 @@ describe('recordAdoption · missing and unfinished checkpoints', () => {
     fs.writeFileSync(path.join(root, LIFECYCLE_FILE), (records as { content: string }).content);
 
     expect(written(record({ finished: false }))).toMatchObject({ blueprint: null });
+
+    const unnamed = record({ runningVersion: null });
+
+    expect(unnamed).toMatchObject({ established: null });
+    expect(written(unnamed)).toMatchObject({ blueprint: null });
+  });
+});
+
+describe('lostLifecycleState', () => {
+  it('proves lost state from any adopted application in the repository', () => {
+    const adopt = (app: string, version: string | null) => {
+      const dir = path.join(root, app);
+
+      fs.mkdirSync(path.join(dir, 'node_modules/@kekkai/blueprint'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'blueprint.config.mjs'), 'export default {};\n');
+
+      if (version !== null) {
+        fs.writeFileSync(
+          path.join(dir, 'node_modules/@kekkai/blueprint/package.json'),
+          JSON.stringify({ name: '@kekkai/blueprint', version }),
+        );
+      }
+    };
+
+    expect(lostLifecycleState(root)).toBeNull();
+
+    adopt('apps/a', '4.2.0');
+    adopt('apps/b', '4.1.0');
+    adopt('apps/c', '4.0.0');
+    adopt('apps/d', null);
+
+    expect(lostLifecycleState(root)).toBe('4.2.0');
+
+    fs.writeFileSync(path.join(root, LIFECYCLE_FILE), serializeLifecycleState({
+      schema: 1, blueprint: '4.2.0', provenance: 'complete', operations: [], pending: null,
+      applications: {},
+    }));
+
+    expect(lostLifecycleState(root)).toBeNull();
   });
 
+  it('treats older installs alone as a pre-lifecycle repository', () => {
+    fs.writeFileSync(path.join(root, 'blueprint.config.mjs'), 'export default {};\n');
+    install('4.0.0');
+
+    expect(lostLifecycleState(root)).toBeNull();
+  });
+});
+
+describe('recordAdoption · checkpoints and merging', () => {
   it('uses legacy config evidence as the checkpoint', () => {
     install('4.2.0');
 

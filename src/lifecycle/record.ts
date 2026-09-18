@@ -41,18 +41,18 @@ export function lifecycleStateProblem(lifecycleRoot: string): string | null {
   return read.status === 'invalid' ? read.reason : null;
 }
 
-export function lostLifecycleState(
-  lifecycleRoot: string,
-  applicationRoot: string,
-): string | null {
-  const adopted = readLifecycleState(lifecycleRoot).status === 'missing'
-    && findConfigFiles(lifecycleRoot).length > 0;
+export function lostLifecycleState(lifecycleRoot: string): string | null {
+  if (readLifecycleState(lifecycleRoot).status !== 'missing') {
+    return null;
+  }
 
-  const installed = installedPackage(applicationRoot)?.version ?? null;
+  const aware = findConfigFiles(lifecycleRoot)
+    .map((file) => installedPackage(path.dirname(file))?.version ?? null)
+    .filter((version): version is string => version !== null)
+    .filter((version) => compareVersions(version, LIFECYCLE_SINCE) >= 0)
+    .sort(compareVersions);
 
-  return adopted && installed !== null && compareVersions(installed, LIFECYCLE_SINCE) >= 0
-    ? installed
-    : null;
+  return aware.at(-1) ?? null;
 }
 
 function runningVersion(input: RecordAdoptionInput): string | null {
