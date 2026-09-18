@@ -158,7 +158,9 @@ describe('defineBlueprint · the fields the documented contract requires', () =>
       'svelte',
       'framework "svelte" is not supported — expected vue | react | auto.',
     ],
-    ['a non-string', 3, 'framework "3" is not supported — expected vue | react | auto.'],
+    ['a number', 3, 'framework must be a string — expected vue | react | auto.'],
+    ['an array', ['vue'], 'framework must be a string — expected vue | react | auto.'],
+    ['a null', null, 'framework must be a string — expected vue | react | auto.'],
   ])('rejects %s framework', (_label, framework, message) => {
     const config = base();
 

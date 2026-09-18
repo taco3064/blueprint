@@ -1,6 +1,11 @@
 export type ConfigValidationFact
   = | { kind: 'blueprint-name' }
-    | { kind: 'invalid-framework'; framework?: string; expected: readonly string[] }
+    | {
+      kind: 'invalid-framework';
+      declared: boolean;
+      framework?: string;
+      expected: readonly string[];
+    }
     | { kind: 'architecture-layers-array' }
     | { kind: 'architecture-alias' }
     | { kind: 'architecture-layers-empty' }

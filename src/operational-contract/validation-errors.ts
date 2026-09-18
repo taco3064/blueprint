@@ -17,12 +17,20 @@ type ErrorRendererMap = {
   ) => string;
 };
 
+function frameworkProblem(
+  fact: Extract<ConfigValidationFact, { kind: 'invalid-framework' }>,
+): string {
+  if (fact.framework !== undefined) {
+    return `framework "${fact.framework}" is not supported`;
+  }
+
+  return fact.declared ? 'framework must be a string' : 'framework is required';
+}
+
 const renderers = {
   'blueprint-name': () => 'name must be a non-empty string when provided.',
   'invalid-framework': (fact) =>
-    `${fact.framework === undefined
-      ? 'framework is required'
-      : `framework "${fact.framework}" is not supported`} — expected ${fact.expected.join(' | ')}.`,
+    `${frameworkProblem(fact)} — expected ${fact.expected.join(' | ')}.`,
   'architecture-layers-array': () => 'architecture.layers must be an array.',
   'architecture-alias': () => 'architecture.alias must be a non-empty string.',
   'architecture-layers-empty': () => 'architecture.layers must not be empty.',
