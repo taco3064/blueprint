@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { withPlanIdentity } from './plan';
+import { planIdentity, withPlanIdentity } from './plan';
 import {
   LIFECYCLE_FILE,
   parseLifecycleState,
@@ -39,6 +39,12 @@ function operation(patch: Record<string, unknown>) {
   const [first] = valid.pending!.operations;
 
   return { pending: { ...valid.pending, operations: [{ ...first, ...patch }] } };
+}
+
+function signed(patch: Record<string, unknown>) {
+  const { pending } = operation(patch);
+
+  return { pending: { ...pending, plan: planIdentity(pending as unknown as PendingUpgrade) } };
 }
 
 let root: string;
@@ -165,14 +171,15 @@ describe('lifecycle state file · invalid fields', () => {
     ['pending', { pending: { ...valid.pending, completed: null } }],
     ['pending', { pending: { ...valid.pending, operations: 'x' } }],
     ['pending', { pending: { ...valid.pending, operations: [null] } }],
-    ['pending', operation({ id: 3 })],
+    ['pending', signed({ id: 3 })],
     ['pending', operation({ applications: [3] })],
     ['pending', operation({ evidence: [] })],
     ['pending', operation({ evidence: { '.': 'x' } })],
     ['pending', operation({ supersedes: 'x' })],
-    ['pending', operation({ supersedes: ['x'] })],
-    ['pending', operation({ supersedes: [{ id: 1, completed: true }] })],
-    ['pending', operation({ supersedes: [{ id: 'x', completed: 'yes' }] })],
+    ['pending', operation({ supersedes: [null] })],
+    ['pending', signed({ supersedes: ['x'] })],
+    ['pending', signed({ supersedes: [{ id: 1, completed: true }] })],
+    ['pending', signed({ supersedes: [{ id: 'x', completed: 'yes' }] })],
     ['applications', { applications: [] }],
     ['applications', { applications: { '.': null } }],
     ['applications', { applications: { '.': { provenance: [{ kind: 'unknown' }] } } }],
