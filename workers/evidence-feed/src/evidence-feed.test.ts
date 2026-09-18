@@ -10,6 +10,7 @@ import {
   FEED_PATH,
   FRESH_CACHE,
   UNAVAILABLE,
+  VERSION_HEADER,
   gitHubApp,
   handleRequest,
   type Env,
@@ -324,6 +325,39 @@ describe('failures', () => {
     expect(response.status).toBe(502);
     expect(await response.text()).not.toContain('ghp_');
     expect(calls).toEqual([]);
+  });
+});
+
+describe('the deployed version', () => {
+  const versioned = { ...env, CF_VERSION_METADATA: { id: '11111111-2222-3333-4444-555555555555' } };
+
+  it.each([
+    ['the feed', ENDPOINT, 200],
+    ['a refusal', `${ENDPOINT}?deploy-check`, 400],
+    ['an unknown path', `${ENDPOINT}/1`, 404],
+  ])('stamps %s with the version that answered it', async (_label, url, status) => {
+    const response = await handleRequest(request({ url }), versioned, github().effects);
+
+    expect(response.status).toBe(status);
+    expect(VERSION_HEADER).toBe('X-Worker-Version');
+    expect(response.headers.get(VERSION_HEADER)).toBe('11111111-2222-3333-4444-555555555555');
+  });
+
+  it('stamps a failure too', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const response = await handleRequest(
+      request(), versioned, github({ token: () => json({}, 401) }).effects,
+    );
+
+    expect(response.status).toBe(502);
+    expect(response.headers.get(VERSION_HEADER)).toBe('11111111-2222-3333-4444-555555555555');
+  });
+
+  it('sends no version header without the version metadata binding', async () => {
+    const response = await handleRequest(request(), env, github().effects);
+
+    expect(response.headers.get(VERSION_HEADER)).toBeNull();
   });
 });
 
