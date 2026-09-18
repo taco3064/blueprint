@@ -5,6 +5,7 @@ import {
   renderRemoveComplete,
   renderRemoveEmptyDirectory,
   renderRemovePlan,
+  renderRemoveUninstall,
 } from './remove';
 import type { RemovePlanFact, RemoveReasonFact, RemoveResidueFact } from './remove';
 import { renderRemoveConflicts, renderRemoveRefusal } from './remove-conflicts';
@@ -70,6 +71,10 @@ describe('remove plan report', () => {
 
     expect(renderRemoveEmptyDirectory('src/pages'))
       .toBe('  ✓ remove folder src/pages (left empty by removing Blueprint files)');
+
+    expect(renderRemoveUninstall('npm uninstall @kekkai/blueprint', 'apps/web'))
+      .toBe('  → uninstall: `npm uninstall @kekkai/blueprint` in `apps/web` — last, after nothing '
+        + 'left needs the package');
   });
 
   it('names each action verb and the Git ref it deletes', () => {

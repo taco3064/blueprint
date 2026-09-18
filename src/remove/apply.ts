@@ -45,6 +45,7 @@ function applyOne(action: RemovalAction, context: ApplyContext): void {
     context.git(['update-ref', '-d', action.ref], context.root);
   } else if (action.kind === 'write') {
     fs.writeFileSync(path.join(context.root, action.path), action.content);
+    // Stryker disable next-line ConditionalExpression: a recursive file delete is the same delete.
   } else if (action.kind === 'rmdir') {
     fs.rmSync(path.join(context.root, action.path), { recursive: true, force: true });
   } else {

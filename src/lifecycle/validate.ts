@@ -244,7 +244,12 @@ function sourceResolution(context: Context): void {
   }];
 
   const resolution = resolveUpgrade({
-    catalog, source, target: packageVersion, completed: [], facts,
+    catalog,
+    source,
+    target: packageVersion,
+    // Stryker disable next-line ArrayDeclaration: an id no operation owns completes nothing.
+    completed: [],
+    facts,
   });
 
   if (resolution.status === 'invalid') {
