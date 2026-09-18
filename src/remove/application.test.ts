@@ -142,6 +142,56 @@ describe('applicationRemoval · combining recorded and proven evidence', () => {
     expect(applicationRemoval(application(adopt()), 'provenance').residues).toEqual([]);
   });
 
+  it('reads empty layer folders under the configured source root', () => {
+    write('app/pages/.gitkeep');
+    write('src/pages/.gitkeep');
+
+    const blueprint: Blueprint = {
+      ...BLUEPRINT,
+      architecture: { ...BLUEPRINT.architecture, sourceRoot: 'app' },
+    };
+
+    expect(applicationRemoval(application([], blueprint), 'legacy').residues)
+      .toEqual([{ kind: 'unrecorded-folder', path: 'app/pages' }]);
+  });
+
+  it('removes Blueprint\'s ignore group when no record claims that file', () => {
+    write('.gitignore', `dist\n\n${renderGitignoreArtifactComment()}\n!docs/handbook.md\n`);
+    write('tsconfig.json', '{"baseUrl":"."}');
+
+    expect(applicationRemoval(application([
+      { kind: 'edit', path: 'tsconfig.json', before: '', after: '"baseUrl":"."' },
+    ]), 'provenance')).toEqual({
+      actions: [
+        { kind: 'write', path: 'tsconfig.json', content: '{}', reason: 'edit' },
+        { kind: 'write', path: '.gitignore', content: 'dist\n', reason: 'gitignore' },
+      ],
+      conflicts: [],
+      residues: [],
+    });
+
+    expect(applicationRemoval(application([
+      { kind: 'created', path: '.gitignore', sha256: 'stale' },
+    ]), 'provenance')).toEqual({
+      actions: [{ kind: 'write', path: '.gitignore', content: 'dist\n', reason: 'gitignore' }],
+      conflicts: [],
+      residues: [{ kind: 'modified', path: '.gitignore' }],
+    });
+  });
+
+  it('keeps a residue for a file it rewrites rather than deletes', () => {
+    write('.gitignore', 'dist\n!docs/a.md\n');
+
+    expect(applicationRemoval(application([
+      { kind: 'edit', path: '.gitignore', before: '', after: '!docs/a.md\n' },
+      { kind: 'edit', path: '.gitignore', before: 'gone', after: '' },
+    ]), 'provenance')).toEqual({
+      actions: [{ kind: 'write', path: '.gitignore', content: 'dist\n', reason: 'edit' }],
+      conflicts: [],
+      residues: [{ kind: 'irreversible', path: '.gitignore' }],
+    });
+  });
+
   it('lists only folder and lint residues when the config cannot be read', () => {
     adopt();
     write('package.json', '{"name":"x"}');

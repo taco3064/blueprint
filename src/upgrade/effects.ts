@@ -22,7 +22,8 @@ export const defaultHandoff: Handoff = (installed, cwd) => {
 
   const result = spawnSync(process.execPath, [path.join(installed.root, bin), 'upgrade'], {
     cwd,
-    stdio: 'inherit',
+    // Stryker disable next-line ArrayDeclaration: piped defaults close the child's input too.
+    stdio: ['ignore', 'inherit', 'inherit'],
   });
 
   return result.status === 0 ? 0 : 1;

@@ -148,6 +148,10 @@ describe('recordedRemoval · shared-file reversal', () => {
       residues: [],
     });
 
+    expect(removal([
+      { kind: 'script', path: 'package.json', name: 'test', before: 'jest', after: 'jest --ci' },
+    ]).actions).toEqual([]);
+
     write('package.json', '{ broken');
 
     expect(removal([
