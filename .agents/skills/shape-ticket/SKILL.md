@@ -59,12 +59,12 @@ After filing the concise ticket, post the approved Shaper-context comment only w
 
 ## Review the delivered candidate
 
-Resume when the owner asks for Shaper review after exact-head CI and independent Acceptance. Reconstruct or retrieve the complete shaped decision model, then inspect:
+Resume when the owner asks for Shaper review after independent Acceptance and exact-head CI. Reconstruct or retrieve the complete shaped decision model, then inspect:
 
 - the original problem and verified repository model;
 - shaped decisions, tradeoffs, rejected alternatives, compatibility, and scope boundaries;
 - the final ticket and complete PR diff;
-- required CI evidence and the Accept verdict for the same exact head.
+- required CI evidence for the exact head and the Accept verdict for that head's tree.
 
 Decide whether the implementation solves the problem that was shaped without drifting into a technically valid but semantically different result. Do not duplicate Acceptance's technical verification; challenge requirement and decision fidelity. A review based only on the concise issue is insufficient when material shaping context exists elsewhere.
 

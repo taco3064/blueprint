@@ -2,7 +2,7 @@
 
 **Trigger:** automatic PR mutation CI reports an unacceptable mutant, or an existing equivalent-mutant directive needs review.
 
-Changed-code mutation planning, base and scope selection, budgeting, sharding, execution, retry, aggregation, logs, and durable artifacts belong to PR CI. Delivery and acceptance Agents do not launch or orchestrate Stryker. Consume the required exact-head mutation result; inspect its diagnostic artifact only when a reported finding needs interpretation or concrete contradictory evidence makes the result untrustworthy.
+Changed-code mutation planning, base and scope selection, budgeting, sharding, execution, retry, aggregation, logs, and durable artifacts belong to PR CI. Delivery and acceptance Agents do not launch or orchestrate Stryker. Delivery consumes the required exact-head mutation result, which arrives after acceptance; inspect its diagnostic artifact only when a reported finding needs interpretation or concrete contradictory evidence makes the result untrustworthy.
 
 ## Status meanings
 

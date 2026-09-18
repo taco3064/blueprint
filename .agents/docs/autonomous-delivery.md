@@ -4,9 +4,9 @@ This policy is shared by `shape-ticket`, `deliver-ticket`, `accept-ticket`, and 
 
 ## Candidate lifecycle
 
-Shape reconstructs repository truth and keeps the complete decision model behind the concise ticket. Delivery iterates with focused checks, commits and pushes through repository hooks, and opens a draft pull request. Required PR CI is the deterministic authority for that exact head. Independent Acceptance then reviews the same candidate and evidence. Finally, Shape reviews the candidate against the original intent, decisions, tradeoffs, and scope boundaries before merge.
+Shape reconstructs repository truth and keeps the complete decision model behind the concise ticket. Delivery iterates with focused checks and assembles an uncommitted candidate. Independent Acceptance reviews that candidate before it is committed, so its findings reach the change before hooks and PR CI spend a run on it. Delivery then commits the accepted candidate unchanged, pushes through repository hooks, and opens a draft pull request. Required PR CI is the deterministic authority for that exact head. Finally, Shape reviews the candidate against the original intent, decisions, tradeoffs, and scope boundaries before merge.
 
-An acceptance or Shaper review belongs only to the recorded PR head. Any later head makes both approvals stale; a repair returns the new candidate through required CI, Acceptance, and Shaper review. A draft pull request carries verification evidence. It is not a claim that delivery is complete.
+An acceptance belongs only to the recorded base commit and candidate tree, and the commit that carries the candidate must have exactly that tree. A Shaper review belongs only to the recorded PR head. Any later change to the candidate makes its acceptance stale; any later head makes the Shaper review stale. A repair, whether Acceptance, CI, or Shape prompted it, is a new candidate: it returns through Acceptance before its commit, then through required CI and Shaper review. A draft pull request carries verification evidence. It is not a claim that delivery is complete.
 
 ## Decide, ask, or stop
 
@@ -60,8 +60,8 @@ On resume, verify that the job measured the intended commit and scope before usi
 
 ## Progress and verification
 
-Use focused checks while iterating. Husky is the minimum outgoing floor; the pull request's clean-environment CI is authoritative for full deterministic and changed-code mutation verification of the exact current candidate. Before acceptance, prove that preflight, CI, and mutation evidence all bind the current PR head and base lineage. Inspect generated or user-visible artifacts directly when changed. Add regression coverage for behavior, not wording or implementation trivia.
+Use focused checks while iterating. Husky is the minimum outgoing floor; the pull request's clean-environment CI is authoritative for full deterministic and changed-code mutation verification of the exact current candidate. Before Shaper handoff, prove that preflight, CI, and mutation evidence all bind the current PR head and base lineage, and that the head's tree is the accepted tree. Inspect generated or user-visible artifacts directly when changed. Add regression coverage for behavior, not wording or implementation trivia.
 
 Continue after ordinary progress without waiting for confirmation. If the same failure survives two meaningfully different fixes, stop patching the symptom: reduce the case, revisit the model, inspect history, or request the one missing decision.
 
-Independent acceptance happens once on each assembled exact-head candidate, not once per implementation stage. Consume green exact-head CI instead of rerunning it; add only focused probes that answer a concrete unresolved risk. After Acceptance, Shape performs the separate requirement-fidelity review. A failed acceptance may receive at most two repair rounds before escalation.
+Independent acceptance happens once on each assembled candidate before its commit, not once per implementation stage and not after PR CI. It consumes delivery's focused evidence and adds only focused probes that answer a concrete unresolved risk; full deterministic and mutation gates belong to the hooks and PR CI that follow. After exact-head CI passes on the accepted candidate, Shape performs the separate requirement-fidelity review. A failed acceptance may receive at most two repair rounds before escalation.
