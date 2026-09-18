@@ -65,6 +65,7 @@ describe('runUpgrade · real defaults', () => {
 
     const facts = await gatherUpgradeFacts(root, { catalog: {
       supportedFrom: '3.2.0', legacyConfigCheckpoint: '3.2.0', migrations: [], operations: [],
+      retired: [],
     } });
 
     expect(facts.git).toEqual({ repository: false, changes: [] });
@@ -84,6 +85,7 @@ describe('runUpgrade · real defaults', () => {
       loadConfig: async (file) => Promise.reject(new Error(path.basename(path.dirname(file)))),
       catalog: {
         supportedFrom: '3.2.0', legacyConfigCheckpoint: '3.2.0', migrations: [], operations: [],
+        retired: [],
       },
     });
 
@@ -115,6 +117,7 @@ describe('runUpgrade · confirmation operations', () => {
       catalog: {
         supportedFrom: '3.2.0',
         legacyConfigCheckpoint: '3.2.0',
+        retired: [],
         migrations: [],
         operations: [{
           id: 'confirm-me', introducedIn: '4.1.0', requires: [], cancels: [], supersedes: [],

@@ -3,6 +3,8 @@ import type { OperationalText } from './operational-contract';
 
 export type LifecycleEstablishment = 'first' | 'bootstrap' | 'records-only' | null;
 
+export type AdoptionGap = 'install' | 'authoring';
+
 export type LifecycleRecordSkip = 'unproven-checkpoint' | 'pending-upgrade' | 'missing-state';
 
 const NOTES: Record<string, string> = {
@@ -11,16 +13,30 @@ const NOTES: Record<string, string> = {
   bootstrap: '(lifecycle checkpoint established from the installed package; edits made before '
     + 'this run were not recorded, so `blueprint remove` reports them as residues instead of '
     + 'reversing them)',
-  'records-only': '(Blueprint ownership records for what this run wrote; the lifecycle checkpoint '
-    + 'stays unestablished because adoption did not finish — re-run `blueprint init` to finish it)',
 };
+
+const UNESTABLISHED: Record<AdoptionGap | 'unfinished', string> = {
+  unfinished: 'adoption did not finish — re-run `blueprint init` to finish it',
+  install: 'the dependencies adoption requires are not installed yet — install them as shown '
+    + 'above, then re-run `blueprint init`',
+  authoring: 'authoring is still in progress — the `blueprint init` run that finishes authoring '
+    + 'establishes it',
+};
+
+function unestablished(gap: AdoptionGap | null): string {
+  return '(Blueprint ownership records for what this run wrote; the lifecycle checkpoint stays '
+    + `unestablished because ${UNESTABLISHED[gap ?? 'unfinished']})`;
+}
 
 export function renderLifecycleRecordNote(
   file: string,
   established: LifecycleEstablishment,
+  gap: AdoptionGap | null = null,
 ): OperationalText {
-  const note = NOTES[String(established)]
-    ?? '(Blueprint ownership records — upgrade and remove reverse only what these records prove)';
+  const note = established === 'records-only'
+    ? unestablished(gap)
+    : NOTES[String(established)]
+      ?? '(Blueprint ownership records — upgrade and remove reverse only what these records prove)';
 
   return operationalText(`${file} ${note}`);
 }

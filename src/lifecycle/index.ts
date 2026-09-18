@@ -42,11 +42,13 @@ export type {
   UpgradeResolution,
 } from './resolve';
 export {
+  LIFECYCLE_DRAFT,
   LIFECYCLE_FILE,
   parseLifecycleState,
   readLifecycleState,
   serializeLifecycleState,
   writeLifecycleState,
+  writeLifecycleText,
 } from './state';
 export type { LifecycleStateRead } from './state';
 export type * from './types';

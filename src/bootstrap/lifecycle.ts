@@ -6,6 +6,7 @@ import {
   lifecycleStateProblem,
   lostLifecycleState,
   recordAdoption,
+  writeLifecycleText,
 } from '../lifecycle';
 import type { AppliedAction } from '../lifecycle';
 import { findConfigFiles } from '../project';
@@ -17,6 +18,7 @@ import {
   renderLifecycleStateInvalid,
   renderLifecycleStateMissing,
 } from '../operational-contract';
+import type { AdoptionGap } from '../operational-contract';
 import type { Action } from './types';
 
 const LEGACY_BACKUP = /^blueprint\.config\.mjs\.pre-v4-[0-9a-f]{64}$/;
@@ -61,6 +63,16 @@ function readText(root: string, file: string): string | null {
     : null;
 }
 
+function deferredWork(actions: readonly Action[]): AdoptionGap | null {
+  const deferred = actions.map((action) => (action as { defers?: AdoptionGap }).defers);
+
+  if (deferred.includes('authoring')) {
+    return 'authoring';
+  }
+
+  return deferred.includes('install') ? 'install' : null;
+}
+
 function appliedAction(action: Action, before: Map<string, string | null>): AppliedAction | null {
   switch (action.kind) {
     case 'write':
@@ -88,6 +100,7 @@ export function adoptionRecorder(
 ): AdoptionRecorder {
   const lifecycleRoot = lifecycleRootOf(state);
   const firstAdoption = findConfigFiles(lifecycleRoot).length === 0;
+  const deferred = deferredWork(actions);
   const applied: AppliedAction[] = [];
 
   const before = new Map(actions.flatMap((action) =>
@@ -115,7 +128,7 @@ export function adoptionRecorder(
         applicationRoot: state.applicationRoot,
         applied,
         firstAdoption,
-        finished,
+        finished: finished && deferred === null,
         legacyShape: fs.readdirSync(root).some((name) => LEGACY_BACKUP.test(name)),
       });
 
@@ -125,11 +138,11 @@ export function adoptionRecorder(
         return;
       }
 
-      fs.writeFileSync(outcome.file, outcome.content);
+      writeLifecycleText(lifecycleRoot, outcome.content);
 
       log(renderActionLine(
         'write',
-        renderLifecycleRecordNote(LIFECYCLE_FILE, outcome.established),
+        renderLifecycleRecordNote(LIFECYCLE_FILE, outcome.established, finished ? deferred : null),
         'applied',
       ));
     },

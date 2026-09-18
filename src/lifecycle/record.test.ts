@@ -63,7 +63,7 @@ describe('recordAdoption', () => {
   it('establishes a complete lifecycle at the running version on first adoption', () => {
     const outcome = record({ firstAdoption: true });
 
-    expect(outcome).toMatchObject({ file: path.join(root, LIFECYCLE_FILE), established: 'first' });
+    expect(outcome).toMatchObject({ status: 'write', established: 'first' });
 
     expect(written(outcome)).toEqual({
       schema: 1,
@@ -132,12 +132,19 @@ describe('recordAdoption · missing and unfinished checkpoints', () => {
 
     fs.writeFileSync(path.join(root, LIFECYCLE_FILE), (records as { content: string }).content);
 
-    expect(written(record({ finished: false }))).toMatchObject({ blueprint: null });
+    const again = record({ finished: false });
+
+    expect(again).toMatchObject({ established: 'records-only' });
+    expect(written(again)).toMatchObject({ blueprint: null });
 
     const unnamed = record({ runningVersion: null });
 
-    expect(unnamed).toMatchObject({ established: null });
+    expect(unnamed).toMatchObject({ established: 'records-only' });
     expect(written(unnamed)).toMatchObject({ blueprint: null });
+
+    fs.writeFileSync(path.join(root, LIFECYCLE_FILE), (record() as { content: string }).content);
+
+    expect(record()).toMatchObject({ established: null });
   });
 });
 

@@ -10,7 +10,10 @@ const RELEASES = ['1.1.0', '1.2.0', '1.3.0', '2.0.0'];
 const facts = [{ root: '.', legacyShape: false, legacyKeys: {} }];
 
 function catalogOf(operations: UpgradeOperation[]): UpgradeCatalog {
-  return { supportedFrom: '1.0.0', legacyConfigCheckpoint: '1.0.0', migrations: [], operations };
+  return {
+    supportedFrom: '1.0.0', legacyConfigCheckpoint: '1.0.0', migrations: [], operations,
+    retired: [],
+  };
 }
 
 function always(

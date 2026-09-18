@@ -75,6 +75,23 @@ describe('planRemoval · lifecycle artifacts', () => {
     ]);
   });
 
+  it('deletes a draft an interrupted lifecycle write left, with or without the state', () => {
+    write('.blueprint-lifecycle.json.tmp');
+
+    expect(planRemoval(facts({}), quiet).actions).toEqual([
+      { kind: 'delete', path: '.blueprint-lifecycle.json.tmp', reason: 'lifecycle-state' },
+      { kind: 'delete', path: '.blueprint-lifecycle.json', reason: 'lifecycle-state' },
+    ]);
+
+    expect(planRemoval(facts({ state: { status: 'missing' }, mode: 'legacy' }), quiet).actions)
+      .toEqual([
+        { kind: 'delete', path: '.blueprint-lifecycle.json.tmp', reason: 'lifecycle-state' },
+      ]);
+
+    expect(planRemoval(facts({ remaining: ['apps/admin'] }), quiet).actions)
+      .toMatchObject([{ kind: 'write', path: '.blueprint-lifecycle.json' }]);
+  });
+
   it('keeps the playbook and rewrites the state for applications that stay adopted', () => {
     write('blueprint-upgrade.md');
 

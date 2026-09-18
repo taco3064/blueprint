@@ -35,6 +35,7 @@ function problems(
   return catalogProblems({
     supportedFrom: '1.0.0',
     legacyConfigCheckpoint: '1.0.0',
+    retired: [],
     migrations: [],
     operations,
     ...extra,
@@ -91,6 +92,26 @@ describe('catalogProblems · window and identity', () => {
         { kind: 'future-entry', id: 'future', introducedIn: '2.1.0', packageVersion: '2.0.0' },
         { kind: 'outside-window', id: 'stale', introducedIn: '1.0.0', supportedFrom: '1.0.0' },
       ]);
+  });
+
+  it('keeps retired operations as identities that stay outside the supported window', () => {
+    expect(problems([op('current', '1.1.0')], {
+      retired: [{ id: 'ancient', introducedIn: '0.9.0' }, { id: 'edge', introducedIn: '1.0.0' }],
+    })).toEqual([]);
+
+    expect(problems([op('current', '1.1.0')], {
+      retired: [
+        { id: 'current', introducedIn: '0.9.0' },
+        { id: 'Bad', introducedIn: '0.9.0' },
+        { id: 'early', introducedIn: '0.9' },
+        { id: 'premature', introducedIn: '1.0.1' },
+      ],
+    })).toEqual([
+      { kind: 'duplicate-id', id: 'current' },
+      { kind: 'invalid-id', id: 'Bad' },
+      { kind: 'invalid-version', where: 'early.introducedIn', value: '0.9' },
+      { kind: 'retired-in-window', id: 'premature', introducedIn: '1.0.1', supportedFrom: '1.0.0' },
+    ]);
   });
 
   it('rejects a migration that cannot migrate every supported source', () => {

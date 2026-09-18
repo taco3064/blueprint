@@ -15,8 +15,10 @@ function within(version: string | null, from: string, to: string): boolean {
 }
 
 function operationsPossible(state: LifecycleState, catalog: UpgradeCatalog): boolean {
+  const known = [...catalog.operations, ...catalog.retired];
+
   return state.operations.every((id) => {
-    const introduced = introducedBy(catalog.operations, id);
+    const introduced = introducedBy(known, id);
 
     return introduced !== null
       && state.blueprint !== null

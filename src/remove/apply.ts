@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { ancestors } from '../lifecycle';
+import { ancestors, writeLifecycleText } from '../lifecycle';
 import type { GitReader } from '../project';
 import { renderRemoveAction, renderRemoveEmptyDirectory } from '../operational-contract';
 import type { RemovalAction, RemovalReason } from './types';
@@ -40,11 +40,19 @@ function removeEmptyParents(file: string, context: ApplyContext): void {
   }
 }
 
+function writeFile(action: Extract<RemovalAction, { kind: 'write' }>, root: string): void {
+  if (action.reason === 'lifecycle-state') {
+    writeLifecycleText(root, action.content);
+  } else {
+    fs.writeFileSync(path.join(root, action.path), action.content);
+  }
+}
+
 function applyOne(action: RemovalAction, context: ApplyContext): void {
   if (action.kind === 'ref') {
     context.git(['update-ref', '-d', action.ref], context.root);
   } else if (action.kind === 'write') {
-    fs.writeFileSync(path.join(context.root, action.path), action.content);
+    writeFile(action, context.root);
   } else {
     fs.rmSync(path.join(context.root, action.path), {
       // Stryker disable next-line ConditionalExpression: a recursive file delete is one delete.

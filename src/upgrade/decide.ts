@@ -90,8 +90,17 @@ function installedRefusal(facts: UpgradeFacts, target: string): UpgradeDecision 
   const versions = [...new Set(installed.map((entry) => entry.installed!.version))]
     .sort(compareVersions);
 
-  if (versions.length > 1) {
-    return refuse({ kind: 'mixed-installed', versions });
+  const pending = facts.checkpoint.kind === 'state' ? facts.checkpoint.state.pending : null;
+
+  const resumable = pending !== null
+    && versions.every((version) => version === pending.from || version === pending.to);
+
+  if (versions.length > 1 && !resumable) {
+    return refuse({
+      kind: 'mixed-installed',
+      versions,
+      ...(pending === null ? {} : { pending: { from: pending.from, to: pending.to } }),
+    });
   }
 
   const newer = installed.find((entry) => compareVersions(entry.installed!.version, target) > 0);

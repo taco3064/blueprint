@@ -16,6 +16,7 @@ function op(id: string, introducedIn: string): UpgradeOperation {
 const CATALOG: UpgradeCatalog = {
   supportedFrom: '3.2.0',
   legacyConfigCheckpoint: '3.2.0',
+  retired: [],
   migrations: [
     {
       id: 'reshape',

@@ -13,6 +13,8 @@ import { isVersion } from './version';
 
 export const LIFECYCLE_FILE = '.blueprint-lifecycle.json';
 
+export const LIFECYCLE_DRAFT = `${LIFECYCLE_FILE}.tmp`;
+
 export type LifecycleStateRead
   = | { status: 'missing' }
     | { status: 'invalid'; reason: string }
@@ -46,8 +48,26 @@ export function parseLifecycleState(text: string): LifecycleStateRead {
     : { status: 'invalid', reason };
 }
 
+export function writeLifecycleText(root: string, text: string): void {
+  const draft = path.join(root, LIFECYCLE_DRAFT);
+  const descriptor = fs.openSync(draft, 'w');
+
+  try {
+    fs.writeFileSync(descriptor, text);
+    fs.fsyncSync(descriptor);
+  } catch (error) {
+    fs.closeSync(descriptor);
+    fs.rmSync(draft);
+
+    throw error;
+  }
+
+  fs.closeSync(descriptor);
+  fs.renameSync(draft, path.join(root, LIFECYCLE_FILE));
+}
+
 export function writeLifecycleState(root: string, state: LifecycleState): void {
-  fs.writeFileSync(path.join(root, LIFECYCLE_FILE), serializeLifecycleState(state));
+  writeLifecycleText(root, serializeLifecycleState(state));
 }
 
 export function serializeLifecycleState(state: LifecycleState): string {

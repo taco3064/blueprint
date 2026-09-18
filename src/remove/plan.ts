@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {
+  LIFECYCLE_DRAFT,
   LIFECYCLE_FILE,
   serializeLifecycleState,
   UPGRADE_PLAYBOOK_FILE,
@@ -39,18 +40,28 @@ function transformationRefs(facts: RemovalFacts, git: GitReader): RemovalAction[
   });
 }
 
-function lifecycleActions(facts: RemovalFacts): FileAction[] {
-  const playbook = fs.existsSync(path.join(facts.root, UPGRADE_PLAYBOOK_FILE))
-    && !facts.remaining.length
-    ? [{ kind: 'delete' as const, path: UPGRADE_PLAYBOOK_FILE, reason: 'workflow' as const }]
+function leftover(
+  facts: RemovalFacts,
+  file: string,
+  reason: 'workflow' | 'lifecycle-state',
+): FileAction[] {
+  return !facts.remaining.length && fs.existsSync(path.join(facts.root, file))
+    ? [{ kind: 'delete', path: file, reason }]
     : [];
+}
+
+function lifecycleActions(facts: RemovalFacts): FileAction[] {
+  const leftovers = [
+    ...leftover(facts, UPGRADE_PLAYBOOK_FILE, 'workflow'),
+    ...leftover(facts, LIFECYCLE_DRAFT, 'lifecycle-state'),
+  ];
 
   if (facts.state.status !== 'present') {
-    return playbook;
+    return leftovers;
   }
 
   if (!facts.remaining.length) {
-    return [...playbook, { kind: 'delete', path: LIFECYCLE_FILE, reason: 'lifecycle-state' }];
+    return [...leftovers, { kind: 'delete', path: LIFECYCLE_FILE, reason: 'lifecycle-state' }];
   }
 
   const removed = new Set(facts.scope.map((application) => application.key));

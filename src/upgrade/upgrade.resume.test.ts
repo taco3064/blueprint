@@ -39,6 +39,7 @@ function op(id: string, introducedIn: string, extra: Partial<UpgradeOperation> =
 const CATALOG: UpgradeCatalog = {
   supportedFrom: '3.2.0',
   legacyConfigCheckpoint: '3.2.0',
+  retired: [],
   migrations: [],
   operations: [
     op('confirm-first', '4.0.0'),

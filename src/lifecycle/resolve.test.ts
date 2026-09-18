@@ -37,6 +37,7 @@ function catalog(operations: UpgradeOperation[]): UpgradeCatalog {
   return {
     supportedFrom: '1.0.0',
     legacyConfigCheckpoint: '1.0.0',
+    retired: [],
     migrations: [],
     operations,
   };
